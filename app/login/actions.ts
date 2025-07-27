@@ -3,11 +3,9 @@
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 
-import { createClient } from '@/lib/utils/supabase/server'
+import { signInWithMagicLink as cognitoSignIn, signOut as cognitoSignOut } from '@/lib/utils/cognito/client'
 
 export async function signInWithMagicLink(formData: FormData) {
-  const supabase = await createClient()
-
   // Get email from form data
   const email = formData.get('email') as string
   
@@ -17,16 +15,7 @@ export async function signInWithMagicLink(formData: FormData) {
     redirect('/error')
   }
 
-  // Get the origin for creating the full redirect URL
-  // In production, you should set NEXT_PUBLIC_APP_URL in your environment variables
-  const origin = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
-  
-  const { error } = await supabase.auth.signInWithOtp({
-    email,
-    options: {
-      emailRedirectTo: `${origin}/auth/callback`, // Redirect to our auth callback handler
-    },
-  })
+  const { error } = await cognitoSignIn(email)
 
   if (error) {
     redirect('/error')
@@ -47,8 +36,7 @@ export async function signup(formData: FormData) {
 }
 
 export async function logout() {
-  const supabase = await createClient()
-  await supabase.auth.signOut()
+  await cognitoSignOut()
   
   revalidatePath('/', 'layout')
   redirect('/login')

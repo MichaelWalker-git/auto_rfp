@@ -1,5 +1,4 @@
 import { type NextRequest } from 'next/server'
-import { createClient } from '@/lib/utils/supabase/server'
 import { redirect } from 'next/navigation'
 
 export async function GET(request: NextRequest) {
@@ -10,16 +9,7 @@ export async function GET(request: NextRequest) {
     return redirect('/login')
   }
   
-  const supabase = await createClient()
-  
-  // Exchange the code for a session
-  const { error } = await supabase.auth.exchangeCodeForSession(code)
-  
-  if (error) {
-    console.error('Error exchanging code for session:', error)
-    return redirect('/error')
-  }
-  
-  // Successful authentication, redirect to home
+  // For now, just redirect to home - this is a mock implementation
+  // In a real implementation, you'd verify the code with AWS Cognito
   return redirect('/')
-} 
+}
