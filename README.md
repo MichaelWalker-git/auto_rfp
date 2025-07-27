@@ -32,10 +32,13 @@ AutoRFP is an intelligent platform that automates RFP (Request for Proposal) res
 
 - **Frontend**: Next.js 15, React 19, TypeScript
 - **Styling**: Tailwind CSS, Radix UI Components
-- **Authentication**: Supabase Auth (Magic Link)
-- **Database**: PostgreSQL with Prisma ORM
+- **Authentication**: AWS Cognito (Magic Link)
+- **Database**: AWS RDS PostgreSQL with Prisma ORM
+- **Storage**: AWS S3 for document storage
+- **Email**: AWS SES for authentication emails
 - **AI & ML**: OpenAI GPT-4o, LlamaIndex, LlamaCloud
-- **Deployment**: Vercel (recommended)
+- **Deployment**: AWS Amplify
+- **Infrastructure**: AWS CDK for Infrastructure as Code
 - **Package Manager**: pnpm
 
 ## 📋 Prerequisites
@@ -44,8 +47,8 @@ Before setting up AutoRFP, ensure you have:
 
 - **Node.js** 18.x or later
 - **pnpm** 8.x or later
-- **PostgreSQL** database (local or cloud)
-- **Supabase** account and project
+- **AWS Account** with appropriate permissions
+- **AWS CLI** configured with your credentials
 - **OpenAI** API account with credits
 - **LlamaCloud** account (optional but recommended)
 
@@ -64,85 +67,122 @@ cd auto_rfp
 pnpm install
 ```
 
-### 3. Environment Setup
+### 3. AWS Infrastructure Setup
+
+Deploy the AWS infrastructure using CDK:
+
+```bash
+# Navigate to infrastructure directory
+cd infrastructure
+
+# Install CDK dependencies
+npm install
+
+# Deploy the infrastructure
+npm run deploy
+```
+
+This creates:
+- RDS PostgreSQL database
+- AWS Cognito User Pool
+- S3 bucket for document storage
+- AWS SES for email
+- VPC and security groups
+
+### 4. Environment Setup
 
 Create a `.env.local` file in the root directory:
 
 ```bash
-# Database
-DATABASE_URL="postgresql://username:password@localhost:5432/auto_rfp"
-DIRECT_URL="postgresql://username:password@localhost:5432/auto_rfp"
+# Database (from CDK outputs)
+DATABASE_URL="postgresql://postgres:password@your-rds-endpoint:5432/auto_rfp"
+DIRECT_URL="postgresql://postgres:password@your-rds-endpoint:5432/auto_rfp"
 
-# Supabase Configuration
-NEXT_PUBLIC_SUPABASE_URL="your-supabase-project-url"
-NEXT_PUBLIC_SUPABASE_ANON_KEY="your-supabase-anon-key"
+# AWS Configuration
+NEXT_PUBLIC_AWS_REGION="us-east-1"
+AWS_REGION="us-east-1"
+DATABASE_SECRET_ARN="your-database-secret-arn"
+
+# Cognito (from CDK outputs)
+NEXT_PUBLIC_COGNITO_USER_POOL_ID="your-user-pool-id"
+NEXT_PUBLIC_COGNITO_CLIENT_ID="your-client-id"
+
+# S3 (from CDK outputs)
+NEXT_PUBLIC_S3_BUCKET_NAME="your-s3-bucket-name"
+S3_ACCESS_ROLE_ARN="your-s3-role-arn"
 
 # OpenAI API
 OPENAI_API_KEY="your-openai-api-key"
 
-# LlamaCloud
+# LlamaCloud (Optional)
 LLAMACLOUD_API_KEY="your-llamacloud-api-key"
 
 # App Configuration
 NEXT_PUBLIC_APP_URL="http://localhost:3000"
 ```
 
-### 4. Database Setup
+### 5. Database Setup
 
-#### Set up PostgreSQL Database
-
-If using local PostgreSQL:
-```bash
-# Create database
-createdb auto_rfp
-
-# Or using psql
-psql -c "CREATE DATABASE auto_rfp;"
-```
-
-#### Run Database Migrations
+Run database migrations:
 
 ```bash
 # Generate Prisma client
 pnpm prisma generate
 
-# Run migrations
-pnpm prisma migrate deploy
+# Run migrations (for local development with SQLite)
+DATABASE_URL="file:./dev.db" pnpm prisma migrate dev --name init
 
-# (Optional) Seed with sample data
-pnpm prisma db seed
+# For production (AWS RDS)
+pnpm prisma migrate deploy
 ```
 
-### 5. Supabase Setup
+### 6. AWS Cognito Setup
 
-1. Create a new Supabase project at [supabase.com](https://supabase.com)
-2. Go to **Settings > API** and copy:
-   - Project URL → `NEXT_PUBLIC_SUPABASE_URL`
-   - Anon public key → `NEXT_PUBLIC_SUPABASE_ANON_KEY`
-3. Configure authentication providers in **Authentication > Providers**
-4. Set up email templates in **Authentication > Email Templates**
+Cognito is automatically configured by the CDK deployment with:
+- Email-based authentication
+- User pool for user management
+- Client for web application access
+- Password policies and security settings
 
-### 6. OpenAI Setup
+### 7. OpenAI Setup
 
 1. Create an account at [platform.openai.com](https://platform.openai.com)
 2. Generate an API key in **API Keys** section
 3. Add credits to your account
 4. Copy the API key to `OPENAI_API_KEY`
 
-### 7. LlamaCloud Setup (Optional)
+### 8. LlamaCloud Setup (Optional)
 
 1. Create an account at [cloud.llamaindex.ai](https://cloud.llamaindex.ai)
 2. Create a new project
 3. Generate an API key
 4. Copy the API key to `LLAMACLOUD_API_KEY`
 
-### 8. Run the Development Server
+### 9. Run the Development Server
 
+For local development with SQLite:
 ```bash
-pnpm dev
+DATABASE_URL="file:./dev.db" pnpm dev
 ```
 
 Visit [http://localhost:3000](http://localhost:3000) to see the application.
+
+### 10. Deploy to AWS Amplify
+
+For production deployment:
+
+1. **Create Amplify app:**
+```bash
+aws amplify create-app --name auto-rfp --profile your-profile
+```
+
+2. **Connect to GitHub and deploy:**
+   - Go to AWS Amplify Console
+   - Connect your repository
+   - Add environment variables
+   - Deploy automatically
+
+See `local-docs/quick-start-guide.md` for detailed deployment instructions.
 
 ## 📁 Project Structure
 
@@ -210,31 +250,37 @@ The application uses a multi-tenant architecture with the following key models:
 ### Environment Variables for Production
 
 ```bash
-# Set these in your deployment platform
-DATABASE_URL="your-production-database-url"
-DIRECT_URL="your-production-database-direct-url"
-NEXT_PUBLIC_SUPABASE_URL="your-supabase-url"
-NEXT_PUBLIC_SUPABASE_ANON_KEY="your-supabase-anon-key"
+# Set these in your deployment platform (AWS Amplify)
+DATABASE_URL="your-rds-postgresql-url"
+DIRECT_URL="your-rds-postgresql-url"
+NEXT_PUBLIC_AWS_REGION="us-east-1"
+AWS_REGION="us-east-1"
+DATABASE_SECRET_ARN="your-secrets-manager-arn"
+NEXT_PUBLIC_COGNITO_USER_POOL_ID="your-cognito-user-pool-id"
+NEXT_PUBLIC_COGNITO_CLIENT_ID="your-cognito-client-id"
+NEXT_PUBLIC_S3_BUCKET_NAME="your-s3-bucket-name"
+S3_ACCESS_ROLE_ARN="your-s3-role-arn"
 OPENAI_API_KEY="your-openai-api-key"
 LLAMACLOUD_API_KEY="your-llamacloud-api-key"
-NEXT_PUBLIC_APP_URL="https://your-domain.com"
+NEXT_PUBLIC_APP_URL="https://your-amplify-domain.com"
 ```
 
-### Deploy to Vercel
+### Deploy to AWS Amplify (Recommended)
 
 1. Push your code to GitHub
-2. Connect your repository to Vercel
-3. Configure environment variables in Vercel dashboard
-4. Deploy!
+2. Go to AWS Amplify Console
+3. Connect your repository
+4. Configure environment variables
+5. Deploy automatically
 
 ### Deploy to Other Platforms
 
 The application can be deployed to any platform that supports Node.js:
+- AWS Amplify (recommended for AWS infrastructure)
+- Vercel
 - Railway
 - Heroku
 - Digital Ocean App Platform
-- AWS Amplify
-- Google Cloud Run
 
 ## 🔌 API Endpoints
 
