@@ -1,0 +1,36 @@
+{
+  "version": "45.0.0",
+  "files": {
+    "7fa1e366ee8a9ded01fc355f704cff92bfd179574e6f9cfee800a3541df1b200": {
+      "displayName": "AutoRfpInfrastructureStack/Custom::VpcRestrictDefaultSGCustomResourceProvider Code",
+      "source": {
+        "path": "asset.7fa1e366ee8a9ded01fc355f704cff92bfd179574e6f9cfee800a3541df1b200",
+        "packaging": "zip"
+      },
+      "destinations": {
+        "018222125196-us-east-1-7231a772": {
+          "bucketName": "cdk-hnb659fds-assets-018222125196-us-east-1",
+          "objectKey": "7fa1e366ee8a9ded01fc355f704cff92bfd179574e6f9cfee800a3541df1b200.zip",
+          "region": "us-east-1",
+          "assumeRoleArn": "arn:${AWS::Partition}:iam::018222125196:role/cdk-hnb659fds-file-publishing-role-018222125196-us-east-1"
+        }
+      }
+    },
+    "b7c72c176f2bc457c6feb1f3879bab75ad71caa2448ff82b427dfaba958805e3": {
+      "displayName": "AutoRfpInfrastructureStack Template",
+      "source": {
+        "path": "AutoRfpInfrastructureStack.template.json",
+        "packaging": "file"
+      },
+      "destinations": {
+        "018222125196-us-east-1-24f16906": {
+          "bucketName": "cdk-hnb659fds-assets-018222125196-us-east-1",
+          "objectKey": "b7c72c176f2bc457c6feb1f3879bab75ad71caa2448ff82b427dfaba958805e3.json",
+          "region": "us-east-1",
+          "assumeRoleArn": "arn:${AWS::Partition}:iam::018222125196:role/cdk-hnb659fds-file-publishing-role-018222125196-us-east-1"
+        }
+      }
+    }
+  },
+  "dockerImages": {}
+}

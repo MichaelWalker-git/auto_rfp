@@ -1,0 +1,911 @@
+{
+ "Description": "AutoRFP Infrastructure - RDS, Cognito, S3, SES",
+ "Resources": {
+  "AutoRfpVpc91A0113F": {
+   "Type": "AWS::EC2::VPC",
+   "Properties": {
+    "CidrBlock": "10.0.0.0/16",
+    "EnableDnsHostnames": true,
+    "EnableDnsSupport": true,
+    "InstanceTenancy": "default",
+    "Tags": [
+     {
+      "Key": "Name",
+      "Value": "AutoRfpInfrastructureStack/AutoRfpVpc"
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "AutoRfpInfrastructureStack/AutoRfpVpc/Resource"
+   }
+  },
+  "AutoRfpVpcpublicsubnetSubnet1Subnet04125A94": {
+   "Type": "AWS::EC2::Subnet",
+   "Properties": {
+    "AvailabilityZone": "us-east-1a",
+    "CidrBlock": "10.0.0.0/24",
+    "MapPublicIpOnLaunch": true,
+    "Tags": [
+     {
+      "Key": "aws-cdk:subnet-name",
+      "Value": "public-subnet"
+     },
+     {
+      "Key": "aws-cdk:subnet-type",
+      "Value": "Public"
+     },
+     {
+      "Key": "Name",
+      "Value": "AutoRfpInfrastructureStack/AutoRfpVpc/public-subnetSubnet1"
+     }
+    ],
+    "VpcId": {
+     "Ref": "AutoRfpVpc91A0113F"
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "AutoRfpInfrastructureStack/AutoRfpVpc/public-subnetSubnet1/Subnet"
+   }
+  },
+  "AutoRfpVpcpublicsubnetSubnet1RouteTable3AAEF1A2": {
+   "Type": "AWS::EC2::RouteTable",
+   "Properties": {
+    "Tags": [
+     {
+      "Key": "Name",
+      "Value": "AutoRfpInfrastructureStack/AutoRfpVpc/public-subnetSubnet1"
+     }
+    ],
+    "VpcId": {
+     "Ref": "AutoRfpVpc91A0113F"
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "AutoRfpInfrastructureStack/AutoRfpVpc/public-subnetSubnet1/RouteTable"
+   }
+  },
+  "AutoRfpVpcpublicsubnetSubnet1RouteTableAssociationF823B53D": {
+   "Type": "AWS::EC2::SubnetRouteTableAssociation",
+   "Properties": {
+    "RouteTableId": {
+     "Ref": "AutoRfpVpcpublicsubnetSubnet1RouteTable3AAEF1A2"
+    },
+    "SubnetId": {
+     "Ref": "AutoRfpVpcpublicsubnetSubnet1Subnet04125A94"
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "AutoRfpInfrastructureStack/AutoRfpVpc/public-subnetSubnet1/RouteTableAssociation"
+   }
+  },
+  "AutoRfpVpcpublicsubnetSubnet1DefaultRouteA08B07C3": {
+   "Type": "AWS::EC2::Route",
+   "Properties": {
+    "DestinationCidrBlock": "0.0.0.0/0",
+    "GatewayId": {
+     "Ref": "AutoRfpVpcIGW854FD599"
+    },
+    "RouteTableId": {
+     "Ref": "AutoRfpVpcpublicsubnetSubnet1RouteTable3AAEF1A2"
+    }
+   },
+   "DependsOn": [
+    "AutoRfpVpcVPCGW92FF52E2"
+   ],
+   "Metadata": {
+    "aws:cdk:path": "AutoRfpInfrastructureStack/AutoRfpVpc/public-subnetSubnet1/DefaultRoute"
+   }
+  },
+  "AutoRfpVpcpublicsubnetSubnet2SubnetB07A0457": {
+   "Type": "AWS::EC2::Subnet",
+   "Properties": {
+    "AvailabilityZone": "us-east-1b",
+    "CidrBlock": "10.0.1.0/24",
+    "MapPublicIpOnLaunch": true,
+    "Tags": [
+     {
+      "Key": "aws-cdk:subnet-name",
+      "Value": "public-subnet"
+     },
+     {
+      "Key": "aws-cdk:subnet-type",
+      "Value": "Public"
+     },
+     {
+      "Key": "Name",
+      "Value": "AutoRfpInfrastructureStack/AutoRfpVpc/public-subnetSubnet2"
+     }
+    ],
+    "VpcId": {
+     "Ref": "AutoRfpVpc91A0113F"
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "AutoRfpInfrastructureStack/AutoRfpVpc/public-subnetSubnet2/Subnet"
+   }
+  },
+  "AutoRfpVpcpublicsubnetSubnet2RouteTableA2DA2368": {
+   "Type": "AWS::EC2::RouteTable",
+   "Properties": {
+    "Tags": [
+     {
+      "Key": "Name",
+      "Value": "AutoRfpInfrastructureStack/AutoRfpVpc/public-subnetSubnet2"
+     }
+    ],
+    "VpcId": {
+     "Ref": "AutoRfpVpc91A0113F"
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "AutoRfpInfrastructureStack/AutoRfpVpc/public-subnetSubnet2/RouteTable"
+   }
+  },
+  "AutoRfpVpcpublicsubnetSubnet2RouteTableAssociationF4C1F094": {
+   "Type": "AWS::EC2::SubnetRouteTableAssociation",
+   "Properties": {
+    "RouteTableId": {
+     "Ref": "AutoRfpVpcpublicsubnetSubnet2RouteTableA2DA2368"
+    },
+    "SubnetId": {
+     "Ref": "AutoRfpVpcpublicsubnetSubnet2SubnetB07A0457"
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "AutoRfpInfrastructureStack/AutoRfpVpc/public-subnetSubnet2/RouteTableAssociation"
+   }
+  },
+  "AutoRfpVpcpublicsubnetSubnet2DefaultRoute76B865B9": {
+   "Type": "AWS::EC2::Route",
+   "Properties": {
+    "DestinationCidrBlock": "0.0.0.0/0",
+    "GatewayId": {
+     "Ref": "AutoRfpVpcIGW854FD599"
+    },
+    "RouteTableId": {
+     "Ref": "AutoRfpVpcpublicsubnetSubnet2RouteTableA2DA2368"
+    }
+   },
+   "DependsOn": [
+    "AutoRfpVpcVPCGW92FF52E2"
+   ],
+   "Metadata": {
+    "aws:cdk:path": "AutoRfpInfrastructureStack/AutoRfpVpc/public-subnetSubnet2/DefaultRoute"
+   }
+  },
+  "AutoRfpVpcprivatesubnetSubnet1Subnet17B06641": {
+   "Type": "AWS::EC2::Subnet",
+   "Properties": {
+    "AvailabilityZone": "us-east-1a",
+    "CidrBlock": "10.0.2.0/24",
+    "MapPublicIpOnLaunch": false,
+    "Tags": [
+     {
+      "Key": "aws-cdk:subnet-name",
+      "Value": "private-subnet"
+     },
+     {
+      "Key": "aws-cdk:subnet-type",
+      "Value": "Isolated"
+     },
+     {
+      "Key": "Name",
+      "Value": "AutoRfpInfrastructureStack/AutoRfpVpc/private-subnetSubnet1"
+     }
+    ],
+    "VpcId": {
+     "Ref": "AutoRfpVpc91A0113F"
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "AutoRfpInfrastructureStack/AutoRfpVpc/private-subnetSubnet1/Subnet"
+   }
+  },
+  "AutoRfpVpcprivatesubnetSubnet1RouteTable47EBE7DF": {
+   "Type": "AWS::EC2::RouteTable",
+   "Properties": {
+    "Tags": [
+     {
+      "Key": "Name",
+      "Value": "AutoRfpInfrastructureStack/AutoRfpVpc/private-subnetSubnet1"
+     }
+    ],
+    "VpcId": {
+     "Ref": "AutoRfpVpc91A0113F"
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "AutoRfpInfrastructureStack/AutoRfpVpc/private-subnetSubnet1/RouteTable"
+   }
+  },
+  "AutoRfpVpcprivatesubnetSubnet1RouteTableAssociation2EC019E2": {
+   "Type": "AWS::EC2::SubnetRouteTableAssociation",
+   "Properties": {
+    "RouteTableId": {
+     "Ref": "AutoRfpVpcprivatesubnetSubnet1RouteTable47EBE7DF"
+    },
+    "SubnetId": {
+     "Ref": "AutoRfpVpcprivatesubnetSubnet1Subnet17B06641"
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "AutoRfpInfrastructureStack/AutoRfpVpc/private-subnetSubnet1/RouteTableAssociation"
+   }
+  },
+  "AutoRfpVpcprivatesubnetSubnet2Subnet39A90317": {
+   "Type": "AWS::EC2::Subnet",
+   "Properties": {
+    "AvailabilityZone": "us-east-1b",
+    "CidrBlock": "10.0.3.0/24",
+    "MapPublicIpOnLaunch": false,
+    "Tags": [
+     {
+      "Key": "aws-cdk:subnet-name",
+      "Value": "private-subnet"
+     },
+     {
+      "Key": "aws-cdk:subnet-type",
+      "Value": "Isolated"
+     },
+     {
+      "Key": "Name",
+      "Value": "AutoRfpInfrastructureStack/AutoRfpVpc/private-subnetSubnet2"
+     }
+    ],
+    "VpcId": {
+     "Ref": "AutoRfpVpc91A0113F"
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "AutoRfpInfrastructureStack/AutoRfpVpc/private-subnetSubnet2/Subnet"
+   }
+  },
+  "AutoRfpVpcprivatesubnetSubnet2RouteTable59B7E67F": {
+   "Type": "AWS::EC2::RouteTable",
+   "Properties": {
+    "Tags": [
+     {
+      "Key": "Name",
+      "Value": "AutoRfpInfrastructureStack/AutoRfpVpc/private-subnetSubnet2"
+     }
+    ],
+    "VpcId": {
+     "Ref": "AutoRfpVpc91A0113F"
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "AutoRfpInfrastructureStack/AutoRfpVpc/private-subnetSubnet2/RouteTable"
+   }
+  },
+  "AutoRfpVpcprivatesubnetSubnet2RouteTableAssociation4715B1C2": {
+   "Type": "AWS::EC2::SubnetRouteTableAssociation",
+   "Properties": {
+    "RouteTableId": {
+     "Ref": "AutoRfpVpcprivatesubnetSubnet2RouteTable59B7E67F"
+    },
+    "SubnetId": {
+     "Ref": "AutoRfpVpcprivatesubnetSubnet2Subnet39A90317"
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "AutoRfpInfrastructureStack/AutoRfpVpc/private-subnetSubnet2/RouteTableAssociation"
+   }
+  },
+  "AutoRfpVpcIGW854FD599": {
+   "Type": "AWS::EC2::InternetGateway",
+   "Properties": {
+    "Tags": [
+     {
+      "Key": "Name",
+      "Value": "AutoRfpInfrastructureStack/AutoRfpVpc"
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "AutoRfpInfrastructureStack/AutoRfpVpc/IGW"
+   }
+  },
+  "AutoRfpVpcVPCGW92FF52E2": {
+   "Type": "AWS::EC2::VPCGatewayAttachment",
+   "Properties": {
+    "InternetGatewayId": {
+     "Ref": "AutoRfpVpcIGW854FD599"
+    },
+    "VpcId": {
+     "Ref": "AutoRfpVpc91A0113F"
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "AutoRfpInfrastructureStack/AutoRfpVpc/VPCGW"
+   }
+  },
+  "AutoRfpVpcRestrictDefaultSecurityGroupCustomResourceBE197190": {
+   "Type": "Custom::VpcRestrictDefaultSG",
+   "Properties": {
+    "ServiceToken": {
+     "Fn::GetAtt": [
+      "CustomVpcRestrictDefaultSGCustomResourceProviderHandlerDC833E5E",
+      "Arn"
+     ]
+    },
+    "DefaultSecurityGroupId": {
+     "Fn::GetAtt": [
+      "AutoRfpVpc91A0113F",
+      "DefaultSecurityGroup"
+     ]
+    },
+    "Account": "018222125196"
+   },
+   "UpdateReplacePolicy": "Delete",
+   "DeletionPolicy": "Delete",
+   "Metadata": {
+    "aws:cdk:path": "AutoRfpInfrastructureStack/AutoRfpVpc/RestrictDefaultSecurityGroupCustomResource/Default"
+   }
+  },
+  "CustomVpcRestrictDefaultSGCustomResourceProviderRole26592FE0": {
+   "Type": "AWS::IAM::Role",
+   "Properties": {
+    "AssumeRolePolicyDocument": {
+     "Version": "2012-10-17",
+     "Statement": [
+      {
+       "Action": "sts:AssumeRole",
+       "Effect": "Allow",
+       "Principal": {
+        "Service": "lambda.amazonaws.com"
+       }
+      }
+     ]
+    },
+    "ManagedPolicyArns": [
+     {
+      "Fn::Sub": "arn:${AWS::Partition}:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+     }
+    ],
+    "Policies": [
+     {
+      "PolicyName": "Inline",
+      "PolicyDocument": {
+       "Version": "2012-10-17",
+       "Statement": [
+        {
+         "Effect": "Allow",
+         "Action": [
+          "ec2:AuthorizeSecurityGroupIngress",
+          "ec2:AuthorizeSecurityGroupEgress",
+          "ec2:RevokeSecurityGroupIngress",
+          "ec2:RevokeSecurityGroupEgress"
+         ],
+         "Resource": [
+          {
+           "Fn::Join": [
+            "",
+            [
+             "arn:aws:ec2:us-east-1:018222125196:security-group/",
+             {
+              "Fn::GetAtt": [
+               "AutoRfpVpc91A0113F",
+               "DefaultSecurityGroup"
+              ]
+             }
+            ]
+           ]
+          }
+         ]
+        }
+       ]
+      }
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "AutoRfpInfrastructureStack/Custom::VpcRestrictDefaultSGCustomResourceProvider/Role"
+   }
+  },
+  "CustomVpcRestrictDefaultSGCustomResourceProviderHandlerDC833E5E": {
+   "Type": "AWS::Lambda::Function",
+   "Properties": {
+    "Code": {
+     "S3Bucket": "cdk-hnb659fds-assets-018222125196-us-east-1",
+     "S3Key": "7fa1e366ee8a9ded01fc355f704cff92bfd179574e6f9cfee800a3541df1b200.zip"
+    },
+    "Timeout": 900,
+    "MemorySize": 128,
+    "Handler": "__entrypoint__.handler",
+    "Role": {
+     "Fn::GetAtt": [
+      "CustomVpcRestrictDefaultSGCustomResourceProviderRole26592FE0",
+      "Arn"
+     ]
+    },
+    "Runtime": "nodejs22.x",
+    "Description": "Lambda function for removing all inbound/outbound rules from the VPC default security group"
+   },
+   "DependsOn": [
+    "CustomVpcRestrictDefaultSGCustomResourceProviderRole26592FE0"
+   ],
+   "Metadata": {
+    "aws:cdk:path": "AutoRfpInfrastructureStack/Custom::VpcRestrictDefaultSGCustomResourceProvider/Handler",
+    "aws:asset:path": "asset.7fa1e366ee8a9ded01fc355f704cff92bfd179574e6f9cfee800a3541df1b200",
+    "aws:asset:property": "Code"
+   }
+  },
+  "AutoRfpDbSecretB244B8E1": {
+   "Type": "AWS::SecretsManager::Secret",
+   "Properties": {
+    "GenerateSecretString": {
+     "ExcludeCharacters": "\"@/\\",
+     "GenerateStringKey": "password",
+     "SecretStringTemplate": "{\"username\":\"postgres\"}"
+    },
+    "Name": "auto-rfp/database"
+   },
+   "UpdateReplacePolicy": "Delete",
+   "DeletionPolicy": "Delete",
+   "Metadata": {
+    "aws:cdk:path": "AutoRfpInfrastructureStack/AutoRfpDbSecret/Resource"
+   }
+  },
+  "AutoRfpDbSecretAttachmentCF4B58E1": {
+   "Type": "AWS::SecretsManager::SecretTargetAttachment",
+   "Properties": {
+    "SecretId": {
+     "Ref": "AutoRfpDbSecretB244B8E1"
+    },
+    "TargetId": {
+     "Ref": "AutoRfpDatabaseB374604B"
+    },
+    "TargetType": "AWS::RDS::DBInstance"
+   },
+   "Metadata": {
+    "aws:cdk:path": "AutoRfpInfrastructureStack/AutoRfpDbSecret/Attachment/Resource"
+   }
+  },
+  "AutoRfpDbSecurityGroup68A85016": {
+   "Type": "AWS::EC2::SecurityGroup",
+   "Properties": {
+    "GroupDescription": "Security group for AutoRFP RDS database",
+    "SecurityGroupEgress": [
+     {
+      "CidrIp": "255.255.255.255/32",
+      "Description": "Disallow all traffic",
+      "FromPort": 252,
+      "IpProtocol": "icmp",
+      "ToPort": 86
+     }
+    ],
+    "SecurityGroupIngress": [
+     {
+      "CidrIp": "0.0.0.0/0",
+      "Description": "Allow PostgreSQL access",
+      "FromPort": 5432,
+      "IpProtocol": "tcp",
+      "ToPort": 5432
+     }
+    ],
+    "VpcId": {
+     "Ref": "AutoRfpVpc91A0113F"
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "AutoRfpInfrastructureStack/AutoRfpDbSecurityGroup/Resource"
+   }
+  },
+  "AutoRfpDatabaseSubnetGroup0BBFE913": {
+   "Type": "AWS::RDS::DBSubnetGroup",
+   "Properties": {
+    "DBSubnetGroupDescription": "Subnet group for AutoRfpDatabase database",
+    "SubnetIds": [
+     {
+      "Ref": "AutoRfpVpcpublicsubnetSubnet1Subnet04125A94"
+     },
+     {
+      "Ref": "AutoRfpVpcpublicsubnetSubnet2SubnetB07A0457"
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "AutoRfpInfrastructureStack/AutoRfpDatabase/SubnetGroup/Default"
+   }
+  },
+  "AutoRfpDatabaseB374604B": {
+   "Type": "AWS::RDS::DBInstance",
+   "Properties": {
+    "AllocatedStorage": "20",
+    "BackupRetentionPeriod": 7,
+    "CopyTagsToSnapshot": true,
+    "DBInstanceClass": "db.t3.micro",
+    "DBName": "auto_rfp",
+    "DBSubnetGroupName": {
+     "Ref": "AutoRfpDatabaseSubnetGroup0BBFE913"
+    },
+    "DeleteAutomatedBackups": false,
+    "DeletionProtection": false,
+    "Engine": "postgres",
+    "EngineVersion": "15.7",
+    "MasterUserPassword": {
+     "Fn::Join": [
+      "",
+      [
+       "{{resolve:secretsmanager:",
+       {
+        "Ref": "AutoRfpDbSecretB244B8E1"
+       },
+       ":SecretString:password::}}"
+      ]
+     ]
+    },
+    "MasterUsername": {
+     "Fn::Join": [
+      "",
+      [
+       "{{resolve:secretsmanager:",
+       {
+        "Ref": "AutoRfpDbSecretB244B8E1"
+       },
+       ":SecretString:username::}}"
+      ]
+     ]
+    },
+    "MaxAllocatedStorage": 100,
+    "MultiAZ": false,
+    "PubliclyAccessible": true,
+    "StorageEncrypted": true,
+    "StorageType": "gp2",
+    "VPCSecurityGroups": [
+     {
+      "Fn::GetAtt": [
+       "AutoRfpDbSecurityGroup68A85016",
+       "GroupId"
+      ]
+     }
+    ]
+   },
+   "UpdateReplacePolicy": "Delete",
+   "DeletionPolicy": "Delete",
+   "Metadata": {
+    "aws:cdk:path": "AutoRfpInfrastructureStack/AutoRfpDatabase/Resource"
+   }
+  },
+  "AutoRfpUserPool0E232BBC": {
+   "Type": "AWS::Cognito::UserPool",
+   "Properties": {
+    "AccountRecoverySetting": {
+     "RecoveryMechanisms": [
+      {
+       "Name": "verified_email",
+       "Priority": 1
+      }
+     ]
+    },
+    "AdminCreateUserConfig": {
+     "AllowAdminCreateUserOnly": false
+    },
+    "AutoVerifiedAttributes": [
+     "email"
+    ],
+    "EmailVerificationMessage": "The verification code to your new account is {####}",
+    "EmailVerificationSubject": "Verify your new account",
+    "Policies": {
+     "PasswordPolicy": {
+      "MinimumLength": 8,
+      "RequireLowercase": true,
+      "RequireNumbers": true,
+      "RequireSymbols": false,
+      "RequireUppercase": true
+     }
+    },
+    "Schema": [
+     {
+      "Mutable": true,
+      "Name": "email",
+      "Required": true
+     },
+     {
+      "Mutable": true,
+      "Name": "given_name",
+      "Required": false
+     },
+     {
+      "Mutable": true,
+      "Name": "family_name",
+      "Required": false
+     }
+    ],
+    "SmsVerificationMessage": "The verification code to your new account is {####}",
+    "UserPoolName": "auto-rfp-users",
+    "UsernameAttributes": [
+     "email"
+    ],
+    "UsernameConfiguration": {
+     "CaseSensitive": false
+    },
+    "VerificationMessageTemplate": {
+     "DefaultEmailOption": "CONFIRM_WITH_CODE",
+     "EmailMessage": "The verification code to your new account is {####}",
+     "EmailSubject": "Verify your new account",
+     "SmsMessage": "The verification code to your new account is {####}"
+    }
+   },
+   "UpdateReplacePolicy": "Delete",
+   "DeletionPolicy": "Delete",
+   "Metadata": {
+    "aws:cdk:path": "AutoRfpInfrastructureStack/AutoRfpUserPool/Resource"
+   }
+  },
+  "AutoRfpUserPoolClientE2FC917B": {
+   "Type": "AWS::Cognito::UserPoolClient",
+   "Properties": {
+    "AllowedOAuthFlows": [
+     "code"
+    ],
+    "AllowedOAuthFlowsUserPoolClient": true,
+    "AllowedOAuthScopes": [
+     "email",
+     "openid",
+     "profile"
+    ],
+    "CallbackURLs": [
+     "https://example.com"
+    ],
+    "ClientName": "auto-rfp-client",
+    "ExplicitAuthFlows": [
+     "ALLOW_USER_PASSWORD_AUTH",
+     "ALLOW_USER_SRP_AUTH",
+     "ALLOW_REFRESH_TOKEN_AUTH"
+    ],
+    "GenerateSecret": false,
+    "SupportedIdentityProviders": [
+     "COGNITO"
+    ],
+    "UserPoolId": {
+     "Ref": "AutoRfpUserPool0E232BBC"
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "AutoRfpInfrastructureStack/AutoRfpUserPoolClient/Resource"
+   }
+  },
+  "AutoRfpDocumentsBucketADE14B85": {
+   "Type": "AWS::S3::Bucket",
+   "Properties": {
+    "BucketEncryption": {
+     "ServerSideEncryptionConfiguration": [
+      {
+       "ServerSideEncryptionByDefault": {
+        "SSEAlgorithm": "AES256"
+       }
+      }
+     ]
+    },
+    "BucketName": {
+     "Fn::Join": [
+      "",
+      [
+       "auto-rfp-documents-",
+       {
+        "Ref": "AWS::AccountId"
+       }
+      ]
+     ]
+    },
+    "CorsConfiguration": {
+     "CorsRules": [
+      {
+       "AllowedHeaders": [
+        "*"
+       ],
+       "AllowedMethods": [
+        "GET",
+        "POST",
+        "PUT"
+       ],
+       "AllowedOrigins": [
+        "*"
+       ],
+       "MaxAge": 300
+      }
+     ]
+    },
+    "LifecycleConfiguration": {
+     "Rules": [
+      {
+       "Id": "transition-to-ia",
+       "Status": "Enabled",
+       "Transitions": [
+        {
+         "StorageClass": "STANDARD_IA",
+         "TransitionInDays": 30
+        }
+       ]
+      }
+     ]
+    },
+    "PublicAccessBlockConfiguration": {
+     "BlockPublicAcls": true,
+     "BlockPublicPolicy": true,
+     "IgnorePublicAcls": true,
+     "RestrictPublicBuckets": true
+    },
+    "VersioningConfiguration": {
+     "Status": "Enabled"
+    }
+   },
+   "UpdateReplacePolicy": "Delete",
+   "DeletionPolicy": "Delete",
+   "Metadata": {
+    "aws:cdk:path": "AutoRfpInfrastructureStack/AutoRfpDocumentsBucket/Resource"
+   }
+  },
+  "AutoRfpS3AccessRoleEF169DF2": {
+   "Type": "AWS::IAM::Role",
+   "Properties": {
+    "AssumeRolePolicyDocument": {
+     "Statement": [
+      {
+       "Action": "sts:AssumeRole",
+       "Effect": "Allow",
+       "Principal": {
+        "Service": "amplify.amazonaws.com"
+       }
+      }
+     ],
+     "Version": "2012-10-17"
+    },
+    "Policies": [
+     {
+      "PolicyDocument": {
+       "Statement": [
+        {
+         "Action": [
+          "s3:DeleteObject",
+          "s3:GetObject",
+          "s3:ListBucket",
+          "s3:PutObject"
+         ],
+         "Effect": "Allow",
+         "Resource": [
+          {
+           "Fn::GetAtt": [
+            "AutoRfpDocumentsBucketADE14B85",
+            "Arn"
+           ]
+          },
+          {
+           "Fn::Join": [
+            "",
+            [
+             {
+              "Fn::GetAtt": [
+               "AutoRfpDocumentsBucketADE14B85",
+               "Arn"
+              ]
+             },
+             "/*"
+            ]
+           ]
+          }
+         ]
+        }
+       ],
+       "Version": "2012-10-17"
+      },
+      "PolicyName": "S3Access"
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "AutoRfpInfrastructureStack/AutoRfpS3AccessRole/Resource"
+   }
+  },
+  "AutoRfpSesIdentity2D835474": {
+   "Type": "AWS::SES::EmailIdentity",
+   "Properties": {
+    "EmailIdentity": "example.com"
+   },
+   "Metadata": {
+    "aws:cdk:path": "AutoRfpInfrastructureStack/AutoRfpSesIdentity/Resource"
+   }
+  },
+  "CDKMetadata": {
+   "Type": "AWS::CDK::Metadata",
+   "Properties": {
+    "Analytics": "v2:deflate64:H4sIAAAAAAAA/3WQTW/CMAyGfwv3kJXusDOUCXFa1TKuk5uaLtAmKHZAKOp/n0oLhU07+fXjN/5ILOPoTUYTONNUlYdprQsZcgZ1EHCmr4AqlmF7VCLZmW2aiNQXtVa5Lwxyx0aVWc+4gaLGkY9sTmSVBtbW3M0idfoEjGOPtWF0BnkFjGe4DEOHbM4M6rtBwyJH5Z3my8pZf7yOewStIFQOmRowUKGTIb/mg7FTfdiAq5Af+t4NvyutcCXJsASGAgjXhhiMQtGvfl9jufgDbtZWKFsZzVaGT0KXWlt3hru+iaTWwybPpBX0KsPCq0N/SK9aoaGRIbP9r3exu55keG9A1+sSDWu+fuQTaFuRIVnvFIrEE9tmTHfmn1Lq7EmX6BZAKOZEyDlDpU3VvfnwfPTcCmNLlHt6OcWRnM1kNNmT1lPnDesGZdbHH7tTckp2AgAA"
+   },
+   "Metadata": {
+    "aws:cdk:path": "AutoRfpInfrastructureStack/CDKMetadata/Default"
+   }
+  }
+ },
+ "Outputs": {
+  "DatabaseEndpoint": {
+   "Description": "RDS Database Endpoint",
+   "Value": {
+    "Fn::GetAtt": [
+     "AutoRfpDatabaseB374604B",
+     "Endpoint.Address"
+    ]
+   }
+  },
+  "DatabasePort": {
+   "Description": "RDS Database Port",
+   "Value": {
+    "Fn::GetAtt": [
+     "AutoRfpDatabaseB374604B",
+     "Endpoint.Port"
+    ]
+   }
+  },
+  "DatabaseSecretArn": {
+   "Description": "Database Secret ARN",
+   "Value": {
+    "Ref": "AutoRfpDbSecretB244B8E1"
+   }
+  },
+  "UserPoolId": {
+   "Description": "Cognito User Pool ID",
+   "Value": {
+    "Ref": "AutoRfpUserPool0E232BBC"
+   }
+  },
+  "UserPoolClientId": {
+   "Description": "Cognito User Pool Client ID",
+   "Value": {
+    "Ref": "AutoRfpUserPoolClientE2FC917B"
+   }
+  },
+  "DocumentsBucketName": {
+   "Description": "S3 Documents Bucket Name",
+   "Value": {
+    "Ref": "AutoRfpDocumentsBucketADE14B85"
+   }
+  },
+  "S3AccessRoleArn": {
+   "Description": "S3 Access Role ARN",
+   "Value": {
+    "Fn::GetAtt": [
+     "AutoRfpS3AccessRoleEF169DF2",
+     "Arn"
+    ]
+   }
+  },
+  "Region": {
+   "Description": "AWS Region",
+   "Value": "us-east-1"
+  }
+ },
+ "Parameters": {
+  "BootstrapVersion": {
+   "Type": "AWS::SSM::Parameter::Value<String>",
+   "Default": "/cdk-bootstrap/hnb659fds/version",
+   "Description": "Version of the CDK Bootstrap resources in this environment, automatically retrieved from SSM Parameter Store. [cdk:skip]"
+  }
+ },
+ "Rules": {
+  "CheckBootstrapVersion": {
+   "Assertions": [
+    {
+     "Assert": {
+      "Fn::Not": [
+       {
+        "Fn::Contains": [
+         [
+          "1",
+          "2",
+          "3",
+          "4",
+          "5"
+         ],
+         {
+          "Ref": "BootstrapVersion"
+         }
+        ]
+       }
+      ]
+     },
+     "AssertDescription": "CDK bootstrap stack version 6 required. Please run 'cdk bootstrap' with a recent version of the CDK CLI."
+    }
+   ]
+  }
+ }
+}
