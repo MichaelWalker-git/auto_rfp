@@ -9,8 +9,8 @@ frontend:
         - pnpm install
         # Generate Prisma client
         - pnpm prisma generate
-        # Skip database migrations for now to test build
-        # - pnpm prisma migrate deploy
+        # Run database migrations
+        - pnpm prisma migrate deploy
     build:
       commands:
         - pnpm run build
