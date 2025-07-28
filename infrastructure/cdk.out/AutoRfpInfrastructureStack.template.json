@@ -173,124 +173,6 @@
     "aws:cdk:path": "AutoRfpInfrastructureStack/AutoRfpVpc/public-subnetSubnet2/DefaultRoute"
    }
   },
-  "AutoRfpVpcprivatesubnetSubnet1Subnet17B06641": {
-   "Type": "AWS::EC2::Subnet",
-   "Properties": {
-    "AvailabilityZone": "us-east-1a",
-    "CidrBlock": "10.0.2.0/24",
-    "MapPublicIpOnLaunch": false,
-    "Tags": [
-     {
-      "Key": "aws-cdk:subnet-name",
-      "Value": "private-subnet"
-     },
-     {
-      "Key": "aws-cdk:subnet-type",
-      "Value": "Isolated"
-     },
-     {
-      "Key": "Name",
-      "Value": "AutoRfpInfrastructureStack/AutoRfpVpc/private-subnetSubnet1"
-     }
-    ],
-    "VpcId": {
-     "Ref": "AutoRfpVpc91A0113F"
-    }
-   },
-   "Metadata": {
-    "aws:cdk:path": "AutoRfpInfrastructureStack/AutoRfpVpc/private-subnetSubnet1/Subnet"
-   }
-  },
-  "AutoRfpVpcprivatesubnetSubnet1RouteTable47EBE7DF": {
-   "Type": "AWS::EC2::RouteTable",
-   "Properties": {
-    "Tags": [
-     {
-      "Key": "Name",
-      "Value": "AutoRfpInfrastructureStack/AutoRfpVpc/private-subnetSubnet1"
-     }
-    ],
-    "VpcId": {
-     "Ref": "AutoRfpVpc91A0113F"
-    }
-   },
-   "Metadata": {
-    "aws:cdk:path": "AutoRfpInfrastructureStack/AutoRfpVpc/private-subnetSubnet1/RouteTable"
-   }
-  },
-  "AutoRfpVpcprivatesubnetSubnet1RouteTableAssociation2EC019E2": {
-   "Type": "AWS::EC2::SubnetRouteTableAssociation",
-   "Properties": {
-    "RouteTableId": {
-     "Ref": "AutoRfpVpcprivatesubnetSubnet1RouteTable47EBE7DF"
-    },
-    "SubnetId": {
-     "Ref": "AutoRfpVpcprivatesubnetSubnet1Subnet17B06641"
-    }
-   },
-   "Metadata": {
-    "aws:cdk:path": "AutoRfpInfrastructureStack/AutoRfpVpc/private-subnetSubnet1/RouteTableAssociation"
-   }
-  },
-  "AutoRfpVpcprivatesubnetSubnet2Subnet39A90317": {
-   "Type": "AWS::EC2::Subnet",
-   "Properties": {
-    "AvailabilityZone": "us-east-1b",
-    "CidrBlock": "10.0.3.0/24",
-    "MapPublicIpOnLaunch": false,
-    "Tags": [
-     {
-      "Key": "aws-cdk:subnet-name",
-      "Value": "private-subnet"
-     },
-     {
-      "Key": "aws-cdk:subnet-type",
-      "Value": "Isolated"
-     },
-     {
-      "Key": "Name",
-      "Value": "AutoRfpInfrastructureStack/AutoRfpVpc/private-subnetSubnet2"
-     }
-    ],
-    "VpcId": {
-     "Ref": "AutoRfpVpc91A0113F"
-    }
-   },
-   "Metadata": {
-    "aws:cdk:path": "AutoRfpInfrastructureStack/AutoRfpVpc/private-subnetSubnet2/Subnet"
-   }
-  },
-  "AutoRfpVpcprivatesubnetSubnet2RouteTable59B7E67F": {
-   "Type": "AWS::EC2::RouteTable",
-   "Properties": {
-    "Tags": [
-     {
-      "Key": "Name",
-      "Value": "AutoRfpInfrastructureStack/AutoRfpVpc/private-subnetSubnet2"
-     }
-    ],
-    "VpcId": {
-     "Ref": "AutoRfpVpc91A0113F"
-    }
-   },
-   "Metadata": {
-    "aws:cdk:path": "AutoRfpInfrastructureStack/AutoRfpVpc/private-subnetSubnet2/RouteTable"
-   }
-  },
-  "AutoRfpVpcprivatesubnetSubnet2RouteTableAssociation4715B1C2": {
-   "Type": "AWS::EC2::SubnetRouteTableAssociation",
-   "Properties": {
-    "RouteTableId": {
-     "Ref": "AutoRfpVpcprivatesubnetSubnet2RouteTable59B7E67F"
-    },
-    "SubnetId": {
-     "Ref": "AutoRfpVpcprivatesubnetSubnet2Subnet39A90317"
-    }
-   },
-   "Metadata": {
-    "aws:cdk:path": "AutoRfpInfrastructureStack/AutoRfpVpc/private-subnetSubnet2/RouteTableAssociation"
-   }
-  },
   "AutoRfpVpcIGW854FD599": {
    "Type": "AWS::EC2::InternetGateway",
    "Properties": {
@@ -461,6 +343,25 @@
     "aws:cdk:path": "AutoRfpInfrastructureStack/AutoRfpDbSecret/Attachment/Resource"
    }
   },
+  "AutoRfpLambdaSecurityGroupC2026AB7": {
+   "Type": "AWS::EC2::SecurityGroup",
+   "Properties": {
+    "GroupDescription": "Security group for AutoRFP Lambda functions",
+    "SecurityGroupEgress": [
+     {
+      "CidrIp": "0.0.0.0/0",
+      "Description": "Allow all outbound traffic by default",
+      "IpProtocol": "-1"
+     }
+    ],
+    "VpcId": {
+     "Ref": "AutoRfpVpc91A0113F"
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "AutoRfpInfrastructureStack/AutoRfpLambdaSecurityGroup/Resource"
+   }
+  },
   "AutoRfpDbSecurityGroup68A85016": {
    "Type": "AWS::EC2::SecurityGroup",
    "Properties": {
@@ -477,7 +378,7 @@
     "SecurityGroupIngress": [
      {
       "CidrIp": "0.0.0.0/0",
-      "Description": "Allow PostgreSQL access",
+      "Description": "Allow PostgreSQL access from anywhere (for development)",
       "FromPort": 5432,
       "IpProtocol": "tcp",
       "ToPort": 5432
@@ -489,6 +390,30 @@
    },
    "Metadata": {
     "aws:cdk:path": "AutoRfpInfrastructureStack/AutoRfpDbSecurityGroup/Resource"
+   }
+  },
+  "AutoRfpDbSecurityGroupfromAutoRfpInfrastructureStackAutoRfpLambdaSecurityGroup986D38AC5432F9EEFBF8": {
+   "Type": "AWS::EC2::SecurityGroupIngress",
+   "Properties": {
+    "Description": "Allow PostgreSQL access from Lambda",
+    "FromPort": 5432,
+    "GroupId": {
+     "Fn::GetAtt": [
+      "AutoRfpDbSecurityGroup68A85016",
+      "GroupId"
+     ]
+    },
+    "IpProtocol": "tcp",
+    "SourceSecurityGroupId": {
+     "Fn::GetAtt": [
+      "AutoRfpLambdaSecurityGroupC2026AB7",
+      "GroupId"
+     ]
+    },
+    "ToPort": 5432
+   },
+   "Metadata": {
+    "aws:cdk:path": "AutoRfpInfrastructureStack/AutoRfpDbSecurityGroup/from AutoRfpInfrastructureStackAutoRfpLambdaSecurityGroup986D38AC:5432"
    }
   },
   "AutoRfpDatabaseSubnetGroup0BBFE913": {
@@ -737,7 +662,245 @@
     "aws:cdk:path": "AutoRfpInfrastructureStack/AutoRfpDocumentsBucket/Resource"
    }
   },
-  "AutoRfpS3AccessRoleEF169DF2": {
+  "AutoRfpWebsiteBucketE42ECF2B": {
+   "Type": "AWS::S3::Bucket",
+   "Properties": {
+    "BucketName": {
+     "Fn::Join": [
+      "",
+      [
+       "auto-rfp-website-",
+       {
+        "Ref": "AWS::AccountId"
+       }
+      ]
+     ]
+    },
+    "PublicAccessBlockConfiguration": {
+     "BlockPublicAcls": true,
+     "BlockPublicPolicy": true,
+     "IgnorePublicAcls": true,
+     "RestrictPublicBuckets": true
+    },
+    "Tags": [
+     {
+      "Key": "aws-cdk:auto-delete-objects",
+      "Value": "true"
+     }
+    ]
+   },
+   "UpdateReplacePolicy": "Delete",
+   "DeletionPolicy": "Delete",
+   "Metadata": {
+    "aws:cdk:path": "AutoRfpInfrastructureStack/AutoRfpWebsiteBucket/Resource"
+   }
+  },
+  "AutoRfpWebsiteBucketPolicy36E39D43": {
+   "Type": "AWS::S3::BucketPolicy",
+   "Properties": {
+    "Bucket": {
+     "Ref": "AutoRfpWebsiteBucketE42ECF2B"
+    },
+    "PolicyDocument": {
+     "Statement": [
+      {
+       "Action": [
+        "s3:DeleteObject*",
+        "s3:GetBucket*",
+        "s3:List*",
+        "s3:PutBucketPolicy"
+       ],
+       "Effect": "Allow",
+       "Principal": {
+        "AWS": {
+         "Fn::GetAtt": [
+          "CustomS3AutoDeleteObjectsCustomResourceProviderRole3B1BD092",
+          "Arn"
+         ]
+        }
+       },
+       "Resource": [
+        {
+         "Fn::GetAtt": [
+          "AutoRfpWebsiteBucketE42ECF2B",
+          "Arn"
+         ]
+        },
+        {
+         "Fn::Join": [
+          "",
+          [
+           {
+            "Fn::GetAtt": [
+             "AutoRfpWebsiteBucketE42ECF2B",
+             "Arn"
+            ]
+           },
+           "/*"
+          ]
+         ]
+        }
+       ]
+      },
+      {
+       "Action": "s3:GetObject",
+       "Effect": "Allow",
+       "Principal": {
+        "CanonicalUser": {
+         "Fn::GetAtt": [
+          "AutoRfpOAI0493EA57",
+          "S3CanonicalUserId"
+         ]
+        }
+       },
+       "Resource": {
+        "Fn::Join": [
+         "",
+         [
+          {
+           "Fn::GetAtt": [
+            "AutoRfpWebsiteBucketE42ECF2B",
+            "Arn"
+           ]
+          },
+          "/*"
+         ]
+        ]
+       }
+      },
+      {
+       "Action": [
+        "s3:GetBucket*",
+        "s3:GetObject*",
+        "s3:List*"
+       ],
+       "Effect": "Allow",
+       "Principal": {
+        "CanonicalUser": {
+         "Fn::GetAtt": [
+          "AutoRfpOAI0493EA57",
+          "S3CanonicalUserId"
+         ]
+        }
+       },
+       "Resource": [
+        {
+         "Fn::GetAtt": [
+          "AutoRfpWebsiteBucketE42ECF2B",
+          "Arn"
+         ]
+        },
+        {
+         "Fn::Join": [
+          "",
+          [
+           {
+            "Fn::GetAtt": [
+             "AutoRfpWebsiteBucketE42ECF2B",
+             "Arn"
+            ]
+           },
+           "/*"
+          ]
+         ]
+        }
+       ]
+      }
+     ],
+     "Version": "2012-10-17"
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "AutoRfpInfrastructureStack/AutoRfpWebsiteBucket/Policy/Resource"
+   }
+  },
+  "AutoRfpWebsiteBucketAutoDeleteObjectsCustomResource4BDA312D": {
+   "Type": "Custom::S3AutoDeleteObjects",
+   "Properties": {
+    "ServiceToken": {
+     "Fn::GetAtt": [
+      "CustomS3AutoDeleteObjectsCustomResourceProviderHandler9D90184F",
+      "Arn"
+     ]
+    },
+    "BucketName": {
+     "Ref": "AutoRfpWebsiteBucketE42ECF2B"
+    }
+   },
+   "DependsOn": [
+    "AutoRfpWebsiteBucketPolicy36E39D43"
+   ],
+   "UpdateReplacePolicy": "Delete",
+   "DeletionPolicy": "Delete",
+   "Metadata": {
+    "aws:cdk:path": "AutoRfpInfrastructureStack/AutoRfpWebsiteBucket/AutoDeleteObjectsCustomResource/Default"
+   }
+  },
+  "CustomS3AutoDeleteObjectsCustomResourceProviderRole3B1BD092": {
+   "Type": "AWS::IAM::Role",
+   "Properties": {
+    "AssumeRolePolicyDocument": {
+     "Version": "2012-10-17",
+     "Statement": [
+      {
+       "Action": "sts:AssumeRole",
+       "Effect": "Allow",
+       "Principal": {
+        "Service": "lambda.amazonaws.com"
+       }
+      }
+     ]
+    },
+    "ManagedPolicyArns": [
+     {
+      "Fn::Sub": "arn:${AWS::Partition}:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "AutoRfpInfrastructureStack/Custom::S3AutoDeleteObjectsCustomResourceProvider/Role"
+   }
+  },
+  "CustomS3AutoDeleteObjectsCustomResourceProviderHandler9D90184F": {
+   "Type": "AWS::Lambda::Function",
+   "Properties": {
+    "Code": {
+     "S3Bucket": "cdk-hnb659fds-assets-018222125196-us-east-1",
+     "S3Key": "faa95a81ae7d7373f3e1f242268f904eb748d8d0fdd306e8a6fe515a1905a7d6.zip"
+    },
+    "Timeout": 900,
+    "MemorySize": 128,
+    "Handler": "index.handler",
+    "Role": {
+     "Fn::GetAtt": [
+      "CustomS3AutoDeleteObjectsCustomResourceProviderRole3B1BD092",
+      "Arn"
+     ]
+    },
+    "Runtime": "nodejs22.x",
+    "Description": {
+     "Fn::Join": [
+      "",
+      [
+       "Lambda function for auto-deleting objects in ",
+       {
+        "Ref": "AutoRfpWebsiteBucketE42ECF2B"
+       },
+       " S3 bucket."
+      ]
+     ]
+    }
+   },
+   "DependsOn": [
+    "CustomS3AutoDeleteObjectsCustomResourceProviderRole3B1BD092"
+   ],
+   "Metadata": {
+    "aws:cdk:path": "AutoRfpInfrastructureStack/Custom::S3AutoDeleteObjectsCustomResourceProvider/Handler",
+    "aws:asset:path": "asset.faa95a81ae7d7373f3e1f242268f904eb748d8d0fdd306e8a6fe515a1905a7d6",
+    "aws:asset:property": "Code"
+   }
+  },
+  "AutoRfpApiHandlerServiceRoleD59FC906": {
    "Type": "AWS::IAM::Role",
    "Properties": {
     "AssumeRolePolicyDocument": {
@@ -746,7 +909,547 @@
        "Action": "sts:AssumeRole",
        "Effect": "Allow",
        "Principal": {
-        "Service": "amplify.amazonaws.com"
+        "Service": "lambda.amazonaws.com"
+       }
+      }
+     ],
+     "Version": "2012-10-17"
+    },
+    "ManagedPolicyArns": [
+     {
+      "Fn::Join": [
+       "",
+       [
+        "arn:",
+        {
+         "Ref": "AWS::Partition"
+        },
+        ":iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+       ]
+      ]
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "AutoRfpInfrastructureStack/AutoRfpApiHandler/ServiceRole/Resource"
+   }
+  },
+  "AutoRfpApiHandlerServiceRoleDefaultPolicy308B0E8E": {
+   "Type": "AWS::IAM::Policy",
+   "Properties": {
+    "PolicyDocument": {
+     "Statement": [
+      {
+       "Action": [
+        "secretsmanager:DescribeSecret",
+        "secretsmanager:GetSecretValue"
+       ],
+       "Effect": "Allow",
+       "Resource": {
+        "Ref": "AutoRfpDbSecretB244B8E1"
+       }
+      },
+      {
+       "Action": [
+        "s3:Abort*",
+        "s3:DeleteObject*",
+        "s3:GetBucket*",
+        "s3:GetObject*",
+        "s3:List*",
+        "s3:PutObject",
+        "s3:PutObjectLegalHold",
+        "s3:PutObjectRetention",
+        "s3:PutObjectTagging",
+        "s3:PutObjectVersionTagging"
+       ],
+       "Effect": "Allow",
+       "Resource": [
+        {
+         "Fn::GetAtt": [
+          "AutoRfpDocumentsBucketADE14B85",
+          "Arn"
+         ]
+        },
+        {
+         "Fn::Join": [
+          "",
+          [
+           {
+            "Fn::GetAtt": [
+             "AutoRfpDocumentsBucketADE14B85",
+             "Arn"
+            ]
+           },
+           "/*"
+          ]
+         ]
+        }
+       ]
+      },
+      {
+       "Action": [
+        "cognito-idp:AdminCreateUser",
+        "cognito-idp:AdminGetUser",
+        "cognito-idp:AdminInitiateAuth",
+        "cognito-idp:AdminSetUserPassword",
+        "cognito-idp:AdminUpdateUserAttributes",
+        "cognito-idp:ListUsers"
+       ],
+       "Effect": "Allow",
+       "Resource": {
+        "Fn::GetAtt": [
+         "AutoRfpUserPool0E232BBC",
+         "Arn"
+        ]
+       }
+      }
+     ],
+     "Version": "2012-10-17"
+    },
+    "PolicyName": "AutoRfpApiHandlerServiceRoleDefaultPolicy308B0E8E",
+    "Roles": [
+     {
+      "Ref": "AutoRfpApiHandlerServiceRoleD59FC906"
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "AutoRfpInfrastructureStack/AutoRfpApiHandler/ServiceRole/DefaultPolicy/Resource"
+   }
+  },
+  "AutoRfpApiHandler3E5C7A62": {
+   "Type": "AWS::Lambda::Function",
+   "Properties": {
+    "Code": {
+     "S3Bucket": "cdk-hnb659fds-assets-018222125196-us-east-1",
+     "S3Key": "85c4ee9b424ce0ca918dfbb1e703948c6b2beb5f32930b7fd8d48f5b4a622d3c.zip"
+    },
+    "Environment": {
+     "Variables": {
+      "DATABASE_SECRET_ARN": {
+       "Ref": "AutoRfpDbSecretB244B8E1"
+      },
+      "DATABASE_NAME": "auto_rfp",
+      "DATABASE_HOST": {
+       "Fn::GetAtt": [
+        "AutoRfpDatabaseB374604B",
+        "Endpoint.Address"
+       ]
+      },
+      "DATABASE_PORT": {
+       "Fn::GetAtt": [
+        "AutoRfpDatabaseB374604B",
+        "Endpoint.Port"
+       ]
+      },
+      "COGNITO_USER_POOL_ID": {
+       "Ref": "AutoRfpUserPool0E232BBC"
+      },
+      "COGNITO_USER_POOL_CLIENT_ID": {
+       "Ref": "AutoRfpUserPoolClientE2FC917B"
+      },
+      "AWS_ACCOUNT_ID": {
+       "Ref": "AWS::AccountId"
+      },
+      "S3_BUCKET": {
+       "Ref": "AutoRfpDocumentsBucketADE14B85"
+      },
+      "NODE_ENV": "production"
+     }
+    },
+    "Handler": "index.handler",
+    "MemorySize": 1024,
+    "Role": {
+     "Fn::GetAtt": [
+      "AutoRfpApiHandlerServiceRoleD59FC906",
+      "Arn"
+     ]
+    },
+    "Runtime": "nodejs18.x",
+    "Timeout": 30
+   },
+   "DependsOn": [
+    "AutoRfpApiHandlerServiceRoleDefaultPolicy308B0E8E",
+    "AutoRfpApiHandlerServiceRoleD59FC906"
+   ],
+   "Metadata": {
+    "aws:cdk:path": "AutoRfpInfrastructureStack/AutoRfpApiHandler/Resource",
+    "aws:asset:path": "asset.85c4ee9b424ce0ca918dfbb1e703948c6b2beb5f32930b7fd8d48f5b4a622d3c",
+    "aws:asset:is-bundled": false,
+    "aws:asset:property": "Code"
+   }
+  },
+  "AutoRfpApi79FE2555": {
+   "Type": "AWS::ApiGateway::RestApi",
+   "Properties": {
+    "Description": "AutoRFP API Gateway for Lambda backend",
+    "Name": "AutoRFP API"
+   },
+   "Metadata": {
+    "aws:cdk:path": "AutoRfpInfrastructureStack/AutoRfpApi/Resource"
+   }
+  },
+  "AutoRfpApiDeployment411E7DF6480daacc3086a36c0a61e197f0a1dfcb": {
+   "Type": "AWS::ApiGateway::Deployment",
+   "Properties": {
+    "Description": "AutoRFP API Gateway for Lambda backend",
+    "RestApiId": {
+     "Ref": "AutoRfpApi79FE2555"
+    }
+   },
+   "DependsOn": [
+    "AutoRfpApiapiproxyANYE8AC348A",
+    "AutoRfpApiapiproxy9B7B78E4",
+    "AutoRfpApiapiFE1BA924"
+   ],
+   "Metadata": {
+    "aws:cdk:path": "AutoRfpInfrastructureStack/AutoRfpApi/Deployment/Resource",
+    "aws:cdk:do-not-refactor": true
+   }
+  },
+  "AutoRfpApiDeploymentStageprod4D5CB36D": {
+   "Type": "AWS::ApiGateway::Stage",
+   "Properties": {
+    "DeploymentId": {
+     "Ref": "AutoRfpApiDeployment411E7DF6480daacc3086a36c0a61e197f0a1dfcb"
+    },
+    "MethodSettings": [
+     {
+      "DataTraceEnabled": true,
+      "HttpMethod": "*",
+      "LoggingLevel": "INFO",
+      "MetricsEnabled": true,
+      "ResourcePath": "/*"
+     }
+    ],
+    "RestApiId": {
+     "Ref": "AutoRfpApi79FE2555"
+    },
+    "StageName": "prod"
+   },
+   "Metadata": {
+    "aws:cdk:path": "AutoRfpInfrastructureStack/AutoRfpApi/DeploymentStage.prod/Resource"
+   }
+  },
+  "AutoRfpApiapiFE1BA924": {
+   "Type": "AWS::ApiGateway::Resource",
+   "Properties": {
+    "ParentId": {
+     "Fn::GetAtt": [
+      "AutoRfpApi79FE2555",
+      "RootResourceId"
+     ]
+    },
+    "PathPart": "api",
+    "RestApiId": {
+     "Ref": "AutoRfpApi79FE2555"
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "AutoRfpInfrastructureStack/AutoRfpApi/Default/api/Resource"
+   }
+  },
+  "AutoRfpApiapiproxy9B7B78E4": {
+   "Type": "AWS::ApiGateway::Resource",
+   "Properties": {
+    "ParentId": {
+     "Ref": "AutoRfpApiapiFE1BA924"
+    },
+    "PathPart": "{proxy+}",
+    "RestApiId": {
+     "Ref": "AutoRfpApi79FE2555"
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "AutoRfpInfrastructureStack/AutoRfpApi/Default/api/{proxy+}/Resource"
+   }
+  },
+  "AutoRfpApiapiproxyANYApiPermissionAutoRfpInfrastructureStackAutoRfpApiC9AF8380ANYapiproxy7F00535C": {
+   "Type": "AWS::Lambda::Permission",
+   "Properties": {
+    "Action": "lambda:InvokeFunction",
+    "FunctionName": {
+     "Fn::GetAtt": [
+      "AutoRfpApiHandler3E5C7A62",
+      "Arn"
+     ]
+    },
+    "Principal": "apigateway.amazonaws.com",
+    "SourceArn": {
+     "Fn::Join": [
+      "",
+      [
+       "arn:aws:execute-api:us-east-1:018222125196:",
+       {
+        "Ref": "AutoRfpApi79FE2555"
+       },
+       "/",
+       {
+        "Ref": "AutoRfpApiDeploymentStageprod4D5CB36D"
+       },
+       "/*/api/*"
+      ]
+     ]
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "AutoRfpInfrastructureStack/AutoRfpApi/Default/api/{proxy+}/ANY/ApiPermission.AutoRfpInfrastructureStackAutoRfpApiC9AF8380.ANY..api.{proxy+}"
+   }
+  },
+  "AutoRfpApiapiproxyANYApiPermissionTestAutoRfpInfrastructureStackAutoRfpApiC9AF8380ANYapiproxyC10D0FF4": {
+   "Type": "AWS::Lambda::Permission",
+   "Properties": {
+    "Action": "lambda:InvokeFunction",
+    "FunctionName": {
+     "Fn::GetAtt": [
+      "AutoRfpApiHandler3E5C7A62",
+      "Arn"
+     ]
+    },
+    "Principal": "apigateway.amazonaws.com",
+    "SourceArn": {
+     "Fn::Join": [
+      "",
+      [
+       "arn:aws:execute-api:us-east-1:018222125196:",
+       {
+        "Ref": "AutoRfpApi79FE2555"
+       },
+       "/test-invoke-stage/*/api/*"
+      ]
+     ]
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "AutoRfpInfrastructureStack/AutoRfpApi/Default/api/{proxy+}/ANY/ApiPermission.Test.AutoRfpInfrastructureStackAutoRfpApiC9AF8380.ANY..api.{proxy+}"
+   }
+  },
+  "AutoRfpApiapiproxyANYE8AC348A": {
+   "Type": "AWS::ApiGateway::Method",
+   "Properties": {
+    "AuthorizationType": "NONE",
+    "HttpMethod": "ANY",
+    "Integration": {
+     "IntegrationHttpMethod": "POST",
+     "Type": "AWS_PROXY",
+     "Uri": {
+      "Fn::Join": [
+       "",
+       [
+        "arn:aws:apigateway:us-east-1:lambda:path/2015-03-31/functions/",
+        {
+         "Fn::GetAtt": [
+          "AutoRfpApiHandler3E5C7A62",
+          "Arn"
+         ]
+        },
+        "/invocations"
+       ]
+      ]
+     }
+    },
+    "ResourceId": {
+     "Ref": "AutoRfpApiapiproxy9B7B78E4"
+    },
+    "RestApiId": {
+     "Ref": "AutoRfpApi79FE2555"
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "AutoRfpInfrastructureStack/AutoRfpApi/Default/api/{proxy+}/ANY/Resource"
+   }
+  },
+  "AutoRfpOAI0493EA57": {
+   "Type": "AWS::CloudFront::CloudFrontOriginAccessIdentity",
+   "Properties": {
+    "CloudFrontOriginAccessIdentityConfig": {
+     "Comment": "Origin Access Identity for AutoRFP website"
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "AutoRfpInfrastructureStack/AutoRfpOAI/Resource"
+   }
+  },
+  "AutoRfpDistribution966746B9": {
+   "Type": "AWS::CloudFront::Distribution",
+   "Properties": {
+    "DistributionConfig": {
+     "CacheBehaviors": [
+      {
+       "AllowedMethods": [
+        "GET",
+        "HEAD",
+        "OPTIONS",
+        "PUT",
+        "PATCH",
+        "POST",
+        "DELETE"
+       ],
+       "CachePolicyId": "4135ea2d-6df8-44a3-9df3-4b5a84be39ad",
+       "CachedMethods": [
+        "GET",
+        "HEAD"
+       ],
+       "Compress": true,
+       "OriginRequestPolicyId": "b689b0a8-53d0-40ab-baf2-68738e2966ac",
+       "PathPattern": "/api/*",
+       "TargetOriginId": "AutoRfpInfrastructureStackAutoRfpDistributionOrigin26CD39374",
+       "ViewerProtocolPolicy": "redirect-to-https"
+      }
+     ],
+     "Comment": "AutoRFP CloudFront Distribution",
+     "CustomErrorResponses": [
+      {
+       "ErrorCachingMinTTL": 1800,
+       "ErrorCode": 404,
+       "ResponseCode": 200,
+       "ResponsePagePath": "/index.html"
+      },
+      {
+       "ErrorCachingMinTTL": 1800,
+       "ErrorCode": 403,
+       "ResponseCode": 200,
+       "ResponsePagePath": "/index.html"
+      }
+     ],
+     "DefaultCacheBehavior": {
+      "AllowedMethods": [
+       "GET",
+       "HEAD",
+       "OPTIONS"
+      ],
+      "CachePolicyId": "658327ea-f89d-4fab-a63d-7e88639e58f6",
+      "CachedMethods": [
+       "GET",
+       "HEAD",
+       "OPTIONS"
+      ],
+      "Compress": true,
+      "TargetOriginId": "AutoRfpInfrastructureStackAutoRfpDistributionOrigin128838BC6",
+      "ViewerProtocolPolicy": "redirect-to-https"
+     },
+     "DefaultRootObject": "index.html",
+     "Enabled": true,
+     "HttpVersion": "http2",
+     "IPV6Enabled": true,
+     "Origins": [
+      {
+       "DomainName": {
+        "Fn::GetAtt": [
+         "AutoRfpWebsiteBucketE42ECF2B",
+         "RegionalDomainName"
+        ]
+       },
+       "Id": "AutoRfpInfrastructureStackAutoRfpDistributionOrigin128838BC6",
+       "S3OriginConfig": {
+        "OriginAccessIdentity": {
+         "Fn::Join": [
+          "",
+          [
+           "origin-access-identity/cloudfront/",
+           {
+            "Ref": "AutoRfpOAI0493EA57"
+           }
+          ]
+         ]
+        }
+       }
+      },
+      {
+       "CustomOriginConfig": {
+        "OriginProtocolPolicy": "https-only",
+        "OriginSSLProtocols": [
+         "TLSv1.2"
+        ]
+       },
+       "DomainName": {
+        "Fn::Select": [
+         2,
+         {
+          "Fn::Split": [
+           "/",
+           {
+            "Fn::Join": [
+             "",
+             [
+              "https://",
+              {
+               "Ref": "AutoRfpApi79FE2555"
+              },
+              ".execute-api.us-east-1.",
+              {
+               "Ref": "AWS::URLSuffix"
+              },
+              "/",
+              {
+               "Ref": "AutoRfpApiDeploymentStageprod4D5CB36D"
+              },
+              "/"
+             ]
+            ]
+           }
+          ]
+         }
+        ]
+       },
+       "Id": "AutoRfpInfrastructureStackAutoRfpDistributionOrigin26CD39374",
+       "OriginPath": {
+        "Fn::Join": [
+         "",
+         [
+          "/",
+          {
+           "Fn::Select": [
+            3,
+            {
+             "Fn::Split": [
+              "/",
+              {
+               "Fn::Join": [
+                "",
+                [
+                 "https://",
+                 {
+                  "Ref": "AutoRfpApi79FE2555"
+                 },
+                 ".execute-api.us-east-1.",
+                 {
+                  "Ref": "AWS::URLSuffix"
+                 },
+                 "/",
+                 {
+                  "Ref": "AutoRfpApiDeploymentStageprod4D5CB36D"
+                 },
+                 "/"
+                ]
+               ]
+              }
+             ]
+            }
+           ]
+          }
+         ]
+        ]
+       }
+      }
+     ],
+     "PriceClass": "PriceClass_100"
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "AutoRfpInfrastructureStack/AutoRfpDistribution/Resource"
+   }
+  },
+  "AutoRfpDeploymentRole6D59E4DD": {
+   "Type": "AWS::IAM::Role",
+   "Properties": {
+    "AssumeRolePolicyDocument": {
+     "Statement": [
+      {
+       "Action": "sts:AssumeRole",
+       "Effect": "Allow",
+       "Principal": {
+        "Service": "codebuild.amazonaws.com"
        }
       }
      ],
@@ -772,6 +1475,12 @@
            ]
           },
           {
+           "Fn::GetAtt": [
+            "AutoRfpWebsiteBucketE42ECF2B",
+            "Arn"
+           ]
+          },
+          {
            "Fn::Join": [
             "",
             [
@@ -784,8 +1493,37 @@
              "/*"
             ]
            ]
+          },
+          {
+           "Fn::Join": [
+            "",
+            [
+             {
+              "Fn::GetAtt": [
+               "AutoRfpWebsiteBucketE42ECF2B",
+               "Arn"
+              ]
+             },
+             "/*"
+            ]
+           ]
           }
          ]
+        },
+        {
+         "Action": "cloudfront:CreateInvalidation",
+         "Effect": "Allow",
+         "Resource": {
+          "Fn::Join": [
+           "",
+           [
+            "arn:aws:cloudfront::018222125196:distribution/",
+            {
+             "Ref": "AutoRfpDistribution966746B9"
+            }
+           ]
+          ]
+         }
         }
        ],
        "Version": "2012-10-17"
@@ -795,7 +1533,7 @@
     ]
    },
    "Metadata": {
-    "aws:cdk:path": "AutoRfpInfrastructureStack/AutoRfpS3AccessRole/Resource"
+    "aws:cdk:path": "AutoRfpInfrastructureStack/AutoRfpDeploymentRole/Resource"
    }
   },
   "AutoRfpSesIdentity2D835474": {
@@ -810,7 +1548,7 @@
   "CDKMetadata": {
    "Type": "AWS::CDK::Metadata",
    "Properties": {
-    "Analytics": "v2:deflate64:H4sIAAAAAAAA/3WQTW/CMAyGfwv3kJXusDOUCXFa1TKuk5uaLtAmKHZAKOp/n0oLhU07+fXjN/5ILOPoTUYTONNUlYdprQsZcgZ1EHCmr4AqlmF7VCLZmW2aiNQXtVa5Lwxyx0aVWc+4gaLGkY9sTmSVBtbW3M0idfoEjGOPtWF0BnkFjGe4DEOHbM4M6rtBwyJH5Z3my8pZf7yOewStIFQOmRowUKGTIb/mg7FTfdiAq5Af+t4NvyutcCXJsASGAgjXhhiMQtGvfl9jufgDbtZWKFsZzVaGT0KXWlt3hru+iaTWwybPpBX0KsPCq0N/SK9aoaGRIbP9r3exu55keG9A1+sSDWu+fuQTaFuRIVnvFIrEE9tmTHfmn1Lq7EmX6BZAKOZEyDlDpU3VvfnwfPTcCmNLlHt6OcWRnM1kNNmT1lPnDesGZdbHH7tTckp2AgAA"
+    "Analytics": "v2:deflate64:H4sIAAAAAAAA/31Sy27bMBD8ltwZ1nEPPfvRBD4UEew012BFbZSNJVLgLuMahP69oCjLdhr0tDPDIffFuZ7PfujZDRz41lT724ZKHXcCZq/gwC8RzVzH586o1at9LlaqCGVDZhdKi5K0M9q6IPgEZYNn/awtmJ0hEHJ2MiewsYLeojyA4AGOY5qRLUTAvLVoRe3QBE9yfPAudEOC/wobW3tk7hWj8SjcgoUavY67gY/+hHJ4Al+jXOSbDJ9PeuUr1nENAiUwbiwLWIMqNzxVs17+I5ysvTKutiROx9+MvnCuSYYJn8CqobGSa6VX/F3HZTD73MiIcihcQ+Z4lkeeyRIYe9VAW1ag432w5rSPS1ygb4mZnO0VQavj1uWdDvGcIKNUzQswo7BepKCgozrvT8ctsiw6Gm6PcI1d446nIV+wnUCd/84AtsgueIOp6ImMD2VcePfnOLFfKG+uSoaMemUaF6pX76zo+OipJrswBpk3FVohGZpYJc998nzpWBOLpzKcZnPJ0+diHX+2QM3lk1dC31/UHlhc+2Ur10eFdx9UoR9aH4aaRkK2Tnceg3RBemVdhfqdv33MZ/ruTs9u3pno1gcr1KLe5vgXNUsXz98DAAA="
    },
    "Metadata": {
     "aws:cdk:path": "AutoRfpInfrastructureStack/CDKMetadata/Default"
@@ -818,6 +1556,28 @@
   }
  },
  "Outputs": {
+  "AutoRfpApiEndpointB189D7CD": {
+   "Value": {
+    "Fn::Join": [
+     "",
+     [
+      "https://",
+      {
+       "Ref": "AutoRfpApi79FE2555"
+      },
+      ".execute-api.us-east-1.",
+      {
+       "Ref": "AWS::URLSuffix"
+      },
+      "/",
+      {
+       "Ref": "AutoRfpApiDeploymentStageprod4D5CB36D"
+      },
+      "/"
+     ]
+    ]
+   }
+  },
   "DatabaseEndpoint": {
    "Description": "RDS Database Endpoint",
    "Value": {
@@ -860,11 +1620,32 @@
     "Ref": "AutoRfpDocumentsBucketADE14B85"
    }
   },
-  "S3AccessRoleArn": {
-   "Description": "S3 Access Role ARN",
+  "WebsiteBucketName": {
+   "Description": "S3 Website Bucket Name",
+   "Value": {
+    "Ref": "AutoRfpWebsiteBucketE42ECF2B"
+   }
+  },
+  "CloudFrontDistributionId": {
+   "Description": "CloudFront Distribution ID",
+   "Value": {
+    "Ref": "AutoRfpDistribution966746B9"
+   }
+  },
+  "CloudFrontDistributionDomainName": {
+   "Description": "CloudFront Distribution Domain Name",
    "Value": {
     "Fn::GetAtt": [
-     "AutoRfpS3AccessRoleEF169DF2",
+     "AutoRfpDistribution966746B9",
+     "DomainName"
+    ]
+   }
+  },
+  "DeploymentRoleArn": {
+   "Description": "Deployment Role ARN",
+   "Value": {
+    "Fn::GetAtt": [
+     "AutoRfpDeploymentRole6D59E4DD",
      "Arn"
     ]
    }
@@ -872,6 +1653,44 @@
   "Region": {
    "Description": "AWS Region",
    "Value": "us-east-1"
+  },
+  "ApiGatewayUrl": {
+   "Description": "API Gateway URL",
+   "Value": {
+    "Fn::Join": [
+     "",
+     [
+      "https://",
+      {
+       "Ref": "AutoRfpApi79FE2555"
+      },
+      ".execute-api.us-east-1.",
+      {
+       "Ref": "AWS::URLSuffix"
+      },
+      "/",
+      {
+       "Ref": "AutoRfpApiDeploymentStageprod4D5CB36D"
+      },
+      "/"
+     ]
+    ]
+   }
+  },
+  "ApiGatewayId": {
+   "Description": "API Gateway ID",
+   "Value": {
+    "Ref": "AutoRfpApi79FE2555"
+   }
+  },
+  "LambdaFunctionArn": {
+   "Description": "Lambda Function ARN",
+   "Value": {
+    "Fn::GetAtt": [
+     "AutoRfpApiHandler3E5C7A62",
+     "Arn"
+    ]
+   }
   }
  },
  "Parameters": {

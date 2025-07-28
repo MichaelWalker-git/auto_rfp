@@ -8,7 +8,7 @@
     "watch": "tsc -w",
     "test": "jest",
     "cdk": "cdk",
-    "deploy": "cdk deploy --profile rubywell --never-verify",
+    "deploy": "cdk deploy --profile rubywell --require-approval never",
     "destroy": "cdk destroy --profile rubywell",
     "diff": "cdk diff --profile rubywell",
     "synth": "cdk synth --profile rubywell"

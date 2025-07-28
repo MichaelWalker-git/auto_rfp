@@ -7,7 +7,7 @@ const app = new cdk.App();
 
 // Get environment configuration
 const env = {
-  account: process.env.CDK_DEFAULT_ACCOUNT,
+  account: process.env.CDK_DEFAULT_ACCOUNT || '018222125196', // Hardcode the account ID we obtained
   region: process.env.CDK_DEFAULT_REGION || 'us-east-1',
 };
 

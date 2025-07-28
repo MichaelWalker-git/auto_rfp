@@ -1,393 +1,264 @@
-# AutoRFP - AI-Powered RFP Response Platform
+# AutoRFP - AI-Powered RFP Response Generator
 
-AutoRFP is an intelligent platform that automates RFP (Request for Proposal) response generation using advanced AI. Built with Next.js 15 and powered by LlamaIndex, it helps organizations respond to RFPs 80% faster by automatically extracting questions from documents and generating contextual responses based on your knowledge base.
+A Next.js application that uses AI to help generate responses to Request for Proposals (RFPs). Built with AWS infrastructure for production scalability.
 
-## ✨ Features
+## 🚀 Quick Start (New Users)
 
-### 🤖 AI-Powered Document Processing
-- **Automatic Question Extraction**: Upload RFP documents and automatically extract structured questions
-- **Intelligent Response Generation**: Generate contextual responses using your organization's documents
-- **Multi-Step AI Analysis**: Advanced reasoning process that analyzes, searches, extracts, and synthesizes responses
-- **Document Understanding**: Supports Word, PDF, Excel, and PowerPoint files
+### Prerequisites
+- Node.js 18+ and pnpm installed
+- AWS CLI configured with `rubywell` profile
+- Git with SSH keys set up for GitHub
 
-### 🏢 Organization Management
-- **Multi-Tenant Architecture**: Support for multiple organizations with role-based access
-- **Team Collaboration**: Invite team members with different permission levels (owner, admin, member)
-- **Project Organization**: Organize RFPs into projects for better management
-- **Auto-Connect LlamaCloud**: Automatically connects to LlamaCloud when single project is available
-
-### 🔍 Advanced Search & Indexing
-- **LlamaCloud Integration**: Connect to LlamaCloud projects for document indexing
-- **Multiple Index Support**: Work with multiple document indexes per project
-- **Source Attribution**: Track and cite sources in generated responses
-- **Real-time Search**: Search through your document knowledge base
-
-### 💬 Interactive AI Responses
-- **Chat Interface**: Interactive chat-style interface for generating responses
-- **Multi-Step Response Dialog**: Detailed step-by-step response generation process
-- **Source Details**: View detailed source information and relevance scores
-- **Response Editing**: Edit and refine AI-generated responses
-
-## 🛠 Tech Stack
-
-- **Frontend**: Next.js 15, React 19, TypeScript
-- **Styling**: Tailwind CSS, Radix UI Components
-- **Authentication**: AWS Cognito (Magic Link)
-- **Database**: AWS RDS PostgreSQL with Prisma ORM
-- **Storage**: AWS S3 for document storage
-- **Email**: AWS SES for authentication emails
-- **AI & ML**: OpenAI GPT-4o, LlamaIndex, LlamaCloud
-- **Deployment**: AWS Amplify
-- **Infrastructure**: AWS CDK for Infrastructure as Code
-- **Package Manager**: pnpm
-
-## 📋 Prerequisites
-
-Before setting up AutoRFP, ensure you have:
-
-- **Node.js** 18.x or later
-- **pnpm** 8.x or later
-- **AWS Account** with appropriate permissions
-- **AWS CLI** configured with your credentials
-- **OpenAI** API account with credits
-- **LlamaCloud** account (optional but recommended)
-
-## 🚀 Getting Started
-
-### 1. Clone the Repository
-
+### 1. Clone and Setup
 ```bash
-git clone https://github.com/your-username/auto_rfp.git
+git clone git@github.com:run-llama/auto_rfp.git
 cd auto_rfp
-```
-
-### 2. Install Dependencies
-
-```bash
 pnpm install
 ```
 
-### 3. AWS Infrastructure Setup
-
-Deploy the AWS infrastructure using CDK:
-
+### 2. Environment Setup
+Copy the environment template:
 ```bash
-# Navigate to infrastructure directory
+cp .env.example .env.local
+```
+
+Add your OpenAI API key to `.env.local`:
+```bash
+OPENAI_API_KEY=your_openai_api_key_here
+```
+
+### 3. Deploy AWS Infrastructure
+```bash
 cd infrastructure
-
-# Install CDK dependencies
 npm install
-
-# Deploy the infrastructure
 npm run deploy
 ```
 
-This creates:
+This will create:
 - RDS PostgreSQL database
 - AWS Cognito User Pool
-- S3 bucket for document storage
-- AWS SES for email
-- VPC and security groups
+- S3 bucket for documents
+- VPC with proper networking
+- AWS SES for emails
 
-### 4. Environment Setup
-
-Create a `.env.local` file in the root directory:
-
+### 4. Set Up AWS Amplify
 ```bash
-# Database (from CDK outputs)
-DATABASE_URL="postgresql://postgres:password@your-rds-endpoint:5432/auto_rfp"
-DIRECT_URL="postgresql://postgres:password@your-rds-endpoint:5432/auto_rfp"
+# Get infrastructure outputs
+aws cloudformation describe-stacks \
+  --stack-name AutoRfpInfrastructureStack \
+  --profile rubywell \
+  --output json > infrastructure-outputs.json
 
-# AWS Configuration
-NEXT_PUBLIC_AWS_REGION="us-east-1"
-AWS_REGION="us-east-1"
-DATABASE_SECRET_ARN="your-database-secret-arn"
+# Create Amplify app (run once)
+aws amplify create-app \
+  --name auto-rfp \
+  --repository git@github.com:run-llama/auto_rfp.git \
+  --profile rubywell
 
-# Cognito (from CDK outputs)
-NEXT_PUBLIC_COGNITO_USER_POOL_ID="your-user-pool-id"
-NEXT_PUBLIC_COGNITO_CLIENT_ID="your-client-id"
-
-# S3 (from CDK outputs)
-NEXT_PUBLIC_S3_BUCKET_NAME="your-s3-bucket-name"
-S3_ACCESS_ROLE_ARN="your-s3-role-arn"
-
-# OpenAI API
-OPENAI_API_KEY="your-openai-api-key"
-
-# LlamaCloud (Optional)
-LLAMACLOUD_API_KEY="your-llamacloud-api-key"
-
-# App Configuration
-NEXT_PUBLIC_APP_URL="http://localhost:3000"
+# Connect branch
+aws amplify create-branch \
+  --app-id YOUR_APP_ID \
+  --branch-name main \
+  --profile rubywell
 ```
 
-### 5. Database Setup
+### 5. Configure Environment Variables
+Set the following in AWS Amplify Console or via CLI:
+- `DATABASE_URL`: From infrastructure outputs
+- `DIRECT_URL`: Same as DATABASE_URL
+- `NEXT_PUBLIC_COGNITO_USER_POOL_ID`: From infrastructure outputs
+- `NEXT_PUBLIC_COGNITO_CLIENT_ID`: From infrastructure outputs
+- `NEXT_PUBLIC_S3_BUCKET_NAME`: From infrastructure outputs
+- `OPENAI_API_KEY`: Your OpenAI API key
 
-Run database migrations:
+### 6. Deploy Application
+```bash
+git add .
+git commit -m "Initial setup"
+git push origin main
+```
+
+AWS Amplify will automatically build and deploy your application.
+
+## 🏃‍♂️ Running Locally
 
 ```bash
+# Start development server
+pnpm dev
+
+# Run database migrations
+pnpm prisma migrate dev
+
 # Generate Prisma client
 pnpm prisma generate
-
-# Run migrations (for local development with SQLite)
-DATABASE_URL="file:./dev.db" pnpm prisma migrate dev --name init
-
-# For production (AWS RDS)
-pnpm prisma migrate deploy
 ```
 
-### 6. AWS Cognito Setup
+## 📋 Current Status
 
-Cognito is automatically configured by the CDK deployment with:
-- Email-based authentication
-- User pool for user management
-- Client for web application access
-- Password policies and security settings
+### ✅ Completed
+- AWS infrastructure deployed
+- Database configured
+- Authentication system (Cognito)
+- Build pipeline (AWS Amplify)
+- File storage (S3)
 
-### 7. OpenAI Setup
+### 🔄 In Progress
+- RDS networking optimization
+- Full authentication integration
+- Database migration automation
 
-1. Create an account at [platform.openai.com](https://platform.openai.com)
-2. Generate an API key in **API Keys** section
-3. Add credits to your account
-4. Copy the API key to `OPENAI_API_KEY`
+## 🛠️ Development Commands
 
-### 8. LlamaCloud Setup (Optional)
-
-1. Create an account at [cloud.llamaindex.ai](https://cloud.llamaindex.ai)
-2. Create a new project
-3. Generate an API key
-4. Copy the API key to `LLAMACLOUD_API_KEY`
-
-### 9. Run the Development Server
-
-For local development with SQLite:
 ```bash
-DATABASE_URL="file:./dev.db" pnpm dev
+# Database operations
+pnpm prisma studio          # Open database GUI
+pnpm prisma migrate dev      # Create and run migrations
+pnpm prisma generate         # Generate Prisma client
+
+# Build and test
+pnpm build                   # Build for production
+pnpm start                   # Start production server
+pnpm lint                    # Run linter
+
+# Infrastructure
+cd infrastructure
+npm run deploy               # Deploy AWS infrastructure
+npm run destroy              # Destroy AWS infrastructure (careful!)
 ```
 
-Visit [http://localhost:3000](http://localhost:3000) to see the application.
+## 🔧 AWS CLI Commands
 
-### 10. Deploy to AWS Amplify
-
-For production deployment:
-
-1. **Create Amplify app:**
+### Check Application Status
 ```bash
-aws amplify create-app --name auto-rfp --profile your-profile
+# List Amplify apps
+aws amplify list-apps --profile rubywell --output table
+
+# Check build status
+aws amplify list-jobs \
+  --app-id YOUR_APP_ID \
+  --branch-name main \
+  --profile rubywell \
+  --output table
+
+# Check database status
+aws rds describe-db-instances \
+  --profile rubywell \
+  --output table
 ```
 
-2. **Connect to GitHub and deploy:**
-   - Go to AWS Amplify Console
-   - Connect your repository
-   - Add environment variables
-   - Deploy automatically
+### Manage Environment Variables
+```bash
+# Get current environment variables
+aws amplify get-branch \
+  --app-id YOUR_APP_ID \
+  --branch-name main \
+  --profile rubywell \
+  --query 'branch.environmentVariables' \
+  --output table
 
-See `local-docs/quick-start-guide.md` for detailed deployment instructions.
+# Update environment variables
+aws amplify update-branch \
+  --app-id YOUR_APP_ID \
+  --branch-name main \
+  --environment-variables '{"KEY":"VALUE"}' \
+  --profile rubywell
+```
 
 ## 📁 Project Structure
 
 ```
 auto_rfp/
-├── app/                          # Next.js 15 App Router
-│   ├── api/                      # API routes
-│   │   ├── extract-questions/    # Question extraction endpoint
-│   │   ├── generate-response/    # Response generation endpoint
-│   │   ├── llamacloud/          # LlamaCloud integration APIs
-│   │   ├── organizations/       # Organization management APIs
-│   │   └── projects/            # Project management APIs
-│   ├── auth/                    # Authentication pages
-│   ├── login/                   # Login flow
-│   ├── organizations/           # Organization management pages
-│   ├── projects/                # Project management pages
-│   └── upload/                  # Document upload page
-├── components/                  # Reusable React components
-│   ├── organizations/           # Organization-specific components
-│   ├── projects/               # Project-specific components
-│   ├── ui/                     # UI component library (shadcn/ui)
-│   └── upload/                 # Upload-related components
-├── lib/                        # Core libraries and utilities
-│   ├── services/               # Business logic services
-│   ├── interfaces/             # TypeScript interfaces
-│   ├── validators/             # Zod validation schemas
-│   ├── utils/                  # Utility functions
-│   └── errors/                 # Error handling
-├── prisma/                     # Database schema and migrations
-├── types/                      # TypeScript type definitions
-└── providers/                  # React context providers
+├── app/                     # Next.js app directory
+│   ├── api/                 # API routes
+│   ├── auth/                # Authentication pages
+│   ├── organizations/       # Organization management
+│   └── projects/            # Project management
+├── components/              # React components
+├── lib/                     # Utility libraries
+│   ├── utils/cognito/       # AWS Cognito utilities
+│   └── services/            # Business logic
+├── infrastructure/          # AWS CDK infrastructure
+├── prisma/                  # Database schema and migrations
+├── local-docs/              # Development documentation
+└── amplify.yml              # AWS Amplify build configuration
 ```
 
-## 🔧 Key Configuration
-
-### Database Schema
-
-The application uses a multi-tenant architecture with the following key models:
-
-- **User**: Authenticated users
-- **Organization**: Tenant organizations
-- **OrganizationUser**: User-organization relationships with roles
-- **Project**: RFP projects within organizations
-- **Question**: Extracted RFP questions
-- **Answer**: AI-generated responses with sources
-- **ProjectIndex**: LlamaCloud document indexes
-
-### Authentication Flow
-
-1. **Magic Link Authentication**: Users sign in via email magic links
-2. **Organization Creation**: New users can create organizations
-3. **Team Invitations**: Organization owners can invite team members
-4. **Role-based Access**: Support for owner, admin, and member roles
-
-### AI Processing Pipeline
-
-1. **Document Upload**: Users upload RFP documents
-2. **Question Extraction**: OpenAI extracts structured questions
-3. **Document Indexing**: LlamaCloud indexes documents for search
-4. **Response Generation**: Multi-step AI process generates responses
-5. **Source Attribution**: Responses include relevant source citations
-
-## 🚀 Deployment
-
-### Environment Variables for Production
-
-```bash
-# Set these in your deployment platform (AWS Amplify)
-DATABASE_URL="your-rds-postgresql-url"
-DIRECT_URL="your-rds-postgresql-url"
-NEXT_PUBLIC_AWS_REGION="us-east-1"
-AWS_REGION="us-east-1"
-DATABASE_SECRET_ARN="your-secrets-manager-arn"
-NEXT_PUBLIC_COGNITO_USER_POOL_ID="your-cognito-user-pool-id"
-NEXT_PUBLIC_COGNITO_CLIENT_ID="your-cognito-client-id"
-NEXT_PUBLIC_S3_BUCKET_NAME="your-s3-bucket-name"
-S3_ACCESS_ROLE_ARN="your-s3-role-arn"
-OPENAI_API_KEY="your-openai-api-key"
-LLAMACLOUD_API_KEY="your-llamacloud-api-key"
-NEXT_PUBLIC_APP_URL="https://your-amplify-domain.com"
-```
-
-### Deploy to AWS Amplify (Recommended)
-
-1. Push your code to GitHub
-2. Go to AWS Amplify Console
-3. Connect your repository
-4. Configure environment variables
-5. Deploy automatically
-
-### Deploy to Other Platforms
-
-The application can be deployed to any platform that supports Node.js:
-- AWS Amplify (recommended for AWS infrastructure)
-- Vercel
-- Railway
-- Heroku
-- Digital Ocean App Platform
-
-## 🔌 API Endpoints
-
-### Core APIs
-
-- `POST /api/organizations` - Create organization
-- `GET /api/organizations/{id}` - Get organization details
-- `POST /api/projects` - Create project
-- `POST /api/extract-questions` - Extract questions from documents
-- `POST /api/generate-response` - Generate AI responses
-- `POST /api/generate-response-multistep` - Multi-step response generation
-
-### LlamaCloud Integration
-
-- `GET /api/llamacloud/projects` - Get available LlamaCloud projects
-- `POST /api/llamacloud/connect` - Connect organization to LlamaCloud
-- `POST /api/llamacloud/disconnect` - Disconnect from LlamaCloud
-- `GET /api/llamacloud/documents` - Get organization documents
-
-## 🧪 Sample Data
-
-Try the platform with our sample RFP document:
-- **Sample File**: [RFP - Launch Services for Medium-Lift Payloads](https://qluspotebpidccpfbdho.supabase.co/storage/v1/object/public/sample-files//RFP%20-%20Launch%20Services%20for%20Medium-Lift%20Payloads.pdf)
-- **Use Case**: Download and upload to test question extraction and response generation
-
-## 🐛 Troubleshooting
+## 🚨 Troubleshooting
 
 ### Common Issues
 
-**Database Connection Issues**
+**Build fails with database connection errors:**
 ```bash
-# Check database connection
-pnpm prisma db pull
+# Check if RDS is in public subnets
+aws rds describe-db-instances \
+  --db-instance-identifier YOUR_DB_ID \
+  --profile rubywell \
+  --query 'DBInstances[0].PubliclyAccessible'
 
-# Reset database (WARNING: destroys data)
-pnpm prisma migrate reset
+# Check security groups
+aws ec2 describe-security-groups \
+  --group-ids YOUR_SG_ID \
+  --profile rubywell
 ```
 
-**Authentication Issues**
-- Verify Supabase URL and keys
-- Check email template configuration
-- Ensure redirect URLs are configured correctly
-
-**AI Processing Issues**
-- Verify OpenAI API key and credits
-- Check LlamaCloud API key if using document indexing
-- Review API rate limits
-
-**Environment Variables**
+**1Password SSH issues:**
 ```bash
-# Check if all required variables are set
-node -e "console.log(process.env)" | grep -E "(DATABASE_URL|SUPABASE|OPENAI|LLAMACLOUD)"
+# Disable commit signing
+git config --global commit.gpgsign false
+
+# Use regular SSH agent
+unset SSH_AUTH_SOCK
+eval "$(ssh-agent -s)"
+ssh-add ~/.ssh/id_ed25519
 ```
+
+**Environment variable errors:**
+```bash
+# Check all environment variables are set
+aws amplify get-branch \
+  --app-id YOUR_APP_ID \
+  --branch-name main \
+  --profile rubywell \
+  --query 'branch.environmentVariables'
+```
+
+## 📚 Documentation
+
+- **Architecture**: [local-docs/aws-migration-plan.md](local-docs/aws-migration-plan.md)
+- **Troubleshooting**: [local-docs/aws-migration-lessons-learned.md](local-docs/aws-migration-lessons-learned.md)
+- **RDS Networking**: [local-docs/rds-networking-issue-and-solution.md](local-docs/rds-networking-issue-and-solution.md)
+- **Quick Start**: [local-docs/quick-start-guide.md](local-docs/quick-start-guide.md)
+
+## 🔗 Important URLs
+
+- **AWS Amplify Console**: `https://console.aws.amazon.com/amplify/`
+- **Live Application**: `https://main.dk7mzhfo2065a.amplifyapp.com`
+- **RDS Console**: `https://console.aws.amazon.com/rds/`
+- **Cognito Console**: `https://console.aws.amazon.com/cognito/`
+
+## 💰 Cost Information
+
+Estimated monthly costs:
+- RDS PostgreSQL (t3.micro): ~$15.00
+- S3 Storage: ~$0.25
+- Cognito: Free (up to 50k users)
+- AWS SES: ~$0.10
+- AWS Amplify: ~$0.15
+
+**Total**: ~$15.50/month
 
 ## 🤝 Contributing
 
-We welcome contributions! Please follow these guidelines:
-
-### Development Setup
-
 1. Fork the repository
-2. Create a feature branch: `git checkout -b feature/amazing-feature`
+2. Create a feature branch
 3. Make your changes
-4. Add tests if applicable
-5. Run the linter: `pnpm lint`
-6. Commit your changes: `git commit -m 'Add amazing feature'`
-7. Push to the branch: `git push origin feature/amazing-feature`
-8. Open a Pull Request
-
-### Code Standards
-
-- **TypeScript**: All code must be typed
-- **ESLint**: Follow the configured linting rules
-- **Prettier**: Code is automatically formatted
-- **Component Structure**: Follow the established patterns
-
-### Testing
-
-```bash
-# Run tests (when available)
-pnpm test
-
-# Run type checking
-pnpm type-check
-
-# Run linting
-pnpm lint
-```
+4. Run tests and linting
+5. Submit a pull request
 
 ## 📄 License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
-## 🙏 Acknowledgments
-
-- **LlamaIndex** for powerful document indexing and retrieval
-- **OpenAI** for advanced language model capabilities
-- **Supabase** for authentication and database infrastructure
-- **Vercel** for Next.js framework and deployment platform
-- **Radix UI** for accessible component primitives
-
-## 📞 Support
-
-- **Documentation**: Check this README and inline code comments
-- **Issues**: Report bugs and feature requests via GitHub Issues
-- **Community**: Join our discussions for help and feature requests
+MIT License - see LICENSE file for details.
 
 ---
 
-Built with ❤️ using Next.js, LlamaIndex, and OpenAI
+For urgent issues or questions, check the troubleshooting documentation in `local-docs/` or create an issue in the GitHub repository.

@@ -3,9 +3,13 @@ import * as rds from 'aws-cdk-lib/aws-rds';
 import * as ec2 from 'aws-cdk-lib/aws-ec2';
 import * as cognito from 'aws-cdk-lib/aws-cognito';
 import * as s3 from 'aws-cdk-lib/aws-s3';
+import * as cloudfront from 'aws-cdk-lib/aws-cloudfront';
+import * as origins from 'aws-cdk-lib/aws-cloudfront-origins';
 import * as ses from 'aws-cdk-lib/aws-ses';
 import * as iam from 'aws-cdk-lib/aws-iam';
 import * as secretsmanager from 'aws-cdk-lib/aws-secretsmanager';
+import * as lambda from 'aws-cdk-lib/aws-lambda';
+import * as apigateway from 'aws-cdk-lib/aws-apigateway';
 import { Construct } from 'constructs';
 
 export class AutoRfpInfrastructureStack extends cdk.Stack {
@@ -22,11 +26,6 @@ export class AutoRfpInfrastructureStack extends cdk.Stack {
           name: 'public-subnet',
           subnetType: ec2.SubnetType.PUBLIC,
         },
-        {
-          cidrMask: 24,
-          name: 'private-subnet',
-          subnetType: ec2.SubnetType.PRIVATE_ISOLATED,
-        },
       ],
     });
 
@@ -40,6 +39,13 @@ export class AutoRfpInfrastructureStack extends cdk.Stack {
       },
     });
 
+    // Create Lambda security group
+    const lambdaSecurityGroup = new ec2.SecurityGroup(this, 'AutoRfpLambdaSecurityGroup', {
+      vpc,
+      description: 'Security group for AutoRFP Lambda functions',
+      allowAllOutbound: true,
+    });
+
     // Create database security group
     const dbSecurityGroup = new ec2.SecurityGroup(this, 'AutoRfpDbSecurityGroup', {
       vpc,
@@ -47,11 +53,18 @@ export class AutoRfpInfrastructureStack extends cdk.Stack {
       allowAllOutbound: false,
     });
 
-    // Allow connections from anywhere (you may want to restrict this)
+    // Allow connections from Lambda security group
+    dbSecurityGroup.addIngressRule(
+      lambdaSecurityGroup,
+      ec2.Port.tcp(5432),
+      'Allow PostgreSQL access from Lambda'
+    );
+
+    // Also allow connections from anywhere for external access (development/migration)
     dbSecurityGroup.addIngressRule(
       ec2.Peer.anyIpv4(),
       ec2.Port.tcp(5432),
-      'Allow PostgreSQL access'
+      'Allow PostgreSQL access from anywhere (for development)'
     );
 
     // Create RDS PostgreSQL instance
@@ -160,9 +173,142 @@ export class AutoRfpInfrastructureStack extends cdk.Stack {
       ],
     });
 
-    // Create IAM role for S3 access
-    const s3AccessRole = new iam.Role(this, 'AutoRfpS3AccessRole', {
-      assumedBy: new iam.ServicePrincipal('amplify.amazonaws.com'),
+    // Create S3 bucket for static website hosting
+    const websiteBucket = new s3.Bucket(this, 'AutoRfpWebsiteBucket', {
+      bucketName: `auto-rfp-website-${cdk.Aws.ACCOUNT_ID}`,
+      blockPublicAccess: s3.BlockPublicAccess.BLOCK_ALL,
+      removalPolicy: cdk.RemovalPolicy.DESTROY, // Change to RETAIN for production
+      autoDeleteObjects: true, // Automatically delete objects when bucket is destroyed
+    });
+
+    // Create Lambda function for API routes
+    const apiLambda = new lambda.Function(this, 'AutoRfpApiHandler', {
+      runtime: lambda.Runtime.NODEJS_18_X,
+      handler: 'index.handler',
+      code: lambda.Code.fromAsset('../api-dist'), // Will be created during build
+      timeout: cdk.Duration.seconds(30),
+      memorySize: 1024,
+      environment: {
+        // We'll use AWS Secrets Manager to securely access database credentials
+        DATABASE_SECRET_ARN: dbSecret.secretArn,
+        DATABASE_NAME: 'auto_rfp',
+        DATABASE_HOST: database.instanceEndpoint.hostname,
+        DATABASE_PORT: database.instanceEndpoint.port.toString(),
+        COGNITO_USER_POOL_ID: userPool.userPoolId,
+        COGNITO_USER_POOL_CLIENT_ID: userPoolClient.userPoolClientId,
+        AWS_ACCOUNT_ID: cdk.Aws.ACCOUNT_ID,
+        S3_BUCKET: documentsBucket.bucketName,
+        NODE_ENV: 'production',
+      },
+      // Temporarily remove VPC configuration to avoid networking complexity
+      // We'll add this back once the database is deployed and working
+      // vpc: vpc,
+      // vpcSubnets: {
+      //   subnetType: ec2.SubnetType.PUBLIC,
+      // },
+      // securityGroups: [lambdaSecurityGroup],
+      // allowPublicSubnet: true, // Allow Lambda to run in public subnet
+    });
+
+    // Grant Lambda access to necessary resources
+    dbSecret.grantRead(apiLambda);
+    documentsBucket.grantReadWrite(apiLambda);
+    
+    // Grant Lambda access to Cognito
+    apiLambda.addToRolePolicy(new iam.PolicyStatement({
+      effect: iam.Effect.ALLOW,
+      actions: [
+        'cognito-idp:AdminInitiateAuth',
+        'cognito-idp:AdminCreateUser',
+        'cognito-idp:AdminSetUserPassword',
+        'cognito-idp:AdminUpdateUserAttributes',
+        'cognito-idp:AdminGetUser',
+        'cognito-idp:ListUsers',
+      ],
+      resources: [userPool.userPoolArn],
+    }));
+
+    // Create API Gateway
+    const api = new apigateway.RestApi(this, 'AutoRfpApi', {
+      restApiName: 'AutoRFP API',
+      description: 'AutoRFP API Gateway for Lambda backend',
+      deployOptions: {
+        stageName: 'prod',
+        metricsEnabled: true,
+        loggingLevel: apigateway.MethodLoggingLevel.INFO,
+        dataTraceEnabled: true,
+      },
+      // Remove CORS configuration to avoid conflicts with proxy integration
+      // CORS will be handled by the Lambda function
+    });
+
+    // Create API Gateway integration with Lambda
+    const apiIntegration = new apigateway.LambdaIntegration(apiLambda, {
+      proxy: true,
+      // Remove integrationResponses when using proxy integration
+      // The Lambda function will handle the response format
+    });
+
+    // Add API routes
+    const apiResource = api.root.addResource('api');
+    apiResource.addProxy({
+      defaultIntegration: apiIntegration,
+      anyMethod: true,
+    });
+
+    // Create CloudFront Origin Access Identity (simpler approach)
+    const originAccessIdentity = new cloudfront.OriginAccessIdentity(this, 'AutoRfpOAI', {
+      comment: 'Origin Access Identity for AutoRFP website',
+    });
+
+    // Create CloudFront distribution
+    const distribution = new cloudfront.Distribution(this, 'AutoRfpDistribution', {
+      defaultRootObject: 'index.html',
+      defaultBehavior: {
+        origin: new origins.S3Origin(websiteBucket, {
+          originAccessIdentity,
+        }),
+        viewerProtocolPolicy: cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
+        allowedMethods: cloudfront.AllowedMethods.ALLOW_GET_HEAD_OPTIONS,
+        cachedMethods: cloudfront.CachedMethods.CACHE_GET_HEAD_OPTIONS,
+        compress: true,
+        cachePolicy: cloudfront.CachePolicy.CACHING_OPTIMIZED,
+      },
+      additionalBehaviors: {
+        '/api/*': {
+          origin: new origins.RestApiOrigin(api),
+          viewerProtocolPolicy: cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
+          allowedMethods: cloudfront.AllowedMethods.ALLOW_ALL,
+          cachedMethods: cloudfront.CachedMethods.CACHE_GET_HEAD,
+          cachePolicy: cloudfront.CachePolicy.CACHING_DISABLED,
+          originRequestPolicy: cloudfront.OriginRequestPolicy.ALL_VIEWER_EXCEPT_HOST_HEADER,
+        },
+      },
+      errorResponses: [
+        {
+          httpStatus: 404,
+          responseHttpStatus: 200,
+          responsePagePath: '/index.html',
+          ttl: cdk.Duration.minutes(30),
+        },
+        {
+          httpStatus: 403,
+          responseHttpStatus: 200,
+          responsePagePath: '/index.html',
+          ttl: cdk.Duration.minutes(30),
+        },
+      ],
+      priceClass: cloudfront.PriceClass.PRICE_CLASS_100,
+      enableIpv6: true,
+      comment: 'AutoRFP CloudFront Distribution',
+    });
+
+    // Grant CloudFront access to S3 bucket
+    websiteBucket.grantRead(originAccessIdentity);
+
+    // Create IAM role for deployment access
+    const deploymentRole = new iam.Role(this, 'AutoRfpDeploymentRole', {
+      assumedBy: new iam.ServicePrincipal('codebuild.amazonaws.com'),
       inlinePolicies: {
         S3Access: new iam.PolicyDocument({
           statements: [
@@ -175,9 +321,18 @@ export class AutoRfpInfrastructureStack extends cdk.Stack {
                 's3:ListBucket',
               ],
               resources: [
+                websiteBucket.bucketArn,
+                `${websiteBucket.bucketArn}/*`,
                 documentsBucket.bucketArn,
                 `${documentsBucket.bucketArn}/*`,
               ],
+            }),
+            new iam.PolicyStatement({
+              effect: iam.Effect.ALLOW,
+              actions: [
+                'cloudfront:CreateInvalidation',
+              ],
+              resources: [distribution.distributionArn],
             }),
           ],
         }),
@@ -220,14 +375,44 @@ export class AutoRfpInfrastructureStack extends cdk.Stack {
       description: 'S3 Documents Bucket Name',
     });
 
-    new cdk.CfnOutput(this, 'S3AccessRoleArn', {
-      value: s3AccessRole.roleArn,
-      description: 'S3 Access Role ARN',
+    new cdk.CfnOutput(this, 'WebsiteBucketName', {
+      value: websiteBucket.bucketName,
+      description: 'S3 Website Bucket Name',
+    });
+
+    new cdk.CfnOutput(this, 'CloudFrontDistributionId', {
+      value: distribution.distributionId,
+      description: 'CloudFront Distribution ID',
+    });
+
+    new cdk.CfnOutput(this, 'CloudFrontDistributionDomainName', {
+      value: distribution.distributionDomainName,
+      description: 'CloudFront Distribution Domain Name',
+    });
+
+    new cdk.CfnOutput(this, 'DeploymentRoleArn', {
+      value: deploymentRole.roleArn,
+      description: 'Deployment Role ARN',
     });
 
     new cdk.CfnOutput(this, 'Region', {
       value: cdk.Stack.of(this).region,
       description: 'AWS Region',
+    });
+
+    new cdk.CfnOutput(this, 'ApiGatewayUrl', {
+      value: api.url,
+      description: 'API Gateway URL',
+    });
+
+    new cdk.CfnOutput(this, 'ApiGatewayId', {
+      value: api.restApiId,
+      description: 'API Gateway ID',
+    });
+
+    new cdk.CfnOutput(this, 'LambdaFunctionArn', {
+      value: apiLambda.functionArn,
+      description: 'Lambda Function ARN',
     });
   }
 }

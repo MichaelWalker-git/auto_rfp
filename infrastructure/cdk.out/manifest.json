@@ -23,7 +23,7 @@
         "validateOnSynth": false,
         "assumeRoleArn": "arn:${AWS::Partition}:iam::018222125196:role/cdk-hnb659fds-deploy-role-018222125196-us-east-1",
         "cloudFormationExecutionRoleArn": "arn:${AWS::Partition}:iam::018222125196:role/cdk-hnb659fds-cfn-exec-role-018222125196-us-east-1",
-        "stackTemplateAssetObjectUrl": "s3://cdk-hnb659fds-assets-018222125196-us-east-1/b7c72c176f2bc457c6feb1f3879bab75ad71caa2448ff82b427dfaba958805e3.json",
+        "stackTemplateAssetObjectUrl": "s3://cdk-hnb659fds-assets-018222125196-us-east-1/43da59b14e507682965b535e062df7b99de4377c5de9df16e5c9d18e6e2c6674.json",
         "requiresBootstrapStackVersion": 6,
         "bootstrapStackVersionSsmParameter": "/cdk-bootstrap/hnb659fds/version",
         "additionalDependencies": [
@@ -112,42 +112,6 @@
             "data": "AutoRfpVpcpublicsubnetSubnet2DefaultRoute76B865B9"
           }
         ],
-        "/AutoRfpInfrastructureStack/AutoRfpVpc/private-subnetSubnet1/Subnet": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "AutoRfpVpcprivatesubnetSubnet1Subnet17B06641"
-          }
-        ],
-        "/AutoRfpInfrastructureStack/AutoRfpVpc/private-subnetSubnet1/RouteTable": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "AutoRfpVpcprivatesubnetSubnet1RouteTable47EBE7DF"
-          }
-        ],
-        "/AutoRfpInfrastructureStack/AutoRfpVpc/private-subnetSubnet1/RouteTableAssociation": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "AutoRfpVpcprivatesubnetSubnet1RouteTableAssociation2EC019E2"
-          }
-        ],
-        "/AutoRfpInfrastructureStack/AutoRfpVpc/private-subnetSubnet2/Subnet": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "AutoRfpVpcprivatesubnetSubnet2Subnet39A90317"
-          }
-        ],
-        "/AutoRfpInfrastructureStack/AutoRfpVpc/private-subnetSubnet2/RouteTable": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "AutoRfpVpcprivatesubnetSubnet2RouteTable59B7E67F"
-          }
-        ],
-        "/AutoRfpInfrastructureStack/AutoRfpVpc/private-subnetSubnet2/RouteTableAssociation": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "AutoRfpVpcprivatesubnetSubnet2RouteTableAssociation4715B1C2"
-          }
-        ],
         "/AutoRfpInfrastructureStack/AutoRfpVpc/IGW": [
           {
             "type": "aws:cdk:logicalId",
@@ -196,10 +160,22 @@
             "data": "AutoRfpDbSecretAttachmentCF4B58E1"
           }
         ],
+        "/AutoRfpInfrastructureStack/AutoRfpLambdaSecurityGroup/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "AutoRfpLambdaSecurityGroupC2026AB7"
+          }
+        ],
         "/AutoRfpInfrastructureStack/AutoRfpDbSecurityGroup/Resource": [
           {
             "type": "aws:cdk:logicalId",
             "data": "AutoRfpDbSecurityGroup68A85016"
+          }
+        ],
+        "/AutoRfpInfrastructureStack/AutoRfpDbSecurityGroup/from AutoRfpInfrastructureStackAutoRfpLambdaSecurityGroup986D38AC:5432": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "AutoRfpDbSecurityGroupfromAutoRfpInfrastructureStackAutoRfpLambdaSecurityGroup986D38AC5432F9EEFBF8"
           }
         ],
         "/AutoRfpInfrastructureStack/AutoRfpDatabase/SubnetGroup/Default": [
@@ -232,10 +208,130 @@
             "data": "AutoRfpDocumentsBucketADE14B85"
           }
         ],
-        "/AutoRfpInfrastructureStack/AutoRfpS3AccessRole/Resource": [
+        "/AutoRfpInfrastructureStack/AutoRfpWebsiteBucket/Resource": [
           {
             "type": "aws:cdk:logicalId",
-            "data": "AutoRfpS3AccessRoleEF169DF2"
+            "data": "AutoRfpWebsiteBucketE42ECF2B"
+          }
+        ],
+        "/AutoRfpInfrastructureStack/AutoRfpWebsiteBucket/Policy/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "AutoRfpWebsiteBucketPolicy36E39D43"
+          }
+        ],
+        "/AutoRfpInfrastructureStack/AutoRfpWebsiteBucket/AutoDeleteObjectsCustomResource/Default": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "AutoRfpWebsiteBucketAutoDeleteObjectsCustomResource4BDA312D"
+          }
+        ],
+        "/AutoRfpInfrastructureStack/Custom::S3AutoDeleteObjectsCustomResourceProvider": [
+          {
+            "type": "aws:cdk:is-custom-resource-handler-customResourceProvider",
+            "data": true
+          }
+        ],
+        "/AutoRfpInfrastructureStack/Custom::S3AutoDeleteObjectsCustomResourceProvider/Role": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "CustomS3AutoDeleteObjectsCustomResourceProviderRole3B1BD092"
+          }
+        ],
+        "/AutoRfpInfrastructureStack/Custom::S3AutoDeleteObjectsCustomResourceProvider/Handler": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "CustomS3AutoDeleteObjectsCustomResourceProviderHandler9D90184F"
+          }
+        ],
+        "/AutoRfpInfrastructureStack/AutoRfpApiHandler/ServiceRole/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "AutoRfpApiHandlerServiceRoleD59FC906"
+          }
+        ],
+        "/AutoRfpInfrastructureStack/AutoRfpApiHandler/ServiceRole/DefaultPolicy/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "AutoRfpApiHandlerServiceRoleDefaultPolicy308B0E8E"
+          }
+        ],
+        "/AutoRfpInfrastructureStack/AutoRfpApiHandler/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "AutoRfpApiHandler3E5C7A62"
+          }
+        ],
+        "/AutoRfpInfrastructureStack/AutoRfpApi/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "AutoRfpApi79FE2555"
+          }
+        ],
+        "/AutoRfpInfrastructureStack/AutoRfpApi/Deployment/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "AutoRfpApiDeployment411E7DF6480daacc3086a36c0a61e197f0a1dfcb"
+          }
+        ],
+        "/AutoRfpInfrastructureStack/AutoRfpApi/DeploymentStage.prod/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "AutoRfpApiDeploymentStageprod4D5CB36D"
+          }
+        ],
+        "/AutoRfpInfrastructureStack/AutoRfpApi/Endpoint": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "AutoRfpApiEndpointB189D7CD"
+          }
+        ],
+        "/AutoRfpInfrastructureStack/AutoRfpApi/Default/api/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "AutoRfpApiapiFE1BA924"
+          }
+        ],
+        "/AutoRfpInfrastructureStack/AutoRfpApi/Default/api/{proxy+}/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "AutoRfpApiapiproxy9B7B78E4"
+          }
+        ],
+        "/AutoRfpInfrastructureStack/AutoRfpApi/Default/api/{proxy+}/ANY/ApiPermission.AutoRfpInfrastructureStackAutoRfpApiC9AF8380.ANY..api.{proxy+}": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "AutoRfpApiapiproxyANYApiPermissionAutoRfpInfrastructureStackAutoRfpApiC9AF8380ANYapiproxy7F00535C"
+          }
+        ],
+        "/AutoRfpInfrastructureStack/AutoRfpApi/Default/api/{proxy+}/ANY/ApiPermission.Test.AutoRfpInfrastructureStackAutoRfpApiC9AF8380.ANY..api.{proxy+}": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "AutoRfpApiapiproxyANYApiPermissionTestAutoRfpInfrastructureStackAutoRfpApiC9AF8380ANYapiproxyC10D0FF4"
+          }
+        ],
+        "/AutoRfpInfrastructureStack/AutoRfpApi/Default/api/{proxy+}/ANY/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "AutoRfpApiapiproxyANYE8AC348A"
+          }
+        ],
+        "/AutoRfpInfrastructureStack/AutoRfpOAI/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "AutoRfpOAI0493EA57"
+          }
+        ],
+        "/AutoRfpInfrastructureStack/AutoRfpDistribution/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "AutoRfpDistribution966746B9"
+          }
+        ],
+        "/AutoRfpInfrastructureStack/AutoRfpDeploymentRole/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "AutoRfpDeploymentRole6D59E4DD"
           }
         ],
         "/AutoRfpInfrastructureStack/AutoRfpSesIdentity/Resource": [
@@ -280,16 +376,52 @@
             "data": "DocumentsBucketName"
           }
         ],
-        "/AutoRfpInfrastructureStack/S3AccessRoleArn": [
+        "/AutoRfpInfrastructureStack/WebsiteBucketName": [
           {
             "type": "aws:cdk:logicalId",
-            "data": "S3AccessRoleArn"
+            "data": "WebsiteBucketName"
+          }
+        ],
+        "/AutoRfpInfrastructureStack/CloudFrontDistributionId": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "CloudFrontDistributionId"
+          }
+        ],
+        "/AutoRfpInfrastructureStack/CloudFrontDistributionDomainName": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "CloudFrontDistributionDomainName"
+          }
+        ],
+        "/AutoRfpInfrastructureStack/DeploymentRoleArn": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "DeploymentRoleArn"
           }
         ],
         "/AutoRfpInfrastructureStack/Region": [
           {
             "type": "aws:cdk:logicalId",
             "data": "Region"
+          }
+        ],
+        "/AutoRfpInfrastructureStack/ApiGatewayUrl": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "ApiGatewayUrl"
+          }
+        ],
+        "/AutoRfpInfrastructureStack/ApiGatewayId": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "ApiGatewayId"
+          }
+        ],
+        "/AutoRfpInfrastructureStack/LambdaFunctionArn": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "LambdaFunctionArn"
           }
         ],
         "/AutoRfpInfrastructureStack/CDKMetadata/Default": [
