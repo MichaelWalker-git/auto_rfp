@@ -220,7 +220,7 @@ export class AutoRfpInfrastructureStack extends cdk.Stack {
         target: 'es2022',
         format: nodejs.OutputFormat.CJS,
         mainFields: ['module', 'main'],
-        // Don't install node modules - we'll use Lambda layers for heavy dependencies
+        // No additional node modules needed for now
         nodeModules: [],
       },
       // Temporarily remove VPC configuration to avoid networking complexity
@@ -249,6 +249,19 @@ export class AutoRfpInfrastructureStack extends cdk.Stack {
         'cognito-idp:ListUsers',
       ],
       resources: [userPool.userPoolArn],
+    }));
+
+    // Grant Lambda access to Bedrock
+    apiLambda.addToRolePolicy(new iam.PolicyStatement({
+      effect: iam.Effect.ALLOW,
+      actions: [
+        'bedrock:InvokeModel',
+        'bedrock:InvokeModelWithResponseStream',
+      ],
+      resources: [
+        `arn:aws:bedrock:${cdk.Stack.of(this).region}::foundation-model/anthropic.claude-*`,
+        `arn:aws:bedrock:${cdk.Stack.of(this).region}:${cdk.Stack.of(this).account}:inference-profile/us.anthropic.claude-*`,
+      ],
     }));
 
     // Create API Gateway

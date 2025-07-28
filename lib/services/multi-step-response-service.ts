@@ -22,7 +22,7 @@ import OpenAI from 'openai';
 export class MultiStepResponseService implements IMultiStepResponseService {
   private config: MultiStepConfig;
   private llamaIndexService: LlamaIndexService;
-  private openai: OpenAI;
+  private openai?: OpenAI;
 
   constructor(config: Partial<MultiStepConfig> = {}) {
     this.config = {
@@ -36,11 +36,21 @@ export class MultiStepResponseService implements IMultiStepResponseService {
     
     // Initialize the LlamaIndex service (will be reconfigured per request)
     this.llamaIndexService = new LlamaIndexService();
-    
-    // Initialize OpenAI for AI-powered reasoning
-    this.openai = new OpenAI({
-      apiKey: process.env.OPENAI_API_KEY,
-    });
+  }
+
+  /**
+   * Lazy initialization of OpenAI client
+   */
+  private getOpenAI(): OpenAI {
+    if (!this.openai) {
+      if (!process.env.OPENAI_API_KEY) {
+        throw new Error('OPENAI_API_KEY environment variable is required');
+      }
+      this.openai = new OpenAI({
+        apiKey: process.env.OPENAI_API_KEY,
+      });
+    }
+    return this.openai;
   }
 
   /**
@@ -268,7 +278,8 @@ Focus on:
 Return only valid JSON.`;
 
     try {
-      const response = await this.openai.chat.completions.create({
+      const openai = this.getOpenAI();
+      const response = await openai.chat.completions.create({
         model: 'gpt-4o',
         messages: [
           { role: 'system', content: 'You are an expert at analyzing RFP questions and determining optimal search strategies. Always respond with valid JSON only.' },
@@ -422,7 +433,8 @@ IMPORTANT GUIDELINES:
 Return only valid JSON.`;
 
     try {
-      const response = await this.openai.chat.completions.create({
+      const openai = this.getOpenAI();
+      const response = await openai.chat.completions.create({
         model: 'gpt-4o',
         messages: [
           { 
@@ -553,7 +565,8 @@ Return only valid JSON.`;
       console.log('Calling OpenAI for response synthesis...');
       console.log('Prompt length:', prompt.length);
       
-      const response = await this.openai.chat.completions.create({
+      const openai = this.getOpenAI();
+      const response = await openai.chat.completions.create({
         model: 'gpt-4o',
         messages: [
           { 
@@ -740,7 +753,8 @@ Consider:
 Return only valid JSON.`;
 
     try {
-      const response = await this.openai.chat.completions.create({
+      const openai = this.getOpenAI();
+      const response = await openai.chat.completions.create({
         model: 'gpt-4o',
         messages: [
           { role: 'system', content: 'You are an expert at validating RFP responses for quality and completeness. Always respond with valid JSON only.' },
@@ -929,4 +943,4 @@ Return only valid JSON.`;
 }
 
 // Export singleton instance
-export const multiStepResponseService = new MultiStepResponseService(); 
+export const multiStepResponseService = new MultiStepResponseService();

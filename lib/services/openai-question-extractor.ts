@@ -8,14 +8,10 @@ import { AIServiceError } from '@/lib/errors/api-errors';
  * OpenAI-powered question extraction service
  */
 export class OpenAIQuestionExtractor implements IAIQuestionExtractor {
-  private client: OpenAI;
+  private client?: OpenAI;
   private config: AIServiceConfig;
 
   constructor(config: Partial<AIServiceConfig> = {}) {
-    this.client = new OpenAI({
-      apiKey: process.env.OPENAI_API_KEY,
-    });
-
     this.config = {
       model: DEFAULT_LANGUAGE_MODEL,
       temperature: 0.1,
@@ -23,10 +19,21 @@ export class OpenAIQuestionExtractor implements IAIQuestionExtractor {
       timeout: 60000,
       ...config,
     };
+  }
 
-    if (!process.env.OPENAI_API_KEY) {
-      throw new AIServiceError('OpenAI API key is not configured');
+  /**
+   * Lazy initialization of OpenAI client
+   */
+  private getClient(): OpenAI {
+    if (!this.client) {
+      if (!process.env.OPENAI_API_KEY) {
+        throw new AIServiceError('OpenAI API key is not configured');
+      }
+      this.client = new OpenAI({
+        apiKey: process.env.OPENAI_API_KEY,
+      });
     }
+    return this.client;
   }
 
   /**
@@ -35,8 +42,9 @@ export class OpenAIQuestionExtractor implements IAIQuestionExtractor {
   async extractQuestions(content: string, documentName: string): Promise<ExtractedQuestions> {
     try {
       const systemPrompt = this.getSystemPrompt();
+      const client = this.getClient();
       
-      const response = await this.client.chat.completions.create({
+      const response = await client.chat.completions.create({
         model: this.config.model,
         response_format: { type: "json_object" },
         messages: [
@@ -119,4 +127,4 @@ Requirements:
 }
 
 // Export singleton instance
-export const openAIQuestionExtractor = new OpenAIQuestionExtractor(); 
+export const openAIQuestionExtractor = new OpenAIQuestionExtractor();

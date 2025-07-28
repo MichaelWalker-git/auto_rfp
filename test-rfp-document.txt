@@ -1,0 +1,31 @@
+Test RFP Document
+
+This is a sample RFP (Request for Proposal) document for testing purposes.
+
+Project Requirements:
+- Web application development
+- Database integration
+- API development
+- Cloud deployment on AWS
+- Timeline: 6 months
+- Budget: $100,000
+
+Company Information:
+- Company: Test Corp
+- Contact: John Smith
+- Email: john@testcorp.com
+- Due Date: March 15, 2025
+
+Technical Requirements:
+- React frontend
+- Node.js backend
+- PostgreSQL database
+- AWS deployment
+- CI/CD pipeline
+
+Questions for vendors:
+1. What is your experience with React development?
+2. How do you handle database optimization?
+3. What is your deployment strategy for AWS?
+4. Can you provide references from similar projects?
+5. What is your estimated timeline for completion?
