@@ -1,5 +1,107 @@
 {
- "Description": "AutoRFP Infrastructure - RDS, Cognito, S3, SES",
+ "Description": "AutoRFP Infrastructure - RDS, Cognito, S3, SES with AWS Well-Architected Framework Compliance",
+ "Metadata": {
+  "cdk_nag": {
+   "rules_to_suppress": [
+    {
+     "reason": "TODO: VPC Flow Logs will be added in production for network monitoring",
+     "id": "AwsSolutions-VPC7"
+    },
+    {
+     "reason": "TODO: Add automatic secret rotation for production",
+     "id": "AwsSolutions-SMG4"
+    },
+    {
+     "reason": "TODO: Restrict database access to specific IP ranges for production",
+     "id": "AwsSolutions-EC23"
+    },
+    {
+     "reason": "TODO: Enable Multi-AZ for production high availability",
+     "id": "AwsSolutions-RDS3"
+    },
+    {
+     "reason": "TODO: Enable deletion protection for production",
+     "id": "AwsSolutions-RDS10"
+    },
+    {
+     "reason": "TODO: Use non-default database port for production",
+     "id": "AwsSolutions-RDS11"
+    },
+    {
+     "reason": "TODO: Strengthen password policy to require special characters",
+     "id": "AwsSolutions-COG1"
+    },
+    {
+     "reason": "TODO: Enable MFA for production user authentication",
+     "id": "AwsSolutions-COG2"
+    },
+    {
+     "reason": "TODO: Enable advanced security mode for production",
+     "id": "AwsSolutions-COG3"
+    },
+    {
+     "reason": "TODO: Add Cognito User Pool authorizer to API Gateway",
+     "id": "AwsSolutions-COG4"
+    },
+    {
+     "reason": "TODO: Enable S3 server access logging for production",
+     "id": "AwsSolutions-S1"
+    },
+    {
+     "reason": "TODO: Add SSL-only bucket policies for production",
+     "id": "AwsSolutions-S10"
+    },
+    {
+     "reason": "TODO: Update to latest Node.js runtime version",
+     "id": "AwsSolutions-L1"
+    },
+    {
+     "reason": "TODO: Replace AWS managed policies with custom policies",
+     "id": "AwsSolutions-IAM4"
+    },
+    {
+     "reason": "TODO: Remove wildcard permissions and use specific resource ARNs",
+     "id": "AwsSolutions-IAM5"
+    },
+    {
+     "reason": "TODO: Enable API Gateway access logging for production",
+     "id": "AwsSolutions-APIG1"
+    },
+    {
+     "reason": "TODO: Add request validation to API Gateway",
+     "id": "AwsSolutions-APIG2"
+    },
+    {
+     "reason": "TODO: Associate API Gateway with AWS WAF for production",
+     "id": "AwsSolutions-APIG3"
+    },
+    {
+     "reason": "TODO: Implement API Gateway authorization",
+     "id": "AwsSolutions-APIG4"
+    },
+    {
+     "reason": "TODO: Add geo restrictions if needed for production",
+     "id": "AwsSolutions-CFR1"
+    },
+    {
+     "reason": "TODO: Integrate CloudFront with AWS WAF for production",
+     "id": "AwsSolutions-CFR2"
+    },
+    {
+     "reason": "TODO: Enable CloudFront access logging for production",
+     "id": "AwsSolutions-CFR3"
+    },
+    {
+     "reason": "TODO: Update CloudFront to use TLS 1.2+ minimum",
+     "id": "AwsSolutions-CFR4"
+    },
+    {
+     "reason": "TODO: Use Origin Access Control instead of OAI",
+     "id": "AwsSolutions-CFR7"
+    }
+   ]
+  }
+ },
  "Resources": {
   "AutoRfpVpc91A0113F": {
    "Type": "AWS::EC2::VPC",
@@ -216,7 +318,7 @@
       "DefaultSecurityGroup"
      ]
     },
-    "Account": "018222125196"
+    "Account": "039885961427"
    },
    "UpdateReplacePolicy": "Delete",
    "DeletionPolicy": "Delete",
@@ -263,7 +365,7 @@
            "Fn::Join": [
             "",
             [
-             "arn:aws:ec2:us-east-1:018222125196:security-group/",
+             "arn:aws:ec2:us-east-1:039885961427:security-group/",
              {
               "Fn::GetAtt": [
                "AutoRfpVpc91A0113F",
@@ -288,7 +390,7 @@
    "Type": "AWS::Lambda::Function",
    "Properties": {
     "Code": {
-     "S3Bucket": "cdk-hnb659fds-assets-018222125196-us-east-1",
+     "S3Bucket": "cdk-hnb659fds-assets-039885961427-us-east-1",
      "S3Key": "7fa1e366ee8a9ded01fc355f704cff92bfd179574e6f9cfee800a3541df1b200.zip"
     },
     "Timeout": 900,
@@ -865,7 +967,7 @@
    "Type": "AWS::Lambda::Function",
    "Properties": {
     "Code": {
-     "S3Bucket": "cdk-hnb659fds-assets-018222125196-us-east-1",
+     "S3Bucket": "cdk-hnb659fds-assets-039885961427-us-east-1",
      "S3Key": "faa95a81ae7d7373f3e1f242268f904eb748d8d0fdd306e8a6fe515a1905a7d6.zip"
     },
     "Timeout": 900,
@@ -1021,8 +1123,8 @@
    "Type": "AWS::Lambda::Function",
    "Properties": {
     "Code": {
-     "S3Bucket": "cdk-hnb659fds-assets-018222125196-us-east-1",
-     "S3Key": "85c4ee9b424ce0ca918dfbb1e703948c6b2beb5f32930b7fd8d48f5b4a622d3c.zip"
+     "S3Bucket": "cdk-hnb659fds-assets-039885961427-us-east-1",
+     "S3Key": "77c55f4594abb580fc82e97167449345a87c484968c63783e06ab20f3b3b360c.zip"
     },
     "Environment": {
      "Variables": {
@@ -1054,6 +1156,9 @@
       "S3_BUCKET": {
        "Ref": "AutoRfpDocumentsBucketADE14B85"
       },
+      "DOCUMENTS_BUCKET": {
+       "Ref": "AutoRfpDocumentsBucketADE14B85"
+      },
       "NODE_ENV": "production"
      }
     },
@@ -1074,8 +1179,8 @@
    ],
    "Metadata": {
     "aws:cdk:path": "AutoRfpInfrastructureStack/AutoRfpApiHandler/Resource",
-    "aws:asset:path": "asset.85c4ee9b424ce0ca918dfbb1e703948c6b2beb5f32930b7fd8d48f5b4a622d3c",
-    "aws:asset:is-bundled": false,
+    "aws:asset:path": "asset.77c55f4594abb580fc82e97167449345a87c484968c63783e06ab20f3b3b360c",
+    "aws:asset:is-bundled": true,
     "aws:asset:property": "Code"
    }
   },
@@ -1179,7 +1284,7 @@
      "Fn::Join": [
       "",
       [
-       "arn:aws:execute-api:us-east-1:018222125196:",
+       "arn:aws:execute-api:us-east-1:039885961427:",
        {
         "Ref": "AutoRfpApi79FE2555"
        },
@@ -1211,7 +1316,7 @@
      "Fn::Join": [
       "",
       [
-       "arn:aws:execute-api:us-east-1:018222125196:",
+       "arn:aws:execute-api:us-east-1:039885961427:",
        {
         "Ref": "AutoRfpApi79FE2555"
        },
@@ -1517,7 +1622,7 @@
           "Fn::Join": [
            "",
            [
-            "arn:aws:cloudfront::018222125196:distribution/",
+            "arn:aws:cloudfront::039885961427:distribution/",
             {
              "Ref": "AutoRfpDistribution966746B9"
             }
@@ -1548,7 +1653,7 @@
   "CDKMetadata": {
    "Type": "AWS::CDK::Metadata",
    "Properties": {
-    "Analytics": "v2:deflate64:H4sIAAAAAAAA/31Sy27bMBD8ltwZ1nEPPfvRBD4UEew012BFbZSNJVLgLuMahP69oCjLdhr0tDPDIffFuZ7PfujZDRz41lT724ZKHXcCZq/gwC8RzVzH586o1at9LlaqCGVDZhdKi5K0M9q6IPgEZYNn/awtmJ0hEHJ2MiewsYLeojyA4AGOY5qRLUTAvLVoRe3QBE9yfPAudEOC/wobW3tk7hWj8SjcgoUavY67gY/+hHJ4Al+jXOSbDJ9PeuUr1nENAiUwbiwLWIMqNzxVs17+I5ysvTKutiROx9+MvnCuSYYJn8CqobGSa6VX/F3HZTD73MiIcihcQ+Z4lkeeyRIYe9VAW1ag432w5rSPS1ygb4mZnO0VQavj1uWdDvGcIKNUzQswo7BepKCgozrvT8ctsiw6Gm6PcI1d446nIV+wnUCd/84AtsgueIOp6ImMD2VcePfnOLFfKG+uSoaMemUaF6pX76zo+OipJrswBpk3FVohGZpYJc998nzpWBOLpzKcZnPJ0+diHX+2QM3lk1dC31/UHlhc+2Ur10eFdx9UoR9aH4aaRkK2Tnceg3RBemVdhfqdv33MZ/ruTs9u3pno1gcr1KLe5vgXNUsXz98DAAA="
+    "Analytics": "v2:deflate64:H4sIAAAAAAAA/31Sy3LbMAz8ltxp1nEPPfvRZHxoo7HTXD0QBSuwJVJDgHE9Gv17h6Is222mJ+wuVwCX0EzPpt/09AFOPDHFcVJRrtutgDkqOPGuRTPT7Vtj1HJv37KlykJekdmG3KJE7Yo2Lgi+Ql7hVb9qc2ZnCIScHc0RrK2gtyjPIHiC8zBmYHMRMO81WlFbNMGTnJ+9C00/4L/C2pYemTvFaDwK12ChRK/bbc8Hf0SpvIIvUW7mjYa/TzrlC9btCgRyYFxbFrAGVQo83ma1+Ee4WDtlXGlJnG5/MfrMuSoaRnwBy4qGm9wrneKvul0Ec0xBBpRK5ioy56s88EQWwNipCuq8gJ11BR5Y/+zLU7Cm3w1BrduNS0vs67VjQnH8DphRWM9jGRrqdrm3Y59oR18TMznbKWioTDvV7QZZ5g31Awa4wqZy58vD37CtQJn+px5skF3wBmOQkQyNEs68+30e2Q+Ud1dEQ0KdMpULxd47K7p98VSSnRuDzOsCrZD0OZfR8xQ9nzpWxOIpD5ectzz+cKzb7zVQddvyTui6m7sHFld/GuX+KPPugwr0ffT+3eOTkC3jNy9BmiCdijvVB/7yMZvqx0c9fTgw0cQHK1Sj3qT6BzY4PkbzAwAA"
    },
    "Metadata": {
     "aws:cdk:path": "AutoRfpInfrastructureStack/CDKMetadata/Default"

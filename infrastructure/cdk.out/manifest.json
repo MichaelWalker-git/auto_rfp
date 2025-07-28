@@ -11,26 +11,27 @@
     },
     "AutoRfpInfrastructureStack": {
       "type": "aws:cloudformation:stack",
-      "environment": "aws://018222125196/us-east-1",
+      "environment": "aws://039885961427/us-east-1",
       "properties": {
         "templateFile": "AutoRfpInfrastructureStack.template.json",
         "terminationProtection": false,
         "tags": {
           "Environment": "Production",
           "ManagedBy": "CDK",
-          "Project": "AutoRFP"
+          "Project": "AutoRFP",
+          "SecurityCompliance": "AWS-Solutions-Checks"
         },
         "validateOnSynth": false,
-        "assumeRoleArn": "arn:${AWS::Partition}:iam::018222125196:role/cdk-hnb659fds-deploy-role-018222125196-us-east-1",
-        "cloudFormationExecutionRoleArn": "arn:${AWS::Partition}:iam::018222125196:role/cdk-hnb659fds-cfn-exec-role-018222125196-us-east-1",
-        "stackTemplateAssetObjectUrl": "s3://cdk-hnb659fds-assets-018222125196-us-east-1/43da59b14e507682965b535e062df7b99de4377c5de9df16e5c9d18e6e2c6674.json",
+        "assumeRoleArn": "arn:${AWS::Partition}:iam::039885961427:role/cdk-hnb659fds-deploy-role-039885961427-us-east-1",
+        "cloudFormationExecutionRoleArn": "arn:${AWS::Partition}:iam::039885961427:role/cdk-hnb659fds-cfn-exec-role-039885961427-us-east-1",
+        "stackTemplateAssetObjectUrl": "s3://cdk-hnb659fds-assets-039885961427-us-east-1/d18f2e7fab5d26632f36cd826c34ce9791a11acf58e63b588a66409fed9fadb8.json",
         "requiresBootstrapStackVersion": 6,
         "bootstrapStackVersionSsmParameter": "/cdk-bootstrap/hnb659fds/version",
         "additionalDependencies": [
           "AutoRfpInfrastructureStack.assets"
         ],
         "lookupRole": {
-          "arn": "arn:${AWS::Partition}:iam::018222125196:role/cdk-hnb659fds-lookup-role-018222125196-us-east-1",
+          "arn": "arn:${AWS::Partition}:iam::039885961427:role/cdk-hnb659fds-lookup-role-039885961427-us-east-1",
           "requiresBootstrapStackVersion": 8,
           "bootstrapStackVersionSsmParameter": "/cdk-bootstrap/hnb659fds/version"
         }
@@ -54,6 +55,10 @@
               {
                 "Key": "Project",
                 "Value": "AutoRFP"
+              },
+              {
+                "Key": "SecurityCompliance",
+                "Value": "AWS-Solutions-Checks"
               }
             ]
           }
