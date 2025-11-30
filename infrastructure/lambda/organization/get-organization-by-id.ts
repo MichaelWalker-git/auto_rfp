@@ -1,0 +1,89 @@
+import {
+  APIGatewayProxyEventV2,
+  APIGatewayProxyResultV2,
+} from 'aws-lambda';
+import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
+import {
+  DynamoDBDocumentClient,
+  GetCommand,
+} from '@aws-sdk/lib-dynamodb';
+import { ORG_PK } from '../constants/organization';
+import { PK_NAME, SK_NAME } from '../constants/common';
+import { apiResponse } from '../helpers/api';
+import type { OrganizationItem } from '../schemas/organization';
+
+// --- DynamoDB setup ---
+const ddbClient = new DynamoDBClient({});
+const docClient = DynamoDBDocumentClient.from(ddbClient, {
+  marshallOptions: {
+    removeUndefinedValues: true,
+  },
+});
+
+const DB_TABLE_NAME = process.env.DB_TABLE_NAME;
+
+if (!DB_TABLE_NAME) {
+  throw new Error('DB_TABLE_NAME environment variable is not set');
+}
+
+export const handler = async (
+  event: APIGatewayProxyEventV2,
+): Promise<APIGatewayProxyResultV2> => {
+  try {
+    const orgId = event.pathParameters?.id || event.pathParameters?.orgId;
+
+    if (!orgId) {
+      return apiResponse(400, { message: 'Missing required path parameter: id' });
+    }
+
+    const orgItem = await getOrganizationById(orgId);
+
+    if (!orgItem) {
+      return apiResponse(404, { message: 'Organization not found' });
+    }
+
+    const enriched = enrichUsersCount(orgItem);
+
+    return apiResponse(200, enriched);
+  } catch (err) {
+    console.error('Error in getOrganizationById handler:', err);
+
+    return apiResponse(500, {
+      message: 'Internal server error',
+      error: err instanceof Error ? err.message : 'Unknown error',
+    });
+  }
+};
+
+export async function getOrganizationById(
+  orgId: string,
+): Promise<OrganizationItem | undefined> {
+  const res = await docClient.send(
+    new GetCommand({
+      TableName: DB_TABLE_NAME,
+      Key: {
+        [PK_NAME]: ORG_PK,
+        [SK_NAME]: `ORG#${orgId}`,
+      },
+    }),
+  );
+
+  return res.Item as OrganizationItem | undefined;
+}
+
+const enrichUsersCount = (org: OrganizationItem & { sort_key: string }) => {
+  const count = {
+    organizationUsers: 0,
+    projects: 0,
+  };
+
+  return {
+    ...org,
+    _count: count,
+    id: orgSortKeyToId(org.sort_key),
+  };
+};
+
+const orgSortKeyToId = (sortKey: string) => {
+  return sortKey.split('#')[1];
+};

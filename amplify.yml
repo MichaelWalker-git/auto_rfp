@@ -1,0 +1,30 @@
+version: 1
+applications:
+  - appRoot: web-app
+    frontend:
+      phases:
+        preBuild:
+          commands:
+            - corepack enable
+            - corepack prepare pnpm@latest --activate
+            - pnpm install --frozen-lockfile
+        build:
+          commands:
+            - pnpm build
+      artifacts:
+        baseDirectory: .next
+        files:
+          - '**/*'
+      cache:
+        paths:
+          - node_modules/**/*
+          - .next/cache/**/*
+      redirects:
+        - source: </[^.]*>
+          target: /
+          status: 200
+    customHeaders:
+      - pattern: '**/*'
+        headers:
+          - key: Strict-Transport-Security
+            value: max-age=31536000; includeSubDomains; preload

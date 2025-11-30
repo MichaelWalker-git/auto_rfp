@@ -1,0 +1,52 @@
+// lib/database-stack.ts
+import * as cdk from 'aws-cdk-lib';
+import { Construct } from 'constructs';
+import * as dynamodb from 'aws-cdk-lib/aws-dynamodb';
+import * as iam from 'aws-cdk-lib/aws-iam';
+
+export interface DatabaseStackProps extends cdk.StackProps {
+  /**
+   * Stage name: e.g. "dev", "test", "prod"
+   */
+  stage: string;
+}
+
+export class DatabaseStack extends cdk.Stack {
+  public readonly tableName: dynamodb.Table;
+
+  constructor(scope: Construct, id: string, props: DatabaseStackProps) {
+    super(scope, id, props);
+
+    const { stage } = props;
+
+    this.tableName = new dynamodb.Table(this, 'RFPTable', {
+      tableName: `RFP-table-${stage}`,
+      partitionKey: {
+        name: 'partition_key',
+        type: dynamodb.AttributeType.STRING,
+      },
+      sortKey: { name: 'sort_key', type: dynamodb.AttributeType.STRING },
+      billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
+      removalPolicy: cdk.RemovalPolicy.DESTROY, // change to RETAIN for prod
+      pointInTimeRecovery: true,
+      encryption: dynamodb.TableEncryption.AWS_MANAGED,
+    });
+
+    // Optional: basic indexes if you know you’ll need them
+    // this.organizationsTable.addGlobalSecondaryIndex({
+    //   indexName: 'byOwner',
+    //   partitionKey: { name: 'ownerUserId', type: dynamodb.AttributeType.STRING },
+    // });
+
+    // Outputs
+    new cdk.CfnOutput(this, 'TableName', {
+      value: this.tableName.tableName,
+      description: 'DynamoDB table name',
+    });
+
+    new cdk.CfnOutput(this, 'TableArn', {
+      value: this.tableName.tableArn,
+      description: 'DynamoDB table ARN for organizations',
+    });
+  }
+}

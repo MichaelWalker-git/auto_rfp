@@ -1,28 +1,77 @@
 #!/usr/bin/env node
 import 'source-map-support/register';
 import * as cdk from 'aws-cdk-lib';
-import { AutoRfpInfrastructureStack } from '../lib/auto-rfp-infrastructure-stack';
 import { AwsSolutionsChecks } from 'cdk-nag';
+import { AuthStack } from '../lib/auth-stack';
+import { ApiStack } from '../lib/api-stack';
+import { StorageStack } from '../lib/storage-stack';
+import { DatabaseStack } from '../lib/database-stack';
+import { NetworkStack } from '../lib/network-stack';
+import { AmplifyFeStack } from '../lib/amplify-fe-stack';
 
 const app = new cdk.App();
 
-// Get environment configuration
 const env = {
   account: process.env.CDK_DEFAULT_ACCOUNT || '018222125196', // Hardcode the account ID we obtained
   region: process.env.CDK_DEFAULT_REGION || 'us-east-1',
 };
 
-// Create the main infrastructure stack
-const stack = new AutoRfpInfrastructureStack(app, 'AutoRfpInfrastructureStack', {
+const stage = 'Dev'
+
+const network = new NetworkStack(app, 'AutoRfp-Network', {
   env,
-  description: 'AutoRFP Infrastructure - RDS, Cognito, S3, SES with AWS Well-Architected Framework Compliance',
-  tags: {
-    Project: 'AutoRFP',
-    Environment: 'Production',
-    ManagedBy: 'CDK',
-    SecurityCompliance: 'AWS-Solutions-Checks',
-  },
+  existingVpcId: 'vpc-07171e4bf57f2ceed',
 });
+
+const feURL = 'https://dpxejv2wk0.execute-api.us-east-1.amazonaws.com'
+
+const auth = new AuthStack(app, `AutoRfp-Auth-${stage}`, {
+  env,
+  stage: stage,
+  domainPrefixBase: 'auto-rfp',
+  callbackUrls: [
+    'http://localhost:3000',
+    feURL
+  ]
+});
+
+const storage = new StorageStack(app, `AutoRfp-Storage-${stage}`, {
+  env,
+  stage,
+})
+
+const db = new DatabaseStack(app, `AutoRfp-DynamoDatabase-${stage}`, {
+  env,
+  stage,
+});
+
+const api = new ApiStack(app, `AutoRfp-API-${stage}`, {
+  env,
+  stage,
+  documentsBucket: storage.documentsBucket,
+  mainTable: db.tableName,
+  userPool: auth.userPool,
+  userPoolClient: auth.userPoolClient,
+});
+
+
+const githubToken = cdk.SecretValue.secretsManager('auto-rfp/github-token');
+
+new AmplifyFeStack(app, `AmplifyFeStack-${stage}`, {
+  stage,
+  env,
+  owner: 'MichaelWalker-git',
+  repository: 'auto_rfp',
+  branch: stage.toLowerCase() == 'dev' ? 'develop' : 'main',
+  githubToken,
+
+  cognitoUserPoolId: auth.userPool.userPoolId,
+  cognitoUserPoolClientId: auth.userPoolClient.userPoolClientId,
+  cognitoDomainUrl: auth.userPoolDomain.baseUrl(),
+  baseApiUrl: api.api.url,
+  region: env.region!,
+});
+
 
 // Add CDK NAG AWS Solutions Checks for security compliance
 cdk.Aspects.of(app).add(new AwsSolutionsChecks({ verbose: true }));
