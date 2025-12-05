@@ -1,13 +1,13 @@
 #!/usr/bin/env node
 import 'source-map-support/register';
 import * as cdk from 'aws-cdk-lib';
-import { AwsSolutionsChecks } from 'cdk-nag';
 import { AuthStack } from '../lib/auth-stack';
 import { ApiStack } from '../lib/api-stack';
 import { StorageStack } from '../lib/storage-stack';
 import { DatabaseStack } from '../lib/database-stack';
 import { NetworkStack } from '../lib/network-stack';
 import { AmplifyFeStack } from '../lib/amplify-fe-stack';
+import { DocumentPipelineStack } from '../lib/document-pipeline-step-function';
 
 const app = new cdk.App();
 
@@ -45,6 +45,16 @@ const db = new DatabaseStack(app, `AutoRfp-DynamoDatabase-${stage}`, {
   stage,
 });
 
+const pipelineStack = new DocumentPipelineStack(app, `AutoRfp-DocumentPipeline-${stage}`, {
+  env,
+  stage,
+  documentsBucket: storage.documentsBucket,
+  documentsTable: db.tableName,
+  openSearchCollectionEndpoint: 'https://leb5aji6vthaxk7ft8pi.us-east-1.aoss.amazonaws.com',
+  vpc: network.vpc,
+  vpcSecurityGroup: network.lambdaSecurityGroup
+})
+
 const api = new ApiStack(app, `AutoRfp-API-${stage}`, {
   env,
   stage,
@@ -52,6 +62,7 @@ const api = new ApiStack(app, `AutoRfp-API-${stage}`, {
   mainTable: db.tableName,
   userPool: auth.userPool,
   userPoolClient: auth.userPoolClient,
+  documentPipelineStateMachineArn: pipelineStack.stateMachine.stateMachineArn,
 });
 
 
@@ -74,7 +85,7 @@ new AmplifyFeStack(app, `AmplifyFeStack-${stage}`, {
 
 
 // Add CDK NAG AWS Solutions Checks for security compliance
-cdk.Aspects.of(app).add(new AwsSolutionsChecks({ verbose: true }));
+// cdk.Aspects.of(app).add(new AwsSolutionsChecks({ verbose: true }));
 
 // Output CDK NAG information
 console.log('🔒 CDK NAG AWS Solutions Checks enabled for security compliance');

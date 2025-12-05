@@ -30,6 +30,7 @@ export class DatabaseStack extends cdk.Stack {
       removalPolicy: cdk.RemovalPolicy.DESTROY, // change to RETAIN for prod
       pointInTimeRecovery: true,
       encryption: dynamodb.TableEncryption.AWS_MANAGED,
+      stream: dynamodb.StreamViewType.NEW_IMAGE,
     });
 
     // Optional: basic indexes if you know you’ll need them
