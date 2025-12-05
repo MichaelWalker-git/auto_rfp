@@ -1,135 +1,106 @@
 import * as cdk from 'aws-cdk-lib';
+import { Stack, StackProps } from 'aws-cdk-lib';
 import { Construct } from 'constructs';
 import * as oss from 'aws-cdk-lib/aws-opensearchserverless';
 
-export interface OpenSearchServerlessStackProps extends cdk.StackProps {
+export interface OpenSearchServerlessStackProps extends StackProps {
   stage: string;
 }
 
 /**
- * Creates an OpenSearch Serverless VECTORSEARCH collection for RAG
- * and grants access to the auto-rfp Lambda role:
- *   arn:aws:iam::<account>:role/auto-rfp-api-lambda-role-<stage>
+ * Provisions an OpenSearch Serverless SEARCH collection and
+ * exposes its HTTPS endpoint.
  *
- * Exposes:
- *   - collectionEndpoint: used as OPENSEARCH_ENDPOINT
- *   - indexName: logical index name (OPENSEARCH_INDEX)
+ * Use `collectionEndpoint` in your DocumentPipelineStack env:
+ *   OPENSEARCH_ENDPOINT = osStack.collectionEndpoint
  */
-export class OpenSearchServerlessStack extends cdk.Stack {
+export class OpenSearchServerlessStack extends Stack {
+  public readonly collection: oss.CfnCollection;
+  public readonly collectionName: string;
   public readonly collectionEndpoint: string;
-  public readonly indexName: string;
 
   constructor(scope: Construct, id: string, props: OpenSearchServerlessStackProps) {
     super(scope, id, props);
 
     const { stage } = props;
 
-    const collectionName = `auto-rfp-rag-${stage}`;
-    const indexName = `auto-rfp-rag-index-${stage}`;
-    this.indexName = indexName;
+    // Normalized collection name (lowercase, no weird chars)
+    const baseName = `auto-rfp-${stage}-docs`.toLowerCase();
+    this.collectionName = baseName.replace(/[^a-z0-9-]/g, '-');
 
-    // 1) VECTORSEARCH collection
-    const collection = new oss.CfnCollection(this, 'RagCollection', {
-      name: collectionName,
-      type: 'VECTORSEARCH',
-      description: `AutoRFP RAG collection (${stage})`,
-    });
-
-    // 2) Encryption policy (AWS-owned key)
-    new oss.CfnSecurityPolicy(this, 'RagEncryptionPolicy', {
-      name: `auto-rfp-rag-encryption-${stage.toLowerCase()}`,
-      type: 'encryption',
-      policy: JSON.stringify([
-        {
+    //
+    // 1) Encryption policy – must exist BEFORE the collection
+    //
+    const encryptionPolicy = new oss.CfnSecurityPolicy(
+      this,
+      'DocumentsEncryptionPolicy',
+      {
+        name: `${this.collectionName}-enc-policy`,
+        type: 'encryption',
+        description: `Encryption policy for ${this.collectionName}`,
+        policy: JSON.stringify({
           Rules: [
             {
+              // Apply to all collections, including this one
+              Resource: ['collection/*'],
               ResourceType: 'collection',
-              Resource: [`collection/${collectionName}`],
-            },
-            {
-              ResourceType: 'index',
-              Resource: [`index/${collectionName}/*`],
             },
           ],
           AWSOwnedKey: true,
-        },
-      ]),
+        }),
+      },
+    );
+
+    //
+    // 2) Network policy – allow public HTTPS access but IAM-protected
+    //
+    const networkPolicy = new oss.CfnSecurityPolicy(
+      this,
+      'DocumentsNetworkPolicy',
+      {
+        name: `${this.collectionName}-net-policy`,
+        type: 'network',
+        description: `Network policy for ${this.collectionName}`,
+        policy: JSON.stringify([
+          {
+            Description:
+              'Public HTTPS access to collections, restricted by IAM',
+            Rules: [
+              {
+                Resource: ['collection/*'],
+                ResourceType: 'collection',
+              },
+            ],
+            AllowFromPublic: true,
+          },
+        ]),
+      },
+    );
+
+    //
+    // 3) Collection – depends on both policies (fixes your error)
+    //
+    this.collection = new oss.CfnCollection(this, 'DocumentsCollection', {
+      name: this.collectionName,
+      description: `Serverless collection for AutoRFP document embeddings (${stage})`,
+      type: 'SEARCH',
+    });
+    this.collection.addDependency(encryptionPolicy);
+    this.collection.addDependency(networkPolicy);
+
+    //
+    // 4) Expose endpoint for other stacks
+    //
+    this.collectionEndpoint = this.collection.attrCollectionEndpoint;
+
+    new cdk.CfnOutput(this, 'CollectionName', {
+      value: this.collectionName,
+      exportName: `${this.stackName}-CollectionName`,
     });
 
-    // 3) Network policy
-    // DEV: Allow from public; tighten to VPC / CIDR for prod.
-    new oss.CfnSecurityPolicy(this, 'RagNetworkPolicy', {
-      name: `auto-rfp-rag-network-${stage.toLowerCase()}`,
-      type: 'network',
-      policy: JSON.stringify([
-        {
-          Rules: [
-            {
-              ResourceType: 'collection',
-              Resource: [`collection/${collectionName}`],
-            },
-            {
-              ResourceType: 'dashboard',
-              Resource: ['dashboard/*'],
-            },
-          ],
-          AllowFromPublic: true, // TODO: lock down in production
-        },
-      ]),
-    });
-
-    // 4) Data access policy: allow your Lambda role to read/write documents
-    // Matches the roleName you use in ApiStack: auto-rfp-api-lambda-role-<stage>
-    const lambdaRoleArn = `arn:aws:iam::${cdk.Stack.of(this).account}:role/auto-rfp-api-lambda-role-${stage}`;
-
-    new oss.CfnAccessPolicy(this, 'RagDataAccessPolicy', {
-      name: `auto-rfp-rag-access-${stage.toLowerCase()}`,
-      type: 'data',
-      policy: JSON.stringify([
-        {
-          Description: 'Lambda access to AutoRFP RAG collection/index',
-          Rules: [
-            {
-              ResourceType: 'collection',
-              Resource: [`collection/${collectionName}`],
-              Permission: [
-                'aoss:DescribeCollectionItems',
-                'aoss:APIAccessAll',
-              ],
-            },
-            {
-              ResourceType: 'index',
-              Resource: [`index/${collectionName}/*`],
-              Permission: [
-                'aoss:CreateIndex',
-                'aoss:UpdateIndex',
-                'aoss:DescribeIndex',
-                'aoss:ReadDocument',
-                'aoss:WriteDocument',
-              ],
-            },
-          ],
-          Principal: [lambdaRoleArn],
-        },
-      ]),
-    });
-
-    // 5) Expose endpoint
-    this.collectionEndpoint = collection.attrCollectionEndpoint;
-
-    new cdk.CfnOutput(this, 'OpenSearchCollectionName', {
-      value: collectionName,
-      description: 'OpenSearch Serverless collection name',
-    });
-
-    new cdk.CfnOutput(this, 'OpenSearchCollectionEndpoint', {
+    new cdk.CfnOutput(this, 'CollectionEndpoint', {
       value: this.collectionEndpoint,
-      description: 'OpenSearch Serverless collection endpoint (for OPENSEARCH_ENDPOINT)',
-    });
-
-    new cdk.CfnOutput(this, 'OpenSearchIndexName', {
-      value: this.indexName,
-      description: 'Default RAG index name (for OPENSEARCH_INDEX)',
+      exportName: `${this.stackName}-CollectionEndpoint`,
     });
   }
 }

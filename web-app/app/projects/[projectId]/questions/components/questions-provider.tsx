@@ -6,6 +6,7 @@ import { AnswerSource, RfpDocument } from '@/types/api';
 import { useMultiStepResponse } from '@/hooks/use-multi-step-response';
 import { useQuestions as useLoadQuestions } from '@/lib/hooks/use-api';
 import { useProject } from '@/lib/hooks/use-project';
+import { CreateAnswerDTO, useCreateAnswer } from '@/lib/hooks/use-answer';
 
 // Interfaces
 interface AnswerData {
@@ -131,6 +132,7 @@ export function QuestionsProvider({ children, projectId }: QuestionsProviderProp
   const [currentQuestionText, setCurrentQuestionText] = useState<string>('');
   const { data: project, isLoading: isProjectLoading } = useProject(projectId);
   const { data: rfpDocument, isLoading: isQuestionsLoading, mutate: mutateQuestions } = useLoadQuestions(projectId);
+  const { trigger: createAnswer } = useCreateAnswer(projectId);
   const isLoading = isProjectLoading || isQuestionsLoading;
   // Use the multi-step response hook
   const {
@@ -370,30 +372,26 @@ export function QuestionsProvider({ children, projectId }: QuestionsProviderProp
     });
 
     try {
-      const response = await fetch(`/api/questions/${projectId}/answers/${questionId}`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(answers[questionId]),
-      });
+      const response = await createAnswer({
+        questionId: questionId,
+        text: answers[questionId].text,
+      } as CreateAnswerDTO)
 
-      if (response.ok) {
+      if (response.id) {
         setUnsavedQuestions(prev => {
           const updated = new Set(prev);
           updated.delete(questionId);
           return updated;
         });
 
-        const result = await response.json();
-        setLastSaved(result.timestamp);
+        setLastSaved(response.updatedAt);
 
         toast({
           title: 'Answer Saved',
           description: 'Your answer has been saved successfully.',
         });
       } else {
-        throw new Error(`Failed to save answer: ${response.statusText}`);
+        throw new Error(`Failed to save answer: ${response}`);
       }
     } catch (error) {
       console.error(`Error saving answer for question ${questionId}:`, error);

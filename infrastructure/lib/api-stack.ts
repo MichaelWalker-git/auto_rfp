@@ -17,6 +17,7 @@ export interface ApiStackProps extends cdk.StackProps {
   mainTable: dynamodb.ITable;
   userPool: cognito.IUserPool;
   userPoolClient: cognito.IUserPoolClient;
+  documentPipelineStateMachineArn: string;
 }
 
 export class ApiStack extends cdk.Stack {
@@ -27,9 +28,12 @@ export class ApiStack extends cdk.Stack {
   private readonly organizationApi: ApiNestedStack;
   private readonly projectApi: ApiNestedStack;
   private readonly questionApi: ApiNestedStack;
+  private readonly answerApi: ApiNestedStack;
   private readonly presignedUrlApi: ApiNestedStack;
   private readonly fileApi: ApiNestedStack;
   private readonly textractApi: ApiNestedStack;
+  private readonly knowledgeBaseApi: ApiNestedStack;
+  private readonly documentApi: ApiNestedStack;
 
 
   constructor(scope: Construct, id: string, props: ApiStackProps) {
@@ -41,6 +45,7 @@ export class ApiStack extends cdk.Stack {
       mainTable,
       userPool,
       userPoolClient,
+      documentPipelineStateMachineArn
     } = props;
 
     // 1) Common REST API
@@ -107,6 +112,17 @@ export class ApiStack extends cdk.Stack {
       new cdk.aws_iam.PolicyStatement({
         actions: ['secretsmanager:GetSecretValue'],
         resources: [`${process.env.BB_PROD_CREDENTIALS_ARN || '*'}`],
+        effect: cdk.aws_iam.Effect.ALLOW,
+      }),
+      new iam.PolicyStatement({
+        actions: ['es:ESHttpPost', 'es:ESHttpPut', 'es:ESHttpGet'],
+        resources: [
+          'arn:aws:es:us-west-2:039885961427:domain/prodopensearchd-lxtzjp7drbvs/*',
+        ],
+      }),
+      new iam.PolicyStatement({
+        actions: ['states:StartExecution'],
+          resources: [documentPipelineStateMachineArn],
         effect: cdk.aws_iam.Effect.ALLOW,
       }),
     ];
@@ -183,6 +199,13 @@ export class ApiStack extends cdk.Stack {
       // Cognito config for backend use
       COGNITO_USER_POOL_ID: userPool.userPoolId,
       COGNITO_USER_POOL_CLIENT_ID: userPoolClient.userPoolClientId,
+
+      BEDROCK_REGION: 'us-east-1',
+      BEDROCK_EMBEDDING_MODEL_ID: 'amazon.titan-embed-text-v2:0',
+      OPENSEARCH_ENDPOINT: 'https://vpc-prodopensearchd-lxtzjp7drbvs-jpl5tum2ugssgk3mp6gy7evhrq.us-west-2.es.amazonaws.com',
+      OPENSEARCH_INDEX: 'auto-rfp-kb-documents',
+      OPENSEARCH_REGION: 'us-west-1',
+      STATE_MACHINE_ARN: documentPipelineStateMachineArn
     };
 
     // 4) First entity: Organization API
@@ -200,6 +223,7 @@ export class ApiStack extends cdk.Stack {
       commonEnv,
       userPool
     });
+
     this.questionApi = new ApiNestedStack(this, 'QuestionApi', {
       api: this.api,
       basePath: 'question',
@@ -207,6 +231,20 @@ export class ApiStack extends cdk.Stack {
       commonEnv,
       userPool
     });
+
+    this.answerApi = new ApiNestedStack(this, 'AnswerApi', {
+      api: this.api,
+      basePath: 'answer',
+      lambdaRole,
+      commonEnv,
+      userPool
+    });
+
+    this.answerApi.addRoute(
+      '/create-answer',
+      'POST',
+      'lambda/answer/create-answer.ts',
+    );
 
     this.presignedUrlApi = new ApiNestedStack(this, 'PresignedUrlApi', {
       api: this.api,
@@ -232,7 +270,90 @@ export class ApiStack extends cdk.Stack {
       userPool
     });
 
-    // Example routes for organization (all lambdas will see DB_TABLE_NAME etc.)
+    this.knowledgeBaseApi = new ApiNestedStack(this, 'KnowledgeBaseApi', {
+      api: this.api,
+      basePath: 'knowledgebase',
+      lambdaRole,
+      commonEnv,
+      userPool
+    });
+
+
+    this.knowledgeBaseApi.addRoute(
+      '/create-knowledgebase',
+      'POST',
+      'lambda/knowledgebase/create-knowledgebase.ts',
+    )
+
+    this.knowledgeBaseApi.addRoute(
+      '/delete-knowledgebase',
+      'DELETE',
+      'lambda/knowledgebase/delete-knowledgebase.ts',
+    )
+
+    this.knowledgeBaseApi.addRoute(
+      '/edit-knowledgebase',
+      'PATCH',
+      'lambda/knowledgebase/edit-knowledgebase.ts',
+    )
+
+    this.knowledgeBaseApi.addRoute(
+      '/get-knowledgebases',
+      'GET',
+      'lambda/knowledgebase/get-knowledgebases.ts',
+    )
+
+    this.knowledgeBaseApi.addRoute(
+      '/get-knowledgebase',
+      'GET',
+      'lambda/knowledgebase/get-knowledgebase.ts',
+    )
+
+    this.documentApi = new ApiNestedStack(this, 'DocumentApi', {
+      api: this.api,
+      basePath: 'document',
+      lambdaRole,
+      commonEnv,
+      userPool,
+    });
+
+    this.documentApi.addRoute(
+      '/create-document',
+      'POST',
+      'lambda/document/create-document.ts',
+    );
+
+    this.documentApi.addRoute(
+      '/edit-document',
+      'PATCH',
+      'lambda/document/edit-document.ts',
+    );
+
+    this.documentApi.addRoute(
+      '/delete-document',
+      'DELETE',
+      'lambda/document/delete-document.ts',
+    );
+
+    this.documentApi.addRoute(
+      '/get-documents',
+      'GET',
+      'lambda/document/get-documents.ts',
+    );
+
+    this.documentApi.addRoute(
+      '/get-document',
+      'GET',
+      'lambda/document/get-document.ts',
+    );
+
+    this.documentApi.addRoute(
+      '/start-document-pipeline',
+      'POST',
+      'lambda/document/start-document-pipeline.ts',
+    );
+
+
     this.organizationApi.addRoute(
       '/get-organizations',
       'GET',
@@ -374,8 +495,12 @@ export class ApiStack extends cdk.Stack {
     this.addCdkNagSuppressions();
   }
 
+
+
+
+
   // Later you can add:
-  // this.userApi = new ApiNestedStack(this, 'UserApi', { api: this.api, basePath: 'user', lambdaRole, commonEnv });
+  // this.userApi = new ApiNestedStack(this, 'UserApi', { api: this.api, basePath: 'user', this.lambdaRole, commonEnv });
   // this.userApi.addRoute('/get-users', 'GET', 'lambda/user/get-users.ts');
   // TODO: REMOVE IN PRODUCTION - These suppressions are for development only
   // Each suppression needs to be addressed for production deployment

@@ -29,7 +29,7 @@ import {
 } from '@/components/ui/accordion';
 import { ProcessingModal, ProcessingStatus } from './ProcessingModal';
 import { DocumentParseResult } from '@/lib/validators/document-parse';
-import { uploadFileToS3, usePresignUpload } from '@/lib/hooks/usePresign';
+import { uploadFileToS3, usePresignUpload } from '@/lib/hooks/use-presign';
 import { useStartTextractExtraction, useTextractResult } from '@/lib/hooks/use-textract';
 
 interface FileUploaderProps {
