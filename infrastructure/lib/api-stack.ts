@@ -2,6 +2,7 @@ import * as cdk from 'aws-cdk-lib';
 import * as iam from 'aws-cdk-lib/aws-iam';
 import * as apigw from 'aws-cdk-lib/aws-apigateway';
 import * as s3 from 'aws-cdk-lib/aws-s3';
+import * as ec2 from 'aws-cdk-lib/aws-ec2';
 import * as cognito from 'aws-cdk-lib/aws-cognito';
 import * as dynamodb from 'aws-cdk-lib/aws-dynamodb';
 import { Construct } from 'constructs';
@@ -18,6 +19,8 @@ export interface ApiStackProps extends cdk.StackProps {
   userPool: cognito.IUserPool;
   userPoolClient: cognito.IUserPoolClient;
   documentPipelineStateMachineArn: string;
+  openSearchCollectionEndpoint: string;
+  vpc: ec2.IVpc;
 }
 
 export class ApiStack extends cdk.Stack {
@@ -45,7 +48,9 @@ export class ApiStack extends cdk.Stack {
       mainTable,
       userPool,
       userPoolClient,
-      documentPipelineStateMachineArn
+      documentPipelineStateMachineArn,
+      openSearchCollectionEndpoint,
+      vpc
     } = props;
 
     // 1) Common REST API
@@ -124,7 +129,7 @@ export class ApiStack extends cdk.Stack {
         actions: ['states:StartExecution'],
           resources: [documentPipelineStateMachineArn],
         effect: cdk.aws_iam.Effect.ALLOW,
-      }),
+      })
     ];
 
     this.policy = new cdk.aws_iam.Policy(this, 'LambdaPolicy', {
@@ -164,10 +169,7 @@ export class ApiStack extends cdk.Stack {
     lambdaRole.addToPrincipalPolicy(
       new iam.PolicyStatement({
         actions: ['bedrock:InvokeModel', 'bedrock:InvokeModelWithResponseStream'],
-        resources: [
-          `arn:aws:bedrock:${cdk.Stack.of(this).region}::foundation-model/anthropic.claude-*`,
-          `arn:aws:bedrock:${cdk.Stack.of(this).region}:${cdk.Stack.of(this).account}:inference-profile/us.anthropic.claude-*`,
-        ],
+        resources: ["*"],
         effect: iam.Effect.ALLOW,
       }),
     );
@@ -184,6 +186,15 @@ export class ApiStack extends cdk.Stack {
         effect: iam.Effect.ALLOW,
       }),
     );
+
+
+    lambdaRole.addToPrincipalPolicy(
+      new iam.PolicyStatement({
+        actions: ['aoss:*'],
+        resources: ['*'],
+        effect: iam.Effect.ALLOW,
+      })
+    )
 
     // 3) Common env that every lambda will get by default
     //    Adjust PK/SK env names to what you actually use.
@@ -202,10 +213,10 @@ export class ApiStack extends cdk.Stack {
 
       BEDROCK_REGION: 'us-east-1',
       BEDROCK_EMBEDDING_MODEL_ID: 'amazon.titan-embed-text-v2:0',
-      OPENSEARCH_ENDPOINT: 'https://vpc-prodopensearchd-lxtzjp7drbvs-jpl5tum2ugssgk3mp6gy7evhrq.us-west-2.es.amazonaws.com',
-      OPENSEARCH_INDEX: 'auto-rfp-kb-documents',
-      OPENSEARCH_REGION: 'us-west-1',
-      STATE_MACHINE_ARN: documentPipelineStateMachineArn
+      BEDROCK_MODEL_ID: 'anthropic.claude-3-haiku-20240307-v1:0',
+      OPENSEARCH_INDEX: 'documents',
+      STATE_MACHINE_ARN: documentPipelineStateMachineArn,
+      OPENSEARCH_ENDPOINT: openSearchCollectionEndpoint
     };
 
     // 4) First entity: Organization API
@@ -244,6 +255,12 @@ export class ApiStack extends cdk.Stack {
       '/create-answer',
       'POST',
       'lambda/answer/create-answer.ts',
+    );
+
+    this.answerApi.addRoute(
+      '/generate-answer',
+      'POST',
+      'lambda/answer/generate-answer.ts',
     );
 
     this.presignedUrlApi = new ApiNestedStack(this, 'PresignedUrlApi', {

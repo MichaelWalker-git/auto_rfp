@@ -87,3 +87,63 @@ export function useCreateAnswer(projectId: string) {
     },
   );
 }
+
+
+//
+// ================================
+// GENERATE Answer (RAG)
+// (POST /answer/generate-answer)
+// ================================
+//
+
+type GenerateAnswerArgs = {
+  question: string;
+  topK?: number;
+};
+
+export function useGenerateAnswer() {
+  return useSWRMutation<string, any, string, GenerateAnswerArgs>(
+    `${BASE}/generate-answer`,
+    async (url, { arg }) => {
+      const { question, topK } = arg;
+
+      const res = await authorizedFetch(url, {
+        method: 'POST',
+        body: JSON.stringify({
+          question,
+          // backend currently sends it as string, so we stringify here
+          topK: topK != null ? String(topK) : '3',
+        }),
+      });
+
+      if (!res.ok) {
+        const message = await res.text().catch(() => '');
+        const error = new Error(
+          message || 'Failed to generate answer',
+        ) as Error & { status?: number };
+        (error as any).status = res.status;
+        throw error;
+      }
+
+      // Try to be flexible with response shape:
+      //  - { answer: "..." }
+      //  - "..." (plain string body)
+      const raw = await res.text();
+
+      try {
+        const parsed = JSON.parse(raw);
+        if (parsed && typeof parsed.answer === 'string') {
+          return parsed.answer;
+        }
+        // if backend just returns a string JSON: "..."
+        if (typeof parsed === 'string') {
+          return parsed;
+        }
+      } catch {
+        // not JSON, fall through
+      }
+
+      return raw;
+    },
+  );
+}

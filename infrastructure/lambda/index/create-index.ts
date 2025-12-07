@@ -10,10 +10,7 @@ const DEFAULT_BUCKET = process.env.DOCUMENTS_BUCKET;
 
 const OPENSEARCH_ENDPOINT = process.env.OPENSEARCH_ENDPOINT;
 const OPENSEARCH_INDEX = process.env.OPENSEARCH_INDEX || 'rfp-rag-index';
-
-const EMBEDDING_MODEL_ID =
-  process.env.BEDROCK_EMBEDDING_MODEL_ID ||
-  'amazon.titan-embed-text-v2:0';
+const EMBEDDING_MODEL_ID = process.env.BEDROCK_EMBEDDING_MODEL_ID || 'amazon.titan-embed-text-v2:0';
 
 if (!DEFAULT_BUCKET) {
   throw new Error('DOCUMENTS_BUCKET environment variable is not set');

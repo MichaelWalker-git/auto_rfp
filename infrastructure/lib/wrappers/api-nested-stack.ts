@@ -33,7 +33,7 @@ export interface ApiNestedStackProps extends cdk.NestedStackProps {
   commonEnv: Record<string, string>;
 
 
-  userPool: IUserPool
+  userPool: IUserPool,
 
 }
 

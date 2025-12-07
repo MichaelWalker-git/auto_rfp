@@ -6,7 +6,7 @@ import { AnswerSource, RfpDocument } from '@/types/api';
 import { useMultiStepResponse } from '@/hooks/use-multi-step-response';
 import { useQuestions as useLoadQuestions } from '@/lib/hooks/use-api';
 import { useProject } from '@/lib/hooks/use-project';
-import { CreateAnswerDTO, useCreateAnswer } from '@/lib/hooks/use-answer';
+import { CreateAnswerDTO, useCreateAnswer, useGenerateAnswer } from '@/lib/hooks/use-answer';
 
 // Interfaces
 interface AnswerData {
@@ -149,6 +149,7 @@ export function QuestionsProvider({ children, projectId }: QuestionsProviderProp
       handleAcceptMultiStepResponse(finalResponse, sources);
     }
   });
+  const { trigger: generateAnswer } = useGenerateAnswer();
 
   // Load project data and questions when component mounts
   useEffect(() => {
@@ -280,31 +281,15 @@ export function QuestionsProvider({ children, projectId }: QuestionsProviderProp
       setIsGenerating(prev => ({ ...prev, [questionId]: true }));
 
       try {
-        const response = await fetch('/api/generate-response', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            question: question.question,
-            documentIds: project?.documentIds || [],
-            selectedIndexIds: Array.from(selectedIndexes),
-            useAllIndexes: false,
-            projectId: project?.id
-          }),
-        });
-
-        if (!response.ok) {
+        const response = await generateAnswer(question.question);
+        if (!response) {
           throw new Error('Failed to generate answer');
         }
-
-        const result = await response.json();
 
         setAnswers(prev => ({
           ...prev,
           [questionId]: {
-            text: result.response,
-            sources: result.sources
+            text: response,
           }
         }));
 
@@ -375,7 +360,7 @@ export function QuestionsProvider({ children, projectId }: QuestionsProviderProp
       const response = await createAnswer({
         questionId: questionId,
         text: answers[questionId].text,
-      } as CreateAnswerDTO)
+      } as CreateAnswerDTO);
 
       if (response.id) {
         setUnsavedQuestions(prev => {

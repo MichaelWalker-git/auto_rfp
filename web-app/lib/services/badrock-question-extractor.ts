@@ -17,7 +17,7 @@ export class BedrockQuestionExtractor implements IAIQuestionExtractor {
 
   constructor(config: Partial<AIServiceConfig> = {}) {
     this.config = {
-      model: process.env.BEDROCK_MODEL_ID || DEFAULT_LANGUAGE_MODEL, // e.g. "anthropic.claude-3-5-sonnet-20241022-v2:0"
+      model: process.env.BEDROCK_MODEL_ID || DEFAULT_LANGUAGE_MODEL,
       temperature: 0.1,
       maxTokens: 4000,
       timeout: 60000,

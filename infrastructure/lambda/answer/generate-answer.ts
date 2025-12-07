@@ -1,271 +1,414 @@
 import { APIGatewayProxyEventV2, APIGatewayProxyResultV2, } from 'aws-lambda';
+
+import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
+import { DynamoDBDocumentClient, PutCommand, QueryCommand, } from '@aws-sdk/lib-dynamodb';
+
 import { BedrockRuntimeClient, InvokeModelCommand, } from '@aws-sdk/client-bedrock-runtime';
-import { Client as OpenSearchClient } from '@opensearch-project/opensearch';
+
+import { GetObjectCommand, S3Client } from '@aws-sdk/client-s3';
+
+import { SignatureV4, } from '@aws-sdk/signature-v4';
+import { Sha256 } from '@aws-crypto/sha256-js';
+import { defaultProvider } from '@aws-sdk/credential-provider-node';
+import { HttpRequest } from '@aws-sdk/protocol-http';
+import https from 'https';
+import { randomUUID } from 'crypto';
+
 import { apiResponse } from '../helpers/api';
+import { PK_NAME, SK_NAME } from '../constants/common';
+import { DOCUMENT_PK } from '../constants/document';
+import { DocumentItem } from '../schemas/document';
 import { getEmbedding } from '../helpers/embeddings';
 
-const REGION = process.env.AWS_REGION || 'us-east-1';
+// --- Clients & config ---
 
-// OpenSearch (Serverless) config
-const OPENSEARCH_ENDPOINT = process.env.OPENSEARCH_ENDPOINT;
-const OPENSEARCH_INDEX = process.env.OPENSEARCH_INDEX || 'rfp-rag-index';
-
-// Embedding + QA models
-const EMBEDDING_MODEL_ID =
-  process.env.BEDROCK_EMBEDDING_MODEL_ID ||
-  'amazon.titan-embed-text-v2:0';
-
-const QA_MODEL_ID =
-  process.env.BEDROCK_QA_MODEL_ID ||
-  'anthropic.claude-3-5-sonnet-20241022-v2:0';
-
-const MAX_TOKENS = Number(process.env.BEDROCK_MAX_TOKENS ?? 1024);
-const TEMPERATURE = Number(process.env.BEDROCK_TEMPERATURE ?? 0.2);
-
-if (!OPENSEARCH_ENDPOINT) {
-  throw new Error('OPENSEARCH_ENDPOINT environment variable is not set');
-}
-
-const bedrockClient = new BedrockRuntimeClient({ region: REGION });
-
-// Dev-style OpenSearch client (basic auth optional).
-// For IAM-auth, replace with SigV4 signing.
-const opensearchClient = new OpenSearchClient({
-  node: OPENSEARCH_ENDPOINT,
-  auth: process.env.OPENSEARCH_USERNAME
-    ? {
-      username: process.env.OPENSEARCH_USERNAME,
-      password: process.env.OPENSEARCH_PASSWORD || '',
-    }
-    : undefined,
+const ddbClient = new DynamoDBClient({});
+const docClient = DynamoDBDocumentClient.from(ddbClient, {
+  marshallOptions: { removeUndefinedValues: true },
 });
 
-interface RagQuestionRequest {
+const s3Client = new S3Client({});
+
+const REGION =
+  process.env.REGION ||
+  process.env.AWS_REGION ||
+  process.env.BEDROCK_REGION ||
+  'us-east-1';
+
+const bedrockClient = new BedrockRuntimeClient({
+  region: REGION,
+});
+
+const DB_TABLE_NAME = process.env.DB_TABLE_NAME;
+const DOCUMENTS_BUCKET = process.env.DOCUMENTS_BUCKET;
+const OPENSEARCH_ENDPOINT = process.env.OPENSEARCH_ENDPOINT;
+
+const BEDROCK_EMBEDDING_MODEL_ID = process.env.BEDROCK_EMBEDDING_MODEL_ID || 'amazon.titan-embed-text-v2:0';
+
+const BEDROCK_MODEL_ID = process.env.BEDROCK_MODEL_ID;
+
+if (!DB_TABLE_NAME) {
+  throw new Error('DB_TABLE_NAME env var is not set');
+}
+if (!DOCUMENTS_BUCKET) {
+  throw new Error('DOCUMENTS_BUCKET env var is not set');
+}
+if (!OPENSEARCH_ENDPOINT) {
+  throw new Error('OPENSEARCH_ENDPOINT env var is not set');
+}
+
+// --- Types ---
+interface AnswerQuestionRequestBody {
   question?: string;
-  topK?: number;   // optional, default 5
-  // Optional future filters:
-  // docId?: string;
+  topK?: number;
 }
 
-// Main handler: question -> embedding -> vector search -> answer
-export const handler = async (
-  event: APIGatewayProxyEventV2,
-): Promise<APIGatewayProxyResultV2> => {
-  try {
-    if (!event.body) {
-      return apiResponse(400, { message: 'Request body is required' });
-    }
-
-    const rawBody = event.isBase64Encoded
-      ? Buffer.from(event.body, 'base64').toString('utf-8')
-      : event.body;
-
-    let body: RagQuestionRequest;
-    try {
-      body = JSON.parse(rawBody);
-    } catch {
-      return apiResponse(400, { message: 'Invalid JSON in request body' });
-    }
-
-    const question = body.question?.trim();
-    const topK = body.topK && body.topK > 0 ? body.topK : 5;
-
-    if (!question) {
-      return apiResponse(400, {
-        message: '\'question\' is required in the request body',
-      });
-    }
-
-    // 1) Get embedding for the question
-    const questionEmbedding = await getEmbedding(bedrockClient, EMBEDDING_MODEL_ID, question);
-
-    // 2) Retrieve top chunks from OpenSearch
-    const chunks = await retrieveTopChunks(questionEmbedding, topK);
-
-    if (!chunks.length) {
-      return apiResponse(200, {
-        question,
-        answer: 'I couldn\'t find any relevant context in the knowledge base.',
-        topChunks: [],
-      });
-    }
-
-    // 3) Generate answer using Bedrock QA model
-    const answer = await generateAnswerFromChunks(question, chunks);
-
-    return apiResponse(200, {
-      question,
-      answer,
-      topChunks: chunks,
-    });
-  } catch (error) {
-    console.error('Error in RAG QA handler:', error);
-    return apiResponse(500, {
-      message: 'Failed to answer question',
-      error: error instanceof Error ? error.message : 'Unknown error',
-    });
-  }
-};
-
-// ---------- Types ----------
-
-interface SearchChunk {
-  id: string;
-  score: number;
-  content: string;
-  fileKey?: string;
-  txtKey?: string;
-  docId?: string;
-  chunkIndex?: number;
+interface OpenSearchHit {
+  _source?: {
+    documentId?: string;
+    text?: string;
+    [key: string]: any;
+  };
+  [key: string]: any;
 }
 
+interface QAItem {
+  questionId: string;
+  documentId: string;
+  question: string;
+  answer: string;
+  createdAt: string;
+}
 
-// ---------- Vector search in OpenSearch ----------
+// --- Helper: stream → string (for S3 GetObject body) ---
+async function streamToString(stream: any): Promise<string> {
+  return await new Promise((resolve, reject) => {
+    const chunks: Buffer[] = [];
+    stream.on('data', (chunk: Buffer) => chunks.push(chunk));
+    stream.on('error', reject);
+    stream.on('end', () => {
+      resolve(Buffer.concat(chunks).toString('utf-8'));
+    });
+  });
+}
 
-async function retrieveTopChunks(
+// --- Helper: semantic search in OpenSearch ---
+async function semanticSearchDocuments(
   embedding: number[],
-  topK: number,
-): Promise<SearchChunk[]> {
-  // For better recall, you can set num_candidates > k; here we keep it simple.
-  const searchBody: any = {
-    size: topK,
+  indexName: string,
+  k: number,
+): Promise<OpenSearchHit[]> {
+  const endpointUrl = new URL(OPENSEARCH_ENDPOINT!); // full https://....aoss.amazonaws.com
+  const payload = JSON.stringify({
+    size: k,
     query: {
       knn: {
         embedding: {
           vector: embedding,
-          k: topK,
+          k,
         },
       },
     },
-  };
-
-  const resp = await opensearchClient.search({
-    index: OPENSEARCH_INDEX,
-    body: searchBody,
+    _source: ['documentId'], // we only need documentId (text is in S3)
   });
 
-  const hits = (resp.body as any)?.hits?.hits ?? [];
-
-  const chunks: SearchChunk[] = hits.map((hit: any, i: number) => {
-    const source = hit._source || {};
-    return {
-      id: hit._id ?? `hit_${i}`,
-      score: hit._score ?? 0,
-      content: source.content ?? '',
-      fileKey: source.fileKey,
-      txtKey: source.txtKey,
-      docId: source.docId,
-      chunkIndex: source.chunkIndex,
-    };
+  const request = new HttpRequest({
+    method: 'POST',
+    protocol: endpointUrl.protocol,
+    hostname: endpointUrl.hostname,
+    path: `/${indexName}/_search`,
+    headers: {
+      'Content-Type': 'application/json',
+      'Content-Length': Buffer.byteLength(payload).toString(),
+      host: endpointUrl.hostname,
+    },
+    body: payload,
   });
 
-  return chunks;
+  const signer = new SignatureV4({
+    service: 'aoss', // important: 'aoss' for OpenSearch Serverless
+    region: REGION,
+    credentials: defaultProvider(),
+    sha256: Sha256,
+  });
+
+  const signed = await signer.sign(request);
+
+  const bodyStr = await new Promise<string>((resolve, reject) => {
+    const req = https.request(
+      {
+        method: signed.method,
+        hostname: signed.hostname,
+        path: signed.path,
+        headers: signed.headers as any,
+      },
+      (res) => {
+        const chunks: Buffer[] = [];
+        res.on('data', (chunk) => chunks.push(chunk));
+        res.on('end', () => {
+          const text = Buffer.concat(chunks).toString('utf-8');
+          if (res.statusCode && res.statusCode >= 200 && res.statusCode < 300) {
+            resolve(text);
+          } else {
+            reject(
+              new Error(
+                `OpenSearch search error: ${res.statusCode} ${res.statusMessage} - ${text}`,
+              ),
+            );
+          }
+        });
+      },
+    );
+
+    req.on('error', reject);
+    if (signed.body) {
+      req.write(signed.body);
+    }
+    req.end();
+  });
+
+  const json = JSON.parse(bodyStr);
+  const hits: OpenSearchHit[] = json.hits?.hits ?? [];
+  return hits;
 }
 
-// ---------- Answer generation with Bedrock QA model ----------
+// --- Helper: find DocumentItem in Dynamo by documentId (PK = DOCUMENT_PK, SK endsWith "#DOC#<id>") ---
 
-async function generateAnswerFromChunks(
-  question: string,
-  chunks: SearchChunk[],
-): Promise<string> {
-  const context = buildContextFromChunks(chunks);
+async function getDocumentItemById(documentId: string): Promise<DocumentItem & {
+  [PK_NAME]: string;
+  [SK_NAME]: string;
+}> {
+  const skSuffix = `#DOC#${documentId}`;
 
-  const systemPrompt = `
-You are an expert assistant helping answer questions based on provided context from RFP and related documents.
-
-You MUST:
-- Only use the provided context to answer.
-- If the context does not contain the answer, say you don't know.
-- Be concise but clear.
-- When appropriate, refer to which part of the context you used (e.g. "Based on chunk 2...").
-`.trim();
-
-  const userPrompt = `
-Question:
-${question}
-
-Context:
-${context}
-
-Using ONLY the context above, answer the question. If you cannot answer from the context, say you don't know.
-`.trim();
-
-  const body = {
-    messages: [
-      {
-        role: 'system',
-        content: [
-          {
-            type: 'text',
-            text: systemPrompt,
-          },
-        ],
+  const queryRes = await docClient.send(
+    new QueryCommand({
+      TableName: DB_TABLE_NAME,
+      KeyConditionExpression: '#pk = :pk',
+      ExpressionAttributeNames: {
+        '#pk': PK_NAME,
       },
+      ExpressionAttributeValues: {
+        ':pk': DOCUMENT_PK,
+      },
+    }),
+  );
+
+  const items =
+    (queryRes.Items || []) as (DocumentItem & {
+      [PK_NAME]: string;
+      [SK_NAME]: string;
+    })[];
+
+  const docItem = items.find((it) =>
+    String(it[SK_NAME]).endsWith(skSuffix),
+  );
+
+  if (!docItem) {
+    throw new Error(
+      `Document not found for PK=${DOCUMENT_PK} and SK ending with ${skSuffix}`,
+    );
+  }
+
+  return docItem;
+}
+
+// --- Helper: load document text from S3 via textFileKey (fallback to fileKey) ---
+
+async function loadDocumentText(docItem: DocumentItem): Promise<string> {
+  const textKey = (docItem as any).textFileKey || (docItem as any).fileKey;
+  if (!textKey) {
+    throw new Error('Document has no textFileKey or fileKey');
+  }
+
+  const res = await s3Client.send(
+    new GetObjectCommand({
+      Bucket: DOCUMENTS_BUCKET,
+      Key: textKey,
+    }),
+  );
+
+  if (!res.Body) {
+    throw new Error(`S3 object ${textKey} has no body`);
+  }
+
+  const text = await streamToString(res.Body as any);
+  return text;
+}
+
+// --- Helper: ask Bedrock LLM (Claude) using doc text + question ---
+
+async function answerWithBedrockLLM(
+  question: string,
+  docText: string,
+): Promise<string> {
+  const systemPrompt =
+    'You are an assistant that answers questions strictly based on the provided document. ' +
+    'If the document does not contain the answer, say you do not know.';
+
+  const userContent = [
+    'Document:',
+    '"""',
+    docText,
+    '"""',
+    '',
+    `Question: ${question}`,
+    '',
+    'Answer in a concise paragraph:',
+  ].join('\n');
+
+  const payload = {
+    anthropic_version: 'bedrock-2023-05-31',
+    max_tokens: 512,
+    temperature: 0.2,
+    messages: [
       {
         role: 'user',
         content: [
-          {
-            type: 'text',
-            text: userPrompt,
-          },
+          { type: 'text', text: `${systemPrompt}\n\n${userContent}` },
         ],
       },
     ],
-    max_tokens: MAX_TOKENS,
-    temperature: TEMPERATURE,
   };
 
-  const command = new InvokeModelCommand({
-    modelId: QA_MODEL_ID,
-    contentType: 'application/json',
-    accept: 'application/json',
-    body: JSON.stringify(body),
-  });
-
-  const response = await bedrockClient.send(command);
-
-  if (!response.body) {
-    throw new Error('Empty response body from QA model');
-  }
-
-  const responseString = new TextDecoder('utf-8').decode(
-    response.body as Uint8Array,
+  const res = await bedrockClient.send(
+    new InvokeModelCommand({
+      modelId: BEDROCK_MODEL_ID,
+      contentType: 'application/json',
+      accept: 'application/json',
+      body: Buffer.from(JSON.stringify(payload)),
+    }),
   );
 
-  let outer: any;
+  if (!res.body) {
+    throw new Error('Bedrock (QA) returned no body');
+  }
+
+  const json = JSON.parse(Buffer.from(res.body).toString('utf-8'));
+  const first = json.content?.[0];
+  const answer: string | undefined = first?.text ?? first?.content?.[0]?.text;
+
+  if (!answer) {
+    throw new Error(
+      `Unexpected QA response: ${JSON.stringify(json).slice(0, 500)}`,
+    );
+  }
+
+  return answer.trim();
+}
+
+// --- Helper: store Q&A in Dynamo (same table, PK = "ANSWER") ---
+
+async function storeAnswer(
+  documentId: string,
+  question: string,
+  answer: string,
+): Promise<QAItem> {
+  const now = new Date().toISOString();
+  const questionId = randomUUID();
+
+  const item: QAItem & {
+    [PK_NAME]: string;
+    [SK_NAME]: string;
+  } = {
+    [PK_NAME]: 'ANSWER', // or introduce ANSWER_PK constant if you prefer
+    [SK_NAME]: `DOC#${documentId}#Q#${questionId}`,
+    questionId,
+    documentId,
+    question,
+    answer,
+    createdAt: now,
+  };
+
+  await docClient.send(
+    new PutCommand({
+      TableName: DB_TABLE_NAME,
+      Item: item,
+    }),
+  );
+
+  return {
+    questionId,
+    documentId,
+    question,
+    answer,
+    createdAt: now,
+  };
+}
+
+// --- Main handler ---
+
+export const handler = async (
+  event: APIGatewayProxyEventV2,
+): Promise<APIGatewayProxyResultV2> => {
+  console.log('answer-question event:', JSON.stringify(event));
+
+  if (!event.body) {
+    return apiResponse(400, { message: 'Request body is required' });
+  }
+
+  let body: AnswerQuestionRequestBody;
   try {
-    outer = JSON.parse(responseString);
+    body = JSON.parse(event.body);
+  } catch {
+    return apiResponse(400, { message: 'Invalid JSON body' });
+  }
+
+  const question = body.question?.trim();
+  const topK = body.topK && body.topK > 0 ? body.topK : 3;
+
+  if (!question) {
+    return apiResponse(400, { message: 'question is required' });
+  }
+
+  try {
+    // 1) Embed question
+    const questionEmbedding = await getEmbedding(bedrockClient, BEDROCK_EMBEDDING_MODEL_ID, question)
+
+    // 2) Semantic search in OpenSearch (index "documents")
+    const hits = await semanticSearchDocuments(
+      questionEmbedding,
+      'documents',
+      topK,
+    );
+
+    if (!hits.length) {
+      return apiResponse(404, {
+        message: 'No matching documents found for this question',
+      });
+    }
+
+    // Take the top hit
+    const top = hits[0];
+    const documentId = top._source?.documentId;
+    if (!documentId) {
+      return apiResponse(500, {
+        message:
+          'Top search result has no documentId in _source; ensure you index documentId field',
+      });
+    }
+
+    // 3) Load document metadata from DynamoDB, then text from S3
+    const docItem = await getDocumentItemById(documentId);
+    console.log('Doc item: ', docItem)
+    const docText = await loadDocumentText(docItem);
+
+    // 4) Ask Bedrock LLM
+    const answer = await answerWithBedrockLLM(question, docText);
+
+    // 5) Store Q&A in Dynamo
+    const qaItem = await storeAnswer(documentId, question, answer);
+
+    // 6) Return response
+    return apiResponse(200, {
+      documentId,
+      questionId: qaItem.questionId,
+      answer,
+    });
   } catch (err) {
-    console.error('QA model raw response:', responseString);
-    throw new Error('Invalid JSON from QA model');
+    console.error('Error in answer-question handler:', err);
+    return apiResponse(500, {
+      message: 'Failed to answer question',
+      error: err instanceof Error ? err.message : 'Unknown error',
+    });
   }
-
-  const assistantText: string | null =
-    outer?.content?.[0]?.text ??
-    outer?.output_text ??
-    null;
-
-  if (!assistantText || typeof assistantText !== 'string') {
-    console.error('Unexpected QA model payload:', outer);
-    throw new Error('Empty response from QA model');
-  }
-
-  return assistantText.trim();
-}
-
-function buildContextFromChunks(chunks: SearchChunk[]): string {
-  return chunks
-    .map((c, idx) => {
-      const headerParts = [
-        `Chunk ${idx + 1}`,
-        c.docId ? `docId=${c.docId}` : null,
-        c.chunkIndex !== undefined ? `chunkIndex=${c.chunkIndex}` : null,
-        c.score !== undefined ? `score=${c.score.toFixed(3)}` : null,
-      ].filter(Boolean);
-
-      const header = headerParts.join(' | ');
-
-      return `${header}\n${c.content}`;
-    })
-    .join('\n\n---\n\n');
-}
+};

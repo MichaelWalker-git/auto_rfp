@@ -24,6 +24,7 @@ const network = new NetworkStack(app, 'AutoRfp-Network', {
 });
 
 const feURL = 'https://dpxejv2wk0.execute-api.us-east-1.amazonaws.com'
+const opensearchEndpoint = 'https://leb5aji6vthaxk7ft8pi.us-east-1.aoss.amazonaws.com'
 
 const auth = new AuthStack(app, `AutoRfp-Auth-${stage}`, {
   env,
@@ -50,7 +51,7 @@ const pipelineStack = new DocumentPipelineStack(app, `AutoRfp-DocumentPipeline-$
   stage,
   documentsBucket: storage.documentsBucket,
   documentsTable: db.tableName,
-  openSearchCollectionEndpoint: 'https://leb5aji6vthaxk7ft8pi.us-east-1.aoss.amazonaws.com',
+  openSearchCollectionEndpoint: opensearchEndpoint,
   vpc: network.vpc,
   vpcSecurityGroup: network.lambdaSecurityGroup
 })
@@ -63,6 +64,8 @@ const api = new ApiStack(app, `AutoRfp-API-${stage}`, {
   userPool: auth.userPool,
   userPoolClient: auth.userPoolClient,
   documentPipelineStateMachineArn: pipelineStack.stateMachine.stateMachineArn,
+  openSearchCollectionEndpoint: opensearchEndpoint,
+  vpc: network.vpc
 });
 
 
