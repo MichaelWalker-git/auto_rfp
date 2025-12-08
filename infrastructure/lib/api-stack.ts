@@ -252,9 +252,21 @@ export class ApiStack extends cdk.Stack {
     });
 
     this.answerApi.addRoute(
+      '/get-answers/{id}',
+      'GET',
+      'lambda/answer/get-answers.ts',
+    );
+
+    this.answerApi.addRoute(
       '/create-answer',
       'POST',
       'lambda/answer/create-answer.ts',
+    );
+
+    this.answerApi.addRoute(
+      '/save-answer',
+      'POST',
+      'lambda/answer/save-answer.ts',
     );
 
     this.answerApi.addRoute(

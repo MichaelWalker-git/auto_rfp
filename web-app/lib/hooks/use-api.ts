@@ -86,6 +86,14 @@ export function useQuestions(projectId: string | null, includeAll = false) {
   );
 }
 
+export function useAnswers(projectId: string | null, includeAll = false) {
+  const params = includeAll ? '?include=all' : '';
+  return useApi<any>(
+    projectId ? ['answers', projectId, includeAll] : null,
+    projectId ? `${env.BASE_API_URL}/answer/get-answers/${projectId}${params}` : null
+  );
+}
+
 export function useOrganizationProjects(orgId: string | null) {
   return useApi<any[]>(
     orgId ? ['projects', orgId] : null,

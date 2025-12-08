@@ -62,9 +62,9 @@ const BASE = `${env.BASE_API_URL}/answer`;
 // ================================
 //
 
-export function useCreateAnswer(projectId: string) {
+export function useSaveAnswer(projectId: string) {
   return useSWRMutation<Answer, any, string, CreateAnswerDTO>(
-    `${BASE}/create-answer`,
+    `${BASE}/save-answer`,
     async (url, { arg }) => {
       const res = await authorizedFetch(url, {
         method: 'POST',
@@ -87,17 +87,9 @@ export function useCreateAnswer(projectId: string) {
     },
   );
 }
-
-
-//
-// ================================
-// GENERATE Answer (RAG)
-// (POST /answer/generate-answer)
-// ================================
-//
-
 type GenerateAnswerArgs = {
-  question: string;
+  projectId: string;
+  questionId: string;
   topK?: number;
 };
 
@@ -105,14 +97,14 @@ export function useGenerateAnswer() {
   return useSWRMutation<string, any, string, GenerateAnswerArgs>(
     `${BASE}/generate-answer`,
     async (url, { arg }) => {
-      const { question, topK } = arg;
+      const { projectId, questionId, topK } = arg;
 
       const res = await authorizedFetch(url, {
         method: 'POST',
         body: JSON.stringify({
-          question,
-          // backend currently sends it as string, so we stringify here
-          topK: topK != null ? String(topK) : '3',
+          projectId,
+          questionId,
+          topK: topK ?? 3,
         }),
       });
 
@@ -125,17 +117,18 @@ export function useGenerateAnswer() {
         throw error;
       }
 
-      // Try to be flexible with response shape:
-      //  - { answer: "..." }
-      //  - "..." (plain string body)
+      // Prefer JSON { answer: "..." }
       const raw = await res.text();
 
       try {
         const parsed = JSON.parse(raw);
+
+        // New backend shape: { documentId, questionId, answer }
         if (parsed && typeof parsed.answer === 'string') {
           return parsed.answer;
         }
-        // if backend just returns a string JSON: "..."
+
+        // If backend returns plain JSON string: "..."
         if (typeof parsed === 'string') {
           return parsed;
         }
@@ -143,6 +136,7 @@ export function useGenerateAnswer() {
         // not JSON, fall through
       }
 
+      // Fallback – return raw text
       return raw;
     },
   );

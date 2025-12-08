@@ -1,13 +1,13 @@
 import { APIGatewayProxyEventV2, APIGatewayProxyResultV2, } from 'aws-lambda';
 
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
-import { DynamoDBDocumentClient, PutCommand, QueryCommand, } from '@aws-sdk/lib-dynamodb';
+import { DynamoDBDocumentClient, GetCommand, PutCommand, QueryCommand, } from '@aws-sdk/lib-dynamodb';
 
 import { BedrockRuntimeClient, InvokeModelCommand, } from '@aws-sdk/client-bedrock-runtime';
 
 import { GetObjectCommand, S3Client } from '@aws-sdk/client-s3';
 
-import { SignatureV4, } from '@aws-sdk/signature-v4';
+import { SignatureV4 } from '@aws-sdk/signature-v4';
 import { Sha256 } from '@aws-crypto/sha256-js';
 import { defaultProvider } from '@aws-sdk/credential-provider-node';
 import { HttpRequest } from '@aws-sdk/protocol-http';
@@ -19,8 +19,7 @@ import { PK_NAME, SK_NAME } from '../constants/common';
 import { DOCUMENT_PK } from '../constants/document';
 import { DocumentItem } from '../schemas/document';
 import { getEmbedding } from '../helpers/embeddings';
-
-// --- Clients & config ---
+import { QUESTION_PK } from '../constants/organization';
 
 const ddbClient = new DynamoDBClient({});
 const docClient = DynamoDBDocumentClient.from(ddbClient, {
@@ -58,7 +57,10 @@ if (!OPENSEARCH_ENDPOINT) {
 }
 
 // --- Types ---
+
 interface AnswerQuestionRequestBody {
+  projectId: string;
+  questionId?: string;
   question?: string;
   topK?: number;
 }
@@ -80,7 +82,16 @@ interface QAItem {
   createdAt: string;
 }
 
-// --- Helper: stream → string (for S3 GetObject body) ---
+// Shape of question record in Dynamo (adjust to your actual schema)
+interface QuestionItemDynamo {
+  [PK_NAME]: string;
+  [SK_NAME]: string;
+  id?: string;        // your CUID id
+  questionText: string;   // the question text
+  // you can add answer, sources, etc. here later
+  [key: string]: any;
+}
+
 async function streamToString(stream: any): Promise<string> {
   return await new Promise((resolve, reject) => {
     const chunks: Buffer[] = [];
@@ -98,7 +109,7 @@ async function semanticSearchDocuments(
   indexName: string,
   k: number,
 ): Promise<OpenSearchHit[]> {
-  const endpointUrl = new URL(OPENSEARCH_ENDPOINT!); // full https://....aoss.amazonaws.com
+  const endpointUrl = new URL(OPENSEARCH_ENDPOINT!);
   const payload = JSON.stringify({
     size: k,
     query: {
@@ -109,7 +120,7 @@ async function semanticSearchDocuments(
         },
       },
     },
-    _source: ['documentId'], // we only need documentId (text is in S3)
+    _source: ['documentId'],
   });
 
   const request = new HttpRequest({
@@ -126,7 +137,7 @@ async function semanticSearchDocuments(
   });
 
   const signer = new SignatureV4({
-    service: 'aoss', // important: 'aoss' for OpenSearch Serverless
+    service: 'aoss',
     region: REGION,
     credentials: defaultProvider(),
     sha256: Sha256,
@@ -174,10 +185,14 @@ async function semanticSearchDocuments(
 
 // --- Helper: find DocumentItem in Dynamo by documentId (PK = DOCUMENT_PK, SK endsWith "#DOC#<id>") ---
 
-async function getDocumentItemById(documentId: string): Promise<DocumentItem & {
+async function getDocumentItemById(
+  documentId: string,
+): Promise<
+  DocumentItem & {
   [PK_NAME]: string;
   [SK_NAME]: string;
-}> {
+}
+> {
   const skSuffix = `#DOC#${documentId}`;
 
   const queryRes = await docClient.send(
@@ -235,7 +250,38 @@ async function loadDocumentText(docItem: DocumentItem): Promise<string> {
   return text;
 }
 
-// --- Helper: ask Bedrock LLM (Claude) using doc text + question ---
+// --- Helper: load question by questionId from Dynamo ---
+
+async function getQuestionItemById(
+  projectId: string,
+  questionId: string,
+): Promise<QuestionItemDynamo> {
+  const res = await docClient.send(
+    new GetCommand({
+      TableName: DB_TABLE_NAME,
+      Key: {
+        [PK_NAME]: QUESTION_PK,
+        [SK_NAME]: `${projectId}#${questionId}`,
+      },
+    }),
+  );
+
+  if (!res.Item) {
+    throw new Error(
+      `Question not found for PK=${QUESTION_PK}, SK=${questionId}`,
+    );
+  }
+
+  const item = res.Item as QuestionItemDynamo;
+
+  if (!item.questionText) {
+    throw new Error(
+      `Question item for SK=${questionId} has no "question" field`,
+    );
+  }
+
+  return item;
+}
 
 async function answerWithBedrockLLM(
   question: string,
@@ -296,21 +342,20 @@ async function answerWithBedrockLLM(
   return answer.trim();
 }
 
-// --- Helper: store Q&A in Dynamo (same table, PK = "ANSWER") ---
-
 async function storeAnswer(
   documentId: string,
   question: string,
   answer: string,
+  existingQuestionId?: string,
 ): Promise<QAItem> {
   const now = new Date().toISOString();
-  const questionId = randomUUID();
+  const questionId = existingQuestionId ?? randomUUID();
 
   const item: QAItem & {
     [PK_NAME]: string;
     [SK_NAME]: string;
   } = {
-    [PK_NAME]: 'ANSWER', // or introduce ANSWER_PK constant if you prefer
+    [PK_NAME]: 'ANSWER',
     [SK_NAME]: `DOC#${documentId}#Q#${questionId}`,
     questionId,
     documentId,
@@ -335,8 +380,6 @@ async function storeAnswer(
   };
 }
 
-// --- Main handler ---
-
 export const handler = async (
   event: APIGatewayProxyEventV2,
 ): Promise<APIGatewayProxyResultV2> => {
@@ -353,16 +396,42 @@ export const handler = async (
     return apiResponse(400, { message: 'Invalid JSON body' });
   }
 
-  const question = body.question?.trim();
   const topK = body.topK && body.topK > 0 ? body.topK : 3;
 
-  if (!question) {
-    return apiResponse(400, { message: 'question is required' });
-  }
+  let questionText: string | undefined;
+  const { questionId, projectId } = body;
+
 
   try {
-    // 1) Embed question
-    const questionEmbedding = await getEmbedding(bedrockClient, BEDROCK_EMBEDDING_MODEL_ID, question)
+    // 0) Resolve question text:
+    //    - If questionId is provided: load from Dynamo
+    //    - Else: fallback to raw question text from body
+    if (questionId) {
+      const questionItem = await getQuestionItemById(projectId, questionId);
+      questionText = questionItem.questionText;
+      console.log(
+        `Loaded question from Dynamo. questionId=${questionId}, question="${questionText}"`,
+      );
+    } else {
+      questionText = body.question?.trim();
+      if (!questionText) {
+        return apiResponse(400, {
+          message:
+            'Either questionId (preferred) or question text must be provided',
+        });
+      }
+      // no questionId provided => we will generate one when storing answer
+      console.log(
+        `Using inline question from request. question="${questionText}"`,
+      );
+    }
+
+    // 1) Embed question text
+    const questionEmbedding = await getEmbedding(
+      bedrockClient,
+      BEDROCK_EMBEDDING_MODEL_ID,
+      questionText,
+    );
 
     // 2) Semantic search in OpenSearch (index "documents")
     const hits = await semanticSearchDocuments(
@@ -389,14 +458,18 @@ export const handler = async (
 
     // 3) Load document metadata from DynamoDB, then text from S3
     const docItem = await getDocumentItemById(documentId);
-    console.log('Doc item: ', docItem)
     const docText = await loadDocumentText(docItem);
 
     // 4) Ask Bedrock LLM
-    const answer = await answerWithBedrockLLM(question, docText);
+    const answer = await answerWithBedrockLLM(questionText, docText);
 
-    // 5) Store Q&A in Dynamo
-    const qaItem = await storeAnswer(documentId, question, answer);
+    // 5) Store Q&A in Dynamo (re-use questionId if we had one)
+    const qaItem = await storeAnswer(
+      documentId,
+      questionText,
+      answer,
+      questionId,
+    );
 
     // 6) Return response
     return apiResponse(200, {
