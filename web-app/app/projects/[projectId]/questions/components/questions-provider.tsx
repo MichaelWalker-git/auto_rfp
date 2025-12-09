@@ -6,7 +6,7 @@ import { AnswerSource, RfpDocument } from '@/types/api';
 import { useMultiStepResponse } from '@/hooks/use-multi-step-response';
 import { useAnswers, useQuestions as useLoadQuestions } from '@/lib/hooks/use-api';
 import { useProject } from '@/lib/hooks/use-project';
-import { CreateAnswerDTO, useSaveAnswer, useGenerateAnswer } from '@/lib/hooks/use-answer';
+import { CreateAnswerDTO, useGenerateAnswer, useSaveAnswer } from '@/lib/hooks/use-answer';
 
 // Interfaces
 interface AnswerData {
@@ -537,7 +537,7 @@ export function QuestionsProvider({ children, projectId }: QuestionsProviderProp
     if (!rfpDocument) return { all: 0, answered: 0, unanswered: 0 };
 
     const allQuestions = rfpDocument.sections.flatMap((s: any) => s.questions);
-    const answeredCount = allQuestions?.filter((q: any) => answers[q.id]?.text && answers[q.id].text.trim() !== '').length;
+    const answeredCount = allQuestions?.filter((q: any) => answers[q?.id]?.text && answers[q?.id].text.trim() !== '').length;
 
     return {
       all: allQuestions.length,
@@ -557,7 +557,7 @@ export function QuestionsProvider({ children, projectId }: QuestionsProviderProp
     setError(null);
     try {
       mutateQuestions();
-      setAnswers(answersData);
+      setAnswers({ ...answersData });
     } catch (error) {
       console.error('Error refreshing questions:', error);
       setError('Failed to refresh questions. Please try again.');
@@ -566,7 +566,7 @@ export function QuestionsProvider({ children, projectId }: QuestionsProviderProp
   };
 
   useEffect(() => {
-    setAnswers(answersData);
+    setAnswers({ ...answersData });
   }, [answersData]);
 
   const value: QuestionsContextType = {
