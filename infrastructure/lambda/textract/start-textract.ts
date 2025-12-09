@@ -1,14 +1,7 @@
 import { Context } from 'aws-lambda';
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
-import {
-  DynamoDBDocumentClient,
-  QueryCommand,
-  UpdateCommand,
-} from '@aws-sdk/lib-dynamodb';
-import {
-  StartDocumentTextDetectionCommand,
-  TextractClient,
-} from '@aws-sdk/client-textract';
+import { DynamoDBDocumentClient, QueryCommand, UpdateCommand, } from '@aws-sdk/lib-dynamodb';
+import { StartDocumentTextDetectionCommand, TextractClient, } from '@aws-sdk/client-textract';
 
 import { PK_NAME, SK_NAME } from '../constants/common';
 import { DOCUMENT_PK } from '../constants/document';

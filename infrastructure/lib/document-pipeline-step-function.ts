@@ -129,6 +129,7 @@ export class DocumentPipelineStack extends Stack {
         vpc,
         securityGroups: [vpcSecurityGroup],
         environment: {
+          DOCUMENTS_BUCKET: documentsBucket.bucketName,
           DOCUMENTS_TABLE_NAME: documentsTable.tableName,
           OPENSEARCH_ENDPOINT: openSearchCollectionEndpoint,
           REGION: this.region,
@@ -151,6 +152,20 @@ export class DocumentPipelineStack extends Stack {
         resources: ['*'],
       }),
     );
+
+    processResultLambda.addToRolePolicy(
+      new iam.PolicyStatement({
+        actions: ['dynamodb:*'],
+        resources: ['*'],
+      }),
+    )
+
+    processResultLambda.addToRolePolicy(
+      new iam.PolicyStatement({
+        actions: ['s3:*'],
+        resources: ['*'],
+      }),
+    )
 
     processResultLambda.addToRolePolicy(
       new iam.PolicyStatement({

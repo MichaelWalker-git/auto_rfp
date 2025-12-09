@@ -8,7 +8,6 @@ export { QuestionsFilterTabs } from "./questions-filter-tabs"
 export { QuestionsTabsContent } from "./questions-tabs-content"
 export { NoQuestionsAvailable } from "./no-questions-available"
 export { SourceDetailsDialog } from "./source-details-dialog"
-export { UploadDialog } from "./upload-dialog"
 
 // State components
 export { QuestionsLoadingState, QuestionsErrorState, QuestionsSkeletonLoader } from "./questions-states"

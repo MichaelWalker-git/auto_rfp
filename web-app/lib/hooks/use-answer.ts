@@ -62,9 +62,9 @@ const BASE = `${env.BASE_API_URL}/answer`;
 // ================================
 //
 
-export function useCreateAnswer(projectId: string) {
+export function useSaveAnswer(projectId: string) {
   return useSWRMutation<Answer, any, string, CreateAnswerDTO>(
-    `${BASE}/create-answer`,
+    `${BASE}/save-answer`,
     async (url, { arg }) => {
       const res = await authorizedFetch(url, {
         method: 'POST',
@@ -84,6 +84,51 @@ export function useCreateAnswer(projectId: string) {
       }
 
       return res.json() as Promise<Answer>;
+    },
+  );
+}
+
+type GenerateAnswerArgs = {
+  projectId: string;
+  questionId: string;
+  topK?: number;
+};
+
+type GenerateAnswerResponse = { answer: string, confidence: number, found: boolean }
+
+export function useGenerateAnswer() {
+  return useSWRMutation<GenerateAnswerResponse, any, string, GenerateAnswerArgs>(
+    `${BASE}/generate-answer`,
+    async (url, { arg }) => {
+      const { projectId, questionId, topK } = arg;
+
+      const res = await authorizedFetch(url, {
+        method: 'POST',
+        body: JSON.stringify({
+          projectId,
+          questionId,
+          topK: topK ?? 3,
+        }),
+      });
+
+      if (!res.ok) {
+        const message = await res.text().catch(() => '');
+        const error = new Error(
+          message || 'Failed to generate answer',
+        ) as Error & { status?: number };
+        (error as any).status = res.status;
+        throw error;
+      }
+      const raw = await res.text();
+
+      try {
+        return JSON.parse(raw) as GenerateAnswerResponse;
+      } catch {
+        // not JSON, fall through
+      }
+
+      // Fallback – return raw text
+      return {} as GenerateAnswerResponse;
     },
   );
 }

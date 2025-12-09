@@ -69,7 +69,7 @@ export function QuestionEditor({
         </div>
       </CardHeader>
       <CardContent className="space-y-4">
-        {/* Index warning */}
+{/*         Index warning
         {selectedIndexes.size === 0 && (
           <div className="flex items-center gap-2 p-3 bg-amber-50 border border-amber-200 rounded-md text-sm">
             <AlertCircle className="h-4 w-4 text-amber-600 flex-shrink-0" />
@@ -77,7 +77,7 @@ export function QuestionEditor({
               No project indexes selected - AI will use default responses
             </span>
           </div>
-        )}
+        )}*/}
 
         <Textarea
           placeholder="Enter your answer here..."

@@ -30,7 +30,7 @@ export function IndexSelector({
 }: IndexSelectorProps) {
   const [showIndexSelector, setShowIndexSelector] = useState(false);
 
-  if (!organizationConnected) {
+  if (!organizationConnected && false) {
     return (
       <Card className="mb-6 border-amber-200 bg-amber-50">
         <CardContent className="pt-6">
@@ -48,7 +48,7 @@ export function IndexSelector({
     );
   }
 
-  if (availableIndexes.length === 0) {
+  if (availableIndexes.length === 0 && false) {
     return (
       <Card className="mb-6 border-amber-200 bg-amber-50">
         <CardContent className="pt-6">

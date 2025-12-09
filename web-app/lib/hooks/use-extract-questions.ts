@@ -1,33 +1,25 @@
-// src/lib/hooks/use-extract-questions.ts
 'use client';
 
-import useSWRMutation, { SWRMutationConfiguration } from 'swr/mutation';
+import useSWRMutation from 'swr/mutation';
 import { fetchAuthSession } from 'aws-amplify/auth';
 import { env } from '@/lib/env';
+import { RfpDocument } from '@/types/api';
 
-export interface ExtractQuestionsPayload {
-  s3Key: string;
+// ---------- Types ----------
+
+export interface ExtractQuestionsDTO {
   projectId: string;
-  s3Bucket?: string;
+  documentId: string;
+  documentName: string;
+  textFileKey: string;
 }
 
-export interface ExtractQuestionsResult {
-  sections: Array<{
-    id: string;
-    title: string;
-    description?: string | null;
-    questions: Array<{
-      id: string;
-      question: string;
-    }>;
-  }>;
+export interface ExtractQuestionsResponse {
+  rfpDocument: RfpDocument;
 }
 
-// Mutation fetcher – SWR passes { arg } as the second param
-async function extractQuestionsFetcher<T>(
-  url: string,
-  { arg }: { arg: ExtractQuestionsPayload },
-): Promise<T> {
+// ---------- Helper ----------
+async function authorizedFetch(url: string, options: RequestInit = {}) {
   let token: string | undefined;
 
   if (typeof window !== 'undefined') {
@@ -35,50 +27,39 @@ async function extractQuestionsFetcher<T>(
     token = session.tokens?.idToken?.toString();
   }
 
-  const res = await fetch(url, {
-    method: 'POST',
+  return fetch(url, {
+    ...options,
     headers: {
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      ...(token ? { Authorization: token } : {}),
       'Content-Type': 'application/json',
+      ...(options.headers || {}),
     },
-    body: JSON.stringify(arg),
   });
-
-  if (!res.ok) {
-    const error: any = new Error('Failed to extract questions');
-    error.status = res.status;
-    try {
-      error.details = await res.json();
-    } catch {}
-    throw error;
-  }
-
-  return res.json();
 }
 
-/**
- * useExtractQuestions
- * - no params on hook
- * - returns extractQuestions(payload) you call manually
- */
-export function useExtractQuestions<T = ExtractQuestionsResult>() {
-  const url = `${env.BASE_API_URL}/question/extract-questions`;
+const BASE = `${env.BASE_API_URL}/question`;
 
-  //           <Data,   Error, Key,    ExtraArg>
-  const { trigger, data, error, isMutating, reset } = useSWRMutation<
-    T,
-    any,
-    string,
-    ExtractQuestionsPayload
-  >(url, extractQuestionsFetcher<T>, {
-    revalidate: false,
-  });
+// ---------- Hook ----------
+export function useExtractQuestions() {
+  return useSWRMutation<ExtractQuestionsResponse, any, string, ExtractQuestionsDTO>(
+    `${BASE}/extract-questions`,
+    async (url, { arg }) => {
+      const res = await authorizedFetch(url, {
+        method: 'POST',
+        body: JSON.stringify(arg),
+      });
 
-  return {
-    extractQuestions: (payload: ExtractQuestionsPayload) => trigger(payload),
-    data,
-    error,
-    isLoading: isMutating,
-    reset,
-  };
+      if (!res.ok) {
+        const message = await res.text().catch(() => '');
+        const error = new Error(
+          message || 'Failed to start question extraction',
+        ) as Error & { status?: number };
+
+        (error as any).status = res.status;
+        throw error;
+      }
+
+      return res.json() as Promise<ExtractQuestionsResponse>;
+    },
+  );
 }

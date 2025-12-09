@@ -4,9 +4,9 @@ import React, { createContext, ReactNode, useContext, useEffect, useState } from
 import { toast } from '@/components/ui/use-toast';
 import { AnswerSource, RfpDocument } from '@/types/api';
 import { useMultiStepResponse } from '@/hooks/use-multi-step-response';
-import { useQuestions as useLoadQuestions } from '@/lib/hooks/use-api';
+import { useAnswers, useQuestions as useLoadQuestions } from '@/lib/hooks/use-api';
 import { useProject } from '@/lib/hooks/use-project';
-import { CreateAnswerDTO, useCreateAnswer } from '@/lib/hooks/use-answer';
+import { CreateAnswerDTO, useSaveAnswer, useGenerateAnswer } from '@/lib/hooks/use-answer';
 
 // Interfaces
 interface AnswerData {
@@ -111,6 +111,7 @@ export function QuestionsProvider({ children, projectId }: QuestionsProviderProp
   // Data state
   const [error, setError] = useState<string | null>(null);
   const [answers, setAnswers] = useState<Record<string, AnswerData>>({});
+  const [confidence, setConfidence] = useState<Record<string, number>>({});
   const [unsavedQuestions, setUnsavedQuestions] = useState<Set<string>>(new Set());
 
   // Process state
@@ -132,9 +133,9 @@ export function QuestionsProvider({ children, projectId }: QuestionsProviderProp
   const [currentQuestionText, setCurrentQuestionText] = useState<string>('');
   const { data: project, isLoading: isProjectLoading } = useProject(projectId);
   const { data: rfpDocument, isLoading: isQuestionsLoading, mutate: mutateQuestions } = useLoadQuestions(projectId);
-  const { trigger: createAnswer } = useCreateAnswer(projectId);
-  const isLoading = isProjectLoading || isQuestionsLoading;
-  // Use the multi-step response hook
+  const { data: answersData, error: answerError, isLoading: isAnswersLoading } = useAnswers(projectId)
+  const { trigger: createAnswer } = useSaveAnswer(projectId);
+  const isLoading = isProjectLoading || isQuestionsLoading || isAnswersLoading;
   const {
     generateResponse: generateMultiStepResponse,
     isGenerating: isMultiStepGenerating,
@@ -149,6 +150,7 @@ export function QuestionsProvider({ children, projectId }: QuestionsProviderProp
       handleAcceptMultiStepResponse(finalResponse, sources);
     }
   });
+  const { trigger: generateAnswer } = useGenerateAnswer();
 
   // Load project data and questions when component mounts
   useEffect(() => {
@@ -280,32 +282,21 @@ export function QuestionsProvider({ children, projectId }: QuestionsProviderProp
       setIsGenerating(prev => ({ ...prev, [questionId]: true }));
 
       try {
-        const response = await fetch('/api/generate-response', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            question: question.question,
-            documentIds: project?.documentIds || [],
-            selectedIndexIds: Array.from(selectedIndexes),
-            useAllIndexes: false,
-            projectId: project?.id
-          }),
+        const { answer, confidence, found } = await generateAnswer({
+          projectId: projectId,
+          questionId: questionId,
         });
 
-        if (!response.ok) {
-          throw new Error('Failed to generate answer');
-        }
-
-        const result = await response.json();
-
-        setAnswers(prev => ({
+        found && setAnswers(prev => ({
           ...prev,
           [questionId]: {
-            text: result.response,
-            sources: result.sources
+            text: answer,
           }
+        }));
+
+        setConfidence(prev => ({
+          ...prev,
+          [questionId]: confidence
         }));
 
         setUnsavedQuestions(prev => {
@@ -314,10 +305,20 @@ export function QuestionsProvider({ children, projectId }: QuestionsProviderProp
           return updated;
         });
 
-        toast({
-          title: 'Answer Generated',
-          description: 'AI-generated answer has been created. Please review and save it.',
-        });
+        if (answer && found) {
+          toast({
+            title: 'Answer Generated',
+            description: 'AI-generated answer has been created. Please review and save it.',
+          });
+        } else {
+          toast({
+            title: 'Answer Not Found',
+            description: 'Answer Not Found in provided documents',
+            variant: 'destructive'
+          });
+        }
+
+
       } catch (error) {
         console.error('Error generating answer:', error);
         toast({
@@ -375,7 +376,7 @@ export function QuestionsProvider({ children, projectId }: QuestionsProviderProp
       const response = await createAnswer({
         questionId: questionId,
         text: answers[questionId].text,
-      } as CreateAnswerDTO)
+      } as CreateAnswerDTO);
 
       if (response.id) {
         setUnsavedQuestions(prev => {
@@ -423,15 +424,9 @@ export function QuestionsProvider({ children, projectId }: QuestionsProviderProp
     setSavingQuestions(new Set(unsavedQuestions));
 
     try {
-      const response = await fetch(`/api/questions/${projectId}/answers`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(answersToSave),
-      });
+      const response = answersData
 
-      if (response.ok) {
+      if (!answerError) {
         setUnsavedQuestions(new Set());
 
         const result = await response.json();
@@ -546,7 +541,7 @@ export function QuestionsProvider({ children, projectId }: QuestionsProviderProp
     if (!rfpDocument) return { all: 0, answered: 0, unanswered: 0 };
 
     const allQuestions = rfpDocument.sections.flatMap((s: any) => s.questions);
-    const answeredCount = allQuestions.filter((q: any) => answers[q.id]?.text && answers[q.id].text.trim() !== '').length;
+    const answeredCount = allQuestions?.filter((q: any) => answers[q.id]?.text && answers[q.id].text.trim() !== '').length;
 
     return {
       all: allQuestions.length,
@@ -564,31 +559,19 @@ export function QuestionsProvider({ children, projectId }: QuestionsProviderProp
   // Refresh questions data
   const refreshQuestions = async () => {
     setError(null);
-
     try {
       mutateQuestions();
-
-      const answersResponse = await fetch(`/api/questions/${projectId}/answers`);
-      if (answersResponse.ok) {
-        const savedAnswers = await answersResponse.json();
-
-        const normalizedAnswers: Record<string, AnswerData> = {};
-        for (const [questionId, answerData] of Object.entries(savedAnswers)) {
-          if (typeof answerData === 'string') {
-            normalizedAnswers[questionId] = { text: answerData };
-          } else {
-            normalizedAnswers[questionId] = answerData as AnswerData;
-          }
-        }
-
-        setAnswers(normalizedAnswers);
-      }
+      setAnswers(answersData);
     } catch (error) {
       console.error('Error refreshing questions:', error);
       setError('Failed to refresh questions. Please try again.');
     } finally {
     }
   };
+
+  useEffect(() => {
+    setAnswers(answersData)
+  }, [answersData])
 
   const value: QuestionsContextType = {
     // UI state

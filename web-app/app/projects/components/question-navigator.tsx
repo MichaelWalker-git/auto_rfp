@@ -83,6 +83,7 @@ export function QuestionNavigator({
 
   // Get truncated text that tries to end at a natural break
   const getTruncatedText = (text: string, maxLength: number = 70) => {
+    if (!text) return text;
     if (text.length <= maxLength) return text;
     
     // Try to end at a natural break

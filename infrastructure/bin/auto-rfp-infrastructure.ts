@@ -8,6 +8,7 @@ import { DatabaseStack } from '../lib/database-stack';
 import { NetworkStack } from '../lib/network-stack';
 import { AmplifyFeStack } from '../lib/amplify-fe-stack';
 import { DocumentPipelineStack } from '../lib/document-pipeline-step-function';
+import { QuestionExtractionPipelineStack } from '../lib/question-pipeline-step-function';
 
 const app = new cdk.App();
 
@@ -16,14 +17,15 @@ const env = {
   region: process.env.CDK_DEFAULT_REGION || 'us-east-1',
 };
 
-const stage = 'Dev'
+const stage = 'Dev';
 
 const network = new NetworkStack(app, 'AutoRfp-Network', {
   env,
   existingVpcId: 'vpc-07171e4bf57f2ceed',
 });
 
-const feURL = 'https://dpxejv2wk0.execute-api.us-east-1.amazonaws.com'
+const feURL = 'https://dpxejv2wk0.execute-api.us-east-1.amazonaws.com';
+const opensearchEndpoint = 'https://leb5aji6vthaxk7ft8pi.us-east-1.aoss.amazonaws.com';
 
 const auth = new AuthStack(app, `AutoRfp-Auth-${stage}`, {
   env,
@@ -38,7 +40,7 @@ const auth = new AuthStack(app, `AutoRfp-Auth-${stage}`, {
 const storage = new StorageStack(app, `AutoRfp-Storage-${stage}`, {
   env,
   stage,
-})
+});
 
 const db = new DatabaseStack(app, `AutoRfp-DynamoDatabase-${stage}`, {
   env,
@@ -50,10 +52,17 @@ const pipelineStack = new DocumentPipelineStack(app, `AutoRfp-DocumentPipeline-$
   stage,
   documentsBucket: storage.documentsBucket,
   documentsTable: db.tableName,
-  openSearchCollectionEndpoint: 'https://leb5aji6vthaxk7ft8pi.us-east-1.aoss.amazonaws.com',
+  openSearchCollectionEndpoint: opensearchEndpoint,
   vpc: network.vpc,
   vpcSecurityGroup: network.lambdaSecurityGroup
-})
+});
+
+const questionsPipelineStack = new QuestionExtractionPipelineStack(app, `AutoRfp-QuestionsPipeline-${stage}`, {
+  env,
+  stage,
+  documentsBucket: storage.documentsBucket,
+  mainTable: db.tableName
+});
 
 const api = new ApiStack(app, `AutoRfp-API-${stage}`, {
   env,
@@ -63,6 +72,9 @@ const api = new ApiStack(app, `AutoRfp-API-${stage}`, {
   userPool: auth.userPool,
   userPoolClient: auth.userPoolClient,
   documentPipelineStateMachineArn: pipelineStack.stateMachine.stateMachineArn,
+  questionPipelineStateMachineArn: questionsPipelineStack.stateMachine.stateMachineArn,
+  openSearchCollectionEndpoint: opensearchEndpoint,
+  vpc: network.vpc
 });
 
 
