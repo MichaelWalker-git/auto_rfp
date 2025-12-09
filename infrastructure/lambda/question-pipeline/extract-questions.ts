@@ -1,17 +1,10 @@
 import { Context } from 'aws-lambda';
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
-import {
-  DynamoDBDocumentClient,
-  UpdateCommand,
-  PutCommand,
-} from '@aws-sdk/lib-dynamodb';
+import { DynamoDBDocumentClient, PutCommand, UpdateCommand } from '@aws-sdk/lib-dynamodb';
 import { GetObjectCommand, S3Client } from '@aws-sdk/client-s3';
-import {
-  BedrockRuntimeClient,
-  InvokeModelCommand,
-} from '@aws-sdk/client-bedrock-runtime';
-import { randomUUID } from 'crypto';
+import { BedrockRuntimeClient, InvokeModelCommand } from '@aws-sdk/client-bedrock-runtime';
 
+import { QUESTION_PK } from '../constants/organization';
 import { PK_NAME, SK_NAME } from '../constants/common';
 import { QUESTION_FILE_PK } from '../constants/question-file';
 
@@ -27,8 +20,7 @@ const BEDROCK_REGION =
   process.env.AWS_REGION ||
   'us-east-1';
 const BEDROCK_MODEL_ID =
-  process.env.BEDROCK_MODEL_ID ||
-  'anthropic.claude-3-haiku-20240307-v1:0';
+  process.env.BEDROCK_MODEL_ID || 'anthropic.claude-3-haiku-20240307-v1:0';
 
 const bedrockClient = new BedrockRuntimeClient({
   region: BEDROCK_REGION,
@@ -47,11 +39,17 @@ interface Event {
   textFileKey?: string;
 }
 
-interface ExtractedQuestion {
-  id?: string;
-  text: string;
-  number?: string;
-}
+type ExtractedQuestions = {
+  sections: Array<{
+    id: string;
+    title: string;
+    description?: string | null;
+    questions: Array<{
+      id: string;
+      question: string;
+    }>;
+  }>;
+};
 
 export const handler = async (
   event: Event,
@@ -67,16 +65,20 @@ export const handler = async (
   // 1) Load text from S3
   const text = await loadTextFromS3(textFileKey);
 
-  // 2) Call Bedrock to extract questions
-  const questions = await extractQuestionsWithClaude(text);
+  // 2) Call Bedrock with the same prompt/structure as in the HTTP Lambda
+  const extracted = await extractQuestionsWithBedrock(text);
 
-  // 3) Save individual questions in DynamoDB (linked to this file)
-  await saveQuestions(questionFileId, projectId, questions);
+  // 3) Save questions (section + questions) in DynamoDB (linked to this file)
+  const totalQuestions = await saveQuestionsFromSections(
+    questionFileId,
+    projectId,
+    extracted,
+  );
 
   // 4) Update status on question_file item
-  await updateStatus(questionFileId, projectId, 'questions_extracted');
+  await updateStatus(questionFileId, projectId, 'questions_extracted', totalQuestions);
 
-  return { count: questions.length };
+  return { count: totalQuestions };
 };
 
 async function loadTextFromS3(key: string): Promise<string> {
@@ -94,47 +96,23 @@ async function loadTextFromS3(key: string): Promise<string> {
   return body;
 }
 
-async function extractQuestionsWithClaude(
-  text: string,
-): Promise<ExtractedQuestion[]> {
-  const prompt = `
-You are an AI assistant that extracts RFP questions from a text document.
-
-The input is the text of an RFP or questionnaire.
-
-Your task:
-- Extract a clean list of questions that the vendor must answer.
-- Preserve any numbering if present (e.g. "1.1", "Q3", etc).
-- Ignore headers, footers, explanatory paragraphs, and instructions that are not actual questions.
-- Return ONLY JSON in the following format:
-
-{
-  "questions": [
-    { "number": "1.1", "text": "Full text of the question ..." },
-    { "number": "1.2", "text": "Another question ..." }
-  ]
-}
-`.trim();
+async function extractQuestionsWithBedrock(
+  content: string,
+): Promise<ExtractedQuestions> {
+  const systemPrompt = buildSystemPrompt();
+  const userPrompt = buildUserPrompt(content);
 
   const body = {
     anthropic_version: 'bedrock-2023-05-31',
-    max_tokens: 2048,
-    temperature: 0.1,
+    system: systemPrompt,
     messages: [
       {
-        role: 'system',
-        content: prompt,
-      },
-      {
         role: 'user',
-        content: [
-          {
-            type: 'text',
-            text: `DOCUMENT TEXT:\n${text}\n\nExtract questions as specified.`,
-          },
-        ],
+        content: userPrompt,
       },
     ],
+    max_tokens: 2048,
+    temperature: 0.1,
   };
 
   const res = await bedrockClient.send(
@@ -150,142 +128,112 @@ Your task:
     throw new Error('Bedrock returned empty body for question extraction');
   }
 
-  const json = JSON.parse(new TextDecoder().decode(res.body));
-  console.log(
-    'Claude question extraction raw response:',
-    JSON.stringify(json).slice(0, 1000),
-  );
+  const jsonTxt = new TextDecoder('utf-8').decode(res.body);
 
-  // Extract text content
-  let textResp = '';
-  if (Array.isArray(json.content) && json.content[0]?.text) {
-    textResp = json.content[0].text as string;
-  } else if (typeof json.output_text === 'string') {
-    textResp = json.output_text;
-  } else if (typeof json.completion === 'string') {
-    textResp = json.completion;
-  } else {
-    throw new Error('Unexpected Claude question extraction response format');
-  }
-
-  // Try to parse JSON from Claude output
-  const questions = parseQuestionsJson(textResp);
-  return questions;
-}
-
-function parseQuestionsJson(text: string): ExtractedQuestion[] {
+  let outer: any;
   try {
-    const direct = JSON.parse(text);
-    if (Array.isArray(direct.questions)) return direct.questions;
+    outer = JSON.parse(jsonTxt);
   } catch {
-    // ignore
+    console.error('Bad response JSON from Bedrock:', jsonTxt);
+    throw new Error('Invalid JSON envelope from Bedrock');
   }
 
-  // Try ```json blocks
-  const match = text.match(/```json\s*([\s\S]*?)```/);
-  if (match) {
-    try {
-      const obj = JSON.parse(match[1]);
-      if (Array.isArray(obj.questions)) return obj.questions;
-    } catch {
-      // ignore
-    }
+  const assistantText = outer?.content?.[0]?.text;
+  if (!assistantText) {
+    throw new Error('Model returned no text content');
   }
 
-  // Fallback: split lines that look like questions (rough)
-  const lines = text
-    .split('\n')
-    .map((l) => l.trim())
-    .filter(Boolean);
-  const guessed: ExtractedQuestion[] = [];
-  for (const line of lines) {
-    if (line.endsWith('?') || line.toLowerCase().startsWith('q')) {
-      guessed.push({ text: line });
-    }
+  let parsed: any;
+  try {
+    parsed = JSON.parse(assistantText);
+  } catch (err) {
+    console.error('Model output was not JSON:', assistantText);
+    throw new Error('Invalid JSON returned by the model');
   }
-  return guessed;
+
+  if (!Array.isArray(parsed.sections)) {
+    throw new Error('Response missing required sections[]');
+  }
+
+  return parsed as ExtractedQuestions;
 }
 
 /**
- * Save extracted questions as individual items in DynamoDB.
+ * Save all extracted sections + questions for a given project and questionFileId.
  *
- * PK: QUESTION_FILE_PK (unchanged, as you wanted)
- * SK: `${projectId}#${questionId}`  (current pattern – kept)
+ * PK = QUESTION_PK
+ * SK = `${projectId}#${questionId}`
  *
- * Stored fields per item:
- * - id
- * - projectId
- * - questionFileId (file this question came from)
- * - text
- * - number
- * - createdAt
- * - updatedAt
+ * Дополнительно привязываем к questionFileId и сохраняем section-метаданные.
  */
-async function saveQuestions(
+async function saveQuestionsFromSections(
   questionFileId: string,
   projectId: string,
-  questions: ExtractedQuestion[],
-) {
+  extracted: ExtractedQuestions,
+): Promise<number> {
   const now = new Date().toISOString();
+  let count = 0;
 
-  const writes = questions.map((q, index) => {
-    const id = q.id || randomUUID();
-    const sk = `${projectId}#${id}`;
+  const writes: Promise<any>[] = [];
 
-    const item = {
-      [PK_NAME]: QUESTION_PK,
-      [SK_NAME]: sk,
-      id,
-      projectId,
-      questionFileId,
-      text: q.text,
-      number: q.number ?? null,
-      createdAt: now,
-      updatedAt: now,
-      // you can add extra metadata (order, etc.)
-      order: index,
-      type: 'QUESTION', // optional discriminator if same PK is used for file + questions
-    };
+  for (const section of extracted.sections) {
+    for (const q of section.questions) {
+      const sortKey = `${projectId}#${q.id}`;
 
-    return docClient.send(
-      new PutCommand({
-        TableName: DB_TABLE_NAME,
-        Item: item,
-      }),
-    );
-  });
+      const item = {
+        [PK_NAME]: QUESTION_PK,
+        [SK_NAME]: sortKey,
+        projectId,
+        questionFileId,
+        questionId: q.id,
+        questionText: q.question,
+        sectionId: section.id,
+        sectionTitle: section.title,
+        sectionDescription: section.description ?? null,
+        createdAt: now,
+        updatedAt: now,
+      };
+
+      writes.push(
+        docClient.send(
+          new PutCommand({
+            TableName: DB_TABLE_NAME,
+            Item: item,
+          }),
+        ),
+      );
+
+      count++;
+    }
+  }
 
   await Promise.all(writes);
-
-  // Optionally, also update the question_file item with questionCount
-  const fileSk = `${projectId}#${questionFileId}`;
-  await docClient.send(
-    new UpdateCommand({
-      TableName: DB_TABLE_NAME,
-      Key: {
-        [PK_NAME]: QUESTION_FILE_PK,
-        [SK_NAME]: fileSk,
-      },
-      UpdateExpression:
-        'SET #questionCount = :count, #updatedAt = :updatedAt',
-      ExpressionAttributeNames: {
-        '#questionCount': 'questionCount',
-        '#updatedAt': 'updatedAt',
-      },
-      ExpressionAttributeValues: {
-        ':count': questions.length,
-        ':updatedAt': now,
-      },
-    }),
-  );
+  return count;
 }
 
 async function updateStatus(
   questionFileId: string,
   projectId: string,
   status: 'processing' | 'text_ready' | 'questions_extracted' | 'error',
+  questionCount?: number,
 ) {
   const sk = `${projectId}#${questionFileId}`;
+
+  const updateParts: string[] = ['#status = :status', '#updatedAt = :updatedAt'];
+  const exprAttrNames: Record<string, string> = {
+    '#status': 'status',
+    '#updatedAt': 'updatedAt',
+  };
+  const exprAttrValues: Record<string, any> = {
+    ':status': status,
+    ':updatedAt': new Date().toISOString(),
+  };
+
+  if (typeof questionCount === 'number') {
+    updateParts.push('#questionCount = :questionCount');
+    exprAttrNames['#questionCount'] = 'questionCount';
+    exprAttrValues[':questionCount'] = questionCount;
+  }
 
   await docClient.send(
     new UpdateCommand({
@@ -294,16 +242,57 @@ async function updateStatus(
         [PK_NAME]: QUESTION_FILE_PK,
         [SK_NAME]: sk,
       },
-      UpdateExpression:
-        'SET #status = :status, #updatedAt = :updatedAt',
-      ExpressionAttributeNames: {
-        '#status': 'status',
-        '#updatedAt': 'updatedAt',
-      },
-      ExpressionAttributeValues: {
-        ':status': status,
-        ':updatedAt': new Date().toISOString(),
-      },
+      UpdateExpression: `SET ${updateParts.join(', ')}`,
+      ExpressionAttributeNames: exprAttrNames,
+      ExpressionAttributeValues: exprAttrValues,
     }),
   );
+}
+
+/**
+ * Копия buildSystemPrompt из второй лямбды
+ */
+function buildSystemPrompt(): string {
+  const timestamp = Date.now();
+  return `
+You are an expert at analyzing RFP (Request for Proposal) documents and extracting structured information.
+Given a document that contains RFP questions, extract all sections and questions into a structured format.
+
+Carefully identify:
+1. Different sections (usually numbered like 1.1, 1.2, etc.)
+2. The questions within each section
+3. Any descriptive text that provides context for the section
+
+Format the output as a JSON object with the following structure:
+{
+  "sections": [
+    {
+      "id": "section_${timestamp}_1",
+      "title": "Section Title",
+      "description": "Optional description text for the section",
+      "questions": [
+        {
+          "id": "q_${timestamp}_1_1",
+          "question": "The exact text of the question"
+        }
+      ]
+    }
+  ]
+}
+
+Requirements:
+- Generate unique reference IDs using the format: q_${timestamp}_<section>_<question> for questions
+- Generate unique reference IDs using the format: section_${timestamp}_<number> for sections  
+- Preserve the exact text of questions
+- Include all questions found in the document
+- Group questions correctly under their sections
+- If a section has subsections, create separate sections for each subsection
+- The timestamp prefix (${timestamp}) ensures uniqueness across different document uploads
+
+Return ONLY the JSON object, with no additional text.
+  `.trim();
+}
+
+function buildUserPrompt(content: string): string {
+  return `Document Content:\n${content}`;
 }

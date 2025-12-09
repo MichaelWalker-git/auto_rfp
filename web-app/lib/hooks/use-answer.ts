@@ -87,14 +87,17 @@ export function useSaveAnswer(projectId: string) {
     },
   );
 }
+
 type GenerateAnswerArgs = {
   projectId: string;
   questionId: string;
   topK?: number;
 };
 
+type GenerateAnswerResponse = { answer: string, confidence: number, found: boolean }
+
 export function useGenerateAnswer() {
-  return useSWRMutation<string, any, string, GenerateAnswerArgs>(
+  return useSWRMutation<GenerateAnswerResponse, any, string, GenerateAnswerArgs>(
     `${BASE}/generate-answer`,
     async (url, { arg }) => {
       const { projectId, questionId, topK } = arg;
@@ -116,28 +119,16 @@ export function useGenerateAnswer() {
         (error as any).status = res.status;
         throw error;
       }
-
-      // Prefer JSON { answer: "..." }
       const raw = await res.text();
 
       try {
-        const parsed = JSON.parse(raw);
-
-        // New backend shape: { documentId, questionId, answer }
-        if (parsed && typeof parsed.answer === 'string') {
-          return parsed.answer;
-        }
-
-        // If backend returns plain JSON string: "..."
-        if (typeof parsed === 'string') {
-          return parsed;
-        }
+        return JSON.parse(raw) as GenerateAnswerResponse;
       } catch {
         // not JSON, fall through
       }
 
       // Fallback – return raw text
-      return raw;
+      return {} as GenerateAnswerResponse;
     },
   );
 }

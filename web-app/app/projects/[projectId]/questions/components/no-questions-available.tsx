@@ -1,8 +1,9 @@
-"use client"
+'use client';
 
-import { useRouter } from "next/navigation"
-import { Button } from "@/components/ui/button"
-import { FileText, Upload, Plus, ExternalLink } from "lucide-react"
+import { useRouter } from 'next/navigation';
+import { Button } from '@/components/ui/button';
+import { ExternalLink, FileText, Plus } from 'lucide-react';
+import { QuestionFileUploadDialog } from '@/app/projects/[projectId]/questions/components/question-extraction-dialog';
 
 interface NoQuestionsAvailableProps {
   projectId: string;
@@ -56,10 +57,7 @@ export function NoQuestionsAvailable({ projectId, onUploadClick }: NoQuestionsAv
         </div>
         
         <div className="flex flex-col sm:flex-row gap-4 justify-center">
-          <Button onClick={handleUploadClick} className="gap-2 px-6 py-2.5">
-            <Upload className="h-4 w-4" />
-            Upload Documents
-          </Button>
+          <QuestionFileUploadDialog projectId={projectId}/>
           <Button variant="outline" onClick={handleAddManuallyClick} className="gap-2 px-6 py-2.5">
             <Plus className="h-4 w-4" />
             Add Manually

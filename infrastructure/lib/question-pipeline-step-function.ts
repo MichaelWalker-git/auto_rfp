@@ -2,260 +2,245 @@ import { Duration, Stack, StackProps } from 'aws-cdk-lib';
 import { Construct } from 'constructs';
 import * as s3 from 'aws-cdk-lib/aws-s3';
 import * as dynamodb from 'aws-cdk-lib/aws-dynamodb';
-import * as lambda from 'aws-cdk-lib/aws-lambda';
 import * as lambdaNode from 'aws-cdk-lib/aws-lambda-nodejs';
-import * as iam from 'aws-cdk-lib/aws-iam';
+import * as lambda from 'aws-cdk-lib/aws-lambda';
 import * as sns from 'aws-cdk-lib/aws-sns';
-import * as subscriptions from 'aws-cdk-lib/aws-sns-subscriptions';
+import * as subs from 'aws-cdk-lib/aws-sns-subscriptions';
 import * as sfn from 'aws-cdk-lib/aws-stepfunctions';
 import * as tasks from 'aws-cdk-lib/aws-stepfunctions-tasks';
+import * as iam from 'aws-cdk-lib/aws-iam';
 import * as path from 'path';
+import * as logs from 'aws-cdk-lib/aws-logs';
 
-interface QuestionExtractionPipelineStackProps extends StackProps {
+interface Props extends StackProps {
   stage: string;
-  documentsBucket: s3.IBucket;        // same bucket you already use
-  mainTable: dynamodb.ITable;         // table that stores question_file
+  documentsBucket: s3.IBucket;
+  mainTable: dynamodb.ITable;
 }
 
 export class QuestionExtractionPipelineStack extends Stack {
   public readonly stateMachine: sfn.StateMachine;
 
-  constructor(
-    scope: Construct,
-    id: string,
-    props: QuestionExtractionPipelineStackProps,
-  ) {
+  constructor(scope: Construct, id: string, props: Props) {
     super(scope, id, props);
 
     const { stage, documentsBucket, mainTable } = props;
-    const namePrefix = `AutoRfp-${stage}-Question`;
+    const prefix = `AutoRfp-${stage}-Question`;
 
-    // 1) SNS Topic + Textract service role
-    const textractTopic = new sns.Topic(this, 'QuestionTextractTopic', {
-      topicName: `${namePrefix}-TextractCompletionTopic`,
+    //
+    // ------------------------------------------------------------
+    //  SNS Topics (FIXED)
+    // ------------------------------------------------------------
+    //
+    const textractTopic = new sns.Topic(this, 'TextractCompletionTopic', {
+      topicName: `${prefix}-TextractCompletion`,
     });
 
-    const textractServiceRole = new iam.Role(
-      this,
-      'QuestionTextractServiceRole',
-      {
-        assumedBy: new iam.ServicePrincipal('textract.amazonaws.com'),
-        roleName: `${namePrefix}-TextractServiceRole`,
-      },
-    );
+    //
+    // Textract Role
+    //
+    const textractRole = new iam.Role(this, 'TextractServiceRole', {
+      assumedBy: new iam.ServicePrincipal('textract.amazonaws.com'),
+    });
 
-    textractTopic.grantPublish(textractServiceRole);
+    textractTopic.grantPublish(textractRole);
 
-    // 2) Lambda – Start Textract for question file
+    //
+    // ------------------------------------------------------------
+    //  Lambdas
+    // ------------------------------------------------------------
+    //
+
+    //
+    // StartTextract Lambda
+    //
     const startTextractLambda = new lambdaNode.NodejsFunction(
       this,
-      'StartQuestionTextractLambda',
+      'StartTextractLambda',
       {
         runtime: lambda.Runtime.NODEJS_20_X,
-        entry: path.join(
-          __dirname,
-          '../lambda/question-pipeline/start-question-textract.ts',
-        ),
+        entry: path.join(__dirname, '../lambda/question-pipeline/start-question-textract.ts'),
         handler: 'handler',
         timeout: Duration.seconds(30),
-        functionName: `${namePrefix}-StartTextract`,
         environment: {
           DB_TABLE_NAME: mainTable.tableName,
           DOCUMENTS_BUCKET_NAME: documentsBucket.bucketName,
-          SNS_TOPIC_ARN: textractTopic.topicArn,
-          TEXTRACT_ROLE_ARN: textractServiceRole.roleArn,
+          TEXTRACT_ROLE_ARN: textractRole.roleArn,
+          TEXTRACT_SNS_TOPIC_ARN: textractTopic.topicArn,
         },
-      },
+        logRetention: logs.RetentionDays.ONE_WEEK,
+      }
     );
-
-    mainTable.grantReadWriteData(startTextractLambda);
     documentsBucket.grantRead(startTextractLambda);
+    mainTable.grantReadWriteData(startTextractLambda);
+
     startTextractLambda.addToRolePolicy(
       new iam.PolicyStatement({
         actions: ['textract:StartDocumentTextDetection'],
         resources: ['*'],
-      }),
+      })
     );
+
     startTextractLambda.addToRolePolicy(
       new iam.PolicyStatement({
         actions: ['iam:PassRole'],
-        resources: [textractServiceRole.roleArn],
-      }),
+        resources: [textractRole.roleArn],
+      })
     );
 
-    // 3) Callback handler lambda (Textract SNS → Step Functions)
-    const callbackHandlerLambda = new lambdaNode.NodejsFunction(
+    //
+    // Callback Lambda (Textract + StepFunction token)
+    //
+    const callbackLambda = new lambdaNode.NodejsFunction(
       this,
-      'QuestionTextractCallbackHandler',
+      'TextractCallbackLambda',
       {
         runtime: lambda.Runtime.NODEJS_20_X,
-        entry: path.join(
-          __dirname,
-          '../lambda/question-pipeline/textract-question-callback.ts',
-        ),
+        entry: path.join(__dirname, '../lambda/question-pipeline/textract-question-callback.ts'),
         handler: 'handler',
-        timeout: Duration.seconds(15),
-        functionName: `${namePrefix}-TextractCallbackHandler`,
+        timeout: Duration.seconds(30),
         environment: {
           DB_TABLE_NAME: mainTable.tableName,
         },
-      },
+        logRetention: logs.RetentionDays.ONE_WEEK,
+      }
     );
 
-    callbackHandlerLambda.addToRolePolicy(
+    callbackLambda.addToRolePolicy(
       new iam.PolicyStatement({
         actions: ['states:SendTaskSuccess', 'states:SendTaskFailure'],
         resources: ['*'],
-      }),
+      })
     );
 
-    mainTable.grantReadWriteData(callbackHandlerLambda);
+    mainTable.grantReadWriteData(callbackLambda);
 
     textractTopic.addSubscription(
-      new subscriptions.LambdaSubscription(callbackHandlerLambda, {
-        filterPolicy: {
-          Status: sns.SubscriptionFilter.stringFilter({
-            allowlist: ['SUCCEEDED', 'FAILED', 'PARTIAL_SUCCESS'],
-          }),
-        },
-      }),
+      new subs.LambdaSubscription(callbackLambda)
     );
 
-    // 4) Lambda – Process Textract result: store text in S3 + update question_file
+    //
+    // process-question-file Lambda
+    //
     const processResultLambda = new lambdaNode.NodejsFunction(
       this,
-      'ProcessQuestionTextractResultLambda',
+      'ProcessQuestionFileLambda',
       {
         runtime: lambda.Runtime.NODEJS_20_X,
-        entry: path.join(
-          __dirname,
-          '../lambda/question-pipeline/process-question-file.ts',
-        ),
+        entry: path.join(__dirname, '../lambda/question-pipeline/process-question-file.ts'),
         handler: 'handler',
-        timeout: Duration.minutes(5),
-        memorySize: 1536,
-        functionName: `${namePrefix}-ProcessResult`,
+        timeout: Duration.minutes(3),
         environment: {
           DB_TABLE_NAME: mainTable.tableName,
           DOCUMENTS_BUCKET_NAME: documentsBucket.bucketName,
           REGION: this.region,
         },
-      },
+        logRetention: logs.RetentionDays.ONE_WEEK,
+      }
     );
-
-    mainTable.grantReadWriteData(processResultLambda);
     documentsBucket.grantReadWrite(processResultLambda);
+    mainTable.grantReadWriteData(processResultLambda);
     processResultLambda.addToRolePolicy(
       new iam.PolicyStatement({
         actions: ['textract:GetDocumentTextDetection'],
         resources: ['*'],
       }),
     );
+    processResultLambda.addToRolePolicy(
+      new iam.PolicyStatement({
+        actions: ['bedrock:InvokeModel'],
+        resources: [`*`],
+      }),
+    );
 
-    // 5) Lambda – Extract questions from textFile via Bedrock
+    //
+    // extract-questions Lambda
+    //
     const extractQuestionsLambda = new lambdaNode.NodejsFunction(
       this,
       'ExtractQuestionsLambda',
       {
         runtime: lambda.Runtime.NODEJS_20_X,
-        entry: path.join(
-          __dirname,
-          '../lambda/question-pipeline/extract-questions.ts',
-        ),
+        entry: path.join(__dirname, '../lambda/question-pipeline/extract-questions.ts'),
         handler: 'handler',
         timeout: Duration.minutes(2),
-        functionName: `${namePrefix}-ExtractQuestions`,
         environment: {
           DB_TABLE_NAME: mainTable.tableName,
           DOCUMENTS_BUCKET_NAME: documentsBucket.bucketName,
+          BEDROCK_MODEL_ID: 'anthropic.claude-3-haiku-20240307-v1:0',
           BEDROCK_REGION: 'us-east-1',
-          BEDROCK_MODEL_ID: 'anthropic.claude-3-haiku-20240307-v1:0', // or your inference profile ARN
         },
-      },
+        logRetention: logs.RetentionDays.ONE_WEEK,
+      }
     );
-
-    mainTable.grantReadWriteData(extractQuestionsLambda);
     documentsBucket.grantRead(extractQuestionsLambda);
+    mainTable.grantReadWriteData(extractQuestionsLambda);
     extractQuestionsLambda.addToRolePolicy(
       new iam.PolicyStatement({
         actions: ['bedrock:InvokeModel'],
-        resources: ['*'],
+        resources: [`*`],
       }),
-    );
+    )
 
-    // 6) State machine definition
-    // Input: { questionFileId: string, projectId: string }
-    const startTextractTask = new tasks.LambdaInvoke(
+
+    const startTextract = new tasks.LambdaInvoke(
       this,
-      'Start Textract For Question File',
+      'Start Textract',
       {
         lambdaFunction: startTextractLambda,
-        resultPath: '$.TextractJob', // { questionFileId, projectId, jobId }
-        payloadResponseOnly: true,
-      },
-    );
-
-    const waitForTextractTask = new tasks.SnsPublish(
-      this,
-      'Wait For Textract Completion',
-      {
-        topic: textractTopic,
         integrationPattern: sfn.IntegrationPattern.WAIT_FOR_TASK_TOKEN,
-        message: sfn.TaskInput.fromObject({
-          TaskToken: sfn.JsonPath.taskToken,
-          JobId: sfn.JsonPath.stringAt('$.TextractJob.jobId'),
-          QuestionFileId: sfn.JsonPath.stringAt(
-            '$.TextractJob.questionFileId',
-          ),
-          ProjectId: sfn.JsonPath.stringAt('$.TextractJob.projectId'),
+        payload: sfn.TaskInput.fromObject({
+          taskToken: sfn.JsonPath.taskToken,
+          questionFileId: sfn.JsonPath.stringAt('$.questionFileId'),
+          projectId: sfn.JsonPath.stringAt('$.projectId'),
         }),
-        subject: `${namePrefix}-TextractJobWaiting`,
-      },
+        resultPath: '$.textract',
+      }
     );
 
-    const processResultTask = new tasks.LambdaInvoke(
+    const processResult = new tasks.LambdaInvoke(
       this,
-      'Process Textract Result (Save Text)',
+      'Process Textract Result',
       {
         lambdaFunction: processResultLambda,
         payload: sfn.TaskInput.fromObject({
-          questionFileId: sfn.JsonPath.stringAt('$.TextractJob.questionFileId'),
-          projectId: sfn.JsonPath.stringAt('$.TextractJob.projectId'),
-          jobId: sfn.JsonPath.stringAt('$.TextractJob.jobId'),
+          questionFileId: sfn.JsonPath.stringAt('$.questionFileId'),
+          projectId: sfn.JsonPath.stringAt('$.projectId'),
+          jobId: sfn.JsonPath.stringAt('$.textract.jobId'),
         }),
-        resultPath: '$.ProcessResult', // { questionFileId, projectId, textFileKey }
+        resultPath: '$.process',
         payloadResponseOnly: true,
-      },
+      }
     );
 
-    const extractQuestionsTask = new tasks.LambdaInvoke(
+    const extractQuestions = new tasks.LambdaInvoke(
       this,
-      'Extract Questions From Text',
+      'Extract Questions from Text',
       {
         lambdaFunction: extractQuestionsLambda,
         payload: sfn.TaskInput.fromObject({
-          questionFileId: sfn.JsonPath.stringAt('$.ProcessResult.questionFileId'),
-          projectId: sfn.JsonPath.stringAt('$.ProcessResult.projectId'),
-          textFileKey: sfn.JsonPath.stringAt('$.ProcessResult.textFileKey'),
+          questionFileId: sfn.JsonPath.stringAt('$.questionFileId'),
+          projectId: sfn.JsonPath.stringAt('$.projectId'),
+          textFileKey: sfn.JsonPath.stringAt('$.process.textFileKey'),
         }),
         resultPath: sfn.JsonPath.DISCARD,
-      },
+      }
     );
 
-    const definition = startTextractTask
-      .next(waitForTextractTask)
-      .next(processResultTask)
-      .next(extractQuestionsTask)
-      .next(new sfn.Succeed(this, 'Question Extraction Succeeded'));
+    const definition = startTextract
+      .next(processResult)
+      .next(extractQuestions)
+      .next(new sfn.Succeed(this, 'Done'));
+
 
     this.stateMachine = new sfn.StateMachine(
       this,
       'QuestionExtractionStateMachine',
       {
-        stateMachineName: `${namePrefix}-QuestionPipeline`,
+        stateMachineName: `${prefix}-Pipeline`,
         definitionBody: sfn.DefinitionBody.fromChainable(definition),
         timeout: Duration.minutes(30),
-      },
+      }
     );
   }
 }

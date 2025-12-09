@@ -1,18 +1,17 @@
-"use client"
+'use client';
 
-import React, { Suspense, useState } from "react"
-import { Toaster } from "@/components/ui/toaster"
+import React, { Suspense, useState } from 'react';
+import { Toaster } from '@/components/ui/toaster';
 
 // Import the new components
-import { QuestionsProvider, useQuestions } from "./questions-provider"
-import { QuestionsHeader } from "./questions-header"
-import { NoQuestionsAvailable } from "./no-questions-available"
-import { SourceDetailsDialog } from "./source-details-dialog"
-import { QuestionsFilterTabs } from "./questions-filter-tabs"
-import { QuestionsLoadingState, QuestionsErrorState } from "./questions-states"
-import { MultiStepResponseHandler } from "./multi-step-response-handler"
-import { IndexSelector } from "./index-selector"
-import { UploadDialog } from "./upload-dialog"
+import { QuestionsProvider, useQuestions } from './questions-provider';
+import { QuestionsHeader } from './questions-header';
+import { NoQuestionsAvailable } from './no-questions-available';
+import { SourceDetailsDialog } from './source-details-dialog';
+import { QuestionsFilterTabs } from './questions-filter-tabs';
+import { QuestionsLoadingState, QuestionsErrorState } from './questions-states';
+import { MultiStepResponseHandler } from './multi-step-response-handler';
+import { IndexSelector } from './index-selector';
 
 interface QuestionsSectionProps {
   projectId: string;
@@ -20,8 +19,8 @@ interface QuestionsSectionProps {
 
 // Inner component that uses the context
 function QuestionsSectionInner({ projectId }: QuestionsSectionProps) {
-  const [isUploadDialogOpen, setIsUploadDialogOpen] = useState(false)
-  
+  const [isUploadDialogOpen, setIsUploadDialogOpen] = useState(false);
+
   const {
     isLoading,
     error,
@@ -51,43 +50,43 @@ function QuestionsSectionInner({ projectId }: QuestionsSectionProps) {
   return (
     <div className="space-y-6 p-6 md:p-8 lg:p-12 min-h-screen">
       {/* Loading state */}
-      {isLoading && <QuestionsLoadingState />}
+      {isLoading && <QuestionsLoadingState/>}
 
       {/* Error state */}
-      {error && <QuestionsErrorState error={error} />}
+      {error && <QuestionsErrorState error={error}/>}
 
-             {/* No questions state */}
-       {(!isLoading && !error && (!rfpDocument || (rfpDocument?.sections?.length || 0) === 0 ||
-         rfpDocument.sections.every(section => section?.questions?.length === 0))) && (
-         <NoQuestionsAvailable projectId={projectId} onUploadClick={() => setIsUploadDialogOpen(true)} />
-       )}
+      {/* No questions state */}
+      {(!isLoading && !error && (!rfpDocument || (rfpDocument?.sections?.length || 0) === 0 ||
+        rfpDocument.sections.every(section => section?.questions?.length === 0))) && (
+        <NoQuestionsAvailable projectId={projectId} onUploadClick={() => setIsUploadDialogOpen(true)}/>
+      )}
 
       {/* Questions available state */}
       {!isLoading && !error && rfpDocument && rfpDocument?.sections?.length > 0 &&
-       !rfpDocument.sections.every(section => section?.questions?.length === 0) && (
-        <>
-          <QuestionsHeader
-            searchQuery={searchQuery}
-            onSearchChange={setSearchQuery}
-            onSaveAll={saveAllAnswers}
-            onExport={handleExportAnswers}
-            unsavedCount={unsavedQuestions.size}
-            isSaving={savingQuestions.size > 0}
-          />
+        !rfpDocument.sections.every(section => section?.questions?.length === 0) && (
+          <>
+            <QuestionsHeader
+              searchQuery={searchQuery}
+              onSearchChange={setSearchQuery}
+              onSaveAll={saveAllAnswers}
+              onExport={handleExportAnswers}
+              unsavedCount={unsavedQuestions.size}
+              isSaving={savingQuestions.size > 0}
+            />
 
-          {/* Index Selection Panel */}
-          <IndexSelector
-            availableIndexes={availableIndexes}
-            selectedIndexes={selectedIndexes}
-            organizationConnected={organizationConnected}
-            onIndexToggle={handleIndexToggle}
-            onSelectAllIndexes={handleSelectAllIndexes}
-          />
+            {/* Index Selection Panel */}
+            <IndexSelector
+              availableIndexes={availableIndexes}
+              selectedIndexes={selectedIndexes}
+              organizationConnected={organizationConnected}
+              onIndexToggle={handleIndexToggle}
+              onSelectAllIndexes={handleSelectAllIndexes}
+            />
 
-          {/* Questions Filter Tabs */}
-          <QuestionsFilterTabs rfpDocument={rfpDocument} />
-        </>
-      )}
+            {/* Questions Filter Tabs */}
+            <QuestionsFilterTabs rfpDocument={rfpDocument}/>
+          </>
+        )}
 
       {/* Source Details Dialog */}
       <SourceDetailsDialog
@@ -95,20 +94,12 @@ function QuestionsSectionInner({ projectId }: QuestionsSectionProps) {
         onClose={() => setIsSourceModalOpen(false)}
         source={selectedSource}
       />
-      
-             {/* Multi-step Response Dialog */}
-       <MultiStepResponseHandler />
 
-       {/* Upload Dialog */}
-       <UploadDialog
-         isOpen={isUploadDialogOpen}
-         onClose={() => setIsUploadDialogOpen(false)}
-         projectId={projectId}
-         onUploadComplete={handleUploadComplete}
-       />
-       
-       <Toaster />
-     </div>
+      {/* Multi-step Response Dialog */}
+      <MultiStepResponseHandler/>
+
+      <Toaster/>
+    </div>
   );
 }
 
@@ -130,7 +121,7 @@ export function QuestionsSection({ projectId }: QuestionsSectionProps) {
           <div className="h-[500px] bg-muted animate-pulse rounded"></div>
         </div>
       }>
-        <QuestionsSectionInner projectId={projectId} />
+        <QuestionsSectionInner projectId={projectId}/>
       </Suspense>
     </QuestionsProvider>
   );

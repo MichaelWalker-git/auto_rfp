@@ -57,7 +57,6 @@ if (!OPENSEARCH_ENDPOINT) {
 }
 
 // --- Types ---
-
 interface AnswerQuestionRequestBody {
   projectId: string;
   questionId?: string;
@@ -71,6 +70,7 @@ interface OpenSearchHit {
     text?: string;
     [key: string]: any;
   };
+
   [key: string]: any;
 }
 
@@ -80,6 +80,8 @@ interface QAItem {
   question: string;
   answer: string;
   createdAt: string;
+  confidence: number;
+  found: boolean;
 }
 
 // Shape of question record in Dynamo (adjust to your actual schema)
@@ -286,31 +288,53 @@ async function getQuestionItemById(
 async function answerWithBedrockLLM(
   question: string,
   docText: string,
-): Promise<string> {
-  const systemPrompt =
-    'You are an assistant that answers questions strictly based on the provided document. ' +
-    'If the document does not contain the answer, say you do not know.';
+): Promise<Partial<QAItem>> {
+  const systemPrompt = `
+You are an assistant that answers questions strictly based on the provided document.
 
-  const userContent = [
+Rules:
+- Use ONLY the information from the document.
+- If the document does not contain the answer, you MUST set "found" to false and "answer" to an empty string.
+- Do NOT invent or guess information that is not clearly supported by the document.
+- Do NOT repeat the question in the answer.
+- Answer concisely, without unnecessary "water" or filler.
+
+Output format:
+Return ONLY a single JSON object, no additional text, in this exact shape:
+
+{
+  "answer": "string",
+  "confidence": 0.0,
+  "found": true
+}
+
+Where:
+- "answer" is the final answer text when found=true, otherwise an empty string "".
+- "confidence" is a number between 0.0 and 1.0 that reflects how sure you are based on the document.
+- "found" is:
+  - true  — when the answer is clearly supported by the document;
+  - false — when the answer cannot be found in the document or is too uncertain.
+`.trim();
+
+  const userPrompt = [
     'Document:',
     '"""',
     docText,
     '"""',
     '',
     `Question: ${question}`,
-    '',
-    'Answer in a concise paragraph:',
   ].join('\n');
 
   const payload = {
     anthropic_version: 'bedrock-2023-05-31',
     max_tokens: 512,
     temperature: 0.2,
+    system: systemPrompt,              // системный промпт – как Anthropic любит
     messages: [
       {
         role: 'user',
         content: [
-          { type: 'text', text: `${systemPrompt}\n\n${userContent}` },
+          { type: 'text', text: userPrompt },
         ],
       },
     ],
@@ -329,23 +353,38 @@ async function answerWithBedrockLLM(
     throw new Error('Bedrock (QA) returned no body');
   }
 
-  const json = JSON.parse(Buffer.from(res.body).toString('utf-8'));
-  const first = json.content?.[0];
-  const answer: string | undefined = first?.text ?? first?.content?.[0]?.text;
+  const raw = Buffer.from(res.body).toString('utf-8');
 
-  if (!answer) {
-    throw new Error(
-      `Unexpected QA response: ${JSON.stringify(json).slice(0, 500)}`,
-    );
+  let outer: any;
+  try {
+    outer = JSON.parse(raw);
+  } catch (err) {
+    console.error('Invalid JSON envelope from Bedrock:', raw);
+    throw new Error('Invalid JSON envelope from Bedrock');
   }
 
-  return answer.trim();
+  const result: Partial<QAItem> = {
+    answer: typeof outer.answer === 'string' ? outer.answer : '',
+    confidence:
+      typeof outer.confidence === 'number'
+        ? Math.min(1, Math.max(0, outer.confidence))
+        : 0,
+    found: typeof outer.found === 'boolean' ? outer.found : false,
+  };
+
+  if (!result.found) {
+    result.answer = '';
+  }
+
+  return result;
 }
 
 async function storeAnswer(
   documentId: string,
   question: string,
   answer: string,
+  confidence: number,
+  found: boolean,
   existingQuestionId?: string,
 ): Promise<QAItem> {
   const now = new Date().toISOString();
@@ -362,6 +401,8 @@ async function storeAnswer(
     question,
     answer,
     createdAt: now,
+    confidence,
+    found,
   };
 
   await docClient.send(
@@ -377,6 +418,8 @@ async function storeAnswer(
     question,
     answer,
     createdAt: now,
+    confidence,
+    found,
   };
 }
 
@@ -461,13 +504,15 @@ export const handler = async (
     const docText = await loadDocumentText(docItem);
 
     // 4) Ask Bedrock LLM
-    const answer = await answerWithBedrockLLM(questionText, docText);
+    const { answer, confidence, found } = await answerWithBedrockLLM(questionText, docText);
 
     // 5) Store Q&A in Dynamo (re-use questionId if we had one)
     const qaItem = await storeAnswer(
       documentId,
       questionText,
-      answer,
+      answer || '',
+      confidence || 0,
+      found || false,
       questionId,
     );
 
@@ -476,6 +521,8 @@ export const handler = async (
       documentId,
       questionId: qaItem.questionId,
       answer,
+      confidence,
+      found,
     });
   } catch (err) {
     console.error('Error in answer-question handler:', err);

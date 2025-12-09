@@ -19,6 +19,7 @@ export interface ApiStackProps extends cdk.StackProps {
   userPool: cognito.IUserPool;
   userPoolClient: cognito.IUserPoolClient;
   documentPipelineStateMachineArn: string;
+  questionPipelineStateMachineArn: string;
   openSearchCollectionEndpoint: string;
   vpc: ec2.IVpc;
 }
@@ -37,6 +38,7 @@ export class ApiStack extends cdk.Stack {
   private readonly textractApi: ApiNestedStack;
   private readonly knowledgeBaseApi: ApiNestedStack;
   private readonly documentApi: ApiNestedStack;
+  private readonly questionFileApi: ApiNestedStack;
 
 
   constructor(scope: Construct, id: string, props: ApiStackProps) {
@@ -49,6 +51,7 @@ export class ApiStack extends cdk.Stack {
       userPool,
       userPoolClient,
       documentPipelineStateMachineArn,
+      questionPipelineStateMachineArn,
       openSearchCollectionEndpoint,
       vpc
     } = props;
@@ -174,7 +177,6 @@ export class ApiStack extends cdk.Stack {
       }),
     );
 
-
     lambdaRole.addToPrincipalPolicy(
       new iam.PolicyStatement({
         actions: [
@@ -187,6 +189,13 @@ export class ApiStack extends cdk.Stack {
       }),
     );
 
+    lambdaRole.addToPrincipalPolicy(
+      new iam.PolicyStatement({
+        actions: ['states:StartExecution'],
+        resources: ['*'],
+        effect: iam.Effect.ALLOW,
+      }),
+    );
 
     lambdaRole.addToPrincipalPolicy(
       new iam.PolicyStatement({
@@ -216,6 +225,7 @@ export class ApiStack extends cdk.Stack {
       BEDROCK_MODEL_ID: 'anthropic.claude-3-haiku-20240307-v1:0',
       OPENSEARCH_INDEX: 'documents',
       STATE_MACHINE_ARN: documentPipelineStateMachineArn,
+      QUESTION_PIPELINE_STATE_MACHINE_ARN: questionPipelineStateMachineArn,
       OPENSEARCH_ENDPOINT: openSearchCollectionEndpoint
     };
 
@@ -227,6 +237,7 @@ export class ApiStack extends cdk.Stack {
       commonEnv,
       userPool
     });
+
     this.projectApi = new ApiNestedStack(this, 'ProjectApi', {
       api: this.api,
       basePath: 'project',
@@ -250,30 +261,6 @@ export class ApiStack extends cdk.Stack {
       commonEnv,
       userPool
     });
-
-    this.answerApi.addRoute(
-      '/get-answers/{id}',
-      'GET',
-      'lambda/answer/get-answers.ts',
-    );
-
-    this.answerApi.addRoute(
-      '/create-answer',
-      'POST',
-      'lambda/answer/create-answer.ts',
-    );
-
-    this.answerApi.addRoute(
-      '/save-answer',
-      'POST',
-      'lambda/answer/save-answer.ts',
-    );
-
-    this.answerApi.addRoute(
-      '/generate-answer',
-      'POST',
-      'lambda/answer/generate-answer.ts',
-    );
 
     this.presignedUrlApi = new ApiNestedStack(this, 'PresignedUrlApi', {
       api: this.api,
@@ -307,6 +294,32 @@ export class ApiStack extends cdk.Stack {
       userPool
     });
 
+
+    this.questionFileApi = new ApiNestedStack(this, 'QuestionFileApi', {
+      api: this.api,
+      basePath: 'questionfile',
+      lambdaRole,
+      commonEnv,
+      userPool
+    })
+
+    this.questionFileApi.addRoute(
+      '/start-question-pipeline',
+      'POST',
+      'lambda/question-file/start-question-pipeline.ts',
+    );
+
+    this.questionFileApi.addRoute(
+      '/create-question-file',
+      'POST',
+      'lambda/question-file/create-question-file.ts',
+    );
+
+    this.questionFileApi.addRoute(
+      '/get-question-file',
+      'GET',
+      'lambda/question-file/get-question-file.ts',
+    );
 
     this.knowledgeBaseApi.addRoute(
       '/create-knowledgebase',
@@ -483,6 +496,31 @@ export class ApiStack extends cdk.Stack {
       '/begin-extraction',
       'POST',
       'lambda/textract/begin-extraction.ts',
+    );
+
+
+    this.answerApi.addRoute(
+      '/get-answers/{id}',
+      'GET',
+      'lambda/answer/get-answers.ts',
+    );
+
+    this.answerApi.addRoute(
+      '/create-answer',
+      'POST',
+      'lambda/answer/create-answer.ts',
+    );
+
+    this.answerApi.addRoute(
+      '/save-answer',
+      'POST',
+      'lambda/answer/save-answer.ts',
+    );
+
+    this.answerApi.addRoute(
+      '/generate-answer',
+      'POST',
+      'lambda/answer/generate-answer.ts',
     );
 
     this.textractApi.addRoute(

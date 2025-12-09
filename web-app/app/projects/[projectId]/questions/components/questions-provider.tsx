@@ -111,6 +111,7 @@ export function QuestionsProvider({ children, projectId }: QuestionsProviderProp
   // Data state
   const [error, setError] = useState<string | null>(null);
   const [answers, setAnswers] = useState<Record<string, AnswerData>>({});
+  const [confidence, setConfidence] = useState<Record<string, number>>({});
   const [unsavedQuestions, setUnsavedQuestions] = useState<Set<string>>(new Set());
 
   // Process state
@@ -281,19 +282,21 @@ export function QuestionsProvider({ children, projectId }: QuestionsProviderProp
       setIsGenerating(prev => ({ ...prev, [questionId]: true }));
 
       try {
-        const response = await generateAnswer({
+        const { answer, confidence, found } = await generateAnswer({
           projectId: projectId,
           questionId: questionId,
         });
-        if (!response) {
-          throw new Error('Failed to generate answer');
-        }
 
-        setAnswers(prev => ({
+        found && setAnswers(prev => ({
           ...prev,
           [questionId]: {
-            text: response,
+            text: answer,
           }
+        }));
+
+        setConfidence(prev => ({
+          ...prev,
+          [questionId]: confidence
         }));
 
         setUnsavedQuestions(prev => {
@@ -302,10 +305,20 @@ export function QuestionsProvider({ children, projectId }: QuestionsProviderProp
           return updated;
         });
 
-        toast({
-          title: 'Answer Generated',
-          description: 'AI-generated answer has been created. Please review and save it.',
-        });
+        if (answer && found) {
+          toast({
+            title: 'Answer Generated',
+            description: 'AI-generated answer has been created. Please review and save it.',
+          });
+        } else {
+          toast({
+            title: 'Answer Not Found',
+            description: 'Answer Not Found in provided documents',
+            variant: 'destructive'
+          });
+        }
+
+
       } catch (error) {
         console.error('Error generating answer:', error);
         toast({
@@ -528,7 +541,7 @@ export function QuestionsProvider({ children, projectId }: QuestionsProviderProp
     if (!rfpDocument) return { all: 0, answered: 0, unanswered: 0 };
 
     const allQuestions = rfpDocument.sections.flatMap((s: any) => s.questions);
-    const answeredCount = allQuestions.filter((q: any) => answers[q.id]?.text && answers[q.id].text.trim() !== '').length;
+    const answeredCount = allQuestions?.filter((q: any) => answers[q.id]?.text && answers[q.id].text.trim() !== '').length;
 
     return {
       all: allQuestions.length,

@@ -27,10 +27,6 @@ export function DocumentsSection({ projectId: propProjectId }: DocumentsSectionP
   return (
     <div className="space-y-6 p-12">
       <h2 className="text-2xl font-bold">Documents</h2>
-      
-      {/* Project Index Selection */}
-      <ProjectIndexSelector projectId={projectId} />
-      
       {/* Project Documents from Selected Indexes */}
       <ProjectDocuments projectId={projectId} />
     </div>
