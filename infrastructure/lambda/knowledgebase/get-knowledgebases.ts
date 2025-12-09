@@ -1,11 +1,12 @@
-import { APIGatewayProxyEventV2, APIGatewayProxyResultV2, } from 'aws-lambda';
+import { APIGatewayProxyEventV2, APIGatewayProxyResultV2 } from 'aws-lambda';
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
-import { DynamoDBDocumentClient, QueryCommand, } from '@aws-sdk/lib-dynamodb';
+import { DynamoDBDocumentClient, QueryCommand } from '@aws-sdk/lib-dynamodb';
 
 import { PK_NAME, SK_NAME } from '../constants/common';
 import { apiResponse } from '../helpers/api';
 import { KNOWLEDGE_BASE_PK } from '../constants/organization';
-import { KnowledgeBase, KnowledgeBaseItem, } from '../schemas/knowledge-base';
+import { DOCUMENT_PK } from '../constants/document';
+import { KnowledgeBase, KnowledgeBaseItem } from '../schemas/knowledge-base';
 
 const ddbClient = new DynamoDBClient({});
 const docClient = DynamoDBDocumentClient.from(ddbClient, {
@@ -47,6 +48,8 @@ export const handler = async (
   }
 };
 
+// --- List KBs for org ----
+
 export async function listKnowledgeBasesForOrg(
   orgId: string,
 ): Promise<KnowledgeBase[]> {
@@ -82,19 +85,65 @@ export async function listKnowledgeBasesForOrg(
       | undefined;
   } while (ExclusiveStartKey);
 
-  // Map raw Dynamo items → API shape
-  return items.map((item) => {
-    const sk = item[SK_NAME] as string;
+  // For each KB, compute documents count (PK = DOCUMENT_PK, SK begins_with "KB#<kbId>")
+  return await Promise.all(
+    items.map(async (item) => {
+      const sk = item[SK_NAME] as string;
+      const kbId = sk.split('#')[1];
 
-    return {
-      id: sk.split('#')[1],
-      name: item.name,
-      description: item.description,
-      createdAt: item.createdAt,
-      updatedAt: item.updatedAt,
-      _count: {
-        questions: item._count?.questions ?? 0,
-      },
-    };
-  });
+      const documentsCount = await getDocumentCountForKnowledgeBase(kbId);
+
+      return {
+        id: kbId,
+        name: item.name,
+        description: item.description,
+        createdAt: item.createdAt,
+        updatedAt: item.updatedAt,
+        _count: {
+          questions: item._count?.questions ?? 0,
+          documents: documentsCount,
+        },
+      } as KnowledgeBase;
+    }),
+  );
+}
+
+// --- Helper: count documents for a KB ---
+//
+// Document items:
+//   PK = DOCUMENT_PK
+//   SK starts with `KB#${knowledgeBaseId}`
+async function getDocumentCountForKnowledgeBase(
+  knowledgeBaseId: string,
+): Promise<number> {
+  const skPrefix = `KB#${knowledgeBaseId}`;
+  let count = 0;
+  let ExclusiveStartKey: Record<string, any> | undefined = undefined;
+
+  do {
+    const res = await docClient.send(
+      new QueryCommand({
+        TableName: DB_TABLE_NAME,
+        KeyConditionExpression:
+          '#pk = :pkValue AND begins_with(#sk, :skPrefix)',
+        ExpressionAttributeNames: {
+          '#pk': PK_NAME,
+          '#sk': SK_NAME,
+        },
+        ExpressionAttributeValues: {
+          ':pkValue': DOCUMENT_PK,
+          ':skPrefix': skPrefix,
+        },
+        Select: 'COUNT',
+        ExclusiveStartKey,
+      }),
+    );
+
+    count += res.Count ?? 0;
+    ExclusiveStartKey = res.LastEvaluatedKey as
+      | Record<string, any>
+      | undefined;
+  } while (ExclusiveStartKey);
+
+  return count;
 }

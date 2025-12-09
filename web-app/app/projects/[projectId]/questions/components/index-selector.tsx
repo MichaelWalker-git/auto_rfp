@@ -66,6 +66,8 @@ export function IndexSelector({
     );
   }
 
+  return <></>
+
   return (
     <Card className="mb-6">
       <CardHeader className="">

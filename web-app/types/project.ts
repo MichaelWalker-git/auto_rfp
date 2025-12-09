@@ -5,4 +5,5 @@ export interface Project {
   createdAt: string;
   progress?: number;
   status?: string;
+  orgId?: string;
 } 

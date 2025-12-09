@@ -22,7 +22,7 @@ interface Project {
   name: string;
   description?: string;
   organizationId: string;
-  organization: Organization;
+  organization?: Organization;
 }
 
 interface OrganizationContextType {
@@ -41,8 +41,7 @@ const OrganizationContext =
 
 export function useOrganization() {
   const context = useContext(OrganizationContext);
-
-  if (context === undefined) {
+  if (!context) {
     throw new Error('useOrganization must be used within an OrganizationProvider');
   }
   return context;
@@ -54,9 +53,18 @@ interface OrganizationProviderProps {
 
 export function OrganizationProvider({ children }: OrganizationProviderProps) {
   const pathname = usePathname();
+
+  // Parse IDs from URL once per render
+  const orgMatch = pathname.match(/\/organizations\/([^/]+)/);
+  const projectMatch = pathname.match(/\/projects\/([^/]+)/);
+
+  const orgIdFromPath = orgMatch?.[1];
+  const projectIdFromPath = projectMatch?.[1];
+
   const [currentOrganization, setCurrentOrganization] = useState<Organization | null>(null);
-  const [projectId, setProjectId] = useState<string | undefined>();
-  const [initialLoad, setInitialLoad] = useState(true);
+  const [projectId, setProjectId] = useState<string | undefined>(
+    projectIdFromPath,
+  );
 
   const {
     data: organizations = [],
@@ -64,11 +72,16 @@ export function OrganizationProvider({ children }: OrganizationProviderProps) {
     isLoading: isOrgLoading,
   } = useOrganizations();
 
+  // Effective orgId for projects:
+  // 1) currentOrganization.id
+  // 2) orgId from URL
+  const effectiveOrgId = currentOrganization?.id ?? orgIdFromPath ?? '';
+
   const {
     data: projects = [],
     mutate: mutateProjects,
     isLoading: isProjectsLoading,
-  } = useProjects(currentOrganization?.id || '');
+  } = useProjects(effectiveOrgId);
 
   const {
     data: project,
@@ -80,7 +93,7 @@ export function OrganizationProvider({ children }: OrganizationProviderProps) {
 
   const refreshData = async () => {
     await mutateOrg();
-    if (currentOrganization) {
+    if (effectiveOrgId) {
       await mutateProjects();
     }
     if (projectId) {
@@ -88,70 +101,89 @@ export function OrganizationProvider({ children }: OrganizationProviderProps) {
     }
   };
 
-  // Sync org & project from URL when pathname or data changes
+  // 1) Hydrate currentOrganization from URL or fallback to first org
   useEffect(() => {
-    const orgMatch = pathname.match(/\/organizations\/([^/]+)/);
-    const projectMatch = pathname.match(/\/projects\/([^/]+)/);
+    if (!organizations.length) return;
 
-    const orgIdFromPath = orgMatch?.[1];
-    const projectIdFromPath = projectMatch?.[1];
+    // If we already have an org, do nothing
+    if (currentOrganization) return;
 
-    // Set organization based on URL (match by id or slug)
-    if (orgIdFromPath && organizations.length > 0) {
-      const orgFromPath =
+    // Try by URL (id or slug)
+    if (orgIdFromPath) {
+      const found =
         organizations.find(
           (o) => o.id === orgIdFromPath || o.slug === orgIdFromPath,
         ) ?? null;
-
-      setCurrentOrganization(orgFromPath);
-    }
-
-    // Set projectId from URL if present
-    if (projectIdFromPath) {
-      if (projectId !== projectIdFromPath) {
-        setProjectId(projectIdFromPath);
-      }
-    } else {
-      // No project in URL -> auto-select first project when ready & not on /projects/*
-      const hasProjects = (projects?.length || 0) > 0;
-      if (!pathname.includes('/projects/') && hasProjects && !initialLoad) {
-        setProjectId(projects[0].id);
+      if (found) {
+        setCurrentOrganization(found);
+        return;
       }
     }
 
-    if (initialLoad) {
-      setInitialLoad(false);
-    }
-  }, [pathname, organizations, projects, projectId, initialLoad]);
+    const pr = projects.find(p => p.id === projectId);
+    const org = organizations.find((o) => o.id === pr?.orgId,) ?? null;
+    setCurrentOrganization(org)
+  }, [organizations, currentOrganization, orgIdFromPath]);
 
-  // When organization changes (e.g. user selects dropdown), refresh its projects
+  // 2) Hydrate projectId from URL or from first project of current org
   useEffect(() => {
-    if (currentOrganization && !initialLoad) {
-      mutateProjects();
+    if (!projects.length) return;
+
+    // If URL has /projects/:id → honor it
+    if (projectIdFromPath && projectId !== projectIdFromPath) {
+      setProjectId(projectIdFromPath);
+      return;
     }
-  }, [currentOrganization, initialLoad, mutateProjects]);
+
+    // No project in URL and none selected → auto-select first project
+    if (!projectId && !pathname.includes('/projects/')) {
+      setProjectId(projects[0].id);
+    }
+  }, [projects, projectId, projectIdFromPath, pathname]);
+
+  // 3) If we have a loaded project but no organization, derive org from project
+  useEffect(() => {
+    if (!project) return;
+    if (currentOrganization) return;
+
+    if (project.organization) {
+      setCurrentOrganization(project.organization);
+      return;
+    }
+
+    if (organizations.length) {
+      const found = organizations.find((o) => o.id === project.organizationId);
+      if (found) {
+        setCurrentOrganization(found);
+      }
+    }
+  }, [project, currentOrganization, organizations]);
 
   const handleSetCurrentOrganization = (org: Organization | null) => {
     setCurrentOrganization(org);
-    // Clear project when org changes; will be re-selected via effect
+    // Reset project when org changes – will be reselected via effect
     setProjectId(undefined);
   };
 
   const handleSetCurrentProject = (p: Project | null) => {
     setProjectId(p?.id);
-    // Optionally keep org in sync with project’s org
     if (p?.organization) {
       setCurrentOrganization(p.organization);
+    } else if (p?.organizationId && organizations.length) {
+      const found = organizations.find((o) => o.id === p.organizationId);
+      if (found) {
+        setCurrentOrganization(found);
+      }
     }
   };
 
   const value: OrganizationContextType = {
     currentOrganization,
-    currentProject: project ?? null,
+    currentProject: (project as Project) ?? null,
     setCurrentOrganization: handleSetCurrentOrganization,
     setCurrentProject: handleSetCurrentProject,
     organizations,
-    projects: projects as any || [],
+    projects: (projects as unknown as Project[]) || [],
     loading,
     refreshData,
   };

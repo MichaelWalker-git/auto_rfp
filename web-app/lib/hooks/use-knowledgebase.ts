@@ -19,6 +19,7 @@ export interface KnowledgeBase {
   updatedAt: string;
   _count: {
     questions: number;
+    documents: number;
   };
 }
 

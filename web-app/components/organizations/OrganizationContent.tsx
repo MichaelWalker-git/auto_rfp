@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from "react";
 import { Organization } from "@/types/organization";
 import { Project } from "@/types/project";
-import { useOrganization, useOrganizationProjects } from "@/lib/hooks/use-api";
+import { useOrganization, useProjects } from '@/lib/hooks/use-api';
 import { useToast } from "@/components/ui/use-toast";
 import { useRouter } from "next/navigation";
 import { ProjectsHeader } from "./ProjectsHeader";
@@ -22,7 +22,7 @@ export function OrganizationContent({ orgId }: OrganizationContentProps) {
   const router = useRouter();
 
   const { data: orgData, isLoading: isOrgLoading, isError: isOrgError } = useOrganization(orgId);
-  const { data: projectsData, isLoading: isProjectsLoading, isError: isProjectsError } = useOrganizationProjects(orgId);
+  const { data: projectsData, isLoading: isProjectsLoading, isError: isProjectsError } = useProjects(orgId);
   
   useEffect(() => {
     if (orgData) {

@@ -169,7 +169,7 @@ export function KnowledgeBaseContent({ params }: KnowledgeBaseContentProps) {
                 <div className="flex justify-between items-start">
                   <CardTitle className="text-lg">{kb.name}</CardTitle>
                   <Badge variant="secondary">
-                    {kb._count.questions} questions
+                    {kb._count.documents} documents
                   </Badge>
                 </div>
                 {kb.description && (

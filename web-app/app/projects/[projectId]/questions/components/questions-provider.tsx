@@ -133,7 +133,7 @@ export function QuestionsProvider({ children, projectId }: QuestionsProviderProp
   const [currentQuestionText, setCurrentQuestionText] = useState<string>('');
   const { data: project, isLoading: isProjectLoading } = useProject(projectId);
   const { data: rfpDocument, isLoading: isQuestionsLoading, mutate: mutateQuestions } = useLoadQuestions(projectId);
-  const { data: answersData, error: answerError, isLoading: isAnswersLoading } = useAnswers(projectId)
+  const { data: answersData, error: answerError, isLoading: isAnswersLoading } = useAnswers(projectId);
   const { trigger: createAnswer } = useSaveAnswer(projectId);
   const isLoading = isProjectLoading || isQuestionsLoading || isAnswersLoading;
   const {
@@ -285,6 +285,7 @@ export function QuestionsProvider({ children, projectId }: QuestionsProviderProp
         const { answer, confidence, found } = await generateAnswer({
           projectId: projectId,
           questionId: questionId,
+          topK: 5,
         });
 
         found && setAnswers(prev => ({
@@ -418,27 +419,22 @@ export function QuestionsProvider({ children, projectId }: QuestionsProviderProp
     unsavedQuestions.forEach(questionId => {
       if (answers[questionId]) {
         answersToSave[questionId] = answers[questionId];
+        const { text } = answers[questionId];
+        createAnswer({
+          questionId: questionId,
+          text: text,
+        } as CreateAnswerDTO);
       }
     });
 
     setSavingQuestions(new Set(unsavedQuestions));
 
     try {
-      const response = answersData
-
-      if (!answerError) {
-        setUnsavedQuestions(new Set());
-
-        const result = await response.json();
-        setLastSaved(result.timestamp);
-
-        toast({
-          title: 'All Answers Saved',
-          description: `Successfully saved ${Object.keys(answersToSave).length} answers.`,
-        });
-      } else {
-        throw new Error(`Failed to save answers: ${response.statusText}`);
-      }
+      setUnsavedQuestions(new Set());
+      toast({
+        title: 'All Answers Saved',
+        description: `Successfully saved ${Object.keys(answersToSave).length} answers.`,
+      });
     } catch (error) {
       console.error('Error saving all answers:', error);
       toast({
@@ -570,8 +566,8 @@ export function QuestionsProvider({ children, projectId }: QuestionsProviderProp
   };
 
   useEffect(() => {
-    setAnswers(answersData)
-  }, [answersData])
+    setAnswers(answersData);
+  }, [answersData]);
 
   const value: QuestionsContextType = {
     // UI state
