@@ -21,7 +21,7 @@ if (!DB_TABLE_NAME) {
 export const handler = async (event: APIGatewayProxyEventV2): Promise<APIGatewayProxyResultV2> => {
   const { orgId } = event?.queryStringParameters || {};
   try {
-    const list = await listProjects(orgId || '');
+    const list = orgId ? await listProjects(orgId) : await allProjects();
     return apiResponse(200, list);
   } catch (err) {
     console.error('Error in projects handler:', err);
@@ -65,4 +65,31 @@ export async function listProjects(orgId: string): Promise<any[]> {
   return items;
 }
 
+export async function allProjects(): Promise<any[]> {
+  const items: any[] = [];
+  let ExclusiveStartKey: Record<string, any> | undefined = undefined;
 
+  do {
+    const res = await docClient.send(
+      new QueryCommand({
+        TableName: DB_TABLE_NAME,
+        KeyConditionExpression: '#pk = :pkValue',
+        ExpressionAttributeNames: {
+          '#pk': PK_NAME,
+        },
+        ExpressionAttributeValues: {
+          ':pkValue': PROJECT_PK,
+        },
+        ExclusiveStartKey,
+      }),
+    );
+
+    if (res.Items && res.Items.length > 0) {
+      items.push(...res.Items);
+    }
+
+    ExclusiveStartKey = res.LastEvaluatedKey as Record<string, any> | undefined;
+  } while (ExclusiveStartKey);
+
+  return items;
+}

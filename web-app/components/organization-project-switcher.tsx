@@ -1,7 +1,7 @@
 'use client';
 
-import { useState, useCallback } from 'react';
-import { useRouter } from 'next/navigation';
+import { useCallback, useEffect, useState } from 'react';
+import { usePathname, useRouter } from 'next/navigation';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -10,18 +10,13 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import {
-  SidebarMenu,
-  SidebarMenuButton,
-  SidebarMenuItem,
-  useSidebar,
-} from '@/components/ui/sidebar';
+import { SidebarMenu, SidebarMenuButton, SidebarMenuItem, useSidebar, } from '@/components/ui/sidebar';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
-import { ChevronsUpDown, Plus, Loader2 } from 'lucide-react';
+import { ChevronsUpDown, Loader2, Plus } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
 import { useOrganization } from '@/context/organization-context';
 import { useCreateOrganization } from '@/lib/hooks/use-create-organization';
@@ -51,6 +46,7 @@ export function OrganizationProjectSwitcher() {
   const [createProjectDialogOpen, setCreateProjectDialogOpen] = useState(false);
   const [isCreatingOrg, setIsCreatingOrg] = useState(false);
   const [isCreatingProject, setIsCreatingProject] = useState(false);
+  const pathname = usePathname();
 
   // Form data
   const [orgFormData, setOrgFormData] = useState({
@@ -210,7 +206,7 @@ export function OrganizationProjectSwitcher() {
                   {organizations.map((organization) => (
                     <DropdownMenuItem
                       key={organization.id}
-                      onSelect={() => handleOrganizationChange(organization)}
+                      onClick={() => handleOrganizationChange(organization)}
                       className="overflow-hidden text-ellipsis whitespace-nowrap cursor-pointer"
                     >
                       {organization.name}
@@ -321,7 +317,7 @@ export function OrganizationProjectSwitcher() {
                   {projects.map((project) => (
                     <DropdownMenuItem
                       key={project.id}
-                      onSelect={() => handleProjectChange(project)}
+                      onClick={() => handleProjectChange(project)}
                       className="overflow-hidden text-ellipsis whitespace-nowrap cursor-pointer"
                     >
                       {project.name}

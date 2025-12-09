@@ -10,7 +10,7 @@ interface AnswerDisplayProps {
 
 export function AnswerDisplay({ content, className = "" }: AnswerDisplayProps) {
   return (
-    <div className={`rounded-md p-4 bg-white ${className}`}>
+    <div className={`rounded-md ${className}`}>
       <MarkdownRenderer content={content} />
     </div>
   );

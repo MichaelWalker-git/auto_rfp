@@ -31,6 +31,7 @@ export function QuestionNavigator({
   searchQuery = "" 
 }: QuestionNavigatorProps) {
   const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({})
+  const [current, setCurrent] = useState<string>()
 
   // Initialize expanded sections
   useEffect(() => {
@@ -38,7 +39,7 @@ export function QuestionNavigator({
       const initialState: Record<string, boolean> = {};
       sections.forEach((section, index) => {
         // Expand the first two sections by default
-        initialState[section.id] = index < 2;
+        initialState[section.id] = index < 10;
       });
       setExpandedSections(initialState);
     }
@@ -118,9 +119,12 @@ export function QuestionNavigator({
                     key={question.id}
                     className={cn(
                       "flex w-full text-left items-start p-2 rounded-md text-sm hover:bg-muted",
-                      isUnsaved && "bg-amber-50"
+                      question.id == current && "border-2"
                     )}
-                    onClick={() => onSelectQuestion(question.id)}
+                    onClick={() => {
+                      setCurrent(question.id);
+                      onSelectQuestion(question.id)
+                    }}
                   >
                     <div className="flex w-full">
                       <div className="flex-shrink-0 w-5 h-5 mt-0.5 mr-2">

@@ -293,20 +293,16 @@ async function answerWithBedrockLLM(
 You are an assistant that answers questions strictly based on the provided document.
 
 Rules:
-- Use ONLY the information from the document.
 - If the document does not contain the answer, you MUST set "found" to false and "answer" to an empty string.
 - Do NOT invent or guess information that is not clearly supported by the document.
 - Do NOT repeat the question in the answer.
+- Do NOT begin with, based on ..., just answer.
 - Answer concisely, without unnecessary "water" or filler.
 
 Output format:
 Return ONLY a single JSON object, no additional text, in this exact shape:
 
-{
-  "answer": "string",
-  "confidence": 0.0,
-  "found": true
-}
+{"answer":"string","confidence":0.0,"found":true}
 
 Where:
 - "answer" is the final answer text when found=true, otherwise an empty string "".
@@ -329,20 +325,18 @@ Where:
     anthropic_version: 'bedrock-2023-05-31',
     max_tokens: 512,
     temperature: 0.2,
-    system: systemPrompt,              // системный промпт – как Anthropic любит
+    system: systemPrompt,
     messages: [
       {
         role: 'user',
-        content: [
-          { type: 'text', text: userPrompt },
-        ],
+        content: [{ type: 'text', text: userPrompt }],
       },
     ],
   };
 
   const res = await bedrockClient.send(
     new InvokeModelCommand({
-      modelId: BEDROCK_MODEL_ID,
+      modelId: BEDROCK_MODEL_ID!,
       contentType: 'application/json',
       accept: 'application/json',
       body: Buffer.from(JSON.stringify(payload)),
@@ -355,6 +349,8 @@ Where:
 
   const raw = Buffer.from(res.body).toString('utf-8');
 
+  console.log('Raw: ', raw)
+
   let outer: any;
   try {
     outer = JSON.parse(raw);
@@ -363,13 +359,29 @@ Where:
     throw new Error('Invalid JSON envelope from Bedrock');
   }
 
+  const text: string | undefined = outer?.content?.[0]?.text;
+  if (!text) {
+    console.error('Unexpected QA response structure:', JSON.stringify(outer).slice(0, 500));
+    throw new Error('Model returned no text content');
+  }
+
+  const start = text.indexOf('{');
+  const end = text.lastIndexOf('}');
+  if (start === -1 || end === -1 || end <= start) {
+    throw new Error('Model output does not contain a JSON object');
+  }
+
+  const slice = text.slice(start, end + 1);
+
+  const parsed = JSON.parse(slice.replace(/\n/g, '\\n'));
+
   const result: Partial<QAItem> = {
-    answer: typeof outer.answer === 'string' ? outer.answer : '',
+    answer: typeof parsed.answer === 'string' ? parsed.answer : '',
     confidence:
-      typeof outer.confidence === 'number'
-        ? Math.min(1, Math.max(0, outer.confidence))
+      typeof parsed.confidence === 'number'
+        ? Math.min(1, Math.max(0, parsed.confidence))
         : 0,
-    found: typeof outer.found === 'boolean' ? outer.found : false,
+    found: typeof parsed.found === 'boolean' ? parsed.found : false,
   };
 
   if (!result.found) {
@@ -483,28 +495,22 @@ export const handler = async (
       topK,
     );
 
+    console.log('Hits:', JSON.stringify(hits));
+
     if (!hits.length) {
       return apiResponse(404, {
         message: 'No matching documents found for this question',
       });
     }
-
-    // Take the top hit
-    const top = hits[0];
-    const documentId = top._source?.documentId;
-    if (!documentId) {
-      return apiResponse(500, {
-        message:
-          'Top search result has no documentId in _source; ensure you index documentId field',
-      });
-    }
+    const documentId = hits[0]._source?.documentId || '';
 
     // 3) Load document metadata from DynamoDB, then text from S3
-    const docItem = await getDocumentItemById(documentId);
-    const docText = await loadDocumentText(docItem);
+    const topTexts = await mergeAllTexts("", hits)
+
+    console.log('Question and doc text', questionText, topTexts);
 
     // 4) Ask Bedrock LLM
-    const { answer, confidence, found } = await answerWithBedrockLLM(questionText, docText);
+    const { answer, confidence, found } = await answerWithBedrockLLM(questionText, topTexts);
 
     // 5) Store Q&A in Dynamo (re-use questionId if we had one)
     const qaItem = await storeAnswer(
@@ -532,3 +538,44 @@ export const handler = async (
     });
   }
 };
+
+const mergeAllTexts = async (acc: string, hits: OpenSearchHit[]): Promise<string> => {
+  if (!hits.length) {
+    return acc;
+  }
+  const [first, ...rest] = hits;
+  const documentId = first._source?.documentId;
+  if (!documentId) {
+    return mergeAllTexts(acc, rest);
+  }
+  const docItem = await getDocumentItemById(documentId);
+  const docText = await loadDocumentText(docItem);
+
+  return mergeAllTexts(`${acc}\n${docText}`, rest);
+};
+
+
+function extractValidJson(text: string) {
+  // 1. Find JSON boundaries
+  const start = text.indexOf('{');
+  const end = text.lastIndexOf('}');
+  if (start === -1 || end === -1) {
+    throw new Error("Model response contains no JSON object");
+  }
+
+  // 2. Slice raw JSON
+  let jsonSlice = text.slice(start, end + 1);
+
+  // 3. Replace *illegal* bare newlines inside quotes with escaped ones
+  jsonSlice = jsonSlice.replace(/"\s*([^"]*?)\n([^"]*?)\s*"/g, (match) => {
+    return match.replace(/\n/g, "\\n");
+  });
+
+  // 4. Now parse safely
+  try {
+    return JSON.parse(jsonSlice);
+  } catch (err) {
+    console.error("Failed JSON:", jsonSlice);
+    throw err;
+  }
+}

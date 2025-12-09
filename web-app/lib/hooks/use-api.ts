@@ -94,13 +94,6 @@ export function useAnswers(projectId: string | null, includeAll = false) {
   );
 }
 
-export function useOrganizationProjects(orgId: string | null) {
-  return useApi<any[]>(
-    orgId ? ['projects', orgId] : null,
-    orgId ? `${env.BASE_API_URL}/project/get-projects?orgId=${orgId}` : null
-  );
-}
-
 export interface TextExtractionPayload {
   s3Key: string;
   s3Bucket?: string;
