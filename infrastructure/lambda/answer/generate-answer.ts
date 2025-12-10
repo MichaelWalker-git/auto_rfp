@@ -7,10 +7,10 @@ import { BedrockRuntimeClient, InvokeModelCommand, } from '@aws-sdk/client-bedro
 
 import { GetObjectCommand, S3Client } from '@aws-sdk/client-s3';
 
-import { SignatureV4 } from '@aws-sdk/signature-v4';
+import { SignatureV4 } from '@smithy/signature-v4';
 import { Sha256 } from '@aws-crypto/sha256-js';
 import { defaultProvider } from '@aws-sdk/credential-provider-node';
-import { HttpRequest } from '@aws-sdk/protocol-http';
+import { HttpRequest } from '@smithy/protocol-http';
 import https from 'https';
 import { randomUUID } from 'crypto';
 
@@ -20,6 +20,7 @@ import { DOCUMENT_PK } from '../constants/document';
 import { DocumentItem } from '../schemas/document';
 import { getEmbedding } from '../helpers/embeddings';
 import { QUESTION_PK } from '../constants/organization';
+import { withSentryLambda } from '../sentry-lambda';
 
 const ddbClient = new DynamoDBClient({});
 const docClient = DynamoDBDocumentClient.from(ddbClient, {
@@ -435,7 +436,7 @@ async function storeAnswer(
   };
 }
 
-export const handler = async (
+export const baseHandler = async (
   event: APIGatewayProxyEventV2,
 ): Promise<APIGatewayProxyResultV2> => {
   console.log('answer-question event:', JSON.stringify(event));
@@ -554,28 +555,4 @@ const mergeAllTexts = async (acc: string, hits: OpenSearchHit[]): Promise<string
   return mergeAllTexts(`${acc}\n${docText}`, rest);
 };
 
-
-function extractValidJson(text: string) {
-  // 1. Find JSON boundaries
-  const start = text.indexOf('{');
-  const end = text.lastIndexOf('}');
-  if (start === -1 || end === -1) {
-    throw new Error("Model response contains no JSON object");
-  }
-
-  // 2. Slice raw JSON
-  let jsonSlice = text.slice(start, end + 1);
-
-  // 3. Replace *illegal* bare newlines inside quotes with escaped ones
-  jsonSlice = jsonSlice.replace(/"\s*([^"]*?)\n([^"]*?)\s*"/g, (match) => {
-    return match.replace(/\n/g, "\\n");
-  });
-
-  // 4. Now parse safely
-  try {
-    return JSON.parse(jsonSlice);
-  } catch (err) {
-    console.error("Failed JSON:", jsonSlice);
-    throw err;
-  }
-}
+export const handler = withSentryLambda(baseHandler);

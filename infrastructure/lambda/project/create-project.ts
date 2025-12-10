@@ -13,6 +13,7 @@ import { z } from 'zod';
 import { PK_NAME, SK_NAME } from '../constants/common';
 import { PROJECT_PK } from '../constants/organization';
 import { apiResponse } from '../helpers/api';
+import { withSentryLambda } from '../sentry-lambda';
 
 const ddbClient = new DynamoDBClient({});
 const docClient = DynamoDBDocumentClient.from(ddbClient, {
@@ -45,9 +46,7 @@ export type ProjectItem = CreateProjectDTO & {
   updatedAt: string;
 };
 
-// --------- Lambda handler ---------
-
-export const handler = async (
+export const baseHandler = async (
   event: APIGatewayProxyEventV2,
 ): Promise<APIGatewayProxyResultV2> => {
   if (!event.body) {
@@ -131,3 +130,5 @@ export async function createProject(dto: CreateProjectDTO): Promise<ProjectItem>
 
   return projectItem;
 }
+
+export const handler = withSentryLambda(baseHandler);

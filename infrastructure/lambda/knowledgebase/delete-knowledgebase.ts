@@ -5,6 +5,7 @@ import { DeleteCommand, DynamoDBDocumentClient, } from '@aws-sdk/lib-dynamodb';
 import { PK_NAME, SK_NAME } from '../constants/common';
 import { apiResponse } from '../helpers/api';
 import { KNOWLEDGE_BASE_PK } from '../constants/organization';
+import { withSentryLambda } from '../sentry-lambda';
 
 const ddbClient = new DynamoDBClient({});
 const docClient = DynamoDBDocumentClient.from(ddbClient, {
@@ -19,7 +20,7 @@ if (!DB_TABLE_NAME) {
   throw new Error('DB_TABLE_NAME environment variable is not set');
 }
 
-export const handler = async (
+export const baseHandler = async (
   event: APIGatewayProxyEventV2,
 ): Promise<APIGatewayProxyResultV2> => {
   try {
@@ -71,3 +72,5 @@ export const handler = async (
     });
   }
 };
+
+export const handler = withSentryLambda(baseHandler);

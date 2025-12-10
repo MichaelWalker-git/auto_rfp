@@ -7,6 +7,8 @@ import { BedrockRuntimeClient, InvokeModelCommand } from '@aws-sdk/client-bedroc
 import { QUESTION_PK } from '../constants/organization';
 import { PK_NAME, SK_NAME } from '../constants/common';
 import { QUESTION_FILE_PK } from '../constants/question-file';
+import { extractValidJson } from '../helpers/json';
+import { withSentryLambda } from '../sentry-lambda';
 
 const ddbClient = new DynamoDBClient({});
 const docClient = DynamoDBDocumentClient.from(ddbClient, {
@@ -51,7 +53,7 @@ type ExtractedQuestions = {
   }>;
 };
 
-export const handler = async (
+export const baseHandler = async (
   event: Event,
   _ctx: Context,
 ): Promise<{ count: number }> => {
@@ -111,7 +113,7 @@ async function extractQuestionsWithBedrock(
         content: userPrompt,
       },
     ],
-    max_tokens: 2048,
+    max_tokens: 8192,
     temperature: 0.1,
   };
 
@@ -138,18 +140,19 @@ async function extractQuestionsWithBedrock(
     throw new Error('Invalid JSON envelope from Bedrock');
   }
 
+  console.log('Bedrock envelope:', JSON.stringify(outer).slice(0, 2000));
+
+  const stopReason = outer.stop_reason || outer.stopReason;
+  const usage = outer.usage;
+
+  console.log('stop_reason:', stopReason, 'usage:', usage);
+
   const assistantText = outer?.content?.[0]?.text;
   if (!assistantText) {
     throw new Error('Model returned no text content');
   }
 
-  let parsed: any;
-  try {
-    parsed = JSON.parse(assistantText);
-  } catch (err) {
-    console.error('Model output was not JSON:', assistantText);
-    throw new Error('Invalid JSON returned by the model');
-  }
+  const parsed = extractValidJson(assistantText);
 
   if (!Array.isArray(parsed.sections)) {
     throw new Error('Response missing required sections[]');
@@ -249,9 +252,6 @@ async function updateStatus(
   );
 }
 
-/**
- * Копия buildSystemPrompt из второй лямбды
- */
 function buildSystemPrompt(): string {
   const timestamp = Date.now();
   return `
@@ -296,3 +296,5 @@ Return ONLY the JSON object, with no additional text.
 function buildUserPrompt(content: string): string {
   return `Document Content:\n${content}`;
 }
+
+export const handler = withSentryLambda(baseHandler);

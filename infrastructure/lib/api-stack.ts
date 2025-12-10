@@ -21,7 +21,7 @@ export interface ApiStackProps extends cdk.StackProps {
   documentPipelineStateMachineArn: string;
   questionPipelineStateMachineArn: string;
   openSearchCollectionEndpoint: string;
-  vpc: ec2.IVpc;
+  sentryDNS: string;
 }
 
 export class ApiStack extends cdk.Stack {
@@ -31,10 +31,8 @@ export class ApiStack extends cdk.Stack {
 
   private readonly organizationApi: ApiNestedStack;
   private readonly projectApi: ApiNestedStack;
-  private readonly questionApi: ApiNestedStack;
   private readonly answerApi: ApiNestedStack;
   private readonly presignedUrlApi: ApiNestedStack;
-  private readonly fileApi: ApiNestedStack;
   private readonly textractApi: ApiNestedStack;
   private readonly knowledgeBaseApi: ApiNestedStack;
   private readonly documentApi: ApiNestedStack;
@@ -53,7 +51,7 @@ export class ApiStack extends cdk.Stack {
       documentPipelineStateMachineArn,
       questionPipelineStateMachineArn,
       openSearchCollectionEndpoint,
-      vpc
+      sentryDNS
     } = props;
 
     // 1) Common REST API
@@ -226,7 +224,9 @@ export class ApiStack extends cdk.Stack {
       OPENSEARCH_INDEX: 'documents',
       STATE_MACHINE_ARN: documentPipelineStateMachineArn,
       QUESTION_PIPELINE_STATE_MACHINE_ARN: questionPipelineStateMachineArn,
-      OPENSEARCH_ENDPOINT: openSearchCollectionEndpoint
+      OPENSEARCH_ENDPOINT: openSearchCollectionEndpoint,
+      SENTRY_DSN: sentryDNS,
+      SENTRY_ENVIRONMENT: stage,
     };
 
     // 4) First entity: Organization API
@@ -246,14 +246,6 @@ export class ApiStack extends cdk.Stack {
       userPool
     });
 
-    this.questionApi = new ApiNestedStack(this, 'QuestionApi', {
-      api: this.api,
-      basePath: 'question',
-      lambdaRole,
-      commonEnv,
-      userPool
-    });
-
     this.answerApi = new ApiNestedStack(this, 'AnswerApi', {
       api: this.api,
       basePath: 'answer',
@@ -265,14 +257,6 @@ export class ApiStack extends cdk.Stack {
     this.presignedUrlApi = new ApiNestedStack(this, 'PresignedUrlApi', {
       api: this.api,
       basePath: 'presigned',
-      lambdaRole,
-      commonEnv,
-      userPool
-    });
-
-    this.fileApi = new ApiNestedStack(this, 'FileApi', {
-      api: this.api,
-      basePath: 'file',
       lambdaRole,
       commonEnv,
       userPool
@@ -445,12 +429,6 @@ export class ApiStack extends cdk.Stack {
     );
 
     this.projectApi.addRoute(
-      '/edit-project',
-      'PATCH',
-      'lambda/project/edit-project.ts',
-    );
-
-    this.projectApi.addRoute(
       '/delete-project/{id}',
       'DELETE',
       'lambda/project/delete-project.ts',
@@ -462,43 +440,11 @@ export class ApiStack extends cdk.Stack {
       'lambda/project/get-questions.ts',
     );
 
-    this.questionApi.addRoute(
-      '/extract-questions',
-      'POST',
-      'lambda/question/extract-questions.ts',
-    );
-
-    this.questionApi.addRoute(
-      '/extract-text',
-      'POST',
-      'lambda/question/extract-text.ts',
-    );
-
     this.presignedUrlApi.addRoute(
       '/presigned-url',
       'POST',
       'lambda/presigned/generate-presigned-url.ts',
     );
-
-    this.fileApi.addRoute(
-      '/convert-to-text',
-      'POST',
-      'lambda/file/convert-to-text.ts',
-    );
-
-    this.fileApi.addRoute(
-      '/get-text',
-      'POST',
-      'lambda/file/get-text.ts',
-    );
-
-    this.textractApi.addRoute(
-      '/begin-extraction',
-      'POST',
-      'lambda/textract/begin-extraction.ts',
-    );
-
-
     this.answerApi.addRoute(
       '/get-answers/{id}',
       'GET',

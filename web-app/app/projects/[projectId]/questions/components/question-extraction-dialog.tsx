@@ -90,6 +90,11 @@ export function QuestionFileUploadDialog({
     refetchStatus();
   }, [questionFileId, step, refetchStatus]);
 
+  const handleClose = () => {
+    window.location.reload();
+    setOpen(false);
+  };
+
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setError(null);
     const f = e.target.files?.[0] ?? null;
@@ -193,10 +198,13 @@ export function QuestionFileUploadDialog({
   })();
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog open={open} onOpenChange={(flag) => {
+      flag || window.location.reload();
+      setOpen(flag);
+    }}>
       <DialogTrigger asChild>
         <Button className="gap-2 px-6 py-2.5">
-          <Upload className="h-4 w-4" />
+          <Upload className="h-4 w-4"/>
           {triggerLabel}
         </Button>
       </DialogTrigger>
@@ -240,7 +248,7 @@ export function QuestionFileUploadDialog({
                 {statusLabel}
               </Badge>
             </div>
-            <Progress value={progressValue} className="w-full" />
+            <Progress value={progressValue} className="w-full"/>
             {statusData?.updatedAt && (
               <p className="text-xs text-muted-foreground">
                 Last update: {new Date(statusData.updatedAt).toLocaleString()}
@@ -261,7 +269,7 @@ export function QuestionFileUploadDialog({
           <Button
             type="button"
             variant="outline"
-            onClick={() => setOpen(false)}
+            onClick={handleClose}
             disabled={isBusy}
           >
             Close

@@ -1,22 +1,13 @@
-import {
-  APIGatewayProxyEventV2,
-  APIGatewayProxyResultV2,
-} from 'aws-lambda';
-import {
-  S3Client,
-  PutObjectCommand,
-  GetObjectCommand,
-} from '@aws-sdk/client-s3';
+import { APIGatewayProxyEventV2, APIGatewayProxyResultV2, } from 'aws-lambda';
+import { GetObjectCommand, PutObjectCommand, S3Client, } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
-import {
-  DynamoDBDocumentClient,
-  PutCommand,
-} from '@aws-sdk/lib-dynamodb';
+import { DynamoDBDocumentClient, PutCommand, } from '@aws-sdk/lib-dynamodb';
 import { apiResponse } from '../helpers/api';
 import { v4 as uuidv4 } from 'uuid';
 import { PK_NAME, SK_NAME } from '../constants/common';
 import { FILE_PK } from '../constants/file';
+import { withSentryLambda } from '../sentry-lambda';
 
 const BUCKET_NAME = process.env.DOCUMENTS_BUCKET;
 const REGION = process.env.AWS_REGION || 'us-east-1';
@@ -50,7 +41,7 @@ interface PresignRequestBody {
   prefix?: string;            // optional folder, e.g. "org-123/"
 }
 
-export const handler = async (
+export const baseHandler = async (
   event: APIGatewayProxyEventV2,
 ): Promise<APIGatewayProxyResultV2> => {
   try {
@@ -69,7 +60,7 @@ export const handler = async (
 
     if (operation !== 'upload' && operation !== 'download') {
       return apiResponse(400, {
-        message: "Invalid 'operation'. Must be 'upload' or 'download'.",
+        message: 'Invalid \'operation\'. Must be \'upload\' or \'download\'.',
       });
     }
 
@@ -82,7 +73,7 @@ export const handler = async (
       // Extra validations for upload
       if (!contentType) {
         return apiResponse(400, {
-          message: "For 'upload', 'contentType' is required.",
+          message: 'For \'upload\', \'contentType\' is required.',
         });
       }
       const fileId = uuidv4();
@@ -145,7 +136,7 @@ export const handler = async (
     // operation === 'download'
     if (!key) {
       return apiResponse(400, {
-        message: "For 'download', 'key' is required.",
+        message: 'For \'download\', \'key\' is required.',
       });
     }
 
@@ -178,6 +169,7 @@ export const handler = async (
 };
 
 function sanitizeFileName(name: string): string {
-  // Simple filename sanitization: strip path separators
   return name.replace(/[\/\\]/g, '_');
 }
+
+export const handler = withSentryLambda(baseHandler);

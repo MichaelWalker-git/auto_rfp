@@ -1,5 +1,6 @@
 import { APIGatewayProxyEventV2, APIGatewayProxyResultV2, } from 'aws-lambda';
 import { SFNClient, StartExecutionCommand } from '@aws-sdk/client-sfn';
+import { withSentryLambda } from '../sentry-lambda';
 
 const sfnClient = new SFNClient({});
 const STATE_MACHINE_ARN = process.env.STATE_MACHINE_ARN;
@@ -12,7 +13,7 @@ interface StartPipelineRequestBody {
   documentId?: string;
 }
 
-export const handler = async (
+export const baseHandler = async (
   event: APIGatewayProxyEventV2,
 ): Promise<APIGatewayProxyResultV2> => {
   console.log('start-document-pipeline event:', JSON.stringify(event));
@@ -76,3 +77,5 @@ export const handler = async (
     };
   }
 };
+
+export const handler = withSentryLambda(baseHandler);

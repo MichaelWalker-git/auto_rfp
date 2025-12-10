@@ -6,6 +6,7 @@ import { PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
 
 import { PK_NAME, SK_NAME } from '../constants/common';
 import { QUESTION_FILE_PK } from '../constants/question-file';
+import { withSentryLambda } from '../sentry-lambda';
 
 // --------------------------------------------------
 // Clients
@@ -39,10 +40,7 @@ interface TextractResult {
   status: string;
 }
 
-// --------------------------------------------------
-// Main Handler
-// --------------------------------------------------
-export const handler = async (
+export const baseHandler = async (
   event: Event,
   _ctx: Context
 ): Promise<{ questionFileId: string; projectId: string; textFileKey: string }> => {
@@ -158,3 +156,5 @@ async function updateStatus(
     })
   );
 }
+
+export const handler = withSentryLambda(baseHandler);

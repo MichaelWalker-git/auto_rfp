@@ -3,16 +3,17 @@ import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import { DynamoDBDocumentClient, GetCommand, UpdateCommand, } from '@aws-sdk/lib-dynamodb';
 import { GetDocumentTextDetectionCommand, TextractClient, } from '@aws-sdk/client-textract';
 import { BedrockRuntimeClient, InvokeModelCommand, } from '@aws-sdk/client-bedrock-runtime';
-import { SignatureV4 } from '@aws-sdk/signature-v4';
+import { SignatureV4 } from '@smithy/signature-v4';
 import { Sha256 } from '@aws-crypto/sha256-js';
 import { defaultProvider } from '@aws-sdk/credential-provider-node';
-import { HttpRequest } from '@aws-sdk/protocol-http';
+import { HttpRequest } from '@smithy/protocol-http';
 import https from 'https';
 import { PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
 
 import { PK_NAME, SK_NAME } from '../constants/common';
 import { DOCUMENT_PK } from '../constants/document';
 import { DocumentItem } from '../schemas/document';
+import { withSentryLambda } from '../sentry-lambda';
 
 const ddbClient = new DynamoDBClient({});
 const docClient = DynamoDBDocumentClient.from(ddbClient, {
@@ -60,7 +61,7 @@ interface GetTextractResult {
 }
 
 // --- Main handler ---
-export const handler = async (
+const baseHandler = async (
   event: ProcessEvent,
   _context: Context,
 ): Promise<{ status: string }> => {
@@ -366,3 +367,5 @@ async function saveTextFileToS3(
     }),
   );
 }
+
+export const handler = withSentryLambda(baseHandler);

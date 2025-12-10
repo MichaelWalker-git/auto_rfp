@@ -20,6 +20,7 @@ interface DocumentPipelineStackProps extends StackProps {
   openSearchCollectionEndpoint: string;
   vpc: ec2.IVpc;
   vpcSecurityGroup: ec2.ISecurityGroup;
+  sentryDNS: string;
 }
 
 export class DocumentPipelineStack extends Stack {
@@ -35,6 +36,7 @@ export class DocumentPipelineStack extends Stack {
       openSearchCollectionEndpoint,
       vpc,
       vpcSecurityGroup,
+      sentryDNS,
     } = props;
 
     const namePrefix = `AutoRfp-${stage}`;
@@ -65,6 +67,8 @@ export class DocumentPipelineStack extends Stack {
           DOCUMENTS_BUCKET_NAME: documentsBucket.bucketName,
           SNS_TOPIC_ARN: textractTopic.topicArn,
           TEXTRACT_ROLE_ARN: textractServiceRole.roleArn,
+          SENTRY_DSN: sentryDNS,
+          SENTRY_ENVIRONMENT: sentryDNS,
         },
         logRetention: logs.RetentionDays.ONE_WEEK,
       },
@@ -97,6 +101,8 @@ export class DocumentPipelineStack extends Stack {
         functionName: `${namePrefix}-TextractCallbackHandler`,
         environment: {
           DB_TABLE_NAME: documentsTable.tableName,
+          SENTRY_DSN: sentryDNS,
+          SENTRY_ENVIRONMENT: stage,
         },
         logRetention: logs.RetentionDays.ONE_WEEK,
       },
@@ -133,6 +139,8 @@ export class DocumentPipelineStack extends Stack {
           DOCUMENTS_TABLE_NAME: documentsTable.tableName,
           OPENSEARCH_ENDPOINT: openSearchCollectionEndpoint,
           REGION: this.region,
+          SENTRY_DSN: sentryDNS,
+          SENTRY_ENVIRONMENT: stage,
         },
         logRetention: logs.RetentionDays.ONE_WEEK,
       },

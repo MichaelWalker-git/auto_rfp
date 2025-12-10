@@ -5,6 +5,7 @@ import { ORG_PK } from '../constants/organization';
 import { PK_NAME, SK_NAME } from '../constants/common';
 import { apiResponse } from '../helpers/api';
 import { OrganizationItem, UpdateOrganizationDTO, UpdateOrganizationSchema, } from '../schemas/organization';
+import { withSentryLambda } from '../sentry-lambda';
 
 const ddbClient = new DynamoDBClient({});
 const docClient = DynamoDBDocumentClient.from(ddbClient, {
@@ -19,8 +20,7 @@ if (!DB_TABLE_NAME) {
   throw new Error('DB_TABLE_NAME environment variable is not set');
 }
 
-// --- Main Handler ---
-export const handler = async (
+export const baseHandler = async (
   event: APIGatewayProxyEventV2
 ): Promise<APIGatewayProxyResultV2> => {
   const orgId = event.pathParameters?.id;
@@ -36,7 +36,6 @@ export const handler = async (
   try {
     const rawBody = JSON.parse(event.body);
 
-    // 1. Runtime Validation using Zod (partial update)
     const validationResult = UpdateOrganizationSchema.safeParse(rawBody);
 
     if (!validationResult.success) {
@@ -52,7 +51,6 @@ export const handler = async (
 
     const validatedOrgData: UpdateOrganizationDTO = validationResult.data;
 
-    // 2. Perform update
     const updatedOrganization = await editOrganization(orgId, validatedOrgData);
 
     return apiResponse(200, updatedOrganization);
@@ -63,7 +61,6 @@ export const handler = async (
       return apiResponse(400, { message: 'Invalid JSON in request body' });
     }
 
-    // Conditional check failed → organization not found
     if ((err as any)?.name === 'ConditionalCheckFailedException') {
       return apiResponse(404, { message: 'Organization not found' });
     }
@@ -75,9 +72,6 @@ export const handler = async (
   }
 };
 
-
-// --- Business Logic Function ---
-// orgData is partial (PATCH-like) thanks to UpdateOrganizationSchema
 export async function editOrganization(
   orgId: string,
   orgData: UpdateOrganizationDTO
@@ -89,7 +83,6 @@ export async function editOrganization(
     [SK_NAME]: `ORG#${orgId}`,
   };
 
-  // Build a dynamic UpdateExpression so you can update any subset of fields
   const expressionAttributeNames: Record<string, string> = {
     '#updatedAt': 'updatedAt',
   };
@@ -99,7 +92,6 @@ export async function editOrganization(
 
   const setExpressions: string[] = ['#updatedAt = :updatedAt'];
 
-  // Example for common fields; add more as needed
   if (orgData.name !== undefined) {
     expressionAttributeNames['#name'] = 'name';
     expressionAttributeValues[':name'] = orgData.name;
@@ -132,3 +124,5 @@ export async function editOrganization(
 
   return result.Attributes as OrganizationItem;
 }
+
+export const handler = withSentryLambda(baseHandler);

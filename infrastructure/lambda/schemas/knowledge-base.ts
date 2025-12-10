@@ -1,15 +1,12 @@
-// ../schemas/knowledge-base.ts
 import { z } from 'zod';
 import { PK_NAME, SK_NAME } from '../constants/common';
 
 // --- Shared count schema ---
-
 export const KnowledgeBaseCountSchema = z.object({
   questions: z.number().int().nonnegative(),
 });
 
 // --- Base KB fields (what the client sends) ---
-
 export const KnowledgeBaseBaseSchema = z.object({
   name: z
     .string()
@@ -21,13 +18,11 @@ export const KnowledgeBaseBaseSchema = z.object({
     .optional(),
 });
 
-// This is what your create handler validates against
 export const CreateKnowledgeBaseSchema = KnowledgeBaseBaseSchema;
 
 export type CreateKnowledgeBaseDTO = z.infer<typeof CreateKnowledgeBaseSchema>;
 
 // --- Shape of the item stored in DynamoDB ---
-
 export const KnowledgeBaseItemSchema = KnowledgeBaseBaseSchema.extend({
   // Dynamo keys
   [PK_NAME]: z.string(),          // e.g. KNOWLEDGE_BASE_PK
@@ -43,7 +38,6 @@ export const KnowledgeBaseItemSchema = KnowledgeBaseBaseSchema.extend({
 export type KnowledgeBaseItem = z.infer<typeof KnowledgeBaseItemSchema>;
 
 // --- Public API shape (what FE uses) ---
-
 export const KnowledgeBaseSchema = KnowledgeBaseBaseSchema.extend({
   id: z.string(),
   createdAt: z.string(),

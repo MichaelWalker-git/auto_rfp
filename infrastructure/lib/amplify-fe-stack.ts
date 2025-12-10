@@ -14,6 +14,8 @@ export interface AmplifyFeStackProps extends cdk.StackProps {
   cognitoDomainUrl: string;
   baseApiUrl: string;
   region: string;
+
+  sentryDNS: string;
 }
 
 export class AmplifyFeStack extends cdk.Stack {
@@ -33,6 +35,7 @@ export class AmplifyFeStack extends cdk.Stack {
       cognitoDomainUrl,
       baseApiUrl,
       region,
+      sentryDNS,
     } = props;
 
     this.amplifyApp = new amplify.App(this, 'NextJsAmplifyApp', {
@@ -58,6 +61,8 @@ export class AmplifyFeStack extends cdk.Stack {
         NEXT_PUBLIC_COGNITO_USER_POOL_CLIENT_ID: cognitoUserPoolClientId,
         NEXT_PUBLIC_COGNITO_DOMAIN: cognitoDomainUrl,
         NEXT_PUBLIC_BASE_API_URL: baseApiUrl.replace(/\/$/, ''),
+        NEXT_PUBLIC_SENTRY_DSN: sentryDNS,
+        NEXT_PUBLIC_SENTRY_ENVIRONMENT: stage,
       }
     });
 
