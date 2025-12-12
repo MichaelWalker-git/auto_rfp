@@ -16,7 +16,7 @@ if (!DB_TABLE_NAME) {
   throw new Error('DB_TABLE_NAME env var is missing');
 }
 
-export const handler = async (
+export const baseHandler = async (
   event: APIGatewayProxyEventV2,
 ): Promise<APIGatewayProxyResultV2> => {
   try {

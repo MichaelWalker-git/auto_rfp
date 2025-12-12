@@ -1,23 +1,14 @@
-import {
-  APIGatewayProxyEventV2,
-  APIGatewayProxyResultV2,
-} from 'aws-lambda';
+import { APIGatewayProxyEventV2, APIGatewayProxyResultV2, } from 'aws-lambda';
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
-import {
-  DynamoDBDocumentClient,
-  PutCommand,
-  QueryCommand,
-} from '@aws-sdk/lib-dynamodb';
-import {
-  CognitoIdentityProviderClient,
-  AdminCreateUserCommand,
-} from '@aws-sdk/client-cognito-identity-provider';
+import { DynamoDBDocumentClient, PutCommand, QueryCommand, } from '@aws-sdk/lib-dynamodb';
+import { AdminCreateUserCommand, CognitoIdentityProviderClient, } from '@aws-sdk/client-cognito-identity-provider';
 import { v4 as uuidv4 } from 'uuid';
 import { z } from 'zod';
 
 import { PK_NAME, SK_NAME } from '../constants/common';
 import { USER_PK } from '../constants/user'; // or SECURITY_STAFF_PK if you have it
 import { apiResponse } from '../helpers/api';
+import { withSentryLambda } from '../sentry-lambda';
 
 const ddbClient = new DynamoDBClient({});
 const docClient = DynamoDBDocumentClient.from(ddbClient, {
@@ -30,9 +21,7 @@ const cognitoClient = new CognitoIdentityProviderClient({});
 
 const DB_TABLE_NAME = process.env.DB_TABLE_NAME;
 const USER_POOL_ID = process.env.USER_POOL_ID;
-// GSI for looking up users by email in your table
-const USER_BY_EMAIL_INDEX =
-  process.env.USER_BY_EMAIL_INDEX || 'USER_BY_EMAIL_INDEX';
+const USER_BY_EMAIL_INDEX = process.env.USER_BY_EMAIL_INDEX || 'USER_BY_EMAIL_INDEX';
 
 if (!DB_TABLE_NAME) {
   throw new Error('DB_TABLE_NAME environment variable is not set');
@@ -64,7 +53,7 @@ export type SecurityStaffItem = CreateSecurityStaffDTO & {
 
 // ---------- HANDLER ----------
 
-export const handler = async (
+export const baseHandler = async (
   event: APIGatewayProxyEventV2,
 ): Promise<APIGatewayProxyResultV2> => {
   if (!event.body) {
@@ -199,3 +188,5 @@ async function createSecurityStaffInCognitoAndDynamo(
 
   return staffItem;
 }
+
+export const handler = withSentryLambda(baseHandler);

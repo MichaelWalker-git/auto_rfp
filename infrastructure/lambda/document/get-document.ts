@@ -5,11 +5,12 @@ import { DynamoDBDocumentClient, GetCommand, } from '@aws-sdk/lib-dynamodb';
 
 import { apiResponse } from '../helpers/api';
 import { PK_NAME, SK_NAME } from '../constants/common';
+import { withSentryLambda } from '../sentry-lambda';
 
 const DB_TABLE_NAME = process.env.DB_TABLE_NAME;
 
 if (!DB_TABLE_NAME) {
-  throw new Error("DB_TABLE_NAME environment variable is not set");
+  throw new Error('DB_TABLE_NAME environment variable is not set');
 }
 
 const ddbClient = new DynamoDBClient({});
@@ -19,11 +20,8 @@ const docClient = DynamoDBDocumentClient.from(ddbClient, {
   },
 });
 
-// ----------------------------------------------------
-// Handler
-// GET /documents/get-document?kbId=<kbId>&id=<documentId>
-// ----------------------------------------------------
-export const handler = async (
+
+export const baseHandler = async (
   event: APIGatewayProxyEventV2
 ): Promise<APIGatewayProxyResultV2> => {
   try {
@@ -37,13 +35,13 @@ export const handler = async (
 
     if (!kbId) {
       return apiResponse(400, {
-        message: "Missing required parameter: kbId",
+        message: 'Missing required parameter: kbId',
       });
     }
 
     if (!documentId) {
       return apiResponse(400, {
-        message: "Missing required parameter: id (documentId)",
+        message: 'Missing required parameter: id (documentId)',
       });
     }
 
@@ -51,17 +49,17 @@ export const handler = async (
 
     if (!document) {
       return apiResponse(404, {
-        message: "Document not found",
+        message: 'Document not found',
       });
     }
 
     return apiResponse(200, document);
   } catch (err) {
-    console.error("Error in get-document handler:", err);
+    console.error('Error in get-document handler:', err);
 
     return apiResponse(500, {
-      message: "Internal server error",
-      error: err instanceof Error ? err.message : "Unknown error",
+      message: 'Internal server error',
+      error: err instanceof Error ? err.message : 'Unknown error',
     });
   }
 };
@@ -79,7 +77,7 @@ export async function getDocument(
     new GetCommand({
       TableName: DB_TABLE_NAME,
       Key: {
-        [PK_NAME]: "DOCUMENT",
+        [PK_NAME]: 'DOCUMENT',
         [SK_NAME]: sk,
       },
     })
@@ -89,9 +87,10 @@ export async function getDocument(
     return null;
   }
 
-  // Attach plain "id" field for FE convenience
   return {
     ...res.Item,
     id: documentId,
   };
 }
+
+export const handler = withSentryLambda(baseHandler);

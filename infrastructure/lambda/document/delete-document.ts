@@ -5,10 +5,10 @@ import { DeleteCommand, DynamoDBDocumentClient, GetCommand, } from '@aws-sdk/lib
 
 import { DeleteObjectCommand, S3Client } from '@aws-sdk/client-s3';
 
-import { SignatureV4 } from '@aws-sdk/signature-v4';
+import { SignatureV4 } from '@smithy/signature-v4';
 import { Sha256 } from '@aws-crypto/sha256-js';
 import { defaultProvider } from '@aws-sdk/credential-provider-node';
-import { HttpRequest } from '@aws-sdk/protocol-http';
+import { HttpRequest } from '@smithy/protocol-http';
 import https from 'https';
 
 import { apiResponse } from '../helpers/api';

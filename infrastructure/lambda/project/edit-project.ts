@@ -12,6 +12,7 @@ import { z } from 'zod';
 import { PK_NAME, SK_NAME } from '../constants/common';
 import { PROJECT_PK } from '../constants/organization';
 import { apiResponse } from '../helpers/api';
+import { withSentryLambda } from '../sentry-lambda';
 
 const ddbClient = new DynamoDBClient({});
 const docClient = DynamoDBDocumentClient.from(ddbClient, {
@@ -26,8 +27,6 @@ if (!DB_TABLE_NAME) {
   throw new Error('DB_TABLE_NAME environment variable is not set');
 }
 
-// --- Zod schema for updates (partial) ---
-
 export const UpdateProjectSchema = z.object({
   name: z.string().min(1, 'Project name cannot be empty').optional(),
   description: z.string().optional(),
@@ -35,9 +34,7 @@ export const UpdateProjectSchema = z.object({
 
 export type UpdateProjectDTO = z.infer<typeof UpdateProjectSchema>;
 
-// --- Lambda handler ---
-// Example route: PATCH /projects?orgId=...&projectId=...
-export const handler = async (
+export const baseHandler = async (
   event: APIGatewayProxyEventV2,
 ): Promise<APIGatewayProxyResultV2> => {
   try {
@@ -152,5 +149,7 @@ export async function updateProject(
 
   const res = await docClient.send(cmd);
 
-  return res.Attributes; // will include id, orgId, etc. as stored
+  return res.Attributes;
 }
+
+export const handler = withSentryLambda(baseHandler);

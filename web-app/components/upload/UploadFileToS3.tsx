@@ -1,11 +1,11 @@
 "use client";
 
-import React, { useState } from "react";
-import { usePresignUpload, uploadFileToS3 } from "@/lib/hooks/use-presign";
-import { Button } from "@/components/ui/button";
-import { Progress } from "@/components/ui/progress";
-import { toast } from "@/components/ui/use-toast";
-import { Upload, FileIcon } from "lucide-react";
+import React, { useState } from 'react';
+import { usePresignUpload } from '@/lib/hooks/use-presign';
+import { Button } from '@/components/ui/button';
+import { Progress } from '@/components/ui/progress';
+import { toast } from '@/components/ui/use-toast';
+import { FileIcon, Upload } from 'lucide-react';
 
 interface UploadFileToS3Props {
   prefix?: string;

@@ -3,25 +3,7 @@ import useSWRMutation from 'swr/mutation';
 import { fetchAuthSession } from 'aws-amplify/auth';
 
 import { env } from '@/lib/env';
-
-
-export async function authorizedFetch(url: string, options: RequestInit = {}) {
-  let token: string | undefined;
-
-  if (typeof window !== 'undefined') {
-    const session = await fetchAuthSession();
-    token = session.tokens?.idToken?.toString();
-  }
-
-  return fetch(url, {
-    ...options,
-    headers: {
-      ...(token ? { Authorization: token } : {}),
-      'Content-Type': 'application/json',
-      ...(options.headers || {}),
-    },
-  });
-}
+import { authFetcher } from '@/lib/auth/auth-fetcher';
 
 const BASE = `${env.BASE_API_URL}/questionfile`;
 
@@ -39,7 +21,7 @@ export async function startQuestionFileFetcher(
   url: string,
   { arg }: { arg: StartQuestionFilePayload },
 ): Promise<StartQuestionFileResponse> {
-  const res = await authorizedFetch(url, {
+  const res = await authFetcher(url, {
     method: 'POST',
     body: JSON.stringify(arg),
   });
@@ -94,7 +76,7 @@ export function useQuestionFileStatus(
   return useSWR<QuestionFileStatusResponse>(
     key,
     async (url: string) => {
-      const res = await authorizedFetch(url);
+      const res = await authFetcher(url);
       if (!res.ok) {
         const text = await res.text().catch(() => '');
         const err = new Error(text || 'Failed to load question file status') as Error & {
@@ -136,7 +118,7 @@ export function useCreateQuestionFile(projectId: string) {
   return useSWRMutation<QuestionFile, any, string, CreateQuestionFileArgs>(
     `${BASE}/create-question-file`,
     async (url, { arg }) => {
-      const res = await authorizedFetch(url, {
+      const res = await authFetcher(url, {
         method: 'POST',
         body: JSON.stringify({
           projectId,

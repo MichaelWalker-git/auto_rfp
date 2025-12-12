@@ -2,6 +2,7 @@ import { APIGatewayProxyEventV2, APIGatewayProxyResultV2, } from 'aws-lambda';
 import { Block, GetDocumentTextDetectionCommand, TextractClient, } from '@aws-sdk/client-textract';
 import { PutObjectCommand, S3Client, } from '@aws-sdk/client-s3';
 import { apiResponse } from '../helpers/api';
+import { withSentryLambda } from '../sentry-lambda';
 
 const REGION = process.env.AWS_REGION || 'us-east-1';
 const DEFAULT_BUCKET = process.env.DOCUMENTS_BUCKET;
@@ -19,7 +20,7 @@ interface CheckExtractionRequestBody {
   s3Bucket?: string; // optional, defaults to DOCUMENTS_BUCKET
 }
 
-export const handler = async (
+const baseHandler = async (
   event: APIGatewayProxyEventV2,
 ): Promise<APIGatewayProxyResultV2> => {
   try {
@@ -158,3 +159,6 @@ function buildTextFromBlocks(blocks: Block[]): string {
 
   return lines.join('\n');
 }
+
+
+export const handler = withSentryLambda(baseHandler);

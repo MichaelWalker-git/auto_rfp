@@ -16,6 +16,7 @@ interface Props extends StackProps {
   stage: string;
   documentsBucket: s3.IBucket;
   mainTable: dynamodb.ITable;
+  sentryDNS: string;
 }
 
 export class QuestionExtractionPipelineStack extends Stack {
@@ -24,7 +25,7 @@ export class QuestionExtractionPipelineStack extends Stack {
   constructor(scope: Construct, id: string, props: Props) {
     super(scope, id, props);
 
-    const { stage, documentsBucket, mainTable } = props;
+    const { stage, documentsBucket, mainTable, sentryDNS } = props;
     const prefix = `AutoRfp-${stage}-Question`;
 
     //
@@ -67,6 +68,8 @@ export class QuestionExtractionPipelineStack extends Stack {
           DOCUMENTS_BUCKET_NAME: documentsBucket.bucketName,
           TEXTRACT_ROLE_ARN: textractRole.roleArn,
           TEXTRACT_SNS_TOPIC_ARN: textractTopic.topicArn,
+          SENTRY_DSN: sentryDNS,
+          SENTRY_ENVIRONMENT: stage,
         },
         logRetention: logs.RetentionDays.ONE_WEEK,
       }
@@ -101,6 +104,8 @@ export class QuestionExtractionPipelineStack extends Stack {
         timeout: Duration.seconds(30),
         environment: {
           DB_TABLE_NAME: mainTable.tableName,
+          SENTRY_DSN: sentryDNS,
+          SENTRY_ENVIRONMENT: stage,
         },
         logRetention: logs.RetentionDays.ONE_WEEK,
       }
@@ -134,6 +139,8 @@ export class QuestionExtractionPipelineStack extends Stack {
           DB_TABLE_NAME: mainTable.tableName,
           DOCUMENTS_BUCKET_NAME: documentsBucket.bucketName,
           REGION: this.region,
+          SENTRY_DSN: sentryDNS,
+          SENTRY_ENVIRONMENT: stage,
         },
         logRetention: logs.RetentionDays.ONE_WEEK,
       }
@@ -169,6 +176,8 @@ export class QuestionExtractionPipelineStack extends Stack {
           DOCUMENTS_BUCKET_NAME: documentsBucket.bucketName,
           BEDROCK_MODEL_ID: 'anthropic.claude-3-haiku-20240307-v1:0',
           BEDROCK_REGION: 'us-east-1',
+          SENTRY_DSN: sentryDNS,
+          SENTRY_ENVIRONMENT: stage
         },
         logRetention: logs.RetentionDays.ONE_WEEK,
       }

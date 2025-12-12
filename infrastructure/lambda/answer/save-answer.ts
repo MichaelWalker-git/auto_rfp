@@ -7,6 +7,7 @@ import { PK_NAME, SK_NAME } from '../constants/common';
 import { apiResponse } from '../helpers/api';
 import { AnswerItem, CreateAnswerDTO, CreateAnswerDTOSchema, } from '../schemas/answer';
 import { ANSWER_PK } from '../constants/answer';
+import { withSentryLambda } from '../sentry-lambda';
 
 // --- Dynamo client setup ---
 const ddbClient = new DynamoDBClient({});
@@ -22,7 +23,7 @@ if (!DB_TABLE_NAME) {
   throw new Error('DB_TABLE_NAME environment variable is not set');
 }
 
-export const handler = async (
+export const baseHandler = async (
   event: APIGatewayProxyEventV2,
 ): Promise<APIGatewayProxyResultV2> => {
   if (!event.body) {
@@ -159,3 +160,5 @@ export async function saveAnswer(
 
   return answerItem as AnswerItem;
 }
+
+export const handler = withSentryLambda(baseHandler);

@@ -1,36 +1,36 @@
-"use client";
+'use client';
 
-import { useParams } from "next/navigation";
-import { useState } from "react";
-import { Button } from "@/components/ui/button";
-import { PlusCircle, FileText, Download, Trash2 } from "lucide-react"; // Import Trash2
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { useParams } from 'next/navigation';
+import { useState } from 'react';
+import { Button } from '@/components/ui/button';
+import { Download, FileText, PlusCircle, Trash2 } from 'lucide-react'; // Import Trash2
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogFooter, // Import DialogFooter for buttons in the dialog
-  DialogDescription, // Import DialogDescription for confirmation text
-} from "@/components/ui/dialog";
-import { Badge } from "@/components/ui/badge";
+} from '@/components/ui/dialog';
+import { Badge } from '@/components/ui/badge';
 
-import { useKnowledgeBase } from "@/lib/hooks/use-knowledgebase";
+import { useKnowledgeBase } from '@/lib/hooks/use-knowledgebase';
 import {
-  useDocumentsByKb,
   useCreateDocument,
-  useStartDocumentPipeline,
   useDeleteDocument,
-} from "@/lib/hooks/use-document";
-import { UploadFileToS3 } from "@/components/upload/UploadFileToS3";
-import { useDownloadFromS3 } from "@/lib/hooks/use-file";
+  useDocumentsByKb,
+  useStartDocumentPipeline,
+} from '@/lib/hooks/use-document';
+import { UploadFileToS3 } from '@/components/upload/UploadFileToS3';
+import { useDownloadFromS3 } from '@/lib/hooks/use-file';
 
 // Define an interface for the document structure to improve type safety
 interface Document {
   id: string;
   name: string;
   fileKey: string;
-  indexStatus: "pending" | "processing" | "indexed" | "failed" | "ready"; // Added 'ready' based on usage
+  indexStatus: 'pending' | 'processing' | 'indexed' | 'failed' | 'ready'; // Added 'ready' based on usage
   createdAt: string;
 }
 
@@ -87,25 +87,25 @@ export default function KnowledgeBaseItemComponent() {
   const docs = (documents as Document[]) ?? [];
   const totalDocs = docs.length;
   // Use 'ready' status as defined in the context of the component logic
-  const readyDocs = docs.filter((d) => d.indexStatus === "ready").length;
+  const readyDocs = docs.filter((d) => d.indexStatus === 'ready').length;
 
   const statusVariant = (status: Document['indexStatus']) => {
-    if (status === "indexed" || status === "ready") return "default" as const;
-    if (status === "failed") return "destructive" as const;
-    return "secondary" as const;
+    if (status === 'indexed' || status === 'ready') return 'default' as const;
+    if (status === 'failed') return 'destructive' as const;
+    return 'secondary' as const;
   };
 
   const statusLabel = (status: Document['indexStatus']) => {
     switch (status) {
-      case "indexed":
-      case "ready": // Assuming 'ready' is the final successful status
-        return "Indexed";
-      case "processing":
-        return "Indexing…";
-      case "pending":
-        return "Pending";
-      case "failed":
-        return "Failed";
+      case 'indexed':
+      case 'ready': // Assuming 'ready' is the final successful status
+        return 'Indexed';
+      case 'processing':
+        return 'Indexing…';
+      case 'pending':
+        return 'Pending';
+      case 'failed':
+        return 'Failed';
       default:
         return status;
     }
@@ -151,7 +151,7 @@ export default function KnowledgeBaseItemComponent() {
         // 3) Refresh the document list after successful deletion
         await refreshDocuments();
       } catch (error) {
-        console.error("Failed to delete document:", error);
+        console.error('Failed to delete document:', error);
         // Optionally show a toast/error message
       } finally {
         // 4) Close the dialog and clear the state regardless of success/failure
@@ -183,13 +183,13 @@ export default function KnowledgeBaseItemComponent() {
           <div className="flex flex-col items-end gap-2">
             <div className="flex items-center gap-3 text-sm">
               <span className="text-muted-foreground">
-                Documents:{" "}
+                Documents:{' '}
                 <span className="font-medium text-foreground">
                   {totalDocs}
                 </span>
               </span>
               <span className="text-muted-foreground">
-                Indexed:{" "}
+                Indexed:{' '}
                 <span className="font-medium text-foreground">
                   {readyDocs}
                 </span>
@@ -197,7 +197,7 @@ export default function KnowledgeBaseItemComponent() {
             </div>
 
             <Button size="sm" onClick={() => setShowUpload(true)}>
-              <PlusCircle className="h-4 w-4 mr-2" />
+              <PlusCircle className="h-4 w-4 mr-2"/>
               Upload document
             </Button>
           </div>
@@ -220,7 +220,7 @@ export default function KnowledgeBaseItemComponent() {
                 >
                   <div className="flex items-start gap-3">
                     <div className="mt-0.5">
-                      <FileText className="h-5 w-5 text-muted-foreground" />
+                      <FileText className="h-5 w-5 text-muted-foreground"/>
                     </div>
 
                     <div className="space-y-1">
@@ -233,11 +233,11 @@ export default function KnowledgeBaseItemComponent() {
                         >
                           <span
                             className={`h-1.5 w-1.5 rounded-full ${
-                              doc.indexStatus === "ready"
-                                ? "bg-emerald-500"
-                                : doc.indexStatus === "failed"
-                                  ? "bg-red-500"
-                                  : "bg-amber-500"
+                              doc.indexStatus === 'ready'
+                                ? 'bg-emerald-500'
+                                : doc.indexStatus === 'failed'
+                                  ? 'bg-red-500'
+                                  : 'bg-amber-500'
                             }`}
                           />
                           {statusLabel(doc.indexStatus)}
@@ -245,7 +245,7 @@ export default function KnowledgeBaseItemComponent() {
                       </div>
 
                       <p className="text-xs text-muted-foreground">
-                        Uploaded{" "}
+                        Uploaded{' '}
                         {new Date(doc.createdAt).toLocaleDateString()}
                       </p>
                     </div>
@@ -264,8 +264,8 @@ export default function KnowledgeBaseItemComponent() {
                         })
                       }
                     >
-                      <Download className="h-4 w-4 mr-1" />
-                      {isDownloading ? "Downloading…" : "Download"}
+                      <Download className="h-4 w-4 mr-1"/>
+                      {isDownloading ? 'Downloading…' : 'Download'}
                     </Button>
 
                     {/* Delete Button - New */}
@@ -275,21 +275,22 @@ export default function KnowledgeBaseItemComponent() {
                       onClick={() => handleDeleteClick(doc)}
                       disabled={isDeleting}
                     >
-                      <Trash2 className="h-4 w-4" />
+                      <Trash2 className="h-4 w-4"/>
                     </Button>
                   </div>
                 </div>
               ))}
             </div>
           ) : (
-            <div className="flex flex-col items-center justify-center rounded-md border border-dashed py-10 text-center text-sm text-muted-foreground">
-              <FileText className="h-8 w-8 mb-2 text-muted-foreground/70" />
+            <div
+              className="flex flex-col items-center justify-center rounded-md border border-dashed py-10 text-center text-sm text-muted-foreground">
+              <FileText className="h-8 w-8 mb-2 text-muted-foreground/70"/>
               <p className="mb-1">No documents yet.</p>
               <p className="mb-3 text-xs">
                 Upload your first document to start indexing and Q&amp;A.
               </p>
               <Button size="sm" variant="outline" onClick={() => setShowUpload(true)}>
-                <PlusCircle className="h-4 w-4 mr-2" />
+                <PlusCircle className="h-4 w-4 mr-2"/>
                 Upload document
               </Button>
             </div>
@@ -344,7 +345,7 @@ export default function KnowledgeBaseItemComponent() {
               onClick={handleConfirmDelete}
               disabled={isDeleting}
             >
-              {isDeleting ? "Deleting..." : "Delete"}
+              {isDeleting ? 'Deleting...' : 'Delete'}
             </Button>
           </DialogFooter>
         </DialogContent>

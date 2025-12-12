@@ -4,6 +4,7 @@ import { DynamoDBDocumentClient, QueryCommand, } from '@aws-sdk/lib-dynamodb';
 import { PK_NAME, SK_NAME } from '../constants/common';
 import { apiResponse } from '../helpers/api';
 import { PROJECT_PK } from '../constants/organization';
+import { withSentryLambda } from '../sentry-lambda';
 
 const ddbClient = new DynamoDBClient({});
 const docClient = DynamoDBDocumentClient.from(ddbClient, {
@@ -18,7 +19,7 @@ if (!DB_TABLE_NAME) {
   throw new Error('DB_TABLE_NAME environment variable is not set');
 }
 
-export const handler = async (event: APIGatewayProxyEventV2): Promise<APIGatewayProxyResultV2> => {
+export const baseHandler = async (event: APIGatewayProxyEventV2): Promise<APIGatewayProxyResultV2> => {
   const { orgId } = event?.queryStringParameters || {};
   try {
     const list = orgId ? await listProjects(orgId) : await allProjects();
@@ -93,3 +94,5 @@ export async function allProjects(): Promise<any[]> {
 
   return items;
 }
+
+export const handler = withSentryLambda(baseHandler);

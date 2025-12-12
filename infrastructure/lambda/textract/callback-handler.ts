@@ -6,6 +6,7 @@ import { SendTaskFailureCommand, SendTaskSuccessCommand, SFNClient, } from '@aws
 import { PK_NAME, SK_NAME } from '../constants/common';
 import { DOCUMENT_PK } from '../constants/document';
 import { DocumentItem } from '../schemas/document';
+import { withSentryLambda } from '../sentry-lambda';
 
 const ddbClient = new DynamoDBClient({});
 const docClient = DynamoDBDocumentClient.from(ddbClient, {
@@ -20,7 +21,7 @@ if (!DB_TABLE_NAME) {
   throw new Error('DB_TABLE_NAME env var is not set');
 }
 
-export const handler = async (
+export const baseHandler = async (
   event: SNSEvent,
   _context: Context,
 ): Promise<void> => {
@@ -152,3 +153,5 @@ export const handler = async (
     }
   }
 };
+
+export const handler = withSentryLambda(baseHandler);

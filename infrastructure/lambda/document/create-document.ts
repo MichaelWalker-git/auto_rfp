@@ -1,13 +1,13 @@
 import { APIGatewayProxyEventV2, APIGatewayProxyResultV2, } from 'aws-lambda';
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import { DynamoDBDocumentClient, PutCommand } from '@aws-sdk/lib-dynamodb';
-import { LambdaClient } from '@aws-sdk/client-lambda';
 
 import { PK_NAME, SK_NAME } from '../constants/common';
 import { apiResponse } from '../helpers/api';
 import { CreateDocumentDTO, CreateDocumentDTOSchema, DocumentItem, } from '../schemas/document';
 import { v4 as uuidv4 } from 'uuid';
 import { DOCUMENT_PK } from '../constants/document';
+import { withSentryLambda } from '../sentry-lambda';
 
 const ddbClient = new DynamoDBClient({});
 const docClient = DynamoDBDocumentClient.from(ddbClient, {
@@ -17,13 +17,12 @@ const docClient = DynamoDBDocumentClient.from(ddbClient, {
 });
 
 const DB_TABLE_NAME = process.env.DB_TABLE_NAME;
-const DOCUMENT_INDEXER_FUNCTION_NAME = process.env.DOCUMENT_INDEXER_FUNCTION_NAME;
 
 if (!DB_TABLE_NAME) {
   throw new Error('DB_TABLE_NAME environment variable is not set');
 }
 
-export const handler = async (
+export const baseHandler = async (
   event: APIGatewayProxyEventV2,
 ): Promise<APIGatewayProxyResultV2> => {
   if (!event.body) {
@@ -101,3 +100,5 @@ export async function createDocument(
 
   return documentItem;
 }
+
+export const handler = withSentryLambda(baseHandler);

@@ -6,6 +6,7 @@ import { DynamoDBDocumentClient, GetCommand, } from '@aws-sdk/lib-dynamodb';
 import { apiResponse } from '../helpers/api';
 import { PK_NAME, SK_NAME } from '../constants/common';
 import { QUESTION_FILE_PK } from '../constants/question-file';
+import { withSentryLambda } from '../sentry-lambda';
 
 const DB_TABLE_NAME = process.env.DB_TABLE_NAME;
 if (!DB_TABLE_NAME) {
@@ -33,7 +34,7 @@ interface QuestionFileItem {
   updatedAt: string;
 }
 
-export const handler = async (
+export const baseHandler = async (
   event: APIGatewayProxyEventV2,
 ): Promise<APIGatewayProxyResultV2> => {
   try {
@@ -110,3 +111,5 @@ async function getQuestionFile(
 
   return item;
 }
+
+export const handler = withSentryLambda(baseHandler);

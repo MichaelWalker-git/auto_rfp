@@ -6,6 +6,7 @@ import { StartDocumentTextDetectionCommand, TextractClient, } from '@aws-sdk/cli
 import { PK_NAME, SK_NAME } from '../constants/common';
 import { DOCUMENT_PK } from '../constants/document';
 import { DocumentItem } from '../schemas/document';
+import { withSentryLambda } from '../sentry-lambda';
 
 const ddbClient = new DynamoDBClient({});
 const docClient = DynamoDBDocumentClient.from(ddbClient, {
@@ -46,7 +47,7 @@ interface StartTextractResult {
   status: 'STARTED';
 }
 
-export const handler = async (
+const baseHandler = async (
   event: StartTextractEvent,
   _context: Context,
 ): Promise<StartTextractResult> => {
@@ -181,3 +182,5 @@ export const handler = async (
   console.log('start-textract result:', JSON.stringify(result));
   return result;
 };
+
+export const handler = withSentryLambda(baseHandler);

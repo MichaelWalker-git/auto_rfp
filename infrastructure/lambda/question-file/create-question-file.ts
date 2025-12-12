@@ -8,6 +8,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { apiResponse } from '../helpers/api';
 import { PK_NAME, SK_NAME } from '../constants/common';
 import { QUESTION_FILE_PK } from '../constants/question-file';
+import { withSentryLambda } from '../sentry-lambda';
 
 const DB_TABLE_NAME = process.env.DB_TABLE_NAME;
 
@@ -20,8 +21,6 @@ const docClient = DynamoDBDocumentClient.from(ddbClient, {
   marshallOptions: { removeUndefinedValues: true },
 });
 
-// --------- DTO types (simple, no Zod here) ---------
-
 interface CreateQuestionFileBody {
   projectId: string;
   fileKey: string;              // S3 key of uploaded file
@@ -30,9 +29,7 @@ interface CreateQuestionFileBody {
   sourceDocumentId?: string;    // optional: id of document this file belongs to
 }
 
-// --------- Handler ---------
-
-export const handler = async (
+export const baseHandler = async (
   event: APIGatewayProxyEventV2,
 ): Promise<APIGatewayProxyResultV2> => {
   try {
@@ -120,3 +117,5 @@ async function createQuestionFile(body: CreateQuestionFileBody) {
 
   return item;
 }
+
+export const handler = withSentryLambda(baseHandler);

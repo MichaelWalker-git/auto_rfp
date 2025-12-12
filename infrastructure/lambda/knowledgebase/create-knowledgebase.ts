@@ -12,6 +12,7 @@ import {
   KnowledgeBase,
   KnowledgeBaseItem,
 } from '../schemas/knowledge-base';
+import { withSentryLambda } from '../sentry-lambda';
 
 const ddbClient = new DynamoDBClient({});
 const docClient = DynamoDBDocumentClient.from(ddbClient, {
@@ -27,7 +28,7 @@ if (!DB_TABLE_NAME) {
 }
 
 // --- Main Handler ---
-export const handler = async (
+export const baseHandler = async (
   event: APIGatewayProxyEventV2,
 ): Promise<APIGatewayProxyResultV2> => {
   const { orgId } = event.queryStringParameters || {};
@@ -114,3 +115,5 @@ export async function createKnowledgeBase(
     _count: knowledgeBaseItem._count,
   };
 }
+
+export const handler = withSentryLambda(baseHandler);

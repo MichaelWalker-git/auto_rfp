@@ -557,7 +557,7 @@ export function QuestionsProvider({ children, projectId }: QuestionsProviderProp
     setError(null);
     try {
       mutateQuestions();
-      setAnswers({ ...answersData });
+      answersData && setAnswers({ ...answersData });
     } catch (error) {
       console.error('Error refreshing questions:', error);
       setError('Failed to refresh questions. Please try again.');
@@ -566,7 +566,7 @@ export function QuestionsProvider({ children, projectId }: QuestionsProviderProp
   };
 
   useEffect(() => {
-    setAnswers({ ...answersData });
+    answersData && setAnswers({ ...answersData });
   }, [answersData]);
 
   const value: QuestionsContextType = {
