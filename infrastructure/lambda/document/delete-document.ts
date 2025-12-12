@@ -16,6 +16,7 @@ import { PK_NAME, SK_NAME } from '../constants/common';
 import { DOCUMENT_PK } from '../constants/document';
 
 import { DeleteDocumentDTO, DeleteDocumentDTOSchema, } from '../schemas/document';
+import { withSentryLambda } from '../sentry-lambda';
 
 const DB_TABLE_NAME = process.env.DB_TABLE_NAME;
 const DOCUMENTS_BUCKET_NAME =
@@ -50,11 +51,7 @@ const docClient = DynamoDBDocumentClient.from(ddbClient, {
 
 const s3Client = new S3Client({});
 
-// -------------------------------------------------------------
-// DELETE /document/delete-document
-// Body: { id: string, knowledgeBaseId: string }
-// -------------------------------------------------------------
-export const handler = async (
+export const baseHandler = async (
   event: APIGatewayProxyEventV2,
 ): Promise<APIGatewayProxyResultV2> => {
   try {
@@ -212,33 +209,92 @@ async function deleteDocument(dto: DeleteDocumentDTO): Promise<void> {
 // OpenSearch delete-by-query helper
 // -------------------------------------------------------------
 async function deleteFromOpenSearch(documentId: string): Promise<void> {
+  // Serverless: _delete_by_query often 404 (unsupported). Use search -> delete.
+  const ids = await findOpenSearchIdsByDocumentId(documentId);
+
+  if (!ids.length) {
+    console.log(`OpenSearch: no docs found for documentId=${documentId} (nothing to delete)`);
+    return;
+  }
+
+  // sequential is safest; you can parallelize if needed
+  for (const id of ids) {
+    await deleteOpenSearchDocById(id);
+  }
+
+  console.log(`OpenSearch: deleted ${ids.length} docs for documentId=${documentId}`);
+}
+
+async function findOpenSearchIdsByDocumentId(documentId: string): Promise<string[]> {
   const endpointUrl = new URL(OPENSEARCH_ENDPOINT!);
 
   const body = {
-    query: {
-      term: {
-        documentId: documentId,
-      },
-    },
+    size: 1000,
+    query: { term: { "documentId.keyword": documentId } },
+    _source: false,
   };
 
   const payload = JSON.stringify(body);
 
   const request = new HttpRequest({
-    method: 'POST',
+    method: "POST",
     protocol: endpointUrl.protocol,
     hostname: endpointUrl.hostname,
-    path: `/${OPENSEARCH_INDEX}/_delete_by_query`,
+    path: `/${OPENSEARCH_INDEX}/_search`,
     headers: {
-      'Content-Type': 'application/json',
-      'Content-Length': Buffer.byteLength(payload).toString(),
+      "Content-Type": "application/json",
+      "Content-Length": Buffer.byteLength(payload).toString(),
       host: endpointUrl.hostname,
     },
     body: payload,
   });
 
   const signer = new SignatureV4({
-    service: 'aoss',
+    service: "aoss",
+    region: OPENSEARCH_REGION,
+    credentials: defaultProvider(),
+    sha256: Sha256,
+  });
+
+  const signed = await signer.sign(request);
+
+  const raw = await new Promise<string>((resolve, reject) => {
+    const req = https.request(
+      { method: signed.method, hostname: signed.hostname, path: signed.path, headers: signed.headers as any },
+      (res) => {
+        const chunks: Buffer[] = [];
+        res.on("data", (c) => chunks.push(c));
+        res.on("end", () => {
+          const text = Buffer.concat(chunks).toString("utf-8");
+          if (res.statusCode && res.statusCode >= 200 && res.statusCode < 300) return resolve(text);
+          reject(new Error(`OpenSearch search error: ${res.statusCode} ${res.statusMessage} - ${text}`));
+        });
+      }
+    );
+    req.on("error", reject);
+    if (signed.body) req.write(signed.body);
+    req.end();
+  });
+
+  const json = JSON.parse(raw);
+  const hits = json?.hits?.hits ?? [];
+  return hits.map((h: any) => h._id).filter((id: any) => typeof id === "string" && id.length > 0);
+}
+
+
+async function deleteOpenSearchDocById(osId: string): Promise<void> {
+  const endpointUrl = new URL(OPENSEARCH_ENDPOINT!);
+
+  const request = new HttpRequest({
+    method: "DELETE",
+    protocol: endpointUrl.protocol,
+    hostname: endpointUrl.hostname,
+    path: `/${OPENSEARCH_INDEX}/_doc/${encodeURIComponent(osId)}`,
+    headers: { host: endpointUrl.hostname },
+  });
+
+  const signer = new SignatureV4({
+    service: "aoss",
     region: OPENSEARCH_REGION,
     credentials: defaultProvider(),
     sha256: Sha256,
@@ -248,38 +304,24 @@ async function deleteFromOpenSearch(documentId: string): Promise<void> {
 
   await new Promise<void>((resolve, reject) => {
     const req = https.request(
-      {
-        method: signed.method,
-        hostname: signed.hostname,
-        path: signed.path,
-        headers: signed.headers as any,
-      },
+      { method: signed.method, hostname: signed.hostname, path: signed.path, headers: signed.headers as any },
       (res) => {
         const chunks: Buffer[] = [];
-        res.on('data', (chunk) => chunks.push(chunk));
-        res.on('end', () => {
-          const bodyStr = Buffer.concat(chunks).toString('utf-8');
-          if (res.statusCode && res.statusCode >= 200 && res.statusCode < 300) {
-            console.log(
-              `OpenSearch delete-by-query OK for documentId=${documentId}:`,
-              bodyStr,
-            );
-            resolve();
-          } else {
-            reject(
-              new Error(
-                `OpenSearch delete-by-query error: ${res.statusCode} ${res.statusMessage} - ${bodyStr}`,
-              ),
-            );
-          }
-        });
-      },
-    );
+        res.on("data", (c) => chunks.push(c));
+        res.on("end", () => {
+          const text = Buffer.concat(chunks).toString("utf-8");
 
-    req.on('error', reject);
-    if (signed.body) {
-      req.write(signed.body);
-    }
+          // 404 here means "doc not found" -> already deleted
+          if (res.statusCode === 404) return resolve();
+
+          if (res.statusCode && res.statusCode >= 200 && res.statusCode < 300) return resolve();
+          reject(new Error(`OpenSearch delete-doc error: ${res.statusCode} ${res.statusMessage} - ${text}`));
+        });
+      }
+    );
+    req.on("error", reject);
     req.end();
   });
 }
+
+export const handler =  withSentryLambda(baseHandler)

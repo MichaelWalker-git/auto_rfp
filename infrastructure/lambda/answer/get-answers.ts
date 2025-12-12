@@ -5,6 +5,7 @@ import { DynamoDBDocumentClient, QueryCommand, } from '@aws-sdk/lib-dynamodb';
 import { apiResponse } from '../helpers/api';
 import { PK_NAME, SK_NAME } from '../constants/common';
 import { ANSWER_PK } from '../constants/answer';
+import { withSentryLambda } from '../sentry-lambda';
 
 const ddbClient = new DynamoDBClient({});
 const docClient = DynamoDBDocumentClient.from(ddbClient, {
@@ -121,3 +122,6 @@ function groupAnswersByQuestion(flatAnswers: any[]) {
 
   return map;
 }
+
+
+export const handler = withSentryLambda(baseHandler)
