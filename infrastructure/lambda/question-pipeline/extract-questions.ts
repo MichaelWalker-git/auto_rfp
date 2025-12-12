@@ -260,7 +260,7 @@ Given a document that contains RFP questions, extract all sections and questions
 
 Carefully identify:
 1. Different sections (usually numbered like 1.1, 1.2, etc.)
-2. The questions within each section
+2. The questions within each section or empty array
 3. Any descriptive text that provides context for the section
 
 Format the output as a JSON object with the following structure:
@@ -348,6 +348,7 @@ const generateSummary = async (content: string) => {
     const userPrompt = buildUserPrompt(content);
 
     const body = JSON.stringify({
+      anthropic_version: 'bedrock-2023-05-31',
       system: [{ type: 'text', text: systemPrompt }],
       messages: [{ role: 'user', content: [{ type: 'text', text: userPrompt }] }],
       temperature: 0.3,        // Slightly higher for more creative summaries
@@ -397,6 +398,7 @@ export const extractEligibility = async (
     const userPrompt = buildUserPrompt(content);
 
     const body = JSON.stringify({
+      anthropic_version: 'bedrock-2023-05-31',
       system: [{ type: 'text', text: systemPrompt }],
       messages: [{ role: 'user', content: [{ type: 'text', text: userPrompt }] }],
       temperature: 0.1,   // Low temperature for precise extraction

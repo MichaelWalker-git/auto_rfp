@@ -14,6 +14,7 @@ import { PK_NAME, SK_NAME } from '../constants/common';
 import { DOCUMENT_PK } from '../constants/document';
 import { DocumentItem } from '../schemas/document';
 import { withSentryLambda } from '../sentry-lambda';
+import { getEmbedding } from '../helpers/embeddings';
 
 const ddbClient = new DynamoDBClient({});
 const docClient = DynamoDBDocumentClient.from(ddbClient, {
@@ -32,6 +33,8 @@ const REGION =
 const bedrockClient = new BedrockRuntimeClient({
   region: REGION,
 });
+
+const OPENSEARCH_INDEX = process.env.OPENSEARCH_INDEX || 'documents';
 
 const DOCUMENTS_TABLE_NAME = process.env.DOCUMENTS_TABLE_NAME;
 const OPENSEARCH_ENDPOINT = process.env.OPENSEARCH_ENDPOINT;
@@ -85,12 +88,9 @@ const baseHandler = async (
   }
 
   // 2) Generate embeddings with Bedrock
-  const embedding = await embedText(text);
+  const embedding = await getEmbedding(bedrockClient, BEDROCK_MODEL_ID, text);
 
-  // 3) Index into OpenSearch Serverless (AOSS)
-  const indexName = 'documents'; // or `${stage}-documents` etc.
-
-  await indexToOpenSearch(indexName, documentId, {
+  await indexToOpenSearch(OPENSEARCH_INDEX, documentId, {
     documentId,
     text,
     embedding,

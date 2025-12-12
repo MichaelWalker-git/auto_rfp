@@ -69,6 +69,7 @@ export class DocumentPipelineStack extends Stack {
           TEXTRACT_ROLE_ARN: textractServiceRole.roleArn,
           SENTRY_DSN: sentryDNS,
           SENTRY_ENVIRONMENT: sentryDNS,
+          OPENSEARCH_INDEX: 'documents',
         },
         logRetention: logs.RetentionDays.ONE_WEEK,
       },
