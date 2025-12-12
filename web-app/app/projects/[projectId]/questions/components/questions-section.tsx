@@ -72,6 +72,7 @@ function QuestionsSectionInner({ projectId }: QuestionsSectionProps) {
               onExport={handleExportAnswers}
               unsavedCount={unsavedQuestions.size}
               isSaving={savingQuestions.size > 0}
+              projectId={projectId}
             />
 
             {/* Index Selection Panel */}

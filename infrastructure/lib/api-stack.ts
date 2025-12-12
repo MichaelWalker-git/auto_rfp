@@ -37,6 +37,7 @@ export class ApiStack extends cdk.Stack {
   private readonly knowledgeBaseApi: ApiNestedStack;
   private readonly documentApi: ApiNestedStack;
   private readonly questionFileApi: ApiNestedStack;
+  private readonly proposalApi: ApiNestedStack;
 
 
   constructor(scope: Construct, id: string, props: ApiStackProps) {
@@ -287,6 +288,15 @@ export class ApiStack extends cdk.Stack {
       userPool
     })
 
+
+    this.proposalApi = new ApiNestedStack(this, 'ProposalApi', {
+      api: this.api,
+      basePath: 'proposal',
+      lambdaRole,
+      commonEnv,
+      userPool
+    })
+
     this.questionFileApi.addRoute(
       '/start-question-pipeline',
       'POST',
@@ -474,6 +484,13 @@ export class ApiStack extends cdk.Stack {
       'POST',
       'lambda/textract/get-result.ts',
     );
+
+
+    this.proposalApi.addRoute(
+      '/generate-proposal',
+      'POST',
+      'lambda/proposal/generate-proposal.ts',
+    )
 
     new cdk.CfnOutput(this, 'ApiBaseUrl', {
       value: this.api.url,
