@@ -10,7 +10,6 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Separator } from "@/components/ui/separator";
 import { AlertCircle } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { LlamaCloudConnection } from "./LlamaCloudConnection";
 
 interface SettingsContentProps {
   orgId: string;
@@ -158,12 +157,6 @@ export function SettingsContent({ orgId }: SettingsContentProps) {
                 Connect external services to enhance your organization
               </p>
             </div>
-            
-            <LlamaCloudConnection 
-              orgId={orgId}
-              organization={organization}
-              onConnectionUpdate={handleLlamaCloudConnectionUpdate}
-            />
 
             {/* Slack Integration - Commented out for now */}
             {/* <Card>

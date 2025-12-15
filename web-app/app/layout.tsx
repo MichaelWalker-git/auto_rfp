@@ -15,22 +15,18 @@ export const metadata: Metadata = {
   }
 };
 
-export default function RootLayout({
-  children,
-}: Readonly<{
-  children: React.ReactNode;
-}>) {
+export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" suppressHydrationWarning={true}>
-      <body>
-        <Providers>
-          <div className="flex flex-col">
-            <GlobalHeader />
-            {children}
-          </div>
-          <Toaster />
-        </Providers>
-      </body>
+    <html lang="en" suppressHydrationWarning>
+    <body suppressHydrationWarning>
+    <Providers>
+      <div className="flex flex-col">
+        <GlobalHeader />
+        {children}
+      </div>
+      <Toaster />
+    </Providers>
+    </body>
     </html>
   );
 }

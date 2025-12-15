@@ -12,8 +12,5 @@ export { SourceDetailsDialog } from "./source-details-dialog"
 // State components
 export { QuestionsLoadingState, QuestionsErrorState, QuestionsSkeletonLoader } from "./questions-states"
 
-// Dialog handlers
-export { MultiStepResponseHandler } from "./multi-step-response-handler"
-
 // Commented out components (available if needed)
 // export { IndexSelector } from "./index-selector" 

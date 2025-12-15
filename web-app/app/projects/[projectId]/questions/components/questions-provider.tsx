@@ -3,7 +3,6 @@
 import React, { createContext, ReactNode, useContext, useEffect, useState } from 'react';
 import { toast } from '@/components/ui/use-toast';
 import { AnswerSource, RfpDocument } from '@/types/api';
-import { useMultiStepResponse } from '@/hooks/use-multi-step-response';
 import { useAnswers, useQuestions as useLoadQuestions } from '@/lib/hooks/use-api';
 import { useProject } from '@/lib/hooks/use-project';
 import { CreateAnswerDTO, useGenerateAnswer, useSaveAnswer } from '@/lib/hooks/use-answer';
@@ -51,22 +50,6 @@ interface QuestionsContextType {
   availableIndexes: ProjectIndex[];
   isLoadingIndexes: boolean;
   organizationConnected: boolean;
-
-  // Multi-step response state
-  useMultiStep: boolean;
-  setUseMultiStep: (use: boolean) => void;
-  multiStepDialogOpen: boolean;
-  setMultiStepDialogOpen: (open: boolean) => void;
-  currentQuestionForMultiStep: string | null;
-  currentQuestionText: string;
-
-  // Multi-step response hook
-  generateMultiStepResponse: (question: string) => Promise<void>;
-  isMultiStepGenerating: boolean;
-  multiStepSteps: any[];
-  multiStepFinalResponse: string | null;
-  multiStepSources: any[];
-  resetMultiStepResponse: () => void;
 
   // Action handlers
   handleAnswerChange: (questionId: string, value: string) => void;
@@ -136,20 +119,6 @@ export function QuestionsProvider({ children, projectId }: QuestionsProviderProp
   const { data: answersData, error: answerError, isLoading: isAnswersLoading } = useAnswers(projectId);
   const { trigger: createAnswer } = useSaveAnswer(projectId);
   const isLoading = isProjectLoading || isQuestionsLoading || isAnswersLoading;
-  const {
-    generateResponse: generateMultiStepResponse,
-    isGenerating: isMultiStepGenerating,
-    currentSteps: multiStepSteps,
-    finalResponse: multiStepFinalResponse,
-    sources: multiStepSources,
-    reset: resetMultiStepResponse
-  } = useMultiStepResponse({
-    projectId: projectId || '',
-    indexIds: Array.from(selectedIndexes),
-    onComplete: (finalResponse, steps, sources) => {
-      handleAcceptMultiStepResponse(finalResponse, sources);
-    }
-  });
   const { trigger: generateAnswer } = useGenerateAnswer();
 
   // Load project data and questions when component mounts
@@ -162,7 +131,7 @@ export function QuestionsProvider({ children, projectId }: QuestionsProviderProp
     const fetchIndexes = async () => {
       setIsLoadingIndexes(true);
       try {
-        const response = await fetch(`/api/projects/${projectId}/indexes`);
+         /*const response = await fetch(`/api/projects/${projectId}/indexes`);
         if (response.ok) {
           const data = await response.json();
           setOrganizationConnected(data.organizationConnected);
@@ -190,7 +159,7 @@ export function QuestionsProvider({ children, projectId }: QuestionsProviderProp
 
           setOrganizationConnected(true);
           setAvailableIndexes([]);
-        }
+        }*/
       } catch (error) {
         console.error('Error loading indexes:', error);
         setOrganizationConnected(false);
@@ -262,75 +231,58 @@ export function QuestionsProvider({ children, projectId }: QuestionsProviderProp
       return;
     }
 
-    if (useMultiStep) {
-      setCurrentQuestionForMultiStep(questionId);
-      setCurrentQuestionText(question.question);
-      setMultiStepDialogOpen(true);
-      resetMultiStepResponse();
+    setIsGenerating(prev => ({ ...prev, [questionId]: true }));
 
-      if (!projectId) {
-        toast({
-          title: 'Error',
-          description: 'Project ID not available',
-          variant: 'destructive',
-        });
-        return;
-      }
+    try {
+      const { answer, confidence, found } = await generateAnswer({
+        projectId: projectId,
+        questionId: questionId,
+        topK: 5,
+      });
 
-      await generateMultiStepResponse(question.question);
-    } else {
-      setIsGenerating(prev => ({ ...prev, [questionId]: true }));
-
-      try {
-        const { answer, confidence, found } = await generateAnswer({
-          projectId: projectId,
-          questionId: questionId,
-          topK: 5,
-        });
-
-        found && setAnswers(prev => ({
-          ...prev,
-          [questionId]: {
-            text: answer,
-          }
-        }));
-
-        setConfidence(prev => ({
-          ...prev,
-          [questionId]: confidence
-        }));
-
-        setUnsavedQuestions(prev => {
-          const updated = new Set(prev);
-          updated.add(questionId);
-          return updated;
-        });
-
-        if (answer && found) {
-          toast({
-            title: 'Answer Generated',
-            description: 'AI-generated answer has been created. Please review and save it.',
-          });
-        } else {
-          toast({
-            title: 'Answer Not Found',
-            description: 'Answer Not Found in provided documents',
-            variant: 'destructive'
-          });
+      found && setAnswers(prev => ({
+        ...prev,
+        [questionId]: {
+          text: answer,
         }
+      }));
 
+      setConfidence(prev => ({
+        ...prev,
+        [questionId]: confidence
+      }));
 
-      } catch (error) {
-        console.error('Error generating answer:', error);
+      setUnsavedQuestions(prev => {
+        const updated = new Set(prev);
+        updated.add(questionId);
+        return updated;
+      });
+
+      if (answer && found) {
         toast({
-          title: 'Generation Error',
-          description: 'Failed to generate answer. Please try again.',
-          variant: 'destructive',
+          title: 'Answer Generated',
+          description: 'AI-generated answer has been created. Please review and save it.',
         });
-      } finally {
-        setIsGenerating(prev => ({ ...prev, [questionId]: false }));
+      } else {
+        toast({
+          title: 'Answer Not Found',
+          description: 'Answer Not Found in provided documents',
+          variant: 'destructive'
+        });
       }
+
+
+    } catch (error) {
+      console.error('Error generating answer:', error);
+      toast({
+        title: 'Generation Error',
+        description: 'Failed to generate answer. Please try again.',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsGenerating(prev => ({ ...prev, [questionId]: false }));
     }
+
   };
 
   // Handler for accepting multi-step response
@@ -360,7 +312,6 @@ export function QuestionsProvider({ children, projectId }: QuestionsProviderProp
   const handleCloseMultiStepDialog = () => {
     setMultiStepDialogOpen(false);
     setCurrentQuestionForMultiStep(null);
-    resetMultiStepResponse();
   };
 
   // Save a single answer
@@ -601,22 +552,6 @@ export function QuestionsProvider({ children, projectId }: QuestionsProviderProp
     availableIndexes,
     isLoadingIndexes,
     organizationConnected,
-
-    // Multi-step response state
-    useMultiStep,
-    setUseMultiStep,
-    multiStepDialogOpen,
-    setMultiStepDialogOpen,
-    currentQuestionForMultiStep,
-    currentQuestionText,
-
-    // Multi-step response hook
-    generateMultiStepResponse,
-    isMultiStepGenerating,
-    multiStepSteps,
-    multiStepFinalResponse,
-    multiStepSources,
-    resetMultiStepResponse,
 
     // Action handlers
     handleAnswerChange,

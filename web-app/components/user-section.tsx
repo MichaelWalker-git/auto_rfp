@@ -84,7 +84,6 @@ export const UserSection: React.FC = () => {
     startTransition(async () => {
       try {
         await signOut({ global: true });
-        push("/login");
       } catch (error) {
         console.error("Error signing out:", error);
       }

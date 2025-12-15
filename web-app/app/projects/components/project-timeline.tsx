@@ -31,7 +31,7 @@ export function ProjectTimeline({ projectId }: ProjectTimelineProps) {
 
   const fetchTimeline = async () => {
     try {
-      setIsLoading(true);
+/*      setIsLoading(true);
       const response = await fetch(`/api/projects/${projectId}/timeline`);
       
       if (!response.ok) {
@@ -40,7 +40,7 @@ export function ProjectTimeline({ projectId }: ProjectTimelineProps) {
       
       const data = await response.json();
       setActivities(data.activities || []);
-      setError(null);
+      setError(null);*/
     } catch (err) {
       console.error('Error fetching timeline:', err);
       setError('Failed to load project timeline');

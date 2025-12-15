@@ -9,8 +9,7 @@ import { QuestionsHeader } from './questions-header';
 import { NoQuestionsAvailable } from './no-questions-available';
 import { SourceDetailsDialog } from './source-details-dialog';
 import { QuestionsFilterTabs } from './questions-filter-tabs';
-import { QuestionsLoadingState, QuestionsErrorState } from './questions-states';
-import { MultiStepResponseHandler } from './multi-step-response-handler';
+import { QuestionsErrorState, QuestionsLoadingState } from './questions-states';
 import { IndexSelector } from './index-selector';
 
 interface QuestionsSectionProps {
@@ -95,9 +94,6 @@ function QuestionsSectionInner({ projectId }: QuestionsSectionProps) {
         onClose={() => setIsSourceModalOpen(false)}
         source={selectedSource}
       />
-
-      {/* Multi-step Response Dialog */}
-      <MultiStepResponseHandler/>
 
       <Toaster/>
     </div>
