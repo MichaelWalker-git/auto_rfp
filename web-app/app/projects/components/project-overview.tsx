@@ -7,9 +7,9 @@ import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { Skeleton } from '@/components/ui/skeleton';
 import { AlertCircle, Calendar, CheckCircle2, Clock, FileText, FolderOpen } from 'lucide-react';
-import { ProjectTimeline } from './project-timeline';
 import { format, formatDistanceToNow } from 'date-fns';
 import { useProject, useQuestions } from '@/lib/hooks/use-api';
+import { ExecutiveBriefView } from '@/components/brief/ExecutiveBriefView';
 
 interface ProjectOverviewProps {
   onViewQuestions: () => void;
@@ -187,9 +187,8 @@ export function ProjectOverview({ onViewQuestions, projectId, orgId }: ProjectOv
         </CardContent>
       </Card>
 
-      {/* Timeline Section */}
-      <ProjectTimeline projectId={projectId}/>
-
+      {/* Brief */}
+      <ExecutiveBriefView projectId={projectId}/>
     </div>
   );
 }

@@ -38,6 +38,7 @@ export class ApiStack extends cdk.Stack {
   private readonly documentApi: ApiNestedStack;
   private readonly questionFileApi: ApiNestedStack;
   private readonly proposalApi: ApiNestedStack;
+  private readonly briefApi: ApiNestedStack;
 
 
   constructor(scope: Construct, id: string, props: ApiStackProps) {
@@ -129,7 +130,7 @@ export class ApiStack extends cdk.Stack {
       }),
       new iam.PolicyStatement({
         actions: ['states:StartExecution'],
-          resources: [documentPipelineStateMachineArn],
+        resources: [documentPipelineStateMachineArn],
         effect: cdk.aws_iam.Effect.ALLOW,
       })
     ];
@@ -171,7 +172,7 @@ export class ApiStack extends cdk.Stack {
     lambdaRole.addToPrincipalPolicy(
       new iam.PolicyStatement({
         actions: ['bedrock:InvokeModel', 'bedrock:InvokeModelWithResponseStream'],
-        resources: ["*"],
+        resources: ['*'],
         effect: iam.Effect.ALLOW,
       }),
     );
@@ -202,7 +203,7 @@ export class ApiStack extends cdk.Stack {
         resources: ['*'],
         effect: iam.Effect.ALLOW,
       })
-    )
+    );
 
     // 3) Common env that every lambda will get by default
     //    Adjust PK/SK env names to what you actually use.
@@ -210,6 +211,7 @@ export class ApiStack extends cdk.Stack {
       STAGE: stage,
       AWS_ACCOUNT_ID: cdk.Aws.ACCOUNT_ID,
       DOCUMENTS_BUCKET: documentsBucket.bucketName,
+      DOCUMENTS_BUCKET_NAME: documentsBucket.bucketName,
       NODE_ENV: 'production',
 
       // DynamoDB single-table config
@@ -286,7 +288,7 @@ export class ApiStack extends cdk.Stack {
       lambdaRole,
       commonEnv,
       userPool
-    })
+    });
 
 
     this.proposalApi = new ApiNestedStack(this, 'ProposalApi', {
@@ -295,7 +297,21 @@ export class ApiStack extends cdk.Stack {
       lambdaRole,
       commonEnv,
       userPool
-    })
+    });
+
+    this.briefApi = new ApiNestedStack(this, 'BriefApi', {
+      api: this.api,
+      basePath: 'brief',
+      lambdaRole,
+      commonEnv,
+      userPool
+    });
+
+    this.briefApi.addRoute(
+      '/generate-executive-brief',
+      'POST',
+      'lambda/brief/generate-executive-brief.ts',
+    );
 
     this.questionFileApi.addRoute(
       '/start-question-pipeline',
@@ -319,31 +335,31 @@ export class ApiStack extends cdk.Stack {
       '/create-knowledgebase',
       'POST',
       'lambda/knowledgebase/create-knowledgebase.ts',
-    )
+    );
 
     this.knowledgeBaseApi.addRoute(
       '/delete-knowledgebase',
       'DELETE',
       'lambda/knowledgebase/delete-knowledgebase.ts',
-    )
+    );
 
     this.knowledgeBaseApi.addRoute(
       '/edit-knowledgebase',
       'PATCH',
       'lambda/knowledgebase/edit-knowledgebase.ts',
-    )
+    );
 
     this.knowledgeBaseApi.addRoute(
       '/get-knowledgebases',
       'GET',
       'lambda/knowledgebase/get-knowledgebases.ts',
-    )
+    );
 
     this.knowledgeBaseApi.addRoute(
       '/get-knowledgebase',
       'GET',
       'lambda/knowledgebase/get-knowledgebase.ts',
-    )
+    );
 
     this.documentApi = new ApiNestedStack(this, 'DocumentApi', {
       api: this.api,
@@ -490,7 +506,7 @@ export class ApiStack extends cdk.Stack {
       '/generate-proposal',
       'POST',
       'lambda/proposal/generate-proposal.ts',
-    )
+    );
 
     new cdk.CfnOutput(this, 'ApiBaseUrl', {
       value: this.api.url,
@@ -524,9 +540,6 @@ export class ApiStack extends cdk.Stack {
     // These suppressions allow deployment while security issues are addressed
     this.addCdkNagSuppressions();
   }
-
-
-
 
 
   // Later you can add:
