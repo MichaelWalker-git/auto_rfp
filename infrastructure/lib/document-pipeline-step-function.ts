@@ -1,4 +1,4 @@
-import { Duration, Stack, StackProps } from 'aws-cdk-lib';
+import { Duration, RemovalPolicy, Stack, StackProps } from 'aws-cdk-lib';
 import { Construct } from 'constructs';
 import * as s3 from 'aws-cdk-lib/aws-s3';
 import * as dynamodb from 'aws-cdk-lib/aws-dynamodb';
@@ -41,6 +41,11 @@ export class DocumentPipelineStack extends Stack {
 
     const namePrefix = `AutoRfp-${stage}`;
 
+    const logGroup = new logs.LogGroup(this, `${namePrefix}-LogGroup`, {
+      retention: logs.RetentionDays.ONE_WEEK,
+      removalPolicy: RemovalPolicy.DESTROY,
+    });
+
     // 1. SNS Topic + Textract role
     const textractTopic = new sns.Topic(this, 'TextractCompletionTopic', {
       topicName: `${namePrefix}-TextractCompletionTopic`,
@@ -71,7 +76,7 @@ export class DocumentPipelineStack extends Stack {
           SENTRY_ENVIRONMENT: sentryDNS,
           OPENSEARCH_INDEX: 'documents',
         },
-        logRetention: logs.RetentionDays.ONE_WEEK,
+        logGroup,
       },
     );
 
@@ -105,7 +110,7 @@ export class DocumentPipelineStack extends Stack {
           SENTRY_DSN: sentryDNS,
           SENTRY_ENVIRONMENT: stage,
         },
-        logRetention: logs.RetentionDays.ONE_WEEK,
+        logGroup,
       },
     );
 
@@ -143,7 +148,7 @@ export class DocumentPipelineStack extends Stack {
           SENTRY_DSN: sentryDNS,
           SENTRY_ENVIRONMENT: stage,
         },
-        logRetention: logs.RetentionDays.ONE_WEEK,
+        logGroup,
       },
     );
 

@@ -1,4 +1,4 @@
-import { Duration, Stack, StackProps } from 'aws-cdk-lib';
+import { Duration, RemovalPolicy, Stack, StackProps } from 'aws-cdk-lib';
 import { Construct } from 'constructs';
 import * as s3 from 'aws-cdk-lib/aws-s3';
 import * as dynamodb from 'aws-cdk-lib/aws-dynamodb';
@@ -27,6 +27,11 @@ export class QuestionExtractionPipelineStack extends Stack {
 
     const { stage, documentsBucket, mainTable, sentryDNS } = props;
     const prefix = `AutoRfp-${stage}-Question`;
+
+    const logGroup = new logs.LogGroup(this, `${prefix}-LogGroup`, {
+      retention: logs.RetentionDays.ONE_WEEK,
+      removalPolicy: RemovalPolicy.DESTROY,
+    });
 
     //
     // ------------------------------------------------------------
@@ -71,7 +76,7 @@ export class QuestionExtractionPipelineStack extends Stack {
           SENTRY_DSN: sentryDNS,
           SENTRY_ENVIRONMENT: stage,
         },
-        logRetention: logs.RetentionDays.ONE_WEEK,
+        logGroup,
       }
     );
     documentsBucket.grantRead(startTextractLambda);
@@ -107,7 +112,7 @@ export class QuestionExtractionPipelineStack extends Stack {
           SENTRY_DSN: sentryDNS,
           SENTRY_ENVIRONMENT: stage,
         },
-        logRetention: logs.RetentionDays.ONE_WEEK,
+        logGroup,
       }
     );
 
@@ -142,7 +147,7 @@ export class QuestionExtractionPipelineStack extends Stack {
           SENTRY_DSN: sentryDNS,
           SENTRY_ENVIRONMENT: stage,
         },
-        logRetention: logs.RetentionDays.ONE_WEEK,
+        logGroup,
       }
     );
     documentsBucket.grantReadWrite(processResultLambda);
@@ -179,7 +184,7 @@ export class QuestionExtractionPipelineStack extends Stack {
           SENTRY_DSN: sentryDNS,
           SENTRY_ENVIRONMENT: stage
         },
-        logRetention: logs.RetentionDays.ONE_WEEK,
+        logGroup,
       }
     );
     documentsBucket.grantRead(extractQuestionsLambda);

@@ -26,14 +26,18 @@
     "typescript": "^5.0.0"
   },
   "dependencies": {
+    "@auto-rfp/shared": "file:../shared",
     "@aws-cdk/aws-amplify-alpha": "2.231.0-alpha.0",
+    "@aws-crypto/sha256-js": "^5.2.0",
     "@aws-sdk/client-bedrock-runtime": "^3.941.0",
     "@aws-sdk/client-cognito-identity-provider": "^3.940.0",
+    "@aws-sdk/client-dynamodb": "^3.952.0",
     "@aws-sdk/client-lambda": "^3.943.0",
     "@aws-sdk/client-opensearchserverless": "^3.943.0",
     "@aws-sdk/client-s3": "^3.940.0",
     "@aws-sdk/client-sfn": "^3.943.0",
     "@aws-sdk/client-textract": "^3.943.0",
+    "@aws-sdk/credential-provider-node": "^3.952.0",
     "@aws-sdk/s3-request-presigner": "^3.940.0",
     "@opensearch-project/opensearch": "^3.5.1",
     "@sentry/serverless": "^7.120.4",

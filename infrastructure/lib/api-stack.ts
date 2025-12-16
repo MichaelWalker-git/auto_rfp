@@ -508,6 +508,24 @@ export class ApiStack extends cdk.Stack {
       'lambda/proposal/generate-proposal.ts',
     );
 
+    this.proposalApi.addRoute(
+      '/get-proposals',
+      'GET',
+      'lambda/proposal/get-proposals.ts',
+    );
+
+    this.proposalApi.addRoute(
+      '/get-proposal',
+      'GET',
+      'lambda/proposal/get-proposal.ts',
+    );
+
+    this.proposalApi.addRoute(
+      '/save-proposal',
+      'POST',
+      'lambda/proposal/save-proposal.ts',
+    );
+
     new cdk.CfnOutput(this, 'ApiBaseUrl', {
       value: this.api.url,
       description: 'Base URL for the AutoRFP API',

@@ -2,8 +2,7 @@
 
 import React, { useEffect, useMemo, useState } from 'react';
 import { jsPDF } from 'jspdf';
-import { Brain, Loader2, Trash2 } from 'lucide-react';
-
+import { Brain, Loader2, Trash2, Save } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
@@ -21,7 +20,9 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 
-import { ProposalDocument, ProposalSection, ProposalSubsection, useGenerateProposal, } from '@/lib/hooks/use-proposal';
+import { useGenerateProposal, useSaveProposal, buildSaveRequest } from '@/lib/hooks/use-proposal';
+import type { ProposalDocument, ProposalSection, ProposalSubsection } from '@auto-rfp/shared';
+import { ProposalStatus } from '@auto-rfp/shared';
 
 interface GenerateProposalModalProps {
   projectId: string;
@@ -43,6 +44,15 @@ export const GenerateProposalModal: React.FC<GenerateProposalModalProps> = ({
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [pendingDelete, setPendingDelete] = useState<PendingDelete>(null);
 
+  const [savedProposalId, setSavedProposalId] = useState<string | null>(null);
+  const [saveMessage, setSaveMessage] = useState<string | null>(null);
+
+  const {
+    trigger: triggerSave,
+    isMutating: isSaving,
+    error: saveError,
+  } = useSaveProposal();
+
   const {
     trigger: triggerGenerate,
     data: generatedProposal,
@@ -56,15 +66,15 @@ export const GenerateProposalModal: React.FC<GenerateProposalModalProps> = ({
 
   useEffect(() => {
     if (generateError) {
-      setLocalError(
-        generateError instanceof Error
-          ? generateError.message
-          : 'Failed to generate proposal',
-      );
-    } else {
-      setLocalError(null);
+      setLocalError(generateError instanceof Error ? generateError.message : 'Failed to generate proposal');
+      return;
     }
-  }, [generateError]);
+    if (saveError) {
+      setLocalError(saveError instanceof Error ? saveError.message : 'Failed to save proposal');
+      return;
+    }
+    setLocalError(null);
+  }, [generateError, saveError]);
 
   const deleteTitle = useMemo(() => {
     if (!pendingDelete) return 'Remove item?';
@@ -95,12 +105,36 @@ export const GenerateProposalModal: React.FC<GenerateProposalModalProps> = ({
 
   const handleRegenerate = () => triggerGenerate({ projectId });
 
+  const handleSave = async () => {
+    if (!proposal) return;
+
+    setSaveMessage(null);
+
+    const payload = buildSaveRequest({
+      id: savedProposalId ?? undefined,
+      projectId,
+      organizationId: null, // add prop later if needed
+      document: proposal,
+      status: ProposalStatus.NEW,
+      title: proposal.proposalTitle ?? null,
+    });
+
+    const saved = await triggerSave(payload);
+
+    if (!saved) throw new Error('Save failed: empty response from API');
+
+    setSavedProposalId(saved.id);
+    setProposal(saved.document);
+    setSaveMessage('Saved ✅');
+    setTimeout(() => setSaveMessage(null), 2000);
+  };
+
   const handleSectionChange = (
     index: number,
     field: keyof ProposalSection,
     value: string,
   ) => {
-    setProposal((prev) => {
+    setProposal((prev: any) => {
       if (!prev) return prev;
       const sections = [...prev.sections];
       sections[index] = { ...sections[index], [field]: value };
@@ -114,7 +148,7 @@ export const GenerateProposalModal: React.FC<GenerateProposalModalProps> = ({
     field: keyof ProposalSubsection,
     value: string,
   ) => {
-    setProposal((prev) => {
+    setProposal((prev: any) => {
       if (!prev) return prev;
       const sections = [...prev.sections];
       const section = sections[sectionIndex];
@@ -134,14 +168,14 @@ export const GenerateProposalModal: React.FC<GenerateProposalModalProps> = ({
   };
 
   const confirmDelete = () => {
-    setProposal((prev) => {
+    setProposal((prev: any) => {
       if (!prev || !pendingDelete) return prev;
 
       if (pendingDelete.type === 'section') {
         return {
           ...prev,
           sections: prev.sections.filter(
-            (_, idx) => idx !== pendingDelete.sectionIndex,
+            (_: any, idx: any) => idx !== pendingDelete.sectionIndex,
           ),
         };
       }
@@ -152,7 +186,7 @@ export const GenerateProposalModal: React.FC<GenerateProposalModalProps> = ({
 
       sections[sectionIndex] = {
         ...section,
-        subsections: section.subsections.filter((_, idx) => idx !== subsectionIndex),
+        subsections: section.subsections.filter((_: any, idx: any) => idx !== subsectionIndex),
       };
 
       return { ...prev, sections };
@@ -276,6 +310,12 @@ export const GenerateProposalModal: React.FC<GenerateProposalModalProps> = ({
               </div>
             )}
 
+            {saveMessage && (
+              <div className="text-sm text-green-600 border border-green-600/30 rounded-md px-3 py-2 bg-green-500/5">
+                {saveMessage}
+              </div>
+            )}
+
             {!proposal && !isMutating && (
               <div className="flex flex-col items-center justify-center gap-3 py-10">
                 <p className="text-sm text-muted-foreground">No proposal generated yet.</p>
@@ -295,7 +335,6 @@ export const GenerateProposalModal: React.FC<GenerateProposalModalProps> = ({
             )}
 
             {proposal && (
-              // ✅ Make ALL content scrollable (not only sections)
               <ScrollArea className="flex-1 min-h-0 border rounded-md">
                 <div className="p-4 space-y-4">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -467,9 +506,25 @@ export const GenerateProposalModal: React.FC<GenerateProposalModalProps> = ({
           </div>
 
           <div className="mt-4 flex justify-between items-center gap-2">
-            <Button variant="outline" onClick={handleRegenerate} disabled={isMutating}>
-              Regenerate from AI
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button variant="outline" onClick={handleRegenerate} disabled={isMutating || isSaving}>
+                Regenerate from AI
+              </Button>
+
+              <Button onClick={handleSave} disabled={!proposal || isSaving}>
+                {isSaving ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Saving...
+                  </>
+                ) : (
+                  <>
+                    <Save className="mr-2 h-4 w-4" />
+                    Save
+                  </>
+                )}
+              </Button>
+            </div>
 
             <Button onClick={handlePdfDownload} disabled={!proposal || isPdfGenerating}>
               {isPdfGenerating ? (

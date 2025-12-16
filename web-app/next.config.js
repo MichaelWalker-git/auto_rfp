@@ -8,6 +8,7 @@ const nextConfig = {
   typescript: {
     ignoreBuildErrors: true,
   },
+  transpilePackages: ['@auto-rfp/shared'],
 };
 
 module.exports = withSentryConfig(
