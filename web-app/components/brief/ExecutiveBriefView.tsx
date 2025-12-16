@@ -64,7 +64,7 @@ function DeadlineCard({ deadline }: { deadline: any }) {
           </div>
           {isUrgent && daysUntil !== null && (
             <div className="text-xs text-destructive mt-1 font-medium">
-              {daysUntil > 0 ? `${daysUntil} days` : 'Due today!'}
+              {daysUntil > 0 ? (daysUntil === 1 ? '1 day' : `${daysUntil} days`) : 'Due today!'}
             </div>
           )}
           {deadline.timezone && (
