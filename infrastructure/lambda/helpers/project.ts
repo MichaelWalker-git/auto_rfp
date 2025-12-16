@@ -1,6 +1,6 @@
-import { DynamoDBDocumentClient, ScanCommand, } from '@aws-sdk/lib-dynamodb';
+import { DynamoDBDocumentClient, ScanCommand, GetCommand } from '@aws-sdk/lib-dynamodb';
 import { PK_NAME, SK_NAME } from '../constants/common';
-import { PROJECT_PK } from '../constants/organization';
+import { ORG_PK, PROJECT_PK } from '../constants/organization';
 
 export async function getProjectById(docClient: DynamoDBDocumentClient, tableName: string, projectId: string): Promise<any | null> {
   const items: any[] = [];
@@ -43,5 +43,19 @@ export async function getProjectById(docClient: DynamoDBDocumentClient, tableNam
     return typeof sk === 'string' && sk.endsWith(idSuffix);
   });
 
-  return exact ?? null;
+  const orgId: string = exact.sort_key.split('#')[0]
+  const orgRes = await docClient.send(new GetCommand({
+    TableName: tableName,
+    Key: {
+      [PK_NAME]: ORG_PK,
+      [SK_NAME]: orgId,
+    },
+  }))
+
+  const withOrg = {
+    ...exact,
+    organization: orgRes.Item
+  }
+
+  return withOrg ?? null;
 }

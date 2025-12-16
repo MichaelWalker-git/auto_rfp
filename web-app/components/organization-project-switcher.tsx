@@ -69,6 +69,7 @@ export function OrganizationProjectSwitcher() {
     (organization: any) => {
       setCurrentOrganization(organization);
       setCurrentProject(null); // Reset project when changing org
+      refreshData();
       router.push(`/organizations/${organization.id}`);
     },
     [router, setCurrentOrganization, setCurrentProject]
