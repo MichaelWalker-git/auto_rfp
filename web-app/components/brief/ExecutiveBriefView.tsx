@@ -181,18 +181,9 @@ export function ExecutiveBriefView({ projectId }: { projectId: string }) {
     }
 
     try {
-      setGenerationProgress('Analyzing solicitation document...');
-      await new Promise(resolve => setTimeout(resolve, 500));
-
-      setGenerationProgress('Querying company knowledge base...');
-      await new Promise(resolve => setTimeout(resolve, 500));
-
-      setGenerationProgress('Generating brief with AI...');
+      setGenerationProgress('Generating brief...');
       await trigger({ projectId });
-
-      setGenerationProgress('Finalizing brief...');
       await refetch();
-
       setGenerationProgress(null);
     } catch (e: any) {
       setRegenError(e?.message ?? 'Unknown error');
