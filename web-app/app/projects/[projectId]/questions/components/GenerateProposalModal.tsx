@@ -134,7 +134,7 @@ export const GenerateProposalModal: React.FC<GenerateProposalModalProps> = ({
     field: keyof ProposalSection,
     value: string,
   ) => {
-    setProposal((prev: ProposalDocument) => {
+    setProposal(prev => {
       if (!prev) return prev;
       const sections = [...prev.sections];
       sections[index] = { ...sections[index], [field]: value };
@@ -148,7 +148,7 @@ export const GenerateProposalModal: React.FC<GenerateProposalModalProps> = ({
     field: keyof ProposalSubsection,
     value: string,
   ) => {
-    setProposal((prev: ProposalDocument) => {
+    setProposal(prev => {
       if (!prev) return prev;
       const sections = [...prev.sections];
       const section = sections[sectionIndex];
@@ -168,7 +168,7 @@ export const GenerateProposalModal: React.FC<GenerateProposalModalProps> = ({
   };
 
   const confirmDelete = () => {
-    setProposal((prev: ProposalDocument) => {
+    setProposal(prev => {
       if (!prev || !pendingDelete) return prev;
 
       if (pendingDelete.type === 'section') {
