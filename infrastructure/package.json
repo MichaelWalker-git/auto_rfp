@@ -44,6 +44,7 @@
     "@smithy/protocol-http": "^5.3.5",
     "@smithy/signature-v4": "^5.3.5",
     "cdk-nag": "^2.36.46",
+    "mammoth": "^1.11.0",
     "pdf-parse": "^2.4.5",
     "uuid": "^13.0.0",
     "zod": "^4.1.13"

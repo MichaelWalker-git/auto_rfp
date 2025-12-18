@@ -3,7 +3,7 @@
 import React, { useMemo, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import useSWRMutation from 'swr/mutation';
-import { ArrowLeft, CheckCircle2, Loader2, Save, Trash2, XCircle } from 'lucide-react';
+import { ArrowLeft, CheckCircle2, Loader2, Save, Trash2, XCircle, Download } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -36,6 +36,7 @@ import {
   type SaveProposalRequest,
   SaveProposalRequestSchema,
 } from '@auto-rfp/shared';
+import { exportProposalToDocx } from '@/lib/helpers/proposal';
 
 const BASE = `${env.BASE_API_URL}/proposal`;
 
@@ -294,6 +295,15 @@ export default function ProposalDetailsPage() {
         </div>
 
         <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            disabled={!draft || isBusy}
+            onClick={() => draft && exportProposalToDocx(draft.document)}
+            className="gap-2"
+          >
+            <Download className="h-4 w-4" />
+            Export DOCX
+          </Button>
           <Button
             variant="outline"
             disabled={!draft || isBusy}

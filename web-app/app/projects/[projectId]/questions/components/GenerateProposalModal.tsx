@@ -2,7 +2,7 @@
 
 import React, { useEffect, useMemo, useState } from 'react';
 import { jsPDF } from 'jspdf';
-import { Brain, Loader2, Trash2, Save } from 'lucide-react';
+import { Brain, Loader2, Save, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
@@ -20,7 +20,7 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 
-import { useGenerateProposal, useSaveProposal, buildSaveRequest } from '@/lib/hooks/use-proposal';
+import { buildSaveRequest, useGenerateProposal, useSaveProposal } from '@/lib/hooks/use-proposal';
 import type { ProposalDocument, ProposalSection, ProposalSubsection } from '@auto-rfp/shared';
 import { ProposalStatus } from '@auto-rfp/shared';
 
@@ -37,7 +37,7 @@ export const GenerateProposalModal: React.FC<GenerateProposalModalProps> = ({
                                                                               projectId,
                                                                             }) => {
   const [open, setOpen] = useState(false);
-  const [proposal, setProposal] = useState<ProposalDocument | null>(null);
+  const [proposal, setProposal] = useState<ProposalDocument>();
   const [isPdfGenerating, setIsPdfGenerating] = useState(false);
   const [localError, setLocalError] = useState<string | null>(null);
 
@@ -134,7 +134,7 @@ export const GenerateProposalModal: React.FC<GenerateProposalModalProps> = ({
     field: keyof ProposalSection,
     value: string,
   ) => {
-    setProposal((prev: any) => {
+    setProposal((prev: ProposalDocument) => {
       if (!prev) return prev;
       const sections = [...prev.sections];
       sections[index] = { ...sections[index], [field]: value };
@@ -148,7 +148,7 @@ export const GenerateProposalModal: React.FC<GenerateProposalModalProps> = ({
     field: keyof ProposalSubsection,
     value: string,
   ) => {
-    setProposal((prev: any) => {
+    setProposal((prev: ProposalDocument) => {
       if (!prev) return prev;
       const sections = [...prev.sections];
       const section = sections[sectionIndex];
@@ -168,14 +168,14 @@ export const GenerateProposalModal: React.FC<GenerateProposalModalProps> = ({
   };
 
   const confirmDelete = () => {
-    setProposal((prev: any) => {
+    setProposal((prev: ProposalDocument) => {
       if (!prev || !pendingDelete) return prev;
 
       if (pendingDelete.type === 'section') {
         return {
           ...prev,
           sections: prev.sections.filter(
-            (_: any, idx: any) => idx !== pendingDelete.sectionIndex,
+            (_: ProposalSection, idx: number) => idx !== pendingDelete.sectionIndex,
           ),
         };
       }
@@ -186,7 +186,7 @@ export const GenerateProposalModal: React.FC<GenerateProposalModalProps> = ({
 
       sections[sectionIndex] = {
         ...section,
-        subsections: section.subsections.filter((_: any, idx: any) => idx !== subsectionIndex),
+        subsections: section.subsections.filter((_: ProposalSubsection, idx: number) => idx !== subsectionIndex),
       };
 
       return { ...prev, sections };
@@ -283,12 +283,12 @@ export const GenerateProposalModal: React.FC<GenerateProposalModalProps> = ({
       >
         {isMutating && !proposal ? (
           <>
-            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            <Loader2 className="mr-2 h-4 w-4 animate-spin"/>
             Generating proposal...
           </>
         ) : (
           <>
-            <Brain className="h-4 w-4" />
+            <Brain className="h-4 w-4"/>
             Generate proposal
           </>
         )}
@@ -327,7 +327,7 @@ export const GenerateProposalModal: React.FC<GenerateProposalModalProps> = ({
 
             {isMutating && !proposal && (
               <div className="flex items-center justify-center py-10">
-                <Loader2 className="h-6 w-6 animate-spin mr-2" />
+                <Loader2 className="h-6 w-6 animate-spin mr-2"/>
                 <span className="text-sm text-muted-foreground">
                   Generating proposal from AI...
                 </span>
@@ -406,7 +406,7 @@ export const GenerateProposalModal: React.FC<GenerateProposalModalProps> = ({
                               openDeleteConfirm({ type: 'section', sectionIndex })
                             }
                           >
-                            <Trash2 className="h-4 w-4" />
+                            <Trash2 className="h-4 w-4"/>
                           </Button>
                         </div>
 
@@ -454,7 +454,7 @@ export const GenerateProposalModal: React.FC<GenerateProposalModalProps> = ({
                                     })
                                   }
                                 >
-                                  <Trash2 className="h-4 w-4" />
+                                  <Trash2 className="h-4 w-4"/>
                                 </Button>
                               </div>
 
@@ -514,12 +514,12 @@ export const GenerateProposalModal: React.FC<GenerateProposalModalProps> = ({
               <Button onClick={handleSave} disabled={!proposal || isSaving}>
                 {isSaving ? (
                   <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin"/>
                     Saving...
                   </>
                 ) : (
                   <>
-                    <Save className="mr-2 h-4 w-4" />
+                    <Save className="mr-2 h-4 w-4"/>
                     Save
                   </>
                 )}
@@ -529,7 +529,7 @@ export const GenerateProposalModal: React.FC<GenerateProposalModalProps> = ({
             <Button onClick={handlePdfDownload} disabled={!proposal || isPdfGenerating}>
               {isPdfGenerating ? (
                 <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin"/>
                   Generating PDF...
                 </>
               ) : (

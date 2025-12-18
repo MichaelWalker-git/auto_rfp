@@ -129,6 +129,7 @@ export default function KnowledgeBaseItemComponent() {
       // 2) Kick off indexing
       await startPipeline({
         documentId: resp.id,
+        knowledgeBaseId: kbId,
       });
     } finally {
       setShowUpload(false);

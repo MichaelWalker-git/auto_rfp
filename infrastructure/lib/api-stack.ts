@@ -33,7 +33,6 @@ export class ApiStack extends cdk.Stack {
   private readonly projectApi: ApiNestedStack;
   private readonly answerApi: ApiNestedStack;
   private readonly presignedUrlApi: ApiNestedStack;
-  private readonly textractApi: ApiNestedStack;
   private readonly knowledgeBaseApi: ApiNestedStack;
   private readonly documentApi: ApiNestedStack;
   private readonly questionFileApi: ApiNestedStack;
@@ -265,14 +264,6 @@ export class ApiStack extends cdk.Stack {
       userPool
     });
 
-    this.textractApi = new ApiNestedStack(this, 'TextractApi', {
-      api: this.api,
-      basePath: 'textract',
-      lambdaRole,
-      commonEnv,
-      userPool
-    });
-
     this.knowledgeBaseApi = new ApiNestedStack(this, 'KnowledgeBaseApi', {
       api: this.api,
       basePath: 'knowledgebase',
@@ -329,6 +320,18 @@ export class ApiStack extends cdk.Stack {
       '/get-question-file',
       'GET',
       'lambda/question-file/get-question-file.ts',
+    );
+
+    this.questionFileApi.addRoute(
+      '/get-question-files',
+      'GET',
+      'lambda/question-file/get-question-files.ts',
+    );
+
+    this.questionFileApi.addRoute(
+      '/delete-question-file',
+      'DELETE',
+      'lambda/question-file/delete-question-file.ts',
     );
 
     this.knowledgeBaseApi.addRoute(
@@ -494,13 +497,6 @@ export class ApiStack extends cdk.Stack {
       'POST',
       'lambda/answer/generate-answer.ts',
     );
-
-    this.textractApi.addRoute(
-      '/get-result',
-      'POST',
-      'lambda/textract/get-result.ts',
-    );
-
 
     this.proposalApi.addRoute(
       '/generate-proposal',

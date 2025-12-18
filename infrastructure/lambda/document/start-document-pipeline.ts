@@ -10,6 +10,7 @@ if (!STATE_MACHINE_ARN) {
 }
 
 interface StartPipelineRequestBody {
+  knowledgeBaseId: string;
   documentId?: string;
 }
 
@@ -35,19 +36,17 @@ export const baseHandler = async (
     };
   }
 
-  const { documentId } = body;
-  if (!documentId) {
+  const { documentId, knowledgeBaseId } = body;
+  if (!documentId || !knowledgeBaseId) {
     return {
       statusCode: 400,
-      body: JSON.stringify({ message: 'documentId is required' }),
+      body: JSON.stringify({ message: 'documentId and knowledgeBaseId are required' }),
     };
   }
 
-  // Optional: you can add tenant/org validation here based on auth claims
-
-  // Step Functions input – must match what StartTextractJobLambda expects
   const input = {
     documentId,
+    knowledgeBaseId
   };
 
   try {

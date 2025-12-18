@@ -2,80 +2,26 @@
 
 import useSWR from 'swr';
 import useSWRMutation from 'swr/mutation';
-import { fetchAuthSession } from 'aws-amplify/auth';
 import { env } from '@/lib/env';
-import {
-  CreateDocumentDTO,
-  UpdateDocumentDTO,
-  DeleteDocumentDTO,
-  DocumentItem
-} from '@/lib/schemas/document';
+import { CreateDocumentDTO, DeleteDocumentDTO, DocumentItem, UpdateDocumentDTO } from '@/lib/schemas/document';
+import { authFetcher } from '@/lib/auth/auth-fetcher';
 
-//
-// ================================
-// Helper: authorized fetch
-// ================================
-//
-
-async function authorizedFetch(url: string, options: RequestInit = {}) {
-  let token: string | undefined;
-
-  if (typeof window !== 'undefined') {
-    const session = await fetchAuthSession();
-    token = session.tokens?.idToken?.toString();
-  }
-
-  return fetch(url, {
-    ...options,
-    headers: {
-      ...(token ? { Authorization: token } : {}),
-      'Content-Type': 'application/json',
-      ...(options.headers || {}),
-    },
-  });
-}
 
 const BASE = `${env.BASE_API_URL}/document`;
 
-//
-// ================================
-// Generic fetcher
-// ================================
-//
-
 const fetcher = async (url: string) => {
-  const res = await authorizedFetch(url);
-
-  if (!res.ok) {
-    const text = await res.text().catch(() => '');
-    const err: any = new Error('Failed request');
-    err.status = res.status;
-    err.details = text;
-    throw err;
-  }
-
+  const res = await authFetcher(url);
   return res.json();
 };
-
-//
-// ================================
-// CREATE Document
-// ================================
-//
 
 export function useCreateDocument() {
   return useSWRMutation(
     `${BASE}/create-document`,
     async (url, { arg }: { arg: CreateDocumentDTO }) => {
-      const res = await authorizedFetch(url, {
+      const res = await authFetcher(url, {
         method: 'POST',
         body: JSON.stringify(arg),
       });
-
-      if (!res.ok) {
-        const msg = await res.text();
-        throw new Error(msg || 'Failed to create document');
-      }
 
       return res.json() as Promise<DocumentItem>;
     }
@@ -92,15 +38,10 @@ export function useUpdateDocument() {
   return useSWRMutation(
     `${BASE}/update-document`,
     async (url, { arg }: { arg: UpdateDocumentDTO }) => {
-      const res = await authorizedFetch(url, {
+      const res = await authFetcher(url, {
         method: 'PATCH',
         body: JSON.stringify(arg),
       });
-
-      if (!res.ok) {
-        const msg = await res.text();
-        throw new Error(msg || 'Failed to update document');
-      }
 
       return res.json() as Promise<DocumentItem>;
     }
@@ -117,15 +58,10 @@ export function useDeleteDocument() {
   return useSWRMutation(
     `${BASE}/delete-document`,
     async (url, { arg }: { arg: DeleteDocumentDTO }) => {
-      const res = await authorizedFetch(url, {
+      const res = await authFetcher(url, {
         method: 'DELETE',
         body: JSON.stringify(arg),
       });
-
-      if (!res.ok) {
-        const msg = await res.text();
-        throw new Error(msg || 'Failed to delete document');
-      }
 
       return res.json();
     }
@@ -196,7 +132,7 @@ export function useIndexDocument() {
   >(
     `${BASE}/index-document`,
     async (url, { arg }) => {
-      const res = await authorizedFetch(url, {
+      const res = await authFetcher(url, {
         method: 'POST',
         body: JSON.stringify(arg),
       });
@@ -217,6 +153,7 @@ export function useIndexDocument() {
 
 export interface StartDocumentPipelineDTO {
   documentId: string;
+  knowledgeBaseId: string;
 }
 
 export interface StartDocumentPipelineResponse {
@@ -234,19 +171,10 @@ export function useStartDocumentPipeline() {
   >(
     `${BASE}/start-document-pipeline`,
     async (url, { arg }) => {
-      const res = await authorizedFetch(url, {
+      const res = await authFetcher(url, {
         method: 'POST',
         body: JSON.stringify(arg),
       });
-
-      if (res.status !== 202) {
-        const text = await res.text().catch(() => '');
-        const error: any = new Error(
-          text || 'Failed to start document pipeline',
-        );
-        error.status = res.status;
-        throw error;
-      }
 
       return res.json() as Promise<StartDocumentPipelineResponse>;
     },

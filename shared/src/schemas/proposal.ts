@@ -59,7 +59,7 @@ export type ProposalMetadata = z.infer<typeof ProposalMetadataSchema>;
 export const GenerateProposalRequestSchema = z.object({
   projectId: z.string().optional(),
   proposalMetadata: ProposalMetadataSchema,
-  qaPairs: z.array(QuestionAnswerSchema).min(1, 'qaPairs must contain at least 1 item'),
+  qaPairs: z.array(QuestionAnswerSchema).min(1, 'At least one question-answer pair is required'),
   knowledgeBaseSnippets: z.array(KnowledgeBaseSnippetSchema).optional(),
   requestedSections: z
     .array(
@@ -100,15 +100,11 @@ export const ProposalDocumentSchema = z.object({
   customerName: z.string().nullable().optional(),
   opportunityId: z.string().nullable().optional(),
   outlineSummary: z.string().nullable().optional(),
-  sections: z.array(ProposalSectionSchema).min(1, 'sections must contain at least 1 item'),
+  sections: z.array(ProposalSectionSchema).min(1, 'At least one section is required'),
 });
 
 export type ProposalDocument = z.infer<typeof ProposalDocumentSchema>;
 
-/**
- * ✅ Standardized Proposal entity (use for list/save/get everywhere)
- * This prevents UI mappers: always `document`, never `proposal`.
- */
 export const ProposalSchema = z.object({
   id: z.string(),
   projectId: z.string(),
