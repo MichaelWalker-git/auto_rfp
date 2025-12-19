@@ -6,21 +6,16 @@ import { DynamoDBDocumentClient, GetCommand, PutCommand, QueryCommand, } from '@
 import { BedrockRuntimeClient, InvokeModelCommand, } from '@aws-sdk/client-bedrock-runtime';
 
 import { GetObjectCommand, S3Client } from '@aws-sdk/client-s3';
-
-import { SignatureV4 } from '@smithy/signature-v4';
-import { Sha256 } from '@aws-crypto/sha256-js';
-import { defaultProvider } from '@aws-sdk/credential-provider-node';
-import { HttpRequest } from '@smithy/protocol-http';
-import https from 'https';
 import { randomUUID } from 'crypto';
 
 import { apiResponse } from '../helpers/api';
 import { PK_NAME, SK_NAME } from '../constants/common';
 import { DOCUMENT_PK } from '../constants/document';
 import { DocumentItem } from '../schemas/document';
-import { getEmbedding } from '../helpers/embeddings';
+import { getEmbedding, OpenSearchHit, semanticSearchChunks } from '../helpers/embeddings';
 import { QUESTION_PK } from '../constants/organization';
 import { withSentryLambda } from '../sentry-lambda';
+import { streamToString } from '../helpers/s3';
 
 const ddbClient = new DynamoDBClient({});
 const docClient = DynamoDBDocumentClient.from(ddbClient, {
@@ -58,21 +53,6 @@ interface AnswerQuestionRequestBody {
   topK?: number; // how many chunks to retrieve
 }
 
-interface OpenSearchHit {
-  _id?: string;
-  _score?: number;
-  _source?: {
-    documentId?: string;
-    // NEW (chunk architecture):
-    chunkKey?: string;     // S3 key to chunk text
-    chunkIndex?: number;   // optional
-    text?: string;         // optional (if you store chunk text in OpenSearch)
-    [key: string]: any;
-  };
-
-  [key: string]: any;
-}
-
 interface QAItem {
   questionId: string;
   documentId: string;
@@ -93,97 +73,10 @@ interface QuestionItemDynamo {
   [key: string]: any;
 }
 
-async function streamToString(stream: any): Promise<string> {
-  return await new Promise((resolve, reject) => {
-    const chunks: Buffer[] = [];
-    stream.on('data', (chunk: Buffer) => chunks.push(chunk));
-    stream.on('error', reject);
-    stream.on('end', () => resolve(Buffer.concat(chunks).toString('utf-8')));
-  });
-}
-
 async function loadTextFromS3(bucket: string, key: string): Promise<string> {
   const res = await s3Client.send(new GetObjectCommand({ Bucket: bucket, Key: key }));
   if (!res.Body) throw new Error(`S3 object ${key} has no body`);
   return streamToString(res.Body as any);
-}
-
-// --- Helper: semantic search in OpenSearch (CHUNKS) ---
-async function semanticSearchChunks(
-  embedding: number[],
-  indexName: string,
-  k: number,
-): Promise<OpenSearchHit[]> {
-  const endpointUrl = new URL(OPENSEARCH_ENDPOINT!);
-
-  const payload = JSON.stringify({
-    size: k,
-    query: {
-      knn: {
-        embedding: {
-          vector: embedding,
-          k,
-        },
-      },
-    },
-    _source: ['documentId', 'chunkKey', 'chunkIndex', 'text'],
-  });
-
-  const request = new HttpRequest({
-    method: 'POST',
-    protocol: endpointUrl.protocol,
-    hostname: endpointUrl.hostname,
-    path: `/${indexName}/_search`,
-    headers: {
-      'Content-Type': 'application/json',
-      'Content-Length': Buffer.byteLength(payload).toString(),
-      host: endpointUrl.hostname,
-    },
-    body: payload,
-  });
-
-  const signer = new SignatureV4({
-    service: 'aoss',
-    region: REGION,
-    credentials: defaultProvider(),
-    sha256: Sha256,
-  });
-
-  const signed = await signer.sign(request);
-
-  const bodyStr = await new Promise<string>((resolve, reject) => {
-    const req = https.request(
-      {
-        method: signed.method,
-        hostname: signed.hostname,
-        path: signed.path,
-        headers: signed.headers as any,
-      },
-      (res) => {
-        const chunks: Buffer[] = [];
-        res.on('data', (chunk) => chunks.push(chunk));
-        res.on('end', () => {
-          const text = Buffer.concat(chunks).toString('utf-8');
-          if (res.statusCode && res.statusCode >= 200 && res.statusCode < 300) {
-            resolve(text);
-          } else {
-            reject(
-              new Error(
-                `OpenSearch search error: ${res.statusCode} ${res.statusMessage} - ${text}`,
-              ),
-            );
-          }
-        });
-      },
-    );
-
-    req.on('error', reject);
-    if (signed.body) req.write(signed.body);
-    req.end();
-  });
-
-  const json = JSON.parse(bodyStr);
-  return (json.hits?.hits ?? []) as OpenSearchHit[];
 }
 
 // --- Helper: find DocumentItem in Dynamo by documentId (existing approach kept) ---
@@ -248,12 +141,10 @@ async function buildContextFromChunkHits(
   let acc = '';
   for (const hit of unique) {
     const src = hit._source || {};
-    let chunkText = (src.text || '').trim();
 
-    // If your index does NOT store text, fetch from S3 by chunkKey
-    if (!chunkText && src.chunkKey) {
-      chunkText = (await loadTextFromS3(DOCUMENTS_BUCKET!, src.chunkKey)).trim();
-    }
+    const chunkText = src?.chunkKey
+      ? (await loadTextFromS3(DOCUMENTS_BUCKET!, src.chunkKey)).trim()
+      : '';
 
     if (!chunkText) continue;
 
@@ -461,7 +352,13 @@ export const baseHandler = async (
     );
 
     // 2) Semantic search in OpenSearch (CHUNKS INDEX)
-    const hits = await semanticSearchChunks(questionEmbedding, OPENSEARCH_INDEX, topK);
+    const hits = await semanticSearchChunks(
+      OPENSEARCH_ENDPOINT,
+      questionEmbedding,
+      OPENSEARCH_INDEX,
+      topK,
+      REGION
+    );
     console.log('Hits:', JSON.stringify(hits));
 
     if (!hits.length) {

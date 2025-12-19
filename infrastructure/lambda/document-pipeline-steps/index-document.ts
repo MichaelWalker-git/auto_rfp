@@ -16,6 +16,7 @@ import { withSentryLambda } from '../sentry-lambda';
 import { getEmbedding } from '../helpers/embeddings';
 import { PK_NAME, SK_NAME } from '../constants/common';
 import { DOCUMENT_PK } from '../constants/document';
+import { streamToString } from '../helpers/s3';
 
 // ===== Clients (reused across invocations) =====
 const ddbClient = new DynamoDBClient({});
@@ -103,7 +104,6 @@ const baseHandler = async (
     documentId,
     chunkKey,
     bucket,
-    text,
     embedding,
     externalId,
     createdAt: new Date().toISOString(),
@@ -155,15 +155,6 @@ async function readChunkTextFromS3(bucket: string, key: string): Promise<string>
   }
 
   return streamToString(res.Body as any);
-}
-
-function streamToString(stream: NodeJS.ReadableStream): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const chunks: Buffer[] = [];
-    stream.on('data', (chunk) => chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk)));
-    stream.on('error', reject);
-    stream.on('end', () => resolve(Buffer.concat(chunks).toString('utf-8')));
-  });
 }
 
 /**

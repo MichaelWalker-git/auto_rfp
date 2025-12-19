@@ -6,6 +6,9 @@ import { AnswerSource, RfpDocument } from '@/types/api';
 import { useAnswers, useQuestions as useLoadQuestions } from '@/lib/hooks/use-api';
 import { useProject } from '@/lib/hooks/use-project';
 import { CreateAnswerDTO, useGenerateAnswer, useSaveAnswer } from '@/lib/hooks/use-answer';
+import { useQuestionFiles } from '@/lib/hooks/use-question-file';
+import { type QuestionFileItem } from '@auto-rfp/shared';
+
 
 // Interfaces
 interface AnswerData {
@@ -31,6 +34,7 @@ interface QuestionsContextType {
   isLoading: boolean;
   error: string | null;
   rfpDocument: RfpDocument | null;
+  questionFiles: QuestionFileItem[] | null;
   project: any;
   answers: Record<string, AnswerData>;
   unsavedQuestions: Set<string>;
@@ -116,6 +120,7 @@ export function QuestionsProvider({ children, projectId }: QuestionsProviderProp
   const [currentQuestionText, setCurrentQuestionText] = useState<string>('');
   const { data: project, isLoading: isProjectLoading } = useProject(projectId);
   const { data: rfpDocument, isLoading: isQuestionsLoading, mutate: mutateQuestions } = useLoadQuestions(projectId);
+  const { items: questionFiles, isLoading: isQuestionFilesLoading } = useQuestionFiles(projectId);
   const { data: answersData, error: answerError, isLoading: isAnswersLoading } = useAnswers(projectId);
   const { trigger: createAnswer } = useSaveAnswer(projectId);
   const isLoading = isProjectLoading || isQuestionsLoading || isAnswersLoading;
@@ -131,35 +136,35 @@ export function QuestionsProvider({ children, projectId }: QuestionsProviderProp
     const fetchIndexes = async () => {
       setIsLoadingIndexes(true);
       try {
-         /*const response = await fetch(`/api/projects/${projectId}/indexes`);
-        if (response.ok) {
-          const data = await response.json();
-          setOrganizationConnected(data.organizationConnected);
-          if (data.organizationConnected) {
-            // Use project's configured indexes as the available indexes for temporary selection
-            const currentIndexes = data.currentIndexes || [] as ProjectIndex[];
-            setAvailableIndexes(currentIndexes);
+        /*const response = await fetch(`/api/projects/${projectId}/indexes`);
+       if (response.ok) {
+         const data = await response.json();
+         setOrganizationConnected(data.organizationConnected);
+         if (data.organizationConnected) {
+           // Use project's configured indexes as the available indexes for temporary selection
+           const currentIndexes = data.currentIndexes || [] as ProjectIndex[];
+           setAvailableIndexes(currentIndexes);
 
-            // Initialize selection with all configured project indexes
-            const currentIndexIds = new Set(currentIndexes.map((index: ProjectIndex) => index.id)) as Set<string>;
-            setSelectedIndexes(currentIndexIds);
-          }
-        } else {
-          const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
-          console.error('Error response from indexes API:', errorData);
+           // Initialize selection with all configured project indexes
+           const currentIndexIds = new Set(currentIndexes.map((index: ProjectIndex) => index.id)) as Set<string>;
+           setSelectedIndexes(currentIndexIds);
+         }
+       } else {
+         const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
+         console.error('Error response from indexes API:', errorData);
 
-          if (errorData.error?.includes('Invalid index IDs')) {
-            setSelectedIndexes(new Set());
-            toast({
-              title: 'Index Sync Issue',
-              description: 'Some project indexes are out of sync. Please reconfigure your document indexes in project settings.',
-              variant: 'destructive',
-            });
-          }
+         if (errorData.error?.includes('Invalid index IDs')) {
+           setSelectedIndexes(new Set());
+           toast({
+             title: 'Index Sync Issue',
+             description: 'Some project indexes are out of sync. Please reconfigure your document indexes in project settings.',
+             variant: 'destructive',
+           });
+         }
 
-          setOrganizationConnected(true);
-          setAvailableIndexes([]);
-        }*/
+         setOrganizationConnected(true);
+         setAvailableIndexes([]);
+       }*/
       } catch (error) {
         console.error('Error loading indexes:', error);
         setOrganizationConnected(false);
@@ -237,7 +242,7 @@ export function QuestionsProvider({ children, projectId }: QuestionsProviderProp
       const { answer, confidence, found } = await generateAnswer({
         projectId: projectId,
         questionId: questionId,
-        topK: 5,
+        topK: 30,
       });
 
       found && setAnswers(prev => ({
@@ -533,6 +538,7 @@ export function QuestionsProvider({ children, projectId }: QuestionsProviderProp
     isLoading,
     error,
     rfpDocument: rfpDocument ?? null,
+    questionFiles: questionFiles ?? null,
     project,
     answers,
     unsavedQuestions,

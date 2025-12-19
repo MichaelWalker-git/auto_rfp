@@ -1,17 +1,17 @@
-"use client"
+'use client';
 
-import { useSearchParams } from "next/navigation"
-import { ProjectIndexSelector } from "@/components/projects/ProjectIndexSelector"
-import { ProjectDocuments } from "@/components/projects/ProjectDocuments"
+import { useSearchParams } from 'next/navigation';
+import { ProjectDocuments } from '@/components/projects/ProjectDocuments';
+import { NoRfpDocumentAvailable, useQuestions } from '@/app/projects/[projectId]/questions/components';
 
 interface DocumentsSectionProps {
-  projectId?: string
+  projectId?: string;
 }
 
 export function DocumentsSection({ projectId: propProjectId }: DocumentsSectionProps) {
-  const searchParams = useSearchParams()
+  const searchParams = useSearchParams();
   // Use prop if provided, otherwise fall back to search params
-  const projectId = propProjectId || searchParams.get("projectId")
+  const projectId = propProjectId || searchParams.get('projectId');
 
   if (!projectId) {
     return (
@@ -21,14 +21,20 @@ export function DocumentsSection({ projectId: propProjectId }: DocumentsSectionP
           <p className="text-muted-foreground">No project selected</p>
         </div>
       </div>
-    )
+    );
+  }
+
+  const { rfpDocument, isLoading, error } = useQuestions();
+
+  if (!isLoading && !error && !rfpDocument) {
+    return <NoRfpDocumentAvailable projectId={projectId}/>;
   }
 
   return (
     <div className="space-y-6 p-12">
       <h2 className="text-2xl font-bold">Documents</h2>
       {/* Project Documents from Selected Indexes */}
-      <ProjectDocuments projectId={projectId} />
+      <ProjectDocuments projectId={projectId}/>
     </div>
-  )
+  );
 }

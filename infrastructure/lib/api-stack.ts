@@ -299,10 +299,53 @@ export class ApiStack extends cdk.Stack {
     });
 
     this.briefApi.addRoute(
-      '/generate-executive-brief',
+      '/init-executive-brief',
       'POST',
-      'lambda/brief/generate-executive-brief.ts',
+      'lambda/brief/init-executive-brief.ts',
     );
+
+    this.briefApi.addRoute(
+      '/generate-executive-brief-summary',
+      'POST',
+      'lambda/brief/generate-summary.ts',
+    );
+
+    this.briefApi.addRoute(
+      '/generate-executive-brief-deadlines',
+      'POST',
+      'lambda/brief/generate-deadlines.ts',
+    );
+
+    this.briefApi.addRoute(
+      '/generate-executive-brief-contacts',
+      'POST',
+      'lambda/brief/generate-contacts.ts',
+    );
+
+    this.briefApi.addRoute(
+      '/generate-executive-brief-requirements',
+      'POST',
+      'lambda/brief/generate-requirements.ts',
+    );
+
+    this.briefApi.addRoute(
+      '/generate-executive-brief-risks',
+      'POST',
+      'lambda/brief/generate-risks.ts',
+    );
+
+    this.briefApi.addRoute(
+      '/generate-executive-brief-scoring',
+      'POST',
+      'lambda/brief/generate-scoring.ts',
+    );
+
+    this.briefApi.addRoute(
+      '/get-executive-brief-by-project',
+      'POST',
+      'lambda/brief/get-executive-brief-by-project.ts',
+    );
+
 
     this.questionFileApi.addRoute(
       '/start-question-pipeline',

@@ -10,14 +10,23 @@ import { AlertCircle, Calendar, CheckCircle2, Clock, FileText, FolderOpen } from
 import { format, formatDistanceToNow } from 'date-fns';
 import { useProject, useQuestions } from '@/lib/hooks/use-api';
 import { ExecutiveBriefView } from '@/components/brief/ExecutiveBriefView';
+import {
+  NoRfpDocumentAvailable,
+  useQuestions as useQuestionsProvider
+} from '@/app/projects/[projectId]/questions/components';
 
 interface ProjectOverviewProps {
-  onViewQuestions: () => void;
   projectId: string;
-  orgId?: string | null;
 }
 
-export function ProjectOverview({ onViewQuestions, projectId, orgId }: ProjectOverviewProps) {
+export function ProjectOverview({ projectId }: ProjectOverviewProps) {
+
+  const { questionFiles, isLoading: isQL, error: err } = useQuestionsProvider();
+
+  if (!isQL && !err && !questionFiles?.length) {
+    return <NoRfpDocumentAvailable projectId={projectId}/>;
+  }
+
   const [sectionsExpanded, setSectionsExpanded] = useState(false);
   const { data: project, isLoading: projectLoading, error: projectError } = useProject(projectId);
   const { data: questions, isLoading: questionsLoading, error: questionsError } = useQuestions(projectId);
@@ -188,7 +197,8 @@ export function ProjectOverview({ onViewQuestions, projectId, orgId }: ProjectOv
       </Card>
 
       {/* Brief */}
-      <ExecutiveBriefView projectId={projectId}/>
+      <ExecutiveBriefView projectId={projectId} orgId={project.orgId}
+                          questionFileId={questionFiles?.[0]?.questionFileId || ''}/>
     </div>
   );
 }

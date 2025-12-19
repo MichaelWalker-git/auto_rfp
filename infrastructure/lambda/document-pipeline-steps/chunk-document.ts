@@ -6,6 +6,7 @@ import { DynamoDBDocumentClient, QueryCommand, UpdateCommand } from '@aws-sdk/li
 import { withSentryLambda } from '../sentry-lambda';
 import { PK_NAME, SK_NAME } from '../constants/common';
 import { DOCUMENT_PK } from '../constants/document';
+import { streamToString } from '../helpers/s3';
 
 const REGION = process.env.AWS_REGION || 'us-east-1';
 const DOCUMENTS_BUCKET = process.env.DOCUMENTS_BUCKET || process.env.DOCUMENTS_BUCKET_NAME;
@@ -29,15 +30,6 @@ interface ChunkingEvent {
   knowledgeBaseId?: string;
   bucket?: string;
   txtKey?: string;
-}
-
-function streamToString(stream: any): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const chunks: Buffer[] = [];
-    stream.on('data', (c: Buffer) => chunks.push(Buffer.isBuffer(c) ? c : Buffer.from(c)));
-    stream.on('error', reject);
-    stream.on('end', () => resolve(Buffer.concat(chunks).toString('utf-8')));
-  });
 }
 
 function buildChunksPrefixFromTxtKey(txtKey: string): string {

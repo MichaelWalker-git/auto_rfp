@@ -46,6 +46,9 @@ function formatDate(dateString?: string) {
 function statusChip(status?: string) {
   const s = String(status ?? '').toUpperCase();
 
+  if (s === 'UPLOADED') {
+    return { label: 'Uploaded', cls: 'bg-slate-50 text-slate-700 border-slate-200' };
+  }
   if (s === 'QUESTIONS_EXTRACTED' || s === 'PROCESSED') {
     return { label: 'Completed', cls: 'bg-green-50 text-green-700 border-green-200' };
   }
@@ -57,7 +60,7 @@ function statusChip(status?: string) {
     return { label: 'Error', cls: 'bg-red-50 text-red-700 border-red-200' };
   }
   if (s === 'DELETED') return { label: 'Deleted', cls: 'bg-gray-50 text-gray-700 border-gray-200' };
-  return { label: 'Uploaded', cls: 'bg-slate-50 text-slate-700 border-slate-200' };
+  return { label: 'Processing', cls: 'bg-slate-50 text-slate-700 border-slate-200' };
 }
 
 export function ProjectDocuments({ projectId }: ProjectDocumentsProps) {
@@ -69,16 +72,13 @@ export function ProjectDocuments({ projectId }: ProjectDocumentsProps) {
   const { trigger: getPresignedUrl, isMutating: isGettingPresigned } = usePresignUpload();
   const { trigger: createQuestionFile, isMutating: isCreating } = useCreateQuestionFile(projectId);
 
-  // Pipeline hook (global isMutating → we will NOT use it directly for per-row spinners)
   const { trigger: startPipeline } = useStartQuestionFilePipeline(projectId);
 
-  // ✅ Delete hook
   const { trigger: deleteQuestionFile, isMutating: isDeleting } = useDeleteQuestionFile();
 
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [uploadBusy, setUploadBusy] = useState(false);
 
-  // ✅ Track per-row pending states
   const [startingId, setStartingId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
@@ -144,16 +144,16 @@ export function ProjectDocuments({ projectId }: ProjectDocumentsProps) {
         <CardHeader className="flex flex-row items-start justify-between gap-4">
           <div>
             <CardTitle className="flex items-center gap-2">
-              <FileText className="h-5 w-5" />
-              Question files
+              <FileText className="h-5 w-5"/>
+              RFP Documents
             </CardTitle>
             <CardDescription>Upload a document and run question extraction</CardDescription>
           </div>
-          <Skeleton className="h-9 w-40" />
+          <Skeleton className="h-9 w-40"/>
         </CardHeader>
         <CardContent className="space-y-3">
           {[1, 2, 3, 4].map((i) => (
-            <Skeleton key={i} className="h-16 w-full" />
+            <Skeleton key={i} className="h-16 w-full"/>
           ))}
         </CardContent>
       </Card>
@@ -166,14 +166,14 @@ export function ProjectDocuments({ projectId }: ProjectDocumentsProps) {
         <CardHeader className="flex flex-row items-start justify-between gap-4">
           <div>
             <CardTitle className="flex items-center gap-2">
-              <FileText className="h-5 w-5" />
-              Question files
+              <FileText className="h-5 w-5"/>
+              RFP Documents
             </CardTitle>
             <CardDescription>Upload a document and run question extraction</CardDescription>
           </div>
 
           <Button onClick={onPickFile} disabled={busyUpload} className="gap-2">
-            {busyUpload ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
+            {busyUpload ? <Loader2 className="h-4 w-4 animate-spin"/> : <Upload className="h-4 w-4"/>}
             Upload file
           </Button>
         </CardHeader>
@@ -181,7 +181,7 @@ export function ProjectDocuments({ projectId }: ProjectDocumentsProps) {
         <CardContent>
           <div className="rounded-xl border bg-red-50 p-4">
             <div className="flex items-start gap-3">
-              <AlertCircle className="h-5 w-5 text-red-600 mt-0.5" />
+              <AlertCircle className="h-5 w-5 text-red-600 mt-0.5"/>
               <div className="flex-1">
                 <p className="font-medium text-red-900">Couldn’t load files</p>
                 <p className="text-sm text-red-700 mt-1">
@@ -221,8 +221,8 @@ export function ProjectDocuments({ projectId }: ProjectDocumentsProps) {
       <CardHeader className="flex flex-row items-start justify-between gap-4">
         <div>
           <CardTitle className="flex items-center gap-2">
-            <FileText className="h-5 w-5" />
-            Question files
+            <FileText className="h-5 w-5"/>
+            RFP Documents
           </CardTitle>
           <CardDescription>
             {(items?.length ?? 0)} {(items?.length ?? 0) === 1 ? 'file' : 'files'} in this project
@@ -230,7 +230,7 @@ export function ProjectDocuments({ projectId }: ProjectDocumentsProps) {
         </div>
 
         <Button onClick={onPickFile} disabled={busyUpload} className="gap-2">
-          {busyUpload ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
+          {busyUpload ? <Loader2 className="h-4 w-4 animate-spin"/> : <Upload className="h-4 w-4"/>}
           Upload file
         </Button>
       </CardHeader>
@@ -244,7 +244,7 @@ export function ProjectDocuments({ projectId }: ProjectDocumentsProps) {
 
         {(items?.length ?? 0) === 0 ? (
           <div className="text-center py-10">
-            <FolderOpen className="mx-auto h-9 w-9 text-muted-foreground mb-3" />
+            <FolderOpen className="mx-auto h-9 w-9 text-muted-foreground mb-3"/>
             <h3 className="text-lg font-medium">No files yet</h3>
             <p className="text-muted-foreground mt-1">Upload a document to start extraction.</p>
           </div>
@@ -262,7 +262,7 @@ export function ProjectDocuments({ projectId }: ProjectDocumentsProps) {
                 <div key={f.questionFileId ?? f.name} className="rounded-xl border bg-background p-3">
                   <div className="flex items-start gap-3">
                     <div className="h-10 w-10 rounded-lg bg-muted flex items-center justify-center shrink-0">
-                      <FileText className="h-5 w-5 text-muted-foreground" />
+                      <FileText className="h-5 w-5 text-muted-foreground"/>
                     </div>
 
                     <div className="min-w-0 flex-1">
@@ -298,7 +298,7 @@ export function ProjectDocuments({ projectId }: ProjectDocumentsProps) {
                         size="sm"
                         variant="outline"
                         className="gap-2"
-                        disabled={!canStart || !!startingId || !!deletingId}
+                        disabled={!canStart || !!startingId || !!deletingId || f.status.toLowerCase() !== 'uploaded'}
                         onClick={async () => {
                           if (!f.questionFileId) return;
                           try {
@@ -310,7 +310,7 @@ export function ProjectDocuments({ projectId }: ProjectDocumentsProps) {
                           }
                         }}
                       >
-                        {rowStarting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4" />}
+                        {rowStarting ? <Loader2 className="h-4 w-4 animate-spin"/> : <Play className="h-4 w-4"/>}
                         Start extraction
                       </Button>
 
@@ -330,7 +330,7 @@ export function ProjectDocuments({ projectId }: ProjectDocumentsProps) {
                           }
                         }}
                       >
-                        {rowDeleting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+                        {rowDeleting ? <Loader2 className="h-4 w-4 animate-spin"/> : <Trash2 className="h-4 w-4"/>}
                         Remove
                       </Button>
                     </div>

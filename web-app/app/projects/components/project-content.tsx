@@ -1,53 +1,52 @@
-"use client"
+'use client';
 
-import React, { useState, Suspense } from "react"
-import { ProjectOverview } from "./project-overview"
-import { QuestionsSection } from "../[projectId]/questions/components"
-import { DocumentsSection } from "./documents-section"
-import { TeamSection } from "./team-section"
-import { useSearchParams, useRouter } from "next/navigation"
-import { Button } from "@/components/ui/button"
-import { ArrowLeft } from "lucide-react"
+import React, { Suspense, useState } from 'react';
+import { ProjectOverview } from './project-overview';
+import { QuestionsProvider, QuestionsSection } from '../[projectId]/questions/components';
+import { DocumentsSection } from './documents-section';
+import { TeamSection } from './team-section';
+import { useRouter, useSearchParams } from 'next/navigation';
+import ProposalsContent from '@/app/projects/components/ProposalsContent';
 
 // Inner component that uses search params
 function ProjectContentInner({ projectId }: { projectId: string }) {
-  const [activeSection, setActiveSection] = useState("overview")
-  const searchParams = useSearchParams()
-  const router = useRouter()
-  const orgId = searchParams.get("orgId")
+  const [activeSection, setActiveSection] = useState('overview');
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const orgId = searchParams.get('orgId');
 
   // Function to navigate between sections
   const navigateToSection = (section: string) => {
-    setActiveSection(section)
-  }
+    setActiveSection(section);
+  };
 
 
   // This would be connected to the sidebar navigation in a real implementation
   const renderContent = () => {
     switch (activeSection) {
-      case "questions":
-        return <QuestionsSection projectId={projectId} />
-      case "documents":
-        return <DocumentsSection />
-      case "team":
-        return <TeamSection />
-      case "overview":
+      case 'questions':
+        return <QuestionsSection projectId={projectId}/>;
+      case 'documents':
+        return <DocumentsSection/>;
+      case 'team':
+        return <TeamSection/>;
+      case 'proposals':
+        return <ProposalsContent projectId={projectId}/>;
+      case 'overview':
       default:
         return (
-          <ProjectOverview 
-            onViewQuestions={() => navigateToSection("questions")} 
-            projectId={projectId}
-            orgId={orgId}
-          />
-        )
+          <ProjectOverview projectId={projectId}/>
+        );
     }
-  }
+  };
 
   return (
     <div className="container py-6">
-      {renderContent()}
+      <QuestionsProvider projectId={projectId}>
+        {renderContent()}
+      </QuestionsProvider>
     </div>
-  )
+  );
 }
 
 export function ProjectContent({ projectId }: { projectId: string }) {
@@ -61,7 +60,7 @@ export function ProjectContent({ projectId }: { projectId: string }) {
         </div>
       </div>
     }>
-      <ProjectContentInner projectId={projectId} />
+      <ProjectContentInner projectId={projectId}/>
     </Suspense>
-  )
+  );
 }

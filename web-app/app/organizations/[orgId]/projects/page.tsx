@@ -164,7 +164,7 @@ export default function OrganizationPage() {
       <div className="mb-8">
         <h2 className="text-xl font-medium mb-4">Projects</h2>
 
-        {projects && projects.length > 0 ? (
+        {orgId && projects && projects.length > 0 ? (
           <ProjectGrid
             projects={projects}
             isLoading={false}

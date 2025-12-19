@@ -7,7 +7,7 @@ import { BedrockRuntimeClient, InvokeModelCommand } from '@aws-sdk/client-bedroc
 import { PROJECT_PK, QUESTION_PK } from '../constants/organization';
 import { PK_NAME, SK_NAME } from '../constants/common';
 import { QUESTION_FILE_PK } from '../constants/question-file';
-import { extractValidJson } from '../helpers/json';
+import { safeParseJsonFromModel } from '../helpers/json';
 import { withSentryLambda } from '../sentry-lambda';
 import { getProjectById } from '../helpers/project';
 
@@ -160,7 +160,7 @@ async function extractQuestionsWithBedrock(
     throw new Error('Model returned no text content');
   }
 
-  const parsed = extractValidJson(assistantText);
+  const parsed = safeParseJsonFromModel(assistantText);
 
   if (!Array.isArray(parsed.sections)) {
     throw new Error('Response missing required sections[]');

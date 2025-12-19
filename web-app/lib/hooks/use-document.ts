@@ -3,7 +3,7 @@
 import useSWR from 'swr';
 import useSWRMutation from 'swr/mutation';
 import { env } from '@/lib/env';
-import { CreateDocumentDTO, DeleteDocumentDTO, DocumentItem, UpdateDocumentDTO } from '@/lib/schemas/document';
+import { CreateDocumentDTO, DeleteDocumentDTO, DocumentItem, UpdateDocumentDTO } from '@auto-rfp/shared';
 import { authFetcher } from '@/lib/auth/auth-fetcher';
 
 

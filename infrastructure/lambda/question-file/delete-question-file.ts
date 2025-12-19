@@ -9,6 +9,7 @@ import { apiResponse } from '../helpers/api';
 import { PK_NAME, SK_NAME } from '../constants/common';
 import { QUESTION_FILE_PK } from '../constants/question-file';
 import { withSentryLambda } from '../sentry-lambda';
+import { EXEC_BRIEF_PK } from '../constants/exec-brief';
 
 const DB_TABLE_NAME = process.env.DB_TABLE_NAME;
 const DOCUMENTS_BUCKET_NAME = process.env.DOCUMENTS_BUCKET_NAME || process.env.DOCUMENTS_BUCKET;
@@ -116,6 +117,27 @@ export const baseHandler = async (
         },
       }),
     );
+
+    if (item?.executiveBriefId) {
+      await docClient.send(
+        new DeleteCommand({
+          TableName: DB_TABLE_NAME,
+          Key: {
+            [PK_NAME]: EXEC_BRIEF_PK,
+            [SK_NAME]: item.executiveBriefId,
+          },
+          ConditionExpression: '#pk = :pk AND #sk = :sk',
+          ExpressionAttributeNames: {
+            '#pk': PK_NAME,
+            '#sk': SK_NAME,
+          },
+          ExpressionAttributeValues: {
+            ':pk': EXEC_BRIEF_PK,
+            ':sk': item.executiveBriefId,
+          },
+        }),
+      );
+    }
 
     return apiResponse(200, {
       success: true,
