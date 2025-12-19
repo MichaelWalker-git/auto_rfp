@@ -8,6 +8,10 @@ applications:
             - corepack enable
             - corepack prepare pnpm@latest --activate
             - pnpm install --frozen-lockfile
+            - cd ../shared
+            - pnpm install --frozen-lockfile
+            - pnpm build
+            - cd ../web-app
         build:
           commands:
             - pnpm build
