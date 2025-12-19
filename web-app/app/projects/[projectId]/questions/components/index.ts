@@ -6,7 +6,7 @@ export { QuestionsProvider, useQuestions } from "./questions-provider"
 export { QuestionsHeader } from "./questions-header"
 export { QuestionsFilterTabs } from "./questions-filter-tabs"
 export { QuestionsTabsContent } from "./questions-tabs-content"
-export { NoQuestionsAvailable } from "./no-questions-available"
+export { NoRfpDocumentAvailable } from "./no-rfp-document-available"
 export { SourceDetailsDialog } from "./source-details-dialog"
 
 // State components

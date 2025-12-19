@@ -6,7 +6,7 @@ import { Toaster } from '@/components/ui/toaster';
 // Import the new components
 import { QuestionsProvider, useQuestions } from './questions-provider';
 import { QuestionsHeader } from './questions-header';
-import { NoQuestionsAvailable } from './no-questions-available';
+import { NoRfpDocumentAvailable } from './no-rfp-document-available';
 import { SourceDetailsDialog } from './source-details-dialog';
 import { QuestionsFilterTabs } from './questions-filter-tabs';
 import { QuestionsErrorState, QuestionsLoadingState } from './questions-states';
@@ -18,7 +18,6 @@ interface QuestionsSectionProps {
 
 // Inner component that uses the context
 function QuestionsSectionInner({ projectId }: QuestionsSectionProps) {
-  const [isUploadDialogOpen, setIsUploadDialogOpen] = useState(false);
 
   const {
     isLoading,
@@ -57,7 +56,7 @@ function QuestionsSectionInner({ projectId }: QuestionsSectionProps) {
       {/* No questions state */}
       {(!isLoading && !error && (!rfpDocument || (rfpDocument?.sections?.length || 0) === 0 ||
         rfpDocument.sections.every(section => section?.questions?.length === 0))) && (
-        <NoQuestionsAvailable projectId={projectId} onUploadClick={() => setIsUploadDialogOpen(true)}/>
+        <NoRfpDocumentAvailable projectId={projectId}/>
       )}
 
       {/* Questions available state */}

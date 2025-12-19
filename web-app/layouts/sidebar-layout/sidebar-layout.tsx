@@ -30,7 +30,8 @@ import {
   Users,
   Building2,
   FolderOpen,
-  BookOpen
+  BookOpen,
+  ScrollText
 } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
@@ -111,6 +112,11 @@ function AppSidebar() {
           title: 'Documents',
           url: `/projects/${projectId}/documents`,
           icon: FileText,
+        },
+        {
+          title: 'Proposals',
+          url: `/projects/${projectId}/proposals`,
+          icon: ScrollText,
         },
       ],
     },

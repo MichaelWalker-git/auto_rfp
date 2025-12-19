@@ -1,13 +1,28 @@
-import { APIGatewayProxyEventV2, APIGatewayProxyResultV2, } from 'aws-lambda';
+import { APIGatewayProxyEventV2, APIGatewayProxyResultV2 } from 'aws-lambda';
 import { SFNClient, StartExecutionCommand } from '@aws-sdk/client-sfn';
+import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
+import { DynamoDBDocumentClient, UpdateCommand } from '@aws-sdk/lib-dynamodb';
+
 import { apiResponse } from '../helpers/api';
 import { withSentryLambda } from '../sentry-lambda';
+import { PK_NAME, SK_NAME } from '../constants/common';
+import { QUESTION_FILE_PK } from '../constants/question-file';
 
 const sfnClient = new SFNClient({});
+
+const ddbClient = new DynamoDBClient({});
+const docClient = DynamoDBDocumentClient.from(ddbClient, {
+  marshallOptions: { removeUndefinedValues: true },
+});
+
 const STATE_MACHINE_ARN = process.env.QUESTION_PIPELINE_STATE_MACHINE_ARN;
+const DB_TABLE_NAME = process.env.DB_TABLE_NAME;
 
 if (!STATE_MACHINE_ARN) {
   throw new Error('QUESTION_PIPELINE_STATE_MACHINE_ARN env var is not set');
+}
+if (!DB_TABLE_NAME) {
+  throw new Error('DB_TABLE_NAME env var is not set');
 }
 
 interface StartBody {
@@ -39,7 +54,33 @@ export const baseHandler = async (
     });
   }
 
+  const sk = `${projectId}#${questionFileId}`;
+  const now = new Date().toISOString();
+
   try {
+    await docClient.send(
+      new UpdateCommand({
+        TableName: DB_TABLE_NAME,
+        Key: {
+          [PK_NAME]: QUESTION_FILE_PK,
+          [SK_NAME]: sk,
+        },
+        UpdateExpression: 'SET #status = :status, #updatedAt = :updatedAt',
+        ExpressionAttributeNames: {
+          '#pk': PK_NAME,
+          '#sk': SK_NAME,
+          '#status': 'status',
+          '#updatedAt': 'updatedAt',
+        },
+        ExpressionAttributeValues: {
+          ':status': 'PROCESSING',
+          ':updatedAt': now,
+        },
+        ConditionExpression: 'attribute_exists(#pk) AND attribute_exists(#sk)',
+      }),
+    );
+
+    // 2) Start Step Functions execution
     const res = await sfnClient.send(
       new StartExecutionCommand({
         stateMachineArn: STATE_MACHINE_ARN,
@@ -55,8 +96,11 @@ export const baseHandler = async (
       executionArn: res.executionArn,
       startDate: res.startDate,
     });
-  } catch (err) {
+  } catch (err: any) {
     console.error('Error starting question pipeline:', err);
+    if (err?.name === 'ConditionalCheckFailedException') {
+      return apiResponse(404, { message: 'Question file not found' });
+    }
     return apiResponse(500, {
       message: 'Failed to start question pipeline',
       error: err instanceof Error ? err.message : 'Unknown error',

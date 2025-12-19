@@ -1,6 +1,7 @@
 import { APIGatewayProxyEventV2, APIGatewayProxyResultV2, } from 'aws-lambda';
 import { SFNClient, StartExecutionCommand } from '@aws-sdk/client-sfn';
 import { withSentryLambda } from '../sentry-lambda';
+import { apiResponse } from '../helpers/api';
 
 const sfnClient = new SFNClient({});
 const STATE_MACHINE_ARN = process.env.STATE_MACHINE_ARN;
@@ -10,6 +11,7 @@ if (!STATE_MACHINE_ARN) {
 }
 
 interface StartPipelineRequestBody {
+  knowledgeBaseId: string;
   documentId?: string;
 }
 
@@ -19,35 +21,24 @@ export const baseHandler = async (
   console.log('start-document-pipeline event:', JSON.stringify(event));
 
   if (!event.body) {
-    return {
-      statusCode: 400,
-      body: JSON.stringify({ message: 'Request body is required' }),
-    };
+    return apiResponse(400, { message: 'Request body is required' });
   }
 
   let body: StartPipelineRequestBody;
   try {
     body = JSON.parse(event.body);
   } catch {
-    return {
-      statusCode: 400,
-      body: JSON.stringify({ message: 'Invalid JSON body' }),
-    };
+    return apiResponse(400, { message: 'Invalid JSON body' });
   }
 
-  const { documentId } = body;
-  if (!documentId) {
-    return {
-      statusCode: 400,
-      body: JSON.stringify({ message: 'documentId is required' }),
-    };
+  const { documentId, knowledgeBaseId } = body;
+  if (!documentId || !knowledgeBaseId) {
+    return apiResponse(400, { message: 'documentId and knowledgeBaseId are required' });
   }
 
-  // Optional: you can add tenant/org validation here based on auth claims
-
-  // Step Functions input – must match what StartTextractJobLambda expects
   const input = {
     documentId,
+    knowledgeBaseId
   };
 
   try {
@@ -58,23 +49,17 @@ export const baseHandler = async (
       }),
     );
 
-    return {
-      statusCode: 202,
-      body: JSON.stringify({
-        message: 'Document pipeline started',
-        executionArn: startRes.executionArn,
-        startDate: startRes.startDate,
-      }),
-    };
+    return apiResponse(202, {
+      message: 'Document pipeline started',
+      executionArn: startRes.executionArn,
+      startDate: startRes.startDate,
+    });
   } catch (err) {
     console.error('Error starting state machine:', err);
-    return {
-      statusCode: 500,
-      body: JSON.stringify({
-        message: 'Failed to start document pipeline',
-        error: err instanceof Error ? err.message : 'Unknown error',
-      }),
-    };
+    return apiResponse(500, {
+      message: 'Failed to start document pipeline',
+      error: err instanceof Error ? err.message : 'Unknown error',
+    });
   }
 };
 

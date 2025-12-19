@@ -1,4 +1,4 @@
-export function extractValidJson(text: string) {
+export function safeParseJsonFromModel(text: string) {
   const start = text.indexOf('{');
   const end = text.lastIndexOf('}');
   if (start === -1 || end === -1 || end <= start) {

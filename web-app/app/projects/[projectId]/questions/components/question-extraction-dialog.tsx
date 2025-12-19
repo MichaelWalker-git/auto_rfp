@@ -1,13 +1,21 @@
 'use client';
 
 import React, { useCallback, useEffect, useState } from 'react';
-import { Upload } from 'lucide-react';
+import { AlertCircle, CheckCircle2, Clock, FileText, Upload, X, XCircle } from 'lucide-react';
 
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger
+} from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { usePresignUpload } from '@/lib/hooks/use-presign';
 import {
   useCreateQuestionFile,
@@ -33,6 +41,7 @@ export function QuestionFileUploadDialog({
   const [step, setStep] = useState<
     'idle' | 'uploading' | 'starting' | 'processing' | 'done' | 'error'
   >('idle');
+  const [dragActive, setDragActive] = useState(false);
 
   const { trigger: getPresignedUrl, isMutating: isGettingPresigned } = usePresignUpload();
   const { trigger: createQuestionFile } = useCreateQuestionFile(projectId);
@@ -101,6 +110,40 @@ export function QuestionFileUploadDialog({
     setFile(f);
   };
 
+  const handleDrag = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (e.type === 'dragenter' || e.type === 'dragover') {
+      setDragActive(true);
+    } else if (e.type === 'dragleave') {
+      setDragActive(false);
+    }
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragActive(false);
+    setError(null);
+
+    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+      const f = e.dataTransfer.files[0];
+      const validTypes = ['.pdf', '.doc', '.docx', '.txt'];
+      const isValid = validTypes.some(type => f.name.toLowerCase().endsWith(type));
+
+      if (isValid) {
+        setFile(f);
+      } else {
+        setError('Please upload a valid file type (PDF)');
+      }
+    }
+  };
+
+  const handleRemoveFile = () => {
+    setFile(null);
+    setError(null);
+  };
+
   const handleStart = async () => {
     try {
       setError(null);
@@ -145,7 +188,6 @@ export function QuestionFileUploadDialog({
         questionFileId,
       });
 
-      // use the ID returned by backend (in case they differ)
       setQuestionFileId(questionFileId);
       setStep('processing');
     } catch (e: any) {
@@ -181,20 +223,27 @@ export function QuestionFileUploadDialog({
     if (error) return 'Error';
     if (statusData?.status === 'questions_extracted') return 'Completed';
     if (statusData?.status === 'text_ready') return 'Text ready, extracting questions';
-    if (statusData?.status === 'processing') return 'Processing…';
+    if (statusData?.status === 'processing') return 'Processing document';
     if (statusData?.status === 'error') return 'Error';
     switch (step) {
       case 'uploading':
-        return 'Uploading file…';
+        return 'Uploading file';
       case 'starting':
-        return 'Starting pipeline…';
+        return 'Initializing pipeline';
       case 'processing':
-        return 'Processing…';
+        return 'Processing document';
       case 'done':
         return 'Completed';
       default:
-        return 'Idle';
+        return 'Ready to upload';
     }
+  })();
+
+  const StatusIcon = (() => {
+    if (step === 'done') return CheckCircle2;
+    if (step === 'error') return XCircle;
+    if (step === 'uploading' || step === 'starting' || step === 'processing') return Clock;
+    return AlertCircle;
   })();
 
   return (
@@ -203,85 +252,209 @@ export function QuestionFileUploadDialog({
       setOpen(flag);
     }}>
       <DialogTrigger asChild>
-        <Button className="gap-2 px-6 py-2.5">
+        <Button className="gap-2 px-6 py-2.5 font-medium">
           <Upload className="h-4 w-4"/>
           {triggerLabel}
         </Button>
       </DialogTrigger>
 
-      <DialogContent className="sm:max-w-lg">
+      <DialogContent className="sm:max-w-2xl">
         <DialogHeader>
-          <DialogTitle>Upload question file</DialogTitle>
+          <DialogTitle className="flex items-center gap-2 text-xl">
+            <FileText className="h-5 w-5"/>
+            Upload Question File
+          </DialogTitle>
+          <DialogDescription>
+            Upload a PDF file to extract questions for analysis
+          </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-4">
-          <div className="space-y-2">
-            <label className="text-sm font-medium">
-              Select file (PDF / DOCX / etc.)
+        <div className="space-y-6">
+          {/* File Upload Area */}
+          <div className="space-y-3">
+            <label className="text-sm font-semibold text-foreground">
+              Select Document
             </label>
-            <Input
-              type="file"
-              accept=".pdf,.doc,.docx,.txt"
-              onChange={handleFileChange}
-              disabled={isBusy}
-            />
-            {file && (
-              <p className="text-xs text-muted-foreground">
-                Selected: <span className="font-medium">{file.name}</span>{' '}
-                ({(file.size / 1024 / 1024).toFixed(2)} MB)
-              </p>
+
+            {!file ? (
+              <div
+                className={`relative border-2 border-dashed rounded-lg p-8 transition-all ${
+                  dragActive
+                    ? 'border-primary bg-primary/5'
+                    : 'border-muted-foreground/25 hover:border-muted-foreground/50'
+                } ${isBusy ? 'opacity-50 pointer-events-none' : 'cursor-pointer'}`}
+                onDragEnter={handleDrag}
+                onDragLeave={handleDrag}
+                onDragOver={handleDrag}
+                onDrop={handleDrop}
+              >
+                <input
+                  type="file"
+                  accept=".pdf,.doc,.docx,.txt"
+                  onChange={handleFileChange}
+                  disabled={isBusy}
+                  className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                />
+                <div className="flex flex-col items-center justify-center space-y-3 text-center">
+                  <div className="p-4 bg-primary/10 rounded-full">
+                    <Upload className="h-8 w-8 text-primary"/>
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium">
+                      Drop your file here, or <span className="text-primary">browse</span>
+                    </p>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Supports PDF (max 50MB)
+                    </p>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div className="border-2 border-primary/50 bg-primary/5 rounded-lg p-4">
+                <div className="flex items-start gap-3">
+                  <div className="p-2 bg-primary/10 rounded">
+                    <FileText className="h-5 w-5 text-primary"/>
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium truncate">{file.name}</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      {(file.size / 1024 / 1024).toFixed(2)} MB
+                    </p>
+                  </div>
+                  {!isBusy && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={handleRemoveFile}
+                      className="shrink-0 h-8 w-8 p-0"
+                    >
+                      <X className="h-4 w-4"/>
+                    </Button>
+                  )}
+                </div>
+              </div>
             )}
           </div>
 
-          <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <span className="text-sm font-medium">Status</span>
-              <Badge
-                variant={
-                  step === 'done'
-                    ? 'default'
-                    : step === 'error'
-                      ? 'destructive'
-                      : 'outline'
-                }
-              >
-                {statusLabel}
-              </Badge>
+          {/* Progress Section */}
+          {(step !== 'idle' || questionFileId) && (
+            <div className="space-y-4 p-4 bg-muted/50 rounded-lg">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <StatusIcon className={`h-4 w-4 ${
+                    step === 'done' ? 'text-green-600' :
+                      step === 'error' ? 'text-destructive' :
+                        'text-primary animate-pulse'
+                  }`}/>
+                  <span className="text-sm font-semibold">Processing Status</span>
+                </div>
+                <Badge
+                  variant={
+                    step === 'done'
+                      ? 'default'
+                      : step === 'error'
+                        ? 'destructive'
+                        : 'secondary'
+                  }
+                  className="font-medium"
+                >
+                  {statusLabel}
+                </Badge>
+              </div>
+
+              <div className="space-y-2">
+                <Progress value={progressValue} className="h-2"/>
+                <div className="flex justify-between text-xs text-muted-foreground">
+                  <span>{progressValue}% complete</span>
+                  {statusData?.updatedAt && (
+                    <span>Updated {new Date(statusData.updatedAt).toLocaleTimeString()}</span>
+                  )}
+                </div>
+              </div>
+
+              {/* Step Indicators */}
+              <div className="grid grid-cols-4 gap-2 pt-2">
+                {[
+                  { label: 'Upload', value: 25 },
+                  { label: 'Initialize', value: 50 },
+                  { label: 'Process', value: 75 },
+                  { label: 'Complete', value: 100 },
+                ].map((s, i) => (
+                  <div key={i} className="flex flex-col items-center gap-1">
+                    <div className={`w-2 h-2 rounded-full ${
+                      progressValue >= s.value
+                        ? 'bg-primary'
+                        : 'bg-muted-foreground/20'
+                    }`}/>
+                    <span className={`text-xs ${
+                      progressValue >= s.value
+                        ? 'text-foreground font-medium'
+                        : 'text-muted-foreground'
+                    }`}>
+                      {s.label}
+                    </span>
+                  </div>
+                ))}
+              </div>
+
+              {questionFileId && (
+                <div className="pt-2 border-t">
+                  <p className="text-xs text-muted-foreground">
+                    <span className="font-medium">File ID:</span> {questionFileId}
+                  </p>
+                </div>
+              )}
             </div>
-            <Progress value={progressValue} className="w-full"/>
-            {statusData?.updatedAt && (
-              <p className="text-xs text-muted-foreground">
-                Last update: {new Date(statusData.updatedAt).toLocaleString()}
-              </p>
-            )}
-            {questionFileId && (
-              <p className="text-[11px] text-muted-foreground break-all">
-                File ID: {questionFileId}
-              </p>
-            )}
-            {error && (
-              <p className="text-xs text-destructive mt-1">{error}</p>
-            )}
-          </div>
+          )}
+
+          {/* Error Alert */}
+          {error && (
+            <Alert variant="destructive">
+              <XCircle className="h-4 w-4"/>
+              <AlertDescription className="text-sm">
+                <span className="font-medium">Error:</span> {error}
+              </AlertDescription>
+            </Alert>
+          )}
+
+          {/* Success Message */}
+          {step === 'done' && (
+            <Alert className="border-green-600/50 bg-green-50 dark:bg-green-950/20">
+              <CheckCircle2 className="h-4 w-4 text-green-600"/>
+              <AlertDescription className="text-sm text-green-900 dark:text-green-100">
+                <span className="font-medium">Success!</span> Your document has been processed and questions have been
+                extracted.
+              </AlertDescription>
+            </Alert>
+          )}
         </div>
 
-        <DialogFooter className="flex justify-between space-x-2">
+        <DialogFooter className="flex justify-between gap-2">
           <Button
             type="button"
             variant="outline"
             onClick={handleClose}
-            disabled={isBusy}
+            disabled={isBusy && step !== 'done'}
           >
-            Close
+            {step === 'done' ? 'Done' : 'Cancel'}
           </Button>
           <Button
             type="button"
             onClick={handleStart}
-            disabled={!file || isBusy}
+            disabled={!file || isBusy || step === 'done'}
+            className="gap-2 min-w-[140px]"
           >
-            {step === 'idle' || step === 'error'
-              ? 'Start processing'
-              : 'Processing…'}
+            {step === 'idle' || step === 'error' ? (
+              <>
+                <Upload className="h-4 w-4"/>
+                Start Processing
+              </>
+            ) : (
+              <>
+                <Clock className="h-4 w-4 animate-spin"/>
+                Processing…
+              </>
+            )}
           </Button>
         </DialogFooter>
       </DialogContent>

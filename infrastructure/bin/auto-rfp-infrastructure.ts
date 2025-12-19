@@ -24,7 +24,7 @@ const network = new NetworkStack(app, 'AutoRfp-Network', {
   existingVpcId: 'vpc-07171e4bf57f2ceed',
 });
 
-const feURL = 'https://dpxejv2wk0.execute-api.us-east-1.amazonaws.com';
+const feURL = 'https://d53rbfmpyaoju.execute-api.us-east-1.amazonaws.com';
 const opensearchEndpoint = 'https://leb5aji6vthaxk7ft8pi.us-east-1.aoss.amazonaws.com';
 const sentryDNS = 'https://5fa3951f41c357ba09d0ae50f52bbd2a@o4510347578114048.ingest.us.sentry.io/4510510176141312'
 

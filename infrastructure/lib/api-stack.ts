@@ -33,7 +33,6 @@ export class ApiStack extends cdk.Stack {
   private readonly projectApi: ApiNestedStack;
   private readonly answerApi: ApiNestedStack;
   private readonly presignedUrlApi: ApiNestedStack;
-  private readonly textractApi: ApiNestedStack;
   private readonly knowledgeBaseApi: ApiNestedStack;
   private readonly documentApi: ApiNestedStack;
   private readonly questionFileApi: ApiNestedStack;
@@ -265,14 +264,6 @@ export class ApiStack extends cdk.Stack {
       userPool
     });
 
-    this.textractApi = new ApiNestedStack(this, 'TextractApi', {
-      api: this.api,
-      basePath: 'textract',
-      lambdaRole,
-      commonEnv,
-      userPool
-    });
-
     this.knowledgeBaseApi = new ApiNestedStack(this, 'KnowledgeBaseApi', {
       api: this.api,
       basePath: 'knowledgebase',
@@ -308,10 +299,53 @@ export class ApiStack extends cdk.Stack {
     });
 
     this.briefApi.addRoute(
-      '/generate-executive-brief',
+      '/init-executive-brief',
       'POST',
-      'lambda/brief/generate-executive-brief.ts',
+      'lambda/brief/init-executive-brief.ts',
     );
+
+    this.briefApi.addRoute(
+      '/generate-executive-brief-summary',
+      'POST',
+      'lambda/brief/generate-summary.ts',
+    );
+
+    this.briefApi.addRoute(
+      '/generate-executive-brief-deadlines',
+      'POST',
+      'lambda/brief/generate-deadlines.ts',
+    );
+
+    this.briefApi.addRoute(
+      '/generate-executive-brief-contacts',
+      'POST',
+      'lambda/brief/generate-contacts.ts',
+    );
+
+    this.briefApi.addRoute(
+      '/generate-executive-brief-requirements',
+      'POST',
+      'lambda/brief/generate-requirements.ts',
+    );
+
+    this.briefApi.addRoute(
+      '/generate-executive-brief-risks',
+      'POST',
+      'lambda/brief/generate-risks.ts',
+    );
+
+    this.briefApi.addRoute(
+      '/generate-executive-brief-scoring',
+      'POST',
+      'lambda/brief/generate-scoring.ts',
+    );
+
+    this.briefApi.addRoute(
+      '/get-executive-brief-by-project',
+      'POST',
+      'lambda/brief/get-executive-brief-by-project.ts',
+    );
+
 
     this.questionFileApi.addRoute(
       '/start-question-pipeline',
@@ -329,6 +363,18 @@ export class ApiStack extends cdk.Stack {
       '/get-question-file',
       'GET',
       'lambda/question-file/get-question-file.ts',
+    );
+
+    this.questionFileApi.addRoute(
+      '/get-question-files',
+      'GET',
+      'lambda/question-file/get-question-files.ts',
+    );
+
+    this.questionFileApi.addRoute(
+      '/delete-question-file',
+      'DELETE',
+      'lambda/question-file/delete-question-file.ts',
     );
 
     this.knowledgeBaseApi.addRoute(
@@ -495,17 +541,28 @@ export class ApiStack extends cdk.Stack {
       'lambda/answer/generate-answer.ts',
     );
 
-    this.textractApi.addRoute(
-      '/get-result',
-      'POST',
-      'lambda/textract/get-result.ts',
-    );
-
-
     this.proposalApi.addRoute(
       '/generate-proposal',
       'POST',
       'lambda/proposal/generate-proposal.ts',
+    );
+
+    this.proposalApi.addRoute(
+      '/get-proposals',
+      'GET',
+      'lambda/proposal/get-proposals.ts',
+    );
+
+    this.proposalApi.addRoute(
+      '/get-proposal',
+      'GET',
+      'lambda/proposal/get-proposal.ts',
+    );
+
+    this.proposalApi.addRoute(
+      '/save-proposal',
+      'POST',
+      'lambda/proposal/save-proposal.ts',
     );
 
     new cdk.CfnOutput(this, 'ApiBaseUrl', {

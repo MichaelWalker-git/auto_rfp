@@ -1,10 +1,40 @@
 import { z } from 'zod';
 
-//
-// ================================
-// DOCUMENT SCHEMA (DB Item)
-// ================================
-//
+export const DocumentIndexStatusSchema = z.enum([
+  'CHUNKED',
+  'processing',
+  'INDEXED',
+  'FAILED',
+  'ready',
+]);
+
+export type IndexStatus = z.infer<typeof DocumentIndexStatusSchema>
+
+export const DocumentSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  fileKey: z.string(),
+  indexStatus: DocumentIndexStatusSchema,
+  createdAt: z.string(), // ISO string
+});
+
+export type KbDocument = z.infer<typeof DocumentSchema>;
+
+export const UploadResultSchema = z.object({
+  fileKey: z.string(),
+  fileId: z.string(),
+  sortKey: z.string(),
+  fileName: z.string(),
+});
+
+export type UploadResult = z.infer<typeof UploadResultSchema>;
+
+export type UploadQueueItem = {
+  file: File;
+  fileName: string;
+  status: 'queued' | 'uploading' | 'uploaded' | 'failed';
+  error?: string;
+};
 
 export const DocumentItemSchema = z.object({
   id: z.string(),                     // uuid
@@ -12,7 +42,7 @@ export const DocumentItemSchema = z.object({
   name: z.string(),
   fileKey: z.string(),                // original PDF
   textFileKey: z.string(),            // extracted text
-  indexStatus: z.enum(["pending", "processing", "ready", "failed"]),
+  indexStatus: DocumentIndexStatusSchema,
   indexVectorKey: z.string().optional(), // embeddings file maybe
   createdAt: z.string(),
   updatedAt: z.string(),

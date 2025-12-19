@@ -107,7 +107,7 @@ export function useGenerateAnswer() {
         body: JSON.stringify({
           projectId,
           questionId,
-          topK: topK ?? 3,
+          topK: topK ?? 30,
         }),
       });
 

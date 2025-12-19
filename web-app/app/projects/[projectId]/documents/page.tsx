@@ -1,5 +1,6 @@
-import React from "react";
-import { DocumentsSection } from "../../components/documents-section";
+import React from 'react';
+import { DocumentsSection } from '../../components/documents-section';
+import { QuestionsProvider } from '@/app/projects/[projectId]/questions/components';
 
 interface DocumentsPageProps {
   params: Promise<{ projectId: string }>;
@@ -7,6 +8,10 @@ interface DocumentsPageProps {
 
 export default async function DocumentsPage({ params }: DocumentsPageProps) {
   const { projectId } = await params;
-  
-  return <DocumentsSection projectId={projectId} />;
+
+  return (
+    <QuestionsProvider projectId={projectId}>
+      <DocumentsSection projectId={projectId}/>
+    </QuestionsProvider>
+  );
 } 
