@@ -2,7 +2,6 @@ import * as cdk from 'aws-cdk-lib';
 import * as iam from 'aws-cdk-lib/aws-iam';
 import * as apigw from 'aws-cdk-lib/aws-apigateway';
 import * as s3 from 'aws-cdk-lib/aws-s3';
-import * as ec2 from 'aws-cdk-lib/aws-ec2';
 import * as cognito from 'aws-cdk-lib/aws-cognito';
 import * as dynamodb from 'aws-cdk-lib/aws-dynamodb';
 import { Construct } from 'constructs';
@@ -38,6 +37,7 @@ export class ApiStack extends cdk.Stack {
   private readonly questionFileApi: ApiNestedStack;
   private readonly proposalApi: ApiNestedStack;
   private readonly briefApi: ApiNestedStack;
+  private readonly userApi: ApiNestedStack;
 
 
   constructor(scope: Construct, id: string, props: ApiStackProps) {
@@ -297,6 +297,26 @@ export class ApiStack extends cdk.Stack {
       commonEnv,
       userPool
     });
+
+    this.userApi = new ApiNestedStack(this, 'UserApi', {
+      api: this.api,
+      basePath: 'user',
+      lambdaRole,
+      commonEnv,
+      userPool
+    });
+
+    this.userApi.addRoute(
+      '/create-user',
+      'POST',
+      'lambda/user/create-user.ts'
+    )
+
+    this.userApi.addRoute(
+      '/get-users',
+      'GET',
+      'lambda/user/get-users.ts'
+    )
 
     this.briefApi.addRoute(
       '/init-executive-brief',
@@ -600,7 +620,6 @@ export class ApiStack extends cdk.Stack {
 
 
   // Later you can add:
-  // this.userApi = new ApiNestedStack(this, 'UserApi', { api: this.api, basePath: 'user', this.lambdaRole, commonEnv });
   // this.userApi.addRoute('/get-users', 'GET', 'lambda/user/get-users.ts');
   // TODO: REMOVE IN PRODUCTION - These suppressions are for development only
   // Each suppression needs to be addressed for production deployment

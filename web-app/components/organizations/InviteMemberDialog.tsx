@@ -1,22 +1,27 @@
 'use client';
 
-import React, { useState } from "react";
-import { Button } from "@/components/ui/button";
-import { UserPlus } from "lucide-react";
-import { Input } from "@/components/ui/input";
-import { useToast } from "@/components/ui/use-toast";
-import { 
-  Dialog, 
-  DialogContent, 
-  DialogDescription, 
-  DialogFooter, 
-  DialogHeader, 
-  DialogTitle, 
+import React, { useState } from 'react';
+import { Button } from '@/components/ui/button';
+import { UserPlus } from 'lucide-react';
+import { Input } from '@/components/ui/input';
+import { useToast } from '@/components/ui/use-toast';
+import {
+  Dialog,
+  DialogClose,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
   DialogTrigger,
-  DialogClose
-} from "@/components/ui/dialog";
-import { Label } from "@/components/ui/label";
-import { TeamMember } from "./types";
+} from '@/components/ui/dialog';
+import { Label } from '@/components/ui/label';
+
+import type { TeamMember } from './types';
+import { createUserApi } from '@/lib/hooks/use-user';
+
+type UiRole = 'admin' | 'member';
+const roleToApiRoles = (role: UiRole) => (role === 'admin' ? ['ADMIN'] : ['MEMBER']);
 
 interface InviteMemberDialogProps {
   orgId: string;
@@ -24,68 +29,61 @@ interface InviteMemberDialogProps {
 }
 
 export function InviteMemberDialog({ orgId, onMemberAdded }: InviteMemberDialogProps) {
-  const [isInviteDialogOpen, setIsInviteDialogOpen] = useState(false);
-  const [inviteEmail, setInviteEmail] = useState("");
-  const [inviteRole, setInviteRole] = useState<"admin" | "member">("member");
+  const [open, setOpen] = useState(false);
+
+  const [inviteEmail, setInviteEmail] = useState('');
+  const [inviteRole, setInviteRole] = useState<UiRole>('member');
   const [isInviting, setIsInviting] = useState(false);
+
   const { toast } = useToast();
 
   const handleInviteMember = async (event: React.FormEvent) => {
     event.preventDefault();
-    
-    if (!inviteEmail.trim()) {
-      toast({
-        title: "Error",
-        description: "Email is required",
-        variant: "destructive",
-      });
+
+    const email = inviteEmail.trim();
+    if (!email) {
+      toast({ title: 'Error', description: 'Email is required', variant: 'destructive' });
       return;
     }
-    
+
     try {
       setIsInviting(true);
-      
-      const response = await fetch(`/api/organizations/${orgId}/members/invite`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          email: inviteEmail,
-          role: inviteRole,
-        }),
+
+      const created = await createUserApi({
+        orgId,
+        email,
+        roles: roleToApiRoles(inviteRole),
+        status: 'INVITED', // optional; your create lambda defaults to ACTIVE if omitted
       });
-      
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.message || "Failed to invite member");
-      }
-      
-      // Simulate adding a new member for demo purposes
+
       const newMember: TeamMember = {
-        id: `tmp-${Date.now()}`,
-        name: inviteEmail.split('@')[0],
-        email: inviteEmail,
+        id: created.userId,
+        name:
+          created.displayName ||
+          [created.firstName, created.lastName].filter(Boolean).join(' ') ||
+          created.email.split('@')[0],
+        email: created.email,
         role: inviteRole,
-        joinedAt: new Date().toISOString(),
+        joinedAt: created.createdAt,
+        avatarUrl: undefined,
       };
-      
+
       onMemberAdded(newMember);
-      
+
       toast({
-        title: "Success",
-        description: `Invitation sent to ${inviteEmail}`,
+        title: 'Success',
+        description: `User created: ${created.email}`,
       });
-      
-      setInviteEmail("");
-      setInviteRole("member");
-      setIsInviteDialogOpen(false);
+
+      setInviteEmail('');
+      setInviteRole('member');
+      setOpen(false);
     } catch (error) {
-      console.error("Error inviting member:", error);
+      console.error('Error creating user:', error);
       toast({
-        title: "Error",
-        description: error instanceof Error ? error.message : "Failed to invite member",
-        variant: "destructive",
+        title: 'Error',
+        description: error instanceof Error ? error.message : 'Failed to create user',
+        variant: 'destructive',
       });
     } finally {
       setIsInviting(false);
@@ -93,20 +91,20 @@ export function InviteMemberDialog({ orgId, onMemberAdded }: InviteMemberDialogP
   };
 
   return (
-    <Dialog open={isInviteDialogOpen} onOpenChange={setIsInviteDialogOpen}>
+    <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
         <Button>
-          <UserPlus className="mr-2 h-4 w-4" />
-          Invite Member
+          <UserPlus className="mr-2 h-4 w-4"/>
+          Create User
         </Button>
       </DialogTrigger>
+
       <DialogContent>
         <DialogHeader>
           <DialogTitle>Invite Team Member</DialogTitle>
-          <DialogDescription>
-            Send an invitation to join your organization.
-          </DialogDescription>
+          <DialogDescription>Create a user in your organization.</DialogDescription>
         </DialogHeader>
+
         <form onSubmit={handleInviteMember}>
           <div className="grid gap-4 py-4">
             <div className="grid gap-2">
@@ -121,29 +119,33 @@ export function InviteMemberDialog({ orgId, onMemberAdded }: InviteMemberDialogP
                 required
               />
             </div>
+
             <div className="grid gap-2">
               <Label htmlFor="role">Role</Label>
-              <select 
+              <select
                 id="role"
                 className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
                 value={inviteRole}
-                onChange={(e) => setInviteRole(e.target.value as "admin" | "member")}
+                onChange={(e) => setInviteRole(e.target.value as UiRole)}
               >
                 <option value="member">Member</option>
                 <option value="admin">Admin</option>
               </select>
             </div>
           </div>
+
           <DialogFooter>
             <DialogClose asChild>
-              <Button type="button" variant="outline">Cancel</Button>
+              <Button type="button" variant="outline">
+                Cancel
+              </Button>
             </DialogClose>
             <Button type="submit" disabled={isInviting}>
-              {isInviting ? "Sending..." : "Send Invitation"}
+              {isInviting ? 'Creating...' : 'Create User'}
             </Button>
           </DialogFooter>
         </form>
       </DialogContent>
     </Dialog>
   );
-} 
+}
