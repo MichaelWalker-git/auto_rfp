@@ -25,7 +25,7 @@ export type CreateUserResult = {
   item: Record<string, any>;
 };
 
-const userSk = (orgId: string, userId: string) => `ORG#${orgId}#USER#${userId}`;
+export const userSk = (orgId: string, userId: string) => `ORG#${orgId}#USER#${userId}`;
 
 function norm(s?: string): string | undefined {
   if (s == null) return undefined;

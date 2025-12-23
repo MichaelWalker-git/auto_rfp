@@ -4,7 +4,8 @@ import { DynamoDBDocumentClient, PutCommand, UpdateCommand } from '@aws-sdk/lib-
 import { GetObjectCommand, S3Client } from '@aws-sdk/client-s3';
 import { BedrockRuntimeClient, InvokeModelCommand } from '@aws-sdk/client-bedrock-runtime';
 
-import { PROJECT_PK, QUESTION_PK } from '../constants/organization';
+import { PROJECT_PK } from '../constants/organization';
+import { QUESTION_PK } from '../constants/question';
 import { PK_NAME, SK_NAME } from '../constants/common';
 import { QUESTION_FILE_PK } from '../constants/question-file';
 import { safeParseJsonFromModel } from '../helpers/json';
@@ -451,7 +452,7 @@ export const updateProject = async (
 ): Promise<void> => {
   const {
     sort_key
-  } =  await getProjectById(docClient, DB_TABLE_NAME, projectId);
+  } = await getProjectById(docClient, DB_TABLE_NAME, projectId);
   const now = new Date().toISOString();
 
   const cmd = new UpdateCommand({

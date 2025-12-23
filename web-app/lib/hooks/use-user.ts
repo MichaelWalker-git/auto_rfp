@@ -4,8 +4,7 @@ import useSWR from 'swr';
 import { authFetcher } from '@/lib/auth/auth-fetcher';
 import { env } from '@/lib/env';
 
-const baseUrl =`${env.BASE_API_URL}/user`;
-
+const baseUrl = `${env.BASE_API_URL}/user`;
 
 export type ListUsersParams = {
   search?: string;
@@ -63,17 +62,47 @@ export type CreateUserResponse = {
   updatedAt: string;
 };
 
-async function listFetcher(url: string): Promise<ListUsersResponse> {
-  const res = await authFetcher(url, {
-    method: 'GET',
-    cache: 'no-store',
-  });
+export type EditUserRolesInput = {
+  orgId: string;
+  userId: string;
+  roles: string[];
+};
 
+export type EditUserRolesResponse = CreateUserResponse & {
+  cognito?: {
+    username: string | null;
+    updated: boolean;
+    customRoles: string;
+  };
+  user?: any;
+};
+
+export type DeleteUserInput = {
+  orgId: string;
+  userId: string;
+};
+
+export type DeleteUserResponse = {
+  ok: true;
+  orgId: string;
+  userId: string;
+  deleted: {
+    dynamo: boolean;
+    cognito: boolean;
+  };
+  cognitoUsername: string | null;
+};
+
+async function assertOk(res: Response) {
   if (!res.ok) {
     const text = await res.text().catch(() => '');
     throw new Error(text || `Request failed: ${res.status}`);
   }
+}
 
+async function listFetcher(url: string): Promise<ListUsersResponse> {
+  const res = await authFetcher(url, { method: 'GET', cache: 'no-store' });
+  await assertOk(res);
   return res.json();
 }
 
@@ -88,7 +117,7 @@ function buildQueryString(params: Record<string, string | number | undefined>) {
 }
 
 /**
- * GET /get-users?orgId=...&search=...&role=...&status=...&limit=...&nextToken=...
+ * GET /user/get-users?orgId=...&search=...&role=...&status=...&limit=...&nextToken=...
  */
 export function useUsersList(orgId: string, params: ListUsersParams) {
   const qs = buildQueryString({
@@ -117,7 +146,7 @@ export function useUsersList(orgId: string, params: ListUsersParams) {
 }
 
 /**
- * POST /create-user
+ * POST /user/create-user
  * Body: CreateUserInput
  */
 export async function createUserApi(input: CreateUserInput): Promise<CreateUserResponse> {
@@ -127,10 +156,43 @@ export async function createUserApi(input: CreateUserInput): Promise<CreateUserR
     body: JSON.stringify(input),
   });
 
-  if (!res.ok) {
-    const text = await res.text().catch(() => '');
-    throw new Error(text || `Request failed: ${res.status}`);
-  }
+  await assertOk(res);
+  return res.json();
+}
 
+/**
+ * POST /user/edit-user
+ * Body: EditUserRolesInput
+ *
+ * For now, only roles change is available.
+ */
+export async function editUserRolesApi(
+  input: EditUserRolesInput,
+): Promise<EditUserRolesResponse> {
+  const res = await authFetcher(`${baseUrl}/edit-user`, {
+    method: 'PATCH',
+    cache: 'no-store',
+    body: JSON.stringify(input),
+  });
+
+  await assertOk(res);
+  return res.json();
+}
+
+/**
+ * DELETE /user/remove-user?orgId=...&userId=...
+ *
+ * If your backend expects POST instead of DELETE, switch method to POST and
+ * pass body with {orgId,userId}.
+ */
+export async function deleteUserApi(input: DeleteUserInput): Promise<DeleteUserResponse> {
+  const qs = buildQueryString({ orgId: input.orgId, userId: input.userId });
+
+  const res = await authFetcher(`${baseUrl}/delete-user${qs}`, {
+    method: 'DELETE',
+    cache: 'no-store',
+  });
+
+  await assertOk(res);
   return res.json();
 }

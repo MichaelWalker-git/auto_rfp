@@ -1,11 +1,11 @@
-"use client"
+"use client";
 
-import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card"
-import { QuestionsFilter } from "./questions-filter"
-import { QuestionEditor } from "./question-editor"
-import { QuestionNavigator } from "../../../components/question-navigator"
-import { AISuggestionsPanel } from "../../../components/ai-suggestions-panel"
-import { AnswerSource } from "@/types/api"
+import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
+import { QuestionsFilter } from "./questions-filter";
+import { QuestionEditor } from "./question-editor";
+import { QuestionNavigator } from "../../../components/question-navigator";
+import { AISuggestionsPanel } from "../../../components/ai-suggestions-panel";
+import { AnswerSource } from "@/types/api";
 
 interface AnswerData {
   text: string;
@@ -27,9 +27,7 @@ interface QuestionsTabsContentProps {
   unsavedQuestions: Set<string>;
   selectedIndexes: Set<string>;
   isGenerating: Record<string, boolean>;
-  isMultiStepGenerating: boolean;
   savingQuestions: Set<string>;
-  useMultiStep: boolean;
   showAIPanel: boolean;
   filterType: string;
   onSelectQuestion: (questionId: string) => void;
@@ -37,56 +35,69 @@ interface QuestionsTabsContentProps {
   onSave: (questionId: string) => void;
   onGenerateAnswer: (questionId: string) => void;
   onSourceClick: (source: AnswerSource) => void;
-  onMultiStepToggle: (enabled: boolean) => void;
+
+  onRemoveQuestion: (questionId: string) => void;
+  removingQuestions?: Set<string>;
+
   rfpDocument?: any;
   searchQuery?: string;
 }
 
 export function QuestionsTabsContent({
-  questions,
-  selectedQuestion,
-  questionData,
-  answers,
-  unsavedQuestions,
-  selectedIndexes,
-  isGenerating,
-  isMultiStepGenerating,
-  savingQuestions,
-  useMultiStep,
-  showAIPanel,
-  filterType,
-  onSelectQuestion,
-  onAnswerChange,
-  onSave,
-  onGenerateAnswer,
-  onSourceClick,
-  onMultiStepToggle,
-  rfpDocument,
-  searchQuery
-}: QuestionsTabsContentProps) {
+                                       questions,
+                                       selectedQuestion,
+                                       questionData,
+                                       answers,
+                                       unsavedQuestions,
+                                       selectedIndexes,
+                                       isGenerating,
+                                       savingQuestions,
+                                       showAIPanel,
+                                       filterType,
+                                       onSelectQuestion,
+                                       onAnswerChange,
+                                       onSave,
+                                       onGenerateAnswer,
+                                       onSourceClick,
+                                       onRemoveQuestion,
+                                       removingQuestions,
+
+                                       rfpDocument,
+                                       searchQuery,
+                                     }: QuestionsTabsContentProps) {
   const getFilterTitle = () => {
     switch (filterType) {
-      case "answered": return "Answered Questions";
-      case "unanswered": return "Unanswered Questions";
-      default: return "Question Navigator";
+      case "answered":
+        return "Answered Questions";
+      case "unanswered":
+        return "Unanswered Questions";
+      default:
+        return "Question Navigator";
     }
   };
 
   const getEmptyMessage = () => {
     switch (filterType) {
-      case "answered": return "No answered questions found";
-      case "unanswered": return "No unanswered questions found";
-      default: return "No questions found";
+      case "answered":
+        return "No answered questions found";
+      case "unanswered":
+        return "No unanswered questions found";
+      default:
+        return "No questions found";
     }
   };
 
+  // kept (even if not used directly) to preserve your logic for future
   const getQuestionStatus = (questionId: string) => {
-    const hasAnswer = answers[questionId]?.text && answers[questionId].text.trim() !== '';
-    
+    const hasAnswer = !!answers[questionId]?.text?.trim();
+
     switch (filterType) {
-      case "answered": return hasAnswer ? "Answered" : "Needs Answer";
-      case "unanswered": return "Needs Answer";
-      default: return hasAnswer ? "Answered" : "Needs Answer";
+      case "answered":
+        return hasAnswer ? "Answered" : "Needs Answer";
+      case "unanswered":
+        return "Needs Answer";
+      default:
+        return hasAnswer ? "Answered" : "Needs Answer";
     }
   };
 
@@ -121,7 +132,7 @@ export function QuestionsTabsContent({
           />
         )}
       </div>
-      
+
       <div className="md:col-span-2">
         {selectedQuestion && questionData ? (
           <div className="space-y-4">
@@ -132,13 +143,13 @@ export function QuestionsTabsContent({
               selectedIndexes={selectedIndexes}
               isUnsaved={unsavedQuestions.has(selectedQuestion)}
               isSaving={savingQuestions.has(selectedQuestion)}
-              isGenerating={isGenerating[selectedQuestion] || isMultiStepGenerating}
-              useMultiStep={useMultiStep}
+              isGenerating={isGenerating[selectedQuestion]}
               onAnswerChange={(value) => onAnswerChange(selectedQuestion, value)}
               onSave={() => onSave(selectedQuestion)}
               onGenerateAnswer={() => onGenerateAnswer(selectedQuestion)}
               onSourceClick={onSourceClick}
-              onMultiStepToggle={onMultiStepToggle}
+              onRemoveQuestion={() => onRemoveQuestion(selectedQuestion)}
+              isRemoving={removingQuestions?.has(selectedQuestion) ?? false}
             />
 
             {showAIPanel && <AISuggestionsPanel questionId={selectedQuestion} />}
@@ -147,7 +158,9 @@ export function QuestionsTabsContent({
           <Card className="flex h-[400px] items-center justify-center">
             <div className="text-center">
               <p className="text-muted-foreground">
-                Select a question from the {filterType === "all" ? "navigator" : "list"} to view and {filterType === "answered" ? "edit" : "answer"}
+                Select a question from the{" "}
+                {filterType === "all" ? "navigator" : "list"} to view and{" "}
+                {filterType === "answered" ? "edit" : "answer"}
               </p>
             </div>
           </Card>
@@ -155,4 +168,4 @@ export function QuestionsTabsContent({
       </div>
     </div>
   );
-} 
+}

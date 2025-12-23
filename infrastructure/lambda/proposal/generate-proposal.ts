@@ -6,7 +6,8 @@ import { BedrockRuntimeClient, InvokeModelCommand } from '@aws-sdk/client-bedroc
 
 import { PK_NAME, SK_NAME } from '../constants/common';
 import { DOCUMENT_PK } from '../constants/document';
-import { KNOWLEDGE_BASE_PK, QUESTION_PK } from '../constants/organization';
+import { KNOWLEDGE_BASE_PK } from '../constants/organization';
+import { QUESTION_PK } from '../constants/question';
 import { apiResponse } from '../helpers/api';
 import { withSentryLambda } from '../sentry-lambda';
 import { getProjectById } from '../helpers/project';
