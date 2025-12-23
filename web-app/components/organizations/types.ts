@@ -2,7 +2,7 @@ export interface TeamMember {
   id: string;
   name: string;
   email: string;
-  role: 'owner' | 'admin' | 'member';
+  role: string;
   joinedAt: string;
   avatarUrl?: string;
 } 

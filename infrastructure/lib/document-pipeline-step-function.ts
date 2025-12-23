@@ -301,6 +301,13 @@ export class DocumentPipelineStack extends Stack {
         fileKey: sfn.JsonPath.stringAt('$.Start.fileKey'),
         bucket: documentsBucket.bucketName,
       }),
+      resultSelector: {
+        'documentId.$': '$.Payload.documentId',
+        'status.$': '$.Payload.status',
+        'bucket.$': '$.Payload.bucket',
+        'txtKey.$': '$.Payload.txtKey',
+        'textLength.$': '$.Payload.textLength',
+      },
       resultPath: '$.Text',
     });
 
@@ -328,8 +335,8 @@ export class DocumentPipelineStack extends Stack {
       payload: sfn.TaskInput.fromObject({
         documentId: sfn.JsonPath.stringAt('$.documentId'),
         knowledgeBaseId: sfn.JsonPath.stringAt('$.knowledgeBaseId'),
-        bucket: sfn.JsonPath.stringAt('$.Text.Payload.bucket'),
-        txtKey: sfn.JsonPath.stringAt('$.Text.Payload.txtKey'),
+        bucket: sfn.JsonPath.stringAt('$.Text.bucket'),
+        txtKey: sfn.JsonPath.stringAt('$.Text.txtKey'),
       }),
       resultSelector: {
         'documentId.$': '$.Payload.documentId',

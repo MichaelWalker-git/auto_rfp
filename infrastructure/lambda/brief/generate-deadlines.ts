@@ -1,4 +1,3 @@
-// infrastructure/lambda/brief/generate-deadlines.ts
 import type { APIGatewayProxyEventV2, APIGatewayProxyResultV2 } from 'aws-lambda';
 import { z } from 'zod';
 

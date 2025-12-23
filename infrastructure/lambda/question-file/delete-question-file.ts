@@ -16,9 +16,7 @@ const DOCUMENTS_BUCKET_NAME = process.env.DOCUMENTS_BUCKET_NAME || process.env.D
 
 if (!DB_TABLE_NAME) throw new Error('DB_TABLE_NAME env var is not set');
 if (!DOCUMENTS_BUCKET_NAME)
-  throw new Error(
-    'DOCUMENTS_BUCKET_NAME (or DOCUMENTS_BUCKET) env var is not set',
-  );
+  throw new Error('DOCUMENTS_BUCKET_NAME (or DOCUMENTS_BUCKET) env var is not set');
 
 const ddbClient = new DynamoDBClient({});
 const docClient = DynamoDBDocumentClient.from(ddbClient, {
@@ -31,10 +29,7 @@ function safeS3Key(key?: unknown): string | null {
   if (typeof key !== 'string') return null;
   const trimmed = key.trim();
   if (!trimmed) return null;
-
-  // defensive: avoid accidentally deleting by URL
   if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) return null;
-
   return trimmed;
 }
 
@@ -59,16 +54,12 @@ export const baseHandler = async (
   try {
     const { projectId, questionFileId } = event.queryStringParameters || {};
 
-    if (!projectId)
-      return apiResponse(400, { message: 'projectId query param is required' });
-    if (!questionFileId)
-      return apiResponse(400, {
-        message: 'questionFileId query param is required',
-      });
+    if (!projectId) return apiResponse(400, { message: 'projectId query param is required' });
+    if (!questionFileId) return apiResponse(400, { message: 'questionFileId query param is required' });
 
     const sk = `${projectId}#${questionFileId}`;
 
-    // 1) Load row to obtain S3 keys
+    // 1) Load question-file row to obtain S3 keys (and exec brief id)
     const getRes = await docClient.send(
       new GetCommand({
         TableName: DB_TABLE_NAME,
@@ -89,16 +80,12 @@ export const baseHandler = async (
     const fileKey = safeS3Key(item.fileKey);
     const textFileKey = safeS3Key(item.textFileKey);
 
-    const keysToDelete = Array.from(
-      new Set([fileKey, textFileKey].filter(Boolean) as string[]),
-    );
-
-    // 2) Delete S3 objects (best-effort)
+    const keysToDelete = Array.from(new Set([fileKey, textFileKey].filter(Boolean) as string[]));
     const s3Results = keysToDelete.length
       ? await Promise.all(keysToDelete.map(deleteS3ObjectBestEffort))
       : [];
 
-    // 3) Delete Dynamo row
+    // 4) Delete question-file row
     await docClient.send(
       new DeleteCommand({
         TableName: DB_TABLE_NAME,
@@ -118,6 +105,7 @@ export const baseHandler = async (
       }),
     );
 
+    // 5) Delete executive brief row (if exists)
     if (item?.executiveBriefId) {
       await docClient.send(
         new DeleteCommand({

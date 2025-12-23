@@ -13,7 +13,7 @@ import { PK_NAME, SK_NAME } from '../constants/common';
 import { DOCUMENT_PK } from '../constants/document';
 import { DocumentItem } from '../schemas/document';
 import { getEmbedding, OpenSearchHit, semanticSearchChunks } from '../helpers/embeddings';
-import { QUESTION_PK } from '../constants/organization';
+import { QUESTION_PK } from '../constants/question';
 import { withSentryLambda } from '../sentry-lambda';
 import { streamToString } from '../helpers/s3';
 

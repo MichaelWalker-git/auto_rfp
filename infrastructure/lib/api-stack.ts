@@ -2,12 +2,10 @@ import * as cdk from 'aws-cdk-lib';
 import * as iam from 'aws-cdk-lib/aws-iam';
 import * as apigw from 'aws-cdk-lib/aws-apigateway';
 import * as s3 from 'aws-cdk-lib/aws-s3';
-import * as ec2 from 'aws-cdk-lib/aws-ec2';
 import * as cognito from 'aws-cdk-lib/aws-cognito';
 import * as dynamodb from 'aws-cdk-lib/aws-dynamodb';
 import { Construct } from 'constructs';
 import { ApiNestedStack } from './wrappers/api-nested-stack';
-import { NagSuppressions } from 'cdk-nag';
 
 export interface ApiStackProps extends cdk.StackProps {
   stage: string;
@@ -38,6 +36,8 @@ export class ApiStack extends cdk.Stack {
   private readonly questionFileApi: ApiNestedStack;
   private readonly proposalApi: ApiNestedStack;
   private readonly briefApi: ApiNestedStack;
+  private readonly userApi: ApiNestedStack;
+  private readonly questionApi: ApiNestedStack;
 
 
   constructor(scope: Construct, id: string, props: ApiStackProps) {
@@ -231,72 +231,63 @@ export class ApiStack extends cdk.Stack {
       SENTRY_ENVIRONMENT: stage,
     };
 
-    // 4) First entity: Organization API
-    this.organizationApi = new ApiNestedStack(this, 'OrganizationApi', {
-      api: this.api,
-      basePath: 'organization',
-      lambdaRole,
-      commonEnv,
-      userPool
+    const authorizer = new apigw.CognitoUserPoolsAuthorizer(this, `${id}Authorizer`, {
+      cognitoUserPools: [props.userPool],
     });
 
-    this.projectApi = new ApiNestedStack(this, 'ProjectApi', {
-      api: this.api,
-      basePath: 'project',
-      lambdaRole,
-      commonEnv,
-      userPool
-    });
+    const createNestedStack = (basePath: string) => {
+      return new ApiNestedStack(this, `${basePath}API`, {
+          api: this.api,
+          basePath: basePath,
+          lambdaRole,
+          commonEnv,
+          userPool,
+          authorizer
+        }
+      );
+    };
 
-    this.answerApi = new ApiNestedStack(this, 'AnswerApi', {
-      api: this.api,
-      basePath: 'answer',
-      lambdaRole,
-      commonEnv,
-      userPool
-    });
+    this.organizationApi = createNestedStack('organization');
+    this.projectApi = createNestedStack('project');
+    this.answerApi = createNestedStack('answer');
+    this.presignedUrlApi = createNestedStack('presigned');
+    this.knowledgeBaseApi = createNestedStack('knowledgebase');
+    this.questionFileApi = createNestedStack('questionfile');
+    this.proposalApi = createNestedStack('proposal');
+    this.briefApi = createNestedStack('brief');
+    this.userApi = createNestedStack('user');
+    this.questionApi = createNestedStack('question');
+    this.documentApi = createNestedStack('document');
 
-    this.presignedUrlApi = new ApiNestedStack(this, 'PresignedUrlApi', {
-      api: this.api,
-      basePath: 'presigned',
-      lambdaRole,
-      commonEnv,
-      userPool
-    });
+    this.questionApi.addRoute(
+      '/delete-question',
+      'DELETE',
+      'lambda/question/delete-question.ts'
+    );
 
-    this.knowledgeBaseApi = new ApiNestedStack(this, 'KnowledgeBaseApi', {
-      api: this.api,
-      basePath: 'knowledgebase',
-      lambdaRole,
-      commonEnv,
-      userPool
-    });
+    this.userApi.addRoute(
+      '/create-user',
+      'POST',
+      'lambda/user/create-user.ts'
+    );
 
+    this.userApi.addRoute(
+      '/get-users',
+      'GET',
+      'lambda/user/get-users.ts'
+    );
 
-    this.questionFileApi = new ApiNestedStack(this, 'QuestionFileApi', {
-      api: this.api,
-      basePath: 'questionfile',
-      lambdaRole,
-      commonEnv,
-      userPool
-    });
+    this.userApi.addRoute(
+      '/edit-user',
+      'PATCH',
+      'lambda/user/edit-user.ts'
+    );
 
-
-    this.proposalApi = new ApiNestedStack(this, 'ProposalApi', {
-      api: this.api,
-      basePath: 'proposal',
-      lambdaRole,
-      commonEnv,
-      userPool
-    });
-
-    this.briefApi = new ApiNestedStack(this, 'BriefApi', {
-      api: this.api,
-      basePath: 'brief',
-      lambdaRole,
-      commonEnv,
-      userPool
-    });
+    this.userApi.addRoute(
+      '/delete-user',
+      'DELETE',
+      'lambda/user/delete-user.ts'
+    );
 
     this.briefApi.addRoute(
       '/init-executive-brief',
@@ -406,14 +397,6 @@ export class ApiStack extends cdk.Stack {
       'GET',
       'lambda/knowledgebase/get-knowledgebase.ts',
     );
-
-    this.documentApi = new ApiNestedStack(this, 'DocumentApi', {
-      api: this.api,
-      basePath: 'document',
-      lambdaRole,
-      commonEnv,
-      userPool,
-    });
 
     this.documentApi.addRoute(
       '/create-document',
@@ -569,141 +552,5 @@ export class ApiStack extends cdk.Stack {
       value: this.api.url,
       description: 'Base URL for the AutoRFP API',
     });
-
-    NagSuppressions.addResourceSuppressions(
-      this.api,
-      [
-        {
-          id: 'AwsSolutions-APIG1',
-          reason: 'Access logging will be configured for production; dev environment keeps it off for speed.',
-        },
-        {
-          id: 'AwsSolutions-APIG2',
-          reason: 'Request validation will be added for production once the contract is finalized.',
-        },
-        {
-          id: 'AwsSolutions-APIG4',
-          reason: 'Cognito / IAM authorizers will be added when the auth model is stable; dev API is open behind internal access.',
-        },
-        {
-          id: 'AwsSolutions-COG4',
-          reason: 'Cognito user pool authorizer will be attached in production; dev stack is unauthenticated.',
-        },
-      ],
-      true, // applyToChildren = true (covers methods)
-    );
-
-    // TODO: Add CDK NAG suppressions for development - REMOVE IN PRODUCTION
-    // These suppressions allow deployment while security issues are addressed
-    this.addCdkNagSuppressions();
-  }
-
-
-  // Later you can add:
-  // this.userApi = new ApiNestedStack(this, 'UserApi', { api: this.api, basePath: 'user', this.lambdaRole, commonEnv });
-  // this.userApi.addRoute('/get-users', 'GET', 'lambda/user/get-users.ts');
-  // TODO: REMOVE IN PRODUCTION - These suppressions are for development only
-  // Each suppression needs to be addressed for production deployment
-  private addCdkNagSuppressions(): void {
-    // Suppress ALL CDK NAG errors for development deployment
-    // TODO: Remove these suppressions and fix each security issue for production
-    NagSuppressions.addStackSuppressions(this, [
-      {
-        id: 'AwsSolutions-VPC7',
-        reason: 'TODO: VPC Flow Logs will be added in production for network monitoring',
-      },
-      {
-        id: 'AwsSolutions-SMG4',
-        reason: 'TODO: Add automatic secret rotation for production',
-      },
-      {
-        id: 'AwsSolutions-EC23',
-        reason: 'TODO: Restrict database access to specific IP ranges for production',
-      },
-      {
-        id: 'AwsSolutions-RDS3',
-        reason: 'TODO: Enable Multi-AZ for production high availability',
-      },
-      {
-        id: 'AwsSolutions-RDS10',
-        reason: 'TODO: Enable deletion protection for production',
-      },
-      {
-        id: 'AwsSolutions-RDS11',
-        reason: 'TODO: Use non-default database port for production',
-      },
-      {
-        id: 'AwsSolutions-COG1',
-        reason: 'TODO: Strengthen password policy to require special characters',
-      },
-      {
-        id: 'AwsSolutions-COG2',
-        reason: 'TODO: Enable MFA for production user authentication',
-      },
-      {
-        id: 'AwsSolutions-COG3',
-        reason: 'TODO: Enable advanced security mode for production',
-      },
-      {
-        id: 'AwsSolutions-COG4',
-        reason: 'TODO: Add Cognito User Pool authorizer to API Gateway',
-      },
-      {
-        id: 'AwsSolutions-S1',
-        reason: 'TODO: Enable S3 server access logging for production',
-      },
-      {
-        id: 'AwsSolutions-S10',
-        reason: 'TODO: Add SSL-only bucket policies for production',
-      },
-      {
-        id: 'AwsSolutions-L1',
-        reason: 'TODO: Update to latest Node.js runtime version',
-      },
-      {
-        id: 'AwsSolutions-IAM4',
-        reason: 'TODO: Replace AWS managed policies with custom policies',
-      },
-      {
-        id: 'AwsSolutions-IAM5',
-        reason: 'TODO: Remove wildcard permissions and use specific resource ARNs',
-      },
-      {
-        id: 'AwsSolutions-APIG1',
-        reason: 'TODO: Enable API Gateway access logging for production',
-      },
-      {
-        id: 'AwsSolutions-APIG2',
-        reason: 'TODO: Add request validation to API Gateway',
-      },
-      {
-        id: 'AwsSolutions-APIG3',
-        reason: 'TODO: Associate API Gateway with AWS WAF for production',
-      },
-      {
-        id: 'AwsSolutions-APIG4',
-        reason: 'TODO: Implement API Gateway authorization',
-      },
-      {
-        id: 'AwsSolutions-CFR1',
-        reason: 'TODO: Add geo restrictions if needed for production',
-      },
-      {
-        id: 'AwsSolutions-CFR2',
-        reason: 'TODO: Integrate CloudFront with AWS WAF for production',
-      },
-      {
-        id: 'AwsSolutions-CFR3',
-        reason: 'TODO: Enable CloudFront access logging for production',
-      },
-      {
-        id: 'AwsSolutions-CFR4',
-        reason: 'TODO: Update CloudFront to use TLS 1.2+ minimum',
-      },
-      {
-        id: 'AwsSolutions-CFR7',
-        reason: 'TODO: Use Origin Access Control instead of OAI',
-      },
-    ]);
   }
 }

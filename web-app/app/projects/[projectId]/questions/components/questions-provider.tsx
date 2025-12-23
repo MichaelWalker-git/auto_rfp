@@ -9,6 +9,8 @@ import { CreateAnswerDTO, useGenerateAnswer, useSaveAnswer } from '@/lib/hooks/u
 import { useQuestionFiles } from '@/lib/hooks/use-question-file';
 import { type QuestionFileItem } from '@auto-rfp/shared';
 
+import { authFetcher } from '@/lib/auth/auth-fetcher';
+import { env } from '@/lib/env';
 
 // Interfaces
 interface AnswerData {
@@ -55,6 +57,9 @@ interface QuestionsContextType {
   isLoadingIndexes: boolean;
   organizationConnected: boolean;
 
+  // ✅ remove question state
+  removingQuestions: Set<string>;
+
   // Action handlers
   handleAnswerChange: (questionId: string, value: string) => void;
   handleGenerateAnswer: (questionId: string) => Promise<void>;
@@ -66,6 +71,9 @@ interface QuestionsContextType {
   handleSelectAllIndexes: () => void;
   handleAcceptMultiStepResponse: (response: string, sources: any[]) => void;
   handleCloseMultiStepDialog: () => void;
+
+  // ✅ NEW: remove question action
+  removeQuestion: (questionId: string) => Promise<void>;
 
   // Utility functions
   getFilteredQuestions: (filterType?: string) => any[];
@@ -113,20 +121,25 @@ export function QuestionsProvider({ children, projectId }: QuestionsProviderProp
   const [isLoadingIndexes, setIsLoadingIndexes] = useState(false);
   const [organizationConnected, setOrganizationConnected] = useState(false);
 
+  // ✅ remove question state
+  const [removingQuestions, setRemovingQuestions] = useState<Set<string>>(new Set());
+
   // Multi-step response state
   const [useMultiStep, setUseMultiStep] = useState(false);
   const [multiStepDialogOpen, setMultiStepDialogOpen] = useState(false);
   const [currentQuestionForMultiStep, setCurrentQuestionForMultiStep] = useState<string | null>(null);
   const [currentQuestionText, setCurrentQuestionText] = useState<string>('');
+
   const { data: project, isLoading: isProjectLoading } = useProject(projectId);
   const { data: rfpDocument, isLoading: isQuestionsLoading, mutate: mutateQuestions } = useLoadQuestions(projectId);
   const { items: questionFiles, isLoading: isQuestionFilesLoading } = useQuestionFiles(projectId);
   const { data: answersData, error: answerError, isLoading: isAnswersLoading } = useAnswers(projectId);
   const { trigger: createAnswer } = useSaveAnswer(projectId);
-  const isLoading = isProjectLoading || isQuestionsLoading || isAnswersLoading;
   const { trigger: generateAnswer } = useGenerateAnswer();
 
-  // Load project data and questions when component mounts
+  const isLoading = isProjectLoading || isQuestionsLoading || isAnswersLoading;
+
+  // Load indexes when component mounts
   useEffect(() => {
     if (!projectId) {
       setError('No project ID provided');
@@ -136,35 +149,7 @@ export function QuestionsProvider({ children, projectId }: QuestionsProviderProp
     const fetchIndexes = async () => {
       setIsLoadingIndexes(true);
       try {
-        /*const response = await fetch(`/api/projects/${projectId}/indexes`);
-       if (response.ok) {
-         const data = await response.json();
-         setOrganizationConnected(data.organizationConnected);
-         if (data.organizationConnected) {
-           // Use project's configured indexes as the available indexes for temporary selection
-           const currentIndexes = data.currentIndexes || [] as ProjectIndex[];
-           setAvailableIndexes(currentIndexes);
-
-           // Initialize selection with all configured project indexes
-           const currentIndexIds = new Set(currentIndexes.map((index: ProjectIndex) => index.id)) as Set<string>;
-           setSelectedIndexes(currentIndexIds);
-         }
-       } else {
-         const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
-         console.error('Error response from indexes API:', errorData);
-
-         if (errorData.error?.includes('Invalid index IDs')) {
-           setSelectedIndexes(new Set());
-           toast({
-             title: 'Index Sync Issue',
-             description: 'Some project indexes are out of sync. Please reconfigure your document indexes in project settings.',
-             variant: 'destructive',
-           });
-         }
-
-         setOrganizationConnected(true);
-         setAvailableIndexes([]);
-       }*/
+        // TODO: restore indexes loading when endpoint is ready
       } catch (error) {
         console.error('Error loading indexes:', error);
         setOrganizationConnected(false);
@@ -175,95 +160,76 @@ export function QuestionsProvider({ children, projectId }: QuestionsProviderProp
       }
     };
 
-
-    Promise.all([fetchIndexes()]).catch(error => {
+    Promise.all([fetchIndexes()]).catch((error) => {
       console.error('Error in parallel loading:', error);
     });
   }, [projectId]);
 
   // Handle index selection
   const handleIndexToggle = (indexId: string) => {
-    setSelectedIndexes(prev => {
-      const newSelected = new Set(prev);
-      if (newSelected.has(indexId)) {
-        newSelected.delete(indexId);
-      } else {
-        newSelected.add(indexId);
-      }
-      return newSelected;
+    setSelectedIndexes((prev) => {
+      const next = new Set(prev);
+      if (next.has(indexId)) next.delete(indexId);
+      else next.add(indexId);
+      return next;
     });
   };
 
-  // Toggle all indexes
   const handleSelectAllIndexes = () => {
     if (selectedIndexes.size === availableIndexes.length) {
       setSelectedIndexes(new Set());
     } else {
-      setSelectedIndexes(new Set(availableIndexes.map(index => index.id)));
+      setSelectedIndexes(new Set(availableIndexes.map((index) => index.id)));
     }
   };
 
   // Handle answer changes
   const handleAnswerChange = (questionId: string, value: string) => {
-    setAnswers(prev => {
+    setAnswers((prev) => {
       const existing = prev[questionId] || { text: '' };
       return {
         ...prev,
-        [questionId]: {
-          ...existing,
-          text: value
-        }
+        [questionId]: { ...existing, text: value },
       };
     });
 
-    setUnsavedQuestions(prev => {
-      const updated = new Set(prev);
-      updated.add(questionId);
-      return updated;
+    setUnsavedQuestions((prev) => {
+      const next = new Set(prev);
+      next.add(questionId);
+      return next;
     });
   };
 
-  // Modified generate answer handler to support multi-step
+  // Generate answer
   const handleGenerateAnswer = async (questionId: string) => {
     const question = rfpDocument?.sections?.flatMap((s: any) => s.questions)?.find((q: any) => q.id === questionId);
 
     if (!question) {
-      toast({
-        title: 'Error',
-        description: 'Question not found',
-        variant: 'destructive',
-      });
+      toast({ title: 'Error', description: 'Question not found', variant: 'destructive' });
       return;
     }
 
-    setIsGenerating(prev => ({ ...prev, [questionId]: true }));
+    setIsGenerating((prev) => ({ ...prev, [questionId]: true }));
 
     try {
       const { answer, confidence, found } = await generateAnswer({
-        projectId: projectId,
-        questionId: questionId,
+        projectId,
+        questionId,
         topK: 30,
       });
 
-      found && setAnswers(prev => ({
-        ...prev,
-        [questionId]: {
-          text: answer,
-        }
-      }));
+      if (found) {
+        setAnswers((prev) => ({
+          ...prev,
+          [questionId]: { text: answer },
+        }));
 
-      setConfidence(prev => ({
-        ...prev,
-        [questionId]: confidence
-      }));
+        setUnsavedQuestions((prev) => {
+          const next = new Set(prev);
+          next.add(questionId);
+          return next;
+        });
 
-      setUnsavedQuestions(prev => {
-        const updated = new Set(prev);
-        updated.add(questionId);
-        return updated;
-      });
-
-      if (answer && found) {
         toast({
           title: 'Answer Generated',
           description: 'AI-generated answer has been created. Please review and save it.',
@@ -271,12 +237,12 @@ export function QuestionsProvider({ children, projectId }: QuestionsProviderProp
       } else {
         toast({
           title: 'Answer Not Found',
-          description: 'Answer Not Found in provided documents',
-          variant: 'destructive'
+          description: 'Answer not found in provided documents',
+          variant: 'destructive',
         });
       }
 
-
+      setConfidence((prev) => ({ ...prev, [questionId]: confidence }));
     } catch (error) {
       console.error('Error generating answer:', error);
       toast({
@@ -285,33 +251,28 @@ export function QuestionsProvider({ children, projectId }: QuestionsProviderProp
         variant: 'destructive',
       });
     } finally {
-      setIsGenerating(prev => ({ ...prev, [questionId]: false }));
+      setIsGenerating((prev) => ({ ...prev, [questionId]: false }));
     }
-
   };
 
-  // Handler for accepting multi-step response
   const handleAcceptMultiStepResponse = (response: string, sources: any[]) => {
-    if (currentQuestionForMultiStep) {
-      setAnswers(prev => ({
-        ...prev,
-        [currentQuestionForMultiStep]: {
-          text: response,
-          sources: sources
-        }
-      }));
+    if (!currentQuestionForMultiStep) return;
 
-      setUnsavedQuestions(prev => {
-        const updated = new Set(prev);
-        updated.add(currentQuestionForMultiStep);
-        return updated;
-      });
+    setAnswers((prev) => ({
+      ...prev,
+      [currentQuestionForMultiStep]: { text: response, sources },
+    }));
 
-      toast({
-        title: 'Multi-Step Answer Generated',
-        description: 'AI-generated answer with step-by-step reasoning has been created. Please review and save it.',
-      });
-    }
+    setUnsavedQuestions((prev) => {
+      const next = new Set(prev);
+      next.add(currentQuestionForMultiStep);
+      return next;
+    });
+
+    toast({
+      title: 'Multi-Step Answer Generated',
+      description: 'AI-generated answer has been created. Please review and save it.',
+    });
   };
 
   const handleCloseMultiStepDialog = () => {
@@ -323,33 +284,30 @@ export function QuestionsProvider({ children, projectId }: QuestionsProviderProp
   const saveAnswer = async (questionId: string) => {
     if (!projectId || !answers[questionId]) return;
 
-    setSavingQuestions(prev => {
-      const updated = new Set(prev);
-      updated.add(questionId);
-      return updated;
+    setSavingQuestions((prev) => {
+      const next = new Set(prev);
+      next.add(questionId);
+      return next;
     });
 
     try {
       const response = await createAnswer({
-        questionId: questionId,
+        questionId,
         text: answers[questionId].text,
       } as CreateAnswerDTO);
 
-      if (response.id) {
-        setUnsavedQuestions(prev => {
-          const updated = new Set(prev);
-          updated.delete(questionId);
-          return updated;
+      if (response?.id) {
+        setUnsavedQuestions((prev) => {
+          const next = new Set(prev);
+          next.delete(questionId);
+          return next;
         });
 
         setLastSaved(response.updatedAt);
 
-        toast({
-          title: 'Answer Saved',
-          description: 'Your answer has been saved successfully.',
-        });
+        toast({ title: 'Answer Saved', description: 'Your answer has been saved successfully.' });
       } else {
-        throw new Error(`Failed to save answer: ${response}`);
+        throw new Error('Failed to save answer');
       }
     } catch (error) {
       console.error(`Error saving answer for question ${questionId}:`, error);
@@ -359,10 +317,10 @@ export function QuestionsProvider({ children, projectId }: QuestionsProviderProp
         variant: 'destructive',
       });
     } finally {
-      setSavingQuestions(prev => {
-        const updated = new Set(prev);
-        updated.delete(questionId);
-        return updated;
+      setSavingQuestions((prev) => {
+        const next = new Set(prev);
+        next.delete(questionId);
+        return next;
       });
     }
   };
@@ -371,25 +329,23 @@ export function QuestionsProvider({ children, projectId }: QuestionsProviderProp
   const saveAllAnswers = async () => {
     if (!projectId || unsavedQuestions.size === 0) return;
 
-    const answersToSave: Record<string, AnswerData> = {};
-    unsavedQuestions.forEach(questionId => {
-      if (answers[questionId]) {
-        answersToSave[questionId] = answers[questionId];
-        const { text } = answers[questionId];
-        createAnswer({
-          questionId: questionId,
-          text: text,
-        } as CreateAnswerDTO);
-      }
-    });
-
     setSavingQuestions(new Set(unsavedQuestions));
 
     try {
+      const toSave = Array.from(unsavedQuestions);
+
+      await Promise.all(
+        toSave.map(async (questionId) => {
+          const text = answers[questionId]?.text;
+          if (!text) return;
+          await createAnswer({ questionId, text } as CreateAnswerDTO);
+        }),
+      );
+
       setUnsavedQuestions(new Set());
       toast({
         title: 'All Answers Saved',
-        description: `Successfully saved ${Object.keys(answersToSave).length} answers.`,
+        description: `Successfully saved ${toSave.length} answers.`,
       });
     } catch (error) {
       console.error('Error saving all answers:', error);
@@ -403,29 +359,24 @@ export function QuestionsProvider({ children, projectId }: QuestionsProviderProp
     }
   };
 
-  // Export answers as CSV
   const handleExportAnswers = () => {
     if (!rfpDocument) return;
 
-    const rows = [
-      ['Section', 'Question', 'Answer'], // Header row
-    ];
+    const rows: any[] = [['Section', 'Question', 'Answer']];
 
     rfpDocument.sections.forEach((section: any) => {
       section.questions.forEach((question: any) => {
-        rows.push([
-          section.title,
-          question.question,
-          answers[question.id]?.text || ''
-        ]);
+        rows.push([section.title, question.question, answers[question.id]?.text || '']);
       });
     });
 
-    const csvContent = rows.map(row =>
-      row.map(cell =>
-        typeof cell === 'string' ? `"${cell.replace(/"/g, '""')}"` : cell
-      ).join(',')
-    ).join('\n');
+    const csvContent = rows
+      .map((row) =>
+        row
+          .map((cell: any) => (typeof cell === 'string' ? `"${cell.replace(/"/g, '""')}"` : cell))
+          .join(','),
+      )
+      .join('\n');
 
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
@@ -438,91 +389,145 @@ export function QuestionsProvider({ children, projectId }: QuestionsProviderProp
     document.body.removeChild(link);
   };
 
-
-  // Get the currently selected question data
   const getSelectedQuestionData = () => {
     if (!selectedQuestion || !rfpDocument) return null;
 
     for (const section of rfpDocument.sections) {
       const question = section.questions.find((q: any) => q.id === selectedQuestion);
-      if (question) {
-        return {
-          question,
-          section
-        };
-      }
+      if (question) return { question, section };
     }
     return null;
   };
 
-  // Filter questions based on the search query and filter type
   const getFilteredQuestions = (filterType = 'all') => {
     if (!rfpDocument) return [];
 
-    const allQuestions = rfpDocument.sections.flatMap((section: any) => {
-      return section.questions.map((question: any) => ({
+    const allQuestions = rfpDocument.sections.flatMap((section: any) =>
+      section.questions.map((question: any) => ({
         ...question,
         sectionTitle: section.title,
-        sectionId: section.id
-      }));
-    });
+        sectionId: section.id,
+      })),
+    );
 
     let statusFiltered = allQuestions;
 
     if (filterType === 'answered') {
-      statusFiltered = allQuestions.filter((q: any) =>
-        answers[q.id]?.text && answers[q.id].text.trim() !== ''
-      );
+      statusFiltered = allQuestions.filter((q: any) => !!answers[q.id]?.text?.trim());
     } else if (filterType === 'unanswered') {
-      statusFiltered = allQuestions.filter((q: any) =>
-        !answers[q.id]?.text || answers[q.id].text.trim() === ''
-      );
+      statusFiltered = allQuestions.filter((q: any) => !answers[q.id]?.text?.trim());
     }
 
     if (!searchQuery) return statusFiltered;
 
     const query = searchQuery.toLowerCase();
-    return statusFiltered.filter((q: any) =>
-      q.question.toLowerCase().includes(query) ||
-      q.sectionTitle.toLowerCase().includes(query)
-    );
+    return statusFiltered.filter((q: any) => q.question.toLowerCase().includes(query) || q.sectionTitle.toLowerCase().includes(query));
   };
 
-  // Count questions by status
   const getCounts = () => {
     if (!rfpDocument) return { all: 0, answered: 0, unanswered: 0 };
 
     const allQuestions = rfpDocument.sections.flatMap((s: any) => s.questions);
-    const answeredCount = allQuestions?.filter((q: any) => answers[q?.id]?.text && answers[q?.id].text.trim() !== '').length;
+    const answeredCount = allQuestions.filter((q: any) => !!answers[q?.id]?.text?.trim()).length;
 
     return {
       all: allQuestions.length,
       answered: answeredCount,
-      unanswered: allQuestions.length - answeredCount
+      unanswered: allQuestions.length - answeredCount,
     };
   };
 
-  // Handle source click to open the modal
   const handleSourceClick = (source: AnswerSource) => {
     setSelectedSource(source);
     setIsSourceModalOpen(true);
   };
 
-  // Refresh questions data
   const refreshQuestions = async () => {
     setError(null);
     try {
-      mutateQuestions();
-      answersData && setAnswers({ ...answersData });
+      await mutateQuestions();
+      if (answersData) setAnswers({ ...answersData });
     } catch (error) {
       console.error('Error refreshing questions:', error);
       setError('Failed to refresh questions. Please try again.');
+    }
+  };
+
+  const removeQuestion = async (questionId: string) => {
+    if (!projectId || !questionId) return;
+
+    setRemovingQuestions((prev) => {
+      const next = new Set(prev);
+      next.add(questionId);
+      return next;
+    });
+
+    try {
+      const res = await authFetcher(
+        `${env.BASE_API_URL}/question/delete-question?projectId=${projectId}&questionId=${questionId}`,
+        {
+          method: 'DELETE',
+          cache: 'no-store',
+        });
+
+      if (!res.ok) {
+        const text = await res.text().catch(() => '');
+        throw new Error(text || `Request failed: ${res.status}`);
+      }
+
+      // update local document immediately
+      const nextDoc: any = rfpDocument
+        ? {
+          ...rfpDocument,
+          sections: rfpDocument.sections.map((s: any) => ({
+            ...s,
+            questions: s.questions.filter((q: any) => q.id !== questionId),
+          })),
+        }
+        : null;
+
+      // mutateQuestions supports optimistic update if you pass data.
+      // If your `useLoadQuestions` hook returns `mutate` from SWR, this will work.
+      await mutateQuestions(nextDoc, { revalidate: false } as any);
+
+      // remove local answer + unsaved marker
+      setAnswers((prev) => {
+        const next = { ...prev };
+        delete next[questionId];
+        return next;
+      });
+
+      setUnsavedQuestions((prev) => {
+        const next = new Set(prev);
+        next.delete(questionId);
+        return next;
+      });
+
+      // clear selection if needed
+      if (selectedQuestion === questionId) {
+        setSelectedQuestion(null);
+        setShowAIPanel(false);
+      }
+
+      toast({ title: 'Question removed', description: 'Question (and answer if existed) was deleted.' });
+    } catch (error) {
+      console.error('Error removing question:', error);
+      toast({
+        title: 'Remove Error',
+        description: error instanceof Error ? error.message : 'Failed to remove question',
+        variant: 'destructive',
+      });
     } finally {
+      setRemovingQuestions((prev) => {
+        const next = new Set(prev);
+        next.delete(questionId);
+        return next;
+      });
     }
   };
 
   useEffect(() => {
-    answersData && setAnswers({ ...answersData });
+    if (answersData) setAnswers({ ...answersData });
   }, [answersData]);
 
   const value: QuestionsContextType = {
@@ -559,6 +564,9 @@ export function QuestionsProvider({ children, projectId }: QuestionsProviderProp
     isLoadingIndexes,
     organizationConnected,
 
+    // ✅ remove question state
+    removingQuestions,
+
     // Action handlers
     handleAnswerChange,
     handleGenerateAnswer,
@@ -570,17 +578,12 @@ export function QuestionsProvider({ children, projectId }: QuestionsProviderProp
     handleSelectAllIndexes,
     handleAcceptMultiStepResponse,
     handleCloseMultiStepDialog,
-
-    // Utility functions
+    removeQuestion,
     getFilteredQuestions,
     getCounts,
     getSelectedQuestionData,
     refreshQuestions,
   };
 
-  return (
-    <QuestionsContext.Provider value={value}>
-      {children}
-    </QuestionsContext.Provider>
-  );
-} 
+  return <QuestionsContext.Provider value={value}>{children}</QuestionsContext.Provider>;
+}
