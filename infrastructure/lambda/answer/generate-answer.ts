@@ -192,15 +192,15 @@ export const baseHandler = async (
 
   const topK = body.topK && body.topK > 0 ? body.topK : 30;
 
-  const { questionId, projectId, question } = body;
+  const { questionId, projectId, question: text } = body;
 
   try {
 
-    const questionText = questionId
+    const question = questionId
       ? (await getQuestionItemById(docClient, projectId, questionId)).question
-      : question?.trim();
+      : text?.trim();
 
-    if (!questionText) {
+    if (!question) {
       return apiResponse(400, {
         message: 'Either questionId (preferred) or question text must be provided',
       });
@@ -209,7 +209,7 @@ export const baseHandler = async (
     const questionEmbedding = await getEmbedding(
       bedrockClient,
       BEDROCK_EMBEDDING_MODEL_ID,
-      questionText || '',
+      question || '',
     );
 
     const hits = await semanticSearchChunks(
@@ -245,7 +245,7 @@ export const baseHandler = async (
     if (!documentId) documentId = hits[0]._source?.documentId || '';
 
     // 4) Ask Bedrock LLM
-    const { answer, confidence, found } = await answerWithBedrockLLM(questionText, finalContext);
+    const { answer, confidence, found } = await answerWithBedrockLLM(question, finalContext);
 
     // 5) Store Q&A in Dynamo
     const qaItem = await saveAnswer({

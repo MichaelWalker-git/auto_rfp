@@ -21,12 +21,13 @@ import {
 } from '@/components/ui/alert-dialog';
 
 import { buildSaveRequest, useGenerateProposal, useSaveProposal } from '@/lib/hooks/use-proposal';
-import type { ProposalDocument, ProposalSection, ProposalSubsection } from '@auto-rfp/shared';
+import type { Proposal, ProposalDocument, ProposalSection, ProposalSubsection } from '@auto-rfp/shared';
 import { ProposalStatus } from '@auto-rfp/shared';
 import PermissionWrapper from '@/components/permission-wrapper';
 
-interface GenerateProposalModalProps {
+type Props = {
   projectId: string;
+  onSave?: (proposal: Proposal) => void;
 }
 
 type PendingDelete =
@@ -34,9 +35,12 @@ type PendingDelete =
   | { type: 'subsection'; sectionIndex: number; subsectionIndex: number }
   | null;
 
-export const GenerateProposalModal: React.FC<GenerateProposalModalProps> = ({
-                                                                              projectId,
-                                                                            }) => {
+export const GenerateProposalModal: React.FC<Props> = (
+  {
+    projectId,
+    onSave,
+  }
+) => {
   const [open, setOpen] = useState(false);
   const [proposal, setProposal] = useState<ProposalDocument>();
   const [isPdfGenerating, setIsPdfGenerating] = useState(false);
@@ -124,9 +128,10 @@ export const GenerateProposalModal: React.FC<GenerateProposalModalProps> = ({
 
     if (!saved) throw new Error('Save failed: empty response from API');
 
-    setSavedProposalId(saved.id);
+    setSavedProposalId(saved?.id ?? null);
     setProposal(saved.document);
     setSaveMessage('Saved ✅');
+    onSave && onSave(saved);
     setTimeout(() => setSaveMessage(null), 2000);
   };
 

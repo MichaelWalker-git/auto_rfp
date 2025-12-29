@@ -1,14 +1,9 @@
 'use client';
 
-import {
-  createContext,
-  useContext,
-  useState,
-  useEffect,
-  ReactNode,
-} from 'react';
+import { createContext, ReactNode, useContext, useEffect, useState, } from 'react';
 import { usePathname } from 'next/navigation';
 import { useOrganizations, useProject, useProjects } from '@/lib/hooks/use-api';
+import { useAuth } from '@/components/AuthProvider';
 
 interface Organization {
   id: string;
@@ -36,8 +31,7 @@ interface OrganizationContextType {
   refreshData: () => Promise<void>;
 }
 
-const OrganizationContext =
-  createContext<OrganizationContextType | undefined>(undefined);
+const OrganizationContext = createContext<OrganizationContextType | undefined>(undefined);
 
 export function useOrganization() {
   const context = useContext(OrganizationContext);
@@ -62,9 +56,7 @@ export function OrganizationProvider({ children }: OrganizationProviderProps) {
   const projectIdFromPath = projectMatch?.[1];
 
   const [currentOrganization, setCurrentOrganization] = useState<Organization | null>(null);
-  const [projectId, setProjectId] = useState<string | undefined>(
-    projectIdFromPath,
-  );
+  const [projectId, setProjectId] = useState<string | undefined>(projectIdFromPath,);
 
   const {
     data: organizations = [],
@@ -72,10 +64,8 @@ export function OrganizationProvider({ children }: OrganizationProviderProps) {
     isLoading: isOrgLoading,
   } = useOrganizations();
 
-  // Effective orgId for projects:
-  // 1) currentOrganization.id
-  // 2) orgId from URL
-  const effectiveOrgId = currentOrganization?.id ?? orgIdFromPath ?? '';
+  const { orgId } = useAuth();
+  const effectiveOrgId = orgId ?? currentOrganization?.id ?? orgIdFromPath ?? '';
 
   const {
     data: projects = [],
@@ -122,7 +112,7 @@ export function OrganizationProvider({ children }: OrganizationProviderProps) {
 
     const pr = projects.find(p => p.id === projectId);
     const org = organizations.find((o) => o.id === pr?.orgId,) ?? null;
-    setCurrentOrganization(org)
+    setCurrentOrganization(org);
   }, [organizations, currentOrganization, orgIdFromPath]);
 
   // 2) Hydrate projectId from URL or from first project of current org

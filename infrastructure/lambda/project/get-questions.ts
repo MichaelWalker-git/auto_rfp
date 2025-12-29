@@ -118,7 +118,7 @@ async function groupQuestions(
 
     sectionsMap.get(secId).questions.push({
       id: qId,
-      question: item.questionText,
+      question: item.question,
       answer: answerItem?.text ?? null,
     });
   }

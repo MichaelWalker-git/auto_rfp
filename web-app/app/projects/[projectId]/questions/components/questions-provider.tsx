@@ -68,8 +68,6 @@ interface QuestionsContextType {
   handleSourceClick: (source: AnswerSource) => void;
   handleIndexToggle: (indexId: string) => void;
   handleSelectAllIndexes: () => void;
-  handleAcceptMultiStepResponse: (response: string, sources: any[]) => void;
-  handleCloseMultiStepDialog: () => void;
 
   removeQuestion: (questionId: string) => Promise<void>;
 
@@ -119,14 +117,7 @@ export function QuestionsProvider({ children, projectId }: QuestionsProviderProp
   const [isLoadingIndexes, setIsLoadingIndexes] = useState(false);
   const [organizationConnected, setOrganizationConnected] = useState(false);
 
-  // ✅ remove question state
   const [removingQuestions, setRemovingQuestions] = useState<Set<string>>(new Set());
-
-  // Multi-step response state
-  const [useMultiStep, setUseMultiStep] = useState(false);
-  const [multiStepDialogOpen, setMultiStepDialogOpen] = useState(false);
-  const [currentQuestionForMultiStep, setCurrentQuestionForMultiStep] = useState<string | null>(null);
-  const [currentQuestionText, setCurrentQuestionText] = useState<string>('');
 
   const { data: project, isLoading: isProjectLoading } = useProject(projectId);
   const { data: rfpDocument, isLoading: isQuestionsLoading, mutate: mutateQuestions } = useLoadQuestions(projectId);
@@ -251,31 +242,6 @@ export function QuestionsProvider({ children, projectId }: QuestionsProviderProp
     } finally {
       setIsGenerating((prev) => ({ ...prev, [questionId]: false }));
     }
-  };
-
-  const handleAcceptMultiStepResponse = (response: string, sources: any[]) => {
-    if (!currentQuestionForMultiStep) return;
-
-    setAnswers((prev) => ({
-      ...prev,
-      [currentQuestionForMultiStep]: { text: response, sources },
-    }));
-
-    setUnsavedQuestions((prev) => {
-      const next = new Set(prev);
-      next.add(currentQuestionForMultiStep);
-      return next;
-    });
-
-    toast({
-      title: 'Multi-Step Answer Generated',
-      description: 'AI-generated answer has been created. Please review and save it.',
-    });
-  };
-
-  const handleCloseMultiStepDialog = () => {
-    setMultiStepDialogOpen(false);
-    setCurrentQuestionForMultiStep(null);
   };
 
   // Save a single answer
@@ -562,7 +528,6 @@ export function QuestionsProvider({ children, projectId }: QuestionsProviderProp
     isLoadingIndexes,
     organizationConnected,
 
-    // ✅ remove question state
     removingQuestions,
 
     // Action handlers
@@ -574,8 +539,6 @@ export function QuestionsProvider({ children, projectId }: QuestionsProviderProp
     handleSourceClick,
     handleIndexToggle,
     handleSelectAllIndexes,
-    handleAcceptMultiStepResponse,
-    handleCloseMultiStepDialog,
     removeQuestion,
     getFilteredQuestions,
     getCounts,

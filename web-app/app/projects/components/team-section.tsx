@@ -1,9 +1,9 @@
-import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Input } from "@/components/ui/input"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Badge } from "@/components/ui/badge"
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Badge } from '@/components/ui/badge';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import {
   Calendar,
   CheckCircle2,
@@ -14,8 +14,13 @@ import {
   Plus,
   Search,
   UserPlus,
-} from "lucide-react"
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
+} from 'lucide-react';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger
+} from '@/components/ui/dropdown-menu';
 
 export function TeamSection() {
   return (
@@ -24,15 +29,15 @@ export function TeamSection() {
         <h2 className="text-2xl font-bold">Team</h2>
         <div className="flex items-center gap-2">
           <div className="relative">
-            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-            <Input type="search" placeholder="Search team members..." className="w-[250px] pl-8" />
+            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground"/>
+            <Input type="search" placeholder="Search team members..." className="w-[250px] pl-8"/>
           </div>
           <Button variant="outline" size="sm" className="gap-1">
-            <Filter className="h-4 w-4" />
+            <Filter className="h-4 w-4"/>
             Filter
           </Button>
           <Button size="sm" className="gap-1">
-            <UserPlus className="h-4 w-4" />
+            <UserPlus className="h-4 w-4"/>
             Add Member
           </Button>
         </div>
@@ -52,48 +57,48 @@ export function TeamSection() {
               <div className="space-y-4">
                 {[
                   {
-                    name: "John Doe",
-                    role: "Project Owner",
-                    email: "john.doe@example.com",
-                    status: "Online",
-                    avatar: "JD",
-                    sections: ["Technical Approach", "Implementation Plan"],
+                    name: 'John Doe',
+                    role: 'Project Owner',
+                    email: 'john.doe@example.com',
+                    status: 'Online',
+                    avatar: 'JD',
+                    sections: ['Technical Approach', 'Implementation Plan'],
                     questions: 15,
                   },
                   {
-                    name: "Sarah Kim",
-                    role: "Technical Lead",
-                    email: "sarah.kim@example.com",
-                    status: "Online",
-                    avatar: "SK",
-                    sections: ["Technical Approach", "Security & Compliance"],
+                    name: 'Sarah Kim',
+                    role: 'Technical Lead',
+                    email: 'sarah.kim@example.com',
+                    status: 'Online',
+                    avatar: 'SK',
+                    sections: ['Technical Approach', 'Security & Compliance'],
                     questions: 22,
                   },
                   {
-                    name: "Mike Johnson",
-                    role: "Solution Architect",
-                    email: "mike.johnson@example.com",
-                    status: "Offline",
-                    avatar: "MJ",
-                    sections: ["Technical Approach"],
+                    name: 'Mike Johnson',
+                    role: 'Solution Architect',
+                    email: 'mike.johnson@example.com',
+                    status: 'Offline',
+                    avatar: 'MJ',
+                    sections: ['Technical Approach'],
                     questions: 8,
                   },
                   {
-                    name: "Lisa Chen",
-                    role: "Project Manager",
-                    email: "lisa.chen@example.com",
-                    status: "Offline",
-                    avatar: "LC",
-                    sections: ["Implementation Plan", "Company Information"],
+                    name: 'Lisa Chen',
+                    role: 'Project Manager',
+                    email: 'lisa.chen@example.com',
+                    status: 'Offline',
+                    avatar: 'LC',
+                    sections: ['Implementation Plan', 'Company Information'],
                     questions: 12,
                   },
                   {
-                    name: "David Wilson",
-                    role: "Financial Analyst",
-                    email: "david.wilson@example.com",
-                    status: "Offline",
-                    avatar: "DW",
-                    sections: ["Pricing & Terms"],
+                    name: 'David Wilson',
+                    role: 'Financial Analyst',
+                    email: 'david.wilson@example.com',
+                    status: 'Offline',
+                    avatar: 'DW',
+                    sections: ['Pricing & Terms'],
                     questions: 6,
                   },
                 ].map((member, index) => (
@@ -112,7 +117,7 @@ export function TeamSection() {
                       <div>
                         <div className="flex items-center gap-2">
                           <h3 className="font-medium">{member.name}</h3>
-                          {member.status === "Online" ? (
+                          {member.status === 'Online' ? (
                             <Badge variant="outline" className="bg-green-50 text-green-700">
                               Online
                             </Badge>
@@ -135,19 +140,19 @@ export function TeamSection() {
                         ))}
                       </div>
                       <div className="flex items-center gap-2 text-sm">
-                        <CheckCircle2 className="h-4 w-4 text-green-500" />
+                        <CheckCircle2 className="h-4 w-4 text-green-500"/>
                         <span>{member.questions} questions assigned</span>
                       </div>
                     </div>
                     <div className="flex items-center gap-2">
                       <Button variant="outline" size="sm" className="gap-1">
-                        <MessageSquare className="h-3.5 w-3.5" />
+                        <MessageSquare className="h-3.5 w-3.5"/>
                         Message
                       </Button>
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
                           <Button variant="ghost" size="icon" className="h-8 w-8">
-                            <MoreHorizontal className="h-4 w-4" />
+                            <MoreHorizontal className="h-4 w-4"/>
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
@@ -171,11 +176,11 @@ export function TeamSection() {
               <CardContent>
                 <div className="space-y-4">
                   {[
-                    { name: "John Doe", assigned: 15, completed: 8, avatar: "JD" },
-                    { name: "Sarah Kim", assigned: 22, completed: 15, avatar: "SK" },
-                    { name: "Mike Johnson", assigned: 8, completed: 3, avatar: "MJ" },
-                    { name: "Lisa Chen", assigned: 12, completed: 9, avatar: "LC" },
-                    { name: "David Wilson", assigned: 6, completed: 2, avatar: "DW" },
+                    { name: 'John Doe', assigned: 15, completed: 8, avatar: 'JD' },
+                    { name: 'Sarah Kim', assigned: 22, completed: 15, avatar: 'SK' },
+                    { name: 'Mike Johnson', assigned: 8, completed: 3, avatar: 'MJ' },
+                    { name: 'Lisa Chen', assigned: 12, completed: 9, avatar: 'LC' },
+                    { name: 'David Wilson', assigned: 6, completed: 2, avatar: 'DW' },
                   ].map((member, index) => (
                     <div key={index} className="space-y-2">
                       <div className="flex items-center justify-between">
@@ -218,21 +223,21 @@ export function TeamSection() {
                     <div className="mt-2 space-y-2">
                       {[
                         {
-                          title: "RFP Review Session",
-                          date: "May 10, 2025",
-                          time: "10:00 AM - 11:30 AM",
+                          title: 'RFP Review Session',
+                          date: 'May 10, 2025',
+                          time: '10:00 AM - 11:30 AM',
                           attendees: 5,
                         },
                         {
-                          title: "Technical Deep Dive",
-                          date: "May 12, 2025",
-                          time: "2:00 PM - 3:30 PM",
+                          title: 'Technical Deep Dive',
+                          date: 'May 12, 2025',
+                          time: '2:00 PM - 3:30 PM',
                           attendees: 3,
                         },
                         {
-                          title: "Final Review",
-                          date: "May 14, 2025",
-                          time: "9:00 AM - 11:00 AM",
+                          title: 'Final Review',
+                          date: 'May 14, 2025',
+                          time: '9:00 AM - 11:00 AM',
                           attendees: 5,
                         },
                       ].map((meeting, index) => (
@@ -240,7 +245,7 @@ export function TeamSection() {
                           <div>
                             <div className="font-medium">{meeting.title}</div>
                             <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                              <Calendar className="h-3 w-3" />
+                              <Calendar className="h-3 w-3"/>
                               <span>
                                 {meeting.date}, {meeting.time}
                               </span>
@@ -252,7 +257,7 @@ export function TeamSection() {
                     </div>
                   </div>
                   <Button variant="outline" size="sm" className="w-full gap-1">
-                    <Plus className="h-3.5 w-3.5" />
+                    <Plus className="h-3.5 w-3.5"/>
                     Schedule Meeting
                   </Button>
                 </div>
@@ -269,84 +274,84 @@ export function TeamSection() {
               <div className="space-y-4">
                 {[
                   {
-                    user: "John Doe",
-                    action: "answered question",
-                    item: "Technical Architecture Overview",
-                    time: "2 hours ago",
+                    user: 'John Doe',
+                    action: 'answered question',
+                    item: 'Technical Architecture Overview',
+                    time: '2 hours ago',
                     icon: CheckCircle2,
-                    avatar: "JD",
+                    avatar: 'JD',
                   },
                   {
-                    user: "Sarah Kim",
-                    action: "uploaded document",
-                    item: "Security Compliance Framework.pdf",
-                    time: "5 hours ago",
+                    user: 'Sarah Kim',
+                    action: 'uploaded document',
+                    item: 'Security Compliance Framework.pdf',
+                    time: '5 hours ago',
                     icon: Calendar,
-                    avatar: "SK",
+                    avatar: 'SK',
                   },
                   {
-                    user: "Mike Johnson",
-                    action: "commented on",
-                    item: "Pricing Structure",
-                    time: "Yesterday",
+                    user: 'Mike Johnson',
+                    action: 'commented on',
+                    item: 'Pricing Structure',
+                    time: 'Yesterday',
                     icon: MessageSquare,
-                    avatar: "MJ",
+                    avatar: 'MJ',
                   },
                   {
-                    user: "Lisa Chen",
-                    action: "scheduled meeting",
-                    item: "RFP Review Session",
-                    time: "Yesterday",
+                    user: 'Lisa Chen',
+                    action: 'scheduled meeting',
+                    item: 'RFP Review Session',
+                    time: 'Yesterday',
                     icon: Calendar,
-                    avatar: "LC",
+                    avatar: 'LC',
                   },
                   {
-                    user: "David Wilson",
-                    action: "updated answer for",
-                    item: "Cost Breakdown",
-                    time: "2 days ago",
+                    user: 'David Wilson',
+                    action: 'updated answer for',
+                    item: 'Cost Breakdown',
+                    time: '2 days ago',
                     icon: CheckCircle2,
-                    avatar: "DW",
+                    avatar: 'DW',
                   },
                   {
-                    user: "John Doe",
-                    action: "assigned question to",
-                    item: "Sarah Kim",
-                    time: "2 days ago",
+                    user: 'John Doe',
+                    action: 'assigned question to',
+                    item: 'Sarah Kim',
+                    time: '2 days ago',
                     icon: UserPlus,
-                    avatar: "JD",
+                    avatar: 'JD',
                   },
                   {
-                    user: "Sarah Kim",
-                    action: "completed review of",
-                    item: "Security Questions",
-                    time: "3 days ago",
+                    user: 'Sarah Kim',
+                    action: 'completed review of',
+                    item: 'Security Questions',
+                    time: '3 days ago',
                     icon: CheckCircle2,
-                    avatar: "SK",
+                    avatar: 'SK',
                   },
                   {
-                    user: "Mike Johnson",
-                    action: "added comment on",
-                    item: "Technical Architecture",
-                    time: "3 days ago",
+                    user: 'Mike Johnson',
+                    action: 'added comment on',
+                    item: 'Technical Architecture',
+                    time: '3 days ago',
                     icon: MessageSquare,
-                    avatar: "MJ",
+                    avatar: 'MJ',
                   },
                   {
-                    user: "Lisa Chen",
-                    action: "updated project timeline in",
-                    item: "Implementation Plan",
-                    time: "4 days ago",
+                    user: 'Lisa Chen',
+                    action: 'updated project timeline in',
+                    item: 'Implementation Plan',
+                    time: '4 days ago',
                     icon: Clock,
-                    avatar: "LC",
+                    avatar: 'LC',
                   },
                   {
-                    user: "David Wilson",
-                    action: "finalized",
-                    item: "Payment Terms",
-                    time: "4 days ago",
+                    user: 'David Wilson',
+                    action: 'finalized',
+                    item: 'Payment Terms',
+                    time: '4 days ago',
                     icon: CheckCircle2,
-                    avatar: "DW",
+                    avatar: 'DW',
                   },
                 ].map((activity, index) => (
                   <div key={index} className="flex items-start gap-3 rounded-md border p-3">
@@ -364,7 +369,7 @@ export function TeamSection() {
                         <span className="font-medium">{activity.item}</span>
                       </div>
                       <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                        <activity.icon className="h-3 w-3" />
+                        <activity.icon className="h-3 w-3"/>
                         <span>{activity.time}</span>
                       </div>
                     </div>
@@ -376,5 +381,5 @@ export function TeamSection() {
         </TabsContent>
       </Tabs>
     </div>
-  )
+  );
 }

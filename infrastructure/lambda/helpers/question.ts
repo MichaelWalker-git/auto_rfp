@@ -28,7 +28,7 @@ export async function getQuestionItemById(
   const item = res.Item as QuestionItemDynamo;
 
   if (!item.question) {
-    throw new Error(`Question item for SK=${questionId} has no "questionText" field`);
+    throw new Error(`Question item for SK=${questionId} has no "question" field`);
   }
 
   return item;

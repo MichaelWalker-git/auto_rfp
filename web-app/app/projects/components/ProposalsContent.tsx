@@ -2,14 +2,13 @@
 
 import React, { useMemo } from 'react';
 import Link from 'next/link';
-import { AlertCircle, Brain, FileText, Loader2 } from 'lucide-react';
+import { AlertCircle, FileText, Loader2 } from 'lucide-react';
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 
-import { useGenerateProposal, useProposals } from '@/lib/hooks/use-proposal';
+import { useProposals } from '@/lib/hooks/use-proposal';
 import { ProposalStatus } from '@auto-rfp/shared';
 import { NoRfpDocumentAvailable, useQuestions } from '@/app/projects/[projectId]/questions/components';
 import { GenerateProposalModal } from '@/app/projects/[projectId]/questions/components/GenerateProposalModal';
@@ -52,11 +51,6 @@ export default function ProposalsContent({ projectId }: Props) {
     return <NoRfpDocumentAvailable projectId={projectId}/>;
   }
   const { items, count, error, isLoading, refresh } = useProposals({ projectId });
-  const {
-    trigger: triggerGenerate,
-    isMutating,
-    error: generateError,
-  } = useGenerateProposal();
 
 
   const sorted = useMemo(() => {
@@ -151,7 +145,7 @@ export default function ProposalsContent({ projectId }: Props) {
               Loading…
             </div>
           )}
-          <GenerateProposalModal projectId={projectId}/>
+          <GenerateProposalModal projectId={projectId} onSave={(p) => refresh()}/>
         </div>
       </CardHeader>
 
