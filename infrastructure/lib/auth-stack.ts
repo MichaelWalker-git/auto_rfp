@@ -40,6 +40,7 @@ export class AuthStack extends cdk.Stack {
         orgId: new cognito.StringAttribute({ mutable: true, minLen: 1, maxLen: 36 }),
         userId: new cognito.StringAttribute({ mutable: true, minLen: 1, maxLen: 36 }),
         roles: new cognito.StringAttribute({ mutable: true, minLen: 1, maxLen: 2048 }),
+        role: new cognito.StringAttribute({ mutable: true, minLen: 1, maxLen: 2048 }),
       },
 
       passwordPolicy: {

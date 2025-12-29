@@ -1,9 +1,7 @@
 import { Context } from 'aws-lambda';
 import https from 'https';
-
-import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
-import { DynamoDBDocumentClient, UpdateCommand, QueryCommand } from '@aws-sdk/lib-dynamodb';
-import { S3Client, GetObjectCommand } from '@aws-sdk/client-s3';
+import { QueryCommand, UpdateCommand } from '@aws-sdk/lib-dynamodb';
+import { GetObjectCommand, S3Client } from '@aws-sdk/client-s3';
 
 import { SignatureV4 } from '@smithy/signature-v4';
 import { Sha256 } from '@aws-crypto/sha256-js';
@@ -17,50 +15,25 @@ import { getEmbedding } from '../helpers/embeddings';
 import { PK_NAME, SK_NAME } from '../constants/common';
 import { DOCUMENT_PK } from '../constants/document';
 import { streamToString } from '../helpers/s3';
+import { requireEnv } from '../helpers/env';
+import { docClient } from '../helpers/db';
 
-// ===== Clients (reused across invocations) =====
-const ddbClient = new DynamoDBClient({});
-const docClient = DynamoDBDocumentClient.from(ddbClient, {
-  marshallOptions: { removeUndefinedValues: true },
-});
 
-const s3Client = new S3Client({});
+const REGION = requireEnv('REGION');
+const DB_TABLE_NAME = requireEnv('DB_TABLE_NAME');
+const OPENSEARCH_ENDPOINT = requireEnv('OPENSEARCH_ENDPOINT');
+const OPENSEARCH_INDEX = requireEnv('OPENSEARCH_INDEX');
+const DOCUMENTS_BUCKET = requireEnv('DOCUMENTS_BUCKET');
+const BEDROCK_EMBEDDING_MODEL_ID = requireEnv('BEDROCK_EMBEDDING_MODEL_ID');
 
-const REGION =
-  process.env.REGION ||
-  process.env.AWS_REGION ||
-  process.env.BEDROCK_REGION ||
-  'us-east-1';
-
+const s3Client = new S3Client({ region: REGION });
 const bedrockClient = new BedrockRuntimeClient({ region: REGION });
 
-// ===== Env =====
-const DB_TABLE_NAME = process.env.DB_TABLE_NAME;
-const OPENSEARCH_ENDPOINT = process.env.OPENSEARCH_ENDPOINT;
-const OPENSEARCH_INDEX = process.env.OPENSEARCH_INDEX || 'auto-rfp-documents';
-const DOCUMENTS_BUCKET = process.env.DOCUMENTS_BUCKET_NAME || process.env.DOCUMENTS_BUCKET;
-const BEDROCK_MODEL_ID =
-  process.env.BEDROCK_EMBEDDING_MODEL_ID || 'amazon.titan-embed-text-v2:0';
-
-if (!DB_TABLE_NAME) throw new Error('DB_TABLE_NAME env var is not set');
-if (!OPENSEARCH_ENDPOINT) throw new Error('OPENSEARCH_ENDPOINT env var is not set');
-if (!DOCUMENTS_BUCKET) throw new Error('DOCUMENTS_BUCKET_NAME / DOCUMENTS_BUCKET env var is not set');
-
-// IMPORTANT: index name must be ONLY an index name (no slashes)
-if (OPENSEARCH_INDEX.includes('/')) {
-  throw new Error(
-    `OPENSEARCH_INDEX must be an index name only (no slashes). Got: ${OPENSEARCH_INDEX}`,
-  );
-}
-
-// ===== Types =====
 interface IndexChunkEvent {
   documentId?: string;
   bucket?: string;
   chunkKey?: string;
   text?: string;
-
-  // for "mark indexed when last chunk"
   index?: number;
   totalChunks?: number;
 }
@@ -80,13 +53,10 @@ const baseHandler = async (
 ): Promise<IndexChunkResult> => {
   console.log('IndexChunk event:', JSON.stringify(event));
 
-  const documentId = event.documentId;
-  const chunkKey = event.chunkKey;
+  const { documentId, chunkKey } = event;
+  if (!documentId || !chunkKey) throw new Error('documentId and chunkKey are required');
 
   const bucket = event.bucket || DOCUMENTS_BUCKET;
-
-  if (!documentId) throw new Error('documentId is required');
-  if (!chunkKey) throw new Error('chunkKey is required');
 
   // 1) Load text (prefer event.text, else read from S3)
   const text = typeof event.text === 'string' && event.text.trim().length > 0
@@ -94,7 +64,7 @@ const baseHandler = async (
     : await readChunkTextFromS3(bucket, chunkKey);
 
   // 2) Embed
-  const embedding = await getEmbedding(bedrockClient, BEDROCK_MODEL_ID, text);
+  const embedding = await getEmbedding(bedrockClient, BEDROCK_EMBEDDING_MODEL_ID, text);
 
   // 3) Index to OpenSearch Serverless (NO client-specified _id)
   const externalId = makeStableId(documentId, chunkKey);
@@ -137,10 +107,6 @@ const baseHandler = async (
     opensearchId,
   };
 };
-
-export const handler = withSentryLambda(baseHandler);
-
-// ===== Helpers =====
 
 async function readChunkTextFromS3(bucket: string, key: string): Promise<string> {
   const res = await s3Client.send(
@@ -291,3 +257,5 @@ async function markIndexed(documentId: string): Promise<void> {
     lastEvaluatedKey = res.LastEvaluatedKey;
   } while (lastEvaluatedKey);
 }
+
+export const handler = withSentryLambda(baseHandler);

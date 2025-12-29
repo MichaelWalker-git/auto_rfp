@@ -24,7 +24,7 @@ function toTeamMember(u: UserListItem): TeamMember {
     id: u.userId,
     name,
     email: u.email,
-    role: u.roles[0].toLowerCase(),
+    role: u.role,
     joinedAt: u.createdAt,
     avatarUrl: undefined,
   };

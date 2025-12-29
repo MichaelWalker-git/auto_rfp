@@ -1,7 +1,5 @@
 import { APIGatewayProxyEventV2, APIGatewayProxyResultV2 } from 'aws-lambda';
-
-import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
-import { DeleteCommand, DynamoDBDocumentClient, GetCommand, } from '@aws-sdk/lib-dynamodb';
+import { DeleteCommand, GetCommand, } from '@aws-sdk/lib-dynamodb';
 
 import { DeleteObjectCommand, S3Client } from '@aws-sdk/client-s3';
 
@@ -10,18 +8,19 @@ import { PK_NAME, SK_NAME } from '../constants/common';
 import { QUESTION_FILE_PK } from '../constants/question-file';
 import { withSentryLambda } from '../sentry-lambda';
 import { EXEC_BRIEF_PK } from '../constants/exec-brief';
+import {
+  authContextMiddleware,
+  httpErrorMiddleware,
+  orgMembershipMiddleware,
+  requirePermission
+} from '../middleware/rbac-middleware';
+import middy from '@middy/core';
+import { docClient } from '../helpers/db';
+import { requireEnv } from '../helpers/env';
+import { QuestionFileItem } from '@auto-rfp/shared';
 
-const DB_TABLE_NAME = process.env.DB_TABLE_NAME;
-const DOCUMENTS_BUCKET_NAME = process.env.DOCUMENTS_BUCKET_NAME || process.env.DOCUMENTS_BUCKET;
-
-if (!DB_TABLE_NAME) throw new Error('DB_TABLE_NAME env var is not set');
-if (!DOCUMENTS_BUCKET_NAME)
-  throw new Error('DOCUMENTS_BUCKET_NAME (or DOCUMENTS_BUCKET) env var is not set');
-
-const ddbClient = new DynamoDBClient({});
-const docClient = DynamoDBDocumentClient.from(ddbClient, {
-  marshallOptions: { removeUndefinedValues: true },
-});
+const DB_TABLE_NAME = requireEnv('DB_TABLE_NAME');
+const DOCUMENTS_BUCKET = requireEnv('DOCUMENTS_BUCKET');
 
 const s3Client = new S3Client({});
 
@@ -37,7 +36,7 @@ async function deleteS3ObjectBestEffort(key: string) {
   try {
     await s3Client.send(
       new DeleteObjectCommand({
-        Bucket: DOCUMENTS_BUCKET_NAME!,
+        Bucket: DOCUMENTS_BUCKET!,
         Key: key,
       }),
     );
@@ -74,7 +73,7 @@ export const baseHandler = async (
       return apiResponse(404, { message: 'Question file not found' });
     }
 
-    const item = getRes.Item as Record<string, any>;
+    const item = getRes.Item as QuestionFileItem;
 
     // keys we want to remove from S3
     const fileKey = safeS3Key(item.fileKey);
@@ -135,7 +134,7 @@ export const baseHandler = async (
         sk,
       },
       s3: {
-        bucket: DOCUMENTS_BUCKET_NAME,
+        bucket: DOCUMENTS_BUCKET,
         keysRequested: keysToDelete,
         results: s3Results,
       },
@@ -155,4 +154,10 @@ export const baseHandler = async (
   }
 };
 
-export const handler = withSentryLambda(baseHandler);
+export const handler = withSentryLambda(
+  middy(baseHandler)
+    .use(authContextMiddleware())
+    .use(orgMembershipMiddleware())
+    .use(requirePermission('question:delete'))
+    .use(httpErrorMiddleware())
+);

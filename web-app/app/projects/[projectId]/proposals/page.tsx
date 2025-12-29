@@ -10,8 +10,10 @@ export default async function ProposalsPage({ params }: ProposalsPageProps) {
   const { projectId } = await params;
 
   return (
-    <QuestionsProvider projectId={projectId}>
-      <ProposalsContent projectId={projectId}/>
-    </QuestionsProvider>
+    <div className="space-y-6 p-12">
+      <QuestionsProvider projectId={projectId}>
+        <ProposalsContent projectId={projectId}/>
+      </QuestionsProvider>
+    </div>
   );
 }

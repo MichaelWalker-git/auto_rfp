@@ -8,20 +8,24 @@ import { withSentryLambda } from '../sentry-lambda';
 import { type ExecutiveBriefItem, ExecutiveBriefItemSchema, } from '@auto-rfp/shared';
 
 import { loadLatestQuestionFile, nowIso, putExecutiveBrief, } from '../helpers/executive-opportunity-frief';
-
-import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
-import { DynamoDBDocumentClient, UpdateCommand } from '@aws-sdk/lib-dynamodb';
+import { UpdateCommand } from '@aws-sdk/lib-dynamodb';
 
 import { PK_NAME, SK_NAME } from '../constants/common';
 import { EXEC_BRIEF_PK } from '../constants/exec-brief';
 import { getProjectById } from '../helpers/project';
+import {
+  authContextMiddleware,
+  httpErrorMiddleware,
+  orgMembershipMiddleware,
+  requirePermission
+} from '../middleware/rbac-middleware';
+import middy from '@middy/core';
+import { requireEnv } from '../helpers/env';
+import { docClient } from '../helpers/db';
 
-const ddb = DynamoDBDocumentClient.from(new DynamoDBClient({}), {
-  marshallOptions: { removeUndefinedValues: true },
-});
 
-const DB_TABLE_NAME = process.env.DB_TABLE_NAME!;
-const DOCUMENTS_BUCKET_NAME = process.env.DOCUMENTS_BUCKET_NAME!;
+const DB_TABLE_NAME = requireEnv('DB_TABLE_NAME');
+const DOCUMENTS_BUCKET = requireEnv('DOCUMENTS_BUCKET');
 
 const RequestSchema = z.object({
   projectId: z.string().min(1),
@@ -53,7 +57,7 @@ export const baseHandler = async (
       projectId,
       questionFileId: qf.questionFileId,
       textKey: qf.textFileKey,
-      documentsBucket: DOCUMENTS_BUCKET_NAME,
+      documentsBucket: DOCUMENTS_BUCKET,
       status: 'IDLE',
       sections: {
         summary: buildEmptySection(),
@@ -75,9 +79,9 @@ export const baseHandler = async (
 
     // 3) Link brief on Project
     // Store just the pointer so the UI can poll project for the brief id.
-    const project = await getProjectById(ddb, DB_TABLE_NAME, projectId);
+    const project = await getProjectById(docClient, DB_TABLE_NAME, projectId);
 
-    await ddb.send(
+    await docClient.send(
       new UpdateCommand({
         TableName: DB_TABLE_NAME,
         Key: {
@@ -110,4 +114,10 @@ export const baseHandler = async (
   }
 };
 
-export const handler = withSentryLambda(baseHandler);
+export const handler = withSentryLambda(
+  middy(baseHandler)
+    .use(authContextMiddleware())
+    .use(orgMembershipMiddleware())
+    .use(requirePermission('brief:create'))
+    .use(httpErrorMiddleware())
+);

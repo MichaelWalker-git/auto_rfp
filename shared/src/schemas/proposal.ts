@@ -105,8 +105,18 @@ export const ProposalDocumentSchema = z.object({
 
 export type ProposalDocument = z.infer<typeof ProposalDocumentSchema>;
 
+export const GenerateProposalFileResponseSchema = z.object({
+  proposalTitle: z.string().nullable().optional(),
+  bucket: z.string(),
+  key: z.string(),
+  url: z.string().url(),
+  document: ProposalDocumentSchema.optional(),
+});
+
+export type GenerateProposalFileResponse = z.infer<typeof GenerateProposalFileResponseSchema>;
+
 export const ProposalSchema = z.object({
-  id: z.string(),
+  id: z.string().optional(),
   projectId: z.string(),
   organizationId: z.string().nullable().optional(),
   status: ProposalStatusSchema,
@@ -150,6 +160,13 @@ export const GenerateProposalInputSchema = z.object({
 });
 
 export type GenerateProposalInput = z.infer<typeof GenerateProposalInputSchema>;
+
+export const GenerateProposalResponseSchema = z.object({
+  proposal: ProposalDocumentSchema,
+  proposalId: z.string(),
+});
+
+export type GenerateProposalResponse = z.infer<typeof GenerateProposalResponseSchema>;
 
 
 export const SaveProposalInputSchema = z.object({

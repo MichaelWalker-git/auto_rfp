@@ -1,9 +1,10 @@
 import {
-  CognitoIdentityProviderClient,
   AdminCreateUserCommand,
   AdminDeleteUserCommand,
   AdminUpdateUserAttributesCommand,
+  CognitoIdentityProviderClient,
 } from '@aws-sdk/client-cognito-identity-provider';
+import { UserRole } from '@auto-rfp/shared';
 
 export type CreateCognitoUserInput = {
   userPoolId: string;
@@ -13,7 +14,7 @@ export type CreateCognitoUserInput = {
    */
   username: string;
 
-  email: string; // should be lowercased email
+  email: string;
   emailVerified?: boolean;
 
   firstName?: string;
@@ -26,7 +27,7 @@ export type CreateCognitoUserInput = {
   custom?: {
     orgId?: string;
     userId?: string;
-    rolesCsv?: string; // keep small
+    role?: UserRole;
   };
 
   /**
@@ -68,7 +69,7 @@ export async function adminCreateUser(
 
           ...(custom?.orgId ? [{ Name: 'custom:orgId', Value: custom.orgId }] : []),
           ...(custom?.userId ? [{ Name: 'custom:userId', Value: custom.userId }] : []),
-          ...(custom?.rolesCsv ? [{ Name: 'custom:roles', Value: custom.rolesCsv }] : []),
+          ...(custom?.role ? [{ Name: 'custom:role', Value: custom.role }] : []),
         ],
       }),
     );

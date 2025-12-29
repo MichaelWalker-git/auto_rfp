@@ -1,7 +1,5 @@
 import type { APIGatewayProxyEventV2, APIGatewayProxyResultV2 } from 'aws-lambda';
-import { z } from 'zod';
-import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
-import { DynamoDBDocumentClient, GetCommand, UpdateCommand, } from '@aws-sdk/lib-dynamodb';
+import { GetCommand, UpdateCommand, } from '@aws-sdk/lib-dynamodb';
 import { CognitoIdentityProviderClient } from '@aws-sdk/client-cognito-identity-provider';
 
 import { apiResponse } from '../helpers/api';
@@ -11,41 +9,21 @@ import { PK_NAME, SK_NAME } from '../constants/common';
 import { USER_PK } from '../constants/user';
 import { adminUpdateUserAttributes } from '../helpers/cognito';
 import { userSk } from '../helpers/user';
+import { requireEnv } from '../helpers/env';
+import { docClient } from '../helpers/db';
+import { EditUserRoleRequestSchema } from '@auto-rfp/shared';
+import {
+  authContextMiddleware,
+  httpErrorMiddleware,
+  orgMembershipMiddleware,
+  requirePermission
+} from '../middleware/rbac-middleware';
+import middy from '@middy/core';
 
-const DB_TABLE_NAME = process.env.DB_TABLE_NAME;
-if (!DB_TABLE_NAME) throw new Error('DB_TABLE_NAME env var is not set');
-
-const USER_POOL_ID = process.env.COGNITO_USER_POOL_ID || process.env.USER_POOL_ID;
-if (!USER_POOL_ID) throw new Error('COGNITO_USER_POOL_ID (or USER_POOL_ID) env var is not set');
-
-const ddbClient = new DynamoDBClient({});
-const docClient = DynamoDBDocumentClient.from(ddbClient, {
-  marshallOptions: { removeUndefinedValues: true },
-});
+const DB_TABLE_NAME = requireEnv('DB_TABLE_NAME');
+const USER_POOL_ID = requireEnv('COGNITO_USER_POOL_ID');
 
 const cognito = new CognitoIdentityProviderClient({});
-
-const EditUserRoleRequestSchema = z.object({
-  orgId: z.string().min(1),
-  userId: z.string().min(1),
-  roles: z
-    .array(z.string().min(1))
-    .min(1)
-    .transform((arr) =>
-      // normalize + de-dupe while preserving order
-      Array.from(new Set(arr.map((r) => r.trim()).filter(Boolean))),
-    ),
-});
-
-export type EditUserRoleRequest = z.infer<typeof EditUserRoleRequestSchema>;
-
-function rolesToCsv(roles: string[]) {
-  return roles.join(',');
-}
-
-function rolesToSearch(roles: string[]) {
-  return roles.map((r) => r.toLowerCase()).join(' ');
-}
 
 function parseJsonBody(event: APIGatewayProxyEventV2): unknown {
   if (!event.body) return null;
@@ -86,7 +64,7 @@ export const baseHandler = async (
       });
     }
 
-    const { orgId, userId, roles } = parsed.data;
+    const { orgId, userId, role } = parsed.data;
     const key = {
       [PK_NAME]: USER_PK,
       [SK_NAME]: userSk(orgId, userId),
@@ -108,33 +86,24 @@ export const baseHandler = async (
     const cognitoUsername = getCognitoUsernameFromUserItem(userItem);
 
     const now = new Date().toISOString();
-    const rolesCsv = rolesToCsv(roles);
-    const rolesSearch = rolesToSearch(roles);
 
-    // 2) Update Dynamo
     const updateRes = await docClient.send(
       new UpdateCommand({
         TableName: DB_TABLE_NAME,
         Key: key,
         ConditionExpression: 'attribute_exists(#pk) AND attribute_exists(#sk)',
         UpdateExpression: [
-          'SET #roles = :roles',
-          '#rolesCsv = :rolesCsv',
-          '#rolesSearch = :rolesSearch',
+          'SET #role = :role',
           '#updatedAt = :now',
         ].join(', '),
         ExpressionAttributeNames: {
           '#pk': PK_NAME,
           '#sk': SK_NAME,
-          '#roles': 'roles',
-          '#rolesCsv': 'rolesCsv',
-          '#rolesSearch': 'rolesSearch',
+          '#role': 'role',
           '#updatedAt': 'updatedAt',
         },
         ExpressionAttributeValues: {
-          ':roles': roles,
-          ':rolesCsv': rolesCsv,
-          ':rolesSearch': rolesSearch,
+          ':role': role,
           ':now': now,
         },
         ReturnValues: 'ALL_NEW',
@@ -148,7 +117,7 @@ export const baseHandler = async (
         await adminUpdateUserAttributes(cognito, {
           userPoolId: USER_POOL_ID,
           username: cognitoUsername,
-          attributes: [{ Name: 'custom:roles', Value: rolesCsv }],
+          attributes: [{ Name: 'custom:role', Value: role }],
         });
         cognitoUpdated = true;
       } catch (e: any) {
@@ -164,11 +133,11 @@ export const baseHandler = async (
       ok: true,
       orgId,
       userId,
-      roles,
+      role,
       cognito: {
         username: cognitoUsername ?? null,
         updated: cognitoUpdated,
-        customRoles: rolesCsv,
+        role
       },
       user: updateRes.Attributes ?? null,
     });
@@ -186,4 +155,10 @@ export const baseHandler = async (
   }
 };
 
-export const handler = withSentryLambda(baseHandler);
+export const handler = withSentryLambda(
+  middy(baseHandler)
+    .use(authContextMiddleware())
+    .use(orgMembershipMiddleware())
+    .use(requirePermission('user:edit'))
+    .use(httpErrorMiddleware())
+);

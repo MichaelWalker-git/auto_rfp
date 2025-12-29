@@ -1,6 +1,5 @@
 import { APIGatewayProxyEventV2, APIGatewayProxyResultV2, } from 'aws-lambda';
-import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
-import { DynamoDBDocumentClient, PutCommand } from '@aws-sdk/lib-dynamodb';
+import { PutCommand } from '@aws-sdk/lib-dynamodb';
 
 import { PK_NAME, SK_NAME } from '../constants/common';
 import { apiResponse } from '../helpers/api';
@@ -8,13 +7,14 @@ import { CreateDocumentDTO, CreateDocumentDTOSchema, DocumentItem, } from '../sc
 import { v4 as uuidv4 } from 'uuid';
 import { DOCUMENT_PK } from '../constants/document';
 import { withSentryLambda } from '../sentry-lambda';
-
-const ddbClient = new DynamoDBClient({});
-const docClient = DynamoDBDocumentClient.from(ddbClient, {
-  marshallOptions: {
-    removeUndefinedValues: true,
-  },
-});
+import {
+  authContextMiddleware,
+  httpErrorMiddleware,
+  orgMembershipMiddleware,
+  requirePermission
+} from '../middleware/rbac-middleware';
+import middy from '@middy/core';
+import { docClient } from '../helpers/db';
 
 const DB_TABLE_NAME = process.env.DB_TABLE_NAME;
 
@@ -101,4 +101,10 @@ export async function createDocument(
   return documentItem;
 }
 
-export const handler = withSentryLambda(baseHandler);
+export const handler = withSentryLambda(
+  middy(baseHandler)
+    .use(authContextMiddleware())
+    .use(orgMembershipMiddleware())
+    .use(requirePermission('document:create'))
+    .use(httpErrorMiddleware())
+);

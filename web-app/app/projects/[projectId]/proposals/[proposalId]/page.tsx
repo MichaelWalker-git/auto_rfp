@@ -3,8 +3,13 @@
 import React, { useMemo, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import useSWRMutation from 'swr/mutation';
-import { ArrowLeft, CheckCircle2, Loader2, Save, Trash2, XCircle, Download } from 'lucide-react';
-
+import { CheckCircle2, ChevronDown, Download, Loader2, Save, Trash2, XCircle } from 'lucide-react';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -25,7 +30,7 @@ import {
 import { env } from '@/lib/env';
 import { authFetcher } from '@/lib/auth/auth-fetcher';
 import { useApi } from '@/lib/hooks/use-api';
-
+import * as XLSX from 'xlsx';
 import {
   type Proposal,
   type ProposalDocument,
@@ -36,7 +41,7 @@ import {
   type SaveProposalRequest,
   SaveProposalRequestSchema,
 } from '@auto-rfp/shared';
-import { exportProposalToDocx } from '@/lib/helpers/proposal';
+import { exportProposalToDocx, exportProposalToPdf } from '@/lib/helpers/proposal';
 
 const BASE = `${env.BASE_API_URL}/proposal`;
 
@@ -278,11 +283,6 @@ export default function ProposalDetailsPage() {
     <div className="p-6 space-y-4">
       <div className="flex items-center justify-between gap-3">
         <div className="flex items-center gap-2">
-          <Button variant="ghost" size="sm" onClick={() => router.back()} className="gap-2">
-            <ArrowLeft className="h-4 w-4" />
-            Back
-          </Button>
-
           <div>
             <h1 className="text-xl font-semibold leading-tight">
               Proposal
@@ -295,22 +295,64 @@ export default function ProposalDetailsPage() {
         </div>
 
         <div className="flex items-center gap-2">
-          <Button
-            variant="outline"
-            disabled={!draft || isBusy}
-            onClick={() => draft && exportProposalToDocx(draft.document)}
-            className="gap-2"
-          >
-            <Download className="h-4 w-4" />
-            Export DOCX
-          </Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild disabled={!draft || isBusy}>
+              <Button variant="outline" className="gap-2">
+                <Download className="h-4 w-4"/>
+                Export
+                <ChevronDown className="h-4 w-4 opacity-70"/>
+              </Button>
+            </DropdownMenuTrigger>
+
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={() => draft && exportProposalToPdf(draft.document)}>
+                Export PDF
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => draft && exportProposalToDocx(draft.document)}>
+                Export DOCX
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={async () => {
+                  if (!draft) return;
+                  const doc = draft.document;
+                  const rows: any[][] = [
+                    ['Section', 'Subsection', 'Content', 'Section Summary'],
+                    ...doc.sections.flatMap((s) => {
+                      const sectionTitle = s.title ?? '';
+                      const sectionSummary = s.summary ?? '';
+                      if (!s.subsections?.length) return [[sectionTitle, '', '', sectionSummary]];
+                      return s.subsections.map((sub) => [
+                        sectionTitle,
+                        sub.title ?? '',
+                        sub.content ?? '',
+                        sectionSummary,
+                      ]);
+                    }),
+                  ];
+
+                  const ws = XLSX.utils.aoa_to_sheet(rows);
+                  const wb = XLSX.utils.book_new();
+                  XLSX.utils.book_append_sheet(wb, ws, 'Proposal');
+
+                  const safeName = (doc.proposalTitle || 'proposal')
+                    .toString()
+                    .trim()
+                    .replace(/[\\/:*?"<>|]+/g, '-');
+
+                  XLSX.writeFile(wb, `${safeName}.xlsx`);
+                }}
+              >
+                Export XLSX
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
           <Button
             variant="outline"
             disabled={!draft || isBusy}
             onClick={() => doSave()}
             className="gap-2"
           >
-            {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+            {isSaving ? <Loader2 className="h-4 w-4 animate-spin"/> : <Save className="h-4 w-4"/>}
             Save
           </Button>
 
@@ -320,7 +362,7 @@ export default function ProposalDetailsPage() {
             onClick={() => doSave(ProposalStatus.APPROVED)}
             className="gap-2"
           >
-            <CheckCircle2 className="h-4 w-4" />
+            <CheckCircle2 className="h-4 w-4"/>
             Approve
           </Button>
 
@@ -330,7 +372,7 @@ export default function ProposalDetailsPage() {
             onClick={() => doSave(ProposalStatus.REJECTED)}
             className="gap-2"
           >
-            <XCircle className="h-4 w-4" />
+            <XCircle className="h-4 w-4"/>
             Reject
           </Button>
         </div>
@@ -350,7 +392,7 @@ export default function ProposalDetailsPage() {
 
       {isLoading && !draft && (
         <div className="flex items-center gap-2 text-sm text-muted-foreground">
-          <Loader2 className="h-4 w-4 animate-spin" />
+          <Loader2 className="h-4 w-4 animate-spin"/>
           Loading proposal...
         </div>
       )}
@@ -426,7 +468,7 @@ export default function ProposalDetailsPage() {
                       onClick={() => openDeleteConfirm({ type: 'section', sectionIndex })}
                       disabled={isBusy}
                     >
-                      <Trash2 className="h-4 w-4" />
+                      <Trash2 className="h-4 w-4"/>
                     </Button>
                   </div>
 
@@ -473,7 +515,7 @@ export default function ProposalDetailsPage() {
                             }
                             disabled={isBusy}
                           >
-                            <Trash2 className="h-4 w-4" />
+                            <Trash2 className="h-4 w-4"/>
                           </Button>
                         </div>
 

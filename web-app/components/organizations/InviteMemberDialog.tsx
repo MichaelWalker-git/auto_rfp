@@ -16,12 +16,11 @@ import {
   DialogTrigger,
 } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
+import { UserRole, UserRoleSchema } from '@auto-rfp/shared';
 
 import type { TeamMember } from './types';
 import { createUserApi } from '@/lib/hooks/use-user';
-
-type UiRole = 'admin' | 'member';
-const roleToApiRoles = (role: UiRole) => (role === 'admin' ? ['ADMIN'] : ['MEMBER']);
+import PermissionWrapper from '@/components/permission-wrapper';
 
 interface InviteMemberDialogProps {
   orgId: string;
@@ -32,7 +31,7 @@ export function InviteMemberDialog({ orgId, onMemberAdded }: InviteMemberDialogP
   const [open, setOpen] = useState(false);
 
   const [inviteEmail, setInviteEmail] = useState('');
-  const [inviteRole, setInviteRole] = useState<UiRole>('member');
+  const [inviteRole, setInviteRole] = useState<UserRole>('VIEWER');
   const [isInviting, setIsInviting] = useState(false);
 
   const { toast } = useToast();
@@ -52,7 +51,7 @@ export function InviteMemberDialog({ orgId, onMemberAdded }: InviteMemberDialogP
       const created = await createUserApi({
         orgId,
         email,
-        roles: roleToApiRoles(inviteRole),
+        role: inviteRole,
         status: 'INVITED', // optional; your create lambda defaults to ACTIVE if omitted
       });
 
@@ -76,7 +75,7 @@ export function InviteMemberDialog({ orgId, onMemberAdded }: InviteMemberDialogP
       });
 
       setInviteEmail('');
-      setInviteRole('member');
+      setInviteRole('VIEWER');
       setOpen(false);
     } catch (error) {
       console.error('Error creating user:', error);
@@ -93,10 +92,12 @@ export function InviteMemberDialog({ orgId, onMemberAdded }: InviteMemberDialogP
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button>
-          <UserPlus className="mr-2 h-4 w-4"/>
-          Create User
-        </Button>
+        <PermissionWrapper requiredPermission={'user:create'}>
+          <Button>
+            <UserPlus className="mr-2 h-4 w-4"/>
+            Create User
+          </Button>
+        </PermissionWrapper>
       </DialogTrigger>
 
       <DialogContent>
@@ -126,10 +127,13 @@ export function InviteMemberDialog({ orgId, onMemberAdded }: InviteMemberDialogP
                 id="role"
                 className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
                 value={inviteRole}
-                onChange={(e) => setInviteRole(e.target.value as UiRole)}
+                onChange={(e) => setInviteRole(e.target.value as UserRole)}
               >
-                <option value="member">Member</option>
-                <option value="admin">Admin</option>
+                {UserRoleSchema.options.map((r) => (
+                  <option key={r} value={r}>
+                    {r[0] + r.slice(1).toLowerCase()}
+                  </option>
+                ))}
               </select>
             </div>
           </div>

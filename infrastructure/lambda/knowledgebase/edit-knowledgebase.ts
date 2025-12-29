@@ -1,32 +1,29 @@
 import { APIGatewayProxyEventV2, APIGatewayProxyResultV2, } from 'aws-lambda';
-import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
-import { DynamoDBDocumentClient, UpdateCommand, } from '@aws-sdk/lib-dynamodb';
+import { UpdateCommand, } from '@aws-sdk/lib-dynamodb';
 
 import { PK_NAME, SK_NAME } from '../constants/common';
 import { KNOWLEDGE_BASE_PK } from '../constants/organization';
-import { apiResponse } from '../helpers/api';
-import { KnowledgeBaseItem, UpdateKnowledgeBaseDTO, UpdateKnowledgeBaseSchema, } from '../schemas/knowledge-base';
+import { apiResponse, getOrgId } from '../helpers/api';
+import { KnowledgeBaseItem, UpdateKnowledgeBaseDTO, UpdateKnowledgeBaseSchema, } from '@auto-rfp/shared';
 import { withSentryLambda } from '../sentry-lambda';
+import {
+  authContextMiddleware,
+  httpErrorMiddleware,
+  orgMembershipMiddleware,
+  requirePermission
+} from '../middleware/rbac-middleware';
+import { requireEnv } from '../helpers/env';
+import middy from '@middy/core';
+import { docClient } from '../helpers/db';
 
-const ddbClient = new DynamoDBClient({});
-const docClient = DynamoDBDocumentClient.from(ddbClient, {
-  marshallOptions: {
-    removeUndefinedValues: true,
-  },
-});
+const DB_TABLE_NAME = requireEnv('DB_TABLE_NAME');
 
-const DB_TABLE_NAME = process.env.DB_TABLE_NAME;
-
-if (!DB_TABLE_NAME) {
-  throw new Error('DB_TABLE_NAME environment variable is not set');
-}
-
-// --- Main Handler ---
 export const baseHandler = async (
   event: APIGatewayProxyEventV2,
 ): Promise<APIGatewayProxyResultV2> => {
-  const { orgId, kbId } = event.pathParameters || {};
-
+  const tokenOrgId = getOrgId(event);
+  const { orgId: queryOrgId, kbId } = event.queryStringParameters || {};
+  const orgId = tokenOrgId ? tokenOrgId : queryOrgId;
   if (!orgId || !kbId) {
     return apiResponse(400, {
       message: 'Missing required path parameters: orgId and kbId',
@@ -146,4 +143,10 @@ export async function updateKnowledgeBase(
   }
 }
 
-export const handler = withSentryLambda(baseHandler);
+export const handler = withSentryLambda(
+  middy(baseHandler)
+    .use(authContextMiddleware())
+    .use(orgMembershipMiddleware())
+    .use(requirePermission('kb:edit'))
+    .use(httpErrorMiddleware())
+);

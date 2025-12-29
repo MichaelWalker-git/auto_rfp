@@ -5,15 +5,23 @@ import { DynamoDBDocumentClient, QueryCommand } from '@aws-sdk/lib-dynamodb';
 import { apiResponse } from '../helpers/api';
 import { PK_NAME, SK_NAME } from '../constants/common';
 import { USER_PK } from '../constants/user';
+import { requireEnv } from '../helpers/env';
+import { userSk } from '../helpers/user';
+import { withSentryLambda } from '../sentry-lambda';
+import {
+  authContextMiddleware,
+  httpErrorMiddleware,
+  orgMembershipMiddleware,
+  requirePermission
+} from '../middleware/rbac-middleware';
+import middy from '@middy/core';
 
 const ddb = DynamoDBDocumentClient.from(new DynamoDBClient({}), {
   marshallOptions: { removeUndefinedValues: true },
 });
 
-const TABLE = process.env.DB_TABLE_NAME!;
-if (!TABLE) throw new Error('DB_TABLE_NAME is required');
+const TABLE = requireEnv('DB_TABLE_NAME');
 
-const skPrefix = (orgId: string) => `ORG#${orgId}#USER#`;
 const encodeNextToken = (lek: Record<string, any>) =>
   Buffer.from(JSON.stringify(lek), 'utf8').toString('base64');
 const decodeNextToken = (token: string) =>
@@ -25,7 +33,7 @@ function asInt(v: string | undefined, def: number): number {
   return Math.max(1, Math.min(200, Math.trunc(n)));
 }
 
-export const handler = async (event: APIGatewayProxyEventV2): Promise<APIGatewayProxyResultV2> => {
+export const baseHandler = async (event: APIGatewayProxyEventV2): Promise<APIGatewayProxyResultV2> => {
   try {
     const qs = event.queryStringParameters ?? {};
 
@@ -48,7 +56,7 @@ export const handler = async (event: APIGatewayProxyEventV2): Promise<APIGateway
     };
     const expressionAttributeValues: Record<string, any> = {
       ':pkValue': USER_PK,
-      ':skPrefix': skPrefix(orgId),
+      ':skPrefix': userSk(orgId, ''),
     };
 
     // Base query: PK = USER_PK AND begins_with(SK, ORG#<orgId>#USER#)
@@ -61,11 +69,10 @@ export const handler = async (event: APIGatewayProxyEventV2): Promise<APIGateway
       filterExpressionParts.push('contains(#searchText, :search)');
     }
 
-    // roles is an array; contains(list, element) works
     if (role) {
-      expressionAttributeNames['#roles'] = 'roles';
+      expressionAttributeNames['#role'] = 'role';
       expressionAttributeValues[':role'] = role;
-      filterExpressionParts.push('contains(#roles, :role)');
+      filterExpressionParts.push('contains(#role, :role)');
     }
 
     if (status) {
@@ -96,7 +103,7 @@ export const handler = async (event: APIGatewayProxyEventV2): Promise<APIGateway
       lastName: it.lastName,
       displayName: it.displayName,
       phone: it.phone,
-      roles: it.roles,
+      role: it.role,
       status: it.status,
       cognitoUsername: it.cognitoUsername,
       createdAt: it.createdAt,
@@ -117,3 +124,11 @@ export const handler = async (event: APIGatewayProxyEventV2): Promise<APIGateway
     return apiResponse(500, { message: 'Internal Server Error' });
   }
 };
+
+export const handler = withSentryLambda(
+  middy(baseHandler)
+    .use(authContextMiddleware())
+    .use(orgMembershipMiddleware())
+    .use(requirePermission('user:read'))
+    .use(httpErrorMiddleware())
+);

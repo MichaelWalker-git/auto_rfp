@@ -1,33 +1,31 @@
 import { APIGatewayProxyEventV2, APIGatewayProxyResultV2 } from 'aws-lambda';
-import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
-import { DynamoDBDocumentClient, QueryCommand } from '@aws-sdk/lib-dynamodb';
+import { QueryCommand } from '@aws-sdk/lib-dynamodb';
 
 import { PK_NAME, SK_NAME } from '../constants/common';
-import { apiResponse } from '../helpers/api';
+import { apiResponse, getOrgId } from '../helpers/api';
 import { KNOWLEDGE_BASE_PK } from '../constants/organization';
 import { DOCUMENT_PK } from '../constants/document';
-import { KnowledgeBase, KnowledgeBaseItem } from '../schemas/knowledge-base';
+import { KnowledgeBase, KnowledgeBaseItem } from '@auto-rfp/shared';
 import { withSentryLambda } from '../sentry-lambda';
+import {
+  authContextMiddleware,
+  httpErrorMiddleware,
+  orgMembershipMiddleware,
+  requirePermission
+} from '../middleware/rbac-middleware';
+import middy from '@middy/core';
+import { requireEnv } from '../helpers/env';
+import { DBItem, docClient } from '../helpers/db';
 
-const ddbClient = new DynamoDBClient({});
-const docClient = DynamoDBDocumentClient.from(ddbClient, {
-  marshallOptions: {
-    removeUndefinedValues: true,
-  },
-});
-
-const DB_TABLE_NAME = process.env.DB_TABLE_NAME;
-
-if (!DB_TABLE_NAME) {
-  throw new Error('DB_TABLE_NAME environment variable is not set');
-}
+const DB_TABLE_NAME = requireEnv('DB_TABLE_NAME');
 
 export const baseHandler = async (
   event: APIGatewayProxyEventV2,
 ): Promise<APIGatewayProxyResultV2> => {
   try {
-    const { orgId } = event.queryStringParameters || {};
-
+    const tokenOrgId = getOrgId(event);
+    const { orgId: queryOrgId } = event.queryStringParameters || {};
+    const orgId = tokenOrgId ? tokenOrgId : queryOrgId;
     if (!orgId) {
       return apiResponse(400, {
         message: 'Missing required path parameter: orgId',
@@ -47,12 +45,8 @@ export const baseHandler = async (
   }
 };
 
-// --- List KBs for org ----
-
-export async function listKnowledgeBasesForOrg(
-  orgId: string,
-): Promise<KnowledgeBase[]> {
-  const items: KnowledgeBaseItem[] = [];
+export async function listKnowledgeBasesForOrg(orgId: string): Promise<KnowledgeBase[]> {
+  const items: (KnowledgeBaseItem & DBItem)[] = [];
   let ExclusiveStartKey: Record<string, any> | undefined = undefined;
 
   const skPrefix = `${orgId}#`;
@@ -76,7 +70,7 @@ export async function listKnowledgeBasesForOrg(
     );
 
     if (res.Items && res.Items.length > 0) {
-      items.push(...(res.Items as KnowledgeBaseItem[]));
+      items.push(...(res.Items as (KnowledgeBaseItem & DBItem)[]));
     }
 
     ExclusiveStartKey = res.LastEvaluatedKey as
@@ -147,4 +141,10 @@ async function getDocumentCountForKnowledgeBase(
   return count;
 }
 
-export const handler = withSentryLambda(baseHandler);
+export const handler = withSentryLambda(
+  middy(baseHandler)
+    .use(authContextMiddleware())
+    .use(orgMembershipMiddleware())
+    .use(requirePermission('kb:read'))
+    .use(httpErrorMiddleware())
+);

@@ -2,13 +2,17 @@ import { APIGatewayProxyEventV2, APIGatewayProxyResultV2, } from 'aws-lambda';
 import { SFNClient, StartExecutionCommand } from '@aws-sdk/client-sfn';
 import { withSentryLambda } from '../sentry-lambda';
 import { apiResponse } from '../helpers/api';
+import {
+  authContextMiddleware,
+  httpErrorMiddleware,
+  orgMembershipMiddleware,
+  requirePermission
+} from '../middleware/rbac-middleware';
+import middy from '@middy/core';
+import { requireEnv } from '../helpers/env';
 
 const sfnClient = new SFNClient({});
-const STATE_MACHINE_ARN = process.env.STATE_MACHINE_ARN;
-
-if (!STATE_MACHINE_ARN) {
-  throw new Error('STATE_MACHINE_ARN environment variable is not set');
-}
+const STATE_MACHINE_ARN = requireEnv('STATE_MACHINE_ARN');
 
 interface StartPipelineRequestBody {
   knowledgeBaseId: string;
@@ -63,4 +67,10 @@ export const baseHandler = async (
   }
 };
 
-export const handler = withSentryLambda(baseHandler);
+export const handler = withSentryLambda(
+  middy(baseHandler)
+    .use(authContextMiddleware())
+    .use(orgMembershipMiddleware())
+    .use(requirePermission('document:create'))
+    .use(httpErrorMiddleware())
+);

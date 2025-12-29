@@ -1,93 +1,43 @@
 import { APIGatewayProxyEventV2, APIGatewayProxyResultV2 } from 'aws-lambda';
-
-import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
-import { DynamoDBDocumentClient, GetCommand, PutCommand, QueryCommand, } from '@aws-sdk/lib-dynamodb';
+import { QueryCommand, } from '@aws-sdk/lib-dynamodb';
 
 import { BedrockRuntimeClient, InvokeModelCommand, } from '@aws-sdk/client-bedrock-runtime';
-
-import { GetObjectCommand, S3Client } from '@aws-sdk/client-s3';
-import { randomUUID } from 'crypto';
 
 import { apiResponse } from '../helpers/api';
 import { PK_NAME, SK_NAME } from '../constants/common';
 import { DOCUMENT_PK } from '../constants/document';
 import { DocumentItem } from '../schemas/document';
 import { getEmbedding, OpenSearchHit, semanticSearchChunks } from '../helpers/embeddings';
-import { QUESTION_PK } from '../constants/question';
 import { withSentryLambda } from '../sentry-lambda';
-import { streamToString } from '../helpers/s3';
+import {
+  authContextMiddleware,
+  httpErrorMiddleware,
+  orgMembershipMiddleware,
+  requirePermission
+} from '../middleware/rbac-middleware';
+import middy from '@middy/core';
+import { requireEnv } from '../helpers/env';
+import { loadTextFromS3 } from '../helpers/executive-opportunity-frief';
+import { AnswerQuestionRequestBody, QAItem } from '@auto-rfp/shared';
+import { getQuestionItemById } from '../helpers/question';
+import { saveAnswer } from './save-answer';
+import { DBItem, docClient } from '../helpers/db';
+import { safeParseJsonFromModel } from '../helpers/json';
 
-const ddbClient = new DynamoDBClient({});
-const docClient = DynamoDBDocumentClient.from(ddbClient, {
-  marshallOptions: { removeUndefinedValues: true },
-});
 
-const s3Client = new S3Client({});
-
-const REGION =
-  process.env.REGION ||
-  process.env.AWS_REGION ||
-  process.env.BEDROCK_REGION ||
-  'us-east-1';
+const REGION = requireEnv('REGION');
+const DB_TABLE_NAME = requireEnv('DB_TABLE_NAME');
+const DOCUMENTS_BUCKET = requireEnv('DOCUMENTS_BUCKET');
+const OPENSEARCH_ENDPOINT = requireEnv('OPENSEARCH_ENDPOINT');
+const OPENSEARCH_INDEX = requireEnv('OPENSEARCH_INDEX');
+const BEDROCK_EMBEDDING_MODEL_ID = requireEnv('BEDROCK_EMBEDDING_MODEL_ID');
+const BEDROCK_MODEL_ID = requireEnv('BEDROCK_MODEL_ID');
 
 const bedrockClient = new BedrockRuntimeClient({ region: REGION });
 
-const DB_TABLE_NAME = process.env.DB_TABLE_NAME;
-const DOCUMENTS_BUCKET = process.env.DOCUMENTS_BUCKET;
-const OPENSEARCH_ENDPOINT = process.env.OPENSEARCH_ENDPOINT;
-const OPENSEARCH_INDEX = process.env.OPENSEARCH_INDEX || 'documents';
-const BEDROCK_EMBEDDING_MODEL_ID = process.env.BEDROCK_EMBEDDING_MODEL_ID || 'amazon.titan-embed-text-v2:0';
+export type QuestionItemDynamo = QAItem & DBItem
 
-const BEDROCK_MODEL_ID = process.env.BEDROCK_MODEL_ID;
-
-if (!DB_TABLE_NAME) throw new Error('DB_TABLE_NAME env var is not set');
-if (!DOCUMENTS_BUCKET) throw new Error('DOCUMENTS_BUCKET env var is not set');
-if (!OPENSEARCH_ENDPOINT) throw new Error('OPENSEARCH_ENDPOINT env var is not set');
-if (!BEDROCK_MODEL_ID) throw new Error('BEDROCK_MODEL_ID env var is not set');
-
-// --- Types ---
-interface AnswerQuestionRequestBody {
-  projectId: string;
-  questionId?: string;
-  question?: string;
-  topK?: number; // how many chunks to retrieve
-}
-
-interface QAItem {
-  questionId: string;
-  documentId: string;
-  question: string;
-  answer: string;
-  createdAt: string;
-  confidence: number;
-  found: boolean;
-}
-
-// Shape of question record in Dynamo (adjust to your actual schema)
-interface QuestionItemDynamo {
-  [PK_NAME]: string;
-  [SK_NAME]: string;
-  id?: string;
-  questionText: string;
-
-  [key: string]: any;
-}
-
-async function loadTextFromS3(bucket: string, key: string): Promise<string> {
-  const res = await s3Client.send(new GetObjectCommand({ Bucket: bucket, Key: key }));
-  if (!res.Body) throw new Error(`S3 object ${key} has no body`);
-  return streamToString(res.Body as any);
-}
-
-// --- Helper: find DocumentItem in Dynamo by documentId (existing approach kept) ---
-async function getDocumentItemById(
-  documentId: string,
-): Promise<
-  DocumentItem & {
-  [PK_NAME]: string;
-  [SK_NAME]: string;
-}
-> {
+async function getDocumentItemById(documentId: string): Promise<DocumentItem & DBItem> {
   const skSuffix = `#DOC#${documentId}`;
 
   const queryRes = await docClient.send(
@@ -112,21 +62,18 @@ async function getDocumentItemById(
   return docItem;
 }
 
-// --- Old fallback (full doc text) ---
 async function loadDocumentText(docItem: DocumentItem): Promise<string> {
   const textKey = (docItem as any).textFileKey || (docItem as any).fileKey;
   if (!textKey) throw new Error('Document has no textFileKey or fileKey');
   return loadTextFromS3(DOCUMENTS_BUCKET!, textKey);
 }
 
-// --- NEW: build context from chunk hits ---
 async function buildContextFromChunkHits(
   hits: OpenSearchHit[],
   opts?: { maxChars?: number },
 ): Promise<{ context: string; primaryDocumentId: string }> {
   const maxChars = opts?.maxChars ?? 60_000; // keep prompt sane
 
-  // dedupe by chunkKey (OpenSearch can return near-duplicates)
   const seen = new Set<string>();
   const unique = hits.filter((h) => {
     const key = h._source?.chunkKey;
@@ -143,7 +90,7 @@ async function buildContextFromChunkHits(
     const src = hit._source || {};
 
     const chunkText = src?.chunkKey
-      ? (await loadTextFromS3(DOCUMENTS_BUCKET!, src.chunkKey)).trim()
+      ? (await loadTextFromS3(DOCUMENTS_BUCKET, src.chunkKey)).trim()
       : '';
 
     if (!chunkText) continue;
@@ -164,34 +111,6 @@ async function buildContextFromChunkHits(
   }
 
   return { context: acc.trim(), primaryDocumentId };
-}
-
-// --- Helper: load question by questionId from Dynamo ---
-async function getQuestionItemById(
-  projectId: string,
-  questionId: string,
-): Promise<QuestionItemDynamo> {
-  const res = await docClient.send(
-    new GetCommand({
-      TableName: DB_TABLE_NAME,
-      Key: {
-        [PK_NAME]: QUESTION_PK,
-        [SK_NAME]: `${projectId}#${questionId}`,
-      },
-    }),
-  );
-
-  if (!res.Item) {
-    throw new Error(`Question not found for PK=${QUESTION_PK}, SK=${questionId}`);
-  }
-
-  const item = res.Item as QuestionItemDynamo;
-
-  if (!item.questionText) {
-    throw new Error(`Question item for SK=${questionId} has no "questionText" field`);
-  }
-
-  return item;
 }
 
 async function answerWithBedrockLLM(question: string, context: string): Promise<Partial<QAItem>> {
@@ -242,23 +161,7 @@ Return ONLY a single JSON object:
   const raw = Buffer.from(res.body).toString('utf-8');
   console.log('Raw:', raw);
 
-  let outer: any;
-  try {
-    outer = JSON.parse(raw);
-  } catch {
-    console.error('Invalid JSON envelope from Bedrock:', raw);
-    throw new Error('Invalid JSON envelope from Bedrock');
-  }
-
-  const text: string | undefined = outer?.content?.[0]?.text;
-  if (!text) throw new Error('Model returned no text content');
-
-  const start = text.indexOf('{');
-  const end = text.lastIndexOf('}');
-
-  const parsed = start === -1 || end === -1 || end <= start
-    ? text.trim()
-    : JSON.parse(text.slice(start, end + 1).replace(/\n/g, '\\n'));
+  const parsed = safeParseJsonFromModel(raw);
 
   const result: Partial<QAItem> = {
     answer: typeof parsed.answer === 'string' ? parsed.answer : '',
@@ -271,42 +174,6 @@ Return ONLY a single JSON object:
 
   if (!result.found) result.answer = '';
   return result;
-}
-
-async function storeAnswer(
-  documentId: string,
-  question: string,
-  answer: string,
-  confidence: number,
-  found: boolean,
-  existingQuestionId?: string,
-): Promise<QAItem> {
-  const now = new Date().toISOString();
-  const questionId = existingQuestionId ?? randomUUID();
-
-  const item: QAItem & { [PK_NAME]: string; [SK_NAME]: string } = {
-    [PK_NAME]: 'ANSWER',
-    [SK_NAME]: `DOC#${documentId}#Q#${questionId}`,
-    questionId,
-    documentId,
-    question,
-    answer,
-    createdAt: now,
-    confidence,
-    found,
-  };
-
-  await docClient.send(new PutCommand({ TableName: DB_TABLE_NAME, Item: item }));
-
-  return {
-    questionId,
-    documentId,
-    question,
-    answer,
-    createdAt: now,
-    confidence,
-    found,
-  };
 }
 
 export const baseHandler = async (
@@ -325,33 +192,26 @@ export const baseHandler = async (
 
   const topK = body.topK && body.topK > 0 ? body.topK : 30;
 
-  let questionText: string | undefined;
-  const { questionId, projectId } = body;
+  const { questionId, projectId, question } = body;
 
   try {
-    // 0) Resolve question text
-    if (questionId) {
-      const questionItem = await getQuestionItemById(projectId, questionId);
-      questionText = questionItem.questionText;
-      console.log(`Loaded question from Dynamo. questionId=${questionId}, question="${questionText}"`);
-    } else {
-      questionText = body.question?.trim();
-      if (!questionText) {
-        return apiResponse(400, {
-          message: 'Either questionId (preferred) or question text must be provided',
-        });
-      }
-      console.log(`Using inline question from request. question="${questionText}"`);
+
+    const questionText = questionId
+      ? (await getQuestionItemById(docClient, projectId, questionId)).question
+      : question?.trim();
+
+    if (!questionText) {
+      return apiResponse(400, {
+        message: 'Either questionId (preferred) or question text must be provided',
+      });
     }
 
-    // 1) Embed question text
     const questionEmbedding = await getEmbedding(
       bedrockClient,
       BEDROCK_EMBEDDING_MODEL_ID,
-      questionText,
+      questionText || '',
     );
 
-    // 2) Semantic search in OpenSearch (CHUNKS INDEX)
     const hits = await semanticSearchChunks(
       OPENSEARCH_ENDPOINT,
       questionEmbedding,
@@ -388,14 +248,13 @@ export const baseHandler = async (
     const { answer, confidence, found } = await answerWithBedrockLLM(questionText, finalContext);
 
     // 5) Store Q&A in Dynamo
-    const qaItem = await storeAnswer(
-      documentId,
-      questionText,
-      answer || '',
-      confidence || 0,
-      found || false,
-      questionId,
-    );
+    const qaItem = await saveAnswer({
+      documentId: documentId || '',
+      questionId: questionId,
+      text: answer,
+      confidence: confidence,
+      source: hits[0]._source?.chunkKey
+    });
 
     return apiResponse(200, {
       documentId,
@@ -414,4 +273,10 @@ export const baseHandler = async (
   }
 };
 
-export const handler = withSentryLambda(baseHandler);
+export const handler = withSentryLambda(
+  middy(baseHandler)
+    .use(authContextMiddleware())
+    .use(orgMembershipMiddleware())
+    .use(requirePermission('answer:generate'))
+    .use(httpErrorMiddleware())
+);

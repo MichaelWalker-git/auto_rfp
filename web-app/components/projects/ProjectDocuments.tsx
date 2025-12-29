@@ -1,7 +1,7 @@
 'use client';
 
-import React, { useRef, useState, useMemo } from 'react';
-import { Upload, FileText, Trash2, Play, AlertCircle, FolderOpen, Loader2 } from 'lucide-react';
+import React, { useMemo, useRef, useState } from 'react';
+import { AlertCircle, FileText, FolderOpen, Loader2, Play, Trash2, Upload } from 'lucide-react';
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -11,11 +11,12 @@ import { cn } from '@/lib/utils';
 
 import { usePresignUpload } from '@/lib/hooks/use-presign';
 import {
-  useQuestionFiles,
   useCreateQuestionFile,
+  useDeleteQuestionFile,
+  useQuestionFiles,
   useStartQuestionFilePipeline,
-  useDeleteQuestionFile, // ✅ use hook
 } from '@/lib/hooks/use-question-file';
+import PermissionWrapper from '@/components/permission-wrapper';
 
 interface ProjectDocumentsProps {
   projectId: string;
@@ -314,25 +315,27 @@ export function ProjectDocuments({ projectId }: ProjectDocumentsProps) {
                         Start extraction
                       </Button>
 
-                      <Button
-                        size="sm"
-                        variant="destructive"
-                        className="gap-2"
-                        disabled={!f.questionFileId || !!startingId || !!deletingId || isDeleting}
-                        onClick={async () => {
-                          if (!f.questionFileId) return;
-                          try {
-                            setDeletingId(f.questionFileId);
-                            await deleteQuestionFile({ projectId, questionFileId: f.questionFileId });
-                            await refetch();
-                          } finally {
-                            setDeletingId(null);
-                          }
-                        }}
-                      >
-                        {rowDeleting ? <Loader2 className="h-4 w-4 animate-spin"/> : <Trash2 className="h-4 w-4"/>}
-                        Remove
-                      </Button>
+                      <PermissionWrapper requiredPermission={'rfp:delete'}>
+                        <Button
+                          size="sm"
+                          variant="destructive"
+                          className="gap-2"
+                          disabled={!f.questionFileId || !!startingId || !!deletingId || isDeleting}
+                          onClick={async () => {
+                            if (!f.questionFileId) return;
+                            try {
+                              setDeletingId(f.questionFileId);
+                              await deleteQuestionFile({ projectId, questionFileId: f.questionFileId });
+                              await refetch();
+                            } finally {
+                              setDeletingId(null);
+                            }
+                          }}
+                        >
+                          {rowDeleting ? <Loader2 className="h-4 w-4 animate-spin"/> : <Trash2 className="h-4 w-4"/>}
+                          Remove
+                        </Button>
+                      </PermissionWrapper>
                     </div>
                   </div>
                 </div>

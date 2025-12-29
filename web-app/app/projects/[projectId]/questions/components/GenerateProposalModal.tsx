@@ -23,6 +23,7 @@ import {
 import { buildSaveRequest, useGenerateProposal, useSaveProposal } from '@/lib/hooks/use-proposal';
 import type { ProposalDocument, ProposalSection, ProposalSubsection } from '@auto-rfp/shared';
 import { ProposalStatus } from '@auto-rfp/shared';
+import PermissionWrapper from '@/components/permission-wrapper';
 
 interface GenerateProposalModalProps {
   projectId: string;
@@ -274,25 +275,27 @@ export const GenerateProposalModal: React.FC<GenerateProposalModalProps> = ({
 
   return (
     <>
-      <Button
-        onClick={handleOpen}
-        disabled={isMutating}
-        variant="outline"
-        size="sm"
-        className="gap-1"
-      >
-        {isMutating && !proposal ? (
-          <>
-            <Loader2 className="mr-2 h-4 w-4 animate-spin"/>
-            Generating proposal...
-          </>
-        ) : (
-          <>
-            <Brain className="h-4 w-4"/>
-            Generate proposal
-          </>
-        )}
-      </Button>
+      <PermissionWrapper requiredPermission={'proposal:create'}>
+        <Button
+          onClick={handleOpen}
+          disabled={isMutating}
+          variant="outline"
+          size="sm"
+          className="gap-1"
+        >
+          {isMutating && !proposal ? (
+            <>
+              <Loader2 className="mr-2 h-4 w-4 animate-spin"/>
+              Generating proposal...
+            </>
+          ) : (
+            <>
+              <Brain className="h-4 w-4"/>
+              Generate proposal
+            </>
+          )}
+        </Button>
+      </PermissionWrapper>
 
       <Dialog open={open} onOpenChange={setOpen} modal>
         <DialogContent className="!w-[55vw] !max-w-none h-[92vh] flex flex-col overflow-hidden">

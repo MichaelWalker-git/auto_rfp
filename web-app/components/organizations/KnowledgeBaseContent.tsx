@@ -20,6 +20,7 @@ import { useToast } from '@/components/ui/use-toast';
 import { BookOpen, Plus } from 'lucide-react';
 import { KnowledgeBase, useCreateKnowledgeBase, useKnowledgeBases } from '@/lib/hooks/use-knowledgebase';
 import { useRouter } from 'next/navigation';
+import PermissionWrapper from '@/components/permission-wrapper';
 
 export function useOpenKnowledgeBase(orgId: string) {
   const router = useRouter();
@@ -100,12 +101,14 @@ export function KnowledgeBaseContent({ params }: KnowledgeBaseContentProps) {
           </p>
         </div>
         <Dialog open={isCreateKBOpen} onOpenChange={setIsCreateKBOpen}>
-          <DialogTrigger asChild>
-            <Button>
-              <Plus className="mr-2 h-4 w-4"/>
-              New Knowledge Base
-            </Button>
-          </DialogTrigger>
+          <PermissionWrapper requiredPermission={'kb:create'}>
+            <DialogTrigger asChild>
+              <Button>
+                <Plus className="mr-2 h-4 w-4"/>
+                New Knowledge Base
+              </Button>
+            </DialogTrigger>
+          </PermissionWrapper>
           <DialogContent>
             <DialogHeader>
               <DialogTitle>Create Knowledge Base</DialogTitle>

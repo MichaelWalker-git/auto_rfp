@@ -1,48 +1,36 @@
 import { APIGatewayProxyEventV2, APIGatewayProxyResultV2, } from 'aws-lambda';
-import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
-import { DynamoDBDocumentClient, PutCommand, } from '@aws-sdk/lib-dynamodb';
+import { PutCommand, } from '@aws-sdk/lib-dynamodb';
 import { v4 as uuidv4 } from 'uuid';
 
 import { PK_NAME, SK_NAME } from '../constants/common';
 import { KNOWLEDGE_BASE_PK } from '../constants/organization';
-import { apiResponse } from '../helpers/api';
-import {
-  CreateKnowledgeBaseDTO,
-  CreateKnowledgeBaseSchema,
-  KnowledgeBase,
-  KnowledgeBaseItem,
-} from '../schemas/knowledge-base';
+import { apiResponse, getOrgId } from '../helpers/api';
+import { CreateKnowledgeBaseDTO, CreateKnowledgeBaseSchema, KnowledgeBase, KnowledgeBaseItem, } from '@auto-rfp/shared';
 import { withSentryLambda } from '../sentry-lambda';
+import {
+  authContextMiddleware,
+  httpErrorMiddleware,
+  orgMembershipMiddleware,
+  requirePermission
+} from '../middleware/rbac-middleware';
+import middy from '@middy/core';
+import { requireEnv } from '../helpers/env';
+import { docClient } from '../helpers/db';
 
-const ddbClient = new DynamoDBClient({});
-const docClient = DynamoDBDocumentClient.from(ddbClient, {
-  marshallOptions: {
-    removeUndefinedValues: true,
-  },
-});
+const DB_TABLE_NAME = requireEnv('DB_TABLE_NAME');
 
-const DB_TABLE_NAME = process.env.DB_TABLE_NAME;
-
-if (!DB_TABLE_NAME) {
-  throw new Error('DB_TABLE_NAME environment variable is not set');
-}
-
-// --- Main Handler ---
 export const baseHandler = async (
   event: APIGatewayProxyEventV2,
 ): Promise<APIGatewayProxyResultV2> => {
-  const { orgId } = event.queryStringParameters || {};
+  const tokenOrgId = getOrgId(event);
+  const { orgId: queryOrgId } = event.queryStringParameters || {};
 
-  if (!orgId) {
-    return apiResponse(400, { message: 'Org Id is required' });
-  }
+  const orgId = tokenOrgId ? tokenOrgId : queryOrgId;
 
-  if (!event.body) {
-    return apiResponse(400, { message: 'Request body is missing' });
-  }
+  if (!orgId) throw new Error('No orgId provided');
 
   try {
-    const rawBody = JSON.parse(event.body);
+    const rawBody = JSON.parse(event.body || '');
 
     // 1. Runtime validation using Zod
     const validationResult = CreateKnowledgeBaseSchema.safeParse(rawBody);
@@ -89,6 +77,7 @@ export async function createKnowledgeBase(
   const knowledgeBaseItem: KnowledgeBaseItem = {
     [PK_NAME]: KNOWLEDGE_BASE_PK,
     [SK_NAME]: `${orgId}#${kbId}`,
+    id: kbId,
     orgId,
     name: kbData.name,
     description: kbData.description ?? undefined,
@@ -116,4 +105,10 @@ export async function createKnowledgeBase(
   };
 }
 
-export const handler = withSentryLambda(baseHandler);
+export const handler = withSentryLambda(
+  middy(baseHandler)
+    .use(authContextMiddleware())
+    .use(orgMembershipMiddleware())
+    .use(requirePermission('kb:create'))
+    .use(httpErrorMiddleware())
+);

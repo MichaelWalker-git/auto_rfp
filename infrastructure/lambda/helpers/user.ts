@@ -87,7 +87,7 @@ export async function createUser(
     custom: {
       orgId: dto.orgId,
       userId,
-      rolesCsv: dto.roles.join(','),
+      role: dto.role,
     },
     sendInvite: sendCognitoInvite,
   });
@@ -117,7 +117,7 @@ export async function createUser(
     phoneLower,
     searchText,
 
-    roles: dto.roles,
+    role: dto.role,
     status: dto.status ?? 'ACTIVE',
 
     cognitoUsername,
