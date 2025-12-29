@@ -7,17 +7,15 @@ import { withSentryLambda } from '../sentry-lambda';
 import { PK_NAME, SK_NAME } from '../constants/common';
 import { DOCUMENT_PK } from '../constants/document';
 import { streamToString } from '../helpers/s3';
+import { requireEnv } from '../helpers/env';
 
-const REGION = process.env.AWS_REGION || 'us-east-1';
-const DOCUMENTS_BUCKET = process.env.DOCUMENTS_BUCKET || process.env.DOCUMENTS_BUCKET_NAME;
-const DB_TABLE_NAME = process.env.DB_TABLE_NAME;
+const REGION = requireEnv('REGION');
+const DOCUMENTS_BUCKET = requireEnv('DOCUMENTS_BUCKET');
+const DB_TABLE_NAME = requireEnv('DB_TABLE_NAME');
 
 const CHUNK_MAX_CHARS = Number(process.env.CHUNK_MAX_CHARS ?? 2500);
 const CHUNK_OVERLAP_CHARS = Number(process.env.CHUNK_OVERLAP_CHARS ?? 250);
 const CHUNK_MIN_CHARS = Number(process.env.CHUNK_MIN_CHARS ?? 200);
-
-if (!DOCUMENTS_BUCKET) throw new Error('DOCUMENTS_BUCKET env var is not set');
-if (!DB_TABLE_NAME) throw new Error('DB_TABLE_NAME env var is not set');
 
 const s3 = new S3Client({ region: REGION });
 

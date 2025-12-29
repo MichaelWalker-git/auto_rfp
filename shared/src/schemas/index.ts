@@ -7,3 +7,4 @@ export * from './answer';
 export * from './question';
 export * from './kb';
 export * from './project';
+export * from './samgov';

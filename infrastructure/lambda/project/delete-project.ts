@@ -24,7 +24,7 @@ import { DBItem, docClient } from '../helpers/db';
 
 
 const DB_TABLE_NAME = process.env.DB_TABLE_NAME;
-const DOCUMENTS_BUCKET_NAME = requireEnv('DOCUMENTS_BUCKET');
+const DOCUMENTS_BUCKET = requireEnv('DOCUMENTS_BUCKET');
 
 const s3Client = new S3Client({});
 
@@ -40,7 +40,7 @@ async function deleteS3ObjectBestEffort(key: string) {
   try {
     await s3Client.send(
       new DeleteObjectCommand({
-        Bucket: DOCUMENTS_BUCKET_NAME,
+        Bucket: DOCUMENTS_BUCKET,
         Key: key,
       }),
     );
@@ -309,7 +309,7 @@ export async function deleteProjectWithCleanup(orgId: string, projectId: string)
     proposalDeleted,
     executiveBriefsDeleted,
     s3: {
-      bucket: DOCUMENTS_BUCKET_NAME || null,
+      bucket: DOCUMENTS_BUCKET || null,
       keysRequested: Array.from(s3Keys),
       results: s3DeleteResults,
     },

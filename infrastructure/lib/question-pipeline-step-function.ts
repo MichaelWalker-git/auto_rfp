@@ -33,33 +33,16 @@ export class QuestionExtractionPipelineStack extends Stack {
       removalPolicy: RemovalPolicy.DESTROY,
     });
 
-    //
-    // ------------------------------------------------------------
-    //  SNS Topics (FIXED)
-    // ------------------------------------------------------------
-    //
     const textractTopic = new sns.Topic(this, 'TextractCompletionTopic', {
       topicName: `${prefix}-TextractCompletion`,
     });
 
-    //
-    // Textract Role
-    //
     const textractRole = new iam.Role(this, 'TextractServiceRole', {
       assumedBy: new iam.ServicePrincipal('textract.amazonaws.com'),
     });
 
     textractTopic.grantPublish(textractRole);
 
-    //
-    // ------------------------------------------------------------
-    //  Lambdas
-    // ------------------------------------------------------------
-    //
-
-    //
-    // StartTextract Lambda
-    //
     const startTextractLambda = new lambdaNode.NodejsFunction(
       this,
       'StartTextractLambda',
@@ -69,8 +52,9 @@ export class QuestionExtractionPipelineStack extends Stack {
         handler: 'handler',
         timeout: Duration.seconds(30),
         environment: {
+          REGION: this.region,
           DB_TABLE_NAME: mainTable.tableName,
-          DOCUMENTS_BUCKET_NAME: documentsBucket.bucketName,
+          DOCUMENTS_BUCKET: documentsBucket.bucketName,
           TEXTRACT_ROLE_ARN: textractRole.roleArn,
           TEXTRACT_SNS_TOPIC_ARN: textractTopic.topicArn,
           SENTRY_DSN: sentryDNS,
@@ -96,9 +80,6 @@ export class QuestionExtractionPipelineStack extends Stack {
       })
     );
 
-    //
-    // Callback Lambda (Textract + StepFunction token)
-    //
     const callbackLambda = new lambdaNode.NodejsFunction(
       this,
       'TextractCallbackLambda',
@@ -108,6 +89,7 @@ export class QuestionExtractionPipelineStack extends Stack {
         handler: 'handler',
         timeout: Duration.seconds(30),
         environment: {
+          REGION: this.region,
           DB_TABLE_NAME: mainTable.tableName,
           SENTRY_DSN: sentryDNS,
           SENTRY_ENVIRONMENT: stage,
@@ -129,9 +111,6 @@ export class QuestionExtractionPipelineStack extends Stack {
       new subs.LambdaSubscription(callbackLambda)
     );
 
-    //
-    // process-question-file Lambda
-    //
     const processResultLambda = new lambdaNode.NodejsFunction(
       this,
       'ProcessQuestionFileLambda',
@@ -141,9 +120,9 @@ export class QuestionExtractionPipelineStack extends Stack {
         handler: 'handler',
         timeout: Duration.minutes(3),
         environment: {
-          DB_TABLE_NAME: mainTable.tableName,
-          DOCUMENTS_BUCKET_NAME: documentsBucket.bucketName,
           REGION: this.region,
+          DB_TABLE_NAME: mainTable.tableName,
+          DOCUMENTS_BUCKET: documentsBucket.bucketName,
           SENTRY_DSN: sentryDNS,
           SENTRY_ENVIRONMENT: stage,
         },
@@ -177,8 +156,9 @@ export class QuestionExtractionPipelineStack extends Stack {
         handler: 'handler',
         timeout: Duration.minutes(2),
         environment: {
+          REGION: this.region,
           DB_TABLE_NAME: mainTable.tableName,
-          DOCUMENTS_BUCKET_NAME: documentsBucket.bucketName,
+          DOCUMENTS_BUCKET: documentsBucket.bucketName,
           BEDROCK_MODEL_ID: 'anthropic.claude-3-haiku-20240307-v1:0',
           BEDROCK_REGION: 'us-east-1',
           SENTRY_DSN: sentryDNS,

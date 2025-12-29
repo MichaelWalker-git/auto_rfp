@@ -1,20 +1,17 @@
 import { StartDocumentTextDetectionCommand, TextractClient } from '@aws-sdk/client-textract';
-import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
-import { DynamoDBDocumentClient, GetCommand, UpdateCommand } from '@aws-sdk/lib-dynamodb';
+import { GetCommand, UpdateCommand } from '@aws-sdk/lib-dynamodb';
 import { PK_NAME, SK_NAME } from '../constants/common';
 import { QUESTION_FILE_PK } from '../constants/question-file';
 import { withSentryLambda } from '../sentry-lambda';
+import { requireEnv } from '../helpers/env';
+import { docClient } from '../helpers/db';
 
 const textract = new TextractClient({});
-const ddb = DynamoDBDocumentClient.from(new DynamoDBClient({}), {
-  marshallOptions: { removeUndefinedValues: true }
-});
 
-const TABLE = process.env.DB_TABLE_NAME!;
-const BUCKET = process.env.DOCUMENTS_BUCKET_NAME!;
-const TEXTRACT_ROLE_ARN = process.env.TEXTRACT_ROLE_ARN!;
-const TEXTRACT_SNS_TOPIC_ARN = process.env.TEXTRACT_SNS_TOPIC_ARN!;
-
+const DB_TABLE_NAME = requireEnv('DB_TABLE_NAME');
+const DOCUMENTS_BUCKET = requireEnv('DOCUMENTS_BUCKET');
+const TEXTRACT_ROLE_ARN = requireEnv('TEXTRACT_ROLE_ARN');
+const TEXTRACT_SNS_TOPIC_ARN = requireEnv('TEXTRACT_SNS_TOPIC_ARN');
 
 interface StartEvent {
   questionFileId: string;
@@ -31,9 +28,9 @@ export const baseHandler = async (event: StartEvent) => {
   const sk = `${projectId}#${questionFileId}`;
 
   // load fileKey
-  const res = await ddb.send(
+  const res = await docClient.send(
     new GetCommand({
-      TableName: TABLE,
+      TableName: DB_TABLE_NAME,
       Key: {
         [PK_NAME]: QUESTION_FILE_PK,
         [SK_NAME]: sk
@@ -50,7 +47,7 @@ export const baseHandler = async (event: StartEvent) => {
   const startRes = await textract.send(
     new StartDocumentTextDetectionCommand({
       DocumentLocation: {
-        S3Object: { Bucket: BUCKET, Name: fileKey }
+        S3Object: { Bucket: DOCUMENTS_BUCKET, Name: fileKey }
       },
       NotificationChannel: {
         RoleArn: TEXTRACT_ROLE_ARN,
@@ -61,9 +58,9 @@ export const baseHandler = async (event: StartEvent) => {
   );
 
   const jobId = startRes.JobId!;
-  await ddb.send(
+  await docClient.send(
     new UpdateCommand({
-      TableName: TABLE,
+      TableName: DB_TABLE_NAME,
       Key: {
         [PK_NAME]: QUESTION_FILE_PK,
         [SK_NAME]: sk

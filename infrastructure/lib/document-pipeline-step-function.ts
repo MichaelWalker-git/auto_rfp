@@ -68,9 +68,9 @@ export class DocumentPipelineStack extends Stack {
         timeout: Duration.seconds(30),
         functionName: `${namePrefix}-StartProcessing`,
         environment: {
+          REGION: this.region,
           DB_TABLE_NAME: documentsTable.tableName,
           DOCUMENTS_BUCKET: documentsBucket.bucketName,
-          DOCUMENTS_BUCKET_NAME: documentsBucket.bucketName,
           SENTRY_DSN: sentryDNS,
           SENTRY_ENVIRONMENT: stage,
         },
@@ -90,9 +90,9 @@ export class DocumentPipelineStack extends Stack {
         timeout: Duration.seconds(30),
         functionName: `${namePrefix}-PdfProcessing`,
         environment: {
+          REGION: this.region,
           DB_TABLE_NAME: documentsTable.tableName,
           DOCUMENTS_BUCKET: documentsBucket.bucketName,
-          DOCUMENTS_BUCKET_NAME: documentsBucket.bucketName,
           TEXTRACT_SNS_TOPIC_ARN: textractTopic.topicArn,
           TEXTRACT_ROLE_ARN: textractServiceRole.roleArn,
           SENTRY_DSN: sentryDNS,
@@ -130,7 +130,6 @@ export class DocumentPipelineStack extends Stack {
         environment: {
           DB_TABLE_NAME: documentsTable.tableName,
           DOCUMENTS_BUCKET: documentsBucket.bucketName,
-          DOCUMENTS_BUCKET_NAME: documentsBucket.bucketName,
           SENTRY_DSN: sentryDNS,
           SENTRY_ENVIRONMENT: stage,
         },
@@ -166,7 +165,6 @@ export class DocumentPipelineStack extends Stack {
         environment: {
           DB_TABLE_NAME: documentsTable.tableName,
           DOCUMENTS_BUCKET: documentsBucket.bucketName,
-          DOCUMENTS_BUCKET_NAME: documentsBucket.bucketName,
           SENTRY_DSN: sentryDNS,
           SENTRY_ENVIRONMENT: stage,
         },
@@ -190,7 +188,6 @@ export class DocumentPipelineStack extends Stack {
         environment: {
           DB_TABLE_NAME: documentsTable.tableName,
           DOCUMENTS_BUCKET: documentsBucket.bucketName,
-          DOCUMENTS_BUCKET_NAME: documentsBucket.bucketName,
           SENTRY_DSN: sentryDNS,
           SENTRY_ENVIRONMENT: stage,
           CHUNK_MAX_CHARS: '2500',
@@ -219,7 +216,6 @@ export class DocumentPipelineStack extends Stack {
         environment: {
           DB_TABLE_NAME: documentsTable.tableName,
           DOCUMENTS_BUCKET: documentsBucket.bucketName,
-          DOCUMENTS_BUCKET_NAME: documentsBucket.bucketName,
           OPENSEARCH_ENDPOINT: openSearchCollectionEndpoint,
           OPENSEARCH_INDEX: 'documents',
           REGION: this.region,

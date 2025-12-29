@@ -6,6 +6,7 @@ import * as cognito from 'aws-cdk-lib/aws-cognito';
 import * as dynamodb from 'aws-cdk-lib/aws-dynamodb';
 import { Construct } from 'constructs';
 import { ApiNestedStack } from './wrappers/api-nested-stack';
+import * as secretsmanager from 'aws-cdk-lib/aws-secretsmanager';
 
 export interface ApiStackProps extends cdk.StackProps {
   stage: string;
@@ -39,6 +40,7 @@ export class ApiStack extends cdk.Stack {
   private readonly userApi: ApiNestedStack;
   private readonly questionApi: ApiNestedStack;
   private readonly semanticApi: ApiNestedStack;
+  private readonly samgovApi: ApiNestedStack;
 
 
   constructor(scope: Construct, id: string, props: ApiStackProps) {
@@ -211,7 +213,6 @@ export class ApiStack extends cdk.Stack {
       STAGE: stage,
       AWS_ACCOUNT_ID: cdk.Aws.ACCOUNT_ID,
       DOCUMENTS_BUCKET: documentsBucket.bucketName,
-      DOCUMENTS_BUCKET_NAME: documentsBucket.bucketName,
       NODE_ENV: 'production',
 
       // DynamoDB single-table config
@@ -237,6 +238,23 @@ export class ApiStack extends cdk.Stack {
       cognitoUserPools: [props.userPool],
     });
 
+    const localKey = process.env.SAM_GOV_API_KEY;
+
+    const samGovApiKeySecret = localKey
+      ? new secretsmanager.Secret(this, `SamGovApiKeySecret-${stage}`, {
+        secretName: `auto-rfp/${stage}/samgov/apiKey`,
+        secretStringValue: cdk.SecretValue.unsafePlainText(localKey),
+      })
+      : new secretsmanager.Secret(this, `SamGovApiKeySecret-${stage}`, {
+        secretName: `auto-rfp/${stage}/samgov/apiKey`,
+        generateSecretString: {
+          passwordLength: 32,
+          excludePunctuation: true,
+        },
+      });
+
+    samGovApiKeySecret.grantRead(lambdaRole);
+
     const createNestedStack = (basePath: string) => {
       return new ApiNestedStack(this, `${basePath}API`, {
           api: this.api,
@@ -261,6 +279,16 @@ export class ApiStack extends cdk.Stack {
     this.questionApi = createNestedStack('question');
     this.documentApi = createNestedStack('document');
     this.semanticApi = createNestedStack('semantic');
+    this.samgovApi = createNestedStack('samgov');
+
+    this.samgovApi.addRoute(
+      '/opportunities',
+      'POST',
+      'lambda/samgov/opportunities.ts',
+      {
+        SAM_GOV_API_KEY_SECRET_ID: samGovApiKeySecret.secretArn,
+      }
+    )
 
     this.semanticApi.addRoute(
       '/search',
