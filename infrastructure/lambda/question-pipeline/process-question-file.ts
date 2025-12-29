@@ -1,34 +1,20 @@
 import { Context } from 'aws-lambda';
-import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
-import { DynamoDBDocumentClient, UpdateCommand } from '@aws-sdk/lib-dynamodb';
+import { UpdateCommand } from '@aws-sdk/lib-dynamodb';
 import { GetDocumentTextDetectionCommand, TextractClient } from '@aws-sdk/client-textract';
 import { PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
 
 import { PK_NAME, SK_NAME } from '../constants/common';
 import { QUESTION_FILE_PK } from '../constants/question-file';
 import { withSentryLambda } from '../sentry-lambda';
-
-// --------------------------------------------------
-// Clients
-// --------------------------------------------------
-const ddb = DynamoDBDocumentClient.from(new DynamoDBClient({}), {
-  marshallOptions: { removeUndefinedValues: true }
-});
+import { requireEnv } from '../helpers/env';
+import { docClient } from '../helpers/db';
 
 const textract = new TextractClient({});
 const s3 = new S3Client({});
 
-// --------------------------------------------------
-// Env
-// --------------------------------------------------
-const TABLE = process.env.DB_TABLE_NAME!;
-const BUCKET = process.env.DOCUMENTS_BUCKET_NAME!;
-if (!TABLE) throw new Error("DB_TABLE_NAME env not set");
-if (!BUCKET) throw new Error("DOCUMENTS_BUCKET_NAME env not set");
+const DB_TABLE_NAME = requireEnv('DB_TABLE_NAME');
+const DOCUMENTS_BUCKET = requireEnv('DOCUMENTS_BUCKET');
 
-// --------------------------------------------------
-// Types
-// --------------------------------------------------
 interface Event {
   questionFileId?: string;
   projectId?: string;
@@ -44,19 +30,19 @@ export const baseHandler = async (
   event: Event,
   _ctx: Context
 ): Promise<{ questionFileId: string; projectId: string; textFileKey: string }> => {
-  console.log("process-question-file event:", JSON.stringify(event));
+  console.log('process-question-file event:', JSON.stringify(event));
 
   const { questionFileId, projectId, jobId } = event;
 
   if (!questionFileId || !projectId || !jobId) {
-    throw new Error("questionFileId, projectId, jobId are required");
+    throw new Error('questionFileId, projectId, jobId are required');
   }
 
   // 1) Run Textract pagination
   const { text, status } = await getTextractText(jobId);
 
-  if (status !== "SUCCEEDED") {
-    await updateStatus(questionFileId, projectId, "error");
+  if (status !== 'SUCCEEDED') {
+    await updateStatus(questionFileId, projectId, 'error');
     throw new Error(`Textract job failed: status=${status}`);
   }
 
@@ -65,15 +51,15 @@ export const baseHandler = async (
 
   await s3.send(
     new PutObjectCommand({
-      Bucket: BUCKET,
+      Bucket: DOCUMENTS_BUCKET,
       Key: textFileKey,
       Body: text,
-      ContentType: "text/plain; charset=utf-8"
+      ContentType: 'text/plain; charset=utf-8'
     })
   );
 
   // 3) Update question_file record
-  await updateStatus(questionFileId, projectId, "text_ready", textFileKey);
+  await updateStatus(questionFileId, projectId, 'text_ready', textFileKey);
 
   return { questionFileId, projectId, textFileKey };
 };
@@ -95,13 +81,13 @@ async function getTextractText(jobId: string): Promise<TextractResult> {
     );
 
     jobStatus = res.JobStatus;
-    if (!jobStatus) return { text: "", status: "UNKNOWN" };
-    if (jobStatus !== "SUCCEEDED")
-      return { text: "", status: jobStatus };
+    if (!jobStatus) return { text: '', status: 'UNKNOWN' };
+    if (jobStatus !== 'SUCCEEDED')
+      return { text: '', status: jobStatus };
 
     if (Array.isArray(res.Blocks)) {
       for (const block of res.Blocks) {
-        if (block.BlockType === "LINE" && block.Text) {
+        if (block.BlockType === 'LINE' && block.Text) {
           lines.push(block.Text);
         }
       }
@@ -111,7 +97,7 @@ async function getTextractText(jobId: string): Promise<TextractResult> {
   } while (nextToken);
 
   return {
-    text: lines.join("\n"),
+    text: lines.join('\n'),
     status: jobStatus
   };
 }
@@ -122,35 +108,35 @@ async function getTextractText(jobId: string): Promise<TextractResult> {
 async function updateStatus(
   questionFileId: string,
   projectId: string,
-  status: "processing" | "text_ready" | "questions_extracted" | "error",
+  status: 'processing' | 'text_ready' | 'questions_extracted' | 'error',
   textFileKey?: string
 ) {
   const sk = `${projectId}#${questionFileId}`;
 
-  const fields: string[] = ["#status = :status", "#updatedAt = :now"];
+  const fields: string[] = ['#status = :status', '#updatedAt = :now'];
   const names: Record<string, string> = {
-    "#status": "status",
-    "#updatedAt": "updatedAt"
+    '#status': 'status',
+    '#updatedAt': 'updatedAt'
   };
   const values: Record<string, any> = {
-    ":status": status,
-    ":now": new Date().toISOString()
+    ':status': status,
+    ':now': new Date().toISOString()
   };
 
   if (textFileKey) {
-    fields.push("#textFileKey = :key");
-    names["#textFileKey"] = "textFileKey";
-    values[":key"] = textFileKey;
+    fields.push('#textFileKey = :key');
+    names['#textFileKey'] = 'textFileKey';
+    values[':key'] = textFileKey;
   }
 
-  await ddb.send(
+  await docClient.send(
     new UpdateCommand({
-      TableName: TABLE,
+      TableName: DB_TABLE_NAME,
       Key: {
         [PK_NAME]: QUESTION_FILE_PK,
         [SK_NAME]: sk
       },
-      UpdateExpression: "SET " + fields.join(", "),
+      UpdateExpression: 'SET ' + fields.join(', '),
       ExpressionAttributeNames: names,
       ExpressionAttributeValues: values
     })

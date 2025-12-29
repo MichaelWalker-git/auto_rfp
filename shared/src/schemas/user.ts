@@ -46,13 +46,14 @@ export const ALL_PERMISSIONS = [
   'document:create', 'document:edit', 'document:read', 'document:delete',
   'answer:create', 'answer:read', 'answer:generate', 'answer:edit',
   'brief:create', 'brief:edit',
-  'index:retry'
+  'index:retry',
+  'opportunity:read'
 ] as const;
 
 export type Permission = (typeof ALL_PERMISSIONS)[number];
 
 export const VIEWER_PERMISSIONS = [
-  'question:read', 'org:read', 'kb:read', 'proposal:read', 'project:read', 'document:read', 'user:read', 'answer:read',
+  'question:read', 'org:read', 'kb:read', 'proposal:read', 'project:read', 'document:read', 'user:read', 'answer:read', 'opportunity:read'
 ] as const;
 
 export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {

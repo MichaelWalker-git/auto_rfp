@@ -1,35 +1,25 @@
 import { Context } from 'aws-lambda';
-import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
-import { DynamoDBDocumentClient, QueryCommand, UpdateCommand, } from '@aws-sdk/lib-dynamodb';
+import { QueryCommand, UpdateCommand, } from '@aws-sdk/lib-dynamodb';
 import { StartDocumentTextDetectionCommand, TextractClient, } from '@aws-sdk/client-textract';
 
 import { PK_NAME, SK_NAME } from '../constants/common';
 import { DOCUMENT_PK } from '../constants/document';
 import { DocumentItem } from '../schemas/document';
 import { withSentryLambda } from '../sentry-lambda';
+import { requireEnv } from '../helpers/env';
+import { docClient } from '../helpers/db';
 
-const REGION = process.env.AWS_REGION || 'us-east-1';
+const REGION = requireEnv('REGION');
+const DB_TABLE_NAME = requireEnv('DB_TABLE_NAME');
+const DOCUMENTS_BUCKET = requireEnv('DOCUMENTS_BUCKET');
+const TEXTRACT_SNS_TOPIC_ARN = requireEnv('TEXTRACT_SNS_TOPIC_ARN');
+const TEXTRACT_ROLE_ARN = requireEnv('TEXTRACT_ROLE_ARN');
 
-const DB_TABLE_NAME = process.env.DB_TABLE_NAME;
-const DOCUMENTS_BUCKET = process.env.DOCUMENTS_BUCKET || process.env.DOCUMENTS_BUCKET_NAME;
-const TEXTRACT_SNS_TOPIC_ARN = process.env.TEXTRACT_SNS_TOPIC_ARN;
-const TEXTRACT_ROLE_ARN = process.env.TEXTRACT_ROLE_ARN; // optional, but recommended for async Textract
-
-if (!DB_TABLE_NAME) throw new Error('DB_TABLE_NAME env var is not set');
-if (!DOCUMENTS_BUCKET) throw new Error('DOCUMENTS_BUCKET env var is not set');
-if (!TEXTRACT_SNS_TOPIC_ARN)
-  throw new Error('TEXTRACT_SNS_TOPIC_ARN env var is not set');
-
-const ddbClient = new DynamoDBClient({});
-const docClient = DynamoDBDocumentClient.from(ddbClient, {
-  marshallOptions: { removeUndefinedValues: true },
-});
 const textractClient = new TextractClient({ region: REGION });
 
 interface PdfProcessingEvent {
   documentId?: string;
   knowledgeBaseId?: string; // optional; we can derive from SK
-  // Step Functions callback token (WAIT_FOR_TASK_TOKEN)
   taskToken?: string;
 }
 

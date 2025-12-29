@@ -54,6 +54,8 @@ export const baseHandler = async (
   // 2) Call Bedrock with the same prompt/structure as in the HTTP Lambda
   const extracted = await extractQuestionsWithBedrock(text);
 
+  console.log(extracted)
+
   // 3) Save questions (section + questions) in DynamoDB (linked to this file)
   const totalQuestions = await saveQuestionsFromSections(
     questionFileId,
@@ -67,7 +69,7 @@ export const baseHandler = async (
   return { count: totalQuestions };
 };
 
-async function extractQuestionsWithBedrock(
+async function  extractQuestionsWithBedrock(
   content: string,
 ): Promise<ExtractedQuestions> {
   const systemPrompt = getSystemPrompt();

@@ -1,7 +1,5 @@
 import { APIGatewayProxyEventV2, APIGatewayProxyResultV2, } from 'aws-lambda';
-
-import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
-import { DeleteCommand, DynamoDBDocumentClient, GetCommand, } from '@aws-sdk/lib-dynamodb';
+import { DeleteCommand, GetCommand, } from '@aws-sdk/lib-dynamodb';
 
 import { DeleteObjectCommand, S3Client } from '@aws-sdk/client-s3';
 
@@ -24,38 +22,15 @@ import {
   orgMembershipMiddleware,
   requirePermission
 } from '../middleware/rbac-middleware';
+import { requireEnv } from '../helpers/env';
+import { docClient } from '../helpers/db';
 
 
-const DB_TABLE_NAME = process.env.DB_TABLE_NAME;
-const DOCUMENTS_BUCKET_NAME =
-  process.env.DOCUMENTS_BUCKET ||
-  process.env.DOCUMENTS_BUCKET_NAME ||
-  process.env.TEXT_BUCKET_NAME;
-
-const OPENSEARCH_ENDPOINT = process.env.OPENSEARCH_ENDPOINT;
-const OPENSEARCH_INDEX = process.env.OPENSEARCH_INDEX || 'documents';
-const OPENSEARCH_REGION =
-  process.env.OPENSEARCH_REGION ||
-  process.env.AWS_REGION ||
-  process.env.REGION ||
-  'us-east-1';
-
-if (!DB_TABLE_NAME) {
-  throw new Error('DB_TABLE_NAME environment variable is not set');
-}
-if (!DOCUMENTS_BUCKET_NAME) {
-  throw new Error(
-    'DOCUMENTS_BUCKET / DOCUMENTS_BUCKET_NAME / TEXT_BUCKET_NAME env var is not set',
-  );
-}
-if (!OPENSEARCH_ENDPOINT) {
-  throw new Error('OPENSEARCH_ENDPOINT environment variable is not set');
-}
-
-const ddbClient = new DynamoDBClient({});
-const docClient = DynamoDBDocumentClient.from(ddbClient, {
-  marshallOptions: { removeUndefinedValues: true },
-});
+const DB_TABLE_NAME = requireEnv('DB_TABLE_NAME');
+const DOCUMENTS_BUCKET = requireEnv('DOCUMENTS_BUCKET');
+const OPENSEARCH_ENDPOINT = requireEnv('OPENSEARCH_ENDPOINT');
+const OPENSEARCH_INDEX = requireEnv('OPENSEARCH_INDEX', 'documents');
+const OPENSEARCH_REGION = requireEnv('OPENSEARCH_REGION', 'us-east-1');
 
 const s3Client = new S3Client({});
 
@@ -140,13 +115,13 @@ async function deleteDocument(dto: DeleteDocumentDTO): Promise<void> {
     if (item.fileKey) {
       console.log(
         'Deleting original file from S3:',
-        DOCUMENTS_BUCKET_NAME,
+        DOCUMENTS_BUCKET,
         item.fileKey,
       );
       deletes.push(
         s3Client.send(
           new DeleteObjectCommand({
-            Bucket: DOCUMENTS_BUCKET_NAME,
+            Bucket: DOCUMENTS_BUCKET,
             Key: item.fileKey,
           }),
         ),
@@ -160,13 +135,13 @@ async function deleteDocument(dto: DeleteDocumentDTO): Promise<void> {
     if (item.textFileKey) {
       console.log(
         'Deleting text file from S3:',
-        DOCUMENTS_BUCKET_NAME,
+        DOCUMENTS_BUCKET,
         item.textFileKey,
       );
       deletes.push(
         s3Client.send(
           new DeleteObjectCommand({
-            Bucket: DOCUMENTS_BUCKET_NAME,
+            Bucket: DOCUMENTS_BUCKET,
             Key: item.textFileKey,
           }),
         ),

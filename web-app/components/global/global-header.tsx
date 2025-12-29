@@ -16,7 +16,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { Building2, ChevronRight, FileText, HelpCircle, LogOut, Settings, Users } from 'lucide-react';
+import { Building2, ChevronRight, FileText, HelpCircle, LogOut, Settings, Users, Search } from 'lucide-react';
 import { useOrganization } from '@/context/organization-context';
 import { useAuth } from '@/components/AuthProvider';
 
@@ -219,6 +219,12 @@ export function GlobalHeader() {
           </div>
 
           <div className="flex items-center gap-3">
+            <Button variant="ghost" size="sm" asChild>
+              <Link href="/opportunities" className="flex items-center gap-1.5">
+                <Search className="h-4 w-4" />
+                <span className="text-sm">Opportunities</span>
+              </Link>
+            </Button>
             <Button variant="ghost" size="sm" asChild>
               <Link href="/help" className="flex items-center gap-1.5">
                 <HelpCircle className="h-4 w-4"/>
