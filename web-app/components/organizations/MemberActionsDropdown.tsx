@@ -14,6 +14,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { TeamMember } from './types';
 import { deleteUserApi, editUserRolesApi } from '@/lib/hooks/use-user';
+import type { UserRole } from '@auto-rfp/shared';
 
 interface MemberActionsDropdownProps {
   member: TeamMember;
@@ -22,26 +23,17 @@ interface MemberActionsDropdownProps {
   onMemberRemoved: (memberId: string) => void;
 }
 
-function roleToApiRoles(role: TeamMember['role']): string[] {
-  // Your TeamMember roles are 'owner' | 'admin' | 'member'
-  // Your API expects string[] (e.g. ['ADMIN'] | ['MEMBER'])
+function userRoleLabel(role: UserRole) {
   switch (role) {
-    case 'admin':
-      return ['ADMIN'];
-    case 'member':
-      return ['MEMBER'];
-    case 'owner':
-      return ['OWNER'];
-    default:
-      return ['MEMBER'];
+    case 'ADMIN':
+      return 'Admin';
+    case 'EDITOR':
+      return 'Editor';
+    case 'VIEWER':
+      return 'Viewer';
+    case 'BILLING':
+      return 'Billing';
   }
-}
-
-function apiRolesToTeamRole(roles: string[] | undefined): TeamMember['role'] {
-  const set = new Set((roles ?? []).map((r) => r.toUpperCase()));
-  if (set.has('OWNER')) return 'owner';
-  if (set.has('ADMIN')) return 'admin';
-  return 'member';
 }
 
 export function MemberActionsDropdown({
@@ -83,7 +75,7 @@ export function MemberActionsDropdown({
     }
   };
 
-  const updateMemberRole = async (newRole: 'admin' | 'member') => {
+  const updateMemberRole = async (newRole: UserRole) => {
     if (isUpdatingRole) return;
 
     try {
@@ -92,12 +84,10 @@ export function MemberActionsDropdown({
       const res = await editUserRolesApi({
         orgId,
         userId: member.id,
-        roles: roleToApiRoles(newRole),
+        role: newRole,
       });
 
-      const updatedRole = apiRolesToTeamRole(res.roles);
-
-      onMemberUpdated({ ...member, role: updatedRole });
+      onMemberUpdated({ ...member, role: res.role });
 
       toast({
         title: 'Success',
@@ -115,44 +105,57 @@ export function MemberActionsDropdown({
     }
   };
 
-  // Don't show actions for owners
-  if (member.role === 'owner') return null;
+  const currentRole = member.role as unknown as UserRole;
 
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <Button variant="ghost" size="icon" disabled={isRemoving || isUpdatingRole}>
-          <MoreHorizontal className="h-4 w-4"/>
+          <MoreHorizontal className="h-4 w-4" />
           <span className="sr-only">Open menu</span>
         </Button>
       </DropdownMenuTrigger>
 
       <DropdownMenuContent align="end">
         <DropdownMenuLabel>Actions</DropdownMenuLabel>
-        <DropdownMenuSeparator/>
+        <DropdownMenuSeparator />
 
         <DropdownMenuItem
-          onClick={() => updateMemberRole('admin')}
-          disabled={member.role === 'admin' || isUpdatingRole || isRemoving}
+          onClick={() => updateMemberRole('ADMIN')}
+          disabled={currentRole === 'ADMIN' || isUpdatingRole || isRemoving}
         >
-          Make Admin
+          Make {userRoleLabel('ADMIN')}
         </DropdownMenuItem>
 
         <DropdownMenuItem
-          onClick={() => updateMemberRole('member')}
-          disabled={member.role === 'member' || isUpdatingRole || isRemoving}
+          onClick={() => updateMemberRole('EDITOR')}
+          disabled={currentRole === 'EDITOR' || isUpdatingRole || isRemoving}
         >
-          Make Member
+          Make {userRoleLabel('EDITOR')}
         </DropdownMenuItem>
 
-        <DropdownMenuSeparator/>
+        <DropdownMenuItem
+          onClick={() => updateMemberRole('VIEWER')}
+          disabled={currentRole === 'VIEWER' || isUpdatingRole || isRemoving}
+        >
+          Make {userRoleLabel('VIEWER')}
+        </DropdownMenuItem>
+
+        <DropdownMenuItem
+          onClick={() => updateMemberRole('BILLING')}
+          disabled={currentRole === 'BILLING' || isUpdatingRole || isRemoving}
+        >
+          Make {userRoleLabel('BILLING')}
+        </DropdownMenuItem>
+
+        <DropdownMenuSeparator />
 
         <DropdownMenuItem
           className="text-destructive focus:text-destructive"
           onClick={handleRemoveMember}
           disabled={isRemoving || isUpdatingRole}
         >
-          <TrashIcon className="h-4 w-4 mr-2"/>
+          <TrashIcon className="h-4 w-4 mr-2" />
           {isRemoving ? 'Removing…' : 'Remove from team'}
         </DropdownMenuItem>
       </DropdownMenuContent>

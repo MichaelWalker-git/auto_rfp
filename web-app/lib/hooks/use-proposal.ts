@@ -7,24 +7,23 @@ import { authFetcher } from '@/lib/auth/auth-fetcher';
 import { useApi } from '@/lib/hooks/use-api';
 
 import {
+  GenerateProposalFileResponseSchema,
   GenerateProposalInput,
   GenerateProposalInputSchema,
+  type GenerateProposalResponse,
+  GenerateProposalResponseSchema,
   type Proposal,
   type ProposalDocument,
   ProposalDocumentSchema,
   type ProposalListResponse,
   ProposalListResponseSchema,
-  ProposalSchema,
+  ProposalSchema, type ProposalSection,
   ProposalStatus,
   type SaveProposalRequest,
   SaveProposalRequestSchema,
 } from '@auto-rfp/shared';
 
 const BASE = `${env.BASE_API_URL}/proposal`;
-
-// --------------------
-// Generate Proposal (returns ProposalDocument)
-// --------------------
 
 export function useGenerateProposal() {
   return useSWRMutation<ProposalDocument, any, string, GenerateProposalInput>(
@@ -176,6 +175,26 @@ export function useProposal(params: { projectId?: string | null; proposalId?: st
     item: data,
     isLoading,
     error,
+    refresh: mutate,
+  };
+}
+
+export function useProposalById(projectId?: string | null, proposalId?: string | null) {
+  const qs = new URLSearchParams();
+  if (projectId) qs.set('projectId', projectId);
+  if (proposalId) qs.set('proposalId', proposalId);
+
+  const url = projectId && proposalId ? `${BASE}/get-proposal?${qs.toString()}` : null;
+  const key = projectId && proposalId ? ['proposal', projectId, proposalId] : null;
+
+  const { data, error, isLoading, mutate } = useApi<Proposal>(key as any, url);
+
+  const parsed = data ? ProposalSchema.safeParse(data) : null;
+
+  return {
+    proposal: parsed?.success ? parsed.data : null,
+    error: error ?? (parsed && !parsed.success ? parsed.error : null),
+    isLoading,
     refresh: mutate,
   };
 }

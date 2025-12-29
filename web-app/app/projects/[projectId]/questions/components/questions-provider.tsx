@@ -57,7 +57,6 @@ interface QuestionsContextType {
   isLoadingIndexes: boolean;
   organizationConnected: boolean;
 
-  // ✅ remove question state
   removingQuestions: Set<string>;
 
   // Action handlers
@@ -72,7 +71,6 @@ interface QuestionsContextType {
   handleAcceptMultiStepResponse: (response: string, sources: any[]) => void;
   handleCloseMultiStepDialog: () => void;
 
-  // ✅ NEW: remove question action
   removeQuestion: (questionId: string) => Promise<void>;
 
   // Utility functions

@@ -1,7 +1,6 @@
 import crypto from 'crypto';
 import { z } from 'zod';
-import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
-import { DynamoDBDocumentClient, GetCommand, PutCommand, QueryCommand, UpdateCommand, } from '@aws-sdk/lib-dynamodb';
+import { GetCommand, PutCommand, QueryCommand, UpdateCommand, } from '@aws-sdk/lib-dynamodb';
 import { GetObjectCommand, S3Client } from '@aws-sdk/client-s3';
 
 
@@ -12,15 +11,14 @@ import { EXEC_BRIEF_PK } from '../constants/exec-brief';
 import { BedrockRuntimeClient, InvokeModelCommand, } from '@aws-sdk/client-bedrock-runtime';
 
 import { type ExecutiveBriefItem, ExecutiveBriefItemSchema, QuestionFileItem, SectionStatus, } from '@auto-rfp/shared';
+import { requireEnv } from './env';
+import { docClient } from './db';
 
-const ddb = DynamoDBDocumentClient.from(new DynamoDBClient({}), {
-  marshallOptions: { removeUndefinedValues: true },
-});
 const s3 = new S3Client({});
 const bedrock = new BedrockRuntimeClient({});
 
-const DB_TABLE_NAME = process.env.DB_TABLE_NAME!;
-const DOCUMENTS_BUCKET_NAME = process.env.DOCUMENTS_BUCKET_NAME!;
+const DB_TABLE_NAME = requireEnv('DB_TABLE_NAME');
+const DOCUMENTS_BUCKET = requireEnv('DOCUMENTS_BUCKET');
 
 export type SchemaLike<T = unknown> = {
   parse: (data: unknown) => T;
@@ -34,18 +32,7 @@ export type BriefSectionName =
   | 'risks'
   | 'scoring';
 
-export const BriefSectionNameSchema = z.enum([
-  'summary',
-  'deadlines',
-  'requirements',
-  'contacts',
-  'risks',
-  'scoring',
-]);
 
-// -------------------------
-// Generic utilities
-// -------------------------
 export function nowIso() {
   return new Date().toISOString();
 }
@@ -135,7 +122,7 @@ export async function loadLatestQuestionFile(projectId: string): Promise<Questio
   let ExclusiveStartKey: Record<string, any> | undefined;
 
   do {
-    const res = await ddb.send(
+    const res = await docClient.send(
       new QueryCommand({
         TableName: DB_TABLE_NAME,
         KeyConditionExpression: '#pk = :pk AND begins_with(#sk, :skPrefix)',
@@ -166,7 +153,7 @@ export async function loadLatestQuestionFile(projectId: string): Promise<Questio
 // ExecutiveBrief helpers
 // -------------------------
 export async function getExecutiveBrief(executiveBriefId: string): Promise<ExecutiveBriefItem> {
-  const res = await ddb.send(
+  const res = await docClient.send(
     new GetCommand({
       TableName: DB_TABLE_NAME,
       Key: {
@@ -181,7 +168,7 @@ export async function getExecutiveBrief(executiveBriefId: string): Promise<Execu
 }
 
 export async function putExecutiveBrief(item: ExecutiveBriefItem): Promise<void> {
-  await ddb.send(
+  await docClient.send(
     new PutCommand({
       TableName: DB_TABLE_NAME,
       Item: item,
@@ -221,7 +208,7 @@ export async function markSectionInProgress(args: {
     values[':h'] = inputHash;
   }
 
-  await ddb.send(
+  await docClient.send(
     new UpdateCommand({
       TableName: DB_TABLE_NAME,
       Key: {
@@ -296,7 +283,7 @@ export async function markSectionComplete<T>(args: {
   const updateExpression =
     `SET ${setParts.join(', ')}` + (removeParts.length ? ` REMOVE ${removeParts.join(', ')}` : '');
 
-  await ddb.send(
+  await docClient.send(
     new UpdateCommand({
       TableName: DB_TABLE_NAME,
       Key: { [PK_NAME]: EXEC_BRIEF_PK, [SK_NAME]: executiveBriefId },
@@ -317,7 +304,7 @@ export async function markSectionFailed(args: {
   const message =
     error instanceof Error ? `${error.name}: ${error.message}` : typeof error === 'string' ? error : 'Unknown error';
 
-  await ddb.send(
+  await docClient.send(
     new UpdateCommand({
       TableName: DB_TABLE_NAME,
       Key: {
@@ -448,7 +435,7 @@ export async function loadSolicitationForBrief(brief: ExecutiveBriefItem): Promi
   solicitationText: string;
 }> {
   const solicitationText = await loadTextFromS3(
-    brief.documentsBucket || DOCUMENTS_BUCKET_NAME,
+    brief.documentsBucket || DOCUMENTS_BUCKET,
     brief.textKey,
   );
 

@@ -17,6 +17,14 @@ import { DOCUMENT_PK } from '../constants/document';
 
 import { DeleteDocumentDTO, DeleteDocumentDTOSchema, } from '../schemas/document';
 import { withSentryLambda } from '../sentry-lambda';
+import middy from '@middy/core';
+import {
+  authContextMiddleware,
+  httpErrorMiddleware,
+  orgMembershipMiddleware,
+  requirePermission
+} from '../middleware/rbac-middleware';
+
 
 const DB_TABLE_NAME = process.env.DB_TABLE_NAME;
 const DOCUMENTS_BUCKET_NAME =
@@ -230,27 +238,27 @@ async function findOpenSearchIdsByDocumentId(documentId: string): Promise<string
 
   const body = {
     size: 1000,
-    query: { term: { "documentId.keyword": documentId } },
+    query: { term: { 'documentId.keyword': documentId } },
     _source: false,
   };
 
   const payload = JSON.stringify(body);
 
   const request = new HttpRequest({
-    method: "POST",
+    method: 'POST',
     protocol: endpointUrl.protocol,
     hostname: endpointUrl.hostname,
     path: `/${OPENSEARCH_INDEX}/_search`,
     headers: {
-      "Content-Type": "application/json",
-      "Content-Length": Buffer.byteLength(payload).toString(),
+      'Content-Type': 'application/json',
+      'Content-Length': Buffer.byteLength(payload).toString(),
       host: endpointUrl.hostname,
     },
     body: payload,
   });
 
   const signer = new SignatureV4({
-    service: "aoss",
+    service: 'aoss',
     region: OPENSEARCH_REGION,
     credentials: defaultProvider(),
     sha256: Sha256,
@@ -263,22 +271,22 @@ async function findOpenSearchIdsByDocumentId(documentId: string): Promise<string
       { method: signed.method, hostname: signed.hostname, path: signed.path, headers: signed.headers as any },
       (res) => {
         const chunks: Buffer[] = [];
-        res.on("data", (c) => chunks.push(c));
-        res.on("end", () => {
-          const text = Buffer.concat(chunks).toString("utf-8");
+        res.on('data', (c) => chunks.push(c));
+        res.on('end', () => {
+          const text = Buffer.concat(chunks).toString('utf-8');
           if (res.statusCode && res.statusCode >= 200 && res.statusCode < 300) return resolve(text);
           reject(new Error(`OpenSearch search error: ${res.statusCode} ${res.statusMessage} - ${text}`));
         });
       }
     );
-    req.on("error", reject);
+    req.on('error', reject);
     if (signed.body) req.write(signed.body);
     req.end();
   });
 
   const json = JSON.parse(raw);
   const hits = json?.hits?.hits ?? [];
-  return hits.map((h: any) => h._id).filter((id: any) => typeof id === "string" && id.length > 0);
+  return hits.map((h: any) => h._id).filter((id: any) => typeof id === 'string' && id.length > 0);
 }
 
 
@@ -286,7 +294,7 @@ async function deleteOpenSearchDocById(osId: string): Promise<void> {
   const endpointUrl = new URL(OPENSEARCH_ENDPOINT!);
 
   const request = new HttpRequest({
-    method: "DELETE",
+    method: 'DELETE',
     protocol: endpointUrl.protocol,
     hostname: endpointUrl.hostname,
     path: `/${OPENSEARCH_INDEX}/_doc/${encodeURIComponent(osId)}`,
@@ -294,7 +302,7 @@ async function deleteOpenSearchDocById(osId: string): Promise<void> {
   });
 
   const signer = new SignatureV4({
-    service: "aoss",
+    service: 'aoss',
     region: OPENSEARCH_REGION,
     credentials: defaultProvider(),
     sha256: Sha256,
@@ -307,9 +315,9 @@ async function deleteOpenSearchDocById(osId: string): Promise<void> {
       { method: signed.method, hostname: signed.hostname, path: signed.path, headers: signed.headers as any },
       (res) => {
         const chunks: Buffer[] = [];
-        res.on("data", (c) => chunks.push(c));
-        res.on("end", () => {
-          const text = Buffer.concat(chunks).toString("utf-8");
+        res.on('data', (c) => chunks.push(c));
+        res.on('end', () => {
+          const text = Buffer.concat(chunks).toString('utf-8');
 
           // 404 here means "doc not found" -> already deleted
           if (res.statusCode === 404) return resolve();
@@ -319,9 +327,15 @@ async function deleteOpenSearchDocById(osId: string): Promise<void> {
         });
       }
     );
-    req.on("error", reject);
+    req.on('error', reject);
     req.end();
   });
 }
 
-export const handler =  withSentryLambda(baseHandler)
+export const handler = withSentryLambda(
+  middy(baseHandler)
+    .use(authContextMiddleware())
+    .use(orgMembershipMiddleware())
+    .use(requirePermission('document:delete'))
+    .use(httpErrorMiddleware())
+);

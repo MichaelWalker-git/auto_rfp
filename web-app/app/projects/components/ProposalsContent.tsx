@@ -2,14 +2,17 @@
 
 import React, { useMemo } from 'react';
 import Link from 'next/link';
-import { ArrowRight, FileText, Loader2 } from 'lucide-react';
+import { AlertCircle, Brain, FileText, Loader2 } from 'lucide-react';
 
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Skeleton } from '@/components/ui/skeleton';
 
-import { useProposals } from '@/lib/hooks/use-proposal';
+import { useGenerateProposal, useProposals } from '@/lib/hooks/use-proposal';
 import { ProposalStatus } from '@auto-rfp/shared';
 import { NoRfpDocumentAvailable, useQuestions } from '@/app/projects/[projectId]/questions/components';
+import { GenerateProposalModal } from '@/app/projects/[projectId]/questions/components/GenerateProposalModal';
 
 function statusVariant(status: ProposalStatus) {
   switch (status) {
@@ -29,7 +32,7 @@ function statusVariant(status: ProposalStatus) {
 function formatDate(value?: string | null) {
   if (!value) return '—';
   const d = new Date(value);
-  if (Number.isNaN(d.getTime())) return value;
+  if (Number.isNaN(d.getTime())) return '—';
   return d.toLocaleString('en-US', {
     year: 'numeric',
     month: 'short',
@@ -41,125 +44,161 @@ function formatDate(value?: string | null) {
 
 type Props = {
   projectId: string;
-}
+};
 
 export default function ProposalsContent({ projectId }: Props) {
-  const { questionFiles, isLoading: isQL, error: err } = useQuestions();
-
+  const { questionFiles, isLoading: isQL, error: err, refreshQuestions } = useQuestions();
   if (!isQL && !err && !questionFiles?.length) {
     return <NoRfpDocumentAvailable projectId={projectId}/>;
   }
+  const { items, count, error, isLoading, refresh } = useProposals({ projectId });
+  const {
+    trigger: triggerGenerate,
+    isMutating,
+    error: generateError,
+  } = useGenerateProposal();
 
-  const { items, count, error, isLoading } = useProposals({ projectId });
 
   const sorted = useMemo(() => {
-    return [...items].sort((a, b) =>
-      (b.updatedAt ?? '').localeCompare(a.updatedAt ?? ''),
-    );
+    return [...(items ?? [])].sort((a, b) => (b.updatedAt ?? '').localeCompare(a.updatedAt ?? ''));
   }, [items]);
 
   if (!projectId) {
     return (
-      <div className="p-6">
-        <div className="text-sm text-red-500">Missing projectId in route.</div>
-      </div>
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Missing projectId</CardTitle>
+          <CardDescription>Project route param is not available.</CardDescription>
+        </CardHeader>
+      </Card>
+    );
+  }
+
+  if (isLoading) {
+    return (
+      <Card>
+        <CardHeader className="flex flex-row items-start justify-between gap-4">
+          <div>
+            <CardTitle className="flex items-center gap-2">
+              <FileText className="h-5 w-5"/>
+              Proposals
+            </CardTitle>
+          </div>
+          <Skeleton className="h-9 w-28"/>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          {[1, 2, 3, 4].map((i) => (
+            <Skeleton key={i} className="h-16 w-full"/>
+          ))}
+        </CardContent>
+      </Card>
+    );
+  }
+
+  if (error) {
+    return (
+      <Card>
+        <CardHeader className="flex flex-row items-start justify-between gap-4">
+          <div>
+            <CardTitle className="flex items-center gap-2">
+              <FileText className="h-5 w-5"/>
+              Proposals
+            </CardTitle>
+            <CardDescription>Review and open generated proposals</CardDescription>
+          </div>
+
+          <div className="h-9 flex items-center">
+            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+              <Loader2 className="h-4 w-4 animate-spin"/>
+              Loading…
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent>
+          <div className="rounded-xl border bg-red-50 p-4">
+            <div className="flex items-start gap-3">
+              <AlertCircle className="h-5 w-5 text-red-600 mt-0.5"/>
+              <div className="flex-1">
+                <p className="font-medium text-red-900">Couldn’t load proposals</p>
+                <p className="text-sm text-red-700 mt-1">
+                  {error instanceof Error ? error.message : 'Unknown error'}
+                </p>
+              </div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
     );
   }
 
   return (
-    <div className="p-6 space-y-4">
-      {/* Header */}
-      <div className="space-y-2">
-        <div className="flex items-start justify-between gap-3">
-          <div className="space-y-1">
-            <h1 className="text-xl font-semibold">Proposals</h1>
-            <p className="text-sm text-muted-foreground">
-              Project <span className="font-mono text-foreground/80">{projectId}</span>
-            </p>
-          </div>
-
-          {/* subtle live-loading indicator (no reload button) */}
-          <div className="h-9 flex items-center">
-            {isLoading && (
-              <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                <Loader2 className="h-4 w-4 animate-spin"/>
-                Loading…
-              </div>
-            )}
-          </div>
+    <Card className="overflow-hidden">
+      <CardHeader className="flex flex-row items-start justify-between gap-4">
+        <div>
+          <CardTitle className="flex items-center gap-2">
+            <FileText className="h-5 w-5"/>
+            Proposals
+          </CardTitle>
+          <CardDescription>
+            {count ?? sorted.length} {(count ?? sorted.length) === 1 ? 'proposal' : 'proposals'} in this project
+          </CardDescription>
         </div>
 
-        {/* Meta */}
-        <div className="flex items-center gap-4 border rounded-lg px-3 py-2 bg-muted/30">
-          <div className="text-sm text-muted-foreground">
-            Total: <span className="font-medium text-foreground">{count}</span>
+        <div className="flex items-center gap-2">
+          {isLoading && (
+            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+              <Loader2 className="h-4 w-4 animate-spin"/>
+              Loading…
+            </div>
+          )}
+          <GenerateProposalModal projectId={projectId}/>
+        </div>
+      </CardHeader>
+
+      <CardContent>
+        {sorted.length === 0 ? (
+          <div className="text-center py-10">
+            <FileText className="mx-auto h-9 w-9 text-muted-foreground mb-3"/>
+            <h3 className="text-lg font-medium">No proposals yet</h3>
+            <p className="text-muted-foreground mt-1">Generate a proposal from extracted Q&amp;A to see it here.</p>
           </div>
-        </div>
-      </div>
-
-      {/* Error */}
-      {error && (
-        <div className="text-sm text-red-600 border border-red-500/30 rounded-lg px-3 py-2 bg-red-500/5">
-          {error instanceof Error ? error.message : 'Failed to load proposals'}
-        </div>
-      )}
-
-      {/* Empty */}
-      {!isLoading && !error && sorted.length === 0 && (
-        <div className="border rounded-lg p-8 bg-muted/20">
-          <div className="text-sm font-medium">No proposals yet</div>
-          <div className="text-sm text-muted-foreground mt-1">
-            Generate a proposal from extracted Q&amp;A to see it here.
-          </div>
-        </div>
-      )}
-
-      {/* List */}
-      <div className="grid grid-cols-1 gap-3">
-        {sorted.map((p) => (
-          <div
-            key={p.id}
-            className="group border rounded-lg p-4 bg-background hover:bg-muted/30 transition-colors"
-          >
-            <div className="flex items-start justify-between gap-3">
-              <div className="min-w-0 space-y-2">
-                <div className="flex items-center gap-2 min-w-0">
-                  <div className="h-9 w-9 rounded-md bg-muted flex items-center justify-center shrink-0">
-                    <FileText className="h-4 w-4 text-muted-foreground"/>
-                  </div>
-
-                  <div className="min-w-0">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <div className="font-medium truncate">
-                        {p.title ?? 'Untitled proposal'}
-                      </div>
-                      <Badge variant={statusVariant(p.status)}>{p.status}</Badge>
+        ) : (
+          <div className="space-y-2">
+            {sorted.map((p) => (
+              <Link key={p.id} href={`/projects/${projectId}/proposals/${p.id}`}>
+                <div className="rounded-xl border bg-background p-3">
+                  <div className="flex items-start gap-3">
+                    <div className="h-10 w-10 rounded-lg bg-muted flex items-center justify-center shrink-0">
+                      <FileText className="h-5 w-5 text-muted-foreground"/>
                     </div>
 
-                    <div className="text-xs text-muted-foreground">
-                      Updated: {formatDate(p.updatedAt)}
-                      <span className="mx-2">•</span>
-                      Created: {formatDate(p.createdAt)}
+                    <div className="min-w-0 flex-1">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <p className="font-medium truncate" title={p.title ?? 'Untitled proposal'}>
+                          {p.title ?? 'Untitled proposal'}
+                        </p>
+                        <Badge variant={statusVariant(p.status)} className="text-xs">
+                          {p.status}
+                        </Badge>
+                      </div>
+
+                      <div className="mt-1 text-xs text-muted-foreground">
+                        Updated: {formatDate(p.updatedAt)}
+                        <span className="mx-2">•</span>
+                        Created: {formatDate(p.createdAt)}
+                      </div>
+
+                      <div className="mt-1 text-xs text-muted-foreground">
+                        Project: <span className="font-mono">{projectId}</span>
+                      </div>
                     </div>
                   </div>
                 </div>
-              </div>
-
-              <Button
-                variant="outline"
-                size="sm"
-                asChild
-                className="gap-2 group-hover:border-foreground/30"
-              >
-                <Link href={`/projects/${projectId}/proposals/${p.id}`}>
-                  Open
-                  <ArrowRight className="h-4 w-4"/>
-                </Link>
-              </Button>
-            </div>
+              </Link>
+            ))}
           </div>
-        ))}
-      </div>
-    </div>
+        )}
+      </CardContent>
+    </Card>
   );
 }

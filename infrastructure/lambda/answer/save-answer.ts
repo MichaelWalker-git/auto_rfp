@@ -1,6 +1,5 @@
 import { APIGatewayProxyEventV2, APIGatewayProxyResultV2, } from 'aws-lambda';
-import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
-import { DynamoDBDocumentClient, PutCommand, QueryCommand, UpdateCommand, } from '@aws-sdk/lib-dynamodb';
+import { PutCommand, QueryCommand, UpdateCommand, } from '@aws-sdk/lib-dynamodb';
 import { v4 as uuidv4 } from 'uuid';
 
 import { PK_NAME, SK_NAME } from '../constants/common';
@@ -8,32 +7,24 @@ import { apiResponse } from '../helpers/api';
 import { AnswerItem, CreateAnswerDTO, CreateAnswerDTOSchema, } from '../schemas/answer';
 import { ANSWER_PK } from '../constants/answer';
 import { withSentryLambda } from '../sentry-lambda';
+import {
+  authContextMiddleware,
+  httpErrorMiddleware,
+  orgMembershipMiddleware,
+  requirePermission
+} from '../middleware/rbac-middleware';
+import middy from '@middy/core';
+import { requireEnv } from '../helpers/env';
+import { DBItem, docClient } from '../helpers/db';
 
-// --- Dynamo client setup ---
-const ddbClient = new DynamoDBClient({});
-const docClient = DynamoDBDocumentClient.from(ddbClient, {
-  marshallOptions: {
-    removeUndefinedValues: true,
-  },
-});
-
-const DB_TABLE_NAME = process.env.DB_TABLE_NAME;
-
-if (!DB_TABLE_NAME) {
-  throw new Error('DB_TABLE_NAME environment variable is not set');
-}
+const DB_TABLE_NAME = requireEnv('DB_TABLE_NAME');
 
 export const baseHandler = async (
   event: APIGatewayProxyEventV2,
 ): Promise<APIGatewayProxyResultV2> => {
-  if (!event.body) {
-    return apiResponse(400, { message: 'Request body is missing' });
-  }
-
   try {
-    const rawBody = JSON.parse(event.body);
+    const rawBody = JSON.parse(event?.body || '');
 
-    // 1. Runtime validation with Zod
     const validationResult = CreateAnswerDTOSchema.safeParse(rawBody);
 
     if (!validationResult.success) {
@@ -50,7 +41,6 @@ export const baseHandler = async (
 
     const dto: CreateAnswerDTO = validationResult.data;
 
-    // 2. Upsert answer item in Dynamo
     const savedAnswer = await saveAnswer(dto);
 
     return apiResponse(200, savedAnswer);
@@ -68,20 +58,12 @@ export const baseHandler = async (
   }
 };
 
-// --- Business Logic ---
-// Upsert answer by (projectId, questionId)
-
-export async function saveAnswer(
-  dto: CreateAnswerDTO,
-): Promise<AnswerItem> {
+export async function saveAnswer(dto: Partial<AnswerItem>): Promise<AnswerItem> {
   const now = new Date().toISOString();
-  const { questionId, text, projectId, organizationId } = dto;
+  const { questionId, text, projectId, organizationId, source, documentId } = dto;
 
-  // We treat "one answer per (projectId, questionId)" as upsert target.
-  // SK pattern when creating: `${projectId}#${questionId}#${answerId}`
   const skPrefix = `${projectId}#${questionId}#`;
 
-  // 1) Try to find existing answer for this (projectId, questionId)
   const queryRes = await docClient.send(
     new QueryCommand({
       TableName: DB_TABLE_NAME,
@@ -94,16 +76,13 @@ export async function saveAnswer(
         ':pk': ANSWER_PK,
         ':skPrefix': skPrefix,
       },
-      Limit: 1, // we only care about first match
+      Limit: 1,
     }),
   );
 
-  const existing = (queryRes.Items?.[0] as
-    | (AnswerItem & Record<string, any>)
-    | undefined) ?? undefined;
+  const existing = (queryRes.Items?.[0] as (AnswerItem & DBItem) | undefined) ?? undefined;
 
   if (existing) {
-    // 2) UPDATE existing answer
     const key = {
       [PK_NAME]: existing[PK_NAME],
       [SK_NAME]: existing[SK_NAME],
@@ -114,16 +93,18 @@ export async function saveAnswer(
         TableName: DB_TABLE_NAME,
         Key: key,
         UpdateExpression:
-          'SET #text = :text, #organizationId = :organizationId, #updatedAt = :updatedAt',
+          'SET #text = :text, #organizationId = :organizationId, #updatedAt = :updatedAt, #source = :source',
         ExpressionAttributeNames: {
           '#text': 'text',
           '#organizationId': 'organizationId',
           '#updatedAt': 'updatedAt',
+          '#source': 'source',
         },
         ExpressionAttributeValues: {
           ':text': text,
           ':organizationId': organizationId ?? null,
           ':updatedAt': now,
+          ':source': source,
         },
         ReturnValues: 'ALL_NEW',
       }),
@@ -132,20 +113,20 @@ export async function saveAnswer(
     return updateRes.Attributes as AnswerItem;
   }
 
-  // 3) CREATE new answer if none exists
   const answerId = uuidv4();
   const sortKey = `${projectId}#${questionId}#${answerId}`;
 
-  const answerItem: AnswerItem & Record<string, any> = {
+  const answerItem: AnswerItem & DBItem = {
     [PK_NAME]: ANSWER_PK,
     [SK_NAME]: sortKey,
 
     id: answerId,
-    questionId,
+    questionId: questionId!,
     projectId,
     organizationId,
-    text,
-    source: 'manual', // still a manual answer
+    text: text || '',
+    source: source || 'manual',
+    documentId: documentId,
 
     createdAt: now,
     updatedAt: now,
@@ -161,4 +142,10 @@ export async function saveAnswer(
   return answerItem as AnswerItem;
 }
 
-export const handler = withSentryLambda(baseHandler);
+export const handler = withSentryLambda(
+  middy(baseHandler)
+    .use(authContextMiddleware())
+    .use(orgMembershipMiddleware())
+    .use(requirePermission('answer:edit'))
+    .use(httpErrorMiddleware())
+);

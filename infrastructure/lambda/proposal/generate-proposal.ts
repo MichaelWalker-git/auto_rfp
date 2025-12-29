@@ -1,6 +1,5 @@
 import { APIGatewayProxyEventV2, APIGatewayProxyResultV2 } from 'aws-lambda';
-import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
-import { DynamoDBDocumentClient, QueryCommand } from '@aws-sdk/lib-dynamodb';
+import { QueryCommand } from '@aws-sdk/lib-dynamodb';
 import { GetObjectCommand, S3Client } from '@aws-sdk/client-s3';
 import { BedrockRuntimeClient, InvokeModelCommand } from '@aws-sdk/client-bedrock-runtime';
 
@@ -11,7 +10,7 @@ import { QUESTION_PK } from '../constants/question';
 import { apiResponse } from '../helpers/api';
 import { withSentryLambda } from '../sentry-lambda';
 import { getProjectById } from '../helpers/project';
-
+import middy from '@middy/core';
 import {
   GenerateProposalInputSchema,
   type GenerateProposalRequest,
@@ -19,38 +18,29 @@ import {
   type ProposalDocument,
   ProposalDocumentSchema,
 } from '@auto-rfp/shared';
+import { requireEnv } from '../helpers/env';
+import {
+  authContextMiddleware,
+  httpErrorMiddleware,
+  orgMembershipMiddleware,
+  requirePermission
+} from '../middleware/rbac-middleware';
+import { docClient } from '../helpers/db';
+import { safeParseJsonFromModel } from '../helpers/json';
 
-const ddbClient = new DynamoDBClient({});
-const docClient = DynamoDBDocumentClient.from(ddbClient, {
-  marshallOptions: { removeUndefinedValues: true },
-});
+const BEDROCK_REGION = requireEnv('BEDROCK_REGION');
+const DB_TABLE_NAME = requireEnv('DB_TABLE_NAME');
+const DOCUMENTS_BUCKET = requireEnv('DOCUMENTS_BUCKET');
+const BEDROCK_MODEL_ID = requireEnv('BEDROCK_MODEL_ID');
+const MAX_TOKENS = Number(requireEnv('BEDROCK_MAX_TOKENS', '4000'));
+const TEMPERATURE = Number(requireEnv('BEDROCK_TEMPERATURE', '0.1'));
 
 const s3Client = new S3Client({});
-
-const BEDROCK_REGION =
-  process.env.BEDROCK_REGION || process.env.AWS_REGION || 'us-east-1';
-
 const bedrockClient = new BedrockRuntimeClient({ region: BEDROCK_REGION });
 
-const DB_TABLE_NAME = process.env.DB_TABLE_NAME;
-const DOCUMENTS_BUCKET = process.env.DOCUMENTS_BUCKET;
-
-const BEDROCK_MODEL_ID =
-  process.env.BEDROCK_MODEL_ID ||
-  'anthropic.claude-3-5-sonnet-20241022-v2:0';
-
-const MAX_TOKENS = Number(process.env.BEDROCK_MAX_TOKENS ?? 4000);
-const TEMPERATURE = Number(process.env.BEDROCK_TEMPERATURE ?? 0.1);
-
-if (!DB_TABLE_NAME) throw new Error('DB_TABLE_NAME environment variable is not set');
-if (!DOCUMENTS_BUCKET) throw new Error('DOCUMENTS_BUCKET environment variable is not set');
-
-// Convenience types from shared request schema
 type QaPair = GenerateProposalRequest['qaPairs'][number];
 type KnowledgeBaseSnippet = NonNullable<GenerateProposalRequest['knowledgeBaseSnippets']>[number];
 type ProposalMetadata = GenerateProposalRequest['proposalMetadata'];
-
-// -------------------- Helpers --------------------
 
 const extractOrgIdFromSortKey = (sortKey: string): string => {
   const [orgId] = String(sortKey ?? '').split('#');
@@ -154,8 +144,6 @@ const buildKnowledgeBaseSnippets = async (documents: any[]): Promise<KnowledgeBa
   return snippets;
 };
 
-// -------------------- Prompts --------------------
-
 const buildSystemPrompt = (): string =>
   `
 You are a proposal writer for US government and commercial RFPs.
@@ -229,25 +217,16 @@ Task:
 `.trim();
 };
 
-// -------------------- Bedrock response parsing --------------------
 
 const extractBedrockText = (outer: any): string => {
-  // Claude on Bedrock commonly:
-  // { content: [{ type: 'text', text: '...' }], ... }
   const t1 = outer?.content?.[0]?.text;
   if (typeof t1 === 'string' && t1.trim()) return t1;
-
-  // fallbacks
   const t2 = outer?.output_text;
   if (typeof t2 === 'string' && t2.trim()) return t2;
-
   const t3 = outer?.completion;
   if (typeof t3 === 'string' && t3.trim()) return t3;
-
   return '';
 };
-
-// -------------------- Handler --------------------
 
 export const baseHandler = async (
   event: APIGatewayProxyEventV2,
@@ -340,18 +319,7 @@ export const baseHandler = async (
     const outer = JSON.parse(responseBodyString);
 
     const textChunk = extractBedrockText(outer);
-    if (!textChunk) {
-      console.error('Empty Bedrock response', outer);
-      return apiResponse(502, { message: 'Empty response from Bedrock for proposal generation' });
-    }
-
-    let modelJson: unknown;
-    try {
-      modelJson = JSON.parse(textChunk);
-    } catch {
-      // sometimes Claude returns JSON with pre/post text; keep outer for debug
-      modelJson = outer;
-    }
+    const modelJson = safeParseJsonFromModel(textChunk);
 
     const proposalResult = ProposalDocumentSchema.safeParse(modelJson);
     if (!proposalResult.success) {
@@ -374,4 +342,10 @@ export const baseHandler = async (
   }
 };
 
-export const handler = withSentryLambda(baseHandler);
+export const handler = withSentryLambda(
+  middy(baseHandler)
+    .use(authContextMiddleware())
+    .use(orgMembershipMiddleware())
+    .use(requirePermission('proposal:create'))
+    .use(httpErrorMiddleware())
+);

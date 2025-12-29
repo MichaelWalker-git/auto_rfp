@@ -1,13 +1,13 @@
 import { APIGatewayProxyResultV2 } from 'aws-lambda';
-import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
-import { DynamoDBDocumentClient, UpdateCommand } from '@aws-sdk/lib-dynamodb';
+import { UpdateCommand } from '@aws-sdk/lib-dynamodb';
 import { PK_NAME, SK_NAME } from '../constants/common';
 import { DOCUMENT_PK } from '../constants/document';
 import { withSentryLambda } from '../sentry-lambda';
 import { apiResponse } from '../helpers/api';
+import { requireEnv } from '../helpers/env';
+import { docClient } from '../helpers/db';
 
-const ddb = DynamoDBDocumentClient.from(new DynamoDBClient({}));
-const TABLE = process.env.DB_TABLE_NAME!;
+const DB_TABLE_NAME = requireEnv('DB_TABLE_NAME');
 
 export const baseHandler = async (event: any): Promise<APIGatewayProxyResultV2> => {
   console.log('UpdateStatus input:', JSON.stringify(event));
@@ -23,9 +23,9 @@ export const baseHandler = async (event: any): Promise<APIGatewayProxyResultV2> 
 
   const now = new Date().toISOString();
 
-  await ddb.send(
+  await docClient.send(
     new UpdateCommand({
-      TableName: TABLE,
+      TableName: DB_TABLE_NAME,
       Key: {
         [PK_NAME]: DOCUMENT_PK,
         [SK_NAME]: sk

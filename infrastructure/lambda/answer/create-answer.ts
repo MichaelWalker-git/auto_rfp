@@ -1,6 +1,5 @@
 import { APIGatewayProxyEventV2, APIGatewayProxyResultV2, } from 'aws-lambda';
-import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
-import { DynamoDBDocumentClient, PutCommand, } from '@aws-sdk/lib-dynamodb';
+import { PutCommand, } from '@aws-sdk/lib-dynamodb';
 import { v4 as uuidv4 } from 'uuid';
 
 import { PK_NAME, SK_NAME } from '../constants/common';
@@ -8,19 +7,17 @@ import { apiResponse } from '../helpers/api';
 import { AnswerItem, CreateAnswerDTO, CreateAnswerDTOSchema, } from '../schemas/answer';
 import { ANSWER_PK } from '../constants/answer';
 import { withSentryLambda } from '../sentry-lambda';
+import {
+  authContextMiddleware,
+  httpErrorMiddleware,
+  orgMembershipMiddleware,
+  requirePermission
+} from '../middleware/rbac-middleware';
+import middy from '@middy/core';
+import { requireEnv } from '../helpers/env';
+import { DBItem, docClient } from '../helpers/db';
 
-const ddbClient = new DynamoDBClient({});
-const docClient = DynamoDBDocumentClient.from(ddbClient, {
-  marshallOptions: {
-    removeUndefinedValues: true,
-  },
-});
-
-const DB_TABLE_NAME = process.env.DB_TABLE_NAME;
-
-if (!DB_TABLE_NAME) {
-  throw new Error('DB_TABLE_NAME environment variable is not set');
-}
+const DB_TABLE_NAME = requireEnv('DB_TABLE_NAME')
 
 export const baseHandler = async (
   event: APIGatewayProxyEventV2,
@@ -32,7 +29,6 @@ export const baseHandler = async (
   try {
     const rawBody = JSON.parse(event.body);
 
-    // 1. Runtime validation with Zod
     const validationResult = CreateAnswerDTOSchema.safeParse(rawBody);
 
     if (!validationResult.success) {
@@ -49,7 +45,6 @@ export const baseHandler = async (
 
     const dto: CreateAnswerDTO = validationResult.data;
 
-    // 2. Create answer item in Dynamo
     const newAnswer = await createAnswer(dto);
 
     return apiResponse(201, newAnswer);
@@ -67,9 +62,6 @@ export const baseHandler = async (
   }
 };
 
-// --- Business Logic ---
-// Input is guaranteed valid CreateAnswerDTO thanks to Zod
-
 export async function createAnswer(
   dto: CreateAnswerDTO,
 ): Promise<AnswerItem> {
@@ -86,7 +78,7 @@ export async function createAnswer(
 
   const sortKey = `${projectId}#${questionId}#${answerId}`;
 
-  const answerItem: AnswerItem & Record<string, any> = {
+  const answerItem: AnswerItem & DBItem = {
     [PK_NAME]: ANSWER_PK,
     [SK_NAME]: sortKey,
 
@@ -95,7 +87,7 @@ export async function createAnswer(
     projectId,
     organizationId,
     text,
-    source: 'manual',   // we know this is user-entered
+    source: 'manual',
 
     createdAt: now,
     updatedAt: now,
@@ -111,4 +103,10 @@ export async function createAnswer(
   return answerItem as AnswerItem;
 }
 
-export const handler = withSentryLambda(baseHandler);
+export const handler = withSentryLambda(
+  middy(baseHandler)
+    .use(authContextMiddleware())
+    .use(orgMembershipMiddleware())
+    .use(requirePermission('answer:create'))
+    .use(httpErrorMiddleware())
+);

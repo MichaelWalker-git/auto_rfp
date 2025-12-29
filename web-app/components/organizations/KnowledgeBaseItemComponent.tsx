@@ -42,6 +42,7 @@ import { useDownloadFromS3 } from '@/lib/hooks/use-file';
 import { IndexStatus, UploadResultSchema } from '@auto-rfp/shared';
 
 import { UploadFileToS3, type UploadFileToS3Ref, } from '@/components/upload/UploadFileToS3';
+import PermissionWrapper from '@/components/permission-wrapper';
 
 // ============================================================================
 // TYPES & CONSTANTS
@@ -521,11 +522,12 @@ export default function KnowledgeBaseItemComponent() {
                 <div className="text-xs text-muted-foreground">Indexed</div>
               </div>
             </div>
-
-            <Button size="sm" onClick={() => setShowUpload(true)}>
-              <PlusCircle className="h-4 w-4 mr-2"/>
-              Upload Documents
-            </Button>
+            <PermissionWrapper requiredPermission={'kb:upload'}>
+              <Button size="sm" onClick={() => setShowUpload(true)}>
+                <PlusCircle className="h-4 w-4 mr-2"/>
+                Upload Documents
+              </Button>
+            </PermissionWrapper>
           </div>
         </CardHeader>
       </Card>
@@ -592,16 +594,17 @@ export default function KnowledgeBaseItemComponent() {
                         {isDownloading ? 'Downloading…' : 'Download'}
                       </span>
                     </Button>
-
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => handleDeleteClick(doc)}
-                      disabled={isDeleting}
-                      className="text-destructive hover:text-destructive hover:bg-destructive/10"
-                    >
-                      <Trash2 className="h-4 w-4"/>
-                    </Button>
+                    <PermissionWrapper requiredPermission={'document:delete'}>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleDeleteClick(doc)}
+                        disabled={isDeleting}
+                        className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                      >
+                        <Trash2 className="h-4 w-4"/>
+                      </Button>
+                    </PermissionWrapper>
                   </div>
                 </div>
               ))}
@@ -614,10 +617,12 @@ export default function KnowledgeBaseItemComponent() {
               <p className="text-xs text-muted-foreground mb-4 max-w-sm">
                 Upload your first documents to start indexing and enable Q&A capabilities.
               </p>
-              <Button size="sm" variant="outline" onClick={() => setShowUpload(true)}>
-                <PlusCircle className="h-4 w-4 mr-2"/>
-                Upload Documents
-              </Button>
+              <PermissionWrapper requiredPermission={'document:create'}>
+                <Button size="sm" variant="outline" onClick={() => setShowUpload(true)}>
+                  <PlusCircle className="h-4 w-4 mr-2"/>
+                  Upload Documents
+                </Button>
+              </PermissionWrapper>
             </div>
           )}
 

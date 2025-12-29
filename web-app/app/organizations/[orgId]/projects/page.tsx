@@ -23,6 +23,7 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { useDeleteProject } from '@/lib/hooks/use-project';
+import PermissionWrapper from '@/components/permission-wrapper';
 
 export default function OrganizationPage() {
   const [isCreateProjectOpen, setIsCreateProjectOpen] = useState(false);
@@ -128,7 +129,6 @@ export default function OrganizationPage() {
       setConfirmOpen(false);
       setPendingProject(null);
 
-      // ✅ refresh list (preferred)
       if (typeof refetchProjects === 'function') {
         refetchProjects();
       } else {
@@ -153,23 +153,25 @@ export default function OrganizationPage() {
             <p className="text-gray-600 mt-1">{organization.description}</p>
           )}
         </div>
-        <div className="flex gap-2">
-          <Button onClick={() => setIsCreateProjectOpen(true)}>
-            <PlusCircle className="mr-2 h-4 w-4"/>
-            New Project
-          </Button>
-        </div>
+        <PermissionWrapper requiredPermission={'project:create'}>
+          <div className="flex gap-2">
+            <Button onClick={() => setIsCreateProjectOpen(true)}>
+              <PlusCircle className="mr-2 h-4 w-4"/>
+              New Project
+            </Button>
+          </div>
+        </PermissionWrapper>
       </div>
 
       <div className="mb-8">
         <h2 className="text-xl font-medium mb-4">Projects</h2>
 
         {orgId && projects && projects.length > 0 ? (
-          <ProjectGrid
-            projects={projects}
-            isLoading={false}
-            onDeleteProject={openDeleteConfirm}
-          />
+            <ProjectGrid
+              projects={projects}
+              isLoading={false}
+              onDeleteProject={openDeleteConfirm}
+            />
         ) : (
           <div className="border rounded-lg p-8 text-center">
             <h3 className="text-lg font-medium mb-2">No projects yet</h3>

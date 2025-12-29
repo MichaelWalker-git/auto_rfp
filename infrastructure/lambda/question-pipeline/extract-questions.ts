@@ -1,41 +1,23 @@
 import { Context } from 'aws-lambda';
-import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
-import { DynamoDBDocumentClient, PutCommand, UpdateCommand } from '@aws-sdk/lib-dynamodb';
-import { GetObjectCommand, S3Client } from '@aws-sdk/client-s3';
+import { PutCommand, UpdateCommand } from '@aws-sdk/lib-dynamodb';
 import { BedrockRuntimeClient, InvokeModelCommand } from '@aws-sdk/client-bedrock-runtime';
-
-import { PROJECT_PK } from '../constants/organization';
 import { QUESTION_PK } from '../constants/question';
 import { PK_NAME, SK_NAME } from '../constants/common';
 import { QUESTION_FILE_PK } from '../constants/question-file';
 import { safeParseJsonFromModel } from '../helpers/json';
 import { withSentryLambda } from '../sentry-lambda';
-import { getProjectById } from '../helpers/project';
+import { requireEnv } from '../helpers/env';
+import { loadTextFromS3 } from '../helpers/executive-opportunity-frief';
+import { docClient } from '../helpers/db';
 
-const ddbClient = new DynamoDBClient({});
-const docClient = DynamoDBDocumentClient.from(ddbClient, {
-  marshallOptions: { removeUndefinedValues: true },
-});
-
-const s3Client = new S3Client({});
-
-const BEDROCK_REGION =
-  process.env.BEDROCK_REGION ||
-  process.env.AWS_REGION ||
-  'us-east-1';
-const BEDROCK_MODEL_ID =
-  process.env.BEDROCK_MODEL_ID || 'anthropic.claude-3-haiku-20240307-v1:0';
+const BEDROCK_REGION = requireEnv('BEDROCK_REGION');
+const BEDROCK_MODEL_ID = requireEnv('BEDROCK_MODEL_ID');
+const DB_TABLE_NAME = requireEnv('DB_TABLE_NAME');
+const DOCUMENTS_BUCKET = requireEnv('DOCUMENTS_BUCKET');
 
 const bedrockClient = new BedrockRuntimeClient({
   region: BEDROCK_REGION,
 });
-
-const DB_TABLE_NAME = process.env.DB_TABLE_NAME;
-const DOCUMENTS_BUCKET_NAME = process.env.DOCUMENTS_BUCKET_NAME;
-
-if (!DB_TABLE_NAME) throw new Error('DB_TABLE_NAME env var is not set');
-if (!DOCUMENTS_BUCKET_NAME)
-  throw new Error('DOCUMENTS_BUCKET_NAME env var is not set');
 
 interface Event {
   questionFileId?: string;
@@ -67,14 +49,10 @@ export const baseHandler = async (
   }
 
   // 1) Load text from S3
-  const text = await loadTextFromS3(textFileKey);
+  const text = await loadTextFromS3(DOCUMENTS_BUCKET, textFileKey);
 
   // 2) Call Bedrock with the same prompt/structure as in the HTTP Lambda
   const extracted = await extractQuestionsWithBedrock(text);
-
-  const summary = await generateSummary(text);
-
-  const eligibility = await extractEligibility(text);
 
   // 3) Save questions (section + questions) in DynamoDB (linked to this file)
   const totalQuestions = await saveQuestionsFromSections(
@@ -86,26 +64,8 @@ export const baseHandler = async (
   // 4) Update status on question_file item
   await updateStatus(questionFileId, projectId, 'questions_extracted', totalQuestions);
 
-  // 5) Update project to store summary and eligibility
-  await updateProject(projectId, summary, eligibility);
-
   return { count: totalQuestions };
 };
-
-async function loadTextFromS3(key: string): Promise<string> {
-  const res = await s3Client.send(
-    new GetObjectCommand({
-      Bucket: DOCUMENTS_BUCKET_NAME,
-      Key: key,
-    }),
-  );
-
-  const body = await res.Body?.transformToString();
-  if (!body) {
-    throw new Error(`Failed to read text file from S3: ${key}`);
-  }
-  return body;
-}
 
 async function extractQuestionsWithBedrock(
   content: string,
@@ -292,193 +252,8 @@ Requirements:
     `.trim();
 };
 
-
-const getSummarySystemPrompt = () => {
-  return `
-You are an expert at analyzing RFP (Request for Proposal) documents and creating concise, informative summaries.
-
-Your task is to read through the RFP document and create a comprehensive paragraph summary that captures:
-1. The purpose and scope of the project/procurement
-2. Key requirements and deliverables
-3. Important dates, deadlines, or timelines mentioned
-4. Any special qualifications or criteria for vendors
-5. The overall scale or nature of the work
-
-Write a clear, professional summary in paragraph form (3-5 sentences) that would help someone quickly understand what this RFP is about and what the organization is seeking. Focus on the most important aspects that potential bidders would need to know.
-
-Do not include section numbers, question lists, or administrative details like submission instructions. Focus on the substance of what is being procured.
-    `.trim();
-};
-
-const getEligibilitySystemPrompt = () => {
-  return `
-You are an expert at analyzing RFP (Request for Proposal) documents and extracting vendor eligibility requirements.
-
-Your task is to read through the RFP document and identify all key eligibility criteria that vendors must meet to qualify for this proposal. Focus on extracting:
-
-1. Minimum experience requirements (years in business, project experience)
-2. Technical qualifications and certifications
-3. Financial requirements (bonding, insurance, revenue thresholds)
-4. Geographic restrictions or preferences
-5. Industry-specific licenses or accreditations
-6. Staff qualifications and expertise requirements
-7. Past performance criteria
-8. Legal and compliance requirements
-9. Size classifications (small business, minority-owned, etc.)
-10. Any other mandatory qualifications mentioned
-
-Format your response as a JSON object with an "eligibility" array containing clear, concise bullet points. Each requirement should be a standalone statement that a vendor can easily evaluate against their own qualifications.
-
-Example format:
-{
-  "eligibility": [
-    "Minimum 5 years of experience in software development",
-    "Must hold current ISO 27001 certification",
-    "Annual revenue of at least $10 million",
-    "Licensed to operate in the State of California"
-  ]
-}
-
-Focus only on mandatory requirements, not preferences. If no clear eligibility criteria are found, return an empty array.
-    `.trim();
-};
-
-const generateSummary = async (content: string) => {
-  try {
-    const systemPrompt = getSummarySystemPrompt();
-    const userPrompt = buildUserPrompt(content);
-
-    const body = JSON.stringify({
-      anthropic_version: 'bedrock-2023-05-31',
-      system: [{ type: 'text', text: systemPrompt }],
-      messages: [{ role: 'user', content: [{ type: 'text', text: userPrompt }] }],
-      temperature: 0.3,        // Slightly higher for more creative summaries
-      max_tokens: 500,         // Limit summary length
-    });
-
-    const command = new InvokeModelCommand({
-      modelId: BEDROCK_MODEL_ID,
-      contentType: 'application/json',
-      accept: 'application/json',
-      body: new TextEncoder().encode(body),
-    });
-
-    const response = await bedrockClient.send(command);
-
-    const raw = new TextDecoder().decode(response.body);
-    const outer = JSON.parse(raw);
-
-    // Claude-style Bedrock response:
-    // { content: [{ text: "..." }], ... }
-    const textChunk: string | undefined =
-      outer?.content?.[0]?.text ??
-      outer?.output_text ??
-      outer?.completion;
-
-    if (!textChunk) {
-      console.error('Invalid textChunk', textChunk);
-      return '';
-    }
-
-    return textChunk.trim();
-  } catch (error) {
-    console.error(error);
-    return '';
-  }
-};
-
-function buildUserPrompt(content: string): string {
+const buildUserPrompt = (content: string) => {
   return `Document Content:\n${content}`;
-}
-
-export const extractEligibility = async (
-  content: string,
-): Promise<string[]> => {
-  try {
-    const systemPrompt = getEligibilitySystemPrompt();
-    const userPrompt = buildUserPrompt(content);
-
-    const body = JSON.stringify({
-      anthropic_version: 'bedrock-2023-05-31',
-      system: [{ type: 'text', text: systemPrompt }],
-      messages: [{ role: 'user', content: [{ type: 'text', text: userPrompt }] }],
-      temperature: 0.1,   // Low temperature for precise extraction
-      max_tokens: 1000,   // Allow for comprehensive eligibility lists
-      response_format: {
-        type: 'json',
-      },
-    });
-
-    const command = new InvokeModelCommand({
-      modelId: BEDROCK_MODEL_ID,
-      contentType: 'application/json',
-      accept: 'application/json',
-      body: new TextEncoder().encode(body),
-    });
-
-    const response = await bedrockClient.send(command);
-
-    const raw = new TextDecoder().decode(response.body);
-    const outer = JSON.parse(raw);
-
-    const assistantMessage: string | undefined =
-      outer?.content?.[0]?.text ??
-      outer?.output_text ??
-      outer?.completion;
-
-    if (!assistantMessage) {
-      console.error('Empty assistant message', assistantMessage);
-      return Promise.resolve([]);
-    }
-
-    const rawData = JSON.parse(assistantMessage);
-
-    if (!rawData.eligibility || !Array.isArray(rawData.eligibility)) {
-      console.error('Bad response', rawData);
-      return Promise.resolve([]);
-    }
-
-    return rawData.eligibility.filter((item: unknown) => typeof item === 'string' && item.trim().length > 0);
-  } catch (error) {
-    console.error(error);
-    return Promise.resolve([]);
-  }
-};
-
-export const updateProject = async (
-  projectId: string,
-  summary: string,
-  eligibility: string[],
-): Promise<void> => {
-  const {
-    sort_key
-  } = await getProjectById(docClient, DB_TABLE_NAME, projectId);
-  const now = new Date().toISOString();
-
-  const cmd = new UpdateCommand({
-    TableName: DB_TABLE_NAME,
-    Key: {
-      [PK_NAME]: PROJECT_PK,
-      [SK_NAME]: sort_key,
-    },
-    UpdateExpression: 'SET #summary = :summary, #eligibility = :eligibility, #updatedAt = :updatedAt',
-    ExpressionAttributeNames: {
-      '#summary': 'summary',
-      '#eligibility': 'eligibility',
-      '#updatedAt': 'updatedAt',
-      '#pk': PK_NAME,
-      '#sk': SK_NAME,
-    },
-    ExpressionAttributeValues: {
-      ':summary': summary,
-      ':eligibility': eligibility,
-      ':updatedAt': now,
-    },
-    ConditionExpression: 'attribute_exists(#pk) AND attribute_exists(#sk)',
-    ReturnValues: 'NONE',
-  });
-
-  await docClient.send(cmd);
 };
 
 export const handler = withSentryLambda(baseHandler);

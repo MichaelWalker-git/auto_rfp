@@ -4,7 +4,7 @@ import React, { useEffect, useMemo, useState, useTransition } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { usePathname } from 'next/navigation';
-import { fetchAuthSession, getCurrentUser, signOut } from 'aws-amplify/auth';
+import {  getCurrentUser, signOut } from 'aws-amplify/auth';
 
 import { Button } from '@/components/ui/button';
 import {
@@ -18,6 +18,7 @@ import {
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Building2, ChevronRight, FileText, HelpCircle, LogOut, Settings, Users } from 'lucide-react';
 import { useOrganization } from '@/context/organization-context';
+import { useAuth } from '@/components/AuthProvider';
 
 interface BreadcrumbItem {
   label: string;
@@ -32,12 +33,12 @@ function HeaderSkeleton() {
       <header className="bg-background">
         <div className="container mx-auto flex h-12 items-center justify-between px-4">
           <div className="flex items-center gap-3">
-            <div className="h-6 w-32 animate-pulse bg-muted rounded" />
-            <div className="h-4 w-48 animate-pulse bg-muted rounded hidden md:block" />
+            <div className="h-6 w-32 animate-pulse bg-muted rounded"/>
+            <div className="h-4 w-48 animate-pulse bg-muted rounded hidden md:block"/>
           </div>
           <div className="flex items-center gap-3">
-            <div className="h-6 w-16 animate-pulse bg-muted rounded" />
-            <div className="h-6 w-6 animate-pulse bg-muted rounded-full" />
+            <div className="h-6 w-16 animate-pulse bg-muted rounded"/>
+            <div className="h-6 w-6 animate-pulse bg-muted rounded-full"/>
           </div>
         </div>
       </header>
@@ -58,6 +59,7 @@ export function GlobalHeader() {
   const [mounted, setMounted] = useState(false);
   const [userEmail, setUserEmail] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
+  const { getIdToken } = useAuth();
 
   // derived values (NOT hooks)
   const hideHeader = pathname === '/' || pathname === '/signup';
@@ -71,9 +73,8 @@ export function GlobalHeader() {
 
     (async () => {
       try {
-        const session = await fetchAuthSession();
-        const payload = session.tokens?.idToken?.payload as IdTokenPayload | undefined;
-
+        const token = await getIdToken()
+        const payload = token?.payload as IdTokenPayload;
         const emailFromToken =
           payload?.email ??
           payload?.preferred_username ??
@@ -106,7 +107,7 @@ export function GlobalHeader() {
       bc.push({
         label: 'Organizations',
         href: '/organizations',
-        icon: <Building2 className="h-4 w-4" />,
+        icon: <Building2 className="h-4 w-4"/>,
         active: true,
       });
       return bc;
@@ -116,7 +117,7 @@ export function GlobalHeader() {
       bc.push({
         label: currentOrganization.name,
         href: `/organizations/${currentOrganization.id}`,
-        icon: <Building2 className="h-4 w-4" />,
+        icon: <Building2 className="h-4 w-4"/>,
       });
 
       if (currentProject) {
@@ -129,21 +130,21 @@ export function GlobalHeader() {
           bc.push({
             label: 'Documents',
             href: `/projects/${currentProject.id}/documents`,
-            icon: <FileText className="h-4 w-4" />,
+            icon: <FileText className="h-4 w-4"/>,
             active: true,
           });
         } else if (pathname.includes('/questions')) {
           bc.push({
             label: 'Questions',
             href: `/projects/${currentProject.id}/questions`,
-            icon: <HelpCircle className="h-4 w-4" />,
+            icon: <HelpCircle className="h-4 w-4"/>,
             active: true,
           });
         } else if (pathname.includes('/team')) {
           bc.push({
             label: 'Team',
             href: `/projects/${currentProject.id}/team`,
-            icon: <Users className="h-4 w-4" />,
+            icon: <Users className="h-4 w-4"/>,
             active: true,
           });
         } else {
@@ -151,11 +152,11 @@ export function GlobalHeader() {
         }
       } else {
         if (pathname.includes('/team')) {
-          bc.push({ label: 'Team', icon: <Users className="h-4 w-4" />, active: true });
+          bc.push({ label: 'Team', icon: <Users className="h-4 w-4"/>, active: true });
         } else if (pathname.includes('/settings')) {
-          bc.push({ label: 'Settings', icon: <Settings className="h-4 w-4" />, active: true });
+          bc.push({ label: 'Settings', icon: <Settings className="h-4 w-4"/>, active: true });
         } else if (pathname.includes('/documents')) {
-          bc.push({ label: 'Documents', icon: <FileText className="h-4 w-4" />, active: true });
+          bc.push({ label: 'Documents', icon: <FileText className="h-4 w-4"/>, active: true });
         } else {
           bc[bc.length - 1].active = true;
         }
@@ -166,7 +167,7 @@ export function GlobalHeader() {
   }, [mounted, hideHeader, pathname, currentOrganization, currentProject]);
 
   if (hideHeader) return null;
-  if (!mounted) return <HeaderSkeleton />;
+  if (!mounted) return <HeaderSkeleton/>;
 
   const displayName = userEmail?.split('@')[0] || 'User';
   const avatarLetter = userEmail ? userEmail.charAt(0).toUpperCase() : 'U';
@@ -177,13 +178,13 @@ export function GlobalHeader() {
         <div className="container mx-auto flex h-12 items-center justify-between px-4">
           <div className="flex items-center gap-3">
             <Link href="/organizations" className="flex items-center gap-2">
-              <Image src="/llamaindex_logo.jpeg" alt="AutoRFP" width={24} height={24} />
+              <Image src="/llamaindex_logo.jpeg" alt="AutoRFP" width={24} height={24}/>
               <span className="font-semibold text-lg">AutoRFP</span>
             </Link>
 
             {breadcrumbs.length > 0 && (
               <nav className="flex items-center gap-1 text-sm">
-                <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                <ChevronRight className="h-4 w-4 text-muted-foreground"/>
                 {breadcrumbs.map((crumb, index) => (
                   <React.Fragment key={`${crumb.label}-${index}`}>
                     {crumb.href ? (
@@ -209,7 +210,7 @@ export function GlobalHeader() {
                       </span>
                     )}
                     {index < breadcrumbs.length - 1 && (
-                      <ChevronRight className="h-3 w-3 text-muted-foreground" />
+                      <ChevronRight className="h-3 w-3 text-muted-foreground"/>
                     )}
                   </React.Fragment>
                 ))}
@@ -220,7 +221,7 @@ export function GlobalHeader() {
           <div className="flex items-center gap-3">
             <Button variant="ghost" size="sm" asChild>
               <Link href="/help" className="flex items-center gap-1.5">
-                <HelpCircle className="h-4 w-4" />
+                <HelpCircle className="h-4 w-4"/>
                 <span className="text-sm">Help</span>
               </Link>
             </Button>
@@ -244,7 +245,7 @@ export function GlobalHeader() {
                     )}
                   </div>
                 </DropdownMenuLabel>
-                <DropdownMenuSeparator />
+                <DropdownMenuSeparator/>
                 <DropdownMenuItem
                   className="text-destructive cursor-pointer"
                   disabled={isPending}
@@ -252,7 +253,7 @@ export function GlobalHeader() {
                     startTransition(async () => await signOut({ global: true }));
                   }}
                 >
-                  <LogOut className="mr-2 h-4 w-4" />
+                  <LogOut className="mr-2 h-4 w-4"/>
                   <span>{isPending ? 'Logging out...' : 'Log out'}</span>
                 </DropdownMenuItem>
               </DropdownMenuContent>

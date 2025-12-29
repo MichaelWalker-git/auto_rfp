@@ -1,27 +1,29 @@
 import { APIGatewayProxyEventV2, APIGatewayProxyResultV2, } from 'aws-lambda';
-import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
-import { DynamoDBDocumentClient, QueryCommand, } from '@aws-sdk/lib-dynamodb';
+import { QueryCommand, } from '@aws-sdk/lib-dynamodb';
 
 import { apiResponse } from '../helpers/api';
 import { PK_NAME, SK_NAME } from '../constants/common';
 import { ANSWER_PK } from '../constants/answer';
 import { withSentryLambda } from '../sentry-lambda';
+import middy from '@middy/core';
+import {
+  authContextMiddleware,
+  httpErrorMiddleware,
+  orgMembershipMiddleware,
+  requirePermission
+} from '../middleware/rbac-middleware';
+import { requireEnv } from '../helpers/env';
+import { docClient } from '../helpers/db';
+import { AnswerItem } from '../schemas/answer';
 
-const ddbClient = new DynamoDBClient({});
-const docClient = DynamoDBDocumentClient.from(ddbClient, {
-  marshallOptions: { removeUndefinedValues: true },
-});
-
-const DB_TABLE_NAME = process.env.DB_TABLE_NAME;
-if (!DB_TABLE_NAME) {
-  throw new Error('DB_TABLE_NAME env var is missing');
-}
+const DB_TABLE_NAME = requireEnv('DB_TABLE_NAME');
 
 export const baseHandler = async (
   event: APIGatewayProxyEventV2,
 ): Promise<APIGatewayProxyResultV2> => {
   try {
-    const projectId = event.pathParameters?.id;
+    const { id: projectId } = event.pathParameters || {};
+
     if (!projectId) {
       return apiResponse(400, { message: 'Missing projectId' });
     }
@@ -39,10 +41,8 @@ export const baseHandler = async (
   }
 };
 
-// ---------- LOAD ANSWERS FROM DYNAMODB ----------
-
-async function loadAnswers(projectId: string): Promise<any[]> {
-  let items: any[] = [];
+async function loadAnswers(projectId: string): Promise<AnswerItem[]> {
+  let items = [];
   let LastKey: any | undefined;
 
   const prefix = `${projectId}#`;
@@ -69,7 +69,7 @@ async function loadAnswers(projectId: string): Promise<any[]> {
     LastKey = res.LastEvaluatedKey;
   } while (LastKey);
 
-  return items;
+  return items as AnswerItem[];
 }
 
 // ---------- GROUP BY questionId & PICK LATEST ----------
@@ -110,11 +110,8 @@ function groupAnswersByQuestion(flatAnswers: any[]) {
       map[questionId] = candidate;
       continue;
     }
-
-    // pick the latest by updatedAt, then createdAt
     const curTime = new Date(current.updatedAt || current.createdAt || 0).getTime();
     const candTime = new Date(candidate.updatedAt || candidate.createdAt || 0).getTime();
-
     if (candTime > curTime) {
       map[questionId] = candidate;
     }
@@ -124,4 +121,10 @@ function groupAnswersByQuestion(flatAnswers: any[]) {
 }
 
 
-export const handler = withSentryLambda(baseHandler)
+export const handler = withSentryLambda(
+  middy(baseHandler)
+    .use(authContextMiddleware())
+    .use(orgMembershipMiddleware())
+    .use(requirePermission('answer:read'))
+    .use(httpErrorMiddleware())
+);

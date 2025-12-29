@@ -7,23 +7,13 @@ import { apiResponse } from '../helpers/api';
 import { withSentryLambda } from '../sentry-lambda';
 import { PK_NAME, SK_NAME } from '../constants/common';
 import { QUESTION_FILE_PK } from '../constants/question-file';
+import { requireEnv } from '../helpers/env';
+import { docClient } from '../helpers/db';
 
 const sfnClient = new SFNClient({});
 
-const ddbClient = new DynamoDBClient({});
-const docClient = DynamoDBDocumentClient.from(ddbClient, {
-  marshallOptions: { removeUndefinedValues: true },
-});
-
-const STATE_MACHINE_ARN = process.env.QUESTION_PIPELINE_STATE_MACHINE_ARN;
-const DB_TABLE_NAME = process.env.DB_TABLE_NAME;
-
-if (!STATE_MACHINE_ARN) {
-  throw new Error('QUESTION_PIPELINE_STATE_MACHINE_ARN env var is not set');
-}
-if (!DB_TABLE_NAME) {
-  throw new Error('DB_TABLE_NAME env var is not set');
-}
+const STATE_MACHINE_ARN = requireEnv('QUESTION_PIPELINE_STATE_MACHINE_ARN');
+const DB_TABLE_NAME = requireEnv('DB_TABLE_NAME');
 
 interface StartBody {
   questionFileId?: string;

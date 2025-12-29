@@ -2,8 +2,8 @@
 
 import useSWR from 'swr';
 import useSWRMutation from 'swr/mutation';
-import { fetchAuthSession } from 'aws-amplify/auth';
 import { env } from '@/lib/env';
+import { authFetcher } from '@/lib/auth/auth-fetcher';
 
 //
 // ================================
@@ -39,40 +39,10 @@ export interface DeleteKnowledgeBaseDTO {
   id: string;
 }
 
-//
-// ================================
-// Helpers
-// ================================
-//
-
-async function authorizedFetch(url: string, options: RequestInit = {}) {
-  let token: string | undefined;
-
-  if (typeof window !== 'undefined') {
-    const session = await fetchAuthSession();
-    token = session.tokens?.idToken?.toString();
-  }
-
-  return fetch(url, {
-    ...options,
-    headers: {
-      ...(token ? { Authorization: token } : {}),
-      'Content-Type': 'application/json',
-      ...(options.headers || {}),
-    },
-  });
-}
-
 const BASE = `${env.BASE_API_URL}/knowledgebase`;
 
-//
-// ================================
-// SWR Fetchers
-// ================================
-//
-
 const fetcher = async (url: string) => {
-  const res = await authorizedFetch(url);
+  const res = await authFetcher(url);
 
   if (!res.ok) {
     const text = await res.text().catch(() => '');
@@ -95,7 +65,7 @@ export function useCreateKnowledgeBase(orgId: string) {
   return useSWRMutation(
     `${BASE}/create-knowledgebase?orgId=${orgId}`,
     async (url, { arg }: { arg: CreateKnowledgeBaseDTO }) => {
-      const res = await authorizedFetch(url, {
+      const res = await authFetcher(url, {
         method: 'POST',
         body: JSON.stringify(arg),
       });
@@ -120,7 +90,7 @@ export function useDeleteKnowledgeBase() {
   return useSWRMutation(
     `${BASE}/delete-knowledgebase`,
     async (url, { arg }: { arg: DeleteKnowledgeBaseDTO }) => {
-      const res = await authorizedFetch(url, {
+      const res = await authFetcher(url, {
         method: 'DELETE',
         body: JSON.stringify(arg),
       });
@@ -145,7 +115,7 @@ export function useEditKnowledgeBase() {
   return useSWRMutation(
     `${BASE}/edit-knowledgebase`,
     async (url, { arg }: { arg: EditKnowledgeBaseDTO }) => {
-      const res = await authorizedFetch(url, {
+      const res = await authFetcher(url, {
         method: 'PATCH',
         body: JSON.stringify(arg),
       });

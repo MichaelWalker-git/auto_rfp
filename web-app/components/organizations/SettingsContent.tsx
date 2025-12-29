@@ -1,15 +1,16 @@
 'use client';
 
-import React, { useState, useEffect } from "react";
-import { useOrganization } from "@/lib/hooks/use-api";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { useToast } from "@/components/ui/use-toast";
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { Separator } from "@/components/ui/separator";
-import { AlertCircle } from "lucide-react";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import React, { useEffect, useState } from 'react';
+import { useOrganization } from '@/lib/hooks/use-api';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { useToast } from '@/components/ui/use-toast';
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
+import { Separator } from '@/components/ui/separator';
+import { AlertCircle } from 'lucide-react';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import PermissionWrapper from '@/components/permission-wrapper';
 
 interface SettingsContentProps {
   orgId: string;
@@ -19,27 +20,27 @@ export function SettingsContent({ orgId }: SettingsContentProps) {
   const [organization, setOrganization] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
-  const [name, setName] = useState("");
-  const [slackWebhook, setSlackWebhook] = useState("");
+  const [name, setName] = useState('');
+  const [slackWebhook, setSlackWebhook] = useState('');
   const { toast } = useToast();
 
   const { data: orgData, isLoading: isOrgLoading, isError: isOrgError, mutate } = useOrganization(orgId);
-  
+
   useEffect(() => {
     if (orgData) {
       setOrganization(orgData);
-      setName((orgData as any).name || "");
-      setSlackWebhook((orgData as any).slackWebhook || "");
+      setName((orgData as any).name || '');
+      setSlackWebhook((orgData as any).slackWebhook || '');
       setIsLoading(false);
     } else {
       setIsLoading(isOrgLoading);
     }
-    
+
     if (isOrgError) {
       toast({
-        title: "Error",
-        description: "Failed to load organization data",
-        variant: "destructive",
+        title: 'Error',
+        description: 'Failed to load organization data',
+        variant: 'destructive',
       });
     }
   }, [orgData, isOrgLoading, isOrgError, toast]);
@@ -51,38 +52,38 @@ export function SettingsContent({ orgId }: SettingsContentProps) {
 
   const handleUpdateOrganization = async (event: React.FormEvent) => {
     event.preventDefault();
-    
+
     try {
       setIsSaving(true);
-      
+
       const response = await fetch(`/api/organizations/${orgId}`, {
-        method: "PATCH",
+        method: 'PATCH',
         headers: {
-          "Content-Type": "application/json",
+          'Content-Type': 'application/json',
         },
         body: JSON.stringify({
           name,
           slackWebhook,
         }),
       });
-      
+
       if (!response.ok) {
-        throw new Error("Failed to update organization");
+        throw new Error('Failed to update organization');
       }
-      
+
       const updatedOrg = await response.json();
       setOrganization(updatedOrg);
-      
+
       toast({
-        title: "Success",
-        description: "Organization settings updated",
+        title: 'Success',
+        description: 'Organization settings updated',
       });
     } catch (error) {
-      console.error("Error updating organization:", error);
+      console.error('Error updating organization:', error);
       toast({
-        title: "Error",
-        description: "Failed to update organization settings",
-        variant: "destructive",
+        title: 'Error',
+        description: 'Failed to update organization settings',
+        variant: 'destructive',
       });
     } finally {
       setIsSaving(false);
@@ -95,7 +96,7 @@ export function SettingsContent({ orgId }: SettingsContentProps) {
 
   const handleDeleteOrganization = () => {
     // This would typically open a confirmation dialog
-    alert("This action would delete the organization. Not implemented in this demo.");
+    alert('This action would delete the organization. Not implemented in this demo.');
   };
 
   if (isLoading) {
@@ -117,7 +118,7 @@ export function SettingsContent({ orgId }: SettingsContentProps) {
       <div className="py-6 px-4 sm:px-6">
         <div className="flex flex-col gap-6">
           <h1 className="text-2xl font-semibold">Organization Settings</h1>
-          
+
           {/* General Settings Section */}
           <Card>
             <CardHeader>
@@ -143,9 +144,11 @@ export function SettingsContent({ orgId }: SettingsContentProps) {
               </form>
             </CardContent>
             <CardFooter>
-              <Button type="submit" form="general-form" disabled={isSaving}>
-                {isSaving ? "Saving..." : "Save Changes"}
-              </Button>
+              <PermissionWrapper requiredPermission={'org:edit'}>
+                <Button type="submit" form="general-form" disabled={isSaving}>
+                  {isSaving ? 'Saving...' : 'Save Changes'}
+                </Button>
+              </PermissionWrapper>
             </CardFooter>
           </Card>
 
@@ -194,7 +197,7 @@ export function SettingsContent({ orgId }: SettingsContentProps) {
 
           {/* Danger Zone Section */}
           <div className="space-y-4 pt-8">
-            <Separator />
+            <Separator/>
             <Card className="border-destructive">
               <CardHeader>
                 <CardTitle className="text-destructive">Danger Zone</CardTitle>
@@ -204,15 +207,16 @@ export function SettingsContent({ orgId }: SettingsContentProps) {
               </CardHeader>
               <CardContent>
                 <Alert variant="destructive">
-                  <AlertCircle className="h-4 w-4" />
+                  <AlertCircle className="h-4 w-4"/>
                   <AlertTitle>Warning</AlertTitle>
                   <AlertDescription>
-                    Deleting an organization will permanently remove all projects, documents, and team members. This action cannot be undone.
+                    Deleting an organization will permanently remove all projects, documents, and team members. This
+                    action cannot be undone.
                   </AlertDescription>
                 </Alert>
-                
-                <Separator className="my-4" />
-                
+
+                <Separator className="my-4"/>
+
                 <div className="grid gap-4">
                   <Label htmlFor="confirm">Type the organization name to confirm</Label>
                   <Input
@@ -221,14 +225,16 @@ export function SettingsContent({ orgId }: SettingsContentProps) {
                   />
                 </div>
               </CardContent>
-              <CardFooter>
-                <Button 
-                  variant="destructive" 
-                  onClick={handleDeleteOrganization}
-                >
-                  Delete Organization
-                </Button>
-              </CardFooter>
+              <PermissionWrapper requiredPermission={'org:delete'}>
+                <CardFooter>
+                  <Button
+                    variant="destructive"
+                    onClick={handleDeleteOrganization}
+                  >
+                    Delete Organization
+                  </Button>
+                </CardFooter>
+              </PermissionWrapper>
             </Card>
           </div>
         </div>

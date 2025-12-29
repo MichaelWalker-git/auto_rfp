@@ -1,12 +1,5 @@
-import {
-  APIGatewayProxyEventV2,
-  APIGatewayProxyResultV2,
-} from 'aws-lambda';
-import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
-import {
-  DynamoDBDocumentClient,
-  PutCommand,
-} from '@aws-sdk/lib-dynamodb';
+import { APIGatewayProxyEventV2, APIGatewayProxyResultV2, } from 'aws-lambda';
+import { PutCommand, } from '@aws-sdk/lib-dynamodb';
 import { v4 as uuidv4 } from 'uuid';
 import { z } from 'zod';
 
@@ -14,21 +7,17 @@ import { PK_NAME, SK_NAME } from '../constants/common';
 import { PROJECT_PK } from '../constants/organization';
 import { apiResponse } from '../helpers/api';
 import { withSentryLambda } from '../sentry-lambda';
+import {
+  authContextMiddleware,
+  httpErrorMiddleware,
+  orgMembershipMiddleware,
+  requirePermission
+} from '../middleware/rbac-middleware';
+import middy from '@middy/core';
+import { requireEnv } from '../helpers/env';
+import { DBItem, docClient } from '../helpers/db';
 
-const ddbClient = new DynamoDBClient({});
-const docClient = DynamoDBDocumentClient.from(ddbClient, {
-  marshallOptions: {
-    removeUndefinedValues: true,
-  },
-});
-
-const DB_TABLE_NAME = process.env.DB_TABLE_NAME;
-
-if (!DB_TABLE_NAME) {
-  throw new Error('DB_TABLE_NAME environment variable is not set');
-}
-
-// --------- Zod schema & types ---------
+const DB_TABLE_NAME = requireEnv('DB_TABLE_NAME');
 
 export const CreateProjectSchema = z.object({
   orgId: z.string().min(1, 'Organization ID is required'),
@@ -38,13 +27,7 @@ export const CreateProjectSchema = z.object({
 
 export type CreateProjectDTO = z.infer<typeof CreateProjectSchema>;
 
-export type ProjectItem = CreateProjectDTO & {
-  [PK_NAME]: string;
-  [SK_NAME]: string;
-  id: string;
-  createdAt: string;
-  updatedAt: string;
-};
+export type ProjectItem = CreateProjectDTO & DBItem & { id: string };
 
 export const baseHandler = async (
   event: APIGatewayProxyEventV2,
@@ -131,4 +114,10 @@ export async function createProject(dto: CreateProjectDTO): Promise<ProjectItem>
   return projectItem;
 }
 
-export const handler = withSentryLambda(baseHandler);
+export const handler = withSentryLambda(
+  middy(baseHandler)
+    .use(authContextMiddleware())
+    .use(orgMembershipMiddleware())
+    .use(requirePermission('project:create'))
+    .use(httpErrorMiddleware())
+);

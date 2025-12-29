@@ -1,6 +1,5 @@
 import type { APIGatewayProxyEventV2, APIGatewayProxyResultV2 } from 'aws-lambda';
-import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
-import { DeleteCommand, DynamoDBDocumentClient, GetCommand, QueryCommand, ScanCommand, } from '@aws-sdk/lib-dynamodb';
+import { DeleteCommand, GetCommand, QueryCommand, ScanCommand, } from '@aws-sdk/lib-dynamodb';
 import { DeleteObjectCommand, S3Client } from '@aws-sdk/client-s3';
 
 import { PK_NAME, SK_NAME } from '../constants/common';
@@ -13,21 +12,21 @@ import { PROPOSAL_PK } from '../constants/proposal';
 
 import { apiResponse } from '../helpers/api';
 import { withSentryLambda } from '../sentry-lambda';
+import middy from '@middy/core';
+import {
+  authContextMiddleware,
+  httpErrorMiddleware,
+  orgMembershipMiddleware,
+  requirePermission
+} from '../middleware/rbac-middleware';
+import { requireEnv } from '../helpers/env';
+import { DBItem, docClient } from '../helpers/db';
 
-const ddbClient = new DynamoDBClient({});
-const docClient = DynamoDBDocumentClient.from(ddbClient, {
-  marshallOptions: { removeUndefinedValues: true },
-});
-
-const s3Client = new S3Client({});
 
 const DB_TABLE_NAME = process.env.DB_TABLE_NAME;
-if (!DB_TABLE_NAME) throw new Error('DB_TABLE_NAME environment variable is not set');
+const DOCUMENTS_BUCKET_NAME = requireEnv('DOCUMENTS_BUCKET');
 
-const DOCUMENTS_BUCKET_NAME =
-  process.env.DOCUMENTS_BUCKET_NAME || process.env.DOCUMENTS_BUCKET || '';
-
-type DdbKey = { [PK_NAME]: string; [SK_NAME]: string };
+const s3Client = new S3Client({});
 
 function safeS3Key(key?: unknown): string | null {
   if (typeof key !== 'string') return null;
@@ -38,8 +37,6 @@ function safeS3Key(key?: unknown): string | null {
 }
 
 async function deleteS3ObjectBestEffort(key: string) {
-  if (!DOCUMENTS_BUCKET_NAME) return { key, ok: false as const, skipped: true as const };
-
   try {
     await s3Client.send(
       new DeleteObjectCommand({
@@ -54,8 +51,8 @@ async function deleteS3ObjectBestEffort(key: string) {
   }
 }
 
-async function queryKeysByPkAndSkPrefix(pk: string, skPrefix: string): Promise<DdbKey[]> {
-  const keys: DdbKey[] = [];
+async function queryKeysByPkAndSkPrefix(pk: string, skPrefix: string): Promise<DBItem[]> {
+  const keys: DBItem[] = [];
   let ExclusiveStartKey: Record<string, any> | undefined;
 
   do {
@@ -90,7 +87,7 @@ async function queryKeysByPkAndSkPrefix(pk: string, skPrefix: string): Promise<D
   return keys;
 }
 
-async function deleteKeys(keys: DdbKey[]): Promise<number> {
+async function deleteKeys(keys: DBItem[]): Promise<number> {
   if (!keys.length) return 0;
 
   const CONCURRENCY = 25;
@@ -137,10 +134,10 @@ async function deleteExecutiveBriefByIdBestEffort(executiveBriefId?: unknown): P
   }
 }
 
-async function scanExecutiveBriefsByProjectId(projectId: string): Promise<DdbKey[]> {
+async function scanExecutiveBriefsByProjectId(projectId: string): Promise<DBItem[]> {
   // Fallback only. Exec briefs are keyed by random UUID SK, so Query is not possible.
   // This assumes briefs store attribute "projectId" (they do in your init code).
-  const keys: DdbKey[] = [];
+  const keys: DBItem[] = [];
   let ExclusiveStartKey: Record<string, any> | undefined;
 
   do {
@@ -219,7 +216,7 @@ export async function deleteProjectWithCleanup(orgId: string, projectId: string)
   );
 
   const qfItems = (qfQueryRes.Items ?? []) as Array<Record<string, any>>;
-  const qfKeys: DdbKey[] = qfItems.map((it) => ({
+  const qfKeys: DBItem[] = qfItems.map((it) => ({
     [PK_NAME]: it[PK_NAME],
     [SK_NAME]: it[SK_NAME],
   }));
@@ -355,4 +352,10 @@ export const baseHandler = async (
   }
 };
 
-export const handler = withSentryLambda(baseHandler);
+export const handler = withSentryLambda(
+  middy(baseHandler)
+    .use(authContextMiddleware())
+    .use(orgMembershipMiddleware())
+    .use(requirePermission('project:delete'))
+    .use(httpErrorMiddleware())
+);

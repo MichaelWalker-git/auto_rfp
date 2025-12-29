@@ -1,10 +1,10 @@
 'use client';
 
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { Spinner } from '@/components/ui/spinner';
-import { Search, Save, Download } from 'lucide-react';
+import { Download, Save } from 'lucide-react';
 import { GenerateProposalModal } from '@/app/projects/[projectId]/questions/components/GenerateProposalModal';
+import PermissionWrapper from '@/components/permission-wrapper';
 
 interface QuestionsHeaderProps {
   searchQuery: string;
@@ -30,27 +30,27 @@ export function QuestionsHeader({
       <div className="flex items-center justify-between">
         <h2 className="text-2xl font-bold">RFP Questions</h2>
         <div className="flex items-center gap-2">
-
-
-          <Button
-            variant="outline"
-            size="sm"
-            className="gap-1"
-            onClick={onSaveAll}
-            disabled={unsavedCount === 0 || isSaving}
-          >
-            {isSaving ? (
-              <>
-                <Spinner className="h-4 w-4"/>
-                Saving...
-              </>
-            ) : (
-              <>
-                <Save className="h-4 w-4"/>
-                Save All
-              </>
-            )}
-          </Button>
+          <PermissionWrapper requiredPermission={'answer:edit'}>
+            <Button
+              variant="outline"
+              size="sm"
+              className="gap-1"
+              onClick={onSaveAll}
+              disabled={unsavedCount === 0 || isSaving}
+            >
+              {isSaving ? (
+                <>
+                  <Spinner className="h-4 w-4"/>
+                  Saving...
+                </>
+              ) : (
+                <>
+                  <Save className="h-4 w-4"/>
+                  Save All
+                </>
+              )}
+            </Button>
+          </PermissionWrapper>
 
           <Button variant="outline" size="sm" className="gap-1" onClick={onExport}>
             <Download className="h-4 w-4"/>

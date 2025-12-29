@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useState } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import {
   DropdownMenu,
@@ -21,6 +21,7 @@ import { useToast } from '@/components/ui/use-toast';
 import { useOrganization } from '@/context/organization-context';
 import { useCreateOrganization } from '@/lib/hooks/use-create-organization';
 import { useCreateProject } from '@/lib/hooks/use-create-project';
+import PermissionWrapper from '@/components/permission-wrapper';
 
 export function OrganizationProjectSwitcher() {
   const { isMobile, open } = useSidebar();
@@ -157,10 +158,10 @@ export function OrganizationProjectSwitcher() {
       <SidebarMenu>
         <SidebarMenuItem>
           <SidebarMenuButton size={open ? 'lg' : 'sm'} className="h-14 animate-pulse">
-            <div className="flex size-8 items-center justify-center rounded-md bg-gray-200" />
+            <div className="flex size-8 items-center justify-center rounded-md bg-gray-200"/>
             <div className="flex-1 space-y-1">
-              <div className="h-4 bg-gray-200 rounded w-20" />
-              <div className="h-3 bg-gray-200 rounded w-16" />
+              <div className="h-4 bg-gray-200 rounded w-20"/>
+              <div className="h-3 bg-gray-200 rounded w-16"/>
             </div>
           </SidebarMenuButton>
         </SidebarMenuItem>
@@ -180,10 +181,12 @@ export function OrganizationProjectSwitcher() {
                 className="group-data-[collapsible=icon]:!p-0 flex h-14 w-full items-center justify-between rounded-md border bg-white py-4 shadow-none hover:bg-gray-50 focus:outline-none group-data-[collapsible=icon]:mt-4 group-data-[collapsible=icon]:h-auto"
                 tooltip="Select Organization"
               >
-                <div className="flex size-8 items-center justify-center rounded-md bg-gray-400 text-white text-sm font-medium">
+                <div
+                  className="flex size-8 items-center justify-center rounded-md bg-gray-400 text-white text-sm font-medium">
                   ?
                 </div>
-                <div className="flex flex-col items-start overflow-hidden text-ellipsis whitespace-nowrap group-data-[collapsible=icon]:hidden">
+                <div
+                  className="flex flex-col items-start overflow-hidden text-ellipsis whitespace-nowrap group-data-[collapsible=icon]:hidden">
                   <span className="font-medium text-sm text-muted-foreground">
                     Select Organization
                   </span>
@@ -191,7 +194,7 @@ export function OrganizationProjectSwitcher() {
                     Choose to get started
                   </span>
                 </div>
-                <ChevronsUpDown className="ml-auto size-4 group-data-[collapsible=icon]:hidden" />
+                <ChevronsUpDown className="ml-auto size-4 group-data-[collapsible=icon]:hidden"/>
               </SidebarMenuButton>
             </DropdownMenuTrigger>
 
@@ -214,17 +217,19 @@ export function OrganizationProjectSwitcher() {
                     </DropdownMenuItem>
                   ))}
                 </div>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem
-                  onSelect={(e) => {
-                    e.preventDefault();
-                    setCreateOrgDialogOpen(true);
-                  }}
-                  className="cursor-pointer"
-                >
-                  <Plus className="size-4" />
-                  <span>Add Organization</span>
-                </DropdownMenuItem>
+                <PermissionWrapper requiredPermission={'org:create'}>
+                  <DropdownMenuSeparator/>
+                  <DropdownMenuItem
+                    onSelect={(e) => {
+                      e.preventDefault();
+                      setCreateOrgDialogOpen(true);
+                    }}
+                    className="cursor-pointer"
+                  >
+                    <Plus className="size-4"/>
+                    <span>Add Organization</span>
+                  </DropdownMenuItem>
+                </PermissionWrapper>
               </div>
 
               {/* Projects Column */}
@@ -235,16 +240,18 @@ export function OrganizationProjectSwitcher() {
                     Select an organization first
                   </div>
                 </div>
-                <DropdownMenuSeparator />
-                <div className="flex flex-row items-center lg:justify-between opacity-50">
-                  <DropdownMenuItem
-                    onSelect={(e) => e.preventDefault()}
-                    className="cursor-not-allowed"
-                  >
-                    <Plus className="size-4" />
-                    <span>Add Project</span>
-                  </DropdownMenuItem>
-                </div>
+                <PermissionWrapper requiredPermission={'project:create'}>
+                  <DropdownMenuSeparator/>
+                  <div className="flex flex-row items-center lg:justify-between opacity-50">
+                    <DropdownMenuItem
+                      onSelect={(e) => e.preventDefault()}
+                      className="cursor-not-allowed"
+                    >
+                      <Plus className="size-4"/>
+                      <span>Add Project</span>
+                    </DropdownMenuItem>
+                  </div>
+                </PermissionWrapper>
               </div>
             </DropdownMenuContent>
           </DropdownMenu>
@@ -264,10 +271,12 @@ export function OrganizationProjectSwitcher() {
                 className="group-data-[collapsible=icon]:!p-0 flex h-14 w-full items-center justify-between rounded-md border bg-white py-4 shadow-none hover:bg-gray-50 focus:outline-none group-data-[collapsible=icon]:mt-4 group-data-[collapsible=icon]:h-auto"
                 tooltip="Switch Organization/Project"
               >
-                <div className="flex size-8 items-center justify-center rounded-md bg-purple-600 text-white text-sm font-medium">
+                <div
+                  className="flex size-8 items-center justify-center rounded-md bg-purple-600 text-white text-sm font-medium">
                   {currentOrganization.name.slice(0, 1).toUpperCase()}
                 </div>
-                <div className="flex flex-col items-start overflow-hidden text-ellipsis whitespace-nowrap group-data-[collapsible=icon]:hidden">
+                <div
+                  className="flex flex-col items-start overflow-hidden text-ellipsis whitespace-nowrap group-data-[collapsible=icon]:hidden">
                   <span className="font-medium text-sm">
                     {currentProject?.name || 'No Project'}
                   </span>
@@ -275,7 +284,7 @@ export function OrganizationProjectSwitcher() {
                     {currentOrganization.name}
                   </span>
                 </div>
-                <ChevronsUpDown className="ml-auto size-4 group-data-[collapsible=icon]:hidden" />
+                <ChevronsUpDown className="ml-auto size-4 group-data-[collapsible=icon]:hidden"/>
               </SidebarMenuButton>
             </DropdownMenuTrigger>
 
@@ -298,17 +307,19 @@ export function OrganizationProjectSwitcher() {
                     </DropdownMenuItem>
                   ))}
                 </div>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem
-                  onSelect={(e) => {
-                    e.preventDefault();
-                    setCreateOrgDialogOpen(true);
-                  }}
-                  className="cursor-pointer"
-                >
-                  <Plus className="size-4" />
-                  <span>Add Organization</span>
-                </DropdownMenuItem>
+                <PermissionWrapper requiredPermission={'org:create'}>
+                  <DropdownMenuSeparator/>
+                  <DropdownMenuItem
+                    onSelect={(e) => {
+                      e.preventDefault();
+                      setCreateOrgDialogOpen(true);
+                    }}
+                    className="cursor-pointer"
+                  >
+                    <Plus className="size-4"/>
+                    <span>Add Organization</span>
+                  </DropdownMenuItem>
+                </PermissionWrapper>
               </div>
 
               {/* Projects Column */}
@@ -330,19 +341,21 @@ export function OrganizationProjectSwitcher() {
                     </div>
                   )}
                 </div>
-                <DropdownMenuSeparator />
-                <div className="flex flex-row items-center lg:justify-between">
-                  <DropdownMenuItem
-                    onSelect={(e) => {
-                      e.preventDefault();
-                      setCreateProjectDialogOpen(true);
-                    }}
-                    className="cursor-pointer"
-                  >
-                    <Plus className="size-4" />
-                    <span>Add Project</span>
-                  </DropdownMenuItem>
-                </div>
+                <PermissionWrapper requiredPermission={'project:create'}>
+                  <DropdownMenuSeparator/>
+                  <div className="flex flex-row items-center lg:justify-between">
+                    <DropdownMenuItem
+                      onSelect={(e) => {
+                        e.preventDefault();
+                        setCreateProjectDialogOpen(true);
+                      }}
+                      className="cursor-pointer"
+                    >
+                      <Plus className="size-4"/>
+                      <span>Add Project</span>
+                    </DropdownMenuItem>
+                  </div>
+                </PermissionWrapper>
               </div>
             </DropdownMenuContent>
           </DropdownMenu>
@@ -410,7 +423,7 @@ export function OrganizationProjectSwitcher() {
               </Button>
               <Button onClick={handleCreateOrganization} disabled={isCreatingOrg}>
                 {isCreatingOrg && (
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin"/>
                 )}
                 {isCreatingOrg ? 'Creating Organization...' : 'Create Organization'}
               </Button>
@@ -463,7 +476,7 @@ export function OrganizationProjectSwitcher() {
               </Button>
               <Button onClick={handleCreateProject} disabled={isCreatingProject}>
                 {isCreatingProject && (
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin"/>
                 )}
                 {isCreatingProject ? 'Creating Project...' : 'Create Project'}
               </Button>

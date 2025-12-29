@@ -1,6 +1,5 @@
 import { APIGatewayProxyEventV2, APIGatewayProxyResultV2 } from 'aws-lambda';
-import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
-import { DynamoDBDocumentClient, GetCommand } from '@aws-sdk/lib-dynamodb';
+import { GetCommand } from '@aws-sdk/lib-dynamodb';
 import { z } from 'zod';
 
 import { PK_NAME, SK_NAME } from '../constants/common';
@@ -9,23 +8,24 @@ import { withSentryLambda } from '../sentry-lambda';
 import { PROPOSAL_PK } from '../constants/proposal';
 
 import { ProposalSchema } from '@auto-rfp/shared';
+import { proposalSK } from '../helpers/proposal';
+import {
+  authContextMiddleware,
+  httpErrorMiddleware,
+  orgMembershipMiddleware,
+  requirePermission
+} from '../middleware/rbac-middleware';
+import middy from '@middy/core';
+import { requireEnv } from '../helpers/env';
+import { docClient } from '../helpers/db';
 
-const ddbClient = new DynamoDBClient({});
-const docClient = DynamoDBDocumentClient.from(ddbClient, {
-  marshallOptions: { removeUndefinedValues: true },
-});
 
-const DB_TABLE_NAME = process.env.DB_TABLE_NAME;
-if (!DB_TABLE_NAME) throw new Error('DB_TABLE_NAME environment variable is not set');
+const DB_TABLE_NAME = requireEnv('DB_TABLE_NAME');
 
 const QuerySchema = z.object({
   projectId: z.string().min(1, 'projectId is required'),
   proposalId: z.string().min(1).optional(),
 });
-
-const skLegacy = (projectId: string) => `${projectId}#PROPOSAL`;
-
-const skById = (projectId: string, proposalId: string) => `${projectId}#PROPOSAL#${proposalId}`;
 
 function toProposalEntity(item: any) {
   const document = item.document ?? item.proposal;
@@ -80,16 +80,10 @@ export const baseHandler = async (
 
     const { projectId, proposalId } = parsed.data;
 
-    // 1) Try the recommended SK shape first (if proposalId provided)
     let item: any | null = null;
 
     if (proposalId) {
-      item = await getItem(PROPOSAL_PK, skById(projectId, proposalId));
-    }
-
-    // 2) Fallback to legacy "one per project" key
-    if (!item) {
-      item = await getItem(PROPOSAL_PK, skLegacy(projectId));
+      item = await getItem(PROPOSAL_PK, proposalSK(projectId, proposalId));
     }
 
     if (!item) {
@@ -115,4 +109,10 @@ export const baseHandler = async (
   }
 };
 
-export const handler = withSentryLambda(baseHandler);
+export const handler = withSentryLambda(
+  middy(baseHandler)
+    .use(authContextMiddleware())
+    .use(orgMembershipMiddleware())
+    .use(requirePermission('proposal:read'))
+    .use(httpErrorMiddleware())
+);

@@ -1,35 +1,21 @@
 import { APIGatewayProxyEventV2, APIGatewayProxyResultV2, } from 'aws-lambda';
 import { GetObjectCommand, PutObjectCommand, S3Client, } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
-import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
-import { DynamoDBDocumentClient, PutCommand, } from '@aws-sdk/lib-dynamodb';
+import { PutCommand, } from '@aws-sdk/lib-dynamodb';
 import { apiResponse } from '../helpers/api';
 import { v4 as uuidv4 } from 'uuid';
 import { PK_NAME, SK_NAME } from '../constants/common';
 import { FILE_PK } from '../constants/file';
 import { withSentryLambda } from '../sentry-lambda';
+import { requireEnv } from '../helpers/env';
+import { docClient } from '../helpers/db';
 
-const BUCKET_NAME = process.env.DOCUMENTS_BUCKET;
-const REGION = process.env.AWS_REGION || 'us-east-1';
+const BUCKET_NAME = requireEnv('DOCUMENTS_BUCKET');
+const REGION = requireEnv('REGION');
 const URL_EXPIRATION_SECONDS = Number(process.env.PRESIGN_EXPIRES_IN || 900);
-
-const DB_TABLE_NAME = process.env.DB_TABLE_NAME;
-
-if (!BUCKET_NAME) {
-  throw new Error('DOCUMENTS_BUCKET environment variable is not set');
-}
-
-if (!DB_TABLE_NAME) {
-  throw new Error('DB_TABLE_NAME environment variable is not set');
-}
+const DB_TABLE_NAME = requireEnv('DB_TABLE_NAME');
 
 const s3Client = new S3Client({ region: REGION });
-const ddbClient = new DynamoDBClient({});
-const docClient = DynamoDBDocumentClient.from(ddbClient, {
-  marshallOptions: {
-    removeUndefinedValues: true,
-  },
-});
 
 type Operation = 'upload' | 'download';
 
@@ -109,11 +95,9 @@ export const baseHandler = async (
         contentType,
         createdAt: now,
         updatedAt: now,
-        // you can add more fields later: uploadedBy, size (once known), etc.
       };
 
-      await docClient.send(
-        new PutCommand({
+      await docClient.send(new PutCommand({
           TableName: DB_TABLE_NAME,
           Item: fileItem,
         }),
@@ -133,7 +117,6 @@ export const baseHandler = async (
       });
     }
 
-    // operation === 'download'
     if (!key) {
       return apiResponse(400, {
         message: 'For \'download\', \'key\' is required.',

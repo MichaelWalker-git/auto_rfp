@@ -38,6 +38,7 @@ export class ApiStack extends cdk.Stack {
   private readonly briefApi: ApiNestedStack;
   private readonly userApi: ApiNestedStack;
   private readonly questionApi: ApiNestedStack;
+  private readonly semanticApi: ApiNestedStack;
 
 
   constructor(scope: Construct, id: string, props: ApiStackProps) {
@@ -220,6 +221,7 @@ export class ApiStack extends cdk.Stack {
       COGNITO_USER_POOL_ID: userPool.userPoolId,
       COGNITO_USER_POOL_CLIENT_ID: userPoolClient.userPoolClientId,
 
+      REGION: 'us-east-1',
       BEDROCK_REGION: 'us-east-1',
       BEDROCK_EMBEDDING_MODEL_ID: 'amazon.titan-embed-text-v2:0',
       BEDROCK_MODEL_ID: 'anthropic.claude-3-haiku-20240307-v1:0',
@@ -258,6 +260,13 @@ export class ApiStack extends cdk.Stack {
     this.userApi = createNestedStack('user');
     this.questionApi = createNestedStack('question');
     this.documentApi = createNestedStack('document');
+    this.semanticApi = createNestedStack('semantic');
+
+    this.semanticApi.addRoute(
+      '/search',
+      'POST',
+      'lambda/semanticsearch/search.ts'
+    )
 
     this.questionApi.addRoute(
       '/delete-question',

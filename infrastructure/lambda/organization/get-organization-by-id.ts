@@ -1,24 +1,21 @@
 import { APIGatewayProxyEventV2, APIGatewayProxyResultV2, } from 'aws-lambda';
-import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
-import { DynamoDBDocumentClient, GetCommand, } from '@aws-sdk/lib-dynamodb';
+import { GetCommand, } from '@aws-sdk/lib-dynamodb';
 import { ORG_PK } from '../constants/organization';
 import { PK_NAME, SK_NAME } from '../constants/common';
 import { apiResponse } from '../helpers/api';
 import type { OrganizationItem } from '../schemas/organization';
 import { withSentryLambda } from '../sentry-lambda';
+import {
+  authContextMiddleware,
+  httpErrorMiddleware,
+  orgMembershipMiddleware,
+  requirePermission
+} from '../middleware/rbac-middleware';
+import middy from '@middy/core';
+import { requireEnv } from '../helpers/env';
+import { docClient } from '../helpers/db';
 
-const ddbClient = new DynamoDBClient({});
-const docClient = DynamoDBDocumentClient.from(ddbClient, {
-  marshallOptions: {
-    removeUndefinedValues: true,
-  },
-});
-
-const DB_TABLE_NAME = process.env.DB_TABLE_NAME;
-
-if (!DB_TABLE_NAME) {
-  throw new Error('DB_TABLE_NAME environment variable is not set');
-}
+const DB_TABLE_NAME = requireEnv('DB_TABLE_NAME');
 
 export const baseHandler = async (
   event: APIGatewayProxyEventV2,
@@ -82,4 +79,10 @@ const orgSortKeyToId = (sortKey: string) => {
   return sortKey.split('#')[1];
 };
 
-export const handler = withSentryLambda(baseHandler);
+export const handler = withSentryLambda(
+  middy(baseHandler)
+    .use(authContextMiddleware())
+    .use(orgMembershipMiddleware())
+    .use(requirePermission('org:read'))
+    .use(httpErrorMiddleware())
+);

@@ -3,6 +3,7 @@
 import useSWR from 'swr';
 import { authFetcher } from '@/lib/auth/auth-fetcher';
 import { env } from '@/lib/env';
+import { UserRole } from '@auto-rfp/shared';
 
 const baseUrl = `${env.BASE_API_URL}/user`;
 
@@ -22,7 +23,7 @@ export type UserListItem = {
   lastName?: string;
   displayName?: string;
   phone?: string;
-  roles: string[];
+  role: UserRole;
   status: string;
   cognitoUsername?: string;
   createdAt: string;
@@ -38,7 +39,7 @@ export type ListUsersResponse = {
 export type CreateUserInput = {
   orgId: string;
   email: string;
-  roles: string[]; // e.g. ['ADMIN'] | ['MEMBER']
+  role: UserRole;
   firstName?: string;
   lastName?: string;
   displayName?: string;
@@ -55,7 +56,7 @@ export type CreateUserResponse = {
   lastName?: string;
   displayName?: string;
   phone?: string;
-  roles: string[];
+  role: UserRole;
   status: string;
   cognitoUsername?: string;
   createdAt: string;
@@ -65,14 +66,13 @@ export type CreateUserResponse = {
 export type EditUserRolesInput = {
   orgId: string;
   userId: string;
-  roles: string[];
+  role: UserRole;
 };
 
 export type EditUserRolesResponse = CreateUserResponse & {
   cognito?: {
     username: string | null;
     updated: boolean;
-    customRoles: string;
   };
   user?: any;
 };

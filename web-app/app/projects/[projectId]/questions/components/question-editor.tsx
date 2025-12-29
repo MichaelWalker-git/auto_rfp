@@ -4,10 +4,11 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
-import { AlertCircle, Save, Sparkles, Trash2 } from 'lucide-react';
+import { Save, Sparkles, Trash2 } from 'lucide-react';
 import { Spinner } from '@/components/ui/spinner';
 import { AnswerDisplay } from '@/components/ui/answer-display';
 import { AnswerSource } from '@/types/api';
+import PermissionWrapper from '@/components/permission-wrapper';
 
 interface AnswerData {
   text: string;
@@ -81,7 +82,7 @@ export function QuestionEditor({
         {answer?.text && (
           <div className="mt-4">
             <h3 className="text-sm font-medium mb-2">Preview:</h3>
-            <AnswerDisplay content={answer.text} />
+            <AnswerDisplay content={answer.text}/>
           </div>
         )}
 
@@ -105,72 +106,76 @@ export function QuestionEditor({
 
         {/* Action area */}
         <div className="flex items-center justify-between pt-4 border-t">
-          <div className="flex items-center gap-3">
-            <Button
-              variant={'outline'}
-              size="sm"
-              className="gap-2"
-              onClick={onGenerateAnswer}
-              disabled={isGenerating}
-            >
-              {isGenerating ? (
-                <>
-                  <Spinner className="h-4 w-4" />
-                  Generating...
-                </>
-              ) : (
-                <>
-                  <Sparkles className="h-4 w-4" />
-                  Generate
-                </>
-              )}
-            </Button>
-
-            {selectedIndexes.size > 0 && (
-              <Badge variant="secondary" className="text-xs">
-                {selectedIndexes.size} project {selectedIndexes.size === 1 ? 'index' : 'indexes'}
-              </Badge>
-            )}
-          </div>
-
-          {/* Save / Remove actions */}
-          <div className="flex items-center gap-2">
-            {/* ✅ Remove question */}
-            <Button
-              variant="destructive"
-              size="sm"
-              onClick={onRemoveQuestion}
-              disabled={isSaving || isGenerating || isRemoving}
-              title="Remove this question (and its answer if exists)"
-            >
-              {isRemoving ? (
-                <>
-                  <Spinner className="h-4 w-4 mr-1" />
-                  Removing...
-                </>
-              ) : (
-                <>
-                  <Trash2 className="h-4 w-4 mr-1" />
-                  Remove
-                </>
-              )}
-            </Button>
-
-            {isUnsaved && (
-              <Button variant="outline" size="sm" onClick={onSave} disabled={isSaving || isRemoving}>
-                {isSaving ? (
+          <PermissionWrapper requiredPermission={'answer:generate'}>
+            <div className="flex items-center gap-3">
+              <Button
+                variant={'outline'}
+                size="sm"
+                className="gap-2"
+                onClick={onGenerateAnswer}
+                disabled={isGenerating}
+              >
+                {isGenerating ? (
                   <>
-                    <Spinner className="h-4 w-4 mr-1" />
-                    Saving...
+                    <Spinner className="h-4 w-4"/>
+                    Generating...
                   </>
                 ) : (
                   <>
-                    <Save className="h-4 w-4 mr-1" />
-                    Save
+                    <Sparkles className="h-4 w-4"/>
+                    Generate
                   </>
                 )}
               </Button>
-            )}
+
+              {selectedIndexes.size > 0 && (
+                <Badge variant="secondary" className="text-xs">
+                  {selectedIndexes.size} project {selectedIndexes.size === 1 ? 'index' : 'indexes'}
+                </Badge>
+              )}
+            </div>
+          </PermissionWrapper>
+
+          <div className="flex items-center gap-2">
+            <PermissionWrapper requiredPermission={'question:delete'}>
+              <Button
+                variant="destructive"
+                size="sm"
+                onClick={onRemoveQuestion}
+                disabled={isSaving || isGenerating || isRemoving}
+                title="Remove this question (and its answer if exists)"
+              >
+                {isRemoving ? (
+                  <>
+                    <Spinner className="h-4 w-4 mr-1"/>
+                    Removing...
+                  </>
+                ) : (
+                  <>
+                    <Trash2 className="h-4 w-4 mr-1"/>
+                    Remove
+                  </>
+                )}
+              </Button>
+            </PermissionWrapper>
+            <PermissionWrapper requiredPermission={'question:edit'}>
+              {isUnsaved && (
+                <Button variant="outline" size="sm" onClick={onSave} disabled={isSaving || isRemoving}>
+                  {isSaving ? (
+                    <>
+                      <Spinner className="h-4 w-4 mr-1"/>
+                      Saving...
+                    </>
+                  ) : (
+                    <>
+                      <Save className="h-4 w-4 mr-1"/>
+                      Save
+                    </>
+                  )}
+                </Button>
+              )}
+            </PermissionWrapper>
+
           </div>
         </div>
       </CardContent>

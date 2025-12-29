@@ -1,26 +1,20 @@
 import { APIGatewayProxyEventV2, APIGatewayProxyResultV2, } from 'aws-lambda';
-import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
-import { DynamoDBDocumentClient, } from '@aws-sdk/lib-dynamodb';
 import { apiResponse } from '../helpers/api';
 import { withSentryLambda } from '../sentry-lambda';
 import { getProjectById } from '../helpers/project';
+import {
+  authContextMiddleware,
+  httpErrorMiddleware,
+  orgMembershipMiddleware,
+  requirePermission
+} from '../middleware/rbac-middleware';
+import { requireEnv } from '../helpers/env';
+import { docClient } from '../helpers/db';
+import middy from '@middy/core';
 
-const ddbClient = new DynamoDBClient({});
-const docClient: DynamoDBDocumentClient = DynamoDBDocumentClient.from(ddbClient, {
-  marshallOptions: {
-    removeUndefinedValues: true,
-  },
-});
+const DB_TABLE_NAME = requireEnv('DB_TABLE_NAME');
 
-const DB_TABLE_NAME = process.env.DB_TABLE_NAME;
-
-if (!DB_TABLE_NAME) {
-  throw new Error('DB_TABLE_NAME environment variable is not set');
-}
-
-export const baseHandler = async (
-  event: APIGatewayProxyEventV2,
-): Promise<APIGatewayProxyResultV2> => {
+export const baseHandler = async (event: APIGatewayProxyEventV2,): Promise<APIGatewayProxyResultV2> => {
   try {
     const { id: projectId } = event.pathParameters || {};
 
@@ -47,4 +41,10 @@ export const baseHandler = async (
 };
 
 
-export const handler = withSentryLambda(baseHandler);
+export const handler = withSentryLambda(
+  middy(baseHandler)
+    .use(authContextMiddleware())
+    .use(orgMembershipMiddleware())
+    .use(requirePermission('project:read'))
+    .use(httpErrorMiddleware())
+);

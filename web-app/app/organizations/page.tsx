@@ -12,6 +12,8 @@ import { Edit, FolderOpen, Loader2, Plus, Settings, Users } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
 import { useCreateOrganization } from '@/lib/hooks/use-create-organization';
 import { useOrganizations } from '@/lib/hooks/use-api';
+import { useRouter } from 'next/navigation';
+import { useAuth } from '@/components/AuthProvider';
 
 export interface Organization {
   id: string;
@@ -57,6 +59,8 @@ export default function OrganizationsPage() {
   const { data: organizations, error, mutate: fetchOrganizations, isLoading: loading } = useOrganizations();
   const { createOrganization } = useCreateOrganization();
   const { toast } = useToast();
+  const { orgId } = useAuth();
+  const router = useRouter()
 
   const [formData, setFormData] = useState<CreateOrganizationData>({
     name: '',
@@ -71,6 +75,10 @@ export default function OrganizationsPage() {
       variant: 'destructive',
     });
   }, [error]);
+
+  useEffect(() => {
+    orgId && router.replace(`/organizations/${orgId}`);
+  }, [orgId])
 
   const handleCreateOrganization = async () => {
     try {

@@ -11,6 +11,13 @@ import { USER_PK } from '../constants/user';
 
 import { adminDeleteUser } from '../helpers/cognito';
 import { userSk } from '../helpers/user';
+import middy from '@middy/core';
+import {
+  authContextMiddleware,
+  httpErrorMiddleware,
+  orgMembershipMiddleware,
+  requirePermission
+} from '../middleware/rbac-middleware';
 
 const DB_TABLE_NAME = process.env.DB_TABLE_NAME;
 if (!DB_TABLE_NAME) throw new Error('DB_TABLE_NAME env var is not set');
@@ -141,4 +148,10 @@ export const baseHandler = async (
   }
 };
 
-export const handler = withSentryLambda(baseHandler);
+export const handler = withSentryLambda(
+  middy(baseHandler)
+    .use(authContextMiddleware())
+    .use(orgMembershipMiddleware())
+    .use(requirePermission('user:delete'))
+    .use(httpErrorMiddleware())
+);

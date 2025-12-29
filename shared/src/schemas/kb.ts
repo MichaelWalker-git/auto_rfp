@@ -1,5 +1,4 @@
 import { z } from 'zod';
-import { PK_NAME, SK_NAME } from '../constants/common';
 
 // --- Shared count schema ---
 export const KnowledgeBaseCountSchema = z.object({
@@ -24,10 +23,6 @@ export type CreateKnowledgeBaseDTO = z.infer<typeof CreateKnowledgeBaseSchema>;
 
 // --- Shape of the item stored in DynamoDB ---
 export const KnowledgeBaseItemSchema = KnowledgeBaseBaseSchema.extend({
-  // Dynamo keys
-  [PK_NAME]: z.string(),          // e.g. KNOWLEDGE_BASE_PK
-  [SK_NAME]: z.string(),          // orgId#kbId
-
   orgId: z.string(),              // owning organization
   createdAt: z.string(),          // ISO date
   updatedAt: z.string(),          // ISO date
@@ -37,7 +32,6 @@ export const KnowledgeBaseItemSchema = KnowledgeBaseBaseSchema.extend({
 
 export type KnowledgeBaseItem = z.infer<typeof KnowledgeBaseItemSchema>;
 
-// --- Public API shape (what FE uses) ---
 export const KnowledgeBaseSchema = KnowledgeBaseBaseSchema.extend({
   id: z.string(),
   createdAt: z.string(),

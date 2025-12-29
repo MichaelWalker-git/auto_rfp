@@ -21,17 +21,7 @@ import {
   markSectionInProgress,
   truncateText,
 } from '../helpers/executive-opportunity-frief';
-
-const RequestSchema = z.object({
-  executiveBriefId: z.string().min(1),
-  force: z.boolean().optional(),
-});
-
-function requireEnv(name: string): string {
-  const v = process.env[name];
-  if (!v) throw new Error(`Missing env var: ${name}`);
-  return v;
-}
+import { requireEnv } from '../helpers/env';
 
 const BEDROCK_MODEL_ID = requireEnv('BEDROCK_MODEL_ID');
 const MAX_SOLICITATION_CHARS = Number(process.env.BRIEF_MAX_SOLICITATION_CHARS ?? '45000');

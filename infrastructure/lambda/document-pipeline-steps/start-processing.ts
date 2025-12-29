@@ -6,17 +6,10 @@ import { PK_NAME, SK_NAME } from '../constants/common';
 import { DOCUMENT_PK } from '../constants/document';
 import { DocumentItem } from '../schemas/document';
 import { withSentryLambda } from '../sentry-lambda';
+import { requireEnv } from '../helpers/env';
+import { docClient } from '../helpers/db';
 
-const ddbClient = new DynamoDBClient({});
-const docClient = DynamoDBDocumentClient.from(ddbClient, {
-  marshallOptions: { removeUndefinedValues: true },
-});
-
-const DB_TABLE_NAME = process.env.DB_TABLE_NAME;
-
-if (!DB_TABLE_NAME) {
-  throw new Error('DB_TABLE_NAME env var is not set');
-}
+const DB_TABLE_NAME = requireEnv('DB_TABLE_NAME');
 
 type FileFormat = 'PDF' | 'DOCX' | 'UNKNOWN';
 
@@ -102,9 +95,7 @@ const baseHandler = async (
   const docItem = items.find((it) => String(it[SK_NAME]).endsWith(skSuffix));
 
   if (!docItem) {
-    throw new Error(
-      `Document not found for PK=${DOCUMENT_PK} and SK ending with ${skSuffix}`,
-    );
+    throw new Error(`Document not found for PK=${DOCUMENT_PK} and SK ending with ${skSuffix}`);
   }
 
   const pk = docItem[PK_NAME];
@@ -114,8 +105,6 @@ const baseHandler = async (
   if (!fileKey) {
     throw new Error(`Document ${documentId} does not have fileKey attribute in DynamoDB`);
   }
-
-  // optional: derive KB id from SK = "KB#<kbId>#DOC#<docId>" :contentReference[oaicite:2]{index=2}
   let knowledgeBaseId: string | undefined;
   const skParts = String(sk).split('#');
   if (skParts.length >= 4) knowledgeBaseId = skParts[1];
