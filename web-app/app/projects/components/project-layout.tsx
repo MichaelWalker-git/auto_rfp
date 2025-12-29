@@ -1,4 +1,4 @@
-import type React from "react"
+import type React from 'react';
 
 export function ProjectLayout({ children }: { children: React.ReactNode }) {
   return (
@@ -7,5 +7,5 @@ export function ProjectLayout({ children }: { children: React.ReactNode }) {
         <main className="flex-1 overflow-auto bg-background">{children}</main>
       </div>
     </div>
-  )
+  );
 }

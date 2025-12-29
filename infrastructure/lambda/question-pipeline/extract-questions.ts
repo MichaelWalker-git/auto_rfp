@@ -150,7 +150,7 @@ async function saveQuestionsFromSections(
         projectId,
         questionFileId,
         questionId: q.id,
-        questionText: q.question,
+        question: q.question,
         sectionId: section.id,
         sectionTitle: section.title,
         sectionDescription: section.description ?? null,

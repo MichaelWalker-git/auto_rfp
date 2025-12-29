@@ -104,7 +104,7 @@ const loadQaPairsForProject = async (projectId: string): Promise<QaPair[]> => {
 
   return Items.map((item: any) => ({
     questionId: item.questionId,
-    question: item.questionText ?? item.question ?? '',
+    question: item.question ?? '',
     answer: item.answer ?? '',
   })) as QaPair[];
 };

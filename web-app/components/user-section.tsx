@@ -30,6 +30,7 @@ import {
   getCurrentUser,
   signOut,
 } from "aws-amplify/auth";
+import { useAuth } from '@/components/AuthProvider';
 
 type AuthUser = {
   username: string;

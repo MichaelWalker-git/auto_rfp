@@ -51,25 +51,17 @@ export const ALL_PERMISSIONS = [
 
 export type Permission = (typeof ALL_PERMISSIONS)[number];
 
+export const VIEWER_PERMISSIONS = [
+  'question:read', 'org:read', 'kb:read', 'proposal:read', 'project:read', 'document:read', 'user:read', 'answer:read',
+] as const;
+
 export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
-  ADMIN: [
-    'org:read', 'org:manage_users', 'org:manage_settings',
-    'proposal:read', 'proposal:create', 'proposal:edit', 'proposal:delete', 'proposal:export',
-    'kb:read', 'kb:upload', 'kb:create', 'kb:delete', 'kb:edit',
-    'project:create', 'project:delete',
-    'user:create', 'user:edit', 'user:delete', 'user:read',
-    'answer:create', 'answer:read', 'answer:generate', 'answer:edit',
-    'brief:create', 'brief:edit',
-    'index:retry'
-  ],
+  ADMIN: [...ALL_PERMISSIONS],
+  VIEWER: [...VIEWER_PERMISSIONS],
   EDITOR: [
-    'org:read',
-    'proposal:read', 'proposal:create', 'proposal:edit', 'proposal:export',
-    'kb:read', 'kb:upload',
-    'user:create'
-  ],
-  VIEWER: [
-    'question:read', 'org:read', 'kb:read', 'proposal:read', 'project:read', 'document:read', 'user:read', 'answer:read',
+    ...VIEWER_PERMISSIONS,
+    'question:create', 'org:create', 'kb:create', 'proposal:create', 'project:create', 'document:create', 'user:create', 'answer:create',
+    'question:edit', 'org:edit', 'kb:edit', 'proposal:edit', 'project:edit', 'document:edit', 'user:edit', 'answer:edit',
   ],
   BILLING: [
     'question:read', 'org:read', 'kb:read', 'proposal:read', 'project:read',

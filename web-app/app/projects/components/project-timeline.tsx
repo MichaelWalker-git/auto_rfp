@@ -12,7 +12,7 @@ import { Button } from "@/components/ui/button"
 interface TimelineActivity {
   id: string;
   type: 'question_answered';
-  questionText: string;
+  question: string;
   questionTopic: string;
   answerPreview: string;
   answeredAt: string;
@@ -169,7 +169,7 @@ export function ProjectTimeline({ projectId }: ProjectTimelineProps) {
                       </div>
                       
                       <p className="text-sm text-muted-foreground mb-2 line-clamp-2">
-                        {activity.questionText}
+                        {activity.question}
                       </p>
                       
                       {activity.answerPreview && (

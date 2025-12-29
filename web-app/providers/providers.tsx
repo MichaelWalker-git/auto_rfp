@@ -13,11 +13,11 @@ export function Providers({ children }: { children: ReactNode }) {
       enableSystem
       disableTransitionOnChange
     >
-      <OrganizationProvider>
-          <AuthProvider>
-            {children}
-          </AuthProvider>
-      </OrganizationProvider>
+      <AuthProvider>
+        <OrganizationProvider>
+          {children}
+        </OrganizationProvider>
+      </AuthProvider>
     </ThemeProvider>
   );
 } 

@@ -5,23 +5,11 @@ import { ProjectOverview } from './project-overview';
 import { QuestionsProvider, QuestionsSection } from '../[projectId]/questions/components';
 import { DocumentsSection } from './documents-section';
 import { TeamSection } from './team-section';
-import { useRouter, useSearchParams } from 'next/navigation';
 import ProposalsContent from '@/app/projects/components/ProposalsContent';
 
-// Inner component that uses search params
 function ProjectContentInner({ projectId }: { projectId: string }) {
   const [activeSection, setActiveSection] = useState('overview');
-  const searchParams = useSearchParams();
-  const router = useRouter();
-  const orgId = searchParams.get('orgId');
 
-  // Function to navigate between sections
-  const navigateToSection = (section: string) => {
-    setActiveSection(section);
-  };
-
-
-  // This would be connected to the sidebar navigation in a real implementation
   const renderContent = () => {
     switch (activeSection) {
       case 'questions':
