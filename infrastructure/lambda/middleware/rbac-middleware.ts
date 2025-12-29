@@ -19,8 +19,8 @@ type RequestContextWithAuthorizer = APIGatewayProxyEventV2['requestContext'] & {
 
 export type AuthedEvent = APIGatewayProxyEventV2 & {
   auth?: {
-    userId: string; // sub
-    orgId: string; // custom:orgId
+    userId: string;
+    orgId?: string;
     claims: Claims;
   };
   rbac?: {
@@ -47,7 +47,6 @@ function toRole(value: unknown): UserRole | null {
   return null;
 }
 
-// ===== 1) authContextMiddleware() =====
 export function authContextMiddleware(): MiddlewareObj<AuthedEvent, APIGatewayProxyResultV2> {
   return {
     before: async (request) => {
@@ -57,13 +56,8 @@ export function authContextMiddleware(): MiddlewareObj<AuthedEvent, APIGatewayPr
         return;
       }
 
-      const userId = typeof claims.sub === 'string' ? claims.sub : null;
-      const orgId = typeof claims['custom:orgId'] === 'string' ? claims['custom:orgId'] : null;
-
-      if (!userId || !orgId) {
-        request.response = json(401, { message: 'Unauthorized' });
-        return;
-      }
+      const userId = typeof claims.sub === 'string' ? claims.sub : '';
+      const orgId = typeof claims['custom:orgId'] === 'string' ? claims['custom:orgId'] : '';
 
       request.event.auth = { userId, orgId, claims };
     },

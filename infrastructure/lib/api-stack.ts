@@ -38,6 +38,7 @@ export class ApiStack extends cdk.Stack {
   private readonly briefApi: ApiNestedStack;
   private readonly userApi: ApiNestedStack;
   private readonly questionApi: ApiNestedStack;
+  private readonly semanticApi: ApiNestedStack;
 
 
   constructor(scope: Construct, id: string, props: ApiStackProps) {
@@ -259,6 +260,13 @@ export class ApiStack extends cdk.Stack {
     this.userApi = createNestedStack('user');
     this.questionApi = createNestedStack('question');
     this.documentApi = createNestedStack('document');
+    this.semanticApi = createNestedStack('semantic');
+
+    this.semanticApi.addRoute(
+      '/search',
+      'POST',
+      'lambda/semanticsearch/search.ts'
+    )
 
     this.questionApi.addRoute(
       '/delete-question',

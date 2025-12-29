@@ -69,7 +69,7 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     'user:create'
   ],
   VIEWER: [
-    'question:read', 'org:read', 'kb:read', 'proposal:read', 'project:read', 'document:read', 'user:read',
+    'question:read', 'org:read', 'kb:read', 'proposal:read', 'project:read', 'document:read', 'user:read', 'answer:read',
   ],
   BILLING: [
     'question:read', 'org:read', 'kb:read', 'proposal:read', 'project:read',

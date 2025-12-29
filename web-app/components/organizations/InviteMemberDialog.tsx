@@ -90,66 +90,65 @@ export function InviteMemberDialog({ orgId, onMemberAdded }: InviteMemberDialogP
   };
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        <PermissionWrapper requiredPermission={'user:create'}>
+    <PermissionWrapper requiredPermission={'user:create'}>
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogTrigger asChild>
           <Button>
             <UserPlus className="mr-2 h-4 w-4"/>
             Create User
           </Button>
-        </PermissionWrapper>
-      </DialogTrigger>
+        </DialogTrigger>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Invite Team Member</DialogTitle>
+            <DialogDescription>Create a user in your organization.</DialogDescription>
+          </DialogHeader>
 
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>Invite Team Member</DialogTitle>
-          <DialogDescription>Create a user in your organization.</DialogDescription>
-        </DialogHeader>
+          <form onSubmit={handleInviteMember}>
+            <div className="grid gap-4 py-4">
+              <div className="grid gap-2">
+                <Label htmlFor="email">Email address</Label>
+                <Input
+                  id="email"
+                  type="email"
+                  value={inviteEmail}
+                  onChange={(e) => setInviteEmail(e.target.value)}
+                  placeholder="Enter email address"
+                  autoComplete="email"
+                  required
+                />
+              </div>
 
-        <form onSubmit={handleInviteMember}>
-          <div className="grid gap-4 py-4">
-            <div className="grid gap-2">
-              <Label htmlFor="email">Email address</Label>
-              <Input
-                id="email"
-                type="email"
-                value={inviteEmail}
-                onChange={(e) => setInviteEmail(e.target.value)}
-                placeholder="Enter email address"
-                autoComplete="email"
-                required
-              />
+              <div className="grid gap-2">
+                <Label htmlFor="role">Role</Label>
+                <select
+                  id="role"
+                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                  value={inviteRole}
+                  onChange={(e) => setInviteRole(e.target.value as UserRole)}
+                >
+                  {UserRoleSchema.options.map((r) => (
+                    <option key={r} value={r}>
+                      {r[0] + r.slice(1).toLowerCase()}
+                    </option>
+                  ))}
+                </select>
+              </div>
             </div>
 
-            <div className="grid gap-2">
-              <Label htmlFor="role">Role</Label>
-              <select
-                id="role"
-                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                value={inviteRole}
-                onChange={(e) => setInviteRole(e.target.value as UserRole)}
-              >
-                {UserRoleSchema.options.map((r) => (
-                  <option key={r} value={r}>
-                    {r[0] + r.slice(1).toLowerCase()}
-                  </option>
-                ))}
-              </select>
-            </div>
-          </div>
-
-          <DialogFooter>
-            <DialogClose asChild>
-              <Button type="button" variant="outline">
-                Cancel
+            <DialogFooter>
+              <DialogClose asChild>
+                <Button type="button" variant="outline">
+                  Cancel
+                </Button>
+              </DialogClose>
+              <Button type="submit" disabled={isInviting}>
+                {isInviting ? 'Creating...' : 'Create User'}
               </Button>
-            </DialogClose>
-            <Button type="submit" disabled={isInviting}>
-              {isInviting ? 'Creating...' : 'Create User'}
-            </Button>
-          </DialogFooter>
-        </form>
-      </DialogContent>
-    </Dialog>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+    </PermissionWrapper>
   );
 }
