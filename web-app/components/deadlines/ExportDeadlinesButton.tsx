@@ -13,6 +13,7 @@ import {
 import { Download, Calendar, Loader2 } from 'lucide-react';
 import { env } from '@/lib/env';
 import { authFetcher } from '@/lib/auth/auth-fetcher';
+import { useToast } from "@/components/ui/use-toast";
 
 interface ExportDeadlinesButtonProps {
   // Required: specify what to export
@@ -39,6 +40,8 @@ export default function ExportDeadlinesButton({
   buttonVariant = 'outline',
 }: ExportDeadlinesButtonProps) {
   const [isExporting, setIsExporting] = useState(false);
+
+    const { toast } = useToast();
 
   const exportCalendar = async (type?: string) => {
     setIsExporting(true);
@@ -74,7 +77,11 @@ export default function ExportDeadlinesButton({
       URL.revokeObjectURL(downloadUrl);
     } catch (err) {
       console.error('Export error:', err);
-      alert('Failed to export calendar. Please try again.');
+      toast({
+        title: 'Error',
+        description: 'Failed to export calendar. Please try again.',
+        variant: 'destructive',
+      });
     } finally {
       setIsExporting(false);
     }

@@ -13,7 +13,7 @@ interface StatusObject {
   statusColor: string | undefined
 }
 
-export default function DeadlineCard({ deadline, displayType }: { deadline: any, displayType: 'project' | 'organisation' | 'all' }) {
+export default function DeadlineCard({ deadline, displayType }: { deadline: any, displayType: 'project' | 'organization' | 'all' }) {
   const dt = deadline?.dateTimeIso ? new Date(deadline.dateTimeIso) : null;
   const isPassed = dt && (dt.getTime() - Date.now()) < 0
   const isUrgent = dt && !isPassed && (dt.getTime() - Date.now()) < 7 * 24 * 60 * 60 * 1000 

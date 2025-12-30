@@ -11,7 +11,7 @@ interface OrgDeadlinesProps {
   }>;
 }
 
-export default function OrganisationDeadlinesContent({ params }: OrgDeadlinesProps) {
+export default function OrganizationDeadlinesContent({ params }: OrgDeadlinesProps) {
   const { orgId } = useParams() as { orgId: string };
 
   const { isLoading } = useKnowledgeBases(orgId);
@@ -41,7 +41,7 @@ export default function OrganisationDeadlinesContent({ params }: OrgDeadlinesPro
             Deadlines
           </h1>
           <p className="text-gray-600 mt-1">
-            Track deadlines for all organisation's RFPs
+            Track deadlines for all organization's RFPs
           </p>
           <p>OrgId: {orgId}</p>
         </div>

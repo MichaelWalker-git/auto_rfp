@@ -2,7 +2,7 @@
 
 import { Suspense } from 'react';
 import { PageSkeleton } from '@/components/projects/PageSkeleton';
-import OrganisationDeadlinesContent from '@/components/organizations/OrganisationDeadlinesContent'
+import OrganizationDeadlinesContent from '@/components/organizations/OrganizationDeadlinesContent'
 
 interface OrgDeadlinesPageProps {
   params: Promise<{
@@ -10,10 +10,10 @@ interface OrgDeadlinesPageProps {
   }>;
 }
 
-export default function KnowledgeBasePage({ params }: OrgDeadlinesPageProps) {
+export default function OrgDeadlinesPage({ params }: OrgDeadlinesPageProps) {
   return (
     <Suspense fallback={<PageSkeleton />}>
-      <OrganisationDeadlinesContent params={params}/>
+      <OrganizationDeadlinesContent params={params}/>
     </Suspense>
   );
 }

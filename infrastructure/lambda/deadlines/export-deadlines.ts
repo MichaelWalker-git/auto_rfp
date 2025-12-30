@@ -209,7 +209,7 @@ function deadlinesToEvents(
       // Filter by type if specified
       if (deadlineType !== 'all') {
         // Skip PROPOSAL_DUE type since we already added submission deadline above
-        if (deadline.type === 'PROPOSAL_DUE' || deadline.type.includes('proposal submission')) return;
+        if (deadline.type === 'PROPOSAL_DUE' || deadline.type?.includes('proposal submission')) return;
         if (deadlineType === 'questions' && deadline.type !== 'QUESTIONS_DUE') return;
         if (deadlineType === 'site-visit' && deadline.type !== 'SITE_VISIT') return;
       }
@@ -225,7 +225,7 @@ function deadlinesToEvents(
         `Project: ${projectName}`,
         deadline.notes ? `Notes: ${deadline.notes}` : '',
         deadline.timezone ? `Timezone: ${deadline.timezone}` : '',
-      ].filter(Boolean).join('\\n');
+      ].filter(Boolean).join('\n');
 
       events.push({
         summary: `${icon} ${deadline.label || deadline.type}: ${projectName}`,

@@ -121,9 +121,7 @@ async function storeDeadlinesSeparately(
   briefProjectId: string,
   deadlinesData: any
 ): Promise<void> {
-  try {
-    console.log('Storing separately: beginning', { executiveBriefId, briefProjectId });
-    
+  try {  
     const project = await getProjectById(ddb, DB_TABLE_NAME, briefProjectId);
     
     if (!project) {
@@ -187,8 +185,6 @@ async function storeDeadlinesSeparately(
         },
       })
     );
-
-    console.log(`✅ Successfully stored deadlines separately for ${sortKey}`);
   } catch (err) {
     console.error('❌ Failed to store deadlines separately:', err);
   }
@@ -260,10 +256,8 @@ export const baseHandler = async (
       data: normalized,
       topLevelPatch: { status: 'IN_PROGRESS' },
     });
-    console.log('Before storing separately')
 
     await storeDeadlinesSeparately(executiveBriefId, brief.projectId, normalized);
-    console.log('After storing separately')
 
     return apiResponse(200, {
       ok: true,

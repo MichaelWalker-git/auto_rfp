@@ -47,27 +47,24 @@ export default function DeadlinesDashboard({
   const { data, isLoading, error } = useDeadlines(params);
 
   // Flatten all deadlines from all projects into single array
-  const allDeadlines: FlattenedDeadline[] = [];
-
-  data?.deadlines?.forEach((item) => {
-    item.deadlines?.forEach((deadline) => {
-      allDeadlines.push({
+  const allDeadlines: FlattenedDeadline[] =
+    data?.deadlines?.flatMap((item) =>
+      (item.deadlines ?? []).map((deadline) => ({
         projectId: item.projectId,
         projectName: item.projectName,
         ...deadline,
         isSubmissionDeadline: false,
-      });
-    });
-  });
-
+      })),
+    ) ?? [];
   const now = Date.now();
-  const deadlinesWithDays = allDeadlines
-    .filter((d) => d.dateTimeIso)
-    .map((d) => {
-      const deadlineTime = new Date(d.dateTimeIso!).getTime();
-      const daysUntil = Math.ceil((deadlineTime - now) / (24 * 60 * 60 * 1000));
-      return { ...d, daysUntil };
-    });
+  const deadlinesWithDays = allDeadlines.flatMap((d) => {
+    if (!d.dateTimeIso) {
+      return [];
+    }
+    const deadlineTime = new Date(d.dateTimeIso).getTime();
+    const daysUntil = Math.ceil((deadlineTime - now) / (24 * 60 * 60 * 1000));
+    return [{ ...d, daysUntil }];
+  });
 
   // Apply client-side filters
   let filteredDeadlines = deadlinesWithDays;
@@ -94,9 +91,9 @@ export default function DeadlinesDashboard({
     return 'All Deadlines';
   };
 
-  const getDashboardType = (): 'project' | 'organisation' | 'all' => {
+  const getDashboardType = (): 'project' | 'organization' | 'all' => {
     if (projectId) return 'project';
-    if (orgId) return 'organisation';
+    if (orgId) return 'organization';
     return 'all';
   };
 

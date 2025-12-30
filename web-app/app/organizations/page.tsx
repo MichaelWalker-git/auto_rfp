@@ -260,7 +260,7 @@ export default function OrganizationsPage() {
             </div>
             <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
               <div className="flex items-center justify-between gap-2">
-                <Button variant='outline' onClick={() => window.location.href = '/deadlines'}>
+                <Button variant='outline' onClick={() => router.push('/deadlines')}>
                   <CalendarClock className="mr-2 h-4 w-4"/>
                   Check the deadlines
                 </Button>
