@@ -9,6 +9,7 @@ import { QUESTION_PK } from '../constants/question';
 import { ANSWER_PK } from '../constants/answer';
 import { EXEC_BRIEF_PK } from '../constants/exec-brief';
 import { PROPOSAL_PK } from '../constants/proposal';
+import { DEADLINE_PK } from '../constants/deadline';
 
 import { apiResponse } from '../helpers/api';
 import { withSentryLambda } from '../sentry-lambda';
@@ -265,7 +266,26 @@ export async function deleteProjectWithCleanup(orgId: string, projectId: string)
   const executiveBriefsDeleted =
     execBriefDeleteResults.filter(Boolean).length + scannedExecBriefsDeleted;
 
-  // 6) Finally delete PROJECT row (conditioned)
+  // 6) DEADLINE delete (direct key: orgId#projectId)
+  const deadlineSk = `${orgId}#${projectId}`;
+  let deadlineDeleted = false;
+  try {
+    await docClient.send(
+      new DeleteCommand({
+        TableName: DB_TABLE_NAME!,
+        Key: {
+          [PK_NAME]: DEADLINE_PK,
+          [SK_NAME]: deadlineSk,
+        },
+      }),
+    );
+    deadlineDeleted = true;
+    console.log(`✅ Deleted deadline: ${deadlineSk}`);
+  } catch (e) {
+    console.warn('⚠️ Failed to delete deadline (best-effort):', e);
+  }
+
+  // 7) Finally delete PROJECT row (conditioned)
   await docClient.send(
     new DeleteCommand({
       TableName: DB_TABLE_NAME!,
@@ -284,6 +304,7 @@ export async function deleteProjectWithCleanup(orgId: string, projectId: string)
     answersDeleted,
     proposalDeleted,
     executiveBriefsDeleted,
+    deadlineDeleted,
     s3: {
       bucket: DOCUMENTS_BUCKET || null,
       keysRequested: Array.from(s3Keys),

@@ -31,6 +31,7 @@ import {
   Search,
   Settings,
   Users,
+  CalendarClock
 } from 'lucide-react';
 
 import Link from 'next/link';
@@ -111,6 +112,7 @@ function AppSidebar() {
           { title: 'Projects', url: `/organizations/${orgId}/projects`, icon: FolderOpen },
           { title: 'Knowledge Base', url: `/organizations/${orgId}/knowledge-base`, icon: BookOpen },
           { title: 'Opportunities', url: `/organizations/${orgId}/opportunities`, icon: Search },
+          { title: 'Deadlines', url: `/organizations/${orgId}/deadlines`, icon: CalendarClock },
           { title: 'Team', url: `/organizations/${orgId}/team`, icon: Users },
           { title: 'Settings', url: `/organizations/${orgId}/settings`, icon: Settings },
         ]
