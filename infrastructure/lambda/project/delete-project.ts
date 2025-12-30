@@ -21,9 +21,10 @@ import {
 } from '../middleware/rbac-middleware';
 import { requireEnv } from '../helpers/env';
 import { DBItem, docClient } from '../helpers/db';
+import { proposalSK } from '../helpers/proposal';
 
 
-const DB_TABLE_NAME = process.env.DB_TABLE_NAME;
+const DB_TABLE_NAME = requireEnv('DB_TABLE_NAME');
 const DOCUMENTS_BUCKET = requireEnv('DOCUMENTS_BUCKET');
 
 const s3Client = new S3Client({});
@@ -143,7 +144,7 @@ async function scanExecutiveBriefsByProjectId(projectId: string): Promise<DBItem
   do {
     const res = await docClient.send(
       new ScanCommand({
-        TableName: DB_TABLE_NAME!,
+        TableName: DB_TABLE_NAME,
         FilterExpression: '#pk = :pk AND #projectId = :projectId',
         ExpressionAttributeNames: {
           '#pk': PK_NAME,
@@ -174,7 +175,6 @@ async function scanExecutiveBriefsByProjectId(projectId: string): Promise<DBItem
 }
 
 export async function deleteProjectWithCleanup(orgId: string, projectId: string) {
-  // Load project first (so we can delete executiveBriefId pointer, etc.)
   const projectKey = {
     [PK_NAME]: PROJECT_PK,
     [SK_NAME]: `${orgId}#${projectId}`,
@@ -195,8 +195,6 @@ export async function deleteProjectWithCleanup(orgId: string, projectId: string)
 
   const projectItem = projectRes.Item as Record<string, any>;
 
-  // 1) QUESTION_FILE cleanup (and best-effort S3 deletes)
-  // Keys: PK=QUESTION_FILE_PK, SK begins_with `${projectId}#`
   const qfQueryRes = await docClient.send(
     new QueryCommand({
       TableName: DB_TABLE_NAME!,
@@ -242,35 +240,14 @@ export async function deleteProjectWithCleanup(orgId: string, projectId: string)
 
   const questionFilesDeleted = await deleteKeys(qfKeys);
 
-  // 2) QUESTION delete (Query by projectId prefix)
   const questionKeys = await queryKeysByPkAndSkPrefix(QUESTION_PK, `${projectId}#`);
   const questionsDeleted = await deleteKeys(questionKeys);
 
-  // 3) ANSWER delete (Query by projectId prefix)
-  // Your createAnswer SK: `${projectId}#${questionId}#${answerId}`
   const answerKeys = await queryKeysByPkAndSkPrefix(ANSWER_PK, `${projectId}#`);
   const answersDeleted = await deleteKeys(answerKeys);
 
-  // 4) PROPOSAL delete (direct key)
-  const proposalSk = `${projectId}#PROPOSAL`;
-  let proposalDeleted = false;
-  try {
-    await docClient.send(
-      new DeleteCommand({
-        TableName: DB_TABLE_NAME!,
-        Key: {
-          [PK_NAME]: PROPOSAL_PK,
-          [SK_NAME]: proposalSk,
-        },
-      }),
-    );
-    proposalDeleted = true;
-  } catch (e) {
-    console.warn('Failed to delete proposal best-effort:', e);
-  }
-
-  // 5) EXECUTIVE_BRIEF delete
-  // Primary: delete by project.executiveBriefId + any ids found on question files
+  const proposalKeys = await queryKeysByPkAndSkPrefix(PROPOSAL_PK, `${projectId}#`);
+  const proposalDeleted = await deleteKeys(proposalKeys);
   const execBriefIds = new Set<string>();
 
   if (typeof projectItem.executiveBriefId === 'string' && projectItem.executiveBriefId.trim()) {
@@ -282,7 +259,6 @@ export async function deleteProjectWithCleanup(orgId: string, projectId: string)
     Array.from(execBriefIds).map((id) => deleteExecutiveBriefByIdBestEffort(id)),
   );
 
-  // Fallback: scan for any leftover exec briefs by projectId (optional, safe)
   const scannedExecBriefKeys = await scanExecutiveBriefsByProjectId(projectId);
   const scannedExecBriefsDeleted = await deleteKeys(scannedExecBriefKeys);
 
@@ -320,8 +296,7 @@ export const baseHandler = async (
   event: APIGatewayProxyEventV2,
 ): Promise<APIGatewayProxyResultV2> => {
   try {
-    const projectId = event.pathParameters?.projectId || event.pathParameters?.id;
-    const { orgId } = event.queryStringParameters || {};
+    const { orgId, projectId } = event.queryStringParameters || {};
 
     if (!orgId || !projectId) {
       return apiResponse(400, {

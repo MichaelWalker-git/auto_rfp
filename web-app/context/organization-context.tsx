@@ -1,9 +1,10 @@
 'use client';
 
-import { createContext, ReactNode, useContext, useEffect, useState, } from 'react';
-import { usePathname } from 'next/navigation';
-import { useOrganizations, useProject, useProjects } from '@/lib/hooks/use-api';
+import { createContext, ReactNode, useCallback, useContext, useEffect, useMemo, useState, } from 'react';
+import { usePathname, useRouter } from 'next/navigation';
+import { useOrganizations } from '@/lib/hooks/use-api';
 import { useAuth } from '@/components/AuthProvider';
+import { readStoredOrgId, writeStoredOrgId } from '@/lib/org-selection';
 
 interface Organization {
   id: string;
@@ -12,51 +13,44 @@ interface Organization {
   description?: string;
 }
 
-interface Project {
-  id: string;
-  name: string;
-  description?: string;
-  organizationId: string;
-  organization?: Organization;
-}
-
 interface OrganizationContextType {
   currentOrganization: Organization | null;
-  currentProject: Project | null;
-  setCurrentOrganization: (org: Organization | null) => void;
-  setCurrentProject: (project: Project | null) => void;
   organizations: Organization[];
-  projects: Project[];
   loading: boolean;
   refreshData: () => Promise<void>;
+  setCurrentOrganization: (org: Organization | null) => void;
+  isOrgLocked: boolean;
 }
 
 const OrganizationContext = createContext<OrganizationContextType | undefined>(undefined);
 
 export function useOrganization() {
-  const context = useContext(OrganizationContext);
-  if (!context) {
-    throw new Error('useOrganization must be used within an OrganizationProvider');
-  }
-  return context;
+  const ctx = useContext(OrganizationContext);
+  if (!ctx) throw new Error('useOrganization must be used within an OrganizationProvider');
+  return ctx;
 }
 
-interface OrganizationProviderProps {
+export function isOnOrgRouteAndItIsNotCurrentOrg(pathname: string, currentOrgId: string) {
+  const m = pathname.match(/^\/organizations\/([^/]+)(?:\/|$)/);
+  if (!m) return false;
+  const orgIdInPath = m[1];
+  return orgIdInPath !== currentOrgId;
+}
+
+
+type Props = {
   children: ReactNode;
 }
 
-export function OrganizationProvider({ children }: OrganizationProviderProps) {
+export function OrganizationProvider({ children }: Props) {
   const pathname = usePathname();
+  const router = useRouter();
 
-  // Parse IDs from URL once per render
-  const orgMatch = pathname.match(/\/organizations\/([^/]+)/);
-  const projectMatch = pathname.match(/\/projects\/([^/]+)/);
+  const { orgId: tokenOrgId } = useAuth();
+  const isOrgLocked = !!tokenOrgId;
 
-  const orgIdFromPath = orgMatch?.[1];
-  const projectIdFromPath = projectMatch?.[1];
-
-  const [currentOrganization, setCurrentOrganization] = useState<Organization | null>(null);
-  const [projectId, setProjectId] = useState<string | undefined>(projectIdFromPath,);
+  // hydrate from localStorage (admin only)
+  const [selectedOrgId, setSelectedOrgId] = useState<string | null>(() => readStoredOrgId());
 
   const {
     data: organizations = [],
@@ -64,123 +58,72 @@ export function OrganizationProvider({ children }: OrganizationProviderProps) {
     isLoading: isOrgLoading,
   } = useOrganizations();
 
-  const { orgId } = useAuth();
-  const effectiveOrgId = orgId ?? currentOrganization?.id ?? orgIdFromPath ?? '';
+  // if user is locked → ignore stored/admin selection
+  useEffect(() => {
+    if (isOrgLocked) {
+      setSelectedOrgId(null);
+      writeStoredOrgId(null);
+    }
+  }, [isOrgLocked]);
 
-  const {
-    data: projects = [],
-    mutate: mutateProjects,
-    isLoading: isProjectsLoading,
-  } = useProjects(effectiveOrgId);
+  // ensure selectedOrgId is valid once organizations load (admin only)
+  useEffect(() => {
+    if (isOrgLocked) return;
+    if (!organizations.length) return;
 
-  const {
-    data: project,
-    mutate: mutateProject,
-    isLoading: isProjectLoading,
-  } = useProject(projectId || '');
+    setSelectedOrgId((prev) => {
+      const candidate = prev ?? organizations[0].id;
+      const exists = organizations.some((o) => o.id === candidate);
+      return exists ? candidate : organizations[0].id;
+    });
+  }, [isOrgLocked, organizations]);
 
-  const loading = isOrgLoading || isProjectsLoading || isProjectLoading;
+  // persist selection (admin only)
+  useEffect(() => {
+    if (isOrgLocked) return;
+    writeStoredOrgId(selectedOrgId);
+  }, [isOrgLocked, selectedOrgId]);
+
+  const effectiveOrgId = useMemo(() => {
+    if (tokenOrgId) return tokenOrgId;
+    if (selectedOrgId) return selectedOrgId;
+    return organizations[0]?.id ?? '';
+  }, [tokenOrgId, selectedOrgId, organizations]);
+
+  const currentOrganization = useMemo(() => {
+    if (!organizations.length || !effectiveOrgId) return null;
+    return organizations.find((o) => o.id === effectiveOrgId) ?? null;
+  }, [organizations, effectiveOrgId]);
+
+  // redirect into org context if you're not already under /organizations/:id
+  useEffect(() => {
+    if (!currentOrganization?.id) return;
+    if (isOnOrgRouteAndItIsNotCurrentOrg(pathname, currentOrganization.id)) {
+      router.push(`/organizations/${currentOrganization.id}`);
+    }
+  }, [currentOrganization?.id, pathname, router]);
 
   const refreshData = async () => {
     await mutateOrg();
-    if (effectiveOrgId) {
-      await mutateProjects();
-    }
-    if (projectId) {
-      await mutateProject();
-    }
   };
 
-  // 1) Hydrate currentOrganization from URL or fallback to first org
-  useEffect(() => {
-    if (!organizations.length) return;
-
-    // If we already have an org, do nothing
-    if (currentOrganization) return;
-
-    // Try by URL (id or slug)
-    if (orgIdFromPath) {
-      const found =
-        organizations.find(
-          (o) => o.id === orgIdFromPath || o.slug === orgIdFromPath,
-        ) ?? null;
-      if (found) {
-        setCurrentOrganization(found);
-        return;
-      }
-    }
-
-    const pr = projects.find(p => p.id === projectId);
-    const org = organizations.find((o) => o.id === pr?.orgId,) ?? null;
-    setCurrentOrganization(org);
-  }, [organizations, currentOrganization, orgIdFromPath]);
-
-  // 2) Hydrate projectId from URL or from first project of current org
-  useEffect(() => {
-    if (!projects.length) return;
-
-    // If URL has /projects/:id → honor it
-    if (projectIdFromPath && projectId !== projectIdFromPath) {
-      setProjectId(projectIdFromPath);
-      return;
-    }
-
-    // No project in URL and none selected → auto-select first project
-    if (!projectId && !pathname.includes('/projects/')) {
-      setProjectId(projects[0].id);
-    }
-  }, [projects, projectId, projectIdFromPath, pathname]);
-
-  // 3) If we have a loaded project but no organization, derive org from project
-  useEffect(() => {
-    if (!project) return;
-    if (currentOrganization) return;
-
-    if (project.organization) {
-      setCurrentOrganization(project.organization);
-      return;
-    }
-
-    if (organizations.length) {
-      const found = organizations.find((o) => o.id === project.organizationId);
-      if (found) {
-        setCurrentOrganization(found);
-      }
-    }
-  }, [project, currentOrganization, organizations]);
-
-  const handleSetCurrentOrganization = (org: Organization | null) => {
-    setCurrentOrganization(org);
-    // Reset project when org changes – will be reselected via effect
-    setProjectId(undefined);
-  };
-
-  const handleSetCurrentProject = (p: Project | null) => {
-    setProjectId(p?.id);
-    if (p?.organization) {
-      setCurrentOrganization(p.organization);
-    } else if (p?.organizationId && organizations.length) {
-      const found = organizations.find((o) => o.id === p.organizationId);
-      if (found) {
-        setCurrentOrganization(found);
-      }
-    }
-  };
+  const setCurrentOrganization = useCallback(
+    (org: Organization | null) => {
+      if (tokenOrgId) return; // locked users cannot change
+      setSelectedOrgId(org?.id ?? null);
+      if (org?.id) router.push(`/organizations/${org.id}`);
+    },
+    [tokenOrgId, router],
+  );
 
   const value: OrganizationContextType = {
     currentOrganization,
-    currentProject: (project as Project) ?? null,
-    setCurrentOrganization: handleSetCurrentOrganization,
-    setCurrentProject: handleSetCurrentProject,
     organizations,
-    projects: (projects as unknown as Project[]) || [],
-    loading,
+    loading: isOrgLoading,
     refreshData,
+    setCurrentOrganization,
+    isOrgLocked,
   };
 
-  return (
-    <OrganizationContext.Provider value={value}>
-      {children}
-    </OrganizationContext.Provider>
-  );
+  return <OrganizationContext.Provider value={value}>{children}</OrganizationContext.Provider>;
 }

@@ -1,6 +1,6 @@
 import React from 'react';
-import ProposalsContent from '@/app/projects/components/ProposalsContent';
-import { QuestionsProvider } from '@/app/projects/[projectId]/questions/components';
+import { QuestionsProvider } from '@/app/organizations/[orgId]/projects/[projectId]/questions/components';
+import ProposalsContent from '@/app/organizations/[orgId]/projects/components/ProposalsContent';
 
 interface ProposalsPageProps {
   params: Promise<{ projectId: string }>;

@@ -1,5 +1,4 @@
 import crypto from 'crypto';
-import { z } from 'zod';
 import { GetCommand, PutCommand, QueryCommand, UpdateCommand, } from '@aws-sdk/lib-dynamodb';
 import { GetObjectCommand, S3Client } from '@aws-sdk/client-s3';
 
@@ -13,6 +12,7 @@ import { BedrockRuntimeClient, InvokeModelCommand, } from '@aws-sdk/client-bedro
 import { type ExecutiveBriefItem, ExecutiveBriefItemSchema, QuestionFileItem, SectionStatus, } from '@auto-rfp/shared';
 import { requireEnv } from './env';
 import { docClient } from './db';
+import { nowIso } from './date';
 
 const s3 = new S3Client({});
 const bedrock = new BedrockRuntimeClient({});
@@ -31,11 +31,6 @@ export type BriefSectionName =
   | 'contacts'
   | 'risks'
   | 'scoring';
-
-
-export function nowIso() {
-  return new Date().toISOString();
-}
 
 export function sha256(input: string) {
   return crypto.createHash('sha256').update(input).digest('hex');

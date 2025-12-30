@@ -282,6 +282,24 @@ export class ApiStack extends cdk.Stack {
     this.samgovApi = createNestedStack('samgov');
 
     this.samgovApi.addRoute(
+      '/import-solicitation',
+      'POST',
+      'lambda/samgov/import-solicitation.ts',
+      {
+        SAM_GOV_API_KEY_SECRET_ID: samGovApiKeySecret.secretArn,
+      }
+    )
+
+    this.samgovApi.addRoute(
+      '/create-saved-search',
+      'POST',
+      'lambda/samgov/create-saved-search.ts',
+      {
+        SAM_GOV_API_KEY_SECRET_ID: samGovApiKeySecret.secretArn,
+      }
+    )
+
+    this.samgovApi.addRoute(
       '/opportunities',
       'POST',
       'lambda/samgov/opportunities.ts',
@@ -521,7 +539,7 @@ export class ApiStack extends cdk.Stack {
     );
 
     this.projectApi.addRoute(
-      '/delete-project/{id}',
+      '/delete-project',
       'DELETE',
       'lambda/project/delete-project.ts',
     );

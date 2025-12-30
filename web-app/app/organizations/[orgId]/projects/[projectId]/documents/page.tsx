@@ -1,6 +1,6 @@
 import React from 'react';
 import { DocumentsSection } from '../../components/documents-section';
-import { QuestionsProvider } from '@/app/projects/[projectId]/questions/components';
+import { QuestionsProvider } from '@/app/organizations/[orgId]/projects/[projectId]/questions/components';
 
 interface DocumentsPageProps {
   params: Promise<{ projectId: string }>;

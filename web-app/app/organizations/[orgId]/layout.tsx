@@ -1,13 +1,11 @@
-import { SidebarLayout } from "@/layouts/sidebar-layout/sidebar-layout";
+import { SidebarLayout } from '@/layouts/sidebar-layout/sidebar-layout';
 
-export default function OrganizationsLayout({
-  children,
-}: {
+type Props = {
   children: React.ReactNode;
-}) {
+}
+
+export default function OrganizationsLayout({ children }: Props) {
   return (
-  
-      <SidebarLayout>{children}</SidebarLayout>
-  
+    <SidebarLayout>{children}</SidebarLayout>
   );
 } 

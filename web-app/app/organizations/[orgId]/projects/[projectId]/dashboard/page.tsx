@@ -1,8 +1,7 @@
 import React, { Suspense } from 'react';
 import { Spinner } from '@/components/ui/spinner';
-import { ProjectLayout } from '../../components/project-layout';
-import { ProjectContent } from '../../components/project-content';
-import { ProjectPageProvider } from '../../components/project-page-provider';
+import { ProjectPageProvider } from '@/app/organizations/[orgId]/projects/components/project-page-provider';
+import { ProjectContent } from '@/app/organizations/[orgId]/projects/components/project-content';
 
 // Loading fallback component
 function ProjectPageLoading() {
@@ -25,9 +24,7 @@ export default async function ProjectPage({ params }: ProjectPageProps) {
   return (
     <ProjectPageProvider projectId={projectId}>
       <Suspense fallback={<ProjectPageLoading/>}>
-        <ProjectLayout>
-          <ProjectContent projectId={projectId}/>
-        </ProjectLayout>
+        <ProjectContent projectId={projectId}/>
       </Suspense>
     </ProjectPageProvider>
   );

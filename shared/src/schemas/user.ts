@@ -47,7 +47,7 @@ export const ALL_PERMISSIONS = [
   'answer:create', 'answer:read', 'answer:generate', 'answer:edit',
   'brief:create', 'brief:edit',
   'index:retry',
-  'opportunity:read'
+  'opportunity:read', 'opportunity:write'
 ] as const;
 
 export type Permission = (typeof ALL_PERMISSIONS)[number];

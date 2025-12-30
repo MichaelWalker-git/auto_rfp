@@ -1,20 +1,25 @@
 import { APIGatewayProxyEventV2, APIGatewayProxyResultV2 } from 'aws-lambda';
-import { DeleteCommand, GetCommand, } from '@aws-sdk/lib-dynamodb';
-
+import {
+  DeleteCommand,
+  GetCommand,
+  ScanCommand,
+  BatchWriteCommand,
+} from '@aws-sdk/lib-dynamodb';
 import { DeleteObjectCommand, S3Client } from '@aws-sdk/client-s3';
+import middy from '@middy/core';
 
 import { apiResponse } from '../helpers/api';
 import { PK_NAME, SK_NAME } from '../constants/common';
 import { QUESTION_FILE_PK } from '../constants/question-file';
 import { withSentryLambda } from '../sentry-lambda';
 import { EXEC_BRIEF_PK } from '../constants/exec-brief';
+import { QUESTION_PK } from '../constants/question';
 import {
   authContextMiddleware,
   httpErrorMiddleware,
   orgMembershipMiddleware,
-  requirePermission
+  requirePermission,
 } from '../middleware/rbac-middleware';
-import middy from '@middy/core';
 import { docClient } from '../helpers/db';
 import { requireEnv } from '../helpers/env';
 import { QuestionFileItem } from '@auto-rfp/shared';
@@ -47,9 +52,78 @@ async function deleteS3ObjectBestEffort(key: string) {
   }
 }
 
-export const baseHandler = async (
-  event: APIGatewayProxyEventV2,
-): Promise<APIGatewayProxyResultV2> => {
+type KeyPair = { pk: string; sk: string };
+
+async function batchDeleteItems(keys: KeyPair[]): Promise<number> {
+  if (!keys.length) return 0;
+
+  let deleted = 0;
+
+  for (let i = 0; i < keys.length; i += 25) {
+    const chunk = keys.slice(i, i + 25);
+
+    await docClient.send(
+      new BatchWriteCommand({
+        RequestItems: {
+          [DB_TABLE_NAME]: chunk.map((k) => ({
+            DeleteRequest: {
+              Key: {
+                [PK_NAME]: k.pk,
+                [SK_NAME]: k.sk,
+              },
+            },
+          })),
+        },
+      }),
+    );
+
+    deleted += chunk.length;
+  }
+
+  return deleted;
+}
+
+async function scanAllQuestionKeys(projectId: string, questionFileId: string): Promise<KeyPair[]> {
+  const keys: KeyPair[] = [];
+  let ExclusiveStartKey: Record<string, any> | undefined;
+
+  do {
+    const res = await docClient.send(
+      new ScanCommand({
+        TableName: DB_TABLE_NAME,
+        ExclusiveStartKey,
+        ProjectionExpression: '#pk, #sk',
+        FilterExpression: '#pk = :qpk AND #projectId = :projectId AND #questionFileId = :questionFileId',
+        ExpressionAttributeNames: {
+          '#pk': PK_NAME,
+          '#sk': SK_NAME,
+          '#projectId': 'projectId',
+          '#questionFileId': 'questionFileId',
+        },
+        ExpressionAttributeValues: {
+          ':qpk': QUESTION_PK,
+          ':projectId': projectId,
+          ':questionFileId': questionFileId,
+        },
+      }),
+    );
+
+    const items = (res.Items ?? []) as Array<Record<string, any>>;
+    for (const it of items) {
+      const pk = it?.[PK_NAME];
+      const sk = it?.[SK_NAME];
+      if (typeof pk === 'string' && typeof sk === 'string') {
+        keys.push({ pk, sk });
+      }
+    }
+
+    ExclusiveStartKey = res.LastEvaluatedKey;
+  } while (ExclusiveStartKey);
+
+  return keys;
+}
+
+export const baseHandler = async (event: APIGatewayProxyEventV2): Promise<APIGatewayProxyResultV2> => {
   try {
     const { projectId, questionFileId } = event.queryStringParameters || {};
 
@@ -58,7 +132,6 @@ export const baseHandler = async (
 
     const sk = `${projectId}#${questionFileId}`;
 
-    // 1) Load question-file row to obtain S3 keys (and exec brief id)
     const getRes = await docClient.send(
       new GetCommand({
         TableName: DB_TABLE_NAME,
@@ -75,7 +148,6 @@ export const baseHandler = async (
 
     const item = getRes.Item as QuestionFileItem;
 
-    // keys we want to remove from S3
     const fileKey = safeS3Key(item.fileKey);
     const textFileKey = safeS3Key(item.textFileKey);
 
@@ -84,7 +156,9 @@ export const baseHandler = async (
       ? await Promise.all(keysToDelete.map(deleteS3ObjectBestEffort))
       : [];
 
-    // 4) Delete question-file row
+    const questionKeys = await scanAllQuestionKeys(projectId, questionFileId);
+    const deletedQuestions = await batchDeleteItems(questionKeys);
+
     await docClient.send(
       new DeleteCommand({
         TableName: DB_TABLE_NAME,
@@ -104,7 +178,6 @@ export const baseHandler = async (
       }),
     );
 
-    // 5) Delete executive brief row (if exists)
     if (item?.executiveBriefId) {
       await docClient.send(
         new DeleteCommand({
@@ -133,6 +206,10 @@ export const baseHandler = async (
         questionFileId,
         sk,
       },
+      questions: {
+        matched: questionKeys.length,
+        deleted: deletedQuestions,
+      },
       s3: {
         bucket: DOCUMENTS_BUCKET,
         keysRequested: keysToDelete,
@@ -159,5 +236,5 @@ export const handler = withSentryLambda(
     .use(authContextMiddleware())
     .use(orgMembershipMiddleware())
     .use(requirePermission('question:delete'))
-    .use(httpErrorMiddleware())
+    .use(httpErrorMiddleware()),
 );

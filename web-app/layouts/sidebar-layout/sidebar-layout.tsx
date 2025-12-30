@@ -19,167 +19,132 @@ import {
 } from '@/components/ui/sidebar';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { UserSection } from '@/components/user-section';
-import { OrganizationProjectSwitcher } from '@/components/organization-project-switcher';
-import { useOrganization } from '@/context/organization-context';
+
 import {
+  BookOpen,
   FileText,
+  FolderOpen,
   HelpCircle,
   Home,
   MessageSquare,
+  ScrollText,
+  Search,
   Settings,
   Users,
-  Building2,
-  FolderOpen,
-  BookOpen,
-  ScrollText
 } from 'lucide-react';
+
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import type { ReactNode } from 'react';
+import { useMemo } from 'react';
+
+import { useOrganization } from '@/context/organization-context';
+import { useProjectContext } from '@/context/project-context';
+import { OrganizationBadge } from '@/components/organization-badge';
+
+interface RouteInfo {
+  orgId: string | null;
+  projectId: string | null;
+  isOrgRoute: boolean;
+  isProjectRoute: boolean;
+}
+
+interface NavItem {
+  title: string;
+  url: string;
+  icon: React.ComponentType<{ className?: string }>;
+  badge?: string | number;
+}
+
+function getRouteIds(pathname: string): RouteInfo {
+  const orgMatch = pathname.match(/^\/organizations\/([^/]+)/);
+  const orgId = orgMatch?.[1] ?? null;
+
+  const projectMatch = pathname.match(/^\/organizations\/[^/]+\/projects\/([^/]+)/);
+  const projectId = projectMatch?.[1] ?? null;
+
+  const isProjectRoute = !!orgId && !!projectId;
+  const isOrgRoute = !!orgId;
+
+  return { orgId, projectId, isOrgRoute, isProjectRoute };
+}
+
+function NavigationMenu({ items, isActive }: { items: NavItem[]; isActive: (url: string) => boolean }) {
+  return (
+    <SidebarMenuSub>
+      {items.map((item) => {
+        const active = isActive(item.url);
+        return (
+          <SidebarMenuSubItem key={item.title}>
+            <SidebarMenuSubButton asChild isActive={active}>
+              <Link href={item.url} aria-current={active ? 'page' : undefined}>
+                <item.icon className="size-4" aria-hidden="true"/>
+                <span>{item.title}</span>
+                {item.badge && (
+                  <span className="ml-auto text-xs bg-primary/10 text-primary px-1.5 py-0.5 rounded">
+                    {item.badge}
+                  </span>
+                )}
+              </Link>
+            </SidebarMenuSubButton>
+          </SidebarMenuSubItem>
+        );
+      })}
+    </SidebarMenuSub>
+  );
+}
 
 function AppSidebar() {
   const pathname = usePathname();
-  const { currentProject, currentOrganization } = useOrganization();
+  const { currentOrganization } = useOrganization();
+  const { currentProject } = useProjectContext();
 
-  // Extract IDs from URL
-  const projectMatch = pathname.match(/\/projects\/([^/]+)/);
-  const orgMatch = pathname.match(/\/organizations\/([^/]+)/);
+  const route = useMemo(() => getRouteIds(pathname), [pathname]);
 
-  const projectIdFromPath = projectMatch?.[1] ?? null;
-  const orgIdFromPath = orgMatch?.[1] ?? null;
+  const orgId = route.orgId ?? currentOrganization?.id ?? null;
+  const projectId = route.projectId ?? currentProject?.id ?? null;
 
-  // Determine current context
-  const routeContext =
-    projectIdFromPath && currentProject
-      ? {
-        type: 'project' as const,
-        id: projectIdFromPath,
-        name: currentProject.name,
-      }
-      : orgIdFromPath && currentOrganization
-        ? {
-          type: 'organization' as const,
-          id: orgIdFromPath,
-          name: currentOrganization.name,
-        }
-        : ({ type: 'global' } as const);
+  const orgNav: NavItem[] = useMemo(
+    () =>
+      orgId
+        ? [
+          { title: 'Projects', url: `/organizations/${orgId}/projects`, icon: FolderOpen },
+          { title: 'Knowledge Base', url: `/organizations/${orgId}/knowledge-base`, icon: BookOpen },
+          { title: 'Opportunities', url: `/organizations/${orgId}/opportunities`, icon: Search },
+          { title: 'Team', url: `/organizations/${orgId}/team`, icon: Users },
+          { title: 'Settings', url: `/organizations/${orgId}/settings`, icon: Settings },
+        ]
+        : [],
+    [orgId]
+  );
 
-  // Organization-level navigation items
-  const getOrganizationNavigationItems = (orgId: string) => [
-    {
-      title: 'Organization',
-      items: [
-        {
-          title: 'Projects',
-          url: `/organizations/${orgId}/projects`,
-          icon: FolderOpen,
-        },
-        {
-          title: 'Knowledge Base',
-          url: `/organizations/${orgId}/knowledge-base`,
-          icon: BookOpen,
-        },
-        {
-          title: 'Team',
-          url: `/organizations/${orgId}/team`,
-          icon: Users,
-        },
-        {
-          title: 'Settings',
-          url: `/organizations/${orgId}/settings`,
-          icon: Settings,
-        },
-      ],
-    },
-  ];
+  const projectNav: NavItem[] = useMemo(
+    () =>
+      orgId && projectId
+        ? [
+          { title: 'Dashboard', url: `/organizations/${orgId}/projects/${projectId}/dashboard`, icon: Home },
+          { title: 'Questions', url: `/organizations/${orgId}/projects/${projectId}/questions`, icon: MessageSquare },
+          { title: 'Documents', url: `/organizations/${orgId}/projects/${projectId}/documents`, icon: FileText },
+          { title: 'Proposals', url: `/organizations/${orgId}/projects/${projectId}/proposals`, icon: ScrollText },
+        ]
+        : [],
+    [orgId, projectId]
+  );
 
-  // Project-scoped navigation items
-  const getProjectNavigationItems = (projectId: string) => [
-    {
-      title: 'Project',
-      items: [
-        {
-          title: 'Dashboard',
-          url: `/projects/${projectId}/dashboard`,
-          icon: Home,
-        },
-        {
-          title: 'Questions',
-          url: `/projects/${projectId}/questions`,
-          icon: MessageSquare,
-        },
-        {
-          title: 'Documents',
-          url: `/projects/${projectId}/documents`,
-          icon: FileText,
-        },
-        {
-          title: 'Proposals',
-          url: `/projects/${projectId}/proposals`,
-          icon: ScrollText,
-        },
-      ],
-    },
-  ];
+  const items = route.isProjectRoute ? projectNav : route.isOrgRoute ? orgNav : [];
 
-  // Decide which nav items to show
-  const contextNavigationItems = (() => {
-    if (routeContext.type === 'project' && projectIdFromPath) {
-      return getProjectNavigationItems(projectIdFromPath);
-    }
-    if (routeContext.type === 'organization' && orgIdFromPath) {
-      return getOrganizationNavigationItems(orgIdFromPath);
-    }
-    return [];
-  })();
-
-  // Simple "active" matcher: exact match or nested route
-  const isItemActive = (itemUrl: string) => {
-    return pathname.includes(itemUrl);
-  };
+  const isItemActive = (url: string) => pathname === url || pathname.startsWith(`${url}/`);
 
   return (
     <Sidebar variant="inset" collapsible="icon" className="border-r h-full">
       <SidebarHeader>
-        <OrganizationProjectSwitcher/>
+        <OrganizationBadge/>
       </SidebarHeader>
 
       <SidebarContent className="overflow-y-auto">
         <SidebarMenu>
-          {/* Context-specific navigation (organization or project) */}
-          {contextNavigationItems.map((group) => (
-            <div key={group.title}>
-              <SidebarMenuSub>
-                {group.items.map((item) => (
-                  <SidebarMenuSubItem key={item.title}>
-                    <SidebarMenuSubButton
-                      asChild
-                      isActive={isItemActive(item.url)}
-                    >
-                      <Link href={item.url}>
-                        <item.icon className="size-4"/>
-                        <span>{item.title}</span>
-                      </Link>
-                    </SidebarMenuSubButton>
-                  </SidebarMenuSubItem>
-                ))}
-              </SidebarMenuSub>
-              <SidebarSeparator className="my-2"/>
-            </div>
-          ))}
-
-          {/* Context indicator */}
-          {routeContext.type === 'global' && (
-            <div className="px-4 py-2">
-              <div className="text-center text-sm text-muted-foreground bg-muted/50 rounded-lg p-3">
-                <Building2 className="mx-auto h-8 w-8 mb-2 opacity-50"/>
-                <p className="font-medium mb-1">No Context Selected</p>
-                <p className="text-xs">
-                  Choose an organization or project to access specific tools
-                </p>
-              </div>
-            </div>
-          )}
+          <NavigationMenu items={items} isActive={isItemActive}/>
+          <SidebarSeparator className="my-2"/>
         </SidebarMenu>
       </SidebarContent>
 
@@ -190,7 +155,7 @@ function AppSidebar() {
           <SidebarMenuItem>
             <SidebarMenuButton asChild>
               <Link href="/help">
-                <HelpCircle className="size-4"/>
+                <HelpCircle className="size-4" aria-hidden="true"/>
                 <span>Help &amp; Support</span>
               </Link>
             </SidebarMenuButton>
@@ -202,27 +167,19 @@ function AppSidebar() {
   );
 }
 
-interface SidebarLayoutProps {
-  children: ReactNode;
-}
-
-export function SidebarLayout({ children }: SidebarLayoutProps) {
+export function SidebarLayout({ children }: { children: ReactNode }) {
   return (
     <TooltipProvider>
       <SidebarProvider>
         <AppSidebar/>
-        {/* Main content area with independent scrolling */}
         <SidebarInset className="flex-1 flex flex-col overflow-hidden">
-          {/* Fixed header */}
           <header
             className="flex h-16 shrink-0 items-center border-b bg-background transition-[width,height] ease-linear group-has-[[data-collapsible=icon]]/sidebar-wrapper:h-12">
             <div className="flex items-center gap-2 px-4">
-              <SidebarTrigger className="-ml-1"/>
+              <SidebarTrigger className="-ml-1" aria-label="Toggle sidebar"/>
             </div>
           </header>
-
-          {/* Scrollable content area */}
-          <div className="flex-1 overflow-y-auto">{children}</div>
+          <main className="flex-1 overflow-y-auto">{children}</main>
         </SidebarInset>
       </SidebarProvider>
     </TooltipProvider>

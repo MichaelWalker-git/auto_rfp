@@ -1,12 +1,13 @@
 'use client';
 
 import React, { useMemo, useRef, useState } from 'react';
-import { AlertCircle, FileText, FolderOpen, Loader2, Play, Trash2, Upload } from 'lucide-react';
+import { AlertCircle, Download, FileText, FolderOpen, Loader2, Play, Trash2, Upload } from 'lucide-react';
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { cn } from '@/lib/utils';
 
 import { usePresignUpload } from '@/lib/hooks/use-presign';
@@ -16,6 +17,7 @@ import {
   useQuestionFiles,
   useStartQuestionFilePipeline,
 } from '@/lib/hooks/use-question-file';
+import { useDownloadFromS3 } from '@/lib/hooks/use-file';
 import PermissionWrapper from '@/components/permission-wrapper';
 
 interface ProjectDocumentsProps {
@@ -47,19 +49,14 @@ function formatDate(dateString?: string) {
 function statusChip(status?: string) {
   const s = String(status ?? '').toUpperCase();
 
-  if (s === 'UPLOADED') {
-    return { label: 'Uploaded', cls: 'bg-slate-50 text-slate-700 border-slate-200' };
-  }
-  if (s === 'QUESTIONS_EXTRACTED' || s === 'PROCESSED') {
+  if (s === 'UPLOADED') return { label: 'Uploaded', cls: 'bg-slate-50 text-slate-700 border-slate-200' };
+  if (s === 'QUESTIONS_EXTRACTED' || s === 'PROCESSED')
     return { label: 'Completed', cls: 'bg-green-50 text-green-700 border-green-200' };
-  }
-  if (s === 'TEXT_READY' || s === 'TEXT_EXTRACTED') {
+  if (s === 'TEXT_READY' || s === 'TEXT_EXTRACTED')
     return { label: 'Text ready', cls: 'bg-indigo-50 text-indigo-700 border-indigo-200' };
-  }
   if (s === 'PROCESSING') return { label: 'Processing', cls: 'bg-blue-50 text-blue-700 border-blue-200' };
-  if (s === 'TEXT_EXTRACTION_FAILED' || s === 'ERROR' || s === 'FAILED') {
+  if (s === 'TEXT_EXTRACTION_FAILED' || s === 'ERROR' || s === 'FAILED')
     return { label: 'Error', cls: 'bg-red-50 text-red-700 border-red-200' };
-  }
   if (s === 'DELETED') return { label: 'Deleted', cls: 'bg-gray-50 text-gray-700 border-gray-200' };
   return { label: 'Processing', cls: 'bg-slate-50 text-slate-700 border-slate-200' };
 }
@@ -69,29 +66,30 @@ export function ProjectDocuments({ projectId }: ProjectDocumentsProps) {
 
   const { items, isLoading, isError, error, refetch } = useQuestionFiles(projectId);
 
-  // Upload hooks
   const { trigger: getPresignedUrl, isMutating: isGettingPresigned } = usePresignUpload();
   const { trigger: createQuestionFile, isMutating: isCreating } = useCreateQuestionFile(projectId);
 
   const { trigger: startPipeline } = useStartQuestionFilePipeline(projectId);
+  const { trigger: deleteQuestionFile } = useDeleteQuestionFile();
 
-  const { trigger: deleteQuestionFile, isMutating: isDeleting } = useDeleteQuestionFile();
+  const { downloadFile, error: downloadError } = useDownloadFromS3();
 
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [uploadBusy, setUploadBusy] = useState(false);
 
   const [startingId, setStartingId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [downloadingId, setDownloadingId] = useState<string | null>(null);
 
   const rows = useMemo(() => {
     return (items ?? []).map((qf: any) => ({
       questionFileId: qf?.questionFileId as string | undefined,
       name: pickDisplayName(qf),
-      status: qf?.status,
-      createdAt: qf?.createdAt,
-      updatedAt: qf?.updatedAt,
-      fileKey: qf?.fileKey,
-      errorMessage: qf?.errorMessage,
+      status: qf?.status as string | undefined,
+      createdAt: qf?.createdAt as string | undefined,
+      updatedAt: qf?.updatedAt as string | undefined,
+      fileKey: qf?.fileKey as string | undefined,
+      errorMessage: qf?.errorMessage as string | undefined,
     }));
   }, [items]);
 
@@ -131,11 +129,51 @@ export function ProjectDocuments({ projectId }: ProjectDocumentsProps) {
 
       await refetch();
     } catch (e: any) {
-      console.error('Upload error', e);
       setUploadError(e?.message || 'Unexpected error');
     } finally {
       setUploadBusy(false);
       if (fileInputRef.current) fileInputRef.current.value = '';
+    }
+  };
+
+  const handleDownload = async (row: { questionFileId?: string; fileKey?: string; name: string }) => {
+    if (!row.questionFileId || !row.fileKey) return;
+    if (downloadingId === row.questionFileId) return;
+
+    try {
+      setDownloadingId(row.questionFileId);
+      await downloadFile({ key: row.fileKey, fileName: row.name });
+    } finally {
+      setDownloadingId((prev) => (prev === row.questionFileId ? null : prev));
+    }
+  };
+
+  const handleDelete = async (row: { questionFileId?: string; name: string }) => {
+    if (!row.questionFileId) return;
+    if (deletingId === row.questionFileId) return;
+
+    const ok = window.confirm(`Delete "${row.name}"?`);
+    if (!ok) return;
+
+    try {
+      setDeletingId(row.questionFileId);
+      await deleteQuestionFile({ projectId, questionFileId: row.questionFileId });
+      await refetch();
+    } finally {
+      setDeletingId((prev) => (prev === row.questionFileId ? null : prev));
+    }
+  };
+
+  const handleStart = async (row: { questionFileId?: string }) => {
+    if (!row.questionFileId) return;
+    if (startingId === row.questionFileId) return;
+
+    try {
+      setStartingId(row.questionFileId);
+      await startPipeline({ projectId, questionFileId: row.questionFileId });
+      await refetch();
+    } finally {
+      setStartingId((prev) => (prev === row.questionFileId ? null : prev));
     }
   };
 
@@ -145,16 +183,16 @@ export function ProjectDocuments({ projectId }: ProjectDocumentsProps) {
         <CardHeader className="flex flex-row items-start justify-between gap-4">
           <div>
             <CardTitle className="flex items-center gap-2">
-              <FileText className="h-5 w-5"/>
+              <FileText className="h-5 w-5" />
               RFP Documents
             </CardTitle>
             <CardDescription>Upload a document and run question extraction</CardDescription>
           </div>
-          <Skeleton className="h-9 w-40"/>
+          <Skeleton className="h-9 w-40" />
         </CardHeader>
         <CardContent className="space-y-3">
           {[1, 2, 3, 4].map((i) => (
-            <Skeleton key={i} className="h-16 w-full"/>
+            <Skeleton key={i} className="h-16 w-full" />
           ))}
         </CardContent>
       </Card>
@@ -167,27 +205,25 @@ export function ProjectDocuments({ projectId }: ProjectDocumentsProps) {
         <CardHeader className="flex flex-row items-start justify-between gap-4">
           <div>
             <CardTitle className="flex items-center gap-2">
-              <FileText className="h-5 w-5"/>
+              <FileText className="h-5 w-5" />
               RFP Documents
             </CardTitle>
             <CardDescription>Upload a document and run question extraction</CardDescription>
           </div>
 
           <Button onClick={onPickFile} disabled={busyUpload} className="gap-2">
-            {busyUpload ? <Loader2 className="h-4 w-4 animate-spin"/> : <Upload className="h-4 w-4"/>}
+            {busyUpload ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
             Upload file
           </Button>
         </CardHeader>
 
-        <CardContent>
+        <CardContent className="space-y-3">
           <div className="rounded-xl border bg-red-50 p-4">
             <div className="flex items-start gap-3">
-              <AlertCircle className="h-5 w-5 text-red-600 mt-0.5"/>
+              <AlertCircle className="h-5 w-5 text-red-600 mt-0.5" />
               <div className="flex-1">
                 <p className="font-medium text-red-900">Couldn’t load files</p>
-                <p className="text-sm text-red-700 mt-1">
-                  {error instanceof Error ? error.message : 'Unknown error'}
-                </p>
+                <p className="text-sm text-red-700 mt-1">{error instanceof Error ? error.message : 'Unknown error'}</p>
                 <div className="mt-3">
                   <Button variant="outline" size="sm" onClick={() => refetch()}>
                     Retry
@@ -198,9 +234,14 @@ export function ProjectDocuments({ projectId }: ProjectDocumentsProps) {
           </div>
 
           {uploadError && (
-            <div className="mt-3 rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">
-              {uploadError}
-            </div>
+            <div className="rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">{uploadError}</div>
+          )}
+
+          {downloadError && (
+            <Alert variant="destructive">
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription>Download failed: {downloadError.message}</AlertDescription>
+            </Alert>
           )}
         </CardContent>
 
@@ -217,35 +258,42 @@ export function ProjectDocuments({ projectId }: ProjectDocumentsProps) {
     );
   }
 
+  const total = items?.length ?? 0;
+
   return (
     <Card className="overflow-hidden">
       <CardHeader className="flex flex-row items-start justify-between gap-4">
         <div>
           <CardTitle className="flex items-center gap-2">
-            <FileText className="h-5 w-5"/>
+            <FileText className="h-5 w-5" />
             RFP Documents
           </CardTitle>
           <CardDescription>
-            {(items?.length ?? 0)} {(items?.length ?? 0) === 1 ? 'file' : 'files'} in this project
+            {total} {total === 1 ? 'file' : 'files'} in this project
           </CardDescription>
         </div>
 
         <Button onClick={onPickFile} disabled={busyUpload} className="gap-2">
-          {busyUpload ? <Loader2 className="h-4 w-4 animate-spin"/> : <Upload className="h-4 w-4"/>}
+          {busyUpload ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
           Upload file
         </Button>
       </CardHeader>
 
-      <CardContent>
+      <CardContent className="space-y-3">
         {uploadError && (
-          <div className="mb-4 rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">
-            {uploadError}
-          </div>
+          <div className="rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">{uploadError}</div>
         )}
 
-        {(items?.length ?? 0) === 0 ? (
+        {downloadError && (
+          <Alert variant="destructive">
+            <AlertCircle className="h-4 w-4" />
+            <AlertDescription>Download failed: {downloadError.message}</AlertDescription>
+          </Alert>
+        )}
+
+        {total === 0 ? (
           <div className="text-center py-10">
-            <FolderOpen className="mx-auto h-9 w-9 text-muted-foreground mb-3"/>
+            <FolderOpen className="mx-auto h-9 w-9 text-muted-foreground mb-3" />
             <h3 className="text-lg font-medium">No files yet</h3>
             <p className="text-muted-foreground mt-1">Upload a document to start extraction.</p>
           </div>
@@ -253,17 +301,22 @@ export function ProjectDocuments({ projectId }: ProjectDocumentsProps) {
           <div className="space-y-2">
             {rows.map((f) => {
               const st = statusChip(f.status);
-              const isProcessing = String(f.status ?? '').toUpperCase() === 'PROCESSING';
-              const canStart = !!f.questionFileId && !isProcessing;
+              const statusUpper = String(f.status ?? '').toUpperCase();
+              const isProcessing = statusUpper === 'PROCESSING';
+              const canStart = !!f.questionFileId && statusUpper === 'UPLOADED';
 
-              const rowStarting = startingId && f.questionFileId === startingId;
-              const rowDeleting = deletingId && f.questionFileId === deletingId;
+              const rowStarting = !!f.questionFileId && startingId === f.questionFileId;
+              const rowDeleting = !!f.questionFileId && deletingId === f.questionFileId;
+              const rowDownloading = !!f.questionFileId && downloadingId === f.questionFileId;
 
               return (
-                <div key={f.questionFileId ?? f.name} className="rounded-xl border bg-background p-3">
+                <div
+                  key={f.questionFileId ?? f.name}
+                  className={cn('rounded-xl border bg-background p-3', (rowStarting || rowDeleting || rowDownloading) && 'opacity-80')}
+                >
                   <div className="flex items-start gap-3">
                     <div className="h-10 w-10 rounded-lg bg-muted flex items-center justify-center shrink-0">
-                      <FileText className="h-5 w-5 text-muted-foreground"/>
+                      <FileText className="h-5 w-5 text-muted-foreground" />
                     </div>
 
                     <div className="min-w-0 flex-1">
@@ -295,45 +348,38 @@ export function ProjectDocuments({ projectId }: ProjectDocumentsProps) {
                     </div>
 
                     <div className="flex items-center gap-2 shrink-0">
+
                       <Button
                         size="sm"
                         variant="outline"
                         className="gap-2"
-                        disabled={!canStart || !!startingId || !!deletingId || f.status.toLowerCase() !== 'uploaded'}
-                        onClick={async () => {
-                          if (!f.questionFileId) return;
-                          try {
-                            setStartingId(f.questionFileId);
-                            await startPipeline({ projectId, questionFileId: f.questionFileId });
-                            await refetch();
-                          } finally {
-                            setStartingId(null);
-                          }
-                        }}
+                        disabled={!canStart || rowStarting}
+                        onClick={() => void handleStart({ questionFileId: f.questionFileId })}
                       >
-                        {rowStarting ? <Loader2 className="h-4 w-4 animate-spin"/> : <Play className="h-4 w-4"/>}
+                        {rowStarting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4" />}
                         Start extraction
                       </Button>
 
-                      <PermissionWrapper requiredPermission={'rfp:delete'}>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="gap-2"
+                        disabled={!f.fileKey || rowDownloading}
+                        onClick={() => void handleDownload({ questionFileId: f.questionFileId, fileKey: f.fileKey, name: f.name })}
+                        title={!f.fileKey ? 'No file key' : 'Download file'}
+                      >
+                        {rowDownloading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
+                      </Button>
+
+                      <PermissionWrapper requiredPermission={'question:delete'}>
                         <Button
                           size="sm"
                           variant="destructive"
                           className="gap-2"
-                          disabled={!f.questionFileId || !!startingId || !!deletingId || isDeleting}
-                          onClick={async () => {
-                            if (!f.questionFileId) return;
-                            try {
-                              setDeletingId(f.questionFileId);
-                              await deleteQuestionFile({ projectId, questionFileId: f.questionFileId });
-                              await refetch();
-                            } finally {
-                              setDeletingId(null);
-                            }
-                          }}
+                          disabled={!f.questionFileId || rowDeleting}
+                          onClick={() => void handleDelete({ questionFileId: f.questionFileId, name: f.name })}
                         >
-                          {rowDeleting ? <Loader2 className="h-4 w-4 animate-spin"/> : <Trash2 className="h-4 w-4"/>}
-                          Remove
+                          {rowDeleting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
                         </Button>
                       </PermissionWrapper>
                     </div>
