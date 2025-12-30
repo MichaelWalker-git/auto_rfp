@@ -2,7 +2,10 @@
 
 import { useSearchParams } from 'next/navigation';
 import { ProjectDocuments } from '@/components/projects/ProjectDocuments';
-import { NoRfpDocumentAvailable, useQuestions } from '@/app/projects/[projectId]/questions/components';
+import {
+  NoRfpDocumentAvailable,
+  useQuestions
+} from '@/app/organizations/[orgId]/projects/[projectId]/questions/components';
 
 type Props = {
   projectId?: string;
@@ -10,7 +13,6 @@ type Props = {
 
 export function DocumentsSection({ projectId: propProjectId }: Props) {
   const searchParams = useSearchParams();
-  // Use prop if provided, otherwise fall back to search params
   const projectId = propProjectId || searchParams.get('projectId');
 
   if (!projectId) {

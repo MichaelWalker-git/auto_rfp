@@ -7,7 +7,7 @@ import { withSentryLambda } from '../sentry-lambda';
 
 import { type ExecutiveBriefItem, ExecutiveBriefItemSchema, } from '@auto-rfp/shared';
 
-import { loadLatestQuestionFile, nowIso, putExecutiveBrief, } from '../helpers/executive-opportunity-frief';
+import { loadLatestQuestionFile, putExecutiveBrief, } from '../helpers/executive-opportunity-frief';
 import { UpdateCommand } from '@aws-sdk/lib-dynamodb';
 
 import { PK_NAME, SK_NAME } from '../constants/common';
@@ -22,6 +22,7 @@ import {
 import middy from '@middy/core';
 import { requireEnv } from '../helpers/env';
 import { docClient } from '../helpers/db';
+import { nowIso } from '../helpers/date';
 
 
 const DB_TABLE_NAME = requireEnv('DB_TABLE_NAME');

@@ -5,7 +5,7 @@ import { ProjectOverview } from './project-overview';
 import { QuestionsProvider, QuestionsSection } from '../[projectId]/questions/components';
 import { DocumentsSection } from './documents-section';
 import { TeamSection } from './team-section';
-import ProposalsContent from '@/app/projects/components/ProposalsContent';
+import ProposalsContent from '@/app/organizations/[orgId]/projects/components/ProposalsContent';
 
 function ProjectContentInner({ projectId }: { projectId: string }) {
   const [activeSection, setActiveSection] = useState('overview');

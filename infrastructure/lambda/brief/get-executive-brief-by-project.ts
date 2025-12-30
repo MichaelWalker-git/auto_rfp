@@ -1,4 +1,3 @@
-// infrastructure/lambda/brief/get-executive-brief-by-project.ts
 import type { APIGatewayProxyEventV2, APIGatewayProxyResultV2 } from 'aws-lambda';
 import { z } from 'zod';
 
@@ -15,29 +14,14 @@ import { type ExecutiveBriefItem, ExecutiveBriefItemSchema, } from '@auto-rfp/sh
 import { getExecutiveBrief } from '../helpers/executive-opportunity-frief';
 import { PROJECT_PK } from '../constants/organization';
 import { getProjectById } from '../helpers/project';
+import { requireEnv } from '../helpers/env';
+import { docClient } from '../helpers/db';
 
-const ddb = DynamoDBDocumentClient.from(new DynamoDBClient({}), {
-  marshallOptions: { removeUndefinedValues: true },
-});
-
-const DB_TABLE_NAME = process.env.DB_TABLE_NAME!;
+const DB_TABLE_NAME = requireEnv('DB_TABLE_NAME');
 
 const RequestSchema = z.object({
   projectId: z.string().min(1),
 });
-
-/**
- * Adjust this to match your Project entity keys.
- * This assumes:
- *   PK = "PROJECT"
- *   SK = projectId
- */
-function getProjectKey(projectId: string): Record<string, string> {
-  return {
-    [PK_NAME]: PROJECT_PK,
-    [SK_NAME]: projectId,
-  };
-}
 
 const ProjectWithBriefLinkSchema = z.object({
   executiveBriefId: z.string().min(1).optional(),
@@ -54,7 +38,7 @@ export const baseHandler = async (
       RequestSchema.parse(bodyJson).projectId;
 
     // 1) Load project to get executiveBriefId
-    const projRes = await getProjectById(ddb, DB_TABLE_NAME, projectId);
+    const projRes = await getProjectById(docClient, DB_TABLE_NAME, projectId);
 
     const projectParsed = ProjectWithBriefLinkSchema.safeParse(projRes);
     if (!projectParsed.success) {

@@ -4,7 +4,7 @@ import React, { useEffect, useMemo, useState, useTransition } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { usePathname } from 'next/navigation';
-import {  getCurrentUser, signOut } from 'aws-amplify/auth';
+import { getCurrentUser, signOut } from 'aws-amplify/auth';
 
 import { Button } from '@/components/ui/button';
 import {
@@ -16,9 +16,10 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { Building2, ChevronRight, FileText, HelpCircle, LogOut, Settings, Users, Search } from 'lucide-react';
+import { Building2, ChevronRight, HelpCircle, LogOut } from 'lucide-react';
 import { useOrganization } from '@/context/organization-context';
 import { useAuth } from '@/components/AuthProvider';
+import { OrganizationSwitcher } from '@/components/OrganizationSwitcher';
 
 interface BreadcrumbItem {
   label: string;
@@ -54,12 +55,12 @@ type IdTokenPayload = Record<string, unknown> & {
 
 export function GlobalHeader() {
   const pathname = usePathname();
-  const { currentOrganization, currentProject } = useOrganization();
+  const { currentOrganization } = useOrganization();
 
   const [mounted, setMounted] = useState(false);
   const [userEmail, setUserEmail] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
-  const { getIdToken } = useAuth();
+  const { getIdToken, orgId } = useAuth();
 
   // derived values (NOT hooks)
   const hideHeader = pathname === '/' || pathname === '/signup';
@@ -73,7 +74,7 @@ export function GlobalHeader() {
 
     (async () => {
       try {
-        const token = await getIdToken()
+        const token = await getIdToken();
         const payload = token?.payload as IdTokenPayload;
         const emailFromToken =
           payload?.email ??
@@ -119,52 +120,10 @@ export function GlobalHeader() {
         href: `/organizations/${currentOrganization.id}`,
         icon: <Building2 className="h-4 w-4"/>,
       });
-
-      if (currentProject) {
-        bc.push({
-          label: currentProject.name,
-          href: `/projects/${currentProject.id}`,
-        });
-
-        if (pathname.includes('/documents')) {
-          bc.push({
-            label: 'Documents',
-            href: `/projects/${currentProject.id}/documents`,
-            icon: <FileText className="h-4 w-4"/>,
-            active: true,
-          });
-        } else if (pathname.includes('/questions')) {
-          bc.push({
-            label: 'Questions',
-            href: `/projects/${currentProject.id}/questions`,
-            icon: <HelpCircle className="h-4 w-4"/>,
-            active: true,
-          });
-        } else if (pathname.includes('/team')) {
-          bc.push({
-            label: 'Team',
-            href: `/projects/${currentProject.id}/team`,
-            icon: <Users className="h-4 w-4"/>,
-            active: true,
-          });
-        } else {
-          bc[bc.length - 1].active = true;
-        }
-      } else {
-        if (pathname.includes('/team')) {
-          bc.push({ label: 'Team', icon: <Users className="h-4 w-4"/>, active: true });
-        } else if (pathname.includes('/settings')) {
-          bc.push({ label: 'Settings', icon: <Settings className="h-4 w-4"/>, active: true });
-        } else if (pathname.includes('/documents')) {
-          bc.push({ label: 'Documents', icon: <FileText className="h-4 w-4"/>, active: true });
-        } else {
-          bc[bc.length - 1].active = true;
-        }
-      }
     }
 
     return bc;
-  }, [mounted, hideHeader, pathname, currentOrganization, currentProject]);
+  }, [mounted, hideHeader, pathname, currentOrganization]);
 
   if (hideHeader) return null;
   if (!mounted) return <HeaderSkeleton/>;
@@ -178,8 +137,8 @@ export function GlobalHeader() {
         <div className="container mx-auto flex h-12 items-center justify-between px-4">
           <div className="flex items-center gap-3">
             <Link href="/organizations" className="flex items-center gap-2">
-              <Image src="/llamaindex_logo.jpeg" alt="AutoRFP" width={24} height={24}/>
-              <span className="font-semibold text-lg">AutoRFP</span>
+              <Image src="/logo.png" alt="AutoRFP" width={75} height={75}/>
+              <span className="font-semibold text-lg">Auto RFP</span>
             </Link>
 
             {breadcrumbs.length > 0 && (
@@ -220,18 +179,13 @@ export function GlobalHeader() {
 
           <div className="flex items-center gap-3">
             <Button variant="ghost" size="sm" asChild>
-              <Link href="/opportunities" className="flex items-center gap-1.5">
-                <Search className="h-4 w-4" />
-                <span className="text-sm">Opportunities</span>
-              </Link>
-            </Button>
-            <Button variant="ghost" size="sm" asChild>
               <Link href="/help" className="flex items-center gap-1.5">
                 <HelpCircle className="h-4 w-4"/>
                 <span className="text-sm">Help</span>
               </Link>
             </Button>
 
+            {!orgId && <OrganizationSwitcher/>}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" size="sm" className="flex items-center gap-2">

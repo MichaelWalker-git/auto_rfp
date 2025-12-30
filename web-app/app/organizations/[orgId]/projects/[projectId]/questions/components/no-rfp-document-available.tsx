@@ -1,7 +1,7 @@
 'use client';
 
 import { ExternalLink, FileText } from 'lucide-react';
-import { QuestionFileUploadDialog } from '@/app/projects/[projectId]/questions/components/question-extraction-dialog';
+import { QuestionFileUploadDialog } from '@/app/organizations/[orgId]/projects/[projectId]/questions/components/question-extraction-dialog';
 
 interface NoQuestionsAvailableProps {
   projectId: string;

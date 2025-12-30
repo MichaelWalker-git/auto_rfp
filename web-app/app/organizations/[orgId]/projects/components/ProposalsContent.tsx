@@ -10,8 +10,8 @@ import { Skeleton } from '@/components/ui/skeleton';
 
 import { useProposals } from '@/lib/hooks/use-proposal';
 import { ProposalStatus } from '@auto-rfp/shared';
-import { NoRfpDocumentAvailable, useQuestions } from '@/app/projects/[projectId]/questions/components';
-import { GenerateProposalModal } from '@/app/projects/[projectId]/questions/components/GenerateProposalModal';
+import { NoRfpDocumentAvailable, useQuestions } from '@/app/organizations/[orgId]/projects/[projectId]/questions/components';
+import { GenerateProposalModal } from '@/app/organizations/[orgId]/projects/[projectId]/questions/components/GenerateProposalModal';
 
 function statusVariant(status: ProposalStatus) {
   switch (status) {

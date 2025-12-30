@@ -38,7 +38,7 @@ export function useDeleteProject() {
   >(
     `${env.BASE_API_URL}/project/delete-project`,
     async (url, { arg: {orgId, projectId} }) => {
-      const res = await authFetcher(`${url}/${projectId}?orgId=${orgId}`, {
+      const res = await authFetcher(`${url}?projectId=${projectId}&orgId=${orgId}`, {
         method: 'DELETE',
       });
 

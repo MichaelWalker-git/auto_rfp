@@ -47,6 +47,7 @@ export interface Organization {
 
 interface CreateOrganizationData {
   name: string;
+  slug: string;
   description: string;
 }
 
@@ -64,6 +65,7 @@ export default function OrganizationsPage() {
 
   const [formData, setFormData] = useState<CreateOrganizationData>({
     name: '',
+    slug: '',
     description: '',
   });
 
@@ -83,7 +85,10 @@ export default function OrganizationsPage() {
   const handleCreateOrganization = async () => {
     try {
       setIsCreating(true);
-      const data = await createOrganization(formData);
+      const data = await createOrganization({
+        ...formData,
+        slug: generateSlugFromName(formData.name),
+      });
 
 
       if (data.id) {
@@ -95,6 +100,7 @@ export default function OrganizationsPage() {
         setCreateDialogOpen(false);
         setFormData({
           name: '',
+          slug: '',
           description: '',
         });
         fetchOrganizations();
@@ -194,6 +200,7 @@ export default function OrganizationsPage() {
     setEditingOrg(org);
     setFormData({
       name: org.name,
+      slug: org.slug,
       description: org.description || '',
     });
   };

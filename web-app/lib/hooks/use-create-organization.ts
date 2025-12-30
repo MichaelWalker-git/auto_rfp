@@ -6,8 +6,7 @@ export function useCreateOrganization() {
   const { getIdToken } = useAuth();
   const token = getIdToken().toString();
 
-  const create = async (payload: { name: string, description: string }): Promise<Organization> => {
-
+  const create = async (payload: { name: string, slug: string, description: string }): Promise<Organization> => {
 
     const url = `${env.BASE_API_URL.replace(/\/$/, '')}/organization/create-organization`;
 

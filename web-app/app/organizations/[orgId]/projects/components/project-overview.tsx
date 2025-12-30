@@ -13,7 +13,7 @@ import { ExecutiveBriefView } from '@/components/brief/ExecutiveBriefView';
 import {
   NoRfpDocumentAvailable,
   useQuestions as useQuestionsProvider
-} from '@/app/projects/[projectId]/questions/components';
+} from '@/app/organizations/[orgId]/projects/[projectId]/questions/components';
 
 interface ProjectOverviewProps {
   projectId: string;

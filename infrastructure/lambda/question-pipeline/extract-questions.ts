@@ -9,6 +9,7 @@ import { withSentryLambda } from '../sentry-lambda';
 import { requireEnv } from '../helpers/env';
 import { loadTextFromS3 } from '../helpers/executive-opportunity-frief';
 import { docClient } from '../helpers/db';
+import { nowIso } from '../helpers/date';
 
 const BEDROCK_REGION = requireEnv('BEDROCK_REGION');
 const BEDROCK_MODEL_ID = requireEnv('BEDROCK_MODEL_ID');
@@ -54,7 +55,7 @@ export const baseHandler = async (
   // 2) Call Bedrock with the same prompt/structure as in the HTTP Lambda
   const extracted = await extractQuestionsWithBedrock(text);
 
-  console.log(extracted)
+  console.log(extracted);
 
   // 3) Save questions (section + questions) in DynamoDB (linked to this file)
   const totalQuestions = await saveQuestionsFromSections(
@@ -69,7 +70,7 @@ export const baseHandler = async (
   return { count: totalQuestions };
 };
 
-async function  extractQuestionsWithBedrock(
+async function extractQuestionsWithBedrock(
   content: string,
 ): Promise<ExtractedQuestions> {
   const systemPrompt = getSystemPrompt();
@@ -84,7 +85,7 @@ async function  extractQuestionsWithBedrock(
         content: userPrompt,
       },
     ],
-    max_tokens: 16384,
+    max_tokens: 32768,
     temperature: 0.1,
   };
 
@@ -137,7 +138,7 @@ async function saveQuestionsFromSections(
   projectId: string,
   extracted: ExtractedQuestions,
 ): Promise<number> {
-  const now = new Date().toISOString();
+  const now = nowIso();
   let count = 0;
 
   const writes: Promise<any>[] = [];

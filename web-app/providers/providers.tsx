@@ -4,6 +4,7 @@ import { ThemeProvider } from 'next-themes';
 import { ReactNode } from 'react';
 import { OrganizationProvider } from '@/context/organization-context';
 import { AuthProvider } from '@/components/AuthProvider';
+import { ProjectProvider } from '@/context/project-context';
 
 export function Providers({ children }: { children: ReactNode }) {
   return (
@@ -15,7 +16,9 @@ export function Providers({ children }: { children: ReactNode }) {
     >
       <AuthProvider>
         <OrganizationProvider>
-          {children}
+          <ProjectProvider>
+            {children}
+          </ProjectProvider>
         </OrganizationProvider>
       </AuthProvider>
     </ThemeProvider>

@@ -12,43 +12,32 @@ export const DollarRangeSchema = z
   .optional();
 
 export const LoadSamOpportunitiesRequestSchema = z.object({
-  // required by SAM endpoint
   postedFrom: MmDdYyyySchema,
   postedTo: MmDdYyyySchema,
 
-  // keywords / free text
-  keywords: z.string().min(1).optional(),  // mapped to "title" (basic) or "keyword" if you later switch endpoints
+  keywords: z.string().min(1).optional(),
   title: z.string().min(1).optional(),
 
-  // codes
-  naics: z.array(z.string().min(2)).optional(),      // maps to ncode (repeat param)
-  psc: z.array(z.string().min(2)).optional(),        // maps to ccode (repeat param)
+  naics: z.array(z.string().min(2)).optional(),
+  psc: z.array(z.string().min(2)).optional(),
 
-  // agency
   organizationCode: z.string().optional(),
   organizationName: z.string().optional(),
 
-  // set-aside
-  setAsideCode: z.string().optional(),               // SAM often uses setAsideCode
+  setAsideCode: z.string().optional(),
+  ptype: z.array(z.string()).optional(),
 
-  // notice type / procurement type
-  ptype: z.array(z.string()).optional(),             // passed through as multi param
-
-  // location filters (optional)
   state: z.string().optional(),
   zip: z.string().optional(),
 
-  // dollar range (not always supported directly; we filter client-side if present)
   dollarRange: DollarRangeSchema,
 
-  // paging
   limit: z.number().int().positive().max(1000).optional(),
   offset: z.number().int().min(0).optional(),
 });
 
 export type LoadSamOpportunitiesRequest = z.infer<typeof LoadSamOpportunitiesRequestSchema>;
 
-// Keep your existing response schemas/types
 export const SamOpportunitySlimSchema = z.object({
   noticeId: z.string().optional(),
   solicitationNumber: z.string().optional(),
@@ -58,14 +47,13 @@ export const SamOpportunitySlimSchema = z.object({
   responseDeadLine: z.string().optional(),
   naicsCode: z.string().optional(),
   classificationCode: z.string().optional(),
-  active: z.string().optional(),
+  active: z.union([z.string(), z.boolean()]).optional(),
   setAside: z.string().optional(),
   setAsideCode: z.string().optional(),
   fullParentPathName: z.string().optional(),
   fullParentPathCode: z.string().optional(),
   description: z.string().optional(),
 
-  // optional fields if SAM returns them
   baseAndAllOptionsValue: z.number().optional(),
   award: z.any().optional(),
 });
@@ -80,3 +68,49 @@ export const LoadSamOpportunitiesResponseSchema = z.object({
 });
 
 export type LoadSamOpportunitiesResponse = z.infer<typeof LoadSamOpportunitiesResponseSchema>;
+
+export const SavedSearchFrequencySchema = z.enum(['HOURLY', 'DAILY', 'WEEKLY']);
+export type SavedSearchFrequency = z.infer<typeof SavedSearchFrequencySchema>;
+
+export const SavedSearchSchema = z.object({
+  savedSearchId: z.string().min(1),
+  orgId: z.string().min(1),
+
+  name: z.string().min(1).max(120),
+
+  // store the exact criteria you send to SAM (strongly typed)
+  criteria: LoadSamOpportunitiesRequestSchema,
+
+  frequency: SavedSearchFrequencySchema.default('DAILY'),
+
+  autoImport: z.boolean().default(false),
+  notifyEmails: z.array(z.string().email()).default([]),
+
+  isEnabled: z.boolean().default(true),
+
+  lastRunAt: z.string().datetime().nullable().default(null),
+
+  createdAt: z.string().datetime(),
+  updatedAt: z.string().datetime(),
+});
+
+export type SavedSearch = z.infer<typeof SavedSearchSchema>;
+
+export const CreateSavedSearchRequestSchema = z.object({
+  orgId: z.string().min(1),
+
+  name: z.string().min(1).max(120),
+
+  // same object as LoadSamOpportunitiesRequest, but for “saved searches”
+  criteria: LoadSamOpportunitiesRequestSchema,
+
+  frequency: SavedSearchFrequencySchema.optional(),
+  autoImport: z.boolean().optional(),
+  notifyEmails: z.array(z.string().email()).optional(),
+  isEnabled: z.boolean().optional(),
+});
+
+export type CreateSavedSearchRequest = z.infer<typeof CreateSavedSearchRequestSchema>;
+
+export const CreateSavedSearchResponseSchema = SavedSearchSchema;
+export type CreateSavedSearchResponse = z.infer<typeof CreateSavedSearchResponseSchema>;
