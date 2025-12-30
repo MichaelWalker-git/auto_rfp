@@ -3,6 +3,10 @@ import { z } from 'zod';
 
 import { apiResponse } from '../helpers/api';
 import { withSentryLambda } from '../sentry-lambda';
+import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
+import { DynamoDBDocumentClient, PutCommand } from '@aws-sdk/lib-dynamodb';
+import { getProjectById } from '../helpers/project';
+import { PK_NAME, SK_NAME } from '../constants/common';
 
 import { DeadlinesSectionSchema, type ExecutiveBriefItem, ExecutiveBriefItemSchema, } from '@auto-rfp/shared';
 
@@ -30,6 +34,12 @@ function requireEnv(name: string): string {
 
 const CLAUDE_MODEL_ID = requireEnv('BEDROCK_MODEL_ID');
 const MAX_SOLICITATION_CHARS = Number(process.env.BRIEF_MAX_SOLICITATION_CHARS ?? '45000');
+
+const ddb = DynamoDBDocumentClient.from(new DynamoDBClient({}), {
+  marshallOptions: { removeUndefinedValues: true },
+});
+
+const DB_TABLE_NAME = process.env.DB_TABLE_NAME!;
 
 function buildSystemPrompt(): string {
   return [
@@ -103,6 +113,87 @@ function buildUserPrompt(args: { solicitationText: string }): string {
   ].join('\n');
 }
 
+/**
+ * Store deadlines separately as DEADLINE items for cross-project queries
+ */
+async function storeDeadlinesSeparately(
+  executiveBriefId: string,
+  briefProjectId: string,
+  deadlinesData: any
+): Promise<void> {
+  try {
+    console.log('Storing separately: beginning', { executiveBriefId, briefProjectId });
+    
+    const project = await getProjectById(ddb, DB_TABLE_NAME, briefProjectId);
+    
+    if (!project) {
+      console.error('Project not found, skipping separate deadline storage');
+      return;
+    }
+
+    const sk = project?.sort_key || project?.SK || project?.[SK_NAME];
+    
+    if (!sk || typeof sk !== 'string') {
+      console.error('Project SK missing, skipping separate deadline storage', { project });
+      return;
+    }
+
+    const orgId = sk.split('#')[0]; 
+    
+    if (!orgId) {
+      console.error('Could not extract orgId from SK, skipping separate deadline storage', { sk });
+      return;
+    }
+
+    const projectName = project?.name || project?.title;
+    const sortKey = `${orgId}#${briefProjectId}`;
+    const timestamp = new Date().toISOString();
+
+    const deadlineData: any = {
+      hasSubmissionDeadline: deadlinesData.hasSubmissionDeadline,
+      warnings: deadlinesData.warnings || [],
+    };
+
+    if (deadlinesData.deadlines && deadlinesData.deadlines.length > 0) {
+      deadlineData.deadlines = deadlinesData.deadlines.map((deadline: any) => ({
+        type: deadline.type,
+        label: deadline.label,
+        dateTimeIso: deadline.dateTimeIso,
+        rawText: deadline.rawText,
+        timezone: deadline.timezone,
+        notes: deadline.notes,
+        evidence: deadline.evidence || [],
+      }));
+    }
+
+    if (deadlinesData.submissionDeadlineIso) {
+      deadlineData.submissionDeadlineIso = deadlinesData.submissionDeadlineIso;
+    }
+
+    await ddb.send(
+      new PutCommand({
+        TableName: DB_TABLE_NAME,
+        Item: {
+          [PK_NAME]: 'DEADLINE',        
+          [SK_NAME]: sortKey,
+          orgId,
+          projectId: briefProjectId,
+          projectName,
+          ...deadlineData,
+          source: {
+            executiveBriefId,
+          },
+          extractedAt: timestamp,
+        },
+      })
+    );
+
+    console.log(`✅ Successfully stored deadlines separately for ${sortKey}`);
+  } catch (err) {
+    console.error('❌ Failed to store deadlines separately:', err);
+  }
+}
+
 export const baseHandler = async (
   event: APIGatewayProxyEventV2,
 ): Promise<APIGatewayProxyResultV2> => {
@@ -169,6 +260,10 @@ export const baseHandler = async (
       data: normalized,
       topLevelPatch: { status: 'IN_PROGRESS' },
     });
+    console.log('Before storing separately')
+
+    await storeDeadlinesSeparately(executiveBriefId, brief.projectId, normalized);
+    console.log('After storing separately')
 
     return apiResponse(200, {
       ok: true,

@@ -8,6 +8,7 @@ import { Separator } from '@/components/ui/separator';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Progress } from '@/components/ui/progress';
+import DeadlinesDashboard from '../deadlines/DeadlinesDashboard';
 
 import { useProject } from '@/lib/hooks/use-api';
 
@@ -74,45 +75,6 @@ function ScoreChangeIndicator({ prev, current }: { prev?: number; current?: numb
       {isPositive ? <TrendingUp className="h-3 w-3"/> : <TrendingDown className="h-3 w-3"/>}
       {isPositive ? '+' : ''}{diff.toFixed(1)}
     </span>
-  );
-}
-
-function DeadlineCard({ deadline }: { deadline: any }) {
-  const dt = deadline?.dateTimeIso ? new Date(deadline.dateTimeIso) : null;
-  const isUrgent = dt && (dt.getTime() - Date.now()) < 7 * 24 * 60 * 60 * 1000;
-
-  const daysUntil = dt
-    ? Math.ceil((dt.getTime() - Date.now()) / (24 * 60 * 60 * 1000))
-    : null;
-
-  return (
-    <div
-      className={`rounded-lg border p-4 transition-all hover:shadow-md ${isUrgent ? 'border-destructive bg-destructive/5' : 'bg-card'}`}>
-      <div className="flex justify-between items-start gap-4">
-        <div className="flex-1">
-          <div className="font-medium flex items-center gap-2">
-            {isUrgent && <AlertTriangle className="h-4 w-4 text-destructive"/>}
-            {deadline.label || deadline.type || 'Deadline'}
-          </div>
-          {deadline.notes && (
-            <div className="mt-2 text-sm text-muted-foreground">
-              {deadline.notes}
-            </div>
-          )}
-        </div>
-        <div className="text-right">
-          <div className="text-sm text-muted-foreground">
-            {dt ? formatDate(deadline.dateTimeIso) : deadline.rawText || '—'}
-          </div>
-          {isUrgent && daysUntil !== null && (
-            <Badge variant="destructive" className="mt-1">
-              {daysUntil > 0 ? (daysUntil === 1 ? '1 day' : `${daysUntil} days`) : 'Due today!'}
-            </Badge>
-          )}
-          {deadline.timezone && <div className="text-xs text-muted-foreground mt-1">{deadline.timezone}</div>}
-        </div>
-      </div>
-    </div>
   );
 }
 
@@ -826,21 +788,11 @@ export function ExecutiveBriefView({ projectId }: Props) {
           </Card>
 
           {/* Deadlines */}
-          <Card>
-            <CardHeader>
-              <div className="flex items-center gap-2">
-                <Clock className="h-5 w-5"/>
-                <CardTitle className="text-lg">Deadlines</CardTitle>
-              </div>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              {deadlines?.deadlines?.length ? (
-                deadlines.deadlines.map((d: any, idx: number) => <DeadlineCard key={idx} deadline={d}/>)
-              ) : (
-                <div className="text-muted-foreground py-4 text-center text-sm">No deadlines extracted</div>
-              )}
-            </CardContent>
-          </Card>
+          <DeadlinesDashboard 
+            projectId={projectId} 
+            orgId={project.orgId}
+            key={briefItem?.updatedAt || 'no-brief'}
+          />
 
           {/* Requirements */}
           <Card>

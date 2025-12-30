@@ -41,6 +41,7 @@ export class ApiStack extends cdk.Stack {
   private readonly questionApi: ApiNestedStack;
   private readonly semanticApi: ApiNestedStack;
   private readonly samgovApi: ApiNestedStack;
+  private readonly deadlinesApi: ApiNestedStack;
 
 
   constructor(scope: Construct, id: string, props: ApiStackProps) {
@@ -278,6 +279,7 @@ export class ApiStack extends cdk.Stack {
     this.userApi = createNestedStack('user');
     this.questionApi = createNestedStack('question');
     this.documentApi = createNestedStack('document');
+    this.deadlinesApi = createNestedStack('deadlines');
     this.semanticApi = createNestedStack('semantic');
     this.samgovApi = createNestedStack('samgov');
 
@@ -392,6 +394,17 @@ export class ApiStack extends cdk.Stack {
       'lambda/brief/get-executive-brief-by-project.ts',
     );
 
+    this.deadlinesApi.addRoute(
+      '/get-deadlines',
+      'GET',
+      'lambda/deadlines/get-deadlines.ts',
+    );
+
+    this.deadlinesApi.addRoute(
+      '/export-calendar',
+      'GET',
+      'lambda/deadlines/export-deadlines.ts',
+    );
 
     this.questionFileApi.addRoute(
       '/start-question-pipeline',

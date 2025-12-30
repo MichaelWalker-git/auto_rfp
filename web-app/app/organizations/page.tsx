@@ -8,12 +8,13 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { Edit, FolderOpen, Loader2, Plus, Settings, Users } from 'lucide-react';
+import { Edit, FolderOpen, Loader2, Plus, Settings, Users, CalendarClock } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
 import { useCreateOrganization } from '@/lib/hooks/use-create-organization';
 import { useOrganizations } from '@/lib/hooks/use-api';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/components/AuthProvider';
+import { useOrganization } from '@/context/organization-context';
 
 export interface Organization {
   id: string;
@@ -62,6 +63,10 @@ export default function OrganizationsPage() {
   const { toast } = useToast();
   const { orgId } = useAuth();
   const router = useRouter()
+
+  const {
+      setCurrentOrganization,
+    } = useOrganization();
 
   const [formData, setFormData] = useState<CreateOrganizationData>({
     name: '',
@@ -254,12 +259,19 @@ export default function OrganizationsPage() {
               </p>
             </div>
             <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
+              <div className="flex items-center justify-between gap-2">
+                <Button variant='outline' onClick={() => window.location.href = '/deadlines'}>
+                  <CalendarClock className="mr-2 h-4 w-4"/>
+                  Check the deadlines
+                </Button>
               <DialogTrigger asChild>
                 <Button>
                   <Plus className="mr-2 h-4 w-4"/>
                   Create Organization
                 </Button>
               </DialogTrigger>
+              </div>
+              
               <DialogContent className="sm:max-w-[500px]">
                 <DialogHeader>
                   <DialogTitle>Create New Organization</DialogTitle>
@@ -377,7 +389,7 @@ export default function OrganizationsPage() {
                       <Button
                         variant="outline"
                         className="w-full"
-                        onClick={() => window.location.href = `/organizations/${org.id}`}
+                        onClick={() => setCurrentOrganization(org)}
                       >
                         <Settings className="mr-2 h-4 w-4"/>
                         Visit Organization
