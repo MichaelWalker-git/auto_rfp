@@ -7,13 +7,16 @@ import * as dynamodb from 'aws-cdk-lib/aws-dynamodb';
 import { Construct } from 'constructs';
 import { ApiNestedStack } from './wrappers/api-nested-stack';
 import * as secretsmanager from 'aws-cdk-lib/aws-secretsmanager';
+import * as lambda from 'aws-cdk-lib/aws-lambda';
+import * as lambdaNodejs from 'aws-cdk-lib/aws-lambda-nodejs';
+import * as events from 'aws-cdk-lib/aws-events';
+import * as targets from 'aws-cdk-lib/aws-events-targets';
+import * as logs from 'aws-cdk-lib/aws-logs';
+import * as path from 'path';
 
 export interface ApiStackProps extends cdk.StackProps {
   stage: string;
   documentsBucket: s3.IBucket;
-  /**
-   * Single-table design that stores organizations (PK = "ORG", etc.)
-   */
   mainTable: dynamodb.ITable;
   userPool: cognito.IUserPool;
   userPoolClient: cognito.IUserPoolClient;
@@ -59,7 +62,6 @@ export class ApiStack extends cdk.Stack {
       sentryDNS
     } = props;
 
-    // 1) Common REST API
     this.api = new apigw.RestApi(this, 'AutoRfpApi', {
       restApiName: `AutoRFP API (${stage})`,
       description: 'AutoRFP API Gateway',
@@ -82,8 +84,6 @@ export class ApiStack extends cdk.Stack {
         allowCredentials: true,
       },
     });
-
-    // 2) Shared Lambda role for all API lambdas
     const lambdaRole = new iam.Role(this, 'CommonLambdaRole', {
       assumedBy: new iam.ServicePrincipal('lambda.amazonaws.com'),
       roleName: `auto-rfp-api-lambda-role-${stage}`,
@@ -144,18 +144,12 @@ export class ApiStack extends cdk.Stack {
 
     lambdaRole.attachInlinePolicy(this.policy);
 
-    // Basic lambda execution (logs, etc.)
     lambdaRole.addManagedPolicy(
       iam.ManagedPolicy.fromAwsManagedPolicyName('service-role/AWSLambdaBasicExecutionRole'),
     );
-
-    // DynamoDB access for the main table
     mainTable.grantReadWriteData(lambdaRole);
-
-    // S3 docs bucket
     documentsBucket.grantReadWrite(lambdaRole);
 
-    // Cognito admin ops (if you need them from Lambda)
     lambdaRole.addToPrincipalPolicy(
       new iam.PolicyStatement({
         actions: [
@@ -172,33 +166,27 @@ export class ApiStack extends cdk.Stack {
     );
 
     // Bedrock (optional, keep if you use it)
-    lambdaRole.addToPrincipalPolicy(
-      new iam.PolicyStatement({
-        actions: ['bedrock:InvokeModel', 'bedrock:InvokeModelWithResponseStream'],
-        resources: ['*'],
-        effect: iam.Effect.ALLOW,
-      }),
-    );
+    lambdaRole.addToPrincipalPolicy(new iam.PolicyStatement({
+      actions: ['bedrock:InvokeModel', 'bedrock:InvokeModelWithResponseStream'],
+      resources: ['*'],
+      effect: iam.Effect.ALLOW,
+    }));
 
-    lambdaRole.addToPrincipalPolicy(
-      new iam.PolicyStatement({
-        actions: [
-          'textract:StartDocumentTextDetection',
-          'textract:GetDocumentTextDetection',
-          'textract:DetectDocumentText',
-        ],
-        resources: ['*'],
-        effect: iam.Effect.ALLOW,
-      }),
-    );
+    lambdaRole.addToPrincipalPolicy(new iam.PolicyStatement({
+      actions: [
+        'textract:StartDocumentTextDetection',
+        'textract:GetDocumentTextDetection',
+        'textract:DetectDocumentText',
+      ],
+      resources: ['*'],
+      effect: iam.Effect.ALLOW,
+    }));
 
-    lambdaRole.addToPrincipalPolicy(
-      new iam.PolicyStatement({
-        actions: ['states:StartExecution'],
-        resources: ['*'],
-        effect: iam.Effect.ALLOW,
-      }),
-    );
+    lambdaRole.addToPrincipalPolicy(new iam.PolicyStatement({
+      actions: ['states:StartExecution'],
+      resources: ['*'],
+      effect: iam.Effect.ALLOW,
+    }));
 
     lambdaRole.addToPrincipalPolicy(
       new iam.PolicyStatement({
@@ -208,21 +196,14 @@ export class ApiStack extends cdk.Stack {
       })
     );
 
-    // 3) Common env that every lambda will get by default
-    //    Adjust PK/SK env names to what you actually use.
     const commonEnv: Record<string, string> = {
       STAGE: stage,
       AWS_ACCOUNT_ID: cdk.Aws.ACCOUNT_ID,
       DOCUMENTS_BUCKET: documentsBucket.bucketName,
       NODE_ENV: 'production',
-
-      // DynamoDB single-table config
       DB_TABLE_NAME: mainTable.tableName,
-
-      // Cognito config for backend use
       COGNITO_USER_POOL_ID: userPool.userPoolId,
       COGNITO_USER_POOL_CLIENT_ID: userPoolClient.userPoolClientId,
-
       REGION: 'us-east-1',
       BEDROCK_REGION: 'us-east-1',
       BEDROCK_EMBEDDING_MODEL_ID: 'amazon.titan-embed-text-v2:0',
@@ -234,13 +215,7 @@ export class ApiStack extends cdk.Stack {
       SENTRY_DSN: sentryDNS,
       SENTRY_ENVIRONMENT: stage,
     };
-
-    const authorizer = new apigw.CognitoUserPoolsAuthorizer(this, `${id}Authorizer`, {
-      cognitoUserPools: [props.userPool],
-    });
-
     const localKey = process.env.SAM_GOV_API_KEY;
-
     const samGovApiKeySecret = localKey
       ? new secretsmanager.Secret(this, `SamGovApiKeySecret-${stage}`, {
         secretName: `auto-rfp/${stage}/samgov/apiKey`,
@@ -254,7 +229,56 @@ export class ApiStack extends cdk.Stack {
         },
       });
 
+    const runSavedSearchesFn = new lambdaNodejs.NodejsFunction(this, `RunSavedSearches-${stage}`, {
+      functionName: `auto-rfp-${stage}-run-saved-searches`,
+      runtime: lambda.Runtime.NODEJS_20_X,
+      entry: path.join(__dirname, '../lambda/samgov/run-saved-search.ts'),
+      handler: 'handler',
+      role: lambdaRole,
+      timeout: cdk.Duration.minutes(15),
+      memorySize: 1024,
+      environment: {
+        ...commonEnv,
+        SAM_OPPS_BASE_URL: 'https://api.sam.gov',
+        SAM_API_ORIGIN: 'https://api.sam.gov',
+        SAM_GOV_API_KEY_SECRET_ID: samGovApiKeySecret.secretArn,
+        DOCUMENTS_BUCKET: documentsBucket.bucketName,
+        QUESTION_PIPELINE_STATE_MACHINE_ARN: questionPipelineStateMachineArn,
+      },
+      bundling: {
+        externalModules: ['aws-sdk'],
+      },
+    });
+
+    new logs.LogRetention(this, `RunSavedSearchesLogs-${stage}`, {
+      logGroupName: `/aws/lambda/${runSavedSearchesFn.functionName}`,
+      retention: logs.RetentionDays.ONE_WEEK,
+    });
+
+    const runSavedSearchesRule = new events.Rule(this, `RunSavedSearchesRule-${stage}`, {
+      ruleName: `auto-rfp-${stage}-run-saved-searches-hourly`,
+      description: 'Hourly runner to execute SAM saved searches for all orgs',
+      schedule: events.Schedule.rate(cdk.Duration.hours(1)),
+    });
+
+    runSavedSearchesRule.addTarget(
+      new targets.LambdaFunction(runSavedSearchesFn, {
+        event: events.RuleTargetInput.fromObject({
+          dryRun: false,
+        }),
+      }),
+    );
+
+    runSavedSearchesFn.addPermission(`AllowEventBridgeInvoke-${stage}`, {
+      principal: new iam.ServicePrincipal('events.amazonaws.com'),
+      sourceArn: runSavedSearchesRule.ruleArn,
+    });
+
     samGovApiKeySecret.grantRead(lambdaRole);
+
+    const authorizer = new apigw.CognitoUserPoolsAuthorizer(this, `${id}Authorizer`, {
+      cognitoUserPools: [props.userPool],
+    });
 
     const createNestedStack = (basePath: string) => {
       return new ApiNestedStack(this, `${basePath}API`, {
@@ -290,7 +314,7 @@ export class ApiStack extends cdk.Stack {
       {
         SAM_GOV_API_KEY_SECRET_ID: samGovApiKeySecret.secretArn,
       }
-    )
+    );
 
     this.samgovApi.addRoute(
       '/create-saved-search',
@@ -299,22 +323,40 @@ export class ApiStack extends cdk.Stack {
       {
         SAM_GOV_API_KEY_SECRET_ID: samGovApiKeySecret.secretArn,
       }
-    )
+    );
+
+    this.samgovApi.addRoute(
+      '/list-saved-search',
+      'GET',
+      'lambda/samgov/list-saved-search.ts',
+    );
+
+    this.samgovApi.addRoute(
+      '/delete-saved-search/{id}',
+      'DELETE',
+      'lambda/samgov/delete-saved-search.ts',
+    );
+
+    this.samgovApi.addRoute(
+      '/edit-saved-search/{id}',
+      'PATCH',
+      'lambda/samgov/edit-saved-search.ts',
+    );
 
     this.samgovApi.addRoute(
       '/opportunities',
       'POST',
-      'lambda/samgov/opportunities.ts',
+      'lambda/samgov/search-opportunities.ts',
       {
         SAM_GOV_API_KEY_SECRET_ID: samGovApiKeySecret.secretArn,
       }
-    )
+    );
 
     this.semanticApi.addRoute(
       '/search',
       'POST',
       'lambda/semanticsearch/search.ts'
-    )
+    );
 
     this.questionApi.addRoute(
       '/delete-question',

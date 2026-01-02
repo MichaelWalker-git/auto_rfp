@@ -48,6 +48,7 @@ function formatDate(value?: string) {
 function recommendationVariant(rec?: string) {
   if (rec === 'GO') return 'default';
   if (rec === 'NO_GO') return 'destructive';
+  if (rec === 'CONDITIONAL_GO') return 'secondary';
   return 'secondary';
 }
 
@@ -85,6 +86,10 @@ async function exportBriefAsDocx(projectName: string, briefItem: any) {
   const contacts = briefItem?.sections?.contacts?.data;
   const risks = briefItem?.sections?.risks?.data;
   const scoring = briefItem?.sections?.scoring?.data;
+  const decision = briefItem?.decision ?? scoring?.decision ?? briefItem?.recommendation ?? scoring?.recommendation;
+  const blockers = scoring?.blockers ?? [];
+  const requiredActions = scoring?.requiredActions ?? [];
+  const confidenceDrivers = scoring?.confidenceDrivers ?? [];
 
   const doc = new Document({
     sections: [{
@@ -151,6 +156,58 @@ async function exportBriefAsDocx(projectName: string, briefItem: any) {
           ],
           spacing: { after: 400 }
         }),
+
+        // Executive Close-Out
+        new Paragraph({
+          text: 'EXECUTIVE CLOSE-OUT',
+          heading: HeadingLevel.HEADING_2,
+          spacing: { before: 400, after: 200 }
+        }),
+        new Paragraph({
+          children: [
+            new TextRun({ text: 'Decision: ', bold: true }),
+            new TextRun(decision || '—')
+          ],
+          spacing: { after: 200 }
+        }),
+        ...(scoring?.decisionRationale
+          ? [new Paragraph({ text: scoring.decisionRationale, spacing: { after: 200 } })]
+          : [new Paragraph({ text: '—', spacing: { after: 200 } })]),
+        new Paragraph({
+          children: [new TextRun({ text: 'Blockers:', bold: true })],
+          spacing: { before: 100, after: 100 }
+        }),
+        ...(blockers.length
+          ? blockers.map((b: string) => new Paragraph({ text: `• ${b}`, spacing: { after: 100 } }))
+          : [new Paragraph({ text: '—', spacing: { after: 100 } })]),
+        new Paragraph({
+          children: [new TextRun({ text: 'Required Actions:', bold: true })],
+          spacing: { before: 100, after: 100 }
+        }),
+        ...(requiredActions.length
+          ? requiredActions.map((a: string) => new Paragraph({ text: `• ${a}`, spacing: { after: 100 } }))
+          : [new Paragraph({ text: '—', spacing: { after: 100 } })]),
+        new Paragraph({
+          children: [new TextRun({ text: 'Confidence Explanation:', bold: true })],
+          spacing: { before: 100, after: 100 }
+        }),
+        ...(scoring?.confidenceExplanation
+          ? [new Paragraph({ text: scoring.confidenceExplanation, spacing: { after: 200 } })]
+          : [new Paragraph({ text: '—', spacing: { after: 200 } })]),
+        ...(confidenceDrivers.length
+          ? [
+              new Paragraph({
+                children: [new TextRun({ text: 'Confidence Drivers:', bold: true })],
+                spacing: { before: 100, after: 100 }
+              }),
+              ...confidenceDrivers.map((d: any) =>
+                new Paragraph({
+                  text: `• ${d.direction === 'UP' ? 'UP' : 'DOWN'}: ${d.factor}`,
+                  spacing: { after: 100 }
+                })
+              )
+            ]
+          : []),
 
         // Quick Summary
         new Paragraph({
@@ -227,7 +284,9 @@ async function exportBriefAsDocx(projectName: string, briefItem: any) {
         ...(deadlines?.deadlines?.length
           ? deadlines.deadlines.map((d: any) =>
             new Paragraph({
-              text: `• ${d.label || d.type}: ${d.dateTimeIso ? formatDate(d.dateTimeIso) : d.rawText || '—'}`,
+              text: `• ${d.label || d.type}: ${
+                d.dateTimeIso ? formatDate(d.dateTimeIso) : d.rawText ? `Unparsed date: ${d.rawText}` : '—'
+              }`,
               spacing: { after: 100 }
             })
           )
@@ -559,8 +618,13 @@ export function ExecutiveBriefView({ projectId }: Props) {
   const risks = briefItem?.sections?.risks?.data;
 
   const recommendation = briefItem?.recommendation ?? scoring?.recommendation;
+  const decision = briefItem?.decision ?? scoring?.decision;
+  const decisionBadge = decision ?? recommendation;
   const confidence = briefItem?.confidence ?? scoring?.confidence;
   const compositeScore = briefItem?.compositeScore ?? scoring?.compositeScore;
+  const blockers = scoring?.blockers ?? [];
+  const requiredActions = scoring?.requiredActions ?? [];
+  const confidenceDrivers = scoring?.confidenceDrivers ?? [];
 
   return (
     <div className="space-y-6">
@@ -705,11 +769,12 @@ export function ExecutiveBriefView({ projectId }: Props) {
                 </div>
 
                 <div className="flex flex-col items-end gap-3">
+                  <div className="text-xs uppercase text-muted-foreground tracking-wide">Decision</div>
                   <Badge
-                    variant={recommendationVariant(recommendation)}
+                    variant={recommendationVariant(decisionBadge)}
                     className="text-lg px-6 py-2"
                   >
-                    {recommendation || '—'}
+                    {decisionBadge || '—'}
                   </Badge>
 
                   <div className="flex items-center gap-2">
@@ -735,6 +800,75 @@ export function ExecutiveBriefView({ projectId }: Props) {
               )}
             </CardHeader>
           </Card>
+
+          {scoring && (
+            <Card>
+              <CardHeader>
+                <div className="flex items-center gap-2">
+                  <AlertTriangle className="h-5 w-5"/>
+                  <CardTitle className="text-lg">Executive Close-Out</CardTitle>
+                </div>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid gap-4 md:grid-cols-2">
+                  <div className="space-y-2">
+                    <div className="text-sm font-semibold">Blockers</div>
+                    {blockers.length ? (
+                      <ul className="space-y-1">
+                        {blockers.map((b: string, i: number) => (
+                          <li key={i} className="text-sm text-muted-foreground flex gap-2">
+                            <span>•</span>
+                            <span>{b}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    ) : (
+                      <div className="text-sm text-muted-foreground">No blockers identified</div>
+                    )}
+                  </div>
+                  <div className="space-y-2">
+                    <div className="text-sm font-semibold">Required Actions to Proceed</div>
+                    {requiredActions.length ? (
+                      <ul className="space-y-1">
+                        {requiredActions.map((a: string, i: number) => (
+                          <li key={i} className="text-sm text-muted-foreground flex gap-2">
+                            <span>•</span>
+                            <span>{a}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    ) : (
+                      <div className="text-sm text-muted-foreground">No required actions identified</div>
+                    )}
+                  </div>
+                </div>
+
+                {scoring?.decisionRationale && (
+                  <div>
+                    <div className="text-sm font-semibold">Decision Rationale</div>
+                    <p className="text-sm text-muted-foreground leading-relaxed">{scoring.decisionRationale}</p>
+                  </div>
+                )}
+
+                {scoring?.confidenceExplanation && (
+                  <div>
+                    <div className="text-sm font-semibold">Confidence Summary</div>
+                    <p className="text-sm text-muted-foreground leading-relaxed">{scoring.confidenceExplanation}</p>
+                  </div>
+                )}
+
+                {confidenceDrivers.length > 0 && (
+                  <div className="flex flex-wrap gap-2">
+                    {confidenceDrivers.map((d: any, i: number) => (
+                      <Badge key={i} variant="outline" className="text-xs">
+                        {d.direction === 'UP' ? 'UP' : 'DOWN'}: {d.factor}
+                      </Badge>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          )}
 
           {/* Scoring Grid */}
           <Card>
@@ -990,8 +1124,10 @@ function ChangesSummary({ previous, current }: { previous: any; current: any }) 
 
   const prevRec = previous?.recommendation ?? previous?.sections?.scoring?.data?.recommendation;
   const currRec = current?.recommendation ?? current?.sections?.scoring?.data?.recommendation;
+  const prevDecision = previous?.decision ?? previous?.sections?.scoring?.data?.decision;
+  const currDecision = current?.decision ?? current?.sections?.scoring?.data?.decision;
 
-  if (prevScore === currScore && prevRec === currRec) return null;
+  if (prevScore === currScore && prevRec === currRec && prevDecision === currDecision) return null;
 
   const scoreChange = currScore && prevScore ? currScore - prevScore : null;
 
@@ -1020,6 +1156,14 @@ function ChangesSummary({ previous, current }: { previous: any; current: any }) 
               <Badge variant={recommendationVariant(prevRec)}>{prevRec ?? '—'}</Badge>
               <span>→</span>
               <Badge variant={recommendationVariant(currRec)}>{currRec ?? '—'}</Badge>
+            </div>
+          )}
+          {prevDecision !== currDecision && (
+            <div className="flex items-center gap-2">
+              <span className="text-sm font-semibold">Decision:</span>
+              <Badge variant={recommendationVariant(prevDecision)}>{prevDecision ?? '—'}</Badge>
+              <span>→</span>
+              <Badge variant={recommendationVariant(currDecision)}>{currDecision ?? '—'}</Badge>
             </div>
           )}
         </div>

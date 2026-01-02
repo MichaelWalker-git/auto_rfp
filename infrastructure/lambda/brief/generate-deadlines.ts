@@ -3,8 +3,7 @@ import { z } from 'zod';
 
 import { apiResponse } from '../helpers/api';
 import { withSentryLambda } from '../sentry-lambda';
-import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
-import { DynamoDBDocumentClient, PutCommand } from '@aws-sdk/lib-dynamodb';
+import { PutCommand } from '@aws-sdk/lib-dynamodb';
 import { getProjectById } from '../helpers/project';
 import { PK_NAME, SK_NAME } from '../constants/common';
 
@@ -19,27 +18,19 @@ import {
   markSectionFailed,
   markSectionInProgress,
   truncateText,
-} from '../helpers/executive-opportunity-frief';
+} from '../helpers/executive-opportunity-brief';
+import { docClient } from '../helpers/db';
+import { DEADLINE_PK } from '../constants/deadline';
+import { requireEnv } from '../helpers/env';
 
 const RequestSchema = z.object({
   executiveBriefId: z.string().min(1),
   force: z.boolean().optional(),
 });
 
-function requireEnv(name: string): string {
-  const v = process.env[name];
-  if (!v) throw new Error(`Missing env var: ${name}`);
-  return v;
-}
-
 const CLAUDE_MODEL_ID = requireEnv('BEDROCK_MODEL_ID');
 const MAX_SOLICITATION_CHARS = Number(process.env.BRIEF_MAX_SOLICITATION_CHARS ?? '45000');
-
-const ddb = DynamoDBDocumentClient.from(new DynamoDBClient({}), {
-  marshallOptions: { removeUndefinedValues: true },
-});
-
-const DB_TABLE_NAME = process.env.DB_TABLE_NAME!;
+const DB_TABLE_NAME = requireEnv('DB_TABLE_NAME');
 
 function buildSystemPrompt(): string {
   return [
@@ -106,6 +97,7 @@ function buildUserPrompt(args: { solicitationText: string }): string {
     'IMPORTANT:',
     '- If you are NOT 100% sure of the ISO datetime, OMIT dateTimeIso and use rawText + notes instead.',
     '- If timezone is not explicit, omit timezone and add a warning like "No explicit timezone found".',
+    '- If you found a deadline in text but could not parse a datetime, set notes to "UNPARSED_DATE" and include rawText.',
     '- evidence[] must be objects with "snippet" (NOT strings). Use [] if you cannot quote.',
     '',
     'SOLICITATION TEXT:',
@@ -121,23 +113,23 @@ async function storeDeadlinesSeparately(
   briefProjectId: string,
   deadlinesData: any
 ): Promise<void> {
-  try {  
-    const project = await getProjectById(ddb, DB_TABLE_NAME, briefProjectId);
-    
+  try {
+    const project = await getProjectById(briefProjectId);
+
     if (!project) {
       console.error('Project not found, skipping separate deadline storage');
       return;
     }
 
     const sk = project?.sort_key || project?.SK || project?.[SK_NAME];
-    
+
     if (!sk || typeof sk !== 'string') {
       console.error('Project SK missing, skipping separate deadline storage', { project });
       return;
     }
 
-    const orgId = sk.split('#')[0]; 
-    
+    const orgId = sk.split('#')[0];
+
     if (!orgId) {
       console.error('Could not extract orgId from SK, skipping separate deadline storage', { sk });
       return;
@@ -168,11 +160,11 @@ async function storeDeadlinesSeparately(
       deadlineData.submissionDeadlineIso = deadlinesData.submissionDeadlineIso;
     }
 
-    await ddb.send(
+    await docClient.send(
       new PutCommand({
         TableName: DB_TABLE_NAME,
         Item: {
-          [PK_NAME]: 'DEADLINE',        
+          [PK_NAME]: DEADLINE_PK,
           [SK_NAME]: sortKey,
           orgId,
           projectId: briefProjectId,
@@ -237,13 +229,10 @@ export const baseHandler = async (
       system: buildSystemPrompt(),
       user: buildUserPrompt({ solicitationText }),
       outputSchema: DeadlinesSectionSchema,
-      // Deadlines can be verbose; keep some room.
-      maxTokens: 1600,
+      maxTokens: 4000,
       temperature: 0.1,
     });
 
-    // Lightweight post-processing safety:
-    // Ensure hasSubmissionDeadline aligns with submissionDeadlineIso if present.
     const normalized = {
       ...data,
       hasSubmissionDeadline:

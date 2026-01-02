@@ -20,7 +20,7 @@ import {
   markSectionFailed,
   markSectionInProgress,
   truncateText,
-} from '../helpers/executive-opportunity-frief';
+} from '../helpers/executive-opportunity-brief';
 import { requireEnv } from '../helpers/env';
 
 const BEDROCK_MODEL_ID = requireEnv('BEDROCK_MODEL_ID');

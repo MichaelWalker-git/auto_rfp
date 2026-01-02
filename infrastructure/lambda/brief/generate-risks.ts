@@ -15,7 +15,7 @@ import {
   markSectionFailed,
   markSectionInProgress,
   truncateText,
-} from '../helpers/executive-opportunity-frief';
+} from '../helpers/executive-opportunity-brief';
 
 const RequestSchema = z.object({
   executiveBriefId: z.string().min(1),

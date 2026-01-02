@@ -1,6 +1,5 @@
 import type { APIGatewayProxyEventV2, APIGatewayProxyResultV2 } from 'aws-lambda';
 import middy from '@middy/core';
-import { GetObjectCommand, S3Client } from '@aws-sdk/client-s3';
 import { BedrockRuntimeClient } from '@aws-sdk/client-bedrock-runtime';
 
 import { apiResponse } from '../helpers/api';
@@ -9,19 +8,14 @@ import { requireEnv } from '../helpers/env';
 import { authContextMiddleware, httpErrorMiddleware, orgMembershipMiddleware, } from '../middleware/rbac-middleware';
 
 import { getEmbedding, type OpenSearchHit, semanticSearchChunks } from '../helpers/embeddings';
-import { loadTextFromS3 } from '../helpers/executive-opportunity-frief';
+import { loadTextFromS3 } from '../helpers/s3';
 
 const REGION = requireEnv('REGION');
 const DOCUMENTS_BUCKET = requireEnv('DOCUMENTS_BUCKET');
-const OPENSEARCH_ENDPOINT = requireEnv('OPENSEARCH_ENDPOINT');
-const OPENSEARCH_INDEX = requireEnv('OPENSEARCH_INDEX');
-const BEDROCK_EMBEDDING_MODEL_ID = requireEnv('BEDROCK_EMBEDDING_MODEL_ID');
 
 const DEFAULT_TOP_K = Number(requireEnv('TOP_CHUNKS_DEFAULT_TOP_K', '10'));
 const MAX_CHUNK_TEXT_CHARS = Number(requireEnv('TOP_CHUNKS_MAX_CHUNK_TEXT_CHARS', '12000'));
 const MAX_TOTAL_CHARS = Number(requireEnv('TOP_CHUNKS_MAX_TOTAL_CHARS', '60000'));
-
-const bedrockClient = new BedrockRuntimeClient({ region: REGION });
 
 type GetTopChunksRequest = {
   question: string;
@@ -86,16 +80,10 @@ export const baseHandler = async (
     const topK = body.topK && body.topK > 0 ? body.topK : DEFAULT_TOP_K;
 
     // 1) embed question
-    const embedding = await getEmbedding(bedrockClient, BEDROCK_EMBEDDING_MODEL_ID, question);
+    const embedding = await getEmbedding(question);
 
     // 2) semantic search topK hits (chunkKey + _score)
-    const hits = await semanticSearchChunks(
-      OPENSEARCH_ENDPOINT,
-      embedding,
-      OPENSEARCH_INDEX,
-      topK,
-      REGION,
-    );
+    const hits = await semanticSearchChunks(embedding, topK);
 
     if (!hits.length) {
       const empty: GetTopChunksResponse = { question, topK, results: [] };

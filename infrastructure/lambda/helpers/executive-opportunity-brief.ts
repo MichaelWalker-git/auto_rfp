@@ -1,6 +1,6 @@
 import crypto from 'crypto';
 import { GetCommand, PutCommand, QueryCommand, UpdateCommand, } from '@aws-sdk/lib-dynamodb';
-import { GetObjectCommand, S3Client } from '@aws-sdk/client-s3';
+import { S3Client } from '@aws-sdk/client-s3';
 
 
 import { PK_NAME, SK_NAME } from '../constants/common';
@@ -13,8 +13,8 @@ import { type ExecutiveBriefItem, ExecutiveBriefItemSchema, QuestionFileItem, Se
 import { requireEnv } from './env';
 import { docClient } from './db';
 import { nowIso } from './date';
-
-const s3 = new S3Client({});
+import { loadTextFromS3 } from './s3';
+import { getEmbedding, OpenSearchHit, semanticSearchChunks } from './embeddings';
 const bedrock = new BedrockRuntimeClient({});
 
 const DB_TABLE_NAME = requireEnv('DB_TABLE_NAME');
@@ -99,11 +99,6 @@ async function streamToString(body: any): Promise<string> {
     chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
   }
   return Buffer.concat(chunks).toString('utf-8');
-}
-
-export async function loadTextFromS3(bucket: string, key: string): Promise<string> {
-  const res = await s3.send(new GetObjectCommand({ Bucket: bucket, Key: key }));
-  return streamToString(res.Body);
 }
 
 /**
@@ -222,7 +217,7 @@ export async function markSectionComplete<T>(args: {
   section: BriefSectionName;
   data: T;
   topLevelPatch?: Partial<
-    Pick<ExecutiveBriefItem, 'compositeScore' | 'recommendation' | 'confidence' | 'status'>
+    Pick<ExecutiveBriefItem, 'compositeScore' | 'recommendation' | 'decision' | 'confidence' | 'status'>
   >;
 }): Promise<void> {
   const { executiveBriefId, section, data, topLevelPatch } = args;
@@ -262,6 +257,10 @@ export async function markSectionComplete<T>(args: {
     if (topLevelPatch.recommendation !== undefined) {
       setParts.push('recommendation = :rec');
       values[':rec'] = topLevelPatch.recommendation;
+    }
+    if (topLevelPatch.decision !== undefined) {
+      setParts.push('decision = :dec');
+      values[':dec'] = topLevelPatch.decision;
     }
     if (topLevelPatch.confidence !== undefined) {
       setParts.push('confidence = :conf');
@@ -339,25 +338,9 @@ export function computeOverallStatus(
   return 'IDLE';
 }
 
-// -------------------------
-// Knowledge base helpers (stub)
-// -------------------------
-export type KnowledgeBaseMatch = {
-  chunkKey: string;
-  score: number;
-  text?: string; // if you fetch from S3
-  documentId?: string;
-};
-
-export async function queryCompanyKnowledgeBase(_args: {
-  solicitationText: string;
-  topK?: number;
-}): Promise<KnowledgeBaseMatch[]> {
-  // TODO: Replace with your vector search logic:
-  // 1) embed solicitationText (or key sections)
-  // 2) query your KB index/table for topK chunks
-  // 3) fetch chunk text from S3 by chunkKey
-  return [];
+export async function queryCompanyKnowledgeBase(solicitationText: string, topK: number): Promise<OpenSearchHit[]> {
+  const embeddings = await getEmbedding(solicitationText)
+  return await semanticSearchChunks(embeddings, topK)
 }
 
 // -------------------------
@@ -422,13 +405,7 @@ export async function invokeClaudeJson<S extends SchemaLike<any>>(args: {
   }
 }
 
-
-// -------------------------
-// High-level loader (used by each section)
-// -------------------------
-export async function loadSolicitationForBrief(brief: ExecutiveBriefItem): Promise<{
-  solicitationText: string;
-}> {
+export async function loadSolicitationForBrief(brief: ExecutiveBriefItem): Promise<{ solicitationText: string; }> {
   const solicitationText = await loadTextFromS3(
     brief.documentsBucket || DOCUMENTS_BUCKET,
     brief.textKey,

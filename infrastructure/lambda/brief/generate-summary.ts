@@ -15,8 +15,10 @@ import {
   markSectionInProgress,
   queryCompanyKnowledgeBase,
   truncateText,
-} from '../helpers/executive-opportunity-frief';
+} from '../helpers/executive-opportunity-brief';
 import { withSentryLambda } from '../sentry-lambda';
+import { requireEnv } from '../helpers/env';
+import { loadTextFromS3 } from '../helpers/s3';
 
 const RequestSchema = z.object({
   executiveBriefId: z.string().min(1),
@@ -24,9 +26,10 @@ const RequestSchema = z.object({
   topK: z.number().int().min(1).max(100).optional(),
 });
 
-const BEDROCK_MODEL_ID = process.env.BEDROCK_MODEL_ID || '';
-const MAX_SOLICITATION_CHARS = Number(process.env.BRIEF_MAX_SOLICITATION_CHARS ?? '45000');
-const KB_TOPK_DEFAULT = Number(process.env.BRIEF_KB_TOPK ?? '20');
+const BEDROCK_MODEL_ID = requireEnv('BEDROCK_MODEL_ID');
+const MAX_SOLICITATION_CHARS = Number(requireEnv('BRIEF_MAX_SOLICITATION_CHARS', '45000'));
+const KB_TOPK_DEFAULT = Number(requireEnv('BRIEF_KB_TOPK', '20'));
+const DOCUMENTS_BUCKET = requireEnv('DOCUMENTS_BUCKET');
 
 function buildSummarySystemPrompt(): string {
   return [
@@ -71,13 +74,9 @@ export const baseHandler = async (
   try {
     const { executiveBriefId, force, topK } = JSON.parse(event.body || '');
 
-    // Load brief
     const brief: ExecutiveBriefItem = await getExecutiveBrief(executiveBriefId);
 
-    // Basic sanity check (schema validation catches missing nested shapes)
     ExecutiveBriefItemSchema.parse(brief);
-
-    // Idempotency: if already complete and inputHash matches, return quickly (unless force)
     const existing = brief.sections.summary as any;
     const inputHash = buildSectionInputHash({
       executiveBriefId,
@@ -108,18 +107,17 @@ export const baseHandler = async (
     const solicitationText = truncateText(rawText, MAX_SOLICITATION_CHARS);
 
     // Optional: fetch KB context (useful for title/agency normalization + capability alignment hints)
-    const kbMatches = await queryCompanyKnowledgeBase({
-      solicitationText,
-      topK: topK ?? KB_TOPK_DEFAULT,
-    });
+    const kbMatches = await queryCompanyKnowledgeBase(solicitationText, topK ?? KB_TOPK_DEFAULT);
 
     const kbText = (kbMatches ?? [])
       .slice(0, topK ?? KB_TOPK_DEFAULT)
-      .map((m, i) => {
-        const header = `#${i + 1} score=${m.score}${m.documentId ? ` doc=${m.documentId}` : ''}${
-          m.chunkKey ? ` chunkKey=${m.chunkKey}` : ''
+      .map(async (m, i) => {
+        const header = `#${i + 1} score=${m._score}${m._source?.documentId ? ` doc=${m._source.documentId}` : ''}${
+          m._source?.chunkKey ? ` chunkKey=${m._source?.chunkKey}` : ''
         }`;
-        const text = m.text ? truncateText(m.text, 2500) : '';
+        const text = m._source?.chunkKey
+          ? await loadTextFromS3(DOCUMENTS_BUCKET, m._source?.chunkKey)
+          : '';
         return [header, text].filter(Boolean).join('\n');
       })
       .join('\n\n');

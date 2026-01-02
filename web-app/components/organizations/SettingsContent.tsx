@@ -11,6 +11,7 @@ import { Separator } from '@/components/ui/separator';
 import { AlertCircle } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import PermissionWrapper from '@/components/permission-wrapper';
+import { SavedSearchList } from '@/components/organizations/SavedSearchList';
 
 interface SettingsContentProps {
   orgId: string;
@@ -119,6 +120,8 @@ export function SettingsContent({ orgId }: SettingsContentProps) {
         <div className="flex flex-col gap-6">
           <h1 className="text-2xl font-semibold">Organization Settings</h1>
 
+          <SavedSearchList orgId={orgId}/>
+
           {/* General Settings Section */}
           <Card>
             <CardHeader>
@@ -152,52 +155,8 @@ export function SettingsContent({ orgId }: SettingsContentProps) {
             </CardFooter>
           </Card>
 
-          {/* Integrations Section */}
-          <div className="space-y-4">
-            <div>
-              <h2 className="text-lg font-medium">Integrations</h2>
-              <p className="text-sm text-muted-foreground">
-                Connect external services to enhance your organization
-              </p>
-            </div>
-
-            {/* Slack Integration - Commented out for now */}
-            {/* <Card>
-              <CardHeader>
-                <CardTitle>Slack Integration</CardTitle>
-                <CardDescription>
-                  Receive notifications in Slack when important events happen
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <form onSubmit={handleUpdateOrganization} id="integrations-form">
-                  <div className="grid gap-4 py-2">
-                    <div className="grid gap-2">
-                      <Label htmlFor="slack">Slack Webhook URL</Label>
-                      <Input
-                        id="slack"
-                        value={slackWebhook}
-                        onChange={(e) => setSlackWebhook(e.target.value)}
-                        placeholder="https://hooks.slack.com/services/..."
-                      />
-                      <p className="text-xs text-muted-foreground">
-                        Get your webhook URL from your Slack workspace settings
-                      </p>
-                    </div>
-                  </div>
-                </form>
-              </CardContent>
-              <CardFooter>
-                <Button type="submit" form="integrations-form" disabled={isSaving}>
-                  {isSaving ? "Saving..." : "Save Changes"}
-                </Button>
-              </CardFooter>
-            </Card> */}
-          </div>
-
           {/* Danger Zone Section */}
           <div className="space-y-4 pt-8">
-            <Separator/>
             <Card className="border-destructive">
               <CardHeader>
                 <CardTitle className="text-destructive">Danger Zone</CardTitle>

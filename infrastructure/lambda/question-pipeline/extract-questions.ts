@@ -7,9 +7,9 @@ import { QUESTION_FILE_PK } from '../constants/question-file';
 import { safeParseJsonFromModel } from '../helpers/json';
 import { withSentryLambda } from '../sentry-lambda';
 import { requireEnv } from '../helpers/env';
-import { loadTextFromS3 } from '../helpers/executive-opportunity-frief';
 import { docClient } from '../helpers/db';
 import { nowIso } from '../helpers/date';
+import { loadTextFromS3 } from '../helpers/s3';
 
 const BEDROCK_REGION = requireEnv('BEDROCK_REGION');
 const BEDROCK_MODEL_ID = requireEnv('BEDROCK_MODEL_ID');

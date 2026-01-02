@@ -1,10 +1,12 @@
-import { BatchWriteCommand, DynamoDBDocumentClient, GetCommand, ScanCommand } from '@aws-sdk/lib-dynamodb';
+import { BatchWriteCommand, GetCommand, ScanCommand } from '@aws-sdk/lib-dynamodb';
 import { PK_NAME, SK_NAME } from '../constants/common';
 import { ORG_PK, PROJECT_PK } from '../constants/organization';
-import { DBItem, docClient } from '../helpers/db';
-import { requireEnv } from '../helpers/env';
+import { DBItem, docClient } from './db';
+import { requireEnv } from './env';
 
-export async function getProjectById(docClient: DynamoDBDocumentClient, tableName: string, projectId: string): Promise<any | null> {
+const DB_TABLE_NAME = requireEnv('DB_TABLE_NAME');
+
+export async function getProjectById(projectId: string): Promise<any | null> {
   const items: any[] = [];
   let ExclusiveStartKey: Record<string, any> | undefined = undefined;
 
@@ -14,7 +16,7 @@ export async function getProjectById(docClient: DynamoDBDocumentClient, tableNam
   do {
     const res = await docClient.send(
       new ScanCommand({
-        TableName: tableName,
+        TableName: DB_TABLE_NAME,
         FilterExpression: '#pk = :pkValue AND contains(#sk, :idSuffix)',
         ExpressionAttributeNames: {
           '#pk': PK_NAME,
@@ -47,7 +49,7 @@ export async function getProjectById(docClient: DynamoDBDocumentClient, tableNam
 
   const orgId: string = exact.sort_key.split('#')[0];
   const orgRes = await docClient.send(new GetCommand({
-    TableName: tableName,
+    TableName: DB_TABLE_NAME,
     Key: {
       [PK_NAME]: ORG_PK,
       [SK_NAME]: orgId,
@@ -61,8 +63,6 @@ export async function getProjectById(docClient: DynamoDBDocumentClient, tableNam
 
   return withOrg ?? null;
 }
-
-const DB_TABLE_NAME = requireEnv('DB_TABLE_NAME');
 
 type ScanAndDeleteResult = {
   projectId: string;
