@@ -15,6 +15,9 @@ export type SectionStatus = z.infer<typeof SectionStatusSchema>;
 export const RecommendationSchema = z.enum(['GO', 'NO_GO', 'NEEDS_REVIEW']);
 export type Recommendation = z.infer<typeof RecommendationSchema>;
 
+export const DecisionSchema = z.enum(['GO', 'CONDITIONAL_GO', 'NO_GO']);
+export type Decision = z.infer<typeof DecisionSchema>;
+
 export const RoleSchema = z.enum([
   'CONTRACTING_OFFICER',
   'CONTRACT_SPECIALIST',
@@ -230,6 +233,19 @@ export const ScoringSectionSchema = z.object({
   recommendation: RecommendationSchema,
   confidence: z.number().int().min(0).max(100),
   summaryJustification: z.string().min(20),
+  decision: DecisionSchema.optional().nullable(),
+  decisionRationale: z.string().min(20).optional().nullable(),
+  blockers: z.array(z.string().min(3)).default([]),
+  requiredActions: z.array(z.string().min(3)).default([]),
+  confidenceExplanation: z.string().min(20).optional().nullable(),
+  confidenceDrivers: z
+    .array(
+      z.object({
+        factor: z.string().min(3),
+        direction: z.enum(['UP', 'DOWN']),
+      }),
+    )
+    .default([]),
 });
 
 export type ScoringSection = z.infer<typeof ScoringSectionSchema>;
@@ -275,6 +291,7 @@ export const ExecutiveBriefItemSchema = z.object({
   // top-level convenience fields (set by scoring step)
   compositeScore: z.number().min(1).max(5).optional().nullable(),
   recommendation: RecommendationSchema.optional().nullable(),
+  decision: DecisionSchema.optional().nullable(),
   confidence: z.number().int().min(0).max(100).optional().nullable(),
 
   createdAt: z.string().datetime(),

@@ -114,3 +114,17 @@ export type CreateSavedSearchRequest = z.infer<typeof CreateSavedSearchRequestSc
 
 export const CreateSavedSearchResponseSchema = SavedSearchSchema;
 export type CreateSavedSearchResponse = z.infer<typeof CreateSavedSearchResponseSchema>;
+
+export const PatchSchema = z
+  .object({
+    name: z.string().min(1).max(120).optional(),
+    criteria: LoadSamOpportunitiesRequestSchema.optional(),
+    frequency: SavedSearchFrequencySchema.optional(),
+    autoImport: z.boolean().optional(),
+    notifyEmails: z.array(z.string().email()).optional(),
+    isEnabled: z.boolean().optional(),
+  })
+  .strict()
+  .refine((v) => Object.keys(v).length > 0, { message: 'Patch body is required' });
+
+export type PatchType = z.infer<typeof PatchSchema>

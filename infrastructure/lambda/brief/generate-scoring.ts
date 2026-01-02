@@ -17,7 +17,9 @@ import {
   markSectionInProgress,
   queryCompanyKnowledgeBase,
   truncateText,
-} from '../helpers/executive-opportunity-frief';
+} from '../helpers/executive-opportunity-brief';
+import { requireEnv } from '../helpers/env';
+import { loadTextFromS3 } from '../helpers/s3';
 
 const RequestSchema = z.object({
   executiveBriefId: z.string().min(1),
@@ -25,27 +27,20 @@ const RequestSchema = z.object({
   topK: z.number().int().min(1).max(100).optional(),
 });
 
-function requireEnv(name: string): string {
-  const v = process.env[name];
-  if (!v) throw new Error(`Missing env var: ${name}`);
-  return v;
-}
-
 const BEDROCK_MODEL_ID = requireEnv('BEDROCK_MODEL_ID');
-const MAX_SOLICITATION_CHARS = Number(process.env.BRIEF_MAX_SOLICITATION_CHARS ?? '45000');
-const KB_TOPK_DEFAULT = Number(process.env.BRIEF_KB_TOPK ?? '30');
+const MAX_SOLICITATION_CHARS = Number(requireEnv('BRIEF_MAX_SOLICITATION_CHARS', '45000'));
+const KB_TOPK_DEFAULT = Number(requireEnv('BRIEF_KB_TOPK', '30'));
+const DOCUMENTS_BUCKET = requireEnv('DOCUMENTS_BUCKET');
 
 function buildSystemPrompt(): string {
   return [
     'You are a senior capture director deciding bid/no-bid in 5 minutes.',
-    '',
     'STRICT OUTPUT CONTRACT (MUST FOLLOW):',
     '- Output ONLY a single valid JSON object.',
     '- Do NOT output any text before "{" or after "}".',
     '- No prose, no markdown, no code fences.',
     '- The first character MUST be "{" and the last character MUST be "}".',
     '- JSON must match the ScoringSection schema exactly. Do NOT add extra keys.',
-    '',
     'SCORING RULES:',
     '- You MUST output exactly 5 criteria entries, one per required name:',
     '  TECHNICAL_FIT, PAST_PERFORMANCE_RELEVANCE, PRICING_POSITION, STRATEGIC_ALIGNMENT, INCUMBENT_RISK',
@@ -53,14 +48,15 @@ function buildSystemPrompt(): string {
     '- Each score must be an integer 1..5.',
     '- rationale must be at least 10 characters.',
     '- If something is unknown, add a gap string and reduce confidence.',
-    '',
+    '- decision must be one of: GO, CONDITIONAL_GO, NO_GO.',
+    '- If you list blockers, decision should be CONDITIONAL_GO or NO_GO.',
+    '- requiredActions must include mandatory steps before bidding.',
     'EVIDENCE FORMAT (IMPORTANT):',
     '- evidence MUST be an array of objects (NOT strings).',
     '- EvidenceRef keys allowed: source, snippet, chunkKey, documentId.',
     '- Use snippet for short quotes from solicitation.',
     '- Use chunkKey/documentId when referencing KB excerpts.',
     '- If no evidence, use [].',
-    '',
     'NON-HALLUCINATION RULE:',
     '- Do not invent facts. Base scoring on the provided extracted sections, solicitation text, and KB excerpts only.',
   ].join('\n');
@@ -102,7 +98,13 @@ function buildUserPrompt(args: {
     '  "compositeScore": 3.0,',
     '  "recommendation": "NEEDS_REVIEW",',
     '  "confidence": 70,',
-    '  "summaryJustification": "string (>=20 chars)"',
+    '  "summaryJustification": "string (>=20 chars)",',
+    '  "decision": "CONDITIONAL_GO",',
+    '  "decisionRationale": "string (>=20 chars)",',
+    '  "blockers": [],',
+    '  "requiredActions": [],',
+    '  "confidenceExplanation": "string (>=20 chars)",',
+    '  "confidenceDrivers": [ { "factor": "string", "direction": "UP" } ]',
     '}',
     '',
     'GUIDANCE:',
@@ -112,7 +114,14 @@ function buildUserPrompt(args: {
     '  - GO: strong fit, manageable risk, realistic deadlines',
     '  - NO_GO: clear blockers, heavy incumbent lock, impossible schedule, misalignment',
     '  - NEEDS_REVIEW: incomplete info or moderate risk requiring human judgment',
+    '- Decision (explicit close-out):',
+    '  - GO: proceed to bid with no blocking actions',
+    '  - CONDITIONAL_GO: proceed only if blockers are resolved (list requiredActions)',
+    '  - NO_GO: do not bid unless major changes occur (list blockers)',
     '- Confidence (0-100): start 85 and subtract for gaps/unknowns.',
+    '- If you reference a blocker, it must appear in blockers[] and be reflected in decisionRationale.',
+    '- If any requiredActions are mandatory before bidding, list them in requiredActions[].',
+    '- Explain confidence in confidenceExplanation and include top drivers in confidenceDrivers.',
     '',
     'EVIDENCE RULE:',
     '- evidence[] MUST be objects (NOT strings). Use snippet for solicitation quotes.',
@@ -191,18 +200,17 @@ export const baseHandler = async (
     const solicitationText = truncateText(rawText, MAX_SOLICITATION_CHARS);
 
     // KB context for past performance relevance
-    const kbMatches = await queryCompanyKnowledgeBase({
-      solicitationText,
-      topK: topK ?? KB_TOPK_DEFAULT,
-    });
+    const kbMatches = await queryCompanyKnowledgeBase(solicitationText, topK ?? KB_TOPK_DEFAULT);
 
     const kbText = (kbMatches ?? [])
       .slice(0, topK ?? KB_TOPK_DEFAULT)
-      .map((m, i) => {
-        const header = `#${i + 1} score=${m.score}${m.documentId ? ` doc=${m.documentId}` : ''}${
-          m.chunkKey ? ` chunkKey=${m.chunkKey}` : ''
+      .map(async (m, i) => {
+        const header = `#${i + 1} score=${m._score}${m._source?.documentId ? ` doc=${m._source.documentId}` : ''}${
+          m._source?.chunkKey ? ` chunkKey=${m._source?.chunkKey}` : ''
         }`;
-        const text = m.text ? truncateText(m.text, 2500) : '';
+        const text = m._source?.chunkKey
+          ? await loadTextFromS3(DOCUMENTS_BUCKET, m._source?.chunkKey)
+          : '';
         return [header, text].filter(Boolean).join('\n');
       })
       .join('\n\n');
@@ -222,6 +230,16 @@ export const baseHandler = async (
     const normalized = {
       ...data,
       compositeScore: computedComposite,
+      decision:
+        data.decision ??
+        (data.recommendation === 'NO_GO'
+          ? 'NO_GO'
+          : data.recommendation === 'GO'
+            ? 'GO'
+            : 'CONDITIONAL_GO'),
+      blockers: data.blockers ?? [],
+      requiredActions: data.requiredActions ?? [],
+      confidenceDrivers: data.confidenceDrivers ?? [],
     };
 
     // Update overall status: COMPLETE only if all sections complete (including scoring)
@@ -238,6 +256,7 @@ export const baseHandler = async (
       topLevelPatch: {
         compositeScore: normalized.compositeScore,
         recommendation: normalized.recommendation,
+        decision: normalized.decision,
         confidence: normalized.confidence,
         status: overall, // likely COMPLETE if others done
       },
@@ -250,6 +269,7 @@ export const baseHandler = async (
       status: 'COMPLETE',
       compositeScore: normalized.compositeScore,
       recommendation: normalized.recommendation,
+      decision: normalized.decision,
       confidence: normalized.confidence,
       overallStatus: overall,
     });

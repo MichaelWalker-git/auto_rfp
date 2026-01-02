@@ -16,7 +16,9 @@ import {
   markSectionInProgress,
   queryCompanyKnowledgeBase,
   truncateText,
-} from '../helpers/executive-opportunity-frief';
+} from '../helpers/executive-opportunity-brief';
+import { loadTextFromS3 } from '../helpers/s3';
+import { requireEnv } from '../helpers/env';
 
 const RequestSchema = z.object({
   executiveBriefId: z.string().min(1),
@@ -24,15 +26,11 @@ const RequestSchema = z.object({
   topK: z.number().int().min(1).max(100).optional(),
 });
 
-function requireEnv(name: string): string {
-  const v = process.env[name];
-  if (!v) throw new Error(`Missing env var: ${name}`);
-  return v;
-}
 
 const BEDROCK_MODEL_ID = requireEnv('BEDROCK_MODEL_ID');
 const MAX_SOLICITATION_CHARS = Number(process.env.BRIEF_MAX_SOLICITATION_CHARS ?? '45000');
 const KB_TOPK_DEFAULT = Number(process.env.BRIEF_KB_TOPK ?? '20');
+const DOCUMENTS_BUCKET = requireEnv('DOCUMENTS_BUCKET');
 
 function buildSystemPrompt(): string {
   return [
@@ -161,18 +159,17 @@ export const baseHandler = async (
     const { solicitationText: rawText } = await loadSolicitationForBrief(brief);
     const solicitationText = truncateText(rawText, MAX_SOLICITATION_CHARS);
 
-    const kbMatches = await queryCompanyKnowledgeBase({
-      solicitationText,
-      topK: topK ?? KB_TOPK_DEFAULT,
-    });
+    const kbMatches = await queryCompanyKnowledgeBase(solicitationText, topK ?? KB_TOPK_DEFAULT);
 
     const kbText = (kbMatches ?? [])
       .slice(0, topK ?? KB_TOPK_DEFAULT)
-      .map((m, i) => {
-        const header = `#${i + 1} score=${m.score}${m.documentId ? ` doc=${m.documentId}` : ''}${
-          m.chunkKey ? ` chunkKey=${m.chunkKey}` : ''
+      .map(async (m, i) => {
+        const header = `#${i + 1} score=${m._score}${m._source?.documentId ? ` doc=${m._source.documentId}` : ''}${
+          m._source?.chunkKey ? ` chunkKey=${m._source?.chunkKey}` : ''
         }`;
-        const text = m.text ? truncateText(m.text, 2500) : '';
+        const text = m._source?.chunkKey
+          ? await loadTextFromS3(DOCUMENTS_BUCKET, m._source?.chunkKey)
+          : '';
         return [header, text].filter(Boolean).join('\n');
       })
       .join('\n\n');

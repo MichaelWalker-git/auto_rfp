@@ -56,6 +56,7 @@ export default function DeadlinesDashboard({
         isSubmissionDeadline: false,
       })),
     ) ?? [];
+  const unparsedDeadlines = allDeadlines.filter((d) => !d.dateTimeIso);
   const now = Date.now();
   const deadlinesWithDays = allDeadlines.flatMap((d) => {
     if (!d.dateTimeIso) {
@@ -180,8 +181,8 @@ export default function DeadlinesDashboard({
       <CardContent className="space-y-3">
         {sortedDeadlines.length > 0 ? (
           sortedDeadlines.map((deadline, idx) => (
-            <DeadlineCard 
-              key={`${deadline.projectId}-${deadline.type}-${idx}`} 
+            <DeadlineCard
+              key={`${deadline.projectId}-${deadline.type}-${idx}`}
               deadline={deadline} displayType={getDashboardType()}
             />
           ))
@@ -190,6 +191,20 @@ export default function DeadlinesDashboard({
             {filterMode === 'urgent' && 'No urgent deadlines (< 7 days)'}
             {filterMode === 'upcoming' && 'No upcoming deadlines (next 30 days)'}
             {filterMode === 'all' && 'No deadlines found'}
+          </div>
+        )}
+
+        {unparsedDeadlines.length > 0 && (
+          <div className="pt-4 border-t space-y-3">
+            <div className="text-sm font-semibold text-muted-foreground">
+              Unparsed deadlines (manual review needed)
+            </div>
+            {unparsedDeadlines.map((deadline, idx) => (
+              <DeadlineCard
+                key={`unparsed-${deadline.projectId}-${deadline.type}-${idx}`}
+                deadline={deadline} displayType={getDashboardType()}
+              />
+            ))}
           </div>
         )}
       </CardContent>

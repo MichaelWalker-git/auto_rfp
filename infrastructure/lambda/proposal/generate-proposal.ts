@@ -249,7 +249,7 @@ export const baseHandler = async (
     const { projectId } = inputResult.data;
 
     // 1) Load project
-    const projectItem = await getProjectById(docClient, DB_TABLE_NAME!, projectId);
+    const projectItem = await getProjectById(projectId);
     if (!projectItem) return apiResponse(404, { message: 'Project not found' });
 
     const { sort_key, ...project } = projectItem as any;

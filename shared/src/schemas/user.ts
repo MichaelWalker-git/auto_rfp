@@ -36,10 +36,15 @@ export const PROPOSAL_PERMISSIONS = [
   'proposal:read', 'proposal:create', 'proposal:edit', 'proposal:delete', 'proposal:export',
 ] as const;
 
+export const OPPORTUNITY_PERMISSIONS = [
+  'opportunity:read', 'opportunity:create', 'opportunity:delete', 'opportunity:edit',
+] as const;
+
 export const ALL_PERMISSIONS = [
   ...USER_PERMISSIONS,
   ...ORG_PERMISSIONS,
   ...PROPOSAL_PERMISSIONS,
+  ...OPPORTUNITY_PERMISSIONS,
   'kb:upload', 'kb:read', 'kb:create', 'kb:edit', 'kb:delete',
   'project:create', 'project:edit', 'project:read', 'project:delete',
   'question:read', 'question:create', 'question:edit', 'question:delete',
@@ -47,7 +52,6 @@ export const ALL_PERMISSIONS = [
   'answer:create', 'answer:read', 'answer:generate', 'answer:edit',
   'brief:create', 'brief:edit',
   'index:retry',
-  'opportunity:read', 'opportunity:write'
 ] as const;
 
 export type Permission = (typeof ALL_PERMISSIONS)[number];

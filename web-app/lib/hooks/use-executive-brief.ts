@@ -44,6 +44,7 @@ export type GenerateSectionResponse = {
   // some endpoints might return these
   compositeScore?: number;
   recommendation?: 'GO' | 'NO_GO' | 'NEEDS_REVIEW';
+  decision?: 'GO' | 'CONDITIONAL_GO' | 'NO_GO';
   confidence?: number;
   overallStatus?: string;
 

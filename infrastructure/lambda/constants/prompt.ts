@@ -1,0 +1,2 @@
+export const SYSTEM_PROMPT_PK = 'SYSTEM_PROMPT';
+export const USER_PROMPT_PK = 'USER_PROMPT';

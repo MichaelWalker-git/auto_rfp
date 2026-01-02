@@ -4,20 +4,11 @@ import { z } from 'zod';
 import { apiResponse } from '../helpers/api';
 import { withSentryLambda } from '../sentry-lambda';
 
-import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
-import { DynamoDBDocumentClient } from '@aws-sdk/lib-dynamodb';
-
-import { PK_NAME, SK_NAME } from '../constants/common';
-
 import { type ExecutiveBriefItem, ExecutiveBriefItemSchema, } from '@auto-rfp/shared';
 
-import { getExecutiveBrief } from '../helpers/executive-opportunity-frief';
-import { PROJECT_PK } from '../constants/organization';
+import { getExecutiveBrief } from '../helpers/executive-opportunity-brief';
 import { getProjectById } from '../helpers/project';
 import { requireEnv } from '../helpers/env';
-import { docClient } from '../helpers/db';
-
-const DB_TABLE_NAME = requireEnv('DB_TABLE_NAME');
 
 const RequestSchema = z.object({
   projectId: z.string().min(1),
@@ -31,14 +22,12 @@ export const baseHandler = async (
   event: APIGatewayProxyEventV2,
 ): Promise<APIGatewayProxyResultV2> => {
   try {
-    // Support either JSON body or path param
     const bodyJson = event.body ? JSON.parse(event.body) : {};
     const projectId =
       event.pathParameters?.projectId ??
       RequestSchema.parse(bodyJson).projectId;
 
-    // 1) Load project to get executiveBriefId
-    const projRes = await getProjectById(docClient, DB_TABLE_NAME, projectId);
+    const projRes = await getProjectById(projectId);
 
     const projectParsed = ProjectWithBriefLinkSchema.safeParse(projRes);
     if (!projectParsed.success) {

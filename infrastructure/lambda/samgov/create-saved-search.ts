@@ -22,6 +22,7 @@ import {
   SavedSearchSchema,
 } from '@auto-rfp/shared';
 import { nowIso } from '../helpers/date';
+import { SAVED_SEARCH_PK } from '../constants/samgov';
 
 const DB_TABLE_NAME = requireEnv('DB_TABLE_NAME');
 
@@ -126,6 +127,6 @@ export const handler = withSentryLambda(
   middy(baseHandler)
     .use(authContextMiddleware())
     .use(orgMembershipMiddleware())
-    .use(requirePermission('opportunity:write'))
+    .use(requirePermission('opportunity:create'))
     .use(httpErrorMiddleware()),
 );

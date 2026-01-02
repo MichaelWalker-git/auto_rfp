@@ -4,20 +4,24 @@ import { HttpRequest } from '@smithy/protocol-http';
 import { defaultProvider } from '@aws-sdk/credential-provider-node';
 import { Sha256 } from '@aws-crypto/sha256-js';
 import https from 'https';
+import { requireEnv } from './env';
 
 const TITAN_V2_SAFE_CHARS = 35_000;
+const OPENSEARCH_ENDPOINT = requireEnv('OPENSEARCH_ENDPOINT');
+const REGION = requireEnv('REGION', 'us-east-1');
+const BEDROCK_EMBEDDING_MODEL_ID = requireEnv('BEDROCK_EMBEDDING_MODEL_ID');
+const OPENSEARCH_INDEX = requireEnv('OPENSEARCH_INDEX');
 
-export async function getEmbedding(
-  bedrockClient: BedrockRuntimeClient,
-  modelId: string,
-  text: string
-): Promise<number[]> {
+
+const bedrockClient = new BedrockRuntimeClient({ region: REGION });
+
+export async function getEmbedding(text: string): Promise<number[]> {
   const body = {
     inputText: truncateForTitan(text),
   };
 
   const command = new InvokeModelCommand({
-    modelId: modelId,
+    modelId: BEDROCK_EMBEDDING_MODEL_ID,
     contentType: 'application/json',
     accept: 'application/json',
     body: JSON.stringify(body),
@@ -70,15 +74,8 @@ export interface OpenSearchHit {
   [key: string]: any;
 }
 
-// --- Helper: semantic search in OpenSearch (CHUNKS) ---
-export async function semanticSearchChunks(
-  opensearchEndpoint: string,
-  embedding: number[],
-  indexName: string,
-  k: number,
-  region: string = 'us-east-1'
-): Promise<OpenSearchHit[]> {
-  const endpointUrl = new URL(opensearchEndpoint!);
+export async function semanticSearchChunks(embedding: number[], k: number): Promise<OpenSearchHit[]> {
+  const endpointUrl = new URL(OPENSEARCH_ENDPOINT);
 
   const payload = JSON.stringify({
     size: k,
@@ -97,7 +94,7 @@ export async function semanticSearchChunks(
     method: 'POST',
     protocol: endpointUrl.protocol,
     hostname: endpointUrl.hostname,
-    path: `/${indexName}/_search`,
+    path: `/${OPENSEARCH_INDEX}/_search`,
     headers: {
       'Content-Type': 'application/json',
       'Content-Length': Buffer.byteLength(payload).toString(),
@@ -108,7 +105,7 @@ export async function semanticSearchChunks(
 
   const signer = new SignatureV4({
     service: 'aoss',
-    region: region,
+    region: REGION,
     credentials: defaultProvider(),
     sha256: Sha256,
   });

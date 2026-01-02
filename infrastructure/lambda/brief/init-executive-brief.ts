@@ -7,7 +7,7 @@ import { withSentryLambda } from '../sentry-lambda';
 
 import { type ExecutiveBriefItem, ExecutiveBriefItemSchema, } from '@auto-rfp/shared';
 
-import { loadLatestQuestionFile, putExecutiveBrief, } from '../helpers/executive-opportunity-frief';
+import { loadLatestQuestionFile, putExecutiveBrief, } from '../helpers/executive-opportunity-brief';
 import { UpdateCommand } from '@aws-sdk/lib-dynamodb';
 
 import { PK_NAME, SK_NAME } from '../constants/common';
@@ -80,7 +80,7 @@ export const baseHandler = async (
 
     // 3) Link brief on Project
     // Store just the pointer so the UI can poll project for the brief id.
-    const project = await getProjectById(docClient, DB_TABLE_NAME, projectId);
+    const project = await getProjectById(projectId);
 
     await docClient.send(
       new UpdateCommand({

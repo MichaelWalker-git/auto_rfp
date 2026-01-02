@@ -24,7 +24,7 @@ export const baseHandler = async (event: APIGatewayProxyEventV2,): Promise<APIGa
       });
     }
 
-    const project = await getProjectById(docClient, DB_TABLE_NAME, projectId);
+    const project = await getProjectById(projectId);
 
     if (!project) {
       return apiResponse(404, { message: 'Project not found' });

@@ -17,20 +17,17 @@ import {
 } from '../middleware/rbac-middleware';
 import middy from '@middy/core';
 import { requireEnv } from '../helpers/env';
-import { loadTextFromS3 } from '../helpers/executive-opportunity-frief';
 import { AnswerQuestionRequestBody, QAItem } from '@auto-rfp/shared';
 import { getQuestionItemById } from '../helpers/question';
 import { saveAnswer } from './save-answer';
 import { DBItem, docClient } from '../helpers/db';
 import { safeParseJsonFromModel } from '../helpers/json';
+import { loadTextFromS3 } from '../helpers/s3';
 
 
 const REGION = requireEnv('REGION');
 const DB_TABLE_NAME = requireEnv('DB_TABLE_NAME');
 const DOCUMENTS_BUCKET = requireEnv('DOCUMENTS_BUCKET');
-const OPENSEARCH_ENDPOINT = requireEnv('OPENSEARCH_ENDPOINT');
-const OPENSEARCH_INDEX = requireEnv('OPENSEARCH_INDEX');
-const BEDROCK_EMBEDDING_MODEL_ID = requireEnv('BEDROCK_EMBEDDING_MODEL_ID');
 const BEDROCK_MODEL_ID = requireEnv('BEDROCK_MODEL_ID');
 
 const bedrockClient = new BedrockRuntimeClient({ region: REGION });
@@ -149,7 +146,7 @@ Return ONLY a single JSON object:
 
   const res = await bedrockClient.send(
     new InvokeModelCommand({
-      modelId: BEDROCK_MODEL_ID!,
+      modelId: BEDROCK_MODEL_ID,
       contentType: 'application/json',
       accept: 'application/json',
       body: Buffer.from(JSON.stringify(payload)),
@@ -206,19 +203,9 @@ export const baseHandler = async (
       });
     }
 
-    const questionEmbedding = await getEmbedding(
-      bedrockClient,
-      BEDROCK_EMBEDDING_MODEL_ID,
-      question || '',
-    );
+    const questionEmbedding = await getEmbedding(question || '',);
 
-    const hits = await semanticSearchChunks(
-      OPENSEARCH_ENDPOINT,
-      questionEmbedding,
-      OPENSEARCH_INDEX,
-      topK,
-      REGION
-    );
+    const hits = await semanticSearchChunks(questionEmbedding, topK);
     console.log('Hits:', JSON.stringify(hits));
 
     if (!hits.length) {
