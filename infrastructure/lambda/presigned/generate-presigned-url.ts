@@ -11,7 +11,7 @@ import { requireEnv } from '../helpers/env';
 import { docClient } from '../helpers/db';
 
 const BUCKET_NAME = requireEnv('DOCUMENTS_BUCKET');
-const REGION = requireEnv('REGION');
+const REGION = requireEnv('REGION', 'us-east-1');
 const URL_EXPIRATION_SECONDS = Number(process.env.PRESIGN_EXPIRES_IN || 900);
 const DB_TABLE_NAME = requireEnv('DB_TABLE_NAME');
 

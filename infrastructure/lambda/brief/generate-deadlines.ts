@@ -195,7 +195,6 @@ export const baseHandler = async (
     const { force } = parsedReq;
 
     const brief: ExecutiveBriefItem = await getExecutiveBrief(executiveBriefId);
-    ExecutiveBriefItemSchema.parse(brief);
 
     const inputHash = buildSectionInputHash({
       executiveBriefId,

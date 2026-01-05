@@ -9,7 +9,7 @@ import { DOCUMENT_PK } from '../constants/document';
 import { streamToString } from '../helpers/s3';
 import { requireEnv } from '../helpers/env';
 
-const REGION = requireEnv('REGION');
+const REGION = requireEnv('REGION', 'us-east-1');
 const DOCUMENTS_BUCKET = requireEnv('DOCUMENTS_BUCKET');
 const DB_TABLE_NAME = requireEnv('DB_TABLE_NAME');
 

@@ -204,7 +204,7 @@ export function QuestionsProvider({ children, projectId }: QuestionsProviderProp
       const { answer, confidence, found } = await generateAnswer({
         projectId,
         questionId,
-        topK: 30,
+        topK: 15,
       });
 
       if (found) {

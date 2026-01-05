@@ -45,6 +45,7 @@ export class ApiStack extends cdk.Stack {
   private readonly semanticApi: ApiNestedStack;
   private readonly samgovApi: ApiNestedStack;
   private readonly deadlinesApi: ApiNestedStack;
+  private readonly promptApi: ApiNestedStack;
 
 
   constructor(scope: Construct, id: string, props: ApiStackProps) {
@@ -306,6 +307,19 @@ export class ApiStack extends cdk.Stack {
     this.deadlinesApi = createNestedStack('deadlines');
     this.semanticApi = createNestedStack('semantic');
     this.samgovApi = createNestedStack('samgov');
+    this.promptApi = createNestedStack('prompt');
+
+    this.promptApi.addRoute(
+      'save-prompt/{scope}',
+      'POST',
+      'lambda/prompt/save-prompt.ts',
+    )
+
+    this.promptApi.addRoute(
+      'get-prompts',
+      'GET',
+      'lambda/prompt/get-prompts.ts',
+    )
 
     this.samgovApi.addRoute(
       '/import-solicitation',

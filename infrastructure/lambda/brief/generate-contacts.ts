@@ -1,15 +1,9 @@
 import type { APIGatewayProxyEventV2, APIGatewayProxyResultV2 } from 'aws-lambda';
-import { z } from 'zod';
 
-import { apiResponse } from '../helpers/api';
+import { apiResponse, getOrgId } from '../helpers/api';
 import { withSentryLambda } from '../sentry-lambda';
 
-import {
-  ContactsSectionSchema,
-  type ExecutiveBriefItem,
-  ExecutiveBriefItemSchema,
-  RoleSchema,
-} from '@auto-rfp/shared';
+import { ContactsSectionSchema, type ExecutiveBriefItem, ExecutiveBriefItemSchema, } from '@auto-rfp/shared';
 
 import {
   buildSectionInputHash,
@@ -22,55 +16,10 @@ import {
   truncateText,
 } from '../helpers/executive-opportunity-brief';
 import { requireEnv } from '../helpers/env';
+import { useContactsSystemPrompt, useContactsUserPrompt } from '../constants/prompt';
 
 const BEDROCK_MODEL_ID = requireEnv('BEDROCK_MODEL_ID');
 const MAX_SOLICITATION_CHARS = Number(process.env.BRIEF_MAX_SOLICITATION_CHARS ?? '45000');
-
-function buildSystemPrompt(): string {
-  return [
-    'You extract contact information from government solicitations.',
-    'Return ONLY valid JSON matching the schema. No markdown, no code fences, no extra keys.',
-    'Do not invent names/emails/phones.',
-    'If role is unclear, use OTHER and include notes.',
-    'Extract multiple contacts if present.',
-  ].join('\n');
-}
-
-function buildUserPrompt(args: { solicitationText: string }): string {
-  const { solicitationText } = args;
-
-  return [
-    'TASK: Build a contact directory for an Executive Opportunity Brief.',
-    '',
-    'You must extract contacts with differentiated roles, such as:',
-    '- Contracting Officer',
-    '- Contract Specialist',
-    '- Technical POC',
-    '- Program Manager',
-    '- Small Business Specialist',
-    '- Procurement POC',
-    '- Subcontracting POC',
-    '- General Inquiry',
-    '',
-    'OUTPUT JSON MUST match this schema:',
-    '- contacts: array of { role, name?, title?, email?, phone?, organization?, notes?, evidence[] }',
-    '- missingRecommendedRoles: array of role enums that were not found',
-    '',
-    'Allowed roles enum values:',
-    JSON.stringify(RoleSchema.options, null, 2),
-    '',
-    'RULES:',
-    '- If no email/phone is present, still include the contact name/title/role if available.',
-    '- evidence[] should include SOLICITATION snippets around the contact line when possible.',
-    'EVIDENCE FORMAT (IMPORTANT):',
-    '- evidence must be an array of OBJECTS, not strings.',
-    '- Each evidence item must be: { source: SOLICITATION, text: <>}',
-    '- If you cannot provide evidence, set evidence to an empty array [].',
-    '',
-    'SOLICITATION TEXT:',
-    solicitationText,
-  ].join('\n');
-}
 
 function computeMissingRoles(foundRoles: string[]): string[] {
   const recommended = [
@@ -87,13 +36,13 @@ function computeMissingRoles(foundRoles: string[]): string[] {
 export const baseHandler = async (
   event: APIGatewayProxyEventV2,
 ): Promise<APIGatewayProxyResultV2> => {
+  const orgId = getOrgId(event)
   let executiveBriefId: string | undefined;
 
   try {
     const { executiveBriefId, force } = JSON.parse(event.body || '');
 
     const brief: ExecutiveBriefItem = await getExecutiveBrief(executiveBriefId);
-    ExecutiveBriefItemSchema.parse(brief);
 
     const inputHash = buildSectionInputHash({
       executiveBriefId,
@@ -124,8 +73,8 @@ export const baseHandler = async (
 
     const data = await invokeClaudeJson({
       modelId: BEDROCK_MODEL_ID,
-      system: buildSystemPrompt(),
-      user: buildUserPrompt({ solicitationText }),
+      system: await useContactsSystemPrompt(orgId!),
+      user: await useContactsUserPrompt(orgId!, solicitationText),
       outputSchema: ContactsSectionSchema,
       maxTokens: 1400,
       temperature: 0.1,

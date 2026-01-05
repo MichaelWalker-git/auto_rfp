@@ -31,6 +31,7 @@ const BEDROCK_MODEL_ID = requireEnv('BEDROCK_MODEL_ID');
 const MAX_SOLICITATION_CHARS = Number(requireEnv('BRIEF_MAX_SOLICITATION_CHARS', '45000'));
 const KB_TOPK_DEFAULT = Number(requireEnv('BRIEF_KB_TOPK', '30'));
 const DOCUMENTS_BUCKET = requireEnv('DOCUMENTS_BUCKET');
+const COST_SAVING = Boolean(requireEnv('COST_SAVING', 'true'));
 
 function buildSystemPrompt(): string {
   return [
@@ -169,7 +170,6 @@ export const baseHandler = async (
     const { force, topK } = parsedReq;
 
     const brief: ExecutiveBriefItem = await getExecutiveBrief(executiveBriefId);
-    ExecutiveBriefItemSchema.parse(brief);
 
     const inputHash = buildSectionInputHash({
       executiveBriefId,
@@ -200,7 +200,9 @@ export const baseHandler = async (
     const solicitationText = truncateText(rawText, MAX_SOLICITATION_CHARS);
 
     // KB context for past performance relevance
-    const kbMatches = await queryCompanyKnowledgeBase(solicitationText, topK ?? KB_TOPK_DEFAULT);
+    const kbMatches = COST_SAVING
+      ? []
+      : await queryCompanyKnowledgeBase(solicitationText, topK ?? KB_TOPK_DEFAULT);
 
     const kbText = (kbMatches ?? [])
       .slice(0, topK ?? KB_TOPK_DEFAULT)

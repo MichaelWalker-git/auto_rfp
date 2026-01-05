@@ -1,10 +1,10 @@
 import type { APIGatewayProxyEventV2, APIGatewayProxyResultV2 } from 'aws-lambda';
 import { z } from 'zod';
 
-import { apiResponse } from '../helpers/api';
+import { apiResponse, getOrgId } from '../helpers/api';
 import { withSentryLambda } from '../sentry-lambda';
 
-import { type ExecutiveBriefItem, ExecutiveBriefItemSchema, RequirementsSectionSchema, } from '@auto-rfp/shared';
+import { type ExecutiveBriefItem, RequirementsSectionSchema, } from '@auto-rfp/shared';
 
 import {
   buildSectionInputHash,
@@ -19,6 +19,7 @@ import {
 } from '../helpers/executive-opportunity-brief';
 import { loadTextFromS3 } from '../helpers/s3';
 import { requireEnv } from '../helpers/env';
+import { useRequirementsSystemPrompt, useRequirementsUserPrompt } from '../constants/prompt';
 
 const RequestSchema = z.object({
   executiveBriefId: z.string().min(1),
@@ -31,95 +32,12 @@ const BEDROCK_MODEL_ID = requireEnv('BEDROCK_MODEL_ID');
 const MAX_SOLICITATION_CHARS = Number(process.env.BRIEF_MAX_SOLICITATION_CHARS ?? '45000');
 const KB_TOPK_DEFAULT = Number(process.env.BRIEF_KB_TOPK ?? '20');
 const DOCUMENTS_BUCKET = requireEnv('DOCUMENTS_BUCKET');
-
-function buildSystemPrompt(): string {
-  return [
-    'You summarize requirements from government solicitations for bid/no-bid decisions.',
-    '',
-    'STRICT OUTPUT CONTRACT (MUST FOLLOW):',
-    '- Output ONLY a single valid JSON object.',
-    '- Do NOT output any text before "{" or after "}".',
-    '- No prose, no markdown, no code fences, no commentary.',
-    '- The first character of your response MUST be "{" and the last character MUST be "}".',
-    '- The JSON must match the RequirementsSection schema exactly. Do NOT add extra keys.',
-    '',
-    'SCHEMA CONSTRAINTS:',
-    '- overview: string (min 10 chars).',
-    '- requirements: array with at least 1 item.',
-    '- Each requirement item: { category?: string, requirement: string (min 5), mustHave: boolean, evidence: EvidenceRef[] }',
-    '- deliverables: string[] (can be empty).',
-    '- evaluationFactors: string[] (can be empty).',
-    '- submissionCompliance: { format: string[], requiredVolumes: string[], attachmentsAndForms: string[] }',
-    '',
-    'EVIDENCE FORMAT (IMPORTANT):',
-    '- evidence is an array of objects (NOT strings).',
-    '- EvidenceRef object keys you may use: source, snippet, chunkKey, documentId.',
-    '- Use "snippet" for short quotes.',
-    '- If no evidence, use an empty array [].',
-    '',
-    'CONTENT RULES:',
-    '- Do not invent requirements. If unclear, omit or use category "OTHER".',
-    '- Prefer concise requirement strings (short, imperative).',
-    '- Focus on: technical requirements, deliverables, compliance/submission rules, evaluation factors.',
-  ].join('\n');
-}
-
-function buildUserPrompt(args: { solicitationText: string; kbText: string }): string {
-  const { solicitationText, kbText } = args;
-
-  return [
-    'TASK: Build a detailed requirements summary for an Executive Opportunity Brief.',
-    '',
-    'IMPORTANT:',
-    '- Return JSON ONLY.',
-    '- First character MUST be "{" and last character MUST be "}".',
-    '',
-    'COPY THIS JSON SKELETON AND FILL IT IN (do not add keys):',
-    '{',
-    '  "overview": "string (min 10 chars)",',
-    '  "requirements": [',
-    '    {',
-    '      "category": "TECHNICAL",',
-    '      "requirement": "string (min 5 chars)",',
-    '      "mustHave": true,',
-    '      "evidence": [',
-    '        { "source": "SOLICITATION", "snippet": "short quote" }',
-    '      ]',
-    '    }',
-    '  ],',
-    '  "deliverables": [],',
-    '  "evaluationFactors": [],',
-    '  "submissionCompliance": {',
-    '    "format": [],',
-    '    "requiredVolumes": [],',
-    '    "attachmentsAndForms": []',
-    '  }',
-    '}',
-    '',
-    'REQUIRED CONTENT:',
-    '- A short overview of what is being procured and what success looks like.',
-    '- Requirements categorized (TECHNICAL / SECURITY / COMPLIANCE / DELIVERABLES / STAFFING / OTHER).',
-    '- Deliverables list (if explicit).',
-    '- Evaluation factors list (if explicit).',
-    '- Submission compliance rules: page limits, formatting, required volumes, attachments/forms, portals, file naming.',
-    '',
-    'RULES:',
-    '- "mustHave" should be true if the solicitation makes it mandatory.',
-    '- evidence[] must be objects with "snippet" (not strings). Use [] if no quote.',
-    '- Do not add company marketing; only summarize the solicitation.',
-    '',
-    'COMPANY CONTEXT (KB excerpts; may be empty):',
-    kbText ? kbText : '[NO_KB_CONTEXT]',
-    '',
-    'SOLICITATION TEXT:',
-    solicitationText,
-  ].join('\n');
-}
-
+const COST_SAVING = Boolean(requireEnv('COST_SAVING', 'true'));
 
 export const baseHandler = async (
   event: APIGatewayProxyEventV2,
 ): Promise<APIGatewayProxyResultV2> => {
+  const orgId = getOrgId(event);
   let executiveBriefId: string | undefined;
 
   try {
@@ -130,7 +48,6 @@ export const baseHandler = async (
     const { force, topK } = parsedReq;
 
     const brief: ExecutiveBriefItem = await getExecutiveBrief(executiveBriefId);
-    ExecutiveBriefItemSchema.parse(brief);
 
     const inputHash = buildSectionInputHash({
       executiveBriefId,
@@ -159,7 +76,9 @@ export const baseHandler = async (
     const { solicitationText: rawText } = await loadSolicitationForBrief(brief);
     const solicitationText = truncateText(rawText, MAX_SOLICITATION_CHARS);
 
-    const kbMatches = await queryCompanyKnowledgeBase(solicitationText, topK ?? KB_TOPK_DEFAULT);
+    const kbMatches = COST_SAVING
+      ? []
+      : await queryCompanyKnowledgeBase(solicitationText, topK ?? KB_TOPK_DEFAULT);
 
     const kbText = (kbMatches ?? [])
       .slice(0, topK ?? KB_TOPK_DEFAULT)
@@ -176,10 +95,10 @@ export const baseHandler = async (
 
     const data = await invokeClaudeJson({
       modelId: BEDROCK_MODEL_ID,
-      system: buildSystemPrompt(),
-      user: buildUserPrompt({ solicitationText, kbText }),
+      system: await useRequirementsSystemPrompt(orgId!),
+      user: await useRequirementsUserPrompt(orgId!, solicitationText, kbText),
       outputSchema: RequirementsSectionSchema,
-      maxTokens: 2200,
+      maxTokens: 5000,
       temperature: 0.2,
     });
 

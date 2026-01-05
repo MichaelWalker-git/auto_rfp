@@ -128,6 +128,7 @@ export class DocumentPipelineStack extends Stack {
         timeout: Duration.minutes(2),
         functionName: `${namePrefix}-TextractCallback`,
         environment: {
+          REGION: this.region,
           DB_TABLE_NAME: documentsTable.tableName,
           DOCUMENTS_BUCKET: documentsBucket.bucketName,
           SENTRY_DSN: sentryDNS,
@@ -163,6 +164,7 @@ export class DocumentPipelineStack extends Stack {
         timeout: Duration.minutes(2),
         functionName: `${namePrefix}-DocxProcessing`,
         environment: {
+          REGION: this.region,
           DB_TABLE_NAME: documentsTable.tableName,
           DOCUMENTS_BUCKET: documentsBucket.bucketName,
           SENTRY_DSN: sentryDNS,
@@ -186,6 +188,7 @@ export class DocumentPipelineStack extends Stack {
         timeout: Duration.minutes(2),
         functionName: `${namePrefix}-ChunkDocument`,
         environment: {
+          REGION: this.region,
           DB_TABLE_NAME: documentsTable.tableName,
           DOCUMENTS_BUCKET: documentsBucket.bucketName,
           SENTRY_DSN: sentryDNS,

@@ -40,25 +40,12 @@ export const KnowledgeBaseSnippetSchema = z.object({
 
 export type KnowledgeBaseSnippet = z.infer<typeof KnowledgeBaseSnippetSchema>;
 
-export const ProposalMetadataSchema = z.object({
-  opportunityId: z.string().optional(),
-  rfpTitle: z.string().optional(),
-  customerName: z.string().optional(),
-  agencyName: z.string().optional(),
-  dueDate: z.string().optional(), // ISO string
-  contractType: z.string().optional(),
-  naicsCode: z.string().optional(),
-  notes: z.string().optional(),
-});
-
-export type ProposalMetadata = z.infer<typeof ProposalMetadataSchema>;
 
 /**
  * Lambda input schema for generation
  */
 export const GenerateProposalRequestSchema = z.object({
   projectId: z.string().optional(),
-  proposalMetadata: ProposalMetadataSchema,
   qaPairs: z.array(QuestionAnswerSchema).min(1, 'At least one question-answer pair is required'),
   knowledgeBaseSnippets: z.array(KnowledgeBaseSnippetSchema).optional(),
   requestedSections: z

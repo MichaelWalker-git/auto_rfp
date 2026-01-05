@@ -12,6 +12,7 @@ import { AlertCircle } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import PermissionWrapper from '@/components/permission-wrapper';
 import { SavedSearchList } from '@/components/organizations/SavedSearchList';
+import { PromptsManager } from '@/components/organizations/PromptManager';
 
 interface SettingsContentProps {
   orgId: string;
@@ -121,6 +122,8 @@ export function SettingsContent({ orgId }: SettingsContentProps) {
           <h1 className="text-2xl font-semibold">Organization Settings</h1>
 
           <SavedSearchList orgId={orgId}/>
+
+          <PromptsManager />
 
           {/* General Settings Section */}
           <Card>

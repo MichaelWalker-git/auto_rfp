@@ -1,3 +1,4 @@
+import type { APIGatewayProxyEventV2 } from 'aws-lambda';
 import { APIGatewayProxyResultV2, } from 'aws-lambda';
 
 export function apiResponse(
@@ -14,8 +15,6 @@ export function apiResponse(
   };
 }
 
-import type { APIGatewayProxyEventV2 } from 'aws-lambda';
-
 type RequestContextWithAuthorizer = APIGatewayProxyEventV2['requestContext'] & {
   authorizer?: {
     jwt?: { claims?: Record<string, any> };
@@ -23,14 +22,18 @@ type RequestContextWithAuthorizer = APIGatewayProxyEventV2['requestContext'] & {
   };
 };
 
-export function getOrgId(event: APIGatewayProxyEventV2): string | null {
+export function getOrgId(event: APIGatewayProxyEventV2): string | undefined {
   const rc = event.requestContext as RequestContextWithAuthorizer;
 
   const claims =
     rc.authorizer?.jwt?.claims ??
     rc.authorizer?.claims;
 
-  const orgId = claims?.['custom:orgId'];
+  const orgIdFromToken = claims?.['custom:orgId'];
+  if (!orgIdFromToken) {
+    const { orgId: orgIdFromQueryString } = event.queryStringParameters || {};
+    return orgIdFromQueryString;
+  }
 
-  return typeof orgId === 'string' && orgId.trim() ? orgId : null;
+  return orgIdFromToken;
 }

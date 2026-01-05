@@ -8,7 +8,6 @@ import { type ExecutiveBriefItem, ExecutiveBriefItemSchema, } from '@auto-rfp/sh
 
 import { getExecutiveBrief } from '../helpers/executive-opportunity-brief';
 import { getProjectById } from '../helpers/project';
-import { requireEnv } from '../helpers/env';
 
 const RequestSchema = z.object({
   projectId: z.string().min(1),
@@ -45,9 +44,7 @@ export const baseHandler = async (
       });
     }
 
-    // 2) Load executive brief entity
     const brief: ExecutiveBriefItem = await getExecutiveBrief(executiveBriefId);
-    ExecutiveBriefItemSchema.parse(brief);
 
     return apiResponse(200, {
       ok: true,

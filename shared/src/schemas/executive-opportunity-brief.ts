@@ -109,7 +109,7 @@ export type QuickSummary = z.infer<typeof QuickSummarySchema>;
 export const DeadlineSchema = z.object({
   type: z.string().optional().nullable(),
   label: z.string().optional().nullable(),
-  dateTimeIso: z.string().datetime().optional().nullable(),
+  dateTimeIso: z.string().datetime({ offset: true }).optional().nullable(),
   rawText: z.string().optional().nullable(),
   timezone: z.string().optional().nullable(),
   notes: z.string().optional().nullable(),
@@ -119,7 +119,7 @@ export const DeadlineSchema = z.object({
 export const DeadlinesSectionSchema = z.object({
   deadlines: z.array(DeadlineSchema).min(1),
   hasSubmissionDeadline: z.boolean().default(false),
-  submissionDeadlineIso: z.string().datetime().optional(),
+  submissionDeadlineIso: z.string().datetime({ offset: true }).optional(),
   warnings: z.array(z.string().min(1)).default([]), // “No explicit timezone found”, etc.
 });
 

@@ -1,31 +1,18 @@
 'use client';
 
 import React, { useMemo } from 'react';
-import type { SavedSearch, LoadSamOpportunitiesRequest } from '@auto-rfp/shared';
+import type { LoadSamOpportunitiesRequest, SavedSearch } from '@auto-rfp/shared';
 
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Card, CardContent, CardHeader } from '@/components/ui/card';
-import { CardTitle, CardDescription } from '@/components/ui/card';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/components/ui/use-toast';
 
-import {
-  DropdownMenu,
-  DropdownMenuTrigger,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuLabel,
-} from '@/components/ui/dropdown-menu';
+import { Plus, Search } from 'lucide-react';
 
-import { MoreHorizontal, Trash2, Plus, Search, Power } from 'lucide-react';
-
-import {
-  useDeleteSavedSearch,
-  useListSavedSearches,
-  useUpdateSavedSearch, // <-- you said you already have this hook
-} from '@/lib/hooks/use-saved-search';
+import { useDeleteSavedSearch, useListSavedSearches, useUpdateSavedSearch, } from '@/lib/hooks/use-saved-search';
+import { SavedSearchActionsDropdown } from '@/components/organizations/SavedSearchActionsDropdown';
 
 function formatDate(iso?: string | null) {
   if (!iso) return '—';
@@ -99,7 +86,7 @@ function EmptyState({ onCreate }: { onCreate?: () => void }) {
   return (
     <div className="flex flex-col items-center justify-center py-10 text-center">
       <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-2xl border">
-        <Search className="h-6 w-6 text-muted-foreground" />
+        <Search className="h-6 w-6 text-muted-foreground"/>
       </div>
       <div className="text-base font-semibold">No saved searches yet</div>
       <div className="mt-1 max-w-md text-sm text-muted-foreground">
@@ -108,7 +95,7 @@ function EmptyState({ onCreate }: { onCreate?: () => void }) {
 
       {onCreate && (
         <Button className="mt-4 gap-2" onClick={onCreate}>
-          <Plus className="h-4 w-4" />
+          <Plus className="h-4 w-4"/>
           Create saved search
         </Button>
       )}
@@ -188,7 +175,7 @@ export function SavedSearchList({
       <CardHeader className="flex flex-row items-start justify-between gap-4">
         <div>
           <CardTitle className="flex items-center gap-2">
-            <Search className="h-5 w-5" />
+            <Search className="h-5 w-5"/>
             Saved searches
           </CardTitle>
           <CardDescription>
@@ -199,7 +186,7 @@ export function SavedSearchList({
         <div className="flex items-center gap-2">
           {onCreate && (
             <Button className="gap-2" onClick={onCreate} disabled={isBusy}>
-              <Plus className="h-4 w-4" />
+              <Plus className="h-4 w-4"/>
               New search
             </Button>
           )}
@@ -216,15 +203,16 @@ export function SavedSearchList({
 
         {isLoading ? (
           <div className="space-y-2">
-            <Skeleton className="h-10 w-full rounded-xl" />
-            <Skeleton className="h-10 w-full rounded-xl" />
-            <Skeleton className="h-10 w-full rounded-xl" />
+            <Skeleton className="h-10 w-full rounded-xl"/>
+            <Skeleton className="h-10 w-full rounded-xl"/>
+            <Skeleton className="h-10 w-full rounded-xl"/>
           </div>
         ) : sorted.length === 0 ? (
-          <EmptyState onCreate={onCreate} />
+          <EmptyState onCreate={onCreate}/>
         ) : (
           <div className="overflow-hidden rounded-2xl border">
-            <div className="grid grid-cols-12 gap-3 border-b bg-muted/40 px-4 py-3 text-xs font-medium text-muted-foreground">
+            <div
+              className="grid grid-cols-12 gap-3 border-b bg-muted/40 px-4 py-3 text-xs font-medium text-muted-foreground">
               <div className="col-span-4">Name</div>
               <div className="col-span-5">Criteria</div>
               <div className="col-span-1">Schedule</div>
@@ -272,35 +260,14 @@ export function SavedSearchList({
                     <div className="col-span-1 flex items-center">{frequencyBadge(s.frequency)}</div>
                     <div className="col-span-1 flex items-center">{enabledBadge(Boolean(s.isEnabled))}</div>
 
-                    {/* actions: ONLY activate/disable + delete */}
                     <div className="col-span-1 flex items-center justify-end">
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="icon" className="rounded-xl" disabled={isBusy}>
-                            <MoreHorizontal className="h-4 w-4" />
-                          </Button>
-                        </DropdownMenuTrigger>
-
-                        <DropdownMenuContent align="end" className="w-56">
-                          <DropdownMenuLabel>Actions</DropdownMenuLabel>
-
-                          <DropdownMenuItem onClick={() => onToggleEnabled(s)} disabled={isBusy}>
-                            <Power className="mr-2 h-4 w-4" />
-                            {s.isEnabled ? 'Disable' : 'Activate'}
-                          </DropdownMenuItem>
-
-                          <DropdownMenuSeparator />
-
-                          <DropdownMenuItem
-                            className="text-destructive focus:text-destructive"
-                            onClick={() => onDelete(s)}
-                            disabled={isBusy}
-                          >
-                            <Trash2 className="mr-2 h-4 w-4" />
-                            Delete
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
+                      <SavedSearchActionsDropdown
+                        orgId={orgId}
+                        savedSearch={s}
+                        disabled={isBusy}
+                        onToggleEnabled={onToggleEnabled}
+                        onDelete={onDelete}
+                      />
                     </div>
                   </div>
                 );

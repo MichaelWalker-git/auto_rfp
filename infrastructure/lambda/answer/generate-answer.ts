@@ -25,7 +25,7 @@ import { safeParseJsonFromModel } from '../helpers/json';
 import { loadTextFromS3 } from '../helpers/s3';
 
 
-const REGION = requireEnv('REGION');
+const REGION = requireEnv('REGION', 'us-east-1');
 const DB_TABLE_NAME = requireEnv('DB_TABLE_NAME');
 const DOCUMENTS_BUCKET = requireEnv('DOCUMENTS_BUCKET');
 const BEDROCK_MODEL_ID = requireEnv('BEDROCK_MODEL_ID');

@@ -3,7 +3,7 @@ import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import { requireEnv } from './env';
 import { PK_NAME, SK_NAME } from '../constants/common';
 
-const REGION = requireEnv('REGION');
+const REGION = requireEnv('REGION', 'us-east-1');
 
 const ddbClient = new DynamoDBClient({ region: REGION });
 export const docClient = DynamoDBDocumentClient.from(ddbClient, {
