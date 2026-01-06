@@ -228,7 +228,7 @@ export const ScoreCriterionSchema = z
 export const ScoringSectionSchema = z
   .object({
     criteria: z.array(ScoreCriterionSchema).optional(),
-    compositeScore: z.number().min(1).max(5).optional(),
+    compositeScore: z.number().optional(),
     recommendation: RecommendationSchema.optional(),
     confidence: z.number().int().min(0).max(100).optional(),
     summaryJustification: z.string().min(20).optional(),
