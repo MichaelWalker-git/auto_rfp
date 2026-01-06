@@ -49,8 +49,6 @@ export async function enqueueExecutiveBriefSection(
       textKey: brief.textKey,
     });
 
-    const existing = (brief.sections as any)?.[section];
-
     await markSectionInProgress({
       executiveBriefId,
       section,

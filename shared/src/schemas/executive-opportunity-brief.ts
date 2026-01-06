@@ -269,7 +269,6 @@ export const SectionWrapperSchema = <T extends z.ZodTypeAny>(dataSchema: T) =>
  * ==========================
  */
 export const ExecutiveBriefItemSchema = z.object({
-
   projectId: z.string().min(1),
   questionFileId: z.string().min(1),
   textKey: z.string().min(1),

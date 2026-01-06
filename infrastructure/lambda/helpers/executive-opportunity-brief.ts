@@ -137,7 +137,7 @@ export async function getExecutiveBrief(executiveBriefId: string): Promise<Execu
   );
 
   if (!res.Item) throw new Error(`ExecutiveBrief not found: ${executiveBriefId}`);
-  return ExecutiveBriefItemSchema.parse(res.Item);
+  return res.Item as ExecutiveBriefItem;
 }
 
 export async function getExecutiveBriefByProjectId(projectId: string): Promise<ExecutiveBriefItem> {
