@@ -94,6 +94,7 @@ export function ExecutiveBriefView({ projectId }: Props) {
   const [previousBrief, setPreviousBrief] = useState<any>(null);
   const [briefItem, setBriefItem] = useState<any>(null);
   const [localBusySections, setLocalBusySections] = useState<Set<SectionKey>>(() => new Set());
+  const localBusySectionsRef = useRef<Set<SectionKey>>(new Set());
 
   const pollingRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -135,6 +136,10 @@ export function ExecutiveBriefView({ projectId }: Props) {
   }, [briefItem, localBusySections]);
 
   useEffect(() => {
+    if (anySectionInProgress && !pollingRef.current) startPollingBrief();
+  }, [anySectionInProgress]);
+
+  useEffect(() => {
     if (!briefItem?.sections) return;
     const sections = briefItem.sections as Record<string, any>;
 
@@ -173,7 +178,11 @@ export function ExecutiveBriefView({ projectId }: Props) {
             ['COMPLETE', 'FAILED'].includes(resp.brief?.sections?.[k]?.status as string),
           );
 
-          if (st === 'COMPLETE' || st === 'FAILED' || allTerminal) stopPollingBrief();
+          const locallyBusy = localBusySectionsRef.current.size > 0;
+
+          if (!locallyBusy && (st === 'COMPLETE' || st === 'FAILED' || allTerminal)) {
+            stopPollingBrief();
+          }
         }
       } catch {
         // ignore
@@ -202,10 +211,8 @@ export function ExecutiveBriefView({ projectId }: Props) {
   }, [projectId]);
 
   useEffect(() => {
-    if (anySectionInProgress) {
-      startPollingBrief();
-    }
-  }, []);
+    localBusySectionsRef.current = localBusySections;
+  }, [localBusySections]);
 
   async function ensureBriefId(): Promise<string> {
     if (project?.executiveBriefId) return project.executiveBriefId;
@@ -244,7 +251,6 @@ export function ExecutiveBriefView({ projectId }: Props) {
 
     try {
       const executiveBriefId = await ensureBriefId();
-      startPollingBrief();
 
       const latest = await getBriefByProject.trigger({ projectId });
       const currentBrief = latest?.ok && latest?.brief ? latest.brief : briefItem;
@@ -259,6 +265,7 @@ export function ExecutiveBriefView({ projectId }: Props) {
         : SECTION_ORDER;
 
       markBusy(toRun);
+      startPollingBrief();
 
       // enqueue fast in parallel
       await Promise.all(toRun.map((k) => enqueueSection(k, executiveBriefId)));
@@ -274,9 +281,9 @@ export function ExecutiveBriefView({ projectId }: Props) {
     setRegenError(null);
     try {
       const executiveBriefId = await ensureBriefId();
-      startPollingBrief();
 
       markBusy([section]);
+      startPollingBrief();
 
       await enqueueSection(section, executiveBriefId);
 
