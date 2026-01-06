@@ -1,6 +1,5 @@
 import { APIGatewayProxyEventV2, APIGatewayProxyResultV2 } from 'aws-lambda';
 import { QueryCommand } from '@aws-sdk/lib-dynamodb';
-import { GetObjectCommand, S3Client } from '@aws-sdk/client-s3';
 import { BedrockRuntimeClient, InvokeModelCommand } from '@aws-sdk/client-bedrock-runtime';
 
 import { PK_NAME, SK_NAME } from '../constants/common';
@@ -27,6 +26,8 @@ import {
 } from '../middleware/rbac-middleware';
 import { docClient } from '../helpers/db';
 import { safeParseJsonFromModel } from '../helpers/json';
+import { loadTextFromS3 } from '../helpers/s3';
+import { useProposalSystemPrompt, useProposalUserPrompt } from '../constants/prompt';
 
 const BEDROCK_REGION = requireEnv('BEDROCK_REGION');
 const DB_TABLE_NAME = requireEnv('DB_TABLE_NAME');
@@ -35,27 +36,14 @@ const BEDROCK_MODEL_ID = requireEnv('BEDROCK_MODEL_ID');
 const MAX_TOKENS = Number(requireEnv('BEDROCK_MAX_TOKENS', '4000'));
 const TEMPERATURE = Number(requireEnv('BEDROCK_TEMPERATURE', '0.1'));
 
-const s3Client = new S3Client({});
 const bedrockClient = new BedrockRuntimeClient({ region: BEDROCK_REGION });
 
 type QaPair = GenerateProposalRequest['qaPairs'][number];
 type KnowledgeBaseSnippet = NonNullable<GenerateProposalRequest['knowledgeBaseSnippets']>[number];
-type ProposalMetadata = GenerateProposalRequest['proposalMetadata'];
 
 const extractOrgIdFromSortKey = (sortKey: string): string => {
   const [orgId] = String(sortKey ?? '').split('#');
   return orgId || '';
-};
-
-const getObjectBodyAsString = async (bucket: string, key: string): Promise<string> => {
-  const res = await s3Client.send(new GetObjectCommand({ Bucket: bucket, Key: key }));
-  if (!res.Body) return '';
-
-  const chunks: Uint8Array[] = [];
-  for await (const chunk of res.Body as any as AsyncIterable<Uint8Array>) {
-    chunks.push(chunk);
-  }
-  return new TextDecoder().decode(Buffer.concat(chunks));
 };
 
 const loadKnowledgeBasesForOrg = async (orgId: string): Promise<any[]> => {
@@ -109,19 +97,6 @@ const loadQaPairsForProject = async (projectId: string): Promise<QaPair[]> => {
   })) as QaPair[];
 };
 
-const buildProposalMetadataFromProject = (project: any): ProposalMetadata => {
-  return {
-    opportunityId: undefined,
-    rfpTitle: project?.name ?? undefined,
-    customerName: undefined,
-    agencyName: undefined,
-    dueDate: undefined,
-    contractType: undefined,
-    naicsCode: undefined,
-    notes: project?.summary ?? project?.description ?? undefined,
-  };
-};
-
 const buildKnowledgeBaseSnippets = async (documents: any[]): Promise<KnowledgeBaseSnippet[]> => {
   const snippets: KnowledgeBaseSnippet[] = [];
 
@@ -129,7 +104,7 @@ const buildKnowledgeBaseSnippets = async (documents: any[]): Promise<KnowledgeBa
     const key = doc?.textFileKey;
     if (!key) continue;
 
-    const content = await getObjectBodyAsString(DOCUMENTS_BUCKET!, key);
+    const content = await loadTextFromS3(DOCUMENTS_BUCKET, key);
     if (!content.trim()) continue;
 
     snippets.push({
@@ -144,40 +119,11 @@ const buildKnowledgeBaseSnippets = async (documents: any[]): Promise<KnowledgeBa
   return snippets;
 };
 
-const buildSystemPrompt = (): string =>
-  `
-You are a proposal writer for US government and commercial RFPs.
-
-Return ONLY valid JSON with this structure:
-
-{
-  "proposalTitle": string,
-  "customerName"?: string,
-  "opportunityId"?: string,
-  "outlineSummary"?: string,
-  "sections": [
-    {
-      "id": string,
-      "title": string,
-      "summary"?: string,
-      "subsections": [
-        { "id": string, "title": string, "content": string }
-      ]
-    }
-  ]
-}
-
-Rules:
-- Use information from Q&A and knowledge base snippets wherever relevant.
-- If unknown, use generic language. Do NOT invent specific numbers, dates, IDs.
-- Do NOT include any text outside JSON.
-`.trim();
-
-const buildUserPromptForProposal = (payload: GenerateProposalRequest): string => {
-  const { proposalMetadata, qaPairs, knowledgeBaseSnippets } = payload;
+const buildUserPromptForProposal = async (orgId: string, payload: GenerateProposalRequest): Promise<string | undefined> => {
+  const { qaPairs, knowledgeBaseSnippets } = payload;
 
   const metaLines: string[] = [];
-  Object.entries(proposalMetadata).forEach(([k, v]) => {
+  Object.entries({/*TODO use row for solicitation entity*/ }).forEach(([k, v]) => {
     if (v) metaLines.push(`${k}: ${v}`);
   });
 
@@ -200,21 +146,12 @@ const buildUserPromptForProposal = (payload: GenerateProposalRequest): string =>
         .join('\n\n---\n\n')
       : 'None';
 
-  return `
-RFP / Proposal Metadata:
-${metaLines.join('\n') || 'None'}
-
-Q&A:
-${qaText}
-
-Knowledge Base Snippets:
-${kbText}
-
-Task:
-1) Create an outline tailored to this opportunity and customer.
-2) Write all sections/subsections as full proposal text.
-3) Return ONLY JSON in the required format.
-`.trim();
+  return await useProposalUserPrompt(
+    orgId,
+    '',
+    qaText,
+    kbText
+  );
 };
 
 
@@ -256,35 +193,17 @@ export const baseHandler = async (
     const orgId = extractOrgIdFromSortKey(sort_key);
     if (!orgId) return apiResponse(400, { message: 'Project has invalid sort_key (cannot extract orgId)' });
 
-    // 2) Load KBs for org
-    const knowledgeBases = await loadKnowledgeBasesForOrg(orgId);
-
-    // 3) Load docs for KBs
-    const allDocuments: any[] = [];
-    for (const kb of knowledgeBases) {
-      const kbId = kb?.id ?? kb?.knowledgeBaseId;
-      if (!kbId) continue;
-      allDocuments.push(...(await loadDocumentsForKnowledgeBase(kbId)));
-    }
-
-    // 4) Build KB snippets from S3 text files
-    const knowledgeBaseSnippets = await buildKnowledgeBaseSnippets(allDocuments);
-
     // 5) Load Q/A pairs
     const qaPairs = await loadQaPairsForProject(projectId);
     if (qaPairs.length === 0) {
       return apiResponse(400, { message: 'No questions found for this project' });
     }
 
-    // 6) Metadata
-    const proposalMetadata = buildProposalMetadataFromProject(project);
-
     // 7) Build request payload and validate it against shared schema
     const llmRequestCandidate = {
       projectId,
-      proposalMetadata,
       qaPairs,
-      knowledgeBaseSnippets,
+      knowledgeBaseSnippets: [],
       requestedSections: undefined,
     };
 
@@ -296,8 +215,12 @@ export const baseHandler = async (
       });
     }
 
-    const systemPrompt = buildSystemPrompt();
-    const userPrompt = buildUserPromptForProposal(reqParsed.data);
+    const systemPrompt = await useProposalSystemPrompt(orgId);
+    const userPrompt = await buildUserPromptForProposal(orgId, reqParsed.data);
+
+    if (!userPrompt?.trim() || !systemPrompt?.trim()) {
+      return apiResponse(500, { message: 'User prompt is empty' });
+    }
 
     const body = JSON.stringify({
       anthropic_version: 'bedrock-2023-05-31',

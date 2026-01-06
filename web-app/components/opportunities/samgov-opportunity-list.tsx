@@ -4,11 +4,10 @@ import * as React from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { useToast } from '@/components/ui/use-toast';
-import { Calendar, ExternalLink, Loader2, Search } from 'lucide-react';
+import { BadgeCheck, Building2, Calendar, Hash, Loader2, Search, Tag, } from 'lucide-react';
 
-import type { SamOpportunitySlim, LoadSamOpportunitiesRequest } from '@auto-rfp/shared';
-import { fmtDate, safeUrl } from './samgov-utils';
+import type { SamOpportunitySlim } from '@auto-rfp/shared';
+import { fmtDate } from './samgov-utils';
 
 type Props = {
   data?: {
@@ -19,14 +18,60 @@ type Props = {
   } | null;
   isLoading: boolean;
 
-  // for pagination:
   onPage: (offset: number) => Promise<void>;
   onImportSolicitation: (data: SamOpportunitySlim) => void;
 };
 
-export function SamGovOpportunityList({ data, isLoading, onPage, onImportSolicitation }: Props) {
-  const { toast } = useToast();
+function StatPill({
+                    icon,
+                    label,
+                    value,
+                    tone = 'muted',
+                  }: {
+  icon: React.ReactNode;
+  label: string;
+  value: React.ReactNode;
+  tone?: 'muted' | 'danger';
+}) {
+  return (
+    <div className="flex items-center gap-2 rounded-xl border bg-background px-3 py-2">
+      <div className="shrink-0">{icon}</div>
+      <div className="min-w-0">
+        <div className="text-[11px] leading-4 text-muted-foreground">{label}</div>
+        <div
+          className={[
+            'truncate text-sm font-medium',
+            tone === 'danger' ? 'text-destructive' : '',
+          ].join(' ')}
+        >
+          {value}
+        </div>
+      </div>
+    </div>
+  );
+}
 
+function MetaRow({
+                   icon,
+                   label,
+                   children,
+                 }: {
+  icon: React.ReactNode;
+  label: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+      <span className="inline-flex items-center gap-1.5">
+        {icon}
+        <span>{label}</span>
+      </span>
+      <span className="text-foreground/90">{children}</span>
+    </div>
+  );
+}
+
+export function SamGovOpportunityList({ data, isLoading, onPage, onImportSolicitation }: Props) {
   const results = data?.opportunities ?? [];
   const offset = data?.offset ?? 0;
   const limit = data?.limit ?? 25;
@@ -38,17 +83,18 @@ export function SamGovOpportunityList({ data, isLoading, onPage, onImportSolicit
   return (
     <div className="space-y-3">
       {isLoading && !data && (
-        <div className="flex items-center justify-center rounded-xl border py-12">
+        <div className="flex items-center justify-center rounded-2xl border bg-muted/20 py-14">
           <div className="flex items-center gap-3 text-sm text-muted-foreground">
-            <Loader2 className="h-5 w-5 animate-spin" />
+            <Loader2 className="h-5 w-5 animate-spin"/>
             Searching SAM.gov…
           </div>
         </div>
       )}
 
       {data && results.length === 0 && (
-        <div className="flex flex-col items-center justify-center rounded-xl border border-dashed py-12 text-center">
-          <Search className="h-10 w-10 text-muted-foreground/50" />
+        <div
+          className="flex flex-col items-center justify-center rounded-2xl border border-dashed bg-muted/10 py-14 text-center">
+          <Search className="h-10 w-10 text-muted-foreground/50"/>
           <p className="mt-3 text-sm font-medium">No matches</p>
           <p className="mt-1 text-xs text-muted-foreground">
             Try expanding your date range or adjusting NAICS/keywords.
@@ -57,80 +103,98 @@ export function SamGovOpportunityList({ data, isLoading, onPage, onImportSolicit
       )}
 
       {results.map((o) => {
-        const link = safeUrl(o.description);
+        // const noticeUrl = safeUrl((o as any).noticeUrl ?? o.description); // keep your existing behavior
         const isActive = o.active === 'Yes' || (o.active as any) === true;
+
+        const title = o.title ?? '(No title)';
+        const noticeId = o.noticeId ?? '—';
+        const sol = o.solicitationNumber ?? '—';
+        const posted = fmtDate(o.postedDate) || '—';
+        const due = fmtDate(o.responseDeadLine) || '—';
 
         return (
           <Card
             key={o.noticeId ?? `${o.solicitationNumber}-${o.postedDate}-${o.title}`}
-            className="rounded-2xl transition-shadow hover:shadow-md"
+            className="group rounded-2xl border bg-background transition-all hover:-translate-y-[1px] hover:shadow-md"
           >
-            <CardContent className="p-4 md:p-5 space-y-3">
-              <div className="flex items-start justify-between gap-3">
+            <CardContent className="p-4 md:p-5">
+              {/* Top row: Title + badges + stats */}
+              <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
                 <div className="min-w-0">
-                  <div className="flex items-center gap-2">
-                    <h3 className="truncate text-base font-semibold">{o.title ?? '(No title)'}</h3>
-                    {isActive && <Badge className="shrink-0">Active</Badge>}
-                  </div>
-                  <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-xs text-muted-foreground">
-                    <span>Notice: {o.noticeId ?? '—'}</span>
-                    <span>•</span>
-                    <span>Sol: {o.solicitationNumber ?? '—'}</span>
-                  </div>
-                </div>
-
-                {link && (
-                  <a
-                    href={link}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="inline-flex items-center gap-1 text-sm text-primary hover:underline shrink-0"
-                  >
-                    View <ExternalLink className="h-4 w-4" />
-                  </a>
-                )}
-              </div>
-
-              <div className="grid gap-2 text-sm sm:grid-cols-2 lg:grid-cols-3">
-                <div className="flex items-center gap-2">
-                  <Calendar className="h-4 w-4 text-muted-foreground" />
-                  <span className="text-muted-foreground">Posted:</span>
-                  <span className="font-medium">{fmtDate(o.postedDate) || '—'}</span>
-                </div>
-
-                <div className="flex items-center gap-2">
-                  <Calendar className="h-4 w-4 text-destructive" />
-                  <span className="text-muted-foreground">Due:</span>
-                  <span className="font-medium">{fmtDate(o.responseDeadLine) || '—'}</span>
-                </div>
-
-                <div className="flex flex-wrap items-center gap-2">
-                  <span className="text-muted-foreground">NAICS:</span>
-                  <Badge variant="outline">{o.naicsCode ?? '—'}</Badge>
-                </div>
-
-                <div className="flex flex-wrap items-center gap-2">
-                  <span className="text-muted-foreground">PSC:</span>
-                  <Badge variant="outline">{o.classificationCode ?? '—'}</Badge>
-                </div>
-
-                {(o.setAsideCode || o.setAside) && (
                   <div className="flex flex-wrap items-center gap-2">
-                    <span className="text-muted-foreground">Set-aside:</span>
-                    <Badge variant="secondary">{o.setAsideCode ?? o.setAside}</Badge>
+                    <h3 className="min-w-0 flex-1 truncate text-base font-semibold tracking-tight">
+                      {title}
+                    </h3>
+
+                    {isActive ? (
+                      <Badge className="gap-1">
+                        <BadgeCheck className="h-3.5 w-3.5"/>
+                        Active
+                      </Badge>
+                    ) : (
+                      <Badge variant="secondary">Inactive</Badge>
+                    )}
+
+                    {(o.setAsideCode || o.setAside) && (
+                      <Badge variant="outline" className="gap-1">
+                        <Tag className="h-3.5 w-3.5"/>
+                        {o.setAsideCode ?? o.setAside}
+                      </Badge>
+                    )}
                   </div>
-                )}
+
+                  <div className="mt-2 grid gap-1.5">
+                    <MetaRow icon={<Hash className="h-3.5 w-3.5"/>} label="Notice:">
+                      {noticeId}
+                    </MetaRow>
+
+                    <MetaRow icon={<Building2 className="h-3.5 w-3.5"/>} label="Solicitation:">
+                      {sol}
+                    </MetaRow>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-2 md:w-[320px]">
+                  <StatPill
+                    icon={<Calendar className="h-4 w-4 text-muted-foreground"/>}
+                    label="Posted"
+                    value={posted}
+                  />
+                  <StatPill
+                    icon={<Calendar className="h-4 w-4 text-destructive"/>}
+                    label="Due"
+                    value={due}
+                    tone="danger"
+                  />
+                </div>
               </div>
 
-              <div className="flex flex-col gap-2 pt-3 border-t sm:flex-row sm:items-center">
-                <Button
-                  size="sm"
-                  onClick={() => onImportSolicitation(o)}
-                >
-                  Import solicitation
-                </Button>
-                <div className="text-xs text-muted-foreground sm:ml-auto">
-                  Saved searches + alerts next.
+              {/* Middle: codes */}
+              <div className="mt-4 flex flex-wrap gap-2">
+                <Badge variant="secondary" className="rounded-xl">
+                  NAICS: <span className="ml-1 font-medium text-foreground">{o.naicsCode ?? '—'}</span>
+                </Badge>
+                <Badge variant="secondary" className="rounded-xl">
+                  PSC: <span className="ml-1 font-medium text-foreground">{o.classificationCode ?? '—'}</span>
+                </Badge>
+              </div>
+
+              {/* Actions */}
+              <div className="mt-4 flex flex-col gap-2 border-t pt-4 sm:flex-row sm:items-center sm:justify-between">
+                <div className="flex items-center gap-2">
+                  <Button size="sm" onClick={() => onImportSolicitation(o)} disabled={isLoading}>
+                    Import solicitation
+                  </Button>
+                </div>
+
+                <div className="text-xs text-muted-foreground">
+                  {o.type ? (
+                    <span className="inline-flex items-center gap-1">
+                      Type: <span className="text-foreground/80">{String(o.type)}</span>
+                    </span>
+                  ) : (
+                    <span className="opacity-80"> </span>
+                  )}
                 </div>
               </div>
             </CardContent>
@@ -139,13 +203,20 @@ export function SamGovOpportunityList({ data, isLoading, onPage, onImportSolicit
       })}
 
       {data && total > limit && (
-        <div className="mt-4 flex items-center justify-between border-t pt-4">
-          <Button variant="outline" disabled={!canPrev || isLoading} onClick={() => onPage(Math.max(0, offset - limit))}>
+        <div className="mt-4 flex items-center justify-between rounded-2xl border bg-muted/10 p-3">
+          <Button
+            variant="outline"
+            disabled={!canPrev || isLoading}
+            onClick={() => onPage(Math.max(0, offset - limit))}
+          >
             Previous
           </Button>
+
           <div className="text-sm text-muted-foreground">
-            Page {Math.floor(offset / limit) + 1} of {Math.max(1, Math.ceil(total / limit))}
+            Page <span className="text-foreground">{Math.floor(offset / limit) + 1}</span> of{' '}
+            <span className="text-foreground">{Math.max(1, Math.ceil(total / limit))}</span>
           </div>
+
           <Button variant="outline" disabled={!canNext || isLoading} onClick={() => onPage(offset + limit)}>
             Next
           </Button>

@@ -1,7 +1,5 @@
 import crypto from 'crypto';
 import { GetCommand, PutCommand, QueryCommand, UpdateCommand, } from '@aws-sdk/lib-dynamodb';
-import { S3Client } from '@aws-sdk/client-s3';
-
 
 import { PK_NAME, SK_NAME } from '../constants/common';
 import { QUESTION_FILE_PK } from '../constants/question-file';
@@ -15,6 +13,7 @@ import { docClient } from './db';
 import { nowIso } from './date';
 import { loadTextFromS3 } from './s3';
 import { getEmbedding, OpenSearchHit, semanticSearchChunks } from './embeddings';
+
 const bedrock = new BedrockRuntimeClient({});
 
 const DB_TABLE_NAME = requireEnv('DB_TABLE_NAME');
@@ -88,19 +87,6 @@ export function safeJsonParse<T>(text: string, schema: SchemaLike<T>): T {
   return schema.parse(parsed);
 }
 
-// -------------------------
-// S3 helpers
-// -------------------------
-async function streamToString(body: any): Promise<string> {
-  if (!body) return '';
-  // In AWS SDK v3, body is a readable stream in Node runtimes
-  const chunks: Buffer[] = [];
-  for await (const chunk of body as any) {
-    chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
-  }
-  return Buffer.concat(chunks).toString('utf-8');
-}
-
 /**
  * Finds latest QuestionFile for project by createdAt.
  * NOTE: This works only if you can query items for projectId efficiently.
@@ -139,9 +125,6 @@ export async function loadLatestQuestionFile(projectId: string): Promise<Questio
   return items.sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1))[0];
 }
 
-// -------------------------
-// ExecutiveBrief helpers
-// -------------------------
 export async function getExecutiveBrief(executiveBriefId: string): Promise<ExecutiveBriefItem> {
   const res = await docClient.send(
     new GetCommand({
@@ -154,7 +137,29 @@ export async function getExecutiveBrief(executiveBriefId: string): Promise<Execu
   );
 
   if (!res.Item) throw new Error(`ExecutiveBrief not found: ${executiveBriefId}`);
-  return ExecutiveBriefItemSchema.parse(res.Item);
+  return res.Item as ExecutiveBriefItem;
+}
+
+export async function getExecutiveBriefByProjectId(projectId: string): Promise<ExecutiveBriefItem> {
+  const res = await docClient.send(
+    new QueryCommand({
+      TableName: DB_TABLE_NAME,
+      KeyConditionExpression: '#pk = :pk AND begins_with(#sk, :skPrefix)',
+      ExpressionAttributeNames: {
+        '#pk': PK_NAME,
+        '#sk': SK_NAME,
+      },
+      ExpressionAttributeValues: {
+        ':pk': EXEC_BRIEF_PK,
+        ':skPrefix': `${projectId}#`,
+      },
+      ScanIndexForward: false,
+      Limit: 1,
+    }),
+  );
+  if (!res.Items) throw new Error(`ExecutiveBrief not found: ${projectId}`);
+
+  return res.Items[0] as ExecutiveBriefItem;
 }
 
 export async function putExecutiveBrief(item: ExecutiveBriefItem): Promise<void> {
@@ -339,8 +344,8 @@ export function computeOverallStatus(
 }
 
 export async function queryCompanyKnowledgeBase(solicitationText: string, topK: number): Promise<OpenSearchHit[]> {
-  const embeddings = await getEmbedding(solicitationText)
-  return await semanticSearchChunks(embeddings, topK)
+  const embeddings = await getEmbedding(solicitationText);
+  return await semanticSearchChunks(embeddings, topK);
 }
 
 // -------------------------
@@ -431,3 +436,7 @@ export function buildSectionInputHash(args: {
   const { executiveBriefId, section, questionFileId, textKey } = args;
   return sha256(`${executiveBriefId}:${section}:${questionFileId}:${textKey}`);
 }
+
+export const executiveBriefSK = (projectId: string, briefId: string) => {
+  return `${projectId}#${briefId}`;
+};

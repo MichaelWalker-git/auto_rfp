@@ -4,11 +4,12 @@ import * as React from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Search } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
+import { useSearchParams } from 'next/navigation';
 
 import type { LoadSamOpportunitiesRequest, SamOpportunitySlim } from '@auto-rfp/shared';
 import { useSearchOpportunities } from '@/lib/hooks/use-opportunities';
 
-import { defaultDateRange } from './samgov-utils';
+import { defaultDateRange, filtersToRequest, reqToFiltersState, safeDecodeSearchParam } from './samgov-utils';
 import { SamGovFilters, type SamGovFiltersState } from './samgov-filters';
 import { SamGovOpportunityList } from './samgov-opportunity-list';
 
@@ -20,11 +21,17 @@ type Props = { orgId: string };
 
 export default function SamGovOpportunitySearchPage({ orgId }: Props) {
   const { toast } = useToast();
+  const searchParams = useSearchParams();
+
   const { data, isMutating: isLoading, error, trigger } = useSearchOpportunities();
   const { projects } = useProjectContext();
 
   const initial = React.useMemo(() => defaultDateRange(14), []);
-  const [filters, setFilters] = React.useState<SamGovFiltersState>({
+
+  // --- URL bootstrap (only once per mount) ---
+  const bootstrappedRef = React.useRef(false);
+
+  const [filters, setFilters] = React.useState<SamGovFiltersState>(() => ({
     keywords: '',
     naicsCsv: '541511',
     agencyName: '',
@@ -32,7 +39,44 @@ export default function SamGovOpportunitySearchPage({ orgId }: Props) {
     ptypeCsv: '',
     postedFrom: initial.postedFrom,
     postedTo: initial.postedTo,
-  });
+  }));
+
+  React.useEffect(() => {
+    if (bootstrappedRef.current) return;
+    bootstrappedRef.current = true;
+
+    const raw = searchParams?.get('search');
+    if (!raw) return;
+
+    const parsed = safeDecodeSearchParam(raw);
+    if (!parsed || typeof parsed !== 'object') {
+      toast({
+        title: 'Invalid saved search',
+        description: 'Could not parse the search filters from the URL.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    // parsed should be LoadSamOpportunitiesRequest-ish
+    const nextFilters = reqToFiltersState(parsed, initial);
+    setFilters(nextFilters);
+
+    // auto-run the search once with the parsed request
+    const req = filtersToRequest(nextFilters, {
+      limit: typeof parsed.limit === 'number' ? parsed.limit : 25,
+      offset: typeof parsed.offset === 'number' ? parsed.offset : 0,
+    });
+
+    trigger(req).catch((e: any) => {
+      toast({
+        title: 'SAM.gov search failed',
+        description: e?.message ?? String(e),
+        variant: 'destructive',
+      });
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams, initial.postedFrom, initial.postedTo, trigger, toast]);
 
   React.useEffect(() => {
     if (error) {
@@ -59,21 +103,7 @@ export default function SamGovOpportunitySearchPage({ orgId }: Props) {
   };
 
   const onPage = async (nextOffset: number) => {
-    const naics = filters.naicsCsv.split(',').map((s) => s.trim()).filter(Boolean);
-    const ptype = filters.ptypeCsv.split(',').map((s) => s.trim()).filter(Boolean);
-
-    const req: LoadSamOpportunitiesRequest = {
-      postedFrom: filters.postedFrom,
-      postedTo: filters.postedTo,
-      keywords: filters.keywords.trim() || undefined,
-      naics: naics.length ? naics : undefined,
-      organizationName: filters.agencyName.trim() || undefined,
-      setAsideCode: filters.setAsideCode.trim() || undefined,
-      ptype: ptype.length ? ptype : undefined,
-      limit: data?.limit ?? 25,
-      offset: nextOffset,
-    } as any;
-
+    const req = filtersToRequest(filters, { limit: data?.limit ?? 25, offset: nextOffset });
     await trigger(req);
   };
 
@@ -92,7 +122,7 @@ export default function SamGovOpportunitySearchPage({ orgId }: Props) {
       const res = await importSolicitation({
         ...args,
         postedFrom: filters.postedFrom,
-        postedTo: filters.postedTo
+        postedTo: filters.postedTo,
       });
 
       toast({
@@ -114,7 +144,7 @@ export default function SamGovOpportunitySearchPage({ orgId }: Props) {
       <div className="mb-5 flex items-start justify-between gap-4">
         <div className="min-w-0">
           <h1 className="flex items-center gap-2 text-2xl font-semibold tracking-tight">
-            <Search className="h-6 w-6 text-primary"/>
+            <Search className="h-6 w-6 text-primary" />
             Opportunities
           </h1>
           <p className="mt-1 text-sm text-muted-foreground">

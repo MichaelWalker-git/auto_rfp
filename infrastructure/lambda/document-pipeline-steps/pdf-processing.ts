@@ -9,7 +9,7 @@ import { withSentryLambda } from '../sentry-lambda';
 import { requireEnv } from '../helpers/env';
 import { docClient } from '../helpers/db';
 
-const REGION = requireEnv('REGION');
+const REGION = requireEnv('REGION', 'us-east-1');
 const DB_TABLE_NAME = requireEnv('DB_TABLE_NAME');
 const DOCUMENTS_BUCKET = requireEnv('DOCUMENTS_BUCKET');
 const TEXTRACT_SNS_TOPIC_ARN = requireEnv('TEXTRACT_SNS_TOPIC_ARN');

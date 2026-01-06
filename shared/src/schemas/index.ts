@@ -8,3 +8,4 @@ export * from './question';
 export * from './kb';
 export * from './project';
 export * from './samgov';
+export * from './prompt'

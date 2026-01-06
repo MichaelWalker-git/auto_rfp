@@ -1,37 +1,26 @@
 import { docClient } from './db';
 import { requireEnv } from './env';
-import { UpdateCommand, GetCommand } from '@aws-sdk/lib-dynamodb';
+import { GetCommand, UpdateCommand } from '@aws-sdk/lib-dynamodb';
 import { PK_NAME, SK_NAME } from '../constants/common';
 import { nowIso } from './date';
 import { SYSTEM_PROMPT_PK, USER_PROMPT_PK } from '../constants/prompt';
+import { PromptItem, PromptType } from '@auto-rfp/shared';
 
+const DB_TABLE_NAME = requireEnv('DB_TABLE_NAME');
 
-const DB_TABLE_NAME = requireEnv('db_TABLE_NAME');
-
-export type PromptType = {
-  SUMMARY: 'SUMMARY',
-}
-
-type PromptItem = {
-  prompt?: string;
-  orgId?: string;
-  type?: PromptType;
-  createdAt?: string;
-  updatedAt?: string;
-};
-
-const savePrompt = async (orgId: string, type: PromptType, prompt: string, pk: string) => {
+const savePrompt = async (orgId: string, type: PromptType, prompt: string, pk: string,   params: string[] = []) => {
   const res = await docClient.send(
     new UpdateCommand({
       TableName: DB_TABLE_NAME,
       Key: {
         [PK_NAME]: pk,
-        [SK_NAME]: `${type}#${orgId}`,
+        [SK_NAME]: `${orgId}#${type}`,
       },
       UpdateExpression:
-        'SET #prompt = :p, #updatedAt = :u, #orgId = if_not_exists(#orgId, :orgId), #type = if_not_exists(#type, :type), #createdAt = if_not_exists(#createdAt, :u)',
+        'SET #prompt = :p, #updatedAt = :u, #orgId = if_not_exists(#orgId, :orgId), #type = if_not_exists(#type, :type), #createdAt = if_not_exists(#createdAt, :u), #params = :params',
       ExpressionAttributeNames: {
         '#prompt': 'prompt',
+        '#params': 'params',
         '#updatedAt': 'updatedAt',
         '#createdAt': 'createdAt',
         '#orgId': 'orgId',
@@ -39,6 +28,7 @@ const savePrompt = async (orgId: string, type: PromptType, prompt: string, pk: s
       },
       ExpressionAttributeValues: {
         ':p': String(prompt),
+        ':params': params,
         ':u': nowIso(),
         ':orgId': orgId,
         ':type': type,
@@ -50,12 +40,12 @@ const savePrompt = async (orgId: string, type: PromptType, prompt: string, pk: s
   return res.Attributes;
 };
 
-const saveSystemPrompt = async (orgId: string, type: PromptType, prompt: string) => {
-  return await savePrompt(orgId, type, prompt, SYSTEM_PROMPT_PK);
+export const saveSystemPrompt = async (orgId: string, type: PromptType, prompt: string, params: string[] = []) => {
+  return await savePrompt(orgId, type, prompt, SYSTEM_PROMPT_PK, params);
 };
 
-const saveUserPrompt = async (orgId: string, type: PromptType, prompt: string) => {
-  return await savePrompt(orgId, type, prompt, USER_PROMPT_PK);
+export const saveUserPrompt = async (orgId: string, type: PromptType, prompt: string, params: string[] = []) => {
+  return await savePrompt(orgId, type, prompt, USER_PROMPT_PK, params);
 };
 
 const readPrompt = async (orgId: string, type: PromptType, pk: string): Promise<PromptItem | null> => {

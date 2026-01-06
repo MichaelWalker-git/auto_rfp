@@ -7,7 +7,7 @@ import { withSentryLambda } from '../sentry-lambda';
 
 import { type ExecutiveBriefItem, ExecutiveBriefItemSchema, } from '@auto-rfp/shared';
 
-import { loadLatestQuestionFile, putExecutiveBrief, } from '../helpers/executive-opportunity-brief';
+import { executiveBriefSK, loadLatestQuestionFile, putExecutiveBrief, } from '../helpers/executive-opportunity-brief';
 import { UpdateCommand } from '@aws-sdk/lib-dynamodb';
 
 import { PK_NAME, SK_NAME } from '../constants/common';
@@ -45,16 +45,15 @@ export const baseHandler = async (
     const bodyJson = event.body ? JSON.parse(event.body) : {};
     const { projectId } = RequestSchema.parse(bodyJson);
 
-    // 1) Find the latest question file for this project
     const qf = await loadLatestQuestionFile(projectId);
 
-    // 2) Create Executive Brief item
-    const executiveBriefId = uuidv4();
+    const id = uuidv4()
+    const sk = executiveBriefSK(projectId, id);
     const now = nowIso();
 
     const brief: ExecutiveBriefItem = {
       [PK_NAME]: EXEC_BRIEF_PK,
-      [SK_NAME]: executiveBriefId,
+      [SK_NAME]: sk,
       projectId,
       questionFileId: qf.questionFileId,
       textKey: qf.textFileKey,
@@ -73,14 +72,14 @@ export const baseHandler = async (
       updatedAt: now,
     } as any;
 
-    // Validate shape (catches missing fields early)
     ExecutiveBriefItemSchema.parse(brief);
 
     await putExecutiveBrief(brief);
 
-    // 3) Link brief on Project
-    // Store just the pointer so the UI can poll project for the brief id.
     const project = await getProjectById(projectId);
+    if (!project) {
+      return apiResponse(400, `Project ${projectId} not found`);
+    }
 
     await docClient.send(
       new UpdateCommand({
@@ -90,9 +89,9 @@ export const baseHandler = async (
           [SK_NAME]: project[SK_NAME],
         },
         UpdateExpression:
-          'SET executiveBriefId = :id, executiveBriefStatus = :st, executiveBriefUpdatedAt = :now',
+          'SET executiveBriefId = :sk, executiveBriefStatus = :st, executiveBriefUpdatedAt = :now',
         ExpressionAttributeValues: {
-          ':id': executiveBriefId,
+          ':sk': sk,
           ':st': 'IDLE',
           ':now': now,
         },
@@ -102,7 +101,7 @@ export const baseHandler = async (
     return apiResponse(200, {
       ok: true,
       projectId,
-      executiveBriefId,
+      executiveBriefId: sk,
       questionFileId: brief.questionFileId,
       textKey: brief.textKey,
     });

@@ -4,18 +4,12 @@ import { z } from 'zod';
 import { apiResponse } from '../helpers/api';
 import { withSentryLambda } from '../sentry-lambda';
 
-import { type ExecutiveBriefItem, ExecutiveBriefItemSchema, } from '@auto-rfp/shared';
+import { type ExecutiveBriefItem, } from '@auto-rfp/shared';
 
-import { getExecutiveBrief } from '../helpers/executive-opportunity-brief';
-import { getProjectById } from '../helpers/project';
-import { requireEnv } from '../helpers/env';
+import { getExecutiveBriefByProjectId } from '../helpers/executive-opportunity-brief';
 
 const RequestSchema = z.object({
   projectId: z.string().min(1),
-});
-
-const ProjectWithBriefLinkSchema = z.object({
-  executiveBriefId: z.string().min(1).optional(),
 });
 
 export const baseHandler = async (
@@ -23,36 +17,14 @@ export const baseHandler = async (
 ): Promise<APIGatewayProxyResultV2> => {
   try {
     const bodyJson = event.body ? JSON.parse(event.body) : {};
-    const projectId =
-      event.pathParameters?.projectId ??
-      RequestSchema.parse(bodyJson).projectId;
+    const projectId = event.pathParameters?.projectId ?? RequestSchema.parse(bodyJson).projectId;
 
-    const projRes = await getProjectById(projectId);
-
-    const projectParsed = ProjectWithBriefLinkSchema.safeParse(projRes);
-    if (!projectParsed.success) {
-      return apiResponse(500, {
-        ok: false,
-        error: 'Project item missing/invalid executiveBriefId field',
-      });
-    }
-
-    const executiveBriefId = projectParsed.data.executiveBriefId;
-    if (!executiveBriefId) {
-      return apiResponse(404, {
-        ok: false,
-        error: `No executive brief linked for projectId=${projectId}`,
-      });
-    }
-
-    // 2) Load executive brief entity
-    const brief: ExecutiveBriefItem = await getExecutiveBrief(executiveBriefId);
-    ExecutiveBriefItemSchema.parse(brief);
+    const brief: ExecutiveBriefItem = await getExecutiveBriefByProjectId(projectId);
 
     return apiResponse(200, {
       ok: true,
       projectId,
-      executiveBriefId,
+      executiveBriefId: brief.id,
       brief,
     });
   } catch (err) {

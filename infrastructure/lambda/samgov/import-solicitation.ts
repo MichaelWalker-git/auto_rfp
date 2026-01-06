@@ -30,6 +30,7 @@ import {
   type ImportSamConfig,
 } from '../helpers/samgov';
 import { uploadToS3 } from '../helpers/s3';
+import { nowIso } from '../helpers/date';
 
 const DOCUMENTS_BUCKET = requireEnv('DOCUMENTS_BUCKET');
 const STATE_MACHINE_ARN = requireEnv('QUESTION_PIPELINE_STATE_MACHINE_ARN');
@@ -56,7 +57,7 @@ async function createQuestionFile(args: {
   mimeType?: string;
   sourceDocumentId?: string;
 }) {
-  const now = new Date().toISOString();
+  const now = nowIso()
   const questionFileId = uuidv4();
   const sk = `${args.projectId}#${questionFileId}`;
 
@@ -153,6 +154,7 @@ export const baseHandler = async (
 
   try {
     const opp = await fetchOpportunityViaSearch(samCfg, { noticeId, postedFrom, postedTo });
+    console.log('Opportunity', opp);
     const attachments = extractAttachmentsFromOpportunity(opp);
 
     if (!attachments.length) {

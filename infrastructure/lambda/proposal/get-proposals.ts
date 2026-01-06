@@ -24,9 +24,9 @@ import {
 } from '../middleware/rbac-middleware';
 import { docClient } from '../helpers/db';
 import { requireEnv } from '../helpers/env';
+import { proposalSK } from '../helpers/proposal';
 
 const DB_TABLE_NAME = requireEnv('DB_TABLE_NAME');
-const skPrefixForProject = (projectId: string) => `${projectId}#PROPOSAL`;
 
 const normalizeDbItemToProposal = (it: any, projectId: string): Proposal => {
   const rawDoc = it?.document ?? it?.proposal;
@@ -94,7 +94,7 @@ export const baseHandler = async (
       ExpressionAttributeNames: { '#pk': PK_NAME, '#sk': SK_NAME },
       ExpressionAttributeValues: {
         ':pk': PROPOSAL_PK,
-        ':skPrefix': skPrefixForProject(projectId),
+        ':skPrefix': proposalSK(projectId, ''),
       },
       ScanIndexForward: false,
       Limit: 50,

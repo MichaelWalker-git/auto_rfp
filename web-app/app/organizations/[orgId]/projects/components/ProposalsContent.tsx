@@ -12,6 +12,7 @@ import { useProposals } from '@/lib/hooks/use-proposal';
 import { ProposalStatus } from '@auto-rfp/shared';
 import { NoRfpDocumentAvailable, useQuestions } from '@/app/organizations/[orgId]/projects/[projectId]/questions/components';
 import { GenerateProposalModal } from '@/app/organizations/[orgId]/projects/[projectId]/questions/components/GenerateProposalModal';
+import { useOrganization } from '@/context/organization-context';
 
 function statusVariant(status: ProposalStatus) {
   switch (status) {
@@ -47,6 +48,7 @@ type Props = {
 
 export default function ProposalsContent({ projectId }: Props) {
   const { questionFiles, isLoading: isQL, error: err, refreshQuestions } = useQuestions();
+  const { currentOrganization } = useOrganization()
   if (!isQL && !err && !questionFiles?.length) {
     return <NoRfpDocumentAvailable projectId={projectId}/>;
   }
@@ -159,7 +161,7 @@ export default function ProposalsContent({ projectId }: Props) {
         ) : (
           <div className="space-y-2">
             {sorted.map((p) => (
-              <Link key={p.id} href={`/projects/${projectId}/proposals/${p.id}`}>
+              <Link key={p.id} href={`/organizations/${currentOrganization?.id}/projects/${projectId}/proposals/${p.id}`}>
                 <div className="rounded-xl border bg-background p-3">
                   <div className="flex items-start gap-3">
                     <div className="h-10 w-10 rounded-lg bg-muted flex items-center justify-center shrink-0">

@@ -10,7 +10,7 @@ import { authContextMiddleware, httpErrorMiddleware, orgMembershipMiddleware, } 
 import { getEmbedding, type OpenSearchHit, semanticSearchChunks } from '../helpers/embeddings';
 import { loadTextFromS3 } from '../helpers/s3';
 
-const REGION = requireEnv('REGION');
+const REGION = requireEnv('REGION', 'us-east-1');
 const DOCUMENTS_BUCKET = requireEnv('DOCUMENTS_BUCKET');
 
 const DEFAULT_TOP_K = Number(requireEnv('TOP_CHUNKS_DEFAULT_TOP_K', '10'));

@@ -19,7 +19,7 @@ import { requireEnv } from '../helpers/env';
 import { docClient } from '../helpers/db';
 
 
-const REGION = requireEnv('REGION');
+const REGION = requireEnv('REGION', 'us-east-1');
 const DB_TABLE_NAME = requireEnv('DB_TABLE_NAME');
 const OPENSEARCH_ENDPOINT = requireEnv('OPENSEARCH_ENDPOINT');
 const OPENSEARCH_INDEX = requireEnv('OPENSEARCH_INDEX');

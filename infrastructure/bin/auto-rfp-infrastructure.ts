@@ -80,7 +80,6 @@ const api = new ApiStack(app, `AutoRfp-API-${stage}`, {
   sentryDNS
 });
 
-
 const githubToken = cdk.SecretValue.secretsManager('auto-rfp/github-token');
 
 new AmplifyFeStack(app, `AmplifyFeStack-${stage}`, {

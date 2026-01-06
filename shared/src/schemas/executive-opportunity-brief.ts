@@ -109,7 +109,7 @@ export type QuickSummary = z.infer<typeof QuickSummarySchema>;
 export const DeadlineSchema = z.object({
   type: z.string().optional().nullable(),
   label: z.string().optional().nullable(),
-  dateTimeIso: z.string().datetime().optional().nullable(),
+  dateTimeIso: z.string().datetime({ offset: true }).optional().nullable(),
   rawText: z.string().optional().nullable(),
   timezone: z.string().optional().nullable(),
   notes: z.string().optional().nullable(),
@@ -119,7 +119,7 @@ export const DeadlineSchema = z.object({
 export const DeadlinesSectionSchema = z.object({
   deadlines: z.array(DeadlineSchema).min(1),
   hasSubmissionDeadline: z.boolean().default(false),
-  submissionDeadlineIso: z.string().datetime().optional(),
+  submissionDeadlineIso: z.string().datetime({ offset: true }).optional(),
   warnings: z.array(z.string().min(1)).default([]), // “No explicit timezone found”, etc.
 });
 
@@ -204,49 +204,49 @@ export type RisksSection = z.infer<typeof RisksSectionSchema>;
 
 /**
  * ===================
- * SECTION: Bid Scoring
+ * SECTION: Bid Scoring (ALL OPTIONAL)
  * ===================
  */
-export const ScoreCriterionSchema = z.object({
-  name: z.enum([
-    'TECHNICAL_FIT',
-    'PAST_PERFORMANCE_RELEVANCE',
-    'PRICING_POSITION',
-    'STRATEGIC_ALIGNMENT',
-    'INCUMBENT_RISK',
-  ]),
-  score: z.number().int().min(1).max(5),
-  rationale: z.string().min(10),
-  gaps: z.array(z.string().min(1)).default([]),
-  evidence: z.array(EvidenceRefSchema).default([]),
-});
+export const ScoreCriterionSchema = z
+  .object({
+    name: z
+      .enum([
+        'TECHNICAL_FIT',
+        'PAST_PERFORMANCE_RELEVANCE',
+        'PRICING_POSITION',
+        'STRATEGIC_ALIGNMENT',
+        'INCUMBENT_RISK',
+      ])
+      .optional(),
+    score: z.number().int().min(1).max(5).optional(),
+    rationale: z.string().min(10).optional(),
+    gaps: z.array(z.string().min(1)).optional(),
+    evidence: z.array(EvidenceRefSchema).optional(),
+  })
+  .partial();
 
-export const ScoringSectionSchema = z.object({
-  criteria: z
-    .array(ScoreCriterionSchema)
-    .length(5)
-    .refine(
-      (arr) => new Set(arr.map((c) => c.name)).size === 5,
-      'All 5 criteria must be present and unique',
-    ),
-  compositeScore: z.number().min(1).max(5),
-  recommendation: RecommendationSchema,
-  confidence: z.number().int().min(0).max(100),
-  summaryJustification: z.string().min(20),
-  decision: DecisionSchema.optional().nullable(),
-  decisionRationale: z.string().min(20).optional().nullable(),
-  blockers: z.array(z.string().min(3)).default([]),
-  requiredActions: z.array(z.string().min(3)).default([]),
-  confidenceExplanation: z.string().min(20).optional().nullable(),
-  confidenceDrivers: z
-    .array(
-      z.object({
-        factor: z.string().min(3),
-        direction: z.enum(['UP', 'DOWN']),
-      }),
-    )
-    .default([]),
-});
+export const ScoringSectionSchema = z
+  .object({
+    criteria: z.array(ScoreCriterionSchema).optional(),
+    compositeScore: z.number().optional(),
+    recommendation: RecommendationSchema.optional(),
+    confidence: z.number().int().min(0).max(100).optional(),
+    summaryJustification: z.string().min(20).optional(),
+    decision: DecisionSchema.optional().nullable(),
+    decisionRationale: z.string().min(20).optional().nullable(),
+    blockers: z.array(z.string().min(3)).optional(),
+    requiredActions: z.array(z.string().min(3)).optional(),
+    confidenceExplanation: z.string().min(20).optional().nullable(),
+    confidenceDrivers: z
+      .array(
+        z.object({
+          factor: z.string().min(3).optional(),
+          direction: z.enum(['UP', 'DOWN']).optional(),
+        }),
+      )
+      .optional(),
+  })
+  .partial();
 
 export type ScoringSection = z.infer<typeof ScoringSectionSchema>;
 
@@ -269,16 +269,11 @@ export const SectionWrapperSchema = <T extends z.ZodTypeAny>(dataSchema: T) =>
  * ==========================
  */
 export const ExecutiveBriefItemSchema = z.object({
-
   projectId: z.string().min(1),
-
-  // Source pointers
   questionFileId: z.string().min(1),
   textKey: z.string().min(1),
   documentsBucket: z.string().min(1),
-
   status: SectionStatusSchema,
-
   sections: z.object({
     summary: SectionWrapperSchema(QuickSummarySchema),
     deadlines: SectionWrapperSchema(DeadlinesSectionSchema),
@@ -287,9 +282,7 @@ export const ExecutiveBriefItemSchema = z.object({
     risks: SectionWrapperSchema(RisksSectionSchema),
     scoring: SectionWrapperSchema(ScoringSectionSchema),
   }),
-
-  // top-level convenience fields (set by scoring step)
-  compositeScore: z.number().min(1).max(5).optional().nullable(),
+  compositeScore: z.number().optional().nullable(),
   recommendation: RecommendationSchema.optional().nullable(),
   decision: DecisionSchema.optional().nullable(),
   confidence: z.number().int().min(0).max(100).optional().nullable(),

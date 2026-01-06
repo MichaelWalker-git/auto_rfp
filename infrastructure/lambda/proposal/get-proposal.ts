@@ -7,7 +7,7 @@ import { apiResponse } from '../helpers/api';
 import { withSentryLambda } from '../sentry-lambda';
 import { PROPOSAL_PK } from '../constants/proposal';
 
-import { ProposalSchema } from '@auto-rfp/shared';
+import { Proposal, ProposalSchema } from '@auto-rfp/shared';
 import { proposalSK } from '../helpers/proposal';
 import {
   authContextMiddleware,
@@ -19,13 +19,7 @@ import middy from '@middy/core';
 import { requireEnv } from '../helpers/env';
 import { docClient } from '../helpers/db';
 
-
 const DB_TABLE_NAME = requireEnv('DB_TABLE_NAME');
-
-const QuerySchema = z.object({
-  projectId: z.string().min(1, 'projectId is required'),
-  proposalId: z.string().min(1).optional(),
-});
 
 function toProposalEntity(item: any) {
   const document = item.document ?? item.proposal;
@@ -61,30 +55,16 @@ async function getItem(pk: string, sk: string) {
   return res.Item ?? null;
 }
 
-export const baseHandler = async (
-  event: APIGatewayProxyEventV2,
-): Promise<APIGatewayProxyResultV2> => {
+export const baseHandler = async (event: APIGatewayProxyEventV2): Promise<APIGatewayProxyResultV2> => {
   try {
-    const qs = event.queryStringParameters ?? {};
-    const parsed = QuerySchema.safeParse(qs);
+    const { projectId, proposalId } = event.queryStringParameters ?? {};
 
-    if (!parsed.success) {
-      return apiResponse(400, {
-        message: 'Validation failed',
-        errors: parsed.error.issues.map((i) => ({
-          path: i.path.join('.'),
-          message: i.message,
-        })),
-      });
+    if (!projectId || !proposalId) {
+      return apiResponse(400, { message: 'Project ID and Proposal ID are required' });
     }
 
-    const { projectId, proposalId } = parsed.data;
 
-    let item: any | null = null;
-
-    if (proposalId) {
-      item = await getItem(PROPOSAL_PK, proposalSK(projectId, proposalId));
-    }
+    const item = await getItem(PROPOSAL_PK, proposalSK(projectId, proposalId));
 
     if (!item) {
       return apiResponse(404, { message: 'Proposal not found' });
