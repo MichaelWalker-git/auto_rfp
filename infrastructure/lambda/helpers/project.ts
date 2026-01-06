@@ -3,10 +3,11 @@ import { PK_NAME, SK_NAME } from '../constants/common';
 import { ORG_PK, PROJECT_PK } from '../constants/organization';
 import { DBItem, docClient } from './db';
 import { requireEnv } from './env';
+import { DBProjectItem } from '../types/project';
 
 const DB_TABLE_NAME = requireEnv('DB_TABLE_NAME');
 
-export async function getProjectById(projectId: string): Promise<any | null> {
+export async function getProjectById(projectId: string): Promise<DBProjectItem| null> {
   const items: any[] = [];
   let ExclusiveStartKey: Record<string, any> | undefined = undefined;
 
@@ -43,11 +44,10 @@ export async function getProjectById(projectId: string): Promise<any | null> {
 
   // From filtered results, pick the one whose SK really ends with "#<projectId>"
   const exact = items.find((item) => {
-    const sk = item[SK_NAME];
-    return typeof sk === 'string' && sk.endsWith(idSuffix);
+    return item[SK_NAME].endsWith(idSuffix);
   });
 
-  const orgId: string = exact.sort_key.split('#')[0];
+  const orgId: string = exact[SK_NAME].split('#')[0];
   const orgRes = await docClient.send(new GetCommand({
     TableName: DB_TABLE_NAME,
     Key: {
@@ -145,7 +145,7 @@ async function batchWriteDelete(keys: DBItem[]): Promise<number> {
 
     if (unprocessed.length) {
       const retry = unprocessed
-        .map((x) => x.DeleteRequest?.Key)
+        .map((x: any) => x.DeleteRequest?.Key)
         .filter(Boolean)
         .map((k: any) => ({
           [PK_NAME]: k[PK_NAME] as string,

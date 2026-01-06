@@ -11,27 +11,10 @@ import {
   requirePermission
 } from '../middleware/rbac-middleware';
 import middy from '@middy/core';
-import { requireEnv } from '../helpers/env';
-import { docClient } from '../helpers/db';
 
-const DB_TABLE_NAME = requireEnv('DB_TABLE_NAME');
-
-export const baseHandler = async (
-  event: APIGatewayProxyEventV2,
-): Promise<APIGatewayProxyResultV2> => {
-  if (!event.body) {
-    return apiResponse(400, { message: 'Request body is missing' });
-  }
-
+export const baseHandler = async (event: APIGatewayProxyEventV2): Promise<APIGatewayProxyResultV2> => {
   try {
-    let raw: unknown;
-    try {
-      raw = JSON.parse(event.body);
-    } catch {
-      return apiResponse(400, { message: 'Invalid JSON in request body' });
-    }
-
-    const parsed = SaveProposalRequestSchema.safeParse(raw);
+    const parsed = SaveProposalRequestSchema.safeParse(event.body);
     if (!parsed.success) {
       return apiResponse(400, {
         message: 'Validation failed',
@@ -42,11 +25,7 @@ export const baseHandler = async (
       });
     }
 
-    const saved = await saveProposal(
-      docClient,
-      DB_TABLE_NAME,
-      parsed.data
-    );
+    const saved = await saveProposal(parsed.data);
     return apiResponse(200, saved);
   } catch (err) {
     console.error('Error in saveProposal handler:', err);

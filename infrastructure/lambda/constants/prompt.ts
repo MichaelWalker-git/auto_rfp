@@ -353,3 +353,229 @@ export const useRiskUserPrompt = async (orgId: string, solicitation?: string) =>
   const prompt = await getRiskUserPrompt(orgId);
   return prompt.replace('{{SOLICITATION}}', solicitation || 'None');
 };
+
+
+export const DEADLINE_SYSTEM_PROMPT = [
+  'You extract deadlines from government solicitations.',
+  '',
+  'STRICT OUTPUT CONTRACT (MUST FOLLOW):',
+  '- Output ONLY a single valid JSON object. No prose, no markdown, no code fences.',
+  '- The first character MUST be "{" and the last character MUST be "}".',
+  '- JSON must match the DeadlinesSection schema exactly. Do NOT add extra keys.',
+  '',
+  'CRITICAL VALIDATION RULES:',
+  '- dateTimeIso and submissionDeadlineIso MUST be ISO-8601 datetime strings if present.',
+  '- Valid examples: "2026-01-15T17:00:00Z" or "2026-01-15T17:00:00-05:00".',
+  '- If you cannot confidently produce a valid ISO datetime, OMIT dateTimeIso/submissionDeadlineIso and use rawText + notes.',
+  '',
+  'EVIDENCE RULES:',
+  '- evidence MUST be an array of objects, not strings.',
+  '- EvidenceRef object keys allowed: source, snippet, chunkKey, documentId.',
+  '- Use snippet for short quotes from the solicitation. If unknown, use [].',
+  '',
+  'CONTENT RULES:',
+  '- Do not invent deadlines.',
+  '- Extract ALL deadlines mentioned (not just proposal due).',
+  '- If multiple dates/times exist, include multiple deadline entries.',
+].join('\n');
+
+export const getDeadlineSystemPrompt = async (orgId: string) => {
+  const { prompt } = await readSystemPrompt(orgId, 'DEADLINE') || {};
+  return prompt || DEADLINE_SYSTEM_PROMPT;
+};
+
+export const useDeadlineSystemPrompt = async (orgId: string, solicitation?: string) => {
+  return await getDeadlineSystemPrompt(orgId);
+};
+
+export const DEADLINE_USER_PROMPT = [
+  'TASK: Extract ALL deadlines from this solicitation.',
+  '',
+  'Return JSON ONLY. First char "{" last char "}".',
+  '',
+  'Use these deadline type values (prefer these exact words):',
+  '- PROPOSAL_DUE',
+  '- QUESTIONS_DUE',
+  '- SITE_VISIT',
+  '- PRE_PROPOSAL_CONFERENCE',
+  '- AMENDMENT_CUTOFF',
+  '- ORALS',
+  '- AWARD_ESTIMATE',
+  '- OTHER',
+  '',
+  'COPY THIS JSON SKELETON AND FILL IT IN (do not add keys):',
+  '{',
+  '  "deadlines": [',
+  '    {',
+  '      "type": "PROPOSAL_DUE",',
+  '      "label": "Proposal submission deadline",',
+  '      "dateTimeIso": "2026-01-15T17:00:00Z",',
+  '      "rawText": "optional original text",',
+  '      "timezone": "ET",',
+  '      "notes": "optional",',
+  '      "evidence": [ { "source": "SOLICITATION", "snippet": "short quote" } ]',
+  '    }',
+  '  ],',
+  '  "hasSubmissionDeadline": true,',
+  '  "submissionDeadlineIso": "2026-01-15T17:00:00Z",',
+  '  "warnings": []',
+  '}',
+  '',
+  'IMPORTANT:',
+  '- If you are NOT 100% sure of the ISO datetime, OMIT dateTimeIso and use rawText + notes instead.',
+  '- If timezone is not explicit, omit timezone and add a warning like "No explicit timezone found".',
+  '- If you found a deadline in text but could not parse a datetime, set notes to "UNPARSED_DATE" and include rawText.',
+  '- evidence[] must be objects with "snippet" (NOT strings). Use [] if you cannot quote.',
+  '',
+  'SOLICITATION TEXT:',
+  '{{SOLICITATION}}',
+].join('\n');
+
+
+export const getDeadlineUserPrompt = async (orgId: string) => {
+  const { prompt } = await readUserPrompt(orgId, 'DEADLINE') || {};
+  return prompt || DEADLINE_USER_PROMPT;
+};
+
+export const useDeadlineUserPrompt = async (orgId: string, solicitation?: string) => {
+  const prompt = await getDeadlineUserPrompt(orgId);
+  return prompt.replace('{{SOLICITATION}}', solicitation || 'None');
+};
+
+export const SCORING_SYSTEM_PROMPT = [
+  'You are a senior capture director deciding bid/no-bid in 5 minutes.',
+  'STRICT OUTPUT CONTRACT (MUST FOLLOW):',
+  '- Output ONLY a single valid JSON object.',
+  '- Do NOT output any text before "{" or after "}".',
+  '- No prose, no markdown, no code fences.',
+  '- The first character MUST be "{" and the last character MUST be "}".',
+  '- JSON must match the ScoringSection schema exactly. Do NOT add extra keys.',
+  'SCORING RULES:',
+  '- You MUST output exactly 5 criteria entries, one per required name:',
+  '  TECHNICAL_FIT, PAST_PERFORMANCE_RELEVANCE, PRICING_POSITION, STRATEGIC_ALIGNMENT, INCUMBENT_RISK',
+  '- Do not duplicate names. Do not omit any.',
+  '- Each score must be an integer 1..5.',
+  '- rationale must be at least 10 characters.',
+  '- If something is unknown, add a gap string and reduce confidence.',
+  '- decision must be one of: GO, CONDITIONAL_GO, NO_GO.',
+  '- If you list blockers, decision should be CONDITIONAL_GO or NO_GO.',
+  '- requiredActions must include mandatory steps before bidding.',
+  'EVIDENCE FORMAT (IMPORTANT):',
+  '- evidence MUST be an array of objects (NOT strings).',
+  '- EvidenceRef keys allowed: source, snippet, chunkKey, documentId.',
+  '- Use snippet for short quotes from solicitation.',
+  '- Use chunkKey/documentId when referencing KB excerpts.',
+  '- If no evidence, use [].',
+  'NON-HALLUCINATION RULE:',
+  '- Do not invent facts. Base scoring on the provided extracted sections, solicitation text, and KB excerpts only.',
+].join('\n');
+
+export const getScoringSystemPrompt = async (orgId: string) => {
+  const { prompt } = await readSystemPrompt(orgId, 'SCORING') || {};
+  return prompt || SCORING_SYSTEM_PROMPT;
+};
+
+export const useScoringSystemPrompt = async (orgId: string) => {
+  return await getScoringSystemPrompt(orgId);
+};
+
+export const SCORING_USER_PROMPT = [
+  'TASK: Produce Bid/No-Bid scoring and final recommendation for an Executive Opportunity Brief.',
+  '',
+  'Return JSON ONLY. First char "{" last char "}".',
+  '',
+  'COPY THIS JSON SKELETON AND FILL IT IN (do not add keys):',
+  '{',
+  '  "criteria": [',
+  '    {',
+  '      "name": "TECHNICAL_FIT",',
+  '      "score": 3,',
+  '      "rationale": "string (>=10 chars)",',
+  '      "gaps": [],',
+  '      "evidence": [ { "source": "SOLICITATION", "snippet": "short quote" } ]',
+  '    },',
+  '    { "name": "PAST_PERFORMANCE_RELEVANCE", "score": 3, "rationale": "string", "gaps": [], "evidence": [] },',
+  '    { "name": "PRICING_POSITION", "score": 3, "rationale": "string", "gaps": [], "evidence": [] },',
+  '    { "name": "STRATEGIC_ALIGNMENT", "score": 3, "rationale": "string", "gaps": [], "evidence": [] },',
+  '    { "name": "INCUMBENT_RISK", "score": 3, "rationale": "string", "gaps": [], "evidence": [] }',
+  '  ],',
+  '  "compositeScore": 3.0,',
+  '  "recommendation": "NEEDS_REVIEW",',
+  '  "confidence": 70,',
+  '  "summaryJustification": "string (>=20 chars)",',
+  '  "decision": "CONDITIONAL_GO",',
+  '  "decisionRationale": "string (>=20 chars)",',
+  '  "blockers": [],',
+  '  "requiredActions": [],',
+  '  "confidenceExplanation": "string (>=20 chars)",',
+  '  "confidenceDrivers": [ { "factor": "string", "direction": "UP" } ]',
+  '}',
+  '',
+  'GUIDANCE:',
+  '- Score each criterion 1..5 based ONLY on the provided data below.',
+  '- If extracted sections are missing important info, add that to gaps[] and reduce confidence.',
+  '- Recommendation:',
+  '  - GO: strong fit, manageable risk, realistic deadlines',
+  '  - NO_GO: clear blockers, heavy incumbent lock, impossible schedule, misalignment',
+  '  - NEEDS_REVIEW: incomplete info or moderate risk requiring human judgment',
+  '- Decision (explicit close-out):',
+  '  - GO: proceed to bid with no blocking actions',
+  '  - CONDITIONAL_GO: proceed only if blockers are resolved (list requiredActions)',
+  '  - NO_GO: do not bid unless major changes occur (list blockers)',
+  '- Confidence (0-100): start 85 and subtract for gaps/unknowns.',
+  '- If you reference a blocker, it must appear in blockers[] and be reflected in decisionRationale.',
+  '- If any requiredActions are mandatory before bidding, list them in requiredActions[].',
+  '- Explain confidence in confidenceExplanation and include top drivers in confidenceDrivers.',
+  '',
+  'EVIDENCE RULE:',
+  '- evidence[] MUST be objects (NOT strings). Use snippet for solicitation quotes.',
+  '- For KB evidence, include chunkKey/documentId when possible.',
+  '',
+  'KNOWN EXTRACTED SECTIONS (may be partial):',
+  'SUMMARY:',
+  '{{SUMMARY}}',
+  '',
+  'DEADLINES:',
+  '{{DEADLINES}}',
+  '',
+  'REQUIREMENTS:',
+  '{{REQUIREMENTS}}',
+  '',
+  'CONTACTS:',
+  '{{CONTACTS}}',
+  '',
+  'RISKS:',
+  '{{RISKS}}',
+  '',
+  'COMPANY KNOWLEDGE BASE EXCERPTS (past performance, capabilities, etc.):',
+  '{{KB_TEXT}}',
+  '',
+  'SOLICITATION TEXT (for grounding / final checks):',
+  '{{SOLICITATION}}',
+].join('\n');
+
+export const getScoringUserPrompt = async (orgId: string) => {
+  const { prompt } = await readUserPrompt(orgId, 'DEADLINE') || {};
+  return prompt || DEADLINE_USER_PROMPT;
+};
+
+export const useScoringUserPrompt = async (
+  orgId: string,
+  solicitation?: string,
+  summary?: string,
+  deadlines?: string,
+  requirements?: string,
+  contacts?: string,
+  risks?: string,
+  kbText?: string
+) => {
+  const prompt = await getScoringUserPrompt(orgId);
+  return prompt
+    .replace('{{SUMMARY}}', summary || 'None')
+    .replace('{{DEADLINES}}', deadlines || 'None')
+    .replace('{{REQUIREMENTS}}', requirements || 'None')
+    .replace('{{CONTACTS}}', contacts || 'None')
+    .replace('{{RISKS}}', risks || 'None')
+    .replace('{{KB_TEXT}}', kbText || 'None')
+    .replace('{{SOLICITATION}}', solicitation || 'None');
+};

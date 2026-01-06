@@ -5,21 +5,22 @@ import { PK_NAME, SK_NAME } from '../constants/common';
 import { PROPOSAL_PK } from '../constants/proposal';
 
 import { type Proposal, ProposalSchema, ProposalStatus, type SaveProposalRequest, } from '@auto-rfp/shared';
+import { requireEnv } from './env';
+import { docClient } from './db';
+import { nowIso } from './date';
+
+const DB_TABLE_NAME = requireEnv('DB_TABLE_NAME');
 
 export const proposalSK = (projectId: string, proposalId: string) => `${projectId}#${proposalId}`;
 
-export async function saveProposal(
-  docClient: any,
-  tableName: string,
-  input: SaveProposalRequest
-): Promise<Proposal> {
-  const now = new Date().toISOString();
+export async function saveProposal(input: SaveProposalRequest): Promise<Proposal> {
+  const now = nowIso();
   const newId = input.id ?? uuidv4();
 
   const sk = proposalSK(input.projectId, newId);
 
   const cmd = new UpdateCommand({
-    TableName: tableName,
+    TableName: DB_TABLE_NAME,
     Key: {
       [PK_NAME]: PROPOSAL_PK,
       [SK_NAME]: sk,
@@ -59,10 +60,8 @@ export async function saveProposal(
   const res = await docClient.send(cmd);
   const attrs = res.Attributes as unknown;
 
-  // Validate/normalize output with shared ProposalSchema
   const parsed = ProposalSchema.safeParse(attrs);
   if (!parsed.success) {
-    // keep debugging info but don't crash silently
     console.error('Saved proposal failed schema validation', parsed.error, attrs);
     throw new Error('Saved proposal has invalid shape in DB (does not match ProposalSchema)');
   }

@@ -1,14 +1,7 @@
-import {
-  AlignmentType,
-  Document,
-  HeadingLevel,
-  Packer,
-  Paragraph,
-  TextRun,
-  UnderlineType,
-} from 'docx';
+import { AlignmentType, Document, HeadingLevel, Packer, Paragraph, TextRun, UnderlineType, } from 'docx';
 import { saveAs } from 'file-saver';
-import type { ExecutiveBriefItem, EvidenceRef } from '@auto-rfp/shared'; // adjust
+import type { ExecutiveBriefItem } from '@auto-rfp/shared'; // adjust
+import type { SectionKey, SectionStatus } from './types';
 
 const FONT_SIZE = {
   title: 34, // ~17pt
@@ -25,6 +18,9 @@ const SPACING = {
   normal: { before: 120, after: 120 },
   loose: { before: 180, after: 180 },
 };
+
+type AlignmentValue = (typeof AlignmentType)[keyof typeof AlignmentType];
+type HeadingLevelValue = (typeof HeadingLevel)[keyof typeof HeadingLevel];
 
 function safeText(v: unknown, fallback = '—'): string {
   if (v === null || v === undefined) return fallback;
@@ -51,7 +47,7 @@ function pText(
     color?: string;
     size?: number;
     spacing?: { before: number; after: number };
-    alignment?: AlignmentType;
+    alignment?: AlignmentValue;
   },
 ) {
   return new Paragraph({
@@ -73,7 +69,7 @@ function blank() {
   return new Paragraph({ spacing: { before: 0, after: 0 } });
 }
 
-function h(text: string, level: HeadingLevel) {
+function h(text: string, level: HeadingLevelValue) {
   const size =
     level === HeadingLevel.HEADING_1
       ? FONT_SIZE.h1
@@ -172,56 +168,6 @@ function sectionStatus(wrap?: { status?: string | null; updatedAt?: string | nul
 }
 
 // ---------------------------
-// Evidence rendering (consistent)
-// ---------------------------
-// Goal: keep doc readable and consistent.
-// - Only show evidence where helpful
-// - Cap per section and per item
-// - Use smaller font, muted color
-function renderEvidenceList(
-  evidence: EvidenceRef[] | null | undefined,
-  opts?: { max?: number; title?: string; maxSnippetChars?: number },
-): Paragraph[] {
-  const ev = (evidence ?? []).filter(Boolean);
-  if (!ev.length) return [];
-
-  const max = opts?.max ?? 6;
-  const maxSnippetChars = opts?.maxSnippetChars ?? 220;
-  const title = opts?.title ?? 'Evidence';
-
-  const out: Paragraph[] = [h(title, HeadingLevel.HEADING_3)];
-
-  ev.slice(0, max).forEach((e, idx) => {
-    const meta = joinNonEmpty(
-      [
-        e.source ? `Source: ${e.source}` : null,
-        e.documentId ? `Doc: ${e.documentId}` : null,
-        e.chunkKey ? `Chunk: ${e.chunkKey}` : null,
-      ],
-      ' • ',
-    );
-
-    out.push(bullet(`${idx + 1}. ${meta}`, 0, { size: FONT_SIZE.small, color: '666666' }));
-
-    const snip = (e.snippet ?? '').trim();
-    if (snip) {
-      out.push(
-        bullet(`“${clamp(snip.replace(/\s+/g, ' '), maxSnippetChars)}”`, 1, {
-          size: FONT_SIZE.small,
-          color: '666666',
-        }),
-      );
-    }
-  });
-
-  if (ev.length > max) {
-    out.push(pText(`(Showing ${max} of ${ev.length})`, { color: '666666', size: FONT_SIZE.small }));
-  }
-
-  return out;
-}
-
-// ---------------------------
 // Uniform content blocks
 // ---------------------------
 function kvList(items: Array<{ label: string; value: string }>): Paragraph[] {
@@ -261,7 +207,6 @@ function buildSummary(brief: ExecutiveBriefItem): Paragraph[] {
     blank(),
     ...longTextBlock('Summary Narrative', data.summary, { maxChars: 1800 }),
     blank(),
-    ...renderEvidenceList(data.evidence, { title: 'Summary Evidence', max: 6 }),
   );
 
   return out;
@@ -296,20 +241,6 @@ function buildDeadlines(brief: ExecutiveBriefItem): Paragraph[] {
     out.push(blank(), h('Warnings', HeadingLevel.HEADING_2), ...bullets(warnings, 0));
   }
 
-  // Evidence: only include evidence for the first few deadlines to keep uniform size
-  const deadlinesWithEvidence = (data.deadlines ?? []).filter((d) => (d.evidence ?? []).length > 0).slice(0, 3);
-  if (deadlinesWithEvidence.length) {
-    out.push(blank(), h('Selected Deadline Evidence', HeadingLevel.HEADING_2));
-    deadlinesWithEvidence.forEach((d, i) => {
-      const label = joinNonEmpty([d.label ?? null, d.type ?? null], ' — ');
-      out.push(
-        pText(`Deadline ${i + 1}: ${safeText(label)}`, { bold: true, size: FONT_SIZE.body, spacing: SPACING.tight }),
-        ...renderEvidenceList(d.evidence, { max: 3, title: 'Evidence', maxSnippetChars: 180 }),
-        blank(),
-      );
-    });
-  }
-
   return out;
 }
 
@@ -339,9 +270,6 @@ function buildRequirements(brief: ExecutiveBriefItem): Paragraph[] {
     out.push(bullet(`${idx + 1}. [${must}]${cat} — ${clamp(r.requirement, 260)}`, 0));
 
     const ev = r.evidence ?? [];
-    if (ev.length) {
-      out.push(...renderEvidenceList(ev, { max: 2, title: 'Evidence', maxSnippetChars: 160 }));
-    }
   });
 
   if ((data.requirements ?? []).length > reqs.length) {
@@ -393,9 +321,6 @@ function buildContacts(brief: ExecutiveBriefItem): Paragraph[] {
       if (details !== '—') out.push(bullet(details, 1));
 
       if (c.notes) out.push(bullet(`Notes: ${clamp(c.notes, 220)}`, 1));
-
-      const ev = c.evidence ?? [];
-      if (ev.length) out.push(...renderEvidenceList(ev, { max: 2, title: 'Evidence', maxSnippetChars: 160 }));
     });
   }
 
@@ -428,9 +353,6 @@ function buildRisks(brief: ExecutiveBriefItem): Paragraph[] {
       if (r.whyItMatters) out.push(bullet(`Why it matters: ${clamp(r.whyItMatters, 260)}`, 1));
       if (r.mitigation) out.push(bullet(`Mitigation: ${clamp(r.mitigation, 260)}`, 1));
       if (r.impactsScore) out.push(bullet(`Impacts score: Yes`, 1));
-
-      const ev = r.evidence ?? [];
-      if (ev.length) out.push(...renderEvidenceList(ev, { max: 2, title: 'Evidence', maxSnippetChars: 160 }));
     });
 
     if (flags.length > slice.length) {
@@ -452,8 +374,6 @@ function buildRisks(brief: ExecutiveBriefItem): Paragraph[] {
       { label: 'Notes', value: safeText(inc?.notes) },
     ]),
   );
-  out.push(blank(), ...renderEvidenceList(inc?.evidence ?? [], { title: 'Incumbent Evidence', max: 4 }));
-
   return out;
 }
 
@@ -498,8 +418,6 @@ function buildScoring(brief: ExecutiveBriefItem): Paragraph[] {
       out.push(bullet('Gaps:', 1));
       (c.gaps ?? []).slice(0, 8).forEach((g) => out.push(bullet(clamp(g, 220), 2)));
     }
-    const ev = c.evidence ?? [];
-    if (ev.length) out.push(...renderEvidenceList(ev, { max: 2, title: 'Evidence', maxSnippetChars: 160 }));
   });
 
   return out;
@@ -573,4 +491,65 @@ export async function exportBriefAsDocx(projectName: string, briefItem: Executiv
   const blob = await Packer.toBlob(doc);
   const name = fileNameSafe(projectName || 'project');
   saveAs(blob, `${name}_Executive_Opportunity_Brief.docx`);
+}
+
+export function formatDate(value?: string) {
+  if (!value) return '—';
+  const d = new Date(value);
+  return Number.isNaN(d.getTime()) ? value : d.toLocaleString();
+}
+
+export function recommendationVariant(rec?: string) {
+  if (rec === 'GO') return 'default';
+  if (rec === 'NO_GO') return 'destructive';
+  if (rec === 'CONDITIONAL_GO') return 'secondary';
+  return 'secondary';
+}
+
+export function statusBadgeVariant(s: SectionStatus) {
+  if (s === 'COMPLETE') return 'default';
+  if (s === 'FAILED') return 'destructive';
+  if (s === 'IN_PROGRESS') return 'secondary';
+  return 'outline';
+}
+
+export function statusLabel(s: SectionStatus) {
+  if (!s) return '—';
+  return s;
+}
+
+export function isSectionComplete(brief: any, section: Exclude<SectionKey, 'scoring'>): boolean {
+  return brief?.sections?.[section]?.status === 'COMPLETE';
+}
+
+export function scoringPrereqsComplete(brief: any): { ok: true } | { ok: false; missing: string[] } {
+  const prereqs: Exclude<SectionKey, 'scoring'>[] = ['summary', 'deadlines', 'requirements', 'contacts', 'risks'];
+  const missing = prereqs.filter((s) => !isSectionComplete(brief, s));
+  return missing.length ? { ok: false, missing } : { ok: true };
+}
+
+export function buildSectionsState(briefItem: any) {
+  const s = briefItem?.sections;
+  if (!s) return null;
+  return {
+    summary: s.summary?.status,
+    deadlines: s.deadlines?.status,
+    contacts: s.contacts?.status,
+    requirements: s.requirements?.status,
+    risks: s.risks?.status,
+    scoring: s.scoring?.status,
+  } as const;
+}
+
+export function calcProgress(sectionsState: Record<string, SectionStatus> | null, totalSections: number) {
+  if (!sectionsState) return { completed: 0, percent: 0, inProgress: [] as string[] };
+
+  const completed = Object.values(sectionsState).filter((x) => x === 'COMPLETE').length;
+  const percent = (completed / totalSections) * 100;
+
+  const inProgress = Object.entries(sectionsState)
+    .filter(([, v]) => v === 'IN_PROGRESS')
+    .map(([k]) => k);
+
+  return { completed, percent, inProgress };
 }

@@ -140,6 +140,28 @@ export async function getExecutiveBrief(executiveBriefId: string): Promise<Execu
   return ExecutiveBriefItemSchema.parse(res.Item);
 }
 
+export async function getExecutiveBriefByProjectId(projectId: string): Promise<ExecutiveBriefItem> {
+  const res = await docClient.send(
+    new QueryCommand({
+      TableName: DB_TABLE_NAME,
+      KeyConditionExpression: '#pk = :pk AND begins_with(#sk, :skPrefix)',
+      ExpressionAttributeNames: {
+        '#pk': PK_NAME,
+        '#sk': SK_NAME,
+      },
+      ExpressionAttributeValues: {
+        ':pk': EXEC_BRIEF_PK,
+        ':skPrefix': `${projectId}#`,
+      },
+      ScanIndexForward: false,
+      Limit: 1,
+    }),
+  );
+  if (!res.Items) throw new Error(`ExecutiveBrief not found: ${projectId}`);
+
+  return res.Items[0] as ExecutiveBriefItem;
+}
+
 export async function putExecutiveBrief(item: ExecutiveBriefItem): Promise<void> {
   await docClient.send(
     new PutCommand({
@@ -414,3 +436,7 @@ export function buildSectionInputHash(args: {
   const { executiveBriefId, section, questionFileId, textKey } = args;
   return sha256(`${executiveBriefId}:${section}:${questionFileId}:${textKey}`);
 }
+
+export const executiveBriefSK = (projectId: string, briefId: string) => {
+  return `${projectId}#${briefId}`;
+};
