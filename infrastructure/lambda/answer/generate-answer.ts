@@ -17,7 +17,7 @@ import {
 } from '../middleware/rbac-middleware';
 import middy from '@middy/core';
 import { requireEnv } from '../helpers/env';
-import { AnswerQuestionRequestBody, QAItem } from '@auto-rfp/shared';
+import { AnswerQuestionRequestBody, AnswerSource, QAItem } from '@auto-rfp/shared';
 import { getQuestionItemById } from '../helpers/question';
 import { saveAnswer } from './save-answer';
 import { DBItem, docClient } from '../helpers/db';
@@ -46,11 +46,7 @@ async function getDocumentItemById(documentId: string): Promise<DocumentItem & D
     }),
   );
 
-  const items =
-    (queryRes.Items || []) as (DocumentItem & {
-      [PK_NAME]: string;
-      [SK_NAME]: string;
-    })[];
+  const items = (queryRes.Items || []) as (DocumentItem & DBItem)[];
 
   const docItem = items.find((it) => String(it[SK_NAME]).endsWith(skSuffix));
   if (!docItem) {
@@ -59,56 +55,28 @@ async function getDocumentItemById(documentId: string): Promise<DocumentItem & D
   return docItem;
 }
 
-async function loadDocumentText(docItem: DocumentItem): Promise<string> {
-  const textKey = (docItem as any).textFileKey || (docItem as any).fileKey;
-  if (!textKey) throw new Error('Document has no textFileKey or fileKey');
-  return loadTextFromS3(DOCUMENTS_BUCKET!, textKey);
-}
+async function buildContextFromChunkHits(hits: OpenSearchHit[]) {
+  const byChunkKey = new Map<string, OpenSearchHit>();
 
-async function buildContextFromChunkHits(
-  hits: OpenSearchHit[],
-  opts?: { maxChars?: number },
-): Promise<{ context: string; primaryDocumentId: string }> {
-  const maxChars = opts?.maxChars ?? 60_000; // keep prompt sane
-
-  const seen = new Set<string>();
-  const unique = hits.filter((h) => {
-    const key = h._source?.chunkKey;
-    if (!key) return true; // keep, might still have text
-    if (seen.has(key)) return false;
-    seen.add(key);
-    return true;
-  });
-
-  const primaryDocumentId = unique[0]?._source?.documentId || '';
-
-  let acc = '';
-  for (const hit of unique) {
-    const src = hit._source || {};
-
-    const chunkText = src?.chunkKey
-      ? (await loadTextFromS3(DOCUMENTS_BUCKET, src.chunkKey)).trim()
-      : '';
-
-    if (!chunkText) continue;
-
-    const piece = [
-      `\n\n---`,
-      `documentId: ${src.documentId ?? ''}`,
-      src.chunkIndex !== undefined ? `chunkIndex: ${src.chunkIndex}` : undefined,
-      src.chunkKey ? `chunkKey: ${src.chunkKey}` : undefined,
-      `---\n`,
-      chunkText,
-    ]
-      .filter(Boolean)
-      .join('\n');
-
-    if ((acc + piece).length > maxChars) break;
-    acc += piece;
+  for (const hit of hits) {
+    const k = hit._source?.chunkKey;
+    if (!k) continue;
+    if (!byChunkKey.has(k)) byChunkKey.set(k, hit);
   }
 
-  return { context: acc.trim(), primaryDocumentId };
+  const uniqueHits = [...byChunkKey.values()];
+
+  return Promise.all(
+    uniqueHits.map(async (hit) => {
+      const chunkKey = hit._source?.chunkKey;
+      const docId = hit._source?.documentId;
+      const text = chunkKey ? await loadTextFromS3(DOCUMENTS_BUCKET, chunkKey) : '';
+      const { name: fileName } = docId ? await getDocumentItemById(docId) : {};
+      return { ...hit, text, fileName };
+    }),
+  );
 }
+
 
 async function answerWithBedrockLLM(question: string, context: string): Promise<Partial<QAItem>> {
   const systemPrompt = `
@@ -124,7 +92,7 @@ Rules:
 Output format:
 Return ONLY a single JSON object:
 
-{"answer":"string","confidence":0.0,"found":true}
+{"answer":"string","confidence":0.0,"found":true, "source": chunkKey}
 `.trim();
 
   const userPrompt = [
@@ -138,7 +106,7 @@ Return ONLY a single JSON object:
 
   const payload = {
     anthropic_version: 'bedrock-2023-05-31',
-    max_tokens: 512,
+    max_tokens: 2048,
     temperature: 0.2,
     system: systemPrompt,
     messages: [{ role: 'user', content: [{ type: 'text', text: userPrompt }] }],
@@ -189,13 +157,13 @@ export const baseHandler = async (
 
   const topK = body.topK && body.topK > 0 ? body.topK : 30;
 
-  const { questionId, projectId, question: text } = body;
+  const { questionId, projectId, question: requestQuestion } = body;
 
   try {
 
     const question = questionId
       ? (await getQuestionItemById(docClient, projectId, questionId)).question
-      : text?.trim();
+      : requestQuestion?.trim();
 
     if (!question) {
       return apiResponse(400, {
@@ -212,39 +180,29 @@ export const baseHandler = async (
       return apiResponse(404, { message: 'No matching chunks found for this question' });
     }
 
-    // 3) Build context from chunks (S3 fetches by chunkKey when needed)
-    const { context, primaryDocumentId } = await buildContextFromChunkHits(hits, {
-      maxChars: 60_000,
-    });
+    const texts = await buildContextFromChunkHits(hits);
 
-    // If for some reason we couldn't build chunk context, fallback to old doc text path
-    let finalContext = context;
-    let documentId = primaryDocumentId;
+    let finalContext =
+      texts.map(h => `${h._source?.chunkKey} content: ${h.text}`).join('\n');
 
-    if (!finalContext) {
-      // fallback: try to load full doc text from Dynamo + S3
-      documentId = hits[0]._source?.documentId || '';
-      if (!documentId) throw new Error('No documentId found in top hit');
-      const docItem = await getDocumentItemById(documentId);
-      finalContext = await loadDocumentText(docItem);
-    }
-
-    if (!documentId) documentId = hits[0]._source?.documentId || '';
-
-    // 4) Ask Bedrock LLM
-    const { answer, confidence, found } = await answerWithBedrockLLM(question, finalContext);
+    const { answer, confidence, found, source } = await answerWithBedrockLLM(question, finalContext);
 
     // 5) Store Q&A in Dynamo
     const qaItem = await saveAnswer({
-      documentId: documentId || '',
       questionId: questionId,
       text: answer,
       confidence: confidence,
-      source: hits[0]._source?.chunkKey
+      sources: texts.map(hit => ({
+        id: hit._id,
+        documentId: hit._source?.documentId,
+        fileName: hit.fileName,
+        chunkKey: hit._source?.chunkKey,
+        textContent: hit.text,
+      } as AnswerSource))
     });
 
     return apiResponse(200, {
-      documentId,
+      sources: qaItem.sources,
       questionId: qaItem.questionId,
       answer,
       confidence,

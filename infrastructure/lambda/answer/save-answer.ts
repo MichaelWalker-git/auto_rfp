@@ -4,7 +4,7 @@ import { v4 as uuidv4 } from 'uuid';
 
 import { PK_NAME, SK_NAME } from '../constants/common';
 import { apiResponse } from '../helpers/api';
-import { AnswerItem, CreateAnswerDTO, CreateAnswerDTOSchema, } from '../schemas/answer';
+import { AnswerItem, SaveAnswerDTO, SaveAnswerDTOSchema, } from '@auto-rfp/shared';
 import { ANSWER_PK } from '../constants/answer';
 import { withSentryLambda } from '../sentry-lambda';
 import {
@@ -16,16 +16,15 @@ import {
 import middy from '@middy/core';
 import { requireEnv } from '../helpers/env';
 import { DBItem, docClient } from '../helpers/db';
+import { nowIso } from '../helpers/date';
 
 const DB_TABLE_NAME = requireEnv('DB_TABLE_NAME');
 
-export const baseHandler = async (
-  event: APIGatewayProxyEventV2,
-): Promise<APIGatewayProxyResultV2> => {
+export const baseHandler = async (event: APIGatewayProxyEventV2): Promise<APIGatewayProxyResultV2> => {
   try {
     const rawBody = JSON.parse(event?.body || '');
 
-    const validationResult = CreateAnswerDTOSchema.safeParse(rawBody);
+    const validationResult = SaveAnswerDTOSchema.safeParse(rawBody);
 
     if (!validationResult.success) {
       const errorDetails = validationResult.error.issues.map((issue) => ({
@@ -39,7 +38,7 @@ export const baseHandler = async (
       });
     }
 
-    const dto: CreateAnswerDTO = validationResult.data;
+    const dto: SaveAnswerDTO = validationResult.data;
 
     const savedAnswer = await saveAnswer(dto);
 
@@ -59,8 +58,8 @@ export const baseHandler = async (
 };
 
 export async function saveAnswer(dto: Partial<AnswerItem>): Promise<AnswerItem> {
-  const now = new Date().toISOString();
-  const { questionId, text, projectId, organizationId, source, documentId } = dto;
+  const now = nowIso();
+  const { questionId, text, projectId, organizationId, sources } = dto;
 
   const skPrefix = `${projectId}#${questionId}#`;
 
@@ -93,18 +92,18 @@ export async function saveAnswer(dto: Partial<AnswerItem>): Promise<AnswerItem> 
         TableName: DB_TABLE_NAME,
         Key: key,
         UpdateExpression:
-          'SET #text = :text, #organizationId = :organizationId, #updatedAt = :updatedAt, #source = :source',
+          'SET #text = :text, #organizationId = :organizationId, #updatedAt = :updatedAt, #sources = :sources',
         ExpressionAttributeNames: {
           '#text': 'text',
           '#organizationId': 'organizationId',
           '#updatedAt': 'updatedAt',
-          '#source': 'source',
+          '#sources': 'sources',
         },
         ExpressionAttributeValues: {
           ':text': text,
           ':organizationId': organizationId ?? null,
           ':updatedAt': now,
-          ':source': source,
+          ':sources': sources || [],
         },
         ReturnValues: 'ALL_NEW',
       }),
@@ -125,9 +124,7 @@ export async function saveAnswer(dto: Partial<AnswerItem>): Promise<AnswerItem> 
     projectId,
     organizationId,
     text: text || '',
-    source: source || 'manual',
-    documentId: documentId,
-
+    sources: sources,
     createdAt: now,
     updatedAt: now,
   };

@@ -7,7 +7,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Save, Sparkles, Trash2 } from 'lucide-react';
 import { Spinner } from '@/components/ui/spinner';
 import { AnswerDisplay } from '@/components/ui/answer-display';
-import { AnswerSource } from '@/types/api';
+import { AnswerSource } from '@auto-rfp/shared';
 import PermissionWrapper from '@/components/permission-wrapper';
 
 interface AnswerData {
@@ -94,10 +94,10 @@ export function QuestionEditor({
                 <span
                   key={source.id}
                   className="inline-block px-2 py-1 bg-slate-100 border border-slate-200 rounded text-slate-600 hover:bg-slate-200 transition-colors cursor-pointer"
-                  title={`${source.fileName}${source.pageNumber ? ` - Page ${source.pageNumber}` : ''}`}
+                  title={`${source.fileName}`}
                   onClick={() => onSourceClick(source)}
                 >
-                  {source.id}
+                  {source.fileName}
                 </span>
               ))}
             </div>

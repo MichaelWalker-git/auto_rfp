@@ -18,6 +18,7 @@ import type { PromptItem } from '@auto-rfp/shared';
 import { PromptScopeSchema, PromptTypeSchema } from '@auto-rfp/shared';
 
 import { usePrompts, useSavePrompt } from '@/lib/hooks/use-prompt';
+import { useOrganization } from '@/context/organization-context';
 
 type Scope = 'SYSTEM' | 'USER';
 
@@ -210,11 +211,9 @@ function PromptRow({
 export function PromptsManager() {
   const { toast } = useToast();
 
-  const { system, user, isLoading, error, refresh } = usePrompts();
+  const { currentOrganization } = useOrganization();
+  const { system, user, isLoading, error, refresh } = usePrompts(currentOrganization?.id);
   const { trigger: saveTrigger, isMutating: isSaving } = useSavePrompt();
-
-  const [query, setQuery] = React.useState('');
-  const [showOnlyUnsaved, setShowOnlyUnsaved] = React.useState(false);
 
   React.useEffect(() => {
     if (error) {
@@ -237,13 +236,10 @@ export function PromptsManager() {
     const known = (PromptTypeSchema as any)?._def?.values as string[] | undefined;
     const list = Array.from(set);
 
-    const all = known?.length
+    return known?.length
       ? [...known.filter((k) => set.has(k)), ...list.filter((t) => !new Set(known).has(t)).sort()]
       : list.sort();
-
-    const q = query.trim().toLowerCase();
-    return all.filter((t) => (!q ? true : t.toLowerCase().includes(q)));
-  }, [system, user, query]);
+  }, [system, user]);
 
   const onSave = async (args: { scope: Scope; type: string; prompt: string; params: string[] }) => {
     const scopeOk = PromptScopeSchema.safeParse(args.scope);
@@ -311,11 +307,6 @@ export function PromptsManager() {
             {types.map((type) => {
               const sys = systemMap.get(type) ?? null;
               const usr = userMap.get(type) ?? null;
-
-              if (showOnlyUnsaved) {
-                const hasAny = Boolean(sys?.prompt?.trim() || usr?.prompt?.trim());
-                if (!hasAny) return null;
-              }
 
               return (
                 <section key={type} className="space-y-3">

@@ -14,7 +14,8 @@ import middy from '@middy/core';
 
 export const baseHandler = async (event: APIGatewayProxyEventV2): Promise<APIGatewayProxyResultV2> => {
   try {
-    const parsed = SaveProposalRequestSchema.safeParse(event.body);
+    const parsedBody = JSON.parse(event.body || '')
+    const parsed = SaveProposalRequestSchema.safeParse(parsedBody);
     if (!parsed.success) {
       return apiResponse(400, {
         message: 'Validation failed',

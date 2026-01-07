@@ -8,6 +8,7 @@ export const QAItemSchema = z.object({
   createdAt: z.string().datetime(),
   confidence: z.number().min(0).max(1),
   found: z.boolean(),
+  source: z.string().optional(),
 });
 
 export type QAItem = z.infer<typeof QAItemSchema>;

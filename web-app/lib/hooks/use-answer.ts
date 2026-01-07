@@ -1,72 +1,17 @@
 'use client';
 
 import useSWRMutation from 'swr/mutation';
-import { fetchAuthSession } from 'aws-amplify/auth';
 import { env } from '@/lib/env';
-
-//
-// ================================
-// Types (mirror backend)
-// ================================
-//
-
-export interface Answer {
-  id: string;
-  questionId: string;
-  projectId: string;
-  organizationId?: string | null;
-  text: string;
-  source?: string | null;
-  createdAt: string;
-  updatedAt: string;
-}
-
-// DTO used by create-answer lambda
-export interface CreateAnswerDTO {
-  questionId: string;
-  projectId: string;
-  text: string;
-  organizationId?: string;
-}
-
-//
-// ================================
-// Helpers
-// ================================
-//
-
-async function authorizedFetch(url: string, options: RequestInit = {}) {
-  let token: string | undefined;
-
-  if (typeof window !== 'undefined') {
-    const session = await fetchAuthSession();
-    token = session.tokens?.idToken?.toString();
-  }
-
-  return fetch(url, {
-    ...options,
-    headers: {
-      ...(token ? { Authorization: token } : {}),
-      'Content-Type': 'application/json',
-      ...(options.headers || {}),
-    },
-  });
-}
+import { AnswerItem, AnswerSource, SaveAnswerDTO } from '@auto-rfp/shared';
+import { authFetcher } from '@/lib/auth/auth-fetcher';
 
 const BASE = `${env.BASE_API_URL}/answer`;
 
-//
-// ================================
-// CREATE Answer
-// (POST /question/create-answer)
-// ================================
-//
-
 export function useSaveAnswer(projectId: string) {
-  return useSWRMutation<Answer, any, string, CreateAnswerDTO>(
+  return useSWRMutation<AnswerItem, any, string, SaveAnswerDTO>(
     `${BASE}/save-answer`,
     async (url, { arg }) => {
-      const res = await authorizedFetch(url, {
+      const res = await authFetcher(url, {
         method: 'POST',
         body: JSON.stringify({
           ...arg,
@@ -83,7 +28,7 @@ export function useSaveAnswer(projectId: string) {
         throw error;
       }
 
-      return res.json() as Promise<Answer>;
+      return res.json() as Promise<AnswerItem>;
     },
   );
 }
@@ -94,7 +39,7 @@ type GenerateAnswerArgs = {
   topK?: number;
 };
 
-type GenerateAnswerResponse = { answer: string, confidence: number, found: boolean }
+type GenerateAnswerResponse = { answer: string, confidence: number, found: boolean, sources?: AnswerSource }
 
 export function useGenerateAnswer() {
   return useSWRMutation<GenerateAnswerResponse, any, string, GenerateAnswerArgs>(
@@ -102,7 +47,7 @@ export function useGenerateAnswer() {
     async (url, { arg }) => {
       const { projectId, questionId, topK } = arg;
 
-      const res = await authorizedFetch(url, {
+      const res = await authFetcher(url, {
         method: 'POST',
         body: JSON.stringify({
           projectId,

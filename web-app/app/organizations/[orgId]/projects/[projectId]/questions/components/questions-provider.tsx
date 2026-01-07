@@ -2,10 +2,11 @@
 
 import React, { createContext, ReactNode, useContext, useEffect, useState } from 'react';
 import { toast } from '@/components/ui/use-toast';
-import { AnswerSource, RfpDocument } from '@/types/api';
+import { RfpDocument } from '@/types/api';
+import { AnswerSource, type SaveAnswerDTO } from '@auto-rfp/shared';
 import { useAnswers, useQuestions as useLoadQuestions } from '@/lib/hooks/use-api';
 import { useProject } from '@/lib/hooks/use-project';
-import { CreateAnswerDTO, useGenerateAnswer, useSaveAnswer } from '@/lib/hooks/use-answer';
+import { useGenerateAnswer, useSaveAnswer } from '@/lib/hooks/use-answer';
 import { useQuestionFiles } from '@/lib/hooks/use-question-file';
 import { type QuestionFileItem } from '@auto-rfp/shared';
 
@@ -62,7 +63,7 @@ interface QuestionsContextType {
   // Action handlers
   handleAnswerChange: (questionId: string, value: string) => void;
   handleGenerateAnswer: (questionId: string) => Promise<void>;
-  saveAnswer: (questionId: string) => Promise<void>;
+  handleSaveAnswer: (questionId: string) => Promise<void>;
   saveAllAnswers: () => Promise<void>;
   handleExportAnswers: () => void;
   handleSourceClick: (source: AnswerSource) => void;
@@ -123,7 +124,7 @@ export function QuestionsProvider({ children, projectId }: QuestionsProviderProp
   const { data: rfpDocument, isLoading: isQuestionsLoading, mutate: mutateQuestions } = useLoadQuestions(projectId);
   const { items: questionFiles, isLoading: isQuestionFilesLoading } = useQuestionFiles(projectId);
   const { data: answersData, error: answerError, isLoading: isAnswersLoading } = useAnswers(projectId);
-  const { trigger: createAnswer } = useSaveAnswer(projectId);
+  const { trigger: saveAnswer } = useSaveAnswer(projectId);
   const { trigger: generateAnswer } = useGenerateAnswer();
 
   const isLoading = isProjectLoading || isQuestionsLoading || isAnswersLoading;
@@ -201,24 +202,23 @@ export function QuestionsProvider({ children, projectId }: QuestionsProviderProp
     setIsGenerating((prev) => ({ ...prev, [questionId]: true }));
 
     try {
-      const { answer, confidence, found } = await generateAnswer({
+      const { answer, confidence, found, sources } = await generateAnswer({
         projectId,
         questionId,
-        topK: 15,
+        topK: 20,
       });
 
-      if (found) {
-        setAnswers((prev) => ({
-          ...prev,
-          [questionId]: { text: answer },
-        }));
+      setAnswers((prev) => ({
+        ...prev,
+        [questionId]: { text: answer, sources: sources } as AnswerData,
+      }));
 
+      if (found) {
         setUnsavedQuestions((prev) => {
           const next = new Set(prev);
           next.add(questionId);
           return next;
         });
-
         toast({
           title: 'Answer Generated',
           description: 'AI-generated answer has been created. Please review and save it.',
@@ -245,7 +245,7 @@ export function QuestionsProvider({ children, projectId }: QuestionsProviderProp
   };
 
   // Save a single answer
-  const saveAnswer = async (questionId: string) => {
+  const handleSaveAnswer = async (questionId: string) => {
     if (!projectId || !answers[questionId]) return;
 
     setSavingQuestions((prev) => {
@@ -255,10 +255,11 @@ export function QuestionsProvider({ children, projectId }: QuestionsProviderProp
     });
 
     try {
-      const response = await createAnswer({
+      const response = await saveAnswer({
         questionId,
         text: answers[questionId].text,
-      } as CreateAnswerDTO);
+        sources: answers[questionId].sources || [],
+      } as SaveAnswerDTO);
 
       if (response?.id) {
         setUnsavedQuestions((prev) => {
@@ -302,7 +303,7 @@ export function QuestionsProvider({ children, projectId }: QuestionsProviderProp
         toSave.map(async (questionId) => {
           const text = answers[questionId]?.text;
           if (!text) return;
-          await createAnswer({ questionId, text } as CreateAnswerDTO);
+          await saveAnswer({ questionId, text } as SaveAnswerDTO);
         }),
       );
 
@@ -533,7 +534,7 @@ export function QuestionsProvider({ children, projectId }: QuestionsProviderProp
     // Action handlers
     handleAnswerChange,
     handleGenerateAnswer,
-    saveAnswer,
+    handleSaveAnswer,
     saveAllAnswers,
     handleExportAnswers,
     handleSourceClick,

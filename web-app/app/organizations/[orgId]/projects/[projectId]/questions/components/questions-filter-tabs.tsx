@@ -32,13 +32,12 @@ export function QuestionsFilterTabs({ rfpDocument }: QuestionsFilterTabsProps) {
     searchQuery,
 
     handleAnswerChange,
-    saveAnswer,
+    handleSaveAnswer,
     handleGenerateAnswer,
     handleSourceClick,
 
     removeQuestion,
     removingQuestions,
-    setUseMultiStep,
   } = useQuestions() as any;
 
   const questionData = getSelectedQuestionData();
@@ -87,7 +86,7 @@ export function QuestionsFilterTabs({ rfpDocument }: QuestionsFilterTabsProps) {
               setShowAIPanel(false);
             }}
             onAnswerChange={handleAnswerChange}
-            onSave={saveAnswer}
+            onSave={handleSaveAnswer}
             onGenerateAnswer={handleGenerateAnswer}
             onSourceClick={handleSourceClick}
             onRemoveQuestion={removeQuestion}

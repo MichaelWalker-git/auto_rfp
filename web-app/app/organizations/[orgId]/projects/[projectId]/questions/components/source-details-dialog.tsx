@@ -3,7 +3,7 @@
 import { useState } from "react"
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog"
 import { ScrollArea } from "@/components/ui/scroll-area"
-import { AnswerSource } from "@/types/api"
+import { AnswerSource } from "@auto-rfp/shared"
 
 interface SourceDetailsDialogProps {
   isOpen: boolean;
@@ -45,14 +45,14 @@ export function SourceDetailsDialog({ isOpen, onClose, source }: SourceDetailsDi
               <div>
                 <div className="flex justify-between items-center mb-2">
                   <h3 className="font-medium">Text:</h3>
-                  <div className="text-sm text-gray-500">
+                  <div className="text-sm ">
                     {source.fileName} {source.pageNumber ? `- Page ${source.pageNumber}` : ''}
                   </div>
                 </div>
                 
                 {source.textContent ? (
                   <ScrollArea className="h-72 w-full border rounded-md">
-                    <div className="whitespace-pre-wrap font-mono text-sm p-4 bg-gray-50">
+                    <div className="whitespace-pre-wrap font-mono text-sm p-4">
                       {source.textContent}
                     </div>
                   </ScrollArea>

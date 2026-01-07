@@ -90,6 +90,7 @@ export class ApiStack extends cdk.Stack {
       stage,
       userPool,
       documentPipelineStateMachineArn,
+      questionPipelineStateMachineArn,
       mainTable,
       documentsBucket,
       execBriefQueue
@@ -236,11 +237,20 @@ export class ApiStack extends cdk.Stack {
     stage: string;
     userPool: cognito.IUserPool;
     documentPipelineStateMachineArn: string;
+    questionPipelineStateMachineArn: string;
     mainTable: dynamodb.ITable;
     documentsBucket: s3.IBucket;
     execBriefQueue: sqs.Queue;
   }): iam.Role {
-    const { stage, userPool, documentPipelineStateMachineArn, mainTable, documentsBucket, execBriefQueue } = args;
+    const {
+      stage,
+      userPool,
+      documentPipelineStateMachineArn,
+      questionPipelineStateMachineArn,
+      mainTable,
+      documentsBucket,
+      execBriefQueue,
+    } = args;
 
     const role = new iam.Role(this, 'CommonLambdaRole', {
       assumedBy: new iam.ServicePrincipal('lambda.amazonaws.com'),
@@ -285,6 +295,10 @@ export class ApiStack extends cdk.Stack {
           new iam.PolicyStatement({
             actions: ['states:StartExecution'],
             resources: [documentPipelineStateMachineArn],
+          }),
+          new iam.PolicyStatement({
+            actions: ['states:StartExecution'],
+            resources: [questionPipelineStateMachineArn],
           }),
           new iam.PolicyStatement({
             actions: ['bedrock:InvokeModel', 'bedrock:InvokeModelWithResponseStream'],
@@ -570,7 +584,6 @@ export class ApiStack extends cdk.Stack {
 
     // Answer
     this.answerApi.addRoute('/get-answers/{id}', 'GET', 'lambda/answer/get-answers.ts');
-    this.answerApi.addRoute('/create-answer', 'POST', 'lambda/answer/create-answer.ts');
     this.answerApi.addRoute('/save-answer', 'POST', 'lambda/answer/save-answer.ts');
     this.answerApi.addRoute('/generate-answer', 'POST', 'lambda/answer/generate-answer.ts');
 

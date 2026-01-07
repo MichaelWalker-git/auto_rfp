@@ -5,7 +5,7 @@ import { QuestionsFilter } from "./questions-filter";
 import { QuestionEditor } from "./question-editor";
 import { QuestionNavigator } from "../../../components/question-navigator";
 import { AISuggestionsPanel } from "../../../components/ai-suggestions-panel";
-import { AnswerSource } from "@/types/api";
+import { AnswerSource } from '@auto-rfp/shared';
 
 interface AnswerData {
   text: string;

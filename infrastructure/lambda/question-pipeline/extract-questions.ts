@@ -10,6 +10,8 @@ import { requireEnv } from '../helpers/env';
 import { docClient } from '../helpers/db';
 import { nowIso } from '../helpers/date';
 import { loadTextFromS3 } from '../helpers/s3';
+import { v4 as uuidv4 } from 'uuid';
+
 
 const BEDROCK_REGION = requireEnv('BEDROCK_REGION');
 const BEDROCK_MODEL_ID = requireEnv('BEDROCK_MODEL_ID');
@@ -144,17 +146,19 @@ async function saveQuestionsFromSections(
   const writes: Promise<any>[] = [];
 
   for (const section of extracted.sections) {
+    const sectionId = uuidv4();
     for (const q of section.questions) {
-      const sortKey = `${projectId}#${q.id}`;
+      const questionId = uuidv4();
+      const sortKey = `${projectId}#${questionId}`;
 
       const item = {
         [PK_NAME]: QUESTION_PK,
         [SK_NAME]: sortKey,
         projectId,
         questionFileId,
-        questionId: q.id,
+        questionId: questionId,
         question: q.question,
-        sectionId: section.id,
+        sectionId: sectionId,
         sectionTitle: section.title,
         sectionDescription: section.description ?? null,
         createdAt: now,

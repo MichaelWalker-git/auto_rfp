@@ -14,13 +14,11 @@ import {
 } from '../middleware/rbac-middleware';
 import { requireEnv } from '../helpers/env';
 import { docClient } from '../helpers/db';
-import { AnswerItem } from '../schemas/answer';
+import { AnswerItem } from '@auto-rfp/shared';
 
 const DB_TABLE_NAME = requireEnv('DB_TABLE_NAME');
 
-export const baseHandler = async (
-  event: APIGatewayProxyEventV2,
-): Promise<APIGatewayProxyResultV2> => {
+export const baseHandler = async (event: APIGatewayProxyEventV2): Promise<APIGatewayProxyResultV2> => {
   try {
     const { id: projectId } = event.pathParameters || {};
 
@@ -72,8 +70,6 @@ async function loadAnswers(projectId: string): Promise<AnswerItem[]> {
   return items as AnswerItem[];
 }
 
-// ---------- GROUP BY questionId & PICK LATEST ----------
-
 /**
  * Result shape: {
  *   [questionId: string]: {
@@ -101,7 +97,7 @@ function groupAnswersByQuestion(flatAnswers: any[]) {
       projectId: item.projectId,
       organizationId: item.organizationId ?? null,
       text: item.text,
-      source: item.source ?? null,
+      sources: item.sources ?? null,
       createdAt: item.createdAt,
       updatedAt: item.updatedAt,
     };
