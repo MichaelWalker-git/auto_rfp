@@ -61,7 +61,7 @@ export type GetExecutiveBriefByProjectResponse = {
   ok: boolean;
   projectId?: string;
   executiveBriefId?: string;
-  brief?: ExecutiveBriefItem; // ✅ shared type
+  brief?: ExecutiveBriefItem;
   message?: string;
   error?: string;
 };
@@ -90,62 +90,62 @@ async function postJson<T>(url: string, body: unknown): Promise<T> {
 }
 
 const endpoints = {
-  init: `${env.BASE_API_URL}/brief/init-executive-brief`,
-  summary: `${env.BASE_API_URL}/brief/generate-executive-brief-summary`,
-  deadlines: `${env.BASE_API_URL}/brief/generate-executive-brief-deadlines`,
-  contacts: `${env.BASE_API_URL}/brief/generate-executive-brief-contacts`,
-  requirements: `${env.BASE_API_URL}/brief/generate-executive-brief-requirements`,
-  risks: `${env.BASE_API_URL}/brief/generate-executive-brief-risks`,
-  scoring: `${env.BASE_API_URL}/brief/generate-executive-brief-scoring`,
+  init: (orgId?: string) => `${env.BASE_API_URL}/brief/init-executive-brief${orgId ? `?orgId=${orgId}` : ''}`,
+  summary: (orgId?: string) => `${env.BASE_API_URL}/brief/generate-executive-brief-summary${orgId ? `?orgId=${orgId}` : ''}`,
+  deadlines: (orgId?: string) => `${env.BASE_API_URL}/brief/generate-executive-brief-deadlines${orgId ? `?orgId=${orgId}` : ''}`,
+  contacts: (orgId?: string) => `${env.BASE_API_URL}/brief/generate-executive-brief-contacts${orgId ? `?orgId=${orgId}` : ''}`,
+  requirements: (orgId?: string) => `${env.BASE_API_URL}/brief/generate-executive-brief-requirements${orgId ? `?orgId=${orgId}` : ''}`,
+  risks: (orgId?: string) => `${env.BASE_API_URL}/brief/generate-executive-brief-risks${orgId ? `?orgId=${orgId}` : ''}`,
+  scoring: (orgId?: string) => `${env.BASE_API_URL}/brief/generate-executive-brief-scoring${orgId ? `?orgId=${orgId}` : ''}`,
   getByProject: `${env.BASE_API_URL}/brief/get-executive-brief-by-project`,
 } as const;
 
 // ---------- hooks ----------
-export function useInitExecutiveBrief() {
+export function useInitExecutiveBrief(orgId?: string) {
   return useSWRMutation<InitExecutiveBriefResponse, Error, string, InitExecutiveBriefRequest>(
-    endpoints.init,
+    endpoints.init(orgId),
     (url, { arg }) => postJson<InitExecutiveBriefResponse>(url, arg),
   );
 }
 
-export function useGenerateExecutiveBriefSummary() {
+export function useGenerateExecutiveBriefSummary(orgId?: string) {
   return useSWRMutation<GenerateSectionResponse, Error, string, GenerateSectionRequest>(
-    endpoints.summary,
+    endpoints.summary(orgId),
     (url, { arg }) => postJson<GenerateSectionResponse>(url, arg),
   );
 }
 
-export function useGenerateExecutiveBriefDeadlines() {
+export function useGenerateExecutiveBriefDeadlines(orgId?: string) {
   return useSWRMutation<GenerateSectionResponse, Error, string, GenerateSectionRequest>(
-    endpoints.deadlines,
+    endpoints.deadlines(orgId),
     (url, { arg }) => postJson<GenerateSectionResponse>(url, arg),
   );
 }
 
-export function useGenerateExecutiveBriefContacts() {
+export function useGenerateExecutiveBriefContacts(orgId?: string) {
   return useSWRMutation<GenerateSectionResponse, Error, string, GenerateSectionRequest>(
-    endpoints.contacts,
+    endpoints.contacts(orgId),
     (url, { arg }) => postJson<GenerateSectionResponse>(url, arg),
   );
 }
 
-export function useGenerateExecutiveBriefRequirements() {
+export function useGenerateExecutiveBriefRequirements(orgId?: string) {
   return useSWRMutation<GenerateSectionResponse, Error, string, GenerateSectionRequest>(
-    endpoints.requirements,
+    endpoints.requirements(orgId),
     (url, { arg }) => postJson<GenerateSectionResponse>(url, arg),
   );
 }
 
-export function useGenerateExecutiveBriefRisks() {
+export function useGenerateExecutiveBriefRisks(orgId?: string) {
   return useSWRMutation<GenerateSectionResponse, Error, string, GenerateSectionRequest>(
-    endpoints.risks,
+    endpoints.risks(orgId),
     (url, { arg }) => postJson<GenerateSectionResponse>(url, arg),
   );
 }
 
-export function useGenerateExecutiveBriefScoring() {
+export function useGenerateExecutiveBriefScoring(orgId?: string) {
   return useSWRMutation<GenerateSectionResponse, Error, string, GenerateSectionRequest>(
-    endpoints.scoring,
+    endpoints.scoring(orgId),
     (url, { arg }) => postJson<GenerateSectionResponse>(url, arg),
   );
 }

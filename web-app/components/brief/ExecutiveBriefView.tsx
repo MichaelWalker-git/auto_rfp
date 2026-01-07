@@ -36,6 +36,7 @@ import { ScoringGrid } from './components/ScoringGrid';
 import { RequirementsCard } from './components/RequirementsCard';
 import { ContactsCard } from './components/ContactsCard';
 import { RisksCard } from './components/RisksCard';
+import { useOrganization } from '@/context/organization-context';
 
 function sectionIcon(section: SectionKey) {
   switch (section) {
@@ -80,14 +81,14 @@ function isInProgressStatus(st?: string | null) {
 
 export function ExecutiveBriefView({ projectId }: Props) {
   const { data: project, isLoading, isError, mutate: refetchProject } = useProject(projectId);
-
-  const init = useInitExecutiveBrief();
-  const genSummary = useGenerateExecutiveBriefSummary();
-  const genDeadlines = useGenerateExecutiveBriefDeadlines();
-  const genContacts = useGenerateExecutiveBriefContacts();
-  const genRequirements = useGenerateExecutiveBriefRequirements();
-  const genRisks = useGenerateExecutiveBriefRisks();
-  const genScoring = useGenerateExecutiveBriefScoring();
+  const { currentOrganization } = useOrganization();
+  const init = useInitExecutiveBrief(currentOrganization?.id);
+  const genSummary = useGenerateExecutiveBriefSummary(currentOrganization?.id);
+  const genDeadlines = useGenerateExecutiveBriefDeadlines(currentOrganization?.id);
+  const genContacts = useGenerateExecutiveBriefContacts(currentOrganization?.id);
+  const genRequirements = useGenerateExecutiveBriefRequirements(currentOrganization?.id);
+  const genRisks = useGenerateExecutiveBriefRisks(currentOrganization?.id);
+  const genScoring = useGenerateExecutiveBriefScoring(currentOrganization?.id);
   const getBriefByProject = useGetExecutiveBriefByProject();
 
   const [regenError, setRegenError] = useState<string | null>(null);
