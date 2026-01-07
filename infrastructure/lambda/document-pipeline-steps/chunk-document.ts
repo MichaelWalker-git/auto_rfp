@@ -36,12 +36,9 @@ function buildChunksPrefixFromTxtKey(txtKey: string): string {
   return (dir ? `${dir}/` : '') + 'chunks/';
 }
 
-function chunkText(
-  text: string,
-  opts: { maxChars: number; overlapChars: number; minChars: number },
-): string[] {
-  const cleaned = (text || '').trim();
-  if (!cleaned) return [];
+function chunkText(text: string, opts: { maxChars: number; overlapChars: number; minChars: number }): string[] {
+  if (!text) return [];
+  const cleaned = text.trim();
 
   const maxChars = Math.max(200, opts.maxChars);
   const overlap = Math.max(0, Math.min(opts.overlapChars, Math.floor(maxChars / 2)));

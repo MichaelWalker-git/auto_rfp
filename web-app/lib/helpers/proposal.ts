@@ -19,25 +19,23 @@ function buildProposalDocx(proposalDoc: ProposalDocument) {
     new Paragraph({
       heading: HeadingLevel.TITLE,
       alignment: AlignmentType.CENTER,
-      children: [new TextRun({ text: proposalDoc.proposalTitle || 'Proposal', bold: true })],
+      children: [new TextRun({ text: proposalDoc.proposalTitle || 'Proposal', bold: true, size: 36 },)],
     }),
   );
 
-  // Optional metadata
-  const meta: string[] = [];
-  if (proposalDoc.customerName) meta.push(`Customer: ${proposalDoc.customerName}`);
-  if (proposalDoc.opportunityId) meta.push(`Opportunity ID: ${proposalDoc.opportunityId}`);
-
-  if (meta.length) {
-    children.push(new Paragraph({ text: '' }));
-    meta.forEach((line) => children.push(new Paragraph({ text: line })));
-  }
-
   // Outline summary
   if (proposalDoc.outlineSummary) {
-    children.push(new Paragraph({ text: '' }));
-    children.push(new Paragraph({ heading: HeadingLevel.HEADING_1, text: 'Executive Summary' }));
-    children.push(new Paragraph({ text: proposalDoc.outlineSummary }));
+    children.push(new Paragraph({ text: '', heading: undefined }));
+    children.push(new Paragraph({
+      heading: HeadingLevel.HEADING_1,
+      text: 'Executive Summary',
+    }));
+    children.push(new Paragraph({ text: '', heading: undefined, style: 'Normal', }));
+    children.push(new Paragraph({
+      style: 'Normal',
+      text: '',
+      children: [new TextRun({ text: proposalDoc.outlineSummary })]
+    }));
   }
 
   // Sections + subsections

@@ -5,10 +5,11 @@ import { CheckCircle, ChevronDown, ChevronRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { RfpSection } from '@/types/api';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { AnswerSource } from '@auto-rfp/shared';
 
 type AnswerData = {
   text: string;
-  sources?: any[];
+  sources?: AnswerSource[];
 }
 
 type QuestionStatus = 'unanswered' | 'complete';

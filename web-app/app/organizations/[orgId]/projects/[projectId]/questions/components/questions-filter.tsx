@@ -1,13 +1,13 @@
-"use client"
+'use client';
 
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
-import { CheckCircle } from "lucide-react"
-import { cn } from "@/lib/utils"
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { CheckCircle } from 'lucide-react';
+import { cn } from '@/lib/utils';
+import { AnswerSource } from '@auto-rfp/shared';
 
 interface AnswerData {
   text: string;
-  sources?: any[];
+  sources?: AnswerSource[];
 }
 
 interface QuestionWithSection {

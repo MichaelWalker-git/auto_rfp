@@ -26,8 +26,8 @@ const SavePromptResponseSchema = z.object({
 
 export type SavePromptResponse = z.infer<typeof SavePromptResponseSchema>;
 
-export function usePrompts() {
-  const url = promptApi.list();
+export function usePrompts(orgId?: string) {
+  const url = promptApi.list(orgId);
   const key = ['prompts', url] as const;
 
   const { data, error, isLoading, mutate } = useApi<unknown>(key as any, url);

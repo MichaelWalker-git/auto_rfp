@@ -561,7 +561,7 @@ export default function KnowledgeBaseItemComponent() {
                         >
                           <span
                             className={`h-1.5 w-1.5 rounded-full ${
-                              doc.indexStatus === 'INDEXED' || doc.indexStatus === 'CHUNKED'
+                              doc.indexStatus === 'INDEXED'
                                 ? 'bg-emerald-500'
                                 : doc.indexStatus === 'FAILED'
                                   ? 'bg-red-500'
@@ -584,15 +584,15 @@ export default function KnowledgeBaseItemComponent() {
 
                   <div className="flex items-center gap-2 flex-shrink-0">
                     <Button
-                      variant="outline"
-                      size="sm"
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="h-9 w-9"
+                      aria-label={`Download ${doc.name}`}
                       disabled={isDownloading}
                       onClick={() => downloadFile({ key: doc.fileKey, fileName: doc.name })}
                     >
-                      <Download className="h-4 w-4 sm:mr-2"/>
-                      <span className="hidden sm:inline">
-                        {isDownloading ? 'Downloading…' : 'Download'}
-                      </span>
+                        <Download className="h-4 w-4" />
                     </Button>
                     <PermissionWrapper requiredPermission={'document:delete'}>
                       <Button

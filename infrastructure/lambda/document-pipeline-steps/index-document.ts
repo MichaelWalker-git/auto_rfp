@@ -64,7 +64,7 @@ const baseHandler = async (
     : await readChunkTextFromS3(bucket, chunkKey);
 
   // 2) Embed
-  const embedding = await getEmbedding(bedrockClient, BEDROCK_EMBEDDING_MODEL_ID, text);
+  const embedding = await getEmbedding(text);
 
   // 3) Index to OpenSearch Serverless (NO client-specified _id)
   const externalId = makeStableId(documentId, chunkKey);
