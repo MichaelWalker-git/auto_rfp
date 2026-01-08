@@ -3,7 +3,7 @@ import { APIGatewayProxyEventV2, APIGatewayProxyResultV2, } from 'aws-lambda';
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import { DynamoDBDocumentClient, GetCommand, PutCommand, QueryCommand, } from '@aws-sdk/lib-dynamodb';
 
-import { BedrockRuntimeClient, InvokeModelCommand, } from '@aws-sdk/client-bedrock-runtime';
+import { invokeModel } from '../helpers/bedrock-http-client';
 
 import { GetObjectCommand, S3Client } from '@aws-sdk/client-s3';
 
@@ -33,10 +33,6 @@ const REGION =
   process.env.AWS_REGION ||
   process.env.BEDROCK_REGION ||
   'us-east-1';
-
-const bedrockClient = new BedrockRuntimeClient({
-  region: REGION,
-});
 
 const DB_TABLE_NAME = process.env.DB_TABLE_NAME;
 const DOCUMENTS_BUCKET = process.env.DOCUMENTS_BUCKET;
@@ -334,20 +330,14 @@ Where:
     ],
   };
 
-  const res = await bedrockClient.send(
-    new InvokeModelCommand({
-      modelId: BEDROCK_MODEL_ID!,
-      contentType: 'application/json',
-      accept: 'application/json',
-      body: Buffer.from(JSON.stringify(payload)),
-    }),
+  const responseBody = await invokeModel(
+    BEDROCK_MODEL_ID!,
+    JSON.stringify(payload),
+    'application/json',
+    'application/json'
   );
 
-  if (!res.body) {
-    throw new Error('Bedrock (QA) returned no body');
-  }
-
-  const raw = Buffer.from(res.body).toString('utf-8');
+  const raw = new TextDecoder('utf-8').decode(responseBody);
 
   console.log('Raw: ', raw)
 
@@ -482,8 +472,9 @@ export const handler = async (
     }
 
     // 1) Embed question text
+    // Note: getEmbedding now uses invokeModel internally, no need to pass client
     const questionEmbedding = await getEmbedding(
-      bedrockClient,
+      null as any, // bedrockClient no longer needed but signature maintained for compatibility
       BEDROCK_EMBEDDING_MODEL_ID,
       questionText,
     );

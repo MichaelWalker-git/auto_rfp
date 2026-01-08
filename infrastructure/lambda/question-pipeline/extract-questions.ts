@@ -2,7 +2,7 @@ import { Context } from 'aws-lambda';
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import { DynamoDBDocumentClient, PutCommand, UpdateCommand } from '@aws-sdk/lib-dynamodb';
 import { GetObjectCommand, S3Client } from '@aws-sdk/client-s3';
-import { BedrockRuntimeClient, InvokeModelCommand } from '@aws-sdk/client-bedrock-runtime';
+import { invokeModel } from '../helpers/bedrock-http-client';
 
 import { QUESTION_PK } from '../constants/organization';
 import { PK_NAME, SK_NAME } from '../constants/common';
@@ -15,16 +15,8 @@ const docClient = DynamoDBDocumentClient.from(ddbClient, {
 
 const s3Client = new S3Client({});
 
-const BEDROCK_REGION =
-  process.env.BEDROCK_REGION ||
-  process.env.AWS_REGION ||
-  'us-east-1';
 const BEDROCK_MODEL_ID =
   process.env.BEDROCK_MODEL_ID || 'anthropic.claude-3-haiku-20240307-v1:0';
-
-const bedrockClient = new BedrockRuntimeClient({
-  region: BEDROCK_REGION,
-});
 
 const DB_TABLE_NAME = process.env.DB_TABLE_NAME;
 const DOCUMENTS_BUCKET_NAME = process.env.DOCUMENTS_BUCKET_NAME;
@@ -115,20 +107,14 @@ async function extractQuestionsWithBedrock(
     temperature: 0.1,
   };
 
-  const res = await bedrockClient.send(
-    new InvokeModelCommand({
-      modelId: BEDROCK_MODEL_ID,
-      contentType: 'application/json',
-      accept: 'application/json',
-      body: Buffer.from(JSON.stringify(body)),
-    }),
+  const responseBody = await invokeModel(
+    BEDROCK_MODEL_ID,
+    JSON.stringify(body),
+    'application/json',
+    'application/json'
   );
 
-  if (!res.body) {
-    throw new Error('Bedrock returned empty body for question extraction');
-  }
-
-  const jsonTxt = new TextDecoder('utf-8').decode(res.body);
+  const jsonTxt = new TextDecoder('utf-8').decode(responseBody);
 
   let outer: any;
   try {

@@ -1,0 +1,30 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.getEmbedding = getEmbedding;
+const bedrock_http_client_1 = require("./bedrock-http-client");
+async function getEmbedding(bedrockClient, modelId, text) {
+    const body = {
+        inputText: text,
+    };
+    const responseBody = await (0, bedrock_http_client_1.invokeModel)(modelId, JSON.stringify(body), 'application/json', 'application/json');
+    const responseString = new TextDecoder('utf-8').decode(responseBody);
+    let json;
+    try {
+        json = JSON.parse(responseString);
+    }
+    catch (err) {
+        console.error('Embedding model raw response:', responseString);
+        throw new Error('Invalid JSON from embedding model');
+    }
+    // Titan embedding structure: { embedding: number[] } or similar
+    const vector = json.embedding ||
+        json.vector ||
+        json.embeddings?.[0]?.embedding ||
+        null;
+    if (!vector || !Array.isArray(vector)) {
+        console.error('Unexpected embedding payload:', json);
+        throw new Error('Embedding not found in model response');
+    }
+    return vector;
+}
+//# sourceMappingURL=data:application/json;base64,eyJ2ZXJzaW9uIjozLCJmaWxlIjoiZW1iZWRkaW5ncy5qcyIsInNvdXJjZVJvb3QiOiIiLCJzb3VyY2VzIjpbImVtYmVkZGluZ3MudHMiXSwibmFtZXMiOltdLCJtYXBwaW5ncyI6Ijs7QUFHQSxvQ0F1Q0M7QUF6Q0QsK0RBQW9EO0FBRTdDLEtBQUssVUFBVSxZQUFZLENBQ2hDLGFBQW1DLEVBQ25DLE9BQWUsRUFDZixJQUFZO0lBRVosTUFBTSxJQUFJLEdBQUc7UUFDWCxTQUFTLEVBQUUsSUFBSTtLQUNoQixDQUFDO0lBRUYsTUFBTSxZQUFZLEdBQUcsTUFBTSxJQUFBLGlDQUFXLEVBQ3BDLE9BQU8sRUFDUCxJQUFJLENBQUMsU0FBUyxDQUFDLElBQUksQ0FBQyxFQUNwQixrQkFBa0IsRUFDbEIsa0JBQWtCLENBQ25CLENBQUM7SUFFRixNQUFNLGNBQWMsR0FBRyxJQUFJLFdBQVcsQ0FBQyxPQUFPLENBQUMsQ0FBQyxNQUFNLENBQUMsWUFBWSxDQUFDLENBQUM7SUFFckUsSUFBSSxJQUFTLENBQUM7SUFDZCxJQUFJLENBQUM7UUFDSCxJQUFJLEdBQUcsSUFBSSxDQUFDLEtBQUssQ0FBQyxjQUFjLENBQUMsQ0FBQztJQUNwQyxDQUFDO0lBQUMsT0FBTyxHQUFHLEVBQUUsQ0FBQztRQUNiLE9BQU8sQ0FBQyxLQUFLLENBQUMsK0JBQStCLEVBQUUsY0FBYyxDQUFDLENBQUM7UUFDL0QsTUFBTSxJQUFJLEtBQUssQ0FBQyxtQ0FBbUMsQ0FBQyxDQUFDO0lBQ3ZELENBQUM7SUFFRCxnRUFBZ0U7SUFDaEUsTUFBTSxNQUFNLEdBQ1YsSUFBSSxDQUFDLFNBQVM7UUFDZCxJQUFJLENBQUMsTUFBTTtRQUNYLElBQUksQ0FBQyxVQUFVLEVBQUUsQ0FBQyxDQUFDLENBQUMsRUFBRSxTQUFTO1FBQy9CLElBQUksQ0FBQztJQUVQLElBQUksQ0FBQyxNQUFNLElBQUksQ0FBQyxLQUFLLENBQUMsT0FBTyxDQUFDLE1BQU0sQ0FBQyxFQUFFLENBQUM7UUFDdEMsT0FBTyxDQUFDLEtBQUssQ0FBQywrQkFBK0IsRUFBRSxJQUFJLENBQUMsQ0FBQztRQUNyRCxNQUFNLElBQUksS0FBSyxDQUFDLHVDQUF1QyxDQUFDLENBQUM7SUFDM0QsQ0FBQztJQUVELE9BQU8sTUFBTSxDQUFDO0FBQ2hCLENBQUMiLCJzb3VyY2VzQ29udGVudCI6WyJpbXBvcnQgeyBCZWRyb2NrUnVudGltZUNsaWVudCB9IGZyb20gJ0Bhd3Mtc2RrL2NsaWVudC1iZWRyb2NrLXJ1bnRpbWUnO1xuaW1wb3J0IHsgaW52b2tlTW9kZWwgfSBmcm9tICcuL2JlZHJvY2staHR0cC1jbGllbnQnO1xuXG5leHBvcnQgYXN5bmMgZnVuY3Rpb24gZ2V0RW1iZWRkaW5nKFxuICBiZWRyb2NrQ2xpZW50OiBCZWRyb2NrUnVudGltZUNsaWVudCxcbiAgbW9kZWxJZDogc3RyaW5nLFxuICB0ZXh0OiBzdHJpbmdcbik6IFByb21pc2U8bnVtYmVyW10+IHtcbiAgY29uc3QgYm9keSA9IHtcbiAgICBpbnB1dFRleHQ6IHRleHQsXG4gIH07XG5cbiAgY29uc3QgcmVzcG9uc2VCb2R5ID0gYXdhaXQgaW52b2tlTW9kZWwoXG4gICAgbW9kZWxJZCxcbiAgICBKU09OLnN0cmluZ2lmeShib2R5KSxcbiAgICAnYXBwbGljYXRpb24vanNvbicsXG4gICAgJ2FwcGxpY2F0aW9uL2pzb24nXG4gICk7XG5cbiAgY29uc3QgcmVzcG9uc2VTdHJpbmcgPSBuZXcgVGV4dERlY29kZXIoJ3V0Zi04JykuZGVjb2RlKHJlc3BvbnNlQm9keSk7XG5cbiAgbGV0IGpzb246IGFueTtcbiAgdHJ5IHtcbiAgICBqc29uID0gSlNPTi5wYXJzZShyZXNwb25zZVN0cmluZyk7XG4gIH0gY2F0Y2ggKGVycikge1xuICAgIGNvbnNvbGUuZXJyb3IoJ0VtYmVkZGluZyBtb2RlbCByYXcgcmVzcG9uc2U6JywgcmVzcG9uc2VTdHJpbmcpO1xuICAgIHRocm93IG5ldyBFcnJvcignSW52YWxpZCBKU09OIGZyb20gZW1iZWRkaW5nIG1vZGVsJyk7XG4gIH1cblxuICAvLyBUaXRhbiBlbWJlZGRpbmcgc3RydWN0dXJlOiB7IGVtYmVkZGluZzogbnVtYmVyW10gfSBvciBzaW1pbGFyXG4gIGNvbnN0IHZlY3RvcjogbnVtYmVyW10gPVxuICAgIGpzb24uZW1iZWRkaW5nIHx8XG4gICAganNvbi52ZWN0b3IgfHxcbiAgICBqc29uLmVtYmVkZGluZ3M/LlswXT8uZW1iZWRkaW5nIHx8XG4gICAgbnVsbDtcblxuICBpZiAoIXZlY3RvciB8fCAhQXJyYXkuaXNBcnJheSh2ZWN0b3IpKSB7XG4gICAgY29uc29sZS5lcnJvcignVW5leHBlY3RlZCBlbWJlZGRpbmcgcGF5bG9hZDonLCBqc29uKTtcbiAgICB0aHJvdyBuZXcgRXJyb3IoJ0VtYmVkZGluZyBub3QgZm91bmQgaW4gbW9kZWwgcmVzcG9uc2UnKTtcbiAgfVxuXG4gIHJldHVybiB2ZWN0b3I7XG59XG4iXX0=

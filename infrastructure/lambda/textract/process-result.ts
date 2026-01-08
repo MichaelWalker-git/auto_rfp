@@ -2,7 +2,7 @@ import { Context } from 'aws-lambda';
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import { DynamoDBDocumentClient, GetCommand, UpdateCommand, } from '@aws-sdk/lib-dynamodb';
 import { GetDocumentTextDetectionCommand, TextractClient, } from '@aws-sdk/client-textract';
-import { BedrockRuntimeClient, InvokeModelCommand, } from '@aws-sdk/client-bedrock-runtime';
+import { invokeModel } from '../helpers/bedrock-http-client';
 import { SignatureV4 } from '@aws-sdk/signature-v4';
 import { Sha256 } from '@aws-crypto/sha256-js';
 import { defaultProvider } from '@aws-sdk/credential-provider-node';
@@ -27,10 +27,6 @@ const REGION =
   process.env.AWS_REGION ||
   process.env.BEDROCK_REGION ||
   'us-east-1';
-
-const bedrockClient = new BedrockRuntimeClient({
-  region: REGION,
-});
 
 const DOCUMENTS_TABLE_NAME = process.env.DOCUMENTS_TABLE_NAME;
 const OPENSEARCH_ENDPOINT = process.env.OPENSEARCH_ENDPOINT;
@@ -159,20 +155,14 @@ async function embedText(text: string): Promise<number[]> {
     inputText: text,
   };
 
-  const res = await bedrockClient.send(
-    new InvokeModelCommand({
-      modelId: BEDROCK_MODEL_ID,
-      contentType: 'application/json',
-      accept: 'application/json',
-      body: Buffer.from(JSON.stringify(payload)),
-    }),
+  const responseBody = await invokeModel(
+    BEDROCK_MODEL_ID,
+    JSON.stringify(payload),
+    'application/json',
+    'application/json'
   );
 
-  if (!res.body) {
-    throw new Error('Bedrock returned no body');
-  }
-
-  const json = JSON.parse(Buffer.from(res.body).toString('utf-8'));
+  const json = JSON.parse(new TextDecoder('utf-8').decode(responseBody));
 
   // Titan style; adjust if you change model
   const embedding: number[] =

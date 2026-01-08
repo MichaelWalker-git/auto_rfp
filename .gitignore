@@ -1,3 +1,8 @@
 /.idea/
 /.cursor/
 /local-docs/
+node_modules
+.env
+.env.local
+localstorage/
+.next/

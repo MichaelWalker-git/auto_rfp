@@ -1,6 +1,7 @@
 import { APIGatewayProxyEventV2, APIGatewayProxyResultV2, } from 'aws-lambda';
 import { GetObjectCommand, S3Client, } from '@aws-sdk/client-s3';
-import { BedrockRuntimeClient, InvokeModelCommand, } from '@aws-sdk/client-bedrock-runtime';
+import { BedrockRuntimeClient } from '@aws-sdk/client-bedrock-runtime';
+import { createBedrockClient } from '../helpers/bedrock-http-client';
 import { Client as OpenSearchClient } from '@opensearch-project/opensearch';
 import { apiResponse } from '../helpers/api';
 import { getEmbedding } from '../helpers/embeddings';
@@ -20,7 +21,7 @@ if (!OPENSEARCH_ENDPOINT) {
 }
 
 const s3Client = new S3Client({ region: REGION });
-const bedrockClient = new BedrockRuntimeClient({ region: REGION });
+const bedrockClient = createBedrockClient();
 
 // Simple basic-auth client for OpenSearch (dev-friendly);
 // switch to SigV4 if you use IAM-auth.

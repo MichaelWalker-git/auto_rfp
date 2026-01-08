@@ -1,5 +1,5 @@
 import { APIGatewayProxyEventV2, APIGatewayProxyResultV2, } from 'aws-lambda';
-import { BedrockRuntimeClient, InvokeModelCommand, } from '@aws-sdk/client-bedrock-runtime';
+import { invokeModel } from '../helpers/bedrock-http-client';
 import { GetObjectCommand, S3Client, } from '@aws-sdk/client-s3';
 import { DynamoDBClient, } from '@aws-sdk/client-dynamodb';
 import { DynamoDBDocumentClient, PutCommand, } from '@aws-sdk/lib-dynamodb';
@@ -23,7 +23,6 @@ if (!DB_TABLE_NAME) {
   throw new Error('DB_TABLE_NAME environment variable is not set');
 }
 
-const bedrockClient = new BedrockRuntimeClient({ region: REGION });
 const s3Client = new S3Client({ region: REGION });
 
 const ddbClient = new DynamoDBClient({});
@@ -178,18 +177,14 @@ async function extractQuestionsWithBedrock(
     temperature: TEMPERATURE,
   };
 
-  const command = new InvokeModelCommand({
-    modelId: MODEL_ID,
-    contentType: "application/json",
-    accept: "application/json",
-    body: JSON.stringify(body),
-  });
+  const responseBody = await invokeModel(
+    MODEL_ID,
+    JSON.stringify(body),
+    "application/json",
+    "application/json"
+  );
 
-  const response = await bedrockClient.send(command);
-
-  if (!response.body) throw new Error("Empty response body from Bedrock");
-
-  const jsonTxt = new TextDecoder("utf-8").decode(response.body);
+  const jsonTxt = new TextDecoder("utf-8").decode(responseBody);
 
   let outer;
   try {

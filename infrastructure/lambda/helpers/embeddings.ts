@@ -1,4 +1,5 @@
-import { BedrockRuntimeClient, InvokeModelCommand, } from '@aws-sdk/client-bedrock-runtime';
+import { BedrockRuntimeClient } from '@aws-sdk/client-bedrock-runtime';
+import { invokeModel } from './bedrock-http-client';
 
 export async function getEmbedding(
   bedrockClient: BedrockRuntimeClient,
@@ -9,22 +10,14 @@ export async function getEmbedding(
     inputText: text,
   };
 
-  const command = new InvokeModelCommand({
-    modelId: modelId,
-    contentType: 'application/json',
-    accept: 'application/json',
-    body: JSON.stringify(body),
-  });
-
-  const response = await bedrockClient.send(command);
-
-  if (!response.body) {
-    throw new Error('Empty response body from Bedrock embeddings model');
-  }
-
-  const responseString = new TextDecoder('utf-8').decode(
-    response.body as Uint8Array,
+  const responseBody = await invokeModel(
+    modelId,
+    JSON.stringify(body),
+    'application/json',
+    'application/json'
   );
+
+  const responseString = new TextDecoder('utf-8').decode(responseBody);
 
   let json: any;
   try {

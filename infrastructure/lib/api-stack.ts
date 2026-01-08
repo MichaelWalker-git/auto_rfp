@@ -28,6 +28,7 @@ export class ApiStack extends cdk.Stack {
   private readonly lambdaPermissions: cdk.aws_iam.PolicyStatement[];
   private readonly policy: cdk.aws_iam.Policy;
   public readonly api: apigw.RestApi;
+  private static readonly BEDROCK_REGION = 'us-east-1';
 
   private readonly organizationApi: ApiNestedStack;
   private readonly projectApi: ApiNestedStack;
@@ -205,6 +206,17 @@ export class ApiStack extends cdk.Stack {
       })
     )
 
+    // SSM Parameter Store access for Bedrock API key
+    lambdaRole.addToPrincipalPolicy(
+      new iam.PolicyStatement({
+        actions: ['ssm:GetParameter'],
+        resources: [
+          `arn:aws:ssm:${ApiStack.BEDROCK_REGION}:${cdk.Aws.ACCOUNT_ID}:parameter/auto-rfp/bedrock/api-key`
+        ],
+        effect: iam.Effect.ALLOW,
+      })
+    )
+
     // 3) Common env that every lambda will get by default
     //    Adjust PK/SK env names to what you actually use.
     const commonEnv: Record<string, string> = {
@@ -223,6 +235,7 @@ export class ApiStack extends cdk.Stack {
       BEDROCK_REGION: 'us-east-1',
       BEDROCK_EMBEDDING_MODEL_ID: 'amazon.titan-embed-text-v2:0',
       BEDROCK_MODEL_ID: 'anthropic.claude-3-haiku-20240307-v1:0',
+      BEDROCK_API_KEY_SSM_PARAM: '/auto-rfp/bedrock/api-key',
       OPENSEARCH_INDEX: 'documents',
       STATE_MACHINE_ARN: documentPipelineStateMachineArn,
       QUESTION_PIPELINE_STATE_MACHINE_ARN: questionPipelineStateMachineArn,
