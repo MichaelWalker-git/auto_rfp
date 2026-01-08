@@ -211,7 +211,7 @@ export function QuestionsProvider({ children, projectId }: QuestionsProviderProp
         [questionId]: { text: answer, sources: sources } as AnswerData,
       }));
 
-      if (found) {
+      if (answer) {
         setUnsavedQuestions((prev) => {
           const next = new Set(prev);
           next.add(questionId);
