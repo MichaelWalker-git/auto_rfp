@@ -1,5 +1,36 @@
 import { z } from 'zod';
 
+export const QuestionItemSchema = z.object({
+  projectId: z.string().optional(),
+  questionFileId: z.string().optional(),
+  questionId: z.string().uuid(),
+  question: z.string().optional(),
+  sectionId: z.string().uuid(),
+  sectionTitle: z.string().optional(),
+  sectionDescription: z.string().nullable().optional(),
+  createdAt: z.string().datetime(),
+  updatedAt: z.string().datetime(),
+});
+
+export type QuestionItem = z.infer<typeof QuestionItemSchema>;
+
+export const GroupedQuestionSchema = z.object({
+  id: z.string().min(1),
+  question: z.string().min(1),
+  answer: z.string().nullable(),
+});
+
+export type GroupedQuestion = z.infer<typeof GroupedQuestionSchema>;
+
+export const GroupedSectionSchema = z.object({
+  id: z.string().min(1),
+  title: z.string().min(1),
+  description: z.string().nullable(),
+  questions: z.array(GroupedQuestionSchema),
+});
+
+export type GroupedSection = z.infer<typeof GroupedSectionSchema>;
+
 export const QAItemSchema = z.object({
   questionId: z.string().min(1),
   documentId: z.string().min(1),

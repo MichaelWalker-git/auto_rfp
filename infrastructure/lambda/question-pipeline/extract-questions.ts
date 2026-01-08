@@ -1,6 +1,5 @@
 import { Context } from 'aws-lambda';
 import { PutCommand, UpdateCommand } from '@aws-sdk/lib-dynamodb';
-import { BedrockRuntimeClient, InvokeModelCommand } from '@aws-sdk/client-bedrock-runtime';
 import { QUESTION_PK } from '../constants/question';
 import { PK_NAME, SK_NAME } from '../constants/common';
 import { QUESTION_FILE_PK } from '../constants/question-file';
@@ -13,15 +12,9 @@ import { loadTextFromS3 } from '../helpers/s3';
 import { v4 as uuidv4 } from 'uuid';
 import { invokeModel } from '../helpers/bedrock-http-client';
 
-
-const BEDROCK_REGION = requireEnv('BEDROCK_REGION');
 const BEDROCK_MODEL_ID = requireEnv('BEDROCK_MODEL_ID');
 const DB_TABLE_NAME = requireEnv('DB_TABLE_NAME');
 const DOCUMENTS_BUCKET = requireEnv('DOCUMENTS_BUCKET');
-
-const bedrockClient = new BedrockRuntimeClient({
-  region: BEDROCK_REGION,
-});
 
 interface Event {
   questionFileId?: string;
@@ -214,46 +207,72 @@ async function updateStatus(
 }
 
 const getSystemPrompt = () => {
-  const timestamp = Date.now();
   return `
-You are an expert at analyzing RFP (Request for Proposal) documents and extracting structured information.
-Given a document that contains RFP questions, extract all sections and questions into a structured format.
+You are an expert at analyzing U.S. government procurement opportunity documents (SAM.gov solicitations, RFPs, RFIs, IFBs, amendments, attachments) and extracting every item that a vendor/offeror must answer, provide, or comply with.
 
-Carefully identify:
-1. Different sections (usually numbered like 1.1, 1.2, etc.)
-2. The questions within each section or empty array
-3. Any descriptive text that provides context for the section
+Goal:
+Extract all "candidate questions" (anything the vendor must respond to or submit) and organize them by section.
 
-Format the output as a JSON object with the following structure:
+What counts as a candidate question (include all of these):
+- Direct questions (ending with "?")
+- Prompts / instructions that require a response (e.g., "Provide...", "Describe...", "Explain...", "Submit...", "Include...", "The offeror shall...")
+- Requested documents/artifacts (e.g., past performance references, resumes, certifications, plans, narratives)
+- Pricing deliverables (pricing tables, CLIN pricing, rate sheets)
+- Compliance matrices / representations & certifications / forms to fill
+- Submission requirements (format, page limits, file naming, portal steps) when they require an action from the offeror
+
+What does NOT count (exclude unless it demands a vendor action):
+- Background, agency overview, general context, definitions, boilerplate with no vendor action
+
+Output format:
+Return ONLY valid JSON (no markdown, no commentary). Use exactly this schema:
+
 {
   "sections": [
     {
-      "id": "section_${timestamp}_1",
       "title": "Section Title",
-      "description": "Optional description text for the section",
+      "description": "Optional section context (short). Empty string if none.",
+      "locationHint": "Optional: page/paragraph/heading reference if present; else empty string.",
       "questions": [
         {
-          "id": "q_${timestamp}_1_1",
-          "question": "The exact text of the question"
+          "question": "Exact vendor-facing requirement text (preserve wording).",
+          "type": "technical|management|past_performance|pricing|compliance|security|legal|administrative|submission|other",
+          "isExplicitQuestion": true,
+          "isRequired": "required|optional|unknown",
+          "deliverable": "What must be produced (e.g., 'Technical Volume narrative', 'Pricing spreadsheet', 'Resume') or empty string.",
+          "responseFormat": "If stated: table/form/narrative/bullets/spreadsheet/upload/portal-entry or empty string.",
+          "constraints": ["page limit, font, file type, deadline, naming rules, etc."],
         }
       ]
     }
   ]
 }
 
-Requirements:
-- Generate unique reference IDs using the format: q_${timestamp}_<section>_<question> for questions
-- Generate unique reference IDs using the format: section_${timestamp}_<number> for sections  
-- Preserve the exact text of questions
-- Include all questions found in the document
-- Group questions correctly under their sections
-- If a section has subsections, create separate sections for each subsection
-- The timestamp prefix (${timestamp}) ensures uniqueness across different document uploads
-    `.trim();
+Rules:
+- Preserve the exact wording of each extracted vendor requirement in "question".
+- If the document has subsections (e.g., 1.1, L, M, Volume I/II/III), treat each as its own section.
+- If a requirement appears in a list/bullets, extract each bullet as a separate question when it implies a separate response/deliverable.
+- If a section contains no vendor-facing requirements, include it with "questions": [] only if the section title helps navigation; otherwise omit.
+- Ensure the JSON is strictly valid:
+  - Use double quotes for all strings
+  - No trailing commas
+  - No undefined/null (use empty string/[] instead)
+- Do NOT invent facts. If required/optional is unclear, set "isRequired":"unknown".
+  `.trim();
 };
 
 const buildUserPrompt = (content: string) => {
-  return `Document Content:\n${content}`;
+  return `
+Extract vendor/offeror response requirements from the following opportunity text.
+If the content includes headers like "Instructions to Offerors", "Proposal Submission", "Evaluation Criteria", "Volumes", "Representations and Certifications", "Questions", "Attachments", include all vendor action items and prompts.
+
+Return ONLY JSON that matches the schema from the system message.
+
+DOCUMENT_CONTENT_START
+${content}
+DOCUMENT_CONTENT_END
+  `.trim();
 };
+
 
 export const handler = withSentryLambda(baseHandler);

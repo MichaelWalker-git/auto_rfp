@@ -1,6 +1,6 @@
 'use client';
 
-import React, { Suspense, useState } from 'react';
+import React, { Suspense } from 'react';
 import { Toaster } from '@/components/ui/toaster';
 
 // Import the new components
@@ -22,7 +22,7 @@ function QuestionsSectionInner({ projectId }: QuestionsSectionProps) {
   const {
     isLoading,
     error,
-    rfpDocument,
+    questions,
     unsavedQuestions,
     savingQuestions,
     searchQuery,
@@ -37,7 +37,7 @@ function QuestionsSectionInner({ projectId }: QuestionsSectionProps) {
     organizationConnected,
     handleIndexToggle,
     handleSelectAllIndexes,
-    refreshQuestions, // Add this method to refresh questions after upload
+    refreshQuestions,
   } = useQuestions();
 
   const handleUploadComplete = () => {
@@ -54,20 +54,21 @@ function QuestionsSectionInner({ projectId }: QuestionsSectionProps) {
       {error && <QuestionsErrorState error={error}/>}
 
       {/* No questions state */}
-      {(!isLoading && !error && (!rfpDocument || (rfpDocument?.sections?.length || 0) === 0 ||
-        rfpDocument.sections.every(section => section?.questions?.length === 0))) && (
+      {(!isLoading && !error && (!questions || (questions?.sections?.length || 0) === 0 ||
+        questions.sections.every(section => section?.questions?.length === 0))) && (
         <NoRfpDocumentAvailable projectId={projectId}/>
       )}
 
       {/* Questions available state */}
-      {!isLoading && !error && rfpDocument && rfpDocument?.sections?.length > 0 &&
-        !rfpDocument.sections.every(section => section?.questions?.length === 0) && (
+      {!isLoading && !error && questions && questions?.sections?.length > 0 &&
+        !questions.sections.every(section => section?.questions?.length === 0) && (
           <>
             <QuestionsHeader
               searchQuery={searchQuery}
               onSearchChange={setSearchQuery}
               onSaveAll={saveAllAnswers}
               onExport={handleExportAnswers}
+              onReload={refreshQuestions}
               unsavedCount={unsavedQuestions.size}
               isSaving={savingQuestions.size > 0}
               projectId={projectId}
@@ -83,7 +84,7 @@ function QuestionsSectionInner({ projectId }: QuestionsSectionProps) {
             />
 
             {/* Questions Filter Tabs */}
-            <QuestionsFilterTabs rfpDocument={rfpDocument}/>
+            <QuestionsFilterTabs rfpDocument={questions}/>
           </>
         )}
 

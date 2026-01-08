@@ -1,9 +1,10 @@
 import { SSMClient, GetParameterCommand } from '@aws-sdk/client-ssm';
 import { BedrockRuntimeClient, InvokeModelCommand } from '@aws-sdk/client-bedrock-runtime';
 import https from 'https';
+import { requireEnv } from './env';
 
-const SSM_PARAM_NAME = process.env.BEDROCK_API_KEY_SSM_PARAM || '/auto-rfp/bedrock/api-key';
-const BEDROCK_REGION = process.env.BEDROCK_REGION || process.env.AWS_REGION || 'us-east-1';
+const SSM_PARAM_NAME = requireEnv('BEDROCK_API_KEY_SSM_PARAM','/auto-rfp/bedrock/api-key');
+const BEDROCK_REGION = requireEnv('BEDROCK_REGION', 'us-east-1');
 
 // Cache for API key to avoid repeated SSM calls in warm Lambda containers
 let cachedApiKey: string | null = null;

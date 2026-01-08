@@ -254,6 +254,15 @@ export class DocumentPipelineStack extends Stack {
       }),
     );
 
+    const bedrockApiKeyParamArn = `arn:aws:ssm:us-east-1:${this.account}:parameter/auto-rfp/bedrock/api-key`;
+
+    indexDocumentLambda.addToRolePolicy(
+      new iam.PolicyStatement({
+        actions: ['ssm:GetParameter'],
+        resources: [bedrockApiKeyParamArn],
+      }),
+    )
+
     // 8) Step Functions logging
     const sfnLogGroup = new logs.LogGroup(
       this,
@@ -348,16 +357,12 @@ export class DocumentPipelineStack extends Stack {
       resultPath: '$.Chunks',
     });
 
-// --- Fix for PDF Map ---
     const indexPdfMap = new sfn.Map(this, 'Index Chunks (PDF)', {
       itemsPath: sfn.JsonPath.stringAt('$.Chunks.items'),
       maxConcurrency: 3,
       resultPath: sfn.JsonPath.DISCARD,
-      // This passes data from the "outside" into the "inside" of the loop
       itemSelector: {
-        // Keep the individual item data
         'chunkItem.$': '$$.Map.Item.Value',
-        // Pull the documentId from the global state
         'documentId.$': '$.documentId',
         'totalChunks.$': '$.Chunks.chunksCount'
       },
@@ -367,7 +372,6 @@ export class DocumentPipelineStack extends Stack {
       new tasks.LambdaInvoke(this, 'Index One Chunk (PDF)', {
         lambdaFunction: indexDocumentLambda,
         payload: sfn.TaskInput.fromObject({
-          // Now documentId is available because of itemSelector
           documentId: sfn.JsonPath.stringAt('$.documentId'),
           chunkKey: sfn.JsonPath.stringAt('$.chunkItem.chunkKey'),
           index: sfn.JsonPath.numberAt('$.chunkItem.index'),
@@ -377,7 +381,6 @@ export class DocumentPipelineStack extends Stack {
       }),
     );
 
-// --- Fix for DOCX Map (Repeat the same logic) ---
     const indexDocxMap = new sfn.Map(this, 'Index Chunks (DOCX)', {
       itemsPath: sfn.JsonPath.stringAt('$.Chunks.items'),
       maxConcurrency: 3,
@@ -438,7 +441,6 @@ export class DocumentPipelineStack extends Stack {
       },
     );
 
-    // Tighten callback SendTask* permissions to this state machine only
     textractCallbackLambda.addToRolePolicy(new iam.PolicyStatement({
       actions: ['states:SendTaskSuccess', 'states:SendTaskFailure'],
       resources: [this.stateMachine.stateMachineArn],

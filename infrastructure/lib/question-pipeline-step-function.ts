@@ -175,7 +175,14 @@ export class QuestionExtractionPipelineStack extends Stack {
         resources: [`*`],
       }),
     )
+    const bedrockApiKeyParamArn = `arn:aws:ssm:us-east-1:${this.account}:parameter/auto-rfp/bedrock/api-key`;
 
+    extractQuestionsLambda.addToRolePolicy(
+      new iam.PolicyStatement({
+        actions: ['ssm:GetParameter'],
+        resources: [bedrockApiKeyParamArn],
+      }),
+    );
 
     const startTextract = new tasks.LambdaInvoke(
       this,

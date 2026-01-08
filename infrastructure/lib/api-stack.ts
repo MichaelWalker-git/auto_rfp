@@ -17,7 +17,6 @@ import * as targets from 'aws-cdk-lib/aws-events-targets';
 import { SqsEventSource } from 'aws-cdk-lib/aws-lambda-event-sources';
 
 import { ApiNestedStack } from './wrappers/api-nested-stack';
-import { NagSuppressions } from 'cdk-nag';
 
 export interface ApiStackProps extends cdk.StackProps {
   stage: string;
@@ -264,6 +263,8 @@ export class ApiStack extends cdk.Stack {
       iam.ManagedPolicy.fromAwsManagedPolicyName('service-role/AWSLambdaBasicExecutionRole'),
     );
 
+    const bedrockApiKeyParamArn = `arn:aws:ssm:us-east-1:${this.account}:parameter/auto-rfp/bedrock/api-key`;
+
     role.attachInlinePolicy(
       new iam.Policy(this, 'LambdaPolicy', {
         statements: [
@@ -328,6 +329,10 @@ export class ApiStack extends cdk.Stack {
           new iam.PolicyStatement({
             actions: ['secretsmanager:GetSecretValue'],
             resources: [`${process.env.BB_PROD_CREDENTIALS_ARN || '*'}`],
+          }),
+          new iam.PolicyStatement({
+            actions: ['ssm:GetParameter'],
+            resources: [bedrockApiKeyParamArn],
           }),
         ],
       }),
@@ -486,7 +491,7 @@ export class ApiStack extends cdk.Stack {
   }
 
   private addRoutes(args: { samGovApiKeySecret: secretsmanager.ISecret, execBriefQueue: any }) {
-    const { samGovApiKeySecret, execBriefQueue} = args;
+    const { samGovApiKeySecret, execBriefQueue } = args;
 
     // Prompt
     this.promptApi.addRoute('save-prompt/{scope}', 'POST', 'lambda/prompt/save-prompt.ts');
