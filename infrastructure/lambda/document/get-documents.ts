@@ -5,21 +5,20 @@ import { DynamoDBDocumentClient, QueryCommand, } from '@aws-sdk/lib-dynamodb';
 
 import { apiResponse } from '../helpers/api';
 import { PK_NAME, SK_NAME } from '../constants/common';
+import { withSentryLambda } from '../sentry-lambda';
+import {
+  authContextMiddleware,
+  httpErrorMiddleware,
+  orgMembershipMiddleware,
+  requirePermission
+} from '../middleware/rbac-middleware';
+import middy from '@middy/core';
+import { requireEnv } from '../helpers/env';
+import { docClient } from '../helpers/db';
 
-const DB_TABLE_NAME = process.env.DB_TABLE_NAME;
+const DB_TABLE_NAME = requireEnv('DB_TABLE_NAME');
 
-if (!DB_TABLE_NAME) {
-  throw new Error("DB_TABLE_NAME environment variable is not set");
-}
-
-const ddbClient = new DynamoDBClient({});
-const docClient = DynamoDBDocumentClient.from(ddbClient, {
-  marshallOptions: {
-    removeUndefinedValues: true,
-  },
-});
-
-export const handler = async (
+export const baseHandler = async (
   event: APIGatewayProxyEventV2
 ): Promise<APIGatewayProxyResultV2> => {
   try {
@@ -29,7 +28,7 @@ export const handler = async (
 
     if (!kbId) {
       return apiResponse(400, {
-        message: "Missing required query parameter: kbId",
+        message: 'Missing required query parameter: kbId',
       });
     }
 
@@ -37,11 +36,11 @@ export const handler = async (
 
     return apiResponse(200, documents);
   } catch (err) {
-    console.error("Error in get-documents handler:", err);
+    console.error('Error in get-documents handler:', err);
 
     return apiResponse(500, {
-      message: "Internal server error",
-      error: err instanceof Error ? err.message : "Unknown error",
+      message: 'Internal server error',
+      error: err instanceof Error ? err.message : 'Unknown error',
     });
   }
 };
@@ -63,14 +62,14 @@ export async function listDocuments(
       new QueryCommand({
         TableName: DB_TABLE_NAME,
         KeyConditionExpression:
-          "#pk = :pkValue AND begins_with(#sk, :skPrefix)",
+          '#pk = :pkValue AND begins_with(#sk, :skPrefix)',
         ExpressionAttributeNames: {
-          "#pk": PK_NAME,
-          "#sk": SK_NAME,
+          '#pk': PK_NAME,
+          '#sk': SK_NAME,
         },
         ExpressionAttributeValues: {
-          ":pkValue": "DOCUMENT",
-          ":skPrefix": skPrefix,
+          ':pkValue': 'DOCUMENT',
+          ':skPrefix': skPrefix,
         },
         ExclusiveStartKey,
       })
@@ -89,7 +88,7 @@ export async function listDocuments(
   return items.map((item) => {
     const sk = item[SK_NAME] as string;
     // Format: KB#<kbId>#DOC#<documentId>
-    const parts = sk.split("#");
+    const parts = sk.split('#');
     const documentId = parts[3];
 
     return {
@@ -98,3 +97,11 @@ export async function listDocuments(
     };
   });
 }
+
+export const handler = withSentryLambda(
+  middy(baseHandler)
+    .use(authContextMiddleware())
+    .use(orgMembershipMiddleware())
+    .use(requirePermission('document:read'))
+    .use(httpErrorMiddleware())
+);

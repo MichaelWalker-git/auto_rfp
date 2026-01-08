@@ -1,0 +1,1 @@
+export const SAVED_SEARCH_PK = 'SAVED_SEARCH';

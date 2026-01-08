@@ -24,8 +24,9 @@ const network = new NetworkStack(app, 'AutoRfp-Network', {
   existingVpcId: 'vpc-07171e4bf57f2ceed',
 });
 
-const feURL = 'https://dpxejv2wk0.execute-api.us-east-1.amazonaws.com';
+const feURL = 'https://d53rbfmpyaoju.execute-api.us-east-1.amazonaws.com';
 const opensearchEndpoint = 'https://leb5aji6vthaxk7ft8pi.us-east-1.aoss.amazonaws.com';
+const sentryDNS = 'https://5fa3951f41c357ba09d0ae50f52bbd2a@o4510347578114048.ingest.us.sentry.io/4510510176141312'
 
 const auth = new AuthStack(app, `AutoRfp-Auth-${stage}`, {
   env,
@@ -54,14 +55,16 @@ const pipelineStack = new DocumentPipelineStack(app, `AutoRfp-DocumentPipeline-$
   documentsTable: db.tableName,
   openSearchCollectionEndpoint: opensearchEndpoint,
   vpc: network.vpc,
-  vpcSecurityGroup: network.lambdaSecurityGroup
+  vpcSecurityGroup: network.lambdaSecurityGroup,
+  sentryDNS
 });
 
 const questionsPipelineStack = new QuestionExtractionPipelineStack(app, `AutoRfp-QuestionsPipeline-${stage}`, {
   env,
   stage,
   documentsBucket: storage.documentsBucket,
-  mainTable: db.tableName
+  mainTable: db.tableName,
+  sentryDNS
 });
 
 const api = new ApiStack(app, `AutoRfp-API-${stage}`, {
@@ -74,9 +77,8 @@ const api = new ApiStack(app, `AutoRfp-API-${stage}`, {
   documentPipelineStateMachineArn: pipelineStack.stateMachine.stateMachineArn,
   questionPipelineStateMachineArn: questionsPipelineStack.stateMachine.stateMachineArn,
   openSearchCollectionEndpoint: opensearchEndpoint,
-  vpc: network.vpc
+  sentryDNS
 });
-
 
 const githubToken = cdk.SecretValue.secretsManager('auto-rfp/github-token');
 
@@ -93,6 +95,7 @@ new AmplifyFeStack(app, `AmplifyFeStack-${stage}`, {
   cognitoDomainUrl: auth.userPoolDomain.baseUrl(),
   baseApiUrl: api.api.url,
   region: env.region!,
+  sentryDNS,
 });
 
 

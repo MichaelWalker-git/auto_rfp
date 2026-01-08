@@ -1,17 +1,10 @@
 'use client';
 
-import React from "react";
-import { 
-  Table, 
-  TableBody, 
-  TableCaption, 
-  TableCell, 
-  TableHead, 
-  TableHeader, 
-  TableRow 
-} from "@/components/ui/table";
-import { MemberTableRow } from "./MemberTableRow";
-import { TeamMember } from "./types";
+import React from 'react';
+import { Table, TableBody, TableCaption, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { MemberTableRow } from './MemberTableRow';
+import { TeamMember } from './types';
+import PermissionWrapper from '@/components/permission-wrapper';
 
 interface TeamMembersTableProps {
   members: TeamMember[];
@@ -22,14 +15,14 @@ interface TeamMembersTableProps {
   onMemberRemoved: (memberId: string) => void;
 }
 
-export function TeamMembersTable({ 
-  members, 
-  orgId, 
-  organizationName, 
-  isLoading, 
-  onMemberUpdated, 
-  onMemberRemoved 
-}: TeamMembersTableProps) {
+export function TeamMembersTable({
+                                   members,
+                                   orgId,
+                                   organizationName,
+                                   isLoading,
+                                   onMemberUpdated,
+                                   onMemberRemoved
+                                 }: TeamMembersTableProps) {
   return (
     <div className="border rounded-md overflow-hidden">
       <Table>
@@ -41,7 +34,9 @@ export function TeamMembersTable({
             <TableHead>Member</TableHead>
             <TableHead>Role</TableHead>
             <TableHead>Joined</TableHead>
-            <TableHead className="text-right">Actions</TableHead>
+            <PermissionWrapper requiredPermission={'user:edit'}>
+              <TableHead className="text-right">Actions</TableHead>
+            </PermissionWrapper>
           </TableRow>
         </TableHeader>
         <TableBody>

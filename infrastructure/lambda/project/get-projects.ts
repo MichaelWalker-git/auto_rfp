@@ -1,27 +1,33 @@
 import { APIGatewayProxyEventV2, APIGatewayProxyResultV2, } from 'aws-lambda';
-import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
-import { DynamoDBDocumentClient, QueryCommand, } from '@aws-sdk/lib-dynamodb';
+import { QueryCommand, } from '@aws-sdk/lib-dynamodb';
 import { PK_NAME, SK_NAME } from '../constants/common';
-import { apiResponse } from '../helpers/api';
+import { apiResponse, getOrgId } from '../helpers/api';
 import { PROJECT_PK } from '../constants/organization';
+import { withSentryLambda } from '../sentry-lambda';
+import { requireEnv } from '../helpers/env';
+import {
+  authContextMiddleware,
+  httpErrorMiddleware,
+  orgMembershipMiddleware,
+  requirePermission
+} from '../middleware/rbac-middleware';
+import middy from '@middy/core';
+import { docClient } from '../helpers/db';
 
-const ddbClient = new DynamoDBClient({});
-const docClient = DynamoDBDocumentClient.from(ddbClient, {
-  marshallOptions: {
-    removeUndefinedValues: true,
-  },
-});
+const DB_TABLE_NAME = requireEnv('DB_TABLE_NAME');
 
-const DB_TABLE_NAME = process.env.DB_TABLE_NAME;
+export const baseHandler = async (event: APIGatewayProxyEventV2): Promise<APIGatewayProxyResultV2> => {
+  const tokenOrgId = getOrgId(event);
+  const { orgId: requestOrgId } = event?.queryStringParameters || {};
 
-if (!DB_TABLE_NAME) {
-  throw new Error('DB_TABLE_NAME environment variable is not set');
-}
+  if (tokenOrgId && requestOrgId !== requestOrgId) {
+    return apiResponse(403, undefined);
+  }
 
-export const handler = async (event: APIGatewayProxyEventV2): Promise<APIGatewayProxyResultV2> => {
-  const { orgId } = event?.queryStringParameters || {};
+  const orgId = tokenOrgId || requestOrgId;
+
   try {
-    const list = orgId ? await listProjects(orgId) : await allProjects();
+    const list = orgId ? await listProjects(orgId) : [];
     return apiResponse(200, list);
   } catch (err) {
     console.error('Error in projects handler:', err);
@@ -65,31 +71,10 @@ export async function listProjects(orgId: string): Promise<any[]> {
   return items;
 }
 
-export async function allProjects(): Promise<any[]> {
-  const items: any[] = [];
-  let ExclusiveStartKey: Record<string, any> | undefined = undefined;
-
-  do {
-    const res = await docClient.send(
-      new QueryCommand({
-        TableName: DB_TABLE_NAME,
-        KeyConditionExpression: '#pk = :pkValue',
-        ExpressionAttributeNames: {
-          '#pk': PK_NAME,
-        },
-        ExpressionAttributeValues: {
-          ':pkValue': PROJECT_PK,
-        },
-        ExclusiveStartKey,
-      }),
-    );
-
-    if (res.Items && res.Items.length > 0) {
-      items.push(...res.Items);
-    }
-
-    ExclusiveStartKey = res.LastEvaluatedKey as Record<string, any> | undefined;
-  } while (ExclusiveStartKey);
-
-  return items;
-}
+export const handler = withSentryLambda(
+  middy(baseHandler)
+    .use(authContextMiddleware())
+    .use(orgMembershipMiddleware())
+    .use(requirePermission('project:read'))
+    .use(httpErrorMiddleware())
+);

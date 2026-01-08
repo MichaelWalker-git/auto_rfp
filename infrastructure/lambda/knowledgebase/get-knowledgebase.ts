@@ -1,32 +1,34 @@
 import { APIGatewayProxyEventV2, APIGatewayProxyResultV2, } from 'aws-lambda';
-import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
-import { DynamoDBDocumentClient, GetCommand, } from '@aws-sdk/lib-dynamodb';
+import { GetCommand, } from '@aws-sdk/lib-dynamodb';
 
 import { PK_NAME, SK_NAME } from '../constants/common';
 import { KNOWLEDGE_BASE_PK } from '../constants/organization';
-import { apiResponse } from '../helpers/api';
-import { KnowledgeBase, KnowledgeBaseItem, } from '../schemas/knowledge-base';
+import { apiResponse, getOrgId } from '../helpers/api';
+import { KnowledgeBase, KnowledgeBaseItem, } from '@auto-rfp/shared';
+import { withSentryLambda } from '../sentry-lambda';
+import { requireEnv } from '../helpers/env';
+import { docClient } from '../helpers/db';
+import {
+  authContextMiddleware,
+  httpErrorMiddleware,
+  orgMembershipMiddleware,
+  requirePermission
+} from '../middleware/rbac-middleware';
+import middy from '@middy/core';
 
-const ddbClient = new DynamoDBClient({});
-const docClient = DynamoDBDocumentClient.from(ddbClient, {
-  marshallOptions: { removeUndefinedValues: true },
-});
+const DB_TABLE_NAME = requireEnv('DB_TABLE_NAME');
 
-const DB_TABLE_NAME = process.env.DB_TABLE_NAME;
-
-if (!DB_TABLE_NAME) {
-  throw new Error("DB_TABLE_NAME environment variable is not set");
-}
-
-export const handler = async (
+export const baseHandler = async (
   event: APIGatewayProxyEventV2
 ): Promise<APIGatewayProxyResultV2> => {
   try {
-    const { orgId, kbId } = event.queryStringParameters || {};
+    const tokenOrgId = getOrgId(event);
+    const { orgId: queryOrgId, kbId } = event.queryStringParameters || {};
+    const orgId = tokenOrgId ? tokenOrgId : queryOrgId;
 
     if (!orgId || !kbId) {
       return apiResponse(400, {
-        message: "Missing required query params: orgId, kbId",
+        message: 'Missing required query params: orgId, kbId',
       });
     }
 
@@ -34,17 +36,17 @@ export const handler = async (
 
     if (!knowledgeBase) {
       return apiResponse(404, {
-        message: "Knowledge Base not found",
+        message: 'Knowledge Base not found',
       });
     }
 
     return apiResponse(200, knowledgeBase);
   } catch (err) {
-    console.error("Error in getKnowledgeBase handler:", err);
+    console.error('Error in getKnowledgeBase handler:', err);
 
     return apiResponse(500, {
-      message: "Internal server error",
-      error: err instanceof Error ? err.message : "Unknown error",
+      message: 'Internal server error',
+      error: err instanceof Error ? err.message : 'Unknown error',
     });
   }
 };
@@ -80,3 +82,11 @@ export async function getKnowledgeBase(
     },
   };
 }
+
+export const handler = withSentryLambda(
+  middy(baseHandler)
+    .use(authContextMiddleware())
+    .use(orgMembershipMiddleware())
+    .use(requirePermission('kb:read'))
+    .use(httpErrorMiddleware())
+);

@@ -1,29 +1,9 @@
 "use client";
 
 import useSWR from "swr";
-import { fetchAuthSession } from "aws-amplify/auth";
+import useSWRMutation from 'swr/mutation';
 import { env } from "@/lib/env";
-import { RfpDocument } from '@/types/api';
-
-const authedFetcher = async <T>(url: string): Promise<T> => {
-  let token: string | undefined;
-  const session = await fetchAuthSession();
-  token = session.tokens?.idToken?.toString();
-
-  const res = await fetch(url, {
-    headers: {
-      Authorization: token ? `Bearer ${token}` : "",
-      "Content-Type": "application/json",
-    },
-  });
-
-  if (!res.ok) {
-    throw new Error(`Failed to load ${url}`);
-  }
-
-  return res.json();
-};
-
+import { authFetcher } from '@/lib/auth/auth-fetcher';
 
 export function useProject(projectId: string | null) {
   const shouldFetch = !!projectId;
@@ -32,7 +12,7 @@ export function useProject(projectId: string | null) {
     shouldFetch
       ? `${env.BASE_API_URL}/project/get-project/${projectId}`
       : null,
-    authedFetcher,
+    authFetcher,
     {
       revalidateOnFocus: false,
       dedupingInterval: 30000,
@@ -46,4 +26,40 @@ export function useProject(projectId: string | null) {
     error,
     refetch: () => mutate(),
   };
+}
+
+
+export function useDeleteProject() {
+  return useSWRMutation<
+    void,
+    any,
+    string,
+    { projectId: string, orgId: string }
+  >(
+    `${env.BASE_API_URL}/project/delete-project`,
+    async (url, { arg: {orgId, projectId} }) => {
+      const res = await authFetcher(`${url}?projectId=${projectId}&orgId=${orgId}`, {
+        method: 'DELETE',
+      });
+
+      if (!res.ok) {
+        const message = await res.text().catch(() => '');
+        const error = new Error(message || 'Failed to delete project') as Error & {
+          status?: number;
+        };
+        (error as any).status = res.status;
+        throw error;
+      }
+
+      // some lambdas return empty body
+      const raw = await res.text().catch(() => '');
+      if (!raw) return { success: true };
+
+      try {
+        return JSON.parse(raw);
+      } catch {
+        return { success: true };
+      }
+    },
+  );
 }

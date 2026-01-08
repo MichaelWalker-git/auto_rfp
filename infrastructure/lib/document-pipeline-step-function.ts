@@ -1,5 +1,6 @@
-import { Duration, Stack, StackProps } from 'aws-cdk-lib';
+import { Duration, RemovalPolicy, Stack, StackProps } from 'aws-cdk-lib';
 import { Construct } from 'constructs';
+
 import * as s3 from 'aws-cdk-lib/aws-s3';
 import * as dynamodb from 'aws-cdk-lib/aws-dynamodb';
 import * as lambda from 'aws-cdk-lib/aws-lambda';
@@ -20,6 +21,7 @@ interface DocumentPipelineStackProps extends StackProps {
   openSearchCollectionEndpoint: string;
   vpc: ec2.IVpc;
   vpcSecurityGroup: ec2.ISecurityGroup;
+  sentryDNS: string;
 }
 
 export class DocumentPipelineStack extends Stack {
@@ -35,165 +37,224 @@ export class DocumentPipelineStack extends Stack {
       openSearchCollectionEndpoint,
       vpc,
       vpcSecurityGroup,
+      sentryDNS,
     } = props;
 
     const namePrefix = `AutoRfp-${stage}`;
 
-    // 1. SNS Topic + Textract role
+    const logGroup = new logs.LogGroup(this, `${namePrefix}-LogGroup`, {
+      retention: logs.RetentionDays.ONE_WEEK,
+      removalPolicy: RemovalPolicy.DESTROY,
+    });
+
+    // 1) SNS Topic + Textract role
     const textractTopic = new sns.Topic(this, 'TextractCompletionTopic', {
       topicName: `${namePrefix}-TextractCompletionTopic`,
     });
 
     const textractServiceRole = new iam.Role(this, 'TextractServiceRole', {
       assumedBy: new iam.ServicePrincipal('textract.amazonaws.com'),
-      roleName: `${namePrefix}-TextractServiceRole`,
     });
     textractTopic.grantPublish(textractServiceRole);
 
-    // 2. Lambda 1 – Start Textract Job (callback pattern target)
-    const startTextractLambda = new lambdaNode.NodejsFunction(
+    // 2) start-processing (sync): loads document row, sets status STARTED, returns format
+    const startProcessingLambda = new lambdaNode.NodejsFunction(
       this,
-      'StartTextractJobLambda',
+      'StartProcessingLambda',
       {
         runtime: lambda.Runtime.NODEJS_20_X,
-        entry: path.join(__dirname, '../lambda/textract/start-textract.ts'),
+        entry: path.join(__dirname, '../lambda/document-pipeline-steps/start-processing.ts'),
         handler: 'handler',
         timeout: Duration.seconds(30),
-        functionName: `${namePrefix}-StartTextractJob`,
+        functionName: `${namePrefix}-StartProcessing`,
         environment: {
+          REGION: this.region,
           DB_TABLE_NAME: documentsTable.tableName,
-          DOCUMENTS_BUCKET_NAME: documentsBucket.bucketName,
-          SNS_TOPIC_ARN: textractTopic.topicArn,
-          TEXTRACT_ROLE_ARN: textractServiceRole.roleArn,
+          DOCUMENTS_BUCKET: documentsBucket.bucketName,
+          SENTRY_DSN: sentryDNS,
+          SENTRY_ENVIRONMENT: stage,
         },
-        logRetention: logs.RetentionDays.ONE_WEEK,
+        logGroup,
       },
     );
+    documentsTable.grantReadWriteData(startProcessingLambda);
 
-    documentsTable.grantReadWriteData(startTextractLambda);
-    documentsBucket.grantRead(startTextractLambda);
-    startTextractLambda.addToRolePolicy(
+    // 3) pdf-processing (WAIT_FOR_TASK_TOKEN): starts Textract, stores jobId + taskToken
+    const pdfProcessingLambda = new lambdaNode.NodejsFunction(
+      this,
+      'PdfProcessingLambda',
+      {
+        runtime: lambda.Runtime.NODEJS_20_X,
+        entry: path.join(__dirname, '../lambda/document-pipeline-steps/pdf-processing.ts'),
+        handler: 'handler',
+        timeout: Duration.seconds(30),
+        functionName: `${namePrefix}-PdfProcessing`,
+        environment: {
+          REGION: this.region,
+          DB_TABLE_NAME: documentsTable.tableName,
+          DOCUMENTS_BUCKET: documentsBucket.bucketName,
+          TEXTRACT_SNS_TOPIC_ARN: textractTopic.topicArn,
+          TEXTRACT_ROLE_ARN: textractServiceRole.roleArn,
+          SENTRY_DSN: sentryDNS,
+          SENTRY_ENVIRONMENT: stage,
+        },
+        logGroup,
+      },
+    );
+    documentsTable.grantReadWriteData(pdfProcessingLambda);
+    documentsBucket.grantRead(pdfProcessingLambda);
+
+    pdfProcessingLambda.addToRolePolicy(
       new iam.PolicyStatement({
         actions: ['textract:StartDocumentTextDetection'],
         resources: ['*'],
       }),
     );
-    startTextractLambda.addToRolePolicy(
+    pdfProcessingLambda.addToRolePolicy(
       new iam.PolicyStatement({
         actions: ['iam:PassRole'],
         resources: [textractServiceRole.roleArn],
       }),
     );
 
-    // 3. Callback Handler Lambda
-    const callbackHandlerLambda = new lambdaNode.NodejsFunction(
+    // 4) textract-callback: fetches full text, stores txt to S3, updates Dynamo, SendTaskSuccess/Failure
+    const textractCallbackLambda = new lambdaNode.NodejsFunction(
       this,
-      'TextractCallbackHandler',
+      'TextractCallbackLambda',
       {
         runtime: lambda.Runtime.NODEJS_20_X,
-        entry: path.join(__dirname, '../lambda/textract/callback-handler.ts'),
+        entry: path.join(__dirname, '../lambda/document-pipeline-steps/textract-callback.ts'),
         handler: 'handler',
-        timeout: Duration.seconds(15),
-        functionName: `${namePrefix}-TextractCallbackHandler`,
+        timeout: Duration.minutes(2),
+        functionName: `${namePrefix}-TextractCallback`,
         environment: {
-          DB_TABLE_NAME: documentsTable.tableName,
-        },
-        logRetention: logs.RetentionDays.ONE_WEEK,
-      },
-    );
-
-    documentsTable.grantReadData(callbackHandlerLambda);
-
-    callbackHandlerLambda.addToRolePolicy(
-      new iam.PolicyStatement({
-        actions: ['states:SendTaskSuccess', 'states:SendTaskFailure'],
-        resources: ['*'],
-      }),
-    );
-
-    textractTopic.addSubscription(
-      new subscriptions.LambdaSubscription(callbackHandlerLambda),
-    );
-
-    // 4. Lambda 2 – Process Textract + Bedrock + AOSS
-    const processResultLambda = new lambdaNode.NodejsFunction(
-      this,
-      'ProcessTextractResultLambda',
-      {
-        runtime: lambda.Runtime.NODEJS_20_X,
-        entry: path.join(__dirname, '../lambda/textract/process-result.ts'),
-        handler: 'handler',
-        memorySize: 2048,
-        timeout: Duration.minutes(5),
-        functionName: `${namePrefix}-ProcessTextractResult`,
-        vpc,
-        securityGroups: [vpcSecurityGroup],
-        environment: {
-          DOCUMENTS_BUCKET: documentsBucket.bucketName,
-          DOCUMENTS_TABLE_NAME: documentsTable.tableName,
-          OPENSEARCH_ENDPOINT: openSearchCollectionEndpoint,
           REGION: this.region,
+          DB_TABLE_NAME: documentsTable.tableName,
+          DOCUMENTS_BUCKET: documentsBucket.bucketName,
+          SENTRY_DSN: sentryDNS,
+          SENTRY_ENVIRONMENT: stage,
         },
-        logRetention: logs.RetentionDays.ONE_WEEK,
+        logGroup,
       },
     );
 
-    documentsTable.grantWriteData(processResultLambda);
+    documentsTable.grantReadWriteData(textractCallbackLambda);
+    documentsBucket.grantReadWrite(textractCallbackLambda);
 
-    processResultLambda.role?.addManagedPolicy(
-      iam.ManagedPolicy.fromAwsManagedPolicyName(
-        'service-role/AWSLambdaVPCAccessExecutionRole',
-      ),
-    );
-
-    processResultLambda.addToRolePolicy(
+    textractCallbackLambda.addToRolePolicy(
       new iam.PolicyStatement({
         actions: ['textract:GetDocumentTextDetection'],
         resources: ['*'],
       }),
     );
 
-    processResultLambda.addToRolePolicy(
-      new iam.PolicyStatement({
-        actions: ['dynamodb:*'],
-        resources: ['*'],
-      }),
-    )
-
-    processResultLambda.addToRolePolicy(
-      new iam.PolicyStatement({
-        actions: ['s3:*'],
-        resources: ['*'],
-      }),
-    )
-
-    processResultLambda.addToRolePolicy(
-      new iam.PolicyStatement({
-        effect: iam.Effect.ALLOW,
-        actions: [
-          'aoss:APIAccessAll',
-        ],
-        resources: [
-          'arn:aws:aoss:us-east-1:039885961427:collection/leb5aji6vthaxk7ft8pi',
-        ],
-      }),
+    textractTopic.addSubscription(
+      new subscriptions.LambdaSubscription(textractCallbackLambda),
     );
 
-    processResultLambda.addToRolePolicy(
+    // 5) docx-processing (sync): downloads docx, converts to text, stores txt to S3, returns bucket/txtKey
+    const docxProcessingLambda = new lambdaNode.NodejsFunction(
+      this,
+      'DocxProcessingLambda',
+      {
+        runtime: lambda.Runtime.NODEJS_20_X,
+        entry: path.join(__dirname, '../lambda/document-pipeline-steps/docx-processing.ts'),
+        handler: 'handler',
+        memorySize: 2048,
+        timeout: Duration.minutes(2),
+        functionName: `${namePrefix}-DocxProcessing`,
+        environment: {
+          REGION: this.region,
+          DB_TABLE_NAME: documentsTable.tableName,
+          DOCUMENTS_BUCKET: documentsBucket.bucketName,
+          SENTRY_DSN: sentryDNS,
+          SENTRY_ENVIRONMENT: stage,
+        },
+        logGroup,
+      },
+    );
+    documentsTable.grantReadWriteData(docxProcessingLambda);
+    documentsBucket.grantReadWrite(docxProcessingLambda);
+
+    // 6) chunk-document (sync): reads txt, writes chunks next to it, returns items[]
+    const chunkDocumentLambda = new lambdaNode.NodejsFunction(
+      this,
+      'ChunkDocumentLambda',
+      {
+        runtime: lambda.Runtime.NODEJS_20_X,
+        entry: path.join(__dirname, '../lambda/document-pipeline-steps/chunk-document.ts'),
+        handler: 'handler',
+        memorySize: 2048,
+        timeout: Duration.minutes(2),
+        functionName: `${namePrefix}-ChunkDocument`,
+        environment: {
+          REGION: this.region,
+          DB_TABLE_NAME: documentsTable.tableName,
+          DOCUMENTS_BUCKET: documentsBucket.bucketName,
+          SENTRY_DSN: sentryDNS,
+          SENTRY_ENVIRONMENT: stage,
+          CHUNK_MAX_CHARS: '2500',
+          CHUNK_OVERLAP_CHARS: '250',
+          CHUNK_MIN_CHARS: '200',
+        },
+        logGroup,
+      },
+    );
+    documentsTable.grantReadWriteData(chunkDocumentLambda);
+    documentsBucket.grantReadWrite(chunkDocumentLambda);
+
+    // 7) index-document (per chunk): embed + index to OpenSearch (+ optional INDEXED update on last chunk)
+    const indexDocumentLambda = new lambdaNode.NodejsFunction(
+      this,
+      'IndexDocumentLambda',
+      {
+        runtime: lambda.Runtime.NODEJS_20_X,
+        entry: path.join(__dirname, '../lambda/document-pipeline-steps/index-document.ts'),
+        handler: 'handler',
+        memorySize: 2048,
+        timeout: Duration.minutes(2),
+        functionName: `${namePrefix}-IndexDocumentChunk`,
+        vpc,
+        securityGroups: [vpcSecurityGroup],
+        environment: {
+          DB_TABLE_NAME: documentsTable.tableName,
+          DOCUMENTS_BUCKET: documentsBucket.bucketName,
+          OPENSEARCH_ENDPOINT: openSearchCollectionEndpoint,
+          OPENSEARCH_INDEX: 'documents',
+          REGION: this.region,
+          BEDROCK_EMBEDDING_MODEL_ID: 'amazon.titan-embed-text-v2:0',
+          SENTRY_DSN: sentryDNS,
+          SENTRY_ENVIRONMENT: stage,
+        },
+        logGroup,
+      },
+    );
+
+    documentsBucket.grantRead(indexDocumentLambda);
+    documentsTable.grantReadWriteData(indexDocumentLambda);
+
+    indexDocumentLambda.role?.addManagedPolicy(
+      iam.ManagedPolicy.fromAwsManagedPolicyName(
+        'service-role/AWSLambdaVPCAccessExecutionRole',
+      ),
+    );
+
+    indexDocumentLambda.addToRolePolicy(
       new iam.PolicyStatement({
         actions: ['bedrock:InvokeModel'],
         resources: [`arn:aws:bedrock:${this.region}::foundation-model/*`],
       }),
     );
 
-    processResultLambda.addToRolePolicy(
+    indexDocumentLambda.addToRolePolicy(
       new iam.PolicyStatement({
-        actions: ['aoss:APIAccess'],
+        effect: iam.Effect.ALLOW,
+        actions: ['aoss:APIAccessAll'],
         resources: ['*'],
       }),
     );
 
-    // 5. Step Functions Logging
+    // 8) Step Functions logging
     const sfnLogGroup = new logs.LogGroup(
       this,
       'DocumentPipelineStateMachineLogs',
@@ -202,53 +263,165 @@ export class DocumentPipelineStack extends Stack {
       },
     );
 
-    // 6. State Machine definition (Lambda callback pattern)
-
-    // Input to state machine:
-    //   { "documentId": "...", "knowledgeBaseId": "..." }  (kbId only used by process-result; start-textract derives it from SK if needed)
-    //
-    // StartTextractJob (WAIT_FOR_TASK_TOKEN):
-    //   - SFN passes taskToken + documentId
-    //   - lambda starts Textract, stores taskToken in Dynamo
-    //   - SFN waits until callback-handler calls SendTaskSuccess with that token
-    //
-    // callback-handler output (SendTaskSuccess.output) is:
-    //   { jobId, documentId, knowledgeBaseId, status }
-    // stored under $.TextractJob
-
-    const startTextractTask = new tasks.LambdaInvoke(
-      this,
-      'Start Textract Job',
-      {
-        lambdaFunction: startTextractLambda,
-        integrationPattern: sfn.IntegrationPattern.WAIT_FOR_TASK_TOKEN,
-        payload: sfn.TaskInput.fromObject({
-          taskToken: sfn.JsonPath.taskToken,
-          documentId: sfn.JsonPath.stringAt('$.documentId'),
-        }),
-        resultPath: '$.TextractJob',
+    // Step Functions Tasks
+    const startProcessingTask = new tasks.LambdaInvoke(this, 'Start Processing', {
+      lambdaFunction: startProcessingLambda,
+      payload: sfn.TaskInput.fromObject({
+        documentId: sfn.JsonPath.stringAt('$.documentId'),
+        knowledgeBaseId: sfn.JsonPath.stringAt('$.knowledgeBaseId'),
+      }),
+      resultSelector: {
+        'format.$': '$.Payload.format',
+        'fileKey.$': '$.Payload.fileKey',
+        'contentType.$': '$.Payload.contentType',
+        'ext.$': '$.Payload.ext',
+        'knowledgeBaseId.$': '$.Payload.knowledgeBaseId',
+        'status.$': '$.Payload.status',
+        'documentId.$': '$.Payload.documentId',
       },
-    );
+      resultPath: '$.Start',
+    });
 
-    const processResultTask = new tasks.LambdaInvoke(
-      this,
-      'Process Results and Index',
-      {
-        lambdaFunction: processResultLambda,
+    const pdfProcessingTask = new tasks.LambdaInvoke(this, 'PDF Processing (Start Textract)', {
+      lambdaFunction: pdfProcessingLambda,
+      integrationPattern: sfn.IntegrationPattern.WAIT_FOR_TASK_TOKEN,
+      payload: sfn.TaskInput.fromObject({
+        taskToken: sfn.JsonPath.taskToken,
+        documentId: sfn.JsonPath.stringAt('$.documentId'),
+        knowledgeBaseId: sfn.JsonPath.stringAt('$.knowledgeBaseId'),
+      }),
+      resultPath: '$.Pdf',
+    });
+
+    const docxProcessingTask = new tasks.LambdaInvoke(this, 'DOCX Processing (To Text)', {
+      lambdaFunction: docxProcessingLambda,
+      payload: sfn.TaskInput.fromObject({
+        documentId: sfn.JsonPath.stringAt('$.documentId'),
+        fileKey: sfn.JsonPath.stringAt('$.Start.fileKey'),
+        bucket: documentsBucket.bucketName,
+      }),
+      resultSelector: {
+        'documentId.$': '$.Payload.documentId',
+        'status.$': '$.Payload.status',
+        'bucket.$': '$.Payload.bucket',
+        'txtKey.$': '$.Payload.txtKey',
+        'textLength.$': '$.Payload.textLength',
+      },
+      resultPath: '$.Text',
+    });
+
+    const chunkPdfTask = new tasks.LambdaInvoke(this, 'Chunk Document (PDF)', {
+      lambdaFunction: chunkDocumentLambda,
+      payload: sfn.TaskInput.fromObject({
+        documentId: sfn.JsonPath.stringAt('$.documentId'),
+        knowledgeBaseId: sfn.JsonPath.stringAt('$.knowledgeBaseId'),
+        bucket: sfn.JsonPath.stringAt('$.Pdf.bucket'),
+        txtKey: sfn.JsonPath.stringAt('$.Pdf.txtKey'),
+      }),
+      resultSelector: {
+        'documentId.$': '$.Payload.documentId',
+        'bucket.$': '$.Payload.bucket',
+        'txtKey.$': '$.Payload.txtKey',
+        'chunksPrefix.$': '$.Payload.chunksPrefix',
+        'chunksCount.$': '$.Payload.chunksCount',
+        'items.$': '$.Payload.items',
+      },
+      resultPath: '$.Chunks',
+    });
+
+    const chunkDocxTask = new tasks.LambdaInvoke(this, 'Chunk Document (DOCX)', {
+      lambdaFunction: chunkDocumentLambda,
+      payload: sfn.TaskInput.fromObject({
+        documentId: sfn.JsonPath.stringAt('$.documentId'),
+        knowledgeBaseId: sfn.JsonPath.stringAt('$.knowledgeBaseId'),
+        bucket: sfn.JsonPath.stringAt('$.Text.bucket'),
+        txtKey: sfn.JsonPath.stringAt('$.Text.txtKey'),
+      }),
+      resultSelector: {
+        'documentId.$': '$.Payload.documentId',
+        'bucket.$': '$.Payload.bucket',
+        'txtKey.$': '$.Payload.txtKey',
+        'chunksPrefix.$': '$.Payload.chunksPrefix',
+        'chunksCount.$': '$.Payload.chunksCount',
+        'items.$': '$.Payload.items',
+      },
+      resultPath: '$.Chunks',
+    });
+
+// --- Fix for PDF Map ---
+    const indexPdfMap = new sfn.Map(this, 'Index Chunks (PDF)', {
+      itemsPath: sfn.JsonPath.stringAt('$.Chunks.items'),
+      maxConcurrency: 3,
+      resultPath: sfn.JsonPath.DISCARD,
+      // This passes data from the "outside" into the "inside" of the loop
+      itemSelector: {
+        // Keep the individual item data
+        'chunkItem.$': '$$.Map.Item.Value',
+        // Pull the documentId from the global state
+        'documentId.$': '$.documentId',
+        'totalChunks.$': '$.Chunks.chunksCount'
+      },
+    });
+
+    indexPdfMap.iterator(
+      new tasks.LambdaInvoke(this, 'Index One Chunk (PDF)', {
+        lambdaFunction: indexDocumentLambda,
         payload: sfn.TaskInput.fromObject({
-          documentId: sfn.JsonPath.stringAt('$.TextractJob.documentId'),
-          jobId: sfn.JsonPath.stringAt('$.TextractJob.jobId'),
-          knowledgeBaseId: sfn.JsonPath.stringAt(
-            '$.TextractJob.knowledgeBaseId',
-          ),
+          // Now documentId is available because of itemSelector
+          documentId: sfn.JsonPath.stringAt('$.documentId'),
+          chunkKey: sfn.JsonPath.stringAt('$.chunkItem.chunkKey'),
+          index: sfn.JsonPath.numberAt('$.chunkItem.index'),
+          totalChunks: sfn.JsonPath.numberAt('$.totalChunks'),
         }),
         resultPath: sfn.JsonPath.DISCARD,
-      },
+      }),
     );
 
-    const definition = startTextractTask
-      .next(processResultTask)
-      .next(new sfn.Succeed(this, 'Pipeline Succeeded'));
+// --- Fix for DOCX Map (Repeat the same logic) ---
+    const indexDocxMap = new sfn.Map(this, 'Index Chunks (DOCX)', {
+      itemsPath: sfn.JsonPath.stringAt('$.Chunks.items'),
+      maxConcurrency: 3,
+      resultPath: sfn.JsonPath.DISCARD,
+      itemSelector: {
+        'chunkItem.$': '$$.Map.Item.Value',
+        'documentId.$': '$.documentId',
+        'totalChunks.$': '$.Chunks.chunksCount'
+      },
+    });
+
+    indexDocxMap.iterator(
+      new tasks.LambdaInvoke(this, 'Index One Chunk (DOCX)', {
+        lambdaFunction: indexDocumentLambda,
+        payload: sfn.TaskInput.fromObject({
+          documentId: sfn.JsonPath.stringAt('$.documentId'),
+          chunkKey: sfn.JsonPath.stringAt('$.chunkItem.chunkKey'),
+          index: sfn.JsonPath.numberAt('$.chunkItem.index'),
+          totalChunks: sfn.JsonPath.numberAt('$.totalChunks'),
+        }),
+        resultPath: sfn.JsonPath.DISCARD,
+      }),
+    );
+
+    const done = new sfn.Succeed(this, 'Pipeline Succeeded');
+
+    const chooseFormat = new sfn.Choice(this, 'Choose File Format');
+
+    const pdfBranch = pdfProcessingTask
+      .next(chunkPdfTask)
+      .next(indexPdfMap)
+      .next(done);
+
+    const docxBranch = docxProcessingTask
+      .next(chunkDocxTask)
+      .next(indexDocxMap)
+      .next(done);
+
+    const definition = startProcessingTask.next(
+      chooseFormat
+        .when(sfn.Condition.stringEquals('$.Start.format', 'PDF'), pdfBranch)
+        .when(sfn.Condition.stringEquals('$.Start.format', 'DOCX'), docxBranch)
+        .otherwise(new sfn.Fail(this, 'Unsupported File Type')),
+    );
 
     this.stateMachine = new sfn.StateMachine(
       this,
@@ -264,5 +437,11 @@ export class DocumentPipelineStack extends Stack {
         },
       },
     );
+
+    // Tighten callback SendTask* permissions to this state machine only
+    textractCallbackLambda.addToRolePolicy(new iam.PolicyStatement({
+      actions: ['states:SendTaskSuccess', 'states:SendTaskFailure'],
+      resources: [this.stateMachine.stateMachineArn],
+    }));
   }
 }

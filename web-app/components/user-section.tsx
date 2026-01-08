@@ -30,6 +30,7 @@ import {
   getCurrentUser,
   signOut,
 } from "aws-amplify/auth";
+import { useAuth } from '@/components/AuthProvider';
 
 type AuthUser = {
   username: string;
@@ -84,7 +85,6 @@ export const UserSection: React.FC = () => {
     startTransition(async () => {
       try {
         await signOut({ global: true });
-        push("/login");
       } catch (error) {
         console.error("Error signing out:", error);
       }

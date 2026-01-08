@@ -1,15 +1,12 @@
 import { Organization } from '@/types/organization';
-import { fetchAuthSession } from 'aws-amplify/auth';
-import { env } from '@/lib/env'
+import { env } from '@/lib/env';
+import { useAuth } from '@/components/AuthProvider';
 
 export function useCreateOrganization() {
-  const create = async (payload: { name: string, description: string }): Promise<Organization> => {
-    const session = await fetchAuthSession();
-    const token = session.tokens?.idToken?.toString();
+  const { getIdToken } = useAuth();
+  const token = getIdToken().toString();
 
-    if (!token) {
-      throw new Error('No ID token found – user is not authenticated.');
-    }
+  const create = async (payload: { name: string, slug: string, description: string }): Promise<Organization> => {
 
     const url = `${env.BASE_API_URL.replace(/\/$/, '')}/organization/create-organization`;
 

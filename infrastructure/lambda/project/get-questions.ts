@@ -1,23 +1,28 @@
 import { APIGatewayProxyEventV2, APIGatewayProxyResultV2 } from 'aws-lambda';
-import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
-import { DynamoDBDocumentClient, QueryCommand } from '@aws-sdk/lib-dynamodb';
+import { QueryCommand } from '@aws-sdk/lib-dynamodb';
 
 import { apiResponse } from '../helpers/api';
 import { PK_NAME, SK_NAME } from '../constants/common';
-import { QUESTION_PK } from '../constants/organization';
+import { QUESTION_PK } from '../constants/question';
 import { ANSWER_PK } from '../constants/answer';
+import { withSentryLambda } from '../sentry-lambda';
+import { requireEnv } from '../helpers/env';
+import { docClient } from '../helpers/db';
+import {
+  authContextMiddleware,
+  httpErrorMiddleware,
+  orgMembershipMiddleware,
+  requirePermission
+} from '../middleware/rbac-middleware';
+import middy from '@middy/core';
 
-const ddbClient = new DynamoDBClient({});
-const docClient = DynamoDBDocumentClient.from(ddbClient);
+const DB_TABLE_NAME = requireEnv('DB_TABLE_NAME');
 
-const DB_TABLE_NAME = process.env.DB_TABLE_NAME;
-if (!DB_TABLE_NAME) throw new Error('DB_TABLE_NAME env var is missing');
-
-export const handler = async (
+export const baseHandler = async (
   event: APIGatewayProxyEventV2,
 ): Promise<APIGatewayProxyResultV2> => {
   try {
-    const projectId = event.pathParameters?.id;
+    const { id: projectId } = event.pathParameters || {};
     if (!projectId) {
       return apiResponse(400, { message: 'Missing projectId' });
     }
@@ -35,7 +40,6 @@ export const handler = async (
   }
 };
 
-// ---------- LOAD QUESTIONS FROM DYNAMODB ----------
 async function loadQuestions(projectId: string) {
   let items: any[] = [];
   let LastKey: Record<string, any> | undefined;
@@ -66,10 +70,6 @@ async function loadQuestions(projectId: string) {
   return items;
 }
 
-// ---------- GET SINGLE ANSWER FOR QUESTION ----------
-// ANSWER PK = ANSWER_PK
-// SK = `${projectId}#${questionId}#${answerId}`
-// and there is at most one item per question → use Limit: 1
 async function getAnswer(projectId: string, questionId: string) {
   const prefix = `${projectId}#${questionId}#`;
 
@@ -96,7 +96,6 @@ async function getAnswer(projectId: string, questionId: string) {
   return res.Items[0];
 }
 
-// ---------- GROUP INTO FE SHAPE ----------
 async function groupQuestions(
   projectId: string,
   flat: any[],
@@ -119,10 +118,18 @@ async function groupQuestions(
 
     sectionsMap.get(secId).questions.push({
       id: qId,
-      question: item.questionText,
+      question: item.question,
       answer: answerItem?.text ?? null,
     });
   }
 
   return Array.from(sectionsMap.values());
 }
+
+export const handler = withSentryLambda(
+  middy(baseHandler)
+    .use(authContextMiddleware())
+    .use(orgMembershipMiddleware())
+    .use(requirePermission('question:read'))
+    .use(httpErrorMiddleware())
+);

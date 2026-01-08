@@ -1,46 +1,56 @@
 import * as cdk from 'aws-cdk-lib';
-import * as iam from 'aws-cdk-lib/aws-iam';
+import { Construct } from 'constructs';
+
 import * as apigw from 'aws-cdk-lib/aws-apigateway';
-import * as s3 from 'aws-cdk-lib/aws-s3';
-import * as ec2 from 'aws-cdk-lib/aws-ec2';
 import * as cognito from 'aws-cdk-lib/aws-cognito';
 import * as dynamodb from 'aws-cdk-lib/aws-dynamodb';
-import { Construct } from 'constructs';
+import * as events from 'aws-cdk-lib/aws-events';
+import * as iam from 'aws-cdk-lib/aws-iam';
+import * as lambda from 'aws-cdk-lib/aws-lambda';
+import * as lambdaNodejs from 'aws-cdk-lib/aws-lambda-nodejs';
+import * as logs from 'aws-cdk-lib/aws-logs';
+import * as path from 'path';
+import * as s3 from 'aws-cdk-lib/aws-s3';
+import * as secretsmanager from 'aws-cdk-lib/aws-secretsmanager';
+import * as sqs from 'aws-cdk-lib/aws-sqs';
+import * as targets from 'aws-cdk-lib/aws-events-targets';
+import { SqsEventSource } from 'aws-cdk-lib/aws-lambda-event-sources';
+
 import { ApiNestedStack } from './wrappers/api-nested-stack';
 import { NagSuppressions } from 'cdk-nag';
 
 export interface ApiStackProps extends cdk.StackProps {
   stage: string;
   documentsBucket: s3.IBucket;
-  /**
-   * Single-table design that stores organizations (PK = "ORG", etc.)
-   */
   mainTable: dynamodb.ITable;
   userPool: cognito.IUserPool;
   userPoolClient: cognito.IUserPoolClient;
   documentPipelineStateMachineArn: string;
   questionPipelineStateMachineArn: string;
   openSearchCollectionEndpoint: string;
-  vpc: ec2.IVpc;
+  sentryDNS: string;
 }
 
 export class ApiStack extends cdk.Stack {
-  private readonly lambdaPermissions: cdk.aws_iam.PolicyStatement[];
-  private readonly policy: cdk.aws_iam.Policy;
   public readonly api: apigw.RestApi;
   private static readonly BEDROCK_REGION = 'us-east-1';
 
+  // Nested stacks
   private readonly organizationApi: ApiNestedStack;
   private readonly projectApi: ApiNestedStack;
-  private readonly questionApi: ApiNestedStack;
   private readonly answerApi: ApiNestedStack;
   private readonly presignedUrlApi: ApiNestedStack;
-  private readonly fileApi: ApiNestedStack;
-  private readonly textractApi: ApiNestedStack;
   private readonly knowledgeBaseApi: ApiNestedStack;
   private readonly documentApi: ApiNestedStack;
   private readonly questionFileApi: ApiNestedStack;
-
+  private readonly proposalApi: ApiNestedStack;
+  private readonly briefApi: ApiNestedStack;
+  private readonly userApi: ApiNestedStack;
+  private readonly questionApi: ApiNestedStack;
+  private readonly semanticApi: ApiNestedStack;
+  private readonly samgovApi: ApiNestedStack;
+  private readonly deadlinesApi: ApiNestedStack;
+  private readonly promptApi: ApiNestedStack;
 
   constructor(scope: Construct, id: string, props: ApiStackProps) {
     super(scope, id, props);
@@ -54,11 +64,109 @@ export class ApiStack extends cdk.Stack {
       documentPipelineStateMachineArn,
       questionPipelineStateMachineArn,
       openSearchCollectionEndpoint,
-      vpc
+      sentryDNS,
     } = props;
 
-    // 1) Common REST API
-    this.api = new apigw.RestApi(this, 'AutoRfpApi', {
+    const commonEnv = this.buildCommonEnv({
+      stage,
+      documentsBucket,
+      mainTable,
+      userPool,
+      userPoolClient,
+      documentPipelineStateMachineArn,
+      questionPipelineStateMachineArn,
+      openSearchCollectionEndpoint,
+      sentryDNS,
+    });
+
+    this.api = this.createRestApi(stage);
+
+    const authorizer = new apigw.CognitoUserPoolsAuthorizer(this, `${id}Authorizer`, {
+      cognitoUserPools: [userPool],
+    });
+
+    // --- Exec brief worker + queue ---
+    const execBriefQueue = this.createExecBriefQueue(stage);
+
+    const lambdaRole = this.createCommonLambdaRole({
+      stage,
+      userPool,
+      documentPipelineStateMachineArn,
+      questionPipelineStateMachineArn,
+      mainTable,
+      documentsBucket,
+      execBriefQueue
+    });
+
+    const samGovApiKeySecret = this.createSamGovSecret(stage);
+    samGovApiKeySecret.grantRead(lambdaRole);
+
+    this.createRunSavedSearches({
+      stage,
+      lambdaRole,
+      commonEnv,
+      samGovApiKeySecret,
+      questionPipelineStateMachineArn,
+    });
+
+    const execBriefWorkerFn = this.createExecBriefWorker({
+      stage,
+      commonEnv,
+      execBriefQueue,
+      documentsBucket,
+      mainTable,
+    });
+
+    // --- Nested APIs ---
+    const createNestedStack = (basePath: string) =>
+      new ApiNestedStack(this, `${basePath}API`, {
+        api: this.api,
+        basePath,
+        lambdaRole,
+        commonEnv,
+        userPool,
+        authorizer,
+      });
+
+    this.organizationApi = createNestedStack('organization');
+    this.projectApi = createNestedStack('project');
+    this.answerApi = createNestedStack('answer');
+    this.presignedUrlApi = createNestedStack('presigned');
+    this.knowledgeBaseApi = createNestedStack('knowledgebase');
+    this.questionFileApi = createNestedStack('questionfile');
+    this.proposalApi = createNestedStack('proposal');
+    this.briefApi = createNestedStack('brief');
+    this.userApi = createNestedStack('user');
+    this.questionApi = createNestedStack('question');
+    this.documentApi = createNestedStack('document');
+    this.deadlinesApi = createNestedStack('deadlines');
+    this.semanticApi = createNestedStack('semantic');
+    this.samgovApi = createNestedStack('samgov');
+    this.promptApi = createNestedStack('prompt');
+
+    // Routes
+    this.addRoutes({ samGovApiKeySecret, execBriefQueue });
+
+    new cdk.CfnOutput(this, 'ApiBaseUrl', {
+      value: this.api.url,
+      description: 'Base URL for the AutoRFP API',
+    });
+
+    new cdk.CfnOutput(this, 'ExecBriefQueueUrl', {
+      value: execBriefQueue.queueUrl,
+    });
+
+    new cdk.CfnOutput(this, 'ExecBriefWorkerName', {
+      value: execBriefWorkerFn.functionName,
+    });
+  }
+
+  // ----------------------------
+  // Helpers
+  // ----------------------------
+
+  private createRestApi(stage: string) {
+    return new apigw.RestApi(this, 'AutoRfpApi', {
       restApiName: `AutoRFP API (${stage})`,
       description: 'AutoRFP API Gateway',
       deployOptions: {
@@ -80,610 +188,412 @@ export class ApiStack extends cdk.Stack {
         allowCredentials: true,
       },
     });
+  }
 
-    // 2) Shared Lambda role for all API lambdas
-    const lambdaRole = new iam.Role(this, 'CommonLambdaRole', {
-      assumedBy: new iam.ServicePrincipal('lambda.amazonaws.com'),
-      roleName: `auto-rfp-api-lambda-role-${stage}`,
-    });
+  private buildCommonEnv(args: {
+    stage: string;
+    documentsBucket: s3.IBucket;
+    mainTable: dynamodb.ITable;
+    userPool: cognito.IUserPool;
+    userPoolClient: cognito.IUserPoolClient;
+    documentPipelineStateMachineArn: string;
+    questionPipelineStateMachineArn: string;
+    openSearchCollectionEndpoint: string;
+    sentryDNS: string;
+  }): Record<string, string> {
+    const {
+      stage,
+      documentsBucket,
+      mainTable,
+      userPool,
+      userPoolClient,
+      documentPipelineStateMachineArn,
+      questionPipelineStateMachineArn,
+      openSearchCollectionEndpoint,
+      sentryDNS,
+    } = args;
 
-    this.lambdaPermissions = [
-      new cdk.aws_iam.PolicyStatement({
-        actions: ['execute-api:Invoke'],
-        resources: ['*'],
-        effect: cdk.aws_iam.Effect.ALLOW,
-      }),
-      new cdk.aws_iam.PolicyStatement({
-        actions: ['s3:*'],
-        resources: ['*'],
-        effect: cdk.aws_iam.Effect.ALLOW,
-      }),
-      new cdk.aws_iam.PolicyStatement({
-        actions: [
-          'cognito-idp:AdminCreateUser',
-          'cognito-idp:AdminUpdateUserAttributes',
-          'cognito-idp:AdminDeleteUser',
-          'cognito-idp:AdminGetUser',
-        ],
-        resources: [props.userPool.userPoolArn],
-        effect: cdk.aws_iam.Effect.ALLOW,
-      }),
-      new cdk.aws_iam.PolicyStatement({
-        actions: ['logs:*'],
-        resources: ['*'],
-        effect: cdk.aws_iam.Effect.ALLOW,
-      }),
-      new cdk.aws_iam.PolicyStatement({
-        actions: ['lambda:InvokeFunction'],
-        resources: ['*'],
-        effect: cdk.aws_iam.Effect.ALLOW,
-      }),
-      new cdk.aws_iam.PolicyStatement({
-        actions: ['secretsmanager:GetSecretValue'],
-        resources: [`${process.env.BB_PROD_CREDENTIALS_ARN || '*'}`],
-        effect: cdk.aws_iam.Effect.ALLOW,
-      }),
-      new iam.PolicyStatement({
-        actions: ['es:ESHttpPost', 'es:ESHttpPut', 'es:ESHttpGet'],
-        resources: [
-          'arn:aws:es:us-west-2:039885961427:domain/prodopensearchd-lxtzjp7drbvs/*',
-        ],
-      }),
-      new iam.PolicyStatement({
-        actions: ['states:StartExecution'],
-          resources: [documentPipelineStateMachineArn],
-        effect: cdk.aws_iam.Effect.ALLOW,
-      })
-    ];
-
-    this.policy = new cdk.aws_iam.Policy(this, 'LambdaPolicy', {
-      statements: this.lambdaPermissions,
-    });
-
-    lambdaRole.attachInlinePolicy(this.policy);
-
-    // Basic lambda execution (logs, etc.)
-    lambdaRole.addManagedPolicy(
-      iam.ManagedPolicy.fromAwsManagedPolicyName('service-role/AWSLambdaBasicExecutionRole'),
-    );
-
-    // DynamoDB access for the main table
-    mainTable.grantReadWriteData(lambdaRole);
-
-    // S3 docs bucket
-    documentsBucket.grantReadWrite(lambdaRole);
-
-    // Cognito admin ops (if you need them from Lambda)
-    lambdaRole.addToPrincipalPolicy(
-      new iam.PolicyStatement({
-        actions: [
-          'cognito-idp:AdminInitiateAuth',
-          'cognito-idp:AdminCreateUser',
-          'cognito-idp:AdminSetUserPassword',
-          'cognito-idp:AdminUpdateUserAttributes',
-          'cognito-idp:AdminGetUser',
-          'cognito-idp:ListUsers',
-        ],
-        resources: [userPool.userPoolArn],
-        effect: iam.Effect.ALLOW,
-      }),
-    );
-
-    // Bedrock (optional, keep if you use it)
-    lambdaRole.addToPrincipalPolicy(
-      new iam.PolicyStatement({
-        actions: ['bedrock:InvokeModel', 'bedrock:InvokeModelWithResponseStream'],
-        resources: ["*"],
-        effect: iam.Effect.ALLOW,
-      }),
-    );
-
-    lambdaRole.addToPrincipalPolicy(
-      new iam.PolicyStatement({
-        actions: [
-          'textract:StartDocumentTextDetection',
-          'textract:GetDocumentTextDetection',
-          'textract:DetectDocumentText',
-        ],
-        resources: ['*'],
-        effect: iam.Effect.ALLOW,
-      }),
-    );
-
-    lambdaRole.addToPrincipalPolicy(
-      new iam.PolicyStatement({
-        actions: ['states:StartExecution'],
-        resources: ['*'],
-        effect: iam.Effect.ALLOW,
-      }),
-    );
-
-    lambdaRole.addToPrincipalPolicy(
-      new iam.PolicyStatement({
-        actions: ['aoss:*'],
-        resources: ['*'],
-        effect: iam.Effect.ALLOW,
-      })
-    )
-
-    // SSM Parameter Store access for Bedrock API key
-    lambdaRole.addToPrincipalPolicy(
-      new iam.PolicyStatement({
-        actions: ['ssm:GetParameter'],
-        resources: [
-          `arn:aws:ssm:${ApiStack.BEDROCK_REGION}:${cdk.Aws.ACCOUNT_ID}:parameter/auto-rfp/bedrock/api-key`
-        ],
-        effect: iam.Effect.ALLOW,
-      })
-    )
-
-    // 3) Common env that every lambda will get by default
-    //    Adjust PK/SK env names to what you actually use.
-    const commonEnv: Record<string, string> = {
+    return {
       STAGE: stage,
       AWS_ACCOUNT_ID: cdk.Aws.ACCOUNT_ID,
       DOCUMENTS_BUCKET: documentsBucket.bucketName,
       NODE_ENV: 'production',
-
-      // DynamoDB single-table config
       DB_TABLE_NAME: mainTable.tableName,
-
-      // Cognito config for backend use
       COGNITO_USER_POOL_ID: userPool.userPoolId,
       COGNITO_USER_POOL_CLIENT_ID: userPoolClient.userPoolClientId,
-
+      REGION: 'us-east-1',
       BEDROCK_REGION: 'us-east-1',
+      BEDROCK_API_KEY_SSM_PARAM: '/auto-rfp/bedrock/api-key',
       BEDROCK_EMBEDDING_MODEL_ID: 'amazon.titan-embed-text-v2:0',
       BEDROCK_MODEL_ID: 'anthropic.claude-3-haiku-20240307-v1:0',
-      BEDROCK_API_KEY_SSM_PARAM: '/auto-rfp/bedrock/api-key',
       OPENSEARCH_INDEX: 'documents',
       STATE_MACHINE_ARN: documentPipelineStateMachineArn,
       QUESTION_PIPELINE_STATE_MACHINE_ARN: questionPipelineStateMachineArn,
-      OPENSEARCH_ENDPOINT: openSearchCollectionEndpoint
+      OPENSEARCH_ENDPOINT: openSearchCollectionEndpoint,
+      SENTRY_DSN: sentryDNS,
+      SENTRY_ENVIRONMENT: stage,
+      COST_SAVING: 'true',
     };
-
-    // 4) First entity: Organization API
-    this.organizationApi = new ApiNestedStack(this, 'OrganizationApi', {
-      api: this.api,
-      basePath: 'organization',
-      lambdaRole,
-      commonEnv,
-      userPool
-    });
-
-    this.projectApi = new ApiNestedStack(this, 'ProjectApi', {
-      api: this.api,
-      basePath: 'project',
-      lambdaRole,
-      commonEnv,
-      userPool
-    });
-
-    this.questionApi = new ApiNestedStack(this, 'QuestionApi', {
-      api: this.api,
-      basePath: 'question',
-      lambdaRole,
-      commonEnv,
-      userPool
-    });
-
-    this.answerApi = new ApiNestedStack(this, 'AnswerApi', {
-      api: this.api,
-      basePath: 'answer',
-      lambdaRole,
-      commonEnv,
-      userPool
-    });
-
-    this.presignedUrlApi = new ApiNestedStack(this, 'PresignedUrlApi', {
-      api: this.api,
-      basePath: 'presigned',
-      lambdaRole,
-      commonEnv,
-      userPool
-    });
-
-    this.fileApi = new ApiNestedStack(this, 'FileApi', {
-      api: this.api,
-      basePath: 'file',
-      lambdaRole,
-      commonEnv,
-      userPool
-    });
-
-    this.textractApi = new ApiNestedStack(this, 'TextractApi', {
-      api: this.api,
-      basePath: 'textract',
-      lambdaRole,
-      commonEnv,
-      userPool
-    });
-
-    this.knowledgeBaseApi = new ApiNestedStack(this, 'KnowledgeBaseApi', {
-      api: this.api,
-      basePath: 'knowledgebase',
-      lambdaRole,
-      commonEnv,
-      userPool
-    });
-
-
-    this.questionFileApi = new ApiNestedStack(this, 'QuestionFileApi', {
-      api: this.api,
-      basePath: 'questionfile',
-      lambdaRole,
-      commonEnv,
-      userPool
-    })
-
-    this.questionFileApi.addRoute(
-      '/start-question-pipeline',
-      'POST',
-      'lambda/question-file/start-question-pipeline.ts',
-    );
-
-    this.questionFileApi.addRoute(
-      '/create-question-file',
-      'POST',
-      'lambda/question-file/create-question-file.ts',
-    );
-
-    this.questionFileApi.addRoute(
-      '/get-question-file',
-      'GET',
-      'lambda/question-file/get-question-file.ts',
-    );
-
-    this.knowledgeBaseApi.addRoute(
-      '/create-knowledgebase',
-      'POST',
-      'lambda/knowledgebase/create-knowledgebase.ts',
-    )
-
-    this.knowledgeBaseApi.addRoute(
-      '/delete-knowledgebase',
-      'DELETE',
-      'lambda/knowledgebase/delete-knowledgebase.ts',
-    )
-
-    this.knowledgeBaseApi.addRoute(
-      '/edit-knowledgebase',
-      'PATCH',
-      'lambda/knowledgebase/edit-knowledgebase.ts',
-    )
-
-    this.knowledgeBaseApi.addRoute(
-      '/get-knowledgebases',
-      'GET',
-      'lambda/knowledgebase/get-knowledgebases.ts',
-    )
-
-    this.knowledgeBaseApi.addRoute(
-      '/get-knowledgebase',
-      'GET',
-      'lambda/knowledgebase/get-knowledgebase.ts',
-    )
-
-    this.documentApi = new ApiNestedStack(this, 'DocumentApi', {
-      api: this.api,
-      basePath: 'document',
-      lambdaRole,
-      commonEnv,
-      userPool,
-    });
-
-    this.documentApi.addRoute(
-      '/create-document',
-      'POST',
-      'lambda/document/create-document.ts',
-    );
-
-    this.documentApi.addRoute(
-      '/edit-document',
-      'PATCH',
-      'lambda/document/edit-document.ts',
-    );
-
-    this.documentApi.addRoute(
-      '/delete-document',
-      'DELETE',
-      'lambda/document/delete-document.ts',
-    );
-
-    this.documentApi.addRoute(
-      '/get-documents',
-      'GET',
-      'lambda/document/get-documents.ts',
-    );
-
-    this.documentApi.addRoute(
-      '/get-document',
-      'GET',
-      'lambda/document/get-document.ts',
-    );
-
-    this.documentApi.addRoute(
-      '/start-document-pipeline',
-      'POST',
-      'lambda/document/start-document-pipeline.ts',
-    );
-
-
-    this.organizationApi.addRoute(
-      '/get-organizations',
-      'GET',
-      'lambda/organization/get-organizations.ts',
-    );
-
-    this.organizationApi.addRoute(
-      '/create-organization',
-      'POST',
-      'lambda/organization/create-organization.ts',
-    );
-
-    this.organizationApi.addRoute(
-      '/edit-organization/{id}',
-      'PATCH',
-      'lambda/organization/edit-organization.ts',
-    );
-
-    this.organizationApi.addRoute(
-      '/get-organization/{id}',
-      'GET',
-      'lambda/organization/get-organization-by-id.ts',
-    );
-
-    this.organizationApi.addRoute(
-      '/delete-organization',
-      'DELETE',
-      'lambda/organization/delete-organization.ts',
-    );
-
-    this.projectApi.addRoute(
-      '/get-projects',
-      'GET',
-      'lambda/project/get-projects.ts',
-    );
-
-    this.projectApi.addRoute(
-      '/create-project',
-      'POST',
-      'lambda/project/create-project.ts',
-    );
-
-    this.projectApi.addRoute(
-      '/get-project/{id}',
-      'GET',
-      'lambda/project/get-project-by-id.ts',
-    );
-
-    this.projectApi.addRoute(
-      '/edit-project',
-      'PATCH',
-      'lambda/project/edit-project.ts',
-    );
-
-    this.projectApi.addRoute(
-      '/delete-project/{id}',
-      'DELETE',
-      'lambda/project/delete-project.ts',
-    );
-
-    this.projectApi.addRoute(
-      '/get-questions/{id}',
-      'GET',
-      'lambda/project/get-questions.ts',
-    );
-
-    this.questionApi.addRoute(
-      '/extract-questions',
-      'POST',
-      'lambda/question/extract-questions.ts',
-    );
-
-    this.questionApi.addRoute(
-      '/extract-text',
-      'POST',
-      'lambda/question/extract-text.ts',
-    );
-
-    this.presignedUrlApi.addRoute(
-      '/presigned-url',
-      'POST',
-      'lambda/presigned/generate-presigned-url.ts',
-    );
-
-    this.fileApi.addRoute(
-      '/convert-to-text',
-      'POST',
-      'lambda/file/convert-to-text.ts',
-    );
-
-    this.fileApi.addRoute(
-      '/get-text',
-      'POST',
-      'lambda/file/get-text.ts',
-    );
-
-    this.textractApi.addRoute(
-      '/begin-extraction',
-      'POST',
-      'lambda/textract/begin-extraction.ts',
-    );
-
-
-    this.answerApi.addRoute(
-      '/get-answers/{id}',
-      'GET',
-      'lambda/answer/get-answers.ts',
-    );
-
-    this.answerApi.addRoute(
-      '/create-answer',
-      'POST',
-      'lambda/answer/create-answer.ts',
-    );
-
-    this.answerApi.addRoute(
-      '/save-answer',
-      'POST',
-      'lambda/answer/save-answer.ts',
-    );
-
-    this.answerApi.addRoute(
-      '/generate-answer',
-      'POST',
-      'lambda/answer/generate-answer.ts',
-    );
-
-    this.textractApi.addRoute(
-      '/get-result',
-      'POST',
-      'lambda/textract/get-result.ts',
-    );
-
-    new cdk.CfnOutput(this, 'ApiBaseUrl', {
-      value: this.api.url,
-      description: 'Base URL for the AutoRFP API',
-    });
-
-    NagSuppressions.addResourceSuppressions(
-      this.api,
-      [
-        {
-          id: 'AwsSolutions-APIG1',
-          reason: 'Access logging will be configured for production; dev environment keeps it off for speed.',
-        },
-        {
-          id: 'AwsSolutions-APIG2',
-          reason: 'Request validation will be added for production once the contract is finalized.',
-        },
-        {
-          id: 'AwsSolutions-APIG4',
-          reason: 'Cognito / IAM authorizers will be added when the auth model is stable; dev API is open behind internal access.',
-        },
-        {
-          id: 'AwsSolutions-COG4',
-          reason: 'Cognito user pool authorizer will be attached in production; dev stack is unauthenticated.',
-        },
-      ],
-      true, // applyToChildren = true (covers methods)
-    );
-
-    // TODO: Add CDK NAG suppressions for development - REMOVE IN PRODUCTION
-    // These suppressions allow deployment while security issues are addressed
-    this.addCdkNagSuppressions();
   }
 
+  private createCommonLambdaRole(args: {
+    stage: string;
+    userPool: cognito.IUserPool;
+    documentPipelineStateMachineArn: string;
+    questionPipelineStateMachineArn: string;
+    mainTable: dynamodb.ITable;
+    documentsBucket: s3.IBucket;
+    execBriefQueue: sqs.Queue;
+  }): iam.Role {
+    const {
+      stage,
+      userPool,
+      documentPipelineStateMachineArn,
+      questionPipelineStateMachineArn,
+      mainTable,
+      documentsBucket,
+      execBriefQueue,
+    } = args;
 
+    const role = new iam.Role(this, 'CommonLambdaRole', {
+      assumedBy: new iam.ServicePrincipal('lambda.amazonaws.com'),
+      roleName: `auto-rfp-api-lambda-role-${stage}`,
+    });
 
+    role.addManagedPolicy(
+      iam.ManagedPolicy.fromAwsManagedPolicyName('service-role/AWSLambdaBasicExecutionRole'),
+    );
 
+    role.attachInlinePolicy(
+      new iam.Policy(this, 'LambdaPolicy', {
+        statements: [
+          new iam.PolicyStatement({
+            actions: ['execute-api:Invoke'],
+            resources: ['*'],
+          }),
+          new iam.PolicyStatement({
+            actions: ['s3:*'],
+            resources: ['*'],
+          }),
+          new iam.PolicyStatement({
+            actions: [
+              'cognito-idp:AdminCreateUser',
+              'cognito-idp:AdminUpdateUserAttributes',
+              'cognito-idp:AdminDeleteUser',
+              'cognito-idp:AdminGetUser',
+              'cognito-idp:AdminInitiateAuth',
+              'cognito-idp:AdminSetUserPassword',
+              'cognito-idp:ListUsers',
+            ],
+            resources: [userPool.userPoolArn],
+          }),
+          new iam.PolicyStatement({
+            actions: ['logs:*'],
+            resources: ['*'],
+          }),
+          new iam.PolicyStatement({
+            actions: ['lambda:InvokeFunction'],
+            resources: ['*'],
+          }),
+          new iam.PolicyStatement({
+            actions: ['states:StartExecution'],
+            resources: [documentPipelineStateMachineArn],
+          }),
+          new iam.PolicyStatement({
+            actions: ['states:StartExecution'],
+            resources: [questionPipelineStateMachineArn],
+          }),
+          new iam.PolicyStatement({
+            actions: ['bedrock:InvokeModel', 'bedrock:InvokeModelWithResponseStream'],
+            resources: ['*'],
+          }),
+          new iam.PolicyStatement({
+            actions: [
+              'textract:StartDocumentTextDetection',
+              'textract:GetDocumentTextDetection',
+              'textract:DetectDocumentText',
+            ],
+            resources: ['*'],
+          }),
+          new iam.PolicyStatement({
+            actions: ['aoss:*'],
+            resources: ['*'],
+          }),
+          new iam.PolicyStatement({
+            actions: ['es:ESHttpPost', 'es:ESHttpPut', 'es:ESHttpGet'],
+            resources: [
+              'arn:aws:es:us-west-2:039885961427:domain/prodopensearchd-lxtzjp7drbvs/*',
+            ],
+          }),
+          new iam.PolicyStatement({
+            actions: ['secretsmanager:GetSecretValue'],
+            resources: [`${process.env.BB_PROD_CREDENTIALS_ARN || '*'}`],
+          }),
+        ],
+      }),
+    );
 
-  // Later you can add:
-  // this.userApi = new ApiNestedStack(this, 'UserApi', { api: this.api, basePath: 'user', this.lambdaRole, commonEnv });
-  // this.userApi.addRoute('/get-users', 'GET', 'lambda/user/get-users.ts');
-  // TODO: REMOVE IN PRODUCTION - These suppressions are for development only
-  // Each suppression needs to be addressed for production deployment
-  private addCdkNagSuppressions(): void {
-    // Suppress ALL CDK NAG errors for development deployment
-    // TODO: Remove these suppressions and fix each security issue for production
-    NagSuppressions.addStackSuppressions(this, [
-      {
-        id: 'AwsSolutions-VPC7',
-        reason: 'TODO: VPC Flow Logs will be added in production for network monitoring',
+    role.addToPrincipalPolicy(
+      new iam.PolicyStatement({
+        actions: ['sqs:SendMessage', 'sqs:SendMessageBatch'],
+        resources: [execBriefQueue.queueArn],
+        effect: iam.Effect.ALLOW,
+      }),
+    );
+
+    mainTable.grantReadWriteData(role);
+    documentsBucket.grantReadWrite(role);
+
+    return role;
+  }
+
+  private createSamGovSecret(stage: string): secretsmanager.ISecret {
+    const localKey = process.env.SAM_GOV_API_KEY?.trim();
+
+    if (!localKey) {
+      throw new Error(
+        [
+          'Missing required env var: SAM_GOV_API_KEY',
+          '',
+          'This stack requires a SAM.gov API key at deploy time.',
+          'Set it before running CDK:',
+          '  export SAM_GOV_API_KEY="your-key-here"',
+          '',
+          `Stage: ${stage}`,
+          'Secret target: auto-rfp/<stage>/samgov/apiKey',
+        ].join('\n'),
+      );
+    }
+
+    return new secretsmanager.Secret(this, `SamGovApiKeySecret-${stage}`, {
+      secretName: `auto-rfp/${stage}/samgov/apiKey`,
+      secretStringValue: cdk.SecretValue.unsafePlainText(localKey),
+    });
+  }
+
+  private createRunSavedSearches(args: {
+    stage: string;
+    lambdaRole: iam.IRole;
+    commonEnv: Record<string, string>;
+    samGovApiKeySecret: secretsmanager.ISecret;
+    questionPipelineStateMachineArn: string;
+  }) {
+    const { stage, lambdaRole, commonEnv, samGovApiKeySecret, questionPipelineStateMachineArn } = args;
+
+    const fn = new lambdaNodejs.NodejsFunction(this, `RunSavedSearches-${stage}`, {
+      functionName: `auto-rfp-${stage}-run-saved-searches`,
+      runtime: lambda.Runtime.NODEJS_20_X,
+      entry: path.join(__dirname, '../lambda/samgov/run-saved-search.ts'),
+      handler: 'handler',
+      role: lambdaRole,
+      timeout: cdk.Duration.minutes(15),
+      memorySize: 1024,
+      environment: {
+        ...commonEnv,
+        SAM_OPPS_BASE_URL: 'https://api.sam.gov',
+        SAM_API_ORIGIN: 'https://api.sam.gov',
+        SAM_GOV_API_KEY_SECRET_ID: samGovApiKeySecret.secretArn,
+        QUESTION_PIPELINE_STATE_MACHINE_ARN: questionPipelineStateMachineArn,
       },
-      {
-        id: 'AwsSolutions-SMG4',
-        reason: 'TODO: Add automatic secret rotation for production',
+      bundling: { externalModules: ['aws-sdk'] },
+    });
+
+    new logs.LogRetention(this, `RunSavedSearchesLogs-${stage}`, {
+      logGroupName: `/aws/lambda/${fn.functionName}`,
+      retention: logs.RetentionDays.ONE_WEEK,
+    });
+
+    const rule = new events.Rule(this, `RunSavedSearchesRule-${stage}`, {
+      ruleName: `auto-rfp-${stage}-run-saved-searches-hourly`,
+      description: 'Hourly runner to execute SAM saved searches for all orgs',
+      schedule: events.Schedule.rate(cdk.Duration.hours(1)),
+    });
+
+    rule.addTarget(
+      new targets.LambdaFunction(fn, {
+        event: events.RuleTargetInput.fromObject({ dryRun: false }),
+      }),
+    );
+
+    fn.addPermission(`AllowEventBridgeInvoke-${stage}`, {
+      principal: new iam.ServicePrincipal('events.amazonaws.com'),
+      sourceArn: rule.ruleArn,
+    });
+  }
+
+  private createExecBriefQueue(stage: string): sqs.Queue {
+    return new sqs.Queue(this, `ExecBriefQueue-${stage}`, {
+      queueName: `auto-rfp-${stage}-exec-brief-queue`,
+      visibilityTimeout: cdk.Duration.minutes(10),
+      retentionPeriod: cdk.Duration.days(4),
+      deadLetterQueue: {
+        queue: new sqs.Queue(this, `ExecBriefDLQ-${stage}`, {
+          queueName: `auto-rfp-${stage}-exec-brief-dlq`,
+          retentionPeriod: cdk.Duration.days(14),
+        }),
+        maxReceiveCount: 5,
       },
-      {
-        id: 'AwsSolutions-EC23',
-        reason: 'TODO: Restrict database access to specific IP ranges for production',
+    });
+  }
+
+  private createExecBriefWorker(args: {
+    stage: string;
+    commonEnv: Record<string, string>;
+    execBriefQueue: sqs.Queue;
+    documentsBucket: s3.IBucket;
+    mainTable: dynamodb.ITable;
+  }) {
+    const { stage, commonEnv, execBriefQueue, documentsBucket, mainTable } = args;
+
+    const fn = new lambdaNodejs.NodejsFunction(this, `ExecBriefWorker-${stage}`, {
+      functionName: `auto-rfp-${stage}-exec-brief-worker`,
+      runtime: lambda.Runtime.NODEJS_20_X,
+      entry: path.join(__dirname, '../lambda/brief/exec-brief-worker.ts'),
+      handler: 'handler',
+      memorySize: 1024,
+      timeout: cdk.Duration.minutes(9),
+      environment: {
+        ...commonEnv,
+        SCORING_RETRY_DELAY_SECONDS: '30',
+        BRIEF_MAX_SOLICITATION_CHARS: '45000',
+        BRIEF_KB_TOPK: '15',
+        EXEC_BRIEF_QUEUE_URL: execBriefQueue.queueUrl,
       },
-      {
-        id: 'AwsSolutions-RDS3',
-        reason: 'TODO: Enable Multi-AZ for production high availability',
-      },
-      {
-        id: 'AwsSolutions-RDS10',
-        reason: 'TODO: Enable deletion protection for production',
-      },
-      {
-        id: 'AwsSolutions-RDS11',
-        reason: 'TODO: Use non-default database port for production',
-      },
-      {
-        id: 'AwsSolutions-COG1',
-        reason: 'TODO: Strengthen password policy to require special characters',
-      },
-      {
-        id: 'AwsSolutions-COG2',
-        reason: 'TODO: Enable MFA for production user authentication',
-      },
-      {
-        id: 'AwsSolutions-COG3',
-        reason: 'TODO: Enable advanced security mode for production',
-      },
-      {
-        id: 'AwsSolutions-COG4',
-        reason: 'TODO: Add Cognito User Pool authorizer to API Gateway',
-      },
-      {
-        id: 'AwsSolutions-S1',
-        reason: 'TODO: Enable S3 server access logging for production',
-      },
-      {
-        id: 'AwsSolutions-S10',
-        reason: 'TODO: Add SSL-only bucket policies for production',
-      },
-      {
-        id: 'AwsSolutions-L1',
-        reason: 'TODO: Update to latest Node.js runtime version',
-      },
-      {
-        id: 'AwsSolutions-IAM4',
-        reason: 'TODO: Replace AWS managed policies with custom policies',
-      },
-      {
-        id: 'AwsSolutions-IAM5',
-        reason: 'TODO: Remove wildcard permissions and use specific resource ARNs',
-      },
-      {
-        id: 'AwsSolutions-APIG1',
-        reason: 'TODO: Enable API Gateway access logging for production',
-      },
-      {
-        id: 'AwsSolutions-APIG2',
-        reason: 'TODO: Add request validation to API Gateway',
-      },
-      {
-        id: 'AwsSolutions-APIG3',
-        reason: 'TODO: Associate API Gateway with AWS WAF for production',
-      },
-      {
-        id: 'AwsSolutions-APIG4',
-        reason: 'TODO: Implement API Gateway authorization',
-      },
-      {
-        id: 'AwsSolutions-CFR1',
-        reason: 'TODO: Add geo restrictions if needed for production',
-      },
-      {
-        id: 'AwsSolutions-CFR2',
-        reason: 'TODO: Integrate CloudFront with AWS WAF for production',
-      },
-      {
-        id: 'AwsSolutions-CFR3',
-        reason: 'TODO: Enable CloudFront access logging for production',
-      },
-      {
-        id: 'AwsSolutions-CFR4',
-        reason: 'TODO: Update CloudFront to use TLS 1.2+ minimum',
-      },
-      {
-        id: 'AwsSolutions-CFR7',
-        reason: 'TODO: Use Origin Access Control instead of OAI',
-      },
-    ]);
+      bundling: { externalModules: ['aws-sdk'] },
+    });
+
+    fn.addEventSource(
+      new SqsEventSource(execBriefQueue, {
+        batchSize: 5,
+        maxBatchingWindow: cdk.Duration.seconds(5),
+        reportBatchItemFailures: true,
+      }),
+    );
+
+    execBriefQueue.grantConsumeMessages(fn);
+    execBriefQueue.grantSendMessages(fn); // requeue scoring
+    documentsBucket.grantReadWrite(fn);
+    mainTable.grantReadWriteData(fn);
+
+    fn.addToRolePolicy(
+      new iam.PolicyStatement({
+        actions: ['bedrock:InvokeModel', 'bedrock:InvokeModelWithResponseStream'],
+        resources: ['*'],
+      }),
+    );
+
+    return fn;
+  }
+
+  private addRoutes(args: { samGovApiKeySecret: secretsmanager.ISecret, execBriefQueue: any }) {
+    const { samGovApiKeySecret, execBriefQueue} = args;
+
+    // Prompt
+    this.promptApi.addRoute('save-prompt/{scope}', 'POST', 'lambda/prompt/save-prompt.ts');
+    this.promptApi.addRoute('get-prompts', 'GET', 'lambda/prompt/get-prompts.ts');
+
+    // SAM.gov
+    this.samgovApi.addRoute('/import-solicitation', 'POST', 'lambda/samgov/import-solicitation.ts', {
+      SAM_GOV_API_KEY_SECRET_ID: samGovApiKeySecret.secretArn,
+    });
+    this.samgovApi.addRoute('/create-saved-search', 'POST', 'lambda/samgov/create-saved-search.ts', {
+      SAM_GOV_API_KEY_SECRET_ID: samGovApiKeySecret.secretArn,
+    });
+    this.samgovApi.addRoute('/list-saved-search', 'GET', 'lambda/samgov/list-saved-search.ts');
+    this.samgovApi.addRoute('/delete-saved-search/{id}', 'DELETE', 'lambda/samgov/delete-saved-search.ts');
+    this.samgovApi.addRoute('/edit-saved-search/{id}', 'PATCH', 'lambda/samgov/edit-saved-search.ts');
+    this.samgovApi.addRoute('/opportunities', 'POST', 'lambda/samgov/search-opportunities.ts', {
+      SAM_GOV_API_KEY_SECRET_ID: samGovApiKeySecret.secretArn,
+    });
+
+    // Semantic
+    this.semanticApi.addRoute('/search', 'POST', 'lambda/semanticsearch/search.ts');
+
+    // Question
+    this.questionApi.addRoute('/delete-question', 'DELETE', 'lambda/question/delete-question.ts');
+
+    // User
+    this.userApi.addRoute('/create-user', 'POST', 'lambda/user/create-user.ts');
+    this.userApi.addRoute('/get-users', 'GET', 'lambda/user/get-users.ts');
+    this.userApi.addRoute('/edit-user', 'PATCH', 'lambda/user/edit-user.ts');
+    this.userApi.addRoute('/delete-user', 'DELETE', 'lambda/user/delete-user.ts');
+
+    // Brief
+    this.briefApi.addRoute('/init-executive-brief', 'POST', 'lambda/brief/init-executive-brief.ts', {
+      EXEC_BRIEF_QUEUE_URL: execBriefQueue.queueUrl,
+    });
+    this.briefApi.addRoute('/generate-executive-brief-summary', 'POST', 'lambda/brief/generate-summary.ts', {
+      EXEC_BRIEF_QUEUE_URL: execBriefQueue.queueUrl
+    });
+    this.briefApi.addRoute('/generate-executive-brief-deadlines', 'POST', 'lambda/brief/generate-deadlines.ts', {
+      EXEC_BRIEF_QUEUE_URL: execBriefQueue.queueUrl,
+    });
+    this.briefApi.addRoute('/generate-executive-brief-contacts', 'POST', 'lambda/brief/generate-contacts.ts', {
+      EXEC_BRIEF_QUEUE_URL: execBriefQueue.queueUrl,
+    });
+    this.briefApi.addRoute('/generate-executive-brief-requirements', 'POST', 'lambda/brief/generate-requirements.ts', {
+      EXEC_BRIEF_QUEUE_URL: execBriefQueue.queueUrl,
+    });
+    this.briefApi.addRoute('/generate-executive-brief-risks', 'POST', 'lambda/brief/generate-risks.ts', {
+      EXEC_BRIEF_QUEUE_URL: execBriefQueue.queueUrl,
+    });
+    this.briefApi.addRoute('/generate-executive-brief-scoring', 'POST', 'lambda/brief/generate-scoring.ts', {
+      EXEC_BRIEF_QUEUE_URL: execBriefQueue.queueUrl,
+    });
+    this.briefApi.addRoute('/get-executive-brief-by-project', 'POST', 'lambda/brief/get-executive-brief-by-project.ts');
+
+    // Deadlines
+    this.deadlinesApi.addRoute('/get-deadlines', 'GET', 'lambda/deadlines/get-deadlines.ts');
+    this.deadlinesApi.addRoute('/export-calendar', 'GET', 'lambda/deadlines/export-deadlines.ts');
+
+    // Question file
+    this.questionFileApi.addRoute('/start-question-pipeline', 'POST', 'lambda/question-file/start-question-pipeline.ts');
+    this.questionFileApi.addRoute('/create-question-file', 'POST', 'lambda/question-file/create-question-file.ts');
+    this.questionFileApi.addRoute('/get-question-file', 'GET', 'lambda/question-file/get-question-file.ts');
+    this.questionFileApi.addRoute('/get-question-files', 'GET', 'lambda/question-file/get-question-files.ts');
+    this.questionFileApi.addRoute('/delete-question-file', 'DELETE', 'lambda/question-file/delete-question-file.ts');
+
+    // KB
+    this.knowledgeBaseApi.addRoute('/create-knowledgebase', 'POST', 'lambda/knowledgebase/create-knowledgebase.ts');
+    this.knowledgeBaseApi.addRoute('/delete-knowledgebase', 'DELETE', 'lambda/knowledgebase/delete-knowledgebase.ts');
+    this.knowledgeBaseApi.addRoute('/edit-knowledgebase', 'PATCH', 'lambda/knowledgebase/edit-knowledgebase.ts');
+    this.knowledgeBaseApi.addRoute('/get-knowledgebases', 'GET', 'lambda/knowledgebase/get-knowledgebases.ts');
+    this.knowledgeBaseApi.addRoute('/get-knowledgebase', 'GET', 'lambda/knowledgebase/get-knowledgebase.ts');
+
+    // Document
+    this.documentApi.addRoute('/create-document', 'POST', 'lambda/document/create-document.ts');
+    this.documentApi.addRoute('/edit-document', 'PATCH', 'lambda/document/edit-document.ts');
+    this.documentApi.addRoute('/delete-document', 'DELETE', 'lambda/document/delete-document.ts');
+    this.documentApi.addRoute('/get-documents', 'GET', 'lambda/document/get-documents.ts');
+    this.documentApi.addRoute('/get-document', 'GET', 'lambda/document/get-document.ts');
+    this.documentApi.addRoute('/start-document-pipeline', 'POST', 'lambda/document/start-document-pipeline.ts');
+
+    // Org
+    this.organizationApi.addRoute('/get-organizations', 'GET', 'lambda/organization/get-organizations.ts');
+    this.organizationApi.addRoute('/create-organization', 'POST', 'lambda/organization/create-organization.ts');
+    this.organizationApi.addRoute('/edit-organization/{id}', 'PATCH', 'lambda/organization/edit-organization.ts');
+    this.organizationApi.addRoute('/get-organization/{id}', 'GET', 'lambda/organization/get-organization-by-id.ts');
+    this.organizationApi.addRoute('/delete-organization', 'DELETE', 'lambda/organization/delete-organization.ts');
+
+    // Project
+    this.projectApi.addRoute('/get-projects', 'GET', 'lambda/project/get-projects.ts');
+    this.projectApi.addRoute('/create-project', 'POST', 'lambda/project/create-project.ts');
+    this.projectApi.addRoute('/get-project/{id}', 'GET', 'lambda/project/get-project-by-id.ts');
+    this.projectApi.addRoute('/delete-project', 'DELETE', 'lambda/project/delete-project.ts');
+    this.projectApi.addRoute('/get-questions/{id}', 'GET', 'lambda/project/get-questions.ts');
+
+    // Presigned
+    this.presignedUrlApi.addRoute('/presigned-url', 'POST', 'lambda/presigned/generate-presigned-url.ts');
+
+    // Answer
+    this.answerApi.addRoute('/get-answers/{id}', 'GET', 'lambda/answer/get-answers.ts');
+    this.answerApi.addRoute('/save-answer', 'POST', 'lambda/answer/save-answer.ts');
+    this.answerApi.addRoute('/generate-answer', 'POST', 'lambda/answer/generate-answer.ts');
+
+    // Proposal
+    this.proposalApi.addRoute('/generate-proposal', 'POST', 'lambda/proposal/generate-proposal.ts');
+    this.proposalApi.addRoute('/get-proposals', 'GET', 'lambda/proposal/get-proposals.ts');
+    this.proposalApi.addRoute('/get-proposal', 'GET', 'lambda/proposal/get-proposal.ts');
+    this.proposalApi.addRoute('/save-proposal', 'POST', 'lambda/proposal/save-proposal.ts');
   }
 }

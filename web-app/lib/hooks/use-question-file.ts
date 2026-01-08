@@ -1,27 +1,8 @@
 import useSWR from 'swr';
 import useSWRMutation from 'swr/mutation';
-import { fetchAuthSession } from 'aws-amplify/auth';
-
+import { type QuestionFileItem } from '@auto-rfp/shared';
 import { env } from '@/lib/env';
-
-
-export async function authorizedFetch(url: string, options: RequestInit = {}) {
-  let token: string | undefined;
-
-  if (typeof window !== 'undefined') {
-    const session = await fetchAuthSession();
-    token = session.tokens?.idToken?.toString();
-  }
-
-  return fetch(url, {
-    ...options,
-    headers: {
-      ...(token ? { Authorization: token } : {}),
-      'Content-Type': 'application/json',
-      ...(options.headers || {}),
-    },
-  });
-}
+import { authFetcher } from '@/lib/auth/auth-fetcher';
 
 const BASE = `${env.BASE_API_URL}/questionfile`;
 
@@ -39,7 +20,7 @@ export async function startQuestionFileFetcher(
   url: string,
   { arg }: { arg: StartQuestionFilePayload },
 ): Promise<StartQuestionFileResponse> {
-  const res = await authorizedFetch(url, {
+  const res = await authFetcher(url, {
     method: 'POST',
     body: JSON.stringify(arg),
   });
@@ -94,7 +75,7 @@ export function useQuestionFileStatus(
   return useSWR<QuestionFileStatusResponse>(
     key,
     async (url: string) => {
-      const res = await authorizedFetch(url);
+      const res = await authFetcher(url);
       if (!res.ok) {
         const text = await res.text().catch(() => '');
         const err = new Error(text || 'Failed to load question file status') as Error & {
@@ -136,7 +117,7 @@ export function useCreateQuestionFile(projectId: string) {
   return useSWRMutation<QuestionFile, any, string, CreateQuestionFileArgs>(
     `${BASE}/create-question-file`,
     async (url, { arg }) => {
-      const res = await authorizedFetch(url, {
+      const res = await authFetcher(url, {
         method: 'POST',
         body: JSON.stringify({
           projectId,
@@ -159,4 +140,86 @@ export function useCreateQuestionFile(projectId: string) {
       return res.json() as Promise<QuestionFile>;
     },
   );
+}
+
+
+export function useQuestionFiles(projectId: string | null) {
+  const shouldFetch = !!projectId;
+
+  const url = shouldFetch
+    ? `${env.BASE_API_URL}/questionfile/get-question-files?projectId=${encodeURIComponent(
+      projectId!,
+    )}`
+    : null;
+
+  const { data, error, isLoading, mutate } = useSWR<{ items: QuestionFileItem[] }>(
+    url,
+    async (u: string) => {
+      const res = await authFetcher(u);
+      if (!res.ok) throw new Error(await res.text().catch(() => 'Failed to load question files'));
+      return (await res.json()) as { items: QuestionFileItem[] };
+    },
+  );
+
+  return {
+    items: data?.items ?? [],
+    data,
+    isLoading,
+    isError: !!error,
+    error,
+    refetch: () => mutate(),
+  };
+}
+
+type DeleteQuestionFilePayload = {
+  projectId: string;
+  questionFileId: string;
+};
+
+type DeleteQuestionFileResponse = {
+  success: boolean;
+  deleted?: {
+    projectId: string;
+    questionFileId: string;
+    sk?: string;
+    fileKey?: string | null;
+    textFileKey?: string | null;
+  };
+};
+
+export async function deleteQuestionFileFetcher(
+  url: string,
+  { arg }: { arg: DeleteQuestionFilePayload },
+): Promise<DeleteQuestionFileResponse> {
+  const full = `${url}?projectId=${encodeURIComponent(arg.projectId)}&questionFileId=${encodeURIComponent(
+    arg.questionFileId,
+  )}`;
+
+  const res = await authFetcher(full, { method: 'DELETE' });
+
+  if (!res.ok) {
+    const text = await res.text().catch(() => '');
+    const err = new Error(text || 'Failed to delete question file') as Error & {
+      status?: number;
+    };
+    (err as any).status = res.status;
+    throw err;
+  }
+  const raw = await res.text().catch(() => '');
+  if (!raw) return { success: true };
+
+  try {
+    return JSON.parse(raw) as DeleteQuestionFileResponse;
+  } catch {
+    return { success: true };
+  }
+}
+
+export function useDeleteQuestionFile() {
+  return useSWRMutation<
+    DeleteQuestionFileResponse,
+    any,
+    string,
+    DeleteQuestionFilePayload
+  >(`${BASE}/delete-question-file`, deleteQuestionFileFetcher);
 }

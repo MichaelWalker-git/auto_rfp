@@ -1,3 +1,5 @@
+import { AnswerSource } from '@auto-rfp/shared';
+
 // LlamaParse API Types
 export interface LlamaParseResult {
   success: boolean;
@@ -14,16 +16,6 @@ export interface LlamaParseResult {
   };
 }
 
-// Source information
-export interface AnswerSource {
-  id: number;
-  fileName: string;
-  filePath?: string;
-  pageNumber?: string | number;
-  documentId?: string;
-  relevance?: number | null;
-  textContent?: string | null;
-}
 
 // Response Generation API Types
 export interface GenerateResponseResult {

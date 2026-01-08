@@ -1,39 +1,26 @@
-import {
-  APIGatewayProxyEventV2,
-  APIGatewayProxyResultV2,
-} from 'aws-lambda';
-import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
-import {
-  DynamoDBDocumentClient,
-  DeleteCommand,
-} from '@aws-sdk/lib-dynamodb';
+import { APIGatewayProxyEventV2, APIGatewayProxyResultV2, } from 'aws-lambda';
+import { DeleteCommand, } from '@aws-sdk/lib-dynamodb';
 import { ORG_PK } from '../constants/organization';
 import { PK_NAME, SK_NAME } from '../constants/common';
 import { apiResponse } from '../helpers/api';
+import { withSentryLambda } from '../sentry-lambda';
+import {
+  authContextMiddleware,
+  httpErrorMiddleware,
+  orgMembershipMiddleware,
+  requirePermission
+} from '../middleware/rbac-middleware';
+import { requireEnv } from '../helpers/env';
+import middy from '@middy/core';
+import { docClient } from '../helpers/db';
 
-// --- DynamoDB setup ---
-const ddbClient = new DynamoDBClient({});
-const docClient = DynamoDBDocumentClient.from(ddbClient, {
-  marshallOptions: {
-    removeUndefinedValues: true,
-  },
-});
+const DB_TABLE_NAME = requireEnv('DB_TABLE_NAME');
 
-const DB_TABLE_NAME = process.env.DB_TABLE_NAME;
-
-if (!DB_TABLE_NAME) {
-  throw new Error('DB_TABLE_NAME environment variable is not set');
-}
-
-// --- Lambda handler ---
-// Expected API Gateway route: DELETE /organizations/{id}
-export const handler = async (
+export const baseHandler = async (
   event: APIGatewayProxyEventV2
 ): Promise<APIGatewayProxyResultV2> => {
   try {
-    const orgId =
-      event.pathParameters?.id ||
-      event.pathParameters?.orgId; // support either {id} or {orgId}
+    const orgId = event.pathParameters?.id || event.pathParameters?.orgId;
 
     if (!orgId) {
       return apiResponse(400, { message: 'Missing required path parameter: id' });
@@ -49,7 +36,6 @@ export const handler = async (
   } catch (err: any) {
     console.error('Error in deleteOrganization handler:', err);
 
-    // If the org doesn't exist, ConditionalCheckFailedException will be thrown
     if (err?.name === 'ConditionalCheckFailedException') {
       return apiResponse(404, { message: 'Organization not found' });
     }
@@ -61,7 +47,6 @@ export const handler = async (
   }
 };
 
-// --- Business logic function ---
 export async function deleteOrganization(orgId: string): Promise<void> {
   const key = {
     [PK_NAME]: ORG_PK,
@@ -71,7 +56,6 @@ export async function deleteOrganization(orgId: string): Promise<void> {
   const command = new DeleteCommand({
     TableName: DB_TABLE_NAME,
     Key: key,
-    // Only delete if item exists
     ConditionExpression: 'attribute_exists(#pk) AND attribute_exists(#sk)',
     ExpressionAttributeNames: {
       '#pk': PK_NAME,
@@ -81,3 +65,11 @@ export async function deleteOrganization(orgId: string): Promise<void> {
 
   await docClient.send(command);
 }
+
+export const handler = withSentryLambda(
+  middy(baseHandler)
+    .use(authContextMiddleware())
+    .use(orgMembershipMiddleware())
+    .use(requirePermission('org:delete'))
+    .use(httpErrorMiddleware())
+);

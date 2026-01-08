@@ -7,7 +7,12 @@ applications:
           commands:
             - corepack enable
             - corepack prepare pnpm@latest --activate
+            - cd ../shared
             - pnpm install --frozen-lockfile
+            - pnpm build
+            - cd ../web-app
+            - pnpm install --frozen-lockfile
+
         build:
           commands:
             - pnpm build
@@ -17,6 +22,7 @@ applications:
           - '**/*'
       cache:
         paths:
+          - .pnpm-store/**/*
           - node_modules/**/*
           - .next/cache/**/*
       redirects:

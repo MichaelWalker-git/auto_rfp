@@ -1,10 +1,11 @@
 import { Context, SNSEvent } from 'aws-lambda';
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
-import { DynamoDBDocumentClient, QueryCommand, } from '@aws-sdk/lib-dynamodb';
+import { DynamoDBDocumentClient, QueryCommand, UpdateCommand, } from '@aws-sdk/lib-dynamodb';
 import { SendTaskFailureCommand, SendTaskSuccessCommand, SFNClient, } from '@aws-sdk/client-sfn';
 
 import { PK_NAME, SK_NAME } from '../constants/common';
 import { QUESTION_FILE_PK } from '../constants/question-file';
+import { withSentryLambda } from '../sentry-lambda';
 
 const ddbClient = new DynamoDBClient({});
 const docClient = DynamoDBDocumentClient.from(ddbClient, {
@@ -15,7 +16,7 @@ const stepFunctionsClient = new SFNClient({});
 const DB_TABLE_NAME = process.env.DB_TABLE_NAME;
 if (!DB_TABLE_NAME) throw new Error('DB_TABLE_NAME env var is not set');
 
-export const handler = async (
+export const baseHandler = async (
   event: SNSEvent,
   _ctx: Context,
 ): Promise<void> => {
@@ -28,7 +29,7 @@ export const handler = async (
     let message: any;
     try {
       message = JSON.parse(messageStr);
-    } catch (err) {
+    } catch {
       console.warn('SNS message is not JSON, skipping:', messageStr);
       continue;
     }
@@ -37,7 +38,7 @@ export const handler = async (
 
     const jobId: string | undefined = message.JobId;
     const status: string | undefined = message.Status;
-    const jobTag: string | undefined = message.JobTag; // = questionFileId
+    const jobTag: string | undefined = message.JobTag;
 
     if (!jobId || !status) {
       console.warn('Missing JobId or Status in SNS message, skipping');
@@ -54,10 +55,10 @@ export const handler = async (
       `Textract notification for questionFileId=${questionFileId}, jobId=${jobId}, status=${status}`,
     );
 
-    // 1) Load question_file by PK + SK suffix
-    // SK pattern: projectId#questionFileId → we scan via Query on PK and filter in code.
+    // 1) Load question_file by PK and find by SK suffix "...#questionFileId"
     let taskToken: string | undefined;
     let skFound: string | undefined;
+
     try {
       const queryRes = await docClient.send(
         new QueryCommand({
@@ -75,29 +76,61 @@ export const handler = async (
       const items = (queryRes.Items || []) as any[];
 
       const item = items.find((it) =>
-        String(it[SK_NAME]).endsWith(`#${questionFileId}`),
+        String(it?.[SK_NAME] ?? '').endsWith(`#${questionFileId}`),
       );
 
       if (item) {
         taskToken = item.taskToken as string | undefined;
-        skFound = item[SK_NAME];
+        skFound = item[SK_NAME] as string | undefined;
       } else {
-        console.warn(
-          `No question_file found ending with #${questionFileId}`,
-        );
+        console.warn(`No question_file found ending with #${questionFileId}`);
       }
     } catch (err) {
       console.error('Error querying question_file for taskToken:', err);
     }
 
-    if (!taskToken) {
-      console.warn(
-        `No taskToken found for questionFileId=${questionFileId}, skipping callback`,
-      );
+    if (!skFound) {
+      console.warn(`No DynamoDB item found for questionFileId=${questionFileId}; cannot update status`,);
       continue;
     }
 
-    // 2) Notify Step Functions
+    // 2) Update DynamoDB status based on Textract result
+    const now = new Date().toISOString();
+    const newStatus = status === 'SUCCEEDED'
+      ? 'TEXT_EXTRACTED'
+      : 'TEXT_EXTRACTION_FAILED';
+
+    try {
+      await docClient.send(
+        new UpdateCommand({
+          TableName: DB_TABLE_NAME,
+          Key: {
+            [PK_NAME]: QUESTION_FILE_PK,
+            [SK_NAME]: skFound,
+          },
+          UpdateExpression: 'SET #status = :status, #updatedAt = :updatedAt,',
+          ExpressionAttributeNames: {
+            '#status': 'status',
+            '#updatedAt': 'updatedAt',
+          },
+          ExpressionAttributeValues: {
+            ':status': newStatus,
+            ':updatedAt': now,
+          },
+        }),
+      );
+
+      console.log(`Updated question_file status for questionFileId=${questionFileId} to ${newStatus}`,);
+    } catch (err) {
+      console.error(`Failed to update question_file status for questionFileId=${questionFileId}`, err);
+    }
+
+    if (!taskToken) {
+      console.warn(`No taskToken found for questionFileId=${questionFileId}, skipping Step Functions callback`);
+      continue;
+    }
+
+    // 3) Notify Step Functions
     try {
       if (status === 'SUCCEEDED') {
         await stepFunctionsClient.send(
@@ -131,3 +164,5 @@ export const handler = async (
     }
   }
 };
+
+export const handler = withSentryLambda(baseHandler);

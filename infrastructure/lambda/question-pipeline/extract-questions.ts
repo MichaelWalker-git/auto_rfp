@@ -1,29 +1,27 @@
 import { Context } from 'aws-lambda';
-import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
-import { DynamoDBDocumentClient, PutCommand, UpdateCommand } from '@aws-sdk/lib-dynamodb';
-import { GetObjectCommand, S3Client } from '@aws-sdk/client-s3';
-import { invokeModel } from '../helpers/bedrock-http-client';
-
-import { QUESTION_PK } from '../constants/organization';
+import { PutCommand, UpdateCommand } from '@aws-sdk/lib-dynamodb';
+import { BedrockRuntimeClient, InvokeModelCommand } from '@aws-sdk/client-bedrock-runtime';
+import { QUESTION_PK } from '../constants/question';
 import { PK_NAME, SK_NAME } from '../constants/common';
 import { QUESTION_FILE_PK } from '../constants/question-file';
+import { safeParseJsonFromModel } from '../helpers/json';
+import { withSentryLambda } from '../sentry-lambda';
+import { requireEnv } from '../helpers/env';
+import { docClient } from '../helpers/db';
+import { nowIso } from '../helpers/date';
+import { loadTextFromS3 } from '../helpers/s3';
+import { v4 as uuidv4 } from 'uuid';
+import { invokeModel } from '../helpers/bedrock-http-client';
 
-const ddbClient = new DynamoDBClient({});
-const docClient = DynamoDBDocumentClient.from(ddbClient, {
-  marshallOptions: { removeUndefinedValues: true },
+
+const BEDROCK_REGION = requireEnv('BEDROCK_REGION');
+const BEDROCK_MODEL_ID = requireEnv('BEDROCK_MODEL_ID');
+const DB_TABLE_NAME = requireEnv('DB_TABLE_NAME');
+const DOCUMENTS_BUCKET = requireEnv('DOCUMENTS_BUCKET');
+
+const bedrockClient = new BedrockRuntimeClient({
+  region: BEDROCK_REGION,
 });
-
-const s3Client = new S3Client({});
-
-const BEDROCK_MODEL_ID =
-  process.env.BEDROCK_MODEL_ID || 'anthropic.claude-3-haiku-20240307-v1:0';
-
-const DB_TABLE_NAME = process.env.DB_TABLE_NAME;
-const DOCUMENTS_BUCKET_NAME = process.env.DOCUMENTS_BUCKET_NAME;
-
-if (!DB_TABLE_NAME) throw new Error('DB_TABLE_NAME env var is not set');
-if (!DOCUMENTS_BUCKET_NAME)
-  throw new Error('DOCUMENTS_BUCKET_NAME env var is not set');
 
 interface Event {
   questionFileId?: string;
@@ -43,7 +41,7 @@ type ExtractedQuestions = {
   }>;
 };
 
-export const handler = async (
+export const baseHandler = async (
   event: Event,
   _ctx: Context,
 ): Promise<{ count: number }> => {
@@ -55,7 +53,7 @@ export const handler = async (
   }
 
   // 1) Load text from S3
-  const text = await loadTextFromS3(textFileKey);
+  const text = await loadTextFromS3(DOCUMENTS_BUCKET, textFileKey);
 
   // 2) Call Bedrock with the same prompt/structure as in the HTTP Lambda
   const extracted = await extractQuestionsWithBedrock(text);
@@ -73,25 +71,10 @@ export const handler = async (
   return { count: totalQuestions };
 };
 
-async function loadTextFromS3(key: string): Promise<string> {
-  const res = await s3Client.send(
-    new GetObjectCommand({
-      Bucket: DOCUMENTS_BUCKET_NAME,
-      Key: key,
-    }),
-  );
-
-  const body = await res.Body?.transformToString();
-  if (!body) {
-    throw new Error(`Failed to read text file from S3: ${key}`);
-  }
-  return body;
-}
-
 async function extractQuestionsWithBedrock(
   content: string,
 ): Promise<ExtractedQuestions> {
-  const systemPrompt = buildSystemPrompt();
+  const systemPrompt = getSystemPrompt();
   const userPrompt = buildUserPrompt(content);
 
   const body = {
@@ -103,7 +86,7 @@ async function extractQuestionsWithBedrock(
         content: userPrompt,
       },
     ],
-    max_tokens: 2048,
+    max_tokens: 32768,
     temperature: 0.1,
   };
 
@@ -124,18 +107,19 @@ async function extractQuestionsWithBedrock(
     throw new Error('Invalid JSON envelope from Bedrock');
   }
 
+  console.log('Bedrock envelope:', JSON.stringify(outer).slice(0, 2000));
+
+  const stopReason = outer.stop_reason || outer.stopReason;
+  const usage = outer.usage;
+
+  console.log('stop_reason:', stopReason, 'usage:', usage);
+
   const assistantText = outer?.content?.[0]?.text;
   if (!assistantText) {
     throw new Error('Model returned no text content');
   }
 
-  let parsed: any;
-  try {
-    parsed = JSON.parse(assistantText);
-  } catch (err) {
-    console.error('Model output was not JSON:', assistantText);
-    throw new Error('Invalid JSON returned by the model');
-  }
+  const parsed = safeParseJsonFromModel(assistantText);
 
   if (!Array.isArray(parsed.sections)) {
     throw new Error('Response missing required sections[]');
@@ -144,36 +128,30 @@ async function extractQuestionsWithBedrock(
   return parsed as ExtractedQuestions;
 }
 
-/**
- * Save all extracted sections + questions for a given project and questionFileId.
- *
- * PK = QUESTION_PK
- * SK = `${projectId}#${questionId}`
- *
- * Дополнительно привязываем к questionFileId и сохраняем section-метаданные.
- */
 async function saveQuestionsFromSections(
   questionFileId: string,
   projectId: string,
   extracted: ExtractedQuestions,
 ): Promise<number> {
-  const now = new Date().toISOString();
+  const now = nowIso();
   let count = 0;
 
   const writes: Promise<any>[] = [];
 
   for (const section of extracted.sections) {
+    const sectionId = uuidv4();
     for (const q of section.questions) {
-      const sortKey = `${projectId}#${q.id}`;
+      const questionId = uuidv4();
+      const sortKey = `${projectId}#${questionId}`;
 
       const item = {
         [PK_NAME]: QUESTION_PK,
         [SK_NAME]: sortKey,
         projectId,
         questionFileId,
-        questionId: q.id,
-        questionText: q.question,
-        sectionId: section.id,
+        questionId: questionId,
+        question: q.question,
+        sectionId: sectionId,
         sectionTitle: section.title,
         sectionDescription: section.description ?? null,
         createdAt: now,
@@ -235,10 +213,7 @@ async function updateStatus(
   );
 }
 
-/**
- * Копия buildSystemPrompt из второй лямбды
- */
-function buildSystemPrompt(): string {
+const getSystemPrompt = () => {
   const timestamp = Date.now();
   return `
 You are an expert at analyzing RFP (Request for Proposal) documents and extracting structured information.
@@ -246,7 +221,7 @@ Given a document that contains RFP questions, extract all sections and questions
 
 Carefully identify:
 1. Different sections (usually numbered like 1.1, 1.2, etc.)
-2. The questions within each section
+2. The questions within each section or empty array
 3. Any descriptive text that provides context for the section
 
 Format the output as a JSON object with the following structure:
@@ -274,11 +249,11 @@ Requirements:
 - Group questions correctly under their sections
 - If a section has subsections, create separate sections for each subsection
 - The timestamp prefix (${timestamp}) ensures uniqueness across different document uploads
+    `.trim();
+};
 
-Return ONLY the JSON object, with no additional text.
-  `.trim();
-}
-
-function buildUserPrompt(content: string): string {
+const buildUserPrompt = (content: string) => {
   return `Document Content:\n${content}`;
-}
+};
+
+export const handler = withSentryLambda(baseHandler);

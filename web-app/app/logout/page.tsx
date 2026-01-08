@@ -11,7 +11,7 @@ export default function LogoutPage() {
         await signOut({
           global: true,
           oauth: {
-            redirectUrl: 'http://localhost:3000/login'
+            redirectUrl: 'http://localhost:3000/'
           }
         });
       }}>

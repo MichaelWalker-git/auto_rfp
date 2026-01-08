@@ -1,31 +1,34 @@
 import { APIGatewayProxyEventV2, APIGatewayProxyResultV2 } from 'aws-lambda';
-import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
-import { DynamoDBDocumentClient, QueryCommand } from '@aws-sdk/lib-dynamodb';
+import { QueryCommand } from '@aws-sdk/lib-dynamodb';
 import { ORG_PK, PROJECT_PK } from '../constants/organization';
 import { PK_NAME, SK_NAME } from '../constants/common';
-import { apiResponse } from '../helpers/api';
+import { apiResponse, getOrgId } from '../helpers/api';
+import { withSentryLambda } from '../sentry-lambda';
+import { USER_PK } from '../constants/user';
+import {
+  authContextMiddleware,
+  httpErrorMiddleware,
+  orgMembershipMiddleware,
+  requirePermission
+} from '../middleware/rbac-middleware';
+import { requireEnv } from '../helpers/env';
+import middy from '@middy/core';
+import { docClient } from '../helpers/db';
 
-const ddbClient = new DynamoDBClient({});
-const docClient = DynamoDBDocumentClient.from(ddbClient, {
-  marshallOptions: {
-    removeUndefinedValues: true,
-  },
-});
+const DB_TABLE_NAME = requireEnv('DB_TABLE_NAME');
 
-const DB_TABLE_NAME = process.env.DB_TABLE_NAME;
-
-if (!DB_TABLE_NAME) {
-  throw new Error('DB_TABLE_NAME environment variable is not set');
-}
-
-export const handler = async (
+export const baseHandler = async (
   event: APIGatewayProxyEventV2,
 ): Promise<APIGatewayProxyResultV2> => {
   try {
+    const orgId = getOrgId(event);
     const list = await listOrganizations();
+    const filteredList = orgId
+      ? list.filter((o) => String(o[SK_NAME]).startsWith(`ORG#${orgId}`))
+      : list;
 
     const result = await Promise.all(
-      list.map((org) => enrichOrganizationWithCounts(org)),
+      filteredList.map((org) => enrichOrganizationWithCounts(org)),
     );
 
     return apiResponse(200, result);
@@ -37,8 +40,6 @@ export const handler = async (
     });
   }
 };
-
-// ===== Список организаций =====
 
 export async function listOrganizations() {
   const items: any[] = [];
@@ -77,10 +78,13 @@ type OrgItem = {
 const enrichOrganizationWithCounts = async (org: OrgItem) => {
   const orgId = orgSortKeyToId(org.sort_key);
 
-  const projectsCount = await getProjectCountForOrg(orgId);
+  const [projectsCount, usersCount] = await Promise.all([
+    getProjectCountForOrg(orgId),
+    getUserCountForOrg(orgId),
+  ]);
 
   const count = {
-    organizationUsers: 0, // TODO:
+    organizationUsers: usersCount,
     projects: projectsCount,
   };
 
@@ -126,3 +130,43 @@ async function getProjectCountForOrg(orgId: string): Promise<number> {
 
   return count;
 }
+
+async function getUserCountForOrg(orgId: string): Promise<number> {
+  let count = 0;
+  let ExclusiveStartKey: Record<string, any> | undefined = undefined;
+
+  const skPrefix = `ORG#${orgId}#USER#`;
+
+  do {
+    const res = await docClient.send(
+      new QueryCommand({
+        TableName: DB_TABLE_NAME,
+        KeyConditionExpression:
+          '#pk = :orgPk AND begins_with(#sk, :skPrefix)',
+        ExpressionAttributeNames: {
+          '#pk': PK_NAME,
+          '#sk': SK_NAME,
+        },
+        ExpressionAttributeValues: {
+          ':orgPk': USER_PK,
+          ':skPrefix': skPrefix,
+        },
+        Select: 'COUNT',
+        ExclusiveStartKey,
+      }),
+    );
+
+    count += res.Count ?? 0;
+    ExclusiveStartKey = res.LastEvaluatedKey as Record<string, any> | undefined;
+  } while (ExclusiveStartKey);
+
+  return count;
+}
+
+export const handler = withSentryLambda(
+  middy(baseHandler)
+    .use(authContextMiddleware())
+    .use(orgMembershipMiddleware())
+    .use(requirePermission('org:read'))
+    .use(httpErrorMiddleware())
+);

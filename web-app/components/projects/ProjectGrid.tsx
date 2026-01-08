@@ -1,18 +1,24 @@
-import React from "react";
-import { ProjectCard } from "./ProjectCard";
-import { ProjectCardSkeleton } from "./ProjectCardSkeleton";
-import { Card, CardContent } from "@/components/ui/card";
-import Link from "next/link";
-import { Button } from "@/components/ui/button";
-import { Project } from "@/types/project";
+import React from 'react';
+import { ProjectCard } from './ProjectCard';
+import { ProjectCardSkeleton } from './ProjectCardSkeleton';
+import { Card, CardContent } from '@/components/ui/card';
+import Link from 'next/link';
+import { Button } from '@/components/ui/button';
+import { Project } from '@/types/project';
 
 interface ProjectGridProps {
   projects: Project[];
   isLoading: boolean;
   showCreateCard?: boolean;
+  onDeleteProject?: (project: Project) => void;
 }
 
-export function ProjectGrid({ projects, isLoading, showCreateCard = true }: ProjectGridProps) {
+export function ProjectGrid({
+                              projects,
+                              isLoading,
+                              showCreateCard = true,
+                              onDeleteProject,
+                            }: ProjectGridProps) {
   if (isLoading) {
     return (
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3  gap-4">
@@ -39,8 +45,12 @@ export function ProjectGrid({ projects, isLoading, showCreateCard = true }: Proj
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
       {projects.map((project) => (
-        <ProjectCard key={project.id} project={project} />
+        <ProjectCard
+          key={project.id}
+          project={project}
+          onDelete={onDeleteProject}
+        />
       ))}
     </div>
   );
-} 
+}

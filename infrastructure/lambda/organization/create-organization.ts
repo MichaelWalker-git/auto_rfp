@@ -1,27 +1,24 @@
 import { APIGatewayProxyEventV2, APIGatewayProxyResultV2, } from 'aws-lambda';
-import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
-import { DynamoDBDocumentClient, PutCommand, } from '@aws-sdk/lib-dynamodb';
+import { PutCommand, } from '@aws-sdk/lib-dynamodb';
 import { ORG_PK } from '../constants/organization';
 import { PK_NAME, SK_NAME } from '../constants/common';
 import { apiResponse } from '../helpers/api';
 import { v4 as uuidv4 } from 'uuid';
 import { CreateOrganizationDTO, CreateOrganizationSchema, OrganizationItem, } from '../schemas/organization';
+import { withSentryLambda } from '../sentry-lambda';
+import { requireEnv } from '../helpers/env';
+import { docClient } from '../helpers/db';
+import {
+  authContextMiddleware,
+  httpErrorMiddleware,
+  orgMembershipMiddleware,
+  requirePermission
+} from '../middleware/rbac-middleware';
+import middy from '@middy/core';
 
-const ddbClient = new DynamoDBClient({});
-const docClient = DynamoDBDocumentClient.from(ddbClient, {
-  marshallOptions: {
-    removeUndefinedValues: true,
-  },
-});
+const DB_TABLE_NAME = requireEnv('DB_TABLE_NAME');
 
-const DB_TABLE_NAME = process.env.DB_TABLE_NAME;
-
-if (!DB_TABLE_NAME) {
-  throw new Error('DB_TABLE_NAME environment variable is not set');
-}
-
-// --- Main Handler ---
-export const handler = async (event: APIGatewayProxyEventV2): Promise<APIGatewayProxyResultV2> => {
+export const baseHandler = async (event: APIGatewayProxyEventV2): Promise<APIGatewayProxyResultV2> => {
   if (!event.body) {
     return apiResponse(400, { message: 'Request body is missing' });
   }
@@ -89,3 +86,11 @@ export async function createOrganization(orgData: CreateOrganizationDTO): Promis
 
   return { ...organizationItem, id: orgId };
 }
+
+export const handler = withSentryLambda(
+  middy(baseHandler)
+    .use(authContextMiddleware())
+    .use(orgMembershipMiddleware())
+    .use(requirePermission('org:create'))
+    .use(httpErrorMiddleware())
+);

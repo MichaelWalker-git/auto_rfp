@@ -1,600 +1,405 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useMemo, useRef, useState } from 'react';
+import { AlertCircle, Download, FileText, FolderOpen, Loader2, Play, Trash2, Upload } from 'lucide-react';
+
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
-import { useToast } from '@/components/ui/use-toast';
-import { Input } from '@/components/ui/input';
-import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { 
-  FileText, 
-  FolderOpen, 
-  ExternalLink, 
-  RefreshCw,
-  AlertCircle,
-  Database,
-  ChevronDown,
-  ChevronRight,
-  Search,
-  CheckCircle2,
-  CircleDashed
-} from 'lucide-react';
-import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from '@/components/ui/collapsible';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { cn } from '@/lib/utils';
 
-interface ProjectDocument {
-  id: string;
-  name: string;
-  status: string;
-  created_at: string;
-  updated_at: string;
-  size_bytes?: number;
-  indexName: string;
-  indexId: string;
-  file_type?: string;
-}
-
-interface ProjectIndex {
-  id: string;
-  name: string;
-}
+import { usePresignUpload } from '@/lib/hooks/use-presign';
+import {
+  useCreateQuestionFile,
+  useDeleteQuestionFile,
+  useQuestionFiles,
+  useStartQuestionFilePipeline,
+} from '@/lib/hooks/use-question-file';
+import { useDownloadFromS3 } from '@/lib/hooks/use-file';
+import PermissionWrapper from '@/components/permission-wrapper';
 
 interface ProjectDocumentsProps {
   projectId: string;
 }
 
-// Styling functions from the global DocumentList
-const getDocumentCardStyles = (fileType: string): {
-  iconBgClass: string;
-  iconColorClass: string;
-  textPillBgClass: string;
-  textPillTextColorClass: string;
-} => {
-  const type = (fileType || '').toLowerCase();
-  if (type === 'pdf') {
-    return {
-      iconBgClass: 'bg-red-50',
-      iconColorClass: 'text-red-600',
-      textPillBgClass: 'bg-red-500',
-      textPillTextColorClass: 'text-white',
-    };
-  }
-  if (type === 'docx' || type === 'doc') {
-    return {
-      iconBgClass: 'bg-blue-50',
-      iconColorClass: 'text-blue-600',
-      textPillBgClass: 'bg-blue-500',
-      textPillTextColorClass: 'text-white',
-    };
-  }
-  if (type === 'csv') {
-    return {
-      iconBgClass: 'bg-green-50',
-      iconColorClass: 'text-green-600',
-      textPillBgClass: 'bg-green-500',
-      textPillTextColorClass: 'text-white',
-    };
-  }
-  if (type === 'txt' || type === 'text') {
-    return {
-      iconBgClass: 'bg-gray-50',
-      iconColorClass: 'text-gray-600',
-      textPillBgClass: 'bg-gray-500',
-      textPillTextColorClass: 'text-white',
-    };
-  }
-  return { // Fallback default
-    iconBgClass: 'bg-gray-100',
-    iconColorClass: 'text-gray-600',
-    textPillBgClass: 'bg-gray-500',
-    textPillTextColorClass: 'text-white',
-  };
-};
+function pickDisplayName(qf: any): string {
+  return (
+    qf?.fileName ??
+    qf?.originalFileName ??
+    (typeof qf?.fileKey === 'string' ? qf.fileKey.split('/').pop() : undefined) ??
+    'Unknown file'
+  );
+}
 
-const getPillText = (fileType: string): string => {
-  const type = (fileType || '').toLowerCase();
-  if (type === 'pdf') return 'PDF';
-  if (type === 'docx') return 'DOCX';
-  if (type === 'doc') return 'DOC';
-  if (type === 'csv') return 'CSV';
-  if (type === 'txt' || type === 'text') return 'TXT';
-  if (type.length > 0) return type.substring(0, 3).toUpperCase();
-  return 'FILE';
-};
+function formatDate(dateString?: string) {
+  if (!dateString) return '—';
+  const d = new Date(dateString);
+  if (Number.isNaN(d.getTime())) return '—';
+  return d.toLocaleString('en-US', {
+    year: 'numeric',
+    month: 'short',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+}
 
-const INITIAL_DOCUMENTS_SHOWN = 12;
+function statusChip(status?: string) {
+  const s = String(status ?? '').toUpperCase();
+
+  if (s === 'UPLOADED') return { label: 'Uploaded', cls: 'bg-slate-50 text-slate-700 border-slate-200' };
+  if (s === 'QUESTIONS_EXTRACTED' || s === 'PROCESSED')
+    return { label: 'Completed', cls: 'bg-green-50 text-green-700 border-green-200' };
+  if (s === 'TEXT_READY' || s === 'TEXT_EXTRACTED')
+    return { label: 'Text ready', cls: 'bg-indigo-50 text-indigo-700 border-indigo-200' };
+  if (s === 'PROCESSING') return { label: 'Processing', cls: 'bg-blue-50 text-blue-700 border-blue-200' };
+  if (s === 'TEXT_EXTRACTION_FAILED' || s === 'ERROR' || s === 'FAILED')
+    return { label: 'Error', cls: 'bg-red-50 text-red-700 border-red-200' };
+  if (s === 'DELETED') return { label: 'Deleted', cls: 'bg-gray-50 text-gray-700 border-gray-200' };
+  return { label: 'Processing', cls: 'bg-slate-50 text-slate-700 border-slate-200' };
+}
 
 export function ProjectDocuments({ projectId }: ProjectDocumentsProps) {
-  const [documents, setDocuments] = useState<ProjectDocument[]>([]);
-  const [projectIndexes, setProjectIndexes] = useState<ProjectIndex[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [organizationConnected, setOrganizationConnected] = useState(false);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [activeTab, setActiveTab] = useState('all');
-  const [expandedIndexes, setExpandedIndexes] = useState<Record<string, boolean>>({});
-  const [shownDocuments, setShownDocuments] = useState<Record<string, number>>({});
-  const { toast } = useToast();
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
-  // Helper function to determine file type from filename
-  const getFileTypeFromFilename = (filename: string): string => {
-    const extension = filename.split('.').pop()?.toLowerCase() || '';
-    const fileTypeMap: Record<string, string> = {
-      'pdf': 'pdf',
-      'doc': 'doc',
-      'docx': 'docx',
-      'csv': 'csv',
-      'txt': 'text',
-      'json': 'json'
-    };
-    return fileTypeMap[extension] || 'other';
+  const { items, isLoading, isError, error, refetch } = useQuestionFiles(projectId);
+
+  const { trigger: getPresignedUrl, isMutating: isGettingPresigned } = usePresignUpload();
+  const { trigger: createQuestionFile, isMutating: isCreating } = useCreateQuestionFile(projectId);
+
+  const { trigger: startPipeline } = useStartQuestionFilePipeline(projectId);
+  const { trigger: deleteQuestionFile } = useDeleteQuestionFile();
+
+  const { downloadFile, error: downloadError } = useDownloadFromS3();
+
+  const [uploadError, setUploadError] = useState<string | null>(null);
+  const [uploadBusy, setUploadBusy] = useState(false);
+
+  const [startingId, setStartingId] = useState<string | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [downloadingId, setDownloadingId] = useState<string | null>(null);
+
+  const rows = useMemo(() => {
+    return (items ?? []).map((qf: any) => ({
+      questionFileId: qf?.questionFileId as string | undefined,
+      name: pickDisplayName(qf),
+      status: qf?.status as string | undefined,
+      createdAt: qf?.createdAt as string | undefined,
+      updatedAt: qf?.updatedAt as string | undefined,
+      fileKey: qf?.fileKey as string | undefined,
+      errorMessage: qf?.errorMessage as string | undefined,
+    }));
+  }, [items]);
+
+  const busyUpload = uploadBusy || isGettingPresigned || isCreating;
+
+  const onPickFile = () => {
+    setUploadError(null);
+    fileInputRef.current?.click();
   };
 
-  const fetchProjectDocuments = async () => {
+  const handleFileSelected = async (file: File) => {
     try {
-      setIsLoading(true);
-      setError(null);
-      
-      // First get the project indexes
-      const indexesResponse = await fetch(`/api/projects/${projectId}/indexes`);
-      
-      if (!indexesResponse.ok) {
-        const errorData = await indexesResponse.json();
-        throw new Error(errorData.error || 'Failed to fetch project indexes');
-      }
-      
-      const indexesData = await indexesResponse.json();
-      
-      if (!indexesData.organizationConnected) {
-        setOrganizationConnected(false);
-        setProjectIndexes([]);
-        setDocuments([]);
-        return;
-      }
+      setUploadError(null);
+      setUploadBusy(true);
 
-      setOrganizationConnected(true);
-      setProjectIndexes(indexesData.currentIndexes || []);
+      const presigned = await getPresignedUrl({
+        fileName: file.name,
+        contentType: file.type || 'application/octet-stream',
+      });
 
-      // If no indexes are selected, show empty state
-      if (!indexesData.currentIndexes || indexesData.currentIndexes.length === 0) {
-        setDocuments([]);
-        return;
+      const uploadRes = await fetch(presigned.url, {
+        method: 'PUT',
+        body: file,
+        headers: { 'Content-Type': file.type || 'application/octet-stream' },
+      });
+
+      if (!uploadRes.ok) {
+        const text = await uploadRes.text().catch(() => '');
+        throw new Error(text || 'Failed to upload file to S3');
       }
 
-      // Get organization ID from project
-      const projectResponse = await fetch(`/api/projects/${projectId}`);
-      if (!projectResponse.ok) {
-        throw new Error('Failed to fetch project details');
-      }
-      const projectData = await projectResponse.json();
+      await createQuestionFile({
+        originalFileName: file.name,
+        fileKey: presigned.key,
+        mimeType: file.type,
+      });
 
-      // Fetch all organization documents
-      const documentsResponse = await fetch(`/api/llamacloud/documents?organizationId=${projectData.organizationId}`);
-      
-      if (!documentsResponse.ok) {
-        const errorData = await documentsResponse.json();
-        throw new Error(errorData.error || 'Failed to fetch documents');
-      }
-      
-      const documentsData = await documentsResponse.json();
-      
-      // Filter documents to only include those from selected indexes
-      const selectedIndexIds = new Set(indexesData.currentIndexes.map((index: ProjectIndex) => index.id));
-      const filteredDocuments = (documentsData.documents || []).filter((doc: any) => 
-        selectedIndexIds.has(doc.pipelineId)
-      ).map((doc: any) => ({
-        ...doc,
-        indexName: doc.pipelineName,
-        indexId: doc.pipelineId,
-        // Map file properties to document properties for consistency
-        name: doc.name || 'Unknown',
-        status: doc.status || 'unknown',
-        created_at: doc.created_at,
-        updated_at: doc.updated_at,
-        size_bytes: doc.file_size,
-        file_type: doc.file_type || getFileTypeFromFilename(doc.name || ''),
-      }));
-
-      setDocuments(filteredDocuments);
-
-      // Auto-expand first index and initialize shown documents
-      if (filteredDocuments.length > 0) {
-        const indexNames: string[] = Array.from(new Set(filteredDocuments.map((doc: ProjectDocument) => doc.indexName)));
-        const initialExpanded: Record<string, boolean> = {};
-        const initialShown: Record<string, number> = {};
-        
-        indexNames.forEach((indexName, index) => {
-          initialExpanded[indexName] = index === 0; // Expand first index
-          initialShown[indexName] = INITIAL_DOCUMENTS_SHOWN;
-        });
-        
-        setExpandedIndexes(initialExpanded);
-        setShownDocuments(initialShown);
-      }
-      
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Failed to fetch project documents';
-      setError(errorMessage);
-      console.error('Error fetching project documents:', err);
+      await refetch();
+    } catch (e: any) {
+      setUploadError(e?.message || 'Unexpected error');
     } finally {
-      setIsLoading(false);
+      setUploadBusy(false);
+      if (fileInputRef.current) fileInputRef.current.value = '';
     }
   };
 
-  useEffect(() => {
-    fetchProjectDocuments();
-  }, [projectId]);
+  const handleDownload = async (row: { questionFileId?: string; fileKey?: string; name: string }) => {
+    if (!row.questionFileId || !row.fileKey) return;
+    if (downloadingId === row.questionFileId) return;
 
-  const handleRefresh = () => {
-    fetchProjectDocuments();
-    toast({
-      title: 'Refreshing',
-      description: 'Fetching latest documents...',
-    });
-  };
-
-  const toggleIndex = (indexName: string) => {
-    setExpandedIndexes(prev => ({
-      ...prev,
-      [indexName]: !prev[indexName]
-    }));
-  };
-
-  const showMoreDocuments = (indexName: string) => {
-    setShownDocuments(prev => ({
-      ...prev,
-      [indexName]: (prev[indexName] || INITIAL_DOCUMENTS_SHOWN) + INITIAL_DOCUMENTS_SHOWN
-    }));
-  };
-
-  const showAllDocuments = (indexName: string, totalCount: number) => {
-    setShownDocuments(prev => ({
-      ...prev,
-      [indexName]: totalCount
-    }));
-  };
-
-  const formatFileSize = (bytes?: number) => {
-    if (!bytes) return 'Unknown size';
-    
-    const units = ['B', 'KB', 'MB', 'GB'];
-    let size = bytes;
-    let unitIndex = 0;
-    
-    while (size >= 1024 && unitIndex < units.length - 1) {
-      size /= 1024;
-      unitIndex++;
-    }
-    
-    return `${Math.round(size * 100) / 100} ${units[unitIndex]}`;
-  };
-
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-    });
-  };
-
-  const getStatusColor = (status: string) => {
-    switch (status?.toLowerCase()) {
-      case 'completed':
-      case 'success':
-        return 'bg-green-100 text-green-800';
-      case 'processing':
-      case 'in_progress':
-        return 'bg-blue-100 text-blue-800';
-      case 'error':
-      case 'failed':
-        return 'bg-red-100 text-red-800';
-      default:
-        return 'bg-gray-100 text-gray-800';
+    try {
+      setDownloadingId(row.questionFileId);
+      await downloadFile({ key: row.fileKey, fileName: row.name });
+    } finally {
+      setDownloadingId((prev) => (prev === row.questionFileId ? null : prev));
     }
   };
 
-  // Filter documents based on search term and active tab
-  const filteredDocuments = documents.filter(doc => {
-    const matchesSearch = doc.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         doc.indexName?.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesTab = activeTab === 'all' || doc.file_type === activeTab;
-    return matchesSearch && matchesTab;
-  });
+  const handleDelete = async (row: { questionFileId?: string; name: string }) => {
+    if (!row.questionFileId) return;
+    if (deletingId === row.questionFileId) return;
 
-  // Extract unique file types for tab filters
-  const fileTypes = Array.from(new Set(documents.map(doc => doc.file_type).filter(Boolean))) as string[];
+    const ok = window.confirm(`Delete "${row.name}"?`);
+    if (!ok) return;
+
+    try {
+      setDeletingId(row.questionFileId);
+      await deleteQuestionFile({ projectId, questionFileId: row.questionFileId });
+      await refetch();
+    } finally {
+      setDeletingId((prev) => (prev === row.questionFileId ? null : prev));
+    }
+  };
+
+  const handleStart = async (row: { questionFileId?: string }) => {
+    if (!row.questionFileId) return;
+    if (startingId === row.questionFileId) return;
+
+    try {
+      setStartingId(row.questionFileId);
+      await startPipeline({ projectId, questionFileId: row.questionFileId });
+      await refetch();
+    } finally {
+      setStartingId((prev) => (prev === row.questionFileId ? null : prev));
+    }
+  };
 
   if (isLoading) {
     return (
       <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <FileText className="h-5 w-5" />
-            <Skeleton className="h-5 w-32" />
-          </CardTitle>
-          <CardDescription>
-            <Skeleton className="h-4 w-64" />
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-3">
-            {[1, 2, 3].map((i) => (
-              <Skeleton key={i} className="h-16 w-full" />
-            ))}
-          </div>
-        </CardContent>
-      </Card>
-    );
-  }
-
-  if (!organizationConnected) {
-    return (
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <FileText className="h-5 w-5" />
-            Project Documents
-          </CardTitle>
-          <CardDescription>
-            Documents available to this project from selected indexes
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="text-center py-8">
-            <AlertCircle className="mx-auto h-8 w-8 text-muted-foreground mb-3" />
-            <h3 className="text-lg font-medium mb-2">No LlamaCloud Connection</h3>
-            <p className="text-muted-foreground">
-              Your organization needs to be connected to LlamaCloud to access documents.
-            </p>
-          </div>
-        </CardContent>
-      </Card>
-    );
-  }
-
-  if (error) {
-    return (
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <FileText className="h-5 w-5" />
-            Project Documents
-          </CardTitle>
-          <CardDescription>
-            Documents available to this project from selected indexes
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="text-center py-8">
-            <AlertCircle className="mx-auto h-8 w-8 text-red-500 mb-3" />
-            <h3 className="text-lg font-medium text-red-900 mb-2">Error Loading Documents</h3>
-            <p className="text-red-600 mb-4">{error}</p>
-            <Button variant="outline" onClick={fetchProjectDocuments}>
-              <RefreshCw className="mr-2 h-4 w-4" />
-              Try Again
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
-    );
-  }
-
-  if (projectIndexes.length === 0) {
-    return (
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <FileText className="h-5 w-5" />
-            Project Documents
-          </CardTitle>
-          <CardDescription>
-            Documents available to this project from selected indexes
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="text-center py-8">
-            <Database className="mx-auto h-8 w-8 text-muted-foreground mb-3" />
-            <h3 className="text-lg font-medium mb-2">No Indexes Selected</h3>
-            <p className="text-muted-foreground mb-4">
-              Select indexes above to access their documents for this project.
-            </p>
-          </div>
-        </CardContent>
-      </Card>
-    );
-  }
-
-  // Group documents by index
-  const documentsByIndex = filteredDocuments.reduce((acc, doc) => {
-    if (!acc[doc.indexName]) {
-      acc[doc.indexName] = [];
-    }
-    acc[doc.indexName].push(doc);
-    return acc;
-  }, {} as Record<string, ProjectDocument[]>);
-
-  return (
-    <Card>
-      <CardHeader>
-        <div className="flex items-center justify-between">
+        <CardHeader className="flex flex-row items-start justify-between gap-4">
           <div>
             <CardTitle className="flex items-center gap-2">
               <FileText className="h-5 w-5" />
-              Project Documents
+              RFP Documents
             </CardTitle>
-            <CardDescription>
-              {documents.length} documents available from {projectIndexes.length} selected {projectIndexes.length === 1 ? 'index' : 'indexes'}
-            </CardDescription>
+            <CardDescription>Upload a document and run question extraction</CardDescription>
           </div>
-          <Button variant="outline" size="sm" onClick={handleRefresh}>
-            <RefreshCw className="mr-2 h-4 w-4" />
-            Refresh
+          <Skeleton className="h-9 w-40" />
+        </CardHeader>
+        <CardContent className="space-y-3">
+          {[1, 2, 3, 4].map((i) => (
+            <Skeleton key={i} className="h-16 w-full" />
+          ))}
+        </CardContent>
+      </Card>
+    );
+  }
+
+  if (isError) {
+    return (
+      <Card>
+        <CardHeader className="flex flex-row items-start justify-between gap-4">
+          <div>
+            <CardTitle className="flex items-center gap-2">
+              <FileText className="h-5 w-5" />
+              RFP Documents
+            </CardTitle>
+            <CardDescription>Upload a document and run question extraction</CardDescription>
+          </div>
+
+          <Button onClick={onPickFile} disabled={busyUpload} className="gap-2">
+            {busyUpload ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
+            Upload file
           </Button>
+        </CardHeader>
+
+        <CardContent className="space-y-3">
+          <div className="rounded-xl border bg-red-50 p-4">
+            <div className="flex items-start gap-3">
+              <AlertCircle className="h-5 w-5 text-red-600 mt-0.5" />
+              <div className="flex-1">
+                <p className="font-medium text-red-900">Couldn’t load files</p>
+                <p className="text-sm text-red-700 mt-1">{error instanceof Error ? error.message : 'Unknown error'}</p>
+                <div className="mt-3">
+                  <Button variant="outline" size="sm" onClick={() => refetch()}>
+                    Retry
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {uploadError && (
+            <div className="rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">{uploadError}</div>
+          )}
+
+          {downloadError && (
+            <Alert variant="destructive">
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription>Download failed: {downloadError.message}</AlertDescription>
+            </Alert>
+          )}
+        </CardContent>
+
+        <input
+          ref={fileInputRef}
+          type="file"
+          className="hidden"
+          onChange={(e) => {
+            const f = e.target.files?.[0];
+            if (f) void handleFileSelected(f);
+          }}
+        />
+      </Card>
+    );
+  }
+
+  const total = items?.length ?? 0;
+
+  return (
+    <Card className="overflow-hidden">
+      <CardHeader className="flex flex-row items-start justify-between gap-4">
+        <div>
+          <CardTitle className="flex items-center gap-2">
+            <FileText className="h-5 w-5" />
+            RFP Documents
+          </CardTitle>
+          <CardDescription>
+            {total} {total === 1 ? 'file' : 'files'} in this project
+          </CardDescription>
         </div>
+
+        <Button onClick={onPickFile} disabled={busyUpload} className="gap-2">
+          {busyUpload ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
+          Upload file
+        </Button>
       </CardHeader>
-      <CardContent>
-        {documents.length === 0 ? (
-          <div className="text-center py-8">
-            <FolderOpen className="mx-auto h-8 w-8 text-muted-foreground mb-3" />
-            <h3 className="text-lg font-medium mb-2">No Documents Available</h3>
-            <p className="text-muted-foreground">
-              No documents were found in the selected indexes.
-            </p>
+
+      <CardContent className="space-y-3">
+        {uploadError && (
+          <div className="rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">{uploadError}</div>
+        )}
+
+        {downloadError && (
+          <Alert variant="destructive">
+            <AlertCircle className="h-4 w-4" />
+            <AlertDescription>Download failed: {downloadError.message}</AlertDescription>
+          </Alert>
+        )}
+
+        {total === 0 ? (
+          <div className="text-center py-10">
+            <FolderOpen className="mx-auto h-9 w-9 text-muted-foreground mb-3" />
+            <h3 className="text-lg font-medium">No files yet</h3>
+            <p className="text-muted-foreground mt-1">Upload a document to start extraction.</p>
           </div>
         ) : (
-          <div className="space-y-6">
-            {/* Search and Filter Controls */}
-            <div className="flex flex-col sm:flex-row gap-4 justify-between">
-              <div className="relative w-full sm:w-96">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={18} />
-                <Input
-                  placeholder="Search documents and indexes..."
-                  className="pl-10"
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                />
-              </div>
-              
-              {fileTypes.length > 0 && (
-                <Tabs defaultValue="all" value={activeTab} onValueChange={setActiveTab} className="w-full sm:w-auto">
-                  <TabsList>
-                    <TabsTrigger value="all">All</TabsTrigger>
-                    {fileTypes.map(type => (
-                      <TabsTrigger key={type} value={type}>
-                        {type.charAt(0).toUpperCase() + type.slice(1)}
-                      </TabsTrigger>
-                    ))}
-                  </TabsList>
-                </Tabs>
-              )}
-            </div>
+          <div className="space-y-2">
+            {rows.map((f) => {
+              const st = statusChip(f.status);
+              const statusUpper = String(f.status ?? '').toUpperCase();
+              const isProcessing = statusUpper === 'PROCESSING';
+              const canStart = !!f.questionFileId && statusUpper === 'UPLOADED';
 
-            {/* Documents Grid */}
-            {filteredDocuments.length === 0 ? (
-              <div className="text-center py-8">
-                <FileText className="mx-auto h-8 w-8 text-muted-foreground mb-3" />
-                <h3 className="text-lg font-medium mb-2">No documents found</h3>
-                <p className="text-muted-foreground">
-                  Try adjusting your search or filters
-                </p>
-              </div>
-            ) : (
-              <div className="space-y-4">
-                {Object.entries(documentsByIndex).map(([indexName, indexDocs]) => {
-                  const isExpanded = expandedIndexes[indexName] || false;
-                  const shownCount = shownDocuments[indexName] || INITIAL_DOCUMENTS_SHOWN;
-                  const hasMore = indexDocs.length > shownCount;
-                  const visibleDocs = indexDocs.slice(0, shownCount);
-                  
-                  return (
-                    <Card key={indexName} className="border-l-4 border-l-blue-500">
-                      <Collapsible open={isExpanded} onOpenChange={() => toggleIndex(indexName)}>
-                        <CollapsibleTrigger asChild>
-                          <CardHeader className="pb-3 cursor-pointer hover:bg-muted/50 transition-colors">
-                            <CardTitle className="text-base flex items-center">
-                              {isExpanded ? (
-                                <ChevronDown className="mr-2 h-4 w-4" />
-                              ) : (
-                                <ChevronRight className="mr-2 h-4 w-4" />
-                              )}
-                              <Database className="mr-2 h-4 w-4" />
-                              {indexName}
-                              <Badge variant="secondary" className="ml-2">
-                                {indexDocs.length} {indexDocs.length === 1 ? 'document' : 'documents'}
-                              </Badge>
-                            </CardTitle>
-                          </CardHeader>
-                        </CollapsibleTrigger>
-                        <CollapsibleContent>
-                          <CardContent className="pt-0">
-                            {/* Compact Card Grid */}
-                            <div className="grid grid-cols-[repeat(auto-fill,minmax(140px,1fr))] gap-3">
-                              {visibleDocs.map((doc) => {
-                                const styles = getDocumentCardStyles(doc.file_type || '');
-                                const pillText = getPillText(doc.file_type || '');
-                                const displayName = doc.name;
+              const rowStarting = !!f.questionFileId && startingId === f.questionFileId;
+              const rowDeleting = !!f.questionFileId && deletingId === f.questionFileId;
+              const rowDownloading = !!f.questionFileId && downloadingId === f.questionFileId;
 
-                                return (
-                                  <Card key={doc.id} className="rounded-lg overflow-hidden shadow hover:shadow-md transition-all duration-200 flex flex-col bg-white">
-                                    <CardContent className="flex flex-col items-center p-3 text-center flex-grow w-full">
-                                      {/* Icon Area */}
-                                      <div className={cn(
-                                          "w-[50px] h-[60px] mb-2 rounded-md flex flex-col items-center justify-center pt-1 pb-1 px-1 relative shrink-0",
-                                          styles.iconBgClass
-                                      )}>
-                                        <FileText size={24} className={cn("mb-auto", styles.iconColorClass)} />
-                                        <div className={cn(
-                                            "text-[8px] font-bold leading-none py-0.5 px-1 rounded shadow-sm",
-                                            styles.textPillBgClass, styles.textPillTextColorClass
-                                        )}>
-                                          {pillText}
-                                        </div>
-                                        {/* Status indicator */}
-                                        {doc.status === 'success' || doc.status === 'completed' ? (
-                                          <div className="absolute top-[calc(50%-8px)] right-[2px] bg-white rounded-full p-0.5 shadow-md">
-                                            <CheckCircle2 size={12} className="text-green-500 block" />
-                                          </div>
-                                        ) : doc.status === 'processing' ? (
-                                          <div className="absolute top-[calc(50%-8px)] right-[2px] bg-white rounded-full p-0.5 shadow-md flex items-center justify-center">
-                                            <CircleDashed size={12} className="text-blue-500 block" />
-                                          </div>
-                                        ) : null}
-                                      </div>
+              return (
+                <div
+                  key={f.questionFileId ?? f.name}
+                  className={cn('rounded-xl border bg-background p-3', (rowStarting || rowDeleting || rowDownloading) && 'opacity-80')}
+                >
+                  <div className="flex items-start gap-3">
+                    <div className="h-10 w-10 rounded-lg bg-muted flex items-center justify-center shrink-0">
+                      <FileText className="h-5 w-5 text-muted-foreground" />
+                    </div>
 
-                                      <h3 className="text-xs font-semibold mb-1 leading-tight truncate w-full" title={displayName}>
-                                        {displayName}
-                                      </h3>
-                                      
-                                      {/* Status Badge */}
-                                      <div className="mb-1">
-                                        <Badge variant="outline" className={cn("text-[10px] px-1 py-0", getStatusColor(doc.status))}>
-                                          {doc.status}
-                                        </Badge>
-                                      </div>
-                                      
-                                      <p className="text-[10px] text-gray-500 mb-2">{formatDate(doc.created_at)}</p>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <p className="font-medium truncate" title={f.name}>
+                          {f.name}
+                        </p>
+                        <Badge variant="outline" className={cn('text-xs border', st.cls)}>
+                          {st.label}
+                        </Badge>
+                      </div>
 
-                                    </CardContent>
-                                  </Card>
-                                );
-                              })}
-                            </div>
-                            
-                            {hasMore && (
-                              <div className="flex justify-center space-x-2 pt-6 border-t mt-6">
-                                <Button 
-                                  variant="outline" 
-                                  size="sm" 
-                                  onClick={() => showMoreDocuments(indexName)}
-                                >
-                                  Show {Math.min(INITIAL_DOCUMENTS_SHOWN, indexDocs.length - shownCount)} more
-                                </Button>
-                                <Button 
-                                  variant="outline" 
-                                  size="sm" 
-                                  onClick={() => showAllDocuments(indexName, indexDocs.length)}
-                                >
-                                  Show all ({indexDocs.length})
-                                </Button>
-                              </div>
-                            )}
-                          </CardContent>
-                        </CollapsibleContent>
-                      </Collapsible>
-                    </Card>
-                  );
-                })}
-              </div>
-            )}
+                      <div className="mt-1 text-xs text-muted-foreground">
+                        Uploaded: {formatDate(f.createdAt)}
+                        {f.updatedAt ? ` • Updated: ${formatDate(f.updatedAt)}` : ''}
+                      </div>
+
+                      {typeof f.fileKey === 'string' && f.fileKey.length > 0 && (
+                        <div className="mt-1 text-xs text-muted-foreground truncate" title={f.fileKey}>
+                          Key: {f.fileKey}
+                        </div>
+                      )}
+
+                      {typeof f.errorMessage === 'string' && f.errorMessage.length > 0 && (
+                        <div className="mt-2 rounded-lg border border-red-200 bg-red-50 p-2 text-xs text-red-700">
+                          {f.errorMessage}
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="flex items-center gap-2 shrink-0">
+
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="gap-2"
+                        disabled={!canStart || rowStarting}
+                        onClick={() => void handleStart({ questionFileId: f.questionFileId })}
+                      >
+                        {rowStarting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4" />}
+                        Start extraction
+                      </Button>
+
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="gap-2"
+                        disabled={!f.fileKey || rowDownloading}
+                        onClick={() => void handleDownload({ questionFileId: f.questionFileId, fileKey: f.fileKey, name: f.name })}
+                        title={!f.fileKey ? 'No file key' : 'Download file'}
+                      >
+                        {rowDownloading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
+                      </Button>
+
+                      <PermissionWrapper requiredPermission={'question:delete'}>
+                        <Button
+                          size="sm"
+                          variant="destructive"
+                          className="gap-2"
+                          disabled={!f.questionFileId || rowDeleting}
+                          onClick={() => void handleDelete({ questionFileId: f.questionFileId, name: f.name })}
+                        >
+                          {rowDeleting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+                        </Button>
+                      </PermissionWrapper>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
           </div>
         )}
       </CardContent>
+
+      <input
+        ref={fileInputRef}
+        type="file"
+        className="hidden"
+        onChange={(e) => {
+          const f = e.target.files?.[0];
+          if (f) void handleFileSelected(f);
+        }}
+      />
     </Card>
   );
-} 
+}

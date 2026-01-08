@@ -1,18 +1,24 @@
-/** @type {import('next').NextConfig} */
+const {withSentryConfig} = require("@sentry/nextjs");
+
 const nextConfig = {
-  output: 'standalone',
   trailingSlash: true,
   images: {
     unoptimized: true,
   },
-  eslint: {
-    ignoreDuringBuilds: true,
-  },
   typescript: {
     ignoreBuildErrors: true,
   },
+  transpilePackages: ['@auto-rfp/shared'],
 };
 
-module.exports = nextConfig;
-
-
+module.exports = withSentryConfig(
+  nextConfig,
+  {
+    org: "horus-technology",
+    project: "auto-rfp",
+    silent: !process.env.CI,
+    widenClientFileUpload: true,
+    disableLogger: true,
+    automaticVercelMonitors: true,
+  }
+);
