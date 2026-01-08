@@ -32,6 +32,7 @@ export interface ApiStackProps extends cdk.StackProps {
 
 export class ApiStack extends cdk.Stack {
   public readonly api: apigw.RestApi;
+  private static readonly BEDROCK_REGION = 'us-east-1';
 
   // Nested stacks
   private readonly organizationApi: ApiNestedStack;
@@ -221,6 +222,7 @@ export class ApiStack extends cdk.Stack {
       COGNITO_USER_POOL_CLIENT_ID: userPoolClient.userPoolClientId,
       REGION: 'us-east-1',
       BEDROCK_REGION: 'us-east-1',
+      BEDROCK_API_KEY_SSM_PARAM: '/auto-rfp/bedrock/api-key',
       BEDROCK_EMBEDDING_MODEL_ID: 'amazon.titan-embed-text-v2:0',
       BEDROCK_MODEL_ID: 'anthropic.claude-3-haiku-20240307-v1:0',
       OPENSEARCH_INDEX: 'documents',
@@ -260,6 +262,8 @@ export class ApiStack extends cdk.Stack {
     role.addManagedPolicy(
       iam.ManagedPolicy.fromAwsManagedPolicyName('service-role/AWSLambdaBasicExecutionRole'),
     );
+
+    const bedrockApiKeyParamArn = `arn:aws:ssm:us-east-1:${this.account}:parameter/auto-rfp/bedrock/api-key`;
 
     role.attachInlinePolicy(
       new iam.Policy(this, 'LambdaPolicy', {
@@ -325,6 +329,10 @@ export class ApiStack extends cdk.Stack {
           new iam.PolicyStatement({
             actions: ['secretsmanager:GetSecretValue'],
             resources: [`${process.env.BB_PROD_CREDENTIALS_ARN || '*'}`],
+          }),
+          new iam.PolicyStatement({
+            actions: ['ssm:GetParameter'],
+            resources: [bedrockApiKeyParamArn],
           }),
         ],
       }),
@@ -483,7 +491,7 @@ export class ApiStack extends cdk.Stack {
   }
 
   private addRoutes(args: { samGovApiKeySecret: secretsmanager.ISecret, execBriefQueue: any }) {
-    const { samGovApiKeySecret, execBriefQueue} = args;
+    const { samGovApiKeySecret, execBriefQueue } = args;
 
     // Prompt
     this.promptApi.addRoute('save-prompt/{scope}', 'POST', 'lambda/prompt/save-prompt.ts');

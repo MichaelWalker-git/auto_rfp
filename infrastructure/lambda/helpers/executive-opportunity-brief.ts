@@ -5,16 +5,13 @@ import { PK_NAME, SK_NAME } from '../constants/common';
 import { QUESTION_FILE_PK } from '../constants/question-file';
 import { EXEC_BRIEF_PK } from '../constants/exec-brief';
 
-import { BedrockRuntimeClient, InvokeModelCommand, } from '@aws-sdk/client-bedrock-runtime';
-
-import { type ExecutiveBriefItem, ExecutiveBriefItemSchema, QuestionFileItem, SectionStatus, } from '@auto-rfp/shared';
+import { type ExecutiveBriefItem, QuestionFileItem, SectionStatus, } from '@auto-rfp/shared';
 import { requireEnv } from './env';
 import { docClient } from './db';
 import { nowIso } from './date';
 import { loadTextFromS3 } from './s3';
 import { getEmbedding, OpenSearchHit, semanticSearchChunks } from './embeddings';
-
-const bedrock = new BedrockRuntimeClient({});
+import { invokeModel } from './bedrock-http-client';
 
 const DB_TABLE_NAME = requireEnv('DB_TABLE_NAME');
 const DOCUMENTS_BUCKET = requireEnv('DOCUMENTS_BUCKET');
@@ -376,36 +373,32 @@ export async function invokeClaudeJson<S extends SchemaLike<any>>(args: {
     messages: [{ role: 'user', content: [{ type: 'text', text: user }] }],
   };
 
-  const res = await bedrock.send(
-    new InvokeModelCommand({
-      modelId,
-      contentType: 'application/json',
-      accept: 'application/json',
-      body: JSON.stringify(body),
-    }),
+  const responseBody = await invokeModel(
+    modelId,
+    JSON.stringify(body),
+    'application/json',
+    'application/json'
   );
+  let jsonText = new TextDecoder('utf-8').decode(responseBody);
 
-  if (!res.body) throw new Error('Empty response body from Claude model');
-
-  const text = new TextDecoder('utf-8').decode(res.body as Uint8Array);
-
-  let rawOutput = text;
   try {
-    const json = JSON.parse(text);
+    const json = JSON.parse(jsonText);
     const contentText =
       json?.content?.map((c: any) => c?.text).filter(Boolean).join('\n') ??
       json?.output_text ??
       json?.completion ??
       null;
-    if (contentText) rawOutput = contentText;
+    if (contentText) {
+      jsonText = contentText;
+    }
   } catch {
     // keep rawOutput
   }
 
   try {
-    return safeJsonParse(rawOutput, outputSchema);
+    return safeJsonParse(jsonText, outputSchema);
   } catch (e) {
-    console.error('Claude raw output:', rawOutput);
+    console.error('Claude raw output:', jsonText);
     throw e;
   }
 }

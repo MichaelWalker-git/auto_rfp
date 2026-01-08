@@ -1,8 +1,5 @@
 import { APIGatewayProxyEvent, APIGatewayProxyResult, Context } from 'aws-lambda';
-import { BedrockRuntimeClient, InvokeModelCommand } from '@aws-sdk/client-bedrock-runtime';
-
-// Initialize AWS clients
-const bedrockClient = new BedrockRuntimeClient({ region: process.env.AWS_REGION || 'us-east-1' });
+import { invokeModel } from './helpers/bedrock-http-client';
 
 // CORS headers
 const corsHeaders = {
@@ -119,23 +116,25 @@ async function handleDocumentProcessing(event: APIGatewayProxyEvent): Promise<AP
       Please format the response as a JSON object with categories.`;
     }
 
-    const bedrockCommand = new InvokeModelCommand({
-      modelId: 'us.anthropic.claude-3-sonnet-20240229-v1:0',
-      body: JSON.stringify({
-        anthropic_version: 'bedrock-2023-05-31',
-        max_tokens: 1000,
-        messages: [
-          {
-            role: 'user',
-            content: prompt
-          }
-        ]
-      }),
-      contentType: 'application/json',
+    const body = JSON.stringify({
+      anthropic_version: 'bedrock-2023-05-31',
+      max_tokens: 1000,
+      messages: [
+        {
+          role: 'user',
+          content: prompt
+        }
+      ]
     });
 
-    const bedrockResponse = await bedrockClient.send(bedrockCommand);
-    const responseBody = JSON.parse(new TextDecoder().decode(bedrockResponse.body));
+    const bedrockResponseBody = await invokeModel(
+      'us.anthropic.claude-3-sonnet-20240229-v1:0',
+      body,
+      'application/json',
+      'application/json'
+    );
+    
+    const responseBody = JSON.parse(new TextDecoder().decode(bedrockResponseBody));
     const aiResponse = responseBody.content[0].text;
 
     // Format response based on operation

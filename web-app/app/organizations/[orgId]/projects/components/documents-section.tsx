@@ -25,9 +25,9 @@ export function DocumentsSection({ projectId: propProjectId }: Props) {
     );
   }
 
-  const { rfpDocument, isLoading, error } = useQuestions();
+  const { questions, isLoading, error } = useQuestions();
 
-  if (!isLoading && !error && !rfpDocument) {
+  if (!isLoading && !error && !questions) {
     return <NoRfpDocumentAvailable projectId={projectId}/>;
   }
 

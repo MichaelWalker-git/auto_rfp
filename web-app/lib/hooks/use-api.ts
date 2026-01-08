@@ -5,7 +5,7 @@ import { Organization } from '@/app/organizations/page';
 import { env } from '@/lib/env';
 import { Project } from '@/types/project';
 import { authFetcher } from '@/lib/auth/auth-fetcher';
-
+import { AnswerItem, GroupedSection } from '@auto-rfp/shared';
 class HttpError extends Error {
   status?: number;
   details?: any;
@@ -89,7 +89,7 @@ export function useProject(projectId: string | null, includeAll = false) {
 
 export function useQuestions(projectId: string | null, includeAll = false) {
   const params = includeAll ? '?include=all' : '';
-  return useApi<any>(
+  return useApi<{ sections: GroupedSection[] }>(
     projectId ? ['questions', projectId, includeAll] : null,
     projectId ? `${env.BASE_API_URL}/project/get-questions/${projectId}${params}` : null,
   );
@@ -97,7 +97,7 @@ export function useQuestions(projectId: string | null, includeAll = false) {
 
 export function useAnswers(projectId: string | null, includeAll = false) {
   const params = includeAll ? '?include=all' : '';
-  return useApi<any>(
+  return useApi<Record<string, AnswerItem>>(
     projectId ? ['answers', projectId, includeAll] : null,
     projectId ? `${env.BASE_API_URL}/answer/get-answers/${projectId}${params}` : null,
   );

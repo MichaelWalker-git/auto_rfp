@@ -1,7 +1,7 @@
 import { APIGatewayProxyEventV2, APIGatewayProxyResultV2 } from 'aws-lambda';
 import { QueryCommand, } from '@aws-sdk/lib-dynamodb';
 
-import { BedrockRuntimeClient, InvokeModelCommand, } from '@aws-sdk/client-bedrock-runtime';
+import { invokeModel } from '../helpers/bedrock-http-client';
 
 import { apiResponse } from '../helpers/api';
 import { PK_NAME, SK_NAME } from '../constants/common';
@@ -17,22 +17,18 @@ import {
 } from '../middleware/rbac-middleware';
 import middy from '@middy/core';
 import { requireEnv } from '../helpers/env';
-import { AnswerQuestionRequestBody, AnswerSource, QAItem } from '@auto-rfp/shared';
+import { AnswerQuestionRequestBody, AnswerSource, QAItem, QuestionItem } from '@auto-rfp/shared';
 import { getQuestionItemById } from '../helpers/question';
 import { saveAnswer } from './save-answer';
 import { DBItem, docClient } from '../helpers/db';
 import { safeParseJsonFromModel } from '../helpers/json';
 import { loadTextFromS3 } from '../helpers/s3';
 
-
-const REGION = requireEnv('REGION', 'us-east-1');
 const DB_TABLE_NAME = requireEnv('DB_TABLE_NAME');
 const DOCUMENTS_BUCKET = requireEnv('DOCUMENTS_BUCKET');
 const BEDROCK_MODEL_ID = requireEnv('BEDROCK_MODEL_ID');
 
-const bedrockClient = new BedrockRuntimeClient({ region: REGION });
-
-export type QuestionItemDynamo = QAItem & DBItem
+export type QuestionItemDynamo = QuestionItem & DBItem
 
 async function getDocumentItemById(documentId: string): Promise<DocumentItem & DBItem> {
   const skSuffix = `#DOC#${documentId}`;
@@ -80,19 +76,46 @@ async function buildContextFromChunkHits(hits: OpenSearchHit[]) {
 
 async function answerWithBedrockLLM(question: string, context: string): Promise<Partial<QAItem>> {
   const systemPrompt = `
-You are an assistant that answers questions strictly based on the provided context.
+You are an expert proposal writer answering U.S. government RFP/SAM.gov solicitation questions.
+
+You may answer using:
+1) The provided context chunks (preferred), AND
+2) Common professional knowledge about proposal writing and typical government procurement practices (allowed only when context is missing).
 
 Rules:
-- If the context does not contain the answer, you MUST set "found" to false and "answer" to an empty string.
-- Do NOT invent or guess information that is not clearly supported by the context.
-- Do NOT repeat the question in the answer.
-- Do NOT begin with "based on...".
-- Answer concisely.
+- Always return an answer (never leave it blank).
+- If the answer is supported by the provided context, set "found" to true and set "source" to the single best chunkKey.
+- If the context does NOT contain the needed information, you MUST:
+  - set "found" to false
+  - set "source" to ""
+  - write an answer that is clearly framed as a GENERAL recommendation / template response (not a claim about this specific RFP).
+- Never invent RFP-specific facts (deadlines, page limits, required forms, evaluation weights, email addresses, CLIN pricing, security requirements, etc.) unless explicitly present in the context.
+- Do not write disclaimers like "based on the context" or "I don’t have enough information". Instead:
+  - If found=true: answer directly.
+  - If found=false: give a best-practice answer + what to verify in the solicitation.
 
-Output format:
-Return ONLY a single JSON object:
+Output:
+Return ONLY valid JSON with exactly these keys (no extra keys, no markdown):
 
-{"answer":"string","confidence":0.0,"found":true, "source": chunkKey}
+{
+  "answer": "string",
+  "confidence": 0.0,
+  "found": true,
+  "source": "chunkKey string",
+  "notes": "string"
+}
+
+Confidence guidance:
+- If grounded=true:
+  - 0.85-1.0: explicitly stated in one chunk
+  - 0.60-0.84: supported but lightly synthesized within one chunk
+- If grounded=false:
+  - 0.30-0.59: good general guidance/template
+  - 0.00-0.29: question is too RFP-specific to answer; provide a minimal safe template and list exactly what must be verified
+
+Citations:
+- When grounded=true, choose ONE best chunkKey for "source".
+- When grounded=false, "source" must be "".
 `.trim();
 
   const userPrompt = [
@@ -106,39 +129,33 @@ Return ONLY a single JSON object:
 
   const payload = {
     anthropic_version: 'bedrock-2023-05-31',
-    max_tokens: 2048,
+    max_tokens: 4096,
     temperature: 0.2,
     system: systemPrompt,
     messages: [{ role: 'user', content: [{ type: 'text', text: userPrompt }] }],
   };
 
-  const res = await bedrockClient.send(
-    new InvokeModelCommand({
-      modelId: BEDROCK_MODEL_ID,
-      contentType: 'application/json',
-      accept: 'application/json',
-      body: Buffer.from(JSON.stringify(payload)),
-    }),
+  const responseBody = await invokeModel(
+    BEDROCK_MODEL_ID,
+    JSON.stringify(payload),
+    'application/json',
+    'application/json'
   );
 
-  if (!res.body) throw new Error('Bedrock (QA) returned no body');
-
-  const raw = Buffer.from(res.body).toString('utf-8');
-  console.log('Raw:', raw);
-
-  const parsed = safeParseJsonFromModel(raw);
-
-  const result: Partial<QAItem> = {
-    answer: typeof parsed.answer === 'string' ? parsed.answer : '',
-    confidence:
-      typeof parsed.confidence === 'number'
-        ? Math.min(1, Math.max(0, parsed.confidence))
-        : 0,
-    found: typeof parsed.found === 'boolean' ? parsed.found : false,
-  };
-
-  if (!result.found) result.answer = '';
-  return result;
+  const raw = new TextDecoder('utf-8').decode(responseBody);
+  console.log('Raw: ', raw);
+  let outer: any;
+  try {
+    outer = JSON.parse(raw);
+  } catch {
+    console.error('Bad response JSON from Bedrock:', raw);
+    throw new Error('Invalid JSON envelope from Bedrock');
+  }
+  const assistantText = outer?.content?.[0]?.text;
+  if (!assistantText) {
+    throw new Error('Model returned no text content');
+  }
+  return safeParseJsonFromModel(assistantText);
 }
 
 export const baseHandler = async (
@@ -182,8 +199,9 @@ export const baseHandler = async (
 
     const texts = await buildContextFromChunkHits(hits);
 
-    let finalContext =
-      texts.map(h => `${h._source?.chunkKey} content: ${h.text}`).join('\n');
+    const finalContext = texts
+      .map(h => `CHUNK_KEY: ${h._source?.chunkKey}\nTEXT:\n${h.text}\n---`)
+      .join('\n');
 
     const { answer, confidence, found, source } = await answerWithBedrockLLM(question, finalContext);
 

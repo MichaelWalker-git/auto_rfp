@@ -15,6 +15,7 @@ import {
   requirePermission
 } from '../middleware/rbac-middleware';
 import middy from '@middy/core';
+import { AnswerItem, GroupedSection, QuestionItem } from '@auto-rfp/shared';
 
 const DB_TABLE_NAME = requireEnv('DB_TABLE_NAME');
 
@@ -28,7 +29,7 @@ export const baseHandler = async (
     }
 
     const flatQuestions = await loadQuestions(projectId);
-    const grouped = await groupQuestions(projectId, flatQuestions);
+    const grouped: GroupedSection[] = await groupQuestions(projectId, flatQuestions);
 
     return apiResponse(200, { sections: grouped });
   } catch (err) {
@@ -67,7 +68,7 @@ async function loadQuestions(projectId: string) {
     LastKey = res.LastEvaluatedKey as Record<string, any> | undefined;
   } while (LastKey);
 
-  return items;
+  return items as QuestionItem[];
 }
 
 async function getAnswer(projectId: string, questionId: string) {
@@ -93,7 +94,7 @@ async function getAnswer(projectId: string, questionId: string) {
     return null;
   }
 
-  return res.Items[0];
+  return res.Items[0] as AnswerItem;
 }
 
 async function groupQuestions(
@@ -123,7 +124,7 @@ async function groupQuestions(
     });
   }
 
-  return Array.from(sectionsMap.values());
+  return Array.from(sectionsMap.values()) as GroupedSection[];
 }
 
 export const handler = withSentryLambda(

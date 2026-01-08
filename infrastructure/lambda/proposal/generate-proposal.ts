@@ -1,6 +1,5 @@
 import { APIGatewayProxyEventV2, APIGatewayProxyResultV2 } from 'aws-lambda';
 import { QueryCommand } from '@aws-sdk/lib-dynamodb';
-import { BedrockRuntimeClient, InvokeModelCommand } from '@aws-sdk/client-bedrock-runtime';
 
 import { PK_NAME, SK_NAME } from '../constants/common';
 import { DOCUMENT_PK } from '../constants/document';
@@ -28,15 +27,15 @@ import { docClient } from '../helpers/db';
 import { safeParseJsonFromModel } from '../helpers/json';
 import { loadTextFromS3 } from '../helpers/s3';
 import { useProposalSystemPrompt, useProposalUserPrompt } from '../constants/prompt';
+import { invokeModel } from '../helpers/bedrock-http-client';
+import { DBProjectItem } from '../types/project';
+import { loadLatestQuestionFile } from '../helpers/executive-opportunity-brief';
 
-const BEDROCK_REGION = requireEnv('BEDROCK_REGION');
 const DB_TABLE_NAME = requireEnv('DB_TABLE_NAME');
 const DOCUMENTS_BUCKET = requireEnv('DOCUMENTS_BUCKET');
 const BEDROCK_MODEL_ID = requireEnv('BEDROCK_MODEL_ID');
 const MAX_TOKENS = Number(requireEnv('BEDROCK_MAX_TOKENS', '4000'));
 const TEMPERATURE = Number(requireEnv('BEDROCK_TEMPERATURE', '0.1'));
-
-const bedrockClient = new BedrockRuntimeClient({ region: BEDROCK_REGION });
 
 type QaPair = GenerateProposalRequest['qaPairs'][number];
 type KnowledgeBaseSnippet = NonNullable<GenerateProposalRequest['knowledgeBaseSnippets']>[number];
@@ -169,14 +168,7 @@ export const baseHandler = async (
   event: APIGatewayProxyEventV2,
 ): Promise<APIGatewayProxyResultV2> => {
   try {
-    if (!event.body) return apiResponse(400, { message: 'Request body is required' });
-
-    let parsedBody: unknown;
-    try {
-      parsedBody = JSON.parse(event.body);
-    } catch {
-      return apiResponse(400, { message: 'Invalid JSON in request body' });
-    }
+    const parsedBody = JSON.parse(event?.body || '');
 
     const inputResult = GenerateProposalInputSchema.safeParse(parsedBody);
     if (!inputResult.success) {
@@ -189,7 +181,7 @@ export const baseHandler = async (
     const projectItem = await getProjectById(projectId);
     if (!projectItem) return apiResponse(404, { message: 'Project not found' });
 
-    const { sort_key, ...project } = projectItem as any;
+    const { sort_key, ...project } = projectItem as DBProjectItem;
     const orgId = extractOrgIdFromSortKey(sort_key);
     if (!orgId) return apiResponse(400, { message: 'Project has invalid sort_key (cannot extract orgId)' });
 
@@ -207,6 +199,9 @@ export const baseHandler = async (
       requestedSections: undefined,
     };
 
+    const { fileKey } = await loadLatestQuestionFile(projectId);
+    const solicitation = fileKey ? await loadTextFromS3(DOCUMENTS_BUCKET, fileKey) : '';
+
     const reqParsed = GenerateProposalRequestSchema.safeParse(llmRequestCandidate);
     if (!reqParsed.success) {
       return apiResponse(400, {
@@ -216,7 +211,12 @@ export const baseHandler = async (
     }
 
     const systemPrompt = await useProposalSystemPrompt(orgId);
-    const userPrompt = await buildUserPromptForProposal(orgId, reqParsed.data);
+    const userPrompt = await useProposalUserPrompt(
+      orgId,
+      solicitation,
+      JSON.stringify(qaPairs.map(({ question, answer }) => ({ question, answer }))),
+      ''
+    );
 
     if (!userPrompt?.trim() || !systemPrompt?.trim()) {
       return apiResponse(500, { message: 'User prompt is empty' });
@@ -230,16 +230,9 @@ export const baseHandler = async (
       temperature: TEMPERATURE,
     });
 
-    const command = new InvokeModelCommand({
-      modelId: BEDROCK_MODEL_ID,
-      contentType: 'application/json',
-      accept: 'application/json',
-      body: new TextEncoder().encode(body),
-    });
-
-    const response = await bedrockClient.send(command);
-    const responseBodyString = new TextDecoder().decode(response.body);
-    const outer = JSON.parse(responseBodyString);
+    const responseBody = await invokeModel(BEDROCK_MODEL_ID, body);
+    const responseString = new TextDecoder('utf-8').decode(responseBody);
+    const outer = JSON.parse(responseString);
 
     const textChunk = extractBedrockText(outer);
     const modelJson = safeParseJsonFromModel(textChunk);

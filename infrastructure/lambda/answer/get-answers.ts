@@ -82,8 +82,8 @@ async function loadAnswers(projectId: string): Promise<AnswerItem[]> {
  *   }
  * }
  */
-function groupAnswersByQuestion(flatAnswers: any[]) {
-  const map: Record<string, any> = {};
+function groupAnswersByQuestion(flatAnswers: AnswerItem[]) {
+  const map: Record<string, AnswerItem> = {};
 
   for (const item of flatAnswers) {
     const questionId = item.questionId;
@@ -91,25 +91,14 @@ function groupAnswersByQuestion(flatAnswers: any[]) {
 
     const current = map[questionId];
 
-    const candidate = {
-      id: item.id,
-      questionId: item.questionId,
-      projectId: item.projectId,
-      organizationId: item.organizationId ?? null,
-      text: item.text,
-      sources: item.sources ?? null,
-      createdAt: item.createdAt,
-      updatedAt: item.updatedAt,
-    };
-
     if (!current) {
-      map[questionId] = candidate;
+      map[questionId] = item;
       continue;
     }
     const curTime = new Date(current.updatedAt || current.createdAt || 0).getTime();
-    const candTime = new Date(candidate.updatedAt || candidate.createdAt || 0).getTime();
+    const candTime = new Date(item.updatedAt || item.createdAt || 0).getTime();
     if (candTime > curTime) {
-      map[questionId] = candidate;
+      map[questionId] = item;
     }
   }
 

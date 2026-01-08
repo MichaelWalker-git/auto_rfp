@@ -2,13 +2,11 @@
 
 import React, { createContext, ReactNode, useContext, useEffect, useState } from 'react';
 import { toast } from '@/components/ui/use-toast';
-import { RfpDocument } from '@/types/api';
-import { AnswerSource, type SaveAnswerDTO } from '@auto-rfp/shared';
+import { AnswerSource, GroupedSection, type QuestionFileItem, type SaveAnswerDTO } from '@auto-rfp/shared';
 import { useAnswers, useQuestions as useLoadQuestions } from '@/lib/hooks/use-api';
 import { useProject } from '@/lib/hooks/use-project';
 import { useGenerateAnswer, useSaveAnswer } from '@/lib/hooks/use-answer';
 import { useQuestionFiles } from '@/lib/hooks/use-question-file';
-import { type QuestionFileItem } from '@auto-rfp/shared';
 
 import { authFetcher } from '@/lib/auth/auth-fetcher';
 import { env } from '@/lib/env';
@@ -36,7 +34,7 @@ interface QuestionsContextType {
   // Data state
   isLoading: boolean;
   error: string | null;
-  rfpDocument: RfpDocument | null;
+  questions?: { sections: GroupedSection[] };
   questionFiles: QuestionFileItem[] | null;
   project: any;
   answers: Record<string, AnswerData>;
@@ -121,7 +119,7 @@ export function QuestionsProvider({ children, projectId }: QuestionsProviderProp
   const [removingQuestions, setRemovingQuestions] = useState<Set<string>>(new Set());
 
   const { data: project, isLoading: isProjectLoading } = useProject(projectId);
-  const { data: rfpDocument, isLoading: isQuestionsLoading, mutate: mutateQuestions } = useLoadQuestions(projectId);
+  const { data: questions, isLoading: isQuestionsLoading, mutate: mutateQuestions } = useLoadQuestions(projectId);
   const { items: questionFiles, isLoading: isQuestionFilesLoading } = useQuestionFiles(projectId);
   const { data: answersData, error: answerError, isLoading: isAnswersLoading } = useAnswers(projectId);
   const { trigger: saveAnswer } = useSaveAnswer(projectId);
@@ -192,7 +190,7 @@ export function QuestionsProvider({ children, projectId }: QuestionsProviderProp
 
   // Generate answer
   const handleGenerateAnswer = async (questionId: string) => {
-    const question = rfpDocument?.sections?.flatMap((s: any) => s.questions)?.find((q: any) => q.id === questionId);
+    const question = questions?.sections?.flatMap((s: any) => s.questions)?.find((q: any) => q.id === questionId);
 
     if (!question) {
       toast({ title: 'Error', description: 'Question not found', variant: 'destructive' });
@@ -213,7 +211,7 @@ export function QuestionsProvider({ children, projectId }: QuestionsProviderProp
         [questionId]: { text: answer, sources: sources } as AnswerData,
       }));
 
-      if (found) {
+      if (answer) {
         setUnsavedQuestions((prev) => {
           const next = new Set(prev);
           next.add(questionId);
@@ -325,11 +323,11 @@ export function QuestionsProvider({ children, projectId }: QuestionsProviderProp
   };
 
   const handleExportAnswers = () => {
-    if (!rfpDocument) return;
+    if (!questions) return;
 
     const rows: any[] = [['Section', 'Question', 'Answer']];
 
-    rfpDocument.sections.forEach((section: any) => {
+    questions.sections.forEach((section: any) => {
       section.questions.forEach((question: any) => {
         rows.push([section.title, question.question, answers[question.id]?.text || '']);
       });
@@ -347,7 +345,7 @@ export function QuestionsProvider({ children, projectId }: QuestionsProviderProp
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.setAttribute('href', url);
-    link.setAttribute('download', `${rfpDocument.documentName} - Answers.csv`);
+    link.setAttribute('download', `Question Answers.csv`);
     link.style.visibility = 'hidden';
     document.body.appendChild(link);
     link.click();
@@ -355,9 +353,9 @@ export function QuestionsProvider({ children, projectId }: QuestionsProviderProp
   };
 
   const getSelectedQuestionData = () => {
-    if (!selectedQuestion || !rfpDocument) return null;
+    if (!selectedQuestion || !questions) return null;
 
-    for (const section of rfpDocument.sections) {
+    for (const section of questions.sections) {
       const question = section.questions.find((q: any) => q.id === selectedQuestion);
       if (question) return { question, section };
     }
@@ -365,9 +363,9 @@ export function QuestionsProvider({ children, projectId }: QuestionsProviderProp
   };
 
   const getFilteredQuestions = (filterType = 'all') => {
-    if (!rfpDocument) return [];
+    if (!questions) return [];
 
-    const allQuestions = rfpDocument.sections.flatMap((section: any) =>
+    const allQuestions = questions.sections.flatMap((section: any) =>
       section.questions.map((question: any) => ({
         ...question,
         sectionTitle: section.title,
@@ -390,9 +388,9 @@ export function QuestionsProvider({ children, projectId }: QuestionsProviderProp
   };
 
   const getCounts = () => {
-    if (!rfpDocument) return { all: 0, answered: 0, unanswered: 0 };
+    if (!questions) return { all: 0, answered: 0, unanswered: 0 };
 
-    const allQuestions = rfpDocument.sections.flatMap((s: any) => s.questions);
+    const allQuestions = questions.sections.flatMap((s: any) => s.questions);
     const answeredCount = allQuestions.filter((q: any) => !!answers[q?.id]?.text?.trim()).length;
 
     return {
@@ -411,7 +409,6 @@ export function QuestionsProvider({ children, projectId }: QuestionsProviderProp
     setError(null);
     try {
       await mutateQuestions();
-      if (answersData) setAnswers({ ...answersData });
     } catch (error) {
       console.error('Error refreshing questions:', error);
       setError('Failed to refresh questions. Please try again.');
@@ -441,10 +438,10 @@ export function QuestionsProvider({ children, projectId }: QuestionsProviderProp
       }
 
       // update local document immediately
-      const nextDoc: any = rfpDocument
+      const nextDoc: any = questions
         ? {
-          ...rfpDocument,
-          sections: rfpDocument.sections.map((s: any) => ({
+          ...questions,
+          sections: questions.sections.map((s: any) => ({
             ...s,
             questions: s.questions.filter((q: any) => q.id !== questionId),
           })),
@@ -507,7 +504,7 @@ export function QuestionsProvider({ children, projectId }: QuestionsProviderProp
     // Data state
     isLoading,
     error,
-    rfpDocument: rfpDocument ?? null,
+    questions,
     questionFiles: questionFiles ?? null,
     project,
     answers,

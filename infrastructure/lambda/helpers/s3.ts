@@ -13,8 +13,12 @@ export async function streamToString(stream: any): Promise<string> {
 }
 
 export async function loadTextFromS3(bucket: string, key: string): Promise<string> {
-  const res = await s3.send(new GetObjectCommand({ Bucket: bucket, Key: key }));
-  return streamToString(res.Body);
+  try {
+    const res = await s3.send(new GetObjectCommand({ Bucket: bucket, Key: key }));
+    return streamToString(res.Body);
+  } catch (err) {
+    return ''
+  }
 }
 
 export async function uploadToS3(bucket: string, key: string, body: Buffer, contentType?: string) {

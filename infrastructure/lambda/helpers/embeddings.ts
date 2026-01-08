@@ -1,10 +1,10 @@
-import { BedrockRuntimeClient, InvokeModelCommand, } from '@aws-sdk/client-bedrock-runtime';
 import { SignatureV4 } from '@smithy/signature-v4';
 import { HttpRequest } from '@smithy/protocol-http';
 import { defaultProvider } from '@aws-sdk/credential-provider-node';
 import { Sha256 } from '@aws-crypto/sha256-js';
 import https from 'https';
 import { requireEnv } from './env';
+import { invokeModel } from './bedrock-http-client';
 
 const TITAN_V2_SAFE_CHARS = 35_000;
 const OPENSEARCH_ENDPOINT = requireEnv('OPENSEARCH_ENDPOINT');
@@ -12,30 +12,19 @@ const REGION = requireEnv('REGION', 'us-east-1');
 const BEDROCK_EMBEDDING_MODEL_ID = requireEnv('BEDROCK_EMBEDDING_MODEL_ID');
 const OPENSEARCH_INDEX = requireEnv('OPENSEARCH_INDEX');
 
-
-const bedrockClient = new BedrockRuntimeClient({ region: REGION });
-
 export async function getEmbedding(text: string): Promise<number[]> {
   const body = {
     inputText: truncateForTitan(text),
   };
 
-  const command = new InvokeModelCommand({
-    modelId: BEDROCK_EMBEDDING_MODEL_ID,
-    contentType: 'application/json',
-    accept: 'application/json',
-    body: JSON.stringify(body),
-  });
-
-  const response = await bedrockClient.send(command);
-
-  if (!response.body) {
-    throw new Error('Empty response body from Bedrock embeddings model');
-  }
-
-  const responseString = new TextDecoder('utf-8').decode(
-    response.body as Uint8Array,
+  const responseBody = await invokeModel(
+    BEDROCK_EMBEDDING_MODEL_ID,
+    JSON.stringify(body),
+    'application/json',
+    'application/json'
   );
+
+  const responseString = new TextDecoder('utf-8').decode(responseBody);
 
   let json: any;
   try {
