@@ -1,2 +1,9 @@
 cdk.out
 node_modules
+
+# Compiled TypeScript output
+*.js
+*.d.ts
+
+# Except configuration files
+!jest.config.js
