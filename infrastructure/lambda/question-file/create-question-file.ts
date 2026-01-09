@@ -3,7 +3,7 @@ import { PutCommand, } from '@aws-sdk/lib-dynamodb';
 
 import { v4 as uuidv4 } from 'uuid';
 
-import { apiResponse } from '../helpers/api';
+import { apiResponse, getOrgId } from '../helpers/api';
 import { PK_NAME, SK_NAME } from '../constants/common';
 import { QUESTION_FILE_PK } from '../constants/question-file';
 import { withSentryLambda } from '../sentry-lambda';
@@ -15,39 +15,27 @@ import {
 } from '../middleware/rbac-middleware';
 import middy from '@middy/core';
 import { requireEnv } from '../helpers/env';
-import { docClient } from '../helpers/db';
+import { DBItem, docClient } from '../helpers/db';
+import { QuestionFileItem, QuestionFileItemSchema } from '@auto-rfp/shared';
+import { nowIso } from '../helpers/date';
 
 const DB_TABLE_NAME = requireEnv('DB_TABLE_NAME');
-
-interface CreateQuestionFileBody {
-  projectId: string;
-  fileKey: string;              // S3 key of uploaded file
-  originalFileName?: string;    // optional: shown in UI
-  mimeType?: string;            // optional: pdf/docx/etc
-  sourceDocumentId?: string;    // optional: id of document this file belongs to
-}
 
 export const baseHandler = async (
   event: APIGatewayProxyEventV2,
 ): Promise<APIGatewayProxyResultV2> => {
   try {
-    if (!event.body) {
-      return apiResponse(400, { message: 'Request body is missing' });
+    const orgId = getOrgId(event);
+    if (!orgId) {
+      return apiResponse(400, { message: 'OrgId is missing' });
+    }
+    const body: QuestionFileItem = JSON.parse(event.body || '');
+    const { success, data, error } = QuestionFileItemSchema.safeParse(body);
+    if (!success) {
+      return apiResponse(400, { message: error.message });
     }
 
-    let body: CreateQuestionFileBody;
-    try {
-      body = JSON.parse(event.body);
-    } catch {
-      return apiResponse(400, { message: 'Invalid JSON body' });
-    }
-
-    const validationError = validateBody(body);
-    if (validationError) {
-      return apiResponse(400, { message: validationError });
-    }
-
-    const created = await createQuestionFile(body);
+    const created = await createQuestionFile(data);
 
     return apiResponse(201, created);
   } catch (err) {
@@ -59,25 +47,12 @@ export const baseHandler = async (
   }
 };
 
-// --------- Validation ---------
-
-function validateBody(body: Partial<CreateQuestionFileBody>): string | null {
-  if (!body.projectId || typeof body.projectId !== 'string') {
-    return 'projectId is required and must be a string';
-  }
-  if (!body.fileKey || typeof body.fileKey !== 'string') {
-    return 'fileKey is required and must be a string';
-  }
-  return null;
-}
-
-// --------- Core Logic ---------
-
-async function createQuestionFile(body: CreateQuestionFileBody) {
-  const now = new Date().toISOString();
+async function createQuestionFile(body: QuestionFileItem) {
   const questionFileId = uuidv4();
 
   const {
+    orgId,
+    oppId,
     projectId,
     fileKey,
     originalFileName,
@@ -85,25 +60,24 @@ async function createQuestionFile(body: CreateQuestionFileBody) {
     sourceDocumentId,
   } = body;
 
-  // SK pattern is already used elsewhere:
-  //   SK = `${projectId}#${questionFileId}`
   const sk = `${projectId}#${questionFileId}`;
 
-  const item: Record<string, any> = {
+  const item: QuestionFileItem & DBItem = {
     [PK_NAME]: QUESTION_FILE_PK,
     [SK_NAME]: sk,
-
-    questionFileId,
+    orgId,
     projectId,
+    oppId,
+    questionFileId,
     fileKey,
-    textFileKey: null,          // will be filled after Textract
-    status: 'uploaded',         // pipeline will move it to processing/text_ready/...
+    textFileKey: null,
+    status: 'UPLOADED',
     originalFileName: originalFileName ?? null,
-    mimeType: mimeType ?? null,
-    sourceDocumentId: sourceDocumentId ?? null, // <-- “file id questions were extracted from”
+    mimeType: mimeType,
+    sourceDocumentId: sourceDocumentId ?? null,
 
-    createdAt: now,
-    updatedAt: now,
+    createdAt: nowIso(),
+    updatedAt: nowIso(),
   };
 
   await docClient.send(

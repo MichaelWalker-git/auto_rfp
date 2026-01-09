@@ -3,6 +3,8 @@ import { z } from 'zod';
 export const QuestionFileStatusSchema = z.enum([
   'UPLOADED',
   'PROCESSING',
+  'TEXTRACT_RUNNING',
+  'TEXT_READY',
   'PROCESSED',
   'FAILED',
   'DELETED',
@@ -48,25 +50,23 @@ export const UpdateQuestionFileDTOSchema = z.object({
 
 export type UpdateQuestionFileDTO = z.infer<typeof UpdateQuestionFileDTOSchema>;
 
-// ---------- DynamoDB Item (persistence layer) ----------
-
 export const QuestionFileItemSchema = z
   .object({
+    orgId: UuidSchema.optional(),
+    oppId: UuidSchema.optional(),
     projectId: UuidSchema,
     questionFileId: UuidSchema,
-
     status: QuestionFileStatusSchema.default('UPLOADED'),
-
     fileKey: z.string().min(1).optional(),
     fileName: z.string().min(1).optional(),
-    contentType: z.string().min(1).optional(),
-
+    mimeType: z.string().min(1).optional(),
     source: z.string().min(1).optional(),
     errorMessage: z.string().min(1).optional(),
-
     pages: z.number().int().min(0).optional(),
     extractedQuestionsCount: z.number().int().min(0).optional(),
-
+    jobId: z.string().optional(),
+    totalQuestions: z.number().int().min(0).default(0).optional(),
+    taskToken: z.string().optional(),
     createdAt: IsoDateStringSchema,
     updatedAt: IsoDateStringSchema.optional(),
   })

@@ -1,14 +1,13 @@
 import { APIGatewayProxyEventV2, APIGatewayProxyResultV2, } from 'aws-lambda';
-
-import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
-import { DynamoDBDocumentClient, GetCommand, } from '@aws-sdk/lib-dynamodb';
+import { GetCommand, } from '@aws-sdk/lib-dynamodb';
 
 import { apiResponse } from '../helpers/api';
 import { PK_NAME, SK_NAME } from '../constants/common';
 import { QUESTION_FILE_PK } from '../constants/question-file';
 import { withSentryLambda } from '../sentry-lambda';
-import middy from '@middy/core'
+import middy from '@middy/core';
 import { requireEnv } from '../helpers/env';
+import { QuestionFileItem } from '@auto-rfp/shared';
 import {
   authContextMiddleware,
   httpErrorMiddleware,
@@ -16,31 +15,15 @@ import {
   requirePermission
 } from '../middleware/rbac-middleware';
 import { docClient } from '../helpers/db';
+
 const DB_TABLE_NAME = requireEnv('DB_TABLE_NAME');
-
-type QuestionFileStatus =
-  | 'processing'
-  | 'text_ready'
-  | 'questions_extracted'
-  | 'error';
-
-interface QuestionFileItem {
-  id: string;
-  projectId: string;
-  fileKey: string;
-  textFileKey?: string;
-  status: QuestionFileStatus;
-  createdAt: string;
-  updatedAt: string;
-}
 
 export const baseHandler = async (
   event: APIGatewayProxyEventV2,
 ): Promise<APIGatewayProxyResultV2> => {
   try {
-    const qs = event.queryStringParameters || {};
-    const projectId = qs.projectId;
-    const questionFileId = qs.id || qs.questionFileId;
+    const { projectId, questionFileId } = event.queryStringParameters || {};
+
 
     if (!projectId || !questionFileId) {
       return apiResponse(400, {

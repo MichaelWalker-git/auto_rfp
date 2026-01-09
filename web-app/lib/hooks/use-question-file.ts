@@ -8,6 +8,7 @@ const BASE = `${env.BASE_API_URL}/questionfile`;
 
 type StartQuestionFilePayload = {
   projectId: string;
+  oppId: string;
   questionFileId: string;
 };
 
@@ -113,13 +114,14 @@ export interface CreateQuestionFileArgs {
   sourceDocumentId?: string;
 }
 
-export function useCreateQuestionFile(projectId: string) {
+export function useCreateQuestionFile(projectId: string, orgId?: string, ) {
   return useSWRMutation<QuestionFile, any, string, CreateQuestionFileArgs>(
-    `${BASE}/create-question-file`,
+    `${BASE}/create-question-file?projectId=${projectId}${orgId ? `&orgId=${orgId}` : null}`,
     async (url, { arg }) => {
       const res = await authFetcher(url, {
         method: 'POST',
         body: JSON.stringify({
+          orgId,
           projectId,
           fileKey: arg.fileKey,
           originalFileName: arg.originalFileName,

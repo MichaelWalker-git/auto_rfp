@@ -1,39 +1,28 @@
 import { APIGatewayProxyEventV2, APIGatewayProxyResultV2 } from 'aws-lambda';
 import { SFNClient, StartExecutionCommand } from '@aws-sdk/client-sfn';
-import { UpdateCommand } from '@aws-sdk/lib-dynamodb';
+import { v4 as uuidv4 } from 'uuid';
 
 import { apiResponse } from '../helpers/api';
 import { withSentryLambda } from '../sentry-lambda';
-import { PK_NAME, SK_NAME } from '../constants/common';
-import { QUESTION_FILE_PK } from '../constants/question-file';
 import { requireEnv } from '../helpers/env';
-import { docClient } from '../helpers/db';
+import { getQuestionFileItem, updateQuestionFile } from '../helpers/questionFile';
 
 const sfnClient = new SFNClient({});
 
 const STATE_MACHINE_ARN = requireEnv('QUESTION_PIPELINE_STATE_MACHINE_ARN');
-const DB_TABLE_NAME = requireEnv('DB_TABLE_NAME');
 
-interface StartBody {
-  questionFileId?: string;
+type StartBody = {
   projectId?: string;
+  questionFileId?: string;
 }
 
+// TODO Kate
 export const baseHandler = async (
   event: APIGatewayProxyEventV2,
 ): Promise<APIGatewayProxyResultV2> => {
   console.log('start-question-pipeline event:', JSON.stringify(event));
 
-  if (!event.body) {
-    return apiResponse(400, { message: 'Request body is required' });
-  }
-
-  let body: StartBody;
-  try {
-    body = JSON.parse(event.body);
-  } catch {
-    return apiResponse(400, { message: 'Invalid JSON body' });
-  }
+  const body: StartBody = JSON.parse(event.body || '');
 
   const { questionFileId, projectId } = body;
 
@@ -43,39 +32,19 @@ export const baseHandler = async (
     });
   }
 
-  const sk = `${projectId}#${questionFileId}`;
-  const now = new Date().toISOString();
-
   try {
-    await docClient.send(
-      new UpdateCommand({
-        TableName: DB_TABLE_NAME,
-        Key: {
-          [PK_NAME]: QUESTION_FILE_PK,
-          [SK_NAME]: sk,
-        },
-        UpdateExpression: 'SET #status = :status, #updatedAt = :updatedAt',
-        ExpressionAttributeNames: {
-          '#pk': PK_NAME,
-          '#sk': SK_NAME,
-          '#status': 'status',
-          '#updatedAt': 'updatedAt',
-        },
-        ExpressionAttributeValues: {
-          ':status': 'PROCESSING',
-          ':updatedAt': now,
-        },
-        ConditionExpression: 'attribute_exists(#pk) AND attribute_exists(#sk)',
-      }),
-    );
+    const { fileKey, mimeType } = await getQuestionFileItem(projectId, questionFileId) || {};
+    await updateQuestionFile(projectId, questionFileId, { status: 'PROCESSING' });
 
-    // 2) Start Step Functions execution
     const res = await sfnClient.send(
       new StartExecutionCommand({
         stateMachineArn: STATE_MACHINE_ARN,
         input: JSON.stringify({
-          questionFileId,
+          oppId: uuidv4(),
           projectId,
+          questionFileId,
+          sourceFileKey: fileKey,
+          mimeType: mimeType,
         }),
       }),
     );

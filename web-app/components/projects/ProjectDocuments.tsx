@@ -19,6 +19,7 @@ import {
 } from '@/lib/hooks/use-question-file';
 import { useDownloadFromS3 } from '@/lib/hooks/use-file';
 import PermissionWrapper from '@/components/permission-wrapper';
+import { useOrganization } from '@/context/organization-context';
 
 interface ProjectDocumentsProps {
   projectId: string;
@@ -62,12 +63,13 @@ function statusChip(status?: string) {
 }
 
 export function ProjectDocuments({ projectId }: ProjectDocumentsProps) {
+  const { currentOrganization } = useOrganization();
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const { items, isLoading, isError, error, refetch } = useQuestionFiles(projectId);
 
   const { trigger: getPresignedUrl, isMutating: isGettingPresigned } = usePresignUpload();
-  const { trigger: createQuestionFile, isMutating: isCreating } = useCreateQuestionFile(projectId);
+  const { trigger: createQuestionFile, isMutating: isCreating } = useCreateQuestionFile(projectId, currentOrganization?.id);
 
   const { trigger: startPipeline } = useStartQuestionFilePipeline(projectId);
   const { trigger: deleteQuestionFile } = useDeleteQuestionFile();
@@ -170,7 +172,9 @@ export function ProjectDocuments({ projectId }: ProjectDocumentsProps) {
 
     try {
       setStartingId(row.questionFileId);
-      await startPipeline({ projectId, questionFileId: row.questionFileId });
+      // TODO Kate may be we have to move documents under opportunities page to understand what opportunity use for the doc
+      // TODO or just drop this runner (move to opportunity level, upload button too)
+      await startPipeline({ projectId,  questionFileId: row.questionFileId, oppId: '' });
       await refetch();
     } finally {
       setStartingId((prev) => (prev === row.questionFileId ? null : prev));

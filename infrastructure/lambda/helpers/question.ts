@@ -3,15 +3,15 @@ import { QUESTION_PK } from '../constants/question';
 import { QuestionItemDynamo } from '../answer/generate-answer';
 import { requireEnv } from './env';
 import { DynamoDBDocumentClient, GetCommand, } from '@aws-sdk/lib-dynamodb';
+import { docClient } from './db';
 
 const DB_TABLE_NAME = requireEnv('DB_TABLE_NAME');
 
 export async function getQuestionItemById(
-  dbClient: DynamoDBDocumentClient,
   projectId: string,
   questionId: string,
 ): Promise<QuestionItemDynamo> {
-  const res = await dbClient.send(
+  const res = await docClient.send(
     new GetCommand({
       TableName: DB_TABLE_NAME,
       Key: {

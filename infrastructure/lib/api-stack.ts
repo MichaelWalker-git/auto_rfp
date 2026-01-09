@@ -50,6 +50,7 @@ export class ApiStack extends cdk.Stack {
   private readonly samgovApi: ApiNestedStack;
   private readonly deadlinesApi: ApiNestedStack;
   private readonly promptApi: ApiNestedStack;
+  private readonly opportunityApi: ApiNestedStack;
 
   constructor(scope: Construct, id: string, props: ApiStackProps) {
     super(scope, id, props);
@@ -142,6 +143,7 @@ export class ApiStack extends cdk.Stack {
     this.semanticApi = createNestedStack('semantic');
     this.samgovApi = createNestedStack('samgov');
     this.promptApi = createNestedStack('prompt');
+    this.opportunityApi = createNestedStack('opportunity');
 
     // Routes
     this.addRoutes({ samGovApiKeySecret, execBriefQueue });
@@ -600,5 +602,9 @@ export class ApiStack extends cdk.Stack {
     this.proposalApi.addRoute('/get-proposals', 'GET', 'lambda/proposal/get-proposals.ts');
     this.proposalApi.addRoute('/get-proposal', 'GET', 'lambda/proposal/get-proposal.ts');
     this.proposalApi.addRoute('/save-proposal', 'POST', 'lambda/proposal/save-proposal.ts');
+
+    // Opportunities
+    this.opportunityApi.addRoute('/get-opportunities', 'GET', 'lambda/opportunity/get-opportunities.ts');
+    this.opportunityApi.addRoute('/create-opportunity', 'GET', 'lambda/opportunity/create-opportunity.ts');
   }
 }

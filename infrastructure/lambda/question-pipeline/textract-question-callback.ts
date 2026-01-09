@@ -1,40 +1,37 @@
-import { Context, SNSEvent } from 'aws-lambda';
-import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
-import { DynamoDBDocumentClient, QueryCommand, UpdateCommand, } from '@aws-sdk/lib-dynamodb';
+import { Context } from 'aws-lambda';
+import { QueryCommand, } from '@aws-sdk/lib-dynamodb';
 import { SendTaskFailureCommand, SendTaskSuccessCommand, SFNClient, } from '@aws-sdk/client-sfn';
 
 import { PK_NAME, SK_NAME } from '../constants/common';
 import { QUESTION_FILE_PK } from '../constants/question-file';
 import { withSentryLambda } from '../sentry-lambda';
+import { requireEnv } from '../helpers/env';
+import { docClient } from '../helpers/db';
 
-const ddbClient = new DynamoDBClient({});
-const docClient = DynamoDBDocumentClient.from(ddbClient, {
-  marshallOptions: { removeUndefinedValues: true },
-});
 const stepFunctionsClient = new SFNClient({});
 
-const DB_TABLE_NAME = process.env.DB_TABLE_NAME;
-if (!DB_TABLE_NAME) throw new Error('DB_TABLE_NAME env var is not set');
+const DB_TABLE_NAME = requireEnv('DB_TABLE_NAME');
 
+export interface TextractCallbackEvent {
+  Records: Array<{
+    Sns: {
+      Message: string;
+    };
+  }>;
+}
+
+// TODO Kate
 export const baseHandler = async (
-  event: SNSEvent,
+  event: TextractCallbackEvent,
   _ctx: Context,
 ): Promise<void> => {
   console.log('textract-question-callback event:', JSON.stringify(event));
 
   for (const record of event.Records) {
     const sns = record.Sns;
-    const messageStr = sns.Message;
+    const message = JSON.parse(sns.Message);
 
-    let message: any;
-    try {
-      message = JSON.parse(messageStr);
-    } catch {
-      console.warn('SNS message is not JSON, skipping:', messageStr);
-      continue;
-    }
-
-    console.log('Parsed Textract message:', JSON.stringify(message));
+    console.log('Parsed Textract message:', sns.Message);
 
     const jobId: string | undefined = message.JobId;
     const status: string | undefined = message.Status;
@@ -55,7 +52,6 @@ export const baseHandler = async (
       `Textract notification for questionFileId=${questionFileId}, jobId=${jobId}, status=${status}`,
     );
 
-    // 1) Load question_file by PK and find by SK suffix "...#questionFileId"
     let taskToken: string | undefined;
     let skFound: string | undefined;
 
@@ -94,43 +90,11 @@ export const baseHandler = async (
       continue;
     }
 
-    // 2) Update DynamoDB status based on Textract result
-    const now = new Date().toISOString();
-    const newStatus = status === 'SUCCEEDED'
-      ? 'TEXT_EXTRACTED'
-      : 'TEXT_EXTRACTION_FAILED';
-
-    try {
-      await docClient.send(
-        new UpdateCommand({
-          TableName: DB_TABLE_NAME,
-          Key: {
-            [PK_NAME]: QUESTION_FILE_PK,
-            [SK_NAME]: skFound,
-          },
-          UpdateExpression: 'SET #status = :status, #updatedAt = :updatedAt,',
-          ExpressionAttributeNames: {
-            '#status': 'status',
-            '#updatedAt': 'updatedAt',
-          },
-          ExpressionAttributeValues: {
-            ':status': newStatus,
-            ':updatedAt': now,
-          },
-        }),
-      );
-
-      console.log(`Updated question_file status for questionFileId=${questionFileId} to ${newStatus}`,);
-    } catch (err) {
-      console.error(`Failed to update question_file status for questionFileId=${questionFileId}`, err);
-    }
-
     if (!taskToken) {
       console.warn(`No taskToken found for questionFileId=${questionFileId}, skipping Step Functions callback`);
       continue;
     }
 
-    // 3) Notify Step Functions
     try {
       if (status === 'SUCCEEDED') {
         await stepFunctionsClient.send(

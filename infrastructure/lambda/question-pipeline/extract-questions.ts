@@ -1,8 +1,7 @@
 import { Context } from 'aws-lambda';
-import { PutCommand, UpdateCommand } from '@aws-sdk/lib-dynamodb';
+import { PutCommand } from '@aws-sdk/lib-dynamodb';
 import { QUESTION_PK } from '../constants/question';
 import { PK_NAME, SK_NAME } from '../constants/common';
-import { QUESTION_FILE_PK } from '../constants/question-file';
 import { safeParseJsonFromModel } from '../helpers/json';
 import { withSentryLambda } from '../sentry-lambda';
 import { requireEnv } from '../helpers/env';
@@ -11,31 +10,24 @@ import { nowIso } from '../helpers/date';
 import { loadTextFromS3 } from '../helpers/s3';
 import { v4 as uuidv4 } from 'uuid';
 import { invokeModel } from '../helpers/bedrock-http-client';
+import { updateQuestionFile } from '../helpers/questionFile';
+import { GroupedSection } from '@auto-rfp/shared';
 
 const BEDROCK_MODEL_ID = requireEnv('BEDROCK_MODEL_ID');
 const DB_TABLE_NAME = requireEnv('DB_TABLE_NAME');
 const DOCUMENTS_BUCKET = requireEnv('DOCUMENTS_BUCKET');
 
-interface Event {
-  questionFileId?: string;
-  projectId?: string;
-  textFileKey?: string;
+export interface ExtractQuestionsEvent {
+  questionFileId: string;
+  projectId: string;
+  textFileKey: string;
 }
 
-type ExtractedQuestions = {
-  sections: Array<{
-    id: string;
-    title: string;
-    description?: string | null;
-    questions: Array<{
-      id: string;
-      question: string;
-    }>;
-  }>;
-};
+type ExtractedQuestions = { sections: GroupedSection[] }
 
+// TODO Kate
 export const baseHandler = async (
-  event: Event,
+  event: ExtractQuestionsEvent,
   _ctx: Context,
 ): Promise<{ count: number }> => {
   console.log('extract-questions event:', JSON.stringify(event));
@@ -44,29 +36,22 @@ export const baseHandler = async (
   if (!questionFileId || !projectId || !textFileKey) {
     throw new Error('questionFileId, projectId, textFileKey are required');
   }
-
-  // 1) Load text from S3
   const text = await loadTextFromS3(DOCUMENTS_BUCKET, textFileKey);
 
-  // 2) Call Bedrock with the same prompt/structure as in the HTTP Lambda
   const extracted = await extractQuestionsWithBedrock(text);
 
-  // 3) Save questions (section + questions) in DynamoDB (linked to this file)
   const totalQuestions = await saveQuestionsFromSections(
     questionFileId,
     projectId,
     extracted,
   );
 
-  // 4) Update status on question_file item
-  await updateStatus(questionFileId, projectId, 'questions_extracted', totalQuestions);
+  await updateQuestionFile(projectId, questionFileId, { status: 'PROCESSED', totalQuestions });
 
   return { count: totalQuestions };
 };
 
-async function extractQuestionsWithBedrock(
-  content: string,
-): Promise<ExtractedQuestions> {
+async function extractQuestionsWithBedrock(content: string,): Promise<ExtractedQuestions> {
   const systemPrompt = getSystemPrompt();
   const userPrompt = buildUserPrompt(content);
 
@@ -166,44 +151,6 @@ async function saveQuestionsFromSections(
 
   await Promise.all(writes);
   return count;
-}
-
-async function updateStatus(
-  questionFileId: string,
-  projectId: string,
-  status: 'processing' | 'text_ready' | 'questions_extracted' | 'error',
-  questionCount?: number,
-) {
-  const sk = `${projectId}#${questionFileId}`;
-
-  const updateParts: string[] = ['#status = :status', '#updatedAt = :updatedAt'];
-  const exprAttrNames: Record<string, string> = {
-    '#status': 'status',
-    '#updatedAt': 'updatedAt',
-  };
-  const exprAttrValues: Record<string, any> = {
-    ':status': status,
-    ':updatedAt': new Date().toISOString(),
-  };
-
-  if (typeof questionCount === 'number') {
-    updateParts.push('#questionCount = :questionCount');
-    exprAttrNames['#questionCount'] = 'questionCount';
-    exprAttrValues[':questionCount'] = questionCount;
-  }
-
-  await docClient.send(
-    new UpdateCommand({
-      TableName: DB_TABLE_NAME,
-      Key: {
-        [PK_NAME]: QUESTION_FILE_PK,
-        [SK_NAME]: sk,
-      },
-      UpdateExpression: `SET ${updateParts.join(', ')}`,
-      ExpressionAttributeNames: exprAttrNames,
-      ExpressionAttributeValues: exprAttrValues,
-    }),
-  );
 }
 
 const getSystemPrompt = () => {

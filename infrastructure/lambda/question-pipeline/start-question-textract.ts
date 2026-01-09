@@ -1,10 +1,11 @@
 import { StartDocumentTextDetectionCommand, TextractClient } from '@aws-sdk/client-textract';
-import { GetCommand, UpdateCommand } from '@aws-sdk/lib-dynamodb';
+import { GetCommand } from '@aws-sdk/lib-dynamodb';
 import { PK_NAME, SK_NAME } from '../constants/common';
 import { QUESTION_FILE_PK } from '../constants/question-file';
 import { withSentryLambda } from '../sentry-lambda';
 import { requireEnv } from '../helpers/env';
 import { docClient } from '../helpers/db';
+import { updateQuestionFile } from '../helpers/questionFile';
 
 const textract = new TextractClient({});
 
@@ -13,13 +14,20 @@ const DOCUMENTS_BUCKET = requireEnv('DOCUMENTS_BUCKET');
 const TEXTRACT_ROLE_ARN = requireEnv('TEXTRACT_ROLE_ARN');
 const TEXTRACT_SNS_TOPIC_ARN = requireEnv('TEXTRACT_SNS_TOPIC_ARN');
 
-interface StartEvent {
+export interface StartTextractEvent {
+  taskToken: string;
   questionFileId: string;
   projectId: string;
-  taskToken?: string;
+  sourceFileKey?: string;
+  mimeType?: string;
 }
 
-export const baseHandler = async (event: StartEvent) => {
+export interface StartTextractResp {
+  jobId: string;
+}
+
+// TODO Kate
+export const baseHandler = async (event: StartTextractEvent) => {
   const { questionFileId, projectId, taskToken } = event;
 
   if (!questionFileId || !projectId)
@@ -27,8 +35,7 @@ export const baseHandler = async (event: StartEvent) => {
 
   const sk = `${projectId}#${questionFileId}`;
 
-  // load fileKey
-  const res = await docClient.send(
+  const { Item: item } = await docClient.send(
     new GetCommand({
       TableName: DB_TABLE_NAME,
       Key: {
@@ -38,7 +45,6 @@ export const baseHandler = async (event: StartEvent) => {
     })
   );
 
-  const item = res.Item;
   if (!item) throw new Error('question_file not found');
 
   const fileKey = item.fileKey;
@@ -58,28 +64,9 @@ export const baseHandler = async (event: StartEvent) => {
   );
 
   const jobId = startRes.JobId!;
-  await docClient.send(
-    new UpdateCommand({
-      TableName: DB_TABLE_NAME,
-      Key: {
-        [PK_NAME]: QUESTION_FILE_PK,
-        [SK_NAME]: sk
-      },
-      UpdateExpression: 'SET #jobId = :j, #status = :s, #taskToken = :taskToken',
-      ExpressionAttributeNames: {
-        '#jobId': 'jobId',
-        '#status': 'status',
-        '#taskToken': 'taskToken',
-      },
-      ExpressionAttributeValues: {
-        ':j': jobId,
-        ':s': 'textract_running',
-        ':taskToken': taskToken,
-      }
-    })
-  );
+  await updateQuestionFile(projectId, questionFileId, { status: 'TEXTRACT_RUNNING', jobId, taskToken });
 
-  return { jobId };
+  return { jobId } as StartTextractResp;
 };
 
 export const handler = withSentryLambda(baseHandler);

@@ -1,0 +1,1 @@
+export const OPPORTUNITY_PK = 'OPPORTUNITY' as const;
