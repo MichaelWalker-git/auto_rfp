@@ -605,6 +605,6 @@ export class ApiStack extends cdk.Stack {
 
     // Opportunities
     this.opportunityApi.addRoute('/get-opportunities', 'GET', 'lambda/opportunity/get-opportunities.ts');
-    this.opportunityApi.addRoute('/create-opportunity', 'GET', 'lambda/opportunity/create-opportunity.ts');
+    this.opportunityApi.addRoute('/create-opportunity', 'POST', 'lambda/opportunity/create-opportunity.ts');
   }
 }
