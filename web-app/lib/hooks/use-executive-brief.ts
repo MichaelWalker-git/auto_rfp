@@ -65,6 +65,33 @@ export type GetExecutiveBriefByProjectResponse = {
   message?: string;
   error?: string;
 };
+export type HandleLinearTicketRequest = {
+  executiveBriefId: string;
+};
+
+export type HandleLinearTicketResponse = {
+  ok: boolean;
+  ticket?: {
+    id: string;
+    identifier: string;
+    url: string;
+  };
+  message?: string;
+  error?: string;
+};
+
+export type UpdateDecisionRequest = {
+  executiveBriefId: string;
+  decision: 'GO' | 'NO_GO' | 'CONDITIONAL_GO';
+};
+
+export type UpdateDecisionResponse = {
+  ok: boolean;
+  executiveBriefId?: string;
+  decision?: string;
+  message?: string;
+  error?: string;
+};
 
 async function postJson<T>(url: string, body: unknown): Promise<T> {
   const res = await authFetcher(url, {
@@ -98,6 +125,8 @@ const endpoints = {
   risks: (orgId?: string) => `${env.BASE_API_URL}/brief/generate-executive-brief-risks${orgId ? `?orgId=${orgId}` : ''}`,
   scoring: (orgId?: string) => `${env.BASE_API_URL}/brief/generate-executive-brief-scoring${orgId ? `?orgId=${orgId}` : ''}`,
   getByProject: `${env.BASE_API_URL}/brief/get-executive-brief-by-project`,
+  handleLinearTicket: `${env.BASE_API_URL}/brief/handle-linear-ticket`,
+  updateDecision: `${env.BASE_API_URL}/brief/update-decision`,
 } as const;
 
 // ---------- hooks ----------
@@ -157,4 +186,18 @@ export function useGetExecutiveBriefByProject() {
     string,
     GetExecutiveBriefByProjectRequest
   >(endpoints.getByProject, (url, { arg }) => postJson<GetExecutiveBriefByProjectResponse>(url, arg));
+}
+
+export function useHandleLinearTicket() {
+  return useSWRMutation<HandleLinearTicketResponse, Error, string, HandleLinearTicketRequest>(
+    endpoints.handleLinearTicket,
+    (url, { arg }) => postJson<HandleLinearTicketResponse>(url, arg),
+  );
+}
+
+export function useUpdateDecision() {
+  return useSWRMutation<UpdateDecisionResponse, Error, string, UpdateDecisionRequest>(
+    endpoints.updateDecision,
+    (url, { arg }) => postJson<UpdateDecisionResponse>(url, arg),
+  );
 }

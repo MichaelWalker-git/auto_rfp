@@ -1,10 +1,17 @@
 'use client';
 
-import React from 'react';
+import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { FileText, TrendingDown, TrendingUp } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { AlertTriangle, CheckCircle2, RefreshCw, TrendingDown, TrendingUp } from 'lucide-react';
+import { useToast } from '@/components/ui/use-toast';
 import { recommendationVariant } from '../helpers';
+import {
+  useUpdateDecision,
+  useHandleLinearTicket,
+  useGetExecutiveBriefByProject,
+} from '@/lib/hooks/use-executive-brief';
 
 function ConfidenceBadge({ confidence }: { confidence?: number }) {
   const pct = Math.round(confidence ?? 0);
@@ -35,16 +42,25 @@ function ScoreChangeIndicator({ prev, current }: { prev?: number; current?: numb
 }
 
 export function DecisionCard({
-                               projectName,
-                               summary,
-                               briefItem,
-                               previousBrief,
-                             }: {
+  projectName,
+  projectId,
+  summary,
+  briefItem,
+  previousBrief,
+  onBriefUpdate,
+}: {
   projectName: string;
+  projectId: string;
   summary: any;
   briefItem: any;
   previousBrief: any;
+  onBriefUpdate?: (brief: any) => void;
 }) {
+  const updateDecision = useUpdateDecision();
+  const handleLinearTicket = useHandleLinearTicket();
+  const getBriefByProject = useGetExecutiveBriefByProject();
+  
+  const [isUpdating, setIsUpdating] = useState(false);
   const scoring = briefItem?.sections?.scoring?.data;
 
   const recommendation = briefItem?.recommendation ?? scoring?.recommendation;
@@ -53,6 +69,62 @@ export function DecisionCard({
 
   const confidence = briefItem?.confidence ?? scoring?.confidence;
   const compositeScore = briefItem?.compositeScore ?? scoring?.compositeScore;
+
+  const { toast } = useToast();
+
+  async function handleDecisionChange(newDecision: 'GO' | 'NO_GO') {
+    if (!briefItem?.sort_key) return;
+    
+    setIsUpdating(true);
+    const action = newDecision === 'GO' ? 'approved' : 'rejected';
+
+    try {
+      await updateDecision.trigger({
+        executiveBriefId: briefItem.sort_key,
+        decision: newDecision,
+      });
+    } catch (err) {
+      console.error(`Failed to ${action} brief (decision update):`, err);
+      toast({
+        title: `Failed to ${action} brief`,
+        description: `Could not ${action} the brief. No changes were applied. Please try again.`,
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    let linearFailed = false;
+
+    try {
+      await handleLinearTicket.trigger({
+        executiveBriefId: briefItem.sort_key,
+      });
+    } catch (err) {
+      linearFailed = true;
+      console.error(`Failed to update Linear ticket:`, err);
+    }
+
+    try {
+      // Refresh brief
+      const latest = await getBriefByProject.trigger({ projectId });
+      if (latest?.ok && latest?.brief) {
+        onBriefUpdate?.(latest.brief);
+      }
+
+      toast({
+          title: `Brief ${action}`,
+          description: `Brief ${action} ${linearFailed ? 'but Linear ticket update failed' : 'and Linear ticket updated!'}`,
+        });
+    } catch (err) {
+      toast({
+          title: `Failed`,
+          description: `Failed to ${newDecision === 'GO' ? 'approve' : 'reject'} brief. Please try again.`,
+          variant: 'destructive',
+        });
+    } finally {
+      setIsUpdating(false);
+    }
+  }
 
   return (
     <Card className="border-2">
@@ -110,6 +182,49 @@ export function DecisionCard({
             </div>
 
             <ConfidenceBadge confidence={confidence} />
+
+            {decisionBadge === 'CONDITIONAL_GO' && (
+              <div className="flex gap-2 mt-4">
+                <Button
+                  onClick={() => handleDecisionChange('GO')}
+                  disabled={isUpdating}
+                  variant="default"
+                  size="sm"
+                  className="gap-2"
+                >
+                  {isUpdating ? (
+                    <>
+                      <RefreshCw className="h-4 w-4 animate-spin" />
+                      Processing...
+                    </>
+                  ) : (
+                    <>
+                      <CheckCircle2 className="h-4 w-4" />
+                      Approve
+                    </>
+                  )}
+                </Button>
+                <Button
+                  onClick={() => handleDecisionChange('NO_GO')}
+                  disabled={isUpdating}
+                  variant="destructive"
+                  size="sm"
+                  className="gap-2"
+                >
+                  <AlertTriangle className="h-4 w-4" />
+                  Reject
+                </Button>
+              </div>
+            )}
+
+            {/* Link to Linear ticket if exists */}
+            {briefItem?.linearTicketUrl && (
+              <Button variant="outline" size="sm" asChild className="gap-2">
+                <a href={briefItem.linearTicketUrl} target="_blank" rel="noopener noreferrer">
+                  View in Linear ↗
+                </a>
+              </Button>
+            )}
           </div>
         </div>
 
@@ -119,7 +234,6 @@ export function DecisionCard({
           </div>
         )}
 
-        {/* optional: you can add quick metadata row here later */}
         <div className="hidden">{projectName}</div>
       </CardHeader>
 

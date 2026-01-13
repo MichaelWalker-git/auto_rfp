@@ -20,6 +20,7 @@ import {
   useGenerateExecutiveBriefSummary,
   useGetExecutiveBriefByProject,
   useInitExecutiveBrief,
+  useHandleLinearTicket,
 } from '@/lib/hooks/use-executive-brief';
 
 import type { Props, SectionKey, SectionStatus } from './types';
@@ -90,12 +91,14 @@ export function ExecutiveBriefView({ projectId }: Props) {
   const genRisks = useGenerateExecutiveBriefRisks(currentOrganization?.id);
   const genScoring = useGenerateExecutiveBriefScoring(currentOrganization?.id);
   const getBriefByProject = useGetExecutiveBriefByProject();
+  const handleLinearTicket = useHandleLinearTicket();
 
   const [regenError, setRegenError] = useState<string | null>(null);
   const [previousBrief, setPreviousBrief] = useState<any>(null);
   const [briefItem, setBriefItem] = useState<any>(null);
   const [localBusySections, setLocalBusySections] = useState<Set<SectionKey>>(() => new Set());
   const localBusySectionsRef = useRef<Set<SectionKey>>(new Set());
+  const linearTicketAttemptedRef = useRef(false);
 
   const pollingRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -181,6 +184,30 @@ export function ExecutiveBriefView({ projectId }: Props) {
 
           const locallyBusy = localBusySectionsRef.current.size > 0;
 
+          const scoringComplete = resp.brief.sections?.scoring?.status === 'COMPLETE';
+          const decision = resp.brief.decision || resp.brief.sections?.scoring?.data?.decision;
+          const executiveBriefId = resp.brief.sort_key;
+          
+          if (
+            scoringComplete && 
+            decision && 
+            !resp.brief.linearTicketId && 
+            !linearTicketAttemptedRef.current &&
+            executiveBriefId
+          ) {
+            linearTicketAttemptedRef.current = true;
+            try {
+              await handleLinearTicket.trigger({ executiveBriefId: String(executiveBriefId) });
+
+              const withTicket = await getBriefByProject.trigger({ projectId });
+              if (withTicket?.ok && withTicket?.brief) {
+                setBriefItem(withTicket.brief);
+              }
+            } catch (err) {
+              console.error('Failed to auto-create Linear ticket:', err);
+            }
+          }
+
           if (!locallyBusy && (st === 'COMPLETE' || st === 'FAILED' || allTerminal)) {
             stopPollingBrief();
           }
@@ -247,6 +274,7 @@ export function ExecutiveBriefView({ projectId }: Props) {
 
   async function generateBrief(onlyMissing: boolean) {
     setRegenError(null);
+    linearTicketAttemptedRef.current = false;
     if (!project) return;
     if (briefItem) setPreviousBrief(briefItem);
 
@@ -373,8 +401,14 @@ export function ExecutiveBriefView({ projectId }: Props) {
             isSectionBusy={isSectionBusy}
           />
 
-          <DecisionCard projectName={project.name} summary={summary} briefItem={briefItem}
-                        previousBrief={previousBrief}/>
+          <DecisionCard 
+            projectName={project.name}
+            projectId={projectId}  
+            summary={summary}
+            briefItem={briefItem}
+            previousBrief={previousBrief}
+            onBriefUpdate={(brief) => setBriefItem(brief)}  
+          />
           <ExecutiveCloseOutCard scoring={scoring}/>
           <ScoringGrid scoring={scoring}/>
 
