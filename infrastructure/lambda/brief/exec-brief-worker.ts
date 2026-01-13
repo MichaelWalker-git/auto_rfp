@@ -49,6 +49,7 @@ const JobSchema = z.object({
   section: z.enum(['summary', 'deadlines', 'requirements', 'contacts', 'risks', 'scoring']),
   topK: z.number().int().min(1).max(100).optional(),
   inputHash: z.string().min(1),
+  retryCount: z.number().int().min(0).optional().default(0),
 });
 
 type Job = z.infer<typeof JobSchema>;
@@ -399,7 +400,7 @@ async function runRisks(job: Job): Promise<void> {
 }
 
 async function runScoring(job: Job): Promise<void> {
-  const { orgId, executiveBriefId, topK, inputHash: inputHashFromJob } = job;
+  const { orgId, executiveBriefId, topK, inputHash: inputHashFromJob, retryCount = 0 } = job;
 
   if (!orgId) {
     throw new Error('orgId is missing in SQS job payload');
@@ -410,7 +411,20 @@ async function runScoring(job: Job): Promise<void> {
 
     const prereq = scoringPrereqsComplete(brief);
     if (!prereq.ok) {
-      await requeueJob(job, SCORING_RETRY_DELAY_SECONDS);
+      const MAX_RETRIES = 10;
+
+      if (retryCount >= MAX_RETRIES) {
+        console.error(`Scoring max retries (${MAX_RETRIES}) exceeded. Prerequisites still not complete:`, prereq.missing);
+        await markSectionFailed({
+          executiveBriefId,
+          section: 'scoring',
+          error: new Error(`Prerequisites not complete after ${MAX_RETRIES} retries: ${prereq.missing.join(', ')}`),
+        });
+        return; 
+      }
+
+      console.log(`Scoring prerequisites not complete (retry ${retryCount}/${MAX_RETRIES}):`, prereq.missing);
+      await requeueJob({ ...job, retryCount: (job.retryCount ?? 0) + 1 }, SCORING_RETRY_DELAY_SECONDS);
       return;
     }
 
