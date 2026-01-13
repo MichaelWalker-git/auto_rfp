@@ -100,6 +100,9 @@ export class ApiStack extends cdk.Stack {
     const samGovApiKeySecret = this.createSamGovSecret(stage);
     samGovApiKeySecret.grantRead(lambdaRole);
 
+    const linearApiKeySecret = this.createLinearSecret(stage);
+    linearApiKeySecret.grantRead(lambdaRole);
+
     this.createRunSavedSearches({
       stage,
       lambdaRole,
@@ -114,6 +117,7 @@ export class ApiStack extends cdk.Stack {
       execBriefQueue,
       documentsBucket,
       mainTable,
+      lambdaRole,
     });
 
     // --- Nested APIs ---
@@ -144,7 +148,7 @@ export class ApiStack extends cdk.Stack {
     this.promptApi = createNestedStack('prompt');
 
     // Routes
-    this.addRoutes({ samGovApiKeySecret, execBriefQueue });
+    this.addRoutes({ samGovApiKeySecret, execBriefQueue, linearApiKeySecret });
 
     new cdk.CfnOutput(this, 'ApiBaseUrl', {
       value: this.api.url,
@@ -232,6 +236,9 @@ export class ApiStack extends cdk.Stack {
       SENTRY_DSN: sentryDNS,
       SENTRY_ENVIRONMENT: stage,
       COST_SAVING: 'true',
+      LINEAR_TEAM_ID: '014ad7fc-6875-4a34-973b-61d029c37116',
+      LINEAR_DEFAULT_ASSIGNEE_ID: '74c2dcce-9583-4065-b86f-ff4cb98d3da9',
+      LINEAR_PROJECT_ID: '823d8281-c41e-4e00-b541-f31a5c91af46', 
     };
   }
 
@@ -426,6 +433,14 @@ export class ApiStack extends cdk.Stack {
     });
   }
 
+  private createLinearSecret(stage: string): secretsmanager.ISecret {
+    return secretsmanager.Secret.fromSecretNameV2(
+      this,
+      `LinearApiKeySecret-${stage}`,
+      `auto-rfp/${stage}/linear/apiKey`
+    );
+  }
+
   private createExecBriefQueue(stage: string): sqs.Queue {
     return new sqs.Queue(this, `ExecBriefQueue-${stage}`, {
       queueName: `auto-rfp-${stage}-exec-brief-queue`,
@@ -447,14 +462,16 @@ export class ApiStack extends cdk.Stack {
     execBriefQueue: sqs.Queue;
     documentsBucket: s3.IBucket;
     mainTable: dynamodb.ITable;
+    lambdaRole: iam.Role;
   }) {
-    const { stage, commonEnv, execBriefQueue, documentsBucket, mainTable } = args;
+    const { stage, commonEnv, execBriefQueue, documentsBucket, mainTable, lambdaRole } = args;
 
     const fn = new lambdaNodejs.NodejsFunction(this, `ExecBriefWorker-${stage}`, {
       functionName: `auto-rfp-${stage}-exec-brief-worker`,
       runtime: lambda.Runtime.NODEJS_20_X,
       entry: path.join(__dirname, '../lambda/brief/exec-brief-worker.ts'),
       handler: 'handler',
+      role: lambdaRole,
       memorySize: 1024,
       timeout: cdk.Duration.minutes(9),
       environment: {
@@ -490,8 +507,12 @@ export class ApiStack extends cdk.Stack {
     return fn;
   }
 
-  private addRoutes(args: { samGovApiKeySecret: secretsmanager.ISecret, execBriefQueue: any }) {
-    const { samGovApiKeySecret, execBriefQueue } = args;
+  private addRoutes(args: { 
+    samGovApiKeySecret: secretsmanager.ISecret, 
+    execBriefQueue: any,
+    linearApiKeySecret: secretsmanager.ISecret, 
+  }) {
+    const { samGovApiKeySecret, execBriefQueue, linearApiKeySecret} = args;
 
     // Prompt
     this.promptApi.addRoute('save-prompt/{scope}', 'POST', 'lambda/prompt/save-prompt.ts');
@@ -546,6 +567,10 @@ export class ApiStack extends cdk.Stack {
       EXEC_BRIEF_QUEUE_URL: execBriefQueue.queueUrl,
     });
     this.briefApi.addRoute('/get-executive-brief-by-project', 'POST', 'lambda/brief/get-executive-brief-by-project.ts');
+    this.briefApi.addRoute('/handle-linear-ticket', 'POST', 'lambda/brief/handle-linear-ticket.ts', {
+      LINEAR_API_KEY_SECRET_ARN: linearApiKeySecret.secretArn,
+    });
+    this.briefApi.addRoute('/update-decision', 'POST', 'lambda/brief/update-decision.ts');
 
     // Deadlines
     this.deadlinesApi.addRoute('/get-deadlines', 'GET', 'lambda/deadlines/get-deadlines.ts');
