@@ -66,7 +66,15 @@ export async function createLinearTicket(params: CreateLinearTicketParams): Prom
     const allLabels = await team.labels();
     
     labelIds = params.labels
-      .map(labelName => allLabels.nodes.find(l => l.name === labelName)?.id)
+      .map(labelName => {
+        const found = allLabels.nodes.find(
+          l => l.name.toLowerCase() === labelName.toLowerCase()
+        );
+        if (!found) {
+          console.warn(`⚠️ Label not found: "${labelName}"`);
+        }
+        return found?.id;
+      })
       .filter((id): id is string => !!id);
   }
 

@@ -4,7 +4,7 @@ import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { AlertTriangle, CheckCircle2, FileText, RefreshCw, TrendingDown, TrendingUp } from 'lucide-react';
+import { AlertTriangle, CheckCircle2, RefreshCw, TrendingDown, TrendingUp } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
 import { recommendationVariant } from '../helpers';
 import {
@@ -76,29 +76,46 @@ export function DecisionCard({
     if (!briefItem?.sort_key) return;
     
     setIsUpdating(true);
+    const action = newDecision === 'GO' ? 'approved' : 'rejected';
+
     try {
       await updateDecision.trigger({
         executiveBriefId: briefItem.sort_key,
         decision: newDecision,
       });
+    } catch (err) {
+      console.error(`Failed to ${action} brief (decision update):`, err);
+      toast({
+        title: `Failed to ${action} brief`,
+        description: `Could not ${action} the brief. No changes were applied. Please try again.`,
+        variant: 'destructive',
+      });
+      return;
+    }
 
+    let linearFailed = false;
+
+    try {
       await handleLinearTicket.trigger({
         executiveBriefId: briefItem.sort_key,
       });
+    } catch (err) {
+      linearFailed = true;
+      console.error(`Failed to update Linear ticket:`, err);
+    }
 
+    try {
       // Refresh brief
       const latest = await getBriefByProject.trigger({ projectId });
       if (latest?.ok && latest?.brief) {
         onBriefUpdate?.(latest.brief);
       }
 
-      const action = newDecision === 'GO' ? 'approved' : 'rejected';
       toast({
           title: `Brief ${action}`,
-          description: `Brief ${action} and Linear ticket updated!`,
+          description: `Brief ${action} ${linearFailed ? 'but Linear ticket update failed' : 'and Linear ticket updated!'}`,
         });
     } catch (err) {
-      console.error(`Failed to ${newDecision === 'GO' ? 'approve' : 'reject'} brief:`, err);
       toast({
           title: `Failed`,
           description: `Failed to ${newDecision === 'GO' ? 'approve' : 'reject'} brief. Please try again.`,

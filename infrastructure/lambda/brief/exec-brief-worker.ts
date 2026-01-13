@@ -424,7 +424,7 @@ async function runScoring(job: Job): Promise<void> {
       }
 
       console.log(`Scoring prerequisites not complete (retry ${retryCount}/${MAX_RETRIES}):`, prereq.missing);
-      await requeueJob(job, SCORING_RETRY_DELAY_SECONDS);
+      await requeueJob({ ...job, retryCount: (job.retryCount ?? 0) + 1 }, SCORING_RETRY_DELAY_SECONDS);
       return;
     }
 

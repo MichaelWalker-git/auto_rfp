@@ -97,7 +97,6 @@ export function ExecutiveBriefView({ projectId }: Props) {
   const [previousBrief, setPreviousBrief] = useState<any>(null);
   const [briefItem, setBriefItem] = useState<any>(null);
   const [localBusySections, setLocalBusySections] = useState<Set<SectionKey>>(() => new Set());
-  const [hasTriedLinearTicket, setHasTriedLinearTicket] = useState(false);
   const localBusySectionsRef = useRef<Set<SectionKey>>(new Set());
   const linearTicketAttemptedRef = useRef(false);
 
@@ -193,13 +192,17 @@ export function ExecutiveBriefView({ projectId }: Props) {
             scoringComplete && 
             decision && 
             !resp.brief.linearTicketId && 
-            !linearTicketAttemptedRef.current
+            !linearTicketAttemptedRef.current &&
+            executiveBriefId
           ) {
             linearTicketAttemptedRef.current = true;
             try {
-              console.log('Auto-creating Linear ticket after scoring:', decision);
-              console.log(resp.brief)
               await handleLinearTicket.trigger({ executiveBriefId: String(executiveBriefId) });
+
+              const withTicket = await getBriefByProject.trigger({ projectId });
+              if (withTicket?.ok && withTicket?.brief) {
+                setBriefItem(withTicket.brief);
+              }
             } catch (err) {
               console.error('Failed to auto-create Linear ticket:', err);
             }

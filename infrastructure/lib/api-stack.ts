@@ -238,7 +238,7 @@ export class ApiStack extends cdk.Stack {
       COST_SAVING: 'true',
       LINEAR_TEAM_ID: '014ad7fc-6875-4a34-973b-61d029c37116',
       LINEAR_DEFAULT_ASSIGNEE_ID: '74c2dcce-9583-4065-b86f-ff4cb98d3da9',
-      LINEAR_PROJECT_ID: '823d8281-c41e-4e00-b541-f31a5c91af46', 
+      LINEAR_PROJECT_ID: '823d8281-c41e-4e00-b541-f31a5c91af46',
     };
   }
 
@@ -512,7 +512,7 @@ export class ApiStack extends cdk.Stack {
     execBriefQueue: any,
     linearApiKeySecret: secretsmanager.ISecret, 
   }) {
-    const { samGovApiKeySecret, execBriefQueue, linearApiKeySecret} = args;
+    const { samGovApiKeySecret, execBriefQueue, linearApiKeySecret } = args;
 
     // Prompt
     this.promptApi.addRoute('save-prompt/{scope}', 'POST', 'lambda/prompt/save-prompt.ts');

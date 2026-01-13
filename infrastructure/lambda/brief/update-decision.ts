@@ -1,6 +1,6 @@
 import type { APIGatewayProxyEventV2, APIGatewayProxyResultV2 } from 'aws-lambda';
 import { z } from 'zod';
-import { UpdateCommand, GetCommand } from '@aws-sdk/lib-dynamodb';
+import { UpdateCommand } from '@aws-sdk/lib-dynamodb';
 
 import { apiResponse } from '../helpers/api';
 import { withSentryLambda } from '../sentry-lambda';
@@ -13,7 +13,7 @@ const DB_TABLE_NAME = requireEnv('DB_TABLE_NAME');
 
 const RequestSchema = z.object({
   executiveBriefId: z.string().min(1),
-  decision: z.enum(['GO', 'NO_GO']),
+  decision: z.enum(['GO', 'NO_GO', 'CONDITIONAL_GO']),
 });
 
 export const baseHandler = async (
