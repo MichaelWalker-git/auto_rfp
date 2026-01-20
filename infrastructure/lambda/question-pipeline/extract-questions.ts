@@ -12,6 +12,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { invokeModel } from '../helpers/bedrock-http-client';
 import { updateQuestionFile } from '../helpers/questionFile';
 import { GroupedSection } from '@auto-rfp/shared';
+import { buildQuestionSK, isConditionalCheckFailed, normalizeQuestionText, sha256Hex } from '../helpers/question';
 
 const BEDROCK_MODEL_ID = requireEnv('BEDROCK_MODEL_ID');
 const DB_TABLE_NAME = requireEnv('DB_TABLE_NAME');
@@ -24,7 +25,7 @@ export interface ExtractQuestionsEvent {
   questionFileId: string;
   projectId: string;
   textFileKey: string;
-  opportunityId: string
+  opportunityId: string;
 }
 
 type ExtractedQuestions = { sections: GroupedSection[] }
@@ -86,20 +87,16 @@ export const baseHandler = async (
 
   for (let i = 0; i < chunks.length; i++) {
     console.log(`Processing chunk ${i + 1}/${chunks.length}`);
-    
+
     try {
       const extracted = await extractQuestionsWithBedrock(chunks[i], i, chunks.length);
       allSections.push(...extracted.sections);
-      
+
       console.log(`Chunk ${i + 1} extracted ${extracted.sections.length} sections`);
     } catch (err) {
       console.error(`Failed to extract from chunk ${i + 1}:`, err);
     }
   }
-
-  console.log(`Total sections extracted: ${allSections.length}`);
-
-  // const extracted = await extractQuestionsWithBedrock(text);
 
   const mergedSections = mergeSections(allSections);
   console.log(`After merging: ${mergedSections.length} sections`);
@@ -136,12 +133,7 @@ async function extractQuestionsWithBedrock(
     temperature: 0.1,
   };
 
-  const responseBody = await invokeModel(
-    BEDROCK_MODEL_ID,
-    JSON.stringify(body),
-    'application/json',
-    'application/json'
-  );
+  const responseBody = await invokeModel(BEDROCK_MODEL_ID, JSON.stringify(body));
 
   const jsonTxt = new TextDecoder('utf-8').decode(responseBody);
 
@@ -193,7 +185,7 @@ function mergeSections(sections: GroupedSection[]): GroupedSection[] {
   }
 
   const merged = Array.from(sectionMap.values());
-  
+
   for (const section of merged) {
     section.questions = deduplicateQuestions(section.questions);
   }
@@ -222,46 +214,91 @@ async function saveQuestionsFromSections(
   extracted: ExtractedQuestions,
 ): Promise<number> {
   const now = nowIso();
-  let count = 0;
 
-  const writes: Promise<any>[] = [];
+  const seenInThisRun = new Set<string>();
+
+  let inserted = 0;
+  let skippedDuplicates = 0;
+
+  const writes: Promise<void>[] = [];
 
   for (const section of extracted.sections) {
     const sectionId = uuidv4();
+
     for (const q of section.questions) {
-      const questionId = uuidv4();
-      const sortKey = `${projectId}#${questionId}`;
+      const rawQuestion = q?.question;
+      if (!rawQuestion) continue;
+
+      const normalized = normalizeQuestionText(rawQuestion);
+      if (!normalized) continue;
+
+      if (seenInThisRun.has(normalized)) {
+        skippedDuplicates++;
+        continue;
+      }
+      seenInThisRun.add(normalized);
+
+      const questionHash = sha256Hex(normalized);
+
+      const questionId = questionHash;
+
+      const sortKey = buildQuestionSK(projectId, questionHash);
 
       const item = {
         [PK_NAME]: QUESTION_PK,
         [SK_NAME]: sortKey,
+
         projectId,
         questionFileId,
-        questionId: questionId,
-        question: q.question,
-        sectionId: sectionId,
+
+        questionId,
+        question: String(rawQuestion).trim(),
+
+        sectionId,
         sectionTitle: section.title,
         sectionDescription: section.description ?? null,
+
+        questionHash,
+        questionNormalized: normalized,
+
         createdAt: now,
         updatedAt: now,
       };
 
       writes.push(
-        docClient.send(
-          new PutCommand({
-            TableName: DB_TABLE_NAME,
-            Item: item,
+        docClient
+          .send(
+            new PutCommand({
+              TableName: DB_TABLE_NAME,
+              Item: item,
+              ConditionExpression: 'attribute_not_exists(#pk) AND attribute_not_exists(#sk)',
+              ExpressionAttributeNames: {
+                '#pk': PK_NAME,
+                '#sk': SK_NAME,
+              },
+            }),
+          )
+          .then(() => {
+            inserted++;
+          })
+          .catch((err) => {
+            if (isConditionalCheckFailed(err)) {
+              skippedDuplicates++;
+              return;
+            }
+            throw err;
           }),
-        ),
       );
-
-      count++;
     }
   }
 
   await Promise.all(writes);
-  return count;
+
+  console.log(`Questions write result: inserted=${inserted}, skippedDuplicates=${skippedDuplicates}`);
+
+  return inserted;
 }
+
 
 const getSystemPrompt = () => {
   return `
@@ -319,7 +356,7 @@ Rules:
 };
 
 const buildUserPrompt = (content: string, chunkIndex: number, totalChunks: number) => {
-  const chunkInfo = totalChunks > 1 
+  const chunkInfo = totalChunks > 1
     ? `\n\nNOTE: This is chunk ${chunkIndex + 1} of ${totalChunks}. Extract questions from this portion only.`
     : '';
   return `

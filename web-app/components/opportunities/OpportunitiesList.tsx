@@ -107,7 +107,7 @@ export function OpportunitiesList({ projectId, limit = 25, className }: Props) {
         <div className="space-y-3">
           {filtered.map((it) => (
             <OpportunitiesListItem
-              key={`${it.source}#${it.id}`}
+              key={`${it.source}#${it.oppId}`}
               item={it}
               onOpen={() => handleOpen(it)}
             />

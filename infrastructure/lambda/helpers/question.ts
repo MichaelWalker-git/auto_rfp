@@ -2,8 +2,9 @@ import { PK_NAME, SK_NAME } from '../constants/common';
 import { QUESTION_PK } from '../constants/question';
 import { QuestionItemDynamo } from '../answer/generate-answer';
 import { requireEnv } from './env';
-import { DynamoDBDocumentClient, GetCommand, } from '@aws-sdk/lib-dynamodb';
+import { GetCommand, } from '@aws-sdk/lib-dynamodb';
 import { docClient } from './db';
+import crypto from 'crypto';
 
 const DB_TABLE_NAME = requireEnv('DB_TABLE_NAME');
 
@@ -16,7 +17,7 @@ export async function getQuestionItemById(
       TableName: DB_TABLE_NAME,
       Key: {
         [PK_NAME]: QUESTION_PK,
-        [SK_NAME]: `${projectId}#${questionId}`,
+        [SK_NAME]: buildQuestionSK(projectId, questionId),
       },
     }),
   );
@@ -33,3 +34,23 @@ export async function getQuestionItemById(
 
   return item;
 }
+
+export function normalizeQuestionText(s: string): string {
+  return String(s ?? '')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .toLowerCase();
+}
+
+export function sha256Hex(input: string): string {
+  return crypto.createHash('sha256').update(input, 'utf8').digest('hex');
+}
+
+export function isConditionalCheckFailed(err: any): boolean {
+  const name = err?.name ?? err?.code;
+  return name === 'ConditionalCheckFailedException';
+}
+
+export const buildQuestionSK = (projectId: string, questionId: string) => {
+  return `${projectId}#${questionId}`;
+};

@@ -32,7 +32,6 @@ export interface ApiStackProps extends cdk.StackProps {
 
 export class ApiStack extends cdk.Stack {
   public readonly api: apigw.RestApi;
-  private static readonly BEDROCK_REGION = 'us-east-1';
 
   // Nested stacks
   private readonly organizationApi: ApiNestedStack;
@@ -88,6 +87,8 @@ export class ApiStack extends cdk.Stack {
     // --- Exec brief worker + queue ---
     const execBriefQueue = this.createExecBriefQueue(stage);
 
+    const bedrockApiKeyParamArn = `arn:aws:ssm:us-east-1:${this.account}:parameter/auto-rfp/bedrock/api-key`;
+
     const lambdaRole = this.createCommonLambdaRole({
       stage,
       userPool,
@@ -95,7 +96,8 @@ export class ApiStack extends cdk.Stack {
       questionPipelineStateMachineArn,
       mainTable,
       documentsBucket,
-      execBriefQueue
+      execBriefQueue,
+      bedrockApiKeyParamArn
     });
 
     const samGovApiKeySecret = this.createSamGovSecret(stage);
@@ -119,6 +121,7 @@ export class ApiStack extends cdk.Stack {
       documentsBucket,
       mainTable,
       lambdaRole,
+      bedrockApiKeyParamArn
     });
 
     // --- Nested APIs ---
@@ -252,6 +255,7 @@ export class ApiStack extends cdk.Stack {
     mainTable: dynamodb.ITable;
     documentsBucket: s3.IBucket;
     execBriefQueue: sqs.Queue;
+    bedrockApiKeyParamArn: string;
   }): iam.Role {
     const {
       stage,
@@ -261,6 +265,7 @@ export class ApiStack extends cdk.Stack {
       mainTable,
       documentsBucket,
       execBriefQueue,
+      bedrockApiKeyParamArn
     } = args;
 
     const role = new iam.Role(this, 'CommonLambdaRole', {
@@ -271,8 +276,6 @@ export class ApiStack extends cdk.Stack {
     role.addManagedPolicy(
       iam.ManagedPolicy.fromAwsManagedPolicyName('service-role/AWSLambdaBasicExecutionRole'),
     );
-
-    const bedrockApiKeyParamArn = `arn:aws:ssm:us-east-1:${this.account}:parameter/auto-rfp/bedrock/api-key`;
 
     role.attachInlinePolicy(
       new iam.Policy(this, 'LambdaPolicy', {
@@ -465,8 +468,9 @@ export class ApiStack extends cdk.Stack {
     documentsBucket: s3.IBucket;
     mainTable: dynamodb.ITable;
     lambdaRole: iam.Role;
+    bedrockApiKeyParamArn: string;
   }) {
-    const { stage, commonEnv, execBriefQueue, documentsBucket, mainTable, lambdaRole } = args;
+    const { stage, commonEnv, execBriefQueue, documentsBucket, mainTable, lambdaRole, bedrockApiKeyParamArn } = args;
 
     const fn = new lambdaNodejs.NodejsFunction(this, `ExecBriefWorker-${stage}`, {
       functionName: `auto-rfp-${stage}-exec-brief-worker`,
@@ -506,13 +510,20 @@ export class ApiStack extends cdk.Stack {
       }),
     );
 
+    fn.addToRolePolicy(
+      new iam.PolicyStatement({
+        actions: ['ssm:GetParameter'],
+        resources: [bedrockApiKeyParamArn],
+      }),
+    );
+
     return fn;
   }
 
-  private addRoutes(args: { 
-    samGovApiKeySecret: secretsmanager.ISecret, 
+  private addRoutes(args: {
+    samGovApiKeySecret: secretsmanager.ISecret,
     execBriefQueue: any,
-    linearApiKeySecret: secretsmanager.ISecret, 
+    linearApiKeySecret: secretsmanager.ISecret,
   }) {
     const { samGovApiKeySecret, execBriefQueue, linearApiKeySecret } = args;
 

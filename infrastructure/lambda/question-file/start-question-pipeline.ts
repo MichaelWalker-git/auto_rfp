@@ -1,14 +1,9 @@
 import { APIGatewayProxyEventV2, APIGatewayProxyResultV2 } from 'aws-lambda';
-import { SFNClient, StartExecutionCommand } from '@aws-sdk/client-sfn';
 
 import { apiResponse } from '../helpers/api';
 import { withSentryLambda } from '../sentry-lambda';
-import { requireEnv } from '../helpers/env';
 import { getQuestionFileItem, updateQuestionFile } from '../helpers/questionFile';
-
-const sfnClient = new SFNClient({});
-
-const STATE_MACHINE_ARN = requireEnv('QUESTION_PIPELINE_STATE_MACHINE_ARN');
+import { startPipeline } from '../helpers/solicitation';
 
 type StartBody = {
   projectId?: string;
@@ -35,23 +30,18 @@ export const baseHandler = async (
     const { fileKey, mimeType } = await getQuestionFileItem(projectId, oppId, questionFileId) || {};
     await updateQuestionFile(projectId, oppId, questionFileId, { status: 'PROCESSING' });
 
-    const res = await sfnClient.send(
-      new StartExecutionCommand({
-        stateMachineArn: STATE_MACHINE_ARN,
-        input: JSON.stringify({
-          oppId,
-          projectId,
-          questionFileId,
-          sourceFileKey: fileKey,
-          mimeType: mimeType,
-        }),
-      }),
+    const { executionArn, startDate } = await startPipeline(
+      projectId,
+      oppId,
+      questionFileId,
+      fileKey,
+      mimeType,
     );
 
     return apiResponse(202, {
       message: 'Question pipeline started',
-      executionArn: res.executionArn,
-      startDate: res.startDate,
+      executionArn,
+      startDate,
     });
   } catch (err: any) {
     console.error('Error starting question pipeline:', err);

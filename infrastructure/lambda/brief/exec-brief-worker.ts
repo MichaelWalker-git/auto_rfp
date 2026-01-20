@@ -41,7 +41,6 @@ import {
 import { requireEnv } from '../helpers/env';
 import { loadTextFromS3 } from '../helpers/s3';
 import { storeDeadlinesSeparately } from '../helpers/deadlines';
-import { SQSClient } from '@aws-sdk/client-sqs';
 
 const JobSchema = z.object({
   orgId: z.string().min(1),
@@ -536,15 +535,9 @@ const baseHandler = async (event: SQSEvent): Promise<SQSBatchResponse> => {
   const batchItemFailures: SQSBatchResponse['batchItemFailures'] = [];
 
   for (const record of event.Records) {
-    try {
-      const job = JobSchema.parse(JSON.parse(record.body));
-      await runSection(job);
-    } catch (err) {
-      console.error('exec-brief-worker error:', err);
-      batchItemFailures.push({ itemIdentifier: record.messageId });
-    }
+    const job = JobSchema.parse(JSON.parse(record.body));
+    await runSection(job);
   }
-
   return { batchItemFailures };
 };
 
