@@ -128,7 +128,7 @@ function AppSidebar() {
           { title: 'Dashboard', url: `/organizations/${orgId}/projects/${projectId}/dashboard`, icon: Home },
           { title: 'Opportunities', url: `/organizations/${orgId}/projects/${projectId}/opportunities`, icon: Briefcase },
           { title: 'Questions', url: `/organizations/${orgId}/projects/${projectId}/questions`, icon: MessageSquare },
-          { title: 'Documents', url: `/organizations/${orgId}/projects/${projectId}/documents`, icon: FileText },
+          { title: 'RFP Documents', url: `/organizations/${orgId}/projects/${projectId}/documents`, icon: FileText },
           { title: 'Proposals', url: `/organizations/${orgId}/projects/${projectId}/proposals`, icon: ScrollText },
         ]
         : [],

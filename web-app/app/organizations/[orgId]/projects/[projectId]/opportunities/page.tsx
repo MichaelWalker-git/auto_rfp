@@ -1,12 +1,11 @@
-// Example usage (page/tab)
-// app/projects/[projectId]/opportunities/page.tsx
-'use client';
-
 import React from 'react';
-import OpportunitiesList from '@/components/opportunities/OpportunitiesList';
-import type { OpportunityItem } from '@auto-rfp/shared';
+import { OpportunitiesList } from '@/components/opportunities/OpportunitiesList';
 
-export default function OpportunitiesPage({ params }: { params: { projectId: string } }) {
+type Props = { params: Promise<{ projectId: string }> };
+
+export default async function OpportunitiesPage({ params }: Props) {
+  const { projectId } = await params;
+
   return (
     <div className="p-6">
       <div className="mb-4">
@@ -14,12 +13,7 @@ export default function OpportunitiesPage({ params }: { params: { projectId: str
         <div className="text-sm text-muted-foreground">Stored opportunities for this project.</div>
       </div>
 
-      <OpportunitiesList
-        projectId={params.projectId}
-        onOpen={(item: OpportunityItem) => {
-          console.log('open', item);
-        }}
-      />
+      <OpportunitiesList projectId={projectId}/>
     </div>
   );
 }

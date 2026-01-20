@@ -9,7 +9,7 @@ import { OPPORTUNITY_PK } from '../constants/opportunity';
 import type { OpportunityItem } from '@auto-rfp/shared';
 import { nowIso } from './date';
 
-const DOCUMENTS_TABLE = requireEnv('DOCUMENTS_TABLE');
+const DOCUMENTS_TABLE = requireEnv('DB_TABLE_NAME');
 
 export const buildOpportunitySk = (orgId: string, projectId: string, oppId: string) => `${orgId}#${projectId}#${oppId}`;
 
@@ -35,6 +35,7 @@ export const createOpportunity = async (args: { orgId: string; projectId: string
     [PK_NAME]: OPPORTUNITY_PK,
     [SK_NAME]: buildOpportunitySk(args.orgId, args.projectId, oppId),
 
+    oppId,
     createdAt: ts,
     updatedAt: ts,
   };

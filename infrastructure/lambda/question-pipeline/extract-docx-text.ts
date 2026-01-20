@@ -2,6 +2,7 @@ import mammoth from 'mammoth';
 import { requireEnv } from '../helpers/env';
 import { getFileFromS3, uploadToS3 } from '../helpers/s3';
 import { withSentryLambda } from '../sentry-lambda';
+import { updateQuestionFile } from '../helpers/questionFile';
 
 const DOCUMENTS_BUCKET = requireEnv('DOCUMENTS_BUCKET');
 
@@ -11,22 +12,30 @@ const streamToBuffer = async (stream: any) => {
   return Buffer.concat(chunks);
 };
 
-// TODO Kate
-const baseHandler = async (event: {
+type Event = {
+  opportunityId: string;
   projectId: string;
   questionFileId: string;
-  sourceFileKey: string; // key of the uploaded docx
-}) => {
-  const { sourceFileKey, projectId, questionFileId } = event;
+  sourceFileKey: string;
+}
+
+const baseHandler = async (event: Event) => {
+  console.log('event', event);
+  const { sourceFileKey, projectId, questionFileId, opportunityId } = event;
 
   const body = await getFileFromS3(DOCUMENTS_BUCKET, sourceFileKey);
 
   const buf = await streamToBuffer(body);
   const { value: text } = await mammoth.extractRawText({ buffer: buf });
 
-  const textFileKey = `projects/${projectId}/question-files/${questionFileId}/extracted.txt`;
+  const textFileKey = `pr/${projectId}/opp/${opportunityId}/qf/${questionFileId}.txt`;
 
   await uploadToS3(DOCUMENTS_BUCKET, textFileKey, text ?? '', 'text/plain; charset=utf-8');
+
+  await updateQuestionFile(projectId, opportunityId, questionFileId, {
+    status: 'TEXT_READY', 
+    textFileKey 
+  });
 
   return { textFileKey };
 };

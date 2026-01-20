@@ -1,6 +1,5 @@
 import { APIGatewayProxyEventV2, APIGatewayProxyResultV2 } from 'aws-lambda';
 import { SFNClient, StartExecutionCommand } from '@aws-sdk/client-sfn';
-import { v4 as uuidv4 } from 'uuid';
 
 import { apiResponse } from '../helpers/api';
 import { withSentryLambda } from '../sentry-lambda';
@@ -14,9 +13,9 @@ const STATE_MACHINE_ARN = requireEnv('QUESTION_PIPELINE_STATE_MACHINE_ARN');
 type StartBody = {
   projectId?: string;
   questionFileId?: string;
+  oppId?: string;
 }
 
-// TODO Kate
 export const baseHandler = async (
   event: APIGatewayProxyEventV2,
 ): Promise<APIGatewayProxyResultV2> => {
@@ -24,23 +23,23 @@ export const baseHandler = async (
 
   const body: StartBody = JSON.parse(event.body || '');
 
-  const { questionFileId, projectId } = body;
+  const { questionFileId, projectId, oppId } = body;
 
-  if (!questionFileId || !projectId) {
+  if (!questionFileId || !projectId || !oppId) {
     return apiResponse(400, {
-      message: 'questionFileId and projectId are required',
+      message: 'questionFileId, oppId and projectId are required',
     });
   }
 
   try {
-    const { fileKey, mimeType } = await getQuestionFileItem(projectId, questionFileId) || {};
-    await updateQuestionFile(projectId, questionFileId, { status: 'PROCESSING' });
+    const { fileKey, mimeType } = await getQuestionFileItem(projectId, oppId, questionFileId) || {};
+    await updateQuestionFile(projectId, oppId, questionFileId, { status: 'PROCESSING' });
 
     const res = await sfnClient.send(
       new StartExecutionCommand({
         stateMachineArn: STATE_MACHINE_ARN,
         input: JSON.stringify({
-          oppId: uuidv4(),
+          oppId,
           projectId,
           questionFileId,
           sourceFileKey: fileKey,

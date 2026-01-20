@@ -72,11 +72,33 @@ function toNumber(v: any): number | undefined {
   return Number.isFinite(n) ? n : undefined;
 }
 
+const getAttachmentsCount = (x: any): number => {
+  const candidates = [
+    x?.attachments,
+    x?.resourceLinks,
+    x?.resources,
+    x?.links,
+    x?.documents,
+    x?.attachment,
+  ];
+
+  for (const c of candidates) {
+    if (Array.isArray(c)) return c.length;
+  }
+
+  if (typeof x?.attachmentsCount === 'number') return x.attachmentsCount;
+  if (typeof x?.numAttachments === 'number') return x.numAttachments;
+
+  return 0;
+};
+
 function toSlim(o: any): SamOpportunitySlim {
   const baseAndAllOptionsValue =
     toNumber(o?.baseAndAllOptionsValue) ??
     toNumber(o?.baseAndAllOptions?.value) ??
     toNumber(o?.award?.amount);
+
+  const attachmentsCount = getAttachmentsCount(o);
 
   return {
     noticeId: o?.noticeId ?? o?.noticeid,
@@ -95,6 +117,7 @@ function toSlim(o: any): SamOpportunitySlim {
     description: o?.description,
     baseAndAllOptionsValue,
     award: o?.award,
+    attachmentsCount,
   };
 }
 
@@ -356,3 +379,12 @@ export function buildAttachmentS3Key(args: {
   const urlHash = sha1(`${args.noticeId}:${args.attachmentUrl}`);
   return `org_${args.orgId}/projects/${args.projectId}/sam/${args.noticeId}/${urlHash}/${args.filename}`;
 }
+
+
+export const toBoolActive = (v: any) => v === true || String(v).toLowerCase() === 'yes' || String(v).toLowerCase() === 'true';
+
+export const safeIsoOrNull = (s?: string) => {
+  if (!s) return null;
+  const d = new Date(s);
+  return Number.isFinite(d.getTime()) ? d.toISOString() : null;
+};

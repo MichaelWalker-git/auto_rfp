@@ -23,7 +23,6 @@ const safeJsonParse = <T, >(raw: string): T | undefined => {
   }
 };
 
-// TODO Kate
 const baseHandler = async (event: APIGatewayProxyEventV2): Promise<APIGatewayProxyResultV2> => {
   try {
     const orgId = getOrgId(event);

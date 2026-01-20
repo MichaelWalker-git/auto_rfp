@@ -6,7 +6,8 @@ import { PK_NAME, SK_NAME } from '../constants/common';
 import { QUESTION_FILE_PK } from '../constants/question-file';
 import { withSentryLambda } from '../sentry-lambda';
 import { requireEnv } from '../helpers/env';
-import { docClient } from '../helpers/db';
+import { DBItem, docClient } from '../helpers/db';
+import { QuestionFileItem } from '@auto-rfp/shared';
 
 const stepFunctionsClient = new SFNClient({});
 
@@ -20,7 +21,6 @@ export interface TextractCallbackEvent {
   }>;
 }
 
-// TODO Kate
 export const baseHandler = async (
   event: TextractCallbackEvent,
   _ctx: Context,
@@ -54,6 +54,7 @@ export const baseHandler = async (
 
     let taskToken: string | undefined;
     let skFound: string | undefined;
+    let oppId: string | undefined;
 
     try {
       const queryRes = await docClient.send(
@@ -69,14 +70,30 @@ export const baseHandler = async (
         }),
       );
 
-      const items = (queryRes.Items || []) as any[];
+      const items = (queryRes.Items || []) as (QuestionFileItem & DBItem)[];
 
-      const item = items.find((it) =>
-        String(it?.[SK_NAME] ?? '').endsWith(`#${questionFileId}`),
-      );
+      const item = items.find((item) => {
+        return item[SK_NAME].endsWith(`#${questionFileId}`);
+      });
+
+      if (!item) {
+        console.error(`No question_file found with questionFileId=${questionFileId}`);
+        continue;
+      }
+
+      console.log('Found question file item:', JSON.stringify(item));
 
       if (item) {
+        oppId = item.oppId;
         taskToken = item.taskToken as string | undefined;
+        if (!taskToken) {
+          console.error(`No taskToken found in item for questionFileId=${questionFileId}`);
+          console.error('Item keys:', Object.keys(item));
+          continue;
+        }
+
+        console.log('Task token found (length):', taskToken.length);
+        console.log('Task token preview:', taskToken.substring(0, 50) + '...');
         skFound = item[SK_NAME] as string | undefined;
       } else {
         console.warn(`No question_file found ending with #${questionFileId}`);
@@ -99,9 +116,10 @@ export const baseHandler = async (
       if (status === 'SUCCEEDED') {
         await stepFunctionsClient.send(
           new SendTaskSuccessCommand({
-            taskToken,
+            taskToken: taskToken.trim(),
             output: JSON.stringify({
               questionFileId,
+              oppId,
               jobId,
               status,
             }),
@@ -113,7 +131,7 @@ export const baseHandler = async (
       } else {
         await stepFunctionsClient.send(
           new SendTaskFailureCommand({
-            taskToken,
+            taskToken: taskToken.trim(),
             error: 'TextractFailed',
             cause: `Textract job ${jobId} finished with status=${status}`,
           }),

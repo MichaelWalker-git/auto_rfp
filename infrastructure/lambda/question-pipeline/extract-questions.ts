@@ -17,43 +17,111 @@ const BEDROCK_MODEL_ID = requireEnv('BEDROCK_MODEL_ID');
 const DB_TABLE_NAME = requireEnv('DB_TABLE_NAME');
 const DOCUMENTS_BUCKET = requireEnv('DOCUMENTS_BUCKET');
 
+const MAX_CHARS_PER_CHUNK = 30000; // ~7500 tokens 
+const CHUNK_OVERLAP = 500; // Overlap to avoid cutting mid-sentence
+
 export interface ExtractQuestionsEvent {
   questionFileId: string;
   projectId: string;
   textFileKey: string;
+  opportunityId: string
 }
 
 type ExtractedQuestions = { sections: GroupedSection[] }
 
-// TODO Kate
+function splitTextIntoChunks(
+  text: string,
+  maxChars: number,
+  overlap: number
+): string[] {
+  if (text.length <= maxChars) {
+    return [text];
+  }
+
+  const chunks: string[] = [];
+  let start = 0;
+
+  while (start < text.length) {
+    let end = start + maxChars;
+
+    // If not the last chunk, try to break at a sentence or paragraph
+    if (end < text.length) {
+      const paragraphBreak = text.lastIndexOf('\n\n', end);
+      if (paragraphBreak > start + maxChars / 2) {
+        end = paragraphBreak;
+      } else {
+        const sentenceBreak = text.lastIndexOf('. ', end);
+        if (sentenceBreak > start + maxChars / 2) {
+          end = sentenceBreak + 1;
+        }
+      }
+    }
+
+    chunks.push(text.substring(start, end));
+
+    start = end - overlap;
+    if (start < 0) start = 0;
+  }
+
+  return chunks;
+}
+
 export const baseHandler = async (
   event: ExtractQuestionsEvent,
   _ctx: Context,
 ): Promise<{ count: number }> => {
   console.log('extract-questions event:', JSON.stringify(event));
 
-  const { questionFileId, projectId, textFileKey } = event;
-  if (!questionFileId || !projectId || !textFileKey) {
-    throw new Error('questionFileId, projectId, textFileKey are required');
+  const { questionFileId, projectId, textFileKey, opportunityId } = event;
+  if (!questionFileId || !projectId || !textFileKey || !opportunityId) {
+    throw new Error('questionFileId, projectId, textFileKey, opportunityId are required');
   }
   const text = await loadTextFromS3(DOCUMENTS_BUCKET, textFileKey);
+  console.log(`Loaded text: ${text.length} characters`);
 
-  const extracted = await extractQuestionsWithBedrock(text);
+  const chunks = splitTextIntoChunks(text, MAX_CHARS_PER_CHUNK, CHUNK_OVERLAP);
+  console.log(`Split into ${chunks.length} chunks`);
+
+  const allSections: GroupedSection[] = [];
+
+  for (let i = 0; i < chunks.length; i++) {
+    console.log(`Processing chunk ${i + 1}/${chunks.length}`);
+    
+    try {
+      const extracted = await extractQuestionsWithBedrock(chunks[i], i, chunks.length);
+      allSections.push(...extracted.sections);
+      
+      console.log(`Chunk ${i + 1} extracted ${extracted.sections.length} sections`);
+    } catch (err) {
+      console.error(`Failed to extract from chunk ${i + 1}:`, err);
+    }
+  }
+
+  console.log(`Total sections extracted: ${allSections.length}`);
+
+  // const extracted = await extractQuestionsWithBedrock(text);
+
+  const mergedSections = mergeSections(allSections);
+  console.log(`After merging: ${mergedSections.length} sections`);
 
   const totalQuestions = await saveQuestionsFromSections(
     questionFileId,
     projectId,
-    extracted,
+    { sections: mergedSections },
   );
 
-  await updateQuestionFile(projectId, questionFileId, { status: 'PROCESSED', totalQuestions });
+  await updateQuestionFile(projectId, opportunityId, questionFileId, { status: 'PROCESSED', totalQuestions });
 
   return { count: totalQuestions };
 };
 
-async function extractQuestionsWithBedrock(content: string,): Promise<ExtractedQuestions> {
+async function extractQuestionsWithBedrock(
+  content: string,
+  chunkIndex: number,
+  totalChunks: number
+): Promise<ExtractedQuestions> {
   const systemPrompt = getSystemPrompt();
-  const userPrompt = buildUserPrompt(content);
+  const userPrompt = buildUserPrompt(content, chunkIndex, totalChunks);
 
   const body = {
     anthropic_version: 'bedrock-2023-05-31',
@@ -92,6 +160,10 @@ async function extractQuestionsWithBedrock(content: string,): Promise<ExtractedQ
 
   console.log('stop_reason:', stopReason, 'usage:', usage);
 
+  if (stopReason === 'max_tokens') {
+    console.warn('Response was truncated - consider smaller chunks');
+  }
+
   const assistantText = outer?.content?.[0]?.text;
   if (!assistantText) {
     throw new Error('Model returned no text content');
@@ -104,6 +176,44 @@ async function extractQuestionsWithBedrock(content: string,): Promise<ExtractedQ
   }
 
   return parsed as ExtractedQuestions;
+}
+
+function mergeSections(sections: GroupedSection[]): GroupedSection[] {
+  const sectionMap = new Map<string, GroupedSection>();
+
+  for (const section of sections) {
+    const key = section.title.toLowerCase().trim();
+
+    if (sectionMap.has(key)) {
+      const existing = sectionMap.get(key)!;
+      existing.questions.push(...section.questions);
+    } else {
+      sectionMap.set(key, { ...section });
+    }
+  }
+
+  const merged = Array.from(sectionMap.values());
+  
+  for (const section of merged) {
+    section.questions = deduplicateQuestions(section.questions);
+  }
+
+  return merged;
+}
+
+function deduplicateQuestions(questions: any[]): any[] {
+  const seen = new Set<string>();
+  const unique: any[] = [];
+
+  for (const q of questions) {
+    const normalized = q.question.toLowerCase().trim();
+    if (!seen.has(normalized)) {
+      seen.add(normalized);
+      unique.push(q);
+    }
+  }
+
+  return unique;
 }
 
 async function saveQuestionsFromSections(
@@ -208,12 +318,15 @@ Rules:
   `.trim();
 };
 
-const buildUserPrompt = (content: string) => {
+const buildUserPrompt = (content: string, chunkIndex: number, totalChunks: number) => {
+  const chunkInfo = totalChunks > 1 
+    ? `\n\nNOTE: This is chunk ${chunkIndex + 1} of ${totalChunks}. Extract questions from this portion only.`
+    : '';
   return `
 Extract vendor/offeror response requirements from the following opportunity text.
 If the content includes headers like "Instructions to Offerors", "Proposal Submission", "Evaluation Criteria", "Volumes", "Representations and Certifications", "Questions", "Attachments", include all vendor action items and prompts.
 
-Return ONLY JSON that matches the schema from the system message.
+Return ONLY JSON that matches the schema from the system message.${chunkInfo}
 
 DOCUMENT_CONTENT_START
 ${content}

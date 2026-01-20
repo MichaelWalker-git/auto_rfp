@@ -10,18 +10,18 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogTrigger
+  DialogTrigger,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 
-import { OpportunityItem } from '@auto-rfp/shared';
+import type { OpportunityItem } from '@auto-rfp/shared';
 import { usePresignUpload } from '@/lib/hooks/use-presign';
 import {
   useCreateQuestionFile,
-  useQuestionFileStatus,
+  useQuestionFilesStatus,
   useStartQuestionFilePipeline,
 } from '@/lib/hooks/use-question-file';
 import { useOrganization } from '@/context/organization-context';
@@ -29,6 +29,7 @@ import { useCreateOpportunity } from '@/lib/hooks/use-opportunities';
 
 interface QuestionFileUploadDialogProps {
   projectId: string;
+  oppId?: string;
   triggerLabel?: string;
   onCompleted?: (questionFileId: string) => void;
 }
@@ -47,11 +48,10 @@ type UploadItem = {
 };
 
 const VALID_EXTS = ['.pdf', '.doc', '.docx', '.txt'];
-const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB
-const POLLING_INTERVAL = 2000; // 2 seconds
+const MAX_FILE_SIZE = 50 * 1024 * 1024;
 
 const isValidFile = (f: File): { valid: boolean; reason?: string } => {
-  if (!VALID_EXTS.some(ext => f.name.toLowerCase().endsWith(ext))) {
+  if (!VALID_EXTS.some((ext) => f.name.toLowerCase().endsWith(ext))) {
     return { valid: false, reason: 'Invalid file type' };
   }
   if (f.size > MAX_FILE_SIZE) {
@@ -65,15 +65,11 @@ const makeClientId = () =>
     ? crypto.randomUUID()
     : `${Date.now()}_${Math.random().toString(16).slice(2)}`;
 
-const isFinalStatus = (s?: string | null) =>
-  s === 'PROCESSED' || s === 'FAILED' || s === 'DELETED';
-
-
-// TODO Kate
 export function QuestionFileUploadDialog({
                                            projectId,
-                                           triggerLabel = 'Upload Document',
+                                           triggerLabel = 'Upload Documents',
                                            onCompleted,
+                                           oppId: oppIdParam,
                                          }: QuestionFileUploadDialogProps) {
   const [open, setOpen] = useState(false);
   const { currentOrganization } = useOrganization();
@@ -83,14 +79,12 @@ export function QuestionFileUploadDialog({
   const [error, setError] = useState<string | null>(null);
   const [dragActive, setDragActive] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [batchOppId, setBatchOppId] = useState<string | undefined>(oppIdParam);
 
-  // Use refs to track cleanup and latest state
   const mountedRef = useRef(true);
-  const pollingTimerRef = useRef<NodeJS.Timeout | null>(null);
   const itemsRef = useRef(items);
   const onCompletedRef = useRef(onCompleted);
 
-  // Keep refs in sync
   useEffect(() => {
     itemsRef.current = items;
   }, [items]);
@@ -99,29 +93,90 @@ export function QuestionFileUploadDialog({
     onCompletedRef.current = onCompleted;
   }, [onCompleted]);
 
-  const { trigger: getPresignedUrl, isMutating: isGettingPresigned } = usePresignUpload();
-  const { trigger: createQuestionFile } = useCreateQuestionFile(projectId, currentOrganization?.id);
-  const { trigger: startPipeline, isMutating: isStartingPipeline } = useStartQuestionFilePipeline(projectId);
-  const { trigger: createOpportunity, isMutating: isOppCreating } = useCreateOpportunity();
-
-  const activeItem = items[activeIndex];
-  const activeQuestionFileId = activeItem?.questionFileId ?? null;
-
-  const {
-    data: statusData,
-    error: statusError,
-    mutate: refetchStatus,
-  } = useQuestionFileStatus(projectId, activeQuestionFileId);
-
-  // Cleanup on unmount
   useEffect(() => {
     return () => {
       mountedRef.current = false;
-      if (pollingTimerRef.current) {
-        clearTimeout(pollingTimerRef.current);
-      }
     };
   }, []);
+
+  const { trigger: getPresignedUrl, isMutating: isGettingPresigned } = usePresignUpload();
+  const { trigger: createQuestionFile } = useCreateQuestionFile(projectId, currentOrganization?.id);
+  const { trigger: startPipeline, isMutating: isStartingPipeline } = useStartQuestionFilePipeline();
+  const { trigger: createOpportunity } = useCreateOpportunity();
+
+  const processingQuestionFileIds = useMemo(
+    () =>
+      items
+        .filter((item) => item.questionFileId && item.step === 'processing')
+        .map((item) => item.questionFileId!),
+    [items],
+  );
+
+  const { data: allStatuses } = useQuestionFilesStatus(projectId, batchOppId || oppIdParam || '', processingQuestionFileIds);
+
+  useEffect(() => {
+    if (!allStatuses) return;
+
+    allStatuses.forEach(({ questionFileId, data: statusData }) => {
+      if (!statusData) return;
+
+      const apiStatus = (statusData.status as string) ?? undefined;
+      const updatedAt = statusData.updatedAt as string | undefined;
+
+      setItems((prev) => {
+        const next = [...prev];
+        const idx = next.findIndex((x) => x.questionFileId === questionFileId);
+        if (idx === -1) return prev;
+
+        const current = next[idx];
+        if (current.status === apiStatus && current.updatedAt === updatedAt) return prev;
+
+        if (apiStatus === 'PROCESSED') {
+          next[idx] = { ...current, step: 'done', status: apiStatus, updatedAt, error: null };
+          if (onCompletedRef.current && next[idx].questionFileId) {
+            try {
+              onCompletedRef.current(next[idx].questionFileId!);
+            } catch (e) {
+              console.error('onCompleted callback error', e);
+            }
+          }
+          return next;
+        }
+
+        if (apiStatus === 'FAILED') {
+          next[idx] = {
+            ...current,
+            step: 'error',
+            status: apiStatus,
+            updatedAt,
+            error: (statusData as any).errorMessage || 'Processing failed',
+          };
+          return next;
+        }
+
+        if (apiStatus === 'DELETED') {
+          next[idx] = { ...current, step: 'error', status: apiStatus, updatedAt, error: 'File was deleted' };
+          return next;
+        }
+
+        const isProcessingStatus =
+          apiStatus === 'UPLOADED' ||
+          apiStatus === 'PROCESSING' ||
+          apiStatus === 'TEXTRACT_RUNNING' ||
+          apiStatus === 'TEXT_READY';
+
+        next[idx] = {
+          ...current,
+          step: isProcessingStatus ? 'processing' : current.step,
+          status: apiStatus,
+          updatedAt,
+          error: null,
+        };
+
+        return next;
+      });
+    });
+  }, [allStatuses]);
 
   const resetState = useCallback(() => {
     setItems([]);
@@ -129,236 +184,94 @@ export function QuestionFileUploadDialog({
     setError(null);
     setDragActive(false);
     setIsProcessing(false);
-    if (pollingTimerRef.current) {
-      clearTimeout(pollingTimerRef.current);
-      pollingTimerRef.current = null;
-    }
+    setBatchOppId(undefined);
   }, []);
 
   useEffect(() => {
-    if (!open) {
-      resetState();
-    }
+    if (!open) resetState();
   }, [open, resetState]);
 
-  // Safe state updater that checks if component is mounted
-  const safeSetItems = useCallback((updater: (prev: UploadItem[]) => UploadItem[]) => {
-    if (!mountedRef.current) return;
-    setItems(updater);
-  }, []);
+  const activeItem = items[activeIndex];
+  const activeStep = activeItem?.step ?? 'idle';
 
-  // Handle status updates for active item (UPDATED FOR NEW STATUSES)
-  useEffect(() => {
-    if (!statusData || !activeItem || !mountedRef.current) return;
+  const allDone = items.length > 0 && items.every((i) => i.step === 'done');
+  const hasErrors = items.some((i) => i.step === 'error');
+  const completedCount = items.filter((i) => i.step === 'done').length;
 
-    const apiStatus = (statusData.status as string) ?? undefined;
-    const updatedAt = statusData.updatedAt as string | undefined;
-
-    const isDone = apiStatus === 'PROCESSED';
-    const isFailed = apiStatus === 'FAILED';
-    const isDeleted = apiStatus === 'DELETED';
-
-    const isProcessingStatus =
-      apiStatus === 'UPLOADED' ||
-      apiStatus === 'PROCESSING' ||
-      apiStatus === 'TEXTRACT_RUNNING' ||
-      apiStatus === 'TEXT_READY';
-
-    safeSetItems(prev => {
-      const next = [...prev];
-      const idx = next.findIndex(x => x.clientId === activeItem.clientId);
-      if (idx === -1) return prev;
-
-      if (isDone) {
-        next[idx] = {
-          ...next[idx],
-          step: 'done',
-          status: apiStatus,
-          updatedAt,
-          error: null,
-        };
-
-        if (onCompletedRef.current && next[idx].questionFileId) {
-          try {
-            onCompletedRef.current(next[idx].questionFileId!);
-          } catch (err) {
-            console.error('Error in onCompleted callback:', err);
-          }
-        }
-
-        return next;
-      }
-
-      if (isFailed) {
-        next[idx] = {
-          ...next[idx],
-          step: 'error',
-          status: apiStatus,
-          updatedAt,
-          error: (statusData as any).errorMessage || 'Processing failed',
-        };
-        return next;
-      }
-
-      if (isDeleted) {
-        next[idx] = {
-          ...next[idx],
-          step: 'error',
-          status: apiStatus,
-          updatedAt,
-          error: 'File was deleted',
-        };
-        return next;
-      }
-
-      // default: keep as processing for intermediate/unknown statuses
-      next[idx] = {
-        ...next[idx],
-        step: isProcessingStatus ? 'processing' : next[idx].step,
-        status: apiStatus,
-        updatedAt,
-        error: null,
-      };
-
-      return next;
-    });
-  }, [statusData, activeItem, safeSetItems]);
-
-  // Handle status errors
-  useEffect(() => {
-    if (!statusError || !mountedRef.current) return;
-
-    if (activeItem) {
-      safeSetItems(prev => {
-        const next = [...prev];
-        const idx = next.findIndex(x => x.clientId === activeItem.clientId);
-        if (idx === -1) return prev;
-        next[idx] = {
-          ...next[idx],
-          step: 'error',
-          error: statusError.message || 'Failed to check processing status',
-        };
-        return next;
-      });
-    } else {
-      setError(statusError.message || 'Failed to check processing status');
-    }
-  }, [statusError, activeItem, safeSetItems]);
-
-  // Polling logic with proper cleanup (STOPS ON FINAL STATUSES)
-  useEffect(() => {
-    if (!activeQuestionFileId || !mountedRef.current) {
-      if (pollingTimerRef.current) {
-        clearTimeout(pollingTimerRef.current);
-        pollingTimerRef.current = null;
-      }
-      return;
-    }
-
-    const currentStatus = statusData?.status as string | undefined;
-
-    if (activeItem?.step !== 'processing' || isFinalStatus(currentStatus)) {
-      if (pollingTimerRef.current) {
-        clearTimeout(pollingTimerRef.current);
-        pollingTimerRef.current = null;
-      }
-      return;
-    }
-
-    const poll = () => {
-      if (!mountedRef.current) return;
-      refetchStatus();
-      pollingTimerRef.current = setTimeout(poll, POLLING_INTERVAL);
-    };
-
-    poll();
-
-    return () => {
-      if (pollingTimerRef.current) {
-        clearTimeout(pollingTimerRef.current);
-        pollingTimerRef.current = null;
-      }
-    };
-  }, [activeQuestionFileId, activeItem?.step, refetchStatus, statusData?.status]);
-
-  const anyBusy = useMemo(
-    () => isGettingPresigned || isStartingPipeline || isProcessing,
-    [isGettingPresigned, isStartingPipeline, isProcessing]
-  );
+  const anyBusy = useMemo(() => {
+    if (isGettingPresigned || isStartingPipeline || isProcessing) return true;
+    return items.some((item) => item.step === 'uploading' || item.step === 'starting' || item.step === 'processing');
+  }, [isGettingPresigned, isStartingPipeline, isProcessing, items]);
 
   const handleClose = () => {
-    if (!anyBusy) {
-      window.location.reload();
-    }
+    window.location.reload();
   };
 
-  const addFiles = useCallback((fileList: FileList | File[]) => {
-    setError(null);
+  const addFiles = useCallback(
+    (fileList: FileList | File[]) => {
+      setError(null);
 
-    const incoming = Array.from(fileList);
-    const validFiles: File[] = [];
-    const errors: string[] = [];
+      const incoming = Array.from(fileList);
+      const validFiles: File[] = [];
+      const errors: string[] = [];
 
-    incoming.forEach(file => {
-      const validation = isValidFile(file);
-      if (validation.valid) {
-        validFiles.push(file);
-      } else {
-        errors.push(`${file.name}: ${validation.reason}`);
-      }
-    });
+      incoming.forEach((file) => {
+        const v = isValidFile(file);
+        if (v.valid) validFiles.push(file);
+        else errors.push(`${file.name}: ${v.reason}`);
+      });
 
-    if (errors.length > 0) {
-      setError(`Some files were skipped:\n${errors.join('\n')}`);
-    }
+      if (errors.length > 0) setError(`Some files were skipped:\n${errors.join('\n')}`);
+      if (validFiles.length === 0) return;
 
-    if (validFiles.length === 0) return;
+      setItems((prev) => {
+        const newItems = validFiles.map((file) => ({
+          clientId: makeClientId(),
+          file,
+          step: 'idle' as Step,
+          error: null,
+        }));
+        return [...prev, ...newItems];
+      });
 
-    setItems(prev => {
-      const newItems = validFiles.map(file => ({
-        clientId: makeClientId(),
-        file,
-        step: 'idle' as Step,
-        error: null,
-      }));
-      return [...prev, ...newItems];
-    });
+      setActiveIndex((prevIdx) => (itemsRef.current.length === 0 ? 0 : prevIdx));
+    },
+    [],
+  );
 
-    setActiveIndex(prev => (items.length === 0 ? 0 : prev));
-  }, [items.length]);
-
-  const handleFileChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    if (!e.target.files) return;
-    addFiles(e.target.files);
-    e.target.value = '';
-  }, [addFiles]);
+  const handleFileChange = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      if (!e.target.files) return;
+      addFiles(e.target.files);
+      e.target.value = '';
+    },
+    [addFiles],
+  );
 
   const handleDrag = useCallback((e: React.DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    if (e.type === 'dragenter' || e.type === 'dragover') {
-      setDragActive(true);
-    } else if (e.type === 'dragleave') {
-      setDragActive(false);
-    }
+    if (e.type === 'dragenter' || e.type === 'dragover') setDragActive(true);
+    else if (e.type === 'dragleave') setDragActive(false);
   }, []);
 
-  const handleDrop = useCallback((e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setDragActive(false);
-    if (e.dataTransfer.files?.length > 0) {
-      addFiles(e.dataTransfer.files);
-    }
-  }, [addFiles]);
+  const handleDrop = useCallback(
+    (e: React.DragEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      setDragActive(false);
+      if (e.dataTransfer.files?.length > 0) addFiles(e.dataTransfer.files);
+    },
+    [addFiles],
+  );
 
   const handleRemoveItem = useCallback((clientId: string) => {
     setError(null);
-    setItems(prev => {
-      const idx = prev.findIndex(x => x.clientId === clientId);
-      const next = prev.filter(x => x.clientId !== clientId);
+    setItems((prev) => {
+      const idx = prev.findIndex((x) => x.clientId === clientId);
+      const next = prev.filter((x) => x.clientId !== clientId);
 
-      setActiveIndex(current => {
+      setActiveIndex((current) => {
         if (next.length === 0) return 0;
         if (current > next.length - 1) return next.length - 1;
         if (idx !== -1 && current === idx) return Math.max(0, Math.min(idx, next.length - 1));
@@ -376,36 +289,28 @@ export function QuestionFileUploadDialog({
   }, [anyBusy, resetState]);
 
   const setItemStep = useCallback((clientId: string, patch: Partial<UploadItem>) => {
-    safeSetItems(prev => {
+    setItems((prev) => {
       const next = [...prev];
-      const idx = next.findIndex(x => x.clientId === clientId);
+      const idx = next.findIndex((x) => x.clientId === clientId);
       if (idx === -1) return prev;
       next[idx] = { ...next[idx], ...patch };
       return next;
     });
-  }, [safeSetItems]);
+  }, []);
 
-  const processOne = useCallback(async (item: UploadItem, oppId: string) => {
-    if (!mountedRef.current) throw new Error('Component unmounted');
+  const processOne = useCallback(
+    async (item: UploadItem, oppId: string) => {
+      setItemStep(item.clientId, { error: null, step: 'uploading' });
 
-    setItemStep(item.clientId, { error: null, step: 'uploading' });
-
-    try {
-      // 1) Get presigned URL
       const presigned = await getPresignedUrl({
         fileName: item.file.name,
         contentType: item.file.type || 'application/octet-stream',
       });
 
-      if (!mountedRef.current) throw new Error('Component unmounted');
-
-      // 2) Upload to S3
       const uploadRes = await fetch(presigned.url, {
         method: 'PUT',
         body: item.file,
-        headers: {
-          'Content-Type': item.file.type || 'application/octet-stream',
-        },
+        headers: { 'Content-Type': item.file.type || 'application/octet-stream' },
       });
 
       if (!uploadRes.ok) {
@@ -413,18 +318,15 @@ export function QuestionFileUploadDialog({
         throw new Error(text || `Failed to upload ${item.file.name} to S3`);
       }
 
-      if (!mountedRef.current) throw new Error('Component unmounted');
-
-      // 3) Create record
       const created = await createQuestionFile({
+        projectId,
+        oppId,
         originalFileName: item.file.name,
         fileKey: presigned.key,
         mimeType: item.file.type,
       });
 
-      const qfId = created.questionFileId as string;
-
-      if (!mountedRef.current) throw new Error('Component unmounted');
+      const qfId = (created as any).questionFileId as string;
 
       setItemStep(item.clientId, {
         s3Key: presigned.key,
@@ -432,22 +334,12 @@ export function QuestionFileUploadDialog({
         step: 'starting',
       });
 
-      // 4) Start pipeline
-      await startPipeline({
-        projectId,
-        oppId,
-        questionFileId: qfId,
-      });
+      await startPipeline({ projectId, oppId, questionFileId: qfId });
 
-      if (!mountedRef.current) throw new Error('Component unmounted');
-
-      // 5) Start polling / show processing
       setItemStep(item.clientId, { step: 'processing' });
-    } catch (err) {
-      if (!mountedRef.current) return;
-      throw err;
-    }
-  }, [getPresignedUrl, createQuestionFile, startPipeline, projectId, setItemStep]);
+    },
+    [createQuestionFile, getPresignedUrl, projectId, setItemStep, startPipeline],
+  );
 
   const handleStart = useCallback(async () => {
     if (items.length === 0) {
@@ -459,129 +351,58 @@ export function QuestionFileUploadDialog({
     setError(null);
 
     try {
-      // Process files sequentially
-      const { oppId } = await createOpportunity({} as OpportunityItem);
+      let localOppId = batchOppId;
+      if (!oppIdParam && !batchOppId && !localOppId) {
+        const timestamp = Date.now();
+        const opportunityData: OpportunityItem = {
+          source: 'MANUAL_UPLOAD' as const,
+          id: `BATCH_${timestamp}`,
+          title: `Batch Upload - ${new Date().toLocaleDateString()} (${items.length} files)`,
+          active: true,
+
+          orgId: currentOrganization?.id,
+          projectId,
+          type: 'Combined Synopsis/Solicitation',
+          postedDateIso: new Date().toISOString(),
+          responseDeadlineIso: null,
+          noticeId: `BATCH_${timestamp}`,
+          solicitationNumber: `BATCH-${timestamp}`,
+          naicsCode: null,
+          pscCode: null,
+          organizationName: currentOrganization?.name || null,
+          organizationCode: null,
+          setAside: null,
+          setAsideCode: null,
+          description: `Batch document upload containing ${items.length} file(s)`,
+          baseAndAllOptionsValue: null,
+        };
+        const { oppId } = await createOpportunity(opportunityData);
+        localOppId = oppId;
+        setBatchOppId(oppId);
+      }
+
       for (let idx = 0; idx < itemsRef.current.length; idx++) {
-        if (!mountedRef.current) break;
-
         const item = itemsRef.current[idx];
-
-        // Skip already processed or currently processing files
         if (item.step !== 'idle' && item.step !== 'error') continue;
 
         setActiveIndex(idx);
 
         try {
-          await processOne(item, oppId);
-
-          // Wait for processing to complete before moving to next
-          await new Promise<void>((resolve) => {
-            const checkCompletion = () => {
-              const currentItem = itemsRef.current[idx];
-              if (!currentItem || !mountedRef.current) {
-                resolve();
-                return;
-              }
-
-              if (currentItem.step === 'done' || currentItem.step === 'error') {
-                resolve();
-              } else {
-                setTimeout(checkCompletion, 500);
-              }
-            };
-            checkCompletion();
-          });
+          await processOne(item, localOppId || batchOppId || oppIdParam || '');
         } catch (err: any) {
           console.error('Upload/start error', err);
           if (mountedRef.current) {
-            setItemStep(item.clientId, {
-              step: 'error',
-              error: err?.message || 'Unexpected error'
-            });
+            setItemStep(item.clientId, { step: 'error', error: err?.message || 'Unexpected error' });
           }
         }
       }
     } catch (err: any) {
       console.error('Batch start error', err);
-      if (mountedRef.current) {
-        setError(err?.message || 'Unexpected error');
-      }
+      if (mountedRef.current) setError(err?.message || 'Unexpected error');
     } finally {
-      if (mountedRef.current) {
-        setIsProcessing(false);
-      }
+      setIsProcessing(false);
     }
-  }, [items.length, processOne, setItemStep]);
-
-  const allDone = items.length > 0 && items.every(i => i.step === 'done');
-  const hasErrors = items.some(i => i.step === 'error');
-  const activeStep = activeItem?.step ?? 'idle';
-
-  // Better progress mapping using backend statuses when available
-  const progressValue = useMemo(() => {
-    const s = statusData?.status as string | undefined;
-
-    if (s === 'UPLOADED') return 35;
-    if (s === 'PROCESSING') return 55;
-    if (s === 'TEXTRACT_RUNNING') return 65;
-    if (s === 'TEXT_READY') return 85;
-    if (s === 'PROCESSED') return 100;
-    if (s === 'FAILED' || s === 'DELETED') return 0;
-
-    switch (activeStep) {
-      case 'idle':
-        return 0;
-      case 'uploading':
-        return 25;
-      case 'starting':
-        return 50;
-      case 'processing':
-        return 75;
-      case 'done':
-        return 100;
-      case 'error':
-        return 0;
-      default:
-        return 0;
-    }
-  }, [activeStep, statusData?.status]);
-
-  const statusLabel = useMemo(() => {
-    if (!activeItem) return items.length ? 'Ready to process' : 'Ready to upload';
-    if (activeItem.error) return 'Error';
-
-    switch (statusData?.status as string | undefined) {
-      case 'UPLOADED':
-        return 'Uploaded, waiting to start';
-      case 'PROCESSING':
-        return 'Processing document';
-      case 'TEXTRACT_RUNNING':
-        return 'Textract running';
-      case 'TEXT_READY':
-        return 'Text ready';
-      case 'PROCESSED':
-        return 'Completed';
-      case 'FAILED':
-        return 'Error';
-      case 'DELETED':
-        return 'Deleted';
-      default:
-        break;
-    }
-
-    switch (activeStep) {
-      case 'uploading':
-        return 'Uploading file';
-      case 'starting':
-        return 'Initializing pipeline';
-      case 'processing':
-        return 'Processing document';
-      case 'done':
-        return 'Completed';
-      default:
-        return 'Ready to upload';
-    }
-  }, [activeItem, statusData, activeStep, items.length]);
+  }, [batchOppId, createOpportunity, currentOrganization, items.length, processOne, projectId, setItemStep]);
 
   const StatusIcon = useMemo(() => {
     if (activeStep === 'done') return CheckCircle2;
@@ -590,15 +411,11 @@ export function QuestionFileUploadDialog({
     return AlertCircle;
   }, [activeStep]);
 
-  const completedCount = items.filter(i => i.step === 'done').length;
-
   return (
     <Dialog
       open={open}
       onOpenChange={(flag) => {
-        if (!flag && !anyBusy) {
-          handleClose();
-        }
+        if (!flag && !anyBusy) handleClose();
         setOpen(flag);
       }}
     >
@@ -609,7 +426,10 @@ export function QuestionFileUploadDialog({
         </Button>
       </DialogTrigger>
 
-      <DialogContent className="sm:max-w-2xl" aria-describedby="upload-dialog-description">
+      <DialogContent
+        className="sm:max-w-2xl max-h-[85vh] flex flex-col"
+        aria-describedby="upload-dialog-description"
+      >
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-xl">
             <FileText className="h-5 w-5" aria-hidden="true"/>
@@ -620,81 +440,70 @@ export function QuestionFileUploadDialog({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-6">
-          {/* File Upload Area */}
+        <div className="space-y-6 flex-1 overflow-y-auto pr-2">
           <div className="space-y-3">
             <div className="flex items-center justify-between gap-3">
-              <label className="text-sm font-semibold text-foreground">
-                Select Documents
-              </label>
+              <label className="text-sm font-semibold text-foreground">Select Documents</label>
               <div className="flex items-center gap-2">
-                {items.length > 0 && (
-                  <Badge variant="secondary" className="font-medium">
-                    {completedCount}/{items.length} completed
-                  </Badge>
-                )}
                 {items.length > 0 && !anyBusy && (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={handleClearAll}
-                    className="h-8"
-                    aria-label="Clear all files"
-                  >
+                  <Button variant="ghost" size="sm" onClick={handleClearAll} className="h-8"
+                          aria-label="Clear all files">
                     Clear
                   </Button>
                 )}
               </div>
             </div>
 
-            <div
-              className={`relative border-2 border-dashed rounded-lg p-6 transition-all ${
-                dragActive
-                  ? 'border-primary bg-primary/5'
-                  : 'border-muted-foreground/25 hover:border-muted-foreground/50'
-              } ${anyBusy ? 'opacity-50 pointer-events-none' : 'cursor-pointer'}`}
-              onDragEnter={handleDrag}
-              onDragLeave={handleDrag}
-              onDragOver={handleDrag}
-              onDrop={handleDrop}
-              role="button"
-              aria-label="Upload files"
-              tabIndex={anyBusy ? -1 : 0}
-            >
-              <input
-                type="file"
-                accept=".pdf,.doc,.docx,.txt"
-                multiple
-                onChange={handleFileChange}
-                disabled={anyBusy}
-                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-                aria-label="File upload input"
-              />
-              <div className="flex flex-col items-center justify-center space-y-3 text-center">
-                <div className="p-4 bg-primary/10 rounded-full">
-                  <Upload className="h-8 w-8 text-primary" aria-hidden="true"/>
-                </div>
-                <div>
-                  <p className="text-sm font-medium">
-                    Drop files here, or <span className="text-primary">browse</span>
-                  </p>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Supports PDF/DOC/DOCX/TXT (max 50MB each)
-                  </p>
+            {!anyBusy && (
+              <div
+                className={`relative border-2 border-dashed rounded-lg p-6 transition-all ${
+                  dragActive
+                    ? 'border-primary bg-primary/5'
+                    : 'border-muted-foreground/25 hover:border-muted-foreground/50'
+                } ${anyBusy ? 'opacity-50 pointer-events-none' : 'cursor-pointer'}`}
+                onDragEnter={handleDrag}
+                onDragLeave={handleDrag}
+                onDragOver={handleDrag}
+                onDrop={handleDrop}
+                role="button"
+                aria-label="Upload files"
+                tabIndex={anyBusy ? -1 : 0}
+              >
+                <input
+                  type="file"
+                  accept=".pdf,.doc,.docx,.txt"
+                  multiple
+                  onChange={handleFileChange}
+                  disabled={anyBusy}
+                  className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                  aria-label="File upload input"
+                />
+                <div className="flex flex-col items-center justify-center space-y-3 text-center">
+                  <div className="p-4 bg-primary/10 rounded-full">
+                    <Upload className="h-8 w-8 text-primary" aria-hidden="true"/>
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium">
+                      Drop files here, or <span className="text-primary">browse</span>
+                    </p>
+                    <p className="text-xs text-muted-foreground mt-1">Supports PDF/DOC/DOCX/TXT (max 50MB each)</p>
+                  </div>
                 </div>
               </div>
-            </div>
+            )}
 
-            {/* Selected Files List */}
             {items.length > 0 && (
               <div className="space-y-2" role="list" aria-label="Selected files">
                 {items.map((it, idx) => {
                   const isActive = idx === activeIndex;
                   const ItemIcon =
-                    it.step === 'done' ? CheckCircle2 :
-                      it.step === 'error' ? XCircle :
-                        ['uploading', 'starting', 'processing'].includes(it.step) ? Clock :
-                          FileText;
+                    it.step === 'done'
+                      ? CheckCircle2
+                      : it.step === 'error'
+                        ? XCircle
+                        : ['uploading', 'starting', 'processing'].includes(it.step)
+                          ? Clock
+                          : FileText;
 
                   return (
                     <div
@@ -708,10 +517,13 @@ export function QuestionFileUploadDialog({
                         <div className={`p-2 rounded ${isActive ? 'bg-primary/10' : 'bg-muted'}`}>
                           <ItemIcon
                             className={`h-5 w-5 ${
-                              it.step === 'done' ? 'text-green-600' :
-                                it.step === 'error' ? 'text-destructive' :
-                                  ['uploading', 'starting', 'processing'].includes(it.step) ? 'text-primary animate-pulse' :
-                                    'text-muted-foreground'
+                              it.step === 'done'
+                                ? 'text-green-600'
+                                : it.step === 'error'
+                                  ? 'text-destructive'
+                                  : ['uploading', 'starting', 'processing'].includes(it.step)
+                                    ? 'text-primary animate-pulse'
+                                    : 'text-muted-foreground'
                             }`}
                             aria-hidden="true"
                           />
@@ -743,11 +555,7 @@ export function QuestionFileUploadDialog({
 
                         <div className="flex items-center gap-2">
                           <Badge
-                            variant={
-                              it.step === 'done' ? 'default' :
-                                it.step === 'error' ? 'destructive' :
-                                  'secondary'
-                            }
+                            variant={it.step === 'done' ? 'default' : it.step === 'error' ? 'destructive' : 'secondary'}
                             className="font-medium"
                           >
                             {it.step === 'idle' ? 'Queued' : it.step}
@@ -773,85 +581,65 @@ export function QuestionFileUploadDialog({
             )}
           </div>
 
-          {/* Progress Section */}
-          {activeItem && (activeItem.step !== 'idle' || activeItem.questionFileId) && (
-            <div className="space-y-4 p-4 bg-muted/50 rounded-lg" role="region" aria-label="Processing status">
+          {items.length > 0 && items.some((i) => i.step !== 'idle') && (
+            <div className="space-y-4 p-4 bg-muted/50 rounded-lg" role="region" aria-label="Batch upload progress">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <StatusIcon
-                    className={`h-4 w-4 ${
-                      activeStep === 'done' ? 'text-green-600' :
-                        activeStep === 'error' ? 'text-destructive' :
-                          'text-primary animate-pulse'
-                    }`}
-                    aria-hidden="true"
-                  />
-                  <span className="text-sm font-semibold">
-                    Processing Status
-                  </span>
+                  {allDone ? (
+                    <CheckCircle2 className="h-4 w-4 text-green-600"/>
+                  ) : hasErrors && completedCount === 0 ? (
+                    <XCircle className="h-4 w-4 text-destructive"/>
+                  ) : (
+                    <Clock className="h-4 w-4 text-primary animate-pulse"/>
+                  )}
+                  <span className="text-sm font-semibold">Progress</span>
                 </div>
                 <Badge
-                  variant={
-                    activeStep === 'done' ? 'default' :
-                      activeStep === 'error' ? 'destructive' :
-                        'secondary'
-                  }
+                  variant={allDone ? 'default' : hasErrors && completedCount === 0 ? 'destructive' : 'secondary'}
                   className="font-medium"
                 >
-                  {statusLabel}
+                  {completedCount} / {items.length} Complete
                 </Badge>
               </div>
 
               <div className="space-y-2">
-                <Progress value={progressValue} className="h-2" aria-label="Upload progress"/>
+                <Progress value={(completedCount / items.length) * 100} className="h-2"
+                          aria-label="Batch upload progress"/>
                 <div className="flex justify-between text-xs text-muted-foreground">
-                  <span>{progressValue}% complete</span>
-                  {(statusData?.updatedAt || activeItem.updatedAt) && (
-                    <span>
-                      Updated{' '}
-                      {new Date((statusData?.updatedAt || activeItem.updatedAt) as string).toLocaleTimeString()}
-                    </span>
+                  <span>
+                    {completedCount} of {items.length} files processed
+                  </span>
+                  {hasErrors && (
+                    <span className="text-destructive">{items.filter((i) => i.step === 'error').length} failed</span>
                   )}
                 </div>
               </div>
 
-              {/* Step Indicators */}
               <div className="grid grid-cols-4 gap-2 pt-2">
-                {[
-                  { label: 'Upload', value: 25 },
-                  { label: 'Initialize', value: 50 },
-                  { label: 'Process', value: 75 },
-                  { label: 'Complete', value: 100 },
-                ].map((s, i) => (
-                  <div key={i} className="flex flex-col items-center gap-1">
-                    <div
-                      className={`w-2 h-2 rounded-full ${
-                        progressValue >= s.value ? 'bg-primary' : 'bg-muted-foreground/20'
-                      }`}
-                      aria-hidden="true"
-                    />
-                    <span
-                      className={`text-xs ${
-                        progressValue >= s.value ? 'text-foreground font-medium' : 'text-muted-foreground'
-                      }`}
-                    >
-                      {s.label}
-                    </span>
-                  </div>
-                ))}
-              </div>
-
-              {activeItem.questionFileId && (
-                <div className="pt-2 border-t">
-                  <p className="text-xs text-muted-foreground">
-                    <span className="font-medium">File ID:</span> {activeItem.questionFileId}
-                  </p>
+                <div className="flex flex-col items-center gap-1">
+                  <div
+                    className="text-lg font-semibold text-foreground">{items.filter((i) => i.step === 'idle').length}</div>
+                  <span className="text-xs text-muted-foreground">Queued</span>
                 </div>
-              )}
+                <div className="flex flex-col items-center gap-1">
+                  <div className="text-lg font-semibold text-primary">
+                    {items.filter((i) => ['uploading', 'starting', 'processing'].includes(i.step)).length}
+                  </div>
+                  <span className="text-xs text-muted-foreground">Processing</span>
+                </div>
+                <div className="flex flex-col items-center gap-1">
+                  <div className="text-lg font-semibold text-green-600">{completedCount}</div>
+                  <span className="text-xs text-muted-foreground">Done</span>
+                </div>
+                <div className="flex flex-col items-center gap-1">
+                  <div
+                    className="text-lg font-semibold text-destructive">{items.filter((i) => i.step === 'error').length}</div>
+                  <span className="text-xs text-muted-foreground">Failed</span>
+                </div>
+              </div>
             </div>
           )}
 
-          {/* Error Alert */}
           {error && (
             <Alert variant="destructive" role="alert">
               <XCircle className="h-4 w-4" aria-hidden="true"/>
@@ -861,7 +649,6 @@ export function QuestionFileUploadDialog({
             </Alert>
           )}
 
-          {/* Success Alert */}
           {allDone && (
             <Alert className="border-green-600/50 bg-green-50 dark:bg-green-950/20" role="alert">
               <CheckCircle2 className="h-4 w-4 text-green-600" aria-hidden="true"/>
@@ -873,21 +660,12 @@ export function QuestionFileUploadDialog({
         </div>
 
         <DialogFooter className="flex justify-between gap-2">
-          <Button
-            type="button"
-            variant="outline"
-            onClick={handleClose}
-            disabled={anyBusy && !allDone}
-          >
+          <Button type="button" variant="outline" onClick={handleClose} disabled={anyBusy && !allDone}>
             {allDone ? 'Done' : 'Cancel'}
           </Button>
 
-          <Button
-            type="button"
-            onClick={handleStart}
-            disabled={items.length === 0 || anyBusy || allDone}
-            className="gap-2 min-w-[160px]"
-          >
+          <Button type="button" onClick={handleStart} disabled={items.length === 0 || anyBusy || allDone}
+                  className="gap-2 min-w-[160px]">
             {anyBusy ? (
               <>
                 <Clock className="h-4 w-4 animate-spin" aria-hidden="true"/>

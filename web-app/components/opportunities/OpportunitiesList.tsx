@@ -2,111 +2,130 @@
 
 import React, { useMemo, useState } from 'react';
 import type { OpportunityItem } from '@auto-rfp/shared';
-import { ListX, Loader2, RefreshCw, Search } from 'lucide-react';
+import { Loader2, RefreshCw, Search } from 'lucide-react';
 
-import { Input } from '@/components/ui/input';
-import { Button } from '@/components/ui/button';
+import { OpportunitiesListItem } from './OpportunitiesListItem';
+
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Skeleton } from '@/components/ui/skeleton';
+import { cn } from '@/lib/utils';
+import { useRouter, usePathname } from 'next/navigation';
 
-import { OpportunityListItem } from './OpportunityListItem';
 import { useOpportunitiesList } from '@/lib/hooks/use-opportunities';
 
 type Props = {
   projectId: string;
   limit?: number;
+  className?: string;
   onOpen?: (item: OpportunityItem) => void;
 };
 
-export default function OpportunitiesList({ projectId, limit = 25, onOpen }: Props) {
-  const { items, isLoading, error, refresh, loadMore, canLoadMore } = useOpportunitiesList({
+const makeSearchHaystack = (it: OpportunityItem) =>
+  [
+    it.title,
+    it.organizationName ?? '',
+    it.organizationCode ?? '',
+    it.naicsCode ?? '',
+    it.pscCode ?? '',
+    it.noticeId ?? '',
+    it.solicitationNumber ?? '',
+    it.type ?? '',
+    it.setAside ?? '',
+    it.setAsideCode ?? '',
+    it.description ?? '',
+    it.source ?? '',
+    it.active ? 'active' : 'inactive',
+  ]
+    .join(' | ')
+    .toLowerCase();
+
+export function OpportunitiesList({ projectId, limit = 25, className }: Props) {
+  const router = useRouter();
+  const pathname = usePathname();
+
+  const { items, isLoading, error, refresh, loadMore, canLoadMore, nextToken } = useOpportunitiesList({
     projectId,
     limit,
-  } as any);
+  });
 
-  const [query, setQuery] = useState('');
+  const [q, setQ] = useState('');
 
   const filtered = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    if (!q) return items;
+    const needle = q.trim().toLowerCase();
+    if (!needle) return items;
+    return items.filter((it) => makeSearchHaystack(it).includes(needle));
+  }, [items, q]);
 
-    return items.filter((it: any) => {
-      const hay = [
-        it?.title,
-        it?.name,
-        it?.agency,
-        it?.organization,
-        it?.buyer,
-        it?.department,
-        it?.source,
-        it?.status,
-        it?.stage,
-        it?.summary,
-      ]
-        .filter(Boolean)
-        .join(' ')
-        .toLowerCase();
+  const showLoadingSkeleton = isLoading && items.length === 0;
 
-      return hay.includes(q);
-    });
-  }, [items, query]);
+  const handleOpen = (it: OpportunityItem) => {
+
+    const id = it.oppId ?? it.id;
+    const base = (pathname ?? '').replace(/\/$/, '');
+    router.push(`${base}/${encodeURIComponent(id)}`);
+  };
 
   return (
-    <div className="space-y-4">
-      <div className="flex flex-col sm:flex-row sm:items-center gap-3">
-        <div className="relative w-full sm:max-w-md">
-          <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground"/>
+    <div className={cn('space-y-4', className)}>
+      <div className="flex items-center justify-between gap-3">
+        <div className="relative w-full max-w-md">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search opportunities…"
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+            placeholder="Search title, org, NAICS, solicitation, notice…"
             className="pl-9"
           />
         </div>
 
-        <div className="flex items-center gap-2">
-          <Button variant="outline" onClick={refresh} className="gap-2">
-            <RefreshCw className="h-4 w-4"/>
-            Refresh
-          </Button>
-        </div>
+        <Button variant="outline" onClick={refresh} disabled={isLoading}>
+          {isLoading ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <RefreshCw className="h-4 w-4 mr-2" />}
+          Refresh
+        </Button>
       </div>
 
-      {error && (
+      {error ? (
         <Alert variant="destructive">
-          <AlertDescription>{error.message}</AlertDescription>
+          <AlertDescription>
+            {error.message}
+            {error.status ? <span className="ml-2 opacity-80">(HTTP {error.status})</span> : null}
+          </AlertDescription>
         </Alert>
-      )}
+      ) : null}
 
-      {isLoading && items.length === 0 ? (
-        <div className="flex items-center gap-2 text-sm text-muted-foreground">
-          <Loader2 className="h-4 w-4 animate-spin"/>
-          Loading opportunities…
+      {showLoadingSkeleton ? (
+        <div className="space-y-3">
+          <Skeleton className="h-24 w-full" />
+          <Skeleton className="h-24 w-full" />
+          <Skeleton className="h-24 w-full" />
         </div>
       ) : filtered.length === 0 ? (
-        <div className="rounded-lg border p-6 text-sm text-muted-foreground flex items-center gap-2">
-          <ListX className="h-4 w-4"/>
-          No opportunities found.
-        </div>
+        <div className="text-sm text-muted-foreground">No opportunities found.</div>
       ) : (
-        <div className="grid grid-cols-1 gap-3">
-          {filtered.map((it: any) => (
-            <OpportunityListItem
-              key={(it?.PK && it?.SK ? `${it.PK}#${it.SK}` : it?.oppId ?? it?.id ?? JSON.stringify(it))}
+        <div className="space-y-3">
+          {filtered.map((it) => (
+            <OpportunitiesListItem
+              key={`${it.source}#${it.id}`}
               item={it}
-              onOpen={onOpen}
+              onOpen={() => handleOpen(it)}
             />
           ))}
         </div>
       )}
 
-      <div className="flex items-center justify-center pt-2">
+      <div className="flex justify-center pt-2">
         {canLoadMore ? (
-          <Button variant="outline" onClick={loadMore}>
+          <Button onClick={loadMore} disabled={isLoading} variant="secondary">
+            {isLoading ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : null}
             Load more
           </Button>
-        ) : (
-          items.length > 0 && <div className="text-xs text-muted-foreground">End of list</div>
-        )}
+        ) : items.length > 0 ? (
+          <div className="text-xs text-muted-foreground">
+            End of list {nextToken ? '(more available)' : ''}
+          </div>
+        ) : null}
       </div>
     </div>
   );

@@ -13,6 +13,8 @@ import type {
 } from '@auto-rfp/shared';
 import { OpportunityItemSchema } from '@auto-rfp/shared';
 
+const BASE_URL = `${env.BASE_API_URL}/opportunity` as const;
+
 type ErrorShape = Error & { status?: number; details?: any };
 
 const readTextSafe = async (res: any) => {
@@ -23,7 +25,7 @@ const readTextSafe = async (res: any) => {
   }
 };
 
-const readAuthJson = async <T,>(res: any, fallbackError = 'Request failed'): Promise<T> => {
+const readAuthJson = async <T, >(res: any, fallbackError = 'Request failed'): Promise<T> => {
   if (!res?.ok) {
     const raw = await readTextSafe(res);
     let message = fallbackError;
@@ -102,7 +104,7 @@ const normalizeSamSearch = (
 const encodeNextToken = (token?: string | null) => (token ? encodeURIComponent(token) : undefined);
 
 const buildListUrl = (args: { projectId: string; limit?: number; nextToken?: string | null }) => {
-  const u = new URL(`${env.BASE_API_URL}/get-opportunities`);
+  const u = new URL(`${BASE_URL}/get-opportunities`);
   u.searchParams.set('projectId', args.projectId);
   if (args.limit) u.searchParams.set('limit', String(args.limit));
   const nt = encodeNextToken(args.nextToken);
@@ -205,7 +207,7 @@ export type CreateOpportunityResponse = {
 
 export function useCreateOpportunity() {
   return useSWRMutation<CreateOpportunityResponse, ErrorShape, string, OpportunityItem>(
-    `${env.BASE_API_URL}/opportunities`,
+    `${BASE_URL}/create-opportunity`,
     async (url, { arg }) => {
       const parsed = OpportunityItemSchema.safeParse(arg);
       if (!parsed.success) {
@@ -224,4 +226,44 @@ export function useCreateOpportunity() {
       return readAuthJson<CreateOpportunityResponse>(res, 'Failed to create opportunity');
     },
   );
+}
+
+export function useOpportunity(projectId: string | null, oppId: string | null) {
+  const shouldFetch = !!projectId && !!oppId;
+
+  const url = shouldFetch
+    ? `${env.BASE_API_URL}/opportunity/get-opportunity?projectId=${encodeURIComponent(projectId!)}&oppId=${encodeURIComponent(oppId!)}`
+    : null;
+
+  const { data, error, isLoading, mutate } = useSWR<OpportunityItem>(
+    url,
+    async (u: string) => {
+      const res = await authFetcher(u);
+      const raw = await res.text().catch(() => '');
+
+      if (!res.ok) {
+        throw new Error(raw || 'Failed to load opportunity');
+      }
+
+      const body = raw ? JSON.parse(raw) : {};
+      // lambda returns extra fields (questionFiles). Ignore them and validate the opportunity shape.
+      const parsed = OpportunityItemSchema.safeParse(body);
+      if (!parsed.success) {
+        const err = new Error('Invalid opportunity payload') as Error & { details?: any };
+        (err as any).details = parsed.error.flatten();
+        throw err;
+      }
+
+      return parsed.data;
+    },
+    { revalidateOnFocus: false, dedupingInterval: 30000 },
+  );
+
+  return {
+    data,
+    isLoading,
+    isError: !!error,
+    error,
+    refetch: () => mutate(),
+  };
 }

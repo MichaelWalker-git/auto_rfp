@@ -431,7 +431,7 @@ export class ApiStack extends cdk.Stack {
   private createExecBriefQueue(stage: string): sqs.Queue {
     return new sqs.Queue(this, `ExecBriefQueue-${stage}`, {
       queueName: `auto-rfp-${stage}-exec-brief-queue`,
-      visibilityTimeout: cdk.Duration.minutes(10),
+      visibilityTimeout: cdk.Duration.seconds(60),
       retentionPeriod: cdk.Duration.days(4),
       deadLetterQueue: {
         queue: new sqs.Queue(this, `ExecBriefDLQ-${stage}`, {
@@ -606,5 +606,6 @@ export class ApiStack extends cdk.Stack {
     // Opportunities
     this.opportunityApi.addRoute('/get-opportunities', 'GET', 'lambda/opportunity/get-opportunities.ts');
     this.opportunityApi.addRoute('/create-opportunity', 'POST', 'lambda/opportunity/create-opportunity.ts');
+    this.opportunityApi.addRoute('/get-opportunity', 'GET', 'lambda/opportunity/get-opportunity.ts');
   }
 }

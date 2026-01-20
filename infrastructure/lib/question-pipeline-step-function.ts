@@ -19,8 +19,6 @@ interface Props extends StackProps {
   sentryDNS: string;
 }
 
-
-// TODO Kate
 export class QuestionExtractionPipelineStack extends Stack {
   public readonly stateMachine: sfn.StateMachine;
 
@@ -58,10 +56,6 @@ export class QuestionExtractionPipelineStack extends Stack {
       SENTRY_DSN: sentryDNS,
       SENTRY_ENVIRONMENT: stage,
     } as const;
-
-    // -----------------------------
-    // Lambdas
-    // -----------------------------
 
     const startTextractLambda = new lambdaNode.NodejsFunction(this, 'StartTextractLambda', {
       runtime: lambda.Runtime.NODEJS_20_X,
@@ -143,7 +137,7 @@ export class QuestionExtractionPipelineStack extends Stack {
       logGroup: mkFnLogGroup('ExtractQuestions'),
       entry: path.join(__dirname, '../lambda/question-pipeline/extract-questions.ts'),
       handler: 'handler',
-      timeout: Duration.minutes(2),
+      timeout: Duration.minutes(5),
       environment: {
         ...commonLambdaEnv,
         BEDROCK_MODEL_ID: 'anthropic.claude-3-haiku-20240307-v1:0',
@@ -175,13 +169,31 @@ export class QuestionExtractionPipelineStack extends Stack {
       {
         runtime: lambda.Runtime.NODEJS_20_X,
         logGroup: mkFnLogGroup('FulfillOpportunityFields'),
-        entry: path.join(__dirname, '../lambda/question-pipeline/fullfill-opportunity-fields.ts'),
+        entry: path.join(__dirname, '../lambda/question-pipeline/fulfill-opportunity-fields.ts'),
         handler: 'handler',
         timeout: Duration.minutes(2),
-        environment: commonLambdaEnv,
+        environment: {
+          ...commonLambdaEnv,
+          BEDROCK_MODEL_ID: 'anthropic.claude-3-haiku-20240307-v1:0',
+          BEDROCK_REGION: 'us-east-1',
+        }
       },
     );
     mainTable.grantReadWriteData(fulfillOpportunityFieldsLambda);
+
+    fulfillOpportunityFieldsLambda.addToRolePolicy(
+      new iam.PolicyStatement({
+        actions: ['bedrock:InvokeModel'],
+        resources: ['*'],
+      }),
+    );
+
+    fulfillOpportunityFieldsLambda.addToRolePolicy(
+      new iam.PolicyStatement({
+        actions: ['ssm:GetParameter'],
+        resources: [bedrockApiKeyParamArn],
+      }),
+    );
 
     const unsupportedFileLambda = new lambdaNode.NodejsFunction(this, 'UnsupportedFileLambda', {
       runtime: lambda.Runtime.NODEJS_20_X,
@@ -193,10 +205,6 @@ export class QuestionExtractionPipelineStack extends Stack {
     });
     mainTable.grantReadWriteData(unsupportedFileLambda);
 
-    // -----------------------------
-    // Step Functions tasks
-    // -----------------------------
-
     const startTextract = new tasks.LambdaInvoke(this, 'Start Textract', {
       lambdaFunction: startTextractLambda,
       integrationPattern: sfn.IntegrationPattern.WAIT_FOR_TASK_TOKEN,
@@ -206,8 +214,7 @@ export class QuestionExtractionPipelineStack extends Stack {
         projectId: sfn.JsonPath.stringAt('$.projectId'),
         sourceFileKey: sfn.JsonPath.stringAt('$.sourceFileKey'),
         mimeType: sfn.JsonPath.stringAt('$.mimeType'),
-        // REQUIRED INPUT from trigger:
-        opportunityId: sfn.JsonPath.stringAt('$.opportunityId'),
+        opportunityId: sfn.JsonPath.stringAt('$.oppId'),
       }),
       resultPath: '$.textract',
     });
@@ -218,7 +225,7 @@ export class QuestionExtractionPipelineStack extends Stack {
         questionFileId: sfn.JsonPath.stringAt('$.questionFileId'),
         projectId: sfn.JsonPath.stringAt('$.projectId'),
         jobId: sfn.JsonPath.stringAt('$.textract.jobId'),
-        opportunityId: sfn.JsonPath.stringAt('$.opportunityId'),
+        opportunityId: sfn.JsonPath.stringAt('$.oppId'),
       }),
       resultPath: '$.process',
       payloadResponseOnly: true,
@@ -231,7 +238,7 @@ export class QuestionExtractionPipelineStack extends Stack {
         sourceFileKey: sfn.JsonPath.stringAt('$.sourceFileKey'),
         questionFileId: sfn.JsonPath.stringAt('$.questionFileId'),
         projectId: sfn.JsonPath.stringAt('$.projectId'),
-        opportunityId: sfn.JsonPath.stringAt('$.opportunityId'),
+        opportunityId: sfn.JsonPath.stringAt('$.oppId'),
       }),
       resultPath: '$.process',
       payloadResponseOnly: true,
@@ -242,7 +249,7 @@ export class QuestionExtractionPipelineStack extends Stack {
       payload: sfn.TaskInput.fromObject({
         questionFileId: sfn.JsonPath.stringAt('$.questionFileId'),
         projectId: sfn.JsonPath.stringAt('$.projectId'),
-        opportunityId: sfn.JsonPath.stringAt('$.opportunityId'),
+        opportunityId: sfn.JsonPath.stringAt('$.oppId'),
       }),
       resultPath: '$.unsupported',
       payloadResponseOnly: true,
@@ -261,7 +268,7 @@ export class QuestionExtractionPipelineStack extends Stack {
         questionFileId: sfn.JsonPath.stringAt('$.questionFileId'),
         projectId: sfn.JsonPath.stringAt('$.projectId'),
         textFileKey: sfn.JsonPath.stringAt('$.process.textFileKey'),
-        opportunityId: sfn.JsonPath.stringAt('$.opportunityId'),
+        opportunityId: sfn.JsonPath.stringAt('$.oppId'),
       }),
       resultPath: sfn.JsonPath.DISCARD,
       payloadResponseOnly: true,
@@ -273,7 +280,7 @@ export class QuestionExtractionPipelineStack extends Stack {
         questionFileId: sfn.JsonPath.stringAt('$.questionFileId'),
         projectId: sfn.JsonPath.stringAt('$.projectId'),
         textFileKey: sfn.JsonPath.stringAt('$.process.textFileKey'),
-        opportunityId: sfn.JsonPath.stringAt('$.opportunityId'),
+        opportunityId: sfn.JsonPath.stringAt('$.oppId'),
       }),
       resultPath: sfn.JsonPath.DISCARD,
       payloadResponseOnly: true,
@@ -286,7 +293,7 @@ export class QuestionExtractionPipelineStack extends Stack {
         questionFileId: sfn.JsonPath.stringAt('$.questionFileId'),
         projectId: sfn.JsonPath.stringAt('$.projectId'),
         textFileKey: sfn.JsonPath.stringAt('$.process.textFileKey'),
-        opportunityId: sfn.JsonPath.stringAt('$.opportunityId'),
+        opportunityId: sfn.JsonPath.stringAt('$.oppId'),
       }),
       resultPath: sfn.JsonPath.DISCARD,
     });
@@ -297,7 +304,7 @@ export class QuestionExtractionPipelineStack extends Stack {
         questionFileId: sfn.JsonPath.stringAt('$.questionFileId'),
         projectId: sfn.JsonPath.stringAt('$.projectId'),
         textFileKey: sfn.JsonPath.stringAt('$.process.textFileKey'),
-        opportunityId: sfn.JsonPath.stringAt('$.opportunityId'),
+        opportunityId: sfn.JsonPath.stringAt('$.oppId'),
       }),
       resultPath: sfn.JsonPath.DISCARD,
     });
@@ -328,12 +335,6 @@ export class QuestionExtractionPipelineStack extends Stack {
       sfn.Condition.stringMatches('$.sourceFileKey', '*.tif'),
       sfn.Condition.stringMatches('$.sourceFileKey', '*.TIF'),
     );
-
-    // -----------------------------
-    // Definition (updated)
-    // DOCX/PDF paths now:
-    //   (extract text) -> fulfill opp fields -> extract questions -> done
-    // -----------------------------
 
     const pdfBranch = sfn.Chain.start(startTextract)
       .next(processResult)

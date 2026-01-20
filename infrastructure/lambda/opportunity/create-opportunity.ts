@@ -17,10 +17,11 @@ import { createOpportunity } from '../helpers/opportunity';
 // TODO Kate
 const baseHandler = async (event: APIGatewayProxyEventV2): Promise<APIGatewayProxyResultV2> => {
   try {
-    const orgId = getOrgId(event);
-    if (!orgId) {
-      return apiResponse(401, { ok: false, error: 'Unauthorized' });
-    }
+    console.log('Event:', JSON.stringify(event, null, 2));
+    // const orgId = getOrgId(event);
+    // if (!orgId) {
+    //   return apiResponse(401, { ok: false, error: 'Unauthorized' });
+    // }
     const bodyRaw = JSON.parse(event.body || '');
     const { success, data, error } = OpportunityItemSchema.safeParse(bodyRaw);
 
@@ -32,7 +33,15 @@ const baseHandler = async (event: APIGatewayProxyEventV2): Promise<APIGatewayPro
       });
     }
 
-    const { projectId } = data;
+    const { projectId, orgId } = data;
+    console.log('orgId received from data:', orgId)
+
+    if (!orgId) {
+      return apiResponse(400, {
+        ok: false,
+        error: 'orgId is required',
+      });
+    }
 
     const { item, oppId } = await createOpportunity({
       orgId,

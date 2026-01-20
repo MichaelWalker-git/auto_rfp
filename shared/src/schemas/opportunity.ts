@@ -5,12 +5,13 @@ import { SamOpportunitySlimSchema } from './samgov';
  * A normalized “Opportunity” shape for your UI / DB / internal use.
  * Keep it stable even if SAM response fields are missing or inconsistent.
  */
-export const OpportunitySourceSchema = z.enum(['SAM_GOV']);
+export const OpportunitySourceSchema = z.enum(['SAM_GOV', 'MANUAL_UPLOAD']);
 export type OpportunitySource = z.infer<typeof OpportunitySourceSchema>;
 
 export const OpportunityItemSchema = z.object({
   orgId: z.string().optional(),
   projectId: z.string().optional(),
+  oppId: z.string().optional(),
   source: OpportunitySourceSchema,
   id: z.string().min(1),
   title: z.string().min(1),

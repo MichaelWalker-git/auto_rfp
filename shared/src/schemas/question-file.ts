@@ -73,3 +73,14 @@ export const QuestionFileItemSchema = z
   .passthrough();
 
 export type QuestionFileItem = z.infer<typeof QuestionFileItemSchema>;
+
+export const CreateQuestionFileRequestSchema = z.object({
+  projectId: z.string().min(1),
+  oppId: z.string(),
+  originalFileName: z.string().min(1),
+  fileKey: z.string().min(1),
+  mimeType: z.string().min(1),
+  sourceDocumentId: z.string().optional(),
+});
+
+export type CreateQuestionFileRequest = z.infer<typeof CreateQuestionFileRequestSchema>;

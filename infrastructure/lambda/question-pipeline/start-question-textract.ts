@@ -5,7 +5,7 @@ import { QUESTION_FILE_PK } from '../constants/question-file';
 import { withSentryLambda } from '../sentry-lambda';
 import { requireEnv } from '../helpers/env';
 import { docClient } from '../helpers/db';
-import { updateQuestionFile } from '../helpers/questionFile';
+import { buildQuestionFileSK, updateQuestionFile } from '../helpers/questionFile';
 
 const textract = new TextractClient({});
 
@@ -18,6 +18,7 @@ export interface StartTextractEvent {
   taskToken: string;
   questionFileId: string;
   projectId: string;
+  opportunityId: string;
   sourceFileKey?: string;
   mimeType?: string;
 }
@@ -26,14 +27,15 @@ export interface StartTextractResp {
   jobId: string;
 }
 
-// TODO Kate
 export const baseHandler = async (event: StartTextractEvent) => {
-  const { questionFileId, projectId, taskToken } = event;
+  const { questionFileId, projectId, opportunityId, taskToken } = event;
 
-  if (!questionFileId || !projectId)
-    throw new Error('questionFileId and projectId required');
+  console.log('event', event);
 
-  const sk = `${projectId}#${questionFileId}`;
+  if (!questionFileId || !projectId || !opportunityId)
+    throw new Error('questionFileId, opportunityId and projectId required');
+
+  const sk = buildQuestionFileSK(projectId, opportunityId, questionFileId);
 
   const { Item: item } = await docClient.send(
     new GetCommand({
@@ -64,8 +66,9 @@ export const baseHandler = async (event: StartTextractEvent) => {
   );
 
   const jobId = startRes.JobId!;
-  await updateQuestionFile(projectId, questionFileId, { status: 'TEXTRACT_RUNNING', jobId, taskToken });
+  await updateQuestionFile(projectId, opportunityId, questionFileId, { status: 'TEXTRACT_RUNNING', jobId, taskToken });
 
+  console.log('Updated question file with taskToken');
   return { jobId } as StartTextractResp;
 };
 
