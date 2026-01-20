@@ -42,6 +42,7 @@
     "@aws-sdk/credential-provider-node": "^3.965.0",
     "@aws-sdk/lib-dynamodb": "^3.965.0",
     "@aws-sdk/s3-request-presigner": "^3.965.0",
+    "@linear/sdk": "^69.0.0",
     "@middy/core": "^7.0.2",
     "@opensearch-project/opensearch": "^3.5.1",
     "@sentry/serverless": "^7.120.4",

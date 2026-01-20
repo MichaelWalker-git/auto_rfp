@@ -49,6 +49,7 @@ const JobSchema = z.object({
   section: z.enum(['summary', 'deadlines', 'requirements', 'contacts', 'risks', 'scoring']),
   topK: z.number().int().min(1).max(100).optional(),
   inputHash: z.string().min(1),
+  retryCount: z.number().int().min(0).optional().default(0),
 });
 
 type Job = z.infer<typeof JobSchema>;

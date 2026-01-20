@@ -289,6 +289,11 @@ export const ExecutiveBriefItemSchema = z.object({
 
   createdAt: z.string().datetime(),
   updatedAt: z.string().datetime(),
+
+  // linear specific
+  linearTicketId: z.string().optional(),
+  linearTicketIdentifier: z.string().optional(),
+  linearTicketUrl: z.string().optional(),
 }).passthrough();
 
 export type ExecutiveBriefItem = z.infer<typeof ExecutiveBriefItemSchema>;
