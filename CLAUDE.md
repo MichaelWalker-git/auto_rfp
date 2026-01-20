@@ -65,6 +65,8 @@ All AWS CLI and CDK commands use the **`michael-primary`** profile:
 --profile michael-primary
 ```
 
+> **Note for Developers**: The `michael-primary` profile is used in this documentation for demonstration purposes. Replace it with your own AWS profile name (e.g., `default`, `dev`, or your organization's profile) when running commands. Configure your AWS profile using `aws configure --profile <your-profile-name>` or set up profiles in `~/.aws/config`.
+
 Update infrastructure commands if needed:
 ```bash
 cdk deploy --profile michael-primary --require-approval never
