@@ -203,7 +203,7 @@ Question → Titan Embed → OpenSearch KNN → Top-K Chunks → Claude + Contex
 - Prefix handlers with `handle` (handleClick, handleSubmit)
 - Descriptive names with auxiliary verbs (isLoading, hasError)
 
-### Next.js 15+ Async Patterns
+### Next.js 16 Async Patterns
 ```typescript
 // Always await runtime APIs
 const cookieStore = await cookies()
