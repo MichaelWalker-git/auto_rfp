@@ -30,7 +30,7 @@ function formatDate(isoString: string): string {
   });
 }
 
-function buildTicketDescription(brief: any, project: any): string {
+function buildTicketDescription(brief: any, _project: any): string {
   const summary = brief.sections?.summary?.data;
   const deadlines = brief.sections?.deadlines?.data;
   const scoring = brief.sections?.scoring?.data;

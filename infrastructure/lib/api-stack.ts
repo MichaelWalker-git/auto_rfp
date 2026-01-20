@@ -32,7 +32,6 @@ export interface ApiStackProps extends cdk.StackProps {
 
 export class ApiStack extends cdk.Stack {
   public readonly api: apigw.RestApi;
-  private static readonly BEDROCK_REGION = 'us-east-1';
 
   // Nested stacks
   private readonly organizationApi: ApiNestedStack;

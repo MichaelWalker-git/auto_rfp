@@ -203,7 +203,7 @@ export const baseHandler = async (
       .map(h => `CHUNK_KEY: ${h._source?.chunkKey}\nTEXT:\n${h.text}\n---`)
       .join('\n');
 
-    const { answer, confidence, found, source } = await answerWithBedrockLLM(question, finalContext);
+    const { answer, confidence, found, source: _source } = await answerWithBedrockLLM(question, finalContext);
 
     // 5) Store Q&A in Dynamo
     const qaItem = await saveAnswer({

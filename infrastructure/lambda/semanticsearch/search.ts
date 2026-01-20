@@ -1,6 +1,5 @@
 import type { APIGatewayProxyEventV2, APIGatewayProxyResultV2 } from 'aws-lambda';
 import middy from '@middy/core';
-import { BedrockRuntimeClient } from '@aws-sdk/client-bedrock-runtime';
 
 import { apiResponse } from '../helpers/api';
 import { withSentryLambda } from '../sentry-lambda';
@@ -10,7 +9,6 @@ import { authContextMiddleware, httpErrorMiddleware, orgMembershipMiddleware, } 
 import { getEmbedding, type OpenSearchHit, semanticSearchChunks } from '../helpers/embeddings';
 import { loadTextFromS3 } from '../helpers/s3';
 
-const REGION = requireEnv('REGION', 'us-east-1');
 const DOCUMENTS_BUCKET = requireEnv('DOCUMENTS_BUCKET');
 
 const DEFAULT_TOP_K = Number(requireEnv('TOP_CHUNKS_DEFAULT_TOP_K', '10'));
