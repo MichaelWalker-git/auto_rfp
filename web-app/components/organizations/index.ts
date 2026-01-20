@@ -15,9 +15,6 @@ export { InviteMemberDialog } from './InviteMemberDialog';
 
 // Other existing components
 export { CreateOrganizationDialog } from './CreateOrganizationDialog';
-export { LlamaCloudConnection } from './LlamaCloudConnection';
-export { LlamaCloudConnectionDialog } from './LlamaCloudConnectionDialog';
-export { LlamaCloudDocuments } from './LlamaCloudDocuments';
 export { SettingsContent } from './SettingsContent';
 
 // Types

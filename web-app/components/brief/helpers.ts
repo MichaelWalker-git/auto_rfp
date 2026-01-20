@@ -405,7 +405,7 @@ function buildScoring(brief: ExecutiveBriefItem): Paragraph[] {
 
   if ((data.confidenceDrivers ?? []).length) {
     out.push(blank(), h('Confidence Drivers', HeadingLevel.HEADING_2));
-    data.confidenceDrivers.slice(0, 10).forEach((d) => {
+    (data.confidenceDrivers ?? []).slice(0, 10).forEach((d) => {
       out.push(bullet(`${safeText(d.factor)} (${d.direction === 'UP' ? '↑' : '↓'})`, 0));
     });
   }

@@ -52,8 +52,12 @@ export function CreateOrganizationDialog({
     try {
       setIsSubmitting(true);
 
+      // Generate slug from name (lowercase, replace spaces with hyphens, remove special chars)
+      const slug = name.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
+
       const response = await createOrganization({
         name,
+        slug,
         description,
       });
 
