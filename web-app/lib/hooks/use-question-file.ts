@@ -8,6 +8,7 @@ const BASE = `${env.BASE_API_URL}/questionfile`;
 
 type StartQuestionFilePayload = {
   projectId: string;
+  oppId: string;
   questionFileId: string;
 };
 
@@ -27,9 +28,7 @@ export async function startQuestionFileFetcher(
 
   if (!res.ok) {
     const text = await res.text().catch(() => '');
-    const err = new Error(text || 'Failed to start question file pipeline') as Error & {
-      status?: number;
-    };
+    const err = new Error(text || 'Failed to start question file pipeline') as Error & { status?: number };
     (err as any).status = res.status;
     throw err;
   }
@@ -37,59 +36,37 @@ export async function startQuestionFileFetcher(
   return res.json();
 }
 
-/**
- * POST /questionfile/start-pipeline
- * body: { projectId, fileKey }
- * response: { questionFileId, status }
- */
-export function useStartQuestionFilePipeline(projectId: string) {
+export function useStartQuestionFilePipeline() {
   return useSWRMutation<StartQuestionFileResponse, any, string, StartQuestionFilePayload>(
     `${BASE}/start-question-pipeline`,
     startQuestionFileFetcher,
   );
 }
 
-type QuestionFileStatusResponse = {
-  questionFileId: string;
-  projectId: string;
-  status: 'processing' | 'text_ready' | 'questions_extracted' | 'error';
-  fileKey?: string;
-  textFileKey?: string;
-  updatedAt?: string;
-  errorMessage?: string;
-};
+export function useQuestionFilesStatus(projectId: string, oppId: string, questionFileIds: string[]) {
+  const idsKey = questionFileIds.slice().sort().join(',');
 
-/**
- * GET /questionfile/get-question-file?projectId=...&id=...
- * response: QuestionFileStatusResponse
- */
-export function useQuestionFileStatus(
-  projectId: string | null,
-  questionFileId: string | null,
-) {
-  const key =
-    projectId && questionFileId
-      ? `${BASE}/get-question-file?projectId=${projectId}&id=${questionFileId}`
-      : null;
+  return useSWR(
+    idsKey && projectId ? `multi-status-${projectId}-${idsKey}` : null,
+    async () => {
+      const promises = questionFileIds.map(async (qfId) => {
+        const url = `${BASE}/get-question-file?projectId=${encodeURIComponent(projectId)}&questionFileId=${encodeURIComponent(qfId)}&oppId=${encodeURIComponent(oppId)}`;
 
-  return useSWR<QuestionFileStatusResponse>(
-    key,
-    async (url: string) => {
-      const res = await authFetcher(url);
-      if (!res.ok) {
-        const text = await res.text().catch(() => '');
-        const err = new Error(text || 'Failed to load question file status') as Error & {
-          status?: number;
-        };
-        (err as any).status = res.status;
-        throw err;
-      }
-      return res.json();
+        const res = await authFetcher(url);
+        if (!res.ok) {
+          const text = await res.text().catch(() => '');
+          const err = new Error(text || 'Failed to load question file status') as Error & { status?: number };
+          err.status = res.status;
+          throw err;
+        }
+
+        const data = await res.json();
+        return { questionFileId: qfId, data };
+      });
+
+      return Promise.all(promises);
     },
-    {
-      // Poll every 3s while we have an id
-      refreshInterval: questionFileId ? 3000 : 0,
-    },
+    { refreshInterval: 2000, revalidateOnFocus: false },
   );
 }
 
@@ -107,19 +84,23 @@ export interface QuestionFile {
 }
 
 export interface CreateQuestionFileArgs {
+  projectId: string;
+  oppId: string;
   fileKey: string;
   originalFileName?: string;
   mimeType?: string;
   sourceDocumentId?: string;
 }
 
-export function useCreateQuestionFile(projectId: string) {
+export function useCreateQuestionFile(projectId: string, orgId?: string) {
   return useSWRMutation<QuestionFile, any, string, CreateQuestionFileArgs>(
-    `${BASE}/create-question-file`,
+    `${BASE}/create-question-file?projectId=${encodeURIComponent(projectId)}${orgId ? `&orgId=${encodeURIComponent(orgId)}` : ''}`,
     async (url, { arg }) => {
       const res = await authFetcher(url, {
         method: 'POST',
         body: JSON.stringify({
+          orgId,
+          oppId: arg.oppId,
           projectId,
           fileKey: arg.fileKey,
           originalFileName: arg.originalFileName,
@@ -130,9 +111,7 @@ export function useCreateQuestionFile(projectId: string) {
 
       if (!res.ok) {
         const message = await res.text().catch(() => '');
-        const error = new Error(
-          message || 'Failed to create question file',
-        ) as Error & { status?: number };
+        const error = new Error(message || 'Failed to create question file') as Error & { status?: number };
         (error as any).status = res.status;
         throw error;
       }
@@ -142,37 +121,55 @@ export function useCreateQuestionFile(projectId: string) {
   );
 }
 
+type Response = {
+  items: QuestionFileItem[];
+  nextToken: string | null;
+};
 
-export function useQuestionFiles(projectId: string | null) {
+export function useQuestionFiles(
+  projectId: string | null,
+  opts?: { oppId?: string | null; limit?: number },
+) {
   const shouldFetch = !!projectId;
+  const { oppId, limit } = opts ?? {};
 
   const url = shouldFetch
-    ? `${env.BASE_API_URL}/questionfile/get-question-files?projectId=${encodeURIComponent(
-      projectId!,
-    )}`
+    ? `${BASE}/get-question-files?` +
+    new URLSearchParams({
+      projectId: projectId!,
+      ...(oppId ? { oppId } : {}),
+      ...(limit ? { limit: String(limit) } : {}),
+    }).toString()
     : null;
 
-  const { data, error, isLoading, mutate } = useSWR<{ items: QuestionFileItem[] }>(
+  const { data, error, isLoading, mutate } = useSWR<Response>(
     url,
     async (u: string) => {
       const res = await authFetcher(u);
-      if (!res.ok) throw new Error(await res.text().catch(() => 'Failed to load question files'));
-      return (await res.json()) as { items: QuestionFileItem[] };
+      if (!res.ok) {
+        const msg = await res.text().catch(() => '');
+        throw new Error(msg || 'Failed to load question files');
+      }
+      return (await res.json()) as Response;
     },
+    { revalidateOnFocus: false },
   );
 
   return {
     items: data?.items ?? [],
-    data,
+    nextToken: data?.nextToken ?? null,
+
     isLoading,
     isError: !!error,
     error,
+
     refetch: () => mutate(),
   };
 }
 
 type DeleteQuestionFilePayload = {
   projectId: string;
+  oppId: string;
   questionFileId: string;
 };
 
@@ -191,20 +188,20 @@ export async function deleteQuestionFileFetcher(
   url: string,
   { arg }: { arg: DeleteQuestionFilePayload },
 ): Promise<DeleteQuestionFileResponse> {
-  const full = `${url}?projectId=${encodeURIComponent(arg.projectId)}&questionFileId=${encodeURIComponent(
-    arg.questionFileId,
-  )}`;
+  const full =
+    `${url}?projectId=${encodeURIComponent(arg.projectId)}` +
+    `&oppId=${encodeURIComponent(arg.oppId)}` +
+    `&questionFileId=${encodeURIComponent(arg.questionFileId)}`;
 
   const res = await authFetcher(full, { method: 'DELETE' });
 
   if (!res.ok) {
     const text = await res.text().catch(() => '');
-    const err = new Error(text || 'Failed to delete question file') as Error & {
-      status?: number;
-    };
+    const err = new Error(text || 'Failed to delete question file') as Error & { status?: number };
     (err as any).status = res.status;
     throw err;
   }
+
   const raw = await res.text().catch(() => '');
   if (!raw) return { success: true };
 
@@ -216,10 +213,8 @@ export async function deleteQuestionFileFetcher(
 }
 
 export function useDeleteQuestionFile() {
-  return useSWRMutation<
-    DeleteQuestionFileResponse,
-    any,
-    string,
-    DeleteQuestionFilePayload
-  >(`${BASE}/delete-question-file`, deleteQuestionFileFetcher);
+  return useSWRMutation<DeleteQuestionFileResponse, any, string, DeleteQuestionFilePayload>(
+    `${BASE}/delete-question-file`,
+    deleteQuestionFileFetcher,
+  );
 }

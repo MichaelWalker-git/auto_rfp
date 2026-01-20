@@ -30,7 +30,7 @@ const BEDROCK_MODEL_ID = requireEnv('BEDROCK_MODEL_ID');
 
 export type QuestionItemDynamo = QuestionItem & DBItem
 
-async function getDocumentItemById(documentId: string): Promise<DocumentItem & DBItem> {
+async function getDocumentItemById(documentId: string): Promise<DocumentItem & DBItem | undefined> {
   const skSuffix = `#DOC#${documentId}`;
 
   const queryRes = await docClient.send(
@@ -44,11 +44,7 @@ async function getDocumentItemById(documentId: string): Promise<DocumentItem & D
 
   const items = (queryRes.Items || []) as (DocumentItem & DBItem)[];
 
-  const docItem = items.find((it) => String(it[SK_NAME]).endsWith(skSuffix));
-  if (!docItem) {
-    throw new Error(`Document not found for PK=${DOCUMENT_PK} and SK ending with ${skSuffix}`);
-  }
-  return docItem;
+  return items.find((it) => String(it[SK_NAME]).endsWith(skSuffix));
 }
 
 async function buildContextFromChunkHits(hits: OpenSearchHit[]) {
@@ -67,7 +63,7 @@ async function buildContextFromChunkHits(hits: OpenSearchHit[]) {
       const chunkKey = hit._source?.chunkKey;
       const docId = hit._source?.documentId;
       const text = chunkKey ? await loadTextFromS3(DOCUMENTS_BUCKET, chunkKey) : '';
-      const { name: fileName } = docId ? await getDocumentItemById(docId) : {};
+      const { name: fileName } = docId ? await getDocumentItemById(docId) || {} : {};
       return { ...hit, text, fileName };
     }),
   );
@@ -179,7 +175,7 @@ export const baseHandler = async (
   try {
 
     const question = questionId
-      ? (await getQuestionItemById(docClient, projectId, questionId)).question
+      ? (await getQuestionItemById(projectId, questionId)).question
       : requestQuestion?.trim();
 
     if (!question) {

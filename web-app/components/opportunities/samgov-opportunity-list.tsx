@@ -4,7 +4,7 @@ import * as React from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { BadgeCheck, Building2, Calendar, Hash, Loader2, Search, Tag, } from 'lucide-react';
+import { BadgeCheck, Building2, Calendar, Hash, Loader2, Paperclip, Search, Tag, } from 'lucide-react';
 
 import type { SamOpportunitySlim } from '@auto-rfp/shared';
 import { fmtDate } from './samgov-utils';
@@ -38,12 +38,7 @@ function StatPill({
       <div className="shrink-0">{icon}</div>
       <div className="min-w-0">
         <div className="text-[11px] leading-4 text-muted-foreground">{label}</div>
-        <div
-          className={[
-            'truncate text-sm font-medium',
-            tone === 'danger' ? 'text-destructive' : '',
-          ].join(' ')}
-        >
+        <div className={['truncate text-sm font-medium', tone === 'danger' ? 'text-destructive' : ''].join(' ')}>
           {value}
         </div>
       </div>
@@ -103,12 +98,12 @@ export function SamGovOpportunityList({ data, isLoading, onPage, onImportSolicit
       )}
 
       {results.map((o) => {
-        // const noticeUrl = safeUrl((o as any).noticeUrl ?? o.description); // keep your existing behavior
         const isActive = o.active === 'Yes' || (o.active as any) === true;
 
         const title = o.title ?? '(No title)';
         const noticeId = o.noticeId ?? '—';
         const sol = o.solicitationNumber ?? '—';
+        const attachmentsCount = o.attachmentsCount ?? 0;
         const posted = fmtDate(o.postedDate) || '—';
         const due = fmtDate(o.responseDeadLine) || '—';
 
@@ -118,13 +113,10 @@ export function SamGovOpportunityList({ data, isLoading, onPage, onImportSolicit
             className="group rounded-2xl border bg-background transition-all hover:-translate-y-[1px] hover:shadow-md"
           >
             <CardContent className="p-4 md:p-5">
-              {/* Top row: Title + badges + stats */}
               <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
                 <div className="min-w-0">
                   <div className="flex flex-wrap items-center gap-2">
-                    <h3 className="min-w-0 flex-1 truncate text-base font-semibold tracking-tight">
-                      {title}
-                    </h3>
+                    <h3 className="min-w-0 flex-1 truncate text-base font-semibold tracking-tight">{title}</h3>
 
                     {isActive ? (
                       <Badge className="gap-1">
@@ -141,6 +133,15 @@ export function SamGovOpportunityList({ data, isLoading, onPage, onImportSolicit
                         {o.setAsideCode ?? o.setAside}
                       </Badge>
                     )}
+
+                    <Badge
+                      variant={attachmentsCount === 0 ? 'secondary' : 'default'}
+                      className="gap-1 rounded-xl"
+                      title={attachmentsCount === 0 ? 'No attachments detected' : 'Attachments available'}
+                    >
+                      <Paperclip className="h-3.5 w-3.5"/>
+                      {attachmentsCount}
+                    </Badge>
                   </div>
 
                   <div className="mt-2 grid gap-1.5">
@@ -160,16 +161,11 @@ export function SamGovOpportunityList({ data, isLoading, onPage, onImportSolicit
                     label="Posted"
                     value={posted}
                   />
-                  <StatPill
-                    icon={<Calendar className="h-4 w-4 text-destructive"/>}
-                    label="Due"
-                    value={due}
-                    tone="danger"
-                  />
+                  <StatPill icon={<Calendar className="h-4 w-4 text-destructive"/>} label="Due" value={due}
+                            tone="danger"/>
                 </div>
               </div>
 
-              {/* Middle: codes */}
               <div className="mt-4 flex flex-wrap gap-2">
                 <Badge variant="secondary" className="rounded-xl">
                   NAICS: <span className="ml-1 font-medium text-foreground">{o.naicsCode ?? '—'}</span>
@@ -179,7 +175,6 @@ export function SamGovOpportunityList({ data, isLoading, onPage, onImportSolicit
                 </Badge>
               </div>
 
-              {/* Actions */}
               <div className="mt-4 flex flex-col gap-2 border-t pt-4 sm:flex-row sm:items-center sm:justify-between">
                 <div className="flex items-center gap-2">
                   <Button size="sm" onClick={() => onImportSolicitation(o)} disabled={isLoading}>
@@ -204,11 +199,8 @@ export function SamGovOpportunityList({ data, isLoading, onPage, onImportSolicit
 
       {data && total > limit && (
         <div className="mt-4 flex items-center justify-between rounded-2xl border bg-muted/10 p-3">
-          <Button
-            variant="outline"
-            disabled={!canPrev || isLoading}
-            onClick={() => onPage(Math.max(0, offset - limit))}
-          >
+          <Button variant="outline" disabled={!canPrev || isLoading}
+                  onClick={() => onPage(Math.max(0, offset - limit))}>
             Previous
           </Button>
 

@@ -13,7 +13,12 @@ import { QUESTION_FILE_PK } from '../constants/question-file';
 import { nowIso } from '../helpers/date';
 import { readPlainSecret } from '../helpers/secret';
 
-import { type LoadSamOpportunitiesRequest, type SavedSearch, SavedSearchSchema, } from '@auto-rfp/shared';
+import {
+  type LoadSamOpportunitiesRequest,
+  type OpportunityItem,
+  type SavedSearch,
+  SavedSearchSchema,
+} from '@auto-rfp/shared';
 
 import {
   buildAttachmentFilename,
@@ -23,12 +28,16 @@ import {
   guessContentType,
   httpsGetBuffer,
   type ImportSamConfig,
+  safeIsoOrNull,
   searchSamOpportunities,
+  toBoolActive,
 } from '../helpers/samgov';
 import { listAllOrgIds } from '../helpers/org';
 import { PROJECT_PK } from '../constants/organization';
 import { uploadToS3 } from '../helpers/s3';
 import { SAVED_SEARCH_PK } from '../constants/samgov';
+import { buildQuestionFileSK, updateQuestionFile } from '../helpers/questionFile';
+import { createOpportunity } from '../helpers/opportunity';
 
 const DB_TABLE_NAME = requireEnv('DB_TABLE_NAME');
 
@@ -164,18 +173,21 @@ async function updateLastRunAt(orgId: string, savedSearchId: string, runAtIso: s
 async function createQuestionFile(args: {
   projectId: string;
   fileKey: string;
+  oppId: string;
   originalFileName?: string;
   mimeType?: string;
   sourceDocumentId?: string;
 }) {
-  const now = new Date().toISOString();
+  const { projectId, oppId } = args;
+  const now = nowIso();
   const questionFileId = uuidv4();
-  const sk = `${args.projectId}#${questionFileId}`;
+  const sk = buildQuestionFileSK(projectId, oppId, questionFileId);
 
   const item: Record<string, any> = {
     [PK_NAME]: QUESTION_FILE_PK,
     [SK_NAME]: sk,
 
+    oppId,
     questionFileId,
     projectId: args.projectId,
     fileKey: args.fileKey,
@@ -199,32 +211,17 @@ async function createQuestionFile(args: {
   return { questionFileId };
 }
 
-async function markProcessing(projectId: string, questionFileId: string) {
-  const sk = `${projectId}#${questionFileId}`;
-  const now = new Date().toISOString();
-
-  await docClient.send(
-    new UpdateCommand({
-      TableName: DB_TABLE_NAME,
-      Key: { [PK_NAME]: QUESTION_FILE_PK, [SK_NAME]: sk },
-      UpdateExpression: 'SET #status = :status, #updatedAt = :updatedAt',
-      ExpressionAttributeNames: {
-        '#pk': PK_NAME,
-        '#sk': SK_NAME,
-        '#status': 'status',
-        '#updatedAt': 'updatedAt',
-      },
-      ExpressionAttributeValues: { ':status': 'PROCESSING', ':updatedAt': now },
-      ConditionExpression: 'attribute_exists(#pk) AND attribute_exists(#sk)',
-    }),
-  );
+async function markProcessing(projectId: string, oppId: string, questionFileId: string) {
+  await updateQuestionFile(projectId, oppId, questionFileId, {
+    status: 'PROCESSING',
+  })
 }
 
-async function startPipeline(projectId: string, questionFileId: string) {
+async function startPipeline(projectId: string, questionFileId: string, oppId: string) {
   const res = await sfn.send(
     new StartExecutionCommand({
       stateMachineArn: STATE_MACHINE_ARN,
-      input: JSON.stringify({ questionFileId, projectId }),
+      input: JSON.stringify({ questionFileId, projectId, oppId }),
     }),
   );
 
@@ -239,15 +236,63 @@ async function importNoticeUsingHelpers(args: {
   postedTo: string;
   samCfg: ImportSamConfig;
 }) {
-  const opp = await fetchOpportunityViaSearch(args.samCfg, {
+  const { orgId, projectId, noticeId } = args;
+  const oppRaw = await fetchOpportunityViaSearch(args.samCfg, {
     noticeId: args.noticeId,
     postedFrom: args.postedFrom,
     postedTo: args.postedTo,
   });
+  const attachments = extractAttachmentsFromOpportunity(oppRaw);
 
-  console.log(opp);
+  const opportunity: OpportunityItem = {
+    orgId,
+    projectId,
+    source: 'SAM_GOV',
+    id: noticeId,
+    title: String((oppRaw as any)?.title ?? 'Untitled'),
+    type: ((oppRaw as any)?.type ?? null) as any,
+    postedDateIso: safeIsoOrNull((oppRaw as any)?.postedDate),
+    responseDeadlineIso: safeIsoOrNull((oppRaw as any)?.responseDeadLine),
+    noticeId: ((oppRaw as any)?.noticeId ?? noticeId) as any,
+    solicitationNumber: ((oppRaw as any)?.solicitationNumber ?? null) as any,
+    naicsCode: ((oppRaw as any)?.naicsCode ?? null) as any,
+    pscCode: ((oppRaw as any)?.classificationCode ?? null) as any,
+    organizationName: ((oppRaw as any)?.organizationName ?? (oppRaw as any)?.fullParentPathName ?? null) as any,
+    organizationCode: ((oppRaw as any)?.organizationCode ?? (oppRaw as any)?.fullParentPathCode ?? null) as any,
+    setAside: ((oppRaw as any)?.setAside ?? null) as any,
+    setAsideCode: ((oppRaw as any)?.setAsideCode ?? null) as any,
+    description: ((oppRaw as any)?.description ?? null) as any,
+    active: toBoolActive((oppRaw as any)?.active),
+    baseAndAllOptionsValue: ((oppRaw as any)?.baseAndAllOptionsValue ?? null) as any,
+    raw: {
+      noticeId: (oppRaw as any)?.noticeId ?? noticeId,
+      solicitationNumber: (oppRaw as any)?.solicitationNumber,
+      title: (oppRaw as any)?.title,
+      type: (oppRaw as any)?.type,
+      postedDate: (oppRaw as any)?.postedDate,
+      responseDeadLine: (oppRaw as any)?.responseDeadLine,
+      naicsCode: (oppRaw as any)?.naicsCode,
+      classificationCode: (oppRaw as any)?.classificationCode,
+      active: (oppRaw as any)?.active,
+      setAside: (oppRaw as any)?.setAside,
+      setAsideCode: (oppRaw as any)?.setAsideCode,
+      fullParentPathName: (oppRaw as any)?.fullParentPathName,
+      fullParentPathCode: (oppRaw as any)?.fullParentPathCode,
+      description: (oppRaw as any)?.description,
+      baseAndAllOptionsValue: (oppRaw as any)?.baseAndAllOptionsValue,
+      award: (oppRaw as any)?.award,
+      attachmentsCount: attachments.length,
+    },
+  };
 
-  const attachments = extractAttachmentsFromOpportunity(opp);
+  const { oppId } = await createOpportunity({
+    orgId,
+    projectId,
+    opportunity,
+  });
+
+  console.log(oppRaw);
+
   console.log(attachments);
 
   if (!attachments.length) return 0;
@@ -270,15 +315,17 @@ async function importNoticeUsingHelpers(args: {
 
     await uploadToS3(DOCUMENTS_BUCKET, fileKey, buf, finalContentType);
 
+
     const { questionFileId } = await createQuestionFile({
       projectId: args.projectId,
       fileKey,
+      oppId,
       originalFileName: filename,
       mimeType: finalContentType,
     });
 
-    await markProcessing(args.projectId, questionFileId);
-    await startPipeline(args.projectId, questionFileId);
+    await markProcessing(args.projectId, questionFileId, oppId);
+    await startPipeline(args.projectId, questionFileId, oppId);
 
     imported++;
   }
@@ -362,7 +409,7 @@ export const baseHandler = async (event: RunnerEvent) => {
   const dryRun = Boolean(event.detail?.dryRun);
   const onlyOrgId = event.detail?.orgId;
   console.log('Event: ', JSON.stringify(event));
-
+  const oppId = '';
   const now = new Date();
   const ranAtIso = nowIso();
 

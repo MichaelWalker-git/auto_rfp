@@ -1,16 +1,9 @@
 import type { APIGatewayProxyEventV2, APIGatewayProxyResultV2 } from 'aws-lambda';
 import middy from '@middy/core';
 import https from 'https';
-import { PutCommand, UpdateCommand } from '@aws-sdk/lib-dynamodb';
-import { SFNClient, StartExecutionCommand } from '@aws-sdk/client-sfn';
-import { v4 as uuidv4 } from 'uuid';
 
-import { apiResponse } from '../helpers/api';
+import { apiResponse, getOrgId } from '../helpers/api';
 import { requireEnv } from '../helpers/env';
-import { docClient } from '../helpers/db';
-
-import { PK_NAME, SK_NAME } from '../constants/common';
-import { QUESTION_FILE_PK } from '../constants/question-file';
 
 import { withSentryLambda } from '../sentry-lambda';
 import {
@@ -28,121 +21,100 @@ import {
   guessContentType,
   httpsGetBuffer,
   type ImportSamConfig,
+  safeIsoOrNull,
+  toBoolActive,
 } from '../helpers/samgov';
 import { uploadToS3 } from '../helpers/s3';
-import { nowIso } from '../helpers/date';
+
+import { createOpportunity } from '../helpers/opportunity';
+import type { OpportunityItem } from '@auto-rfp/shared';
+import { createQuestionFile } from '../helpers/questionFile';
+import { startPipeline } from '../helpers/solicitation';
 
 const DOCUMENTS_BUCKET = requireEnv('DOCUMENTS_BUCKET');
-const STATE_MACHINE_ARN = requireEnv('QUESTION_PIPELINE_STATE_MACHINE_ARN');
-const DB_TABLE_NAME = requireEnv('DB_TABLE_NAME');
 const SAM_API_ORIGIN = process.env.SAM_API_ORIGIN || 'https://api.sam.gov';
 const SAM_GOV_API_KEY_SECRET_ID = requireEnv('SAM_GOV_API_KEY_SECRET_ID');
 
-const sfn = new SFNClient({});
 const httpsAgent = new https.Agent({ keepAlive: true });
 
-type ImportSolicitationBody = {
-  orgId: string;
-  projectId: string;
-  noticeId: string;
-  postedFrom: string; // MM/dd/yyyy
-  postedTo: string;   // MM/dd/yyyy
-  sourceDocumentId?: string;
+const EXT_BY_CT: Record<string, string> = {
+  'application/pdf': 'pdf',
+  'application/msword': 'doc',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document': 'docx',
+  'application/vnd.ms-excel': 'xls',
+  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': 'xlsx',
+  'application/vnd.ms-powerpoint': 'ppt',
+  'application/vnd.openxmlformats-officedocument.presentationml.presentation': 'pptx',
+  'text/plain': 'txt',
+  'text/csv': 'csv',
+  'image/png': 'png',
+  'image/jpeg': 'jpg',
+  'image/jpg': 'jpg',
+  'image/gif': 'gif',
+  'application/zip': 'zip',
 };
 
-async function createQuestionFile(args: {
+const sanitizeFilename = (name: string) => {
+  let v = name.trim();
+
+  try {
+    v = decodeURIComponent(v);
+  } catch {
+    /* noop */
+  }
+
+  v = v.replace(/[/\\]+/g, '_');                 // no paths
+  v = v.replace(/\s+/g, ' ').trim();             // normalize spaces
+  v = v.replace(/[<>:"|?*\u0000-\u001F]/g, '_'); // unsafe chars
+  v = v.replace(/[. ]+$/g, '');                  // win edge cases
+
+  if (v.length > 180) v = v.slice(0, 180);
+  return v || 'attachment';
+};
+
+const ensureExtension = (filename: string, contentType?: string | null) => {
+  const safe = sanitizeFilename(filename);
+  const hasExt = /\.[a-z0-9]{1,8}$/i.test(safe);
+
+  if (hasExt) return safe;
+
+  const ct = (contentType ?? '').split(';')[0].trim().toLowerCase();
+  const ext = EXT_BY_CT[ct];
+
+  return ext ? `${safe}.${ext}` : safe;
+};
+
+/* -------------------------------------------------------------------------- */
+
+type ImportSolicitationBody = {
   projectId: string;
-  fileKey: string;
-  originalFileName?: string;
-  mimeType?: string;
+  noticeId: string;
+  postedFrom: string;
+  postedTo: string;
   sourceDocumentId?: string;
-}) {
-  const now = nowIso()
-  const questionFileId = uuidv4();
-  const sk = `${args.projectId}#${questionFileId}`;
-
-  const item: Record<string, any> = {
-    [PK_NAME]: QUESTION_FILE_PK,
-    [SK_NAME]: sk,
-
-    questionFileId,
-    projectId: args.projectId,
-    fileKey: args.fileKey,
-    textFileKey: null,
-    status: 'uploaded',
-    originalFileName: args.originalFileName ?? null,
-    mimeType: args.mimeType ?? null,
-    sourceDocumentId: args.sourceDocumentId ?? null,
-
-    createdAt: now,
-    updatedAt: now,
-  };
-
-  await docClient.send(
-    new PutCommand({
-      TableName: DB_TABLE_NAME,
-      Item: item,
-    }),
-  );
-
-  return { questionFileId };
-}
-
-async function markProcessing(projectId: string, questionFileId: string) {
-  const sk = `${projectId}#${questionFileId}`;
-  const now = new Date().toISOString();
-
-  await docClient.send(
-    new UpdateCommand({
-      TableName: DB_TABLE_NAME,
-      Key: {
-        [PK_NAME]: QUESTION_FILE_PK,
-        [SK_NAME]: sk,
-      },
-      UpdateExpression: 'SET #status = :status, #updatedAt = :updatedAt',
-      ExpressionAttributeNames: {
-        '#pk': PK_NAME,
-        '#sk': SK_NAME,
-        '#status': 'status',
-        '#updatedAt': 'updatedAt',
-      },
-      ExpressionAttributeValues: {
-        ':status': 'PROCESSING',
-        ':updatedAt': now,
-      },
-      ConditionExpression: 'attribute_exists(#pk) AND attribute_exists(#sk)',
-    }),
-  );
-}
-
-async function startPipeline(projectId: string, questionFileId: string) {
-  const res = await sfn.send(
-    new StartExecutionCommand({
-      stateMachineArn: STATE_MACHINE_ARN,
-      input: JSON.stringify({ questionFileId, projectId }),
-    }),
-  );
-
-  return { executionArn: res.executionArn, startDate: res.startDate };
-}
+};
 
 export const baseHandler = async (
   event: APIGatewayProxyEventV2,
 ): Promise<APIGatewayProxyResultV2> => {
-  if (!event.body) return apiResponse(400, { message: 'Request body is required' });
+  if (!event.body) return apiResponse(400, { ok: false, error: 'Request body is required' });
+
+  const orgId = getOrgId(event);
+  if (!orgId) return apiResponse(401, { ok: false, error: 'Unauthorized' });
 
   let body: ImportSolicitationBody;
   try {
     body = JSON.parse(event.body);
   } catch {
-    return apiResponse(400, { message: 'Invalid JSON body' });
+    return apiResponse(400, { ok: false, error: 'Invalid JSON body' });
   }
 
-  const { orgId, projectId, noticeId, postedFrom, postedTo } = body;
+  const { projectId, noticeId, postedFrom, postedTo } = body;
 
-  if (!orgId || !projectId || !noticeId || !postedFrom || !postedTo) {
+  if (!projectId || !noticeId || !postedFrom || !postedTo) {
     return apiResponse(400, {
-      message: 'orgId, projectId, noticeId, postedFrom, postedTo are required',
+      ok: false,
+      error: 'projectId, noticeId, postedFrom, postedTo are required',
     });
   }
 
@@ -153,75 +125,145 @@ export const baseHandler = async (
   };
 
   try {
-    const opp = await fetchOpportunityViaSearch(samCfg, { noticeId, postedFrom, postedTo });
-    console.log('Opportunity', opp);
-    const attachments = extractAttachmentsFromOpportunity(opp);
+    const oppRaw = await fetchOpportunityViaSearch(samCfg, { noticeId, postedFrom, postedTo });
+    const attachments = extractAttachmentsFromOpportunity(oppRaw);
 
-    if (!attachments.length) {
-      return apiResponse(200, {
-        ok: true,
-        noticeId,
-        projectId,
-        imported: 0,
-        message: 'No attachments found (resourceLinks empty)',
-      });
-    }
+    const opportunity: OpportunityItem = {
+      orgId,
+      projectId,
+      source: 'SAM_GOV',
+      id: noticeId,
+      title: String((oppRaw as any)?.title ?? 'Untitled'),
+      type: ((oppRaw as any)?.type ?? null) as any,
+      postedDateIso: safeIsoOrNull((oppRaw as any)?.postedDate),
+      responseDeadlineIso: safeIsoOrNull((oppRaw as any)?.responseDeadLine),
+      noticeId: ((oppRaw as any)?.noticeId ?? noticeId) as any,
+      solicitationNumber: ((oppRaw as any)?.solicitationNumber ?? null) as any,
+      naicsCode: ((oppRaw as any)?.naicsCode ?? null) as any,
+      pscCode: ((oppRaw as any)?.classificationCode ?? null) as any,
+      organizationName:
+        ((oppRaw as any)?.organizationName ??
+          (oppRaw as any)?.fullParentPathName ??
+          null) as any,
+      organizationCode:
+        ((oppRaw as any)?.organizationCode ??
+          (oppRaw as any)?.fullParentPathCode ??
+          null) as any,
+      setAside: ((oppRaw as any)?.setAside ?? null) as any,
+      setAsideCode: ((oppRaw as any)?.setAsideCode ?? null) as any,
+      description: ((oppRaw as any)?.description ?? null) as any,
+      active: toBoolActive((oppRaw as any)?.active),
+      baseAndAllOptionsValue: ((oppRaw as any)?.baseAndAllOptionsValue ?? null) as any,
+      raw: {
+        noticeId: (oppRaw as any)?.noticeId ?? noticeId,
+        solicitationNumber: (oppRaw as any)?.solicitationNumber,
+        title: (oppRaw as any)?.title,
+        type: (oppRaw as any)?.type,
+        postedDate: (oppRaw as any)?.postedDate,
+        responseDeadLine: (oppRaw as any)?.responseDeadLine,
+        naicsCode: (oppRaw as any)?.naicsCode,
+        classificationCode: (oppRaw as any)?.classificationCode,
+        active: (oppRaw as any)?.active,
+        setAside: (oppRaw as any)?.setAside,
+        setAsideCode: (oppRaw as any)?.setAsideCode,
+        fullParentPathName: (oppRaw as any)?.fullParentPathName,
+        fullParentPathCode: (oppRaw as any)?.fullParentPathCode,
+        description: (oppRaw as any)?.description,
+        baseAndAllOptionsValue: (oppRaw as any)?.baseAndAllOptionsValue,
+        award: (oppRaw as any)?.award,
+        attachmentsCount: attachments.length,
+      },
+    };
 
-    const results: Array<{
+    const { oppId, item } = await createOpportunity({
+      orgId,
+      projectId,
+      opportunity,
+    });
+
+    const files: Array<{
       questionFileId: string;
       fileKey: string;
-      originalFileName?: string;
+      originalFileName?: string | null;
       executionArn?: string;
       url: string;
+      mimeType?: string | null;
     }> = [];
 
     for (const a of attachments) {
-      const filename = buildAttachmentFilename(a);
+      const rawFilename = buildAttachmentFilename(a);
+
+      const { buf, contentType } = await httpsGetBuffer(new URL(a.url), { httpsAgent });
+
+      const normalize = (v?: string | null) =>
+        v ? v.split(';')[0].trim().toLowerCase() : undefined;
+      const isUnknown = (v?: string) =>
+        !v || v === 'application/octet-stream' || v === 'binary/octet-stream';
+
+      const aCt = normalize(a.mimeType);
+      const hCt = normalize(contentType);
+      const gCt = normalize(guessContentType(rawFilename));
+
+      const finalContentType =
+        (!isUnknown(aCt) ? aCt : undefined) ||
+        (!isUnknown(hCt) ? hCt : undefined) ||
+        gCt ||
+        'application/octet-stream';
+
+      const finalFilename = ensureExtension(rawFilename, finalContentType);
+
       const fileKey = buildAttachmentS3Key({
         orgId,
         projectId,
         noticeId,
         attachmentUrl: a.url,
-        filename,
+        filename: finalFilename,
       });
 
-      const { buf, contentType } = await httpsGetBuffer(new URL(a.url), { httpsAgent });
-
-      const finalContentType = a.mimeType || contentType || guessContentType(filename);
       await uploadToS3(DOCUMENTS_BUCKET, fileKey, buf, finalContentType);
 
-      const { questionFileId } = await createQuestionFile({
+      const qf = await createQuestionFile(orgId, {
+        oppId,
         projectId,
         fileKey,
-        originalFileName: filename,
+        originalFileName: finalFilename,
         mimeType: finalContentType,
         sourceDocumentId: body.sourceDocumentId,
       });
 
-      await markProcessing(projectId, questionFileId);
-      const started = await startPipeline(projectId, questionFileId);
+      const { executionArn } = await startPipeline(
+        projectId,
+        oppId,
+        qf.questionFileId,
+        qf.fileKey,
+        qf.mimeType,
+      );
 
-      results.push({
-        questionFileId,
+      files.push({
+        questionFileId: qf.questionFileId,
         fileKey,
-        originalFileName: filename,
-        executionArn: started.executionArn,
+        originalFileName: finalFilename,
+        mimeType: qf.mimeType ?? null,
+        executionArn,
         url: a.url,
       });
     }
 
     return apiResponse(202, {
       ok: true,
-      noticeId,
       projectId,
-      imported: results.length,
-      files: results,
+      noticeId,
+      opportunityId: oppId,
+      imported: files.length,
+      opportunity: item,
+      files,
     });
   } catch (err: any) {
     console.error('import-solicitation error:', err);
     return apiResponse(500, {
-      message: 'Failed to import solicitation',
-      error: err instanceof Error ? err.message : 'Unknown error',
+      ok: false,
+      error: 'Failed to import solicitation',
+      message: err instanceof Error ? err.message : 'Unknown error',
     });
   }
 };
@@ -231,5 +273,6 @@ export const handler = withSentryLambda(
     .use(authContextMiddleware())
     .use(orgMembershipMiddleware())
     .use(requirePermission('question:create'))
+    .use(requirePermission('opportunity:create'))
     .use(httpErrorMiddleware()),
 );

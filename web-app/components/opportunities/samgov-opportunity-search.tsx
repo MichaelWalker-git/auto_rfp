@@ -144,7 +144,7 @@ export default function SamGovOpportunitySearchPage({ orgId }: Props) {
       <div className="mb-5 flex items-start justify-between gap-4">
         <div className="min-w-0">
           <h1 className="flex items-center gap-2 text-2xl font-semibold tracking-tight">
-            <Search className="h-6 w-6 text-primary" />
+            <Search className="h-6 w-6 text-primary"/>
             Opportunities
           </h1>
           <p className="mt-1 text-sm text-muted-foreground">
@@ -178,7 +178,7 @@ export default function SamGovOpportunitySearchPage({ orgId }: Props) {
                   {Math.min(data.totalRecords, (data.offset ?? 0) + 1)}–
                   {Math.min(data.totalRecords, (data.offset ?? 0) + (data.opportunities?.length ?? 0))}
                 </span>{' '}
-                of <span className="font-semibold">{data.totalRecords.toLocaleString()}</span>
+                of <span className="font-semibold">{data?.totalRecords?.toLocaleString()}</span>
               </>
             )}
           </div>

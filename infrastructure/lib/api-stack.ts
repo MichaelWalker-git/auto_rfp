@@ -32,7 +32,6 @@ export interface ApiStackProps extends cdk.StackProps {
 
 export class ApiStack extends cdk.Stack {
   public readonly api: apigw.RestApi;
-  private static readonly BEDROCK_REGION = 'us-east-1';
 
   // Nested stacks
   private readonly organizationApi: ApiNestedStack;
@@ -50,6 +49,7 @@ export class ApiStack extends cdk.Stack {
   private readonly samgovApi: ApiNestedStack;
   private readonly deadlinesApi: ApiNestedStack;
   private readonly promptApi: ApiNestedStack;
+  private readonly opportunityApi: ApiNestedStack;
 
   constructor(scope: Construct, id: string, props: ApiStackProps) {
     super(scope, id, props);
@@ -87,6 +87,8 @@ export class ApiStack extends cdk.Stack {
     // --- Exec brief worker + queue ---
     const execBriefQueue = this.createExecBriefQueue(stage);
 
+    const bedrockApiKeyParamArn = `arn:aws:ssm:us-east-1:${this.account}:parameter/auto-rfp/bedrock/api-key`;
+
     const lambdaRole = this.createCommonLambdaRole({
       stage,
       userPool,
@@ -94,7 +96,8 @@ export class ApiStack extends cdk.Stack {
       questionPipelineStateMachineArn,
       mainTable,
       documentsBucket,
-      execBriefQueue
+      execBriefQueue,
+      bedrockApiKeyParamArn
     });
 
     const samGovApiKeySecret = this.createSamGovSecret(stage);
@@ -118,6 +121,7 @@ export class ApiStack extends cdk.Stack {
       documentsBucket,
       mainTable,
       lambdaRole,
+      bedrockApiKeyParamArn
     });
 
     // --- Nested APIs ---
@@ -146,6 +150,7 @@ export class ApiStack extends cdk.Stack {
     this.semanticApi = createNestedStack('semantic');
     this.samgovApi = createNestedStack('samgov');
     this.promptApi = createNestedStack('prompt');
+    this.opportunityApi = createNestedStack('opportunity');
 
     // Routes
     this.addRoutes({ samGovApiKeySecret, execBriefQueue, linearApiKeySecret });
@@ -250,6 +255,7 @@ export class ApiStack extends cdk.Stack {
     mainTable: dynamodb.ITable;
     documentsBucket: s3.IBucket;
     execBriefQueue: sqs.Queue;
+    bedrockApiKeyParamArn: string;
   }): iam.Role {
     const {
       stage,
@@ -259,6 +265,7 @@ export class ApiStack extends cdk.Stack {
       mainTable,
       documentsBucket,
       execBriefQueue,
+      bedrockApiKeyParamArn
     } = args;
 
     const role = new iam.Role(this, 'CommonLambdaRole', {
@@ -269,8 +276,6 @@ export class ApiStack extends cdk.Stack {
     role.addManagedPolicy(
       iam.ManagedPolicy.fromAwsManagedPolicyName('service-role/AWSLambdaBasicExecutionRole'),
     );
-
-    const bedrockApiKeyParamArn = `arn:aws:ssm:us-east-1:${this.account}:parameter/auto-rfp/bedrock/api-key`;
 
     role.attachInlinePolicy(
       new iam.Policy(this, 'LambdaPolicy', {
@@ -444,7 +449,7 @@ export class ApiStack extends cdk.Stack {
   private createExecBriefQueue(stage: string): sqs.Queue {
     return new sqs.Queue(this, `ExecBriefQueue-${stage}`, {
       queueName: `auto-rfp-${stage}-exec-brief-queue`,
-      visibilityTimeout: cdk.Duration.minutes(10),
+      visibilityTimeout: cdk.Duration.seconds(60),
       retentionPeriod: cdk.Duration.days(4),
       deadLetterQueue: {
         queue: new sqs.Queue(this, `ExecBriefDLQ-${stage}`, {
@@ -463,8 +468,9 @@ export class ApiStack extends cdk.Stack {
     documentsBucket: s3.IBucket;
     mainTable: dynamodb.ITable;
     lambdaRole: iam.Role;
+    bedrockApiKeyParamArn: string;
   }) {
-    const { stage, commonEnv, execBriefQueue, documentsBucket, mainTable, lambdaRole } = args;
+    const { stage, commonEnv, execBriefQueue, documentsBucket, mainTable, lambdaRole, bedrockApiKeyParamArn } = args;
 
     const fn = new lambdaNodejs.NodejsFunction(this, `ExecBriefWorker-${stage}`, {
       functionName: `auto-rfp-${stage}-exec-brief-worker`,
@@ -504,13 +510,20 @@ export class ApiStack extends cdk.Stack {
       }),
     );
 
+    fn.addToRolePolicy(
+      new iam.PolicyStatement({
+        actions: ['ssm:GetParameter'],
+        resources: [bedrockApiKeyParamArn],
+      }),
+    );
+
     return fn;
   }
 
-  private addRoutes(args: { 
-    samGovApiKeySecret: secretsmanager.ISecret, 
+  private addRoutes(args: {
+    samGovApiKeySecret: secretsmanager.ISecret,
     execBriefQueue: any,
-    linearApiKeySecret: secretsmanager.ISecret, 
+    linearApiKeySecret: secretsmanager.ISecret,
   }) {
     const { samGovApiKeySecret, execBriefQueue, linearApiKeySecret } = args;
 
@@ -625,5 +638,10 @@ export class ApiStack extends cdk.Stack {
     this.proposalApi.addRoute('/get-proposals', 'GET', 'lambda/proposal/get-proposals.ts');
     this.proposalApi.addRoute('/get-proposal', 'GET', 'lambda/proposal/get-proposal.ts');
     this.proposalApi.addRoute('/save-proposal', 'POST', 'lambda/proposal/save-proposal.ts');
+
+    // Opportunities
+    this.opportunityApi.addRoute('/get-opportunities', 'GET', 'lambda/opportunity/get-opportunities.ts');
+    this.opportunityApi.addRoute('/create-opportunity', 'POST', 'lambda/opportunity/create-opportunity.ts');
+    this.opportunityApi.addRoute('/get-opportunity', 'GET', 'lambda/opportunity/get-opportunity.ts');
   }
 }

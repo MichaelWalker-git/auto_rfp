@@ -56,6 +56,8 @@ export const SamOpportunitySlimSchema = z.object({
 
   baseAndAllOptionsValue: z.number().optional(),
   award: z.any().optional(),
+
+  attachmentsCount: z.number().int().nonnegative().optional(),
 });
 
 export type SamOpportunitySlim = z.infer<typeof SamOpportunitySlimSchema>;
