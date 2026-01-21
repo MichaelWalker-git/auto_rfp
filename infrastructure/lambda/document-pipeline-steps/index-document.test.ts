@@ -120,6 +120,20 @@ describe('index-document Lambda - Text Processing (Sentry: AUTO-RFP-3V)', () => 
   beforeEach(() => {
     jest.clearAllMocks();
     jest.resetModules();
+
+    // Set up S3 mock for tests that need S3 fallback
+    // Create a mock stream that has .on() method like Node.js streams
+    const { Readable } = require('stream');
+    const mockStream = new Readable();
+    mockStream.push('Content from S3 fallback');
+    mockStream.push(null); // signals end of stream
+
+    const { S3Client } = require('@aws-sdk/client-s3');
+    S3Client.mockImplementation(() => ({
+      send: jest.fn().mockResolvedValue({
+        Body: mockStream,
+      }),
+    }));
   });
 
   const mockContext = {} as any;
@@ -139,16 +153,6 @@ describe('index-document Lambda - Text Processing (Sentry: AUTO-RFP-3V)', () => 
 
   it('should handle text as empty string', async () => {
     const { baseHandler } = await import('./index-document');
-
-    // Mock S3 to return content when text is empty
-    const { S3Client } = require('@aws-sdk/client-s3');
-    S3Client.mockImplementation(() => ({
-      send: jest.fn().mockResolvedValue({
-        Body: {
-          transformToString: () => Promise.resolve('Content from S3'),
-        },
-      }),
-    }));
 
     const event = {
       documentId: 'doc-123',

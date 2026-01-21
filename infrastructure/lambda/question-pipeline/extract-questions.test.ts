@@ -1,6 +1,6 @@
 /**
  * Regression tests for Sentry issues:
- * - AUTO-RFP-51: questionFileId, projectId, textFileKey are required
+ * - AUTO-RFP-51: questionFileId, projectId, textFileKey, opportunityId are required
  * - AUTO-RFP-52: questionFileId and projectId required
  * - AUTO-RFP-2A: SyntaxError in JSON parsing
  */
@@ -54,6 +54,7 @@ describe('extract-questions Lambda - Input Validation (Sentry: AUTO-RFP-51, AUTO
     questionFileId: 'qf-123',
     projectId: 'proj-456',
     textFileKey: 'questions/extracted.txt',
+    opportunityId: 'opp-789',
   };
 
   const mockContext = {
@@ -65,56 +66,64 @@ describe('extract-questions Lambda - Input Validation (Sentry: AUTO-RFP-51, AUTO
   } as any;
 
   it('should throw when questionFileId is missing', async () => {
-    const event = { projectId: 'proj-456', textFileKey: 'key.txt' };
+    const event = { projectId: 'proj-456', textFileKey: 'key.txt', opportunityId: 'opp-789' };
 
     await expect(baseHandler(event, mockContext)).rejects.toThrow(
-      'questionFileId, projectId, textFileKey are required'
+      'questionFileId, projectId, textFileKey, opportunityId are required'
     );
   });
 
   it('should throw when projectId is missing', async () => {
-    const event = { questionFileId: 'qf-123', textFileKey: 'key.txt' };
+    const event = { questionFileId: 'qf-123', textFileKey: 'key.txt', opportunityId: 'opp-789' };
 
     await expect(baseHandler(event, mockContext)).rejects.toThrow(
-      'questionFileId, projectId, textFileKey are required'
+      'questionFileId, projectId, textFileKey, opportunityId are required'
     );
   });
 
   it('should throw when textFileKey is missing', async () => {
-    const event = { questionFileId: 'qf-123', projectId: 'proj-456' };
+    const event = { questionFileId: 'qf-123', projectId: 'proj-456', opportunityId: 'opp-789' };
 
     await expect(baseHandler(event, mockContext)).rejects.toThrow(
-      'questionFileId, projectId, textFileKey are required'
+      'questionFileId, projectId, textFileKey, opportunityId are required'
+    );
+  });
+
+  it('should throw when opportunityId is missing', async () => {
+    const event = { questionFileId: 'qf-123', projectId: 'proj-456', textFileKey: 'key.txt' };
+
+    await expect(baseHandler(event, mockContext)).rejects.toThrow(
+      'questionFileId, projectId, textFileKey, opportunityId are required'
     );
   });
 
   it('should throw when all required fields are missing', async () => {
     await expect(baseHandler({}, mockContext)).rejects.toThrow(
-      'questionFileId, projectId, textFileKey are required'
+      'questionFileId, projectId, textFileKey, opportunityId are required'
     );
   });
 
   it('should throw when questionFileId is empty string', async () => {
-    const event = { questionFileId: '', projectId: 'proj-456', textFileKey: 'key.txt' };
+    const event = { questionFileId: '', projectId: 'proj-456', textFileKey: 'key.txt', opportunityId: 'opp-789' };
 
     await expect(baseHandler(event, mockContext)).rejects.toThrow(
-      'questionFileId, projectId, textFileKey are required'
+      'questionFileId, projectId, textFileKey, opportunityId are required'
     );
   });
 
   it('should throw when projectId is empty string', async () => {
-    const event = { questionFileId: 'qf-123', projectId: '', textFileKey: 'key.txt' };
+    const event = { questionFileId: 'qf-123', projectId: '', textFileKey: 'key.txt', opportunityId: 'opp-789' };
 
     await expect(baseHandler(event, mockContext)).rejects.toThrow(
-      'questionFileId, projectId, textFileKey are required'
+      'questionFileId, projectId, textFileKey, opportunityId are required'
     );
   });
 
   it('should throw when textFileKey is empty string', async () => {
-    const event = { questionFileId: 'qf-123', projectId: 'proj-456', textFileKey: '' };
+    const event = { questionFileId: 'qf-123', projectId: 'proj-456', textFileKey: '', opportunityId: 'opp-789' };
 
     await expect(baseHandler(event, mockContext)).rejects.toThrow(
-      'questionFileId, projectId, textFileKey are required'
+      'questionFileId, projectId, textFileKey, opportunityId are required'
     );
   });
 
@@ -132,43 +141,46 @@ describe('extract-questions Lambda - JSON Parsing (Sentry: AUTO-RFP-2A)', () => 
     questionFileId: 'qf-123',
     projectId: 'proj-456',
     textFileKey: 'questions/extracted.txt',
+    opportunityId: 'opp-789',
   };
 
   beforeEach(() => {
     jest.clearAllMocks();
   });
 
-  it('should handle malformed JSON response from Bedrock', async () => {
+  it('should handle malformed JSON response from Bedrock gracefully', async () => {
     invokeModel.mockResolvedValueOnce(
       new TextEncoder().encode('not valid json')
     );
 
-    await expect(baseHandler(validEvent, mockContext)).rejects.toThrow(
-      'Invalid JSON envelope from Bedrock'
-    );
+    // Handler now handles this gracefully and returns count: 0
+    const result = await baseHandler(validEvent, mockContext);
+    expect(result.count).toBe(0);
   });
 
-  it('should handle truncated JSON (Sentry: AUTO-RFP-2A)', async () => {
+  it('should handle truncated JSON gracefully (Sentry: AUTO-RFP-2A)', async () => {
     // Simulating JSON truncated at position 17526
     const truncatedJson = '{"content":[{"text":"{\\"sections\\":[{\\"title\\":\\"Test\\",\\"questions\\":[{\\"question\\":\\"';
     invokeModel.mockResolvedValueOnce(
       new TextEncoder().encode(truncatedJson)
     );
 
-    await expect(baseHandler(validEvent, mockContext)).rejects.toThrow();
+    // Handler now handles this gracefully and returns count: 0
+    const result = await baseHandler(validEvent, mockContext);
+    expect(result.count).toBe(0);
   });
 
-  it('should handle response with no text content', async () => {
+  it('should handle response with no text content gracefully', async () => {
     invokeModel.mockResolvedValueOnce(
       new TextEncoder().encode(JSON.stringify({ content: [] }))
     );
 
-    await expect(baseHandler(validEvent, mockContext)).rejects.toThrow(
-      'Model returned no text content'
-    );
+    // Handler now handles this gracefully and returns count: 0
+    const result = await baseHandler(validEvent, mockContext);
+    expect(result.count).toBe(0);
   });
 
-  it('should handle response missing sections array', async () => {
+  it('should handle response missing sections array gracefully', async () => {
     invokeModel.mockResolvedValueOnce(
       new TextEncoder().encode(
         JSON.stringify({
@@ -177,8 +189,8 @@ describe('extract-questions Lambda - JSON Parsing (Sentry: AUTO-RFP-2A)', () => 
       )
     );
 
-    await expect(baseHandler(validEvent, mockContext)).rejects.toThrow(
-      'Response missing required sections[]'
-    );
+    // Handler now handles this gracefully and returns count: 0
+    const result = await baseHandler(validEvent, mockContext);
+    expect(result.count).toBe(0);
   });
 });
