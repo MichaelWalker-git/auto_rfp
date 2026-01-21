@@ -1,11 +1,9 @@
 'use client';
 
 import useSWRMutation from 'swr/mutation';
-import { fetchAuthSession } from 'aws-amplify/auth';
 import { env } from '@/lib/env';
-import { RfpDocument } from '@/types/api';
-
-// ---------- Types ----------
+import { ExtractQuestionsResponse } from '@/lib/validators/extract-questions';
+import { authFetcher } from '@/lib/auth/auth-fetcher';
 
 export interface ExtractQuestionsDTO {
   projectId: string;
@@ -14,37 +12,13 @@ export interface ExtractQuestionsDTO {
   textFileKey: string;
 }
 
-export interface ExtractQuestionsResponse {
-  rfpDocument: RfpDocument;
-}
-
-// ---------- Helper ----------
-async function authorizedFetch(url: string, options: RequestInit = {}) {
-  let token: string | undefined;
-
-  if (typeof window !== 'undefined') {
-    const session = await fetchAuthSession();
-    token = session.tokens?.idToken?.toString();
-  }
-
-  return fetch(url, {
-    ...options,
-    headers: {
-      ...(token ? { Authorization: token } : {}),
-      'Content-Type': 'application/json',
-      ...(options.headers || {}),
-    },
-  });
-}
-
 const BASE = `${env.BASE_API_URL}/question`;
 
-// ---------- Hook ----------
 export function useExtractQuestions() {
   return useSWRMutation<ExtractQuestionsResponse, any, string, ExtractQuestionsDTO>(
     `${BASE}/extract-questions`,
     async (url, { arg }) => {
-      const res = await authorizedFetch(url, {
+      const res = await authFetcher(url, {
         method: 'POST',
         body: JSON.stringify(arg),
       });

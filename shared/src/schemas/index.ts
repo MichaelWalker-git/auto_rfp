@@ -9,3 +9,4 @@ export * from './kb';
 export * from './project';
 export * from './samgov';
 export * from './prompt'
+export * from './opportunity'

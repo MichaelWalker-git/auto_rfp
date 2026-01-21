@@ -65,6 +65,8 @@ All AWS CLI and CDK commands use the **`michael-primary`** profile:
 --profile michael-primary
 ```
 
+> **Note for Developers**: The `michael-primary` profile is used in this documentation for demonstration purposes. Replace it with your own AWS profile name (e.g., `default`, `dev`, or your organization's profile) when running commands. Configure your AWS profile using `aws configure --profile <your-profile-name>` or set up profiles in `~/.aws/config`.
+
 Update infrastructure commands if needed:
 ```bash
 cdk deploy --profile michael-primary --require-approval never
@@ -203,7 +205,7 @@ Question → Titan Embed → OpenSearch KNN → Top-K Chunks → Claude + Contex
 - Prefix handlers with `handle` (handleClick, handleSubmit)
 - Descriptive names with auxiliary verbs (isLoading, hasError)
 
-### Next.js 15+ Async Patterns
+### Next.js 16 Async Patterns
 ```typescript
 // Always await runtime APIs
 const cookieStore = await cookies()
@@ -390,3 +392,161 @@ aws cloudformation describe-stack-events --stack-name AutoRfpApiStack --profile 
 # Scan DynamoDB table
 aws dynamodb scan --table-name auto-rfp-main --profile michael-primary --max-items 10
 ```
+
+---
+
+## Code Quality Standards
+
+### TypeScript Strictness Requirements
+
+All packages use `strict: true`. Additional requirements:
+
+**DO NOT use `any` type unless absolutely necessary.** When you must:
+1. Add a `// TODO: Type this properly` comment
+2. Create a ticket for future type improvement
+3. Use `unknown` with type guards when possible
+
+**Callback Parameter Typing:**
+```typescript
+// BAD - implicit any
+items.map((item, index) => ...)
+items.filter((x) => ...)
+
+// GOOD - explicit types
+items.map((item: Item, index: number) => ...)
+items.filter((x: Item) => ...)
+```
+
+**Type Assertions:**
+```typescript
+// BAD - casting to any
+const data = response as any;
+
+// GOOD - proper typing or unknown
+const data = response as ApiResponse;
+// OR
+const data: unknown = response;
+if (isApiResponse(data)) { ... }
+```
+
+### Test Patterns
+
+**Unit Tests (Jest/Vitest):**
+```typescript
+describe('ComponentName', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it('should [expected behavior] when [condition]', () => {
+    // Arrange
+    const input = {...};
+
+    // Act
+    const result = functionUnderTest(input);
+
+    // Assert
+    expect(result).toBe(expected);
+  });
+});
+```
+
+**Mock AWS SDK:**
+```typescript
+// Mock before imports
+jest.mock('@aws-sdk/client-s3', () => ({
+  S3Client: jest.fn(() => ({ send: jest.fn() })),
+  GetObjectCommand: jest.fn(),
+}));
+
+// Mock credential provider for signature operations
+jest.mock('@aws-sdk/credential-provider-node', () => ({
+  defaultProvider: jest.fn(() => () =>
+    Promise.resolve({
+      accessKeyId: 'test-key',
+      secretAccessKey: 'test-secret',
+    })
+  ),
+}));
+```
+
+**Mock ESM Modules (e.g., uuid):**
+```typescript
+// Must mock BEFORE importing module that uses it
+jest.mock('uuid', () => ({
+  v4: jest.fn(() => 'mock-uuid'),
+}));
+
+import { handler } from './my-handler';
+```
+
+### Accessibility Standards
+
+Target WCAG 2.1 AA compliance:
+
+**Component Requirements:**
+- All interactive elements must be keyboard accessible
+- Color contrast ratio: 4.5:1 for normal text, 3:1 for large text
+- All images must have meaningful alt text
+- Form inputs must have associated labels
+- Focus indicators must be visible
+
+**Accessibility Testing:**
+```bash
+# Run Lighthouse accessibility audit
+cd web-app && pnpm lighthouse
+
+# Run axe-core tests
+cd web-app && pnpm test:a11y
+```
+
+**Common Fixes:**
+```tsx
+// BAD - no accessible name
+<button onClick={handleClick}>
+  <Icon />
+</button>
+
+// GOOD - with aria-label
+<button onClick={handleClick} aria-label="Close dialog">
+  <Icon />
+</button>
+
+// BAD - div as button
+<div onClick={handleClick}>Click me</div>
+
+// GOOD - semantic button
+<button onClick={handleClick}>Click me</button>
+```
+
+---
+
+## Known Issues & Technical Debt
+
+### Type Safety Issues (as of Jan 2025)
+- **223 `any` type usages** across 97 files
+- High-priority files needing type fixes:
+  - `web-app/app/.../proposals/[proposalId]/page.tsx` - 17 implicit any errors
+  - `web-app/app/.../GenerateProposalModal.tsx` - 16 implicit any errors
+  - `web-app/components/brief/helpers.ts` - 4 implicit any errors
+
+### Infrastructure tsconfig Relaxations
+Current relaxed settings that should be tightened:
+- `noUnusedLocals: false` → should be `true`
+- `noUnusedParameters: false` → should be `true`
+- `strictPropertyInitialization: false` → should be `true`
+
+### Sentry Issues Addressed
+Tests cover these Sentry-reported issues:
+- **AUTO-RFP-3V**: TypeError in index-document (text.trim() on non-string)
+- **AUTO-RFP-51/52**: Missing required parameters in extract-questions
+- **AUTO-RFP-2A**: JSON parsing errors from truncated Bedrock responses
+
+---
+
+## Enhancement Tracking
+
+See `task.md` in the repository root for:
+- Planned enhancements and their status
+- PR tracking for each improvement
+- Priority and effort estimates

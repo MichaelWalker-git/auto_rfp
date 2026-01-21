@@ -27,6 +27,7 @@ import {
   HelpCircle,
   Home,
   MessageSquare,
+  Briefcase,
   ScrollText,
   Search,
   Settings,
@@ -111,7 +112,7 @@ function AppSidebar() {
         ? [
           { title: 'Projects', url: `/organizations/${orgId}/projects`, icon: FolderOpen },
           { title: 'Knowledge Base', url: `/organizations/${orgId}/knowledge-base`, icon: BookOpen },
-          { title: 'Opportunities', url: `/organizations/${orgId}/opportunities`, icon: Search },
+          { title: 'Search Opportunities', url: `/organizations/${orgId}/opportunities`, icon: Search },
           { title: 'Deadlines', url: `/organizations/${orgId}/deadlines`, icon: CalendarClock },
           { title: 'Team', url: `/organizations/${orgId}/team`, icon: Users },
           { title: 'Settings', url: `/organizations/${orgId}/settings`, icon: Settings },
@@ -125,8 +126,9 @@ function AppSidebar() {
       orgId && projectId
         ? [
           { title: 'Dashboard', url: `/organizations/${orgId}/projects/${projectId}/dashboard`, icon: Home },
+          { title: 'Opportunities', url: `/organizations/${orgId}/projects/${projectId}/opportunities`, icon: Briefcase },
           { title: 'Questions', url: `/organizations/${orgId}/projects/${projectId}/questions`, icon: MessageSquare },
-          { title: 'Documents', url: `/organizations/${orgId}/projects/${projectId}/documents`, icon: FileText },
+          { title: 'RFP Documents', url: `/organizations/${orgId}/projects/${projectId}/documents`, icon: FileText },
           { title: 'Proposals', url: `/organizations/${orgId}/projects/${projectId}/proposals`, icon: ScrollText },
         ]
         : [],

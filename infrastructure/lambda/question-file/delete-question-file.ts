@@ -23,6 +23,7 @@ import {
 import { docClient } from '../helpers/db';
 import { requireEnv } from '../helpers/env';
 import { QuestionFileItem } from '@auto-rfp/shared';
+import { buildQuestionFileSK } from '../helpers/questionFile';
 
 const DB_TABLE_NAME = requireEnv('DB_TABLE_NAME');
 const DOCUMENTS_BUCKET = requireEnv('DOCUMENTS_BUCKET');
@@ -125,12 +126,13 @@ async function scanAllQuestionKeys(projectId: string, questionFileId: string): P
 
 export const baseHandler = async (event: APIGatewayProxyEventV2): Promise<APIGatewayProxyResultV2> => {
   try {
-    const { projectId, questionFileId } = event.queryStringParameters || {};
+    const { projectId, questionFileId, oppId } = event.queryStringParameters || {};
 
     if (!projectId) return apiResponse(400, { message: 'projectId query param is required' });
     if (!questionFileId) return apiResponse(400, { message: 'questionFileId query param is required' });
+    if (!oppId) return apiResponse(400, { message: 'oppId query param is required' });
 
-    const sk = `${projectId}#${questionFileId}`;
+    const sk = buildQuestionFileSK(projectId, oppId, questionFileId);
 
     const getRes = await docClient.send(
       new GetCommand({
@@ -177,27 +179,6 @@ export const baseHandler = async (event: APIGatewayProxyEventV2): Promise<APIGat
         },
       }),
     );
-
-    if (item?.executiveBriefId) {
-      await docClient.send(
-        new DeleteCommand({
-          TableName: DB_TABLE_NAME,
-          Key: {
-            [PK_NAME]: EXEC_BRIEF_PK,
-            [SK_NAME]: item.executiveBriefId,
-          },
-          ConditionExpression: '#pk = :pk AND #sk = :sk',
-          ExpressionAttributeNames: {
-            '#pk': PK_NAME,
-            '#sk': SK_NAME,
-          },
-          ExpressionAttributeValues: {
-            ':pk': EXEC_BRIEF_PK,
-            ':sk': item.executiveBriefId,
-          },
-        }),
-      );
-    }
 
     return apiResponse(200, {
       success: true,

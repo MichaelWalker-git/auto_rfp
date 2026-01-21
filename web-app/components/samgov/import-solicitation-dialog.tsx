@@ -12,7 +12,7 @@ import {
 } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList, } from '@/components/ui/command';
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import { Separator } from '@/components/ui/separator';
 import { Calendar, Check, ChevronsUpDown, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -54,26 +54,21 @@ export function ImportSolicitationDialog({
   const title = opportunity?.title ?? '(No title)';
   const isActive = (opportunity?.active as any) === true || opportunity?.active === 'Yes';
 
-  // Try to auto-select last project (nice UX)
   React.useEffect(() => {
     if (!open) return;
 
     setError('');
 
-    // reset selection only if empty; otherwise keep user choice when reopening quickly
     setProjectId((prev) => {
       if (prev) return prev;
-
       try {
         const last = localStorage.getItem(LAST_PROJECT_KEY) || '';
         if (last && projects.some((p) => p.id === last)) return last;
-      } catch {
-      }
+      } catch {}
       return '';
     });
   }, [open, projects]);
 
-  // When closing, clear transient state
   React.useEffect(() => {
     if (!open) {
       setProjectOpen(false);
@@ -82,10 +77,7 @@ export function ImportSolicitationDialog({
     }
   }, [open]);
 
-  const selectedProject = React.useMemo(
-    () => projects.find((p) => p.id === projectId),
-    [projects, projectId],
-  );
+  const selectedProject = React.useMemo(() => projects.find((p) => p.id === projectId), [projects, projectId]);
 
   const canImport = !!projectId && !!noticeId && !isImporting;
 
@@ -103,162 +95,150 @@ export function ImportSolicitationDialog({
 
     try {
       await onImport({ orgId, projectId, noticeId });
-
-      // persist for next time
       try {
         localStorage.setItem(LAST_PROJECT_KEY, projectId);
-      } catch {
-      }
-
+      } catch {}
       onOpenChange(false);
     } catch (e: any) {
-      // keep dialog open and show error
       setError(e?.message ?? 'Import failed');
     }
   };
 
   return (
     <Dialog open={open} onOpenChange={(v) => !isImporting && onOpenChange(v)}>
-      <DialogContent className="sm:max-w-[800px]">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            Import solicitation
-            {isActive ? <Badge className="ml-1">Active</Badge> : null}
+      <DialogContent className="sm:max-w-[800px] max-h-[85vh] overflow-hidden">
+        <DialogHeader className="min-w-0">
+          <DialogTitle className="flex items-center gap-2 min-w-0">
+            <span className="truncate">Import solicitation</span>
+            {isActive ? <Badge className="ml-1 shrink-0">Active</Badge> : null}
           </DialogTitle>
           <DialogDescription>
             Pick a project. We’ll download attachments, upload to S3, create QuestionFiles, and start the pipeline.
           </DialogDescription>
         </DialogHeader>
 
-        {/* Opportunity summary */}
-        <div className="rounded-2xl border bg-muted/20 p-4">
-          <div className="flex items-start justify-between gap-3">
-            <div className="min-w-0">
-              <div className="font-medium truncate">{title}</div>
-              <div className="mt-1 text-xs text-muted-foreground">
-                Notice ID: <span className="font-mono">{noticeId || '—'}</span>
-                {opportunity?.solicitationNumber ? (
-                  <>
-                    {' '}
-                    • Sol: <span className="font-mono">{opportunity.solicitationNumber}</span>
-                  </>
-                ) : null}
+        <div className="min-w-0 overflow-y-auto pr-1 -mr-1">
+          <div className="rounded-2xl border bg-muted/20 p-4 min-w-0">
+            <div className="flex items-start justify-between gap-3 min-w-0">
+              <div className="min-w-0">
+                <div className="font-medium break-words leading-5">{title}</div>
+                <div className="mt-1 text-xs text-muted-foreground break-words">
+                  Notice ID: <span className="font-mono">{noticeId || '—'}</span>
+                  {opportunity?.solicitationNumber ? (
+                    <>
+                      {' '}
+                      • Sol: <span className="font-mono">{opportunity.solicitationNumber}</span>
+                    </>
+                  ) : null}
+                </div>
               </div>
+            </div>
+
+            <Separator className="my-3" />
+
+            <div className="grid gap-2 text-sm sm:grid-cols-2">
+              <div className="flex items-center gap-2 min-w-0">
+                <Calendar className="h-4 w-4 text-muted-foreground shrink-0" />
+                <span className="text-muted-foreground shrink-0">Posted:</span>
+                <span className="font-medium truncate">{fmtDate(opportunity?.postedDate) || '—'}</span>
+              </div>
+
+              <div className="flex items-center gap-2 min-w-0">
+                <Calendar className="h-4 w-4 text-destructive shrink-0" />
+                <span className="text-muted-foreground shrink-0">Due:</span>
+                <span className="font-medium truncate">{fmtDate(opportunity?.responseDeadLine) || '—'}</span>
+              </div>
+
+              {opportunity?.naicsCode ? (
+                <div className="flex flex-wrap items-center gap-2 min-w-0">
+                  <span className="text-muted-foreground shrink-0">NAICS:</span>
+                  <Badge variant="outline" className="max-w-full truncate">
+                    {opportunity.naicsCode}
+                  </Badge>
+                </div>
+              ) : null}
+
+              {opportunity?.classificationCode ? (
+                <div className="flex flex-wrap items-center gap-2 min-w-0">
+                  <span className="text-muted-foreground shrink-0">PSC:</span>
+                  <Badge variant="outline" className="max-w-full truncate">
+                    {opportunity.classificationCode}
+                  </Badge>
+                </div>
+              ) : null}
             </div>
           </div>
 
-          <Separator className="my-3"/>
-
-          <div className="grid gap-2 text-sm sm:grid-cols-2">
-            <div className="flex items-center gap-2">
-              <Calendar className="h-4 w-4 text-muted-foreground"/>
-              <span className="text-muted-foreground">Posted:</span>
-              <span className="font-medium">{fmtDate(opportunity?.postedDate) || '—'}</span>
-            </div>
-
-            <div className="flex items-center gap-2">
-              <Calendar className="h-4 w-4 text-destructive"/>
-              <span className="text-muted-foreground">Due:</span>
-              <span className="font-medium">{fmtDate(opportunity?.responseDeadLine) || '—'}</span>
-            </div>
-
-            {opportunity?.naicsCode ? (
-              <div className="flex flex-wrap items-center gap-2">
-                <span className="text-muted-foreground">NAICS:</span>
-                <Badge variant="outline">{opportunity.naicsCode}</Badge>
+          <div className="space-y-2 mt-4">
+            <div className="flex items-center justify-between gap-3">
+              <div className="text-sm font-medium">Project</div>
+              <div className="text-xs text-muted-foreground shrink-0">
+                {projects.length ? `${projects.length} available` : 'No projects'}
               </div>
-            ) : null}
-
-            {opportunity?.classificationCode ? (
-              <div className="flex flex-wrap items-center gap-2">
-                <span className="text-muted-foreground">PSC:</span>
-                <Badge variant="outline">{opportunity.classificationCode}</Badge>
-              </div>
-            ) : null}
-          </div>
-        </div>
-
-        {/* Project picker */}
-        <div className="space-y-2">
-          <div className="flex items-center justify-between">
-            <div className="text-sm font-medium">Project</div>
-            <div className="text-xs text-muted-foreground">
-              {projects.length ? `${projects.length} available` : 'No projects'}
             </div>
+
+            <Popover open={projectOpen} onOpenChange={setProjectOpen}>
+              <PopoverTrigger asChild>
+                <Button
+                  type="button"
+                  variant="outline"
+                  role="combobox"
+                  aria-expanded={projectOpen}
+                  disabled={!projects.length || isImporting}
+                  className={cn('w-full justify-between rounded-xl min-w-0', !selectedProject && 'text-muted-foreground')}
+                >
+                  <span className="truncate">
+                    {selectedProject?.name ?? (projects.length ? 'Select a project…' : 'No projects found')}
+                  </span>
+                  <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                </Button>
+              </PopoverTrigger>
+
+              <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
+                <Command>
+                  <CommandInput placeholder="Search projects…" />
+                  <CommandList>
+                    <CommandEmpty>No projects found.</CommandEmpty>
+                    <CommandGroup>
+                      {projects.map((p) => (
+                        <CommandItem
+                          key={p.id}
+                          value={p.name}
+                          onSelect={() => {
+                            setProjectId(p.id);
+                            setProjectOpen(false);
+                            setError('');
+                          }}
+                        >
+                          <Check className={cn('mr-2 h-4 w-4', projectId === p.id ? 'opacity-100' : 'opacity-0')} />
+                          <span className="truncate">{p.name}</span>
+                        </CommandItem>
+                      ))}
+                    </CommandGroup>
+                  </CommandList>
+                </Command>
+              </PopoverContent>
+            </Popover>
+
+            {error ? (
+              <div className="text-xs text-destructive">{error}</div>
+            ) : (
+              <div className="text-xs text-muted-foreground">Tip: we’ll remember your last selected project for next imports.</div>
+            )}
           </div>
-
-          <Popover open={projectOpen} onOpenChange={setProjectOpen}>
-            <PopoverTrigger asChild>
-              <Button
-                type="button"
-                variant="outline"
-                role="combobox"
-                aria-expanded={projectOpen}
-                disabled={!projects.length || isImporting}
-                className={cn(
-                  'w-full justify-between rounded-xl',
-                  !selectedProject && 'text-muted-foreground',
-                )}
-              >
-                <span className="truncate">
-                  {selectedProject?.name ?? (projects.length ? 'Select a project…' : 'No projects found')}
-                </span>
-                <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50"/>
-              </Button>
-            </PopoverTrigger>
-
-            <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
-              <Command>
-                <CommandInput placeholder="Search projects…"/>
-                <CommandList>
-                  <CommandEmpty>No projects found.</CommandEmpty>
-                  <CommandGroup>
-                    {projects.map((p) => (
-                      <CommandItem
-                        key={p.id}
-                        value={p.name}
-                        onSelect={() => {
-                          setProjectId(p.id);
-                          setProjectOpen(false);
-                          setError('');
-                        }}
-                      >
-                        <Check className={cn('mr-2 h-4 w-4', projectId === p.id ? 'opacity-100' : 'opacity-0')}/>
-                        <span className="truncate">{p.name}</span>
-                      </CommandItem>
-                    ))}
-                  </CommandGroup>
-                </CommandList>
-              </Command>
-            </PopoverContent>
-          </Popover>
-
-          {error ? (
-            <div className="text-xs text-destructive">{error}</div>
-          ) : (
-            <div className="text-xs text-muted-foreground">
-              Tip: we’ll remember your last selected project for next imports.
-            </div>
-          )}
         </div>
 
         <DialogFooter className="gap-2 sm:gap-2">
-          <Button
-            variant="outline"
-            onClick={() => onOpenChange(false)}
-            disabled={isImporting}
-            className="rounded-xl"
-          >
+          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={isImporting} className="rounded-xl">
             Cancel
           </Button>
 
           <Button onClick={handleImport} disabled={!canImport} className="rounded-xl">
-            {isImporting ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : null}
+            {isImporting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
             {isImporting ? 'Importing…' : 'Import'}
           </Button>
         </DialogFooter>
 
-        {/* subtle footer */}
         <div className="pt-1 text-[11px] text-muted-foreground">
           Attachments will be downloaded from SAM.gov links and stored in your S3 documents bucket.
         </div>

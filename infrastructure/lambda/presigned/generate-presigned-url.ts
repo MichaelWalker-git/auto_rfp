@@ -9,6 +9,7 @@ import { FILE_PK } from '../constants/file';
 import { withSentryLambda } from '../sentry-lambda';
 import { requireEnv } from '../helpers/env';
 import { docClient } from '../helpers/db';
+import { nowIso } from '../helpers/date';
 
 const BUCKET_NAME = requireEnv('DOCUMENTS_BUCKET');
 const REGION = requireEnv('REGION', 'us-east-1');
@@ -68,8 +69,8 @@ export const baseHandler = async (
       const objectKey =
         key ??
         (fileName
-          ? `${safePrefix}${fileId}-${sanitizeFileName(fileName)}`
-          : `${safePrefix}${fileId}`);
+          ? `${safePrefix}/${fileId}/${sanitizeFileName(fileName)}`
+          : `${safePrefix}/${fileId}`);
 
       const putObjectCmd = new PutObjectCommand({
         Bucket: BUCKET_NAME,
@@ -81,8 +82,7 @@ export const baseHandler = async (
         expiresIn: URL_EXPIRATION_SECONDS,
       });
 
-      // --- Save metadata to DynamoDB ---
-      const now = new Date().toISOString();
+      const now = nowIso();
       const sortKey = `${fileId}`;
 
       const fileItem = {
