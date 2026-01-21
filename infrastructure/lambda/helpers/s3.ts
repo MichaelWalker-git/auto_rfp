@@ -21,7 +21,7 @@ export async function loadTextFromS3(bucket: string, key: string): Promise<strin
   }
 }
 
-export async function uploadToS3(bucket: string, key: string, body: Buffer, contentType?: string) {
+export async function uploadToS3(bucket: string, key: string, body: Buffer | string, contentType?: string) {
   await s3.send(
     new PutObjectCommand({
       Bucket: bucket,
@@ -30,4 +30,10 @@ export async function uploadToS3(bucket: string, key: string, body: Buffer, cont
       ContentType: contentType,
     }),
   );
+}
+
+export async function getFileFromS3(bucket: string, key: string) {
+  const obj =  await s3.send(new GetObjectCommand({ Bucket: bucket, Key: key }))
+  if (!obj.Body) throw new Error('S3 object body is empty');
+  return obj.Body;
 }

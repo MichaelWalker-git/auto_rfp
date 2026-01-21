@@ -1,60 +1,62 @@
-import { APIGatewayProxyEventV2, APIGatewayProxyResultV2, } from 'aws-lambda';
-import { QueryCommand } from '@aws-sdk/lib-dynamodb';
+import type { APIGatewayProxyEventV2, APIGatewayProxyResultV2 } from 'aws-lambda';
+import middy from '@middy/core';
 
-import { apiResponse } from '../helpers/api';
-import { PK_NAME, SK_NAME } from '../constants/common';
-import { QUESTION_FILE_PK } from '../constants/question-file';
 import { withSentryLambda } from '../sentry-lambda';
-import { requireEnv } from '../helpers/env';
-import { docClient } from '../helpers/db';
+import { apiResponse } from '../helpers/api';
+
 import {
   authContextMiddleware,
   httpErrorMiddleware,
   orgMembershipMiddleware,
-  requirePermission
+  requirePermission,
 } from '../middleware/rbac-middleware';
-import middy from '@middy/core';
 
-const DB_TABLE_NAME = requireEnv('DB_TABLE_NAME');
+import { listQuestionFilesByOpportunity, listQuestionFilesByProject } from '../helpers/questionFile';
 
-export const baseHandler = async (
-  event: APIGatewayProxyEventV2,
-): Promise<APIGatewayProxyResultV2> => {
+const safeJsonParse = <T, >(raw: string): T | undefined => {
   try {
-    const { projectId } = event.queryStringParameters || {};
+    return JSON.parse(raw) as T;
+  } catch {
+    return undefined;
+  }
+};
 
-    if (!projectId) {
-      return apiResponse(400, { message: 'projectId is required' });
+export const baseHandler = async (event: APIGatewayProxyEventV2): Promise<APIGatewayProxyResultV2> => {
+  try {
+    const { projectId, oppId, limit: queryLimit, nextToken } = event.queryStringParameters ?? {};
+
+    if (!projectId) return apiResponse(400, { message: 'projectId is required' });
+
+    const limitRaw = queryLimit ? Number(queryLimit) : undefined;
+    const limit =
+      typeof limitRaw === 'number' && Number.isFinite(limitRaw)
+        ? Math.max(1, Math.min(200, Math.floor(limitRaw)))
+        : undefined;
+
+    const decodedNextToken = nextToken ? decodeURIComponent(nextToken) : undefined;
+    const exclusiveStartKey = decodedNextToken ? safeJsonParse<Record<string, any>>(decodedNextToken) : undefined;
+
+    if (decodedNextToken && !exclusiveStartKey) {
+      return apiResponse(400, { message: 'Invalid nextToken' });
     }
 
-    const items: any[] = [];
-    let lastKey: Record<string, any> | undefined;
+    const res = oppId
+      ? await listQuestionFilesByOpportunity({
+        projectId,
+        oppId,
+        limit,
+        nextToken: exclusiveStartKey,
+      })
+      : await listQuestionFilesByProject({
+        projectId,
+        limit,
+        nextToken: exclusiveStartKey,
+      });
 
-    do {
-      const res = await docClient.send(
-        new QueryCommand({
-          TableName: DB_TABLE_NAME,
-          KeyConditionExpression:
-            '#pk = :pk AND begins_with(#sk, :skPrefix)',
-          ExpressionAttributeNames: {
-            '#pk': PK_NAME,
-            '#sk': SK_NAME,
-          },
-          ExpressionAttributeValues: {
-            ':pk': QUESTION_FILE_PK,
-            ':skPrefix': `${projectId}#`,
-          },
-          ExclusiveStartKey: lastKey,
-          ScanIndexForward: true,
-        }),
-      );
-
-      if (res.Items?.length) items.push(...res.Items);
-      lastKey = res.LastEvaluatedKey as any;
-    } while (lastKey);
-
-
-    return apiResponse(200, { items });
+    return apiResponse(200, {
+      items: res.items,
+      nextToken: res.nextToken ? JSON.stringify(res.nextToken) : null,
+    });
   } catch (err) {
     console.error('get-question-files error:', err);
     return apiResponse(500, {
@@ -66,8 +68,8 @@ export const baseHandler = async (
 
 export const handler = withSentryLambda(
   middy(baseHandler)
+    .use(httpErrorMiddleware())
     .use(authContextMiddleware())
     .use(orgMembershipMiddleware())
-    .use(requirePermission('question:read'))
-    .use(httpErrorMiddleware())
+    .use(requirePermission('question:read')),
 );

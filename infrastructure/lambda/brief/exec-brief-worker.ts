@@ -41,7 +41,6 @@ import {
 import { requireEnv } from '../helpers/env';
 import { loadTextFromS3 } from '../helpers/s3';
 import { storeDeadlinesSeparately } from '../helpers/deadlines';
-import { SendMessageCommand, SQSClient } from '@aws-sdk/client-sqs';
 
 const JobSchema = z.object({
   orgId: z.string().min(1),
@@ -55,14 +54,11 @@ const JobSchema = z.object({
 type Job = z.infer<typeof JobSchema>;
 type Section = Job['section'];
 
-const EXEC_BRIEF_QUEUE_URL = requireEnv('EXEC_BRIEF_QUEUE_URL');
-const SCORING_RETRY_DELAY_SECONDS = Number(requireEnv('SCORING_RETRY_DELAY_SECONDS', '30'));
 const BEDROCK_MODEL_ID = requireEnv('BEDROCK_MODEL_ID');
 const MAX_SOLICITATION_CHARS = Number(requireEnv('BRIEF_MAX_SOLICITATION_CHARS', '45000'));
 const KB_TOPK_DEFAULT = Number(requireEnv('BRIEF_KB_TOPK', '20'));
 const DOCUMENTS_BUCKET = requireEnv('DOCUMENTS_BUCKET');
 const COST_SAVING = Boolean(requireEnv('COST_SAVING', 'true'));
-const sqsClient = new SQSClient({});
 
 async function runSummary(job: Job): Promise<void> {
   const { orgId, executiveBriefId, topK, inputHash: inputHashFromJob } = job;
@@ -400,34 +396,19 @@ async function runRisks(job: Job): Promise<void> {
 }
 
 async function runScoring(job: Job): Promise<void> {
-  const { orgId, executiveBriefId, topK, inputHash: inputHashFromJob, retryCount = 0 } = job;
+  const { orgId, executiveBriefId, topK, inputHash: inputHashFromJob } = job;
 
   if (!orgId) {
     throw new Error('orgId is missing in SQS job payload');
   }
 
+  const brief: ExecutiveBriefItem = await getExecutiveBrief(executiveBriefId);
+
+  const prereq = scoringPrereqsComplete(brief);
+  if (!prereq.ok) {
+    throw new Error('All fields should be ready before calling scoring');
+  }
   try {
-    const brief: ExecutiveBriefItem = await getExecutiveBrief(executiveBriefId);
-
-    const prereq = scoringPrereqsComplete(brief);
-    if (!prereq.ok) {
-      const MAX_RETRIES = 10;
-
-      if (retryCount >= MAX_RETRIES) {
-        console.error(`Scoring max retries (${MAX_RETRIES}) exceeded. Prerequisites still not complete:`, prereq.missing);
-        await markSectionFailed({
-          executiveBriefId,
-          section: 'scoring',
-          error: new Error(`Prerequisites not complete after ${MAX_RETRIES} retries: ${prereq.missing.join(', ')}`),
-        });
-        return; 
-      }
-
-      console.log(`Scoring prerequisites not complete (retry ${retryCount}/${MAX_RETRIES}):`, prereq.missing);
-      await requeueJob({ ...job, retryCount: (job.retryCount ?? 0) + 1 }, SCORING_RETRY_DELAY_SECONDS);
-      return;
-    }
-
     const inputHash =
       inputHashFromJob ||
       buildSectionInputHash({
@@ -554,15 +535,9 @@ const baseHandler = async (event: SQSEvent): Promise<SQSBatchResponse> => {
   const batchItemFailures: SQSBatchResponse['batchItemFailures'] = [];
 
   for (const record of event.Records) {
-    try {
-      const job = JobSchema.parse(JSON.parse(record.body));
-      await runSection(job);
-    } catch (err) {
-      console.error('exec-brief-worker error:', err);
-      batchItemFailures.push({ itemIdentifier: record.messageId });
-    }
+    const job = JobSchema.parse(JSON.parse(record.body));
+    await runSection(job);
   }
-
   return { batchItemFailures };
 };
 
@@ -581,16 +556,6 @@ function computeMissingRoles(foundRoles: string[]): string[] {
 
   const found = new Set(foundRoles);
   return recommended.filter((r) => !found.has(r));
-}
-
-async function requeueJob(job: Job, delaySeconds: number) {
-  await sqsClient.send(
-    new SendMessageCommand({
-      QueueUrl: EXEC_BRIEF_QUEUE_URL,
-      DelaySeconds: Math.max(0, Math.min(900, delaySeconds)),
-      MessageBody: JSON.stringify(job),
-    }),
-  );
 }
 
 function isSectionComplete(brief: ExecutiveBriefItem, section: Exclude<Section, 'scoring'>): boolean {
