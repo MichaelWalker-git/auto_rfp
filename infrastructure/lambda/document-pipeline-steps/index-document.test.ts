@@ -156,8 +156,9 @@ describe('index-document Lambda - Text Processing (Sentry: AUTO-RFP-3V)', () => 
       text: '', // Empty string should trigger S3 read
     };
 
-    // Should fall back to S3
-    // The handler has logic: typeof event.text === 'string' && event.text.trim().length > 0
+    // Should fall back to S3 and not throw
+    const result = await baseHandler(event, mockContext);
+    expect(result.success).toBe(true);
   });
 
   it('should handle text as null (Sentry: AUTO-RFP-3V)', async () => {
@@ -172,6 +173,8 @@ describe('index-document Lambda - Text Processing (Sentry: AUTO-RFP-3V)', () => 
 
     // Should not throw "(text ?? "").trim is not a function"
     // because the code checks typeof event.text === 'string'
+    const result = await baseHandler(event, mockContext);
+    expect(result.success).toBe(true);
   });
 
   it('should handle text as undefined', async () => {
@@ -182,7 +185,9 @@ describe('index-document Lambda - Text Processing (Sentry: AUTO-RFP-3V)', () => 
       text: undefined,
     };
 
-    // Should fall back to S3 read
+    // Should fall back to S3 read and not throw
+    const result = await baseHandler(event, mockContext);
+    expect(result.success).toBe(true);
   });
 
   it('should handle text as array (edge case that caused Sentry error)', async () => {
@@ -198,6 +203,8 @@ describe('index-document Lambda - Text Processing (Sentry: AUTO-RFP-3V)', () => 
     // The current code: typeof event.text === 'string' && event.text.trim().length > 0
     // should correctly handle this by falling back to S3
     // typeof ['a','b'] === 'object', not 'string'
+    const result = await baseHandler(event, mockContext);
+    expect(result.success).toBe(true);
   });
 
   it('should handle text as object (edge case)', async () => {
@@ -209,6 +216,8 @@ describe('index-document Lambda - Text Processing (Sentry: AUTO-RFP-3V)', () => 
     };
 
     // typeof {} === 'object', so should fall back to S3
+    const result = await baseHandler(event, mockContext);
+    expect(result.success).toBe(true);
   });
 
   it('should handle text as number (edge case)', async () => {
@@ -220,6 +229,8 @@ describe('index-document Lambda - Text Processing (Sentry: AUTO-RFP-3V)', () => 
     };
 
     // typeof 12345 === 'number', so should fall back to S3
+    const result = await baseHandler(event, mockContext);
+    expect(result.success).toBe(true);
   });
 });
 

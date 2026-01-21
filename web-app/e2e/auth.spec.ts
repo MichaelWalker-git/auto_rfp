@@ -16,6 +16,7 @@ test.describe('Authentication', () => {
     // Check for login form elements (adjust selectors based on your auth UI)
     // Amplify Authenticator typically has these
     const signInButton = page.getByRole('button', { name: /sign in/i });
+    await expect(signInButton).toBeVisible();
 
     // If using Amplify Authenticator, it may have different structure
     // This test will need to be adjusted based on your actual auth setup
