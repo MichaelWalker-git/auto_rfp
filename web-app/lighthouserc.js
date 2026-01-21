@@ -1,11 +1,9 @@
 module.exports = {
   ci: {
     collect: {
-      // Use static server for built Next.js app
-      staticDistDir: '.next/standalone',
-      // Or use start server (comment above and uncomment below)
-      // startServerCommand: 'pnpm start',
-      // url: ['http://localhost:3000'],
+      // Use Next.js dev/start server for Lighthouse audits
+      startServerCommand: 'pnpm start',
+      url: ['http://localhost:3000'],
       numberOfRuns: 3,
       settings: {
         // Only run accessibility and best practices for faster CI

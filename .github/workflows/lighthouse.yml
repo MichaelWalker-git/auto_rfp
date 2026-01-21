@@ -60,15 +60,12 @@ jobs:
         run: pnpm build
         env:
           # Add required env vars for build
-          NEXT_PUBLIC_API_BASE_URL: 'https://api.example.com'
+          NEXT_PUBLIC_BASE_API_URL: 'https://api.example.com'
           NEXT_PUBLIC_COGNITO_USER_POOL_ID: 'us-east-1_example'
-          NEXT_PUBLIC_COGNITO_CLIENT_ID: 'example-client-id'
-          NEXT_PUBLIC_COGNITO_REGION: 'us-east-1'
+          NEXT_PUBLIC_COGNITO_USER_POOL_CLIENT_ID: 'example-client-id'
 
       - name: Run Lighthouse CI
-        run: |
-          npm install -g @lhci/cli@0.14.x
-          lhci autorun
+        run: pnpm exec lhci autorun
         env:
           LHCI_GITHUB_APP_TOKEN: ${{ secrets.LHCI_GITHUB_APP_TOKEN }}
 
