@@ -2,8 +2,6 @@ import { APIGatewayProxyEventV2, APIGatewayProxyResultV2 } from 'aws-lambda';
 import { QueryCommand } from '@aws-sdk/lib-dynamodb';
 
 import { PK_NAME, SK_NAME } from '../constants/common';
-import { DOCUMENT_PK } from '../constants/document';
-import { KNOWLEDGE_BASE_PK } from '../constants/organization';
 import { QUESTION_PK } from '../constants/question';
 import { apiResponse } from '../helpers/api';
 import { withSentryLambda } from '../sentry-lambda';
@@ -38,41 +36,10 @@ const MAX_TOKENS = Number(requireEnv('BEDROCK_MAX_TOKENS', '4000'));
 const TEMPERATURE = Number(requireEnv('BEDROCK_TEMPERATURE', '0.1'));
 
 type QaPair = GenerateProposalRequest['qaPairs'][number];
-type KnowledgeBaseSnippet = NonNullable<GenerateProposalRequest['knowledgeBaseSnippets']>[number];
 
 const extractOrgIdFromSortKey = (sortKey: string): string => {
   const [orgId] = String(sortKey ?? '').split('#');
   return orgId || '';
-};
-
-const loadKnowledgeBasesForOrg = async (orgId: string): Promise<any[]> => {
-  const skPrefix = `${orgId}#`;
-
-  const { Items } = await docClient.send(
-    new QueryCommand({
-      TableName: DB_TABLE_NAME,
-      KeyConditionExpression: '#pk = :pk AND begins_with(#sk, :skPrefix)',
-      ExpressionAttributeNames: { '#pk': PK_NAME, '#sk': SK_NAME },
-      ExpressionAttributeValues: { ':pk': KNOWLEDGE_BASE_PK, ':skPrefix': skPrefix },
-    }),
-  );
-
-  return Items ?? [];
-};
-
-const loadDocumentsForKnowledgeBase = async (knowledgeBaseId: string): Promise<any[]> => {
-  const skPrefix = `KB#${knowledgeBaseId}#DOC#`;
-
-  const { Items } = await docClient.send(
-    new QueryCommand({
-      TableName: DB_TABLE_NAME,
-      KeyConditionExpression: '#pk = :pk AND begins_with(#sk, :skPrefix)',
-      ExpressionAttributeNames: { '#pk': PK_NAME, '#sk': SK_NAME },
-      ExpressionAttributeValues: { ':pk': DOCUMENT_PK, ':skPrefix': skPrefix },
-    }),
-  );
-
-  return Items ?? [];
 };
 
 const loadQaPairsForProject = async (projectId: string): Promise<QaPair[]> => {
@@ -94,63 +61,6 @@ const loadQaPairsForProject = async (projectId: string): Promise<QaPair[]> => {
     question: item.question ?? '',
     answer: item.answer ?? '',
   })) as QaPair[];
-};
-
-const buildKnowledgeBaseSnippets = async (documents: any[]): Promise<KnowledgeBaseSnippet[]> => {
-  const snippets: KnowledgeBaseSnippet[] = [];
-
-  for (const doc of documents) {
-    const key = doc?.textFileKey;
-    if (!key) continue;
-
-    const content = await loadTextFromS3(DOCUMENTS_BUCKET, key);
-    if (!content.trim()) continue;
-
-    snippets.push({
-      id: doc.id,
-      type: 'OTHER',
-      title: doc.name,
-      content,
-      sourceDocumentName: doc.name,
-    });
-  }
-
-  return snippets;
-};
-
-const buildUserPromptForProposal = async (orgId: string, payload: GenerateProposalRequest): Promise<string | undefined> => {
-  const { qaPairs, knowledgeBaseSnippets } = payload;
-
-  const metaLines: string[] = [];
-  Object.entries({/*TODO use row for solicitation entity*/ }).forEach(([k, v]) => {
-    if (v) metaLines.push(`${k}: ${v}`);
-  });
-
-  const qaText =
-    qaPairs.length > 0
-      ? qaPairs.map((qa, idx) => `Q${idx + 1}: ${qa.question}\nA${idx + 1}: ${qa.answer}`).join('\n\n')
-      : 'None';
-
-  const kbText =
-    (knowledgeBaseSnippets ?? []).length > 0
-      ? (knowledgeBaseSnippets ?? [])
-        .map((s, idx) => {
-          const headerParts = [
-            s.type ? `[${s.type}]` : '',
-            s.title ?? `Snippet ${idx + 1}`,
-            s.sourceDocumentName ? `(source: ${s.sourceDocumentName})` : '',
-          ].filter(Boolean);
-          return `${headerParts.join(' ')}\n${s.content}`;
-        })
-        .join('\n\n---\n\n')
-      : 'None';
-
-  return await useProposalUserPrompt(
-    orgId,
-    '',
-    qaText,
-    kbText
-  );
 };
 
 
@@ -181,7 +91,7 @@ export const baseHandler = async (
     const projectItem = await getProjectById(projectId);
     if (!projectItem) return apiResponse(404, { message: 'Project not found' });
 
-    const { sort_key, ...project } = projectItem as DBProjectItem;
+    const { sort_key } = projectItem as DBProjectItem;
     const orgId = extractOrgIdFromSortKey(sort_key);
     if (!orgId) return apiResponse(400, { message: 'Project has invalid sort_key (cannot extract orgId)' });
 

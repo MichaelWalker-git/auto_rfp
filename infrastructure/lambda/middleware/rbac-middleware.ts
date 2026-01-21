@@ -1,6 +1,6 @@
 import type { MiddlewareObj } from '@middy/core';
 import type { APIGatewayProxyEventV2, APIGatewayProxyResultV2 } from 'aws-lambda';
-import { ALL_PERMISSIONS, Permission, ROLE_PERMISSIONS, User, UserRole } from '@auto-rfp/shared';
+import { ALL_PERMISSIONS, Permission, ROLE_PERMISSIONS, UserRole } from '@auto-rfp/shared';
 
 class HttpError extends Error {
   constructor(public statusCode: number, message: string) {
