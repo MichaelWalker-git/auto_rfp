@@ -258,4 +258,5 @@ async function markIndexed(documentId: string): Promise<void> {
   } while (lastEvaluatedKey);
 }
 
+export { baseHandler };
 export const handler = withSentryLambda(baseHandler);
