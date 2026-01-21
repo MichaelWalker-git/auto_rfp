@@ -1,22 +1,14 @@
 import { APIGatewayProxyEventV2, APIGatewayProxyResultV2 } from 'aws-lambda';
-import { SFNClient, StartExecutionCommand } from '@aws-sdk/client-sfn';
-import { UpdateCommand } from '@aws-sdk/lib-dynamodb';
 
 import { apiResponse } from '../helpers/api';
 import { withSentryLambda } from '../sentry-lambda';
-import { PK_NAME, SK_NAME } from '../constants/common';
-import { QUESTION_FILE_PK } from '../constants/question-file';
-import { requireEnv } from '../helpers/env';
-import { docClient } from '../helpers/db';
+import { getQuestionFileItem, updateQuestionFile } from '../helpers/questionFile';
+import { startPipeline } from '../helpers/solicitation';
 
-const sfnClient = new SFNClient({});
-
-const STATE_MACHINE_ARN = requireEnv('QUESTION_PIPELINE_STATE_MACHINE_ARN');
-const DB_TABLE_NAME = requireEnv('DB_TABLE_NAME');
-
-interface StartBody {
-  questionFileId?: string;
+type StartBody = {
   projectId?: string;
+  questionFileId?: string;
+  oppId?: string;
 }
 
 export const baseHandler = async (
@@ -24,66 +16,32 @@ export const baseHandler = async (
 ): Promise<APIGatewayProxyResultV2> => {
   console.log('start-question-pipeline event:', JSON.stringify(event));
 
-  if (!event.body) {
-    return apiResponse(400, { message: 'Request body is required' });
-  }
+  const body: StartBody = JSON.parse(event.body || '');
 
-  let body: StartBody;
-  try {
-    body = JSON.parse(event.body);
-  } catch {
-    return apiResponse(400, { message: 'Invalid JSON body' });
-  }
+  const { questionFileId, projectId, oppId } = body;
 
-  const { questionFileId, projectId } = body;
-
-  if (!questionFileId || !projectId) {
+  if (!questionFileId || !projectId || !oppId) {
     return apiResponse(400, {
-      message: 'questionFileId and projectId are required',
+      message: 'questionFileId, oppId and projectId are required',
     });
   }
 
-  const sk = `${projectId}#${questionFileId}`;
-  const now = new Date().toISOString();
-
   try {
-    await docClient.send(
-      new UpdateCommand({
-        TableName: DB_TABLE_NAME,
-        Key: {
-          [PK_NAME]: QUESTION_FILE_PK,
-          [SK_NAME]: sk,
-        },
-        UpdateExpression: 'SET #status = :status, #updatedAt = :updatedAt',
-        ExpressionAttributeNames: {
-          '#pk': PK_NAME,
-          '#sk': SK_NAME,
-          '#status': 'status',
-          '#updatedAt': 'updatedAt',
-        },
-        ExpressionAttributeValues: {
-          ':status': 'PROCESSING',
-          ':updatedAt': now,
-        },
-        ConditionExpression: 'attribute_exists(#pk) AND attribute_exists(#sk)',
-      }),
-    );
+    const { fileKey, mimeType } = await getQuestionFileItem(projectId, oppId, questionFileId) || {};
+    await updateQuestionFile(projectId, oppId, questionFileId, { status: 'PROCESSING' });
 
-    // 2) Start Step Functions execution
-    const res = await sfnClient.send(
-      new StartExecutionCommand({
-        stateMachineArn: STATE_MACHINE_ARN,
-        input: JSON.stringify({
-          questionFileId,
-          projectId,
-        }),
-      }),
+    const { executionArn, startDate } = await startPipeline(
+      projectId,
+      oppId,
+      questionFileId,
+      fileKey,
+      mimeType,
     );
 
     return apiResponse(202, {
       message: 'Question pipeline started',
-      executionArn: res.executionArn,
-      startDate: res.startDate,
+      executionArn,
+      startDate,
     });
   } catch (err: any) {
     console.error('Error starting question pipeline:', err);

@@ -15,13 +15,14 @@ import {
 } from '../middleware/rbac-middleware';
 import { requireEnv } from '../helpers/env';
 import { docClient } from '../helpers/db';
+import { buildQuestionSK } from '../helpers/question';
 
 const DB_TABLE_NAME = requireEnv('DB_TABLE_NAME');
 
 async function deleteQuestionItem(projectId: string, questionId: string): Promise<boolean> {
   const key = {
     [PK_NAME]: QUESTION_PK,
-    [SK_NAME]: `${projectId}#${questionId}`,
+    [SK_NAME]: buildQuestionSK(projectId, questionId),
   };
 
   const existing = await docClient.send(

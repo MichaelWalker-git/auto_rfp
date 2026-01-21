@@ -72,11 +72,33 @@ function toNumber(v: any): number | undefined {
   return Number.isFinite(n) ? n : undefined;
 }
 
+const getAttachmentsCount = (x: any): number => {
+  const candidates = [
+    x?.attachments,
+    x?.resourceLinks,
+    x?.resources,
+    x?.links,
+    x?.documents,
+    x?.attachment,
+  ];
+
+  for (const c of candidates) {
+    if (Array.isArray(c)) return c.length;
+  }
+
+  if (typeof x?.attachmentsCount === 'number') return x.attachmentsCount;
+  if (typeof x?.numAttachments === 'number') return x.numAttachments;
+
+  return 0;
+};
+
 function toSlim(o: any): SamOpportunitySlim {
   const baseAndAllOptionsValue =
     toNumber(o?.baseAndAllOptionsValue) ??
     toNumber(o?.baseAndAllOptions?.value) ??
     toNumber(o?.award?.amount);
+
+  const attachmentsCount = getAttachmentsCount(o);
 
   return {
     noticeId: o?.noticeId ?? o?.noticeid,
@@ -95,6 +117,7 @@ function toSlim(o: any): SamOpportunitySlim {
     description: o?.description,
     baseAndAllOptionsValue,
     award: o?.award,
+    attachmentsCount,
   };
 }
 
@@ -216,11 +239,45 @@ export function guessContentType(filename: string) {
   return 'application/octet-stream';
 }
 
-export function httpsGetBuffer(
+/**
+ * Extract filename from Content-Disposition header
+ * Supports both filename and filename* (RFC 5987) formats
+ */
+function extractFilenameFromHeader(contentDisposition?: string): string | undefined {
+  if (!contentDisposition) return undefined;
+
+  // Try filename* first (RFC 5987 - supports UTF-8 encoding)
+  const filenameStar = /filename\*=(?:UTF-8''|utf-8'')([^;\s]+)/i.exec(contentDisposition);
+  if (filenameStar) {
+    try {
+      return decodeURIComponent(filenameStar[1]);
+    } catch {
+      // Fall through to other methods if decoding fails
+    }
+  }
+
+  // Try quoted filename
+  const filenameQuoted = /filename="([^"]+)"/i.exec(contentDisposition);
+  if (filenameQuoted) {
+    return filenameQuoted[1];
+  }
+
+  // Try unquoted filename
+  const filenameUnquoted = /filename=([^;\s]+)/i.exec(contentDisposition);
+  if (filenameUnquoted) {
+    return filenameUnquoted[1];
+  }
+
+  return undefined;
+}
+
+export async function httpsGetBuffer(
   url: URL,
   opts?: { maxRedirects?: number; httpsAgent?: https.Agent },
-): Promise<{ buf: Buffer; contentType?: string; finalUrl: string }> {
+): Promise<{ buf: Buffer; contentType?: string; finalUrl: string; filename?: string }> {
   const maxRedirects = opts?.maxRedirects ?? 5;
+
+  const normalize = (v?: string) => (v ? v.split(';')[0].trim().toLowerCase() : undefined);
 
   return new Promise((resolve, reject) => {
     const req = https.request(
@@ -236,6 +293,9 @@ export function httpsGetBuffer(
       },
       (res) => {
         const status = res.statusCode ?? 0;
+        const ct = normalize(res.headers['content-type'] as string | undefined);
+        const contentDisposition = res.headers['content-disposition'] as string | undefined;
+        const headerFilename = extractFilenameFromHeader(contentDisposition);
 
         if ([301, 302, 303, 307, 308].includes(status)) {
           const loc = res.headers.location ? String(res.headers.location) : '';
@@ -251,9 +311,22 @@ export function httpsGetBuffer(
           const nextUrl = new URL(loc, url);
           res.resume();
 
-          resolve(
-            httpsGetBuffer(nextUrl, { maxRedirects: maxRedirects - 1, httpsAgent: opts?.httpsAgent }),
-          );
+          httpsGetBuffer(nextUrl, {
+            maxRedirects: maxRedirects - 1,
+            httpsAgent: opts?.httpsAgent,
+          })
+            .then((r) => {
+              resolve({
+                buf: r.buf,
+                contentType:
+                  r.contentType && r.contentType !== 'application/octet-stream'
+                    ? r.contentType
+                    : ct,
+                finalUrl: r.finalUrl,
+                filename: r.filename || headerFilename,
+              });
+            })
+            .catch(reject);
           return;
         }
 
@@ -265,8 +338,9 @@ export function httpsGetBuffer(
           if (status >= 200 && status < 300) {
             resolve({
               buf: body,
-              contentType: res.headers['content-type'] ? String(res.headers['content-type']) : undefined,
+              contentType: ct,
               finalUrl: url.toString(),
+              filename: headerFilename,
             });
             return;
           }
@@ -339,11 +413,25 @@ export function extractAttachmentsFromOpportunity(opp: any): Attachment[] {
   return out.filter((a) => (seen.has(a.url) ? false : (seen.add(a.url), true)));
 }
 
-export function buildAttachmentFilename(a: Attachment) {
+export function buildAttachmentFilename(a: Attachment, headerFilename?: string) {
+  // Prefer filename from Content-Disposition header
+  if (headerFilename) {
+    const sanitized = safeFilename(headerFilename);
+    if (sanitized && sanitized !== 'attachment') {
+      return sanitized;
+    }
+  }
+
+  // Fall back to attachment name or URL-derived name
   const url = new URL(a.url);
-  const baseName = safeFilename(a.name ?? path.basename(url.pathname));
-  const ext = path.extname(baseName) || guessExtFromUrl(a.url);
-  return ext ? (baseName.endsWith(ext) ? baseName : `${baseName}${ext}`) : baseName;
+  const rawName = a.name ?? path.basename(url.pathname);
+  const extFromName = path.extname(rawName);
+  const ext = extFromName || guessExtFromUrl(a.url);
+  const base = safeFilename(
+    ext ? rawName.slice(0, -ext.length) : rawName
+  );
+
+  return ext ? `${base}${ext}` : base;
 }
 
 export function buildAttachmentS3Key(args: {
@@ -354,5 +442,14 @@ export function buildAttachmentS3Key(args: {
   filename: string;
 }) {
   const urlHash = sha1(`${args.noticeId}:${args.attachmentUrl}`);
-  return `org_${args.orgId}/projects/${args.projectId}/sam/${args.noticeId}/${urlHash}/${args.filename}`;
+  return `org/${args.orgId}/projects/${args.projectId}/sam/${args.noticeId}/${urlHash}/${args.filename}`;
 }
+
+
+export const toBoolActive = (v: any) => v === true || String(v).toLowerCase() === 'yes' || String(v).toLowerCase() === 'true';
+
+export const safeIsoOrNull = (s?: string) => {
+  if (!s) return null;
+  const d = new Date(s);
+  return Number.isFinite(d.getTime()) ? d.toISOString() : null;
+};
