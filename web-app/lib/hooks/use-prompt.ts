@@ -38,17 +38,33 @@ const validatePromptListResponse = (data: unknown): PromptListResponse | null =>
   const obj = data as Record<string, unknown>;
   if (typeof obj.ok !== 'boolean') return null;
   if (!obj.items || typeof obj.items !== 'object') return null;
-  return data as PromptListResponse;
+
+  const items = obj.items as Record<string, unknown>;
+  const system = (items as { system?: unknown }).system;
+  const user = (items as { user?: unknown }).user;
+
+  if (!Array.isArray(system) || !Array.isArray(user)) return null;
+
+  return {
+    ok: obj.ok as boolean,
+    items: {
+      system: system as PromptItem[],
+      user: user as PromptItem[],
+    },
+  };
 };
 
 const validateSavePromptResponse = (data: unknown): SavePromptResponse | null => {
   if (!data || typeof data !== 'object') return null;
   const obj = data as Record<string, unknown>;
   if (typeof obj.ok !== 'boolean') return null;
-  if (!obj.item) return null;
+  if (!obj.item || typeof obj.item !== 'object') return null;
   return data as SavePromptResponse;
 };
 
+// NOTE: These runtime validation arrays must be kept in sync with the Zod schemas
+// in the @auto-rfp/shared package that define PromptScope and PromptType.
+// If new scopes or types are added there, they must be added here as well.
 const validScopes: PromptScope[] = ['SYSTEM', 'USER'];
 const validTypes: PromptType[] = ['PROPOSAL', 'SUMMARY', 'REQUIREMENTS', 'CONTACTS', 'RISK', 'DEADLINE', 'SCORING'];
 
@@ -84,6 +100,11 @@ export function useSavePrompt() {
       }
       if (!arg.prompt || arg.prompt.length < 1) {
         throw new Error('prompt is required');
+      }
+      if (arg.params !== undefined && arg.params !== null) {
+        if (!Array.isArray(arg.params) || !arg.params.every((p) => typeof p === 'string')) {
+          throw new Error('params must be an array of strings when provided');
+        }
       }
 
       const url = promptApi.save(arg.scope);

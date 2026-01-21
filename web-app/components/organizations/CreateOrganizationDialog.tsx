@@ -18,6 +18,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/components/ui/use-toast';
 import { Loader2 } from 'lucide-react';
 import { useCreateOrganization } from '@/lib/hooks/use-create-organization';
+import { generateSlug } from '@/lib/utils';
 
 interface CreateOrganizationDialogProps {
   isOpen: boolean;
@@ -52,8 +53,17 @@ export function CreateOrganizationDialog({
     try {
       setIsSubmitting(true);
 
-      // Generate slug from name (lowercase, replace spaces with hyphens, remove special chars)
-      const slug = name.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
+      const slug = generateSlug(name);
+
+      if (!slug) {
+        toast({
+          title: 'Error',
+          description: 'Organization name must contain letters or numbers to create a valid URL slug',
+          variant: 'destructive',
+        });
+        setIsSubmitting(false);
+        return;
+      }
 
       const response = await createOrganization({
         name,
