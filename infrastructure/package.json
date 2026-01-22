@@ -14,15 +14,23 @@
     "synth": "cdk synth --profile rubywell"
   },
   "devDependencies": {
-    "@types/jest": "^29.0.0",
+    "@types/aws-lambda": "^8.10.160",
+    "@types/jest": "^29.5.14",
     "@types/node": "^20.0.0",
+    "@types/uuid": "^10.0.0",
     "aws-cdk": "^2.120.0",
     "jest": "^29.0.0",
+    "ts-jest": "^29.4.6",
     "typescript": "^5.0.0"
   },
   "dependencies": {
+    "@aws-sdk/client-bedrock-runtime": "^3.972.0",
+    "@aws-sdk/client-dynamodb": "^3.972.0",
+    "@aws-sdk/lib-dynamodb": "^3.972.0",
     "aws-cdk-lib": "^2.120.0",
     "cdk-nag": "^2.36.46",
-    "constructs": "^10.0.0"
+    "constructs": "^10.0.0",
+    "uuid": "^13.0.0",
+    "zod": "^4.3.5"
   }
 }
