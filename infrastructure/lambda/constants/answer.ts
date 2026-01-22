@@ -1,1 +1,1 @@
-export const ANSWER_PK = 'ANSWER'
+export const ANSWER_PK = 'ANSWER';

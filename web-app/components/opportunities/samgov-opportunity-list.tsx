@@ -180,12 +180,12 @@ export function SamGovOpportunityList({ data, isLoading, onPage, onImportSolicit
                     )}
 
                     <Badge
-                      variant={attachmentsCount === 0 ? 'secondary' : 'default'}
+                      variant={attachmentsCount === 0 ? 'destructive' : 'default'}
                       className="gap-1 rounded-xl"
-                      title={attachmentsCount === 0 ? 'No attachments detected' : 'Attachments available'}
+                      title={attachmentsCount === 0 ? 'No attachments available - may require manual download' : `${attachmentsCount} attachment${attachmentsCount === 1 ? '' : 's'} available`}
                     >
                       <Paperclip className="h-3.5 w-3.5"/>
-                      {attachmentsCount}
+                      {attachmentsCount === 0 ? 'No files' : attachmentsCount}
                     </Badge>
                   </div>
 
