@@ -14,7 +14,7 @@ import {
 import { BadgeCheck, Building2, Calendar, Hash, Loader2, Paperclip, Search, Tag, } from 'lucide-react';
 
 import type { SamOpportunitySlim } from '@auto-rfp/shared';
-import { useSamGovDescription } from '@/lib/hooks/use-opportunities';
+import { useSamGovDescription, type SamGovDescriptionResponse } from '@/lib/hooks/use-opportunities';
 import { fmtDate } from './samgov-utils';
 import { useToast } from '../ui/use-toast';
 import DOMPurify from 'dompurify';
@@ -31,10 +31,6 @@ type Props = {
   onPage: (offset: number) => Promise<void>;
   onImportSolicitation: (data: SamOpportunitySlim) => void;
 };
-
-type OpportunityDescription = {
-  description?: string;
-}
 
 function StatPill({
                     icon,
@@ -88,7 +84,7 @@ export function SamGovOpportunityList({ data, isLoading, onPage, onImportSolicit
 
   const canPrev = offset > 0;
   const canNext = offset + limit < total;
-  const [selectedDescription, setSelectedDescription] = useState<OpportunityDescription | null>(null);
+  const [selectedDescription, setSelectedDescription] = useState<SamGovDescriptionResponse | null>(null);
   const [selectedOpportunity, setSelectedOpportunity] = useState<SamOpportunitySlim | null>(null);
 
   const { trigger: fetchDescription, isMutating } = useSamGovDescription();
@@ -121,8 +117,8 @@ export function SamGovOpportunityList({ data, isLoading, onPage, onImportSolicit
   };
 
   const sanitizeHtml = (description: string) => {
-    return DOMPurify.sanitize(description)
-  }
+    return DOMPurify.sanitize(description);
+  };
 
   return (
     <div className="space-y-3">

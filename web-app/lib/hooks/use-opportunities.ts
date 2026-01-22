@@ -268,8 +268,14 @@ export function useOpportunity(projectId: string | null, oppId: string | null) {
   };
 }
 
+export type SamGovDescriptionResponse = {
+  description?: string;
+  content?: string;
+  contentType?: string;
+};
+
 export function useSamGovDescription() {
-  return useSWRMutation<any, ErrorShape, string, { descriptionUrl: string }>(
+  return useSWRMutation<SamGovDescriptionResponse, ErrorShape, string, { descriptionUrl: string }>(
     `${env.BASE_API_URL}/samgov/opportunity-description`,
     async (url, { arg }) => {
       const res = await authFetcher(url, {
@@ -278,7 +284,7 @@ export function useSamGovDescription() {
         body: JSON.stringify({ descriptionUrl: arg.descriptionUrl }),
       });
 
-      return readAuthJson<any>(res, 'Failed to load description');
+      return readAuthJson<SamGovDescriptionResponse>(res, 'Failed to load description');
     },
   );
 }

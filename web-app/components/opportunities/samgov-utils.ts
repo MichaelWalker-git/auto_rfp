@@ -13,7 +13,7 @@ export function defaultDateRange(daysBack = 14, minDaysForResponse = 0) {
   const from = new Date();
   const responseDeadline = new Date();
   from.setDate(to.getDate() - daysBack);
-  responseDeadline.setDate(to.getDate() + minDaysForResponse)
+  responseDeadline.setDate(to.getDate() + minDaysForResponse);
   return { postedFrom: toIso(from), postedTo: toIso(to), rdlfrom: toIso(responseDeadline) };
 }
 

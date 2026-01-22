@@ -292,5 +292,5 @@ export function CreateProjectDialog({ orgId, open, setOpen }: CreateDialogProps)
           </div>
         </DialogContent>
       </Dialog>
-  )
+  );
 }
