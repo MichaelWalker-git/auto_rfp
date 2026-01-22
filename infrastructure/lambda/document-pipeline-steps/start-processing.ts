@@ -1,6 +1,5 @@
 import { Context } from 'aws-lambda';
-import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
-import { DynamoDBDocumentClient, QueryCommand, UpdateCommand, } from '@aws-sdk/lib-dynamodb';
+import { QueryCommand, UpdateCommand, } from '@aws-sdk/lib-dynamodb';
 
 import { PK_NAME, SK_NAME } from '../constants/common';
 import { DOCUMENT_PK } from '../constants/document';
