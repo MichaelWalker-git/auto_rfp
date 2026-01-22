@@ -6,7 +6,7 @@ import { Search } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
 import { useSearchParams } from 'next/navigation';
 
-import type { LoadSamOpportunitiesRequest, SamOpportunitySlim } from '@auto-rfp/shared';
+import type { LoadSamOpportunitiesRequest, SamOpportunitySlim, MmDdYyyy } from '@auto-rfp/shared';
 import { useSearchOpportunities } from '@/lib/hooks/use-opportunities';
 
 import { defaultDateRange, filtersToRequest, reqToFiltersState, safeDecodeSearchParam } from './samgov-utils';
@@ -26,7 +26,7 @@ export default function SamGovOpportunitySearchPage({ orgId }: Props) {
   const { data, isMutating: isLoading, error, trigger } = useSearchOpportunities();
   const { projects } = useProjectContext();
 
-  const initial = React.useMemo(() => defaultDateRange(14), []);
+  const initial = React.useMemo(() => defaultDateRange(14, 0), []);
 
   // --- URL bootstrap (only once per mount) ---
   const bootstrappedRef = React.useRef(false);
@@ -39,6 +39,7 @@ export default function SamGovOpportunitySearchPage({ orgId }: Props) {
     ptypeCsv: '',
     postedFrom: initial.postedFrom,
     postedTo: initial.postedTo,
+    rdlfrom: initial.rdlfrom,
   }));
 
   React.useEffect(() => {
@@ -107,6 +108,12 @@ export default function SamGovOpportunitySearchPage({ orgId }: Props) {
     await trigger(req);
   };
 
+  const isoToMMDDYYYY = (iso: string): MmDdYyyy => {
+    // iso = "2026-01-13"
+    const [year, month, day] = iso.split('-');
+    return `${month}/${day}/${year}`;
+  }
+
   // -------- Import dialog state ----------
   const [dialogOpen, setDialogOpen] = React.useState(false);
   const [pendingOpp, setPendingOpp] = React.useState<SamOpportunitySlim | null>(null);
@@ -121,8 +128,8 @@ export default function SamGovOpportunitySearchPage({ orgId }: Props) {
     try {
       const res = await importSolicitation({
         ...args,
-        postedFrom: filters.postedFrom,
-        postedTo: filters.postedTo,
+        postedFrom: isoToMMDDYYYY(filters.postedFrom),
+        postedTo: isoToMMDDYYYY(filters.postedTo),
       });
 
       toast({

@@ -544,6 +544,9 @@ export class ApiStack extends cdk.Stack {
     this.samgovApi.addRoute('/opportunities', 'POST', 'lambda/samgov/search-opportunities.ts', {
       SAM_GOV_API_KEY_SECRET_ID: samGovApiKeySecret.secretArn,
     });
+    this.samgovApi.addRoute('/opportunity-description', 'POST', 'lambda/samgov/get-opportunity-description.ts', {
+      SAM_GOV_API_KEY_SECRET_ID: samGovApiKeySecret.secretArn,
+    });
 
     // Semantic
     this.semanticApi.addRoute('/search', 'POST', 'lambda/semanticsearch/search.ts');

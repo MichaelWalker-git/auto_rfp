@@ -267,3 +267,18 @@ export function useOpportunity(projectId: string | null, oppId: string | null) {
     refetch: () => mutate(),
   };
 }
+
+export function useSamGovDescription() {
+  return useSWRMutation<any, ErrorShape, string, { descriptionUrl: string }>(
+    `${env.BASE_API_URL}/samgov/opportunity-description`,
+    async (url, { arg }) => {
+      const res = await authFetcher(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ descriptionUrl: arg.descriptionUrl }),
+      });
+
+      return readAuthJson<any>(res, 'Failed to load description');
+    },
+  );
+}

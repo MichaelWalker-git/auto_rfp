@@ -23,6 +23,12 @@ import { useProjectContext } from '@/context/project-context';
 import { useCreateProject } from '@/lib/hooks/use-create-project';
 import PermissionWrapper from '@/components/permission-wrapper';
 
+type CreateDialogProps = {
+  orgId: string | undefined;
+  open: boolean;
+  setOpen: (open: boolean) => void;
+};
+
 function initialsFromName(name?: string | null) {
   const t = (name ?? '').trim();
   if (!t) return '?';
@@ -31,7 +37,6 @@ function initialsFromName(name?: string | null) {
 
 export function OrganizationBadge() {
   const { isMobile, open } = useSidebar();
-  const { toast } = useToast();
 
   const { currentOrganization, loading: orgLoading } = useOrganization();
   const orgId = currentOrganization?.id ?? null;
@@ -39,11 +44,6 @@ export function OrganizationBadge() {
   const { projects, currentProject, setCurrentProject, loading: projectsLoading, refreshProjects } =
     useProjectContext();
 
-  const { createProject } = useCreateProject();
-
-  const [createDialogOpen, setCreateDialogOpen] = useState(false);
-  const [isCreating, setIsCreating] = useState(false);
-  const [form, setForm] = useState({ name: '', description: '' });
 
   const loading = orgLoading || projectsLoading;
 
@@ -63,50 +63,7 @@ export function OrganizationBadge() {
     [currentOrganization?.name],
   );
 
-  const handleCreate = async () => {
-    if (!orgId) {
-      toast({ title: 'Error', description: 'Select an organization first', variant: 'destructive' });
-      return;
-    }
-
-    const name = form.name.trim();
-    if (!name) {
-      toast({ title: 'Error', description: 'Project name is required', variant: 'destructive' });
-      return;
-    }
-
-    try {
-      setIsCreating(true);
-
-      const created = await createProject({
-        orgId,
-        name,
-        description: form.description.trim() || undefined,
-      } as any);
-
-      if (!created?.id) {
-        toast({ title: 'Error', description: 'Failed to create project', variant: 'destructive' });
-        return;
-      }
-
-      await refreshProjects();
-
-      const next = projects.find((p) => p.id === created.id) || (created as any);
-      if (next) setCurrentProject(next);
-
-      toast({ title: 'Success', description: 'Project created' });
-      setCreateDialogOpen(false);
-      setForm({ name: '', description: '' });
-    } catch (e: any) {
-      toast({
-        title: 'Error',
-        description: e instanceof Error ? e.message : 'Failed to create project',
-        variant: 'destructive',
-      });
-    } finally {
-      setIsCreating(false);
-    }
-  };
+  const [createDialogOpen, setCreateDialogOpen] = useState(false);
 
   if (loading) {
     return (
@@ -228,7 +185,73 @@ export function OrganizationBadge() {
         </SidebarMenuItem>
       </SidebarMenu>
 
-      <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
+      <CreateProjectDialog 
+        orgId={orgId}
+        open={createDialogOpen}
+        setOpen={setCreateDialogOpen}
+      />
+      
+    </>
+  );
+}
+
+export function CreateProjectDialog({ orgId, open, setOpen }: CreateDialogProps) {
+
+  const { toast } = useToast();
+  const { createProject } = useCreateProject();
+  const { projects, currentProject, setCurrentProject, loading: projectsLoading, refreshProjects } =
+    useProjectContext();
+
+  const [isCreating, setIsCreating] = useState(false);
+  const [form, setForm] = useState({ name: '', description: '' });
+
+  const handleCreate = async () => {
+    if (!orgId) {
+      toast({ title: 'Error', description: 'Select an organization first', variant: 'destructive' });
+      return;
+    }
+
+    const name = form.name.trim();
+    if (!name) {
+      toast({ title: 'Error', description: 'Project name is required', variant: 'destructive' });
+      return;
+    }
+
+    try {
+      setIsCreating(true);
+
+      const created = await createProject({
+        orgId,
+        name,
+        description: form.description.trim() || undefined,
+      } as any);
+
+      if (!created?.id) {
+        toast({ title: 'Error', description: 'Failed to create project', variant: 'destructive' });
+        return;
+      }
+
+      await refreshProjects();
+
+      const next = projects.find((p) => p.id === created.id) || (created as any);
+      if (next) setCurrentProject(next);
+
+      toast({ title: 'Success', description: 'Project created' });
+      setOpen(false);
+      setForm({ name: '', description: '' });
+    } catch (e: any) {
+      toast({
+        title: 'Error',
+        description: e instanceof Error ? e.message : 'Failed to create project',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsCreating(false);
+    }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="sm:max-w-[425px]">
           <DialogHeader>
             <DialogTitle>Create Project</DialogTitle>
@@ -258,7 +281,7 @@ export function OrganizationBadge() {
             </div>
 
             <div className="flex justify-end gap-2">
-              <Button variant="outline" onClick={() => setCreateDialogOpen(false)} disabled={isCreating}>
+              <Button variant="outline" onClick={() => setOpen(false)} disabled={isCreating}>
                 Cancel
               </Button>
               <Button onClick={handleCreate} disabled={isCreating}>
@@ -269,6 +292,5 @@ export function OrganizationBadge() {
           </div>
         </DialogContent>
       </Dialog>
-    </>
-  );
+  )
 }

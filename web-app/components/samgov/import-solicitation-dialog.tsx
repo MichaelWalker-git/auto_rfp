@@ -12,13 +12,15 @@ import {
 } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList, CommandSeparator } from '@/components/ui/command';
+import PermissionWrapper from '@/components/permission-wrapper';
 import { Separator } from '@/components/ui/separator';
-import { Calendar, Check, ChevronsUpDown, Loader2 } from 'lucide-react';
+import { Calendar, Check, ChevronsUpDown, Loader2, Plus } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 import type { SamOpportunitySlim } from '@auto-rfp/shared';
 import { fmtDate } from '@/components/opportunities/samgov-utils';
+import { CreateProjectDialog } from '../organization-badge';
 
 export type ProjectOption = { id: string; name: string };
 
@@ -49,6 +51,7 @@ export function ImportSolicitationDialog({
   const [projectId, setProjectId] = React.useState<string>('');
   const [projectOpen, setProjectOpen] = React.useState(false);
   const [error, setError] = React.useState<string>('');
+  const [createDialogOpen, setCreateDialogOpen] = React.useState<boolean>(false);
 
   const noticeId = opportunity?.noticeId ?? '';
   const title = opportunity?.title ?? '(No title)';
@@ -105,6 +108,7 @@ export function ImportSolicitationDialog({
   };
 
   return (
+    <>
     <Dialog open={open} onOpenChange={(v) => !isImporting && onOpenChange(v)}>
       <DialogContent className="sm:max-w-[800px] max-h-[85vh] overflow-hidden">
         <DialogHeader className="min-w-0">
@@ -215,6 +219,18 @@ export function ImportSolicitationDialog({
                         </CommandItem>
                       ))}
                     </CommandGroup>
+                    <PermissionWrapper requiredPermission={'project:create'}>
+                      <CommandSeparator />
+                      <CommandItem
+                        onSelect={(e) => {
+                          setCreateDialogOpen(true);
+                        }}
+                        className="cursor-pointer"
+                      >
+                        <Plus className="mr-2 size-4" />
+                        <span>Create project</span>
+                      </CommandItem>
+                    </PermissionWrapper>
                   </CommandList>
                 </Command>
               </PopoverContent>
@@ -244,5 +260,12 @@ export function ImportSolicitationDialog({
         </div>
       </DialogContent>
     </Dialog>
+
+    <CreateProjectDialog 
+      orgId={orgId} 
+      open={createDialogOpen}
+      setOpen={setCreateDialogOpen}
+    />
+    </>
   );
 }

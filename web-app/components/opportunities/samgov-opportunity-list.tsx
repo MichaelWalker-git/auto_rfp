@@ -1,13 +1,24 @@
 'use client';
 
 import * as React from 'react';
+import { useState } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import { BadgeCheck, Building2, Calendar, Hash, Loader2, Paperclip, Search, Tag, } from 'lucide-react';
 
 import type { SamOpportunitySlim } from '@auto-rfp/shared';
+import { useSamGovDescription } from '@/lib/hooks/use-opportunities';
 import { fmtDate } from './samgov-utils';
+import { useToast } from '../ui/use-toast';
+import DOMPurify from 'dompurify';
 
 type Props = {
   data?: {
@@ -74,6 +85,36 @@ export function SamGovOpportunityList({ data, isLoading, onPage, onImportSolicit
 
   const canPrev = offset > 0;
   const canNext = offset + limit < total;
+  const [selectedDescription, setSelectedDescription] = useState<any>(null);
+  const [selectedOpportunity, setSelectedOpportunity] = useState<any>(null);
+
+  const { trigger: fetchDescription, isMutating } = useSamGovDescription();
+  const { toast } = useToast();
+
+  const handleViewDescription = async (opportunity: SamOpportunitySlim) => {
+    setSelectedOpportunity(opportunity)
+    if (!opportunity.description) {
+      console.error('No description URL available');
+      setSelectedOpportunity(null)
+      return;
+    }
+
+    try {
+      const data = await fetchDescription({ descriptionUrl: opportunity.description });
+      setSelectedDescription(data);
+    } catch (error) {
+      console.error('Failed to load description:', error);
+      toast({
+          title: 'Error',
+          description: 'Failed to fetch opportunity description',
+          variant: 'destructive',
+        });
+    }
+  };
+
+  const sanitizeHtml = (description: string) => {
+    return DOMPurify.sanitize(description)
+  }
 
   return (
     <div className="space-y-3">
@@ -166,14 +207,44 @@ export function SamGovOpportunityList({ data, isLoading, onPage, onImportSolicit
                 </div>
               </div>
 
-              <div className="mt-4 flex flex-wrap gap-2">
-                <Badge variant="secondary" className="rounded-xl">
-                  NAICS: <span className="ml-1 font-medium text-foreground">{o.naicsCode ?? '—'}</span>
-                </Badge>
-                <Badge variant="secondary" className="rounded-xl">
-                  PSC: <span className="ml-1 font-medium text-foreground">{o.classificationCode ?? '—'}</span>
-                </Badge>
+              <div className="mt-4 flex flex-wrap gap-2 items-center justify-between">
+                <div className="flex flex-wrap gap-2">
+                  <Badge variant="secondary" className="rounded-xl">
+                    NAICS: <span className="ml-1 font-medium text-foreground">{o.naicsCode ?? '—'}</span>
+                  </Badge>
+                  <Badge variant="secondary" className="rounded-xl">
+                    PSC: <span className="ml-1 font-medium text-foreground">{o.classificationCode ?? '—'}</span>
+                  </Badge>
+                </div>
+                <Button 
+                  size='sm' 
+                  variant={o.description ? 'default' : 'ghost'}
+                  onClick={() => handleViewDescription(o)}
+                  disabled={isMutating}
+                >
+                  {isMutating && o.solicitationNumber === selectedOpportunity?.solicitationNumber ? 'Loading...' : 'View description'}
+                </Button>
               </div>
+
+              {o.solicitationNumber === selectedOpportunity?.solicitationNumber && 
+                <Dialog open={selectedDescription} onOpenChange={() => {
+                  setSelectedDescription(null)
+                  setSelectedOpportunity(null)
+                }}>
+                  <DialogContent className="sm:max-w-2xl max-h-[85vh] flex flex-col overflow-y-auto">
+                    <DialogHeader>
+                      <DialogTitle>Opportunity Description for {title}</DialogTitle>
+                    </DialogHeader>
+                    
+                      {selectedDescription?.description && 
+                        <div dangerouslySetInnerHTML={{__html: sanitizeHtml(selectedDescription.description)}}></div>
+                      }
+                      {!selectedDescription?.description && <div>Loading...</div>}
+                      
+                    
+                  </DialogContent>
+                </Dialog>
+              }
 
               <div className="mt-4 flex flex-col gap-2 border-t pt-4 sm:flex-row sm:items-center sm:justify-between">
                 <div className="flex items-center gap-2">

@@ -31,7 +31,7 @@ import {
   DialogTrigger,
 } from '@/components/ui/dialog';
 
-import type { CreateSavedSearchRequest, LoadSamOpportunitiesRequest, SavedSearchFrequency, } from '@auto-rfp/shared';
+import type { CreateSavedSearchRequest, LoadSamOpportunitiesRequest, SavedSearchFrequency, MmDdYyyy} from '@auto-rfp/shared';
 
 import { defaultDateRange, QUICK_FILTERS } from './samgov-utils';
 import { useCreateSavedSearch } from '@/lib/hooks/use-saved-search';
@@ -44,6 +44,7 @@ export type SamGovFiltersState = {
   ptypeCsv: string;
   postedFrom: string;
   postedTo: string;
+  rdlfrom: string;
 };
 
 type Props = {
@@ -88,10 +89,17 @@ export function SamGovFilters({
     [value.ptypeCsv],
   );
 
+  const isoToMMDDYYYY = (iso: string): MmDdYyyy => {
+    // iso = "2026-01-13"
+    const [year, month, day] = iso.split('-');
+    return `${month}/${day}/${year}`;
+  }
+
   const buildCriteria = (offset = 0): LoadSamOpportunitiesRequest =>
     ({
-      postedFrom: value.postedFrom,
-      postedTo: value.postedTo,
+      postedFrom: isoToMMDDYYYY(value.postedFrom),
+      postedTo: isoToMMDDYYYY(value.postedTo),
+      rdlfrom: isoToMMDDYYYY(value.rdlfrom),
       keywords: value.keywords.trim() || undefined,
       naics: naics.length ? naics : undefined,
       organizationName: value.agencyName.trim() || undefined,
@@ -110,12 +118,12 @@ export function SamGovFilters({
   };
 
   const applyQuickFilter = (days: number) => {
-    const range = defaultDateRange(days);
+    const range = defaultDateRange(days, 0);
     onChange({ ...value, postedFrom: range.postedFrom, postedTo: range.postedTo });
   };
 
   const clearFilters = () => {
-    const range = defaultDateRange(14);
+    const range = defaultDateRange(14, 0);
     onChange({
       keywords: '',
       naicsCsv: '541511',
@@ -124,6 +132,7 @@ export function SamGovFilters({
       ptypeCsv: '',
       postedFrom: range.postedFrom,
       postedTo: range.postedTo,
+      rdlfrom: range.rdlfrom,
     });
   };
 
@@ -361,6 +370,8 @@ export function SamGovFilters({
             <div className="space-y-2">
               <Label>Posted from</Label>
               <Input
+                type="date"
+                className='block'
                 value={value.postedFrom}
                 onChange={(e) => onChange({ ...value, postedFrom: e.target.value })}
                 placeholder="MM/DD/YYYY"
@@ -370,8 +381,21 @@ export function SamGovFilters({
             <div className="space-y-2">
               <Label>Posted to</Label>
               <Input
+                type="date"
+                className='block'
                 value={value.postedTo}
                 onChange={(e) => onChange({ ...value, postedTo: e.target.value })}
+                placeholder="MM/DD/YYYY"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label>Due date from</Label>
+              <Input
+                type="date"
+                className='block'
+                value={value.rdlfrom}
+                onChange={(e) => onChange({ ...value, rdlfrom: e.target.value })}
                 placeholder="MM/DD/YYYY"
               />
             </div>
