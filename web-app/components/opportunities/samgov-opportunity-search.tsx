@@ -9,7 +9,7 @@ import { useSearchParams } from 'next/navigation';
 import type { LoadSamOpportunitiesRequest, SamOpportunitySlim, MmDdYyyy } from '@auto-rfp/shared';
 import { useSearchOpportunities } from '@/lib/hooks/use-opportunities';
 
-import { defaultDateRange, filtersToRequest, reqToFiltersState, safeDecodeSearchParam } from './samgov-utils';
+import { defaultDateRange, filtersToRequest, reqToFiltersState, safeDecodeSearchParam, isoToMMDDYYYY } from './samgov-utils';
 import { SamGovFilters, type SamGovFiltersState } from './samgov-filters';
 import { SamGovOpportunityList } from './samgov-opportunity-list';
 
@@ -107,12 +107,6 @@ export default function SamGovOpportunitySearchPage({ orgId }: Props) {
     const req = filtersToRequest(filters, { limit: data?.limit ?? 25, offset: nextOffset });
     await trigger(req);
   };
-
-  const isoToMMDDYYYY = (iso: string): MmDdYyyy => {
-    // iso = "2026-01-13"
-    const [year, month, day] = iso.split('-');
-    return `${month}/${day}/${year}`;
-  }
 
   // -------- Import dialog state ----------
   const [dialogOpen, setDialogOpen] = React.useState(false);

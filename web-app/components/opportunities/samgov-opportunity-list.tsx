@@ -8,7 +8,6 @@ import { Button } from '@/components/ui/button';
 import {
   Dialog,
   DialogContent,
-  DialogDescription,
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
@@ -32,6 +31,10 @@ type Props = {
   onPage: (offset: number) => Promise<void>;
   onImportSolicitation: (data: SamOpportunitySlim) => void;
 };
+
+type OpportunityDescription = {
+  description?: string;
+}
 
 function StatPill({
                     icon,
@@ -85,8 +88,8 @@ export function SamGovOpportunityList({ data, isLoading, onPage, onImportSolicit
 
   const canPrev = offset > 0;
   const canNext = offset + limit < total;
-  const [selectedDescription, setSelectedDescription] = useState<any>(null);
-  const [selectedOpportunity, setSelectedOpportunity] = useState<any>(null);
+  const [selectedDescription, setSelectedDescription] = useState<OpportunityDescription | null>(null);
+  const [selectedOpportunity, setSelectedOpportunity] = useState<SamOpportunitySlim | null>(null);
 
   const { trigger: fetchDescription, isMutating } = useSamGovDescription();
   const { toast } = useToast();
@@ -95,6 +98,11 @@ export function SamGovOpportunityList({ data, isLoading, onPage, onImportSolicit
     setSelectedOpportunity(opportunity)
     if (!opportunity.description) {
       console.error('No description URL available');
+      toast({
+        title: 'No description available',
+        description: 'No description is available for this opportunity.',
+        variant: 'destructive',
+      });
       setSelectedOpportunity(null)
       return;
     }
@@ -227,7 +235,7 @@ export function SamGovOpportunityList({ data, isLoading, onPage, onImportSolicit
               </div>
 
               {o.solicitationNumber === selectedOpportunity?.solicitationNumber && 
-                <Dialog open={selectedDescription} onOpenChange={() => {
+                <Dialog open={!!selectedDescription} onOpenChange={() => {
                   setSelectedDescription(null)
                   setSelectedOpportunity(null)
                 }}>

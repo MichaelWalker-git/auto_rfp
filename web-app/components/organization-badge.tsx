@@ -199,7 +199,7 @@ export function CreateProjectDialog({ orgId, open, setOpen }: CreateDialogProps)
 
   const { toast } = useToast();
   const { createProject } = useCreateProject();
-  const { projects, currentProject, setCurrentProject, loading: projectsLoading, refreshProjects } =
+  const { projects, setCurrentProject, refreshProjects } =
     useProjectContext();
 
   const [isCreating, setIsCreating] = useState(false);

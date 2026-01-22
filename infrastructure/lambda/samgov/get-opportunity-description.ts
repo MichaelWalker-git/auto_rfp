@@ -17,6 +17,11 @@ import { httpsGetBuffer } from '../helpers/samgov';
 
 const SAM_GOV_API_KEY_SECRET_ID = requireEnv('SAM_GOV_API_KEY_SECRET_ID');
 
+const ALLOWED_SAM_DOMAINS = [
+  'api.sam.gov',
+  'sam.gov',
+];
+
 // reuse sockets across invocations
 const httpsAgent = new https.Agent({ keepAlive: true });
 
@@ -30,6 +35,27 @@ async function getApiKey(): Promise<string> {
   if (cachedApiKey) return cachedApiKey;
   cachedApiKey = await readPlainSecret(SAM_GOV_API_KEY_SECRET_ID);
   return cachedApiKey;
+}
+
+function isValidSamGovUrl(urlString: string): boolean {
+  try {
+    const url = new URL(urlString);
+    
+    // Must be HTTPS
+    if (url.protocol !== 'https:') {
+      return false;
+    }
+    
+    // Must be from allowed SAM.gov domains
+    const hostname = url.hostname.toLowerCase();
+    const isAllowed = ALLOWED_SAM_DOMAINS.some(domain => 
+      hostname === domain || hostname.endsWith(`.${domain}`)
+    );
+    
+    return isAllowed;
+  } catch {
+    return false;
+  }
 }
 
 const baseHandler = async (
@@ -48,6 +74,13 @@ const baseHandler = async (
 
   if (!body.descriptionUrl) {
     return apiResponse(400, { message: 'descriptionUrl is required' });
+  }
+
+  if (!isValidSamGovUrl(body.descriptionUrl)) {
+    return apiResponse(400, { 
+      message: 'Invalid descriptionUrl: must be from sam.gov domain',
+      allowedDomains: ALLOWED_SAM_DOMAINS,
+    });
   }
 
   const apiKey = await getApiKey();

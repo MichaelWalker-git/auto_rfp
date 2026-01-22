@@ -33,7 +33,7 @@ import {
 
 import type { CreateSavedSearchRequest, LoadSamOpportunitiesRequest, SavedSearchFrequency, MmDdYyyy} from '@auto-rfp/shared';
 
-import { defaultDateRange, QUICK_FILTERS } from './samgov-utils';
+import { defaultDateRange, QUICK_FILTERS, isoToMMDDYYYY } from './samgov-utils';
 import { useCreateSavedSearch } from '@/lib/hooks/use-saved-search';
 
 export type SamGovFiltersState = {
@@ -88,12 +88,6 @@ export function SamGovFilters({
     () => value.ptypeCsv.split(',').map((s) => s.trim()).filter(Boolean),
     [value.ptypeCsv],
   );
-
-  const isoToMMDDYYYY = (iso: string): MmDdYyyy => {
-    // iso = "2026-01-13"
-    const [year, month, day] = iso.split('-');
-    return `${month}/${day}/${year}`;
-  }
 
   const buildCriteria = (offset = 0): LoadSamOpportunitiesRequest =>
     ({

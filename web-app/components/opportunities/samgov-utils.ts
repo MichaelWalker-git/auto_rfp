@@ -1,5 +1,5 @@
 import type { SamGovFiltersState } from '@/components/opportunities/samgov-filters';
-import type { LoadSamOpportunitiesRequest } from '@auto-rfp/shared';
+import type { LoadSamOpportunitiesRequest, MmDdYyyy } from '@auto-rfp/shared';
 
 export function toIso(d: Date) {
   const mm = String(d.getMonth() + 1).padStart(2, '0');
@@ -86,6 +86,17 @@ export function filtersToRequest(
     offset: opts?.offset ?? 0,
   } as any;
 }
+
+export function isoToMMDDYYYY (iso: string): MmDdYyyy  {
+    // Expect iso in the form "YYYY-MM-DD"
+    const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso);
+    if (!match) {
+      console.log('Wrong date string format, expected "YYYY-MM-DD"')
+      return iso as MmDdYyyy;
+    }
+    const [, year, month, day] = match;
+    return `${month}/${day}/${year}` as MmDdYyyy;
+  }
 
 function pad2(n: number) {
   return n < 10 ? `0${n}` : String(n);
