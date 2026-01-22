@@ -6,7 +6,7 @@ import { Search } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
 import { useSearchParams } from 'next/navigation';
 
-import type { LoadSamOpportunitiesRequest, SamOpportunitySlim, MmDdYyyy } from '@auto-rfp/shared';
+import type { LoadSamOpportunitiesRequest, SamOpportunitySlim } from '@auto-rfp/shared';
 import { useSearchOpportunities } from '@/lib/hooks/use-opportunities';
 
 import { defaultDateRange, filtersToRequest, reqToFiltersState, safeDecodeSearchParam, isoToMMDDYYYY } from './samgov-utils';
@@ -96,30 +96,9 @@ export default function SamGovOpportunitySearchPage({ orgId }: Props) {
       filters.setAsideCode.trim(),
       filters.ptypeCsv.trim(),
       filters.naicsCsv.trim() !== '541511' ? 'naics' : '',
-      filters.minDaysUntilDue > 0 ? 'minDays' : '',
+      filters.rdlfrom ? 'rdlfrom' : '',
     ].filter(Boolean).length;
   }, [filters]);
-
-  // Client-side filtering for minDaysUntilDue (SAM.gov API doesn't support deadline filters)
-  const filteredData = React.useMemo(() => {
-    if (!data) return data;
-    if (filters.minDaysUntilDue <= 0) return data;
-
-    const now = new Date();
-    const minDate = new Date(now.getTime() + filters.minDaysUntilDue * 24 * 60 * 60 * 1000);
-
-    const filteredOpportunities = data.opportunities?.filter((opp: SamOpportunitySlim) => {
-      if (!opp.responseDeadLine) return true; // Keep opportunities without a deadline
-      const dueDate = new Date(opp.responseDeadLine);
-      return dueDate >= minDate;
-    }) ?? [];
-
-    return {
-      ...data,
-      opportunities: filteredOpportunities,
-      totalRecords: filteredOpportunities.length,
-    };
-  }, [data, filters.minDaysUntilDue]);
 
   const onSearch = async (req: LoadSamOpportunitiesRequest) => {
     await trigger(req);
@@ -189,31 +168,26 @@ export default function SamGovOpportunitySearchPage({ orgId }: Props) {
         </CardContent>
       </Card>
 
-      {filteredData && (
+      {data && (
         <div className="mt-5 flex items-center justify-between rounded-xl border bg-muted/30 px-4 py-3">
           <div className="text-sm">
-            {filteredData.totalRecords === 0 ? (
+            {data.totalRecords === 0 ? (
               <span className="text-muted-foreground">No opportunities found.</span>
             ) : (
               <>
                 Showing{' '}
                 <span className="font-semibold">
-                  {Math.min(filteredData.totalRecords, (filteredData.offset ?? 0) + 1)}–
-                  {Math.min(filteredData.totalRecords, (filteredData.offset ?? 0) + (filteredData.opportunities?.length ?? 0))}
+                  {Math.min(data.totalRecords, (data.offset ?? 0) + 1)}–
+                  {Math.min(data.totalRecords, (data.offset ?? 0) + (data.opportunities?.length ?? 0))}
                 </span>{' '}
-                of <span className="font-semibold">{filteredData?.totalRecords?.toLocaleString()}</span>
-                {filters.minDaysUntilDue > 0 && data && data.totalRecords !== filteredData.totalRecords && (
-                  <span className="text-muted-foreground ml-1">
-                    ({data.totalRecords - filteredData.totalRecords} filtered by deadline)
-                  </span>
-                )}
+                of <span className="font-semibold">{data?.totalRecords?.toLocaleString()}</span>
               </>
             )}
           </div>
-          {filteredData.totalRecords > (filteredData.limit ?? 25) && (
+          {data.totalRecords > (data.limit ?? 25) && (
             <div className="text-sm text-muted-foreground">
-              Page {Math.floor((filteredData.offset ?? 0) / (filteredData.limit ?? 25)) + 1} /{' '}
-              {Math.max(1, Math.ceil(filteredData.totalRecords / (filteredData.limit ?? 25)))}
+              Page {Math.floor((data.offset ?? 0) / (data.limit ?? 25)) + 1} /{' '}
+              {Math.max(1, Math.ceil(data.totalRecords / (data.limit ?? 25)))}
             </div>
           )}
         </div>
@@ -221,7 +195,7 @@ export default function SamGovOpportunitySearchPage({ orgId }: Props) {
 
       <div className="mt-4">
         <SamGovOpportunityList
-          data={filteredData as any}
+          data={data as any}
           isLoading={isLoading}
           onPage={onPage}
           onImportSolicitation={onImportSolicitation}

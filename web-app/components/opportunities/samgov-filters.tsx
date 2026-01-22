@@ -32,7 +32,7 @@ import {
   DialogTrigger,
 } from '@/components/ui/dialog';
 
-import type { CreateSavedSearchRequest, LoadSamOpportunitiesRequest, SavedSearchFrequency, MmDdYyyy} from '@auto-rfp/shared';
+import type { CreateSavedSearchRequest, LoadSamOpportunitiesRequest, SavedSearchFrequency } from '@auto-rfp/shared';
 
 import { defaultDateRange, QUICK_FILTERS, isoToMMDDYYYY } from './samgov-utils';
 import { useCreateSavedSearch } from '@/lib/hooks/use-saved-search';
