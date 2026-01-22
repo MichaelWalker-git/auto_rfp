@@ -13,6 +13,7 @@ import {
   Calendar,
   ChevronDown,
   ChevronUp,
+  Clock,
   FileText,
   Filter,
   Loader2,
@@ -44,6 +45,7 @@ export type SamGovFiltersState = {
   ptypeCsv: string;
   postedFrom: string;
   postedTo: string;
+  minDaysUntilDue: number;
 };
 
 type Props = {
@@ -124,6 +126,7 @@ export function SamGovFilters({
       ptypeCsv: '',
       postedFrom: range.postedFrom,
       postedTo: range.postedTo,
+      minDaysUntilDue: 0,
     });
   };
 
@@ -374,6 +377,24 @@ export function SamGovFilters({
                 onChange={(e) => onChange({ ...value, postedTo: e.target.value })}
                 placeholder="MM/DD/YYYY"
               />
+            </div>
+
+            <div className="space-y-2">
+              <Label className="flex items-center gap-2">
+                <Clock className="h-4 w-4"/>
+                Min. days until due
+              </Label>
+              <Input
+                type="number"
+                min={0}
+                max={365}
+                value={value.minDaysUntilDue || ''}
+                onChange={(e) => onChange({ ...value, minDaysUntilDue: parseInt(e.target.value) || 0 })}
+                placeholder="e.g., 7"
+              />
+              <p className="text-xs text-muted-foreground">
+                Skip opportunities due sooner than this
+              </p>
             </div>
           </div>
 

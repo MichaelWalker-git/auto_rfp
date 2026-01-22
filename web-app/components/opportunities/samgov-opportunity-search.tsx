@@ -39,6 +39,7 @@ export default function SamGovOpportunitySearchPage({ orgId }: Props) {
     ptypeCsv: '',
     postedFrom: initial.postedFrom,
     postedTo: initial.postedTo,
+    minDaysUntilDue: 0,
   }));
 
   React.useEffect(() => {
@@ -95,8 +96,30 @@ export default function SamGovOpportunitySearchPage({ orgId }: Props) {
       filters.setAsideCode.trim(),
       filters.ptypeCsv.trim(),
       filters.naicsCsv.trim() !== '541511' ? 'naics' : '',
+      filters.minDaysUntilDue > 0 ? 'minDays' : '',
     ].filter(Boolean).length;
   }, [filters]);
+
+  // Client-side filtering for minDaysUntilDue (SAM.gov API doesn't support deadline filters)
+  const filteredData = React.useMemo(() => {
+    if (!data) return data;
+    if (filters.minDaysUntilDue <= 0) return data;
+
+    const now = new Date();
+    const minDate = new Date(now.getTime() + filters.minDaysUntilDue * 24 * 60 * 60 * 1000);
+
+    const filteredOpportunities = data.opportunities?.filter((opp: SamOpportunitySlim) => {
+      if (!opp.responseDeadLine) return true; // Keep opportunities without a deadline
+      const dueDate = new Date(opp.responseDeadLine);
+      return dueDate >= minDate;
+    }) ?? [];
+
+    return {
+      ...data,
+      opportunities: filteredOpportunities,
+      totalRecords: filteredOpportunities.length,
+    };
+  }, [data, filters.minDaysUntilDue]);
 
   const onSearch = async (req: LoadSamOpportunitiesRequest) => {
     await trigger(req);
@@ -166,26 +189,31 @@ export default function SamGovOpportunitySearchPage({ orgId }: Props) {
         </CardContent>
       </Card>
 
-      {data && (
+      {filteredData && (
         <div className="mt-5 flex items-center justify-between rounded-xl border bg-muted/30 px-4 py-3">
           <div className="text-sm">
-            {data.totalRecords === 0 ? (
+            {filteredData.totalRecords === 0 ? (
               <span className="text-muted-foreground">No opportunities found.</span>
             ) : (
               <>
                 Showing{' '}
                 <span className="font-semibold">
-                  {Math.min(data.totalRecords, (data.offset ?? 0) + 1)}–
-                  {Math.min(data.totalRecords, (data.offset ?? 0) + (data.opportunities?.length ?? 0))}
+                  {Math.min(filteredData.totalRecords, (filteredData.offset ?? 0) + 1)}–
+                  {Math.min(filteredData.totalRecords, (filteredData.offset ?? 0) + (filteredData.opportunities?.length ?? 0))}
                 </span>{' '}
-                of <span className="font-semibold">{data?.totalRecords?.toLocaleString()}</span>
+                of <span className="font-semibold">{filteredData?.totalRecords?.toLocaleString()}</span>
+                {filters.minDaysUntilDue > 0 && data && data.totalRecords !== filteredData.totalRecords && (
+                  <span className="text-muted-foreground ml-1">
+                    ({data.totalRecords - filteredData.totalRecords} filtered by deadline)
+                  </span>
+                )}
               </>
             )}
           </div>
-          {data.totalRecords > (data.limit ?? 25) && (
+          {filteredData.totalRecords > (filteredData.limit ?? 25) && (
             <div className="text-sm text-muted-foreground">
-              Page {Math.floor((data.offset ?? 0) / (data.limit ?? 25)) + 1} /{' '}
-              {Math.max(1, Math.ceil(data.totalRecords / (data.limit ?? 25)))}
+              Page {Math.floor((filteredData.offset ?? 0) / (filteredData.limit ?? 25)) + 1} /{' '}
+              {Math.max(1, Math.ceil(filteredData.totalRecords / (filteredData.limit ?? 25)))}
             </div>
           )}
         </div>
@@ -193,7 +221,7 @@ export default function SamGovOpportunitySearchPage({ orgId }: Props) {
 
       <div className="mt-4">
         <SamGovOpportunityList
-          data={data as any}
+          data={filteredData as any}
           isLoading={isLoading}
           onPage={onPage}
           onImportSolicitation={onImportSolicitation}
