@@ -1,4 +1,4 @@
-import { readSystemPrompt, readUserPrompt } from '../helpers/propmt';
+import { readSystemPrompt, readUserPrompt } from '../helpers/prompt';
 import { RoleSchema } from '@auto-rfp/shared';
 
 export const SYSTEM_PROMPT_PK = 'SYSTEM_PROMPT';
@@ -555,8 +555,8 @@ export const SCORING_USER_PROMPT = [
 ].join('\n');
 
 export const getScoringUserPrompt = async (orgId: string) => {
-  const { prompt } = await readUserPrompt(orgId, 'DEADLINE') || {};
-  return prompt || DEADLINE_USER_PROMPT;
+  const { prompt } = await readUserPrompt(orgId, 'SCORING') || {};
+  return prompt || SCORING_USER_PROMPT;
 };
 
 export const useScoringUserPrompt = async (
