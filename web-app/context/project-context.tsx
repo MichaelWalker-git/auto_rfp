@@ -93,10 +93,10 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
 
     const exists = projects.some((p) => p.id === selectedProjectId);
     if (!exists) {
-      const fallback = projects[0]?.id ?? null;
-      setSelectedProjectId(fallback);
-      safeSetLocalStorage(storageKey(orgId), fallback);
-      if (fallback) router.push(`/organizations/${orgId}/projects/${fallback}/dashboard`);
+      // Project was deleted or no longer accessible - redirect to projects list
+      setSelectedProjectId(null);
+      safeSetLocalStorage(storageKey(orgId), null);
+      router.push(`/organizations/${orgId}/projects`);
     }
   }, [orgId, selectedProjectId, projects, router]);
 
