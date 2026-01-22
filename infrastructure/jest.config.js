@@ -1,23 +1,29 @@
-/** @type {import('ts-jest').JestConfigWithTsJest} */
+/** @type {import('jest').Config} */
 module.exports = {
   preset: 'ts-jest',
   testEnvironment: 'node',
-  roots: ['<rootDir>/lambda'],
-  testMatch: ['**/*.test.ts'],
+  roots: ['<rootDir>/lambda', '<rootDir>/lib'],
+  testMatch: ['**/*.test.ts', '**/*.spec.ts'],
   transform: {
     '^.+\\.tsx?$': ['ts-jest', {
       tsconfig: 'tsconfig.json',
     }],
   },
+  transformIgnorePatterns: [
+    'node_modules/(?!(uuid)/)',
+  ],
   moduleFileExtensions: ['ts', 'tsx', 'js', 'jsx', 'json', 'node'],
-  // Only use setup file for non-schema tests (schema tests are pure and don't need AWS mocks)
-  setupFilesAfterEnv: [],
   collectCoverageFrom: [
     'lambda/**/*.ts',
-    '!lambda/**/*.d.ts',
-    '!lambda/**/*.test.ts',
+    'lib/**/*.ts',
+    '!**/*.d.ts',
+    '!**/node_modules/**',
   ],
   coverageDirectory: 'coverage',
   coverageReporters: ['text', 'lcov', 'html'],
-  verbose: true,
+  setupFilesAfterEnv: ['<rootDir>/jest.setup.js'],
+  moduleNameMapper: {
+    '^@auto-rfp/shared$': '<rootDir>/../shared/dist/index.js',
+  },
+  testTimeout: 10000,
 };

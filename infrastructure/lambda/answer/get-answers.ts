@@ -1,0 +1,115 @@
+import { APIGatewayProxyEventV2, APIGatewayProxyResultV2, } from 'aws-lambda';
+import { QueryCommand, } from '@aws-sdk/lib-dynamodb';
+
+import { apiResponse } from '../helpers/api';
+import { PK_NAME, SK_NAME } from '../constants/common';
+import { ANSWER_PK } from '../constants/answer';
+import { withSentryLambda } from '../sentry-lambda';
+import middy from '@middy/core';
+import {
+  authContextMiddleware,
+  httpErrorMiddleware,
+  orgMembershipMiddleware,
+  requirePermission
+} from '../middleware/rbac-middleware';
+import { requireEnv } from '../helpers/env';
+import { docClient } from '../helpers/db';
+import { AnswerItem } from '@auto-rfp/shared';
+
+const DB_TABLE_NAME = requireEnv('DB_TABLE_NAME');
+
+export const baseHandler = async (event: APIGatewayProxyEventV2): Promise<APIGatewayProxyResultV2> => {
+  try {
+    const { id: projectId } = event.pathParameters || {};
+
+    if (!projectId) {
+      return apiResponse(400, { message: 'Missing projectId' });
+    }
+
+    const answers = await loadAnswers(projectId);
+    const byQuestion = groupAnswersByQuestion(answers);
+
+    return apiResponse(200, byQuestion);
+  } catch (err) {
+    console.error('get-answers error', err);
+    return apiResponse(500, {
+      message: 'Internal error',
+      error: err instanceof Error ? err.message : 'Unknown',
+    });
+  }
+};
+
+async function loadAnswers(projectId: string): Promise<AnswerItem[]> {
+  let items = [];
+  let LastKey: any | undefined;
+
+  const prefix = `${projectId}#`;
+
+  do {
+    const res = await docClient.send(
+      new QueryCommand({
+        TableName: DB_TABLE_NAME,
+        KeyConditionExpression:
+          '#pk = :pk AND begins_with(#sk, :prefix)',
+        ExpressionAttributeNames: {
+          '#pk': PK_NAME,
+          '#sk': SK_NAME,
+        },
+        ExpressionAttributeValues: {
+          ':pk': ANSWER_PK,
+          ':prefix': prefix,
+        },
+        ExclusiveStartKey: LastKey,
+      }),
+    );
+
+    if (res.Items) items.push(...res.Items);
+    LastKey = res.LastEvaluatedKey;
+  } while (LastKey);
+
+  return items as AnswerItem[];
+}
+
+/**
+ * Result shape: {
+ *   [questionId: string]: {
+ *     text: string;
+ *     source?: string | null;
+ *     id?: string;
+ *     organizationId?: string | null;
+ *     createdAt?: string;
+ *     updatedAt?: string;
+ *   }
+ * }
+ */
+function groupAnswersByQuestion(flatAnswers: AnswerItem[]) {
+  const map: Record<string, AnswerItem> = {};
+
+  for (const item of flatAnswers) {
+    const questionId = item.questionId;
+    if (!questionId) continue;
+
+    const current = map[questionId];
+
+    if (!current) {
+      map[questionId] = item;
+      continue;
+    }
+    const curTime = new Date(current.updatedAt || current.createdAt || 0).getTime();
+    const candTime = new Date(item.updatedAt || item.createdAt || 0).getTime();
+    if (candTime > curTime) {
+      map[questionId] = item;
+    }
+  }
+
+  return map;
+}
+
+
+export const handler = withSentryLambda(
+  middy(baseHandler)
+    .use(authContextMiddleware())
+    .use(orgMembershipMiddleware())
+    .use(requirePermission('answer:read'))
+    .use(httpErrorMiddleware())
+);

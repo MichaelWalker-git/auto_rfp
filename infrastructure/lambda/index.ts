@@ -1,5 +1,5 @@
 import { APIGatewayProxyEvent, APIGatewayProxyResult, Context } from 'aws-lambda';
-import { BedrockRuntimeClient, InvokeModelCommand } from '@aws-sdk/client-bedrock-runtime';
+import { invokeModel } from './helpers/bedrock-http-client';
 import {
   createContentLibraryItem,
   getContentLibraryItem,
@@ -12,9 +12,6 @@ import {
   getContentLibraryCategories,
   getContentLibraryTags,
 } from './content-library/handlers';
-
-// Initialize AWS clients
-const bedrockClient = new BedrockRuntimeClient({ region: process.env.AWS_REGION || 'us-east-1' });
 
 // CORS headers
 const corsHeaders = {
@@ -45,24 +42,24 @@ function handleOptions(): APIGatewayProxyResult {
 }
 
 // Placeholder handlers for future database integration
-async function handleOrganizations(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
-  return createResponse(200, { 
+async function handleOrganizations(_event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
+  return createResponse(200, {
     message: 'Organizations endpoint - database integration pending',
-    organizations: [] 
+    organizations: []
   });
 }
 
-async function handleProjects(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
-  return createResponse(200, { 
+async function handleProjects(_event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
+  return createResponse(200, {
     message: 'Projects endpoint - database integration pending',
-    projects: [] 
+    projects: []
   });
 }
 
-async function handleQuestions(event: APIGatewayProxyEvent, projectId: string): Promise<APIGatewayProxyResult> {
-  return createResponse(200, { 
+async function handleQuestions(_event: APIGatewayProxyEvent, projectId: string): Promise<APIGatewayProxyResult> {
+  return createResponse(200, {
     message: `Questions endpoint for project ${projectId} - database integration pending`,
-    questions: [] 
+    questions: []
   });
 }
 
@@ -131,23 +128,25 @@ async function handleDocumentProcessing(event: APIGatewayProxyEvent): Promise<AP
       Please format the response as a JSON object with categories.`;
     }
 
-    const bedrockCommand = new InvokeModelCommand({
-      modelId: 'us.anthropic.claude-3-sonnet-20240229-v1:0',
-      body: JSON.stringify({
-        anthropic_version: 'bedrock-2023-05-31',
-        max_tokens: 1000,
-        messages: [
-          {
-            role: 'user',
-            content: prompt
-          }
-        ]
-      }),
-      contentType: 'application/json',
+    const body = JSON.stringify({
+      anthropic_version: 'bedrock-2023-05-31',
+      max_tokens: 1000,
+      messages: [
+        {
+          role: 'user',
+          content: prompt
+        }
+      ]
     });
 
-    const bedrockResponse = await bedrockClient.send(bedrockCommand);
-    const responseBody = JSON.parse(new TextDecoder().decode(bedrockResponse.body));
+    const bedrockResponseBody = await invokeModel(
+      'us.anthropic.claude-3-sonnet-20240229-v1:0',
+      body,
+      'application/json',
+      'application/json'
+    );
+    
+    const responseBody = JSON.parse(new TextDecoder().decode(bedrockResponseBody));
     const aiResponse = responseBody.content[0].text;
 
     // Format response based on operation
@@ -296,7 +295,7 @@ async function handleContentLibraryRoutes(
 // Main Lambda handler
 export const handler = async (
   event: APIGatewayProxyEvent,
-  context: Context
+  _context: Context
 ): Promise<APIGatewayProxyResult> => {
   console.log('Event:', JSON.stringify(event, null, 2));
 

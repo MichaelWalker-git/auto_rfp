@@ -1,0 +1,356 @@
+import type { APIGatewayProxyEventV2, APIGatewayProxyResultV2 } from 'aws-lambda';
+import { DeleteCommand, GetCommand, QueryCommand, ScanCommand, } from '@aws-sdk/lib-dynamodb';
+import { DeleteObjectCommand, S3Client } from '@aws-sdk/client-s3';
+
+import { PK_NAME, SK_NAME } from '../constants/common';
+import { PROJECT_PK } from '../constants/organization';
+import { QUESTION_FILE_PK } from '../constants/question-file';
+import { QUESTION_PK } from '../constants/question';
+import { ANSWER_PK } from '../constants/answer';
+import { EXEC_BRIEF_PK } from '../constants/exec-brief';
+import { PROPOSAL_PK } from '../constants/proposal';
+import { DEADLINE_PK } from '../constants/deadline';
+
+import { apiResponse } from '../helpers/api';
+import { withSentryLambda } from '../sentry-lambda';
+import middy from '@middy/core';
+import {
+  authContextMiddleware,
+  httpErrorMiddleware,
+  orgMembershipMiddleware,
+  requirePermission
+} from '../middleware/rbac-middleware';
+import { requireEnv } from '../helpers/env';
+import { DBItem, docClient } from '../helpers/db';
+
+
+const DB_TABLE_NAME = requireEnv('DB_TABLE_NAME');
+const DOCUMENTS_BUCKET = requireEnv('DOCUMENTS_BUCKET');
+
+const s3Client = new S3Client({});
+
+function safeS3Key(key?: unknown): string | null {
+  if (typeof key !== 'string') return null;
+  const trimmed = key.trim();
+  if (!trimmed) return null;
+  if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) return null;
+  return trimmed;
+}
+
+async function deleteS3ObjectBestEffort(key: string) {
+  try {
+    await s3Client.send(
+      new DeleteObjectCommand({
+        Bucket: DOCUMENTS_BUCKET,
+        Key: key,
+      }),
+    );
+    return { key, ok: true as const };
+  } catch (err) {
+    console.warn(`Failed to delete S3 object: ${key}`, err);
+    return { key, ok: false as const };
+  }
+}
+
+async function queryKeysByPkAndSkPrefix(pk: string, skPrefix: string): Promise<DBItem[]> {
+  const keys: DBItem[] = [];
+  let ExclusiveStartKey: Record<string, any> | undefined;
+
+  do {
+    const res = await docClient.send(
+      new QueryCommand({
+        TableName: DB_TABLE_NAME!,
+        KeyConditionExpression: '#pk = :pk AND begins_with(#sk, :skPrefix)',
+        ExpressionAttributeNames: {
+          '#pk': PK_NAME,
+          '#sk': SK_NAME,
+        },
+        ExpressionAttributeValues: {
+          ':pk': pk,
+          ':skPrefix': skPrefix,
+        },
+        ProjectionExpression: '#pk, #sk',
+        ExclusiveStartKey,
+        Limit: 250,
+      }),
+    );
+
+    for (const item of res.Items ?? []) {
+      keys.push({
+        [PK_NAME]: item[PK_NAME],
+        [SK_NAME]: item[SK_NAME],
+      });
+    }
+
+    ExclusiveStartKey = res.LastEvaluatedKey as any;
+  } while (ExclusiveStartKey);
+
+  return keys;
+}
+
+async function deleteKeys(keys: DBItem[]): Promise<number> {
+  if (!keys.length) return 0;
+
+  const CONCURRENCY = 25;
+  let deleted = 0;
+
+  for (let i = 0; i < keys.length; i += CONCURRENCY) {
+    const slice = keys.slice(i, i + CONCURRENCY);
+    await Promise.all(
+      slice.map(async (k) => {
+        await docClient.send(
+          new DeleteCommand({
+            TableName: DB_TABLE_NAME!,
+            Key: {
+              [PK_NAME]: k[PK_NAME],
+              [SK_NAME]: k[SK_NAME],
+            },
+          }),
+        );
+        deleted += 1;
+      }),
+    );
+  }
+
+  return deleted;
+}
+
+async function deleteExecutiveBriefByIdBestEffort(executiveBriefId?: unknown): Promise<boolean> {
+  if (typeof executiveBriefId !== 'string' || !executiveBriefId.trim()) return false;
+
+  try {
+    await docClient.send(
+      new DeleteCommand({
+        TableName: DB_TABLE_NAME!,
+        Key: {
+          [PK_NAME]: EXEC_BRIEF_PK,
+          [SK_NAME]: executiveBriefId,
+        },
+      }),
+    );
+    return true;
+  } catch (e) {
+    console.warn('Failed to delete executive brief best-effort:', executiveBriefId, e);
+    return false;
+  }
+}
+
+async function scanExecutiveBriefsByProjectId(projectId: string): Promise<DBItem[]> {
+  // Fallback only. Exec briefs are keyed by random UUID SK, so Query is not possible.
+  // This assumes briefs store attribute "projectId" (they do in your init code).
+  const keys: DBItem[] = [];
+  let ExclusiveStartKey: Record<string, any> | undefined;
+
+  do {
+    const res = await docClient.send(
+      new ScanCommand({
+        TableName: DB_TABLE_NAME,
+        FilterExpression: '#pk = :pk AND #projectId = :projectId',
+        ExpressionAttributeNames: {
+          '#pk': PK_NAME,
+          '#projectId': 'projectId',
+          '#sk': SK_NAME,
+        },
+        ExpressionAttributeValues: {
+          ':pk': EXEC_BRIEF_PK,
+          ':projectId': projectId,
+        },
+        ProjectionExpression: '#pk, #sk',
+        ExclusiveStartKey,
+        Limit: 250,
+      }),
+    );
+
+    for (const item of res.Items ?? []) {
+      keys.push({
+        [PK_NAME]: item[PK_NAME],
+        [SK_NAME]: item[SK_NAME],
+      });
+    }
+
+    ExclusiveStartKey = res.LastEvaluatedKey as any;
+  } while (ExclusiveStartKey);
+
+  return keys;
+}
+
+export async function deleteProjectWithCleanup(orgId: string, projectId: string) {
+  const projectKey = {
+    [PK_NAME]: PROJECT_PK,
+    [SK_NAME]: `${orgId}#${projectId}`,
+  };
+
+  const projectRes = await docClient.send(
+    new GetCommand({
+      TableName: DB_TABLE_NAME!,
+      Key: projectKey,
+    }),
+  );
+
+  if (!projectRes.Item) {
+    const err: any = new Error('Project not found');
+    err.name = 'ConditionalCheckFailedException';
+    throw err;
+  }
+
+  const projectItem = projectRes.Item as Record<string, any>;
+
+  const qfQueryRes = await docClient.send(
+    new QueryCommand({
+      TableName: DB_TABLE_NAME!,
+      KeyConditionExpression: '#pk = :pk AND begins_with(#sk, :skPrefix)',
+      ExpressionAttributeNames: {
+        '#pk': PK_NAME,
+        '#sk': SK_NAME,
+      },
+      ExpressionAttributeValues: {
+        ':pk': QUESTION_FILE_PK,
+        ':skPrefix': `${projectId}#`,
+      },
+      // We want these attrs for cleanup
+      ProjectionExpression:
+        '#pk, #sk, questionFileId, projectId, fileKey, textFileKey, executiveBriefId',
+    }),
+  );
+
+  const qfItems = (qfQueryRes.Items ?? []) as Array<Record<string, any>>;
+  const qfKeys: DBItem[] = qfItems.map((it) => ({
+    [PK_NAME]: it[PK_NAME],
+    [SK_NAME]: it[SK_NAME],
+  }));
+
+  // Collect S3 keys from question files
+  const s3Keys = new Set<string>();
+  const execBriefIdsFromQf = new Set<string>();
+
+  for (const it of qfItems) {
+    const fk = safeS3Key(it.fileKey);
+    const tk = safeS3Key(it.textFileKey);
+    if (fk) s3Keys.add(fk);
+    if (tk) s3Keys.add(tk);
+
+    if (typeof it.executiveBriefId === 'string' && it.executiveBriefId.trim()) {
+      execBriefIdsFromQf.add(it.executiveBriefId.trim());
+    }
+  }
+
+  const s3DeleteResults = s3Keys.size
+    ? await Promise.all(Array.from(s3Keys).map(deleteS3ObjectBestEffort))
+    : [];
+
+  const questionFilesDeleted = await deleteKeys(qfKeys);
+
+  const questionKeys = await queryKeysByPkAndSkPrefix(QUESTION_PK, `${projectId}#`);
+  const questionsDeleted = await deleteKeys(questionKeys);
+
+  const answerKeys = await queryKeysByPkAndSkPrefix(ANSWER_PK, `${projectId}#`);
+  const answersDeleted = await deleteKeys(answerKeys);
+
+  const proposalKeys = await queryKeysByPkAndSkPrefix(PROPOSAL_PK, `${projectId}#`);
+  const proposalDeleted = await deleteKeys(proposalKeys);
+  const execBriefIds = new Set<string>();
+
+  if (typeof projectItem.executiveBriefId === 'string' && projectItem.executiveBriefId.trim()) {
+    execBriefIds.add(projectItem.executiveBriefId.trim());
+  }
+  for (const id of execBriefIdsFromQf) execBriefIds.add(id);
+
+  const execBriefDeleteResults = await Promise.all(
+    Array.from(execBriefIds).map((id) => deleteExecutiveBriefByIdBestEffort(id)),
+  );
+
+  const scannedExecBriefKeys = await scanExecutiveBriefsByProjectId(projectId);
+  const scannedExecBriefsDeleted = await deleteKeys(scannedExecBriefKeys);
+
+  const executiveBriefsDeleted =
+    execBriefDeleteResults.filter(Boolean).length + scannedExecBriefsDeleted;
+
+  // 6) DEADLINE delete (direct key: orgId#projectId)
+  const deadlineSk = `${orgId}#${projectId}`;
+  let deadlineDeleted = false;
+  try {
+    await docClient.send(
+      new DeleteCommand({
+        TableName: DB_TABLE_NAME!,
+        Key: {
+          [PK_NAME]: DEADLINE_PK,
+          [SK_NAME]: deadlineSk,
+        },
+      }),
+    );
+    deadlineDeleted = true;
+    console.log(`✅ Deleted deadline: ${deadlineSk}`);
+  } catch (e) {
+    console.warn('⚠️ Failed to delete deadline (best-effort):', e);
+  }
+
+  // 7) Finally delete PROJECT row (conditioned)
+  await docClient.send(
+    new DeleteCommand({
+      TableName: DB_TABLE_NAME!,
+      Key: projectKey,
+      ConditionExpression: 'attribute_exists(#pk) AND attribute_exists(#sk)',
+      ExpressionAttributeNames: {
+        '#pk': PK_NAME,
+        '#sk': SK_NAME,
+      },
+    }),
+  );
+
+  return {
+    questionFilesDeleted,
+    questionsDeleted,
+    answersDeleted,
+    proposalDeleted,
+    executiveBriefsDeleted,
+    deadlineDeleted,
+    s3: {
+      bucket: DOCUMENTS_BUCKET || null,
+      keysRequested: Array.from(s3Keys),
+      results: s3DeleteResults,
+    },
+  };
+}
+
+export const baseHandler = async (
+  event: APIGatewayProxyEventV2,
+): Promise<APIGatewayProxyResultV2> => {
+  try {
+    const { orgId, projectId } = event.queryStringParameters || {};
+
+    if (!orgId || !projectId) {
+      return apiResponse(400, {
+        message: 'Missing required query parameters: orgId and projectId',
+      });
+    }
+
+    const cleanup = await deleteProjectWithCleanup(orgId, projectId);
+
+    return apiResponse(200, {
+      success: true,
+      message: 'Project deleted successfully (with cleanup)',
+      orgId,
+      projectId,
+      cleanup,
+    });
+  } catch (err: any) {
+    console.error('Error in deleteProject handler:', err);
+
+    if (err?.name === 'ConditionalCheckFailedException') {
+      return apiResponse(404, { message: 'Project not found' });
+    }
+
+    return apiResponse(500, {
+      message: 'Internal server error',
+      error: err instanceof Error ? err.message : 'Unknown error',
+    });
+  }
+};
+
+export const handler = withSentryLambda(
+  middy(baseHandler)
+    .use(authContextMiddleware())
+    .use(orgMembershipMiddleware())
+    .use(requirePermission('project:delete'))
+    .use(httpErrorMiddleware())
+);
