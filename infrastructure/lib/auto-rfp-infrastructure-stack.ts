@@ -12,7 +12,7 @@ import * as lambda from 'aws-cdk-lib/aws-lambda';
 import * as nodejs from 'aws-cdk-lib/aws-lambda-nodejs';
 import * as apigateway from 'aws-cdk-lib/aws-apigateway';
 import { Construct } from 'constructs';
-import { AwsSolutionsChecks, NagSuppressions } from 'cdk-nag';
+import { NagSuppressions } from 'cdk-nag';
 
 export class AutoRfpInfrastructureStack extends cdk.Stack {
   constructor(scope: Construct, id: string, props?: cdk.StackProps) {
@@ -379,7 +379,7 @@ export class AutoRfpInfrastructureStack extends cdk.Stack {
     });
 
     // Create SES domain identity (you'll need to verify this manually)
-    const sesIdentity = new ses.EmailIdentity(this, 'AutoRfpSesIdentity', {
+    new ses.EmailIdentity(this, 'AutoRfpSesIdentity', {
       identity: ses.Identity.domain('example.com'), // Replace with your domain
     });
 

@@ -3,9 +3,8 @@
 import { useEffect, useState } from 'react';
 import { CheckCircle, ChevronDown, ChevronRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { RfpSection } from '@/types/api';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { AnswerSource } from '@auto-rfp/shared';
+import { AnswerSource, GroupedSection, GroupedQuestion } from '@auto-rfp/shared';
 
 type AnswerData = {
   text: string;
@@ -16,7 +15,7 @@ type QuestionStatus = 'unanswered' | 'complete';
 
 type Props = {
   onSelectQuestion: (id: string) => void;
-  sections: RfpSection[];
+  sections: GroupedSection[];
   answers: Record<string, AnswerData>;
   unsavedQuestions?: Set<string>;
   searchQuery?: string;
@@ -62,7 +61,7 @@ export function QuestionNavigator({
 
   const filteredSections = sections.map(section => {
     if (!searchQuery) return section;
-    const filteredQuestions = section.questions.filter(question =>
+    const filteredQuestions = section.questions.filter((question: GroupedQuestion) =>
       question.question.toLowerCase().includes(searchQuery.toLowerCase()) ||
       section.title.toLowerCase().includes(searchQuery.toLowerCase())
     );
