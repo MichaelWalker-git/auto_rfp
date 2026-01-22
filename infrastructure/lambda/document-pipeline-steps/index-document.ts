@@ -8,8 +8,6 @@ import { Sha256 } from '@aws-crypto/sha256-js';
 import { defaultProvider } from '@aws-sdk/credential-provider-node';
 import { HttpRequest } from '@smithy/protocol-http';
 
-import { BedrockRuntimeClient } from '@aws-sdk/client-bedrock-runtime';
-
 import { withSentryLambda } from '../sentry-lambda';
 import { getEmbedding } from '../helpers/embeddings';
 import { PK_NAME, SK_NAME } from '../constants/common';
@@ -24,10 +22,8 @@ const DB_TABLE_NAME = requireEnv('DB_TABLE_NAME');
 const OPENSEARCH_ENDPOINT = requireEnv('OPENSEARCH_ENDPOINT');
 const OPENSEARCH_INDEX = requireEnv('OPENSEARCH_INDEX');
 const DOCUMENTS_BUCKET = requireEnv('DOCUMENTS_BUCKET');
-const BEDROCK_EMBEDDING_MODEL_ID = requireEnv('BEDROCK_EMBEDDING_MODEL_ID');
 
 const s3Client = new S3Client({ region: REGION });
-const bedrockClient = new BedrockRuntimeClient({ region: REGION });
 
 interface IndexChunkEvent {
   documentId?: string;
