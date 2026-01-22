@@ -32,7 +32,7 @@ module.exports = {
         'bypass': 'warn',
         'color-contrast': 'error',
         'document-title': 'error',
-        'duplicate-id-active': 'error',
+        // 'duplicate-id-active' was deprecated in Lighthouse 11+
         'duplicate-id-aria': 'error',
         'form-field-multiple-labels': 'warn',
         'frame-title': 'error',
