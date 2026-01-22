@@ -1,12 +1,14 @@
 'use client';
 
 import { useState } from 'react';
+import Link from 'next/link';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { Skeleton } from '@/components/ui/skeleton';
-import { AlertCircle, Calendar, CheckCircle2, Clock, FileText, FolderOpen } from 'lucide-react';
+import { AlertCircle, ArrowLeft, Calendar, CheckCircle2, Clock, FileText, FolderOpen } from 'lucide-react';
 import { format, formatDistanceToNow } from 'date-fns';
 import { useProject, useQuestions } from '@/lib/hooks/use-api';
 import { ExecutiveBriefView } from '@/components/brief/ExecutiveBriefView';
@@ -134,9 +136,15 @@ export function ProjectOverview({ projectId }: ProjectOverviewProps) {
 
   return (
     <div className="space-y-6 p-12">
-      {/* Action buttons */}
+      {/* Back navigation and title */}
       <div className="flex justify-between items-start">
         <div>
+          <Button variant="ghost" size="sm" asChild className="mb-2 -ml-2">
+            <Link href={`/organizations/${project.orgId}/projects`}>
+              <ArrowLeft className="h-4 w-4 mr-1" />
+              Back to Projects
+            </Link>
+          </Button>
           <h1 className="text-2xl font-semibold mb-2">{project.name}</h1>
           {project.description && (
             <p className="text-muted-foreground">{project.description}</p>
