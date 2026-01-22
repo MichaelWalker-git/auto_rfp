@@ -21,6 +21,7 @@ import { useToast } from '@/components/ui/use-toast';
 
 import { useOrganization } from '@/context/organization-context';
 import { useCreateOrganization } from '@/lib/hooks/use-create-organization';
+import { generateSlug } from '@/lib/utils';
 
 export function OrganizationSwitcher() {
   const { toast } = useToast();
@@ -46,12 +47,6 @@ export function OrganizationSwitcher() {
     slug: '',
     description: '',
   });
-
-  const generateSlugFromName = (name: string) =>
-    name
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, '-')
-      .replace(/(^-|-$)/g, '');
 
   const canCreateOrg = !isOrgLocked;
 
@@ -175,7 +170,7 @@ export function OrganizationSwitcher() {
                   setOrgForm((prev) => ({
                     ...prev,
                     name,
-                    slug: prev.slug ? prev.slug : generateSlugFromName(name),
+                    slug: prev.slug ? prev.slug : generateSlug(name),
                   }));
                 }}
                 placeholder="My Organization"

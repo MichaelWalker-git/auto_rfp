@@ -8,11 +8,7 @@ import {
   orgMembershipMiddleware,
   requirePermission
 } from '../middleware/rbac-middleware';
-import { requireEnv } from '../helpers/env';
-import { docClient } from '../helpers/db';
 import middy from '@middy/core';
-
-const DB_TABLE_NAME = requireEnv('DB_TABLE_NAME');
 
 export const baseHandler = async (event: APIGatewayProxyEventV2,): Promise<APIGatewayProxyResultV2> => {
   try {

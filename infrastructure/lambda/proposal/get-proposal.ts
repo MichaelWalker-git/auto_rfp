@@ -1,13 +1,12 @@
 import { APIGatewayProxyEventV2, APIGatewayProxyResultV2 } from 'aws-lambda';
 import { GetCommand } from '@aws-sdk/lib-dynamodb';
-import { z } from 'zod';
 
 import { PK_NAME, SK_NAME } from '../constants/common';
 import { apiResponse } from '../helpers/api';
 import { withSentryLambda } from '../sentry-lambda';
 import { PROPOSAL_PK } from '../constants/proposal';
 
-import { Proposal, ProposalSchema } from '@auto-rfp/shared';
+import { ProposalSchema } from '@auto-rfp/shared';
 import { proposalSK } from '../helpers/proposal';
 import {
   authContextMiddleware,

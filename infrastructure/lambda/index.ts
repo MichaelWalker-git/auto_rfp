@@ -30,24 +30,24 @@ function handleOptions(): APIGatewayProxyResult {
 }
 
 // Placeholder handlers for future database integration
-async function handleOrganizations(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
-  return createResponse(200, { 
+async function handleOrganizations(_event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
+  return createResponse(200, {
     message: 'Organizations endpoint - database integration pending',
-    organizations: [] 
+    organizations: []
   });
 }
 
-async function handleProjects(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
-  return createResponse(200, { 
+async function handleProjects(_event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
+  return createResponse(200, {
     message: 'Projects endpoint - database integration pending',
-    projects: [] 
+    projects: []
   });
 }
 
-async function handleQuestions(event: APIGatewayProxyEvent, projectId: string): Promise<APIGatewayProxyResult> {
-  return createResponse(200, { 
+async function handleQuestions(_event: APIGatewayProxyEvent, projectId: string): Promise<APIGatewayProxyResult> {
+  return createResponse(200, {
     message: `Questions endpoint for project ${projectId} - database integration pending`,
-    questions: [] 
+    questions: []
   });
 }
 
@@ -185,7 +185,7 @@ function handleHealth(): APIGatewayProxyResult {
 // Main Lambda handler
 export const handler = async (
   event: APIGatewayProxyEvent,
-  context: Context
+  _context: Context
 ): Promise<APIGatewayProxyResult> => {
   console.log('Event:', JSON.stringify(event, null, 2));
 

@@ -22,7 +22,6 @@ import {
 } from '../middleware/rbac-middleware';
 import { requireEnv } from '../helpers/env';
 import { DBItem, docClient } from '../helpers/db';
-import { proposalSK } from '../helpers/proposal';
 
 
 const DB_TABLE_NAME = requireEnv('DB_TABLE_NAME');
