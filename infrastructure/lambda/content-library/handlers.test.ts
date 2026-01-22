@@ -32,6 +32,7 @@ import {
   updateContentLibraryItem,
   deleteContentLibraryItem,
   approveContentLibraryItem,
+  deprecateContentLibraryItem,
   trackContentLibraryUsage,
   getContentLibraryCategories,
   getContentLibraryTags,
@@ -384,8 +385,17 @@ describe('Content Library Handlers', () => {
   });
 
   describe('approveContentLibraryItem', () => {
+    const mockExistingItem = {
+      id: '550e8400-e29b-41d4-a716-446655440099',
+      orgId: '550e8400-e29b-41d4-a716-446655440001',
+      approvalStatus: 'DRAFT',
+      isArchived: false,
+    };
+
     it('approves item successfully', async () => {
-      mockSend.mockResolvedValueOnce({});
+      mockSend
+        .mockResolvedValueOnce({ Item: mockExistingItem }) // Get existing
+        .mockResolvedValueOnce({}); // Update
 
       const event = createMockEvent({
         httpMethod: 'POST',
@@ -400,11 +410,93 @@ describe('Content Library Handlers', () => {
       expect(result.statusCode).toBe(200);
       expect(body.message).toBe('Item approved');
     });
+
+    it('returns 404 when item not found', async () => {
+      mockSend.mockResolvedValueOnce({ Item: null });
+
+      const event = createMockEvent({
+        httpMethod: 'POST',
+        pathParameters: { id: 'nonexistent' },
+        queryStringParameters: { orgId: '550e8400-e29b-41d4-a716-446655440001' },
+        body: JSON.stringify({}),
+      });
+
+      const result = await approveContentLibraryItem(event);
+
+      expect(result.statusCode).toBe(404);
+      expect(JSON.parse(result.body).error).toBe('Content library item not found');
+    });
+
+    it('returns 400 when trying to approve archived item', async () => {
+      mockSend.mockResolvedValueOnce({ Item: { ...mockExistingItem, isArchived: true } });
+
+      const event = createMockEvent({
+        httpMethod: 'POST',
+        pathParameters: { id: '550e8400-e29b-41d4-a716-446655440099' },
+        queryStringParameters: { orgId: '550e8400-e29b-41d4-a716-446655440001' },
+        body: JSON.stringify({}),
+      });
+
+      const result = await approveContentLibraryItem(event);
+
+      expect(result.statusCode).toBe(400);
+      expect(JSON.parse(result.body).error).toBe('Cannot approve an archived item');
+    });
+  });
+
+  describe('deprecateContentLibraryItem', () => {
+    it('deprecates item successfully', async () => {
+      mockSend.mockResolvedValueOnce({});
+
+      const event = createMockEvent({
+        httpMethod: 'POST',
+        pathParameters: { id: '550e8400-e29b-41d4-a716-446655440099' },
+        queryStringParameters: { orgId: '550e8400-e29b-41d4-a716-446655440001' },
+      });
+
+      const result = await deprecateContentLibraryItem(event);
+      const body = JSON.parse(result.body);
+
+      expect(result.statusCode).toBe(200);
+      expect(body.message).toBe('Item deprecated');
+      expect(mockSend).toHaveBeenCalledWith(expect.objectContaining({ type: 'Update' }));
+    });
+
+    it('returns 400 when missing itemId or orgId', async () => {
+      const event = createMockEvent({
+        httpMethod: 'POST',
+        pathParameters: null,
+        queryStringParameters: null,
+      });
+
+      const result = await deprecateContentLibraryItem(event);
+
+      expect(result.statusCode).toBe(400);
+      expect(JSON.parse(result.body).error).toBe('Missing itemId or orgId');
+    });
+
+    it('handles DynamoDB errors gracefully', async () => {
+      mockSend.mockRejectedValueOnce(new Error('DynamoDB error'));
+
+      const event = createMockEvent({
+        httpMethod: 'POST',
+        pathParameters: { id: '550e8400-e29b-41d4-a716-446655440099' },
+        queryStringParameters: { orgId: '550e8400-e29b-41d4-a716-446655440001' },
+      });
+
+      const result = await deprecateContentLibraryItem(event);
+
+      expect(result.statusCode).toBe(500);
+      expect(JSON.parse(result.body).error).toBe('Internal server error');
+    });
   });
 
   describe('trackContentLibraryUsage', () => {
     it('tracks usage successfully', async () => {
-      mockSend.mockResolvedValueOnce({});
+      // First call increments usage count, second call adds projectId
+      mockSend
+        .mockResolvedValueOnce({}) // Increment usage count
+        .mockResolvedValueOnce({}); // Add projectId to list
 
       const event = createMockEvent({
         httpMethod: 'POST',
@@ -416,6 +508,32 @@ describe('Content Library Handlers', () => {
       const result = await trackContentLibraryUsage(event);
       const body = JSON.parse(result.body);
 
+      expect(result.statusCode).toBe(200);
+      expect(body.message).toBe('Usage tracked');
+      // Verify two update calls were made
+      expect(mockSend).toHaveBeenCalledTimes(2);
+    });
+
+    it('handles duplicate projectId gracefully', async () => {
+      // First call succeeds, second call fails with ConditionalCheckFailedException
+      const conditionalError = new Error('Conditional check failed');
+      (conditionalError as Error & { name: string }).name = 'ConditionalCheckFailedException';
+
+      mockSend
+        .mockResolvedValueOnce({}) // Increment usage count
+        .mockRejectedValueOnce(conditionalError); // projectId already exists
+
+      const event = createMockEvent({
+        httpMethod: 'POST',
+        pathParameters: { id: '550e8400-e29b-41d4-a716-446655440099' },
+        queryStringParameters: { orgId: '550e8400-e29b-41d4-a716-446655440001' },
+        body: JSON.stringify({ projectId: '550e8400-e29b-41d4-a716-446655440002' }),
+      });
+
+      const result = await trackContentLibraryUsage(event);
+      const body = JSON.parse(result.body);
+
+      // Should still succeed - duplicate projectId is ignored
       expect(result.statusCode).toBe(200);
       expect(body.message).toBe('Usage tracked');
     });

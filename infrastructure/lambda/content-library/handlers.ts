@@ -14,7 +14,6 @@ import {
   CreateContentLibraryItemDTOSchema,
   UpdateContentLibraryItemDTOSchema,
   SearchContentLibraryDTOSchema,
-  ApproveContentLibraryItemDTOSchema,
   CONTENT_LIBRARY_PK,
   createContentLibrarySK,
   ContentLibraryItem,
@@ -68,6 +67,40 @@ function parseBody<T>(event: APIGatewayProxyEvent): T | null {
   }
 }
 
+// Helper to get user's organization ID from JWT claims
+function getUserOrgId(event: APIGatewayProxyEvent): string | null {
+  try {
+    const claims = event.requestContext?.authorizer?.claims;
+    return claims?.['custom:orgId'] || null;
+  } catch {
+    return null;
+  }
+}
+
+// Helper to verify user has access to the requested organization
+function verifyOrgAccess(event: APIGatewayProxyEvent, requestedOrgId: string): { authorized: boolean; error?: APIGatewayProxyResult } {
+  const userOrgId = getUserOrgId(event);
+
+  // If no auth claims available (e.g., local testing), allow access
+  // In production, you may want to reject requests without valid auth
+  if (!userOrgId) {
+    // Allow access when running without Cognito auth (development mode)
+    return { authorized: true };
+  }
+
+  if (userOrgId !== requestedOrgId) {
+    return {
+      authorized: false,
+      error: createResponse(403, {
+        error: 'Forbidden',
+        message: 'You do not have access to this organization'
+      }),
+    };
+  }
+
+  return { authorized: true };
+}
+
 /**
  * Create a new content library item
  * POST /api/content-library/items
@@ -84,6 +117,12 @@ export async function createContentLibraryItem(
     const validation = CreateContentLibraryItemDTOSchema.safeParse(body);
     if (!validation.success) {
       return createResponse(400, { error: 'Validation failed', details: validation.error.format() });
+    }
+
+    // Verify user has access to the organization
+    const authCheck = verifyOrgAccess(event, validation.data.orgId);
+    if (!authCheck.authorized) {
+      return authCheck.error!;
     }
 
     const userId = getUserId(event) || 'system';
@@ -154,6 +193,12 @@ export async function getContentLibraryItem(
       return createResponse(400, { error: 'Missing itemId or orgId' });
     }
 
+    // Verify user has access to the organization
+    const authCheck = verifyOrgAccess(event, orgId);
+    if (!authCheck.authorized) {
+      return authCheck.error!;
+    }
+
     const result = await docClient.send(new GetCommand({
       TableName: TABLE_NAME,
       Key: {
@@ -206,7 +251,16 @@ export async function listContentLibraryItems(
 
     const { orgId, query, category, tags, approvalStatus, excludeArchived, limit, offset } = validation.data;
 
+    // Verify user has access to the organization
+    const authCheck = verifyOrgAccess(event, orgId);
+    if (!authCheck.authorized) {
+      return authCheck.error!;
+    }
+
     // Query DynamoDB - get all items for the org, then filter
+    // NOTE: This in-memory filtering and pagination is a known scalability limitation
+    // for large organizations. It will be replaced with DynamoDB-level pagination
+    // and/or OpenSearch-based filtering in planned follow-up work.
     const result = await docClient.send(new QueryCommand({
       TableName: TABLE_NAME,
       KeyConditionExpression: 'partition_key = :pk AND begins_with(sort_key, :sk_prefix)',
@@ -287,6 +341,12 @@ export async function updateContentLibraryItem(
 
     if (!itemId || !orgId) {
       return createResponse(400, { error: 'Missing itemId or orgId' });
+    }
+
+    // Verify user has access to the organization
+    const authCheck = verifyOrgAccess(event, orgId);
+    if (!authCheck.authorized) {
+      return authCheck.error!;
     }
 
     const body = parseBody<UpdateContentLibraryItemDTO>(event);
@@ -435,6 +495,12 @@ export async function deleteContentLibraryItem(
       return createResponse(400, { error: 'Missing itemId or orgId' });
     }
 
+    // Verify user has access to the organization
+    const authCheck = verifyOrgAccess(event, orgId);
+    if (!authCheck.authorized) {
+      return authCheck.error!;
+    }
+
     const key = {
       partition_key: CONTENT_LIBRARY_PK,
       sort_key: createContentLibrarySK(orgId, itemId),
@@ -491,6 +557,29 @@ export async function approveContentLibraryItem(
       return createResponse(400, { error: 'Missing itemId or orgId' });
     }
 
+    // Verify user has access to the organization
+    const authCheck = verifyOrgAccess(event, orgId);
+    if (!authCheck.authorized) {
+      return authCheck.error!;
+    }
+
+    // Check if item exists and is not archived before approving
+    const existingResult = await docClient.send(new GetCommand({
+      TableName: TABLE_NAME,
+      Key: {
+        partition_key: CONTENT_LIBRARY_PK,
+        sort_key: createContentLibrarySK(orgId, itemId),
+      },
+    }));
+
+    if (!existingResult.Item) {
+      return createResponse(404, { error: 'Content library item not found' });
+    }
+
+    if (existingResult.Item.isArchived) {
+      return createResponse(400, { error: 'Cannot approve an archived item' });
+    }
+
     const body = parseBody<{ approvedBy?: string }>(event);
     const userId = body?.approvedBy || getUserId(event) || 'system';
     const now = new Date().toISOString();
@@ -541,6 +630,12 @@ export async function deprecateContentLibraryItem(
       return createResponse(400, { error: 'Missing itemId or orgId' });
     }
 
+    // Verify user has access to the organization
+    const authCheck = verifyOrgAccess(event, orgId);
+    if (!authCheck.authorized) {
+      return authCheck.error!;
+    }
+
     const now = new Date().toISOString();
 
     await docClient.send(new UpdateCommand({
@@ -586,31 +681,66 @@ export async function trackContentLibraryUsage(
       return createResponse(400, { error: 'Missing itemId or orgId' });
     }
 
+    // Verify user has access to the organization
+    const authCheck = verifyOrgAccess(event, orgId);
+    if (!authCheck.authorized) {
+      return authCheck.error!;
+    }
+
     if (!body?.projectId) {
       return createResponse(400, { error: 'Missing projectId in request body' });
     }
 
     const now = new Date().toISOString();
+    const key = {
+      partition_key: CONTENT_LIBRARY_PK,
+      sort_key: createContentLibrarySK(orgId, itemId),
+    };
 
+    // Always increment usageCount and update lastUsedAt
     await docClient.send(new UpdateCommand({
       TableName: TABLE_NAME,
-      Key: {
-        partition_key: CONTENT_LIBRARY_PK,
-        sort_key: createContentLibrarySK(orgId, itemId),
-      },
-      UpdateExpression: 'SET #usageCount = #usageCount + :inc, #lastUsedAt = :now, #usedInProjectIds = list_append(if_not_exists(#usedInProjectIds, :emptyList), :projectId)',
+      Key: key,
+      UpdateExpression: 'SET #usageCount = if_not_exists(#usageCount, :zero) + :inc, #lastUsedAt = :now',
       ExpressionAttributeNames: {
         '#usageCount': 'usageCount',
         '#lastUsedAt': 'lastUsedAt',
-        '#usedInProjectIds': 'usedInProjectIds',
       },
       ExpressionAttributeValues: {
         ':inc': 1,
         ':now': now,
-        ':projectId': [body.projectId],
-        ':emptyList': [],
+        ':zero': 0,
       },
     }));
+
+    // Append projectId to usedInProjectIds only if not already present
+    // Use conditional expression to prevent duplicates
+    try {
+      await docClient.send(new UpdateCommand({
+        TableName: TABLE_NAME,
+        Key: key,
+        UpdateExpression: 'SET #usedInProjectIds = list_append(if_not_exists(#usedInProjectIds, :emptyList), :projectId)',
+        ConditionExpression: 'attribute_not_exists(#usedInProjectIds) OR NOT contains(#usedInProjectIds, :projectIdStr)',
+        ExpressionAttributeNames: {
+          '#usedInProjectIds': 'usedInProjectIds',
+        },
+        ExpressionAttributeValues: {
+          ':projectId': [body.projectId],
+          ':projectIdStr': body.projectId,
+          ':emptyList': [],
+        },
+      }));
+    } catch (conditionalError: unknown) {
+      // Ignore ConditionalCheckFailedException - projectId already exists in list
+      if (
+        conditionalError &&
+        typeof conditionalError === 'object' &&
+        'name' in conditionalError &&
+        conditionalError.name !== 'ConditionalCheckFailedException'
+      ) {
+        throw conditionalError;
+      }
+    }
 
     return createResponse(200, { message: 'Usage tracked' });
   } catch (error) {
@@ -634,6 +764,12 @@ export async function getContentLibraryCategories(
 
     if (!orgId) {
       return createResponse(400, { error: 'Missing orgId' });
+    }
+
+    // Verify user has access to the organization
+    const authCheck = verifyOrgAccess(event, orgId);
+    if (!authCheck.authorized) {
+      return authCheck.error!;
     }
 
     const result = await docClient.send(new QueryCommand({
@@ -680,6 +816,12 @@ export async function getContentLibraryTags(
 
     if (!orgId) {
       return createResponse(400, { error: 'Missing orgId' });
+    }
+
+    // Verify user has access to the organization
+    const authCheck = verifyOrgAccess(event, orgId);
+    if (!authCheck.authorized) {
+      return authCheck.error!;
     }
 
     const result = await docClient.send(new QueryCommand({

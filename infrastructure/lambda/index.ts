@@ -230,47 +230,59 @@ async function handleContentLibraryRoutes(
   // /api/content-library/items/{id}
   if (pathParts.length === 4 && pathParts[2] === 'items') {
     const itemId = pathParts[3];
-    // Set pathParameters for handlers
-    event.pathParameters = { ...event.pathParameters, id: itemId };
+    // Create new event object instead of mutating the original
+    const eventWithId: APIGatewayProxyEvent = {
+      ...event,
+      pathParameters: { ...event.pathParameters, id: itemId },
+    };
 
     if (method === 'GET') {
-      return getContentLibraryItem(event);
+      return getContentLibraryItem(eventWithId);
     }
     if (method === 'PATCH' || method === 'PUT') {
-      return updateContentLibraryItem(event);
+      return updateContentLibraryItem(eventWithId);
     }
     if (method === 'DELETE') {
-      return deleteContentLibraryItem(event);
+      return deleteContentLibraryItem(eventWithId);
     }
   }
 
   // /api/content-library/items/{id}/approve
   if (pathParts.length === 5 && pathParts[2] === 'items' && pathParts[4] === 'approve') {
     const itemId = pathParts[3];
-    event.pathParameters = { ...event.pathParameters, id: itemId };
+    const eventWithId: APIGatewayProxyEvent = {
+      ...event,
+      pathParameters: { ...event.pathParameters, id: itemId },
+    };
 
     if (method === 'POST') {
-      return approveContentLibraryItem(event);
+      return approveContentLibraryItem(eventWithId);
     }
   }
 
   // /api/content-library/items/{id}/deprecate
   if (pathParts.length === 5 && pathParts[2] === 'items' && pathParts[4] === 'deprecate') {
     const itemId = pathParts[3];
-    event.pathParameters = { ...event.pathParameters, id: itemId };
+    const eventWithId: APIGatewayProxyEvent = {
+      ...event,
+      pathParameters: { ...event.pathParameters, id: itemId },
+    };
 
     if (method === 'POST') {
-      return deprecateContentLibraryItem(event);
+      return deprecateContentLibraryItem(eventWithId);
     }
   }
 
   // /api/content-library/items/{id}/track-usage
   if (pathParts.length === 5 && pathParts[2] === 'items' && pathParts[4] === 'track-usage') {
     const itemId = pathParts[3];
-    event.pathParameters = { ...event.pathParameters, id: itemId };
+    const eventWithId: APIGatewayProxyEvent = {
+      ...event,
+      pathParameters: { ...event.pathParameters, id: itemId },
+    };
 
     if (method === 'POST') {
-      return trackContentLibraryUsage(event);
+      return trackContentLibraryUsage(eventWithId);
     }
   }
 
