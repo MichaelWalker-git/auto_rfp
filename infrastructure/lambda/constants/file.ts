@@ -1,1 +1,1 @@
-export const FILE_PK = 'FILE'
+export const FILE_PK = 'FILE';

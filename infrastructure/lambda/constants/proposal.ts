@@ -1,1 +1,1 @@
-export const PROPOSAL_PK = 'PROPOSAL'
+export const PROPOSAL_PK = 'PROPOSAL';
