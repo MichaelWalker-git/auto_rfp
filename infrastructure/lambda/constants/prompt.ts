@@ -384,7 +384,7 @@ export const getDeadlineSystemPrompt = async (orgId: string) => {
   return prompt || DEADLINE_SYSTEM_PROMPT;
 };
 
-export const useDeadlineSystemPrompt = async (orgId: string, solicitation?: string) => {
+export const useDeadlineSystemPrompt = async (orgId: string, _solicitation?: string) => {
   return await getDeadlineSystemPrompt(orgId);
 };
 
