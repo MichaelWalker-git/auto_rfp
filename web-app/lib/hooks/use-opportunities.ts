@@ -103,12 +103,13 @@ const normalizeSamSearch = (
 
 const encodeNextToken = (token?: string | null) => (token ? encodeURIComponent(token) : undefined);
 
-const buildListUrl = (args: { projectId: string; limit?: number; nextToken?: string | null }) => {
+const buildListUrl = (args: { orgId?: string | null; projectId: string; limit?: number; nextToken?: string | null }) => {
   const u = new URL(`${BASE_URL}/get-opportunities`);
   u.searchParams.set('projectId', args.projectId);
   if (args.limit) u.searchParams.set('limit', String(args.limit));
   const nt = encodeNextToken(args.nextToken);
   if (nt) u.searchParams.set('nextToken', nt);
+  if (args.orgId) u.searchParams.set('orgId', args.orgId);
   return u.toString();
 };
 
@@ -149,10 +150,11 @@ export type ListOpportunitiesResponse = {
 };
 
 export function useOpportunitiesList(args: OpportunityQuery) {
+  const orgId = args?.orgId;
   const projectId = args?.projectId;
   const limit = args?.limit ?? 25;
 
-  const key = projectId ? buildListUrl({ projectId, limit }) : null;
+  const key = projectId ? buildListUrl({ orgId, projectId, limit }) : null;
 
   const { data, error, isLoading, mutate } = useSWR<ListOpportunitiesResponse>(
     key,
@@ -174,7 +176,7 @@ export function useOpportunitiesList(args: OpportunityQuery) {
     const nextToken = data?.nextToken;
     if (!nextToken) return;
 
-    const res = await authFetcher(buildListUrl({ projectId, limit, nextToken }), { method: 'GET' });
+    const res = await authFetcher(buildListUrl({ orgId, projectId, limit, nextToken }), { method: 'GET' });
     const body = await readAuthJson<any>(res, 'Failed to load more opportunities');
 
     const more: ListOpportunitiesResponse = {
