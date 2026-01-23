@@ -249,7 +249,7 @@ function extractFilenameFromHeader(contentDisposition?: string): string | undefi
 
   // Try filename* first (RFC 5987 - supports UTF-8 encoding)
   const filenameStar = /filename\*=(?:UTF-8''|utf-8'')([^;\s]+)/i.exec(contentDisposition);
-  if (filenameStar) {
+  if (filenameStar?.[1]) {
     try {
       return decodeURIComponent(filenameStar[1]);
     } catch {
@@ -259,13 +259,13 @@ function extractFilenameFromHeader(contentDisposition?: string): string | undefi
 
   // Try quoted filename
   const filenameQuoted = /filename="([^"]+)"/i.exec(contentDisposition);
-  if (filenameQuoted) {
+  if (filenameQuoted?.[1]) {
     return filenameQuoted[1];
   }
 
   // Try unquoted filename
   const filenameUnquoted = /filename=([^;\s]+)/i.exec(contentDisposition);
-  if (filenameUnquoted) {
+  if (filenameUnquoted?.[1]) {
     return filenameUnquoted[1];
   }
 
@@ -278,7 +278,7 @@ export async function httpsGetBuffer(
 ): Promise<{ buf: Buffer; contentType?: string; finalUrl: string; filename?: string }> {
   const maxRedirects = opts?.maxRedirects ?? 5;
 
-  const normalize = (v?: string) => (v ? v.split(';')[0].trim().toLowerCase() : undefined);
+  const normalize = (v?: string) => (v ? (v.split(';')[0] ?? v).trim().toLowerCase() : undefined);
 
   return new Promise((resolve, reject) => {
     const req = https.request(

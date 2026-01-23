@@ -79,7 +79,7 @@ const ensureExtension = (filename: string, contentType?: string | null) => {
 
   if (hasExt) return safe;
 
-  const ct = (contentType ?? '').split(';')[0].trim().toLowerCase();
+  const ct = ((contentType ?? '').split(';')[0] ?? '').trim().toLowerCase();
   const ext = EXT_BY_CT[ct];
 
   return ext ? `${safe}.${ext}` : safe;
@@ -197,7 +197,7 @@ export const baseHandler = async (
       const { buf, contentType } = await httpsGetBuffer(new URL(a.url), { httpsAgent });
 
       const normalize = (v?: string | null) =>
-        v ? v.split(';')[0].trim().toLowerCase() : undefined;
+        v ? (v.split(';')[0] ?? v).trim().toLowerCase() : undefined;
       const isUnknown = (v?: string) =>
         !v || v === 'application/octet-stream' || v === 'binary/octet-stream';
 

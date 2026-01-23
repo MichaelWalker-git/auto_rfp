@@ -66,7 +66,7 @@ describe('extract-questions Lambda - Input Validation (Sentry: AUTO-RFP-51, AUTO
   } as any;
 
   it('should throw when questionFileId is missing', async () => {
-    const event = { projectId: 'proj-456', textFileKey: 'key.txt', opportunityId: 'opp-789' };
+    const event = { projectId: 'proj-456', textFileKey: 'key.txt', opportunityId: 'opp-789' } as any;
 
     await expect(baseHandler(event, mockContext)).rejects.toThrow(
       'questionFileId, projectId, textFileKey, opportunityId are required'
@@ -74,7 +74,7 @@ describe('extract-questions Lambda - Input Validation (Sentry: AUTO-RFP-51, AUTO
   });
 
   it('should throw when projectId is missing', async () => {
-    const event = { questionFileId: 'qf-123', textFileKey: 'key.txt', opportunityId: 'opp-789' };
+    const event = { questionFileId: 'qf-123', textFileKey: 'key.txt', opportunityId: 'opp-789' } as any;
 
     await expect(baseHandler(event, mockContext)).rejects.toThrow(
       'questionFileId, projectId, textFileKey, opportunityId are required'
@@ -82,7 +82,7 @@ describe('extract-questions Lambda - Input Validation (Sentry: AUTO-RFP-51, AUTO
   });
 
   it('should throw when textFileKey is missing', async () => {
-    const event = { questionFileId: 'qf-123', projectId: 'proj-456', opportunityId: 'opp-789' };
+    const event = { questionFileId: 'qf-123', projectId: 'proj-456', opportunityId: 'opp-789' } as any;
 
     await expect(baseHandler(event, mockContext)).rejects.toThrow(
       'questionFileId, projectId, textFileKey, opportunityId are required'
@@ -90,7 +90,7 @@ describe('extract-questions Lambda - Input Validation (Sentry: AUTO-RFP-51, AUTO
   });
 
   it('should throw when opportunityId is missing', async () => {
-    const event = { questionFileId: 'qf-123', projectId: 'proj-456', textFileKey: 'key.txt' };
+    const event = { questionFileId: 'qf-123', projectId: 'proj-456', textFileKey: 'key.txt' } as any;
 
     await expect(baseHandler(event, mockContext)).rejects.toThrow(
       'questionFileId, projectId, textFileKey, opportunityId are required'
@@ -98,7 +98,7 @@ describe('extract-questions Lambda - Input Validation (Sentry: AUTO-RFP-51, AUTO
   });
 
   it('should throw when all required fields are missing', async () => {
-    await expect(baseHandler({}, mockContext)).rejects.toThrow(
+    await expect(baseHandler({} as any, mockContext)).rejects.toThrow(
       'questionFileId, projectId, textFileKey, opportunityId are required'
     );
   });

@@ -30,7 +30,7 @@ interface StartProcessingResult {
 }
 
 function inferExtFromKey(fileKey: string): string | null {
-  const clean = fileKey.split('?')[0]; // defensive if ever passed a presigned URL key by mistake
+  const clean = fileKey.split('?')[0] ?? fileKey; // defensive if ever passed a presigned URL key by mistake
   const idx = clean.lastIndexOf('.');
   if (idx === -1) return null;
   const ext = clean.slice(idx + 1).trim().toLowerCase();

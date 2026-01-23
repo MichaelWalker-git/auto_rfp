@@ -80,8 +80,9 @@ export function parseSortKey<T extends string>(
   for (let i = 0; i < keys.length; i++) {
     // Each key corresponds to an odd index (1, 3, 5, ...)
     // because format is PREFIX#value#PREFIX#value
+    const key = keys[i]!; // Safe: iterating within bounds
     const valueIndex = i * 2 + 1;
-    result[keys[i]] = parts[valueIndex] ?? '';
+    result[key] = parts[valueIndex] ?? '';
   }
 
   return result;
