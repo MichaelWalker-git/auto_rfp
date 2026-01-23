@@ -30,6 +30,7 @@ import { createOpportunity } from '../helpers/opportunity';
 import type { OpportunityItem } from '@auto-rfp/shared';
 import { createQuestionFile } from '../helpers/questionFile';
 import { startPipeline } from '../helpers/solicitation';
+import { safeTrim } from '../helpers/safe-string';
 
 const DOCUMENTS_BUCKET = requireEnv('DOCUMENTS_BUCKET');
 const SAM_API_ORIGIN = process.env.SAM_API_ORIGIN || 'https://api.sam.gov';
@@ -54,8 +55,8 @@ const EXT_BY_CT: Record<string, string> = {
   'application/zip': 'zip',
 };
 
-const sanitizeFilename = (name: string) => {
-  let v = name.trim();
+const sanitizeFilename = (name: unknown) => {
+  let v = safeTrim(name);
 
   try {
     v = decodeURIComponent(v);

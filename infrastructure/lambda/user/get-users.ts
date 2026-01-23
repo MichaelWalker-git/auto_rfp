@@ -15,6 +15,7 @@ import {
   requirePermission
 } from '../middleware/rbac-middleware';
 import middy from '@middy/core';
+import { safeTrim, safeLowerCase } from '../helpers/safe-string';
 
 const ddb = DynamoDBDocumentClient.from(new DynamoDBClient({}), {
   marshallOptions: { removeUndefinedValues: true },
@@ -46,9 +47,10 @@ export const baseHandler = async (event: APIGatewayProxyEventV2): Promise<APIGat
     const exclusiveStartKey = nextToken ? decodeNextToken(nextToken) : undefined;
 
     // optional filters (applied in Dynamo FilterExpression -> evaluated AFTER read)
-    const search = qs.search?.trim().toLowerCase();
-    const role = qs.role?.trim();
-    const status = qs.status?.trim();
+    // Use safe string utils to handle edge cases where params might not be strings
+    const search = safeLowerCase(safeTrim(qs.search)) || undefined;
+    const role = safeTrim(qs.role) || undefined;
+    const status = safeTrim(qs.status) || undefined;
 
     const expressionAttributeNames: Record<string, string> = {
       '#pk': PK_NAME,

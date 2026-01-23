@@ -4,6 +4,7 @@ import { ORG_PK, PROJECT_PK } from '../constants/organization';
 import { DBItem, docClient } from './db';
 import { requireEnv } from './env';
 import { DBProjectItem } from '../types/project';
+import { safeSplitAt } from './safe-string';
 
 const DB_TABLE_NAME = requireEnv('DB_TABLE_NAME');
 
@@ -47,7 +48,11 @@ export async function getProjectById(projectId: string): Promise<DBProjectItem| 
     return item[SK_NAME].endsWith(idSuffix);
   });
 
-  const orgId: string = exact[SK_NAME].split('#')[0];
+  if (!exact) {
+    return null;
+  }
+
+  const orgId: string = safeSplitAt(exact[SK_NAME], '#', 0);
   const orgRes = await docClient.send(new GetCommand({
     TableName: DB_TABLE_NAME,
     Key: {

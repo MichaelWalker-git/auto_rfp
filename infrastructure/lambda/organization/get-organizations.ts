@@ -14,6 +14,7 @@ import {
 import { requireEnv } from '../helpers/env';
 import middy from '@middy/core';
 import { docClient } from '../helpers/db';
+import { safeSplitAt } from '../helpers/safe-string';
 
 const DB_TABLE_NAME = requireEnv('DB_TABLE_NAME');
 
@@ -96,7 +97,7 @@ const enrichOrganizationWithCounts = async (org: OrgItem) => {
 };
 
 const orgSortKeyToId = (sortKey: string) => {
-  return sortKey.split('#')[1];
+  return safeSplitAt(sortKey, '#', 1);
 };
 
 async function getProjectCountForOrg(orgId: string): Promise<number> {

@@ -30,7 +30,14 @@ export const baseHandler = async (
           [PK_NAME]: EXEC_BRIEF_PK,
           [SK_NAME]: executiveBriefId,
         },
-        UpdateExpression: 'SET decision = :decision, #sections.#scoring.#data.decision = :decision, updatedAt = :now',
+        // Use if_not_exists for nested paths to avoid errors if intermediate objects are missing
+        UpdateExpression: `SET
+          decision = :decision,
+          #sections = if_not_exists(#sections, :emptySections),
+          #sections.#scoring = if_not_exists(#sections.#scoring, :emptyScoring),
+          #sections.#scoring.#data = if_not_exists(#sections.#scoring.#data, :emptyData),
+          #sections.#scoring.#data.decision = :decision,
+          updatedAt = :now`,
         ExpressionAttributeNames: {
           '#sections': 'sections',
           '#scoring': 'scoring',
@@ -39,6 +46,9 @@ export const baseHandler = async (
         ExpressionAttributeValues: {
           ':decision': decision,
           ':now': new Date().toISOString(),
+          ':emptySections': {},
+          ':emptyScoring': {},
+          ':emptyData': {},
         },
       })
     );

@@ -5,6 +5,7 @@ import { DBItem, docClient } from './db';
 import { requireEnv } from './env';
 import { PK_NAME, SK_NAME } from '../constants/common';
 import { OPPORTUNITY_PK } from '../constants/opportunity';
+import { safeSplit } from './safe-string';
 
 import type { OpportunityItem } from '@auto-rfp/shared';
 import { nowIso } from './date';
@@ -14,8 +15,12 @@ const DOCUMENTS_TABLE = requireEnv('DB_TABLE_NAME');
 export const buildOpportunitySk = (orgId: string, projectId: string, oppId: string) => `${orgId}#${projectId}#${oppId}`;
 
 export const parseOpportunitySk = (sk: string) => {
-  const [orgId, projectId, oppId] = sk.split('#');
-  return { orgId, projectId, oppId };
+  const parts = safeSplit(sk, '#');
+  return {
+    orgId: parts[0] ?? '',
+    projectId: parts[1] ?? '',
+    oppId: parts[2] ?? '',
+  };
 };
 
 export type OpportunityDBItem = OpportunityItem & DBItem;

@@ -16,6 +16,7 @@ import {
 import middy from '@middy/core';
 import { requireEnv } from '../helpers/env';
 import { DBItem, docClient } from '../helpers/db';
+import { safeSplitAt } from '../helpers/safe-string';
 
 const DB_TABLE_NAME = requireEnv('DB_TABLE_NAME');
 
@@ -82,7 +83,7 @@ export async function listKnowledgeBasesForOrg(orgId: string): Promise<Knowledge
   return await Promise.all(
     items.map(async (item) => {
       const sk = item[SK_NAME] as string;
-      const kbId = sk.split('#')[1];
+      const kbId = safeSplitAt(sk, '#', 1);
 
       const documentsCount = await getDocumentCountForKnowledgeBase(kbId);
 

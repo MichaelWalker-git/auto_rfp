@@ -5,6 +5,7 @@ import { requireEnv } from './env';
 import { nowIso } from './date';
 import { DEADLINE_PK } from '../constants/deadline';
 import { PutCommand, } from '@aws-sdk/lib-dynamodb';
+import { safeSplitAt } from './safe-string';
 
 
 const DB_TABLE_NAME = requireEnv('DB_TABLE_NAME');
@@ -27,7 +28,7 @@ export async function storeDeadlinesSeparately(
 
     const sk = project?.[SK_NAME];
 
-    const orgId = sk.split('#')[0];
+    const orgId = safeSplitAt(sk, '#', 0);
 
     if (!orgId) {
       console.error('Could not extract orgId from SK, skipping separate deadline storage', { sk });

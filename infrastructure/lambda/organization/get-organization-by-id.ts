@@ -14,6 +14,7 @@ import {
 import middy from '@middy/core';
 import { requireEnv } from '../helpers/env';
 import { docClient } from '../helpers/db';
+import { safeSplitAt } from '../helpers/safe-string';
 
 const DB_TABLE_NAME = requireEnv('DB_TABLE_NAME');
 
@@ -76,7 +77,7 @@ const enrichUsersCount = (org: OrganizationItem & { sort_key: string }) => {
 };
 
 const orgSortKeyToId = (sortKey: string) => {
-  return sortKey.split('#')[1];
+  return safeSplitAt(sortKey, '#', 1);
 };
 
 export const handler = withSentryLambda(

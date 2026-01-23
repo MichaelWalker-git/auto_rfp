@@ -11,10 +11,18 @@ import {
   requirePermission
 } from '../middleware/rbac-middleware';
 import middy from '@middy/core';
+import { safeParseJson } from '../helpers/safe-string';
 
 export const baseHandler = async (event: APIGatewayProxyEventV2): Promise<APIGatewayProxyResultV2> => {
   try {
-    const parsedBody = JSON.parse(event.body || '')
+    if (!event.body) {
+      return apiResponse(400, { message: 'Request body is required' });
+    }
+
+    const parsedBody = safeParseJson(event.body);
+    if (parsedBody === null) {
+      return apiResponse(400, { message: 'Invalid JSON in request body' });
+    }
     const parsed = SaveProposalRequestSchema.safeParse(parsedBody);
     if (!parsed.success) {
       return apiResponse(400, {

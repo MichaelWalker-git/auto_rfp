@@ -3,6 +3,7 @@ import { PK_NAME, SK_NAME } from '../constants/common';
 import { ORG_PK } from '../constants/organization';
 import { QueryCommand } from '@aws-sdk/lib-dynamodb';
 import { requireEnv } from './env';
+import { safeSplitAt, safeTrim } from './safe-string';
 
 
 const DB_TABLE_NAME = requireEnv('DB_TABLE_NAME');
@@ -23,9 +24,10 @@ export async function listAllOrgIds(): Promise<string[]> {
     );
 
     for (const it of res.Items ?? []) {
-      const orgId = String((it as any)?.[SK_NAME] ?? '').trim();
-      // ORG#UUID
-      if (orgId) orgIds.push(orgId.split('#')[1]);
+      const rawSk = safeTrim((it as any)?.[SK_NAME]);
+      // SK format: ORG#UUID - extract UUID at index 1
+      const uuid = safeSplitAt(rawSk, '#', 1);
+      if (uuid) orgIds.push(uuid);
     }
 
     ExclusiveStartKey = res.LastEvaluatedKey as any;

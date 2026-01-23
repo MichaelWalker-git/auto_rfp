@@ -6,6 +6,7 @@ import { USER_PK } from '../constants/user';
 
 import type { CreateUserDTO } from '@auto-rfp/shared';
 import { adminCreateUser, adminDeleteUser } from './cognito';
+import { safeTrim, safeLowerCase } from './safe-string';
 
 export type CreateUserDeps = {
   ddb: DynamoDBDocumentClient;
@@ -27,9 +28,8 @@ export type CreateUserResult = {
 
 export const userSk = (orgId: string, userId: string) => `ORG#${orgId}#USER#${userId}`;
 
-function norm(s?: string): string | undefined {
-  if (s == null) return undefined;
-  const v = s.trim();
+function norm(s?: unknown): string | undefined {
+  const v = safeTrim(s);
   return v.length ? v : undefined;
 }
 
@@ -57,8 +57,8 @@ export async function createUser(
   const sendCognitoInvite = options.sendCognitoInvite ?? false;
   const markEmailVerified = options.markEmailVerified ?? true;
 
-  const email = dto.email.trim();
-  const emailLower = email.toLowerCase();
+  const email = safeTrim(dto.email);
+  const emailLower = safeLowerCase(email);
   const cognitoUsername = emailLower;
 
   const firstName = norm((dto as any).firstName);
