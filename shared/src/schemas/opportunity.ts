@@ -111,6 +111,7 @@ export const SamSlimToOpportunityItemSchema = SamOpportunitySlimSchema.transform
 export type OpportunityItemFromSam = z.infer<typeof SamSlimToOpportunityItemSchema>;
 
 export const OpportunityQuerySchema = z.object({
+  orgId: z.string().nullable(),
   projectId: z.string().min(1),
   limit: z
     .string()
