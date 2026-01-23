@@ -92,7 +92,7 @@ export function isoToMMDDYYYY (iso: string): MmDdYyyy  {
     // Expect iso in the form "YYYY-MM-DD"
     const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso);
     if (!match) {
-      console.log('Wrong date string format, expected "YYYY-MM-DD"')
+      console.log('Wrong date string format, expected "YYYY-MM-DD"');
       return iso as MmDdYyyy;
     }
     const [, year, month, day] = match;

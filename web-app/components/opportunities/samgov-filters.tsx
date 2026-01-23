@@ -114,7 +114,12 @@ export function SamGovFilters({
 
   const applyQuickFilter = (days: number) => {
     const range = defaultDateRange(days, 0);
-    onChange({ ...value, postedFrom: range.postedFrom, postedTo: range.postedTo });
+    onChange({
+      ...value,
+      postedFrom: range.postedFrom,
+      postedTo: range.postedTo,
+      rdlfrom: range.rdlfrom,
+    });
   };
 
   const clearFilters = () => {

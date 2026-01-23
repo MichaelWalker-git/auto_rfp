@@ -101,7 +101,7 @@ export function SamGovOpportunityList({ data, isLoading, onPage, onImportSolicit
       });
       return;
     }
-    setSelectedOpportunity(opportunity)
+    setSelectedOpportunity(opportunity);
     if (!opportunity.description) {
       console.error('No description URL available');
       toast({
@@ -109,7 +109,7 @@ export function SamGovOpportunityList({ data, isLoading, onPage, onImportSolicit
         description: 'No description is available for this opportunity.',
         variant: 'destructive',
       });
-      setSelectedOpportunity(null)
+      setSelectedOpportunity(null);
       return;
     }
 
@@ -240,10 +240,10 @@ export function SamGovOpportunityList({ data, isLoading, onPage, onImportSolicit
                 </Button>
               </div>
 
-              {o.solicitationNumber === selectedOpportunity?.solicitationNumber && 
+              {o.solicitationNumber === selectedOpportunity?.solicitationNumber &&
                 <Dialog open={!!selectedDescription} onOpenChange={() => {
-                  setSelectedDescription(null)
-                  setSelectedOpportunity(null)
+                  setSelectedDescription(null);
+                  setSelectedOpportunity(null);
                 }}>
                   <DialogContent className="sm:max-w-2xl max-h-[85vh] flex flex-col overflow-y-auto">
                     <DialogHeader>
