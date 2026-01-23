@@ -4,28 +4,17 @@
  * - Document indexing validation errors
  */
 
-// Mock credential provider before other imports to avoid dynamic import issues
-jest.mock('@aws-sdk/credential-provider-node', () => ({
-  defaultProvider: jest.fn(() => () =>
-    Promise.resolve({
-      accessKeyId: 'test-access-key',
-      secretAccessKey: 'test-secret-key',
-      sessionToken: 'test-session-token',
-    })
-  ),
-}));
-
 // Mock AWS SDK and other dependencies before importing handler
 jest.mock('@aws-sdk/client-s3', () => ({
   S3Client: jest.fn(() => ({
     send: jest.fn(),
   })),
   GetObjectCommand: jest.fn(),
-}));
+}), { virtual: true });
 
 jest.mock('@aws-sdk/client-bedrock-runtime', () => ({
   BedrockRuntimeClient: jest.fn(() => ({})),
-}));
+}), { virtual: true });
 
 jest.mock('../helpers/embeddings', () => ({
   getEmbedding: jest.fn().mockResolvedValue(new Array(1024).fill(0.1)),

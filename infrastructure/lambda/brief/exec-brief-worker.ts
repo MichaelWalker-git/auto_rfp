@@ -406,7 +406,9 @@ async function runScoring(job: Job): Promise<void> {
 
   const prereq = scoringPrereqsComplete(brief);
   if (!prereq.ok) {
-    throw new Error('All fields should be ready before calling scoring');
+    // Include missing sections in error for better debugging - fixes AUTO-RFP-5C
+    const missing = (prereq as { ok: false; missing: string[] }).missing;
+    throw new Error(`All fields should be ready before calling scoring. Missing: ${missing.join(', ')}`);
   }
   try {
     const inputHash =
@@ -535,7 +537,16 @@ const baseHandler = async (event: SQSEvent): Promise<SQSBatchResponse> => {
   const batchItemFailures: SQSBatchResponse['batchItemFailures'] = [];
 
   for (const record of event.Records) {
-    const job = JobSchema.parse(JSON.parse(record.body));
+    // Parse job with better error context - fixes AUTO-RFP-5Q
+    let job: Job;
+    try {
+      const rawBody = JSON.parse(record.body);
+      job = JobSchema.parse(rawBody);
+    } catch (parseError) {
+      console.error('Failed to parse SQS message body:', record.body);
+      console.error('Parse error:', parseError);
+      throw parseError;
+    }
     await runSection(job);
   }
   return { batchItemFailures };

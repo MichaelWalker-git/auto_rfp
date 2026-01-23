@@ -98,8 +98,72 @@ export function safeParseJsonFromModel(text: string) {
   try {
     return JSON.parse(cleaned);
   } catch (err) {
+    // Attempt to repair truncated JSON - fixes AUTO-RFP-2A
+    const repaired = attemptTruncationRepair(cleaned);
+    if (repaired) {
+      try {
+        return JSON.parse(repaired);
+      } catch {
+        // Fall through to error
+      }
+    }
     console.error('Failed JSON (original):', jsonSlice);
     console.error('Failed JSON (cleaned):', cleaned);
     throw err;
   }
+}
+
+/**
+ * Attempts to repair JSON that was truncated (e.g., from max_tokens cutoff).
+ * Returns the repaired string or null if repair not possible.
+ */
+function attemptTruncationRepair(json: string): string | null {
+  // Count open brackets/braces
+  let openBraces = 0;
+  let openBrackets = 0;
+  let inString = false;
+  let escape = false;
+
+  for (const ch of json) {
+    if (escape) {
+      escape = false;
+      continue;
+    }
+    if (ch === '\\') {
+      escape = true;
+      continue;
+    }
+    if (ch === '"') {
+      inString = !inString;
+      continue;
+    }
+    if (inString) continue;
+
+    if (ch === '{') openBraces++;
+    else if (ch === '}') openBraces--;
+    else if (ch === '[') openBrackets++;
+    else if (ch === ']') openBrackets--;
+  }
+
+  // If we're in a string, try to close it
+  if (inString) {
+    json += '"';
+    inString = false;
+  }
+
+  // Remove trailing comma if present
+  json = json.replace(/,\s*$/, '');
+
+  // Close any unclosed brackets/braces
+  let repaired = json;
+  while (openBrackets > 0) {
+    repaired += ']';
+    openBrackets--;
+  }
+  while (openBraces > 0) {
+    repaired += '}';
+    openBraces--;
+  }
+
+  return repaired !== json ? repaired : null;
 }

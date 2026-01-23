@@ -1,18 +1,20 @@
 import type { SamGovFiltersState } from '@/components/opportunities/samgov-filters';
-import type { LoadSamOpportunitiesRequest } from '@auto-rfp/shared';
+import type { LoadSamOpportunitiesRequest, MmDdYyyy } from '@auto-rfp/shared';
 
-export function mmddyyyy(d: Date) {
+export function toIso(d: Date) {
   const mm = String(d.getMonth() + 1).padStart(2, '0');
   const dd = String(d.getDate()).padStart(2, '0');
   const yyyy = d.getFullYear();
-  return `${mm}/${dd}/${yyyy}`;
+  return `${yyyy}-${mm}-${dd}`;
 }
 
-export function defaultDateRange(daysBack = 14) {
+export function defaultDateRange(daysBack = 14, minDaysForResponse = 0) {
   const to = new Date();
   const from = new Date();
+  const responseDeadline = new Date();
   from.setDate(to.getDate() - daysBack);
-  return { postedFrom: mmddyyyy(from), postedTo: mmddyyyy(to) };
+  responseDeadline.setDate(to.getDate() + minDaysForResponse);
+  return { postedFrom: toIso(from), postedTo: toIso(to), rdlfrom: toIso(responseDeadline) };
 }
 
 export function fmtDate(s?: string) {
@@ -39,7 +41,7 @@ export const QUICK_FILTERS = [
 
 export function reqToFiltersState(
   req: Partial<LoadSamOpportunitiesRequest>,
-  fallback: { postedFrom: string; postedTo: string },
+  fallback: { postedFrom: string; postedTo: string; rdlfrom: string },
 ): SamGovFiltersState {
   // Map request -> UI filters
   return {
@@ -50,6 +52,7 @@ export function reqToFiltersState(
     ptypeCsv: Array.isArray(req.ptype) && req.ptype.length ? req.ptype.join(',') : '',
     postedFrom: (req.postedFrom ?? fallback.postedFrom) as string,
     postedTo: (req.postedTo ?? fallback.postedTo) as string,
+    rdlfrom: (req.rdlfrom ?? fallback.rdlfrom) as string,
   };
 }
 
@@ -70,9 +73,11 @@ export function filtersToRequest(
   const naics = filters.naicsCsv.split(',').map((s) => s.trim()).filter(Boolean);
   const ptype = filters.ptypeCsv.split(',').map((s) => s.trim()).filter(Boolean);
 
+  // Convert dates to MM/dd/yyyy format - fixes AUTO-RFP-4B, AUTO-RFP-5K, AUTO-RFP-53
   return {
-    postedFrom: filters.postedFrom,
-    postedTo: filters.postedTo,
+    postedFrom: isoToMMDDYYYY(filters.postedFrom),
+    postedTo: isoToMMDDYYYY(filters.postedTo),
+    rdlfrom: isoToMMDDYYYY(filters.rdlfrom),
     keywords: filters.keywords.trim() || undefined,
     naics: naics.length ? naics : undefined,
     organizationName: filters.agencyName.trim() || undefined,
@@ -83,11 +88,17 @@ export function filtersToRequest(
   } as any;
 }
 
+export function isoToMMDDYYYY (iso: string): MmDdYyyy  {
+    // Expect iso in the form "YYYY-MM-DD"
+    const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso);
+    if (!match) {
+      console.log('Wrong date string format, expected "YYYY-MM-DD"');
+      return iso as MmDdYyyy;
+    }
+    const [, year, month, day] = match;
+    return `${month}/${day}/${year}` as MmDdYyyy;
+  }
+
 function pad2(n: number) {
   return n < 10 ? `0${n}` : String(n);
-}
-
-// Your app currently uses MM/DD/YYYY strings in state
-function dateToMmddyyyy(d: Date) {
-  return `${pad2(d.getMonth() + 1)}/${pad2(d.getDate())}/${d.getFullYear()}`;
 }

@@ -166,6 +166,7 @@ export async function searchSamOpportunities(
 
   addQueryParam(url, 'limit', String(limit));
   addQueryParam(url, 'offset', String(offset));
+  addQueryParam(url, 'rdlfrom', String(body.rdlfrom));
 
   const json = await httpsGetJson(url, cfg.httpsAgent);
 

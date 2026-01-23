@@ -178,8 +178,11 @@ export async function markSectionInProgress(args: {
   const { executiveBriefId, section, inputHash } = args;
   const now = nowIso();
 
+  // Initialize the section structure if it doesn't exist - fixes AUTO-RFP-5R
   const updateExprParts = [
-    'SET #sections.#sec.#status = :status',
+    'SET #sections = if_not_exists(#sections, :emptySections)',
+    '#sections.#sec = if_not_exists(#sections.#sec, :emptySection)',
+    '#sections.#sec.#status = :status',
     '#sections.#sec.#updatedAt = :now',
     'updatedAt = :now',
   ];
@@ -192,6 +195,8 @@ export async function markSectionInProgress(args: {
   const values: Record<string, any> = {
     ':status': 'IN_PROGRESS',
     ':now': now,
+    ':emptySections': {},
+    ':emptySection': { status: 'IDLE', updatedAt: now },
   };
 
   if (inputHash) {
@@ -200,18 +205,29 @@ export async function markSectionInProgress(args: {
     values[':h'] = inputHash;
   }
 
-  await docClient.send(
-    new UpdateCommand({
-      TableName: DB_TABLE_NAME,
-      Key: {
-        [PK_NAME]: EXEC_BRIEF_PK,
-        [SK_NAME]: executiveBriefId
-      },
-      UpdateExpression: updateExprParts.join(', '),
-      ExpressionAttributeNames: names,
-      ExpressionAttributeValues: values,
-    }),
-  );
+  // Add PK name for condition expression
+  names['#pk'] = PK_NAME;
+
+  try {
+    await docClient.send(
+      new UpdateCommand({
+        TableName: DB_TABLE_NAME,
+        Key: {
+          [PK_NAME]: EXEC_BRIEF_PK,
+          [SK_NAME]: executiveBriefId
+        },
+        UpdateExpression: updateExprParts.join(', '),
+        ExpressionAttributeNames: names,
+        ExpressionAttributeValues: values,
+        ConditionExpression: 'attribute_exists(#pk)',
+      }),
+    );
+  } catch (err: any) {
+    if (err?.name === 'ConditionalCheckFailedException') {
+      throw new Error(`Executive brief not found: ${executiveBriefId}`);
+    }
+    throw err;
+  }
 }
 
 export async function markSectionComplete<T>(args: {

@@ -4,6 +4,8 @@ export const MmDdYyyySchema = z
   .string()
   .regex(/^\d{2}\/\d{2}\/\d{4}$/, 'Expected MM/dd/yyyy');
 
+export type MmDdYyyy = z.infer<typeof MmDdYyyySchema>;
+
 export const DollarRangeSchema = z
   .object({
     min: z.number().nonnegative().optional(),
@@ -14,6 +16,8 @@ export const DollarRangeSchema = z
 export const LoadSamOpportunitiesRequestSchema = z.object({
   postedFrom: MmDdYyyySchema,
   postedTo: MmDdYyyySchema,
+
+  rdlfrom: MmDdYyyySchema,
 
   keywords: z.string().min(1).optional(),
   title: z.string().min(1).optional(),

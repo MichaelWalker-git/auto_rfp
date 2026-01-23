@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen, fireEvent } from '@testing-library/react';
 import '@testing-library/jest-dom';
 
 // Mock dependencies before importing component
@@ -43,11 +43,11 @@ jest.mock('./samgov-filters', () => ({
     <div data-testid="samgov-filters">
       <span data-testid="active-filter-count">{activeFilterCount}</span>
       <input
-        data-testid="min-days-input"
-        type="number"
-        value={value.minDaysUntilDue || ''}
+        data-testid="rdlfrom-input"
+        type="text"
+        value={value.rdlfrom || ''}
         onChange={(e) =>
-          onChange({ ...value, minDaysUntilDue: parseInt(e.target.value) || 0 })
+          onChange({ ...value, rdlfrom: e.target.value })
         }
       />
     </div>
@@ -84,46 +84,34 @@ describe('SamGovOpportunitySearchPage', () => {
     });
   });
 
-  describe('minDaysUntilDue filter', () => {
-    it('initializes minDaysUntilDue to 0 in initial state', () => {
+  describe('rdlfrom filter (response deadline from)', () => {
+    it('initializes rdlfrom with a default date in initial state', () => {
       render(<SamGovOpportunitySearchPage orgId="test-org-id" />);
 
-      const minDaysInput = screen.getByTestId('min-days-input');
-      expect(minDaysInput).toHaveValue(null); // Empty when 0
+      const rdlfromInput = screen.getByTestId('rdlfrom-input') as HTMLInputElement;
+      // rdlfrom is initialized to today's date by defaultDateRange (YYYY-MM-DD format)
+      expect(rdlfromInput.value).toMatch(/^\d{4}-\d{2}-\d{2}$/);
     });
 
-    it('includes minDaysUntilDue in active filter count when set', () => {
+    it('includes rdlfrom in active filter count when set', () => {
       render(<SamGovOpportunitySearchPage orgId="test-org-id" />);
 
-      // Initially 0 active filters (since minDaysUntilDue is 0 and NAICS is default)
-      expect(screen.getByTestId('active-filter-count')).toHaveTextContent('0');
-
-      // Set minDaysUntilDue
-      const minDaysInput = screen.getByTestId('min-days-input');
-      fireEvent.change(minDaysInput, { target: { value: '7' } });
-
-      // Should now show 1 active filter
+      // Initially 1 active filter (rdlfrom is set by default)
       expect(screen.getByTestId('active-filter-count')).toHaveTextContent('1');
     });
 
-    it('filters opportunities based on minDaysUntilDue', async () => {
-      const futureDate = new Date();
-      futureDate.setDate(futureDate.getDate() + 14); // 14 days from now
-
-      const pastDueDate = new Date();
-      pastDueDate.setDate(pastDueDate.getDate() + 3); // 3 days from now
-
+    it('displays all opportunities returned from API (server-side filtering)', async () => {
       const mockData = {
         opportunities: [
           {
             noticeId: 'opp-1',
             title: 'Opportunity 1',
-            responseDeadLine: futureDate.toISOString(),
+            responseDeadLine: '2025-02-14T00:00:00.000Z',
           },
           {
             noticeId: 'opp-2',
             title: 'Opportunity 2',
-            responseDeadLine: pastDueDate.toISOString(),
+            responseDeadLine: '2025-02-07T00:00:00.000Z',
           },
         ],
         totalRecords: 2,
@@ -140,26 +128,17 @@ describe('SamGovOpportunitySearchPage', () => {
 
       render(<SamGovOpportunitySearchPage orgId="test-org-id" />);
 
-      // Initially shows all opportunities
+      // Shows all opportunities returned from API (filtering is server-side)
       expect(screen.getByTestId('opportunity-count')).toHaveTextContent('2');
-
-      // Set minDaysUntilDue to 7 days
-      const minDaysInput = screen.getByTestId('min-days-input');
-      fireEvent.change(minDaysInput, { target: { value: '7' } });
-
-      // Should filter out the opportunity due in 3 days
-      await waitFor(() => {
-        expect(screen.getByTestId('opportunity-count')).toHaveTextContent('1');
-      });
     });
 
-    it('keeps opportunities without a deadline when filtering', async () => {
+    it('shows opportunities with null deadlines from API response', async () => {
       const mockData = {
         opportunities: [
           {
             noticeId: 'opp-1',
             title: 'Opportunity with deadline',
-            responseDeadLine: new Date().toISOString(), // Due today
+            responseDeadLine: '2025-02-01T00:00:00.000Z',
           },
           {
             noticeId: 'opp-2',
@@ -181,38 +160,17 @@ describe('SamGovOpportunitySearchPage', () => {
 
       render(<SamGovOpportunitySearchPage orgId="test-org-id" />);
 
-      // Set minDaysUntilDue to 7 days
-      const minDaysInput = screen.getByTestId('min-days-input');
-      fireEvent.change(minDaysInput, { target: { value: '7' } });
-
-      // Should keep the opportunity without a deadline (filter out the one due today)
-      await waitFor(() => {
-        expect(screen.getByTestId('opportunity-count')).toHaveTextContent('1');
-      });
+      // Shows all opportunities from API response
+      expect(screen.getByTestId('opportunity-count')).toHaveTextContent('2');
     });
 
-    it('shows all opportunities when minDaysUntilDue is 0', async () => {
-      const mockData = {
-        opportunities: [
-          { noticeId: 'opp-1', title: 'Opp 1', responseDeadLine: new Date().toISOString() },
-          { noticeId: 'opp-2', title: 'Opp 2', responseDeadLine: new Date().toISOString() },
-        ],
-        totalRecords: 2,
-        limit: 25,
-        offset: 0,
-      };
-
-      (useSearchOpportunities as jest.Mock).mockReturnValue({
-        data: mockData,
-        isMutating: false,
-        error: null,
-        trigger: mockTrigger,
-      });
-
+    it('updates rdlfrom when changed', async () => {
       render(<SamGovOpportunitySearchPage orgId="test-org-id" />);
 
-      // minDaysUntilDue defaults to 0, so all opportunities should be shown
-      expect(screen.getByTestId('opportunity-count')).toHaveTextContent('2');
+      const rdlfromInput = screen.getByTestId('rdlfrom-input');
+      fireEvent.change(rdlfromInput, { target: { value: '2025-03-01' } });
+
+      expect(rdlfromInput).toHaveValue('2025-03-01');
     });
   });
 });

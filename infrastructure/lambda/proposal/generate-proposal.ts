@@ -34,6 +34,8 @@ const DOCUMENTS_BUCKET = requireEnv('DOCUMENTS_BUCKET');
 const BEDROCK_MODEL_ID = requireEnv('BEDROCK_MODEL_ID');
 const MAX_TOKENS = Number(requireEnv('BEDROCK_MAX_TOKENS', '4000'));
 const TEMPERATURE = Number(requireEnv('BEDROCK_TEMPERATURE', '0.1'));
+// Max chars for solicitation to prevent "input too long" errors - fixes AUTO-RFP-44
+const MAX_SOLICITATION_CHARS = Number(requireEnv('PROPOSAL_MAX_SOLICITATION_CHARS', '80000'));
 
 type QaPair = GenerateProposalRequest['qaPairs'][number];
 
@@ -110,7 +112,13 @@ export const baseHandler = async (
     };
 
     const { fileKey } = await loadLatestQuestionFile(projectId);
-    const solicitation = fileKey ? await loadTextFromS3(DOCUMENTS_BUCKET, fileKey) : '';
+    let solicitation = fileKey ? await loadTextFromS3(DOCUMENTS_BUCKET, fileKey) : '';
+
+    // Truncate solicitation to prevent "input too long" errors - fixes AUTO-RFP-44
+    if (solicitation.length > MAX_SOLICITATION_CHARS) {
+      console.warn(`Truncating solicitation from ${solicitation.length} to ${MAX_SOLICITATION_CHARS} chars`);
+      solicitation = solicitation.slice(0, MAX_SOLICITATION_CHARS);
+    }
 
     const reqParsed = GenerateProposalRequestSchema.safeParse(llmRequestCandidate);
     if (!reqParsed.success) {

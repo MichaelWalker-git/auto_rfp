@@ -138,7 +138,8 @@ export async function semanticSearchChunks(embedding: number[], k: number): Prom
 
 
 function truncateForTitan(text: string, maxChars = TITAN_V2_SAFE_CHARS): string {
-  const t = (text ?? '').trim();
+  // Ensure text is a string before calling .trim() - fixes AUTO-RFP-3V
+  const t = (typeof text === 'string' ? text : String(text ?? '')).trim();
   if (!t) return '';
   if (t.length <= maxChars) return t;
   return t.slice(0, maxChars);
