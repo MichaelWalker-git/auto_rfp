@@ -143,7 +143,7 @@ export const baseHandler = async (
 
   for (let i = 0; i < chunks.length; i++) {
     const chunkKey = `${chunksPrefix}${i + 1}.txt`;
-    const body = chunks[i];
+    const body = chunks[i]!; // Safe: iterating within bounds
 
     await s3.send(
       new PutObjectCommand({

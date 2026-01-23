@@ -375,7 +375,7 @@ async function runForOrg(args: {
           importedQuestionFiles += await importNoticeUsingHelpers({
             orgId: args.orgId,
             projectId,
-            noticeId: noticeIds[i],
+            noticeId: noticeIds[i]!, // Safe: iterating within bounds (i < cap <= noticeIds.length)
             postedFrom: criteria.postedFrom,
             postedTo: criteria.postedTo,
             samCfg: args.samImportCfg,
@@ -409,7 +409,6 @@ export const baseHandler = async (event: RunnerEvent) => {
   const dryRun = Boolean(event.detail?.dryRun);
   const onlyOrgId = event.detail?.orgId;
   console.log('Event: ', JSON.stringify(event));
-  const oppId = '';
   const now = new Date();
   const ranAtIso = nowIso();
 

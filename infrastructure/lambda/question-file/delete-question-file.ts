@@ -12,7 +12,6 @@ import { apiResponse } from '../helpers/api';
 import { PK_NAME, SK_NAME } from '../constants/common';
 import { QUESTION_FILE_PK } from '../constants/question-file';
 import { withSentryLambda } from '../sentry-lambda';
-import { EXEC_BRIEF_PK } from '../constants/exec-brief';
 import { QUESTION_PK } from '../constants/question';
 import {
   authContextMiddleware,

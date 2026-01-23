@@ -47,7 +47,7 @@ export function safeParseJsonFromModel(text: string) {
   let escape = false;
 
   for (let i = 0; i < jsonSlice.length; i++) {
-    const ch = jsonSlice[i];
+    const ch = jsonSlice[i]!;
     const code = ch.charCodeAt(0);
 
     if (escape) {

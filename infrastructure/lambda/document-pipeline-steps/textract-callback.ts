@@ -31,7 +31,7 @@ type DynDoc = DocumentItem & {
 };
 
 function buildTxtKeyNextToOriginal(originalKey: string): string {
-  const clean = originalKey.split('?')[0];
+  const clean = originalKey.split('?')[0] ?? originalKey;
   const idx = clean.lastIndexOf('.');
   if (idx === -1) return `${clean}.txt`;
   return `${clean.slice(0, idx)}.txt`;

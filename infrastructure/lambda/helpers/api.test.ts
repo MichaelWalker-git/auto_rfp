@@ -4,11 +4,11 @@ jest.mock('../sentry-lambda', () => ({
 }));
 
 import { apiResponse, getOrgId } from './api';
-import type { APIGatewayProxyEventV2 } from 'aws-lambda';
+import type { APIGatewayProxyEventV2, APIGatewayProxyStructuredResultV2 } from 'aws-lambda';
 
 describe('apiResponse', () => {
   it('should return correct structure with 200 status', () => {
-    const result = apiResponse(200, { message: 'Success' });
+    const result = apiResponse(200, { message: 'Success' }) as APIGatewayProxyStructuredResultV2;
 
     expect(result.statusCode).toBe(200);
     expect(result.headers).toEqual({
@@ -19,14 +19,14 @@ describe('apiResponse', () => {
   });
 
   it('should handle 400 error response', () => {
-    const result = apiResponse(400, { error: 'Bad request' });
+    const result = apiResponse(400, { error: 'Bad request' }) as APIGatewayProxyStructuredResultV2;
 
     expect(result.statusCode).toBe(400);
     expect(JSON.parse(result.body as string)).toEqual({ error: 'Bad request' });
   });
 
   it('should handle 500 error response', () => {
-    const result = apiResponse(500, { error: 'Internal server error' });
+    const result = apiResponse(500, { error: 'Internal server error' }) as APIGatewayProxyStructuredResultV2;
 
     expect(result.statusCode).toBe(500);
   });
@@ -38,26 +38,26 @@ describe('apiResponse', () => {
         pagination: { page: 1, total: 100 },
       },
     };
-    const result = apiResponse(200, complexBody);
+    const result = apiResponse(200, complexBody) as APIGatewayProxyStructuredResultV2;
 
     expect(JSON.parse(result.body as string)).toEqual(complexBody);
   });
 
   it('should serialize arrays', () => {
     const arrayBody = [{ id: 1 }, { id: 2 }];
-    const result = apiResponse(200, arrayBody);
+    const result = apiResponse(200, arrayBody) as APIGatewayProxyStructuredResultV2;
 
     expect(JSON.parse(result.body as string)).toEqual(arrayBody);
   });
 
   it('should handle null body', () => {
-    const result = apiResponse(204, null);
+    const result = apiResponse(204, null) as APIGatewayProxyStructuredResultV2;
 
     expect(result.body).toBe('null');
   });
 
   it('should handle string body', () => {
-    const result = apiResponse(200, 'plain string');
+    const result = apiResponse(200, 'plain string') as APIGatewayProxyStructuredResultV2;
 
     expect(result.body).toBe('"plain string"');
   });

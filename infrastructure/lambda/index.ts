@@ -212,7 +212,7 @@ export const handler = async (
     }
     
     if (pathParts[1] === 'questions' && pathParts.length === 3) {
-      const projectId = pathParts[2];
+      const projectId = pathParts[2]!; // Safe: length check guarantees index exists
       return handleQuestions(event, projectId);
     }
     

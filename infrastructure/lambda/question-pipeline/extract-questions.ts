@@ -89,7 +89,7 @@ export const baseHandler = async (
     console.log(`Processing chunk ${i + 1}/${chunks.length}`);
 
     try {
-      const extracted = await extractQuestionsWithBedrock(chunks[i], i, chunks.length);
+      const extracted = await extractQuestionsWithBedrock(chunks[i]!, i, chunks.length); // Safe: iterating within bounds
       allSections.push(...extracted.sections);
 
       console.log(`Chunk ${i + 1} extracted ${extracted.sections.length} sections`);
