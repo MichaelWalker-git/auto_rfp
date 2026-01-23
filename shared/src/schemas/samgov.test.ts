@@ -57,6 +57,7 @@ describe('LoadSamOpportunitiesRequestSchema - Request Validation', () => {
   const validRequest = {
     postedFrom: '01/01/2025',
     postedTo: '01/31/2025',
+    rdlfrom: '02/15/2025', // Response deadline from date
   };
 
   it('should accept valid minimal request', () => {
@@ -185,6 +186,7 @@ describe('CreateSavedSearchRequestSchema', () => {
     criteria: {
       postedFrom: '01/01/2025',
       postedTo: '01/31/2025',
+      rdlfrom: '02/15/2025',
     },
   };
 
@@ -215,6 +217,7 @@ describe('CreateSavedSearchRequestSchema', () => {
         criteria: {
           postedFrom: '2025-01-01', // Wrong format in nested object
           postedTo: '01/31/2025',
+          rdlfrom: '02/15/2025',
         },
       })
     ).toThrow(/Expected MM\/dd\/yyyy/);
@@ -259,6 +262,7 @@ describe('PatchSchema', () => {
       criteria: {
         postedFrom: '01/01/2025',
         postedTo: '02/28/2025',
+        rdlfrom: '03/15/2025',
       },
     });
     expect(result.criteria?.postedFrom).toBe('01/01/2025');
@@ -273,6 +277,7 @@ describe('SavedSearchSchema - Full Entity', () => {
     criteria: {
       postedFrom: '01/01/2025',
       postedTo: '12/31/2025',
+      rdlfrom: '01/15/2025',
       keywords: 'software',
     },
     frequency: 'DAILY',
@@ -296,6 +301,7 @@ describe('SavedSearchSchema - Full Entity', () => {
         criteria: {
           postedFrom: 'invalid-date',
           postedTo: '01/31/2025',
+          rdlfrom: '02/15/2025',
         },
       })
     ).toThrow();

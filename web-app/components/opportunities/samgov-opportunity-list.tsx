@@ -91,6 +91,16 @@ export function SamGovOpportunityList({ data, isLoading, onPage, onImportSolicit
   const { toast } = useToast();
 
   const handleViewDescription = async (opportunity: SamOpportunitySlim) => {
+    // Defensive null check - fixes AUTO-RFP-5N
+    if (!opportunity) {
+      console.error('Opportunity is null');
+      toast({
+        title: 'Error',
+        description: 'Invalid opportunity data.',
+        variant: 'destructive',
+      });
+      return;
+    }
     setSelectedOpportunity(opportunity)
     if (!opportunity.description) {
       console.error('No description URL available');

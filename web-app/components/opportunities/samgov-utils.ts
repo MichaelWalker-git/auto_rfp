@@ -73,10 +73,11 @@ export function filtersToRequest(
   const naics = filters.naicsCsv.split(',').map((s) => s.trim()).filter(Boolean);
   const ptype = filters.ptypeCsv.split(',').map((s) => s.trim()).filter(Boolean);
 
+  // Convert dates to MM/dd/yyyy format - fixes AUTO-RFP-4B, AUTO-RFP-5K, AUTO-RFP-53
   return {
-    postedFrom: filters.postedFrom,
-    postedTo: filters.postedTo,
-    rdlfrom: filters.rdlfrom,
+    postedFrom: isoToMMDDYYYY(filters.postedFrom),
+    postedTo: isoToMMDDYYYY(filters.postedTo),
+    rdlfrom: isoToMMDDYYYY(filters.rdlfrom),
     keywords: filters.keywords.trim() || undefined,
     naics: naics.length ? naics : undefined,
     organizationName: filters.agencyName.trim() || undefined,
