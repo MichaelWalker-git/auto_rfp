@@ -532,8 +532,12 @@ export class ApiStack extends cdk.Stack {
     this.promptApi.addRoute('get-prompts', 'GET', 'lambda/prompt/get-prompts.ts');
 
     // SAM.gov
+    // import-solicitation downloads attachments from SAM.gov which can be slow
+    // Increased timeout to 120s to prevent AUTO-RFP-5T timeouts
     this.samgovApi.addRoute('/import-solicitation', 'POST', 'lambda/samgov/import-solicitation.ts', {
-      SAM_GOV_API_KEY_SECRET_ID: samGovApiKeySecret.secretArn,
+      env: { SAM_GOV_API_KEY_SECRET_ID: samGovApiKeySecret.secretArn },
+      timeoutSeconds: 120,
+      memorySizeMb: 1024,
     });
     this.samgovApi.addRoute('/create-saved-search', 'POST', 'lambda/samgov/create-saved-search.ts', {
       SAM_GOV_API_KEY_SECRET_ID: samGovApiKeySecret.secretArn,

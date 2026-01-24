@@ -18,6 +18,68 @@ export type Recommendation = z.infer<typeof RecommendationSchema>;
 export const DecisionSchema = z.enum(['GO', 'CONDITIONAL_GO', 'NO_GO']);
 export type Decision = z.infer<typeof DecisionSchema>;
 
+/**
+ * Contract type normalization - maps full names to abbreviations
+ * Fixes AUTO-RFP-5Q: ZodError for contract type enum
+ */
+const CONTRACT_TYPE_MAP: Record<string, string> = {
+  'FIRM_FIXED_PRICE': 'FFP',
+  'FIRM-FIXED-PRICE': 'FFP',
+  'FIXED_PRICE': 'FFP',
+  'FIXED-PRICE': 'FFP',
+  'TIME_AND_MATERIALS': 'T&M',
+  'TIME-AND-MATERIALS': 'T&M',
+  'TIME_MATERIALS': 'T&M',
+  'COST_PLUS_FIXED_FEE': 'COST_PLUS',
+  'COST_PLUS_AWARD_FEE': 'COST_PLUS',
+  'COST_REIMBURSEMENT': 'COST_PLUS',
+  'INDEFINITE_DELIVERY_INDEFINITE_QUANTITY': 'IDIQ',
+  'INDEFINITE-DELIVERY': 'IDIQ',
+  'BLANKET_PURCHASE_AGREEMENT': 'BPA',
+  'GOVERNMENT_WIDE_ACQUISITION_CONTRACT': 'GWAC',
+  'GSA_SCHEDULE': 'SCHEDULE',
+  'FSS': 'SCHEDULE',
+  'FEDERAL_SUPPLY_SCHEDULE': 'SCHEDULE',
+};
+
+export function normalizeContractType(value: unknown): string {
+  if (typeof value !== 'string') return 'UNKNOWN';
+  const upper = value.toUpperCase().trim();
+  return CONTRACT_TYPE_MAP[upper] ?? upper;
+}
+
+/**
+ * Set-aside normalization - maps full names to abbreviations
+ */
+const SET_ASIDE_MAP: Record<string, string> = {
+  'SMALL_BUSINESS_SET_ASIDE': 'SMALL_BUSINESS',
+  'SMALL-BUSINESS': 'SMALL_BUSINESS',
+  'SBA': 'SMALL_BUSINESS',
+  '8(A)': '8A',
+  '8_A': '8A',
+  'SERVICE_DISABLED_VETERAN_OWNED': 'SDVOSB',
+  'SERVICE-DISABLED-VETERAN-OWNED': 'SDVOSB',
+  'VETERAN_OWNED': 'VOSB',
+  'VETERAN-OWNED': 'VOSB',
+  'WOMAN_OWNED': 'WOSB',
+  'WOMEN_OWNED': 'WOSB',
+  'WOMEN-OWNED': 'WOSB',
+  'HISTORICALLY_UNDERUTILIZED': 'HUBZONE',
+  'HUB_ZONE': 'HUBZONE',
+  'SMALL_DISADVANTAGED': 'SDB',
+  'SMALL_DISADVANTAGED_BUSINESS': 'SDB',
+  'NOT_APPLICABLE': 'NONE',
+  'N/A': 'NONE',
+  'FULL_AND_OPEN': 'NONE',
+  'FULL AND OPEN': 'NONE',
+};
+
+export function normalizeSetAside(value: unknown): string {
+  if (typeof value !== 'string') return 'UNKNOWN';
+  const upper = value.toUpperCase().trim();
+  return SET_ASIDE_MAP[upper] ?? upper;
+}
+
 export const RoleSchema = z.enum([
   'CONTRACTING_OFFICER',
   'CONTRACT_SPECIALIST',
@@ -62,32 +124,38 @@ export const QuickSummarySchema = z.object({
     .nullable(),
 
   contractType: z
-    .enum([
-      'FFP',
-      'T&M',
-      'COST_PLUS',
-      'IDIQ',
-      'BPA',
-      'GWAC',
-      'SCHEDULE',
-      'OTHER',
-      'UNKNOWN',
-    ])
+    .preprocess(
+      normalizeContractType,
+      z.enum([
+        'FFP',
+        'T&M',
+        'COST_PLUS',
+        'IDIQ',
+        'BPA',
+        'GWAC',
+        'SCHEDULE',
+        'OTHER',
+        'UNKNOWN',
+      ])
+    )
     .default('UNKNOWN'),
 
   setAside: z
-    .enum([
-      'NONE',
-      'SMALL_BUSINESS',
-      '8A',
-      'SDVOSB',
-      'VOSB',
-      'WOSB',
-      'HUBZONE',
-      'SDB',
-      'OTHER',
-      'UNKNOWN',
-    ])
+    .preprocess(
+      normalizeSetAside,
+      z.enum([
+        'NONE',
+        'SMALL_BUSINESS',
+        '8A',
+        'SDVOSB',
+        'VOSB',
+        'WOSB',
+        'HUBZONE',
+        'SDB',
+        'OTHER',
+        'UNKNOWN',
+      ])
+    )
     .default('UNKNOWN'),
 
   placeOfPerformance: z.string().optional().nullable(),

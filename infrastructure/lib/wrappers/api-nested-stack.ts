@@ -63,16 +63,34 @@ export class ApiNestedStack extends cdk.NestedStack {
    * path: '/get-organizations', '/{id}', '/create', etc.
    * method: 'GET' | 'POST' | 'PUT' | 'DELETE' | ...
    * handlerEntry: path to lambda file (NodejsFunction.entry)
-   * extraEnv: per-function environment overrides
+   * extraEnvOrOptions: environment variables or RouteOptions object
    */
   public addRoute(
     path: string,
     method: string,
     handlerEntry: string,
-    extraEnv?: Record<string, string>,
+    extraEnvOrOptions?: Record<string, string> | RouteOptions,
   ): void {
     const lambdaRole = (this as any)._lambdaRole as iam.IRole;
     const commonEnv = (this as any)._commonEnv as Record<string, string>;
+
+    // Support both old signature (extraEnv) and new signature (RouteOptions)
+    let extraEnv: Record<string, string> = {};
+    let timeoutSeconds = 30;
+    let memorySizeMb = 512;
+
+    if (extraEnvOrOptions) {
+      if ('timeoutSeconds' in extraEnvOrOptions || 'memorySizeMb' in extraEnvOrOptions || 'env' in extraEnvOrOptions) {
+        // It's a RouteOptions object
+        const opts = extraEnvOrOptions as RouteOptions;
+        extraEnv = opts.env ?? {};
+        timeoutSeconds = opts.timeoutSeconds ?? 30;
+        memorySizeMb = opts.memorySizeMb ?? 512;
+      } else {
+        // It's a plain env object (backwards compatibility)
+        extraEnv = extraEnvOrOptions as Record<string, string>;
+      }
+    }
 
     // Build nested resources under basePath for this route
     const segments = path.split('/').filter(Boolean); // remove empty
@@ -93,11 +111,11 @@ export class ApiNestedStack extends cdk.NestedStack {
       entry: handlerEntry,
       handler: 'handler',
       role: lambdaRole,
-      timeout: cdk.Duration.seconds(30),
-      memorySize: 512,
+      timeout: cdk.Duration.seconds(timeoutSeconds),
+      memorySize: memorySizeMb,
       environment: {
         ...commonEnv,
-        ...(extraEnv ?? {}),
+        ...extraEnv,
       },
       bundling: {
         minify: true,
@@ -121,4 +139,16 @@ export class ApiNestedStack extends cdk.NestedStack {
       authorizationType: AuthorizationType.COGNITO,
     });
   }
+}
+
+/**
+ * Options for customizing a route's Lambda function
+ */
+export interface RouteOptions {
+  /** Environment variables for this specific Lambda */
+  env?: Record<string, string>;
+  /** Timeout in seconds (default: 30) */
+  timeoutSeconds?: number;
+  /** Memory size in MB (default: 512) */
+  memorySizeMb?: number;
 }

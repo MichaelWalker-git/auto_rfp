@@ -316,6 +316,17 @@ export async function markSectionFailed(args: {
   const message =
     error instanceof Error ? `${error.name}: ${error.message}` : typeof error === 'string' ? error : 'Unknown error';
 
+  // Initialize the section structure if it doesn't exist - fixes AUTO-RFP-5R
+  // DynamoDB cannot SET on a path that doesn't exist, so we use if_not_exists
+  const updateExprParts = [
+    'SET #sections = if_not_exists(#sections, :emptySections)',
+    '#sections.#sec = if_not_exists(#sections.#sec, :emptySection)',
+    '#sections.#sec.#status = :status',
+    '#sections.#sec.#updatedAt = :now',
+    '#sections.#sec.#error = :err',
+    'updatedAt = :now',
+  ];
+
   await docClient.send(
     new UpdateCommand({
       TableName: DB_TABLE_NAME,
@@ -323,8 +334,7 @@ export async function markSectionFailed(args: {
         [PK_NAME]: EXEC_BRIEF_PK,
         [SK_NAME]: executiveBriefId
       },
-      UpdateExpression:
-        'SET #sections.#sec.#status = :status, #sections.#sec.#updatedAt = :now, #sections.#sec.#error = :err, updatedAt = :now',
+      UpdateExpression: updateExprParts.join(', '),
       ExpressionAttributeNames: {
         '#sections': 'sections',
         '#sec': section,
@@ -336,6 +346,8 @@ export async function markSectionFailed(args: {
         ':status': 'FAILED',
         ':now': now,
         ':err': message,
+        ':emptySections': {},
+        ':emptySection': { status: 'IDLE', updatedAt: now },
       },
     }),
   );
