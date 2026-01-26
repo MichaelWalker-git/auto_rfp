@@ -6,8 +6,9 @@ import { withSentryLambda } from '../sentry-lambda';
 import { requireEnv } from '../helpers/env';
 import { authContextMiddleware, httpErrorMiddleware, orgMembershipMiddleware, } from '../middleware/rbac-middleware';
 
-import { getEmbedding, type OpenSearchHit, semanticSearchChunks } from '../helpers/embeddings';
+import { getEmbedding, semanticSearchChunks } from '../helpers/embeddings';
 import { loadTextFromS3 } from '../helpers/s3';
+import { PineconeHit } from '../helpers/pinecone';
 
 const DOCUMENTS_BUCKET = requireEnv('DOCUMENTS_BUCKET');
 
@@ -45,9 +46,9 @@ function normalizeScore(osScore: any): number {
   return Math.min(1, Math.max(0, 1 - Math.exp(-s)));
 }
 
-function uniqueByChunkKey(hits: OpenSearchHit[]): OpenSearchHit[] {
+function uniqueByChunkKey(hits: PineconeHit[]): PineconeHit[] {
   const seen = new Set<string>();
-  const out: OpenSearchHit[] = [];
+  const out: PineconeHit[] = [];
   for (const h of hits) {
     const key = h._source?.chunkKey;
     const uniq = key ? !seen.has(key) : true;

@@ -26,8 +26,8 @@ export interface ApiStackProps extends cdk.StackProps {
   userPoolClient: cognito.IUserPoolClient;
   documentPipelineStateMachineArn: string;
   questionPipelineStateMachineArn: string;
-  openSearchCollectionEndpoint: string;
   sentryDNS: string;
+  pineconeApiKey: string;
 }
 
 export class ApiStack extends cdk.Stack {
@@ -62,8 +62,8 @@ export class ApiStack extends cdk.Stack {
       userPoolClient,
       documentPipelineStateMachineArn,
       questionPipelineStateMachineArn,
-      openSearchCollectionEndpoint,
       sentryDNS,
+      pineconeApiKey
     } = props;
 
     const commonEnv = this.buildCommonEnv({
@@ -74,8 +74,8 @@ export class ApiStack extends cdk.Stack {
       userPoolClient,
       documentPipelineStateMachineArn,
       questionPipelineStateMachineArn,
-      openSearchCollectionEndpoint,
       sentryDNS,
+      pineconeApiKey
     });
 
     this.api = this.createRestApi(stage);
@@ -206,8 +206,8 @@ export class ApiStack extends cdk.Stack {
     userPoolClient: cognito.IUserPoolClient;
     documentPipelineStateMachineArn: string;
     questionPipelineStateMachineArn: string;
-    openSearchCollectionEndpoint: string;
     sentryDNS: string;
+    pineconeApiKey: string;
   }): Record<string, string> {
     const {
       stage,
@@ -217,8 +217,8 @@ export class ApiStack extends cdk.Stack {
       userPoolClient,
       documentPipelineStateMachineArn,
       questionPipelineStateMachineArn,
-      openSearchCollectionEndpoint,
       sentryDNS,
+      pineconeApiKey
     } = args;
 
     return {
@@ -234,16 +234,16 @@ export class ApiStack extends cdk.Stack {
       BEDROCK_API_KEY_SSM_PARAM: '/auto-rfp/bedrock/api-key',
       BEDROCK_EMBEDDING_MODEL_ID: 'amazon.titan-embed-text-v2:0',
       BEDROCK_MODEL_ID: 'anthropic.claude-3-haiku-20240307-v1:0',
-      OPENSEARCH_INDEX: 'documents',
       STATE_MACHINE_ARN: documentPipelineStateMachineArn,
       QUESTION_PIPELINE_STATE_MACHINE_ARN: questionPipelineStateMachineArn,
-      OPENSEARCH_ENDPOINT: openSearchCollectionEndpoint,
       SENTRY_DSN: sentryDNS,
       SENTRY_ENVIRONMENT: stage,
       COST_SAVING: 'true',
       LINEAR_TEAM_ID: '014ad7fc-6875-4a34-973b-61d029c37116',
       LINEAR_DEFAULT_ASSIGNEE_ID: '74c2dcce-9583-4065-b86f-ff4cb98d3da9',
       LINEAR_PROJECT_ID: '823d8281-c41e-4e00-b541-f31a5c91af46',
+      PINECONE_API_KEY: pineconeApiKey,
+      PINECONE_INDEX: 'documents',
     };
   }
 
@@ -331,12 +331,6 @@ export class ApiStack extends cdk.Stack {
           new iam.PolicyStatement({
             actions: ['aoss:*'],
             resources: ['*'],
-          }),
-          new iam.PolicyStatement({
-            actions: ['es:ESHttpPost', 'es:ESHttpPut', 'es:ESHttpGet'],
-            resources: [
-              'arn:aws:es:us-west-2:039885961427:domain/prodopensearchd-lxtzjp7drbvs/*',
-            ],
           }),
           new iam.PolicyStatement({
             actions: ['secretsmanager:GetSecretValue'],

@@ -1,4 +1,3 @@
-// lib/database-stack.ts
 import * as cdk from 'aws-cdk-lib';
 import { Construct } from 'constructs';
 import * as dynamodb from 'aws-cdk-lib/aws-dynamodb';
@@ -27,7 +26,9 @@ export class DatabaseStack extends cdk.Stack {
       sortKey: { name: 'sort_key', type: dynamodb.AttributeType.STRING },
       billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
       removalPolicy: cdk.RemovalPolicy.DESTROY, // change to RETAIN for prod
-      pointInTimeRecovery: true,
+      pointInTimeRecoverySpecification: {
+        pointInTimeRecoveryEnabled: true,
+      },
       encryption: dynamodb.TableEncryption.AWS_MANAGED,
       stream: dynamodb.StreamViewType.NEW_IMAGE,
     });

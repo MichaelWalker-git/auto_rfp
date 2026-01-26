@@ -18,10 +18,10 @@ interface DocumentPipelineStackProps extends StackProps {
   stage: string;
   documentsBucket: s3.IBucket;
   documentsTable: dynamodb.ITable;
-  openSearchCollectionEndpoint: string;
   vpc: ec2.IVpc;
   vpcSecurityGroup: ec2.ISecurityGroup;
   sentryDNS: string;
+  pineconeApiKey: string;
 }
 
 export class DocumentPipelineStack extends Stack {
@@ -34,10 +34,10 @@ export class DocumentPipelineStack extends Stack {
       stage,
       documentsBucket,
       documentsTable,
-      openSearchCollectionEndpoint,
       vpc,
       vpcSecurityGroup,
       sentryDNS,
+      pineconeApiKey,
     } = props;
 
     const namePrefix = `AutoRfp-${stage}`;
@@ -203,7 +203,7 @@ export class DocumentPipelineStack extends Stack {
     documentsTable.grantReadWriteData(chunkDocumentLambda);
     documentsBucket.grantReadWrite(chunkDocumentLambda);
 
-    // 7) index-document (per chunk): embed + index to OpenSearch (+ optional INDEXED update on last chunk)
+    // 7) index-document (per chunk): embed + index to Pinecone (+ optional INDEXED update on last chunk)
     const indexDocumentLambda = new lambdaNode.NodejsFunction(
       this,
       'IndexDocumentLambda',
@@ -219,12 +219,12 @@ export class DocumentPipelineStack extends Stack {
         environment: {
           DB_TABLE_NAME: documentsTable.tableName,
           DOCUMENTS_BUCKET: documentsBucket.bucketName,
-          OPENSEARCH_ENDPOINT: openSearchCollectionEndpoint,
-          OPENSEARCH_INDEX: 'documents',
           REGION: this.region,
           BEDROCK_EMBEDDING_MODEL_ID: 'amazon.titan-embed-text-v2:0',
           SENTRY_DSN: sentryDNS,
           SENTRY_ENVIRONMENT: stage,
+          PINECONE_API_KEY: pineconeApiKey,
+          PINECONE_INDEX: 'documents',
         },
         logGroup,
       },
