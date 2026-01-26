@@ -14,7 +14,7 @@ import {
   requirePermission
 } from '../middleware/rbac-middleware';
 import { requireEnv } from '../helpers/env';
-import { docClient } from '../helpers/db';
+import { deleteItem, docClient } from '../helpers/db';
 import { buildQuestionSK } from '../helpers/question';
 
 const DB_TABLE_NAME = requireEnv('DB_TABLE_NAME');
@@ -34,12 +34,7 @@ async function deleteQuestionItem(projectId: string, questionId: string): Promis
 
   if (!existing.Item) return false;
 
-  await docClient.send(
-    new DeleteCommand({
-      TableName: DB_TABLE_NAME,
-      Key: key,
-    }),
-  );
+  await deleteItem(QUESTION_PK, buildQuestionSK(projectId, questionId));
 
   return true;
 }

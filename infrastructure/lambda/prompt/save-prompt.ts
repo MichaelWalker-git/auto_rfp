@@ -11,7 +11,7 @@ import {
 } from '../middleware/rbac-middleware';
 
 import { type PromptItem, PromptItemSchema, PromptScopeSchema, SavePromptBodySchema, } from '@auto-rfp/shared';
-import { saveSystemPrompt, saveUserPrompt } from '../helpers/propmt';
+import { saveSystemPrompt, saveUserPrompt } from '../helpers/prompt';
 
 const baseHandler = async (event: APIGatewayProxyEventV2): Promise<APIGatewayProxyResultV2> => {
   const orgId = getOrgId(event);

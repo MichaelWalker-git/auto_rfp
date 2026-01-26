@@ -154,7 +154,7 @@ lambda/
 
 ### 1. Document Processing Pipeline
 ```
-Upload → S3 → Step Function → Textract → Chunking → Titan Embeddings → OpenSearch Index
+Upload → S3 → Step Function → Textract → Chunking → Titan Embeddings → Pinecone Index
 ```
 - Supports: PDF, DOCX, XLSX, PPTX
 - Chunk size: 2,500 chars with 250-char overlap

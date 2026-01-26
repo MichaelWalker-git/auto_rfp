@@ -1,7 +1,6 @@
 import * as cdk from 'aws-cdk-lib';
 import { Construct } from 'constructs';
 import * as cognito from 'aws-cdk-lib/aws-cognito';
-import { AdvancedSecurityMode } from 'aws-cdk-lib/aws-cognito';
 
 export interface AuthStackProps extends cdk.StackProps {
   stage: string;
@@ -51,8 +50,7 @@ export class AuthStack extends cdk.Stack {
         requireSymbols: true,
       },
 
-      removalPolicy: cdk.RemovalPolicy.DESTROY, // RETAIN for prod
-      advancedSecurityMode: AdvancedSecurityMode.ENFORCED,
+      removalPolicy: cdk.RemovalPolicy.DESTROY,
     });
 
     this.userPoolClient = new cognito.UserPoolClient(this, 'UserPoolClient', {

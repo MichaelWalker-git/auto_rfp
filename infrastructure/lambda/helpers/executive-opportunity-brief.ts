@@ -10,8 +10,9 @@ import { requireEnv } from './env';
 import { docClient } from './db';
 import { nowIso } from './date';
 import { loadTextFromS3 } from './s3';
-import { getEmbedding, OpenSearchHit, semanticSearchChunks } from './embeddings';
+import { getEmbedding, semanticSearchChunks } from './embeddings';
 import { invokeModel } from './bedrock-http-client';
+import { PineconeHit } from './pinecone';
 
 const DB_TABLE_NAME = requireEnv('DB_TABLE_NAME');
 const DOCUMENTS_BUCKET = requireEnv('DOCUMENTS_BUCKET');
@@ -356,7 +357,7 @@ export function computeOverallStatus(
   return 'IDLE';
 }
 
-export async function queryCompanyKnowledgeBase(solicitationText: string, topK: number): Promise<OpenSearchHit[]> {
+export async function queryCompanyKnowledgeBase(solicitationText: string, topK: number): Promise<PineconeHit[]> {
   const embeddings = await getEmbedding(solicitationText);
   return await semanticSearchChunks(embeddings, topK);
 }

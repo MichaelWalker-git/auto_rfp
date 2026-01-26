@@ -7,7 +7,9 @@ import { apiResponse } from '../helpers/api';
 import { PK_NAME, SK_NAME } from '../constants/common';
 import { DOCUMENT_PK } from '../constants/document';
 import { DocumentItem } from '../schemas/document';
-import { getEmbedding, OpenSearchHit, semanticSearchChunks } from '../helpers/embeddings';
+import { getEmbedding, semanticSearchChunks } from '../helpers/embeddings';
+import { PineconeHit } from '../helpers/pinecone';
+
 import { withSentryLambda } from '../sentry-lambda';
 import {
   authContextMiddleware,
@@ -47,8 +49,8 @@ async function getDocumentItemById(documentId: string): Promise<DocumentItem & D
   return items.find((it) => String(it[SK_NAME]).endsWith(skSuffix));
 }
 
-async function buildContextFromChunkHits(hits: OpenSearchHit[]) {
-  const byChunkKey = new Map<string, OpenSearchHit>();
+async function buildContextFromChunkHits(hits: PineconeHit[]) {
+  const byChunkKey = new Map<string, PineconeHit>();
 
   for (const hit of hits) {
     const k = hit._source?.chunkKey;

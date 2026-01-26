@@ -30,36 +30,6 @@ jest.mock('../sentry-lambda', () => ({
   withSentryLambda: (fn: any) => fn,
 }));
 
-// Mock https for OpenSearch calls
-jest.mock('https', () => ({
-  request: jest.fn((_options: unknown, callback: (res: unknown) => void) => {
-    interface MockResponse {
-      statusCode: number;
-      statusMessage: string;
-      on: (event: string, handler: (data?: Buffer) => void) => MockResponse;
-    }
-    const mockRes: MockResponse = {
-      statusCode: 200,
-      statusMessage: 'OK',
-      on: jest.fn((event: string, handler: (data?: Buffer) => void): MockResponse => {
-        if (event === 'data') {
-          handler(Buffer.from('{"_id":"mock-id"}'));
-        }
-        if (event === 'end') {
-          handler();
-        }
-        return mockRes;
-      }),
-    };
-    callback(mockRes);
-    return {
-      on: jest.fn(),
-      write: jest.fn(),
-      end: jest.fn(),
-    };
-  }),
-}));
-
 describe('index-document Lambda - Input Validation', () => {
   // Reset mocks before each test
   beforeEach(() => {
