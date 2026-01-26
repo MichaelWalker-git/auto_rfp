@@ -103,6 +103,87 @@ function makeStableId(documentId: string, chunkKey: string) {
   return `${documentId}#${chunkKey}`;
 }
 
+/**
+ * Retry configuration for handling WCU/RCU throttling
+ */
+const RETRY_CONFIG = {
+  maxRetries: 5,
+  initialDelayMs: 100,
+  maxDelayMs: 32000,
+};
+
+/**
+ * Calculate exponential backoff delay with jitter
+ */
+function getBackoffDelay(attemptNumber: number): number {
+  const exponentialDelay = RETRY_CONFIG.initialDelayMs * Math.pow(2, attemptNumber);
+  const cappedDelay = Math.min(exponentialDelay, RETRY_CONFIG.maxDelayMs);
+  // Add jitter: random value between 0 and capped delay
+  return cappedDelay * Math.random();
+}
+
+/**
+ * Delay utility function
+ */
+function delay(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+/**
+ * Check if error is a throttling/capacity error
+ */
+function isThrottlingError(error: any): boolean {
+  const errorCode = error?.__type || error?.name || '';
+  const errorMessage = error?.message || '';
+  
+  return (
+    errorCode.includes('ThrottlingException') ||
+    errorCode.includes('ProvisionedThroughputExceededException') ||
+    errorCode.includes('ValidationException') && errorMessage.includes('throughput') ||
+    errorMessage.includes('throttl')
+  );
+}
+
+/**
+ * Update a single item with retry logic
+ */
+async function updateItemWithRetry(
+  key: Record<string, any>,
+  now: string,
+  attemptNumber: number = 0,
+): Promise<void> {
+  try {
+    await docClient.send(
+      new UpdateCommand({
+        TableName: DB_TABLE_NAME!,
+        Key: {
+          [PK_NAME]: key[PK_NAME],
+          [SK_NAME]: key[SK_NAME],
+        },
+        UpdateExpression: 'SET #indexStatus = :s, #updatedAt = :u',
+        ExpressionAttributeNames: {
+          '#indexStatus': 'indexStatus',
+          '#updatedAt': 'updatedAt',
+        },
+        ExpressionAttributeValues: {
+          ':s': 'INDEXED',
+          ':u': now,
+        },
+      }),
+    );
+  } catch (error) {
+    if (isThrottlingError(error) && attemptNumber < RETRY_CONFIG.maxRetries) {
+      const backoffMs = getBackoffDelay(attemptNumber);
+      console.warn(
+        `Throttling detected for item ${key[SK_NAME]}, retrying after ${backoffMs.toFixed(0)}ms (attempt ${attemptNumber + 1}/${RETRY_CONFIG.maxRetries})`,
+      );
+      await delay(backoffMs);
+      return updateItemWithRetry(key, now, attemptNumber + 1);
+    }
+    throw error;
+  }
+}
+
 async function markIndexed(documentId: string): Promise<void> {
   if (!documentId) throw new Error('documentId is required');
 
@@ -133,28 +214,10 @@ async function markIndexed(documentId: string): Promise<void> {
       return sk.endsWith(documentId);
     });
 
-    await Promise.all(
-      items.map((it) =>
-        docClient.send(
-          new UpdateCommand({
-            TableName: DB_TABLE_NAME!,
-            Key: {
-              [PK_NAME]: it[PK_NAME],
-              [SK_NAME]: it[SK_NAME],
-            },
-            UpdateExpression: 'SET #indexStatus = :s, #updatedAt = :u',
-            ExpressionAttributeNames: {
-              '#indexStatus': 'indexStatus',
-              '#updatedAt': 'updatedAt',
-            },
-            ExpressionAttributeValues: {
-              ':s': 'INDEXED',
-              ':u': now,
-            },
-          }),
-        ),
-      ),
-    );
+    // Process updates sequentially with retry logic to avoid overwhelming the table
+    for (const item of items) {
+      await updateItemWithRetry(item, now);
+    }
 
     lastEvaluatedKey = res.LastEvaluatedKey;
   } while (lastEvaluatedKey);
