@@ -11,6 +11,7 @@ interface ProjectGridProps {
   isLoading: boolean;
   showCreateCard?: boolean;
   onDeleteProject?: (project: Project) => void;
+  onUpdateProject?: (project: Project) => void;
 }
 
 export function ProjectGrid({
@@ -18,6 +19,7 @@ export function ProjectGrid({
                               isLoading,
                               showCreateCard = true,
                               onDeleteProject,
+                              onUpdateProject,
                             }: ProjectGridProps) {
   if (isLoading) {
     return (
@@ -49,6 +51,7 @@ export function ProjectGrid({
           key={project.id}
           project={project}
           onDelete={onDeleteProject}
+          onUpdate={onUpdateProject}
         />
       ))}
     </div>

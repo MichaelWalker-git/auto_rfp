@@ -385,10 +385,10 @@ export default function KnowledgeBaseItemComponent() {
 
     try {
       await deleteDocument({ knowledgeBaseId: kbId, id: docToDelete.id });
-      await refreshDocuments();
     } finally {
-      setShowDeleteConfirm(false);
       setDocToDelete(null);
+      setShowDeleteConfirm(false);
+      await refreshDocuments();
     }
   }, [docToDelete, deleteDocument, kbId, refreshDocuments]);
 

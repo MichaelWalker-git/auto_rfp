@@ -2,19 +2,16 @@
 
 import { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
-import { Edit, FolderOpen, Loader2, Plus, Settings, Users, CalendarClock } from 'lucide-react';
+import { CalendarClock, Plus, Loader2 } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
 import { useCreateOrganization } from '@/lib/hooks/use-create-organization';
 import { useOrganizations } from '@/lib/hooks/use-api';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/components/AuthProvider';
 import { useOrganization } from '@/context/organization-context';
+import { OrganizationCard } from '@/components/organizations/OrganizationCard';
+import { CreateEditOrganizationDialog } from '@/components/organizations/CreateEditOrganizationDialog';
+import { EmptyOrganizationsState } from '@/components/organizations/EmptyOrganizationsState';
 
 export interface Organization {
   id: string;
@@ -57,16 +54,12 @@ export default function OrganizationsPage() {
   const [editingOrg, setEditingOrg] = useState<Organization | null>(null);
   const [isCreating, setIsCreating] = useState(false);
   const [isUpdating, setIsUpdating] = useState(false);
-  const [deletingOrgId, setDeletingOrgId] = useState<string | null>(null);
   const { data: organizations, error, mutate: fetchOrganizations, isLoading: loading } = useOrganizations();
   const { createOrganization } = useCreateOrganization();
   const { toast } = useToast();
   const { orgId } = useAuth();
-  const router = useRouter()
-
-  const {
-      setCurrentOrganization,
-    } = useOrganization();
+  const router = useRouter();
+  const { setCurrentOrganization } = useOrganization();
 
   const [formData, setFormData] = useState<CreateOrganizationData>({
     name: '',
@@ -74,18 +67,28 @@ export default function OrganizationsPage() {
     description: '',
   });
 
+  useEffect(() => {
+    if (error) {
+      toast({
+        title: 'Error',
+        description: 'Failed to fetch organizations',
+        variant: 'destructive',
+      });
+    }
+  }, [error, toast]);
 
   useEffect(() => {
-    error && toast({
-      title: 'Error',
-      description: 'Failed to fetch organizations',
-      variant: 'destructive',
-    });
-  }, [error]);
+    if (orgId) {
+      router.replace(`/organizations/${orgId}`);
+    }
+  }, [orgId, router]);
 
-  useEffect(() => {
-    orgId && router.replace(`/organizations/${orgId}`);
-  }, [orgId])
+  const generateSlugFromName = (name: string) => {
+    return name
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/(^-|-$)/g, '');
+  };
 
   const handleCreateOrganization = async () => {
     try {
@@ -94,7 +97,6 @@ export default function OrganizationsPage() {
         ...formData,
         slug: generateSlugFromName(formData.name),
       });
-
 
       if (data.id) {
         toast({
@@ -148,6 +150,7 @@ export default function OrganizationsPage() {
           description: 'Organization updated successfully',
         });
         setEditingOrg(null);
+        fetchOrganizations();
       } else {
         toast({
           title: 'Error',
@@ -166,42 +169,7 @@ export default function OrganizationsPage() {
     }
   };
 
-  const handleDeleteOrganization = async (org: Organization) => {
-    if (!confirm('Are you sure you want to delete this organization?')) return;
-
-    try {
-      setDeletingOrgId(org.id);
-      const response = await fetch(`/api/organizations/${org.id}`, {
-        method: 'DELETE',
-      });
-
-      const data = await response.json();
-
-      if (response.ok) {
-        toast({
-          title: 'Success',
-          description: 'Organization deleted successfully',
-        });
-        fetchOrganizations();
-      } else {
-        toast({
-          title: 'Error',
-          description: data.error || 'Failed to delete organization',
-          variant: 'destructive',
-        });
-      }
-    } catch (error) {
-      toast({
-        title: 'Error',
-        description: 'Failed to delete organization',
-        variant: 'destructive',
-      });
-    } finally {
-      setDeletingOrgId(null);
-    }
-  };
-
-  const openEditDialog = (org: Organization) => {
+  const handleOpenEditDialog = (org: Organization) => {
     setEditingOrg(org);
     setFormData({
       name: org.name,
@@ -210,11 +178,26 @@ export default function OrganizationsPage() {
     });
   };
 
-  const generateSlugFromName = (name: string) => {
-    return name
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, '-')
-      .replace(/(^-|-$)/g, '');
+  const handleCloseDialog = () => {
+    setEditingOrg(null);
+    setCreateDialogOpen(false);
+    setFormData({
+      name: '',
+      slug: '',
+      description: '',
+    });
+  };
+
+  const handleVisitOrganization = (org: Organization) => {
+    setCurrentOrganization(org);
+  };
+
+  const handleCreateDialogSubmit = () => {
+    if (editingOrg) {
+      handleUpdateOrganization();
+    } else {
+      handleCreateOrganization();
+    }
   };
 
   if (loading) {
@@ -227,18 +210,12 @@ export default function OrganizationsPage() {
             </div>
             <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
               {[...Array(3)].map((_, i) => (
-                <Card key={i} className="animate-pulse">
-                  <CardHeader>
+                <div key={i} className="rounded-lg border border-border bg-gradient-to-br from-background to-muted/30 animate-pulse">
+                  <div className="p-4 space-y-2">
                     <div className="h-6 bg-gray-200 rounded w-3/4"></div>
                     <div className="h-4 bg-gray-200 rounded w-1/2"></div>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-2">
-                      <div className="h-4 bg-gray-200 rounded"></div>
-                      <div className="h-4 bg-gray-200 rounded w-2/3"></div>
-                    </div>
-                  </CardContent>
-                </Card>
+                  </div>
+                </div>
               ))}
             </div>
           </div>
@@ -258,203 +235,42 @@ export default function OrganizationsPage() {
                 Manage organizations and their settings
               </p>
             </div>
-            <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
-              <div className="flex items-center justify-between gap-2">
-                <Button variant='outline' onClick={() => router.push('/deadlines')}>
-                  <CalendarClock className="mr-2 h-4 w-4"/>
-                  Check the deadlines
-                </Button>
-              <DialogTrigger asChild>
-                <Button>
-                  <Plus className="mr-2 h-4 w-4"/>
-                  Create Organization
-                </Button>
-              </DialogTrigger>
-              </div>
-              
-              <DialogContent className="sm:max-w-[500px]">
-                <DialogHeader>
-                  <DialogTitle>Create New Organization</DialogTitle>
-                </DialogHeader>
-                <div className="space-y-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="name">Organization Name</Label>
-                    <Input
-                      id="name"
-                      value={formData.name}
-                      onChange={(e) => {
-                        setFormData(prev => ({
-                          ...prev,
-                          name: e.target.value
-                        }));
-                      }}
-                      placeholder="My Organization"
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="description">Description</Label>
-                    <Textarea
-                      id="description"
-                      value={formData.description}
-                      onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
-                      placeholder="Organization description..."
-                    />
-                  </div>
-
-                  <div className="flex justify-end space-x-2">
-                    <Button
-                      variant="outline"
-                      onClick={() => setCreateDialogOpen(false)}
-                      disabled={isCreating}
-                    >
-                      Cancel
-                    </Button>
-                    <Button
-                      onClick={handleCreateOrganization}
-                      disabled={isCreating}
-                    >
-                      {isCreating ? (
-                        <>
-                          <Loader2 className="mr-2 h-4 w-4 animate-spin"/>
-                          Creating...
-                        </>
-                      ) : (
-                        'Create Organization'
-                      )}
-                    </Button>
-                  </div>
-                </div>
-              </DialogContent>
-            </Dialog>
+            <div className="flex items-center justify-between gap-2">
+              <Button variant='outline' onClick={() => router.push('/deadlines')}>
+                <CalendarClock className="mr-2 h-4 w-4" />
+                Check the deadlines
+              </Button>
+              <Button onClick={() => setCreateDialogOpen(true)}>
+                <Plus className="mr-2 h-4 w-4" />
+                Create Organization
+              </Button>
+            </div>
           </div>
 
           {organizations?.length === 0 ? (
-            <Card className="text-center p-8">
-              <CardContent className="space-y-4">
-                <FolderOpen className="mx-auto h-12 w-12 text-muted-foreground"/>
-                <div>
-                  <h3 className="text-lg font-semibold">No organizations yet</h3>
-                  <p className="text-muted-foreground">
-                    Create your first organization to get started
-                  </p>
-                </div>
-                <Button onClick={() => setCreateDialogOpen(true)}>
-                  <Plus className="mr-2 h-4 w-4"/>
-                  Create Organization
-                </Button>
-              </CardContent>
-            </Card>
+            <EmptyOrganizationsState onCreateClick={() => setCreateDialogOpen(true)} />
           ) : (
             <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
               {organizations?.map((org) => (
-                <Card key={org.id} className="hover:shadow-md transition-shadow">
-                  <CardHeader>
-                    <div className="flex items-start justify-between">
-                      <div>
-                        <CardTitle className="text-lg">{org.name}</CardTitle>
-                        <CardDescription>@{org.slug}</CardDescription>
-                      </div>
-                      <div className="flex space-x-1">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => openEditDialog(org)}
-                          title="Edit organization"
-                        >
-                          <Edit className="h-4 w-4"/>
-                        </Button>
-                      </div>
-                    </div>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    {org.description && (
-                      <p className="text-sm text-muted-foreground line-clamp-2">
-                        {org.description}
-                      </p>
-                    )}
-
-                    <div className="flex flex-wrap gap-2">
-                      <Badge variant="secondary">
-                        <Users className="mr-1 h-3 w-3"/>
-                        {org._count.organizationUsers} users
-                      </Badge>
-                      <Badge variant="secondary">
-                        <FolderOpen className="mr-1 h-3 w-3"/>
-                        {org._count.projects} projects
-                      </Badge>
-                    </div>
-
-                    <div className="pt-2">
-                      <Button
-                        variant="outline"
-                        className="w-full"
-                        onClick={() => setCurrentOrganization(org)}
-                      >
-                        <Settings className="mr-2 h-4 w-4"/>
-                        Visit Organization
-                      </Button>
-                    </div>
-                  </CardContent>
-                </Card>
+                <OrganizationCard
+                  key={org.id}
+                  organization={org}
+                />
               ))}
             </div>
           )}
 
-          {/* Edit Dialog */}
-          <Dialog open={!!editingOrg} onOpenChange={() => setEditingOrg(null)}>
-            <DialogContent className="sm:max-w-[500px]">
-              <DialogHeader>
-                <DialogTitle>Edit Organization</DialogTitle>
-              </DialogHeader>
-              <div className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="edit-name">Organization Name</Label>
-                  <Input
-                    id="edit-name"
-                    value={formData.name}
-                    onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
-                    placeholder="My Organization"
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="edit-description">Description</Label>
-                  <Textarea
-                    id="edit-description"
-                    value={formData.description}
-                    onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
-                    placeholder="Organization description..."
-                  />
-                </div>
-
-                <div className="flex justify-end space-x-2">
-                  <Button
-                    variant="outline"
-                    onClick={() => setEditingOrg(null)}
-                    disabled={isUpdating}
-                  >
-                    Cancel
-                  </Button>
-                  <Button
-                    onClick={handleUpdateOrganization}
-                    disabled={isUpdating}
-                  >
-                    {isUpdating ? (
-                      <>
-                        <Loader2 className="mr-2 h-4 w-4 animate-spin"/>
-                        Updating...
-                      </>
-                    ) : (
-                      'Update Organization'
-                    )}
-                  </Button>
-                </div>
-              </div>
-            </DialogContent>
-          </Dialog>
+          <CreateEditOrganizationDialog
+            isOpen={createDialogOpen || !!editingOrg}
+            onOpenChange={handleCloseDialog}
+            isLoading={isCreating || isUpdating}
+            formData={formData}
+            onFormChange={setFormData}
+            onSubmit={handleCreateDialogSubmit}
+            editingOrg={editingOrg}
+          />
         </div>
       </div>
     </div>
   );
-} 
+}

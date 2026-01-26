@@ -1,13 +1,14 @@
 import { Context } from 'aws-lambda';
 import { GetObjectCommand, PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
-import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
-import { DynamoDBDocumentClient, QueryCommand, UpdateCommand } from '@aws-sdk/lib-dynamodb';
+import { QueryCommand, UpdateCommand } from '@aws-sdk/lib-dynamodb';
 
 import { withSentryLambda } from '../sentry-lambda';
 import { PK_NAME, SK_NAME } from '../constants/common';
 import { DOCUMENT_PK } from '../constants/document';
 import { streamToString } from '../helpers/s3';
 import { requireEnv } from '../helpers/env';
+import { docClient } from '../helpers/db';
+import { nowIso } from '../helpers/date';
 
 const REGION = requireEnv('REGION', 'us-east-1');
 const DOCUMENTS_BUCKET = requireEnv('DOCUMENTS_BUCKET');
@@ -15,13 +16,9 @@ const DB_TABLE_NAME = requireEnv('DB_TABLE_NAME');
 
 const CHUNK_MAX_CHARS = Number(process.env.CHUNK_MAX_CHARS ?? 2500);
 const CHUNK_OVERLAP_CHARS = Number(process.env.CHUNK_OVERLAP_CHARS ?? 250);
-const CHUNK_MIN_CHARS = Number(process.env.CHUNK_MIN_CHARS ?? 200);
+const CHUNK_MIN_CHARS = Number(process.env.CHUNK_MIN_CHARS ?? 10);
 
 const s3 = new S3Client({ region: REGION });
-
-const ddb = DynamoDBDocumentClient.from(new DynamoDBClient({}), {
-  marshallOptions: { removeUndefinedValues: true },
-});
 
 interface ChunkingEvent {
   documentId?: string;
@@ -78,7 +75,7 @@ function chunkText(text: string, opts: { maxChars: number; overlapChars: number;
 async function findDocKey(documentId: string) {
   const skSuffix = `#DOC#${documentId}`;
 
-  const queryRes = await ddb.send(
+  const queryRes = await docClient.send(
     new QueryCommand({
       TableName: DB_TABLE_NAME!,
       KeyConditionExpression: '#pk = :pk',
@@ -160,9 +157,8 @@ export const baseHandler = async (
   // 4) Update Dynamo with chunking metadata (optional but very useful)
   try {
     const { pk, sk } = await findDocKey(documentId);
-    const now = new Date().toISOString();
 
-    await ddb.send(
+    await docClient.send(
       new UpdateCommand({
         TableName: DB_TABLE_NAME!,
         Key: { [PK_NAME]: pk, [SK_NAME]: sk },
@@ -175,10 +171,10 @@ export const baseHandler = async (
           '#updatedAt': 'updatedAt',
         },
         ExpressionAttributeValues: {
-          ':s': 'CHUNKED',
+          ':s': chunks.length ? 'CHUNKED' : 'INDEXED',
           ':p': chunksPrefix,
           ':c': chunks.length,
-          ':u': now,
+          ':u': nowIso(),
         },
       }),
     );

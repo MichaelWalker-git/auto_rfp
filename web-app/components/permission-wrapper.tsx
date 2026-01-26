@@ -21,4 +21,9 @@ const PermissionWrapper = ({ requiredPermission, children }: Props) => {
   return (<></>);
 };
 
+export function usePermission(requiredPermission: Permission): boolean {
+  const { orgId, permissions } = useAuth();
+  return !orgId || (permissions && permissions.includes(requiredPermission)) || false;
+}
+
 export default PermissionWrapper;

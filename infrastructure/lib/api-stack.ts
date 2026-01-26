@@ -618,6 +618,7 @@ export class ApiStack extends cdk.Stack {
     // Project
     this.projectApi.addRoute('/get-projects', 'GET', 'lambda/project/get-projects.ts');
     this.projectApi.addRoute('/create-project', 'POST', 'lambda/project/create-project.ts');
+    this.projectApi.addRoute('/edit-project', 'PUT', 'lambda/project/edit-project.ts');
     this.projectApi.addRoute('/get-project/{id}', 'GET', 'lambda/project/get-project-by-id.ts');
     this.projectApi.addRoute('/delete-project', 'DELETE', 'lambda/project/delete-project.ts');
     this.projectApi.addRoute('/get-questions/{id}', 'GET', 'lambda/project/get-questions.ts');
