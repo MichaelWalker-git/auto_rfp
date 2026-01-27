@@ -1,0 +1,175 @@
+name: Release to Production
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Release version (e.g., v1.2.0)'
+        required: true
+        type: string
+      description:
+        description: 'Release description'
+        required: false
+        type: string
+        default: 'Production release'
+
+jobs:
+  validate:
+    name: Validate Release
+    runs-on: ubuntu-latest
+    outputs:
+      can_release: ${{ steps.check.outputs.can_release }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Check if develop is ahead of production
+        id: check
+        run: |
+          git fetch origin develop production
+
+          # Check if there are commits to release
+          COMMITS=$(git rev-list --count origin/production..origin/develop)
+          echo "Commits to release: $COMMITS"
+
+          if [ "$COMMITS" -eq "0" ]; then
+            echo "No new commits to release"
+            echo "can_release=false" >> $GITHUB_OUTPUT
+          else
+            echo "can_release=true" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Validate version format
+        run: |
+          VERSION="${{ inputs.version }}"
+          if [[ ! "$VERSION" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "Error: Version must be in format vX.Y.Z (e.g., v1.2.0)"
+            exit 1
+          fi
+
+  test:
+    name: Run Tests Before Release
+    needs: validate
+    if: needs.validate.outputs.can_release == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout develop
+        uses: actions/checkout@v4
+        with:
+          ref: develop
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v3
+        with:
+          version: 10
+
+      - name: Install and test shared
+        working-directory: shared
+        run: |
+          pnpm install
+          pnpm test
+          pnpm build
+
+      - name: Install and test web-app
+        working-directory: web-app
+        run: |
+          pnpm install
+          pnpm test --passWithNoTests
+          pnpm build
+        env:
+          NEXT_PUBLIC_BASE_API_URL: ${{ secrets.NEXT_PUBLIC_BASE_API_URL || 'https://api.example.com' }}
+          NEXT_PUBLIC_COGNITO_USER_POOL_ID: ${{ secrets.NEXT_PUBLIC_COGNITO_USER_POOL_ID || 'us-east-1_example' }}
+          NEXT_PUBLIC_COGNITO_USER_POOL_CLIENT_ID: ${{ secrets.NEXT_PUBLIC_COGNITO_USER_POOL_CLIENT_ID || 'example-client-id' }}
+
+  release:
+    name: Create Release
+    needs: [validate, test]
+    if: needs.validate.outputs.can_release == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Configure Git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Merge develop into production
+        run: |
+          git fetch origin develop production
+          git checkout production
+          git merge origin/develop --no-edit
+          git push origin production
+
+      - name: Generate changelog
+        id: changelog
+        run: |
+          # Get commits since last tag
+          LAST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
+
+          if [ -z "$LAST_TAG" ]; then
+            COMMITS=$(git log --oneline --no-merges origin/production | head -20)
+          else
+            COMMITS=$(git log --oneline --no-merges ${LAST_TAG}..HEAD)
+          fi
+
+          # Create changelog
+          echo "## Changes" > changelog.md
+          echo "" >> changelog.md
+          echo "$COMMITS" | while read line; do
+            echo "- $line" >> changelog.md
+          done
+
+          cat changelog.md
+
+      - name: Create Git tag
+        run: |
+          git tag -a ${{ inputs.version }} -m "Release ${{ inputs.version }}: ${{ inputs.description }}"
+          git push origin ${{ inputs.version }}
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: ${{ inputs.version }}
+          name: Release ${{ inputs.version }}
+          body: |
+            ## ${{ inputs.description }}
+
+            ### Changes since last release
+            $(cat changelog.md)
+
+            ---
+            Released from `develop` branch to `production`.
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Notify success
+        run: |
+          echo "🚀 Release ${{ inputs.version }} created successfully!"
+          echo "Production branch has been updated with latest develop changes."
+
+  notify-failure:
+    name: Notify on Failure
+    needs: [validate, test, release]
+    if: failure()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Notify failure
+        run: |
+          echo "❌ Release workflow failed!"
+          echo "Please check the workflow logs for details."
