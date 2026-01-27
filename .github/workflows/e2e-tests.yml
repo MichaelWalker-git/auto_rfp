@@ -1,0 +1,97 @@
+name: E2E Tests
+
+on:
+  pull_request:
+    branches: [main, develop, production]
+    paths:
+      - 'web-app/**'
+      - 'shared/**'
+      - '.github/workflows/e2e-tests.yml'
+  push:
+    branches: [develop, production]
+    paths:
+      - 'web-app/**'
+      - 'shared/**'
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  e2e-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    defaults:
+      run:
+        working-directory: web-app
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v3
+        with:
+          version: 10
+
+      - name: Get pnpm store directory
+        shell: bash
+        run: |
+          echo "STORE_PATH=$(pnpm store path --silent)" >> $GITHUB_ENV
+
+      - name: Setup pnpm cache
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.STORE_PATH }}
+          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-store-
+
+      - name: Install dependencies (shared)
+        working-directory: shared
+        run: pnpm install
+
+      - name: Build shared package
+        working-directory: shared
+        run: pnpm build
+
+      - name: Install dependencies (web-app)
+        run: pnpm install
+
+      - name: Install Playwright browsers
+        run: pnpm exec playwright install --with-deps chromium
+
+      - name: Build web-app
+        run: pnpm build
+        env:
+          NEXT_PUBLIC_BASE_API_URL: ${{ secrets.NEXT_PUBLIC_BASE_API_URL || 'https://api.example.com' }}
+          NEXT_PUBLIC_COGNITO_USER_POOL_ID: ${{ secrets.NEXT_PUBLIC_COGNITO_USER_POOL_ID || 'us-east-1_example' }}
+          NEXT_PUBLIC_COGNITO_USER_POOL_CLIENT_ID: ${{ secrets.NEXT_PUBLIC_COGNITO_USER_POOL_CLIENT_ID || 'example-client-id' }}
+
+      - name: Run E2E tests
+        run: pnpm test:e2e --project=chromium
+        env:
+          CI: true
+          PLAYWRIGHT_BASE_URL: http://localhost:3000
+
+      - name: Upload Playwright report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: playwright-report-${{ github.sha }}
+          path: web-app/playwright-report/
+          retention-days: 30
+
+      - name: Upload test results
+        uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: test-results-${{ github.sha }}
+          path: web-app/test-results/
+          retention-days: 7
