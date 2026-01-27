@@ -71,7 +71,6 @@ async function buildContextFromChunkHits(hits: PineconeHit[]) {
   );
 }
 
-
 async function answerWithBedrockLLM(question: string, context: string): Promise<Partial<QAItem>> {
   const systemPrompt = `
 You are an expert proposal writer answering U.S. government RFP/SAM.gov solicitation questions.
@@ -179,7 +178,7 @@ export const baseHandler = async (
 
     const questionEmbedding = await getEmbedding(question || '',);
 
-    const hits = await semanticSearchChunks(orgId, questionEmbedding, topK);
+    const hits = await semanticSearchChunks(orgId!, questionEmbedding, topK);
     console.log('Hits:', JSON.stringify(hits));
 
     if (!hits.length) {
