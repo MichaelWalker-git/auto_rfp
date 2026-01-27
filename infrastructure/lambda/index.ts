@@ -1,5 +1,17 @@
 import { APIGatewayProxyEvent, APIGatewayProxyResult, Context } from 'aws-lambda';
 import { invokeModel } from './helpers/bedrock-http-client';
+import {
+  createContentLibraryItem,
+  getContentLibraryItem,
+  listContentLibraryItems,
+  updateContentLibraryItem,
+  deleteContentLibraryItem,
+  approveContentLibraryItem,
+  deprecateContentLibraryItem,
+  trackContentLibraryUsage,
+  getContentLibraryCategories,
+  getContentLibraryTags,
+} from './content-library/handlers';
 
 // CORS headers
 const corsHeaders = {
@@ -175,10 +187,108 @@ async function handleDocumentProcessing(event: APIGatewayProxyEvent): Promise<AP
 
 // Health check handler
 function handleHealth(): APIGatewayProxyResult {
-  return createResponse(200, { 
+  return createResponse(200, {
     status: 'healthy',
     timestamp: new Date().toISOString(),
     environment: process.env.NODE_ENV || 'development'
+  });
+}
+
+// Content Library route handler
+async function handleContentLibraryRoutes(
+  event: APIGatewayProxyEvent,
+  pathParts: string[]
+): Promise<APIGatewayProxyResult> {
+  const method = event.httpMethod;
+  // pathParts: ['api', 'content-library', ...]
+
+  // /api/content-library/items
+  if (pathParts.length === 3 && pathParts[2] === 'items') {
+    if (method === 'GET') {
+      return listContentLibraryItems(event);
+    }
+    if (method === 'POST') {
+      return createContentLibraryItem(event);
+    }
+  }
+
+  // /api/content-library/categories
+  if (pathParts.length === 3 && pathParts[2] === 'categories') {
+    if (method === 'GET') {
+      return getContentLibraryCategories(event);
+    }
+  }
+
+  // /api/content-library/tags
+  if (pathParts.length === 3 && pathParts[2] === 'tags') {
+    if (method === 'GET') {
+      return getContentLibraryTags(event);
+    }
+  }
+
+  // /api/content-library/items/{id}
+  if (pathParts.length === 4 && pathParts[2] === 'items') {
+    const itemId = pathParts[3];
+    // Create new event object instead of mutating the original
+    const eventWithId: APIGatewayProxyEvent = {
+      ...event,
+      pathParameters: { ...event.pathParameters, id: itemId },
+    };
+
+    if (method === 'GET') {
+      return getContentLibraryItem(eventWithId);
+    }
+    if (method === 'PATCH' || method === 'PUT') {
+      return updateContentLibraryItem(eventWithId);
+    }
+    if (method === 'DELETE') {
+      return deleteContentLibraryItem(eventWithId);
+    }
+  }
+
+  // /api/content-library/items/{id}/approve
+  if (pathParts.length === 5 && pathParts[2] === 'items' && pathParts[4] === 'approve') {
+    const itemId = pathParts[3];
+    const eventWithId: APIGatewayProxyEvent = {
+      ...event,
+      pathParameters: { ...event.pathParameters, id: itemId },
+    };
+
+    if (method === 'POST') {
+      return approveContentLibraryItem(eventWithId);
+    }
+  }
+
+  // /api/content-library/items/{id}/deprecate
+  if (pathParts.length === 5 && pathParts[2] === 'items' && pathParts[4] === 'deprecate') {
+    const itemId = pathParts[3];
+    const eventWithId: APIGatewayProxyEvent = {
+      ...event,
+      pathParameters: { ...event.pathParameters, id: itemId },
+    };
+
+    if (method === 'POST') {
+      return deprecateContentLibraryItem(eventWithId);
+    }
+  }
+
+  // /api/content-library/items/{id}/track-usage
+  if (pathParts.length === 5 && pathParts[2] === 'items' && pathParts[4] === 'track-usage') {
+    const itemId = pathParts[3];
+    const eventWithId: APIGatewayProxyEvent = {
+      ...event,
+      pathParameters: { ...event.pathParameters, id: itemId },
+    };
+
+    if (method === 'POST') {
+      return trackContentLibraryUsage(eventWithId);
+    }
+  }
+
+  return createResponse(404, {
+    error: 'Content library route not found',
+    path: event.path,
+    method: method,
   });
 }
 
@@ -219,17 +329,29 @@ export const handler = async (
     if (path === '/api/document-processing') {
       return handleDocumentProcessing(event);
     }
-    
+
+    // Content Library routes
+    if (path.startsWith('/api/content-library')) {
+      return handleContentLibraryRoutes(event, pathParts);
+    }
+
     // Fallback for other API routes
-    return createResponse(404, { 
+    return createResponse(404, {
       error: 'Not found',
       path: path,
       availableRoutes: [
         '/api/health',
         '/api/organizations',
-        '/api/projects', 
+        '/api/projects',
         '/api/questions/{projectId}',
-        '/api/document-processing'
+        '/api/document-processing',
+        '/api/content-library/items',
+        '/api/content-library/items/{id}',
+        '/api/content-library/items/{id}/approve',
+        '/api/content-library/items/{id}/deprecate',
+        '/api/content-library/items/{id}/track-usage',
+        '/api/content-library/categories',
+        '/api/content-library/tags',
       ]
     });
 
