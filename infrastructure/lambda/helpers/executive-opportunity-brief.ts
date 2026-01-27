@@ -185,24 +185,20 @@ export async function markSectionInProgress(args: {
     '#sec': section,
     '#status': 'status',
     '#updatedAt': 'updatedAt',
-    '#rootUpdatedAt': 'updatedAt',
   };
 
   const values: Record<string, any> = {
-    ':emptySections': {},
     ':inProgress': 'IN_PROGRESS',
     ':now': now,
   };
 
-  const updateParts: string[] = [
-    'SET #sections = if_not_exists(#sections, :emptySections)',
+  const setParts: string[] = [
     '#sections.#sec.#status = :inProgress',
     '#sections.#sec.#updatedAt = :now',
-    '#rootUpdatedAt = :now',
   ];
 
   if (inputHash) {
-    updateParts.push('#sections.#sec.#inputHash = :h');
+    setParts.push('#sections.#sec.#inputHash = :h');
     names['#inputHash'] = 'inputHash';
     values[':h'] = inputHash;
   }
@@ -215,7 +211,7 @@ export async function markSectionInProgress(args: {
           [PK_NAME]: EXEC_BRIEF_PK,
           [SK_NAME]: executiveBriefId,
         },
-        UpdateExpression: updateParts.join(', '),
+        UpdateExpression: `SET ${setParts.join(', ')}`,
         ExpressionAttributeNames: names,
         ExpressionAttributeValues: values,
         ConditionExpression: 'attribute_exists(#pk)',
@@ -259,50 +255,88 @@ export async function markSectionComplete<T>(args: {
     '#sections.#sec.#status = :status',
     '#sections.#sec.#updatedAt = :now',
     '#sections.#sec.#data = :data',
-    'updatedAt = :now',
   ];
 
   const removeParts: string[] = [
     '#sections.#sec.#error',
   ];
 
-  if (topLevelPatch) {
+  // Handle topLevelPatch updates separately if present
+  if (topLevelPatch && (
+    topLevelPatch.compositeScore !== undefined ||
+    topLevelPatch.recommendation !== undefined ||
+    topLevelPatch.decision !== undefined ||
+    topLevelPatch.confidence !== undefined ||
+    topLevelPatch.status !== undefined
+  )) {
+    // First update the section
+    let updateExpression =
+      `SET ${setParts.join(', ')}` + (removeParts.length ? ` REMOVE ${removeParts.join(', ')}` : '');
+
+    await docClient.send(
+      new UpdateCommand({
+        TableName: DB_TABLE_NAME,
+        Key: { [PK_NAME]: EXEC_BRIEF_PK, [SK_NAME]: executiveBriefId },
+        UpdateExpression: updateExpression,
+        ExpressionAttributeNames: names,
+        ExpressionAttributeValues: values,
+      }),
+    );
+
+    // Then update the top-level attributes
+    const topLevelSetParts: string[] = [];
+    const topLevelValues: Record<string, any> = { ':now': now };
+    const topLevelNames: Record<string, string> = {};
+
     if (topLevelPatch.compositeScore !== undefined) {
-      setParts.push('compositeScore = :cs');
-      values[':cs'] = topLevelPatch.compositeScore;
+      topLevelSetParts.push('compositeScore = :cs');
+      topLevelValues[':cs'] = topLevelPatch.compositeScore;
     }
     if (topLevelPatch.recommendation !== undefined) {
-      setParts.push('recommendation = :rec');
-      values[':rec'] = topLevelPatch.recommendation;
+      topLevelSetParts.push('recommendation = :rec');
+      topLevelValues[':rec'] = topLevelPatch.recommendation;
     }
     if (topLevelPatch.decision !== undefined) {
-      setParts.push('decision = :dec');
-      values[':dec'] = topLevelPatch.decision;
+      topLevelSetParts.push('decision = :dec');
+      topLevelValues[':dec'] = topLevelPatch.decision;
     }
     if (topLevelPatch.confidence !== undefined) {
-      setParts.push('confidence = :conf');
-      values[':conf'] = topLevelPatch.confidence;
+      topLevelSetParts.push('confidence = :conf');
+      topLevelValues[':conf'] = topLevelPatch.confidence;
     }
     if (topLevelPatch.status !== undefined) {
-      // uses same top-level attr "status"
-      setParts.push('#briefStatus = :bs');
-      names['#briefStatus'] = 'status';
-      values[':bs'] = topLevelPatch.status;
+      topLevelSetParts.push('#status = :bs');
+      topLevelNames['#status'] = 'status';
+      topLevelValues[':bs'] = topLevelPatch.status;
     }
+
+    topLevelSetParts.push('updatedAt = :now');
+
+    await docClient.send(
+      new UpdateCommand({
+        TableName: DB_TABLE_NAME,
+        Key: { [PK_NAME]: EXEC_BRIEF_PK, [SK_NAME]: executiveBriefId },
+        UpdateExpression: `SET ${topLevelSetParts.join(', ')}`,
+        ExpressionAttributeNames: Object.keys(topLevelNames).length > 0 ? topLevelNames : undefined,
+        ExpressionAttributeValues: topLevelValues,
+      }),
+    );
+  } else {
+    // No top-level patch, just update section and top-level updatedAt
+    setParts.push('updatedAt = :now');
+    const updateExpression =
+      `SET ${setParts.join(', ')}` + (removeParts.length ? ` REMOVE ${removeParts.join(', ')}` : '');
+
+    await docClient.send(
+      new UpdateCommand({
+        TableName: DB_TABLE_NAME,
+        Key: { [PK_NAME]: EXEC_BRIEF_PK, [SK_NAME]: executiveBriefId },
+        UpdateExpression: updateExpression,
+        ExpressionAttributeNames: names,
+        ExpressionAttributeValues: values,
+      }),
+    );
   }
-
-  const updateExpression =
-    `SET ${setParts.join(', ')}` + (removeParts.length ? ` REMOVE ${removeParts.join(', ')}` : '');
-
-  await docClient.send(
-    new UpdateCommand({
-      TableName: DB_TABLE_NAME,
-      Key: { [PK_NAME]: EXEC_BRIEF_PK, [SK_NAME]: executiveBriefId },
-      UpdateExpression: updateExpression,
-      ExpressionAttributeNames: names,
-      ExpressionAttributeValues: values,
-    }),
-  );
 }
 
 export async function markSectionFailed(args: {
@@ -323,13 +357,13 @@ export async function markSectionFailed(args: {
         [SK_NAME]: executiveBriefId
       },
       UpdateExpression:
-        'SET #sections.#sec.#status = :status, #sections.#sec.#updatedAt = :now, #sections.#sec.#error = :err, updatedAt = :now',
+        'SET #sections.#sec.#status = :status, #sections.#sec.#error = :err, #sections.#sec.#updatedAt = :now',
       ExpressionAttributeNames: {
         '#sections': 'sections',
         '#sec': section,
         '#status': 'status',
-        '#updatedAt': 'updatedAt',
         '#error': 'error',
+        '#updatedAt': 'updatedAt',
       },
       ExpressionAttributeValues: {
         ':status': 'FAILED',

@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { CalendarClock, Plus, Loader2 } from 'lucide-react';
+import { CalendarClock, Plus } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
 import { useCreateOrganization } from '@/lib/hooks/use-create-organization';
 import { useOrganizations } from '@/lib/hooks/use-api';
