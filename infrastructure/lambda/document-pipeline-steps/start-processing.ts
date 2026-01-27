@@ -28,7 +28,7 @@ interface StartProcessingResult {
   format: FileFormat;
   ext?: string | null;
 
-  status: 'STARTED';
+  status: string;
 }
 
 function inferExtFromKey(fileKey: string): string | null {
@@ -122,6 +122,8 @@ const baseHandler = async (
   // We also clear jobId/taskToken to avoid stale callback tokens.
   const now = new Date().toISOString();
 
+  const status = format === 'UNKNOWN' ? 'FAILED' : 'STARTED';
+
   await docClient.send(
     new UpdateCommand({
       TableName: DB_TABLE_NAME,
@@ -138,7 +140,7 @@ const baseHandler = async (
         '#taskToken': 'taskToken',
       },
       ExpressionAttributeValues: {
-        ':status': 'STARTED',
+        ':status': status,
         ':updatedAt': now,
       },
     }),
@@ -152,7 +154,7 @@ const baseHandler = async (
     contentType,
     format,
     ext,
-    status: 'STARTED',
+    status,
   };
 
   console.log('start-processing result:', JSON.stringify(result));

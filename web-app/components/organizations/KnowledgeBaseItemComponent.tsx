@@ -743,7 +743,10 @@ export default function KnowledgeBaseItemComponent() {
               <div className="space-x-2">
                 <Button
                   variant="outline"
-                  onClick={() => setShowUpload(false)}
+                  onClick={() => {
+                    setUploadQueue([]);
+                    setShowUpload(false);
+                  }}
                   disabled={isBatchUploading}
                 >
                   Close
