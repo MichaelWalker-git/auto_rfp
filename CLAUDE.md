@@ -72,6 +72,60 @@ Update infrastructure commands if needed:
 cdk deploy --profile michael-primary --require-approval never
 ```
 
+## Git Branching Strategy
+
+```
+develop ─────────────────────────────────────────────────►
+    │                    │
+    │ feature branches   │ PRs merge here
+    │                    ▼
+    │              (tested, stable)
+    │                    │
+production ──────────────┼───────────────────────────────►
+                         ▲
+                    release workflow
+```
+
+**Branches:**
+- **develop** - Active development branch (default). All PRs merge here first.
+- **production** - Stable, production-ready code. Only updated via release workflow.
+
+**Workflow:**
+1. Create feature branches from `develop`
+2. Open PRs targeting `develop`
+3. After PR approval and CI passes, merge to `develop`
+4. When ready to release, run the Release workflow to promote `develop` → `production`
+
+**Branch Protection Rules:**
+- Both `develop` and `production` require:
+  - Pull request reviews (1 approval required)
+  - No direct pushes (must use PRs)
+  - No force pushes
+  - No branch deletion
+
+## CI/CD Workflows
+
+### Automated Testing (on every PR)
+- **Unit Tests** (`unit-tests.yml`): Runs shared, web-app, and infrastructure tests
+- **E2E Tests** (`e2e-tests.yml`): Runs Playwright end-to-end tests
+- **Lighthouse** (`lighthouse.yml`): Performance audits
+
+### Release Process
+To release to production:
+```bash
+# Via GitHub Actions UI:
+# 1. Go to Actions → "Release to Production"
+# 2. Click "Run workflow"
+# 3. Enter version (e.g., v1.2.0) and description
+# 4. Click "Run workflow"
+```
+
+The release workflow will:
+1. Validate there are commits to release
+2. Run all tests on develop
+3. Merge develop into production
+4. Create a Git tag and GitHub Release
+
 ## Architecture Overview
 
 ### Frontend (web-app)
