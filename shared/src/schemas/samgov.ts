@@ -17,7 +17,7 @@ export const LoadSamOpportunitiesRequestSchema = z.object({
   postedFrom: MmDdYyyySchema,
   postedTo: MmDdYyyySchema,
 
-  rdlfrom: MmDdYyyySchema,
+  rdlfrom: MmDdYyyySchema.optional(),
 
   keywords: z.string().min(1).optional(),
   title: z.string().min(1).optional(),
