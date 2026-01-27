@@ -1,10 +1,10 @@
-"use client";
+'use client';
 
-import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
-import { QuestionsFilter } from "./questions-filter";
-import { QuestionEditor } from "./question-editor";
-import { QuestionNavigator } from "../../../components/question-navigator";
-import { AISuggestionsPanel } from "../../../components/ai-suggestions-panel";
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { QuestionsFilter } from './questions-filter';
+import { QuestionEditor } from './question-editor';
+import { QuestionNavigator } from '../../../components/question-navigator';
+import { AISuggestionsPanel } from '../../../components/ai-suggestions-panel';
 import { AnswerSource } from '@auto-rfp/shared';
 
 interface AnswerData {
@@ -20,6 +20,7 @@ interface QuestionWithSection {
 }
 
 interface QuestionsTabsContentProps {
+  orgId: string;
   questions: QuestionWithSection[];
   selectedQuestion: string | null;
   questionData: { question: any; section: any } | null;
@@ -33,7 +34,7 @@ interface QuestionsTabsContentProps {
   onSelectQuestion: (questionId: string) => void;
   onAnswerChange: (questionId: string, value: string) => void;
   onSave: (questionId: string) => void;
-  onGenerateAnswer: (questionId: string) => void;
+  onGenerateAnswer: (orgId: string, questionId: string) => void;
   onSourceClick: (source: AnswerSource) => void;
 
   onRemoveQuestion: (questionId: string) => void;
@@ -61,29 +62,29 @@ export function QuestionsTabsContent({
                                        onSourceClick,
                                        onRemoveQuestion,
                                        removingQuestions,
-
+                                       orgId,
                                        rfpDocument,
                                        searchQuery,
                                      }: QuestionsTabsContentProps) {
   const getFilterTitle = () => {
     switch (filterType) {
-      case "answered":
-        return "Answered Questions";
-      case "unanswered":
-        return "Unanswered Questions";
+      case 'answered':
+        return 'Answered Questions';
+      case 'unanswered':
+        return 'Unanswered Questions';
       default:
-        return "Question Navigator";
+        return 'Question Navigator';
     }
   };
 
   const getEmptyMessage = () => {
     switch (filterType) {
-      case "answered":
-        return "No answered questions found";
-      case "unanswered":
-        return "No unanswered questions found";
+      case 'answered':
+        return 'No answered questions found';
+      case 'unanswered':
+        return 'No unanswered questions found';
       default:
-        return "No questions found";
+        return 'No questions found';
     }
   };
 
@@ -92,19 +93,19 @@ export function QuestionsTabsContent({
     const hasAnswer = !!answers[questionId]?.text?.trim();
 
     switch (filterType) {
-      case "answered":
-        return hasAnswer ? "Answered" : "Needs Answer";
-      case "unanswered":
-        return "Needs Answer";
+      case 'answered':
+        return hasAnswer ? 'Answered' : 'Needs Answer';
+      case 'unanswered':
+        return 'Needs Answer';
       default:
-        return hasAnswer ? "Answered" : "Needs Answer";
+        return hasAnswer ? 'Answered' : 'Needs Answer';
     }
   };
 
   return (
     <div className="grid gap-4 md:grid-cols-3">
       <div className="md:col-span-1">
-        {filterType === "all" && rfpDocument ? (
+        {filterType === 'all' && rfpDocument ? (
           <Card>
             <CardHeader className="pb-2">
               <CardTitle className="text-sm">Question Navigator</CardTitle>
@@ -146,21 +147,21 @@ export function QuestionsTabsContent({
               isGenerating={isGenerating[selectedQuestion]}
               onAnswerChange={(value) => onAnswerChange(selectedQuestion, value)}
               onSave={() => onSave(selectedQuestion)}
-              onGenerateAnswer={() => onGenerateAnswer(selectedQuestion)}
+              onGenerateAnswer={() => onGenerateAnswer(orgId, selectedQuestion)}
               onSourceClick={onSourceClick}
               onRemoveQuestion={() => onRemoveQuestion(selectedQuestion)}
               isRemoving={removingQuestions?.has(selectedQuestion) ?? false}
             />
 
-            {showAIPanel && <AISuggestionsPanel questionId={selectedQuestion} />}
+            {showAIPanel && <AISuggestionsPanel questionId={selectedQuestion}/>}
           </div>
         ) : (
           <Card className="flex h-[400px] items-center justify-center">
             <div className="text-center">
               <p className="text-muted-foreground">
-                Select a question from the{" "}
-                {filterType === "all" ? "navigator" : "list"} to view and{" "}
-                {filterType === "answered" ? "edit" : "answer"}
+                Select a question from the{' '}
+                {filterType === 'all' ? 'navigator' : 'list'} to view and{' '}
+                {filterType === 'answered' ? 'edit' : 'answer'}
               </p>
             </div>
           </Card>

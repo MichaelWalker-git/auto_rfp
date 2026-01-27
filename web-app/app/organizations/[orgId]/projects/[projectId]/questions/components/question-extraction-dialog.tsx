@@ -436,7 +436,7 @@ export function QuestionFileUploadDialog({
             Upload Question Files
           </DialogTitle>
           <DialogDescription id="upload-dialog-description">
-            Upload files to extract questions for analysis (PDF/DOC/DOCX/TXT, max 50MB each)
+            Upload files to extract questions for analysis (PDF/DOC/DOCX, max 50MB each)
           </DialogDescription>
         </DialogHeader>
 
@@ -486,7 +486,7 @@ export function QuestionFileUploadDialog({
                     <p className="text-sm font-medium">
                       Drop files here, or <span className="text-primary">browse</span>
                     </p>
-                    <p className="text-xs text-muted-foreground mt-1">Supports PDF/DOC/DOCX/TXT (max 50MB each)</p>
+                    <p className="text-xs text-muted-foreground mt-1">Supports PDF/DOC/DOCX (max 50MB each)</p>
                   </div>
                 </div>
               </div>

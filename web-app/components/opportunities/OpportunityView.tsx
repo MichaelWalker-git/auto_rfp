@@ -1,7 +1,17 @@
 'use client';
 
 import React, { useMemo, useState } from 'react';
-import { AlertCircle, CalendarClock, Download, FileText, FolderOpen, Loader2, RefreshCw, Trash2, Tag } from 'lucide-react';
+import {
+  AlertCircle,
+  CalendarClock,
+  Download,
+  FileText,
+  FolderOpen,
+  Loader2,
+  RefreshCw,
+  Tag,
+  Trash2
+} from 'lucide-react';
 
 import type { OpportunityItem } from '@auto-rfp/shared';
 
@@ -16,12 +26,13 @@ import { cn } from '@/lib/utils';
 import PermissionWrapper from '@/components/permission-wrapper';
 
 import { useOpportunity } from '@/lib/hooks/use-opportunities';
-import { useQuestionFiles, useDeleteQuestionFile } from '@/lib/hooks/use-question-file';
+import { useDeleteQuestionFile, useQuestionFiles } from '@/lib/hooks/use-question-file';
 import { useDownloadFromS3 } from '@/lib/hooks/use-file';
 
 import {
   QuestionFileUploadDialog,
 } from '@/app/organizations/[orgId]/projects/[projectId]/questions/components/question-extraction-dialog';
+import { useOrganization } from '@/context/organization-context';
 
 interface OpportunityViewProps {
   projectId: string;
@@ -67,9 +78,12 @@ function statusChip(status?: string) {
 }
 
 export function OpportunityView({ projectId, oppId, className }: OpportunityViewProps) {
+
+  const { currentOrganization } = useOrganization();
   const { data: item, isLoading: oppLoading, error: oppError, refetch } = useOpportunity(
     projectId,
     oppId,
+    currentOrganization?.id
   );
 
   const { items: qItems, isLoading: qLoading, isError: qIsError, error: qError, refetch: refetchQ } = useQuestionFiles(
@@ -131,7 +145,7 @@ export function OpportunityView({ projectId, oppId, className }: OpportunityView
         <CardHeader className="flex flex-row items-start justify-between gap-4">
           <div className="min-w-0">
             <CardTitle className="flex items-center gap-2 truncate">
-              <FolderOpen className="h-5 w-5" />
+              <FolderOpen className="h-5 w-5"/>
               {oppLoading ? 'Loading opportunity…' : details?.title ?? 'Opportunity'}
             </CardTitle>
             <CardDescription className="truncate">
@@ -145,13 +159,14 @@ export function OpportunityView({ projectId, oppId, className }: OpportunityView
                 {details.type ? <Badge variant="outline">{details.type}</Badge> : null}
                 {details.naicsCode ? (
                   <Badge variant="outline" className="gap-1">
-                    <Tag className="h-3.5 w-3.5" />
+                    <Tag className="h-3.5 w-3.5"/>
                     NAICS {details.naicsCode}
                   </Badge>
                 ) : null}
                 {details.pscCode ? <Badge variant="outline">PSC {details.pscCode}</Badge> : null}
                 {details.setAside ? <Badge variant="outline">{details.setAside}</Badge> : null}
-                {details.solicitationNumber ? <Badge variant="outline">Solicitation {details.solicitationNumber}</Badge> : null}
+                {details.solicitationNumber ?
+                  <Badge variant="outline">Solicitation {details.solicitationNumber}</Badge> : null}
                 {details.noticeId ? <Badge variant="outline">Notice {details.noticeId}</Badge> : null}
               </div>
             ) : null}
@@ -159,11 +174,11 @@ export function OpportunityView({ projectId, oppId, className }: OpportunityView
             {details ? (
               <div className="mt-2 flex flex-wrap items-center gap-4 text-xs text-muted-foreground">
                 <span className="inline-flex items-center gap-1">
-                  <CalendarClock className="h-3.5 w-3.5" />
+                  <CalendarClock className="h-3.5 w-3.5"/>
                   Posted: {formatDate(details.postedDateIso)}
                 </span>
                 <span className="inline-flex items-center gap-1">
-                  <CalendarClock className="h-3.5 w-3.5" />
+                  <CalendarClock className="h-3.5 w-3.5"/>
                   Due: {formatDate(details.responseDeadlineIso)}
                 </span>
               </div>
@@ -172,7 +187,7 @@ export function OpportunityView({ projectId, oppId, className }: OpportunityView
 
           <div className="shrink-0 flex items-center gap-2">
             <Button variant="outline" size="sm" onClick={() => refetch()} disabled={oppLoading}>
-              {oppLoading ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <RefreshCw className="h-4 w-4 mr-2" />}
+              {oppLoading ? <Loader2 className="h-4 w-4 mr-2 animate-spin"/> : <RefreshCw className="h-4 w-4 mr-2"/>}
               Refresh
             </Button>
           </div>
@@ -181,13 +196,13 @@ export function OpportunityView({ projectId, oppId, className }: OpportunityView
         <CardContent className="space-y-3">
           {oppLoading ? (
             <div className="space-y-2">
-              <Skeleton className="h-4 w-3/4" />
-              <Skeleton className="h-4 w-2/3" />
-              <Skeleton className="h-20 w-full" />
+              <Skeleton className="h-4 w-3/4"/>
+              <Skeleton className="h-4 w-2/3"/>
+              <Skeleton className="h-20 w-full"/>
             </div>
           ) : oppError ? (
             <Alert variant="destructive">
-              <AlertCircle className="h-4 w-4" />
+              <AlertCircle className="h-4 w-4"/>
               <AlertDescription>{oppError.message}</AlertDescription>
             </Alert>
           ) : (
@@ -204,16 +219,16 @@ export function OpportunityView({ projectId, oppId, className }: OpportunityView
           <CardHeader className="flex flex-row items-start justify-between gap-4">
             <div>
               <CardTitle className="flex items-center gap-2">
-                <FileText className="h-5 w-5" />
+                <FileText className="h-5 w-5"/>
                 Attachments
               </CardTitle>
               <CardDescription>Upload a document and run question extraction</CardDescription>
             </div>
-            <Skeleton className="h-9 w-40" />
+            <Skeleton className="h-9 w-40"/>
           </CardHeader>
           <CardContent className="space-y-3">
             {[1, 2, 3, 4].map((i) => (
-              <Skeleton key={i} className="h-16 w-full" />
+              <Skeleton key={i} className="h-16 w-full"/>
             ))}
           </CardContent>
         </Card>
@@ -222,7 +237,7 @@ export function OpportunityView({ projectId, oppId, className }: OpportunityView
           <CardHeader className="flex flex-row items-start justify-between gap-4">
             <div>
               <CardTitle className="flex items-center gap-2">
-                <FileText className="h-5 w-5" />
+                <FileText className="h-5 w-5"/>
                 Attachments
               </CardTitle>
               <CardDescription>
@@ -230,14 +245,14 @@ export function OpportunityView({ projectId, oppId, className }: OpportunityView
               </CardDescription>
             </div>
 
-            <QuestionFileUploadDialog projectId={projectId} oppId={oppId} />
+            <QuestionFileUploadDialog projectId={projectId} oppId={oppId}/>
           </CardHeader>
 
           <CardContent className="space-y-3">
             {qIsError ? (
               <div className="rounded-xl border bg-red-50 p-4">
                 <div className="flex items-start gap-3">
-                  <AlertCircle className="h-5 w-5 text-red-600 mt-0.5" />
+                  <AlertCircle className="h-5 w-5 text-red-600 mt-0.5"/>
                   <div className="flex-1">
                     <p className="font-medium text-red-900">Couldn’t load files</p>
                     <p className="text-sm text-red-700 mt-1">
@@ -255,14 +270,14 @@ export function OpportunityView({ projectId, oppId, className }: OpportunityView
 
             {downloadError ? (
               <Alert variant="destructive">
-                <AlertCircle className="h-4 w-4" />
+                <AlertCircle className="h-4 w-4"/>
                 <AlertDescription>Download failed: {downloadError.message}</AlertDescription>
               </Alert>
             ) : null}
 
             {!qIsError && (qItems?.length ?? 0) === 0 ? (
               <div className="text-center py-10">
-                <FolderOpen className="mx-auto h-9 w-9 text-muted-foreground mb-3" />
+                <FolderOpen className="mx-auto h-9 w-9 text-muted-foreground mb-3"/>
                 <h3 className="text-lg font-medium">No files yet</h3>
                 <p className="text-muted-foreground mt-1">Upload a document to start extraction.</p>
               </div>
@@ -286,7 +301,7 @@ export function OpportunityView({ projectId, oppId, className }: OpportunityView
                     >
                       <div className="flex items-start gap-3">
                         <div className="h-10 w-10 rounded-lg bg-muted flex items-center justify-center shrink-0">
-                          <FileText className="h-5 w-5 text-muted-foreground" />
+                          <FileText className="h-5 w-5 text-muted-foreground"/>
                         </div>
 
                         <div className="min-w-0 flex-1">
@@ -333,9 +348,9 @@ export function OpportunityView({ projectId, oppId, className }: OpportunityView
                             title={!f.fileKey ? 'No file key' : 'Download file'}
                           >
                             {rowDownloading ? (
-                              <Loader2 className="h-4 w-4 animate-spin" />
+                              <Loader2 className="h-4 w-4 animate-spin"/>
                             ) : (
-                              <Download className="h-4 w-4" />
+                              <Download className="h-4 w-4"/>
                             )}
                           </Button>
 
@@ -348,9 +363,9 @@ export function OpportunityView({ projectId, oppId, className }: OpportunityView
                               onClick={() => void handleDelete({ questionFileId: f.questionFileId, name: f.name })}
                             >
                               {rowDeleting ? (
-                                <Loader2 className="h-4 w-4 animate-spin" />
+                                <Loader2 className="h-4 w-4 animate-spin"/>
                               ) : (
-                                <Trash2 className="h-4 w-4" />
+                                <Trash2 className="h-4 w-4"/>
                               )}
                             </Button>
                           </PermissionWrapper>
@@ -362,11 +377,11 @@ export function OpportunityView({ projectId, oppId, className }: OpportunityView
               </div>
             ) : null}
 
-            <Separator />
+            <Separator/>
 
             <div className="flex items-center gap-2">
               <Button variant="outline" size="sm" onClick={() => refetchQ()}>
-                <RefreshCw className="h-4 w-4 mr-2" />
+                <RefreshCw className="h-4 w-4 mr-2"/>
                 Refresh files
               </Button>
             </div>

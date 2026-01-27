@@ -134,3 +134,14 @@ export const PatchSchema = z
   .refine((v) => Object.keys(v).length > 0, { message: 'Patch body is required' });
 
 export type PatchType = z.infer<typeof PatchSchema>
+
+export const ImportSolicitationRequestSchema = z.object({
+  orgId: z.string().optional(),
+  projectId: z.string().optional(),
+  noticeId: z.string().optional(),
+  postedFrom: z.string().optional(),
+  postedTo: z.string().optional(),
+  sourceDocumentId: z.string().optional(),
+})
+
+export type ImportSolicitationRequest = z.infer<typeof ImportSolicitationRequestSchema>;

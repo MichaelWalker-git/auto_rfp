@@ -152,6 +152,7 @@ export function useIndexDocument() {
 }
 
 export interface StartDocumentPipelineDTO {
+  orgId?: string;
   documentId: string;
   knowledgeBaseId: string;
 }

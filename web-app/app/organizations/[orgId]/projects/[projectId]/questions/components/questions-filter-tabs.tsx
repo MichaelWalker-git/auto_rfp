@@ -9,9 +9,10 @@ import { QuestionsTabsContent } from './questions-tabs-content';
 
 interface QuestionsFilterTabsProps {
   rfpDocument: any;
+  orgId: string;
 }
 
-export function QuestionsFilterTabs({ rfpDocument }: QuestionsFilterTabsProps) {
+export function QuestionsFilterTabs({ rfpDocument, orgId }: QuestionsFilterTabsProps) {
   const {
     activeTab,
     setActiveTab,
@@ -71,6 +72,7 @@ export function QuestionsFilterTabs({ rfpDocument }: QuestionsFilterTabsProps) {
       {['all', 'answered', 'unanswered'].map((filterType) => (
         <TabsContent key={filterType} value={filterType} className="space-y-4">
           <QuestionsTabsContent
+            orgId={orgId}
             questions={getFilteredQuestions(filterType)}
             selectedQuestion={selectedQuestion}
             questionData={questionData}

@@ -3,7 +3,6 @@
 import React, { Suspense } from 'react';
 import { Toaster } from '@/components/ui/toaster';
 
-// Import the new components
 import { QuestionsProvider, useQuestions } from './questions-provider';
 import { QuestionsHeader } from './questions-header';
 import { NoRfpDocumentAvailable } from './no-rfp-document-available';
@@ -13,11 +12,11 @@ import { QuestionsErrorState, QuestionsLoadingState } from './questions-states';
 import { IndexSelector } from './index-selector';
 
 interface QuestionsSectionProps {
+  orgId: string;
   projectId: string;
 }
 
-// Inner component that uses the context
-function QuestionsSectionInner({ projectId }: QuestionsSectionProps) {
+function QuestionsSectionInner({ orgId, projectId }: QuestionsSectionProps) {
 
   const {
     isLoading,
@@ -84,7 +83,7 @@ function QuestionsSectionInner({ projectId }: QuestionsSectionProps) {
             />
 
             {/* Questions Filter Tabs */}
-            <QuestionsFilterTabs rfpDocument={questions}/>
+            <QuestionsFilterTabs rfpDocument={questions} orgId={orgId}/>
           </>
         )}
 
@@ -100,8 +99,7 @@ function QuestionsSectionInner({ projectId }: QuestionsSectionProps) {
   );
 }
 
-// Main export that wraps the inner component with Suspense and Provider
-export function QuestionsSection({ projectId }: QuestionsSectionProps) {
+export function QuestionsSection({ orgId, projectId }: QuestionsSectionProps) {
   return (
     <QuestionsProvider projectId={projectId}>
       <Suspense fallback={
@@ -118,7 +116,7 @@ export function QuestionsSection({ projectId }: QuestionsSectionProps) {
           <div className="h-[500px] bg-muted animate-pulse rounded"></div>
         </div>
       }>
-        <QuestionsSectionInner projectId={projectId}/>
+        <QuestionsSectionInner projectId={projectId} orgId={orgId}/>
       </Suspense>
     </QuestionsProvider>
   );

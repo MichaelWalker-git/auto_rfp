@@ -144,6 +144,12 @@ export default function OrganizationPage() {
     }
   };
 
+  const handleProjectUpdate = () => {
+    if (typeof refetchProjects === 'function') {
+      refetchProjects();
+    }
+  };
+
   return (
     <div className="container mx-auto p-12">
       <div className="flex justify-between items-center mb-6">
@@ -171,6 +177,7 @@ export default function OrganizationPage() {
               projects={projects}
               isLoading={false}
               onDeleteProject={openDeleteConfirm}
+              onUpdateProject={handleProjectUpdate}
             />
         ) : (
           <div className="border rounded-lg p-8 text-center">

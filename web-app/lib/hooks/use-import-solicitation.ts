@@ -3,15 +3,7 @@
 import useSWRMutation from 'swr/mutation';
 import { env } from '@/lib/env';
 import { authFetcher } from '@/lib/auth/auth-fetcher';
-
-export type ImportSolicitationRequest = {
-  orgId: string;
-  projectId: string;
-  noticeId: string;
-  postedFrom: string;
-  postedTo: string;
-  sourceDocumentId?: string;
-};
+import { ImportSolicitationRequest } from '@auto-rfp/shared';
 
 export type ImportSolicitationResponse = {
   ok: boolean;

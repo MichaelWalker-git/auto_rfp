@@ -13,59 +13,68 @@ export function RisksCard({ risks }: { risks: any }) {
       <CardHeader>
         <div className="flex items-center gap-2">
           <Shield className="h-5 w-5"/>
-          <CardTitle className="text-lg">Risks & Red Flags</CardTitle>
+          <CardTitle>Risk Analysis</CardTitle>
         </div>
       </CardHeader>
 
-      <CardContent className="space-y-3">
+      <CardContent className="space-y-5">
         {risks?.redFlags?.length ? (
-          risks.redFlags.map((r: any, idx: number) => (
-            <div key={idx} className="rounded-lg border p-4 hover:shadow-md transition-shadow">
-              <div className="flex gap-3 items-start">
-                <Badge
-                  variant={
-                    r.severity === 'CRITICAL' || r.severity === 'HIGH'
-                      ? 'destructive'
-                      : r.severity === 'MEDIUM'
-                        ? 'secondary'
-                        : 'outline'
-                  }
-                  className="shrink-0"
-                  title="Severity of this risk."
-                >
-                  {r.severity}
-                </Badge>
-
-                <div className="flex-1 space-y-2">
+          <div className="space-y-3">
+            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Identified Risks</p>
+            {risks.redFlags.map((r: any, idx: number) => (
+              <div key={idx} className="border-l-4 pl-4 py-2 space-y-2">
+                <div className="flex items-start gap-2">
+                  <Badge
+                    variant={
+                      r.severity === 'CRITICAL' || r.severity === 'HIGH'
+                        ? 'destructive'
+                        : r.severity === 'MEDIUM'
+                          ? 'secondary'
+                          : 'outline'
+                    }
+                    className="text-xs"
+                    title="Severity of this risk."
+                  >
+                    {r.severity}
+                  </Badge>
                   <p className="font-semibold text-sm">{r.flag}</p>
-                  {r.whyItMatters && <p className="text-sm text-muted-foreground leading-relaxed">{r.whyItMatters}</p>}
-                  {r.mitigation && (
-                    <div className="text-xs bg-muted p-2 rounded" title="Suggested mitigation / next step.">
-                      <span className="font-medium">Mitigation:</span> {r.mitigation}
-                    </div>
-                  )}
                 </div>
+                
+                {r.whyItMatters && (
+                  <p className="text-sm text-muted-foreground leading-relaxed ml-0">{r.whyItMatters}</p>
+                )}
+                
+                {r.mitigation && (
+                  <div className="border rounded p-2 bg-muted/30 text-xs">
+                    <span className="font-medium">Mitigation:</span> <span className="text-muted-foreground">{r.mitigation}</span>
+                  </div>
+                )}
               </div>
-            </div>
-          ))
+            ))}
+          </div>
         ) : (
-          <div className="text-muted-foreground py-4 text-center text-sm flex items-center justify-center gap-2">
-            <CheckCircle2 className="h-4 w-4 text-green-600"/>
-            No major red flags identified
+          <div className="border rounded-lg p-6 text-center">
+            <CheckCircle2 className="h-6 w-6 mx-auto mb-2"/>
+            <p className="text-sm text-muted-foreground">No major red flags identified</p>
           </div>
         )}
 
         {risks?.incumbentInfo && (
-          <div className="mt-4 p-3 bg-muted rounded-lg">
-            <div className="text-sm">
-              <span className="font-semibold">Incumbent:</span>{' '}
-              <span className="text-muted-foreground">
-                {risks.incumbentInfo.knownIncumbent ? risks.incumbentInfo.incumbentName || 'Known incumbent' : 'Not identified'}
-              </span>
+          <div className="border rounded-lg p-4">
+            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">Incumbent Information</p>
+            <div className="space-y-2 text-sm">
+              <div>
+                <span className="font-medium">Current Incumbent:</span>{' '}
+                <span className="text-muted-foreground">
+                  {risks.incumbentInfo.knownIncumbent ? risks.incumbentInfo.incumbentName || 'Known incumbent' : 'Not identified'}
+                </span>
+              </div>
               {risks.incumbentInfo.recompete && (
-                <Badge variant="outline" className="ml-2" title="This appears to be a recompete.">
-                  Recompete
-                </Badge>
+                <div>
+                  <Badge variant="outline" title="This appears to be a recompete.">
+                    Recompete Opportunity
+                  </Badge>
+                </div>
               )}
             </div>
           </div>

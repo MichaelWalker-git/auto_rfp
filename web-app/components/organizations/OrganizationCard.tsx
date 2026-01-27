@@ -3,40 +3,34 @@
 import React, { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Pencil, Trash2 } from 'lucide-react';
+import { Pencil, Trash2, Users, FolderOpen } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 import { BaseCard } from '@/components/ui/base-card';
 import { useOrganization } from '@/context/organization-context';
-import { useProjectContext } from '@/context/project-context';
-import type { Project } from '@/types/project';
+import type { Organization } from '@/app/organizations/page';
 import PermissionWrapper from '../permission-wrapper';
-import { EditProjectDialog } from '@/components/projects/EditProjectDialog';
+import { CreateEditOrganizationDialog } from '@/components/organizations/CreateEditOrganizationDialog';
 
-interface ProjectCardProps {
-  project: Project;
-  onDelete?: (project: Project) => void;
-  onUpdate?: (updatedProject: Project) => void;
+interface OrganizationCardProps {
+  organization: Organization;
+  onDelete?: (org: Organization) => void;
+  onUpdate?: (updatedOrganization: Organization) => void;
 }
 
-export function ProjectCard({ project, onDelete, onUpdate }: ProjectCardProps) {
+export function OrganizationCard({ organization, onDelete, onUpdate }: OrganizationCardProps) {
   const router = useRouter();
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const { setCurrentOrganization } = useOrganization();
 
-  const { currentOrganization } = useOrganization();
-  const { setCurrentProject } = useProjectContext();
-
-  const orgId = currentOrganization?.id;
-
-  const href = orgId ? `/organizations/${orgId}/projects/${project.id}` : '#';
+  const href = `/organizations/${organization.id}`;
 
   const handleOpen = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
 
-    if (!orgId) return;
-
-    setCurrentProject(project);
+    setCurrentOrganization(organization);
     router.push(href);
   };
 
@@ -48,27 +42,27 @@ export function ProjectCard({ project, onDelete, onUpdate }: ProjectCardProps) {
 
   return (
     <>
-      <Link href={href} className="block" onClick={handleOpen} aria-disabled={!orgId}>
+      <Link href={href} className="block" onClick={handleOpen}>
         <BaseCard
-          title={project.name}
-          subtitle={project.description}
+          title={organization.name}
+          subtitle={organization.description}
           isHoverable
           actions={
             <>
-              <PermissionWrapper requiredPermission={'project:edit'}>
+              <PermissionWrapper requiredPermission={'org:edit'}>
                 <Button
                   variant="ghost"
                   size="icon"
                   className="rounded-xl"
                   onClick={handleEditClick}
-                  aria-label="Edit project"
-                  title="Edit project"
+                  aria-label="Edit organization"
+                  title="Edit organization"
                 >
                   <Pencil className="h-3.5 w-3.5"/>
                 </Button>
               </PermissionWrapper>
 
-              <PermissionWrapper requiredPermission={'project:delete'}>
+              <PermissionWrapper requiredPermission={'org:delete'}>
                 <Button
                   variant="ghost"
                   size="icon"
@@ -76,10 +70,10 @@ export function ProjectCard({ project, onDelete, onUpdate }: ProjectCardProps) {
                   onClick={(e) => {
                     e.preventDefault();
                     e.stopPropagation();
-                    onDelete?.(project);
+                    onDelete?.(organization);
                   }}
-                  aria-label="Remove project"
-                  title="Remove project"
+                  aria-label="Remove organization"
+                  title="Remove organization"
                 >
                   <Trash2 className="h-3.5 w-3.5"/>
                 </Button>
@@ -87,21 +81,24 @@ export function ProjectCard({ project, onDelete, onUpdate }: ProjectCardProps) {
             </>
           }
           footer={
-            <p className="text-xs text-muted-foreground/70">
-              {project.createdAt ? new Date(project.createdAt).toLocaleDateString('en-US', {
-                month: 'short',
-                day: 'numeric'
-              }) : '—'}
-            </p>
+            <div className="flex flex-wrap gap-2">
+              <Badge variant="secondary" className="text-xs">
+                <Users className="mr-1 h-3 w-3" />
+                {organization._count.organizationUsers}
+              </Badge>
+              <Badge variant="secondary" className="text-xs">
+                <FolderOpen className="mr-1 h-3 w-3" />
+                {organization._count.projects}
+              </Badge>
+            </div>
           }
         />
       </Link>
 
-      <EditProjectDialog
+      <CreateEditOrganizationDialog
         isOpen={isEditDialogOpen}
         onOpenChange={setIsEditDialogOpen}
-        project={project}
-        organizationId={orgId || ''}
+        organization={organization}
         onSuccess={onUpdate}
       />
     </>
