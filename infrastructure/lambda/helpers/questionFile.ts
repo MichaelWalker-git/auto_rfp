@@ -19,15 +19,19 @@ export async function updateQuestionFile(
   const { status, textFileKey, jobId, taskToken, totalQuestions } = questionFile;
   const sk = buildQuestionFileSK(projectId, oppId, questionFileId);
 
-  const fields: string[] = ['#status = :status', '#updatedAt = :now'];
+  const fields: string[] = ['#updatedAt = :now'];
   const names: Record<string, string> = {
-    '#status': 'status',
     '#updatedAt': 'updatedAt'
   };
   const values: Record<string, any> = {
-    ':status': status,
     ':now': nowIso()
   };
+
+  if (status !== undefined) {
+    fields.push('#status = :status');
+    names['#status'] = 'status';
+    values[':status'] = status;
+  }
 
   if (textFileKey) {
     fields.push('#textFileKey = :key');
@@ -47,8 +51,7 @@ export async function updateQuestionFile(
     values[':taskToken'] = taskToken;
   }
 
-
-  if (totalQuestions) {
+  if (totalQuestions !== undefined) {
     fields.push('#totalQuestions = :totalQuestions');
     names['#totalQuestions'] = 'totalQuestions';
     values[':totalQuestions'] = totalQuestions;
