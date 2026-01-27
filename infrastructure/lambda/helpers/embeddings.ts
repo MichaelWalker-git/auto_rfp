@@ -42,8 +42,8 @@ export async function getEmbedding(text: string): Promise<number[]> {
   return vector;
 }
 
-export async function semanticSearchChunks(embedding: number[], k: number): Promise<PineconeHit[]> {
-  return pineconeSearch(embedding, k);
+export async function semanticSearchChunks(orgId: string, embedding: number[], k: number): Promise<PineconeHit[]> {
+  return pineconeSearch(orgId, embedding, k);
 }
 
 

@@ -30,22 +30,11 @@ export const baseHandler = async (
   event: APIGatewayProxyEventV2,
 ): Promise<APIGatewayProxyResultV2> => {
   try {
-    if (!event.body) {
-      return apiResponse(400, { message: 'Request body is missing' });
-    }
+    const json = JSON.parse(event.body || '');
 
-    // Parse JSON
-    let json: any;
-    try {
-      json = JSON.parse(event.body);
-    } catch {
-      return apiResponse(400, { message: 'Invalid JSON format' });
-    }
-
-    // Validate with Zod
-    const parsed = DeleteDocumentDTOSchema.safeParse(json);
-    if (!parsed.success) {
-      const errors = parsed.error.issues.map((i) => ({
+    const { success, data, error } = DeleteDocumentDTOSchema.safeParse(json);
+    if (!success) {
+      const errors = error.issues.map((i) => ({
         path: i.path.join('.'),
         message: i.message,
       }));
@@ -55,7 +44,7 @@ export const baseHandler = async (
       });
     }
 
-    const dto: DeleteDocumentDTO = parsed.data;
+    const dto: DeleteDocumentDTO = data;
 
     await deleteDocument(dto);
 
@@ -151,7 +140,7 @@ async function deleteDocument(dto: DeleteDocumentDTO): Promise<void> {
 
   // 2) Delete from Pinecone by documentId
   try {
-    await deleteFromPinecone(dto.id);
+    await deleteFromPinecone(dto.orgId, dto.id);
   } catch (err) {
     console.error(
       `Failed to delete documentId=${dto.id} from Pinecone:`,

@@ -276,6 +276,7 @@ export class DocumentPipelineStack extends Stack {
     const startProcessingTask = new tasks.LambdaInvoke(this, 'Start Processing', {
       lambdaFunction: startProcessingLambda,
       payload: sfn.TaskInput.fromObject({
+        orgId: sfn.JsonPath.stringAt('$.orgId'),
         documentId: sfn.JsonPath.stringAt('$.documentId'),
         knowledgeBaseId: sfn.JsonPath.stringAt('$.knowledgeBaseId'),
       }),
@@ -287,6 +288,7 @@ export class DocumentPipelineStack extends Stack {
         'knowledgeBaseId.$': '$.Payload.knowledgeBaseId',
         'status.$': '$.Payload.status',
         'documentId.$': '$.Payload.documentId',
+        'orgId.$': '$.Payload.orgId',
       },
       resultPath: '$.Start',
     });
@@ -296,6 +298,7 @@ export class DocumentPipelineStack extends Stack {
       integrationPattern: sfn.IntegrationPattern.WAIT_FOR_TASK_TOKEN,
       payload: sfn.TaskInput.fromObject({
         taskToken: sfn.JsonPath.taskToken,
+        orgId: sfn.JsonPath.stringAt('$.orgId'),
         documentId: sfn.JsonPath.stringAt('$.documentId'),
         knowledgeBaseId: sfn.JsonPath.stringAt('$.knowledgeBaseId'),
       }),
@@ -305,11 +308,13 @@ export class DocumentPipelineStack extends Stack {
     const docxProcessingTask = new tasks.LambdaInvoke(this, 'DOCX Processing (To Text)', {
       lambdaFunction: docxProcessingLambda,
       payload: sfn.TaskInput.fromObject({
+        orgId: sfn.JsonPath.stringAt('$.orgId'),
         documentId: sfn.JsonPath.stringAt('$.documentId'),
         fileKey: sfn.JsonPath.stringAt('$.Start.fileKey'),
         bucket: documentsBucket.bucketName,
       }),
       resultSelector: {
+        'orgId.$': '$.Payload.orgId',
         'documentId.$': '$.Payload.documentId',
         'status.$': '$.Payload.status',
         'bucket.$': '$.Payload.bucket',
@@ -322,12 +327,14 @@ export class DocumentPipelineStack extends Stack {
     const chunkPdfTask = new tasks.LambdaInvoke(this, 'Chunk Document (PDF)', {
       lambdaFunction: chunkDocumentLambda,
       payload: sfn.TaskInput.fromObject({
+        orgId: sfn.JsonPath.stringAt('$.orgId'),
         documentId: sfn.JsonPath.stringAt('$.documentId'),
         knowledgeBaseId: sfn.JsonPath.stringAt('$.knowledgeBaseId'),
         bucket: sfn.JsonPath.stringAt('$.Pdf.bucket'),
         txtKey: sfn.JsonPath.stringAt('$.Pdf.txtKey'),
       }),
       resultSelector: {
+        'orgId.$': '$.Payload.orgId',
         'documentId.$': '$.Payload.documentId',
         'bucket.$': '$.Payload.bucket',
         'txtKey.$': '$.Payload.txtKey',
@@ -341,12 +348,14 @@ export class DocumentPipelineStack extends Stack {
     const chunkDocxTask = new tasks.LambdaInvoke(this, 'Chunk Document (DOCX)', {
       lambdaFunction: chunkDocumentLambda,
       payload: sfn.TaskInput.fromObject({
+        orgId: sfn.JsonPath.stringAt('$.orgId'),
         documentId: sfn.JsonPath.stringAt('$.documentId'),
         knowledgeBaseId: sfn.JsonPath.stringAt('$.knowledgeBaseId'),
         bucket: sfn.JsonPath.stringAt('$.Text.bucket'),
         txtKey: sfn.JsonPath.stringAt('$.Text.txtKey'),
       }),
       resultSelector: {
+        'orgId.$': '$.Payload.orgId',
         'documentId.$': '$.Payload.documentId',
         'bucket.$': '$.Payload.bucket',
         'txtKey.$': '$.Payload.txtKey',
@@ -363,6 +372,7 @@ export class DocumentPipelineStack extends Stack {
       resultPath: sfn.JsonPath.DISCARD,
       itemSelector: {
         'chunkItem.$': '$$.Map.Item.Value',
+        'orgId.$': '$.orgId',
         'documentId.$': '$.documentId',
         'totalChunks.$': '$.Chunks.chunksCount'
       },
@@ -372,6 +382,7 @@ export class DocumentPipelineStack extends Stack {
       new tasks.LambdaInvoke(this, 'Index One Chunk (PDF)', {
         lambdaFunction: indexDocumentLambda,
         payload: sfn.TaskInput.fromObject({
+          orgId: sfn.JsonPath.stringAt('$.orgId'),
           documentId: sfn.JsonPath.stringAt('$.documentId'),
           chunkKey: sfn.JsonPath.stringAt('$.chunkItem.chunkKey'),
           index: sfn.JsonPath.numberAt('$.chunkItem.index'),
@@ -387,6 +398,7 @@ export class DocumentPipelineStack extends Stack {
       resultPath: sfn.JsonPath.DISCARD,
       itemSelector: {
         'chunkItem.$': '$$.Map.Item.Value',
+        'orgId.$': '$.orgId',
         'documentId.$': '$.documentId',
         'totalChunks.$': '$.Chunks.chunksCount'
       },
@@ -396,6 +408,7 @@ export class DocumentPipelineStack extends Stack {
       new tasks.LambdaInvoke(this, 'Index One Chunk (DOCX)', {
         lambdaFunction: indexDocumentLambda,
         payload: sfn.TaskInput.fromObject({
+          orgId: sfn.JsonPath.stringAt('$.orgId'),
           documentId: sfn.JsonPath.stringAt('$.documentId'),
           chunkKey: sfn.JsonPath.stringAt('$.chunkItem.chunkKey'),
           index: sfn.JsonPath.numberAt('$.chunkItem.index'),

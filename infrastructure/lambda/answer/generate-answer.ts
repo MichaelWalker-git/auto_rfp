@@ -161,18 +161,11 @@ export const baseHandler = async (
 ): Promise<APIGatewayProxyResultV2> => {
   console.log('answer-question event:', JSON.stringify(event));
 
-  if (!event.body) return apiResponse(400, { message: 'Request body is required' });
-
-  let body: AnswerQuestionRequestBody;
-  try {
-    body = JSON.parse(event.body);
-  } catch {
-    return apiResponse(400, { message: 'Invalid JSON body' });
-  }
+  const body: AnswerQuestionRequestBody = JSON.parse(event.body || '');
 
   const topK = body.topK && body.topK > 0 ? body.topK : 30;
 
-  const { questionId, projectId, question: requestQuestion } = body;
+  const { questionId, projectId, question: requestQuestion, orgId } = body;
 
   try {
 
@@ -181,14 +174,12 @@ export const baseHandler = async (
       : requestQuestion?.trim();
 
     if (!question) {
-      return apiResponse(400, {
-        message: 'Either questionId (preferred) or question text must be provided',
-      });
+      return apiResponse(400, { message: 'Either questionId (preferred) or question text must be provided', });
     }
 
     const questionEmbedding = await getEmbedding(question || '',);
 
-    const hits = await semanticSearchChunks(questionEmbedding, topK);
+    const hits = await semanticSearchChunks(orgId, questionEmbedding, topK);
     console.log('Hits:', JSON.stringify(hits));
 
     if (!hits.length) {

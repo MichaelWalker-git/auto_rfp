@@ -21,6 +21,7 @@ const CHUNK_MIN_CHARS = Number(process.env.CHUNK_MIN_CHARS ?? 10);
 const s3 = new S3Client({ region: REGION });
 
 interface ChunkingEvent {
+  orgId: string;
   documentId?: string;
   knowledgeBaseId?: string;
   bucket?: string;
@@ -95,6 +96,7 @@ export const baseHandler = async (
   event: ChunkingEvent,
   _ctx: Context,
 ): Promise<{
+  orgId: string;
   documentId: string;
   bucket: string;
   txtKey: string;
@@ -104,8 +106,7 @@ export const baseHandler = async (
 }> => {
   console.log('chunking event:', JSON.stringify(event));
 
-  const documentId = event.documentId;
-  const txtKey = event.txtKey;
+  const { documentId, txtKey, orgId } = event;
   const bucket = event.bucket || DOCUMENTS_BUCKET;
 
   if (!documentId) throw new Error('documentId is required');
@@ -183,6 +184,7 @@ export const baseHandler = async (
   }
 
   return {
+    orgId,
     documentId,
     bucket,
     txtKey,

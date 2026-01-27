@@ -14,9 +14,11 @@ type FileFormat = 'PDF' | 'DOCX' | 'UNKNOWN';
 
 interface StartProcessingEvent {
   documentId?: string;
+  orgId: string;
 }
 
 interface StartProcessingResult {
+  orgId: string;
   documentId: string;
   knowledgeBaseId?: string;
 
@@ -59,7 +61,7 @@ const baseHandler = async (
 ): Promise<StartProcessingResult> => {
   console.log('start-processing event:', JSON.stringify(event));
 
-  const { documentId } = event;
+  const { documentId, orgId } = event;
 
   if (!documentId) {
     throw new Error('documentId is required');
@@ -144,6 +146,7 @@ const baseHandler = async (
 
   const result: StartProcessingResult = {
     documentId,
+    orgId,
     knowledgeBaseId,
     fileKey,
     contentType,

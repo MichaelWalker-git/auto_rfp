@@ -39,6 +39,7 @@ export const SaveAnswerDTOSchema = z.object({
 export type SaveAnswerDTO = z.infer<typeof SaveAnswerDTOSchema>;
 
 export const AnswerQuestionRequestBodySchema = z.object({
+  orgId: z.string().optional(),
   projectId: z.string().min(1),
   questionId: z.string().min(1).optional(),
   question: z.string().min(1).optional(),

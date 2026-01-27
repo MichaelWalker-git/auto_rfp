@@ -1,7 +1,7 @@
 import type { APIGatewayProxyEventV2, APIGatewayProxyResultV2 } from 'aws-lambda';
 import middy from '@middy/core';
 
-import { apiResponse } from '../helpers/api';
+import { apiResponse, getOrgId } from '../helpers/api';
 import { withSentryLambda } from '../sentry-lambda';
 import { requireEnv } from '../helpers/env';
 import { authContextMiddleware, httpErrorMiddleware, orgMembershipMiddleware, } from '../middleware/rbac-middleware';
@@ -59,20 +59,12 @@ function uniqueByChunkKey(hits: PineconeHit[]): PineconeHit[] {
   return out;
 }
 
-// ---------------- handler ----------------
-export const baseHandler = async (
-  event: APIGatewayProxyEventV2,
-): Promise<APIGatewayProxyResultV2> => {
+export const baseHandler = async (event: APIGatewayProxyEventV2): Promise<APIGatewayProxyResultV2> => {
   try {
+    const orgId = getOrgId(event);
+    if (!orgId) return apiResponse(400, { message: 'Org Id is required' });
     if (!event.body) return apiResponse(400, { message: 'Request body is required' });
-
-    let body: GetTopChunksRequest;
-    try {
-      body = JSON.parse(event.body);
-    } catch {
-      return apiResponse(400, { message: 'Invalid JSON body' });
-    }
-
+    const body: GetTopChunksRequest = JSON.parse(event.body);
     const question = body.question?.trim();
     if (!question) return apiResponse(400, { message: 'question is required' });
 
@@ -82,7 +74,7 @@ export const baseHandler = async (
     const embedding = await getEmbedding(question);
 
     // 2) semantic search topK hits (chunkKey + _score)
-    const hits = await semanticSearchChunks(embedding, topK);
+    const hits = await semanticSearchChunks(orgId, embedding, topK);
 
     if (!hits.length) {
       const empty: GetTopChunksResponse = { question, topK, results: [] };

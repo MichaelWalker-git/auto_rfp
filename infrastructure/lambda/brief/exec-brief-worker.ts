@@ -86,7 +86,7 @@ async function runSummary(job: Job): Promise<void> {
 
     const kbMatches = COST_SAVING
       ? []
-      : await queryCompanyKnowledgeBase(solicitationText, topK ?? KB_TOPK_DEFAULT);
+      : await queryCompanyKnowledgeBase(orgId, solicitationText, topK ?? KB_TOPK_DEFAULT);
 
     const kbParts = await Promise.all(
       (kbMatches ?? [])
@@ -223,7 +223,7 @@ async function runRequirements(job: Job): Promise<void> {
 
     const kbMatches = COST_SAVING
       ? []
-      : await queryCompanyKnowledgeBase(solicitationText, topK ?? KB_TOPK_DEFAULT);
+      : await queryCompanyKnowledgeBase(orgId, solicitationText, topK ?? KB_TOPK_DEFAULT);
 
     const kbParts = await Promise.all(
       (kbMatches ?? [])
@@ -431,7 +431,7 @@ async function runScoring(job: Job): Promise<void> {
 
     const kbMatches = COST_SAVING
       ? []
-      : await queryCompanyKnowledgeBase(solicitationText, topK ?? KB_TOPK_DEFAULT);
+      : await queryCompanyKnowledgeBase(orgId, solicitationText, topK ?? KB_TOPK_DEFAULT);
 
     const kbParts = await Promise.all(
       (kbMatches ?? [])

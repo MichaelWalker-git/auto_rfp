@@ -16,7 +16,6 @@ import type { ExecutiveBriefItem } from '@auto-rfp/shared';
 const sqs = new SQSClient({});
 const EXEC_BRIEF_QUEUE_URL = requireEnv('EXEC_BRIEF_QUEUE_URL');
 
-
 export type BriefSection =
   | 'summary'
   | 'deadlines'

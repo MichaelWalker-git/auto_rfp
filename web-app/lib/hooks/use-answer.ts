@@ -2,7 +2,7 @@
 
 import useSWRMutation from 'swr/mutation';
 import { env } from '@/lib/env';
-import { AnswerItem, AnswerSource, SaveAnswerDTO } from '@auto-rfp/shared';
+import { AnswerItem, AnswerQuestionRequestBody, AnswerSource, SaveAnswerDTO } from '@auto-rfp/shared';
 import { authFetcher } from '@/lib/auth/auth-fetcher';
 
 const BASE = `${env.BASE_API_URL}/answer`;
@@ -33,23 +33,18 @@ export function useSaveAnswer(projectId: string) {
   );
 }
 
-type GenerateAnswerArgs = {
-  projectId: string;
-  questionId: string;
-  topK?: number;
-};
-
 type GenerateAnswerResponse = { answer: string, confidence: number, found: boolean, sources?: AnswerSource }
 
 export function useGenerateAnswer() {
-  return useSWRMutation<GenerateAnswerResponse, any, string, GenerateAnswerArgs>(
+  return useSWRMutation<GenerateAnswerResponse, any, string, AnswerQuestionRequestBody>(
     `${BASE}/generate-answer`,
     async (url, { arg }) => {
-      const { projectId, questionId, topK } = arg;
+      const { orgId, projectId, questionId, topK } = arg;
 
       const res = await authFetcher(url, {
         method: 'POST',
         body: JSON.stringify({
+          orgId,
           projectId,
           questionId,
           topK: topK ?? 15,

@@ -75,6 +75,7 @@ export type UpdateDocumentDTO = z.infer<typeof UpdateDocumentDTOSchema>;
 export const DeleteDocumentDTOSchema = z.object({
   id: z.string(),
   knowledgeBaseId: z.string(),
+  orgId: z.string(),
 });
 
 export type DeleteDocumentDTO = z.infer<typeof DeleteDocumentDTOSchema>;

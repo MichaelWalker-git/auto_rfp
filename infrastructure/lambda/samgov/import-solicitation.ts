@@ -2,7 +2,7 @@ import type { APIGatewayProxyEventV2, APIGatewayProxyResultV2 } from 'aws-lambda
 import middy from '@middy/core';
 import https from 'https';
 
-import { apiResponse, getOrgId } from '../helpers/api';
+import { apiResponse } from '../helpers/api';
 import { requireEnv } from '../helpers/env';
 
 import { withSentryLambda } from '../sentry-lambda';
@@ -27,7 +27,7 @@ import {
 import { uploadToS3 } from '../helpers/s3';
 
 import { createOpportunity } from '../helpers/opportunity';
-import type { OpportunityItem } from '@auto-rfp/shared';
+import { ImportSolicitationRequest, OpportunityItem } from '@auto-rfp/shared';
 import { createQuestionFile } from '../helpers/questionFile';
 import { startPipeline } from '../helpers/solicitation';
 import { safeTrim } from '../helpers/safe-string';
@@ -85,37 +85,19 @@ const ensureExtension = (filename: string, contentType?: string | null) => {
   return ext ? `${safe}.${ext}` : safe;
 };
 
-/* -------------------------------------------------------------------------- */
-
-type ImportSolicitationBody = {
-  projectId: string;
-  noticeId: string;
-  postedFrom: string;
-  postedTo: string;
-  sourceDocumentId?: string;
-};
-
 export const baseHandler = async (
   event: APIGatewayProxyEventV2,
 ): Promise<APIGatewayProxyResultV2> => {
   if (!event.body) return apiResponse(400, { ok: false, error: 'Request body is required' });
 
-  const orgId = getOrgId(event);
-  if (!orgId) return apiResponse(401, { ok: false, error: 'Unauthorized' });
+  const body: ImportSolicitationRequest = JSON.parse(event.body);
 
-  let body: ImportSolicitationBody;
-  try {
-    body = JSON.parse(event.body);
-  } catch {
-    return apiResponse(400, { ok: false, error: 'Invalid JSON body' });
-  }
+  const { projectId, noticeId, postedFrom, postedTo, orgId } = body;
 
-  const { projectId, noticeId, postedFrom, postedTo } = body;
-
-  if (!projectId || !noticeId || !postedFrom || !postedTo) {
+  if (!projectId || !noticeId || !postedFrom || !postedTo || !orgId) {
     return apiResponse(400, {
       ok: false,
-      error: 'projectId, noticeId, postedFrom, postedTo are required',
+      error: 'orgId, projectId, noticeId, postedFrom, postedTo are required',
     });
   }
 

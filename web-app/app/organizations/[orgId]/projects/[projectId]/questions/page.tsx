@@ -1,8 +1,8 @@
-import React, { Suspense } from "react";
-import { Spinner } from "@/components/ui/spinner";
-import { Toaster } from "@/components/ui/toaster";
+import React, { Suspense } from 'react';
+import { Spinner } from '@/components/ui/spinner';
+import { Toaster } from '@/components/ui/toaster';
 
-import { QuestionsSection } from "./components";
+import { QuestionsSection } from './components';
 
 function QuestionsLoadingFallback() {
   return (
@@ -14,23 +14,25 @@ function QuestionsLoadingFallback() {
       </header>
       <main className="flex-1 bg-slate-50 flex items-center justify-center">
         <div className="text-center">
-          <Spinner size="lg" className="mb-4" />
+          <Spinner size="lg" className="mb-4"/>
           <p className="text-lg">Loading...</p>
         </div>
-      </main> 
+      </main>
     </div>
   );
 }
 
-export default async function QuestionsPage( { params }: { params: Promise<{ projectId: string }> } ) {
-  const { projectId } = await params;
+type Props = { params: Promise<{ projectId: string, orgId: string }> }
+
+export default async function QuestionsPage({ params }: Props) {
+  const { projectId, orgId } = await params;
 
   return (
-    
-      <Suspense fallback={<QuestionsLoadingFallback />}>
-        <QuestionsSection projectId={projectId} />
-        <Toaster />
-      </Suspense>
-    
+
+    <Suspense fallback={<QuestionsLoadingFallback/>}>
+      <QuestionsSection orgId={orgId} projectId={projectId}/>
+      <Toaster/>
+    </Suspense>
+
   );
 }

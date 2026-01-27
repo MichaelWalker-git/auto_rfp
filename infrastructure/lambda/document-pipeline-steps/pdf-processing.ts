@@ -8,6 +8,7 @@ import { DocumentItem } from '../schemas/document';
 import { withSentryLambda } from '../sentry-lambda';
 import { requireEnv } from '../helpers/env';
 import { docClient } from '../helpers/db';
+import { nowIso } from '../helpers/date';
 
 const REGION = requireEnv('REGION', 'us-east-1');
 const DB_TABLE_NAME = requireEnv('DB_TABLE_NAME');
@@ -18,12 +19,14 @@ const TEXTRACT_ROLE_ARN = requireEnv('TEXTRACT_ROLE_ARN');
 const textractClient = new TextractClient({ region: REGION });
 
 interface PdfProcessingEvent {
+  orgId: string;
   documentId?: string;
   knowledgeBaseId?: string; // optional; we can derive from SK
   taskToken?: string;
 }
 
 interface PdfProcessingResult {
+  orgId: string;
   documentId: string;
   knowledgeBaseId?: string;
   jobId: string;
@@ -45,8 +48,9 @@ export const baseHandler = async (
 ): Promise<PdfProcessingResult> => {
   console.log('pdf-processing event:', JSON.stringify(event));
 
-  const documentId = event.documentId;
-  if (!documentId) throw new Error('documentId is required');
+  const { documentId, orgId, knowledgeBaseId: eventKnowledgeBase } = event;
+  if (!documentId || !orgId)
+    throw new Error('documentId is required');
 
   const taskToken = requireTaskToken(event.taskToken);
 
@@ -85,11 +89,9 @@ export const baseHandler = async (
   if (!fileKey) throw new Error(`Document ${documentId} has no fileKey`);
 
   // derive KB id from SK = "KB#<kbId>#DOC#<docId>" if possible
-  let knowledgeBaseId: string | undefined = event.knowledgeBaseId;
-  if (!knowledgeBaseId) {
-    const skParts = String(sk).split('#'); // ["KB", "<kbId>", "DOC", "<docId>"]
-    if (skParts.length >= 4) knowledgeBaseId = skParts[1];
-  }
+  const knowledgeBaseId = eventKnowledgeBase
+    ? eventKnowledgeBase
+    : String(sk).split('#')[1]
 
   // 2) Start Textract async for the PDF in S3
   const startCmd = new StartDocumentTextDetectionCommand({
@@ -113,9 +115,6 @@ export const baseHandler = async (
     throw new Error('Textract did not return JobId');
   }
 
-  // 3) Store taskToken + jobId + status in Dynamo so callback can complete SFN task
-  const now = new Date().toISOString();
-
   await docClient.send(
     new UpdateCommand({
       TableName: DB_TABLE_NAME,
@@ -135,12 +134,13 @@ export const baseHandler = async (
         ':jobId': jobId,
         ':taskToken': taskToken,
         ':status': 'TEXTRACT_STARTED',
-        ':updatedAt': now,
+        ':updatedAt': nowIso(),
       },
     }),
   );
 
   const result: PdfProcessingResult = {
+    orgId,
     documentId,
     knowledgeBaseId,
     jobId,

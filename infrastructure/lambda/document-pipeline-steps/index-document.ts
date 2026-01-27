@@ -19,6 +19,7 @@ const DOCUMENTS_BUCKET = requireEnv('DOCUMENTS_BUCKET');
 const s3Client = new S3Client({ region: REGION });
 
 interface IndexChunkEvent {
+  orgId: string;
   documentId?: string;
   bucket?: string;
   chunkKey?: string;
@@ -42,8 +43,9 @@ export const baseHandler = async (
 ): Promise<IndexChunkResult> => {
   console.log('IndexChunk event:', JSON.stringify(event));
 
-  const { documentId, chunkKey } = event;
-  if (!documentId || !chunkKey) throw new Error('documentId and chunkKey are required');
+  const { orgId, documentId, chunkKey } = event;
+
+  if (!orgId || !documentId || !chunkKey) throw new Error('orgId, documentId and chunkKey are required');
 
   const bucket = event.bucket || DOCUMENTS_BUCKET;
 
@@ -56,6 +58,7 @@ export const baseHandler = async (
   const externalId = makeStableId(documentId, chunkKey);
 
   const pineconeId = await indexDocToPinecone(
+    orgId,
     documentId,
     chunkKey,
     bucket,

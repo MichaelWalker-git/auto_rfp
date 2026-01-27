@@ -60,7 +60,7 @@ interface QuestionsContextType {
 
   // Action handlers
   handleAnswerChange: (questionId: string, value: string) => void;
-  handleGenerateAnswer: (questionId: string) => Promise<void>;
+  handleGenerateAnswer: (orgId: string, questionId: string) => Promise<void>;
   handleSaveAnswer: (questionId: string) => Promise<void>;
   saveAllAnswers: () => Promise<void>;
   handleExportAnswers: () => void;
@@ -189,7 +189,7 @@ export function QuestionsProvider({ children, projectId }: QuestionsProviderProp
   };
 
   // Generate answer
-  const handleGenerateAnswer = async (questionId: string) => {
+  const handleGenerateAnswer = async (orgId: string, questionId: string) => {
     const question = questions?.sections?.flatMap((s: any) => s.questions)?.find((q: any) => q.id === questionId);
 
     if (!question) {
@@ -201,6 +201,7 @@ export function QuestionsProvider({ children, projectId }: QuestionsProviderProp
 
     try {
       const { answer, confidence, found, sources } = await generateAnswer({
+        orgId,
         projectId,
         questionId,
         topK: 20,

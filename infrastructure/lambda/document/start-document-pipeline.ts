@@ -1,7 +1,7 @@
 import { APIGatewayProxyEventV2, APIGatewayProxyResultV2, } from 'aws-lambda';
 import { SFNClient, StartExecutionCommand } from '@aws-sdk/client-sfn';
 import { withSentryLambda } from '../sentry-lambda';
-import { apiResponse } from '../helpers/api';
+import { apiResponse, getOrgId } from '../helpers/api';
 import {
   authContextMiddleware,
   httpErrorMiddleware,
@@ -17,6 +17,7 @@ const STATE_MACHINE_ARN = requireEnv('STATE_MACHINE_ARN');
 interface StartPipelineRequestBody {
   knowledgeBaseId: string;
   documentId?: string;
+  orgId?: string;
 }
 
 export const baseHandler = async (
@@ -24,23 +25,19 @@ export const baseHandler = async (
 ): Promise<APIGatewayProxyResultV2> => {
   console.log('start-document-pipeline event:', JSON.stringify(event));
 
-  if (!event.body) {
-    return apiResponse(400, { message: 'Request body is required' });
-  }
+  const body: StartPipelineRequestBody = JSON.parse(event.body || '');
 
-  let body: StartPipelineRequestBody;
-  try {
-    body = JSON.parse(event.body);
-  } catch {
-    return apiResponse(400, { message: 'Invalid JSON body' });
-  }
-
-  const { documentId, knowledgeBaseId } = body;
+  const { documentId, knowledgeBaseId, orgId: bodyOrgId } = body;
   if (!documentId || !knowledgeBaseId) {
     return apiResponse(400, { message: 'documentId and knowledgeBaseId are required' });
   }
 
+  const orgId = bodyOrgId ? bodyOrgId : getOrgId(event);
+
+  if (!orgId) return apiResponse(400, { message: 'orgId is required' });
+
   const input = {
+    orgId,
     documentId,
     knowledgeBaseId
   };

@@ -300,6 +300,7 @@ export default function KnowledgeBaseItemComponent() {
         updateQueueItem(item.id, { documentId: docResp.id, progress: 75 });
 
         await startPipeline({
+          orgId,
           documentId: docResp.id,
           knowledgeBaseId: kbId,
         });
@@ -371,10 +372,6 @@ export default function KnowledgeBaseItemComponent() {
     setIsBatchUploading(false);
   }, []);
 
-  // ============================================================================
-  // DELETE HANDLERS
-  // ============================================================================
-
   const handleDeleteClick = useCallback((doc: KbDocument) => {
     setDocToDelete(doc);
     setShowDeleteConfirm(true);
@@ -384,7 +381,7 @@ export default function KnowledgeBaseItemComponent() {
     if (!docToDelete) return;
 
     try {
-      await deleteDocument({ knowledgeBaseId: kbId, id: docToDelete.id });
+      await deleteDocument({ knowledgeBaseId: kbId, id: docToDelete.id, orgId });
     } finally {
       setDocToDelete(null);
       setShowDeleteConfirm(false);

@@ -179,35 +179,33 @@ export async function markSectionInProgress(args: {
   const { executiveBriefId, section, inputHash } = args;
   const now = nowIso();
 
-  // Initialize the section structure if it doesn't exist - fixes AUTO-RFP-5R
-  const updateExprParts = [
-    'SET #sections = if_not_exists(#sections, :emptySections)',
-    '#sections.#sec = if_not_exists(#sections.#sec, :emptySection)',
-    '#sections.#sec.#status = :status',
-    '#sections.#sec.#updatedAt = :now',
-    'updatedAt = :now',
-  ];
   const names: Record<string, string> = {
+    '#pk': PK_NAME,
     '#sections': 'sections',
     '#sec': section,
     '#status': 'status',
     '#updatedAt': 'updatedAt',
-  };
-  const values: Record<string, any> = {
-    ':status': 'IN_PROGRESS',
-    ':now': now,
-    ':emptySections': {},
-    ':emptySection': { status: 'IDLE', updatedAt: now },
+    '#rootUpdatedAt': 'updatedAt',
   };
 
+  const values: Record<string, any> = {
+    ':emptySections': {},
+    ':inProgress': 'IN_PROGRESS',
+    ':now': now,
+  };
+
+  const updateParts: string[] = [
+    'SET #sections = if_not_exists(#sections, :emptySections)',
+    '#sections.#sec.#status = :inProgress',
+    '#sections.#sec.#updatedAt = :now',
+    '#rootUpdatedAt = :now',
+  ];
+
   if (inputHash) {
-    updateExprParts.push('#sections.#sec.#inputHash = :h');
+    updateParts.push('#sections.#sec.#inputHash = :h');
     names['#inputHash'] = 'inputHash';
     values[':h'] = inputHash;
   }
-
-  // Add PK name for condition expression
-  names['#pk'] = PK_NAME;
 
   try {
     await docClient.send(
@@ -215,9 +213,9 @@ export async function markSectionInProgress(args: {
         TableName: DB_TABLE_NAME,
         Key: {
           [PK_NAME]: EXEC_BRIEF_PK,
-          [SK_NAME]: executiveBriefId
+          [SK_NAME]: executiveBriefId,
         },
-        UpdateExpression: updateExprParts.join(', '),
+        UpdateExpression: updateParts.join(', '),
         ExpressionAttributeNames: names,
         ExpressionAttributeValues: values,
         ConditionExpression: 'attribute_exists(#pk)',
@@ -357,9 +355,9 @@ export function computeOverallStatus(
   return 'IDLE';
 }
 
-export async function queryCompanyKnowledgeBase(solicitationText: string, topK: number): Promise<PineconeHit[]> {
+export async function queryCompanyKnowledgeBase(orgId: string, solicitationText: string, topK: number): Promise<PineconeHit[]> {
   const embeddings = await getEmbedding(solicitationText);
-  return await semanticSearchChunks(embeddings, topK);
+  return await semanticSearchChunks(orgId, embeddings, topK);
 }
 
 // -------------------------

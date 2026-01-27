@@ -9,18 +9,19 @@ import { PK_NAME, SK_NAME } from '../constants/common';
 import { DOCUMENT_PK } from '../constants/document';
 import { requireEnv } from '../helpers/env';
 import { docClient } from '../helpers/db';
+import { nowIso } from '../helpers/date';
 
-const REGION = requireEnv('REGION')
-const DB_TABLE_NAME = requireEnv('DB_TABLE_NAME')
-const DOCUMENTS_BUCKET = requireEnv('DOCUMENTS_BUCKET')
+const REGION = requireEnv('REGION');
+const DB_TABLE_NAME = requireEnv('DB_TABLE_NAME');
+const DOCUMENTS_BUCKET = requireEnv('DOCUMENTS_BUCKET');
 
 const s3 = new S3Client({ region: REGION });
 
 interface DocxProcessingEvent {
+  orgId: string;
   documentId?: string;
-  // from start-processing.ts output
   fileKey?: string;
-  bucket?: string; // optional override
+  bucket?: string;
 }
 
 function streamToBuffer(stream: any): Promise<Buffer> {
@@ -64,6 +65,7 @@ export const baseHandler = async (
   event: DocxProcessingEvent,
   _ctx: Context,
 ): Promise<{
+  orgId: string;
   documentId: string;
   status: 'TEXT_EXTRACTED';
   bucket: string;
@@ -72,7 +74,7 @@ export const baseHandler = async (
 }> => {
   console.log('docx-processing event:', JSON.stringify(event));
 
-  const documentId = event.documentId;
+  const { orgId, documentId } = event;
   if (!documentId) throw new Error('documentId is required');
 
   const bucket = event.bucket || DOCUMENTS_BUCKET;
@@ -118,7 +120,6 @@ export const baseHandler = async (
   // 4) Update Dynamo status + textFileKey
   try {
     const { pk, sk } = await findDocumentKeys(documentId);
-    const now = new Date().toISOString();
 
     await docClient.send(
       new UpdateCommand({
@@ -133,7 +134,7 @@ export const baseHandler = async (
         ExpressionAttributeValues: {
           ':s': 'TEXT_EXTRACTED',
           ':t': txtKey,
-          ':u': now,
+          ':u': nowIso(),
         },
       }),
     );
@@ -143,6 +144,7 @@ export const baseHandler = async (
 
   // 5) Return payload for the NEXT step (chunking lambda)
   return {
+    orgId,
     documentId,
     status: 'TEXT_EXTRACTED',
     bucket,

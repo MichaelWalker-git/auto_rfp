@@ -3,7 +3,6 @@ import { requireEnv } from './env';
 
 const PINECONE_API_KEY = requireEnv('PINECONE_API_KEY');
 const PINECONE_INDEX = requireEnv('PINECONE_INDEX');
-const PINECONE_NAMESPACE = requireEnv('PINECONE_NAMESPACE', 'documents');
 
 let pineconeClient: Pinecone | null = null;
 
@@ -62,6 +61,7 @@ function matchToHit(match: any): PineconeHit {
  * Semantic search using Pinecone
  */
 export async function semanticSearchChunks(
+  orgId: string,
   embedding: number[],
   k: number,
 ): Promise<PineconeHit[]> {
@@ -69,7 +69,7 @@ export async function semanticSearchChunks(
   const index = client.Index(PINECONE_INDEX);
 
   try {
-    const results = await index.namespace(PINECONE_NAMESPACE).query({
+    const results = await index.namespace(orgId).query({
       vector: embedding,
       topK: k,
       includeMetadata: true,
@@ -89,6 +89,7 @@ export async function semanticSearchChunks(
  * Index a document chunk to Pinecone
  */
 export async function indexDocToPinecone(
+  orgId: string,
   documentId: string,
   chunkKey: string,
   bucket: string,
@@ -101,7 +102,7 @@ export async function indexDocToPinecone(
   const id = externalId || chunkKey;
 
   try {
-    await index.namespace(PINECONE_NAMESPACE).upsert([
+    await index.namespace(orgId).upsert([
       {
         id,
         values: embedding,
@@ -129,13 +130,13 @@ export async function indexDocToPinecone(
 /**
  * Delete document chunks from Pinecone by documentId
  */
-export async function deleteFromPinecone(documentId: string): Promise<void> {
+export async function deleteFromPinecone(orgId: string, documentId: string): Promise<void> {
   const client = getPineconeClient();
   const index = client.Index(PINECONE_INDEX);
 
   try {
     // Find all vectors with matching documentId
-    const results = await index.namespace(PINECONE_NAMESPACE).query({
+    const results = await index.namespace(orgId).query({
       vector: new Array(1024).fill(0), // dummy vector for query structure (must match index dimension)
       topK: 10000, // get as many as possible
       includeMetadata: true,
@@ -155,7 +156,7 @@ export async function deleteFromPinecone(documentId: string): Promise<void> {
     const batchSize = 100;
     for (let i = 0; i < idsToDelete.length; i += batchSize) {
       const batch = idsToDelete.slice(i, i + batchSize);
-      await index.namespace(PINECONE_NAMESPACE).deleteMany(batch);
+      await index.namespace(orgId).deleteMany(batch);
     }
 
     console.log(`Pinecone: deleted ${idsToDelete.length} docs for documentId=${documentId}`);
@@ -170,12 +171,12 @@ export async function deleteFromPinecone(documentId: string): Promise<void> {
 /**
  * Delete a specific vector by ID
  */
-export async function deleteVectorById(vectorId: string): Promise<void> {
+export async function deleteVectorById(orgId: string, vectorId: string): Promise<void> {
   const client = getPineconeClient();
   const index = client.Index(PINECONE_INDEX);
 
   try {
-    await index.namespace(PINECONE_NAMESPACE).deleteOne(vectorId);
+    await index.namespace(orgId).deleteOne(vectorId);
     console.log(`Pinecone: deleted vector ${vectorId}`);
   } catch (err) {
     console.error('Pinecone delete-vector error:', err);
