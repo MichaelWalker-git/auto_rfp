@@ -116,7 +116,9 @@ export function ExecutiveBriefView({ projectId }: Props) {
     if (!briefItem) return null;
     if (inProgressSections.length || localBusySections.size) {
       const local = Array.from(localBusySections);
-      const label = local.length ? `${inProgressSections.concat(local).join(', ')}` : inProgressSections.join(', ');
+      const allSections = inProgressSections.concat(local);
+      const uniqueSections = Array.from(new Set(allSections));
+      const label = uniqueSections.join(', ');
       return `Working on: ${label}`;
     }
     if (completedSections === totalSections) return 'All sections complete';

@@ -57,7 +57,6 @@ export const QuickSummarySchema = z.object({
 
   naics: z
     .string()
-    .regex(/^\d{2,6}$/, 'NAICS should be numeric like 541512')
     .optional()
     .nullable(),
 

@@ -10,94 +10,88 @@ export function RequirementsCard({ requirements }: { requirements: any }) {
   if (!requirements) return null;
 
   return (
-    <Card>
-      <CardHeader>
+    <Card className="border-2">
+      <CardHeader className="pb-3">
         <div className="flex items-center gap-2">
           <FileText className="h-5 w-5" />
-          <CardTitle className="text-lg">Requirements</CardTitle>
+          <CardTitle>Requirements Summary</CardTitle>
         </div>
       </CardHeader>
 
-      <CardContent className="space-y-4">
+      <CardContent className="space-y-6">
         {requirements?.overview && (
-          <div>
-            <h4 className="font-semibold text-sm mb-2">Overview</h4>
-            <p className="text-sm text-muted-foreground leading-relaxed">{requirements.overview}</p>
+          <div className="border-l-4 pl-4 py-2">
+            <p className="text-sm leading-relaxed">{requirements.overview}</p>
           </div>
         )}
 
-        <Separator />
-
         {requirements?.requirements?.length > 0 && (
-          <div>
-            <h4 className="font-semibold text-sm mb-2">Key Requirements</h4>
-            <div className="space-y-2">
-              {requirements.requirements.slice(0, 30).map((r: any, i: number) => (
-                <div key={i} className="text-sm flex gap-2">
-                  <span className="text-muted-foreground">•</span>
-                  <span>
-                    <span className="font-medium">{r.category}:</span>{' '}
-                    <span className="text-muted-foreground">{r.requirement}</span>
+          <div className="space-y-3">
+            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Key Requirements ({requirements.requirements.length})</p>
+            <div className="space-y-2 max-h-96 overflow-y-auto">
+              {requirements.requirements.slice(0, 20).map((r: any, i: number) => (
+                <div key={i} className="border rounded p-3 space-y-1">
+                  <div className="flex items-start justify-between gap-2">
+                    <span className="text-sm font-medium">{r.category}</span>
                     {r.mustHave && (
-                      <Badge variant="destructive" className="ml-2 text-xs" title="Marked as must-have.">
+                      <Badge variant="destructive" className="text-xs px-2 py-0.5 flex-shrink-0">
                         MUST HAVE
                       </Badge>
                     )}
-                  </span>
+                  </div>
+                  <p className="text-sm text-muted-foreground">{r.requirement}</p>
                 </div>
               ))}
             </div>
           </div>
         )}
 
-        <Separator />
-
-        <div className="grid gap-4 md:grid-cols-3">
-          <div>
-            <h4 className="font-semibold text-sm mb-2">Deliverables</h4>
+        <div className="grid gap-3 md:grid-cols-3">
+          <div className="border rounded-lg p-4">
+            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-3">Deliverables</p>
             {requirements?.deliverables?.length ? (
-              <ul className="space-y-1">
-                {requirements.deliverables.map((x: string, i: number) => (
-                  <li key={i} className="text-sm text-muted-foreground flex gap-2">
-                    <span>•</span>
+              <ul className="space-y-2 text-sm">
+                {requirements.deliverables.slice(0, 8).map((x: string, i: number) => (
+                  <li key={i} className="flex gap-2">
+                    <span className="text-muted-foreground flex-shrink-0">•</span>
                     <span>{x}</span>
                   </li>
                 ))}
               </ul>
             ) : (
-              <p className="text-sm text-muted-foreground">—</p>
+              <p className="text-sm text-muted-foreground italic">—</p>
             )}
           </div>
 
-          <div>
-            <h4 className="font-semibold text-sm mb-2">Evaluation Factors</h4>
+          <div className="border rounded-lg p-4">
+            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-3">Evaluation Factors</p>
             {requirements?.evaluationFactors?.length ? (
-              <ul className="space-y-1">
-                {requirements.evaluationFactors.map((x: string, i: number) => (
-                  <li key={i} className="text-sm text-muted-foreground flex gap-2">
-                    <span>•</span>
+              <ul className="space-y-2 text-sm">
+                {requirements.evaluationFactors.slice(0, 8).map((x: string, i: number) => (
+                  <li key={i} className="flex gap-2">
+                    <span className="text-muted-foreground flex-shrink-0">•</span>
                     <span>{x}</span>
                   </li>
                 ))}
               </ul>
             ) : (
-              <p className="text-sm text-muted-foreground">—</p>
+              <p className="text-sm text-muted-foreground italic">—</p>
             )}
           </div>
 
-          <div>
-            <h4 className="font-semibold text-sm mb-2">Submission Compliance</h4>
+          <div className="border rounded-lg p-4">
+            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-3">Submission Requirements</p>
             {requirements?.submissionCompliance?.format?.length ? (
-              <ul className="space-y-1">
-                {requirements.submissionCompliance.format.map((x: string, i: number) => (
-                  <li key={i} className="text-sm text-muted-foreground flex gap-2">
-                    <span>•</span>
+              <ul className="space-y-2 text-sm">
+                {requirements.submissionCompliance.format.slice(0, 8).map((x: string, i: number) => (
+                  <li key={i} className="flex gap-2">
+                    <span className="text-muted-foreground flex-shrink-0">•</span>
                     <span>{x}</span>
                   </li>
                 ))}
               </ul>
             ) : (
-              <p className="text-sm text-muted-foreground">—</p>
+              <p className="text-sm text-muted-foreground italic">—</p>
             )}
           </div>
         </div>
