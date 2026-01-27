@@ -100,6 +100,17 @@ describe('LoadSamOpportunitiesRequestSchema - Request Validation', () => {
     ).toThrow();
   });
 
+  it('should accept request without optional rdlfrom field (fixes AUTO-RFP-5Q)', () => {
+    const requestWithoutRdlfrom = {
+      postedFrom: '01/01/2025',
+      postedTo: '01/31/2025',
+    };
+    const result = LoadSamOpportunitiesRequestSchema.parse(requestWithoutRdlfrom);
+    expect(result.postedFrom).toBe('01/01/2025');
+    expect(result.postedTo).toBe('01/31/2025');
+    expect(result.rdlfrom).toBeUndefined();
+  });
+
   it('should reject invalid date format for postedFrom (Sentry: AUTO-RFP-4B)', () => {
     expect(() =>
       LoadSamOpportunitiesRequestSchema.parse({

@@ -63,6 +63,7 @@ export const QuickSummarySchema = z.object({
   contractType: z
     .enum([
       'FFP',
+      'FIXED_PRICE', // Alias for FFP from SAM.gov
       'T&M',
       'COST_PLUS',
       'IDIQ',
