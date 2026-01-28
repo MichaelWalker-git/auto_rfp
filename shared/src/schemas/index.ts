@@ -10,3 +10,7 @@ export * from './project';
 export * from './samgov';
 export * from './prompt'
 export * from './opportunity'
+export * from './project-outcome'
+export * from './debriefing'
+export * from './foia'
+export * from './analytics'

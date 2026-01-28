@@ -2,3 +2,7 @@ export const ORG_PK = 'ORG';
 export const PROJECT_PK = 'PROJECT';
 export const PROJECT_INDEX_PK = 'PROJECT_INDEX';
 export const KNOWLEDGE_BASE_PK = 'KNOWLEDGE_BASE';
+export const PROJECT_OUTCOME_PK = 'PROJECT_OUTCOME';
+export const DEBRIEFING_PK = 'DEBRIEFING';
+export const FOIA_REQUEST_PK = 'FOIA_REQUEST';
+export const MONTHLY_ANALYTICS_PK = 'MONTHLY_ANALYTICS';
