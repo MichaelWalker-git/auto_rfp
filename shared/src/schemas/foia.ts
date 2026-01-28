@@ -9,27 +9,34 @@ export const FOIADocumentTypeSchema = z.enum([
   'TECHNICAL_EVAL',
   'PRICE_ANALYSIS',
   'PAST_PERFORMANCE_EVAL',
-  'WINNING_PROPOSAL_TECH',
-  'CONSENSUS_WORKSHEETS',
-  'RESPONSIBILITY_DETERMINATION',
+  'PROPOSAL_ABSTRACT',
+  'DEBRIEFING_NOTES',
   'CORRESPONDENCE',
+  'AWARD_NOTICE',
+  'OTHER',
 ]);
 
 export type FOIADocumentType = z.infer<typeof FOIADocumentTypeSchema>;
 
 /**
+ * FOIA Document Types constant for use in components
+ */
+export const FOIA_DOCUMENT_TYPES = FOIADocumentTypeSchema.options;
+
+/**
  * Human-readable descriptions for FOIA document types
  */
 export const FOIA_DOCUMENT_DESCRIPTIONS: Record<FOIADocumentType, string> = {
-  SSEB_REPORT: 'The complete Source Selection Evaluation Board (SSEB) report, including all technical and cost/price evaluations',
-  SSDD: 'The Source Selection Decision Document (SSDD)',
-  TECHNICAL_EVAL: 'Technical evaluation reports and findings',
-  PRICE_ANALYSIS: 'Price/cost analysis documentation for all offerors',
-  PAST_PERFORMANCE_EVAL: 'Past performance evaluation reports for all offerors',
-  WINNING_PROPOSAL_TECH: "The winning contractor's technical proposal (with proprietary information redacted as required)",
-  CONSENSUS_WORKSHEETS: 'Consensus evaluation worksheets and scoring documents',
-  RESPONSIBILITY_DETERMINATION: 'The determination of contractor responsibility',
-  CORRESPONDENCE: 'All correspondence between the contracting officer and the winning contractor during the evaluation period',
+  SSEB_REPORT: 'Source Selection Evaluation Board (SSEB) Report',
+  SSDD: 'Source Selection Decision Document (SSDD)',
+  TECHNICAL_EVAL: 'Technical Evaluation Documentation',
+  PRICE_ANALYSIS: 'Price/Cost Analysis',
+  PAST_PERFORMANCE_EVAL: 'Past Performance Evaluation',
+  PROPOSAL_ABSTRACT: 'Proposal Abstract or Executive Summary',
+  DEBRIEFING_NOTES: 'Debriefing Notes or Documentation',
+  CORRESPONDENCE: 'Relevant Correspondence',
+  AWARD_NOTICE: 'Award Notice and Supporting Documentation',
+  OTHER: 'Other Relevant Documentation',
 };
 
 /**
@@ -141,61 +148,47 @@ export const FOIAAgencyInfoSchema = z.object({
 export type FOIAAgencyInfo = z.infer<typeof FOIAAgencyInfoSchema>;
 
 /**
- * FOIA Request Item - the complete FOIA request record
+ * FOIA Request Item - the simplified FOIA request record
  */
 export const FOIARequestItemSchema = z.object({
-  foiaId: z.string().uuid(),
+  id: z.string().min(1),
   projectId: z.string().min(1),
   orgId: z.string().min(1),
 
+  // Status
+  status: FOIAStatusSchema,
+
   // Agency information
-  agencyId: z.string().min(1),
   agencyName: z.string().min(1),
-  agencyAbbreviation: z.string().min(1),
-  foiaOfficeEmail: z.string().email().optional(),
-  foiaOfficeAddress: FOIAAddressSchema.optional(),
-  portalUrl: z.string().url().optional(),
+  agencyFOIAEmail: z.string().email().optional(),
+  agencyFOIAAddress: z.string().optional(),
 
   // Request details
   solicitationNumber: z.string().min(1),
-  contractTitle: z.string().min(1),
+  contractNumber: z.string().optional(),
   requestedDocuments: z.array(FOIADocumentTypeSchema).min(1),
-  customDocumentRequests: z.array(z.string().min(1)).optional(),
-  requesterCategory: RequesterCategorySchema,
-  feeLimit: z.number().nonnegative(),
-  requestFeeWaiver: z.boolean(),
-  feeWaiverJustification: z.string().optional(),
 
-  // Status tracking
-  status: FOIAStatusSchema,
-  statusHistory: z.array(FOIAStatusChangeSchema),
+  // Requester information
+  requesterName: z.string().min(1),
+  requesterEmail: z.string().email(),
+  requesterPhone: z.string().optional(),
+  requesterAddress: z.string().optional(),
 
-  // Dates and deadlines
-  submittedAt: z.string().datetime({ offset: true }).optional(),
-  responseDeadline: z.string().datetime({ offset: true }).optional(),
-  extensionDeadline: z.string().datetime({ offset: true }).optional(),
-  responseReceivedAt: z.string().datetime({ offset: true }).optional(),
-
-  // Submission details
-  submissionMethod: FOIASubmissionMethodSchema.optional(),
-  autoSubmitAttempted: z.boolean(),
-  autoSubmitSuccess: z.boolean().optional(),
-  autoSubmitError: z.string().optional(),
+  // Tracking
+  expectedResponseDate: z.string().datetime({ offset: true }).optional(),
+  submittedDate: z.string().datetime({ offset: true }).optional(),
+  responseDate: z.string().datetime({ offset: true }).optional(),
+  responseNotes: z.string().optional(),
+  receivedDocuments: z.array(FOIADocumentTypeSchema).optional(),
   trackingNumber: z.string().optional(),
-
-  // Response
-  responseStatus: FOIAResponseStatusSchema.optional(),
-  responseDocuments: z.array(S3ReferenceSchema).optional(),
-  exemptionsCited: z.array(z.string().min(1)).optional(),
-
-  // Generated letter
-  generatedLetterS3Key: z.string().min(1),
-  generatedLetterVersion: z.number().int().positive(),
+  appealDeadline: z.string().datetime({ offset: true }).optional(),
+  appealDate: z.string().datetime({ offset: true }).optional(),
 
   // Metadata
+  requestedBy: z.string().min(1),
+  notes: z.string().optional(),
   createdAt: z.string().datetime({ offset: true }),
   updatedAt: z.string().datetime({ offset: true }),
-  createdBy: z.string().min(1),
 });
 
 export type FOIARequestItem = z.infer<typeof FOIARequestItemSchema>;
@@ -206,18 +199,43 @@ export type FOIARequestItem = z.infer<typeof FOIARequestItemSchema>;
 export const CreateFOIARequestSchema = z.object({
   projectId: z.string().min(1, 'Project ID is required'),
   orgId: z.string().min(1, 'Organization ID is required'),
+  agencyName: z.string().min(1, 'Agency name is required'),
+  agencyFOIAEmail: z.string().email().optional(),
+  agencyFOIAAddress: z.string().optional(),
+  solicitationNumber: z.string().min(1, 'Solicitation number is required'),
+  contractNumber: z.string().optional(),
   requestedDocuments: z.array(FOIADocumentTypeSchema).min(1, 'At least one document type is required'),
-  customDocumentRequests: z.array(z.string().min(1)).optional(),
-  requesterCategory: RequesterCategorySchema.default('OTHER'),
-  feeLimit: z.number().nonnegative().default(50),
-  requestFeeWaiver: z.boolean().default(false),
-  feeWaiverJustification: z.string().optional(),
+  requesterName: z.string().min(1, 'Requester name is required'),
+  requesterEmail: z.string().email('Valid email is required'),
+  requesterPhone: z.string().optional(),
+  requesterAddress: z.string().optional(),
+  notes: z.string().optional(),
 });
 
 export type CreateFOIARequest = z.infer<typeof CreateFOIARequestSchema>;
 
 /**
- * Update FOIA Status DTO
+ * Update FOIA Request DTO
+ */
+export const UpdateFOIARequestSchema = z.object({
+  orgId: z.string().min(1, 'Organization ID is required'),
+  projectId: z.string().min(1, 'Project ID is required'),
+  foiaRequestId: z.string().min(1, 'FOIA Request ID is required'),
+  status: FOIAStatusSchema.optional(),
+  submittedDate: z.string().datetime({ offset: true }).optional(),
+  responseDate: z.string().datetime({ offset: true }).optional(),
+  responseNotes: z.string().optional(),
+  receivedDocuments: z.array(FOIADocumentTypeSchema).optional(),
+  trackingNumber: z.string().optional(),
+  appealDeadline: z.string().datetime({ offset: true }).optional(),
+  appealDate: z.string().datetime({ offset: true }).optional(),
+  notes: z.string().optional(),
+});
+
+export type UpdateFOIARequest = z.infer<typeof UpdateFOIARequestSchema>;
+
+/**
+ * Update FOIA Status DTO (legacy - use UpdateFOIARequestSchema instead)
  */
 export const UpdateFOIAStatusSchema = z.object({
   status: FOIAStatusSchema,
@@ -259,7 +277,17 @@ export const GenerateFOIAAppealSchema = z.object({
 export type GenerateFOIAAppeal = z.infer<typeof GenerateFOIAAppealSchema>;
 
 /**
- * List FOIA Requests Query
+ * Get FOIA Requests Query (by project)
+ */
+export const GetFOIARequestsQuerySchema = z.object({
+  orgId: z.string().min(1),
+  projectId: z.string().min(1),
+});
+
+export type GetFOIARequestsQuery = z.infer<typeof GetFOIARequestsQuerySchema>;
+
+/**
+ * List FOIA Requests Query (with pagination)
  */
 export const ListFOIARequestsQuerySchema = z.object({
   orgId: z.string().min(1),
