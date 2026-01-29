@@ -1,0 +1,141 @@
+name: Deploy Infrastructure
+
+on:
+  push:
+    branches: [develop]
+    paths:
+      - 'infrastructure/**'
+      - 'shared/**'
+      - '.github/workflows/deploy-infrastructure.yml'
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to deploy to'
+        required: true
+        default: 'Dev'
+        type: choice
+        options:
+          - Dev
+          - Prod
+
+concurrency:
+  group: deploy-${{ github.ref }}
+  cancel-in-progress: false  # Don't cancel deployments in progress
+
+jobs:
+  test:
+    name: Test Infrastructure
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v3
+        with:
+          version: 10
+
+      - name: Install shared dependencies
+        working-directory: shared
+        run: pnpm install
+
+      - name: Build shared package
+        working-directory: shared
+        run: pnpm build
+
+      - name: Install infrastructure dependencies
+        working-directory: infrastructure
+        run: npm install
+
+      - name: Run infrastructure tests
+        working-directory: infrastructure
+        run: npm test -- --passWithNoTests
+
+  deploy:
+    name: Deploy to ${{ github.event.inputs.environment || 'Dev' }}
+    runs-on: ubuntu-latest
+    needs: test
+    environment: ${{ github.event.inputs.environment || 'Dev' }}
+    permissions:
+      id-token: write   # Required for OIDC
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v3
+        with:
+          version: 10
+
+      - name: Install shared dependencies
+        working-directory: shared
+        run: pnpm install
+
+      - name: Build shared package
+        working-directory: shared
+        run: pnpm build
+
+      - name: Install infrastructure dependencies
+        working-directory: infrastructure
+        run: npm install
+
+      - name: Install esbuild for Lambda bundling
+        run: npm install -g esbuild
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
+          role-session-name: github-actions-deploy
+          aws-region: us-east-1
+
+      - name: CDK Diff (preview changes)
+        working-directory: infrastructure
+        run: |
+          echo "## CDK Diff Preview" >> $GITHUB_STEP_SUMMARY
+          npx cdk diff --context stage=${{ github.event.inputs.environment || 'Dev' }} 2>&1 | tee diff-output.txt || true
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          cat diff-output.txt >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+        env:
+          SAM_GOV_API_KEY: ${{ secrets.SAM_GOV_API_KEY }}
+          PINECONE_API_KEY: ${{ secrets.PINECONE_API_KEY }}
+          PINECONE_INDEX: ${{ secrets.PINECONE_INDEX }}
+
+      - name: Deploy CDK Stacks
+        working-directory: infrastructure
+        run: |
+          npx cdk deploy --all \
+            --context stage=${{ github.event.inputs.environment || 'Dev' }} \
+            --require-approval never \
+            --ci
+        env:
+          SAM_GOV_API_KEY: ${{ secrets.SAM_GOV_API_KEY }}
+          PINECONE_API_KEY: ${{ secrets.PINECONE_API_KEY }}
+          PINECONE_INDEX: ${{ secrets.PINECONE_INDEX }}
+
+      - name: Deployment Summary
+        run: |
+          echo "## Deployment Complete" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "✅ Successfully deployed to **${{ github.event.inputs.environment || 'Dev' }}** environment" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Deployed Stacks" >> $GITHUB_STEP_SUMMARY
+          echo "- AutoRfp-Network" >> $GITHUB_STEP_SUMMARY
+          echo "- AutoRfp-Auth-${{ github.event.inputs.environment || 'Dev' }}" >> $GITHUB_STEP_SUMMARY
+          echo "- AutoRfp-Storage-${{ github.event.inputs.environment || 'Dev' }}" >> $GITHUB_STEP_SUMMARY
+          echo "- AutoRfp-DynamoDatabase-${{ github.event.inputs.environment || 'Dev' }}" >> $GITHUB_STEP_SUMMARY
+          echo "- AutoRfp-DocumentPipeline-${{ github.event.inputs.environment || 'Dev' }}" >> $GITHUB_STEP_SUMMARY
+          echo "- AutoRfp-QuestionsPipeline-${{ github.event.inputs.environment || 'Dev' }}" >> $GITHUB_STEP_SUMMARY
+          echo "- AutoRfp-API-${{ github.event.inputs.environment || 'Dev' }}" >> $GITHUB_STEP_SUMMARY

@@ -47,17 +47,18 @@ type Props = {
 };
 
 export default function ProposalsContent({ projectId }: Props) {
-  const { questionFiles, isLoading: isQL, error: err, refreshQuestions } = useQuestions();
-  const { currentOrganization } = useOrganization()
-  if (!isQL && !err && !questionFiles?.length) {
-    return <NoRfpDocumentAvailable projectId={projectId}/>;
-  }
+  const { questionFiles, isLoading: isQL, error: err } = useQuestions();
+  const { currentOrganization } = useOrganization();
   const { items, count, error, isLoading, refresh } = useProposals({ projectId });
-
 
   const sorted = useMemo(() => {
     return [...(items ?? [])].sort((a, b) => (b.updatedAt ?? '').localeCompare(a.updatedAt ?? ''));
   }, [items]);
+
+  // Early return after all hooks
+  if (!isQL && !err && !questionFiles?.length) {
+    return <NoRfpDocumentAvailable projectId={projectId}/>;
+  }
 
   if (!projectId) {
     return (

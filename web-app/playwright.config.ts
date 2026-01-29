@@ -26,27 +26,47 @@ export default defineConfig({
     {
       name: 'setup',
       testMatch: /global-setup\.ts/,
+      teardown: 'cleanup',
     },
-    // Authenticated tests
+    {
+      name: 'cleanup',
+      testMatch: /global-teardown\.ts/,
+    },
+    // Unauthenticated tests (no dependencies)
     {
       name: 'chromium',
       use: { ...devices['Desktop Chrome'] },
+      testIgnore: /.*\.auth\.spec\.ts/,
+    },
+    // Authenticated tests (depend on setup)
+    {
+      name: 'chromium-authenticated',
+      use: {
+        ...devices['Desktop Chrome'],
+        storageState: authFile,
+      },
+      dependencies: ['setup'],
+      testMatch: /.*\.auth\.spec\.ts/,
     },
     {
       name: 'firefox',
       use: { ...devices['Desktop Firefox'] },
+      testIgnore: /.*\.auth\.spec\.ts/,
     },
     {
       name: 'webkit',
       use: { ...devices['Desktop Safari'] },
+      testIgnore: /.*\.auth\.spec\.ts/,
     },
     {
       name: 'mobile-chrome',
       use: { ...devices['Pixel 5'] },
+      testIgnore: /.*\.auth\.spec\.ts/,
     },
     {
       name: 'mobile-safari',
       use: { ...devices['iPhone 12'] },
+      testIgnore: /.*\.auth\.spec\.ts/,
     },
   ],
   webServer: process.env.SKIP_WEB_SERVER ? undefined : {

@@ -218,3 +218,48 @@ export function useDeleteQuestionFile() {
     deleteQuestionFileFetcher,
   );
 }
+
+type StopQuestionPipelinePayload = {
+  projectId: string;
+  opportunityId: string;
+  questionFileId: string;
+};
+
+type StopQuestionPipelineResponse = {
+  ok: boolean;
+  message: string;
+};
+
+export async function stopQuestionPipelineFetcher(
+  url: string,
+  { arg }: { arg: StopQuestionPipelinePayload },
+): Promise<StopQuestionPipelineResponse> {
+  const res = await authFetcher(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(arg),
+  });
+
+  if (!res.ok) {
+    const text = await res.text().catch(() => '');
+    const err = new Error(text || 'Failed to stop pipeline') as Error & { status?: number };
+    (err as any).status = res.status;
+    throw err;
+  }
+
+  const raw = await res.text().catch(() => '');
+  if (!raw) return { ok: true, message: 'Pipeline stopped' };
+
+  try {
+    return JSON.parse(raw) as StopQuestionPipelineResponse;
+  } catch {
+    return { ok: true, message: 'Pipeline stopped' };
+  }
+}
+
+export function useStopQuestionPipeline() {
+  return useSWRMutation<StopQuestionPipelineResponse, any, string, StopQuestionPipelinePayload>(
+    `${BASE}/stop-question-pipeline`,
+    stopQuestionPipelineFetcher,
+  );
+}

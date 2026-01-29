@@ -3,6 +3,7 @@ import { z } from 'zod';
 // --- Shared count schema ---
 export const KnowledgeBaseCountSchema = z.object({
   questions: z.number().int().nonnegative(),
+  documents: z.number().int().nonnegative(),
 });
 
 // --- Base KB fields (what the client sends) ---
@@ -27,7 +28,7 @@ export const KnowledgeBaseItemSchema = KnowledgeBaseBaseSchema.extend({
   createdAt: z.string(),          // ISO date
   updatedAt: z.string(),          // ISO date
 
-  _count: KnowledgeBaseCountSchema.default({ questions: 0 }),
+  _count: KnowledgeBaseCountSchema.default({ questions: 0, documents: 0 }),
 });
 
 export type KnowledgeBaseItem = z.infer<typeof KnowledgeBaseItemSchema>;

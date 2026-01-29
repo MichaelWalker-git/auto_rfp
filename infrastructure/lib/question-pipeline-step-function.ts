@@ -179,6 +179,7 @@ export class QuestionExtractionPipelineStack extends Stack {
         }
       },
     );
+    documentsBucket.grantRead(fulfillOpportunityFieldsLambda);
     mainTable.grantReadWriteData(fulfillOpportunityFieldsLambda);
 
     fulfillOpportunityFieldsLambda.addToRolePolicy(

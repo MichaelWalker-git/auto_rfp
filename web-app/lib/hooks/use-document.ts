@@ -11,6 +11,15 @@ const BASE = `${env.BASE_API_URL}/document`;
 
 const fetcher = async (url: string) => {
   const res = await authFetcher(url);
+
+  if (!res.ok) {
+    const text = await res.text().catch(() => '');
+    const err: Error & { status?: number; details?: string } = new Error('Failed to fetch documents');
+    err.status = res.status;
+    err.details = text;
+    throw err;
+  }
+
   return res.json();
 };
 
@@ -22,6 +31,11 @@ export function useCreateDocument() {
         method: 'POST',
         body: JSON.stringify(arg),
       });
+
+      if (!res.ok) {
+        const message = await res.text().catch(() => '');
+        throw new Error(message || 'Failed to create document');
+      }
 
       return res.json() as Promise<DocumentItem>;
     }
@@ -43,6 +57,11 @@ export function useUpdateDocument() {
         body: JSON.stringify(arg),
       });
 
+      if (!res.ok) {
+        const message = await res.text().catch(() => '');
+        throw new Error(message || 'Failed to update document');
+      }
+
       return res.json() as Promise<DocumentItem>;
     }
   );
@@ -62,6 +81,11 @@ export function useDeleteDocument() {
         method: 'DELETE',
         body: JSON.stringify(arg),
       });
+
+      if (!res.ok) {
+        const message = await res.text().catch(() => '');
+        throw new Error(message || 'Failed to delete document');
+      }
 
       return res.json();
     }
@@ -166,7 +190,7 @@ export interface StartDocumentPipelineResponse {
 export function useStartDocumentPipeline() {
   return useSWRMutation<
     StartDocumentPipelineResponse,
-    any,
+    Error,
     string,
     StartDocumentPipelineDTO
   >(
@@ -176,6 +200,11 @@ export function useStartDocumentPipeline() {
         method: 'POST',
         body: JSON.stringify(arg),
       });
+
+      if (!res.ok) {
+        const message = await res.text().catch(() => '');
+        throw new Error(message || 'Failed to start document pipeline');
+      }
 
       return res.json() as Promise<StartDocumentPipelineResponse>;
     },

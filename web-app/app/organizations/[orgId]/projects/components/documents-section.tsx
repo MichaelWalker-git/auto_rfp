@@ -14,6 +14,7 @@ type Props = {
 export function DocumentsSection({ projectId: propProjectId }: Props) {
   const searchParams = useSearchParams();
   const projectId = propProjectId || searchParams.get('projectId');
+  const { questions, isLoading, error } = useQuestions();
 
   if (!projectId) {
     return (
@@ -24,8 +25,6 @@ export function DocumentsSection({ projectId: propProjectId }: Props) {
       </div>
     );
   }
-
-  const { questions, isLoading, error } = useQuestions();
 
   if (!isLoading && !error && !questions) {
     return <NoRfpDocumentAvailable projectId={projectId}/>;
