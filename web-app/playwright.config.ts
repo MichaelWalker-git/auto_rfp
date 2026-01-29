@@ -13,8 +13,6 @@ export default defineConfig({
     ['html', { outputFolder: 'playwright-report' }],
     ['list'],
   ],
-  // Global setup for authentication
-  globalSetup: process.env.E2E_TEST_EMAIL ? './e2e/global-setup.ts' : undefined,
   use: {
     baseURL: process.env.PLAYWRIGHT_BASE_URL || 'http://localhost:3000',
     trace: 'on-first-retry',
