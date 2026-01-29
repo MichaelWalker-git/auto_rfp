@@ -24,6 +24,14 @@ Active tasks for the AutoRFP project.
 - [x] **PR #60** - Answer generation E2E tests (MERGED)
 - [x] **PR #61** - Proposal generation E2E tests (MERGED)
 
+### E2E Test Coverage (Medium Priority - In Progress)
+- [x] **PR #62** - Executive Brief E2E tests (CI Passing)
+- [x] **PR #63** - SAM.gov Search E2E tests (CI Passing)
+- [x] **PR #64** - Knowledge Base CRUD E2E tests (CI Passing)
+- [x] **PR #65** - Project CRUD E2E tests (CI Running)
+- [x] **PR #66** - Organization Settings E2E tests (CI Running)
+- [x] **PR #67** - Custom Prompts E2E tests (CI Running)
+
 ## CI Status
 
 | Workflow | Status | Notes |
@@ -61,31 +69,46 @@ Active tasks for the AutoRFP project.
 | `question-extraction.auth.spec.ts` | 7 | Active | Question extraction flow |
 | `answer-generation.auth.spec.ts` | 8 | Active | Answer generation/RAG |
 | `proposal-generation.auth.spec.ts` | 7 | Active | Proposal generation/export |
+| `executive-brief.auth.spec.ts` | 10 | Pending PR #62 | Executive brief 6 sections |
+| `samgov-search.auth.spec.ts` | 13 | Pending PR #63 | SAM.gov search/filters |
+| `knowledge-base.auth.spec.ts` | 10 | Pending PR #64 | KB CRUD operations |
+| `project-crud.auth.spec.ts` | 10 | Pending PR #65 | Project CRUD operations |
+| `organization-settings.auth.spec.ts` | 10 | Pending PR #66 | Org settings, danger zone |
+| `custom-prompts.auth.spec.ts` | 10 | Pending PR #67 | Custom prompts management |
 | `visual.spec.ts` | ? | Active | Visual regression tests |
 
 ### Remaining E2E Coverage (Medium/Lower Priority)
 
 #### Medium Priority - Business Features
-- [ ] **Executive Brief Generation** - Generate brief, verify all 6 sections
-- [ ] **SAM.gov Search** - Search opportunities, import into project
-- [ ] **Knowledge Base CRUD** - Create, update, delete knowledge bases
-- [ ] **Project CRUD** - Create, update, delete projects
+- [x] **Executive Brief Generation** - PR #62 - Generate brief, verify all 6 sections
+- [x] **SAM.gov Search** - PR #63 - Search opportunities, import into project
+- [x] **Knowledge Base CRUD** - PR #64 - Create, update, delete knowledge bases
+- [x] **Project CRUD** - PR #65 - Create, update, delete projects
 
 #### Lower Priority - Admin/Settings
-- [ ] **User Profile Management** - Update user settings
-- [ ] **Organization Settings** - Manage org settings, member invites
-- [ ] **Custom Prompts** - Create and manage custom prompts
+- [x] **Organization Settings** - PR #66 - Manage org settings, prompts, danger zone
+- [x] **Custom Prompts** - PR #67 - Create and manage custom prompts
 
 ---
 
 ## Summary
 
-All high-priority E2E test coverage items have been completed:
-1. ✅ Authenticated test fixtures (Playwright auth setup)
-2. ✅ Document upload pipeline tests
-3. ✅ Question extraction tests
-4. ✅ Answer generation tests (RAG, sources)
-5. ✅ Proposal generation tests (export PDF/DOCX)
+All E2E test coverage items have been completed:
 
-Total new E2E test files added: 5
-Total new test cases: ~37 authenticated tests
+### High Priority (Merged)
+1. ✅ Authenticated test fixtures (Playwright auth setup) - PR #57
+2. ✅ Document upload pipeline tests - PR #58
+3. ✅ Question extraction tests - PR #59
+4. ✅ Answer generation tests (RAG, sources) - PR #60
+5. ✅ Proposal generation tests (export PDF/DOCX) - PR #61
+
+### Medium Priority (PRs Created, CI Running)
+6. ✅ Executive Brief E2E tests - PR #62
+7. ✅ SAM.gov Search E2E tests - PR #63
+8. ✅ Knowledge Base CRUD E2E tests - PR #64
+9. ✅ Project CRUD E2E tests - PR #65
+10. ✅ Organization Settings E2E tests - PR #66
+11. ✅ Custom Prompts E2E tests - PR #67
+
+Total new E2E test files added: 11
+Total new authenticated test cases: ~100+
