@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -44,6 +44,19 @@ export function CreateEditOrganizationDialog({
   });
   const [internalIsLoading, setInternalIsLoading] = useState(false);
   const { toast } = useToast();
+
+  // Sync organization data to internal form when dialog opens in edit mode
+  // Fixes AUTO-RFP-5V/5W: Cannot read properties of undefined (reading 'name')
+  useEffect(() => {
+    const orgToEdit = organization || editingOrg;
+    if (isOpen && orgToEdit && !externalFormData) {
+      setInternalFormData({
+        name: orgToEdit.name ?? '',
+        slug: orgToEdit.slug ?? '',
+        description: orgToEdit.description ?? '',
+      });
+    }
+  }, [isOpen, organization, editingOrg, externalFormData]);
 
   // Support both new and old prop patterns
   const isEditMode = !!organization || !!editingOrg;
@@ -127,7 +140,7 @@ export function CreateEditOrganizationDialog({
             <Label htmlFor="org-name">Organization Name</Label>
             <Input
               id="org-name"
-              value={formData.name}
+              value={formData?.name ?? ''}
               onChange={(e) => {
                 handleFormChange({
                   ...formData,
@@ -142,7 +155,7 @@ export function CreateEditOrganizationDialog({
             <Label htmlFor="org-description">Description</Label>
             <Textarea
               id="org-description"
-              value={formData.description}
+              value={formData?.description ?? ''}
               onChange={(e) =>
                 handleFormChange({
                   ...formData,
