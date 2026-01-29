@@ -113,7 +113,7 @@ export function QuestionFileUploadDialog({
     [items],
   );
 
-  const { data: allStatuses } = useQuestionFilesStatus(projectId, batchOppId || oppIdParam || '', processingQuestionFileIds);
+  const { data: allStatuses, mutate: refetchStatuses } = useQuestionFilesStatus(projectId, batchOppId || oppIdParam || '', processingQuestionFileIds);
 
   useEffect(() => {
     if (!allStatuses) return;
@@ -592,23 +592,7 @@ export function QuestionFileUploadDialog({
                               opportunityId={oppIdParam || batchOppId}
                               questionFileId={it.questionFileId}
                               status={it.status || ''}
-                              onSuccess={() => {
-                                setItemStep(it.clientId, { 
-                                  step: 'cancelled', 
-                                  status: 'CANCELLED',
-                                  error: 'Cancelled by user' 
-                                });
-                              }}
-                              onDelete={() => {
-                                handleRemoveItem(it.clientId);
-                              }}
-                              onRetry={() => {
-                                setItemStep(it.clientId, { 
-                                  step: 'processing', 
-                                  status: 'PROCESSING',
-                                  error: null 
-                                });
-                              }}
+                              onMutate={refetchStatuses}
                             />
                           )}
                         </div> 

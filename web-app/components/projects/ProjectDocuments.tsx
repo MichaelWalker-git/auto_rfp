@@ -288,33 +288,13 @@ export function ProjectDocuments({ projectId }: ProjectDocumentsProps) {
                           </Button>
                         </PermissionWrapper>
                       }
-                      {f.status !== 'PROCESSED' && f.status !== 'FAILED' && f.status !== 'DELETED' && 
+                      {f.status !== 'PROCESSED' && f.status !== 'FAILED' && f.status !== 'DELETED' &&
                         <CancelPipelineButton
                           projectId={f.projectId}
                           opportunityId={f.oppId}
                           questionFileId={f.questionFileId}
                           status={f.status}
-                          onSuccess={async () => {
-                            toast({
-                              title: 'Success',
-                              description: `Successfully cancelled question file processing for ${f.name}`,
-                            });
-                            await refetch(); 
-                          }}
-                          onDelete={async() => {
-                            await refetch();
-                            toast({
-                              title: 'Deleted',
-                              description: `Successfully deleted file ${f.name}`,
-                            });
-                          }}
-                          onRetry={async () => {
-                            toast({
-                              title: 'Retrying',
-                              description: `Restarting processing for ${f.name}`,
-                            });
-                            await refetch(); 
-                          }}
+                          onMutate={refetch}
                         />
                       }
                     </div>
