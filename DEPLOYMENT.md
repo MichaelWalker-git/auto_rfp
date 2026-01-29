@@ -82,6 +82,70 @@ This document covers deployment processes, environment configuration, and produc
 |----------|---------|
 | `AWS_DEPLOY_ROLE_ARN` | IAM role ARN for OIDC authentication |
 
+### Setting Up Infrastructure Deployment (First Time)
+
+To enable the GitHub Actions deployment workflow, you need to set up OIDC authentication between GitHub and AWS:
+
+**1. Create OIDC Identity Provider in AWS**
+
+```bash
+aws iam create-open-id-connect-provider \
+  --url "https://token.actions.githubusercontent.com" \
+  --client-id-list "sts.amazonaws.com" \
+  --thumbprint-list "6938fd4d98bab03faadb97b34396831e3780aea1" \
+  --profile michael-primary
+```
+
+**2. Create the IAM Deploy Role**
+
+Create a trust policy file (`trust-policy.json`):
+```json
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Principal": {
+        "Federated": "arn:aws:iam::YOUR_ACCOUNT_ID:oidc-provider/token.actions.githubusercontent.com"
+      },
+      "Action": "sts:AssumeRoleWithWebIdentity",
+      "Condition": {
+        "StringEquals": {
+          "token.actions.githubusercontent.com:aud": "sts.amazonaws.com"
+        },
+        "StringLike": {
+          "token.actions.githubusercontent.com:sub": "repo:YOUR_ORG/YOUR_REPO:*"
+        }
+      }
+    }
+  ]
+}
+```
+
+Create the role:
+```bash
+aws iam create-role \
+  --role-name GitHubActions-AutoRFP-Deploy \
+  --assume-role-policy-document file://trust-policy.json \
+  --profile michael-primary
+```
+
+**3. Attach Permissions Policy**
+
+The deployment requires permissions for CloudFormation, Lambda, API Gateway, DynamoDB, S3, Cognito, Step Functions, SQS, IAM, and Amplify. See the inline policy in AWS IAM console for the `GitHubActions-AutoRFP-Deploy` role.
+
+**4. Configure GitHub**
+
+```bash
+# Set repository variable (Settings → Secrets and variables → Actions → Variables)
+gh variable set AWS_DEPLOY_ROLE_ARN --body "arn:aws:iam::YOUR_ACCOUNT_ID:role/GitHubActions-AutoRFP-Deploy"
+
+# Set required secrets
+gh secret set SAM_GOV_API_KEY --body "your-sam-gov-api-key"
+gh secret set PINECONE_API_KEY --body "your-pinecone-api-key"
+gh secret set PINECONE_INDEX --body "documents"
+```
+
 ---
 
 ## Current Environment
@@ -142,7 +206,9 @@ aws sts get-caller-identity --profile michael-primary
 
 | Secret | Location | Purpose |
 |--------|----------|---------|
-| `SAM_GOV_API_KEY` | Environment variable | SAM.gov API access |
+| `SAM_GOV_API_KEY` | Environment variable / GitHub Secret | SAM.gov API access |
+| `PINECONE_API_KEY` | Environment variable / GitHub Secret | Pinecone vector database |
+| `PINECONE_INDEX` | Environment variable / GitHub Secret | Pinecone index name |
 | `auto-rfp/github-token` | AWS Secrets Manager | Amplify GitHub access |
 | `LINEAR_API_KEY` | AWS Secrets Manager | Linear integration |
 
@@ -207,6 +273,8 @@ Set these before running `cdk deploy`:
 ```bash
 # Required
 export SAM_GOV_API_KEY="SAM-xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+export PINECONE_API_KEY="pcsk_xxxxxxxx..."
+export PINECONE_INDEX="documents"
 
 # Optional - Override defaults
 export CDK_DEFAULT_ACCOUNT="018222125196"
@@ -222,8 +290,8 @@ These are automatically set by CDK:
 | `STAGE` | Environment name (Dev/Prod) |
 | `DB_TABLE_NAME` | DynamoDB table name |
 | `DOCUMENTS_BUCKET` | S3 bucket for documents |
-| `OPENSEARCH_ENDPOINT` | OpenSearch Serverless endpoint |
-| `OPENSEARCH_INDEX` | OpenSearch index name |
+| `PINECONE_API_KEY` | Pinecone vector database API key |
+| `PINECONE_INDEX` | Pinecone index name for embeddings |
 | `BEDROCK_MODEL_ID` | Claude model for AI responses |
 | `BEDROCK_EMBEDDING_MODEL_ID` | Titan model for embeddings |
 | `COGNITO_USER_POOL_ID` | Cognito User Pool ID |
