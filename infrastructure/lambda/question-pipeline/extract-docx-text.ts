@@ -2,7 +2,7 @@ import mammoth from 'mammoth';
 import { requireEnv } from '../helpers/env';
 import { getFileFromS3, uploadToS3 } from '../helpers/s3';
 import { withSentryLambda } from '../sentry-lambda';
-import { updateQuestionFile } from '../helpers/questionFile';
+import { updateQuestionFile, checkQuestionFileCancelled } from '../helpers/questionFile';
 
 const DOCUMENTS_BUCKET = requireEnv('DOCUMENTS_BUCKET');
 
@@ -23,6 +23,12 @@ const baseHandler = async (event: Event) => {
   console.log('event', event);
   const { sourceFileKey, projectId, questionFileId, opportunityId } = event;
 
+  const isCancelled = await checkQuestionFileCancelled(projectId, opportunityId, questionFileId);
+  if (isCancelled) {
+    console.log(`Pipeline cancelled for ${questionFileId}, skipping processing`);
+    return { textFileKey: '', cancelled: true };
+  }
+
   const body = await getFileFromS3(DOCUMENTS_BUCKET, sourceFileKey);
 
   const buf = await streamToBuffer(body);
@@ -37,7 +43,7 @@ const baseHandler = async (event: Event) => {
     textFileKey 
   });
 
-  return { textFileKey };
+  return { textFileKey, cancelled: false };
 };
 
 export const handler = withSentryLambda(baseHandler);

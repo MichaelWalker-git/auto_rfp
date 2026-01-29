@@ -28,7 +28,6 @@ export const baseHandler = async (
 
   try {
     const { fileKey, mimeType } = await getQuestionFileItem(projectId, oppId, questionFileId) || {};
-    await updateQuestionFile(projectId, oppId, questionFileId, { status: 'PROCESSING' });
 
     const { executionArn, startDate } = await startPipeline(
       projectId,
@@ -37,6 +36,11 @@ export const baseHandler = async (
       fileKey,
       mimeType,
     );
+
+    await updateQuestionFile(projectId, oppId, questionFileId, {
+      status: 'PROCESSING',
+      executionArn: executionArn, 
+    });
 
     return apiResponse(202, {
       message: 'Question pipeline started',

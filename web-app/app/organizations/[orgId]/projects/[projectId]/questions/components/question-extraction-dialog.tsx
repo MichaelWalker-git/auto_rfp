@@ -16,6 +16,7 @@ import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { CancelPipelineButton } from '@/components/cancel-pipeline-button';
 
 import type { OpportunityItem } from '@auto-rfp/shared';
 import { usePresignUpload } from '@/lib/hooks/use-presign';
@@ -34,7 +35,7 @@ interface QuestionFileUploadDialogProps {
   onCompleted?: (questionFileId: string) => void;
 }
 
-type Step = 'idle' | 'uploading' | 'starting' | 'processing' | 'done' | 'error';
+type Step = 'idle' | 'uploading' | 'starting' | 'processing' | 'done' | 'error' | 'cancelled';
 
 type UploadItem = {
   clientId: string;
@@ -140,6 +141,17 @@ export function QuestionFileUploadDialog({
               console.error('onCompleted callback error', e);
             }
           }
+          return next;
+        }
+
+        if (apiStatus === 'CANCELLED') {
+          next[idx] = {
+            ...current,
+            step: 'cancelled',
+            status: apiStatus,
+            updatedAt,
+            error: 'Cancelled by user',
+          };
           return next;
         }
 
@@ -546,6 +558,7 @@ export function QuestionFileUploadDialog({
                               Status: <span className="font-medium">{it.status}</span>
                             </p>
                           )}
+                          
                           {it.error && (
                             <p className="text-xs text-destructive mt-1" role="alert">
                               {it.error}
@@ -561,7 +574,7 @@ export function QuestionFileUploadDialog({
                             {it.step === 'idle' ? 'Queued' : it.step}
                           </Badge>
 
-                          {!anyBusy && it.step !== 'done' && (
+                          {!anyBusy && it.step !== 'done' && it.step !== 'cancelled' && (
                             <Button
                               variant="ghost"
                               size="sm"
@@ -572,7 +585,33 @@ export function QuestionFileUploadDialog({
                               <X className="h-4 w-4" aria-hidden="true"/>
                             </Button>
                           )}
-                        </div>
+
+                          {(it.step === 'processing' || it.step === 'cancelled') && it.questionFileId && (oppIdParam || batchOppId) && (
+                            <CancelPipelineButton
+                              projectId={projectId}
+                              opportunityId={oppIdParam || batchOppId}
+                              questionFileId={it.questionFileId}
+                              status={it.status || ''}
+                              onSuccess={() => {
+                                setItemStep(it.clientId, { 
+                                  step: 'cancelled', 
+                                  status: 'CANCELLED',
+                                  error: 'Cancelled by user' 
+                                });
+                              }}
+                              onDelete={() => {
+                                handleRemoveItem(it.clientId);
+                              }}
+                              onRetry={() => {
+                                setItemStep(it.clientId, { 
+                                  step: 'processing', 
+                                  status: 'PROCESSING',
+                                  error: null 
+                                });
+                              }}
+                            />
+                          )}
+                        </div> 
                       </div>
                     </div>
                   );

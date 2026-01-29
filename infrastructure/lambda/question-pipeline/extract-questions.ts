@@ -10,7 +10,7 @@ import { nowIso } from '../helpers/date';
 import { loadTextFromS3 } from '../helpers/s3';
 import { v4 as uuidv4 } from 'uuid';
 import { invokeModel } from '../helpers/bedrock-http-client';
-import { updateQuestionFile } from '../helpers/questionFile';
+import { updateQuestionFile, checkQuestionFileCancelled } from '../helpers/questionFile';
 import { GroupedSection } from '@auto-rfp/shared';
 import { buildQuestionSK, isConditionalCheckFailed, normalizeQuestionText, sha256Hex } from '../helpers/question';
 
@@ -70,10 +70,21 @@ function splitTextIntoChunks(
 export const baseHandler = async (
   event: ExtractQuestionsEvent,
   _ctx: Context,
-): Promise<{ count: number }> => {
+): Promise<{ count: number, cancelled: boolean }> => {
   console.log('extract-questions event:', JSON.stringify(event));
 
   const { questionFileId, projectId, textFileKey, opportunityId } = event;
+  if (projectId && opportunityId && questionFileId) {
+    const isCancelled = await checkQuestionFileCancelled(projectId, opportunityId, questionFileId);
+    if (isCancelled) {
+      console.log(`Pipeline cancelled for ${questionFileId}, skipping processing`);
+      return {
+        count: 0,
+        cancelled: true,
+      };
+    }
+  }
+
   if (!questionFileId || !projectId || !textFileKey || !opportunityId) {
     throw new Error('questionFileId, projectId, textFileKey, opportunityId are required');
   }
@@ -109,7 +120,7 @@ export const baseHandler = async (
 
   await updateQuestionFile(projectId, opportunityId, questionFileId, { status: 'PROCESSED', totalQuestions });
 
-  return { count: totalQuestions };
+  return { count: totalQuestions, cancelled: false };
 };
 
 async function extractQuestionsWithBedrock(
