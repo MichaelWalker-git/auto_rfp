@@ -1,4 +1,7 @@
 import { defineConfig, devices } from '@playwright/test';
+import path from 'path';
+
+const authFile = path.join(__dirname, 'e2e/.auth/user.json');
 
 export default defineConfig({
   testDir: './e2e',
@@ -10,6 +13,8 @@ export default defineConfig({
     ['html', { outputFolder: 'playwright-report' }],
     ['list'],
   ],
+  // Global setup for authentication
+  globalSetup: process.env.E2E_TEST_EMAIL ? './e2e/global-setup.ts' : undefined,
   use: {
     baseURL: process.env.PLAYWRIGHT_BASE_URL || 'http://localhost:3000',
     trace: 'on-first-retry',
@@ -17,6 +22,12 @@ export default defineConfig({
     video: 'retain-on-failure',
   },
   projects: [
+    // Setup project for authentication
+    {
+      name: 'setup',
+      testMatch: /global-setup\.ts/,
+    },
+    // Authenticated tests
     {
       name: 'chromium',
       use: { ...devices['Desktop Chrome'] },
