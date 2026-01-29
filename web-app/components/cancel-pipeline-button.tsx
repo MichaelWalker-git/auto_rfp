@@ -47,7 +47,7 @@ export function CancelPipelineButton({
     } else if (status === 'PROCESSING' || status === 'TEXTRACT_RUNNING' || status === 'TEXT_READY') {
       setCancellingState('idle');
     }
-  }, [status, cancellingState]);
+  }, [status]);
 
   const handleCancel = async () => {
     try {
@@ -56,11 +56,11 @@ export function CancelPipelineButton({
         opportunityId,
         questionFileId,
       });
-      setCancellingState('cancelled')
+      setCancellingState('cancelled');
       onSuccess?.();
     } catch (error) {
       console.error('Failed to cancel pipeline:', error);
-      setCancellingState('idle')
+      setCancellingState('idle');
       toast({
         title: 'Error',
         description: 'Failed to cancel question file processing',
@@ -116,8 +116,14 @@ export function CancelPipelineButton({
         size="sm"
         variant="outline"
         onClick={handleCancel}
+        disabled={isStopping}
+        className="gap-1.5"
       >
-        <CircleX />
+        {isStopping ? (
+          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+        ) : (
+          <CircleX className="h-3.5 w-3.5" />
+        )}
       </Button>
     );
   }

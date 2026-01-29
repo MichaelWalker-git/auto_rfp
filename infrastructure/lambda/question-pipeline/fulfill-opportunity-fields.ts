@@ -93,7 +93,7 @@ export const baseHandler = async (event: Event) => {
       orgId,
       projectId,
       oppId: opportunityId
-    }
+    };
     const opportunity = await getOpportunity(opportunityArgs);
     
     if (opportunity?.item.source === 'SAM_GOV') {

@@ -352,12 +352,18 @@ export class ApiStack extends cdk.Stack {
       }),
     );
 
+    const questionStateMachineArnParts = cdk.Arn.split(
+      questionPipelineStateMachineArn,
+      cdk.ArnFormat.COLON_RESOURCE_NAME,
+    );
+
+    // Manually construct the execution ARN pattern
+    const questionExecutionArnPattern = `arn:aws:states:${this.region}:${this.account}:execution:${questionStateMachineArnParts.resourceName}:*`;
+
     role.addToPrincipalPolicy(
       new iam.PolicyStatement({
         actions: ['states:StopExecution'],
-        resources: [
-          `arn:aws:states:${this.region}:${this.account}:execution:AutoRfp-Dev-Question-Pipeline:*`,
-        ],
+        resources: [questionExecutionArnPattern],
         effect: iam.Effect.ALLOW,
       }),
     );

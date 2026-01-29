@@ -591,6 +591,7 @@ export function QuestionFileUploadDialog({
                               projectId={projectId}
                               opportunityId={oppIdParam || batchOppId}
                               questionFileId={it.questionFileId}
+                              status={it.status || ''}
                               onSuccess={() => {
                                 setItemStep(it.clientId, { 
                                   step: 'cancelled', 
