@@ -90,6 +90,9 @@ jobs:
         working-directory: infrastructure
         run: npm install
 
+      - name: Install esbuild for Lambda bundling
+        run: npm install -g esbuild
+
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
