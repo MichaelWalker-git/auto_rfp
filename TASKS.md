@@ -10,7 +10,8 @@ Active tasks for the AutoRFP project.
 - [x] Docker bundling issue - Installed esbuild globally for local Lambda bundling
 - [x] IAM permissions - Added AmplifyFeStack-* to CloudFormation resources in IAM policy
 - [x] Infrastructure deployment workflow now working
-- [ ] **ESLint 9 configuration** - Circular structure error with FlatCompat, needs native flat config
+- [x] **ESLint 9 configuration** - Using native flat config with @next/eslint-plugin-next
+- [ ] **React Hooks violations** - Fixed conditional hooks in ProposalsContent, DocumentsSection, ProjectOverview, CancelPipelineButton
 
 ### GitHub Secrets Added
 - [x] `PINECONE_API_KEY` - Pinecone vector database API key

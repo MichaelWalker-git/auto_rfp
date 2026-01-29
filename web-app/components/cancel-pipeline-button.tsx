@@ -37,10 +37,6 @@ export function CancelPipelineButton({
 
   const { toast } = useToast();
 
-  if (!projectId || !opportunityId || !questionFileId) {
-    return null;
-  }
-
   useEffect(() => {
     if (status === 'CANCELLED') {
       setCancellingState('cancelled');
@@ -48,6 +44,10 @@ export function CancelPipelineButton({
       setCancellingState('idle');
     }
   }, [status]);
+
+  if (!projectId || !opportunityId || !questionFileId) {
+    return null;
+  }
 
   const handleCancel = async () => {
     try {

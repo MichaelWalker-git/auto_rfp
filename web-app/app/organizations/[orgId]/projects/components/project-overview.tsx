@@ -22,16 +22,15 @@ interface ProjectOverviewProps {
 }
 
 export function ProjectOverview({ projectId }: ProjectOverviewProps) {
-
   const { questionFiles, isLoading: isQL, error: err } = useQuestionsProvider();
-
-  if (!isQL && !err && !questionFiles?.length) {
-    return <NoRfpDocumentAvailable projectId={projectId}/>;
-  }
-
   const [sectionsExpanded, setSectionsExpanded] = useState(false);
   const { data: project, isLoading: projectLoading, error: projectError } = useProject(projectId);
   const { data: questions, isLoading: questionsLoading, error: questionsError } = useQuestions(projectId);
+
+  // Early return after all hooks
+  if (!isQL && !err && !questionFiles?.length) {
+    return <NoRfpDocumentAvailable projectId={projectId}/>;
+  }
 
   const isLoading = questionsLoading || projectLoading;
 
