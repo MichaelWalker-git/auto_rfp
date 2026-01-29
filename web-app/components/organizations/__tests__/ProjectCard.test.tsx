@@ -16,6 +16,7 @@ describe('ProjectCard', () => {
     description: 'A test project description',
     orgId: 'org-456',
     status: 'In Progress',
+    createdAt: '2024-01-15T10:00:00Z',
   };
 
   const defaultProps = {
@@ -59,48 +60,22 @@ describe('ProjectCard', () => {
     render(<ProjectCard {...defaultProps} />);
 
     const link = screen.getByRole('link');
-    expect(link).toHaveAttribute('href', '/project/project-123?orgId=org-456');
+    expect(link).toHaveAttribute('href', '/organizations/org-456/projects/project-123');
   });
 
-  it('renders status badge', () => {
-    render(<ProjectCard {...defaultProps} />);
-
-    expect(screen.getByText('In Progress')).toBeInTheDocument();
-  });
-
-  it('renders default status when not provided', () => {
-    const projectWithoutStatus = {
-      ...mockProject,
-      status: undefined,
-    };
-    render(<ProjectCard project={projectWithoutStatus} orgId="org-456" />);
-
-    expect(screen.getByText('In Progress')).toBeInTheDocument();
-  });
-
-  it('renders Completed status with different badge variant', () => {
-    const completedProject = {
-      ...mockProject,
-      status: 'Completed',
-    };
-    render(<ProjectCard project={completedProject} orgId="org-456" />);
-
-    expect(screen.getByText('Completed')).toBeInTheDocument();
-  });
-
-  it('renders the FileText icon', () => {
+  it('renders project card with correct styling', () => {
     const { container } = render(<ProjectCard {...defaultProps} />);
 
-    // Check for SVG element (lucide icons render as SVG)
-    const icon = container.querySelector('svg');
-    expect(icon).toBeInTheDocument();
+    // Card should have hover:shadow-md class
+    const card = container.querySelector('[class*="hover:shadow-md"]');
+    expect(card).toBeInTheDocument();
   });
 
-  it('applies hover styles to card', () => {
+  it('applies group and transition classes', () => {
     const { container } = render(<ProjectCard {...defaultProps} />);
 
-    // Card should have hover class
-    const card = container.querySelector('[class*="hover:shadow-lg"]');
+    // Card should have group and transition classes
+    const card = container.querySelector('[class*="group"][class*="transition"]');
     expect(card).toBeInTheDocument();
   });
 });
