@@ -224,51 +224,13 @@ jobs:
           path: web-app/test-results/**/trace*.zip
           retention-days: 7
 
-  merge-reports:
-    name: Merge Test Reports
+  summary:
+    name: Test Summary
     runs-on: ubuntu-latest
     needs: e2e-tests
     if: always()
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v3
-        with:
-          version: 10
-
-      - name: Download all reports
-        uses: actions/download-artifact@v4
-        with:
-          pattern: playwright-report-shard-*
-          path: all-reports
-
-      - name: Install Playwright
-        working-directory: web-app
-        run: pnpm install && pnpm exec playwright install --with-deps chromium
-
-      - name: Merge reports
-        working-directory: web-app
-        run: |
-          echo "Merging Playwright reports..."
-          npx playwright merge-reports ../all-reports --reporter=html
-        continue-on-error: true
-
-      - name: Upload merged report
-        uses: actions/upload-artifact@v4
-        with:
-          name: playwright-report-merged-${{ github.sha }}
-          path: web-app/playwright-report/
-          retention-days: 30
-
       - name: E2E Tests Summary
-        if: always()
         run: |
           echo "## E2E Test Results" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
@@ -278,4 +240,9 @@ jobs:
             echo "❌ Some E2E tests failed. Check artifacts for details." >> $GITHUB_STEP_SUMMARY
           fi
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "📊 Reports available in workflow artifacts" >> $GITHUB_STEP_SUMMARY
+          echo "### Artifacts" >> $GITHUB_STEP_SUMMARY
+          echo "- playwright-report-shard-1 (Shard 1/3)" >> $GITHUB_STEP_SUMMARY
+          echo "- playwright-report-shard-2 (Shard 2/3)" >> $GITHUB_STEP_SUMMARY
+          echo "- playwright-report-shard-3 (Shard 3/3)" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Download any report artifact and open \`index.html\` to view results." >> $GITHUB_STEP_SUMMARY
