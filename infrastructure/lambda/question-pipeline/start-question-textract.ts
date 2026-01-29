@@ -5,7 +5,8 @@ import { QUESTION_FILE_PK } from '../constants/question-file';
 import { withSentryLambda } from '../sentry-lambda';
 import { requireEnv } from '../helpers/env';
 import { docClient } from '../helpers/db';
-import { buildQuestionFileSK, updateQuestionFile } from '../helpers/questionFile';
+import { buildQuestionFileSK, updateQuestionFile, checkQuestionFileCancelled } from '../helpers/questionFile';
+import { SFNClient, SendTaskSuccessCommand } from '@aws-sdk/client-sfn';
 
 const textract = new TextractClient({});
 
@@ -29,11 +30,29 @@ export interface StartTextractResp {
 
 export const baseHandler = async (event: StartTextractEvent) => {
   const { questionFileId, projectId, opportunityId, taskToken } = event;
+  const sfnClient = new SFNClient({ region: 'us-east-1' });
 
   console.log('event', event);
 
   if (!questionFileId || !projectId || !opportunityId)
     throw new Error('questionFileId, opportunityId and projectId required');
+
+  const isCancelled = await checkQuestionFileCancelled(projectId, opportunityId, questionFileId);
+  
+  if (isCancelled) {    
+    await sfnClient.send(new SendTaskSuccessCommand({
+      taskToken,
+      output: JSON.stringify({
+        questionFileId,
+        oppId: opportunityId,
+        jobId: '',
+        status: 'CANCELLED',
+        cancelled: true,
+      }),
+    }));
+    
+    return { ok: true, cancelled: true };
+  }
 
   const sk = buildQuestionFileSK(projectId, opportunityId, questionFileId);
 
@@ -47,7 +66,24 @@ export const baseHandler = async (event: StartTextractEvent) => {
     })
   );
 
-  if (!item) throw new Error('question_file not found');
+  if (!item) {
+    console.log('Question file not found in DB - treating as cancelled');
+    
+    await sfnClient.send(new SendTaskSuccessCommand({
+      taskToken,
+      output: JSON.stringify({
+        questionFileId,
+        oppId: opportunityId,
+        jobId: '',
+        status: 'CANCELLED',
+        cancelled: true,
+      }),
+    }));
+    
+    return { ok: true, cancelled: true };
+  }
+
+  console.log(`Question file found, status: ${item.status}`);
 
   const fileKey = item.fileKey;
   if (!fileKey) throw new Error('fileKey missing');
@@ -66,9 +102,28 @@ export const baseHandler = async (event: StartTextractEvent) => {
   );
 
   const jobId = startRes.JobId!;
-  await updateQuestionFile(projectId, opportunityId, questionFileId, { status: 'TEXTRACT_RUNNING', jobId, taskToken });
+  
+  const updateResult = await updateQuestionFile(projectId, opportunityId, questionFileId, { 
+    status: 'TEXTRACT_RUNNING', 
+    jobId, 
+    taskToken 
+  });
 
-  console.log('Updated question file with taskToken');
+  if (updateResult.deleted) {
+    await sfnClient.send(new SendTaskSuccessCommand({
+      taskToken,
+      output: JSON.stringify({
+        questionFileId,
+        oppId: opportunityId,
+        jobId,
+        status: 'CANCELLED',
+        cancelled: true,
+      }),
+    }));
+    
+    return { ok: true, cancelled: true, deleted: true };
+  }
+  
   return { jobId } as StartTextractResp;
 };
 

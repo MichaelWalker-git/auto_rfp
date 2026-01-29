@@ -2,8 +2,8 @@ import { requireEnv } from '../helpers/env';
 import { loadTextFromS3 } from '../helpers/s3';
 import { invokeModel } from '../helpers/bedrock-http-client';
 import { safeParseJsonFromModel } from '../helpers/json';
-import { updateOpportunity } from '../helpers/opportunity';
-import { getQuestionFileItem, updateQuestionFile } from '../helpers/questionFile';
+import { updateOpportunity, getOpportunity } from '../helpers/opportunity';
+import { getQuestionFileItem, updateQuestionFile, checkQuestionFileCancelled } from '../helpers/questionFile';
 import { withSentryLambda } from '../sentry-lambda';
 
 type Event = {
@@ -64,6 +64,20 @@ export const buildBedrockMessagesBody = (docText: string) => {
 export const baseHandler = async (event: Event) => {
   const { opportunityId, projectId, questionFileId, textFileKey } = event;
   console.log(`Event: ${JSON.stringify(event, null, 2)}`);
+
+  if (projectId && opportunityId && questionFileId) {
+    const isCancelled = await checkQuestionFileCancelled(projectId, opportunityId, questionFileId);
+    if (isCancelled) {
+      console.log(`Pipeline cancelled for ${questionFileId}, skipping processing`);
+      return {
+        ok: true,
+        opportunityId,
+        cancelled: true,
+        updatedFieldCount: 0,
+      };
+    }
+  }
+
   if (!projectId || !questionFileId || !textFileKey || !opportunityId) {
     throw new Error('Provide a valid projectId or questionFileId or textFileKey');
   }
@@ -74,13 +88,43 @@ export const baseHandler = async (event: Event) => {
   }
 
   try {
+    // Check if opportunity source is SAM_GOV
+    const opportunityArgs = {
+      orgId,
+      projectId,
+      oppId: opportunityId
+    }
+    const opportunity = await getOpportunity(opportunityArgs);
+    
+    if (opportunity?.item.source === 'SAM_GOV') {
+      console.log(`Skipping opportunity field fulfillment for SAM_GOV opportunity: ${opportunityId}`);
+      
+      // Mark question file as processed and return success
+      await updateQuestionFile(projectId, opportunityId, questionFileId, {
+        status: 'PROCESSED',
+      });
+      
+      return {
+        ok: true,
+        opportunityId,
+        updatedFieldCount: 0,
+        confidence: 100,
+        skipped: true,
+        reason: 'SAM_GOV opportunity - fields already populated from source',
+      };
+    }
+
+    // Continue with normal processing for non-SAM_GOV opportunities
     const docText = await loadTextFromS3(DOCUMENTS_BUCKET, textFileKey);
+
+    if (!docText || docText.length === 0) {
+      throw new Error(`Empty document text from S3: ${textFileKey}`);
+    }
+
     const bodyString = JSON.stringify(buildBedrockMessagesBody(docText));
     const responseBody = await invokeModel(BEDROCK_MODEL_ID, bodyString);
     const responseString = new TextDecoder('utf-8').decode(responseBody);
     const responseJson = JSON.parse(responseString);
-
-    console.log(`Model response: ${responseString}`);
 
     const rawText =
       responseJson?.content?.find?.((c: any) => c?.type === 'text')?.text ??
@@ -116,6 +160,7 @@ export const baseHandler = async (event: Event) => {
       opportunityId,
       updatedFieldCount: Object.keys(fields).length,
       confidence,
+      cancelled: false
     };
   } catch (e: any) {
     console.error(e);
@@ -129,6 +174,7 @@ export const baseHandler = async (event: Event) => {
       oppId: opportunityId,
       updatedFieldCount: 0,
       confidence: 100,
+      cancelled: false
     };
   }
 };
