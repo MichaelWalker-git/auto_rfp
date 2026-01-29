@@ -1,8 +1,9 @@
 import { APIGatewayProxyEventV2, APIGatewayProxyResultV2, } from 'aws-lambda';
-import { UpdateCommand, } from '@aws-sdk/lib-dynamodb';
+import { QueryCommand, UpdateCommand, } from '@aws-sdk/lib-dynamodb';
 
 import { PK_NAME, SK_NAME } from '../constants/common';
 import { KNOWLEDGE_BASE_PK } from '../constants/organization';
+import { DOCUMENT_PK } from '../constants/document';
 import { apiResponse, getOrgId } from '../helpers/api';
 import { KnowledgeBaseItem, UpdateKnowledgeBaseDTO, UpdateKnowledgeBaseSchema, } from '@auto-rfp/shared';
 import { withSentryLambda } from '../sentry-lambda';
@@ -124,6 +125,9 @@ export async function updateKnowledgeBase(
 
     const item = result.Attributes as KnowledgeBaseItem;
 
+    // Get document count for this knowledge base
+    const documentsCount = await getDocumentCountForKnowledgeBase(kbId);
+
     // Map DB item -> API shape
     return {
       id: kbId,
@@ -131,7 +135,10 @@ export async function updateKnowledgeBase(
       description: item.description,
       createdAt: item.createdAt,
       updatedAt: item.updatedAt,
-      _count: item._count ?? { questions: 0 },
+      _count: {
+        questions: item._count?.questions ?? 0,
+        documents: documentsCount,
+      },
     };
   } catch (err: any) {
     if (err?.name === 'ConditionalCheckFailedException') {
@@ -141,6 +148,42 @@ export async function updateKnowledgeBase(
 
     throw err;
   }
+}
+
+// Helper: count documents for a KB
+async function getDocumentCountForKnowledgeBase(
+  knowledgeBaseId: string,
+): Promise<number> {
+  const skPrefix = `KB#${knowledgeBaseId}`;
+  let count = 0;
+  let ExclusiveStartKey: Record<string, unknown> | undefined = undefined;
+
+  do {
+    const res = await docClient.send(
+      new QueryCommand({
+        TableName: DB_TABLE_NAME,
+        KeyConditionExpression:
+          '#pk = :pkValue AND begins_with(#sk, :skPrefix)',
+        ExpressionAttributeNames: {
+          '#pk': PK_NAME,
+          '#sk': SK_NAME,
+        },
+        ExpressionAttributeValues: {
+          ':pkValue': DOCUMENT_PK,
+          ':skPrefix': skPrefix,
+        },
+        Select: 'COUNT',
+        ExclusiveStartKey,
+      }),
+    );
+
+    count += res.Count ?? 0;
+    ExclusiveStartKey = res.LastEvaluatedKey as
+      | Record<string, unknown>
+      | undefined;
+  } while (ExclusiveStartKey);
+
+  return count;
 }
 
 export const handler = withSentryLambda(

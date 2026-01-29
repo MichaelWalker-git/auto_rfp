@@ -85,6 +85,7 @@ export async function createKnowledgeBase(
     updatedAt: now,
     _count: {
       questions: 0,
+      documents: 0,
     },
   } as KnowledgeBaseItem;
 
