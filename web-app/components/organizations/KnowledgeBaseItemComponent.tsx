@@ -152,7 +152,9 @@ function formatFileSize(bytes: number): string {
 // ============================================================================
 
 export default function KnowledgeBaseItemComponent() {
-  const { orgId, kbId } = useParams<{ orgId: string; kbId: string }>();
+  const params = useParams<{ orgId: string; kbId: string }>();
+  const orgId = params.orgId ?? null;
+  const kbId = params.kbId ?? null;
 
   // Data hooks
   const { data: kb, isLoading: kbLoading, error: kbError } = useKnowledgeBase(kbId, orgId);
@@ -676,7 +678,9 @@ export default function KnowledgeBaseItemComponent() {
             </div>
 
             <div className="hidden">
-              <UploadFileToS3 ref={uploaderRef} prefix={`org_${orgId}/kb_${kbId}`}/>
+              {orgId && kbId && (
+                <UploadFileToS3 ref={uploaderRef} prefix={`org_${orgId}/kb_${kbId}`}/>
+              )}
             </div>
 
             {uploadErrors.length > 0 && (
