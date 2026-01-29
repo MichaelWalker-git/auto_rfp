@@ -17,20 +17,12 @@ Active tasks for the AutoRFP project.
 - [x] `PINECONE_API_KEY` - Pinecone vector database API key
 - [x] `PINECONE_INDEX` - Pinecone index name (documents)
 
-### E2E Test Infrastructure
+### E2E Test Coverage (High Priority - Completed)
 - [x] **PR #57** - Authenticated test fixtures (MERGED)
-  - Playwright setup/teardown projects
-  - Global auth setup with Cognito
-  - organization.auth.spec.ts for authenticated tests
-
-## In Progress
-
-### E2E Test Coverage
-- [ ] **PR #58** - Document upload E2E tests (In Review)
-  - KB list navigation
-  - Upload zone visibility
-  - Project documents section
-  - Question extraction dialog
+- [x] **PR #58** - Document upload E2E tests (MERGED)
+- [x] **PR #59** - Question extraction E2E tests (MERGED)
+- [x] **PR #60** - Answer generation E2E tests (MERGED)
+- [x] **PR #61** - Proposal generation E2E tests (MERGED)
 
 ## CI Status
 
@@ -65,17 +57,13 @@ Active tasks for the AutoRFP project.
 | `auth.spec.ts` | 3 | Active | Auth redirect, login form |
 | `organization.spec.ts` | 2 | Active | Unauthenticated route handling |
 | `organization.auth.spec.ts` | 6 | Active | Org/project management (auth) |
-| `document-upload.auth.spec.ts` | 9 | PR #58 | KB and document uploads |
+| `document-upload.auth.spec.ts` | 9 | Active | KB and document uploads |
+| `question-extraction.auth.spec.ts` | 7 | Active | Question extraction flow |
+| `answer-generation.auth.spec.ts` | 8 | Active | Answer generation/RAG |
+| `proposal-generation.auth.spec.ts` | 7 | Active | Proposal generation/export |
 | `visual.spec.ts` | ? | Active | Visual regression tests |
 
-### Remaining E2E Coverage (Prioritized)
-
-#### High Priority - Core Flows
-- [x] **Authenticated test fixtures** - PR #57 merged
-- [x] **Document Upload Pipeline** - PR #58 in review
-- [ ] **Question Extraction** - Upload RFP, extract questions, verify in UI
-- [ ] **Answer Generation** - Generate answers with RAG, verify source citations
-- [ ] **Proposal Generation** - Generate proposal from Q&A, export to PDF/DOCX
+### Remaining E2E Coverage (Medium/Lower Priority)
 
 #### Medium Priority - Business Features
 - [ ] **Executive Brief Generation** - Generate brief, verify all 6 sections
@@ -87,3 +75,17 @@ Active tasks for the AutoRFP project.
 - [ ] **User Profile Management** - Update user settings
 - [ ] **Organization Settings** - Manage org settings, member invites
 - [ ] **Custom Prompts** - Create and manage custom prompts
+
+---
+
+## Summary
+
+All high-priority E2E test coverage items have been completed:
+1. ✅ Authenticated test fixtures (Playwright auth setup)
+2. ✅ Document upload pipeline tests
+3. ✅ Question extraction tests
+4. ✅ Answer generation tests (RAG, sources)
+5. ✅ Proposal generation tests (export PDF/DOCX)
+
+Total new E2E test files added: 5
+Total new test cases: ~37 authenticated tests
