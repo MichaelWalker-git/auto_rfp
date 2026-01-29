@@ -1,3 +1,4 @@
+export * from './analytics';
 export * from './proposal';
 export * from './question-file'
 export * from './document'
