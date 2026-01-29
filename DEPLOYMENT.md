@@ -73,6 +73,8 @@ This document covers deployment processes, environment configuration, and produc
 | `NEXT_PUBLIC_COGNITO_USER_POOL_ID` | Cognito Pool ID | Build/E2E |
 | `NEXT_PUBLIC_COGNITO_USER_POOL_CLIENT_ID` | Cognito Client ID | Build/E2E |
 | `SAM_GOV_API_KEY` | SAM.gov API access | Infrastructure Deploy |
+| `PINECONE_API_KEY` | Pinecone vector DB API key | Infrastructure Deploy |
+| `PINECONE_INDEX` | Pinecone index name | Infrastructure Deploy |
 
 ### GitHub Variables Required (for Infrastructure Deploy)
 

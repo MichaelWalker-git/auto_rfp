@@ -107,6 +107,8 @@ jobs:
           echo '```' >> $GITHUB_STEP_SUMMARY
         env:
           SAM_GOV_API_KEY: ${{ secrets.SAM_GOV_API_KEY }}
+          PINECONE_API_KEY: ${{ secrets.PINECONE_API_KEY }}
+          PINECONE_INDEX: ${{ secrets.PINECONE_INDEX }}
 
       - name: Deploy CDK Stacks
         working-directory: infrastructure
@@ -117,6 +119,8 @@ jobs:
             --ci
         env:
           SAM_GOV_API_KEY: ${{ secrets.SAM_GOV_API_KEY }}
+          PINECONE_API_KEY: ${{ secrets.PINECONE_API_KEY }}
+          PINECONE_INDEX: ${{ secrets.PINECONE_INDEX }}
 
       - name: Deployment Summary
         run: |
