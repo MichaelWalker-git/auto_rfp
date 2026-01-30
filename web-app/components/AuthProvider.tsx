@@ -3,6 +3,7 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { Authenticator, useAuthenticator } from '@aws-amplify/ui-react';
 import { fetchAuthSession } from 'aws-amplify/auth';
+import * as Sentry from '@sentry/nextjs';
 import '@/lib/amplify';
 import '@aws-amplify/ui-react/styles.css';
 import { JWT } from '@aws-amplify/core';
@@ -71,22 +72,36 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           setUserSub(null);
           setEmail(null);
           setError(null);
+          Sentry.setUser(null);
           return;
         }
 
         const payload = idToken.payload as Record<string, unknown>;
         const nextRole = parseString(payload['custom:role']) as UserRole | null;
 
+        const userSubValue = parseString(payload['sub']);
+        const emailValue = parseString(payload['email']);
+        const orgIdValue = parseString(payload['custom:orgId']);
+
         setIsAuthed(true);
-        setOrgId(parseString(payload['custom:orgId']));
+        setOrgId(orgIdValue);
         setRole(nextRole);
         setPermissions(nextRole ? ROLE_PERMISSIONS[nextRole] ?? [] : []);
-        setEmail(parseString(payload['email']));
-        setUserSub(parseString(payload['sub']));
+        setEmail(emailValue);
+        setUserSub(userSubValue);
         setError(null);
+
+        // Set Sentry user context for error tracking
+        Sentry.setUser({
+          id: userSubValue ?? undefined,
+          email: emailValue ?? undefined,
+        });
+        Sentry.setTag('orgId', orgIdValue ?? 'none');
+        Sentry.setTag('userRole', nextRole ?? 'none');
       } catch (e) {
         setIsAuthed(false);
         setError(e instanceof Error ? e : new Error('Auth failed'));
+        Sentry.setUser(null);
       } finally {
         setIsLoading(false);
         refreshPromise = null;

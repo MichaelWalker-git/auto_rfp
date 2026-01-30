@@ -4,6 +4,7 @@ import useSWRMutation from 'swr/mutation';
 import { env } from '@/lib/env';
 import { AnswerItem, AnswerQuestionRequestBody, AnswerSource, SaveAnswerDTO } from '@auto-rfp/shared';
 import { authFetcher } from '@/lib/auth/auth-fetcher';
+import { breadcrumbs } from '@/lib/sentry';
 
 const BASE = `${env.BASE_API_URL}/answer`;
 
@@ -28,7 +29,9 @@ export function useSaveAnswer(projectId: string) {
         throw error;
       }
 
-      return res.json() as Promise<AnswerItem>;
+      const answer = await res.json() as AnswerItem;
+      breadcrumbs.answerSaved(answer.id);
+      return answer;
     },
   );
 }
@@ -40,6 +43,8 @@ export function useGenerateAnswer() {
     `${BASE}/generate-answer`,
     async (url, { arg }) => {
       const { orgId, projectId, questionId, topK } = arg;
+
+      breadcrumbs.answerGenerationStarted(questionId, projectId);
 
       const res = await authFetcher(url, {
         method: 'POST',
@@ -62,7 +67,9 @@ export function useGenerateAnswer() {
       const raw = await res.text();
 
       try {
-        return JSON.parse(raw) as GenerateAnswerResponse;
+        const response = JSON.parse(raw) as GenerateAnswerResponse;
+        breadcrumbs.answerGenerationCompleted(questionId, 'generated');
+        return response;
       } catch {
         // not JSON, fall through
       }

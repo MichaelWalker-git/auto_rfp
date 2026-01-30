@@ -6,9 +6,15 @@ import { QuestionsProvider, QuestionsSection } from '../[projectId]/questions/co
 import { DocumentsSection } from './documents-section';
 import { TeamSection } from './team-section';
 import ProposalsContent from '@/app/organizations/[orgId]/projects/components/ProposalsContent';
+import { useProject } from '@/lib/hooks/use-api';
+import { useSentryProject } from '@/lib/hooks/use-sentry-context';
 
 function ProjectContentInner({ projectId }: { projectId: string }) {
   const [activeSection, setActiveSection] = useState('overview');
+  const { data: project } = useProject(projectId);
+
+  // Set Sentry context for error tracking
+  useSentryProject(project ? { id: project.id, name: project.name, orgId: project.orgId } : null);
 
   const renderContent = () => {
     switch (activeSection) {
