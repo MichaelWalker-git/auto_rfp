@@ -21,6 +21,7 @@ import {
   UpdateContentLibraryItemDTO,
   SearchContentLibraryDTO,
 } from '../schemas/content-library';
+import { withSentryLambda } from '../sentry-lambda';
 
 // Initialize DynamoDB client
 const dynamoClient = new DynamoDBClient({ region: process.env.AWS_REGION || 'us-east-1' });
@@ -857,3 +858,16 @@ export async function getContentLibraryTags(
     });
   }
 }
+
+
+// Wrapped handlers for Lambda deployment with Sentry error tracking
+export const createContentLibraryItemHandler = withSentryLambda(createContentLibraryItem);
+export const getContentLibraryItemHandler = withSentryLambda(getContentLibraryItem);
+export const listContentLibraryItemsHandler = withSentryLambda(listContentLibraryItems);
+export const updateContentLibraryItemHandler = withSentryLambda(updateContentLibraryItem);
+export const deleteContentLibraryItemHandler = withSentryLambda(deleteContentLibraryItem);
+export const approveContentLibraryItemHandler = withSentryLambda(approveContentLibraryItem);
+export const deprecateContentLibraryItemHandler = withSentryLambda(deprecateContentLibraryItem);
+export const trackContentLibraryUsageHandler = withSentryLambda(trackContentLibraryUsage);
+export const getContentLibraryCategoriesHandler = withSentryLambda(getContentLibraryCategories);
+export const getContentLibraryTagsHandler = withSentryLambda(getContentLibraryTags);

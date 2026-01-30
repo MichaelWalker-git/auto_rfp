@@ -23,7 +23,7 @@ module.exports = {
   coverageReporters: ['text', 'lcov', 'html'],
   setupFilesAfterEnv: ['<rootDir>/jest.setup.js'],
   moduleNameMapper: {
-    '^@auto-rfp/shared$': '<rootDir>/../shared/dist/index.js',
+    '^@auto-rfp/shared$': '<rootDir>/../shared/dist/index.cjs',
   },
   testTimeout: 10000,
 };

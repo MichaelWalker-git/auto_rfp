@@ -4,6 +4,7 @@ import useSWR from 'swr';
 import useSWRMutation from 'swr/mutation';
 import { env } from '@/lib/env';
 import { authFetcher } from '@/lib/auth/auth-fetcher';
+import { breadcrumbs } from '@/lib/sentry';
 
 //
 // ================================
@@ -75,7 +76,9 @@ export function useCreateKnowledgeBase(orgId: string) {
         throw new Error(message || 'Failed to create knowledge base');
       }
 
-      return res.json() as Promise<KnowledgeBase>;
+      const kb = await res.json() as KnowledgeBase;
+      breadcrumbs.knowledgeBaseCreated(kb.id, kb.name);
+      return kb;
     },
   );
 }
@@ -100,6 +103,7 @@ export function useDeleteKnowledgeBase() {
         throw new Error(message || 'Failed to delete knowledge base');
       }
 
+      breadcrumbs.knowledgeBaseDeleted(arg.id);
       return res.json();
     },
   );
