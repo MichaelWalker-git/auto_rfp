@@ -15,24 +15,24 @@ import {
   SidebarProvider,
   SidebarRail,
   SidebarSeparator,
-  SidebarTrigger,
 } from '@/components/ui/sidebar';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { UserSection } from '@/components/user-section';
 
 import {
   BookOpen,
+  BookText,
+  Briefcase,
+  CalendarClock,
   FileText,
   FolderOpen,
   HelpCircle,
   Home,
   MessageSquare,
-  Briefcase,
   ScrollText,
   Search,
   Settings,
-  Users,
-  CalendarClock
+  Users
 } from 'lucide-react';
 
 import Link from 'next/link';
@@ -43,6 +43,7 @@ import { useMemo } from 'react';
 import { useOrganization } from '@/context/organization-context';
 import { useProjectContext } from '@/context/project-context';
 import { OrganizationBadge } from '@/components/organization-badge';
+import { GlobalHeader } from '@/components/global/global-header';
 
 interface RouteInfo {
   orgId: string | null;
@@ -177,12 +178,7 @@ export function SidebarLayout({ children }: { children: ReactNode }) {
       <SidebarProvider>
         <AppSidebar/>
         <SidebarInset className="flex-1 flex flex-col overflow-hidden">
-          <header
-            className="flex h-16 shrink-0 items-center border-b bg-background transition-[width,height] ease-linear group-has-[[data-collapsible=icon]]/sidebar-wrapper:h-12">
-            <div className="flex items-center gap-2 px-4">
-              <SidebarTrigger className="-ml-1" aria-label="Toggle sidebar"/>
-            </div>
-          </header>
+          <GlobalHeader/>
           <main className="flex-1 overflow-y-auto">{children}</main>
         </SidebarInset>
       </SidebarProvider>

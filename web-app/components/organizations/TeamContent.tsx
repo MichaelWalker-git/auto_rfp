@@ -1,13 +1,14 @@
 'use client';
 
-import React, { useMemo, useState, useEffect, useCallback } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useToast } from '@/components/ui/use-toast';
-import { TeamHeader } from './TeamHeader';
-import { TeamMembersTable } from './TeamMembersTable';
+import { ListingPageLayout } from '@/components/layout/ListingPageLayout';
+import { InviteMemberDialog } from './InviteMemberDialog';
 import type { TeamMember } from './types';
 
 import { useOrganization } from '@/lib/hooks/use-api';
 import { UserListItem, useUsersList } from '@/lib/hooks/use-user';
+import { MemberRow } from '@/components/organizations/MemberRow';
 
 interface TeamContentProps {
   orgId: string;
@@ -116,27 +117,29 @@ export function TeamContent({ orgId }: TeamContentProps) {
     );
   }, [members, searchQuery]);
 
-  return (
-    <div className="w-full max-w-7xl mx-auto">
-      <div className="py-6 px-4 sm:px-6">
-        <div className="flex flex-col gap-6">
-          <TeamHeader
-            searchQuery={searchQuery}
-            onSearchChange={setSearchQuery}
-            orgId={orgId}
-            onMemberAdded={handleMemberAdded}
-          />
+  const handleReload = useCallback(async () => {
+    await refreshUsers();
+  }, [refreshUsers]);
 
-          <TeamMembersTable
-            members={filteredMembers}
-            orgId={orgId}
-            organizationName={(orgData as any)?.name}
-            isLoading={isLoading}
-            onMemberUpdated={handleMemberUpdated}
-            onMemberRemoved={handleMemberRemoved}
-          />
-        </div>
-      </div>
+  return (
+    <div className="w-full max-w-7xl mx-auto px-4 py-6">
+      <ListingPageLayout
+        title="Team Members"
+        description="Manage team members and their roles"
+        headerActions={
+          <InviteMemberDialog orgId={orgId} onMemberAdded={handleMemberAdded}/>
+        }
+        isLoading={isLoading}
+        onReload={handleReload}
+        renderItem={(member: TeamMember) => <MemberRow
+          key={member.id}
+          member={member}
+          orgId={orgId}
+          onMemberUpdated={handleMemberUpdated}
+          onMemberRemoved={handleMemberRemoved}
+        />}
+        data={filteredMembers}
+      />
     </div>
   );
 }

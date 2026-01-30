@@ -2,7 +2,7 @@
 
 import { Suspense } from 'react';
 import { PageSkeleton } from '@/components/projects/PageSkeleton';
-import KnowledgeBaseItemComponent from '@/components/organizations/KnowledgeBaseItemComponent';
+import KnowledgeBaseItemComponent from '@/components/kb/KnowledgeBaseItemComponent';
 
 interface KnowledgeBasePageProps {
   params: Promise<{

@@ -23,7 +23,6 @@ export default function RootLayout({ children }: Props) {
     <body suppressHydrationWarning>
     <Providers>
       <div className="flex flex-col">
-        <GlobalHeader/>
         {children}
       </div>
       <Toaster/>

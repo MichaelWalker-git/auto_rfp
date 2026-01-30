@@ -70,19 +70,6 @@ export function useQuestionFilesStatus(projectId: string, oppId: string, questio
   );
 }
 
-export interface QuestionFile {
-  questionFileId: string;
-  projectId: string;
-  fileKey: string;
-  textFileKey?: string | null;
-  status: 'uploaded' | 'processing' | 'text_ready' | 'questions_extracted' | 'error';
-  originalFileName?: string | null;
-  mimeType?: string | null;
-  sourceDocumentId?: string | null;
-  createdAt: string;
-  updatedAt: string;
-}
-
 export interface CreateQuestionFileArgs {
   projectId: string;
   oppId: string;
@@ -93,7 +80,7 @@ export interface CreateQuestionFileArgs {
 }
 
 export function useCreateQuestionFile(projectId: string, orgId?: string) {
-  return useSWRMutation<QuestionFile, any, string, CreateQuestionFileArgs>(
+  return useSWRMutation<QuestionFileItem, any, string, CreateQuestionFileArgs>(
     `${BASE}/create-question-file?projectId=${encodeURIComponent(projectId)}${orgId ? `&orgId=${encodeURIComponent(orgId)}` : ''}`,
     async (url, { arg }) => {
       const res = await authFetcher(url, {
@@ -116,7 +103,7 @@ export function useCreateQuestionFile(projectId: string, orgId?: string) {
         throw error;
       }
 
-      return res.json() as Promise<QuestionFile>;
+      return res.json() as Promise<QuestionFileItem>;
     },
   );
 }

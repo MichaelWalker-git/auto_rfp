@@ -493,10 +493,28 @@ export async function exportBriefAsDocx(projectName: string, briefItem: Executiv
   saveAs(blob, `${name}_Executive_Opportunity_Brief.docx`);
 }
 
+export function formatDateTime(value?: string) {
+  if (!value) return '—';
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return '—';
+  return d.toLocaleString('en-US', {
+    year: 'numeric',
+    month: 'short',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+}
+
 export function formatDate(value?: string) {
   if (!value) return '—';
   const d = new Date(value);
-  return Number.isNaN(d.getTime()) ? value : d.toLocaleString();
+  if (Number.isNaN(d.getTime())) return '—';
+  return d.toLocaleString('en-US', {
+    year: 'numeric',
+    month: 'short',
+    day: '2-digit',
+  });
 }
 
 export function recommendationVariant(rec?: string) {

@@ -2,7 +2,7 @@
 
 import { Suspense } from 'react';
 import { PageSkeleton } from '@/components/projects/PageSkeleton';
-import { KnowledgeBaseContent } from '@/components/organizations/KnowledgeBaseContent';
+import { KnowledgeBaseContent } from '@/components/kb/KnowledgeBaseContent';
 
 interface KnowledgeBasePageProps {
   params: Promise<{
@@ -12,12 +12,12 @@ interface KnowledgeBasePageProps {
 
 export default function KnowledgeBasePage({ params }: KnowledgeBasePageProps) {
   return (
-    <Suspense fallback={<PageSkeleton />}>
-      <KnowledgeBasePageContent params={params} />
+    <Suspense fallback={<PageSkeleton/>}>
+      <KnowledgeBasePageContent params={params}/>
     </Suspense>
   );
 }
 
 function KnowledgeBasePageContent({ params }: KnowledgeBasePageProps) {
-  return <KnowledgeBaseContent params={params} />;
+  return <KnowledgeBaseContent/>;
 }

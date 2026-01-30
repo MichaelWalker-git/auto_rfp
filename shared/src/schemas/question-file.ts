@@ -58,7 +58,7 @@ export const QuestionFileItemSchema = z
     questionFileId: UuidSchema,
     status: QuestionFileStatusSchema.default('UPLOADED'),
     fileKey: z.string().min(1).optional(),
-    fileName: z.string().min(1).optional(),
+    originalFileName: z.string().min(1).optional(),
     mimeType: z.string().min(1).optional(),
     source: z.string().min(1).optional(),
     errorMessage: z.string().min(1).optional(),

@@ -27,15 +27,6 @@ export const UploadResultSchema = z.object({
   fileName: z.string(),
 });
 
-export type UploadResult = z.infer<typeof UploadResultSchema>;
-
-export type UploadQueueItem = {
-  file: File;
-  fileName: string;
-  status: 'queued' | 'uploading' | 'uploaded' | 'failed';
-  error?: string;
-};
-
 export const DocumentItemSchema = z.object({
   id: z.string(),                     // uuid
   knowledgeBaseId: z.string(),        // belongs to KB

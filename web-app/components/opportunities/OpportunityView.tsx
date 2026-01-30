@@ -33,6 +33,9 @@ import {
   QuestionFileUploadDialog,
 } from '@/app/organizations/[orgId]/projects/[projectId]/questions/components/question-extraction-dialog';
 import { useOrganization } from '@/context/organization-context';
+import {
+  GenerateProposalModal
+} from '@/app/organizations/[orgId]/projects/[projectId]/questions/components/GenerateProposalModal';
 
 interface OpportunityViewProps {
   projectId: string;
@@ -186,7 +189,8 @@ export function OpportunityView({ projectId, oppId, className }: OpportunityView
           </div>
 
           <div className="shrink-0 flex items-center gap-2">
-            <Button variant="outline" size="sm" onClick={() => refetch()} disabled={oppLoading}>
+            <GenerateProposalModal projectId={projectId}/>
+            <Button variant="outline" onClick={() => refetch()} disabled={oppLoading}>
               {oppLoading ? <Loader2 className="h-4 w-4 mr-2 animate-spin"/> : <RefreshCw className="h-4 w-4 mr-2"/>}
               Refresh
             </Button>
