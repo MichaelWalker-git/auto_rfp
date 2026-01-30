@@ -10,8 +10,6 @@ const isProduction = environment === 'production';
 // Session replay rates: higher in dev/staging for better debugging, lower in production
 const replaysSessionSampleRate = isProduction ? 0.1 : 0.5;
 const tracesSampleRate = isProduction ? 0.2 : 1.0;
-// Profiling sample rate: profile a subset of transactions to identify slow code paths
-const profilesSampleRate = isProduction ? 0.1 : 0.5;
 
 Sentry.init({
   dsn: process.env.NEXT_PUBLIC_SENTRY_DSN,
@@ -24,7 +22,6 @@ Sentry.init({
       maskAllText: false,
       blockAllMedia: false,
     }),
-    Sentry.browserProfilingIntegration(),
     Sentry.feedbackIntegration({
       // Display a feedback button in the bottom-right corner
       autoInject: true,
@@ -47,11 +44,6 @@ Sentry.init({
 
   // Performance monitoring - lower in production to reduce overhead
   tracesSampleRate,
-
-  // Profiling - identify slow code paths
-  // - Development/Staging: 50% of traced transactions profiled
-  // - Production: 10% of traced transactions profiled
-  profilesSampleRate,
 
   // Enable logs to be sent to Sentry
   enableLogs: true,
