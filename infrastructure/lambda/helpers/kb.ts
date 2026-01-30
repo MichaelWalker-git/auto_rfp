@@ -3,7 +3,7 @@ import { v4 as uuidv4 } from 'uuid';
 
 import { PK_NAME, SK_NAME } from '../constants/common';
 import { KNOWLEDGE_BASE_PK } from '../constants/organization';
-import { CreateKnowledgeBase, KnowledgeBase, KnowledgeBaseItem, } from '@auto-rfp/shared';
+import { CreateKnowledgeBase, KnowledgeBase, } from '@auto-rfp/shared';
 import { requireEnv } from './env';
 import { docClient } from './db';
 import { nowIso } from './date';
@@ -28,7 +28,7 @@ export async function createKnowledgeBase(orgId: string, data: CreateKnowledgeBa
       questions: 0,
       documents: 0
     },
-  } as KnowledgeBaseItem;
+  } as KnowledgeBase;
 
   const command = new PutCommand({
     TableName: DB_TABLE_NAME,
