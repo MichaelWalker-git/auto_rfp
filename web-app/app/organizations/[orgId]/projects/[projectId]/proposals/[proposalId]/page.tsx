@@ -59,9 +59,9 @@ function useProposalById(projectId?: string | null, proposalId?: string | null) 
   if (proposalId) qs.set('proposalId', proposalId);
 
   const url = projectId && proposalId ? `${BASE}/get-proposal?${qs.toString()}` : null;
-  const key = projectId && proposalId ? ['proposal', projectId, proposalId] : null;
+  const key: [string, string, string] | null = projectId && proposalId ? ['proposal', projectId, proposalId] : null;
 
-  const { data, error, isLoading, mutate } = useApi<Proposal>(key as any, url);
+  const { data, error, isLoading, mutate } = useApi<Proposal>(key, url);
 
   const parsed = data ? ProposalSchema.safeParse(data) : null;
 
@@ -74,7 +74,7 @@ function useProposalById(projectId?: string | null, proposalId?: string | null) 
 }
 
 function useSaveProposal() {
-  return useSWRMutation<Proposal, any, string, SaveProposalRequest>(
+  return useSWRMutation<Proposal, Error, string, SaveProposalRequest>(
     `${BASE}/save-proposal`,
     async (url, { arg }) => {
       const parsedArgs = SaveProposalRequestSchema.safeParse(arg);
@@ -197,8 +197,8 @@ export default function ProposalDetailsPage() {
       const next = cloneProposal(prev);
 
       if (pendingDelete.type === 'section') {
-        const filtered = next.document.sections.filter((_, i) => i !== pendingDelete.sectionIndex);
-        next.document.sections = ensureNonEmptySections(filtered as any);
+        const filtered = next.document.sections.filter((_, i: number) => i !== pendingDelete.sectionIndex);
+        next.document.sections = ensureNonEmptySections(filtered);
       } else {
         const { sectionIndex, subsectionIndex } = pendingDelete;
         const section = next.document.sections[sectionIndex];
@@ -219,27 +219,31 @@ export default function ProposalDetailsPage() {
       const next = cloneProposal(prev);
       next.document[key] = value;
       // auto title sync (optional)
-      if (key === 'proposalTitle' && !next.title) next.title = (value as any) ?? null;
+      if (key === 'proposalTitle' && !next.title) next.title = (value as string) ?? null;
       return next;
     });
   };
 
-  const setSectionField = (sectionIndex: number, key: keyof ProposalSection, value: any) => {
+  const setSectionField = <K extends keyof ProposalSection>(
+    sectionIndex: number,
+    key: K,
+    value: ProposalSection[K],
+  ) => {
     setDraft((prev) => {
       if (!prev) return prev;
       const next = cloneProposal(prev);
       const s = next.document.sections[sectionIndex];
       if (!s) return next;
-      (s as any)[key] = value;
+      s[key] = value;
       return next;
     });
   };
 
-  const setSubsectionField = (
+  const setSubsectionField = <K extends keyof ProposalSubsection>(
     sectionIndex: number,
     subsectionIndex: number,
-    key: keyof ProposalSubsection,
-    value: any,
+    key: K,
+    value: ProposalSubsection[K],
   ) => {
     setDraft((prev) => {
       if (!prev) return prev;
@@ -247,7 +251,7 @@ export default function ProposalDetailsPage() {
       const s = next.document.sections[sectionIndex];
       const sub = s?.subsections?.[subsectionIndex];
       if (!sub) return next;
-      (sub as any)[key] = value;
+      sub[key] = value;
       return next;
     });
   };
@@ -315,9 +319,9 @@ export default function ProposalDetailsPage() {
                 onClick={async () => {
                   if (!draft) return;
                   const doc = draft.document;
-                  const rows: any[][] = [
+                  const rows: (string | null)[][] = [
                     ['Section', 'Subsection', 'Content', 'Section Summary'],
-                    ...doc.sections.flatMap((s) => {
+                    ...doc.sections.flatMap((s: ProposalSection) => {
                       const sectionTitle = s.title ?? '';
                       const sectionSummary = s.summary ?? '';
                       if (!s.subsections?.length) return [[sectionTitle, '', '', sectionSummary]];
@@ -380,7 +384,7 @@ export default function ProposalDetailsPage() {
 
       {(error || saveError) && (
         <div className="text-sm text-red-500 border border-red-500/30 rounded-md px-3 py-2 bg-red-500/5">
-          {String((error as any)?.message ?? (saveError as any)?.message ?? 'Something went wrong')}
+          {error instanceof Error ? error.message : saveError instanceof Error ? saveError.message : 'Something went wrong'}
         </div>
       )}
 
