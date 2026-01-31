@@ -1,6 +1,6 @@
 import { AlignmentType, Document, HeadingLevel, Packer, Paragraph, TextRun, UnderlineType, } from 'docx';
 import { saveAs } from 'file-saver';
-import type { ExecutiveBriefItem } from '@auto-rfp/shared'; // adjust
+import type { ExecutiveBriefItem, RiskFlag } from '@auto-rfp/shared';
 import type { SectionKey, SectionStatus } from './types';
 
 const FONT_SIZE = {
@@ -339,7 +339,7 @@ function buildRisks(brief: ExecutiveBriefItem): Paragraph[] {
   const out: Paragraph[] = [divider(), h('Risks', HeadingLevel.HEADING_1), ...sectionStatus(wrap), blank()];
   if (!data) return out.concat(pText('No risks data available.', { color: '666666' }));
 
-  const renderFlags = (title: string, flags: any[]) => {
+  const renderFlags = (title: string, flags: RiskFlag[]) => {
     out.push(h(title, HeadingLevel.HEADING_2));
     if (!flags?.length) {
       out.push(pText('—', { color: '666666' }));
@@ -348,7 +348,7 @@ function buildRisks(brief: ExecutiveBriefItem): Paragraph[] {
 
     // Consistent length: show up to N
     const slice = flags.slice(0, 10);
-    slice.forEach((r: any, idx: number) => {
+    slice.forEach((r: RiskFlag, idx: number) => {
       out.push(bullet(`${idx + 1}. [${safeText(r.severity)}] ${clamp(safeText(r.flag), 220)}`, 0));
       if (r.whyItMatters) out.push(bullet(`Why it matters: ${clamp(r.whyItMatters, 260)}`, 1));
       if (r.mitigation) out.push(bullet(`Mitigation: ${clamp(r.mitigation, 260)}`, 1));
@@ -518,17 +518,17 @@ export function statusLabel(s: SectionStatus) {
   return s;
 }
 
-export function isSectionComplete(brief: any, section: Exclude<SectionKey, 'scoring'>): boolean {
+export function isSectionComplete(brief: ExecutiveBriefItem | null | undefined, section: Exclude<SectionKey, 'scoring'>): boolean {
   return brief?.sections?.[section]?.status === 'COMPLETE';
 }
 
-export function scoringPrereqsComplete(brief: any): { ok: true } | { ok: false; missing: string[] } {
+export function scoringPrereqsComplete(brief: ExecutiveBriefItem | null | undefined): { ok: true } | { ok: false; missing: string[] } {
   const prereqs: Exclude<SectionKey, 'scoring'>[] = ['summary', 'deadlines', 'requirements', 'contacts', 'risks'];
   const missing = prereqs.filter((s) => !isSectionComplete(brief, s));
   return missing.length ? { ok: false, missing } : { ok: true };
 }
 
-export function buildSectionsState(briefItem: any) {
+export function buildSectionsState(briefItem: ExecutiveBriefItem | null | undefined) {
   const s = briefItem?.sections;
   if (!s) return null;
   return {
