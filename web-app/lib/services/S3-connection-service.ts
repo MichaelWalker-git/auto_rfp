@@ -50,9 +50,7 @@ export class CloudConnectionService implements ICloudConnectionService {
           id: updatedOrganization.id,
           name: updatedOrganization.name,
           bucketName: updatedOrganization.bucketName,
-          // optional: bucketConnectedAt if you add it to Prisma
-          bucketConnectedAt:
-            (updatedOrganization as any).bucketConnectedAt ?? null,
+          bucketConnectedAt: updatedOrganization.bucketConnectedAt ?? null,
         },
       };
 
@@ -93,8 +91,7 @@ export class CloudConnectionService implements ICloudConnectionService {
           id: updatedOrganization.id,
           name: updatedOrganization.name,
           bucketName: updatedOrganization.bucketName, // should be null now
-          bucketConnectedAt:
-            (updatedOrganization as any).bucketConnectedAt ?? null,
+          bucketConnectedAt: updatedOrganization.bucketConnectedAt ?? null,
         },
       };
 
@@ -113,63 +110,38 @@ export class CloudConnectionService implements ICloudConnectionService {
 
   /**
    * Update organization with bucketName
+   * @throws Error - Not implemented yet
    */
   private async updateOrganizationBucket(
-    organizationId: string,
-    bucketName: string,
-  ) {
-    try {
-      // TODO: call appropriate lambda
-      return { } as any
-    } catch (error) {
-      throw new DatabaseError(
-        `Failed to update organization bucket: ${
-          error instanceof Error ? error.message : 'Unknown error'
-        }`,
-      );
-    }
+    _organizationId: string,
+    _bucketName: string,
+  ): Promise<{ id: string; name: string; bucketName: string | null; bucketConnectedAt?: Date | null }> {
+    // TODO: Implement organization bucket update via Lambda API
+    throw new Error('updateOrganizationBucket is not implemented');
   }
 
   /**
    * Clear bucketName from organization
+   * @throws Error - Not implemented yet
    */
-  private async clearOrganizationBucket(organizationId: string) {
-    try {
-      return {} as any;
-    } catch (error) {
-      throw new DatabaseError(
-        `Failed to clear organization bucket: ${
-          error instanceof Error ? error.message : 'Unknown error'
-        }`,
-      );
-    }
+  private async clearOrganizationBucket(
+    _organizationId: string,
+  ): Promise<{ id: string; name: string; bucketName: string | null; bucketConnectedAt?: Date | null }> {
+    // TODO: Implement organization bucket clear via Lambda API
+    throw new Error('clearOrganizationBucket is not implemented');
   }
 
   /**
    * Optional helper: connection stats
+   * @throws Error - Not implemented yet
    */
-  async getConnectionStats(organizationId: string): Promise<{
+  async getConnectionStats(_organizationId: string): Promise<{
     isConnected: boolean;
     bucketName: string | null;
     bucketConnectedAt: Date | null;
   }> {
-    try {
-      const organization = { } as any
-
-      const isConnected = !!organization?.bucketName;
-
-      return {
-        isConnected,
-        bucketName: organization?.bucketName ?? null,
-        bucketConnectedAt: (organization as any)?.bucketConnectedAt ?? null,
-      };
-    } catch (error) {
-      throw new DatabaseError(
-        `Failed to get bucket connection stats: ${
-          error instanceof Error ? error.message : 'Unknown error'
-        }`,
-      );
-    }
+    // TODO: Implement fetching organization bucket status via Lambda API
+    throw new Error('getConnectionStats is not implemented');
   }
 }
 
