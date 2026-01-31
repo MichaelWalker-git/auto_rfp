@@ -188,6 +188,8 @@ export const RiskFlagSchema = z.object({
   evidence: z.array(EvidenceRefSchema).default([]),
 });
 
+export type RiskFlag = z.infer<typeof RiskFlagSchema>;
+
 export const RisksSectionSchema = z.object({
   risks: z.array(RiskFlagSchema).default([]),
   redFlags: z.array(RiskFlagSchema).default([]), // keep “red flags” separate if you want
