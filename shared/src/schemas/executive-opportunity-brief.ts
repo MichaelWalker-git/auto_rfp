@@ -116,11 +116,13 @@ export const DeadlineSchema = z.object({
   evidence: z.array(EvidenceRefSchema).default([]),
 });
 
+export type Deadline = z.infer<typeof DeadlineSchema>;
+
 export const DeadlinesSectionSchema = z.object({
   deadlines: z.array(DeadlineSchema).min(1),
   hasSubmissionDeadline: z.boolean().default(false),
   submissionDeadlineIso: z.string().datetime({ offset: true }).optional(),
-  warnings: z.array(z.string().min(1)).default([]), // “No explicit timezone found”, etc.
+  warnings: z.array(z.string().min(1)).default([]), // "No explicit timezone found", etc.
 });
 
 export type DeadlinesSection = z.infer<typeof DeadlinesSectionSchema>;
