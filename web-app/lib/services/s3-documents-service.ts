@@ -19,7 +19,6 @@ import {
 } from '@/lib/validators/document-cloud';
 
 import { ICloudDocumentsService } from '@/lib/interfaces/cloud-service';
-import { Organization } from '@/types/organization';
 
 /** Organization config shape */
 type OrgWithDocumentsConfig = {
@@ -134,32 +133,16 @@ export class S3DocumentsService implements ICloudDocumentsService {
     }
   }
 
-  /** Get org record & verify it has connected AWS storage */
+  /**
+   * Get org record & verify it has connected AWS storage
+   * @throws Error - Not implemented yet
+   */
   private async getConnectedOrganization(
-    organizationId: string,
+    _organizationId: string,
   ): Promise<OrgWithDocumentsConfig> {
-    try {
-
-      // TODO get org by id
-      const organization = {} as OrgWithDocumentsConfig;
-
-
-      if (!organization) {
-        throw new NotFoundError('Organization not found');
-      }
-
-
-      return organization;
-    } catch (error) {
-      if (error instanceof NotFoundError || error instanceof CloudConnectionError) {
-        throw error;
-      }
-      throw new DatabaseError(
-        `Failed to query organization: ${
-          error instanceof Error ? error.message : 'Unknown error'
-        }`,
-      );
-    }
+    // TODO: Implement fetching organization config via Lambda API
+    // Should return organization with documentsBucketName, documentsPrefix, etc.
+    throw new Error('getConnectedOrganization is not implemented');
   }
 
   /** Fetch all files for an org across all pipelines */
