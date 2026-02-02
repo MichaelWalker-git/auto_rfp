@@ -13,6 +13,7 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import PermissionWrapper from '@/components/permission-wrapper';
 import { SavedSearchList } from '@/components/organizations/SavedSearchList';
 import { PromptsManager } from '@/components/organizations/PromptManager';
+import { DocxTemplateUpload } from '@/components/organizations/DocxTemplateUpload';
 
 interface SettingsContentProps {
   orgId: string;
@@ -124,6 +125,9 @@ export function SettingsContent({ orgId }: SettingsContentProps) {
           <SavedSearchList orgId={orgId}/>
 
           <PromptsManager />
+
+          {/* DOCX Template Upload Section */}
+          <DocxTemplateUpload orgId={orgId} />
 
           {/* General Settings Section */}
           <Card>
