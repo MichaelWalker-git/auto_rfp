@@ -108,7 +108,7 @@ export function QuestionFileUploadDialog({
   const processingQuestionFileIds = useMemo(
     () =>
       items
-        .filter((item) => item.questionFileId && item.step === 'processing')
+        .filter((item) => item.questionFileId && (item.step === 'processing' || item.step === 'cancelled'))
         .map((item) => item.questionFileId!),
     [items],
   );
@@ -167,8 +167,7 @@ export function QuestionFileUploadDialog({
         }
 
         if (apiStatus === 'DELETED') {
-          next[idx] = { ...current, step: 'error', status: apiStatus, updatedAt, error: 'File was deleted' };
-          return next;
+          return prev.filter((x) => x.questionFileId !== questionFileId);
         }
 
         const isProcessingStatus =
@@ -209,6 +208,7 @@ export function QuestionFileUploadDialog({
   const allDone = items.length > 0 && items.every((i) => i.step === 'done');
   const hasErrors = items.some((i) => i.step === 'error');
   const completedCount = items.filter((i) => i.step === 'done').length;
+  const hasProcessableItems = items.some((i) => i.step === 'idle' || i.step === 'error');
 
   const anyBusy = useMemo(() => {
     if (isGettingPresigned || isStartingPipeline || isProcessing) return true;
@@ -687,7 +687,7 @@ export function QuestionFileUploadDialog({
             {allDone ? 'Done' : 'Cancel'}
           </Button>
 
-          <Button type="button" onClick={handleStart} disabled={items.length === 0 || anyBusy || allDone}
+          <Button type="button" onClick={handleStart} disabled={items.length === 0 || anyBusy || !hasProcessableItems}
                   className="gap-2 min-w-[160px]">
             {anyBusy ? (
               <>
