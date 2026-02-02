@@ -74,7 +74,6 @@ export function QuestionsHeader({
             <Download className="h-4 w-4"/>
             Export
           </Button>
-          <GenerateProposalModal projectId={projectId}/>
         </div>
       </div>
 

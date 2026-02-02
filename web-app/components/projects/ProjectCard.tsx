@@ -7,7 +7,7 @@ import { Pencil, Trash2 } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import { BaseCard } from '@/components/ui/base-card';
-import { useOrganization } from '@/context/organization-context';
+import { useCurrentOrganization } from '@/context/organization-context';
 import { useProjectContext } from '@/context/project-context';
 import type { Project } from '@/types/project';
 import PermissionWrapper from '../permission-wrapper';
@@ -23,7 +23,7 @@ export function ProjectCard({ project, onDelete, onUpdate }: ProjectCardProps) {
   const router = useRouter();
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
 
-  const { currentOrganization } = useOrganization();
+  const { currentOrganization } = useCurrentOrganization();
   const { setCurrentProject } = useProjectContext();
 
   const orgId = currentOrganization?.id;

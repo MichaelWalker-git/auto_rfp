@@ -1,6 +1,6 @@
 import { Context } from 'aws-lambda';
 import { GetObjectCommand, PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
-import { QueryCommand, UpdateCommand, } from '@aws-sdk/lib-dynamodb';
+import { UpdateCommand, } from '@aws-sdk/lib-dynamodb';
 
 import * as mammoth from 'mammoth';
 
@@ -8,8 +8,10 @@ import { withSentryLambda } from '../sentry-lambda';
 import { PK_NAME, SK_NAME } from '../constants/common';
 import { DOCUMENT_PK } from '../constants/document';
 import { requireEnv } from '../helpers/env';
-import { docClient } from '../helpers/db';
+import { docClient, getItem } from '../helpers/db';
 import { nowIso } from '../helpers/date';
+import { DocumentItem } from '../schemas/document';
+import { buildDocumentSK } from '../helpers/document';
 
 const REGION = requireEnv('REGION');
 const DB_TABLE_NAME = requireEnv('DB_TABLE_NAME');
@@ -17,11 +19,22 @@ const DOCUMENTS_BUCKET = requireEnv('DOCUMENTS_BUCKET');
 
 const s3 = new S3Client({ region: REGION });
 
-interface DocxProcessingEvent {
+type DocxProcessingEvent = {
   orgId: string;
+  knowledgeBaseId: string;
   documentId?: string;
   fileKey?: string;
   bucket?: string;
+}
+
+type Res = {
+  orgId: string;
+  documentId: string;
+  knowledgeBaseId: string;
+  status: 'TEXT_EXTRACTED';
+  bucket: string;
+  txtKey: string;
+  textLength: number;
 }
 
 function streamToBuffer(stream: any): Promise<Buffer> {
@@ -41,40 +54,13 @@ function buildTxtKeyNextToOriginal(originalKey: string): string {
   return `${clean.slice(0, idx)}.txt`;
 }
 
-async function findDocumentKeys(documentId: string) {
-  const skSuffix = `#DOC#${documentId}`;
-
-  const queryRes = await docClient.send(
-    new QueryCommand({
-      TableName: DB_TABLE_NAME!,
-      KeyConditionExpression: '#pk = :pk',
-      ExpressionAttributeNames: { '#pk': PK_NAME },
-      ExpressionAttributeValues: { ':pk': DOCUMENT_PK },
-    }),
-  );
-
-  const items = queryRes.Items || [];
-  const item = items.find((it) => String((it as any)[SK_NAME]).endsWith(skSuffix)) as any;
-
-  if (!item) throw new Error(`Document not found for documentId=${documentId}`);
-
-  return { pk: item[PK_NAME], sk: item[SK_NAME], fileKey: item.fileKey as string | undefined };
-}
-
 export const baseHandler = async (
   event: DocxProcessingEvent,
   _ctx: Context,
-): Promise<{
-  orgId: string;
-  documentId: string;
-  status: 'TEXT_EXTRACTED';
-  bucket: string;
-  txtKey: string;
-  textLength: number;
-}> => {
+): Promise<Res> => {
   console.log('docx-processing event:', JSON.stringify(event));
 
-  const { orgId, documentId } = event;
+  const { orgId, knowledgeBaseId, documentId } = event;
   if (!documentId) throw new Error('documentId is required');
 
   const bucket = event.bucket || DOCUMENTS_BUCKET;
@@ -82,8 +68,8 @@ export const baseHandler = async (
   // Prefer fileKey from event (start-processing result), fallback to Dynamo
   let fileKey = event.fileKey;
   if (!fileKey) {
-    const found = await findDocumentKeys(documentId);
-    fileKey = found.fileKey;
+    const doc = await getItem<DocumentItem>(DOCUMENT_PK, buildDocumentSK(knowledgeBaseId, documentId));
+    fileKey = doc?.fileKey;
     if (!fileKey) throw new Error(`Document ${documentId} has no fileKey in DynamoDB`);
   }
 
@@ -117,14 +103,14 @@ export const baseHandler = async (
     }),
   );
 
-  // 4) Update Dynamo status + textFileKey
   try {
-    const { pk, sk } = await findDocumentKeys(documentId);
-
     await docClient.send(
       new UpdateCommand({
-        TableName: DB_TABLE_NAME!,
-        Key: { [PK_NAME]: pk, [SK_NAME]: sk },
+        TableName: DB_TABLE_NAME,
+        Key: {
+          [PK_NAME]: DOCUMENT_PK,
+          [SK_NAME]: buildDocumentSK(knowledgeBaseId, documentId)
+        },
         UpdateExpression: 'SET #indexStatus = :s, #textFileKey = :t, #updatedAt = :u',
         ExpressionAttributeNames: {
           '#indexStatus': 'indexStatus',
@@ -146,6 +132,7 @@ export const baseHandler = async (
   return {
     orgId,
     documentId,
+    knowledgeBaseId,
     status: 'TEXT_EXTRACTED',
     bucket,
     txtKey,

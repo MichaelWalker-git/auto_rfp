@@ -5,6 +5,7 @@ import useSWRMutation from 'swr/mutation';
 import { env } from '@/lib/env';
 import { CreateDocumentDTO, DeleteDocumentDTO, DocumentItem, UpdateDocumentDTO } from '@auto-rfp/shared';
 import { authFetcher } from '@/lib/auth/auth-fetcher';
+import { breadcrumbs } from '@/lib/sentry';
 
 
 const BASE = `${env.BASE_API_URL}/document`;
@@ -27,6 +28,8 @@ export function useCreateDocument() {
   return useSWRMutation(
     `${BASE}/create-document`,
     async (url, { arg }: { arg: CreateDocumentDTO }) => {
+      breadcrumbs.documentUploadStarted(arg.fileName, arg.kbId);
+
       const res = await authFetcher(url, {
         method: 'POST',
         body: JSON.stringify(arg),
@@ -37,7 +40,9 @@ export function useCreateDocument() {
         throw new Error(message || 'Failed to create document');
       }
 
-      return res.json() as Promise<DocumentItem>;
+      const doc = await res.json() as DocumentItem;
+      breadcrumbs.documentUploadCompleted(doc.id, doc.fileName);
+      return doc;
     }
   );
 }
@@ -87,6 +92,7 @@ export function useDeleteDocument() {
         throw new Error(message || 'Failed to delete document');
       }
 
+      breadcrumbs.documentDeleted(arg.documentId);
       return res.json();
     }
   );
@@ -196,6 +202,8 @@ export function useStartDocumentPipeline() {
   >(
     `${BASE}/start-document-pipeline`,
     async (url, { arg }) => {
+      breadcrumbs.documentProcessingStarted(arg.documentId);
+
       const res = await authFetcher(url, {
         method: 'POST',
         body: JSON.stringify(arg),

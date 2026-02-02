@@ -37,7 +37,7 @@ import { ScoringGrid } from './components/ScoringGrid';
 import { RequirementsCard } from './components/RequirementsCard';
 import { ContactsCard } from './components/ContactsCard';
 import { RisksCard } from './components/RisksCard';
-import { useOrganization } from '@/context/organization-context';
+import { useCurrentOrganization } from '@/context/organization-context';
 
 function sectionIcon(section: SectionKey) {
   switch (section) {
@@ -82,7 +82,7 @@ function isInProgressStatus(st?: string | null) {
 
 export function ExecutiveBriefView({ projectId }: Props) {
   const { data: project, isLoading, isError, mutate: refetchProject } = useProject(projectId);
-  const { currentOrganization } = useOrganization();
+  const { currentOrganization } = useCurrentOrganization();
   const init = useInitExecutiveBrief(currentOrganization?.id);
   const genSummary = useGenerateExecutiveBriefSummary(currentOrganization?.id);
   const genDeadlines = useGenerateExecutiveBriefDeadlines(currentOrganization?.id);

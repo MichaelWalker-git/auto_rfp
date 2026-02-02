@@ -1,15 +1,15 @@
 import { Context, SNSEvent } from 'aws-lambda';
-import { QueryCommand, UpdateCommand, } from '@aws-sdk/lib-dynamodb';
+import { UpdateCommand, } from '@aws-sdk/lib-dynamodb';
 import { Block, GetDocumentTextDetectionCommand, TextractClient, } from '@aws-sdk/client-textract';
 import { PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
 import { SendTaskFailureCommand, SendTaskSuccessCommand, SFNClient, } from '@aws-sdk/client-sfn';
 
 import { PK_NAME, SK_NAME } from '../constants/common';
-import { DOCUMENT_PK } from '../constants/document';
-import { DocumentItem } from '../schemas/document';
 import { withSentryLambda } from '../sentry-lambda';
 import { requireEnv } from '../helpers/env';
 import { docClient } from '../helpers/db';
+import { getDocumentItemByDocumentId } from '../helpers/document';
+import { nowIso } from '../helpers/date';
 
 const REGION = requireEnv('REGION', 'us-east-1');
 const DB_TABLE_NAME = requireEnv('DB_TABLE_NAME');
@@ -18,17 +18,6 @@ const DOCUMENTS_BUCKET = requireEnv('DOCUMENTS_BUCKET');
 const textractClient = new TextractClient({ region: REGION });
 const s3Client = new S3Client({ region: REGION });
 const stepFunctionsClient = new SFNClient({ region: REGION });
-
-type DynDoc = DocumentItem & {
-  [PK_NAME]: string;
-  [SK_NAME]: string;
-  taskToken?: string;
-  fileKey?: string;
-  contentType?: string;
-  mimeType?: string;
-  jobId?: string;
-  textFileKey?: string;
-};
 
 function buildTxtKeyNextToOriginal(originalKey: string): string {
   const clean = originalKey.split('?')[0] ?? originalKey;
@@ -98,31 +87,12 @@ export const baseHandler = async (
       console.warn('Missing JobId/Status/JobTag, skipping');
       continue;
     }
-
     const documentId = jobTag;
-    const docSuffix = `#DOC#${documentId}`;
 
-    // 1) Load document row to get taskToken + fileKey (+ KB id from SK)
-    let docItem: DynDoc | undefined;
-    try {
-      const queryRes = await docClient.send(
-        new QueryCommand({
-          TableName: DB_TABLE_NAME,
-          KeyConditionExpression: '#pk = :pk',
-          ExpressionAttributeNames: { '#pk': PK_NAME },
-          ExpressionAttributeValues: { ':pk': DOCUMENT_PK },
-        }),
-      );
-
-      const items = (queryRes.Items || []) as DynDoc[];
-      docItem = items.find((it) => String(it[SK_NAME]).endsWith(docSuffix));
-    } catch (err) {
-      console.error('Error querying DynamoDB for document row:', err);
-      continue;
-    }
+    const docItem = await getDocumentItemByDocumentId(documentId);
 
     if (!docItem) {
-      console.warn(`No document found ending with ${docSuffix}`);
+      console.warn(`No document found}`);
       continue;
     }
 
@@ -212,8 +182,6 @@ export const baseHandler = async (
         }),
       );
 
-      const now = new Date().toISOString();
-
       await docClient.send(
         new UpdateCommand({
           TableName: DB_TABLE_NAME,
@@ -229,7 +197,7 @@ export const baseHandler = async (
           ExpressionAttributeValues: {
             ':s': 'TEXT_EXTRACTED',
             ':t': txtKey,
-            ':u': now,
+            ':u': nowIso(),
           },
         }),
       );

@@ -8,7 +8,7 @@ import { Pencil, Trash2, Users, FolderOpen } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { BaseCard } from '@/components/ui/base-card';
-import { useOrganization } from '@/context/organization-context';
+import { useCurrentOrganization } from '@/context/organization-context';
 import type { Organization } from '@/app/organizations/page';
 import PermissionWrapper from '../permission-wrapper';
 import { CreateEditOrganizationDialog } from '@/components/organizations/CreateEditOrganizationDialog';
@@ -22,7 +22,7 @@ interface OrganizationCardProps {
 export function OrganizationCard({ organization, onDelete, onUpdate }: OrganizationCardProps) {
   const router = useRouter();
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
-  const { setCurrentOrganization } = useOrganization();
+  const { setCurrentOrganization } = useCurrentOrganization();
 
   const href = `/organizations/${organization.id}`;
 

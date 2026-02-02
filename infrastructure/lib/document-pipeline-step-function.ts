@@ -73,6 +73,9 @@ export class DocumentPipelineStack extends Stack {
           DOCUMENTS_BUCKET: documentsBucket.bucketName,
           SENTRY_DSN: sentryDNS,
           SENTRY_ENVIRONMENT: stage,
+          BEDROCK_EMBEDDING_MODEL_ID: 'amazon.titan-embed-text-v2:0',
+          PINECONE_API_KEY: pineconeApiKey,
+          PINECONE_INDEX: 'documents',
         },
         logGroup,
       },
@@ -97,6 +100,9 @@ export class DocumentPipelineStack extends Stack {
           TEXTRACT_ROLE_ARN: textractServiceRole.roleArn,
           SENTRY_DSN: sentryDNS,
           SENTRY_ENVIRONMENT: stage,
+          BEDROCK_EMBEDDING_MODEL_ID: 'amazon.titan-embed-text-v2:0',
+          PINECONE_API_KEY: pineconeApiKey,
+          PINECONE_INDEX: 'documents',
         },
         logGroup,
       },
@@ -133,6 +139,9 @@ export class DocumentPipelineStack extends Stack {
           DOCUMENTS_BUCKET: documentsBucket.bucketName,
           SENTRY_DSN: sentryDNS,
           SENTRY_ENVIRONMENT: stage,
+          BEDROCK_EMBEDDING_MODEL_ID: 'amazon.titan-embed-text-v2:0',
+          PINECONE_API_KEY: pineconeApiKey,
+          PINECONE_INDEX: 'documents',
         },
         logGroup,
       },
@@ -169,6 +178,9 @@ export class DocumentPipelineStack extends Stack {
           DOCUMENTS_BUCKET: documentsBucket.bucketName,
           SENTRY_DSN: sentryDNS,
           SENTRY_ENVIRONMENT: stage,
+          BEDROCK_EMBEDDING_MODEL_ID: 'amazon.titan-embed-text-v2:0',
+          PINECONE_API_KEY: pineconeApiKey,
+          PINECONE_INDEX: 'documents',
         },
         logGroup,
       },
@@ -196,6 +208,9 @@ export class DocumentPipelineStack extends Stack {
           CHUNK_MAX_CHARS: '2500',
           CHUNK_OVERLAP_CHARS: '250',
           CHUNK_MIN_CHARS: '200',
+          BEDROCK_EMBEDDING_MODEL_ID: 'amazon.titan-embed-text-v2:0',
+          PINECONE_API_KEY: pineconeApiKey,
+          PINECONE_INDEX: 'documents',
         },
         logGroup,
       },
@@ -261,7 +276,7 @@ export class DocumentPipelineStack extends Stack {
         actions: ['ssm:GetParameter'],
         resources: [bedrockApiKeyParamArn],
       }),
-    )
+    );
 
     // 8) Step Functions logging
     const sfnLogGroup = new logs.LogGroup(
@@ -310,12 +325,14 @@ export class DocumentPipelineStack extends Stack {
       payload: sfn.TaskInput.fromObject({
         orgId: sfn.JsonPath.stringAt('$.orgId'),
         documentId: sfn.JsonPath.stringAt('$.documentId'),
+        knowledgeBaseId: sfn.JsonPath.stringAt('$.knowledgeBaseId'),
         fileKey: sfn.JsonPath.stringAt('$.Start.fileKey'),
         bucket: documentsBucket.bucketName,
       }),
       resultSelector: {
         'orgId.$': '$.Payload.orgId',
         'documentId.$': '$.Payload.documentId',
+        'knowledgeBaseId.$': '$.Payload.knowledgeBaseId',
         'status.$': '$.Payload.status',
         'bucket.$': '$.Payload.bucket',
         'txtKey.$': '$.Payload.txtKey',
@@ -336,6 +353,7 @@ export class DocumentPipelineStack extends Stack {
       resultSelector: {
         'orgId.$': '$.Payload.orgId',
         'documentId.$': '$.Payload.documentId',
+        'knowledgeBaseId.$': '$.Payload.knowledgeBaseId',
         'bucket.$': '$.Payload.bucket',
         'txtKey.$': '$.Payload.txtKey',
         'chunksPrefix.$': '$.Payload.chunksPrefix',
@@ -357,6 +375,7 @@ export class DocumentPipelineStack extends Stack {
       resultSelector: {
         'orgId.$': '$.Payload.orgId',
         'documentId.$': '$.Payload.documentId',
+        'knowledgeBaseId.$': '$.Payload.knowledgeBaseId',
         'bucket.$': '$.Payload.bucket',
         'txtKey.$': '$.Payload.txtKey',
         'chunksPrefix.$': '$.Payload.chunksPrefix',
@@ -374,6 +393,7 @@ export class DocumentPipelineStack extends Stack {
         'chunkItem.$': '$$.Map.Item.Value',
         'orgId.$': '$.orgId',
         'documentId.$': '$.documentId',
+        'knowledgeBaseId.$': '$.knowledgeBaseId',
         'totalChunks.$': '$.Chunks.chunksCount'
       },
     });
@@ -384,6 +404,7 @@ export class DocumentPipelineStack extends Stack {
         payload: sfn.TaskInput.fromObject({
           orgId: sfn.JsonPath.stringAt('$.orgId'),
           documentId: sfn.JsonPath.stringAt('$.documentId'),
+          knowledgeBaseId: sfn.JsonPath.stringAt('$.knowledgeBaseId'),
           chunkKey: sfn.JsonPath.stringAt('$.chunkItem.chunkKey'),
           index: sfn.JsonPath.numberAt('$.chunkItem.index'),
           totalChunks: sfn.JsonPath.numberAt('$.totalChunks'),
@@ -400,6 +421,7 @@ export class DocumentPipelineStack extends Stack {
         'chunkItem.$': '$$.Map.Item.Value',
         'orgId.$': '$.orgId',
         'documentId.$': '$.documentId',
+        'knowledgeBaseId.$': '$.knowledgeBaseId',
         'totalChunks.$': '$.Chunks.chunksCount'
       },
     });
@@ -410,6 +432,7 @@ export class DocumentPipelineStack extends Stack {
         payload: sfn.TaskInput.fromObject({
           orgId: sfn.JsonPath.stringAt('$.orgId'),
           documentId: sfn.JsonPath.stringAt('$.documentId'),
+          knowledgeBaseId: sfn.JsonPath.stringAt('$.knowledgeBaseId'),
           chunkKey: sfn.JsonPath.stringAt('$.chunkItem.chunkKey'),
           index: sfn.JsonPath.numberAt('$.chunkItem.index'),
           totalChunks: sfn.JsonPath.numberAt('$.totalChunks'),

@@ -14,15 +14,9 @@ import {
 import { OpportunityItemSchema } from '@auto-rfp/shared';
 import { createOpportunity } from '../helpers/opportunity';
 
-// TODO Kate
 const baseHandler = async (event: APIGatewayProxyEventV2): Promise<APIGatewayProxyResultV2> => {
   try {
-    console.log('Event:', JSON.stringify(event, null, 2));
-    // const orgId = getOrgId(event);
-    // if (!orgId) {
-    //   return apiResponse(401, { ok: false, error: 'Unauthorized' });
-    // }
-    const bodyRaw = JSON.parse(event.body || '');
+    const bodyRaw = JSON.parse(event.body || '{}');
     const { success, data, error } = OpportunityItemSchema.safeParse(bodyRaw);
 
     if (!success) {
@@ -34,7 +28,6 @@ const baseHandler = async (event: APIGatewayProxyEventV2): Promise<APIGatewayPro
     }
 
     const { projectId, orgId } = data;
-    console.log('orgId received from data:', orgId)
 
     if (!orgId) {
       return apiResponse(400, {
@@ -54,10 +47,11 @@ const baseHandler = async (event: APIGatewayProxyEventV2): Promise<APIGatewayPro
       oppId,
       item,
     });
-  } catch (err: any) {
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'Internal Server Error';
     return apiResponse(500, {
       ok: false,
-      error: err?.message ?? 'Internal Server Error',
+      error: message,
     });
   }
 };

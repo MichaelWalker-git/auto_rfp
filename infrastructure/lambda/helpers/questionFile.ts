@@ -219,16 +219,36 @@ export const listQuestionFilesByOpportunity = async (args: {
   };
 };
 
+export const deleteQuestionFile = async (args: {
+  projectId: string;
+  oppId: string;
+  questionFileId: string;
+}) => {
+  const { DeleteCommand } = await import('@aws-sdk/lib-dynamodb');
+
+  await docClient.send(
+    new DeleteCommand({
+      TableName: DB_TABLE_NAME,
+      Key: {
+        [PK_NAME]: QUESTION_FILE_PK,
+        [SK_NAME]: buildQuestionFileSK(args.projectId, args.oppId, args.questionFileId),
+      },
+    }),
+  );
+
+  return { ok: true };
+};
+
 export async function checkQuestionFileCancelled(
   projectId: string,
   opportunityId: string,
   questionFileId: string,
 ): Promise<boolean> {
   const qf = await getQuestionFileItem(projectId, opportunityId, questionFileId);
-  
+
   if (!qf) {
     return true;
   }
-  
+
   return qf.status === 'CANCELLED';
 }

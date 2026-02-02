@@ -6,6 +6,8 @@ import { withSentryLambda } from '../sentry-lambda';
 import { apiResponse } from '../helpers/api';
 import { requireEnv } from '../helpers/env';
 import { docClient } from '../helpers/db';
+import { buildDocumentSK } from '../helpers/document';
+import { nowIso } from '../helpers/date';
 
 const DB_TABLE_NAME = requireEnv('DB_TABLE_NAME');
 
@@ -19,9 +21,9 @@ export const baseHandler = async (event: any): Promise<APIGatewayProxyResultV2> 
     return { statusCode: 400, body: 'Missing documentId or knowledgeBaseId' };
   }
 
-  const sk = `KB#${knowledgeBaseId}#DOC#${documentId}`;
+  const sk = buildDocumentSK(knowledgeBaseId, documentId)
 
-  const now = new Date().toISOString();
+  const now = nowIso();
 
   await docClient.send(
     new UpdateCommand({

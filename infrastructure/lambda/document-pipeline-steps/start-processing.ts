@@ -1,19 +1,22 @@
 import { Context } from 'aws-lambda';
-import { QueryCommand, UpdateCommand, } from '@aws-sdk/lib-dynamodb';
+import { UpdateCommand, } from '@aws-sdk/lib-dynamodb';
 
 import { PK_NAME, SK_NAME } from '../constants/common';
 import { DOCUMENT_PK } from '../constants/document';
-import { DocumentItem } from '../schemas/document';
 import { withSentryLambda } from '../sentry-lambda';
 import { requireEnv } from '../helpers/env';
-import { docClient } from '../helpers/db';
+import { docClient, getItem } from '../helpers/db';
+import { buildDocumentSK } from '../helpers/document';
+import { DocumentItem } from '../schemas/document';
+import { nowIso } from '../helpers/date';
 
 const DB_TABLE_NAME = requireEnv('DB_TABLE_NAME');
 
 type FileFormat = 'PDF' | 'DOCX' | 'UNKNOWN';
 
 interface StartProcessingEvent {
-  documentId?: string;
+  knowledgeBaseId: string;
+  documentId: string;
   orgId: string;
 }
 
@@ -61,56 +64,23 @@ const baseHandler = async (
 ): Promise<StartProcessingResult> => {
   console.log('start-processing event:', JSON.stringify(event));
 
-  const { documentId, orgId } = event;
+  const { documentId, orgId, knowledgeBaseId } = event;
 
-  if (!documentId) {
+  if (!documentId || !knowledgeBaseId) {
     throw new Error('documentId is required');
   }
 
-  // Same SK suffix strategy you use today :contentReference[oaicite:1]{index=1}
-  const skSuffix = `#DOC#${documentId}`;
-
-  // 1) Find document row
-  const queryRes = await docClient.send(
-    new QueryCommand({
-      TableName: DB_TABLE_NAME,
-      KeyConditionExpression: '#pk = :pk',
-      ExpressionAttributeNames: {
-        '#pk': PK_NAME,
-      },
-      ExpressionAttributeValues: {
-        ':pk': DOCUMENT_PK,
-      },
-    }),
-  );
-
-  const items =
-    (queryRes.Items || []) as (DocumentItem & {
-      [PK_NAME]: string;
-      [SK_NAME]: string;
-      fileKey?: string;
-      contentType?: string;
-      mimeType?: string;
-    })[];
-
-  const docItem = items.find((it) => String(it[SK_NAME]).endsWith(skSuffix));
+  const docItem = await getItem<DocumentItem>(DOCUMENT_PK, buildDocumentSK(knowledgeBaseId, documentId));
 
   if (!docItem) {
-    throw new Error(`Document not found for PK=${DOCUMENT_PK} and SK ending with ${skSuffix}`);
+    throw new Error(`Document not found for PK=${DOCUMENT_PK} and SK=${buildDocumentSK(knowledgeBaseId, documentId)}`);
   }
-
-  const pk = docItem[PK_NAME];
-  const sk = docItem[SK_NAME];
 
   const fileKey = docItem.fileKey;
   if (!fileKey) {
     throw new Error(`Document ${documentId} does not have fileKey attribute in DynamoDB`);
   }
-  let knowledgeBaseId: string | undefined;
-  const skParts = String(sk).split('#');
-  if (skParts.length >= 4) knowledgeBaseId = skParts[1];
 
-  // try both fields (your DB might store either)
   const contentType: string | null =
     (typeof (docItem as any).contentType === 'string' && (docItem as any).contentType) ||
     (typeof (docItem as any).mimeType === 'string' && (docItem as any).mimeType) ||
@@ -118,18 +88,14 @@ const baseHandler = async (
 
   const { format, ext } = inferFormat(contentType ?? undefined, fileKey);
 
-  // 2) Update Dynamo: mark started
-  // We also clear jobId/taskToken to avoid stale callback tokens.
-  const now = new Date().toISOString();
-
   const status = format === 'UNKNOWN' ? 'FAILED' : 'STARTED';
 
   await docClient.send(
     new UpdateCommand({
       TableName: DB_TABLE_NAME,
       Key: {
-        [PK_NAME]: pk,
-        [SK_NAME]: sk,
+        [PK_NAME]: DOCUMENT_PK,
+        [SK_NAME]: buildDocumentSK(knowledgeBaseId, documentId),
       },
       UpdateExpression:
         'SET #indexStatus = :status, #updatedAt = :updatedAt REMOVE #jobId, #taskToken',
@@ -141,7 +107,7 @@ const baseHandler = async (
       },
       ExpressionAttributeValues: {
         ':status': status,
-        ':updatedAt': now,
+        ':updatedAt': nowIso(),
       },
     }),
   );

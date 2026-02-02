@@ -111,6 +111,7 @@ export const ProposalSchema = z.object({
   createdAt: z.string(),
   updatedAt: z.string(),
   document: ProposalDocumentSchema,
+  docFileKey: z.string().nullable().optional(),
 });
 
 export type Proposal = z.infer<typeof ProposalSchema>;

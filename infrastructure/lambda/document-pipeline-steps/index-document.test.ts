@@ -24,6 +24,12 @@ jest.mock('../helpers/db', () => ({
   docClient: {
     send: jest.fn().mockResolvedValue({ Items: [] }),
   },
+  getItem: jest.fn().mockResolvedValue({
+    documentId: 'doc-123',
+    name: 'Test Document',
+    orgId: 'org-123',
+    knowledgeBaseId: 'kb-123',
+  }),
 }));
 
 jest.mock('../sentry-lambda', () => ({
@@ -31,7 +37,7 @@ jest.mock('../sentry-lambda', () => ({
 }));
 
 jest.mock('../helpers/pinecone', () => ({
-  indexDocToPinecone: jest.fn().mockResolvedValue('vector-id-123'),
+  indexChunkToPinecone: jest.fn().mockResolvedValue('vector-id-123'),
   semanticSearchChunks: jest.fn().mockResolvedValue([]),
   deleteFromPinecone: jest.fn().mockResolvedValue(undefined),
   deleteVectorById: jest.fn().mockResolvedValue(undefined),
@@ -55,7 +61,7 @@ describe('index-document Lambda - Input Validation', () => {
   it('should throw when documentId is missing', async () => {
     // Import after mocks are set up
     const { baseHandler } = await import('./index-document');
-    const event = { orgId: 'org-123', chunkKey: 'chunks/doc-123/chunk-0.txt' };
+    const event = { orgId: 'org-123', knowledgeBaseId: 'kb-123', chunkKey: 'chunks/doc-123/chunk-0.txt' };
 
     await expect(baseHandler(event, mockContext)).rejects.toThrow(
       'orgId, documentId and chunkKey are required'
@@ -64,14 +70,23 @@ describe('index-document Lambda - Input Validation', () => {
 
   it('should throw when chunkKey is missing', async () => {
     const { baseHandler } = await import('./index-document');
-    const event = { orgId: 'org-123', documentId: 'doc-123' };
+    const event = { orgId: 'org-123', knowledgeBaseId: 'kb-123', documentId: 'doc-123' };
 
     await expect(baseHandler(event, mockContext)).rejects.toThrow(
       'orgId, documentId and chunkKey are required'
     );
   });
 
-  it('should throw when both documentId and chunkKey are missing', async () => {
+  it('should throw when knowledgeBaseId is missing', async () => {
+    const { baseHandler } = await import('./index-document');
+    const event = { orgId: 'org-123', documentId: 'doc-123', chunkKey: 'chunks/doc-123/chunk-0.txt' };
+
+    await expect(baseHandler(event, mockContext)).rejects.toThrow(
+      'orgId, documentId and chunkKey are required'
+    );
+  });
+
+  it('should throw when multiple required fields are missing', async () => {
     const { baseHandler } = await import('./index-document');
 
     await expect(baseHandler({ orgId: 'org-123' }, mockContext)).rejects.toThrow(
@@ -113,6 +128,7 @@ describe('index-document Lambda - Text Processing (Sentry: AUTO-RFP-3V)', () => 
     const { baseHandler } = await import('./index-document');
     const event = {
       orgId: 'org-123',
+      knowledgeBaseId: 'kb-123',
       documentId: 'doc-123',
       chunkKey: 'chunks/doc-123/chunk-0.txt',
       text: 'Valid text content',
@@ -128,6 +144,7 @@ describe('index-document Lambda - Text Processing (Sentry: AUTO-RFP-3V)', () => 
 
     const event = {
       orgId: 'org-123',
+      knowledgeBaseId: 'kb-123',
       documentId: 'doc-123',
       chunkKey: 'chunks/doc-123/chunk-0.txt',
       text: '', // Empty string should trigger S3 read
@@ -144,6 +161,7 @@ describe('index-document Lambda - Text Processing (Sentry: AUTO-RFP-3V)', () => 
     // When text is null, it should read from S3
     const event = {
       orgId: 'org-123',
+      knowledgeBaseId: 'kb-123',
       documentId: 'doc-123',
       chunkKey: 'chunks/doc-123/chunk-0.txt',
       text: null as any,
@@ -159,6 +177,7 @@ describe('index-document Lambda - Text Processing (Sentry: AUTO-RFP-3V)', () => 
     const { baseHandler } = await import('./index-document');
     const event = {
       orgId: 'org-123',
+      knowledgeBaseId: 'kb-123',
       documentId: 'doc-123',
       chunkKey: 'chunks/doc-123/chunk-0.txt',
       text: undefined,
@@ -175,6 +194,7 @@ describe('index-document Lambda - Text Processing (Sentry: AUTO-RFP-3V)', () => 
     // This is the actual bug - text was sometimes an array
     const event = {
       orgId: 'org-123',
+      knowledgeBaseId: 'kb-123',
       documentId: 'doc-123',
       chunkKey: 'chunks/doc-123/chunk-0.txt',
       text: ['array', 'of', 'strings'] as any, // This would cause .trim() to fail
@@ -191,6 +211,7 @@ describe('index-document Lambda - Text Processing (Sentry: AUTO-RFP-3V)', () => 
     const { baseHandler } = await import('./index-document');
     const event = {
       orgId: 'org-123',
+      knowledgeBaseId: 'kb-123',
       documentId: 'doc-123',
       chunkKey: 'chunks/doc-123/chunk-0.txt',
       text: { content: 'text' } as any,
@@ -205,6 +226,7 @@ describe('index-document Lambda - Text Processing (Sentry: AUTO-RFP-3V)', () => 
     const { baseHandler } = await import('./index-document');
     const event = {
       orgId: 'org-123',
+      knowledgeBaseId: 'kb-123',
       documentId: 'doc-123',
       chunkKey: 'chunks/doc-123/chunk-0.txt',
       text: 12345 as any,
@@ -236,6 +258,7 @@ describe('index-document Lambda - S3 Read Fallback', () => {
     const { baseHandler } = await import('./index-document');
     const event = {
       orgId: 'org-123',
+      knowledgeBaseId: 'kb-123',
       documentId: 'doc-123',
       chunkKey: 'chunks/doc-123/chunk-0.txt',
     };
@@ -258,6 +281,7 @@ describe('index-document Lambda - Chunk Indexing', () => {
     const { baseHandler } = await import('./index-document');
     const event = {
       orgId: 'org-123',
+      knowledgeBaseId: 'kb-123',
       documentId: 'doc-123',
       chunkKey: 'chunks/doc-123/chunk-4.txt',
       text: 'Final chunk content',
@@ -273,6 +297,7 @@ describe('index-document Lambda - Chunk Indexing', () => {
     const { baseHandler } = await import('./index-document');
     const event = {
       orgId: 'org-123',
+      knowledgeBaseId: 'kb-123',
       documentId: 'doc-123',
       chunkKey: 'chunks/doc-123/chunk-2.txt',
       text: 'Middle chunk content',
@@ -288,6 +313,7 @@ describe('index-document Lambda - Chunk Indexing', () => {
     const { baseHandler } = await import('./index-document');
     const event = {
       orgId: 'org-123',
+      knowledgeBaseId: 'kb-123',
       documentId: 'doc-123',
       chunkKey: 'chunks/doc-123/chunk-0.txt',
       text: 'Chunk content',

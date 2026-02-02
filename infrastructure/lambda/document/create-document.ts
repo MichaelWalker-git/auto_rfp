@@ -15,12 +15,11 @@ import {
 } from '../middleware/rbac-middleware';
 import middy from '@middy/core';
 import { docClient } from '../helpers/db';
+import { requireEnv } from '../helpers/env';
+import { nowIso } from '../helpers/date';
+import { buildDocumentSK } from '../helpers/document';
 
-const DB_TABLE_NAME = process.env.DB_TABLE_NAME;
-
-if (!DB_TABLE_NAME) {
-  throw new Error('DB_TABLE_NAME environment variable is not set');
-}
+const DB_TABLE_NAME = requireEnv('DB_TABLE_NAME');
 
 export const baseHandler = async (
   event: APIGatewayProxyEventV2,
@@ -33,10 +32,10 @@ export const baseHandler = async (
     const rawBody = JSON.parse(event.body);
 
     // 1. Runtime validation with Zod
-    const validationResult = CreateDocumentDTOSchema.safeParse(rawBody);
+    const { success, data, error } = CreateDocumentDTOSchema.safeParse(rawBody);
 
-    if (!validationResult.success) {
-      const errorDetails = validationResult.error.issues.map((issue) => ({
+    if (!success) {
+      const errorDetails = error.issues.map((issue) => ({
         path: issue.path.join('.'),
         message: issue.message,
       }));
@@ -47,10 +46,8 @@ export const baseHandler = async (
       });
     }
 
-    const dto: CreateDocumentDTO = validationResult.data;
-
     // 2. Create document item in Dynamo
-    const newDocument = await createDocument(dto);
+    const newDocument = await createDocument(data);
 
     return apiResponse(201, newDocument);
   } catch (err) {
@@ -72,14 +69,14 @@ export const baseHandler = async (
 export async function createDocument(
   dto: CreateDocumentDTO,
 ): Promise<DocumentItem> {
-  const now = new Date().toISOString();
+  const now =  nowIso()
   const docId = uuidv4();
 
   const { knowledgeBaseId, name, fileKey, textFileKey } = dto;
 
   const documentItem: DocumentItem = {
     [PK_NAME]: DOCUMENT_PK,
-    [SK_NAME]: `KB#${knowledgeBaseId}#DOC#${docId}`,
+    [SK_NAME]: buildDocumentSK(knowledgeBaseId, docId),
     id: docId,
     knowledgeBaseId,
     name,
