@@ -1,53 +1,65 @@
 'use client';
 
-import { useState, useEffect } from 'react';
 import { useDeleteQuestionFile, useStartQuestionFilePipeline, useStopQuestionPipeline } from '@/lib/hooks/use-question-file';
 import { useToast } from './ui/use-toast';
 import { CircleX, Loader2, Trash2, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import PermissionWrapper from '@/components/permission-wrapper';
 
+/**
+ * Pipeline statuses that indicate the pipeline is actively running
+ * and can be cancelled.
+ */
+const CANCELLABLE_STATUSES = ['PROCESSING', 'TEXTRACT_RUNNING', 'TEXT_READY'] as const;
+
+/**
+ * Pipeline statuses that indicate the pipeline was cancelled
+ * and can be deleted or retried.
+ */
+const CANCELLED_STATUSES = ['CANCELLED'] as const;
+
 interface CancelPipelineButtonProps {
   projectId: string | undefined;
   opportunityId: string | undefined;
   questionFileId: string | undefined;
+  /** Server-provided status - this is the single source of truth */
   status?: string;
-  onSuccess?: () => void;
-  onDelete?: () => void;
-  onRetry?: () => void;
+  /** Called after successful mutation - parent should refetch data */
+  onMutate?: () => void;
 }
 
-type CancellingState = 'idle' | 'cancelled' | 'deleting' | 'retrying';
-
+/**
+ * Server-driven cancel/delete/retry button for question file pipelines.
+ *
+ * This component renders based entirely on the server-provided `status` prop.
+ * It does NOT maintain local state for the pipeline status - the server is
+ * the single source of truth. Only transient loading states (isStopping,
+ * isDeleting, isRetrying) are tracked locally.
+ *
+ * After any mutation, the `onMutate` callback is called so the parent can
+ * refetch the latest server state.
+ */
 export function CancelPipelineButton({
   projectId,
   opportunityId,
   questionFileId,
   status,
-  onSuccess,
-  onDelete,
-  onRetry,
+  onMutate,
 }: CancelPipelineButtonProps) {
-  const [cancellingState, setCancellingState] = useState<CancellingState>(() => {
-    return status === 'CANCELLED' ? 'cancelled' : 'idle';
-  });
   const { trigger: stopPipeline, isMutating: isStopping } = useStopQuestionPipeline();
-  const { trigger: deletePipeline } = useDeleteQuestionFile();
-  const { trigger: startPipeline } = useStartQuestionFilePipeline();
+  const { trigger: deletePipeline, isMutating: isDeleting } = useDeleteQuestionFile();
+  const { trigger: startPipeline, isMutating: isRetrying } = useStartQuestionFilePipeline();
 
   const { toast } = useToast();
 
-  useEffect(() => {
-    if (status === 'CANCELLED') {
-      setCancellingState('cancelled');
-    } else if (status === 'PROCESSING' || status === 'TEXTRACT_RUNNING' || status === 'TEXT_READY') {
-      setCancellingState('idle');
-    }
-  }, [status]);
-
+  // Early return if missing required props
   if (!projectId || !opportunityId || !questionFileId) {
     return null;
   }
+
+  const isCancellable = CANCELLABLE_STATUSES.includes(status as typeof CANCELLABLE_STATUSES[number]);
+  const isCancelled = CANCELLED_STATUSES.includes(status as typeof CANCELLED_STATUSES[number]);
+  const isAnyMutating = isStopping || isDeleting || isRetrying;
 
   const handleCancel = async () => {
     try {
@@ -56,11 +68,9 @@ export function CancelPipelineButton({
         opportunityId,
         questionFileId,
       });
-      setCancellingState('cancelled');
-      onSuccess?.();
+      onMutate?.();
     } catch (error) {
       console.error('Failed to cancel pipeline:', error);
-      setCancellingState('idle');
       toast({
         title: 'Error',
         description: 'Failed to cancel question file processing',
@@ -71,16 +81,14 @@ export function CancelPipelineButton({
 
   const handleDelete = async () => {
     try {
-      setCancellingState('deleting');
       await deletePipeline({
         projectId,
         oppId: opportunityId,
         questionFileId,
       });
-      onDelete?.();
+      onMutate?.();
     } catch (error) {
       console.error('Failed to delete file:', error);
-      setCancellingState('cancelled');
       toast({
         title: 'Error',
         description: 'Failed to delete question file',
@@ -91,17 +99,14 @@ export function CancelPipelineButton({
 
   const handleRetry = async () => {
     try {
-      setCancellingState('retrying');
       await startPipeline({
         projectId,
         oppId: opportunityId,
         questionFileId,
       });
-      onRetry?.();
-      setCancellingState('idle');
+      onMutate?.();
     } catch (error) {
       console.error('Failed to retry pipeline:', error);
-      setCancellingState('cancelled');
       toast({
         title: 'Error',
         description: 'Failed to retry question file processing',
@@ -110,7 +115,8 @@ export function CancelPipelineButton({
     }
   };
 
-  if (cancellingState === 'idle') {
+  // Render cancel button for running pipelines
+  if (isCancellable) {
     return (
       <Button
         size="sm"
@@ -118,6 +124,7 @@ export function CancelPipelineButton({
         onClick={handleCancel}
         disabled={isStopping}
         className="gap-1.5"
+        aria-label="Cancel pipeline"
       >
         {isStopping ? (
           <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -128,7 +135,8 @@ export function CancelPipelineButton({
     );
   }
 
-  if (cancellingState === 'cancelled' || cancellingState === 'deleting') {
+  // Render delete/retry buttons for cancelled pipelines
+  if (isCancelled) {
     return (
       <div className="flex gap-2 items-center">
         <PermissionWrapper requiredPermission={'question:delete'}>
@@ -136,28 +144,35 @@ export function CancelPipelineButton({
             size="sm"
             variant="destructive"
             onClick={handleDelete}
-            disabled={cancellingState === 'deleting'}
+            disabled={isAnyMutating}
             className="gap-1.5"
+            aria-label="Delete file"
           >
-            {cancellingState === 'deleting' ? (
+            {isDeleting ? (
               <Loader2 className="h-3.5 w-3.5 animate-spin" />
             ) : (
               <Trash2 className="h-3.5 w-3.5" />
             )}
           </Button>
-        </PermissionWrapper >
+        </PermissionWrapper>
         <Button
           size="sm"
           variant="outline"
           onClick={handleRetry}
-          disabled={cancellingState === 'deleting'}
+          disabled={isAnyMutating}
           className="gap-1.5"
+          aria-label="Retry pipeline"
         >
-          <RefreshCw />
+          {isRetrying ? (
+            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+          ) : (
+            <RefreshCw className="h-3.5 w-3.5" />
+          )}
         </Button>
       </div>
     );
   }
 
+  // Don't render anything for other statuses (COMPLETED, FAILED, etc.)
   return null;
 }

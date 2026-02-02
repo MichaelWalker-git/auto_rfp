@@ -1,11 +1,11 @@
 'use client';
 
-import React, { useCallback, useState } from 'react';
-import { FileText, FolderOpen } from 'lucide-react';
+import React, { useMemo, useState } from 'react';
 import { Badge } from '@/components/ui/badge';
-import { ListingPageLayout } from '@/components/layout/ListingPageLayout';
-import { DownloadButton } from '@/components/ui/download-button';
-import { DeleteButton } from '@/components/ui/delete-button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Skeleton } from '@/components/ui/skeleton';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { useDeleteQuestionFile, useQuestionFiles, } from '@/lib/hooks/use-question-file';
 import { useDownloadFromS3 } from '@/lib/hooks/use-file';
@@ -15,6 +15,7 @@ import {
 } from '@/app/organizations/[orgId]/projects/[projectId]/questions/components/question-extraction-dialog';
 import { CancelPipelineButton } from '../cancel-pipeline-button';
 import { useToast } from '@/components/ui/use-toast';
+import { AlertCircle, Download, FileText, FolderOpen, Loader2, Trash2 } from 'lucide-react';
 
 import { QuestionFileItem } from '@auto-rfp/shared';
 
@@ -220,7 +221,7 @@ export function ProjectDocuments({ projectId }: ProjectDocumentsProps) {
 
                     <div className="min-w-0 flex-1">
                       <div className="flex flex-wrap items-center gap-2">
-                        <p className="font-medium truncate" title={f.name}>
+                        <p className="font-medium truncate" title={f.originalFileName}>
                           {f.originalFileName}
                         </p>
                         <Badge variant="outline" className={cn('text-xs border', st.cls)}>
@@ -255,7 +256,7 @@ export function ProjectDocuments({ projectId }: ProjectDocumentsProps) {
                         onClick={() => void handleDownload({
                           questionFileId: f.questionFileId,
                           fileKey: f.fileKey,
-                          name: f.name
+                          name: f.originalFileName || 'unknown',
                         })}
                         title={!f.fileKey ? 'No file key' : 'Download file'}
                       >
@@ -271,7 +272,7 @@ export function ProjectDocuments({ projectId }: ProjectDocumentsProps) {
                             disabled={!f.questionFileId || rowDeleting}
                             onClick={() => void handleDelete({
                               questionFileId: f.questionFileId,
-                              name: f.name,
+                              name: f.originalFileName || 'unknown',
                               oppId: f.oppId
                             })}
                           >
@@ -279,33 +280,14 @@ export function ProjectDocuments({ projectId }: ProjectDocumentsProps) {
                           </Button>
                         </PermissionWrapper>
                       }
+                      
                       {f.status !== 'PROCESSED' && f.status !== 'FAILED' && f.status !== 'DELETED' &&
                         <CancelPipelineButton
                           projectId={f.projectId}
                           opportunityId={f.oppId}
                           questionFileId={f.questionFileId}
                           status={f.status}
-                          onSuccess={async () => {
-                            toast({
-                              title: 'Success',
-                              description: `Successfully cancelled question file processing for ${f.name}`,
-                            });
-                            await refetch();
-                          }}
-                          onDelete={async() => {
-                            await refetch();
-                            toast({
-                              title: 'Deleted',
-                              description: `Successfully deleted file ${f.name}`,
-                            });
-                          }}
-                          onRetry={async () => {
-                            toast({
-                              title: 'Retrying',
-                              description: `Restarting processing for ${f.name}`,
-                            });
-                            await refetch();
-                          }}
+                          onMutate={refetch}
                         />
                       }
                     </div>
