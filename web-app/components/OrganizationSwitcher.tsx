@@ -19,7 +19,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/components/ui/use-toast';
 
-import { useOrganization } from '@/context/organization-context';
+import { useCurrentOrganization } from '@/context/organization-context';
 import { useCreateOrganization } from '@/lib/hooks/use-create-organization';
 import { generateSlug } from '@/lib/utils';
 
@@ -33,7 +33,7 @@ export function OrganizationSwitcher() {
     isOrgLocked,
     loading,
     refreshData,
-  } = useOrganization();
+  } = useCurrentOrganization();
 
   const { createOrganization } = useCreateOrganization();
 

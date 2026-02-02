@@ -15,7 +15,7 @@ import {
 import {
   GenerateProposalModal
 } from '@/app/organizations/[orgId]/projects/[projectId]/questions/components/GenerateProposalModal';
-import { useOrganization } from '@/context/organization-context';
+import { useCurrentOrganization } from '@/context/organization-context';
 import { formatDateTime } from '@/components/brief/helpers';
 
 function statusVariant(status: ProposalStatus) {
@@ -39,7 +39,7 @@ type Props = {
 
 export default function ProposalsContent({ projectId }: Props) {
   const { questionFiles, isLoading: isQL, error: err, refreshQuestions } = useQuestions();
-  const { currentOrganization } = useOrganization();
+  const { currentOrganization } = useCurrentOrganization();
   if (!isQL && !err && !questionFiles?.length) {
     return <NoRfpDocumentAvailable projectId={projectId}/>;
   }

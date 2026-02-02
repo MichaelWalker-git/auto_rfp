@@ -1,7 +1,6 @@
 import type { Metadata } from 'next';
 import './globals.css';
 import { Toaster } from '@/components/ui/toaster';
-import { GlobalHeader } from '@/components/global/global-header';
 import { Providers } from '@/providers/providers';
 import * as Sentry from '@sentry/nextjs';
 

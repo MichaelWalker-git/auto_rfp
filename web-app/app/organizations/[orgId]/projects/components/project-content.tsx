@@ -8,10 +8,12 @@ import { TeamSection } from './team-section';
 import ProposalsContent from '@/app/organizations/[orgId]/projects/components/ProposalsContent';
 import { useProject } from '@/lib/hooks/use-api';
 import { useSentryProject } from '@/lib/hooks/use-sentry-context';
+import { useCurrentOrganization } from '@/context/organization-context';
 
 function ProjectContentInner({ projectId }: { projectId: string }) {
   const [activeSection, setActiveSection] = useState('overview');
   const { data: project } = useProject(projectId);
+  const { currentOrganization } = useCurrentOrganization();
 
   // Set Sentry context for error tracking
   useSentryProject(project ? { id: project.id, name: project.name, orgId: project.orgId } : null);
@@ -19,7 +21,7 @@ function ProjectContentInner({ projectId }: { projectId: string }) {
   const renderContent = () => {
     switch (activeSection) {
       case 'questions':
-        return <QuestionsSection projectId={projectId}/>;
+        return <QuestionsSection orgId={currentOrganization?.id || ''} projectId={projectId}/>;
       case 'documents':
         return <DocumentsSection/>;
       case 'team':

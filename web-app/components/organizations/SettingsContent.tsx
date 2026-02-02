@@ -93,10 +93,6 @@ export function SettingsContent({ orgId }: SettingsContentProps) {
     }
   };
 
-  const handleLlamaCloudConnectionUpdate = (updatedOrg: any) => {
-    setOrganization(updatedOrg);
-  };
-
   const handleDeleteOrganization = () => {
     // This would typically open a confirmation dialog
     alert('This action would delete the organization. Not implemented in this demo.');
@@ -187,7 +183,7 @@ export function SettingsContent({ orgId }: SettingsContentProps) {
                   <Label htmlFor="confirm">Type the organization name to confirm</Label>
                   <Input
                     id="confirm"
-                    placeholder={organization.name}
+                    placeholder={organization?.name}
                   />
                 </div>
               </CardContent>

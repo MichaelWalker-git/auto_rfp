@@ -1,18 +1,24 @@
 'use client';
 
-import React, { useMemo, useState, useCallback } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import type { OpportunityItem } from '@auto-rfp/shared';
-import { Building2, CalendarClock, FileText, Hash, Tag, Loader2, Trash2, ChevronRight, MoreVertical } from 'lucide-react';
+import { Building2, ChevronRight, FileText, Hash, Loader2, Tag, Trash2 } from 'lucide-react';
 
-import { Card, CardHeader, CardContent } from '@/components/ui/card';
+import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle
+} from '@/components/ui/dialog';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
 import { cn } from '@/lib/utils';
 import { useDeleteOpportunity } from '@/lib/hooks/use-opportunities';
-import { useOrganization } from '@/context/organization-context';
+import { useCurrentOrganization } from '@/context/organization-context';
 
 type Props = {
   item: OpportunityItem;
@@ -31,7 +37,7 @@ const fmt = (iso: string | null) => {
 export function OpportunitiesListItem({ item, onOpen, onDeleted, className }: Props) {
   const posted = useMemo(() => fmt(item.postedDateIso), [item.postedDateIso]);
   const due = useMemo(() => fmt(item.responseDeadlineIso), [item.responseDeadlineIso]);
-  const { currentOrganization } = useOrganization();
+  const { currentOrganization } = useCurrentOrganization();
 
   const { trigger: deleteOpportunity, isMutating: isDeleting } = useDeleteOpportunity();
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
@@ -81,11 +87,11 @@ export function OpportunitiesListItem({ item, onOpen, onDeleted, className }: Pr
                 </Badge>
               )}
             </div>
-            
+
             {/* Organization */}
             {item.organizationName ? (
               <p className="text-xs text-muted-foreground mb-3 truncate">
-                <Building2 className="inline h-3 w-3 mr-1" />
+                <Building2 className="inline h-3 w-3 mr-1"/>
                 {item.organizationName}
               </p>
             ) : null}
@@ -112,13 +118,13 @@ export function OpportunitiesListItem({ item, onOpen, onDeleted, className }: Pr
               {item.setAside ? <Badge variant="outline" className="text-xs">{item.setAside}</Badge> : null}
               {item.naicsCode ? (
                 <Badge variant="outline" className="text-xs gap-0.5">
-                  <Tag className="h-2.5 w-2.5" />
+                  <Tag className="h-2.5 w-2.5"/>
                   {item.naicsCode}
                 </Badge>
               ) : null}
               {item.pscCode ? (
                 <Badge variant="outline" className="text-xs gap-0.5">
-                  <Tag className="h-2.5 w-2.5" />
+                  <Tag className="h-2.5 w-2.5"/>
                   {item.pscCode}
                 </Badge>
               ) : null}
@@ -127,15 +133,15 @@ export function OpportunitiesListItem({ item, onOpen, onDeleted, className }: Pr
 
           {/* Action Buttons */}
           <div className="shrink-0 flex items-center gap-2">
-            <Button 
-              size="sm" 
+            <Button
+              size="sm"
               onClick={() => onOpen?.(item)}
               className="gap-1.5"
             >
               Open
-              <ChevronRight className="h-4 w-4" />
+              <ChevronRight className="h-4 w-4"/>
             </Button>
-            
+
             <Button
               size="sm"
               variant="outline"
@@ -145,9 +151,9 @@ export function OpportunitiesListItem({ item, onOpen, onDeleted, className }: Pr
               title="Delete opportunity"
             >
               {isDeleting ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
+                <Loader2 className="h-4 w-4 animate-spin"/>
               ) : (
-                <Trash2 className="h-4 w-4" />
+                <Trash2 className="h-4 w-4"/>
               )}
             </Button>
           </div>
@@ -167,13 +173,13 @@ export function OpportunitiesListItem({ item, onOpen, onDeleted, className }: Pr
           <div className="flex gap-2 text-xs text-muted-foreground">
             {item.solicitationNumber ? (
               <span className="inline-flex items-center gap-1">
-                <Hash className="h-3 w-3" />
+                <Hash className="h-3 w-3"/>
                 {item.solicitationNumber}
               </span>
             ) : null}
             {item.noticeId ? (
               <span className="inline-flex items-center gap-1">
-                <FileText className="h-3 w-3" />
+                <FileText className="h-3 w-3"/>
                 {item.noticeId}
               </span>
             ) : null}
@@ -205,7 +211,7 @@ export function OpportunitiesListItem({ item, onOpen, onDeleted, className }: Pr
             <Button variant="destructive" onClick={handleConfirmDelete} disabled={isDeleting}>
               {isDeleting ? (
                 <>
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin"/>
                   Deleting...
                 </>
               ) : (

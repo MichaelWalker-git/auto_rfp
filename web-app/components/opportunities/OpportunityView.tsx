@@ -34,7 +34,7 @@ import { useToast } from '@/components/ui/use-toast';
 import {
   QuestionFileUploadDialog,
 } from '@/app/organizations/[orgId]/projects/[projectId]/questions/components/question-extraction-dialog';
-import { useOrganization } from '@/context/organization-context';
+import { useCurrentOrganization } from '@/context/organization-context';
 import {
   GenerateProposalModal
 } from '@/app/organizations/[orgId]/projects/[projectId]/questions/components/GenerateProposalModal';
@@ -85,7 +85,7 @@ function statusChip(status?: string) {
 
 export function OpportunityView({ projectId, oppId, className }: OpportunityViewProps) {
 
-  const { currentOrganization } = useOrganization();
+  const { currentOrganization } = useCurrentOrganization();
   const { data: item, isLoading: oppLoading, error: oppError, refetch } = useOpportunity(
     projectId,
     oppId,

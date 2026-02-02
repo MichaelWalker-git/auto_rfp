@@ -21,7 +21,6 @@ import { UserSection } from '@/components/user-section';
 
 import {
   BookOpen,
-  BookText,
   Briefcase,
   CalendarClock,
   FileText,
@@ -40,7 +39,7 @@ import { usePathname } from 'next/navigation';
 import type { ReactNode } from 'react';
 import { useMemo } from 'react';
 
-import { useOrganization } from '@/context/organization-context';
+import { useCurrentOrganization } from '@/context/organization-context';
 import { useProjectContext } from '@/context/project-context';
 import { OrganizationBadge } from '@/components/organization-badge';
 import { GlobalHeader } from '@/components/global/global-header';
@@ -99,7 +98,7 @@ function NavigationMenu({ items, isActive }: { items: NavItem[]; isActive: (url:
 
 function AppSidebar() {
   const pathname = usePathname();
-  const { currentOrganization } = useOrganization();
+  const { currentOrganization } = useCurrentOrganization();
   const { currentProject } = useProjectContext();
 
   const route = useMemo(() => getRouteIds(pathname), [pathname]);

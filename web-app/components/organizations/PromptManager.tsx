@@ -18,7 +18,7 @@ import type { PromptItem } from '@auto-rfp/shared';
 import { PromptScopeSchema, PromptTypeSchema } from '@auto-rfp/shared';
 
 import { usePrompts, useSavePrompt } from '@/lib/hooks/use-prompt';
-import { useOrganization } from '@/context/organization-context';
+import { useCurrentOrganization } from '@/context/organization-context';
 
 type Scope = 'SYSTEM' | 'USER';
 
@@ -211,7 +211,7 @@ function PromptRow({
 export function PromptsManager() {
   const { toast } = useToast();
 
-  const { currentOrganization } = useOrganization();
+  const { currentOrganization } = useCurrentOrganization();
   const { system, user, isLoading, error, refresh } = usePrompts(currentOrganization?.id);
   const { trigger: saveTrigger, isMutating: isSaving } = useSavePrompt();
 

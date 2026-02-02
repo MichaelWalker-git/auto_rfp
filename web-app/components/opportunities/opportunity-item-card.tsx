@@ -17,7 +17,7 @@ import {
 } from '@/components/ui/dialog';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useDeleteOpportunity } from '@/lib/hooks/use-opportunities';
-import { useOrganization } from '@/context/organization-context';
+import { useCurrentOrganization } from '@/context/organization-context';
 
 export type OpportunityItemCardVariant = 'full' | 'compact';
 
@@ -62,7 +62,7 @@ export function OpportunityItemCard({
                                       showIds = true,
                                       showDeleteButton = true,
                                     }: OpportunityItemCardProps) {
-  const { currentOrganization } = useOrganization();
+  const { currentOrganization } = useCurrentOrganization();
 
   const { trigger: deleteOpportunity, isMutating: isDeleting } = useDeleteOpportunity();
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);

@@ -8,7 +8,7 @@ import { useCreateOrganization } from '@/lib/hooks/use-create-organization';
 import { useOrganizations } from '@/lib/hooks/use-api';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/components/AuthProvider';
-import { useOrganization } from '@/context/organization-context';
+import { useCurrentOrganization } from '@/context/organization-context';
 import { OrganizationCard } from '@/components/organizations/OrganizationCard';
 import { CreateEditOrganizationDialog } from '@/components/organizations/CreateEditOrganizationDialog';
 import { EmptyOrganizationsState } from '@/components/organizations/EmptyOrganizationsState';
@@ -59,7 +59,7 @@ export default function OrganizationsPage() {
   const { toast } = useToast();
   const { orgId } = useAuth();
   const router = useRouter();
-  const { setCurrentOrganization } = useOrganization();
+  const { setCurrentOrganization } = useCurrentOrganization();
 
   const [formData, setFormData] = useState<CreateOrganizationData>({
     name: '',

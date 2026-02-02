@@ -44,7 +44,6 @@ export function useGenerateAnswer() {
     async (url, { arg }) => {
       const { orgId, projectId, questionId, topK } = arg;
 
-      breadcrumbs.answerGenerationStarted(questionId, projectId);
 
       const res = await authFetcher(url, {
         method: 'POST',
@@ -67,9 +66,7 @@ export function useGenerateAnswer() {
       const raw = await res.text();
 
       try {
-        const response = JSON.parse(raw) as GenerateAnswerResponse;
-        breadcrumbs.answerGenerationCompleted(questionId, 'generated');
-        return response;
+        return JSON.parse(raw) as GenerateAnswerResponse;
       } catch {
         // not JSON, fall through
       }

@@ -25,9 +25,9 @@ interface OrganizationContextType {
 
 const OrganizationContext = createContext<OrganizationContextType | undefined>(undefined);
 
-export function useOrganization() {
+export function useCurrentOrganization() {
   const ctx = useContext(OrganizationContext);
-  if (!ctx) throw new Error('useOrganization must be used within an OrganizationProvider');
+  if (!ctx) throw new Error('useCurrentOrganization must be used within an OrganizationProvider');
   return ctx;
 }
 
@@ -74,7 +74,7 @@ export function OrganizationProvider({ children }: Props) {
 
     setSelectedOrgId((prev) => {
       const candidate = prev ?? organizations[0].id;
-      const exists = organizations.some((o) => o.id === candidate);
+      const exists = organizations.some((o: Organization) => o.id === candidate);
       return exists ? candidate : organizations[0].id;
     });
   }, [isOrgLocked, organizations]);
@@ -93,7 +93,7 @@ export function OrganizationProvider({ children }: Props) {
 
   const currentOrganization = useMemo(() => {
     if (!organizations.length || !effectiveOrgId) return null;
-    return organizations.find((o) => o.id === effectiveOrgId) ?? null;
+    return organizations.find((o: Organization) => o.id === effectiveOrgId) ?? null;
   }, [organizations, effectiveOrgId]);
 
   // Set Sentry context when organization changes

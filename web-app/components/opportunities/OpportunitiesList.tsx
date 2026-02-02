@@ -10,7 +10,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { usePathname, useRouter } from 'next/navigation';
 
 import { useOpportunitiesList } from '@/lib/hooks/use-opportunities';
-import { useOrganization } from '@/context/organization-context';
+import { useCurrentOrganization } from '@/context/organization-context';
 import { OpportunityItemCard } from '@/components/opportunities/opportunity-item-card';
 
 type Props = {
@@ -23,7 +23,7 @@ type Props = {
 export function OpportunitiesList({ projectId, limit = 25, className }: Props) {
   const router = useRouter();
   const pathname = usePathname();
-  const { currentOrganization } = useOrganization();
+  const { currentOrganization } = useCurrentOrganization();
 
   const { items, isLoading, error, refresh, loadMore, canLoadMore, nextToken } = useOpportunitiesList({
     orgId: currentOrganization?.id || null,
