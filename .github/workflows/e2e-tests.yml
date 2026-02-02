@@ -80,25 +80,19 @@ jobs:
           NEXT_PUBLIC_COGNITO_USER_POOL_ID: ${{ secrets.NEXT_PUBLIC_COGNITO_USER_POOL_ID || 'us-east-1_example' }}
           NEXT_PUBLIC_COGNITO_USER_POOL_CLIENT_ID: ${{ secrets.NEXT_PUBLIC_COGNITO_USER_POOL_CLIENT_ID || 'example-client-id' }}
 
-      - name: Debug build output
+      - name: Create build artifact archive
         run: |
-          echo "=== web-app/.next directory ==="
-          ls -la web-app/.next/ || echo "No .next directory"
-          echo "=== .next file count ==="
-          find web-app/.next -type f | wc -l || echo "No files"
-          echo "=== shared/dist directory ==="
-          ls -la shared/dist/ || echo "No dist directory"
+          echo "=== Creating build artifact tar ==="
+          tar -czf build-artifacts.tar.gz web-app/.next shared/dist
+          ls -la build-artifacts.tar.gz
 
       - name: Upload build artifacts
         uses: actions/upload-artifact@v4
         with:
           name: build-artifacts
-          path: |
-            web-app/.next
-            shared/dist
+          path: build-artifacts.tar.gz
           retention-days: 1
           if-no-files-found: error
-          include-hidden-files: true
 
       - name: Build Summary
         run: |
@@ -152,6 +146,15 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: build-artifacts
+
+      - name: Extract build artifacts
+        working-directory: ${{ github.workspace }}
+        run: |
+          echo "=== Extracting build artifacts ==="
+          tar -xzf build-artifacts.tar.gz
+          ls -la web-app/.next/ | head -20
+          echo "=== .next file count ==="
+          find web-app/.next -type f | wc -l
 
       - name: Install dependencies (shared)
         working-directory: shared
