@@ -94,10 +94,11 @@ jobs:
         with:
           name: build-artifacts
           path: |
-            web-app/.next/**
-            shared/dist/**
+            web-app/.next
+            shared/dist
           retention-days: 1
           if-no-files-found: error
+          include-hidden-files: true
 
       - name: Build Summary
         run: |
