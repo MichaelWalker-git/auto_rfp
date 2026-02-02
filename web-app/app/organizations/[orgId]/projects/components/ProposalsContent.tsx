@@ -38,14 +38,11 @@ type Props = {
 };
 
 export default function ProposalsContent({ projectId }: Props) {
-  const { questionFiles, isLoading: isQL, error: err, refreshQuestions } = useQuestions();
+  // All hooks must be called before any conditional returns
+  const { questionFiles, isLoading: isQL, error: err } = useQuestions();
   const { currentOrganization } = useCurrentOrganization();
-  if (!isQL && !err && !questionFiles?.length) {
-    return <NoRfpDocumentAvailable projectId={projectId}/>;
-  }
-  const { items, count, error, isLoading, refresh } = useProposals({ projectId });
-  const [searchQuery, setSearchQuery] = useState('');
-
+  const { items, count, isLoading, refresh } = useProposals({ projectId });
+  const [searchQuery, _setSearchQuery] = useState('');
 
   const sorted = useMemo(() => {
     return [...(items ?? [])].sort((a, b) => (b.updatedAt ?? '').localeCompare(a.updatedAt ?? ''));
@@ -63,6 +60,11 @@ export default function ProposalsContent({ projectId }: Props) {
   const handleReload = useCallback(async () => {
     await refresh();
   }, [refresh]);
+
+  // Early return after all hooks have been called
+  if (!isQL && !err && !questionFiles?.length) {
+    return <NoRfpDocumentAvailable projectId={projectId}/>;
+  }
 
   if (!projectId) {
     return (
