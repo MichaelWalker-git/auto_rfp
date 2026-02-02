@@ -324,19 +324,28 @@ export function useDeleteContentLibraryItem(orgId: string, kbId: string, itemId:
 /**
  * Hook to approve a content library item
  */
-export function useApproveContentLibraryItem(orgId: string, kbId: string, itemId: string) {
+
+export function useApproveContentLibraryItem(orgId: string, kbId: string) {
   const { trigger, isMutating, error } = useSWRMutation<
-    { message: string },
-    Error,
+  { message: string },
+  Error,
     string,
-    { method: string; body?: unknown }
+  { method: string; itemId: string }
   >(
-    `${API_BASE}/approve/${itemId}?orgId=${orgId}&kbId=${kbId}`,
-    mutationFetcher
+    `${API_BASE}/approve`,
+      async (url, { arg }) => {
+        const response = await authFetcher(
+          `${url}/${arg.itemId}?orgId=${orgId}&kbId=${kbId}`,
+          {
+            method: arg.method,
+          }
+        );
+        return response.json();
+      }
   );
 
-  const approve = async () => {
-    return trigger({ method: 'POST' });
+  const approve = async (itemId: string) => {
+    return trigger({ method: 'POST', itemId });
   };
 
   return {
@@ -345,7 +354,6 @@ export function useApproveContentLibraryItem(orgId: string, kbId: string, itemId
     error,
   };
 }
-
 /**
  * Hook to deprecate a content library item
  */

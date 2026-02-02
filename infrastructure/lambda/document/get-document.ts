@@ -14,6 +14,7 @@ import {
 } from '../middleware/rbac-middleware';
 import middy from '@middy/core';
 import { requireEnv } from '../helpers/env';
+import { buildDocumentSK } from '../helpers/document';
 
 const DB_TABLE_NAME = requireEnv('DB_TABLE_NAME');
 
@@ -75,7 +76,7 @@ export async function getDocument(
   knowledgeBaseId: string,
   documentId: string
 ): Promise<any | null> {
-  const sk = `KB#${knowledgeBaseId}#DOC#${documentId}`;
+  const sk = buildDocumentSK(knowledgeBaseId, documentId);
 
   const res = await docClient.send(
     new GetCommand({

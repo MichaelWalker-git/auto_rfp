@@ -13,7 +13,7 @@ const TABLE_NAME = requireEnv('DB_TABLE_NAME');
 
 /**
  * Get distinct categories for an organization
- * GET /api/content-library/categories?orgId={orgId}
+ * GET /content-library/categories?orgId={orgId}
  */
 async function baseHandler(
   event: APIGatewayProxyEventV2
@@ -42,7 +42,7 @@ async function baseHandler(
     const categoryCount = new Map<string, number>();
 
     for (const item of result.Items || []) {
-      if (item.isArchived) continue;
+      if (item.isArchived || !item.category) continue;
       const category = item.category as string;
       categoryCount.set(category, (categoryCount.get(category) || 0) + 1);
     }

@@ -14,6 +14,8 @@ import { requireEnv } from '../helpers/env';
 import { withSentryLambda } from '../sentry-lambda';
 import { authContextMiddleware, httpErrorMiddleware, orgMembershipMiddleware, } from '../middleware/rbac-middleware';
 import { nowIso } from '../helpers/date';
+import { PK_NAME, SK_NAME } from '../constants/common';
+import { indexContentLibrary } from '../helpers/content-library';
 
 const TABLE_NAME = requireEnv('DB_TABLE_NAME');
 
@@ -72,14 +74,18 @@ async function baseHandler(
       createdBy: userId,
     };
 
+    const dbItem = {
+      [PK_NAME]: CONTENT_LIBRARY_PK,
+      [SK_NAME]: createContentLibrarySK(item.orgId, item.kbId, item.id),
+      ...item,
+    }
+
     await docClient.send(new PutCommand({
       TableName: TABLE_NAME,
-      Item: {
-        partition_key: CONTENT_LIBRARY_PK,
-        sort_key: createContentLibrarySK(item.orgId, item.kbId, item.id),
-        ...item,
-      },
+      Item: dbItem,
     }));
+
+    await indexContentLibrary(orgId, dbItem)
 
     return apiResponse(201, { data: item });
   } catch (error) {

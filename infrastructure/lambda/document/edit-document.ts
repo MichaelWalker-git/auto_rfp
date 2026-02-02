@@ -17,6 +17,8 @@ import {
 } from '../middleware/rbac-middleware';
 import middy from '@middy/core';
 import { requireEnv } from '../helpers/env';
+import { nowIso } from '../helpers/date';
+import { buildDocumentSK } from '../helpers/document';
 
 const DB_TABLE_NAME = requireEnv('DB_TABLE_NAME');
 
@@ -72,8 +74,8 @@ export const baseHandler = async (
 // Core: Update document
 // -------------------------------------------------------------
 async function updateDocument(dto: UpdateDocumentDTO) {
-  const now = new Date().toISOString();
-  const sk = `KB#${dto.knowledgeBaseId}#DOC#${dto.id}`;
+  const now = nowIso();
+  const sk = buildDocumentSK(dto.knowledgeBaseId, dto.id)
 
   // Build dynamic update expression
   const updates: string[] = [];

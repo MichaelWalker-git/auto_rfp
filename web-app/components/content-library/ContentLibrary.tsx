@@ -62,7 +62,7 @@ export function ContentLibrary({ orgId, kbId }: ContentLibraryProps) {
   });
 
   const { categories, mutate: mutateCategories } = useContentLibraryCategories(orgId);
-  const { approve: approveContent } = useApproveContentLibraryItem(orgId, kbId, selectedItem?.id || '');
+  const { approve: approveContent } = useApproveContentLibraryItem(orgId, kbId);
   const { deprecate } = useDeprecateContentLibraryItem(orgId, kbId, selectedItem?.id || '');
 
   // Handlers
@@ -119,7 +119,7 @@ export function ContentLibrary({ orgId, kbId }: ContentLibraryProps) {
 
   const handleApprove = async (item: ContentLibraryItem) => {
     try {
-      await approveContent();
+      await approveContent(item.id);
       toast({
         title: 'Success',
         description: 'Content item approved',

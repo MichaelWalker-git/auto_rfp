@@ -50,7 +50,7 @@ function uniqueByChunkKey(hits: PineconeHit[]): PineconeHit[] {
   const seen = new Set<string>();
   const out: PineconeHit[] = [];
   for (const h of hits) {
-    const key = h._source?.chunkKey;
+    const key = h.source?.chunkKey;
     const uniq = key ? !seen.has(key) : true;
     if (!uniq) continue;
     if (key) seen.add(key);
@@ -88,7 +88,7 @@ export const baseHandler = async (event: APIGatewayProxyEventV2): Promise<APIGat
     let totalChars = 0;
 
     for (const h of uniqueHits) {
-      const chunkKey = h._source?.chunkKey;
+      const chunkKey = h.source?.chunkKey;
       if (!chunkKey) continue;
 
       const rawText = await loadTextFromS3(DOCUMENTS_BUCKET, chunkKey);
@@ -101,7 +101,7 @@ export const baseHandler = async (event: APIGatewayProxyEventV2): Promise<APIGat
 
       results.push({
         chunkKey,
-        score: normalizeScore(h._score),
+        score: normalizeScore(h.source),
         text,
       });
     }

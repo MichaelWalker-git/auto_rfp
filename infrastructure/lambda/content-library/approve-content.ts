@@ -1,20 +1,14 @@
 import type { APIGatewayProxyEventV2, APIGatewayProxyResultV2 } from 'aws-lambda';
-import { UpdateCommand, GetCommand } from '@aws-sdk/lib-dynamodb';
+import { UpdateCommand } from '@aws-sdk/lib-dynamodb';
 import middy from '@middy/core';
-import {
-  CONTENT_LIBRARY_PK,
-  createContentLibrarySK,
-} from '@auto-rfp/shared';
+import { CONTENT_LIBRARY_PK, ContentLibraryItem, createContentLibrarySK, } from '@auto-rfp/shared';
 import { apiResponse, getOrgId } from '../helpers/api';
-import { docClient } from '../helpers/db';
+import { docClient, getItem } from '../helpers/db';
 import { requireEnv } from '../helpers/env';
 import { withSentryLambda } from '../sentry-lambda';
-import {
-  authContextMiddleware,
-  httpErrorMiddleware,
-  orgMembershipMiddleware,
-} from '../middleware/rbac-middleware';
+import { authContextMiddleware, httpErrorMiddleware, orgMembershipMiddleware, } from '../middleware/rbac-middleware';
 import { nowIso } from '../helpers/date';
+import { PK_NAME, SK_NAME } from '../constants/common';
 
 const TABLE_NAME = requireEnv('DB_TABLE_NAME');
 
@@ -24,51 +18,33 @@ async function baseHandler(
   try {
     const itemId = event.pathParameters?.id;
     const orgId = event.queryStringParameters?.orgId || getOrgId(event);
-    const kbId = event.queryStringParameters?.kbId
+    const kbId = event.queryStringParameters?.kbId;
 
-    if (!itemId) {
-      return apiResponse(400, { error: 'Missing itemId' });
+    if (!itemId || !orgId || !kbId) {
+      return apiResponse(400, { error: 'Missing required field' });
     }
 
-    if (!orgId) {
-      return apiResponse(400, { error: 'Missing orgId' });
-    }
+    const item = await getItem<ContentLibraryItem>(
+      CONTENT_LIBRARY_PK,
+      createContentLibrarySK(orgId, kbId, itemId)
+    );
 
-    if (!kbId) {
-      return apiResponse(400, { error: 'Missing kbId' });
-    }
-
-    const existingResult = await docClient.send(new GetCommand({
-      TableName: TABLE_NAME,
-      Key: {
-        partition_key: CONTENT_LIBRARY_PK,
-        sort_key: createContentLibrarySK(orgId, kbId, itemId),
-      },
-    }));
-
-    if (!existingResult.Item) {
+    if (!item) {
       return apiResponse(404, { error: 'Content library item not found' });
     }
 
-    if (existingResult.Item.isArchived) {
+    if (item.isArchived) {
       return apiResponse(400, { error: 'Cannot approve an archived item' });
     }
 
-    let body: unknown;
-    try {
-      body = event.body ? JSON.parse(event.body) : null;
-    } catch {
-      // Continue if body parse fails
-    }
-
-    const userId = (body as any)?.approvedBy || (event.requestContext as any)?.authorizer?.claims?.sub || 'system';
-    const now =  nowIso();
+    const userId = (event.requestContext as any)?.authorizer?.claims?.sub || 'system'
+    const now = nowIso();
 
     await docClient.send(new UpdateCommand({
       TableName: TABLE_NAME,
       Key: {
-        partition_key: CONTENT_LIBRARY_PK,
-        sort_key: createContentLibrarySK(orgId, kbId, itemId),
+        [PK_NAME]: CONTENT_LIBRARY_PK,
+        [SK_NAME]: createContentLibrarySK(orgId, kbId, itemId),
       },
       UpdateExpression: 'SET #approvalStatus = :status, #approvedBy = :approvedBy, #approvedAt = :approvedAt, #updatedAt = :updatedAt',
       ExpressionAttributeNames: {

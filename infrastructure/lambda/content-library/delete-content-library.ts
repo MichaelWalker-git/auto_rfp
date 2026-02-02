@@ -1,56 +1,44 @@
-// lambda/content-library/delete.ts
 import type { APIGatewayProxyEventV2, APIGatewayProxyResultV2 } from 'aws-lambda';
-import { UpdateCommand, DeleteCommand } from '@aws-sdk/lib-dynamodb';
+import { UpdateCommand } from '@aws-sdk/lib-dynamodb';
 import middy from '@middy/core';
-import {
-  CONTENT_LIBRARY_PK,
-  createContentLibrarySK,
-} from '@auto-rfp/shared';
+import { CONTENT_LIBRARY_PK, createContentLibrarySK, } from '@auto-rfp/shared';
 import { apiResponse, getOrgId } from '../helpers/api';
-import { docClient } from '../helpers/db';
+import { deleteItem, docClient } from '../helpers/db';
 import { requireEnv } from '../helpers/env';
 import { withSentryLambda } from '../sentry-lambda';
-import {
-  authContextMiddleware,
-  httpErrorMiddleware,
-  orgMembershipMiddleware,
-} from '../middleware/rbac-middleware';
+import { authContextMiddleware, httpErrorMiddleware, orgMembershipMiddleware, } from '../middleware/rbac-middleware';
+import { nowIso } from '../helpers/date';
+import { deleteVectorById } from '../helpers/pinecone';
 
 const TABLE_NAME = requireEnv('DB_TABLE_NAME');
 
 /**
  * Delete (archive) a content library item
- * DELETE /api/content-library/items/{id}?orgId={orgId}&hardDelete={true}
+ * DELETE /content-library/delete-content-library/{id}?orgId={orgId}&hardDelete={true}&kbId={kbId}
  */
 async function baseHandler(
   event: APIGatewayProxyEventV2
 ): Promise<APIGatewayProxyResultV2> {
   try {
     const itemId = event.pathParameters?.id;
+    const kbId = event.queryStringParameters?.kbId;
     const orgId = event.queryStringParameters?.orgId || getOrgId(event);
     const hardDelete = event.queryStringParameters?.hardDelete === 'true';
 
-    if (!itemId) {
-      return apiResponse(400, { error: 'Missing itemId' });
+    if (!itemId || !kbId || !orgId) {
+      return apiResponse(400, { error: 'Missing required parameter (itemId, kbId, orgId)' });
     }
-
-    if (!orgId) {
-      return apiResponse(400, { error: 'Missing orgId' });
-    }
-
     const key = {
       partition_key: CONTENT_LIBRARY_PK,
-      sort_key: createContentLibrarySK(orgId, itemId),
+      sort_key: createContentLibrarySK(orgId, kbId, itemId),
     };
 
     if (hardDelete) {
-      await docClient.send(new DeleteCommand({
-        TableName: TABLE_NAME,
-        Key: key,
-      }));
+      await deleteItem(CONTENT_LIBRARY_PK, key.sort_key);
+      await deleteVectorById(orgId, itemId)
       return apiResponse(200, { message: 'Item permanently deleted' });
     } else {
-      const now = new Date().toISOString();
+      const now = nowIso();
       await docClient.send(new UpdateCommand({
         TableName: TABLE_NAME,
         Key: key,
@@ -66,6 +54,7 @@ async function baseHandler(
           ':updatedAt': now,
         },
       }));
+      await deleteVectorById(orgId, itemId)
       return apiResponse(200, { message: 'Item archived' });
     }
   } catch (error) {

@@ -654,7 +654,7 @@ export class ApiStack extends cdk.Stack {
     this.contentLibraryApi.addRoute('/create-content-library', 'POST', 'lambda/content-library/create-content-library.ts');
     this.contentLibraryApi.addRoute('/get-content-library/{id}', 'GET', 'lambda/content-library/get-item.ts');
     this.contentLibraryApi.addRoute('/edit-content-library/{id}', 'PATCH', 'lambda/content-library/edit.ts');
-    this.contentLibraryApi.addRoute('/delete-content-library/{id}', 'DELETE', 'lambda/content-library/delete.ts');
+    this.contentLibraryApi.addRoute('/delete-content-library/{id}', 'DELETE', 'lambda/content-library/delete-content-library.ts');
     this.contentLibraryApi.addRoute('/approve/{id}', 'POST', 'lambda/content-library/approve-content.ts');
     this.contentLibraryApi.addRoute('/deprecate/{id}', 'POST', 'lambda/content-library/deprecate.ts');
     this.contentLibraryApi.addRoute('/track-usage/{id}', 'POST', 'lambda/content-library/track-usage.ts');
