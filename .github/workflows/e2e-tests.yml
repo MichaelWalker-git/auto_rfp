@@ -80,19 +80,20 @@ jobs:
           NEXT_PUBLIC_COGNITO_USER_POOL_ID: ${{ secrets.NEXT_PUBLIC_COGNITO_USER_POOL_ID || 'us-east-1_example' }}
           NEXT_PUBLIC_COGNITO_USER_POOL_CLIENT_ID: ${{ secrets.NEXT_PUBLIC_COGNITO_USER_POOL_CLIENT_ID || 'example-client-id' }}
 
-      - name: Cache build artifacts
-        uses: actions/cache@v4
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
         with:
+          name: build-artifacts
           path: |
             web-app/.next
             shared/dist
-          key: ${{ runner.os }}-build-${{ github.sha }}
+          retention-days: 1
 
       - name: Build Summary
         run: |
           echo "✅ Shared package built successfully"
           echo "✅ Web app built successfully"
-          echo "✅ Build artifacts cached"
+          echo "✅ Build artifacts uploaded"
 
   e2e-tests:
     name: E2E Tests (${{ matrix.shardIndex }}/${{ matrix.shardTotal }})
@@ -136,13 +137,10 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-pnpm-store-
 
-      - name: Restore build artifacts
-        uses: actions/cache@v4
+      - name: Download build artifacts
+        uses: actions/download-artifact@v4
         with:
-          path: |
-            web-app/.next
-            shared/dist
-          key: ${{ runner.os }}-build-${{ github.sha }}
+          name: build-artifacts
 
       - name: Install dependencies (shared)
         working-directory: shared
