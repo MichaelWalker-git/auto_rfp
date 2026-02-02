@@ -24,10 +24,12 @@ import { Separator } from '@/components/ui/separator';
 import { cn } from '@/lib/utils';
 
 import PermissionWrapper from '@/components/permission-wrapper';
+import { CancelPipelineButton } from '../cancel-pipeline-button';
 
 import { useOpportunity } from '@/lib/hooks/use-opportunities';
 import { useDeleteQuestionFile, useQuestionFiles } from '@/lib/hooks/use-question-file';
 import { useDownloadFromS3 } from '@/lib/hooks/use-file';
+import { useToast } from '@/components/ui/use-toast';
 
 import {
   QuestionFileUploadDialog,
@@ -77,6 +79,7 @@ function statusChip(status?: string) {
   if (s === 'TEXT_EXTRACTION_FAILED' || s === 'ERROR' || s === 'FAILED')
     return { label: 'Error', cls: 'bg-red-50 text-red-700 border-red-200' };
   if (s === 'DELETED') return { label: 'Deleted', cls: 'bg-gray-50 text-gray-700 border-gray-200' };
+  if (s === 'CANCELLED') return { label: 'Cancelled', cls: 'bg-gray-50 text-gray-700 border-gray-200' };
   return { label: 'Processing', cls: 'bg-slate-50 text-slate-700 border-slate-200' };
 }
 
@@ -96,6 +99,7 @@ export function OpportunityView({ projectId, oppId, className }: OpportunityView
 
   const { downloadFile, error: downloadError } = useDownloadFromS3();
   const { trigger: deleteQuestionFile } = useDeleteQuestionFile();
+  const { toast } = useToast();
 
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
@@ -358,21 +362,51 @@ export function OpportunityView({ projectId, oppId, className }: OpportunityView
                             )}
                           </Button>
 
-                          <PermissionWrapper requiredPermission={'question:delete'}>
-                            <Button
-                              size="sm"
-                              variant="destructive"
-                              className="gap-2"
-                              disabled={!f.questionFileId || rowDeleting}
-                              onClick={() => void handleDelete({ questionFileId: f.questionFileId, name: f.name })}
-                            >
-                              {rowDeleting ? (
-                                <Loader2 className="h-4 w-4 animate-spin"/>
-                              ) : (
-                                <Trash2 className="h-4 w-4"/>
-                              )}
-                            </Button>
-                          </PermissionWrapper>
+                          {(f.status === 'PROCESSED' || f.status === 'FAILED') && 
+                            <PermissionWrapper requiredPermission={'question:delete'}>
+                              <Button
+                                size="sm"
+                                variant="destructive"
+                                className="gap-2"
+                                disabled={!f.questionFileId || rowDeleting}
+                                onClick={() => void handleDelete({
+                                  questionFileId: f.questionFileId,
+                                  name: f.name
+                                })}
+                              >
+                                {rowDeleting ? <Loader2 className="h-4 w-4 animate-spin"/> : <Trash2 className="h-4 w-4"/>}
+                              </Button>
+                            </PermissionWrapper>
+                          }
+                          {f.status !== 'PROCESSED' && f.status !== 'FAILED' && f.status !== 'DELETED' && 
+                            <CancelPipelineButton
+                              projectId={projectId}
+                              opportunityId={oppId}
+                              questionFileId={f.questionFileId}
+                              status={f.status}
+                              onSuccess={async () => {
+                                toast({
+                                  title: 'Success',
+                                  description: `Successfully cancelled question file processing for ${f.name}`,
+                                });
+                                await refetchQ(); 
+                              }}
+                              onDelete={async() => {
+                                await refetchQ();
+                                toast({
+                                  title: 'Deleted',
+                                  description: `Successfully deleted file ${f.name}`,
+                                });
+                              }}
+                              onRetry={async () => {
+                                toast({
+                                  title: 'Retrying',
+                                  description: `Restarting processing for ${f.name}`,
+                                });
+                                await refetchQ(); 
+                              }}
+                            />
+                          }
                         </div>
                       </div>
                     </div>

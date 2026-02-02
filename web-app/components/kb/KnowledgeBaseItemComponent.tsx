@@ -606,7 +606,9 @@ export default function KnowledgeBaseItemComponent() {
             </div>
 
             <div className="hidden">
-              <UploadFileToS3 ref={uploaderRef} prefix={`org_${orgId}/kb_${kbId}`}/>
+              {orgId && kbId && (
+                <UploadFileToS3 ref={uploaderRef} prefix={`org_${orgId}/kb_${kbId}`}/>
+              )}
             </div>
 
             {uploadErrors.length > 0 && (

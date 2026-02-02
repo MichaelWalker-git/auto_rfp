@@ -5,6 +5,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import { useOrganizations } from '@/lib/hooks/use-api';
 import { useAuth } from '@/components/AuthProvider';
 import { readStoredOrgId, writeStoredOrgId } from '@/lib/org-selection';
+import { setOrganizationContext } from '@/lib/sentry';
 
 interface Organization {
   id: string;
@@ -94,6 +95,15 @@ export function OrganizationProvider({ children }: Props) {
     if (!organizations.length || !effectiveOrgId) return null;
     return organizations.find((o) => o.id === effectiveOrgId) ?? null;
   }, [organizations, effectiveOrgId]);
+
+  // Set Sentry context when organization changes
+  useEffect(() => {
+    if (currentOrganization) {
+      setOrganizationContext({ id: currentOrganization.id, name: currentOrganization.name });
+    } else {
+      setOrganizationContext(null);
+    }
+  }, [currentOrganization]);
 
   // redirect into org context if you're not already under /organizations/:id
   useEffect(() => {

@@ -8,6 +8,7 @@ export const QuestionFileStatusSchema = z.enum([
   'PROCESSED',
   'FAILED',
   'DELETED',
+  'CANCELLED',
 ]);
 
 export type QuestionFileStatus = z.infer<typeof QuestionFileStatusSchema>;
@@ -69,6 +70,7 @@ export const QuestionFileItemSchema = z
     taskToken: z.string().optional(),
     createdAt: IsoDateStringSchema,
     updatedAt: IsoDateStringSchema.optional(),
+    executionArn: z.string().optional(),
   })
   .passthrough();
 

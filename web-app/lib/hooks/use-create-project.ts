@@ -1,6 +1,7 @@
 import { Project } from '@/types/project';
 import { fetchAuthSession } from 'aws-amplify/auth';
 import { env } from '@/lib/env';
+import { breadcrumbs } from '@/lib/sentry';
 
 type CreateProjectPayload = {
   orgId: string;
@@ -36,7 +37,9 @@ export function useCreateProject() {
       );
     }
 
-    return (await res.json()) as Project;
+    const project = (await res.json()) as Project;
+    breadcrumbs.projectCreated(project.id, project.name);
+    return project;
   };
 
   return { createProject: create };

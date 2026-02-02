@@ -36,3 +36,4 @@ test.describe('Home Page', () => {
     await expect(page.locator('body')).toBeVisible();
   });
 });
+// E2E test trigger

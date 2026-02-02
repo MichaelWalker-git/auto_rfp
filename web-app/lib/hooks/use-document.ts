@@ -5,12 +5,22 @@ import useSWRMutation from 'swr/mutation';
 import { env } from '@/lib/env';
 import { CreateDocumentDTO, DeleteDocumentDTO, DocumentItem, UpdateDocumentDTO } from '@auto-rfp/shared';
 import { authFetcher } from '@/lib/auth/auth-fetcher';
+import { breadcrumbs } from '@/lib/sentry';
 
 
 const BASE = `${env.BASE_API_URL}/document`;
 
 const fetcher = async (url: string) => {
   const res = await authFetcher(url);
+
+  if (!res.ok) {
+    const text = await res.text().catch(() => '');
+    const err: Error & { status?: number; details?: string } = new Error('Failed to fetch documents');
+    err.status = res.status;
+    err.details = text;
+    throw err;
+  }
+
   return res.json();
 };
 
@@ -18,12 +28,21 @@ export function useCreateDocument() {
   return useSWRMutation(
     `${BASE}/create-document`,
     async (url, { arg }: { arg: CreateDocumentDTO }) => {
+      breadcrumbs.documentUploadStarted(arg.fileName, arg.kbId);
+
       const res = await authFetcher(url, {
         method: 'POST',
         body: JSON.stringify(arg),
       });
 
-      return res.json() as Promise<DocumentItem>;
+      if (!res.ok) {
+        const message = await res.text().catch(() => '');
+        throw new Error(message || 'Failed to create document');
+      }
+
+      const doc = await res.json() as DocumentItem;
+      breadcrumbs.documentUploadCompleted(doc.id, doc.fileName);
+      return doc;
     }
   );
 }
@@ -42,6 +61,11 @@ export function useUpdateDocument() {
         method: 'PATCH',
         body: JSON.stringify(arg),
       });
+
+      if (!res.ok) {
+        const message = await res.text().catch(() => '');
+        throw new Error(message || 'Failed to update document');
+      }
 
       return res.json() as Promise<DocumentItem>;
     }
@@ -63,6 +87,12 @@ export function useDeleteDocument() {
         body: JSON.stringify(arg),
       });
 
+      if (!res.ok) {
+        const message = await res.text().catch(() => '');
+        throw new Error(message || 'Failed to delete document');
+      }
+
+      breadcrumbs.documentDeleted(arg.documentId);
       return res.json();
     }
   );
@@ -166,16 +196,23 @@ export interface StartDocumentPipelineResponse {
 export function useStartDocumentPipeline() {
   return useSWRMutation<
     StartDocumentPipelineResponse,
-    any,
+    Error,
     string,
     StartDocumentPipelineDTO
   >(
     `${BASE}/start-document-pipeline`,
     async (url, { arg }) => {
+      breadcrumbs.documentProcessingStarted(arg.documentId);
+
       const res = await authFetcher(url, {
         method: 'POST',
         body: JSON.stringify(arg),
       });
+
+      if (!res.ok) {
+        const message = await res.text().catch(() => '');
+        throw new Error(message || 'Failed to start document pipeline');
+      }
 
       return res.json() as Promise<StartDocumentPipelineResponse>;
     },

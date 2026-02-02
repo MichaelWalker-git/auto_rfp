@@ -46,6 +46,7 @@ export default function ProposalsContent({ projectId }: Props) {
   const { items, count, error, isLoading, refresh } = useProposals({ projectId });
   const [searchQuery, setSearchQuery] = useState('');
 
+
   const sorted = useMemo(() => {
     return [...(items ?? [])].sort((a, b) => (b.updatedAt ?? '').localeCompare(a.updatedAt ?? ''));
   }, [items]);
