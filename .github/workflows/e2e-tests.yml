@@ -80,14 +80,24 @@ jobs:
           NEXT_PUBLIC_COGNITO_USER_POOL_ID: ${{ secrets.NEXT_PUBLIC_COGNITO_USER_POOL_ID || 'us-east-1_example' }}
           NEXT_PUBLIC_COGNITO_USER_POOL_CLIENT_ID: ${{ secrets.NEXT_PUBLIC_COGNITO_USER_POOL_CLIENT_ID || 'example-client-id' }}
 
+      - name: Debug build output
+        run: |
+          echo "=== web-app/.next directory ==="
+          ls -la web-app/.next/ || echo "No .next directory"
+          echo "=== .next file count ==="
+          find web-app/.next -type f | wc -l || echo "No files"
+          echo "=== shared/dist directory ==="
+          ls -la shared/dist/ || echo "No dist directory"
+
       - name: Upload build artifacts
         uses: actions/upload-artifact@v4
         with:
           name: build-artifacts
           path: |
-            web-app/.next
-            shared/dist
+            web-app/.next/**
+            shared/dist/**
           retention-days: 1
+          if-no-files-found: error
 
       - name: Build Summary
         run: |
