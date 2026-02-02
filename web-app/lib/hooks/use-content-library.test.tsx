@@ -303,7 +303,7 @@ describe('Content Library Hooks', () => {
 
       expect(created.id).toBe('new-item');
       expect(mockFetch).toHaveBeenCalledWith(
-        expect.stringContaining('/content-library/items'),
+        expect.stringContaining('/content-library/create-content-library'),
         expect.objectContaining({
           method: 'POST',
           body: expect.any(String),

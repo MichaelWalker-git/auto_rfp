@@ -114,7 +114,8 @@ async function fetcher(url: string) {
     const errorData = await res.json().catch(() => ({}));
     throw new Error(errorData.error || 'Failed to fetch');
   }
-  return res.json();
+  const json = await res.json();
+  return json.data;
 }
 
 /**
@@ -132,7 +133,8 @@ async function mutationFetcher(
     const errorData = await res.json().catch(() => ({}));
     throw new Error(errorData.error || 'Failed to fetch');
   }
-  return res.json();
+  const json = await res.json();
+  return json.data;
 }
 
 /**
