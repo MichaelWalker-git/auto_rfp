@@ -5,36 +5,7 @@ import useSWRMutation from 'swr/mutation';
 import { env } from '@/lib/env';
 import { authFetcher } from '@/lib/auth/auth-fetcher';
 import { breadcrumbs } from '@/lib/sentry';
-
-//
-// ================================
-// Types from backend
-// ================================
-//
-
-export interface KnowledgeBase {
-  id: string;
-  name: string;
-  description?: string | null;
-  createdAt: string;
-  updatedAt: string;
-  _count: {
-    questions: number;
-    documents: number;
-  };
-}
-
-// DTOs
-export interface CreateKnowledgeBaseDTO {
-  name: string;
-  description?: string | null;
-}
-
-export interface EditKnowledgeBaseDTO {
-  id: string;
-  name?: string;
-  description?: string | null;
-}
+import { KnowledgeBase, KnowledgeBaseItem } from '@auto-rfp/shared';
 
 export interface DeleteKnowledgeBaseDTO {
   id: string;
@@ -56,16 +27,10 @@ const fetcher = async (url: string) => {
   return res.json();
 };
 
-//
-// ================================
-// CREATE KnowledgeBase
-// ================================
-//
-
 export function useCreateKnowledgeBase(orgId: string) {
   return useSWRMutation(
     `${BASE}/create-knowledgebase?orgId=${orgId}`,
-    async (url, { arg }: { arg: CreateKnowledgeBaseDTO }) => {
+    async (url, { arg }: { arg: Partial<KnowledgeBase> }) => {
       const res = await authFetcher(url, {
         method: 'POST',
         body: JSON.stringify(arg),
@@ -83,16 +48,10 @@ export function useCreateKnowledgeBase(orgId: string) {
   );
 }
 
-//
-// ================================
-// DELETE KnowledgeBase
-// ================================
-//
-
 export function useDeleteKnowledgeBase() {
   return useSWRMutation(
     `${BASE}/delete-knowledgebase`,
-    async (url, { arg }: { arg: DeleteKnowledgeBaseDTO }) => {
+    async (url, { arg }: { arg: KnowledgeBase }) => {
       const res = await authFetcher(url, {
         method: 'DELETE',
         body: JSON.stringify(arg),
@@ -108,17 +67,10 @@ export function useDeleteKnowledgeBase() {
     },
   );
 }
-
-//
-// ================================
-// EDIT KnowledgeBase
-// ================================
-//
-
 export function useEditKnowledgeBase() {
   return useSWRMutation(
     `${BASE}/edit-knowledgebase`,
-    async (url, { arg }: { arg: EditKnowledgeBaseDTO }) => {
+    async (url, { arg }: { arg: KnowledgeBaseItem }) => {
       const res = await authFetcher(url, {
         method: 'PATCH',
         body: JSON.stringify(arg),
@@ -133,13 +85,6 @@ export function useEditKnowledgeBase() {
     },
   );
 }
-
-//
-// ================================
-// LIST KnowledgeBases
-// (GET /knowledgebase/get-knowledgebases)
-// ================================
-//
 
 export function useKnowledgeBases(orgId: string | null) {
   const shouldFetch = !!orgId;

@@ -2,7 +2,7 @@
 
 import { createContext, ReactNode, useContext, useEffect, useMemo, useState } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
-import { useOrganization } from '@/context/organization-context';
+import { useCurrentOrganization } from '@/context/organization-context';
 import { useProjects } from '@/lib/hooks/use-api';
 import type { Project } from '@/types/project';
 
@@ -51,7 +51,7 @@ function extractProjectIdFromPath(pathname: string | null): string | null {
 export function ProjectProvider({ children }: { children: ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
-  const { currentOrganization } = useOrganization();
+  const { currentOrganization } = useCurrentOrganization();
 
   const orgId = currentOrganization?.id ?? '';
 

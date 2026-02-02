@@ -18,7 +18,5 @@ module.exports = withSentryConfig(
     project: "auto-rfp",
     silent: !process.env.CI,
     widenClientFileUpload: true,
-    disableLogger: true,
-    automaticVercelMonitors: true,
   }
 );

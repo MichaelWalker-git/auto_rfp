@@ -16,6 +16,8 @@ export const DocumentItemSchema = z.object({
   indexStatus: z.enum(['pending', 'processing', 'ready', 'failed']),
   indexVectorKey: z.string().optional(), // embeddings file or vector DB key
 
+  taskToken: z.string().optional().nullable(),
+
   createdAt: z.string(),
   updatedAt: z.string(),
 });

@@ -2,7 +2,7 @@ import { Badge } from '@/components/ui/badge';
 import Link from 'next/link';
 import { AlertTriangle, Clock } from 'lucide-react';
 import ExportDeadlinesButton from './ExportDeadlinesButton';
-import { useOrganization } from '@/context/organization-context';
+import { useCurrentOrganization } from '@/context/organization-context';
 
 interface StatusObject {
   message: string,

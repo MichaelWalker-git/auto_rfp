@@ -42,6 +42,7 @@ import {
   SaveProposalRequestSchema,
 } from '@auto-rfp/shared';
 import { exportProposalToDocx, exportProposalToPdf } from '@/lib/helpers/proposal';
+import { ExportProposalButton } from '@/components/proposals/ExportProposalButton';
 
 const BASE = `${env.BASE_API_URL}/proposal`;
 
@@ -350,6 +351,14 @@ export default function ProposalDetailsPage() {
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
+          {draft && (
+            <ExportProposalButton
+              opportunityId={'123'}
+              proposalId={proposalId}
+              projectId={projectId}
+              proposalTitle={draft.document.proposalTitle || 'proposal'}
+            />
+          )}
           <Button
             variant="outline"
             disabled={!draft || isBusy}

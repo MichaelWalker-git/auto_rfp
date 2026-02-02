@@ -17,7 +17,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Building2, ChevronRight, HelpCircle, LogOut } from 'lucide-react';
-import { useOrganization } from '@/context/organization-context';
+import { useCurrentOrganization } from '@/context/organization-context';
 import { useAuth } from '@/components/AuthProvider';
 import { OrganizationSwitcher } from '@/components/OrganizationSwitcher';
 
@@ -55,7 +55,7 @@ type IdTokenPayload = Record<string, unknown> & {
 
 export function GlobalHeader() {
   const pathname = usePathname();
-  const { currentOrganization } = useOrganization();
+  const { currentOrganization } = useCurrentOrganization();
 
   const [mounted, setMounted] = useState(false);
   const [userEmail, setUserEmail] = useState<string | null>(null);

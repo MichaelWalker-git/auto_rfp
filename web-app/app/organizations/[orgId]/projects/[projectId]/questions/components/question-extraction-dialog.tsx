@@ -25,7 +25,7 @@ import {
   useQuestionFilesStatus,
   useStartQuestionFilePipeline,
 } from '@/lib/hooks/use-question-file';
-import { useOrganization } from '@/context/organization-context';
+import { useCurrentOrganization } from '@/context/organization-context';
 import { useCreateOpportunity } from '@/lib/hooks/use-opportunities';
 
 interface QuestionFileUploadDialogProps {
@@ -73,7 +73,7 @@ export function QuestionFileUploadDialog({
                                            oppId: oppIdParam,
                                          }: QuestionFileUploadDialogProps) {
   const [open, setOpen] = useState(false);
-  const { currentOrganization } = useOrganization();
+  const { currentOrganization } = useCurrentOrganization();
 
   const [items, setItems] = useState<UploadItem[]>([]);
   const [activeIndex, setActiveIndex] = useState<number>(0);

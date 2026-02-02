@@ -3,13 +3,14 @@ import { QueryCommand, UpdateCommand } from '@aws-sdk/lib-dynamodb';
 import { GetObjectCommand, S3Client } from '@aws-sdk/client-s3';
 
 import { withSentryLambda } from '../sentry-lambda';
-import { getEmbedding } from '../helpers/embeddings';
-import { indexDocToPinecone } from '../helpers/pinecone';
+import { indexChunkToPinecone } from '../helpers/pinecone';
 import { PK_NAME, SK_NAME } from '../constants/common';
 import { DOCUMENT_PK } from '../constants/document';
 import { streamToString } from '../helpers/s3';
 import { requireEnv } from '../helpers/env';
-import { docClient } from '../helpers/db';
+import { docClient, getItem } from '../helpers/db';
+import { DocumentItem } from '../schemas/document';
+import { buildDocumentSK } from '../helpers/document';
 
 
 const REGION = requireEnv('REGION', 'us-east-1');
@@ -20,6 +21,7 @@ const s3Client = new S3Client({ region: REGION });
 
 interface IndexChunkEvent {
   orgId: string;
+  knowledgeBaseId: string;
   documentId?: string;
   bucket?: string;
   chunkKey?: string;
@@ -43,9 +45,9 @@ export const baseHandler = async (
 ): Promise<IndexChunkResult> => {
   console.log('IndexChunk event:', JSON.stringify(event));
 
-  const { orgId, documentId, chunkKey } = event;
+  const { orgId, documentId, chunkKey, knowledgeBaseId } = event;
 
-  if (!orgId || !documentId || !chunkKey) throw new Error('orgId, documentId and chunkKey are required');
+  if (!orgId || !documentId || !chunkKey || !knowledgeBaseId) throw new Error('orgId, documentId and chunkKey are required');
 
   const bucket = event.bucket || DOCUMENTS_BUCKET;
 
@@ -53,17 +55,19 @@ export const baseHandler = async (
     ? event.text
     : await readChunkTextFromS3(bucket, chunkKey);
 
-  const embedding = await getEmbedding(text);
+  const document = await getItem<DocumentItem>(
+    DOCUMENT_PK,
+    buildDocumentSK(knowledgeBaseId, documentId),
+  );
+  if (!document) {
+    throw new Error('document does not exist');
+  }
 
-  const externalId = makeStableId(documentId, chunkKey);
-
-  const pineconeId = await indexDocToPinecone(
+  const pineconeId = await indexChunkToPinecone(
     orgId,
-    documentId,
+    document,
     chunkKey,
-    bucket,
-    embedding,
-    externalId,
+    text,
   );
 
   let markedIndexed = false;
@@ -101,11 +105,6 @@ async function readChunkTextFromS3(bucket: string, key: string): Promise<string>
   return streamToString(res.Body as any);
 }
 
-
-function makeStableId(documentId: string, chunkKey: string) {
-  return `${documentId}#${chunkKey}`;
-}
-
 /**
  * Retry configuration for handling WCU/RCU throttling
  */
@@ -138,7 +137,7 @@ function delay(ms: number): Promise<void> {
 function isThrottlingError(error: any): boolean {
   const errorCode = error?.__type || error?.name || '';
   const errorMessage = error?.message || '';
-  
+
   return (
     errorCode.includes('ThrottlingException') ||
     errorCode.includes('ProvisionedThroughputExceededException') ||

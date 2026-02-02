@@ -7,7 +7,7 @@ import { apiResponse } from '../helpers/api';
 import { PK_NAME, SK_NAME } from '../constants/common';
 import { DOCUMENT_PK } from '../constants/document';
 import { DocumentItem } from '../schemas/document';
-import { getEmbedding, semanticSearchChunks } from '../helpers/embeddings';
+import { getEmbedding, semanticSearchChunks, semanticSearchContentLibrary } from '../helpers/embeddings';
 import { PineconeHit } from '../helpers/pinecone';
 
 import { withSentryLambda } from '../sentry-lambda';
@@ -19,10 +19,10 @@ import {
 } from '../middleware/rbac-middleware';
 import middy from '@middy/core';
 import { requireEnv } from '../helpers/env';
-import { AnswerQuestionRequestBody, AnswerSource, QAItem, QuestionItem } from '@auto-rfp/shared';
+import { AnswerQuestionRequestBody, AnswerSource, ContentLibraryItem, QAItem, QuestionItem } from '@auto-rfp/shared';
 import { getQuestionItemById } from '../helpers/question';
 import { saveAnswer } from './save-answer';
-import { DBItem, docClient } from '../helpers/db';
+import { DBItem, docClient, getItem } from '../helpers/db';
 import { safeParseJsonFromModel } from '../helpers/json';
 import { loadTextFromS3 } from '../helpers/s3';
 
@@ -53,7 +53,7 @@ async function buildContextFromChunkHits(hits: PineconeHit[]) {
   const byChunkKey = new Map<string, PineconeHit>();
 
   for (const hit of hits) {
-    const k = hit._source?.chunkKey;
+    const k = hit.source?.chunkKey;
     if (!k) continue;
     if (!byChunkKey.has(k)) byChunkKey.set(k, hit);
   }
@@ -62,8 +62,8 @@ async function buildContextFromChunkHits(hits: PineconeHit[]) {
 
   return Promise.all(
     uniqueHits.map(async (hit) => {
-      const chunkKey = hit._source?.chunkKey;
-      const docId = hit._source?.documentId;
+      const chunkKey = hit.source?.chunkKey;
+      const docId = hit.source?.documentId;
       const text = chunkKey ? await loadTextFromS3(DOCUMENTS_BUCKET, chunkKey) : '';
       const { name: fileName } = docId ? await getDocumentItemById(docId) || {} : {};
       return { ...hit, text, fileName };
@@ -166,6 +166,8 @@ export const baseHandler = async (
 
   const { questionId, projectId, question: requestQuestion, orgId } = body;
 
+  if (!orgId) return apiResponse(400, { message: 'Org Id is required' });
+
   try {
 
     const question = questionId
@@ -178,7 +180,28 @@ export const baseHandler = async (
 
     const questionEmbedding = await getEmbedding(question || '',);
 
-    const hits = await semanticSearchChunks(orgId!, questionEmbedding, topK);
+    // find content library first
+    const contentLibraryHits = await semanticSearchContentLibrary(orgId, questionEmbedding, 1);
+    if (contentLibraryHits.length && contentLibraryHits[0]?.score || 0 > 0.9) {
+      const topHit = contentLibraryHits[0];
+      const key = {
+        [PK_NAME]: topHit?.source?.[PK_NAME],
+        [SK_NAME]: topHit?.source?.[SK_NAME],
+      };
+      const dbItem = await getItem<ContentLibraryItem & DBItem>(key[PK_NAME]!, key[SK_NAME]!);
+      if (dbItem) {
+        return apiResponse(200, {
+          sources: [],
+          questionId: questionId,
+          answer: dbItem.answer,
+          confidence: topHit?.score,
+          found: true,
+          topK: 1
+        });
+      }
+    }
+
+    const hits = await semanticSearchChunks(orgId, questionEmbedding, topK);
     console.log('Hits:', JSON.stringify(hits));
 
     if (!hits.length) {
@@ -188,7 +211,7 @@ export const baseHandler = async (
     const texts = await buildContextFromChunkHits(hits);
 
     const finalContext = texts
-      .map(h => `CHUNK_KEY: ${h._source?.chunkKey}\nTEXT:\n${h.text}\n---`)
+      .map(h => `CHUNK_KEY: ${h.source?.chunkKey}\nTEXT:\n${h.text}\n---`)
       .join('\n');
 
     const { answer, confidence, found, source: _source } = await answerWithBedrockLLM(question, finalContext);
@@ -199,10 +222,10 @@ export const baseHandler = async (
       text: answer,
       confidence: confidence,
       sources: texts.map(hit => ({
-        id: hit._id,
-        documentId: hit._source?.documentId,
+        id: hit.id,
+        documentId: hit.source?.documentId,
         fileName: hit.fileName,
-        chunkKey: hit._source?.chunkKey,
+        chunkKey: hit.source?.chunkKey,
         textContent: hit.text,
       } as AnswerSource))
     });

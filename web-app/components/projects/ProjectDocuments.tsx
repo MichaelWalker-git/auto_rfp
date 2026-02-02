@@ -1,13 +1,11 @@
 'use client';
 
-import React, { useMemo, useState } from 'react';
-import { AlertCircle, Download, FileText, FolderOpen, Loader2, Trash2 } from 'lucide-react';
-
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
+import React, { useCallback, useState } from 'react';
+import { FileText, FolderOpen } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
-import { Skeleton } from '@/components/ui/skeleton';
-import { Alert, AlertDescription } from '@/components/ui/alert';
+import { ListingPageLayout } from '@/components/layout/ListingPageLayout';
+import { DownloadButton } from '@/components/ui/download-button';
+import { DeleteButton } from '@/components/ui/delete-button';
 import { cn } from '@/lib/utils';
 import { useDeleteQuestionFile, useQuestionFiles, } from '@/lib/hooks/use-question-file';
 import { useDownloadFromS3 } from '@/lib/hooks/use-file';
@@ -18,17 +16,10 @@ import {
 import { CancelPipelineButton } from '../cancel-pipeline-button';
 import { useToast } from '@/components/ui/use-toast';
 
+import { QuestionFileItem } from '@auto-rfp/shared';
+
 interface ProjectDocumentsProps {
   projectId: string;
-}
-
-function pickDisplayName(qf: any): string {
-  return (
-    qf?.fileName ??
-    qf?.originalFileName ??
-    (typeof qf?.fileKey === 'string' ? qf.fileKey.split('/').pop() : undefined) ??
-    'Unknown file'
-  );
 }
 
 function formatDate(dateString?: string) {
@@ -72,7 +63,7 @@ export function ProjectDocuments({ projectId }: ProjectDocumentsProps) {
   const rows = useMemo(() => {
     return (items ?? []).map((qf: any) => ({
       questionFileId: qf?.questionFileId as string | undefined,
-      name: pickDisplayName(qf),
+      originalFileName: qf?.originalFileName as string | undefined,
       status: qf?.status as string | undefined,
       createdAt: qf?.createdAt as string | undefined,
       updatedAt: qf?.updatedAt as string | undefined,
@@ -230,7 +221,7 @@ export function ProjectDocuments({ projectId }: ProjectDocumentsProps) {
                     <div className="min-w-0 flex-1">
                       <div className="flex flex-wrap items-center gap-2">
                         <p className="font-medium truncate" title={f.name}>
-                          {f.name}
+                          {f.originalFileName}
                         </p>
                         <Badge variant="outline" className={cn('text-xs border', st.cls)}>
                           {st.label}
@@ -271,7 +262,7 @@ export function ProjectDocuments({ projectId }: ProjectDocumentsProps) {
                         {rowDownloading ? <Loader2 className="h-4 w-4 animate-spin"/> : <Download className="h-4 w-4"/>}
                       </Button>
 
-                      {(f.status === 'PROCESSED' || f.status === 'FAILED') && 
+                      {(f.status === 'PROCESSED' || f.status === 'FAILED') &&
                         <PermissionWrapper requiredPermission={'question:delete'}>
                           <Button
                             size="sm"
@@ -288,7 +279,7 @@ export function ProjectDocuments({ projectId }: ProjectDocumentsProps) {
                           </Button>
                         </PermissionWrapper>
                       }
-                      {f.status !== 'PROCESSED' && f.status !== 'FAILED' && f.status !== 'DELETED' && 
+                      {f.status !== 'PROCESSED' && f.status !== 'FAILED' && f.status !== 'DELETED' &&
                         <CancelPipelineButton
                           projectId={f.projectId}
                           opportunityId={f.oppId}
@@ -299,7 +290,7 @@ export function ProjectDocuments({ projectId }: ProjectDocumentsProps) {
                               title: 'Success',
                               description: `Successfully cancelled question file processing for ${f.name}`,
                             });
-                            await refetch(); 
+                            await refetch();
                           }}
                           onDelete={async() => {
                             await refetch();
@@ -313,7 +304,7 @@ export function ProjectDocuments({ projectId }: ProjectDocumentsProps) {
                               title: 'Retrying',
                               description: `Restarting processing for ${f.name}`,
                             });
-                            await refetch(); 
+                            await refetch();
                           }}
                         />
                       }

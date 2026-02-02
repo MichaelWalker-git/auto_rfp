@@ -1,5 +1,5 @@
 import { Context } from 'aws-lambda';
-import { QueryCommand, UpdateCommand, } from '@aws-sdk/lib-dynamodb';
+import { UpdateCommand, } from '@aws-sdk/lib-dynamodb';
 import { StartDocumentTextDetectionCommand, TextractClient, } from '@aws-sdk/client-textract';
 
 import { PK_NAME, SK_NAME } from '../constants/common';
@@ -7,8 +7,9 @@ import { DOCUMENT_PK } from '../constants/document';
 import { DocumentItem } from '../schemas/document';
 import { withSentryLambda } from '../sentry-lambda';
 import { requireEnv } from '../helpers/env';
-import { docClient } from '../helpers/db';
+import { docClient, getItem } from '../helpers/db';
 import { nowIso } from '../helpers/date';
+import { buildDocumentSK } from '../helpers/document';
 
 const REGION = requireEnv('REGION', 'us-east-1');
 const DB_TABLE_NAME = requireEnv('DB_TABLE_NAME');
@@ -21,7 +22,7 @@ const textractClient = new TextractClient({ region: REGION });
 interface PdfProcessingEvent {
   orgId: string;
   documentId?: string;
-  knowledgeBaseId?: string; // optional; we can derive from SK
+  knowledgeBaseId: string;
   taskToken?: string;
 }
 
@@ -48,52 +49,21 @@ export const baseHandler = async (
 ): Promise<PdfProcessingResult> => {
   console.log('pdf-processing event:', JSON.stringify(event));
 
-  const { documentId, orgId, knowledgeBaseId: eventKnowledgeBase } = event;
-  if (!documentId || !orgId)
+  const { documentId, orgId, knowledgeBaseId } = event;
+  if (!documentId || !orgId || !knowledgeBaseId) {
     throw new Error('documentId is required');
+  }
 
   const taskToken = requireTaskToken(event.taskToken);
 
-  // 1) Find document row (same approach you already use: query PK, then endsWith #DOC#id)
-  const skSuffix = `#DOC#${documentId}`;
-
-  const queryRes = await docClient.send(
-    new QueryCommand({
-      TableName: DB_TABLE_NAME,
-      KeyConditionExpression: '#pk = :pk',
-      ExpressionAttributeNames: {
-        '#pk': PK_NAME,
-      },
-      ExpressionAttributeValues: {
-        ':pk': DOCUMENT_PK,
-      },
-    }),
-  );
-
-  const items =
-    (queryRes.Items || []) as (DocumentItem & {
-      [PK_NAME]: string;
-      [SK_NAME]: string;
-      fileKey?: string;
-    })[];
-
-  const docItem = items.find((it) => String(it[SK_NAME]).endsWith(skSuffix));
+  const docItem = await getItem<DocumentItem>(DOCUMENT_PK, buildDocumentSK(knowledgeBaseId, documentId));
   if (!docItem) {
-    throw new Error(`Document not found for PK=${DOCUMENT_PK} and SK ending with ${skSuffix}`);
+    throw new Error(`Document not found for PK=${DOCUMENT_PK} and SK=${buildDocumentSK(knowledgeBaseId, documentId)}`);
   }
 
-  const pk = docItem[PK_NAME];
-  const sk = docItem[SK_NAME];
-
-  const fileKey = docItem.fileKey;
+  const fileKey = docItem?.fileKey;
   if (!fileKey) throw new Error(`Document ${documentId} has no fileKey`);
 
-  // derive KB id from SK = "KB#<kbId>#DOC#<docId>" if possible
-  const knowledgeBaseId = eventKnowledgeBase
-    ? eventKnowledgeBase
-    : String(sk).split('#')[1]
-
-  // 2) Start Textract async for the PDF in S3
   const startCmd = new StartDocumentTextDetectionCommand({
     DocumentLocation: {
       S3Object: {
@@ -119,8 +89,8 @@ export const baseHandler = async (
     new UpdateCommand({
       TableName: DB_TABLE_NAME,
       Key: {
-        [PK_NAME]: pk,
-        [SK_NAME]: sk,
+        [PK_NAME]: DOCUMENT_PK,
+        [SK_NAME]: buildDocumentSK(knowledgeBaseId, documentId),
       },
       UpdateExpression:
         'SET #jobId = :jobId, #taskToken = :taskToken, #indexStatus = :status, #updatedAt = :updatedAt',

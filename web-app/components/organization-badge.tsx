@@ -18,7 +18,7 @@ import { Button } from '@/components/ui/button';
 import { ChevronsUpDown, Loader2, Plus } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
 
-import { useOrganization } from '@/context/organization-context';
+import { useCurrentOrganization } from '@/context/organization-context';
 import { useProjectContext } from '@/context/project-context';
 import { useCreateProject } from '@/lib/hooks/use-create-project';
 import PermissionWrapper from '@/components/permission-wrapper';
@@ -38,7 +38,7 @@ function initialsFromName(name?: string | null) {
 export function OrganizationBadge() {
   const { isMobile, open } = useSidebar();
 
-  const { currentOrganization, loading: orgLoading } = useOrganization();
+  const { currentOrganization, loading: orgLoading } = useCurrentOrganization();
   const orgId = currentOrganization?.id ?? null;
 
   const { projects, currentProject, setCurrentProject, loading: projectsLoading, refreshProjects } =

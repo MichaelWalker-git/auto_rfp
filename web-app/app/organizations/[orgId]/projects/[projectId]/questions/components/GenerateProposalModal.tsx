@@ -290,7 +290,6 @@ export const GenerateProposalModal: React.FC<Props> = (
           onClick={handleOpen}
           disabled={isMutating}
           variant="outline"
-          size="sm"
           className="gap-1"
         >
           {isMutating && !proposal ? (

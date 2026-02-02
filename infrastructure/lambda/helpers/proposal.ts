@@ -1,4 +1,4 @@
-import { UpdateCommand } from '@aws-sdk/lib-dynamodb';
+import { GetCommand, UpdateCommand } from '@aws-sdk/lib-dynamodb';
 import { v4 as uuidv4 } from 'uuid';
 
 import { PK_NAME, SK_NAME } from '../constants/common';
@@ -67,4 +67,18 @@ export async function saveProposal(input: SaveProposalRequest): Promise<Proposal
   }
 
   return parsed.data;
+}
+
+export async function getProposal(projectId: string, proposalId: string): Promise<Proposal | null> {
+  const cmd = new GetCommand({
+    TableName: DB_TABLE_NAME,
+    Key: {
+      [PK_NAME]: PROPOSAL_PK,
+      [SK_NAME]: proposalSK(projectId, proposalId),
+    },
+  });
+
+  const res = await docClient.send(cmd);
+
+  return res.Item as Proposal;
 }
