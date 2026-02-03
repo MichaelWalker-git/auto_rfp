@@ -7,6 +7,7 @@ import { useAnswers, useQuestions as useLoadQuestions } from '@/lib/hooks/use-ap
 import { useProject } from '@/lib/hooks/use-project';
 import { useGenerateAnswer, useSaveAnswer } from '@/lib/hooks/use-answer';
 import { useQuestionFiles } from '@/lib/hooks/use-question-file';
+import { useKnowledgeBases } from '@/lib/hooks/use-knowledgebase';
 
 import { authFetcher } from '@/lib/auth/auth-fetcher';
 import { env } from '@/lib/env';
@@ -125,33 +126,36 @@ export function QuestionsProvider({ children, projectId }: QuestionsProviderProp
   const { trigger: saveAnswer } = useSaveAnswer(projectId);
   const { trigger: generateAnswer } = useGenerateAnswer();
 
+  // Get orgId from project to load knowledge bases
+  const orgId = project?.orgId ?? null;
+  const { data: knowledgeBases, isLoading: isKnowledgeBasesLoading } = useKnowledgeBases(orgId);
+
   const isLoading = isProjectLoading || isQuestionsLoading || isAnswersLoading;
 
-  // Load indexes when component mounts
+  // Sync knowledge bases to available indexes state
   useEffect(() => {
     if (!projectId) {
       setError('No project ID provided');
       return;
     }
 
-    const fetchIndexes = async () => {
-      setIsLoadingIndexes(true);
-      try {
-        // TODO: restore indexes loading when endpoint is ready
-      } catch (error) {
-        console.error('Error loading indexes:', error);
-        setOrganizationConnected(false);
-        setAvailableIndexes([]);
-        setSelectedIndexes(new Set());
-      } finally {
-        setIsLoadingIndexes(false);
-      }
-    };
+    setIsLoadingIndexes(isKnowledgeBasesLoading);
 
-    Promise.all([fetchIndexes()]).catch((error) => {
-      console.error('Error in parallel loading:', error);
-    });
-  }, [projectId]);
+    if (knowledgeBases && knowledgeBases.length > 0) {
+      const indexes: ProjectIndex[] = knowledgeBases.map((kb) => ({
+        id: kb.id,
+        name: kb.name,
+      }));
+      setAvailableIndexes(indexes);
+      setOrganizationConnected(true);
+      // Select all indexes by default
+      setSelectedIndexes(new Set(indexes.map((idx) => idx.id)));
+    } else if (!isKnowledgeBasesLoading) {
+      setOrganizationConnected(false);
+      setAvailableIndexes([]);
+      setSelectedIndexes(new Set());
+    }
+  }, [projectId, knowledgeBases, isKnowledgeBasesLoading]);
 
   // Handle index selection
   const handleIndexToggle = (indexId: string) => {
