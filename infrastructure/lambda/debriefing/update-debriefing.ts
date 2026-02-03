@@ -1,11 +1,8 @@
 import { APIGatewayProxyEventV2, APIGatewayProxyResultV2 } from 'aws-lambda';
-import { UpdateCommand, GetCommand } from '@aws-sdk/lib-dynamodb';
+import { GetCommand, UpdateCommand } from '@aws-sdk/lib-dynamodb';
 import middy from '@middy/core';
 
-import {
-  UpdateDebriefingRequestSchema,
-  type UpdateDebriefingRequest,
-} from '@auto-rfp/shared';
+import { type UpdateDebriefingRequest, UpdateDebriefingRequestSchema, } from '@auto-rfp/shared';
 import { PK_NAME, SK_NAME } from '../constants/common';
 import { DEBRIEFING_PK } from '../constants/organization';
 import { apiResponse } from '../helpers/api';
@@ -93,7 +90,19 @@ export async function updateDebriefing(
   dto: UpdateDebriefingRequest,
   existing: DBDebriefingItem
 ): Promise<DBDebriefingItem> {
-  const { orgId, projectId, debriefingId, status, scheduledDate, completedDate, findings, lessonsLearned, actionItems, attendees, notes } = dto;
+  const {
+    orgId,
+    projectId,
+    debriefingId,
+    status,
+    scheduledDate,
+    completedDate,
+    findings,
+    lessonsLearned,
+    actionItems,
+    attendees,
+    notes
+  } = dto;
   const now = new Date().toISOString();
   const sortKey = `${orgId}#${projectId}#${debriefingId}`;
 

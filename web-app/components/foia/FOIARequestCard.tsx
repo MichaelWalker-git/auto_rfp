@@ -8,20 +8,11 @@ import { FOIAStatusBadge } from './FOIAStatusBadge';
 import { CreateFOIARequestDialog } from './CreateFOIARequestDialog';
 import { FOIALetterPreview } from './FOIALetterPreview';
 import { useFOIARequests } from '@/lib/hooks/use-foia-requests';
-import { PermissionWrapper } from '@/components/permission-wrapper';
+import PermissionWrapper from '@/components/permission-wrapper';
+import type { FOIADocumentType, FOIARequestItem } from '@auto-rfp/shared';
 import { FOIA_DOCUMENT_DESCRIPTIONS } from '@auto-rfp/shared';
-import {
-  Building,
-  Calendar,
-  Clock,
-  FileText,
-  Mail,
-  AlertTriangle,
-  ChevronDown,
-  ChevronUp,
-} from 'lucide-react';
+import { AlertTriangle, Building, ChevronDown, ChevronUp, Clock, FileText, Mail, } from 'lucide-react';
 import { format, formatDistanceToNow, isPast } from 'date-fns';
-import type { FOIARequestItem, FOIADocumentType } from '@auto-rfp/shared';
 
 interface FOIARequestCardProps {
   projectId: string;
@@ -33,13 +24,13 @@ interface FOIARequestCardProps {
 }
 
 export function FOIARequestCard({
-  projectId,
-  orgId,
-  projectOutcomeStatus,
-  agencyName,
-  solicitationNumber,
-  onFOIAChange,
-}: FOIARequestCardProps) {
+                                  projectId,
+                                  orgId,
+                                  projectOutcomeStatus,
+                                  agencyName,
+                                  solicitationNumber,
+                                  onFOIAChange,
+                                }: FOIARequestCardProps) {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isLetterPreviewOpen, setIsLetterPreviewOpen] = useState(false);
   const [selectedRequest, setSelectedRequest] = useState<FOIARequestItem | null>(null);
@@ -69,8 +60,8 @@ export function FOIARequestCard({
         </CardHeader>
         <CardContent>
           <div className="space-y-3">
-            <Skeleton className="h-6 w-24" />
-            <Skeleton className="h-4 w-48" />
+            <Skeleton className="h-6 w-24"/>
+            <Skeleton className="h-4 w-48"/>
           </div>
         </CardContent>
       </Card>
@@ -105,11 +96,12 @@ export function FOIARequestCard({
             <div className="space-y-4">
               {/* Status and deadline */}
               <div className="flex items-center justify-between">
-                <FOIAStatusBadge status={latestRequest.status} />
+                <FOIAStatusBadge status={latestRequest.status}/>
                 {latestRequest.expectedResponseDate && latestRequest.status === 'SUBMITTED' && (
-                  <div className={`flex items-center gap-1.5 text-xs ${isDeadlinePast ? 'text-destructive' : 'text-muted-foreground'}`}>
-                    {isDeadlinePast && <AlertTriangle className="h-3 w-3" />}
-                    <Clock className="h-3 w-3" />
+                  <div
+                    className={`flex items-center gap-1.5 text-xs ${isDeadlinePast ? 'text-destructive' : 'text-muted-foreground'}`}>
+                    {isDeadlinePast && <AlertTriangle className="h-3 w-3"/>}
+                    <Clock className="h-3 w-3"/>
                     <span>
                       Due: {format(new Date(latestRequest.expectedResponseDate), 'MMM d, yyyy')}
                     </span>
@@ -119,14 +111,14 @@ export function FOIARequestCard({
 
               {/* Agency info */}
               <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                <Building className="h-4 w-4" />
+                <Building className="h-4 w-4"/>
                 <span>{latestRequest.agencyName}</span>
               </div>
 
               {/* Tracking number if available */}
               {latestRequest.trackingNumber && (
                 <div className="flex items-center gap-2 text-sm">
-                  <FileText className="h-4 w-4 text-muted-foreground" />
+                  <FileText className="h-4 w-4 text-muted-foreground"/>
                   <span>Tracking: {latestRequest.trackingNumber}</span>
                 </div>
               )}
@@ -174,7 +166,7 @@ export function FOIARequestCard({
                     className="text-xs"
                   >
                     <a href={`mailto:${latestRequest.agencyFOIAEmail}`}>
-                      <Mail className="h-3 w-3 mr-1" />
+                      <Mail className="h-3 w-3 mr-1"/>
                       Email Agency
                     </a>
                   </Button>
@@ -197,12 +189,12 @@ export function FOIARequestCard({
                   >
                     {isExpanded ? (
                       <>
-                        <ChevronUp className="h-3 w-3 mr-1" />
+                        <ChevronUp className="h-3 w-3 mr-1"/>
                         Hide {foiaRequests.length - 1} more request(s)
                       </>
                     ) : (
                       <>
-                        <ChevronDown className="h-3 w-3 mr-1" />
+                        <ChevronDown className="h-3 w-3 mr-1"/>
                         Show {foiaRequests.length - 1} more request(s)
                       </>
                     )}
@@ -216,7 +208,7 @@ export function FOIARequestCard({
                           className="p-3 bg-muted/50 rounded-md space-y-2"
                         >
                           <div className="flex items-center justify-between">
-                            <FOIAStatusBadge status={request.status} />
+                            <FOIAStatusBadge status={request.status}/>
                             <span className="text-xs text-muted-foreground">
                               {format(new Date(request.createdAt), 'MMM d, yyyy')}
                             </span>

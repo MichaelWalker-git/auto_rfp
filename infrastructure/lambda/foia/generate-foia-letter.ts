@@ -2,7 +2,7 @@ import { APIGatewayProxyEventV2, APIGatewayProxyResultV2 } from 'aws-lambda';
 import { GetCommand } from '@aws-sdk/lib-dynamodb';
 import middy from '@middy/core';
 
-import { FOIA_DOCUMENT_TYPES, type FOIADocumentType } from '@auto-rfp/shared';
+import { type FOIADocumentType, FOIA_DOCUMENT_DESCRIPTIONS } from '@auto-rfp/shared';
 import { PK_NAME, SK_NAME } from '../constants/common';
 import { FOIA_REQUEST_PK } from '../constants/organization';
 import { apiResponse } from '../helpers/api';
@@ -126,26 +126,14 @@ ${request.requesterEmail}`;
 }
 
 function getDocumentDescription(docType: FOIADocumentType): string {
-  const descriptions: Record<FOIADocumentType, string> = {
-    SSEB_REPORT: '• Source Selection Evaluation Board (SSEB) Report - Complete evaluation documentation including scoring methodology and rationale',
-    SSDD: '• Source Selection Decision Document (SSDD) - The official decision document explaining the basis for contract award',
-    TECHNICAL_EVAL: '• Technical Evaluation Documentation - All technical scoring sheets, evaluator notes, and technical merit assessments',
-    PRICE_ANALYSIS: '• Price/Cost Analysis - Price reasonableness determinations and cost evaluation documentation',
-    PAST_PERFORMANCE_EVAL: '• Past Performance Evaluation - All past performance assessments and relevancy determinations',
-    PROPOSAL_ABSTRACT: '• Proposal Abstract or Executive Summary of the winning proposal (redacted as appropriate)',
-    DEBRIEFING_NOTES: '• Debriefing Notes or Documentation - Any written debriefing materials prepared for offerors',
-    CORRESPONDENCE: '• Relevant Correspondence - Communications between the agency and offerors during the evaluation process',
-    AWARD_NOTICE: '• Award Notice and Supporting Documentation - Contract award announcement and any supporting materials',
-    OTHER: '• Other relevant evaluation documentation',
-  };
-
-  return descriptions[docType] || `• ${docType}`;
+  const description = FOIA_DOCUMENT_DESCRIPTIONS[docType];
+  return `• ${description}`;
 }
 
 export const handler = withSentryLambda(
   middy(baseHandler)
     .use(authContextMiddleware())
     .use(orgMembershipMiddleware())
-    .use(requirePermission('project:view'))
+    .use(requirePermission('project:read'))
     .use(httpErrorMiddleware())
 );

@@ -34,23 +34,35 @@ describe('generate-foia-letter handler', () => {
     const mockRequest: DBFOIARequestItem = {
       partition_key: 'FOIA_REQUEST',
       sort_key: 'org-456#proj-123#foia-1',
+      foiaId: 'foiaId-1',
       id: 'foia-1',
       projectId: 'proj-123',
       orgId: 'org-456',
       status: 'DRAFT',
+      agencyId: 'agency-1',
       agencyName: 'Department of Defense',
+      agencyAbbreviation: 'DoD',
       agencyFOIAEmail: 'foia@dod.gov',
       agencyFOIAAddress: '1400 Defense Pentagon, Washington DC 20301',
       solicitationNumber: 'W911NF-21-R-0001',
+      contractTitle: 'IT Services Contract',
       contractNumber: 'W911NF-21-C-0001',
       requestedDocuments: ['SSEB_REPORT', 'TECHNICAL_EVAL', 'PRICE_ANALYSIS'],
+      requesterCategory: 'OTHER',
+      feeLimit: 100,
+      requestFeeWaiver: false,
       requesterName: 'John Smith',
       requesterEmail: 'john.smith@company.com',
       requesterPhone: '555-123-4567',
       requesterAddress: '123 Business Ave, Suite 100, Arlington VA 22201',
       requestedBy: 'user-789',
+      statusHistory: [],
+      autoSubmitAttempted: false,
+      generatedLetterS3Key: 's3://bucket/letter-1',
+      generatedLetterVersion: 1,
       createdAt: '2025-01-15T00:00:00Z',
       updatedAt: '2025-01-15T00:00:00Z',
+      createdBy: 'user-789',
     };
 
     it('generates letter with correct agency info', () => {
@@ -79,9 +91,9 @@ describe('generate-foia-letter handler', () => {
     it('lists requested documents with descriptions', () => {
       const letter = generateFOIALetter(mockRequest);
 
-      expect(letter).toContain('Source Selection Evaluation Board (SSEB) Report');
-      expect(letter).toContain('Technical Evaluation Documentation');
-      expect(letter).toContain('Price/Cost Analysis');
+      expect(letter).toContain('The complete Source Selection Evaluation Board (SSEB) report, including all technical and cost/price evaluations');
+      expect(letter).toContain('Technical evaluation reports and findings');
+      expect(letter).toContain('Price/cost analysis documentation for all offerors');
     });
 
     it('includes FOIA statutory reference', () => {
@@ -111,15 +123,27 @@ describe('generate-foia-letter handler', () => {
         id: 'foia-2',
         projectId: 'proj-123',
         orgId: 'org-456',
+        foiaId: 'foiaId-2',
         status: 'DRAFT',
+        agencyId: 'agency-1',
         agencyName: 'GSA',
+        agencyAbbreviation: 'GSA',
         solicitationNumber: 'GS-00F-0001',
+        contractTitle: 'IT Services',
         requestedDocuments: ['SSDD'],
+        requesterCategory: 'OTHER',
+        feeLimit: 100,
+        requestFeeWaiver: false,
         requesterName: 'Jane Doe',
         requesterEmail: 'jane@example.com',
         requestedBy: 'user-789',
+        statusHistory: [],
+        autoSubmitAttempted: false,
+        generatedLetterS3Key: 's3-key',
+        generatedLetterVersion: 1,
         createdAt: '2025-01-15T00:00:00Z',
         updatedAt: '2025-01-15T00:00:00Z',
+        createdBy: 'user-789',
       };
 
       const letter = generateFOIALetter(minimalRequest);
@@ -145,12 +169,12 @@ describe('generate-foia-letter handler', () => {
 
       const letter = generateFOIALetter(fullRequest);
 
-      expect(letter).toContain('Source Selection Evaluation Board');
-      expect(letter).toContain('Source Selection Decision Document');
-      expect(letter).toContain('Technical Evaluation');
-      expect(letter).toContain('Price/Cost Analysis');
-      expect(letter).toContain('Past Performance Evaluation');
-      expect(letter).toContain('Debriefing Notes');
+      expect(letter).toContain('The complete Source Selection Evaluation Board (SSEB) report, including all technical and cost/price evaluations');
+      expect(letter).toContain('The Source Selection Decision Document (SSDD)');
+      expect(letter).toContain('Technical evaluation reports and findings');
+      expect(letter).toContain('Price/cost analysis documentation for all offerors');
+      expect(letter).toContain('Past performance evaluation reports for all offerors');
+      expect(letter).toContain('Debriefing Notes or Documentation');
     });
   });
 });

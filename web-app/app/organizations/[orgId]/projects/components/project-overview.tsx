@@ -12,6 +12,8 @@ import { AlertCircle, ArrowLeft, Calendar, CheckCircle2, Clock, FileText, Folder
 import { format, formatDistanceToNow } from 'date-fns';
 import { useProject, useQuestions } from '@/lib/hooks/use-api';
 import { ExecutiveBriefView } from '@/components/brief/ExecutiveBriefView';
+import { FOIARequestCard } from '@/components/foia/FOIARequestCard';
+import { useProjectOutcome } from '@/lib/hooks/use-project-outcome';
 import {
   NoRfpDocumentAvailable,
   useQuestions as useQuestionsProvider
@@ -26,6 +28,7 @@ export function ProjectOverview({ projectId }: ProjectOverviewProps) {
   const [sectionsExpanded, setSectionsExpanded] = useState(false);
   const { data: project, isLoading: projectLoading, error: projectError } = useProject(projectId);
   const { data: questions, isLoading: questionsLoading, error: questionsError } = useQuestions(projectId);
+  const { outcome, isLoading: outcomeLoading } = useProjectOutcome(project?.orgId ?? null, projectId);
 
   // Early return after all hooks
   if (!isQL && !err && !questionFiles?.length) {
@@ -202,6 +205,15 @@ export function ProjectOverview({ projectId }: ProjectOverviewProps) {
           </div>
         </CardContent>
       </Card>
+
+      {/* FOIA Request Card */}
+      <FOIARequestCard
+        projectId={projectId}
+        orgId={project.orgId}
+        projectOutcomeStatus={outcome?.status}
+        agencyName={project.agencyName}
+        solicitationNumber={project.solicitationNumber}
+      />
 
       {/* Brief */}
       <ExecutiveBriefView projectId={projectId} orgId={project.orgId}
