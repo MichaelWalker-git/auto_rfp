@@ -91,9 +91,9 @@ describe('generate-foia-letter handler', () => {
     it('lists requested documents with descriptions', () => {
       const letter = generateFOIALetter(mockRequest);
 
-      expect(letter).toContain('Source Selection Evaluation Board (SSEB) Report');
-      expect(letter).toContain('Technical Evaluation Documentation');
-      expect(letter).toContain('Price/Cost Analysis');
+      expect(letter).toContain('The complete Source Selection Evaluation Board (SSEB) report, including all technical and cost/price evaluations');
+      expect(letter).toContain('Technical evaluation reports and findings');
+      expect(letter).toContain('Price/cost analysis documentation for all offerors');
     });
 
     it('includes FOIA statutory reference', () => {
@@ -169,12 +169,12 @@ describe('generate-foia-letter handler', () => {
 
       const letter = generateFOIALetter(fullRequest);
 
-      expect(letter).toContain('Source Selection Evaluation Board');
-      expect(letter).toContain('Source Selection Decision Document');
-      expect(letter).toContain('Technical Evaluation');
-      expect(letter).toContain('Price/Cost Analysis');
-      expect(letter).toContain('Past Performance Evaluation');
-      expect(letter).toContain('Debriefing Notes');
+      expect(letter).toContain('The complete Source Selection Evaluation Board (SSEB) report, including all technical and cost/price evaluations');
+      expect(letter).toContain('The Source Selection Decision Document (SSDD)');
+      expect(letter).toContain('Technical evaluation reports and findings');
+      expect(letter).toContain('Price/cost analysis documentation for all offerors');
+      expect(letter).toContain('Past performance evaluation reports for all offerors');
+      expect(letter).toContain('Debriefing Notes or Documentation');
     });
   });
 });
