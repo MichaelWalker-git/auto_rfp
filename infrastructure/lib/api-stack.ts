@@ -153,7 +153,7 @@ export class ApiStack extends cdk.Stack {
     this.opportunityApi = createNestedStack('opportunity');
 
     // Routes
-    this.addRoutes({ samGovApiKeySecret, execBriefQueue, linearApiKeySecret });
+    this.addRoutes({ samGovApiKeySecret, execBriefQueue, linearApiKeySecret, questionPipelineStateMachineArn, });
 
     new cdk.CfnOutput(this, 'ApiBaseUrl', {
       value: this.api.url,
@@ -352,6 +352,22 @@ export class ApiStack extends cdk.Stack {
       }),
     );
 
+    const questionStateMachineArnParts = cdk.Arn.split(
+      questionPipelineStateMachineArn,
+      cdk.ArnFormat.COLON_RESOURCE_NAME,
+    );
+
+    // Manually construct the execution ARN pattern
+    const questionExecutionArnPattern = `arn:aws:states:${this.region}:${this.account}:execution:${questionStateMachineArnParts.resourceName}:*`;
+
+    role.addToPrincipalPolicy(
+      new iam.PolicyStatement({
+        actions: ['states:StopExecution'],
+        resources: [questionExecutionArnPattern],
+        effect: iam.Effect.ALLOW,
+      }),
+    );
+
     mainTable.grantReadWriteData(role);
     documentsBucket.grantReadWrite(role);
 
@@ -518,8 +534,9 @@ export class ApiStack extends cdk.Stack {
     samGovApiKeySecret: secretsmanager.ISecret,
     execBriefQueue: any,
     linearApiKeySecret: secretsmanager.ISecret,
+    questionPipelineStateMachineArn: string, 
   }) {
-    const { samGovApiKeySecret, execBriefQueue, linearApiKeySecret } = args;
+    const { samGovApiKeySecret, execBriefQueue, linearApiKeySecret, questionPipelineStateMachineArn } = args;
 
     // Prompt
     this.promptApi.addRoute('save-prompt/{scope}', 'POST', 'lambda/prompt/save-prompt.ts');
@@ -592,6 +609,11 @@ export class ApiStack extends cdk.Stack {
     this.questionFileApi.addRoute('/get-question-file', 'GET', 'lambda/question-file/get-question-file.ts');
     this.questionFileApi.addRoute('/get-question-files', 'GET', 'lambda/question-file/get-question-files.ts');
     this.questionFileApi.addRoute('/delete-question-file', 'DELETE', 'lambda/question-file/delete-question-file.ts');
+    this.questionFileApi.addRoute('/stop-question-pipeline', 'POST', 'lambda/question-file/stop-question-pipeline.ts',
+      {
+        QUESTION_PIPELINE_STATE_MACHINE_ARN: questionPipelineStateMachineArn,
+      }
+    );
 
     // KB
     this.knowledgeBaseApi.addRoute('/create-knowledgebase', 'POST', 'lambda/knowledgebase/create-knowledgebase.ts');
