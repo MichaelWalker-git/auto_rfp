@@ -1,12 +1,12 @@
 import { APIGatewayProxyEventV2, APIGatewayProxyResultV2 } from 'aws-lambda';
-import { PutCommand, GetCommand } from '@aws-sdk/lib-dynamodb';
+import { GetCommand, PutCommand } from '@aws-sdk/lib-dynamodb';
 import middy from '@middy/core';
 import { v4 as uuidv4 } from 'uuid';
 
 import {
-  CreateDebriefingRequestSchema,
   calculateDebriefingDeadline,
   type CreateDebriefingRequest,
+  CreateDebriefingRequestSchema,
 } from '@auto-rfp/shared';
 import { PK_NAME, SK_NAME } from '../constants/common';
 import { DEBRIEFING_PK, PROJECT_OUTCOME_PK } from '../constants/organization';

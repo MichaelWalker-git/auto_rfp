@@ -70,6 +70,6 @@ export const handler = withSentryLambda(
   middy(baseHandler)
     .use(authContextMiddleware())
     .use(orgMembershipMiddleware())
-    .use(requirePermission('project:view'))
+    .use(requirePermission('project:read'))
     .use(httpErrorMiddleware())
 );

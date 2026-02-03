@@ -98,6 +98,9 @@ export function CreateFOIARequestDialog({
         requesterEmail,
         requesterPhone: requesterPhone || undefined,
         requesterAddress: requesterAddress || undefined,
+        requesterCategory: 'OTHER',
+        feeLimit: 50,
+        requestFeeWaiver: false,
         notes: notes || undefined,
       });
 

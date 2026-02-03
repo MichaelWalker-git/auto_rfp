@@ -28,7 +28,7 @@ process.env.DB_TABLE_NAME = 'test-table';
 process.env.REGION = 'us-east-1';
 
 import { updateDebriefing } from './update-debriefing';
-import type { UpdateDebriefingRequest, DebriefingItem } from '@auto-rfp/shared';
+import type { UpdateDebriefingRequest } from '@auto-rfp/shared';
 
 describe('update-debriefing handler', () => {
   beforeEach(() => {

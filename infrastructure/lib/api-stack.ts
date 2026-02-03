@@ -52,6 +52,9 @@ export class ApiStack extends cdk.Stack {
   private readonly opportunityApi: ApiNestedStack;
   private readonly exportApi: ApiNestedStack;
   private readonly contentLibraryApi: ApiNestedStack;
+  private readonly foiaApi: ApiNestedStack;
+  private readonly projectOutcomeApi: ApiNestedStack;
+  private readonly debriefingApi: ApiNestedStack;
 
   constructor(scope: Construct, id: string, props: ApiStackProps) {
     super(scope, id, props);
@@ -155,6 +158,9 @@ export class ApiStack extends cdk.Stack {
     this.opportunityApi = createNestedStack('opportunity');
     this.exportApi = createNestedStack('export');
     this.contentLibraryApi = createNestedStack('content-library');
+    this.foiaApi = createNestedStack('foia');
+    this.projectOutcomeApi = createNestedStack('project-outcome');
+    this.debriefingApi = createNestedStack('debriefing');
 
     // Routes
     this.addRoutes({ samGovApiKeySecret, execBriefQueue, linearApiKeySecret, questionPipelineStateMachineArn, });
@@ -547,6 +553,8 @@ export class ApiStack extends cdk.Stack {
     this.promptApi.addRoute('get-prompts', 'GET', 'lambda/prompt/get-prompts.ts');
 
     // SAM.gov
+    this.samgovApi.addRoute('/set-api-key', 'POST', 'lambda/samgov/set-api-key.ts');
+    this.samgovApi.addRoute('/get-api-key', 'GET', 'lambda/samgov/get-api-key.ts');
     this.samgovApi.addRoute('/import-solicitation', 'POST', 'lambda/samgov/import-solicitation.ts', {
       SAM_GOV_API_KEY_SECRET_ID: samGovApiKeySecret.secretArn,
     });
@@ -682,5 +690,20 @@ export class ApiStack extends cdk.Stack {
     this.contentLibraryApi.addRoute('/track-usage/{id}', 'POST', 'lambda/content-library/track-usage.ts');
     this.contentLibraryApi.addRoute('/categories', 'GET', 'lambda/content-library/categories.ts');
     this.contentLibraryApi.addRoute('/tags', 'GET', 'lambda/content-library/tags.ts');
+
+    // FOIA
+    this.foiaApi.addRoute('/create-foia-request', 'POST', 'lambda/foia/create-foia-request.ts');
+    this.foiaApi.addRoute('/get-foia-requests', 'GET', 'lambda/foia/get-foia-requests.ts');
+    this.foiaApi.addRoute('/update-foia-request', 'PATCH', 'lambda/foia/update-foia-request.ts');
+    this.foiaApi.addRoute('/generate-foia-letter', 'POST', 'lambda/foia/generate-foia-letter.ts');
+
+    // Project Outcome
+    this.projectOutcomeApi.addRoute('/set-outcome', 'POST', 'lambda/project-outcome/set-outcome.ts');
+    this.projectOutcomeApi.addRoute('/get-outcome', 'GET', 'lambda/project-outcome/get-outcome.ts');
+
+    // Debriefing
+    this.debriefingApi.addRoute('/create-debriefing', 'POST', 'lambda/debriefing/create-debriefing.ts');
+    this.debriefingApi.addRoute('/get-debriefing', 'GET', 'lambda/debriefing/get-debriefing.ts');
+    this.debriefingApi.addRoute('/update-debriefing', 'PATCH', 'lambda/debriefing/update-debriefing.ts');
   }
 }

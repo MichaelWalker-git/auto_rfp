@@ -14,6 +14,7 @@ import PermissionWrapper from '@/components/permission-wrapper';
 import { SavedSearchList } from '@/components/organizations/SavedSearchList';
 import { PromptsManager } from '@/components/organizations/PromptManager';
 import { DocxTemplateUpload } from '@/components/organizations/DocxTemplateUpload';
+import { ApiKeyManager } from '@/components/samgov/api-key-manager';
 
 interface SettingsContentProps {
   orgId: string;
@@ -119,6 +120,8 @@ export function SettingsContent({ orgId }: SettingsContentProps) {
           <h1 className="text-2xl font-semibold">Organization Settings</h1>
 
           <SavedSearchList orgId={orgId}/>
+
+          <ApiKeyManager orgId={orgId} />
 
           <PromptsManager />
 
