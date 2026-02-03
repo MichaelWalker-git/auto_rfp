@@ -94,9 +94,6 @@ export async function updateFOIARequest(
   existing: DBFOIARequestItem
 ): Promise<DBFOIARequestItem> {
   const {
-    orgId,
-    projectId,
-    foiaRequestId,
     status,
     submittedDate,
     responseDate,
@@ -109,7 +106,7 @@ export async function updateFOIARequest(
   } = dto;
 
   const now = new Date().toISOString();
-  const sortKey = `${orgId}#${projectId}#${foiaRequestId}`;
+  const sortKey = existing[SK_NAME] as string;
 
   // Build update expression dynamically
   const updateParts: string[] = [];

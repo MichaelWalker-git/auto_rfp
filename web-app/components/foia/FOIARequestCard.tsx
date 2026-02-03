@@ -70,8 +70,8 @@ export function FOIARequestCard({
 
   const latestRequest = foiaRequests[0];
   const hasMultiple = foiaRequests.length > 1;
-  const isDeadlinePast = latestRequest?.expectedResponseDate
-    ? isPast(new Date(latestRequest.expectedResponseDate))
+  const isDeadlinePast = latestRequest?.responseDeadline
+    ? isPast(new Date(latestRequest.responseDeadline))
     : false;
 
   return (
@@ -97,13 +97,13 @@ export function FOIARequestCard({
               {/* Status and deadline */}
               <div className="flex items-center justify-between">
                 <FOIAStatusBadge status={latestRequest.status}/>
-                {latestRequest.expectedResponseDate && latestRequest.status === 'SUBMITTED' && (
+                {latestRequest.responseDeadline && latestRequest.status === 'SUBMITTED' && (
                   <div
                     className={`flex items-center gap-1.5 text-xs ${isDeadlinePast ? 'text-destructive' : 'text-muted-foreground'}`}>
                     {isDeadlinePast && <AlertTriangle className="h-3 w-3"/>}
                     <Clock className="h-3 w-3"/>
                     <span>
-                      Due: {format(new Date(latestRequest.expectedResponseDate), 'MMM d, yyyy')}
+                      Due: {format(new Date(latestRequest.responseDeadline), 'MMM d, yyyy')}
                     </span>
                   </div>
                 )}

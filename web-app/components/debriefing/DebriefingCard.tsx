@@ -83,8 +83,8 @@ export function DebriefingCard({
             <div className="space-y-4">
               {/* Status and deadline */}
               <div className="flex items-center justify-between">
-                <DebriefingStatusBadge status={latestDebriefing.status} />
-                {latestDebriefing.requestDeadline && latestDebriefing.status === 'REQUESTED' && (
+                <DebriefingStatusBadge status={latestDebriefing.requestStatus} />
+                {latestDebriefing.requestDeadline && latestDebriefing.requestStatus === 'REQUESTED' && (
                   <div className={`flex items-center gap-1.5 text-xs ${isDeadlinePast ? 'text-destructive' : 'text-muted-foreground'}`}>
                     {isDeadlinePast && <AlertTriangle className="h-3 w-3" />}
                     <Clock className="h-3 w-3" />
@@ -95,58 +95,56 @@ export function DebriefingCard({
                 )}
               </div>
 
-              {/* Contact info */}
-              {(latestDebriefing.contactEmail || latestDebriefing.contactName) && (
+              {/* Attendees info */}
+              {latestDebriefing.attendees && latestDebriefing.attendees.length > 0 && (
                 <div className="grid gap-2 pt-2 border-t text-sm">
-                  {latestDebriefing.contactName && (
-                    <div className="flex items-center gap-2 text-muted-foreground">
-                      <User className="h-4 w-4" />
-                      <span>{latestDebriefing.contactName}</span>
-                    </div>
-                  )}
-                  {latestDebriefing.contactEmail && (
-                    <div className="flex items-center gap-2 text-muted-foreground">
-                      <Mail className="h-4 w-4" />
-                      <a
-                        href={`mailto:${latestDebriefing.contactEmail}`}
-                        className="hover:underline"
-                      >
-                        {latestDebriefing.contactEmail}
-                      </a>
-                    </div>
-                  )}
-                  {latestDebriefing.contactPhone && (
-                    <div className="flex items-center gap-2 text-muted-foreground">
-                      <Phone className="h-4 w-4" />
-                      <span>{latestDebriefing.contactPhone}</span>
-                    </div>
-                  )}
+                  <div className="flex items-center gap-2 text-muted-foreground">
+                    <User className="h-4 w-4" />
+                    <span>{latestDebriefing.attendees.join(', ')}</span>
+                  </div>
                 </div>
               )}
 
-              {/* Scheduled date */}
+              {/* Scheduled date and location */}
               {latestDebriefing.scheduledDate && (
                 <div className="flex items-center gap-2 text-sm pt-2 border-t">
                   <Calendar className="h-4 w-4 text-primary" />
-                  <span>
-                    Scheduled: {format(new Date(latestDebriefing.scheduledDate), 'MMM d, yyyy h:mm a')}
-                  </span>
+                  <div>
+                    <span>
+                      Scheduled: {format(new Date(latestDebriefing.scheduledDate), 'MMM d, yyyy h:mm a')}
+                    </span>
+                    {latestDebriefing.locationType && (
+                      <span className="text-xs text-muted-foreground ml-2">({latestDebriefing.locationType})</span>
+                    )}
+                  </div>
                 </div>
               )}
 
-              {/* Findings summary (if completed) */}
-              {latestDebriefing.status === 'COMPLETED' && latestDebriefing.findings && (
+              {/* Key takeaways summary (if completed) */}
+              {latestDebriefing.requestStatus === 'COMPLETED' && latestDebriefing.keyTakeaways && (
                 <div className="pt-2 border-t">
-                  <p className="text-xs font-medium mb-1">Key Findings:</p>
+                  <p className="text-xs font-medium mb-1">Key Takeaways:</p>
                   <p className="text-xs text-muted-foreground line-clamp-3">
-                    {latestDebriefing.findings}
+                    {latestDebriefing.keyTakeaways}
                   </p>
                 </div>
               )}
 
-              {/* Request date */}
+              {/* Strengths identified */}
+              {latestDebriefing.requestStatus === 'COMPLETED' && latestDebriefing.strengthsIdentified && latestDebriefing.strengthsIdentified.length > 0 && (
+                <div className="pt-2 border-t">
+                  <p className="text-xs font-medium mb-1">Strengths:</p>
+                  <ul className="text-xs text-muted-foreground list-disc list-inside">
+                    {latestDebriefing.strengthsIdentified.map((strength, idx) => (
+                      <li key={idx}>{strength}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              {/* Request creation date */}
               <p className="text-xs text-muted-foreground pt-2 border-t">
-                Requested {formatDistanceToNow(new Date(latestDebriefing.requestDate), { addSuffix: true })}
+                Requested {formatDistanceToNow(new Date(latestDebriefing.createdAt), { addSuffix: true })}
               </p>
             </div>
           ) : (

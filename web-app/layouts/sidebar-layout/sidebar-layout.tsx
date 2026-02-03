@@ -23,6 +23,7 @@ import {
   BookOpen,
   Briefcase,
   CalendarClock,
+  CheckCircle,
   FileText,
   FolderOpen,
   HelpCircle,
@@ -130,6 +131,8 @@ function AppSidebar() {
           { title: 'Questions', url: `/organizations/${orgId}/projects/${projectId}/questions`, icon: MessageSquare },
           { title: 'RFP Documents', url: `/organizations/${orgId}/projects/${projectId}/documents`, icon: FileText },
           { title: 'Proposals', url: `/organizations/${orgId}/projects/${projectId}/proposals`, icon: ScrollText },
+          { title: 'Outcomes', url: `/organizations/${orgId}/projects/${projectId}/outcomes`, icon: CheckCircle },
+          { title: 'FOIA Requests', url: `/organizations/${orgId}/projects/${projectId}/foia`, icon: FileText },
         ]
         : [],
     [orgId, projectId]

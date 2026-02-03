@@ -96,33 +96,28 @@ export async function createDebriefing(
   dto: CreateDebriefingRequest,
   userId: string
 ): Promise<DBDebriefingItem> {
-  const { projectId, orgId, contactEmail, contactName, contactPhone, notes } = dto;
+  const { projectId, orgId, requestDeadline } = dto;
   const now = new Date().toISOString();
-  const id = uuidv4();
+  const debriefId = uuidv4();
 
-  // Calculate deadline (3 business days from now)
-  const deadlineDate = calculateDebriefingDeadline(new Date());
+  // Calculate deadline (3 business days from now) or use provided deadline
+  const deadlineDate = requestDeadline ? new Date(requestDeadline) : calculateDebriefingDeadline(new Date());
   const deadline = deadlineDate.toISOString();
 
   // Create sort key: orgId#projectId#debriefingId
-  const sortKey = `${orgId}#${projectId}#${id}`;
+  const sortKey = `${orgId}#${projectId}#${debriefId}`;
 
   const debriefingItem: DBDebriefingItem = {
     [PK_NAME]: DEBRIEFING_PK,
     [SK_NAME]: sortKey,
-    id,
+    debriefId,
     projectId,
     orgId,
-    status: 'REQUESTED',
-    requestDate: now,
+    requestStatus: 'REQUESTED',
     requestDeadline: deadline,
-    requestedBy: userId,
-    contactEmail,
-    contactName,
-    contactPhone,
-    notes,
     createdAt: now,
     updatedAt: now,
+    createdBy: userId,
   };
 
   const cmd = new PutCommand({

@@ -105,45 +105,70 @@ export async function createFOIARequest(
     solicitationNumber,
     contractNumber,
     requestedDocuments,
+    customDocumentRequests,
     requesterName,
     requesterEmail,
     requesterPhone,
     requesterAddress,
+    requesterCategory,
+    feeLimit,
+    requestFeeWaiver,
+    feeWaiverJustification,
     notes,
   } = dto;
 
   const now = new Date().toISOString();
-  const id = uuidv4();
+  const foiaId = uuidv4();
 
   // Calculate deadline (20 business days from submission)
   const deadlineDate = calculateFOIADeadline(new Date());
-  const expectedResponseDate = deadlineDate.toISOString();
+  const responseDeadline = deadlineDate.toISOString();
 
   // Create sort key: orgId#projectId#foiaId
-  const sortKey = `${orgId}#${projectId}#${id}`;
+  const sortKey = `${orgId}#${projectId}#${foiaId}`;
 
   const foiaItem: DBFOIARequestItem = {
     [PK_NAME]: FOIA_REQUEST_PK,
     [SK_NAME]: sortKey,
-    id,
+    foiaId,
+    id: foiaId,
     projectId,
     orgId,
     status: 'DRAFT',
+    agencyId: agencyName,
     agencyName,
     agencyFOIAEmail,
     agencyFOIAAddress,
-    solicitationNumber,
+    agencyAbbreviation: agencyName,
+    contractTitle: solicitationNumber,
     contractNumber,
+    solicitationNumber,
     requestedDocuments,
+    customDocumentRequests,
+    requesterCategory: requesterCategory || 'OTHER',
+    feeLimit: feeLimit ?? 50,
+    requestFeeWaiver: requestFeeWaiver ?? false,
+    feeWaiverJustification,
     requesterName,
     requesterEmail,
     requesterPhone,
     requesterAddress,
-    expectedResponseDate,
+    statusHistory: [
+      {
+        status: 'DRAFT',
+        changedAt: now,
+        changedBy: userId,
+      },
+    ],
+    responseDeadline,
+    autoSubmitAttempted: false,
+    generatedLetterS3Key: '',
+    generatedLetterVersion: 0,
     requestedBy: userId,
     notes,
     createdAt: now,
     updatedAt: now,
+    createdBy: userId,
   };
 
   const cmd = new PutCommand({

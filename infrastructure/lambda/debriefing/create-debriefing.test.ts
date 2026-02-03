@@ -48,18 +48,15 @@ describe('create-debriefing handler', () => {
       const dto: CreateDebriefingRequest = {
         projectId: 'proj-123',
         orgId: 'org-456',
-        contactEmail: 'co@example.com',
-        contactName: 'John Doe',
       };
 
       const result = await createDebriefing(dto, 'user-789');
 
       expect(result.partition_key).toBe('DEBRIEFING');
       expect(result.sort_key).toBe('org-456#proj-123#mock-uuid');
-      expect(result.status).toBe('REQUESTED');
-      expect(result.requestedBy).toBe('user-789');
-      expect(result.contactEmail).toBe('co@example.com');
-      expect(result.contactName).toBe('John Doe');
+      expect(result.debriefId).toBe('mock-uuid');
+      expect(result.requestStatus).toBe('REQUESTED');
+      expect(result.createdBy).toBe('user-789');
     });
 
     it('calculates request deadline', async () => {
@@ -68,7 +65,6 @@ describe('create-debriefing handler', () => {
       const dto: CreateDebriefingRequest = {
         projectId: 'proj-123',
         orgId: 'org-456',
-        contactEmail: 'co@example.com',
       };
 
       const result = await createDebriefing(dto, 'user-789');
@@ -84,16 +80,14 @@ describe('create-debriefing handler', () => {
       const dto: CreateDebriefingRequest = {
         projectId: 'proj-123',
         orgId: 'org-456',
-        contactEmail: 'co@example.com',
-        contactName: 'Jane Smith',
-        contactPhone: '555-1234',
-        notes: 'Please schedule ASAP',
+        requestDeadline: '2025-02-15T00:00:00Z',
       };
 
       const result = await createDebriefing(dto, 'user-789');
 
-      expect(result.contactPhone).toBe('555-1234');
-      expect(result.notes).toBe('Please schedule ASAP');
+      expect(result.requestDeadline).toBeDefined();
+      // Check that the deadline is set and is a valid ISO string
+      expect(new Date(result.requestDeadline as string).getTime()).toBeGreaterThan(0);
     });
 
     it('sets timestamps correctly', async () => {
@@ -103,7 +97,6 @@ describe('create-debriefing handler', () => {
       const dto: CreateDebriefingRequest = {
         projectId: 'proj-123',
         orgId: 'org-456',
-        contactEmail: 'co@example.com',
       };
 
       const result = await createDebriefing(dto, 'user-789');
@@ -112,7 +105,6 @@ describe('create-debriefing handler', () => {
 
       expect(result.createdAt).toBeDefined();
       expect(result.updatedAt).toBeDefined();
-      expect(result.requestDate).toBeDefined();
       expect(result.createdAt >= beforeCall).toBe(true);
       expect(result.createdAt <= afterCall).toBe(true);
     });
@@ -123,7 +115,6 @@ describe('create-debriefing handler', () => {
       const dto: CreateDebriefingRequest = {
         projectId: 'proj-123',
         orgId: 'org-456',
-        contactEmail: 'co@example.com',
       };
 
       await createDebriefing(dto, 'user-789');

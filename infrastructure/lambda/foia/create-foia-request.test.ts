@@ -54,18 +54,22 @@ describe('create-foia-request handler', () => {
         requestedDocuments: ['SSEB_REPORT', 'TECHNICAL_EVAL'],
         requesterName: 'John Doe',
         requesterEmail: 'john@company.com',
+        requesterCategory: 'COMMERCIAL',
+        feeLimit: 50,
+        requestFeeWaiver: false,
       };
 
       const result = await createFOIARequest(dto, 'user-789');
 
       expect(result.partition_key).toBe('FOIA_REQUEST');
       expect(result.sort_key).toBe('org-456#proj-123#mock-uuid');
+      expect(result.foiaId).toBe('mock-uuid');
       expect(result.status).toBe('DRAFT');
       expect(result.agencyName).toBe('Department of Defense');
       expect(result.requestedDocuments).toEqual(['SSEB_REPORT', 'TECHNICAL_EVAL']);
     });
 
-    it('calculates expected response date (20 business days)', async () => {
+    it('calculates response deadline (20 business days)', async () => {
       mockSend.mockResolvedValue({});
 
       const dto: CreateFOIARequest = {
@@ -76,17 +80,22 @@ describe('create-foia-request handler', () => {
         requestedDocuments: ['SSDD'],
         requesterName: 'Jane Smith',
         requesterEmail: 'jane@company.com',
+        requesterCategory: 'OTHER',
+        feeLimit: 50,
+        requestFeeWaiver: false,
       };
 
       const result = await createFOIARequest(dto, 'user-789');
 
-      expect(result.expectedResponseDate).toBeDefined();
+      expect(result.responseDeadline).toBeDefined();
       // Should be about 4 weeks from now (20 business days)
-      const expectedDate = new Date(result.expectedResponseDate);
-      const now = new Date();
-      const diffDays = Math.floor((expectedDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
-      expect(diffDays).toBeGreaterThanOrEqual(20);
-      expect(diffDays).toBeLessThanOrEqual(30);
+      if (result.responseDeadline) {
+        const responseDeadline = new Date(result.responseDeadline);
+        const now = new Date();
+        const diffDays = Math.floor((responseDeadline.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+        expect(diffDays).toBeGreaterThanOrEqual(20);
+        expect(diffDays).toBeLessThanOrEqual(30);
+      }
     });
 
     it('includes all optional fields', async () => {
@@ -105,6 +114,10 @@ describe('create-foia-request handler', () => {
         requesterEmail: 'bob@company.com',
         requesterPhone: '555-123-4567',
         requesterAddress: '123 Main St, City, ST 12345',
+        requesterCategory: 'COMMERCIAL',
+        feeLimit: 100,
+        requestFeeWaiver: true,
+        feeWaiverJustification: 'Non-profit research',
         notes: 'Priority request',
       };
 
@@ -117,7 +130,7 @@ describe('create-foia-request handler', () => {
       expect(result.notes).toBe('Priority request');
     });
 
-    it('sets requestedBy to current user', async () => {
+    it('sets createdBy to current user', async () => {
       mockSend.mockResolvedValue({});
 
       const dto: CreateFOIARequest = {
@@ -128,11 +141,14 @@ describe('create-foia-request handler', () => {
         requestedDocuments: ['SSDD'],
         requesterName: 'Test User',
         requesterEmail: 'test@example.com',
+        requesterCategory: 'OTHER',
+        feeLimit: 50,
+        requestFeeWaiver: false,
       };
 
       const result = await createFOIARequest(dto, 'user-abc-123');
 
-      expect(result.requestedBy).toBe('user-abc-123');
+      expect(result.createdBy).toBe('user-abc-123');
     });
 
     it('calls DynamoDB with correct table name', async () => {
@@ -146,6 +162,9 @@ describe('create-foia-request handler', () => {
         requestedDocuments: ['SSDD'],
         requesterName: 'Test User',
         requesterEmail: 'test@example.com',
+        requesterCategory: 'OTHER',
+        feeLimit: 50,
+        requestFeeWaiver: false,
       };
 
       await createFOIARequest(dto, 'user-789');

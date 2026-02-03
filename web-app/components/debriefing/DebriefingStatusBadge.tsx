@@ -32,7 +32,7 @@ export function DebriefingStatusBadge({ status, className }: DebriefingStatusBad
       className={cn(
         'gap-1.5 font-medium',
         status === 'COMPLETED' && 'bg-green-600 hover:bg-green-700',
-        className
+        className,
       )}
     >
       <Icon className="h-3 w-3" />
