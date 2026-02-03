@@ -2,7 +2,7 @@ import { Badge } from '@/components/ui/badge';
 import Link from 'next/link';
 import { AlertTriangle, Clock } from 'lucide-react';
 import ExportDeadlinesButton from './ExportDeadlinesButton';
-import { useOrganization } from '@/context/organization-context';
+import { useCurrentOrganization } from '@/context/organization-context';
 
 interface StatusObject {
   message: string,
@@ -15,7 +15,7 @@ export default function DeadlineCard({ deadline, displayType }: {
   deadline: any,
   displayType: 'project' | 'organization' | 'all'
 }) {
-  const { currentOrganization } = useOrganization();
+  const { currentOrganization } = useCurrentOrganization();
   const dt = deadline?.dateTimeIso ? new Date(deadline.dateTimeIso) : null;
   const isPassed = dt && (dt.getTime() - Date.now()) < 0;
   const isUrgent = dt && !isPassed && (dt.getTime() - Date.now()) < 7 * 24 * 60 * 60 * 1000;

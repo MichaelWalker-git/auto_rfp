@@ -44,12 +44,17 @@ export const PROMPT_PERMISSIONS = [
   'prompt:create', 'prompt:edit', 'prompt:delete', 'prompt:read',
 ] as const;
 
+export const CONTENT_LIBRARY_PERMISSIONS = [
+  'content_library:approve-content'
+] as const;
+
 export const ALL_PERMISSIONS = [
   ...USER_PERMISSIONS,
   ...ORG_PERMISSIONS,
   ...PROPOSAL_PERMISSIONS,
   ...OPPORTUNITY_PERMISSIONS,
   ...PROMPT_PERMISSIONS,
+  ...CONTENT_LIBRARY_PERMISSIONS,
   'kb:upload', 'kb:read', 'kb:create', 'kb:edit', 'kb:delete',
   'project:create', 'project:edit', 'project:read', 'project:delete',
   'question:read', 'question:create', 'question:edit', 'question:delete',

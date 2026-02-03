@@ -50,6 +50,8 @@ export class ApiStack extends cdk.Stack {
   private readonly deadlinesApi: ApiNestedStack;
   private readonly promptApi: ApiNestedStack;
   private readonly opportunityApi: ApiNestedStack;
+  private readonly exportApi: ApiNestedStack;
+  private readonly contentLibraryApi: ApiNestedStack;
 
   constructor(scope: Construct, id: string, props: ApiStackProps) {
     super(scope, id, props);
@@ -151,6 +153,8 @@ export class ApiStack extends cdk.Stack {
     this.samgovApi = createNestedStack('samgov');
     this.promptApi = createNestedStack('prompt');
     this.opportunityApi = createNestedStack('opportunity');
+    this.exportApi = createNestedStack('export');
+    this.contentLibraryApi = createNestedStack('content-library');
 
     // Routes
     this.addRoutes({ samGovApiKeySecret, execBriefQueue, linearApiKeySecret, questionPipelineStateMachineArn, });
@@ -663,5 +667,20 @@ export class ApiStack extends cdk.Stack {
     this.opportunityApi.addRoute('/get-opportunities', 'GET', 'lambda/opportunity/get-opportunities.ts');
     this.opportunityApi.addRoute('/create-opportunity', 'POST', 'lambda/opportunity/create-opportunity.ts');
     this.opportunityApi.addRoute('/get-opportunity', 'GET', 'lambda/opportunity/get-opportunity.ts');
+
+    // Export
+    this.exportApi.addRoute('/generate-word', 'POST', 'lambda/export/generate-word.ts');
+
+    // Content Library
+    this.contentLibraryApi.addRoute('/get-content-libraries', 'GET', 'lambda/content-library/get-content-libraries.ts');
+    this.contentLibraryApi.addRoute('/create-content-library', 'POST', 'lambda/content-library/create-content-library.ts');
+    this.contentLibraryApi.addRoute('/get-content-library/{id}', 'GET', 'lambda/content-library/get-item.ts');
+    this.contentLibraryApi.addRoute('/edit-content-library/{id}', 'PATCH', 'lambda/content-library/edit.ts');
+    this.contentLibraryApi.addRoute('/delete-content-library/{id}', 'DELETE', 'lambda/content-library/delete-content-library.ts');
+    this.contentLibraryApi.addRoute('/approve/{id}', 'POST', 'lambda/content-library/approve-content.ts');
+    this.contentLibraryApi.addRoute('/deprecate/{id}', 'POST', 'lambda/content-library/deprecate.ts');
+    this.contentLibraryApi.addRoute('/track-usage/{id}', 'POST', 'lambda/content-library/track-usage.ts');
+    this.contentLibraryApi.addRoute('/categories', 'GET', 'lambda/content-library/categories.ts');
+    this.contentLibraryApi.addRoute('/tags', 'GET', 'lambda/content-library/tags.ts');
   }
 }

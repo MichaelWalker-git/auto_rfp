@@ -143,7 +143,9 @@ export const GenerateProposalModal: React.FC<Props> = (
     setProposal(prev => {
       if (!prev) return prev;
       const sections = [...prev.sections];
-      sections[index] = { ...sections[index], [field]: value };
+      const section = sections[index];
+      if (!section) return prev;
+      sections[index] = { ...section, [field]: value };
       return { ...prev, sections };
     });
   };
@@ -158,9 +160,12 @@ export const GenerateProposalModal: React.FC<Props> = (
       if (!prev) return prev;
       const sections = [...prev.sections];
       const section = sections[sectionIndex];
+      if (!section) return prev;
       const subsections = [...section.subsections];
+      const subsection = subsections[subsectionIndex];
+      if (!subsection) return prev;
       subsections[subsectionIndex] = {
-        ...subsections[subsectionIndex],
+        ...subsection,
         [field]: value,
       };
       sections[sectionIndex] = { ...section, subsections };
@@ -285,7 +290,6 @@ export const GenerateProposalModal: React.FC<Props> = (
           onClick={handleOpen}
           disabled={isMutating}
           variant="outline"
-          size="sm"
           className="gap-1"
         >
           {isMutating && !proposal ? (

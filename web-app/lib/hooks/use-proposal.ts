@@ -5,6 +5,7 @@ import useSWRMutation from 'swr/mutation';
 import { env } from '@/lib/env';
 import { authFetcher } from '@/lib/auth/auth-fetcher';
 import { useApi } from '@/lib/hooks/use-api';
+import { breadcrumbs } from '@/lib/sentry';
 
 import {
   GenerateProposalFileResponseSchema,
@@ -36,6 +37,8 @@ export function useGenerateProposal() {
         );
       }
 
+      breadcrumbs.proposalGenerationStarted(parsedArgs.data.projectId);
+
       const res = await authFetcher(url, {
         method: 'POST',
         body: JSON.stringify({ projectId: parsedArgs.data.projectId }),
@@ -60,6 +63,7 @@ export function useGenerateProposal() {
         throw new Error(`API returned invalid ProposalDocument: ${issues}`);
       }
 
+      breadcrumbs.proposalGenerationCompleted(parsedArgs.data.projectId);
       return parsed.data;
     },
   );

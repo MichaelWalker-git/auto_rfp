@@ -30,21 +30,18 @@ const defineFetcher = async <T>(url: string): Promise<T> => {
 };
 
 export function useApi<T>(key: string | null | any[], url?: string | null) {
-  const finalUrl = typeof key === 'string' ? key : url;
-
-  const fetcher =
-    typeof finalUrl === 'string'
-      ? () => defineFetcher<T>(finalUrl)
-      : null;
-
-  const { data, error, isLoading, mutate } = useSWR<T>(key, fetcher, {
-    revalidateOnFocus: false,
-    revalidateIfStale: false,
-    dedupingInterval: 60_000,
-    focusThrottleInterval: 60_000,
-    errorRetryCount: 3,
-    loadingTimeout: 10_000,
-  });
+  const { data, error, isLoading, mutate } = useSWR<T>(
+    url ? key : null,
+    url ? () => defineFetcher<T>(url) : null,
+    {
+      revalidateOnFocus: false,
+      revalidateIfStale: false,
+      dedupingInterval: 60_000,
+      focusThrottleInterval: 60_000,
+      errorRetryCount: 3,
+      loadingTimeout: 10_000,
+    }
+  );
 
   return {
     data,

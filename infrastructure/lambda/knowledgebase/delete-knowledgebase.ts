@@ -22,8 +22,8 @@ export const baseHandler = async (
 ): Promise<APIGatewayProxyResultV2> => {
   try {
     const tokenOrgId = getOrgId(event);
-    const { orgId: queryOrgId, kbId } = event.queryStringParameters || {};
-    const orgId = tokenOrgId ? tokenOrgId : queryOrgId;
+    const { orgId: bodyOrgId, id: kbId} = JSON.parse(event.body || '');
+    const orgId = tokenOrgId ? tokenOrgId : bodyOrgId;
 
     const sk = `${orgId}#${kbId}`;
 

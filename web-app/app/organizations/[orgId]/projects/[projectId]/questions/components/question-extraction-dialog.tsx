@@ -25,7 +25,7 @@ import {
   useQuestionFilesStatus,
   useStartQuestionFilePipeline,
 } from '@/lib/hooks/use-question-file';
-import { useOrganization } from '@/context/organization-context';
+import { useCurrentOrganization } from '@/context/organization-context';
 import { useCreateOpportunity } from '@/lib/hooks/use-opportunities';
 
 interface QuestionFileUploadDialogProps {
@@ -73,7 +73,7 @@ export function QuestionFileUploadDialog({
                                            oppId: oppIdParam,
                                          }: QuestionFileUploadDialogProps) {
   const [open, setOpen] = useState(false);
-  const { currentOrganization } = useOrganization();
+  const { currentOrganization } = useCurrentOrganization();
 
   const [items, setItems] = useState<UploadItem[]>([]);
   const [activeIndex, setActiveIndex] = useState<number>(0);
@@ -108,12 +108,12 @@ export function QuestionFileUploadDialog({
   const processingQuestionFileIds = useMemo(
     () =>
       items
-        .filter((item) => item.questionFileId && item.step === 'processing')
+        .filter((item) => item.questionFileId && (item.step === 'processing' || item.step === 'cancelled'))
         .map((item) => item.questionFileId!),
     [items],
   );
 
-  const { data: allStatuses } = useQuestionFilesStatus(projectId, batchOppId || oppIdParam || '', processingQuestionFileIds);
+  const { data: allStatuses, mutate: refetchStatuses } = useQuestionFilesStatus(projectId, batchOppId || oppIdParam || '', processingQuestionFileIds);
 
   useEffect(() => {
     if (!allStatuses) return;
@@ -167,8 +167,7 @@ export function QuestionFileUploadDialog({
         }
 
         if (apiStatus === 'DELETED') {
-          next[idx] = { ...current, step: 'error', status: apiStatus, updatedAt, error: 'File was deleted' };
-          return next;
+          return prev.filter((x) => x.questionFileId !== questionFileId);
         }
 
         const isProcessingStatus =
@@ -209,6 +208,7 @@ export function QuestionFileUploadDialog({
   const allDone = items.length > 0 && items.every((i) => i.step === 'done');
   const hasErrors = items.some((i) => i.step === 'error');
   const completedCount = items.filter((i) => i.step === 'done').length;
+  const hasProcessableItems = items.some((i) => i.step === 'idle' || i.step === 'error');
 
   const anyBusy = useMemo(() => {
     if (isGettingPresigned || isStartingPipeline || isProcessing) return true;
@@ -592,23 +592,7 @@ export function QuestionFileUploadDialog({
                               opportunityId={oppIdParam || batchOppId}
                               questionFileId={it.questionFileId}
                               status={it.status || ''}
-                              onSuccess={() => {
-                                setItemStep(it.clientId, { 
-                                  step: 'cancelled', 
-                                  status: 'CANCELLED',
-                                  error: 'Cancelled by user' 
-                                });
-                              }}
-                              onDelete={() => {
-                                handleRemoveItem(it.clientId);
-                              }}
-                              onRetry={() => {
-                                setItemStep(it.clientId, { 
-                                  step: 'processing', 
-                                  status: 'PROCESSING',
-                                  error: null 
-                                });
-                              }}
+                              onMutate={refetchStatuses}
                             />
                           )}
                         </div> 
@@ -703,7 +687,7 @@ export function QuestionFileUploadDialog({
             {allDone ? 'Done' : 'Cancel'}
           </Button>
 
-          <Button type="button" onClick={handleStart} disabled={items.length === 0 || anyBusy || allDone}
+          <Button type="button" onClick={handleStart} disabled={items.length === 0 || anyBusy || !hasProcessableItems}
                   className="gap-2 min-w-[160px]">
             {anyBusy ? (
               <>

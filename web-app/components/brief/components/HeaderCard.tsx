@@ -7,7 +7,7 @@ import { Progress } from '@/components/ui/progress';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { AlertTriangle, CheckCircle2, Clock, Download, FileText, RefreshCw } from 'lucide-react';
-import { formatDate, statusBadgeVariant, statusLabel } from '../helpers';
+import { formatDateTime, statusBadgeVariant, statusLabel } from '../helpers';
 import type { SectionKey, SectionStatus } from '../types';
 import { exportBriefAsDocx } from '@/components/brief/helpers';
 
@@ -57,7 +57,7 @@ export function HeaderCard({
                 <div className="text-base font-medium text-foreground">{projectName}</div>
 
                 <div className="text-sm text-muted-foreground">
-                  {briefItem?.updatedAt ? `Last updated: ${formatDate(briefItem.updatedAt)}` : 'Not generated yet'}
+                  {briefItem?.updatedAt ? `Last updated: ${formatDateTime(briefItem.updatedAt)}` : 'Not generated yet'}
                 </div>
               </div>
 

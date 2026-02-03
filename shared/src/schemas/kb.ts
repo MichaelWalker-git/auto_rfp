@@ -1,13 +1,15 @@
 import { z } from 'zod';
 
-// --- Shared count schema ---
-export const KnowledgeBaseCountSchema = z.object({
-  questions: z.number().int().nonnegative(),
-  documents: z.number().int().nonnegative(),
+export const KBTypeSchema = z.enum(['DOCUMENTS', 'CONTENT_LIBRARY']);
+
+export type KBType = z.infer<typeof KBTypeSchema>;
+
+export const KBCountSchema = z.object({
+  questions: z.number().optional().nullable().default(0),
+  documents: z.number().optional().nullable().default(0),
 });
 
-// --- Base KB fields (what the client sends) ---
-export const KnowledgeBaseBaseSchema = z.object({
+export const KnowledgeBaseItemSchema = z.object({
   name: z
     .string()
     .min(1, 'Name is required')
@@ -16,39 +18,33 @@ export const KnowledgeBaseBaseSchema = z.object({
     .string()
     .max(2000, 'Description must be at most 2000 characters')
     .optional(),
-});
-
-export const CreateKnowledgeBaseSchema = KnowledgeBaseBaseSchema;
-
-export type CreateKnowledgeBaseDTO = z.infer<typeof CreateKnowledgeBaseSchema>;
-
-// --- Shape of the item stored in DynamoDB ---
-export const KnowledgeBaseItemSchema = KnowledgeBaseBaseSchema.extend({
-  orgId: z.string(),              // owning organization
-  createdAt: z.string(),          // ISO date
-  updatedAt: z.string(),          // ISO date
-
-  _count: KnowledgeBaseCountSchema.default({ questions: 0, documents: 0 }),
+  type: KBTypeSchema.default('DOCUMENTS'),
+  _count: KBCountSchema.optional().nullable()
 });
 
 export type KnowledgeBaseItem = z.infer<typeof KnowledgeBaseItemSchema>;
 
-export const KnowledgeBaseSchema = KnowledgeBaseBaseSchema.extend({
-  id: z.string(),
-  createdAt: z.string(),
-  updatedAt: z.string(),
-  _count: KnowledgeBaseCountSchema,
-});
+export const CreateKnowledgeBaseSchema = KnowledgeBaseItemSchema;
 
-export type KnowledgeBase = z.infer<typeof KnowledgeBaseSchema>;
+export type CreateKnowledgeBase = z.infer<typeof CreateKnowledgeBaseSchema>;
 
-/**
- * DTO for "update" operation (PATCH-style)
- * All fields optional — Lambdas update only what is provided.
- */
 export const UpdateKnowledgeBaseSchema = z.object({
   name: z.string().min(1, 'Name cannot be empty').optional(),
   description: z.string().optional().nullable(),
 });
 
 export type UpdateKnowledgeBaseDTO = z.infer<typeof UpdateKnowledgeBaseSchema>;
+
+export const KnowledgeBaseSchema = z.object({
+  id: z.string(),
+  name: z.string().min(1, 'Name cannot be empty').optional(),
+  description: z.string().optional().nullable(),
+  createdAt: z.string(),
+  updatedAt: z.string(),
+  orgId: z.string(),
+  type: KBTypeSchema.default('DOCUMENTS'),
+  _count: KBCountSchema
+});
+
+
+export type KnowledgeBase = z.infer<typeof KnowledgeBaseSchema>;

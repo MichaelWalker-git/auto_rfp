@@ -34,7 +34,10 @@ import { useToast } from '@/components/ui/use-toast';
 import {
   QuestionFileUploadDialog,
 } from '@/app/organizations/[orgId]/projects/[projectId]/questions/components/question-extraction-dialog';
-import { useOrganization } from '@/context/organization-context';
+import { useCurrentOrganization } from '@/context/organization-context';
+import {
+  GenerateProposalModal
+} from '@/app/organizations/[orgId]/projects/[projectId]/questions/components/GenerateProposalModal';
 
 interface OpportunityViewProps {
   projectId: string;
@@ -82,7 +85,7 @@ function statusChip(status?: string) {
 
 export function OpportunityView({ projectId, oppId, className }: OpportunityViewProps) {
 
-  const { currentOrganization } = useOrganization();
+  const { currentOrganization } = useCurrentOrganization();
   const { data: item, isLoading: oppLoading, error: oppError, refetch } = useOpportunity(
     projectId,
     oppId,
@@ -190,7 +193,8 @@ export function OpportunityView({ projectId, oppId, className }: OpportunityView
           </div>
 
           <div className="shrink-0 flex items-center gap-2">
-            <Button variant="outline" size="sm" onClick={() => refetch()} disabled={oppLoading}>
+            <GenerateProposalModal projectId={projectId}/>
+            <Button variant="outline" onClick={() => refetch()} disabled={oppLoading}>
               {oppLoading ? <Loader2 className="h-4 w-4 mr-2 animate-spin"/> : <RefreshCw className="h-4 w-4 mr-2"/>}
               Refresh
             </Button>
@@ -374,33 +378,13 @@ export function OpportunityView({ projectId, oppId, className }: OpportunityView
                               </Button>
                             </PermissionWrapper>
                           }
-                          {f.status !== 'PROCESSED' && f.status !== 'FAILED' && f.status !== 'DELETED' && 
+                          {f.status !== 'PROCESSED' && f.status !== 'FAILED' && f.status !== 'DELETED' &&
                             <CancelPipelineButton
                               projectId={projectId}
                               opportunityId={oppId}
                               questionFileId={f.questionFileId}
                               status={f.status}
-                              onSuccess={async () => {
-                                toast({
-                                  title: 'Success',
-                                  description: `Successfully cancelled question file processing for ${f.name}`,
-                                });
-                                await refetchQ(); 
-                              }}
-                              onDelete={async() => {
-                                await refetchQ();
-                                toast({
-                                  title: 'Deleted',
-                                  description: `Successfully deleted file ${f.name}`,
-                                });
-                              }}
-                              onRetry={async () => {
-                                toast({
-                                  title: 'Retrying',
-                                  description: `Restarting processing for ${f.name}`,
-                                });
-                                await refetchQ(); 
-                              }}
+                              onMutate={refetchQ}
                             />
                           }
                         </div>

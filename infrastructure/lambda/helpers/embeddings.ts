@@ -46,6 +46,9 @@ export async function semanticSearchChunks(orgId: string, embedding: number[], k
   return pineconeSearch(orgId, embedding, k);
 }
 
+export async function semanticSearchContentLibrary(orgId: string, embedding: number[], k: number): Promise<PineconeHit[]> {
+  return pineconeSearch(orgId, embedding, k, 'content_library');
+}
 
 function truncateForTitan(text: string, maxChars = TITAN_V2_SAFE_CHARS): string {
   // Ensure text is a string before calling .trim() - fixes AUTO-RFP-3V

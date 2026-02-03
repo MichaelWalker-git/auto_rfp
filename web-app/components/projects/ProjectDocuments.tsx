@@ -1,13 +1,11 @@
 'use client';
 
 import React, { useMemo, useState } from 'react';
-import { AlertCircle, Download, FileText, FolderOpen, Loader2, Trash2 } from 'lucide-react';
-
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { useDeleteQuestionFile, useQuestionFiles, } from '@/lib/hooks/use-question-file';
 import { useDownloadFromS3 } from '@/lib/hooks/use-file';
@@ -17,18 +15,12 @@ import {
 } from '@/app/organizations/[orgId]/projects/[projectId]/questions/components/question-extraction-dialog';
 import { CancelPipelineButton } from '../cancel-pipeline-button';
 import { useToast } from '@/components/ui/use-toast';
+import { AlertCircle, Download, FileText, FolderOpen, Loader2, Trash2 } from 'lucide-react';
+
+import { QuestionFileItem } from '@auto-rfp/shared';
 
 interface ProjectDocumentsProps {
   projectId: string;
-}
-
-function pickDisplayName(qf: any): string {
-  return (
-    qf?.fileName ??
-    qf?.originalFileName ??
-    (typeof qf?.fileKey === 'string' ? qf.fileKey.split('/').pop() : undefined) ??
-    'Unknown file'
-  );
 }
 
 function formatDate(dateString?: string) {
@@ -72,7 +64,7 @@ export function ProjectDocuments({ projectId }: ProjectDocumentsProps) {
   const rows = useMemo(() => {
     return (items ?? []).map((qf: any) => ({
       questionFileId: qf?.questionFileId as string | undefined,
-      name: pickDisplayName(qf),
+      originalFileName: qf?.originalFileName as string | undefined,
       status: qf?.status as string | undefined,
       createdAt: qf?.createdAt as string | undefined,
       updatedAt: qf?.updatedAt as string | undefined,
@@ -229,8 +221,8 @@ export function ProjectDocuments({ projectId }: ProjectDocumentsProps) {
 
                     <div className="min-w-0 flex-1">
                       <div className="flex flex-wrap items-center gap-2">
-                        <p className="font-medium truncate" title={f.name}>
-                          {f.name}
+                        <p className="font-medium truncate" title={f.originalFileName}>
+                          {f.originalFileName}
                         </p>
                         <Badge variant="outline" className={cn('text-xs border', st.cls)}>
                           {st.label}
@@ -264,14 +256,14 @@ export function ProjectDocuments({ projectId }: ProjectDocumentsProps) {
                         onClick={() => void handleDownload({
                           questionFileId: f.questionFileId,
                           fileKey: f.fileKey,
-                          name: f.name
+                          name: f.originalFileName || 'unknown',
                         })}
                         title={!f.fileKey ? 'No file key' : 'Download file'}
                       >
                         {rowDownloading ? <Loader2 className="h-4 w-4 animate-spin"/> : <Download className="h-4 w-4"/>}
                       </Button>
 
-                      {(f.status === 'PROCESSED' || f.status === 'FAILED') && 
+                      {(f.status === 'PROCESSED' || f.status === 'FAILED') &&
                         <PermissionWrapper requiredPermission={'question:delete'}>
                           <Button
                             size="sm"
@@ -280,7 +272,7 @@ export function ProjectDocuments({ projectId }: ProjectDocumentsProps) {
                             disabled={!f.questionFileId || rowDeleting}
                             onClick={() => void handleDelete({
                               questionFileId: f.questionFileId,
-                              name: f.name,
+                              name: f.originalFileName || 'unknown',
                               oppId: f.oppId
                             })}
                           >
@@ -288,33 +280,14 @@ export function ProjectDocuments({ projectId }: ProjectDocumentsProps) {
                           </Button>
                         </PermissionWrapper>
                       }
-                      {f.status !== 'PROCESSED' && f.status !== 'FAILED' && f.status !== 'DELETED' && 
+                      
+                      {f.status !== 'PROCESSED' && f.status !== 'FAILED' && f.status !== 'DELETED' &&
                         <CancelPipelineButton
                           projectId={f.projectId}
                           opportunityId={f.oppId}
                           questionFileId={f.questionFileId}
                           status={f.status}
-                          onSuccess={async () => {
-                            toast({
-                              title: 'Success',
-                              description: `Successfully cancelled question file processing for ${f.name}`,
-                            });
-                            await refetch(); 
-                          }}
-                          onDelete={async() => {
-                            await refetch();
-                            toast({
-                              title: 'Deleted',
-                              description: `Successfully deleted file ${f.name}`,
-                            });
-                          }}
-                          onRetry={async () => {
-                            toast({
-                              title: 'Retrying',
-                              description: `Restarting processing for ${f.name}`,
-                            });
-                            await refetch(); 
-                          }}
+                          onMutate={refetch}
                         />
                       }
                     </div>

@@ -7,9 +7,7 @@ export { EmptyProjectsState } from './EmptyProjectsState';
 
 // Team components
 export { TeamContent } from './TeamContent';
-export { TeamHeader } from './TeamHeader';
-export { TeamMembersTable } from './TeamMembersTable';
-export { MemberTableRow } from './MemberTableRow';
+export { MemberRow } from './MemberRow';
 export { MemberActionsDropdown } from './MemberActionsDropdown';
 export { InviteMemberDialog } from './InviteMemberDialog';
 

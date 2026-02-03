@@ -9,7 +9,8 @@ import { ProjectGrid } from '@/components/projects/ProjectGrid';
 import { CreateProjectDialog } from '@/components/projects/CreateProjectDialog';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/components/ui/use-toast';
-import { useOrganization, useProjects } from '@/lib/hooks/use-api';
+import { useProjects } from '@/lib/hooks/use-api';
+import { useCurrentOrganization } from '@/context/organization-context';
 import { Project } from '@/types/project';
 
 import {
@@ -32,10 +33,8 @@ export default function OrganizationPage() {
   const { orgId } = useParams<{ orgId: string }>();
 
   const {
-    data: organization,
-    error: orgError,
-    isLoading: isOrgLoading,
-  } = useOrganization(orgId);
+    currentOrganization: organization,
+  } = useCurrentOrganization();
 
   const {
     data: projects,
@@ -59,18 +58,7 @@ export default function OrganizationPage() {
       : 'This action cannot be undone.';
   }, [pendingProject]);
 
-  useEffect(() => {
-    if (orgError) {
-      console.error('Error fetching organization:', orgError);
-      toast({
-        title: 'Error',
-        description: 'Failed to load organization data',
-        variant: 'destructive',
-      });
-    }
-  }, [orgError, toast]);
-
-  const isLoading = isOrgLoading || isProjectsLoading;
+  const isLoading = isProjectsLoading;
 
   if (!orgId) {
     return (
