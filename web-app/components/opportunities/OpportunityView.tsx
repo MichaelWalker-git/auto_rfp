@@ -24,15 +24,20 @@ import { Separator } from '@/components/ui/separator';
 import { cn } from '@/lib/utils';
 
 import PermissionWrapper from '@/components/permission-wrapper';
+import { CancelPipelineButton } from '../cancel-pipeline-button';
 
 import { useOpportunity } from '@/lib/hooks/use-opportunities';
 import { useDeleteQuestionFile, useQuestionFiles } from '@/lib/hooks/use-question-file';
 import { useDownloadFromS3 } from '@/lib/hooks/use-file';
+import { useToast } from '@/components/ui/use-toast';
 
 import {
   QuestionFileUploadDialog,
 } from '@/app/organizations/[orgId]/projects/[projectId]/questions/components/question-extraction-dialog';
-import { useOrganization } from '@/context/organization-context';
+import { useCurrentOrganization } from '@/context/organization-context';
+import {
+  GenerateProposalModal
+} from '@/app/organizations/[orgId]/projects/[projectId]/questions/components/GenerateProposalModal';
 
 interface OpportunityViewProps {
   projectId: string;
@@ -74,12 +79,13 @@ function statusChip(status?: string) {
   if (s === 'TEXT_EXTRACTION_FAILED' || s === 'ERROR' || s === 'FAILED')
     return { label: 'Error', cls: 'bg-red-50 text-red-700 border-red-200' };
   if (s === 'DELETED') return { label: 'Deleted', cls: 'bg-gray-50 text-gray-700 border-gray-200' };
+  if (s === 'CANCELLED') return { label: 'Cancelled', cls: 'bg-gray-50 text-gray-700 border-gray-200' };
   return { label: 'Processing', cls: 'bg-slate-50 text-slate-700 border-slate-200' };
 }
 
 export function OpportunityView({ projectId, oppId, className }: OpportunityViewProps) {
 
-  const { currentOrganization } = useOrganization();
+  const { currentOrganization } = useCurrentOrganization();
   const { data: item, isLoading: oppLoading, error: oppError, refetch } = useOpportunity(
     projectId,
     oppId,
@@ -93,6 +99,7 @@ export function OpportunityView({ projectId, oppId, className }: OpportunityView
 
   const { downloadFile, error: downloadError } = useDownloadFromS3();
   const { trigger: deleteQuestionFile } = useDeleteQuestionFile();
+  const { toast } = useToast();
 
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
@@ -186,7 +193,8 @@ export function OpportunityView({ projectId, oppId, className }: OpportunityView
           </div>
 
           <div className="shrink-0 flex items-center gap-2">
-            <Button variant="outline" size="sm" onClick={() => refetch()} disabled={oppLoading}>
+            <GenerateProposalModal projectId={projectId}/>
+            <Button variant="outline" onClick={() => refetch()} disabled={oppLoading}>
               {oppLoading ? <Loader2 className="h-4 w-4 mr-2 animate-spin"/> : <RefreshCw className="h-4 w-4 mr-2"/>}
               Refresh
             </Button>
@@ -354,21 +362,31 @@ export function OpportunityView({ projectId, oppId, className }: OpportunityView
                             )}
                           </Button>
 
-                          <PermissionWrapper requiredPermission={'question:delete'}>
-                            <Button
-                              size="sm"
-                              variant="destructive"
-                              className="gap-2"
-                              disabled={!f.questionFileId || rowDeleting}
-                              onClick={() => void handleDelete({ questionFileId: f.questionFileId, name: f.name })}
-                            >
-                              {rowDeleting ? (
-                                <Loader2 className="h-4 w-4 animate-spin"/>
-                              ) : (
-                                <Trash2 className="h-4 w-4"/>
-                              )}
-                            </Button>
-                          </PermissionWrapper>
+                          {(f.status === 'PROCESSED' || f.status === 'FAILED') && 
+                            <PermissionWrapper requiredPermission={'question:delete'}>
+                              <Button
+                                size="sm"
+                                variant="destructive"
+                                className="gap-2"
+                                disabled={!f.questionFileId || rowDeleting}
+                                onClick={() => void handleDelete({
+                                  questionFileId: f.questionFileId,
+                                  name: f.name
+                                })}
+                              >
+                                {rowDeleting ? <Loader2 className="h-4 w-4 animate-spin"/> : <Trash2 className="h-4 w-4"/>}
+                              </Button>
+                            </PermissionWrapper>
+                          }
+                          {f.status !== 'PROCESSED' && f.status !== 'FAILED' && f.status !== 'DELETED' &&
+                            <CancelPipelineButton
+                              projectId={projectId}
+                              opportunityId={oppId}
+                              questionFileId={f.questionFileId}
+                              status={f.status}
+                              onMutate={refetchQ}
+                            />
+                          }
                         </div>
                       </div>
                     </div>

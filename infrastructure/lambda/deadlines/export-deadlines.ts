@@ -4,6 +4,7 @@ import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import { DynamoDBDocumentClient, QueryCommand } from '@aws-sdk/lib-dynamodb';
 
 import { PK_NAME, SK_NAME } from '../constants/common';
+import { withSentryLambda } from '../sentry-lambda';
 
 const ddb = DynamoDBDocumentClient.from(new DynamoDBClient({}), {
   marshallOptions: { removeUndefinedValues: true },
@@ -245,7 +246,7 @@ function deadlinesToEvents(
 // Handler
 // ---------------------------
 
-export const handler = async (
+const baseHandler = async (
   event: APIGatewayProxyEventV2,
 ): Promise<APIGatewayProxyResultV2> => {
   try {
@@ -315,3 +316,5 @@ export const handler = async (
     };
   }
 };
+
+export const handler = withSentryLambda(baseHandler);

@@ -1,12 +1,16 @@
 import { Pinecone } from '@pinecone-database/pinecone';
 import { requireEnv } from './env';
+import { PK_NAME, SK_NAME } from '../constants/common';
+import { DocumentItem } from '../schemas/document';
+import { getEmbedding } from './embeddings';
+import { nowIso } from './date';
 
 const PINECONE_API_KEY = requireEnv('PINECONE_API_KEY');
 const PINECONE_INDEX = requireEnv('PINECONE_INDEX');
-
+const DOCUMENTS_BUCKET = requireEnv('DOCUMENTS_BUCKET');
 let pineconeClient: Pinecone | null = null;
 
-function getPineconeClient(): Pinecone {
+export function getPineconeClient(): Pinecone {
   if (!pineconeClient) {
     pineconeClient = new Pinecone({
       apiKey: PINECONE_API_KEY,
@@ -15,45 +19,17 @@ function getPineconeClient(): Pinecone {
   return pineconeClient;
 }
 
-export interface PineconeMatch {
-  id: string;
-  score: number;
-  values: number[];
-  metadata?: {
-    documentId?: string;
-    chunkKey?: string;
-    chunkIndex?: number;
-    bucket?: string;
-    externalId?: string;
-    createdAt?: string;
-    [key: string]: any;
-  };
-}
-
 export interface PineconeHit {
-  _id?: string;
-  _score?: number;
-  _source?: {
+  id?: string;
+  score?: number;
+  source?: {
+    [PK_NAME]: string;
+    [SK_NAME]: string;
+    externalId?: string;
     documentId?: string;
     chunkKey?: string;
     chunkIndex?: number;
     [key: string]: any;
-  };
-}
-
-/**
- * Convert Pinecone match to OpenSearch-like hit format for compatibility
- */
-function matchToHit(match: any): PineconeHit {
-  return {
-    _id: match.id,
-    _score: match.score ?? 0,
-    _source: {
-      documentId: match.metadata?.documentId,
-      chunkKey: match.metadata?.chunkKey,
-      chunkIndex: match.metadata?.chunkIndex,
-      ...match.metadata,
-    },
   };
 }
 
@@ -64,6 +40,7 @@ export async function semanticSearchChunks(
   orgId: string,
   embedding: number[],
   k: number,
+  type: string = 'chunk'
 ): Promise<PineconeHit[]> {
   const client = getPineconeClient();
   const index = client.Index(PINECONE_INDEX);
@@ -74,9 +51,12 @@ export async function semanticSearchChunks(
       topK: k,
       includeMetadata: true,
       includeValues: false,
+      filter: {
+        type: { $eq: type },
+      },
     });
 
-    return (results.matches || []).map(matchToHit);
+    return (results.matches || []);
   } catch (err) {
     console.error('Pinecone search error:', err);
     throw new Error(
@@ -88,18 +68,16 @@ export async function semanticSearchChunks(
 /**
  * Index a document chunk to Pinecone
  */
-export async function indexDocToPinecone(
+export async function indexChunkToPinecone(
   orgId: string,
-  documentId: string,
+  document: DocumentItem,
   chunkKey: string,
-  bucket: string,
-  embedding: number[],
-  externalId: string,
+  text: string
 ): Promise<string> {
   const client = getPineconeClient();
   const index = client.Index(PINECONE_INDEX);
-
-  const id = externalId || chunkKey;
+  const id = `${document[SK_NAME]}#${chunkKey}`;
+  const embedding = await getEmbedding(text);
 
   try {
     await index.namespace(orgId).upsert([
@@ -107,12 +85,13 @@ export async function indexDocToPinecone(
         id,
         values: embedding,
         metadata: {
+          id,
           type: 'chunk',
-          documentId,
+          [PK_NAME]: document[PK_NAME],
+          [SK_NAME]: document[SK_NAME],
           chunkKey,
-          bucket,
-          externalId,
-          createdAt: new Date().toISOString(),
+          bucket: DOCUMENTS_BUCKET,
+          createdAt: nowIso(),
         },
       },
     ]);
@@ -130,7 +109,7 @@ export async function indexDocToPinecone(
 /**
  * Delete document chunks from Pinecone by documentId
  */
-export async function deleteFromPinecone(orgId: string, documentId: string): Promise<void> {
+export async function deleteFromPinecone(orgId: string, sk: string): Promise<void> {
   const client = getPineconeClient();
   const index = client.Index(PINECONE_INDEX);
 
@@ -141,14 +120,14 @@ export async function deleteFromPinecone(orgId: string, documentId: string): Pro
       topK: 10000, // get as many as possible
       includeMetadata: true,
       filter: {
-        documentId: { $eq: documentId },
+        [SK_NAME]: { $eq:  sk},
       },
     });
 
     const idsToDelete = (results.matches || []).map((match) => match.id);
 
     if (idsToDelete.length === 0) {
-      console.log(`Pinecone: no docs found for documentId=${documentId} (nothing to delete)`);
+      console.log(`Pinecone: no docs found for sk=${sk} (nothing to delete)`);
       return;
     }
 
@@ -159,7 +138,7 @@ export async function deleteFromPinecone(orgId: string, documentId: string): Pro
       await index.namespace(orgId).deleteMany(batch);
     }
 
-    console.log(`Pinecone: deleted ${idsToDelete.length} docs for documentId=${documentId}`);
+    console.log(`Pinecone: deleted ${idsToDelete.length} docs for ${SK_NAME}=${sk}`);
   } catch (err) {
     console.error('Pinecone delete error:', err);
     throw new Error(

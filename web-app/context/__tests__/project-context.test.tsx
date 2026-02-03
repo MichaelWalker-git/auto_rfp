@@ -16,7 +16,7 @@ jest.mock('next/navigation', () => ({
 
 // Mock organization context
 jest.mock('@/context/organization-context', () => ({
-  useOrganization: () => ({
+  useCurrentOrganization: () => ({
     currentOrganization: { id: 'org-123', name: 'Test Org' },
   }),
 }));

@@ -8,6 +8,7 @@ export const QuestionFileStatusSchema = z.enum([
   'PROCESSED',
   'FAILED',
   'DELETED',
+  'CANCELLED',
 ]);
 
 export type QuestionFileStatus = z.infer<typeof QuestionFileStatusSchema>;
@@ -58,7 +59,7 @@ export const QuestionFileItemSchema = z
     questionFileId: UuidSchema,
     status: QuestionFileStatusSchema.default('UPLOADED'),
     fileKey: z.string().min(1).optional(),
-    fileName: z.string().min(1).optional(),
+    originalFileName: z.string().min(1).optional(),
     mimeType: z.string().min(1).optional(),
     source: z.string().min(1).optional(),
     errorMessage: z.string().min(1).optional(),
@@ -69,6 +70,7 @@ export const QuestionFileItemSchema = z
     taskToken: z.string().optional(),
     createdAt: IsoDateStringSchema,
     updatedAt: IsoDateStringSchema.optional(),
+    executionArn: z.string().optional(),
   })
   .passthrough();
 

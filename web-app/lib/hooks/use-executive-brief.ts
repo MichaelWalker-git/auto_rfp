@@ -3,6 +3,7 @@
 import useSWRMutation from 'swr/mutation';
 import { env } from '@/lib/env';
 import { authFetcher } from '@/lib/auth/auth-fetcher';
+import { breadcrumbs } from '@/lib/sentry';
 
 import type { ExecutiveBriefItem, } from '@auto-rfp/shared';
 
@@ -133,49 +134,76 @@ const endpoints = {
 export function useInitExecutiveBrief(orgId?: string) {
   return useSWRMutation<InitExecutiveBriefResponse, Error, string, InitExecutiveBriefRequest>(
     endpoints.init(orgId),
-    (url, { arg }) => postJson<InitExecutiveBriefResponse>(url, arg),
+    async (url, { arg }) => {
+      breadcrumbs.briefGenerationStarted(arg.projectId);
+      return postJson<InitExecutiveBriefResponse>(url, arg);
+    },
   );
 }
 
 export function useGenerateExecutiveBriefSummary(orgId?: string) {
   return useSWRMutation<GenerateSectionResponse, Error, string, GenerateSectionRequest>(
     endpoints.summary(orgId),
-    (url, { arg }) => postJson<GenerateSectionResponse>(url, arg),
+    async (url, { arg }) => {
+      const result = await postJson<GenerateSectionResponse>(url, arg);
+      breadcrumbs.briefSectionCompleted(arg.executiveBriefId, 'summary');
+      return result;
+    },
   );
 }
 
 export function useGenerateExecutiveBriefDeadlines(orgId?: string) {
   return useSWRMutation<GenerateSectionResponse, Error, string, GenerateSectionRequest>(
     endpoints.deadlines(orgId),
-    (url, { arg }) => postJson<GenerateSectionResponse>(url, arg),
+    async (url, { arg }) => {
+      const result = await postJson<GenerateSectionResponse>(url, arg);
+      breadcrumbs.briefSectionCompleted(arg.executiveBriefId, 'deadlines');
+      return result;
+    },
   );
 }
 
 export function useGenerateExecutiveBriefContacts(orgId?: string) {
   return useSWRMutation<GenerateSectionResponse, Error, string, GenerateSectionRequest>(
     endpoints.contacts(orgId),
-    (url, { arg }) => postJson<GenerateSectionResponse>(url, arg),
+    async (url, { arg }) => {
+      const result = await postJson<GenerateSectionResponse>(url, arg);
+      breadcrumbs.briefSectionCompleted(arg.executiveBriefId, 'contacts');
+      return result;
+    },
   );
 }
 
 export function useGenerateExecutiveBriefRequirements(orgId?: string) {
   return useSWRMutation<GenerateSectionResponse, Error, string, GenerateSectionRequest>(
     endpoints.requirements(orgId),
-    (url, { arg }) => postJson<GenerateSectionResponse>(url, arg),
+    async (url, { arg }) => {
+      const result = await postJson<GenerateSectionResponse>(url, arg);
+      breadcrumbs.briefSectionCompleted(arg.executiveBriefId, 'requirements');
+      return result;
+    },
   );
 }
 
 export function useGenerateExecutiveBriefRisks(orgId?: string) {
   return useSWRMutation<GenerateSectionResponse, Error, string, GenerateSectionRequest>(
     endpoints.risks(orgId),
-    (url, { arg }) => postJson<GenerateSectionResponse>(url, arg),
+    async (url, { arg }) => {
+      const result = await postJson<GenerateSectionResponse>(url, arg);
+      breadcrumbs.briefSectionCompleted(arg.executiveBriefId, 'risks');
+      return result;
+    },
   );
 }
 
 export function useGenerateExecutiveBriefScoring(orgId?: string) {
   return useSWRMutation<GenerateSectionResponse, Error, string, GenerateSectionRequest>(
     endpoints.scoring(orgId),
-    (url, { arg }) => postJson<GenerateSectionResponse>(url, arg),
+    async (url, { arg }) => {
+      const result = await postJson<GenerateSectionResponse>(url, arg);
+      breadcrumbs.briefSectionCompleted(arg.executiveBriefId, 'scoring');
+      return result;
+    },
   );
 }
 

@@ -598,6 +598,136 @@ Tests cover these Sentry-reported issues:
 
 ---
 
+## CI/CD Best Practices & Lessons Learned
+
+### Test Synchronization with Code Changes
+
+**When modifying Lambda handlers or hooks:**
+- If you add/remove/rename required parameters, update ALL corresponding test files
+- If you rename exported functions, search for mocks using the old name
+- Run tests locally before pushing: `cd infrastructure && npm test` or `cd web-app && npm test`
+
+**Example mistake:**
+```typescript
+// Handler changed to require knowledgeBaseId
+if (!orgId || !documentId || !chunkKey || !knowledgeBaseId) throw new Error(...)
+
+// But tests still had:
+const event = { orgId: 'org-123', documentId: 'doc-123', chunkKey: '...' }; // Missing knowledgeBaseId!
+```
+
+### React Hooks Rules
+
+**All hooks MUST be called before any conditional returns:**
+```typescript
+// BAD - hooks after early return
+function Component({ id }) {
+  const { data } = useQuery();
+  if (!data) return <Loading />;  // Early return
+  const [state, setState] = useState(''); // ❌ Hook after conditional!
+  // ...
+}
+
+// GOOD - all hooks first
+function Component({ id }) {
+  const { data } = useQuery();
+  const [state, setState] = useState(''); // ✅ All hooks at top
+
+  if (!data) return <Loading />;  // Early return is fine after hooks
+  // ...
+}
+```
+
+### API Response Handling Consistency
+
+**All SWR fetchers should extract the `data` field consistently:**
+```typescript
+// Our API returns: { data: { items: [...] } }
+
+// BAD - returns full response
+async function fetcher(url: string) {
+  const res = await authFetcher(url);
+  return res.json(); // Returns { data: { items: [...] } }
+}
+
+// GOOD - extracts data field
+async function fetcher(url: string) {
+  const res = await authFetcher(url);
+  const json = await res.json();
+  return json.data; // Returns { items: [...] }
+}
+```
+
+### Package Manager Consistency
+
+**Each directory uses a specific package manager - don't mix them:**
+- `web-app/` → pnpm (pnpm-lock.yaml)
+- `shared/` → pnpm (pnpm-lock.yaml)
+- `infrastructure/` → npm (package-lock.json)
+
+**Never add the wrong lock file to a directory** - CDK's NodejsFunction fails with "Multiple package lock files found" error.
+
+### GitHub Actions: Artifacts vs Cache
+
+**Use artifacts (not cache) for passing build outputs between jobs:**
+
+```yaml
+# BAD - Cache has propagation delays, unreliable between jobs
+- uses: actions/cache@v4
+  with:
+    path: web-app/.next
+    key: build-${{ github.sha }}
+
+# GOOD - Artifacts are immediately available after upload
+- uses: actions/upload-artifact@v4
+  with:
+    name: build-artifacts
+    path: build-artifacts.tar.gz
+```
+
+### GitHub Actions: Next.js Build Artifacts
+
+**Next.js creates files with special characters (colons) that artifacts reject:**
+```
+Error: Invalid character: node:inspector
+```
+
+**Solution: Use tar archive:**
+```yaml
+# Build job
+- name: Create build archive
+  run: tar -czf build-artifacts.tar.gz web-app/.next shared/dist
+
+- uses: actions/upload-artifact@v4
+  with:
+    name: build-artifacts
+    path: build-artifacts.tar.gz
+
+# Test job
+- uses: actions/download-artifact@v4
+  with:
+    name: build-artifacts
+
+- name: Extract build
+  run: tar -xzf build-artifacts.tar.gz
+```
+
+### Mock Function Names Must Match Imports
+
+**When mocking modules, use the exact exported function name:**
+```typescript
+// If the code imports:
+import { useCurrentOrganization } from '@/context/organization-context';
+
+// The mock MUST use the same name:
+jest.mock('@/context/organization-context', () => ({
+  useCurrentOrganization: () => ({ ... }), // ✅ Correct name
+  // NOT: useOrganization: () => ({ ... }) // ❌ Wrong name
+}));
+```
+
+---
+
 ## Enhancement Tracking
 
 See `task.md` in the repository root for:

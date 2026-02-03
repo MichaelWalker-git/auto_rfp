@@ -1,10 +1,10 @@
 'use client';
 
 import SamGovOpportunitySearchPage from '@/components/opportunities/samgov-opportunity-search';
-import { useOrganization } from '@/context/organization-context';
+import { useCurrentOrganization } from '@/context/organization-context';
 
 const OpportunitiesPage = () => {
-  const { currentOrganization } = useOrganization()
+  const { currentOrganization } = useCurrentOrganization()
   return currentOrganization?.id ? <SamGovOpportunitySearchPage orgId={currentOrganization.id}/> : null;
 };
 

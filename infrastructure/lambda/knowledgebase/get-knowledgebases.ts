@@ -79,9 +79,8 @@ export async function listKnowledgeBasesForOrg(orgId: string): Promise<Knowledge
       | undefined;
   } while (ExclusiveStartKey);
 
-  // For each KB, compute documents count (PK = DOCUMENT_PK, SK begins_with "KB#<kbId>")
   return await Promise.all(
-    items.map(async (item) => {
+    items.map(async (item: KnowledgeBaseItem) => {
       const sk = item[SK_NAME] as string;
       const kbId = safeSplitAt(sk, '#', 1);
 
@@ -93,6 +92,7 @@ export async function listKnowledgeBasesForOrg(orgId: string): Promise<Knowledge
         description: item.description,
         createdAt: item.createdAt,
         updatedAt: item.updatedAt,
+        type: item.type,
         _count: {
           questions: item._count?.questions ?? 0,
           documents: documentsCount,
@@ -102,14 +102,7 @@ export async function listKnowledgeBasesForOrg(orgId: string): Promise<Knowledge
   );
 }
 
-// --- Helper: count documents for a KB ---
-//
-// Document items:
-//   PK = DOCUMENT_PK
-//   SK starts with `KB#${knowledgeBaseId}`
-async function getDocumentCountForKnowledgeBase(
-  knowledgeBaseId: string,
-): Promise<number> {
+async function getDocumentCountForKnowledgeBase(knowledgeBaseId: string): Promise<number> {
   const skPrefix = `KB#${knowledgeBaseId}`;
   let count = 0;
   let ExclusiveStartKey: Record<string, any> | undefined = undefined;

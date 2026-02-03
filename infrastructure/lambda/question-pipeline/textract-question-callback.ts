@@ -97,6 +97,7 @@ export const baseHandler = async (
         skFound = item[SK_NAME] as string | undefined;
       } else {
         console.warn(`No question_file found ending with #${questionFileId}`);
+        continue;
       }
     } catch (err) {
       console.error('Error querying question_file for taskToken:', err);

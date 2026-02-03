@@ -15,13 +15,14 @@ export async function updateQuestionFile(
   oppId: string,
   questionFileId: string,
   questionFile: Partial<QuestionFileItem>
-) {
-  const { status, textFileKey, jobId, taskToken, totalQuestions } = questionFile;
+): Promise<{ success: boolean; deleted?: boolean }> {
+  const { status, textFileKey, jobId, taskToken, totalQuestions, errorMessage, executionArn } = questionFile;
   const sk = buildQuestionFileSK(projectId, oppId, questionFileId);
 
   const fields: string[] = ['#updatedAt = :now'];
   const names: Record<string, string> = {
-    '#updatedAt': 'updatedAt'
+    '#updatedAt': 'updatedAt',
+    '#pk': PK_NAME, // For condition expression
   };
   const values: Record<string, any> = {
     ':now': nowIso()
@@ -33,19 +34,19 @@ export async function updateQuestionFile(
     values[':status'] = status;
   }
 
-  if (textFileKey) {
+  if (textFileKey !== undefined) {
     fields.push('#textFileKey = :key');
     names['#textFileKey'] = 'textFileKey';
     values[':key'] = textFileKey;
   }
 
-  if (jobId) {
+  if (jobId !== undefined) {
     fields.push('#jobId = :jobId');
     names['#jobId'] = 'jobId';
     values[':jobId'] = jobId;
   }
 
-  if (taskToken) {
+  if (taskToken !== undefined) {
     fields.push('#taskToken = :taskToken');
     names['#taskToken'] = 'taskToken';
     values[':taskToken'] = taskToken;
@@ -57,18 +58,41 @@ export async function updateQuestionFile(
     values[':totalQuestions'] = totalQuestions;
   }
 
-  await docClient.send(
-    new UpdateCommand({
-      TableName: DB_TABLE_NAME,
-      Key: {
-        [PK_NAME]: QUESTION_FILE_PK,
-        [SK_NAME]: sk
-      },
-      UpdateExpression: 'SET ' + fields.join(', '),
-      ExpressionAttributeNames: names,
-      ExpressionAttributeValues: values
-    })
-  );
+  if (errorMessage !== undefined) {
+    fields.push('#errorMessage = :errorMessage');
+    names['#errorMessage'] = 'errorMessage';
+    values[':errorMessage'] = errorMessage;
+  }
+
+  if (executionArn !== undefined) {
+    fields.push('#executionArn = :executionArn');
+    names['#executionArn'] = 'executionArn';
+    values[':executionArn'] = executionArn;
+  }
+
+  try {
+    await docClient.send(
+      new UpdateCommand({
+        TableName: DB_TABLE_NAME,
+        Key: {
+          [PK_NAME]: QUESTION_FILE_PK,
+          [SK_NAME]: sk
+        },
+        UpdateExpression: 'SET ' + fields.join(', '),
+        ExpressionAttributeNames: names,
+        ExpressionAttributeValues: values,
+        ConditionExpression: 'attribute_exists(#pk)', // Ensures item exists
+      })
+    );
+
+    return { success: true };
+  } catch (err: any) {
+    if (err.name === 'ConditionalCheckFailedException') {
+      console.log(`Question file not found (likely deleted): ${questionFileId}`);
+      return { success: false, deleted: true };
+    }
+    throw err;
+  }
 }
 
 export async function getQuestionFileItem(projectId: string, oppId: string, questionFileId: string): Promise<QuestionFileItem | null> {
@@ -194,3 +218,37 @@ export const listQuestionFilesByOpportunity = async (args: {
     nextToken: (res.LastEvaluatedKey ?? null) as Record<string, any> | null,
   };
 };
+
+export const deleteQuestionFile = async (args: {
+  projectId: string;
+  oppId: string;
+  questionFileId: string;
+}) => {
+  const { DeleteCommand } = await import('@aws-sdk/lib-dynamodb');
+
+  await docClient.send(
+    new DeleteCommand({
+      TableName: DB_TABLE_NAME,
+      Key: {
+        [PK_NAME]: QUESTION_FILE_PK,
+        [SK_NAME]: buildQuestionFileSK(args.projectId, args.oppId, args.questionFileId),
+      },
+    }),
+  );
+
+  return { ok: true };
+};
+
+export async function checkQuestionFileCancelled(
+  projectId: string,
+  opportunityId: string,
+  questionFileId: string,
+): Promise<boolean> {
+  const qf = await getQuestionFileItem(projectId, opportunityId, questionFileId);
+
+  if (!qf) {
+    return true;
+  }
+
+  return qf.status === 'CANCELLED';
+}

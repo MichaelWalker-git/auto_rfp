@@ -2,7 +2,6 @@
 
 import * as React from 'react';
 import { Card, CardContent } from '@/components/ui/card';
-import { Search } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
 import { useSearchParams } from 'next/navigation';
 
@@ -16,6 +15,7 @@ import { SamGovOpportunityList } from './samgov-opportunity-list';
 import { useImportSolicitation } from '@/lib/hooks/use-import-solicitation';
 import { ImportSolicitationDialog } from '@/components/samgov/import-solicitation-dialog';
 import { useProjectContext } from '@/context/project-context';
+import { ListingPageLayout } from '@/components/layout/ListingPageLayout';
 
 type Props = { orgId: string };
 
@@ -142,64 +142,61 @@ export default function SamGovOpportunitySearchPage({ orgId }: Props) {
   };
 
   return (
-    <div className="mx-auto w-full max-w-5xl px-4 py-6">
-      <div className="mb-5 flex items-start justify-between gap-4">
-        <div className="min-w-0">
-          <h1 className="flex items-center gap-2 text-2xl font-semibold tracking-tight">
-            <Search className="h-6 w-6 text-primary"/>
-            Opportunities
-          </h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Search SAM.gov and import solicitations into your pipeline.
-          </p>
-        </div>
-      </div>
-
-      <Card className="rounded-2xl">
-        <CardContent className="p-4 md:p-5">
-          <SamGovFilters
-            orgId={orgId}
-            isSearching={isLoading}
-            value={filters}
-            onChange={setFilters}
-            activeFilterCount={activeFilterCount}
-            onSearch={onSearch}
-          />
-        </CardContent>
-      </Card>
-
-      {data && (
-        <div className="mt-5 flex items-center justify-between rounded-xl border bg-muted/30 px-4 py-3">
-          <div className="text-sm">
-            {data.totalRecords === 0 ? (
-              <span className="text-muted-foreground">No opportunities found.</span>
-            ) : (
-              <>
-                Showing{' '}
-                <span className="font-semibold">
-                  {Math.min(data.totalRecords, (data.offset ?? 0) + 1)}–
-                  {Math.min(data.totalRecords, (data.offset ?? 0) + (data.opportunities?.length ?? 0))}
-                </span>{' '}
-                of <span className="font-semibold">{data?.totalRecords?.toLocaleString()}</span>
-              </>
-            )}
-          </div>
-          {data.totalRecords > (data.limit ?? 25) && (
-            <div className="text-sm text-muted-foreground">
-              Page {Math.floor((data.offset ?? 0) / (data.limit ?? 25)) + 1} /{' '}
-              {Math.max(1, Math.ceil(data.totalRecords / (data.limit ?? 25)))}
+    <>
+      <div className="mx-auto w-full max-w-6xl px-4 py-6">
+        <ListingPageLayout
+          title="Search Opportunities"
+          description="Search SAM.gov and import solicitations into your pipeline."
+          onReload={async () => {
+            if (data) {
+              const req = filtersToRequest(filters, { limit: data.limit ?? 25, offset: 0 });
+              await trigger(req);
+            }
+          }}
+          isReloading={isLoading}
+          filters={
+            <SamGovFilters
+              orgId={orgId}
+              isSearching={isLoading}
+              value={filters}
+              onChange={setFilters}
+              activeFilterCount={activeFilterCount}
+              onSearch={onSearch}
+            />
+          }
+          isEmpty={!data?.opportunities?.length}
+        >
+          {data && (
+            <div className="flex justify-between rounded-xl border bg-muted/30 px-4 py-3 mb-2">
+              <div className="text-sm">
+                {data.totalRecords === 0 ? (
+                  <span className="text-muted-foreground">No opportunities found.</span>
+                ) : (
+                  <>
+                    <span className="font-semibold">
+                      {Math.min(data.totalRecords, (data.offset ?? 0) + 1)}–
+                      {Math.min(data.totalRecords, (data.offset ?? 0) + (data.opportunities?.length ?? 0))}
+                    </span>{' '}
+                    of <span className="font-semibold">{data?.totalRecords?.toLocaleString()}</span>
+                  </>
+                )}
+              </div>
+              {data.totalRecords > (data.limit ?? 25) && (
+                <div className="text-sm text-muted-foreground">
+                  Page {Math.floor((data.offset ?? 0) / (data.limit ?? 25)) + 1} /{' '}
+                  {Math.max(1, Math.ceil(data.totalRecords / (data.limit ?? 25)))}
+                </div>
+              )}
             </div>
           )}
-        </div>
-      )}
 
-      <div className="mt-4">
-        <SamGovOpportunityList
-          data={data as any}
-          isLoading={isLoading}
-          onPage={onPage}
-          onImportSolicitation={onImportSolicitation}
-        />
+          <SamGovOpportunityList
+            data={data as any}
+            isLoading={isLoading}
+            onPage={onPage}
+            onImportSolicitation={onImportSolicitation}
+          />
+        </ListingPageLayout>
       </div>
 
       <ImportSolicitationDialog
@@ -211,6 +208,6 @@ export default function SamGovOpportunitySearchPage({ orgId }: Props) {
         isImporting={isImporting}
         onImport={doImport}
       />
-    </div>
+    </>
   );
 }

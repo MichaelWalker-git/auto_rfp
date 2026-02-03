@@ -290,3 +290,24 @@ export function useSamGovDescription() {
     },
   );
 }
+
+export type DeleteOpportunityResponse = {
+  ok: true;
+  message: string;
+};
+
+export function useDeleteOpportunity() {
+  return useSWRMutation<DeleteOpportunityResponse, ErrorShape, string, { projectId: string; oppId: string; orgId: string }>(
+    `${BASE_URL}/delete-opportunity`,
+    async (url, { arg }) => {
+      const { projectId, oppId, orgId } = arg;
+      const deleteUrl = `${url}?projectId=${encodeURIComponent(projectId)}&oppId=${encodeURIComponent(oppId)}&orgId=${encodeURIComponent(orgId)}`;
+
+      const res = await authFetcher(deleteUrl, {
+        method: 'DELETE',
+      });
+
+      return readAuthJson<DeleteOpportunityResponse>(res, 'Failed to delete opportunity');
+    },
+  );
+}

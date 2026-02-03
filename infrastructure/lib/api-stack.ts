@@ -50,6 +50,8 @@ export class ApiStack extends cdk.Stack {
   private readonly deadlinesApi: ApiNestedStack;
   private readonly promptApi: ApiNestedStack;
   private readonly opportunityApi: ApiNestedStack;
+  private readonly exportApi: ApiNestedStack;
+  private readonly contentLibraryApi: ApiNestedStack;
 
   constructor(scope: Construct, id: string, props: ApiStackProps) {
     super(scope, id, props);
@@ -151,9 +153,11 @@ export class ApiStack extends cdk.Stack {
     this.samgovApi = createNestedStack('samgov');
     this.promptApi = createNestedStack('prompt');
     this.opportunityApi = createNestedStack('opportunity');
+    this.exportApi = createNestedStack('export');
+    this.contentLibraryApi = createNestedStack('content-library');
 
     // Routes
-    this.addRoutes({ samGovApiKeySecret, execBriefQueue, linearApiKeySecret });
+    this.addRoutes({ samGovApiKeySecret, execBriefQueue, linearApiKeySecret, questionPipelineStateMachineArn, });
 
     new cdk.CfnOutput(this, 'ApiBaseUrl', {
       value: this.api.url,
@@ -352,6 +356,22 @@ export class ApiStack extends cdk.Stack {
       }),
     );
 
+    const questionStateMachineArnParts = cdk.Arn.split(
+      questionPipelineStateMachineArn,
+      cdk.ArnFormat.COLON_RESOURCE_NAME,
+    );
+
+    // Manually construct the execution ARN pattern
+    const questionExecutionArnPattern = `arn:aws:states:${this.region}:${this.account}:execution:${questionStateMachineArnParts.resourceName}:*`;
+
+    role.addToPrincipalPolicy(
+      new iam.PolicyStatement({
+        actions: ['states:StopExecution'],
+        resources: [questionExecutionArnPattern],
+        effect: iam.Effect.ALLOW,
+      }),
+    );
+
     mainTable.grantReadWriteData(role);
     documentsBucket.grantReadWrite(role);
 
@@ -518,8 +538,9 @@ export class ApiStack extends cdk.Stack {
     samGovApiKeySecret: secretsmanager.ISecret,
     execBriefQueue: any,
     linearApiKeySecret: secretsmanager.ISecret,
+    questionPipelineStateMachineArn: string, 
   }) {
-    const { samGovApiKeySecret, execBriefQueue, linearApiKeySecret } = args;
+    const { samGovApiKeySecret, execBriefQueue, linearApiKeySecret, questionPipelineStateMachineArn } = args;
 
     // Prompt
     this.promptApi.addRoute('save-prompt/{scope}', 'POST', 'lambda/prompt/save-prompt.ts');
@@ -592,6 +613,11 @@ export class ApiStack extends cdk.Stack {
     this.questionFileApi.addRoute('/get-question-file', 'GET', 'lambda/question-file/get-question-file.ts');
     this.questionFileApi.addRoute('/get-question-files', 'GET', 'lambda/question-file/get-question-files.ts');
     this.questionFileApi.addRoute('/delete-question-file', 'DELETE', 'lambda/question-file/delete-question-file.ts');
+    this.questionFileApi.addRoute('/stop-question-pipeline', 'POST', 'lambda/question-file/stop-question-pipeline.ts',
+      {
+        QUESTION_PIPELINE_STATE_MACHINE_ARN: questionPipelineStateMachineArn,
+      }
+    );
 
     // KB
     this.knowledgeBaseApi.addRoute('/create-knowledgebase', 'POST', 'lambda/knowledgebase/create-knowledgebase.ts');
@@ -641,5 +667,20 @@ export class ApiStack extends cdk.Stack {
     this.opportunityApi.addRoute('/get-opportunities', 'GET', 'lambda/opportunity/get-opportunities.ts');
     this.opportunityApi.addRoute('/create-opportunity', 'POST', 'lambda/opportunity/create-opportunity.ts');
     this.opportunityApi.addRoute('/get-opportunity', 'GET', 'lambda/opportunity/get-opportunity.ts');
+
+    // Export
+    this.exportApi.addRoute('/generate-word', 'POST', 'lambda/export/generate-word.ts');
+
+    // Content Library
+    this.contentLibraryApi.addRoute('/get-content-libraries', 'GET', 'lambda/content-library/get-content-libraries.ts');
+    this.contentLibraryApi.addRoute('/create-content-library', 'POST', 'lambda/content-library/create-content-library.ts');
+    this.contentLibraryApi.addRoute('/get-content-library/{id}', 'GET', 'lambda/content-library/get-item.ts');
+    this.contentLibraryApi.addRoute('/edit-content-library/{id}', 'PATCH', 'lambda/content-library/edit.ts');
+    this.contentLibraryApi.addRoute('/delete-content-library/{id}', 'DELETE', 'lambda/content-library/delete-content-library.ts');
+    this.contentLibraryApi.addRoute('/approve/{id}', 'POST', 'lambda/content-library/approve-content.ts');
+    this.contentLibraryApi.addRoute('/deprecate/{id}', 'POST', 'lambda/content-library/deprecate.ts');
+    this.contentLibraryApi.addRoute('/track-usage/{id}', 'POST', 'lambda/content-library/track-usage.ts');
+    this.contentLibraryApi.addRoute('/categories', 'GET', 'lambda/content-library/categories.ts');
+    this.contentLibraryApi.addRoute('/tags', 'GET', 'lambda/content-library/tags.ts');
   }
 }

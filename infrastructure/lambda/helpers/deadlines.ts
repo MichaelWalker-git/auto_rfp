@@ -6,6 +6,7 @@ import { nowIso } from './date';
 import { DEADLINE_PK } from '../constants/deadline';
 import { PutCommand, } from '@aws-sdk/lib-dynamodb';
 import { safeSplitAt } from './safe-string';
+import type { Deadline, DeadlinesSection } from '@auto-rfp/shared';
 
 
 const DB_TABLE_NAME = requireEnv('DB_TABLE_NAME');
@@ -16,7 +17,7 @@ const DB_TABLE_NAME = requireEnv('DB_TABLE_NAME');
 export async function storeDeadlinesSeparately(
   executiveBriefId: string,
   briefProjectId: string,
-  deadlinesData: any, // TODO use type
+  deadlinesData: DeadlinesSection,
 ): Promise<void> {
   try {
     const project = await getProjectById(briefProjectId);
@@ -38,13 +39,13 @@ export async function storeDeadlinesSeparately(
     const projectName = project?.name;
     const sortKey = `${orgId}#${briefProjectId}`;
 
-    const deadlineData: any = {
+    const deadlineData: Partial<DeadlinesSection> = {
       hasSubmissionDeadline: deadlinesData.hasSubmissionDeadline,
       warnings: deadlinesData.warnings || [],
     };
 
     if (deadlinesData.deadlines && deadlinesData.deadlines.length > 0) {
-      deadlineData.deadlines = deadlinesData.deadlines.map((deadline: any) => ({
+      deadlineData.deadlines = deadlinesData.deadlines.map((deadline: Deadline) => ({
         type: deadline.type,
         label: deadline.label,
         dateTimeIso: deadline.dateTimeIso,

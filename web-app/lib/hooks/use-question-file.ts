@@ -52,35 +52,31 @@ export function useQuestionFilesStatus(projectId: string, oppId: string, questio
       const promises = questionFileIds.map(async (qfId) => {
         const url = `${BASE}/get-question-file?projectId=${encodeURIComponent(projectId)}&questionFileId=${encodeURIComponent(qfId)}&oppId=${encodeURIComponent(oppId)}`;
 
-        const res = await authFetcher(url);
-        if (!res.ok) {
-          const text = await res.text().catch(() => '');
-          const err = new Error(text || 'Failed to load question file status') as Error & { status?: number };
-          err.status = res.status;
-          throw err;
-        }
+        try {
+          const res = await authFetcher(url);
+          if (!res.ok) {
+            // If file not found (404), return a deleted status so the UI can handle it
+            if (res.status === 404) {
+              return { questionFileId: qfId, data: { status: 'DELETED' } };
+            }
+            const text = await res.text().catch(() => '');
+            const err = new Error(text || 'Failed to load question file status') as Error & { status?: number };
+            err.status = res.status;
+            throw err;
+          }
 
-        const data = await res.json();
-        return { questionFileId: qfId, data };
+          const data = await res.json();
+          return { questionFileId: qfId, data };
+        } catch (error) {
+          console.error(`Failed to fetch status for ${qfId}:`, error);
+          return { questionFileId: qfId, data: { status: 'DELETED' } };
+        }
       });
 
       return Promise.all(promises);
     },
     { refreshInterval: 2000, revalidateOnFocus: false },
   );
-}
-
-export interface QuestionFile {
-  questionFileId: string;
-  projectId: string;
-  fileKey: string;
-  textFileKey?: string | null;
-  status: 'uploaded' | 'processing' | 'text_ready' | 'questions_extracted' | 'error';
-  originalFileName?: string | null;
-  mimeType?: string | null;
-  sourceDocumentId?: string | null;
-  createdAt: string;
-  updatedAt: string;
 }
 
 export interface CreateQuestionFileArgs {
@@ -93,7 +89,7 @@ export interface CreateQuestionFileArgs {
 }
 
 export function useCreateQuestionFile(projectId: string, orgId?: string) {
-  return useSWRMutation<QuestionFile, any, string, CreateQuestionFileArgs>(
+  return useSWRMutation<QuestionFileItem, any, string, CreateQuestionFileArgs>(
     `${BASE}/create-question-file?projectId=${encodeURIComponent(projectId)}${orgId ? `&orgId=${encodeURIComponent(orgId)}` : ''}`,
     async (url, { arg }) => {
       const res = await authFetcher(url, {
@@ -116,7 +112,7 @@ export function useCreateQuestionFile(projectId: string, orgId?: string) {
         throw error;
       }
 
-      return res.json() as Promise<QuestionFile>;
+      return res.json() as Promise<QuestionFileItem>;
     },
   );
 }
@@ -216,5 +212,50 @@ export function useDeleteQuestionFile() {
   return useSWRMutation<DeleteQuestionFileResponse, any, string, DeleteQuestionFilePayload>(
     `${BASE}/delete-question-file`,
     deleteQuestionFileFetcher,
+  );
+}
+
+type StopQuestionPipelinePayload = {
+  projectId: string;
+  opportunityId: string;
+  questionFileId: string;
+};
+
+type StopQuestionPipelineResponse = {
+  ok: boolean;
+  message: string;
+};
+
+export async function stopQuestionPipelineFetcher(
+  url: string,
+  { arg }: { arg: StopQuestionPipelinePayload },
+): Promise<StopQuestionPipelineResponse> {
+  const res = await authFetcher(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(arg),
+  });
+
+  if (!res.ok) {
+    const text = await res.text().catch(() => '');
+    const err = new Error(text || 'Failed to stop pipeline') as Error & { status?: number };
+    (err as any).status = res.status;
+    throw err;
+  }
+
+  const raw = await res.text().catch(() => '');
+  if (!raw) return { ok: true, message: 'Pipeline stopped' };
+
+  try {
+    return JSON.parse(raw) as StopQuestionPipelineResponse;
+  } catch {
+    return { ok: true, message: 'Pipeline stopped' };
+  }
+}
+
+export function useStopQuestionPipeline() {
+  return useSWRMutation<StopQuestionPipelineResponse, any, string, StopQuestionPipelinePayload>(
+    `${BASE}/stop-question-pipeline`,
+    stopQuestionPipelineFetcher,
   );
 }

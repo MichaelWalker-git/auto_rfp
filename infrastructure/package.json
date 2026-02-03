@@ -50,6 +50,7 @@
     "@smithy/signature-v4": "^5.3.7",
     "cdk-nag": "^2.37.55",
     "docx": "^9.5.1",
+    "jszip": "^3.10.1",
     "mammoth": "^1.11.0",
     "pdf-parse": "^2.4.5",
     "uuid": "^13.0.0",

@@ -13,6 +13,7 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import PermissionWrapper from '@/components/permission-wrapper';
 import { SavedSearchList } from '@/components/organizations/SavedSearchList';
 import { PromptsManager } from '@/components/organizations/PromptManager';
+import { DocxTemplateUpload } from '@/components/organizations/DocxTemplateUpload';
 
 interface SettingsContentProps {
   orgId: string;
@@ -92,10 +93,6 @@ export function SettingsContent({ orgId }: SettingsContentProps) {
     }
   };
 
-  const handleLlamaCloudConnectionUpdate = (updatedOrg: any) => {
-    setOrganization(updatedOrg);
-  };
-
   const handleDeleteOrganization = () => {
     // This would typically open a confirmation dialog
     alert('This action would delete the organization. Not implemented in this demo.');
@@ -124,6 +121,9 @@ export function SettingsContent({ orgId }: SettingsContentProps) {
           <SavedSearchList orgId={orgId}/>
 
           <PromptsManager />
+
+          {/* DOCX Template Upload Section */}
+          <DocxTemplateUpload orgId={orgId} />
 
           {/* General Settings Section */}
           <Card>
@@ -183,7 +183,7 @@ export function SettingsContent({ orgId }: SettingsContentProps) {
                   <Label htmlFor="confirm">Type the organization name to confirm</Label>
                   <Input
                     id="confirm"
-                    placeholder={organization.name}
+                    placeholder={organization?.name}
                   />
                 </div>
               </CardContent>
