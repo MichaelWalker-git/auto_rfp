@@ -1,22 +1,23 @@
 import { render, screen, fireEvent } from '@testing-library/react';
 import { DebriefingCard } from '../DebriefingCard';
+import type { DebriefingItem } from '@auto-rfp/shared';
 
 // Mock the hooks
 const mockDebriefing = {
-  id: 'debrief-1',
+  debriefId: 'debrief-1',
   projectId: 'proj-123',
   orgId: 'org-456',
-  status: 'REQUESTED' as const,
-  requestDate: '2025-01-15T00:00:00Z',
+  requestStatus: 'REQUESTED' as const,
+  createdAt: '2025-01-15T00:00:00Z',
   requestDeadline: '2025-01-20T00:00:00Z',
-  requestedBy: 'user-789',
-  contactEmail: 'co@agency.gov',
-  contactName: 'John Smith',
+  createdBy: 'user-789',
+  updatedAt: '2025-01-15T00:00:00Z',
+  attendees: ['John Smith'],
 };
 
 const mockRefetch = jest.fn();
 let mockUseDebriefingsReturn = {
-  debriefings: [] as typeof mockDebriefing[],
+  debriefings: [] as DebriefingItem[],
   isLoading: false,
   isError: false,
   error: undefined,
@@ -127,14 +128,9 @@ describe('DebriefingCard', () => {
       expect(screen.getByText('Requested')).toBeInTheDocument();
     });
 
-    it('shows contact name', () => {
+    it('shows attendees', () => {
       render(<DebriefingCard {...defaultProps} />);
       expect(screen.getByText('John Smith')).toBeInTheDocument();
-    });
-
-    it('shows contact email', () => {
-      render(<DebriefingCard {...defaultProps} />);
-      expect(screen.getByText('co@agency.gov')).toBeInTheDocument();
     });
 
     it('does not show Request Debriefing button in header when debriefing exists', () => {
@@ -147,13 +143,19 @@ describe('DebriefingCard', () => {
   });
 
   describe('completed debriefing', () => {
-    const completedDebriefing = {
-      ...mockDebriefing,
-      status: 'COMPLETED' as const,
-      findings: 'Price was the determining factor',
-    };
-
     beforeEach(() => {
+      const completedDebriefing = {
+        debriefId: 'debrief-1',
+        projectId: 'proj-123',
+        orgId: 'org-456',
+        requestStatus: 'COMPLETED' as const,
+        createdAt: '2025-01-15T00:00:00Z',
+        requestDeadline: '2025-01-20T00:00:00Z',
+        createdBy: 'user-789',
+        updatedAt: '2025-01-15T00:00:00Z',
+        attendees: ['John Smith'],
+        keyTakeaways: 'Price was the determining factor',
+      };
       mockUseDebriefingsReturn.debriefings = [completedDebriefing];
     });
 
@@ -162,9 +164,9 @@ describe('DebriefingCard', () => {
       expect(screen.getByText('Completed')).toBeInTheDocument();
     });
 
-    it('shows findings summary', () => {
+    it('shows key takeaways summary', () => {
       render(<DebriefingCard {...defaultProps} />);
-      expect(screen.getByText('Key Findings:')).toBeInTheDocument();
+      expect(screen.getByText('Key Takeaways:')).toBeInTheDocument();
       expect(screen.getByText('Price was the determining factor')).toBeInTheDocument();
     });
   });

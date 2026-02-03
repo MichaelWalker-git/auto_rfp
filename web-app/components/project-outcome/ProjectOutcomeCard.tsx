@@ -7,7 +7,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { ProjectOutcomeBadge } from './ProjectOutcomeBadge';
 import { SetProjectOutcomeDialog } from './SetProjectOutcomeDialog';
 import { useProjectOutcome } from '@/lib/hooks/use-project-outcome';
-import { PermissionWrapper } from '@/components/permission-wrapper';
+import PermissionWrapper from '@/components/permission-wrapper';
 import { Settings2, DollarSign, Calendar, Award, AlertTriangle } from 'lucide-react';
 import { formatDistanceToNow, format } from 'date-fns';
 import type { ProjectOutcome } from '@auto-rfp/shared';

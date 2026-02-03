@@ -27,6 +27,14 @@ export const baseHandler = async (
   }
 
   try {
+    const { orgId, projectId, debriefingId } = event.queryStringParameters || {};
+
+    if (!orgId || !projectId || !debriefingId) {
+      return apiResponse(400, {
+        message: 'Missing required query parameters: orgId, projectId, debriefingId',
+      });
+    }
+
     const rawBody = JSON.parse(event.body);
     const validationResult = UpdateDebriefingRequestSchema.safeParse(rawBody);
 
@@ -45,7 +53,7 @@ export const baseHandler = async (
     const dto: UpdateDebriefingRequest = validationResult.data;
 
     // Verify debriefing exists
-    const existing = await getDebriefing(dto.orgId, dto.projectId, dto.debriefingId);
+    const existing = await getDebriefing(orgId, projectId, debriefingId);
     if (!existing) {
       return apiResponse(404, { message: 'Debriefing not found' });
     }
@@ -91,30 +99,42 @@ export async function updateDebriefing(
   existing: DBDebriefingItem
 ): Promise<DBDebriefingItem> {
   const {
-    orgId,
-    projectId,
-    debriefingId,
-    status,
+    requestStatus,
+    requestSentDate,
+    requestMethod,
     scheduledDate,
-    completedDate,
-    findings,
-    lessonsLearned,
-    actionItems,
+    locationType,
+    location,
+    meetingLink,
     attendees,
-    notes
+    notes,
+    strengthsIdentified,
+    weaknessesIdentified,
+    evaluationScores,
+    keyTakeaways
   } = dto;
   const now = new Date().toISOString();
-  const sortKey = `${orgId}#${projectId}#${debriefingId}`;
+  const sortKey = existing[SK_NAME] as string;
 
   // Build update expression dynamically
   const updateParts: string[] = [];
   const expressionValues: Record<string, unknown> = {};
   const expressionNames: Record<string, string> = {};
 
-  if (status !== undefined) {
-    updateParts.push('#status = :status');
-    expressionNames['#status'] = 'status';
-    expressionValues[':status'] = status;
+  if (requestStatus !== undefined) {
+    updateParts.push('#requestStatus = :requestStatus');
+    expressionNames['#requestStatus'] = 'requestStatus';
+    expressionValues[':requestStatus'] = requestStatus;
+  }
+
+  if (requestSentDate !== undefined) {
+    updateParts.push('requestSentDate = :requestSentDate');
+    expressionValues[':requestSentDate'] = requestSentDate;
+  }
+
+  if (requestMethod !== undefined) {
+    updateParts.push('requestMethod = :requestMethod');
+    expressionValues[':requestMethod'] = requestMethod;
   }
 
   if (scheduledDate !== undefined) {
@@ -122,24 +142,19 @@ export async function updateDebriefing(
     expressionValues[':scheduledDate'] = scheduledDate;
   }
 
-  if (completedDate !== undefined) {
-    updateParts.push('completedDate = :completedDate');
-    expressionValues[':completedDate'] = completedDate;
+  if (locationType !== undefined) {
+    updateParts.push('locationType = :locationType');
+    expressionValues[':locationType'] = locationType;
   }
 
-  if (findings !== undefined) {
-    updateParts.push('findings = :findings');
-    expressionValues[':findings'] = findings;
+  if (location !== undefined) {
+    updateParts.push('location = :location');
+    expressionValues[':location'] = location;
   }
 
-  if (lessonsLearned !== undefined) {
-    updateParts.push('lessonsLearned = :lessonsLearned');
-    expressionValues[':lessonsLearned'] = lessonsLearned;
-  }
-
-  if (actionItems !== undefined) {
-    updateParts.push('actionItems = :actionItems');
-    expressionValues[':actionItems'] = actionItems;
+  if (meetingLink !== undefined) {
+    updateParts.push('meetingLink = :meetingLink');
+    expressionValues[':meetingLink'] = meetingLink;
   }
 
   if (attendees !== undefined) {
@@ -150,6 +165,26 @@ export async function updateDebriefing(
   if (notes !== undefined) {
     updateParts.push('notes = :notes');
     expressionValues[':notes'] = notes;
+  }
+
+  if (strengthsIdentified !== undefined) {
+    updateParts.push('strengthsIdentified = :strengthsIdentified');
+    expressionValues[':strengthsIdentified'] = strengthsIdentified;
+  }
+
+  if (weaknessesIdentified !== undefined) {
+    updateParts.push('weaknessesIdentified = :weaknessesIdentified');
+    expressionValues[':weaknessesIdentified'] = weaknessesIdentified;
+  }
+
+  if (evaluationScores !== undefined) {
+    updateParts.push('evaluationScores = :evaluationScores');
+    expressionValues[':evaluationScores'] = evaluationScores;
+  }
+
+  if (keyTakeaways !== undefined) {
+    updateParts.push('keyTakeaways = :keyTakeaways');
+    expressionValues[':keyTakeaways'] = keyTakeaways;
   }
 
   // Always update updatedAt
