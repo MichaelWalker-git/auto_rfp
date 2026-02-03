@@ -1,12 +1,9 @@
 import { APIGatewayProxyEventV2, APIGatewayProxyResultV2 } from 'aws-lambda';
-import { QueryCommand, } from '@aws-sdk/lib-dynamodb';
 
 import { invokeModel } from '../helpers/bedrock-http-client';
 
 import { apiResponse } from '../helpers/api';
 import { PK_NAME, SK_NAME } from '../constants/common';
-import { DOCUMENT_PK } from '../constants/document';
-import { DocumentItem } from '../schemas/document';
 import { getEmbedding, semanticSearchChunks, semanticSearchContentLibrary } from '../helpers/embeddings';
 import { PineconeHit } from '../helpers/pinecone';
 
@@ -22,32 +19,15 @@ import { requireEnv } from '../helpers/env';
 import { AnswerQuestionRequestBody, AnswerSource, ContentLibraryItem, QAItem, QuestionItem } from '@auto-rfp/shared';
 import { getQuestionItemById } from '../helpers/question';
 import { saveAnswer } from './save-answer';
-import { DBItem, docClient, getItem } from '../helpers/db';
+import { DBItem, getItem } from '../helpers/db';
 import { safeParseJsonFromModel } from '../helpers/json';
 import { loadTextFromS3 } from '../helpers/s3';
+import { getDocumentItemByDocumentId } from '../helpers/document';
 
-const DB_TABLE_NAME = requireEnv('DB_TABLE_NAME');
 const DOCUMENTS_BUCKET = requireEnv('DOCUMENTS_BUCKET');
 const BEDROCK_MODEL_ID = requireEnv('BEDROCK_MODEL_ID');
 
 export type QuestionItemDynamo = QuestionItem & DBItem
-
-async function getDocumentItemById(documentId: string): Promise<DocumentItem & DBItem | undefined> {
-  const skSuffix = `#DOC#${documentId}`;
-
-  const queryRes = await docClient.send(
-    new QueryCommand({
-      TableName: DB_TABLE_NAME,
-      KeyConditionExpression: '#pk = :pk',
-      ExpressionAttributeNames: { '#pk': PK_NAME },
-      ExpressionAttributeValues: { ':pk': DOCUMENT_PK },
-    }),
-  );
-
-  const items = (queryRes.Items || []) as (DocumentItem & DBItem)[];
-
-  return items.find((it) => String(it[SK_NAME]).endsWith(skSuffix));
-}
 
 async function buildContextFromChunkHits(hits: PineconeHit[]) {
   const byChunkKey = new Map<string, PineconeHit>();
@@ -65,7 +45,7 @@ async function buildContextFromChunkHits(hits: PineconeHit[]) {
       const chunkKey = hit.source?.chunkKey;
       const docId = hit.source?.documentId;
       const text = chunkKey ? await loadTextFromS3(DOCUMENTS_BUCKET, chunkKey) : '';
-      const { name: fileName } = docId ? await getDocumentItemById(docId) || {} : {};
+      const { name: fileName } = docId ? await getDocumentItemByDocumentId(docId) || {} : {};
       return { ...hit, text, fileName };
     }),
   );
