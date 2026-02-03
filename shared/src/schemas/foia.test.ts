@@ -233,6 +233,10 @@ describe('CreateFOIARequestSchema', () => {
     const request = {
       projectId: 'proj-123',
       orgId: 'org-456',
+      agencyName: 'Department of Defense',
+      solicitationNumber: 'SOL-2025-001',
+      requesterName: 'John Doe',
+      requesterEmail: 'john@example.com',
       requestedDocuments: ['SSEB_REPORT', 'SSDD'],
       requesterCategory: 'COMMERCIAL',
       feeLimit: 100,
@@ -258,6 +262,10 @@ describe('CreateFOIARequestSchema', () => {
     const request = {
       projectId: 'proj-123',
       orgId: 'org-456',
+      agencyName: 'Department of Defense',
+      solicitationNumber: 'SOL-2025-001',
+      requesterName: 'John Doe',
+      requesterEmail: 'john@example.com',
       requestedDocuments: ['SSEB_REPORT'],
     };
 
@@ -274,6 +282,10 @@ describe('CreateFOIARequestSchema', () => {
     const request = {
       projectId: 'proj-123',
       orgId: 'org-456',
+      agencyName: 'Department of Defense',
+      solicitationNumber: 'SOL-2025-001',
+      requesterName: 'John Doe',
+      requesterEmail: 'john@example.com',
       requestedDocuments: ['SSEB_REPORT'],
       customDocumentRequests: ['Any emails regarding our proposal'],
     };
