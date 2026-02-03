@@ -4,7 +4,7 @@ import { v4 as uuidv4 } from 'uuid';
 
 import { PK_NAME, SK_NAME } from '../constants/common';
 import { apiResponse } from '../helpers/api';
-import { AnswerItem, SaveAnswerDTO, SaveAnswerDTOSchema, } from '@auto-rfp/shared';
+import { AnswerItem, SaveAnswerDTOSchema, } from '@auto-rfp/shared';
 import { ANSWER_PK } from '../constants/answer';
 import { withSentryLambda } from '../sentry-lambda';
 import {
@@ -24,10 +24,10 @@ export const baseHandler = async (event: APIGatewayProxyEventV2): Promise<APIGat
   try {
     const rawBody = JSON.parse(event?.body || '');
 
-    const validationResult = SaveAnswerDTOSchema.safeParse(rawBody);
+    const { success, data, error } = SaveAnswerDTOSchema.safeParse(rawBody);
 
-    if (!validationResult.success) {
-      const errorDetails = validationResult.error.issues.map((issue) => ({
+    if (!success) {
+      const errorDetails = error.issues.map((issue) => ({
         path: issue.path.join('.'),
         message: issue.message,
       }));
@@ -38,9 +38,7 @@ export const baseHandler = async (event: APIGatewayProxyEventV2): Promise<APIGat
       });
     }
 
-    const dto: SaveAnswerDTO = validationResult.data;
-
-    const savedAnswer = await saveAnswer(dto);
+    const savedAnswer = await saveAnswer(data);
 
     return apiResponse(200, savedAnswer);
   } catch (err) {
