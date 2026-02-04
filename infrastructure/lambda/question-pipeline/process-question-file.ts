@@ -26,36 +26,53 @@ export const baseHandler = async (event: Event, _ctx: Context): Promise<Resp> =>
 
   const { questionFileId, projectId, jobId, opportunityId } = event;
 
-  if (!questionFileId || !projectId || !jobId || !opportunityId) {
-    throw new Error('questionFileId, projectId, jobId, opportunityId are required');
+  // Validate required fields with specific error messages (AUTO-RFP-4P)
+  const missingFields: string[] = [];
+  if (!projectId) missingFields.push('projectId');
+  if (!questionFileId) missingFields.push('questionFileId');
+  if (!jobId) missingFields.push('jobId');
+  if (!opportunityId) missingFields.push('opportunityId');
+
+  if (missingFields.length > 0) {
+    throw new Error(
+      `Missing required fields: ${missingFields.join(', ')}. ` +
+      `Received: projectId=${projectId ?? 'undefined'}, questionFileId=${questionFileId ?? 'undefined'}, ` +
+      `jobId=${jobId ?? 'undefined'}, opportunityId=${opportunityId ?? 'undefined'}`
+    );
   }
 
-  const isCancelled = await checkQuestionFileCancelled(projectId, opportunityId, questionFileId);
+  // After validation, TypeScript needs type narrowing
+  const validProjectId = projectId as string;
+  const validQuestionFileId = questionFileId as string;
+  const validJobId = jobId as string;
+  const validOpportunityId = opportunityId as string;
+
+  const isCancelled = await checkQuestionFileCancelled(validProjectId, validOpportunityId, validQuestionFileId);
 
   if (isCancelled) {
-    console.log(`Pipeline cancelled for ${questionFileId}, skipping processing`);
+    console.log(`Pipeline cancelled for ${validQuestionFileId}, skipping processing`);
     return {
-      questionFileId,
-      projectId,
+      questionFileId: validQuestionFileId,
+      projectId: validProjectId,
       textFileKey: '', // Empty key since we didn't process
       cancelled: true, // Flag for Step Function
     };
   }
 
-  const { text, status } = await getTextractText(jobId);
+  const { text, status } = await getTextractText(validJobId);
 
   if (status !== 'SUCCEEDED') {
-    await updateQuestionFile(projectId, opportunityId, questionFileId,{ status: 'FAILED' });
+    await updateQuestionFile(validProjectId, validOpportunityId, validQuestionFileId, { status: 'FAILED' });
     throw new Error(`Textract job failed: status=${status}`);
   }
 
-  const textFileKey = `${jobId}/${projectId}/${questionFileId}.txt`;
+  const textFileKey = `${validJobId}/${validProjectId}/${validQuestionFileId}.txt`;
 
   await uploadToS3(DOCUMENTS_BUCKET, textFileKey, text, 'text/plain; charset=utf-8');
 
-  await updateQuestionFile(projectId, opportunityId, questionFileId, { status: 'TEXT_READY', textFileKey });
+  await updateQuestionFile(validProjectId, validOpportunityId, validQuestionFileId, { status: 'TEXT_READY', textFileKey });
 
-  return { questionFileId, projectId, textFileKey, cancelled: false };
+  return { questionFileId: validQuestionFileId, projectId: validProjectId, textFileKey, cancelled: false };
 };
 
 export const handler = withSentryLambda(baseHandler);
