@@ -37,6 +37,8 @@ interface IndexChunkResult {
   pineconeIndex: string;
   markedIndexed: boolean;
   pineconeId?: string;
+  skipped?: boolean;
+  skipReason?: string;
 }
 
 export const baseHandler = async (
@@ -59,8 +61,22 @@ export const baseHandler = async (
     DOCUMENT_PK,
     buildDocumentSK(knowledgeBaseId, documentId),
   );
+
+  // Handle case where document was deleted mid-pipeline (AUTO-RFP-6F)
+  // Instead of throwing, return early with skipped status
   if (!document) {
-    throw new Error('document does not exist');
+    console.warn(
+      `Document not found, may have been deleted mid-pipeline. documentId=${documentId}, knowledgeBaseId=${knowledgeBaseId}`
+    );
+    return {
+      success: true,
+      documentId,
+      chunkKey,
+      pineconeIndex: 'documents',
+      markedIndexed: false,
+      skipped: true,
+      skipReason: 'document_deleted',
+    };
   }
 
   const pineconeId = await indexChunkToPinecone(
@@ -76,7 +92,7 @@ export const baseHandler = async (
 
   // NOTE: some pipelines use 1-based indexing; keep the same logic you used before
   if (idx != null && total != null && idx === total) {
-    await markIndexed(documentId);
+    await markIndexed(documentId, knowledgeBaseId);
     markedIndexed = true;
   }
 
@@ -186,12 +202,46 @@ async function updateItemWithRetry(
   }
 }
 
-async function markIndexed(documentId: string): Promise<void> {
+async function markIndexed(documentId: string, knowledgeBaseId?: string): Promise<void> {
   if (!documentId) throw new Error('documentId is required');
 
   const pk = DOCUMENT_PK;
   const now = new Date().toISOString();
 
+  // If we have knowledgeBaseId, we can do a targeted query with begins_with
+  // Otherwise, fall back to querying all documents and filtering (AUTO-RFP-6E fix)
+  if (knowledgeBaseId) {
+    // Targeted approach: query using the known SK prefix
+    const skPrefix = `KB#${knowledgeBaseId}#DOC#${documentId}`;
+    try {
+      const res = await docClient.send(
+        new QueryCommand({
+          TableName: DB_TABLE_NAME,
+          KeyConditionExpression: '#pk = :pk AND begins_with(#sk, :skPrefix)',
+          ExpressionAttributeNames: {
+            '#pk': PK_NAME,
+            '#sk': SK_NAME,
+          },
+          ExpressionAttributeValues: {
+            ':pk': pk,
+            ':skPrefix': skPrefix,
+          },
+          ProjectionExpression: '#pk, #sk',
+        }),
+      );
+
+      for (const item of res.Items ?? []) {
+        await updateItemWithRetry(item, now);
+      }
+      return;
+    } catch (error: unknown) {
+      // Log and fall through to broader query if targeted query fails
+      console.warn('Targeted markIndexed query failed, falling back to broad query:', error);
+    }
+  }
+
+  // Fallback: query all documents and filter client-side
+  // Note: We only use #pk in KeyConditionExpression to avoid FilterExpression issues (AUTO-RFP-6E)
   let lastEvaluatedKey: Record<string, any> | undefined;
 
   do {
@@ -201,17 +251,16 @@ async function markIndexed(documentId: string): Promise<void> {
         KeyConditionExpression: '#pk = :pk',
         ExpressionAttributeNames: {
           '#pk': PK_NAME,
-          '#sk': SK_NAME,
         },
         ExpressionAttributeValues: {
           ':pk': pk,
         },
-        ProjectionExpression: '#pk, #sk',
+        ProjectionExpression: 'partition_key, sort_key',
         ExclusiveStartKey: lastEvaluatedKey,
       }),
     );
 
-    const items = (res.Items ?? []).filter((it) => {
+    const items = (res.Items ?? []).filter((it: Record<string, unknown>) => {
       const sk = String(it[SK_NAME] ?? '');
       return sk.endsWith(documentId);
     });
