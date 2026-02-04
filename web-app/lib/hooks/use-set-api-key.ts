@@ -43,7 +43,7 @@ const setApiKeyFetcher = async (
 };
 
 export function useSetApiKey(orgId?: string) {
-  const baseUrl = `${env.BASE_API_URL.replace(/\/$/, '')}/samgov/set-api-key`;
+  const baseUrl = `${env.BASE_API_URL}/samgov/set-api-key`;
   const url = orgId ? `${baseUrl}?orgId=${orgId}` : baseUrl;
 
   const { trigger, isMutating, error, data } = useSWRMutation<

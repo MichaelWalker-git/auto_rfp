@@ -11,7 +11,6 @@ import { docClient } from '../helpers/db';
 import { PK_NAME, SK_NAME } from '../constants/common';
 import { QUESTION_FILE_PK } from '../constants/question-file';
 import { nowIso } from '../helpers/date';
-import { readPlainSecret } from '../helpers/secret';
 
 import {
   type LoadSamOpportunitiesRequest,
@@ -38,6 +37,7 @@ import { uploadToS3 } from '../helpers/s3';
 import { SAVED_SEARCH_PK } from '../constants/samgov';
 import { buildQuestionFileSK, updateQuestionFile } from '../helpers/questionFile';
 import { createOpportunity } from '../helpers/opportunity';
+import { getApiKey } from '../helpers/api-key-storage';
 
 const DB_TABLE_NAME = requireEnv('DB_TABLE_NAME');
 
@@ -46,7 +46,6 @@ const STATE_MACHINE_ARN = requireEnv('QUESTION_PIPELINE_STATE_MACHINE_ARN');
 
 const SAM_BASE_URL = requireEnv('SAM_OPPS_BASE_URL', 'https://api.sam.gov');
 const SAM_API_ORIGIN = requireEnv('SAM_API_ORIGIN', 'https://api.sam.gov');
-const SAM_GOV_API_KEY_SECRET_ID = requireEnv('SAM_GOV_API_KEY_SECRET_ID');
 
 const httpsAgent = new https.Agent({ keepAlive: true });
 const sfn = new SFNClient({});
@@ -214,7 +213,7 @@ async function createQuestionFile(args: {
 async function markProcessing(projectId: string, oppId: string, questionFileId: string) {
   await updateQuestionFile(projectId, oppId, questionFileId, {
     status: 'PROCESSING',
-  })
+  });
 }
 
 async function startPipeline(projectId: string, questionFileId: string, oppId: string) {
@@ -237,10 +236,15 @@ async function importNoticeUsingHelpers(args: {
   samCfg: ImportSamConfig;
 }) {
   const { orgId, projectId, noticeId } = args;
+  const apiKey = await getApiKey(orgId);
+  if (!apiKey) {
+    return 0;
+  }
   const oppRaw = await fetchOpportunityViaSearch(args.samCfg, {
     noticeId: args.noticeId,
     postedFrom: args.postedFrom,
     postedTo: args.postedTo,
+    apiKey
   });
   const attachments = extractAttachmentsFromOpportunity(oppRaw);
 
@@ -337,16 +341,20 @@ async function runForOrg(args: {
   orgId: string;
   now: Date;
   ranAtIso: string;
-  apiKey: string;
   samImportCfg: ImportSamConfig;
   dryRun: boolean;
 }) {
+  const apiKey = await getApiKey(args.orgId);
   const searches = await listSavedSearchesForOrg(args.orgId);
   console.log('searches ', searches);
   const projectId = await getOrgDefaultProjectId(args.orgId);
   console.log('projectId ', projectId);
 
   const out: any[] = [];
+
+  if (!apiKey) {
+    return out;
+  }
 
   for (const s of searches) {
     if (!shouldRunNow(s, args.now)) continue;
@@ -355,7 +363,7 @@ async function runForOrg(args: {
     console.log('criteria ', criteria);
 
     const resp = await searchSamOpportunities(
-      { baseUrl: SAM_BASE_URL, apiKey: args.apiKey, httpsAgent },
+      { baseUrl: SAM_BASE_URL, apiKey: apiKey, httpsAgent },
       criteria,
     );
 
@@ -412,11 +420,8 @@ export const baseHandler = async (event: RunnerEvent) => {
   const now = new Date();
   const ranAtIso = nowIso();
 
-  const apiKey = await readPlainSecret(SAM_GOV_API_KEY_SECRET_ID);
-
   const samImportCfg: ImportSamConfig = {
     samApiOrigin: SAM_API_ORIGIN,
-    samApiKeySecretId: SAM_GOV_API_KEY_SECRET_ID,
     httpsAgent,
   };
 
@@ -432,7 +437,6 @@ export const baseHandler = async (event: RunnerEvent) => {
       orgId,
       now,
       ranAtIso,
-      apiKey,
       samImportCfg,
       dryRun,
     });

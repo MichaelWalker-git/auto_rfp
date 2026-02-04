@@ -2,7 +2,6 @@
 import 'source-map-support/register';
 import * as cdk from 'aws-cdk-lib';
 import { AuthStack } from '../lib/auth-stack';
-import { ApiStack } from '../lib/api-stack';
 import { StorageStack } from '../lib/storage-stack';
 import { DatabaseStack } from '../lib/database-stack';
 import { NetworkStack } from '../lib/network-stack';
@@ -10,6 +9,7 @@ import { AmplifyFeStack } from '../lib/amplify-fe-stack';
 import { DocumentPipelineStack } from '../lib/document-pipeline-step-function';
 import { QuestionExtractionPipelineStack } from '../lib/question-pipeline-step-function';
 import { requireEnv } from '../lambda/helpers/env';
+import { ApiOrchestratorStack } from '../lib/api/api-orchestrator-stack';
 
 const app = new cdk.App();
 
@@ -26,7 +26,7 @@ const network = new NetworkStack(app, 'AutoRfp-Network', {
 });
 
 const feURL = 'https://d53rbfmpyaoju.execute-api.us-east-1.amazonaws.com';
-const sentryDNS = 'https://5fa3951f41c357ba09d0ae50f52bbd2a@o4510347578114048.ingest.us.sentry.io/4510510176141312'
+const sentryDNS = 'https://5fa3951f41c357ba09d0ae50f52bbd2a@o4510347578114048.ingest.us.sentry.io/4510510176141312';
 const pineconeApiKey = requireEnv('PINECONE_API_KEY');
 
 const auth = new AuthStack(app, `AutoRfp-Auth-${stage}`, {
@@ -68,13 +68,12 @@ const questionsPipelineStack = new QuestionExtractionPipelineStack(app, `AutoRfp
   sentryDNS
 });
 
-const api = new ApiStack(app, `AutoRfp-API-${stage}`, {
+const api = new ApiOrchestratorStack(app, `ApiOrchestrator-${stage}`, {
   env,
   stage,
-  documentsBucket: storage.documentsBucket,
-  mainTable: db.tableName,
   userPool: auth.userPool,
-  userPoolClient: auth.userPoolClient,
+  mainTable: db.tableName,
+  documentsBucket: storage.documentsBucket,
   documentPipelineStateMachineArn: pipelineStack.stateMachine.stateMachineArn,
   questionPipelineStateMachineArn: questionsPipelineStack.stateMachine.stateMachineArn,
   sentryDNS,

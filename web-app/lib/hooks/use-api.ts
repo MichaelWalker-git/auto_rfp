@@ -72,7 +72,7 @@ export function useOrganization(orgId: string | null, includeAll = false) {
 export function useProjects(orgId: string | null) {
   return useApi<Project[]>(
     orgId ? ['project/projects', orgId] : null, // ✅ include orgId in key
-    orgId ? `${env.BASE_API_URL}/project/get-projects?orgId=${orgId}` : null,
+    orgId ? `${env.BASE_API_URL}/projects/list?orgId=${orgId}` : null,
   );
 }
 
@@ -80,7 +80,7 @@ export function useProject(projectId: string | null, includeAll = false) {
   const params = includeAll ? '?include=all' : '';
   return useApi<any>(
     projectId ? ['project', projectId, includeAll] : null,
-    projectId ? `${env.BASE_API_URL}/project/get-project/${projectId}${params}` : null,
+    projectId ? `${env.BASE_API_URL}/projects/get/${projectId}${params}` : null,
   );
 }
 
@@ -88,7 +88,7 @@ export function useQuestions(projectId: string | null, includeAll = false) {
   const params = includeAll ? '?include=all' : '';
   return useApi<{ sections: GroupedSection[] }>(
     projectId ? ['questions', projectId, includeAll] : null,
-    projectId ? `${env.BASE_API_URL}/project/get-questions/${projectId}${params}` : null,
+    projectId ? `${env.BASE_API_URL}/projects/questions/${projectId}${params}` : null,
   );
 }
 

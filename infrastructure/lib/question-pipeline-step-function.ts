@@ -58,7 +58,7 @@ export class QuestionExtractionPipelineStack extends Stack {
     } as const;
 
     const startTextractLambda = new lambdaNode.NodejsFunction(this, 'StartTextractLambda', {
-      runtime: lambda.Runtime.NODEJS_20_X,
+      runtime: lambda.Runtime.NODEJS_24_X,
       logGroup: mkFnLogGroup('StartTextract'),
       entry: path.join(__dirname, '../lambda/question-pipeline/start-question-textract.ts'),
       handler: 'handler',
@@ -86,7 +86,7 @@ export class QuestionExtractionPipelineStack extends Stack {
     );
 
     const callbackLambda = new lambdaNode.NodejsFunction(this, 'TextractCallbackLambda', {
-      runtime: lambda.Runtime.NODEJS_20_X,
+      runtime: lambda.Runtime.NODEJS_24_X,
       logGroup: mkFnLogGroup('TextractCallback'),
       entry: path.join(__dirname, '../lambda/question-pipeline/textract-question-callback.ts'),
       handler: 'handler',
@@ -104,7 +104,7 @@ export class QuestionExtractionPipelineStack extends Stack {
     textractTopic.addSubscription(new subs.LambdaSubscription(callbackLambda));
 
     const extractDocxTextLambda = new lambdaNode.NodejsFunction(this, 'ExtractDocxTextLambda', {
-      runtime: lambda.Runtime.NODEJS_20_X,
+      runtime: lambda.Runtime.NODEJS_24_X,
       logGroup: mkFnLogGroup('ExtractDocxText'),
       entry: path.join(__dirname, '../lambda/question-pipeline/extract-docx-text.ts'),
       handler: 'handler',
@@ -115,7 +115,7 @@ export class QuestionExtractionPipelineStack extends Stack {
     mainTable.grantReadWriteData(extractDocxTextLambda);
 
     const processResultLambda = new lambdaNode.NodejsFunction(this, 'ProcessQuestionFileLambda', {
-      runtime: lambda.Runtime.NODEJS_20_X,
+      runtime: lambda.Runtime.NODEJS_24_X,
       logGroup: mkFnLogGroup('ProcessQuestionFile'),
       entry: path.join(__dirname, '../lambda/question-pipeline/process-question-file.ts'),
       handler: 'handler',
@@ -133,7 +133,7 @@ export class QuestionExtractionPipelineStack extends Stack {
     );
 
     const extractQuestionsLambda = new lambdaNode.NodejsFunction(this, 'ExtractQuestionsLambda', {
-      runtime: lambda.Runtime.NODEJS_20_X,
+      runtime: lambda.Runtime.NODEJS_24_X,
       logGroup: mkFnLogGroup('ExtractQuestions'),
       entry: path.join(__dirname, '../lambda/question-pipeline/extract-questions.ts'),
       handler: 'handler',
@@ -167,7 +167,7 @@ export class QuestionExtractionPipelineStack extends Stack {
       this,
       'FulfillOpportunityFieldsLambda',
       {
-        runtime: lambda.Runtime.NODEJS_20_X,
+        runtime: lambda.Runtime.NODEJS_24_X,
         logGroup: mkFnLogGroup('FulfillOpportunityFields'),
         entry: path.join(__dirname, '../lambda/question-pipeline/fulfill-opportunity-fields.ts'),
         handler: 'handler',
@@ -197,7 +197,7 @@ export class QuestionExtractionPipelineStack extends Stack {
     );
 
     const unsupportedFileLambda = new lambdaNode.NodejsFunction(this, 'UnsupportedFileLambda', {
-      runtime: lambda.Runtime.NODEJS_20_X,
+      runtime: lambda.Runtime.NODEJS_24_X,
       logGroup: mkFnLogGroup('UnsupportedFile'),
       entry: path.join(__dirname, '../lambda/question-pipeline/unsupported-file-type.ts'),
       handler: 'handler',

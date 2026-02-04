@@ -12,7 +12,7 @@ import middy from '@middy/core';
 
 export const baseHandler = async (event: APIGatewayProxyEventV2,): Promise<APIGatewayProxyResultV2> => {
   try {
-    const { id: projectId } = event.pathParameters || {};
+    const { projectId } = event.pathParameters || {};
 
     if (!projectId) {
       return apiResponse(400, {

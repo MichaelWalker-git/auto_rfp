@@ -10,7 +10,7 @@ export function useProject(projectId: string | null) {
 
   const { data, error, isLoading, mutate } = useSWR<any>(
     shouldFetch
-      ? `${env.BASE_API_URL}/project/get-project/${projectId}`
+      ? `${env.BASE_API_URL}/projects/get/${projectId}`
       : null,
     authFetcher,
     {
@@ -36,9 +36,9 @@ export function useDeleteProject() {
     string,
     { projectId: string, orgId: string }
   >(
-    `${env.BASE_API_URL}/project/delete-project`,
+    `${env.BASE_API_URL}/projects/delete`,
     async (url, { arg: {orgId, projectId} }) => {
-      const res = await authFetcher(`${url}?projectId=${projectId}&orgId=${orgId}`, {
+      const res = await authFetcher(`${url}/${projectId}?orgId=${orgId}`, {
         method: 'DELETE',
       });
 

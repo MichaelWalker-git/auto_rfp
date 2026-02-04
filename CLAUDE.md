@@ -300,7 +300,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
 // lib/hooks/use-projects.ts
 export function useProjects(orgId: string) {
   const { data, error, isLoading, mutate } = useSWR(
-    orgId ? `/api/project/get-projects?orgId=${orgId}` : null,
+    orgId ? `/api/projects/l?orgId=${orgId}` : null,
     fetcher
   );
   return { projects: data?.data, error, isLoading, mutate };
@@ -343,7 +343,7 @@ export SAM_GOV_API_KEY="your-sam-gov-api-key"  # Required for deploy
 DB_TABLE_NAME, DOCUMENTS_BUCKET, OPENSEARCH_ENDPOINT, OPENSEARCH_INDEX
 BEDROCK_MODEL_ID, BEDROCK_EMBEDDING_MODEL_ID, BEDROCK_REGION
 COGNITO_USER_POOL_ID, STATE_MACHINE_ARN, EXEC_BRIEF_QUEUE_URL
-SENTRY_DSN, LINEAR_API_KEY_SECRET_ARN, SAM_GOV_API_KEY_SECRET_ID
+SENTRY_DSN, LINEAR_API_KEY_SECRET_ARN
 ```
 
 ## Testing

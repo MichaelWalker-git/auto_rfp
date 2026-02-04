@@ -31,10 +31,10 @@ import { ImportSolicitationRequest, OpportunityItem } from '@auto-rfp/shared';
 import { createQuestionFile } from '../helpers/questionFile';
 import { startPipeline } from '../helpers/solicitation';
 import { safeTrim } from '../helpers/safe-string';
+import { getApiKey } from '../helpers/api-key-storage';
 
 const DOCUMENTS_BUCKET = requireEnv('DOCUMENTS_BUCKET');
 const SAM_API_ORIGIN = process.env.SAM_API_ORIGIN || 'https://api.sam.gov';
-const SAM_GOV_API_KEY_SECRET_ID = requireEnv('SAM_GOV_API_KEY_SECRET_ID');
 
 const httpsAgent = new https.Agent({ keepAlive: true });
 
@@ -101,14 +101,19 @@ export const baseHandler = async (
     });
   }
 
+  const apiKey = await getApiKey(orgId);
+
+  if (!apiKey) {
+    return apiResponse(500, { message: 'Api key is missing' });
+  }
+
   const samCfg: ImportSamConfig = {
     samApiOrigin: SAM_API_ORIGIN,
-    samApiKeySecretId: SAM_GOV_API_KEY_SECRET_ID,
     httpsAgent,
   };
 
   try {
-    const oppRaw = await fetchOpportunityViaSearch(samCfg, { noticeId, postedFrom, postedTo });
+    const oppRaw = await fetchOpportunityViaSearch(samCfg, { noticeId, postedFrom, postedTo, apiKey });
     const attachments = extractAttachmentsFromOpportunity(oppRaw);
 
     const opportunity: OpportunityItem = {

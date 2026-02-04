@@ -2,9 +2,8 @@ import type { APIGatewayProxyEventV2, APIGatewayProxyResultV2 } from 'aws-lambda
 import middy from '@middy/core';
 import https from 'https';
 
-import { apiResponse } from '../helpers/api';
+import { apiResponse, getOrgId } from '../helpers/api';
 import { withSentryLambda } from '../sentry-lambda';
-import { requireEnv } from '../helpers/env';
 import {
   authContextMiddleware,
   orgMembershipMiddleware,
@@ -12,10 +11,9 @@ import {
   httpErrorMiddleware,
 } from '../middleware/rbac-middleware';
 
-import { readPlainSecret } from '../helpers/secret';
 import { httpsGetBuffer } from '../helpers/samgov';
+import { getApiKey } from '../helpers/api-key-storage';
 
-const SAM_GOV_API_KEY_SECRET_ID = requireEnv('SAM_GOV_API_KEY_SECRET_ID');
 
 const ALLOWED_SAM_DOMAINS = [
   'api.sam.gov',
@@ -28,14 +26,6 @@ const httpsAgent = new https.Agent({ keepAlive: true });
 type RequestBody = {
   descriptionUrl: string;
 };
-
-let cachedApiKey: string | null = null;
-
-async function getApiKey(): Promise<string> {
-  if (cachedApiKey) return cachedApiKey;
-  cachedApiKey = await readPlainSecret(SAM_GOV_API_KEY_SECRET_ID);
-  return cachedApiKey;
-}
 
 function isValidSamGovUrl(urlString: string): boolean {
   try {
@@ -61,6 +51,12 @@ function isValidSamGovUrl(urlString: string): boolean {
 const baseHandler = async (
   event: APIGatewayProxyEventV2,
 ): Promise<APIGatewayProxyResultV2> => {
+  const orgId = getOrgId(event);
+
+  if (!orgId) {
+    return apiResponse(400, { message: 'Org Id is missing' });
+  }
+
   if (!event.body) {
     return apiResponse(400, { message: 'Request body is missing' });
   }
@@ -83,7 +79,7 @@ const baseHandler = async (
     });
   }
 
-  const apiKey = await getApiKey();
+  const apiKey = await getApiKey(orgId) || '';
 
   let url: URL;
   try {

@@ -12,7 +12,7 @@ type UpdateProjectPayload = {
 export function useUpdateProject() {
   const update = async (payload: UpdateProjectPayload): Promise<Project> => {
     const base = env.BASE_API_URL.replace(/\/$/, '');
-    const url = `${base}/project/edit-project?orgId=${payload.orgId}&projectId=${payload.projectId}`;
+    const url = `${base}/projects/update/${payload.projectId}?orgId=${payload.orgId}}`;
 
     const res = await authFetcher(url, {
       method: 'PUT',

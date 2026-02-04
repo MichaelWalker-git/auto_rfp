@@ -19,6 +19,7 @@ async function baseHandler(
   event: APIGatewayProxyEventV2
 ): Promise<APIGatewayProxyResultV2> {
   try {
+    console.log('event', event);
     const orgId = event.queryStringParameters?.orgId || getOrgId(event);
 
     if (!orgId) {
