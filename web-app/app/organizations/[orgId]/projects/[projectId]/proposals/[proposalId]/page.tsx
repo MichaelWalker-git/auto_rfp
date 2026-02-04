@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import useSWRMutation from 'swr/mutation';
 import { CheckCircle2, ChevronDown, Download, Loader2, Save, Trash2, XCircle } from 'lucide-react';
@@ -156,8 +156,8 @@ export default function ProposalDetailsPage() {
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [pendingDelete, setPendingDelete] = useState<PendingDelete>(null);
 
-  // initialize draft once proposal arrives (but don’t overwrite user edits)
-  React.useEffect(() => {
+  // initialize draft once proposal arrives (but don't overwrite user edits)
+  useEffect(() => {
     if (proposal && !draft) setDraft(cloneProposal(proposal));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [proposal]);
