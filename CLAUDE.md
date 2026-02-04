@@ -75,26 +75,30 @@ cdk deploy --profile michael-primary --require-approval never
 ## Git Branching Strategy
 
 ```
-develop ─────────────────────────────────────────────────►
-    │                    │
-    │ feature branches   │ PRs merge here
-    │                    ▼
-    │              (tested, stable)
-    │                    │
-production ──────────────┼───────────────────────────────►
-                         ▲
-                    release workflow
+Feature Branches ──► develop ──► Amplify Staging (QA/Testing)
+                          │
+                          └──► production ──► Amplify Production (CUSTOMERS)
+                                    ▲
+                                    │
+                              Release Workflow
+                              (manual trigger)
 ```
 
 **Branches:**
-- **develop** - Active development branch (default). All PRs merge here first.
-- **production** - Stable, production-ready code. Only updated via release workflow.
+- **develop** - Active development branch. PRs merge here first. Deploys to **staging** environment for QA.
+- **production** - Stable, customer-facing code. Only updated via Release workflow. Deploys to **production** environment.
+
+**Environments:**
+- **Staging** (develop branch): `https://develop.d1xxxxxx.amplifyapp.com` - For testing before release
+- **Production** (production branch): `https://production.d1xxxxxx.amplifyapp.com` - Customer-facing
 
 **Workflow:**
 1. Create feature branches from `develop`
 2. Open PRs targeting `develop`
 3. After PR approval and CI passes, merge to `develop`
-4. When ready to release, run the Release workflow to promote `develop` → `production`
+4. **Test on staging environment** - Verify changes work correctly
+5. When ready to release, run the **Release to Production** workflow (Actions → Release to Production → Run workflow)
+6. Verify on production environment
 
 **Branch Protection Rules:**
 - Both `develop` and `production` require:
