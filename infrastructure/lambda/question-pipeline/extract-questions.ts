@@ -85,8 +85,19 @@ export const baseHandler = async (
     }
   }
 
-  if (!questionFileId || !projectId || !textFileKey || !opportunityId) {
-    throw new Error('questionFileId, projectId, textFileKey, opportunityId are required');
+  // Validate required fields with specific error messages (AUTO-RFP-4P)
+  const missingFields: string[] = [];
+  if (!projectId) missingFields.push('projectId');
+  if (!questionFileId) missingFields.push('questionFileId');
+  if (!textFileKey) missingFields.push('textFileKey');
+  if (!opportunityId) missingFields.push('opportunityId');
+
+  if (missingFields.length > 0) {
+    throw new Error(
+      `Missing required fields: ${missingFields.join(', ')}. ` +
+      `Received: projectId=${projectId ?? 'undefined'}, questionFileId=${questionFileId ?? 'undefined'}, ` +
+      `textFileKey=${textFileKey ?? 'undefined'}, opportunityId=${opportunityId ?? 'undefined'}`
+    );
   }
   const text = await loadTextFromS3(DOCUMENTS_BUCKET, textFileKey);
   console.log(`Loaded text: ${text.length} characters`);

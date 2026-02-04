@@ -133,7 +133,7 @@ describe('extract-questions Lambda', () => {
       const event = { projectId: 'proj-456', textFileKey: 'key.txt', opportunityId: 'opp-789' } as any;
 
       await expect(baseHandler(event, mockContext)).rejects.toThrow(
-        'questionFileId, projectId, textFileKey, opportunityId are required'
+        'Missing required fields: questionFileId'
       );
     });
 
@@ -141,7 +141,7 @@ describe('extract-questions Lambda', () => {
       const event = { questionFileId: 'qf-123', textFileKey: 'key.txt', opportunityId: 'opp-789' } as any;
 
       await expect(baseHandler(event, mockContext)).rejects.toThrow(
-        'questionFileId, projectId, textFileKey, opportunityId are required'
+        'Missing required fields: projectId'
       );
     });
 
@@ -149,7 +149,7 @@ describe('extract-questions Lambda', () => {
       const event = { questionFileId: 'qf-123', projectId: 'proj-456', opportunityId: 'opp-789' } as any;
 
       await expect(baseHandler(event, mockContext)).rejects.toThrow(
-        'questionFileId, projectId, textFileKey, opportunityId are required'
+        'Missing required fields: textFileKey'
       );
     });
 
@@ -157,7 +157,7 @@ describe('extract-questions Lambda', () => {
       const event = { questionFileId: 'qf-123', projectId: 'proj-456', textFileKey: 'key.txt' } as any;
 
       await expect(baseHandler(event, mockContext)).rejects.toThrow(
-        'questionFileId, projectId, textFileKey, opportunityId are required'
+        'Missing required fields: opportunityId'
       );
     });
 
@@ -165,7 +165,7 @@ describe('extract-questions Lambda', () => {
       const event = { questionFileId: '', projectId: 'proj-456', textFileKey: 'key.txt', opportunityId: 'opp-789' };
 
       await expect(baseHandler(event, mockContext)).rejects.toThrow(
-        'questionFileId, projectId, textFileKey, opportunityId are required'
+        'Missing required fields: questionFileId'
       );
     });
 
@@ -173,7 +173,7 @@ describe('extract-questions Lambda', () => {
       const event = { questionFileId: 'qf-123', projectId: '', textFileKey: 'key.txt', opportunityId: 'opp-789' };
 
       await expect(baseHandler(event, mockContext)).rejects.toThrow(
-        'questionFileId, projectId, textFileKey, opportunityId are required'
+        'Missing required fields: projectId'
       );
     });
 
@@ -181,7 +181,7 @@ describe('extract-questions Lambda', () => {
       const event = { questionFileId: 'qf-123', projectId: 'proj-456', textFileKey: '', opportunityId: 'opp-789' };
 
       await expect(baseHandler(event, mockContext)).rejects.toThrow(
-        'questionFileId, projectId, textFileKey, opportunityId are required'
+        'Missing required fields: textFileKey'
       );
     });
 

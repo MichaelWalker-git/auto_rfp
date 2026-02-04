@@ -1,6 +1,6 @@
 import { Context } from 'aws-lambda';
-import { QueryCommand, } from '@aws-sdk/lib-dynamodb';
-import { SendTaskFailureCommand, SendTaskSuccessCommand, SFNClient, } from '@aws-sdk/client-sfn';
+import { QueryCommand, UpdateCommand } from '@aws-sdk/lib-dynamodb';
+import { SendTaskFailureCommand, SendTaskSuccessCommand, SFNClient, TaskTimedOut, TaskDoesNotExist } from '@aws-sdk/client-sfn';
 
 import { PK_NAME, SK_NAME } from '../constants/common';
 import { QUESTION_FILE_PK } from '../constants/question-file';
@@ -8,10 +8,67 @@ import { withSentryLambda } from '../sentry-lambda';
 import { requireEnv } from '../helpers/env';
 import { DBItem, docClient } from '../helpers/db';
 import { QuestionFileItem } from '@auto-rfp/shared';
+import { nowIso } from '../helpers/date';
 
 const stepFunctionsClient = new SFNClient({});
 
 const DB_TABLE_NAME = requireEnv('DB_TABLE_NAME');
+
+/**
+ * Check if error is a task token expiry error (AUTO-RFP-47)
+ * These errors occur when:
+ * - Task has timed out (TaskTimedOut)
+ * - Task no longer exists (TaskDoesNotExist)
+ * - Execution was cancelled/stopped
+ */
+function isTaskTokenExpiredError(err: unknown): boolean {
+  if (err instanceof TaskTimedOut || err instanceof TaskDoesNotExist) {
+    return true;
+  }
+  // Check for error name property for SDK v3 errors
+  if (err && typeof err === 'object' && 'name' in err) {
+    const errorName = (err as { name: string }).name;
+    return errorName === 'TaskTimedOut' || errorName === 'TaskDoesNotExist';
+  }
+  return false;
+}
+
+/**
+ * Update question file status when task token has expired
+ * Mark as FAILED with an error message so user knows what happened
+ */
+async function markQuestionFileAsExpired(
+  questionFileId: string,
+  skFound: string,
+  jobId: string,
+): Promise<void> {
+  try {
+    await docClient.send(
+      new UpdateCommand({
+        TableName: DB_TABLE_NAME,
+        Key: {
+          [PK_NAME]: QUESTION_FILE_PK,
+          [SK_NAME]: skFound,
+        },
+        UpdateExpression: 'SET #status = :status, #errorMessage = :errorMessage, #updatedAt = :updatedAt REMOVE #taskToken',
+        ExpressionAttributeNames: {
+          '#status': 'status',
+          '#errorMessage': 'errorMessage',
+          '#updatedAt': 'updatedAt',
+          '#taskToken': 'taskToken',
+        },
+        ExpressionAttributeValues: {
+          ':status': 'FAILED',
+          ':errorMessage': `Pipeline task expired (jobId: ${jobId}). The Step Function task timed out before Textract completed. Please retry the upload.`,
+          ':updatedAt': nowIso(),
+        },
+      }),
+    );
+    console.log(`Marked question file ${questionFileId} as FAILED due to task token expiry`);
+  } catch (updateErr) {
+    console.error(`Failed to update question file status after task expiry:`, updateErr);
+  }
+}
 
 export interface TextractCallbackEvent {
   Records: Array<{
@@ -142,6 +199,18 @@ export const baseHandler = async (
         );
       }
     } catch (err) {
+      // Handle task token expiry errors gracefully (AUTO-RFP-47)
+      // This happens when the Step Function task times out before Textract completes
+      if (isTaskTokenExpiredError(err)) {
+        console.warn(
+          `Task token expired for questionFileId=${questionFileId}, jobId=${jobId}. ` +
+          `This typically means the Step Function timed out before Textract completed.`
+        );
+        // Update the question file status so user knows what happened
+        await markQuestionFileAsExpired(questionFileId, skFound, jobId);
+        // Don't rethrow - this is a recoverable situation where we've updated the status
+        continue;
+      }
       console.error('Error calling Step Functions:', err);
       throw err;
     }
