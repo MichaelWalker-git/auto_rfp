@@ -7,3 +7,8 @@ node_modules
 
 # Except configuration files
 !jest.config.js
+
+# pnpm lock files - infrastructure uses npm, not pnpm
+# CDK's NodejsFunction fails with "Multiple package lock files found" error
+pnpm-lock.yaml
+pnpm-workspace.yaml
