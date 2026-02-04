@@ -3,9 +3,6 @@
 import { Button } from '@/components/ui/button';
 import { Spinner } from '@/components/ui/spinner';
 import { Download, Save, RefreshCw } from 'lucide-react';
-import {
-  GenerateProposalModal
-} from '@/app/organizations/[orgId]/projects/[projectId]/questions/components/GenerateProposalModal';
 import PermissionWrapper from '@/components/permission-wrapper';
 
 interface QuestionsHeaderProps {
