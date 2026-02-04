@@ -24,6 +24,11 @@ export function OrganizationCard({ organization, onDelete, onUpdate }: Organizat
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const { setCurrentOrganization } = useCurrentOrganization();
 
+  // Guard against undefined or malformed organization data (AUTO-RFP-5V/5W)
+  if (!organization || !organization.id) {
+    return null;
+  }
+
   const href = `/organizations/${organization.id}`;
 
   const handleOpen = (e: React.MouseEvent) => {
@@ -44,7 +49,7 @@ export function OrganizationCard({ organization, onDelete, onUpdate }: Organizat
     <>
       <Link href={href} className="block" onClick={handleOpen}>
         <BaseCard
-          title={organization.name}
+          title={organization.name || 'Unnamed Organization'}
           subtitle={organization.description}
           isHoverable
           actions={
@@ -84,11 +89,11 @@ export function OrganizationCard({ organization, onDelete, onUpdate }: Organizat
             <div className="flex flex-wrap gap-2">
               <Badge variant="secondary" className="text-xs">
                 <Users className="mr-1 h-3 w-3" />
-                {organization._count.organizationUsers}
+                {organization._count?.organizationUsers ?? 0}
               </Badge>
               <Badge variant="secondary" className="text-xs">
                 <FolderOpen className="mr-1 h-3 w-3" />
-                {organization._count.projects}
+                {organization._count?.projects ?? 0}
               </Badge>
             </div>
           }
