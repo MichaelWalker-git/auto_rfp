@@ -251,12 +251,16 @@ export default function OrganizationsPage() {
             <EmptyOrganizationsState onCreateClick={() => setCreateDialogOpen(true)} />
           ) : (
             <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-              {organizations?.map((org) => (
-                <OrganizationCard
-                  key={org.id}
-                  organization={org}
-                />
-              ))}
+              {organizations
+                ?.filter((org: Organization | null | undefined): org is Organization =>
+                  org != null && typeof org.id === 'string'
+                )
+                .map((org: Organization) => (
+                  <OrganizationCard
+                    key={org.id}
+                    organization={org}
+                  />
+                ))}
             </div>
           )}
 
