@@ -1,6 +1,8 @@
 /**
  * Regression tests for Sentry issues:
  * - AUTO-RFP-3V: TypeError: (text ?? "").trim is not a function (49 occurrences!)
+ * - AUTO-RFP-6F: Error: document does not exist (document deleted mid-pipeline)
+ * - AUTO-RFP-6E: ValidationException: Filter Expression can only contain non-primary key attributes
  * - Document indexing validation errors
  */
 
@@ -10,6 +12,11 @@ jest.mock('@aws-sdk/client-s3', () => ({
     send: jest.fn(),
   })),
   GetObjectCommand: jest.fn(),
+}), { virtual: true });
+
+jest.mock('@aws-sdk/lib-dynamodb', () => ({
+  QueryCommand: jest.fn(),
+  UpdateCommand: jest.fn(),
 }), { virtual: true });
 
 jest.mock('@aws-sdk/client-bedrock-runtime', () => ({
@@ -321,5 +328,87 @@ describe('index-document Lambda - Chunk Indexing', () => {
 
     const result = await baseHandler(event, mockContext);
     expect(result.markedIndexed).toBe(false);
+  });
+});
+
+describe('index-document Lambda - Document Deleted Mid-Pipeline (Sentry: AUTO-RFP-6F)', () => {
+  /**
+   * Tests for graceful handling when a document is deleted while the indexing
+   * pipeline is still running. Instead of throwing an error, the handler should
+   * return a "skipped" result.
+   */
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    jest.resetModules();
+
+    // Set up S3 mock for tests
+    const { Readable } = require('stream');
+    const mockStream = new Readable();
+    mockStream.push('Content from S3');
+    mockStream.push(null);
+
+    const { S3Client } = require('@aws-sdk/client-s3');
+    S3Client.mockImplementation(() => ({
+      send: jest.fn().mockResolvedValue({
+        Body: mockStream,
+      }),
+    }));
+  });
+
+  const mockContext = {} as any;
+
+  it('should return skipped result when document does not exist (AUTO-RFP-6F)', async () => {
+    // Mock getItem to return null (document deleted)
+    jest.doMock('../helpers/db', () => ({
+      docClient: {
+        send: jest.fn().mockResolvedValue({ Items: [] }),
+      },
+      getItem: jest.fn().mockResolvedValue(null), // Document not found
+    }));
+
+    const { baseHandler } = await import('./index-document');
+    const event = {
+      orgId: 'org-123',
+      knowledgeBaseId: 'kb-123',
+      documentId: 'deleted-doc-123',
+      chunkKey: 'chunks/deleted-doc-123/chunk-0.txt',
+      text: 'Some text content',
+    };
+
+    // Should NOT throw an error anymore
+    const result = await baseHandler(event, mockContext);
+
+    expect(result.success).toBe(true);
+    expect(result.skipped).toBe(true);
+    expect(result.skipReason).toBe('document_deleted');
+    expect(result.documentId).toBe('deleted-doc-123');
+    expect(result.markedIndexed).toBe(false);
+  });
+
+  it('should not call indexChunkToPinecone when document is deleted', async () => {
+    // Mock getItem to return null
+    jest.doMock('../helpers/db', () => ({
+      docClient: {
+        send: jest.fn().mockResolvedValue({ Items: [] }),
+      },
+      getItem: jest.fn().mockResolvedValue(null),
+    }));
+
+    const pinecone = require('../helpers/pinecone');
+    const { baseHandler } = await import('./index-document');
+
+    const event = {
+      orgId: 'org-123',
+      knowledgeBaseId: 'kb-123',
+      documentId: 'deleted-doc-123',
+      chunkKey: 'chunks/deleted-doc-123/chunk-0.txt',
+      text: 'Some text content',
+    };
+
+    await baseHandler(event, mockContext);
+
+    // Pinecone should NOT be called when document doesn't exist
+    expect(pinecone.indexChunkToPinecone).not.toHaveBeenCalled();
   });
 });
