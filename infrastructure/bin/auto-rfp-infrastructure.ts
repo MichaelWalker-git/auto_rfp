@@ -49,6 +49,10 @@ const db = new DatabaseStack(app, `AutoRfp-DynamoDatabase-${stage}`, {
   stage,
 });
 
+// DeepSeek OCR endpoint (us-east-1) - for image text extraction
+// Note: PDFs still use Textract until DeepSeek PDF endpoint is fixed
+const deepseekEndpoint = 'http://dev-deepseek-ocr-gpu-lb-1737323494.us-east-1.elb.amazonaws.com';
+
 const pipelineStack = new DocumentPipelineStack(app, `AutoRfp-DocumentPipeline-${stage}`, {
   env,
   stage,
@@ -57,7 +61,11 @@ const pipelineStack = new DocumentPipelineStack(app, `AutoRfp-DocumentPipeline-$
   vpc: network.vpc,
   vpcSecurityGroup: network.lambdaSecurityGroup,
   sentryDNS,
-  pineconeApiKey
+  pineconeApiKey,
+  // DeepSeek configuration for image OCR
+  deepseekEndpoint,
+  useDeepseek: true,
+  deepseekTrafficPercent: 100, // Route all images to DeepSeek (PDFs still use Textract)
 });
 
 const questionsPipelineStack = new QuestionExtractionPipelineStack(app, `AutoRfp-QuestionsPipeline-${stage}`, {

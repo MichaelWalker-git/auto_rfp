@@ -1,31 +1,58 @@
 /**
  * DeepSeek Integration Helper
  *
- * Provides utilities for calling the existing DeepSeek ECS OCR service.
- * The service runs on ECS with GPU instances (g4dn.xlarge) behind an internal ALB.
+ * Provides utilities for calling the DeepSeek ECS OCR service.
+ * The service runs on ECS with GPU instances (g4dn.xlarge) behind an ALB.
  *
- * API Contract (from idp-human-validation):
- * - Endpoint: POST http://{ALB_URL}/process
+ * API Contract (from aws-samples/sample-deepseek-ocr-selfhost):
  * - Health: GET http://{ALB_URL}/health
+ * - Image OCR: POST http://{ALB_URL}/ocr/image (multipart/form-data)
+ * - PDF OCR: POST http://{ALB_URL}/ocr/pdf (multipart/form-data)
+ * - Batch: POST http://{ALB_URL}/ocr/batch (multipart/form-data)
+ *
+ * IMPORTANT: The prompt MUST include '<image>' placeholder for the model to work.
+ * Default prompt is just '<image>' which tells the model to OCR the image.
+ *
+ * Multipart Form Fields:
+ * - file: The document file (required)
+ * - prompt: Extraction prompt, must include '<image>' (optional, default: '<image>')
+ * - grounded: boolean (optional, default: false)
+ * - temperature: float 0.0-1.0 (optional, default: 0.1)
+ * - top_p: float 0.0-1.0 (optional, default: 0.95)
+ * - max_tokens: int (optional, default: 4096)
  */
 
-export interface DeepSeekExtractionRequest {
-  imageBase64: string;  // base64 encoded document (PDF, PNG, JPEG, etc.)
-  prompt: string;       // OCR extraction prompt
-  grounded?: boolean;   // Whether to use grounded extraction
-  temperature?: number; // 0.0-1.0, default 0.1
-  top_p?: number;       // 0.0-1.0, default 0.95
-  max_tokens?: number;  // Max output tokens, default 80000 for OCR
+export interface DeepSeekOCROptions {
+  prompt?: string;       // Must include '<image>' placeholder
+  grounded?: boolean;    // Whether to use grounded extraction
+  temperature?: number;  // 0.0-1.0, default 0.1
+  topP?: number;         // 0.0-1.0, default 0.95
+  maxTokens?: number;    // Max output tokens
 }
 
-export interface DeepSeekExtractionResponse {
+export interface DeepSeekImageResponse {
   success: boolean;
-  result?: string;      // Extracted text/markdown
-  error?: string;       // Error message if failed
+  result?: string;       // Extracted text/markdown
+  error?: string;        // Error message if failed
+}
+
+export interface DeepSeekPDFResponse {
+  success: boolean;
+  results?: Array<{
+    success: boolean;
+    result?: string;
+    error?: string;
+    page_count: number;
+  }>;
+  total_pages?: number;
+  filename?: string;
+  error?: string;
 }
 
 export interface DeepSeekHealthResponse {
-  status: 'healthy' | 'unhealthy';
+  status: string;
+  gpu_available?: boolean;
+  model_loaded?: boolean;
 }
 
 /**
@@ -83,57 +110,81 @@ function simpleHash(str: string): number {
 }
 
 /**
- * Default OCR prompt for document text extraction
+ * Default OCR prompt - includes required '<image>' placeholder
  */
-export const DEFAULT_OCR_PROMPT = `Extract all text from this document.
+export const DEFAULT_OCR_PROMPT = `<image>
+Extract all text from this document verbatim.
 Preserve the structure and formatting where possible.
 For tables, convert them to markdown table format.
 For lists, preserve the list structure.
 Include all headings, paragraphs, and special sections.`;
 
 /**
- * Call DeepSeek OCR service to extract text from a document
+ * Get the base URL for the DeepSeek service
+ */
+function getBaseUrl(endpoint: string): string {
+  if (endpoint.startsWith('http://') || endpoint.startsWith('https://')) {
+    return endpoint;
+  }
+  return `http://${endpoint}`;
+}
+
+/**
+ * Extract text from an image using DeepSeek OCR service
  *
- * @param endpoint - The DeepSeek ALB endpoint URL (e.g., "internal-deepseek-alb-123.us-east-1.elb.amazonaws.com")
- * @param documentBase64 - Base64 encoded document content
+ * @param endpoint - The DeepSeek ALB endpoint URL
+ * @param fileBuffer - Raw file buffer (PNG, JPEG, etc.)
+ * @param filename - Original filename for MIME type detection
  * @param options - Optional extraction parameters
  * @param requestId - Optional request ID for logging
  */
-export async function extractTextWithDeepSeek(
+export async function extractTextFromImage(
   endpoint: string,
-  documentBase64: string,
-  options: {
-    prompt?: string;
-    grounded?: boolean;
-    temperature?: number;
-    topP?: number;
-    maxTokens?: number;
-  } = {},
+  fileBuffer: Buffer,
+  filename: string,
+  options: DeepSeekOCROptions = {},
   requestId?: string
-): Promise<DeepSeekExtractionResponse> {
+): Promise<DeepSeekImageResponse> {
   const startTime = Date.now();
-
-  const request: DeepSeekExtractionRequest = {
-    imageBase64: documentBase64,
-    prompt: options.prompt || DEFAULT_OCR_PROMPT,
-    grounded: options.grounded ?? false,
-    temperature: options.temperature ?? 0.1,
-    top_p: options.topP ?? 0.95,
-    max_tokens: options.maxTokens ?? 80000, // High limit for full document OCR
-  };
-
-  const url = endpoint.startsWith('http') ? `${endpoint}/process` : `http://${endpoint}/process`;
+  const baseUrl = getBaseUrl(endpoint);
+  const url = `${baseUrl}/ocr/image`;
 
   console.log(`[DeepSeek] Calling ${url}`, requestId ? `(request: ${requestId})` : '');
 
-  const response = await fetchWithTimeout(url, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      ...(requestId && { 'X-Request-Id': requestId }),
+  // Build multipart form data
+  const formData = new FormData();
+
+  // Add the file (convert Buffer to Uint8Array for Blob compatibility)
+  const mimeType = inferMimeType(filename);
+  const blob = new Blob([new Uint8Array(fileBuffer)], { type: mimeType });
+  formData.append('file', blob, filename);
+
+  // Add optional parameters
+  const prompt = options.prompt || DEFAULT_OCR_PROMPT;
+  formData.append('prompt', prompt);
+
+  if (options.grounded !== undefined) {
+    formData.append('grounded', String(options.grounded));
+  }
+  if (options.temperature !== undefined) {
+    formData.append('temperature', String(options.temperature));
+  }
+  if (options.topP !== undefined) {
+    formData.append('top_p', String(options.topP));
+  }
+  if (options.maxTokens !== undefined) {
+    formData.append('max_tokens', String(options.maxTokens));
+  }
+
+  const response = await fetchWithTimeout(
+    url,
+    {
+      method: 'POST',
+      body: formData,
+      headers: requestId ? { 'X-Request-Id': requestId } : undefined,
     },
-    body: JSON.stringify(request),
-  }, 300000); // 5 minute timeout
+    300000 // 5 minute timeout
+  );
 
   const elapsed = Date.now() - startTime;
   console.log(`[DeepSeek] Response received in ${elapsed}ms, status: ${response.status}`);
@@ -141,13 +192,13 @@ export async function extractTextWithDeepSeek(
   if (!response.ok) {
     const errorText = await response.text();
     throw new DeepSeekExtractionError(
-      `DeepSeek extraction failed: ${response.status}`,
+      `DeepSeek image extraction failed: ${response.status}`,
       response.status,
       errorText
     );
   }
 
-  const result: DeepSeekExtractionResponse = await response.json();
+  const result: DeepSeekImageResponse = await response.json();
 
   if (!result.success) {
     throw new DeepSeekExtractionError(
@@ -157,16 +208,142 @@ export async function extractTextWithDeepSeek(
     );
   }
 
-  console.log(`[DeepSeek] Extraction successful, result length: ${result.result?.length || 0} chars`);
+  console.log(`[DeepSeek] Image extraction successful, result length: ${result.result?.length || 0} chars`);
 
   return result;
+}
+
+/**
+ * Extract text from a PDF using DeepSeek OCR service
+ *
+ * NOTE: As of testing, the /ocr/pdf endpoint may have issues with some PDFs.
+ * Consider using extractTextFromImage with PDF-to-image conversion as a fallback.
+ *
+ * @param endpoint - The DeepSeek ALB endpoint URL
+ * @param fileBuffer - Raw PDF file buffer
+ * @param filename - Original filename
+ * @param options - Optional extraction parameters
+ * @param requestId - Optional request ID for logging
+ */
+export async function extractTextFromPDF(
+  endpoint: string,
+  fileBuffer: Buffer,
+  filename: string,
+  options: DeepSeekOCROptions = {},
+  requestId?: string
+): Promise<DeepSeekPDFResponse> {
+  const startTime = Date.now();
+  const baseUrl = getBaseUrl(endpoint);
+  const url = `${baseUrl}/ocr/pdf`;
+
+  console.log(`[DeepSeek] Calling ${url}`, requestId ? `(request: ${requestId})` : '');
+
+  // Build multipart form data
+  const formData = new FormData();
+
+  // Add the file (convert Buffer to Uint8Array for Blob compatibility)
+  const blob = new Blob([new Uint8Array(fileBuffer)], { type: 'application/pdf' });
+  formData.append('file', blob, filename);
+
+  // Add optional parameters
+  const prompt = options.prompt || DEFAULT_OCR_PROMPT;
+  formData.append('prompt', prompt);
+
+  if (options.grounded !== undefined) {
+    formData.append('grounded', String(options.grounded));
+  }
+  if (options.temperature !== undefined) {
+    formData.append('temperature', String(options.temperature));
+  }
+  if (options.topP !== undefined) {
+    formData.append('top_p', String(options.topP));
+  }
+  if (options.maxTokens !== undefined) {
+    formData.append('max_tokens', String(options.maxTokens));
+  }
+
+  const response = await fetchWithTimeout(
+    url,
+    {
+      method: 'POST',
+      body: formData,
+      headers: requestId ? { 'X-Request-Id': requestId } : undefined,
+    },
+    600000 // 10 minute timeout for PDFs (can be multi-page)
+  );
+
+  const elapsed = Date.now() - startTime;
+  console.log(`[DeepSeek] Response received in ${elapsed}ms, status: ${response.status}`);
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new DeepSeekExtractionError(
+      `DeepSeek PDF extraction failed: ${response.status}`,
+      response.status,
+      errorText
+    );
+  }
+
+  const result: DeepSeekPDFResponse = await response.json();
+
+  if (!result.success) {
+    throw new DeepSeekExtractionError(
+      result.error || 'DeepSeek PDF extraction returned success=false',
+      500,
+      result.error
+    );
+  }
+
+  // Combine all page results for logging
+  const totalChars = result.results?.reduce((sum, r) => sum + (r.result?.length || 0), 0) || 0;
+  console.log(`[DeepSeek] PDF extraction successful, ${result.total_pages} pages, ${totalChars} chars total`);
+
+  return result;
+}
+
+/**
+ * Extract text from a document, automatically selecting the right endpoint
+ *
+ * @param endpoint - The DeepSeek ALB endpoint URL
+ * @param fileBuffer - Raw file buffer
+ * @param filename - Original filename for type detection
+ * @param options - Optional extraction parameters
+ * @param requestId - Optional request ID for logging
+ */
+export async function extractTextWithDeepSeek(
+  endpoint: string,
+  fileBuffer: Buffer,
+  filename: string,
+  options: DeepSeekOCROptions = {},
+  requestId?: string
+): Promise<string> {
+  const ext = filename.toLowerCase().split('.').pop();
+
+  if (ext === 'pdf') {
+    const response = await extractTextFromPDF(endpoint, fileBuffer, filename, options, requestId);
+
+    // Combine all page results into a single string
+    if (response.results) {
+      return response.results
+        .filter((r) => r.success && r.result)
+        .map((r) => r.result)
+        .join('\n\n--- Page Break ---\n\n');
+    }
+
+    return '';
+  }
+
+  // For images
+  const response = await extractTextFromImage(endpoint, fileBuffer, filename, options, requestId);
+  return response.result || '';
 }
 
 /**
  * Check DeepSeek service health
  */
 export async function checkDeepSeekHealth(endpoint: string): Promise<boolean> {
-  const url = endpoint.startsWith('http') ? `${endpoint}/health` : `http://${endpoint}/health`;
+  const baseUrl = getBaseUrl(endpoint);
+  const url = `${baseUrl}/health`;
 
   try {
     const response = await fetchWithTimeout(url, { method: 'GET' }, 10000);

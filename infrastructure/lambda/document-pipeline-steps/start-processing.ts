@@ -12,7 +12,7 @@ import { nowIso } from '../helpers/date';
 
 const DB_TABLE_NAME = requireEnv('DB_TABLE_NAME');
 
-type FileFormat = 'PDF' | 'DOCX' | 'UNKNOWN';
+type FileFormat = 'PDF' | 'DOCX' | 'IMAGE' | 'UNKNOWN';
 
 interface StartProcessingEvent {
   knowledgeBaseId: string;
@@ -42,6 +42,9 @@ function inferExtFromKey(fileKey: string): string | null {
   return ext || null;
 }
 
+const IMAGE_EXTENSIONS = ['png', 'jpg', 'jpeg', 'gif', 'webp', 'tiff', 'tif'];
+const IMAGE_MIME_PREFIXES = ['image/png', 'image/jpeg', 'image/gif', 'image/webp', 'image/tiff'];
+
 function inferFormat(contentType?: unknown, fileKey?: unknown): { format: FileFormat; ext: string | null } {
   const ct = typeof contentType === 'string' ? contentType.toLowerCase() : '';
   const key = typeof fileKey === 'string' ? fileKey : '';
@@ -53,6 +56,14 @@ function inferFormat(contentType?: unknown, fileKey?: unknown): { format: FileFo
     ext === 'docx'
   ) {
     return { format: 'DOCX', ext };
+  }
+
+  // Check for image formats (for DeepSeek processing)
+  if (ext && IMAGE_EXTENSIONS.includes(ext)) {
+    return { format: 'IMAGE', ext };
+  }
+  if (ct && IMAGE_MIME_PREFIXES.some((prefix) => ct.startsWith(prefix))) {
+    return { format: 'IMAGE', ext };
   }
 
   return { format: 'UNKNOWN', ext };

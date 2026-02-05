@@ -237,5 +237,9 @@ describe('DeepSeek Helper Functions', () => {
     it('should mention text extraction', () => {
       expect(DEFAULT_OCR_PROMPT.toLowerCase()).toContain('text');
     });
+
+    it('should include the required <image> placeholder', () => {
+      expect(DEFAULT_OCR_PROMPT).toContain('<image>');
+    });
   });
 });
