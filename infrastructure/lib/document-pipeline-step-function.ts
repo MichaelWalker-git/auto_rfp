@@ -22,6 +22,9 @@ interface DocumentPipelineStackProps extends StackProps {
   vpcSecurityGroup: ec2.ISecurityGroup;
   sentryDNS: string;
   pineconeApiKey: string;
+  deepseekEndpoint?: string;
+  useDeepseek?: boolean;
+  deepseekTrafficPercent?: number;
 }
 
 export class DocumentPipelineStack extends Stack {
@@ -38,6 +41,9 @@ export class DocumentPipelineStack extends Stack {
       vpcSecurityGroup,
       sentryDNS,
       pineconeApiKey,
+      deepseekEndpoint,
+      useDeepseek = false,
+      deepseekTrafficPercent = 0,
     } = props;
 
     const namePrefix = `AutoRfp-${stage}`;
@@ -187,6 +193,33 @@ export class DocumentPipelineStack extends Stack {
     );
     documentsTable.grantReadWriteData(docxProcessingLambda);
     documentsBucket.grantReadWrite(docxProcessingLambda);
+
+    // 5b) deepseek-processing (sync): calls DeepSeek for text extraction (images only for now)
+    const deepseekProcessingLambda = new lambdaNode.NodejsFunction(
+      this,
+      'DeepSeekProcessingLambda',
+      {
+        runtime: lambda.Runtime.NODEJS_20_X,
+        entry: path.join(__dirname, '../lambda/document-pipeline-steps/deepseek-processing.ts'),
+        handler: 'handler',
+        memorySize: 2048,
+        timeout: Duration.minutes(5),
+        functionName: `${namePrefix}-DeepSeekProcessing`,
+        environment: {
+          REGION: this.region,
+          DB_TABLE_NAME: documentsTable.tableName,
+          DOCUMENTS_BUCKET: documentsBucket.bucketName,
+          DEEPSEEK_ENDPOINT: deepseekEndpoint || '',
+          USE_DEEPSEEK: String(useDeepseek),
+          DEEPSEEK_TRAFFIC_PERCENT: String(deepseekTrafficPercent),
+          SENTRY_DSN: sentryDNS,
+          SENTRY_ENVIRONMENT: stage,
+        },
+        logGroup,
+      },
+    );
+    documentsTable.grantReadWriteData(deepseekProcessingLambda);
+    documentsBucket.grantReadWrite(deepseekProcessingLambda);
 
     // 6) chunk-document (sync): reads txt, writes chunks next to it, returns items[]
     const chunkDocumentLambda = new lambdaNode.NodejsFunction(
@@ -341,6 +374,26 @@ export class DocumentPipelineStack extends Stack {
       resultPath: '$.Text',
     });
 
+    // DeepSeek processing task for images
+    const deepseekProcessingTask = new tasks.LambdaInvoke(this, 'DeepSeek Processing (Image)', {
+      lambdaFunction: deepseekProcessingLambda,
+      payload: sfn.TaskInput.fromObject({
+        orgId: sfn.JsonPath.stringAt('$.orgId'),
+        documentId: sfn.JsonPath.stringAt('$.documentId'),
+        knowledgeBaseId: sfn.JsonPath.stringAt('$.knowledgeBaseId'),
+      }),
+      resultSelector: {
+        'documentId.$': '$.Payload.documentId',
+        'knowledgeBaseId.$': '$.Payload.knowledgeBaseId',
+        'status.$': '$.Payload.status',
+        'bucket.$': '$.Payload.bucket',
+        'txtKey.$': '$.Payload.txtKey',
+        'textLength.$': '$.Payload.textLength',
+        'fallbackReason.$': '$.Payload.fallbackReason',
+      },
+      resultPath: '$.DeepSeek',
+    });
+
     const chunkPdfTask = new tasks.LambdaInvoke(this, 'Chunk Document (PDF)', {
       lambdaFunction: chunkDocumentLambda,
       payload: sfn.TaskInput.fromObject({
@@ -441,6 +494,58 @@ export class DocumentPipelineStack extends Stack {
       }),
     );
 
+    // Chunk task for images (DeepSeek results)
+    const chunkImageTask = new tasks.LambdaInvoke(this, 'Chunk Document (Image)', {
+      lambdaFunction: chunkDocumentLambda,
+      payload: sfn.TaskInput.fromObject({
+        orgId: sfn.JsonPath.stringAt('$.orgId'),
+        documentId: sfn.JsonPath.stringAt('$.documentId'),
+        knowledgeBaseId: sfn.JsonPath.stringAt('$.knowledgeBaseId'),
+        bucket: sfn.JsonPath.stringAt('$.DeepSeek.bucket'),
+        txtKey: sfn.JsonPath.stringAt('$.DeepSeek.txtKey'),
+      }),
+      resultSelector: {
+        'orgId.$': '$.Payload.orgId',
+        'documentId.$': '$.Payload.documentId',
+        'knowledgeBaseId.$': '$.Payload.knowledgeBaseId',
+        'bucket.$': '$.Payload.bucket',
+        'txtKey.$': '$.Payload.txtKey',
+        'chunksPrefix.$': '$.Payload.chunksPrefix',
+        'chunksCount.$': '$.Payload.chunksCount',
+        'items.$': '$.Payload.items',
+      },
+      resultPath: '$.Chunks',
+    });
+
+    // Index map for images (DeepSeek results)
+    const indexImageMap = new sfn.Map(this, 'Index Chunks (Image)', {
+      itemsPath: sfn.JsonPath.stringAt('$.Chunks.items'),
+      maxConcurrency: 3,
+      resultPath: sfn.JsonPath.DISCARD,
+      itemSelector: {
+        'chunkItem.$': '$$.Map.Item.Value',
+        'orgId.$': '$.orgId',
+        'documentId.$': '$.documentId',
+        'knowledgeBaseId.$': '$.knowledgeBaseId',
+        'totalChunks.$': '$.Chunks.chunksCount',
+      },
+    });
+
+    indexImageMap.iterator(
+      new tasks.LambdaInvoke(this, 'Index One Chunk (Image)', {
+        lambdaFunction: indexDocumentLambda,
+        payload: sfn.TaskInput.fromObject({
+          orgId: sfn.JsonPath.stringAt('$.orgId'),
+          documentId: sfn.JsonPath.stringAt('$.documentId'),
+          knowledgeBaseId: sfn.JsonPath.stringAt('$.knowledgeBaseId'),
+          chunkKey: sfn.JsonPath.stringAt('$.chunkItem.chunkKey'),
+          index: sfn.JsonPath.numberAt('$.chunkItem.index'),
+          totalChunks: sfn.JsonPath.numberAt('$.totalChunks'),
+        }),
+        resultPath: sfn.JsonPath.DISCARD,
+      }),
+    );
+
     const done = new sfn.Succeed(this, 'Pipeline Succeeded');
 
     const chooseFormat = new sfn.Choice(this, 'Choose File Format');
@@ -455,10 +560,17 @@ export class DocumentPipelineStack extends Stack {
       .next(indexDocxMap)
       .next(done);
 
+    // Image branch using DeepSeek
+    const imageBranch = deepseekProcessingTask
+      .next(chunkImageTask)
+      .next(indexImageMap)
+      .next(done);
+
     const definition = startProcessingTask.next(
       chooseFormat
         .when(sfn.Condition.stringEquals('$.Start.format', 'PDF'), pdfBranch)
         .when(sfn.Condition.stringEquals('$.Start.format', 'DOCX'), docxBranch)
+        .when(sfn.Condition.stringEquals('$.Start.format', 'IMAGE'), imageBranch)
         .otherwise(new sfn.Fail(this, 'Unsupported File Type')),
     );
 
