@@ -1,6 +1,23 @@
 import * as React from 'react';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { act } from 'react';
 import '@testing-library/jest-dom';
+
+// Mock authFetcher to avoid fetch errors
+jest.mock('@/lib/auth/auth-fetcher', () => ({
+  authFetcher: jest.fn(() => 
+    Promise.resolve({
+      json: () => Promise.resolve({ hasApiKey: true })
+    })
+  ),
+}));
+
+// Mock env
+jest.mock('@/lib/env', () => ({
+  env: {
+    BASE_API_URL: 'http://test-api.com',
+  },
+}));
 
 // Mock dependencies before importing component
 jest.mock('next/navigation', () => ({
@@ -68,6 +85,19 @@ jest.mock('@/components/samgov/import-solicitation-dialog', () => ({
   ImportSolicitationDialog: () => null,
 }));
 
+jest.mock('@/components/samgov/samgov-api-key-setup', () => ({
+  SamGovApiKeySetup: () => null,
+}));
+
+jest.mock('@/components/layout/ListingPageLayout', () => ({
+  ListingPageLayout: ({ children, filters }: any) => (
+    <div>
+      {filters}
+      {children}
+    </div>
+  ),
+}));
+
 import SamGovOpportunitySearchPage from './samgov-opportunity-search';
 import { useSearchOpportunities } from '@/lib/hooks/use-opportunities';
 
@@ -85,19 +115,27 @@ describe('SamGovOpportunitySearchPage', () => {
   });
 
   describe('rdlfrom filter (response deadline from)', () => {
-    it('initializes rdlfrom with a default date in initial state', () => {
-      render(<SamGovOpportunitySearchPage orgId="test-org-id" />);
+    it('initializes rdlfrom with a default date in initial state', async () => {
+      await act(async () => {
+        render(<SamGovOpportunitySearchPage orgId="test-org-id" />);
+      });
 
-      const rdlfromInput = screen.getByTestId('rdlfrom-input') as HTMLInputElement;
-      // rdlfrom is initialized to today's date by defaultDateRange (YYYY-MM-DD format)
-      expect(rdlfromInput.value).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+      await waitFor(() => {
+        const rdlfromInput = screen.getByTestId('rdlfrom-input') as HTMLInputElement;
+        // rdlfrom is initialized to today's date by defaultDateRange (YYYY-MM-DD format)
+        expect(rdlfromInput.value).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+      });
     });
 
-    it('includes rdlfrom in active filter count when set', () => {
-      render(<SamGovOpportunitySearchPage orgId="test-org-id" />);
+    it('includes rdlfrom in active filter count when set', async () => {
+      await act(async () => {
+        render(<SamGovOpportunitySearchPage orgId="test-org-id" />);
+      });
 
-      // Initially 1 active filter (rdlfrom is set by default)
-      expect(screen.getByTestId('active-filter-count')).toHaveTextContent('1');
+      await waitFor(() => {
+        // Initially 1 active filter (rdlfrom is set by default)
+        expect(screen.getByTestId('active-filter-count')).toHaveTextContent('1');
+      });
     });
 
     it('displays all opportunities returned from API (server-side filtering)', async () => {
@@ -126,10 +164,14 @@ describe('SamGovOpportunitySearchPage', () => {
         trigger: mockTrigger,
       });
 
-      render(<SamGovOpportunitySearchPage orgId="test-org-id" />);
+      await act(async () => {
+        render(<SamGovOpportunitySearchPage orgId="test-org-id" />);
+      });
 
-      // Shows all opportunities returned from API (filtering is server-side)
-      expect(screen.getByTestId('opportunity-count')).toHaveTextContent('2');
+      await waitFor(() => {
+        // Shows all opportunities returned from API (filtering is server-side)
+        expect(screen.getByTestId('opportunity-count')).toHaveTextContent('2');
+      });
     });
 
     it('shows opportunities with null deadlines from API response', async () => {
@@ -158,17 +200,30 @@ describe('SamGovOpportunitySearchPage', () => {
         trigger: mockTrigger,
       });
 
-      render(<SamGovOpportunitySearchPage orgId="test-org-id" />);
+      await act(async () => {
+        render(<SamGovOpportunitySearchPage orgId="test-org-id" />);
+      });
 
-      // Shows all opportunities from API response
-      expect(screen.getByTestId('opportunity-count')).toHaveTextContent('2');
+      await waitFor(() => {
+        // Shows all opportunities from API response
+        expect(screen.getByTestId('opportunity-count')).toHaveTextContent('2');
+      });
     });
 
     it('updates rdlfrom when changed', async () => {
-      render(<SamGovOpportunitySearchPage orgId="test-org-id" />);
+      await act(async () => {
+        render(<SamGovOpportunitySearchPage orgId="test-org-id" />);
+      });
+
+      await waitFor(() => {
+        expect(screen.getByTestId('rdlfrom-input')).toBeInTheDocument();
+      });
 
       const rdlfromInput = screen.getByTestId('rdlfrom-input');
-      fireEvent.change(rdlfromInput, { target: { value: '2025-03-01' } });
+      
+      await act(async () => {
+        fireEvent.change(rdlfromInput, { target: { value: '2025-03-01' } });
+      });
 
       expect(rdlfromInput).toHaveValue('2025-03-01');
     });
