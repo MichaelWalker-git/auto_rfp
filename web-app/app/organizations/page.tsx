@@ -258,7 +258,8 @@ export default function OrganizationsPage() {
             </div>
             <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
               {[...Array(3)].map((_, i) => (
-                <div key={i} className="rounded-lg border border-border bg-gradient-to-br from-background to-muted/30 animate-pulse">
+                <div key={i}
+                     className="rounded-lg border border-border bg-gradient-to-br from-background to-muted/30 animate-pulse">
                   <div className="p-4 space-y-2">
                     <div className="h-6 bg-gray-200 rounded w-3/4"></div>
                     <div className="h-4 bg-gray-200 rounded w-1/2"></div>
@@ -284,19 +285,19 @@ export default function OrganizationsPage() {
               </p>
             </div>
             <div className="flex items-center justify-between gap-2">
-              <Button variant='outline' onClick={() => router.push('/deadlines')}>
-                <CalendarClock className="mr-2 h-4 w-4" />
+              <Button variant="outline" onClick={() => router.push('/deadlines')}>
+                <CalendarClock className="mr-2 h-4 w-4"/>
                 Check the deadlines
               </Button>
               <Button onClick={() => setCreateDialogOpen(true)}>
-                <Plus className="mr-2 h-4 w-4" />
+                <Plus className="mr-2 h-4 w-4"/>
                 Create Organization
               </Button>
             </div>
           </div>
 
           {organizations?.length === 0 ? (
-            <EmptyOrganizationsState onCreateClick={() => setCreateDialogOpen(true)} />
+            <EmptyOrganizationsState onCreateClick={() => setCreateDialogOpen(true)}/>
           ) : (
             <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
               {organizations
