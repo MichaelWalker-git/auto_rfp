@@ -33,8 +33,11 @@ interface WordExportRequest {
   projectId: string;
   proposalId: string;
   opportunityId: string;
+  options?: {
+    pageLimitsPerSection?: number; // Maximum pages per section (optional)
+    includeCitations?: boolean; // Include citations with references (optional)
+  };
 }
-
 
 /**
  * Download template from S3 or create empty document if template doesn't exist
@@ -146,10 +149,73 @@ async function mergeProposalWithTemplate(
 
 
 /**
+ * Extract citations from content (looks for [1], [2], etc. patterns)
+ */
+function extractCitations(content: string): { cleanContent: string; citations: string[] } {
+  const citations: string[] = [];
+  const citationPattern = /\[(\d+)\]/g;
+  const matches = content.match(citationPattern);
+
+  if (matches) {
+    matches.forEach((match) => {
+      const num = match.replace(/[\[\]]/g, '');
+      if (!citations.includes(num)) {
+        citations.push(num);
+      }
+    });
+  }
+
+  return {
+    cleanContent: content,
+    citations: citations.sort((a, b) => parseInt(a) - parseInt(b)),
+  };
+}
+
+/**
+ * Estimate page count for content (rough approximation)
+ * Assumes ~500 words per page, ~5 characters per word
+ */
+function estimatePageCount(content: string): number {
+  const wordsPerPage = 500;
+  const charsPerWord = 5;
+  const charCount = content.length;
+  const wordCount = charCount / charsPerWord;
+  return Math.ceil(wordCount / wordsPerPage);
+}
+
+/**
+ * Truncate content to fit within page limit
+ */
+function enforcePageLimit(content: string, maxPages: number): string {
+  const wordsPerPage = 500;
+  const charsPerWord = 5;
+  const maxChars = maxPages * wordsPerPage * charsPerWord;
+
+  if (content.length <= maxChars) {
+    return content;
+  }
+
+  // Truncate and add ellipsis
+  const truncated = content.substring(0, maxChars - 100);
+  const lastPeriod = truncated.lastIndexOf('.');
+  if (lastPeriod > maxChars - 200) {
+    return truncated.substring(0, lastPeriod + 1) + '\n\n[Content truncated due to page limit]';
+  }
+  return truncated + '...\n\n[Content truncated due to page limit]';
+}
+
+/**
  * Build proposal sections to append to template
  */
-function buildProposalSections(document: ProposalDocument): Paragraph[] {
+function buildProposalSections(
+  document: ProposalDocument,
+  options?: {
+    pageLimitsPerSection?: number;
+    includeCitations?: boolean;
+  }
+): Paragraph[] {
   const sections: Paragraph[] = [];
+  const allCitations: Set<string> = new Set();
 
   // Add title
   sections.push(
@@ -198,6 +264,8 @@ function buildProposalSections(document: ProposalDocument): Paragraph[] {
 
   // Add proposal sections
   document.sections.forEach((section, sectionIndex) => {
+    let sectionContent = '';
+
     sections.push(
       new Paragraph({
         text: `${sectionIndex + 1}. ${section.title}`,
@@ -208,6 +276,7 @@ function buildProposalSections(document: ProposalDocument): Paragraph[] {
 
     // Section summary if available
     if (section.summary) {
+      sectionContent += section.summary + '\n\n';
       sections.push(
         new Paragraph({
           children: [
@@ -232,7 +301,25 @@ function buildProposalSections(document: ProposalDocument): Paragraph[] {
       );
 
       // Subsection content
-      const content = subsection.content || '';
+      let content = subsection.content || '';
+      sectionContent += content + '\n\n';
+
+      // Extract citations if needed
+      if (options?.includeCitations) {
+        const { cleanContent, citations } = extractCitations(content);
+        citations.forEach(c => allCitations.add(c));
+        content = cleanContent;
+      }
+
+      // Apply page limit if specified
+      if (options?.pageLimitsPerSection) {
+        const currentPageCount = estimatePageCount(sectionContent);
+        if (currentPageCount > options.pageLimitsPerSection) {
+          content = enforcePageLimit(content,
+            Math.max(1, options.pageLimitsPerSection - estimatePageCount(sectionContent.replace(content, ''))));
+        }
+      }
+
       const contentParagraphs = content.split('\n\n');
       contentParagraphs.forEach((para) => {
         if (para?.trim()) {
@@ -252,6 +339,42 @@ function buildProposalSections(document: ProposalDocument): Paragraph[] {
       sections.push(new Paragraph({ pageBreakBefore: true }));
     }
   });
+
+  // Add References section if citations were found
+  if (options?.includeCitations && allCitations.size > 0) {
+    sections.push(new Paragraph({ pageBreakBefore: true }));
+    sections.push(
+      new Paragraph({
+        text: 'References',
+        heading: HeadingLevel.HEADING_1,
+        spacing: { before: 400, after: 200 },
+      }),
+    );
+
+    // Add placeholder references (in production, these would come from actual sources)
+    Array.from(allCitations).forEach((citation) => {
+      sections.push(
+        new Paragraph({
+          text: `[${citation}] Reference details to be provided by content management system`,
+          spacing: { after: 100 },
+          indent: { left: 360 },
+        }),
+      );
+    });
+
+    sections.push(
+      new Paragraph({
+        children: [
+          new TextRun({
+            text: 'Note: Citation references will be populated when integrated with the content management system.',
+            italics: true,
+            size: 20,
+          }),
+        ],
+        spacing: { before: 200 },
+      }),
+    );
+  }
 
   return sections;
 }
@@ -342,8 +465,8 @@ export const baseHandler = async (
     // Get or create template document
     const templateBuffer = await getOrCreateTemplate(organizationId);
 
-    // Build proposal sections
-    const proposalSections = buildProposalSections(proposal.document);
+    // Build proposal sections with options
+    const proposalSections = buildProposalSections(proposal.document, body.options);
 
     // Merge proposal with template
     const wordBuffer = await mergeProposalWithTemplate(templateBuffer, proposalSections);
@@ -373,6 +496,10 @@ export const baseHandler = async (
         key,
         url,
         expiresIn: PRESIGN_EXPIRES_IN,
+      },
+      options: {
+        pageLimitsPerSection: body.options?.pageLimitsPerSection,
+        includeCitations: body.options?.includeCitations,
       },
     });
   } catch (err) {

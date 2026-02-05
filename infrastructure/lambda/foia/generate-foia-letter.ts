@@ -2,7 +2,7 @@ import { APIGatewayProxyEventV2, APIGatewayProxyResultV2 } from 'aws-lambda';
 import { GetCommand } from '@aws-sdk/lib-dynamodb';
 import middy from '@middy/core';
 
-import { type FOIADocumentType, FOIA_DOCUMENT_DESCRIPTIONS } from '@auto-rfp/shared';
+import { FOIA_DOCUMENT_DESCRIPTIONS, type FOIADocumentType } from '@auto-rfp/shared';
 import { PK_NAME, SK_NAME } from '../constants/common';
 import { FOIA_REQUEST_PK } from '../constants/organization';
 import { apiResponse } from '../helpers/api';
@@ -23,11 +23,11 @@ export const baseHandler = async (
   event: APIGatewayProxyEventV2
 ): Promise<APIGatewayProxyResultV2> => {
   try {
-    const { orgId, projectId, foiaRequestId } = event.queryStringParameters || {};
+    const { orgId, projectId, foiaRequestId } = JSON.parse(event.body || '');
 
     if (!orgId || !projectId || !foiaRequestId) {
       return apiResponse(400, {
-        message: 'Missing required query parameters: orgId, projectId, and foiaRequestId',
+        message: 'Missing required parameters: orgId, projectId, or foiaRequestId',
       });
     }
 
@@ -80,7 +80,7 @@ export function generateFOIALetter(request: DBFOIARequestItem): string {
     .map((doc: FOIADocumentType) => getDocumentDescription(doc))
     .join('\n');
 
-  const letter = `${today}
+  return `${today}
 
 FOIA Request
 
@@ -121,8 +121,6 @@ Sincerely,
 
 ${request.requesterName}
 ${request.requesterEmail}`;
-
-  return letter;
 }
 
 function getDocumentDescription(docType: FOIADocumentType): string {

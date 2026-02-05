@@ -11,7 +11,7 @@ import * as sfn from 'aws-cdk-lib/aws-stepfunctions';
 import * as tasks from 'aws-cdk-lib/aws-stepfunctions-tasks';
 import * as subscriptions from 'aws-cdk-lib/aws-sns-subscriptions';
 import * as path from 'path';
-import * as lambdaNode from 'aws-cdk-lib/aws-lambda-nodejs';
+import * as nodejs from 'aws-cdk-lib/aws-lambda-nodejs';
 import * as logs from 'aws-cdk-lib/aws-logs';
 
 interface DocumentPipelineStackProps extends StackProps {
@@ -58,11 +58,11 @@ export class DocumentPipelineStack extends Stack {
     textractTopic.grantPublish(textractServiceRole);
 
     // 2) start-processing (sync): loads document row, sets status STARTED, returns format
-    const startProcessingLambda = new lambdaNode.NodejsFunction(
+    const startProcessingLambda = new nodejs.NodejsFunction(
       this,
       'StartProcessingLambda',
       {
-        runtime: lambda.Runtime.NODEJS_20_X,
+        runtime: lambda.Runtime.NODEJS_24_X,
         entry: path.join(__dirname, '../lambda/document-pipeline-steps/start-processing.ts'),
         handler: 'handler',
         timeout: Duration.seconds(30),
@@ -83,11 +83,11 @@ export class DocumentPipelineStack extends Stack {
     documentsTable.grantReadWriteData(startProcessingLambda);
 
     // 3) pdf-processing (WAIT_FOR_TASK_TOKEN): starts Textract, stores jobId + taskToken
-    const pdfProcessingLambda = new lambdaNode.NodejsFunction(
+    const pdfProcessingLambda = new nodejs.NodejsFunction(
       this,
       'PdfProcessingLambda',
       {
-        runtime: lambda.Runtime.NODEJS_20_X,
+        runtime: lambda.Runtime.NODEJS_24_X,
         entry: path.join(__dirname, '../lambda/document-pipeline-steps/pdf-processing.ts'),
         handler: 'handler',
         timeout: Duration.seconds(30),
@@ -124,11 +124,11 @@ export class DocumentPipelineStack extends Stack {
     );
 
     // 4) textract-callback: fetches full text, stores txt to S3, updates Dynamo, SendTaskSuccess/Failure
-    const textractCallbackLambda = new lambdaNode.NodejsFunction(
+    const textractCallbackLambda = new nodejs.NodejsFunction(
       this,
       'TextractCallbackLambda',
       {
-        runtime: lambda.Runtime.NODEJS_20_X,
+        runtime: lambda.Runtime.NODEJS_24_X,
         entry: path.join(__dirname, '../lambda/document-pipeline-steps/textract-callback.ts'),
         handler: 'handler',
         timeout: Duration.minutes(2),
@@ -162,11 +162,11 @@ export class DocumentPipelineStack extends Stack {
     );
 
     // 5) docx-processing (sync): downloads docx, converts to text, stores txt to S3, returns bucket/txtKey
-    const docxProcessingLambda = new lambdaNode.NodejsFunction(
+    const docxProcessingLambda = new nodejs.NodejsFunction(
       this,
       'DocxProcessingLambda',
       {
-        runtime: lambda.Runtime.NODEJS_20_X,
+        runtime: lambda.Runtime.NODEJS_24_X,
         entry: path.join(__dirname, '../lambda/document-pipeline-steps/docx-processing.ts'),
         handler: 'handler',
         memorySize: 2048,
@@ -189,11 +189,11 @@ export class DocumentPipelineStack extends Stack {
     documentsBucket.grantReadWrite(docxProcessingLambda);
 
     // 6) chunk-document (sync): reads txt, writes chunks next to it, returns items[]
-    const chunkDocumentLambda = new lambdaNode.NodejsFunction(
+    const chunkDocumentLambda = new nodejs.NodejsFunction(
       this,
       'ChunkDocumentLambda',
       {
-        runtime: lambda.Runtime.NODEJS_20_X,
+        runtime: lambda.Runtime.NODEJS_24_X,
         entry: path.join(__dirname, '../lambda/document-pipeline-steps/chunk-document.ts'),
         handler: 'handler',
         memorySize: 2048,
@@ -219,11 +219,11 @@ export class DocumentPipelineStack extends Stack {
     documentsBucket.grantReadWrite(chunkDocumentLambda);
 
     // 7) index-document (per chunk): embed + index to Pinecone (+ optional INDEXED update on last chunk)
-    const indexDocumentLambda = new lambdaNode.NodejsFunction(
+    const indexDocumentLambda = new nodejs.NodejsFunction(
       this,
       'IndexDocumentLambda',
       {
-        runtime: lambda.Runtime.NODEJS_20_X,
+        runtime: lambda.Runtime.NODEJS_24_X,
         entry: path.join(__dirname, '../lambda/document-pipeline-steps/index-document.ts'),
         handler: 'handler',
         memorySize: 2048,

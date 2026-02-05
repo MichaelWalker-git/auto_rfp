@@ -1,4 +1,4 @@
-import { ContentLibrary } from '@/components/content-library';
+import { ContentLibraryContainer } from '@/components/content-library';
 
 interface ContentLibraryPageProps {
   params: Promise<{ orgId: string, kbId: string }>;
@@ -9,7 +9,7 @@ export default async function ContentLibraryPage({ params }: ContentLibraryPageP
 
   return (
     <div className="container mx-auto p-6">
-      <ContentLibrary orgId={orgId} kbId={kbId}/>
+      <ContentLibraryContainer orgId={orgId} kbId={kbId}/>
     </div>
   );
 }

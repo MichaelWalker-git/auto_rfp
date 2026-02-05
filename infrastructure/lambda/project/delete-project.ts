@@ -316,7 +316,8 @@ export const baseHandler = async (
   event: APIGatewayProxyEventV2,
 ): Promise<APIGatewayProxyResultV2> => {
   try {
-    const { orgId, projectId } = event.queryStringParameters || {};
+    const { projectId } = event.pathParameters || {}
+    const { orgId } = event.queryStringParameters || {};
 
     if (!orgId || !projectId) {
       return apiResponse(400, {

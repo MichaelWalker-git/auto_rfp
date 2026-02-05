@@ -1,21 +1,13 @@
 import { Organization } from '@/types/organization';
 import { env } from '@/lib/env';
-import { useAuth } from '@/components/AuthProvider';
+import { authFetcher } from '@/lib/auth/auth-fetcher';
 
 export function useCreateOrganization() {
-  const { getIdToken } = useAuth();
-  const token = getIdToken().toString();
-
   const create = async (payload: { name: string, slug: string, description: string }): Promise<Organization> => {
+    const url = `${env.BASE_API_URL}/organization/create-organization`;
 
-    const url = `${env.BASE_API_URL.replace(/\/$/, '')}/organization/create-organization`;
-
-    const res = await fetch(url, {
+    const res = await authFetcher(url, {
       method: 'POST',
-      headers: {
-        Authorization: `Bearer ${token}`,
-        'Content-Type': 'application/json',
-      },
       body: JSON.stringify(payload),
     });
 

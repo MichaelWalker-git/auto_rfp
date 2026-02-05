@@ -1,21 +1,32 @@
 'use client';
 
-import * as React from 'react';
-import { Card, CardContent } from '@/components/ui/card';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useToast } from '@/components/ui/use-toast';
 import { useSearchParams } from 'next/navigation';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { Key } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 
 import type { LoadSamOpportunitiesRequest, SamOpportunitySlim } from '@auto-rfp/shared';
 import { useSearchOpportunities } from '@/lib/hooks/use-opportunities';
 
-import { defaultDateRange, filtersToRequest, reqToFiltersState, safeDecodeSearchParam, isoToMMDDYYYY } from './samgov-utils';
+import {
+  defaultDateRange,
+  filtersToRequest,
+  isoToMMDDYYYY,
+  reqToFiltersState,
+  safeDecodeSearchParam
+} from './samgov-utils';
 import { SamGovFilters, type SamGovFiltersState } from './samgov-filters';
 import { SamGovOpportunityList } from './samgov-opportunity-list';
 
 import { useImportSolicitation } from '@/lib/hooks/use-import-solicitation';
 import { ImportSolicitationDialog } from '@/components/samgov/import-solicitation-dialog';
+import { SamGovApiKeySetup } from '@/components/samgov/samgov-api-key-setup';
 import { useProjectContext } from '@/context/project-context';
 import { ListingPageLayout } from '@/components/layout/ListingPageLayout';
+import { authFetcher } from '@/lib/auth/auth-fetcher';
+import { env } from '@/lib/env';
 
 type Props = { orgId: string };
 
@@ -23,15 +34,20 @@ export default function SamGovOpportunitySearchPage({ orgId }: Props) {
   const { toast } = useToast();
   const searchParams = useSearchParams();
 
-  const { data, isMutating: isLoading, error, trigger } = useSearchOpportunities();
+  const { data, isMutating: isLoading, error, trigger } = useSearchOpportunities(orgId);
   const { projects } = useProjectContext();
 
-  const initial = React.useMemo(() => defaultDateRange(14, 0), []);
+  const initial = useMemo(() => defaultDateRange(14, 0), []);
+
+  // API Key status check
+  const [hasApiKey, setHasApiKey] = useState<boolean | null>(null);
+  const [checkingApiKey, setCheckingApiKey] = useState(true);
+  const [showApiKeySetup, setShowApiKeySetup] = useState(false);
 
   // --- URL bootstrap (only once per mount) ---
-  const bootstrappedRef = React.useRef(false);
+  const bootstrappedRef = useRef(false);
 
-  const [filters, setFilters] = React.useState<SamGovFiltersState>(() => ({
+  const [filters, setFilters] = useState<SamGovFiltersState>(() => ({
     keywords: '',
     naicsCsv: '541511',
     agencyName: '',
@@ -42,7 +58,27 @@ export default function SamGovOpportunitySearchPage({ orgId }: Props) {
     rdlfrom: initial.rdlfrom,
   }));
 
-  React.useEffect(() => {
+  // Check API key status on mount
+  useEffect(() => {
+    const checkApiKeyStatus = async () => {
+      try {
+        const response = await authFetcher(
+          `${env.BASE_API_URL}/samgov/check-api-key-status?orgId=${encodeURIComponent(orgId)}`
+        );
+        const result = await response.json();
+        setHasApiKey(result.hasApiKey);
+      } catch (error) {
+        console.error('Error checking API key status:', error);
+        setHasApiKey(false);
+      } finally {
+        setCheckingApiKey(false);
+      }
+    };
+
+    checkApiKeyStatus();
+  }, [orgId]);
+
+  useEffect(() => {
     if (bootstrappedRef.current) return;
     bootstrappedRef.current = true;
 
@@ -79,17 +115,24 @@ export default function SamGovOpportunitySearchPage({ orgId }: Props) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams, initial.postedFrom, initial.postedTo, trigger, toast]);
 
-  React.useEffect(() => {
+  useEffect(() => {
     if (error) {
-      toast({
-        title: 'SAM.gov search failed',
-        description: typeof error === 'string' ? error : (error as any)?.message ?? String(error),
-        variant: 'destructive',
-      });
+      const errorMessage = typeof error === 'string' ? error : (error as any)?.message ?? String(error);
+
+      // Check if the error is due to missing API key
+      if (errorMessage.includes('API key not configured') || errorMessage.includes('API key not found')) {
+        setHasApiKey(false);
+      } else {
+        toast({
+          title: 'SAM.gov search failed',
+          description: errorMessage,
+          variant: 'destructive',
+        });
+      }
     }
   }, [error, toast]);
 
-  const activeFilterCount = React.useMemo(() => {
+  const activeFilterCount = useMemo(() => {
     return [
       filters.keywords.trim(),
       filters.agencyName.trim(),
@@ -101,6 +144,10 @@ export default function SamGovOpportunitySearchPage({ orgId }: Props) {
   }, [filters]);
 
   const onSearch = async (req: LoadSamOpportunitiesRequest) => {
+    if (!hasApiKey) {
+      setShowApiKeySetup(true);
+      return;
+    }
     await trigger(req);
   };
 
@@ -110,8 +157,8 @@ export default function SamGovOpportunitySearchPage({ orgId }: Props) {
   };
 
   // -------- Import dialog state ----------
-  const [dialogOpen, setDialogOpen] = React.useState(false);
-  const [pendingOpp, setPendingOpp] = React.useState<SamOpportunitySlim | null>(null);
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [pendingOpp, setPendingOpp] = useState<SamOpportunitySlim | null>(null);
   const { trigger: importSolicitation, isMutating: isImporting } = useImportSolicitation();
 
   const onImportSolicitation = (opportunity: SamOpportunitySlim) => {
@@ -141,14 +188,50 @@ export default function SamGovOpportunitySearchPage({ orgId }: Props) {
     }
   };
 
+  const handleApiKeySuccess = () => {
+    setHasApiKey(true);
+    setShowApiKeySetup(false);
+    // Trigger a search after API key is set
+    const req = filtersToRequest(filters, { limit: 25, offset: 0 });
+    trigger(req);
+  };
+
+  if (checkingApiKey) {
+    return (
+      <div className="mx-auto w-full max-w-6xl px-4 py-6">
+        <div className="flex items-center justify-center py-12">
+          <div className="text-muted-foreground">Checking API configuration...</div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <>
       <div className="mx-auto w-full max-w-6xl px-4 py-6">
+        {!hasApiKey && (
+          <Alert className="mb-6">
+            <Key className="h-4 w-4"/>
+            <AlertTitle>SAM.gov API Key Required</AlertTitle>
+            <AlertDescription className="space-y-2">
+              <p>To search and import opportunities from SAM.gov, you need to configure your API key.</p>
+              <Button
+                size="sm"
+                onClick={() => setShowApiKeySetup(true)}
+                className="mt-2"
+              >
+                <Key className="h-4 w-4 mr-2"/>
+                Configure API Key
+              </Button>
+            </AlertDescription>
+          </Alert>
+        )}
+
         <ListingPageLayout
           title="Search Opportunities"
           description="Search SAM.gov and import solicitations into your pipeline."
           onReload={async () => {
-            if (data) {
+            if (data && hasApiKey) {
               const req = filtersToRequest(filters, { limit: data.limit ?? 25, offset: 0 });
               await trigger(req);
             }
@@ -207,6 +290,13 @@ export default function SamGovOpportunitySearchPage({ orgId }: Props) {
         projects={projects}
         isImporting={isImporting}
         onImport={doImport}
+      />
+
+      <SamGovApiKeySetup
+        orgId={orgId}
+        open={showApiKeySetup}
+        onOpenChange={setShowApiKeySetup}
+        onSuccess={handleApiKeySuccess}
       />
     </>
   );

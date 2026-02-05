@@ -59,10 +59,6 @@ export interface ContentLibraryListResponse {
   hasMore: boolean;
 }
 
-export interface ContentLibraryCategoriesResponse {
-  categories: Array<{ name: string; count: number }>;
-}
-
 export interface ContentLibraryTagsResponse {
   tags: Array<{ name: string; count: number }>;
 }
@@ -115,7 +111,8 @@ async function fetcher(url: string) {
     throw new Error(errorData.error || 'Failed to fetch');
   }
   const json = await res.json();
-  return json.data;
+  // The API returns the data directly, not wrapped in a 'data' property
+  return json;
 }
 
 /**
@@ -134,7 +131,8 @@ async function mutationFetcher(
     throw new Error(errorData.error || 'Failed to fetch');
   }
   const json = await res.json();
-  return json.data;
+  // The API returns the data directly, not wrapped in a 'data' property
+  return json;
 }
 
 /**
@@ -163,6 +161,11 @@ export function useContentLibraryItems(params: SearchContentLibraryParams | null
       dedupingInterval: 30000,
     }
   );
+
+  // Log the response for debugging
+  if (data) {
+    console.log('Content library items response:', data);
+  }
 
   return {
     items: data?.items ?? [],
@@ -202,7 +205,7 @@ export function useContentLibraryItem(orgId: string | null, itemId: string | nul
  * Hook to get content library categories
  */
 export function useContentLibraryCategories(orgId: string | null) {
-  const { data, error, isLoading, mutate } = useSWR<ContentLibraryCategoriesResponse>(
+  const { data, error, isLoading, mutate } = useSWR<{ name: string; count: number }[]>(
     orgId ? `${API_BASE}/categories?orgId=${orgId}` : null,
     fetcher,
     {
@@ -212,7 +215,7 @@ export function useContentLibraryCategories(orgId: string | null) {
   );
 
   return {
-    categories: data?.categories ?? [],
+    categories: data || [],
     isLoading,
     isError: !!error,
     error,
@@ -359,19 +362,27 @@ export function useApproveContentLibraryItem(orgId: string, kbId: string) {
 /**
  * Hook to deprecate a content library item
  */
-export function useDeprecateContentLibraryItem(orgId: string, kbId: string, itemId: string) {
+export function useDeprecateContentLibraryItem(orgId: string, kbId: string) {
   const { trigger, isMutating, error } = useSWRMutation<
     { message: string },
     Error,
     string,
-    { method: string; body?: unknown }
+    { method: string; itemId: string }
   >(
-    `${API_BASE}/deprecate/${itemId}?orgId=${orgId}&kbId=${kbId}`,
-    mutationFetcher
+    `${API_BASE}/deprecate`,
+    async (url, { arg }) => {
+      const response = await authFetcher(
+        `${url}/${arg.itemId}?orgId=${orgId}&kbId=${kbId}`,
+        {
+          method: arg.method,
+        }
+      );
+      return response.json();
+    }
   );
 
-  const deprecate = async () => {
-    return trigger({ method: 'POST' });
+  const deprecate = async (itemId: string) => {
+    return trigger({ method: 'POST', itemId });
   };
 
   return {

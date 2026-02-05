@@ -8,6 +8,7 @@ import { requireEnv } from '../helpers/env';
 import { withSentryLambda } from '../sentry-lambda';
 import { authContextMiddleware, httpErrorMiddleware, orgMembershipMiddleware, } from '../middleware/rbac-middleware';
 import { nowIso } from '../helpers/date';
+import { PK_NAME, SK_NAME } from '../constants/common';
 
 const TABLE_NAME = requireEnv('DB_TABLE_NAME');
 
@@ -27,8 +28,8 @@ async function baseHandler(
     await docClient.send(new UpdateCommand({
       TableName: TABLE_NAME,
       Key: {
-        partition_key: CONTENT_LIBRARY_PK,
-        sort_key: createContentLibrarySK(orgId, kbId, itemId),
+        [PK_NAME]: CONTENT_LIBRARY_PK,
+        [SK_NAME]: createContentLibrarySK(orgId, kbId, itemId),
       },
       UpdateExpression: 'SET #approvalStatus = :status, #updatedAt = :updatedAt',
       ExpressionAttributeNames: {

@@ -12,6 +12,17 @@ import { useCurrentOrganization } from '@/context/organization-context';
 import { OrganizationCard } from '@/components/organizations/OrganizationCard';
 import { CreateEditOrganizationDialog } from '@/components/organizations/CreateEditOrganizationDialog';
 import { EmptyOrganizationsState } from '@/components/organizations/EmptyOrganizationsState';
+import { useDeleteOrganization } from '@/lib/hooks/use-delete-organization';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 
 export interface Organization {
   id: string;
@@ -54,7 +65,11 @@ export default function OrganizationsPage() {
   const [editingOrg, setEditingOrg] = useState<Organization | null>(null);
   const [isCreating, setIsCreating] = useState(false);
   const [isUpdating, setIsUpdating] = useState(false);
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [orgToDelete, setOrgToDelete] = useState<Organization | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
   const { data: organizations, error, mutate: fetchOrganizations, isLoading: loading } = useOrganizations();
+  const { deleteOrganization } = useDeleteOrganization();
   const { createOrganization } = useCreateOrganization();
   const { toast } = useToast();
   const { orgId } = useAuth();
@@ -200,6 +215,39 @@ export default function OrganizationsPage() {
     }
   };
 
+  const handleDeleteClick = (org: Organization) => {
+    setOrgToDelete(org);
+    setDeleteConfirmOpen(true);
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!orgToDelete) return;
+
+    try {
+      setIsDeleting(true);
+      await deleteOrganization(orgToDelete.id);
+
+      toast({
+        title: 'Success',
+        description: `Organization "${orgToDelete.name}" has been deleted successfully.`,
+      });
+
+      // Refresh the organizations list
+      fetchOrganizations();
+    } catch (error) {
+      console.error('Failed to delete organization:', error);
+      toast({
+        title: 'Error',
+        description: `Failed to delete organization "${orgToDelete.name}". Please try again.`,
+        variant: 'destructive',
+      });
+    } finally {
+      setIsDeleting(false);
+      setDeleteConfirmOpen(false);
+      setOrgToDelete(null);
+    }
+  };
+
   if (loading) {
     return (
       <div className="w-full max-w-7xl mx-auto">
@@ -210,7 +258,8 @@ export default function OrganizationsPage() {
             </div>
             <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
               {[...Array(3)].map((_, i) => (
-                <div key={i} className="rounded-lg border border-border bg-gradient-to-br from-background to-muted/30 animate-pulse">
+                <div key={i}
+                     className="rounded-lg border border-border bg-gradient-to-br from-background to-muted/30 animate-pulse">
                   <div className="p-4 space-y-2">
                     <div className="h-6 bg-gray-200 rounded w-3/4"></div>
                     <div className="h-4 bg-gray-200 rounded w-1/2"></div>
@@ -236,19 +285,19 @@ export default function OrganizationsPage() {
               </p>
             </div>
             <div className="flex items-center justify-between gap-2">
-              <Button variant='outline' onClick={() => router.push('/deadlines')}>
-                <CalendarClock className="mr-2 h-4 w-4" />
+              <Button variant="outline" onClick={() => router.push('/deadlines')}>
+                <CalendarClock className="mr-2 h-4 w-4"/>
                 Check the deadlines
               </Button>
               <Button onClick={() => setCreateDialogOpen(true)}>
-                <Plus className="mr-2 h-4 w-4" />
+                <Plus className="mr-2 h-4 w-4"/>
                 Create Organization
               </Button>
             </div>
           </div>
 
           {organizations?.length === 0 ? (
-            <EmptyOrganizationsState onCreateClick={() => setCreateDialogOpen(true)} />
+            <EmptyOrganizationsState onCreateClick={() => setCreateDialogOpen(true)}/>
           ) : (
             <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
               {organizations
@@ -259,6 +308,7 @@ export default function OrganizationsPage() {
                   <OrganizationCard
                     key={org.id}
                     organization={org}
+                    onDelete={handleDeleteClick}
                   />
                 ))}
             </div>
@@ -273,6 +323,29 @@ export default function OrganizationsPage() {
             onSubmit={handleCreateDialogSubmit}
             editingOrg={editingOrg}
           />
+
+          <AlertDialog open={deleteConfirmOpen} onOpenChange={setDeleteConfirmOpen}>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                <AlertDialogDescription>
+                  This action cannot be undone. This will permanently delete the organization
+                  <span className="font-semibold"> "{orgToDelete?.name}"</span> and remove all associated data
+                  including projects, users, and settings.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
+                <AlertDialogAction
+                  onClick={handleConfirmDelete}
+                  disabled={isDeleting}
+                  className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                >
+                  {isDeleting ? 'Deleting...' : 'Delete Organization'}
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
         </div>
       </div>
     </div>

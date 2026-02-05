@@ -1,4 +1,5 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
+import { act } from 'react';
 import { ProjectOverview } from '../project-overview';
 
 // Mock Next.js Link
@@ -7,6 +8,12 @@ jest.mock('next/link', () => {
     <a href={href} data-testid="next-link">{children}</a>
   );
 });
+
+// Mock date-fns
+jest.mock('date-fns', () => ({
+  format: jest.fn((date, formatStr) => 'Jan 1, 2025'),
+  formatDistanceToNow: jest.fn((date, options) => '20 days ago'),
+}));
 
 // Mock the hooks
 const mockProject = {
@@ -17,6 +24,8 @@ const mockProject = {
   status: 'In Progress',
   createdAt: '2025-01-01T00:00:00Z',
   updatedAt: '2025-01-20T00:00:00Z',
+  agencyName: 'Test Agency',
+  solicitationNumber: 'SOL-123',
 };
 
 const mockQuestions = {
@@ -48,6 +57,13 @@ jest.mock('@/lib/hooks/use-api', () => ({
   })),
 }));
 
+jest.mock('@/lib/hooks/use-project-outcome', () => ({
+  useProjectOutcome: jest.fn(() => ({
+    outcome: { status: 'pending' },
+    isLoading: false,
+  })),
+}));
+
 jest.mock('@/app/organizations/[orgId]/projects/[projectId]/questions/components', () => ({
   useQuestions: jest.fn(() => ({
     questionFiles: mockQuestionFiles,
@@ -61,6 +77,44 @@ jest.mock('@/components/brief/ExecutiveBriefView', () => ({
   ExecutiveBriefView: () => <div data-testid="executive-brief">Executive Brief</div>,
 }));
 
+jest.mock('@/components/foia/FOIARequestCard', () => ({
+  FOIARequestCard: () => <div data-testid="foia-request-card">FOIA Request Card</div>,
+}));
+
+// Mock UI components
+jest.mock('@/components/ui/card', () => ({
+  Card: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
+  CardContent: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
+  CardHeader: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
+}));
+
+jest.mock('@/components/ui/alert', () => ({
+  Alert: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
+  AlertDescription: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
+  AlertTitle: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
+}));
+
+jest.mock('@/components/ui/badge', () => ({
+  Badge: ({ children }: { children: React.ReactNode }) => <span>{children}</span>,
+}));
+
+jest.mock('@/components/ui/button', () => ({
+  Button: ({ children, asChild, ...props }: any) => {
+    if (asChild) {
+      return <>{children}</>;
+    }
+    return <button {...props}>{children}</button>;
+  },
+}));
+
+jest.mock('@/components/ui/progress', () => ({
+  Progress: ({ value }: { value: number }) => <div data-testid="progress" data-value={value}></div>,
+}));
+
+jest.mock('@/components/ui/skeleton', () => ({
+  Skeleton: () => <div data-testid="skeleton"></div>,
+}));
+
 describe('ProjectOverview', () => {
   const defaultProps = {
     projectId: 'project-123',
@@ -70,24 +124,58 @@ describe('ProjectOverview', () => {
     jest.clearAllMocks();
   });
 
-  it('renders project name', () => {
-    render(<ProjectOverview {...defaultProps} />);
-    expect(screen.getByText('Test Project')).toBeInTheDocument();
+  it('renders project name', async () => {
+    await act(async () => {
+      render(<ProjectOverview {...defaultProps} />);
+    });
+    
+    await waitFor(() => {
+      expect(screen.getByText('Test Project')).toBeInTheDocument();
+    });
   });
 
-  it('renders back button with correct link to projects list', () => {
-    render(<ProjectOverview {...defaultProps} />);
+  it('renders back button with correct link to projects list', async () => {
+    await act(async () => {
+      render(<ProjectOverview {...defaultProps} />);
+    });
 
-    const backButton = screen.getByRole('link', { name: /back to projects/i });
-    expect(backButton).toBeInTheDocument();
-    expect(backButton).toHaveAttribute('href', '/organizations/org-456/projects');
+    await waitFor(() => {
+      const backButton = screen.getByRole('link', { name: /back to projects/i });
+      expect(backButton).toBeInTheDocument();
+      expect(backButton).toHaveAttribute('href', '/organizations/org-456/projects');
+    });
   });
 
-  it('renders back arrow icon', () => {
+  it('renders back arrow icon', async () => {
     const { container } = render(<ProjectOverview {...defaultProps} />);
+    
+    await waitFor(() => {
+      // ArrowLeft icon should be present
+      const svg = container.querySelector('svg');
+      expect(svg).toBeInTheDocument();
+    });
+  });
 
-    // ArrowLeft icon should be present
-    const svg = container.querySelector('svg');
-    expect(svg).toBeInTheDocument();
+  it('displays project description when available', async () => {
+    await act(async () => {
+      render(<ProjectOverview {...defaultProps} />);
+    });
+
+    await waitFor(() => {
+      expect(screen.getByText('A test project description')).toBeInTheDocument();
+    });
+  });
+
+  it('shows question completion metrics', async () => {
+    await act(async () => {
+      render(<ProjectOverview {...defaultProps} />);
+    });
+
+    await waitFor(() => {
+      // Should show "1/2" for answered/total questions
+      expect(screen.getByText('1/2')).toBeInTheDocument();
+      // Should show 50% complete
+      expect(screen.getByText('50% complete')).toBeInTheDocument();
+    });
   });
 });

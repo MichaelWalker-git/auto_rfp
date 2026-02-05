@@ -2,7 +2,6 @@ import https from 'https';
 import crypto from 'crypto';
 import path from 'path';
 import type { LoadSamOpportunitiesRequest, LoadSamOpportunitiesResponse, SamOpportunitySlim, } from '@auto-rfp/shared';
-import { readPlainSecret } from './secret';
 
 const DEFAULT_LIMIT = 25;
 const DEFAULT_OFFSET = 0;
@@ -194,7 +193,6 @@ export async function searchSamOpportunities(
 
 export type ImportSamConfig = {
   samApiOrigin: string; // https://api.sam.gov
-  samApiKeySecretId: string;
   httpsAgent?: https.Agent;
 };
 
@@ -366,11 +364,10 @@ export async function fetchOpportunityViaSearch(cfg: ImportSamConfig, args: {
   noticeId: string;
   postedFrom: string;
   postedTo: string;
+  apiKey: string;
 }): Promise<any> {
-  const apiKey = await readPlainSecret(cfg.samApiKeySecretId);
-
   const u = new URL('/opportunities/v2/search', cfg.samApiOrigin);
-  u.searchParams.set('api_key', apiKey);
+  u.searchParams.set('api_key', args.apiKey);
   u.searchParams.set('noticeid', args.noticeId);
   u.searchParams.set('postedFrom', args.postedFrom);
   u.searchParams.set('postedTo', args.postedTo);
