@@ -52,7 +52,7 @@ async function baseHandler(
       .map(([name, count]) => ({ name, count }))
       .sort((a, b) => b.count - a.count);
 
-    return apiResponse(200, { categories });
+    return apiResponse(200, categories);
   } catch (error) {
     console.error('Error getting content library categories:', error);
     return apiResponse(500, {

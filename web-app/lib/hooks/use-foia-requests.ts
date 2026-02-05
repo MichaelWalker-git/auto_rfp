@@ -24,11 +24,10 @@ export function useFOIARequests(
   options: UseFOIARequestsOptions = {}
 ): UseFOIARequestsResult {
   const shouldFetch = !!orgId && !!projectId;
-  const baseUrl = env.BASE_API_URL.replace(/\/$/, '');
 
   const { data, error, isLoading, mutate } = useSWR<{ foiaRequests: FOIARequestItem[] }>(
     shouldFetch
-      ? `${baseUrl}/foia/get-foia-requests?orgId=${orgId}&projectId=${projectId}`
+      ? `${env.BASE_API_URL}/foia/get-foia-requests?orgId=${orgId}&projectId=${projectId}`
       : null,
     async (url: string) => {
       const res = await authFetcher(url);
@@ -56,8 +55,7 @@ export function useFOIARequests(
 
 export function useCreateFOIARequest() {
   const createFOIARequest = async (payload: CreateFOIARequest): Promise<FOIARequestItem> => {
-    const baseUrl = env.BASE_API_URL.replace(/\/$/, '');
-    const url = `${baseUrl}/foia/create-foia-request`;
+    const url = `${env.BASE_API_URL}/foia/create-foia-request`;
 
     const res = await authFetcher(url, {
       method: 'POST',
@@ -78,11 +76,10 @@ export function useCreateFOIARequest() {
 
 export function useUpdateFOIARequest() {
   const updateFOIARequest = async (payload: UpdateFOIARequest): Promise<FOIARequestItem> => {
-    const baseUrl = env.BASE_API_URL.replace(/\/$/, '');
-    const url = `${baseUrl}/foia/update-foia-request`;
+    const url = `${env.BASE_API_URL}/foia/update-foia-request`;
 
     const res = await authFetcher(url, {
-      method: 'PUT',
+      method: 'PATCH',
       body: JSON.stringify(payload),
     });
 
@@ -104,10 +101,16 @@ export function useGenerateFOIALetter() {
     projectId: string,
     foiaRequestId: string
   ): Promise<string> => {
-    const baseUrl = env.BASE_API_URL.replace(/\/$/, '');
-    const url = `${baseUrl}/foia/generate-foia-letter?orgId=${orgId}&projectId=${projectId}&foiaRequestId=${foiaRequestId}`;
+    const url = `${env.BASE_API_URL}/foia/generate-foia-letter`;
 
-    const res = await authFetcher(url);
+    const res = await authFetcher(url, {
+      method: 'POST',
+      body: JSON.stringify({
+        orgId,
+        projectId,
+        foiaRequestId,
+      }),
+    });
 
     if (!res.ok) {
       const body = await res.text().catch(() => '');

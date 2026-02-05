@@ -14,6 +14,9 @@ importers:
       '@auto-rfp/shared':
         specifier: file:../shared
         version: file:../shared
+      '@aws-amplify/adapter-nextjs':
+        specifier: ^1.7.1
+        version: 1.7.1(aws-amplify@6.16.0)(next@16.0.10(@babel/core@7.28.6)(@opentelemetry/api@1.9.0)(@playwright/test@1.58.0)(react-dom@18.3.1(react@18.3.1))(react@18.3.1))
       '@aws-amplify/core':
         specifier: ^6.15.0
         version: 6.16.0
@@ -182,6 +185,9 @@ importers:
       node-fetch:
         specifier: ^3.3.2
         version: 3.3.2
+      nuqs:
+        specifier: ^2.8.8
+        version: 2.8.8(next@16.0.10(@babel/core@7.28.6)(@opentelemetry/api@1.9.0)(@playwright/test@1.58.0)(react-dom@18.3.1(react@18.3.1))(react@18.3.1))(react@18.3.1)
       openai:
         specifier: ^4.97.0
         version: 4.104.0(ws@8.19.0)(zod@3.25.76)
@@ -358,6 +364,12 @@ packages:
 
   '@auto-rfp/shared@file:../shared':
     resolution: {directory: ../shared, type: directory}
+
+  '@aws-amplify/adapter-nextjs@1.7.1':
+    resolution: {integrity: sha512-2wV0bp9FG194C9PajRgfOGf3am4xKg7lfa92Om6scnonD/cwNk0b4WfChrkNOIJQQt/klbyWujjEZLha48422Q==}
+    peerDependencies:
+      aws-amplify: ^6.13.1
+      next: '>=13.5.0 <17.0.0'
 
   '@aws-amplify/analytics@7.0.92':
     resolution: {integrity: sha512-W5n9CVa7uAMwDSfSZ9Ted8ypvRK8/zduLZOn7Ffwm7CDFQqPg2ccDsP4hbVWFJiExgaH13NC8l4vHIHLxMxtSQ==}
@@ -2938,6 +2950,9 @@ packages:
     resolution: {integrity: sha512-4aUIteuyxtBUhVdiQqcDhKFitwfd9hqoSDYY2KRXiWtgoWJ9Bmise+KfEPDiVHWeJepvF8xJO9/9+WDIciMFFw==}
     engines: {node: '>=18.0.0'}
 
+  '@standard-schema/spec@1.0.0':
+    resolution: {integrity: sha512-m2bOd0f2RT9k8QJx1JN85cZYyH1RqFBdlwtkSlf4tBDYLCiiZnv1fIIwacK6cqwXavOydf0NPToMQgpKq+dVlA==}
+
   '@standard-schema/spec@1.1.0':
     resolution: {integrity: sha512-l2aFy5jALhniG5HgqrD6jXLi/rUWrKvqN/qJx6yoJsgKhblVd+iqqU4RCXavm/jPityDo5TCvKMnpjKnOriy0w==}
 
@@ -3761,6 +3776,10 @@ packages:
       - table
       - yaml
       - mime-types
+
+  aws-jwt-verify@4.0.1:
+    resolution: {integrity: sha512-kzvi71eD3w/mCpYRUY7cz6DX4bfYihGdI2yV3FYQ2JuZZenqAqDPz0gWj0ew6vlAtdEVBNb7p+Dm2TAIxpVYMA==}
+    engines: {node: '>=14.0.0'}
 
   aws-jwt-verify@5.1.1:
     resolution: {integrity: sha512-j6whGdGJmQ27agk4ijY8RPv6itb8JLb7SCJ86fEnneTcSBrpxuwL8kLq6y5WVH95aIknyAloEqAsaOLS1J8ITQ==}
@@ -6066,6 +6085,27 @@ packages:
     resolution: {integrity: sha512-S48WzZW777zhNIrn7gxOlISNAqi9ZC/uQFnRdbeIHhZhCA6UqpkOT8T1G7BvfdgP4Er8gF4sUbaS0i7QvIfCWw==}
     engines: {node: '>=8'}
 
+  nuqs@2.8.8:
+    resolution: {integrity: sha512-LF5sw9nWpHyPWzMMu9oho3r9C5DvkpmBIg4LQN78sexIzGaeRx8DWr0uy3YiFx5i2QGZN1Qqcb+OAtEVRa2bnA==}
+    peerDependencies:
+      '@remix-run/react': '>=2'
+      '@tanstack/react-router': ^1
+      next: '>=14.2.0'
+      react: '>=18.2.0 || ^19.0.0-0'
+      react-router: ^5 || ^6 || ^7
+      react-router-dom: ^5 || ^6 || ^7
+    peerDependenciesMeta:
+      '@remix-run/react':
+        optional: true
+      '@tanstack/react-router':
+        optional: true
+      next:
+        optional: true
+      react-router:
+        optional: true
+      react-router-dom:
+        optional: true
+
   nwsapi@2.2.23:
     resolution: {integrity: sha512-7wfH4sLbt4M0gCDzGE6vzQBo0bfTKjU7Sfpqy/7gs1qBfYz2vEJH6vXcBKpO3+6Yu1telwd0t9HpyOoLEQQbIQ==}
 
@@ -7689,6 +7729,12 @@ snapshots:
   '@auto-rfp/shared@file:../shared':
     dependencies:
       zod: 3.25.76
+
+  '@aws-amplify/adapter-nextjs@1.7.1(aws-amplify@6.16.0)(next@16.0.10(@babel/core@7.28.6)(@opentelemetry/api@1.9.0)(@playwright/test@1.58.0)(react-dom@18.3.1(react@18.3.1))(react@18.3.1))':
+    dependencies:
+      aws-amplify: 6.16.0
+      aws-jwt-verify: 4.0.1
+      next: 16.0.10(@babel/core@7.28.6)(@opentelemetry/api@1.9.0)(@playwright/test@1.58.0)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
 
   '@aws-amplify/analytics@7.0.92(@aws-amplify/core@6.16.0)':
     dependencies:
@@ -11409,6 +11455,8 @@ snapshots:
     dependencies:
       tslib: 2.8.1
 
+  '@standard-schema/spec@1.0.0': {}
+
   '@standard-schema/spec@1.1.0': {}
 
   '@standard-schema/utils@0.3.0': {}
@@ -12291,6 +12339,8 @@ snapshots:
       '@aws-cdk/asset-node-proxy-agent-v6': 2.1.0
       '@aws-cdk/cloud-assembly-schema': 48.20.0
       constructs: 10.4.5
+
+  aws-jwt-verify@4.0.1: {}
 
   aws-jwt-verify@5.1.1: {}
 
@@ -15140,6 +15190,13 @@ snapshots:
   npm-run-path@4.0.1:
     dependencies:
       path-key: 3.1.1
+
+  nuqs@2.8.8(next@16.0.10(@babel/core@7.28.6)(@opentelemetry/api@1.9.0)(@playwright/test@1.58.0)(react-dom@18.3.1(react@18.3.1))(react@18.3.1))(react@18.3.1):
+    dependencies:
+      '@standard-schema/spec': 1.0.0
+      react: 18.3.1
+    optionalDependencies:
+      next: 16.0.10(@babel/core@7.28.6)(@opentelemetry/api@1.9.0)(@playwright/test@1.58.0)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
 
   nwsapi@2.2.23: {}
 

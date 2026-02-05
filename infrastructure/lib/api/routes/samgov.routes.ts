@@ -7,9 +7,9 @@ export function samgovDomain(): DomainRoutes {
       // API Key Management Endpoints
       { method: 'POST', path: 'set-api-key', entry: 'lambda/samgov/set-api-key.ts' },
       { method: 'GET', path: 'get-api-key', entry: 'lambda/samgov/get-api-key.ts' },
-      { method: 'OPTIONS', path: 'get-api-key', entry: 'lambda/samgov/get-api-key.ts' },
       { method: 'DELETE', path: 'delete-api-key', entry: 'lambda/samgov/delete-api-key.ts' },
       { method: 'GET', path: 'validate-api-key', entry: 'lambda/samgov/validate-api-key.ts' },
+      { method: 'GET', path: 'check-api-key-status', entry: 'lambda/samgov/check-api-key-status.ts' },
 
       // SAM.gov Operations
       {
@@ -29,7 +29,7 @@ export function samgovDomain(): DomainRoutes {
 
       {
         method: 'POST',
-        path: 'opportunities',
+        path: 'search-opportunities',
         entry: 'lambda/samgov/search-opportunities.ts',
       },
       {

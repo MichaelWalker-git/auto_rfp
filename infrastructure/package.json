@@ -7,16 +7,7 @@
     "build": "tsc",
     "watch": "tsc -w",
     "test": "jest",
-    "cdk": "cdk",
-    "deploy": "./deploy.sh --all",
-    "deploy:all": "cdk deploy --all --profile michael-primary --require-approval never",
-    "deploy:core": "./deploy.sh --core",
-    "deploy:api": "./deploy.sh --api",
-    "deploy:frontend": "./deploy.sh --frontend",
-    "cleanup": "./deploy.sh --cleanup",
-    "destroy": "cdk destroy --all --profile michael-primary",
-    "diff": "cdk diff --profile michael-primary",
-    "synth": "cdk synth --profile michael-primary"
+    "cdk": "cdk"
   },
   "devDependencies": {
     "@types/aws-lambda": "^8.10.160",

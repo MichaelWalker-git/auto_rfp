@@ -127,13 +127,15 @@ const dedupeOpportunities = (items: OpportunityItem[]) => {
   });
 };
 
-export function useSearchOpportunities() {
+export function useSearchOpportunities(orgId?: string) {
+  const baseUrl = `${env.BASE_API_URL}/samgov/search-opportunities`;
+  const url = orgId ? `${baseUrl}?orgId=${encodeURIComponent(orgId)}` : baseUrl;
+  
   return useSWRMutation<LoadSamOpportunitiesResponse, ErrorShape, string, LoadSamOpportunitiesRequest>(
-    `${env.BASE_API_URL}/samgov/opportunities`,
-    async (url, { arg }) => {
+    url,
+    async (url: string, { arg }: { arg: LoadSamOpportunitiesRequest }) => {
       const res = await authFetcher(url, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(arg),
       });
 
@@ -210,7 +212,7 @@ export type CreateOpportunityResponse = {
 export function useCreateOpportunity() {
   return useSWRMutation<CreateOpportunityResponse, ErrorShape, string, OpportunityItem>(
     `${BASE_URL}/create-opportunity`,
-    async (url, { arg }) => {
+    async (url: string, { arg }: { arg: OpportunityItem }) => {
       const parsed = OpportunityItemSchema.safeParse(arg);
       if (!parsed.success) {
         const err = new Error('Invalid opportunity payload') as ErrorShape;
@@ -279,7 +281,7 @@ export type SamGovDescriptionResponse = {
 export function useSamGovDescription() {
   return useSWRMutation<SamGovDescriptionResponse, ErrorShape, string, { descriptionUrl: string }>(
     `${env.BASE_API_URL}/samgov/opportunity-description`,
-    async (url, { arg }) => {
+    async (url: string, { arg }: { arg: { descriptionUrl: string } }) => {
       const res = await authFetcher(url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -299,7 +301,7 @@ export type DeleteOpportunityResponse = {
 export function useDeleteOpportunity() {
   return useSWRMutation<DeleteOpportunityResponse, ErrorShape, string, { projectId: string; oppId: string; orgId: string }>(
     `${BASE_URL}/delete-opportunity`,
-    async (url, { arg }) => {
+    async (url: string, { arg }: { arg: { projectId: string; oppId: string; orgId: string } }) => {
       const { projectId, oppId, orgId } = arg;
       const deleteUrl = `${url}?projectId=${encodeURIComponent(projectId)}&oppId=${encodeURIComponent(oppId)}&orgId=${encodeURIComponent(orgId)}`;
 

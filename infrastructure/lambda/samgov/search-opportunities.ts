@@ -29,6 +29,11 @@ export const baseHandler = async (
   try {
     const orgId = getOrgId(event);
     if (!orgId) {
+      console.error('OrgId is missing from event:', {
+        headers: event.headers,
+        queryStringParameters: event.queryStringParameters,
+        requestContext: event.requestContext,
+      });
       return apiResponse(400, { message: 'OrgId is missing' });
     }
     if (!event.body) return apiResponse(400, { message: 'Request body is required' });
@@ -47,10 +52,20 @@ export const baseHandler = async (
 
     const body: LoadSamOpportunitiesRequest = parsed.data;
 
-    const apiKey = await getApiKey(orgId);
+    let apiKey: string | null = null;
+    try {
+      apiKey = await getApiKey(orgId);
+    } catch (apiKeyError) {
+      console.error('Error retrieving API key for orgId:', orgId, apiKeyError);
+      return apiResponse(500, { 
+        message: 'Failed to retrieve SAM.gov API key', 
+        error: apiKeyError instanceof Error ? apiKeyError.message : 'Unknown error retrieving API key'
+      });
+    }
 
     if (!apiKey) {
-      return apiResponse(500, { message: 'Api key is missing' });
+      console.error('API key not found for orgId:', orgId);
+      return apiResponse(404, { message: 'SAM.gov API key not configured for this organization' });
     }
 
     const resp = await searchSamOpportunities(

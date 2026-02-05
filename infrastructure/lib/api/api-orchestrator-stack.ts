@@ -104,6 +104,7 @@ export class ApiOrchestratorStack extends cdk.Stack {
       SENTRY_ENVIRONMENT: stage,
       PINECONE_API_KEY: pineconeApiKey,
       PINECONE_INDEX: 'documents',
+      SAM_OPPS_BASE_URL: 'https://api.sam.gov',
     };
 
     const sharedInfraStack = new ApiSharedInfraStack(this, 'SharedInfra', {

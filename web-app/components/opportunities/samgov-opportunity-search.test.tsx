@@ -16,7 +16,7 @@ jest.mock('@/components/ui/use-toast', () => ({
 }));
 
 jest.mock('@/lib/hooks/use-opportunities', () => ({
-  useSearchOpportunities: jest.fn(() => ({
+  useSearchOpportunities: jest.fn((_orgId?: string) => ({
     data: null,
     isMutating: false,
     error: null,

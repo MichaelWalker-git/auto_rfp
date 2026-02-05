@@ -33,7 +33,7 @@ export const baseHandler = async (event: APIGatewayProxyEventV2) => {
       orgId,
     });
   } catch (error) {
-    console.error('Error storing API key', error);
+    console.error('Error storing API key', JSON.stringify(error, null, 2));
     return apiResponse(500, { error: 'Failed to store API key' });
   }
 };

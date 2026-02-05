@@ -31,6 +31,7 @@ describe('Content Library Hooks', () => {
       {
         id: 'item-1',
         orgId: 'org-1',
+        kbId: 'kb-1',
         question: 'What is your company?',
         answer: 'We are a tech company...',
         category: 'Company',
@@ -51,18 +52,16 @@ describe('Content Library Hooks', () => {
       mockFetch.mockResolvedValueOnce({
         ok: true,
         json: async () => ({
-          data: {
-            items: mockItems,
-            total: 1,
-            limit: 20,
-            offset: 0,
-            hasMore: false,
-          },
+          items: mockItems,
+          total: 1,
+          limit: 20,
+          offset: 0,
+          hasMore: false,
         }),
       });
 
       const { result } = renderHook(
-        () => useContentLibraryItems({ orgId: 'org-1' }),
+        () => useContentLibraryItems({ orgId: 'org-1', kbId: 'kb-1' }),
         { wrapper }
       );
 
@@ -94,7 +93,7 @@ describe('Content Library Hooks', () => {
       });
 
       const { result } = renderHook(
-        () => useContentLibraryItems({ orgId: 'org-1' }),
+        () => useContentLibraryItems({ orgId: 'org-1', kbId: 'kb-1' }),
         { wrapper }
       );
 
@@ -109,7 +108,11 @@ describe('Content Library Hooks', () => {
       mockFetch.mockResolvedValueOnce({
         ok: true,
         json: async () => ({
-          data: { items: [], total: 0, limit: 10, offset: 5, hasMore: false },
+          items: [],
+          total: 0,
+          limit: 10,
+          offset: 5,
+          hasMore: false,
         }),
       });
 
@@ -117,6 +120,7 @@ describe('Content Library Hooks', () => {
         () =>
           useContentLibraryItems({
             orgId: 'org-1',
+            kbId: 'kb-1',
             query: 'cloud',
             category: 'Technical',
             tags: ['aws', 'azure'],
@@ -133,6 +137,7 @@ describe('Content Library Hooks', () => {
 
       const calledUrl = mockFetch.mock.calls[0][0] as string;
       expect(calledUrl).toContain('orgId=org-1');
+      expect(calledUrl).toContain('kbId=kb-1');
       expect(calledUrl).toContain('query=cloud');
       expect(calledUrl).toContain('category=Technical');
       expect(calledUrl).toContain('tags=aws%2Cazure');
@@ -146,6 +151,7 @@ describe('Content Library Hooks', () => {
     const mockItem: ContentLibraryItem = {
       id: 'item-1',
       orgId: 'org-1',
+      kbId: 'kb-1',
       question: 'What is your company?',
       answer: 'We are a tech company...',
       category: 'Company',
@@ -164,7 +170,7 @@ describe('Content Library Hooks', () => {
     it('fetches a single item', async () => {
       mockFetch.mockResolvedValueOnce({
         ok: true,
-        json: async () => ({ data: mockItem }),
+        json: async () => mockItem,
       });
 
       const { result } = renderHook(
@@ -205,14 +211,10 @@ describe('Content Library Hooks', () => {
     it('fetches categories', async () => {
       mockFetch.mockResolvedValueOnce({
         ok: true,
-        json: async () => ({
-          data: {
-            categories: [
-              { name: 'Technical', count: 10 },
-              { name: 'Company', count: 5 },
-            ],
-          },
-        }),
+        json: async () => [
+          { name: 'Technical', count: 10 },
+          { name: 'Company', count: 5 },
+        ],
       });
 
       const { result } = renderHook(
@@ -244,12 +246,10 @@ describe('Content Library Hooks', () => {
       mockFetch.mockResolvedValueOnce({
         ok: true,
         json: async () => ({
-          data: {
-            tags: [
-              { name: 'cloud', count: 15 },
-              { name: 'security', count: 8 },
-            ],
-          },
+          tags: [
+            { name: 'cloud', count: 15 },
+            { name: 'security', count: 8 },
+          ],
         }),
       });
 
@@ -272,6 +272,7 @@ describe('Content Library Hooks', () => {
       const newItem: ContentLibraryItem = {
         id: 'new-item',
         orgId: 'org-1',
+        kbId: 'kb-1',
         question: 'New question',
         answer: 'New answer',
         category: 'Technical',
@@ -289,13 +290,14 @@ describe('Content Library Hooks', () => {
 
       mockFetch.mockResolvedValueOnce({
         ok: true,
-        json: async () => ({ data: newItem }),
+        json: async () => newItem,
       });
 
       const { result } = renderHook(() => useCreateContentLibraryItem(), { wrapper });
 
       const created = await result.current.create({
         orgId: 'org-1',
+        kbId: 'kb-1',
         question: 'New question',
         answer: 'New answer',
         category: 'Technical',
@@ -322,6 +324,7 @@ describe('Content Library Hooks', () => {
       await expect(
         result.current.create({
           orgId: 'org-1',
+          kbId: 'kb-1',
           question: '',
           answer: '',
           category: '',
