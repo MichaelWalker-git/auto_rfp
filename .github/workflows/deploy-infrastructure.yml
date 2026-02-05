@@ -2,7 +2,7 @@ name: Deploy Infrastructure
 
 on:
   push:
-    branches: [develop]
+    branches: [production]
     paths:
       - 'infrastructure/**'
       - 'shared/**'
@@ -12,11 +12,11 @@ on:
       environment:
         description: 'Environment to deploy to'
         required: true
-        default: 'Dev'
+        default: 'Prod'
         type: choice
         options:
-          - Dev
           - Prod
+          - Dev
 
 concurrency:
   group: deploy-${{ github.ref }}
@@ -57,10 +57,10 @@ jobs:
         run: npm test -- --passWithNoTests
 
   deploy:
-    name: Deploy to ${{ github.event.inputs.environment || 'Dev' }}
+    name: Deploy to ${{ github.event.inputs.environment || 'Prod' }}
     runs-on: ubuntu-latest
     needs: test
-    environment: ${{ github.event.inputs.environment || 'Dev' }}
+    environment: ${{ github.event.inputs.environment || 'Prod' }}
     permissions:
       id-token: write   # Required for OIDC
       contents: read
@@ -104,7 +104,7 @@ jobs:
         working-directory: infrastructure
         run: |
           echo "## CDK Diff Preview" >> $GITHUB_STEP_SUMMARY
-          npx cdk diff --context stage=${{ github.event.inputs.environment || 'Dev' }} 2>&1 | tee diff-output.txt || true
+          npx cdk diff --context stage=${{ github.event.inputs.environment || 'Prod' }} 2>&1 | tee diff-output.txt || true
           echo '```' >> $GITHUB_STEP_SUMMARY
           cat diff-output.txt >> $GITHUB_STEP_SUMMARY
           echo '```' >> $GITHUB_STEP_SUMMARY
@@ -117,7 +117,7 @@ jobs:
         working-directory: infrastructure
         run: |
           npx cdk deploy --all \
-            --context stage=${{ github.event.inputs.environment || 'Dev' }} \
+            --context stage=${{ github.event.inputs.environment || 'Prod' }} \
             --require-approval never \
             --ci
         env:
@@ -129,13 +129,13 @@ jobs:
         run: |
           echo "## Deployment Complete" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "✅ Successfully deployed to **${{ github.event.inputs.environment || 'Dev' }}** environment" >> $GITHUB_STEP_SUMMARY
+          echo "✅ Successfully deployed to **${{ github.event.inputs.environment || 'Prod' }}** environment" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "### Deployed Stacks" >> $GITHUB_STEP_SUMMARY
           echo "- AutoRfp-Network" >> $GITHUB_STEP_SUMMARY
-          echo "- AutoRfp-Auth-${{ github.event.inputs.environment || 'Dev' }}" >> $GITHUB_STEP_SUMMARY
-          echo "- AutoRfp-Storage-${{ github.event.inputs.environment || 'Dev' }}" >> $GITHUB_STEP_SUMMARY
-          echo "- AutoRfp-DynamoDatabase-${{ github.event.inputs.environment || 'Dev' }}" >> $GITHUB_STEP_SUMMARY
-          echo "- AutoRfp-DocumentPipeline-${{ github.event.inputs.environment || 'Dev' }}" >> $GITHUB_STEP_SUMMARY
-          echo "- AutoRfp-QuestionsPipeline-${{ github.event.inputs.environment || 'Dev' }}" >> $GITHUB_STEP_SUMMARY
-          echo "- AutoRfp-API-${{ github.event.inputs.environment || 'Dev' }}" >> $GITHUB_STEP_SUMMARY
+          echo "- AutoRfp-Auth-${{ github.event.inputs.environment || 'Prod' }}" >> $GITHUB_STEP_SUMMARY
+          echo "- AutoRfp-Storage-${{ github.event.inputs.environment || 'Prod' }}" >> $GITHUB_STEP_SUMMARY
+          echo "- AutoRfp-DynamoDatabase-${{ github.event.inputs.environment || 'Prod' }}" >> $GITHUB_STEP_SUMMARY
+          echo "- AutoRfp-DocumentPipeline-${{ github.event.inputs.environment || 'Prod' }}" >> $GITHUB_STEP_SUMMARY
+          echo "- AutoRfp-QuestionsPipeline-${{ github.event.inputs.environment || 'Prod' }}" >> $GITHUB_STEP_SUMMARY
+          echo "- AutoRfp-API-${{ github.event.inputs.environment || 'Prod' }}" >> $GITHUB_STEP_SUMMARY

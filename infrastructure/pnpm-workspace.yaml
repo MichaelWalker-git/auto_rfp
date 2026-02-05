@@ -1,4 +1,0 @@
-ignoredBuiltDependencies:
-  - aws-sdk
-  - esbuild
-  - unrs-resolver

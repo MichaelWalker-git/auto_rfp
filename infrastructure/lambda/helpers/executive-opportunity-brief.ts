@@ -45,6 +45,7 @@ export function truncateText(text: string, maxChars: number) {
 
 /**
  * Extract JSON even if the model wraps it in text or ```json fences.
+ * Fixes AUTO-RFP-67 and AUTO-RFP-5D: Better error handling for truncated/malformed responses.
  */
 export function extractFirstJsonObject(text: string): string {
   if (!text) throw new Error('Empty model output');
@@ -57,26 +58,63 @@ export function extractFirstJsonObject(text: string): string {
   try {
     JSON.parse(candidate);
     return candidate;
-  } catch {
-    // continue
+  } catch (directParseError) {
+    // continue to brace scanning
   }
 
   // Find first { ... } block via a simple brace scan
   const start = candidate.indexOf('{');
-  if (start === -1) throw new Error('No JSON object start "{" found in model output');
+  if (start === -1) {
+    // Provide more context about what we received
+    const preview = candidate.length > 200 ? candidate.slice(0, 200) + '...' : candidate;
+    throw new Error(`No JSON object start "{" found in model output. Received: ${preview}`);
+  }
 
   let depth = 0;
+  let inString = false;
+  let escapeNext = false;
+
   for (let i = start; i < candidate.length; i++) {
     const ch = candidate[i];
-    if (ch === '{') depth++;
-    if (ch === '}') depth--;
-    if (depth === 0) {
-      const jsonStr = candidate.slice(start, i + 1);
-      JSON.parse(jsonStr); // validate
-      return jsonStr;
+
+    // Handle string escaping properly
+    if (escapeNext) {
+      escapeNext = false;
+      continue;
+    }
+    if (ch === '\\' && inString) {
+      escapeNext = true;
+      continue;
+    }
+    if (ch === '"') {
+      inString = !inString;
+      continue;
+    }
+
+    // Only count braces outside of strings
+    if (!inString) {
+      if (ch === '{') depth++;
+      if (ch === '}') depth--;
+      if (depth === 0) {
+        const jsonStr = candidate.slice(start, i + 1);
+        try {
+          JSON.parse(jsonStr); // validate
+          return jsonStr;
+        } catch (parseErr) {
+          // Fix AUTO-RFP-67: Better error context for JSON parse failures
+          const errorMsg = parseErr instanceof Error ? parseErr.message : 'Unknown parse error';
+          throw new Error(`JSON SyntaxError parsing extracted object: ${errorMsg}. JSON length: ${jsonStr.length}`);
+        }
+      }
     }
   }
-  throw new Error('No complete JSON object found in model output');
+
+  // Fix AUTO-RFP-5D: Better error message for truncated responses
+  const truncatedPreview = candidate.length > 300 ? candidate.slice(-300) : candidate;
+  throw new Error(
+    `No complete JSON object found in model output. Response may be truncated. ` +
+    `Depth at end: ${depth}, in string: ${inString}. End of response: ...${truncatedPreview}`
+  );
 }
 
 export function safeJsonParse<T>(text: string, schema: SchemaLike<T>): T {
@@ -155,7 +193,10 @@ export async function getExecutiveBriefByProjectId(projectId: string): Promise<E
       Limit: 1,
     }),
   );
-  if (!res.Items) throw new Error(`ExecutiveBrief not found: ${projectId}`);
+  // Fix AUTO-RFP-63: Better error message when brief not found
+  if (!res.Items || res.Items.length === 0) {
+    throw new Error(`ExecutiveBrief not found for projectId=${projectId}. Ensure the brief has been initialized.`);
+  }
 
   return res.Items[0] as ExecutiveBriefItem;
 }
@@ -171,6 +212,10 @@ export async function putExecutiveBrief(item: ExecutiveBriefItem): Promise<void>
   );
 }
 
+/**
+ * Mark a section as in-progress.
+ * Uses distinct attribute name prefixes to avoid DynamoDB path conflicts.
+ */
 export async function markSectionInProgress(args: {
   executiveBriefId: string;
   section: BriefSectionName;
@@ -179,28 +224,29 @@ export async function markSectionInProgress(args: {
   const { executiveBriefId, section, inputHash } = args;
   const now = nowIso();
 
+  // Use distinct prefixes for section-level attributes
   const names: Record<string, string> = {
     '#pk': PK_NAME,
     '#sections': 'sections',
     '#sec': section,
-    '#status': 'status',
-    '#updatedAt': 'updatedAt',
+    '#secStatus': 'status',
+    '#secUpdatedAt': 'updatedAt',
   };
 
   const values: Record<string, any> = {
-    ':inProgress': 'IN_PROGRESS',
-    ':now': now,
+    ':secInProgress': 'IN_PROGRESS',
+    ':secNow': now,
   };
 
   const setParts: string[] = [
-    '#sections.#sec.#status = :inProgress',
-    '#sections.#sec.#updatedAt = :now',
+    '#sections.#sec.#secStatus = :secInProgress',
+    '#sections.#sec.#secUpdatedAt = :secNow',
   ];
 
   if (inputHash) {
-    setParts.push('#sections.#sec.#inputHash = :h');
-    names['#inputHash'] = 'inputHash';
-    values[':h'] = inputHash;
+    setParts.push('#sections.#sec.#secInputHash = :secHash');
+    names['#secInputHash'] = 'inputHash';
+    values[':secHash'] = inputHash;
   }
 
   try {
@@ -225,6 +271,11 @@ export async function markSectionInProgress(args: {
   }
 }
 
+/**
+ * Mark a section as complete with its data.
+ * Fixes AUTO-RFP-5R and AUTO-RFP-5Y: Uses separate attribute names for section vs top-level
+ * to avoid DynamoDB document path conflicts.
+ */
 export async function markSectionComplete<T>(args: {
   executiveBriefId: string;
   section: BriefSectionName;
@@ -236,32 +287,33 @@ export async function markSectionComplete<T>(args: {
   const { executiveBriefId, section, data, topLevelPatch } = args;
   const now = nowIso();
 
-  const names: Record<string, string> = {
+  // Use distinct attribute names for section-level vs top-level to avoid path conflicts
+  const sectionNames: Record<string, string> = {
     '#sections': 'sections',
     '#sec': section,
-    '#status': 'status',
-    '#updatedAt': 'updatedAt',
-    '#data': 'data',
-    '#error': 'error',
+    '#secStatus': 'status',
+    '#secUpdatedAt': 'updatedAt',
+    '#secData': 'data',
+    '#secError': 'error',
   };
 
-  const values: Record<string, any> = {
-    ':status': 'COMPLETE',
-    ':now': now,
-    ':data': data,
+  const sectionValues: Record<string, any> = {
+    ':secStatus': 'COMPLETE',
+    ':secNow': now,
+    ':secData': data,
   };
 
-  const setParts: string[] = [
-    '#sections.#sec.#status = :status',
-    '#sections.#sec.#updatedAt = :now',
-    '#sections.#sec.#data = :data',
+  const sectionSetParts: string[] = [
+    '#sections.#sec.#secStatus = :secStatus',
+    '#sections.#sec.#secUpdatedAt = :secNow',
+    '#sections.#sec.#secData = :secData',
   ];
 
   const removeParts: string[] = [
-    '#sections.#sec.#error',
+    '#sections.#sec.#secError',
   ];
 
-  // Handle topLevelPatch updates separately if present
+  // Handle topLevelPatch updates in a single atomic update to avoid race conditions
   if (topLevelPatch && (
     topLevelPatch.compositeScore !== undefined ||
     topLevelPatch.recommendation !== undefined ||
@@ -269,76 +321,77 @@ export async function markSectionComplete<T>(args: {
     topLevelPatch.confidence !== undefined ||
     topLevelPatch.status !== undefined
   )) {
-    // First update the section
-    let updateExpression =
-      `SET ${setParts.join(', ')}` + (removeParts.length ? ` REMOVE ${removeParts.join(', ')}` : '');
+    // Build combined update with distinct names for top-level attributes
+    const combinedNames: Record<string, string> = { ...sectionNames };
+    const combinedValues: Record<string, any> = { ...sectionValues };
+    const topLevelSetParts: string[] = [];
+
+    if (topLevelPatch.compositeScore !== undefined) {
+      topLevelSetParts.push('compositeScore = :topCs');
+      combinedValues[':topCs'] = topLevelPatch.compositeScore;
+    }
+    if (topLevelPatch.recommendation !== undefined) {
+      topLevelSetParts.push('recommendation = :topRec');
+      combinedValues[':topRec'] = topLevelPatch.recommendation;
+    }
+    if (topLevelPatch.decision !== undefined) {
+      topLevelSetParts.push('decision = :topDec');
+      combinedValues[':topDec'] = topLevelPatch.decision;
+    }
+    if (topLevelPatch.confidence !== undefined) {
+      topLevelSetParts.push('confidence = :topConf');
+      combinedValues[':topConf'] = topLevelPatch.confidence;
+    }
+    if (topLevelPatch.status !== undefined) {
+      // Use distinct name for top-level status to avoid conflict with section status
+      topLevelSetParts.push('#topStatus = :topStatusVal');
+      combinedNames['#topStatus'] = 'status';
+      combinedValues[':topStatusVal'] = topLevelPatch.status;
+    }
+
+    // Add top-level updatedAt with distinct value placeholder
+    topLevelSetParts.push('#topUpdatedAt = :topNow');
+    combinedNames['#topUpdatedAt'] = 'updatedAt';
+    combinedValues[':topNow'] = now;
+
+    const allSetParts = [...sectionSetParts, ...topLevelSetParts];
+    const updateExpression =
+      `SET ${allSetParts.join(', ')}` + (removeParts.length ? ` REMOVE ${removeParts.join(', ')}` : '');
 
     await docClient.send(
       new UpdateCommand({
         TableName: DB_TABLE_NAME,
         Key: { [PK_NAME]: EXEC_BRIEF_PK, [SK_NAME]: executiveBriefId },
         UpdateExpression: updateExpression,
-        ExpressionAttributeNames: names,
-        ExpressionAttributeValues: values,
-      }),
-    );
-
-    // Then update the top-level attributes
-    const topLevelSetParts: string[] = [];
-    const topLevelValues: Record<string, any> = { ':now': now };
-    const topLevelNames: Record<string, string> = {};
-
-    if (topLevelPatch.compositeScore !== undefined) {
-      topLevelSetParts.push('compositeScore = :cs');
-      topLevelValues[':cs'] = topLevelPatch.compositeScore;
-    }
-    if (topLevelPatch.recommendation !== undefined) {
-      topLevelSetParts.push('recommendation = :rec');
-      topLevelValues[':rec'] = topLevelPatch.recommendation;
-    }
-    if (topLevelPatch.decision !== undefined) {
-      topLevelSetParts.push('decision = :dec');
-      topLevelValues[':dec'] = topLevelPatch.decision;
-    }
-    if (topLevelPatch.confidence !== undefined) {
-      topLevelSetParts.push('confidence = :conf');
-      topLevelValues[':conf'] = topLevelPatch.confidence;
-    }
-    if (topLevelPatch.status !== undefined) {
-      topLevelSetParts.push('#status = :bs');
-      topLevelNames['#status'] = 'status';
-      topLevelValues[':bs'] = topLevelPatch.status;
-    }
-
-    topLevelSetParts.push('updatedAt = :now');
-
-    await docClient.send(
-      new UpdateCommand({
-        TableName: DB_TABLE_NAME,
-        Key: { [PK_NAME]: EXEC_BRIEF_PK, [SK_NAME]: executiveBriefId },
-        UpdateExpression: `SET ${topLevelSetParts.join(', ')}`,
-        ExpressionAttributeNames: Object.keys(topLevelNames).length > 0 ? topLevelNames : undefined,
-        ExpressionAttributeValues: topLevelValues,
+        ExpressionAttributeNames: combinedNames,
+        ExpressionAttributeValues: combinedValues,
       }),
     );
   } else {
     // No top-level patch, just update section and top-level updatedAt
-    setParts.push('updatedAt = :now');
+    sectionNames['#topUpdatedAt'] = 'updatedAt';
+    sectionValues[':topNow'] = now;
+    sectionSetParts.push('#topUpdatedAt = :topNow');
+
     const updateExpression =
-      `SET ${setParts.join(', ')}` + (removeParts.length ? ` REMOVE ${removeParts.join(', ')}` : '');
+      `SET ${sectionSetParts.join(', ')}` + (removeParts.length ? ` REMOVE ${removeParts.join(', ')}` : '');
 
     await docClient.send(
       new UpdateCommand({
         TableName: DB_TABLE_NAME,
         Key: { [PK_NAME]: EXEC_BRIEF_PK, [SK_NAME]: executiveBriefId },
         UpdateExpression: updateExpression,
-        ExpressionAttributeNames: names,
-        ExpressionAttributeValues: values,
+        ExpressionAttributeNames: sectionNames,
+        ExpressionAttributeValues: sectionValues,
       }),
     );
   }
 }
 
+/**
+ * Mark a section as failed with an error message.
+ * Uses distinct attribute name prefixes to avoid DynamoDB path conflicts.
+ */
 export async function markSectionFailed(args: {
   executiveBriefId: string;
   section: BriefSectionName;
@@ -357,18 +410,18 @@ export async function markSectionFailed(args: {
         [SK_NAME]: executiveBriefId
       },
       UpdateExpression:
-        'SET #sections.#sec.#status = :status, #sections.#sec.#error = :err, #sections.#sec.#updatedAt = :now',
+        'SET #sections.#sec.#secStatus = :secStatus, #sections.#sec.#secError = :secErr, #sections.#sec.#secUpdatedAt = :secNow',
       ExpressionAttributeNames: {
         '#sections': 'sections',
         '#sec': section,
-        '#status': 'status',
-        '#error': 'error',
-        '#updatedAt': 'updatedAt',
+        '#secStatus': 'status',
+        '#secError': 'error',
+        '#secUpdatedAt': 'updatedAt',
       },
       ExpressionAttributeValues: {
-        ':status': 'FAILED',
-        ':now': now,
-        ':err': message,
+        ':secStatus': 'FAILED',
+        ':secNow': now,
+        ':secErr': message,
       },
     }),
   );
@@ -453,13 +506,22 @@ export async function invokeClaudeJson<S extends SchemaLike<any>>(args: {
 }
 
 export async function loadSolicitationForBrief(brief: ExecutiveBriefItem): Promise<{ solicitationText: string; }> {
-  const solicitationText = await loadTextFromS3(
-    brief.documentsBucket || DOCUMENTS_BUCKET,
-    brief.textKey,
-  );
+  const bucket = brief.documentsBucket || DOCUMENTS_BUCKET;
+  const textKey = brief.textKey;
 
+  if (!textKey) {
+    throw new Error(`Solicitation textKey is missing for brief projectId=${brief.projectId}`);
+  }
+
+  const solicitationText = await loadTextFromS3(bucket, textKey);
+
+  // Fix AUTO-RFP-5S: Better error message with context
   if (!solicitationText || solicitationText.trim().length < 20) {
-    throw new Error('Solicitation text is empty or too short');
+    const actualLength = solicitationText?.trim().length ?? 0;
+    throw new Error(
+      `Solicitation text is empty or too short (${actualLength} chars). ` +
+      `textKey=${textKey}, bucket=${bucket}, projectId=${brief.projectId}`
+    );
   }
 
   return { solicitationText };

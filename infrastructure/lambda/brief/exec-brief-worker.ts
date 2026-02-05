@@ -410,6 +410,27 @@ async function runScoring(job: Job): Promise<void> {
     const missing = (prereq as { ok: false; missing: string[] }).missing;
     throw new Error(`All fields should be ready before calling scoring. Missing: ${missing.join(', ')}`);
   }
+
+  // Fix AUTO-RFP-5X: Extract section data with explicit null checks
+  // This ensures we have valid data objects to pass to the scoring prompt
+  const sections = brief.sections as any;
+  const summaryData = sections?.summary?.data;
+  const deadlinesData = sections?.deadlines?.data;
+  const requirementsData = sections?.requirements?.data;
+  const contactsData = sections?.contacts?.data;
+  const risksData = sections?.risks?.data;
+
+  // Double-check all data is present (belt and suspenders with scoringPrereqsComplete)
+  if (!summaryData || !deadlinesData || !requirementsData || !contactsData || !risksData) {
+    const missingData = [];
+    if (!summaryData) missingData.push('summary.data');
+    if (!deadlinesData) missingData.push('deadlines.data');
+    if (!requirementsData) missingData.push('requirements.data');
+    if (!contactsData) missingData.push('contacts.data');
+    if (!risksData) missingData.push('risks.data');
+    throw new Error(`Section data missing for scoring: ${missingData.join(', ')}`);
+  }
+
   try {
     const inputHash =
       inputHashFromJob ||
@@ -451,17 +472,18 @@ async function runScoring(job: Job): Promise<void> {
 
     const kbText = kbParts.join('\n\n');
 
+    // Fix AUTO-RFP-5X: Use extracted data objects instead of full section wrappers
     const data = await invokeClaudeJson({
       modelId: BEDROCK_MODEL_ID,
       system: await useScoringSystemPrompt(orgId),
       user: await useScoringUserPrompt(
         orgId,
         solicitationText,
-        JSON.stringify(brief.sections.summary),
-        JSON.stringify(brief.sections.deadlines),
-        JSON.stringify(brief.sections.requirements),
-        JSON.stringify(brief.sections.contacts),
-        JSON.stringify(brief.sections.risks),
+        JSON.stringify(summaryData),
+        JSON.stringify(deadlinesData),
+        JSON.stringify(requirementsData),
+        JSON.stringify(contactsData),
+        JSON.stringify(risksData),
         kbText,
       ),
       outputSchema: ScoringSectionSchema,
@@ -574,9 +596,21 @@ function isSectionComplete(brief: ExecutiveBriefItem, section: Exclude<Section, 
   return s?.status === 'COMPLETE';
 }
 
+/**
+ * Check if a section has valid data that can be used for scoring.
+ * Fixes AUTO-RFP-5X: Validates that section data exists, not just status.
+ */
+function isSectionDataValid(brief: ExecutiveBriefItem, section: Exclude<Section, 'scoring'>): boolean {
+  const s = (brief.sections as any)?.[section];
+  if (!s || s.status !== 'COMPLETE') return false;
+  // Ensure data actually exists and is not null/undefined
+  return s.data !== null && s.data !== undefined;
+}
+
 function scoringPrereqsComplete(brief: ExecutiveBriefItem): { ok: true } | { ok: false; missing: string[] } {
   const prereqs: Exclude<Section, 'scoring'>[] = ['summary', 'deadlines', 'requirements', 'contacts', 'risks'];
-  const missing = prereqs.filter((s) => !isSectionComplete(brief, s));
+  // Fix AUTO-RFP-5X: Check both status AND data validity
+  const missing = prereqs.filter((s) => !isSectionDataValid(brief, s));
   return missing.length ? { ok: false, missing } : { ok: true };
 }
 
