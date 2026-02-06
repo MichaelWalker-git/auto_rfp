@@ -22,7 +22,7 @@ export const baseHandler = async (
   event: APIGatewayProxyEventV2,
 ): Promise<APIGatewayProxyResultV2> => {
   try {
-    const orgId = event.pathParameters?.id || event.pathParameters?.orgId;
+    const orgId = event.pathParameters?.id;
 
     if (!orgId) {
       return apiResponse(400, { message: 'Missing required path parameter: id' });
