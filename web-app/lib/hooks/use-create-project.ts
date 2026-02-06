@@ -19,7 +19,7 @@ export function useCreateProject() {
     }
 
     const base = env.BASE_API_URL.replace(/\/$/, '');
-    const url = `${base}/project/create-project`;
+    const url = `${base}/projects/create-project`;
 
     const res = await fetch(url, {
       method: 'POST',
