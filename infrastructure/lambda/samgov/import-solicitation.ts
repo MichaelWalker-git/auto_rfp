@@ -32,6 +32,7 @@ import { createQuestionFile } from '../helpers/questionFile';
 import { startPipeline } from '../helpers/solicitation';
 import { safeTrim } from '../helpers/safe-string';
 import { getApiKey } from '../helpers/api-key-storage';
+import { SAM_GOV_SECRET_PREFIX } from '../constants/samgov';
 
 const DOCUMENTS_BUCKET = requireEnv('DOCUMENTS_BUCKET');
 const SAM_API_ORIGIN = process.env.SAM_API_ORIGIN || 'https://api.sam.gov';
@@ -101,7 +102,7 @@ export const baseHandler = async (
     });
   }
 
-  const apiKey = await getApiKey(orgId);
+  const apiKey = await getApiKey(orgId, SAM_GOV_SECRET_PREFIX);
 
   if (!apiKey) {
     return apiResponse(500, { message: 'Api key is missing' });

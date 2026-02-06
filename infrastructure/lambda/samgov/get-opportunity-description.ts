@@ -13,6 +13,7 @@ import {
 
 import { httpsGetBuffer } from '../helpers/samgov';
 import { getApiKey } from '../helpers/api-key-storage';
+import { SAM_GOV_SECRET_PREFIX } from '../constants/samgov';
 
 
 const ALLOWED_SAM_DOMAINS = [
@@ -79,7 +80,7 @@ const baseHandler = async (
     });
   }
 
-  const apiKey = await getApiKey(orgId) || '';
+  const apiKey = await getApiKey(orgId, SAM_GOV_SECRET_PREFIX) || '';
 
   let url: URL;
   try {

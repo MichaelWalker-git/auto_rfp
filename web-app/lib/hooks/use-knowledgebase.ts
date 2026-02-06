@@ -67,11 +67,12 @@ export function useDeleteKnowledgeBase() {
     },
   );
 }
+
 export function useEditKnowledgeBase() {
   return useSWRMutation(
     `${BASE}/edit-knowledgebase`,
-    async (url, { arg }: { arg: KnowledgeBaseItem }) => {
-      const res = await authFetcher(url, {
+    async (url, { arg }: { arg: KnowledgeBaseItem & { kbId: string, orgId: string } }) => {
+      const res = await authFetcher(`${url}?orgId=${arg.orgId}&kbId=${arg.kbId}`, {
         method: 'PATCH',
         body: JSON.stringify(arg),
       });
