@@ -14,6 +14,7 @@ export interface ApiDomainRoutesStackProps extends cdk.StackProps {
   commonEnv: Record<string, string>;
   domain: DomainRoutes;
   authorizer?: apigateway.CognitoUserPoolsAuthorizer;
+  deployment: apigateway.Deployment;
 }
 
 /**
@@ -26,7 +27,7 @@ export class ApiDomainRoutesStack extends cdk.Stack {
   constructor(scope: Construct, id: string, props: ApiDomainRoutesStackProps) {
     super(scope, id, props);
 
-    const { restApiId, rootResourceId, userPoolId, lambdaRoleArn, commonEnv, domain, authorizer } = props;
+    const { restApiId, rootResourceId, userPoolId, lambdaRoleArn, commonEnv, domain, authorizer, deployment } = props;
 
     // Get references to existing API Gateway resources
     const api = apigateway.RestApi.fromRestApiAttributes(this, 'Api', {
@@ -173,7 +174,10 @@ export class ApiDomainRoutesStack extends cdk.Stack {
               authorizationType: apigateway.AuthorizationType.NONE,
             };
 
-      resourcePath.addMethod(route.method, integration, methodOptions);
+      const method = resourcePath.addMethod(route.method, integration, methodOptions);
+      
+      // Add dependency to ensure deployment happens after all methods are created
+      deployment.node.addDependency(method);
     }
   }
 }

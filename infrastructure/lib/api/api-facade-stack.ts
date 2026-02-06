@@ -11,18 +11,14 @@ export interface ApiFacadeStackProps extends cdk.StackProps {
 export class ApiFacadeStack extends cdk.Stack {
   public readonly api: apigw.RestApi;
   public readonly authorizer: apigw.CognitoUserPoolsAuthorizer | undefined;
+  public readonly deployment: apigw.Deployment;
 
   constructor(scope: Construct, id: string, props: ApiFacadeStackProps) {
     super(scope, id, props);
 
     this.api = new apigw.RestApi(this, 'AutoRfpApi', {
       restApiName: `AutoRFP API (${props.stage})`,
-      deployOptions: {
-        stageName: props.stage,
-        metricsEnabled: true,
-        loggingLevel: apigw.MethodLoggingLevel.INFO,
-        dataTraceEnabled: true,
-      },
+      deploy: false, // We'll handle deployment manually
       defaultCorsPreflightOptions: {
         allowOrigins: apigw.Cors.ALL_ORIGINS,
         allowMethods: apigw.Cors.ALL_METHODS,
@@ -35,6 +31,21 @@ export class ApiFacadeStack extends cdk.Stack {
         ],
         allowCredentials: true,
       },
+    });
+
+    // Create deployment that will be updated when routes change
+    this.deployment = new apigw.Deployment(this, 'Deployment', {
+      api: this.api,
+      description: `Deployment for ${props.stage} stage`,
+    });
+
+    // Create stage with deployment
+    new apigw.Stage(this, 'Stage', {
+      deployment: this.deployment,
+      stageName: props.stage,
+      metricsEnabled: true,
+      loggingLevel: apigw.MethodLoggingLevel.INFO,
+      dataTraceEnabled: true,
     });
 
     // Create Cognito authorizer if userPoolId is provided
