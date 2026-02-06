@@ -92,12 +92,12 @@ async function runSummary(job: Job): Promise<void> {
       (kbMatches ?? [])
         .slice(0, topK ?? KB_TOPK_DEFAULT)
         .map(async (m, i) => {
-          const header = `#${i + 1} score=${m._score}${
-            m._source?.documentId ? ` doc=${m._source.documentId}` : ''
-          }${m._source?.chunkKey ? ` chunkKey=${m._source?.chunkKey}` : ''}`;
+          const header = `#${i + 1} score=${m.score}${
+            m.source?.documentId ? ` doc=${m.source.documentId}` : ''
+          }${m.source?.chunkKey ? ` chunkKey=${m.source?.chunkKey}` : ''}`;
 
-          const text = m._source?.chunkKey
-            ? await loadTextFromS3(DOCUMENTS_BUCKET, m._source?.chunkKey)
+          const text = m.source?.chunkKey
+            ? await loadTextFromS3(DOCUMENTS_BUCKET, m.source?.chunkKey)
             : '';
 
           return [header, text].filter(Boolean).join('\n');
@@ -229,12 +229,12 @@ async function runRequirements(job: Job): Promise<void> {
       (kbMatches ?? [])
         .slice(0, topK ?? KB_TOPK_DEFAULT)
         .map(async (m, i) => {
-          const header = `#${i + 1} score=${m._score}${
-            m._source?.documentId ? ` doc=${m._source.documentId}` : ''
-          }${m._source?.chunkKey ? ` chunkKey=${m._source?.chunkKey}` : ''}`;
+          const header = `#${i + 1} score=${m.score}${
+            m.source?.documentId ? ` doc=${m.source.documentId}` : ''
+          }${m.source?.chunkKey ? ` chunkKey=${m.source?.chunkKey}` : ''}`;
 
-          const text = m._source?.chunkKey
-            ? await loadTextFromS3(DOCUMENTS_BUCKET, m._source?.chunkKey)
+          const text = m.source?.chunkKey
+            ? await loadTextFromS3(DOCUMENTS_BUCKET, m.source?.chunkKey)
             : '';
 
           return [header, text].filter(Boolean).join('\n');
@@ -458,12 +458,12 @@ async function runScoring(job: Job): Promise<void> {
       (kbMatches ?? [])
         .slice(0, topK ?? KB_TOPK_DEFAULT)
         .map(async (m, i) => {
-          const header = `#${i + 1} score=${m._score}${
-            m._source?.documentId ? ` doc=${m._source.documentId}` : ''
-          }${m._source?.chunkKey ? ` chunkKey=${m._source?.chunkKey}` : ''}`;
+          const header = `#${i + 1} score=${m.score}${
+            m.source?.documentId ? ` doc=${m.source.documentId}` : ''
+          }${m.source?.chunkKey ? ` chunkKey=${m.source?.chunkKey}` : ''}`;
 
-          const text = m._source?.chunkKey
-            ? await loadTextFromS3(DOCUMENTS_BUCKET, m._source?.chunkKey)
+          const text = m.source?.chunkKey
+            ? await loadTextFromS3(DOCUMENTS_BUCKET, m.source?.chunkKey)
             : '';
 
           return [header, text].filter(Boolean).join('\n');
