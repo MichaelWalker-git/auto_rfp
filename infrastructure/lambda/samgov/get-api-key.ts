@@ -9,6 +9,7 @@ import {
   requirePermission
 } from '../middleware/rbac-middleware';
 import middy from '@middy/core';
+import { SAM_GOV_SECRET_PREFIX } from '../constants/samgov';
 
 
 export const baseHandler = async (event: APIGatewayProxyEventV2) => {
@@ -18,7 +19,7 @@ export const baseHandler = async (event: APIGatewayProxyEventV2) => {
       return apiResponse(400, { message: 'Org Id is required' });
     }
 
-    const apiKey = await getApiKey(orgId);
+    const apiKey = await getApiKey(orgId, SAM_GOV_SECRET_PREFIX);
 
     if (!apiKey) {
       return apiResponse(404, { error: 'API key not found for this organization' });

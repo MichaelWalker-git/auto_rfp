@@ -7,14 +7,16 @@ import {
 } from '@aws-sdk/client-secrets-manager';
 
 const secretsClient = new SecretsManagerClient({});
-const API_KEY_SECRET_PREFIX = 'samgov-api-key';
 
 /**
  * Stores API key in AWS Secrets Manager (handles encryption automatically)
  * Creates the secret if it doesn't exist, otherwise updates it
+ * @param orgId - Organization ID
+ * @param apiKey - API key to store
+ * @param prefix - Optional prefix for the secret name
  */
-export async function storeApiKey(orgId: string, apiKey: string): Promise<void> {
-  const secretName = `${API_KEY_SECRET_PREFIX}-${orgId}`;
+export async function storeApiKey(orgId: string, prefix: string, apiKey: string): Promise<void> {
+  const secretName = `${prefix}-api-key-${orgId}`;
 
   try {
     // First, try to update the existing secret
@@ -33,7 +35,7 @@ export async function storeApiKey(orgId: string, apiKey: string): Promise<void> 
           new CreateSecretCommand({
             Name: secretName,
             SecretString: apiKey,
-            Description: `SAM.gov API key for organization ${orgId}`,
+            Description: `${prefix} API key for organization ${orgId}`,
           })
         );
         console.log(`Successfully created new API key secret for orgId: ${orgId}`);
@@ -51,10 +53,12 @@ export async function storeApiKey(orgId: string, apiKey: string): Promise<void> 
 
 /**
  * Retrieves API key from AWS Secrets Manager (automatically decrypted)
+ * @param orgId - Organization ID
+ * @param prefix - Optional prefix for the secret name
  */
-export async function getApiKey(orgId: string): Promise<string | null> {
+export async function getApiKey(orgId: string, prefix: string): Promise<string | null> {
   try {
-    const secretName = `${API_KEY_SECRET_PREFIX}-${orgId}`;
+    const secretName = `${prefix}-api-key-${orgId}`;
     
     const response = await secretsClient.send(
       new GetSecretValueCommand({

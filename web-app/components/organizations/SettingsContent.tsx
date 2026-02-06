@@ -14,7 +14,8 @@ import PermissionWrapper from '@/components/permission-wrapper';
 import { SavedSearchList } from '@/components/organizations/SavedSearchList';
 import { PromptsManager } from '@/components/organizations/PromptManager';
 import { DocxTemplateUpload } from '@/components/organizations/DocxTemplateUpload';
-import { ApiKeyManager } from '@/components/samgov/api-key-manager';
+import { SamGovApiKeyConfiguration } from '@/components/api-key/SamGovApiKeyConfiguration';
+import { LinearApiKeyConfiguration } from '@/components/api-key/LinearApiKeyConfiguration';
 
 interface SettingsContentProps {
   orgId: string;
@@ -121,7 +122,9 @@ export function SettingsContent({ orgId }: SettingsContentProps) {
 
           <SavedSearchList orgId={orgId}/>
 
-          <ApiKeyManager orgId={orgId} />
+          <SamGovApiKeyConfiguration orgId={orgId} />
+
+          <LinearApiKeyConfiguration orgId={orgId} />
 
           <PromptsManager />
 
