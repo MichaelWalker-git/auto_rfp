@@ -145,7 +145,7 @@ export function QuestionsProvider({ children, projectId }: QuestionsProviderProp
       const indexes: ProjectIndex[] = knowledgeBases.map((kb) => ({
         id: kb.id,
         name: kb.name,
-      }));
+      } as ProjectIndex));
       setAvailableIndexes(indexes);
       setOrganizationConnected(true);
       // Select all indexes by default

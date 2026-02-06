@@ -91,7 +91,8 @@ const questionsPipelineStack = new QuestionExtractionPipelineStack(app, `AutoRfp
   stage,
   documentsBucket: storage.documentsBucket,
   mainTable: db.tableName,
-  sentryDNS
+  sentryDNS,
+  pineconeApiKey
 });
 
 const api = new ApiOrchestratorStack(app, `ApiOrchestrator-${stage}`, {

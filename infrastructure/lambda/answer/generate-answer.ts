@@ -1,4 +1,5 @@
 import { APIGatewayProxyEventV2, APIGatewayProxyResultV2 } from 'aws-lambda';
+import { v4 as uuidv4 } from 'uuid';
 
 import { invokeModel } from '../helpers/bedrock-http-client';
 
@@ -29,6 +30,23 @@ const BEDROCK_MODEL_ID = requireEnv('BEDROCK_MODEL_ID');
 
 export type QuestionItemDynamo = QuestionItem & DBItem
 
+export interface GenerateAnswerParams {
+  questionId: string;
+  projectId: string;
+  orgId: string;
+  questionText?: string; // Optional: if provided, skip DB lookup
+  topK?: number;
+}
+
+export interface GenerateAnswerResult {
+  questionId: string;
+  answer: string;
+  confidence?: number;
+  found: boolean;
+  sources: AnswerSource[];
+  fromContentLibrary: boolean;
+}
+
 async function buildContextFromChunkHits(hits: PineconeHit[]) {
   const byChunkKey = new Map<string, PineconeHit>();
 
@@ -51,9 +69,11 @@ async function buildContextFromChunkHits(hits: PineconeHit[]) {
   );
 }
 
-async function answerWithBedrockLLM(question: string, context: string): Promise<Partial<QAItem>> {
+export async function answerWithBedrockLLM(question: string, context: string): Promise<Partial<QAItem>> {
   const systemPrompt = `
 You are an expert proposal writer answering U.S. government RFP/SAM.gov solicitation questions.
+
+CRITICAL: Return ONLY valid JSON. Do NOT include any extra text, explanations, or fields inside the "answer" value.
 
 You may answer using:
 1) The provided context chunks (preferred), AND
@@ -70,6 +90,8 @@ Rules:
 - Do not write disclaimers like "based on the context" or "I don’t have enough information". Instead:
   - If found=true: answer directly.
   - If found=false: give a best-practice answer + what to verify in the solicitation.
+- The "answer" field must contain ONLY the answer text
+- Do NOT put "Found =", "Source =", or any metadata inside the answer
 
 Output:
 Return ONLY valid JSON with exactly these keys (no extra keys, no markdown):
@@ -135,6 +157,100 @@ Citations:
   return safeParseJsonFromModel(assistantText);
 }
 
+function buildAnswerSources(texts: Awaited<ReturnType<typeof buildContextFromChunkHits>>): AnswerSource[] {
+  return texts.map(hit => ({
+    id: hit.id || uuidv4(),
+    documentId: hit.source?.documentId,
+    fileName: hit.fileName,
+    chunkKey: hit.source?.chunkKey,
+    textContent: hit.text,
+  }));
+}
+
+/**
+ * Core answer generation logic - can be called from API or Step Function
+ */
+export async function generateAnswerForQuestion(params: GenerateAnswerParams): Promise<GenerateAnswerResult> {
+  const { questionId, projectId, orgId, questionText, topK = 30 } = params;
+
+  // Get question text - either from params or from DB
+  const question = questionText
+    ? questionText.trim()
+    : (await getQuestionItemById(projectId, questionId)).question;
+
+  if (!question) {
+    throw new Error('No question text available');
+  }
+
+  const questionEmbedding = await getEmbedding(question);
+
+  // Check content library first 
+  const contentLibraryHits = await semanticSearchContentLibrary(orgId, questionEmbedding, 1);
+
+  if (contentLibraryHits.length && (contentLibraryHits[0]?.score || 0) > 0.9) {
+    const topHit = contentLibraryHits[0];
+    const key = {
+      [PK_NAME]: topHit?.source?.[PK_NAME],
+      [SK_NAME]: topHit?.source?.[SK_NAME],
+    };
+
+    const dbItem = await getItem<ContentLibraryItem & DBItem>(key[PK_NAME]!, key[SK_NAME]!);
+
+    if (dbItem) {
+      await saveAnswer({
+        questionId,
+        projectId,
+        text: dbItem.answer,
+        confidence: topHit?.score,
+        sources: [],
+      });
+
+      return {
+        questionId,
+        answer: dbItem.answer,
+        confidence: topHit?.score,
+        found: true,
+        sources: [],
+        fromContentLibrary: true,
+      };
+    }
+  }
+
+  const hits = await semanticSearchChunks(orgId, questionEmbedding, topK);
+  console.log('Hits:', JSON.stringify(hits));
+
+  if (!hits.length) {
+    throw new Error('No matching chunks found for this question');
+  }
+
+  const texts = await buildContextFromChunkHits(hits);
+
+  const finalContext = texts
+    .map(h => `CHUNK_KEY: ${h.source?.chunkKey}\nTEXT:\n${h.text}\n---`)
+    .join('\n');
+
+  const { answer, confidence, found } = await answerWithBedrockLLM(question, finalContext);
+
+  const sources = buildAnswerSources(texts);
+
+  await saveAnswer({
+    questionId,
+    projectId,
+    text: answer,
+    confidence,
+    sources,
+  });
+
+  return {
+    questionId,
+    answer: answer || '',
+    confidence,
+    found: found ?? false,
+    sources,
+    fromContentLibrary: false,
+  };
+}
+
 export const baseHandler = async (
   event: APIGatewayProxyEventV2,
 ): Promise<APIGatewayProxyResultV2> => {
@@ -148,78 +264,34 @@ export const baseHandler = async (
 
   if (!orgId) return apiResponse(400, { message: 'Org Id is required' });
 
+  if (!questionId && !requestQuestion?.trim()) {
+    return apiResponse(400, { message: 'Either questionId (preferred) or question text must be provided' });
+  }
+
   try {
-
-    const question = questionId
-      ? (await getQuestionItemById(projectId, questionId)).question
-      : requestQuestion?.trim();
-
-    if (!question) {
-      return apiResponse(400, { message: 'Either questionId (preferred) or question text must be provided', });
-    }
-
-    const questionEmbedding = await getEmbedding(question || '',);
-
-    // find content library first
-    const contentLibraryHits = await semanticSearchContentLibrary(orgId, questionEmbedding, 1);
-    if (contentLibraryHits.length && contentLibraryHits[0]?.score || 0 > 0.9) {
-      const topHit = contentLibraryHits[0];
-      const key = {
-        [PK_NAME]: topHit?.source?.[PK_NAME],
-        [SK_NAME]: topHit?.source?.[SK_NAME],
-      };
-      const dbItem = await getItem<ContentLibraryItem & DBItem>(key[PK_NAME]!, key[SK_NAME]!);
-      if (dbItem) {
-        return apiResponse(200, {
-          sources: [],
-          questionId: questionId,
-          answer: dbItem.answer,
-          confidence: topHit?.score,
-          found: true,
-          topK: 1
-        });
-      }
-    }
-
-    const hits = await semanticSearchChunks(orgId, questionEmbedding, topK);
-    console.log('Hits:', JSON.stringify(hits));
-
-    if (!hits.length) {
-      return apiResponse(404, { message: 'No matching chunks found for this question' });
-    }
-
-    const texts = await buildContextFromChunkHits(hits);
-
-    const finalContext = texts
-      .map(h => `CHUNK_KEY: ${h.source?.chunkKey}\nTEXT:\n${h.text}\n---`)
-      .join('\n');
-
-    const { answer, confidence, found, source: _source } = await answerWithBedrockLLM(question, finalContext);
-
-    // 5) Store Q&A in Dynamo
-    const qaItem = await saveAnswer({
-      questionId: questionId,
-      text: answer,
-      confidence: confidence,
-      sources: texts.map(hit => ({
-        id: hit.id,
-        documentId: hit.source?.documentId,
-        fileName: hit.fileName,
-        chunkKey: hit.source?.chunkKey,
-        textContent: hit.text,
-      } as AnswerSource))
+    const result = await generateAnswerForQuestion({
+      questionId: questionId || '',
+      projectId,
+      orgId,
+      questionText: requestQuestion,
+      topK,
     });
 
     return apiResponse(200, {
-      sources: qaItem.sources,
-      questionId: qaItem.questionId,
-      answer,
-      confidence,
-      found,
-      topK
+      sources: result.sources,
+      questionId: result.questionId,
+      answer: result.answer,
+      confidence: result.confidence,
+      found: result.found,
+      topK,
     });
   } catch (err) {
     console.error('Error in answer-question handler:', err);
+    
+    if (err instanceof Error && err.message === 'No matching chunks found for this question') {
+      return apiResponse(404, { message: err.message });
+    }
+
     return apiResponse(500, {
       message: 'Failed to answer question',
       error: err instanceof Error ? err.message : 'Unknown error',

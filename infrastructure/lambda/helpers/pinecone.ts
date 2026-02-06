@@ -56,7 +56,11 @@ export async function semanticSearchChunks(
       },
     });
 
-    return (results.matches || []);
+    return (results.matches || []).map(match => ({
+      id: match.id,
+      score: match.score,
+      source: match.metadata as any, 
+    }));;
   } catch (err) {
     console.error('Pinecone search error:', err);
     throw new Error(
