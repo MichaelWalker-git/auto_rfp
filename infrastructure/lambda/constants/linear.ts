@@ -1,0 +1,1 @@
+export const LINEAR_SECRET_PREFIX = 'linear';

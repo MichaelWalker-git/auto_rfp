@@ -7,7 +7,11 @@
     "build": "tsc",
     "watch": "tsc -w",
     "test": "jest",
-    "cdk": "cdk"
+    "cdk": "cdk",
+    "deploy:dev:api": "cdk deploy ApiOrchestrator-Dev",
+    "deploy:test:api": "cdk deploy ApiOrchestrator-Test",
+    "deploy:dev": "STAGE=Dev cdk deploy --all",
+    "deploy:test": "STAGE=Test cdk deploy --all"
   },
   "devDependencies": {
     "@types/aws-lambda": "^8.10.160",

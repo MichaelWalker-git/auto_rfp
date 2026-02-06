@@ -34,7 +34,7 @@ import {
 import { listAllOrgIds } from '../helpers/org';
 import { PROJECT_PK } from '../constants/organization';
 import { uploadToS3 } from '../helpers/s3';
-import { SAVED_SEARCH_PK } from '../constants/samgov';
+import { SAM_GOV_SECRET_PREFIX, SAVED_SEARCH_PK } from '../constants/samgov';
 import { buildQuestionFileSK, updateQuestionFile } from '../helpers/questionFile';
 import { createOpportunity } from '../helpers/opportunity';
 import { getApiKey } from '../helpers/api-key-storage';
@@ -236,7 +236,7 @@ async function importNoticeUsingHelpers(args: {
   samCfg: ImportSamConfig;
 }) {
   const { orgId, projectId, noticeId } = args;
-  const apiKey = await getApiKey(orgId);
+  const apiKey = await getApiKey(orgId, SAM_GOV_SECRET_PREFIX);
   if (!apiKey) {
     return 0;
   }
@@ -344,7 +344,7 @@ async function runForOrg(args: {
   samImportCfg: ImportSamConfig;
   dryRun: boolean;
 }) {
-  const apiKey = await getApiKey(args.orgId);
+  const apiKey = await getApiKey(args.orgId, SAM_GOV_SECRET_PREFIX);
   const searches = await listSavedSearchesForOrg(args.orgId);
   console.log('searches ', searches);
   const projectId = await getOrgDefaultProjectId(args.orgId);

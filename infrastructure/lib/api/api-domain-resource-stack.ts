@@ -53,10 +53,10 @@ export class ApiDomainRoutesStack extends cdk.Stack {
         integrationResponses: [{
           statusCode: '200',
           responseParameters: {
-            'method.response.header.Access-Control-Allow-Headers': "'Content-Type,Authorization,X-Amz-Date,X-Api-Key,X-Amz-Security-Token'",
-            'method.response.header.Access-Control-Allow-Origin': "'*'",
-            'method.response.header.Access-Control-Allow-Methods': "'GET,POST,PUT,PATCH,DELETE,OPTIONS'",
-            'method.response.header.Access-Control-Allow-Credentials': "'true'",
+            'method.response.header.Access-Control-Allow-Headers': '\'Content-Type,Authorization,X-Amz-Date,X-Api-Key,X-Amz-Security-Token\'',
+            'method.response.header.Access-Control-Allow-Origin': '\'*\'',
+            'method.response.header.Access-Control-Allow-Methods': '\'GET,POST,PUT,PATCH,DELETE,OPTIONS\'',
+            'method.response.header.Access-Control-Allow-Credentials': '\'true\'',
           },
         }],
         passthroughBehavior: apigateway.PassthroughBehavior.NEVER,
@@ -119,7 +119,7 @@ export class ApiDomainRoutesStack extends cdk.Stack {
         } else {
           resourcePath = resourcePath.getResource(segment) || resourcePath.addResource(segment);
         }
-        
+
         // Add OPTIONS method to each intermediate resource for CORS
         const intermediateResourceId = resourcePath.path;
         if (!this.optionsMethodsAdded.has(intermediateResourceId)) {
@@ -128,10 +128,10 @@ export class ApiDomainRoutesStack extends cdk.Stack {
             integrationResponses: [{
               statusCode: '200',
               responseParameters: {
-                'method.response.header.Access-Control-Allow-Headers': "'Content-Type,Authorization,X-Amz-Date,X-Api-Key,X-Amz-Security-Token'",
-                'method.response.header.Access-Control-Allow-Origin': "'*'",
-                'method.response.header.Access-Control-Allow-Methods': "'GET,POST,PUT,PATCH,DELETE,OPTIONS'",
-                'method.response.header.Access-Control-Allow-Credentials': "'true'",
+                'method.response.header.Access-Control-Allow-Headers': '\'Content-Type,Authorization,X-Amz-Date,X-Api-Key,X-Amz-Security-Token\'',
+                'method.response.header.Access-Control-Allow-Origin': '\'*\'',
+                'method.response.header.Access-Control-Allow-Methods': '\'GET,POST,PUT,PATCH,DELETE,OPTIONS\'',
+                'method.response.header.Access-Control-Allow-Credentials': '\'true\'',
               },
             }],
             passthroughBehavior: apigateway.PassthroughBehavior.NEVER,
@@ -159,35 +159,21 @@ export class ApiDomainRoutesStack extends cdk.Stack {
 
       // Add method with Cognito authorization if authorizer is provided
       // OPTIONS methods should never require authorization for CORS preflight
-      const methodOptions: apigateway.MethodOptions = 
-        route.method === 'OPTIONS' 
+      const methodOptions: apigateway.MethodOptions =
+        route.method === 'OPTIONS'
           ? {
-              authorizationType: apigateway.AuthorizationType.NONE,
-            }
+            authorizationType: apigateway.AuthorizationType.NONE,
+          }
           : authorizer
-          ? {
+            ? {
               authorizationType: apigateway.AuthorizationType.COGNITO,
               authorizer: authorizer,
             }
-          : {
+            : {
               authorizationType: apigateway.AuthorizationType.NONE,
             };
 
       resourcePath.addMethod(route.method, integration, methodOptions);
-
-      // Sanitize the export name to remove invalid characters
-      const sanitizedPath = route.path
-        .replace(/\//g, '-')  // Replace forward slashes with hyphens
-        .replace(/[{}]/g, '') // Remove curly braces
-        .replace(/^-+|-+$/g, '') // Remove leading/trailing hyphens
-        .replace(/-+/g, '-'); // Replace multiple hyphens with single hyphen
-      
-      const exportName = `${domain.basePath}-${sanitizedPath}-lambda-arn`;
-      
-      new cdk.CfnOutput(this, `${domain.basePath}-${route.path}-lambda-arn`, {
-        value: lambdaFunction.functionArn,
-        exportName: exportName,
-      });
     }
   }
 }

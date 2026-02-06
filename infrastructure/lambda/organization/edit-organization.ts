@@ -23,7 +23,7 @@ export const baseHandler = async (
   const orgId = event.pathParameters?.id;
 
   if (!orgId) {
-    return apiResponse(400, { message: 'Missing required path parameter: orgId' });
+    return apiResponse(400, { message: 'Missing required path parameter: id' });
   }
 
   if (!event.body) {

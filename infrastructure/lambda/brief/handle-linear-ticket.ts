@@ -2,7 +2,7 @@ import type { APIGatewayProxyEventV2, APIGatewayProxyResultV2 } from 'aws-lambda
 import { z } from 'zod';
 import { UpdateCommand } from '@aws-sdk/lib-dynamodb';
 
-import { apiResponse } from '../helpers/api';
+import { apiResponse, getOrgId } from '../helpers/api';
 import { withSentryLambda } from '../sentry-lambda';
 import { createLinearTicket, updateLinearTicket } from '../helpers/linear';
 import { getExecutiveBrief } from '../helpers/executive-opportunity-brief';
@@ -40,7 +40,7 @@ function buildTicketDescription(brief: any, _project: any): string {
 
   parts.push('# RFP Opportunity');
   parts.push('');
-  
+
   if (summary?.agency) parts.push(`**Agency:** ${summary.agency}`);
   if (summary?.naics) parts.push(`**NAICS:** ${summary.naics}`);
   if (summary?.contractType) parts.push(`**Contract Type:** ${summary.contractType}`);
@@ -59,10 +59,10 @@ function buildTicketDescription(brief: any, _project: any): string {
   }
 
   const hasDeadlines = deadlines?.submissionDeadlineIso || (deadlines?.deadlines && deadlines.deadlines.length > 0);
-  
+
   if (hasDeadlines) {
     parts.push('## Deadlines');
-    
+
     const allDeadlines: Array<{
       label: string;
       dateTimeIso?: string;
@@ -84,7 +84,7 @@ function buildTicketDescription(brief: any, _project: any): string {
     if (deadlines.deadlines && deadlines.deadlines.length > 0) {
       deadlines.deadlines.forEach((d: any) => {
         if (d.type === 'PROPOSAL_DUE') return;
-        
+
         allDeadlines.push({
           label: `${d.label || d.type}`,
           dateTimeIso: d.dateTimeIso,
@@ -104,7 +104,7 @@ function buildTicketDescription(brief: any, _project: any): string {
     allDeadlines.forEach(d => {
       if (d.dateTimeIso) {
         parts.push(`- **${d.label}:** ${formatDate(d.dateTimeIso)}${d.timezone ? ` (${d.timezone})` : ''}`);
-        
+
         if (d.isPrimary) {
           const recommendedDate = new Date(new Date(d.dateTimeIso).getTime() - 24 * 60 * 60 * 1000);
           parts.push(`  - ⚠️ *Recommended: Submit 24 hours early by ${formatDate(recommendedDate.toISOString())}*`);
@@ -113,7 +113,7 @@ function buildTicketDescription(brief: any, _project: any): string {
         parts.push(`- **${d.label}:** ${d.rawText}`);
       }
     });
-    
+
     parts.push('');
   }
 
@@ -138,7 +138,7 @@ function buildTicketDescription(brief: any, _project: any): string {
     });
     parts.push('');
   }
-  
+
   return parts.join('\n');
 }
 
@@ -146,6 +146,10 @@ export const baseHandler = async (
   event: APIGatewayProxyEventV2,
 ): Promise<APIGatewayProxyResultV2> => {
   try {
+    const orgId = getOrgId(event);
+    if (!orgId) {
+      return apiResponse(400, { message: 'Org Id is required' });
+    }
     const bodyJson = event.body ? JSON.parse(event.body) : {};
     const { executiveBriefId } = RequestSchema.parse(bodyJson);
 
@@ -159,7 +163,7 @@ export const baseHandler = async (
     }
 
     const project = await getProjectById(brief.projectId);
-    
+
     if (!project) {
       return apiResponse(404, {
         ok: false,
@@ -177,28 +181,28 @@ export const baseHandler = async (
 
     if (decision === 'GO') {
       titlePrefix = '[RFP] ✅';
-      labels.push('go'); 
+      labels.push('go');
     } else if (decision === 'NO_GO') {
       titlePrefix = '[RFP] ❌';
       labels.push('no-go');
     } else if (decision === 'CONDITIONAL_GO') {
       titlePrefix = '[RFP] 🔍';
-      labels.push('needs-review'); 
+      labels.push('needs-review');
     }
 
     const title = `${titlePrefix} ${summary?.title || project.name || 'RFP Opportunity'}`;
 
     if (brief.linearTicketId) {
       console.log(`Updating existing Linear ticket: ${brief.linearTicketId}`);
-      
+
       try {
-        await updateLinearTicket(brief.linearTicketId, {
+        await updateLinearTicket(orgId, brief.linearTicketId, {
           title: title,
           labels,
         });
-        
+
         console.log(`Updated Linear ticket ${brief.linearTicketIdentifier} labels to: ${labels.join(', ')}`);
-        
+
         return apiResponse(200, {
           ok: true,
           message: 'Linear ticket updated successfully',
@@ -222,6 +226,7 @@ export const baseHandler = async (
     const dueDate = deadlines?.submissionDeadlineIso;
 
     const ticket = await createLinearTicket({
+      orgId,
       title,
       description,
       priority: 3,
@@ -232,7 +237,7 @@ export const baseHandler = async (
     console.log(`Created Linear ticket: ${ticket.identifier} (${ticket.id}) for ${decision}`);
 
     // Update brief with Linear ticket info
-    try{
+    try {
       await docClient.send(
         new UpdateCommand({
           TableName: DB_TABLE_NAME,
@@ -240,7 +245,7 @@ export const baseHandler = async (
             [PK_NAME]: EXEC_BRIEF_PK,
             [SK_NAME]: executiveBriefId,
           },
-          UpdateExpression: 'SET linearTicketId = :ticketId, linearTicketIdentifier = :identifier, linearTicketUrl = :url, updatedAt = :now', 
+          UpdateExpression: 'SET linearTicketId = :ticketId, linearTicketIdentifier = :identifier, linearTicketUrl = :url, updatedAt = :now',
           ExpressionAttributeValues: {
             ':ticketId': ticket.id,
             ':identifier': ticket.identifier,
@@ -262,7 +267,7 @@ export const baseHandler = async (
       );
       throw dbErr;
     }
-    
+
 
     return apiResponse(200, {
       ok: true,

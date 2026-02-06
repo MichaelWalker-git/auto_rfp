@@ -31,6 +31,7 @@ import { projectoutcomeDomain } from './routes/project-outcome.routes';
 import { projectsDomain } from './routes/projects.routes';
 import { promptDomain } from './routes/prompt.routes';
 import { samgovDomain } from './routes/samgov.routes';
+import { linearRoutes } from './routes/linear-routes';
 
 export interface ApiOrchestratorStackProps extends cdk.StackProps {
   stage: string;
@@ -391,6 +392,17 @@ export class ApiOrchestratorStack extends cdk.Stack {
       lambdaRoleArn: this.commonLambdaRoleArn,
       commonEnv: sharedInfraStack.commonEnv,
       domain: samgovDomain(),
+      authorizer: facadeStack.authorizer,
+      env: props.env,
+    });
+
+    new ApiDomainRoutesStack(this, 'LinearRoutes', {
+      restApiId: this.restApiId,
+      rootResourceId: this.rootResourceId,
+      userPoolId: userPool.userPoolId,
+      lambdaRoleArn: this.commonLambdaRoleArn,
+      commonEnv: sharedInfraStack.commonEnv,
+      domain: linearRoutes,
       authorizer: facadeStack.authorizer,
       env: props.env,
     });

@@ -22,11 +22,11 @@ import { SamGovOpportunityList } from './samgov-opportunity-list';
 
 import { useImportSolicitation } from '@/lib/hooks/use-import-solicitation';
 import { ImportSolicitationDialog } from '@/components/samgov/import-solicitation-dialog';
-import { SamGovApiKeySetup } from '@/components/samgov/samgov-api-key-setup';
 import { useProjectContext } from '@/context/project-context';
 import { ListingPageLayout } from '@/components/layout/ListingPageLayout';
 import { authFetcher } from '@/lib/auth/auth-fetcher';
 import { env } from '@/lib/env';
+import Link from 'next/link';
 
 type Props = { orgId: string };
 
@@ -42,7 +42,6 @@ export default function SamGovOpportunitySearchPage({ orgId }: Props) {
   // API Key status check
   const [hasApiKey, setHasApiKey] = useState<boolean | null>(null);
   const [checkingApiKey, setCheckingApiKey] = useState(true);
-  const [showApiKeySetup, setShowApiKeySetup] = useState(false);
 
   // --- URL bootstrap (only once per mount) ---
   const bootstrappedRef = useRef(false);
@@ -63,10 +62,20 @@ export default function SamGovOpportunitySearchPage({ orgId }: Props) {
     const checkApiKeyStatus = async () => {
       try {
         const response = await authFetcher(
-          `${env.BASE_API_URL}/samgov/check-api-key-status?orgId=${encodeURIComponent(orgId)}`
+          `${env.BASE_API_URL}/samgov/get-api-key?orgId=${encodeURIComponent(orgId)}`
         );
-        const result = await response.json();
-        setHasApiKey(result.hasApiKey);
+        
+        if (response.status === 404) {
+          // 404 means API key is not configured
+          setHasApiKey(false);
+        } else if (response.ok) {
+          // API key exists
+          const result = await response.json();
+          setHasApiKey(!!result.apiKey);
+        } else {
+          // Other error
+          setHasApiKey(false);
+        }
       } catch (error) {
         console.error('Error checking API key status:', error);
         setHasApiKey(false);
@@ -145,7 +154,11 @@ export default function SamGovOpportunitySearchPage({ orgId }: Props) {
 
   const onSearch = async (req: LoadSamOpportunitiesRequest) => {
     if (!hasApiKey) {
-      setShowApiKeySetup(true);
+      toast({
+        title: 'API Key Required',
+        description: 'Please configure your SAM.gov API key in the organization settings.',
+        variant: 'destructive',
+      });
       return;
     }
     await trigger(req);
@@ -188,13 +201,6 @@ export default function SamGovOpportunitySearchPage({ orgId }: Props) {
     }
   };
 
-  const handleApiKeySuccess = () => {
-    setHasApiKey(true);
-    setShowApiKeySetup(false);
-    // Trigger a search after API key is set
-    const req = filtersToRequest(filters, { limit: 25, offset: 0 });
-    trigger(req);
-  };
 
   if (checkingApiKey) {
     return (
@@ -215,14 +221,12 @@ export default function SamGovOpportunitySearchPage({ orgId }: Props) {
             <AlertTitle>SAM.gov API Key Required</AlertTitle>
             <AlertDescription className="space-y-2">
               <p>To search and import opportunities from SAM.gov, you need to configure your API key.</p>
-              <Button
-                size="sm"
-                onClick={() => setShowApiKeySetup(true)}
-                className="mt-2"
-              >
-                <Key className="h-4 w-4 mr-2"/>
-                Configure API Key
-              </Button>
+              <Link href={`/organizations/${orgId}/settings`}>
+                <Button size="sm" className="mt-2">
+                  <Key className="h-4 w-4 mr-2"/>
+                  Configure API Key in Settings
+                </Button>
+              </Link>
             </AlertDescription>
           </Alert>
         )}
@@ -290,13 +294,6 @@ export default function SamGovOpportunitySearchPage({ orgId }: Props) {
         projects={projects}
         isImporting={isImporting}
         onImport={doImport}
-      />
-
-      <SamGovApiKeySetup
-        orgId={orgId}
-        open={showApiKeySetup}
-        onOpenChange={setShowApiKeySetup}
-        onSuccess={handleApiKeySuccess}
       />
     </>
   );
