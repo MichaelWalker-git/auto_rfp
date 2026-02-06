@@ -2,9 +2,8 @@ import type { DomainRoutes } from './types';
 
 export function briefDomain(args: {
   execBriefQueueUrl: string;
-  linearApiKeySecretArn: string;
 }): DomainRoutes {
-  const { execBriefQueueUrl, linearApiKeySecretArn } = args;
+  const { execBriefQueueUrl } = args;
 
   return {
     basePath: 'brief',
@@ -58,7 +57,6 @@ export function briefDomain(args: {
         method: 'POST',
         path: 'handle-linear-ticket',
         entry: 'lambda/brief/handle-linear-ticket.ts',
-        extraEnv: { LINEAR_API_KEY_SECRET_ARN: linearApiKeySecretArn },
       },
 
       { method: 'POST', path: 'update-decision', entry: 'lambda/brief/update-decision.ts' },

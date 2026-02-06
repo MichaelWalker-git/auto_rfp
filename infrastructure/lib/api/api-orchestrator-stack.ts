@@ -5,7 +5,6 @@ import * as iam from 'aws-cdk-lib/aws-iam';
 import * as dynamodb from 'aws-cdk-lib/aws-dynamodb';
 import * as s3 from 'aws-cdk-lib/aws-s3';
 import * as sqs from 'aws-cdk-lib/aws-sqs';
-import * as secretsmanager from 'aws-cdk-lib/aws-secretsmanager';
 import * as apigateway from 'aws-cdk-lib/aws-apigateway';
 
 import { ApiFacadeStack } from './api-facade-stack';
@@ -32,6 +31,7 @@ import { projectsDomain } from './routes/projects.routes';
 import { promptDomain } from './routes/prompt.routes';
 import { samgovDomain } from './routes/samgov.routes';
 import { linearRoutes } from './routes/linear-routes';
+import { briefDomain } from './routes/brief.routes';
 
 export interface ApiOrchestratorStackProps extends cdk.StackProps {
   stage: string;
@@ -39,8 +39,6 @@ export interface ApiOrchestratorStackProps extends cdk.StackProps {
   mainTable: dynamodb.ITable;
   documentsBucket: s3.IBucket;
   execBriefQueue?: sqs.IQueue;
-  samGovApiKeySecret?: secretsmanager.ISecret;
-  linearApiKeySecret?: secretsmanager.ISecret;
   documentPipelineStateMachineArn: string;
   questionPipelineStateMachineArn: string;
   sentryDNS: string;
@@ -68,8 +66,6 @@ export class ApiOrchestratorStack extends cdk.Stack {
       mainTable,
       documentsBucket,
       execBriefQueue,
-      samGovApiKeySecret,
-      linearApiKeySecret,
       documentPipelineStateMachineArn,
       questionPipelineStateMachineArn,
       sentryDNS,
@@ -149,11 +145,6 @@ export class ApiOrchestratorStack extends cdk.Stack {
       }),
     );
 
-    // Grant access to secrets if provided
-    if (samGovApiKeySecret) {
-      samGovApiKeySecret.grantRead(sharedInfraStack.commonLambdaRole);
-    }
-    
     // Grant Lambda role access to Secrets Manager for SAM.gov API keys
     sharedInfraStack.commonLambdaRole.addToPrincipalPolicy(
       new iam.PolicyStatement({
@@ -163,12 +154,10 @@ export class ApiOrchestratorStack extends cdk.Stack {
           'secretsmanager:DeleteSecret',
           'secretsmanager:CreateSecret',
         ],
-        resources: [`arn:aws:secretsmanager:${cdk.Aws.REGION}:${cdk.Aws.ACCOUNT_ID}:secret:samgov-api-key-*`],
+        resources: [`arn:aws:secretsmanager:${cdk.Aws.REGION}:${cdk.Aws.ACCOUNT_ID}:secret:*-api-key-*`],
       }),
     );
-    if (linearApiKeySecret) {
-      linearApiKeySecret.grantRead(sharedInfraStack.commonLambdaRole);
-    }
+
     if (execBriefQueue) {
       execBriefQueue.grantSendMessages(sharedInfraStack.commonLambdaRole);
     }
@@ -184,7 +173,6 @@ export class ApiOrchestratorStack extends cdk.Stack {
       commonEnv: sharedInfraStack.commonEnv,
       domain: organizationDomain(),
       authorizer: facadeStack.authorizer,
-      deployment: facadeStack.deployment,
       env: props.env,
     });
 
@@ -196,7 +184,17 @@ export class ApiOrchestratorStack extends cdk.Stack {
       commonEnv: sharedInfraStack.commonEnv,
       domain: answerDomain(),
       authorizer: facadeStack.authorizer,
-      deployment: facadeStack.deployment,
+      env: props.env,
+    });
+
+    new ApiDomainRoutesStack(this, 'BriefRoutes', {
+      restApiId: this.restApiId,
+      rootResourceId: this.rootResourceId,
+      userPoolId: userPool.userPoolId,
+      lambdaRoleArn: this.commonLambdaRoleArn,
+      commonEnv: sharedInfraStack.commonEnv,
+      domain: briefDomain({ execBriefQueueUrl: execBriefQueue?.queueUrl || '' }),
+      authorizer: facadeStack.authorizer,
       env: props.env,
     });
 
@@ -208,7 +206,6 @@ export class ApiOrchestratorStack extends cdk.Stack {
       commonEnv: sharedInfraStack.commonEnv,
       domain: presignedDomain(),
       authorizer: facadeStack.authorizer,
-      deployment: facadeStack.deployment,
       env: props.env,
     });
 
@@ -220,7 +217,6 @@ export class ApiOrchestratorStack extends cdk.Stack {
       commonEnv: sharedInfraStack.commonEnv,
       domain: knowledgebaseDomain(),
       authorizer: facadeStack.authorizer,
-      deployment: facadeStack.deployment,
       env: props.env,
     });
 
@@ -232,7 +228,6 @@ export class ApiOrchestratorStack extends cdk.Stack {
       commonEnv: sharedInfraStack.commonEnv,
       domain: documentDomain(),
       authorizer: facadeStack.authorizer,
-      deployment: facadeStack.deployment,
       env: props.env,
     });
 
@@ -244,7 +239,6 @@ export class ApiOrchestratorStack extends cdk.Stack {
       commonEnv: sharedInfraStack.commonEnv,
       domain: questionfileDomain(),
       authorizer: facadeStack.authorizer,
-      deployment: facadeStack.deployment,
       env: props.env,
     });
 
@@ -256,7 +250,6 @@ export class ApiOrchestratorStack extends cdk.Stack {
       commonEnv: sharedInfraStack.commonEnv,
       domain: proposalDomain(),
       authorizer: facadeStack.authorizer,
-      deployment: facadeStack.deployment,
       env: props.env,
     });
 
@@ -268,7 +261,6 @@ export class ApiOrchestratorStack extends cdk.Stack {
       commonEnv: sharedInfraStack.commonEnv,
       domain: userDomain(),
       authorizer: facadeStack.authorizer,
-      deployment: facadeStack.deployment,
       env: props.env,
     });
 
@@ -280,7 +272,6 @@ export class ApiOrchestratorStack extends cdk.Stack {
       commonEnv: sharedInfraStack.commonEnv,
       domain: questionDomain(),
       authorizer: facadeStack.authorizer,
-      deployment: facadeStack.deployment,
       env: props.env,
     });
 
@@ -292,7 +283,6 @@ export class ApiOrchestratorStack extends cdk.Stack {
       commonEnv: sharedInfraStack.commonEnv,
       domain: semanticDomain(),
       authorizer: facadeStack.authorizer,
-      deployment: facadeStack.deployment,
       env: props.env,
     });
 
@@ -304,7 +294,6 @@ export class ApiOrchestratorStack extends cdk.Stack {
       commonEnv: sharedInfraStack.commonEnv,
       domain: deadlinesDomain(),
       authorizer: facadeStack.authorizer,
-      deployment: facadeStack.deployment,
       env: props.env,
     });
 
@@ -316,7 +305,6 @@ export class ApiOrchestratorStack extends cdk.Stack {
       commonEnv: sharedInfraStack.commonEnv,
       domain: opportunityDomain(),
       authorizer: facadeStack.authorizer,
-      deployment: facadeStack.deployment,
       env: props.env,
     });
 
@@ -328,7 +316,6 @@ export class ApiOrchestratorStack extends cdk.Stack {
       commonEnv: sharedInfraStack.commonEnv,
       domain: exportDomain(),
       authorizer: facadeStack.authorizer,
-      deployment: facadeStack.deployment,
       env: props.env,
     });
 
@@ -340,7 +327,6 @@ export class ApiOrchestratorStack extends cdk.Stack {
       commonEnv: sharedInfraStack.commonEnv,
       domain: contentlibraryDomain(),
       authorizer: facadeStack.authorizer,
-      deployment: facadeStack.deployment,
       env: props.env,
     });
 
@@ -352,7 +338,6 @@ export class ApiOrchestratorStack extends cdk.Stack {
       commonEnv: sharedInfraStack.commonEnv,
       domain: projectoutcomeDomain(),
       authorizer: facadeStack.authorizer,
-      deployment: facadeStack.deployment,
       env: props.env,
     });
 
@@ -364,7 +349,6 @@ export class ApiOrchestratorStack extends cdk.Stack {
       commonEnv: sharedInfraStack.commonEnv,
       domain: foiaDomain(),
       authorizer: facadeStack.authorizer,
-      deployment: facadeStack.deployment,
       env: props.env,
     });
 
@@ -376,7 +360,6 @@ export class ApiOrchestratorStack extends cdk.Stack {
       commonEnv: sharedInfraStack.commonEnv,
       domain: debriefingDomain(),
       authorizer: facadeStack.authorizer,
-      deployment: facadeStack.deployment,
       env: props.env,
     });
 
@@ -388,7 +371,6 @@ export class ApiOrchestratorStack extends cdk.Stack {
       commonEnv: sharedInfraStack.commonEnv,
       domain: projectsDomain(),
       authorizer: facadeStack.authorizer,
-      deployment: facadeStack.deployment,
       env: props.env,
     });
 
@@ -400,7 +382,6 @@ export class ApiOrchestratorStack extends cdk.Stack {
       commonEnv: sharedInfraStack.commonEnv,
       domain: promptDomain(),
       authorizer: facadeStack.authorizer,
-      deployment: facadeStack.deployment,
       env: props.env,
     });
 
@@ -412,7 +393,6 @@ export class ApiOrchestratorStack extends cdk.Stack {
       commonEnv: sharedInfraStack.commonEnv,
       domain: samgovDomain(),
       authorizer: facadeStack.authorizer,
-      deployment: facadeStack.deployment,
       env: props.env,
     });
 
@@ -424,7 +404,6 @@ export class ApiOrchestratorStack extends cdk.Stack {
       commonEnv: sharedInfraStack.commonEnv,
       domain: linearRoutes,
       authorizer: facadeStack.authorizer,
-      deployment: facadeStack.deployment,
       env: props.env,
     });
 

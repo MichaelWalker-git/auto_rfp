@@ -529,6 +529,9 @@ export default function KnowledgeBaseItemComponent() {
       <ListingPageLayout
         title={kb?.name || 'Knowledge Base'}
         description={kb?.description || undefined}
+        onReload={() => {
+          refreshDocuments()
+        }}
         headerActions={
           <PermissionWrapper requiredPermission={'kb:upload'}>
             <Button onClick={() => setShowUpload(true)}>
