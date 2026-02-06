@@ -16,9 +16,16 @@ export class ApiFacadeStack extends cdk.Stack {
   constructor(scope: Construct, id: string, props: ApiFacadeStackProps) {
     super(scope, id, props);
 
+    // Create the API Gateway REST API with automatic deployment enabled
+    // This is the simplest approach that avoids circular dependencies
     this.api = new apigw.RestApi(this, 'AutoRfpApi', {
       restApiName: `AutoRFP API (${props.stage})`,
-      deploy: false, // We'll handle deployment manually
+      deployOptions: {
+        stageName: props.stage,
+        metricsEnabled: true,
+        loggingLevel: apigw.MethodLoggingLevel.INFO,
+        dataTraceEnabled: true,
+      },
       defaultCorsPreflightOptions: {
         allowOrigins: apigw.Cors.ALL_ORIGINS,
         allowMethods: apigw.Cors.ALL_METHODS,
@@ -33,20 +40,9 @@ export class ApiFacadeStack extends cdk.Stack {
       },
     });
 
-    // Create deployment that will be updated when routes change
-    this.deployment = new apigw.Deployment(this, 'Deployment', {
-      api: this.api,
-      description: `Deployment for ${props.stage} stage`,
-    });
-
-    // Create stage with deployment
-    new apigw.Stage(this, 'Stage', {
-      deployment: this.deployment,
-      stageName: props.stage,
-      metricsEnabled: true,
-      loggingLevel: apigw.MethodLoggingLevel.INFO,
-      dataTraceEnabled: true,
-    });
+    // Get the automatically created deployment
+    // We need to expose this so route stacks can add dependencies
+    this.deployment = this.api.latestDeployment!;
 
     // Create Cognito authorizer if userPoolId is provided
     if (props.userPoolId) {

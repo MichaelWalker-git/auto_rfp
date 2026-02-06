@@ -27,7 +27,7 @@ export class ApiDomainRoutesStack extends cdk.Stack {
   constructor(scope: Construct, id: string, props: ApiDomainRoutesStackProps) {
     super(scope, id, props);
 
-    const { restApiId, rootResourceId, userPoolId, lambdaRoleArn, commonEnv, domain, authorizer, deployment } = props;
+    const { restApiId, rootResourceId, userPoolId, lambdaRoleArn, commonEnv, domain, authorizer } = props;
 
     // Get references to existing API Gateway resources
     const api = apigateway.RestApi.fromRestApiAttributes(this, 'Api', {
@@ -174,10 +174,7 @@ export class ApiDomainRoutesStack extends cdk.Stack {
               authorizationType: apigateway.AuthorizationType.NONE,
             };
 
-      const method = resourcePath.addMethod(route.method, integration, methodOptions);
-      
-      // Add dependency to ensure deployment happens after all methods are created
-      deployment.node.addDependency(method);
+      resourcePath.addMethod(route.method, integration, methodOptions);
     }
   }
 }

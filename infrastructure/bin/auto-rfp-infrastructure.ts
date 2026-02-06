@@ -39,7 +39,7 @@ if (!pineconeApiKey) {
 const githubToken = cdk.SecretValue.secretsManager('auto-rfp/github-token');
 
 // Determine the branch based on stage
-const branch = stage.toLowerCase() === 'dev' ? 'develop' : 'master';
+const branch = stage.toLowerCase() === 'dev' ? 'develop' : 'main';
 
 // Create storage stack first as it has no dependencies
 const storage = new StorageStack(app, `AutoRfp-Storage-${stage}`, {
