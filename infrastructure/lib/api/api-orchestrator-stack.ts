@@ -31,6 +31,7 @@ import { projectsDomain } from './routes/projects.routes';
 import { promptDomain } from './routes/prompt.routes';
 import { samgovDomain } from './routes/samgov.routes';
 import { linearRoutes } from './routes/linear-routes';
+import { briefDomain } from './routes/brief.routes';
 
 export interface ApiOrchestratorStackProps extends cdk.StackProps {
   stage: string;
@@ -143,7 +144,7 @@ export class ApiOrchestratorStack extends cdk.Stack {
         resources: [documentPipelineStateMachineArn, questionPipelineStateMachineArn],
       }),
     );
-    
+
     // Grant Lambda role access to Secrets Manager for SAM.gov API keys
     sharedInfraStack.commonLambdaRole.addToPrincipalPolicy(
       new iam.PolicyStatement({
@@ -183,6 +184,18 @@ export class ApiOrchestratorStack extends cdk.Stack {
       lambdaRoleArn: this.commonLambdaRoleArn,
       commonEnv: sharedInfraStack.commonEnv,
       domain: answerDomain(),
+      authorizer: facadeStack.authorizer,
+      deployment: facadeStack.deployment,
+      env: props.env,
+    });
+
+    new ApiDomainRoutesStack(this, 'BriefRoutes', {
+      restApiId: this.restApiId,
+      rootResourceId: this.rootResourceId,
+      userPoolId: userPool.userPoolId,
+      lambdaRoleArn: this.commonLambdaRoleArn,
+      commonEnv: sharedInfraStack.commonEnv,
+      domain: briefDomain({ execBriefQueueUrl: execBriefQueue?.queueUrl || '' }),
       authorizer: facadeStack.authorizer,
       deployment: facadeStack.deployment,
       env: props.env,
