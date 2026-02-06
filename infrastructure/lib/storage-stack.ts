@@ -1,5 +1,6 @@
 import * as cdk from 'aws-cdk-lib';
 import * as s3 from 'aws-cdk-lib/aws-s3';
+import * as sqs from 'aws-cdk-lib/aws-sqs';
 import { Construct } from 'constructs';
 import { NagSuppressions } from 'cdk-nag';
 
@@ -10,6 +11,7 @@ export interface StorageStackProps extends cdk.StackProps {
 export class StorageStack extends cdk.Stack {
   public readonly documentsBucket: s3.Bucket;
   public readonly websiteBucket: s3.Bucket;
+  public readonly execBriefQueue: sqs.Queue;
 
   constructor(scope: Construct, id: string, props: StorageStackProps) {
     super(scope, id, props);
@@ -50,6 +52,22 @@ export class StorageStack extends cdk.Stack {
       blockPublicAccess: s3.BlockPublicAccess.BLOCK_ALL,
       removalPolicy: cdk.RemovalPolicy.DESTROY,
       autoDeleteObjects: true,
+    });
+
+    // Create SQS queue for executive brief generation
+    this.execBriefQueue = new sqs.Queue(this, 'ExecBriefQueue', {
+      queueName: `auto-rfp-exec-brief-${stage}`,
+      visibilityTimeout: cdk.Duration.seconds(300), // 5 minutes for processing
+      retentionPeriod: cdk.Duration.days(14), // Keep messages for 14 days
+      encryption: sqs.QueueEncryption.SQS_MANAGED,
+      deadLetterQueue: {
+        queue: new sqs.Queue(this, 'ExecBriefDLQ', {
+          queueName: `auto-rfp-exec-brief-dlq-${stage}`,
+          retentionPeriod: cdk.Duration.days(14),
+          encryption: sqs.QueueEncryption.SQS_MANAGED,
+        }),
+        maxReceiveCount: 3, // Move to DLQ after 3 failed attempts
+      },
     });
 
     NagSuppressions.addResourceSuppressions(

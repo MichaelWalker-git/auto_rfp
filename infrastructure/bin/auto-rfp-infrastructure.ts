@@ -104,7 +104,8 @@ const api = new ApiOrchestratorStack(app, `ApiOrchestrator-${stage}`, {
   documentPipelineStateMachineArn: pipelineStack.stateMachine.stateMachineArn,
   questionPipelineStateMachineArn: questionsPipelineStack.stateMachine.stateMachineArn,
   sentryDNS,
-  pineconeApiKey
+  pineconeApiKey,
+  execBriefQueue: storage.execBriefQueue,
 });
 
 // Create Amplify stack with all the required values
@@ -151,6 +152,18 @@ new cdk.CfnOutput(amplifyStack, `AmplifyAppId`, {
   value: amplifyStack.amplifyApp.appId,
   description: 'The Amplify App ID',
   exportName: `AutoRfp-AmplifyAppId-${stage}`
+});
+
+new cdk.CfnOutput(storage, `ExecBriefQueueUrl`, {
+  value: storage.execBriefQueue.queueUrl,
+  description: 'The URL of the Executive Brief SQS Queue',
+  exportName: `AutoRfp-ExecBriefQueueUrl-${stage}`
+});
+
+new cdk.CfnOutput(storage, `ExecBriefQueueArn`, {
+  value: storage.execBriefQueue.queueArn,
+  description: 'The ARN of the Executive Brief SQS Queue',
+  exportName: `AutoRfp-ExecBriefQueueArn-${stage}`
 });
 
 console.log(`\n📌 Note: After deployment, update Cognito callback URLs with the actual Amplify domain from the FrontendURL output if needed.`);

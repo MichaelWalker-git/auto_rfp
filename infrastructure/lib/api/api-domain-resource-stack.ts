@@ -14,7 +14,6 @@ export interface ApiDomainRoutesStackProps extends cdk.StackProps {
   commonEnv: Record<string, string>;
   domain: DomainRoutes;
   authorizer?: apigateway.CognitoUserPoolsAuthorizer;
-  deployment: apigateway.Deployment;
 }
 
 /**
@@ -90,6 +89,7 @@ export class ApiDomainRoutesStack extends cdk.Stack {
         role: lambdaRole,
         environment: {
           ...commonEnv,
+          ...route.extraEnv,
           COGNITO_USER_POOL_ID: userPoolId,
         },
         bundling: {
