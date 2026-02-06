@@ -17,6 +17,7 @@ interface Props extends StackProps {
   documentsBucket: s3.IBucket;
   mainTable: dynamodb.ITable;
   sentryDNS: string;
+  pineconeApiKey: string;
 }
 
 export class QuestionExtractionPipelineStack extends Stack {
@@ -25,7 +26,7 @@ export class QuestionExtractionPipelineStack extends Stack {
   constructor(scope: Construct, id: string, props: Props) {
     super(scope, id, props);
 
-    const { stage, documentsBucket, mainTable, sentryDNS } = props;
+    const { stage, documentsBucket, mainTable, sentryDNS, pineconeApiKey } = props;
     const prefix = `AutoRfp-${stage}-Question`;
 
     const sfLogGroup = new logs.LogGroup(this, `${prefix}-LogGroup`, {
@@ -206,6 +207,49 @@ export class QuestionExtractionPipelineStack extends Stack {
     });
     mainTable.grantReadWriteData(unsupportedFileLambda);
 
+    // Answer Generation Pipeline Lambdas
+    const prepareQuestionsLambda = new lambdaNode.NodejsFunction(this, 'PrepareQuestionsLambda', {
+      runtime: lambda.Runtime.NODEJS_24_X,
+      logGroup: mkFnLogGroup('PrepareQuestions'),
+      entry: path.join(__dirname, '../lambda/answer-pipeline/prepare-questions.ts'),
+      handler: 'handler',
+      timeout: Duration.minutes(2),
+      environment: commonLambdaEnv,
+    });
+    mainTable.grantReadData(prepareQuestionsLambda);
+
+    const generateAnswerPipelineLambda = new lambdaNode.NodejsFunction(this, 'GenerateAnswerPipelineLambda', {
+      runtime: lambda.Runtime.NODEJS_24_X,
+      logGroup: mkFnLogGroup('GenerateAnswerPipeline'),
+      entry: path.join(__dirname, '../lambda/answer-pipeline/generate-answer-pipeline.ts'),
+      handler: 'handler',
+      timeout: Duration.minutes(5),
+      memorySize: 1024,
+      environment: {
+        ...commonLambdaEnv,
+        BEDROCK_MODEL_ID: 'anthropic.claude-3-haiku-20240307-v1:0',
+        BEDROCK_REGION: 'us-east-1',
+        BEDROCK_EMBEDDING_MODEL_ID: 'amazon.titan-embed-text-v2:0',
+        PINECONE_API_KEY: pineconeApiKey,
+        PINECONE_INDEX: 'documents',
+      },
+    });
+    documentsBucket.grantRead(generateAnswerPipelineLambda);
+    mainTable.grantReadWriteData(generateAnswerPipelineLambda);
+
+    generateAnswerPipelineLambda.addToRolePolicy(
+      new iam.PolicyStatement({
+        actions: ['bedrock:InvokeModel'],
+        resources: ['*'],
+      }),
+    );
+    generateAnswerPipelineLambda.addToRolePolicy(
+      new iam.PolicyStatement({
+        actions: ['ssm:GetParameter'],
+        resources: [bedrockApiKeyParamArn],
+      }),
+    );
+
     const startTextract = new tasks.LambdaInvoke(this, 'Start Textract', {
       lambdaFunction: startTextractLambda,
       integrationPattern: sfn.IntegrationPattern.WAIT_FOR_TASK_TOKEN,
@@ -287,7 +331,7 @@ export class QuestionExtractionPipelineStack extends Stack {
       payloadResponseOnly: true,
     });
 
-    // Existing: Extract Questions tasks (one per branch)
+    // Existing: Extract Questions tasks (one per branch) - now capture results
     const extractQuestionsAfterPdf = new tasks.LambdaInvoke(this, 'Extract Questions from Text (PDF)', {
       lambdaFunction: extractQuestionsLambda,
       payload: sfn.TaskInput.fromObject({
@@ -296,7 +340,8 @@ export class QuestionExtractionPipelineStack extends Stack {
         textFileKey: sfn.JsonPath.stringAt('$.process.textFileKey'),
         opportunityId: sfn.JsonPath.stringAt('$.oppId'),
       }),
-      resultPath: sfn.JsonPath.DISCARD,
+      resultPath: '$.extractResult',
+      payloadResponseOnly: true,
     });
 
     const extractQuestionsAfterDocx = new tasks.LambdaInvoke(this, 'Extract Questions from Text (DOCX)', {
@@ -307,10 +352,49 @@ export class QuestionExtractionPipelineStack extends Stack {
         textFileKey: sfn.JsonPath.stringAt('$.process.textFileKey'),
         opportunityId: sfn.JsonPath.stringAt('$.oppId'),
       }),
-      resultPath: sfn.JsonPath.DISCARD,
+      resultPath: '$.extractResult',
+      payloadResponseOnly: true,
     });
 
+    // Answer Generation: Prepare Questions tasks (one per branch)
+    const prepareQuestions = new tasks.LambdaInvoke(this, 'Prepare Questions for Answers', {
+      lambdaFunction: prepareQuestionsLambda,
+      payload: sfn.TaskInput.fromObject({
+        projectId: sfn.JsonPath.stringAt('$.projectId'),
+        questionFileId: sfn.JsonPath.stringAt('$.questionFileId'),
+      }),
+      resultPath: '$.prepareResult',
+      payloadResponseOnly: true,
+    });
+
+    const generateAnswersMap = new sfn.Map(this, 'Generate Answers Map', {
+      itemsPath: '$.prepareResult.questions',
+      maxConcurrency: 5,
+      resultPath: '$.answersResult',
+    });
+
+    generateAnswersMap.itemProcessor(
+      new tasks.LambdaInvoke(this, 'Generate Answer', {
+        lambdaFunction: generateAnswerPipelineLambda,
+        payloadResponseOnly: true,
+      }).addCatch(new sfn.Pass(this, 'Catch Answer Error'), {
+        errors: ['States.ALL'],
+        resultPath: '$.error',
+      }),
+    );
+
     const done = new sfn.Succeed(this, 'Done');
+
+    const shouldGenerateAnswers = sfn.Condition.and(
+      sfn.Condition.numberGreaterThan('$.extractResult.count', 0),
+      sfn.Condition.booleanEquals('$.extractResult.cancelled', false),
+    );
+
+    const checkAnswerGeneration = new sfn.Choice(this, 'Should Generate Answers?')
+      .when(shouldGenerateAnswers, prepareQuestions)
+      .otherwise(done);
+
+    prepareQuestions.next(generateAnswersMap).next(done);
 
     const isDocx = sfn.Condition.or(
       sfn.Condition.stringEquals(
@@ -341,12 +425,12 @@ export class QuestionExtractionPipelineStack extends Stack {
       .next(processResult)
       .next(fulfillOppAfterPdf)
       .next(extractQuestionsAfterPdf)
-      .next(done);
+      .next(checkAnswerGeneration);
 
     const docxBranch = sfn.Chain.start(extractDocxText)
       .next(fulfillOppAfterDocx)
       .next(extractQuestionsAfterDocx)
-      .next(done);
+      .next(checkAnswerGeneration);
 
     const unsupportedBranch = sfn.Chain.start(unsupportedFile).next(failUnsupported);
 

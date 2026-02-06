@@ -101,7 +101,7 @@ export const baseHandler = async (event: APIGatewayProxyEventV2): Promise<APIGat
 
       results.push({
         chunkKey,
-        score: normalizeScore(h.source),
+        score: normalizeScore(h.score),
         text,
       });
     }

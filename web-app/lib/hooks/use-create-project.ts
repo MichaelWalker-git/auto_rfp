@@ -2,6 +2,7 @@ import { Project } from '@/types/project';
 import { fetchAuthSession } from 'aws-amplify/auth';
 import { env } from '@/lib/env';
 import { breadcrumbs } from '@/lib/sentry';
+import { authFetcher } from '@/lib/auth/auth-fetcher';
 
 type CreateProjectPayload = {
   orgId: string;
@@ -11,22 +12,10 @@ type CreateProjectPayload = {
 
 export function useCreateProject() {
   const create = async (payload: CreateProjectPayload): Promise<Project> => {
-    const session = await fetchAuthSession();
-    const token = session.tokens?.idToken?.toString();
+    const url = `${env.BASE_API_URL}/projects/create`;
 
-    if (!token) {
-      throw new Error('No ID token found – user is not authenticated.');
-    }
-
-    const base = env.BASE_API_URL.replace(/\/$/, '');
-    const url = `${base}/project/create-project`;
-
-    const res = await fetch(url, {
+    const res = await authFetcher(url, {
       method: 'POST',
-      headers: {
-        Authorization: `${token}`,
-        'Content-Type': 'application/json',
-      },
       body: JSON.stringify(payload),
     });
 

@@ -11,10 +11,13 @@ export interface ApiFacadeStackProps extends cdk.StackProps {
 export class ApiFacadeStack extends cdk.Stack {
   public readonly api: apigw.RestApi;
   public readonly authorizer: apigw.CognitoUserPoolsAuthorizer | undefined;
+  public readonly deployment: apigw.Deployment;
 
   constructor(scope: Construct, id: string, props: ApiFacadeStackProps) {
     super(scope, id, props);
 
+    // Create the API Gateway REST API with automatic deployment enabled
+    // This is the simplest approach that avoids circular dependencies
     this.api = new apigw.RestApi(this, 'AutoRfpApi', {
       restApiName: `AutoRFP API (${props.stage})`,
       deployOptions: {
@@ -36,6 +39,10 @@ export class ApiFacadeStack extends cdk.Stack {
         allowCredentials: true,
       },
     });
+
+    // Get the automatically created deployment
+    // We need to expose this so route stacks can add dependencies
+    this.deployment = this.api.latestDeployment!;
 
     // Create Cognito authorizer if userPoolId is provided
     if (props.userPoolId) {

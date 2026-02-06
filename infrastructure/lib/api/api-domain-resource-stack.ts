@@ -14,6 +14,7 @@ export interface ApiDomainRoutesStackProps extends cdk.StackProps {
   commonEnv: Record<string, string>;
   domain: DomainRoutes;
   authorizer?: apigateway.CognitoUserPoolsAuthorizer;
+  deployment: apigateway.Deployment;
 }
 
 /**
