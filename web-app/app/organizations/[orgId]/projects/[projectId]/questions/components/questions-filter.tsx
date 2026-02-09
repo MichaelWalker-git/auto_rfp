@@ -39,7 +39,8 @@ export function QuestionsFilter({
   emptyMessage
 }: QuestionsFilterProps) {
   const getStatusIcon = (questionId: string) => {
-    const hasAnswer = answers[questionId]?.text && answers[questionId].text.trim() !== '';
+    const text = answers[questionId]?.text;
+    const hasAnswer = typeof text === 'string' && text.trim() !== '';
     
     if (filterType === "answered" && hasAnswer) {
       return <CheckCircle className="h-4 w-4 text-green-500" />;

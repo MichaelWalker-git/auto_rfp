@@ -278,11 +278,11 @@ export type SamGovDescriptionResponse = {
   contentType?: string;
 };
 
-export function useSamGovDescription() {
+export function useSamGovDescription(orgId?: string) {
   return useSWRMutation<SamGovDescriptionResponse, ErrorShape, string, { descriptionUrl: string }>(
     `${env.BASE_API_URL}/samgov/opportunity-description`,
     async (url: string, { arg }: { arg: { descriptionUrl: string } }) => {
-      const res = await authFetcher(url, {
+      const res = await authFetcher(`${url}?${orgId ? `orgId=${encodeURIComponent(orgId)}` : ''}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ descriptionUrl: arg.descriptionUrl }),

@@ -13,13 +13,12 @@ import { ApiOrchestratorStack } from '../lib/api/api-orchestrator-stack';
 const app = new cdk.App();
 
 const env = {
-  account: process.env.CDK_DEFAULT_ACCOUNT || '018222125196', // Hardcode the account ID we obtained
+  account: process.env.CDK_DEFAULT_ACCOUNT || '018222125196',
   region: process.env.CDK_DEFAULT_REGION || 'us-east-1',
 };
 
-// Make stage configurable from environment variable or context
 const stage = process.env.STAGE || app.node.tryGetContext('stage') || 'Dev';
-console.log(`🚀 Deploying with stage: ${stage}`);
+console.log(`=🚀 Deploying with stage: ${stage}`);
 
 const network = new NetworkStack(app, `AutoRfp-Network-${stage}`, {
   env,
@@ -29,36 +28,28 @@ const network = new NetworkStack(app, `AutoRfp-Network-${stage}`, {
 const sentryDNS = 'https://5fa3951f41c357ba09d0ae50f52bbd2a@o4510347578114048.ingest.us.sentry.io/4510510176141312';
 const pineconeApiKey = process.env.PINECONE_API_KEY || '';
 
-// Warn if PINECONE_API_KEY is not set
 if (!pineconeApiKey) {
   console.warn('⚠️  WARNING: PINECONE_API_KEY environment variable is not set. Some stacks may fail to deploy.');
   console.warn('   Set it with: export PINECONE_API_KEY=your-api-key');
 }
 
-// GitHub token for Amplify
 const githubToken = cdk.SecretValue.secretsManager('auto-rfp/github-token');
-
-// Determine the branch based on stage
 const branch = stage.toLowerCase() === 'dev' ? 'develop' : 'main';
 
-// Create storage stack first as it has no dependencies
 const storage = new StorageStack(app, `AutoRfp-Storage-${stage}`, {
   env,
   stage,
 });
 
-// Create database stack
 const db = new DatabaseStack(app, `AutoRfp-DynamoDatabase-${stage}`, {
   env,
   stage,
 });
 
-// For Amplify URLs, we'll use a predictable pattern
-// The actual Amplify app ID will be generated, but we can use wildcards in Cognito
 const amplifyDomain = `d*.amplifyapp.com`;
 const feURL = `https://${branch}.${amplifyDomain}`;
 
-console.log(`📱 Frontend URL pattern: ${feURL}`);
+console.log(`=🌐 Frontend URL pattern: ${feURL}`);
 
 const auth = new AuthStack(app, `AutoRfp-Auth-${stage}`, {
   env,
@@ -66,10 +57,8 @@ const auth = new AuthStack(app, `AutoRfp-Auth-${stage}`, {
   domainPrefixBase: 'auto-rfp',
   callbackUrls: [
     'http://localhost:3000',
-    // Add wildcard patterns for Amplify domains
     `https://${branch}.d*.amplifyapp.com`,
-    `https://*.d*.amplifyapp.com`, // For preview branches
-    // Also add some specific patterns that might be used
+    `https://*.d*.amplifyapp.com`,
     'https://main.d*.amplifyapp.com',
     'https://develop.d*.amplifyapp.com'
   ]
@@ -95,20 +84,27 @@ const questionsPipelineStack = new QuestionExtractionPipelineStack(app, `AutoRfp
   pineconeApiKey
 });
 
+// Create API Orchestrator which creates the API Gateway and adds all routes
 const api = new ApiOrchestratorStack(app, `ApiOrchestrator-${stage}`, {
   env,
   stage,
   userPool: auth.userPool,
   mainTable: db.tableName,
   documentsBucket: storage.documentsBucket,
+  execBriefQueue: storage.execBriefQueue,
   documentPipelineStateMachineArn: pipelineStack.stateMachine.stateMachineArn,
   questionPipelineStateMachineArn: questionsPipelineStack.stateMachine.stateMachineArn,
   sentryDNS,
   pineconeApiKey,
-  execBriefQueue: storage.execBriefQueue,
 });
 
-// Create Amplify stack with all the required values
+// Ensure API depends on required stacks
+api.addDependency(auth);
+api.addDependency(db);
+api.addDependency(storage);
+api.addDependency(pipelineStack);
+api.addDependency(questionsPipelineStack);
+
 const amplifyStack = new AmplifyFeStack(app, `AmplifyFeStack-${stage}`, {
   stage,
   env,
@@ -120,16 +116,14 @@ const amplifyStack = new AmplifyFeStack(app, `AmplifyFeStack-${stage}`, {
   cognitoUserPoolId: auth.userPool.userPoolId,
   cognitoUserPoolClientId: auth.userPoolClient.userPoolClientId,
   cognitoDomainUrl: auth.userPoolDomain.baseUrl(),
-  baseApiUrl: api.api.url,
+  baseApiUrl: api.apiUrl,
   region: env.region!,
   sentryDNS,
 });
 
-// Add dependencies to ensure proper deployment order
 amplifyStack.addDependency(auth);
 amplifyStack.addDependency(api);
 
-// Add stack outputs for easy reference
 new cdk.CfnOutput(amplifyStack, `FrontendURL`, {
   value: `https://${branch}.${amplifyStack.amplifyApp.defaultDomain}`,
   description: 'The URL of the Amplify frontend application',
@@ -137,7 +131,7 @@ new cdk.CfnOutput(amplifyStack, `FrontendURL`, {
 });
 
 new cdk.CfnOutput(api, `ApiURL`, {
-  value: api.api.url,
+  value: api.apiUrl,
   description: 'The URL of the API Gateway',
   exportName: `AutoRfp-ApiURL-${stage}`
 });
@@ -166,13 +160,7 @@ new cdk.CfnOutput(storage, `ExecBriefQueueArn`, {
   exportName: `AutoRfp-ExecBriefQueueArn-${stage}`
 });
 
-console.log(`\n📌 Note: After deployment, update Cognito callback URLs with the actual Amplify domain from the FrontendURL output if needed.`);
-
-
-// Add CDK NAG AWS Solutions Checks for security compliance
-// cdk.Aspects.of(app).add(new AwsSolutionsChecks({ verbose: true }));
-
-// Output CDK NAG information
-console.log('🔒 CDK NAG AWS Solutions Checks enabled for security compliance');
-console.log('📋 This will validate infrastructure against AWS Well-Architected Framework');
+console.log(`\n=📝 Note: After deployment, update Cognito callback URLs with the actual Amplify domain from the FrontendURL output if needed.`);
+console.log('=🔒 CDK NAG AWS Solutions Checks enabled for security compliance');
+console.log('=📋 This will validate infrastructure against AWS Well-Architected Framework');
 console.log('⚠️  Any security issues will be reported during synthesis');
