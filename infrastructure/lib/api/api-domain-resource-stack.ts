@@ -3,85 +3,79 @@ import * as lambda from 'aws-cdk-lib/aws-lambda';
 import * as nodejs from 'aws-cdk-lib/aws-lambda-nodejs';
 import * as apigateway from 'aws-cdk-lib/aws-apigateway';
 import * as iam from 'aws-cdk-lib/aws-iam';
+import * as logs from 'aws-cdk-lib/aws-logs';
 import { Construct } from 'constructs';
 import type { DomainRoutes } from './routes/types';
 
-export interface ApiDomainRoutesStackProps extends cdk.StackProps {
-  restApiId: string;
+export interface ApiDomainRoutesStackProps extends cdk.NestedStackProps {
+  api: apigateway.IRestApi;
   rootResourceId: string;
   userPoolId: string;
-  lambdaRoleArn: string;
+  lambdaRole: iam.IRole;
   commonEnv: Record<string, string>;
   domain: DomainRoutes;
-  authorizer?: apigateway.CognitoUserPoolsAuthorizer;
-  deployment: apigateway.Deployment;
+  authorizer?: apigateway.IAuthorizer;
 }
+
+// CORS configuration for preflight requests
+const CORS_OPTIONS = {
+  allowOrigins: apigateway.Cors.ALL_ORIGINS,
+  allowMethods: apigateway.Cors.ALL_METHODS,
+  allowHeaders: [
+    'Content-Type',
+    'X-Amz-Date',
+    'Authorization',
+    'X-Api-Key',
+    'X-Amz-Security-Token',
+  ],
+  allowCredentials: true,
+};
 
 /**
  * Creates Lambda functions and API Gateway routes for a specific domain
- * Each domain gets its own stack to manage CloudFormation resource limits
+ * This is a NestedStack to manage CloudFormation resource limits
+ * 
+ * CORS preflight OPTIONS methods are added to all resources since
+ * defaultCorsPreflightOptions doesn't work with resources created via fromResourceAttributes()
  */
-export class ApiDomainRoutesStack extends cdk.Stack {
-  private optionsMethodsAdded = new Set<string>();
+export class ApiDomainRoutesStack extends cdk.NestedStack {
+  // Track resources that already have CORS configured to avoid duplicates
+  private corsConfiguredResources = new Set<string>();
 
   constructor(scope: Construct, id: string, props: ApiDomainRoutesStackProps) {
     super(scope, id, props);
 
-    const { restApiId, rootResourceId, userPoolId, lambdaRoleArn, commonEnv, domain, authorizer } = props;
+    const { api, rootResourceId, userPoolId, lambdaRole, commonEnv, domain, authorizer } = props;
 
-    // Get references to existing API Gateway resources
-    const api = apigateway.RestApi.fromRestApiAttributes(this, 'Api', {
-      restApiId,
-      rootResourceId,
-    });
-
-    // Get reference to existing Lambda role
-    const lambdaRole = iam.Role.fromRoleArn(this, 'CommonLambdaRole', lambdaRoleArn, {
-      mutable: false,
+    // Get the root resource from the API
+    const rootResource = apigateway.Resource.fromResourceAttributes(this, 'RootResource', {
+      restApi: api,
+      resourceId: rootResourceId,
+      path: '/',
     });
 
     // Create domain base resource
-    let domainResource = api.root;
-    for (const pathSegment of domain.basePath.split('/')) {
-      domainResource = domainResource.getResource(pathSegment) || domainResource.addResource(pathSegment);
-    }
-
-    // Add OPTIONS method to the domain base resource for CORS
-    const domainResourceId = domainResource.path;
-    if (!this.optionsMethodsAdded.has(domainResourceId)) {
-      this.optionsMethodsAdded.add(domainResourceId);
-      domainResource.addMethod('OPTIONS', new apigateway.MockIntegration({
-        integrationResponses: [{
-          statusCode: '200',
-          responseParameters: {
-            'method.response.header.Access-Control-Allow-Headers': '\'Content-Type,Authorization,X-Amz-Date,X-Api-Key,X-Amz-Security-Token\'',
-            'method.response.header.Access-Control-Allow-Origin': '\'*\'',
-            'method.response.header.Access-Control-Allow-Methods': '\'GET,POST,PUT,PATCH,DELETE,OPTIONS\'',
-            'method.response.header.Access-Control-Allow-Credentials': '\'true\'',
-          },
-        }],
-        passthroughBehavior: apigateway.PassthroughBehavior.NEVER,
-        requestTemplates: {
-          'application/json': '{"statusCode": 200}',
-        },
-      }), {
-        authorizationType: apigateway.AuthorizationType.NONE,
-        methodResponses: [{
-          statusCode: '200',
-          responseParameters: {
-            'method.response.header.Access-Control-Allow-Headers': true,
-            'method.response.header.Access-Control-Allow-Origin': true,
-            'method.response.header.Access-Control-Allow-Methods': true,
-            'method.response.header.Access-Control-Allow-Credentials': true,
-          },
-        }],
-      });
+    let domainResource: apigateway.IResource = rootResource;
+    for (const pathSegment of domain.basePath.split('/').filter(s => s)) {
+      // Try to get existing resource or create new one
+      const existingResource = domainResource.getResource(pathSegment);
+      if (existingResource) {
+        domainResource = existingResource;
+      } else {
+        const newResource = (domainResource as apigateway.Resource).addResource(pathSegment);
+        // Add CORS preflight to the new resource
+        this.addCorsPreflight(newResource);
+        domainResource = newResource;
+      }
     }
 
     // Create Lambda function and routes for each endpoint in the domain
     for (const route of domain.routes) {
+      // Create a unique function name for this route
+      const functionId = `${domain.basePath}-${route.path}-handler`;
+      
       // Create Lambda function for this route
-      const lambdaFunction = new nodejs.NodejsFunction(this, `${domain.basePath}-${route.path}-handler`, {
+      const lambdaFunction = new nodejs.NodejsFunction(this, functionId, {
         runtime: lambda.Runtime.NODEJS_24_X,
         entry: route.entry,
         handler: 'handler',
@@ -90,8 +84,11 @@ export class ApiDomainRoutesStack extends cdk.Stack {
         role: lambdaRole,
         environment: {
           ...commonEnv,
+          ...route.extraEnv,
           COGNITO_USER_POOL_ID: userPoolId,
         },
+        // Explicitly create log group with retention policy
+        logRetention: logs.RetentionDays.ONE_MONTH,
         bundling: {
           externalModules: [
             '@aws-sdk/*',
@@ -111,51 +108,22 @@ export class ApiDomainRoutesStack extends cdk.Stack {
       });
 
       // Navigate/create nested resource path for the route
-      let resourcePath = domainResource;
+      let resourcePath: apigateway.IResource = domainResource;
       const pathSegments = route.path.split('/').filter(s => s);
 
       for (const segment of pathSegments) {
-        if (segment.startsWith('{') && segment.endsWith('}')) {
-          resourcePath = resourcePath.getResource(segment) || resourcePath.addResource(segment);
+        const existingResource = resourcePath.getResource(segment);
+        if (existingResource) {
+          resourcePath = existingResource;
         } else {
-          resourcePath = resourcePath.getResource(segment) || resourcePath.addResource(segment);
-        }
-
-        // Add OPTIONS method to each intermediate resource for CORS
-        const intermediateResourceId = resourcePath.path;
-        if (!this.optionsMethodsAdded.has(intermediateResourceId)) {
-          this.optionsMethodsAdded.add(intermediateResourceId);
-          resourcePath.addMethod('OPTIONS', new apigateway.MockIntegration({
-            integrationResponses: [{
-              statusCode: '200',
-              responseParameters: {
-                'method.response.header.Access-Control-Allow-Headers': '\'Content-Type,Authorization,X-Amz-Date,X-Api-Key,X-Amz-Security-Token\'',
-                'method.response.header.Access-Control-Allow-Origin': '\'*\'',
-                'method.response.header.Access-Control-Allow-Methods': '\'GET,POST,PUT,PATCH,DELETE,OPTIONS\'',
-                'method.response.header.Access-Control-Allow-Credentials': '\'true\'',
-              },
-            }],
-            passthroughBehavior: apigateway.PassthroughBehavior.NEVER,
-            requestTemplates: {
-              'application/json': '{"statusCode": 200}',
-            },
-          }), {
-            authorizationType: apigateway.AuthorizationType.NONE,
-            methodResponses: [{
-              statusCode: '200',
-              responseParameters: {
-                'method.response.header.Access-Control-Allow-Headers': true,
-                'method.response.header.Access-Control-Allow-Origin': true,
-                'method.response.header.Access-Control-Allow-Methods': true,
-                'method.response.header.Access-Control-Allow-Credentials': true,
-              },
-            }],
-          });
+          const newResource = (resourcePath as apigateway.Resource).addResource(segment);
+          // Add CORS preflight to the new resource
+          this.addCorsPreflight(newResource);
+          resourcePath = newResource;
         }
       }
 
       // Create API Gateway method and integration
-      // Using proxy: true since Lambda functions return API Gateway Proxy format responses
       const integration = new apigateway.LambdaIntegration(lambdaFunction);
 
       // Add method with Cognito authorization if authorizer is provided
@@ -174,7 +142,24 @@ export class ApiDomainRoutesStack extends cdk.Stack {
               authorizationType: apigateway.AuthorizationType.NONE,
             };
 
-      resourcePath.addMethod(route.method, integration, methodOptions);
+      (resourcePath as apigateway.Resource).addMethod(route.method, integration, methodOptions);
     }
+  }
+
+  /**
+   * Add CORS preflight OPTIONS method to a resource if not already configured
+   */
+  private addCorsPreflight(resource: apigateway.Resource): void {
+    const resourcePath = resource.path;
+    
+    // Skip if already configured
+    if (this.corsConfiguredResources.has(resourcePath)) {
+      return;
+    }
+    
+    this.corsConfiguredResources.add(resourcePath);
+    
+    // Add CORS preflight using the built-in method
+    resource.addCorsPreflight(CORS_OPTIONS);
   }
 }

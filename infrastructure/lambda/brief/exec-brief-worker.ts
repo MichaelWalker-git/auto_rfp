@@ -591,11 +591,6 @@ function computeMissingRoles(foundRoles: string[]): string[] {
   return recommended.filter((r) => !found.has(r));
 }
 
-function isSectionComplete(brief: ExecutiveBriefItem, section: Exclude<Section, 'scoring'>): boolean {
-  const s = (brief.sections as any)?.[section];
-  return s?.status === 'COMPLETE';
-}
-
 /**
  * Check if a section has valid data that can be used for scoring.
  * Fixes AUTO-RFP-5X: Validates that section data exists, not just status.

@@ -97,7 +97,7 @@ export function KnowledgeBaseContent({}: KnowledgeBaseContentProps) {
     if (!editingKb) return;
 
     try {
-      await editKb({ id: editingKb.id, ...kbForm } as any);
+      await editKb({ kbId: editingKb.id, orgId: orgId, ...kbForm } as any);
       await mutateKb();
       toast({ title: 'Success', description: 'Knowledge base updated successfully' });
 

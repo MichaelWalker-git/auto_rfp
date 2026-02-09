@@ -1,23 +1,66 @@
-import { APIGatewayProxyEventV2, APIGatewayProxyResultV2, } from 'aws-lambda';
-import { DeleteCommand, } from '@aws-sdk/lib-dynamodb';
+import { APIGatewayProxyEventV2, APIGatewayProxyResultV2 } from 'aws-lambda';
+import middy from '@middy/core';
+
 import { ORG_PK } from '../constants/organization';
-import { PK_NAME, SK_NAME } from '../constants/common';
+import { SK_NAME } from '../constants/common';
 import { apiResponse } from '../helpers/api';
+import { deleteItemWithRetry } from '../helpers/db';
+import {
+  deleteProjectAndRelatedEntities,
+  extractProjectIdFromSk,
+  getProjectsByOrgId,
+} from '../helpers/project-cleanup';
 import { withSentryLambda } from '../sentry-lambda';
 import {
   authContextMiddleware,
   httpErrorMiddleware,
   orgMembershipMiddleware,
-  requirePermission
+  requirePermission,
 } from '../middleware/rbac-middleware';
-import { requireEnv } from '../helpers/env';
-import middy from '@middy/core';
-import { docClient } from '../helpers/db';
 
-const DB_TABLE_NAME = requireEnv('DB_TABLE_NAME');
+interface DeleteOrgResult {
+  projects: {
+    total: number;
+    deleted: number;
+    failed: number;
+  };
+  organization: boolean;
+}
+
+async function deleteOrganizationWithCleanup(orgId: string): Promise<DeleteOrgResult> {
+  const result: DeleteOrgResult = {
+    projects: { total: 0, deleted: 0, failed: 0 },
+    organization: false,
+  };
+
+  // Get and delete all projects
+  const projects = await getProjectsByOrgId(orgId);
+  result.projects.total = projects.length;
+
+  for (const project of projects) {
+    const projectId = project.projectId || extractProjectIdFromSk(project[SK_NAME], orgId);
+    if (!projectId) {
+      result.projects.failed++;
+      continue;
+    }
+
+    try {
+      await deleteProjectAndRelatedEntities(orgId, projectId);
+      result.projects.deleted++;
+    } catch (err) {
+      console.error(`Failed to delete project ${projectId}:`, err);
+      result.projects.failed++;
+    }
+  }
+
+  // Delete organization
+  result.organization = await deleteItemWithRetry(ORG_PK, `ORG#${orgId}`);
+
+  return result;
+}
 
 export const baseHandler = async (
-  event: APIGatewayProxyEventV2
+  event: APIGatewayProxyEventV2,
 ): Promise<APIGatewayProxyResultV2> => {
   try {
     const orgId = event.pathParameters?.id;
@@ -26,12 +69,13 @@ export const baseHandler = async (
       return apiResponse(400, { message: 'Missing required path parameter: id' });
     }
 
-    await deleteOrganization(orgId);
+    const cleanup = await deleteOrganizationWithCleanup(orgId);
 
     return apiResponse(200, {
       success: true,
       message: 'Organization deleted successfully',
       id: orgId,
+      cleanup,
     });
   } catch (err: any) {
     console.error('Error in deleteOrganization handler:', err);
@@ -47,29 +91,10 @@ export const baseHandler = async (
   }
 };
 
-export async function deleteOrganization(orgId: string): Promise<void> {
-  const key = {
-    [PK_NAME]: ORG_PK,
-    [SK_NAME]: `ORG#${orgId}`,
-  };
-
-  const command = new DeleteCommand({
-    TableName: DB_TABLE_NAME,
-    Key: key,
-    ConditionExpression: 'attribute_exists(#pk) AND attribute_exists(#sk)',
-    ExpressionAttributeNames: {
-      '#pk': PK_NAME,
-      '#sk': SK_NAME,
-    },
-  });
-
-  await docClient.send(command);
-}
-
 export const handler = withSentryLambda(
   middy(baseHandler)
     .use(authContextMiddleware())
     .use(orgMembershipMiddleware())
     .use(requirePermission('org:delete'))
-    .use(httpErrorMiddleware())
+    .use(httpErrorMiddleware()),
 );

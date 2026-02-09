@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -9,6 +9,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Loader2 } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
 import type { Organization } from '@/app/organizations/page';
+import { authFetcher } from '@/lib/auth/auth-fetcher';
 
 interface CreateEditOrganizationDialogProps {
   isOpen: boolean;
@@ -27,16 +28,16 @@ interface CreateEditOrganizationDialogProps {
 }
 
 export function CreateEditOrganizationDialog({
-  isOpen,
-  onOpenChange,
-  organization,
-  onSuccess,
-  isLoading: externalIsLoading = false,
-  formData: externalFormData,
-  onFormChange: externalOnFormChange,
-  onSubmit: externalOnSubmit,
-  editingOrg,
-}: CreateEditOrganizationDialogProps) {
+                                               isOpen,
+                                               onOpenChange,
+                                               organization,
+                                               onSuccess,
+                                               isLoading: externalIsLoading = false,
+                                               formData: externalFormData,
+                                               onFormChange: externalOnFormChange,
+                                               onSubmit: externalOnSubmit,
+                                               editingOrg,
+                                             }: CreateEditOrganizationDialogProps) {
   const [internalFormData, setInternalFormData] = useState({
     name: '',
     slug: '',
@@ -94,7 +95,7 @@ export function CreateEditOrganizationDialog({
 
     try {
       setInternalIsLoading(true);
-      const response = await fetch(`/organization/edit-organization/${currentOrg.id}`, {
+      const response = await authFetcher(`/organization/edit-organization/${currentOrg.id}`, {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
@@ -177,7 +178,7 @@ export function CreateEditOrganizationDialog({
             <Button onClick={handleSubmit} disabled={isLoading}>
               {isLoading ? (
                 <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin"/>
                   {isEditMode ? 'Updating...' : 'Creating...'}
                 </>
               ) : isEditMode ? (

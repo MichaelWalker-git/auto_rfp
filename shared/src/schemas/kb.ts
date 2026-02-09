@@ -19,6 +19,8 @@ export const KnowledgeBaseItemSchema = z.object({
     .max(2000, 'Description must be at most 2000 characters')
     .optional(),
   type: KBTypeSchema.default('DOCUMENTS'),
+  createdAt: z.string().nullable().optional(),
+  updatedAt: z.string().nullable().optional(),
   _count: KBCountSchema.optional().nullable()
 });
 
@@ -37,7 +39,7 @@ export type UpdateKnowledgeBaseDTO = z.infer<typeof UpdateKnowledgeBaseSchema>;
 
 export const KnowledgeBaseSchema = z.object({
   id: z.string(),
-  name: z.string().min(1, 'Name cannot be empty').optional(),
+  name: z.string().min(1, 'Name cannot be empty'),
   description: z.string().optional().nullable(),
   createdAt: z.string(),
   updatedAt: z.string(),

@@ -5,10 +5,12 @@ import * as iam from 'aws-cdk-lib/aws-iam';
 import * as dynamodb from 'aws-cdk-lib/aws-dynamodb';
 import * as s3 from 'aws-cdk-lib/aws-s3';
 import * as sqs from 'aws-cdk-lib/aws-sqs';
-import * as secretsmanager from 'aws-cdk-lib/aws-secretsmanager';
 import * as apigateway from 'aws-cdk-lib/aws-apigateway';
+import * as lambda from 'aws-cdk-lib/aws-lambda';
+import * as lambdaNodejs from 'aws-cdk-lib/aws-lambda-nodejs';
+import * as lambdaEventSources from 'aws-cdk-lib/aws-lambda-event-sources';
+import * as path from 'path';
 
-import { ApiFacadeStack } from './api-facade-stack';
 import { ApiSharedInfraStack } from './api-shared-infra-stack';
 import { ApiDomainRoutesStack } from './api-domain-resource-stack';
 import { foiaDomain } from './routes/foia.routes';
@@ -32,6 +34,7 @@ import { projectsDomain } from './routes/projects.routes';
 import { promptDomain } from './routes/prompt.routes';
 import { samgovDomain } from './routes/samgov.routes';
 import { linearRoutes } from './routes/linear-routes';
+import { briefDomain } from './routes/brief.routes';
 
 export interface ApiOrchestratorStackProps extends cdk.StackProps {
   stage: string;
@@ -39,8 +42,6 @@ export interface ApiOrchestratorStackProps extends cdk.StackProps {
   mainTable: dynamodb.ITable;
   documentsBucket: s3.IBucket;
   execBriefQueue?: sqs.IQueue;
-  samGovApiKeySecret?: secretsmanager.ISecret;
-  linearApiKeySecret?: secretsmanager.ISecret;
   documentPipelineStateMachineArn: string;
   questionPipelineStateMachineArn: string;
   sentryDNS: string;
@@ -49,15 +50,19 @@ export interface ApiOrchestratorStackProps extends cdk.StackProps {
 
 /**
  * Orchestrates all API infrastructure:
- * 1. Creates the REST API facade
+ * 1. Creates the REST API directly in this stack
  * 2. Sets up shared Lambda infrastructure
- * 3. Instantiates domain-specific route stacks
+ * 3. Instantiates domain-specific route nested stacks
+ * 
+ * Routes are added via NestedStacks to manage CloudFormation resource limits.
+ * The API is created in the parent stack to avoid cyclic dependencies.
  */
 export class ApiOrchestratorStack extends cdk.Stack {
   public readonly restApiId: string;
   public readonly rootResourceId: string;
   public readonly commonLambdaRoleArn: string;
   public readonly api: apigateway.RestApi;
+  public readonly apiUrl: string;
 
   constructor(scope: Construct, id: string, props: ApiOrchestratorStackProps) {
     super(scope, id, props);
@@ -68,24 +73,40 @@ export class ApiOrchestratorStack extends cdk.Stack {
       mainTable,
       documentsBucket,
       execBriefQueue,
-      samGovApiKeySecret,
-      linearApiKeySecret,
       documentPipelineStateMachineArn,
       questionPipelineStateMachineArn,
       sentryDNS,
       pineconeApiKey,
     } = props;
 
-    // 1. Create API facade (REST API Gateway)
-    const facadeStack = new ApiFacadeStack(this, 'ApiFacade', {
-      stage,
-      userPoolId: userPool.userPoolId,
-      env: props.env,
+    // 1. Create API Gateway REST API directly in this stack
+    // Disable automatic deployment to avoid circular dependencies with nested stacks
+    this.api = new apigateway.RestApi(this, 'AutoRfpApi', {
+      restApiName: `AutoRFP API (${stage})`,
+      deploy: false, // We'll create deployment manually after all routes are added
+      cloudWatchRole: true,
+      defaultCorsPreflightOptions: {
+        allowOrigins: apigateway.Cors.ALL_ORIGINS,
+        allowMethods: apigateway.Cors.ALL_METHODS,
+        allowHeaders: [
+          'Content-Type',
+          'X-Amz-Date',
+          'Authorization',
+          'X-Api-Key',
+          'X-Amz-Security-Token',
+        ],
+        allowCredentials: true,
+      },
     });
 
-    this.api = facadeStack.api;
-    this.restApiId = facadeStack.api.restApiId;
-    this.rootResourceId = facadeStack.api.restApiRootResourceId;
+    this.restApiId = this.api.restApiId;
+    this.rootResourceId = this.api.restApiRootResourceId;
+
+    // Create Cognito authorizer
+    const authorizer = new apigateway.CognitoUserPoolsAuthorizer(this, 'CognitoAuthorizer', {
+      cognitoUserPools: [userPool],
+      authorizerName: `${stage}-cognito-authorizer`,
+    });
 
     // 2. Create shared infrastructure (Lambda role + common env)
     const commonEnv: Record<string, string> = {
@@ -111,7 +132,6 @@ export class ApiOrchestratorStack extends cdk.Stack {
     const sharedInfraStack = new ApiSharedInfraStack(this, 'SharedInfra', {
       stage,
       commonEnv,
-      env: props.env,
     });
 
     this.commonLambdaRoleArn = sharedInfraStack.commonLambdaRole.roleArn;
@@ -149,11 +169,6 @@ export class ApiOrchestratorStack extends cdk.Stack {
       }),
     );
 
-    // Grant access to secrets if provided
-    if (samGovApiKeySecret) {
-      samGovApiKeySecret.grantRead(sharedInfraStack.commonLambdaRole);
-    }
-    
     // Grant Lambda role access to Secrets Manager for SAM.gov API keys
     sharedInfraStack.commonLambdaRole.addToPrincipalPolicy(
       new iam.PolicyStatement({
@@ -163,270 +178,293 @@ export class ApiOrchestratorStack extends cdk.Stack {
           'secretsmanager:DeleteSecret',
           'secretsmanager:CreateSecret',
         ],
-        resources: [`arn:aws:secretsmanager:${cdk.Aws.REGION}:${cdk.Aws.ACCOUNT_ID}:secret:samgov-api-key-*`],
+        resources: [`arn:aws:secretsmanager:${cdk.Aws.REGION}:${cdk.Aws.ACCOUNT_ID}:secret:*-api-key-*`],
       }),
     );
-    if (linearApiKeySecret) {
-      linearApiKeySecret.grantRead(sharedInfraStack.commonLambdaRole);
-    }
+
     if (execBriefQueue) {
       execBriefQueue.grantSendMessages(sharedInfraStack.commonLambdaRole);
+
+      // Create the exec-brief-worker Lambda to process SQS messages
+      const execBriefWorker = new lambdaNodejs.NodejsFunction(this, `ExecBriefWorker-${stage}`, {
+        functionName: `auto-rfp-exec-brief-worker-${stage}`,
+        entry: path.join(__dirname, '../../lambda/brief/exec-brief-worker.ts'),
+        handler: 'handler',
+        runtime: lambda.Runtime.NODEJS_20_X,
+        timeout: cdk.Duration.minutes(5), // Match SQS visibility timeout
+        memorySize: 1024,
+        role: sharedInfraStack.commonLambdaRole,
+        environment: {
+          ...commonEnv,
+          BRIEF_MAX_SOLICITATION_CHARS: '45000',
+          BRIEF_KB_TOPK: '20',
+          COST_SAVING: 'true',
+        },
+        bundling: {
+          minify: true,
+          sourceMap: true,
+          externalModules: ['@aws-sdk/*'],
+        },
+      });
+
+      // Add SQS event source to trigger the Lambda
+      execBriefWorker.addEventSource(
+        new lambdaEventSources.SqsEventSource(execBriefQueue, {
+          batchSize: 1, // Process one message at a time for reliability
+          reportBatchItemFailures: true, // Enable partial batch response
+        }),
+      );
+
+      // Grant the worker Lambda permission to consume messages from the queue
+      execBriefQueue.grantConsumeMessages(execBriefWorker);
     }
 
-    // 3. Instantiate domain-specific route stacks
-    // Each domain gets its own stack to manage CloudFormation resource limits
+    // 3. Instantiate domain-specific route nested stacks
+    // These are NestedStacks to manage CloudFormation resource limits
 
     new ApiDomainRoutesStack(this, 'OrganizationRoutes', {
-      restApiId: this.restApiId,
+      api: this.api,
       rootResourceId: this.rootResourceId,
       userPoolId: userPool.userPoolId,
-      lambdaRoleArn: this.commonLambdaRoleArn,
+      lambdaRole: sharedInfraStack.commonLambdaRole,
       commonEnv: sharedInfraStack.commonEnv,
       domain: organizationDomain(),
-      authorizer: facadeStack.authorizer,
-      deployment: facadeStack.deployment,
-      env: props.env,
+      authorizer,
     });
 
     new ApiDomainRoutesStack(this, 'AnswerRoutes', {
-      restApiId: this.restApiId,
+      api: this.api,
       rootResourceId: this.rootResourceId,
       userPoolId: userPool.userPoolId,
-      lambdaRoleArn: this.commonLambdaRoleArn,
+      lambdaRole: sharedInfraStack.commonLambdaRole,
       commonEnv: sharedInfraStack.commonEnv,
       domain: answerDomain(),
-      authorizer: facadeStack.authorizer,
-      deployment: facadeStack.deployment,
-      env: props.env,
+      authorizer,
+    });
+
+    new ApiDomainRoutesStack(this, 'BriefRoutes', {
+      api: this.api,
+      rootResourceId: this.rootResourceId,
+      userPoolId: userPool.userPoolId,
+      lambdaRole: sharedInfraStack.commonLambdaRole,
+      commonEnv: sharedInfraStack.commonEnv,
+      domain: briefDomain({ execBriefQueueUrl: execBriefQueue?.queueUrl || '' }),
+      authorizer,
     });
 
     new ApiDomainRoutesStack(this, 'PresignedRoutes', {
-      restApiId: this.restApiId,
+      api: this.api,
       rootResourceId: this.rootResourceId,
       userPoolId: userPool.userPoolId,
-      lambdaRoleArn: this.commonLambdaRoleArn,
+      lambdaRole: sharedInfraStack.commonLambdaRole,
       commonEnv: sharedInfraStack.commonEnv,
       domain: presignedDomain(),
-      authorizer: facadeStack.authorizer,
-      deployment: facadeStack.deployment,
-      env: props.env,
+      authorizer,
     });
 
     new ApiDomainRoutesStack(this, 'KnowledgebaseRoutes', {
-      restApiId: this.restApiId,
+      api: this.api,
       rootResourceId: this.rootResourceId,
       userPoolId: userPool.userPoolId,
-      lambdaRoleArn: this.commonLambdaRoleArn,
+      lambdaRole: sharedInfraStack.commonLambdaRole,
       commonEnv: sharedInfraStack.commonEnv,
       domain: knowledgebaseDomain(),
-      authorizer: facadeStack.authorizer,
-      deployment: facadeStack.deployment,
-      env: props.env,
+      authorizer,
     });
 
     new ApiDomainRoutesStack(this, 'DocumentRoutes', {
-      restApiId: this.restApiId,
+      api: this.api,
       rootResourceId: this.rootResourceId,
       userPoolId: userPool.userPoolId,
-      lambdaRoleArn: this.commonLambdaRoleArn,
+      lambdaRole: sharedInfraStack.commonLambdaRole,
       commonEnv: sharedInfraStack.commonEnv,
       domain: documentDomain(),
-      authorizer: facadeStack.authorizer,
-      deployment: facadeStack.deployment,
-      env: props.env,
+      authorizer,
     });
 
     new ApiDomainRoutesStack(this, 'QuestionfileRoutes', {
-      restApiId: this.restApiId,
+      api: this.api,
       rootResourceId: this.rootResourceId,
       userPoolId: userPool.userPoolId,
-      lambdaRoleArn: this.commonLambdaRoleArn,
+      lambdaRole: sharedInfraStack.commonLambdaRole,
       commonEnv: sharedInfraStack.commonEnv,
       domain: questionfileDomain(),
-      authorizer: facadeStack.authorizer,
-      deployment: facadeStack.deployment,
-      env: props.env,
+      authorizer,
     });
 
     new ApiDomainRoutesStack(this, 'ProposalRoutes', {
-      restApiId: this.restApiId,
+      api: this.api,
       rootResourceId: this.rootResourceId,
       userPoolId: userPool.userPoolId,
-      lambdaRoleArn: this.commonLambdaRoleArn,
+      lambdaRole: sharedInfraStack.commonLambdaRole,
       commonEnv: sharedInfraStack.commonEnv,
       domain: proposalDomain(),
-      authorizer: facadeStack.authorizer,
-      deployment: facadeStack.deployment,
-      env: props.env,
+      authorizer,
     });
 
     new ApiDomainRoutesStack(this, 'UserRoutes', {
-      restApiId: this.restApiId,
+      api: this.api,
       rootResourceId: this.rootResourceId,
       userPoolId: userPool.userPoolId,
-      lambdaRoleArn: this.commonLambdaRoleArn,
+      lambdaRole: sharedInfraStack.commonLambdaRole,
       commonEnv: sharedInfraStack.commonEnv,
       domain: userDomain(),
-      authorizer: facadeStack.authorizer,
-      deployment: facadeStack.deployment,
-      env: props.env,
+      authorizer,
     });
 
     new ApiDomainRoutesStack(this, 'QuestionRoutes', {
-      restApiId: this.restApiId,
+      api: this.api,
       rootResourceId: this.rootResourceId,
       userPoolId: userPool.userPoolId,
-      lambdaRoleArn: this.commonLambdaRoleArn,
+      lambdaRole: sharedInfraStack.commonLambdaRole,
       commonEnv: sharedInfraStack.commonEnv,
       domain: questionDomain(),
-      authorizer: facadeStack.authorizer,
-      deployment: facadeStack.deployment,
-      env: props.env,
+      authorizer,
     });
 
     new ApiDomainRoutesStack(this, 'SemanticRoutes', {
-      restApiId: this.restApiId,
+      api: this.api,
       rootResourceId: this.rootResourceId,
       userPoolId: userPool.userPoolId,
-      lambdaRoleArn: this.commonLambdaRoleArn,
+      lambdaRole: sharedInfraStack.commonLambdaRole,
       commonEnv: sharedInfraStack.commonEnv,
       domain: semanticDomain(),
-      authorizer: facadeStack.authorizer,
-      deployment: facadeStack.deployment,
-      env: props.env,
+      authorizer,
     });
 
     new ApiDomainRoutesStack(this, 'DeadlinesRoutes', {
-      restApiId: this.restApiId,
+      api: this.api,
       rootResourceId: this.rootResourceId,
       userPoolId: userPool.userPoolId,
-      lambdaRoleArn: this.commonLambdaRoleArn,
+      lambdaRole: sharedInfraStack.commonLambdaRole,
       commonEnv: sharedInfraStack.commonEnv,
       domain: deadlinesDomain(),
-      authorizer: facadeStack.authorizer,
-      deployment: facadeStack.deployment,
-      env: props.env,
+      authorizer,
     });
 
     new ApiDomainRoutesStack(this, 'OpportunityRoutes', {
-      restApiId: this.restApiId,
+      api: this.api,
       rootResourceId: this.rootResourceId,
       userPoolId: userPool.userPoolId,
-      lambdaRoleArn: this.commonLambdaRoleArn,
+      lambdaRole: sharedInfraStack.commonLambdaRole,
       commonEnv: sharedInfraStack.commonEnv,
       domain: opportunityDomain(),
-      authorizer: facadeStack.authorizer,
-      deployment: facadeStack.deployment,
-      env: props.env,
+      authorizer,
     });
 
     new ApiDomainRoutesStack(this, 'ExportRoutes', {
-      restApiId: this.restApiId,
+      api: this.api,
       rootResourceId: this.rootResourceId,
       userPoolId: userPool.userPoolId,
-      lambdaRoleArn: this.commonLambdaRoleArn,
+      lambdaRole: sharedInfraStack.commonLambdaRole,
       commonEnv: sharedInfraStack.commonEnv,
       domain: exportDomain(),
-      authorizer: facadeStack.authorizer,
-      deployment: facadeStack.deployment,
-      env: props.env,
+      authorizer,
     });
 
     new ApiDomainRoutesStack(this, 'ContentLibraryRoutes', {
-      restApiId: this.restApiId,
+      api: this.api,
       rootResourceId: this.rootResourceId,
       userPoolId: userPool.userPoolId,
-      lambdaRoleArn: this.commonLambdaRoleArn,
+      lambdaRole: sharedInfraStack.commonLambdaRole,
       commonEnv: sharedInfraStack.commonEnv,
       domain: contentlibraryDomain(),
-      authorizer: facadeStack.authorizer,
-      deployment: facadeStack.deployment,
-      env: props.env,
+      authorizer,
     });
 
     new ApiDomainRoutesStack(this, 'ProjectOutcomeRoutes', {
-      restApiId: this.restApiId,
+      api: this.api,
       rootResourceId: this.rootResourceId,
       userPoolId: userPool.userPoolId,
-      lambdaRoleArn: this.commonLambdaRoleArn,
+      lambdaRole: sharedInfraStack.commonLambdaRole,
       commonEnv: sharedInfraStack.commonEnv,
       domain: projectoutcomeDomain(),
-      authorizer: facadeStack.authorizer,
-      deployment: facadeStack.deployment,
-      env: props.env,
+      authorizer,
     });
 
     new ApiDomainRoutesStack(this, 'FoiaRoutes', {
-      restApiId: this.restApiId,
+      api: this.api,
       rootResourceId: this.rootResourceId,
       userPoolId: userPool.userPoolId,
-      lambdaRoleArn: this.commonLambdaRoleArn,
+      lambdaRole: sharedInfraStack.commonLambdaRole,
       commonEnv: sharedInfraStack.commonEnv,
       domain: foiaDomain(),
-      authorizer: facadeStack.authorizer,
-      deployment: facadeStack.deployment,
-      env: props.env,
+      authorizer,
     });
 
     new ApiDomainRoutesStack(this, 'DebriefingRoutes', {
-      restApiId: this.restApiId,
+      api: this.api,
       rootResourceId: this.rootResourceId,
       userPoolId: userPool.userPoolId,
-      lambdaRoleArn: this.commonLambdaRoleArn,
+      lambdaRole: sharedInfraStack.commonLambdaRole,
       commonEnv: sharedInfraStack.commonEnv,
       domain: debriefingDomain(),
-      authorizer: facadeStack.authorizer,
-      deployment: facadeStack.deployment,
-      env: props.env,
+      authorizer,
     });
 
     new ApiDomainRoutesStack(this, 'ProjectsRoutes', {
-      restApiId: this.restApiId,
+      api: this.api,
       rootResourceId: this.rootResourceId,
       userPoolId: userPool.userPoolId,
-      lambdaRoleArn: this.commonLambdaRoleArn,
+      lambdaRole: sharedInfraStack.commonLambdaRole,
       commonEnv: sharedInfraStack.commonEnv,
       domain: projectsDomain(),
-      authorizer: facadeStack.authorizer,
-      deployment: facadeStack.deployment,
-      env: props.env,
+      authorizer,
     });
 
     new ApiDomainRoutesStack(this, 'PromptRoutes', {
-      restApiId: this.restApiId,
+      api: this.api,
       rootResourceId: this.rootResourceId,
       userPoolId: userPool.userPoolId,
-      lambdaRoleArn: this.commonLambdaRoleArn,
+      lambdaRole: sharedInfraStack.commonLambdaRole,
       commonEnv: sharedInfraStack.commonEnv,
       domain: promptDomain(),
-      authorizer: facadeStack.authorizer,
-      deployment: facadeStack.deployment,
-      env: props.env,
+      authorizer,
     });
 
     new ApiDomainRoutesStack(this, 'SamgovRoutes', {
-      restApiId: this.restApiId,
+      api: this.api,
       rootResourceId: this.rootResourceId,
       userPoolId: userPool.userPoolId,
-      lambdaRoleArn: this.commonLambdaRoleArn,
+      lambdaRole: sharedInfraStack.commonLambdaRole,
       commonEnv: sharedInfraStack.commonEnv,
       domain: samgovDomain(),
-      authorizer: facadeStack.authorizer,
-      deployment: facadeStack.deployment,
-      env: props.env,
+      authorizer,
     });
 
-    new ApiDomainRoutesStack(this, 'LinearRoutes', {
-      restApiId: this.restApiId,
+    const linearRoutesStack = new ApiDomainRoutesStack(this, 'LinearRoutes', {
+      api: this.api,
       rootResourceId: this.rootResourceId,
       userPoolId: userPool.userPoolId,
-      lambdaRoleArn: this.commonLambdaRoleArn,
+      lambdaRole: sharedInfraStack.commonLambdaRole,
       commonEnv: sharedInfraStack.commonEnv,
       domain: linearRoutes,
-      authorizer: facadeStack.authorizer,
-      deployment: facadeStack.deployment,
-      env: props.env,
+      authorizer,
     });
+
+    // 4. Create deployment manually AFTER all routes are added
+    // This avoids circular dependencies between nested stacks and the deployment
+    const deployment = new apigateway.Deployment(this, 'ApiDeployment', {
+      api: this.api,
+      description: `Deployment for ${stage}`,
+      retainDeployments: true, // Keep old deployments to avoid issues during updates
+    });
+
+    // Create the stage
+    const apiStage = new apigateway.Stage(this, 'ApiStage', {
+      deployment,
+      stageName: stage,
+      metricsEnabled: true,
+      loggingLevel: apigateway.MethodLoggingLevel.INFO,
+      dataTraceEnabled: true,
+    });
+
+    // Set the API URL
+    this.apiUrl = apiStage.urlForPath('/');
+
+    // IMPORTANT: The deployment must depend on all nested stacks
+    // This ensures routes are created before the deployment
+    deployment.node.addDependency(linearRoutesStack);
 
     new cdk.CfnOutput(this, 'RestApiId', {
       value: this.restApiId,
@@ -438,6 +476,10 @@ export class ApiOrchestratorStack extends cdk.Stack {
 
     new cdk.CfnOutput(this, 'CommonLambdaRoleArn', {
       value: this.commonLambdaRoleArn,
+    });
+
+    new cdk.CfnOutput(this, 'ApiBaseUrl', {
+      value: apiStage.urlForPath('/'),
     });
   }
 }

@@ -6,9 +6,12 @@ import { withSentryLambda } from '../sentry-lambda';
 import { requireEnv } from '../helpers/env';
 import { authContextMiddleware, httpErrorMiddleware, orgMembershipMiddleware, } from '../middleware/rbac-middleware';
 
-import { getEmbedding, semanticSearchChunks } from '../helpers/embeddings';
+import { getEmbedding, semanticSearchChunks, semanticSearchContentLibrary } from '../helpers/embeddings';
 import { loadTextFromS3 } from '../helpers/s3';
 import { PineconeHit } from '../helpers/pinecone';
+import { getItem } from '../helpers/db';
+import { CONTENT_LIBRARY_PK, ContentLibraryItem, } from '@auto-rfp/shared';
+import { SK_NAME } from '../constants/common';
 
 const DOCUMENTS_BUCKET = requireEnv('DOCUMENTS_BUCKET');
 
@@ -21,8 +24,8 @@ type GetTopChunksRequest = {
   topK?: number;
 };
 
-type ChunkResult = {
-  chunkKey: string;
+type SemanticResult = {
+  chunkKey?: string;
   score: number;
   text: string;
 };
@@ -30,20 +33,13 @@ type ChunkResult = {
 type GetTopChunksResponse = {
   question: string;
   topK: number;
-  results: ChunkResult[];
+  results: SemanticResult[];
 };
 
 function truncateText(s: string, maxChars: number) {
   const t = (s ?? '').trim();
   if (!t) return '';
   return t.length <= maxChars ? t : t.slice(0, maxChars);
-}
-
-function normalizeScore(osScore: any): number {
-  const s = Number(osScore ?? 0);
-  if (!Number.isFinite(s) || s <= 0) return 0;
-  // squash to 0..1; stable even if _score magnitude varies
-  return Math.min(1, Math.max(0, 1 - Math.exp(-s)));
 }
 
 function uniqueByChunkKey(hits: PineconeHit[]): PineconeHit[] {
@@ -59,6 +55,20 @@ function uniqueByChunkKey(hits: PineconeHit[]): PineconeHit[] {
   return out;
 }
 
+export const getQandA = async (
+  sk?: string
+) => {
+  if (!sk) return '';
+  const result = await getItem<ContentLibraryItem>(
+    CONTENT_LIBRARY_PK,
+    sk
+  );
+  return `
+  Q: ${result?.question}
+  A: ${result?.answer}
+  `;
+};
+
 export const baseHandler = async (event: APIGatewayProxyEventV2): Promise<APIGatewayProxyResultV2> => {
   try {
     const orgId = getOrgId(event);
@@ -73,18 +83,20 @@ export const baseHandler = async (event: APIGatewayProxyEventV2): Promise<APIGat
     // 1) embed question
     const embedding = await getEmbedding(question);
 
-    // 2) semantic search topK hits (chunkKey + _score)
-    const hits = await semanticSearchChunks(orgId, embedding, topK);
+    const questions_hits = await semanticSearchContentLibrary(orgId, embedding, topK);
 
-    if (!hits.length) {
+    // 2) semantic search topK hits (chunkKey + _score)
+    const chunk_hits = await semanticSearchChunks(orgId, embedding, topK);
+
+    if (!chunk_hits.length) {
       const empty: GetTopChunksResponse = { question, topK, results: [] };
       return apiResponse(200, empty);
     }
 
     // 3) fetch chunk texts from S3
-    const uniqueHits = uniqueByChunkKey(hits);
+    const uniqueHits = uniqueByChunkKey(chunk_hits);
 
-    const results: ChunkResult[] = [];
+    const results: SemanticResult[] = [];
     let totalChars = 0;
 
     for (const h of uniqueHits) {
@@ -101,8 +113,15 @@ export const baseHandler = async (event: APIGatewayProxyEventV2): Promise<APIGat
 
       results.push({
         chunkKey,
-        score: normalizeScore(h.score),
+        score: h.score || 0,
         text,
+      });
+    }
+
+    for (const h of questions_hits) {
+      results.push({
+        text: await getQandA(h?.source?.[SK_NAME]),
+        score: h.score || 0,
       });
     }
 

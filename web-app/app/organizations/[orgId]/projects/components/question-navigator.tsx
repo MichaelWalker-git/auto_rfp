@@ -51,8 +51,9 @@ export function QuestionNavigator({
 
   const getQuestionStatus = (questionId: string): QuestionStatus => {
     const answer = answers[questionId];
+    const text = answer?.text;
 
-    if (!answer || !answer.text || answer.text.trim() === '') {
+    if (!answer || typeof text !== 'string' || text.trim() === '') {
       return 'unanswered';
     }
 

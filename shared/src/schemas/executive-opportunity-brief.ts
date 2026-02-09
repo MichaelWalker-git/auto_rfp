@@ -60,35 +60,9 @@ export const QuickSummarySchema = z.object({
     .optional()
     .nullable(),
 
-  contractType: z
-    .enum([
-      'FFP',
-      'FIXED_PRICE', // Alias for FFP from SAM.gov
-      'T&M',
-      'COST_PLUS',
-      'IDIQ',
-      'BPA',
-      'GWAC',
-      'SCHEDULE',
-      'OTHER',
-      'UNKNOWN',
-    ])
-    .default('UNKNOWN'),
+  contractType: z.string().default('UNKNOWN'),
 
-  setAside: z
-    .enum([
-      'NONE',
-      'SMALL_BUSINESS',
-      '8A',
-      'SDVOSB',
-      'VOSB',
-      'WOSB',
-      'HUBZONE',
-      'SDB',
-      'OTHER',
-      'UNKNOWN',
-    ])
-    .default('UNKNOWN'),
+  setAside: z.string().default('UNKNOWN'),
 
   placeOfPerformance: z.string().optional().nullable(),
 
@@ -213,15 +187,7 @@ export type RisksSection = z.infer<typeof RisksSectionSchema>;
  */
 export const ScoreCriterionSchema = z
   .object({
-    name: z
-      .enum([
-        'TECHNICAL_FIT',
-        'PAST_PERFORMANCE_RELEVANCE',
-        'PRICING_POSITION',
-        'STRATEGIC_ALIGNMENT',
-        'INCUMBENT_RISK',
-      ])
-      .optional(),
+    name: z.string().optional(),
     score: z.number().int().min(1).max(5).optional(),
     rationale: z.string().min(10).optional(),
     gaps: z.array(z.string().min(1)).optional(),

@@ -16,6 +16,7 @@ import { type LoadSamOpportunitiesRequest, LoadSamOpportunitiesRequestSchema, } 
 
 import { searchSamOpportunities } from '../helpers/samgov';
 import { getApiKey } from '../helpers/api-key-storage';
+import { SAM_GOV_SECRET_PREFIX } from '../constants/samgov';
 
 const SAM_BASE_URL = requireEnv('SAM_OPPS_BASE_URL', 'https://api.sam.gov');
 
@@ -54,7 +55,7 @@ export const baseHandler = async (
 
     let apiKey: string | null = null;
     try {
-      apiKey = await getApiKey(orgId);
+      apiKey = await getApiKey(orgId, SAM_GOV_SECRET_PREFIX);
     } catch (apiKeyError) {
       console.error('Error retrieving API key for orgId:', orgId, apiKeyError);
       return apiResponse(500, { 

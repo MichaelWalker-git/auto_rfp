@@ -2,6 +2,18 @@ import { render, screen } from '@testing-library/react';
 import { SamGovOpportunityList } from '../samgov-opportunity-list';
 import type { SamOpportunitySlim } from '@auto-rfp/shared';
 
+// Mock the organization context
+jest.mock('@/context/organization-context', () => ({
+  useCurrentOrganization: () => ({
+    currentOrganization: { id: 'test-org-id', name: 'Test Org', slug: 'test-org' },
+    organizations: [{ id: 'test-org-id', name: 'Test Org', slug: 'test-org' }],
+    loading: false,
+    refreshData: jest.fn(),
+    setCurrentOrganization: jest.fn(),
+    isOrgLocked: false,
+  }),
+}));
+
 describe('SamGovOpportunityList', () => {
   const mockOnPage = jest.fn();
   const mockOnImport = jest.fn();
