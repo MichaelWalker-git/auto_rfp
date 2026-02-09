@@ -1,14 +1,21 @@
 'use client';
 
 import useSWR from 'swr';
+import { useCallback, useEffect, useState } from 'react';
 import { Organization } from '@/app/organizations/page';
 import { env } from '@/lib/env';
 import { Project } from '@/types/project';
 import { authFetcher } from '@/lib/auth/auth-fetcher';
 import { AnswerItem, GroupedSection } from '@auto-rfp/shared';
+
 class HttpError extends Error {
   status?: number;
   details?: any;
+}
+
+interface PaginatedAnswersResponse {
+  items: Record<string, AnswerItem>;
+  nextToken: string | null;
 }
 
 const defineFetcher = async <T>(url: string): Promise<T> => {
@@ -92,10 +99,101 @@ export function useQuestions(projectId: string | null, includeAll = false) {
   );
 }
 
-export function useAnswers(projectId: string | null, includeAll = false) {
-  const params = includeAll ? '?include=all' : '';
-  return useApi<Record<string, AnswerItem>>(
-    projectId ? ['answers', projectId, includeAll] : null,
-    projectId ? `${env.BASE_API_URL}/answer/get-answers/${projectId}${params}` : null,
+/**
+ * Hook to fetch all answers for a project with automatic pagination handling.
+ * Fetches all pages and merges them into a single Record<string, AnswerItem>.
+ */
+export function useAnswers(projectId: string | null, includeSourceContent = false) {
+  const [allAnswers, setAllAnswers] = useState<Record<string, AnswerItem>>({});
+  const [isLoadingAll, setIsLoadingAll] = useState(false);
+  const [error, setError] = useState<HttpError | undefined>(undefined);
+
+  // Build query params
+  const buildUrl = useCallback((nextToken?: string) => {
+    if (!projectId) return null;
+    const params = new URLSearchParams();
+    params.set('limit', '100'); // Fetch in batches of 100
+    if (includeSourceContent) {
+      params.set('includeSourceContent', 'true');
+    }
+    if (nextToken) {
+      params.set('nextToken', nextToken);
+    }
+    return `${env.BASE_API_URL}/answer/get-answers/${projectId}?${params.toString()}`;
+  }, [projectId, includeSourceContent]);
+
+  // Fetch first page using SWR for caching
+  const { data: firstPage, error: firstPageError, isLoading: isFirstPageLoading, mutate } = useSWR<PaginatedAnswersResponse>(
+    projectId ? ['answers', projectId, includeSourceContent] : null,
+    projectId ? () => defineFetcher<PaginatedAnswersResponse>(buildUrl()!) : null,
+    {
+      revalidateOnFocus: false,
+      revalidateIfStale: false,
+      dedupingInterval: 60_000,
+      focusThrottleInterval: 60_000,
+      errorRetryCount: 3,
+      loadingTimeout: 10_000,
+    }
   );
+
+  // Fetch remaining pages when first page has nextToken
+  useEffect(() => {
+    if (!firstPage) {
+      setAllAnswers({});
+      return;
+    }
+
+    // Start with first page items
+    let merged = { ...firstPage.items };
+
+    // If no more pages, we're done
+    if (!firstPage.nextToken) {
+      setAllAnswers(merged);
+      return;
+    }
+
+    // Fetch remaining pages
+    const fetchRemainingPages = async () => {
+      setIsLoadingAll(true);
+      let nextToken: string | null = firstPage.nextToken;
+
+      try {
+        while (nextToken) {
+          const url = buildUrl(nextToken);
+          if (!url) break;
+
+          const response = await defineFetcher<PaginatedAnswersResponse>(url);
+          merged = { ...merged, ...response.items };
+          nextToken = response.nextToken;
+        }
+
+        setAllAnswers(merged);
+        setError(undefined);
+      } catch (err) {
+        console.error('Error fetching paginated answers:', err);
+        setError(err as HttpError);
+        // Still set what we have so far
+        setAllAnswers(merged);
+      } finally {
+        setIsLoadingAll(false);
+      }
+    };
+
+    fetchRemainingPages();
+  }, [firstPage, buildUrl]);
+
+  // Handle first page error
+  useEffect(() => {
+    if (firstPageError) {
+      setError(firstPageError);
+    }
+  }, [firstPageError]);
+
+  return {
+    data: Object.keys(allAnswers).length > 0 ? allAnswers : (firstPage?.items ?? undefined),
+    isLoading: isFirstPageLoading || isLoadingAll,
+    isError: !!error,
+    error,
+    mutate,
+  };
 }
