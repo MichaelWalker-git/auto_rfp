@@ -380,10 +380,15 @@ export function QuestionsProvider({ children, projectId }: QuestionsProviderProp
 
     let statusFiltered = allQuestions;
 
+    const hasAnswer = (q: any) => {
+      const text = answers[q.id]?.text;
+      return typeof text === 'string' && text.trim().length > 0;
+    };
+
     if (filterType === 'answered') {
-      statusFiltered = allQuestions.filter((q: any) => !!answers[q.id]?.text?.trim());
+      statusFiltered = allQuestions.filter(hasAnswer);
     } else if (filterType === 'unanswered') {
-      statusFiltered = allQuestions.filter((q: any) => !answers[q.id]?.text?.trim());
+      statusFiltered = allQuestions.filter((q: any) => !hasAnswer(q));
     }
 
     if (!searchQuery) return statusFiltered;
@@ -396,7 +401,10 @@ export function QuestionsProvider({ children, projectId }: QuestionsProviderProp
     if (!questions) return { all: 0, answered: 0, unanswered: 0 };
 
     const allQuestions = questions.sections.flatMap((s: any) => s.questions);
-    const answeredCount = allQuestions.filter((q: any) => !!answers[q?.id]?.text?.trim()).length;
+    const answeredCount = allQuestions.filter((q: any) => {
+      const text = answers[q?.id]?.text;
+      return typeof text === 'string' && text.trim().length > 0;
+    }).length;
 
     return {
       all: allQuestions.length,

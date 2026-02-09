@@ -4,13 +4,14 @@ import * as React from 'react';
 import { useState } from 'react';
 
 import type { SamOpportunitySlim } from '@auto-rfp/shared';
-import { useSamGovDescription, type SamGovDescriptionResponse } from '@/lib/hooks/use-opportunities';
+import { type SamGovDescriptionResponse, useSamGovDescription } from '@/lib/hooks/use-opportunities';
 import { useToast } from '../ui/use-toast';
 import { DescriptionDialog } from './description-dialog';
 import { PaginationControls } from './pagination-controls';
 import { EmptyState } from './empty-state';
 import { LoadingState } from './loading-state';
 import { SamGovOpportunityCard } from '@/components/opportunities/samgov-opportunity-card';
+import { useCurrentOrganization } from '@/context/organization-context';
 
 type Props = {
   data?: {
@@ -33,8 +34,8 @@ export function SamGovOpportunityList({ data, isLoading, onPage, onImportSolicit
 
   const [selectedDescription, setSelectedDescription] = useState<SamGovDescriptionResponse | null>(null);
   const [selectedOpportunity, setSelectedOpportunity] = useState<SamOpportunitySlim | null>(null);
-
-  const { trigger: fetchDescription, isMutating } = useSamGovDescription();
+  const { currentOrganization } = useCurrentOrganization();
+  const { trigger: fetchDescription, isMutating } = useSamGovDescription(currentOrganization?.id);
   const { toast } = useToast();
 
   const handleViewDescription = async (opportunity: SamOpportunitySlim) => {
@@ -79,9 +80,9 @@ export function SamGovOpportunityList({ data, isLoading, onPage, onImportSolicit
 
   return (
     <div className="space-y-3">
-      {isLoading && !data && <LoadingState />}
+      {isLoading && !data && <LoadingState/>}
 
-      {data && results.length === 0 && <EmptyState />}
+      {data && results.length === 0 && <EmptyState/>}
 
       {results.map((opportunity) => (
         <SamGovOpportunityCard

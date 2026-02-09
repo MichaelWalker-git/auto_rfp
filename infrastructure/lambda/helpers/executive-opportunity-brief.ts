@@ -1,5 +1,5 @@
 import crypto from 'crypto';
-import { GetCommand, PutCommand, QueryCommand, UpdateCommand, } from '@aws-sdk/lib-dynamodb';
+import { PutCommand, QueryCommand, UpdateCommand, } from '@aws-sdk/lib-dynamodb';
 
 import { PK_NAME, SK_NAME } from '../constants/common';
 import { QUESTION_FILE_PK } from '../constants/question-file';
@@ -7,7 +7,7 @@ import { EXEC_BRIEF_PK } from '../constants/exec-brief';
 
 import { type ExecutiveBriefItem, QuestionFileItem, SectionStatus, } from '@auto-rfp/shared';
 import { requireEnv } from './env';
-import { docClient } from './db';
+import { docClient, getItem } from './db';
 import { nowIso } from './date';
 import { loadTextFromS3 } from './s3';
 import { getEmbedding, semanticSearchChunks } from './embeddings';
@@ -161,19 +161,13 @@ export async function loadLatestQuestionFile(projectId: string): Promise<Questio
   return items.sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1))[0];
 }
 
-export async function getExecutiveBrief(executiveBriefId: string): Promise<ExecutiveBriefItem> {
-  const res = await docClient.send(
-    new GetCommand({
-      TableName: DB_TABLE_NAME,
-      Key: {
-        [PK_NAME]: EXEC_BRIEF_PK,
-        [SK_NAME]: executiveBriefId,
-      },
-    }),
+export async function getExecutiveBrief(sk: string): Promise<ExecutiveBriefItem> {
+  const item = await getItem<ExecutiveBriefItem>(
+    EXEC_BRIEF_PK,
+    sk
   );
-
-  if (!res.Item) throw new Error(`ExecutiveBrief not found: ${executiveBriefId}`);
-  return res.Item as ExecutiveBriefItem;
+  if (!item) throw new Error(`ExecutiveBrief not found: ${sk}`);
+  return item;
 }
 
 export async function getExecutiveBriefByProjectId(projectId: string): Promise<ExecutiveBriefItem> {
