@@ -5,6 +5,7 @@ import { ANSWER_PK } from '../constants/answer';
 import { EXEC_BRIEF_PK } from '../constants/exec-brief';
 import { PROPOSAL_PK } from '../constants/proposal';
 import { DEADLINE_PK } from '../constants/deadline';
+import { OPPORTUNITY_PK } from '../constants/opportunity';
 import { PK_NAME, SK_NAME } from '../constants/common';
 import { requireEnv } from './env';
 import {
@@ -39,6 +40,7 @@ export interface ProjectCleanupResult {
   questions: { deleted: number; failed: number };
   answers: { deleted: number; failed: number };
   proposals: { deleted: number; failed: number };
+  opportunities: { deleted: number; failed: number };
   executiveBriefs: { deleted: number; failed: number };
   deadline: boolean;
   project: boolean;
@@ -57,6 +59,7 @@ export async function deleteProjectAndRelatedEntities(
     questions: { deleted: 0, failed: 0 },
     answers: { deleted: 0, failed: 0 },
     proposals: { deleted: 0, failed: 0 },
+    opportunities: { deleted: 0, failed: 0 },
     executiveBriefs: { deleted: 0, failed: 0 },
     deadline: false,
     project: false,
@@ -90,6 +93,9 @@ export async function deleteProjectAndRelatedEntities(
   result.questions = await deleteAllBySkPrefix(QUESTION_PK, `${projectId}#`);
   result.answers = await deleteAllBySkPrefix(ANSWER_PK, `${projectId}#`);
   result.proposals = await deleteAllBySkPrefix(PROPOSAL_PK, `${projectId}#`);
+  
+  // Delete opportunities (SK format: orgId#projectId#oppId)
+  result.opportunities = await deleteAllBySkPrefix(OPPORTUNITY_PK, `${orgId}#${projectId}#`);
 
   // Delete executive briefs
   const execBriefIds = collectExecBriefIds(project, questionFiles);

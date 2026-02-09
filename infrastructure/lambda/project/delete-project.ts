@@ -1,7 +1,7 @@
 import type { APIGatewayProxyEventV2, APIGatewayProxyResultV2 } from 'aws-lambda';
 import middy from '@middy/core';
 
-import { apiResponse } from '../helpers/api';
+import { apiResponse, getOrgId } from '../helpers/api';
 import { deleteProjectAndRelatedEntities } from '../helpers/project-cleanup';
 import { withSentryLambda } from '../sentry-lambda';
 import {
@@ -16,7 +16,7 @@ export const baseHandler = async (
 ): Promise<APIGatewayProxyResultV2> => {
   try {
     const { projectId } = event.pathParameters || {};
-    const { orgId } = event.queryStringParameters || {};
+    const orgId = getOrgId(event);
 
     if (!orgId || !projectId) {
       return apiResponse(400, {
