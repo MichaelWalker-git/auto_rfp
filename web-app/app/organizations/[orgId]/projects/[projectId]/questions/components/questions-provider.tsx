@@ -11,6 +11,7 @@ import { useKnowledgeBases } from '@/lib/hooks/use-knowledgebase';
 
 import { authFetcher } from '@/lib/auth/auth-fetcher';
 import { env } from '@/lib/env';
+import { normalizeConfidence } from '@/components/confidence/confidence-score-display';
 
 // Interfaces
 interface AnswerData {
@@ -274,11 +275,15 @@ export function QuestionsProvider({ children, projectId }: QuestionsProviderProp
     });
 
     try {
+      const answerData = answers[questionId];
       const response = await saveAnswer({
         questionId,
-        text: answers[questionId].text,
-        sources: answers[questionId].sources || [],
-      } as SaveAnswerDTO);
+        text: answerData.text,
+        sources: answerData.sources || [],
+        ...(answerData.confidence !== undefined && { confidence: answerData.confidence }),
+        ...(answerData.confidenceBreakdown && { confidenceBreakdown: answerData.confidenceBreakdown }),
+        ...(answerData.confidenceBand && { confidenceBand: answerData.confidenceBand }),
+      } as any);
 
       if (response?.id) {
         setUnsavedQuestions((prev) => {
@@ -407,12 +412,16 @@ export function QuestionsProvider({ children, projectId }: QuestionsProviderProp
       statusFiltered = allQuestions.filter((q: any) => !hasAnswer(q));
     }
 
-    // Apply confidence band filter
+    // Apply confidence band filter (only to questions that have answers)
     if (confidenceFilter !== 'all') {
       statusFiltered = statusFiltered.filter((q: any) => {
         const answerData = answers[q.id];
-        if (!answerData?.confidence) return confidenceFilter === 'low'; // No confidence = low
-        const pct = Math.round(answerData.confidence * 100);
+        // Skip unanswered questions — they have no confidence to filter on
+        if (!answerData?.text || (typeof answerData.text === 'string' && answerData.text.trim().length === 0)) {
+          return false;
+        }
+        if (answerData.confidence == null) return confidenceFilter === 'low'; // Has answer but no confidence = low
+        const pct = Math.round(normalizeConfidence(answerData.confidence) * 100);
         if (confidenceFilter === 'high') return pct >= 90;
         if (confidenceFilter === 'medium') return pct >= 70 && pct < 90;
         return pct < 70; // low
@@ -429,8 +438,8 @@ export function QuestionsProvider({ children, projectId }: QuestionsProviderProp
     // Sort by confidence (lowest first) if enabled
     if (sortByConfidence) {
       result = [...result].sort((a: any, b: any) => {
-        const confA = answers[a.id]?.confidence ?? 0;
-        const confB = answers[b.id]?.confidence ?? 0;
+        const confA = normalizeConfidence(answers[a.id]?.confidence ?? 0);
+        const confB = normalizeConfidence(answers[b.id]?.confidence ?? 0);
         return confA - confB;
       });
     }
@@ -468,7 +477,7 @@ export function QuestionsProvider({ children, projectId }: QuestionsProviderProp
         if (answerData?.text) low++; // Has answer but no confidence = low
         continue;
       }
-      const pct = Math.round(answerData.confidence * 100);
+      const pct = Math.round(normalizeConfidence(answerData.confidence) * 100);
       if (pct >= 90) high++;
       else if (pct >= 70) medium++;
       else low++;

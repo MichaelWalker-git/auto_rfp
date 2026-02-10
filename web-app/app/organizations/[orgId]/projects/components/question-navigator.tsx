@@ -23,6 +23,8 @@ type Props = {
   answers: Record<string, AnswerData>;
   unsavedQuestions?: Set<string>;
   searchQuery?: string;
+  /** When provided, only show questions whose IDs are in this set */
+  visibleQuestionIds?: Set<string> | null;
 }
 
 export function QuestionNavigator({
@@ -30,7 +32,8 @@ export function QuestionNavigator({
                                     sections,
                                     answers,
                                     unsavedQuestions = new Set(),
-                                    searchQuery = ''
+                                    searchQuery = '',
+                                    visibleQuestionIds = null,
                                   }: Props) {
   const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({});
   const [current, setCurrent] = useState<string>();
@@ -65,14 +68,26 @@ export function QuestionNavigator({
   };
 
   const filteredSections = sections.map(section => {
-    if (!searchQuery) return section;
-    const filteredQuestions = section.questions.filter((question: GroupedQuestion) =>
-      question.question.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      section.title.toLowerCase().includes(searchQuery.toLowerCase())
-    );
+    let questions = section.questions;
+
+    // Apply confidence/visibility filter
+    if (visibleQuestionIds) {
+      questions = questions.filter((question: GroupedQuestion) =>
+        visibleQuestionIds.has(question.id)
+      );
+    }
+
+    // Apply search query filter
+    if (searchQuery) {
+      questions = questions.filter((question: GroupedQuestion) =>
+        question.question.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        section.title.toLowerCase().includes(searchQuery.toLowerCase())
+      );
+    }
+
     return {
       ...section,
-      questions: filteredQuestions
+      questions,
     };
   }).filter(section => section.questions.length > 0);
 

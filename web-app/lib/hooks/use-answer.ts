@@ -42,7 +42,7 @@ type GenerateAnswerResponse = {
   confidenceBreakdown?: ConfidenceBreakdown;
   confidenceBand?: 'high' | 'medium' | 'low';
   found: boolean;
-  sources?: AnswerSource;
+  sources?: AnswerSource[];
 }
 
 export function useGenerateAnswer() {

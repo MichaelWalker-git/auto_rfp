@@ -48,16 +48,24 @@ const FACTOR_WEIGHTS: Record<keyof ConfidenceBreakdown, string> = {
   consistency: '5%',
 };
 
-const BAND_CONFIG: Record<ConfidenceBand, { label: string; emoji: string; variant: 'default' | 'secondary' | 'destructive'; color: string }> = {
-  high: { label: 'High', emoji: '🟢', variant: 'default', color: 'text-green-600' },
-  medium: { label: 'Medium', emoji: '🟡', variant: 'secondary', color: 'text-yellow-600' },
-  low: { label: 'Low', emoji: '🔴', variant: 'destructive', color: 'text-red-600' },
+const BAND_CONFIG: Record<ConfidenceBand, { label: string; variant: 'default' | 'secondary' | 'destructive'; color: string; badgeClass: string }> = {
+  high: { label: 'High', variant: 'default', color: 'text-green-600', badgeClass: 'bg-green-100 text-green-800 border-green-200 hover:bg-green-100' },
+  medium: { label: 'Medium', variant: 'secondary', color: 'text-yellow-600', badgeClass: 'bg-yellow-100 text-yellow-800 border-yellow-200 hover:bg-yellow-100' },
+  low: { label: 'Low', variant: 'destructive', color: 'text-red-600', badgeClass: 'bg-red-100 text-red-800 border-red-200 hover:bg-red-100' },
 };
 
 // ─── Helpers ───
 
+/** Normalize confidence to 0-1 range, handling both 0-1 and 0-100 inputs */
+export function normalizeConfidence(value: number): number {
+  if (typeof value !== 'number' || !Number.isFinite(value)) return 0;
+  if (value > 1) return Math.min(value / 100, 1); // Already in 0-100 range
+  return Math.max(0, value); // Already in 0-1 range
+}
+
 function getBand(confidence: number): ConfidenceBand {
-  const pct = Math.round(confidence * 100);
+  const norm = normalizeConfidence(confidence);
+  const pct = Math.round(norm * 100);
   if (pct >= 90) return 'high';
   if (pct >= 70) return 'medium';
   return 'low';
@@ -81,16 +89,17 @@ function getFactorColor(value: number): string {
 export function ConfidenceBadge({ confidence, band }: { confidence?: number; band?: ConfidenceBand }) {
   if (confidence === undefined || confidence === null) return null;
 
-  const pct = Math.round(confidence * 100);
-  const resolvedBand = band || getBand(confidence);
+  const norm = normalizeConfidence(confidence);
+  const pct = Math.round(norm * 100);
+  const resolvedBand = band || getBand(norm);
   const config = BAND_CONFIG[resolvedBand];
 
   return (
     <TooltipProvider>
       <Tooltip>
         <TooltipTrigger asChild>
-          <Badge variant={config.variant} className="text-xs cursor-help">
-            {config.emoji} {pct}%
+          <Badge variant="outline" className={`text-xs cursor-help ${config.badgeClass}`}>
+            {pct}%
           </Badge>
         </TooltipTrigger>
         <TooltipContent>
@@ -115,12 +124,13 @@ export function ConfidenceScoreDisplay({
 
   if (confidence === undefined || confidence === null) return null;
 
-  const pct = Math.round(confidence * 100);
-  const resolvedBand = band || getBand(confidence);
+  const norm = normalizeConfidence(confidence);
+  const pct = Math.round(norm * 100);
+  const resolvedBand = band || getBand(norm);
   const config = BAND_CONFIG[resolvedBand];
 
   if (compact) {
-    return <ConfidenceBadge confidence={confidence} band={resolvedBand} />;
+    return <ConfidenceBadge confidence={norm} band={resolvedBand} />;
   }
 
   return (
@@ -128,8 +138,8 @@ export function ConfidenceScoreDisplay({
       {/* Overall score */}
       <div className="flex items-center gap-2">
         <span className="text-sm font-medium">Confidence:</span>
-        <Badge variant={config.variant}>
-          {config.emoji} {pct}% ({config.label})
+        <Badge variant="outline" className={config.badgeClass}>
+          {pct}% — {config.label}
         </Badge>
       </div>
 
