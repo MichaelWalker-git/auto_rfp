@@ -1,6 +1,7 @@
 import type { APIGatewayProxyEventV2, APIGatewayProxyResultV2 } from 'aws-lambda';
 import middy from '@middy/core';
 import { DeleteObjectsCommand, S3Client } from '@aws-sdk/client-s3';
+import { DeleteCommand, QueryCommand } from '@aws-sdk/lib-dynamodb';
 
 import { withSentryLambda } from '../sentry-lambda';
 import { apiResponse } from '../helpers/api';
@@ -15,8 +16,12 @@ import {
 import { deleteOpportunity } from '../helpers/opportunity';
 import { listQuestionFilesByOpportunity, deleteQuestionFile } from '../helpers/questionFile';
 import { requireEnv } from '../helpers/env';
+import { docClient } from '../helpers/db';
+import { PK_NAME, SK_NAME } from '../constants/common';
+import { EXEC_BRIEF_PK } from '../constants/exec-brief';
 
-const S3_BUCKET = requireEnv('S3_BUCKET_NAME');
+const S3_BUCKET = requireEnv('DOCUMENTS_BUCKET');
+const DB_TABLE_NAME = requireEnv('DB_TABLE_NAME');
 const s3Client = new S3Client({});
 
 /**
@@ -77,7 +82,50 @@ const baseHandler = async (event: APIGatewayProxyEventV2): Promise<APIGatewayPro
       }
     }
 
-    // Step 4: Delete the opportunity itself
+    // Step 4: Delete executive briefs associated with this opportunity
+    console.log(`Finding executive briefs for opportunity: ${oppId}`);
+    let deletedBriefsCount = 0;
+    try {
+      // Query for executive briefs by projectId and filter by opportunityId
+      const briefsRes = await docClient.send(
+        new QueryCommand({
+          TableName: DB_TABLE_NAME,
+          KeyConditionExpression: '#pk = :pk AND begins_with(#sk, :skPrefix)',
+          ExpressionAttributeNames: {
+            '#pk': PK_NAME,
+            '#sk': SK_NAME,
+          },
+          ExpressionAttributeValues: {
+            ':pk': EXEC_BRIEF_PK,
+            ':skPrefix': `${projectId}#`,
+          },
+        }),
+      );
+
+      const briefsToDelete = (briefsRes.Items || []).filter(
+        (item: any) => item.opportunityId === oppId
+      );
+
+      console.log(`Found ${briefsToDelete.length} executive briefs to delete`);
+
+      for (const brief of briefsToDelete) {
+        await docClient.send(
+          new DeleteCommand({
+            TableName: DB_TABLE_NAME,
+            Key: {
+              [PK_NAME]: brief[PK_NAME],
+              [SK_NAME]: brief[SK_NAME],
+            },
+          }),
+        );
+        deletedBriefsCount++;
+      }
+      console.log(`Deleted ${deletedBriefsCount} executive briefs`);
+    } catch (briefErr) {
+      console.warn('Error deleting executive briefs (continuing):', briefErr);
+    }
+
+    // Step 5: Delete the opportunity itself
     console.log(`Deleting opportunity: ${oppId}`);
     await deleteOpportunity({
       orgId,
@@ -87,7 +135,7 @@ const baseHandler = async (event: APIGatewayProxyEventV2): Promise<APIGatewayPro
 
     return apiResponse(200, {
       ok: true,
-      message: `Opportunity ${oppId} and ${questionFiles.length} associated question files deleted`,
+      message: `Opportunity ${oppId}, ${questionFiles.length} question files, and ${deletedBriefsCount} executive briefs deleted`,
     });
   } catch (err: any) {
     console.error('Delete opportunity error:', err);

@@ -71,7 +71,7 @@ async function runSummary(job: Job): Promise<void> {
       buildSectionInputHash({
         executiveBriefId,
         section: 'summary',
-        questionFileId: brief.questionFileId,
+        opportunityId: brief.opportunityId as string,
         textKey: brief.textKey,
       });
 
@@ -147,7 +147,7 @@ async function runDeadlines(job: Job): Promise<void> {
       buildSectionInputHash({
         executiveBriefId,
         section: 'deadlines',
-        questionFileId: brief.questionFileId,
+        opportunityId: brief.opportunityId as string,
         textKey: brief.textKey,
       });
 
@@ -208,7 +208,7 @@ async function runRequirements(job: Job): Promise<void> {
       buildSectionInputHash({
         executiveBriefId,
         section: 'requirements',
-        questionFileId: brief.questionFileId,
+        opportunityId: brief.opportunityId as string,
         textKey: brief.textKey,
       });
 
@@ -283,7 +283,7 @@ async function runContacts(job: Job): Promise<void> {
       buildSectionInputHash({
         executiveBriefId,
         section: 'contacts',
-        questionFileId: brief.questionFileId,
+        opportunityId: brief.opportunityId as string,
         textKey: brief.textKey,
       });
 
@@ -341,7 +341,7 @@ async function runRisks(job: Job): Promise<void> {
       buildSectionInputHash({
         executiveBriefId,
         section: 'risks',
-        questionFileId: brief.questionFileId,
+        opportunityId: brief.opportunityId as string,
         textKey: brief.textKey,
       });
 
@@ -359,7 +359,7 @@ async function runRisks(job: Job): Promise<void> {
       system: await useRiskSystemPrompt(orgId),
       user: await useRiskUserPrompt(orgId, solicitationText),
       outputSchema: RisksSectionSchema,
-      maxTokens: 1800,
+      maxTokens: 4000,
       temperature: 0.2,
     });
 
@@ -431,13 +431,16 @@ async function runScoring(job: Job): Promise<void> {
     throw new Error(`Section data missing for scoring: ${missingData.join(', ')}`);
   }
 
+  // Get past performance data if available (optional - scoring can proceed without it)
+  const pastPerformanceData = sections?.pastPerformance?.data;
+
   try {
     const inputHash =
       inputHashFromJob ||
       buildSectionInputHash({
         executiveBriefId,
         section: 'scoring',
-        questionFileId: brief.questionFileId,
+        opportunityId: brief.opportunityId as string,
         textKey: brief.textKey,
       });
 
@@ -473,6 +476,7 @@ async function runScoring(job: Job): Promise<void> {
     const kbText = kbParts.join('\n\n');
 
     // Fix AUTO-RFP-5X: Use extracted data objects instead of full section wrappers
+    // Include past performance data for scoring (critical for bid/no-bid decision)
     const data = await invokeClaudeJson({
       modelId: BEDROCK_MODEL_ID,
       system: await useScoringSystemPrompt(orgId),
@@ -484,6 +488,7 @@ async function runScoring(job: Job): Promise<void> {
         JSON.stringify(requirementsData),
         JSON.stringify(contactsData),
         JSON.stringify(risksData),
+        pastPerformanceData ? JSON.stringify(pastPerformanceData) : undefined,
         kbText,
       ),
       outputSchema: ScoringSectionSchema,

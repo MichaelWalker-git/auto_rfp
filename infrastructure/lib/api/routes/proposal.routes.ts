@@ -5,5 +5,6 @@ export function proposalDomain(): DomainRoutes {
     { method: 'GET', path: 'get-proposals', entry: 'lambda/proposal/get-proposals.ts' },
     { method: 'GET', path: 'get-proposal', entry: 'lambda/proposal/get-proposal.ts' },
     { method: 'POST', path: 'save-proposal', entry: 'lambda/proposal/save-proposal.ts' },
+    { method: 'POST', path: 'delete-proposal', entry: 'lambda/proposal/delete-proposal.ts' },
   ]};
 }

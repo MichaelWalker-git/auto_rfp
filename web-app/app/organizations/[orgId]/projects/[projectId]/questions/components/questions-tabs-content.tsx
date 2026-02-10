@@ -104,7 +104,7 @@ export function QuestionsTabsContent({
 
   return (
     <div className="grid gap-4 md:grid-cols-3">
-      <div className="md:col-span-1">
+      <div className="md:col-span-1 max-h-[calc(100vh-200px)] overflow-y-auto">
         {filterType === 'all' && rfpDocument ? (
           <Card>
             <CardHeader className="pb-2">
@@ -134,7 +134,7 @@ export function QuestionsTabsContent({
         )}
       </div>
 
-      <div className="md:col-span-2">
+      <div className="md:col-span-2 md:sticky md:top-4 md:self-start">
         {selectedQuestion && questionData ? (
           <div className="space-y-4">
             <QuestionEditor

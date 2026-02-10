@@ -202,3 +202,53 @@ export function useProposalById(projectId?: string | null, proposalId?: string |
     refresh: mutate,
   };
 }
+
+// --------------------
+// Delete Proposal
+// --------------------
+
+export interface DeleteProposalArgs {
+  projectId: string;
+  proposalId: string;
+}
+
+export interface DeleteProposalResponse {
+  ok: boolean;
+  message?: string;
+  proposalId?: string;
+  projectId?: string;
+  error?: string;
+}
+
+export function useDeleteProposal() {
+  return useSWRMutation<DeleteProposalResponse, any, string, DeleteProposalArgs>(
+    `${BASE}/delete-proposal`,
+    async (url, { arg }) => {
+      const { projectId, proposalId } = arg;
+
+      if (!projectId || !proposalId) {
+        throw new Error('projectId and proposalId are required');
+      }
+
+      const res = await authFetcher(url, {
+        method: 'POST',
+        body: JSON.stringify({ projectId, proposalId }),
+      });
+
+      if (!res.ok) {
+        const message = await res.text().catch(() => '');
+        const error = new Error(message || 'Failed to delete proposal') as Error & {
+          status?: number;
+        };
+        error.status = res.status;
+        throw error;
+      }
+
+      const json = await res.json().catch(() => {
+        throw new Error('Invalid JSON returned from API');
+      });
+
+      return json as DeleteProposalResponse;
+    },
+  );
+}

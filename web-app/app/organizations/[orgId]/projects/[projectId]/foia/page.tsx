@@ -14,10 +14,10 @@ export default function FOIAPage({ params }: FOIAPageProps) {
   const { orgId, projectId } = use(params);
 
   return (
-    <div className="w-full max-w-4xl mx-auto space-y-6 p-6">
-      <div className="pb-8">
-        <h1 className="text-3xl font-bold tracking-tight">FOIA Requests</h1>
-        <p className="text-muted-foreground mt-2">
+    <div className="w-full space-y-6 p-6">
+      <div className="pb-4">
+        <h1 className="text-2xl font-semibold tracking-tight">FOIA Requests</h1>
+        <p className="text-muted-foreground mt-1">
           Manage Freedom of Information Act requests for evaluation documents
         </p>
       </div>

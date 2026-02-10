@@ -35,6 +35,7 @@ import { promptDomain } from './routes/prompt.routes';
 import { samgovDomain } from './routes/samgov.routes';
 import { linearRoutes } from './routes/linear-routes';
 import { briefDomain } from './routes/brief.routes';
+import { pastperfDomain } from './routes/pastperf.routes';
 
 export interface ApiOrchestratorStackProps extends cdk.StackProps {
   stage: string;
@@ -399,6 +400,16 @@ export class ApiOrchestratorStack extends cdk.Stack {
       lambdaRole: sharedInfraStack.commonLambdaRole,
       commonEnv: sharedInfraStack.commonEnv,
       domain: debriefingDomain(),
+      authorizer,
+    });
+
+    new ApiDomainRoutesStack(this, 'PastPerfRoutes', {
+      api: this.api,
+      rootResourceId: this.rootResourceId,
+      userPoolId: userPool.userPoolId,
+      lambdaRole: sharedInfraStack.commonLambdaRole,
+      commonEnv: sharedInfraStack.commonEnv,
+      domain: pastperfDomain({ execBriefQueueUrl: execBriefQueue?.queueUrl || '' }),
       authorizer,
     });
 

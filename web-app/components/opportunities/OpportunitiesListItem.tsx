@@ -1,8 +1,9 @@
 'use client';
 
 import React, { useCallback, useMemo, useState } from 'react';
+import { useParams } from 'next/navigation';
 import type { OpportunityItem } from '@auto-rfp/shared';
-import { Building2, ChevronRight, FileText, Hash, Loader2, Tag, Trash2 } from 'lucide-react';
+import { Building2, ChevronRight, FileText, Hash, Loader2, Pencil, Tag, Trash2 } from 'lucide-react';
 
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -19,11 +20,13 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { cn } from '@/lib/utils';
 import { useDeleteOpportunity } from '@/lib/hooks/use-opportunities';
 import { useCurrentOrganization } from '@/context/organization-context';
+import { EditOpportunityDialog } from './edit-opportunity-dialog';
 
 type Props = {
   item: OpportunityItem;
   onOpen?: (item: OpportunityItem) => void;
   onDeleted?: () => void;
+  onUpdated?: (item: OpportunityItem) => void;
   className?: string;
 };
 
@@ -34,16 +37,19 @@ const fmt = (iso: string | null) => {
   return d.toLocaleString();
 };
 
-export function OpportunitiesListItem({ item, onOpen, onDeleted, className }: Props) {
+export function OpportunitiesListItem({ item, onOpen, onDeleted, onUpdated, className }: Props) {
   const posted = useMemo(() => fmt(item.postedDateIso), [item.postedDateIso]);
   const due = useMemo(() => fmt(item.responseDeadlineIso), [item.responseDeadlineIso]);
   const { currentOrganization } = useCurrentOrganization();
+  const params = useParams();
 
   const { trigger: deleteOpportunity, isMutating: isDeleting } = useDeleteOpportunity();
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
 
   const oppId = item.oppId ?? item.id;
+  // Get projectId from URL params or fall back to item.projectId
+  const projectId = (params?.projectId as string) || item.projectId;
 
   const handleDeleteClick = useCallback(() => {
     setShowDeleteConfirm(true);
@@ -51,11 +57,14 @@ export function OpportunitiesListItem({ item, onOpen, onDeleted, className }: Pr
   }, []);
 
   const handleConfirmDelete = useCallback(async () => {
-    if (!oppId) return;
+    if (!oppId || !projectId) {
+      setDeleteError('Missing projectId or oppId');
+      return;
+    }
 
     try {
       await deleteOpportunity({
-        projectId: item.id,
+        projectId,
         oppId,
         orgId: currentOrganization?.id || '',
       });
@@ -64,7 +73,7 @@ export function OpportunitiesListItem({ item, onOpen, onDeleted, className }: Pr
     } catch (err: any) {
       setDeleteError(err?.message || 'Failed to delete opportunity');
     }
-  }, [oppId, item.id, deleteOpportunity, currentOrganization?.id, onDeleted]);
+  }, [oppId, projectId, deleteOpportunity, currentOrganization?.id, onDeleted]);
 
   const handleCancelDelete = useCallback(() => {
     setShowDeleteConfirm(false);
@@ -141,6 +150,20 @@ export function OpportunitiesListItem({ item, onOpen, onDeleted, className }: Pr
               Open
               <ChevronRight className="h-4 w-4"/>
             </Button>
+
+            <EditOpportunityDialog
+              item={item}
+              onUpdated={onUpdated}
+              trigger={
+                <Button
+                  size="sm"
+                  variant="outline"
+                  title="Edit opportunity"
+                >
+                  <Pencil className="h-4 w-4"/>
+                </Button>
+              }
+            />
 
             <Button
               size="sm"
