@@ -163,10 +163,35 @@ export class ApiOrchestratorStack extends cdk.Stack {
       }),
     );
 
+    // Build execution ARNs using CDK's Arn utility
+    const docPipelineExecutionArn = cdk.Arn.format({
+      service: 'states',
+      resource: 'execution',
+      resourceName: `AutoRfp-${stage}-DocumentPipeline:*`,
+      arnFormat: cdk.ArnFormat.COLON_RESOURCE_NAME,
+    }, this);
+
+    const questionPipelineExecutionArn = cdk.Arn.format({
+      service: 'states',
+      resource: 'execution',
+      resourceName: `AutoRfp-${stage}-Question-Pipeline:*`,
+      arnFormat: cdk.ArnFormat.COLON_RESOURCE_NAME,
+    }, this);
+
     sharedInfraStack.commonLambdaRole.addToPrincipalPolicy(
       new iam.PolicyStatement({
-        actions: ['states:StartExecution'],
-        resources: [documentPipelineStateMachineArn, questionPipelineStateMachineArn],
+        sid: 'StepFunctionsExecutionControl2', 
+        actions: [
+          'states:StartExecution',
+          'states:StopExecution',
+          'states:DescribeExecution',
+        ],
+        resources: [
+          documentPipelineStateMachineArn,
+          questionPipelineStateMachineArn,
+          docPipelineExecutionArn,
+          questionPipelineExecutionArn,
+        ],
       }),
     );
 
