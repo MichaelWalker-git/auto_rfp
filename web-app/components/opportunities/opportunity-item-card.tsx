@@ -1,8 +1,9 @@
 'use client';
 
 import React, { useCallback, useState } from 'react';
+import { useParams } from 'next/navigation';
 import type { OpportunityItem } from '@auto-rfp/shared';
-import { Building2, FileText, Hash, Loader2, Tag, Trash2 } from 'lucide-react';
+import { Building2, FileText, Hash, Loader2, Pencil, Tag, Trash2 } from 'lucide-react';
 
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -18,6 +19,7 @@ import {
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useDeleteOpportunity } from '@/lib/hooks/use-opportunities';
 import { useCurrentOrganization } from '@/context/organization-context';
+import { EditOpportunityDialog } from './edit-opportunity-dialog';
 
 export type OpportunityItemCardVariant = 'full' | 'compact';
 
@@ -25,11 +27,13 @@ export interface OpportunityItemCardProps {
   item: OpportunityItem;
   onOpen?: (item: OpportunityItem) => void;
   onDeleted?: () => void;
+  onUpdated?: (item: OpportunityItem) => void;
   variant?: OpportunityItemCardVariant;
   className?: string;
   showDescription?: boolean;
   showIds?: boolean;
   showDeleteButton?: boolean;
+  showEditButton?: boolean;
 }
 
 function MetaRow({
@@ -56,19 +60,24 @@ export function OpportunityItemCard({
                                       item,
                                       onOpen,
                                       onDeleted,
+                                      onUpdated,
                                       variant = 'full',
                                       className,
                                       showDescription = true,
                                       showIds = true,
                                       showDeleteButton = true,
+                                      showEditButton = true,
                                     }: OpportunityItemCardProps) {
   const { currentOrganization } = useCurrentOrganization();
+  const params = useParams();
 
   const { trigger: deleteOpportunity, isMutating: isDeleting } = useDeleteOpportunity();
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
 
   const oppId = item.oppId ?? item.id;
+  // Get projectId from URL params or fall back to item.projectId
+  const projectId = (params?.projectId as string) || item.projectId;
   const isCompact = variant === 'compact';
 
   const handleDeleteClick = useCallback(() => {
@@ -77,11 +86,14 @@ export function OpportunityItemCard({
   }, []);
 
   const handleConfirmDelete = useCallback(async () => {
-    if (!oppId) return;
+    if (!oppId || !projectId) {
+      setDeleteError('Missing projectId or oppId');
+      return;
+    }
 
     try {
       await deleteOpportunity({
-        projectId: item.id,
+        projectId,
         oppId,
         orgId: currentOrganization?.id || '',
       });
@@ -90,7 +102,7 @@ export function OpportunityItemCard({
     } catch (err: any) {
       setDeleteError(err?.message || 'Failed to delete opportunity');
     }
-  }, [oppId, item.id, deleteOpportunity, currentOrganization?.id, onDeleted]);
+  }, [oppId, projectId, deleteOpportunity, currentOrganization?.id, onDeleted]);
 
   const handleCancelDelete = useCallback(() => {
     setShowDeleteConfirm(false);
@@ -156,26 +168,44 @@ export function OpportunityItemCard({
               </div>
             </div>
 
-            {/* Delete Button */}
-            {showDeleteButton && (
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  handleDeleteClick();
-                }}
-                disabled={isDeleting}
-                className="text-destructive hover:text-destructive shrink-0"
-                title="Delete opportunity"
-              >
-                {isDeleting ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <Trash2 className="h-4 w-4" />
-                )}
-              </Button>
-            )}
+            {/* Action Buttons */}
+            <div className="flex items-center gap-2 shrink-0">
+              {showEditButton && (
+                <EditOpportunityDialog
+                  item={item}
+                  onUpdated={onUpdated}
+                  trigger={
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={(e) => e.stopPropagation()}
+                      title="Edit opportunity"
+                    >
+                      <Pencil className="h-4 w-4" />
+                    </Button>
+                  }
+                />
+              )}
+              {showDeleteButton && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleDeleteClick();
+                  }}
+                  disabled={isDeleting}
+                  className="text-destructive hover:text-destructive"
+                  title="Delete opportunity"
+                >
+                  {isDeleting ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Trash2 className="h-4 w-4" />
+                  )}
+                </Button>
+              )}
+            </div>
           </div>
 
           {/* IDs Row - Only show in full variant and when enabled */}

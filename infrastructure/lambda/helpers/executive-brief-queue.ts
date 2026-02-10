@@ -11,8 +11,6 @@ import {
   markSectionInProgress,
 } from './executive-opportunity-brief';
 
-import type { ExecutiveBriefItem } from '@auto-rfp/shared';
-
 const sqs = new SQSClient({});
 const EXEC_BRIEF_QUEUE_URL = requireEnv('EXEC_BRIEF_QUEUE_URL');
 
@@ -39,12 +37,12 @@ export async function enqueueExecutiveBriefSection(
   const { executiveBriefId } = ExecutiveBriefJobRequestSchema.parse(JSON.parse(event.body || ''));
 
   try {
-    const brief: ExecutiveBriefItem = await getExecutiveBrief(executiveBriefId);
+    const brief = await getExecutiveBrief(executiveBriefId);
 
     const inputHash = buildSectionInputHash({
       executiveBriefId,
       section,
-      questionFileId: brief.questionFileId,
+      opportunityId: brief.opportunityId as string,
       textKey: brief.textKey,
     });
 

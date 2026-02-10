@@ -27,6 +27,7 @@ export type BriefSectionName =
   | 'requirements'
   | 'contacts'
   | 'risks'
+  | 'pastPerformance'
   | 'scoring';
 
 export function sha256(input: string) {
@@ -124,14 +125,22 @@ export function safeJsonParse<T>(text: string, schema: SchemaLike<T>): T {
 }
 
 /**
- * Finds latest QuestionFile for project by createdAt.
+ * Finds latest QuestionFile for project (and optionally opportunity) by createdAt.
  * NOTE: This works only if you can query items for projectId efficiently.
  * Because your SK begins with `${projectId}#`, this Query uses begins_with on SK
  * (still partitioned by QUESTION_FILE_PK).
+ * 
+ * @param projectId - The project ID
+ * @param opportunityId - Optional opportunity ID to filter by
  */
-export async function loadLatestQuestionFile(projectId: string): Promise<QuestionFileItem> {
+export async function loadLatestQuestionFile(projectId: string, opportunityId?: string): Promise<QuestionFileItem> {
   const items: any[] = [];
   let ExclusiveStartKey: Record<string, any> | undefined;
+
+  // Build SK prefix based on whether opportunityId is provided
+  const skPrefix = opportunityId 
+    ? `${projectId}#${opportunityId}#`  // Filter by project AND opportunity
+    : `${projectId}#`;                   // Filter by project only
 
   do {
     const res = await docClient.send(
@@ -144,7 +153,7 @@ export async function loadLatestQuestionFile(projectId: string): Promise<Questio
         },
         ExpressionAttributeValues: {
           ':pk': QUESTION_FILE_PK,
-          ':skPrefix': `${projectId}#`,
+          ':skPrefix': skPrefix,
         },
         ExclusiveStartKey,
       }),
@@ -155,7 +164,10 @@ export async function loadLatestQuestionFile(projectId: string): Promise<Questio
   } while (ExclusiveStartKey);
 
   if (!items.length) {
-    throw new Error(`No QuestionFiles found for projectId=${projectId}`);
+    const context = opportunityId 
+      ? `projectId=${projectId}, opportunityId=${opportunityId}` 
+      : `projectId=${projectId}`;
+    throw new Error(`No QuestionFiles found for ${context}`);
   }
 
   return items.sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1))[0];
@@ -170,7 +182,12 @@ export async function getExecutiveBrief(sk: string): Promise<ExecutiveBriefItem>
   return item;
 }
 
-export async function getExecutiveBriefByProjectId(projectId: string): Promise<ExecutiveBriefItem> {
+/**
+ * Get executive brief by project ID (and optionally opportunity ID).
+ * If opportunityId is provided, returns the brief for that specific opportunity.
+ * Otherwise, returns the latest brief for the project.
+ */
+export async function getExecutiveBriefByProjectId(projectId: string, opportunityId?: string): Promise<ExecutiveBriefItem> {
   const res = await docClient.send(
     new QueryCommand({
       TableName: DB_TABLE_NAME,
@@ -183,16 +200,54 @@ export async function getExecutiveBriefByProjectId(projectId: string): Promise<E
         ':pk': EXEC_BRIEF_PK,
         ':skPrefix': `${projectId}#`,
       },
-      ScanIndexForward: false,
-      Limit: 1,
+      ScanIndexForward: false, // Get most recent first
     }),
   );
+  
   // Fix AUTO-RFP-63: Better error message when brief not found
   if (!res.Items || res.Items.length === 0) {
-    throw new Error(`ExecutiveBrief not found for projectId=${projectId}. Ensure the brief has been initialized.`);
+    const context = opportunityId 
+      ? `projectId=${projectId}, opportunityId=${opportunityId}` 
+      : `projectId=${projectId}`;
+    throw new Error(`ExecutiveBrief not found for ${context}. Ensure the brief has been initialized.`);
   }
 
+  // If opportunityId provided, filter to find the matching brief
+  if (opportunityId) {
+    const matchingBrief = res.Items.find((item: any) => item.opportunityId === opportunityId);
+    if (matchingBrief) {
+      return matchingBrief as ExecutiveBriefItem;
+    }
+    // If no matching brief found for this opportunity, throw error
+    throw new Error(`ExecutiveBrief not found for projectId=${projectId}, opportunityId=${opportunityId}. Ensure the brief has been initialized for this opportunity.`);
+  }
+
+  // Return the most recent brief (first item due to ScanIndexForward: false)
   return res.Items[0] as ExecutiveBriefItem;
+}
+
+/**
+ * Get all executive briefs for a project.
+ * Returns briefs sorted by createdAt descending (most recent first).
+ */
+export async function getExecutiveBriefsByProjectId(projectId: string): Promise<ExecutiveBriefItem[]> {
+  const res = await docClient.send(
+    new QueryCommand({
+      TableName: DB_TABLE_NAME,
+      KeyConditionExpression: '#pk = :pk AND begins_with(#sk, :skPrefix)',
+      ExpressionAttributeNames: {
+        '#pk': PK_NAME,
+        '#sk': SK_NAME,
+      },
+      ExpressionAttributeValues: {
+        ':pk': EXEC_BRIEF_PK,
+        ':skPrefix': `${projectId}#`,
+      },
+      ScanIndexForward: false, // Get most recent first
+    }),
+  );
+  
+  return (res.Items || []) as ExecutiveBriefItem[];
 }
 
 export async function putExecutiveBrief(item: ExecutiveBriefItem): Promise<void> {
@@ -207,6 +262,37 @@ export async function putExecutiveBrief(item: ExecutiveBriefItem): Promise<void>
 }
 
 /**
+ * Ensure a section exists in the brief (for backwards compatibility with existing briefs).
+ */
+async function ensureSectionExists(executiveBriefId: string, section: BriefSectionName): Promise<void> {
+  const now = nowIso();
+  const emptySection = { status: 'IDLE' as const, updatedAt: now };
+  
+  try {
+    await docClient.send(
+      new UpdateCommand({
+        TableName: DB_TABLE_NAME,
+        Key: {
+          [PK_NAME]: EXEC_BRIEF_PK,
+          [SK_NAME]: executiveBriefId,
+        },
+        UpdateExpression: 'SET #sections.#sec = if_not_exists(#sections.#sec, :emptySection)',
+        ExpressionAttributeNames: {
+          '#sections': 'sections',
+          '#sec': section,
+        },
+        ExpressionAttributeValues: {
+          ':emptySection': emptySection,
+        },
+      }),
+    );
+  } catch (err: any) {
+    // Ignore errors - the section might already exist
+    console.log(`ensureSectionExists for ${section}: ${err?.message || 'ok'}`);
+  }
+}
+
+/**
  * Mark a section as in-progress.
  * Uses distinct attribute name prefixes to avoid DynamoDB path conflicts.
  */
@@ -217,6 +303,9 @@ export async function markSectionInProgress(args: {
 }): Promise<void> {
   const { executiveBriefId, section, inputHash } = args;
   const now = nowIso();
+
+  // Ensure section exists for backwards compatibility
+  await ensureSectionExists(executiveBriefId, section);
 
   // Use distinct prefixes for section-level attributes
   const names: Record<string, string> = {
@@ -501,38 +590,93 @@ export async function invokeClaudeJson<S extends SchemaLike<any>>(args: {
 
 export async function loadSolicitationForBrief(brief: ExecutiveBriefItem): Promise<{ solicitationText: string; }> {
   const bucket = brief.documentsBucket || DOCUMENTS_BUCKET;
-  const textKey = brief.textKey;
+  const allTextKeys = (brief as any).allTextKeys as string[] | undefined;
+  const primaryTextKey = brief.textKey;
 
-  if (!textKey) {
-    throw new Error(`Solicitation textKey is missing for brief projectId=${brief.projectId}`);
+  // Collect all text keys to load
+  const textKeysToLoad: string[] = [];
+  
+  if (allTextKeys && allTextKeys.length > 0) {
+    // Use all text keys if available
+    textKeysToLoad.push(...allTextKeys.filter(Boolean));
+  } else if (primaryTextKey) {
+    // Fall back to primary text key
+    textKeysToLoad.push(primaryTextKey);
   }
 
-  const solicitationText = await loadTextFromS3(bucket, textKey);
+  if (textKeysToLoad.length === 0) {
+    throw new Error(`No text keys found for brief projectId=${brief.projectId}, opportunityId=${brief.opportunityId}`);
+  }
 
-  // Fix AUTO-RFP-5S: Better error message with context
-  if (!solicitationText || solicitationText.trim().length < 20) {
-    const actualLength = solicitationText?.trim().length ?? 0;
+  // Load all text files in parallel
+  const textPromises = textKeysToLoad.map(async (textKey) => {
+    try {
+      const text = await loadTextFromS3(bucket, textKey);
+      return { textKey, text, success: true };
+    } catch (err) {
+      console.warn(`Failed to load text from ${textKey}:`, err);
+      return { textKey, text: '', success: false };
+    }
+  });
+
+  const results = await Promise.all(textPromises);
+  
+  // Filter successful loads and merge texts
+  const successfulTexts: string[] = results
+    .filter((r): r is { textKey: string; text: string; success: true } => 
+      r.success && typeof r.text === 'string' && r.text.trim().length > 0
+    )
+    .map(r => r.text);
+
+  if (successfulTexts.length === 0) {
+    const failedKeys = results.filter(r => !r.success).map(r => r.textKey);
     throw new Error(
-      `Solicitation text is empty or too short (${actualLength} chars). ` +
-      `textKey=${textKey}, bucket=${bucket}, projectId=${brief.projectId}`
+      `Failed to load any solicitation text. ` +
+      `Attempted keys: ${textKeysToLoad.join(', ')}. ` +
+      `Failed keys: ${failedKeys.join(', ')}. ` +
+      `bucket=${bucket}, projectId=${brief.projectId}, opportunityId=${brief.opportunityId}`
     );
   }
+
+  // Merge all texts with separators
+  let solicitationText: string;
+  if (successfulTexts.length === 1) {
+    solicitationText = successfulTexts[0] || 'Empty solicitation';
+  } else {
+    solicitationText = successfulTexts.map((text, i) => {
+      const header = `\n\n=== DOCUMENT ${i + 1} of ${successfulTexts.length} ===\n\n`;
+      return header + text;
+    }).join('');
+  }
+
+  // Validate merged text
+  const trimmedLength = solicitationText.trim().length;
+  if (trimmedLength < 20) {
+    throw new Error(
+      `Merged solicitation text is too short (${trimmedLength} chars). ` +
+      `Loaded ${successfulTexts.length} document(s) from ${textKeysToLoad.length} key(s). ` +
+      `bucket=${bucket}, projectId=${brief.projectId}, opportunityId=${brief.opportunityId}`
+    );
+  }
+
+  console.log(`Loaded solicitation text: ${successfulTexts.length} document(s), ${solicitationText.length} total chars`);
 
   return { solicitationText };
 }
 
 /**
  * Build a stable idempotency hash per section.
- * Use questionFileId + textKey + sectionName to detect reruns.
+ * Use opportunityId + textKey + sectionName to detect reruns.
+ * NOTE: questionFileId removed - we now use opportunityId since question files are retrieved by opportunityId
  */
 export function buildSectionInputHash(args: {
   executiveBriefId: string;
   section: BriefSectionName;
-  questionFileId: string;
-  textKey: string;
+  opportunityId: string;
+  textKey?: string | null;
 }): string {
-  const { executiveBriefId, section, questionFileId, textKey } = args;
-  return sha256(`${executiveBriefId}:${section}:${questionFileId}:${textKey}`);
+  const { executiveBriefId, section, opportunityId, textKey } = args;
+  return sha256(`${executiveBriefId}:${section}:${opportunityId}:${textKey || ''}`);
 }
 
 export const executiveBriefSK = (projectId: string, briefId: string) => {

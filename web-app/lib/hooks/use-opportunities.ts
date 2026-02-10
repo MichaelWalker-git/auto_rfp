@@ -313,3 +313,33 @@ export function useDeleteOpportunity() {
     },
   );
 }
+
+export type UpdateOpportunityResponse = {
+  ok: true;
+  oppId: string;
+  item: OpportunityItem;
+};
+
+export type UpdateOpportunityRequest = {
+  projectId: string;
+  oppId: string;
+  patch: Partial<OpportunityItem>;
+};
+
+export function useUpdateOpportunity(orgId?: string) {
+  const baseUrl = `${BASE_URL}/update-opportunity`;
+  const url = orgId ? `${baseUrl}?orgId=${encodeURIComponent(orgId)}` : baseUrl;
+
+  return useSWRMutation<UpdateOpportunityResponse, ErrorShape, string, UpdateOpportunityRequest>(
+    url,
+    async (url: string, { arg }: { arg: UpdateOpportunityRequest }) => {
+      const res = await authFetcher(url, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(arg),
+      });
+
+      return readAuthJson<UpdateOpportunityResponse>(res, 'Failed to update opportunity');
+    },
+  );
+}

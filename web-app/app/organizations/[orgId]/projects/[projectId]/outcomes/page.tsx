@@ -14,10 +14,10 @@ export default function OutcomesPage({ params }: OutcomesPageProps) {
   const { orgId, projectId } = use(params);
 
   return (
-    <div className="w-full max-w-4xl mx-auto space-y-6 p-6">
-      <div className="pb-8">
-        <h1 className="text-3xl font-bold tracking-tight">Project Outcomes</h1>
-        <p className="text-muted-foreground mt-2">
+    <div className="w-full space-y-6 p-6">
+      <div className="pb-4">
+        <h1 className="text-2xl font-semibold tracking-tight">Project Outcomes</h1>
+        <p className="text-muted-foreground mt-1">
           Track and manage the outcome of your proposal submissions
         </p>
       </div>

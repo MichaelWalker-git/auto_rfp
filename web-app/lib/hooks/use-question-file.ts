@@ -124,10 +124,10 @@ type Response = {
 
 export function useQuestionFiles(
   projectId: string | null,
-  opts?: { oppId?: string | null; limit?: number },
+  opts?: { oppId?: string | null; limit?: number; refreshInterval?: number },
 ) {
   const shouldFetch = !!projectId;
-  const { oppId, limit } = opts ?? {};
+  const { oppId, limit, refreshInterval } = opts ?? {};
 
   const url = shouldFetch
     ? `${BASE}/get-question-files?` +
@@ -148,7 +148,11 @@ export function useQuestionFiles(
       }
       return (await res.json()) as Response;
     },
-    { revalidateOnFocus: false },
+    { 
+      revalidateOnFocus: false,
+      dedupingInterval: 5_000, // Reduced from default for faster updates
+      refreshInterval, // Optional polling for extraction progress
+    },
   );
 
   return {

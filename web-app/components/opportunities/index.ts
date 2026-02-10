@@ -4,3 +4,6 @@ export { DescriptionDialog } from './description-dialog';
 export { PaginationControls } from './pagination-controls';
 export { EmptyState } from './empty-state';
 export { LoadingState } from './loading-state';
+export { EditOpportunityDialog } from './edit-opportunity-dialog';
+export { OpportunityItemCard } from './opportunity-item-card';
+export { OpportunitiesListItem } from './OpportunitiesListItem';

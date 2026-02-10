@@ -1,6 +1,6 @@
 import React from 'react';
 
-export type SectionKey = 'summary' | 'deadlines' | 'contacts' | 'requirements' | 'risks' | 'scoring';
+export type SectionKey = 'summary' | 'deadlines' | 'contacts' | 'requirements' | 'risks' | 'pastPerformance' | 'scoring';
 export type SectionStatus = 'PENDING' | 'IN_PROGRESS' | 'COMPLETE' | 'FAILED' | undefined;
 
 export const SECTION_ORDER: SectionKey[] = [
@@ -9,13 +9,14 @@ export const SECTION_ORDER: SectionKey[] = [
   'contacts',
   'requirements',
   'risks',
+  'pastPerformance',
   'scoring',
 ];
 
 export type Props = {
   projectId: string;
-  orgId: string;
-  questionFileId: string;
+  orgId?: string;
+  questionFileId?: string;
 };
 
 export type TooltipInfo = {
