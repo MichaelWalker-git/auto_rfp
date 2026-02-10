@@ -1,13 +1,11 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useCallback, useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { UserPlus } from 'lucide-react';
 import { Input } from '@/components/ui/input';
-import { useToast } from '@/components/ui/use-toast';
+import { Label } from '@/components/ui/label';
 import {
   Dialog,
-  DialogClose,
   DialogContent,
   DialogDescription,
   DialogFooter,
@@ -15,12 +13,20 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog';
-import { Label } from '@/components/ui/label';
-import { UserRole, UserRoleSchema } from '@auto-rfp/shared';
-
-import type { TeamMember } from './types';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { Plus } from 'lucide-react';
+import { useToast } from '@/components/ui/use-toast';
+import { UserRoleSchema, type UserRole } from '@auto-rfp/shared';
 import { createUserApi } from '@/lib/hooks/use-user';
-import PermissionWrapper from '@/components/permission-wrapper';
+import type { TeamMember } from './types';
+
+const ROLE_OPTIONS = UserRoleSchema.options;
 
 interface InviteMemberDialogProps {
   orgId: string;
@@ -28,127 +34,133 @@ interface InviteMemberDialogProps {
 }
 
 export function InviteMemberDialog({ orgId, onMemberAdded }: InviteMemberDialogProps) {
-  const [open, setOpen] = useState(false);
-
-  const [inviteEmail, setInviteEmail] = useState('');
-  const [inviteRole, setInviteRole] = useState<UserRole>('VIEWER');
-  const [isInviting, setIsInviting] = useState(false);
-
   const { toast } = useToast();
 
-  const handleInviteMember = async (event: React.FormEvent) => {
-    event.preventDefault();
+  const [open, setOpen] = useState(false);
+  const [email, setEmail] = useState('');
+  const [firstName, setFirstName] = useState('');
+  const [lastName, setLastName] = useState('');
+  const [role, setRole] = useState<UserRole>('VIEWER');
+  const [busy, setBusy] = useState(false);
 
-    const email = inviteEmail.trim();
-    if (!email) {
-      toast({ title: 'Error', description: 'Email is required', variant: 'destructive' });
-      return;
-    }
+  const resetForm = () => {
+    setEmail('');
+    setFirstName('');
+    setLastName('');
+    setRole('VIEWER');
+  };
 
+  const handleInvite = useCallback(async () => {
+    if (!email.trim()) return;
+    setBusy(true);
     try {
-      setIsInviting(true);
-
-      const created = await createUserApi({
+      const res = await createUserApi({
         orgId,
-        email,
-        role: inviteRole,
-        status: 'INVITED', // optional; your create lambda defaults to ACTIVE if omitted
+        email: email.trim(),
+        firstName: firstName.trim() || undefined,
+        lastName: lastName.trim() || undefined,
+        role,
       });
 
+      const name =
+        res.displayName ||
+        [res.firstName, res.lastName].filter(Boolean).join(' ') ||
+        res.email;
+
       const newMember: TeamMember = {
-        id: created.userId,
-        name:
-          created.displayName ||
-          [created.firstName, created.lastName].filter(Boolean).join(' ') ||
-          created.email.split('@')[0],
-        email: created.email,
-        role: inviteRole,
-        joinedAt: created.createdAt,
-        avatarUrl: undefined,
+        id: res.userId,
+        name,
+        email: res.email,
+        firstName: res.firstName,
+        lastName: res.lastName,
+        role: res.role,
+        joinedAt: res.createdAt,
       };
 
       onMemberAdded(newMember);
-
-      toast({
-        title: 'Success',
-        description: `User created: ${created.email}`,
-      });
-
-      setInviteEmail('');
-      setInviteRole('VIEWER');
+      toast({ title: 'User created' });
+      resetForm();
       setOpen(false);
-    } catch (error) {
-      console.error('Error creating user:', error);
+    } catch (e: any) {
       toast({
         title: 'Error',
-        description: error instanceof Error ? error.message : 'Failed to create user',
+        description: e?.message ?? 'Failed to create user',
         variant: 'destructive',
       });
     } finally {
-      setIsInviting(false);
+      setBusy(false);
     }
-  };
+  }, [orgId, email, firstName, lastName, role, onMemberAdded, toast]);
 
   return (
-    <PermissionWrapper requiredPermission={'user:create'}>
-      <Dialog open={open} onOpenChange={setOpen}>
-        <DialogTrigger asChild>
-          <Button>
-            <UserPlus className="mr-2 h-4 w-4"/>
-            Create User
-          </Button>
-        </DialogTrigger>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Invite Team Member</DialogTitle>
-            <DialogDescription>Create a user in your organization.</DialogDescription>
-          </DialogHeader>
-
-          <form onSubmit={handleInviteMember}>
-            <div className="grid gap-4 py-4">
-              <div className="grid gap-2">
-                <Label htmlFor="email">Email address</Label>
-                <Input
-                  id="email"
-                  type="email"
-                  value={inviteEmail}
-                  onChange={(e) => setInviteEmail(e.target.value)}
-                  placeholder="Enter email address"
-                  autoComplete="email"
-                  required
-                />
-              </div>
-
-              <div className="grid gap-2">
-                <Label htmlFor="role">Role</Label>
-                <select
-                  id="role"
-                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                  value={inviteRole}
-                  onChange={(e) => setInviteRole(e.target.value as UserRole)}
-                >
-                  {UserRoleSchema.options.map((r) => (
-                    <option key={r} value={r}>
-                      {r[0] + r.slice(1).toLowerCase()}
-                    </option>
-                  ))}
-                </select>
-              </div>
+    <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (!v) resetForm(); }}>
+      <DialogTrigger asChild>
+        <Button>
+          <Plus className="mr-2 h-4 w-4" />
+          Create User
+        </Button>
+      </DialogTrigger>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Create User</DialogTitle>
+          <DialogDescription>Create a new team member.</DialogDescription>
+        </DialogHeader>
+        <div className="grid gap-4 py-4">
+          <div className="grid gap-2">
+            <Label htmlFor="inv-email">Email</Label>
+            <Input
+              id="inv-email"
+              type="email"
+              placeholder="user@example.com"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+            />
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div className="grid gap-2">
+              <Label htmlFor="inv-firstName">First Name</Label>
+              <Input
+                id="inv-firstName"
+                placeholder="John"
+                value={firstName}
+                onChange={(e) => setFirstName(e.target.value)}
+              />
             </div>
-
-            <DialogFooter>
-              <DialogClose asChild>
-                <Button type="button" variant="outline">
-                  Cancel
-                </Button>
-              </DialogClose>
-              <Button type="submit" disabled={isInviting}>
-                {isInviting ? 'Creating...' : 'Create User'}
-              </Button>
-            </DialogFooter>
-          </form>
-        </DialogContent>
-      </Dialog>
-    </PermissionWrapper>
+            <div className="grid gap-2">
+              <Label htmlFor="inv-lastName">Last Name</Label>
+              <Input
+                id="inv-lastName"
+                placeholder="Doe"
+                value={lastName}
+                onChange={(e) => setLastName(e.target.value)}
+              />
+            </div>
+          </div>
+          <div className="grid gap-2">
+            <Label>Role</Label>
+            <Select value={role} onValueChange={(v) => setRole(v as UserRole)}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {ROLE_OPTIONS.map((r) => (
+                  <SelectItem key={r} value={r}>
+                    {r}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => setOpen(false)}>
+            Cancel
+          </Button>
+          <Button onClick={handleInvite} disabled={busy || !email.trim()}>
+            {busy ? 'Creating…' : 'Create User'}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }

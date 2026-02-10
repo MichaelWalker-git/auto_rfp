@@ -69,6 +69,28 @@ export type EditUserRolesInput = {
   role: UserRole;
 };
 
+export type EditUserInput = {
+  orgId: string;
+  userId: string;
+  firstName?: string;
+  lastName?: string;
+  displayName?: string;
+  phone?: string;
+  role?: UserRole;
+  status?: 'ACTIVE' | 'INACTIVE' | 'INVITED' | 'SUSPENDED';
+};
+
+export type EditUserResponse = {
+  ok: boolean;
+  orgId: string;
+  userId: string;
+  user: UserListItem;
+  cognito?: {
+    username: string | null;
+    updated: boolean;
+  };
+};
+
 export type EditUserRolesResponse = CreateUserResponse & {
   cognito?: {
     username: string | null;
@@ -161,14 +183,29 @@ export async function createUserApi(input: CreateUserInput): Promise<CreateUserR
 }
 
 /**
- * POST /user/edit-user
- * Body: EditUserRolesInput
- *
- * For now, only roles change is available.
+ * PATCH /user/edit-user
+ * Body: EditUserRolesInput (legacy – role only)
  */
 export async function editUserRolesApi(
   input: EditUserRolesInput,
 ): Promise<EditUserRolesResponse> {
+  const res = await authFetcher(`${baseUrl}/edit-user`, {
+    method: 'PATCH',
+    cache: 'no-store',
+    body: JSON.stringify(input),
+  });
+
+  await assertOk(res);
+  return res.json();
+}
+
+/**
+ * PATCH /user/edit-user
+ * Body: EditUserInput (full – name, phone, role, status)
+ */
+export async function editUserApi(
+  input: EditUserInput,
+): Promise<EditUserResponse> {
   const res = await authFetcher(`${baseUrl}/edit-user`, {
     method: 'PATCH',
     cache: 'no-store',

@@ -3,6 +3,9 @@
 import React from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { ArrowUpDown } from 'lucide-react';
+import type { ConfidenceBand } from '@auto-rfp/shared';
 
 import { useQuestions } from './questions-provider';
 import { QuestionsTabsContent } from './questions-tabs-content';
@@ -23,6 +26,12 @@ export function QuestionsFilterTabs({ rfpDocument, orgId }: QuestionsFilterTabsP
     getSelectedQuestionData,
     getFilteredQuestions,
     getCounts,
+    getConfidenceCounts,
+
+    confidenceFilter,
+    setConfidenceFilter,
+    sortByConfidence,
+    setSortByConfidence,
 
     answers,
     unsavedQuestions,
@@ -43,6 +52,14 @@ export function QuestionsFilterTabs({ rfpDocument, orgId }: QuestionsFilterTabsP
 
   const questionData = getSelectedQuestionData();
   const counts = getCounts();
+  const confidenceCounts = getConfidenceCounts();
+
+  const confidenceBands: { value: ConfidenceBand | 'all'; label: string; emoji: string; count?: number }[] = [
+    { value: 'all', label: 'All', emoji: '', count: undefined },
+    { value: 'high', label: 'High', emoji: '🟢', count: confidenceCounts.high },
+    { value: 'medium', label: 'Medium', emoji: '🟡', count: confidenceCounts.medium },
+    { value: 'low', label: 'Low', emoji: '🔴', count: confidenceCounts.low },
+  ];
 
   return (
     <Tabs defaultValue="all" value={activeTab} onValueChange={setActiveTab}>
@@ -68,6 +85,40 @@ export function QuestionsFilterTabs({ rfpDocument, orgId }: QuestionsFilterTabsP
           </Badge>
         </TabsTrigger>
       </TabsList>
+
+      {/* Confidence Filter & Sort Controls */}
+      {counts.answered > 0 && (
+        <div className="flex items-center gap-2 mb-4 flex-wrap">
+          <span className="text-xs text-muted-foreground font-medium">Confidence:</span>
+          {confidenceBands.map((band) => (
+            <Button
+              key={band.value}
+              variant={confidenceFilter === band.value ? 'default' : 'outline'}
+              size="sm"
+              className="h-7 text-xs gap-1"
+              onClick={() => setConfidenceFilter(band.value)}
+            >
+              {band.emoji} {band.label}
+              {band.count !== undefined && (
+                <Badge variant="secondary" className="ml-0.5 h-4 text-[10px] px-1">
+                  {band.count}
+                </Badge>
+              )}
+            </Button>
+          ))}
+          <div className="ml-auto">
+            <Button
+              variant={sortByConfidence ? 'default' : 'outline'}
+              size="sm"
+              className="h-7 text-xs gap-1"
+              onClick={() => setSortByConfidence(!sortByConfidence)}
+            >
+              <ArrowUpDown className="h-3 w-3" />
+              {sortByConfidence ? 'Sorted by confidence' : 'Sort by confidence'}
+            </Button>
+          </div>
+        </div>
+      )}
 
       {['all', 'answered', 'unanswered'].map((filterType) => (
         <TabsContent key={filterType} value={filterType} className="space-y-4">

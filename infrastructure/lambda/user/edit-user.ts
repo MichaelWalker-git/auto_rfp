@@ -1,157 +1,152 @@
 import type { APIGatewayProxyEventV2, APIGatewayProxyResultV2 } from 'aws-lambda';
-import { GetCommand, UpdateCommand, } from '@aws-sdk/lib-dynamodb';
+import { GetCommand, UpdateCommand } from '@aws-sdk/lib-dynamodb';
 import { CognitoIdentityProviderClient } from '@aws-sdk/client-cognito-identity-provider';
 
 import { apiResponse } from '../helpers/api';
 import { withSentryLambda } from '../sentry-lambda';
-
 import { PK_NAME, SK_NAME } from '../constants/common';
 import { USER_PK } from '../constants/user';
 import { adminUpdateUserAttributes } from '../helpers/cognito';
 import { userSk } from '../helpers/user';
 import { requireEnv } from '../helpers/env';
 import { docClient } from '../helpers/db';
-import { EditUserRoleRequestSchema } from '@auto-rfp/shared';
+import { EditUserRequestSchema } from '@auto-rfp/shared';
 import {
   authContextMiddleware,
   httpErrorMiddleware,
   orgMembershipMiddleware,
-  requirePermission
+  requirePermission,
 } from '../middleware/rbac-middleware';
 import middy from '@middy/core';
 
 const DB_TABLE_NAME = requireEnv('DB_TABLE_NAME');
 const USER_POOL_ID = requireEnv('COGNITO_USER_POOL_ID');
-
 const cognito = new CognitoIdentityProviderClient({});
 
-function parseJsonBody(event: APIGatewayProxyEventV2): unknown {
-  if (!event.body) return null;
-  try {
-    return JSON.parse(event.body);
-  } catch {
-    return '__INVALID_JSON__';
-  }
-}
-
-function getCognitoUsernameFromUserItem(userItem: Record<string, any>): string | undefined {
-  const fromItem =
-    (typeof userItem.cognitoUsername === 'string' && userItem.cognitoUsername.trim()) ||
-    (typeof userItem.emailLower === 'string' && userItem.emailLower.trim()) ||
-    (typeof userItem.email === 'string' && String(userItem.email).toLowerCase().trim()) ||
-    undefined;
-
-  return fromItem || undefined;
+function getCognitoUsername(item: Record<string, any>): string | undefined {
+  return (
+    (typeof item.cognitoUsername === 'string' && item.cognitoUsername.trim()) ||
+    (typeof item.emailLower === 'string' && item.emailLower.trim()) ||
+    (typeof item.email === 'string' && String(item.email).toLowerCase().trim()) ||
+    undefined
+  ) || undefined;
 }
 
 export const baseHandler = async (
   event: APIGatewayProxyEventV2,
 ): Promise<APIGatewayProxyResultV2> => {
   try {
-    const raw = parseJsonBody(event);
-    if (raw === '__INVALID_JSON__') {
-      return apiResponse(400, { message: 'Invalid JSON in request body' });
-    }
+    if (!event.body) return apiResponse(400, { message: 'Missing request body' });
 
-    const parsed = EditUserRoleRequestSchema.safeParse(raw);
+    let raw: unknown;
+    try { raw = JSON.parse(event.body); } catch { return apiResponse(400, { message: 'Invalid JSON' }); }
+
+    const parsed = EditUserRequestSchema.safeParse(raw);
     if (!parsed.success) {
       return apiResponse(400, {
         message: 'Validation failed',
-        errors: parsed.error.issues.map((i) => ({
-          path: i.path.join('.'),
-          message: i.message,
-        })),
+        errors: parsed.error.issues.map((i) => ({ path: i.path.join('.'), message: i.message })),
       });
     }
 
-    const { orgId, userId, role } = parsed.data;
-    const key = {
-      [PK_NAME]: USER_PK,
-      [SK_NAME]: userSk(orgId, userId),
-    };
+    const dto = parsed.data;
+    const key = { [PK_NAME]: USER_PK, [SK_NAME]: userSk(dto.orgId, dto.userId) };
 
-    // 1) Load user (need cognitoUsername; also 404 if missing)
-    const existing = await docClient.send(
-      new GetCommand({
-        TableName: DB_TABLE_NAME,
-        Key: key,
-      }),
-    );
-
-    if (!existing.Item) {
-      return apiResponse(404, { message: 'User not found', orgId, userId });
-    }
+    const existing = await docClient.send(new GetCommand({ TableName: DB_TABLE_NAME, Key: key }));
+    if (!existing.Item) return apiResponse(404, { message: 'User not found' });
 
     const userItem = existing.Item as Record<string, any>;
-    const cognitoUsername = getCognitoUsernameFromUserItem(userItem);
-
+    const cognitoUsername = getCognitoUsername(userItem);
     const now = new Date().toISOString();
 
-    const updateRes = await docClient.send(
-      new UpdateCommand({
-        TableName: DB_TABLE_NAME,
-        Key: key,
-        ConditionExpression: 'attribute_exists(#pk) AND attribute_exists(#sk)',
-        UpdateExpression: [
-          'SET #role = :role',
-          '#updatedAt = :now',
-        ].join(', '),
-        ExpressionAttributeNames: {
-          '#pk': PK_NAME,
-          '#sk': SK_NAME,
-          '#role': 'role',
-          '#updatedAt': 'updatedAt',
-        },
-        ExpressionAttributeValues: {
-          ':role': role,
-          ':now': now,
-        },
-        ReturnValues: 'ALL_NEW',
-      }),
-    );
+    const names: Record<string, string> = { '#pk': PK_NAME, '#sk': SK_NAME, '#ua': 'updatedAt' };
+    const values: Record<string, unknown> = { ':now': now };
+    const setParts: string[] = ['#ua = :now'];
 
-    // 3) Update Cognito (best-effort, but surface non-trivial errors)
+    if (dto.firstName !== undefined) {
+      names['#fn'] = 'firstName'; values[':fn'] = dto.firstName; setParts.push('#fn = :fn');
+      names['#fnl'] = 'firstNameLower'; values[':fnl'] = dto.firstName.toLowerCase(); setParts.push('#fnl = :fnl');
+    }
+    if (dto.lastName !== undefined) {
+      names['#ln'] = 'lastName'; values[':ln'] = dto.lastName; setParts.push('#ln = :ln');
+      names['#lnl'] = 'lastNameLower'; values[':lnl'] = dto.lastName.toLowerCase(); setParts.push('#lnl = :lnl');
+    }
+    if (dto.displayName !== undefined) {
+      names['#dn'] = 'displayName'; values[':dn'] = dto.displayName; setParts.push('#dn = :dn');
+      names['#dnl'] = 'displayNameLower'; values[':dnl'] = dto.displayName.toLowerCase(); setParts.push('#dnl = :dnl');
+    }
+    if (dto.phone !== undefined) {
+      names['#ph'] = 'phone'; values[':ph'] = dto.phone; setParts.push('#ph = :ph');
+    }
+    if (dto.role !== undefined) {
+      names['#rl'] = 'role'; values[':rl'] = dto.role; setParts.push('#rl = :rl');
+    }
+    if (dto.status !== undefined) {
+      names['#st'] = 'status'; values[':st'] = dto.status; setParts.push('#st = :st');
+    }
+
+    // Rebuild searchText
+    const fn = dto.firstName ?? userItem.firstName ?? '';
+    const ln = dto.lastName ?? userItem.lastName ?? '';
+    const dn = dto.displayName ?? userItem.displayName ?? '';
+    const ph = dto.phone ?? userItem.phone ?? '';
+    const em = userItem.email ?? '';
+    const searchParts = [em, fn, ln, dn, ph].map((s) => String(s).trim().toLowerCase()).filter(Boolean);
+    names['#srt'] = 'searchText'; values[':srt'] = [...new Set(searchParts)].join(' '); setParts.push('#srt = :srt');
+
+    const updateRes = await docClient.send(new UpdateCommand({
+      TableName: DB_TABLE_NAME,
+      Key: key,
+      ConditionExpression: 'attribute_exists(#pk) AND attribute_exists(#sk)',
+      UpdateExpression: `SET ${setParts.join(', ')}`,
+      ExpressionAttributeNames: names,
+      ExpressionAttributeValues: values,
+      ReturnValues: 'ALL_NEW',
+    }));
+
+    // Sync role to Cognito if changed
     let cognitoUpdated = false;
-    if (cognitoUsername) {
+    if (dto.role !== undefined && cognitoUsername) {
       try {
         await adminUpdateUserAttributes(cognito, {
           userPoolId: USER_POOL_ID,
           username: cognitoUsername,
-          attributes: [{ Name: 'custom:role', Value: role }],
+          attributes: [{ Name: 'custom:role', Value: dto.role }],
         });
         cognitoUpdated = true;
       } catch (e: any) {
-        const name = e?.name || e?.__type;
-        // If the user is gone in cognito, we still keep Dynamo correct.
-        if (name !== 'UserNotFoundException') {
+        if (e?.name !== 'UserNotFoundException') {
           console.warn('adminUpdateUserAttributes failed (continuing):', e);
         }
       }
     }
 
+    const updated = updateRes.Attributes ?? {};
     return apiResponse(200, {
       ok: true,
-      orgId,
-      userId,
-      role,
-      cognito: {
-        username: cognitoUsername ?? null,
-        updated: cognitoUpdated,
-        role
+      orgId: dto.orgId,
+      userId: dto.userId,
+      user: {
+        orgId: updated.orgId,
+        userId: updated.userId,
+        email: updated.email,
+        firstName: updated.firstName ?? '',
+        lastName: updated.lastName ?? '',
+        displayName: updated.displayName ?? '',
+        phone: updated.phone ?? '',
+        role: updated.role,
+        status: updated.status,
+        createdAt: updated.createdAt,
+        updatedAt: updated.updatedAt,
       },
-      user: updateRes.Attributes ?? null,
+      cognito: { username: cognitoUsername ?? null, updated: cognitoUpdated },
     });
   } catch (err: any) {
-    console.error('edit-user error:', err);
-
     if (err?.name === 'ConditionalCheckFailedException') {
       return apiResponse(404, { message: 'User not found' });
     }
-
-    return apiResponse(500, {
-      message: 'Failed to edit user',
-      error: err instanceof Error ? err.message : 'Unknown error',
-    });
+    console.error('edit-user error:', err);
+    return apiResponse(500, { message: 'Failed to edit user' });
   }
 };
 
@@ -160,5 +155,5 @@ export const handler = withSentryLambda(
     .use(authContextMiddleware())
     .use(orgMembershipMiddleware())
     .use(requirePermission('user:edit'))
-    .use(httpErrorMiddleware())
+    .use(httpErrorMiddleware()),
 );

@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { AlertCircle, FileText, Loader2, Trash2 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Card, CardContent } from '@/components/ui/card';
 import { ListingPageLayout } from '@/components/layout/ListingPageLayout';
 import {
   AlertDialog,
@@ -123,11 +124,31 @@ export default function ProposalsContent({ projectId }: Props) {
   }
 
   const emptyState = (
-    <div className="text-center py-10">
-      <FileText className="mx-auto h-9 w-9 text-muted-foreground mb-3"/>
-      <h3 className="text-lg font-medium">No proposals yet</h3>
-      <p className="text-muted-foreground mt-1">Generate a proposal from extracted Q&amp;A to see it here.</p>
-    </div>
+    <Card>
+      <CardContent className="flex flex-col items-center py-14">
+        <div className="rounded-full bg-muted p-4 mb-6">
+          <FileText className="h-10 w-10 text-muted-foreground" />
+        </div>
+        <h3 className="text-lg font-semibold mb-2">No proposals yet</h3>
+        <p className="text-muted-foreground text-center max-w-lg mb-6">
+          Proposals are generated from your answered questions. To create your first proposal:
+        </p>
+        <div className="text-sm text-muted-foreground space-y-2 max-w-lg w-full">
+          <div className="flex items-start gap-3 p-3 rounded-lg bg-muted/50">
+            <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground text-xs font-bold">1</span>
+            <p>Upload your RFP documents in the <strong>Documents</strong> tab</p>
+          </div>
+          <div className="flex items-start gap-3 p-3 rounded-lg bg-muted/50">
+            <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground text-xs font-bold">2</span>
+            <p>Extract and review questions in the <strong>Questions</strong> tab</p>
+          </div>
+          <div className="flex items-start gap-3 p-3 rounded-lg bg-muted/50">
+            <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground text-xs font-bold">3</span>
+            <p>Generate AI answers, then click <strong>Generate Proposal</strong> from the Questions page</p>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
   );
 
   const renderProposalItem = (p: Proposal) => {
@@ -190,7 +211,8 @@ export default function ProposalsContent({ projectId }: Props) {
         headerActions={<GenerateProposalModal projectId={projectId} onSave={(p) => refresh()}/>}
         isLoading={isLoading}
         onReload={handleReload}
-        emptyState={filteredProposals.length === 0 ? emptyState : undefined}
+        isEmpty={filteredProposals.length === 0}
+        emptyState={emptyState}
         data={filteredProposals}
         renderItem={renderProposalItem}
       />

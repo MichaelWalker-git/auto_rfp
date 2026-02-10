@@ -18,11 +18,11 @@ interface MemberRowProps {
 }
 
 export function MemberRow({
-                            member,
-                            orgId,
-                            onMemberUpdated,
-                            onMemberRemoved,
-                          }: MemberRowProps) {
+  member,
+  orgId,
+  onMemberUpdated,
+  onMemberRemoved,
+}: MemberRowProps) {
   const getRoleBadge = (role: UserRole) => {
     switch (role) {
       case 'EDITOR':
@@ -55,7 +55,7 @@ export function MemberRow({
           <div className="min-w-0">
             <div className="flex items-center gap-2">
               <div className="truncate font-medium leading-none">{member.name}</div>
-              <div className="hidden sm:block">{getRoleBadge(member.role)}</div>
+              <div className="hidden sm:block">{getRoleBadge(member.role as UserRole)}</div>
             </div>
 
             <div className="mt-1 flex items-center gap-2 text-xs text-muted-foreground">
@@ -68,7 +68,7 @@ export function MemberRow({
 
         {/* Right: meta + actions */}
         <div className="flex items-center gap-3">
-          <div className="sm:hidden">{getRoleBadge(member.role)}</div>
+          <div className="sm:hidden">{getRoleBadge(member.role as UserRole)}</div>
           <PermissionWrapper requiredPermission={'user:edit'}>
             <div className="opacity-100 md:opacity-100">
               <MemberActionsDropdown

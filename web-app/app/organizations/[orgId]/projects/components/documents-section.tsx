@@ -214,8 +214,8 @@ export function DocumentsSection({ projectId: propProjectId }: Props) {
     return (
       <div className="mx-auto w-full max-w-6xl px-4 py-6">
         <ListingPageLayout
-          title="RFP Documents"
-          description="Upload and manage RFP documents for question extraction."
+          title="Solicitation Documents"
+          description="Upload and manage Solicitation documents for question extraction."
         >
           <div className="text-center py-8">
             <p className="text-muted-foreground">No project selected</p>
@@ -257,7 +257,7 @@ export function DocumentsSection({ projectId: propProjectId }: Props) {
       )}
 
       <ListingPageLayout
-        title="RFP Documents"
+        title="Solicitation Documents"
         description={`${rows.length} ${rows.length === 1 ? 'file' : 'files'} in this project`}
         headerActions={<QuestionFileUploadDialog projectId={projectId}/>}
         isLoading={isLoading}
@@ -265,7 +265,9 @@ export function DocumentsSection({ projectId: propProjectId }: Props) {
         emptyState={emptyState}
         data={rows}
         renderItem={renderDocumentItem}
-        onReload={refetch}
+        onReload={async () => {
+          await refetch();
+        }}
       />
     </div>
   );

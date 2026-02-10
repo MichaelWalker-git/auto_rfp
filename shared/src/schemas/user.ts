@@ -22,6 +22,20 @@ export const EditUserRoleRequestSchema = z.object({
 
 export type EditUserRoleRequest = z.infer<typeof EditUserRoleRequestSchema>;
 
+/** Full edit-user DTO – admin can update name, phone, role, status */
+export const EditUserRequestSchema = z.object({
+  orgId: z.string().min(1),
+  userId: z.string().min(1),
+  firstName: z.string().trim().max(100).optional(),
+  lastName: z.string().trim().max(100).optional(),
+  displayName: z.string().trim().max(200).optional(),
+  phone: z.string().min(5).max(32).regex(/^[+0-9()\-.\s]+$/).optional(),
+  role: UserRoleSchema.optional(),
+  status: UserStatusSchema.optional(),
+});
+
+export type EditUserRequest = z.infer<typeof EditUserRequestSchema>;
+
 export type UserRole = z.infer<typeof UserRoleSchema>;
 
 export const USER_PERMISSIONS = [
@@ -215,3 +229,13 @@ export const ListUsersQuerySchema = z.object({
   search: z.string().trim().min(1).max(200).optional(), // email/name search (if you support it)
 });
 export type ListUsersQuery = z.infer<typeof ListUsersQuerySchema>;
+
+/* ── Self-profile DTO (used by profile-edit-dialog) ──────────── */
+
+export const EditProfileDTOSchema = z.object({
+  firstName: nonEmptyTrimmed.max(100).optional(),
+  lastName: nonEmptyTrimmed.max(100).optional(),
+  displayName: nonEmptyTrimmed.max(200).optional(),
+  phone: phoneSchema,
+});
+export type EditProfileDTO = z.infer<typeof EditProfileDTOSchema>;
