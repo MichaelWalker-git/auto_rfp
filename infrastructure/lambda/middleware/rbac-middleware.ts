@@ -31,7 +31,10 @@ export type AuthedEvent = APIGatewayProxyEventV2 & {
 
 const json = (statusCode: number, body: unknown): APIGatewayProxyResultV2 => ({
   statusCode,
-  headers: { 'content-type': 'application/json' },
+  headers: {
+    'Content-Type': 'application/json',
+    'Access-Control-Allow-Origin': '*',
+  },
   body: JSON.stringify(body),
 });
 

@@ -128,8 +128,9 @@ export class ApiDomainRoutesStack extends cdk.NestedStack {
 
       // Add method with Cognito authorization if authorizer is provided
       // OPTIONS methods should never require authorization for CORS preflight
+      // Routes with auth: 'NONE' skip authorization (for public endpoints like calendar subscription)
       const methodOptions: apigateway.MethodOptions =
-        route.method === 'OPTIONS'
+        route.method === 'OPTIONS' || route.auth === 'NONE'
           ? {
             authorizationType: apigateway.AuthorizationType.NONE,
           }
