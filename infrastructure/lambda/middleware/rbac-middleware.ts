@@ -31,7 +31,10 @@ export type AuthedEvent = APIGatewayProxyEventV2 & {
 
 const json = (statusCode: number, body: unknown): APIGatewayProxyResultV2 => ({
   statusCode,
-  headers: { 'content-type': 'application/json' },
+  headers: {
+    'Content-Type': 'application/json',
+    'Access-Control-Allow-Origin': '*',
+  },
   body: JSON.stringify(body),
 });
 
@@ -103,11 +106,22 @@ export function httpErrorMiddleware(): MiddlewareObj<any, APIGatewayProxyResultV
   return {
     onError: async (request) => {
       const err = request.error;
+      
+      // Log the actual error for debugging
+      console.error('httpErrorMiddleware caught error:', {
+        name: err?.name,
+        message: err?.message,
+        stack: err?.stack,
+      });
+      
       if (err instanceof HttpError) {
         request.response = json(err.statusCode, { message: err.message });
         return;
       }
-      request.response = json(500, { message: 'Internal Server Error' });
+      
+      // Return more details in non-production for debugging
+      const errorMessage = err instanceof Error ? err.message : 'Internal Server Error';
+      request.response = json(500, { message: 'Internal Server Error', error: errorMessage });
     },
   };
 }

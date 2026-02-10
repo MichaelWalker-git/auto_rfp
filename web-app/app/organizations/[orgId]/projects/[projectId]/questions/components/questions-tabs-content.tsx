@@ -6,6 +6,7 @@ import { QuestionEditor } from './question-editor';
 import { QuestionNavigator } from '../../../components/question-navigator';
 import { AISuggestionsPanel } from '../../../components/ai-suggestions-panel';
 import { AnswerSource } from '@auto-rfp/shared';
+import { useQuestions } from './questions-provider';
 
 interface AnswerData {
   text: string;
@@ -45,7 +46,7 @@ interface QuestionsTabsContentProps {
 }
 
 export function QuestionsTabsContent({
-                                       questions,
+                                       questions: filteredQuestions,
                                        selectedQuestion,
                                        questionData,
                                        answers,
@@ -66,6 +67,13 @@ export function QuestionsTabsContent({
                                        rfpDocument,
                                        searchQuery,
                                      }: QuestionsTabsContentProps) {
+  const { confidenceFilter } = useQuestions();
+
+  // Build a set of visible question IDs from the filtered questions list
+  const visibleQuestionIds = confidenceFilter !== 'all'
+    ? new Set(filteredQuestions.map((q: any) => q.id))
+    : null;
+
   const getFilterTitle = () => {
     switch (filterType) {
       case 'answered':
@@ -104,7 +112,7 @@ export function QuestionsTabsContent({
 
   return (
     <div className="grid gap-4 md:grid-cols-3">
-      <div className="md:col-span-1">
+      <div className="md:col-span-1 max-h-[calc(100vh-200px)] overflow-y-auto">
         {filterType === 'all' && rfpDocument ? (
           <Card>
             <CardHeader className="pb-2">
@@ -117,12 +125,13 @@ export function QuestionsTabsContent({
                 unsavedQuestions={unsavedQuestions}
                 onSelectQuestion={(id) => onSelectQuestion(id)}
                 searchQuery={searchQuery}
+                visibleQuestionIds={visibleQuestionIds}
               />
             </CardContent>
           </Card>
         ) : (
           <QuestionsFilter
-            questions={questions}
+            questions={filteredQuestions}
             answers={answers}
             unsavedQuestions={unsavedQuestions}
             selectedQuestion={selectedQuestion}
@@ -134,7 +143,7 @@ export function QuestionsTabsContent({
         )}
       </div>
 
-      <div className="md:col-span-2">
+      <div className="md:col-span-2 md:sticky md:top-4 md:self-start">
         {selectedQuestion && questionData ? (
           <div className="space-y-4">
             <QuestionEditor

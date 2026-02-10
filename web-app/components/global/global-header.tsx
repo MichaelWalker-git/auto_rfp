@@ -120,6 +120,52 @@ export function GlobalHeader() {
         href: `/organizations/${currentOrganization.id}`,
         icon: <Building2 className="h-4 w-4"/>,
       });
+
+      // Parse the pathname to add more breadcrumbs
+      const orgBasePath = `/organizations/${currentOrganization.id}`;
+      const relativePath = pathname.replace(orgBasePath, '');
+      const segments = relativePath.split('/').filter(Boolean);
+
+      // Map of known routes to labels
+      const routeLabels: Record<string, string> = {
+        'projects': 'Projects',
+        'past-performance': 'Past Performance',
+        'team': 'Team',
+        'settings': 'Settings',
+        'content-library': 'Content Library',
+        'opportunities': 'Opportunities',
+        'proposals': 'Proposals',
+        'brief': 'Executive Brief',
+        'new': 'New',
+        'edit': 'Edit',
+      };
+
+      let currentPath = orgBasePath;
+      
+      for (let i = 0; i < segments.length; i++) {
+        const segment = segments[i];
+        currentPath += `/${segment}`;
+        
+        // Check if this is a known route
+        if (routeLabels[segment]) {
+          bc.push({
+            label: routeLabels[segment],
+            href: currentPath,
+            active: i === segments.length - 1,
+          });
+        } else if (segment.match(/^[0-9a-f-]{36}$/i)) {
+          // This looks like a UUID - skip it or show as ID
+          // We could fetch the actual name here, but for now just skip
+          continue;
+        } else {
+          // Unknown segment - show as-is with title case
+          bc.push({
+            label: segment.charAt(0).toUpperCase() + segment.slice(1).replace(/-/g, ' '),
+            href: currentPath,
+            active: i === segments.length - 1,
+          });
+        }
+      }
     }
 
     return bc;

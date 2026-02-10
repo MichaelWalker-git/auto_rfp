@@ -1,4 +1,5 @@
 import { Context } from 'aws-lambda';
+import { ConfidenceBreakdown } from '@auto-rfp/shared';
 import { withSentryLambda } from '../sentry-lambda';
 import { generateAnswerForQuestion, GenerateAnswerResult } from '../answer/generate-answer';
 
@@ -15,6 +16,8 @@ export interface GenerateAnswerPipelineResult {
   error?: string;
   answer?: string;
   confidence?: number;
+  confidenceBreakdown?: ConfidenceBreakdown;
+  confidenceBand?: 'high' | 'medium' | 'low';
   found?: boolean;
   fromContentLibrary?: boolean;
 }
@@ -48,6 +51,8 @@ export const baseHandler = async (
       success: true,
       answer: result.answer,
       confidence: result.confidence,
+      confidenceBreakdown: result.confidenceBreakdown,
+      confidenceBand: result.confidenceBand,
       found: result.found,
       fromContentLibrary: result.fromContentLibrary,
     };

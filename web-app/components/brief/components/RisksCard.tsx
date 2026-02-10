@@ -9,15 +9,15 @@ export function RisksCard({ risks }: { risks: any }) {
   if (!risks) return null;
 
   return (
-    <Card>
-      <CardHeader>
+    <Card className="border-2">
+      <CardHeader className="pb-3">
         <div className="flex items-center gap-2">
           <Shield className="h-5 w-5"/>
           <CardTitle>Risk Analysis</CardTitle>
         </div>
       </CardHeader>
 
-      <CardContent className="space-y-5">
+      <CardContent className="space-y-6">
         {risks?.redFlags?.length ? (
           <div className="space-y-3">
             <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Identified Risks</p>

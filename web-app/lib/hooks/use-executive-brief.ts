@@ -9,11 +9,13 @@ import type { ExecutiveBriefItem, } from '@auto-rfp/shared';
 
 export type InitExecutiveBriefRequest = {
   projectId: string;
+  opportunityId: string; // Required - brief is always for a specific opportunity
 };
 
 export type InitExecutiveBriefResponse = {
   ok: boolean;
   projectId?: string;
+  opportunityId?: string | null;
   executiveBriefId?: string;
   questionFileId?: string;
   textKey?: string;
@@ -28,6 +30,7 @@ export type SectionName =
   | 'contacts'
   | 'requirements'
   | 'risks'
+  | 'pastPerformance'
   | 'scoring';
 
 export type GenerateSectionRequest = {
@@ -56,11 +59,13 @@ export type GenerateSectionResponse = {
 // For read-by-project endpoint
 export type GetExecutiveBriefByProjectRequest = {
   projectId: string;
+  opportunityId?: string; // Optional - if provided, get brief for specific opportunity
 };
 
 export type GetExecutiveBriefByProjectResponse = {
   ok: boolean;
   projectId?: string;
+  opportunityId?: string | null;
   executiveBriefId?: string;
   brief?: ExecutiveBriefItem;
   message?: string;
@@ -124,6 +129,7 @@ const endpoints = {
   contacts: (orgId?: string) => `${env.BASE_API_URL}/brief/generate-executive-brief-contacts${orgId ? `?orgId=${orgId}` : ''}`,
   requirements: (orgId?: string) => `${env.BASE_API_URL}/brief/generate-executive-brief-requirements${orgId ? `?orgId=${orgId}` : ''}`,
   risks: (orgId?: string) => `${env.BASE_API_URL}/brief/generate-executive-brief-risks${orgId ? `?orgId=${orgId}` : ''}`,
+  pastPerformance: (orgId?: string) => `${env.BASE_API_URL}/pastperf/match-projects${orgId ? `?orgId=${orgId}` : ''}`,
   scoring: (orgId?: string) => `${env.BASE_API_URL}/brief/generate-executive-brief-scoring${orgId ? `?orgId=${orgId}` : ''}`,
   getByProject: `${env.BASE_API_URL}/brief/get-executive-brief-by-project`,
   handleLinearTicket: `${env.BASE_API_URL}/brief/handle-linear-ticket`,
@@ -191,6 +197,17 @@ export function useGenerateExecutiveBriefRisks(orgId?: string) {
     async (url, { arg }) => {
       const result = await postJson<GenerateSectionResponse>(url, arg);
       breadcrumbs.briefSectionCompleted(arg.executiveBriefId, 'risks');
+      return result;
+    },
+  );
+}
+
+export function useGenerateExecutiveBriefPastPerformance(orgId?: string) {
+  return useSWRMutation<GenerateSectionResponse, Error, string, GenerateSectionRequest>(
+    endpoints.pastPerformance(orgId),
+    async (url, { arg }) => {
+      const result = await postJson<GenerateSectionResponse>(url, arg);
+      breadcrumbs.briefSectionCompleted(arg.executiveBriefId, 'pastPerformance');
       return result;
     },
   );

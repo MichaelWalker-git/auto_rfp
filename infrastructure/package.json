@@ -11,7 +11,7 @@
     "deploy:dev:api": "cdk deploy ApiOrchestrator-Dev",
     "deploy:test:api": "cdk deploy ApiOrchestrator-Test",
     "deploy:dev": "STAGE=Dev cdk deploy --all",
-    "deploy:test": "STAGE=Test cdk deploy --all"
+    "deploy:test": "cdk deploy --all"
   },
   "devDependencies": {
     "@types/aws-lambda": "^8.10.160",
@@ -56,6 +56,6 @@
     "mammoth": "^1.11.0",
     "pdf-parse": "^2.4.5",
     "uuid": "^13.0.0",
-    "zod": "^4.3.6"
+    "zod": "^3.25.0"
   }
 }

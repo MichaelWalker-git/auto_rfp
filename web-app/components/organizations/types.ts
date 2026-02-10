@@ -4,7 +4,12 @@ export interface TeamMember {
   id: string;
   name: string;
   email: string;
-  role: UserRole;
+  firstName?: string;
+  lastName?: string;
+  displayName?: string;
+  phone?: string;
+  role: UserRole | string;
+  status?: string;
   joinedAt: string;
   avatarUrl?: string;
-} 
+}

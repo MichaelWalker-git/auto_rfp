@@ -91,12 +91,30 @@ export function useProject(projectId: string | null, includeAll = false) {
   );
 }
 
-export function useQuestions(projectId: string | null, includeAll = false) {
+export function useQuestions(projectId: string | null, includeAll = false, options?: { refreshInterval?: number }) {
   const params = includeAll ? '?include=all' : '';
-  return useApi<{ sections: GroupedSection[] }>(
+  const url = projectId ? `${env.BASE_API_URL}/projects/questions/${projectId}${params}` : null;
+  
+  const { data, error, isLoading, mutate } = useSWR<{ sections: GroupedSection[] }>(
     projectId ? ['questions', projectId, includeAll] : null,
-    projectId ? `${env.BASE_API_URL}/projects/questions/${projectId}${params}` : null,
+    url ? () => defineFetcher<{ sections: GroupedSection[] }>(url) : null,
+    {
+      revalidateOnFocus: false,
+      revalidateIfStale: true, // Allow revalidation when stale
+      dedupingInterval: 5_000, // Reduced from 60s to 5s for faster updates
+      focusThrottleInterval: 10_000,
+      errorRetryCount: 3,
+      refreshInterval: options?.refreshInterval, // Optional polling for extraction progress
+    }
   );
+
+  return {
+    data,
+    isLoading,
+    isError: !!error,
+    error: error as HttpError | undefined,
+    mutate,
+  };
 }
 
 /**

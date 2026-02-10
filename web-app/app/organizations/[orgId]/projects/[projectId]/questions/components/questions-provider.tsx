@@ -2,7 +2,7 @@
 
 import React, { createContext, ReactNode, useContext, useEffect, useState } from 'react';
 import { toast } from '@/components/ui/use-toast';
-import { AnswerSource, GroupedSection, type QuestionFileItem, type SaveAnswerDTO } from '@auto-rfp/shared';
+import { AnswerSource, ConfidenceBreakdown, ConfidenceBand, GroupedSection, type QuestionFileItem, type SaveAnswerDTO } from '@auto-rfp/shared';
 import { useAnswers, useQuestions as useLoadQuestions } from '@/lib/hooks/use-api';
 import { useProject } from '@/lib/hooks/use-project';
 import { useGenerateAnswer, useSaveAnswer } from '@/lib/hooks/use-answer';
@@ -11,11 +11,15 @@ import { useKnowledgeBases } from '@/lib/hooks/use-knowledgebase';
 
 import { authFetcher } from '@/lib/auth/auth-fetcher';
 import { env } from '@/lib/env';
+import { normalizeConfidence } from '@/components/confidence/confidence-score-display';
 
 // Interfaces
 interface AnswerData {
   text: string;
   sources?: AnswerSource[];
+  confidence?: number;
+  confidenceBreakdown?: ConfidenceBreakdown;
+  confidenceBand?: ConfidenceBand;
 }
 
 interface ProjectIndex {
@@ -31,6 +35,10 @@ interface QuestionsContextType {
   setSelectedQuestion: (id: string | null) => void;
   activeTab: string;
   setActiveTab: (tab: string) => void;
+  confidenceFilter: ConfidenceBand | 'all';
+  setConfidenceFilter: (filter: ConfidenceBand | 'all') => void;
+  sortByConfidence: boolean;
+  setSortByConfidence: (sort: boolean) => void;
 
   // Data state
   isLoading: boolean;
@@ -74,6 +82,7 @@ interface QuestionsContextType {
   // Utility functions
   getFilteredQuestions: (filterType?: string) => any[];
   getCounts: () => { all: number; answered: number; unanswered: number };
+  getConfidenceCounts: () => { high: number; medium: number; low: number };
   getSelectedQuestionData: () => any;
   refreshQuestions: () => Promise<void>;
 }
@@ -102,8 +111,11 @@ export function QuestionsProvider({ children, projectId }: QuestionsProviderProp
   // Data state
   const [error, setError] = useState<string | null>(null);
   const [answers, setAnswers] = useState<Record<string, AnswerData>>({});
-  const [confidence, setConfidence] = useState<Record<string, number>>({});
   const [unsavedQuestions, setUnsavedQuestions] = useState<Set<string>>(new Set());
+
+  // Confidence filter/sort state
+  const [confidenceFilter, setConfidenceFilter] = useState<ConfidenceBand | 'all'>('all');
+  const [sortByConfidence, setSortByConfidence] = useState(false);
 
   // Process state
   const [savingQuestions, setSavingQuestions] = useState<Set<string>>(new Set());
@@ -204,7 +216,7 @@ export function QuestionsProvider({ children, projectId }: QuestionsProviderProp
     setIsGenerating((prev) => ({ ...prev, [questionId]: true }));
 
     try {
-      const { answer, confidence, found, sources } = await generateAnswer({
+      const { answer, confidence, confidenceBreakdown, confidenceBand, found, sources } = await generateAnswer({
         orgId,
         projectId,
         questionId,
@@ -213,7 +225,13 @@ export function QuestionsProvider({ children, projectId }: QuestionsProviderProp
 
       setAnswers((prev) => ({
         ...prev,
-        [questionId]: { text: answer, sources: sources } as AnswerData,
+        [questionId]: {
+          text: answer,
+          sources: sources,
+          confidence,
+          confidenceBreakdown,
+          confidenceBand,
+        } as AnswerData,
       }));
 
       if (answer) {
@@ -234,7 +252,6 @@ export function QuestionsProvider({ children, projectId }: QuestionsProviderProp
         });
       }
 
-      setConfidence((prev) => ({ ...prev, [questionId]: confidence }));
     } catch (error) {
       console.error('Error generating answer:', error);
       toast({
@@ -258,11 +275,15 @@ export function QuestionsProvider({ children, projectId }: QuestionsProviderProp
     });
 
     try {
+      const answerData = answers[questionId];
       const response = await saveAnswer({
         questionId,
-        text: answers[questionId].text,
-        sources: answers[questionId].sources || [],
-      } as SaveAnswerDTO);
+        text: answerData.text,
+        sources: answerData.sources || [],
+        ...(answerData.confidence !== undefined && { confidence: answerData.confidence }),
+        ...(answerData.confidenceBreakdown && { confidenceBreakdown: answerData.confidenceBreakdown }),
+        ...(answerData.confidenceBand && { confidenceBand: answerData.confidenceBand }),
+      } as any);
 
       if (response?.id) {
         setUnsavedQuestions((prev) => {
@@ -391,10 +412,39 @@ export function QuestionsProvider({ children, projectId }: QuestionsProviderProp
       statusFiltered = allQuestions.filter((q: any) => !hasAnswer(q));
     }
 
-    if (!searchQuery) return statusFiltered;
+    // Apply confidence band filter (only to questions that have answers)
+    if (confidenceFilter !== 'all') {
+      statusFiltered = statusFiltered.filter((q: any) => {
+        const answerData = answers[q.id];
+        // Skip unanswered questions — they have no confidence to filter on
+        if (!answerData?.text || (typeof answerData.text === 'string' && answerData.text.trim().length === 0)) {
+          return false;
+        }
+        if (answerData.confidence == null) return confidenceFilter === 'low'; // Has answer but no confidence = low
+        const pct = Math.round(normalizeConfidence(answerData.confidence) * 100);
+        if (confidenceFilter === 'high') return pct >= 90;
+        if (confidenceFilter === 'medium') return pct >= 70 && pct < 90;
+        return pct < 70; // low
+      });
+    }
 
-    const query = searchQuery.toLowerCase();
-    return statusFiltered.filter((q: any) => q.question.toLowerCase().includes(query) || q.sectionTitle.toLowerCase().includes(query));
+    // Apply search query
+    let result = statusFiltered;
+    if (searchQuery) {
+      const query = searchQuery.toLowerCase();
+      result = result.filter((q: any) => q.question.toLowerCase().includes(query) || q.sectionTitle.toLowerCase().includes(query));
+    }
+
+    // Sort by confidence (lowest first) if enabled
+    if (sortByConfidence) {
+      result = [...result].sort((a: any, b: any) => {
+        const confA = normalizeConfidence(answers[a.id]?.confidence ?? 0);
+        const confB = normalizeConfidence(answers[b.id]?.confidence ?? 0);
+        return confA - confB;
+      });
+    }
+
+    return result;
   };
 
   const getCounts = () => {
@@ -411,6 +461,29 @@ export function QuestionsProvider({ children, projectId }: QuestionsProviderProp
       answered: answeredCount,
       unanswered: allQuestions.length - answeredCount,
     };
+  };
+
+  const getConfidenceCounts = () => {
+    if (!questions) return { high: 0, medium: 0, low: 0 };
+
+    const allQuestions = questions.sections.flatMap((s: any) => s.questions);
+    let high = 0;
+    let medium = 0;
+    let low = 0;
+
+    for (const q of allQuestions) {
+      const answerData = answers[q.id];
+      if (!answerData?.confidence) {
+        if (answerData?.text) low++; // Has answer but no confidence = low
+        continue;
+      }
+      const pct = Math.round(normalizeConfidence(answerData.confidence) * 100);
+      if (pct >= 90) high++;
+      else if (pct >= 70) medium++;
+      else low++;
+    }
+
+    return { high, medium, low };
   };
 
   const handleSourceClick = (source: AnswerSource) => {
@@ -513,6 +586,10 @@ export function QuestionsProvider({ children, projectId }: QuestionsProviderProp
     setSelectedQuestion,
     activeTab,
     setActiveTab,
+    confidenceFilter,
+    setConfidenceFilter,
+    sortByConfidence,
+    setSortByConfidence,
 
     // Data state
     isLoading,
@@ -553,6 +630,7 @@ export function QuestionsProvider({ children, projectId }: QuestionsProviderProp
     removeQuestion,
     getFilteredQuestions,
     getCounts,
+    getConfidenceCounts,
     getSelectedQuestionData,
     refreshQuestions,
   };

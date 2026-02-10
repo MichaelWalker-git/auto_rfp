@@ -1,4 +1,4 @@
-import { renderHook, waitFor } from '@testing-library/react';
+import { renderHook, waitFor, act } from '@testing-library/react';
 import {
   useContentLibraryItems,
   useContentLibraryItem,
@@ -295,15 +295,18 @@ describe('Content Library Hooks', () => {
 
       const { result } = renderHook(() => useCreateContentLibraryItem(), { wrapper });
 
-      const created = await result.current.create({
-        orgId: 'org-1',
-        kbId: 'kb-1',
-        question: 'New question',
-        answer: 'New answer',
-        category: 'Technical',
+      let created: ContentLibraryItem | undefined;
+      await act(async () => {
+        created = await result.current.create({
+          orgId: 'org-1',
+          kbId: 'kb-1',
+          question: 'New question',
+          answer: 'New answer',
+          category: 'Technical',
+        });
       });
 
-      expect(created.id).toBe('new-item');
+      expect(created?.id).toBe('new-item');
       expect(mockFetch).toHaveBeenCalledWith(
         expect.stringContaining('/content-library/create-content-library'),
         expect.objectContaining({
@@ -321,15 +324,17 @@ describe('Content Library Hooks', () => {
 
       const { result } = renderHook(() => useCreateContentLibraryItem(), { wrapper });
 
-      await expect(
-        result.current.create({
-          orgId: 'org-1',
-          kbId: 'kb-1',
-          question: '',
-          answer: '',
-          category: '',
-        })
-      ).rejects.toThrow('Validation failed');
+      await act(async () => {
+        await expect(
+          result.current.create({
+            orgId: 'org-1',
+            kbId: 'kb-1',
+            question: '',
+            answer: '',
+            category: '',
+          })
+        ).rejects.toThrow('Validation failed');
+      });
     });
   });
 });

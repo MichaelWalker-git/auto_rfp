@@ -5,7 +5,7 @@ import { PK_NAME, SK_NAME } from '../constants/common';
 import { apiResponse, getOrgId } from '../helpers/api';
 import { KNOWLEDGE_BASE_PK } from '../constants/organization';
 import { DOCUMENT_PK } from '../constants/document';
-import { KnowledgeBase, KnowledgeBaseItem } from '@auto-rfp/shared';
+import { KnowledgeBase, KnowledgeBaseItem, CONTENT_LIBRARY_PK } from '@auto-rfp/shared';
 import { withSentryLambda } from '../sentry-lambda';
 import {
   authContextMiddleware,
@@ -84,7 +84,10 @@ export async function listKnowledgeBasesForOrg(orgId: string): Promise<Knowledge
       const sk = item[SK_NAME] as string;
       const kbId = safeSplitAt(sk, '#', 1);
 
-      const documentsCount = await getDocumentCountForKnowledgeBase(kbId);
+      const [documentsCount, questionsCount] = await Promise.all([
+        getDocumentCountForKnowledgeBase(kbId),
+        getContentLibraryCountForKnowledgeBase(orgId, kbId),
+      ]);
 
       return {
         id: kbId,
@@ -94,7 +97,7 @@ export async function listKnowledgeBasesForOrg(orgId: string): Promise<Knowledge
         updatedAt: item.updatedAt,
         type: item.type,
         _count: {
-          questions: item._count?.questions ?? 0,
+          questions: questionsCount,
           documents: documentsCount,
         },
       } as KnowledgeBase;
@@ -120,6 +123,43 @@ async function getDocumentCountForKnowledgeBase(knowledgeBaseId: string): Promis
         ExpressionAttributeValues: {
           ':pkValue': DOCUMENT_PK,
           ':skPrefix': skPrefix,
+        },
+        Select: 'COUNT',
+        ExclusiveStartKey,
+      }),
+    );
+
+    count += res.Count ?? 0;
+    ExclusiveStartKey = res.LastEvaluatedKey as
+      | Record<string, any>
+      | undefined;
+  } while (ExclusiveStartKey);
+
+  return count;
+}
+
+async function getContentLibraryCountForKnowledgeBase(orgId: string, knowledgeBaseId: string): Promise<number> {
+  // Content library items have SK format: <orgId>#<kbId>#<itemId>
+  const skPrefix = `${orgId}#${knowledgeBaseId}#`;
+  let count = 0;
+  let ExclusiveStartKey: Record<string, any> | undefined = undefined;
+
+  do {
+    const res = await docClient.send(
+      new QueryCommand({
+        TableName: DB_TABLE_NAME,
+        KeyConditionExpression:
+          '#pk = :pkValue AND begins_with(#sk, :skPrefix)',
+        FilterExpression: 'attribute_not_exists(#deprecated) OR #deprecated = :false',
+        ExpressionAttributeNames: {
+          '#pk': PK_NAME,
+          '#sk': SK_NAME,
+          '#deprecated': 'deprecated',
+        },
+        ExpressionAttributeValues: {
+          ':pkValue': CONTENT_LIBRARY_PK,
+          ':skPrefix': skPrefix,
+          ':false': false,
         },
         Select: 'COUNT',
         ExclusiveStartKey,

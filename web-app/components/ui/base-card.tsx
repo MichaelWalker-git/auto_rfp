@@ -24,9 +24,9 @@ export function BaseCard({
   onClick,
   isHoverable = false,
 }: BaseCardProps) {
-  const baseClasses = 'overflow-hidden transition-all duration-200 flex flex-col h-full border';
+  const baseClasses = 'group overflow-hidden transition-all duration-200 flex flex-col h-full border';
   const hoverClasses = isHoverable ? 'hover:shadow-lg hover:border-primary/50 cursor-pointer' : '';
-  const interactiveClasses = onClick ? 'group' : '';
+  const interactiveClasses = onClick ? '' : '';
 
   return (
     <Card className={`${baseClasses} ${hoverClasses} ${interactiveClasses} ${className || ''}`} onClick={onClick}>
@@ -36,7 +36,11 @@ export function BaseCard({
             <CardTitle className="text-base font-semibold line-clamp-2 break-words">{title}</CardTitle>
             {subtitle && <p className="mt-0.5 line-clamp-2 text-xs text-muted-foreground break-all">{subtitle}</p>}
           </div>
-          {actions && <div className="flex gap-1 flex-shrink-0 ml-2">{actions}</div>}
+          {actions && (
+            <div className="flex gap-1 flex-shrink-0 ml-2 opacity-0 group-hover:opacity-100 transition-opacity">
+              {actions}
+            </div>
+          )}
         </div>
       </CardHeader>
 

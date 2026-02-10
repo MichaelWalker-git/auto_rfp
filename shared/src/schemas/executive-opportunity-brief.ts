@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { PastPerformanceSectionSchema } from './past-performance';
 
 /**
  * Common enums
@@ -240,8 +241,9 @@ export const SectionWrapperSchema = <T extends z.ZodTypeAny>(dataSchema: T) =>
  */
 export const ExecutiveBriefItemSchema = z.object({
   projectId: z.string().min(1),
-  questionFileId: z.string().min(1),
-  textKey: z.string().min(1),
+  orgId: z.string().min(1).optional().nullable(), // Organization ID for reference
+  opportunityId: z.string().min(1), // Required - brief is always for a specific opportunity
+  allTextKeys: z.array(z.string()).optional().nullable(), // All text keys for multi-document analysis
   documentsBucket: z.string().min(1),
   status: SectionStatusSchema,
   sections: z.object({
@@ -250,6 +252,7 @@ export const ExecutiveBriefItemSchema = z.object({
     requirements: SectionWrapperSchema(RequirementsSectionSchema),
     contacts: SectionWrapperSchema(ContactsSectionSchema),
     risks: SectionWrapperSchema(RisksSectionSchema),
+    pastPerformance: SectionWrapperSchema(PastPerformanceSectionSchema),
     scoring: SectionWrapperSchema(ScoringSectionSchema),
   }),
   compositeScore: z.number().optional().nullable(),
@@ -275,6 +278,7 @@ export type ExecutiveBriefItem = z.infer<typeof ExecutiveBriefItemSchema>;
  */
 export const InitExecutiveBriefRequestSchema = z.object({
   projectId: z.string().min(1),
+  opportunityId: z.string().min(1), // Required - brief is always for a specific opportunity
 });
 
 export type InitExecutiveBriefRequest = z.infer<

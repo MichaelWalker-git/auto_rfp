@@ -64,6 +64,21 @@ jest.mock('@/lib/hooks/use-project-outcome', () => ({
   })),
 }));
 
+jest.mock('@/lib/hooks/use-executive-brief', () => ({
+  useGetExecutiveBriefByProject: jest.fn(() => ({
+    trigger: jest.fn().mockResolvedValue({ ok: true, brief: { sections: {} } }),
+    isMutating: false,
+  })),
+}));
+
+jest.mock('@/lib/hooks/use-foia-requests', () => ({
+  useFOIARequests: jest.fn(() => ({
+    foiaRequests: [],
+    isLoading: false,
+    error: null,
+  })),
+}));
+
 jest.mock('@/app/organizations/[orgId]/projects/[projectId]/questions/components', () => ({
   useQuestions: jest.fn(() => ({
     questionFiles: mockQuestionFiles,
@@ -86,6 +101,7 @@ jest.mock('@/components/ui/card', () => ({
   Card: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
   CardContent: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
   CardHeader: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
+  CardTitle: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
 }));
 
 jest.mock('@/components/ui/alert', () => ({
@@ -134,15 +150,18 @@ describe('ProjectOverview', () => {
     });
   });
 
-  it('renders back button with correct link to projects list', async () => {
+  it('renders navigation links to project sections', async () => {
     await act(async () => {
       render(<ProjectOverview {...defaultProps} />);
     });
 
     await waitFor(() => {
-      const backButton = screen.getByRole('link', { name: /back to projects/i });
-      expect(backButton).toBeInTheDocument();
-      expect(backButton).toHaveAttribute('href', '/organizations/org-456/projects');
+      // Check that navigation links to project sections exist
+      const briefLink = screen.getAllByRole('link').find(link => 
+        link.getAttribute('href')?.includes('/brief')
+      );
+      expect(briefLink).toBeInTheDocument();
+      expect(briefLink).toHaveAttribute('href', '/organizations/org-456/projects/project-123/brief');
     });
   });
 

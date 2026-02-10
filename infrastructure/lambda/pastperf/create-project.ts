@@ -1,0 +1,47 @@
+import type { APIGatewayProxyResultV2 } from 'aws-lambda';
+import middy from '@middy/core';
+import { withSentryLambda } from '../sentry-lambda';
+import { CreatePastProjectDTOSchema } from '@auto-rfp/shared';
+import { createPastProject } from '../helpers/past-performance';
+import { apiResponse } from '../helpers/api';
+import {
+  authContextMiddleware,
+  httpErrorMiddleware,
+  type AuthedEvent,
+} from '../middleware/rbac-middleware';
+
+const baseHandler = async (event: AuthedEvent): Promise<APIGatewayProxyResultV2> => {
+  try {
+    const body = JSON.parse(event.body || '{}');
+    const dto = CreatePastProjectDTOSchema.parse(body);
+    const userId = event.auth?.userId || 'system';
+
+    const project = await createPastProject(dto, userId);
+
+    return apiResponse(201, {
+      ok: true,
+      project,
+    });
+  } catch (error: any) {
+    console.error('Error creating past project:', error);
+
+    if (error.name === 'ZodError') {
+      return apiResponse(400, {
+        ok: false,
+        error: 'Validation error',
+        details: error.errors,
+      });
+    }
+
+    return apiResponse(500, {
+      ok: false,
+      error: error.message || 'Internal server error',
+    });
+  }
+};
+
+export const handler = withSentryLambda(
+  middy(baseHandler)
+    .use(authContextMiddleware())
+    .use(httpErrorMiddleware())
+);

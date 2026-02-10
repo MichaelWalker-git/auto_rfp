@@ -32,6 +32,7 @@ import {
   ScrollText,
   Search,
   Settings,
+  Target,
   Users
 } from 'lucide-react';
 
@@ -113,6 +114,7 @@ function AppSidebar() {
         ? [
           { title: 'Projects', url: `/organizations/${orgId}/projects`, icon: FolderOpen },
           { title: 'Knowledge Base', url: `/organizations/${orgId}/knowledge-base`, icon: BookOpen },
+          { title: 'Past Performance', url: `/organizations/${orgId}/past-performance`, icon: Briefcase },
           { title: 'Search Opportunities', url: `/organizations/${orgId}/opportunities`, icon: Search },
           { title: 'Deadlines', url: `/organizations/${orgId}/deadlines`, icon: CalendarClock },
           { title: 'Team', url: `/organizations/${orgId}/team`, icon: Users },
@@ -127,9 +129,10 @@ function AppSidebar() {
       orgId && projectId
         ? [
           { title: 'Dashboard', url: `/organizations/${orgId}/projects/${projectId}/dashboard`, icon: Home },
+          { title: 'Executive Brief', url: `/organizations/${orgId}/projects/${projectId}/brief`, icon: Target },
           { title: 'Opportunities', url: `/organizations/${orgId}/projects/${projectId}/opportunities`, icon: Briefcase },
           { title: 'Questions', url: `/organizations/${orgId}/projects/${projectId}/questions`, icon: MessageSquare },
-          { title: 'RFP Documents', url: `/organizations/${orgId}/projects/${projectId}/documents`, icon: FileText },
+          { title: 'Solicitation Documents', url: `/organizations/${orgId}/projects/${projectId}/documents`, icon: FileText },
           { title: 'Proposals', url: `/organizations/${orgId}/projects/${projectId}/proposals`, icon: ScrollText },
           { title: 'Outcomes', url: `/organizations/${orgId}/projects/${projectId}/outcomes`, icon: CheckCircle },
           { title: 'FOIA Requests', url: `/organizations/${orgId}/projects/${projectId}/foia`, icon: FileText },

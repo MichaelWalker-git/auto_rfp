@@ -113,7 +113,7 @@ export function ProjectDocuments({ projectId }: ProjectDocumentsProps) {
           <div>
             <CardTitle className="flex items-center gap-2">
               <FileText className="h-5 w-5"/>
-              RFP Documents
+              Solicitation Documents
             </CardTitle>
             <CardDescription>Upload a document and run question extraction</CardDescription>
           </div>
@@ -135,7 +135,7 @@ export function ProjectDocuments({ projectId }: ProjectDocumentsProps) {
           <div>
             <CardTitle className="flex items-center gap-2">
               <FileText className="h-5 w-5"/>
-              RFP Documents
+              Solicitation Documents
             </CardTitle>
             <CardDescription>Upload a document and run question extraction</CardDescription>
           </div>
@@ -177,7 +177,7 @@ export function ProjectDocuments({ projectId }: ProjectDocumentsProps) {
         <div>
           <CardTitle className="flex items-center gap-2">
             <FileText className="h-5 w-5"/>
-            RFP Documents
+            Solicitation Documents
           </CardTitle>
           <CardDescription>
             {total} {total === 1 ? 'file' : 'files'} in this project
