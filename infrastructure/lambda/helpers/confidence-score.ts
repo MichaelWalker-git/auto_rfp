@@ -54,7 +54,7 @@ function calculateContextRelevance(input: ConfidenceScoreInput): number {
       : 0;
 
   // Top hit similarity matters more
-  const topSimilarity = similarityScores.length > 0 ? similarityScores[0] : 0;
+  const topSimilarity = similarityScores[0] || 0;
 
   // Weighted blend: 50% top hit, 30% average, 20% LLM confidence
   const raw =

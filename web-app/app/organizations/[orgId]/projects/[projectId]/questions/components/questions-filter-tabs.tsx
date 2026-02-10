@@ -54,11 +54,11 @@ export function QuestionsFilterTabs({ rfpDocument, orgId }: QuestionsFilterTabsP
   const counts = getCounts();
   const confidenceCounts = getConfidenceCounts();
 
-  const confidenceBands: { value: ConfidenceBand | 'all'; label: string; emoji: string; count?: number }[] = [
-    { value: 'all', label: 'All', emoji: '', count: undefined },
-    { value: 'high', label: 'High', emoji: '🟢', count: confidenceCounts.high },
-    { value: 'medium', label: 'Medium', emoji: '🟡', count: confidenceCounts.medium },
-    { value: 'low', label: 'Low', emoji: '🔴', count: confidenceCounts.low },
+  const confidenceBands: { value: ConfidenceBand | 'all'; label: string; colorClass: string; count?: number }[] = [
+    { value: 'all', label: 'All', colorClass: '', count: undefined },
+    { value: 'high', label: 'High', colorClass: 'text-green-700', count: confidenceCounts.high },
+    { value: 'medium', label: 'Medium', colorClass: 'text-yellow-700', count: confidenceCounts.medium },
+    { value: 'low', label: 'Low', colorClass: 'text-red-700', count: confidenceCounts.low },
   ];
 
   return (
@@ -95,10 +95,10 @@ export function QuestionsFilterTabs({ rfpDocument, orgId }: QuestionsFilterTabsP
               key={band.value}
               variant={confidenceFilter === band.value ? 'default' : 'outline'}
               size="sm"
-              className="h-7 text-xs gap-1"
+              className={`h-7 text-xs gap-1 ${confidenceFilter !== band.value && band.colorClass ? band.colorClass : ''}`}
               onClick={() => setConfidenceFilter(band.value)}
             >
-              {band.emoji} {band.label}
+              {band.label}
               {band.count !== undefined && (
                 <Badge variant="secondary" className="ml-0.5 h-4 text-[10px] px-1">
                   {band.count}
