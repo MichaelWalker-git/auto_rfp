@@ -4,11 +4,15 @@ import { useEffect, useState } from 'react';
 import { CheckCircle, ChevronDown, ChevronRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { AnswerSource, GroupedSection, GroupedQuestion } from '@auto-rfp/shared';
+import { AnswerSource, ConfidenceBreakdown, ConfidenceBand, GroupedSection, GroupedQuestion } from '@auto-rfp/shared';
+import { ConfidenceBadge } from '@/components/confidence/confidence-score-display';
 
 type AnswerData = {
   text: string;
   sources?: AnswerSource[];
+  confidence?: number;
+  confidenceBreakdown?: ConfidenceBreakdown;
+  confidenceBand?: ConfidenceBand;
 }
 
 type QuestionStatus = 'unanswered' | 'complete';
@@ -143,8 +147,18 @@ export function QuestionNavigator({
                           status === 'complete' && 'text-muted-foreground',
                           isUnsaved && 'font-medium text-amber-700'
                         )}>
-                          {getTruncatedText(question.question)}
-                          {isUnsaved && <span className="ml-1 text-amber-600">*</span>}
+                          <div className="flex items-center gap-1.5">
+                            <span className="flex-1">
+                              {getTruncatedText(question.question)}
+                              {isUnsaved && <span className="ml-1 text-amber-600">*</span>}
+                            </span>
+                            {status === 'complete' && answers[question.id]?.confidence != null && (
+                              <ConfidenceBadge
+                                confidence={answers[question.id].confidence}
+                                band={answers[question.id].confidenceBand}
+                              />
+                            )}
+                          </div>
                         </div>
                       </div>
                     </button>

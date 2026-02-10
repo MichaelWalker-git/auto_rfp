@@ -17,13 +17,14 @@ import {
 } from '../middleware/rbac-middleware';
 import middy from '@middy/core';
 import { requireEnv } from '../helpers/env';
-import { AnswerQuestionRequestBody, AnswerSource, ContentLibraryItem, QAItem, QuestionItem } from '@auto-rfp/shared';
+import { AnswerQuestionRequestBody, AnswerSource, ConfidenceBreakdown, ContentLibraryItem, QAItem, QuestionItem } from '@auto-rfp/shared';
 import { getQuestionItemById } from '../helpers/question';
 import { saveAnswer } from './save-answer';
 import { DBItem, getItem } from '../helpers/db';
 import { safeParseJsonFromModel } from '../helpers/json';
 import { loadTextFromS3 } from '../helpers/s3';
 import { getDocumentItemByDocumentId } from '../helpers/document';
+import { calculateConfidenceScore, ConfidenceScoreResult } from '../helpers/confidence-score';
 
 const DOCUMENTS_BUCKET = requireEnv('DOCUMENTS_BUCKET');
 const BEDROCK_MODEL_ID = requireEnv('BEDROCK_MODEL_ID');
@@ -42,6 +43,8 @@ export interface GenerateAnswerResult {
   questionId: string;
   answer: string;
   confidence?: number;
+  confidenceBreakdown?: ConfidenceBreakdown;
+  confidenceBand?: 'high' | 'medium' | 'low';
   found: boolean;
   sources: AnswerSource[];
   fromContentLibrary: boolean;
@@ -197,18 +200,34 @@ export async function generateAnswerForQuestion(params: GenerateAnswerParams): P
     const dbItem = await getItem<ContentLibraryItem & DBItem>(key[PK_NAME]!, key[SK_NAME]!);
 
     if (dbItem) {
+      // Calculate enhanced confidence for content library answers
+      const clConfidence = calculateConfidenceScore({
+        llmConfidence: topHit?.score || 0.95,
+        found: true,
+        questionText: question,
+        answerText: dbItem.answer,
+        sources: [],
+        fromContentLibrary: true,
+        similarityScores: [topHit?.score || 0.95],
+        sourceCreatedDates: dbItem.updatedAt ? [dbItem.updatedAt] : undefined,
+      });
+
       await saveAnswer({
         questionId,
         projectId,
         text: dbItem.answer,
-        confidence: topHit?.score,
+        confidence: clConfidence.overall / 100,
+        confidenceBreakdown: clConfidence.breakdown,
+        confidenceBand: clConfidence.band,
         sources: [],
       });
 
       return {
         questionId,
         answer: dbItem.answer,
-        confidence: topHit?.score,
+        confidence: clConfidence.overall / 100,
+        confidenceBreakdown: clConfidence.breakdown,
+        confidenceBand: clConfidence.band,
         found: true,
         sources: [],
         fromContentLibrary: true,
@@ -233,18 +252,42 @@ export async function generateAnswerForQuestion(params: GenerateAnswerParams): P
 
   const sources = buildAnswerSources(texts);
 
+  // Calculate enhanced multi-factor confidence score
+  const similarityScores = hits
+    .filter((h) => h.score != null)
+    .map((h) => h.score as number);
+
+  const sourceCreatedDates = texts
+    .map((t) => (t as any).createdAt as string | undefined)
+    .filter(Boolean);
+
+  const enhancedConfidence: ConfidenceScoreResult = calculateConfidenceScore({
+    llmConfidence: confidence ?? 0,
+    found: found ?? false,
+    questionText: question,
+    answerText: answer || '',
+    sources,
+    fromContentLibrary: false,
+    similarityScores,
+    sourceCreatedDates: sourceCreatedDates.length > 0 ? sourceCreatedDates : undefined,
+  });
+
   await saveAnswer({
     questionId,
     projectId,
     text: answer,
-    confidence,
+    confidence: enhancedConfidence.overall / 100,
+    confidenceBreakdown: enhancedConfidence.breakdown,
+    confidenceBand: enhancedConfidence.band,
     sources,
   });
 
   return {
     questionId,
     answer: answer || '',
-    confidence,
+    confidence: enhancedConfidence.overall / 100,
+    confidenceBreakdown: enhancedConfidence.breakdown,
+    confidenceBand: enhancedConfidence.band,
     found: found ?? false,
     sources,
     fromContentLibrary: false,
@@ -282,6 +325,8 @@ export const baseHandler = async (
       questionId: result.questionId,
       answer: result.answer,
       confidence: result.confidence,
+      confidenceBreakdown: result.confidenceBreakdown,
+      confidenceBand: result.confidenceBand,
       found: result.found,
       topK,
     });

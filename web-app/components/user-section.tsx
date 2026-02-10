@@ -20,66 +20,20 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { ChevronsUpDown, LogOut } from "lucide-react";
-import { useRouter } from "next/navigation";
-import React, { useEffect, useState, useTransition } from "react";
+import { ChevronsUpDown, LogOut, UserPen } from "lucide-react";
+import React, { useState, useTransition } from "react";
 
-// Amplify Auth (Cognito)
-import {
-  fetchUserAttributes,
-  getCurrentUser,
-  signOut,
-} from "aws-amplify/auth";
-import { useAuth } from '@/components/AuthProvider';
-
-type AuthUser = {
-  username: string;
-  email?: string;
-  name?: string;
-  given_name?: string;
-  family_name?: string;
-  picture?: string;
-};
+import { signOut } from "aws-amplify/auth";
+import { useAuth } from "@/components/AuthProvider";
+import { useProfile } from "@/lib/hooks/use-profile";
+import { ProfileEditDialog } from "@/components/profile-edit-dialog";
 
 export const UserSection: React.FC = () => {
-  const [user, setUser] = useState<AuthUser | null>(null);
   const [isPending, startTransition] = useTransition();
-  const { push } = useRouter();
+  const [isProfileOpen, setIsProfileOpen] = useState(false);
   const { open } = useSidebar();
-
-  useEffect(() => {
-    let isMounted = true;
-
-    const loadUser = async () => {
-      try {
-        const currentUser = await getCurrentUser();
-        const attributes = await fetchUserAttributes();
-
-        if (!isMounted) return;
-
-        setUser({
-          username: currentUser.username,
-          email: attributes.email,
-          name: attributes.name,
-          given_name: attributes.given_name,
-          family_name: attributes.family_name,
-          picture: attributes.picture,
-        });
-      } catch (error) {
-        // No authenticated user or error fetching data
-        console.error("Error loading Cognito user:", error);
-        if (isMounted) {
-          setUser(null);
-        }
-      }
-    };
-
-    loadUser();
-
-    return () => {
-      isMounted = false;
-    };
-  }, []);
+  const { email } = useAuth();
+  const { profile } = useProfile();
 
   const handleSignOut = () => {
     startTransition(async () => {
@@ -91,113 +45,110 @@ export const UserSection: React.FC = () => {
     });
   };
 
-  const redirectToSettings = () => {
-    push("/settings");
-  };
-
-  if (!user) {
-    return null;
-  }
-
   const displayName =
-    user.name ||
-    (user.given_name && user.family_name
-      ? `${user.given_name} ${user.family_name}`
-      : user.given_name) ||
-    user.email?.split("@")[0] ||
-    user.username ||
+    profile?.displayName ||
+    (profile?.firstName && profile?.lastName
+      ? `${profile.firstName} ${profile.lastName}`
+      : profile?.firstName) ||
+    email?.split("@")[0] ||
     "User";
 
-  const userEmail = user.email || "";
+  const userEmail = email || profile?.email || "";
 
-  const avatarUrl = user.picture || "";
+  const initials = (() => {
+    if (profile?.firstName && profile?.lastName) {
+      return `${profile.firstName[0]}${profile.lastName[0]}`.toUpperCase();
+    }
+    return displayName.slice(0, 2).toUpperCase();
+  })();
 
   return (
-    <Tooltip delayDuration={25}>
-      <TooltipTrigger asChild>
-        <SidebarMenu>
-          <SidebarMenuItem>
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <SidebarMenuButton
-                  size={open ? "lg" : "default"}
-                  className="overflow-visible"
-                  tooltip={displayName}
-                >
-                  <Avatar className={open ? "size-8" : "size-6"}>
-                    <AvatarImage src={avatarUrl} alt={displayName} />
-                    <AvatarFallback className="bg-purple-600 text-white">
-                      {displayName.slice(0, 2).toUpperCase()}
-                    </AvatarFallback>
-                  </Avatar>
-                  <div className="gap-0.5 overflow-hidden text-xs group-data-[collapsible=icon]:hidden">
-                    <div className="truncate leading-none text-foreground">
-                      <span>{displayName}</span>
-                    </div>
-                  </div>
-                  <ChevronsUpDown className="ml-auto size-4 group-data-[collapsible=icon]:hidden" />
-                </SidebarMenuButton>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent
-                className="w-[--radix-dropdown-menu-trigger-width] min-w-56 rounded-lg"
-                side="right"
-                align="end"
-                sideOffset={4}
-              >
-                <DropdownMenuLabel className="p-0 font-normal">
-                  <div className="flex items-center gap-2 px-1 py-1.5 text-left text-sm">
-                    <Avatar className="size-8">
-                      <AvatarImage src={avatarUrl} alt={displayName} />
+    <>
+      <Tooltip delayDuration={25}>
+        <TooltipTrigger asChild>
+          <SidebarMenu>
+            <SidebarMenuItem>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <SidebarMenuButton
+                    size={open ? "lg" : "default"}
+                    className="overflow-visible"
+                    tooltip={displayName}
+                  >
+                    <Avatar className={open ? "size-8" : "size-6"}>
                       <AvatarFallback className="bg-purple-600 text-white">
-                        {displayName.slice(0, 2).toUpperCase()}
+                        {initials}
                       </AvatarFallback>
                     </Avatar>
-                    <div className="grid flex-1 text-left text-sm leading-tight">
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <span className="truncate font-semibold">
-                            {displayName}
-                          </span>
-                        </TooltipTrigger>
-                        <TooltipContent>{displayName}</TooltipContent>
-                      </Tooltip>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <span className="truncate text-xs text-muted-foreground">
-                            {userEmail}
-                          </span>
-                        </TooltipTrigger>
-                        <TooltipContent>{userEmail}</TooltipContent>
-                      </Tooltip>
+                    <div className="gap-0.5 overflow-hidden text-xs group-data-[collapsible=icon]:hidden">
+                      <div className="truncate leading-none text-foreground">
+                        <span>{displayName}</span>
+                      </div>
                     </div>
-                  </div>
-                </DropdownMenuLabel>
-
-                {/* Example: settings item if you want it */}
-                {/*
-                <DropdownMenuItem onClick={redirectToSettings}>
-                  <Settings className="size-4" />
-                  <span className="ml-2">Settings</span>
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                */}
-
-                <DropdownMenuSeparator />
-                <DropdownMenuItem
-                  onClick={handleSignOut}
-                  disabled={isPending}
-                  className="text-red-600 focus:text-red-600"
+                    <ChevronsUpDown className="ml-auto size-4 group-data-[collapsible=icon]:hidden" />
+                  </SidebarMenuButton>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent
+                  className="w-[--radix-dropdown-menu-trigger-width] min-w-56 rounded-lg"
+                  side="right"
+                  align="end"
+                  sideOffset={4}
                 >
-                  <LogOut className="size-4" />
-                  <span className="ml-2">
-                    {isPending ? "Signing out..." : "Log out"}
-                  </span>
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </SidebarMenuItem>
-        </SidebarMenu>
-      </TooltipTrigger>
-    </Tooltip>
+                  <DropdownMenuLabel className="p-0 font-normal">
+                    <div className="flex items-center gap-2 px-1 py-1.5 text-left text-sm">
+                      <Avatar className="size-8">
+                        <AvatarFallback className="bg-purple-600 text-white">
+                          {initials}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div className="grid flex-1 text-left text-sm leading-tight">
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <span className="truncate font-semibold">
+                              {displayName}
+                            </span>
+                          </TooltipTrigger>
+                          <TooltipContent>{displayName}</TooltipContent>
+                        </Tooltip>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <span className="truncate text-xs text-muted-foreground">
+                              {userEmail}
+                            </span>
+                          </TooltipTrigger>
+                          <TooltipContent>{userEmail}</TooltipContent>
+                        </Tooltip>
+                      </div>
+                    </div>
+                  </DropdownMenuLabel>
+
+                  <DropdownMenuSeparator />
+
+                  <DropdownMenuItem onClick={() => setIsProfileOpen(true)}>
+                    <UserPen className="size-4" />
+                    <span className="ml-2">Edit Profile</span>
+                  </DropdownMenuItem>
+
+                  <DropdownMenuSeparator />
+
+                  <DropdownMenuItem
+                    onClick={handleSignOut}
+                    disabled={isPending}
+                    className="text-red-600 focus:text-red-600"
+                  >
+                    <LogOut className="size-4" />
+                    <span className="ml-2">
+                      {isPending ? "Signing out..." : "Log out"}
+                    </span>
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </SidebarMenuItem>
+          </SidebarMenu>
+        </TooltipTrigger>
+      </Tooltip>
+
+      <ProfileEditDialog open={isProfileOpen} onOpenChange={setIsProfileOpen} />
+    </>
   );
 };

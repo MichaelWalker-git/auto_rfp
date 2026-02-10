@@ -7,12 +7,16 @@ import { Textarea } from '@/components/ui/textarea';
 import { Save, Sparkles, Trash2 } from 'lucide-react';
 import { Spinner } from '@/components/ui/spinner';
 import { AnswerDisplay } from '@/components/ui/answer-display';
-import { AnswerSource } from '@auto-rfp/shared';
+import { AnswerSource, ConfidenceBreakdown, ConfidenceBand } from '@auto-rfp/shared';
 import PermissionWrapper from '@/components/permission-wrapper';
+import { ConfidenceScoreDisplay } from '@/components/confidence/confidence-score-display';
 
 interface AnswerData {
   text: string;
   sources?: AnswerSource[];
+  confidence?: number;
+  confidenceBreakdown?: ConfidenceBreakdown;
+  confidenceBand?: ConfidenceBand;
 }
 
 interface QuestionEditorProps {
@@ -83,6 +87,17 @@ export function QuestionEditor({
           <div className="mt-4">
             <h3 className="text-sm font-medium mb-2">Preview:</h3>
             <AnswerDisplay content={answer.text}/>
+          </div>
+        )}
+
+        {/* Confidence Score Display */}
+        {answer?.confidence !== undefined && answer.confidence !== null && (
+          <div className="mt-3 p-3 bg-muted/50 rounded-lg border">
+            <ConfidenceScoreDisplay
+              confidence={answer.confidence}
+              breakdown={answer.confidenceBreakdown}
+              band={answer.confidenceBand}
+            />
           </div>
         )}
 

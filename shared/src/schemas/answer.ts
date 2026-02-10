@@ -1,5 +1,44 @@
 import { z } from 'zod';
 
+// ─── Confidence Breakdown (Enhanced Multi-Factor Algorithm) ───
+
+export const CONFIDENCE_WEIGHTS = {
+  contextRelevance: 0.40,
+  sourceRecency: 0.25,
+  answerCoverage: 0.20,
+  sourceAuthority: 0.10,
+  consistency: 0.05,
+} as const;
+
+export const ConfidenceBreakdownSchema = z.object({
+  contextRelevance: z.number().min(0).max(100),
+  sourceRecency: z.number().min(0).max(100),
+  answerCoverage: z.number().min(0).max(100),
+  sourceAuthority: z.number().min(0).max(100),
+  consistency: z.number().min(0).max(100),
+});
+
+export type ConfidenceBreakdown = z.infer<typeof ConfidenceBreakdownSchema>;
+
+export type ConfidenceBand = 'high' | 'medium' | 'low';
+
+export function getConfidenceBand(score: number): ConfidenceBand {
+  if (score >= 90) return 'high';
+  if (score >= 70) return 'medium';
+  return 'low';
+}
+
+export function getConfidenceBandLabel(band: ConfidenceBand): string {
+  const labels: Record<ConfidenceBand, string> = {
+    high: '🟢 High (minimal review needed)',
+    medium: '🟡 Medium (verify facts)',
+    low: '🔴 Low (requires attention)',
+  };
+  return labels[band];
+}
+
+// ─── Answer Source ───
+
 export const AnswerSourceSchema = z.object({
   id: z.string(),
   fileName: z.string().optional(),
@@ -14,6 +53,8 @@ export type AnswerSource = z.infer<typeof AnswerSourceSchema>;
 
 export const AnswerSourcesSchema = z.array(AnswerSourceSchema);
 
+// ─── Answer Item ───
+
 export const AnswerItemSchema = z.object({
   id: z.string(),
   questionId: z.string(),
@@ -21,6 +62,8 @@ export const AnswerItemSchema = z.object({
   organizationId: z.string().optional(),
   text: z.string(),
   confidence: z.number().optional(),
+  confidenceBreakdown: ConfidenceBreakdownSchema.optional(),
+  confidenceBand: z.enum(['high', 'medium', 'low']).optional(),
   sources: AnswerSourcesSchema.optional(),
   createdAt: z.string(),
   updatedAt: z.string(),

@@ -3,11 +3,15 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { CheckCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { AnswerSource } from '@auto-rfp/shared';
+import { AnswerSource, ConfidenceBreakdown, ConfidenceBand } from '@auto-rfp/shared';
+import { ConfidenceBadge } from '@/components/confidence/confidence-score-display';
 
 interface AnswerData {
   text: string;
   sources?: AnswerSource[];
+  confidence?: number;
+  confidenceBreakdown?: ConfidenceBreakdown;
+  confidenceBand?: ConfidenceBand;
 }
 
 interface QuestionWithSection {
@@ -76,7 +80,15 @@ export function QuestionsFilter({
                   "flex-1 mr-2",
                   unsavedQuestions.has(question.id) && "font-medium text-amber-700"
                 )}>
-                  <div className="font-medium">{question.sectionTitle}</div>
+                  <div className="flex items-center justify-between">
+                    <div className="font-medium">{question.sectionTitle}</div>
+                    {answers[question.id]?.confidence != null && (
+                      <ConfidenceBadge
+                        confidence={answers[question.id].confidence}
+                        band={answers[question.id].confidenceBand}
+                      />
+                    )}
+                  </div>
                   {question.question}
                   {unsavedQuestions.has(question.id) && <span className="ml-1 text-amber-600">*</span>}
                 </div>

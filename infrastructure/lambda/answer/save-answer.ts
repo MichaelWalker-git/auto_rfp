@@ -4,7 +4,7 @@ import { v4 as uuidv4 } from 'uuid';
 
 import { PK_NAME, SK_NAME } from '../constants/common';
 import { apiResponse } from '../helpers/api';
-import { AnswerItem, SaveAnswerDTOSchema, } from '@auto-rfp/shared';
+import { AnswerItem, ConfidenceBreakdown, ConfidenceBand, SaveAnswerDTOSchema, } from '@auto-rfp/shared';
 import { ANSWER_PK } from '../constants/answer';
 import { withSentryLambda } from '../sentry-lambda';
 import {
@@ -55,9 +55,12 @@ export const baseHandler = async (event: APIGatewayProxyEventV2): Promise<APIGat
   }
 };
 
-export async function saveAnswer(dto: Partial<AnswerItem>): Promise<AnswerItem> {
+export async function saveAnswer(dto: Partial<AnswerItem> & {
+  confidenceBreakdown?: ConfidenceBreakdown;
+  confidenceBand?: ConfidenceBand;
+}): Promise<AnswerItem> {
   const now = nowIso();
-  const { questionId, text, projectId, organizationId, sources } = dto;
+  const { questionId, text, projectId, organizationId, sources, confidence, confidenceBreakdown, confidenceBand } = dto;
 
   const skPrefix = `${projectId}#${questionId}#`;
 
@@ -85,24 +88,49 @@ export async function saveAnswer(dto: Partial<AnswerItem>): Promise<AnswerItem> 
       [SK_NAME]: existing[SK_NAME],
     };
 
+    // Build dynamic update expression to include confidence fields when present
+    const updateParts = [
+      '#text = :text',
+      '#organizationId = :organizationId',
+      '#updatedAt = :updatedAt',
+      '#sources = :sources',
+    ];
+    const exprNames: Record<string, string> = {
+      '#text': 'text',
+      '#organizationId': 'organizationId',
+      '#updatedAt': 'updatedAt',
+      '#sources': 'sources',
+    };
+    const exprValues: Record<string, any> = {
+      ':text': text,
+      ':organizationId': organizationId ?? null,
+      ':updatedAt': now,
+      ':sources': sources || [],
+    };
+
+    if (confidence !== undefined) {
+      updateParts.push('#confidence = :confidence');
+      exprNames['#confidence'] = 'confidence';
+      exprValues[':confidence'] = confidence;
+    }
+    if (confidenceBreakdown) {
+      updateParts.push('#confidenceBreakdown = :confidenceBreakdown');
+      exprNames['#confidenceBreakdown'] = 'confidenceBreakdown';
+      exprValues[':confidenceBreakdown'] = confidenceBreakdown;
+    }
+    if (confidenceBand) {
+      updateParts.push('#confidenceBand = :confidenceBand');
+      exprNames['#confidenceBand'] = 'confidenceBand';
+      exprValues[':confidenceBand'] = confidenceBand;
+    }
+
     const updateRes = await docClient.send(
       new UpdateCommand({
         TableName: DB_TABLE_NAME,
         Key: key,
-        UpdateExpression:
-          'SET #text = :text, #organizationId = :organizationId, #updatedAt = :updatedAt, #sources = :sources',
-        ExpressionAttributeNames: {
-          '#text': 'text',
-          '#organizationId': 'organizationId',
-          '#updatedAt': 'updatedAt',
-          '#sources': 'sources',
-        },
-        ExpressionAttributeValues: {
-          ':text': text,
-          ':organizationId': organizationId ?? null,
-          ':updatedAt': now,
-          ':sources': sources || [],
-        },
+        UpdateExpression: `SET ${updateParts.join(', ')}`,
+        ExpressionAttributeNames: exprNames,
+        ExpressionAttributeValues: exprValues,
         ReturnValues: 'ALL_NEW',
       }),
     );
@@ -122,6 +150,9 @@ export async function saveAnswer(dto: Partial<AnswerItem>): Promise<AnswerItem> 
     projectId,
     organizationId,
     text: text || '',
+    confidence,
+    confidenceBreakdown,
+    confidenceBand,
     sources: sources,
     createdAt: now,
     updatedAt: now,
