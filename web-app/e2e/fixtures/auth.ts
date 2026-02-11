@@ -17,7 +17,8 @@ export const test = base.extend<AuthFixtures>({
     // This is a placeholder that would need to be implemented
     // based on your actual Amplify/Cognito setup
 
-    await page.goto('/auth/login');
+    // Navigate to a protected route — Amplify Authenticator renders the login form
+    await page.goto('/organizations');
 
     // Wait for Amplify Authenticator to load
     // await page.waitForSelector('[data-amplify-authenticator]');

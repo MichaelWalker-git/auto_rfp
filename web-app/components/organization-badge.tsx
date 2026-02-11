@@ -18,6 +18,7 @@ import { Button } from '@/components/ui/button';
 import { ChevronsUpDown, Loader2, Plus } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
 
+import { useRouter } from 'next/navigation';
 import { useCurrentOrganization } from '@/context/organization-context';
 import { useProjectContext } from '@/context/project-context';
 import { useIconUrl } from '@/lib/hooks/use-icon-url';
@@ -204,7 +205,7 @@ export function OrganizationBadge() {
 }
 
 export function CreateProjectDialog({ orgId, open, setOpen }: CreateDialogProps) {
-
+  const router = useRouter();
   const { toast } = useToast();
   const { createProject } = useCreateProject();
   const { projects, setCurrentProject, refreshProjects } =
@@ -247,6 +248,9 @@ export function CreateProjectDialog({ orgId, open, setOpen }: CreateDialogProps)
       toast({ title: 'Success', description: 'Project created' });
       setOpen(false);
       setForm({ name: '', description: '' });
+
+      // Navigate to the newly created project page
+      router.push(`/organizations/${orgId}/projects/${created.id}`);
     } catch (e: any) {
       toast({
         title: 'Error',

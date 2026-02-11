@@ -18,8 +18,8 @@ setup('authenticate', async ({ page }) => {
 
   console.log('🔐 Setting up authentication...');
 
-  // Navigate to login page
-  await page.goto('/auth/login');
+  // Navigate to a protected route — Amplify Authenticator renders the login form
+  await page.goto('/organizations');
   await page.waitForLoadState('networkidle');
 
   // Look for the email/username input (Amplify uses different field names)

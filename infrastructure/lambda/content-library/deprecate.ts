@@ -18,7 +18,7 @@ async function baseHandler(
   try {
     const itemId = event.pathParameters?.id;
     const orgId = event.queryStringParameters?.orgId || getOrgId(event);
-    const kbId = event.queryStringParameters?.orgId;
+    const kbId = event.queryStringParameters?.kbId;
     if (!itemId || !kbId || !orgId) {
       return apiResponse(400, { error: 'Missing itemId or kbId or orgId.' });
     }

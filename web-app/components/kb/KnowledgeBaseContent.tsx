@@ -26,6 +26,7 @@ import PermissionWrapper from '@/components/permission-wrapper';
 import { KnowledgeBase } from '@auto-rfp/shared';
 import { KBTypeSelect } from '@/components/kb/KBTypeSelect';
 import KnowledgeBaseCard from '@/components/kb/KnowledgeBaseCard';
+import { useCurrentOrganization } from '@/context/organization-context';
 
 export function useOpenKnowledgeBase(orgId: string) {
   const router = useRouter();
@@ -51,7 +52,6 @@ export function KnowledgeBaseContent({}: KnowledgeBaseContentProps) {
 
   const [isDeleteKBOpen, setIsDeleteKBOpen] = useState(false);
   const [deletingKb, setDeletingKb] = useState<KnowledgeBase | null>(null);
-
   const { data: knowledgeBases, isLoading, mutate: mutateKb } = useKnowledgeBases(orgId);
   const { trigger: editKb } = useEditKnowledgeBase();
   const { trigger: deleteKb } = useDeleteKnowledgeBase();
@@ -122,7 +122,7 @@ export function KnowledgeBaseContent({}: KnowledgeBaseContentProps) {
     if (!deletingKb) return;
 
     try {
-      await deleteKb(deletingKb);
+      await deleteKb({ ...deletingKb, orgId });
       await mutateKb();
       toast({ title: 'Success', description: 'Knowledge base deleted successfully' });
 
