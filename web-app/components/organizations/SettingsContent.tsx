@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useOrganization } from '@/lib/hooks/use-api';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -8,7 +8,7 @@ import { Label } from '@/components/ui/label';
 import { useToast } from '@/components/ui/use-toast';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
-import { AlertCircle } from 'lucide-react';
+import { AlertCircle, Building2, Loader2, Trash2, Upload } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import PermissionWrapper from '@/components/permission-wrapper';
 import { SavedSearchList } from '@/components/organizations/SavedSearchList';
@@ -16,18 +16,30 @@ import { PromptsManager } from '@/components/organizations/PromptManager';
 import { DocxTemplateUpload } from '@/components/organizations/DocxTemplateUpload';
 import { SamGovApiKeyConfiguration } from '@/components/api-key/SamGovApiKeyConfiguration';
 import { LinearApiKeyConfiguration } from '@/components/api-key/LinearApiKeyConfiguration';
+import { authFetcher } from '@/lib/auth/auth-fetcher';
+import { env } from '@/lib/env';
+import { usePresignUpload, uploadFileToS3 } from '@/lib/hooks/use-presign';
+import Image from 'next/image';
 
 interface SettingsContentProps {
   orgId: string;
 }
+
+const ACCEPTED_IMAGE_TYPES = ['image/png', 'image/jpeg', 'image/gif', 'image/svg+xml', 'image/webp'];
+const MAX_ICON_SIZE = 2 * 1024 * 1024; // 2MB
 
 export function SettingsContent({ orgId }: SettingsContentProps) {
   const [organization, setOrganization] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [name, setName] = useState('');
-  const [slackWebhook, setSlackWebhook] = useState('');
+  const [iconUrl, setIconUrl] = useState('');
+  const [iconS3Key, setIconS3Key] = useState('');
+  const [isUploadingIcon, setIsUploadingIcon] = useState(false);
+  const [isLoadingIcon, setIsLoadingIcon] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
+  const { trigger: presignUpload } = usePresignUpload();
 
   const { data: orgData, isLoading: isOrgLoading, isError: isOrgError, mutate } = useOrganization(orgId);
 
@@ -35,7 +47,15 @@ export function SettingsContent({ orgId }: SettingsContentProps) {
     if (orgData) {
       setOrganization(orgData);
       setName((orgData as any).name || '');
-      setSlackWebhook((orgData as any).slackWebhook || '');
+      // Load icon via presigned URL if org has an iconKey
+      const orgIconKey = (orgData as any).iconKey;
+      if (orgIconKey) {
+        setIconS3Key(orgIconKey);
+        loadIconPresignedUrl(orgIconKey);
+      } else {
+        setIconUrl('');
+        setIconS3Key('');
+      }
       setIsLoading(false);
     } else {
       setIsLoading(isOrgLoading);
@@ -50,10 +70,114 @@ export function SettingsContent({ orgId }: SettingsContentProps) {
     }
   }, [orgData, isOrgLoading, isOrgError, toast]);
 
-  // Force refresh of organization data when component mounts to ensure we have latest LlamaCloud data
+  // Force refresh of organization data when component mounts to ensure we have latest data
   useEffect(() => {
     mutate();
   }, [mutate]);
+
+  const loadIconPresignedUrl = useCallback(async (key: string) => {
+    try {
+      setIsLoadingIcon(true);
+      const res = await authFetcher(`${env.BASE_API_URL}/presigned/presigned-url`, {
+        method: 'POST',
+        body: JSON.stringify({ operation: 'download', key }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setIconUrl(data.url);
+      }
+    } catch {
+      // Silently fail — icon just won't show
+    } finally {
+      setIsLoadingIcon(false);
+    }
+  }, []);
+
+  const handleIconUpload = useCallback(async (file: File) => {
+    if (!ACCEPTED_IMAGE_TYPES.includes(file.type)) {
+      toast({
+        title: 'Invalid file type',
+        description: 'Please upload a PNG, JPEG, GIF, SVG, or WebP image.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    if (file.size > MAX_ICON_SIZE) {
+      toast({
+        title: 'File too large',
+        description: 'Icon image must be less than 2MB.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    try {
+      setIsUploadingIcon(true);
+
+      // Get presigned URL for upload
+      const presign = await presignUpload({
+        fileName: file.name,
+        contentType: file.type,
+        prefix: `organizations/${orgId}/icon`,
+      });
+
+      // Upload file to S3
+      await uploadFileToS3(presign.url, presign.method, file);
+
+      // Store the S3 key for saving to the org record
+      setIconS3Key(presign.key);
+
+      // Get a presigned download URL for immediate display
+      try {
+        const iconRes = await authFetcher(`${env.BASE_API_URL}/presigned/presigned-url`, {
+          method: 'POST',
+          body: JSON.stringify({ operation: 'download', key: presign.key }),
+        });
+        if (iconRes.ok) {
+          const iconData = await iconRes.json();
+          setIconUrl(iconData.url);
+        } else {
+          setIconUrl('');
+        }
+      } catch {
+        setIconUrl('');
+      }
+
+      toast({
+        title: 'Icon uploaded',
+        description: 'Click "Save Changes" to apply the new icon.',
+      });
+    } catch (error) {
+      console.error('Error uploading icon:', error);
+      toast({
+        title: 'Upload failed',
+        description: 'Failed to upload icon image. Please try again.',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsUploadingIcon(false);
+    }
+  }, [orgId, presignUpload, toast]);
+
+  const handleFileChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      handleIconUpload(file);
+    }
+    // Reset input so the same file can be selected again
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  }, [handleIconUpload]);
+
+  const handleRemoveIcon = useCallback(() => {
+    setIconUrl('');
+    toast({
+      title: 'Icon removed',
+      description: 'Click "Save Changes" to apply the change.',
+    });
+  }, [toast]);
 
   const handleUpdateOrganization = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -61,14 +185,12 @@ export function SettingsContent({ orgId }: SettingsContentProps) {
     try {
       setIsSaving(true);
 
-      const response = await fetch(`/api/organizations/${orgId}`, {
+      const url = `${env.BASE_API_URL}/organization/edit-organization/${orgId}`;
+      const response = await authFetcher(url, {
         method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-        },
         body: JSON.stringify({
           name,
-          slackWebhook,
+          iconKey: iconS3Key || undefined,
         }),
       });
 
@@ -78,6 +200,9 @@ export function SettingsContent({ orgId }: SettingsContentProps) {
 
       const updatedOrg = await response.json();
       setOrganization(updatedOrg);
+
+      // Refresh SWR cache
+      await mutate();
 
       toast({
         title: 'Success',
@@ -141,7 +266,75 @@ export function SettingsContent({ orgId }: SettingsContentProps) {
             </CardHeader>
             <CardContent>
               <form onSubmit={handleUpdateOrganization} id="general-form">
-                <div className="grid gap-4 py-2">
+                <div className="grid gap-6 py-2">
+                  {/* Company Icon */}
+                  <div className="grid gap-3">
+                    <Label>Company Icon</Label>
+                    <div className="flex items-start gap-4">
+                      <div className="relative flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-lg border-2 border-dashed border-muted-foreground/25 bg-muted/50">
+                        {iconUrl ? (
+                          <Image
+                            src={iconUrl}
+                            alt="Company icon"
+                            width={80}
+                            height={80}
+                            className="h-full w-full object-contain"
+                            unoptimized
+                          />
+                        ) : (
+                          <Building2 className="h-8 w-8 text-muted-foreground/50" />
+                        )}
+                      </div>
+                      <div className="flex flex-col gap-2">
+                        <div className="flex items-center gap-2">
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => fileInputRef.current?.click()}
+                            disabled={isUploadingIcon || isSaving}
+                          >
+                            {isUploadingIcon ? (
+                              <>
+                                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                                Uploading...
+                              </>
+                            ) : (
+                              <>
+                                <Upload className="h-4 w-4 mr-2" />
+                                Upload Icon
+                              </>
+                            )}
+                          </Button>
+                          {iconUrl && (
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              onClick={handleRemoveIcon}
+                              disabled={isUploadingIcon || isSaving}
+                              className="text-destructive hover:text-destructive"
+                            >
+                              <Trash2 className="h-4 w-4 mr-2" />
+                              Remove
+                            </Button>
+                          )}
+                        </div>
+                        <p className="text-xs text-muted-foreground">
+                          PNG, JPEG, GIF, SVG, or WebP. Max 2MB. Recommended: 256×256px.
+                        </p>
+                      </div>
+                      <input
+                        ref={fileInputRef}
+                        type="file"
+                        accept={ACCEPTED_IMAGE_TYPES.join(',')}
+                        onChange={handleFileChange}
+                        className="hidden"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Organization Name */}
                   <div className="grid gap-2">
                     <Label htmlFor="name">Organization Name</Label>
                     <Input
@@ -209,4 +402,4 @@ export function SettingsContent({ orgId }: SettingsContentProps) {
       </div>
     </div>
   );
-} 
+}

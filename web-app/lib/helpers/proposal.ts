@@ -14,31 +14,25 @@ function sanitizeFileName(name: string) {
 function buildProposalDocx(proposalDoc: ProposalDocument) {
   const children: Paragraph[] = [];
 
-  // Title
   children.push(
     new Paragraph({
       heading: HeadingLevel.TITLE,
       alignment: AlignmentType.CENTER,
-      children: [new TextRun({ text: proposalDoc.proposalTitle || 'Proposal', bold: true, size: 36 },)],
+      children: [new TextRun({ text: proposalDoc.proposalTitle || 'Proposal', bold: true, size: 36 })],
     }),
   );
 
-  // Outline summary
   if (proposalDoc.outlineSummary) {
     children.push(new Paragraph({ text: '', heading: undefined }));
-    children.push(new Paragraph({
-      heading: HeadingLevel.HEADING_1,
-      text: 'Executive Summary',
-    }));
-    children.push(new Paragraph({ text: '', heading: undefined, style: 'Normal', }));
+    children.push(new Paragraph({ heading: HeadingLevel.HEADING_1, text: 'Executive Summary' }));
+    children.push(new Paragraph({ text: '', heading: undefined, style: 'Normal' }));
     children.push(new Paragraph({
       style: 'Normal',
       text: '',
-      children: [new TextRun({ text: proposalDoc.outlineSummary })]
+      children: [new TextRun({ text: proposalDoc.outlineSummary })],
     }));
   }
 
-  // Sections + subsections
   proposalDoc.sections.forEach((section, sIdx) => {
     children.push(new Paragraph({ text: '' }));
     children.push(
@@ -55,14 +49,9 @@ function buildProposalDocx(proposalDoc: ProposalDocument) {
       children.push(
         new Paragraph({
           heading: HeadingLevel.HEADING_2,
-          children: [new TextRun({
-            text: `${sIdx + 1}.${subIdx + 1} ${sub.title || 'Untitled Subsection'}`,
-            bold: true
-          })],
+          children: [new TextRun({ text: `${sIdx + 1}.${subIdx + 1} ${sub.title || 'Untitled Subsection'}`, bold: true })],
         }),
       );
-
-      // preserve line breaks
       (sub.content || '').split(/\r?\n/).forEach((line) => children.push(new Paragraph({ text: line })));
     });
   });
@@ -82,7 +71,7 @@ export async function exportProposalToPdf(doc: {
   sections: {
     title?: string | null;
     summary?: string | null;
-    subsections?: { title?: string | null; content?: string | null }[]
+    subsections?: { title?: string | null; content?: string | null }[];
   }[];
 }) {
   const pdfDoc = await PDFDocument.create();
@@ -112,14 +101,11 @@ export async function exportProposalToPdf(doc: {
     return lines;
   };
 
-  const safeName = (doc.proposalTitle || 'proposal')
-    .toString()
-    .trim()
-    .replace(/[\\/:*?"<>|]+/g, '-');
+  const safeName = (doc.proposalTitle || 'proposal').toString().trim().replace(/[\\/:*?"<>|]+/g, '-');
 
   let page = pdfDoc.addPage();
   let { width, height } = page.getSize();
-  let x = margin;
+  const x = margin;
   let y = height - margin;
 
   const ensureSpace = (needed: number) => {
@@ -132,13 +118,7 @@ export async function exportProposalToPdf(doc: {
 
   const drawLine = (text: string, size = textSize, bold = false, color = rgb(0, 0, 0)) => {
     ensureSpace(lineHeight + 2);
-    page.drawText(text, {
-      x,
-      y,
-      size,
-      font: bold ? fontBold : font,
-      color,
-    });
+    page.drawText(text, { x, y, size, font: bold ? fontBold : font, color });
     y -= lineHeight;
   };
 
@@ -149,43 +129,120 @@ export async function exportProposalToPdf(doc: {
     y -= 6;
   };
 
-  // Title
   drawParagraph(doc.proposalTitle || 'Proposal', titleSize, true);
 
-  // Summary
   if (doc.summary) {
     drawLine('Summary', h2Size, true, rgb(0.1, 0.1, 0.1));
     drawParagraph(doc.summary, textSize, false);
   }
 
-  // Sections
   for (const s of doc.sections || []) {
-    const sectionTitle = s.title || 'Section';
-    drawLine(sectionTitle, h2Size, true, rgb(0.1, 0.1, 0.1));
-
+    drawLine(s.title || 'Section', h2Size, true, rgb(0.1, 0.1, 0.1));
     if (s.summary) drawParagraph(s.summary, textSize, false);
-
-    const subs = s.subsections || [];
-    for (const sub of subs) {
+    for (const sub of s.subsections || []) {
       if (sub.title) drawParagraph(sub.title, 12, true);
       if (sub.content) drawParagraph(sub.content, textSize, false);
     }
-
     y -= 8;
   }
 
   const bytes = await pdfDoc.save();
-  //@ts-ignore
+  // @ts-ignore
   const blob = new Blob([bytes], { type: 'application/pdf' });
   const url = URL.createObjectURL(blob);
-
   const a = document.createElement('a');
   a.href = url;
   a.download = `${safeName}.pdf`;
   document.body.appendChild(a);
   a.click();
   a.remove();
-
   setTimeout(() => URL.revokeObjectURL(url), 2000);
 }
 
+/**
+ * Export proposal as plain text (client-side).
+ */
+export function exportProposalToText(doc: ProposalDocument) {
+  const lines: string[] = [];
+  lines.push(doc.proposalTitle);
+  lines.push('='.repeat(doc.proposalTitle.length));
+  lines.push('');
+
+  if (doc.customerName) {
+    lines.push(`Customer: ${doc.customerName}`);
+    lines.push('');
+  }
+
+  if (doc.outlineSummary) {
+    lines.push('Executive Summary');
+    lines.push('-'.repeat(17));
+    lines.push('');
+    lines.push(doc.outlineSummary);
+    lines.push('');
+  }
+
+  doc.sections.forEach((section, sIdx) => {
+    lines.push(`${sIdx + 1}. ${section.title}`);
+    lines.push('-'.repeat(`${sIdx + 1}. ${section.title}`.length));
+    lines.push('');
+    if (section.summary) {
+      lines.push(section.summary);
+      lines.push('');
+    }
+    section.subsections.forEach((sub, subIdx) => {
+      lines.push(`${sIdx + 1}.${subIdx + 1} ${sub.title}`);
+      lines.push('');
+      lines.push(sub.content || '');
+      lines.push('');
+    });
+  });
+
+  const text = lines.join('\n');
+  const blob = new Blob([text], { type: 'text/plain;charset=utf-8' });
+  saveAs(blob, `${sanitizeFileName(doc.proposalTitle)}.txt`);
+}
+
+/**
+ * Export proposal as Markdown (client-side).
+ */
+export function exportProposalToMarkdown(doc: ProposalDocument) {
+  const lines: string[] = [];
+  lines.push(`# ${doc.proposalTitle}`);
+  lines.push('');
+
+  if (doc.customerName) {
+    lines.push(`**Customer:** ${doc.customerName}`);
+    lines.push('');
+  }
+
+  lines.push(`**Date:** ${new Date().toLocaleDateString()}`);
+  lines.push('');
+  lines.push('---');
+  lines.push('');
+
+  if (doc.outlineSummary) {
+    lines.push('## Executive Summary');
+    lines.push('');
+    lines.push(doc.outlineSummary);
+    lines.push('');
+  }
+
+  doc.sections.forEach((section, sIdx) => {
+    lines.push(`## ${sIdx + 1}. ${section.title}`);
+    lines.push('');
+    if (section.summary) {
+      lines.push(`*${section.summary}*`);
+      lines.push('');
+    }
+    section.subsections.forEach((sub, subIdx) => {
+      lines.push(`### ${sIdx + 1}.${subIdx + 1} ${sub.title}`);
+      lines.push('');
+      lines.push(sub.content || '');
+      lines.push('');
+    });
+  });
+
+  const md = lines.join('\n');
+  const blob = new Blob([md], { type: 'text/markdown;charset=utf-8' });
+  saveAs(blob, `${sanitizeFileName(doc.proposalTitle)}.md`);
+}

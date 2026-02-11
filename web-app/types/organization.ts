@@ -5,6 +5,7 @@ export interface Organization {
   name: string;
   slug: string;
   description?: string;
+  iconUrl?: string;
   createdAt: string;
   updatedAt: string;
   projects?: Project[];

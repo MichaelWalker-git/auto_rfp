@@ -55,6 +55,12 @@ jest.mock('@/lib/hooks/use-api', () => ({
     isLoading: false,
     error: null,
   })),
+  useApi: jest.fn(() => ({
+    data: null,
+    isLoading: false,
+    error: null,
+    mutate: jest.fn(),
+  })),
 }));
 
 jest.mock('@/lib/hooks/use-project-outcome', () => ({
@@ -86,6 +92,10 @@ jest.mock('@/app/organizations/[orgId]/projects/[projectId]/questions/components
     error: null,
   })),
   NoRfpDocumentAvailable: () => <div>No RFP Document</div>,
+}));
+
+jest.mock('@/lib/env', () => ({
+  env: { BASE_API_URL: 'http://localhost:3000/api' },
 }));
 
 jest.mock('@/components/brief/ExecutiveBriefView', () => ({

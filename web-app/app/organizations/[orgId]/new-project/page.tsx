@@ -64,7 +64,7 @@ export default function NewProjectPage({ params }: NewProjectPageProps) {
       });
       
       // Redirect to the project page
-      router.push(`/project/${newProject.id}?orgId=${orgId}`);
+      router.push(`/organizations/${orgId}/projects/${newProject.id}`);
     } catch (error) {
       console.error("Error creating project:", error);
       toast({
@@ -78,7 +78,7 @@ export default function NewProjectPage({ params }: NewProjectPageProps) {
   };
   
   const handleCancel = () => {
-    router.push(`/org/${orgId}`);
+    router.push(`/organizations/${orgId}/projects`);
   };
   
   return (

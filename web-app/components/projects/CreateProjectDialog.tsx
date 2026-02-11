@@ -77,7 +77,7 @@ export function CreateProjectDialog({
         if (onSuccess) {
           onSuccess(project.id);
         } else {
-          router.push(`/project/${project.id}`);
+          router.push(`/organizations/${organizationId}/projects/${project.id}`);
         }
       } else {
         throw new Error('Failed to create project');

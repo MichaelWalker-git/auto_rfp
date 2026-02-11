@@ -226,6 +226,7 @@ export function ExecutiveBriefView({ projectId }: Props) {
   const [briefItem, setBriefItem] = useState<any>(null);
   const [localBusySections, setLocalBusySections] = useState<Set<SectionKey>>(() => new Set());
   const [isPastPerfRegenerating, setIsPastPerfRegenerating] = useState(false);
+  const [isFetchingBrief, setIsFetchingBrief] = useState(false);
   const [activeTab, setActiveTab] = useState<TabId>('overview');
   const [selectedOpportunityId, setSelectedOpportunityId] = useState<string | null>(null);
   const [selectedOpportunity, setSelectedOpportunity] = useState<OpportunityItem | null>(null);
@@ -405,6 +406,7 @@ export function ExecutiveBriefView({ projectId }: Props) {
     setRegenError(null);
     
     if (oppId) {
+      setIsFetchingBrief(true);
       try {
         const resp = await getBriefByProject.trigger({ projectId, opportunityId: oppId });
         if (resp?.ok && resp?.brief) {
@@ -414,6 +416,8 @@ export function ExecutiveBriefView({ projectId }: Props) {
         // No brief exists for this opportunity yet - that's ok, don't show error
         // The UI will show the "Generate All Sections" button
         console.log('No brief found for opportunity, user can generate one:', err?.message);
+      } finally {
+        setIsFetchingBrief(false);
       }
     }
   };
@@ -425,6 +429,7 @@ export function ExecutiveBriefView({ projectId }: Props) {
       return;
     }
 
+    setIsFetchingBrief(true);
     (async () => {
       try {
         // Fetch brief for the selected opportunity
@@ -438,6 +443,8 @@ export function ExecutiveBriefView({ projectId }: Props) {
         // The UI will show the "Generate All Sections" button
         console.log('No brief found for opportunity:', err?.message);
         setBriefItem(null);
+      } finally {
+        setIsFetchingBrief(false);
       }
     })();
 
@@ -710,6 +717,59 @@ export function ExecutiveBriefView({ projectId }: Props) {
             </p>
           </CardContent>
         </Card>
+      ) : isFetchingBrief ? (
+        <div className="space-y-6">
+          {/* Header skeleton */}
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <Skeleton className="h-7 w-40"/>
+              <Skeleton className="h-6 w-24 rounded-full"/>
+              <Skeleton className="h-5 w-36"/>
+            </div>
+            <div className="flex items-center gap-2">
+              <Skeleton className="h-9 w-36"/>
+              <Skeleton className="h-9 w-32"/>
+            </div>
+          </div>
+
+          {/* Tabs skeleton */}
+          <div className="flex gap-1 p-1">
+            {[...Array(8)].map((_, i) => (
+              <Skeleton key={i} className="h-10 w-10 rounded-md"/>
+            ))}
+          </div>
+
+          {/* Content skeleton */}
+          <div className="space-y-6 mt-6">
+            <Card>
+              <CardHeader>
+                <Skeleton className="h-6 w-48"/>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <Skeleton className="h-4 w-full"/>
+                <Skeleton className="h-4 w-3/4"/>
+                <Skeleton className="h-4 w-1/2"/>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <Skeleton className="h-6 w-32"/>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                  {[...Array(6)].map((_, i) => (
+                    <div key={i} className="space-y-2">
+                      <Skeleton className="h-4 w-24"/>
+                      <Skeleton className="h-8 w-16"/>
+                      <Skeleton className="h-2 w-full"/>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </div>
       ) : !briefItem ? (
         <Card>
           <CardContent className="py-12 text-center">

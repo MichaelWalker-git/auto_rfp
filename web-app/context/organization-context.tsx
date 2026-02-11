@@ -12,6 +12,7 @@ interface Organization {
   name: string;
   slug: string;
   description?: string;
+  iconKey?: string;
 }
 
 interface OrganizationContextType {

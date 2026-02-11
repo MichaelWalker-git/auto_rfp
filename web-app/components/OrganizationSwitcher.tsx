@@ -4,6 +4,7 @@ import * as React from 'react';
 import { ChevronDown, Plus, Loader2 } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -22,6 +23,62 @@ import { useToast } from '@/components/ui/use-toast';
 import { useCurrentOrganization } from '@/context/organization-context';
 import { useCreateOrganization } from '@/lib/hooks/use-create-organization';
 import { generateSlug } from '@/lib/utils';
+import { authFetcher } from '@/lib/auth/auth-fetcher';
+import { env } from '@/lib/env';
+import { useApi } from '@/lib/hooks/use-api';
+
+/**
+ * Load icon presigned URL using the same approach as SettingsContent:
+ * 1. Fetch org detail to get iconKey
+ * 2. Use presigned URL endpoint to get download URL
+ */
+function useOrgIcon(orgId: string | undefined | null): string | null {
+  const [iconUrl, setIconUrl] = React.useState<string | null>(null);
+  const lastOrgIdRef = React.useRef<string | null>(null);
+
+  React.useEffect(() => {
+    if (!orgId) {
+      setIconUrl(null);
+      lastOrgIdRef.current = null;
+      return;
+    }
+
+    if (lastOrgIdRef.current === orgId && iconUrl) return;
+    lastOrgIdRef.current = orgId;
+
+    let cancelled = false;
+
+    (async () => {
+      try {
+        // Step 1: Get org details to find iconKey
+        const orgRes = await authFetcher(
+          `${env.BASE_API_URL}/organization/get-organization/${encodeURIComponent(orgId)}`,
+        );
+        if (!orgRes.ok || cancelled) return;
+        const orgData = await orgRes.json();
+        const iconKey = orgData?.iconKey;
+        if (!iconKey || cancelled) return;
+
+        // Step 2: Get presigned download URL (same as settings page)
+        const presignRes = await authFetcher(`${env.BASE_API_URL}/presigned/presigned-url`, {
+          method: 'POST',
+          body: JSON.stringify({ operation: 'download', key: iconKey }),
+        });
+        if (!presignRes.ok || cancelled) return;
+        const presignData = await presignRes.json();
+        if (presignData?.url && !cancelled) {
+          setIconUrl(presignData.url);
+        }
+      } catch {
+        // Silently fail - icon is optional
+      }
+    })();
+
+    return () => { cancelled = true; };
+  }, [orgId]);
+
+  return iconUrl;
+}
 
 export function OrganizationSwitcher() {
   const { toast } = useToast();
@@ -38,6 +95,9 @@ export function OrganizationSwitcher() {
   const { createOrganization } = useCreateOrganization();
 
   const label = currentOrganization?.name ?? (loading ? 'Loading…' : 'Select organization');
+
+  // Load current org icon using the same method as settings page
+  const currentIconUrl = useOrgIcon(currentOrganization?.id);
 
   const [createOpen, setCreateOpen] = React.useState(false);
   const [isCreating, setIsCreating] = React.useState(false);
@@ -79,7 +139,6 @@ export function OrganizationSwitcher() {
 
       await refreshData();
 
-      // Prefer selecting real org object from refreshed list
       const fresh = organizations.find((o) => o.id === newOrgId);
       setCurrentOrganization(
         (fresh ?? { id: newOrgId, name, slug, description: orgForm.description }) as any,
@@ -106,6 +165,16 @@ export function OrganizationSwitcher() {
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <Button variant="outline" className="gap-2" disabled={loading || !currentOrganization}>
+            {currentOrganization ? (
+              <Avatar className="h-5 w-5">
+                {currentIconUrl ? (
+                  <AvatarImage src={currentIconUrl} alt={currentOrganization.name ?? ''} />
+                ) : null}
+                <AvatarFallback className="text-[10px]">
+                  {currentOrganization.name?.charAt(0)?.toUpperCase()}
+                </AvatarFallback>
+              </Avatar>
+            ) : null}
             <span className="max-w-[220px] truncate">{label}</span>
             <ChevronDown className="h-4 w-4 opacity-70" />
           </Button>
@@ -121,6 +190,7 @@ export function OrganizationSwitcher() {
 
           {organizations.map((org) => {
             const active = org.id === currentOrganization?.id;
+
             return (
               <DropdownMenuItem
                 key={org.id}
@@ -128,7 +198,14 @@ export function OrganizationSwitcher() {
                 onClick={() => setCurrentOrganization(org)}
                 className="flex items-center justify-between"
               >
-                <span className="truncate">{org.name}</span>
+                <div className="flex items-center gap-2">
+                  <Avatar className="h-5 w-5">
+                    <AvatarFallback className="text-[10px]">
+                      {org.name?.charAt(0)?.toUpperCase()}
+                    </AvatarFallback>
+                  </Avatar>
+                  <span className="truncate">{org.name}</span>
+                </div>
                 {active && <span className="text-xs text-muted-foreground">Current</span>}
               </DropdownMenuItem>
             );

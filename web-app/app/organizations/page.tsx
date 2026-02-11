@@ -29,6 +29,7 @@ export interface Organization {
   name: string;
   slug: string;
   description?: string;
+  iconKey?: string;
   aiProcessingEnabled: boolean;
   autoApprovalThreshold: number;
   createdAt: string;

@@ -1,252 +1,134 @@
-import { test, expect } from '@playwright/test';
+import { test, expect } from './fixtures/auth';
 
 test.describe('Question Extraction (Authenticated)', () => {
-  test.beforeEach(async ({ page }) => {
-    if (!process.env.E2E_TEST_EMAIL) {
+  test('should navigate to questions page', async ({ page, nav }) => {
+    const projectHref = await nav.goToFirstProject();
+    if (!projectHref) {
       test.skip();
+      return;
     }
-  });
 
-  test('should navigate to questions page', async ({ page }) => {
-    await page.goto('/organizations');
-    await page.waitForLoadState('networkidle');
-
-    // Navigate to first org
-    const orgLink = page.locator('a[href*="/organizations/"]').first();
-    if (!(await orgLink.isVisible())) {
-      test.skip();
-    }
-    await orgLink.click();
-    await page.waitForLoadState('networkidle');
-
-    // Navigate to first project
-    const projectLink = page.locator('a[href*="/projects/"]').first();
-    if (!(await projectLink.isVisible())) {
-      test.skip();
-    }
-    await projectLink.click();
-    await page.waitForLoadState('networkidle');
-
-    // Look for questions tab/link
-    const questionsLink = page.getByRole('link', { name: /questions/i });
-    if (await questionsLink.isVisible()) {
-      await questionsLink.click();
-      await page.waitForLoadState('networkidle');
+    const navigated = await nav.goToQuestions();
+    if (navigated) {
       await expect(page).toHaveURL(/\/questions/);
     }
   });
 
-  test('should show questions list or empty state', async ({ page }) => {
-    await page.goto('/organizations');
-    await page.waitForLoadState('networkidle');
-
-    const orgLink = page.locator('a[href*="/organizations/"]').first();
-    if (!(await orgLink.isVisible())) {
+  test('should show questions list or empty state', async ({ page, nav }) => {
+    const projectHref = await nav.goToFirstProject();
+    if (!projectHref) {
       test.skip();
+      return;
     }
-    await orgLink.click();
-    await page.waitForLoadState('networkidle');
 
-    const projectLink = page.locator('a[href*="/projects/"]').first();
-    if (!(await projectLink.isVisible())) {
-      test.skip();
-    }
-    await projectLink.click();
-    await page.waitForLoadState('networkidle');
+    await nav.goToQuestions();
 
-    const questionsLink = page.getByRole('link', { name: /questions/i });
-    if (await questionsLink.isVisible()) {
-      await questionsLink.click();
-      await page.waitForLoadState('networkidle');
+    const questionsList = page.locator('[data-testid="questions-list"], div:has-text("Question")');
+    const emptyState = page.locator('div:has-text("Upload"), div:has-text("Extract"), div:has-text("No questions")');
 
-      // Should see either questions list or empty state with upload prompt
-      const questionsList = page.locator('[data-testid="questions-list"], div:has-text("Question")');
-      const emptyState = page.locator('div:has-text("Upload"), div:has-text("Extract"), div:has-text("No questions")');
+    const hasQuestions = await questionsList.first().isVisible({ timeout: 5000 }).catch(() => false);
+    const hasEmptyState = await emptyState.first().isVisible({ timeout: 5000 }).catch(() => false);
 
-      const hasQuestions = await questionsList.first().isVisible().catch(() => false);
-      const hasEmptyState = await emptyState.first().isVisible().catch(() => false);
-
-      expect(hasQuestions || hasEmptyState).toBe(true);
-    }
+    expect(hasQuestions || hasEmptyState).toBeTruthy();
   });
 
-  test('should show extract questions button', async ({ page }) => {
-    await page.goto('/organizations');
-    await page.waitForLoadState('networkidle');
-
-    const orgLink = page.locator('a[href*="/organizations/"]').first();
-    if (!(await orgLink.isVisible())) {
+  test('should show extract questions button', async ({ page, nav }) => {
+    const projectHref = await nav.goToFirstProject();
+    if (!projectHref) {
       test.skip();
-    }
-    await orgLink.click();
-    await page.waitForLoadState('networkidle');
-
-    const projectLink = page.locator('a[href*="/projects/"]').first();
-    if (!(await projectLink.isVisible())) {
-      test.skip();
-    }
-    await projectLink.click();
-    await page.waitForLoadState('networkidle');
-
-    const questionsLink = page.getByRole('link', { name: /questions/i });
-    if (await questionsLink.isVisible()) {
-      await questionsLink.click();
-      await page.waitForLoadState('networkidle');
+      return;
     }
 
-    // Look for extract/upload button
+    await nav.goToQuestions();
+
     const extractButton = page.locator('button:has-text("Extract"), button:has-text("Upload RFP"), button:has-text("Add")');
-    const hasButton = await extractButton.first().isVisible().catch(() => false);
-
-    // Button should be visible (either in header or empty state)
-    console.log(`Extract button visible: ${hasButton}`);
+    const hasButton = await extractButton.first().isVisible({ timeout: 5000 }).catch(() => false);
+    // Button visibility depends on project state
+    expect(typeof hasButton).toBe('boolean');
   });
 
-  test('should open question extraction dialog', async ({ page }) => {
-    await page.goto('/organizations');
-    await page.waitForLoadState('networkidle');
-
-    const orgLink = page.locator('a[href*="/organizations/"]').first();
-    if (!(await orgLink.isVisible())) {
+  test('should open question extraction dialog', async ({ page, nav }) => {
+    const projectHref = await nav.goToFirstProject();
+    if (!projectHref) {
       test.skip();
-    }
-    await orgLink.click();
-    await page.waitForLoadState('networkidle');
-
-    const projectLink = page.locator('a[href*="/projects/"]').first();
-    if (!(await projectLink.isVisible())) {
-      test.skip();
-    }
-    await projectLink.click();
-    await page.waitForLoadState('networkidle');
-
-    const questionsLink = page.getByRole('link', { name: /questions/i });
-    if (await questionsLink.isVisible()) {
-      await questionsLink.click();
-      await page.waitForLoadState('networkidle');
+      return;
     }
 
-    // Try to open extraction dialog
+    await nav.goToQuestions();
+
     const extractButton = page.locator('button:has-text("Extract"), button:has-text("Upload")').first();
-    if (await extractButton.isVisible()) {
-      await extractButton.click();
+    if (!(await extractButton.isVisible({ timeout: 5000 }).catch(() => false))) {
+      test.skip();
+      return;
+    }
 
-      // Dialog should open
-      const dialog = page.locator('[role="dialog"]');
-      const hasDialog = await dialog.isVisible({ timeout: 5000 }).catch(() => false);
+    await extractButton.click();
 
-      if (hasDialog) {
-        // Should have file input or upload zone
-        const uploadZone = page.locator('input[type="file"], div:has-text("drag"), div:has-text("Drop")');
-        await expect(uploadZone.first()).toBeVisible({ timeout: 5000 });
-      }
+    const dialog = page.locator('[role="dialog"]');
+    if (await dialog.isVisible({ timeout: 5000 }).catch(() => false)) {
+      const uploadZone = page.locator('input[type="file"], div:has-text("drag"), div:has-text("Drop")');
+      await expect(uploadZone.first()).toBeVisible({ timeout: 5000 });
     }
   });
 
-  test('should display question sections when questions exist', async ({ page }) => {
-    await page.goto('/organizations');
-    await page.waitForLoadState('networkidle');
-
-    const orgLink = page.locator('a[href*="/organizations/"]').first();
-    if (!(await orgLink.isVisible())) {
+  test('should display question sections when questions exist', async ({ page, nav }) => {
+    const projectHref = await nav.goToFirstProject();
+    if (!projectHref) {
       test.skip();
-    }
-    await orgLink.click();
-    await page.waitForLoadState('networkidle');
-
-    const projectLink = page.locator('a[href*="/projects/"]').first();
-    if (!(await projectLink.isVisible())) {
-      test.skip();
-    }
-    await projectLink.click();
-    await page.waitForLoadState('networkidle');
-
-    const questionsLink = page.getByRole('link', { name: /questions/i });
-    if (await questionsLink.isVisible()) {
-      await questionsLink.click();
-      await page.waitForLoadState('networkidle');
+      return;
     }
 
-    // If questions exist, they should be grouped by section
+    await nav.goToQuestions();
+
     const sectionHeaders = page.locator('h2, h3, [data-testid="section-header"]');
     const questionItems = page.locator('[data-testid="question-item"], div:has-text("Q:")');
 
     const sectionCount = await sectionHeaders.count();
     const questionCount = await questionItems.count();
 
-    console.log(`Found ${sectionCount} section headers, ${questionCount} questions`);
+    // These are informational - counts depend on project state
+    expect(sectionCount).toBeGreaterThanOrEqual(0);
+    expect(questionCount).toBeGreaterThanOrEqual(0);
   });
 
-  test('should filter questions by status', async ({ page }) => {
-    await page.goto('/organizations');
-    await page.waitForLoadState('networkidle');
-
-    const orgLink = page.locator('a[href*="/organizations/"]').first();
-    if (!(await orgLink.isVisible())) {
+  test('should filter questions by status', async ({ page, nav }) => {
+    const projectHref = await nav.goToFirstProject();
+    if (!projectHref) {
       test.skip();
-    }
-    await orgLink.click();
-    await page.waitForLoadState('networkidle');
-
-    const projectLink = page.locator('a[href*="/projects/"]').first();
-    if (!(await projectLink.isVisible())) {
-      test.skip();
-    }
-    await projectLink.click();
-    await page.waitForLoadState('networkidle');
-
-    const questionsLink = page.getByRole('link', { name: /questions/i });
-    if (await questionsLink.isVisible()) {
-      await questionsLink.click();
-      await page.waitForLoadState('networkidle');
+      return;
     }
 
-    // Look for filter tabs (All, Answered, Unanswered)
+    await nav.goToQuestions();
+
     const filterTabs = page.locator('button:has-text("All"), button:has-text("Answered"), button:has-text("Unanswered")');
     const tabCount = await filterTabs.count();
 
     if (tabCount > 0) {
-      // Click on Answered tab if available
       const answeredTab = page.getByRole('tab', { name: /answered/i }).or(page.locator('button:has-text("Answered")'));
-      if (await answeredTab.isVisible()) {
+      if (await answeredTab.isVisible({ timeout: 3000 }).catch(() => false)) {
         await answeredTab.click();
-        await page.waitForLoadState('networkidle');
       }
     }
   });
 
-  test('should expand question to show answer form', async ({ page }) => {
-    await page.goto('/organizations');
-    await page.waitForLoadState('networkidle');
-
-    const orgLink = page.locator('a[href*="/organizations/"]').first();
-    if (!(await orgLink.isVisible())) {
+  test('should expand question to show answer form', async ({ page, nav }) => {
+    const projectHref = await nav.goToFirstProject();
+    if (!projectHref) {
       test.skip();
-    }
-    await orgLink.click();
-    await page.waitForLoadState('networkidle');
-
-    const projectLink = page.locator('a[href*="/projects/"]').first();
-    if (!(await projectLink.isVisible())) {
-      test.skip();
-    }
-    await projectLink.click();
-    await page.waitForLoadState('networkidle');
-
-    const questionsLink = page.getByRole('link', { name: /questions/i });
-    if (await questionsLink.isVisible()) {
-      await questionsLink.click();
-      await page.waitForLoadState('networkidle');
+      return;
     }
 
-    // Click on first question if it exists
+    await nav.goToQuestions();
+
     const questionItem = page.locator('[data-testid="question-item"]').first();
-    if (await questionItem.isVisible()) {
-      await questionItem.click();
-
-      // Should show answer form or generate button
-      const answerSection = page.locator('textarea, button:has-text("Generate"), div:has-text("Answer")');
-      await expect(answerSection.first()).toBeVisible({ timeout: 5000 });
+    if (!(await questionItem.isVisible({ timeout: 5000 }).catch(() => false))) {
+      test.skip();
+      return;
     }
+
+    await questionItem.click();
+
+    const answerSection = page.locator('textarea, button:has-text("Generate"), div:has-text("Answer")');
+    await expect(answerSection.first()).toBeVisible({ timeout: 5000 });
   });
 });

@@ -22,6 +22,17 @@ type RequestContextWithAuthorizer = APIGatewayProxyEventV2['requestContext'] & {
   };
 };
 
+export function getUserId(event: APIGatewayProxyEventV2): string | undefined {
+  // First try the auth context set by RBAC middleware
+  const auth = (event as any).auth;
+  if (auth?.userId) return auth.userId;
+
+  // Fallback: extract from JWT claims
+  const rc = event.requestContext as RequestContextWithAuthorizer;
+  const claims = rc.authorizer?.jwt?.claims ?? rc.authorizer?.claims;
+  return claims?.sub as string | undefined;
+}
+
 export function getOrgId(event: APIGatewayProxyEventV2): string | undefined {
   const rc = event.requestContext as RequestContextWithAuthorizer;
 
