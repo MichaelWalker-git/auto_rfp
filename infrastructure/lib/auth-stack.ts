@@ -25,7 +25,7 @@ export class AuthStack extends cdk.Stack {
 
     this.userPool = new cognito.UserPool(this, 'UserPool', {
       userPoolName: `auto-rfp-users-${stage}`,
-      selfSignUpEnabled: true,
+      selfSignUpEnabled: false,
       signInAliases: { email: true },
       signInCaseSensitive: false,
 

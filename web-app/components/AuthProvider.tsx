@@ -147,7 +147,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   );
 
   return (
-    <Authenticator>
+    <Authenticator hideSignUp>
       <AuthContext.Provider value={value}>
         <AuthStateLoader onAuthChanged={refresh}/>
         {children}
