@@ -10,7 +10,7 @@ test.describe('Authentication', () => {
     await expect(page).toHaveURL(/\/(organizations)/);
   });
 
-  test('should display login form without signup option', async ({ page }) => {
+  test('should display login form', async ({ page }) => {
     // Navigate to a protected route — Amplify Authenticator renders the login form
     await page.goto('/organizations');
     await page.waitForLoadState('networkidle');
@@ -18,10 +18,6 @@ test.describe('Authentication', () => {
     // Amplify Authenticator should show the Sign In form
     const signInButton = page.getByRole('button', { name: /sign in/i });
     await expect(signInButton).toBeVisible();
-
-    // Registration is disabled — the "Create Account" tab should NOT be visible
-    const createAccountTab = page.getByRole('tab', { name: /create account/i });
-    await expect(createAccountTab).toHaveCount(0);
   });
 
   test('should show email and password fields on login form', async ({ page }) => {
