@@ -15,7 +15,10 @@ export const CreateOrganizationSchema = z.object({
     .optional(), // Make description optional
 
   bucketName: z.string()
-    .optional()
+    .optional(),
+
+  iconKey: z.string()
+    .optional(),
 });
 
 /**

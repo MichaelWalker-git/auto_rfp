@@ -31,6 +31,8 @@ import {
   useQuestions as useQuestionsProvider
 } from '@/app/organizations/[orgId]/projects/[projectId]/questions/components';
 import { useEffect, useState } from 'react';
+import { useApi } from '@/lib/hooks/use-api';
+import { env } from '@/lib/env';
 
 interface ProjectOverviewProps {
   projectId: string;
@@ -45,6 +47,30 @@ export function ProjectOverview({ projectId }: ProjectOverviewProps) {
   const { foiaRequests } = useFOIARequests(project?.orgId ?? '', projectId);
   
   const [briefItem, setBriefItem] = useState<any>(null);
+
+  // Fetch RFP documents count
+  const rfpDocsUrl = project?.orgId
+    ? `${env.BASE_API_URL}/rfp-document/list?projectId=${projectId}&orgId=${project.orgId}`
+    : null;
+  const rfpDocsKey = project?.orgId ? ['rfp-documents', projectId, project.orgId] : null;
+  const { data: rfpDocsData } = useApi<{ items: any[]; count: number }>(rfpDocsKey, rfpDocsUrl);
+  const rfpDocumentCount = rfpDocsData?.count ?? rfpDocsData?.items?.length ?? 0;
+
+  // Fetch proposals count
+  const proposalsUrl = `${env.BASE_API_URL}/proposal/get-proposals?projectId=${projectId}`;
+  const proposalsKey = projectId ? ['proposals', projectId] : null;
+  const { data: proposalsData } = useApi<{ items: any[]; count: number }>(proposalsKey, proposalsUrl);
+  const proposalCount = proposalsData?.count ?? proposalsData?.items?.length ?? 0;
+
+  // Fetch opportunities count
+  const opportunitiesUrl = project?.orgId
+    ? `${env.BASE_API_URL}/opportunity/get-opportunities?projectId=${projectId}&orgId=${project.orgId}`
+    : null;
+  const opportunitiesKey = project?.orgId ? ['opportunities', projectId, project.orgId] : null;
+  const { data: opportunitiesData } = useApi<{ items: any[]; count: number } | any[]>(opportunitiesKey, opportunitiesUrl);
+  const opportunityCount = Array.isArray(opportunitiesData)
+    ? opportunitiesData.length
+    : (opportunitiesData?.count ?? opportunitiesData?.items?.length ?? 0);
 
   // Fetch executive brief
   useEffect(() => {
@@ -213,19 +239,19 @@ export function ProjectOverview({ projectId }: ProjectOverviewProps) {
           </Link>
         </Card>
 
-        {/* Documents Card */}
+        {/* RFP Documents Card */}
         <Card className="hover:border-primary/50 transition-colors">
-          <Link href={`${baseUrl}/documents`}>
+          <Link href={`${baseUrl}/rfp-documents`}>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Documents</CardTitle>
+              <CardTitle className="text-sm font-medium">RFP Documents</CardTitle>
               <FileText className="h-4 w-4 text-muted-foreground"/>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{questionFiles?.length || 0}</div>
-              <p className="text-xs text-muted-foreground">RFP documents</p>
+              <div className="text-2xl font-bold">{rfpDocumentCount}</div>
+              <p className="text-xs text-muted-foreground">solicitation documents</p>
               <div className="flex items-center justify-between mt-5">
                 <Badge variant="outline" className="text-xs">
-                  {questionFiles?.length ? 'Uploaded' : 'None'}
+                  {rfpDocumentCount > 0 ? 'Uploaded' : 'None'}
                 </Badge>
                 <ArrowRight className="h-4 w-4 text-muted-foreground"/>
               </div>
@@ -241,11 +267,11 @@ export function ProjectOverview({ projectId }: ProjectOverviewProps) {
               <Briefcase className="h-4 w-4 text-muted-foreground"/>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold"></div>
+              <div className="text-2xl font-bold">{proposalCount}</div>
               <p className="text-xs text-muted-foreground">generated proposals</p>
               <div className="flex items-center justify-between mt-5">
                 <Badge variant="outline" className="text-xs">
-                  View All
+                  {proposalCount > 0 ? 'View All' : 'None'}
                 </Badge>
                 <ArrowRight className="h-4 w-4 text-muted-foreground"/>
               </div>
@@ -264,11 +290,11 @@ export function ProjectOverview({ projectId }: ProjectOverviewProps) {
               <ListChecks className="h-4 w-4 text-muted-foreground"/>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold"></div>
+              <div className="text-2xl font-bold">{opportunityCount}</div>
               <p className="text-xs text-muted-foreground">SAM.gov opportunities</p>
               <div className="flex items-center justify-between mt-5">
                 <Badge variant="outline" className="text-xs">
-                  Search
+                  {opportunityCount > 0 ? 'View All' : 'Search'}
                 </Badge>
                 <ArrowRight className="h-4 w-4 text-muted-foreground"/>
               </div>
@@ -358,9 +384,9 @@ export function ProjectOverview({ projectId }: ProjectOverviewProps) {
             </Link>
           </Button>
           <Button variant="outline" size="sm" asChild>
-            <Link href={`${baseUrl}/documents`}>
+            <Link href={`${baseUrl}/rfp-documents`}>
               <FileText className="h-4 w-4 mr-2"/>
-              Upload Documents
+              Manage RFP Documents
             </Link>
           </Button>
           <Button variant="outline" size="sm" asChild>

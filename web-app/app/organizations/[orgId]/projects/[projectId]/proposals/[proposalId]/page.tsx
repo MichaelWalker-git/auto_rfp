@@ -3,13 +3,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import useSWRMutation from 'swr/mutation';
-import { CheckCircle2, ChevronDown, Download, Loader2, Save, Trash2, XCircle } from 'lucide-react';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
+import { CheckCircle2, Loader2, Save, Trash2, XCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -30,7 +24,6 @@ import {
 import { env } from '@/lib/env';
 import { authFetcher } from '@/lib/auth/auth-fetcher';
 import { useApi } from '@/lib/hooks/use-api';
-import * as XLSX from 'xlsx';
 import {
   type Proposal,
   type ProposalDocument,
@@ -41,7 +34,6 @@ import {
   type SaveProposalRequest,
   SaveProposalRequestSchema,
 } from '@auto-rfp/shared';
-import { exportProposalToDocx, exportProposalToPdf } from '@/lib/helpers/proposal';
 import { ExportProposalButton } from '@/components/proposals/ExportProposalButton';
 
 const BASE = `${env.BASE_API_URL}/proposal`;
@@ -300,57 +292,6 @@ export default function ProposalDetailsPage() {
         </div>
 
         <div className="flex items-center gap-2">
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild disabled={!draft || isBusy}>
-              <Button variant="outline" className="gap-2">
-                <Download className="h-4 w-4"/>
-                Export
-                <ChevronDown className="h-4 w-4 opacity-70"/>
-              </Button>
-            </DropdownMenuTrigger>
-
-            <DropdownMenuContent align="end">
-              <DropdownMenuItem onClick={() => draft && exportProposalToPdf(draft.document)}>
-                Export PDF
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => draft && exportProposalToDocx(draft.document)}>
-                Export DOCX
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                onClick={async () => {
-                  if (!draft) return;
-                  const doc = draft.document;
-                  const rows: (string | null)[][] = [
-                    ['Section', 'Subsection', 'Content', 'Section Summary'],
-                    ...doc.sections.flatMap((s: ProposalSection) => {
-                      const sectionTitle = s.title ?? '';
-                      const sectionSummary = s.summary ?? '';
-                      if (!s.subsections?.length) return [[sectionTitle, '', '', sectionSummary]];
-                      return s.subsections.map((sub) => [
-                        sectionTitle,
-                        sub.title ?? '',
-                        sub.content ?? '',
-                        sectionSummary,
-                      ]);
-                    }),
-                  ];
-
-                  const ws = XLSX.utils.aoa_to_sheet(rows);
-                  const wb = XLSX.utils.book_new();
-                  XLSX.utils.book_append_sheet(wb, ws, 'Proposal');
-
-                  const safeName = (doc.proposalTitle || 'proposal')
-                    .toString()
-                    .trim()
-                    .replace(/[\\/:*?"<>|]+/g, '-');
-
-                  XLSX.writeFile(wb, `${safeName}.xlsx`);
-                }}
-              >
-                Export XLSX
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
           {draft && (
             <ExportProposalButton
               opportunityId={'123'}

@@ -2,7 +2,7 @@ import { APIGatewayProxyEventV2, APIGatewayProxyResultV2, } from 'aws-lambda';
 import { PutCommand } from '@aws-sdk/lib-dynamodb';
 
 import { PK_NAME, SK_NAME } from '../constants/common';
-import { apiResponse } from '../helpers/api';
+import { apiResponse, getUserId } from '../helpers/api';
 import { CreateDocumentDTO, CreateDocumentDTOSchema, DocumentItem, } from '../schemas/document';
 import { v4 as uuidv4 } from 'uuid';
 import { DOCUMENT_PK } from '../constants/document';
@@ -47,7 +47,8 @@ export const baseHandler = async (
     }
 
     // 2. Create document item in Dynamo
-    const newDocument = await createDocument(data);
+    const userId = getUserId(event) ?? 'system';
+    const newDocument = await createDocument(data, userId);
 
     return apiResponse(201, newDocument);
   } catch (err) {
@@ -68,6 +69,7 @@ export const baseHandler = async (
 // Input is guaranteed valid CreateDocumentDTO thanks to Zod
 export async function createDocument(
   dto: CreateDocumentDTO,
+  userId: string = 'system',
 ): Promise<DocumentItem> {
   const now =  nowIso()
   const docId = uuidv4();
@@ -85,6 +87,8 @@ export async function createDocument(
     indexStatus: 'pending', // indexing pipeline will update this
     createdAt: now,
     updatedAt: now,
+    createdBy: userId,
+    updatedBy: userId,
     // indexVectorKey is optional, omitted here
   };
 

@@ -133,6 +133,7 @@ function AppSidebar() {
           { title: 'Opportunities', url: `/organizations/${orgId}/projects/${projectId}/opportunities`, icon: Briefcase },
           { title: 'Questions', url: `/organizations/${orgId}/projects/${projectId}/questions`, icon: MessageSquare },
           { title: 'Solicitation Documents', url: `/organizations/${orgId}/projects/${projectId}/documents`, icon: FileText },
+          { title: 'RFP Documents', url: `/organizations/${orgId}/projects/${projectId}/rfp-documents`, icon: FolderOpen },
           { title: 'Proposals', url: `/organizations/${orgId}/projects/${projectId}/proposals`, icon: ScrollText },
           { title: 'Outcomes', url: `/organizations/${orgId}/projects/${projectId}/outcomes`, icon: CheckCircle },
           { title: 'FOIA Requests', url: `/organizations/${orgId}/projects/${projectId}/foia`, icon: FileText },

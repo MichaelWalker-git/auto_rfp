@@ -1,6 +1,6 @@
 import { APIGatewayProxyEventV2, APIGatewayProxyResultV2, } from 'aws-lambda';
 
-import { apiResponse, getOrgId } from '../helpers/api';
+import { apiResponse, getOrgId, getUserId } from '../helpers/api';
 
 import { withSentryLambda } from '../sentry-lambda';
 import {

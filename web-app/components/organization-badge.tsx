@@ -20,6 +20,7 @@ import { useToast } from '@/components/ui/use-toast';
 
 import { useCurrentOrganization } from '@/context/organization-context';
 import { useProjectContext } from '@/context/project-context';
+import { useIconUrl } from '@/lib/hooks/use-icon-url';
 import { useCreateProject } from '@/lib/hooks/use-create-project';
 import PermissionWrapper from '@/components/permission-wrapper';
 
@@ -62,6 +63,9 @@ export function OrganizationBadge() {
     () => initialsFromName(currentOrganization?.name),
     [currentOrganization?.name],
   );
+
+  const iconKey = currentOrganization?.iconKey || (currentOrganization as any)?.iconUrl;
+  const iconUrl = useIconUrl(iconKey);
 
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
 
@@ -118,8 +122,12 @@ export function OrganizationBadge() {
                 className="group-data-[collapsible=icon]:!p-0 flex h-14 w-full items-center justify-between rounded-md border bg-white py-4 shadow-none hover:bg-gray-50 focus:outline-none group-data-[collapsible=icon]:mt-4 group-data-[collapsible=icon]:h-auto"
                 tooltip="Project"
               >
-                <div className="flex size-8 items-center justify-center rounded-md bg-purple-600 text-white text-sm font-medium">
-                  {orgInitials}
+                <div className="flex size-8 items-center justify-center rounded-md bg-purple-600 text-white text-sm font-medium overflow-hidden">
+                  {iconUrl ? (
+                    <img src={iconUrl} alt={orgLabel} className="size-8 object-cover" />
+                  ) : (
+                    orgInitials
+                  )}
                 </div>
 
                 <div className="flex flex-col items-start overflow-hidden text-ellipsis whitespace-nowrap group-data-[collapsible=icon]:hidden">

@@ -33,9 +33,10 @@ import { projectoutcomeDomain } from './routes/project-outcome.routes';
 import { projectsDomain } from './routes/projects.routes';
 import { promptDomain } from './routes/prompt.routes';
 import { samgovDomain } from './routes/samgov.routes';
-import { linearRoutes } from './routes/linear-routes';
+import { linearRoutes } from './routes/linear.routes';
 import { briefDomain } from './routes/brief.routes';
 import { pastperfDomain } from './routes/pastperf.routes';
+import { rfpDocumentDomain } from './routes/rfp-document.routes';
 
 export interface ApiOrchestratorStackProps extends cdk.StackProps {
   stage: string;
@@ -465,6 +466,16 @@ export class ApiOrchestratorStack extends cdk.Stack {
       lambdaRole: sharedInfraStack.commonLambdaRole,
       commonEnv: sharedInfraStack.commonEnv,
       domain: samgovDomain(),
+      authorizer,
+    });
+
+    new ApiDomainRoutesStack(this, 'RfpDocumentRoutes', {
+      api: this.api,
+      rootResourceId: this.rootResourceId,
+      userPoolId: userPool.userPoolId,
+      lambdaRole: sharedInfraStack.commonLambdaRole,
+      commonEnv: sharedInfraStack.commonEnv,
+      domain: rfpDocumentDomain(),
       authorizer,
     });
 

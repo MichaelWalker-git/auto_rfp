@@ -1,13 +1,16 @@
 import type { APIGatewayProxyEventV2, APIGatewayProxyResultV2 } from 'aws-lambda';
 import { z } from 'zod';
-import { v4 as uuidv4 } from 'uuid';
 
 import { apiResponse, getOrgId } from '../helpers/api';
 import { withSentryLambda } from '../sentry-lambda';
 
 import { type ExecutiveBriefItem, ExecutiveBriefItemSchema, } from '@auto-rfp/shared';
 
-import { executiveBriefSK, putExecutiveBrief, } from '../helpers/executive-opportunity-brief';
+import {
+  executiveBriefSKByOpportunity,
+  getExecutiveBriefByProjectId,
+  putExecutiveBrief,
+} from '../helpers/executive-opportunity-brief';
 import { listQuestionFilesByOpportunity } from '../helpers/questionFile';
 
 import { PK_NAME, SK_NAME } from '../constants/common';
@@ -49,10 +52,10 @@ export const baseHandler = async (
     // Load ALL question files for the opportunity
     const { items: questionFiles } = await listQuestionFilesByOpportunity({ projectId, oppId: opportunityId });
 
-    console.log('init-executive-brief: Found question files', { 
+    console.log('init-executive-brief: Found question files', {
       count: questionFiles.length,
-      files: questionFiles.map(qf => ({ 
-        questionFileId: qf.questionFileId, 
+      files: questionFiles.map(qf => ({
+        questionFileId: qf.questionFileId,
         textFileKey: qf.textFileKey,
         status: qf.status,
       })),
@@ -72,24 +75,33 @@ export const baseHandler = async (
 
     // Use the most recent processed file as the primary text source
     // Sort by createdAt descending
-    const sortedFiles = processedFiles.sort((a, b) => 
+    const sortedFiles = processedFiles.sort((a, b) =>
       (b.createdAt || '').localeCompare(a.createdAt || '')
     );
     const primaryFile = sortedFiles[0];
 
-    const id = uuidv4()
-    const sk = executiveBriefSK(projectId, id);
+    // Use deterministic SK based on projectId + opportunityId
+    // This ensures only one brief per opportunity
+    const sk = executiveBriefSKByOpportunity(projectId, opportunityId);
     const now = nowIso();
+
+    // Check if a brief already exists for this opportunity
+    let existingBrief: ExecutiveBriefItem | null = null;
+    try {
+      existingBrief = await getExecutiveBriefByProjectId(projectId, opportunityId);
+    } catch {
+      // Brief doesn't exist yet - that's fine
+    }
+
+    const isRegeneration = !!existingBrief;
 
     const brief: ExecutiveBriefItem = {
       [PK_NAME]: EXEC_BRIEF_PK,
-      [SK_NAME]: sk,
+      [SK_NAME]: isRegeneration ? (existingBrief as any)[SK_NAME] : sk,
       projectId,
-      orgId: orgId || null, // Store orgId for reference
-      opportunityId, // Required - brief is always for a specific opportunity
-      // NOTE: questionFileId removed - question files are retrieved by opportunityId
-      textKey: primaryFile.textFileKey, // Primary text key for convenience
-      // Store all text keys for potential multi-document analysis
+      orgId: orgId || null,
+      opportunityId,
+      textKey: primaryFile.textFileKey,
       allTextKeys: sortedFiles.map(qf => qf.textFileKey).filter(Boolean),
       documentsBucket: DOCUMENTS_BUCKET,
       status: 'IDLE',
@@ -102,8 +114,8 @@ export const baseHandler = async (
         pastPerformance: buildEmptySection(),
         scoring: buildEmptySection(),
       },
-
-      createdAt: now,
+      // Preserve original createdAt on regeneration
+      createdAt: isRegeneration ? (existingBrief as any).createdAt || now : now,
       updatedAt: now,
     } as any;
 
@@ -111,18 +123,18 @@ export const baseHandler = async (
 
     await putExecutiveBrief(brief);
 
-    // NOTE: We no longer update the project with executiveBriefId
-    // The brief stores projectId and opportunityId, and can be queried by those
+    const effectiveSk = isRegeneration ? (existingBrief as any)[SK_NAME] : sk;
 
     return apiResponse(200, {
       ok: true,
       projectId,
       opportunityId,
-      executiveBriefId: sk,
+      executiveBriefId: effectiveSk,
       textKey: brief.textKey,
       allTextKeys: brief.allTextKeys,
       totalQuestionFiles: questionFiles.length,
       processedQuestionFiles: processedFiles.length,
+      regenerated: isRegeneration,
     });
   } catch (err) {
     console.error('init-executive-brief error:', err);

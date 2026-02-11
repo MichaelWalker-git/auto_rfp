@@ -2,7 +2,7 @@ import { APIGatewayProxyEventV2, APIGatewayProxyResultV2, } from 'aws-lambda';
 import { UpdateCommand, } from '@aws-sdk/lib-dynamodb';
 import { ORG_PK } from '../constants/organization';
 import { PK_NAME, SK_NAME } from '../constants/common';
-import { apiResponse } from '../helpers/api';
+import { apiResponse, getUserId } from '../helpers/api';
 import { OrganizationItem, UpdateOrganizationDTO, UpdateOrganizationSchema, } from '../schemas/organization';
 import { withSentryLambda } from '../sentry-lambda';
 import {
@@ -48,7 +48,8 @@ export const baseHandler = async (
 
     const validatedOrgData: UpdateOrganizationDTO = validationResult.data;
 
-    const updatedOrganization = await editOrganization(orgId, validatedOrgData);
+    const userId = getUserId(event) ?? 'system';
+    const updatedOrganization = await editOrganization(orgId, validatedOrgData, userId);
 
     return apiResponse(200, updatedOrganization);
   } catch (err) {
@@ -71,7 +72,8 @@ export const baseHandler = async (
 
 export async function editOrganization(
   orgId: string,
-  orgData: UpdateOrganizationDTO
+  orgData: UpdateOrganizationDTO,
+  userId: string = 'system',
 ): Promise<OrganizationItem> {
   const now = new Date().toISOString();
 
@@ -82,12 +84,17 @@ export async function editOrganization(
 
   const expressionAttributeNames: Record<string, string> = {
     '#updatedAt': 'updatedAt',
+    '#pk': PK_NAME,
+    '#sk': SK_NAME,
   };
   const expressionAttributeValues: Record<string, any> = {
     ':updatedAt': now,
   };
 
-  const setExpressions: string[] = ['#updatedAt = :updatedAt'];
+  const setExpressions: string[] = ['#updatedAt = :updatedAt', '#updatedBy = :updatedBy'];
+
+  expressionAttributeNames['#updatedBy'] = 'updatedBy';
+  expressionAttributeValues[':updatedBy'] = userId;
 
   if (orgData.name !== undefined) {
     expressionAttributeNames['#name'] = 'name';
@@ -99,6 +106,12 @@ export async function editOrganization(
     expressionAttributeNames['#description'] = 'description';
     expressionAttributeValues[':description'] = orgData.description;
     setExpressions.push('#description = :description');
+  }
+
+  if (orgData.iconKey !== undefined) {
+    expressionAttributeNames['#iconKey'] = 'iconKey';
+    expressionAttributeValues[':iconKey'] = orgData.iconKey;
+    setExpressions.push('#iconKey = :iconKey');
   }
 
   if (setExpressions.length === 1) {

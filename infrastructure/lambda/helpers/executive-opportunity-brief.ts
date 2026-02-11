@@ -255,8 +255,6 @@ export async function putExecutiveBrief(item: ExecutiveBriefItem): Promise<void>
     new PutCommand({
       TableName: DB_TABLE_NAME,
       Item: item,
-      ConditionExpression: 'attribute_not_exists(#pk) AND attribute_not_exists(#sk)',
-      ExpressionAttributeNames: { '#pk': PK_NAME, '#sk': SK_NAME },
     }),
   );
 }
@@ -681,4 +679,12 @@ export function buildSectionInputHash(args: {
 
 export const executiveBriefSK = (projectId: string, briefId: string) => {
   return `${projectId}#${briefId}`;
+};
+
+/**
+ * Build a deterministic SK for a brief tied to a specific opportunity.
+ * This ensures only one brief exists per project+opportunity combination.
+ */
+export const executiveBriefSKByOpportunity = (projectId: string, opportunityId: string) => {
+  return `${projectId}#${opportunityId}`;
 };

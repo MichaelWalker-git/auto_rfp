@@ -60,7 +60,8 @@ export function GlobalHeader() {
   const [mounted, setMounted] = useState(false);
   const [userEmail, setUserEmail] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
-  const { getIdToken, orgId } = useAuth();
+  const { getIdToken, orgId, role } = useAuth();
+  const isSuperAdmin = !role;
 
   // derived values (NOT hooks)
   const hideHeader = pathname === '/' || pathname === '/signup';
@@ -182,14 +183,16 @@ export function GlobalHeader() {
       <header className="bg-background">
         <div className="container mx-auto flex h-12 items-center justify-between px-4">
           <div className="flex items-center gap-3">
-            <Link href="/organizations" className="flex items-center gap-2">
-              <Image src="/logo.png" alt="AutoRFP" width={75} height={75}/>
-              <span className="font-semibold text-lg">Auto RFP</span>
-            </Link>
+            {isSuperAdmin && (
+              <Link href="/organizations" className="flex items-center gap-2">
+                <Image src="/logo.png" alt="AutoRFP" width={75} height={75}/>
+                <span className="font-semibold text-lg">Auto RFP</span>
+              </Link>
+            )}
 
             {breadcrumbs.length > 0 && (
               <nav className="flex items-center gap-1 text-sm">
-                <ChevronRight className="h-4 w-4 text-muted-foreground"/>
+                {isSuperAdmin && <ChevronRight className="h-4 w-4 text-muted-foreground"/>}
                 {breadcrumbs.map((crumb, index) => (
                   <React.Fragment key={`${crumb.label}-${index}`}>
                     {crumb.href ? (
