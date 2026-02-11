@@ -13,12 +13,26 @@ export default defineConfig({
     ['html', { outputFolder: 'playwright-report' }],
     ['list'],
   ],
+  /* Shared settings for all projects */
   use: {
     baseURL: process.env.PLAYWRIGHT_BASE_URL || 'http://localhost:3000',
+    /* Collect trace on first retry */
     trace: 'on-first-retry',
+    /* Screenshot only on failure */
     screenshot: 'only-on-failure',
+    /* Video only on failure */
     video: 'retain-on-failure',
+    /* Default action timeout - prevents hanging on missing elements */
+    actionTimeout: 10000,
+    /* Default navigation timeout */
+    navigationTimeout: 30000,
   },
+  /* Global expect timeout */
+  expect: {
+    timeout: 10000,
+  },
+  /* Global test timeout */
+  timeout: 60000,
   projects: [
     // Setup project for authentication
     {

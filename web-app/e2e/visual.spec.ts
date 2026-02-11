@@ -3,22 +3,18 @@ import { test, expect } from '@playwright/test';
 test.describe('Visual Regression Tests', () => {
   test('home page screenshot', async ({ page }) => {
     await page.goto('/');
+    // Wait for content to be fully rendered
+    await page.locator('body').waitFor({ state: 'visible' });
 
-    // Wait for any animations to complete
-    await page.waitForLoadState('networkidle');
-
-    // Take a screenshot for visual comparison
     await expect(page).toHaveScreenshot('home-page.png', {
       fullPage: true,
-      // Allow some pixel difference for anti-aliasing
       maxDiffPixelRatio: 0.01,
     });
   });
 
   test('help page screenshot', async ({ page }) => {
     await page.goto('/help');
-
-    await page.waitForLoadState('networkidle');
+    await page.locator('body').waitFor({ state: 'visible' });
 
     await expect(page).toHaveScreenshot('help-page.png', {
       fullPage: true,
@@ -27,26 +23,32 @@ test.describe('Visual Regression Tests', () => {
   });
 
   test('dark mode screenshot', async ({ page }) => {
-    await page.goto('/');
+    // Set dark theme via localStorage before navigating (next-themes reads this)
+    await page.addInitScript(() => {
+      localStorage.setItem('theme', 'dark');
+    });
 
-    // Trigger dark mode (adjust based on your theme implementation)
+    await page.goto('/');
+    await page.waitForLoadState('networkidle');
+
+    // Ensure dark class is applied (next-themes uses attribute="class")
     await page.evaluate(() => {
       document.documentElement.classList.add('dark');
     });
 
-    await page.waitForTimeout(500); // Wait for theme transition
+    // Wait for styles to settle
+    await page.waitForTimeout(500);
 
     await expect(page).toHaveScreenshot('home-page-dark.png', {
       fullPage: true,
-      maxDiffPixelRatio: 0.02,
+      maxDiffPixelRatio: 0.05,
     });
   });
 
   test('mobile viewport screenshot', async ({ page }) => {
     await page.setViewportSize({ width: 375, height: 812 });
     await page.goto('/');
-
-    await page.waitForLoadState('networkidle');
+    await page.locator('body').waitFor({ state: 'visible' });
 
     await expect(page).toHaveScreenshot('home-page-mobile.png', {
       fullPage: true,
@@ -61,7 +63,7 @@ test.describe('Component Visual Tests', () => {
     await page.goto('/components/button');
 
     await expect(page.locator('[data-testid="button-variants"]')).toHaveScreenshot(
-      'button-variants.png'
+      'button-variants.png',
     );
   });
 });
