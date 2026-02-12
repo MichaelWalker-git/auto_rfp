@@ -1,8 +1,8 @@
 import { PutCommand, QueryCommand, GetCommand, UpdateCommand } from '@aws-sdk/lib-dynamodb';
-const { PK_NAME, SK_NAME } = require('../../constants/common');
-const { RFP_DOCUMENT_PK } = require('../../constants/rfp-document');
-const { requireEnv } = require('./env');
-const { docClient } = require('./db');
+import { requireEnv } from './env';
+import { docClient } from './db';
+import { PK_NAME, SK_NAME } from '../constants/common';
+import { RFP_DOCUMENT_PK } from '../constants/rfp-document';
 
 const DB_TABLE_NAME = requireEnv('DB_TABLE_NAME');
 
@@ -62,30 +62,34 @@ export async function getRFPDocument(
   return Item ? (Item as Record<string, any>) : null;
 }
 
-// ─── List by Project ───
+// ─── List by Project (optionally filtered by Opportunity) ───
 export async function listRFPDocumentsByProject(args: {
   projectId: string;
+  opportunityId?: string;
   limit?: number;
   nextToken?: Record<string, any>;
 }): Promise<{
   items: Record<string, any>[];
   nextToken: Record<string, any> | null;
 }> {
-  const skPrefix = `${args.projectId}#`;
+  const skPrefix = args.opportunityId
+    ? `${args.projectId}#${args.opportunityId}#`
+    : `${args.projectId}#`;
 
   const res = await docClient.send(
     new QueryCommand({
       TableName: DB_TABLE_NAME,
       KeyConditionExpression: '#pk = :pk AND begins_with(#sk, :skPrefix)',
-      FilterExpression: 'attribute_not_exists(deletedAt) OR deletedAt = :null',
+      FilterExpression: 'attribute_not_exists(#deletedAt) OR attribute_type(#deletedAt, :nullType)',
       ExpressionAttributeNames: {
         '#pk': PK_NAME,
         '#sk': SK_NAME,
+        '#deletedAt': 'deletedAt',
       },
       ExpressionAttributeValues: {
         ':pk': RFP_DOCUMENT_PK,
         ':skPrefix': skPrefix,
-        ':null': null,
+        ':nullType': 'NULL',
       },
       Limit: args.limit ?? 50,
       ExclusiveStartKey: args.nextToken,
@@ -108,6 +112,10 @@ export async function updateRFPDocumentMetadata(args: {
     name?: string;
     description?: string | null;
     documentType?: string;
+    content?: Record<string, any> | null;
+    status?: string;
+    title?: string | null;
+    editHistory?: Record<string, any>[];
   };
   updatedBy: string;
 }): Promise<Record<string, any>> {
@@ -138,6 +146,26 @@ export async function updateRFPDocumentMetadata(args: {
     setParts.push('#documentType = :documentType');
     names['#documentType'] = 'documentType';
     values[':documentType'] = args.updates.documentType;
+  }
+  if (args.updates.content !== undefined) {
+    setParts.push('#content = :content');
+    names['#content'] = 'content';
+    values[':content'] = args.updates.content;
+  }
+  if (args.updates.status !== undefined) {
+    setParts.push('#status = :status');
+    names['#status'] = 'status';
+    values[':status'] = args.updates.status;
+  }
+  if (args.updates.title !== undefined) {
+    setParts.push('#title = :title');
+    names['#title'] = 'title';
+    values[':title'] = args.updates.title;
+  }
+  if (args.updates.editHistory !== undefined) {
+    setParts.push('#editHistory = :editHistory');
+    names['#editHistory'] = 'editHistory';
+    values[':editHistory'] = args.updates.editHistory;
   }
 
   const res = await docClient.send(

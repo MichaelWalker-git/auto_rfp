@@ -16,6 +16,7 @@ import { PromptsManager } from '@/components/organizations/PromptManager';
 import { DocxTemplateUpload } from '@/components/organizations/DocxTemplateUpload';
 import { SamGovApiKeyConfiguration } from '@/components/api-key/SamGovApiKeyConfiguration';
 import { LinearApiKeyConfiguration } from '@/components/api-key/LinearApiKeyConfiguration';
+import { GoogleApiKeyConfiguration } from '@/components/api-key/GoogleApiKeyConfiguration';
 import { authFetcher } from '@/lib/auth/auth-fetcher';
 import { env } from '@/lib/env';
 import { usePresignUpload, uploadFileToS3 } from '@/lib/hooks/use-presign';
@@ -248,6 +249,8 @@ export function SettingsContent({ orgId }: SettingsContentProps) {
           <SavedSearchList orgId={orgId}/>
 
           <SamGovApiKeyConfiguration orgId={orgId} />
+
+          <GoogleApiKeyConfiguration orgId={orgId} />
 
           <LinearApiKeyConfiguration orgId={orgId} />
 

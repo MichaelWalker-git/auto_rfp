@@ -4,7 +4,7 @@ import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 
 import { apiResponse, getOrgId } from '../helpers/api';
 import { withSentryLambda } from '../sentry-lambda';
-import { getProposal } from '../helpers/proposal';
+import { getRFPDocument } from '../helpers/rfp-document';
 import {
   authContextMiddleware,
   httpErrorMiddleware,
@@ -42,10 +42,14 @@ export const baseHandler = async (
       return apiResponse(400, { message: 'projectId, proposalId, and opportunityId are required' });
     }
 
-    const proposal = await getProposal(projectId, proposalId);
-    if (!proposal) {
-      return apiResponse(404, { message: 'Proposal not found' });
+    const rfpDoc = await getRFPDocument(projectId, opportunityId, proposalId);
+    if (!rfpDoc || rfpDoc.deletedAt) {
+      return apiResponse(404, { message: 'Document not found' });
     }
+    if (!rfpDoc.content) {
+      return apiResponse(400, { message: 'Document has no structured content' });
+    }
+    const proposal = { id: rfpDoc.documentId, organizationId: rfpDoc.orgId, document: rfpDoc.content as any };
 
     const organizationId = proposal.organizationId || getOrgId(event) || 'DEFAULT';
     const htmlContent = proposalToHtml(proposal.document);

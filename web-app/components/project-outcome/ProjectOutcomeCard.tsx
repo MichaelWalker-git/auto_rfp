@@ -15,16 +15,18 @@ import type { ProjectOutcome } from '@auto-rfp/shared';
 interface ProjectOutcomeCardProps {
   projectId: string;
   orgId: string;
+  opportunityId?: string;
   onOutcomeChange?: (outcome: ProjectOutcome) => void;
 }
 
 export function ProjectOutcomeCard({
   projectId,
   orgId,
+  opportunityId,
   onOutcomeChange,
 }: ProjectOutcomeCardProps) {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const { outcome, isLoading, refetch } = useProjectOutcome(orgId, projectId);
+  const { outcome, isLoading, refetch } = useProjectOutcome(orgId, projectId, opportunityId);
 
   const handleOutcomeSuccess = (newOutcome: ProjectOutcome) => {
     refetch();
@@ -162,6 +164,7 @@ export function ProjectOutcomeCard({
         onOpenChange={setIsDialogOpen}
         projectId={projectId}
         orgId={orgId}
+        opportunityId={opportunityId}
         currentOutcome={outcome}
         onSuccess={handleOutcomeSuccess}
       />

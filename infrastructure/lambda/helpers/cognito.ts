@@ -40,7 +40,7 @@ export type CreateCognitoUserInput = {
 export async function adminCreateUser(
   cognito: CognitoIdentityProviderClient,
   input: CreateCognitoUserInput,
-): Promise<{ username: string }> {
+): Promise<{ username: string; sub: string }> {
   const {
     userPoolId,
     username,
@@ -54,7 +54,7 @@ export async function adminCreateUser(
   } = input;
 
   try {
-    await cognito.send(
+    const result = await cognito.send(
       new AdminCreateUserCommand({
         UserPoolId: userPoolId,
         Username: username,
@@ -74,7 +74,13 @@ export async function adminCreateUser(
       }),
     );
 
-    return { username };
+    // Extract the Cognito sub (UUID) from the response
+    const sub = result.User?.Attributes?.find(a => a.Name === 'sub')?.Value;
+    if (!sub) {
+      console.warn('Cognito did not return sub for user:', username);
+    }
+
+    return { username, sub: sub || username };
   } catch (e: any) {
     // surface a stable error code for handlers/helpers
     if (e?.name === 'UsernameExistsException') {

@@ -168,8 +168,11 @@ export function OpportunityItemCard({
               </div>
             </div>
 
-            {/* Action Buttons */}
-            <div className="flex items-center gap-2 shrink-0">
+            {/* Action Buttons - hidden by default, visible on hover */}
+            <div 
+              className="flex items-center gap-2 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity"
+              onClick={(e) => e.stopPropagation()}
+            >
               {showEditButton && (
                 <EditOpportunityDialog
                   item={item}
@@ -177,8 +180,7 @@ export function OpportunityItemCard({
                   trigger={
                     <Button
                       size="sm"
-                      variant="outline"
-                      onClick={(e) => e.stopPropagation()}
+                      variant="ghost"
                       title="Edit opportunity"
                     >
                       <Pencil className="h-4 w-4" />
@@ -189,19 +191,15 @@ export function OpportunityItemCard({
               {showDeleteButton && (
                 <Button
                   size="sm"
-                  variant="outline"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleDeleteClick();
-                  }}
+                  variant="ghost"
+                  onClick={handleDeleteClick}
                   disabled={isDeleting}
-                  className="text-destructive hover:text-destructive"
                   title="Delete opportunity"
                 >
                   {isDeleting ? (
                     <Loader2 className="h-4 w-4 animate-spin" />
                   ) : (
-                    <Trash2 className="h-4 w-4" />
+                    <Trash2 className="h-4 w-4 text-muted-foreground hover:text-destructive" />
                   )}
                 </Button>
               )}

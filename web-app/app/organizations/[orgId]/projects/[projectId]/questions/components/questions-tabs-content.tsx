@@ -111,8 +111,8 @@ export function QuestionsTabsContent({
   };
 
   return (
-    <div className="grid gap-4 md:grid-cols-3">
-      <div className="md:col-span-1 max-h-[calc(100vh-200px)] overflow-y-auto">
+    <div className="grid gap-4 md:grid-cols-3" style={{ minHeight: 'calc(100vh - 280px)' }}>
+      <div className="md:col-span-1 max-h-[calc(100vh-280px)] overflow-y-auto">
         {filterType === 'all' && rfpDocument ? (
           <Card>
             <CardHeader className="pb-2">
@@ -143,7 +143,7 @@ export function QuestionsTabsContent({
         )}
       </div>
 
-      <div className="md:col-span-2 md:sticky md:top-4 md:self-start">
+      <div className="md:col-span-2 md:sticky md:top-4 md:self-start max-h-[calc(100vh-280px)] overflow-y-auto">
         {selectedQuestion && questionData ? (
           <div className="space-y-4">
             <QuestionEditor
@@ -165,7 +165,7 @@ export function QuestionsTabsContent({
             {showAIPanel && <AISuggestionsPanel questionId={selectedQuestion}/>}
           </div>
         ) : (
-          <Card className="flex h-[400px] items-center justify-center">
+          <Card className="flex h-full min-h-[400px] items-center justify-center">
             <div className="text-center">
               <p className="text-muted-foreground">
                 Select a question from the{' '}

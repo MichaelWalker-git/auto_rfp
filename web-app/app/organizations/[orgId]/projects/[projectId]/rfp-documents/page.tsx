@@ -1,14 +1,22 @@
-import React from 'react';
-import { RFPDocumentsContent } from '@/components/rfp-documents/rfp-documents-content';
+'use client';
 
-interface RFPDocumentsPageProps {
-  params: Promise<{ projectId: string; orgId: string }>;
-}
+import { useEffect } from 'react';
+import { useRouter, usePathname } from 'next/navigation';
 
-export default async function RFPDocumentsPage({ params }: RFPDocumentsPageProps) {
-  const { projectId, orgId } = await params;
+/**
+ * RFP Documents are now managed within the Opportunity context.
+ * This page redirects to the Opportunities page.
+ */
+export default function RFPDocumentsPage() {
+  const router = useRouter();
+  const pathname = usePathname();
 
-  return (
-    <RFPDocumentsContent projectId={projectId} orgId={orgId} />
-  );
+  useEffect(() => {
+    if (!pathname) return;
+    // Navigate to the opportunities page within the same project
+    const base = pathname.replace(/\/rfp-documents\/?$/, '');
+    router.replace(`${base}/opportunities`);
+  }, [pathname, router]);
+
+  return null;
 }

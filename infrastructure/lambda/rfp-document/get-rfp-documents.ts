@@ -3,8 +3,7 @@ import middy from '@middy/core';
 import { withSentryLambda } from '../sentry-lambda';
 import { listRFPDocumentsByProject } from '../helpers/rfp-document';
 import { enrichWithUserNames } from '../helpers/resolve-users';
-
-const { apiResponse, getOrgId } = require('../helpers/api');
+import { apiResponse, getOrgId } from '../helpers/api';
 
 export const baseHandler = async (
   event: APIGatewayProxyEventV2,
@@ -18,6 +17,7 @@ export const baseHandler = async (
       return apiResponse(400, { message: 'projectId is required' });
     }
 
+    const opportunityId = event.queryStringParameters?.opportunityId;
     const limit = Math.min(Number(event.queryStringParameters?.limit || 50), 100);
     const nextToken = event.queryStringParameters?.nextToken
       ? JSON.parse(Buffer.from(event.queryStringParameters.nextToken, 'base64').toString())
@@ -25,6 +25,7 @@ export const baseHandler = async (
 
     const result = await listRFPDocumentsByProject({
       projectId,
+      opportunityId: opportunityId || undefined,
       limit,
       nextToken,
     });

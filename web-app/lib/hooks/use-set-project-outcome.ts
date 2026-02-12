@@ -1,5 +1,6 @@
 'use client';
 
+import { mutate } from 'swr';
 import { env } from '@/lib/env';
 import { authFetcher } from '@/lib/auth/auth-fetcher';
 import type { SetProjectOutcomeRequest, ProjectOutcome } from '@auto-rfp/shared';
@@ -30,7 +31,30 @@ export function useSetProjectOutcome(): SetProjectOutcomeResult {
       }
 
       const data = await res.json();
-      return data.outcome as ProjectOutcome;
+      const outcome = data.outcome as ProjectOutcome;
+
+      // Invalidate SWR cache for outcome queries to trigger refetch
+      // This will refresh the dashboard's outcome statistics
+      const outcomeBaseUrl = `${baseUrl}/project-outcome`;
+      const opportunityId = (payload as { opportunityId?: string }).opportunityId;
+      
+      // Invalidate the list of all outcomes for this project (used by dashboard)
+      mutate(
+        `${outcomeBaseUrl}/get-outcome?orgId=${payload.orgId}&projectId=${payload.projectId}&list=true`
+      );
+      
+      // Invalidate the specific outcome (with or without opportunityId)
+      if (opportunityId) {
+        mutate(
+          `${outcomeBaseUrl}/get-outcome?orgId=${payload.orgId}&projectId=${payload.projectId}&opportunityId=${opportunityId}`
+        );
+      } else {
+        mutate(
+          `${outcomeBaseUrl}/get-outcome?orgId=${payload.orgId}&projectId=${payload.projectId}`
+        );
+      }
+
+      return outcome;
     } finally {
       isSubmitting = false;
     }

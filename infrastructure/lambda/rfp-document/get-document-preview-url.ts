@@ -4,9 +4,8 @@ import { GetObjectCommand, S3Client } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { withSentryLambda } from '../sentry-lambda';
 import { getRFPDocument } from '../helpers/rfp-document';
-
-const { apiResponse, getOrgId } = require('../helpers/api');
-const { requireEnv } = require('../helpers/env');
+import { requireEnv } from '../helpers/env';
+import { apiResponse, getOrgId } from '../helpers/api';
 
 const DOCUMENTS_BUCKET = requireEnv('DOCUMENTS_BUCKET');
 const s3Client = new S3Client({});

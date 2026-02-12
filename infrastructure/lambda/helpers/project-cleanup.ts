@@ -3,7 +3,7 @@ import { QUESTION_FILE_PK } from '../constants/question-file';
 import { QUESTION_PK } from '../constants/question';
 import { ANSWER_PK } from '../constants/answer';
 import { EXEC_BRIEF_PK } from '../constants/exec-brief';
-import { PROPOSAL_PK } from '../constants/proposal';
+import { RFP_DOCUMENT_PK } from '../constants/rfp-document';
 import { DEADLINE_PK } from '../constants/deadline';
 import { OPPORTUNITY_PK } from '../constants/opportunity';
 import { PK_NAME, SK_NAME } from '../constants/common';
@@ -92,7 +92,7 @@ export async function deleteProjectAndRelatedEntities(
   result.questionFiles = await deleteAllBySkPrefix(QUESTION_FILE_PK, `${projectId}#`);
   result.questions = await deleteAllBySkPrefix(QUESTION_PK, `${projectId}#`);
   result.answers = await deleteAllBySkPrefix(ANSWER_PK, `${projectId}#`);
-  result.proposals = await deleteAllBySkPrefix(PROPOSAL_PK, `${projectId}#`);
+  result.proposals = await deleteAllBySkPrefix(RFP_DOCUMENT_PK, `${projectId}#`);
   
   // Delete opportunities (SK format: orgId#projectId#oppId)
   result.opportunities = await deleteAllBySkPrefix(OPPORTUNITY_PK, `${orgId}#${projectId}#`);

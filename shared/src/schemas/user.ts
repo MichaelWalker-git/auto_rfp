@@ -76,12 +76,19 @@ export const ALL_PERMISSIONS = [
   'answer:create', 'answer:read', 'answer:generate', 'answer:edit',
   'brief:create', 'brief:edit',
   'index:retry',
+  'template:create',
+  'template:read',
+  'template:update',
+  'template:delete',
+  'template:publish',
+  'template:apply',
 ] as const;
 
 export type Permission = (typeof ALL_PERMISSIONS)[number];
 
 export const VIEWER_PERMISSIONS = [
-  'question:read', 'org:read', 'kb:read', 'proposal:read', 'project:read', 'document:read', 'user:read', 'answer:read', 'opportunity:read'
+  'question:read', 'org:read', 'kb:read', 'proposal:read', 'project:read', 'document:read', 'user:read', 'answer:read', 'opportunity:read',
+  'template:read',
 ] as const;
 
 export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
@@ -91,6 +98,7 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     ...VIEWER_PERMISSIONS,
     'question:create', 'org:create', 'kb:create', 'proposal:create', 'project:create', 'document:create', 'user:create', 'answer:create',
     'question:edit', 'org:edit', 'kb:edit', 'proposal:edit', 'project:edit', 'document:edit', 'user:edit', 'answer:edit',
+    'template:create', 'template:update', 'template:publish', 'template:apply',
   ],
   BILLING: [
     'question:read', 'org:read', 'kb:read', 'proposal:read', 'project:read',
@@ -229,6 +237,31 @@ export const ListUsersQuerySchema = z.object({
   search: z.string().trim().min(1).max(200).optional(), // email/name search (if you support it)
 });
 export type ListUsersQuery = z.infer<typeof ListUsersQuerySchema>;
+
+/* ── User List Item (API response for list endpoints) ──────────── */
+
+export const UserListItemSchema = z.object({
+  orgId: z.string(),
+  userId: z.string(),
+  email: z.string().email(),
+  firstName: z.string().optional(),
+  lastName: z.string().optional(),
+  displayName: z.string().optional(),
+  phone: z.string().optional(),
+  role: UserRoleSchema,
+  status: z.string(),
+  cognitoUsername: z.string().optional(),
+  createdAt: z.string(),
+  updatedAt: z.string(),
+});
+export type UserListItem = z.infer<typeof UserListItemSchema>;
+
+export const ListUsersResponseSchema = z.object({
+  items: z.array(UserListItemSchema),
+  nextToken: z.string().optional(),
+  count: z.number(),
+});
+export type ListUsersResponse = z.infer<typeof ListUsersResponseSchema>;
 
 /* ── Self-profile DTO (used by profile-edit-dialog) ──────────── */
 

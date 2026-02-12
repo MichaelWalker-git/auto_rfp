@@ -1,159 +1,187 @@
-import { QueryCommand } from '@aws-sdk/lib-dynamodb';
+import { GetCommand, PutCommand, QueryCommand, UpdateCommand } from '@aws-sdk/lib-dynamodb';
 import { docClient } from './db';
 import { requireEnv } from './env';
+import { PK_NAME, SK_NAME } from '../constants/common';
+import { createTemplateSK, TEMPLATE_PK, type TemplateItem, type TemplateSection, } from '@auto-rfp/shared';
+import { loadTextFromS3, uploadToS3 } from './s3';
 
-const DB_TABLE_NAME = requireEnv('DB_TABLE_NAME');
-const TEMPLATE_PK = 'TEMPLATE';
+const TABLE_NAME = requireEnv('DB_TABLE_NAME');
+const DOCUMENTS_BUCKET = requireEnv('DOCUMENTS_BUCKET');
 
-/**
- * Template configuration for a company
- */
-export interface TemplateConfig {
-  organizationId: string;
-  name: string;
-  description?: string;
-  branding: {
-    companyName: string;
-    primaryColor: { r: number; g: number; b: number };
-    accentColor: { r: number; g: number; b: number };
-    logoUrl?: string;
-  };
-  formatting: {
-    fontFamily: 'Times New Roman' | 'Arial' | 'Calibri';
-    fontSize: number;
-    marginTop: number;
-    marginRight: number;
-    marginBottom: number;
-    marginLeft: number;
-  };
-  sections: {
-    includeTableOfContents: boolean;
-    includeExecutiveSummary: boolean;
-    includeCitations: boolean;
-    pageBreakBetweenSections: boolean;
-  };
-  headerFooter: {
-    includeHeader: boolean;
-    includeFooter: boolean;
-    headerHeight: number;
-    footerHeight: number;
-  };
-  createdAt: string;
-  updatedAt: string;
-}
+// ================================
+// S3 Key Builders
+// ================================
 
-const DEFAULT_TEMPLATE: TemplateConfig = {
-  organizationId: 'DEFAULT',
-  name: 'Default Template',
-  description: 'Default Auto RFP template',
-  branding: {
-    companyName: 'Auto RFP',
-    primaryColor: { r: 25, g: 118, b: 210 },
-    accentColor: { r: 66, g: 133, b: 244 },
-  },
-  formatting: {
-    fontFamily: 'Times New Roman',
-    fontSize: 12,
-    marginTop: 1,
-    marginRight: 1,
-    marginBottom: 1,
-    marginLeft: 1,
-  },
-  sections: {
-    includeTableOfContents: true,
-    includeExecutiveSummary: true,
-    includeCitations: true,
-    pageBreakBetweenSections: true,
-  },
-  headerFooter: {
-    includeHeader: true,
-    includeFooter: true,
-    headerHeight: 0.5,
-    footerHeight: 0.5,
-  },
-  createdAt: new Date().toISOString(),
-  updatedAt: new Date().toISOString(),
+export const buildTemplateS3Key = (
+  orgId: string,
+  templateId: string,
+  version: number,
+): string =>
+  `templates/${orgId}/${templateId}/v${version}/content.json`;
+
+export const buildGlobalTemplateS3Key = (
+  templateId: string,
+  version: number,
+): string =>
+  `templates/global/${templateId}/v${version}/content.json`;
+
+// ================================
+// DynamoDB Operations
+// ================================
+
+export const putTemplate = async (item: TemplateItem): Promise<void> => {
+  await docClient.send(new PutCommand({
+    TableName: TABLE_NAME,
+    Item: {
+      ...item,
+      [PK_NAME]: TEMPLATE_PK,
+      [SK_NAME]: createTemplateSK(item.orgId, item.id),
+    },
+  }));
 };
 
-/**
- * Retrieve template configuration for an organization
- */
-export async function getTemplateConfig(
-  organizationId: string,
-  templateName: string = 'default',
-): Promise<TemplateConfig> {
-  try {
-    const cmd = new QueryCommand({
-      TableName: DB_TABLE_NAME,
-      KeyConditionExpression: 'PK = :pk AND SK = :sk',
-      ExpressionAttributeValues: {
-        ':pk': TEMPLATE_PK,
-        ':sk': `${organizationId}#${templateName}`,
-      },
-      Limit: 1,
-    });
+export const getTemplate = async (
+  orgId: string,
+  templateId: string,
+): Promise<TemplateItem | null> => {
+  const res = await docClient.send(new GetCommand({
+    TableName: TABLE_NAME,
+    Key: {
+      [PK_NAME]: TEMPLATE_PK,
+      [SK_NAME]: createTemplateSK(orgId, templateId),
+    },
+  }));
+  return (res.Item as TemplateItem) ?? null;
+};
 
-    const res = await docClient.send(cmd);
-    if (res.Items && res.Items.length > 0) {
-      const item = res.Items[0] as any;
-      return {
-        organizationId: item.organizationId,
-        name: item.name,
-        description: item.description,
-        branding: item.branding,
-        formatting: item.formatting,
-        sections: item.sections,
-        headerFooter: item.headerFooter,
-        createdAt: item.createdAt,
-        updatedAt: item.updatedAt,
-      };
-    }
+export const listTemplatesByOrg = async (
+  orgId: string,
+  options?: {
+    category?: string;
+    status?: string;
+    excludeArchived?: boolean;
+    limit?: number;
+    offset?: number;
+  },
+): Promise<{ items: TemplateItem[]; total: number }> => {
+  const filterExpressions: string[] = [];
+  const exprAttrNames: Record<string, string> = {
+    '#pk': PK_NAME,
+    '#sk': SK_NAME,
+  };
+  const exprAttrValues: Record<string, unknown> = {
+    ':pk': TEMPLATE_PK,
+    ':skPrefix': `${orgId}#`,
+  };
 
-    return DEFAULT_TEMPLATE;
-  } catch (err) {
-    console.error('Error retrieving template config:', err);
-    return DEFAULT_TEMPLATE;
+  if (options?.excludeArchived !== false) {
+    filterExpressions.push('(attribute_not_exists(#isArchived) OR #isArchived = :false)');
+    exprAttrNames['#isArchived'] = 'isArchived';
+    exprAttrValues[':false'] = false;
   }
-}
 
-/**
- * List all templates for an organization
- */
-export async function listTemplatesForOrganization(
-  organizationId: string,
-): Promise<TemplateConfig[]> {
-  try {
-    const cmd = new QueryCommand({
-      TableName: DB_TABLE_NAME,
-      KeyConditionExpression: 'PK = :pk AND begins_with(SK, :sk)',
-      ExpressionAttributeValues: {
-        ':pk': TEMPLATE_PK,
-        ':sk': `${organizationId}#`,
-      },
-    });
-
-    const res = await docClient.send(cmd);
-    if (!res.Items || res.Items.length === 0) {
-      return [DEFAULT_TEMPLATE];
-    }
-
-    return res.Items.map((item: any) => ({
-      organizationId: item.organizationId,
-      name: item.name,
-      description: item.description,
-      branding: item.branding,
-      formatting: item.formatting,
-      sections: item.sections,
-      headerFooter: item.headerFooter,
-      createdAt: item.createdAt,
-      updatedAt: item.updatedAt,
-    }));
-  } catch (err) {
-    console.error('Error listing templates:', err);
-    return [DEFAULT_TEMPLATE];
+  if (options?.category) {
+    filterExpressions.push('#category = :category');
+    exprAttrNames['#category'] = 'category';
+    exprAttrValues[':category'] = options.category;
   }
-}
 
-export function getDefaultTemplate(): TemplateConfig {
-  return DEFAULT_TEMPLATE;
-}
+  if (options?.status) {
+    filterExpressions.push('#status = :status');
+    exprAttrNames['#status'] = 'status';
+    exprAttrValues[':status'] = options.status;
+  }
+
+  const res = await docClient.send(new QueryCommand({
+    TableName: TABLE_NAME,
+    KeyConditionExpression: '#pk = :pk AND begins_with(#sk, :skPrefix)',
+    FilterExpression: filterExpressions.length > 0
+      ? filterExpressions.join(' AND ')
+      : undefined,
+    ExpressionAttributeNames: exprAttrNames,
+    ExpressionAttributeValues: exprAttrValues,
+  }));
+
+  const allItems = (res.Items as TemplateItem[]) ?? [];
+  const offset = options?.offset ?? 0;
+  const limit = options?.limit ?? 20;
+  const paged = allItems.slice(offset, offset + limit);
+
+  return { items: paged, total: allItems.length };
+};
+
+export const updateTemplateFields = async (
+  orgId: string,
+  templateId: string,
+  updates: Record<string, unknown>,
+): Promise<void> => {
+  const updateParts: string[] = [];
+  const exprAttrNames: Record<string, string> = {};
+  const exprAttrValues: Record<string, unknown> = {};
+
+  Object.entries(updates).forEach(([key, value], idx) => {
+    const nameKey = `#f${idx}`;
+    const valueKey = `:v${idx}`;
+    updateParts.push(`${nameKey} = ${valueKey}`);
+    exprAttrNames[nameKey] = key;
+    exprAttrValues[valueKey] = value;
+  });
+
+  if (updateParts.length === 0) return;
+
+  await docClient.send(new UpdateCommand({
+    TableName: TABLE_NAME,
+    Key: {
+      [PK_NAME]: TEMPLATE_PK,
+      [SK_NAME]: createTemplateSK(orgId, templateId),
+    },
+    UpdateExpression: `SET ${updateParts.join(', ')}`,
+    ExpressionAttributeNames: exprAttrNames,
+    ExpressionAttributeValues: exprAttrValues,
+  }));
+};
+
+// ================================
+// S3 Version Operations
+// ================================
+
+export const saveTemplateVersion = async (
+  orgId: string,
+  templateId: string,
+  version: number,
+  content: { sections: TemplateSection[]; macros: unknown[]; styling?: unknown },
+): Promise<string> => {
+  const s3Key = buildTemplateS3Key(orgId, templateId, version);
+  await uploadToS3(
+    DOCUMENTS_BUCKET,
+    s3Key,
+    JSON.stringify(content),
+    'application/json',
+  );
+  return s3Key;
+};
+
+export const loadTemplateVersion = async (
+  orgId: string,
+  templateId: string,
+  version: number,
+): Promise<{ sections: TemplateSection[]; macros: unknown[]; styling?: unknown } | null> => {
+  const s3Key = buildTemplateS3Key(orgId, templateId, version);
+  const text = await loadTextFromS3(DOCUMENTS_BUCKET, s3Key);
+  if (!text) return null;
+  return JSON.parse(text);
+};
+
+// ================================
+// Macro Engine
+// ================================
+
+export const replaceMacros = (
+  text: string,
+  macroValues: Record<string, string>,
+  options: { removeUnresolved?: boolean } = {},
+): string =>
+  text.replace(/\{\{(\w+)\}\}/g, (match, key) => {
+    if (key in macroValues) return macroValues[key];
+    return options.removeUnresolved ? '' : match;
+  });

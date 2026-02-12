@@ -65,6 +65,8 @@ export function OpportunitiesList({ projectId, limit = 25, className }: Props) {
             key={`${it.source}#${it.oppId}`}
             item={it}
             onOpen={() => handleOpen(it)}
+            onUpdated={() => refresh()}
+            onDeleted={() => refresh()}
           />
         ))
       )}

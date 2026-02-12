@@ -2,8 +2,7 @@ import type { APIGatewayProxyEventV2, APIGatewayProxyResultV2 } from 'aws-lambda
 import middy from '@middy/core';
 import { withSentryLambda } from '../sentry-lambda';
 import { getRFPDocument, softDeleteRFPDocument } from '../helpers/rfp-document';
-
-const { apiResponse, getOrgId, getUserId } = require('../helpers/api');
+import { apiResponse, getOrgId, getUserId } from '../helpers/api';
 
 export const baseHandler = async (
   event: APIGatewayProxyEventV2,

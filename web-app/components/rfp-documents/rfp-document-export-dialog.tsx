@@ -1,6 +1,7 @@
 'use client';
 
-import { useState } from 'react';
+import React, { useState } from 'react';
+import { FileDown, Loader2, FileText, FileType, Code, Presentation } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -8,7 +9,6 @@ import {
   DialogDescription,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from '@/components/ui/dialog';
 import {
   Select,
@@ -18,20 +18,22 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
-import { FileDown, Loader2, FileText, FileType, Presentation, Code, Package } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
 import {
   type ExportFormat,
-  FORMAT_EXTENSIONS,
-  FORMAT_LABELS,
-  useExportProposal,
-} from '@/lib/hooks/use-export-proposal';
+  EXPORT_FORMAT_LABELS,
+  EXPORT_FORMAT_EXTENSIONS,
+  type RFPDocumentItem,
+  useExportRFPDocument,
+} from '@/lib/hooks/use-rfp-documents';
+import { env } from '@/lib/env';
+import { authFetcher } from '@/lib/auth/auth-fetcher';
 
-interface ExportProposalButtonProps {
-  proposalId: string;
-  projectId: string;
-  opportunityId: string;
-  proposalTitle: string;
+interface Props {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  document: RFPDocumentItem | null;
+  orgId: string;
 }
 
 const FORMAT_ICONS: Record<ExportFormat, typeof FileDown> = {
@@ -41,7 +43,6 @@ const FORMAT_ICONS: Record<ExportFormat, typeof FileDown> = {
   txt: FileType,
   pptx: Presentation,
   md: FileType,
-  batch: Package,
 };
 
 const FORMAT_DESCRIPTIONS: Record<ExportFormat, string> = {
@@ -51,39 +52,72 @@ const FORMAT_DESCRIPTIONS: Record<ExportFormat, string> = {
   txt: 'Plain text format for email submissions or accessibility.',
   pptx: 'PowerPoint presentation for oral presentations and executive briefs.',
   md: 'Markdown format for version control and collaboration.',
-  batch: 'Download all text-based formats (HTML, TXT, MD) in a single ZIP file.',
 };
 
-export function ExportProposalButton({
-  proposalId,
-  projectId,
-  opportunityId,
-  proposalTitle,
-}: ExportProposalButtonProps) {
+/** Formats handled by the /export/ domain (legacy export lambdas) */
+const LEGACY_EXPORT_FORMATS = new Set<ExportFormat>(['docx', 'pdf', 'pptx']);
+
+/** Endpoint mapping for legacy export formats */
+const LEGACY_EXPORT_ENDPOINTS: Record<string, string> = {
+  docx: 'generate-word',
+  pdf: 'generate-pdf',
+  pptx: 'generate-pptx',
+};
+
+export function RFPDocumentExportDialog({ open, onOpenChange, document: doc, orgId }: Props) {
   const { toast } = useToast();
-  const [isOpen, setIsOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [selectedFormat, setSelectedFormat] = useState<ExportFormat>('docx');
   const [pageSize, setPageSize] = useState<'letter' | 'a4'>('letter');
-  const { trigger: exportProposal } = useExportProposal();
+  const { trigger: exportDocument } = useExportRFPDocument(orgId);
 
   const handleExport = async () => {
+    if (!doc) return;
+
     try {
       setIsLoading(true);
 
-      const data = await exportProposal({
-        projectId,
-        proposalId,
-        opportunityId,
-        format: selectedFormat,
-        options: selectedFormat === 'pdf' ? { pageSize } : undefined,
-      });
+      let exportUrl: string | null = null;
 
-      if (data.export?.url) {
+      if (LEGACY_EXPORT_FORMATS.has(selectedFormat)) {
+        // Use the /export/ domain endpoints for docx, pdf, pptx
+        const endpoint = LEGACY_EXPORT_ENDPOINTS[selectedFormat];
+        const url = `${env.BASE_API_URL}/export/${endpoint}${orgId ? `?orgId=${orgId}` : ''}`;
+
+        const res = await authFetcher(url, {
+          method: 'POST',
+          body: JSON.stringify({
+            projectId: doc.projectId,
+            opportunityId: doc.opportunityId,
+            proposalId: doc.documentId, // legacy endpoints use proposalId
+            documentId: doc.documentId,
+            options: selectedFormat === 'pdf' ? { pageSize } : undefined,
+          }),
+        });
+
+        if (!res.ok) {
+          const text = await res.text().catch(() => '');
+          throw new Error(text || `Export failed with status ${res.status}`);
+        }
+
+        const data = await res.json();
+        exportUrl = data.export?.url;
+      } else {
+        // Use the /rfp-document/export endpoint for html, txt, md
+        const data = await exportDocument({
+          projectId: doc.projectId,
+          opportunityId: doc.opportunityId,
+          documentId: doc.documentId,
+          format: selectedFormat,
+        });
+        exportUrl = data.export?.url;
+      }
+
+      if (exportUrl) {
         const link = document.createElement('a');
-        link.href = data.export.url;
-        const ext = FORMAT_EXTENSIONS[selectedFormat] || '';
-        link.download = `${proposalTitle || 'proposal'}${ext}`;
+        link.href = exportUrl;
+        const ext = EXPORT_FORMAT_EXTENSIONS[selectedFormat] || '';
+        link.download = `${doc.title || doc.name || 'document'}${ext}`;
         link.setAttribute('target', '_blank');
         document.body.appendChild(link);
         link.click();
@@ -91,10 +125,10 @@ export function ExportProposalButton({
 
         toast({
           title: 'Export successful',
-          description: `Proposal exported as ${FORMAT_LABELS[selectedFormat]}`,
+          description: `Document exported as ${EXPORT_FORMAT_LABELS[selectedFormat]}`,
         });
 
-        setIsOpen(false);
+        onOpenChange(false);
       } else {
         throw new Error('No download URL received');
       }
@@ -102,8 +136,7 @@ export function ExportProposalButton({
       console.error('Export error:', error);
       toast({
         title: 'Export failed',
-        description:
-          error instanceof Error ? error.message : 'Failed to export proposal',
+        description: error instanceof Error ? error.message : 'Failed to export document',
         variant: 'destructive',
       });
     } finally {
@@ -111,21 +144,17 @@ export function ExportProposalButton({
     }
   };
 
+  if (!doc) return null;
+
   const FormatIcon = FORMAT_ICONS[selectedFormat];
 
   return (
-    <Dialog open={isOpen} onOpenChange={setIsOpen}>
-      <DialogTrigger asChild>
-        <Button variant="outline" className="gap-2">
-          <FileDown className="h-4 w-4" />
-          Export
-        </Button>
-      </DialogTrigger>
+    <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[480px]">
         <DialogHeader>
-          <DialogTitle>Export Proposal</DialogTitle>
+          <DialogTitle>Export Document</DialogTitle>
           <DialogDescription>
-            Choose a format to export your proposal. Different agencies may require different submission formats.
+            Choose a format to export &quot;{doc.title || doc.name}&quot;.
           </DialogDescription>
         </DialogHeader>
 
@@ -142,11 +171,10 @@ export function ExportProposalButton({
               <SelectContent>
                 <SelectItem value="docx">📄 Word Document (.docx)</SelectItem>
                 <SelectItem value="pdf">📋 PDF Document (.pdf)</SelectItem>
+                <SelectItem value="pptx">📊 PowerPoint (.pptx)</SelectItem>
                 <SelectItem value="html">🌐 HTML (.html)</SelectItem>
                 <SelectItem value="txt">📝 Plain Text (.txt)</SelectItem>
-                <SelectItem value="pptx">📊 PowerPoint (.pptx)</SelectItem>
                 <SelectItem value="md">📑 Markdown (.md)</SelectItem>
-                <SelectItem value="batch">📦 All Formats (.zip)</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -173,7 +201,7 @@ export function ExportProposalButton({
             <div className="flex items-start gap-3">
               <FormatIcon className="h-5 w-5 mt-0.5 text-muted-foreground" />
               <div>
-                <p className="text-sm font-medium">{FORMAT_LABELS[selectedFormat]}</p>
+                <p className="text-sm font-medium">{EXPORT_FORMAT_LABELS[selectedFormat]}</p>
                 <p className="text-xs text-muted-foreground mt-1">
                   {FORMAT_DESCRIPTIONS[selectedFormat]}
                 </p>
@@ -183,11 +211,7 @@ export function ExportProposalButton({
         </div>
 
         <div className="flex gap-3 justify-end">
-          <Button
-            variant="outline"
-            onClick={() => setIsOpen(false)}
-            disabled={isLoading}
-          >
+          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={isLoading}>
             Cancel
           </Button>
           <Button onClick={handleExport} disabled={isLoading} className="gap-2">

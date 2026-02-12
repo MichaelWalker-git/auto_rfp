@@ -1,34 +1,21 @@
 'use client';
 
-import { FOIARequestCard } from '@/components/foia/FOIARequestCard';
-import { use } from 'react';
+import { useEffect } from 'react';
+import { useRouter, usePathname } from 'next/navigation';
 
-interface FOIAPageProps {
-  params: Promise<{
-    orgId: string;
-    projectId: string;
-  }>;
-}
+/**
+ * FOIA Requests are now managed within the Opportunity context.
+ * This page redirects to the Opportunities page.
+ */
+export default function FOIAPage() {
+  const router = useRouter();
+  const pathname = usePathname();
 
-export default function FOIAPage({ params }: FOIAPageProps) {
-  const { orgId, projectId } = use(params);
+  useEffect(() => {
+    if (!pathname) return;
+    const base = pathname.replace(/\/foia\/?$/, '');
+    router.replace(`${base}/opportunities`);
+  }, [pathname, router]);
 
-  return (
-    <div className="w-full space-y-6 p-6">
-      <div className="pb-4">
-        <h1 className="text-2xl font-semibold tracking-tight">FOIA Requests</h1>
-        <p className="text-muted-foreground mt-1">
-          Manage Freedom of Information Act requests for evaluation documents
-        </p>
-      </div>
-
-      <div className="grid gap-6">
-        <FOIARequestCard
-          projectId={projectId}
-          orgId={orgId}
-          projectOutcomeStatus="LOST"
-        />
-      </div>
-    </div>
-  );
+  return null;
 }

@@ -13,7 +13,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useProfile, editProfileApi } from '@/lib/hooks/use-profile';
-import { toast } from 'sonner';
+import { useToast } from '@/components/ui/use-toast';
 
 interface ProfileEditDialogProps {
   open: boolean;
@@ -22,6 +22,7 @@ interface ProfileEditDialogProps {
 
 export function ProfileEditDialog({ open, onOpenChange }: ProfileEditDialogProps) {
   const { profile, mutate } = useProfile();
+  const { toast } = useToast();
 
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
@@ -52,10 +53,10 @@ export function ProfileEditDialog({ open, onOpenChange }: ProfileEditDialogProps
 
       await editProfileApi(profile.orgId, profile.userId, payload);
       await mutate();
-      toast.success('Profile updated successfully');
+      toast({ title: 'Profile updated', description: 'Your profile has been saved.' });
       onOpenChange(false);
     } catch (err: any) {
-      toast.error(err.message || 'Failed to update profile');
+      toast({ title: 'Update failed', description: err.message || 'Failed to update profile', variant: 'destructive' });
     } finally {
       setIsSaving(false);
     }

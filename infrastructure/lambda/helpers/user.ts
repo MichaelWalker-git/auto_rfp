@@ -75,8 +75,10 @@ export async function createUser(
 
   const searchText = buildSearchText([emailLower, firstName, lastName, displayName, phoneNorm]);
 
-  // 1) Cognito
-  await adminCreateUser(cognito, {
+  // 1) Cognito — create user and get the Cognito sub (UUID)
+  // Note: We pass the fallback userId to custom attributes initially.
+  // The actual userId stored in DynamoDB will be the Cognito sub.
+  const { sub: cognitoSub } = await adminCreateUser(cognito, {
     userPoolId,
     username: cognitoUsername,
     email: emailLower,
@@ -86,21 +88,24 @@ export async function createUser(
     phone: phoneNorm,
     custom: {
       orgId: dto.orgId,
-      userId,
+      userId, // Placeholder — will be overridden by cognitoSub below
       role: dto.role,
     },
     sendInvite: sendCognitoInvite,
   });
 
+  // Use Cognito sub as the userId for DynamoDB (ensures token sub === DynamoDB userId)
+  const effectiveUserId = cognitoSub || userId;
+
   // 2) Dynamo (rollback cognito on failure)
   const item = {
     [PK_NAME]: USER_PK,
-    [SK_NAME]: userSk(dto.orgId, userId),
+    [SK_NAME]: userSk(dto.orgId, effectiveUserId),
 
     entityType: 'USER',
 
     orgId: dto.orgId,
-    userId,
+    userId: effectiveUserId,
 
     // canonical fields
     email,
@@ -145,5 +150,5 @@ export async function createUser(
     throw ddbErr;
   }
 
-  return { userId, cognitoUsername, item };
+  return { userId: effectiveUserId, cognitoUsername, item };
 }

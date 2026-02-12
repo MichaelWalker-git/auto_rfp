@@ -17,6 +17,7 @@ interface Props {
   onOpenChange: (open: boolean) => void;
   projectId: string;
   orgId: string;
+  opportunityId?: string;
   onSuccess?: () => void;
 }
 
@@ -35,7 +36,7 @@ const ALLOWED_TYPES = [
 
 const MAX_FILE_SIZE = 100 * 1024 * 1024;
 
-export function RFPDocumentUploadDialog({ open, onOpenChange, projectId, orgId, onSuccess }: Props) {
+export function RFPDocumentUploadDialog({ open, onOpenChange, projectId, orgId, opportunityId, onSuccess }: Props) {
   const { trigger: createDocument, isMutating } = useCreateRFPDocument(orgId);
   const { toast } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -97,7 +98,7 @@ export function RFPDocumentUploadDialog({ open, onOpenChange, projectId, orgId, 
       setUploadProgress(0);
       const result = await createDocument({
         projectId,
-        opportunityId: 'default',
+        opportunityId: opportunityId || 'default',
         name: name.trim(),
         description: description.trim() || null,
         documentType,
