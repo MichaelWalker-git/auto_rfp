@@ -55,6 +55,7 @@ describe('set-outcome handler', () => {
       const dto: SetProjectOutcomeRequest = {
         projectId: 'proj-123',
         orgId: 'org-456',
+        opportunityId: 'opp-789',
         status: 'WON',
         winData: {
           contractValue: 1500000,
@@ -65,7 +66,7 @@ describe('set-outcome handler', () => {
       const result = await setProjectOutcome(dto, 'user-789');
 
       expect(result.partition_key).toBe('PROJECT_OUTCOME');
-      expect(result.sort_key).toBe('org-456#proj-123');
+      expect(result.sort_key).toBe('org-456#proj-123#opp-789');
       expect(result.status).toBe('WON');
       expect(result.statusSetBy).toBe('user-789');
       expect(result.statusSource).toBe('MANUAL');
@@ -78,6 +79,7 @@ describe('set-outcome handler', () => {
       const dto: SetProjectOutcomeRequest = {
         projectId: 'proj-123',
         orgId: 'org-456',
+        opportunityId: 'opp-789',
         status: 'LOST',
         lossData: {
           lossDate: '2025-01-20T00:00:00Z',
@@ -103,6 +105,7 @@ describe('set-outcome handler', () => {
       const dto: SetProjectOutcomeRequest = {
         projectId: 'proj-123',
         orgId: 'org-456',
+        opportunityId: 'opp-789',
         status: 'PENDING',
       };
 
@@ -119,6 +122,7 @@ describe('set-outcome handler', () => {
       const dto: SetProjectOutcomeRequest = {
         projectId: 'proj-123',
         orgId: 'org-456',
+        opportunityId: 'opp-789',
         status: 'NO_BID',
       };
 
@@ -133,6 +137,7 @@ describe('set-outcome handler', () => {
       const dto: SetProjectOutcomeRequest = {
         projectId: 'proj-123',
         orgId: 'org-456',
+        opportunityId: 'opp-789',
         status: 'WITHDRAWN',
       };
 
@@ -148,6 +153,7 @@ describe('set-outcome handler', () => {
       const dto: SetProjectOutcomeRequest = {
         projectId: 'proj-123',
         orgId: 'org-456',
+        opportunityId: 'opp-789',
         status: 'PENDING',
       };
 
@@ -170,6 +176,7 @@ describe('set-outcome handler', () => {
       const dto: SetProjectOutcomeRequest = {
         projectId: 'proj-123',
         orgId: 'org-456',
+        opportunityId: 'opp-789',
         status: 'WON',
         winData: {
           contractNumber: 'GS-35F-0001',
@@ -198,6 +205,7 @@ describe('set-outcome handler', () => {
       const dto: SetProjectOutcomeRequest = {
         projectId: 'proj-123',
         orgId: 'org-456',
+        opportunityId: 'opp-789',
         status: 'LOST',
         lossData: {
           lossDate: '2025-01-20T00:00:00Z',
@@ -223,6 +231,7 @@ describe('set-outcome handler', () => {
       const dto: SetProjectOutcomeRequest = {
         projectId: 'proj-123',
         orgId: 'org-456',
+        opportunityId: 'opp-789',
         status: 'PENDING',
       };
 

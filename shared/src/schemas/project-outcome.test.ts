@@ -290,6 +290,7 @@ describe('SetProjectOutcomeRequestSchema', () => {
     const request: SetProjectOutcomeRequest = {
       projectId: 'proj-123',
       orgId: 'org-456',
+      opportunityId: 'opp-789',
       status: 'WON',
       winData: {
         contractValue: 1500000,
@@ -305,6 +306,7 @@ describe('SetProjectOutcomeRequestSchema', () => {
     const request = {
       projectId: 'proj-123',
       orgId: 'org-456',
+      opportunityId: 'opp-789',
       status: 'WON',
     };
 
@@ -319,6 +321,7 @@ describe('SetProjectOutcomeRequestSchema', () => {
     const request = {
       projectId: 'proj-123',
       orgId: 'org-456',
+      opportunityId: 'opp-789',
       status: 'LOST',
       lossData: {
         lossDate: '2025-01-20T00:00:00Z',
@@ -334,6 +337,7 @@ describe('SetProjectOutcomeRequestSchema', () => {
     const request = {
       projectId: 'proj-123',
       orgId: 'org-456',
+      opportunityId: 'opp-789',
       status: 'LOST',
     };
 
@@ -348,6 +352,7 @@ describe('SetProjectOutcomeRequestSchema', () => {
     const request = {
       projectId: 'proj-123',
       orgId: 'org-456',
+      opportunityId: 'opp-789',
       status: 'NO_BID',
     };
 
@@ -359,6 +364,7 @@ describe('SetProjectOutcomeRequestSchema', () => {
     const request = {
       projectId: 'proj-123',
       orgId: 'org-456',
+      opportunityId: 'opp-789',
       status: 'LOST',
       winData: {
         contractValue: 1000000,
@@ -378,6 +384,7 @@ describe('SetProjectOutcomeRequestSchema', () => {
     const request = {
       projectId: 'proj-123',
       orgId: 'org-456',
+      opportunityId: 'opp-789',
       status: 'WON',
       winData: {
         contractValue: 1000000,
@@ -396,6 +403,7 @@ describe('SetProjectOutcomeRequestSchema', () => {
   it('requires projectId', () => {
     const request = {
       orgId: 'org-456',
+      opportunityId: 'opp-789',
       status: 'PENDING',
     };
 
@@ -406,6 +414,7 @@ describe('SetProjectOutcomeRequestSchema', () => {
   it('requires orgId', () => {
     const request = {
       projectId: 'proj-123',
+      opportunityId: 'opp-789',
       status: 'PENDING',
     };
 
