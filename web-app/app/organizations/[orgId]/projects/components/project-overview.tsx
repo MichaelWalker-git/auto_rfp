@@ -19,7 +19,6 @@ import {
   FolderOpen,
   HelpCircle,
   Target,
-  XCircle,
 } from 'lucide-react';
 import { format, formatDistanceToNow } from 'date-fns';
 import { useProject, useQuestions } from '@/lib/hooks/use-api';
@@ -92,12 +91,8 @@ export function ProjectOverview({ projectId }: ProjectOverviewProps) {
     };
 
     fetchBriefs();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [projectId, opportunities?.length]);
-
-  // Early return after all hooks
-  if (!isQL && !err && !questionFiles?.length) {
-    return <NoRfpDocumentAvailable projectId={projectId} />;
-  }
 
   const isLoading = questionsLoading || projectLoading;
 
