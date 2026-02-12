@@ -12,6 +12,10 @@ export function rfpDocumentDomain(): DomainRoutes {
       { method: 'POST', path: 'preview-url', entry: 'lambda/rfp-document/get-document-preview-url.ts' },
       { method: 'POST', path: 'download-url', entry: 'lambda/rfp-document/get-document-download-url.ts' },
       { method: 'POST', path: 'update-signature', entry: 'lambda/rfp-document/update-signature-status.ts' },
+      { method: 'POST', path: 'export', entry: 'lambda/rfp-document/export-rfp-document.ts' },
+      { method: 'POST', path: 'generate-proposal', entry: 'lambda/rfp-document/generate-proposal.ts' },
+      { method: 'POST', path: 'generate-document', entry: 'lambda/rfp-document/generate-document.ts' },
+      { method: 'POST', path: 'convert-to-content', entry: 'lambda/rfp-document/convert-to-content.ts' },
     ],
   };
 }

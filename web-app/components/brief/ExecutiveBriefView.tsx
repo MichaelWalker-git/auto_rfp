@@ -28,7 +28,7 @@ import {
   useHandleLinearTicket,
 } from '@/lib/hooks/use-executive-brief';
 
-import type { Props, SectionKey, SectionStatus } from './types';
+import type { SectionKey, SectionStatus } from './types';
 import { SECTION_ORDER } from './types';
 import { buildSectionsState, calcProgress, scoringPrereqsComplete } from './helpers';
 
@@ -42,7 +42,6 @@ import { ContactsCard } from './components/ContactsCard';
 import { RisksCard } from './components/RisksCard';
 import { PastPerformanceCard } from './components/PastPerformanceCard';
 import { GapAnalysisCard } from './components/GapAnalysisCard';
-import { FOIARequestCard } from '../foia/FOIARequestCard';
 import { OpportunitySelector } from './components/OpportunitySelector';
 import { useCurrentOrganization } from '@/context/organization-context';
 import { useProjectOutcome } from '@/lib/hooks/use-project-outcome';
@@ -102,7 +101,6 @@ const TABS = [
   { id: 'risks', label: 'Risks', icon: Shield, section: 'risks' as SectionKey },
   { id: 'pastPerformance', label: 'Past Performance', icon: Briefcase, section: 'pastPerformance' as SectionKey },
   { id: 'scoring', label: 'Scoring', icon: Target, section: 'scoring' as SectionKey },
-  { id: 'foia', label: 'FOIA', icon: FileSearch, section: null },
 ] as const;
 
 type TabId = typeof TABS[number]['id'];
@@ -206,7 +204,12 @@ function SectionContent({ section, status, error, isBusy, children, skeletonRows
   return <>{children}</>;
 }
 
-export function ExecutiveBriefView({ projectId }: Props) {
+interface ExecutiveBriefViewProps {
+  projectId: string;
+  initialOpportunityId?: string;
+}
+
+export function ExecutiveBriefView({ projectId, initialOpportunityId }: ExecutiveBriefViewProps) {
   const { data: project, isLoading, isError, mutate: refetchProject } = useProject(projectId);
   const { currentOrganization } = useCurrentOrganization();
   const { outcome: projectOutcome } = useProjectOutcome(project?.orgId ?? null, projectId);
@@ -228,7 +231,7 @@ export function ExecutiveBriefView({ projectId }: Props) {
   const [isPastPerfRegenerating, setIsPastPerfRegenerating] = useState(false);
   const [isFetchingBrief, setIsFetchingBrief] = useState(false);
   const [activeTab, setActiveTab] = useState<TabId>('overview');
-  const [selectedOpportunityId, setSelectedOpportunityId] = useState<string | null>(null);
+  const [selectedOpportunityId, setSelectedOpportunityId] = useState<string | null>(initialOpportunityId ?? null);
   const [selectedOpportunity, setSelectedOpportunity] = useState<OpportunityItem | null>(null);
   const localBusySectionsRef = useRef<Set<SectionKey>>(new Set());
   const linearTicketAttemptedRef = useRef(false);
@@ -474,22 +477,37 @@ export function ExecutiveBriefView({ projectId }: Props) {
   }
 
   async function enqueueSection(section: SectionKey, executiveBriefId: string) {
+    let resp: any;
     switch (section) {
       case 'summary':
-        return genSummary.trigger({ executiveBriefId });
+        resp = await genSummary.trigger({ executiveBriefId });
+        break;
       case 'deadlines':
-        return genDeadlines.trigger({ executiveBriefId });
+        resp = await genDeadlines.trigger({ executiveBriefId });
+        break;
       case 'contacts':
-        return genContacts.trigger({ executiveBriefId });
+        resp = await genContacts.trigger({ executiveBriefId });
+        break;
       case 'requirements':
-        return genRequirements.trigger({ executiveBriefId });
+        resp = await genRequirements.trigger({ executiveBriefId });
+        break;
       case 'risks':
-        return genRisks.trigger({ executiveBriefId });
+        resp = await genRisks.trigger({ executiveBriefId });
+        break;
       case 'pastPerformance':
-        return genPastPerformance.trigger({ executiveBriefId });
+        resp = await genPastPerformance.trigger({ executiveBriefId });
+        break;
       case 'scoring':
-        return genScoring.trigger({ executiveBriefId });
+        resp = await genScoring.trigger({ executiveBriefId });
+        break;
     }
+    
+    // Check if the API returned an error (ok: false)
+    if (resp && resp.ok === false && resp.error) {
+      throw new Error(resp.error);
+    }
+    
+    return resp;
   }
 
   async function generateBrief(onlyMissing: boolean) {
@@ -498,6 +516,8 @@ export function ExecutiveBriefView({ projectId }: Props) {
     if (!project) return;
     if (briefItem) setPreviousBrief(briefItem);
 
+    let sectionsToRun: SectionKey[] = [];
+    
     try {
       const executiveBriefId = await ensureBriefId();
 
@@ -509,7 +529,7 @@ export function ExecutiveBriefView({ projectId }: Props) {
 
       if (latest?.ok && latest?.brief) setBriefItem(latest.brief);
 
-      const toRun: SectionKey[] = onlyMissing
+      sectionsToRun = onlyMissing
         ? SECTION_ORDER.filter((k) => {
           const st = (currentBrief?.sections as any)?.[k]?.status as SectionStatus | undefined;
           return st !== 'COMPLETE';
@@ -517,10 +537,10 @@ export function ExecutiveBriefView({ projectId }: Props) {
         : SECTION_ORDER;
 
       // Separate scoring from other sections - scoring should run after all others complete
-      const sectionsWithoutScoring = toRun.filter((k) => k !== 'scoring');
-      const shouldRunScoring = toRun.includes('scoring');
+      const sectionsWithoutScoring = sectionsToRun.filter((k) => k !== 'scoring');
+      const shouldRunScoring = sectionsToRun.includes('scoring');
 
-      markBusy(toRun);
+      markBusy(sectionsToRun);
       startPollingBrief();
 
       // Phase 1: Run all sections except scoring in parallel
@@ -570,6 +590,9 @@ export function ExecutiveBriefView({ projectId }: Props) {
       if (after?.ok && after?.brief) setBriefItem(after.brief);
     } catch (e: any) {
       setRegenError(e?.message ?? 'Unknown error');
+      // Clear busy sections on error so buttons aren't stuck disabled
+      setLocalBusySections(new Set());
+      stopPollingBrief();
     }
   }
 
@@ -771,27 +794,58 @@ export function ExecutiveBriefView({ projectId }: Props) {
           </div>
         </div>
       ) : !briefItem ? (
-        <Card>
-          <CardContent className="py-12 text-center">
-            <FileText className="h-12 w-12 mx-auto text-muted-foreground mb-4"/>
-            <p className="text-sm text-muted-foreground mb-4">
-              No executive brief yet for this opportunity. Generate all sections to analyze it.
-            </p>
-            <Button onClick={() => generateBrief(false)} disabled={anySectionInProgress}>
-              {anySectionInProgress ? (
-                <>
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin"/>
-                  Generating...
-                </>
+        <div className="space-y-4">
+          {/* Show error if generation failed before brief was created */}
+          {regenError && (
+            <Alert variant={regenError.includes('No processed question files') ? 'default' : 'destructive'}>
+              {regenError.includes('No processed question files') ? (
+                <Clock className="h-4 w-4"/>
               ) : (
-                <>
-                  <RefreshCw className="h-4 w-4 mr-2"/>
-                  Generate All Sections
-                </>
+                <AlertTriangle className="h-4 w-4"/>
               )}
-            </Button>
-          </CardContent>
-        </Card>
+              <AlertDescription>
+                {regenError.includes('ExecutiveBrief not found') 
+                  ? 'Unable to generate brief. Please try clicking "Generate All Sections" to initialize the executive brief first.'
+                  : regenError.includes('No processed question files')
+                  ? (
+                    <div className="space-y-2">
+                      <p className="font-medium">Documents are still being processed</p>
+                      <p className="text-sm">
+                        Uploaded solicitation files need to complete text extraction before the executive brief can be generated. 
+                        This typically takes 1-3 minutes depending on document size.
+                      </p>
+                      <p className="text-sm text-muted-foreground">
+                        Please wait for processing to complete, then try generating again.
+                      </p>
+                    </div>
+                  )
+                  : regenError}
+              </AlertDescription>
+            </Alert>
+          )}
+          
+          <Card>
+            <CardContent className="py-12 text-center">
+              <FileText className="h-12 w-12 mx-auto text-muted-foreground mb-4"/>
+              <p className="text-sm text-muted-foreground mb-4">
+                No executive brief yet for this opportunity. Generate all sections to analyze it.
+              </p>
+              <Button onClick={() => generateBrief(false)} disabled={anySectionInProgress}>
+                {anySectionInProgress ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin"/>
+                    Generating...
+                  </>
+                ) : (
+                  <>
+                    <RefreshCw className="h-4 w-4 mr-2"/>
+                    Generate All Sections
+                  </>
+                )}
+              </Button>
+            </CardContent>
+          </Card>
+        </div>
       ) : (
         <>
           {previousBrief && <ChangesSummary previous={previousBrief} current={briefItem}/>}
@@ -848,9 +902,30 @@ export function ExecutiveBriefView({ projectId }: Props) {
           </div>
 
           {regenError && (
-            <Alert variant="destructive">
-              <AlertTriangle className="h-4 w-4"/>
-              <AlertDescription>{regenError}</AlertDescription>
+            <Alert variant={regenError.includes('No processed question files') ? 'default' : 'destructive'}>
+              {regenError.includes('No processed question files') ? (
+                <Clock className="h-4 w-4"/>
+              ) : (
+                <AlertTriangle className="h-4 w-4"/>
+              )}
+              <AlertDescription>
+                {regenError.includes('ExecutiveBrief not found') 
+                  ? 'Unable to generate brief. Please try clicking "Generate All Sections" to initialize the executive brief first.'
+                  : regenError.includes('No processed question files')
+                  ? (
+                    <div className="space-y-2">
+                      <p className="font-medium">Documents are still being processed</p>
+                      <p className="text-sm">
+                        Uploaded solicitation files need to complete text extraction before the executive brief can be generated. 
+                        This typically takes 1-3 minutes depending on document size.
+                      </p>
+                      <p className="text-sm text-muted-foreground">
+                        Please wait for processing to complete, then try generating again.
+                      </p>
+                    </div>
+                  )
+                  : regenError}
+              </AlertDescription>
             </Alert>
           )}
 
@@ -1057,16 +1132,6 @@ export function ExecutiveBriefView({ projectId }: Props) {
               </SectionContent>
             </TabsContent>
 
-            {/* FOIA Tab */}
-            <TabsContent value="foia" className="space-y-6 mt-6">
-              <FOIARequestCard 
-                projectId={projectId}
-                orgId={project.orgId}
-                projectOutcomeStatus={projectOutcome?.status}
-                agencyName={summary?.agencyName}
-                solicitationNumber={summary?.solicitationNumber}
-              />
-            </TabsContent>
           </Tabs>
         </>
       )}

@@ -10,9 +10,11 @@ import * as lambda from 'aws-cdk-lib/aws-lambda';
 import * as lambdaNodejs from 'aws-cdk-lib/aws-lambda-nodejs';
 import * as lambdaEventSources from 'aws-cdk-lib/aws-lambda-event-sources';
 import * as path from 'path';
+import * as crypto from 'crypto';
 
 import { ApiSharedInfraStack } from './api-shared-infra-stack';
 import { ApiDomainRoutesStack } from './api-domain-resource-stack';
+import type { DomainRoutes } from './routes/types';
 import { foiaDomain } from './routes/foia.routes';
 import { debriefingDomain } from './routes/debriefing.routes';
 import { answerDomain } from './routes/answer.routes';
@@ -21,7 +23,6 @@ import { presignedDomain } from './routes/presigned.routes';
 import { knowledgebaseDomain } from './routes/knowledgebase.routes';
 import { documentDomain } from './routes/document.routes';
 import { questionfileDomain } from './routes/questionfile.routes';
-import { proposalDomain } from './routes/proposal.routes';
 import { userDomain } from './routes/user.routes';
 import { questionDomain } from './routes/question.routes';
 import { semanticDomain } from './routes/semantic.routes';
@@ -37,6 +38,8 @@ import { linearRoutes } from './routes/linear.routes';
 import { briefDomain } from './routes/brief.routes';
 import { pastperfDomain } from './routes/pastperf.routes';
 import { rfpDocumentDomain } from './routes/rfp-document.routes';
+import { templateDomain } from './routes/template.routes';
+import { googleDomain } from './routes/google.routes';
 
 export interface ApiOrchestratorStackProps extends cdk.StackProps {
   stage: string;
@@ -246,256 +249,113 @@ export class ApiOrchestratorStack extends cdk.Stack {
       execBriefQueue.grantConsumeMessages(execBriefWorker);
     }
 
-    // 3. Instantiate domain-specific route nested stacks
-    // These are NestedStacks to manage CloudFormation resource limits
+    // 3. Collect all domain route definitions for hashing and nested stack creation
+    // This ensures the deployment is recreated whenever any route definition changes
+    const allDomains: DomainRoutes[] = [
+      organizationDomain(),
+      answerDomain(),
+      briefDomain({ execBriefQueueUrl: execBriefQueue?.queueUrl || '' }),
+      presignedDomain(),
+      knowledgebaseDomain(),
+      documentDomain(),
+      questionfileDomain(),
+      userDomain(),
+      questionDomain(),
+      semanticDomain(),
+      deadlinesDomain(),
+      opportunityDomain(),
+      exportDomain(),
+      contentlibraryDomain(),
+      projectoutcomeDomain(),
+      foiaDomain(),
+      debriefingDomain(),
+      pastperfDomain({ execBriefQueueUrl: execBriefQueue?.queueUrl || '' }),
+      projectsDomain(),
+      promptDomain(),
+      samgovDomain(),
+      rfpDocumentDomain(),
+      templateDomain(),
+      linearRoutes,
+      googleDomain(),
+    ];
 
-    new ApiDomainRoutesStack(this, 'OrganizationRoutes', {
-      api: this.api,
-      rootResourceId: this.rootResourceId,
-      userPoolId: userPool.userPoolId,
-      lambdaRole: sharedInfraStack.commonLambdaRole,
-      commonEnv: sharedInfraStack.commonEnv,
-      domain: organizationDomain(),
-      authorizer,
-    });
+    // Compute a hash of all route definitions so the deployment logical ID changes
+    // whenever routes are added, removed, or modified
+    const routeFingerprint = crypto
+      .createHash('sha256')
+      .update(
+        JSON.stringify(
+          allDomains.map((d) => ({
+            basePath: d.basePath,
+            routes: d.routes.map((r) => ({
+              method: r.method,
+              path: r.path,
+              entry: r.entry,
+              auth: r.auth,
+            })),
+          })),
+        ),
+      )
+      .digest('hex')
+      .substring(0, 16);
 
-    new ApiDomainRoutesStack(this, 'AnswerRoutes', {
-      api: this.api,
-      rootResourceId: this.rootResourceId,
-      userPoolId: userPool.userPoolId,
-      lambdaRole: sharedInfraStack.commonLambdaRole,
-      commonEnv: sharedInfraStack.commonEnv,
-      domain: answerDomain(),
-      authorizer,
-    });
+    const domainStackNames = [
+      'OrganizationRoutes',
+      'AnswerRoutes',
+      'BriefRoutes',
+      'PresignedRoutes',
+      'KnowledgebaseRoutes',
+      'DocumentRoutes',
+      'QuestionfileRoutes',
+      'UserRoutes',
+      'QuestionRoutes',
+      'SemanticRoutes',
+      'DeadlinesRoutes',
+      'OpportunityRoutes',
+      'ExportRoutes',
+      'ContentLibraryRoutes',
+      'ProjectOutcomeRoutes',
+      'FoiaRoutes',
+      'DebriefingRoutes',
+      'PastPerfRoutes',
+      'ProjectsRoutes',
+      'PromptRoutes',
+      'SamgovRoutes',
+      'RfpDocumentRoutes',
+      'TemplateRoutes',
+      'LinearRoutes',
+      'GoogleRoutes',
+    ];
 
-    new ApiDomainRoutesStack(this, 'BriefRoutes', {
-      api: this.api,
-      rootResourceId: this.rootResourceId,
-      userPoolId: userPool.userPoolId,
-      lambdaRole: sharedInfraStack.commonLambdaRole,
-      commonEnv: sharedInfraStack.commonEnv,
-      domain: briefDomain({ execBriefQueueUrl: execBriefQueue?.queueUrl || '' }),
-      authorizer,
-    });
+    const routeNestedStacks: ApiDomainRoutesStack[] = [];
 
-    new ApiDomainRoutesStack(this, 'PresignedRoutes', {
-      api: this.api,
-      rootResourceId: this.rootResourceId,
-      userPoolId: userPool.userPoolId,
-      lambdaRole: sharedInfraStack.commonLambdaRole,
-      commonEnv: sharedInfraStack.commonEnv,
-      domain: presignedDomain(),
-      authorizer,
-    });
-
-    new ApiDomainRoutesStack(this, 'KnowledgebaseRoutes', {
-      api: this.api,
-      rootResourceId: this.rootResourceId,
-      userPoolId: userPool.userPoolId,
-      lambdaRole: sharedInfraStack.commonLambdaRole,
-      commonEnv: sharedInfraStack.commonEnv,
-      domain: knowledgebaseDomain(),
-      authorizer,
-    });
-
-    new ApiDomainRoutesStack(this, 'DocumentRoutes', {
-      api: this.api,
-      rootResourceId: this.rootResourceId,
-      userPoolId: userPool.userPoolId,
-      lambdaRole: sharedInfraStack.commonLambdaRole,
-      commonEnv: sharedInfraStack.commonEnv,
-      domain: documentDomain(),
-      authorizer,
-    });
-
-    new ApiDomainRoutesStack(this, 'QuestionfileRoutes', {
-      api: this.api,
-      rootResourceId: this.rootResourceId,
-      userPoolId: userPool.userPoolId,
-      lambdaRole: sharedInfraStack.commonLambdaRole,
-      commonEnv: sharedInfraStack.commonEnv,
-      domain: questionfileDomain(),
-      authorizer,
-    });
-
-    new ApiDomainRoutesStack(this, 'ProposalRoutes', {
-      api: this.api,
-      rootResourceId: this.rootResourceId,
-      userPoolId: userPool.userPoolId,
-      lambdaRole: sharedInfraStack.commonLambdaRole,
-      commonEnv: sharedInfraStack.commonEnv,
-      domain: proposalDomain(),
-      authorizer,
-    });
-
-    new ApiDomainRoutesStack(this, 'UserRoutes', {
-      api: this.api,
-      rootResourceId: this.rootResourceId,
-      userPoolId: userPool.userPoolId,
-      lambdaRole: sharedInfraStack.commonLambdaRole,
-      commonEnv: sharedInfraStack.commonEnv,
-      domain: userDomain(),
-      authorizer,
-    });
-
-    new ApiDomainRoutesStack(this, 'QuestionRoutes', {
-      api: this.api,
-      rootResourceId: this.rootResourceId,
-      userPoolId: userPool.userPoolId,
-      lambdaRole: sharedInfraStack.commonLambdaRole,
-      commonEnv: sharedInfraStack.commonEnv,
-      domain: questionDomain(),
-      authorizer,
-    });
-
-    new ApiDomainRoutesStack(this, 'SemanticRoutes', {
-      api: this.api,
-      rootResourceId: this.rootResourceId,
-      userPoolId: userPool.userPoolId,
-      lambdaRole: sharedInfraStack.commonLambdaRole,
-      commonEnv: sharedInfraStack.commonEnv,
-      domain: semanticDomain(),
-      authorizer,
-    });
-
-    new ApiDomainRoutesStack(this, 'DeadlinesRoutes', {
-      api: this.api,
-      rootResourceId: this.rootResourceId,
-      userPoolId: userPool.userPoolId,
-      lambdaRole: sharedInfraStack.commonLambdaRole,
-      commonEnv: sharedInfraStack.commonEnv,
-      domain: deadlinesDomain(),
-      authorizer,
-    });
-
-    new ApiDomainRoutesStack(this, 'OpportunityRoutes', {
-      api: this.api,
-      rootResourceId: this.rootResourceId,
-      userPoolId: userPool.userPoolId,
-      lambdaRole: sharedInfraStack.commonLambdaRole,
-      commonEnv: sharedInfraStack.commonEnv,
-      domain: opportunityDomain(),
-      authorizer,
-    });
-
-    new ApiDomainRoutesStack(this, 'ExportRoutes', {
-      api: this.api,
-      rootResourceId: this.rootResourceId,
-      userPoolId: userPool.userPoolId,
-      lambdaRole: sharedInfraStack.commonLambdaRole,
-      commonEnv: sharedInfraStack.commonEnv,
-      domain: exportDomain(),
-      authorizer,
-    });
-
-    new ApiDomainRoutesStack(this, 'ContentLibraryRoutes', {
-      api: this.api,
-      rootResourceId: this.rootResourceId,
-      userPoolId: userPool.userPoolId,
-      lambdaRole: sharedInfraStack.commonLambdaRole,
-      commonEnv: sharedInfraStack.commonEnv,
-      domain: contentlibraryDomain(),
-      authorizer,
-    });
-
-    new ApiDomainRoutesStack(this, 'ProjectOutcomeRoutes', {
-      api: this.api,
-      rootResourceId: this.rootResourceId,
-      userPoolId: userPool.userPoolId,
-      lambdaRole: sharedInfraStack.commonLambdaRole,
-      commonEnv: sharedInfraStack.commonEnv,
-      domain: projectoutcomeDomain(),
-      authorizer,
-    });
-
-    new ApiDomainRoutesStack(this, 'FoiaRoutes', {
-      api: this.api,
-      rootResourceId: this.rootResourceId,
-      userPoolId: userPool.userPoolId,
-      lambdaRole: sharedInfraStack.commonLambdaRole,
-      commonEnv: sharedInfraStack.commonEnv,
-      domain: foiaDomain(),
-      authorizer,
-    });
-
-    new ApiDomainRoutesStack(this, 'DebriefingRoutes', {
-      api: this.api,
-      rootResourceId: this.rootResourceId,
-      userPoolId: userPool.userPoolId,
-      lambdaRole: sharedInfraStack.commonLambdaRole,
-      commonEnv: sharedInfraStack.commonEnv,
-      domain: debriefingDomain(),
-      authorizer,
-    });
-
-    new ApiDomainRoutesStack(this, 'PastPerfRoutes', {
-      api: this.api,
-      rootResourceId: this.rootResourceId,
-      userPoolId: userPool.userPoolId,
-      lambdaRole: sharedInfraStack.commonLambdaRole,
-      commonEnv: sharedInfraStack.commonEnv,
-      domain: pastperfDomain({ execBriefQueueUrl: execBriefQueue?.queueUrl || '' }),
-      authorizer,
-    });
-
-    new ApiDomainRoutesStack(this, 'ProjectsRoutes', {
-      api: this.api,
-      rootResourceId: this.rootResourceId,
-      userPoolId: userPool.userPoolId,
-      lambdaRole: sharedInfraStack.commonLambdaRole,
-      commonEnv: sharedInfraStack.commonEnv,
-      domain: projectsDomain(),
-      authorizer,
-    });
-
-    new ApiDomainRoutesStack(this, 'PromptRoutes', {
-      api: this.api,
-      rootResourceId: this.rootResourceId,
-      userPoolId: userPool.userPoolId,
-      lambdaRole: sharedInfraStack.commonLambdaRole,
-      commonEnv: sharedInfraStack.commonEnv,
-      domain: promptDomain(),
-      authorizer,
-    });
-
-    new ApiDomainRoutesStack(this, 'SamgovRoutes', {
-      api: this.api,
-      rootResourceId: this.rootResourceId,
-      userPoolId: userPool.userPoolId,
-      lambdaRole: sharedInfraStack.commonLambdaRole,
-      commonEnv: sharedInfraStack.commonEnv,
-      domain: samgovDomain(),
-      authorizer,
-    });
-
-    new ApiDomainRoutesStack(this, 'RfpDocumentRoutes', {
-      api: this.api,
-      rootResourceId: this.rootResourceId,
-      userPoolId: userPool.userPoolId,
-      lambdaRole: sharedInfraStack.commonLambdaRole,
-      commonEnv: sharedInfraStack.commonEnv,
-      domain: rfpDocumentDomain(),
-      authorizer,
-    });
-
-    const linearRoutesStack = new ApiDomainRoutesStack(this, 'LinearRoutes', {
-      api: this.api,
-      rootResourceId: this.rootResourceId,
-      userPoolId: userPool.userPoolId,
-      lambdaRole: sharedInfraStack.commonLambdaRole,
-      commonEnv: sharedInfraStack.commonEnv,
-      domain: linearRoutes,
-      authorizer,
-    });
+    for (let i = 0; i < allDomains.length; i++) {
+      const stackName = domainStackNames[i]!;
+      const domain = allDomains[i]!;
+      const stack = new ApiDomainRoutesStack(this, stackName, {
+        api: this.api,
+        rootResourceId: this.rootResourceId,
+        userPoolId: userPool.userPoolId,
+        lambdaRole: sharedInfraStack.commonLambdaRole,
+        commonEnv: sharedInfraStack.commonEnv,
+        domain,
+        authorizer,
+      });
+      routeNestedStacks.push(stack);
+    }
 
     // 4. Create deployment manually AFTER all routes are added
     // This avoids circular dependencies between nested stacks and the deployment
     const deployment = new apigateway.Deployment(this, 'ApiDeployment', {
       api: this.api,
-      description: `Deployment for ${stage}`,
+      description: `Deployment for ${stage} [${routeFingerprint}]`,
       retainDeployments: true, // Keep old deployments to avoid issues during updates
     });
+
+    // Force a new deployment whenever route definitions change.
+    // Without this, CloudFormation reuses the existing Deployment resource
+    // and the stage never picks up new/changed endpoints.
+    deployment.addToLogicalId(routeFingerprint);
 
     // Create the stage
     const apiStage = new apigateway.Stage(this, 'ApiStage', {
@@ -509,9 +369,11 @@ export class ApiOrchestratorStack extends cdk.Stack {
     // Set the API URL
     this.apiUrl = apiStage.urlForPath('/');
 
-    // IMPORTANT: The deployment must depend on all nested stacks
-    // This ensures routes are created before the deployment
-    deployment.node.addDependency(linearRoutesStack);
+    // IMPORTANT: The deployment must depend on ALL nested stacks
+    // This ensures all routes are created before the deployment
+    for (const nestedStack of routeNestedStacks) {
+      deployment.node.addDependency(nestedStack);
+    }
 
     new cdk.CfnOutput(this, 'RestApiId', {
       value: this.restApiId,

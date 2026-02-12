@@ -96,5 +96,5 @@ export const handler = withSentryLambda(
     .use(httpErrorMiddleware())
     .use(authContextMiddleware())
     .use(orgMembershipMiddleware())
-    .use(requirePermission('opportunity:update')),
+    .use(requirePermission('opportunity:edit')),
 );

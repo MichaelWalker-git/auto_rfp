@@ -90,25 +90,32 @@ export async function setProjectOutcome(
   userId: string
 ): Promise<DBProjectOutcome> {
   const { projectId, orgId, status, winData, lossData } = dto;
+  // opportunityId is now required in the request schema
+  const opportunityId = (dto as any).opportunityId as string;
   const now = new Date().toISOString();
 
-  // Create sort key: orgId#projectId
-  const sortKey = `${orgId}#${projectId}`;
+  if (!opportunityId) {
+    throw new Error('opportunityId is required');
+  }
 
-  const outcomeItem: DBProjectOutcome = {
+  // Create sort key: orgId#projectId#opportunityId (opportunityId is now required)
+  const sortKey = `${orgId}#${projectId}#${opportunityId}`;
+
+  const outcomeItem = {
     [PK_NAME]: PROJECT_OUTCOME_PK,
     [SK_NAME]: sortKey,
     projectId,
     orgId,
+    opportunityId,
     status,
     statusDate: now,
     statusSetBy: userId,
-    statusSource: 'MANUAL',
+    statusSource: 'MANUAL' as const,
     winData,
     lossData,
     createdAt: now,
     updatedAt: now,
-  };
+  } as DBProjectOutcome;
 
   // Use PutCommand to create or update the outcome
   const cmd = new PutCommand({

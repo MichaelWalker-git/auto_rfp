@@ -1,15 +1,12 @@
 import { APIGatewayProxyEventV2, APIGatewayProxyResultV2 } from 'aws-lambda';
-import { UpdateCommand } from '@aws-sdk/lib-dynamodb';
 import { GetObjectCommand, PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { AlignmentType, Document, HeadingLevel, Packer, Paragraph, TextRun } from 'docx';
 import JSZip from 'jszip';
 
-import { PK_NAME, SK_NAME } from '../constants/common';
 import { apiResponse, getOrgId } from '../helpers/api';
 import { withSentryLambda } from '../sentry-lambda';
-import { PROPOSAL_PK } from '../constants/proposal';
-import { getProposal, proposalSK } from '../helpers/proposal';
+import { getRFPDocument } from '../helpers/rfp-document';
 import {
   authContextMiddleware,
   httpErrorMiddleware,
@@ -18,11 +15,7 @@ import {
 } from '../middleware/rbac-middleware';
 import middy from '@middy/core';
 import { requireEnv } from '../helpers/env';
-import { docClient } from '../helpers/db';
 import { type ProposalDocument } from '@auto-rfp/shared';
-import { nowIso } from '../helpers/date';
-
-const DB_TABLE_NAME = requireEnv('DB_TABLE_NAME');
 const DOCUMENTS_BUCKET = requireEnv('DOCUMENTS_BUCKET');
 const REGION = requireEnv('REGION', 'us-east-1');
 const PRESIGN_EXPIRES_IN = Number(process.env.PRESIGN_EXPIRES_IN || 3600);
@@ -31,8 +24,9 @@ const s3Client = new S3Client({ region: REGION });
 
 interface WordExportRequest {
   projectId: string;
-  proposalId: string;
+  proposalId?: string;
   opportunityId: string;
+  documentId?: string;
   options?: {
     pageLimitsPerSection?: number; // Maximum pages per section (optional)
     includeCitations?: boolean; // Include citations with references (optional)
@@ -414,30 +408,6 @@ async function uploadAndGetPresignedUrl(
   return { key, url };
 }
 
-/**
- * Update proposal with docFileKey in DynamoDB
- */
-async function updateProposalDocFileKey(
-  projectId: string,
-  proposalId: string,
-  docFileKey: string,
-): Promise<void> {
-  const cmd = new UpdateCommand({
-    TableName: DB_TABLE_NAME,
-    Key: {
-      [PK_NAME]: PROPOSAL_PK,
-      [SK_NAME]: proposalSK(projectId, proposalId),
-    },
-    UpdateExpression: 'SET docFileKey = :docFileKey, updatedAt = :updatedAt',
-    ExpressionAttributeValues: {
-      ':docFileKey': docFileKey,
-      ':updatedAt': nowIso(),
-    },
-  });
-
-  await docClient.send(cmd);
-}
-
 export const baseHandler = async (
   event: APIGatewayProxyEventV2,
 ): Promise<APIGatewayProxyResultV2> => {
@@ -448,25 +418,36 @@ export const baseHandler = async (
 
     let body: WordExportRequest = JSON.parse(event.body);
 
-    const { projectId, proposalId, opportunityId } = body;
+    const { projectId, proposalId, opportunityId, documentId } = body;
 
-    if (!projectId || !proposalId || !opportunityId) {
-      return apiResponse(400, { message: 'projectId, proposalId, and opportunityId are required' });
+    if (!projectId || !opportunityId) {
+      return apiResponse(400, { message: 'projectId and opportunityId are required' });
     }
 
-    // Retrieve proposal from DynamoDB
-    const proposal = await getProposal(projectId, proposalId);
-    if (!proposal) {
-      return apiResponse(404, { message: 'Proposal not found' });
+    if (!documentId && !proposalId) {
+      return apiResponse(400, { message: 'documentId or proposalId is required' });
     }
 
-    const organizationId = proposal.organizationId || getOrgId(event) || 'DEFAULT';
+    const effectiveDocumentId = documentId || proposalId!;
+
+    // Retrieve RFP document from DynamoDB
+    const rfpDoc = await getRFPDocument(projectId, opportunityId, effectiveDocumentId);
+    if (!rfpDoc || rfpDoc.deletedAt) {
+      return apiResponse(404, { message: 'Document not found' });
+    }
+
+    if (!rfpDoc.content) {
+      return apiResponse(400, { message: 'Document does not have structured content for Word export' });
+    }
+
+    const proposalDoc = rfpDoc.content as ProposalDocument;
+    const organizationId = rfpDoc.orgId || getOrgId(event) || 'DEFAULT';
 
     // Get or create template document
     const templateBuffer = await getOrCreateTemplate(organizationId);
 
     // Build proposal sections with options
-    const proposalSections = buildProposalSections(proposal.document, body.options);
+    const proposalSections = buildProposalSections(proposalDoc, body.options);
 
     // Merge proposal with template
     const wordBuffer = await mergeProposalWithTemplate(templateBuffer, proposalSections);
@@ -477,18 +458,15 @@ export const baseHandler = async (
       organizationId,
       projectId,
       opportunityId,
-      proposalId,
-      proposal.document.proposalTitle,
+      effectiveDocumentId,
+      proposalDoc.proposalTitle,
     );
-
-    // Update proposal with docFileKey
-    await updateProposalDocFileKey(projectId, proposalId, key);
 
     return apiResponse(200, {
       success: true,
-      proposal: {
-        id: proposal.id,
-        title: proposal.document.proposalTitle,
+      document: {
+        id: rfpDoc.documentId,
+        title: proposalDoc.proposalTitle,
       },
       export: {
         format: 'docx',

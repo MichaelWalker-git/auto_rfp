@@ -2,8 +2,8 @@ import type { APIGatewayProxyEventV2, APIGatewayProxyResultV2 } from 'aws-lambda
 import middy from '@middy/core';
 import { withSentryLambda } from '../sentry-lambda';
 import { getRFPDocument, updateRFPDocumentMetadata } from '../helpers/rfp-document';
+import { apiResponse, getOrgId, getUserId } from '../helpers/api';
 
-const { apiResponse, getOrgId, getUserId } = require('../helpers/api');
 
 export const baseHandler = async (
   event: APIGatewayProxyEventV2,
@@ -37,6 +37,9 @@ export const baseHandler = async (
     if (rawBody.name !== undefined) updates.name = rawBody.name;
     if (rawBody.description !== undefined) updates.description = rawBody.description;
     if (rawBody.documentType !== undefined) updates.documentType = rawBody.documentType;
+    if (rawBody.content !== undefined) updates.content = rawBody.content;
+    if (rawBody.status !== undefined) updates.status = rawBody.status;
+    if (rawBody.title !== undefined) updates.title = rawBody.title;
 
     const updated = await updateRFPDocumentMetadata({
       projectId,

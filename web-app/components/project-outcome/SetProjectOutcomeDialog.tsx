@@ -36,18 +36,22 @@ interface SetProjectOutcomeDialogProps {
   onOpenChange: (open: boolean) => void;
   projectId: string;
   orgId: string;
+  opportunityId?: string;
   currentOutcome?: ProjectOutcome | null;
   onSuccess?: (outcome: ProjectOutcome) => void;
 }
 
 const LOSS_REASONS: { value: LossReasonCategory; label: string }[] = [
   { value: 'PRICE_TOO_HIGH', label: 'Price Too High' },
+  { value: 'PRICE_TOO_LOW', label: 'Price Too Low (Raised Concerns)' },
   { value: 'TECHNICAL_SCORE', label: 'Technical Score' },
   { value: 'PAST_PERFORMANCE', label: 'Past Performance' },
   { value: 'INCUMBENT_ADVANTAGE', label: 'Incumbent Advantage' },
-  { value: 'SMALL_BUSINESS_SETASIDE', label: 'Small Business Set-Aside' },
-  { value: 'COMPLIANCE_ISSUE', label: 'Compliance Issue' },
+  { value: 'MISSING_CERTIFICATION', label: 'Missing Certification' },
   { value: 'LATE_SUBMISSION', label: 'Late Submission' },
+  { value: 'NON_COMPLIANT', label: 'Non-Compliant' },
+  { value: 'WITHDRAWN', label: 'Withdrawn' },
+  { value: 'NO_BID_DECISION', label: 'No-Bid Decision' },
   { value: 'OTHER', label: 'Other' },
   { value: 'UNKNOWN', label: 'Unknown' },
 ];
@@ -57,6 +61,7 @@ export function SetProjectOutcomeDialog({
   onOpenChange,
   projectId,
   orgId,
+  opportunityId,
   currentOutcome,
   onSuccess,
 }: SetProjectOutcomeDialogProps) {
@@ -101,32 +106,32 @@ export function SetProjectOutcomeDialog({
     setIsSubmitting(true);
 
     try {
-      const payload: SetProjectOutcomeRequest = {
+      const payload = {
         projectId,
         orgId,
+        opportunityId,
         status,
-      };
+      } as SetProjectOutcomeRequest;
 
       // Add win data if WON
       if (status === 'WON') {
-        const winData: WinData = {};
-        if (contractValue) winData.contractValue = parseFloat(contractValue);
+        const winData: Partial<WinData> = {
+          contractValue: contractValue ? parseFloat(contractValue) : 0,
+          awardDate: awardDate ? new Date(awardDate).toISOString() : new Date().toISOString(),
+        };
         if (contractNumber) winData.contractNumber = contractNumber;
-        if (awardDate) winData.awardDate = new Date(awardDate).toISOString();
         if (keyFactors) winData.keyFactors = keyFactors;
-        if (Object.keys(winData).length > 0) {
-          payload.winData = winData;
-        }
+        payload.winData = winData as WinData;
       }
 
       // Add loss data if LOST
       if (status === 'LOST') {
         const lossData: LossData = {
           lossReason,
+          lossDate: lossDate ? new Date(lossDate).toISOString() : new Date().toISOString(),
         };
         if (lossReasonDetails) lossData.lossReasonDetails = lossReasonDetails;
         if (winningContractor) lossData.winningContractor = winningContractor;
-        if (lossDate) lossData.lossDate = new Date(lossDate).toISOString();
         payload.lossData = lossData;
       }
 

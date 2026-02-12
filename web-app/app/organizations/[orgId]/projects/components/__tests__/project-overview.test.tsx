@@ -68,6 +68,11 @@ jest.mock('@/lib/hooks/use-project-outcome', () => ({
     outcome: { status: 'pending' },
     isLoading: false,
   })),
+  useProjectOutcomes: jest.fn(() => ({
+    outcomes: [],
+    isLoading: false,
+    isError: null,
+  })),
 }));
 
 jest.mock('@/lib/hooks/use-executive-brief', () => ({
@@ -96,6 +101,22 @@ jest.mock('@/app/organizations/[orgId]/projects/[projectId]/questions/components
 
 jest.mock('@/lib/env', () => ({
   env: { BASE_API_URL: 'http://localhost:3000/api' },
+}));
+
+jest.mock('@/context/organization-context', () => ({
+  useCurrentOrganization: jest.fn(() => ({
+    currentOrganization: { id: 'org-456', name: 'Test Org' },
+    organizations: [{ id: 'org-456', name: 'Test Org' }],
+    setCurrentOrganization: jest.fn(),
+  })),
+}));
+
+jest.mock('@/lib/hooks/use-opportunities', () => ({
+  useOpportunitiesList: jest.fn(() => ({
+    items: [],
+    isLoading: false,
+    error: null,
+  })),
 }));
 
 jest.mock('@/components/brief/ExecutiveBriefView', () => ({

@@ -23,13 +23,12 @@ import {
   BookOpen,
   Briefcase,
   CalendarClock,
-  CheckCircle,
   FileText,
   FolderOpen,
   HelpCircle,
   Home,
+  LayoutTemplate,
   MessageSquare,
-  ScrollText,
   Search,
   Settings,
   Target,
@@ -117,6 +116,7 @@ function AppSidebar() {
           { title: 'Past Performance', url: `/organizations/${orgId}/past-performance`, icon: Briefcase },
           { title: 'Search Opportunities', url: `/organizations/${orgId}/opportunities`, icon: Search },
           { title: 'Deadlines', url: `/organizations/${orgId}/deadlines`, icon: CalendarClock },
+          { title: 'Templates', url: `/organizations/${orgId}/templates`, icon: LayoutTemplate },
           { title: 'Team', url: `/organizations/${orgId}/team`, icon: Users },
           { title: 'Settings', url: `/organizations/${orgId}/settings`, icon: Settings },
         ]
@@ -133,10 +133,6 @@ function AppSidebar() {
           { title: 'Opportunities', url: `/organizations/${orgId}/projects/${projectId}/opportunities`, icon: Briefcase },
           { title: 'Questions', url: `/organizations/${orgId}/projects/${projectId}/questions`, icon: MessageSquare },
           { title: 'Solicitation Documents', url: `/organizations/${orgId}/projects/${projectId}/documents`, icon: FileText },
-          { title: 'RFP Documents', url: `/organizations/${orgId}/projects/${projectId}/rfp-documents`, icon: FolderOpen },
-          { title: 'Proposals', url: `/organizations/${orgId}/projects/${projectId}/proposals`, icon: ScrollText },
-          { title: 'Outcomes', url: `/organizations/${orgId}/projects/${projectId}/outcomes`, icon: CheckCircle },
-          { title: 'FOIA Requests', url: `/organizations/${orgId}/projects/${projectId}/foia`, icon: FileText },
         ]
         : [],
     [orgId, projectId]

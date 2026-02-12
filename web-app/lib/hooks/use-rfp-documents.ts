@@ -4,150 +4,121 @@ import useSWR from 'swr';
 import useSWRMutation from 'swr/mutation';
 import { env } from '@/lib/env';
 import { authFetcher } from '@/lib/auth/auth-fetcher';
+import type {
+  RFPDocumentItem,
+  RFPDocumentType,
+  SignatureStatus,
+  SignatureDetails,
+  EditHistoryEntry,
+  CreateRFPDocumentDTO,
+  UpdateRFPDocumentDTO,
+  RFPExportFormat,
+} from '@auto-rfp/shared';
+import {
+  RFP_DOCUMENT_TYPES,
+  SIGNATURE_STATUSES,
+  LINEAR_SYNC_STATUSES,
+  RFP_EXPORT_FORMAT_LABELS,
+  RFP_EXPORT_FORMAT_EXTENSIONS,
+} from '@auto-rfp/shared';
 
-// ─── Types ───
+// Re-export types and constants from shared for convenience
+export type { RFPDocumentItem, RFPDocumentType, SignatureStatus, SignatureDetails, EditHistoryEntry };
+export type { CreateRFPDocumentDTO, UpdateRFPDocumentDTO };
+export type { RFPExportFormat as ExportFormat };
+export { RFP_DOCUMENT_TYPES, SIGNATURE_STATUSES, LINEAR_SYNC_STATUSES };
+export { RFP_EXPORT_FORMAT_LABELS as EXPORT_FORMAT_LABELS, RFP_EXPORT_FORMAT_EXTENSIONS as EXPORT_FORMAT_EXTENSIONS };
 
-export const RFP_DOCUMENT_TYPES = {
-  EXECUTIVE_BRIEF: 'Executive Brief',
-  TECHNICAL_PROPOSAL: 'Technical Proposal',
-  COST_PROPOSAL: 'Cost Proposal',
-  PAST_PERFORMANCE: 'Past Performance',
-  MANAGEMENT_APPROACH: 'Management Approach',
-  COMPLIANCE_MATRIX: 'Compliance Matrix',
-  TEAMING_AGREEMENT: 'Teaming Agreement',
-  NDA: 'NDA',
-  CONTRACT: 'Contract',
-  AMENDMENT: 'Amendment',
-  CORRESPONDENCE: 'Correspondence',
-  OTHER: 'Other',
-} as const;
+import { z } from 'zod';
+import {
+  RFPDocumentItemSchema,
+  SignatureStatusSchema,
+  SignatureDetailsSchema,
+  RFPExportFormatSchema,
+} from '@auto-rfp/shared';
 
-export type RFPDocumentType = keyof typeof RFP_DOCUMENT_TYPES;
+// ─── Zod-defined response/request schemas ───
 
-export const SIGNATURE_STATUSES = {
-  NOT_REQUIRED: 'Not Required',
-  PENDING_SIGNATURE: 'Pending Signature',
-  PARTIALLY_SIGNED: 'Partially Signed',
-  FULLY_SIGNED: 'Fully Signed',
-  REJECTED: 'Rejected',
-} as const;
+const UpdateSignatureStatusDTOSchema = z.object({
+  projectId: z.string(),
+  opportunityId: z.string(),
+  documentId: z.string(),
+  signatureStatus: SignatureStatusSchema,
+  signatureDetails: SignatureDetailsSchema.nullable().optional(),
+});
 
-export type SignatureStatus = keyof typeof SIGNATURE_STATUSES;
+export type UpdateSignatureStatusDTO = z.infer<typeof UpdateSignatureStatusDTOSchema>;
 
-export const LINEAR_SYNC_STATUSES = {
-  NOT_SYNCED: 'Not Synced',
-  SYNCED: 'Synced',
-  SYNC_FAILED: 'Sync Failed',
-} as const;
+const RFPDocumentsListResponseSchema = z.object({
+  ok: z.boolean(),
+  items: z.array(RFPDocumentItemSchema),
+  nextToken: z.string().nullable(),
+  count: z.number(),
+});
 
-export type LinearSyncStatus = keyof typeof LINEAR_SYNC_STATUSES;
+type RFPDocumentsListResponse = z.infer<typeof RFPDocumentsListResponseSchema>;
 
-export interface Signer {
-  id: string;
-  name: string;
-  email: string;
-  role: string;
-  status: 'PENDING' | 'SIGNED' | 'REJECTED';
-  signedAt?: string | null;
-  notes?: string | null;
-}
+const CreateRFPDocumentResponseSchema = z.object({
+  ok: z.boolean(),
+  document: RFPDocumentItemSchema,
+  upload: z.object({
+    url: z.string(),
+    method: z.string(),
+    bucket: z.string(),
+    key: z.string(),
+    expiresIn: z.number(),
+  }).optional(),
+});
 
-export interface SignatureDetails {
-  signers: Signer[];
-  signatureMethod?: string | null;
-  externalSignatureId?: string | null;
-  driveFileId?: string | null;
-  driveFileUrl?: string | null;
-  lastCheckedAt?: string | null;
-}
+type CreateRFPDocumentResponse = z.infer<typeof CreateRFPDocumentResponseSchema>;
 
-export interface RFPDocumentItem {
-  documentId: string;
-  projectId: string;
-  opportunityId: string;
-  orgId: string;
-  name: string;
-  description?: string | null;
-  documentType: RFPDocumentType;
-  mimeType: string;
-  fileSizeBytes: number;
-  originalFileName?: string | null;
-  fileKey: string;
-  version: number;
-  previousVersionId?: string | null;
-  signatureStatus: SignatureStatus;
-  signatureDetails?: SignatureDetails | null;
-  linearSyncStatus: LinearSyncStatus;
-  linearCommentId?: string | null;
-  lastSyncedAt?: string | null;
-  deletedAt?: string | null;
-  createdBy: string;
-  updatedBy: string;
-  createdByName?: string;
-  updatedByName?: string;
-  createdAt: string;
-  updatedAt: string;
-}
+const RFPDocumentResponseSchema = z.object({
+  ok: z.boolean(),
+  document: RFPDocumentItemSchema,
+});
 
-export interface CreateRFPDocumentDTO {
-  projectId: string;
-  opportunityId: string;
-  name: string;
-  description?: string | null;
-  documentType: RFPDocumentType;
-  mimeType: string;
-  fileSizeBytes: number;
-  originalFileName?: string | null;
-}
+type RFPDocumentResponse = z.infer<typeof RFPDocumentResponseSchema>;
 
-export interface UpdateRFPDocumentDTO {
-  projectId: string;
-  opportunityId: string;
-  documentId: string;
-  name?: string;
-  description?: string | null;
-  documentType?: RFPDocumentType;
-}
+const PresignedUrlResponseSchema = z.object({
+  ok: z.boolean(),
+  url: z.string(),
+  mimeType: z.string(),
+  fileName: z.string(),
+  expiresIn: z.number(),
+});
 
-export interface UpdateSignatureStatusDTO {
-  projectId: string;
-  opportunityId: string;
-  documentId: string;
-  signatureStatus: SignatureStatus;
-  signatureDetails?: SignatureDetails | null;
-}
+type PresignedUrlResponse = z.infer<typeof PresignedUrlResponseSchema>;
 
-interface RFPDocumentsListResponse {
-  ok: boolean;
-  items: RFPDocumentItem[];
-  nextToken: string | null;
-  count: number;
-}
+const ExportRFPDocumentRequestSchema = z.object({
+  projectId: z.string(),
+  opportunityId: z.string(),
+  documentId: z.string(),
+  format: RFPExportFormatSchema,
+  options: z.object({
+    pageSize: z.enum(['letter', 'a4']).optional(),
+    includeTableOfContents: z.boolean().optional(),
+    includeCitations: z.boolean().optional(),
+    pageLimitsPerSection: z.number().optional(),
+  }).optional(),
+});
 
-interface CreateRFPDocumentResponse {
-  ok: boolean;
-  document: RFPDocumentItem;
-  upload: {
-    url: string;
-    method: string;
-    bucket: string;
-    key: string;
-    expiresIn: number;
-  };
-}
+type ExportRFPDocumentRequest = z.infer<typeof ExportRFPDocumentRequestSchema>;
 
-interface RFPDocumentResponse {
-  ok: boolean;
-  document: RFPDocumentItem;
-}
+const ExportRFPDocumentResponseSchema = z.object({
+  success: z.boolean(),
+  document: z.object({ id: z.string(), title: z.string(), documentType: z.string() }),
+  export: z.object({
+    format: z.string(),
+    bucket: z.string(),
+    key: z.string(),
+    url: z.string(),
+    expiresIn: z.number(),
+    contentType: z.string().optional(),
+    fileName: z.string().optional(),
+  }),
+});
 
-interface PresignedUrlResponse {
-  ok: boolean;
-  url: string;
-  mimeType: string;
-  fileName: string;
-  expiresIn: number;
-}
+type ExportRFPDocumentResponse = z.infer<typeof ExportRFPDocumentResponseSchema>;
 
 // ─── Helpers ───
 
@@ -203,14 +174,20 @@ const BASE = `${env.BASE_API_URL}/rfp-document`;
 
 // ─── Hooks ───
 
-/** List all RFP documents for a project */
+/** List RFP documents for a project, optionally filtered by opportunity */
 export function useRFPDocuments(
   projectId: string | null,
   orgId: string | null,
+  opportunityId?: string | null,
 ) {
+  const params = new URLSearchParams();
+  if (projectId) params.set('projectId', projectId);
+  if (orgId) params.set('orgId', orgId);
+  if (opportunityId) params.set('opportunityId', opportunityId);
+
   const key =
     projectId && orgId
-      ? `${BASE}/list?projectId=${projectId}&orgId=${orgId}`
+      ? `${BASE}/list?${params.toString()}`
       : null;
 
   const { data, error, isLoading, mutate } = useSWR<RFPDocumentsListResponse>(
@@ -233,7 +210,7 @@ export function useRFPDocuments(
   };
 }
 
-/** Create a new RFP document (returns presigned upload URL) */
+/** Create a new RFP document (returns presigned upload URL for file-based docs) */
 export function useCreateRFPDocument(orgId?: string) {
   return useSWRMutation<CreateRFPDocumentResponse, Error, string, CreateRFPDocumentDTO>(
     `${BASE}/create${orgId ? `?orgId=${orgId}` : ''}`,
@@ -241,7 +218,7 @@ export function useCreateRFPDocument(orgId?: string) {
   );
 }
 
-/** Update RFP document metadata */
+/** Update RFP document metadata and/or content */
 export function useUpdateRFPDocument(orgId?: string) {
   return useSWRMutation<RFPDocumentResponse, Error, string, UpdateRFPDocumentDTO>(
     `${BASE}/update${orgId ? `?orgId=${orgId}` : ''}`,
@@ -293,6 +270,27 @@ export function useUpdateSignatureStatus(orgId?: string) {
   return useSWRMutation<RFPDocumentResponse, Error, string, UpdateSignatureStatusDTO>(
     `${BASE}/update-signature${orgId ? `?orgId=${orgId}` : ''}`,
     (url, { arg }) => postJson<RFPDocumentResponse>(url, arg),
+  );
+}
+
+/** Convert a file-based document to editable content */
+export function useConvertToContent(orgId?: string) {
+  return useSWRMutation<
+    { ok: boolean; content: Record<string, any>; alreadyConverted: boolean },
+    Error,
+    string,
+    { projectId: string; opportunityId: string; documentId: string }
+  >(
+    `${BASE}/convert-to-content${orgId ? `?orgId=${orgId}` : ''}`,
+    (url, { arg }) => postJson(url, arg),
+  );
+}
+
+/** Export an RFP document (content-based documents only) */
+export function useExportRFPDocument(orgId?: string) {
+  return useSWRMutation<ExportRFPDocumentResponse, Error, string, ExportRFPDocumentRequest>(
+    `${BASE}/export${orgId ? `?orgId=${orgId}` : ''}`,
+    (url, { arg }) => postJson<ExportRFPDocumentResponse>(url, arg),
   );
 }
 

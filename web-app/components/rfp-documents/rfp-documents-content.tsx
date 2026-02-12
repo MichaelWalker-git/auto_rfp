@@ -4,6 +4,7 @@ import React, { useCallback, useMemo, useState } from 'react';
 import {
   Download,
   Eye,
+  FileDown,
   FileText,
   FolderOpen,
   Loader2,
@@ -35,13 +36,18 @@ import {
 import { RFPDocumentUploadDialog } from './rfp-document-upload-dialog';
 import { RFPDocumentPreviewDialog } from './rfp-document-preview-dialog';
 import { RFPDocumentEditDialog } from './rfp-document-edit-dialog';
+import { RFPDocumentExportDialog } from './rfp-document-export-dialog';
 import { SignatureStatusBadge } from './signature-status-badge';
 import { LinearSyncIndicator } from './linear-sync-indicator';
 import { SignatureTrackerDialog } from './signature-tracker-dialog';
+import {
+  GenerateProposalModal
+} from '@/app/organizations/[orgId]/projects/[projectId]/questions/components/GenerateProposalModal';
 
 interface RFPDocumentsContentProps {
   projectId: string;
   orgId: string;
+  opportunityId?: string;
 }
 
 function formatDate(dateString?: string) {
@@ -67,6 +73,7 @@ function formatFileSize(bytes: number): string {
 
 function documentTypeChip(type: string) {
   const typeMap: Record<string, { cls: string }> = {
+    PROPOSAL: { cls: 'bg-sky-50 text-sky-700 border-sky-200' },
     EXECUTIVE_BRIEF: { cls: 'bg-purple-50 text-purple-700 border-purple-200' },
     TECHNICAL_PROPOSAL: { cls: 'bg-blue-50 text-blue-700 border-blue-200' },
     COST_PROPOSAL: { cls: 'bg-green-50 text-green-700 border-green-200' },
@@ -83,8 +90,8 @@ function documentTypeChip(type: string) {
   return typeMap[type] ?? typeMap.OTHER;
 }
 
-export function RFPDocumentsContent({ projectId, orgId }: RFPDocumentsContentProps) {
-  const { documents, isLoading, isError, error, mutate } = useRFPDocuments(projectId, orgId);
+export function RFPDocumentsContent({ projectId, orgId, opportunityId }: RFPDocumentsContentProps) {
+  const { documents, isLoading, isError, error, mutate } = useRFPDocuments(projectId, orgId, opportunityId);
   const { trigger: deleteDocument } = useDeleteRFPDocument(orgId);
   const { trigger: getPreviewUrl } = useDocumentPreviewUrl(orgId);
   const { trigger: getDownloadUrl } = useDocumentDownloadUrl(orgId);
@@ -95,6 +102,7 @@ export function RFPDocumentsContent({ projectId, orgId }: RFPDocumentsContentPro
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [editDoc, setEditDoc] = useState<RFPDocumentItem | null>(null);
   const [signatureDoc, setSignatureDoc] = useState<RFPDocumentItem | null>(null);
+  const [exportDoc, setExportDoc] = useState<RFPDocumentItem | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
   const [previewLoading, setPreviewLoading] = useState(false);
@@ -227,31 +235,47 @@ export function RFPDocumentsContent({ projectId, orgId }: RFPDocumentsContentPro
           </div>
 
           <div className="flex items-center gap-2 shrink-0">
-            <Button
-              size="sm"
-              variant="outline"
-              className="gap-2"
-              disabled={previewLoading}
-              onClick={() => handlePreview(doc)}
-              title="Preview document"
-            >
-              <Eye className="h-4 w-4" />
-            </Button>
+            {doc.fileKey && (
+              <Button
+                size="sm"
+                variant="outline"
+                className="gap-2"
+                disabled={previewLoading}
+                onClick={() => handlePreview(doc)}
+                title="Preview document"
+              >
+                <Eye className="h-4 w-4" />
+              </Button>
+            )}
 
-            <Button
-              size="sm"
-              variant="outline"
-              className="gap-2"
-              disabled={isDownloading}
-              onClick={() => handleDownload(doc)}
-              title="Download document"
-            >
-              {isDownloading ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <Download className="h-4 w-4" />
-              )}
-            </Button>
+            {doc.fileKey && (
+              <Button
+                size="sm"
+                variant="outline"
+                className="gap-2"
+                disabled={isDownloading}
+                onClick={() => handleDownload(doc)}
+                title="Download document"
+              >
+                {isDownloading ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Download className="h-4 w-4" />
+                )}
+              </Button>
+            )}
+
+            {doc.content && (
+              <Button
+                size="sm"
+                variant="outline"
+                className="gap-2"
+                onClick={() => setExportDoc(doc)}
+                title="Export document"
+              >
+                <FileDown className="h-4 w-4" />
+              </Button>
+            )}
 
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
@@ -264,6 +288,12 @@ export function RFPDocumentsContent({ projectId, orgId }: RFPDocumentsContentPro
                   <Pencil className="h-4 w-4 mr-2" />
                   Edit Details
                 </DropdownMenuItem>
+                {doc.content && (
+                  <DropdownMenuItem onClick={() => setExportDoc(doc)}>
+                    <FileDown className="h-4 w-4 mr-2" />
+                    Export
+                  </DropdownMenuItem>
+                )}
                 <DropdownMenuItem onClick={() => setSignatureDoc(doc)}>
                   <FileText className="h-4 w-4 mr-2" />
                   Signature Status
@@ -310,10 +340,19 @@ export function RFPDocumentsContent({ projectId, orgId }: RFPDocumentsContentPro
         title="RFP Documents"
         description={`${documents.length} ${documents.length === 1 ? 'document' : 'documents'} in this project`}
         headerActions={
-          <Button onClick={() => setUploadDialogOpen(true)}>
-            <Upload className="h-4 w-4 mr-2" />
-            Upload Document
-          </Button>
+          <div className="flex items-center gap-2">
+            {opportunityId && (
+              <GenerateProposalModal
+                projectId={projectId}
+                opportunityId={opportunityId}
+                onSave={() => mutate()}
+              />
+            )}
+            <Button onClick={() => setUploadDialogOpen(true)}>
+              <Upload className="h-4 w-4 mr-2" />
+              Upload Document
+            </Button>
+          </div>
         }
         isLoading={isLoading}
         isEmpty={documents.length === 0}
@@ -364,6 +403,15 @@ export function RFPDocumentsContent({ projectId, orgId }: RFPDocumentsContentPro
         document={signatureDoc}
         orgId={orgId}
         onSuccess={() => mutate()}
+      />
+
+      <RFPDocumentExportDialog
+        open={!!exportDoc}
+        onOpenChange={(open) => {
+          if (!open) setExportDoc(null);
+        }}
+        document={exportDoc}
+        orgId={orgId}
       />
     </div>
   );

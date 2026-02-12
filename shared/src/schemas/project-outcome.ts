@@ -99,6 +99,7 @@ export type LossData = z.infer<typeof LossDataSchema>;
 export const ProjectOutcomeSchema = z.object({
   projectId: z.string().min(1),
   orgId: z.string().min(1),
+  opportunityId: z.string().min(1).optional(),
   status: ProjectOutcomeStatusSchema,
   statusDate: z.string().datetime({ offset: true }),
   statusSetBy: z.string().min(1),
@@ -117,6 +118,7 @@ export type ProjectOutcome = z.infer<typeof ProjectOutcomeSchema>;
 export const SetProjectOutcomeRequestSchema = z.object({
   projectId: z.string().min(1, 'Project ID is required'),
   orgId: z.string().min(1, 'Organization ID is required'),
+  opportunityId: z.string().min(1, 'Opportunity ID is required'),
   status: ProjectOutcomeStatusSchema,
   winData: WinDataSchema.optional(),
   lossData: LossDataSchema.optional(),

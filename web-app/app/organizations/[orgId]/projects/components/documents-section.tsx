@@ -1,32 +1,49 @@
 'use client';
 
-import React, { useMemo, useState } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Skeleton } from '@/components/ui/skeleton';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { cn } from '@/lib/utils';
-import { ListingPageLayout } from '@/components/layout/ListingPageLayout';
 import { useDeleteQuestionFile, useQuestionFiles } from '@/lib/hooks/use-question-file';
 import { useDownloadFromS3 } from '@/lib/hooks/use-file';
 import PermissionWrapper from '@/components/permission-wrapper';
 import {
-  QuestionFileUploadDialog
+  QuestionFileUploadDialog,
 } from '@/app/organizations/[orgId]/projects/[projectId]/questions/components/question-extraction-dialog';
 import { CancelPipelineButton } from '@/components/cancel-pipeline-button';
 import {
   NoRfpDocumentAvailable,
-  useQuestions
+  useQuestions,
 } from '@/app/organizations/[orgId]/projects/[projectId]/questions/components';
-import { AlertCircle, Download, FileText, FolderOpen, Loader2, Trash2 } from 'lucide-react';
+import {
+  AlertCircle,
+  Download,
+  FileText,
+  FolderOpen,
+  Loader2,
+  MoreHorizontal,
+  Trash2,
+} from 'lucide-react';
+import { formatDateTime, getStatusChip, pickDisplayName } from '@/components/opportunities/opportunity-helpers';
 
-type Props = {
+interface Props {
   projectId?: string;
 }
 
 interface DocumentRow {
   questionFileId?: string;
-  originalFileName?: string;
+  name: string;
   status?: string;
   createdAt?: string;
   updatedAt?: string;
@@ -35,35 +52,6 @@ interface DocumentRow {
   textFileKey?: string;
   oppId?: string;
   projectId?: string;
-}
-
-function formatDate(dateString?: string) {
-  if (!dateString) return '—';
-  const d = new Date(dateString);
-  if (Number.isNaN(d.getTime())) return '—';
-  return d.toLocaleString('en-US', {
-    year: 'numeric',
-    month: 'short',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-  });
-}
-
-function statusChip(status?: string) {
-  const s = String(status ?? '').toUpperCase();
-
-  if (s === 'UPLOADED') return { label: 'Uploaded', cls: 'bg-slate-50 text-slate-700 border-slate-200' };
-  if (s === 'QUESTIONS_EXTRACTED' || s === 'PROCESSED')
-    return { label: 'Completed', cls: 'bg-green-50 text-green-700 border-green-200' };
-  if (s === 'TEXT_READY' || s === 'TEXT_EXTRACTED')
-    return { label: 'Text ready', cls: 'bg-indigo-50 text-indigo-700 border-indigo-200' };
-  if (s === 'PROCESSING') return { label: 'Processing', cls: 'bg-blue-50 text-blue-700 border-blue-200' };
-  if (s === 'TEXT_EXTRACTION_FAILED' || s === 'ERROR' || s === 'FAILED')
-    return { label: 'Error', cls: 'bg-red-50 text-red-700 border-red-200' };
-  if (s === 'DELETED') return { label: 'Deleted', cls: 'bg-gray-50 text-gray-700 border-gray-200' };
-  if (s === 'CANCELLED') return { label: 'Cancelled', cls: 'bg-gray-50 text-gray-700 border-gray-200' };
-  return { label: 'Processing', cls: 'bg-slate-50 text-slate-700 border-slate-200' };
 }
 
 export function DocumentsSection({ projectId: propProjectId }: Props) {
@@ -80,7 +68,7 @@ export function DocumentsSection({ projectId: propProjectId }: Props) {
   const rows: DocumentRow[] = useMemo(() => {
     return (items ?? []).map((qf: any) => ({
       questionFileId: qf?.questionFileId as string | undefined,
-      originalFileName: qf?.originalFileName as string | undefined,
+      name: pickDisplayName(qf),
       status: qf?.status as string | undefined,
       createdAt: qf?.createdAt as string | undefined,
       updatedAt: qf?.updatedAt as string | undefined,
@@ -92,135 +80,53 @@ export function DocumentsSection({ projectId: propProjectId }: Props) {
     }));
   }, [items]);
 
-  const handleDownload = async (row: { questionFileId?: string; fileKey?: string; name: string }) => {
-    if (!row.questionFileId || !row.fileKey) return;
-    if (downloadingId === row.questionFileId) return;
+  const handleDownload = useCallback(
+    async (row: DocumentRow) => {
+      if (!row.questionFileId || !row.fileKey || downloadingId === row.questionFileId) return;
+      try {
+        setDownloadingId(row.questionFileId);
+        await downloadFile({ key: row.fileKey, fileName: row.name });
+      } finally {
+        setDownloadingId((prev) => (prev === row.questionFileId ? null : prev));
+      }
+    },
+    [downloadingId, downloadFile],
+  );
 
-    try {
-      setDownloadingId(row.questionFileId);
-      await downloadFile({ key: row.fileKey, fileName: row.name });
-    } finally {
-      setDownloadingId((prev) => (prev === row.questionFileId ? null : prev));
-    }
-  };
+  const handleDelete = useCallback(
+    async (row: DocumentRow) => {
+      const { questionFileId, oppId, name } = row;
+      if (!questionFileId || !projectId || !oppId) return;
+      if (deletingId === questionFileId) return;
 
-  const handleDelete = async (row: { questionFileId?: string; name: string; oppId?: string }) => {
-    const { questionFileId, oppId, name } = row;
-    if (!questionFileId || !projectId) return;
-    if (!oppId) return;
-    if (deletingId === questionFileId) return;
+      const ok = window.confirm(`Delete "${name}"?`);
+      if (!ok) return;
 
-    const ok = window.confirm(`Delete "${name}"?`);
-    if (!ok) return;
-
-    try {
-      setDeletingId(questionFileId);
-      await deleteQuestionFile({ projectId, questionFileId, oppId });
-      await refetch();
-    } finally {
-      setDeletingId((prev) => (prev === questionFileId ? null : prev));
-    }
-  };
-
-  const renderDocumentItem = (f: DocumentRow) => {
-    const st = statusChip(f.status);
-    const rowDeleting = !!f.questionFileId && deletingId === f.questionFileId;
-    const rowDownloading = !!f.questionFileId && downloadingId === f.questionFileId;
-
-    return (
-      <div
-        className={cn(
-          'rounded-xl border bg-background p-3',
-          (rowDeleting || rowDownloading) && 'opacity-80'
-        )}
-      >
-        <div className="flex items-start gap-3">
-          <div className="h-10 w-10 rounded-lg bg-muted flex items-center justify-center shrink-0">
-            <FileText className="h-5 w-5 text-muted-foreground"/>
-          </div>
-
-          <div className="min-w-0 flex-1">
-            <div className="flex flex-wrap items-center gap-2">
-              <p className="font-medium truncate" title={f.originalFileName}>
-                {f.originalFileName}
-              </p>
-              <Badge variant="outline" className={cn('text-xs border', st.cls)}>
-                {st.label}
-              </Badge>
-            </div>
-
-            <div className="mt-1 text-xs text-muted-foreground">
-              Uploaded: {formatDate(f.createdAt)}
-              {f.updatedAt ? ` • Updated: ${formatDate(f.updatedAt)}` : ''}
-            </div>
-
-            {typeof f.errorMessage === 'string' && f.errorMessage.length > 0 && (
-              <div className="mt-2 rounded-lg border border-red-200 bg-red-50 p-2 text-xs text-red-700">
-                {f.errorMessage}
-              </div>
-            )}
-          </div>
-
-          <div className="flex items-center gap-2 shrink-0">
-            <Button
-              size="sm"
-              variant="outline"
-              className="gap-2"
-              disabled={!f.fileKey || rowDownloading}
-              onClick={() => void handleDownload({
-                questionFileId: f.questionFileId,
-                fileKey: f.fileKey,
-                name: f.originalFileName || 'unknown',
-              })}
-              title={!f.fileKey ? 'No file key' : 'Download file'}
-            >
-              {rowDownloading ? <Loader2 className="h-4 w-4 animate-spin"/> : <Download className="h-4 w-4"/>}
-            </Button>
-
-            {(f.status === 'PROCESSED' || f.status === 'FAILED') &&
-              <PermissionWrapper requiredPermission={'question:delete'}>
-                <Button
-                  size="sm"
-                  variant="destructive"
-                  className="gap-2"
-                  disabled={!f.questionFileId || rowDeleting}
-                  onClick={() => void handleDelete({
-                    questionFileId: f.questionFileId,
-                    name: f.originalFileName || 'unknown',
-                    oppId: f.oppId
-                  })}
-                >
-                  {rowDeleting ? <Loader2 className="h-4 w-4 animate-spin"/> : <Trash2 className="h-4 w-4"/>}
-                </Button>
-              </PermissionWrapper>
-            }
-
-            {f.status !== 'PROCESSED' && f.status !== 'FAILED' && f.status !== 'DELETED' &&
-              <CancelPipelineButton
-                projectId={f.projectId}
-                opportunityId={f.oppId}
-                questionFileId={f.questionFileId}
-                status={f.status}
-                onMutate={refetch}
-              />
-            }
-          </div>
-        </div>
-      </div>
-    );
-  };
+      try {
+        setDeletingId(questionFileId);
+        await deleteQuestionFile({ projectId, questionFileId, oppId });
+        await refetch();
+      } finally {
+        setDeletingId((prev) => (prev === questionFileId ? null : prev));
+      }
+    },
+    [projectId, deletingId, deleteQuestionFile, refetch],
+  );
 
   if (!projectId) {
     return (
       <div className="mx-auto w-full max-w-6xl px-4 py-6">
-        <ListingPageLayout
-          title="Solicitation Documents"
-          description="Upload and manage Solicitation documents for question extraction."
-        >
-          <div className="text-center py-8">
-            <p className="text-muted-foreground">No project selected</p>
-          </div>
-        </ListingPageLayout>
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-sm font-medium">Solicitation Documents</CardTitle>
+            <CardDescription>Upload and manage solicitation documents for question extraction.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="text-center py-8">
+              <p className="text-muted-foreground">No project selected</p>
+            </div>
+          </CardContent>
+        </Card>
       </div>
     );
   }
@@ -228,47 +134,208 @@ export function DocumentsSection({ projectId: propProjectId }: Props) {
   if (!questionsLoading && !questionsError && !questions) {
     return (
       <div className="mx-auto w-full max-w-6xl px-4 py-6">
-        <ListingPageLayout
-          title="RFP Documents"
-          description="Upload and manage RFP documents for question extraction."
-          headerActions={<QuestionFileUploadDialog projectId={projectId}/>}
-        >
-          <NoRfpDocumentAvailable projectId={projectId}/>
-        </ListingPageLayout>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <div>
+              <CardTitle className="text-sm font-medium">Solicitation Documents</CardTitle>
+              <CardDescription className="mt-1">
+                Upload and manage solicitation documents for question extraction.
+              </CardDescription>
+            </div>
+            <QuestionFileUploadDialog projectId={projectId} />
+          </CardHeader>
+          <CardContent>
+            <NoRfpDocumentAvailable projectId={projectId} />
+          </CardContent>
+        </Card>
       </div>
     );
   }
 
-  const emptyState = (
-    <div className="text-center py-10">
-      <FolderOpen className="mx-auto h-9 w-9 text-muted-foreground mb-3"/>
-      <h3 className="text-lg font-medium">No files yet</h3>
-      <p className="text-muted-foreground mt-1">Upload a document to start extraction.</p>
-    </div>
-  );
+  // Loading skeleton
+  if (isLoading && rows.length === 0) {
+    return (
+      <div className="mx-auto w-full max-w-6xl px-4 py-6">
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Solicitation Documents</CardTitle>
+            <Skeleton className="h-8 w-40" />
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {[1, 2, 3].map((i) => (
+              <Skeleton key={i} className="h-16 w-full" />
+            ))}
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="mx-auto w-full max-w-6xl px-4 py-6">
       {downloadError && (
         <Alert variant="destructive" className="mb-4">
-          <AlertCircle className="h-4 w-4"/>
+          <AlertCircle className="h-4 w-4" />
           <AlertDescription>Download failed: {downloadError.message}</AlertDescription>
         </Alert>
       )}
 
-      <ListingPageLayout
-        title="Solicitation Documents"
-        description={`${rows.length} ${rows.length === 1 ? 'file' : 'files'} in this project`}
-        headerActions={<QuestionFileUploadDialog projectId={projectId}/>}
-        isLoading={isLoading}
-        isEmpty={rows.length === 0}
-        emptyState={emptyState}
-        data={rows}
-        renderItem={renderDocumentItem}
-        onReload={async () => {
-          await refetch();
-        }}
-      />
+      <Card className="overflow-hidden">
+        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+          <div>
+            <CardTitle className="text-sm font-medium">Solicitation Documents</CardTitle>
+            <CardDescription className="mt-1">
+              {rows.length} {rows.length === 1 ? 'document' : 'documents'} in this project
+            </CardDescription>
+          </div>
+          <QuestionFileUploadDialog projectId={projectId} />
+        </CardHeader>
+
+        <CardContent className="space-y-3">
+          {isError && (
+            <div className="rounded-xl border bg-red-50 p-4">
+              <div className="flex items-start gap-3">
+                <AlertCircle className="h-5 w-5 text-red-600 mt-0.5" />
+                <div className="flex-1">
+                  <p className="font-medium text-red-900">Failed to load documents</p>
+                  <p className="text-sm text-red-700 mt-1">
+                    {error instanceof Error ? error.message : 'Unknown error'}
+                  </p>
+                  <Button variant="outline" size="sm" className="mt-3" onClick={() => refetch()}>
+                    Retry
+                  </Button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {!isError && rows.length === 0 && (
+            <div className="text-center py-6">
+              <FolderOpen className="mx-auto h-8 w-8 text-muted-foreground mb-2" />
+              <p className="text-sm text-muted-foreground">No solicitation documents yet</p>
+              <p className="text-xs text-muted-foreground mt-1">
+                Upload a document to start question extraction.
+              </p>
+            </div>
+          )}
+
+          {!isError && rows.length > 0 && (
+            <div className="space-y-2">
+              {rows.map((f) => {
+                const st = getStatusChip(f.status);
+                const isDeleting = !!f.questionFileId && deletingId === f.questionFileId;
+                const isDownloading = !!f.questionFileId && downloadingId === f.questionFileId;
+
+                return (
+                  <div
+                    key={f.questionFileId ?? f.name}
+                    className={cn(
+                      'rounded-xl border bg-background p-3',
+                      (isDeleting || isDownloading) && 'opacity-80',
+                    )}
+                  >
+                    <div className="flex items-start gap-3">
+                      <div className="h-10 w-10 rounded-lg bg-muted flex items-center justify-center shrink-0">
+                        <FileText className="h-5 w-5 text-muted-foreground" />
+                      </div>
+
+                      <div className="min-w-0 flex-1">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <p className="font-medium truncate text-sm" title={f.name}>
+                            {f.name}
+                          </p>
+                          <Badge variant="outline" className={cn('text-xs border', st.cls)}>
+                            {st.label}
+                          </Badge>
+                        </div>
+                        <div className="mt-1 text-xs text-muted-foreground">
+                          {formatDateTime(f.createdAt)}
+                          {f.updatedAt && f.updatedAt !== f.createdAt
+                            ? ` • Updated: ${formatDateTime(f.updatedAt)}`
+                            : ''}
+                        </div>
+                        {f.errorMessage && (
+                          <div className="mt-2 rounded-lg border border-red-200 bg-red-50 p-2 text-xs text-red-700">
+                            {f.errorMessage}
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="flex items-center gap-1 shrink-0">
+                        {f.fileKey && (
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="h-8 w-8 p-0"
+                            disabled={isDownloading}
+                            onClick={() => void handleDownload(f)}
+                            title="Download"
+                          >
+                            {isDownloading ? (
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                            ) : (
+                              <Download className="h-4 w-4" />
+                            )}
+                          </Button>
+                        )}
+
+                        {f.status !== 'PROCESSED' &&
+                          f.status !== 'FAILED' &&
+                          f.status !== 'DELETED' && (
+                            <CancelPipelineButton
+                              projectId={f.projectId}
+                              opportunityId={f.oppId}
+                              questionFileId={f.questionFileId}
+                              status={f.status}
+                              onMutate={refetch}
+                            />
+                          )}
+
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button size="sm" variant="ghost" className="h-8 w-8 p-0">
+                              <MoreHorizontal className="h-4 w-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            {f.fileKey && (
+                              <DropdownMenuItem
+                                disabled={isDownloading}
+                                onClick={() => void handleDownload(f)}
+                              >
+                                <Download className="h-4 w-4 mr-2" /> Download
+                              </DropdownMenuItem>
+                            )}
+                            {(f.status === 'PROCESSED' || f.status === 'FAILED') && (
+                              <>
+                                <DropdownMenuSeparator />
+                                <PermissionWrapper requiredPermission="question:delete">
+                                  <DropdownMenuItem
+                                    className="text-red-600"
+                                    disabled={!f.questionFileId || isDeleting}
+                                    onClick={() => void handleDelete(f)}
+                                  >
+                                    {isDeleting ? (
+                                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                                    ) : (
+                                      <Trash2 className="h-4 w-4 mr-2" />
+                                    )}
+                                    Delete
+                                  </DropdownMenuItem>
+                                </PermissionWrapper>
+                              </>
+                            )}
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 }

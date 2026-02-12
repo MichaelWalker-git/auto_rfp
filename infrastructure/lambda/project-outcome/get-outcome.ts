@@ -1,5 +1,5 @@
 import { APIGatewayProxyEventV2, APIGatewayProxyResultV2 } from 'aws-lambda';
-import { GetCommand } from '@aws-sdk/lib-dynamodb';
+import { GetCommand, QueryCommand } from '@aws-sdk/lib-dynamodb';
 import middy from '@middy/core';
 
 import { PK_NAME, SK_NAME } from '../constants/common';
@@ -19,10 +19,10 @@ import type { DBProjectOutcome } from '../types/project-outcome';
 const DB_TABLE_NAME = requireEnv('DB_TABLE_NAME');
 
 export const baseHandler = async (
-  event: APIGatewayProxyEventV2
+  event: APIGatewayProxyEventV2,
 ): Promise<APIGatewayProxyResultV2> => {
   try {
-    const { orgId, projectId } = event.queryStringParameters || {};
+    const { orgId, projectId, opportunityId, list } = event.queryStringParameters || {};
 
     if (!orgId || !projectId) {
       return apiResponse(400, {
@@ -30,12 +30,17 @@ export const baseHandler = async (
       });
     }
 
-    const outcome = await getProjectOutcome(orgId, projectId);
+    // List mode: return all outcomes for a project
+    if (list === 'true') {
+      const outcomes = await listProjectOutcomes(orgId, projectId);
+      return apiResponse(200, { outcomes, count: outcomes.length });
+    }
 
+    // Single get mode: return outcome for specific opportunity or project
+    const outcome = await getProjectOutcome(orgId, projectId, opportunityId);
     return apiResponse(200, { outcome });
   } catch (err: unknown) {
     console.error('Error in getProjectOutcome handler:', err);
-
     return apiResponse(500, {
       message: 'Internal server error',
       error: err instanceof Error ? err.message : 'Unknown error',
@@ -45,9 +50,12 @@ export const baseHandler = async (
 
 export async function getProjectOutcome(
   orgId: string,
-  projectId: string
+  projectId: string,
+  opportunityId?: string,
 ): Promise<DBProjectOutcome | null> {
-  const sortKey = `${orgId}#${projectId}`;
+  const sortKey = opportunityId
+    ? `${orgId}#${projectId}#${opportunityId}`
+    : `${orgId}#${projectId}`;
 
   const cmd = new GetCommand({
     TableName: DB_TABLE_NAME,
@@ -58,12 +66,31 @@ export async function getProjectOutcome(
   });
 
   const result = await docClient.send(cmd);
+  return result.Item ? (result.Item as DBProjectOutcome) : null;
+}
 
-  if (!result.Item) {
-    return null;
-  }
+export async function listProjectOutcomes(
+  orgId: string,
+  projectId: string,
+): Promise<DBProjectOutcome[]> {
+  const skPrefix = `${orgId}#${projectId}`;
 
-  return result.Item as DBProjectOutcome;
+  const cmd = new QueryCommand({
+    TableName: DB_TABLE_NAME,
+    KeyConditionExpression: '#pk = :pk AND begins_with(#sk, :skPrefix)',
+    ExpressionAttributeNames: {
+      '#pk': PK_NAME,
+      '#sk': SK_NAME,
+    },
+    ExpressionAttributeValues: {
+      ':pk': PROJECT_OUTCOME_PK,
+      ':skPrefix': skPrefix,
+    },
+    Limit: 100,
+  });
+
+  const result = await docClient.send(cmd);
+  return (result.Items ?? []) as DBProjectOutcome[];
 }
 
 export const handler = withSentryLambda(
@@ -71,5 +98,5 @@ export const handler = withSentryLambda(
     .use(authContextMiddleware())
     .use(orgMembershipMiddleware())
     .use(requirePermission('project:read'))
-    .use(httpErrorMiddleware())
+    .use(httpErrorMiddleware()),
 );

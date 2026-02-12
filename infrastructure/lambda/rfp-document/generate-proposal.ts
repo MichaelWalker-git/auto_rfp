@@ -34,7 +34,6 @@ const DOCUMENTS_BUCKET = requireEnv('DOCUMENTS_BUCKET');
 const BEDROCK_MODEL_ID = requireEnv('BEDROCK_MODEL_ID');
 const MAX_TOKENS = Number(requireEnv('BEDROCK_MAX_TOKENS', '4000'));
 const TEMPERATURE = Number(requireEnv('BEDROCK_TEMPERATURE', '0.1'));
-// Max chars for solicitation to prevent "input too long" errors - fixes AUTO-RFP-44
 const MAX_SOLICITATION_CHARS = Number(requireEnv('PROPOSAL_MAX_SOLICITATION_CHARS', '80000'));
 
 type QaPair = GenerateProposalRequest['qaPairs'][number];
@@ -65,7 +64,6 @@ const loadQaPairsForProject = async (projectId: string): Promise<QaPair[]> => {
   })) as QaPair[];
 };
 
-
 const extractBedrockText = (outer: any): string => {
   const t1 = outer?.content?.[0]?.text;
   if (typeof t1 === 'string' && t1.trim()) return t1;
@@ -89,7 +87,7 @@ export const baseHandler = async (
 
     const { projectId } = inputResult.data;
 
-    // 1) Load project
+    // Load project
     const projectItem = await getProjectById(projectId);
     if (!projectItem) return apiResponse(404, { message: 'Project not found' });
 
@@ -97,13 +95,13 @@ export const baseHandler = async (
     const orgId = extractOrgIdFromSortKey(sort_key);
     if (!orgId) return apiResponse(400, { message: 'Project has invalid sort_key (cannot extract orgId)' });
 
-    // 5) Load Q/A pairs
+    // Load Q/A pairs
     const qaPairs = await loadQaPairsForProject(projectId);
     if (qaPairs.length === 0) {
       return apiResponse(400, { message: 'No questions found for this project' });
     }
 
-    // 7) Build request payload and validate it against shared schema
+    // Build request payload
     const llmRequestCandidate = {
       projectId,
       qaPairs,
@@ -114,7 +112,6 @@ export const baseHandler = async (
     const { fileKey } = await loadLatestQuestionFile(projectId);
     let solicitation = fileKey ? await loadTextFromS3(DOCUMENTS_BUCKET, fileKey) : '';
 
-    // Truncate solicitation to prevent "input too long" errors - fixes AUTO-RFP-44
     if (solicitation.length > MAX_SOLICITATION_CHARS) {
       console.warn(`Truncating solicitation from ${solicitation.length} to ${MAX_SOLICITATION_CHARS} chars`);
       solicitation = solicitation.slice(0, MAX_SOLICITATION_CHARS);

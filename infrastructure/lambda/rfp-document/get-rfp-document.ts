@@ -3,8 +3,7 @@ import middy from '@middy/core';
 import { withSentryLambda } from '../sentry-lambda';
 import { getRFPDocument } from '../helpers/rfp-document';
 import { enrichWithUserNames } from '../helpers/resolve-users';
-
-const { apiResponse, getOrgId } = require('../helpers/api');
+import { apiResponse, getOrgId } from '../helpers/api';
 
 export const baseHandler = async (
   event: APIGatewayProxyEventV2,

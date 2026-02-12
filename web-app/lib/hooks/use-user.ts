@@ -15,26 +15,8 @@ export type ListUsersParams = {
   nextToken?: string;
 };
 
-export type UserListItem = {
-  orgId: string;
-  userId: string;
-  email: string;
-  firstName?: string;
-  lastName?: string;
-  displayName?: string;
-  phone?: string;
-  role: UserRole;
-  status: string;
-  cognitoUsername?: string;
-  createdAt: string;
-  updatedAt: string;
-};
-
-export type ListUsersResponse = {
-  items: UserListItem[];
-  nextToken?: string;
-  count: number;
-};
+import type { UserListItem, ListUsersResponse } from '@auto-rfp/shared';
+export type { UserListItem, ListUsersResponse };
 
 export type CreateUserInput = {
   orgId: string;
