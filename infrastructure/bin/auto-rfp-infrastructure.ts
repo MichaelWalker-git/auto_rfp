@@ -20,6 +20,11 @@ const env = {
 const stage = process.env.STAGE || app.node.tryGetContext('stage') || 'Dev';
 console.log(`=🚀 Deploying with stage: ${stage}`);
 
+const awsMarketplaceProductCode = process.env.AWS_MARKETPLACE_PRODUCT_CODE || '';
+if (awsMarketplaceProductCode) {
+  cdk.Tags.of(app).add('aws-apn-id', `pc:${awsMarketplaceProductCode}`);
+}
+
 const network = new NetworkStack(app, `AutoRfp-Network-${stage}`, {
   env,
   existingVpcId: 'vpc-07171e4bf57f2ceed',
