@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import 'source-map-support/register';
 import * as cdk from 'aws-cdk-lib';
+import { Aspects } from 'aws-cdk-lib';
 import { AuthStack } from '../lib/auth-stack';
 import { StorageStack } from '../lib/storage-stack';
 import { DatabaseStack } from '../lib/database-stack';
@@ -9,6 +10,17 @@ import { AmplifyFeStack } from '../lib/amplify-fe-stack';
 import { DocumentPipelineStack } from '../lib/document-pipeline-step-function';
 import { QuestionExtractionPipelineStack } from '../lib/question-pipeline-step-function';
 import { ApiOrchestratorStack } from '../lib/api/api-orchestrator-stack';
+import { AwsSolutionsChecks } from 'cdk-nag';
+import {
+  addAllSuppressions,
+  addCognitoSuppressions,
+  addDynamoDBSuppressions,
+  addLambdaSuppressions,
+  addS3Suppressions,
+  addSNSSuppressions,
+  addSQSSuppressions,
+  addStepFunctionsSuppressions,
+} from '../lib/cdk-nag-suppressions';
 
 const app = new cdk.App();
 
@@ -97,6 +109,8 @@ const api = new ApiOrchestratorStack(app, `ApiOrchestrator-${stage}`, {
   mainTable: db.tableName,
   documentsBucket: storage.documentsBucket,
   execBriefQueue: storage.execBriefQueue,
+  googleDriveSyncQueue: storage.googleDriveSyncQueue,
+  documentGenerationQueue: storage.documentGenerationQueue,
   documentPipelineStateMachineArn: pipelineStack.stateMachine.stateMachineArn,
   questionPipelineStateMachineArn: questionsPipelineStack.stateMachine.stateMachineArn,
   sentryDNS,
@@ -117,7 +131,7 @@ const amplifyStack = new AmplifyFeStack(app, `AmplifyFeStack-${stage}`, {
   repository: 'auto_rfp',
   branch,
   githubToken,
-  
+
   cognitoUserPoolId: auth.userPool.userPoolId,
   cognitoUserPoolClientId: auth.userPoolClient.userPoolClientId,
   cognitoDomainUrl: auth.userPoolDomain.baseUrl(),
@@ -164,6 +178,30 @@ new cdk.CfnOutput(storage, `ExecBriefQueueArn`, {
   description: 'The ARN of the Executive Brief SQS Queue',
   exportName: `AutoRfp-ExecBriefQueueArn-${stage}`
 });
+
+// ─── CDK NAG: AWS Solutions Checks ───
+Aspects.of(app).add(new AwsSolutionsChecks({ verbose: true }));
+
+const isProduction = stage.toLowerCase() === 'prod' || stage.toLowerCase() === 'production';
+
+// Apply targeted suppressions to each stack
+addS3Suppressions(storage, isProduction);
+addSQSSuppressions(storage, isProduction);
+
+addCognitoSuppressions(auth, isProduction);
+
+addDynamoDBSuppressions(db, isProduction);
+
+addAllSuppressions(api, isProduction);
+
+addLambdaSuppressions(pipelineStack, isProduction);
+addStepFunctionsSuppressions(pipelineStack, isProduction);
+addSNSSuppressions(pipelineStack, isProduction);
+addS3Suppressions(pipelineStack, isProduction);
+
+addLambdaSuppressions(questionsPipelineStack, isProduction);
+addStepFunctionsSuppressions(questionsPipelineStack, isProduction);
+addSNSSuppressions(questionsPipelineStack, isProduction);
 
 console.log(`\n=📝 Note: After deployment, update Cognito callback URLs with the actual Amplify domain from the FrontendURL output if needed.`);
 console.log('=🔒 CDK NAG AWS Solutions Checks enabled for security compliance');

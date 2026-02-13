@@ -9,7 +9,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { Label } from '@/components/ui/label';
 
-import { AlertTriangle, Briefcase, CalendarClock, CheckCircle2, Clock, FileSearch, FileText, ListChecks, Loader2, RefreshCw, Shield, Target, Users, XCircle } from 'lucide-react';
+import { AlertTriangle, Briefcase, CalendarClock, CheckCircle2, Clock, Download, FileSearch, FileText, ListChecks, Loader2, RefreshCw, Shield, Target, Users, XCircle } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 
 import DeadlinesDashboard from '../deadlines/DeadlinesDashboard';
@@ -30,7 +30,7 @@ import {
 
 import type { SectionKey, SectionStatus } from './types';
 import { SECTION_ORDER } from './types';
-import { buildSectionsState, calcProgress, scoringPrereqsComplete } from './helpers';
+import { buildSectionsState, calcProgress, exportBriefAsDocx, scoringPrereqsComplete } from './helpers';
 
 import { ChangesSummary } from './components/ChangesSummary';
 
@@ -862,6 +862,15 @@ export function ExecutiveBriefView({ projectId, initialOpportunityId }: Executiv
               )}
             </div>
             <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => exportBriefAsDocx(project.name, briefItem)}
+                className="gap-2"
+              >
+                <Download className="h-4 w-4"/>
+                Export DOCX
+              </Button>
               <Button 
                 variant="outline" 
                 size="sm" 

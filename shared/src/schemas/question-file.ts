@@ -71,6 +71,12 @@ export const QuestionFileItemSchema = z
     createdAt: IsoDateStringSchema,
     updatedAt: IsoDateStringSchema.optional(),
     executionArn: z.string().optional(),
+
+    // Google Drive integration
+    googleDriveFileId: z.string().optional(),
+    googleDriveUrl: z.string().url().optional(),
+    googleDriveFolderId: z.string().optional(),
+    googleDriveUploadedAt: IsoDateStringSchema.optional(),
   })
   .passthrough();
 

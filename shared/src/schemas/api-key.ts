@@ -13,7 +13,7 @@ export type StoredApiKey = z.infer<typeof StoredApiKeySchema>;
 export const API_KEY_PARTITION_KEY = "SAM_GOV_API_KEY";
 
 export const ApiKeyRequestSchema = z.object({
-  apiKey: z.string().min(1).max(1000),
+  apiKey: z.string().min(1).max(10000),
 });
 
 export type ApiKeyRequest = z.infer<typeof ApiKeyRequestSchema>;

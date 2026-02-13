@@ -13,8 +13,8 @@ export function GoogleApiKeyConfiguration({ orgId }: GoogleApiKeyConfigurationPr
 
   return (
     <ApiKeyConfiguration
-      title="Google API Key"
-      description="Configure your Google API key for enhanced features"
+      title="Google Drive Service Account"
+      description="Configure your Google Service Account key for Google Drive integration"
       orgId={orgId}
       apiKeyHook={{
         apiKey: apiKeyHook.apiKey,
@@ -22,18 +22,23 @@ export function GoogleApiKeyConfiguration({ orgId }: GoogleApiKeyConfigurationPr
         mutate: apiKeyHook.mutate
       }}
       saveKey={setApiKey}
+      inputType="textarea"
+      inputPlaceholder='Paste the contents of your service account JSON key file here (starts with { "type": "service_account", ... })'
       helpText={{
-        title: "How to get a Google API Key",
+        title: "How to get a Google Service Account Key",
         steps: [
           "Go to the Google Cloud Console",
           "Create a new project or select an existing one",
-          "Navigate to \"APIs & Services\" > \"Credentials\"",
-          "Click \"Create Credentials\" > \"API Key\"",
-          "Copy the generated API key",
-          "Optionally restrict the key to specific APIs for security"
+          "Enable the Google Drive API under \"APIs & Services\" > \"Library\"",
+          "Navigate to \"IAM & Admin\" > \"Service Accounts\"",
+          "Click \"Create Service Account\" and fill in the details",
+          "Click on the created service account, go to \"Keys\" tab",
+          "Click \"Add Key\" > \"Create new key\" > select JSON",
+          "The JSON key file will be downloaded — paste its full contents here",
+          "Share your target Google Drive folder with the service account email"
         ],
         linkText: "Visit Google Cloud Console",
-        linkUrl: "https://console.cloud.google.com/apis/credentials"
+        linkUrl: "https://console.cloud.google.com/iam-admin/serviceaccounts"
       }}
     />
   );

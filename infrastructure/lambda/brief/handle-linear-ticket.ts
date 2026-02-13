@@ -234,51 +234,54 @@ export const baseHandler = async (
       labels,
     });
 
-    console.log(`Created Linear ticket: ${ticket.identifier} (${ticket.id}) for ${decision}`);
+    if (ticket) {
+      console.log(`Created Linear ticket: ${ticket.identifier} (${ticket.id}) for ${decision}`);
 
-    // Update brief with Linear ticket info
-    try {
-      await docClient.send(
-        new UpdateCommand({
-          TableName: DB_TABLE_NAME,
-          Key: {
-            [PK_NAME]: EXEC_BRIEF_PK,
-            [SK_NAME]: executiveBriefId,
-          },
-          UpdateExpression: 'SET linearTicketId = :ticketId, linearTicketIdentifier = :identifier, linearTicketUrl = :url, updatedAt = :now',
-          ExpressionAttributeValues: {
-            ':ticketId': ticket.id,
-            ':identifier': ticket.identifier,
-            ':url': ticket.url,
-            ':now': new Date().toISOString(),
-          },
-        })
-      );
-    } catch (dbErr) {
-      console.error(
-        'Failed to update executive brief with Linear ticket information. Manual reconciliation may be required.',
-        {
-          executiveBriefId,
-          linearTicketId: ticket.id,
-          linearTicketIdentifier: ticket.identifier,
-          linearTicketUrl: ticket.url,
-          error: dbErr,
-        }
-      );
-      throw dbErr;
+      // Update brief with Linear ticket info
+      try {
+        await docClient.send(
+          new UpdateCommand({
+            TableName: DB_TABLE_NAME,
+            Key: {
+              [PK_NAME]: EXEC_BRIEF_PK,
+              [SK_NAME]: executiveBriefId,
+            },
+            UpdateExpression: 'SET linearTicketId = :ticketId, linearTicketIdentifier = :identifier, linearTicketUrl = :url, updatedAt = :now',
+            ExpressionAttributeValues: {
+              ':ticketId': ticket.id,
+              ':identifier': ticket.identifier,
+              ':url': ticket.url,
+              ':now': new Date().toISOString(),
+            },
+          })
+        );
+      } catch (dbErr) {
+        console.error(
+          'Failed to update executive brief with Linear ticket information. Manual reconciliation may be required.',
+          {
+            executiveBriefId,
+            linearTicketId: ticket.id,
+            linearTicketIdentifier: ticket.identifier,
+            linearTicketUrl: ticket.url,
+            error: dbErr,
+          }
+        );
+        throw dbErr;
+      }
+      return apiResponse(200, {
+        ok: true,
+        message: 'Linear ticket created successfully',
+        ticket: {
+          id: ticket.id,
+          identifier: ticket.identifier,
+          url: ticket.url,
+        },
+      });
     }
-
-
     return apiResponse(200, {
       ok: true,
-      message: 'Linear ticket created successfully',
-      ticket: {
-        id: ticket.id,
-        identifier: ticket.identifier,
-        url: ticket.url,
-      },
+      message: 'Linear ticket has not been create, set up api key',
     });
-
   } catch (err) {
     console.error('handle-linear-ticket error:', err);
     return apiResponse(500, {

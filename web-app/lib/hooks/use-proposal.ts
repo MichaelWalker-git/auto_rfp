@@ -15,14 +15,67 @@ const BASE = `${env.BASE_API_URL}/rfp-document`;
 
 interface GenerateDocumentInput {
   projectId: string;
+  opportunityId?: string;
   documentType?: string;
   templateId?: string;
 }
 
+interface AsyncGenerateResponse {
+  ok: boolean;
+  status: string;
+  documentId: string;
+  projectId: string;
+  opportunityId: string;
+  documentType: string;
+  message: string;
+}
+
+const POLL_INTERVAL_MS = 3000;
+const MAX_POLL_ATTEMPTS = 120; // 6 minutes max
+
+async function pollForCompletion(
+  projectId: string,
+  opportunityId: string,
+  documentId: string,
+): Promise<ProposalDocument> {
+  const url = `${BASE}/get?projectId=${encodeURIComponent(projectId)}&opportunityId=${encodeURIComponent(opportunityId)}&documentId=${encodeURIComponent(documentId)}`;
+
+  for (let attempt = 0; attempt < MAX_POLL_ATTEMPTS; attempt++) {
+    await new Promise((resolve) => setTimeout(resolve, POLL_INTERVAL_MS));
+
+    const res = await authFetcher(url);
+    if (!res.ok) {
+      throw new Error('Failed to check document generation status');
+    }
+
+    const json = await res.json();
+    // The get-rfp-document API wraps the document in { ok, document: { ... } }
+    const doc = json.document || json;
+
+    if (doc.status === 'COMPLETE' && doc.content) {
+      const parsed = ProposalDocumentSchema.safeParse(doc.content);
+      if (!parsed.success) {
+        const issues = parsed.error.issues.map((i) => `${i.path.join('.')}: ${i.message}`).join(', ');
+        throw new Error(`Generated document has invalid format: ${issues}`);
+      }
+      return parsed.data;
+    }
+
+    if (doc.status === 'FAILED') {
+      throw new Error(doc.generationError || 'Document generation failed');
+    }
+
+    // Still GENERATING — continue polling
+  }
+
+  throw new Error('Document generation timed out. Please try again.');
+}
+
 /**
  * Hook to generate an RFP document using AI.
- * Supports any document type. Uses templates when available.
- * The generated ProposalDocument can then be saved as an RFP document.
+ * Supports both:
+ * - Async mode (new backend): Returns 202 with documentId, then polls for completion
+ * - Sync mode (old backend): Returns 200 with the full ProposalDocument directly
  */
 export function useGenerateProposal() {
   return useSWRMutation<ProposalDocument, any, string, GenerateDocumentInput>(
@@ -36,6 +89,7 @@ export function useGenerateProposal() {
         method: 'POST',
         body: JSON.stringify({
           projectId: arg.projectId,
+          opportunityId: arg.opportunityId,
           documentType: arg.documentType || 'TECHNICAL_PROPOSAL',
           templateId: arg.templateId,
         }),
@@ -54,6 +108,19 @@ export function useGenerateProposal() {
         throw new Error('Invalid JSON returned from API');
       });
 
+      // Async mode: API returned 202 with documentId — poll for completion
+      if (json.status === 'GENERATING' && json.documentId) {
+        const asyncResponse = json as AsyncGenerateResponse;
+        const document = await pollForCompletion(
+          asyncResponse.projectId,
+          asyncResponse.opportunityId,
+          asyncResponse.documentId,
+        );
+        breadcrumbs.proposalGenerationCompleted(arg.projectId);
+        return document;
+      }
+
+      // Sync mode (legacy): API returned the full ProposalDocument directly
       const parsed = ProposalDocumentSchema.safeParse(json);
       if (!parsed.success) {
         const issues = parsed.error.issues.map((i) => `${i.path.join('.')}: ${i.message}`).join(', ');

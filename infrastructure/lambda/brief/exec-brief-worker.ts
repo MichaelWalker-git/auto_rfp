@@ -38,6 +38,9 @@ import {
   truncateText,
 } from '../helpers/executive-opportunity-brief';
 
+import { enqueueGoogleDriveSync } from '../helpers/google-drive-queue';
+import { getProjectById } from '../helpers/project';
+
 import { requireEnv } from '../helpers/env';
 import { loadTextFromS3 } from '../helpers/s3';
 import { storeDeadlinesSeparately } from '../helpers/deadlines';
@@ -72,7 +75,7 @@ async function runSummary(job: Job): Promise<void> {
         executiveBriefId,
         section: 'summary',
         opportunityId: brief.opportunityId as string,
-        textKey: brief.textKey,
+        allTextKeys: brief.allTextKeys,
       });
 
     await markSectionInProgress({
@@ -148,7 +151,7 @@ async function runDeadlines(job: Job): Promise<void> {
         executiveBriefId,
         section: 'deadlines',
         opportunityId: brief.opportunityId as string,
-        textKey: brief.textKey,
+        allTextKeys: brief.allTextKeys,
       });
 
     await markSectionInProgress({
@@ -209,7 +212,7 @@ async function runRequirements(job: Job): Promise<void> {
         executiveBriefId,
         section: 'requirements',
         opportunityId: brief.opportunityId as string,
-        textKey: brief.textKey,
+        allTextKeys: brief.allTextKeys,
       });
 
     await markSectionInProgress({
@@ -284,7 +287,7 @@ async function runContacts(job: Job): Promise<void> {
         executiveBriefId,
         section: 'contacts',
         opportunityId: brief.opportunityId as string,
-        textKey: brief.textKey,
+        allTextKeys: brief.allTextKeys,
       });
 
     await markSectionInProgress({
@@ -342,7 +345,7 @@ async function runRisks(job: Job): Promise<void> {
         executiveBriefId,
         section: 'risks',
         opportunityId: brief.opportunityId as string,
-        textKey: brief.textKey,
+        allTextKeys: brief.allTextKeys,
       });
 
     await markSectionInProgress({
@@ -441,7 +444,7 @@ async function runScoring(job: Job): Promise<void> {
         executiveBriefId,
         section: 'scoring',
         opportunityId: brief.opportunityId as string,
-        textKey: brief.textKey,
+        allTextKeys: brief.allTextKeys,
       });
 
     await markSectionInProgress({
@@ -533,6 +536,33 @@ async function runScoring(job: Job): Promise<void> {
         status: overall,
       },
     });
+
+    // ─── Google Drive Sync on GO Decision (async via SQS) ───
+    // When the decision is GO, enqueue Google Drive sync to run asynchronously.
+    // This avoids blocking the scoring worker with potentially slow Drive operations.
+    if (normalized.decision === 'GO') {
+      try {
+        console.log(`GO decision detected for brief ${executiveBriefId} — enqueuing Google Drive sync`);
+
+        const updatedBrief = await getExecutiveBrief(executiveBriefId);
+        const project = await getProjectById(brief.projectId);
+        const projectName = (project as any)?.name || brief.projectId;
+
+        await enqueueGoogleDriveSync({
+          orgId,
+          projectId: brief.projectId,
+          opportunityId: brief.opportunityId as string,
+          executiveBriefId,
+          linearTicketId: updatedBrief.linearTicketId as string | undefined,
+          linearTicketIdentifier: updatedBrief.linearTicketIdentifier as string | undefined,
+          agencyName: summaryData?.agency,
+          projectTitle: summaryData?.title || projectName,
+        });
+      } catch (enqueueErr) {
+        // Non-blocking — don't fail scoring if enqueue fails
+        console.error('Failed to enqueue Google Drive sync (non-blocking):', (enqueueErr as Error)?.message);
+      }
+    }
   } catch (err) {
     await markSectionFailed({
       executiveBriefId,

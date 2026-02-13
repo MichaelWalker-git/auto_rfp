@@ -47,6 +47,8 @@ export interface ApiOrchestratorStackProps extends cdk.StackProps {
   mainTable: dynamodb.ITable;
   documentsBucket: s3.IBucket;
   execBriefQueue?: sqs.IQueue;
+  googleDriveSyncQueue?: sqs.IQueue;
+  documentGenerationQueue?: sqs.IQueue;
   documentPipelineStateMachineArn: string;
   questionPipelineStateMachineArn: string;
   sentryDNS: string;
@@ -78,6 +80,8 @@ export class ApiOrchestratorStack extends cdk.Stack {
       mainTable,
       documentsBucket,
       execBriefQueue,
+      googleDriveSyncQueue,
+      documentGenerationQueue,
       documentPipelineStateMachineArn,
       questionPipelineStateMachineArn,
       sentryDNS,
@@ -229,6 +233,7 @@ export class ApiOrchestratorStack extends cdk.Stack {
           BRIEF_MAX_SOLICITATION_CHARS: '45000',
           BRIEF_KB_TOPK: '20',
           COST_SAVING: 'true',
+          GOOGLE_DRIVE_SYNC_QUEUE_URL: googleDriveSyncQueue?.queueUrl || '',
         },
         bundling: {
           minify: true,
@@ -249,12 +254,79 @@ export class ApiOrchestratorStack extends cdk.Stack {
       execBriefQueue.grantConsumeMessages(execBriefWorker);
     }
 
+    // Google Drive Sync worker — processes async Drive sync messages
+    const gdSyncQueueUrl = googleDriveSyncQueue?.queueUrl || '';
+    if (googleDriveSyncQueue) {
+      googleDriveSyncQueue.grantSendMessages(sharedInfraStack.commonLambdaRole);
+
+      const googleDriveSyncWorker = new lambdaNodejs.NodejsFunction(this, `GoogleDriveSyncWorker-${stage}`, {
+        functionName: `auto-rfp-gdrive-sync-worker-${stage}`,
+        entry: path.join(__dirname, '../../lambda/google/google-drive-sync-worker.ts'),
+        handler: 'handler',
+        runtime: lambda.Runtime.NODEJS_20_X,
+        timeout: cdk.Duration.minutes(5),
+        memorySize: 512,
+        role: sharedInfraStack.commonLambdaRole,
+        environment: { ...commonEnv },
+        bundling: {
+          minify: true,
+          sourceMap: true,
+          externalModules: ['@aws-sdk/*'],
+        },
+      });
+
+      googleDriveSyncWorker.addEventSource(
+        new lambdaEventSources.SqsEventSource(googleDriveSyncQueue, {
+          batchSize: 1,
+          reportBatchItemFailures: true,
+        }),
+      );
+
+      googleDriveSyncQueue.grantConsumeMessages(googleDriveSyncWorker);
+    }
+
+    // Document Generation worker — processes async Bedrock document generation
+    const docGenQueueUrl = documentGenerationQueue?.queueUrl || '';
+    if (documentGenerationQueue) {
+      documentGenerationQueue.grantSendMessages(sharedInfraStack.commonLambdaRole);
+
+      const docGenWorker = new lambdaNodejs.NodejsFunction(this, `DocGenWorker-${stage}`, {
+        functionName: `auto-rfp-doc-gen-worker-${stage}`,
+        entry: path.join(__dirname, '../../lambda/rfp-document/generate-document-worker.ts'),
+        handler: 'handler',
+        runtime: lambda.Runtime.NODEJS_20_X,
+        timeout: cdk.Duration.minutes(10), // Match SQS visibility timeout
+        memorySize: 1024,
+        role: sharedInfraStack.commonLambdaRole,
+        environment: {
+          ...commonEnv,
+          PROPOSAL_MAX_SOLICITATION_CHARS: '80000',
+          BEDROCK_MAX_TOKENS: '4000',
+          BEDROCK_TEMPERATURE: '0.1',
+        },
+        bundling: {
+          minify: true,
+          sourceMap: true,
+          externalModules: ['@aws-sdk/*'],
+        },
+      });
+
+      docGenWorker.addEventSource(
+        new lambdaEventSources.SqsEventSource(documentGenerationQueue, {
+          batchSize: 1,
+          reportBatchItemFailures: true,
+        }),
+      );
+
+      documentGenerationQueue.grantConsumeMessages(docGenWorker);
+    }
+
     // 3. Collect all domain route definitions for hashing and nested stack creation
     // This ensures the deployment is recreated whenever any route definition changes
     const allDomains: DomainRoutes[] = [
       organizationDomain(),
       answerDomain(),
-      briefDomain({ execBriefQueueUrl: execBriefQueue?.queueUrl || '' }),
+      briefDomain({ execBriefQueueUrl: execBriefQueue?.queueUrl || '', googleDriveSyncQueueUrl: gdSyncQueueUrl }),
       presignedDomain(),
       knowledgebaseDomain(),
       documentDomain(),
@@ -273,7 +345,7 @@ export class ApiOrchestratorStack extends cdk.Stack {
       projectsDomain(),
       promptDomain(),
       samgovDomain(),
-      rfpDocumentDomain(),
+      rfpDocumentDomain({ documentGenerationQueueUrl: docGenQueueUrl }),
       templateDomain(),
       linearRoutes,
       googleDomain(),

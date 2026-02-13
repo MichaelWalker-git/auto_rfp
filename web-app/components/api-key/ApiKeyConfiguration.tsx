@@ -15,6 +15,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import { Textarea } from '@/components/ui/textarea';
 import { AlertCircle, Key, Loader2, Eye, EyeOff } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
 
@@ -28,6 +29,8 @@ interface ApiKeyConfigurationProps {
     mutate: () => void;
   };
   saveKey: (apiKey: string) => Promise<any>;
+  inputType?: 'input' | 'textarea';
+  inputPlaceholder?: string;
   helpText?: {
     title: string;
     steps: string[];
@@ -42,6 +45,8 @@ export function ApiKeyConfiguration({
   orgId,
   apiKeyHook,
   saveKey,
+  inputType = 'input',
+  inputPlaceholder,
   helpText,
 }: ApiKeyConfigurationProps) {
   const { toast } = useToast();
@@ -119,7 +124,7 @@ export function ApiKeyConfiguration({
       </Card>
 
       <Dialog open={showDialog} onOpenChange={setShowDialog}>
-        <DialogContent className="sm:max-w-[500px]">
+        <DialogContent className={`${inputType === 'textarea' ? 'sm:max-w-[600px]' : 'sm:max-w-[500px]'} max-h-[90vh] overflow-y-auto overflow-x-hidden`}>
           <DialogHeader>
             <DialogTitle>
               <div className="flex items-center gap-2">
@@ -159,35 +164,47 @@ export function ApiKeyConfiguration({
           )}
 
           <div className="space-y-2">
-            <Label htmlFor="apiKey">API Key</Label>
-            <div className="flex gap-2">
-              <div className="relative flex-1">
-                <Input
-                  id="apiKey"
-                  type={showApiKey ? "text" : "password"}
-                  placeholder="Enter your API key"
-                  value={apiKey}
-                  onChange={(e) => setApiKey(e.target.value)}
-                  className="pr-10"
-                />
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
-                  onClick={() => setShowApiKey(!showApiKey)}
-                >
-                  {showApiKey ? (
-                    <EyeOff className="h-4 w-4" />
-                  ) : (
-                    <Eye className="h-4 w-4" />
-                  )}
-                  <span className="sr-only">
-                    {showApiKey ? "Hide" : "Show"} API key
-                  </span>
-                </Button>
+            <Label htmlFor="apiKey">{inputType === 'textarea' ? 'Service Account JSON Key' : 'API Key'}</Label>
+            {inputType === 'textarea' ? (
+              <Textarea
+                id="apiKey"
+                placeholder={inputPlaceholder || "Paste your JSON key here"}
+                value={apiKey}
+                onChange={(e) => setApiKey(e.target.value)}
+                rows={6}
+                className="font-mono text-xs resize-none min-w-0 w-full"
+                style={{ fieldSizing: 'fixed' } as React.CSSProperties}
+              />
+            ) : (
+              <div className="flex gap-2">
+                <div className="relative flex-1">
+                  <Input
+                    id="apiKey"
+                    type={showApiKey ? "text" : "password"}
+                    placeholder={inputPlaceholder || "Enter your API key"}
+                    value={apiKey}
+                    onChange={(e) => setApiKey(e.target.value)}
+                    className="pr-10"
+                  />
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
+                    onClick={() => setShowApiKey(!showApiKey)}
+                  >
+                    {showApiKey ? (
+                      <EyeOff className="h-4 w-4" />
+                    ) : (
+                      <Eye className="h-4 w-4" />
+                    )}
+                    <span className="sr-only">
+                      {showApiKey ? "Hide" : "Show"} API key
+                    </span>
+                  </Button>
+                </div>
               </div>
-            </div>
+            )}
           </div>
 
           <DialogFooter>

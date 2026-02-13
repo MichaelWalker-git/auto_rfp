@@ -26,6 +26,20 @@ export const baseHandler = async (event: APIGatewayProxyEventV2) => {
 
     const { apiKey } = data;
 
+    // Validate that the key is a valid Google Service Account JSON
+    try {
+      const parsed = JSON.parse(apiKey);
+      if (!parsed.client_email || !parsed.private_key) {
+        return apiResponse(400, {
+          error: 'Invalid Google Service Account key: missing "client_email" or "private_key". Please provide a valid Service Account JSON key file contents.',
+        });
+      }
+    } catch {
+      return apiResponse(400, {
+        error: 'Invalid JSON format. Please provide the full contents of a Google Service Account JSON key file (not a simple API key).',
+      });
+    }
+
     await storeApiKey(orgId, GOOGLE_SECRET_PREFIX, apiKey);
 
     return apiResponse(201, {

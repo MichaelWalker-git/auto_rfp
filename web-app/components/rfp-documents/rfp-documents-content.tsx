@@ -22,6 +22,16 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/components/ui/use-toast';
 import { ListingPageLayout } from '@/components/layout/ListingPageLayout';
@@ -104,6 +114,7 @@ export function RFPDocumentsContent({ projectId, orgId, opportunityId }: RFPDocu
   const [signatureDoc, setSignatureDoc] = useState<RFPDocumentItem | null>(null);
   const [exportDoc, setExportDoc] = useState<RFPDocumentItem | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [deleteConfirmDoc, setDeleteConfirmDoc] = useState<RFPDocumentItem | null>(null);
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
   const [previewLoading, setPreviewLoading] = useState(false);
 
@@ -161,14 +172,14 @@ export function RFPDocumentsContent({ projectId, orgId, opportunityId }: RFPDocu
     [downloadingId, getDownloadUrl, toast],
   );
 
-  const handleDelete = useCallback(
-    async (doc: RFPDocumentItem) => {
-      if (deletingId === doc.documentId) return;
-      const ok = window.confirm(`Delete "${doc.name}"? This action cannot be undone.`);
-      if (!ok) return;
+  const confirmDelete = useCallback(
+    async () => {
+      const doc = deleteConfirmDoc;
+      if (!doc || deletingId === doc.documentId) return;
 
       try {
         setDeletingId(doc.documentId);
+        setDeleteConfirmDoc(null);
         await deleteDocument({
           projectId: doc.projectId,
           opportunityId: doc.opportunityId,
@@ -186,7 +197,7 @@ export function RFPDocumentsContent({ projectId, orgId, opportunityId }: RFPDocu
         setDeletingId(null);
       }
     },
-    [deletingId, deleteDocument, toast, mutate],
+    [deleteConfirmDoc, deletingId, deleteDocument, toast, mutate],
   );
 
   const renderDocumentItem = (doc: RFPDocumentItem) => {
@@ -214,6 +225,24 @@ export function RFPDocumentsContent({ projectId, orgId, opportunityId }: RFPDocu
               <Badge variant="outline" className={cn('text-xs border', typeChip.cls)}>
                 {RFP_DOCUMENT_TYPES[doc.documentType] ?? doc.documentType}
               </Badge>
+              {(doc as any).status === 'GENERATING' ? (
+                <Badge variant="outline" className="text-xs border border-amber-500/30 text-amber-600 bg-amber-500/5 animate-pulse">
+                  ⏳ Generating...
+                </Badge>
+              ) : (doc as any).content && !doc.fileKey ? (
+                <Badge variant="outline" className="text-xs border border-violet-500/30 text-violet-600 bg-violet-500/5">
+                  🤖 AI Generated
+                </Badge>
+              ) : doc.fileKey ? (
+                <Badge variant="outline" className="text-xs border border-blue-500/30 text-blue-600 bg-blue-500/5">
+                  📎 Uploaded
+                </Badge>
+              ) : null}
+              {(doc as any).status === 'FAILED' && (
+                <Badge variant="outline" className="text-xs border border-red-500/30 text-red-600 bg-red-500/5">
+                  ❌ Failed
+                </Badge>
+              )}
               <SignatureStatusBadge status={doc.signatureStatus} />
               <LinearSyncIndicator status={doc.linearSyncStatus} lastSyncedAt={doc.lastSyncedAt} />
             </div>
@@ -302,7 +331,7 @@ export function RFPDocumentsContent({ projectId, orgId, opportunityId }: RFPDocu
                 <DropdownMenuItem
                   className="text-red-600"
                   disabled={isDeleting}
-                  onClick={() => handleDelete(doc)}
+                  onClick={() => setDeleteConfirmDoc(doc)}
                 >
                   {isDeleting ? (
                     <Loader2 className="h-4 w-4 mr-2 animate-spin" />
@@ -413,6 +442,38 @@ export function RFPDocumentsContent({ projectId, orgId, opportunityId }: RFPDocu
         document={exportDoc}
         orgId={orgId}
       />
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={!!deleteConfirmDoc} onOpenChange={(open) => { if (!open) setDeleteConfirmDoc(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Document</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete <strong>&quot;{deleteConfirmDoc?.name}&quot;</strong>?
+              This action cannot be undone and the document will be permanently removed.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={confirmDelete}
+              className="bg-red-600 hover:bg-red-700 focus:ring-red-600"
+            >
+              {deletingId ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Deleting...
+                </>
+              ) : (
+                <>
+                  <Trash2 className="h-4 w-4 mr-2" />
+                  Delete
+                </>
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

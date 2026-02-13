@@ -1,6 +1,10 @@
 import type { DomainRoutes } from './types';
 
-export function rfpDocumentDomain(): DomainRoutes {
+export function rfpDocumentDomain(args?: {
+  documentGenerationQueueUrl?: string;
+}): DomainRoutes {
+  const docGenQueueUrl = args?.documentGenerationQueueUrl || '';
+
   return {
     basePath: 'rfp-document',
     routes: [
@@ -14,7 +18,12 @@ export function rfpDocumentDomain(): DomainRoutes {
       { method: 'POST', path: 'update-signature', entry: 'lambda/rfp-document/update-signature-status.ts' },
       { method: 'POST', path: 'export', entry: 'lambda/rfp-document/export-rfp-document.ts' },
       { method: 'POST', path: 'generate-proposal', entry: 'lambda/rfp-document/generate-proposal.ts' },
-      { method: 'POST', path: 'generate-document', entry: 'lambda/rfp-document/generate-document.ts' },
+      {
+        method: 'POST',
+        path: 'generate-document',
+        entry: 'lambda/rfp-document/generate-document.ts',
+        extraEnv: { DOCUMENT_GENERATION_QUEUE_URL: docGenQueueUrl },
+      },
       { method: 'POST', path: 'convert-to-content', entry: 'lambda/rfp-document/convert-to-content.ts' },
     ],
   };

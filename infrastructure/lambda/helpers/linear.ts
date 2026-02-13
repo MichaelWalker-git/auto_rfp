@@ -1,11 +1,12 @@
 import { LinearClient } from '@linear/sdk';
 import { getApiKey } from './api-key-storage';
 import { LINEAR_SECRET_PREFIX } from '../constants/linear';
-import { requireEnv } from './env';
 
-const LINEAR_TEAM_ID = requireEnv('LINEAR_TEAM_ID', '');
-const LINEAR_DEFAULT_ASSIGNEE_ID = requireEnv('LINEAR_DEFAULT_ASSIGNEE_ID', '');
-const LINEAR_PROJECT_ID = requireEnv('LINEAR_PROJECT_ID', '');
+// These are optional — only needed when creating/updating tickets.
+// Use process.env directly to avoid crashing at import time if not set.
+const LINEAR_TEAM_ID = process.env.LINEAR_TEAM_ID || '';
+const LINEAR_DEFAULT_ASSIGNEE_ID = process.env.LINEAR_DEFAULT_ASSIGNEE_ID || '';
+const LINEAR_PROJECT_ID = process.env.LINEAR_PROJECT_ID || '';
 
 const cache: Map<string, string> = new Map<string, string>();
 
@@ -48,60 +49,85 @@ export async function createLinearTicket(params: CreateLinearTicketParams): Prom
   id: string;
   identifier: string;
   url: string;
-}> {
+} | null> {
   console.log('Creating Linear ticket...');
-  const apiKey = await getLinearApiKey(params.orgId);
+  try {
+    const apiKey = await getLinearApiKey(params.orgId);
+
+    const client = new LinearClient({ apiKey });
+
+    const teamId = params.teamId || LINEAR_TEAM_ID;
+    if (!teamId) {
+      throw new Error('Linear team ID not configured');
+    }
+
+    const projectId = params.projectId || LINEAR_PROJECT_ID;
+
+    let labelIds: string[] | undefined;
+    if (params.labels && params.labels.length > 0) {
+      const team = await client.team(teamId);
+      const allLabels = await team.labels();
+
+      labelIds = params.labels
+        .map(labelName => {
+          const found = allLabels.nodes.find(
+            l => l.name.toLowerCase() === labelName.toLowerCase()
+          );
+          if (!found) {
+            console.warn(`⚠️ Label not found: "${labelName}"`);
+          }
+          return found?.id;
+        })
+        .filter((id): id is string => !!id);
+    }
+
+    const issuePayload = await client.createIssue({
+      teamId,
+      projectId,
+      title: params.title,
+      description: params.description,
+      priority: params.priority ?? 3,
+      dueDate: params.dueDate,
+      assigneeId: params.assigneeId || LINEAR_DEFAULT_ASSIGNEE_ID,
+      labelIds,
+    });
+
+    const createdIssue = await issuePayload.issue;
+
+    if (!createdIssue) {
+      throw new Error('Failed to create Linear issue');
+    }
+
+    console.log('Created Linear issue:', createdIssue.identifier);
+
+    return {
+      id: createdIssue.id,
+      identifier: createdIssue.identifier,
+      url: createdIssue.url,
+    };
+  } catch (error) {
+    return null;
+  }
+}
+
+export async function createLinearComment(
+  orgId: string,
+  issueId: string,
+  body: string,
+): Promise<{ id: string }> {
+  const apiKey = await getLinearApiKey(orgId);
   const client = new LinearClient({ apiKey });
 
-  const teamId = params.teamId || LINEAR_TEAM_ID;
-  if (!teamId) {
-    throw new Error('Linear team ID not configured');
-  }
-
-  const projectId = params.projectId || LINEAR_PROJECT_ID;
-
-  let labelIds: string[] | undefined;
-  if (params.labels && params.labels.length > 0) {
-    const team = await client.team(teamId);
-    const allLabels = await team.labels();
-
-    labelIds = params.labels
-      .map(labelName => {
-        const found = allLabels.nodes.find(
-          l => l.name.toLowerCase() === labelName.toLowerCase()
-        );
-        if (!found) {
-          console.warn(`⚠️ Label not found: "${labelName}"`);
-        }
-        return found?.id;
-      })
-      .filter((id): id is string => !!id);
-  }
-
-  const issuePayload = await client.createIssue({
-    teamId,
-    projectId,
-    title: params.title,
-    description: params.description,
-    priority: params.priority ?? 3,
-    dueDate: params.dueDate,
-    assigneeId: params.assigneeId || LINEAR_DEFAULT_ASSIGNEE_ID,
-    labelIds,
+  const comment = await client.createComment({
+    issueId,
+    body,
   });
 
-  const createdIssue = await issuePayload.issue;
+  const created = await comment.comment;
+  if (!created) throw new Error('Failed to create Linear comment');
 
-  if (!createdIssue) {
-    throw new Error('Failed to create Linear issue');
-  }
-
-  console.log('Created Linear issue:', createdIssue.identifier);
-
-  return {
-    id: createdIssue.id,
-    identifier: createdIssue.identifier,
-    url: createdIssue.url,
-  };
+  console.log(`Created Linear comment on issue ${issueId}`);
+  return { id: created.id };
 }
 
 export async function updateLinearTicket(

@@ -33,18 +33,43 @@ Rules:
 `.trim();
 
 export const PROPOSAL_USER_PROMPT = `
-RFP Metadata:
+═══════════════════════════════════════
+SOLICITATION / RFP DOCUMENTS
+═══════════════════════════════════════
+The following is the full text of the solicitation document(s). This is your PRIMARY source of requirements.
+Carefully identify ALL requirements, evaluation criteria (Section M), and submission instructions (Section L).
+
 {{SOLICITATION}}
-Q&A:
+
+═══════════════════════════════════════
+QUESTIONS & ANSWERS
+═══════════════════════════════════════
+These are previously answered questions about this opportunity. Use these answers as authoritative content for your proposal sections. Each Q&A pair represents validated information about the company's approach.
+
 {{QA_TEXT}}
 
-Knowledge Base Snippets:
+═══════════════════════════════════════
+ENRICHMENT CONTEXT (Knowledge Base, Past Performance, Executive Brief, Content Library)
+═══════════════════════════════════════
+The following context has been gathered from multiple sources. Use it to enrich your proposal with:
+- Company-specific capabilities and processes (Knowledge Base)
+- Relevant past contract performance and results (Past Performance)
+- Pre-analyzed opportunity intelligence including risks, requirements, and scoring (Executive Brief)
+- Pre-approved content snippets for consistent messaging (Content Library)
+
 {{KB_TEXT}}
 
-Task:
-1) Create an outline tailored to this opportunity and customer.
-2) Write all sections/subsections as full proposal text.
-3) Return ONLY JSON in the required format.
+═══════════════════════════════════════
+YOUR TASK
+═══════════════════════════════════════
+1. ANALYZE the solicitation to identify ALL requirements, evaluation criteria, and submission instructions.
+2. DEVELOP 2-3 win themes (key differentiators) based on the company's strengths from the context provided.
+3. CREATE a comprehensive proposal outline with sections that map to the solicitation's requirements and evaluation criteria.
+4. WRITE each section with substantial, detailed content (2-5 paragraphs per subsection, 150-400 words each).
+5. ENSURE every requirement from the solicitation is addressed somewhere in the proposal.
+6. SUPPORT claims with evidence from past performance, knowledge base, and content library.
+7. MAINTAIN customer focus throughout — write from the customer's perspective.
+8. Return ONLY valid JSON in the required format. No text outside the JSON object.
 `.trim();
 
 export const getProposalSystemPrompt = async (orgId: string) => {

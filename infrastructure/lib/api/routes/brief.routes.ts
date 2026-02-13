@@ -2,8 +2,9 @@ import type { DomainRoutes } from './types';
 
 export function briefDomain(args: {
   execBriefQueueUrl: string;
+  googleDriveSyncQueueUrl: string;
 }): DomainRoutes {
-  const { execBriefQueueUrl } = args;
+  const { execBriefQueueUrl, googleDriveSyncQueueUrl } = args;
 
   return {
     basePath: 'brief',
@@ -59,7 +60,12 @@ export function briefDomain(args: {
         entry: 'lambda/brief/handle-linear-ticket.ts',
       },
 
-      { method: 'POST', path: 'update-decision', entry: 'lambda/brief/update-decision.ts' },
+      {
+        method: 'POST',
+        path: 'update-decision',
+        entry: 'lambda/brief/update-decision.ts',
+        extraEnv: { GOOGLE_DRIVE_SYNC_QUEUE_URL: googleDriveSyncQueueUrl },
+      },
     ],
   };
 }

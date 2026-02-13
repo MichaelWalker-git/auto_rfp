@@ -129,16 +129,97 @@ export function safeJsonParse<T>(text: string, schema: SchemaLike<T>): T {
  * NOTE: This works only if you can query items for projectId efficiently.
  * Because your SK begins with `${projectId}#`, this Query uses begins_with on SK
  * (still partitioned by QUESTION_FILE_PK).
- * 
+ *
  * @param projectId - The project ID
  * @param opportunityId - Optional opportunity ID to filter by
  */
+/**
+ * Load ALL question files for a project (and optionally opportunity).
+ * Returns all non-deleted files sorted by createdAt descending.
+ */
+export async function loadAllQuestionFiles(projectId: string, opportunityId: string): Promise<QuestionFileItem[]> {
+  const items: any[] = [];
+  let ExclusiveStartKey: Record<string, any> | undefined;
+
+  const skPrefix = `${projectId}#${opportunityId}#`
+
+  do {
+    const res = await docClient.send(
+      new QueryCommand({
+        TableName: DB_TABLE_NAME,
+        KeyConditionExpression: '#pk = :pk AND begins_with(#sk, :skPrefix)',
+        ExpressionAttributeNames: { '#pk': PK_NAME, '#sk': SK_NAME },
+        ExpressionAttributeValues: { ':pk': QUESTION_FILE_PK, ':skPrefix': skPrefix },
+        ExclusiveStartKey,
+      }),
+    );
+    if (res.Items?.length) items.push(...res.Items);
+    ExclusiveStartKey = res.LastEvaluatedKey;
+  } while (ExclusiveStartKey);
+
+  return items
+    .filter((item: any) => item.status !== 'DELETED' && item.fileKey)
+    .sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1));
+}
+
+/**
+ * Load ALL solicitation texts for a project+opportunity by reading all question files from S3.
+ * Returns the merged text from all files, separated by document markers.
+ */
+export async function loadAllSolicitationTexts(
+  projectId: string,
+  opportunityId: string,
+  maxChars?: number,
+): Promise<string> {
+  const files = await loadAllQuestionFiles(projectId, opportunityId);
+
+  if (!files.length) {
+    console.warn(`No question files found for projectId=${projectId}, opportunityId=${opportunityId}`);
+    return '';
+  }
+
+  const textPromises = files.map(async (file: any) => {
+    try {
+      const text = await loadTextFromS3(DOCUMENTS_BUCKET, file.fileKey);
+      return { fileName: file.originalFileName || file.fileKey, text, success: true };
+    } catch (err) {
+      console.warn(`Failed to load text from ${file.fileKey}:`, (err as Error)?.message);
+      return { fileName: file.fileKey, text: '', success: false };
+    }
+  });
+
+  const results = await Promise.all(textPromises);
+  const successfulTexts = results.filter(r => r.success && r.text.trim().length > 0);
+
+  if (!successfulTexts.length) {
+    console.warn(`No solicitation texts loaded for projectId=${projectId}, opportunityId=${opportunityId}`);
+    return '';
+  }
+
+  let merged: string;
+  if (successfulTexts.length === 1) {
+    merged = successfulTexts[0]!.text;
+  } else {
+    merged = successfulTexts
+      .map((r, i) => `--- Document ${i + 1}: ${r.fileName} ---\n${r.text}`)
+      .join('\n\n');
+  }
+
+  console.log(`Loaded ${successfulTexts.length} solicitation document(s) for projectId=${projectId}`);
+
+  if (maxChars && merged.length > maxChars) {
+    return merged.slice(0, maxChars) + '\n\n[TRUNCATED]';
+  }
+
+  return merged;
+}
+
 export async function loadLatestQuestionFile(projectId: string, opportunityId?: string): Promise<QuestionFileItem> {
   const items: any[] = [];
   let ExclusiveStartKey: Record<string, any> | undefined;
 
   // Build SK prefix based on whether opportunityId is provided
-  const skPrefix = opportunityId 
+  const skPrefix = opportunityId
     ? `${projectId}#${opportunityId}#`  // Filter by project AND opportunity
     : `${projectId}#`;                   // Filter by project only
 
@@ -164,8 +245,8 @@ export async function loadLatestQuestionFile(projectId: string, opportunityId?: 
   } while (ExclusiveStartKey);
 
   if (!items.length) {
-    const context = opportunityId 
-      ? `projectId=${projectId}, opportunityId=${opportunityId}` 
+    const context = opportunityId
+      ? `projectId=${projectId}, opportunityId=${opportunityId}`
       : `projectId=${projectId}`;
     throw new Error(`No QuestionFiles found for ${context}`);
   }
@@ -203,11 +284,11 @@ export async function getExecutiveBriefByProjectId(projectId: string, opportunit
       ScanIndexForward: false, // Get most recent first
     }),
   );
-  
+
   // Fix AUTO-RFP-63: Better error message when brief not found
   if (!res.Items || res.Items.length === 0) {
-    const context = opportunityId 
-      ? `projectId=${projectId}, opportunityId=${opportunityId}` 
+    const context = opportunityId
+      ? `projectId=${projectId}, opportunityId=${opportunityId}`
       : `projectId=${projectId}`;
     throw new Error(`ExecutiveBrief not found for ${context}. Ensure the brief has been initialized.`);
   }
@@ -246,7 +327,7 @@ export async function getExecutiveBriefsByProjectId(projectId: string): Promise<
       ScanIndexForward: false, // Get most recent first
     }),
   );
-  
+
   return (res.Items || []) as ExecutiveBriefItem[];
 }
 
@@ -265,7 +346,7 @@ export async function putExecutiveBrief(item: ExecutiveBriefItem): Promise<void>
 async function ensureSectionExists(executiveBriefId: string, section: BriefSectionName): Promise<void> {
   const now = nowIso();
   const emptySection = { status: 'IDLE' as const, updatedAt: now };
-  
+
   try {
     await docClient.send(
       new UpdateCommand({
@@ -588,18 +669,14 @@ export async function invokeClaudeJson<S extends SchemaLike<any>>(args: {
 
 export async function loadSolicitationForBrief(brief: ExecutiveBriefItem): Promise<{ solicitationText: string; }> {
   const bucket = brief.documentsBucket || DOCUMENTS_BUCKET;
-  const allTextKeys = (brief as any).allTextKeys as string[] | undefined;
-  const primaryTextKey = brief.textKey;
+  const allTextKeys = brief.allTextKeys;
 
   // Collect all text keys to load
   const textKeysToLoad: string[] = [];
-  
+
   if (allTextKeys && allTextKeys.length > 0) {
     // Use all text keys if available
     textKeysToLoad.push(...allTextKeys.filter(Boolean));
-  } else if (primaryTextKey) {
-    // Fall back to primary text key
-    textKeysToLoad.push(primaryTextKey);
   }
 
   if (textKeysToLoad.length === 0) {
@@ -618,11 +695,11 @@ export async function loadSolicitationForBrief(brief: ExecutiveBriefItem): Promi
   });
 
   const results = await Promise.all(textPromises);
-  
+
   // Filter successful loads and merge texts
   const successfulTexts: string[] = results
-    .filter((r): r is { textKey: string; text: string; success: true } => 
-      r.success && typeof r.text === 'string' && r.text.trim().length > 0
+    .filter((r): r is { textKey: string; text: string; success: true } =>
+      r.success && r.text.trim().length > 0
     )
     .map(r => r.text);
 
@@ -664,22 +741,19 @@ export async function loadSolicitationForBrief(brief: ExecutiveBriefItem): Promi
 
 /**
  * Build a stable idempotency hash per section.
- * Use opportunityId + textKey + sectionName to detect reruns.
+ * Use opportunityId + allTextKeys + sectionName to detect reruns.
  * NOTE: questionFileId removed - we now use opportunityId since question files are retrieved by opportunityId
  */
 export function buildSectionInputHash(args: {
   executiveBriefId: string;
   section: BriefSectionName;
   opportunityId: string;
-  textKey?: string | null;
+  allTextKeys?: string[] | null;
 }): string {
-  const { executiveBriefId, section, opportunityId, textKey } = args;
-  return sha256(`${executiveBriefId}:${section}:${opportunityId}:${textKey || ''}`);
+  const { executiveBriefId, section, opportunityId, allTextKeys } = args;
+  const keysStr = allTextKeys?.filter(Boolean).sort().join(',') || '';
+  return sha256(`${executiveBriefId}:${section}:${opportunityId}:${keysStr}`);
 }
-
-export const executiveBriefSK = (projectId: string, briefId: string) => {
-  return `${projectId}#${briefId}`;
-};
 
 /**
  * Build a deterministic SK for a brief tied to a specific opportunity.
