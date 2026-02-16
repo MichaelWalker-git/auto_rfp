@@ -78,13 +78,15 @@ export function useSetGoogleApiKey(orgId?: string) {
       });
 
       if (!res.ok) {
-        const err = new HttpError('Failed to store Google API key.');
-        err.status = res.status;
+        let details: any;
         try {
-          err.details = await res.json();
+          details = await res.json();
         } catch {
           // ignore
         }
+        const err = new HttpError(details?.error || 'Failed to store Google API key.');
+        err.status = res.status;
+        err.details = details;
         throw err;
       }
 

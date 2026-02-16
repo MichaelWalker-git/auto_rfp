@@ -13,8 +13,8 @@ export function GoogleApiKeyConfiguration({ orgId }: GoogleApiKeyConfigurationPr
 
   return (
     <ApiKeyConfiguration
-      title="Google API Key"
-      description="Configure your Google API key for enhanced features"
+      title="Google Drive Service Account"
+      description="Configure your Google Service Account key for Google Drive integration"
       orgId={orgId}
       apiKeyHook={{
         apiKey: apiKeyHook.apiKey,
@@ -22,18 +22,22 @@ export function GoogleApiKeyConfiguration({ orgId }: GoogleApiKeyConfigurationPr
         mutate: apiKeyHook.mutate
       }}
       saveKey={setApiKey}
+      inputType="textarea"
+      inputPlaceholder='Paste the contents of your service account JSON key file here (starts with { "type": "service_account", ... })'
       helpText={{
-        title: "How to get a Google API Key",
+        title: "How to set up Google Drive integration",
         steps: [
-          "Go to the Google Cloud Console",
-          "Create a new project or select an existing one",
-          "Navigate to \"APIs & Services\" > \"Credentials\"",
-          "Click \"Create Credentials\" > \"API Key\"",
-          "Copy the generated API key",
-          "Optionally restrict the key to specific APIs for security"
+          "Go to the Google Cloud Console and create/select a project",
+          "Enable the Google Drive API under \"APIs & Services\" > \"Library\"",
+          "Navigate to \"IAM & Admin\" > \"Service Accounts\" and create one",
+          "Click on the service account, go to \"Keys\" tab, create a JSON key",
+          "Go to admin.google.com > Security > API controls > Manage Domain Wide Delegation",
+          "Add the service account's numeric Client ID with scope: https://www.googleapis.com/auth/drive",
+          "Add \"delegate_email\": \"user@yourdomain.com\" to the JSON key (a real Google Workspace user)",
+          "Paste the full modified JSON key contents here"
         ],
         linkText: "Visit Google Cloud Console",
-        linkUrl: "https://console.cloud.google.com/apis/credentials"
+        linkUrl: "https://console.cloud.google.com/iam-admin/serviceaccounts"
       }}
     />
   );

@@ -12,6 +12,8 @@ export class StorageStack extends cdk.Stack {
   public readonly documentsBucket: s3.Bucket;
   public readonly websiteBucket: s3.Bucket;
   public readonly execBriefQueue: sqs.Queue;
+  public readonly googleDriveSyncQueue: sqs.Queue;
+  public readonly documentGenerationQueue: sqs.Queue;
 
   constructor(scope: Construct, id: string, props: StorageStackProps) {
     super(scope, id, props);
@@ -67,6 +69,38 @@ export class StorageStack extends cdk.Stack {
           encryption: sqs.QueueEncryption.SQS_MANAGED,
         }),
         maxReceiveCount: 3, // Move to DLQ after 3 failed attempts
+      },
+    });
+
+    // Create SQS queue for async Google Drive sync
+    this.googleDriveSyncQueue = new sqs.Queue(this, 'GoogleDriveSyncQueue', {
+      queueName: `auto-rfp-google-drive-sync-${stage}`,
+      visibilityTimeout: cdk.Duration.seconds(300), // 5 minutes for Drive operations
+      retentionPeriod: cdk.Duration.days(14),
+      encryption: sqs.QueueEncryption.SQS_MANAGED,
+      deadLetterQueue: {
+        queue: new sqs.Queue(this, 'GoogleDriveSyncDLQ', {
+          queueName: `auto-rfp-google-drive-sync-dlq-${stage}`,
+          retentionPeriod: cdk.Duration.days(14),
+          encryption: sqs.QueueEncryption.SQS_MANAGED,
+        }),
+        maxReceiveCount: 3,
+      },
+    });
+
+    // Create SQS queue for async document generation (Bedrock calls)
+    this.documentGenerationQueue = new sqs.Queue(this, 'DocumentGenerationQueue', {
+      queueName: `auto-rfp-doc-generation-${stage}`,
+      visibilityTimeout: cdk.Duration.seconds(600), // 10 minutes for Bedrock calls
+      retentionPeriod: cdk.Duration.days(14),
+      encryption: sqs.QueueEncryption.SQS_MANAGED,
+      deadLetterQueue: {
+        queue: new sqs.Queue(this, 'DocumentGenerationDLQ', {
+          queueName: `auto-rfp-doc-generation-dlq-${stage}`,
+          retentionPeriod: cdk.Duration.days(14),
+          encryption: sqs.QueueEncryption.SQS_MANAGED,
+        }),
+        maxReceiveCount: 2,
       },
     });
 

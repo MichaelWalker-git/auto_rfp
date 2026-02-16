@@ -88,7 +88,7 @@ const baseHandler = async (event: AuthedEvent): Promise<APIGatewayProxyResultV2>
       executiveBriefId,
       section: 'pastPerformance' as any,
       opportunityId: brief.opportunityId,
-      textKey: brief.textKey,
+      allTextKeys: brief.allTextKeys,
     });
 
     // Mark section as in progress

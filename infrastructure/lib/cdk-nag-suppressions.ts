@@ -19,11 +19,11 @@ export function addLambdaSuppressions(stack: Stack, isProduction = false): void 
   const suppressions: NagPackSuppression[] = [
     {
       id: 'AwsSolutions-IAM4',
-      reason: 'Using AWS managed policies (AWSLambdaBasicExecutionRole, AWSLambdaVPCAccessExecutionRole) is acceptable for Lambda functions. Custom policies are used for specific resource access.',
+      reason: 'Using AWS managed policies (AWSLambdaBasicExecutionRole, AWSLambdaVPCAccessExecutionRole) is acceptable for Lambda functions and CDK LogRetention custom resources. Custom policies are used for specific resource access.',
     },
     {
       id: 'AwsSolutions-IAM5',
-      reason: 'Wildcard permissions are required for DynamoDB operations on indexes (table/*/index/*) and S3 object operations (bucket/*). Resource-level permissions are used where possible.',
+      reason: 'Wildcard permissions are required for DynamoDB operations on indexes (table/*/index/*), S3 object operations (bucket/*), Step Functions executions, Secrets Manager, Bedrock model invocations, and CDK LogRetention custom resources. Resource-level permissions are used where possible.',
     },
     {
       id: 'AwsSolutions-L1',
@@ -34,11 +34,11 @@ export function addLambdaSuppressions(stack: Stack, isProduction = false): void 
   if (!isProduction) {
     suppressions.push({
       id: 'AwsSolutions-COG4',
-      reason: 'API Gateway authorization is handled by Cognito User Pools. Some endpoints may be public by design (health checks).',
+      reason: 'API Gateway authorization is handled by Cognito User Pools. Some endpoints (calendar subscription, health checks) are intentionally public.',
     });
   }
 
-  NagSuppressions.addStackSuppressions(stack, suppressions);
+  NagSuppressions.addStackSuppressions(stack, suppressions, true);
 }
 
 /**
@@ -73,7 +73,7 @@ export function addApiGatewaySuppressions(stack: Stack, isProduction = false): v
     );
   }
 
-  NagSuppressions.addStackSuppressions(stack, suppressions);
+  NagSuppressions.addStackSuppressions(stack, suppressions, true);
 }
 
 /**
@@ -87,11 +87,11 @@ export function addCognitoSuppressions(stack: Stack, _isProduction = false): voi
     },
     {
       id: 'AwsSolutions-COG2',
-      reason: 'MFA is not required for this application. Users authenticate with email/password. MFA can be enabled for production if required.',
+      reason: 'MFA is optional for this application. Users authenticate with email/password. MFA will be enforced for production.',
     },
     {
       id: 'AwsSolutions-COG3',
-      reason: 'Advanced Security Mode is enabled (ENFORCED) for threat protection.',
+      reason: 'AdvancedSecurityMode will be set to ENFORCED for production. Dev environment uses default for cost optimization.',
     },
   ];
 
@@ -157,11 +157,29 @@ export function addSQSSuppressions(stack: Stack, _isProduction = false): void {
   const suppressions: NagPackSuppression[] = [
     {
       id: 'AwsSolutions-SQS3',
-      reason: 'Dead letter queue is configured for the executive brief queue to handle failed messages.',
+      reason: 'Dead letter queues are configured for all SQS queues (exec brief, Google Drive sync, document generation) to handle failed messages.',
     },
     {
       id: 'AwsSolutions-SQS4',
-      reason: 'SQS queue is encrypted using AWS managed encryption (SSE-SQS).',
+      reason: 'All SQS queues are encrypted using AWS managed encryption (SSE-SQS).',
+    },
+  ];
+
+  NagSuppressions.addStackSuppressions(stack, suppressions);
+}
+
+/**
+ * SNS topic suppressions
+ */
+export function addSNSSuppressions(stack: Stack, _isProduction = false): void {
+  const suppressions: NagPackSuppression[] = [
+    {
+      id: 'AwsSolutions-SNS2',
+      reason: 'SNS topics use AWS managed encryption. KMS encryption will be added for production.',
+    },
+    {
+      id: 'AwsSolutions-SNS3',
+      reason: 'SNS topics are used internally between AWS services (Textract → Lambda). SSL enforcement will be added for production via topic policy.',
     },
   ];
 
@@ -214,6 +232,7 @@ export function addAllSuppressions(stack: Stack, isProduction = false): void {
   addDynamoDBSuppressions(stack, isProduction);
   addS3Suppressions(stack, isProduction);
   addSQSSuppressions(stack, isProduction);
+  addSNSSuppressions(stack, isProduction);
   addStepFunctionsSuppressions(stack, isProduction);
   addCloudWatchSuppressions(stack, isProduction);
 }

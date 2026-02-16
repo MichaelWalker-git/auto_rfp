@@ -43,7 +43,7 @@ export async function enqueueExecutiveBriefSection(
       executiveBriefId,
       section,
       opportunityId: brief.opportunityId as string,
-      textKey: brief.textKey,
+      allTextKeys: brief.allTextKeys,
     });
 
     await markSectionInProgress({
