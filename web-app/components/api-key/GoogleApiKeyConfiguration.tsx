@@ -25,17 +25,16 @@ export function GoogleApiKeyConfiguration({ orgId }: GoogleApiKeyConfigurationPr
       inputType="textarea"
       inputPlaceholder='Paste the contents of your service account JSON key file here (starts with { "type": "service_account", ... })'
       helpText={{
-        title: "How to get a Google Service Account Key",
+        title: "How to set up Google Drive integration",
         steps: [
-          "Go to the Google Cloud Console",
-          "Create a new project or select an existing one",
+          "Go to the Google Cloud Console and create/select a project",
           "Enable the Google Drive API under \"APIs & Services\" > \"Library\"",
-          "Navigate to \"IAM & Admin\" > \"Service Accounts\"",
-          "Click \"Create Service Account\" and fill in the details",
-          "Click on the created service account, go to \"Keys\" tab",
-          "Click \"Add Key\" > \"Create new key\" > select JSON",
-          "The JSON key file will be downloaded — paste its full contents here",
-          "Share your target Google Drive folder with the service account email"
+          "Navigate to \"IAM & Admin\" > \"Service Accounts\" and create one",
+          "Click on the service account, go to \"Keys\" tab, create a JSON key",
+          "Go to admin.google.com > Security > API controls > Manage Domain Wide Delegation",
+          "Add the service account's numeric Client ID with scope: https://www.googleapis.com/auth/drive",
+          "Add \"delegate_email\": \"user@yourdomain.com\" to the JSON key (a real Google Workspace user)",
+          "Paste the full modified JSON key contents here"
         ],
         linkText: "Visit Google Cloud Console",
         linkUrl: "https://console.cloud.google.com/iam-admin/serviceaccounts"

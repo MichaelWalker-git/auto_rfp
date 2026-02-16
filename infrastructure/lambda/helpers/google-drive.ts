@@ -33,73 +33,92 @@ const SUBFOLDERS = {
   finalDeliverables: 'Final Deliverables',
 } as const;
 
-// ─── Auth ───
+// ─── Auth (Domain-Wide Delegation only) ───
 
 async function getDriveClient(orgId: string): Promise<drive_v3.Drive | null> {
+  console.log(`[GoogleDrive] Getting Drive client for org ${orgId}`);
   const serviceAccountJson = await getApiKey(orgId, GOOGLE_SECRET_PREFIX);
   if (!serviceAccountJson) {
-    console.log(`No Google service account key found for org ${orgId}`);
+    console.log(`[GoogleDrive] No Google service account key found for org ${orgId}`);
     return null;
   }
+
+  console.log(`[GoogleDrive] Service account JSON retrieved (length: ${serviceAccountJson.length})`);
 
   try {
     const credentials = JSON.parse(serviceAccountJson);
 
+    console.log(`[GoogleDrive] Parsed credentials - client_email: ${credentials.client_email}, delegate_email: ${credentials.delegate_email || 'NOT SET'}`);
+
     if (!credentials.client_email || !credentials.private_key) {
       console.error(
-        'Invalid Google service account key: missing client_email or private_key. ' +
+        '[GoogleDrive] Invalid Google service account key: missing client_email or private_key. ' +
         'A Google Service Account JSON key is required (not a simple API key). ' +
         'Please update the Google Drive configuration in organization settings.',
       );
       return null;
     }
 
-    // If delegate_email is provided in the credentials, use domain-wide delegation
-    // to impersonate that user (solves the "no storage quota" issue for service accounts)
-    const delegateEmail = credentials.delegate_email;
+    // Determine the delegate email for domain-wide delegation
+    // Priority: 1) explicit delegate_email in JSON, 2) first org member email
+    let delegateEmail = credentials.delegate_email;
 
-    let auth;
-    if (delegateEmail) {
-      console.log(`Using domain-wide delegation to impersonate: ${delegateEmail}`);
-      const jwtClient = new google.auth.JWT({
-        email: credentials.client_email,
-        key: credentials.private_key,
-        scopes: ['https://www.googleapis.com/auth/drive'],
-        subject: delegateEmail,
-      });
-      auth = jwtClient;
-    } else {
-      // Try to get org member email for impersonation (first member as delegate)
-      const emails = await getOrgMemberEmails(orgId);
-      if (emails.length > 0) {
-        console.log(`Using domain-wide delegation to impersonate org member: ${emails[0]}`);
-        const jwtClient = new google.auth.JWT({
-          email: credentials.client_email,
-          key: credentials.private_key,
-          scopes: ['https://www.googleapis.com/auth/drive'],
-          subject: emails[0],
-        });
-        auth = jwtClient;
-      } else {
-        console.log('No delegate email found, using service account directly (may fail with storage quota error)');
-        auth = new google.auth.GoogleAuth({
-          credentials,
-          scopes: ['https://www.googleapis.com/auth/drive'],
-        });
+    if (!delegateEmail) {
+      console.log(`[GoogleDrive] No delegate_email in credentials, looking up org member emails...`);
+      try {
+        const emails = await getOrgMemberEmails(orgId);
+        console.log(`[GoogleDrive] Found ${emails.length} org member emails: ${emails.slice(0, 3).join(', ')}${emails.length > 3 ? '...' : ''}`);
+        if (emails.length > 0) {
+          delegateEmail = emails[0];
+        }
+      } catch (emailErr) {
+        console.error(`[GoogleDrive] Failed to get org member emails: ${(emailErr as Error)?.message}`);
       }
     }
 
-    return google.drive({ version: 'v3', auth });
+    if (!delegateEmail) {
+      console.error(
+        '[GoogleDrive] ERROR: No delegate email available. Domain-wide delegation requires a delegate_email. ' +
+        'Please add "delegate_email": "user@yourdomain.com" to the service account JSON key in organization settings. ' +
+        'The delegate email must be a Google Workspace user with Drive storage.',
+      );
+      return null;
+    }
+
+    console.log(`[GoogleDrive] Using domain-wide delegation to impersonate: ${delegateEmail}`);
+    const jwtClient = new google.auth.JWT({
+      email: credentials.client_email,
+      key: credentials.private_key,
+      scopes: ['https://www.googleapis.com/auth/drive'],
+      subject: delegateEmail,
+    });
+
+    // Verify the delegation works by authorizing the JWT client
+    try {
+      await jwtClient.authorize();
+      console.log(`[GoogleDrive] JWT authorization successful for delegate: ${delegateEmail}`);
+    } catch (authErr) {
+      console.error(
+        `[GoogleDrive] JWT authorization FAILED for delegate ${delegateEmail}: ${(authErr as Error)?.message}. ` +
+        'Ensure domain-wide delegation is configured in admin.google.com: ' +
+        'Security → Access and data control → API controls → Manage Domain Wide Delegation. ' +
+        `Add Client ID: ${credentials.client_id} with scope: https://www.googleapis.com/auth/drive`,
+      );
+      return null;
+    }
+
+    console.log(`[GoogleDrive] Drive client initialized successfully with delegation`);
+    return google.drive({ version: 'v3', auth: jwtClient });
   } catch (err) {
     const message = (err as Error)?.message || '';
     if (message.includes('is not valid JSON')) {
       console.error(
-        'Failed to initialize Google Drive client: The stored credential is not valid JSON. ' +
+        '[GoogleDrive] Failed to initialize Drive client: The stored credential is not valid JSON. ' +
         'A Google Service Account JSON key is required (not a simple API key). ' +
         'Please update the Google Drive configuration in organization settings.',
       );
     } else {
-      console.error('Failed to initialize Google Drive client:', message);
+      console.error(`[GoogleDrive] Failed to initialize Drive client: ${message}`);
     }
     return null;
   }
@@ -148,60 +167,6 @@ async function getFolderUrl(drive: drive_v3.Drive, folderId: string): Promise<st
   }
 }
 
-/**
- * Find a shared folder that the service account can use as a parent.
- * Service accounts have no storage quota, so all files must be created
- * inside a folder that was shared with the service account email.
- * 
- * Searches for folders shared with the service account, then shared drives.
- * If none found, returns undefined and the sync will fail early with a clear error.
- */
-async function getSharedParentFolderId(drive: drive_v3.Drive): Promise<string | undefined> {
-  try {
-    // Strategy 1: Look for folders shared with the service account
-    const sharedRes = await drive.files.list({
-      q: "mimeType='application/vnd.google-apps.folder' and sharedWithMe=true and trashed=false",
-      fields: 'files(id, name)',
-      pageSize: 10,
-      supportsAllDrives: true,
-      includeItemsFromAllDrives: true,
-    });
-
-    if (sharedRes.data.files?.length) {
-      const folder = sharedRes.data.files[0]!;
-      console.log(`Using shared folder as parent: "${folder.name}" (${folder.id})`);
-      return folder.id!;
-    }
-
-    // Strategy 2: Look for any accessible folder (shared drives, etc.)
-    const anyRes = await drive.files.list({
-      q: "mimeType='application/vnd.google-apps.folder' and trashed=false",
-      fields: 'files(id, name, driveId)',
-      pageSize: 10,
-      supportsAllDrives: true,
-      includeItemsFromAllDrives: true,
-    });
-
-    // Prefer folders from shared drives (they have driveId)
-    const sharedDriveFolder = anyRes.data.files?.find((f: any) => f.driveId);
-    if (sharedDriveFolder) {
-      console.log(`Using shared drive folder as parent: "${sharedDriveFolder.name}" (${sharedDriveFolder.id})`);
-      return sharedDriveFolder.id!;
-    }
-
-    console.error(
-      'ERROR: No shared folders found for the service account. ' +
-      'Service accounts have no storage quota and cannot create files in their own Drive. ' +
-      'To fix this: 1) Create a folder in Google Drive, 2) Share it with the service account email (Editor access). ' +
-      'The service account email can be found in the JSON key file under "client_email".',
-    );
-    return undefined;
-  } catch (err) {
-    console.warn('Failed to find shared parent folder:', (err as Error)?.message);
-    return undefined;
-  }
-}
-
 // ─── File Upload ───
 
 async function uploadFileFromS3(
@@ -228,7 +193,6 @@ async function uploadFileFromS3(
     requestBody: { name: fileName, parents: [folderId] },
     media: { mimeType, body: stream },
     fields: 'id, webViewLink',
-    supportsAllDrives: true,
   });
 
   return { fileId: res.data.id!, webViewLink: res.data.webViewLink! };
@@ -246,7 +210,6 @@ async function uploadBuffer(
     requestBody: { name: fileName, parents: [folderId] },
     media: { mimeType, body: stream },
     fields: 'id, webViewLink',
-    supportsAllDrives: true,
   });
   return { fileId: res.data.id!, webViewLink: res.data.webViewLink! };
 }
@@ -324,7 +287,7 @@ async function loadRFPDocumentsForOpportunity(
       ExpressionAttributeValues: {
         ':pk': RFP_DOCUMENT_PK,
         ':skPrefix': `${projectId}#${opportunityId}#`,
-        ':nullType': 'NULL'
+        ':nullType': 'NULL',
       },
     }),
   );
@@ -359,7 +322,7 @@ async function updateQuestionFileGoogleDrive(
         ':gdUrl': googleDriveUrl,
         ':gdFolderId': googleDriveFolderId,
         ':gdUploadedAt': now,
-        ':now': now
+        ':now': now,
       },
     }),
   );
@@ -383,11 +346,10 @@ async function updateBriefGoogleDrive(
   );
 }
 
-// ─── Executive Brief DOCX Export (client-side style) ───
+// ─── Executive Brief Text Export ───
 
 async function exportBriefAsBuffer(brief: any): Promise<Buffer | null> {
   try {
-    // Build a simple text representation of the brief for upload
     const parts: string[] = [];
     const sections = brief.sections as Record<string, any> | undefined;
     if (!sections) return null;
@@ -449,8 +411,9 @@ export interface GoogleDriveUploadResult {
 
 /**
  * Full Google Drive sync for an approved (GO) opportunity.
+ * Uses domain-wide delegation to impersonate a real user (delegate_email).
  *
- * Creates folder structure per ticket spec:
+ * Creates folder structure in the delegate user's Drive:
  *   [Linear-ID] - [Agency] - [Title]
  *     /Original Documents
  *     /Executive Brief
@@ -482,10 +445,14 @@ export async function syncToGoogleDrive(args: {
   const result: GoogleDriveUploadResult = { uploaded: 0, skipped: 0, errors: [], subfolders: {} };
 
   try {
-    // 1. Get Drive client
+    // 1. Get Drive client (uses domain-wide delegation)
     const drive = await getDriveClient(orgId);
     if (!drive) {
-      result.errors.push('Google Drive not configured for this organization');
+      result.errors.push(
+        'Google Drive not configured for this organization. ' +
+        'Ensure a service account JSON key with "delegate_email" is configured, ' +
+        'and domain-wide delegation is set up in admin.google.com.',
+      );
       return result;
     }
 
@@ -495,22 +462,10 @@ export async function syncToGoogleDrive(args: {
     const titlePart = (projectTitle || 'Opportunity').slice(0, 80);
     const rootFolderName = `${idPart} - ${agencyPart} - ${titlePart}`;
 
-    // 2b. Get the shared parent folder ID (service accounts have no storage quota,
-    // so files must be created inside a folder shared with the service account)
-    const sharedParentFolderId = await getSharedParentFolderId(drive);
+    console.log(`[GoogleDrive] Creating folder: "${rootFolderName}" in delegate user's Drive`);
 
-    if (!sharedParentFolderId) {
-      result.errors.push(
-        'No shared Google Drive folder found. Please share a folder with the service account email ' +
-        '(found in the JSON key under "client_email") with Editor access, then retry.',
-      );
-      return result;
-    }
-
-    console.log(`Creating Google Drive folder: "${rootFolderName}" under shared folder ${sharedParentFolderId}`);
-
-    // 3. Create root folder (duplicate prevention — findOrCreate)
-    const rootFolderId = await findOrCreateFolder(drive, rootFolderName, sharedParentFolderId);
+    // 3. Create root folder in the delegate user's Drive (duplicate prevention — findOrCreate)
+    const rootFolderId = await findOrCreateFolder(drive, rootFolderName);
     const rootFolderUrl = await getFolderUrl(drive, rootFolderId);
 
     result.folderId = rootFolderId;
@@ -534,13 +489,13 @@ export async function syncToGoogleDrive(args: {
     // 5. Share root folder with team members
     const emails = await getOrgMemberEmails(orgId);
     if (emails.length) {
-      console.log(`Sharing folder with ${emails.length} team members`);
+      console.log(`[GoogleDrive] Sharing folder with ${emails.length} team members`);
       await shareWithEmails(drive, rootFolderId, emails, 'writer');
     }
 
     // 6. Upload original solicitation files to /Original Documents
     const questionFiles = await loadQuestionFilesForOpportunity(projectId, opportunityId);
-    console.log(`Found ${questionFiles.length} question files to upload`);
+    console.log(`[GoogleDrive] Found ${questionFiles.length} question files to upload`);
     for (const file of questionFiles) {
       const rawFile = file as any;
       if (rawFile.googleDriveFileId) {
@@ -548,23 +503,23 @@ export async function syncToGoogleDrive(args: {
         continue;
       }
       if (!file.fileKey) {
-        console.warn(`Skipping question file ${file.questionFileId}: no fileKey`);
+        console.warn(`[GoogleDrive] Skipping question file ${file.questionFileId}: no fileKey`);
         continue;
       }
       const fileName = file.originalFileName || 'document';
       const fileMime = file.mimeType || 'application/octet-stream';
       const fileOppId = file.oppId || opportunityId;
       try {
-        console.log(`Uploading original doc: ${fileName} (key: ${file.fileKey}, mime: ${fileMime})`);
+        console.log(`[GoogleDrive] Uploading original doc: ${fileName} (key: ${file.fileKey}, mime: ${fileMime})`);
         const { fileId, webViewLink } = await uploadFileFromS3(
           drive, file.fileKey, fileName, fileMime, originalDocsFolderId,
         );
         await updateQuestionFileGoogleDrive(projectId, fileOppId, file.questionFileId, fileId, webViewLink, originalDocsFolderId);
         result.uploaded++;
-        console.log(`Uploaded original doc: ${fileName} → ${webViewLink}`);
+        console.log(`[GoogleDrive] Uploaded original doc: ${fileName} → ${webViewLink}`);
       } catch (err) {
         const errMsg = `Original doc "${fileName}": ${(err as Error)?.message}`;
-        console.error(errMsg);
+        console.error(`[GoogleDrive] ${errMsg}`);
         result.errors.push(errMsg);
       }
     }
@@ -576,7 +531,7 @@ export async function syncToGoogleDrive(args: {
         if (briefBuffer) {
           await uploadBuffer(drive, briefBuffer, 'Executive_Opportunity_Brief.txt', 'text/plain', execBriefFolderId);
           result.uploaded++;
-          console.log('Uploaded executive brief');
+          console.log('[GoogleDrive] Uploaded executive brief');
         }
       } catch (err) {
         result.errors.push(`Executive brief: ${(err as Error)?.message}`);
@@ -588,16 +543,14 @@ export async function syncToGoogleDrive(args: {
     for (const doc of rfpDocs) {
       try {
         if (doc.fileKey) {
-          // Upload from S3
           await uploadFileFromS3(drive, doc.fileKey, doc.name, doc.mimeType || 'application/octet-stream', proposalFolderId);
           result.uploaded++;
-          console.log(`Uploaded RFP doc: ${doc.name}`);
+          console.log(`[GoogleDrive] Uploaded RFP doc: ${doc.name}`);
         } else if (doc.content) {
-          // Upload structured content as JSON
           const contentBuffer = Buffer.from(JSON.stringify(doc.content, null, 2), 'utf-8');
           await uploadBuffer(drive, contentBuffer, `${doc.name}.json`, 'application/json', proposalFolderId);
           result.uploaded++;
-          console.log(`Uploaded RFP doc content: ${doc.name}`);
+          console.log(`[GoogleDrive] Uploaded RFP doc content: ${doc.name}`);
         }
       } catch (err) {
         result.errors.push(`RFP doc "${doc.name}": ${(err as Error)?.message}`);
@@ -609,7 +562,7 @@ export async function syncToGoogleDrive(args: {
       try {
         await updateBriefGoogleDrive(executiveBriefId, rootFolderId, rootFolderUrl);
       } catch (err) {
-        console.warn('Failed to update brief with Drive metadata:', (err as Error)?.message);
+        console.warn('[GoogleDrive] Failed to update brief with Drive metadata:', (err as Error)?.message);
       }
     }
 
@@ -631,17 +584,17 @@ export async function syncToGoogleDrive(args: {
         ].join('\n');
 
         await createLinearComment(orgId, linearTicketId, comment);
-        console.log('Posted Google Drive link to Linear issue');
+        console.log('[GoogleDrive] Posted Google Drive link to Linear issue');
       } catch (err) {
         result.errors.push(`Linear comment: ${(err as Error)?.message}`);
       }
     }
 
-    console.log(`Google Drive sync complete: ${result.uploaded} uploaded, ${result.skipped} skipped, ${result.errors.length} errors`);
+    console.log(`[GoogleDrive] Sync complete: ${result.uploaded} uploaded, ${result.skipped} skipped, ${result.errors.length} errors`);
     return result;
   } catch (err) {
     const msg = `Google Drive sync failed: ${(err as Error)?.message}`;
-    console.error(msg);
+    console.error(`[GoogleDrive] ${msg}`);
     result.errors.push(msg);
     return result;
   }
