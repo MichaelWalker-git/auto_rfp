@@ -14,7 +14,7 @@ export default async function OpportunityPage({ params }: Props) {
   const { orgId, projectId, oppId } = await params;
 
   return (
-    <div className="p-6">
+    <div className="container mx-auto p-12">
       <OpportunityView projectId={projectId} oppId={oppId}/>
     </div>
   );

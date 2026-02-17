@@ -1,6 +1,7 @@
 import { APIGatewayProxyEventV2, APIGatewayProxyResultV2, } from 'aws-lambda';
-import { apiResponse, getOrgId } from '../helpers/api';
+import { apiResponse, getOrgId, getUserId } from '../helpers/api';
 import { CreateKnowledgeBaseSchema, } from '@auto-rfp/shared';
+import { grantKBAccess } from '../helpers/user-kb';
 import { withSentryLambda } from '../sentry-lambda';
 import {
   authContextMiddleware,
@@ -38,6 +39,18 @@ export const baseHandler = async (
     }
 
     const created = await createKnowledgeBase(orgId, data);
+
+    // Auto-grant the creating user access to the new KB
+    const userId = getUserId(event);
+    if (userId && created.id) {
+      try {
+        await grantKBAccess(orgId, userId, created.id, 'admin', userId);
+        console.log(`Auto-granted KB access to creator ${userId} for KB ${created.id}`);
+      } catch (accessErr) {
+        // Log but don't fail the KB creation
+        console.warn('Failed to auto-grant KB access to creator:', (accessErr as Error)?.message);
+      }
+    }
 
     return apiResponse(201, created);
   } catch (err) {

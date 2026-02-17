@@ -86,8 +86,8 @@ export function QuestionsFilterTabs({ rfpDocument, orgId }: QuestionsFilterTabsP
         </TabsTrigger>
       </TabsList>
 
-      {/* Confidence Filter & Sort Controls */}
-      {counts.answered > 0 && (
+      {/* Confidence Filter & Sort Controls — only shown on "answered" tab */}
+      {activeTab === 'answered' && counts.answered > 0 && (
         <div className="flex items-center gap-2 mb-4 flex-wrap">
           <span className="text-xs text-muted-foreground font-medium">Confidence:</span>
           {confidenceBands.map((band) => (

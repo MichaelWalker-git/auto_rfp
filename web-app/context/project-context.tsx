@@ -1,16 +1,16 @@
 'use client';
 
 import { createContext, ReactNode, useContext, useEffect, useMemo, useState } from 'react';
-import { useRouter, usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { useCurrentOrganization } from '@/context/organization-context';
 import { useProjects } from '@/lib/hooks/use-api';
-import type { Project } from '@/types/project';
+import { ProjectItem } from '@auto-rfp/shared';
 
 interface ProjectContextType {
-  projects: Project[];
-  currentProject: Project | null;
+  projects: ProjectItem[];
+  currentProject: ProjectItem | null;
   loading: boolean;
-  setCurrentProject: (p: Project | null) => void;
+  setCurrentProject: (p: ProjectItem | null) => void;
   refreshProjects: () => Promise<void>;
 }
 
@@ -100,7 +100,7 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
     }
   }, [orgId, selectedProjectId, projects, router]);
 
-  const setCurrentProject = (p: Project | null) => {
+  const setCurrentProject = (p: ProjectItem | null) => {
     const nextId = p?.id ?? null;
     setSelectedProjectId(nextId);
     safeSetLocalStorage(storageKey(orgId), nextId);

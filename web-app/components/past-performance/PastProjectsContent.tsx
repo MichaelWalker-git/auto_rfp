@@ -205,7 +205,7 @@ export function PastProjectsContent({ orgId }: PastProjectsContentProps) {
   ].filter(Boolean).join(' • ');
 
   return (
-    <div className="mx-auto w-full max-w-6xl px-4 py-6">
+    <div className="container mx-auto p-12">
       <ListingPageLayout
         title="Past Performance"
         description={statsDescription || 'Manage your organization\'s past performance projects for RFP matching'}

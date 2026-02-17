@@ -4,6 +4,10 @@ import { withSentryLambda } from '../sentry-lambda';
 import { getRFPDocument } from '../helpers/rfp-document';
 import { enrichWithUserNames } from '../helpers/resolve-users';
 import { apiResponse, getOrgId } from '../helpers/api';
+import {
+  authContextMiddleware,
+  httpErrorMiddleware,
+} from '../middleware/rbac-middleware';
 
 export const baseHandler = async (
   event: APIGatewayProxyEventV2,
@@ -43,4 +47,8 @@ export const baseHandler = async (
   }
 };
 
-export const handler = withSentryLambda(middy(baseHandler));
+export const handler = withSentryLambda(
+  middy(baseHandler)
+    .use(authContextMiddleware())
+    .use(httpErrorMiddleware()),
+);

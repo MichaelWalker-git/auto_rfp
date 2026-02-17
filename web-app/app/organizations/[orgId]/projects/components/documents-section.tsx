@@ -36,6 +36,7 @@ import {
   Trash2,
 } from 'lucide-react';
 import { formatDateTime, getStatusChip, pickDisplayName } from '@/components/opportunities/opportunity-helpers';
+import { PageHeader } from '@/components/layout/page-header';
 
 interface Props {
   projectId?: string;
@@ -115,7 +116,7 @@ export function DocumentsSection({ projectId: propProjectId }: Props) {
 
   if (!projectId) {
     return (
-      <div className="mx-auto w-full max-w-6xl px-4 py-6">
+      <div className="container mx-auto p-12">
         <Card>
           <CardHeader>
             <CardTitle className="text-sm font-medium">Solicitation Documents</CardTitle>
@@ -133,7 +134,7 @@ export function DocumentsSection({ projectId: propProjectId }: Props) {
 
   if (!questionsLoading && !questionsError && !questions) {
     return (
-      <div className="mx-auto w-full max-w-6xl px-4 py-6">
+      <div className="container mx-auto p-12">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <div>
@@ -155,7 +156,7 @@ export function DocumentsSection({ projectId: propProjectId }: Props) {
   // Loading skeleton
   if (isLoading && rows.length === 0) {
     return (
-      <div className="mx-auto w-full max-w-6xl px-4 py-6">
+      <div className="container mx-auto p-12">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Solicitation Documents</CardTitle>
@@ -172,7 +173,13 @@ export function DocumentsSection({ projectId: propProjectId }: Props) {
   }
 
   return (
-    <div className="mx-auto w-full max-w-6xl px-4 py-6">
+    <div className="container mx-auto p-12">
+      <PageHeader
+        title="Solicitation Documents"
+        description={`${rows.length} ${rows.length === 1 ? 'document' : 'documents'} in this project`}
+        actions={<QuestionFileUploadDialog projectId={projectId} />}
+      />
+
       {downloadError && (
         <Alert variant="destructive" className="mb-4">
           <AlertCircle className="h-4 w-4" />
@@ -181,15 +188,6 @@ export function DocumentsSection({ projectId: propProjectId }: Props) {
       )}
 
       <Card className="overflow-hidden">
-        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <div>
-            <CardTitle className="text-sm font-medium">Solicitation Documents</CardTitle>
-            <CardDescription className="mt-1">
-              {rows.length} {rows.length === 1 ? 'document' : 'documents'} in this project
-            </CardDescription>
-          </div>
-          <QuestionFileUploadDialog projectId={projectId} />
-        </CardHeader>
 
         <CardContent className="space-y-3">
           {isError && (

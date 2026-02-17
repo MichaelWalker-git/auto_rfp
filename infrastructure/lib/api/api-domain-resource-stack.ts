@@ -74,6 +74,12 @@ export class ApiDomainRoutesStack extends cdk.NestedStack {
       // Create a unique function name for this route
       const functionId = `${domain.basePath}-${route.path}-handler`;
       
+      // Create log group with retention policy
+      const logGroup = new logs.LogGroup(this, `${functionId}-logs`, {
+        retention: logs.RetentionDays.ONE_MONTH,
+        removalPolicy: cdk.RemovalPolicy.DESTROY,
+      });
+
       // Create Lambda function for this route
       const lambdaFunction = new nodejs.NodejsFunction(this, functionId, {
         runtime: lambda.Runtime.NODEJS_24_X,
@@ -87,8 +93,7 @@ export class ApiDomainRoutesStack extends cdk.NestedStack {
           ...route.extraEnv,
           COGNITO_USER_POOL_ID: userPoolId,
         },
-        // Explicitly create log group with retention policy
-        logRetention: logs.RetentionDays.ONE_MONTH,
+        logGroup,
         bundling: {
           externalModules: [
             '@aws-sdk/*',

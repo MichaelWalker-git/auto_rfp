@@ -1,65 +1,25 @@
-"use client";
+'use client';
 
-import useSWR from "swr";
 import useSWRMutation from 'swr/mutation';
-import { env } from "@/lib/env";
-import { authFetcher } from '@/lib/auth/auth-fetcher';
+import { apiMutate, buildApiUrl, ApiError } from './api-helpers';
 
-export function useProject(projectId: string | null) {
-  const shouldFetch = !!projectId;
+// Re-export useProject from use-api for backward compatibility
+export { useProject } from './use-api';
 
-  const { data, error, isLoading, mutate } = useSWR<any>(
-    shouldFetch
-      ? `${env.BASE_API_URL}/projects/get/${projectId}`
-      : null,
-    authFetcher,
-    {
-      revalidateOnFocus: false,
-      dedupingInterval: 30000,
-    }
-  );
-
-  return {
-    data,
-    isLoading,
-    isError: !!error,
-    error,
-    refetch: () => mutate(),
-  };
-}
-
+/**
+ * Note: useProject() GET hook is defined in use-api.ts to avoid circular deps.
+ * This file contains project mutation hooks only.
+ */
 
 export function useDeleteProject() {
   return useSWRMutation<
-    void,
-    any,
+    unknown,
+    ApiError,
     string,
-    { projectId: string, orgId: string }
+    { projectId: string; orgId: string }
   >(
-    `${env.BASE_API_URL}/projects/delete`,
-    async (url, { arg: {orgId, projectId} }) => {
-      const res = await authFetcher(`${url}/${projectId}?orgId=${orgId}`, {
-        method: 'DELETE',
-      });
-
-      if (!res.ok) {
-        const message = await res.text().catch(() => '');
-        const error = new Error(message || 'Failed to delete project') as Error & {
-          status?: number;
-        };
-        (error as any).status = res.status;
-        throw error;
-      }
-
-      // some lambdas return empty body
-      const raw = await res.text().catch(() => '');
-      if (!raw) return { success: true };
-
-      try {
-        return JSON.parse(raw);
-      } catch {
-        return { success: true };
-      }
-    },
+    buildApiUrl('projects/delete'),
+    async (url, { arg: { orgId, projectId } }) =>
+      apiMutate(buildApiUrl(`projects/delete/${projectId}`, { orgId }), 'DELETE'),
   );
 }

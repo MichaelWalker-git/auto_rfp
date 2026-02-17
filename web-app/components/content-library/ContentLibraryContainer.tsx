@@ -8,7 +8,7 @@ export function ContentLibraryContainer({ orgId, kbId }: ContentLibraryProps) {
   return (
     <ContentLibraryProvider orgId={orgId} kbId={kbId}>
       <div className="w-full max-w-7xl mx-auto">
-        <div className="py-6 px-4 sm:px-6">
+        <div className="container mx-auto p-12">
           <ContentLibraryClient orgId={orgId} kbId={kbId} />
         </div>
       </div>

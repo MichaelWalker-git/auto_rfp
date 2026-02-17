@@ -1,6 +1,7 @@
 import {
   AdminCreateUserCommand,
   AdminDeleteUserCommand,
+  AdminGetUserCommand,
   AdminUpdateUserAttributesCommand,
   CognitoIdentityProviderClient,
 } from '@aws-sdk/client-cognito-identity-provider';
@@ -102,6 +103,30 @@ export async function adminDeleteUser(
       Username: input.username,
     }),
   );
+}
+
+/**
+ * Get an existing Cognito user's details (including sub).
+ * Returns null if user not found.
+ */
+export async function adminGetUser(
+  cognito: CognitoIdentityProviderClient,
+  input: { userPoolId: string; username: string },
+): Promise<{ username: string; sub: string; email?: string } | null> {
+  try {
+    const result = await cognito.send(
+      new AdminGetUserCommand({
+        UserPoolId: input.userPoolId,
+        Username: input.username,
+      }),
+    );
+    const sub = result.UserAttributes?.find(a => a.Name === 'sub')?.Value;
+    const email = result.UserAttributes?.find(a => a.Name === 'email')?.Value;
+    return { username: result.Username || input.username, sub: sub || input.username, email };
+  } catch (e: any) {
+    if (e?.name === 'UserNotFoundException') return null;
+    throw e;
+  }
 }
 
 export async function adminUpdateUserAttributes(

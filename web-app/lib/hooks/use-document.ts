@@ -1,147 +1,59 @@
 'use client';
 
-import useSWR from 'swr';
 import useSWRMutation from 'swr/mutation';
-import { env } from '@/lib/env';
+import { useApi, apiMutate, buildApiUrl, ApiError } from './api-helpers';
 import { CreateDocumentDTO, DeleteDocumentDTO, DocumentItem, UpdateDocumentDTO } from '@auto-rfp/shared';
-import { authFetcher } from '@/lib/auth/auth-fetcher';
 import { breadcrumbs } from '@/lib/sentry';
 
-
-const BASE = `${env.BASE_API_URL}/document`;
-
-const fetcher = async (url: string) => {
-  const res = await authFetcher(url);
-
-  if (!res.ok) {
-    const text = await res.text().catch(() => '');
-    const err: Error & { status?: number; details?: string } = new Error('Failed to fetch documents');
-    err.status = res.status;
-    err.details = text;
-    throw err;
-  }
-
-  return res.json();
-};
-
-export function useCreateDocument() {
-  return useSWRMutation(
-    `${BASE}/create-document`,
-    async (url, { arg }: { arg: CreateDocumentDTO }) => {
-      breadcrumbs.documentUploadStarted(arg.fileName, arg.kbId);
-
-      const res = await authFetcher(url, {
-        method: 'POST',
-        body: JSON.stringify(arg),
-      });
-
-      if (!res.ok) {
-        const message = await res.text().catch(() => '');
-        throw new Error(message || 'Failed to create document');
-      }
-
-      const doc = await res.json() as DocumentItem;
-      breadcrumbs.documentUploadCompleted(doc.id, doc.fileName);
-      return doc;
-    }
-  );
-}
-
-//
-// ================================
-// UPDATE Document
-// ================================
-//
-
-export function useUpdateDocument() {
-  return useSWRMutation(
-    `${BASE}/update-document`,
-    async (url, { arg }: { arg: UpdateDocumentDTO }) => {
-      const res = await authFetcher(url, {
-        method: 'PATCH',
-        body: JSON.stringify(arg),
-      });
-
-      if (!res.ok) {
-        const message = await res.text().catch(() => '');
-        throw new Error(message || 'Failed to update document');
-      }
-
-      return res.json() as Promise<DocumentItem>;
-    }
-  );
-}
-
-//
-// ================================
-// DELETE Document
-// ================================
-//
-
-export function useDeleteDocument() {
-  return useSWRMutation(
-    `${BASE}/delete-document`,
-    async (url, { arg }: { arg: DeleteDocumentDTO }) => {
-      const res = await authFetcher(url, {
-        method: 'DELETE',
-        body: JSON.stringify(arg),
-      });
-
-      if (!res.ok) {
-        const message = await res.text().catch(() => '');
-        throw new Error(message || 'Failed to delete document');
-      }
-
-      breadcrumbs.documentDeleted(arg.documentId);
-      return res.json();
-    }
-  );
-}
-
-//
-// ================================
-// LIST Documents for KB
-// ================================
-//
+// ─── GET Hooks ───
 
 export function useDocumentsByKb(knowledgeBaseId: string | null) {
-  const shouldFetch = !!knowledgeBaseId;
-
-  const { data, error, isLoading, mutate } = useSWR<DocumentItem[]>(
-    shouldFetch
-      ? `${BASE}/get-documents?kbId=${knowledgeBaseId}`
-      : null,
-    fetcher,
-    {
-      revalidateOnFocus: false,
-    }
+  return useApi<DocumentItem[]>(
+    knowledgeBaseId ? ['documents', knowledgeBaseId] : null,
+    knowledgeBaseId ? buildApiUrl('document/get-documents', { kbId: knowledgeBaseId }) : null,
   );
-
-  return { data, error, isLoading, mutate };
 }
-
-//
-// ================================
-// GET single Document
-// ================================
-//
 
 export function useDocument(docId: string | null, kbId: string | null) {
-  const shouldFetch = !!docId && !!kbId;
-
-  const { data, error, isLoading, mutate } = useSWR<DocumentItem>(
-    shouldFetch
-      ? `${BASE}/get-document?id=${docId}&kbId=${kbId}`
-      : null,
-    fetcher,
-    {
-      revalidateOnFocus: false,
-    }
+  return useApi<DocumentItem>(
+    docId && kbId ? ['document', kbId, docId] : null,
+    docId && kbId ? buildApiUrl('document/get-document', { id: docId, kbId }) : null,
   );
-
-  return { data, error, isLoading, mutate };
 }
 
+// ─── Mutation Hooks ───
+
+export function useCreateDocument() {
+  return useSWRMutation<DocumentItem, ApiError, string, CreateDocumentDTO>(
+    buildApiUrl('document/create-document'),
+    async (url, { arg }) => {
+      breadcrumbs.documentUploadStarted(arg.name, arg.knowledgeBaseId);
+      const doc = await apiMutate<DocumentItem>(url, 'POST', arg);
+      breadcrumbs.documentUploadCompleted(doc.id, doc.name);
+      return doc;
+    },
+  );
+}
+
+export function useUpdateDocument() {
+  return useSWRMutation<DocumentItem, ApiError, string, UpdateDocumentDTO>(
+    buildApiUrl('document/update-document'),
+    async (url, { arg }) => apiMutate<DocumentItem>(url, 'PATCH', arg),
+  );
+}
+
+export function useDeleteDocument() {
+  return useSWRMutation<unknown, ApiError, string, DeleteDocumentDTO>(
+    buildApiUrl('document/delete-document'),
+    async (url, { arg }) => {
+      const result = await apiMutate(url, 'DELETE', arg);
+      breadcrumbs.documentDeleted(arg.id);
+      return result;
+    },
+  );
+}
+
+// ─── Pipeline Hooks ───
 
 export interface IndexDocumentDTO {
   documentId: string;
@@ -154,30 +66,9 @@ export interface IndexDocumentResponse {
 }
 
 export function useIndexDocument() {
-  return useSWRMutation<
-    IndexDocumentResponse,
-    any,
-    string,
-    IndexDocumentDTO
-  >(
-    `${BASE}/index-document`,
-    async (url, { arg }) => {
-      const res = await authFetcher(url, {
-        method: 'POST',
-        body: JSON.stringify(arg),
-      });
-
-      if (!res.ok) {
-        const text = await res.text().catch(() => '');
-        const error: any = new Error(
-          text || 'Failed to index document',
-        );
-        error.status = res.status;
-        throw error;
-      }
-
-      return res.json() as Promise<IndexDocumentResponse>;
-    },
+  return useSWRMutation<IndexDocumentResponse, ApiError, string, IndexDocumentDTO>(
+    buildApiUrl('document/index-document'),
+    async (url, { arg }) => apiMutate<IndexDocumentResponse>(url, 'POST', arg),
   );
 }
 
@@ -193,28 +84,32 @@ export interface StartDocumentPipelineResponse {
   message?: string;
 }
 
+// ─── Download with Ownership Check ───
+
+export interface DownloadDocumentResponse {
+  url: string;
+  method: string;
+  fileName: string;
+  expiresIn: number;
+}
+
+export function useDownloadDocument() {
+  return useSWRMutation<DownloadDocumentResponse, ApiError, string, { documentId: string; kbId: string }>(
+    buildApiUrl('document/download'),
+    async (_url, { arg }) => {
+      const url = buildApiUrl('document/download', { id: arg.documentId, kbId: arg.kbId });
+      const { apiFetcher } = await import('./api-helpers');
+      return apiFetcher<DownloadDocumentResponse>(url);
+    },
+  );
+}
+
 export function useStartDocumentPipeline() {
-  return useSWRMutation<
-    StartDocumentPipelineResponse,
-    Error,
-    string,
-    StartDocumentPipelineDTO
-  >(
-    `${BASE}/start-document-pipeline`,
+  return useSWRMutation<StartDocumentPipelineResponse, ApiError, string, StartDocumentPipelineDTO>(
+    buildApiUrl('document/start-document-pipeline'),
     async (url, { arg }) => {
       breadcrumbs.documentProcessingStarted(arg.documentId);
-
-      const res = await authFetcher(url, {
-        method: 'POST',
-        body: JSON.stringify(arg),
-      });
-
-      if (!res.ok) {
-        const message = await res.text().catch(() => '');
-        throw new Error(message || 'Failed to start document pipeline');
-      }
-
-      return res.json() as Promise<StartDocumentPipelineResponse>;
+      return apiMutate<StartDocumentPipelineResponse>(url, 'POST', arg);
     },
   );
 }

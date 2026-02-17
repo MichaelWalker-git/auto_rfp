@@ -272,3 +272,51 @@ export const EditProfileDTOSchema = z.object({
   phone: phoneSchema,
 });
 export type EditProfileDTO = z.infer<typeof EditProfileDTOSchema>;
+
+/* ── API Response Types (for frontend hooks) ──────────── */
+
+export const CreateUserResponseSchema = z.object({
+  orgId: z.string(),
+  userId: z.string(),
+  email: z.string().email(),
+  firstName: z.string().optional(),
+  lastName: z.string().optional(),
+  displayName: z.string().optional(),
+  phone: z.string().optional(),
+  role: UserRoleSchema,
+  status: z.string(),
+  cognitoUsername: z.string().optional(),
+  createdAt: z.string(),
+  updatedAt: z.string(),
+});
+export type CreateUserResponse = z.infer<typeof CreateUserResponseSchema>;
+
+export const EditUserResponseSchema = z.object({
+  ok: z.boolean(),
+  orgId: z.string(),
+  userId: z.string(),
+  user: UserListItemSchema,
+  cognito: z.object({
+    username: z.string().nullable(),
+    updated: z.boolean(),
+  }).optional(),
+});
+export type EditUserResponse = z.infer<typeof EditUserResponseSchema>;
+
+export const DeleteUserInputSchema = z.object({
+  orgId: z.string().min(1),
+  userId: z.string().min(1),
+});
+export type DeleteUserInput = z.infer<typeof DeleteUserInputSchema>;
+
+export const DeleteUserResponseSchema = z.object({
+  ok: z.literal(true),
+  orgId: z.string(),
+  userId: z.string(),
+  deleted: z.object({
+    dynamo: z.boolean(),
+    cognito: z.boolean(),
+  }),
+  cognitoUsername: z.string().nullable(),
+});
+export type DeleteUserResponse = z.infer<typeof DeleteUserResponseSchema>;

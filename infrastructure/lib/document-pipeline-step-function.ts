@@ -441,6 +441,101 @@ export class DocumentPipelineStack extends Stack {
       }),
     );
 
+    // XLSX processing Lambda
+    const xlsxProcessingLambda = new nodejs.NodejsFunction(
+      this,
+      'XlsxProcessingLambda',
+      {
+        runtime: lambda.Runtime.NODEJS_24_X,
+        entry: path.join(__dirname, '../lambda/document-pipeline-steps/xlsx-processing.ts'),
+        handler: 'handler',
+        memorySize: 2048,
+        timeout: Duration.minutes(2),
+        functionName: `${namePrefix}-XlsxProcessing`,
+        environment: {
+          REGION: this.region,
+          DB_TABLE_NAME: documentsTable.tableName,
+          DOCUMENTS_BUCKET: documentsBucket.bucketName,
+          SENTRY_DSN: sentryDNS,
+          SENTRY_ENVIRONMENT: stage,
+          BEDROCK_EMBEDDING_MODEL_ID: 'amazon.titan-embed-text-v2:0',
+          PINECONE_API_KEY: pineconeApiKey,
+          PINECONE_INDEX: 'documents',
+        },
+        logGroup,
+      },
+    );
+    documentsTable.grantReadWriteData(xlsxProcessingLambda);
+    documentsBucket.grantReadWrite(xlsxProcessingLambda);
+
+    const xlsxProcessingTask = new tasks.LambdaInvoke(this, 'XLSX Processing (To Text)', {
+      lambdaFunction: xlsxProcessingLambda,
+      payload: sfn.TaskInput.fromObject({
+        orgId: sfn.JsonPath.stringAt('$.orgId'),
+        documentId: sfn.JsonPath.stringAt('$.documentId'),
+        knowledgeBaseId: sfn.JsonPath.stringAt('$.knowledgeBaseId'),
+        fileKey: sfn.JsonPath.stringAt('$.Start.fileKey'),
+        bucket: documentsBucket.bucketName,
+      }),
+      resultSelector: {
+        'orgId.$': '$.Payload.orgId',
+        'documentId.$': '$.Payload.documentId',
+        'knowledgeBaseId.$': '$.Payload.knowledgeBaseId',
+        'textFileKey.$': '$.Payload.textFileKey',
+      },
+      resultPath: '$.Text',
+    });
+
+    const chunkXlsxTask = new tasks.LambdaInvoke(this, 'Chunk Document (XLSX)', {
+      lambdaFunction: chunkDocumentLambda,
+      payload: sfn.TaskInput.fromObject({
+        orgId: sfn.JsonPath.stringAt('$.orgId'),
+        documentId: sfn.JsonPath.stringAt('$.documentId'),
+        knowledgeBaseId: sfn.JsonPath.stringAt('$.knowledgeBaseId'),
+        bucket: documentsBucket.bucketName,
+        txtKey: sfn.JsonPath.stringAt('$.Text.textFileKey'),
+      }),
+      resultSelector: {
+        'orgId.$': '$.Payload.orgId',
+        'documentId.$': '$.Payload.documentId',
+        'knowledgeBaseId.$': '$.Payload.knowledgeBaseId',
+        'bucket.$': '$.Payload.bucket',
+        'txtKey.$': '$.Payload.txtKey',
+        'chunksPrefix.$': '$.Payload.chunksPrefix',
+        'chunksCount.$': '$.Payload.chunksCount',
+        'items.$': '$.Payload.items',
+      },
+      resultPath: '$.Chunks',
+    });
+
+    const indexXlsxMap = new sfn.Map(this, 'Index Chunks (XLSX)', {
+      itemsPath: sfn.JsonPath.stringAt('$.Chunks.items'),
+      maxConcurrency: 3,
+      resultPath: sfn.JsonPath.DISCARD,
+      itemSelector: {
+        'chunkItem.$': '$$.Map.Item.Value',
+        'orgId.$': '$.orgId',
+        'documentId.$': '$.documentId',
+        'knowledgeBaseId.$': '$.knowledgeBaseId',
+        'totalChunks.$': '$.Chunks.chunksCount',
+      },
+    });
+
+    indexXlsxMap.iterator(
+      new tasks.LambdaInvoke(this, 'Index One Chunk (XLSX)', {
+        lambdaFunction: indexDocumentLambda,
+        payload: sfn.TaskInput.fromObject({
+          orgId: sfn.JsonPath.stringAt('$.orgId'),
+          documentId: sfn.JsonPath.stringAt('$.documentId'),
+          knowledgeBaseId: sfn.JsonPath.stringAt('$.knowledgeBaseId'),
+          chunkKey: sfn.JsonPath.stringAt('$.chunkItem.chunkKey'),
+          index: sfn.JsonPath.numberAt('$.chunkItem.index'),
+          totalChunks: sfn.JsonPath.numberAt('$.totalChunks'),
+        }),
+        resultPath: sfn.JsonPath.DISCARD,
+      }),
+    );
+
     const done = new sfn.Succeed(this, 'Pipeline Succeeded');
 
     const chooseFormat = new sfn.Choice(this, 'Choose File Format');
@@ -455,9 +550,15 @@ export class DocumentPipelineStack extends Stack {
       .next(indexDocxMap)
       .next(done);
 
+    const xlsxBranch = xlsxProcessingTask
+      .next(chunkXlsxTask)
+      .next(indexXlsxMap)
+      .next(done);
+
     const definition = startProcessingTask.next(
       chooseFormat
         .when(sfn.Condition.stringEquals('$.Start.format', 'PDF'), pdfBranch)
+        .when(sfn.Condition.stringEquals('$.Start.format', 'XLSX'), xlsxBranch)
         .when(sfn.Condition.stringEquals('$.Start.format', 'DOCX'), docxBranch)
         .otherwise(new sfn.Fail(this, 'Unsupported File Type')),
     );

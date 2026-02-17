@@ -33,11 +33,13 @@ export class DatabaseStack extends cdk.Stack {
       stream: dynamodb.StreamViewType.NEW_IMAGE,
     });
 
-    // Optional: basic indexes if you know you’ll need them
-    // this.organizationsTable.addGlobalSecondaryIndex({
-    //   indexName: 'byOwner',
-    //   partitionKey: { name: 'ownerUserId', type: dynamodb.AttributeType.STRING },
-    // });
+    // GSI: Look up all entities by userId (e.g., find all orgs a user belongs to)
+    this.tableName.addGlobalSecondaryIndex({
+      indexName: 'byUserId',
+      partitionKey: { name: 'userId', type: dynamodb.AttributeType.STRING },
+      sortKey: { name: 'partition_key', type: dynamodb.AttributeType.STRING },
+      projectionType: dynamodb.ProjectionType.ALL,
+    });
 
     // Outputs
     new cdk.CfnOutput(this, 'TableName', {

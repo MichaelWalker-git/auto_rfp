@@ -22,10 +22,8 @@ import { useToast } from '@/components/ui/use-toast';
 
 import { useCurrentOrganization } from '@/context/organization-context';
 import { useCreateOrganization } from '@/lib/hooks/use-create-organization';
-import { generateSlug } from '@/lib/utils';
 import { authFetcher } from '@/lib/auth/auth-fetcher';
 import { env } from '@/lib/env';
-import { useApi } from '@/lib/hooks/use-api';
 
 /**
  * Load icon presigned URL using the same approach as SettingsContent:
@@ -50,7 +48,6 @@ function useOrgIcon(orgId: string | undefined | null): string | null {
 
     (async () => {
       try {
-        // Step 1: Get org details to find iconKey
         const orgRes = await authFetcher(
           `${env.BASE_API_URL}/organization/get-organization/${encodeURIComponent(orgId)}`,
         );
@@ -59,7 +56,6 @@ function useOrgIcon(orgId: string | undefined | null): string | null {
         const iconKey = orgData?.iconKey;
         if (!iconKey || cancelled) return;
 
-        // Step 2: Get presigned download URL (same as settings page)
         const presignRes = await authFetcher(`${env.BASE_API_URL}/presigned/presigned-url`, {
           method: 'POST',
           body: JSON.stringify({ operation: 'download', key: iconKey }),
@@ -96,7 +92,6 @@ export function OrganizationSwitcher() {
 
   const label = currentOrganization?.name ?? (loading ? 'Loading…' : 'Select organization');
 
-  // Load current org icon using the same method as settings page
   const currentIconUrl = useOrgIcon(currentOrganization?.id);
 
   const [createOpen, setCreateOpen] = React.useState(false);
@@ -104,7 +99,6 @@ export function OrganizationSwitcher() {
 
   const [orgForm, setOrgForm] = React.useState({
     name: '',
-    slug: '',
     description: '',
   });
 
@@ -112,14 +106,9 @@ export function OrganizationSwitcher() {
 
   const handleCreate = async () => {
     const name = orgForm.name.trim();
-    const slug = orgForm.slug.trim();
 
     if (!name) {
       toast({ title: 'Error', description: 'Organization name is required', variant: 'destructive' });
-      return;
-    }
-    if (!slug) {
-      toast({ title: 'Error', description: 'Slug is required', variant: 'destructive' });
       return;
     }
 
@@ -128,8 +117,7 @@ export function OrganizationSwitcher() {
 
       const res = await createOrganization({
         name,
-        slug,
-        description: orgForm.description?.trim() || '',
+        description: orgForm.description?.trim() || undefined,
       });
 
       const newOrgId = res?.id;
@@ -141,13 +129,13 @@ export function OrganizationSwitcher() {
 
       const fresh = organizations.find((o) => o.id === newOrgId);
       setCurrentOrganization(
-        (fresh ?? { id: newOrgId, name, slug, description: orgForm.description }) as any,
+        (fresh ?? { id: newOrgId, name, description: orgForm.description }) as any,
       );
 
       toast({ title: 'Success', description: 'Organization created' });
 
       setCreateOpen(false);
-      setOrgForm({ name: '', slug: '', description: '' });
+      setOrgForm({ name: '', description: '' });
     } catch (e) {
       console.error(e);
       toast({
@@ -242,31 +230,10 @@ export function OrganizationSwitcher() {
               <Input
                 id="org-name"
                 value={orgForm.name}
-                onChange={(e) => {
-                  const name = e.target.value;
-                  setOrgForm((prev) => ({
-                    ...prev,
-                    name,
-                    slug: prev.slug ? prev.slug : generateSlug(name),
-                  }));
-                }}
+                onChange={(e) => setOrgForm((prev) => ({ ...prev, name: e.target.value }))}
                 placeholder="My Organization"
                 disabled={isCreating}
               />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="org-slug">Slug</Label>
-              <Input
-                id="org-slug"
-                value={orgForm.slug}
-                onChange={(e) => setOrgForm((prev) => ({ ...prev, slug: e.target.value }))}
-                placeholder="my-organization"
-                disabled={isCreating}
-              />
-              <p className="text-xs text-muted-foreground">
-                Used in URLs. Lowercase letters, numbers, hyphens.
-              </p>
             </div>
 
             <div className="space-y-2">

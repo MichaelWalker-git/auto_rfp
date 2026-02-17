@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
+import { mutate as globalMutate } from 'swr';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -10,6 +11,7 @@ import { Loader2 } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
 import type { Organization } from '@/app/organizations/page';
 import { authFetcher } from '@/lib/auth/auth-fetcher';
+import { env } from '@/lib/env';
 
 interface CreateEditOrganizationDialogProps {
   isOpen: boolean;
@@ -95,7 +97,7 @@ export function CreateEditOrganizationDialog({
 
     try {
       setInternalIsLoading(true);
-      const response = await authFetcher(`/organization/edit-organization/${currentOrg.id}`, {
+      const response = await authFetcher(`${env.BASE_API_URL}/organization/edit-organization/${currentOrg.id}`, {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
@@ -106,6 +108,13 @@ export function CreateEditOrganizationDialog({
       const data = await response.json();
 
       if (response.ok) {
+        // Force revalidate the global organizations list used by OrganizationContext
+        await globalMutate(
+          (key: unknown) => Array.isArray(key) && key[0] === 'organization/organizations',
+          undefined,
+          { revalidate: true },
+        );
+
         toast({
           title: 'Success',
           description: 'Organization updated successfully',

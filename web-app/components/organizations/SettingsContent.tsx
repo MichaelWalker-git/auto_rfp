@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { mutate as globalMutate } from 'swr';
 import { useOrganization } from '@/lib/hooks/use-api';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -8,11 +9,12 @@ import { Label } from '@/components/ui/label';
 import { useToast } from '@/components/ui/use-toast';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
-import { AlertCircle, Building2, Loader2, Trash2, Upload } from 'lucide-react';
+import { AlertCircle, ArrowRight, Building2, Loader2, Settings2, Trash2, Upload } from 'lucide-react';
+import Link from 'next/link';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { PageHeader } from '@/components/layout/page-header';
 import PermissionWrapper from '@/components/permission-wrapper';
 import { SavedSearchList } from '@/components/organizations/SavedSearchList';
-import { PromptsManager } from '@/components/organizations/PromptManager';
 import { DocxTemplateUpload } from '@/components/organizations/DocxTemplateUpload';
 import { SamGovApiKeyConfiguration } from '@/components/api-key/SamGovApiKeyConfiguration';
 import { LinearApiKeyConfiguration } from '@/components/api-key/LinearApiKeyConfiguration';
@@ -202,8 +204,17 @@ export function SettingsContent({ orgId }: SettingsContentProps) {
       const updatedOrg = await response.json();
       setOrganization(updatedOrg);
 
-      // Refresh SWR cache
+      // Refresh local org SWR cache
       await mutate();
+
+      // Force revalidate the global organizations list used by OrganizationContext
+      // (sidebar, header, org switcher). The SWR key is an array ['organization/organizations']
+      // and has dedupingInterval: 60s, so we must force revalidation.
+      await globalMutate(
+        (key: unknown) => Array.isArray(key) && key[0] === 'organization/organizations',
+        undefined,
+        { revalidate: true },
+      );
 
       toast({
         title: 'Success',
@@ -228,23 +239,20 @@ export function SettingsContent({ orgId }: SettingsContentProps) {
 
   if (isLoading) {
     return (
-      <div className="w-full max-w-7xl mx-auto">
-        <div className="py-6 px-4 sm:px-6">
-          <div className="animate-pulse space-y-4">
-            <div className="h-8 w-64 bg-muted rounded"></div>
-            <div className="h-32 bg-muted rounded"></div>
-            <div className="h-64 bg-muted rounded"></div>
-          </div>
+      <div className="container mx-auto p-12">
+        <div className="animate-pulse space-y-4">
+          <div className="h-8 w-64 bg-muted rounded"></div>
+          <div className="h-32 bg-muted rounded"></div>
+          <div className="h-64 bg-muted rounded"></div>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="w-full max-w-7xl mx-auto">
-      <div className="py-6 px-4 sm:px-6">
-        <div className="flex flex-col gap-6">
-          <h1 className="text-2xl font-semibold">Organization Settings</h1>
+    <div className="container mx-auto p-12">
+      <div className="flex flex-col gap-6">
+        <PageHeader title="Organization Settings" description="Manage your organization configuration and integrations" />
 
           <SavedSearchList orgId={orgId}/>
 
@@ -254,7 +262,23 @@ export function SettingsContent({ orgId }: SettingsContentProps) {
 
           <LinearApiKeyConfiguration orgId={orgId} />
 
-          <PromptsManager />
+          {/* Prompts Management Link */}
+          <Card className="hover:border-primary/50 transition-colors">
+            <Link href={`/organizations/${orgId}/settings/prompts`}>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0">
+                <div className="space-y-1">
+                  <CardTitle className="flex items-center gap-2">
+                    <Settings2 className="h-5 w-5" />
+                    Prompts
+                  </CardTitle>
+                  <CardDescription>
+                    Manage system and user prompts for AI-powered features
+                  </CardDescription>
+                </div>
+                <ArrowRight className="h-5 w-5 text-muted-foreground" />
+              </CardHeader>
+            </Link>
+          </Card>
 
           {/* DOCX Template Upload Section */}
           <DocxTemplateUpload orgId={orgId} />
@@ -400,7 +424,6 @@ export function SettingsContent({ orgId }: SettingsContentProps) {
                 </CardFooter>
               </PermissionWrapper>
             </Card>
-          </div>
         </div>
       </div>
     </div>

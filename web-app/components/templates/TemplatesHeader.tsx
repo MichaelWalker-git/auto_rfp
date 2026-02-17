@@ -1,8 +1,9 @@
 'use client';
 
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Plus, Search } from 'lucide-react';
+import { Plus } from 'lucide-react';
+import { PageHeader } from '@/components/layout/page-header';
+import { PageSearch } from '@/components/layout/page-search';
 
 interface TemplatesHeaderProps {
   total: number;
@@ -18,28 +19,23 @@ export function TemplatesHeader({
   onCreateClick,
 }: TemplatesHeaderProps) {
   return (
-    <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight">Templates</h1>
-        <p className="text-muted-foreground text-sm">
-          {total} template{total !== 1 ? 's' : ''} available
-        </p>
-      </div>
-      <div className="flex items-center gap-3">
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder="Search templates..."
+    <PageHeader
+      title="Templates"
+      description={`${total} template${total !== 1 ? 's' : ''} available`}
+      actions={
+        <>
+          <PageSearch
             value={searchQuery}
-            onChange={(e) => onSearchChange(e.target.value)}
-            className="pl-9 w-64"
+            onChange={onSearchChange}
+            placeholder="Search templates..."
+            widthClass="w-64"
           />
-        </div>
-        <Button onClick={onCreateClick}>
-          <Plus className="h-4 w-4 mr-2" />
-          New Template
-        </Button>
-      </div>
-    </div>
+          <Button onClick={onCreateClick}>
+            <Plus className="h-4 w-4 mr-2" />
+            New Template
+          </Button>
+        </>
+      }
+    />
   );
 }

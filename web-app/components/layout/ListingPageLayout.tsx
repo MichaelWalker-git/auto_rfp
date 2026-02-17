@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { RotateCw } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
+import { PageHeader } from '@/components/layout/page-header';
 
 // ─── Types ───
 
@@ -63,29 +64,27 @@ function ListHeader({
   isReloading: boolean;
 }) {
   return (
-    <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
-      <div className="flex-1 min-w-0">
-        <h1 className="text-2xl font-semibold tracking-tight">{title}</h1>
-        {description && (
-          <p className="text-sm text-muted-foreground mt-1">{description}</p>
-        )}
-      </div>
-      <div className="flex gap-2 items-center shrink-0">
-        {headerActions}
-        {onReload && (
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={onReload}
-            disabled={isReloading}
-            title="Reload data"
-            className="h-8 w-8 p-0"
-          >
-            <RotateCw className={cn('h-4 w-4', isReloading && 'animate-spin')} />
-          </Button>
-        )}
-      </div>
-    </div>
+    <PageHeader
+      title={title}
+      description={description}
+      actions={
+        <>
+          {headerActions}
+          {onReload && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={onReload}
+              disabled={isReloading}
+              title="Reload data"
+              className="h-8 w-8 p-0"
+            >
+              <RotateCw className={cn('h-4 w-4', isReloading && 'animate-spin')} />
+            </Button>
+          )}
+        </>
+      }
+    />
   );
 }
 

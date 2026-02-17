@@ -1,7 +1,7 @@
-import useSWR from 'swr';
+'use client';
+
 import useSWRMutation from 'swr/mutation';
-import { authFetcher } from '@/lib/auth/auth-fetcher';
-import { env } from '@/lib/env';
+import { useApi, apiMutate, buildApiUrl, ApiError } from './api-helpers';
 
 interface GetApiKeyResponse {
   apiKey: string;
@@ -25,48 +25,30 @@ interface ValidateApiKeyResponse {
 }
 
 export function useGetLinearApiKey(orgId?: string) {
-  const baseUrl = `${env.BASE_API_URL.replace(/\/$/, '')}/linear/get-api-key`;
-  const url = orgId ? `${baseUrl}?orgId=${orgId}` : baseUrl;
-
-  const { data, error, isLoading, mutate } = useSWR<GetApiKeyResponse>(
+  const { data, isLoading, isError, error, mutate } = useApi<GetApiKeyResponse>(
     orgId ? ['linear/api-key', orgId] : null,
-    () => authFetcher(url).then(res => res.json()),
-    {
-      revalidateOnFocus: false,
-      shouldRetryOnError: false,
-    }
+    orgId ? buildApiUrl('linear/get-api-key', { orgId }) : null,
+    { shouldRetryOnError: false },
   );
 
   return {
     apiKey: data?.apiKey,
     isLoading,
-    isError: !!error,
+    isError,
     error,
     mutate,
   };
 }
 
 export function useSetLinearApiKey(orgId?: string) {
-  const baseUrl = `${env.BASE_API_URL}/linear/save-api-key`;
-  const url = orgId ? `${baseUrl}?orgId=${orgId}` : baseUrl;
+  const url = buildApiUrl('linear/save-api-key', { orgId });
 
-  const { trigger, isMutating, error, data } = useSWRMutation<SetApiKeyResponse, any, string, string>(
-    url,
-    async (url: string, { arg: apiKey }: { arg: string }) => {
-      const response = await authFetcher(url, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ apiKey }),
-      });
-
-      if (!response.ok) {
-        const error = await response.json().catch(() => ({ message: 'Failed to save API key' }));
-        throw new Error(error.message || 'Failed to save API key');
-      }
-
-      return response.json();
-    }
-  );
+  const { trigger, isMutating, error, data } = useSWRMutation<
+    SetApiKeyResponse,
+    ApiError,
+    string,
+    string
+  >(url, async (url, { arg: apiKey }) => apiMutate<SetApiKeyResponse>(url, 'POST', { apiKey }));
 
   return {
     setApiKey: trigger,
@@ -78,20 +60,14 @@ export function useSetLinearApiKey(orgId?: string) {
 }
 
 export function useValidateLinearApiKey() {
-  const url = `${env.BASE_API_URL}/linear/validate-api-key`;
+  const url = buildApiUrl('linear/validate-api-key');
 
-  const { trigger, isMutating, error, data } = useSWRMutation<ValidateApiKeyResponse, any, string, string>(
-    url,
-    async (url: string, { arg: apiKey }: { arg: string }) => {
-      const response = await authFetcher(url, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ apiKey }),
-      });
-
-      return response.json();
-    }
-  );
+  const { trigger, isMutating, error, data } = useSWRMutation<
+    ValidateApiKeyResponse,
+    ApiError,
+    string,
+    string
+  >(url, async (url, { arg: apiKey }) => apiMutate<ValidateApiKeyResponse>(url, 'POST', { apiKey }));
 
   return {
     validateApiKey: trigger,

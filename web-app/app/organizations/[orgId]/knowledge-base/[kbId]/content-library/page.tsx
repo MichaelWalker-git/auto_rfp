@@ -8,7 +8,7 @@ export default async function ContentLibraryPage({ params }: ContentLibraryPageP
   const { orgId, kbId } = await params;
 
   return (
-    <div className="container mx-auto p-6">
+    <div className="container mx-auto p-12">
       <ContentLibraryContainer orgId={orgId} kbId={kbId}/>
     </div>
   );

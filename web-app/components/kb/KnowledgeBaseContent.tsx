@@ -325,16 +325,21 @@ export function KnowledgeBaseContent({}: KnowledgeBaseContentProps) {
       </div>
 
       {knowledgeBases?.length === 0 ? (
-        <div className="border rounded-lg p-8 text-center">
-          <BookOpen className="mx-auto h-12 w-12 text-gray-400 mb-4" />
-          <h3 className="text-lg font-medium mb-2">No knowledge bases yet</h3>
-          <p className="text-gray-600 mb-4">
-            Create your first knowledge base to start building your question and answer library
+        <div className="flex flex-col items-center justify-center rounded-xl border-2 border-dashed border-muted-foreground/25 bg-muted/10 px-12 py-20 mx-4 my-8">
+          <div className="rounded-full bg-muted p-4 mb-6">
+            <BookOpen className="h-10 w-10 text-muted-foreground" />
+          </div>
+          <h3 className="text-xl font-semibold mb-2">No knowledge bases yet</h3>
+          <p className="text-muted-foreground text-center max-w-md mb-6">
+            Knowledge bases help you organize pre-built questions and answers for common RFP responses.
+            Create your first one to get started.
           </p>
-          <Button onClick={() => setIsCreateKBOpen(true)}>
-            <Plus className="mr-2 h-4 w-4" />
-            Create Knowledge Base
-          </Button>
+          <PermissionWrapper requiredPermission="kb:create">
+            <Button size="lg" onClick={() => setIsCreateKBOpen(true)}>
+              <Plus className="mr-2 h-5 w-5" />
+              Create Your First Knowledge Base
+            </Button>
+          </PermissionWrapper>
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">

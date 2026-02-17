@@ -2,9 +2,10 @@ import { APIGatewayProxyEventV2, APIGatewayProxyResultV2 } from 'aws-lambda';
 import { QueryCommand } from '@aws-sdk/lib-dynamodb';
 import { ORG_PK, PROJECT_PK } from '../constants/organization';
 import { PK_NAME, SK_NAME } from '../constants/common';
-import { apiResponse, getOrgId } from '../helpers/api';
+import { apiResponse, getUserId } from '../helpers/api';
 import { withSentryLambda } from '../sentry-lambda';
 import { USER_PK } from '../constants/user';
+import { getAccessibleOrgIds } from '../helpers/organization';
 import {
   authContextMiddleware,
   httpErrorMiddleware,
@@ -22,11 +23,28 @@ export const baseHandler = async (
   event: APIGatewayProxyEventV2,
 ): Promise<APIGatewayProxyResultV2> => {
   try {
-    const orgId = getOrgId(event);
+    const userId = getUserId(event);
     const list = await listOrganizations();
-    const filteredList = orgId
-      ? list.filter((o) => String(o[SK_NAME]).startsWith(`ORG#${orgId}`))
-      : list;
+
+    let filteredList = list;
+
+    // Filter to only orgs the authenticated user belongs to
+    if (userId) {
+      try {
+        const accessibleOrgIds = await getAccessibleOrgIds(userId);
+        if (accessibleOrgIds.length > 0) {
+          const accessSet = new Set(accessibleOrgIds);
+          filteredList = list.filter((o) => {
+            const id = orgSortKeyToId(String(o[SK_NAME]));
+            return accessSet.has(id);
+          });
+        }
+        // If no memberships found, return all orgs (super-admin / first-time setup)
+      } catch (err) {
+        console.warn('Failed to filter orgs by user membership:', (err as Error)?.message);
+        // On error, return all orgs rather than nothing
+      }
+    }
 
     const result = await Promise.all(
       filteredList.map((org) => enrichOrganizationWithCounts(org)),

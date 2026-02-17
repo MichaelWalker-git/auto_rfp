@@ -1,47 +1,33 @@
 'use client';
 
-import useSWR from 'swr';
 import useSWRMutation from 'swr/mutation';
-import { env } from '@/lib/env';
-import { authFetcher } from '@/lib/auth/auth-fetcher';
+import { useApi, apiMutate, buildApiUrl, ApiError } from './api-helpers';
 import { breadcrumbs } from '@/lib/sentry';
 import { KnowledgeBase, KnowledgeBaseItem } from '@auto-rfp/shared';
 
-export interface DeleteKnowledgeBaseDTO {
-  id: string;
+// ─── GET Hooks ───
+
+export function useKnowledgeBases(orgId: string | null) {
+  return useApi<KnowledgeBase[]>(
+    orgId ? ['knowledgebases', orgId] : null,
+    orgId ? buildApiUrl('knowledgebase/get-knowledgebases', { orgId }) : null,
+  );
 }
 
-const BASE = `${env.BASE_API_URL}/knowledgebase`;
+export function useKnowledgeBase(kbId: string | null, orgId: string | null) {
+  return useApi<KnowledgeBase>(
+    kbId && orgId ? ['knowledgebase', orgId, kbId] : null,
+    kbId && orgId ? buildApiUrl('knowledgebase/get-knowledgebase', { orgId, kbId }) : null,
+  );
+}
 
-const fetcher = async (url: string) => {
-  const res = await authFetcher(url);
-
-  if (!res.ok) {
-    const text = await res.text().catch(() => '');
-    const err: any = new Error('Failed request');
-    err.status = res.status;
-    err.details = text;
-    throw err;
-  }
-
-  return res.json();
-};
+// ─── Mutation Hooks ───
 
 export function useCreateKnowledgeBase(orgId: string) {
-  return useSWRMutation(
-    `${BASE}/create-knowledgebase?orgId=${orgId}`,
-    async (url, { arg }: { arg: Partial<KnowledgeBase> }) => {
-      const res = await authFetcher(url, {
-        method: 'POST',
-        body: JSON.stringify(arg),
-      });
-
-      if (!res.ok) {
-        const message = await res.text();
-        throw new Error(message || 'Failed to create knowledge base');
-      }
-
-      const kb = await res.json() as KnowledgeBase;
+  return useSWRMutation<KnowledgeBase, ApiError, string, Partial<KnowledgeBase>>(
+    buildApiUrl('knowledgebase/create-knowledgebase', { orgId }),
+    async (url, { arg }) => {
+      const kb = await apiMutate<KnowledgeBase>(url, 'POST', arg);
       breadcrumbs.knowledgeBaseCreated(kb.id, kb.name);
       return kb;
     },
@@ -49,88 +35,22 @@ export function useCreateKnowledgeBase(orgId: string) {
 }
 
 export function useDeleteKnowledgeBase() {
-  return useSWRMutation(
-    `${BASE}/delete-knowledgebase`,
-    async (url, { arg }: { arg: KnowledgeBase }) => {
-      const res = await authFetcher(url, {
-        method: 'DELETE',
-        body: JSON.stringify(arg),
-      });
-
-      if (!res.ok) {
-        const message = await res.text();
-        throw new Error(message || 'Failed to delete knowledge base');
-      }
-
+  return useSWRMutation<unknown, ApiError, string, KnowledgeBase>(
+    buildApiUrl('knowledgebase/delete-knowledgebase'),
+    async (url, { arg }) => {
+      const result = await apiMutate(url, 'DELETE', arg);
       breadcrumbs.knowledgeBaseDeleted(arg.id);
-      return res.json();
+      return result;
     },
   );
 }
 
 export function useEditKnowledgeBase() {
-  return useSWRMutation(
-    `${BASE}/edit-knowledgebase`,
-    async (url, { arg }: { arg: KnowledgeBaseItem & { kbId: string, orgId: string } }) => {
-      const res = await authFetcher(`${url}?orgId=${arg.orgId}&kbId=${arg.kbId}`, {
-        method: 'PATCH',
-        body: JSON.stringify(arg),
-      });
-
-      if (!res.ok) {
-        const message = await res.text();
-        throw new Error(message || 'Failed to edit knowledge base');
-      }
-
-      return res.json() as Promise<KnowledgeBase>;
+  return useSWRMutation<KnowledgeBase, ApiError, string, KnowledgeBaseItem & { kbId: string; orgId: string }>(
+    buildApiUrl('knowledgebase/edit-knowledgebase'),
+    async (_url, { arg }) => {
+      const url = buildApiUrl('knowledgebase/edit-knowledgebase', { orgId: arg.orgId, kbId: arg.kbId });
+      return apiMutate<KnowledgeBase>(url, 'PATCH', arg);
     },
   );
 }
-
-export function useKnowledgeBases(orgId: string | null) {
-  const shouldFetch = !!orgId;
-
-  const { data, error, isLoading, mutate } = useSWR<KnowledgeBase[]>(
-    shouldFetch ? `${BASE}/get-knowledgebases?orgId=${orgId}` : null,
-    fetcher,
-    {
-      revalidateOnFocus: false,
-    },
-  );
-
-  return {
-    data,
-    error,
-    isLoading,
-    mutate,
-  };
-}
-
-//
-// ================================
-// GET single KnowledgeBase
-// (GET /knowledgebase/get-knowledgebase)
-// ================================
-//
-
-export function useKnowledgeBase(kbId: string | null, orgId: string | null) {
-  const shouldFetch = !!kbId && !!orgId;
-
-  const { data, error, isLoading, mutate } = useSWR<KnowledgeBase>(
-    shouldFetch
-      ? `${BASE}/get-knowledgebase?orgId=${orgId}&kbId=${kbId}`
-      : null,
-    fetcher,
-    {
-      revalidateOnFocus: false,
-    },
-  );
-
-  return {
-    data,
-    error,
-    isLoading,
-    mutate,
-  };
-}
-

@@ -1,28 +1,14 @@
-import { authFetcher } from '@/lib/auth/auth-fetcher';
-import { env } from '@/lib/env';
+'use client';
 
-export interface DeleteOrganizationResponse {
-  success: boolean;
-  message: string;
-  id: string;
-}
+import { apiMutate, buildApiUrl } from './api-helpers';
+import { DeleteOrganizationResponse } from '@auto-rfp/shared';
 
 export function useDeleteOrganization() {
   const deleteOrganization = async (orgId: string): Promise<DeleteOrganizationResponse> => {
-    const url = `${env.BASE_API_URL}/organization/delete-organization`;
-    
-    const res = await authFetcher(`${url}/${encodeURIComponent(orgId)}`, {
-      method: 'DELETE',
-    });
-
-    if (!res.ok) {
-      const body = await res.text().catch(() => '');
-      throw new Error(
-        `Failed to delete organization. Status: ${res.status}. Body: ${body}`,
-      );
-    }
-
-    return (await res.json()) as DeleteOrganizationResponse;
+    return apiMutate<DeleteOrganizationResponse>(
+      buildApiUrl(`organization/delete-organization/${encodeURIComponent(orgId)}`),
+      'DELETE',
+    );
   };
 
   return { deleteOrganization };

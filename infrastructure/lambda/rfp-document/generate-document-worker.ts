@@ -22,7 +22,7 @@ import { ProposalDocumentSchema } from '@auto-rfp/shared';
 
 const DB_TABLE_NAME = requireEnv('DB_TABLE_NAME');
 const BEDROCK_MODEL_ID = requireEnv('BEDROCK_MODEL_ID');
-const MAX_TOKENS = Number(requireEnv('BEDROCK_MAX_TOKENS', '4000'));
+const MAX_TOKENS = Number(requireEnv('BEDROCK_MAX_TOKENS', '40000'));
 const TEMPERATURE = Number(requireEnv('BEDROCK_TEMPERATURE', '0.1'));
 const MAX_SOLICITATION_CHARS = Number(requireEnv('PROPOSAL_MAX_SOLICITATION_CHARS', '80000'));
 

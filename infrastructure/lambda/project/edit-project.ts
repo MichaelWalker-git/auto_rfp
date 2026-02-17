@@ -3,7 +3,7 @@ import { UpdateCommand, } from '@aws-sdk/lib-dynamodb';
 
 import { PK_NAME, SK_NAME } from '../constants/common';
 import { PROJECT_PK } from '../constants/organization';
-import { apiResponse } from '../helpers/api';
+import { apiResponse, getOrgId } from '../helpers/api';
 import { withSentryLambda } from '../sentry-lambda';
 import {
   authContextMiddleware,
@@ -22,11 +22,12 @@ export const baseHandler = async (
   event: APIGatewayProxyEventV2,
 ): Promise<APIGatewayProxyResultV2> => {
   try {
-    const { orgId, projectId } = event.queryStringParameters || {};
+    const projectId = event.pathParameters?.projectId ?? event.queryStringParameters?.projectId;
+    const orgId = event.queryStringParameters?.orgId ?? getOrgId(event);
 
     if (!orgId || !projectId) {
       return apiResponse(400, {
-        message: 'Missing required query parameters: orgId and projectId',
+        message: 'Missing required parameters: orgId and projectId',
       });
     }
 

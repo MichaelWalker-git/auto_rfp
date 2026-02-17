@@ -34,6 +34,7 @@ import { useApi } from '@/lib/hooks/use-api';
 import { env } from '@/lib/env';
 import { useOpportunitiesList } from '@/lib/hooks/use-opportunities';
 import { useCurrentOrganization } from '@/context/organization-context';
+import { ProjectKBSettings } from '@/components/projects/ProjectKBSettings';
 
 interface ProjectOverviewProps {
   projectId: string;
@@ -432,6 +433,11 @@ export function ProjectOverview({ projectId }: ProjectOverviewProps) {
           </CardContent>
         </Card>
       </div>
+
+      {/* Knowledge Base Assignment */}
+      {orgId && (
+        <ProjectKBSettings projectId={projectId} orgId={orgId} />
+      )}
 
       {/* Quick Actions */}
       <Card>

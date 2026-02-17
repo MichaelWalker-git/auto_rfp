@@ -7,6 +7,8 @@ export * from './answer';
 export * from './question';
 export * from './kb';
 export * from './project';
+export * from './project-kb';
+export * from './user-kb';
 export * from './samgov';
 export * from './prompt'
 export * from './opportunity'
@@ -14,6 +16,7 @@ export * from './project-outcome'
 export * from './debriefing'
 export * from './foia'
 export * from './analytics'
+export * from './organization';
 export * from './content-library';
 export * from './api-key';
 export * from './past-performance';

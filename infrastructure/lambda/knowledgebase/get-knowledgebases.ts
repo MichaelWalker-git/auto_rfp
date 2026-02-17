@@ -1,24 +1,14 @@
 import { APIGatewayProxyEventV2, APIGatewayProxyResultV2 } from 'aws-lambda';
-import { QueryCommand } from '@aws-sdk/lib-dynamodb';
-
-import { PK_NAME, SK_NAME } from '../constants/common';
-import { apiResponse, getOrgId } from '../helpers/api';
-import { KNOWLEDGE_BASE_PK } from '../constants/organization';
-import { DOCUMENT_PK } from '../constants/document';
-import { KnowledgeBase, KnowledgeBaseItem, CONTENT_LIBRARY_PK } from '@auto-rfp/shared';
+import { apiResponse, getOrgId, getUserId } from '../helpers/api';
+import { listKnowledgeBasesForOrg } from '../helpers/kb';
 import { withSentryLambda } from '../sentry-lambda';
 import {
   authContextMiddleware,
   httpErrorMiddleware,
   orgMembershipMiddleware,
-  requirePermission
+  requirePermission,
 } from '../middleware/rbac-middleware';
 import middy from '@middy/core';
-import { requireEnv } from '../helpers/env';
-import { DBItem, docClient } from '../helpers/db';
-import { safeSplitAt } from '../helpers/safe-string';
-
-const DB_TABLE_NAME = requireEnv('DB_TABLE_NAME');
 
 export const baseHandler = async (
   event: APIGatewayProxyEventV2,
@@ -26,19 +16,18 @@ export const baseHandler = async (
   try {
     const tokenOrgId = getOrgId(event);
     const { orgId: queryOrgId } = event.queryStringParameters || {};
-    const orgId = tokenOrgId ? tokenOrgId : queryOrgId;
+    const orgId = tokenOrgId || queryOrgId;
+
     if (!orgId) {
-      return apiResponse(400, {
-        message: 'Missing required path parameter: orgId',
-      });
+      return apiResponse(400, { message: 'Missing required parameter: orgId' });
     }
 
-    const knowledgeBases = await listKnowledgeBasesForOrg(orgId);
+    const userId = getUserId(event);
+    const knowledgeBases = await listKnowledgeBasesForOrg(orgId, userId);
 
     return apiResponse(200, knowledgeBases);
   } catch (err) {
     console.error('Error in getKnowledgeBases handler:', err);
-
     return apiResponse(500, {
       message: 'Internal server error',
       error: err instanceof Error ? err.message : 'Unknown error',
@@ -46,139 +35,10 @@ export const baseHandler = async (
   }
 };
 
-export async function listKnowledgeBasesForOrg(orgId: string): Promise<KnowledgeBase[]> {
-  const items: (KnowledgeBaseItem & DBItem)[] = [];
-  let ExclusiveStartKey: Record<string, any> | undefined = undefined;
-
-  const skPrefix = `${orgId}#`;
-
-  do {
-    const res = await docClient.send(
-      new QueryCommand({
-        TableName: DB_TABLE_NAME,
-        KeyConditionExpression:
-          '#pk = :pkValue AND begins_with(#sk, :skPrefix)',
-        ExpressionAttributeNames: {
-          '#pk': PK_NAME,
-          '#sk': SK_NAME,
-        },
-        ExpressionAttributeValues: {
-          ':pkValue': KNOWLEDGE_BASE_PK,
-          ':skPrefix': skPrefix,
-        },
-        ExclusiveStartKey,
-      }),
-    );
-
-    if (res.Items && res.Items.length > 0) {
-      items.push(...(res.Items as (KnowledgeBaseItem & DBItem)[]));
-    }
-
-    ExclusiveStartKey = res.LastEvaluatedKey as
-      | Record<string, any>
-      | undefined;
-  } while (ExclusiveStartKey);
-
-  return await Promise.all(
-    items.map(async (item: KnowledgeBaseItem) => {
-      const sk = item[SK_NAME] as string;
-      const kbId = safeSplitAt(sk, '#', 1);
-
-      const [documentsCount, questionsCount] = await Promise.all([
-        getDocumentCountForKnowledgeBase(kbId),
-        getContentLibraryCountForKnowledgeBase(orgId, kbId),
-      ]);
-
-      return {
-        id: kbId,
-        name: item.name,
-        description: item.description,
-        createdAt: item.createdAt,
-        updatedAt: item.updatedAt,
-        type: item.type,
-        _count: {
-          questions: questionsCount,
-          documents: documentsCount,
-        },
-      } as KnowledgeBase;
-    }),
-  );
-}
-
-async function getDocumentCountForKnowledgeBase(knowledgeBaseId: string): Promise<number> {
-  const skPrefix = `KB#${knowledgeBaseId}`;
-  let count = 0;
-  let ExclusiveStartKey: Record<string, any> | undefined = undefined;
-
-  do {
-    const res = await docClient.send(
-      new QueryCommand({
-        TableName: DB_TABLE_NAME,
-        KeyConditionExpression:
-          '#pk = :pkValue AND begins_with(#sk, :skPrefix)',
-        ExpressionAttributeNames: {
-          '#pk': PK_NAME,
-          '#sk': SK_NAME,
-        },
-        ExpressionAttributeValues: {
-          ':pkValue': DOCUMENT_PK,
-          ':skPrefix': skPrefix,
-        },
-        Select: 'COUNT',
-        ExclusiveStartKey,
-      }),
-    );
-
-    count += res.Count ?? 0;
-    ExclusiveStartKey = res.LastEvaluatedKey as
-      | Record<string, any>
-      | undefined;
-  } while (ExclusiveStartKey);
-
-  return count;
-}
-
-async function getContentLibraryCountForKnowledgeBase(orgId: string, knowledgeBaseId: string): Promise<number> {
-  // Content library items have SK format: <orgId>#<kbId>#<itemId>
-  const skPrefix = `${orgId}#${knowledgeBaseId}#`;
-  let count = 0;
-  let ExclusiveStartKey: Record<string, any> | undefined = undefined;
-
-  do {
-    const res = await docClient.send(
-      new QueryCommand({
-        TableName: DB_TABLE_NAME,
-        KeyConditionExpression:
-          '#pk = :pkValue AND begins_with(#sk, :skPrefix)',
-        FilterExpression: 'attribute_not_exists(#deprecated) OR #deprecated = :false',
-        ExpressionAttributeNames: {
-          '#pk': PK_NAME,
-          '#sk': SK_NAME,
-          '#deprecated': 'deprecated',
-        },
-        ExpressionAttributeValues: {
-          ':pkValue': CONTENT_LIBRARY_PK,
-          ':skPrefix': skPrefix,
-          ':false': false,
-        },
-        Select: 'COUNT',
-        ExclusiveStartKey,
-      }),
-    );
-
-    count += res.Count ?? 0;
-    ExclusiveStartKey = res.LastEvaluatedKey as
-      | Record<string, any>
-      | undefined;
-  } while (ExclusiveStartKey);
-
-  return count;
-}
-
 export const handler = withSentryLambda(
   middy(baseHandler)
     .use(authContextMiddleware())
     .use(orgMembershipMiddleware())
     .use(requirePermission('kb:read'))
-    .use(httpErrorMiddleware())
+    .use(httpErrorMiddleware()),
 );

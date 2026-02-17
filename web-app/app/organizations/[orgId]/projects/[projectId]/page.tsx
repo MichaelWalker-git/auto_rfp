@@ -1,19 +1,10 @@
-'use client';
+import { redirect } from 'next/navigation';
 
-import { useEffect } from 'react';
-import { useRouter, usePathname } from 'next/navigation';
+interface ProjectPageProps {
+  params: Promise<{ orgId: string; projectId: string }>;
+}
 
-export default function OrganizationPage() {
-  const router = useRouter();
-  const pathname = usePathname(); // e.g. "/org/123" or "/current"
-
-  useEffect(() => {
-    if (!pathname) return;
-
-    // Ensure no trailing slash
-    const base = pathname.replace(/\/$/, '');
-    router.replace(`${base}/dashboard`);
-  }, [pathname, router]);
-
-  return null;
+export default async function ProjectPage({ params }: ProjectPageProps) {
+  const { orgId, projectId } = await params;
+  redirect(`/organizations/${orgId}/projects/${projectId}/dashboard`);
 }

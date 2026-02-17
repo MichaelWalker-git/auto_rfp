@@ -12,7 +12,7 @@ import { nowIso } from '../helpers/date';
 
 const DB_TABLE_NAME = requireEnv('DB_TABLE_NAME');
 
-type FileFormat = 'PDF' | 'DOCX' | 'UNKNOWN';
+type FileFormat = 'PDF' | 'DOCX' | 'XLSX' | 'UNKNOWN';
 
 interface StartProcessingEvent {
   knowledgeBaseId: string;
@@ -53,6 +53,13 @@ function inferFormat(contentType?: unknown, fileKey?: unknown): { format: FileFo
     ext === 'docx'
   ) {
     return { format: 'DOCX', ext };
+  }
+  if (
+    ct === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' ||
+    ct === 'application/vnd.ms-excel' ||
+    ext === 'xlsx' || ext === 'xls'
+  ) {
+    return { format: 'XLSX', ext };
   }
 
   return { format: 'UNKNOWN', ext };

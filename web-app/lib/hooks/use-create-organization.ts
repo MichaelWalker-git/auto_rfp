@@ -1,25 +1,19 @@
-import { Organization } from '@/types/organization';
-import { env } from '@/lib/env';
-import { authFetcher } from '@/lib/auth/auth-fetcher';
+'use client';
+
+import { apiMutate, buildApiUrl } from './api-helpers';
+import { Organization } from '@auto-rfp/shared';
+
+interface CreateOrganizationPayload {
+  name: string;
+  description?: string;
+  bucketName?: string;
+  iconKey?: string;
+}
 
 export function useCreateOrganization() {
-  const create = async (payload: { name: string, slug: string, description: string }): Promise<Organization> => {
-    const url = `${env.BASE_API_URL}/organization/create-organization`;
-
-    const res = await authFetcher(url, {
-      method: 'POST',
-      body: JSON.stringify(payload),
-    });
-
-    if (!res.ok) {
-      const body = await res.text().catch(() => '');
-      throw new Error(
-        `Failed to create organization. Status: ${res.status}. Body: ${body}`,
-      );
-    }
-
-    return (await res.json()) as Organization;
+  const createOrganization = async (payload: CreateOrganizationPayload): Promise<Organization> => {
+    return apiMutate<Organization>(buildApiUrl('organization/create-organization'), 'POST', payload);
   };
 
-  return { createOrganization: create };
+  return { createOrganization };
 }

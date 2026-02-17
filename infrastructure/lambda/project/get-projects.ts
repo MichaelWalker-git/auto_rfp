@@ -17,17 +17,14 @@ import { docClient } from '../helpers/db';
 const DB_TABLE_NAME = requireEnv('DB_TABLE_NAME');
 
 export const baseHandler = async (event: APIGatewayProxyEventV2): Promise<APIGatewayProxyResultV2> => {
-  const tokenOrgId = getOrgId(event);
-  const { orgId: requestOrgId } = event?.queryStringParameters || {};
+  const orgId = getOrgId(event);
 
-  if (tokenOrgId && requestOrgId !== requestOrgId) {
-    return apiResponse(403, undefined);
+  if (!orgId) {
+    return apiResponse(400, { message: 'orgId is required' });
   }
 
-  const orgId = tokenOrgId || requestOrgId;
-
   try {
-    const list = orgId ? await listProjects(orgId) : [];
+    const list = await listProjects(orgId);
     return apiResponse(200, list);
   } catch (err) {
     console.error('Error in projects handler:', err);
@@ -76,5 +73,5 @@ export const handler = withSentryLambda(
     .use(authContextMiddleware())
     .use(orgMembershipMiddleware())
     .use(requirePermission('project:read'))
-    .use(httpErrorMiddleware())
+    .use(httpErrorMiddleware()),
 );

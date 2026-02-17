@@ -48,7 +48,7 @@ type UploadItem = {
   status?: string;
 };
 
-const VALID_EXTS = ['.pdf', '.doc', '.docx', '.txt'];
+const VALID_EXTS = ['.pdf', '.doc', '.docx', '.txt', '.xlsx', '.xls'];
 const MAX_FILE_SIZE = 50 * 1024 * 1024;
 
 const isValidFile = (f: File): { valid: boolean; reason?: string } => {
@@ -448,7 +448,7 @@ export function QuestionFileUploadDialog({
             Upload Question Files
           </DialogTitle>
           <DialogDescription id="upload-dialog-description">
-            Upload files to extract questions for analysis (PDF/DOC/DOCX, max 50MB each)
+            Upload files to extract questions for analysis (PDF, DOC, DOCX, XLSX, max 50MB each)
           </DialogDescription>
         </DialogHeader>
 
@@ -483,7 +483,7 @@ export function QuestionFileUploadDialog({
               >
                 <input
                   type="file"
-                  accept=".pdf,.doc,.docx,.txt"
+                  accept=".pdf,.doc,.docx,.txt,.xlsx,.xls"
                   multiple
                   onChange={handleFileChange}
                   disabled={anyBusy}
@@ -498,7 +498,7 @@ export function QuestionFileUploadDialog({
                     <p className="text-sm font-medium">
                       Drop files here, or <span className="text-primary">browse</span>
                     </p>
-                    <p className="text-xs text-muted-foreground mt-1">Supports PDF/DOC/DOCX (max 50MB each)</p>
+                    <p className="text-xs text-muted-foreground mt-1">Supports PDF, DOC, DOCX, XLSX (max 50MB each)</p>
                   </div>
                 </div>
               </div>

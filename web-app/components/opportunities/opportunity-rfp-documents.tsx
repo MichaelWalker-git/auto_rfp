@@ -40,6 +40,7 @@ import { RFPDocumentPreviewDialog } from '@/components/rfp-documents/rfp-documen
 import { RFPDocumentEditDialog } from '@/components/rfp-documents/rfp-document-edit-dialog';
 import { RFPDocumentExportDialog } from '@/components/rfp-documents/rfp-document-export-dialog';
 import { SignatureStatusBadge } from '@/components/rfp-documents/signature-status-badge';
+import { GoogleDriveSyncButton } from '@/components/rfp-documents/google-drive-sync-button';
 import { GenerateDocumentDialog } from '@/components/rfp-documents/generate-document-dialog';
 import { useOpportunityContext } from './opportunity-context';
 import { formatDateTime } from './opportunity-helpers';
@@ -336,6 +337,11 @@ export function OpportunityRFPDocuments() {
                             {convertingId === doc.documentId ? <Loader2 className="h-4 w-4 animate-spin" /> : <Pencil className="h-4 w-4" />}
                           </Button>
                         )}
+                        <GoogleDriveSyncButton
+                          document={doc}
+                          orgId={orgId}
+                          onSyncComplete={() => mutate()}
+                        />
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
                             <Button size="sm" variant="ghost" className="h-8 w-8 p-0">

@@ -4,6 +4,7 @@ import { DeleteCommand, } from '@aws-sdk/lib-dynamodb';
 import { PK_NAME, SK_NAME } from '../constants/common';
 import { apiResponse, getOrgId } from '../helpers/api';
 import { KNOWLEDGE_BASE_PK } from '../constants/organization';
+import { deleteAllLinksForKB } from '../helpers/project-kb';
 import { withSentryLambda } from '../sentry-lambda';
 import {
   authContextMiddleware,
@@ -56,6 +57,17 @@ export const baseHandler = async (
         message: 'Failed to delete knowledge base',
         error: err instanceof Error ? err.message : 'Unknown error',
       });
+    }
+
+    // Cascade: clean up any PROJECT_KB links referencing this KB
+    try {
+      const deletedLinks = await deleteAllLinksForKB(kbId);
+      if (deletedLinks > 0) {
+        console.log(`Cascade deleted ${deletedLinks} PROJECT_KB links for kbId=${kbId}`);
+      }
+    } catch (cascadeErr) {
+      // Log but don't fail the main operation
+      console.warn('Failed to cascade delete PROJECT_KB links:', (cascadeErr as Error)?.message);
     }
 
     return apiResponse(200, {

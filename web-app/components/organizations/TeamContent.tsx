@@ -7,8 +7,10 @@ import { InviteMemberDialog } from './InviteMemberDialog';
 import type { TeamMember } from './types';
 
 import { useOrganization } from '@/lib/hooks/use-api';
-import { UserListItem, useUsersList } from '@/lib/hooks/use-user';
+import type { UserListItem } from '@auto-rfp/shared';
+import { useUsersList } from '@/lib/hooks/use-user';
 import { MemberRow } from '@/components/organizations/MemberRow';
+import { PageSearch } from '@/components/layout/page-search';
 
 interface TeamContentProps {
   orgId: string;
@@ -127,12 +129,15 @@ export function TeamContent({ orgId }: TeamContentProps) {
   }, [refreshUsers]);
 
   return (
-    <div className="w-full max-w-7xl mx-auto px-4 py-6">
+    <div className="container mx-auto p-12">
       <ListingPageLayout
         title="Team Members"
         description="Manage team members and their roles"
         headerActions={
-          <InviteMemberDialog orgId={orgId} onMemberAdded={handleMemberAdded}/>
+          <>
+            <PageSearch value={searchQuery} onChange={setSearchQuery} placeholder="Search members..." />
+            <InviteMemberDialog orgId={orgId} onMemberAdded={handleMemberAdded}/>
+          </>
         }
         isLoading={isLoading}
         onReload={handleReload}

@@ -2,8 +2,9 @@ import { APIGatewayProxyEventV2, APIGatewayProxyResultV2, } from 'aws-lambda';
 import { PutCommand, } from '@aws-sdk/lib-dynamodb';
 import { ORG_PK } from '../constants/organization';
 import { PK_NAME, SK_NAME } from '../constants/common';
+import { USER_PK } from '../constants/user';
+import { userSk } from '../helpers/user';
 import { apiResponse, getUserId } from '../helpers/api';
-import { createAuditFields } from '../helpers/audit';
 import { v4 as uuidv4 } from 'uuid';
 import { CreateOrganizationDTO, CreateOrganizationSchema, OrganizationItem, } from '../schemas/organization';
 import { withSentryLambda } from '../sentry-lambda';
@@ -45,7 +46,37 @@ export const baseHandler = async (event: APIGatewayProxyEventV2): Promise<APIGat
     // The data is now guaranteed to match the CreateOrganizationDTO type
     const validatedOrgData: CreateOrganizationDTO = validationResult.data;
 
+    const userId = getUserId(event);
+    const userEmail = (event as any).auth?.claims?.email ?? '';
+
     const newOrganization = await createOrganization(validatedOrgData);
+
+    // Auto-add the creating user as an ADMIN member of the new org
+    if (userId && newOrganization.id) {
+      try {
+        const now = new Date().toISOString();
+        await docClient.send(
+          new PutCommand({
+            TableName: DB_TABLE_NAME,
+            Item: {
+              [PK_NAME]: USER_PK,
+              [SK_NAME]: userSk(newOrganization.id, userId),
+              entityType: 'USER',
+              orgId: newOrganization.id,
+              userId,
+              email: userEmail,
+              role: 'ADMIN',
+              status: 'ACTIVE',
+              createdAt: now,
+              updatedAt: now,
+            },
+          }),
+        );
+      } catch (membershipErr) {
+        // Log but don't fail the org creation
+        console.error('Failed to add creator as org member:', membershipErr);
+      }
+    }
 
     return apiResponse(201, newOrganization);
 

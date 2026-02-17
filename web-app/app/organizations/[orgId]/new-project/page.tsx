@@ -9,6 +9,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Spinner } from "@/components/ui/spinner";
 import { useToast } from "@/components/ui/use-toast";
 import { ArrowLeft } from "lucide-react";
+import { useCreateProject } from "@/lib/hooks/use-create-project";
 
 interface NewProjectPageProps {
   params: Promise<{ orgId: string }>;
@@ -19,6 +20,7 @@ export default function NewProjectPage({ params }: NewProjectPageProps) {
   const { orgId } = unwrappedParams;
   const router = useRouter();
   const { toast } = useToast();
+  const { createProject } = useCreateProject();
   
   const [projectName, setProjectName] = useState("");
   const [projectDescription, setProjectDescription] = useState("");
@@ -39,32 +41,18 @@ export default function NewProjectPage({ params }: NewProjectPageProps) {
     setIsSubmitting(true);
     
     try {
-      const response = await fetch("/api/projects", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          name: projectName,
-          description: projectDescription,
-          organizationId: orgId,
-        }),
+      const newProject = await createProject({
+        orgId,
+        name: projectName,
+        description: projectDescription || undefined,
       });
-      
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || "Failed to create project");
-      }
-      
-      const newProject = await response.json();
       
       toast({
         title: "Success",
         description: "Project created successfully",
       });
       
-      // Redirect to the project page
-      router.push(`/organizations/${orgId}/projects/${newProject.id}`);
+      router.push(`/organizations/${orgId}/projects/${newProject.id}/dashboard`);
     } catch (error) {
       console.error("Error creating project:", error);
       toast({

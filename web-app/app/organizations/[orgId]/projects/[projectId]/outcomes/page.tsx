@@ -1,21 +1,14 @@
-'use client';
-
-import { useEffect } from 'react';
-import { useRouter, usePathname } from 'next/navigation';
+import { redirect } from 'next/navigation';
 
 /**
  * Project Outcomes are now managed within the Opportunity context.
  * This page redirects to the Opportunities page.
  */
-export default function OutcomesPage() {
-  const router = useRouter();
-  const pathname = usePathname();
+interface OutcomesPageProps {
+  params: Promise<{ orgId: string; projectId: string }>;
+}
 
-  useEffect(() => {
-    if (!pathname) return;
-    const base = pathname.replace(/\/outcomes\/?$/, '');
-    router.replace(`${base}/opportunities`);
-  }, [pathname, router]);
-
-  return null;
+export default async function OutcomesPage({ params }: OutcomesPageProps) {
+  const { orgId, projectId } = await params;
+  redirect(`/organizations/${orgId}/projects/${projectId}/opportunities`);
 }

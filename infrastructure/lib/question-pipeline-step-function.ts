@@ -104,6 +104,17 @@ export class QuestionExtractionPipelineStack extends Stack {
     mainTable.grantReadWriteData(callbackLambda);
     textractTopic.addSubscription(new subs.LambdaSubscription(callbackLambda));
 
+    const extractXlsxTextLambda = new lambdaNode.NodejsFunction(this, 'ExtractXlsxTextLambda', {
+      runtime: lambda.Runtime.NODEJS_24_X,
+      logGroup: mkFnLogGroup('ExtractXlsxText'),
+      entry: path.join(__dirname, '../lambda/question-pipeline/extract-xlsx-text.ts'),
+      handler: 'handler',
+      timeout: Duration.seconds(60),
+      environment: commonLambdaEnv,
+    });
+    documentsBucket.grantReadWrite(extractXlsxTextLambda);
+    mainTable.grantReadWriteData(extractXlsxTextLambda);
+
     const extractDocxTextLambda = new lambdaNode.NodejsFunction(this, 'ExtractDocxTextLambda', {
       runtime: lambda.Runtime.NODEJS_24_X,
       logGroup: mkFnLogGroup('ExtractDocxText'),
@@ -276,6 +287,19 @@ export class QuestionExtractionPipelineStack extends Stack {
       payloadResponseOnly: true,
     });
 
+    const extractXlsxText = new tasks.LambdaInvoke(this, 'Extract XLSX Text', {
+      lambdaFunction: extractXlsxTextLambda,
+      payload: sfn.TaskInput.fromObject({
+        bucket: documentsBucket.bucketName,
+        sourceFileKey: sfn.JsonPath.stringAt('$.sourceFileKey'),
+        questionFileId: sfn.JsonPath.stringAt('$.questionFileId'),
+        projectId: sfn.JsonPath.stringAt('$.projectId'),
+        opportunityId: sfn.JsonPath.stringAt('$.oppId'),
+      }),
+      resultPath: '$.process',
+      payloadResponseOnly: true,
+    });
+
     const extractDocxText = new tasks.LambdaInvoke(this, 'Extract DOCX Text', {
       lambdaFunction: extractDocxTextLambda,
       payload: sfn.TaskInput.fromObject({
@@ -319,6 +343,18 @@ export class QuestionExtractionPipelineStack extends Stack {
       payloadResponseOnly: true,
     });
 
+    const fulfillOppAfterXlsx = new tasks.LambdaInvoke(this, 'Fulfill Opportunity Fields (XLSX)', {
+      lambdaFunction: fulfillOpportunityFieldsLambda,
+      payload: sfn.TaskInput.fromObject({
+        questionFileId: sfn.JsonPath.stringAt('$.questionFileId'),
+        projectId: sfn.JsonPath.stringAt('$.projectId'),
+        textFileKey: sfn.JsonPath.stringAt('$.process.textFileKey'),
+        opportunityId: sfn.JsonPath.stringAt('$.oppId'),
+      }),
+      resultPath: sfn.JsonPath.DISCARD,
+      payloadResponseOnly: true,
+    });
+
     const fulfillOppAfterDocx = new tasks.LambdaInvoke(this, 'Fulfill Opportunity Fields (DOCX)', {
       lambdaFunction: fulfillOpportunityFieldsLambda,
       payload: sfn.TaskInput.fromObject({
@@ -333,6 +369,18 @@ export class QuestionExtractionPipelineStack extends Stack {
 
     // Existing: Extract Questions tasks (one per branch) - now capture results
     const extractQuestionsAfterPdf = new tasks.LambdaInvoke(this, 'Extract Questions from Text (PDF)', {
+      lambdaFunction: extractQuestionsLambda,
+      payload: sfn.TaskInput.fromObject({
+        questionFileId: sfn.JsonPath.stringAt('$.questionFileId'),
+        projectId: sfn.JsonPath.stringAt('$.projectId'),
+        textFileKey: sfn.JsonPath.stringAt('$.process.textFileKey'),
+        opportunityId: sfn.JsonPath.stringAt('$.oppId'),
+      }),
+      resultPath: '$.extractResult',
+      payloadResponseOnly: true,
+    });
+
+    const extractQuestionsAfterXlsx = new tasks.LambdaInvoke(this, 'Extract Questions from Text (XLSX)', {
       lambdaFunction: extractQuestionsLambda,
       payload: sfn.TaskInput.fromObject({
         questionFileId: sfn.JsonPath.stringAt('$.questionFileId'),
@@ -396,6 +444,21 @@ export class QuestionExtractionPipelineStack extends Stack {
 
     prepareQuestions.next(generateAnswersMap).next(done);
 
+    const isXlsx = sfn.Condition.or(
+      sfn.Condition.stringEquals(
+        '$.mimeType',
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      ),
+      sfn.Condition.stringEquals(
+        '$.mimeType',
+        'application/vnd.ms-excel',
+      ),
+      sfn.Condition.stringMatches('$.sourceFileKey', '*.xlsx'),
+      sfn.Condition.stringMatches('$.sourceFileKey', '*.XLSX'),
+      sfn.Condition.stringMatches('$.sourceFileKey', '*.xls'),
+      sfn.Condition.stringMatches('$.sourceFileKey', '*.XLS'),
+    );
+
     const isDocx = sfn.Condition.or(
       sfn.Condition.stringEquals(
         '$.mimeType',
@@ -432,9 +495,15 @@ export class QuestionExtractionPipelineStack extends Stack {
       .next(extractQuestionsAfterDocx)
       .next(checkAnswerGeneration);
 
+    const xlsxBranch = sfn.Chain.start(extractXlsxText)
+      .next(fulfillOppAfterXlsx)
+      .next(extractQuestionsAfterXlsx)
+      .next(checkAnswerGeneration);
+
     const unsupportedBranch = sfn.Chain.start(unsupportedFile).next(failUnsupported);
 
     const definition = new sfn.Choice(this, 'Route by file type')
+      .when(isXlsx, xlsxBranch)
       .when(isDocx, docxBranch)
       .when(isTextractSupported, pdfBranch)
       .otherwise(unsupportedBranch);

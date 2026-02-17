@@ -1,8 +1,8 @@
 'use client';
 
 import { TemplateCard } from './TemplateCard';
+import { Skeleton } from '@/components/ui/skeleton';
 import type { TemplateItem } from '@/lib/hooks/use-templates';
-import { Loader2 } from 'lucide-react';
 
 interface TemplateLibraryProps {
   items: TemplateItem[];
@@ -25,8 +25,10 @@ export function TemplateLibrary({
 }: TemplateLibraryProps) {
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center py-12">
-        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        {Array.from({ length: 6 }).map((_, i) => (
+          <Skeleton key={i} className="h-48 w-full rounded-lg" />
+        ))}
       </div>
     );
   }

@@ -221,8 +221,8 @@ export function ExecutiveBriefView({ projectId, initialOpportunityId }: Executiv
   const genRisks = useGenerateExecutiveBriefRisks(currentOrganization?.id);
   const genPastPerformance = useGenerateExecutiveBriefPastPerformance(currentOrganization?.id);
   const genScoring = useGenerateExecutiveBriefScoring(currentOrganization?.id);
-  const getBriefByProject = useGetExecutiveBriefByProject();
-  const handleLinearTicket = useHandleLinearTicket();
+  const getBriefByProject = useGetExecutiveBriefByProject(currentOrganization?.id);
+  const handleLinearTicket = useHandleLinearTicket(currentOrganization?.id);
 
   const [regenError, setRegenError] = useState<string | null>(null);
   const [previousBrief, setPreviousBrief] = useState<any>(null);
@@ -465,7 +465,7 @@ export function ExecutiveBriefView({ projectId, initialOpportunityId }: Executiv
     // For opportunity-specific briefs, we need to initialize a new one
     const resp = await init.trigger({ 
       projectId, 
-      opportunityId: selectedOpportunityId || undefined 
+      opportunityId: selectedOpportunityId || '' 
     });
     await refetchProject();
 
