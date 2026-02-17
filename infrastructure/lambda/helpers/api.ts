@@ -34,17 +34,27 @@ export function getUserId(event: APIGatewayProxyEventV2): string | undefined {
 }
 
 export function getOrgId(event: APIGatewayProxyEventV2): string | undefined {
-  const rc = event.requestContext as RequestContextWithAuthorizer;
+  // 1. Prefer the auth context set by RBAC middleware (resolves header → query)
+  const auth = (event as any).auth;
+  if (auth?.orgId) return auth.orgId;
 
-  const claims =
-    rc.authorizer?.jwt?.claims ??
-    rc.authorizer?.claims;
+  // 2. X-Org-Id header (multi-org support)
+  const orgIdFromHeader = event.headers?.['x-org-id'];
+  if (orgIdFromHeader) return orgIdFromHeader;
 
-  const orgIdFromToken = claims?.['custom:orgId'];
-  if (!orgIdFromToken) {
-    const { orgId: orgIdFromQueryString } = event.queryStringParameters || {};
-    return orgIdFromQueryString;
+  // 3. Query string parameter
+  const orgIdFromQuery = event.queryStringParameters?.orgId;
+  if (orgIdFromQuery) return orgIdFromQuery;
+
+  // 4. Request body (some endpoints send orgId in the body)
+  if (event.body) {
+    try {
+      const body = JSON.parse(event.body);
+      if (body?.orgId) return body.orgId;
+    } catch {
+      // Not JSON or no orgId — continue
+    }
   }
 
-  return orgIdFromToken;
+  return undefined;
 }

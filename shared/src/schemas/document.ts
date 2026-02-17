@@ -37,6 +37,8 @@ export const DocumentItemSchema = z.object({
   indexVectorKey: z.string().optional(), // embeddings file maybe
   createdAt: z.string(),
   updatedAt: z.string(),
+  createdBy: z.string().optional(),   // userId of the uploader
+  updatedBy: z.string().optional(),   // userId of last updater
 });
 
 export type DocumentItem = z.infer<typeof DocumentItemSchema>;

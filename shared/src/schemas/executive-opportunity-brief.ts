@@ -96,7 +96,7 @@ export type Deadline = z.infer<typeof DeadlineSchema>;
 export const DeadlinesSectionSchema = z.object({
   deadlines: z.array(DeadlineSchema).min(1),
   hasSubmissionDeadline: z.boolean().default(false),
-  submissionDeadlineIso: z.string().datetime({ offset: true }).optional(),
+  submissionDeadlineIso: z.string().datetime({ offset: true }).nullable().optional(),
   warnings: z.array(z.string().min(1)).default([]), // "No explicit timezone found", etc.
 });
 

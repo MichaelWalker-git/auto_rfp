@@ -1,6 +1,6 @@
 import type { APIGatewayProxyEventV2, APIGatewayProxyResultV2 } from 'aws-lambda';
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
-import { DeleteCommand, DynamoDBDocumentClient, GetCommand, } from '@aws-sdk/lib-dynamodb';
+import { DeleteCommand, DynamoDBDocumentClient, GetCommand, QueryCommand } from '@aws-sdk/lib-dynamodb';
 import { CognitoIdentityProviderClient } from '@aws-sdk/client-cognito-identity-provider';
 
 import { apiResponse } from '../helpers/api';
@@ -91,9 +91,28 @@ export const baseHandler = async (
       (typeof userItem.email === 'string' && userItem.email.toLowerCase()) ||
       undefined;
 
-    // 2) Delete from Cognito (best-effort)
+    // 2) Count remaining org memberships for this user (before deleting this one)
+    const membershipQuery = await docClient.send(
+      new QueryCommand({
+        TableName: DB_TABLE_NAME,
+        KeyConditionExpression: '#pk = :pk AND begins_with(#sk, :skPrefix)',
+        FilterExpression: 'contains(#sk, :userIdSuffix)',
+        ExpressionAttributeNames: { '#pk': PK_NAME, '#sk': SK_NAME },
+        ExpressionAttributeValues: {
+          ':pk': USER_PK,
+          ':skPrefix': `ORG#`,
+          ':userIdSuffix': `#USER#${userId}`,
+        },
+        Select: 'COUNT',
+      }),
+    );
+
+    const totalMemberships = membershipQuery.Count ?? 0;
+    const isLastOrg = totalMemberships <= 1;
+
+    // 3) Delete from Cognito ONLY if this is the user's last org membership
     let cognitoDeleted = false;
-    if (cognitoUsername) {
+    if (isLastOrg && cognitoUsername) {
       try {
         await adminDeleteUser(cognito, {
           userPoolId: USER_POOL_ID,
@@ -101,7 +120,6 @@ export const baseHandler = async (
         });
         cognitoDeleted = true;
       } catch (e: any) {
-        // Ignore if already gone, but keep hard failures visible in logs
         const name = e?.name || e?.__type;
         if (name === 'UserNotFoundException') {
           cognitoDeleted = false;
@@ -111,7 +129,7 @@ export const baseHandler = async (
       }
     }
 
-    // 3) Delete Dynamo item (only if exists)
+    // 4) Delete Dynamo item for this org membership (only if exists)
     await docClient.send(
       new DeleteCommand({
         TableName: DB_TABLE_NAME,
@@ -132,6 +150,8 @@ export const baseHandler = async (
         dynamo: true,
         cognito: cognitoDeleted,
       },
+      isLastOrg,
+      remainingMemberships: Math.max(0, totalMemberships - 1),
       cognitoUsername: cognitoUsername ?? null,
     });
   } catch (err: any) {

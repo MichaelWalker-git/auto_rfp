@@ -164,6 +164,10 @@ export const RFPDocumentItemSchema = z.object({
   title: z.string().nullable().optional(),
   /** Edit history for tracking modifications */
   editHistory: z.array(EditHistoryEntrySchema).nullable().optional(),
+  /** Google Drive file ID when synced */
+  googleDriveFileId: z.string().nullable().optional(),
+  /** Google Drive URL when synced */
+  googleDriveUrl: z.string().nullable().optional(),
 });
 
 export type RFPDocumentItem = z.infer<typeof RFPDocumentItemSchema>;

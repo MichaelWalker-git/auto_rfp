@@ -42,12 +42,12 @@ export async function getEmbedding(text: string): Promise<number[]> {
   return vector;
 }
 
-export async function semanticSearchChunks(orgId: string, embedding: number[], k: number): Promise<PineconeHit[]> {
-  return pineconeSearch(orgId, embedding, k);
+export async function semanticSearchChunks(orgId: string, embedding: number[], k: number, kbIds?: string[]): Promise<PineconeHit[]> {
+  return pineconeSearch(orgId, embedding, k, 'chunk', kbIds);
 }
 
-export async function semanticSearchContentLibrary(orgId: string, embedding: number[], k: number): Promise<PineconeHit[]> {
-  return pineconeSearch(orgId, embedding, k, 'content_library');
+export async function semanticSearchContentLibrary(orgId: string, embedding: number[], k: number, kbIds?: string[]): Promise<PineconeHit[]> {
+  return pineconeSearch(orgId, embedding, k, 'content_library', kbIds);
 }
 
 function truncateForTitan(text: string, maxChars = TITAN_V2_SAFE_CHARS): string {

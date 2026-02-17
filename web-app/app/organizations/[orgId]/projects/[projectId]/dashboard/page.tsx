@@ -7,7 +7,7 @@ import { ProjectContent } from '@/app/organizations/[orgId]/projects/components/
 function ProjectPageLoading() {
   return (
     <div className="flex flex-col items-center justify-center h-64">
-      <Spinner size="lg" className="mb-4"/>
+      <Spinner size="lg" className="mb-4" />
       <p>Loading project page...</p>
     </div>
   );
@@ -15,17 +15,17 @@ function ProjectPageLoading() {
 
 // Main page component with Suspense boundary
 interface ProjectPageProps {
-  params: Promise<{ projectId: string }>;
+  params: Promise<{ orgId: string; projectId: string }>;
 }
 
 export default async function ProjectPage({ params }: ProjectPageProps) {
-  const { projectId } = await params;
+  const { orgId, projectId } = await params;
 
   return (
     <ProjectPageProvider projectId={projectId}>
-      <Suspense fallback={<ProjectPageLoading/>}>
-        <ProjectContent projectId={projectId}/>
+      <Suspense fallback={<ProjectPageLoading />}>
+        <ProjectContent projectId={projectId} />
       </Suspense>
     </ProjectPageProvider>
   );
-} 
+}

@@ -94,42 +94,24 @@ describe('getOrgId', () => {
     ...overrides,
   });
 
-  it('should extract orgId from JWT claims (custom:orgId)', () => {
-    const event = createMockEvent({
-      requestContext: {
-        ...createMockEvent().requestContext,
-        authorizer: {
-          jwt: {
-            claims: {
-              'custom:orgId': 'org-123-from-jwt',
-              sub: 'user-456',
-            },
-          },
-        },
-      },
-    } as unknown as Partial<APIGatewayProxyEventV2>);
+  it('should extract orgId from auth context (set by RBAC middleware)', () => {
+    const event = createMockEvent();
+    (event as any).auth = { userId: 'user-1', orgId: 'org-from-auth-context' };
 
     const result = getOrgId(event);
-    expect(result).toBe('org-123-from-jwt');
+    expect(result).toBe('org-from-auth-context');
   });
 
-  it('should extract orgId from direct authorizer claims', () => {
+  it('should extract orgId from X-Org-Id header', () => {
     const event = createMockEvent({
-      requestContext: {
-        ...createMockEvent().requestContext,
-        authorizer: {
-          claims: {
-            'custom:orgId': 'org-456-direct',
-          },
-        },
-      },
-    } as unknown as Partial<APIGatewayProxyEventV2>);
+      headers: { 'x-org-id': 'org-from-header' },
+    });
 
     const result = getOrgId(event);
-    expect(result).toBe('org-456-direct');
+    expect(result).toBe('org-from-header');
   });
 
-  it('should fallback to query string parameter when no JWT claim', () => {
+  it('should extract orgId from query string parameter', () => {
     const event = createMockEvent({
       queryStringParameters: {
         orgId: 'org-789-query',
@@ -140,25 +122,43 @@ describe('getOrgId', () => {
     expect(result).toBe('org-789-query');
   });
 
-  it('should prefer JWT claim over query string', () => {
+  it('should extract orgId from request body', () => {
     const event = createMockEvent({
-      requestContext: {
-        ...createMockEvent().requestContext,
-        authorizer: {
-          jwt: {
-            claims: {
-              'custom:orgId': 'org-from-jwt',
-            },
-          },
-        },
-      },
-      queryStringParameters: {
-        orgId: 'org-from-query',
-      },
-    } as unknown as Partial<APIGatewayProxyEventV2>);
+      body: JSON.stringify({ orgId: 'org-from-body' }),
+    });
 
     const result = getOrgId(event);
-    expect(result).toBe('org-from-jwt');
+    expect(result).toBe('org-from-body');
+  });
+
+  it('should prefer auth context over header', () => {
+    const event = createMockEvent({
+      headers: { 'x-org-id': 'org-from-header' },
+    });
+    (event as any).auth = { userId: 'user-1', orgId: 'org-from-auth' };
+
+    const result = getOrgId(event);
+    expect(result).toBe('org-from-auth');
+  });
+
+  it('should prefer header over query string', () => {
+    const event = createMockEvent({
+      headers: { 'x-org-id': 'org-from-header' },
+      queryStringParameters: { orgId: 'org-from-query' },
+    });
+
+    const result = getOrgId(event);
+    expect(result).toBe('org-from-header');
+  });
+
+  it('should prefer query string over body', () => {
+    const event = createMockEvent({
+      queryStringParameters: { orgId: 'org-from-query' },
+      body: JSON.stringify({ orgId: 'org-from-body' }),
+    });
+
+    const result = getOrgId(event);
+    expect(result).toBe('org-from-query');
   });
 
   it('should return undefined when no orgId found anywhere', () => {
@@ -177,16 +177,22 @@ describe('getOrgId', () => {
     expect(result).toBeUndefined();
   });
 
-  it('should handle empty authorizer object', () => {
+  it('should handle invalid JSON body gracefully', () => {
     const event = createMockEvent({
-      requestContext: {
-        ...createMockEvent().requestContext,
-        authorizer: {},
-      },
+      body: 'not-json',
+    });
+
+    const result = getOrgId(event);
+    expect(result).toBeUndefined();
+  });
+
+  it('should fallback to query when header is empty', () => {
+    const event = createMockEvent({
+      headers: {},
       queryStringParameters: {
         orgId: 'fallback-org',
       },
-    } as unknown as Partial<APIGatewayProxyEventV2>);
+    });
 
     const result = getOrgId(event);
     expect(result).toBe('fallback-org');

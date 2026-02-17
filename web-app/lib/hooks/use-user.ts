@@ -1,11 +1,27 @@
 'use client';
 
-import useSWR from 'swr';
-import { authFetcher } from '@/lib/auth/auth-fetcher';
-import { env } from '@/lib/env';
-import { UserRole } from '@auto-rfp/shared';
+import { useApi, apiMutate, buildApiUrl } from './api-helpers';
+import type {
+  UserRole,
+  UserListItem,
+  ListUsersResponse,
+  CreateUserDTO,
+  CreateUserResponse,
+  EditUserRoleRequest,
+  EditUserRequest,
+  EditUserResponse,
+  DeleteUserInput,
+  DeleteUserResponse,
+} from '@auto-rfp/shared';
 
-const baseUrl = `${env.BASE_API_URL}/user`;
+// Legacy response type alias (extends CreateUserResponse with cognito info)
+export type EditUserRolesResponse = CreateUserResponse & {
+  cognito?: {
+    username: string | null;
+    updated: boolean;
+  };
+  user?: unknown;
+};
 
 export type ListUsersParams = {
   search?: string;
@@ -15,116 +31,10 @@ export type ListUsersParams = {
   nextToken?: string;
 };
 
-import type { UserListItem, ListUsersResponse } from '@auto-rfp/shared';
-export type { UserListItem, ListUsersResponse };
+// ─── GET Hook ───
 
-export type CreateUserInput = {
-  orgId: string;
-  email: string;
-  role: UserRole;
-  firstName?: string;
-  lastName?: string;
-  displayName?: string;
-  phone?: string;
-  status?: 'ACTIVE' | 'INACTIVE' | 'INVITED' | 'SUSPENDED';
-  authSubject?: string;
-};
-
-export type CreateUserResponse = {
-  orgId: string;
-  userId: string;
-  email: string;
-  firstName?: string;
-  lastName?: string;
-  displayName?: string;
-  phone?: string;
-  role: UserRole;
-  status: string;
-  cognitoUsername?: string;
-  createdAt: string;
-  updatedAt: string;
-};
-
-export type EditUserRolesInput = {
-  orgId: string;
-  userId: string;
-  role: UserRole;
-};
-
-export type EditUserInput = {
-  orgId: string;
-  userId: string;
-  firstName?: string;
-  lastName?: string;
-  displayName?: string;
-  phone?: string;
-  role?: UserRole;
-  status?: 'ACTIVE' | 'INACTIVE' | 'INVITED' | 'SUSPENDED';
-};
-
-export type EditUserResponse = {
-  ok: boolean;
-  orgId: string;
-  userId: string;
-  user: UserListItem;
-  cognito?: {
-    username: string | null;
-    updated: boolean;
-  };
-};
-
-export type EditUserRolesResponse = CreateUserResponse & {
-  cognito?: {
-    username: string | null;
-    updated: boolean;
-  };
-  user?: any;
-};
-
-export type DeleteUserInput = {
-  orgId: string;
-  userId: string;
-};
-
-export type DeleteUserResponse = {
-  ok: true;
-  orgId: string;
-  userId: string;
-  deleted: {
-    dynamo: boolean;
-    cognito: boolean;
-  };
-  cognitoUsername: string | null;
-};
-
-async function assertOk(res: Response) {
-  if (!res.ok) {
-    const text = await res.text().catch(() => '');
-    throw new Error(text || `Request failed: ${res.status}`);
-  }
-}
-
-async function listFetcher(url: string): Promise<ListUsersResponse> {
-  const res = await authFetcher(url, { method: 'GET', cache: 'no-store' });
-  await assertOk(res);
-  return res.json();
-}
-
-function buildQueryString(params: Record<string, string | number | undefined>) {
-  const sp = new URLSearchParams();
-  for (const [k, v] of Object.entries(params)) {
-    if (v === undefined || v === null || v === '') continue;
-    sp.set(k, String(v));
-  }
-  const qs = sp.toString();
-  return qs ? `?${qs}` : '';
-}
-
-/**
- * GET /user/get-users?orgId=...&search=...&role=...&status=...&limit=...&nextToken=...
- */
 export function useUsersList(orgId: string, params: ListUsersParams) {
-  const qs = buildQueryString({
+  const url = buildApiUrl('user/get-users', {
     orgId,
     search: params.search?.trim() || undefined,
     role: params.role,
@@ -133,85 +43,83 @@ export function useUsersList(orgId: string, params: ListUsersParams) {
     nextToken: params.nextToken,
   });
 
-  const key = baseUrl && orgId ? `${baseUrl}/get-users${qs}` : null;
-
-  const { data, error, isLoading, mutate } = useSWR<ListUsersResponse>(key, listFetcher, {
-    keepPreviousData: true,
-    revalidateOnFocus: false,
-  });
-
-  return {
-    data,
-    isLoading,
-    isError: !!error,
-    error,
-    mutate,
-  };
+  return useApi<ListUsersResponse>(
+    orgId ? ['users', orgId, params.search, params.role, params.status, params.limit, params.nextToken] : null,
+    orgId ? url : null,
+    { keepPreviousData: true },
+  );
 }
 
-/**
- * POST /user/create-user
- * Body: CreateUserInput
- */
-export async function createUserApi(input: CreateUserInput): Promise<CreateUserResponse> {
-  const res = await authFetcher(`${baseUrl}/create-user`, {
-    method: 'POST',
-    cache: 'no-store',
-    body: JSON.stringify(input),
-  });
+// ─── API Functions (non-hook, for imperative calls) ───
 
-  await assertOk(res);
-  return res.json();
+export async function createUserApi(input: CreateUserDTO): Promise<CreateUserResponse> {
+  return apiMutate<CreateUserResponse>(buildApiUrl('user/create-user'), 'POST', input);
 }
 
-/**
- * PATCH /user/edit-user
- * Body: EditUserRolesInput (legacy – role only)
- */
-export async function editUserRolesApi(
-  input: EditUserRolesInput,
-): Promise<EditUserRolesResponse> {
-  const res = await authFetcher(`${baseUrl}/edit-user`, {
-    method: 'PATCH',
-    cache: 'no-store',
-    body: JSON.stringify(input),
-  });
-
-  await assertOk(res);
-  return res.json();
+export async function editUserRolesApi(input: EditUserRoleRequest): Promise<EditUserRolesResponse> {
+  return apiMutate<EditUserRolesResponse>(buildApiUrl('user/edit-user'), 'PATCH', input);
 }
 
-/**
- * PATCH /user/edit-user
- * Body: EditUserInput (full – name, phone, role, status)
- */
-export async function editUserApi(
-  input: EditUserInput,
-): Promise<EditUserResponse> {
-  const res = await authFetcher(`${baseUrl}/edit-user`, {
-    method: 'PATCH',
-    cache: 'no-store',
-    body: JSON.stringify(input),
-  });
-
-  await assertOk(res);
-  return res.json();
+export async function editUserApi(input: EditUserRequest): Promise<EditUserResponse> {
+  return apiMutate<EditUserResponse>(buildApiUrl('user/edit-user'), 'PATCH', input);
 }
 
-/**
- * DELETE /user/remove-user?orgId=...&userId=...
- *
- * If your backend expects POST instead of DELETE, switch method to POST and
- * pass body with {orgId,userId}.
- */
 export async function deleteUserApi(input: DeleteUserInput): Promise<DeleteUserResponse> {
-  const qs = buildQueryString({ orgId: input.orgId, userId: input.userId });
+  return apiMutate<DeleteUserResponse>(
+    buildApiUrl('user/delete-user', { orgId: input.orgId, userId: input.userId }),
+    'DELETE',
+  );
+}
 
-  const res = await authFetcher(`${baseUrl}/delete-user${qs}`, {
-    method: 'DELETE',
-    cache: 'no-store',
-  });
+// ─── Multi-Org Management API Functions ───
 
-  await assertOk(res);
-  return res.json();
+export async function addUserToOrganizationApi(input: {
+  userId: string;
+  targetOrgId: string;
+  orgId?: string;
+  role?: string;
+}): Promise<{ message: string; userId: string; targetOrgId: string; role: string }> {
+  return apiMutate(buildApiUrl('user/add-to-organization', { orgId: input.orgId }), 'POST', input);
+}
+
+export async function removeUserFromOrganizationApi(input: {
+  userId: string;
+  targetOrgId: string;
+  orgId?: string;
+}): Promise<{ message: string; userId: string; targetOrgId: string; remainingMemberships: number }> {
+  return apiMutate(buildApiUrl('user/remove-from-organization', { orgId: input.orgId }), 'POST', input);
+}
+
+// ─── KB Access Control API Functions ───
+
+export async function grantKBAccessApi(input: {
+  userId: string;
+  kbId: string;
+  orgId?: string;
+  accessLevel?: 'read' | 'write' | 'admin';
+}): Promise<unknown> {
+  return apiMutate(buildApiUrl('knowledgebase/grant-access', { orgId: input.orgId }), 'POST', input);
+}
+
+export function useKBAccessUsers(kbId: string | null, orgId: string | null) {
+  return useApi<{ users: Array<{ userId: string; kbId: string; orgId: string; accessLevel: string; grantedAt: string }> }>(
+    kbId && orgId ? ['kb-access-users', kbId, orgId] : null,
+    kbId && orgId ? buildApiUrl('knowledgebase/get-access-users', { kbId, orgId }) : null,
+  );
+}
+
+/** Fetch all KB access records for a specific user within an org */
+export function useUserKBAccess(userId: string | null, orgId: string | null) {
+  return useApi<{ records: Array<{ userId: string; kbId: string; orgId: string; accessLevel: string; grantedAt: string }> }>(
+    userId && orgId ? ['user-kb-access', userId, orgId] : null,
+    userId && orgId ? buildApiUrl('knowledgebase/get-user-kb-access', { userId, orgId }) : null,
+  );
+}
+
+export async function revokeKBAccessApi(input: {
+  userId: string;
+  kbId: string;
+  orgId?: string;
+}): Promise<unknown> {
+  return apiMutate(buildApiUrl('knowledgebase/revoke-access', { orgId: input.orgId }), 'POST', input);
 }

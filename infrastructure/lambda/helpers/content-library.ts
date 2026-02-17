@@ -17,6 +17,10 @@ export const indexContentLibrary = async (
   const id = library.id;
   const embedding = await getEmbedding(library.question);
 
+  // Extract kbId from the content library's sort key (format: "{orgId}#{kbId}#{itemId}")
+  const skParts = String(library[SK_NAME]).split('#');
+  const kbId = skParts.length >= 2 ? skParts[1] : undefined;
+
   try {
     await index.namespace(orgId).upsert([
       {
@@ -26,6 +30,7 @@ export const indexContentLibrary = async (
           type: 'content_library',
           [PK_NAME]: library[PK_NAME],
           [SK_NAME]: library[SK_NAME],
+          kbId,
           externalId: id,
           createdAt: nowIso(),
         },

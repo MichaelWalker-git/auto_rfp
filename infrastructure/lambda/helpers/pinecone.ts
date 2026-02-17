@@ -40,10 +40,19 @@ export async function semanticSearchChunks(
   orgId: string,
   embedding: number[],
   k: number,
-  type: string = 'chunk'
+  type: string = 'chunk',
+  kbIds?: string[],
 ): Promise<PineconeHit[]> {
   const client = getPineconeClient();
   const index = client.Index(PINECONE_INDEX);
+
+  // Build filter — always filter by type, optionally by kbId
+  const filter: Record<string, any> = {
+    type: { $eq: type },
+  };
+  if (kbIds?.length) {
+    filter.kbId = { $in: kbIds };
+  }
 
   try {
     const results = await index.namespace(orgId).query({
@@ -51,9 +60,7 @@ export async function semanticSearchChunks(
       topK: k,
       includeMetadata: true,
       includeValues: false,
-      filter: {
-        type: { $eq: type },
-      },
+      filter,
     });
 
     return (results.matches || []).map(match => ({
@@ -83,6 +90,10 @@ export async function indexChunkToPinecone(
   const id = `${document[SK_NAME]}#${chunkKey}`;
   const embedding = await getEmbedding(text);
 
+  // Extract kbId from the document's sort key (format: "KB#{kbId}#DOC#{docId}")
+  const skParts = String(document[SK_NAME]).split('#');
+  const kbId = skParts.length >= 2 ? skParts[1] : undefined;
+
   try {
     await index.namespace(orgId).upsert([
       {
@@ -93,6 +104,7 @@ export async function indexChunkToPinecone(
           type: 'chunk',
           [PK_NAME]: document[PK_NAME],
           [SK_NAME]: document[SK_NAME],
+          kbId,
           chunkKey,
           bucket: DOCUMENTS_BUCKET,
           createdAt: nowIso(),

@@ -25,6 +25,7 @@ export function rfpDocumentDomain(args?: {
         extraEnv: { DOCUMENT_GENERATION_QUEUE_URL: docGenQueueUrl },
       },
       { method: 'POST', path: 'convert-to-content', entry: 'lambda/rfp-document/convert-to-content.ts' },
+      { method: 'POST', path: 'sync-to-google-drive', entry: 'lambda/rfp-document/sync-to-google-drive.ts', timeoutSeconds: 60 },
     ],
   };
 }

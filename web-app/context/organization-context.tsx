@@ -1,16 +1,16 @@
 'use client';
 
-import { createContext, ReactNode, useCallback, useContext, useEffect, useMemo, useState, } from 'react';
+import { createContext, ReactNode, useCallback, useContext, useEffect, useMemo, useRef, useState, } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
-import { useOrganizations } from '@/lib/hooks/use-api';
-import { useAuth } from '@/components/AuthProvider';
+import { useOrganizations, useMyOrganizations, setLastOrg } from '@/lib/hooks/use-api';
 import { readStoredOrgId, writeStoredOrgId } from '@/lib/org-selection';
 import { setOrganizationContext } from '@/lib/sentry';
+import { mutate as globalMutate } from 'swr';
 
 interface Organization {
   id: string;
   name: string;
-  slug: string;
+  slug?: string;
   description?: string;
   iconKey?: string;
 }
@@ -48,54 +48,96 @@ export function OrganizationProvider({ children }: Props) {
   const pathname = usePathname();
   const router = useRouter();
 
-  const { orgId: tokenOrgId } = useAuth();
-  const isOrgLocked = !!tokenOrgId;
-
-  // hydrate from localStorage (admin only)
+  // hydrate from localStorage
   const [selectedOrgId, setSelectedOrgId] = useState<string | null>(() => readStoredOrgId());
 
+  // Track whether we've done initial org selection
+  const hasInitializedRef = useRef(false);
+
+  // Admin users: fetch all orgs via get-organizations
   const {
-    data: organizations = [],
+    data: allOrganizations = [],
     mutate: mutateOrg,
     isLoading: isOrgLoading,
   } = useOrganizations();
 
-  // if user is locked → ignore stored/admin selection
-  useEffect(() => {
-    if (isOrgLocked) {
-      setSelectedOrgId(null);
-      writeStoredOrgId(null);
-    }
-  }, [isOrgLocked]);
+  // All users: fetch orgs they belong to via get-my-organizations (multi-org support)
+  const {
+    data: myOrgsData,
+    mutate: mutateMyOrgs,
+    isLoading: isMyOrgsLoading,
+  } = useMyOrganizations();
 
-  // ensure selectedOrgId is valid once organizations load (admin only)
+  const isLoading = isOrgLoading || isMyOrgsLoading;
+
+  // Merge: prefer allOrganizations (works for admins), fall back to myOrgs for non-admin users
+  const organizations = useMemo(() => {
+    if (allOrganizations.length > 0) {
+      return allOrganizations;
+    }
+    const myOrgs = myOrgsData?.organizations ?? [];
+    if (myOrgs.length > 0) {
+      return myOrgs.map((o) => ({
+        id: o.orgId,
+        name: o.orgName,
+        slug: '',
+        description: undefined,
+        iconKey: undefined,
+      }));
+    }
+    return [];
+  }, [allOrganizations, myOrgsData]);
+
+  // Only truly locked when orgs have loaded AND there's exactly 0 or 1
+  const isOrgLocked = !isLoading && organizations.length <= 1;
+
+  // On first load once orgs are available, resolve the initial org selection
   useEffect(() => {
-    if (isOrgLocked) return;
+    if (hasInitializedRef.current) return;
+    if (isLoading) return;
+    if (!organizations.length) return;
+
+    hasInitializedRef.current = true;
+
+    const localOrgId = readStoredOrgId();
+
+    // If we have a valid local selection, use it
+    if (localOrgId && organizations.some((o) => o.id === localOrgId)) {
+      setSelectedOrgId(localOrgId);
+      return;
+    }
+
+    // Try server-side lastOrgId
+    const serverLastOrgId = myOrgsData?.lastOrgId;
+    if (serverLastOrgId && organizations.some((o) => o.id === serverLastOrgId)) {
+      setSelectedOrgId(serverLastOrgId);
+      writeStoredOrgId(serverLastOrgId);
+      return;
+    }
+
+    // Fallback: select first org
+    const firstOrgId = organizations[0].id;
+    setSelectedOrgId(firstOrgId);
+    writeStoredOrgId(firstOrgId);
+  }, [isLoading, organizations, myOrgsData?.lastOrgId]);
+
+  // Keep selectedOrgId valid if organizations list changes after init
+  useEffect(() => {
+    if (!hasInitializedRef.current) return;
     if (!organizations.length) return;
 
     setSelectedOrgId((prev) => {
-      const candidate = prev ?? organizations[0].id;
-      const exists = organizations.some((o: Organization) => o.id === candidate);
-      return exists ? candidate : organizations[0].id;
+      if (prev && organizations.some((o) => o.id === prev)) return prev;
+      const fallback = organizations[0].id;
+      writeStoredOrgId(fallback);
+      return fallback;
     });
-  }, [isOrgLocked, organizations]);
-
-  // persist selection (admin only)
-  useEffect(() => {
-    if (isOrgLocked) return;
-    writeStoredOrgId(selectedOrgId);
-  }, [isOrgLocked, selectedOrgId]);
-
-  const effectiveOrgId = useMemo(() => {
-    if (tokenOrgId) return tokenOrgId;
-    if (selectedOrgId) return selectedOrgId;
-    return organizations[0]?.id ?? '';
-  }, [tokenOrgId, selectedOrgId, organizations]);
+  }, [organizations]);
 
   const currentOrganization = useMemo(() => {
-    if (!organizations.length || !effectiveOrgId) return null;
-    return organizations.find((o: Organization) => o.id === effectiveOrgId) ?? null;
-  }, [organizations, effectiveOrgId]);
+    if (!organizations.length || !selectedOrgId) return null;
+    return organizations.find((o: Organization) => o.id === selectedOrgId) ?? null;
+  }, [organizations, selectedOrgId]);
 
   // Set Sentry context when organization changes
   useEffect(() => {
@@ -106,7 +148,7 @@ export function OrganizationProvider({ children }: Props) {
     }
   }, [currentOrganization]);
 
-  // redirect into org context if you're not already under /organizations/:id
+  // Redirect into org context if you're under a different org's route
   useEffect(() => {
     if (!currentOrganization?.id) return;
     if (isOnOrgRouteAndItIsNotCurrentOrg(pathname, currentOrganization.id)) {
@@ -116,21 +158,36 @@ export function OrganizationProvider({ children }: Props) {
 
   const refreshData = async () => {
     await mutateOrg();
+    await mutateMyOrgs();
   };
 
   const setCurrentOrganization = useCallback(
     (org: Organization | null) => {
-      if (tokenOrgId) return; // locked users cannot change
-      setSelectedOrgId(org?.id ?? null);
-      if (org?.id) router.push(`/organizations/${org.id}`);
+      if (!org?.id) return;
+      if (isOrgLocked) return;
+
+      // Update state and localStorage immediately
+      setSelectedOrgId(org.id);
+      writeStoredOrgId(org.id);
+
+      // Navigate to the new org
+      router.push(`/organizations/${org.id}`);
+
+      // Invalidate all SWR cache so data refetches with the new orgId
+      globalMutate(() => true, undefined, { revalidate: true });
+
+      // Persist last selected org to the server (fire-and-forget)
+      setLastOrg(org.id).catch(() => {
+        // Silently fail — this is a preference, not critical
+      });
     },
-    [tokenOrgId, router],
+    [isOrgLocked, router],
   );
 
   const value: OrganizationContextType = {
     currentOrganization,
     organizations,
-    loading: isOrgLoading,
+    loading: isLoading,
     refreshData,
     setCurrentOrganization,
     isOrgLocked,

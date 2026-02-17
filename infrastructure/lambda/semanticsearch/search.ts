@@ -12,6 +12,7 @@ import { PineconeHit } from '../helpers/pinecone';
 import { getItem } from '../helpers/db';
 import { CONTENT_LIBRARY_PK, ContentLibraryItem, } from '@auto-rfp/shared';
 import { SK_NAME } from '../constants/common';
+import { getLinkedKBIds } from '../helpers/project-kb';
 
 const DOCUMENTS_BUCKET = requireEnv('DOCUMENTS_BUCKET');
 
@@ -22,6 +23,7 @@ const MAX_TOTAL_CHARS = Number(requireEnv('TOP_CHUNKS_MAX_TOTAL_CHARS', '60000')
 type GetTopChunksRequest = {
   question: string;
   topK?: number;
+  projectId?: string;  // optional: scope search to KBs linked to this project
 };
 
 type SemanticResult = {
@@ -80,13 +82,27 @@ export const baseHandler = async (event: APIGatewayProxyEventV2): Promise<APIGat
 
     const topK = body.topK && body.topK > 0 ? body.topK : DEFAULT_TOP_K;
 
+    // Resolve project-scoped KB filter (if projectId is provided)
+    let kbIds: string[] | undefined;
+    if (body.projectId) {
+      const linkedKBIds = await getLinkedKBIds(body.projectId);
+      // Only apply filter if the project has linked KBs
+      // If no KBs are linked, fall back to searching all org KBs (backward compatible)
+      if (linkedKBIds.length > 0) {
+        kbIds = linkedKBIds;
+        console.log(`Project ${body.projectId}: scoping search to ${kbIds.length} linked KBs: ${kbIds.join(', ')}`);
+      } else {
+        console.log(`Project ${body.projectId}: no linked KBs, searching all org KBs`);
+      }
+    }
+
     // 1) embed question
     const embedding = await getEmbedding(question);
 
-    const questions_hits = await semanticSearchContentLibrary(orgId, embedding, topK);
+    const questions_hits = await semanticSearchContentLibrary(orgId, embedding, topK, kbIds);
 
     // 2) semantic search topK hits (chunkKey + _score)
-    const chunk_hits = await semanticSearchChunks(orgId, embedding, topK);
+    const chunk_hits = await semanticSearchChunks(orgId, embedding, topK, kbIds);
 
     if (!chunk_hits.length) {
       const empty: GetTopChunksResponse = { question, topK, results: [] };

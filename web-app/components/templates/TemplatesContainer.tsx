@@ -99,8 +99,7 @@ export function TemplatesContainer({ orgId }: TemplatesContainerProps) {
   );
 
   return (
-    <div className="w-full max-w-7xl mx-auto">
-      <div className="py-6 px-4 sm:px-6 space-y-6">
+    <div className="container mx-auto p-12 space-y-6">
         <TemplatesHeader
           total={total}
           searchQuery={searchQuery}
@@ -144,7 +143,6 @@ export function TemplatesContainer({ orgId }: TemplatesContainerProps) {
           onConfirm={() => deleteTarget && handleDelete(deleteTarget)}
           onCancel={() => setDeleteTarget(null)}
         />
-      </div>
     </div>
   );
 }

@@ -1,6 +1,6 @@
 import { render, screen } from '@testing-library/react';
 import { ProjectCard } from '../ProjectCard';
-import type { Project } from '@/types/project';
+import { ProjectItem } from '@auto-rfp/shared';
 
 // Mock Next.js Link
 jest.mock('next/link', () => {
@@ -10,13 +10,11 @@ jest.mock('next/link', () => {
 });
 
 describe('ProjectCard', () => {
-  const mockProject: Project = {
+  const mockProject: ProjectItem = {
     id: 'project-123',
     name: 'Test Project',
     description: 'A test project description',
     orgId: 'org-456',
-    status: 'In Progress',
-    createdAt: '2024-01-15T10:00:00Z',
   };
 
   const defaultProps = {
@@ -41,7 +39,7 @@ describe('ProjectCard', () => {
       ...mockProject,
       description: undefined,
     };
-    render(<ProjectCard project={projectWithoutDescription} orgId="org-456" />);
+    render(<ProjectCard project={projectWithoutDescription} orgId="org-456"/>);
 
     expect(screen.getByText('No description')).toBeInTheDocument();
   });
@@ -51,7 +49,7 @@ describe('ProjectCard', () => {
       ...mockProject,
       description: '',
     };
-    render(<ProjectCard project={projectWithEmptyDescription} orgId="org-456" />);
+    render(<ProjectCard project={projectWithEmptyDescription} orgId="org-456"/>);
 
     expect(screen.getByText('No description')).toBeInTheDocument();
   });

@@ -61,6 +61,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     refreshPromise = (async () => {
       try {
+        // Clear all SWR cache on auth state change to prevent stale data from previous session
+        // Use revalidate: true so data is refetched after clearing
+        const { mutate: globalMutate } = await import('swr');
+        await globalMutate(() => true, undefined, { revalidate: true });
+
         const session = await fetchAuthSession({ forceRefresh: true });
         const idToken = session.tokens?.idToken;
 

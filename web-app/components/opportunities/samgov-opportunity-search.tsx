@@ -204,7 +204,7 @@ export default function SamGovOpportunitySearchPage({ orgId }: Props) {
 
   if (checkingApiKey) {
     return (
-      <div className="mx-auto w-full max-w-6xl px-4 py-6">
+      <div className="container mx-auto p-12">
         <div className="flex items-center justify-center py-12">
           <div className="text-muted-foreground">Checking API configuration...</div>
         </div>
@@ -214,7 +214,7 @@ export default function SamGovOpportunitySearchPage({ orgId }: Props) {
 
   return (
     <>
-      <div className="mx-auto w-full max-w-6xl px-4 py-6">
+      <div className="container mx-auto p-12">
         {!hasApiKey && (
           <Alert className="mb-6">
             <Key className="h-4 w-4"/>

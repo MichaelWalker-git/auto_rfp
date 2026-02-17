@@ -6,5 +6,10 @@ export function knowledgebaseDomain(): DomainRoutes {
     { method: 'PATCH', path: 'edit-knowledgebase', entry: 'lambda/knowledgebase/edit-knowledgebase.ts' },
     { method: 'GET', path: 'get-knowledgebases', entry: 'lambda/knowledgebase/get-knowledgebases.ts' },
     { method: 'GET', path: 'get-knowledgebase', entry: 'lambda/knowledgebase/get-knowledgebase.ts' },
+    // KB access control
+    { method: 'POST', path: 'grant-access', entry: 'lambda/knowledgebase/grant-kb-access.ts' },
+    { method: 'POST', path: 'revoke-access', entry: 'lambda/knowledgebase/revoke-kb-access.ts' },
+    { method: 'GET', path: 'get-access-users', entry: 'lambda/knowledgebase/get-access-users.ts' },
+    { method: 'GET', path: 'get-user-kb-access', entry: 'lambda/knowledgebase/get-user-kb-access.ts' },
   ]};
 }

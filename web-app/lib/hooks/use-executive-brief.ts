@@ -131,9 +131,9 @@ const endpoints = {
   risks: (orgId?: string) => `${env.BASE_API_URL}/brief/generate-executive-brief-risks${orgId ? `?orgId=${orgId}` : ''}`,
   pastPerformance: (orgId?: string) => `${env.BASE_API_URL}/pastperf/match-projects${orgId ? `?orgId=${orgId}` : ''}`,
   scoring: (orgId?: string) => `${env.BASE_API_URL}/brief/generate-executive-brief-scoring${orgId ? `?orgId=${orgId}` : ''}`,
-  getByProject: `${env.BASE_API_URL}/brief/get-executive-brief-by-project`,
-  handleLinearTicket: `${env.BASE_API_URL}/brief/handle-linear-ticket`,
-  updateDecision: `${env.BASE_API_URL}/brief/update-decision`,
+  getByProject: (orgId?: string) => `${env.BASE_API_URL}/brief/get-executive-brief-by-project${orgId ? `?orgId=${orgId}` : ''}`,
+  handleLinearTicket: (orgId?: string) => `${env.BASE_API_URL}/brief/handle-linear-ticket${orgId ? `?orgId=${orgId}` : ''}`,
+  updateDecision: (orgId?: string) => `${env.BASE_API_URL}/brief/update-decision${orgId ? `?orgId=${orgId}` : ''}`,
 } as const;
 
 // ---------- hooks ----------
@@ -224,25 +224,25 @@ export function useGenerateExecutiveBriefScoring(orgId?: string) {
   );
 }
 
-export function useGetExecutiveBriefByProject() {
+export function useGetExecutiveBriefByProject(orgId?: string) {
   return useSWRMutation<
     GetExecutiveBriefByProjectResponse,
     Error,
     string,
     GetExecutiveBriefByProjectRequest
-  >(endpoints.getByProject, (url, { arg }) => postJson<GetExecutiveBriefByProjectResponse>(url, arg));
+  >(endpoints.getByProject(orgId), (url, { arg }) => postJson<GetExecutiveBriefByProjectResponse>(url, arg));
 }
 
-export function useHandleLinearTicket() {
+export function useHandleLinearTicket(orgId?: string) {
   return useSWRMutation<HandleLinearTicketResponse, Error, string, HandleLinearTicketRequest>(
-    endpoints.handleLinearTicket,
+    endpoints.handleLinearTicket(orgId),
     (url, { arg }) => postJson<HandleLinearTicketResponse>(url, arg),
   );
 }
 
-export function useUpdateDecision() {
+export function useUpdateDecision(orgId?: string) {
   return useSWRMutation<UpdateDecisionResponse, Error, string, UpdateDecisionRequest>(
-    endpoints.updateDecision,
+    endpoints.updateDecision(orgId),
     (url, { arg }) => postJson<UpdateDecisionResponse>(url, arg),
   );
 }

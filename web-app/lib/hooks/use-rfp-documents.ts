@@ -13,6 +13,7 @@ import type {
   CreateRFPDocumentDTO,
   UpdateRFPDocumentDTO,
   RFPExportFormat,
+  LinearSyncStatus,
 } from '@auto-rfp/shared';
 import {
   RFP_DOCUMENT_TYPES,
@@ -23,7 +24,7 @@ import {
 } from '@auto-rfp/shared';
 
 // Re-export types and constants from shared for convenience
-export type { RFPDocumentItem, RFPDocumentType, SignatureStatus, SignatureDetails, EditHistoryEntry };
+export type { RFPDocumentItem, RFPDocumentType, SignatureStatus, SignatureDetails, EditHistoryEntry, LinearSyncStatus };
 export type { CreateRFPDocumentDTO, UpdateRFPDocumentDTO };
 export type { RFPExportFormat as ExportFormat };
 export { RFP_DOCUMENT_TYPES, SIGNATURE_STATUSES, LINEAR_SYNC_STATUSES };
@@ -282,6 +283,19 @@ export function useConvertToContent(orgId?: string) {
     { projectId: string; opportunityId: string; documentId: string }
   >(
     `${BASE}/convert-to-content${orgId ? `?orgId=${orgId}` : ''}`,
+    (url, { arg }) => postJson(url, arg),
+  );
+}
+
+/** Sync an RFP document to Google Drive */
+export function useSyncRFPDocumentToGoogleDrive(orgId?: string) {
+  return useSWRMutation<
+    { message: string; googleDriveFileId: string; googleDriveUrl: string },
+    Error,
+    string,
+    { projectId: string; opportunityId: string; documentId: string }
+  >(
+    `${BASE}/sync-to-google-drive${orgId ? `?orgId=${orgId}` : ''}`,
     (url, { arg }) => postJson(url, arg),
   );
 }

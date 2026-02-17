@@ -60,7 +60,11 @@ export function authContextMiddleware(): MiddlewareObj<AuthedEvent, APIGatewayPr
       }
 
       const userId = typeof claims.sub === 'string' ? claims.sub : '';
-      const orgId = typeof claims['custom:orgId'] === 'string' ? claims['custom:orgId'] : '';
+
+      // Support multi-org: prefer X-Org-Id header, fall back to token claim
+      const orgIdFromHeader = request.event.headers?.['x-org-id'];
+      const orgIdFromQuery = request.event.queryStringParameters?.orgId;
+      const orgId = orgIdFromHeader || orgIdFromQuery;
 
       request.event.auth = { userId, orgId, claims };
     },

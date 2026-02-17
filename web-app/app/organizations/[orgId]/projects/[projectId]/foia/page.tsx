@@ -1,21 +1,14 @@
-'use client';
-
-import { useEffect } from 'react';
-import { useRouter, usePathname } from 'next/navigation';
+import { redirect } from 'next/navigation';
 
 /**
  * FOIA Requests are now managed within the Opportunity context.
  * This page redirects to the Opportunities page.
  */
-export default function FOIAPage() {
-  const router = useRouter();
-  const pathname = usePathname();
+interface FOIAPageProps {
+  params: Promise<{ orgId: string; projectId: string }>;
+}
 
-  useEffect(() => {
-    if (!pathname) return;
-    const base = pathname.replace(/\/foia\/?$/, '');
-    router.replace(`${base}/opportunities`);
-  }, [pathname, router]);
-
-  return null;
+export default async function FOIAPage({ params }: FOIAPageProps) {
+  const { orgId, projectId } = await params;
+  redirect(`/organizations/${orgId}/projects/${projectId}/opportunities`);
 }

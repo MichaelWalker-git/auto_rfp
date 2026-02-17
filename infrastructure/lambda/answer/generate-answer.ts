@@ -50,6 +50,16 @@ export interface GenerateAnswerResult {
   fromContentLibrary: boolean;
 }
 
+/**
+ * Extract documentId from a Pinecone hit's sort_key.
+ * SK format: "KB#{kbId}#DOC#{documentId}"
+ */
+function extractDocumentIdFromSK(sk: string | undefined): string | undefined {
+  if (!sk) return undefined;
+  const match = sk.match(/#DOC#([^#]+)/);
+  return match?.[1];
+}
+
 async function buildContextFromChunkHits(hits: PineconeHit[]) {
   const byChunkKey = new Map<string, PineconeHit>();
 
@@ -64,10 +74,25 @@ async function buildContextFromChunkHits(hits: PineconeHit[]) {
   return Promise.all(
     uniqueHits.map(async (hit) => {
       const chunkKey = hit.source?.chunkKey;
-      const docId = hit.source?.documentId;
       const text = chunkKey ? await loadTextFromS3(DOCUMENTS_BUCKET, chunkKey) : '';
-      const { name: fileName } = docId ? await getDocumentItemByDocumentId(docId) || {} : {};
-      return { ...hit, text, fileName };
+
+      // Use PK/SK from Pinecone metadata to look up the document in DynamoDB
+      const pk = hit.source?.[PK_NAME];
+      const sk = hit.source?.[SK_NAME];
+      const docId = hit.source?.documentId ?? extractDocumentIdFromSK(sk);
+
+      let fileName: string | undefined;
+      if (pk && sk) {
+        // Direct DynamoDB lookup using PK/SK stored in Pinecone metadata
+        const docItem = await getItem<any>(pk, sk);
+        fileName = docItem?.name;
+      } else if (docId) {
+        // Fallback: look up by documentId
+        const doc = await getDocumentItemByDocumentId(docId);
+        fileName = doc?.name;
+      }
+
+      return { ...hit, text, fileName, documentId: docId };
     }),
   );
 }
@@ -163,7 +188,7 @@ Citations:
 function buildAnswerSources(texts: Awaited<ReturnType<typeof buildContextFromChunkHits>>): AnswerSource[] {
   return texts.map(hit => ({
     id: hit.id || uuidv4(),
-    documentId: hit.source?.documentId,
+    documentId: hit.documentId ?? hit.source?.documentId,
     fileName: hit.fileName,
     chunkKey: hit.source?.chunkKey,
     textContent: hit.text,

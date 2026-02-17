@@ -5,6 +5,7 @@ import { useParams } from 'next/navigation';
 
 import { Button } from '@/components/ui/button';
 import { ListingPageLayout } from '@/components/layout/ListingPageLayout';
+import { PageSearch } from '@/components/layout/page-search';
 import { AlertCircle, CheckCircle2, FileText, Loader2, PlusCircle, RotateCw, Upload, XCircle } from 'lucide-react';
 import { DownloadButton } from '@/components/ui/download-button';
 import { DeleteButton } from '@/components/ui/delete-button';
@@ -25,15 +26,18 @@ import {
   useCreateDocument,
   useDeleteDocument,
   useDocumentsByKb,
+  useDownloadDocument,
   useStartDocumentPipeline,
 } from '@/lib/hooks/use-document';
-import { useDownloadFromS3 } from '@/lib/hooks/use-file';
+import { useAuth } from '@/components/AuthProvider';
 
 import { DocumentItem, IndexStatus, UploadResultSchema } from '@auto-rfp/shared';
 
 import { UploadFileToS3, type UploadFileToS3Ref, } from '@/components/upload/UploadFileToS3';
 import PermissionWrapper from '@/components/permission-wrapper';
-import { Card } from '@/components/ui/card';
+import { Card, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import Link from 'next/link';
+import { ArrowRight, Shield } from 'lucide-react';
 
 interface KbDocument {
   id: string;
@@ -143,7 +147,8 @@ export default function KnowledgeBaseItemComponent() {
   const { trigger: startPipeline } = useStartDocumentPipeline();
   const { trigger: createDocument } = useCreateDocument();
   const { trigger: deleteDocument, isMutating: isDeleting } = useDeleteDocument();
-  const { downloadFile, isDownloading, error: downloadError } = useDownloadFromS3();
+  const { trigger: downloadDocument, isMutating: isDownloading, error: downloadError } = useDownloadDocument();
+  const { userSub } = useAuth();
 
   const isLoading = kbLoading || docsLoading;
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
@@ -438,19 +443,9 @@ export default function KnowledgeBaseItemComponent() {
     [isBatchUploading, retryFailedItem]
   );
 
-  if (isLoading) {
-    return (
-      <div className="max-w-5xl mx-auto py-10 px-4">
-        <div className="flex items-center justify-center h-64">
-          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground"/>
-        </div>
-      </div>
-    );
-  }
-
   if (kbError) {
     return (
-      <div className="max-w-5xl mx-auto py-10 px-4">
+      <div className="container mx-auto p-12">
         <Alert variant="destructive">
           <AlertCircle className="h-4 w-4"/>
           <AlertDescription>
@@ -460,6 +455,10 @@ export default function KnowledgeBaseItemComponent() {
       </div>
     );
   }
+
+  const description = isLoading
+    ? 'Loading documents...'
+    : `${totalDocs} ${totalDocs === 1 ? 'document' : 'documents'} · ${readyDocs} indexed`;
 
   const renderDoc = (doc: DocumentItem) => (
     <Card
@@ -498,19 +497,34 @@ export default function KnowledgeBaseItemComponent() {
             month: 'short',
             day: 'numeric',
           })}
+            {doc.createdBy && (
+              <span> by {doc.createdBy === userSub ? 'you' : doc.createdBy.slice(0, 8) + '…'}</span>
+            )}
           </p>
         </div>
       </div>
 
       <div className="flex items-center gap-2 flex-shrink-0">
-        <DownloadButton
-          isLoading={isDownloading}
-          onClick={() => downloadFile({ key: doc.fileKey, fileName: doc.name })}
-          ariaLabel={`Download ${doc.name}`}
-          variant="ghost"
-          size="icon"
-          className="h-9 w-9"
-        />
+        {/* Download button — only visible to the user who uploaded the document */}
+        {(!doc.createdBy || doc.createdBy === userSub) && (
+          <DownloadButton
+            isLoading={isDownloading}
+            onClick={async () => {
+              try {
+                const result = await downloadDocument({ documentId: doc.id, kbId: doc.knowledgeBaseId });
+                if (result?.url) {
+                  window.open(result.url, '_blank');
+                }
+              } catch {
+                // Error is handled by the downloadError state from the hook
+              }
+            }}
+            ariaLabel={`Download ${doc.name}`}
+            variant="ghost"
+            size="icon"
+            className="h-9 w-9"
+          />
+        )}
         <PermissionWrapper requiredPermission={'document:delete'}>
           <DeleteButton
             isLoading={isDeleting}
@@ -525,38 +539,60 @@ export default function KnowledgeBaseItemComponent() {
   );
 
   return (
-    <div className="mx-auto w-full max-w-6xl px-4 py-6">
+    <div className="container mx-auto p-12">
       <ListingPageLayout
         title={kb?.name || 'Knowledge Base'}
-        description={kb?.description || undefined}
+        description={description}
+        isLoading={isLoading}
         onReload={() => {
           refreshDocuments()
         }}
         headerActions={
-          <PermissionWrapper requiredPermission={'kb:upload'}>
-            <Button onClick={() => setShowUpload(true)}>
-              <PlusCircle className="h-4 w-4 mr-2"/>
-              Upload Documents
-            </Button>
-          </PermissionWrapper>
+          <div className="flex items-center gap-2">
+            <PageSearch
+              value={searchQuery}
+              onChange={setSearchQuery}
+              placeholder="Search documents..."
+            />
+            <PermissionWrapper requiredPermission={'kb:edit'}>
+              {orgId && kbId && (
+                <Button variant="outline" asChild>
+                  <Link href={`/organizations/${orgId}/knowledge-base/${kbId}/access`}>
+                    <Shield className="h-4 w-4 mr-2"/>
+                    Access Control
+                  </Link>
+                </Button>
+              )}
+            </PermissionWrapper>
+            <PermissionWrapper requiredPermission={'kb:upload'}>
+              <Button onClick={() => setShowUpload(true)}>
+                <PlusCircle className="h-4 w-4 mr-2"/>
+                Upload Documents
+              </Button>
+            </PermissionWrapper>
+          </div>
         }
         data={filteredDocs}
         renderItem={renderDoc}
-        isEmpty={filteredDocs.length === 0}
-        emptyState={<div
-          className="flex flex-col items-center justify-center rounded-lg border-2 border-dashed text-center">
-          <FileText className="h-12 w-12 mb-3 text-muted-foreground/50"/>
-          <h3 className="text-sm font-medium mb-1">No documents yet</h3>
-          <p className="text-xs text-muted-foreground mb-4 max-w-sm">
-            Upload your first documents to start indexing and enable Q&A capabilities.
-          </p>
-          <PermissionWrapper requiredPermission={'document:create'}>
-            <Button size="sm" variant="outline" onClick={() => setShowUpload(true)}>
-              <PlusCircle className="h-4 w-4 mr-2"/>
-              Upload Documents
-            </Button>
-          </PermissionWrapper>
-        </div>}
+        isEmpty={!isLoading && filteredDocs.length === 0}
+        emptyState={
+          <div className="flex flex-col items-center justify-center rounded-xl border-2 border-dashed border-muted-foreground/25 bg-muted/10 px-12 py-20 mx-4 my-8">
+            <div className="rounded-full bg-muted p-4 mb-6">
+              <FileText className="h-10 w-10 text-muted-foreground" />
+            </div>
+            <h3 className="text-xl font-semibold mb-2">No documents yet</h3>
+            <p className="text-muted-foreground text-center max-w-md mb-6">
+              Upload your first documents to start indexing and enable Q&amp;A capabilities.
+              Supported formats include PDF, Word, Excel, CSV, and plain text files.
+            </p>
+            <PermissionWrapper requiredPermission="document:create">
+              <Button size="lg" onClick={() => setShowUpload(true)}>
+                <Upload className="h-5 w-5 mr-2" />
+                Upload Your First Documents
+              </Button>
+            </PermissionWrapper>
+          </div>
+        }
       >
         {downloadError && (
           <Alert variant="destructive" className="mt-3">

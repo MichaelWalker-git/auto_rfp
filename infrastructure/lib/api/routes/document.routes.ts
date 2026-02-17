@@ -7,5 +7,6 @@ export function documentDomain(): DomainRoutes {
     { method: 'GET', path: 'get-documents', entry: 'lambda/document/get-documents.ts' },
     { method: 'GET', path: 'get-document', entry: 'lambda/document/get-document.ts' },
     { method: 'POST', path: 'start-document-pipeline', entry: 'lambda/document/start-document-pipeline.ts' },
+    { method: 'GET', path: 'download', entry: 'lambda/document/download-document.ts' },
   ]};
 }

@@ -162,9 +162,8 @@ export function OrganizationBadge() {
                   return (
                     <DropdownMenuItem
                       key={p.id}
-                      disabled={active}
                       onSelect={() => setCurrentProject(p)}
-                      className="cursor-pointer"
+                      className={`cursor-pointer ${active ? 'bg-accent font-medium' : ''}`}
                     >
                       <span className="truncate">{p.name}</span>
                     </DropdownMenuItem>

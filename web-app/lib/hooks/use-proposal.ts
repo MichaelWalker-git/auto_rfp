@@ -4,6 +4,7 @@ import useSWRMutation from 'swr/mutation';
 
 import { env } from '@/lib/env';
 import { authFetcher } from '@/lib/auth/auth-fetcher';
+import { readStoredOrgId } from '@/lib/org-selection';
 import { breadcrumbs } from '@/lib/sentry';
 
 import {
@@ -38,7 +39,14 @@ async function pollForCompletion(
   opportunityId: string,
   documentId: string,
 ): Promise<ProposalDocument> {
-  const url = `${BASE}/get?projectId=${encodeURIComponent(projectId)}&opportunityId=${encodeURIComponent(opportunityId)}&documentId=${encodeURIComponent(documentId)}`;
+  const orgId = readStoredOrgId();
+  const params = new URLSearchParams({
+    projectId,
+    opportunityId,
+    documentId,
+    ...(orgId ? { orgId } : {}),
+  });
+  const url = `${BASE}/get?${params.toString()}`;
 
   for (let attempt = 0; attempt < MAX_POLL_ATTEMPTS; attempt++) {
     await new Promise((resolve) => setTimeout(resolve, POLL_INTERVAL_MS));

@@ -58,7 +58,7 @@ export function OrganizationContent({ orgId }: OrganizationContentProps) {
 
   return (
     <div className="w-full max-w-7xl mx-auto">
-      <div className="py-6 px-4 sm:px-6">
+      <div className="container mx-auto p-12">
         <div className="flex flex-col gap-6">
           <ProjectsHeader 
             searchQuery={searchQuery}

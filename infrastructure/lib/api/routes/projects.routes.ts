@@ -11,6 +11,11 @@ export function projectsDomain(): DomainRoutes {
       { method: 'DELETE', path: 'delete/{projectId}', entry: 'lambda/project/delete-project.ts' },
       { method: 'GET', path: 'questions/{projectId}', entry: 'lambda/project/get-questions.ts' },
       { method: 'POST', path: 'answer/{projectId}', entry: 'lambda/project/answer-questions.ts' },
+
+      // Project ↔ Knowledge Base linking
+      { method: 'GET', path: 'get-project-kbs', entry: 'lambda/project/get-project-kbs.ts' },
+      { method: 'POST', path: 'link-kb', entry: 'lambda/project/link-kb.ts' },
+      { method: 'DELETE', path: 'unlink-kb', entry: 'lambda/project/unlink-kb.ts' },
     ],
   };
 }
