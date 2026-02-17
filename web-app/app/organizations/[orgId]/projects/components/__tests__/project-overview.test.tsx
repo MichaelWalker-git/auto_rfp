@@ -123,6 +123,12 @@ jest.mock('@/components/brief/ExecutiveBriefView', () => ({
   ExecutiveBriefView: () => <div data-testid="executive-brief">Executive Brief</div>,
 }));
 
+jest.mock('@/components/projects/ProjectKBSettings', () => ({
+  __esModule: true,
+  default: () => <div data-testid="project-kb-settings">KB Settings</div>,
+  ProjectKBSettings: () => <div data-testid="project-kb-settings">KB Settings</div>,
+}));
+
 jest.mock('@/components/foia/FOIARequestCard', () => ({
   FOIARequestCard: () => <div data-testid="foia-request-card">FOIA Request Card</div>,
 }));

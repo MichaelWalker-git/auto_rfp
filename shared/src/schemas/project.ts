@@ -8,7 +8,11 @@ export const CreateProjectSchema = z.object({
 
 export type CreateProjectDTO = z.infer<typeof CreateProjectSchema>;
 
-export type ProjectItem = CreateProjectDTO & { id: string };
+export type ProjectItem = CreateProjectDTO & {
+  id: string;
+  createdAt?: string;
+  updatedAt?: string;
+};
 
 export const UpdateProjectSchema = z.object({
   name: z.string().min(1, 'Project name cannot be empty').optional(),
