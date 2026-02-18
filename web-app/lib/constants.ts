@@ -1,1 +1,0 @@
-export const DEFAULT_LANGUAGE_MODEL = "gpt-4o-mini";

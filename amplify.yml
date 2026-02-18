@@ -1,36 +1,34 @@
 version: 1
 applications:
-  - appRoot: web-app
+  - appRoot: apps/web
     frontend:
+      buildPath: /
       phases:
         preBuild:
           commands:
-            - corepack enable
-            - corepack prepare pnpm@latest --activate
-            - cd ../shared
-            - pnpm install --frozen-lockfile
-            - pnpm build
-            - cd ../web-app
-            - pnpm install --frozen-lockfile
-
+            # pnpm is not included in Amplify's default build container
+            - npm install -g pnpm
+            # Install all workspace dependencies from the monorepo root
+            - pnpm install
         build:
           commands:
-            - pnpm build
+            # Build @auto-rfp/core (tsup: esm + cjs + dts) before the Next.js app
+            - pnpm --filter @auto-rfp/core build
+            # Build the Next.js app with standalone output
+            - pnpm --filter @auto-rfp/web build
+            # Copy public assets and static files into the standalone bundle
+            # (required for Next.js standalone mode to serve them correctly)
+            - cp -r apps/web/public apps/web/.next/standalone/public
+            - mkdir -p apps/web/.next/standalone/.next
+            - cp -r apps/web/.next/static apps/web/.next/standalone/.next/static
       artifacts:
-        baseDirectory: .next
+        # baseDirectory is relative to buildPath (/)
+        baseDirectory: apps/web/.next
         files:
           - '**/*'
       cache:
         paths:
-          - .pnpm-store/**/*
-          - node_modules/**/*
-          - .next/cache/**/*
-      redirects:
-        - source: </[^.]*>
-          target: /
-          status: 200
-    customHeaders:
-      - pattern: '**/*'
-        headers:
-          - key: Strict-Transport-Security
-            value: max-age=31536000; includeSubDomains; preload
+          # Next.js incremental build cache
+          - apps/web/.next/cache/**/*
+          # pnpm content-addressable store — speeds up installs
+          - /root/.local/share/pnpm/store/**/*

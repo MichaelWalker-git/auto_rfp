@@ -1,0 +1,1 @@
+export const RFP_DOCUMENT_PK = 'RFP_DOCUMENT';
