@@ -5,11 +5,9 @@ applications:
       phases:
         preBuild:
           commands:
-            # Enable corepack and activate the pinned pnpm version
-            - corepack enable
-            - corepack prepare pnpm@10.10.0 --activate
+            # Install pnpm via npm (corepack is unreliable on Amplify build images)
+            - npm install -g pnpm@10.10.0
             # Install all workspace dependencies from the monorepo root
-            # (each command starts fresh from appRoot: apps/web, so use inline cd)
             - cd ../.. && pnpm install
         build:
           commands:
@@ -20,6 +18,7 @@ applications:
             # Copy public assets and static files into the standalone bundle
             # (required for Next.js standalone mode to serve them correctly)
             - cp -r public .next/standalone/public
+            - mkdir -p .next/standalone/.next
             - cp -r .next/static .next/standalone/.next/static
       artifacts:
         # Amplify WEB_COMPUTE (SSR) platform expects artifacts rooted at .next
@@ -30,5 +29,5 @@ applications:
         paths:
           # Next.js incremental build cache
           - .next/cache/**/*
-          # pnpm content-addressable store — speeds up installs without a lockfile
+          # pnpm content-addressable store — speeds up installs
           - /root/.local/share/pnpm/store/**/*
