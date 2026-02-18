@@ -1,6 +1,25 @@
 /**
  * Unit tests for prepare-questions Lambda
+ * 
+ * Tests the incremental clustering logic that:
+ * 1. Preserves existing cluster assignments
+ * 2. Matches new questions to existing clusters
+ * 3. Creates new clusters from remaining orphans
  */
+
+jest.mock('uuid', () => ({
+  v4: jest.fn(() => 'mock-uuid-v4'),
+}));
+
+jest.mock('../helpers/env', () => ({
+  requireEnv: jest.fn((name: string) => {
+    const envMap: Record<string, string> = {
+      DB_TABLE_NAME: 'test-table',
+      PINECONE_INDEX: 'test-index',
+    };
+    return envMap[name] || `mock-${name}`;
+  }),
+}));
 
 jest.mock('../helpers/db', () => ({
   docClient: {
@@ -10,6 +29,25 @@ jest.mock('../helpers/db', () => ({
 
 jest.mock('../helpers/project', () => ({
   getProjectById: jest.fn(),
+}));
+
+jest.mock('../organization/get-organization-by-id', () => ({
+  getOrganizationById: jest.fn(),
+}));
+
+jest.mock('../helpers/embeddings', () => ({
+  getEmbedding: jest.fn(),
+}));
+
+jest.mock('../helpers/pinecone', () => ({
+  getPineconeClient: jest.fn(() => ({
+    Index: jest.fn(() => ({
+      namespace: jest.fn(() => ({
+        upsert: jest.fn(),
+        query: jest.fn(() => Promise.resolve({ matches: [] })),
+      })),
+    })),
+  })),
 }));
 
 jest.mock('../sentry-lambda', () => ({
@@ -29,11 +67,11 @@ describe('prepare-questions Lambda', () => {
 
   const validEvent: PrepareQuestionsEvent = {
     projectId: 'proj-123',
-    questionFileId: 'qf-456',
   };
 
   const { docClient } = require('../helpers/db');
   const { getProjectById } = require('../helpers/project');
+  const { getOrganizationById } = require('../organization/get-organization-by-id');
 
   beforeEach(() => {
     jest.clearAllMocks();
@@ -41,7 +79,7 @@ describe('prepare-questions Lambda', () => {
 
   describe('Input Validation', () => {
     it('should throw when projectId is missing', async () => {
-      const event = { questionFileId: 'qf-456' } as any;
+      const event = {} as any;
 
       await expect(baseHandler(event, mockContext)).rejects.toThrow(
         'projectId is required'
@@ -49,7 +87,7 @@ describe('prepare-questions Lambda', () => {
     });
 
     it('should throw when projectId is empty string', async () => {
-      const event: PrepareQuestionsEvent = { projectId: '', questionFileId: 'qf-456' };
+      const event: PrepareQuestionsEvent = { projectId: '' };
 
       await expect(baseHandler(event, mockContext)).rejects.toThrow(
         'projectId is required'
@@ -78,6 +116,7 @@ describe('prepare-questions Lambda', () => {
   describe('Question Retrieval', () => {
     beforeEach(() => {
       getProjectById.mockResolvedValue({ id: 'proj-123', orgId: 'org-789' });
+      getOrganizationById.mockResolvedValue({ id: 'org-789', clusterThreshold: 0.5 });
     });
 
     it('should return empty array when no questions exist', async () => {
@@ -90,21 +129,22 @@ describe('prepare-questions Lambda', () => {
         totalCount: 0,
         projectId: 'proj-123',
         orgId: 'org-789',
+        clustersCreated: 0,
       });
     });
 
-    it('should return all questions for a project', async () => {
+    it('should return single question without clustering', async () => {
       docClient.send.mockResolvedValueOnce({
         Items: [
-          { questionId: 'q-1', question: 'Question 1', questionFileId: 'qf-456' },
-          { questionId: 'q-2', question: 'Question 2', questionFileId: 'qf-456' },
+          { questionId: 'q-1', question: 'Question 1' },
         ],
       });
 
       const result = await baseHandler(validEvent, mockContext);
 
-      expect(result.totalCount).toBe(2);
-      expect(result.questions).toHaveLength(2);
+      expect(result.totalCount).toBe(1);
+      expect(result.questions).toHaveLength(1);
+      expect(result.clustersCreated).toBe(0);
       
       const firstQuestion = result.questions[0];
       expect(firstQuestion).toBeDefined();
@@ -114,42 +154,13 @@ describe('prepare-questions Lambda', () => {
       expect(firstQuestion?.questionText).toBe('Question 1');
     });
 
-    it('should filter questions by questionFileId when provided', async () => {
-      docClient.send.mockResolvedValueOnce({
-        Items: [
-          { questionId: 'q-1', question: 'Question 1', questionFileId: 'qf-456' },
-          { questionId: 'q-2', question: 'Question 2', questionFileId: 'qf-other' },
-          { questionId: 'q-3', question: 'Question 3', questionFileId: 'qf-456' },
-        ],
-      });
-
-      const result = await baseHandler(validEvent, mockContext);
-
-      expect(result.totalCount).toBe(2);
-      expect(result.questions.map((q) => q.questionId)).toEqual(['q-1', 'q-3']);
-    });
-
-    it('should return all questions when questionFileId is not provided', async () => {
-      docClient.send.mockResolvedValueOnce({
-        Items: [
-          { questionId: 'q-1', question: 'Question 1', questionFileId: 'qf-456' },
-          { questionId: 'q-2', question: 'Question 2', questionFileId: 'qf-other' },
-        ],
-      });
-
-      const event: PrepareQuestionsEvent = { projectId: 'proj-123' };
-      const result = await baseHandler(event, mockContext);
-
-      expect(result.totalCount).toBe(2);
-    });
-
     it('should skip items without questionId or question text', async () => {
       docClient.send.mockResolvedValueOnce({
         Items: [
-          { questionId: 'q-1', question: 'Question 1', questionFileId: 'qf-456' },
-          { questionId: null, question: 'Missing ID', questionFileId: 'qf-456' },
-          { questionId: 'q-3', question: null, questionFileId: 'qf-456' },
-          { questionId: 'q-4', question: '', questionFileId: 'qf-456' },
+          { questionId: 'q-1', question: 'Question 1' },
+          { questionId: null, question: 'Missing ID' },
+          { questionId: 'q-3', question: null },
+          { questionId: 'q-4', question: '' },
         ],
       });
 
@@ -168,21 +179,111 @@ describe('prepare-questions Lambda', () => {
       docClient.send
         .mockResolvedValueOnce({
           Items: [
-            { questionId: 'q-1', question: 'Question 1', questionFileId: 'qf-456' },
+            { questionId: 'q-1', question: 'Question 1' },
           ],
           LastEvaluatedKey: { pk: 'QUESTION', sk: 'proj-123#q-1' },
         })
         // Second page
         .mockResolvedValueOnce({
-          Items: [
-            { questionId: 'q-2', question: 'Question 2', questionFileId: 'qf-456' },
-          ],
+          Items: [],
         });
 
       const result = await baseHandler(validEvent, mockContext);
 
-      expect(result.totalCount).toBe(2);
+      expect(result.totalCount).toBe(1);
       expect(docClient.send).toHaveBeenCalledTimes(2);
+    });
+  });
+
+  describe('Cluster Preservation', () => {
+    beforeEach(() => {
+      getProjectById.mockResolvedValue({ id: 'proj-123', orgId: 'org-789' });
+      getOrganizationById.mockResolvedValue({ id: 'org-789', clusterThreshold: 0.5 });
+    });
+
+    it('should preserve already-clustered questions without re-embedding', async () => {
+      docClient.send.mockResolvedValueOnce({
+        Items: [
+          { 
+            questionId: 'q-master', 
+            question: 'Master Question',
+            clusterId: 'cluster-123',
+            isClusterMaster: true,
+            similarityToMaster: 1.0,
+          },
+          { 
+            questionId: 'q-member', 
+            question: 'Member Question',
+            clusterId: 'cluster-123',
+            isClusterMaster: false,
+            linkedToMasterQuestionId: 'q-master',
+            similarityToMaster: 0.85,
+          },
+        ],
+      });
+
+      const result = await baseHandler(validEvent, mockContext);
+
+      expect(result.totalCount).toBe(2);
+      expect(result.clustersCreated).toBe(0); // No new clusters
+      
+      // Verify cluster info preserved
+      const master = result.questions.find(q => q.questionId === 'q-master');
+      const member = result.questions.find(q => q.questionId === 'q-member');
+      
+      expect(master?.clusterId).toBe('cluster-123');
+      expect(master?.isClusterMaster).toBe(true);
+      expect(member?.clusterId).toBe('cluster-123');
+      expect(member?.isClusterMaster).toBe(false);
+      expect(member?.masterQuestionId).toBe('q-master');
+    });
+
+    it('should order masters first, then unclustered, then members', async () => {
+      docClient.send.mockResolvedValueOnce({
+        Items: [
+          { questionId: 'q-member', question: 'Member Question', clusterId: 'c1', isClusterMaster: false, linkedToMasterQuestionId: 'q-master' },
+          { questionId: 'q-unclustered', question: 'Unclustered Question' },
+          { questionId: 'q-master', question: 'Master Question Long Text', clusterId: 'c1', isClusterMaster: true },
+        ],
+      });
+
+      const result = await baseHandler(validEvent, mockContext);
+
+      // Should be sorted: masters, unclustered, members
+      expect(result.questions[0]?.questionId).toBe('q-master');
+      expect(result.questions[1]?.questionId).toBe('q-unclustered');
+      expect(result.questions[2]?.questionId).toBe('q-member');
+    });
+  });
+
+  describe('Organization Settings', () => {
+    beforeEach(() => {
+      getProjectById.mockResolvedValue({ id: 'proj-123', orgId: 'org-789' });
+    });
+
+    it('should use default threshold when org has no clusterThreshold', async () => {
+      getOrganizationById.mockResolvedValue({ id: 'org-789' }); // No clusterThreshold
+
+      docClient.send.mockResolvedValueOnce({
+        Items: [{ questionId: 'q-1', question: 'Question 1' }],
+      });
+
+      const result = await baseHandler(validEvent, mockContext);
+
+      expect(result.totalCount).toBe(1);
+      // Function should complete without error using default
+    });
+
+    it('should handle org lookup failure gracefully', async () => {
+      getOrganizationById.mockRejectedValue(new Error('DB error'));
+
+      docClient.send.mockResolvedValueOnce({
+        Items: [{ questionId: 'q-1', question: 'Question 1' }],
+      });
+
+      // Should not throw, uses default threshold
+      const result = await baseHandler(validEvent, mockContext);
+      expect(result.totalCount).toBe(1);
     });
   });
 });

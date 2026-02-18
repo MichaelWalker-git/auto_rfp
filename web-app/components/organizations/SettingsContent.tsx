@@ -16,6 +16,7 @@ import { PageHeader } from '@/components/layout/page-header';
 import PermissionWrapper from '@/components/permission-wrapper';
 import { SavedSearchList } from '@/components/organizations/SavedSearchList';
 import { DocxTemplateUpload } from '@/components/organizations/DocxTemplateUpload';
+import { ClusteringSettings } from '@/components/organizations/ClusteringSettings';
 import { SamGovApiKeyConfiguration } from '@/components/api-key/SamGovApiKeyConfiguration';
 import { LinearApiKeyConfiguration } from '@/components/api-key/LinearApiKeyConfiguration';
 import { GoogleApiKeyConfiguration } from '@/components/api-key/GoogleApiKeyConfiguration';
@@ -282,6 +283,9 @@ export function SettingsContent({ orgId }: SettingsContentProps) {
 
           {/* DOCX Template Upload Section */}
           <DocxTemplateUpload orgId={orgId} />
+
+          {/* Question Clustering Settings */}
+          <ClusteringSettings orgId={orgId} />
 
           {/* General Settings Section */}
           <Card>

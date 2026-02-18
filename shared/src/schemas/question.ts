@@ -10,6 +10,11 @@ export const QuestionItemSchema = z.object({
   sectionDescription: z.string().nullable().optional(),
   createdAt: z.string().datetime(),
   updatedAt: z.string().datetime(),
+  // Clustering fields
+  clusterId: z.string().optional(),
+  isClusterMaster: z.boolean().optional(),
+  similarityToMaster: z.number().min(0).max(1).optional(),
+  linkedToMasterQuestionId: z.string().optional(),
 });
 
 export type QuestionItem = z.infer<typeof QuestionItemSchema>;
@@ -18,6 +23,11 @@ export const GroupedQuestionSchema = z.object({
   id: z.string().min(1),
   question: z.string().min(1),
   answer: z.string().nullable(),
+  // Clustering fields for UI display
+  clusterId: z.string().optional(),
+  isClusterMaster: z.boolean().optional(),
+  similarityToMaster: z.number().min(0).max(1).optional(),
+  linkedToMasterQuestionId: z.string().optional(),
 });
 
 export type GroupedQuestion = z.infer<typeof GroupedQuestionSchema>;

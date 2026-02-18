@@ -4,18 +4,21 @@ import React from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { ArrowUpDown } from 'lucide-react';
+import { ArrowUpDown, Link } from 'lucide-react';
 import type { ConfidenceBand } from '@auto-rfp/shared';
 
 import { useQuestions } from './questions-provider';
 import { QuestionsTabsContent } from './questions-tabs-content';
+import { ClustersView } from './clusters-view';
+import { useClusters } from '@/lib/hooks/use-clustering';
 
 interface QuestionsFilterTabsProps {
   rfpDocument: any;
   orgId: string;
+  projectId: string;
 }
 
-export function QuestionsFilterTabs({ rfpDocument, orgId }: QuestionsFilterTabsProps) {
+export function QuestionsFilterTabs({ rfpDocument, orgId, projectId }: QuestionsFilterTabsProps) {
   const {
     activeTab,
     setActiveTab,
@@ -53,6 +56,10 @@ export function QuestionsFilterTabs({ rfpDocument, orgId }: QuestionsFilterTabsP
   const questionData = getSelectedQuestionData();
   const counts = getCounts();
   const confidenceCounts = getConfidenceCounts();
+  
+  // Get cluster count for the badge
+  const { data: clustersData } = useClusters(projectId);
+  const clusterCount = clustersData?.clusters?.length ?? 0;
 
   const confidenceBands: { value: ConfidenceBand | 'all'; label: string; colorClass: string; count?: number }[] = [
     { value: 'all', label: 'All', colorClass: '', count: undefined },
@@ -63,7 +70,7 @@ export function QuestionsFilterTabs({ rfpDocument, orgId }: QuestionsFilterTabsP
 
   return (
     <Tabs defaultValue="all" value={activeTab} onValueChange={setActiveTab}>
-      <TabsList className="grid w-full grid-cols-3 mb-4">
+      <TabsList className="grid w-full grid-cols-4 mb-4">
         <TabsTrigger value="all" className="gap-1">
           All Questions
           <Badge variant="secondary" className="ml-1">
@@ -83,6 +90,16 @@ export function QuestionsFilterTabs({ rfpDocument, orgId }: QuestionsFilterTabsP
           <Badge variant="secondary" className="ml-1">
             {counts.unanswered}
           </Badge>
+        </TabsTrigger>
+
+        <TabsTrigger value="clusters" className="gap-1">
+          <Link className="h-3.5 w-3.5" />
+          Clusters
+          {clusterCount > 0 && (
+            <Badge variant="secondary" className="ml-1 bg-blue-100 text-blue-700">
+              {clusterCount}
+            </Badge>
+          )}
         </TabsTrigger>
       </TabsList>
 
@@ -124,6 +141,7 @@ export function QuestionsFilterTabs({ rfpDocument, orgId }: QuestionsFilterTabsP
         <TabsContent key={filterType} value={filterType} className="space-y-4">
           <QuestionsTabsContent
             orgId={orgId}
+            projectId={projectId}
             questions={getFilteredQuestions(filterType)}
             selectedQuestion={selectedQuestion}
             questionData={questionData}
@@ -149,6 +167,19 @@ export function QuestionsFilterTabs({ rfpDocument, orgId }: QuestionsFilterTabsP
           />
         </TabsContent>
       ))}
+
+      <TabsContent value="clusters" className="space-y-4">
+        <ClustersView
+          projectId={projectId}
+          onSelectQuestion={(id) => {
+            setSelectedQuestion(id);
+            setActiveTab('all'); // Switch to "All" tab to show the question editor
+            setShowAIPanel(false);
+          }}
+          selectedQuestion={selectedQuestion}
+          answers={answers}
+        />
+      </TabsContent>
     </Tabs>
   );
 }

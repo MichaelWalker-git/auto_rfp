@@ -22,6 +22,7 @@ interface QuestionWithSection {
 
 interface QuestionsTabsContentProps {
   orgId: string;
+  projectId: string;
   questions: QuestionWithSection[];
   selectedQuestion: string | null;
   questionData: { question: any; section: any } | null;
@@ -64,10 +65,11 @@ export function QuestionsTabsContent({
                                        onRemoveQuestion,
                                        removingQuestions,
                                        orgId,
+                                       projectId,
                                        rfpDocument,
                                        searchQuery,
                                      }: QuestionsTabsContentProps) {
-  const { confidenceFilter } = useQuestions();
+  const { confidenceFilter, handleBatchAnswerApplied } = useQuestions();
 
   // Build a set of visible question IDs from the filtered questions list
   const visibleQuestionIds = confidenceFilter !== 'all'
@@ -126,6 +128,7 @@ export function QuestionsTabsContent({
                 onSelectQuestion={(id) => onSelectQuestion(id)}
                 searchQuery={searchQuery}
                 visibleQuestionIds={visibleQuestionIds}
+                selectedQuestionId={selectedQuestion}
               />
             </CardContent>
           </Card>
@@ -160,6 +163,9 @@ export function QuestionsTabsContent({
               onSourceClick={onSourceClick}
               onRemoveQuestion={() => onRemoveQuestion(selectedQuestion)}
               isRemoving={removingQuestions?.has(selectedQuestion) ?? false}
+              projectId={projectId}
+              onSelectQuestion={onSelectQuestion}
+              onAnswerApplied={handleBatchAnswerApplied}
             />
 
             {showAIPanel && <AISuggestionsPanel questionId={selectedQuestion}/>}
