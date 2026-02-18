@@ -5,34 +5,30 @@ applications:
       phases:
         preBuild:
           commands:
-            # Install pnpm and enable corepack
+            # Enable corepack and activate the pinned pnpm version
             - corepack enable
             - corepack prepare pnpm@10.10.0 --activate
             # Install all workspace dependencies from the monorepo root
-            # No lockfile flags needed — pnpm-lock.yaml is gitignored
-            - cd ../..
-            - pnpm install
-            - cd apps/web
+            # (each command starts fresh from appRoot: apps/web, so use inline cd)
+            - cd ../.. && pnpm install
         build:
           commands:
-            # Build shared packages first (core types/schemas)
-            - cd ../..
-            - pnpm --filter @auto-rfp/core build
-            - cd apps/web
-            # Build the Next.js app (standalone output)
+            # Build @auto-rfp/core (tsup: esm + cjs + dts) before the Next.js app
+            - cd ../.. && pnpm --filter @auto-rfp/core build
+            # Build the Next.js app with standalone output
             - pnpm run build
-            # Prepare standalone output for Amplify SSR deployment
+            # Copy public assets and static files into the standalone bundle
+            # (required for Next.js standalone mode to serve them correctly)
             - cp -r public .next/standalone/public
             - cp -r .next/static .next/standalone/.next/static
       artifacts:
-        # Amplify Hosting SSR (WEB_COMPUTE) expects artifacts in .next
+        # Amplify WEB_COMPUTE (SSR) platform expects artifacts rooted at .next
         baseDirectory: .next
         files:
           - '**/*'
       cache:
         paths:
-          # Cache Next.js build cache for faster incremental builds
+          # Next.js incremental build cache
           - .next/cache/**/*
-          # Cache the pnpm content-addressable store (shared across all packages)
-          # This avoids re-downloading packages on every build even without a lockfile
+          # pnpm content-addressable store — speeds up installs without a lockfile
           - /root/.local/share/pnpm/store/**/*
