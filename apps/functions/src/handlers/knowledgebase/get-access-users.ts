@@ -1,7 +1,7 @@
 import { APIGatewayProxyEventV2 } from 'aws-lambda';
 import { apiResponse, getOrgId } from '@/helpers/api';
 import { getKBAccessUsers } from '@/helpers/user-kb';
-import { withSentryLambda } from '../../sentry-lambda';
+import { withSentryLambda } from '@/sentry-lambda';
 import {
   authContextMiddleware,
   httpErrorMiddleware,

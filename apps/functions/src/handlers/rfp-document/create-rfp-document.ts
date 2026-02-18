@@ -3,7 +3,7 @@ import middy from '@middy/core';
 import { v4 as uuidv4 } from 'uuid';
 import { PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
-import { withSentryLambda } from '../../sentry-lambda';
+import { withSentryLambda } from '@/sentry-lambda';
 import { putRFPDocument, buildRFPDocumentS3Key } from '@/helpers/rfp-document';
 import { apiResponse, getOrgId, getUserId } from '@/helpers/api';
 import { PK_NAME, SK_NAME } from '@/constants/common';

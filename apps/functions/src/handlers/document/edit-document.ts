@@ -8,7 +8,7 @@ import { PK_NAME, SK_NAME } from '@/constants/common';
 
 import { UpdateDocumentDTO, UpdateDocumentDTOSchema, } from '@auto-rfp/core';
 import { DOCUMENT_PK } from '@/constants/document';
-import { withSentryLambda } from '../../sentry-lambda';
+import { withSentryLambda } from '@/sentry-lambda';
 import {
   authContextMiddleware,
   httpErrorMiddleware,

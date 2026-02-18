@@ -5,7 +5,7 @@ import { CONTENT_LIBRARY_PK, } from '@auto-rfp/core';
 import { apiResponse, getOrgId } from '@/helpers/api';
 import { docClient } from '@/helpers/db';
 import { requireEnv } from '@/helpers/env';
-import { withSentryLambda } from '../../sentry-lambda';
+import { withSentryLambda } from '@/sentry-lambda';
 import { authContextMiddleware, httpErrorMiddleware, orgMembershipMiddleware, } from '@/middleware/rbac-middleware';
 import { PK_NAME, SK_NAME } from '@/constants/common';
 

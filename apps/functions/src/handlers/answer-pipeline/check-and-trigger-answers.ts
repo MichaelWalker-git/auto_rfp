@@ -1,12 +1,12 @@
 import { Context } from 'aws-lambda';
 import { QueryCommand } from '@aws-sdk/lib-dynamodb';
 import { SFNClient, StartExecutionCommand, ListExecutionsCommand } from '@aws-sdk/client-sfn';
-import { withSentryLambda } from '../sentry-lambda';
-import { requireEnv } from '../helpers/env';
-import { docClient } from '../helpers/db';
-import { PK_NAME, SK_NAME } from '../constants/common';
-import { QUESTION_FILE_PK } from '../constants/question-file';
-import { getProjectById } from '../helpers/project';
+import { withSentryLambda } from '@/sentry-lambda';
+import { requireEnv } from '@/helpers/env';
+import { docClient } from '@/helpers/db';
+import { PK_NAME, SK_NAME } from '@/constants/common';
+import { QUESTION_FILE_PK } from '@/constants/question-file';
+import { getProjectById } from '@/helpers/project';
 
 const DB_TABLE_NAME = requireEnv('DB_TABLE_NAME');
 const ANSWER_GENERATION_STATE_MACHINE_ARN = process.env.ANSWER_GENERATION_STATE_MACHINE_ARN || '';

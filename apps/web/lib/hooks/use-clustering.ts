@@ -12,7 +12,7 @@ import {
   FindSimilarQuestionsResponse,
   ApplyClusterAnswerRequest,
   ApplyClusterAnswerResponse,
-} from '@auto-rfp/shared';
+} from '@auto-rfp/core';
 
 // ---------- Fetchers ----------
 

@@ -4,7 +4,7 @@ import { UpdateCommand, } from '@aws-sdk/lib-dynamodb';
 
 import * as mammoth from 'mammoth';
 
-import { withSentryLambda } from '../../sentry-lambda';
+import { withSentryLambda } from '@/sentry-lambda';
 import { PK_NAME, SK_NAME } from '@/constants/common';
 import { DOCUMENT_PK } from '@/constants/document';
 import { requireEnv } from '@/helpers/env';

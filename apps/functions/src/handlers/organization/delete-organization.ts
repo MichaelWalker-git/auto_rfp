@@ -10,7 +10,7 @@ import {
   extractProjectIdFromSk,
   getProjectsByOrgId,
 } from '@/helpers/project-cleanup';
-import { withSentryLambda } from '../../sentry-lambda';
+import { withSentryLambda } from '@/sentry-lambda';
 import {
   authContextMiddleware,
   httpErrorMiddleware,

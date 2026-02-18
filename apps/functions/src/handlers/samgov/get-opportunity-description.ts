@@ -3,7 +3,7 @@ import middy from '@middy/core';
 import https from 'https';
 
 import { apiResponse, getOrgId } from '@/helpers/api';
-import { withSentryLambda } from '../../sentry-lambda';
+import { withSentryLambda } from '@/sentry-lambda';
 import {
   authContextMiddleware,
   orgMembershipMiddleware,

@@ -13,17 +13,17 @@ jest.mock('uuid', () => ({
 import { baseHandler } from './extract-questions';
 
 // Mock dependencies
-jest.mock('../helpers/db', () => ({
+jest.mock('@/helpers/db', () => ({
   docClient: {
     send: jest.fn().mockResolvedValue({}),
   },
 }));
 
-jest.mock('../helpers/s3', () => ({
+jest.mock('@/helpers/s3', () => ({
   loadTextFromS3: jest.fn().mockResolvedValue('Sample RFP text content'),
 }));
 
-jest.mock('../helpers/bedrock-http-client', () => ({
+jest.mock('@/helpers/bedrock-http-client', () => ({
   invokeModel: jest.fn().mockResolvedValue(
     new TextEncoder().encode(
       JSON.stringify({
@@ -45,7 +45,7 @@ jest.mock('../helpers/bedrock-http-client', () => ({
   ),
 }));
 
-jest.mock('../helpers/questionFile', () => ({
+jest.mock('@/helpers/questionFile', () => ({
   checkQuestionFileCancelled: jest.fn().mockResolvedValue(false), // Default: not cancelled
   updateQuestionFile: jest.fn().mockResolvedValue({ success: true }),
   getQuestionFileItem: jest.fn().mockResolvedValue({
@@ -55,7 +55,7 @@ jest.mock('../helpers/questionFile', () => ({
   }),
 }));
 
-jest.mock('../sentry-lambda', () => ({
+jest.mock('@/sentry-lambda', () => ({
   withSentryLambda: (fn: any) => fn,
 }));
 
@@ -76,9 +76,9 @@ describe('extract-questions Lambda', () => {
   };
 
   describe('Cancellation Check (runs first)', () => {
-    const { checkQuestionFileCancelled } = require('../helpers/questionFile');
-    const { loadTextFromS3 } = require('../helpers/s3');
-    const { invokeModel } = require('../helpers/bedrock-http-client');
+    const { checkQuestionFileCancelled } = require('@/helpers/questionFile');
+    const { loadTextFromS3 } = require('@/helpers/s3');
+    const { invokeModel } = require('@/helpers/bedrock-http-client');
 
     beforeEach(() => {
       jest.clearAllMocks();
@@ -121,7 +121,7 @@ describe('extract-questions Lambda', () => {
   });
 
   describe('Input Validation (runs after cancellation check passes)', () => {
-    const { checkQuestionFileCancelled } = require('../helpers/questionFile');
+    const { checkQuestionFileCancelled } = require('@/helpers/questionFile');
 
     beforeEach(() => {
       jest.clearAllMocks();
@@ -194,8 +194,8 @@ describe('extract-questions Lambda', () => {
   });
 
   describe('JSON Parsing (Sentry: AUTO-RFP-2A)', () => {
-    const { checkQuestionFileCancelled } = require('../helpers/questionFile');
-    const { invokeModel } = require('../helpers/bedrock-http-client');
+    const { checkQuestionFileCancelled } = require('@/helpers/questionFile');
+    const { invokeModel } = require('@/helpers/bedrock-http-client');
 
     beforeEach(() => {
       jest.clearAllMocks();

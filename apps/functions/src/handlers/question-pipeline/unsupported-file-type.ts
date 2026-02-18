@@ -1,5 +1,5 @@
 import { Context } from 'aws-lambda';
-import { withSentryLambda } from '../../sentry-lambda';
+import { withSentryLambda } from '@/sentry-lambda';
 import { updateQuestionFile } from '@/helpers/questionFile';
 
 interface Event {

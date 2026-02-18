@@ -3,7 +3,7 @@ import middy from '@middy/core';
 import { DeleteCommand } from '@aws-sdk/lib-dynamodb';
 
 import { apiResponse } from '@/helpers/api';
-import { withSentryLambda } from '../../sentry-lambda';
+import { withSentryLambda } from '@/sentry-lambda';
 import { requireEnv } from '@/helpers/env';
 import { docClient } from '@/helpers/db';
 import { PK_NAME, SK_NAME } from '@/constants/common';

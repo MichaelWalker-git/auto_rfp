@@ -5,7 +5,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { ArrowUpDown, Link } from 'lucide-react';
-import type { ConfidenceBand } from '@auto-rfp/shared';
+import type { ConfidenceBand } from '@auto-rfp/core';
 
 import { useQuestions } from './questions-provider';
 import { QuestionsTabsContent } from './questions-tabs-content';

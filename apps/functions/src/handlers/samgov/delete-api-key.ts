@@ -1,7 +1,7 @@
 import { APIGatewayProxyEventV2 } from 'aws-lambda';
 import { SecretsManagerClient, DeleteSecretCommand } from '@aws-sdk/client-secrets-manager';
 import { apiResponse, getOrgId } from '@/helpers/api';
-import { withSentryLambda } from '../../sentry-lambda';
+import { withSentryLambda } from '@/sentry-lambda';
 import {
   authContextMiddleware,
   httpErrorMiddleware,

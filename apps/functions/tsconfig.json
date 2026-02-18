@@ -13,6 +13,7 @@
     "types": ["node"],
     "baseUrl": "./src",
     "paths": {
+      "@/*": ["./*"],
       "@/helpers/*": ["helpers/*"],
       "@/constants/*": ["constants/*"],
       "@/types/*": ["types/*"],

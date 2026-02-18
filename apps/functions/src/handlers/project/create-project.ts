@@ -4,7 +4,7 @@ import middy from '@middy/core';
 
 import { apiResponse } from '@/helpers/api';
 import { createProject } from '@/helpers/project';
-import { withSentryLambda } from '../../sentry-lambda';
+import { withSentryLambda } from '@/sentry-lambda';
 import {
   authContextMiddleware,
   httpErrorMiddleware,

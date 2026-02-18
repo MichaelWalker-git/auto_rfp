@@ -4,7 +4,7 @@ import middy from '@middy/core';
 import { apiResponse, getOrgId } from '@/helpers/api';
 import { USER_PK } from '@/constants/user';
 import { userSk } from '@/helpers/user';
-import { withSentryLambda } from '../../sentry-lambda';
+import { withSentryLambda } from '@/sentry-lambda';
 import { getItem } from '@/helpers/db';
 import {
   authContextMiddleware,

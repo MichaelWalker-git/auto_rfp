@@ -4,7 +4,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { z } from 'zod';
 
 import { apiResponse, getOrgId, getUserId } from '@/helpers/api';
-import { withSentryLambda } from '../../sentry-lambda';
+import { withSentryLambda } from '@/sentry-lambda';
 import { getProjectById } from '@/helpers/project';
 import {
   authContextMiddleware,

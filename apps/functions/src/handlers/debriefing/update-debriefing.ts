@@ -6,7 +6,7 @@ import { type UpdateDebriefingRequest, UpdateDebriefingRequestSchema, } from '@a
 import { PK_NAME, SK_NAME } from '@/constants/common';
 import { DEBRIEFING_PK } from '@/constants/organization';
 import { apiResponse } from '@/helpers/api';
-import { withSentryLambda } from '../../sentry-lambda';
+import { withSentryLambda } from '@/sentry-lambda';
 import {
   authContextMiddleware,
   httpErrorMiddleware,

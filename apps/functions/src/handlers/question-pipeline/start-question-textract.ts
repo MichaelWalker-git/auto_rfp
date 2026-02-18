@@ -11,7 +11,7 @@ import {
 import { GetCommand } from '@aws-sdk/lib-dynamodb';
 import { PK_NAME, SK_NAME } from '@/constants/common';
 import { QUESTION_FILE_PK } from '@/constants/question-file';
-import { withSentryLambda } from '../../sentry-lambda';
+import { withSentryLambda } from '@/sentry-lambda';
 import { requireEnv } from '@/helpers/env';
 import { docClient } from '@/helpers/db';
 import { buildQuestionFileSK, updateQuestionFile, checkQuestionFileCancelled } from '@/helpers/questionFile';

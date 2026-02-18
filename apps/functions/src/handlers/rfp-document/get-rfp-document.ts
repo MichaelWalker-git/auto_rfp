@@ -1,6 +1,6 @@
 import type { APIGatewayProxyEventV2, APIGatewayProxyResultV2 } from 'aws-lambda';
 import middy from '@middy/core';
-import { withSentryLambda } from '../../sentry-lambda';
+import { withSentryLambda } from '@/sentry-lambda';
 import { getRFPDocument } from '@/helpers/rfp-document';
 import { enrichWithUserNames } from '@/helpers/resolve-users';
 import { apiResponse, getOrgId } from '@/helpers/api';

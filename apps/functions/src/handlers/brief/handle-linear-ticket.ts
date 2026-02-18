@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { UpdateCommand } from '@aws-sdk/lib-dynamodb';
 
 import { apiResponse, getOrgId } from '@/helpers/api';
-import { withSentryLambda } from '../../sentry-lambda';
+import { withSentryLambda } from '@/sentry-lambda';
 import { createLinearTicket, updateLinearTicket } from '@/helpers/linear';
 import { getExecutiveBrief } from '@/helpers/executive-opportunity-brief';
 import { getProjectById } from '@/helpers/project';

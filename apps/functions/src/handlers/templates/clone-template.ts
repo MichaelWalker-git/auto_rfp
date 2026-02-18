@@ -3,7 +3,7 @@ import { v4 as uuidv4 } from 'uuid';
 import middy from '@middy/core';
 import { CloneTemplateDTOSchema } from '@auto-rfp/core';
 import { apiResponse, getOrgId } from '@/helpers/api';
-import { withSentryLambda } from '../../sentry-lambda';
+import { withSentryLambda } from '@/sentry-lambda';
 import {
   authContextMiddleware,
   httpErrorMiddleware,

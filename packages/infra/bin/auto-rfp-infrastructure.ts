@@ -2,15 +2,15 @@
 import 'source-map-support/register';
 import * as cdk from 'aws-cdk-lib';
 import { Aspects } from 'aws-cdk-lib';
-import { AuthStack } from '../lib/auth-stack';
-import { StorageStack } from '../lib/storage-stack';
-import { DatabaseStack } from '../lib/database-stack';
-import { NetworkStack } from '../lib/network-stack';
-import { AmplifyFeStack } from '../lib/amplify-fe-stack';
-import { DocumentPipelineStack } from '../lib/document-pipeline-step-function';
-import { QuestionExtractionPipelineStack } from '../lib/question-pipeline-step-function';
-import { AnswerGenerationPipelineStack } from '../lib/answer-generation-step-function';
-import { ApiOrchestratorStack } from '../lib/api/api-orchestrator-stack';
+import { AuthStack } from '../auth-stack';
+import { StorageStack } from '../storage-stack';
+import { DatabaseStack } from '../database-stack';
+import { NetworkStack } from '../network-stack';
+import { AmplifyFeStack } from '../amplify-fe-stack';
+import { DocumentPipelineStack } from '../document-pipeline-step-function';
+import { QuestionExtractionPipelineStack } from '../question-pipeline-step-function';
+import { AnswerGenerationPipelineStack } from '../answer-generation-step-function';
+import { ApiOrchestratorStack } from '../api/api-orchestrator-stack';
 import { AwsSolutionsChecks } from 'cdk-nag';
 import {
   addAllSuppressions,
@@ -21,7 +21,7 @@ import {
   addSNSSuppressions,
   addSQSSuppressions,
   addStepFunctionsSuppressions,
-} from '../lib/cdk-nag-suppressions';
+} from '../cdk-nag-suppressions';
 
 const app = new cdk.App();
 

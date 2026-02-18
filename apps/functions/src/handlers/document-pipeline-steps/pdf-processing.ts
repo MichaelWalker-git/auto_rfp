@@ -5,7 +5,7 @@ import { StartDocumentTextDetectionCommand, TextractClient, } from '@aws-sdk/cli
 import { PK_NAME, SK_NAME } from '@/constants/common';
 import { DOCUMENT_PK } from '@/constants/document';
 import { DocumentItem } from '@auto-rfp/core';
-import { withSentryLambda } from '../../sentry-lambda';
+import { withSentryLambda } from '@/sentry-lambda';
 import { requireEnv } from '@/helpers/env';
 import { docClient, getItem } from '@/helpers/db';
 import { nowIso } from '@/helpers/date';

@@ -11,7 +11,7 @@ import middy from '@middy/core';
 import { apiResponse } from '@/helpers/api';
 import { PK_NAME, SK_NAME } from '@/constants/common';
 import { QUESTION_FILE_PK } from '@/constants/question-file';
-import { withSentryLambda } from '../../sentry-lambda';
+import { withSentryLambda } from '@/sentry-lambda';
 import { QUESTION_PK } from '@/constants/question';
 import {
   authContextMiddleware,

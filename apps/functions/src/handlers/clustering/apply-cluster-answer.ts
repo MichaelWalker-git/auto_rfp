@@ -1,22 +1,22 @@
 import { APIGatewayProxyEventV2, APIGatewayProxyResultV2 } from 'aws-lambda';
 import { UpdateCommand } from '@aws-sdk/lib-dynamodb';
-import { ApplyClusterAnswerRequest, ApplyClusterAnswerResponse } from '@auto-rfp/shared';
-import { withSentryLambda } from '../sentry-lambda';
+import { ApplyClusterAnswerRequest, ApplyClusterAnswerResponse } from '@auto-rfp/core';
+import { withSentryLambda } from '@/sentry-lambda';
 import middy from '@middy/core';
 import {
   authContextMiddleware,
   httpErrorMiddleware,
   orgMembershipMiddleware,
   requirePermission,
-} from '../middleware/rbac-middleware';
-import { requireEnv } from '../helpers/env';
-import { docClient } from '../helpers/db';
-import { apiResponse } from '../helpers/api';
-import { getAnswerForQuestion } from '../helpers/answer';
-import { PK_NAME, SK_NAME } from '../constants/common';
-import { QUESTION_PK } from '../constants/question';
-import { nowIso } from '../helpers/date';
-import { saveAnswer } from '../answer/save-answer';
+} from '@/middleware/rbac-middleware';
+import { requireEnv } from '@/helpers/env';
+import { docClient } from '@/helpers/db';
+import { apiResponse } from '@/helpers/api';
+import { getAnswerForQuestion } from '@/helpers/answer';
+import { PK_NAME, SK_NAME } from '@/constants/common';
+import { QUESTION_PK } from '@/constants/question';
+import { nowIso } from '@/helpers/date';
+import { saveAnswer } from '@/handlers/answer/save-answer';
 
 const DB_TABLE_NAME = requireEnv('DB_TABLE_NAME');
 

@@ -4,7 +4,7 @@ import { OpportunityItemSchema } from '@auto-rfp/core';
 
 import { apiResponse } from '@/helpers/api';
 import { createOpportunity } from '@/helpers/opportunity';
-import { withSentryLambda } from '../../sentry-lambda';
+import { withSentryLambda } from '@/sentry-lambda';
 import {
   authContextMiddleware,
   httpErrorMiddleware,

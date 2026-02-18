@@ -2,7 +2,7 @@ import type { APIGatewayProxyEventV2, APIGatewayProxyResultV2 } from 'aws-lambda
 import middy from '@middy/core';
 import { GetObjectCommand, PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
-import { withSentryLambda } from '../../sentry-lambda';
+import { withSentryLambda } from '@/sentry-lambda';
 import { getRFPDocument } from '@/helpers/rfp-document';
 import { apiResponse, getOrgId } from '@/helpers/api';
 import { requireEnv } from '@/helpers/env';
@@ -15,7 +15,7 @@ import {
   flattenProposalToText,
   proposalToMarkdown,
   proposalToHtml,
-} from '../export/export-utils';
+} from '@/handlers/export/export-utils';
 
 const DOCUMENTS_BUCKET = requireEnv('DOCUMENTS_BUCKET');
 const REGION = requireEnv('REGION', 'us-east-1');

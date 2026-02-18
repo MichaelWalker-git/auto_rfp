@@ -6,7 +6,7 @@ import { apiResponse } from '@/helpers/api';
 import { v4 as uuidv4 } from 'uuid';
 import { PK_NAME, SK_NAME } from '@/constants/common';
 import { FILE_PK } from '@/constants/file';
-import { withSentryLambda } from '../../sentry-lambda';
+import { withSentryLambda } from '@/sentry-lambda';
 import { requireEnv } from '@/helpers/env';
 import { docClient } from '@/helpers/db';
 import { nowIso } from '@/helpers/date';

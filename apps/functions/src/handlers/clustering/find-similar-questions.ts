@@ -1,24 +1,24 @@
 import { APIGatewayProxyEventV2, APIGatewayProxyResultV2 } from 'aws-lambda';
 import { GetCommand } from '@aws-sdk/lib-dynamodb';
-import { SimilarQuestion } from '@auto-rfp/shared';
-import { withSentryLambda } from '../sentry-lambda';
+import { SimilarQuestion } from '@auto-rfp/core';
+import { withSentryLambda } from '@/sentry-lambda';
 import middy from '@middy/core';
 import {
   authContextMiddleware,
   httpErrorMiddleware,
   orgMembershipMiddleware,
   requirePermission,
-} from '../middleware/rbac-middleware';
-import { requireEnv } from '../helpers/env';
-import { docClient } from '../helpers/db';
-import { getEmbedding } from '../helpers/embeddings';
-import { getPineconeClient } from '../helpers/pinecone';
-import { apiResponse, getOrgId } from '../helpers/api';
-import { PK_NAME, SK_NAME } from '../constants/common';
-import { QUESTION_PK } from '../constants/question';
-import { ANSWER_PK } from '../constants/answer';
-import { QUESTION_EMBEDDING_TYPE, SIMILAR_THRESHOLD, MAX_SIMILAR_QUESTIONS } from '../constants/clustering';
-import { getOrganizationById } from '../organization/get-organization-by-id';
+} from '@/middleware/rbac-middleware';
+import { requireEnv } from '@/helpers/env';
+import { docClient } from '@/helpers/db';
+import { getEmbedding } from '@/helpers/embeddings';
+import { getPineconeClient } from '@/helpers/pinecone';
+import { apiResponse, getOrgId } from '@/helpers/api';
+import { PK_NAME, SK_NAME } from '@/constants/common';
+import { QUESTION_PK } from '@/constants/question';
+import { ANSWER_PK } from '@/constants/answer';
+import { QUESTION_EMBEDDING_TYPE, SIMILAR_THRESHOLD, MAX_SIMILAR_QUESTIONS } from '@/constants/clustering';
+import { getOrganizationById } from '@/handlers/organization/get-organization-by-id';
 
 const DB_TABLE_NAME = requireEnv('DB_TABLE_NAME');
 const PINECONE_INDEX = requireEnv('PINECONE_INDEX');

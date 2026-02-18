@@ -2,7 +2,7 @@ import { APIGatewayProxyEventV2 } from 'aws-lambda';
 import { storeApiKey } from '@/helpers/api-key-storage';
 import { apiResponse, getOrgId } from '@/helpers/api';
 import { ApiKeyRequestSchema } from '@auto-rfp/core';
-import { withSentryLambda } from '../../sentry-lambda';
+import { withSentryLambda } from '@/sentry-lambda';
 import {
   authContextMiddleware,
   httpErrorMiddleware,

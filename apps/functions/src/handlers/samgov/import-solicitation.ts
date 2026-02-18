@@ -5,7 +5,7 @@ import https from 'https';
 import { apiResponse } from '@/helpers/api';
 import { requireEnv } from '@/helpers/env';
 
-import { withSentryLambda } from '../../sentry-lambda';
+import { withSentryLambda } from '@/sentry-lambda';
 import {
   authContextMiddleware,
   httpErrorMiddleware,

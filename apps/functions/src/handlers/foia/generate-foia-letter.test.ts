@@ -27,7 +27,7 @@ process.env.DB_TABLE_NAME = 'test-table';
 process.env.REGION = 'us-east-1';
 
 import { generateFOIALetter } from './generate-foia-letter';
-import type { DBFOIARequestItem } from '../../types/project-outcome';
+import type { DBFOIARequestItem } from '@/types/project-outcome';
 
 describe('generate-foia-letter handler', () => {
   describe('generateFOIALetter', () => {

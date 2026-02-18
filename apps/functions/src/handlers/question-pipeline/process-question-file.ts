@@ -1,5 +1,5 @@
 import { Context } from 'aws-lambda';
-import { withSentryLambda } from '../../sentry-lambda';
+import { withSentryLambda } from '@/sentry-lambda';
 import { requireEnv } from '@/helpers/env';
 import { updateQuestionFile, checkQuestionFileCancelled } from '@/helpers/questionFile';
 import { getTextractText } from '@/helpers/textract';

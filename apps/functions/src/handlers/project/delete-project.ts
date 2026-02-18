@@ -4,7 +4,7 @@ import middy from '@middy/core';
 import { apiResponse, getOrgId } from '@/helpers/api';
 import { deleteProjectAndRelatedEntities } from '@/helpers/project-cleanup';
 import { deleteAllLinksForProject } from '@/helpers/project-kb';
-import { withSentryLambda } from '../../sentry-lambda';
+import { withSentryLambda } from '@/sentry-lambda';
 import {
   authContextMiddleware,
   httpErrorMiddleware,

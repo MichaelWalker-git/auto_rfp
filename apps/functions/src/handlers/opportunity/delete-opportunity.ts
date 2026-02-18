@@ -3,7 +3,7 @@ import middy from '@middy/core';
 import { DeleteObjectsCommand, S3Client } from '@aws-sdk/client-s3';
 import { DeleteCommand, QueryCommand } from '@aws-sdk/lib-dynamodb';
 
-import { withSentryLambda } from '../../sentry-lambda';
+import { withSentryLambda } from '@/sentry-lambda';
 import { apiResponse } from '@/helpers/api';
 
 import {

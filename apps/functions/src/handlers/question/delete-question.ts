@@ -2,7 +2,7 @@ import { APIGatewayProxyEventV2, APIGatewayProxyResultV2 } from 'aws-lambda';
 import { DeleteCommand, GetCommand, QueryCommand, } from '@aws-sdk/lib-dynamodb';
 
 import { apiResponse } from '@/helpers/api';
-import { withSentryLambda } from '../../sentry-lambda';
+import { withSentryLambda } from '@/sentry-lambda';
 import { PK_NAME, SK_NAME } from '@/constants/common';
 import { QUESTION_PK } from '@/constants/question';
 import { ANSWER_PK } from '@/constants/answer';

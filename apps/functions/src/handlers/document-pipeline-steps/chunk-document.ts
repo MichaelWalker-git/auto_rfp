@@ -2,7 +2,7 @@ import { Context } from 'aws-lambda';
 import { PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
 import { UpdateCommand } from '@aws-sdk/lib-dynamodb';
 
-import { withSentryLambda } from '../../sentry-lambda';
+import { withSentryLambda } from '@/sentry-lambda';
 import { PK_NAME, SK_NAME } from '@/constants/common';
 import { loadTextFromS3 } from '@/helpers/s3';
 import { requireEnv } from '@/helpers/env';

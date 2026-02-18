@@ -10,7 +10,7 @@ import { apiResponse } from '@/helpers/api';
 import { createUser, addExistingUserToOrg } from '@/helpers/user';
 import { adminGetUser } from '@/helpers/cognito';
 import { requireEnv } from '@/helpers/env';
-import { withSentryLambda } from '../../sentry-lambda';
+import { withSentryLambda } from '@/sentry-lambda';
 import {
   authContextMiddleware,
   httpErrorMiddleware,

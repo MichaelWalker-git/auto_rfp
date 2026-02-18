@@ -6,7 +6,7 @@ import { KNOWLEDGE_BASE_PK } from '@/constants/organization';
 import { DOCUMENT_PK } from '@/constants/document';
 import { apiResponse, getOrgId } from '@/helpers/api';
 import { KnowledgeBaseItem, UpdateKnowledgeBaseDTO, UpdateKnowledgeBaseSchema, } from '@auto-rfp/core';
-import { withSentryLambda } from '../../sentry-lambda';
+import { withSentryLambda } from '@/sentry-lambda';
 import {
   authContextMiddleware,
   httpErrorMiddleware,

@@ -7,7 +7,7 @@ import { DOCUMENT_PK } from '@/constants/document';
 import { CONTENT_LIBRARY_PK } from '@auto-rfp/core';
 import { apiResponse, getOrgId } from '@/helpers/api';
 import { KnowledgeBase, KnowledgeBaseItem, } from '@auto-rfp/core';
-import { withSentryLambda } from '../../sentry-lambda';
+import { withSentryLambda } from '@/sentry-lambda';
 import { requireEnv } from '@/helpers/env';
 import { docClient } from '@/helpers/db';
 import {

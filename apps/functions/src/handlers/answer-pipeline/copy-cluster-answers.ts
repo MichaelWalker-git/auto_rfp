@@ -1,12 +1,12 @@
 import { Context } from 'aws-lambda';
 import { QueryCommand } from '@aws-sdk/lib-dynamodb';
-import { withSentryLambda } from '../sentry-lambda';
-import { requireEnv } from '../helpers/env';
-import { docClient } from '../helpers/db';
-import { saveAnswer } from '../answer/save-answer';
-import { getAnswerForQuestion } from '../helpers/answer';
-import { PK_NAME, SK_NAME } from '../constants/common';
-import { QUESTION_CLUSTER_PK } from '../constants/clustering';
+import { withSentryLambda } from '@/sentry-lambda';
+import { requireEnv } from '@/helpers/env';
+import { docClient } from '@/helpers/db';
+import { saveAnswer } from '@/handlers/answer/save-answer';
+import { getAnswerForQuestion } from '@/helpers/answer';
+import { PK_NAME, SK_NAME } from '@/constants/common';
+import { QUESTION_CLUSTER_PK } from '@/constants/clustering';
 
 const DB_TABLE_NAME = requireEnv('DB_TABLE_NAME');
 

@@ -10,7 +10,7 @@ import { userSk } from '@/helpers/user';
 import { createOrganization } from '@/helpers/org';
 import { requireEnv } from '@/helpers/env';
 import { docClient } from '@/helpers/db';
-import { withSentryLambda } from '../../sentry-lambda';
+import { withSentryLambda } from '@/sentry-lambda';
 import {
   authContextMiddleware,
   httpErrorMiddleware,

@@ -1,6 +1,6 @@
 import type { SQSBatchResponse, SQSEvent } from 'aws-lambda';
 import { z } from 'zod';
-import { withSentryLambda } from '../../sentry-lambda';
+import { withSentryLambda } from '@/sentry-lambda';
 import { syncToGoogleDrive } from '@/helpers/google-drive';
 import { getExecutiveBrief } from '@/helpers/executive-opportunity-brief';
 

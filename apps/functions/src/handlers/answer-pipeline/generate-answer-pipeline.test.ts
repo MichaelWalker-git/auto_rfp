@@ -2,11 +2,11 @@
  * Unit tests for generate-answer-pipeline Lambda
  */
 
-jest.mock('../answer/generate-answer', () => ({
+jest.mock('@/handlers/answer/generate-answer', () => ({
   generateAnswerForQuestion: jest.fn(),
 }));
 
-jest.mock('../sentry-lambda', () => ({
+jest.mock('@/sentry-lambda', () => ({
   withSentryLambda: (fn: any) => fn,
 }));
 
@@ -28,7 +28,7 @@ describe('generate-answer-pipeline Lambda', () => {
     questionText: 'What is the deadline?',
   };
 
-  const { generateAnswerForQuestion } = require('../answer/generate-answer');
+  const { generateAnswerForQuestion } = require('@/handlers/answer/generate-answer');
 
   beforeEach(() => {
     jest.clearAllMocks();

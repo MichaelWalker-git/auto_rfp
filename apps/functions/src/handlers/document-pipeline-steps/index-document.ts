@@ -2,7 +2,7 @@ import { Context } from 'aws-lambda';
 import { QueryCommand, UpdateCommand } from '@aws-sdk/lib-dynamodb';
 import { GetObjectCommand, S3Client } from '@aws-sdk/client-s3';
 
-import { withSentryLambda } from '../../sentry-lambda';
+import { withSentryLambda } from '@/sentry-lambda';
 import { indexChunkToPinecone } from '@/helpers/pinecone';
 import { PK_NAME, SK_NAME } from '@/constants/common';
 import { DOCUMENT_PK } from '@/constants/document';

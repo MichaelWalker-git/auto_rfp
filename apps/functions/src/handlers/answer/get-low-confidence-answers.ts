@@ -4,7 +4,7 @@ import { QueryCommand } from '@aws-sdk/lib-dynamodb';
 import { apiResponse } from '@/helpers/api';
 import { PK_NAME, SK_NAME } from '@/constants/common';
 import { ANSWER_PK } from '@/constants/answer';
-import { withSentryLambda } from '../../sentry-lambda';
+import { withSentryLambda } from '@/sentry-lambda';
 import middy from '@middy/core';
 import {
   authContextMiddleware,

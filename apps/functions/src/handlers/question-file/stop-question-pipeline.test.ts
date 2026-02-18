@@ -12,12 +12,12 @@ jest.mock('@aws-sdk/client-sfn', () => ({
 }));
 
 // Mock helpers
-jest.mock('../helpers/questionFile', () => ({
+jest.mock('@/helpers/questionFile', () => ({
   getQuestionFileItem: jest.fn(),
   updateQuestionFile: jest.fn().mockResolvedValue({ success: true }),
 }));
 
-jest.mock('../helpers/env', () => ({
+jest.mock('@/helpers/env', () => ({
   requireEnv: jest.fn((key: string) => {
     if (key === 'QUESTION_PIPELINE_STATE_MACHINE_ARN') {
       return 'arn:aws:states:us-east-1:123456789:stateMachine:AutoRfp-Dev-Question-Pipeline';
@@ -26,7 +26,7 @@ jest.mock('../helpers/env', () => ({
   }),
 }));
 
-jest.mock('../helpers/api', () => ({
+jest.mock('@/helpers/api', () => ({
   apiResponse: jest.fn((status: number, body: any) => ({
     statusCode: status,
     body: JSON.stringify(body),
@@ -34,7 +34,7 @@ jest.mock('../helpers/api', () => ({
   })),
 }));
 
-jest.mock('../sentry-lambda', () => ({
+jest.mock('@/sentry-lambda', () => ({
   withSentryLambda: (fn: any) => fn,
 }));
 
@@ -45,7 +45,7 @@ jest.mock('@middy/core', () => {
   }));
 });
 
-jest.mock('../middleware/rbac-middleware', () => ({
+jest.mock('@/handlers/middleware/rbac-middleware', () => ({
   authContextMiddleware: jest.fn(() => ({ before: jest.fn() })),
   orgMembershipMiddleware: jest.fn(() => ({ before: jest.fn() })),
   requirePermission: jest.fn(() => ({ before: jest.fn() })),
@@ -54,8 +54,8 @@ jest.mock('../middleware/rbac-middleware', () => ({
 
 import type { APIGatewayProxyEventV2 } from 'aws-lambda';
 import { SFNClient, StopExecutionCommand } from '@aws-sdk/client-sfn';
-import { getQuestionFileItem, updateQuestionFile } from '../../helpers/questionFile';
-import { apiResponse } from '../../helpers/api';
+import { getQuestionFileItem, updateQuestionFile } from '@/helpers/questionFile';
+import { apiResponse } from '@/helpers/api';
 
 // Import the handler after mocks are set up
 // We need to access the base handler directly for testing

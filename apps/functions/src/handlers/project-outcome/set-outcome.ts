@@ -6,7 +6,7 @@ import { SetProjectOutcomeRequestSchema, type SetProjectOutcomeRequest } from '@
 import { PK_NAME, SK_NAME } from '@/constants/common';
 import { PROJECT_OUTCOME_PK, PROJECT_PK } from '@/constants/organization';
 import { apiResponse } from '@/helpers/api';
-import { withSentryLambda } from '../../sentry-lambda';
+import { withSentryLambda } from '@/sentry-lambda';
 import {
   authContextMiddleware,
   httpErrorMiddleware,

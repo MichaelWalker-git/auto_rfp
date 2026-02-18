@@ -5,7 +5,7 @@ import { CreateKnowledgeBaseSchema, } from '@auto-rfp/core';
 import { apiResponse, getOrgId, getUserId } from '@/helpers/api';
 import { createKnowledgeBase } from '@/helpers/kb';
 import { grantKBAccess } from '@/helpers/user-kb';
-import { withSentryLambda } from '../../sentry-lambda';
+import { withSentryLambda } from '@/sentry-lambda';
 import {
   authContextMiddleware,
   httpErrorMiddleware,

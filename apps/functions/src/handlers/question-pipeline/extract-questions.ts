@@ -3,7 +3,7 @@ import { PutCommand } from '@aws-sdk/lib-dynamodb';
 import { QUESTION_PK } from '@/constants/question';
 import { PK_NAME, SK_NAME } from '@/constants/common';
 import { safeParseJsonFromModel } from '@/helpers/json';
-import { withSentryLambda } from '../../sentry-lambda';
+import { withSentryLambda } from '@/sentry-lambda';
 import { requireEnv } from '@/helpers/env';
 import { docClient } from '@/helpers/db';
 import { nowIso } from '@/helpers/date';

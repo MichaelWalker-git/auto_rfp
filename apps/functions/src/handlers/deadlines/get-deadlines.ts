@@ -10,7 +10,7 @@ import {
     getWarningLevel,
     calculateRecommendedSubmitBy
 } from '@/helpers/deadline-calculations';
-import {withSentryLambda} from "../../sentry-lambda";
+import {withSentryLambda} from '@/sentry-lambda';
 
 const ddb = DynamoDBDocumentClient.from(new DynamoDBClient({}), {
     marshallOptions: { removeUndefinedValues: true },

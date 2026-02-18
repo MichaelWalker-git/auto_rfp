@@ -11,7 +11,7 @@ import {
 import { PK_NAME, SK_NAME } from '@/constants/common';
 import { FOIA_REQUEST_PK, PROJECT_OUTCOME_PK } from '@/constants/organization';
 import { apiResponse } from '@/helpers/api';
-import { withSentryLambda } from '../../sentry-lambda';
+import { withSentryLambda } from '@/sentry-lambda';
 import {
   authContextMiddleware,
   httpErrorMiddleware,

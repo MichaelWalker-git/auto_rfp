@@ -3,7 +3,7 @@ import middy from '@middy/core';
 import { CONTENT_LIBRARY_PK, ContentLibraryItem, createContentLibrarySK, } from '@auto-rfp/core';
 import { apiResponse, getOrgId } from '@/helpers/api';
 import { getItem } from '@/helpers/db';
-import { withSentryLambda } from '../../sentry-lambda';
+import { withSentryLambda } from '@/sentry-lambda';
 import { authContextMiddleware, httpErrorMiddleware, orgMembershipMiddleware, } from '@/middleware/rbac-middleware';
 
 /**

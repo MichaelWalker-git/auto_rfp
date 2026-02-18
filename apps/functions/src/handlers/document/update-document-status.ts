@@ -2,7 +2,7 @@ import { APIGatewayProxyResultV2 } from 'aws-lambda';
 import { UpdateCommand } from '@aws-sdk/lib-dynamodb';
 import { PK_NAME, SK_NAME } from '@/constants/common';
 import { DOCUMENT_PK } from '@/constants/document';
-import { withSentryLambda } from '../../sentry-lambda';
+import { withSentryLambda } from '@/sentry-lambda';
 import { apiResponse } from '@/helpers/api';
 import { requireEnv } from '@/helpers/env';
 import { docClient } from '@/helpers/db';

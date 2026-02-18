@@ -3,7 +3,7 @@ import { UpdateCommand } from '@aws-sdk/lib-dynamodb';
 import { apiResponse, getUserId } from '@/helpers/api';
 import { PK_NAME, SK_NAME } from '@/constants/common';
 import { USER_PK } from '@/constants/user';
-import { withSentryLambda } from '../../sentry-lambda';
+import { withSentryLambda } from '@/sentry-lambda';
 import {
   authContextMiddleware,
   httpErrorMiddleware,

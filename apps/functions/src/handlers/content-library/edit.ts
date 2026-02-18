@@ -10,7 +10,7 @@ import {
 import { apiResponse, getOrgId } from '@/helpers/api';
 import { docClient } from '@/helpers/db';
 import { requireEnv } from '@/helpers/env';
-import { withSentryLambda } from '../../sentry-lambda';
+import { withSentryLambda } from '@/sentry-lambda';
 import { authContextMiddleware, httpErrorMiddleware, orgMembershipMiddleware, } from '@/middleware/rbac-middleware';
 
 const TABLE_NAME = requireEnv('DB_TABLE_NAME');

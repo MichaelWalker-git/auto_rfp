@@ -23,11 +23,11 @@ jest.mock('@aws-sdk/client-bedrock-runtime', () => ({
   BedrockRuntimeClient: jest.fn(() => ({})),
 }), { virtual: true });
 
-jest.mock('../helpers/embeddings', () => ({
+jest.mock('@/helpers/embeddings', () => ({
   getEmbedding: jest.fn().mockResolvedValue(new Array(1024).fill(0.1)),
 }));
 
-jest.mock('../helpers/db', () => ({
+jest.mock('@/helpers/db', () => ({
   docClient: {
     send: jest.fn().mockResolvedValue({ Items: [] }),
   },
@@ -39,11 +39,11 @@ jest.mock('../helpers/db', () => ({
   }),
 }));
 
-jest.mock('../sentry-lambda', () => ({
+jest.mock('@/sentry-lambda', () => ({
   withSentryLambda: (fn: any) => fn,
 }));
 
-jest.mock('../helpers/pinecone', () => ({
+jest.mock('@/helpers/pinecone', () => ({
   indexChunkToPinecone: jest.fn().mockResolvedValue('vector-id-123'),
   semanticSearchChunks: jest.fn().mockResolvedValue([]),
   deleteFromPinecone: jest.fn().mockResolvedValue(undefined),
@@ -395,7 +395,7 @@ describe('index-document Lambda - Document Deleted Mid-Pipeline (Sentry: AUTO-RF
       getItem: jest.fn().mockResolvedValue(null),
     }));
 
-    const pinecone = require('../helpers/pinecone');
+    const pinecone = require('@/helpers/pinecone');
     const { baseHandler } = await import('./index-document');
 
     const event = {

@@ -3,7 +3,7 @@ import middy from '@middy/core';
 import { SFNClient, StopExecutionCommand } from '@aws-sdk/client-sfn';
 
 import { apiResponse } from '@/helpers/api';
-import { withSentryLambda } from '../../sentry-lambda';
+import { withSentryLambda } from '@/sentry-lambda';
 import { requireEnv } from '@/helpers/env';
 import {
   authContextMiddleware,

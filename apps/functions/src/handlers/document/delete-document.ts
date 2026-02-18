@@ -3,7 +3,7 @@ import { APIGatewayProxyEventV2, APIGatewayProxyResultV2, } from 'aws-lambda';
 import { apiResponse } from '@/helpers/api';
 
 import { DeleteDocumentDTO, DeleteDocumentDTOSchema, } from '@auto-rfp/core';
-import { withSentryLambda } from '../../sentry-lambda';
+import { withSentryLambda } from '@/sentry-lambda';
 import middy from '@middy/core';
 import {
   authContextMiddleware,

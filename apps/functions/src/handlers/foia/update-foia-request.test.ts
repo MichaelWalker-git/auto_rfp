@@ -29,7 +29,7 @@ process.env.REGION = 'us-east-1';
 
 import { updateFOIARequest } from './update-foia-request';
 import type { UpdateFOIARequest } from '@auto-rfp/core';
-import type { DBFOIARequestItem } from '../../types/project-outcome';
+import type { DBFOIARequestItem } from '@/types/project-outcome';
 
 describe('update-foia-request handler', () => {
   beforeEach(() => {

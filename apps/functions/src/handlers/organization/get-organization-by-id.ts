@@ -4,7 +4,7 @@ import { ORG_PK } from '@/constants/organization';
 import { PK_NAME, SK_NAME } from '@/constants/common';
 import { apiResponse } from '@/helpers/api';
 import type { OrganizationItem } from '@auto-rfp/core';
-import { withSentryLambda } from '../../sentry-lambda';
+import { withSentryLambda } from '@/sentry-lambda';
 import {
   authContextMiddleware,
   httpErrorMiddleware,

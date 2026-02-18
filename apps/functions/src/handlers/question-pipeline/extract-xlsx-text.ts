@@ -1,7 +1,7 @@
 import * as XLSX from 'xlsx';
 import { requireEnv } from '@/helpers/env';
 import { getFileFromS3, uploadToS3 } from '@/helpers/s3';
-import { withSentryLambda } from '../../sentry-lambda';
+import { withSentryLambda } from '@/sentry-lambda';
 import { updateQuestionFile, checkQuestionFileCancelled } from '@/helpers/questionFile';
 
 const DOCUMENTS_BUCKET = requireEnv('DOCUMENTS_BUCKET');

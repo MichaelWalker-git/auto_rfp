@@ -1,5 +1,5 @@
 import { QueryCommand } from '@aws-sdk/lib-dynamodb';
-import { AnswerItem } from '@auto-rfp/shared';
+import { AnswerItem } from '@auto-rfp/core';
 import { docClient, DBItem } from './db';
 import { requireEnv } from './env';
 import { PK_NAME, SK_NAME } from '../constants/common';

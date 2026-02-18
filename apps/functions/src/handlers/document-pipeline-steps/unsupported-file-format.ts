@@ -1,5 +1,5 @@
 import { Context } from 'aws-lambda';
-import { withSentryLambda } from '../../sentry-lambda';
+import { withSentryLambda } from '@/sentry-lambda';
 import { docClient } from '@/helpers/db';
 import { PK_NAME, SK_NAME } from '@/constants/common';
 import { DOCUMENT_PK } from '@/constants/document';

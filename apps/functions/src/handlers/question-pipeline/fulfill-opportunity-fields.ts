@@ -4,7 +4,7 @@ import { invokeModel } from '@/helpers/bedrock-http-client';
 import { safeParseJsonFromModel } from '@/helpers/json';
 import { updateOpportunity, getOpportunity } from '@/helpers/opportunity';
 import { getQuestionFileItem, updateQuestionFile, checkQuestionFileCancelled } from '@/helpers/questionFile';
-import { withSentryLambda } from '../../sentry-lambda';
+import { withSentryLambda } from '@/sentry-lambda';
 
 type Event = {
   opportunityId: string;

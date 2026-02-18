@@ -6,7 +6,7 @@ import { PK_NAME, SK_NAME } from '@/constants/common';
 import { apiResponse } from '@/helpers/api';
 import { AnswerItem, ConfidenceBreakdown, ConfidenceBand, SaveAnswerDTOSchema, } from '@auto-rfp/core';
 import { ANSWER_PK } from '@/constants/answer';
-import { withSentryLambda } from '../../sentry-lambda';
+import { withSentryLambda } from '@/sentry-lambda';
 import {
   authContextMiddleware,
   httpErrorMiddleware,

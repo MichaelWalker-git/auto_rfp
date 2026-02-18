@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Loader2, Link, CheckCircle2, ChevronDown, ChevronRight } from 'lucide-react';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { useClusters } from '@/lib/hooks/use-clustering';
-import { QuestionCluster, ClusterMember } from '@auto-rfp/shared';
+import { QuestionCluster, ClusterMember } from '@auto-rfp/core';
 import { useState } from 'react';
 
 interface ClustersViewProps {

@@ -4,7 +4,7 @@ import { QueryCommand } from '@aws-sdk/lib-dynamodb';
 import { PK_NAME, SK_NAME } from '@/constants/common';
 import { QUESTION_PK } from '@/constants/question';
 import { apiResponse } from '@/helpers/api';
-import { withSentryLambda } from '../../sentry-lambda';
+import { withSentryLambda } from '@/sentry-lambda';
 import { getProjectById } from '@/helpers/project';
 import middy from '@middy/core';
 import {

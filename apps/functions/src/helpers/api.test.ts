@@ -1,5 +1,5 @@
 // Mock sentry before importing modules
-jest.mock('../sentry-lambda', () => ({
+jest.mock('@/sentry-lambda', () => ({
   withSentryLambda: (handler: any) => handler,
 }));
 

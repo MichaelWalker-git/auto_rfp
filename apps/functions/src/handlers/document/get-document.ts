@@ -5,7 +5,7 @@ import { DynamoDBDocumentClient, GetCommand, } from '@aws-sdk/lib-dynamodb';
 
 import { apiResponse } from '@/helpers/api';
 import { PK_NAME, SK_NAME } from '@/constants/common';
-import { withSentryLambda } from '../../sentry-lambda';
+import { withSentryLambda } from '@/sentry-lambda';
 import {
   authContextMiddleware,
   httpErrorMiddleware,

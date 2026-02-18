@@ -1,20 +1,20 @@
 import { APIGatewayProxyEventV2, APIGatewayProxyResultV2 } from 'aws-lambda';
 import { QueryCommand } from '@aws-sdk/lib-dynamodb';
-import { QuestionCluster, GetClustersResponse, ClusterMember } from '@auto-rfp/shared';
-import { withSentryLambda } from '../sentry-lambda';
+import { QuestionCluster, GetClustersResponse, ClusterMember } from '@auto-rfp/core';
+import { withSentryLambda } from '@/sentry-lambda';
 import middy from '@middy/core';
 import {
   authContextMiddleware,
   httpErrorMiddleware,
   orgMembershipMiddleware,
   requirePermission,
-} from '../middleware/rbac-middleware';
-import { requireEnv } from '../helpers/env';
-import { docClient } from '../helpers/db';
-import { apiResponse } from '../helpers/api';
-import { hasAnswer } from '../helpers/answer';
-import { PK_NAME, SK_NAME } from '../constants/common';
-import { QUESTION_CLUSTER_PK } from '../constants/clustering';
+} from '@/middleware/rbac-middleware';
+import { requireEnv } from '@/helpers/env';
+import { docClient } from '@/helpers/db';
+import { apiResponse } from '@/helpers/api';
+import { hasAnswer } from '@/helpers/answer';
+import { PK_NAME, SK_NAME } from '@/constants/common';
+import { QUESTION_CLUSTER_PK } from '@/constants/clustering';
 
 const DB_TABLE_NAME = requireEnv('DB_TABLE_NAME');
 

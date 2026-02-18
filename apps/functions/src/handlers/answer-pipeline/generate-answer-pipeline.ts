@@ -1,7 +1,7 @@
 import { Context } from 'aws-lambda';
 import { ConfidenceBreakdown } from '@auto-rfp/core';
-import { withSentryLambda } from '../../sentry-lambda';
-import { generateAnswerForQuestion, GenerateAnswerResult } from '../answer/generate-answer';
+import { withSentryLambda } from '@/sentry-lambda';
+import { generateAnswerForQuestion, GenerateAnswerResult } from '@/handlers/answer/generate-answer';
 
 export interface GenerateAnswerPipelineEvent {
   questionId: string;

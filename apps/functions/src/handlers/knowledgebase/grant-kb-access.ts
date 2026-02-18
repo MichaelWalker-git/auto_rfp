@@ -2,7 +2,7 @@ import { APIGatewayProxyEventV2 } from 'aws-lambda';
 import { apiResponse, getOrgId, getUserId } from '@/helpers/api';
 import { GrantKBAccessRequestSchema } from '@auto-rfp/core';
 import { grantKBAccess } from '@/helpers/user-kb';
-import { withSentryLambda } from '../../sentry-lambda';
+import { withSentryLambda } from '@/sentry-lambda';
 import {
   authContextMiddleware,
   httpErrorMiddleware,

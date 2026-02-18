@@ -19,7 +19,7 @@ import {
   ANSWER_SYSTEM_PROMPT, ANSWER_USER_PROMPT,
 } from '@/constants/prompt';
 
-import { withSentryLambda } from '../../sentry-lambda';
+import { withSentryLambda } from '@/sentry-lambda';
 import {
   authContextMiddleware,
   httpErrorMiddleware,

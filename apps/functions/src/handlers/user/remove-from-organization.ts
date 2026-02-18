@@ -4,7 +4,7 @@ import { apiResponse, getOrgId } from '@/helpers/api';
 import { PK_NAME, SK_NAME } from '@/constants/common';
 import { USER_PK } from '@/constants/user';
 import { userSk } from '@/helpers/user';
-import { withSentryLambda } from '../../sentry-lambda';
+import { withSentryLambda } from '@/sentry-lambda';
 import {
   authContextMiddleware,
   httpErrorMiddleware,

@@ -9,7 +9,7 @@ import {
 import { apiResponse, getUserId, getOrgId } from '@/helpers/api';
 import { docClient } from '@/helpers/db';
 import { requireEnv } from '@/helpers/env';
-import { withSentryLambda } from '../../sentry-lambda';
+import { withSentryLambda } from '@/sentry-lambda';
 import {
   authContextMiddleware,
   httpErrorMiddleware,

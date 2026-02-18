@@ -8,7 +8,7 @@ import { PK_NAME, SK_NAME } from '@/constants/common';
 import { getEmbedding, semanticSearchChunks, semanticSearchContentLibrary } from '@/helpers/embeddings';
 import { PineconeHit } from '@/helpers/pinecone';
 
-import { withSentryLambda } from '../../sentry-lambda';
+import { withSentryLambda } from '@/sentry-lambda';
 import {
   authContextMiddleware,
   httpErrorMiddleware,

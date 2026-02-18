@@ -5,7 +5,7 @@ import { apiResponse } from '@/helpers/api';
 import { PK_NAME, SK_NAME } from '@/constants/common';
 import { QUESTION_PK } from '@/constants/question';
 import { ANSWER_PK } from '@/constants/answer';
-import { withSentryLambda } from '../../sentry-lambda';
+import { withSentryLambda } from '@/sentry-lambda';
 import { requireEnv } from '@/helpers/env';
 import { docClient } from '@/helpers/db';
 import {

@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { UpdateCommand } from '@aws-sdk/lib-dynamodb';
 import { QueryCommand } from '@aws-sdk/lib-dynamodb';
 
-import { withSentryLambda } from '../../sentry-lambda';
+import { withSentryLambda } from '@/sentry-lambda';
 import { requireEnv } from '@/helpers/env';
 import { docClient } from '@/helpers/db';
 import { PK_NAME, SK_NAME } from '@/constants/common';

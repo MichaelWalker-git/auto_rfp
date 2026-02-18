@@ -1,7 +1,7 @@
 import type { APIGatewayProxyResultV2 } from 'aws-lambda';
 import { z } from 'zod';
 import middy from '@middy/core';
-import { withSentryLambda } from '../../sentry-lambda';
+import { withSentryLambda } from '@/sentry-lambda';
 import { type ExecutiveBriefItem } from '@auto-rfp/core';
 import { getPastProject } from '@/helpers/past-performance';
 import {

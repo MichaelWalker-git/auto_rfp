@@ -4,7 +4,7 @@ import { CreateDocumentDTOSchema } from '@auto-rfp/core';
 
 import { apiResponse, getUserId } from '@/helpers/api';
 import { createDocument } from '@/helpers/document';
-import { withSentryLambda } from '../../sentry-lambda';
+import { withSentryLambda } from '@/sentry-lambda';
 import {
   authContextMiddleware,
   httpErrorMiddleware,

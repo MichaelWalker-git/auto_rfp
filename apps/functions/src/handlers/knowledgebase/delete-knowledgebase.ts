@@ -9,7 +9,7 @@ import { deleteItem, docClient } from '@/helpers/db';
 import { deleteAllLinksForKB } from '@/helpers/project-kb';
 import { deleteAllDocumentsInKB } from '@/helpers/kb';
 import { requireEnv } from '@/helpers/env';
-import { withSentryLambda } from '../../sentry-lambda';
+import { withSentryLambda } from '@/sentry-lambda';
 import {
   authContextMiddleware,
   httpErrorMiddleware,

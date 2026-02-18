@@ -11,7 +11,7 @@ jest.mock('uuid', () => ({
   v4: jest.fn(() => 'mock-uuid-v4'),
 }));
 
-jest.mock('../helpers/env', () => ({
+jest.mock('@/helpers/env', () => ({
   requireEnv: jest.fn((name: string) => {
     const envMap: Record<string, string> = {
       DB_TABLE_NAME: 'test-table',
@@ -21,25 +21,25 @@ jest.mock('../helpers/env', () => ({
   }),
 }));
 
-jest.mock('../helpers/db', () => ({
+jest.mock('@/helpers/db', () => ({
   docClient: {
     send: jest.fn(),
   },
 }));
 
-jest.mock('../helpers/project', () => ({
+jest.mock('@/helpers/project', () => ({
   getProjectById: jest.fn(),
 }));
 
-jest.mock('../organization/get-organization-by-id', () => ({
+jest.mock('@/handlers/organization/get-organization-by-id', () => ({
   getOrganizationById: jest.fn(),
 }));
 
-jest.mock('../helpers/embeddings', () => ({
+jest.mock('@/helpers/embeddings', () => ({
   getEmbedding: jest.fn(),
 }));
 
-jest.mock('../helpers/pinecone', () => ({
+jest.mock('@/helpers/pinecone', () => ({
   getPineconeClient: jest.fn(() => ({
     Index: jest.fn(() => ({
       namespace: jest.fn(() => ({
@@ -50,7 +50,7 @@ jest.mock('../helpers/pinecone', () => ({
   })),
 }));
 
-jest.mock('../sentry-lambda', () => ({
+jest.mock('@/sentry-lambda', () => ({
   withSentryLambda: (fn: any) => fn,
 }));
 
@@ -69,9 +69,9 @@ describe('prepare-questions Lambda', () => {
     projectId: 'proj-123',
   };
 
-  const { docClient } = require('../helpers/db');
-  const { getProjectById } = require('../helpers/project');
-  const { getOrganizationById } = require('../organization/get-organization-by-id');
+  const { docClient } = require('@/helpers/db');
+  const { getProjectById } = require('@/helpers/project');
+  const { getOrganizationById } = require('@/handlers/organization/get-organization-by-id');
 
   beforeEach(() => {
     jest.clearAllMocks();
