@@ -1,6 +1,7 @@
 const {withSentryConfig} = require("@sentry/nextjs");
 
 const nextConfig = {
+  output: 'standalone',
   trailingSlash: true,
   images: {
     unoptimized: true,

@@ -15,14 +15,16 @@ applications:
         build:
           commands:
             - pnpm build
+            # Copy static files and public assets to standalone output
+            - cp -R .next/static .next/standalone/apps/web/.next/static
+            - cp -R public .next/standalone/apps/web/public
       artifacts:
-        baseDirectory: .next
+        baseDirectory: .next/standalone
         files:
           - '**/*'
       cache:
         paths:
-          - .pnpm-store/**/*
-          - node_modules/**/*
+          - ../../.pnpm-store/**/*
           - .next/cache/**/*
       redirects:
         - source: </[^.]*>
