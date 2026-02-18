@@ -4,19 +4,19 @@ on:
   pull_request:
     branches: [main, develop]
     paths:
-      - 'web-app/**'
+      - 'apps/web/**'
       - '.github/workflows/lighthouse.yml'
   push:
     branches: [main, develop]
     paths:
-      - 'web-app/**'
+      - 'apps/web/**'
 
 jobs:
   lighthouse:
     runs-on: ubuntu-latest
     defaults:
       run:
-        working-directory: web-app
+        working-directory: apps/web
 
     steps:
       - name: Checkout
@@ -53,10 +53,10 @@ jobs:
         working-directory: shared
         run: pnpm build
 
-      - name: Install dependencies (web-app)
+      - name: Install dependencies (apps/web)
         run: pnpm install
 
-      - name: Build web-app
+      - name: Build apps/web
         run: pnpm build
         env:
           # Add required env vars for build
@@ -74,5 +74,5 @@ jobs:
         if: always()
         with:
           name: lighthouse-report
-          path: web-app/.lighthouseci
+          path: apps/web/.lighthouseci
           retention-days: 30
