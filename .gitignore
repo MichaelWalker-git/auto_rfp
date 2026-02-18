@@ -26,3 +26,4 @@ pnpm-lock.yaml
 !playwright.config.js
 !postcss.config.js
 !tailwind.config.js
+/apps/web/tsconfig.tsbuildinfo
