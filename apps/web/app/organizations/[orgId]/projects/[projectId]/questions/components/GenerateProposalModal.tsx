@@ -119,17 +119,17 @@ export const GenerateProposalModal: React.FC<Props> = ({
           opportunityId: effectiveOpportunityId,
           documentId: savedDocumentId,
           name: proposal.proposalTitle || 'Generated Proposal',
-          documentType: 'PROPOSAL',
+          documentType: 'TECHNICAL_PROPOSAL',
           content: proposal,
           title: proposal.proposalTitle || 'Generated Proposal',
         });
       } else {
-        // Create new RFP document of type PROPOSAL
+        // Create new RFP document of type TECHNICAL_PROPOSAL
         const result = await triggerCreate({
           projectId,
           opportunityId: effectiveOpportunityId,
           name: proposal.proposalTitle || 'Generated Proposal',
-          documentType: 'PROPOSAL',
+          documentType: 'TECHNICAL_PROPOSAL',
           mimeType: 'application/json',
           fileSizeBytes: 0,
           // Pass content via the body - the lambda handles content-based documents

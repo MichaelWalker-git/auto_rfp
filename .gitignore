@@ -15,6 +15,10 @@ localstorage/
 **/cdk.out/
 pnpm-lock.yaml
 
+# Prevent nested workspace configs (only root should have pnpm-workspace.yaml)
+apps/**/pnpm-workspace.yaml
+packages/**/pnpm-workspace.yaml
+
 # Build outputs
 *.d.ts
 *.js
