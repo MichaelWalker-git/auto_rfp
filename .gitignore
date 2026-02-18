@@ -30,4 +30,5 @@ packages/**/pnpm-workspace.yaml
 !playwright.config.js
 !postcss.config.js
 !tailwind.config.js
+!lighthouserc.js
 /apps/web/tsconfig.tsbuildinfo
