@@ -398,7 +398,7 @@ export class DocumentPipelineStack extends Stack {
       },
     });
 
-    indexPdfMap.iterator(
+    indexPdfMap.itemProcessor(
       new tasks.LambdaInvoke(this, 'Index One Chunk (PDF)', {
         lambdaFunction: indexDocumentLambda,
         payload: sfn.TaskInput.fromObject({
@@ -426,7 +426,7 @@ export class DocumentPipelineStack extends Stack {
       },
     });
 
-    indexDocxMap.iterator(
+    indexDocxMap.itemProcessor(
       new tasks.LambdaInvoke(this, 'Index One Chunk (DOCX)', {
         lambdaFunction: indexDocumentLambda,
         payload: sfn.TaskInput.fromObject({
@@ -521,7 +521,7 @@ export class DocumentPipelineStack extends Stack {
       },
     });
 
-    indexXlsxMap.iterator(
+    indexXlsxMap.itemProcessor(
       new tasks.LambdaInvoke(this, 'Index One Chunk (XLSX)', {
         lambdaFunction: indexDocumentLambda,
         payload: sfn.TaskInput.fromObject({

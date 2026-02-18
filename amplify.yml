@@ -8,7 +8,7 @@ applications:
             - corepack enable
             - corepack prepare pnpm@latest --activate
             - cd ../..
-            - pnpm install --frozen-lockfile
+            - pnpm install --no-frozen-lockfile
             - pnpm --filter @auto-rfp/core build
             - cd apps/web
 

@@ -60,7 +60,7 @@ export class AnswerGenerationPipelineStack extends Stack {
     const prepareQuestionsLambda = new lambdaNode.NodejsFunction(this, 'PrepareQuestionsLambda', {
       runtime: lambda.Runtime.NODEJS_24_X,
       logGroup: mkFnLogGroup('PrepareQuestions'),
-      entry: path.join(__dirname, '../lambda/answer-pipeline/prepare-questions.ts'),
+      entry: path.join(__dirname, '../../apps/functions/src/handlers/answer-pipeline/prepare-questions.ts'),
       handler: 'handler',
       timeout: Duration.minutes(10),
       memorySize: 1024,
@@ -90,7 +90,7 @@ export class AnswerGenerationPipelineStack extends Stack {
     const generateAnswerLambda = new lambdaNode.NodejsFunction(this, 'GenerateAnswerLambda', {
       runtime: lambda.Runtime.NODEJS_24_X,
       logGroup: mkFnLogGroup('GenerateAnswer'),
-      entry: path.join(__dirname, '../lambda/answer-pipeline/generate-answer-pipeline.ts'),
+      entry: path.join(__dirname, '../../apps/functions/src/handlers/answer-pipeline/generate-answer-pipeline.ts'),
       handler: 'handler',
       timeout: Duration.minutes(5),
       memorySize: 1024,
@@ -123,7 +123,7 @@ export class AnswerGenerationPipelineStack extends Stack {
     const copyClusterAnswersLambda = new lambdaNode.NodejsFunction(this, 'CopyClusterAnswersLambda', {
       runtime: lambda.Runtime.NODEJS_24_X,
       logGroup: mkFnLogGroup('CopyClusterAnswers'),
-      entry: path.join(__dirname, '../lambda/answer-pipeline/copy-cluster-answers.ts'),
+      entry: path.join(__dirname, '../../apps/functions/src/handlers/answer-pipeline/copy-cluster-answers.ts'),
       handler: 'handler',
       timeout: Duration.minutes(5),
       memorySize: 512,
