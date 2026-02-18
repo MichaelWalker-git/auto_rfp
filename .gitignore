@@ -7,9 +7,28 @@ node_modules
 /node_modules/
 **/node_modules/
 **/dist/
-node_modules
+**/node_modules
 .env
 .env.local
 localstorage/
 .next/
-**/pnpm-workspace.yaml
+**/cdk.out/
+pnpm-lock.yaml
+
+# Prevent nested workspace configs (only root should have pnpm-workspace.yaml)
+apps/**/pnpm-workspace.yaml
+packages/**/pnpm-workspace.yaml
+
+# Build outputs
+*.d.ts
+*.js
+!*.config.js
+!jest.setup.js
+!jest.config.js
+!eslint.config.js
+!next.config.js
+!playwright.config.js
+!postcss.config.js
+!tailwind.config.js
+!lighthouserc.js
+/apps/web/tsconfig.tsbuildinfo

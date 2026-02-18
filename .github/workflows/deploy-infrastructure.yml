@@ -4,8 +4,9 @@ on:
   push:
     branches: [production]
     paths:
-      - 'infrastructure/**'
-      - 'shared/**'
+      - 'packages/infra/**'
+      - 'packages/core/**'
+      - 'apps/functions/**'
       - '.github/workflows/deploy-infrastructure.yml'
   workflow_dispatch:
     inputs:
@@ -40,21 +41,16 @@ jobs:
         with:
           version: 10
 
-      - name: Install shared dependencies
-        working-directory: shared
+      - name: Install dependencies
         run: pnpm install
 
-      - name: Build shared package
-        working-directory: shared
+      - name: Build core package
+        working-directory: packages/core
         run: pnpm build
 
-      - name: Install infrastructure dependencies
-        working-directory: infrastructure
-        run: npm install
-
       - name: Run infrastructure tests
-        working-directory: infrastructure
-        run: npm test -- --passWithNoTests
+        working-directory: packages/infra
+        run: pnpm test -- --passWithNoTests
 
   deploy:
     name: Deploy to ${{ github.event.inputs.environment || 'Prod' }}
@@ -78,17 +74,12 @@ jobs:
         with:
           version: 10
 
-      - name: Install shared dependencies
-        working-directory: shared
+      - name: Install dependencies
         run: pnpm install
 
-      - name: Build shared package
-        working-directory: shared
+      - name: Build core package
+        working-directory: packages/core
         run: pnpm build
-
-      - name: Install infrastructure dependencies
-        working-directory: infrastructure
-        run: npm install
 
       - name: Install esbuild for Lambda bundling
         run: npm install -g esbuild
@@ -101,7 +92,7 @@ jobs:
           aws-region: us-east-1
 
       - name: CDK Diff (preview changes)
-        working-directory: infrastructure
+        working-directory: packages/infra
         run: |
           echo "## CDK Diff Preview" >> $GITHUB_STEP_SUMMARY
           npx cdk diff --context stage=${{ github.event.inputs.environment || 'Prod' }} 2>&1 | tee diff-output.txt || true
@@ -114,7 +105,7 @@ jobs:
           PINECONE_INDEX: ${{ secrets.PINECONE_INDEX }}
 
       - name: Deploy CDK Stacks
-        working-directory: infrastructure
+        working-directory: packages/infra
         run: |
           npx cdk deploy --all \
             --context stage=${{ github.event.inputs.environment || 'Prod' }} \

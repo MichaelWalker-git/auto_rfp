@@ -1,17 +1,16 @@
 version: 1
 applications:
-  - appRoot: web-app
+  - appRoot: apps/web
     frontend:
       phases:
         preBuild:
           commands:
             - corepack enable
             - corepack prepare pnpm@latest --activate
-            - cd ../shared
+            - cd ../..
             - pnpm install --frozen-lockfile
-            - pnpm build
-            - cd ../web-app
-            - pnpm install --frozen-lockfile
+            - pnpm --filter @auto-rfp/core build
+            - cd apps/web
 
         build:
           commands:
