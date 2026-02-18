@@ -5,35 +5,34 @@ applications:
       phases:
         preBuild:
           commands:
+            # Install pnpm and enable corepack
             - corepack enable
-            - corepack prepare pnpm@latest --activate
+            - corepack prepare pnpm@10.10.0 --activate
+            # Install all workspace dependencies from the monorepo root
+            # No lockfile flags needed — pnpm-lock.yaml is gitignored
             - cd ../..
-            - pnpm install --no-frozen-lockfile
-            - pnpm --filter @auto-rfp/core build
+            - pnpm install
             - cd apps/web
-
         build:
           commands:
-            - pnpm build
-            # Copy static files and public assets to standalone output
-            - cp -R .next/static .next/standalone/apps/web/.next/static
-            - cp -R public .next/standalone/apps/web/public
-            # Copy required-server-files.json to the root of standalone
-            - cp .next/required-server-files.json .next/standalone/apps/web/.next/required-server-files.json
+            # Build shared packages first (core types/schemas)
+            - cd ../..
+            - pnpm --filter @auto-rfp/core build
+            - cd apps/web
+            # Build the Next.js app (standalone output)
+            - pnpm run build
+            # Prepare standalone output for Amplify SSR deployment
+            - cp -r public .next/standalone/public
+            - cp -r .next/static .next/standalone/.next/static
       artifacts:
-        baseDirectory: .next/standalone/apps/web
+        # Amplify Hosting SSR (WEB_COMPUTE) expects artifacts in .next
+        baseDirectory: .next
         files:
           - '**/*'
       cache:
         paths:
-          - ../../.pnpm-store/**/*
+          # Cache Next.js build cache for faster incremental builds
           - .next/cache/**/*
-      redirects:
-        - source: </[^.]*>
-          target: /
-          status: 200
-    customHeaders:
-      - pattern: '**/*'
-        headers:
-          - key: Strict-Transport-Security
-            value: max-age=31536000; includeSubDomains; preload
+          # Cache the pnpm content-addressable store (shared across all packages)
+          # This avoids re-downloading packages on every build even without a lockfile
+          - /root/.local/share/pnpm/store/**/*
