@@ -66,7 +66,7 @@ const validateSavePromptResponse = (data: unknown): SavePromptResponse | null =>
 // in the @auto-rfp/core package that define PromptScope and PromptType.
 // If new scopes or types are added there, they must be added here as well.
 const validScopes: PromptScope[] = ['SYSTEM', 'USER'];
-const validTypes: PromptType[] = ['PROPOSAL', 'SUMMARY', 'REQUIREMENTS', 'CONTACTS', 'RISK', 'DEADLINE', 'SCORING', 'ANSWER'];
+const validTypes: PromptType[] = ['TECHNICAL_PROPOSAL', 'SUMMARY', 'REQUIREMENTS', 'CONTACTS', 'RISK', 'DEADLINE', 'SCORING', 'ANSWER'];
 
 export function usePrompts(orgId?: string) {
   const url = promptApi.list(orgId);

@@ -4,7 +4,7 @@ export const PromptScopeSchema = z.enum(['SYSTEM', 'USER']);
 export type PromptScope = z.infer<typeof PromptScopeSchema>;
 
 export const PromptTypeSchema =
-  z.enum(['PROPOSAL', 'SUMMARY', 'REQUIREMENTS', 'CONTACTS', 'RISK', 'DEADLINE', 'SCORING', 'ANSWER']);
+  z.enum(['TECHNICAL_PROPOSAL', 'SUMMARY', 'REQUIREMENTS', 'CONTACTS', 'RISK', 'DEADLINE', 'SCORING', 'ANSWER']);
 
 export type PromptType = z.infer<typeof PromptTypeSchema>;
 

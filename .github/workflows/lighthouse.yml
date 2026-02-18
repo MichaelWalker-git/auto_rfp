@@ -64,8 +64,31 @@ jobs:
           NEXT_PUBLIC_COGNITO_USER_POOL_ID: 'us-east-1_example'
           NEXT_PUBLIC_COGNITO_USER_POOL_CLIENT_ID: 'example-client-id'
 
+      - name: Start Next.js server
+        run: |
+          pnpm start &
+          SERVER_PID=$!
+          echo "SERVER_PID=$SERVER_PID" >> $GITHUB_ENV
+          
+          # Wait for server to be ready
+          for i in {1..30}; do
+            if curl -s http://localhost:3000 > /dev/null 2>&1; then
+              echo "✅ Server is ready!"
+              break
+            fi
+            if [ $i -eq 30 ]; then
+              echo "❌ Server failed to start"
+              exit 1
+            fi
+            sleep 2
+          done
+        env:
+          NEXT_PUBLIC_BASE_API_URL: 'https://api.example.com'
+          NEXT_PUBLIC_COGNITO_USER_POOL_ID: 'us-east-1_example'
+          NEXT_PUBLIC_COGNITO_USER_POOL_CLIENT_ID: 'example-client-id'
+
       - name: Run Lighthouse CI
-        run: pnpm exec lhci autorun
+        run: pnpm exec lhci autorun --collect.startServerCommand=""
         env:
           LHCI_GITHUB_APP_TOKEN: ${{ secrets.LHCI_GITHUB_APP_TOKEN }}
 
