@@ -1,0 +1,48 @@
+{
+  "name": "@auto-rfp/functions",
+  "version": "1.0.0",
+  "private": true,
+  "description": "AWS Lambda functions for AutoRFP",
+  "type": "module",
+  "scripts": {
+    "build": "tsc",
+    "watch": "tsc -w",
+    "clean": "rm -rf dist .turbo node_modules/.cache"
+  },
+  "dependencies": {
+    "@auto-rfp/core": "workspace:*",
+    "@aws-sdk/client-bedrock-runtime": "^3.982.0",
+    "@aws-sdk/client-cognito-identity-provider": "^3.982.0",
+    "@aws-sdk/client-dynamodb": "^3.982.0",
+    "@aws-sdk/client-lambda": "^3.982.0",
+    "@aws-sdk/client-s3": "^3.982.0",
+    "@aws-sdk/client-sns": "^3.982.0",
+    "@aws-sdk/client-secrets-manager": "^3.982.0",
+    "@aws-sdk/client-sfn": "^3.982.0",
+    "@aws-sdk/client-sqs": "^3.982.0",
+    "@aws-sdk/client-ssm": "^3.982.0",
+    "@aws-sdk/client-textract": "^3.982.0",
+    "@aws-sdk/lib-dynamodb": "^3.982.0",
+    "@aws-sdk/s3-request-presigner": "^3.982.0",
+    "@linear/sdk": "^69.0.0",
+    "@middy/core": "^7.0.2",
+    "@pinecone-database/pinecone": "^6.1.4",
+    "@sentry/serverless": "^7.120.4",
+    "@smithy/protocol-http": "^5.3.8",
+    "@smithy/signature-v4": "^5.3.8",
+    "docx": "^9.5.1",
+    "googleapis": "^171.4.0",
+    "jszip": "^3.10.1",
+    "mammoth": "^1.11.0",
+    "pdf-parse": "^2.4.5",
+    "pptxgenjs": "^4.0.1",
+    "uuid": "^13.0.0",
+    "xlsx": "^0.18.5",
+    "zod": "^3.25.0"
+  },
+  "devDependencies": {
+    "@types/aws-lambda": "^8.10.160",
+    "@types/node": "^20.0.0",
+    "typescript": "^5.0.0"
+  }
+}

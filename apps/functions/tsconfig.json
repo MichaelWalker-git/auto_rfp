@@ -1,0 +1,25 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ES2022",
+    "lib": ["ES2022"],
+    "moduleResolution": "node",
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "strict": true,
+    "resolveJsonModule": true,
+    "outDir": "./dist",
+    "rootDir": ".",
+    "types": ["node"],
+    "baseUrl": "./src",
+    "paths": {
+      "@/helpers/*": ["helpers/*"],
+      "@/constants/*": ["constants/*"],
+      "@/types/*": ["types/*"],
+      "@/middleware/*": ["middleware/*"],
+      "@/handlers/*": ["handlers/*"]
+    }
+  },
+  "include": ["./**/*.ts"],
+  "exclude": ["node_modules", "dist", "**/*.test.ts"]
+}

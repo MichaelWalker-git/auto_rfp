@@ -7,9 +7,22 @@ node_modules
 /node_modules/
 **/node_modules/
 **/dist/
-node_modules
+**/node_modules
 .env
 .env.local
 localstorage/
 .next/
-**/pnpm-workspace.yaml
+**/cdk.out/
+pnpm-lock.yaml
+
+# Build outputs
+*.d.ts
+*.js
+!*.config.js
+!jest.setup.js
+!jest.config.js
+!eslint.config.js
+!next.config.js
+!playwright.config.js
+!postcss.config.js
+!tailwind.config.js

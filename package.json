@@ -1,0 +1,26 @@
+{
+  "name": "auto-rfp-monorepo",
+  "version": "1.0.0",
+  "private": true,
+  "description": "AutoRFP - AI-powered RFP response automation",
+  "scripts": {
+    "build": "pnpm -r build",
+    "dev": "pnpm --filter @auto-rfp/web dev",
+    "test": "pnpm -r test",
+    "lint": "pnpm -r lint",
+    "clean": "pnpm -r clean",
+    "deploy:dev": "pnpm --filter @auto-rfp/infra deploy:dev",
+    "deploy:test": "pnpm --filter @auto-rfp/infra deploy:test",
+    "deploy:dev:api": "pnpm --filter @auto-rfp/infra deploy:dev:api",
+    "deploy:test:api": "pnpm --filter @auto-rfp/infra deploy:test:api",
+    "cdk": "pnpm --filter @auto-rfp/infra cdk"
+  },
+  "packageManager": "pnpm@10.10.0+sha512.d615db246fe70f25dcfea6d8d73dee782ce23e2245e3c4f6f888249fb568149318637dca73c2c5c8ef2a4ca0d5657fb9567188bfab47f566d1ee6ce987815c39",
+  "engines": {
+    "node": ">=20.0.0",
+    "pnpm": ">=10.0.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.0.0"
+  }
+}
