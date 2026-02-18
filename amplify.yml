@@ -18,8 +18,10 @@ applications:
             # Copy static files and public assets to standalone output
             - cp -R .next/static .next/standalone/apps/web/.next/static
             - cp -R public .next/standalone/apps/web/public
+            # Copy required-server-files.json to the root of standalone
+            - cp .next/required-server-files.json .next/standalone/apps/web/.next/required-server-files.json
       artifacts:
-        baseDirectory: .next/standalone
+        baseDirectory: .next/standalone/apps/web
         files:
           - '**/*'
       cache:
