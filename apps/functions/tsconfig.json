@@ -10,7 +10,7 @@
     "resolveJsonModule": true,
     "outDir": "./dist",
     "rootDir": ".",
-    "types": ["node"],
+    "types": ["node", "jest"],
     "baseUrl": "./src",
     "paths": {
       "@/*": ["./*"],

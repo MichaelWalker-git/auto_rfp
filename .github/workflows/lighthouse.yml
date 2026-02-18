@@ -45,12 +45,12 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-pnpm-store-
 
-      - name: Install dependencies (shared)
-        working-directory: shared
+      - name: Install dependencies (packages/core)
+        working-directory: packages/core
         run: pnpm install
 
-      - name: Build shared package
-        working-directory: shared
+      - name: Build packages/core
+        working-directory: packages/core
         run: pnpm build
 
       - name: Install dependencies (apps/web)

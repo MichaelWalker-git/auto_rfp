@@ -70,8 +70,8 @@ jobs:
         with:
           version: 10
 
-      - name: Install and test shared
-        working-directory: shared
+      - name: Install and test packages/core
+        working-directory: packages/core
         run: |
           pnpm install
           pnpm test
