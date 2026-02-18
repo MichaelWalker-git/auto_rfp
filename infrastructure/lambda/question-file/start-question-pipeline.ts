@@ -29,6 +29,7 @@ export const baseHandler = async (
   try {
     const { fileKey, mimeType } = await getQuestionFileItem(projectId, oppId, questionFileId) || {};
 
+    // Note: orgId is looked up from project in lambdas that need it
     const { executionArn, startDate } = await startPipeline(
       projectId,
       oppId,

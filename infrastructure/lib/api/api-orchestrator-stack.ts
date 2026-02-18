@@ -40,6 +40,7 @@ import { pastperfDomain } from './routes/pastperf.routes';
 import { rfpDocumentDomain } from './routes/rfp-document.routes';
 import { templateDomain } from './routes/template.routes';
 import { googleDomain } from './routes/google.routes';
+import { clusteringDomain } from './routes/clustering.routes';
 
 export interface ApiOrchestratorStackProps extends cdk.StackProps {
   stage: string;
@@ -349,6 +350,7 @@ export class ApiOrchestratorStack extends cdk.Stack {
       templateDomain(),
       linearRoutes,
       googleDomain(),
+      clusteringDomain(),
     ];
 
     // Compute a hash of all route definitions so the deployment logical ID changes
@@ -397,6 +399,7 @@ export class ApiOrchestratorStack extends cdk.Stack {
       'TemplateRoutes',
       'LinearRoutes',
       'GoogleRoutes',
+      'ClusteringRoutes',
     ];
 
     const routeNestedStacks: ApiDomainRoutesStack[] = [];

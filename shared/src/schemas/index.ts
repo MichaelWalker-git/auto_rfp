@@ -22,3 +22,4 @@ export * from './api-key';
 export * from './past-performance';
 export * from './template';
 export * from './rfp-document';
+export * from './clustering';

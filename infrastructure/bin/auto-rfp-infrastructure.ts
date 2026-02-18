@@ -9,6 +9,7 @@ import { NetworkStack } from '../lib/network-stack';
 import { AmplifyFeStack } from '../lib/amplify-fe-stack';
 import { DocumentPipelineStack } from '../lib/document-pipeline-step-function';
 import { QuestionExtractionPipelineStack } from '../lib/question-pipeline-step-function';
+import { AnswerGenerationPipelineStack } from '../lib/answer-generation-step-function';
 import { ApiOrchestratorStack } from '../lib/api/api-orchestrator-stack';
 import { AwsSolutionsChecks } from 'cdk-nag';
 import {
@@ -92,14 +93,29 @@ const pipelineStack = new DocumentPipelineStack(app, `AutoRfp-DocumentPipeline-$
   pineconeApiKey
 });
 
+// Answer Generation Pipeline - runs ONCE per project after all files are extracted
+const answerGenerationStack = new AnswerGenerationPipelineStack(app, `AutoRfp-AnswerGenPipeline-${stage}`, {
+  env,
+  stage,
+  documentsBucket: storage.documentsBucket,
+  mainTable: db.tableName,
+  sentryDNS,
+  pineconeApiKey,
+});
+
+// Question Extraction Pipeline - extracts questions from files, triggers answer generation when all done
 const questionsPipelineStack = new QuestionExtractionPipelineStack(app, `AutoRfp-QuestionsPipeline-${stage}`, {
   env,
   stage,
   documentsBucket: storage.documentsBucket,
   mainTable: db.tableName,
   sentryDNS,
-  pineconeApiKey
+  pineconeApiKey,
+  answerGenerationStateMachineArn: answerGenerationStack.stateMachine.stateMachineArn,
 });
+
+// Question pipeline depends on answer generation stack
+questionsPipelineStack.addDependency(answerGenerationStack);
 
 // Create API Orchestrator which creates the API Gateway and adds all routes
 const api = new ApiOrchestratorStack(app, `ApiOrchestrator-${stage}`, {
@@ -202,6 +218,9 @@ addS3Suppressions(pipelineStack, isProduction);
 addLambdaSuppressions(questionsPipelineStack, isProduction);
 addStepFunctionsSuppressions(questionsPipelineStack, isProduction);
 addSNSSuppressions(questionsPipelineStack, isProduction);
+
+addLambdaSuppressions(answerGenerationStack, isProduction);
+addStepFunctionsSuppressions(answerGenerationStack, isProduction);
 
 console.log(`\n=📝 Note: After deployment, update Cognito callback URLs with the actual Amplify domain from the FrontendURL output if needed.`);
 console.log('=🔒 CDK NAG AWS Solutions Checks enabled for security compliance');

@@ -18,6 +18,7 @@ interface Props extends StackProps {
   mainTable: dynamodb.ITable;
   sentryDNS: string;
   pineconeApiKey: string;
+  answerGenerationStateMachineArn?: string;
 }
 
 export class QuestionExtractionPipelineStack extends Stack {
@@ -26,7 +27,8 @@ export class QuestionExtractionPipelineStack extends Stack {
   constructor(scope: Construct, id: string, props: Props) {
     super(scope, id, props);
 
-    const { stage, documentsBucket, mainTable, sentryDNS, pineconeApiKey } = props;
+    const { stage, documentsBucket, mainTable, sentryDNS } = props;
+    // Note: pineconeApiKey is in Props but not used in this stack (moved to answer-generation-step-function)
     const prefix = `AutoRfp-${stage}-Question`;
 
     const sfLogGroup = new logs.LogGroup(this, `${prefix}-LogGroup`, {
@@ -218,48 +220,30 @@ export class QuestionExtractionPipelineStack extends Stack {
     });
     mainTable.grantReadWriteData(unsupportedFileLambda);
 
-    // Answer Generation Pipeline Lambdas
-    const prepareQuestionsLambda = new lambdaNode.NodejsFunction(this, 'PrepareQuestionsLambda', {
+    // Check and Trigger Answer Generation Lambda
+    // Checks if all question files are processed, then triggers Answer Generation SF
+    const checkAndTriggerLambda = new lambdaNode.NodejsFunction(this, 'CheckAndTriggerLambda', {
       runtime: lambda.Runtime.NODEJS_24_X,
-      logGroup: mkFnLogGroup('PrepareQuestions'),
-      entry: path.join(__dirname, '../lambda/answer-pipeline/prepare-questions.ts'),
+      logGroup: mkFnLogGroup('CheckAndTrigger'),
+      entry: path.join(__dirname, '../lambda/answer-pipeline/check-and-trigger-answers.ts'),
       handler: 'handler',
-      timeout: Duration.minutes(2),
-      environment: commonLambdaEnv,
-    });
-    mainTable.grantReadData(prepareQuestionsLambda);
-
-    const generateAnswerPipelineLambda = new lambdaNode.NodejsFunction(this, 'GenerateAnswerPipelineLambda', {
-      runtime: lambda.Runtime.NODEJS_24_X,
-      logGroup: mkFnLogGroup('GenerateAnswerPipeline'),
-      entry: path.join(__dirname, '../lambda/answer-pipeline/generate-answer-pipeline.ts'),
-      handler: 'handler',
-      timeout: Duration.minutes(5),
-      memorySize: 1024,
+      timeout: Duration.seconds(30),
       environment: {
         ...commonLambdaEnv,
-        BEDROCK_MODEL_ID: 'anthropic.claude-3-haiku-20240307-v1:0',
-        BEDROCK_REGION: 'us-east-1',
-        BEDROCK_EMBEDDING_MODEL_ID: 'amazon.titan-embed-text-v2:0',
-        PINECONE_API_KEY: pineconeApiKey,
-        PINECONE_INDEX: 'documents',
+        ANSWER_GENERATION_STATE_MACHINE_ARN: props.answerGenerationStateMachineArn || '',
       },
     });
-    documentsBucket.grantRead(generateAnswerPipelineLambda);
-    mainTable.grantReadWriteData(generateAnswerPipelineLambda);
-
-    generateAnswerPipelineLambda.addToRolePolicy(
-      new iam.PolicyStatement({
-        actions: ['bedrock:InvokeModel'],
-        resources: ['*'],
-      }),
-    );
-    generateAnswerPipelineLambda.addToRolePolicy(
-      new iam.PolicyStatement({
-        actions: ['ssm:GetParameter'],
-        resources: [bedrockApiKeyParamArn],
-      }),
-    );
+    mainTable.grantReadData(checkAndTriggerLambda);
+    
+    // Allow starting the answer generation state machine
+    if (props.answerGenerationStateMachineArn) {
+      checkAndTriggerLambda.addToRolePolicy(
+        new iam.PolicyStatement({
+          actions: ['states:StartExecution', 'states:ListExecutions'],
+          resources: [props.answerGenerationStateMachineArn],
+        }),
+      );
+    }
 
     const startTextract = new tasks.LambdaInvoke(this, 'Start Textract', {
       lambdaFunction: startTextractLambda,
@@ -404,45 +388,40 @@ export class QuestionExtractionPipelineStack extends Stack {
       payloadResponseOnly: true,
     });
 
-    // Answer Generation: Prepare Questions tasks (one per branch)
-    const prepareQuestions = new tasks.LambdaInvoke(this, 'Prepare Questions for Answers', {
-      lambdaFunction: prepareQuestionsLambda,
+    // Check and Trigger - calls once after extraction to see if all files are done
+    // Two state definitions required (CDK limitation) but same Lambda = same cost
+    // Note: orgId is optional - Lambda will look it up from project if not provided
+    const checkAndTriggerAfterPdf = new tasks.LambdaInvoke(this, 'Check And Trigger (PDF)', {
+      lambdaFunction: checkAndTriggerLambda,
       payload: sfn.TaskInput.fromObject({
         projectId: sfn.JsonPath.stringAt('$.projectId'),
         questionFileId: sfn.JsonPath.stringAt('$.questionFileId'),
       }),
-      resultPath: '$.prepareResult',
+      resultPath: '$.triggerResult',
       payloadResponseOnly: true,
     });
 
-    const generateAnswersMap = new sfn.Map(this, 'Generate Answers Map', {
-      itemsPath: '$.prepareResult.questions',
-      maxConcurrency: 5,
-      resultPath: '$.answersResult',
+    const checkAndTriggerAfterDocx = new tasks.LambdaInvoke(this, 'Check And Trigger (DOCX)', {
+      lambdaFunction: checkAndTriggerLambda,
+      payload: sfn.TaskInput.fromObject({
+        projectId: sfn.JsonPath.stringAt('$.projectId'),
+        questionFileId: sfn.JsonPath.stringAt('$.questionFileId'),
+      }),
+      resultPath: '$.triggerResult',
+      payloadResponseOnly: true,
     });
 
-    generateAnswersMap.itemProcessor(
-      new tasks.LambdaInvoke(this, 'Generate Answer', {
-        lambdaFunction: generateAnswerPipelineLambda,
-        payloadResponseOnly: true,
-      }).addCatch(new sfn.Pass(this, 'Catch Answer Error'), {
-        errors: ['States.ALL'],
-        resultPath: '$.error',
+    const checkAndTriggerAfterXlsx = new tasks.LambdaInvoke(this, 'Check And Trigger (XLSX)', {
+      lambdaFunction: checkAndTriggerLambda,
+      payload: sfn.TaskInput.fromObject({
+        projectId: sfn.JsonPath.stringAt('$.projectId'),
+        questionFileId: sfn.JsonPath.stringAt('$.questionFileId'),
       }),
-    );
+      resultPath: '$.triggerResult',
+      payloadResponseOnly: true,
+    });
 
     const done = new sfn.Succeed(this, 'Done');
-
-    const shouldGenerateAnswers = sfn.Condition.and(
-      sfn.Condition.numberGreaterThan('$.extractResult.count', 0),
-      sfn.Condition.booleanEquals('$.extractResult.cancelled', false),
-    );
-
-    const checkAnswerGeneration = new sfn.Choice(this, 'Should Generate Answers?')
-      .when(shouldGenerateAnswers, prepareQuestions)
-      .otherwise(done);
-
-    prepareQuestions.next(generateAnswersMap).next(done);
 
     const isXlsx = sfn.Condition.or(
       sfn.Condition.stringEquals(
@@ -488,17 +467,21 @@ export class QuestionExtractionPipelineStack extends Stack {
       .next(processResult)
       .next(fulfillOppAfterPdf)
       .next(extractQuestionsAfterPdf)
-      .next(checkAnswerGeneration);
+      .next(checkAndTriggerAfterPdf)
+      .next(done);
 
     const docxBranch = sfn.Chain.start(extractDocxText)
       .next(fulfillOppAfterDocx)
       .next(extractQuestionsAfterDocx)
-      .next(checkAnswerGeneration);
+      .next(checkAndTriggerAfterDocx)
+      .next(done);
+
 
     const xlsxBranch = sfn.Chain.start(extractXlsxText)
       .next(fulfillOppAfterXlsx)
       .next(extractQuestionsAfterXlsx)
-      .next(checkAnswerGeneration);
+      .next(checkAndTriggerAfterXlsx)
+      .next(done);
 
     const unsupportedBranch = sfn.Chain.start(unsupportedFile).next(failUnsupported);
 

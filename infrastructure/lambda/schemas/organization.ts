@@ -1,5 +1,9 @@
 import { z } from 'zod';
 
+// Default threshold values
+export const DEFAULT_CLUSTER_THRESHOLD = 0.80; // Questions >= 80% similarity are auto-clustered
+export const DEFAULT_SIMILAR_THRESHOLD = 0.50; // Questions >= 50% similarity are shown as "similar"
+
 /**
  * Zod Schema for the incoming request body (Data Transfer Object)
  * It defines the shape and validation rules for the organization data.
@@ -18,6 +22,17 @@ export const CreateOrganizationSchema = z.object({
     .optional(),
 
   iconKey: z.string()
+    .optional(),
+
+  // Clustering thresholds (0-1 range) - no defaults here, handle at application level
+  clusterThreshold: z.number()
+    .min(0.5, 'Cluster threshold must be at least 50%')
+    .max(1.0, 'Cluster threshold cannot exceed 100%')
+    .optional(),
+
+  similarThreshold: z.number()
+    .min(0.3, 'Similar threshold must be at least 30%')
+    .max(1.0, 'Similar threshold cannot exceed 100%')
     .optional(),
 });
 
