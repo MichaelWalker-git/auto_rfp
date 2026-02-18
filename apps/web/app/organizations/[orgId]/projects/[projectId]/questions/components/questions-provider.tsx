@@ -78,6 +78,9 @@ interface QuestionsContextType {
   handleSelectAllIndexes: () => void;
 
   removeQuestion: (questionId: string) => Promise<void>;
+  
+  // Clustering - update answers locally when applied to similar questions
+  handleBatchAnswerApplied: (targetQuestionIds: string[], answerText: string) => void;
 
   // Utility functions
   getFilteredQuestions: (filterType?: string) => any[];
@@ -501,6 +504,29 @@ export function QuestionsProvider({ children, projectId }: QuestionsProviderProp
     }
   };
 
+  // Handle batch answer applied from clustering
+  const handleBatchAnswerApplied = (targetQuestionIds: string[], answerText: string) => {
+    setAnswers((prev) => {
+      const next = { ...prev };
+      for (const qId of targetQuestionIds) {
+        next[qId] = {
+          ...(next[qId] || {}),
+          text: answerText,
+        };
+      }
+      return next;
+    });
+    
+    // These are now saved on server, so remove from unsaved set
+    setUnsavedQuestions((prev) => {
+      const next = new Set(prev);
+      for (const qId of targetQuestionIds) {
+        next.delete(qId);
+      }
+      return next;
+    });
+  };
+
   const removeQuestion = async (questionId: string) => {
     if (!projectId || !questionId) return;
 
@@ -628,6 +654,7 @@ export function QuestionsProvider({ children, projectId }: QuestionsProviderProp
     handleIndexToggle,
     handleSelectAllIndexes,
     removeQuestion,
+    handleBatchAnswerApplied,
     getFilteredQuestions,
     getCounts,
     getConfidenceCounts,

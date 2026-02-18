@@ -58,9 +58,10 @@ export const baseHandler = async (event: APIGatewayProxyEventV2): Promise<APIGat
 export async function saveAnswer(dto: Partial<AnswerItem> & {
   confidenceBreakdown?: ConfidenceBreakdown;
   confidenceBand?: ConfidenceBand;
+  linkedToMasterQuestionId?: string;
 }): Promise<AnswerItem> {
   const now = nowIso();
-  const { questionId, text, projectId, organizationId, sources, confidence, confidenceBreakdown, confidenceBand } = dto;
+  const { questionId, text, projectId, organizationId, sources, confidence, confidenceBreakdown, confidenceBand, linkedToMasterQuestionId } = dto;
 
   const skPrefix = `${projectId}#${questionId}#`;
 
@@ -123,6 +124,11 @@ export async function saveAnswer(dto: Partial<AnswerItem> & {
       exprNames['#confidenceBand'] = 'confidenceBand';
       exprValues[':confidenceBand'] = confidenceBand;
     }
+    if (linkedToMasterQuestionId) {
+      updateParts.push('#linkedToMasterQuestionId = :linkedToMasterQuestionId');
+      exprNames['#linkedToMasterQuestionId'] = 'linkedToMasterQuestionId';
+      exprValues[':linkedToMasterQuestionId'] = linkedToMasterQuestionId;
+    }
 
     const updateRes = await docClient.send(
       new UpdateCommand({
@@ -141,7 +147,7 @@ export async function saveAnswer(dto: Partial<AnswerItem> & {
   const answerId = uuidv4();
   const sortKey = `${projectId}#${questionId}#${answerId}`;
 
-  const answerItem: AnswerItem & DBItem = {
+  const answerItem: AnswerItem & DBItem & { linkedToMasterQuestionId?: string } = {
     [PK_NAME]: ANSWER_PK,
     [SK_NAME]: sortKey,
 
@@ -156,6 +162,7 @@ export async function saveAnswer(dto: Partial<AnswerItem> & {
     sources: sources,
     createdAt: now,
     updatedAt: now,
+    ...(linkedToMasterQuestionId && { linkedToMasterQuestionId }),
   };
 
   await docClient.send(

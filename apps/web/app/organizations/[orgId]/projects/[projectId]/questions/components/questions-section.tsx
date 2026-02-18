@@ -84,7 +84,7 @@ function QuestionsSectionInner({ orgId, projectId }: QuestionsSectionProps) {
         onSelectAllIndexes={handleSelectAllIndexes}
       />
 
-      <QuestionsFilterTabs rfpDocument={questions} orgId={orgId} />
+      <QuestionsFilterTabs rfpDocument={questions} orgId={orgId} projectId={projectId}/>
 
       <SourceDetailsDialog
         isOpen={isSourceModalOpen}

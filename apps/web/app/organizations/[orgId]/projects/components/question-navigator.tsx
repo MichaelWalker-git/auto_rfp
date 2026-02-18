@@ -25,6 +25,8 @@ type Props = {
   searchQuery?: string;
   /** When provided, only show questions whose IDs are in this set */
   visibleQuestionIds?: Set<string> | null;
+  /** Currently selected question ID (controlled from parent) */
+  selectedQuestionId?: string | null;
 }
 
 export function QuestionNavigator({
@@ -34,9 +36,28 @@ export function QuestionNavigator({
                                     unsavedQuestions = new Set(),
                                     searchQuery = '',
                                     visibleQuestionIds = null,
+                                    selectedQuestionId = null,
                                   }: Props) {
   const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({});
-  const [current, setCurrent] = useState<string>();
+  const [current, setCurrent] = useState<string | undefined>(selectedQuestionId ?? undefined);
+  
+  // Sync internal state with external selectedQuestionId prop
+  useEffect(() => {
+    if (selectedQuestionId && selectedQuestionId !== current) {
+      setCurrent(selectedQuestionId);
+      
+      // Auto-expand the section containing this question
+      const sectionWithQuestion = sections.find(section =>
+        section.questions.some((q: GroupedQuestion) => q.id === selectedQuestionId)
+      );
+      if (sectionWithQuestion && !expandedSections[sectionWithQuestion.id]) {
+        setExpandedSections(prev => ({
+          ...prev,
+          [sectionWithQuestion.id]: true,
+        }));
+      }
+    }
+  }, [selectedQuestionId, sections]);
 
   useEffect(() => {
     if (sections.length > 0) {

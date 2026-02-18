@@ -8,6 +8,11 @@ export interface GenerateAnswerPipelineEvent {
   projectId: string;
   orgId: string;
   questionText?: string;
+  // Clustering fields from prepare-questions
+  clusterId?: string;
+  isClusterMaster?: boolean;
+  masterQuestionId?: string;
+  similarityToMaster?: number;
 }
 
 export interface GenerateAnswerPipelineResult {
@@ -20,6 +25,9 @@ export interface GenerateAnswerPipelineResult {
   confidenceBand?: 'high' | 'medium' | 'low';
   found?: boolean;
   fromContentLibrary?: boolean;
+  copiedFromMaster?: boolean;
+  masterQuestionId?: string;
+  skippedForCluster?: boolean;
 }
 
 export const baseHandler = async (
@@ -28,7 +36,7 @@ export const baseHandler = async (
 ): Promise<GenerateAnswerPipelineResult> => {
   console.log('generate-answer-pipeline event:', JSON.stringify(event));
 
-  const { questionId, projectId, orgId, questionText } = event;
+  const { questionId, projectId, orgId, questionText, masterQuestionId, isClusterMaster } = event;
 
   if (!questionId || !projectId || !orgId) {
     return {
@@ -39,6 +47,18 @@ export const baseHandler = async (
   }
 
   try {
+    // If this is a non-master question in a cluster, SKIP - answers will be copied in a separate step
+    if (masterQuestionId && !isClusterMaster) {
+      console.log(`Question ${questionId} is non-master in cluster, skipping (will copy from master ${masterQuestionId} later)`);
+      return {
+        questionId,
+        success: true,
+        skippedForCluster: true,
+        masterQuestionId,
+      };
+    }
+
+    // Generate answer using full answer generation logic
     const result: GenerateAnswerResult = await generateAnswerForQuestion({
       questionId,
       projectId,
@@ -55,6 +75,7 @@ export const baseHandler = async (
       confidenceBand: result.confidenceBand,
       found: result.found,
       fromContentLibrary: result.fromContentLibrary,
+      copiedFromMaster: false,
     };
   } catch (err) {
     console.error(`Error generating answer for question ${questionId}:`, err);

@@ -10,6 +10,7 @@ import { AnswerDisplay } from '@/components/ui/answer-display';
 import { AnswerSource, ConfidenceBreakdown, ConfidenceBand } from '@auto-rfp/core';
 import PermissionWrapper from '@/components/permission-wrapper';
 import { ConfidenceScoreDisplay } from '@/components/confidence/confidence-score-display';
+import { SimilarQuestionsPanel } from './similar-questions-panel';
 
 interface AnswerData {
   text: string;
@@ -33,6 +34,9 @@ interface QuestionEditorProps {
   onSourceClick: (source: AnswerSource) => void;
   onRemoveQuestion: () => void;
   isRemoving?: boolean;
+  projectId?: string;
+  onSelectQuestion?: (questionId: string) => void;
+  onAnswerApplied?: (targetQuestionIds: string[], answerText: string) => void;
 }
 
 export function QuestionEditor({
@@ -49,6 +53,9 @@ export function QuestionEditor({
                                  onSourceClick,
                                  onRemoveQuestion,
                                  isRemoving = false,
+                                 projectId,
+                                 onSelectQuestion,
+                                 onAnswerApplied,
                                }: QuestionEditorProps) {
   return (
     <Card>
@@ -117,6 +124,18 @@ export function QuestionEditor({
               ))}
             </div>
           </div>
+        )}
+
+        {/* Similar Questions Panel */}
+        {projectId && question?.id && (
+          <SimilarQuestionsPanel
+            projectId={projectId}
+            questionId={question.id}
+            currentAnswer={answer?.text}
+            isUnsaved={isUnsaved}
+            onSelectQuestion={onSelectQuestion}
+            onAnswerApplied={onAnswerApplied}
+          />
         )}
 
         {/* Action area */}

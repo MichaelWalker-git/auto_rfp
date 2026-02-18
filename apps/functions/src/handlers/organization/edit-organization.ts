@@ -114,6 +114,18 @@ export async function editOrganization(
     setExpressions.push('#iconKey = :iconKey');
   }
 
+  if (orgData.clusterThreshold !== undefined) {
+    expressionAttributeNames['#clusterThreshold'] = 'clusterThreshold';
+    expressionAttributeValues[':clusterThreshold'] = orgData.clusterThreshold;
+    setExpressions.push('#clusterThreshold = :clusterThreshold');
+  }
+
+  if (orgData.similarThreshold !== undefined) {
+    expressionAttributeNames['#similarThreshold'] = 'similarThreshold';
+    expressionAttributeValues[':similarThreshold'] = orgData.similarThreshold;
+    setExpressions.push('#similarThreshold = :similarThreshold');
+  }
+
   if (setExpressions.length === 1) {
     // Only updatedAt would be updated – you can decide to allow or block this
     // For now, we allow it, so no early return.

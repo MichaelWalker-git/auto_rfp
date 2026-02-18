@@ -2,15 +2,15 @@
 import 'source-map-support/register';
 import * as cdk from 'aws-cdk-lib';
 import { Aspects } from 'aws-cdk-lib';
-import { AuthStack } from '../auth-stack';
-import { StorageStack } from '../storage-stack';
-import { DatabaseStack } from '../database-stack';
-import { NetworkStack } from '../network-stack';
-import { AmplifyFeStack } from '../amplify-fe-stack';
-import { DocumentPipelineStack } from '../document-pipeline-step-function';
-import { QuestionExtractionPipelineStack } from '../question-pipeline-step-function';
-import { ApiOrchestratorStack } from '../api/api-orchestrator-stack';
-import { StaleContentDetectionStack } from '../stale-content-detection-stack';
+import { AuthStack } from '../lib/auth-stack';
+import { StorageStack } from '../lib/storage-stack';
+import { DatabaseStack } from '../lib/database-stack';
+import { NetworkStack } from '../lib/network-stack';
+import { AmplifyFeStack } from '../lib/amplify-fe-stack';
+import { DocumentPipelineStack } from '../lib/document-pipeline-step-function';
+import { QuestionExtractionPipelineStack } from '../lib/question-pipeline-step-function';
+import { AnswerGenerationPipelineStack } from '../lib/answer-generation-step-function';
+import { ApiOrchestratorStack } from '../lib/api/api-orchestrator-stack';
 import { AwsSolutionsChecks } from 'cdk-nag';
 import {
   addAllSuppressions,
@@ -21,7 +21,7 @@ import {
   addSNSSuppressions,
   addSQSSuppressions,
   addStepFunctionsSuppressions,
-} from '../cdk-nag-suppressions';
+} from '../lib/cdk-nag-suppressions';
 
 const app = new cdk.App();
 
@@ -93,14 +93,29 @@ const pipelineStack = new DocumentPipelineStack(app, `AutoRfp-DocumentPipeline-$
   pineconeApiKey
 });
 
+// Answer Generation Pipeline - runs ONCE per project after all files are extracted
+const answerGenerationStack = new AnswerGenerationPipelineStack(app, `AutoRfp-AnswerGenPipeline-${stage}`, {
+  env,
+  stage,
+  documentsBucket: storage.documentsBucket,
+  mainTable: db.tableName,
+  sentryDNS,
+  pineconeApiKey,
+});
+
+// Question Extraction Pipeline - extracts questions from files, triggers answer generation when all done
 const questionsPipelineStack = new QuestionExtractionPipelineStack(app, `AutoRfp-QuestionsPipeline-${stage}`, {
   env,
   stage,
   documentsBucket: storage.documentsBucket,
   mainTable: db.tableName,
   sentryDNS,
-  pineconeApiKey
+  pineconeApiKey,
+  answerGenerationStateMachineArn: answerGenerationStack.stateMachine.stateMachineArn,
 });
+
+// Question pipeline depends on answer generation stack
+questionsPipelineStack.addDependency(answerGenerationStack);
 
 // Create API Orchestrator which creates the API Gateway and adds all routes
 const api = new ApiOrchestratorStack(app, `ApiOrchestrator-${stage}`, {
@@ -124,22 +139,6 @@ api.addDependency(db);
 api.addDependency(storage);
 api.addDependency(pipelineStack);
 api.addDependency(questionsPipelineStack);
-
-// Stale Content Detection — EventBridge daily schedule + SNS notifications
-const staleContentDetection = new StaleContentDetectionStack(app, `AutoRfp-StaleContentDetection-${stage}`, {
-  env,
-  stage,
-  mainTable: db.tableName,
-  commonEnv: {
-    STAGE: stage,
-    DB_TABLE_NAME: db.tableName.tableName,
-    REGION: 'us-east-1',
-    NODE_ENV: 'production',
-    SENTRY_DSN: sentryDNS,
-    SENTRY_ENVIRONMENT: stage,
-  },
-});
-staleContentDetection.addDependency(db);
 
 const amplifyStack = new AmplifyFeStack(app, `AmplifyFeStack-${stage}`, {
   stage,
@@ -220,8 +219,8 @@ addLambdaSuppressions(questionsPipelineStack, isProduction);
 addStepFunctionsSuppressions(questionsPipelineStack, isProduction);
 addSNSSuppressions(questionsPipelineStack, isProduction);
 
-addLambdaSuppressions(staleContentDetection, isProduction);
-addSNSSuppressions(staleContentDetection, isProduction);
+addLambdaSuppressions(answerGenerationStack, isProduction);
+addStepFunctionsSuppressions(answerGenerationStack, isProduction);
 
 console.log(`\n=📝 Note: After deployment, update Cognito callback URLs with the actual Amplify domain from the FrontendURL output if needed.`);
 console.log('=🔒 CDK NAG AWS Solutions Checks enabled for security compliance');
