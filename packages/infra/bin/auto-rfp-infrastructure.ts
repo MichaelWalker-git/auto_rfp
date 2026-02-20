@@ -11,6 +11,7 @@ import { DocumentPipelineStack } from '../document-pipeline-step-function';
 import { QuestionExtractionPipelineStack } from '../question-pipeline-step-function';
 import { AnswerGenerationPipelineStack } from '../answer-generation-step-function';
 import { ApiOrchestratorStack } from '../api/api-orchestrator-stack';
+import { CollaborationWebSocketStack } from '../collaboration-websocket-stack';
 import { AwsSolutionsChecks } from 'cdk-nag';
 import {
   addAllSuppressions,
@@ -140,6 +141,33 @@ api.addDependency(storage);
 api.addDependency(pipelineStack);
 api.addDependency(questionsPipelineStack);
 
+const collaborationWsStack = new CollaborationWebSocketStack(app, `AutoRfp-${stage}-CollaborationWS`, {
+  env,
+  stage,
+  mainTable: db.tableName,
+  userPool: auth.userPool,
+  commonLambdaRoleArn: api.commonLambdaRoleArn,
+  commonEnv: {
+    STAGE: stage,
+    DB_TABLE_NAME: db.tableName.tableName,
+    COGNITO_USER_POOL_ID: auth.userPool.userPoolId,
+    REGION: env.region ?? 'us-east-1',
+    SENTRY_DSN: sentryDNS,
+    SENTRY_ENVIRONMENT: stage,
+    NODE_ENV: 'production',
+  },
+});
+
+collaborationWsStack.addDependency(auth);
+collaborationWsStack.addDependency(db);
+collaborationWsStack.addDependency(api);
+
+new cdk.CfnOutput(collaborationWsStack, 'CollaborationWsApiUrl', {
+  value: collaborationWsStack.wsApiUrl,
+  description: 'WebSocket API URL for real-time collaboration',
+  exportName: `AutoRfp-CollaborationWsUrl-${stage}`,
+});
+
 const amplifyStack = new AmplifyFeStack(app, `AmplifyFeStack-${stage}`, {
   stage,
   env,
@@ -221,6 +249,9 @@ addSNSSuppressions(questionsPipelineStack, isProduction);
 
 addLambdaSuppressions(answerGenerationStack, isProduction);
 addStepFunctionsSuppressions(answerGenerationStack, isProduction);
+
+addAllSuppressions(collaborationWsStack, isProduction);
+addSQSSuppressions(collaborationWsStack, isProduction);
 
 console.log(`\n=📝 Note: After deployment, update Cognito callback URLs with the actual Amplify domain from the FrontendURL output if needed.`);
 console.log('=🔒 CDK NAG AWS Solutions Checks enabled for security compliance');

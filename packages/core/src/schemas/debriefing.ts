@@ -79,15 +79,28 @@ export type CreateDebriefingRequest = z.infer<typeof CreateDebriefingRequestSche
  * Update Debriefing Request DTO
  */
 export const UpdateDebriefingRequestSchema = z.object({
+  debriefingId: z.string().min(1).optional(),
+  projectId: z.string().min(1).optional(),
+  orgId: z.string().min(1).optional(),
+  status: DebriefingStatusSchema.optional(),
   requestStatus: DebriefingStatusSchema.optional(),
   requestSentDate: z.string().datetime({ offset: true }).optional(),
   requestMethod: DebriefingRequestMethodSchema.optional(),
   scheduledDate: z.string().datetime({ offset: true }).optional(),
+  completedDate: z.string().datetime({ offset: true }).optional(),
   locationType: DebriefingLocationTypeSchema.optional(),
   location: z.string().optional(),
   meetingLink: z.string().url().optional(),
   attendees: z.array(z.string().min(1)).optional(),
   notes: z.string().optional(),
+  findings: z.string().optional(),
+  lessonsLearned: z.array(z.string()).optional(),
+  actionItems: z.array(z.object({
+    description: z.string(),
+    assignee: z.string().optional(),
+    dueDate: z.string().optional(),
+    completed: z.boolean().optional(),
+  })).optional(),
   strengthsIdentified: z.array(z.string().min(1)).optional(),
   weaknessesIdentified: z.array(z.string().min(1)).optional(),
   evaluationScores: EvaluationScoresSchema.optional(),

@@ -321,7 +321,9 @@ export function GlobalHeader() {
     ? (teamMember.displayName || [teamMember.firstName, teamMember.lastName].filter(Boolean).join(' ') || teamMember.email)
     : undefined;
 
-  const breadcrumbs = useBreadcrumbs(
+  const { breadcrumbSuffix } = useProjectContext();
+
+  const baseBreadcrumbs = useBreadcrumbs(
     pathname,
     currentOrganization?.name,
     currentOrganization?.id,
@@ -330,6 +332,14 @@ export function GlobalHeader() {
     kbData?.name,
     teamMemberName,
   );
+
+  // Append the dynamic breadcrumb suffix (e.g. selected question text) if present
+  const breadcrumbs = breadcrumbSuffix
+    ? [
+        ...baseBreadcrumbs.map((b) => ({ ...b, isActive: false })),
+        { label: breadcrumbSuffix, isActive: true },
+      ]
+    : baseBreadcrumbs;
 
   // Early returns
   if (isHidden) return null;

@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { Users } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
 import { ListingPageLayout } from '@/components/layout/ListingPageLayout';
 import { InviteMemberDialog } from './InviteMemberDialog';
@@ -90,7 +91,6 @@ export function TeamContent({ orgId }: TeamContentProps) {
   const handleMemberAdded = useCallback(
     async (newMember: TeamMember) => {
       setMembers((prev) => [...prev, newMember]);
-      // In case backend auto-normalizes roles/names, refresh
       await refreshUsers();
     },
     [refreshUsers],
@@ -112,8 +112,7 @@ export function TeamContent({ orgId }: TeamContentProps) {
     [refreshUsers],
   );
 
-  // Client-side filter is no longer needed (server search is used),
-  // but keep it as a safety net (e.g., if API doesn’t support search yet).
+  // Client-side filter as safety net
   const filteredMembers = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
     if (!q) return members;
@@ -129,25 +128,38 @@ export function TeamContent({ orgId }: TeamContentProps) {
   }, [refreshUsers]);
 
   return (
-    <div className="container mx-auto p-12">
+    <div className="container mx-auto p-6 md:p-12">
       <ListingPageLayout
         title="Team Members"
-        description="Manage team members and their roles"
+        description={`${filteredMembers.length} member${filteredMembers.length !== 1 ? 's' : ''} in your organization`}
         headerActions={
           <>
-            <PageSearch value={searchQuery} onChange={setSearchQuery} placeholder="Search members..." />
-            <InviteMemberDialog orgId={orgId} onMemberAdded={handleMemberAdded}/>
+            <PageSearch value={searchQuery} onChange={setSearchQuery} placeholder="Search members…" />
+            <InviteMemberDialog orgId={orgId} onMemberAdded={handleMemberAdded} />
           </>
         }
         isLoading={isLoading}
         onReload={handleReload}
-        renderItem={(member: TeamMember) => <MemberRow
-          key={member.id}
-          member={member}
-          orgId={orgId}
-          onMemberUpdated={handleMemberUpdated}
-          onMemberRemoved={handleMemberRemoved}
-        />}
+        emptyState={
+          <div className="flex flex-col items-center justify-center py-16 text-center">
+            <Users className="h-12 w-12 text-muted-foreground/40 mb-4" />
+            <h3 className="text-lg font-semibold">No team members found</h3>
+            <p className="text-sm text-muted-foreground mt-1 max-w-sm">
+              {searchQuery
+                ? `No members match "${searchQuery}". Try a different search term.`
+                : 'Get started by inviting your first team member.'}
+            </p>
+          </div>
+        }
+        renderItem={(member: TeamMember) => (
+          <MemberRow
+            key={member.id}
+            member={member}
+            orgId={orgId}
+            onMemberUpdated={handleMemberUpdated}
+            onMemberRemoved={handleMemberRemoved}
+          />
+        )}
         data={filteredMembers}
       />
     </div>

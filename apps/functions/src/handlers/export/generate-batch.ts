@@ -57,7 +57,7 @@ export const baseHandler = async (
 
     const organizationId = proposal.organizationId || getOrgId(event) || 'DEFAULT';
     const doc = proposal.document;
-    const baseName = sanitizeFileName(doc.proposalTitle);
+    const baseName = sanitizeFileName(doc.title);
 
     const requestedFormats: ExportFormat[] = formats && formats.length > 0
       ? formats.filter(f => ['html', 'txt', 'md'].includes(f))
@@ -121,7 +121,7 @@ export const baseHandler = async (
 
     return apiResponse(200, {
       success: true,
-      proposal: { id: proposal.id, title: doc.proposalTitle },
+      proposal: { id: proposal.id, title: doc.title },
       export: {
         format: 'zip',
         bucket: DOCUMENTS_BUCKET,

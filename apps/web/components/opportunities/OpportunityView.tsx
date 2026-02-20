@@ -12,6 +12,7 @@ import { OpportunitySolicitationDocuments } from './opportunity-attachments';
 import { OpportunityRFPDocuments } from './opportunity-rfp-documents';
 import { ProjectOutcomeCard } from '@/components/project-outcome/ProjectOutcomeCard';
 import { FOIARequestCard } from '@/components/foia/FOIARequestCard';
+import { OpportunityContextPanel } from './opportunity-context-panel';
 import { useCurrentOrganization } from '@/context/organization-context';
 
 interface OpportunityViewProps {
@@ -51,6 +52,7 @@ function OpportunityContent({ className }: { className?: string }) {
       <OpportunityHeader />
       <OpportunitySolicitationDocuments />
       <OpportunityRFPDocuments />
+      <OpportunityContextPanel />
       <ProjectOutcomeCard projectId={projectId} orgId={orgId} opportunityId={oppId} />
       <FOIARequestCard projectId={projectId} orgId={orgId} projectOutcomeStatus="LOST" />
     </div>

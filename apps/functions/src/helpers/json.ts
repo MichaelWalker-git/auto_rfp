@@ -1,18 +1,55 @@
 export function safeParseJsonFromModel(text: string) {
-  // 1) slice first {...} block
+  // 0) Strip ```json fences first
+  const fenceMatch = text.match(/```json?\s*([\s\S]*?)```/i);
+  if (fenceMatch?.[1]) {
+    text = fenceMatch[1].trim();
+  }
+
+  // 1) Find the first '{' and then use brace-depth scanning to find the
+  //    matching closing '}'. This correctly handles HTML content inside
+  //    JSON string values (which contain '{' and '}' in inline CSS).
   const start = text.indexOf('{');
-  const end = text.lastIndexOf('}');
-  if (start === -1 || end === -1 || end <= start) {
+  if (start === -1) {
+    throw new Error('Model response contains no JSON object');
+  }
+
+  let depth = 0;
+  let scanInString = false;
+  let scanEscape = false;
+  let end = -1;
+
+  for (let i = start; i < text.length; i++) {
+    const ch = text[i]!;
+
+    if (scanEscape) {
+      scanEscape = false;
+      continue;
+    }
+    if (ch === '\\' && scanInString) {
+      scanEscape = true;
+      continue;
+    }
+    if (ch === '"') {
+      scanInString = !scanInString;
+      continue;
+    }
+    if (scanInString) continue;
+
+    if (ch === '{') depth++;
+    else if (ch === '}') {
+      depth--;
+      if (depth === 0) {
+        end = i;
+        break;
+      }
+    }
+  }
+
+  if (end === -1) {
     throw new Error('Model response contains no JSON object');
   }
 
   let jsonSlice = text.slice(start, end + 1).trim();
-
-  // 2) remove ``` fences
-  if (jsonSlice.startsWith('```')) {
-    const fenceMatch = jsonSlice.match(/```json?\s*([\s\S]*?)```/i);
-    if (fenceMatch?.[1]) jsonSlice = fenceMatch[1].trim();
-  }
 
   // 3) First parse attempt
   try {

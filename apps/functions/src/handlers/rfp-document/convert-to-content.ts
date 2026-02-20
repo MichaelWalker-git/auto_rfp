@@ -13,11 +13,11 @@ const REGION = requireEnv('REGION', 'us-east-1');
 const s3Client = new S3Client({ region: REGION });
 
 /**
- * Parse HTML output from mammoth into a structured ProposalDocument.
+ * Parse HTML output from mammoth into a structured RFPDocumentContent.
  * Uses regex to extract complete HTML elements (headings and paragraphs),
  * then maps them into sections and subsections.
  */
-function htmlToProposalDocument(html: string, title: string): Record<string, any> {
+function htmlToRFPDocumentContent(html: string, title: string): Record<string, any> {
   // Extract all block-level elements as an ordered list of { type, level, text }
   interface Block {
     type: 'heading' | 'paragraph';
@@ -166,12 +166,34 @@ function htmlToProposalDocument(html: string, title: string): Record<string, any
   }
 
   return {
-    proposalTitle: title,
+    title: title,
     customerName: null,
     opportunityId: null,
     outlineSummary: null,
     sections,
   };
+}
+
+/**
+ * Convert plain text to simple HTML paragraphs for the rich text editor.
+ * Each double-newline-separated block becomes a <p> tag.
+ */
+function textToHtml(text: string): string {
+  if (!text?.trim()) return '<p></p>';
+  return text
+    .split(/\n{2,}/)
+    .map((para) => para.trim())
+    .filter(Boolean)
+    .map((para) => {
+      // Escape HTML special chars
+      const escaped = para
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/\n/g, '<br>');
+      return `<p>${escaped}</p>`;
+    })
+    .join('\n');
 }
 
 function stripHtml(html: string): string {
@@ -187,9 +209,9 @@ function stripHtml(html: string): string {
 }
 
 /**
- * Convert plain text to ProposalDocument structure.
+ * Convert plain text to RFPDocumentContent structure.
  */
-function textToProposalDocument(text: string, title: string): Record<string, any> {
+function textToRFPDocumentContent(text: string, title: string): Record<string, any> {
   const paragraphs = text.split(/\n{2,}/);
   const sections: any[] = [];
   let currentContent = '';
@@ -251,7 +273,7 @@ function textToProposalDocument(text: string, title: string): Record<string, any
   }
 
   return {
-    proposalTitle: title,
+    title: title,
     customerName: null,
     opportunityId: null,
     outlineSummary: null,
@@ -321,37 +343,53 @@ export const baseHandler = async (
     if (isDocx) {
       const buffer = Buffer.from(await s3Response.Body.transformToByteArray());
       const result = await mammoth.convertToHtml({ buffer });
-      content = htmlToProposalDocument(result.value, docTitle);
+      const html = result.value;
 
       if (result.messages.length > 0) {
         console.warn('Mammoth conversion warnings:', result.messages);
       }
+
+      // Store the raw HTML as the canonical editable content
+      content = {
+        ...htmlToRFPDocumentContent(html, docTitle),
+        htmlContent: html,
+      };
     } else if (isPdf) {
       const buffer = Buffer.from(await s3Response.Body.transformToByteArray());
       // Extract text from PDF using pdf-parse with test mode disabled
       // pdf-parse requires a workaround for Lambda (no DOM/canvas)
+      let pdfText = '';
       try {
         const pdfParseModule = require('pdf-parse/lib/pdf-parse');
         const pdfResult = await pdfParseModule(buffer);
-        content = textToProposalDocument(pdfResult.text, docTitle);
+        pdfText = pdfResult.text;
       } catch (pdfErr) {
         console.warn('pdf-parse failed, falling back to basic text extraction:', pdfErr);
         // Fallback: extract readable text from PDF buffer using regex
         const rawText = buffer.toString('utf-8', 0, Math.min(buffer.length, 500000));
         const textMatches = rawText.match(/\(([^)]+)\)/g) || [];
-        const extractedText = textMatches
-          .map(m => m.slice(1, -1))
-          .filter(t => t.length > 1 && /[a-zA-Z]/.test(t))
+        pdfText = textMatches
+          .map((m: string) => m.slice(1, -1))
+          .filter((t: string) => t.length > 1 && /[a-zA-Z]/.test(t))
           .join(' ');
-        content = textToProposalDocument(
-          extractedText || 'PDF content could not be extracted. Please convert this PDF to DOCX or TXT format for editing.',
-          docTitle,
-        );
+        if (!pdfText) {
+          pdfText = 'PDF content could not be extracted. Please convert this PDF to DOCX or TXT format for editing.';
+        }
       }
+      // Convert plain text to HTML paragraphs for the rich text editor
+      const html = textToHtml(pdfText);
+      content = {
+        ...textToRFPDocumentContent(pdfText, docTitle),
+        htmlContent: html,
+      };
     } else {
       // Plain text / markdown
       const text = await s3Response.Body.transformToString('utf-8');
-      content = textToProposalDocument(text, docTitle);
+      const html = textToHtml(text);
+      content = {
+        ...textToRFPDocumentContent(text, docTitle),
+        htmlContent: html,
+      };
     }
 
     // Save content to the document and add edit history entry
@@ -370,7 +408,7 @@ export const baseHandler = async (
       documentId,
       updates: {
         content,
-        title: content.proposalTitle || docTitle,
+        title: content.title || docTitle,
       },
       updatedBy: userId,
     });

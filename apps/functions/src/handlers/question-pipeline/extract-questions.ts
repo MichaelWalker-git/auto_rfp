@@ -115,7 +115,7 @@ export const baseHandler = async (
       allSections.push(...extracted.sections);
 
       console.log(`Chunk ${i + 1} extracted ${extracted.sections.length} sections`);
-    } catch (err) {
+    } catch (err: unknown) {
       console.error(`Failed to extract from chunk ${i + 1}:`, err);
     }
   }
@@ -303,7 +303,7 @@ async function saveQuestionsFromSections(
           .then(() => {
             inserted++;
           })
-          .catch((err) => {
+          .catch((err: unknown) => {
             if (isConditionalCheckFailed(err)) {
               skippedDuplicates++;
               return;

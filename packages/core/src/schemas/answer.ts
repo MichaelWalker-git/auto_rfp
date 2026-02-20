@@ -53,6 +53,11 @@ export type AnswerSource = z.infer<typeof AnswerSourceSchema>;
 
 export const AnswerSourcesSchema = z.array(AnswerSourceSchema);
 
+// ─── Answer Status ───
+
+export const AnswerStatusSchema = z.enum(['DRAFT', 'APPROVED']);
+export type AnswerStatus = z.infer<typeof AnswerStatusSchema>;
+
 // ─── Answer Item ───
 
 export const AnswerItemSchema = z.object({
@@ -61,10 +66,18 @@ export const AnswerItemSchema = z.object({
   projectId: z.string().optional(),
   organizationId: z.string().optional(),
   text: z.string(),
+  status: AnswerStatusSchema.default('DRAFT'),
   confidence: z.number().optional(),
   confidenceBreakdown: ConfidenceBreakdownSchema.optional(),
   confidenceBand: z.enum(['high', 'medium', 'low']).optional(),
   sources: AnswerSourcesSchema.optional(),
+  // Approval fields
+  approvedBy: z.string().optional(),       // userId of approver
+  approvedByName: z.string().optional(),   // display name of approver
+  approvedAt: z.string().optional(),       // ISO datetime
+  // Last edit tracking
+  updatedBy: z.string().optional(),        // userId of last editor
+  updatedByName: z.string().optional(),    // display name of last editor
   createdAt: z.string(),
   updatedAt: z.string(),
 });
@@ -77,6 +90,11 @@ export const SaveAnswerDTOSchema = z.object({
   projectId: z.string().optional(),
   organizationId: z.string().optional(),
   sources: AnswerSourcesSchema.optional(),
+  status: AnswerStatusSchema.optional(),
+  // Approval fields — set by backend when status = APPROVED
+  approvedBy: z.string().optional(),
+  approvedByName: z.string().optional(),
+  approvedAt: z.string().optional(),
 });
 
 export type SaveAnswerDTO = z.infer<typeof SaveAnswerDTOSchema>;

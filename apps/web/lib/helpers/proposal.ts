@@ -11,6 +11,23 @@ function sanitizeFileName(name: string) {
     .slice(0, 160);
 }
 
+// ─── HTML helpers ─────────────────────────────────────────────────────────────
+
+function stripHtml(html: string): string {
+  return html
+    .replace(/<br\s*\/?>/gi, '\n')
+    .replace(/<\/p>/gi, '\n\n')
+    .replace(/<\/h[1-6]>/gi, '\n\n')
+    .replace(/<\/li>/gi, '\n')
+    .replace(/<[^>]+>/g, '')
+    .replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"').replace(/&#039;/g, "'").replace(/&nbsp;/g, ' ')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+}
+
+// ─── DOCX ─────────────────────────────────────────────────────────────────────
+
 function buildProposalDocx(proposalDoc: ProposalDocument) {
   const children: Paragraph[] = [];
 
@@ -18,14 +35,13 @@ function buildProposalDocx(proposalDoc: ProposalDocument) {
     new Paragraph({
       heading: HeadingLevel.TITLE,
       alignment: AlignmentType.CENTER,
-      children: [new TextRun({ text: proposalDoc.proposalTitle || 'Proposal', bold: true, size: 36 })],
+      children: [new TextRun({ text: proposalDoc.title || 'Proposal', bold: true, size: 36 })],
     }),
   );
 
   if (proposalDoc.outlineSummary) {
-    children.push(new Paragraph({ text: '', heading: undefined }));
+    children.push(new Paragraph({ text: '' }));
     children.push(new Paragraph({ heading: HeadingLevel.HEADING_1, text: 'Executive Summary' }));
-    children.push(new Paragraph({ text: '', heading: undefined, style: 'Normal' }));
     children.push(new Paragraph({
       style: 'Normal',
       text: '',
@@ -33,28 +49,35 @@ function buildProposalDocx(proposalDoc: ProposalDocument) {
     }));
   }
 
-  proposalDoc.sections.forEach((section, sIdx) => {
-    children.push(new Paragraph({ text: '' }));
-    children.push(
-      new Paragraph({
-        heading: HeadingLevel.HEADING_1,
-        children: [new TextRun({ text: `${sIdx + 1}. ${section.title || 'Untitled Section'}`, bold: true })],
-      }),
-    );
+  // Parse htmlContent into Word paragraphs
+  if (proposalDoc.content) {
+    const tokenRegex = /<(h[1-6]|p|li)[^>]*>([\s\S]*?)<\/\1>|([^<]+)/gi;
+    let token: RegExpExecArray | null;
+    while ((token = tokenRegex.exec(proposalDoc.content)) !== null) {
+      const tag = token[1]?.toLowerCase();
+      const rawText = (token[2] ?? token[3] ?? '')
+        .replace(/<[^>]+>/g, '')
+        .replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>')
+        .replace(/&quot;/g, '"').replace(/&#039;/g, "'").replace(/&nbsp;/g, ' ')
+        .trim();
 
-    if (section.summary) children.push(new Paragraph({ text: section.summary }));
+      if (!rawText) continue;
 
-    section.subsections.forEach((sub, subIdx) => {
-      children.push(new Paragraph({ text: '' }));
-      children.push(
-        new Paragraph({
-          heading: HeadingLevel.HEADING_2,
-          children: [new TextRun({ text: `${sIdx + 1}.${subIdx + 1} ${sub.title || 'Untitled Subsection'}`, bold: true })],
-        }),
-      );
-      (sub.content || '').split(/\r?\n/).forEach((line) => children.push(new Paragraph({ text: line })));
-    });
-  });
+      if (tag === 'h1') {
+        children.push(new Paragraph({ heading: HeadingLevel.HEADING_1, children: [new TextRun({ text: rawText, bold: true })] }));
+      } else if (tag === 'h2') {
+        children.push(new Paragraph({ heading: HeadingLevel.HEADING_2, children: [new TextRun({ text: rawText, bold: true })] }));
+      } else if (tag === 'h3') {
+        children.push(new Paragraph({ heading: HeadingLevel.HEADING_3, children: [new TextRun({ text: rawText, bold: true })] }));
+      } else if (tag === 'h4') {
+        children.push(new Paragraph({ heading: HeadingLevel.HEADING_4, children: [new TextRun({ text: rawText })] }));
+      } else if (tag === 'li') {
+        children.push(new Paragraph({ bullet: { level: 0 }, text: rawText }));
+      } else {
+        children.push(new Paragraph({ text: rawText }));
+      }
+    }
+  }
 
   return new Document({ sections: [{ children }] });
 }
@@ -62,18 +85,12 @@ function buildProposalDocx(proposalDoc: ProposalDocument) {
 export async function exportProposalToDocx(proposalDoc: ProposalDocument) {
   const doc = buildProposalDocx(proposalDoc);
   const blob = await Packer.toBlob(doc);
-  saveAs(blob, `${sanitizeFileName(proposalDoc.proposalTitle)}.docx`);
+  saveAs(blob, `${sanitizeFileName(proposalDoc.title)}.docx`);
 }
 
-export async function exportProposalToPdf(doc: {
-  proposalTitle?: string | null;
-  summary?: string | null;
-  sections: {
-    title?: string | null;
-    summary?: string | null;
-    subsections?: { title?: string | null; content?: string | null }[];
-  }[];
-}) {
+// ─── PDF ──────────────────────────────────────────────────────────────────────
+
+export async function exportProposalToPdf(proposalDoc: ProposalDocument) {
   const pdfDoc = await PDFDocument.create();
   const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
   const fontBold = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
@@ -84,7 +101,7 @@ export async function exportProposalToPdf(doc: {
   const h2Size = 14;
   const textSize = 11;
 
-  const wrapText = (text: string, maxWidth: number, f: any, size: number) => {
+  const wrapText = (text: string, maxWidth: number, f: typeof font, size: number): string[] => {
     const words = (text || '').replace(/\r\n/g, '\n').split(/\s+/);
     const lines: string[] = [];
     let line = '';
@@ -100,8 +117,6 @@ export async function exportProposalToPdf(doc: {
     if (line) lines.push(line);
     return lines;
   };
-
-  const safeName = (doc.proposalTitle || 'proposal').toString().trim().replace(/[\\/:*?"<>|]+/g, '-');
 
   let page = pdfDoc.addPage();
   let { width, height } = page.getSize();
@@ -129,43 +144,40 @@ export async function exportProposalToPdf(doc: {
     y -= 6;
   };
 
-  drawParagraph(doc.proposalTitle || 'Proposal', titleSize, true);
+  drawParagraph(proposalDoc.title || 'Proposal', titleSize, true);
 
-  if (doc.summary) {
-    drawLine('Summary', h2Size, true, rgb(0.1, 0.1, 0.1));
-    drawParagraph(doc.summary, textSize, false);
+  if (proposalDoc.outlineSummary) {
+    drawLine('Executive Summary', h2Size, true, rgb(0.1, 0.1, 0.1));
+    drawParagraph(proposalDoc.outlineSummary, textSize, false);
   }
 
-  for (const s of doc.sections || []) {
-    drawLine(s.title || 'Section', h2Size, true, rgb(0.1, 0.1, 0.1));
-    if (s.summary) drawParagraph(s.summary, textSize, false);
-    for (const sub of s.subsections || []) {
-      if (sub.title) drawParagraph(sub.title, 12, true);
-      if (sub.content) drawParagraph(sub.content, textSize, false);
+  if (proposalDoc.content) {
+    const plainText = stripHtml(proposalDoc.content);
+    const blocks = plainText.split(/\n{2,}/);
+    for (const block of blocks) {
+      const trimmed = block.trim();
+      if (trimmed) drawParagraph(trimmed, textSize, false);
     }
-    y -= 8;
   }
 
   const bytes = await pdfDoc.save();
-  // @ts-ignore
-  const blob = new Blob([bytes], { type: 'application/pdf' });
+  const blob = new Blob([bytes as BlobPart], { type: 'application/pdf' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
-  a.download = `${safeName}.pdf`;
+  a.download = `${sanitizeFileName(proposalDoc.title)}.pdf`;
   document.body.appendChild(a);
   a.click();
   a.remove();
   setTimeout(() => URL.revokeObjectURL(url), 2000);
 }
 
-/**
- * Export proposal as plain text (client-side).
- */
+// ─── Plain text ───────────────────────────────────────────────────────────────
+
 export function exportProposalToText(doc: ProposalDocument) {
   const lines: string[] = [];
-  lines.push(doc.proposalTitle);
-  lines.push('='.repeat(doc.proposalTitle.length));
+  lines.push(doc.title);
+  lines.push('='.repeat(doc.title.length));
   lines.push('');
 
   if (doc.customerName) {
@@ -181,33 +193,20 @@ export function exportProposalToText(doc: ProposalDocument) {
     lines.push('');
   }
 
-  doc.sections.forEach((section, sIdx) => {
-    lines.push(`${sIdx + 1}. ${section.title}`);
-    lines.push('-'.repeat(`${sIdx + 1}. ${section.title}`.length));
-    lines.push('');
-    if (section.summary) {
-      lines.push(section.summary);
-      lines.push('');
-    }
-    section.subsections.forEach((sub, subIdx) => {
-      lines.push(`${sIdx + 1}.${subIdx + 1} ${sub.title}`);
-      lines.push('');
-      lines.push(sub.content || '');
-      lines.push('');
-    });
-  });
+  if (doc.content) {
+    lines.push(stripHtml(doc.content));
+  }
 
   const text = lines.join('\n');
   const blob = new Blob([text], { type: 'text/plain;charset=utf-8' });
-  saveAs(blob, `${sanitizeFileName(doc.proposalTitle)}.txt`);
+  saveAs(blob, `${sanitizeFileName(doc.title)}.txt`);
 }
 
-/**
- * Export proposal as Markdown (client-side).
- */
+// ─── Markdown ─────────────────────────────────────────────────────────────────
+
 export function exportProposalToMarkdown(doc: ProposalDocument) {
   const lines: string[] = [];
-  lines.push(`# ${doc.proposalTitle}`);
+  lines.push(`# ${doc.title}`);
   lines.push('');
 
   if (doc.customerName) {
@@ -227,22 +226,27 @@ export function exportProposalToMarkdown(doc: ProposalDocument) {
     lines.push('');
   }
 
-  doc.sections.forEach((section, sIdx) => {
-    lines.push(`## ${sIdx + 1}. ${section.title}`);
-    lines.push('');
-    if (section.summary) {
-      lines.push(`*${section.summary}*`);
-      lines.push('');
-    }
-    section.subsections.forEach((sub, subIdx) => {
-      lines.push(`### ${sIdx + 1}.${subIdx + 1} ${sub.title}`);
-      lines.push('');
-      lines.push(sub.content || '');
-      lines.push('');
-    });
-  });
+  if (doc.content) {
+    const md = doc.content
+      .replace(/<h1[^>]*>(.*?)<\/h1>/gi, '# $1\n')
+      .replace(/<h2[^>]*>(.*?)<\/h2>/gi, '## $1\n')
+      .replace(/<h3[^>]*>(.*?)<\/h3>/gi, '### $1\n')
+      .replace(/<h4[^>]*>(.*?)<\/h4>/gi, '#### $1\n')
+      .replace(/<strong[^>]*>(.*?)<\/strong>/gi, '**$1**')
+      .replace(/<em[^>]*>(.*?)<\/em>/gi, '*$1*')
+      .replace(/<br\s*\/?>/gi, '\n')
+      .replace(/<\/p>/gi, '\n\n')
+      .replace(/<\/li>/gi, '\n')
+      .replace(/<li[^>]*>/gi, '- ')
+      .replace(/<[^>]+>/g, '')
+      .replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>')
+      .replace(/&quot;/g, '"').replace(/&#039;/g, "'").replace(/&nbsp;/g, ' ')
+      .replace(/\n{3,}/g, '\n\n')
+      .trim();
+    lines.push(md);
+  }
 
-  const md = lines.join('\n');
-  const blob = new Blob([md], { type: 'text/markdown;charset=utf-8' });
-  saveAs(blob, `${sanitizeFileName(doc.proposalTitle)}.md`);
+  const mdText = lines.join('\n');
+  const blob = new Blob([mdText], { type: 'text/markdown;charset=utf-8' });
+  saveAs(blob, `${sanitizeFileName(doc.title)}.md`);
 }

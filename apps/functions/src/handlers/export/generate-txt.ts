@@ -51,7 +51,7 @@ export const baseHandler = async (
     const textContent = flattenProposalToText(proposal.document);
     const textBuffer = Buffer.from(textContent, 'utf-8');
 
-    const key = buildS3Key(organizationId, projectId, opportunityId, proposalId, proposal.document.proposalTitle, 'txt');
+    const key = buildS3Key(organizationId, projectId, opportunityId, proposalId, proposal.document.title, 'txt');
 
     await s3Client.send(new PutObjectCommand({
       Bucket: DOCUMENTS_BUCKET,
@@ -67,7 +67,7 @@ export const baseHandler = async (
 
     return apiResponse(200, {
       success: true,
-      proposal: { id: proposal.id, title: proposal.document.proposalTitle },
+      proposal: { id: proposal.id, title: proposal.document.title },
       export: {
         format: 'txt',
         bucket: DOCUMENTS_BUCKET,
@@ -75,7 +75,7 @@ export const baseHandler = async (
         url,
         expiresIn: PRESIGN_EXPIRES_IN,
         contentType: CONTENT_TYPES.txt,
-        fileName: `${sanitizeFileName(proposal.document.proposalTitle)}.txt`,
+        fileName: `${sanitizeFileName(proposal.document.title)}.txt`,
       },
     });
   } catch (err) {

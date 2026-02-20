@@ -25,3 +25,20 @@
 - **Prefer interfaces over types** for object shapes (except when inferring from Zod).
 
 - **Use discriminated unions** for complex type scenarios instead of `any` or loose types.
+
+## 🔧 Function Definitions
+
+- **ALWAYS use `const` arrow functions** instead of the `function` keyword for all function definitions.
+  - This applies to React components, hooks, helpers, and all other functions.
+  - Exception: `export default function` for Next.js page/layout files (required by the framework).
+  ```typescript
+  // ✅ correct
+  const MyComponent = () => { ... };
+  const handleClick = (e: React.MouseEvent) => { ... };
+  const formatDate = (date: string): string => { ... };
+
+  // ❌ wrong
+  function MyComponent() { ... }
+  function handleClick(e: React.MouseEvent) { ... }
+  function formatDate(date: string): string { ... }
+  ```

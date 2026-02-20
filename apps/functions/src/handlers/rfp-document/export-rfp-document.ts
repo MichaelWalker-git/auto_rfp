@@ -6,7 +6,7 @@ import { withSentryLambda } from '@/sentry-lambda';
 import { getRFPDocument } from '@/helpers/rfp-document';
 import { apiResponse, getOrgId } from '@/helpers/api';
 import { requireEnv } from '@/helpers/env';
-import { type ProposalDocument, ProposalDocumentSchema } from '@auto-rfp/core';
+import { type RFPDocumentContent, RFPDocumentContentSchema } from '@auto-rfp/core';
 import {
   type ExportFormat,
   CONTENT_TYPES,
@@ -113,7 +113,7 @@ export const baseHandler = async (
       });
     }
 
-    const contentParsed = ProposalDocumentSchema.safeParse(doc.content);
+    const contentParsed = RFPDocumentContentSchema.safeParse(doc.content);
     if (!contentParsed.success) {
       return apiResponse(400, {
         message: 'Document content is not a valid proposal document structure',
@@ -121,8 +121,8 @@ export const baseHandler = async (
       });
     }
 
-    const proposalDoc: ProposalDocument = contentParsed.data;
-    const title = doc.title || proposalDoc.proposalTitle || doc.name || 'document';
+    const proposalDoc: RFPDocumentContent = contentParsed.data;
+    const title = doc.title || proposalDoc.title || doc.name || 'document';
 
     let exportContent: string;
     const contentType = CONTENT_TYPES[format] || 'application/octet-stream';

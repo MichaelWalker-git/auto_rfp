@@ -17,17 +17,32 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 
-import { useGenerateProposal } from '@/lib/hooks/use-proposal';
-import { type RFPDocumentType } from '@/lib/hooks/use-rfp-documents';
+import { type RFPDocumentType, RFP_DOCUMENT_TYPES, RFP_DOCUMENT_TYPE_DESCRIPTIONS, useGenerateRFPDocument } from '@/lib/hooks/use-rfp-documents';
 import PermissionWrapper from '@/components/permission-wrapper';
 
+/**
+ * All AI-generatable document types in win-optimized proposal order.
+ * These map to CONTENT_BASED_DOCUMENT_TYPES on the backend.
+ */
 const GENERATABLE_TYPES_CONFIG: { key: string; label: string }[] = [
-  { key: 'TECHNICAL_PROPOSAL', label: 'Technical Proposal' },
-  { key: 'MANAGEMENT_PROPOSAL', label: 'Management Proposal' },
-  { key: 'PAST_PERFORMANCE', label: 'Past Performance' },
-  { key: 'PRICE_VOLUME', label: 'Price Volume' },
-  { key: 'EXECUTIVE_SUMMARY', label: 'Executive Summary' },
-  { key: 'CERTIFICATIONS', label: 'Certifications' },
+  // Core proposal sections (win-optimized order)
+  { key: 'COVER_LETTER',                  label: RFP_DOCUMENT_TYPES.COVER_LETTER },
+  { key: 'EXECUTIVE_SUMMARY',             label: RFP_DOCUMENT_TYPES.EXECUTIVE_SUMMARY },
+  { key: 'UNDERSTANDING_OF_REQUIREMENTS', label: RFP_DOCUMENT_TYPES.UNDERSTANDING_OF_REQUIREMENTS },
+  { key: 'TECHNICAL_PROPOSAL',            label: RFP_DOCUMENT_TYPES.TECHNICAL_PROPOSAL },
+  { key: 'PROJECT_PLAN',                  label: RFP_DOCUMENT_TYPES.PROJECT_PLAN },
+  { key: 'TEAM_QUALIFICATIONS',           label: RFP_DOCUMENT_TYPES.TEAM_QUALIFICATIONS },
+  { key: 'PAST_PERFORMANCE',              label: RFP_DOCUMENT_TYPES.PAST_PERFORMANCE },
+  { key: 'COST_PROPOSAL',                 label: RFP_DOCUMENT_TYPES.COST_PROPOSAL },
+  { key: 'MANAGEMENT_APPROACH',           label: RFP_DOCUMENT_TYPES.MANAGEMENT_APPROACH },
+  { key: 'RISK_MANAGEMENT',               label: RFP_DOCUMENT_TYPES.RISK_MANAGEMENT },
+  { key: 'COMPLIANCE_MATRIX',             label: RFP_DOCUMENT_TYPES.COMPLIANCE_MATRIX },
+  { key: 'CERTIFICATIONS',                label: RFP_DOCUMENT_TYPES.CERTIFICATIONS },
+  { key: 'APPENDICES',                    label: RFP_DOCUMENT_TYPES.APPENDICES },
+  // Supporting sections
+  { key: 'MANAGEMENT_PROPOSAL',           label: RFP_DOCUMENT_TYPES.MANAGEMENT_PROPOSAL },
+  { key: 'PRICE_VOLUME',                  label: RFP_DOCUMENT_TYPES.PRICE_VOLUME },
+  { key: 'QUALITY_MANAGEMENT',            label: RFP_DOCUMENT_TYPES.QUALITY_MANAGEMENT },
 ];
 
 interface GenerateDocumentDialogProps {
@@ -48,7 +63,7 @@ export function GenerateDocumentDialog({
   const [status, setStatus] = useState<'idle' | 'generating' | 'success' | 'error'>('idle');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  const { trigger: triggerGenerate } = useGenerateProposal();
+  const { trigger: triggerGenerate } = useGenerateRFPDocument(orgId);
 
   const handleGenerate = async () => {
     setStatus('generating');
@@ -136,6 +151,11 @@ export function GenerateDocumentDialog({
                   ))}
                 </SelectContent>
               </Select>
+              {selectedType && RFP_DOCUMENT_TYPE_DESCRIPTIONS[selectedType as keyof typeof RFP_DOCUMENT_TYPE_DESCRIPTIONS] && (
+                <p className="text-[10px] text-muted-foreground leading-tight">
+                  {RFP_DOCUMENT_TYPE_DESCRIPTIONS[selectedType as keyof typeof RFP_DOCUMENT_TYPE_DESCRIPTIONS]}
+                </p>
+              )}
             </div>
             <Button
               size="sm"

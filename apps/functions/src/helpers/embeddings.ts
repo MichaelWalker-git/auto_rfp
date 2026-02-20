@@ -2,7 +2,12 @@ import { requireEnv } from './env';
 import { invokeModel } from './bedrock-http-client';
 import { PineconeHit, semanticSearchChunks as pineconeSearch } from './pinecone';
 
-const TITAN_V2_SAFE_CHARS = 35_000;
+// Titan Text Embeddings V2 supports up to 8192 tokens.
+// Titan's tokenizer averages ~1.3–1.5 chars/token for English technical text
+// (NOT the ~4 chars/token of GPT-style tokenizers).
+// Safe limit: 8192 tokens × 1.3 chars/token × 0.75 safety margin ≈ 8,000 chars.
+// This matches the observed failure at 12,506 tokens from a ~15,000-char input.
+const TITAN_V2_SAFE_CHARS = 8_000;
 const BEDROCK_EMBEDDING_MODEL_ID = requireEnv('BEDROCK_EMBEDDING_MODEL_ID');
 
 export async function getEmbedding(text: string): Promise<number[]> {

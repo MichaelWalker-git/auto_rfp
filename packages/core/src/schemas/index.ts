@@ -1,4 +1,3 @@
-export * from './proposal';
 export * from './question-file'
 export * from './document'
 export * from './executive-opportunity-brief'
@@ -23,3 +22,5 @@ export * from './past-performance';
 export * from './template';
 export * from './rfp-document';
 export * from './clustering';
+export * from './collaboration';
+export * from './opportunity-context';
