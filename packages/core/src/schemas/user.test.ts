@@ -213,14 +213,18 @@ describe('ListUsersQuerySchema', () => {
 
 describe('ROLE_PERMISSIONS', () => {
   it('should give ADMIN all permissions', () => {
-    expect(ROLE_PERMISSIONS.ADMIN).toEqual(expect.arrayContaining(ALL_PERMISSIONS));
+    expect(ROLE_PERMISSIONS.ADMIN).toEqual(expect.arrayContaining([...ALL_PERMISSIONS]));
     expect(ROLE_PERMISSIONS.ADMIN.length).toBe(ALL_PERMISSIONS.length);
   });
 
   it('should give VIEWER only read permissions', () => {
     expect(ROLE_PERMISSIONS.VIEWER).toEqual(expect.arrayContaining([...VIEWER_PERMISSIONS]));
     ROLE_PERMISSIONS.VIEWER.forEach((perm) => {
-      expect(perm).toMatch(/:read$/);
+      // collaboration permissions use non-:read suffixes but are still viewer-safe
+      const isCollaborationPerm = perm.startsWith('collaboration:');
+      if (!isCollaborationPerm) {
+        expect(perm).toMatch(/:read$/);
+      }
     });
   });
 

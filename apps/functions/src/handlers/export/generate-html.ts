@@ -55,7 +55,7 @@ export const baseHandler = async (
     const htmlContent = proposalToHtml(proposal.document);
     const htmlBuffer = Buffer.from(htmlContent, 'utf-8');
 
-    const key = buildS3Key(organizationId, projectId, opportunityId, proposalId, proposal.document.proposalTitle, 'html');
+    const key = buildS3Key(organizationId, projectId, opportunityId, proposalId, proposal.document.title, 'html');
 
     await s3Client.send(new PutObjectCommand({
       Bucket: DOCUMENTS_BUCKET,
@@ -71,7 +71,7 @@ export const baseHandler = async (
 
     return apiResponse(200, {
       success: true,
-      proposal: { id: proposal.id, title: proposal.document.proposalTitle },
+      proposal: { id: proposal.id, title: proposal.document.title },
       export: {
         format: 'html',
         bucket: DOCUMENTS_BUCKET,
@@ -79,7 +79,7 @@ export const baseHandler = async (
         url,
         expiresIn: PRESIGN_EXPIRES_IN,
         contentType: CONTENT_TYPES.html,
-        fileName: `${sanitizeFileName(proposal.document.proposalTitle)}.html`,
+        fileName: `${sanitizeFileName(proposal.document.title)}.html`,
       },
     });
   } catch (err) {

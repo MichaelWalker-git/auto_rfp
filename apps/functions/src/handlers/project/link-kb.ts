@@ -13,17 +13,14 @@ import middy from '@middy/core';
 
 export const baseHandler = async (event: APIGatewayProxyEventV2) => {
   try {
-    const orgId = getOrgId(event);
-    if (!orgId) return apiResponse(400, { message: 'Org Id is required' });
-
     const userId = getUserId(event);
 
-    const parsed = LinkKBToProjectRequestSchema.safeParse(JSON.parse(event.body || ''));
-    if (!parsed.success) {
-      return apiResponse(400, { message: 'Validation failed', errors: parsed.error.issues });
+    const { success, error, data } = LinkKBToProjectRequestSchema.safeParse(JSON.parse(event.body || ''));
+    if (!success) {
+      return apiResponse(400, { message: 'Validation failed', errors: error.issues });
     }
 
-    const { projectId, kbId } = parsed.data;
+    const { orgId, projectId, kbId } = data;
 
     const link = await linkKBToProject(orgId, projectId, kbId, userId ?? undefined);
 

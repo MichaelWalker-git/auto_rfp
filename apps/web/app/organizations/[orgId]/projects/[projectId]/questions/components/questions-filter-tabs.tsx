@@ -1,6 +1,7 @@
 'use client';
 
-import React from 'react';
+import React, { useEffect } from 'react';
+import { useRouter, useSearchParams, usePathname } from 'next/navigation';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -53,13 +54,37 @@ export function QuestionsFilterTabs({ rfpDocument, orgId, projectId }: Questions
     removingQuestions,
   } = useQuestions() as any;
 
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+
   const questionData = getSelectedQuestionData();
   const counts = getCounts();
   const confidenceCounts = getConfidenceCounts();
-  
+
   // Get cluster count for the badge
   const { data: clustersData } = useClusters(projectId);
   const clusterCount = clustersData?.clusters?.length ?? 0;
+
+  // On mount: read ?questionId= from URL and auto-select that question
+  useEffect(() => {
+    const urlQuestionId = searchParams.get('questionId');
+    if (urlQuestionId && urlQuestionId !== selectedQuestion) {
+      setSelectedQuestion(urlQuestionId);
+      setShowAIPanel(false);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // run once on mount
+
+  // When selected question changes: update URL without full navigation
+  const handleSelectQuestion = (id: string) => {
+    setSelectedQuestion(id);
+    setShowAIPanel(false);
+    // Update ?questionId= in URL (replaceState — no history entry)
+    const params = new URLSearchParams(searchParams.toString());
+    params.set('questionId', id);
+    router.replace(`${pathname}?${params.toString()}`, { scroll: false });
+  };
 
   const confidenceBands: { value: ConfidenceBand | 'all'; label: string; colorClass: string; count?: number }[] = [
     { value: 'all', label: 'All', colorClass: '', count: undefined },
@@ -152,10 +177,7 @@ export function QuestionsFilterTabs({ rfpDocument, orgId, projectId }: Questions
             savingQuestions={savingQuestions}
             showAIPanel={showAIPanel}
             filterType={filterType}
-            onSelectQuestion={(id) => {
-              setSelectedQuestion(id);
-              setShowAIPanel(false);
-            }}
+            onSelectQuestion={handleSelectQuestion}
             onAnswerChange={handleAnswerChange}
             onSave={handleSaveAnswer}
             onGenerateAnswer={handleGenerateAnswer}

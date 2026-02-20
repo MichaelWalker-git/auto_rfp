@@ -13,7 +13,7 @@ import { JSErrorCollector } from './helpers/errors';
  * - AUTO-RFP-6H: ReferenceError useMemo not defined
  * - AUTO-RFP-6C: ReferenceError formatDate not defined
  * - AUTO-RFP-6D: ReferenceError KnowledgeBaseCard not defined
- * - AUTO-RFP-6B: ReferenceError GenerateProposalModal not defined
+ * - AUTO-RFP-6B: ReferenceError GenerateRFPDocumentModel not defined
  * - AUTO-RFP-6A/69: ReferenceError children not defined
  * - AUTO-RFP-68: ReferenceError GlobalHeader not defined
  * - AUTO-RFP-61: ReferenceError useEffect not defined
@@ -123,7 +123,7 @@ test.describe('Sentry Regression: Documents Page', () => {
 });
 
 test.describe('Sentry Regression: Proposals Page', () => {
-  /** AUTO-RFP-6A/69/6B/6G: ReferenceError children/GenerateProposalModal not defined */
+  /** AUTO-RFP-6A/69/6B/6G: ReferenceError children/GenerateRFPDocumentModel not defined */
   test('should load proposals page without ReferenceErrors [AUTO-RFP-6A/69/6B/6G]', async ({ page, nav, errorCollector }) => {
     const projectHref = await nav.goToFirstProject();
     if (!projectHref) {
@@ -136,7 +136,7 @@ test.describe('Sentry Regression: Proposals Page', () => {
       await proposalsLink.click();
     }
 
-    const proposalErrors = errorCollector.getErrorsMatching('ReferenceError', 'children', 'GenerateProposalModal');
+    const proposalErrors = errorCollector.getErrorsMatching('ReferenceError', 'children', 'GenerateRFPDocumentModel');
     expect(proposalErrors).toHaveLength(0);
   });
 

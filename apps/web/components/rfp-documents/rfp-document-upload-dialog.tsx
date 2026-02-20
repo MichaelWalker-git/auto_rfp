@@ -10,7 +10,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Progress } from '@/components/ui/progress';
 import { useToast } from '@/components/ui/use-toast';
-import { type RFPDocumentType, RFP_DOCUMENT_TYPES, useCreateRFPDocument, uploadFileToPresignedUrl } from '@/lib/hooks/use-rfp-documents';
+import { type RFPDocumentType, RFP_DOCUMENT_TYPES, RFP_DOCUMENT_TYPE_DESCRIPTIONS, useCreateRFPDocument, uploadFileToPresignedUrl } from '@/lib/hooks/use-rfp-documents';
 
 interface Props {
   open: boolean;
@@ -107,6 +107,9 @@ export function RFPDocumentUploadDialog({ open, onOpenChange, projectId, orgId, 
         originalFileName: file.name,
       });
       setUploadProgress(30);
+      if (!result.upload?.url) {
+        throw new Error('No upload URL returned from server');
+      }
       await uploadFileToPresignedUrl(result.upload.url, file, (percent) => {
         setUploadProgress(30 + Math.round(percent * 0.7));
       });
@@ -172,6 +175,11 @@ export function RFPDocumentUploadDialog({ open, onOpenChange, projectId, orgId, 
                 ))}
               </SelectContent>
             </Select>
+            {documentType && documentType !== 'OTHER' && RFP_DOCUMENT_TYPE_DESCRIPTIONS[documentType as keyof typeof RFP_DOCUMENT_TYPE_DESCRIPTIONS] && (
+              <p className="text-xs text-muted-foreground leading-relaxed">
+                {RFP_DOCUMENT_TYPE_DESCRIPTIONS[documentType as keyof typeof RFP_DOCUMENT_TYPE_DESCRIPTIONS]}
+              </p>
+            )}
           </div>
           <div className="space-y-1.5">
             <Label htmlFor="doc-desc">Description (optional)</Label>

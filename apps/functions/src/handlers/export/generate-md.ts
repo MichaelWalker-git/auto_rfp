@@ -51,7 +51,7 @@ export const baseHandler = async (
     const mdContent = proposalToMarkdown(proposal.document);
     const mdBuffer = Buffer.from(mdContent, 'utf-8');
 
-    const key = buildS3Key(organizationId, projectId, opportunityId, proposalId, proposal.document.proposalTitle, 'md');
+    const key = buildS3Key(organizationId, projectId, opportunityId, proposalId, proposal.document.title, 'md');
 
     await s3Client.send(new PutObjectCommand({
       Bucket: DOCUMENTS_BUCKET,
@@ -67,7 +67,7 @@ export const baseHandler = async (
 
     return apiResponse(200, {
       success: true,
-      proposal: { id: proposal.id, title: proposal.document.proposalTitle },
+      proposal: { id: proposal.id, title: proposal.document.title },
       export: {
         format: 'md',
         bucket: DOCUMENTS_BUCKET,
@@ -75,7 +75,7 @@ export const baseHandler = async (
         url,
         expiresIn: PRESIGN_EXPIRES_IN,
         contentType: CONTENT_TYPES.md,
-        fileName: `${sanitizeFileName(proposal.document.proposalTitle)}.md`,
+        fileName: `${sanitizeFileName(proposal.document.title)}.md`,
       },
     });
   } catch (err) {

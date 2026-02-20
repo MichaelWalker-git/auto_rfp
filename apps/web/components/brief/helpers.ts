@@ -127,17 +127,9 @@ function bullets(items: Array<string | null | undefined>, level = 0) {
   return cleaned.map((t) => bullet(t, level));
 }
 
-function fmtUsd(n: number | null | undefined) {
-  if (n === null || n === undefined || Number.isNaN(n)) return '—';
-  try {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD',
-      maximumFractionDigits: 0,
-    }).format(n);
-  } catch {
-    return `$${Math.round(n).toLocaleString('en-US')}`;
-  }
+function fmtUsd(v: string | null | undefined) {
+  if (!v) return '—';
+  return String(v).trim();
 }
 
 function fmtIso(iso: string | null | undefined) {

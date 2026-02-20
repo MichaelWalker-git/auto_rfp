@@ -1,17 +1,17 @@
 import React, { Suspense } from 'react';
 import { PageLoadingSkeleton } from '@/components/layout/page-loading-skeleton';
-import { UserEditContent } from '@/components/organizations/UserEditContent';
+import { UserViewContent } from '@/components/organizations/UserViewContent';
 
-interface UserEditPageProps {
+interface UserViewPageProps {
   params: Promise<{ orgId: string; userId: string }>;
 }
 
-export default async function UserEditPage({ params }: UserEditPageProps) {
+export default async function UserViewPage({ params }: UserViewPageProps) {
   const { orgId, userId } = await params;
 
   return (
     <Suspense fallback={<PageLoadingSkeleton hasDescription variant="detail" />}>
-      <UserEditContent orgId={orgId} userId={userId} />
+      <UserViewContent orgId={orgId} userId={userId} />
     </Suspense>
   );
 }

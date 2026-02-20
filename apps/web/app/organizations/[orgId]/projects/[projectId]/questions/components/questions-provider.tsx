@@ -1,17 +1,18 @@
 'use client';
 
-import React, { createContext, ReactNode, useContext, useEffect, useState } from 'react';
+import React, { createContext, ReactNode, useCallback, useContext, useEffect, useRef, useState } from 'react';
 import { toast } from '@/components/ui/use-toast';
 import { AnswerSource, ConfidenceBreakdown, ConfidenceBand, GroupedSection, type QuestionFileItem, type SaveAnswerDTO } from '@auto-rfp/core';
 import { useAnswers, useQuestions as useLoadQuestions } from '@/lib/hooks/use-api';
 import { useProject } from '@/lib/hooks/use-project';
-import { useGenerateAnswer, useSaveAnswer } from '@/lib/hooks/use-answer';
+import { useGenerateAnswer, useSaveAnswer, useApproveAnswer } from '@/lib/hooks/use-answer';
 import { useQuestionFiles } from '@/lib/hooks/use-question-file';
 import { useKnowledgeBases } from '@/lib/hooks/use-knowledgebase';
 
 import { authFetcher } from '@/lib/auth/auth-fetcher';
 import { env } from '@/lib/env';
 import { normalizeConfidence } from '@/components/confidence/confidence-score-display';
+import { useProjectContext } from '@/context/project-context';
 
 // Interfaces
 interface AnswerData {
@@ -20,6 +21,14 @@ interface AnswerData {
   confidence?: number;
   confidenceBreakdown?: ConfidenceBreakdown;
   confidenceBand?: ConfidenceBand;
+  // Status & audit fields
+  status?: string;
+  updatedBy?: string;
+  updatedByName?: string;
+  updatedAt?: string;
+  approvedBy?: string;
+  approvedByName?: string;
+  approvedAt?: string;
 }
 
 interface ProjectIndex {
@@ -77,6 +86,11 @@ interface QuestionsContextType {
   handleIndexToggle: (indexId: string) => void;
   handleSelectAllIndexes: () => void;
 
+  handleApproveAnswer: (questionId: string) => Promise<void>;
+  approvingQuestions: Set<string>;
+  handleUnapproveAnswer: (questionId: string) => Promise<void>;
+  unapprovingQuestions: Set<string>;
+
   removeQuestion: (questionId: string) => Promise<void>;
   
   // Clustering - update answers locally when applied to similar questions
@@ -133,13 +147,20 @@ export function QuestionsProvider({ children, projectId }: QuestionsProviderProp
   const [organizationConnected, setOrganizationConnected] = useState(false);
 
   const [removingQuestions, setRemovingQuestions] = useState<Set<string>>(new Set());
+  const [approvingQuestions, setApprovingQuestions] = useState<Set<string>>(new Set());
+  const [unapprovingQuestions, setUnapprovingQuestions] = useState<Set<string>>(new Set());
 
   const { data: project, isLoading: isProjectLoading } = useProject(projectId);
   const { data: questions, isLoading: isQuestionsLoading, mutate: mutateQuestions } = useLoadQuestions(projectId);
   const { items: questionFiles, isLoading: isQuestionFilesLoading } = useQuestionFiles(projectId);
-  const { data: answersData, error: answerError, isLoading: isAnswersLoading } = useAnswers(projectId);
+  const { data: answersData, error: answerError, isLoading: isAnswersLoading, mutate: mutateAnswers } = useAnswers(projectId);
   const { trigger: saveAnswer } = useSaveAnswer(projectId);
+  const { trigger: approveAnswer } = useApproveAnswer(projectId);
   const { trigger: generateAnswer } = useGenerateAnswer();
+
+  // Ref to track unsaved questions for autosave (avoids stale closure)
+  const unsavedQuestionsRef = useRef<Set<string>>(new Set());
+  const answersRef = useRef<Record<string, AnswerData>>({});
 
   // Get orgId from project to load knowledge bases
   const orgId = project?.orgId ?? null;
@@ -537,8 +558,10 @@ export function QuestionsProvider({ children, projectId }: QuestionsProviderProp
     });
 
     try {
+      // Pass orgId so the backend can cascade-delete assignments and comments
+      const orgIdParam = orgId ? `&orgId=${orgId}` : '';
       const res = await authFetcher(
-        `${env.BASE_API_URL}/question/delete-question?projectId=${projectId}&questionId=${questionId}`,
+        `${env.BASE_API_URL}/question/delete-question?projectId=${projectId}&questionId=${questionId}${orgIdParam}`,
         {
           method: 'DELETE',
           cache: 'no-store',
@@ -600,9 +623,224 @@ export function QuestionsProvider({ children, projectId }: QuestionsProviderProp
     }
   };
 
+  // Poll answers from server every 10s to pick up changes from other users
+  // (approve, unapprove, save, last edited by, approved by)
   useEffect(() => {
-    if (answersData) setAnswers({ ...answersData });
+    const pollInterval = setInterval(() => {
+      if (unsavedQuestionsRef.current.size === 0 && mutateAnswers) {
+        mutateAnswers();
+      }
+    }, 10_000);
+    return () => clearInterval(pollInterval);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [projectId]);
+
+  // Sync selected question text to the global header breadcrumb
+  const { setBreadcrumbSuffix } = useProjectContext();
+  useEffect(() => {
+    if (selectedQuestion && questions) {
+      const qData = getSelectedQuestionData();
+      const text = qData?.question?.question as string | undefined;
+      setBreadcrumbSuffix(text ? (text.length > 50 ? `${text.slice(0, 50)}…` : text) : null);
+    } else {
+      setBreadcrumbSuffix(null);
+    }
+    return () => setBreadcrumbSuffix(null);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedQuestion, questions]);
+
+  // Sync server answer data to local state.
+  // Merge server metadata (status, updatedByName, approvedByName, etc.) 
+  // while preserving local text edits for unsaved questions.
+  useEffect(() => {
+    if (!answersData) return;
+    setAnswers((prev) => {
+      const next: Record<string, AnswerData> = {};
+      for (const [qId, serverAnswer] of Object.entries(answersData)) {
+        const local = prev[qId];
+        const hasLocalEdit = unsavedQuestionsRef.current.has(qId);
+        next[qId] = {
+          ...serverAnswer,
+          // Preserve local text if user has unsaved edits
+          ...(hasLocalEdit && local ? { text: local.text } : {}),
+        };
+      }
+      // Also preserve any local-only entries not yet on server
+      for (const [qId, localAnswer] of Object.entries(prev)) {
+        if (!next[qId]) next[qId] = localAnswer;
+      }
+      return next;
+    });
   }, [answersData]);
+
+  // Keep refs in sync so autosave interval can read latest values without stale closure
+  useEffect(() => {
+    unsavedQuestionsRef.current = unsavedQuestions;
+  }, [unsavedQuestions]);
+
+  useEffect(() => {
+    answersRef.current = answers;
+  }, [answers]);
+
+  // Autosave as DRAFT every 5 seconds for any unsaved questions
+  useEffect(() => {
+    const interval = setInterval(async () => {
+      const toSave = Array.from(unsavedQuestionsRef.current);
+      if (toSave.length === 0) return;
+
+      for (const questionId of toSave) {
+        const answerData = answersRef.current[questionId];
+        if (!answerData?.text?.trim()) continue;
+
+        try {
+          await saveAnswer({
+            questionId,
+            text: answerData.text,
+            sources: answerData.sources || [],
+            status: 'DRAFT',
+            ...(answerData.confidence !== undefined && { confidence: answerData.confidence }),
+            ...(answerData.confidenceBreakdown && { confidenceBreakdown: answerData.confidenceBreakdown }),
+            ...(answerData.confidenceBand && { confidenceBand: answerData.confidenceBand }),
+          } as any);
+
+          setUnsavedQuestions((prev) => {
+            const next = new Set(prev);
+            next.delete(questionId);
+            return next;
+          });
+          setLastSaved(new Date().toISOString());
+        } catch {
+          // Silently ignore autosave errors — user can still manually approve
+        }
+      }
+    }, 5_000);
+
+    return () => clearInterval(interval);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [projectId]);
+
+  // Approve answer — saves with status=APPROVED and logs ANSWER_APPROVED activity
+  const handleApproveAnswer = async (questionId: string) => {
+    if (!projectId || !answers[questionId]) return;
+
+    setApprovingQuestions((prev) => {
+      const next = new Set(prev);
+      next.add(questionId);
+      return next;
+    });
+
+    try {
+      const answerData = answers[questionId];
+      const response = await approveAnswer({
+        questionId,
+        text: answerData.text,
+        sources: answerData.sources || [],
+        status: 'APPROVED',
+        ...(answerData.confidence !== undefined && { confidence: answerData.confidence }),
+        ...(answerData.confidenceBreakdown && { confidenceBreakdown: answerData.confidenceBreakdown }),
+        ...(answerData.confidenceBand && { confidenceBand: answerData.confidenceBand }),
+      } as any);
+
+      if (response?.id) {
+        // Update local answers state immediately so the UI reflects the new status
+        setAnswers((prev) => ({
+          ...prev,
+          [questionId]: {
+            ...prev[questionId],
+            text: response.text ?? prev[questionId]?.text ?? '',
+            status: 'APPROVED',
+            approvedBy: response.approvedBy,
+            approvedByName: response.approvedByName,
+            approvedAt: response.approvedAt,
+            updatedBy: response.updatedBy,
+            updatedByName: response.updatedByName,
+            updatedAt: response.updatedAt,
+          },
+        }));
+        setUnsavedQuestions((prev) => {
+          const next = new Set(prev);
+          next.delete(questionId);
+          return next;
+        });
+        setLastSaved(response.updatedAt);
+        toast({ title: 'Answer Approved', description: 'Answer has been approved successfully.' });
+      } else {
+        throw new Error('Failed to approve answer');
+      }
+    } catch (error) {
+      console.error(`Error approving answer for question ${questionId}:`, error);
+      toast({
+        title: 'Approve Error',
+        description: 'Failed to approve the answer. Please try again.',
+        variant: 'destructive',
+      });
+    } finally {
+      setApprovingQuestions((prev) => {
+        const next = new Set(prev);
+        next.delete(questionId);
+        return next;
+      });
+    }
+  };
+
+  // Unapprove answer — reverts status back to DRAFT
+  const handleUnapproveAnswer = async (questionId: string) => {
+    if (!projectId || !answers[questionId]) return;
+
+    setUnapprovingQuestions((prev) => {
+      const next = new Set(prev);
+      next.add(questionId);
+      return next;
+    });
+
+    try {
+      const answerData = answers[questionId];
+      const response = await saveAnswer({
+        questionId,
+        text: answerData.text,
+        sources: answerData.sources || [],
+        status: 'DRAFT',
+        ...(answerData.confidence !== undefined && { confidence: answerData.confidence }),
+        ...(answerData.confidenceBreakdown && { confidenceBreakdown: answerData.confidenceBreakdown }),
+        ...(answerData.confidenceBand && { confidenceBand: answerData.confidenceBand }),
+      } as any);
+
+      if (response?.id) {
+        // Update local answers state immediately so the UI reflects the reverted status
+        setAnswers((prev) => ({
+          ...prev,
+          [questionId]: {
+            ...prev[questionId],
+            text: response.text ?? prev[questionId]?.text ?? '',
+            status: 'DRAFT',
+            approvedBy: undefined,
+            approvedByName: undefined,
+            approvedAt: undefined,
+            updatedBy: response.updatedBy,
+            updatedByName: response.updatedByName,
+            updatedAt: response.updatedAt,
+          },
+        }));
+        setLastSaved(response.updatedAt);
+        toast({ title: 'Approval Reverted', description: 'Answer moved back to draft.' });
+      } else {
+        throw new Error('Failed to unapprove answer');
+      }
+    } catch (error) {
+      console.error(`Error unapproving answer for question ${questionId}:`, error);
+      toast({
+        title: 'Error',
+        description: 'Failed to revert approval. Please try again.',
+        variant: 'destructive',
+      });
+    } finally {
+      setUnapprovingQuestions((prev) => {
+        const next = new Set(prev);
+        next.delete(questionId);
+        return next;
+      });
+    }
+  };
 
   const value: QuestionsContextType = {
     // UI state
@@ -653,6 +891,10 @@ export function QuestionsProvider({ children, projectId }: QuestionsProviderProp
     handleSourceClick,
     handleIndexToggle,
     handleSelectAllIndexes,
+    handleApproveAnswer,
+    approvingQuestions,
+    handleUnapproveAnswer,
+    unapprovingQuestions,
     removeQuestion,
     handleBatchAnswerApplied,
     getFilteredQuestions,

@@ -1,5 +1,5 @@
 import { APIGatewayProxyEventV2 } from 'aws-lambda';
-import { apiResponse, getOrgId } from '@/helpers/api';
+import { apiResponse } from '@/helpers/api';
 import { UnlinkKBFromProjectRequestSchema } from '@auto-rfp/core';
 import { unlinkKBFromProject } from '@/helpers/project-kb';
 import { withSentryLambda } from '@/sentry-lambda';
@@ -13,15 +13,12 @@ import middy from '@middy/core';
 
 export const baseHandler = async (event: APIGatewayProxyEventV2) => {
   try {
-    const orgId = getOrgId(event);
-    if (!orgId) return apiResponse(400, { message: 'Org Id is required' });
-
-    const parsed = UnlinkKBFromProjectRequestSchema.safeParse(JSON.parse(event.body || ''));
-    if (!parsed.success) {
-      return apiResponse(400, { message: 'Validation failed', errors: parsed.error.issues });
+    const { success, error, data } = UnlinkKBFromProjectRequestSchema.safeParse(JSON.parse(event.body || ''));
+    if (!success) {
+      return apiResponse(400, { message: 'Validation failed', errors: error.issues });
     }
 
-    const { projectId, kbId } = parsed.data;
+    const { projectId, kbId } = data;
 
     await unlinkKBFromProject(projectId, kbId);
 

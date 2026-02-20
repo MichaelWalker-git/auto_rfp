@@ -15,7 +15,7 @@ import {
 } from '@/middleware/rbac-middleware';
 import middy from '@middy/core';
 import { requireEnv } from '@/helpers/env';
-import { type ProposalDocument } from '@auto-rfp/core';
+import { type RFPDocumentContent } from '@auto-rfp/core';
 const DOCUMENTS_BUCKET = requireEnv('DOCUMENTS_BUCKET');
 const REGION = requireEnv('REGION', 'us-east-1');
 const PRESIGN_EXPIRES_IN = Number(process.env.PRESIGN_EXPIRES_IN || 3600);
@@ -202,7 +202,7 @@ function enforcePageLimit(content: string, maxPages: number): string {
  * Build proposal sections to append to template
  */
 function buildProposalSections(
-  document: ProposalDocument,
+  document: RFPDocumentContent,
   options?: {
     pageLimitsPerSection?: number;
     includeCitations?: boolean;
@@ -214,7 +214,7 @@ function buildProposalSections(
   // Add title
   sections.push(
     new Paragraph({
-      text: document.proposalTitle,
+      text: document.title,
       heading: HeadingLevel.HEADING_1,
       spacing: { after: 400 },
     }),
@@ -256,83 +256,45 @@ function buildProposalSections(
     );
   }
 
-  // Add proposal sections
-  document.sections.forEach((section, sectionIndex) => {
-    let sectionContent = '';
+  // Add content from htmlContent — parse HTML headings and paragraphs into Word paragraphs
+  if (document.content) {
+    // Tokenise the HTML into a flat list of {tag, text} nodes
+    const tokenRegex = /<(h[1-6]|p|li)[^>]*>([\s\S]*?)<\/\1>|([^<]+)/gi;
+    let token: RegExpExecArray | null;
+    while ((token = tokenRegex.exec(document.content)) !== null) {
+      const tag = token[1]?.toLowerCase();
+      const rawText = (token[2] ?? token[3] ?? '')
+        .replace(/<[^>]+>/g, '')
+        .replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>')
+        .replace(/&quot;/g, '"').replace(/&#039;/g, "'").replace(/&nbsp;/g, ' ')
+        .trim();
 
-    sections.push(
-      new Paragraph({
-        text: `${sectionIndex + 1}. ${section.title}`,
-        heading: HeadingLevel.HEADING_2,
-        spacing: { before: 400, after: 200 },
-      }),
-    );
+      if (!rawText) continue;
 
-    // Section summary if available
-    if (section.summary) {
-      sectionContent += section.summary + '\n\n';
-      sections.push(
-        new Paragraph({
-          children: [
-            new TextRun({
-              text: section.summary,
-              italics: true,
-            }),
-          ],
-          spacing: { after: 300 },
-        }),
-      );
-    }
-
-    // Subsections
-    section.subsections.forEach((subsection, subIndex) => {
-      sections.push(
-        new Paragraph({
-          text: `${sectionIndex + 1}.${subIndex + 1} ${subsection.title}`,
-          heading: HeadingLevel.HEADING_3,
-          spacing: { before: 300, after: 200 },
-        }),
-      );
-
-      // Subsection content
-      let content = subsection.content || '';
-      sectionContent += content + '\n\n';
-
-      // Extract citations if needed
-      if (options?.includeCitations) {
-        const { cleanContent, citations } = extractCitations(content);
-        citations.forEach(c => allCitations.add(c));
-        content = cleanContent;
-      }
-
-      // Apply page limit if specified
-      if (options?.pageLimitsPerSection) {
-        const currentPageCount = estimatePageCount(sectionContent);
-        if (currentPageCount > options.pageLimitsPerSection) {
-          content = enforcePageLimit(content,
-            Math.max(1, options.pageLimitsPerSection - estimatePageCount(sectionContent.replace(content, ''))));
+      if (tag === 'h1') {
+        sections.push(new Paragraph({ text: rawText, heading: HeadingLevel.HEADING_1, spacing: { before: 400, after: 200 } }));
+      } else if (tag === 'h2') {
+        sections.push(new Paragraph({ text: rawText, heading: HeadingLevel.HEADING_2, spacing: { before: 400, after: 200 } }));
+      } else if (tag === 'h3') {
+        sections.push(new Paragraph({ text: rawText, heading: HeadingLevel.HEADING_3, spacing: { before: 300, after: 200 } }));
+      } else if (tag === 'h4') {
+        sections.push(new Paragraph({ text: rawText, heading: HeadingLevel.HEADING_4, spacing: { before: 200, after: 100 } }));
+      } else if (tag === 'li') {
+        sections.push(new Paragraph({ text: rawText, bullet: { level: 0 }, spacing: { after: 100 } }));
+      } else {
+        // p or plain text
+        let content = rawText;
+        if (options?.includeCitations) {
+          const { cleanContent, citations } = extractCitations(content);
+          citations.forEach(c => allCitations.add(c));
+          content = cleanContent;
+        }
+        if (content.trim()) {
+          sections.push(new Paragraph({ text: content.trim(), spacing: { after: 200 }, alignment: AlignmentType.JUSTIFIED }));
         }
       }
-
-      const contentParagraphs = content.split('\n\n');
-      contentParagraphs.forEach((para) => {
-        if (para?.trim()) {
-          sections.push(
-            new Paragraph({
-              text: para.trim(),
-              spacing: { after: 200 },
-              alignment: AlignmentType.JUSTIFIED,
-            }),
-          );
-        }
-      });
-    });
-
-    // Page break between sections (except last)
-    if (sectionIndex < document.sections.length - 1) {
-      sections.push(new Paragraph({ pageBreakBefore: true }));
     }
-  });
+  }
 
   // Add References section if citations were found
   if (options?.includeCitations && allCitations.size > 0) {
@@ -382,9 +344,9 @@ async function uploadAndGetPresignedUrl(
   projectId: string,
   opportunityId: string,
   proposalId: string,
-  proposalTitle: string,
+  title: string,
 ): Promise<{ key: string; url: string }> {
-  const sanitizedTitle = proposalTitle.replace(/[^\w\s-]/g, '').replace(/\s+/g, '_');
+  const sanitizedTitle = title.replace(/[^\w\s-]/g, '').replace(/\s+/g, '_');
   const key = `${organizationId}/${projectId}/${opportunityId}/${proposalId}/${sanitizedTitle}.docx`;
 
   const putCmd = new PutObjectCommand({
@@ -440,7 +402,7 @@ export const baseHandler = async (
       return apiResponse(400, { message: 'Document does not have structured content for Word export' });
     }
 
-    const proposalDoc = rfpDoc.content as ProposalDocument;
+    const proposalDoc = rfpDoc.content as RFPDocumentContent;
     const organizationId = rfpDoc.orgId || getOrgId(event) || 'DEFAULT';
 
     // Get or create template document
@@ -459,14 +421,14 @@ export const baseHandler = async (
       projectId,
       opportunityId,
       effectiveDocumentId,
-      proposalDoc.proposalTitle,
+      proposalDoc.title,
     );
 
     return apiResponse(200, {
       success: true,
       document: {
         id: rfpDoc.documentId,
-        title: proposalDoc.proposalTitle,
+        title: proposalDoc.title,
       },
       export: {
         format: 'docx',

@@ -3,6 +3,7 @@
 import React from 'react';
 import {
   Download,
+  ExternalLink,
   Eye,
   FileDown,
   FileText,
@@ -140,6 +141,19 @@ function DocumentInfo({
           {doc.description}
         </p>
       )}
+
+      {doc.googleDriveUrl && (
+        <a
+          href={doc.googleDriveUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="mt-1.5 inline-flex items-center gap-1 text-xs text-emerald-600 hover:text-emerald-700 hover:underline"
+          title="Open in Google Drive"
+        >
+          <ExternalLink className="h-3 w-3" />
+          Open in Google Drive
+        </a>
+      )}
     </div>
   );
 }
@@ -267,6 +281,20 @@ function DocumentActions({
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end">
+          {doc.googleDriveUrl && (
+            <DropdownMenuItem asChild>
+              <a
+                href={doc.googleDriveUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center"
+              >
+                <ExternalLink className="h-4 w-4 mr-2 text-emerald-600" />
+                Open in Google Drive
+              </a>
+            </DropdownMenuItem>
+          )}
+          {doc.googleDriveUrl && <DropdownMenuSeparator />}
           <DropdownMenuItem onClick={() => onEdit(doc)}>
             <Pencil className="h-4 w-4 mr-2" />
             Edit Details

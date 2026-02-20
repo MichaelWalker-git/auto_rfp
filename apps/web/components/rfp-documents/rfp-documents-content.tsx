@@ -21,8 +21,8 @@ import { SignatureTrackerDialog } from './signature-tracker-dialog';
 import { RFPDocumentCard } from './rfp-document-card';
 import { RFPDocumentEmptyState } from './rfp-document-empty-state';
 import {
-  GenerateProposalModal,
-} from '@/app/organizations/[orgId]/projects/[projectId]/questions/components/GenerateProposalModal';
+  GenerateRFPDocumentModal,
+} from '@/app/organizations/[orgId]/projects/[projectId]/questions/components/GenerateRFPDocumentModal';
 
 interface RFPDocumentsContentProps {
   projectId: string;
@@ -158,7 +158,7 @@ export function RFPDocumentsContent({ projectId, orgId, opportunityId }: RFPDocu
         headerActions={
           <div className="flex items-center gap-2">
             {opportunityId && (
-              <GenerateProposalModal
+              <GenerateRFPDocumentModal
                 projectId={projectId}
                 opportunityId={opportunityId}
                 onSave={handleMutate}

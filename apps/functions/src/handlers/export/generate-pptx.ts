@@ -14,7 +14,7 @@ import {
 } from '@/middleware/rbac-middleware';
 import middy from '@middy/core';
 import { requireEnv } from '@/helpers/env';
-import { type ProposalDocument } from '@auto-rfp/core';
+import { type RFPDocumentContent } from '@auto-rfp/core';
 import { buildS3Key, CONTENT_TYPES, type ExportRequest, sanitizeFileName } from './export-utils';
 
 const DOCUMENTS_BUCKET = requireEnv('DOCUMENTS_BUCKET');
@@ -32,16 +32,16 @@ const COLORS = {
   lightBg: 'F7FAFC',
 };
 
-function buildPptxPresentation(doc: ProposalDocument): PptxGenJS {
+function buildPptxPresentation(doc: RFPDocumentContent): PptxGenJS {
   const pptx = new PptxGenJS();
   pptx.layout = 'LAYOUT_WIDE';
   pptx.author = 'AutoRFP';
-  pptx.title = doc.proposalTitle;
+  pptx.title = doc.title;
 
   // Title slide
   const titleSlide = pptx.addSlide();
   titleSlide.background = { color: COLORS.primary };
-  titleSlide.addText(doc.proposalTitle, {
+  titleSlide.addText(doc.title, {
     x: 0.8,
     y: 1.5,
     w: '85%',
@@ -88,9 +88,13 @@ function buildPptxPresentation(doc: ProposalDocument): PptxGenJS {
   if (doc.outlineSummary) {
     tocItems.push('Executive Summary');
   }
-  doc.sections.forEach((section, sIdx) => {
-    tocItems.push(`${sIdx + 1}. ${section.title}`);
-  });
+  // No legacy sections — TOC is derived from htmlContent headings
+  if (doc.content) {
+    const h2Matches = [...doc.content.matchAll(/<h2[^>]*>(.*?)<\/h2>/gi)];
+    h2Matches.forEach((m, idx) => {
+      tocItems.push(`${idx + 1}. ${m[1]?.replace(/<[^>]+>/g, '') ?? ''}`);
+    });
+  }
 
   tocSlide.addText(
     tocItems.map((item, idx) => ({
@@ -140,76 +144,37 @@ function buildPptxPresentation(doc: ProposalDocument): PptxGenJS {
     });
   }
 
-  // Section slides
-  doc.sections.forEach((section, sIdx) => {
-    // Section title slide
-    const sectionTitleSlide = pptx.addSlide();
-    sectionTitleSlide.background = { color: COLORS.secondary };
-    sectionTitleSlide.addText(`${sIdx + 1}. ${section.title}`, {
-      x: 0.8,
-      y: 2,
-      w: '85%',
-      h: 2,
-      fontSize: 32,
-      bold: true,
-      color: COLORS.white,
-      align: 'left',
-      valign: 'middle',
-    });
+  // Section slides — derived from htmlContent h2/h3 headings
+  if (doc.content) {
+    // Split htmlContent into h2 sections
+    const sectionRegex = /<h2[^>]*>(.*?)<\/h2>([\s\S]*?)(?=<h2|$)/gi;
+    let sectionMatch: RegExpExecArray | null;
+    let sIdx = 0;
+    while ((sectionMatch = sectionRegex.exec(doc.content)) !== null) {
+      const sectionTitle = (sectionMatch[1] ?? '').replace(/<[^>]+>/g, '').trim();
+      const sectionBody = (sectionMatch[2] ?? '').replace(/<[^>]+>/g, '').replace(/&nbsp;/g, ' ').trim();
 
-    if (section.summary) {
-      sectionTitleSlide.addText(section.summary.length > 300
-        ? section.summary.substring(0, 300) + '...'
-        : section.summary, {
-        x: 0.8,
-        y: 4.2,
-        w: '85%',
-        fontSize: 14,
-        color: COLORS.white,
-        align: 'left',
-        italic: true,
+      const sectionTitleSlide = pptx.addSlide();
+      sectionTitleSlide.background = { color: COLORS.secondary };
+      sectionTitleSlide.addText(`${sIdx + 1}. ${sectionTitle}`, {
+        x: 0.8, y: 2, w: '85%', h: 2,
+        fontSize: 32, bold: true, color: COLORS.white, align: 'left', valign: 'middle',
       });
+
+      if (sectionBody) {
+        const contentSlide = pptx.addSlide();
+        contentSlide.addText(sectionTitle, {
+          x: 0.5, y: 0.3, w: '90%', fontSize: 24, bold: true, color: COLORS.primary,
+        });
+        const truncated = sectionBody.length > 1500 ? sectionBody.substring(0, 1500) + '...' : sectionBody;
+        contentSlide.addText(truncated, {
+          x: 0.5, y: 1.2, w: '90%', h: 5,
+          fontSize: 12, color: COLORS.text, valign: 'top', align: 'left',
+        });
+      }
+      sIdx++;
     }
-
-    // Subsection slides
-    section.subsections.forEach((sub, subIdx) => {
-      const subSlide = pptx.addSlide();
-      subSlide.addText(`${sIdx + 1}.${subIdx + 1} ${sub.title}`, {
-        x: 0.5,
-        y: 0.3,
-        w: '90%',
-        fontSize: 24,
-        bold: true,
-        color: COLORS.primary,
-      });
-
-      // Truncate content for slide readability
-      const content = (sub.content || '').length > 1500
-        ? (sub.content || '').substring(0, 1500) + '...'
-        : (sub.content || '');
-
-      subSlide.addText(content, {
-        x: 0.5,
-        y: 1.2,
-        w: '90%',
-        h: 5,
-        fontSize: 12,
-        color: COLORS.text,
-        valign: 'top',
-        align: 'left',
-      });
-
-      // Footer with section reference
-      subSlide.addText(`Section ${sIdx + 1} | ${section.title}`, {
-        x: 0.5,
-        y: 6.8,
-        w: '90%',
-        fontSize: 9,
-        color: COLORS.lightText,
-        align: 'right',
-      });
-    });
-  });
+  }
 
   // Thank you / closing slide
   const closingSlide = pptx.addSlide();
@@ -266,7 +231,7 @@ export const baseHandler = async (
     // Generate buffer
     const pptxBuffer = await pptx.write({ outputType: 'nodebuffer' }) as Buffer;
 
-    const key = buildS3Key(organizationId, projectId, opportunityId, proposalId, proposal.document.proposalTitle, 'pptx');
+    const key = buildS3Key(organizationId, projectId, opportunityId, proposalId, proposal.document.title, 'pptx');
 
     await s3Client.send(new PutObjectCommand({
       Bucket: DOCUMENTS_BUCKET,
@@ -282,7 +247,7 @@ export const baseHandler = async (
 
     return apiResponse(200, {
       success: true,
-      proposal: { id: proposal.id, title: proposal.document.proposalTitle },
+      proposal: { id: proposal.id, title: proposal.document.title },
       export: {
         format: 'pptx',
         bucket: DOCUMENTS_BUCKET,
@@ -290,7 +255,7 @@ export const baseHandler = async (
         url,
         expiresIn: PRESIGN_EXPIRES_IN,
         contentType: CONTENT_TYPES.pptx,
-        fileName: `${sanitizeFileName(proposal.document.proposalTitle)}.pptx`,
+        fileName: `${sanitizeFileName(proposal.document.title)}.pptx`,
       },
     });
   } catch (err) {

@@ -13,7 +13,7 @@ import {
 } from '@/middleware/rbac-middleware';
 import middy from '@middy/core';
 import { requireEnv } from '@/helpers/env';
-import { type ProposalDocument } from '@auto-rfp/core';
+import { type RFPDocumentContent } from '@auto-rfp/core';
 import { buildS3Key, CONTENT_TYPES, type ExportRequest, sanitizeFileName } from './export-utils';
 
 const DOCUMENTS_BUCKET = requireEnv('DOCUMENTS_BUCKET');
@@ -23,10 +23,10 @@ const PRESIGN_EXPIRES_IN = Number(process.env.PRESIGN_EXPIRES_IN || 3600);
 const s3Client = new S3Client({ region: REGION });
 
 /**
- * Build a PDF buffer from a ProposalDocument using raw PDF construction.
+ * Build a PDF buffer from a RFPDocumentContent using raw PDF construction.
  * We build a minimal valid PDF manually to avoid heavy dependencies in Lambda.
  */
-function buildPdfBuffer(doc: ProposalDocument, options?: { pageSize?: 'letter' | 'a4' }): Buffer {
+function buildPdfBuffer(doc: RFPDocumentContent, options?: { pageSize?: 'letter' | 'a4' }): Buffer {
   const pageWidth = options?.pageSize === 'a4' ? 595.28 : 612;
   const pageHeight = options?.pageSize === 'a4' ? 841.89 : 792;
   const margin = 50;
@@ -126,7 +126,7 @@ function buildPdfBuffer(doc: ProposalDocument, options?: { pageSize?: 'letter' |
   }
 
   // Build content
-  drawText(doc.proposalTitle, titleSize, true);
+  drawText(doc.title, titleSize, true);
   drawSpacer(8);
 
   if (doc.customerName) {
@@ -148,26 +148,25 @@ function buildPdfBuffer(doc: ProposalDocument, options?: { pageSize?: 'letter' |
     drawSpacer(8);
   }
 
-  doc.sections.forEach((section, sIdx) => {
-    drawText(`${sIdx + 1}. ${section.title}`, h2Size, true);
-    drawSpacer(4);
+  // Render htmlContent as plain text paragraphs
+  if (doc.content) {
+    const plainText = doc.content
+      .replace(/<h2[^>]*>(.*?)<\/h2>/gi, '\n\n$1\n')
+      .replace(/<h3[^>]*>(.*?)<\/h3>/gi, '\n$1\n')
+      .replace(/<br\s*\/?>/gi, '\n')
+      .replace(/<\/p>/gi, '\n')
+      .replace(/<[^>]+>/g, '')
+      .replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&nbsp;/g, ' ')
+      .trim();
 
-    if (section.summary) {
-      drawText(section.summary, textSize);
+    const blocks = plainText.split(/\n{2,}/);
+    for (const block of blocks) {
+      const trimmed = block.trim();
+      if (!trimmed) continue;
+      drawText(trimmed, textSize);
+      drawSpacer(4);
     }
-
-    section.subsections.forEach((sub, subIdx) => {
-      drawText(`${sIdx + 1}.${subIdx + 1} ${sub.title}`, h3Size, true);
-      drawSpacer(2);
-
-      const paragraphs = (sub.content || '').split('\n\n');
-      for (const para of paragraphs) {
-        if (para.trim()) drawText(para.trim(), textSize);
-      }
-    });
-
-    drawSpacer(8);
-  });
+  }
 
   // Push last page
   if (currentPageOps.length > 0) {
@@ -271,7 +270,7 @@ export const baseHandler = async (
     const organizationId = proposal.organizationId || getOrgId(event) || 'DEFAULT';
     const pdfBuffer = buildPdfBuffer(proposal.document, { pageSize: options?.pageSize });
 
-    const key = buildS3Key(organizationId, projectId, opportunityId, proposalId, proposal.document.proposalTitle, 'pdf');
+    const key = buildS3Key(organizationId, projectId, opportunityId, proposalId, proposal.document.title, 'pdf');
 
     await s3Client.send(new PutObjectCommand({
       Bucket: DOCUMENTS_BUCKET,
@@ -287,7 +286,7 @@ export const baseHandler = async (
 
     return apiResponse(200, {
       success: true,
-      proposal: { id: proposal.id, title: proposal.document.proposalTitle },
+      proposal: { id: proposal.id, title: proposal.document.title },
       export: {
         format: 'pdf',
         bucket: DOCUMENTS_BUCKET,
@@ -295,7 +294,7 @@ export const baseHandler = async (
         url,
         expiresIn: PRESIGN_EXPIRES_IN,
         contentType: CONTENT_TYPES.pdf,
-        fileName: `${sanitizeFileName(proposal.document.proposalTitle)}.pdf`,
+        fileName: `${sanitizeFileName(proposal.document.title)}.pdf`,
       },
     });
   } catch (err) {

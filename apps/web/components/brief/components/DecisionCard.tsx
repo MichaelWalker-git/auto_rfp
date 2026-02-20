@@ -139,9 +139,9 @@ export function DecisionCard({
               {summary?.contractType && <span>• {summary.contractType}</span>}
             </div>
 
-            {typeof summary?.estimatedValueUsd === 'number' && (
+            {summary?.estimatedValueUsd && (
               <div className="text-lg font-semibold text-foreground">
-                ${summary.estimatedValueUsd.toLocaleString()} USD
+                {summary.estimatedValueUsd}
               </div>
             )}
 

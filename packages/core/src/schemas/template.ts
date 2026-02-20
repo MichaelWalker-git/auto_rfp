@@ -5,12 +5,24 @@ import { z } from 'zod';
 // ================================
 
 export const TEMPLATE_CATEGORIES = [
-  'TECHNICAL_PROPOSAL',
-  'MANAGEMENT_PROPOSAL',
-  'PAST_PERFORMANCE',
-  'PRICE_VOLUME',
+  // Core proposal sections (win-optimized order)
+  'COVER_LETTER',
   'EXECUTIVE_SUMMARY',
+  'UNDERSTANDING_OF_REQUIREMENTS',
+  'TECHNICAL_PROPOSAL',
+  'PROJECT_PLAN',
+  'TEAM_QUALIFICATIONS',
+  'PAST_PERFORMANCE',
+  'COST_PROPOSAL',
+  'MANAGEMENT_APPROACH',
+  'RISK_MANAGEMENT',
+  'COMPLIANCE_MATRIX',
   'CERTIFICATIONS',
+  'APPENDICES',
+  // Supporting / administrative
+  'MANAGEMENT_PROPOSAL',
+  'PRICE_VOLUME',
+  'QUALITY_MANAGEMENT',
   'CUSTOM',
 ] as const;
 
@@ -52,12 +64,6 @@ export const TemplateSectionSchema = z.object({
   pageLimit: z.number().int().min(1).optional(),
   required: z.boolean().default(true),
   description: z.string().max(1000).optional(),
-  subsections: z.array(z.object({
-    id: z.string().uuid(),
-    title: z.string().min(1).max(500),
-    content: z.string().max(50000),
-    order: z.number().int().min(0),
-  })).optional(),
 });
 
 export type TemplateSection = z.infer<typeof TemplateSectionSchema>;
@@ -273,7 +279,7 @@ export const SYSTEM_MACROS: MacroDefinition[] = [
   { key: 'opportunity_id', label: 'Opportunity ID', description: 'SAM.gov or agency opportunity identifier', type: 'SYSTEM', dataSource: 'opportunity.noticeId', required: false },
   { key: 'agency_name', label: 'Agency Name', description: 'The contracting agency name', type: 'SYSTEM', dataSource: 'opportunity.agencyName', required: false },
   { key: 'current_date', label: 'Current Date', description: "Today's date (auto-generated)", type: 'SYSTEM', dataSource: '_generated.currentDate', required: false },
-  { key: 'proposal_title', label: 'Proposal Title', description: 'Title of the proposal being generated', type: 'SYSTEM', dataSource: 'project.proposalTitle', required: false },
+  { key: 'proposal_title', label: 'Proposal Title', description: 'Title of the proposal being generated', type: 'SYSTEM', dataSource: 'project.title', required: false },
 ];
 
 // ================================
@@ -281,11 +287,23 @@ export const SYSTEM_MACROS: MacroDefinition[] = [
 // ================================
 
 export const TEMPLATE_CATEGORY_LABELS: Record<TemplateCategory, string> = {
-  TECHNICAL_PROPOSAL: 'Technical Proposal',
-  MANAGEMENT_PROPOSAL: 'Management Proposal',
-  PAST_PERFORMANCE: 'Past Performance',
-  PRICE_VOLUME: 'Price Volume',
+  // Core proposal sections (win-optimized order)
+  COVER_LETTER: 'Cover Letter',
   EXECUTIVE_SUMMARY: 'Executive Summary',
+  UNDERSTANDING_OF_REQUIREMENTS: 'Understanding of Requirements',
+  TECHNICAL_PROPOSAL: 'Technical Proposal',
+  PROJECT_PLAN: 'Project Plan',
+  TEAM_QUALIFICATIONS: 'Team Qualifications',
+  PAST_PERFORMANCE: 'Past Performance',
+  COST_PROPOSAL: 'Cost Proposal',
+  MANAGEMENT_APPROACH: 'Management Approach',
+  RISK_MANAGEMENT: 'Risk Management',
+  COMPLIANCE_MATRIX: 'Compliance Matrix',
   CERTIFICATIONS: 'Certifications',
+  APPENDICES: 'Appendices',
+  // Supporting / administrative
+  MANAGEMENT_PROPOSAL: 'Management Proposal',
+  PRICE_VOLUME: 'Price Volume',
+  QUALITY_MANAGEMENT: 'Quality Management Plan',
   CUSTOM: 'Custom',
 };

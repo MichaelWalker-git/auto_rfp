@@ -45,7 +45,7 @@ function buildTicketDescription(brief: any, _project: any): string {
   if (summary?.naics) parts.push(`**NAICS:** ${summary.naics}`);
   if (summary?.contractType) parts.push(`**Contract Type:** ${summary.contractType}`);
   if (summary?.estimatedValueUsd) {
-    parts.push(`**Estimated Value:** $${summary.estimatedValueUsd.toLocaleString()} USD`);
+    parts.push(`**Estimated Value:** ${summary.estimatedValueUsd} USD`);
   }
   if (summary?.placeOfPerformance) {
     parts.push(`**Place of Performance:** ${summary.placeOfPerformance}`);

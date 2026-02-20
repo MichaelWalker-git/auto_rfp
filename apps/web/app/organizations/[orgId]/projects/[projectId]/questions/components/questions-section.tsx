@@ -74,6 +74,7 @@ function QuestionsSectionInner({ orgId, projectId }: QuestionsSectionProps) {
         unsavedCount={unsavedQuestions.size}
         isSaving={isSaving}
         projectId={projectId}
+        orgId={orgId}
       />
 
       <IndexSelector

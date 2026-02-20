@@ -338,20 +338,34 @@ export async function searchPastProjects(
 // Matching & Scoring
 // ================================
 
+// Titan Text Embeddings V2: ~1.3–1.5 chars/token, max 8192 tokens.
+// Keep the combined search query under 7,500 chars to stay safely within the limit.
+const PAST_PERF_SEARCH_MAX_CHARS = 7_500;
+
 export async function matchProjectsToRequirements(
   orgId: string,
   requirements: string[],
   solicitationText: string,
   topK: number = 5
 ): Promise<PastProjectMatch[]> {
-  // Combine requirements and solicitation for comprehensive search
-  const searchQuery = [
+  // Combine requirements and solicitation for comprehensive search.
+  // Truncate each part to stay within Titan's 8192-token limit.
+  const reqText = requirements
+    .map((r, i) => `${i + 1}. ${r}`)
+    .join('\n')
+    .slice(0, 3_000);
+
+  const solicitationSnippet = solicitationText.slice(0, 4_000);
+
+  const combined = [
     'Requirements:',
-    ...requirements.map((r, i) => `${i + 1}. ${r}`),
+    reqText,
     '',
     'Solicitation Summary:',
-    solicitationText.slice(0, 5000), // Limit solicitation text
+    solicitationSnippet,
   ].join('\n');
+
+  const searchQuery = combined.slice(0, PAST_PERF_SEARCH_MAX_CHARS);
 
   // Search for similar past projects
   const searchResults = await searchPastProjects(orgId, searchQuery, topK * 2);
