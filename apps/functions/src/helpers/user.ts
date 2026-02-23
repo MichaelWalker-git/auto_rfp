@@ -1,4 +1,4 @@
-import { DynamoDBDocumentClient, PutCommand } from '@aws-sdk/lib-dynamodb';
+import { DynamoDBDocumentClient, PutCommand, QueryCommand } from '@aws-sdk/lib-dynamodb';
 import { CognitoIdentityProviderClient } from '@aws-sdk/client-cognito-identity-provider';
 
 import { PK_NAME, SK_NAME } from '../constants/common';
@@ -7,7 +7,60 @@ import { USER_PK } from '../constants/user';
 import type { CreateUserDTO } from '@auto-rfp/core';
 import { adminCreateUser, adminDeleteUser } from './cognito';
 import { safeTrim, safeLowerCase } from './safe-string';
-import { createItem } from './db';
+import { createItem, getItem, docClient } from './db';
+import { requireEnv } from './env';
+
+const DB_TABLE_NAME = requireEnv('DB_TABLE_NAME');
+
+export const userSk = (orgId: string, userId: string) => `ORG#${orgId}#USER#${userId}`;
+
+// ─── Lookup helpers ───────────────────────────────────────────────────────────
+
+interface UserRecord {
+  userId: string;
+  email: string;
+  displayName?: string;
+  firstName?: string;
+  lastName?: string;
+}
+
+export const getUserByOrgAndId = async (
+  orgId: string,
+  userId: string,
+): Promise<UserRecord | null> =>
+  getItem<UserRecord>(USER_PK, userSk(orgId, userId));
+
+/**
+ * List all members of an org with their userId and email.
+ * Used to build recipientUserIds / recipientEmails for notifications.
+ */
+export const getOrgMembers = async (
+  orgId: string,
+): Promise<Array<{ userId: string; email: string }>> => {
+  const members: Array<{ userId: string; email: string }> = [];
+  let ExclusiveStartKey: Record<string, unknown> | undefined;
+
+  do {
+    const res = await docClient.send(
+      new QueryCommand({
+        TableName: DB_TABLE_NAME,
+        KeyConditionExpression: '#pk = :pk AND begins_with(#sk, :skPrefix)',
+        ExpressionAttributeNames: { '#pk': PK_NAME, '#sk': SK_NAME },
+        ExpressionAttributeValues: { ':pk': USER_PK, ':skPrefix': userSk(orgId, '') },
+        ProjectionExpression: 'userId, email',
+        ExclusiveStartKey,
+      }),
+    );
+    for (const item of res.Items ?? []) {
+      if (item['userId'] && item['email']) {
+        members.push({ userId: item['userId'] as string, email: item['email'] as string });
+      }
+    }
+    ExclusiveStartKey = res.LastEvaluatedKey as Record<string, unknown> | undefined;
+  } while (ExclusiveStartKey);
+
+  return members;
+};
 
 export type CreateUserDeps = {
   ddb: DynamoDBDocumentClient;
@@ -26,8 +79,6 @@ export type CreateUserResult = {
   cognitoUsername: string;
   item: Record<string, any>;
 };
-
-export const userSk = (orgId: string, userId: string) => `ORG#${orgId}#USER#${userId}`;
 
 function norm(s?: unknown): string | undefined {
   const v = safeTrim(s);

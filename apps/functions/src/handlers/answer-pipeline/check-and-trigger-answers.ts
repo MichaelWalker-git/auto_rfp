@@ -7,6 +7,8 @@ import { docClient } from '@/helpers/db';
 import { PK_NAME, SK_NAME } from '@/constants/common';
 import { QUESTION_FILE_PK } from '@/constants/question-file';
 import { getProjectById } from '@/helpers/project';
+import { sendNotification, buildNotification } from '@/helpers/send-notification';
+import { getOrgMembers } from '@/helpers/user';
 
 const DB_TABLE_NAME = requireEnv('DB_TABLE_NAME');
 const ANSWER_GENERATION_STATE_MACHINE_ARN = process.env.ANSWER_GENERATION_STATE_MACHINE_ARN || '';
@@ -199,6 +201,28 @@ export const baseHandler = async (
       }),
     })
   );
+
+  // Send ONE QUESTIONS_EXTRACTED notification per project (fires when all files are done)
+  if (orgId) {
+    getOrgMembers(orgId)
+      .then((members) => {
+        if (members.length === 0) return;
+        return sendNotification(
+          buildNotification(
+            'QUESTIONS_EXTRACTED',
+            'Questions Extracted — Generating Answers',
+            `All ${processedFiles.length} document(s) have been processed and questions extracted. Answer generation is now running.`,
+            {
+              orgId,
+              projectId,
+              recipientUserIds: members.map((m) => m.userId),
+              recipientEmails: members.map((m) => m.email),
+            },
+          ),
+        );
+      })
+      .catch((err) => console.error('Failed to send QUESTIONS_EXTRACTED notification:', err));
+  }
 
   return {
     triggered: true,

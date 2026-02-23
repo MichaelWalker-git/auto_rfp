@@ -128,6 +128,8 @@ const api = new ApiOrchestratorStack(app, `ApiOrchestrator-${stage}`, {
   execBriefQueue: storage.execBriefQueue,
   googleDriveSyncQueue: storage.googleDriveSyncQueue,
   documentGenerationQueue: storage.documentGenerationQueue,
+  // Pass the queue name (plain string) — not the queue object — to avoid a cross-stack token cycle
+  notificationQueueName: `auto-rfp-notifications-${stage.toLowerCase()}`,
   documentPipelineStateMachineArn: pipelineStack.stateMachine.stateMachineArn,
   questionPipelineStateMachineArn: questionsPipelineStack.stateMachine.stateMachineArn,
   sentryDNS,
@@ -141,12 +143,15 @@ api.addDependency(storage);
 api.addDependency(pipelineStack);
 api.addDependency(questionsPipelineStack);
 
+const notificationQueueName = `auto-rfp-notifications-${stage.toLowerCase()}`;
+
 const collaborationWsStack = new CollaborationWebSocketStack(app, `AutoRfp-${stage}-CollaborationWS`, {
   env,
   stage,
   mainTable: db.tableName,
   userPool: auth.userPool,
   commonLambdaRoleArn: api.commonLambdaRoleArn,
+  notificationQueueName,
   commonEnv: {
     STAGE: stage,
     DB_TABLE_NAME: db.tableName.tableName,

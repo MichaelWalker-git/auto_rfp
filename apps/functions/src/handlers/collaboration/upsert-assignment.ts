@@ -7,6 +7,8 @@ import { buildAssignmentSK, createActivity } from '@/helpers/collaboration';
 import { putItem } from '@/helpers/db';
 import { PK } from '@/constants/collaboration';
 import { withSentryLambda } from '@/sentry-lambda';
+import { sendNotification, buildNotification } from '@/helpers/send-notification';
+import { getUserByOrgAndId } from '@/helpers/user';
 import {
   authContextMiddleware,
   httpErrorMiddleware,
@@ -83,6 +85,27 @@ export const baseHandler = async (event: AuthedEvent): Promise<APIGatewayProxyRe
   }).catch((err) => {
     console.warn('Failed to log assignment activity:', err);
   });
+
+  // Send ASSIGNMENT notification to the assigned user (if different from assigner)
+  if (data.assignedToUserId && data.assignedToUserId !== assignedByUserId && data.status === 'ASSIGNED') {
+    const assignedUser = await getUserByOrgAndId(orgId, data.assignedToUserId).catch(() => null);
+    if (assignedUser) {
+      await sendNotification(
+        buildNotification(
+          'ASSIGNMENT',
+          `${displayName} assigned you a question`,
+          `You have been assigned question ${data.questionId} in project ${data.projectId}.`,
+          {
+            orgId,
+            projectId: data.projectId,
+            recipientUserIds: [data.assignedToUserId],
+            recipientEmails: [assignedUser.email],
+            actorDisplayName: displayName,
+          },
+        ),
+      );
+    }
+  }
 
   return apiResponse(200, item);
 };

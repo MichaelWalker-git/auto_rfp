@@ -86,6 +86,8 @@ export const ALL_PERMISSIONS = [
   'collaboration:comment',
   'collaboration:assign',
   'collaboration:activity',
+  'notification:read',
+  'notification:manage',
 ] as const;
 
 export type Permission = (typeof ALL_PERMISSIONS)[number];
@@ -101,6 +103,7 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     ...VIEWER_PERMISSIONS,
     'collaboration:presence',
     'collaboration:activity',
+    'notification:read',
   ],
   EDITOR: [
     ...VIEWER_PERMISSIONS,
@@ -111,6 +114,7 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     'collaboration:comment',
     'collaboration:assign',
     'collaboration:activity',
+    'notification:read',
   ],
   BILLING: [
     'question:read', 'org:read', 'kb:read', 'proposal:read', 'project:read',

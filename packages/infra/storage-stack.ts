@@ -14,6 +14,7 @@ export class StorageStack extends cdk.Stack {
   public readonly execBriefQueue: sqs.Queue;
   public readonly googleDriveSyncQueue: sqs.Queue;
   public readonly documentGenerationQueue: sqs.Queue;
+  public readonly notificationQueue: sqs.Queue;
 
   constructor(scope: Construct, id: string, props: StorageStackProps) {
     super(scope, id, props);
@@ -101,6 +102,20 @@ export class StorageStack extends cdk.Stack {
           encryption: sqs.QueueEncryption.SQS_MANAGED,
         }),
         maxReceiveCount: 2,
+      },
+    });
+
+    // Create SQS queue for in-app + email notifications
+    this.notificationQueue = new sqs.Queue(this, 'NotificationQueue', {
+      queueName: `auto-rfp-notifications-${stage}`,
+      visibilityTimeout: cdk.Duration.seconds(60),
+      retentionPeriod: cdk.Duration.days(14),
+      deadLetterQueue: {
+        queue: new sqs.Queue(this, 'NotificationDLQ', {
+          queueName: `auto-rfp-notifications-dlq-${stage}`,
+          retentionPeriod: cdk.Duration.days(14),
+        }),
+        maxReceiveCount: 3,
       },
     });
 

@@ -12,8 +12,12 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import { useProfile, editProfileApi } from '@/lib/hooks/use-profile';
 import { useToast } from '@/components/ui/use-toast';
+import { NotificationPreferencesForm } from '@/features/notifications';
+import { useCurrentOrganization } from '@/context/organization-context';
 
 interface ProfileEditDialogProps {
   open: boolean;
@@ -22,6 +26,7 @@ interface ProfileEditDialogProps {
 
 export function ProfileEditDialog({ open, onOpenChange }: ProfileEditDialogProps) {
   const { profile, mutate } = useProfile();
+  const { currentOrganization } = useCurrentOrganization();
   const { toast } = useToast();
 
   const [firstName, setFirstName] = useState('');
@@ -62,86 +67,111 @@ export function ProfileEditDialog({ open, onOpenChange }: ProfileEditDialogProps
     }
   };
 
+  const orgId = currentOrganization?.id ?? profile?.orgId ?? null;
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[425px]">
+      <DialogContent className="sm:max-w-[500px] max-h-[90vh] flex flex-col">
         <DialogHeader>
-          <DialogTitle>Edit Profile</DialogTitle>
+          <DialogTitle>Profile Settings</DialogTitle>
           <DialogDescription>
-            Update your personal information. Your email address cannot be changed.
+            Manage your personal information and notification preferences.
           </DialogDescription>
         </DialogHeader>
 
-        <div className="grid gap-4 py-4">
-          {/* Email (read-only) */}
-          <div className="grid gap-2">
-            <Label htmlFor="profile-email">Email</Label>
-            <Input
-              id="profile-email"
-              type="email"
-              value={profile?.email ?? ''}
-              disabled
-              className="bg-muted"
-            />
-          </div>
+        <Tabs defaultValue="profile" className="flex-1 flex flex-col min-h-0">
+          <TabsList className="grid w-full grid-cols-2">
+            <TabsTrigger value="profile">Profile</TabsTrigger>
+            <TabsTrigger value="notifications">Notifications</TabsTrigger>
+          </TabsList>
 
-          {/* First Name / Last Name */}
-          <div className="grid grid-cols-2 gap-4">
-            <div className="grid gap-2">
-              <Label htmlFor="profile-firstName">First Name</Label>
-              <Input
-                id="profile-firstName"
-                placeholder="John"
-                value={firstName}
-                onChange={(e) => setFirstName(e.target.value)}
-              />
+          {/* ── Profile tab ── */}
+          <TabsContent value="profile" className="flex-1 flex flex-col">
+            <div className="grid gap-4 py-4 flex-1">
+              {/* Email (read-only) */}
+              <div className="grid gap-2">
+                <Label htmlFor="profile-email">Email</Label>
+                <Input
+                  id="profile-email"
+                  type="email"
+                  value={profile?.email ?? ''}
+                  disabled
+                  className="bg-muted"
+                />
+              </div>
+
+              {/* First Name / Last Name */}
+              <div className="grid grid-cols-2 gap-4">
+                <div className="grid gap-2">
+                  <Label htmlFor="profile-firstName">First Name</Label>
+                  <Input
+                    id="profile-firstName"
+                    placeholder="John"
+                    value={firstName}
+                    onChange={(e) => setFirstName(e.target.value)}
+                  />
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="profile-lastName">Last Name</Label>
+                  <Input
+                    id="profile-lastName"
+                    placeholder="Doe"
+                    value={lastName}
+                    onChange={(e) => setLastName(e.target.value)}
+                  />
+                </div>
+              </div>
+
+              {/* Display Name */}
+              <div className="grid gap-2">
+                <Label htmlFor="profile-displayName">Display Name</Label>
+                <Input
+                  id="profile-displayName"
+                  placeholder="How you want to appear"
+                  value={displayName}
+                  onChange={(e) => setDisplayName(e.target.value)}
+                />
+                <p className="text-xs text-muted-foreground">
+                  Optional. If empty, your first and last name will be used.
+                </p>
+              </div>
+
+              {/* Phone */}
+              <div className="grid gap-2">
+                <Label htmlFor="profile-phone">Phone</Label>
+                <Input
+                  id="profile-phone"
+                  type="tel"
+                  placeholder="+1 (555) 000-0000"
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
+                />
+              </div>
             </div>
-            <div className="grid gap-2">
-              <Label htmlFor="profile-lastName">Last Name</Label>
-              <Input
-                id="profile-lastName"
-                placeholder="Doe"
-                value={lastName}
-                onChange={(e) => setLastName(e.target.value)}
-              />
-            </div>
-          </div>
 
-          {/* Display Name */}
-          <div className="grid gap-2">
-            <Label htmlFor="profile-displayName">Display Name</Label>
-            <Input
-              id="profile-displayName"
-              placeholder="How you want to appear"
-              value={displayName}
-              onChange={(e) => setDisplayName(e.target.value)}
-            />
-            <p className="text-xs text-muted-foreground">
-              Optional. If empty, your first and last name will be used.
-            </p>
-          </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => onOpenChange(false)} disabled={isSaving}>
+                Cancel
+              </Button>
+              <Button onClick={handleSave} disabled={isSaving}>
+                {isSaving ? 'Saving...' : 'Save Changes'}
+              </Button>
+            </DialogFooter>
+          </TabsContent>
 
-          {/* Phone */}
-          <div className="grid gap-2">
-            <Label htmlFor="profile-phone">Phone</Label>
-            <Input
-              id="profile-phone"
-              type="tel"
-              placeholder="+1 (555) 000-0000"
-              value={phone}
-              onChange={(e) => setPhone(e.target.value)}
-            />
-          </div>
-        </div>
-
-        <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={isSaving}>
-            Cancel
-          </Button>
-          <Button onClick={handleSave} disabled={isSaving}>
-            {isSaving ? 'Saving...' : 'Save Changes'}
-          </Button>
-        </DialogFooter>
+          {/* ── Notifications tab ── */}
+          <TabsContent value="notifications" className="flex-1 min-h-0">
+            <ScrollArea className="h-[420px] pr-2">
+              {orgId ? (
+                <NotificationPreferencesForm orgId={orgId} />
+              ) : (
+                <p className="text-sm text-slate-500 py-4">
+                  Select an organization to manage notification preferences.
+                </p>
+              )}
+            </ScrollArea>
+          </TabsContent>
+        </Tabs>
       </DialogContent>
     </Dialog>
   );
