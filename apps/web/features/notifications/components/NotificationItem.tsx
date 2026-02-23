@@ -1,5 +1,6 @@
 'use client';
 
+import { useRouter } from 'next/navigation';
 import { formatDistanceToNow } from 'date-fns';
 import { X, Bell, AtSign, UserCheck, FileText, CheckCircle, Trophy, XCircle, Clock, AlertCircle, FileCheck } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -11,6 +12,8 @@ interface NotificationItemProps {
   orgId: string;
   onArchive: () => void;
   onRead: (notificationId: string) => void;
+  /** Called to close the popover before navigating */
+  onClose?: () => void;
 }
 
 // ─── Type icon + colour mapping ───────────────────────────────────────────────
@@ -37,7 +40,6 @@ const TYPE_CONFIG: Record<NotificationType, { icon: React.ElementType; color: st
 const DEFAULT_CONFIG = { icon: Bell, color: 'text-slate-500', bg: 'bg-slate-100' };
 
 // ─── Link builder ─────────────────────────────────────────────────────────────
-// URL is constructed from type + orgId + projectId + entityId (no hardcoded links in backend)
 
 const buildNotificationLink = (
   type: NotificationType,
@@ -50,15 +52,9 @@ const buildNotificationLink = (
 
   switch (type) {
     case 'MENTION':
-      // Deep-link to the specific question if entityId is available
-      return entityId
-        ? `${base}/questions?questionId=${entityId}`
-        : `${base}/questions`;
     case 'ASSIGNMENT':
     case 'REVIEW_ASSIGNED':
-      return entityId
-        ? `${base}/questions?questionId=${entityId}`
-        : `${base}/questions`;
+      return entityId ? `${base}/questions?questionId=${entityId}` : `${base}/questions`;
     case 'QUESTIONS_EXTRACTED':
     case 'ANSWERS_GENERATED':
       return `${base}/questions`;
@@ -82,7 +78,8 @@ const buildNotificationLink = (
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
-export const NotificationItem = ({ notification, orgId, onArchive, onRead }: NotificationItemProps) => {
+export const NotificationItem = ({ notification, orgId, onArchive, onRead, onClose }: NotificationItemProps) => {
+  const router = useRouter();
   const { title, message, read, createdAt, type, projectId, entityId, notificationId } = notification;
   const config = TYPE_CONFIG[type] ?? DEFAULT_CONFIG;
   const Icon = config.icon;
@@ -90,13 +87,16 @@ export const NotificationItem = ({ notification, orgId, onArchive, onRead }: Not
   const link = buildNotificationLink(type, orgId, projectId, entityId);
 
   const handleClick = () => {
-    // Mark as read first (optimistic — instant UI update)
+    // 1. Mark as read (optimistic — instant UI update, API fires in background)
     if (!read) {
       onRead(notificationId);
     }
-    // Navigate using window.location so the popover closes and navigation works
+
     if (link) {
-      window.location.href = link;
+      // 2. Close the popover so it doesn't stay open after navigation
+      onClose?.();
+      // 3. Navigate with Next.js router (soft navigation, no full reload)
+      router.push(link);
     }
   };
 
@@ -121,7 +121,6 @@ export const NotificationItem = ({ notification, orgId, onArchive, onRead }: Not
           <p className={cn('text-sm leading-snug', !read ? 'font-semibold text-slate-900' : 'text-slate-700')}>
             {title}
           </p>
-          {/* Unread dot */}
           {!read && (
             <span className="flex-shrink-0 mt-1.5 h-2 w-2 rounded-full bg-indigo-500" />
           )}

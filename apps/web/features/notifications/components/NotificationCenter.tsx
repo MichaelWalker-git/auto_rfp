@@ -12,9 +12,10 @@ import { useNotifications } from '../hooks/useNotifications';
 
 interface NotificationCenterProps {
   orgId: string;
+  onClose?: () => void;
 }
 
-export const NotificationCenter = ({ orgId }: NotificationCenterProps) => {
+export const NotificationCenter = ({ orgId, onClose }: NotificationCenterProps) => {
   const { notifications, unreadCount, isLoading, markRead, markAllRead, archive } = useNotifications(orgId);
   const [showPrefs, setShowPrefs] = useState(false);
 
@@ -90,6 +91,7 @@ export const NotificationCenter = ({ orgId }: NotificationCenterProps) => {
                     orgId={orgId}
                     onArchive={() => archive.trigger({ orgId, notificationId: n.notificationId })}
                     onRead={(id) => markRead.trigger({ orgId, notificationIds: [id] })}
+                    onClose={onClose}
                   />
                 ))}
               </div>
