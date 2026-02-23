@@ -12,7 +12,6 @@ export function projectsDomain(): DomainRoutes {
       { method: 'PUT', path: 'update/{projectId}', entry: lambdaEntry('project/edit-project.ts') },
       { method: 'DELETE', path: 'delete/{projectId}', entry: lambdaEntry('project/delete-project.ts') },
       { method: 'GET', path: 'questions/{projectId}', entry: lambdaEntry('project/get-questions.ts') },
-      { method: 'POST', path: 'answer/{projectId}', entry: lambdaEntry('project/answer-questions.ts') },
 
       // Project ↔ Knowledge Base linking
       { method: 'GET', path: 'get-project-kbs', entry: lambdaEntry('project/get-project-kbs.ts') },

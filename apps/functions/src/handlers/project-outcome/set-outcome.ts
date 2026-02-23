@@ -7,6 +7,8 @@ import { PK_NAME, SK_NAME } from '@/constants/common';
 import { PROJECT_OUTCOME_PK, PROJECT_PK } from '@/constants/organization';
 import { apiResponse } from '@/helpers/api';
 import { withSentryLambda } from '@/sentry-lambda';
+import { sendNotification, buildNotification } from '@/helpers/send-notification';
+import { getOrgMembers } from '@/helpers/user';
 import {
   authContextMiddleware,
   httpErrorMiddleware,
@@ -56,6 +58,30 @@ export const baseHandler = async (
     }
 
     const outcome = await setProjectOutcome(dto, userId);
+
+    // Send WIN/LOSS notification to all org members
+    if (dto.status === 'WON' || dto.status === 'LOST') {
+      const notifType = dto.status === 'WON' ? 'WIN_RECORDED' : 'LOSS_RECORDED';
+      const title = dto.status === 'WON' ? '🎉 Proposal Won!' : 'Proposal Result Recorded';
+      const message =
+        dto.status === 'WON'
+          ? `Your team won the proposal for project ${dto.projectId}.`
+          : `The proposal for project ${dto.projectId} was not selected.`;
+
+      getOrgMembers(dto.orgId)
+        .then((members) => {
+          if (members.length === 0) return;
+          return sendNotification(
+            buildNotification(notifType, title, message, {
+              orgId: dto.orgId,
+              projectId: dto.projectId,
+              recipientUserIds: members.map((m) => m.userId),
+              recipientEmails: members.map((m) => m.email),
+            }),
+          );
+        })
+        .catch((err) => console.error('Failed to send outcome notification:', err));
+    }
 
     return apiResponse(200, { outcome });
   } catch (err: unknown) {

@@ -7,6 +7,9 @@ import { saveAnswer } from '@/handlers/answer/save-answer';
 import { getAnswerForQuestion } from '@/helpers/answer';
 import { PK_NAME, SK_NAME } from '@/constants/common';
 import { QUESTION_CLUSTER_PK } from '@/constants/clustering';
+import { sendNotification, buildNotification } from '@/helpers/send-notification';
+import { getOrgMembers } from '@/helpers/user';
+import { getProjectById } from '@/helpers/project';
 
 const DB_TABLE_NAME = requireEnv('DB_TABLE_NAME');
 
@@ -126,6 +129,28 @@ export const baseHandler = async (
   } while (lastKey);
 
   console.log(`Copy complete: ${totalClusters} clusters, ${copiedAnswers} answers copied, ${skippedNoMasterAnswer} skipped (no master answer), ${errors} errors`);
+
+  // Notify org members that answer generation is complete
+  getProjectById(projectId)
+    .then(async (project) => {
+      if (!project?.orgId) return;
+      const members = await getOrgMembers(project.orgId);
+      if (members.length === 0) return;
+      return sendNotification(
+        buildNotification(
+          'ANSWERS_GENERATED',
+          'Answers Generated',
+          `Answer generation is complete for project ${projectId}. Review your answers now.`,
+          {
+            orgId: project.orgId,
+            projectId,
+            recipientUserIds: members.map((m) => m.userId),
+            recipientEmails: members.map((m) => m.email),
+          },
+        ),
+      );
+    })
+    .catch((err) => console.error('Failed to send ANSWERS_GENERATED notification:', err));
 
   return {
     projectId,

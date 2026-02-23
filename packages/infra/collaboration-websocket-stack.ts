@@ -11,6 +11,8 @@ import * as apigwv2 from 'aws-cdk-lib/aws-apigatewayv2';
 import * as apigwv2Integrations from 'aws-cdk-lib/aws-apigatewayv2-integrations';
 import * as apigwv2Authorizers from 'aws-cdk-lib/aws-apigatewayv2-authorizers';
 import * as cognito from 'aws-cdk-lib/aws-cognito';
+import * as events from 'aws-cdk-lib/aws-events';
+import * as eventsTargets from 'aws-cdk-lib/aws-events-targets';
 import * as path from 'path';
 
 export interface CollaborationWebSocketStackProps extends cdk.StackProps {
@@ -20,19 +22,34 @@ export interface CollaborationWebSocketStackProps extends cdk.StackProps {
   /** ARN of the shared Lambda execution role from ApiOrchestratorStack */
   commonLambdaRoleArn: string;
   commonEnv: Record<string, string>;
+  /**
+   * Notification queue name — plain string to avoid cross-stack token cycles.
+   * The queue URL and ARN are constructed from this name + pseudo-parameters.
+   */
+  notificationQueueName: string;
 }
 
 export class CollaborationWebSocketStack extends cdk.Stack {
   public readonly wsApiEndpoint: string;
   public readonly wsApiUrl: string;
+  public readonly notificationQueueUrl: string;
 
   constructor(scope: Construct, id: string, props: CollaborationWebSocketStackProps) {
     super(scope, id, props);
 
-    const { stage, commonLambdaRoleArn, commonEnv } = props;
+    const { stage, commonLambdaRoleArn, commonEnv, notificationQueueName } = props;
 
     // Resolve the shared Lambda role within this Stack's scope
     const lambdaRole = iam.Role.fromRoleArn(this, 'SharedLambdaRole', commonLambdaRoleArn);
+
+    // Construct queue URL and ARN from the name — no cross-stack token reference
+    const notificationQueueUrl = `https://sqs.${cdk.Aws.REGION}.amazonaws.com/${cdk.Aws.ACCOUNT_ID}/${notificationQueueName}`;
+    const notificationQueueArn = `arn:aws:sqs:${cdk.Aws.REGION}:${cdk.Aws.ACCOUNT_ID}:${notificationQueueName}`;
+
+    // Import the queue by ARN so we can attach event sources
+    const notificationQueue = sqs.Queue.fromQueueArn(this, 'NotificationQueue', notificationQueueArn);
+
+    this.notificationQueueUrl = notificationQueueUrl;
 
     const bundling = {
       minify: true,
@@ -101,7 +118,6 @@ export class CollaborationWebSocketStack extends cdk.Stack {
     });
 
     // ── Lambda: $default (messages) ───────────────────────────────────────────
-    // WS_API_ENDPOINT is injected after the API is created below
     const messageFn = new lambdaNodejs.NodejsFunction(this, 'WsMessage', {
       functionName: `auto-rfp-ws-message-${stage}`,
       entry: path.join(__dirname, '../../apps/functions/src/handlers/collaboration/ws-message.ts'),
@@ -146,13 +162,11 @@ export class CollaborationWebSocketStack extends cdk.Stack {
       autoDeploy: true,
     });
 
-    this.wsApiEndpoint = wsStage.callbackUrl; // https://abc.execute-api.us-east-1.amazonaws.com/dev
-    this.wsApiUrl = wsStage.url;              // wss://abc.execute-api.us-east-1.amazonaws.com/dev
+    this.wsApiEndpoint = wsStage.callbackUrl;
+    this.wsApiUrl = wsStage.url;
 
-    // Inject the WS callback URL into the message Lambda env
     messageFn.addEnvironment('WS_API_ENDPOINT', this.wsApiEndpoint);
 
-    // Grant Lambda role permission to post to WebSocket connections
     lambdaRole.addToPrincipalPolicy(
       new iam.PolicyStatement({
         actions: ['execute-api:ManageConnections'],
@@ -162,21 +176,7 @@ export class CollaborationWebSocketStack extends cdk.Stack {
       }),
     );
 
-    // ── SQS Notification Queue + Worker ───────────────────────────────────────
-    const notificationDLQ = new sqs.Queue(this, 'NotificationDLQ', {
-      queueName: `auto-rfp-collab-notifications-dlq-${stage}`,
-      retentionPeriod: cdk.Duration.days(14),
-    });
-
-    const notificationQueue = new sqs.Queue(this, 'NotificationQueue', {
-      queueName: `auto-rfp-collab-notifications-${stage}`,
-      visibilityTimeout: cdk.Duration.seconds(60),
-      deadLetterQueue: {
-        queue: notificationDLQ,
-        maxReceiveCount: 3,
-      },
-    });
-
+    // ── SQS Notification Worker ───────────────────────────────────────────────
     const notificationWorker = new lambdaNodejs.NodejsFunction(this, 'NotificationWorker', {
       functionName: `auto-rfp-collab-notification-worker-${stage}`,
       entry: path.join(__dirname, '../../apps/functions/src/handlers/collaboration/notification-worker.ts'),
@@ -188,7 +188,7 @@ export class CollaborationWebSocketStack extends cdk.Stack {
       environment: {
         ...commonEnv,
         NOTIFICATION_FROM_EMAIL: 'noreply@auto-rfp.com',
-        NOTIFICATION_QUEUE_URL: notificationQueue.queueUrl,
+        NOTIFICATION_QUEUE_URL: notificationQueueUrl,
       },
       bundling,
     });
@@ -206,8 +206,14 @@ export class CollaborationWebSocketStack extends cdk.Stack {
       }),
     );
 
-    notificationQueue.grantConsumeMessages(notificationWorker);
-    notificationQueue.grantSendMessages(lambdaRole);
+    // Grant SQS permissions via IAM policy (no cross-stack grant call)
+    lambdaRole.addToPrincipalPolicy(
+      new iam.PolicyStatement({
+        sid: 'NotificationQueueAccess',
+        actions: ['sqs:SendMessage', 'sqs:ReceiveMessage', 'sqs:DeleteMessage', 'sqs:GetQueueAttributes'],
+        resources: [notificationQueueArn],
+      }),
+    );
 
     // Grant SES send permission
     lambdaRole.addToPrincipalPolicy(
@@ -216,6 +222,34 @@ export class CollaborationWebSocketStack extends cdk.Stack {
         resources: ['*'],
       }),
     );
+
+    // ── EventBridge: Deadline Alert Scanner ───────────────────────────────────
+    const deadlineAlertScanner = new lambdaNodejs.NodejsFunction(this, 'DeadlineAlertScanner', {
+      functionName: `auto-rfp-deadline-alert-scanner-${stage}`,
+      entry: path.join(__dirname, '../../apps/functions/src/handlers/notification/deadline-alert-scanner.ts'),
+      handler: 'handler',
+      runtime: lambda.Runtime.NODEJS_20_X,
+      timeout: cdk.Duration.minutes(2),
+      memorySize: 256,
+      role: lambdaRole,
+      environment: {
+        ...commonEnv,
+        NOTIFICATION_QUEUE_URL: notificationQueueUrl,
+      },
+      bundling,
+    });
+
+    new logs.LogGroup(this, 'DeadlineAlertScannerLogs', {
+      logGroupName: `/aws/lambda/${deadlineAlertScanner.functionName}`,
+      retention: stage === 'prod' ? logs.RetentionDays.INFINITE : logs.RetentionDays.TWO_WEEKS,
+      removalPolicy: cdk.RemovalPolicy.DESTROY,
+    });
+
+    new events.Rule(this, 'DeadlineAlertRule', {
+      ruleName: `auto-rfp-deadline-alert-${stage}`,
+      schedule: events.Schedule.rate(cdk.Duration.hours(1)),
+      targets: [new eventsTargets.LambdaFunction(deadlineAlertScanner)],
+    });
 
     // ── Outputs ───────────────────────────────────────────────────────────────
     new cdk.CfnOutput(this, 'WsApiUrl', {
@@ -229,7 +263,7 @@ export class CollaborationWebSocketStack extends cdk.Stack {
     });
 
     new cdk.CfnOutput(this, 'NotificationQueueUrl', {
-      value: notificationQueue.queueUrl,
+      value: notificationQueueUrl,
       description: 'SQS queue URL for collaboration notifications',
     });
   }

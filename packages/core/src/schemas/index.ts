@@ -24,3 +24,4 @@ export * from './rfp-document';
 export * from './clustering';
 export * from './collaboration';
 export * from './opportunity-context';
+export * from './notification';

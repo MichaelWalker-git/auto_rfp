@@ -1,9 +1,12 @@
 import type { APIGatewayProxyResultV2 } from 'aws-lambda';
 import { v4 as uuidv4 } from 'uuid';
 import middy from '@middy/core';
+import { SQSClient, SendMessageCommand } from '@aws-sdk/client-sqs';
 import { CreateCommentDTOSchema } from '@auto-rfp/core';
+import type { NotificationPayload } from '@auto-rfp/core';
 import { apiResponse } from '@/helpers/api';
 import { createComment } from '@/helpers/collaboration';
+import { getUserByOrgAndId } from '@/helpers/user';
 import { withSentryLambda } from '@/sentry-lambda';
 import {
   authContextMiddleware,
@@ -12,6 +15,9 @@ import {
   requirePermission,
   type AuthedEvent,
 } from '@/middleware/rbac-middleware';
+
+const sqs = new SQSClient({});
+const NOTIFICATION_QUEUE_URL = process.env['NOTIFICATION_QUEUE_URL'];
 
 export const baseHandler = async (event: AuthedEvent): Promise<APIGatewayProxyResultV2> => {
   const raw = JSON.parse(event.body ?? '{}') as unknown;
@@ -52,6 +58,51 @@ export const baseHandler = async (event: AuthedEvent): Promise<APIGatewayProxyRe
     mentions: data.mentions,
     resolved: false,
   });
+
+  // ── Enqueue MENTION notifications for each mentioned user ─────────────────
+  if (data.mentions.length > 0 && NOTIFICATION_QUEUE_URL) {
+    try {
+      // Look up emails for mentioned users (best-effort — don't fail the request)
+      const mentionedUsers = await Promise.all(
+        data.mentions.map((mentionedUserId) => getUserByOrgAndId(orgId, mentionedUserId)),
+      );
+
+      const recipientUserIds: string[] = [];
+      const recipientEmails: string[] = [];
+
+      for (const user of mentionedUsers) {
+        if (user) {
+          recipientUserIds.push(user.userId);
+          recipientEmails.push(user.email);
+        }
+      }
+
+      if (recipientUserIds.length > 0) {
+        const payload: NotificationPayload = {
+          type: 'MENTION',
+          title: `${displayName} mentioned you in a comment`,
+          message: data.content.slice(0, 200),
+          recipientUserIds,
+          recipientEmails,
+          orgId,
+          projectId: data.projectId,
+          // entityId = the question/entity being commented on — used for deep-linking
+          entityId: data.entityId,
+          actorDisplayName: displayName,
+        };
+
+        await sqs.send(
+          new SendMessageCommand({
+            QueueUrl: NOTIFICATION_QUEUE_URL,
+            MessageBody: JSON.stringify(payload),
+          }),
+        );
+      }
+    } catch (notifErr) {
+      // Notification failure must never fail the comment creation
+      console.error('Failed to enqueue mention notification:', notifErr);
+    }
+  }
 
   return apiResponse(201, item);
 };

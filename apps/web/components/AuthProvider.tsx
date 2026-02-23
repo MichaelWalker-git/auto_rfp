@@ -96,10 +96,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setUserSub(userSubValue);
         setError(null);
 
-        // Set Sentry user context for error tracking
+        // Set Sentry user context for error tracking + feedback widget auto-fill
+        const displayName = parseString(payload['name']) ||
+          [parseString(payload['given_name']), parseString(payload['family_name'])].filter(Boolean).join(' ') ||
+          emailValue?.split('@')[0] ||
+          undefined;
+
         Sentry.setUser({
           id: userSubValue ?? undefined,
           email: emailValue ?? undefined,
+          username: displayName ?? undefined,
         });
         Sentry.setTag('orgId', orgIdValue ?? 'none');
         Sentry.setTag('userRole', nextRole ?? 'none');
