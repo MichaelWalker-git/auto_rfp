@@ -76,6 +76,18 @@ const processNotification = async (payload: NotificationPayload): Promise<void> 
   }
 };
 
+/**
+ * Escape HTML special characters to prevent XSS in email bodies.
+ * User-controlled values (title, message) must be escaped before interpolation.
+ */
+const escapeHtml = (str: string): string =>
+  str
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#x27;');
+
 const buildEmailBody = ({
   title,
   message,
@@ -84,12 +96,20 @@ const buildEmailBody = ({
   title: string;
   message: string;
   link?: string;
-}): string => `
+}): string => {
+  const safeTitle = escapeHtml(title);
+  const safeMessage = escapeHtml(message);
+  // The link is constructed by the backend from known path segments — not user input.
+  // We still validate it starts with a known prefix to prevent open redirects.
+  const safeHref = link && link.startsWith('/') ? `${APP_URL}${link}` : null;
+
+  return `
   <html><body style="font-family: sans-serif; max-width: 600px; margin: 0 auto;">
-    <h2>${title}</h2>
-    <p>${message}</p>
-    ${link ? `<p><a href="${APP_URL}${link}" style="background:#4f46e5;color:#fff;padding:10px 20px;border-radius:6px;text-decoration:none;">View in AutoRFP</a></p>` : ''}
+    <h2>${safeTitle}</h2>
+    <p>${safeMessage}</p>
+    ${safeHref ? `<p><a href="${safeHref}" style="background:#4f46e5;color:#fff;padding:10px 20px;border-radius:6px;text-decoration:none;">View in AutoRFP</a></p>` : ''}
     <hr/>
     <p style="color:#888;font-size:12px;">You received this because you are a member of this project. Manage your notification preferences in AutoRFP settings.</p>
   </body></html>
 `;
+};
