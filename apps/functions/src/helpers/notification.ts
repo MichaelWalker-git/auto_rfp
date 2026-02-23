@@ -22,11 +22,24 @@ export const createNotification = async (
 ): Promise<NotificationItem> => {
   const now = nowIso();
   const ttl = Math.floor(Date.now() / 1000) + NOTIFICATION_TTL_DAYS * 86400;
-  return createItem<NotificationItem & { ttl: number }>(
+  const sk = buildNotificationSK(item.orgId, item.userId, now, item.notificationId);
+
+  // Use putItem (upsert) instead of createItem so we control the createdAt timestamp.
+  // createItem calls nowIso() internally and would overwrite our createdAt,
+  // causing a mismatch between the SK (which embeds createdAt) and the stored field.
+  const fullItem: NotificationItem = {
+    ...item,
+    createdAt: now,
+    updatedAt: now,
+  } as NotificationItem;
+
+  await putItem<NotificationItem & { ttl: number }>(
     PK.NOTIFICATION,
-    buildNotificationSK(item.orgId, item.userId, now, item.notificationId),
-    { ...item, ttl },
-  ) as Promise<NotificationItem>;
+    sk,
+    { ...fullItem, ttl } as NotificationItem & { ttl: number },
+  );
+
+  return fullItem;
 };
 
 export const listNotifications = async (
@@ -75,7 +88,10 @@ export const markAllNotificationsRead = async (
         PK.NOTIFICATION,
         buildNotificationSK(orgId, userId, n.createdAt, n.notificationId),
         { read: true },
-      ),
+      ).catch((err: unknown) => {
+        const name = (err as { name?: string }).name;
+        if (name !== 'ConditionalCheckFailedException') throw err;
+      }),
     ),
   );
 };
@@ -92,7 +108,10 @@ export const archiveNotification = async (
     PK.NOTIFICATION,
     buildNotificationSK(orgId, userId, target.createdAt, notificationId),
     { archived: true },
-  );
+  ).catch((err: unknown) => {
+    const name = (err as { name?: string }).name;
+    if (name !== 'ConditionalCheckFailedException') throw err;
+  });
 };
 
 // ─── Preferences ──────────────────────────────────────────────────────────────

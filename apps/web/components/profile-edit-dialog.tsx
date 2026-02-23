@@ -5,7 +5,6 @@ import {
   Dialog,
   DialogContent,
   DialogDescription,
-  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
@@ -13,7 +12,6 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import { useProfile, editProfileApi } from '@/lib/hooks/use-profile';
 import { useToast } from '@/components/ui/use-toast';
 import { NotificationPreferencesForm } from '@/features/notifications';
@@ -35,7 +33,6 @@ export function ProfileEditDialog({ open, onOpenChange }: ProfileEditDialogProps
   const [phone, setPhone] = useState('');
   const [isSaving, setIsSaving] = useState(false);
 
-  // Sync form state when profile loads or dialog opens
   useEffect(() => {
     if (profile && open) {
       setFirstName(profile.firstName ?? '');
@@ -47,7 +44,6 @@ export function ProfileEditDialog({ open, onOpenChange }: ProfileEditDialogProps
 
   const handleSave = async () => {
     if (!profile?.orgId || !profile?.userId) return;
-
     setIsSaving(true);
     try {
       const payload: Record<string, string> = {};
@@ -55,7 +51,6 @@ export function ProfileEditDialog({ open, onOpenChange }: ProfileEditDialogProps
       if (lastName.trim()) payload.lastName = lastName.trim();
       if (displayName.trim()) payload.displayName = displayName.trim();
       if (phone.trim()) payload.phone = phone.trim();
-
       await editProfileApi(profile.orgId, profile.userId, payload);
       await mutate();
       toast({ title: 'Profile updated', description: 'Your profile has been saved.' });
@@ -71,7 +66,8 @@ export function ProfileEditDialog({ open, onOpenChange }: ProfileEditDialogProps
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[500px] max-h-[90vh] flex flex-col">
+      {/* Use default DialogContent padding (p-6) — keeps close button working */}
+      <DialogContent className="sm:max-w-[500px]">
         <DialogHeader>
           <DialogTitle>Profile Settings</DialogTitle>
           <DialogDescription>
@@ -79,16 +75,15 @@ export function ProfileEditDialog({ open, onOpenChange }: ProfileEditDialogProps
           </DialogDescription>
         </DialogHeader>
 
-        <Tabs defaultValue="profile" className="flex-1 flex flex-col min-h-0">
+        <Tabs defaultValue="profile">
           <TabsList className="grid w-full grid-cols-2">
             <TabsTrigger value="profile">Profile</TabsTrigger>
             <TabsTrigger value="notifications">Notifications</TabsTrigger>
           </TabsList>
 
           {/* ── Profile tab ── */}
-          <TabsContent value="profile" className="flex-1 flex flex-col">
-            <div className="grid gap-4 py-4 flex-1">
-              {/* Email (read-only) */}
+          <TabsContent value="profile">
+            <div className="grid gap-4 py-4">
               <div className="grid gap-2">
                 <Label htmlFor="profile-email">Email</Label>
                 <Input
@@ -100,7 +95,6 @@ export function ProfileEditDialog({ open, onOpenChange }: ProfileEditDialogProps
                 />
               </div>
 
-              {/* First Name / Last Name */}
               <div className="grid grid-cols-2 gap-4">
                 <div className="grid gap-2">
                   <Label htmlFor="profile-firstName">First Name</Label>
@@ -122,7 +116,6 @@ export function ProfileEditDialog({ open, onOpenChange }: ProfileEditDialogProps
                 </div>
               </div>
 
-              {/* Display Name */}
               <div className="grid gap-2">
                 <Label htmlFor="profile-displayName">Display Name</Label>
                 <Input
@@ -136,7 +129,6 @@ export function ProfileEditDialog({ open, onOpenChange }: ProfileEditDialogProps
                 </p>
               </div>
 
-              {/* Phone */}
               <div className="grid gap-2">
                 <Label htmlFor="profile-phone">Phone</Label>
                 <Input
@@ -149,27 +141,33 @@ export function ProfileEditDialog({ open, onOpenChange }: ProfileEditDialogProps
               </div>
             </div>
 
-            <DialogFooter>
+            <div className="flex justify-end gap-2 pt-2">
               <Button variant="outline" onClick={() => onOpenChange(false)} disabled={isSaving}>
                 Cancel
               </Button>
               <Button onClick={handleSave} disabled={isSaving}>
                 {isSaving ? 'Saving...' : 'Save Changes'}
               </Button>
-            </DialogFooter>
+            </div>
           </TabsContent>
 
           {/* ── Notifications tab ── */}
-          <TabsContent value="notifications" className="flex-1 min-h-0">
-            <ScrollArea className="h-[420px] pr-2">
+          <TabsContent value="notifications">
+            <div className="py-4 max-h-[60vh] overflow-y-auto pr-1">
               {orgId ? (
                 <NotificationPreferencesForm orgId={orgId} />
               ) : (
-                <p className="text-sm text-slate-500 py-4">
+                <p className="text-sm text-slate-500">
                   Select an organization to manage notification preferences.
                 </p>
               )}
-            </ScrollArea>
+            </div>
+
+            <div className="flex justify-end pt-2">
+              <Button variant="outline" onClick={() => onOpenChange(false)}>
+                Close
+              </Button>
+            </div>
           </TabsContent>
         </Tabs>
       </DialogContent>
