@@ -25,3 +25,4 @@ export * from './clustering';
 export * from './collaboration';
 export * from './opportunity-context';
 export * from './notification';
+export * from './audit';

@@ -11,7 +11,9 @@ import {
   httpErrorMiddleware,
   orgMembershipMiddleware,
   requirePermission,
+  type AuthedEvent,
 } from '@/middleware/rbac-middleware';
+import { auditMiddleware, setAuditContext } from '@/middleware/audit-middleware';
 
 import {
   buildAttachmentFilename,
@@ -87,7 +89,7 @@ const ensureExtension = (filename: string, contentType?: string | null) => {
 };
 
 export const baseHandler = async (
-  event: APIGatewayProxyEventV2,
+  event: AuthedEvent,
 ): Promise<APIGatewayProxyResultV2> => {
   if (!event.body) return apiResponse(400, { ok: false, error: 'Request body is required' });
 
@@ -263,5 +265,6 @@ export const handler = withSentryLambda(
     .use(orgMembershipMiddleware())
     .use(requirePermission('question:create'))
     .use(requirePermission('opportunity:create'))
+    .use(auditMiddleware())
     .use(httpErrorMiddleware()),
 );

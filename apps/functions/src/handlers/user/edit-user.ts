@@ -16,7 +16,9 @@ import {
   httpErrorMiddleware,
   orgMembershipMiddleware,
   requirePermission,
+  type AuthedEvent,
 } from '@/middleware/rbac-middleware';
+import { auditMiddleware, setAuditContext } from '@/middleware/audit-middleware';
 import middy from '@middy/core';
 
 const DB_TABLE_NAME = requireEnv('DB_TABLE_NAME');
@@ -33,7 +35,7 @@ function getCognitoUsername(item: Record<string, any>): string | undefined {
 }
 
 export const baseHandler = async (
-  event: APIGatewayProxyEventV2,
+  event: AuthedEvent,
 ): Promise<APIGatewayProxyResultV2> => {
   try {
     if (!event.body) return apiResponse(400, { message: 'Missing request body' });
@@ -122,6 +124,14 @@ export const baseHandler = async (
     }
 
     const updated = updateRes.Attributes ?? {};
+
+    setAuditContext(event, {
+      action: 'USER_UPDATED',
+      resource: 'user',
+      resourceId: dto.userId,
+      changes: { before: { role: userItem.role, status: userItem.status }, after: { role: updated.role, status: updated.status } },
+    });
+
     return apiResponse(200, {
       ok: true,
       orgId: dto.orgId,
@@ -155,5 +165,6 @@ export const handler = withSentryLambda(
     .use(authContextMiddleware())
     .use(orgMembershipMiddleware())
     .use(requirePermission('user:edit'))
+    .use(auditMiddleware())
     .use(httpErrorMiddleware()),
 );

@@ -12,6 +12,7 @@ import { QuestionExtractionPipelineStack } from '../question-pipeline-step-funct
 import { AnswerGenerationPipelineStack } from '../answer-generation-step-function';
 import { ApiOrchestratorStack } from '../api/api-orchestrator-stack';
 import { CollaborationWebSocketStack } from '../collaboration-websocket-stack';
+import { AuditStack } from '../audit-stack';
 import { AwsSolutionsChecks } from 'cdk-nag';
 import {
   addAllSuppressions,
@@ -130,6 +131,7 @@ const api = new ApiOrchestratorStack(app, `ApiOrchestrator-${stage}`, {
   documentGenerationQueue: storage.documentGenerationQueue,
   // Pass the queue name (plain string) — not the queue object — to avoid a cross-stack token cycle
   notificationQueueName: `auto-rfp-notifications-${stage.toLowerCase()}`,
+  auditLogQueueName: `auto-rfp-audit-log-${stage.toLowerCase()}`,
   documentPipelineStateMachineArn: pipelineStack.stateMachine.stateMachineArn,
   questionPipelineStateMachineArn: questionsPipelineStack.stateMachine.stateMachineArn,
   sentryDNS,
@@ -166,6 +168,24 @@ const collaborationWsStack = new CollaborationWebSocketStack(app, `AutoRfp-${sta
 collaborationWsStack.addDependency(auth);
 collaborationWsStack.addDependency(db);
 collaborationWsStack.addDependency(api);
+
+const auditStack = new AuditStack(app, `AutoRfp-Audit-${stage}`, {
+  env,
+  stage,
+  mainTable: db.tableName,
+  commonLambdaRoleArn: api.commonLambdaRoleArn,
+  commonEnv: {
+    STAGE: stage,
+    DB_TABLE_NAME: db.tableName.tableName,
+    REGION: env.region ?? 'us-east-1',
+    SENTRY_DSN: sentryDNS,
+    SENTRY_ENVIRONMENT: stage,
+    NODE_ENV: 'production',
+  },
+});
+
+auditStack.addDependency(db);
+auditStack.addDependency(api);
 
 new cdk.CfnOutput(collaborationWsStack, 'CollaborationWsApiUrl', {
   value: collaborationWsStack.wsApiUrl,
@@ -257,6 +277,11 @@ addStepFunctionsSuppressions(answerGenerationStack, isProduction);
 
 addAllSuppressions(collaborationWsStack, isProduction);
 addSQSSuppressions(collaborationWsStack, isProduction);
+
+addAllSuppressions(auditStack, isProduction);
+addSQSSuppressions(auditStack, isProduction);
+addS3Suppressions(auditStack, isProduction);
+addLambdaSuppressions(auditStack, isProduction);
 
 console.log(`\n=📝 Note: After deployment, update Cognito callback URLs with the actual Amplify domain from the FrontendURL output if needed.`);
 console.log('=🔒 CDK NAG AWS Solutions Checks enabled for security compliance');

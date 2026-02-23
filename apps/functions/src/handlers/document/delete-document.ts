@@ -9,12 +9,14 @@ import {
   authContextMiddleware,
   httpErrorMiddleware,
   orgMembershipMiddleware,
-  requirePermission
+  requirePermission,
+  type AuthedEvent,
 } from '@/middleware/rbac-middleware';
+import { auditMiddleware, setAuditContext } from '@/middleware/audit-middleware';
 import { deleteDocument } from '@/helpers/document';
 
 export const baseHandler = async (
-  event: APIGatewayProxyEventV2,
+  event: AuthedEvent,
 ): Promise<APIGatewayProxyResultV2> => {
   try {
     const json = JSON.parse(event.body || '');
@@ -34,6 +36,13 @@ export const baseHandler = async (
     const dto: DeleteDocumentDTO = data;
 
     await deleteDocument(dto);
+
+    
+    setAuditContext(event, {
+      action: 'DOCUMENT_DELETED',
+      resource: 'document',
+      resourceId: dto.id,
+    });
 
     return apiResponse(200, {
       success: true,
@@ -56,5 +65,6 @@ export const handler = withSentryLambda(
     .use(authContextMiddleware())
     .use(orgMembershipMiddleware())
     .use(requirePermission('document:delete'))
-    .use(httpErrorMiddleware())
+    .use(auditMiddleware())
+    .use(httpErrorMiddleware()),
 );

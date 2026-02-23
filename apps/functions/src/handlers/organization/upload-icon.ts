@@ -8,10 +8,12 @@ import {
   httpErrorMiddleware,
   orgMembershipMiddleware,
   requirePermission,
+  type AuthedEvent,
 } from '@/middleware/rbac-middleware';
+import { auditMiddleware, setAuditContext } from '@/middleware/audit-middleware';
 
 export const baseHandler = async (
-  event: APIGatewayProxyEventV2,
+  event: AuthedEvent,
 ): Promise<APIGatewayProxyResultV2> => {
   try {
     const orgId = getOrgId(event);
@@ -26,6 +28,13 @@ export const baseHandler = async (
 
     const result = await generateIconUploadUrl({ orgId, contentType, fileSizeBytes });
     await saveIconToOrg(orgId, result.iconKey);
+
+    
+    setAuditContext(event, {
+      action: 'ORG_SETTINGS_CHANGED',
+      resource: 'organization',
+      resourceId: event.pathParameters?.orgId ?? event.queryStringParameters?.orgId ?? 'unknown',
+    });
 
     return apiResponse(200, {
       ok: true,
@@ -56,5 +65,6 @@ export const handler = withSentryLambda(
     .use(authContextMiddleware())
     .use(orgMembershipMiddleware())
     .use(requirePermission('org:edit'))
+    .use(auditMiddleware())
     .use(httpErrorMiddleware()),
 );

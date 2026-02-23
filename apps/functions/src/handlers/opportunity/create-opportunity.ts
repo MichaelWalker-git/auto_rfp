@@ -10,7 +10,9 @@ import {
   httpErrorMiddleware,
   orgMembershipMiddleware,
   requirePermission,
+  type AuthedEvent,
 } from '@/middleware/rbac-middleware';
+import { auditMiddleware, setAuditContext } from '@/middleware/audit-middleware';
 
 const baseHandler = async (event: APIGatewayProxyEventV2): Promise<APIGatewayProxyResultV2> => {
   try {
@@ -40,6 +42,13 @@ const baseHandler = async (event: APIGatewayProxyEventV2): Promise<APIGatewayPro
       opportunity: data,
     });
 
+    
+    setAuditContext(event, {
+      action: 'CONFIG_CHANGED',
+      resource: 'config',
+      resourceId: 'opportunity',
+    });
+
     return apiResponse(201, {
       ok: true,
       oppId,
@@ -56,6 +65,7 @@ const baseHandler = async (event: APIGatewayProxyEventV2): Promise<APIGatewayPro
 
 export const handler = withSentryLambda(
   middy<APIGatewayProxyEventV2, APIGatewayProxyResultV2>(baseHandler)
+    .use(auditMiddleware())
     .use(httpErrorMiddleware())
     .use(authContextMiddleware())
     .use(orgMembershipMiddleware())

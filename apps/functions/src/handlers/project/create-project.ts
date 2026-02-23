@@ -9,11 +9,13 @@ import {
   authContextMiddleware,
   httpErrorMiddleware,
   orgMembershipMiddleware,
-  requirePermission
+  requirePermission,
+  type AuthedEvent,
 } from '@/middleware/rbac-middleware';
+import { auditMiddleware, setAuditContext } from '@/middleware/audit-middleware';
 
 export const baseHandler = async (
-  event: APIGatewayProxyEventV2,
+  event: AuthedEvent,
 ): Promise<APIGatewayProxyResultV2> => {
   if (!event.body) {
     return apiResponse(400, { message: 'Request body is missing' });
@@ -25,7 +27,7 @@ export const baseHandler = async (
     const { success, data, error: errors } = CreateProjectSchema.safeParse(rawBody);
 
     if (!success) {
-      const errorDetails = errors.issues.map((issue: any) => ({
+      const errorDetails = errors.issues.map((issue: { path: (string | number)[]; message: string }) => ({
         path: issue.path.join('.'),
         message: issue.message,
       }));
@@ -37,6 +39,14 @@ export const baseHandler = async (
     }
 
     const project = await createProject(data);
+
+    setAuditContext(event, {
+      action: 'PROJECT_CREATED',
+      resource: 'project',
+      resourceId: project.id,
+      orgId: data.orgId,
+      changes: { after: project },
+    });
 
     return apiResponse(201, project);
   } catch (err) {
@@ -58,5 +68,6 @@ export const handler = withSentryLambda(
     .use(authContextMiddleware())
     .use(orgMembershipMiddleware())
     .use(requirePermission('project:create'))
-    .use(httpErrorMiddleware())
+    .use(auditMiddleware())
+    .use(httpErrorMiddleware()),
 );

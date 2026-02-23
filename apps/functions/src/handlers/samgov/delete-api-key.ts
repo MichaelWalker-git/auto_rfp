@@ -6,8 +6,10 @@ import {
   authContextMiddleware,
   httpErrorMiddleware,
   orgMembershipMiddleware,
-  requirePermission
+  requirePermission,
+  type AuthedEvent,
 } from '@/middleware/rbac-middleware';
+import { auditMiddleware, setAuditContext } from '@/middleware/audit-middleware';
 import middy from '@middy/core';
 
 const secretsClient = new SecretsManagerClient({});
@@ -30,7 +32,14 @@ export const baseHandler = async (event: APIGatewayProxyEventV2) => {
         })
       );
 
-      return apiResponse(200, {
+      
+    setAuditContext(event, {
+      action: 'API_KEY_DELETED',
+      resource: 'api_key',
+      resourceId: 'samgov-api-key',
+    });
+
+    return apiResponse(200, {
         message: 'API key deleted successfully',
         orgId,
         note: 'The API key can be recovered within 30 days if needed',
@@ -52,5 +61,6 @@ export const handler = withSentryLambda(
     .use(authContextMiddleware())
     .use(orgMembershipMiddleware())
     .use(requirePermission('opportunity:create'))
+    .use(auditMiddleware())
     .use(httpErrorMiddleware()),
 );

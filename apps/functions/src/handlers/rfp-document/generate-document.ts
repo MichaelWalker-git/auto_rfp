@@ -11,7 +11,9 @@ import {
   httpErrorMiddleware,
   orgMembershipMiddleware,
   requirePermission,
+  type AuthedEvent,
 } from '@/middleware/rbac-middleware';
+import { auditMiddleware, setAuditContext } from '@/middleware/audit-middleware';
 import { putRFPDocument } from '@/helpers/rfp-document';
 import { enqueueDocumentGeneration } from '@/helpers/document-generation-queue';
 import { nowIso } from '@/helpers/date';
@@ -39,7 +41,7 @@ const buildPlaceholderName = (documentType: string): string =>
 // ─── Handler ───
 
 export const baseHandler = async (
-  event: APIGatewayProxyEventV2,
+  event: AuthedEvent,
 ): Promise<APIGatewayProxyResultV2> => {
   try {
     // 1. Parse & validate input
@@ -104,6 +106,13 @@ export const baseHandler = async (
     });
 
     // 5. Return 202 Accepted
+    
+    setAuditContext(event, {
+      action: 'CONFIG_CHANGED',
+      resource: 'config',
+      resourceId: 'unknown',
+    });
+
     return apiResponse(202, {
       ok: true,
       status: 'GENERATING',
@@ -127,5 +136,6 @@ export const handler = withSentryLambda(
     .use(authContextMiddleware())
     .use(orgMembershipMiddleware())
     .use(requirePermission('proposal:create'))
+    .use(auditMiddleware())
     .use(httpErrorMiddleware()),
 );

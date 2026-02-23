@@ -11,7 +11,9 @@ import {
   httpErrorMiddleware,
   orgMembershipMiddleware,
   requirePermission,
+  type AuthedEvent,
 } from '@/middleware/rbac-middleware';
+import { auditMiddleware, setAuditContext } from '@/middleware/audit-middleware';
 
 import { deleteOpportunity } from '@/helpers/opportunity';
 import { listQuestionFilesByOpportunity, deleteQuestionFile } from '@/helpers/questionFile';
@@ -133,6 +135,13 @@ const baseHandler = async (event: APIGatewayProxyEventV2): Promise<APIGatewayPro
       oppId,
     });
 
+    
+    setAuditContext(event, {
+      action: 'CONFIG_CHANGED',
+      resource: 'config',
+      resourceId: event.pathParameters?.opportunityId ?? event.queryStringParameters?.opportunityId ?? 'unknown',
+    });
+
     return apiResponse(200, {
       ok: true,
       message: `Opportunity ${oppId}, ${questionFiles.length} question files, and ${deletedBriefsCount} executive briefs deleted`,
@@ -148,6 +157,7 @@ const baseHandler = async (event: APIGatewayProxyEventV2): Promise<APIGatewayPro
 
 export const handler = withSentryLambda(
   middy<APIGatewayProxyEventV2, APIGatewayProxyResultV2>(baseHandler)
+    .use(auditMiddleware())
     .use(httpErrorMiddleware())
     .use(authContextMiddleware())
     .use(orgMembershipMiddleware())

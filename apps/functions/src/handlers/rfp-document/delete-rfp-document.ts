@@ -1,11 +1,13 @@
 import type { APIGatewayProxyEventV2, APIGatewayProxyResultV2 } from 'aws-lambda';
 import middy from '@middy/core';
+import { authContextMiddleware, httpErrorMiddleware, orgMembershipMiddleware, requirePermission, type AuthedEvent } from '@/middleware/rbac-middleware';
+import { auditMiddleware, setAuditContext } from '@/middleware/audit-middleware';
 import { withSentryLambda } from '@/sentry-lambda';
 import { getRFPDocument, softDeleteRFPDocument } from '@/helpers/rfp-document';
 import { apiResponse, getOrgId, getUserId } from '@/helpers/api';
 
 export const baseHandler = async (
-  event: APIGatewayProxyEventV2,
+  event: AuthedEvent,
 ): Promise<APIGatewayProxyResultV2> => {
   try {
     const orgId = getOrgId(event);
@@ -31,6 +33,13 @@ export const baseHandler = async (
     }
 
     await softDeleteRFPDocument({ projectId, opportunityId, documentId, deletedBy: userId });
+
+    
+    setAuditContext(event, {
+      action: 'DATA_EXPORTED',
+      resource: 'proposal',
+      resourceId: event.pathParameters?.documentId ?? event.queryStringParameters?.documentId ?? 'unknown',
+    });
 
     return apiResponse(200, { ok: true, message: 'Document deleted' });
   } catch (err) {

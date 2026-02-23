@@ -45,8 +45,12 @@ export function useComments(
     await mutate(key);
   };
 
+  const allComments = data?.items ?? [];
+  const unresolvedCount = allComments.filter((c) => !c.resolved).length;
+
   return {
-    comments: data?.items ?? [],
+    comments: allComments,
+    unresolvedCount,
     isLoading,
     error,
     createComment,

@@ -6,7 +6,9 @@ import { apiResponse, getOrgId } from '@/helpers/api';
 import { deleteItem, docClient } from '@/helpers/db';
 import { requireEnv } from '@/helpers/env';
 import { withSentryLambda } from '@/sentry-lambda';
-import { authContextMiddleware, httpErrorMiddleware, orgMembershipMiddleware, } from '@/middleware/rbac-middleware';
+import { authContextMiddleware, httpErrorMiddleware, orgMembershipMiddleware,   type AuthedEvent,
+} from '@/middleware/rbac-middleware';
+import { auditMiddleware, setAuditContext } from '@/middleware/audit-middleware';
 import { nowIso } from '@/helpers/date';
 import { deleteVectorById } from '@/helpers/pinecone';
 
@@ -17,7 +19,7 @@ const TABLE_NAME = requireEnv('DB_TABLE_NAME');
  * DELETE /content-library/delete-content-library/{id}?orgId={orgId}&hardDelete={true}&kbId={kbId}
  */
 async function baseHandler(
-  event: APIGatewayProxyEventV2
+  event: AuthedEvent
 ): Promise<APIGatewayProxyResultV2> {
   try {
     const itemId = event.pathParameters?.id;
@@ -36,7 +38,14 @@ async function baseHandler(
     if (hardDelete) {
       await deleteItem(CONTENT_LIBRARY_PK, key.sort_key);
       await deleteVectorById(orgId, itemId)
-      return apiResponse(200, { message: 'Item permanently deleted' });
+      
+    setAuditContext(event, {
+      action: 'CONFIG_CHANGED',
+      resource: 'knowledge_base',
+      resourceId: event.pathParameters?.id ?? 'unknown',
+    });
+
+    return apiResponse(200, { message: 'Item permanently deleted' });
     } else {
       const now = nowIso();
       await docClient.send(new UpdateCommand({
@@ -70,5 +79,6 @@ export const handler = withSentryLambda(
   middy(baseHandler)
     .use(authContextMiddleware())
     .use(orgMembershipMiddleware())
-    .use(httpErrorMiddleware())
+    .use(auditMiddleware())
+    .use(httpErrorMiddleware()),
 );

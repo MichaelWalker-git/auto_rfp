@@ -12,6 +12,7 @@ import PermissionWrapper from '@/components/permission-wrapper';
 import { ConfidenceScoreDisplay } from '@/components/confidence/confidence-score-display';
 import { SimilarQuestionsPanel } from './similar-questions-panel';
 import { EditingIndicator, CollaborationPanel, FloatingPanel } from '@/features/collaboration';
+import { useComments } from '@/features/collaboration/hooks/useComments';
 
 interface AnswerData {
   text: string;
@@ -99,6 +100,14 @@ export function QuestionEditor({
   const [sourcesExpanded, setSourcesExpanded] = useState(false);
   const [confidenceExpanded, setConfidenceExpanded] = useState(false);
 
+  // Fetch unresolved comment count for the badge — only when collaboration is available
+  const { unresolvedCount } = useComments(
+    projectId ?? '',
+    collaboration?.orgId ?? '',
+    'QUESTION',
+    question?.id ?? '',
+  );
+
   const editors = collaboration?.editingUsers ?? [];
   const hasSources = answer?.sources && answer.sources.length > 0;
   const hasConfidence = answer?.confidence !== undefined && answer.confidence !== null;
@@ -143,12 +152,17 @@ export function QuestionEditor({
                 <Button
                   variant="ghost"
                   size="sm"
-                  className="gap-1 text-slate-500 h-7 px-2"
+                  className="relative gap-1 text-slate-500 h-7 px-2"
                   onClick={() => setShowComments((v) => !v)}
                   title={showComments ? 'Hide comments' : 'Show comments'}
                 >
                   <MessageSquare className="h-3.5 w-3.5" />
                   <span className="text-xs">Comments</span>
+                  {unresolvedCount > 0 && (
+                    <span className="ml-0.5 inline-flex items-center justify-center h-4 min-w-4 px-1 rounded-full bg-indigo-500 text-white text-[10px] font-bold leading-none">
+                      {unresolvedCount > 99 ? '99+' : unresolvedCount}
+                    </span>
+                  )}
                 </Button>
               )}
             </div>

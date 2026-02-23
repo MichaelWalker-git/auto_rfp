@@ -12,7 +12,9 @@ import {
   httpErrorMiddleware,
   orgMembershipMiddleware,
   requirePermission,
+  type AuthedEvent,
 } from '@/middleware/rbac-middleware';
+import { auditMiddleware, setAuditContext } from '@/middleware/audit-middleware';
 import middy from '@middy/core';
 import { requireEnv } from '@/helpers/env';
 import { type RFPDocumentContent } from '@auto-rfp/core';
@@ -371,7 +373,7 @@ async function uploadAndGetPresignedUrl(
 }
 
 export const baseHandler = async (
-  event: APIGatewayProxyEventV2,
+  event: AuthedEvent,
 ): Promise<APIGatewayProxyResultV2> => {
   try {
     if (!event.body) {
@@ -424,6 +426,13 @@ export const baseHandler = async (
       proposalDoc.title,
     );
 
+    
+    setAuditContext(event, {
+      action: 'DATA_EXPORTED',
+      resource: 'proposal',
+      resourceId: event.queryStringParameters?.projectId ?? 'unknown',
+    });
+
     return apiResponse(200, {
       success: true,
       document: {
@@ -456,5 +465,6 @@ export const handler = withSentryLambda(
     .use(authContextMiddleware())
     .use(orgMembershipMiddleware())
     .use(requirePermission('proposal:export'))
+    .use(auditMiddleware())
     .use(httpErrorMiddleware()),
 );

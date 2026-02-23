@@ -7,12 +7,14 @@ import {
   httpErrorMiddleware,
   orgMembershipMiddleware,
   requirePermission,
+  type AuthedEvent,
 } from '@/middleware/rbac-middleware';
+import { auditMiddleware, setAuditContext } from '@/middleware/audit-middleware';
 import { nowIso } from '@/helpers/date';
 import { getTemplate, updateTemplateFields } from '@/helpers/template';
 
 const baseHandler = async (
-  event: APIGatewayProxyEventV2,
+  event: AuthedEvent,
 ): Promise<APIGatewayProxyResultV2> => {
   try {
     const templateId = event.pathParameters?.id;
@@ -23,7 +25,9 @@ const baseHandler = async (
 
     const existing = await getTemplate(orgId, templateId);
     if (!existing) return apiResponse(404, { error: 'Template not found' });
-    if (existing.isArchived) return apiResponse(200, { message: 'Template already archived' });
+    if (existing.isArchived) {
+      return apiResponse(200, { message: 'Template already archived' });
+    }
 
     const now = nowIso();
     await updateTemplateFields(orgId, templateId, {
@@ -31,6 +35,12 @@ const baseHandler = async (
       archivedAt: now,
       status: 'ARCHIVED',
       updatedAt: now,
+    });
+
+    setAuditContext(event, {
+      action: 'CONFIG_CHANGED',
+      resource: 'template',
+      resourceId: templateId,
     });
 
     return apiResponse(200, { message: 'Template archived' });
@@ -48,5 +58,6 @@ export const handler = withSentryLambda(
     .use(authContextMiddleware())
     .use(orgMembershipMiddleware())
     .use(requirePermission('template:delete'))
+    .use(auditMiddleware())
     .use(httpErrorMiddleware()),
 );

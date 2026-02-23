@@ -9,6 +9,7 @@ import {
   orgMembershipMiddleware,
   requirePermission,
 } from '@/middleware/rbac-middleware';
+import { auditMiddleware, setAuditContext } from '@/middleware/audit-middleware';
 import { nowIso } from '@/helpers/date';
 import { getTemplate, putTemplate, saveTemplateVersion } from '@/helpers/template';
 
@@ -73,6 +74,13 @@ const baseHandler = async (
     };
 
     await putTemplate(updated);
+    
+    setAuditContext(event, {
+      action: 'CONFIG_CHANGED',
+      resource: 'template',
+      resourceId: event.pathParameters?.templateId ?? event.queryStringParameters?.templateId ?? 'unknown',
+    });
+
     return apiResponse(200, { data: updated });
   } catch (err) {
     console.error('Error updating template:', err);
@@ -88,5 +96,6 @@ export const handler = withSentryLambda(
     .use(authContextMiddleware())
     .use(orgMembershipMiddleware())
     .use(requirePermission('template:update'))
+    .use(auditMiddleware())
     .use(httpErrorMiddleware()),
 );

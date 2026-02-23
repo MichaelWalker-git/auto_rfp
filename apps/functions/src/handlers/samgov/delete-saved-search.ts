@@ -14,7 +14,9 @@ import {
   httpErrorMiddleware,
   orgMembershipMiddleware,
   requirePermission,
+  type AuthedEvent,
 } from '@/middleware/rbac-middleware';
+import { auditMiddleware, setAuditContext } from '@/middleware/audit-middleware';
 
 const DB_TABLE_NAME = requireEnv('DB_TABLE_NAME');
 
@@ -28,7 +30,7 @@ function decodeId(id?: string) {
 
 // ---------------- handler ----------------
 export const baseHandler = async (
-  event: APIGatewayProxyEventV2,
+  event: AuthedEvent,
 ): Promise<APIGatewayProxyResultV2> => {
   try {
     const orgIdFromAuth = (event as any)?.auth?.orgId as string | undefined;
@@ -68,6 +70,13 @@ export const baseHandler = async (
       }),
     );
 
+    
+    setAuditContext(event, {
+      action: 'CONFIG_CHANGED',
+      resource: 'config',
+      resourceId: event.pathParameters?.searchId ?? event.queryStringParameters?.searchId ?? 'unknown',
+    });
+
     return apiResponse(200, { ok: true, savedSearchId });
   } catch (err: any) {
     // DynamoDB conditional check failed => not found
@@ -88,5 +97,6 @@ export const handler = withSentryLambda(
     .use(authContextMiddleware())
     .use(orgMembershipMiddleware())
     .use(requirePermission('opportunity:delete'))
+    .use(auditMiddleware())
     .use(httpErrorMiddleware()),
 );

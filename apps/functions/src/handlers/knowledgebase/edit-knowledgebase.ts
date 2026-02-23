@@ -11,8 +11,10 @@ import {
   authContextMiddleware,
   httpErrorMiddleware,
   orgMembershipMiddleware,
-  requirePermission
+  requirePermission,
+  type AuthedEvent,
 } from '@/middleware/rbac-middleware';
+import { auditMiddleware, setAuditContext } from '@/middleware/audit-middleware';
 import { requireEnv } from '@/helpers/env';
 import middy from '@middy/core';
 import { docClient } from '@/helpers/db';
@@ -20,7 +22,7 @@ import { docClient } from '@/helpers/db';
 const DB_TABLE_NAME = requireEnv('DB_TABLE_NAME');
 
 export const baseHandler = async (
-  event: APIGatewayProxyEventV2,
+  event: AuthedEvent,
 ): Promise<APIGatewayProxyResultV2> => {
   const tokenOrgId = getOrgId(event);
   const { orgId: queryOrgId, kbId } = event.queryStringParameters || {};
@@ -56,6 +58,13 @@ export const baseHandler = async (
     const validatedData: UpdateKnowledgeBaseDTO = validationResult.data;
 
     const updatedKb = await updateKnowledgeBase(orgId, kbId, validatedData);
+
+    
+    setAuditContext(event, {
+      action: 'ORG_SETTINGS_CHANGED',
+      resource: 'knowledge_base',
+      resourceId: event.pathParameters?.kbId ?? event.queryStringParameters?.kbId ?? 'unknown',
+    });
 
     return apiResponse(200, updatedKb);
   } catch (err) {
@@ -191,5 +200,6 @@ export const handler = withSentryLambda(
     .use(authContextMiddleware())
     .use(orgMembershipMiddleware())
     .use(requirePermission('kb:edit'))
-    .use(httpErrorMiddleware())
+    .use(auditMiddleware())
+    .use(httpErrorMiddleware()),
 );

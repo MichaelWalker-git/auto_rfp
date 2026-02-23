@@ -14,7 +14,9 @@ import {
   httpErrorMiddleware,
   orgMembershipMiddleware,
   requirePermission,
+  type AuthedEvent,
 } from '@/middleware/rbac-middleware';
+import { auditMiddleware, setAuditContext } from '@/middleware/audit-middleware';
 
 import { SAVED_SEARCH_PK } from '@/constants/samgov';
 
@@ -62,7 +64,7 @@ function buildUpdate(patch: PatchType, updatedAt: string) {
 }
 
 export const baseHandler = async (
-  event: APIGatewayProxyEventV2,
+  event: AuthedEvent,
 ): Promise<APIGatewayProxyResultV2> => {
   try {
     const orgIdFromAuth = (event as any)?.auth?.orgId as string | undefined;
@@ -126,6 +128,13 @@ export const baseHandler = async (
       });
     }
 
+    
+    setAuditContext(event, {
+      action: 'CONFIG_CHANGED',
+      resource: 'config',
+      resourceId: event.pathParameters?.searchId ?? event.queryStringParameters?.searchId ?? 'unknown',
+    });
+
     return apiResponse(200, validated.data as SavedSearch);
   } catch (err: any) {
     if (err?.name === 'ConditionalCheckFailedException') {
@@ -145,5 +154,6 @@ export const handler = withSentryLambda(
     .use(authContextMiddleware())
     .use(orgMembershipMiddleware())
     .use(requirePermission('opportunity:edit'))
+    .use(auditMiddleware())
     .use(httpErrorMiddleware()),
 );

@@ -14,13 +14,15 @@ import {
   authContextMiddleware,
   httpErrorMiddleware,
   orgMembershipMiddleware,
+  type AuthedEvent,
 } from '@/middleware/rbac-middleware';
+import { auditMiddleware, setAuditContext } from '@/middleware/audit-middleware';
 import { PK_NAME, SK_NAME } from '@/constants/common';
 
 const TABLE_NAME = requireEnv('DB_TABLE_NAME');
 
 async function baseHandler(
-  event: APIGatewayProxyEventV2,
+  event: AuthedEvent,
 ): Promise<APIGatewayProxyResultV2> {
   try {
     const itemId = event.pathParameters?.id;
@@ -90,6 +92,13 @@ async function baseHandler(
       }),
     );
 
+    
+    setAuditContext(event, {
+      action: 'CONFIG_CHANGED',
+      resource: 'knowledge_base',
+      resourceId: event.pathParameters?.id ?? 'unknown',
+    });
+
     return apiResponse(200, {
       message: 'Content item reactivated successfully',
       itemId,
@@ -102,6 +111,7 @@ async function baseHandler(
 }
 
 export const handler = middy(withSentryLambda(baseHandler))
-  .use(httpErrorMiddleware())
+  .use(auditMiddleware())
+    .use(httpErrorMiddleware())
   .use(authContextMiddleware())
   .use(orgMembershipMiddleware());

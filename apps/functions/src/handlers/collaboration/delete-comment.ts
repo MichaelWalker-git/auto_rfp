@@ -12,6 +12,7 @@ import {
   requirePermission,
   type AuthedEvent,
 } from '@/middleware/rbac-middleware';
+import { auditMiddleware, setAuditContext } from '@/middleware/audit-middleware';
 import type { CommentItem } from '@auto-rfp/core';
 
 export const baseHandler = async (event: AuthedEvent): Promise<APIGatewayProxyResultV2> => {
@@ -32,7 +33,14 @@ export const baseHandler = async (event: AuthedEvent): Promise<APIGatewayProxyRe
     { deletedAt: new Date().toISOString() },
   );
 
-  return apiResponse(200, { ok: true });
+  
+    setAuditContext(event, {
+      action: 'CONFIG_CHANGED',
+      resource: 'config',
+      resourceId: event.pathParameters?.commentId ?? 'unknown',
+    });
+
+    return apiResponse(200, { ok: true });
 };
 
 export const handler = withSentryLambda(
@@ -40,5 +48,6 @@ export const handler = withSentryLambda(
     .use(authContextMiddleware())
     .use(orgMembershipMiddleware())
     .use(requirePermission('answer:edit'))
+    .use(auditMiddleware())
     .use(httpErrorMiddleware()),
 );

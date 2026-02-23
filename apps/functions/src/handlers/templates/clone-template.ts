@@ -9,12 +9,14 @@ import {
   httpErrorMiddleware,
   orgMembershipMiddleware,
   requirePermission,
+  type AuthedEvent,
 } from '@/middleware/rbac-middleware';
+import { auditMiddleware, setAuditContext } from '@/middleware/audit-middleware';
 import { nowIso } from '@/helpers/date';
 import { getTemplate, putTemplate, saveTemplateVersion } from '@/helpers/template';
 
 const baseHandler = async (
-  event: APIGatewayProxyEventV2,
+  event: AuthedEvent,
 ): Promise<APIGatewayProxyResultV2> => {
   try {
     const templateId = event.pathParameters?.id;
@@ -82,6 +84,13 @@ const baseHandler = async (
     };
 
     await putTemplate(cloned);
+    
+    setAuditContext(event, {
+      action: 'CONFIG_CHANGED',
+      resource: 'template',
+      resourceId: event.pathParameters?.templateId ?? event.queryStringParameters?.templateId ?? 'unknown',
+    });
+
     return apiResponse(201, { data: cloned });
   } catch (err) {
     console.error('Error cloning template:', err);
@@ -97,5 +106,6 @@ export const handler = withSentryLambda(
     .use(authContextMiddleware())
     .use(orgMembershipMiddleware())
     .use(requirePermission('template:create'))
+    .use(auditMiddleware())
     .use(httpErrorMiddleware()),
 );

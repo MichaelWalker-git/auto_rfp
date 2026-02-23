@@ -15,6 +15,7 @@ import {
   requirePermission,
   type AuthedEvent,
 } from '@/middleware/rbac-middleware';
+import { auditMiddleware, setAuditContext } from '@/middleware/audit-middleware';
 
 const sqs = new SQSClient({});
 const NOTIFICATION_QUEUE_URL = process.env['NOTIFICATION_QUEUE_URL'];
@@ -104,7 +105,14 @@ export const baseHandler = async (event: AuthedEvent): Promise<APIGatewayProxyRe
     }
   }
 
-  return apiResponse(201, item);
+  
+    setAuditContext(event, {
+      action: 'CONFIG_CHANGED',
+      resource: 'config',
+      resourceId: 'comment',
+    });
+
+    return apiResponse(201, item);
 };
 
 export const handler = withSentryLambda(
@@ -112,5 +120,6 @@ export const handler = withSentryLambda(
     .use(authContextMiddleware())
     .use(orgMembershipMiddleware())
     .use(requirePermission('answer:read'))
+    .use(auditMiddleware())
     .use(httpErrorMiddleware()),
 );

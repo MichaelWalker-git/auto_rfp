@@ -1,5 +1,7 @@
 import type { APIGatewayProxyEventV2, APIGatewayProxyResultV2 } from 'aws-lambda';
 import middy from '@middy/core';
+import { authContextMiddleware, httpErrorMiddleware, orgMembershipMiddleware, requirePermission, type AuthedEvent } from '@/middleware/rbac-middleware';
+import { auditMiddleware, setAuditContext } from '@/middleware/audit-middleware';
 import { v4 as uuidv4 } from 'uuid';
 import { PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
@@ -54,7 +56,7 @@ const CONTENT_BASED_DOCUMENT_TYPES = new Set([
 ]);
 
 export const baseHandler = async (
-  event: APIGatewayProxyEventV2,
+  event: AuthedEvent,
 ): Promise<APIGatewayProxyResultV2> => {
   try {
     const orgId = getOrgId(event);
@@ -165,6 +167,13 @@ export const baseHandler = async (
         expiresIn: 900,
       };
     }
+
+    
+    setAuditContext(event, {
+      action: 'PROPOSAL_SUBMITTED',
+      resource: 'proposal',
+      resourceId: 'rfp-document',
+    });
 
     return apiResponse(201, response);
   } catch (err) {

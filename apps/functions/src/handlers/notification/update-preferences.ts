@@ -11,6 +11,7 @@ import {
   requirePermission,
   type AuthedEvent,
 } from '@/middleware/rbac-middleware';
+import { auditMiddleware, setAuditContext } from '@/middleware/audit-middleware';
 
 export const baseHandler = async (event: AuthedEvent): Promise<APIGatewayProxyResultV2> => {
   const raw = JSON.parse(event.body ?? '{}') as unknown;
@@ -34,7 +35,14 @@ export const baseHandler = async (event: AuthedEvent): Promise<APIGatewayProxyRe
     orgId: data.orgId,
   };
   const saved = await upsertNotificationPreferences(merged);
-  return apiResponse(200, saved);
+  
+    setAuditContext(event, {
+      action: 'CONFIG_CHANGED',
+      resource: 'config',
+      resourceId: 'notification-preferences',
+    });
+
+    return apiResponse(200, saved);
 };
 
 export const handler = withSentryLambda(
@@ -42,5 +50,6 @@ export const handler = withSentryLambda(
     .use(authContextMiddleware())
     .use(orgMembershipMiddleware())
     .use(requirePermission('notification:read'))
+    .use(auditMiddleware())
     .use(httpErrorMiddleware()),
 );
