@@ -80,7 +80,8 @@ const auth = new AuthStack(app, `AutoRfp-Auth-${stage}`, {
     `https://${branch}.d*.amplifyapp.com`,
     `https://*.d*.amplifyapp.com`,
     'https://main.d*.amplifyapp.com',
-    'https://develop.d*.amplifyapp.com'
+    'https://develop.d*.amplifyapp.com',
+    'https://rfp.horustech.dev',
   ]
 });
 
@@ -207,6 +208,8 @@ const amplifyStack = new AmplifyFeStack(app, `AmplifyFeStack-${stage}`, {
   baseApiUrl: api.apiUrl,
   region: env.region!,
   sentryDNS,
+  // Attach rfp.horustech.dev to the main branch only
+  ...(branch === 'main' ? { customDomain: 'rfp.horustech.dev' } : {}),
 });
 
 amplifyStack.addDependency(auth);

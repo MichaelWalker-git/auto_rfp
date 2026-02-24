@@ -16,6 +16,9 @@ export interface AmplifyFeStackProps extends cdk.StackProps {
   region: string;
 
   sentryDNS: string;
+
+  /** Custom domain to attach to the main branch (e.g. 'rfp.horustech.dev') */
+  customDomain?: string;
 }
 
 export class AmplifyFeStack extends cdk.Stack {
@@ -36,6 +39,7 @@ export class AmplifyFeStack extends cdk.Stack {
       baseApiUrl,
       region,
       sentryDNS,
+      customDomain,
     } = props;
 
     this.amplifyApp = new amplify.App(this, 'NextJsAmplifyApp', {
@@ -72,6 +76,37 @@ export class AmplifyFeStack extends cdk.Stack {
         NEXT_PUBLIC_STAGE: stage,
       },
     });
+
+    // ── Custom domain (e.g. rfp.horustech.dev) ────────────────────────────────
+    // Attaches the custom domain to the branch. After deployment, you must add
+    // a CNAME record in your DNS provider:
+    //   rfp.horustech.dev  →  <amplify-app-id>.amplifyapp.com
+    // AWS will issue an ACM certificate automatically.
+    if (customDomain) {
+      // Parse subdomain vs root domain
+      // e.g. 'rfp.horustech.dev' → domainName='horustech.dev', prefix='rfp'
+      const parts = customDomain.split('.');
+      const domainName = parts.slice(-2).join('.');   // horustech.dev
+      const subdomainPrefix = parts.slice(0, -2).join('.'); // rfp
+
+      const domain = this.amplifyApp.addDomain(domainName, {
+        enableAutoSubdomain: false,
+        autoSubdomainCreationPatterns: [],
+      });
+
+      // Map the subdomain prefix to the branch
+      domain.mapSubDomain(amplifyBranch, subdomainPrefix);
+
+      new cdk.CfnOutput(this, 'CustomDomainUrl', {
+        value: `https://${customDomain}`,
+        description: `Custom domain for the ${branch} branch`,
+      });
+
+      new cdk.CfnOutput(this, 'CustomDomainInstructions', {
+        value: `Add CNAME: ${customDomain} → ${this.amplifyApp.defaultDomain}`,
+        description: 'DNS record to add in your DNS provider',
+      });
+    }
 
     new cdk.CfnOutput(this, 'AmplifyBranchUrl', {
       value: `https://${amplifyBranch.branchName}.${this.amplifyApp.defaultDomain}`,
