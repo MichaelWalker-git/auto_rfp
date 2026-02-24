@@ -11,11 +11,13 @@ import {
   httpErrorMiddleware,
   orgMembershipMiddleware,
   requirePermission,
+  type AuthedEvent,
 } from '@/middleware/rbac-middleware';
+import { auditMiddleware, setAuditContext } from '@/middleware/audit-middleware';
 import middy from '@middy/core';
 import { requireEnv } from '@/helpers/env';
 import { type RFPDocumentContent } from '@auto-rfp/core';
-import { buildS3Key, CONTENT_TYPES, type ExportRequest, sanitizeFileName } from './export-utils';
+import { buildS3Key, CONTENT_TYPES, type ExportRequest, sanitizeFileName } from '@/helpers/export';
 
 const DOCUMENTS_BUCKET = requireEnv('DOCUMENTS_BUCKET');
 const REGION = requireEnv('REGION', 'us-east-1');
@@ -206,7 +208,7 @@ function buildPptxPresentation(doc: RFPDocumentContent): PptxGenJS {
 }
 
 export const baseHandler = async (
-  event: APIGatewayProxyEventV2,
+  event: AuthedEvent,
 ): Promise<APIGatewayProxyResultV2> => {
   try {
     if (!event.body) {
@@ -245,6 +247,13 @@ export const baseHandler = async (
       Key: key,
     }), { expiresIn: PRESIGN_EXPIRES_IN });
 
+    
+    setAuditContext(event, {
+      action: 'DATA_EXPORTED',
+      resource: 'proposal',
+      resourceId: event.queryStringParameters?.projectId ?? 'unknown',
+    });
+
     return apiResponse(200, {
       success: true,
       proposal: { id: proposal.id, title: proposal.document.title },
@@ -272,5 +281,6 @@ export const handler = withSentryLambda(
     .use(authContextMiddleware())
     .use(orgMembershipMiddleware())
     .use(requirePermission('proposal:export'))
+    .use(auditMiddleware())
     .use(httpErrorMiddleware()),
 );

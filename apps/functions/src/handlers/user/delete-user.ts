@@ -16,8 +16,10 @@ import {
   authContextMiddleware,
   httpErrorMiddleware,
   orgMembershipMiddleware,
-  requirePermission
+  requirePermission,
+  type AuthedEvent,
 } from '@/middleware/rbac-middleware';
+import { auditMiddleware, setAuditContext } from '@/middleware/audit-middleware';
 
 const DB_TABLE_NAME = process.env.DB_TABLE_NAME;
 if (!DB_TABLE_NAME) throw new Error('DB_TABLE_NAME env var is not set');
@@ -42,7 +44,7 @@ function parseBody(event: APIGatewayProxyEventV2): any {
 }
 
 export const baseHandler = async (
-  event: APIGatewayProxyEventV2,
+  event: AuthedEvent,
 ): Promise<APIGatewayProxyResultV2> => {
   try {
     const body = parseBody(event);
@@ -142,6 +144,12 @@ export const baseHandler = async (
       }),
     );
 
+    setAuditContext(event, {
+      action: 'USER_DELETED',
+      resource: 'user',
+      resourceId: String(userId),
+    });
+
     return apiResponse(200, {
       ok: true,
       orgId,
@@ -173,5 +181,6 @@ export const handler = withSentryLambda(
     .use(authContextMiddleware())
     .use(orgMembershipMiddleware())
     .use(requirePermission('user:delete'))
-    .use(httpErrorMiddleware())
+    .use(auditMiddleware())
+    .use(httpErrorMiddleware()),
 );

@@ -7,8 +7,10 @@ import {
   authContextMiddleware,
   httpErrorMiddleware,
   orgMembershipMiddleware,
-  requirePermission
+  requirePermission,
+  type AuthedEvent,
 } from '@/middleware/rbac-middleware';
+import { auditMiddleware, setAuditContext } from '@/middleware/audit-middleware';
 import middy from '@middy/core';
 import { SAM_GOV_SECRET_PREFIX } from '@/constants/samgov';
 
@@ -29,6 +31,12 @@ export const baseHandler = async (event: APIGatewayProxyEventV2) => {
 
     await storeApiKey(orgId, SAM_GOV_SECRET_PREFIX, apiKey);
 
+    setAuditContext(event as Parameters<typeof setAuditContext>[0], {
+      action: 'API_KEY_CREATED',
+      resource: 'api_key',
+      resourceId: 'samgov-api-key',
+    });
+
     return apiResponse(201, {
       message: 'API key stored successfully',
       orgId,
@@ -44,5 +52,6 @@ export const handler = withSentryLambda(
     .use(authContextMiddleware())
     .use(orgMembershipMiddleware())
     .use(requirePermission('opportunity:read'))
+    .use(auditMiddleware())
     .use(httpErrorMiddleware()),
 );

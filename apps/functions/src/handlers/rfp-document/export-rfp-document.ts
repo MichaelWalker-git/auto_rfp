@@ -1,5 +1,7 @@
 import type { APIGatewayProxyEventV2, APIGatewayProxyResultV2 } from 'aws-lambda';
 import middy from '@middy/core';
+import { authContextMiddleware, httpErrorMiddleware, orgMembershipMiddleware, requirePermission, type AuthedEvent } from '@/middleware/rbac-middleware';
+import { auditMiddleware, setAuditContext } from '@/middleware/audit-middleware';
 import { GetObjectCommand, PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { withSentryLambda } from '@/sentry-lambda';
@@ -15,7 +17,7 @@ import {
   flattenProposalToText,
   proposalToMarkdown,
   proposalToHtml,
-} from '@/handlers/export/export-utils';
+} from '@/helpers/export';
 
 const DOCUMENTS_BUCKET = requireEnv('DOCUMENTS_BUCKET');
 const REGION = requireEnv('REGION', 'us-east-1');
@@ -75,7 +77,7 @@ async function uploadAndPresign(
 }
 
 export const baseHandler = async (
-  event: APIGatewayProxyEventV2,
+  event: AuthedEvent,
 ): Promise<APIGatewayProxyResultV2> => {
   try {
     if (!event.body) {
@@ -143,6 +145,13 @@ export const baseHandler = async (
 
     const s3Key = buildExportS3Key(orgId, projectId, opportunityId, documentId, title, format);
     const url = await uploadAndPresign(exportContent, s3Key, contentType);
+
+    
+    setAuditContext(event, {
+      action: 'PROPOSAL_EXPORTED',
+      resource: 'proposal',
+      resourceId: event.pathParameters?.documentId ?? event.queryStringParameters?.documentId ?? 'unknown',
+    });
 
     return apiResponse(200, {
       success: true,

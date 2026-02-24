@@ -14,10 +14,12 @@ import {
   authContextMiddleware,
   httpErrorMiddleware,
   orgMembershipMiddleware,
-  requirePermission
+  requirePermission,
+  type AuthedEvent,
 } from '@/middleware/rbac-middleware';
+import { auditMiddleware, setAuditContext } from '@/middleware/audit-middleware';
 export const baseHandler = async (
-  event: APIGatewayProxyEventV2,
+  event: AuthedEvent,
 ): Promise<APIGatewayProxyResultV2> => {
   try {
     const tokenOrgId = getOrgId(event);
@@ -60,6 +62,13 @@ export const baseHandler = async (
       console.warn('Failed to cascade delete PROJECT_KB links:', (cascadeErr as Error)?.message);
     }
 
+    
+    setAuditContext(event, {
+      action: 'ORG_SETTINGS_CHANGED',
+      resource: 'knowledge_base',
+      resourceId: event.pathParameters?.kbId ?? event.queryStringParameters?.kbId ?? 'unknown',
+    });
+
     return apiResponse(200, {
       message: 'Knowledge base deleted successfully',
       orgId,
@@ -83,5 +92,6 @@ export const handler = withSentryLambda(
     .use(authContextMiddleware())
     .use(orgMembershipMiddleware())
     .use(requirePermission('kb:delete'))
-    .use(httpErrorMiddleware())
+    .use(auditMiddleware())
+    .use(httpErrorMiddleware()),
 );

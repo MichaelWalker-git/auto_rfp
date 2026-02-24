@@ -18,7 +18,9 @@ import {
   httpErrorMiddleware,
   orgMembershipMiddleware,
   requirePermission,
+  type AuthedEvent,
 } from '@/middleware/rbac-middleware';
+import { auditMiddleware, setAuditContext } from '@/middleware/audit-middleware';
 
 import {
   RemoveContextOverrideDTOSchema,
@@ -52,7 +54,7 @@ async function saveRecord(record: OpportunityContextRecord): Promise<void> {
 // ─── Handler ──────────────────────────────────────────────────────────────────
 
 const baseHandler = async (
-  event: APIGatewayProxyEventV2,
+  event: AuthedEvent,
 ): Promise<APIGatewayProxyResultV2> => {
   const orgId = getOrgId(event);
   if (!orgId) return apiResponse(401, { error: 'Unauthorized' });
@@ -77,6 +79,13 @@ const baseHandler = async (
 
   if (updatedOverrides.length === existing.overrides.length) {
     // Nothing was removed — item wasn't overridden
+    
+    setAuditContext(event, {
+      action: 'CONFIG_CHANGED',
+      resource: 'config',
+      resourceId: 'opportunity-context',
+    });
+
     return apiResponse(200, { ok: true, removed: false });
   }
 
@@ -98,6 +107,7 @@ const baseHandler = async (
 
 export const handler = withSentryLambda(
   middy(baseHandler)
+    .use(auditMiddleware())
     .use(httpErrorMiddleware())
     .use(authContextMiddleware())
     .use(orgMembershipMiddleware())

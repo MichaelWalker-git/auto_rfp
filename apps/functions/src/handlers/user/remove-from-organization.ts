@@ -11,6 +11,7 @@ import {
   orgMembershipMiddleware,
   requirePermission,
 } from '@/middleware/rbac-middleware';
+import { auditMiddleware, setAuditContext } from '@/middleware/audit-middleware';
 import middy from '@middy/core';
 import { requireEnv } from '@/helpers/env';
 import { docClient } from '@/helpers/db';
@@ -58,6 +59,13 @@ export const baseHandler = async (event: APIGatewayProxyEventV2) => {
       }),
     );
 
+    
+    setAuditContext(event, {
+      action: 'ORG_MEMBER_REMOVED',
+      resource: 'user',
+      resourceId: event.pathParameters?.userId ?? event.queryStringParameters?.userId ?? 'unknown',
+    });
+
     return apiResponse(200, {
       message: 'User removed from organization',
       userId,
@@ -98,5 +106,6 @@ export const handler = withSentryLambda(
     .use(authContextMiddleware())
     .use(orgMembershipMiddleware())
     .use(requirePermission('org:manage_users'))
+    .use(auditMiddleware())
     .use(httpErrorMiddleware()),
 );

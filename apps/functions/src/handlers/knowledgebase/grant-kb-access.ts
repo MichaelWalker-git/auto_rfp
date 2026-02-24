@@ -9,6 +9,7 @@ import {
   orgMembershipMiddleware,
   requirePermission,
 } from '@/middleware/rbac-middleware';
+import { auditMiddleware, setAuditContext } from '@/middleware/audit-middleware';
 import middy from '@middy/core';
 
 export const baseHandler = async (event: APIGatewayProxyEventV2) => {
@@ -31,6 +32,12 @@ export const baseHandler = async (event: APIGatewayProxyEventV2) => {
 
     const access = await grantKBAccess(orgId, userId, kbId, accessLevel, adminUserId ?? undefined);
 
+    setAuditContext(event as Parameters<typeof setAuditContext>[0], {
+      action: 'ORG_MEMBER_ADDED',
+      resource: 'knowledge_base',
+      resourceId: kbId,
+    });
+
     return apiResponse(201, access);
   } catch (err) {
     console.error('Error granting KB access:', err);
@@ -43,5 +50,6 @@ export const handler = withSentryLambda(
     .use(authContextMiddleware())
     .use(orgMembershipMiddleware())
     .use(requirePermission('kb:edit'))
+    .use(auditMiddleware())
     .use(httpErrorMiddleware()),
 );

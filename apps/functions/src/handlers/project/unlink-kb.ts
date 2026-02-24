@@ -8,7 +8,9 @@ import {
   httpErrorMiddleware,
   orgMembershipMiddleware,
   requirePermission,
+  type AuthedEvent,
 } from '@/middleware/rbac-middleware';
+import { auditMiddleware, setAuditContext } from '@/middleware/audit-middleware';
 import middy from '@middy/core';
 
 export const baseHandler = async (event: APIGatewayProxyEventV2) => {
@@ -22,6 +24,13 @@ export const baseHandler = async (event: APIGatewayProxyEventV2) => {
 
     await unlinkKBFromProject(projectId, kbId);
 
+    
+    setAuditContext(event, {
+      action: 'ORG_SETTINGS_CHANGED',
+      resource: 'knowledge_base',
+      resourceId: event.pathParameters?.projectId ?? event.queryStringParameters?.projectId ?? 'unknown',
+    });
+
     return apiResponse(200, { message: 'Knowledge base unlinked from project', projectId, kbId });
   } catch (err) {
     console.error('Error unlinking KB from project:', err);
@@ -34,5 +43,6 @@ export const handler = withSentryLambda(
     .use(authContextMiddleware())
     .use(orgMembershipMiddleware())
     .use(requirePermission('project:edit'))
+    .use(auditMiddleware())
     .use(httpErrorMiddleware()),
 );

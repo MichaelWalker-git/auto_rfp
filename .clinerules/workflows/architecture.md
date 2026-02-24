@@ -152,6 +152,40 @@ Create `docs/<FEATURE-NAME>-IMPLEMENTATION.md` with these sections:
 13. **Acceptance Criteria Checklist** — ready to copy into Linear/Jira
 14. **Summary of New Files** — table of every new file and its purpose
 
+#### 📌 Implementation Status Markers
+
+Every section heading and every implementation ticket **must include a status badge** so developers can track progress at a glance directly in the document.
+
+**Section heading format** (add badge after the section title):
+
+```markdown
+## 3. Data Models & Zod Schemas <!-- ⏳ PENDING -->
+## 3. Data Models & Zod Schemas <!-- ✅ IMPLEMENTED -->
+```
+
+**Implementation ticket format** (add badge after the ticket title):
+
+```markdown
+### AL-1 · Core Schemas (30 min) <!-- ⏳ PENDING -->
+### AL-1 · Core Schemas (30 min) <!-- ✅ IMPLEMENTED -->
+```
+
+**Allowed status values**:
+
+| Badge | Meaning |
+|---|---|
+| `<!-- ⏳ PENDING -->` | Not yet started — default for all new sections/tickets |
+| `<!-- 🚧 IN PROGRESS -->` | Currently being implemented |
+| `<!-- ✅ IMPLEMENTED -->` | Code written, TypeScript compiles, acceptance criteria met |
+| `<!-- ⏭️ SKIPPED -->` | Intentionally skipped (add a reason comment inline) |
+
+**Rules**:
+- Every section (1–14) and every ticket starts with `<!-- ⏳ PENDING -->` when the document is first written.
+- When a developer completes a ticket, they update the badge to `<!-- ✅ IMPLEMENTED -->` in the doc.
+- When all tickets in a section are `✅ IMPLEMENTED`, update the section heading badge too.
+- The **Summary of New Files** table gains a `Status` column — each row starts as `⏳` and is updated to `✅` when the file is created and compiles.
+- Never remove a badge — only update its value.
+
 ---
 
 ### Step 9 — Review & Iterate

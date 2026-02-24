@@ -6,12 +6,14 @@ import {
   httpErrorMiddleware,
   orgMembershipMiddleware,
   requirePermission,
+  type AuthedEvent,
 } from '@/middleware/rbac-middleware';
+import { auditMiddleware, setAuditContext } from '@/middleware/audit-middleware';
 import middy from '@middy/core';
 import { createOrUpdateSubscription } from '@/helpers/calendar-subscription';
 
 const baseHandler = async (
-  event: APIGatewayProxyEventV2,
+  event: AuthedEvent,
 ): Promise<APIGatewayProxyResultV2> => {
   const orgId = event.pathParameters?.orgId;
   const authContext = (event as any).authContext;
@@ -24,6 +26,13 @@ const baseHandler = async (
   try {
     const subscription = await createOrUpdateSubscription(orgId, userId, true);
     
+    
+    setAuditContext(event, {
+      action: 'CONFIG_CHANGED',
+      resource: 'config',
+      resourceId: 'calendar-subscription',
+    });
+
     return apiResponse(200, {
       ok: true,
       message: 'Subscription token regenerated. Previous URLs will no longer work.',
@@ -46,5 +55,6 @@ export const handler = withSentryLambda(
     .use(authContextMiddleware())
     .use(orgMembershipMiddleware())
     .use(requirePermission('org:edit'))
-    .use(httpErrorMiddleware())
+    .use(auditMiddleware())
+    .use(httpErrorMiddleware()),
 );

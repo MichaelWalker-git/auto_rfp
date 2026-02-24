@@ -8,7 +8,9 @@ import {
   httpErrorMiddleware,
   orgMembershipMiddleware,
   requirePermission,
+  type AuthedEvent,
 } from '@/middleware/rbac-middleware';
+import { auditMiddleware, setAuditContext } from '@/middleware/audit-middleware';
 import middy from '@middy/core';
 
 export const baseHandler = async (event: APIGatewayProxyEventV2) => {
@@ -23,6 +25,13 @@ export const baseHandler = async (event: APIGatewayProxyEventV2) => {
     const { orgId, projectId, kbId } = data;
 
     const link = await linkKBToProject(orgId, projectId, kbId, userId ?? undefined);
+
+    
+    setAuditContext(event, {
+      action: 'CONFIG_CHANGED',
+      resource: 'config',
+      resourceId: 'unknown',
+    });
 
     return apiResponse(201, link);
   } catch (err: any) {
@@ -39,5 +48,6 @@ export const handler = withSentryLambda(
     .use(authContextMiddleware())
     .use(orgMembershipMiddleware())
     .use(requirePermission('project:edit'))
+    .use(auditMiddleware())
     .use(httpErrorMiddleware()),
 );

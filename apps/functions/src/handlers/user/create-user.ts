@@ -15,8 +15,10 @@ import {
   authContextMiddleware,
   httpErrorMiddleware,
   orgMembershipMiddleware,
-  requirePermission
+  requirePermission,
+  type AuthedEvent,
 } from '@/middleware/rbac-middleware';
+import { auditMiddleware, setAuditContext } from '@/middleware/audit-middleware';
 
 const ddb = DynamoDBDocumentClient.from(new DynamoDBClient({}), {
   marshallOptions: { removeUndefinedValues: true },
@@ -26,7 +28,7 @@ const cognito = new CognitoIdentityProviderClient({});
 const TABLE = requireEnv('DB_TABLE_NAME');
 const USER_POOL_ID = requireEnv('COGNITO_USER_POOL_ID');
 
-export const baseHandler = async (event: APIGatewayProxyEventV2): Promise<APIGatewayProxyResultV2> => {
+export const baseHandler = async (event: AuthedEvent): Promise<APIGatewayProxyResultV2> => {
   const raw = JSON.parse(event?.body || '');
   const { success, data, error: errors } = CreateUserDTOSchema.safeParse(raw);
   
@@ -53,6 +55,13 @@ export const baseHandler = async (event: APIGatewayProxyEventV2): Promise<APIGat
         markEmailVerified: true,
       },
     );
+
+    setAuditContext(event, {
+      action: 'USER_CREATED',
+      resource: 'user',
+      resourceId: item.userId,
+      changes: { after: { userId: item.userId, email: item.email, role: item.role } },
+    });
 
     return apiResponse(201, {
       orgId: item.orgId,
@@ -133,5 +142,6 @@ export const handler = withSentryLambda(
     .use(authContextMiddleware())
     .use(orgMembershipMiddleware())
     .use(requirePermission('user:create'))
-    .use(httpErrorMiddleware())
+    .use(auditMiddleware())
+    .use(httpErrorMiddleware()),
 );

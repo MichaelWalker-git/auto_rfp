@@ -10,6 +10,7 @@ import {
   httpErrorMiddleware,
   type AuthedEvent,
 } from '@/middleware/rbac-middleware';
+import { auditMiddleware, setAuditContext } from '@/middleware/audit-middleware';
 
 const UpdateRequestSchema = z.object({
   orgId: z.string().uuid(),
@@ -41,6 +42,13 @@ const baseHandler = async (event: AuthedEvent): Promise<APIGatewayProxyResultV2>
       });
     }
 
+    
+    setAuditContext(event, {
+      action: 'CONFIG_CHANGED',
+      resource: 'config',
+      resourceId: event.pathParameters?.projectId ?? 'unknown',
+    });
+
     return apiResponse(200, {
       ok: true,
       project,
@@ -66,5 +74,6 @@ const baseHandler = async (event: AuthedEvent): Promise<APIGatewayProxyResultV2>
 export const handler = withSentryLambda(
   middy(baseHandler)
     .use(authContextMiddleware())
-    .use(httpErrorMiddleware())
+    .use(auditMiddleware())
+    .use(httpErrorMiddleware()),
 );

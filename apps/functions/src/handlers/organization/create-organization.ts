@@ -15,8 +15,10 @@ import {
   authContextMiddleware,
   httpErrorMiddleware,
   orgMembershipMiddleware,
-  requirePermission
+  requirePermission,
+  type AuthedEvent,
 } from '@/middleware/rbac-middleware';
+import { auditMiddleware, setAuditContext } from '@/middleware/audit-middleware';
 
 const DB_TABLE_NAME = requireEnv('DB_TABLE_NAME');
 
@@ -73,6 +75,13 @@ export const baseHandler = async (event: APIGatewayProxyEventV2): Promise<APIGat
       }
     }
 
+    
+    setAuditContext(event, {
+      action: 'ORG_SETTINGS_CHANGED',
+      resource: 'organization',
+      resourceId: newOrganization.id ?? 'unknown',
+    });
+
     return apiResponse(201, newOrganization);
 
   } catch (err) {
@@ -94,5 +103,6 @@ export const handler = withSentryLambda(
     .use(authContextMiddleware())
     .use(orgMembershipMiddleware())
     .use(requirePermission('org:create'))
-    .use(httpErrorMiddleware())
+    .use(auditMiddleware())
+    .use(httpErrorMiddleware()),
 );

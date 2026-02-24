@@ -16,6 +16,7 @@ import {
   requirePermission,
   type AuthedEvent,
 } from '@/middleware/rbac-middleware';
+import { auditMiddleware, setAuditContext } from '@/middleware/audit-middleware';
 import type { AssignmentItem } from '@auto-rfp/core';
 
 export const baseHandler = async (event: AuthedEvent): Promise<APIGatewayProxyResultV2> => {
@@ -107,7 +108,14 @@ export const baseHandler = async (event: AuthedEvent): Promise<APIGatewayProxyRe
     }
   }
 
-  return apiResponse(200, item);
+  
+    setAuditContext(event, {
+      action: 'CONFIG_CHANGED',
+      resource: 'config',
+      resourceId: 'assignment',
+    });
+
+    return apiResponse(200, item);
 };
 
 export const handler = withSentryLambda(
@@ -115,5 +123,6 @@ export const handler = withSentryLambda(
     .use(authContextMiddleware())
     .use(orgMembershipMiddleware())
     .use(requirePermission('question:edit'))
+    .use(auditMiddleware())
     .use(httpErrorMiddleware()),
 );

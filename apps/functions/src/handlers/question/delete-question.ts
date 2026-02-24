@@ -12,8 +12,10 @@ import {
   authContextMiddleware,
   httpErrorMiddleware,
   orgMembershipMiddleware,
-  requirePermission
+  requirePermission,
+  type AuthedEvent,
 } from '@/middleware/rbac-middleware';
+import { auditMiddleware, setAuditContext } from '@/middleware/audit-middleware';
 import { requireEnv } from '@/helpers/env';
 import { deleteItem, docClient, queryBySkPrefix } from '@/helpers/db';
 import { buildQuestionSK } from '@/helpers/question';
@@ -107,7 +109,7 @@ async function deleteAnswerItems(keys: Array<Record<string, any>>): Promise<numb
 }
 
 export const baseHandler = async (
-  event: APIGatewayProxyEventV2,
+  event: AuthedEvent,
 ): Promise<APIGatewayProxyResultV2> => {
   console.log('remove-question event:', JSON.stringify(event));
 
@@ -161,6 +163,13 @@ export const baseHandler = async (
       }
     }
 
+    
+    setAuditContext(event, {
+      action: 'ANSWER_DELETED',
+      resource: 'question',
+      resourceId: event.pathParameters?.questionId ?? event.queryStringParameters?.questionId ?? 'unknown',
+    });
+
     return apiResponse(200, {
       ok: true,
       projectId,
@@ -184,5 +193,6 @@ export const handler = withSentryLambda(
     .use(authContextMiddleware())
     .use(orgMembershipMiddleware())
     .use(requirePermission('question:delete'))
-    .use(httpErrorMiddleware())
+    .use(auditMiddleware())
+    .use(httpErrorMiddleware()),
 );

@@ -10,10 +10,12 @@ import {
   httpErrorMiddleware,
   orgMembershipMiddleware,
   requirePermission,
+  type AuthedEvent,
 } from '@/middleware/rbac-middleware';
+import { auditMiddleware, setAuditContext } from '@/middleware/audit-middleware';
 
 export const baseHandler = async (
-  event: APIGatewayProxyEventV2,
+  event: AuthedEvent,
 ): Promise<APIGatewayProxyResultV2> => {
   try {
     const { projectId } = event.pathParameters || {};
@@ -37,6 +39,12 @@ export const baseHandler = async (
     } catch (cascadeErr) {
       console.warn('Failed to cascade delete PROJECT_KB links:', (cascadeErr as Error)?.message);
     }
+
+    setAuditContext(event, {
+      action: 'PROJECT_DELETED',
+      resource: 'project',
+      resourceId: projectId,
+    });
 
     return apiResponse(200, {
       success: true,
@@ -64,5 +72,6 @@ export const handler = withSentryLambda(
     .use(authContextMiddleware())
     .use(orgMembershipMiddleware())
     .use(requirePermission('project:delete'))
+    .use(auditMiddleware())
     .use(httpErrorMiddleware()),
 );

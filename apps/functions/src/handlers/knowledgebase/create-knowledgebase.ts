@@ -10,11 +10,13 @@ import {
   authContextMiddleware,
   httpErrorMiddleware,
   orgMembershipMiddleware,
-  requirePermission
+  requirePermission,
+  type AuthedEvent,
 } from '@/middleware/rbac-middleware';
+import { auditMiddleware, setAuditContext } from '@/middleware/audit-middleware';
 
 export const baseHandler = async (
-  event: APIGatewayProxyEventV2,
+  event: AuthedEvent,
 ): Promise<APIGatewayProxyResultV2> => {
   const tokenOrgId = getOrgId(event);
   const { orgId: queryOrgId } = event.queryStringParameters || {};
@@ -53,6 +55,13 @@ export const baseHandler = async (
       }
     }
 
+    
+    setAuditContext(event, {
+      action: 'ORG_SETTINGS_CHANGED',
+      resource: 'knowledge_base',
+      resourceId: 'knowledgebase',
+    });
+
     return apiResponse(201, created);
   } catch (err) {
     console.error('Error in createKnowledgeBase handler:', err);
@@ -73,5 +82,6 @@ export const handler = withSentryLambda(
     .use(authContextMiddleware())
     .use(orgMembershipMiddleware())
     .use(requirePermission('kb:create'))
-    .use(httpErrorMiddleware())
+    .use(auditMiddleware())
+    .use(httpErrorMiddleware()),
 );

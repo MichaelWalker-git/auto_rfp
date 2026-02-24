@@ -14,7 +14,9 @@ import {
   httpErrorMiddleware,
   orgMembershipMiddleware,
   requirePermission,
+  type AuthedEvent,
 } from '@/middleware/rbac-middleware';
+import { auditMiddleware, setAuditContext } from '@/middleware/audit-middleware';
 import { requireEnv } from '@/helpers/env';
 import { docClient } from '@/helpers/db';
 import type { DBProjectOutcome } from '@/types/project-outcome';
@@ -82,6 +84,13 @@ export const baseHandler = async (
         })
         .catch((err) => console.error('Failed to send outcome notification:', err));
     }
+
+    
+    setAuditContext(event, {
+      action: 'CONFIG_CHANGED',
+      resource: 'config',
+      resourceId: event.pathParameters?.projectId ?? event.queryStringParameters?.projectId ?? 'unknown',
+    });
 
     return apiResponse(200, { outcome });
   } catch (err: unknown) {
@@ -159,5 +168,6 @@ export const handler = withSentryLambda(
     .use(authContextMiddleware())
     .use(orgMembershipMiddleware())
     .use(requirePermission('project:edit'))
-    .use(httpErrorMiddleware())
+    .use(auditMiddleware())
+    .use(httpErrorMiddleware()),
 );

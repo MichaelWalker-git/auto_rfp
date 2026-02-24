@@ -9,6 +9,7 @@ import {
   orgMembershipMiddleware,
   requirePermission,
 } from '@/middleware/rbac-middleware';
+import { auditMiddleware, setAuditContext } from '@/middleware/audit-middleware';
 import { getTemplate, replaceMacros } from '@/helpers/template';
 import { getProjectById } from '@/helpers/project';
 
@@ -102,6 +103,13 @@ const baseHandler = async (
       content: htmlParts.join('\n'),
     };
 
+    
+    setAuditContext(event, {
+      action: 'CONFIG_CHANGED',
+      resource: 'template',
+      resourceId: event.pathParameters?.templateId ?? event.queryStringParameters?.templateId ?? 'unknown',
+    });
+
     return apiResponse(200, {
       proposal: proposalDocument,
       templateId: template.id,
@@ -122,5 +130,6 @@ export const handler = withSentryLambda(
     .use(authContextMiddleware())
     .use(orgMembershipMiddleware())
     .use(requirePermission('template:apply'))
+    .use(auditMiddleware())
     .use(httpErrorMiddleware()),
 );

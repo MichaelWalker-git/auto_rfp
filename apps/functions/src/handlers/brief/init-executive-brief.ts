@@ -19,8 +19,10 @@ import {
   authContextMiddleware,
   httpErrorMiddleware,
   orgMembershipMiddleware,
-  requirePermission
+  requirePermission,
+  type AuthedEvent,
 } from '@/middleware/rbac-middleware';
+import { auditMiddleware, setAuditContext } from '@/middleware/audit-middleware';
 import middy from '@middy/core';
 import { requireEnv } from '@/helpers/env';
 import { nowIso } from '@/helpers/date';
@@ -40,7 +42,7 @@ function buildEmptySection() {
 }
 
 export const baseHandler = async (
-  event: APIGatewayProxyEventV2,
+  event: AuthedEvent,
 ): Promise<APIGatewayProxyResultV2> => {
   try {
     const bodyJson = event.body ? JSON.parse(event.body) : {};
@@ -135,6 +137,13 @@ export const baseHandler = async (
 
     const effectiveSk = isRegeneration ? (existingBrief as any)[SK_NAME] : sk;
 
+    
+    setAuditContext(event, {
+      action: 'AI_GENERATION_STARTED',
+      resource: 'pipeline',
+      resourceId: event.queryStringParameters?.projectId ?? 'unknown',
+    });
+
     return apiResponse(200, {
       ok: true,
       projectId,
@@ -160,5 +169,6 @@ export const handler = withSentryLambda(
     .use(authContextMiddleware())
     .use(orgMembershipMiddleware())
     .use(requirePermission('brief:create'))
-    .use(httpErrorMiddleware())
+    .use(auditMiddleware())
+    .use(httpErrorMiddleware()),
 );

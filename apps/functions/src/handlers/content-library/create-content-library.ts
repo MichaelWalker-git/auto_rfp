@@ -12,7 +12,9 @@ import { apiResponse, getOrgId } from '@/helpers/api';
 import { docClient } from '@/helpers/db';
 import { requireEnv } from '@/helpers/env';
 import { withSentryLambda } from '@/sentry-lambda';
-import { authContextMiddleware, httpErrorMiddleware, orgMembershipMiddleware, } from '@/middleware/rbac-middleware';
+import { authContextMiddleware, httpErrorMiddleware, orgMembershipMiddleware,   type AuthedEvent,
+} from '@/middleware/rbac-middleware';
+import { auditMiddleware, setAuditContext } from '@/middleware/audit-middleware';
 import { nowIso } from '@/helpers/date';
 import { PK_NAME, SK_NAME } from '@/constants/common';
 import { indexContentLibrary } from '@/helpers/content-library';
@@ -24,7 +26,7 @@ const TABLE_NAME = requireEnv('DB_TABLE_NAME');
  * POST /api/content-library/items
  */
 async function baseHandler(
-  event: APIGatewayProxyEventV2
+  event: AuthedEvent
 ): Promise<APIGatewayProxyResultV2> {
   try {
     const body = JSON.parse(event.body || '');
@@ -94,6 +96,13 @@ async function baseHandler(
 
     await indexContentLibrary(orgId, dbItem)
 
+    
+    setAuditContext(event, {
+      action: 'CONFIG_CHANGED',
+      resource: 'knowledge_base',
+      resourceId: 'content-library',
+    });
+
     return apiResponse(201, { data: item });
   } catch (error) {
     console.error('Error creating content library item:', error);
@@ -108,5 +117,6 @@ export const handler = withSentryLambda(
   middy(baseHandler)
     .use(authContextMiddleware())
     .use(orgMembershipMiddleware())
-    .use(httpErrorMiddleware())
+    .use(auditMiddleware())
+    .use(httpErrorMiddleware()),
 );

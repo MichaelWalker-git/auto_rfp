@@ -8,7 +8,9 @@ import {
   httpErrorMiddleware,
   orgMembershipMiddleware,
   requirePermission,
+  type AuthedEvent,
 } from '@/middleware/rbac-middleware';
+import { auditMiddleware, setAuditContext } from '@/middleware/audit-middleware';
 import { requireEnv } from '@/helpers/env';
 import { docClient } from '@/helpers/db';
 import { apiResponse } from '@/helpers/api';
@@ -113,6 +115,13 @@ export const baseHandler = async (
       failed,
     };
     
+    
+    setAuditContext(event, {
+      action: 'ANSWER_EDITED',
+      resource: 'answer',
+      resourceId: event.queryStringParameters?.clusterId ?? 'unknown',
+    });
+
     return apiResponse(200, response);
   } catch (err) {
     console.error('apply-cluster-answer error:', err);
@@ -128,5 +137,6 @@ export const handler = withSentryLambda(
     .use(authContextMiddleware())
     .use(orgMembershipMiddleware())
     .use(requirePermission('answer:edit'))
-    .use(httpErrorMiddleware())
+    .use(auditMiddleware())
+    .use(httpErrorMiddleware()),
 );

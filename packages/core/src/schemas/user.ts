@@ -88,6 +88,8 @@ export const ALL_PERMISSIONS = [
   'collaboration:activity',
   'notification:read',
   'notification:manage',
+  'audit:read',
+  'audit:report',
 ] as const;
 
 export type Permission = (typeof ALL_PERMISSIONS)[number];

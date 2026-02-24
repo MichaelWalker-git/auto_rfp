@@ -31,6 +31,7 @@ import {
   MessageSquare,
   Search,
   Settings,
+  ShieldCheck,
   Target,
   Users
 } from 'lucide-react';
@@ -44,6 +45,7 @@ import { useCurrentOrganization } from '@/context/organization-context';
 import { useProjectContext } from '@/context/project-context';
 import { OrganizationBadge } from '@/components/organization-badge';
 import { GlobalHeader } from '@/components/global/global-header';
+import { usePermission } from '@/components/permission-wrapper';
 
 interface RouteInfo {
   orgId: string | null;
@@ -101,6 +103,7 @@ function AppSidebar() {
   const pathname = usePathname();
   const { currentOrganization } = useCurrentOrganization();
   const { currentProject } = useProjectContext();
+  const canViewAudit = usePermission('audit:read');
 
   const route = useMemo(() => getRouteIds(pathname), [pathname]);
 
@@ -118,10 +121,11 @@ function AppSidebar() {
           { title: 'Deadlines', url: `/organizations/${orgId}/deadlines`, icon: CalendarClock },
           { title: 'Templates', url: `/organizations/${orgId}/templates`, icon: LayoutTemplate },
           { title: 'Team', url: `/organizations/${orgId}/team`, icon: Users },
+          ...(canViewAudit ? [{ title: 'Audit Trail', url: `/organizations/${orgId}/audit`, icon: ShieldCheck }] : []),
           { title: 'Settings', url: `/organizations/${orgId}/settings`, icon: Settings },
         ]
         : [],
-    [orgId]
+    [orgId, canViewAudit]
   );
 
   const projectNav: NavItem[] = useMemo(

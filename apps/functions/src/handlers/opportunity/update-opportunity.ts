@@ -10,7 +10,9 @@ import {
   httpErrorMiddleware,
   orgMembershipMiddleware,
   requirePermission,
+  type AuthedEvent,
 } from '@/middleware/rbac-middleware';
+import { auditMiddleware, setAuditContext } from '@/middleware/audit-middleware';
 
 import { updateOpportunity, getOpportunity } from '@/helpers/opportunity';
 import { OpportunityItemSchema } from '@auto-rfp/core';
@@ -61,6 +63,13 @@ const baseHandler = async (event: APIGatewayProxyEventV2): Promise<APIGatewayPro
       patch,
     });
 
+    
+    setAuditContext(event, {
+      action: 'CONFIG_CHANGED',
+      resource: 'config',
+      resourceId: event.pathParameters?.opportunityId ?? event.queryStringParameters?.opportunityId ?? 'unknown',
+    });
+
     return apiResponse(200, {
       ok: true,
       oppId,
@@ -93,6 +102,7 @@ const baseHandler = async (event: APIGatewayProxyEventV2): Promise<APIGatewayPro
 
 export const handler = withSentryLambda(
   middy<APIGatewayProxyEventV2, APIGatewayProxyResultV2>(baseHandler)
+    .use(auditMiddleware())
     .use(httpErrorMiddleware())
     .use(authContextMiddleware())
     .use(orgMembershipMiddleware())

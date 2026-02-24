@@ -10,6 +10,7 @@ import {
   orgMembershipMiddleware,
   requirePermission,
 } from '@/middleware/rbac-middleware';
+import { auditMiddleware, setAuditContext } from '@/middleware/audit-middleware';
 import { nowIso } from '@/helpers/date';
 import { putTemplate, saveTemplateVersion } from '@/helpers/template';
 
@@ -76,6 +77,13 @@ const baseHandler = async (
     };
 
     await putTemplate(item);
+    
+    setAuditContext(event, {
+      action: 'CONFIG_CHANGED',
+      resource: 'template',
+      resourceId: 'template',
+    });
+
     return apiResponse(201, { data: item });
   } catch (err) {
     console.error('Error creating template:', err);
@@ -91,5 +99,6 @@ export const handler = withSentryLambda(
     .use(authContextMiddleware())
     .use(orgMembershipMiddleware())
     .use(requirePermission('template:create'))
+    .use(auditMiddleware())
     .use(httpErrorMiddleware()),
 );

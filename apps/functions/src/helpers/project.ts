@@ -1,10 +1,10 @@
 import { BatchWriteCommand, GetCommand, ScanCommand } from '@aws-sdk/lib-dynamodb';
 import { v4 as uuidv4 } from 'uuid';
-import { PK_NAME, SK_NAME } from '../constants/common';
-import { ORG_PK, PROJECT_PK } from '../constants/organization';
+import { PK_NAME, SK_NAME } from '@/constants/common';
+import { ORG_PK, PROJECT_PK } from '@/constants/organization';
 import { createItem, DBItem, docClient } from './db';
 import { requireEnv } from './env';
-import { DBProjectItem } from '../types/project';
+import { DBProjectItem } from '@/types/project';
 import { safeSplitAt } from './safe-string';
 import { CreateProjectDTO, ProjectItem } from '@auto-rfp/core';
 
@@ -15,7 +15,7 @@ export async function createProject(dto: CreateProjectDTO): Promise<ProjectItem>
   const projectId = uuidv4();
   const sortKey = `${orgId}#${projectId}`;
 
-  const projectItem = await createItem<DBProjectItem>(
+  return await createItem<DBProjectItem>(
     PROJECT_PK,
     sortKey,
     {
@@ -25,8 +25,6 @@ export async function createProject(dto: CreateProjectDTO): Promise<ProjectItem>
       description,
     }
   );
-
-  return projectItem;
 }
 
 export async function getProjectById(projectId: string): Promise<DBProjectItem| null> {

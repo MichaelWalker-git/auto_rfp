@@ -6,12 +6,14 @@ import { apiResponse, getOrgId } from '@/helpers/api';
 import { docClient } from '@/helpers/db';
 import { requireEnv } from '@/helpers/env';
 import { withSentryLambda } from '@/sentry-lambda';
-import { authContextMiddleware, httpErrorMiddleware, orgMembershipMiddleware, } from '@/middleware/rbac-middleware';
+import { authContextMiddleware, httpErrorMiddleware, orgMembershipMiddleware,   type AuthedEvent,
+} from '@/middleware/rbac-middleware';
+import { auditMiddleware, setAuditContext } from '@/middleware/audit-middleware';
 
 const TABLE_NAME = requireEnv('DB_TABLE_NAME');
 
 async function baseHandler(
-  event: APIGatewayProxyEventV2
+  event: AuthedEvent
 ): Promise<APIGatewayProxyResultV2> {
   try {
     const itemId = event.pathParameters?.id;
@@ -85,6 +87,13 @@ async function baseHandler(
       }
     }
 
+    
+    setAuditContext(event, {
+      action: 'CONFIG_CHANGED',
+      resource: 'knowledge_base',
+      resourceId: event.pathParameters?.id ?? 'unknown',
+    });
+
     return apiResponse(200, { message: 'Usage tracked' });
   } catch (error) {
     console.error('Error tracking content library usage:', error);
@@ -99,5 +108,6 @@ export const handler = withSentryLambda(
   middy(baseHandler)
     .use(authContextMiddleware())
     .use(orgMembershipMiddleware())
-    .use(httpErrorMiddleware())
+    .use(auditMiddleware())
+    .use(httpErrorMiddleware()),
 );

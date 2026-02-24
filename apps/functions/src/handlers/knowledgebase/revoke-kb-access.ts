@@ -9,6 +9,7 @@ import {
   orgMembershipMiddleware,
   requirePermission,
 } from '@/middleware/rbac-middleware';
+import { auditMiddleware, setAuditContext } from '@/middleware/audit-middleware';
 import middy from '@middy/core';
 
 export const baseHandler = async (event: APIGatewayProxyEventV2) => {
@@ -31,6 +32,13 @@ export const baseHandler = async (event: APIGatewayProxyEventV2) => {
 
     await revokeKBAccess(userId, kbId);
 
+    
+    setAuditContext(event, {
+      action: 'ORG_MEMBER_REMOVED',
+      resource: 'knowledge_base',
+      resourceId: event.pathParameters?.kbId ?? event.queryStringParameters?.kbId ?? 'unknown',
+    });
+
     return apiResponse(200, { message: 'KB access revoked', userId, kbId });
   } catch (err) {
     console.error('Error revoking KB access:', err);
@@ -43,5 +51,6 @@ export const handler = withSentryLambda(
     .use(authContextMiddleware())
     .use(orgMembershipMiddleware())
     .use(requirePermission('kb:edit'))
+    .use(auditMiddleware())
     .use(httpErrorMiddleware()),
 );

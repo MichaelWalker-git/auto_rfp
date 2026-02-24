@@ -9,11 +9,13 @@ import {
   authContextMiddleware,
   httpErrorMiddleware,
   orgMembershipMiddleware,
-  requirePermission
+  requirePermission,
+  type AuthedEvent,
 } from '@/middleware/rbac-middleware';
+import { auditMiddleware, setAuditContext } from '@/middleware/audit-middleware';
 
 export const baseHandler = async (
-  event: APIGatewayProxyEventV2,
+  event: AuthedEvent,
 ): Promise<APIGatewayProxyResultV2> => {
   if (!event.body) {
     return apiResponse(400, { message: 'Request body is missing' });
@@ -40,6 +42,13 @@ export const baseHandler = async (
     const userId = getUserId(event) ?? 'system';
     const newDocument = await createDocument(data, userId);
 
+    
+    setAuditContext(event, {
+      action: 'DOCUMENT_UPLOADED',
+      resource: 'document',
+      resourceId: newDocument.id ?? 'unknown',
+    });
+
     return apiResponse(201, newDocument);
   } catch (err) {
     console.error('Error in createDocument handler:', err);
@@ -60,5 +69,6 @@ export const handler = withSentryLambda(
     .use(authContextMiddleware())
     .use(orgMembershipMiddleware())
     .use(requirePermission('document:create'))
-    .use(httpErrorMiddleware())
+    .use(auditMiddleware())
+    .use(httpErrorMiddleware()),
 );

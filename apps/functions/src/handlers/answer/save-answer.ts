@@ -14,6 +14,7 @@ import {
   requirePermission,
   type AuthedEvent,
 } from '@/middleware/rbac-middleware';
+import { auditMiddleware, setAuditContext } from '@/middleware/audit-middleware';
 import middy from '@middy/core';
 import { requireEnv } from '@/helpers/env';
 import { DBItem, docClient } from '@/helpers/db';
@@ -92,6 +93,12 @@ export const baseHandler = async (event: AuthedEvent): Promise<APIGatewayProxyRe
         console.warn('Failed to log activity:', err);
       });
     }
+
+    setAuditContext(event, {
+      action: 'ANSWER_EDITED',
+      resource: 'answer',
+      resourceId: data.questionId ?? 'unknown',
+    });
 
     return apiResponse(200, savedAnswer);
   } catch (err) {
@@ -293,5 +300,6 @@ export const handler = withSentryLambda(
     .use(authContextMiddleware())
     .use(orgMembershipMiddleware())
     .use(requirePermission('answer:edit'))
+    .use(auditMiddleware())
     .use(httpErrorMiddleware()),
 );

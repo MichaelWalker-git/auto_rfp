@@ -7,7 +7,9 @@ import {
   httpErrorMiddleware,
   orgMembershipMiddleware,
   requirePermission,
+  type AuthedEvent,
 } from '@/middleware/rbac-middleware';
+import { auditMiddleware, setAuditContext } from '@/middleware/audit-middleware';
 import { apiResponse, getOrgId } from '@/helpers/api';
 import { getItem, updateItem } from '@/helpers/db';
 import { requireEnv } from '@/helpers/env';
@@ -279,6 +281,13 @@ export const baseHandler = async (event: APIGatewayProxyEventV2) => {
       { condition: 'attribute_exists(#pk) AND attribute_exists(#sk)' },
     );
 
+    
+    setAuditContext(event, {
+      action: 'DATA_EXPORTED',
+      resource: 'proposal',
+      resourceId: event.pathParameters?.documentId ?? event.queryStringParameters?.documentId ?? 'unknown',
+    });
+
     return apiResponse(200, {
       message: 'Document synced to Google Drive',
       googleDriveFileId,
@@ -297,5 +306,6 @@ export const handler = withSentryLambda(
     .use(authContextMiddleware())
     .use(orgMembershipMiddleware())
     .use(requirePermission('org:edit'))
+    .use(auditMiddleware())
     .use(httpErrorMiddleware()),
 );

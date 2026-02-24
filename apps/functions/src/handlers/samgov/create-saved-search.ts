@@ -13,7 +13,9 @@ import {
   httpErrorMiddleware,
   orgMembershipMiddleware,
   requirePermission,
+  type AuthedEvent,
 } from '@/middleware/rbac-middleware';
+import { auditMiddleware, setAuditContext } from '@/middleware/audit-middleware';
 
 import {
   type CreateSavedSearchRequest,
@@ -38,7 +40,7 @@ function normalizeFrequency(f?: string) {
 
 // ---------------- handler ----------------
 export const baseHandler = async (
-  event: APIGatewayProxyEventV2,
+  event: AuthedEvent,
 ): Promise<APIGatewayProxyResultV2> => {
   try {
     if (!event.body) return apiResponse(400, { message: 'Request body is required' });
@@ -113,6 +115,13 @@ export const baseHandler = async (
       }),
     );
 
+    
+    setAuditContext(event, {
+      action: 'CONFIG_CHANGED',
+      resource: 'config',
+      resourceId: 'unknown',
+    });
+
     return apiResponse(200, validated.data);
   } catch (err: any) {
     console.error('Error in create-saved-search:', err);
@@ -128,5 +137,6 @@ export const handler = withSentryLambda(
     .use(authContextMiddleware())
     .use(orgMembershipMiddleware())
     .use(requirePermission('opportunity:create'))
+    .use(auditMiddleware())
     .use(httpErrorMiddleware()),
 );

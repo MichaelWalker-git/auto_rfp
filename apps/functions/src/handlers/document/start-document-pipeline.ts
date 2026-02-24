@@ -8,8 +8,10 @@ import {
   authContextMiddleware,
   httpErrorMiddleware,
   orgMembershipMiddleware,
-  requirePermission
+  requirePermission,
+  type AuthedEvent,
 } from '@/middleware/rbac-middleware';
+import { auditMiddleware, setAuditContext } from '@/middleware/audit-middleware';
 import middy from '@middy/core';
 import { requireEnv } from '@/helpers/env';
 
@@ -23,7 +25,7 @@ interface StartPipelineRequestBody {
 }
 
 export const baseHandler = async (
-  event: APIGatewayProxyEventV2,
+  event: AuthedEvent,
 ): Promise<APIGatewayProxyResultV2> => {
   console.log('start-document-pipeline event:', JSON.stringify(event));
 
@@ -71,6 +73,13 @@ export const baseHandler = async (
       })
       .catch((err) => console.error('Failed to send RFP_UPLOADED notification:', err));
 
+    
+    setAuditContext(event, {
+      action: 'CONFIG_CHANGED',
+      resource: 'config',
+      resourceId: 'unknown',
+    });
+
     return apiResponse(202, {
       message: 'Document pipeline started',
       executionArn: startRes.executionArn,
@@ -90,5 +99,6 @@ export const handler = withSentryLambda(
     .use(authContextMiddleware())
     .use(orgMembershipMiddleware())
     .use(requirePermission('document:create'))
-    .use(httpErrorMiddleware())
+    .use(auditMiddleware())
+    .use(httpErrorMiddleware()),
 );

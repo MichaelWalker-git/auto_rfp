@@ -9,8 +9,10 @@ import {
   authContextMiddleware,
   httpErrorMiddleware,
   orgMembershipMiddleware,
-  requirePermission
+  requirePermission,
+  type AuthedEvent,
 } from '@/middleware/rbac-middleware';
+import { auditMiddleware, setAuditContext } from '@/middleware/audit-middleware';
 import middy from '@middy/core';
 import { requireEnv } from '@/helpers/env';
 import { UpdateProjectDTO, UpdateProjectSchema } from '@auto-rfp/core';
@@ -19,7 +21,7 @@ import { docClient } from '@/helpers/db';
 const DB_TABLE_NAME = requireEnv('DB_TABLE_NAME');
 
 export const baseHandler = async (
-  event: APIGatewayProxyEventV2,
+  event: AuthedEvent,
 ): Promise<APIGatewayProxyResultV2> => {
   try {
     const projectId = event.pathParameters?.projectId ?? event.queryStringParameters?.projectId;
@@ -62,6 +64,13 @@ export const baseHandler = async (
     }
 
     const updated = await updateProject(orgId, projectId, dto);
+
+    setAuditContext(event, {
+      action: 'PROJECT_UPDATED',
+      resource: 'project',
+      resourceId: projectId,
+      changes: { after: dto },
+    });
 
     return apiResponse(200, updated);
   } catch (err: any) {
@@ -142,5 +151,6 @@ export const handler = withSentryLambda(
     .use(authContextMiddleware())
     .use(orgMembershipMiddleware())
     .use(requirePermission('project:edit'))
-    .use(httpErrorMiddleware())
+    .use(auditMiddleware())
+    .use(httpErrorMiddleware()),
 );
