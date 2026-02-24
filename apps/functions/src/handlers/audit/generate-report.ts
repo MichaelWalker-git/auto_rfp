@@ -42,13 +42,27 @@ const buildSecurityEvents = (logs: AuditLogEntry[]) =>
 const buildExportLog = (logs: AuditLogEntry[]) =>
   logs.filter((l) => ['DATA_EXPORTED', 'DOCUMENT_EXPORTED', 'PROPOSAL_EXPORTED', 'REPORT_GENERATED'].includes(l.action));
 
+/**
+ * Neutralize CSV formula injection (CWE-1236 / OWASP CSV Injection).
+ * Cells starting with =, +, -, @, TAB, or CR are prefixed with a single quote
+ * so spreadsheet applications treat them as plain text, not formulas.
+ * The value is then double-quote wrapped with internal quotes escaped.
+ */
+const sanitizeCsvCell = (v: unknown): string => {
+  const raw = String(v ?? '');
+  // Prefix formula-triggering characters with a tab to neutralize them.
+  // Using \t prefix is the OWASP-recommended approach that preserves readability.
+  const safe = /^[=+\-@\t\r]/.test(raw) ? `\t${raw}` : raw;
+  // Wrap in double quotes and escape any internal double quotes
+  return `"${safe.replace(/"/g, '""')}"`;
+};
+
 const toCsv = (rows: AuditLogEntry[]): string => {
   if (rows.length === 0) return '';
   const headers: (keyof AuditLogEntry)[] = ['logId', 'timestamp', 'userId', 'userName', 'organizationId', 'action', 'resource', 'resourceId', 'result', 'ipAddress', 'userAgent', 'errorMessage'];
-  const escape = (v: unknown) => `"${String(v ?? '').replace(/"/g, '""')}"`;
   return [
     headers.join(','),
-    ...rows.map((r) => headers.map((h) => escape(r[h])).join(',')),
+    ...rows.map((r) => headers.map((h) => sanitizeCsvCell(r[h])).join(',')),
   ].join('\n');
 };
 
