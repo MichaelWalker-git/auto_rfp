@@ -11,6 +11,7 @@ import {
   orgMembershipMiddleware,
   requirePermission,
 } from '@/middleware/rbac-middleware';
+import { auditMiddleware, setAuditContext } from '@/middleware/audit-middleware';
 import middy from '@middy/core';
 import { requireEnv } from '@/helpers/env';
 import { docClient } from '@/helpers/db';
@@ -101,6 +102,12 @@ export const baseHandler = async (event: APIGatewayProxyEventV2) => {
       }),
     );
 
+    setAuditContext(event as Parameters<typeof setAuditContext>[0], {
+      action: 'ORG_MEMBER_ADDED',
+      resource: 'user',
+      resourceId: userId,
+    });
+
     return apiResponse(201, {
       message: 'User added to organization',
       userId,
@@ -121,5 +128,6 @@ export const handler = withSentryLambda(
     .use(authContextMiddleware())
     .use(orgMembershipMiddleware())
     .use(requirePermission('org:manage_users'))
+    .use(auditMiddleware())
     .use(httpErrorMiddleware()),
 );

@@ -1,6 +1,6 @@
 import type { APIGatewayProxyEventV2, APIGatewayProxyResultV2 } from 'aws-lambda';
 import middy from '@middy/core';
-import { ApplyTemplateDTOSchema, type ProposalDocument } from '@auto-rfp/core';
+import { ApplyTemplateDTOSchema, type RFPDocumentContent } from '@auto-rfp/core';
 import { apiResponse, getOrgId } from '@/helpers/api';
 import { withSentryLambda } from '@/sentry-lambda';
 import {
@@ -9,6 +9,7 @@ import {
   orgMembershipMiddleware,
   requirePermission,
 } from '@/middleware/rbac-middleware';
+import { auditMiddleware, setAuditContext } from '@/middleware/audit-middleware';
 import { getTemplate, replaceMacros } from '@/helpers/template';
 import { getProjectById } from '@/helpers/project';
 
@@ -28,7 +29,7 @@ const resolveSystemMacros = async (
     opportunity_id: (project as any)?.opportunityId ?? '',
     agency_name: (project as any)?.agencyName ?? '',
     current_date: new Date().toISOString().split('T')[0] ?? '',
-    proposal_title: (project as any)?.proposalTitle ?? (project as any)?.name ?? '',
+    proposal_title: (project as any)?.title ?? (project as any)?.name ?? '',
   };
 };
 
@@ -56,47 +57,58 @@ const baseHandler = async (
     const systemMacros = await resolveSystemMacros(data.projectId, orgId);
     const allMacros = { ...systemMacros, ...(data.customMacros ?? {}) };
 
-    const sections = template.sections
+    // Build HTML from template sections — structure is expressed via HTML headings
+    const filteredSections = template.sections
       .filter(s => data.includeOptionalSections || s.required)
-      .sort((a, b) => a.order - b.order)
-      .map(section => ({
-        id: section.id,
-        title: replaceMacros(section.title, allMacros),
-        summary: section.description
-          ? replaceMacros(section.description, allMacros)
-          : null,
-        subsections: (section.subsections ?? [])
-          .sort((a, b) => a.order - b.order)
-          .map(sub => ({
-            id: sub.id,
-            title: replaceMacros(sub.title, allMacros),
-            content: replaceMacros(sub.content, allMacros),
-          })),
-      }));
+      .sort((a, b) => a.order - b.order);
 
-    const finalSections = sections.map(section => ({
-      ...section,
-      subsections: section.subsections.length > 0
-        ? section.subsections
-        : [{
-            id: `${section.id}-content`,
-            title: section.title,
-            content: replaceMacros(
-              template.sections.find(s => s.id === section.id)?.content ?? '',
-              allMacros,
-            ),
-          }],
-    }));
+    const htmlParts: string[] = [
+      `<h1 style="font-size:2em;font-weight:700;margin:0 0 0.5em;color:#1a1a2e;border-bottom:3px solid #4f46e5;padding-bottom:0.3em">${replaceMacros(template.name, allMacros)}</h1>`,
+    ];
 
-    const proposalDocument: ProposalDocument = {
-      proposalTitle: replaceMacros(template.name, allMacros),
+    if (template.description) {
+      htmlParts.push(
+        `<div style="background:#eff6ff;border-left:4px solid #4f46e5;padding:1em 1.2em;margin:1em 0;border-radius:0 6px 6px 0"><p style="margin:0;line-height:1.7;color:#374151">${replaceMacros(template.description, allMacros)}</p></div>`,
+      );
+    }
+
+    for (const section of filteredSections) {
+      const sectionTitle = replaceMacros(section.title, allMacros);
+      htmlParts.push(
+        `<h2 style="font-size:1.4em;font-weight:700;margin:1.5em 0 0.5em;color:#1a1a2e;border-bottom:1px solid #e2e8f0;padding-bottom:0.2em">${sectionTitle}</h2>`,
+      );
+
+      if (section.description) {
+        htmlParts.push(
+          `<p style="margin:0 0 1em;line-height:1.7;color:#374151"><em>${replaceMacros(section.description, allMacros)}</em></p>`,
+        );
+      }
+
+      if (section.content?.trim()) {
+        htmlParts.push(
+          `<p style="margin:0 0 1em;line-height:1.7;color:#374151">${replaceMacros(section.content, allMacros)}</p>`,
+        );
+      }
+
+      // Sections no longer have subsections — content is stored directly in section.content
+    }
+
+    const proposalDocument: RFPDocumentContent = {
+      title: replaceMacros(template.name, allMacros),
       customerName: allMacros.agency_name || null,
       opportunityId: allMacros.opportunity_id || null,
       outlineSummary: template.description
         ? replaceMacros(template.description, allMacros)
         : null,
-      sections: finalSections,
+      content: htmlParts.join('\n'),
     };
+
+    
+    setAuditContext(event, {
+      action: 'CONFIG_CHANGED',
+      resource: 'template',
+      resourceId: event.pathParameters?.templateId ?? event.queryStringParameters?.templateId ?? 'unknown',
+    });
 
     return apiResponse(200, {
       proposal: proposalDocument,
@@ -118,5 +130,6 @@ export const handler = withSentryLambda(
     .use(authContextMiddleware())
     .use(orgMembershipMiddleware())
     .use(requirePermission('template:apply'))
+    .use(auditMiddleware())
     .use(httpErrorMiddleware()),
 );

@@ -13,7 +13,9 @@ import {
   authContextMiddleware,
   httpErrorMiddleware,
   orgMembershipMiddleware,
+  type AuthedEvent,
 } from '@/middleware/rbac-middleware';
+import { auditMiddleware, setAuditContext } from '@/middleware/audit-middleware';
 
 const TABLE_NAME = requireEnv('DB_TABLE_NAME');
 
@@ -22,7 +24,7 @@ const TABLE_NAME = requireEnv('DB_TABLE_NAME');
  * GET /api/content-library/tags?orgId={orgId}
  */
 async function baseHandler(
-  event: APIGatewayProxyEventV2
+  event: AuthedEvent
 ): Promise<APIGatewayProxyResultV2> {
   try {
     const orgId = event.queryStringParameters?.orgId || getOrgId(event);
@@ -55,6 +57,13 @@ async function baseHandler(
       .map(([name, count]) => ({ name, count }))
       .sort((a, b) => b.count - a.count);
 
+    
+    setAuditContext(event, {
+      action: 'CONFIG_CHANGED',
+      resource: 'knowledge_base',
+      resourceId: event.pathParameters?.id ?? 'unknown',
+    });
+
     return apiResponse(200, { data: { tags } });
   } catch (error) {
     console.error('Error getting content library tags:', error);
@@ -69,5 +78,6 @@ export const handler = withSentryLambda(
   middy(baseHandler)
     .use(authContextMiddleware())
     .use(orgMembershipMiddleware())
-    .use(httpErrorMiddleware())
+    .use(auditMiddleware())
+    .use(httpErrorMiddleware()),
 );

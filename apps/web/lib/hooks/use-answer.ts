@@ -25,6 +25,21 @@ export function useSaveAnswer(projectId: string) {
   );
 }
 
+export function useApproveAnswer(projectId: string) {
+  return useSWRMutation<AnswerItem, ApiError, string, SaveAnswerDTO>(
+    buildApiUrl('answer/save-answer'),
+    async (url, { arg }) => {
+      const answer = await apiMutate<AnswerItem>(url, 'POST', {
+        ...arg,
+        projectId,
+        status: 'APPROVED',
+      });
+      breadcrumbs.answerSaved(answer.id);
+      return answer;
+    },
+  );
+}
+
 export function useGenerateAnswer() {
   return useSWRMutation<GenerateAnswerResponse, ApiError, string, AnswerQuestionRequestBody>(
     buildApiUrl('answer/generate-answer'),

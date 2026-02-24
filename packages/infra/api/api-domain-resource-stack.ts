@@ -71,8 +71,11 @@ export class ApiDomainRoutesStack extends cdk.NestedStack {
 
     // Create Lambda function and routes for each endpoint in the domain
     for (const route of domain.routes) {
-      // Create a unique function name for this route
-      const functionId = `${domain.basePath}-${route.path}-handler`;
+      // Create a unique construct ID for this route.
+      // Include the HTTP method so that two routes with the same path but
+      // different methods (e.g. PUT /override and DELETE /override) don't
+      // collide on the same CloudFormation logical ID / log group name.
+      const functionId = `${route.method.toLowerCase()}-${domain.basePath}-${route.path}-handler`;
       
       // Create log group with retention policy
       const logGroup = new logs.LogGroup(this, `${functionId}-logs`, {

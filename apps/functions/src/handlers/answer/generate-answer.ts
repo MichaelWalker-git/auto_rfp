@@ -13,8 +13,10 @@ import {
   authContextMiddleware,
   httpErrorMiddleware,
   orgMembershipMiddleware,
-  requirePermission
+  requirePermission,
+  type AuthedEvent,
 } from '@/middleware/rbac-middleware';
+import { auditMiddleware, setAuditContext } from '@/middleware/audit-middleware';
 import middy from '@middy/core';
 import { requireEnv } from '@/helpers/env';
 import { AnswerQuestionRequestBody, AnswerSource, ConfidenceBreakdown, ContentLibraryItem, QAItem, QuestionItem } from '@auto-rfp/core';
@@ -337,7 +339,7 @@ export async function generateAnswerForQuestion(params: GenerateAnswerParams): P
 }
 
 export const baseHandler = async (
-  event: APIGatewayProxyEventV2,
+  event: AuthedEvent,
 ): Promise<APIGatewayProxyResultV2> => {
   console.log('answer-question event:', JSON.stringify(event));
 
@@ -360,6 +362,13 @@ export const baseHandler = async (
       orgId,
       questionText: requestQuestion,
       topK,
+    });
+
+    
+    setAuditContext(event, {
+      action: 'ANSWER_GENERATED',
+      resource: 'answer',
+      resourceId: event.queryStringParameters?.questionId ?? 'unknown',
     });
 
     return apiResponse(200, {
@@ -391,5 +400,6 @@ export const handler = withSentryLambda(
     .use(authContextMiddleware())
     .use(orgMembershipMiddleware())
     .use(requirePermission('answer:generate'))
-    .use(httpErrorMiddleware())
+    .use(auditMiddleware())
+    .use(httpErrorMiddleware()),
 );

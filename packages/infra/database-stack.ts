@@ -41,6 +41,13 @@ export class DatabaseStack extends cdk.Stack {
       projectionType: dynamodb.ProjectionType.ALL,
     });
 
+    // Enable TTL on the 'ttl' attribute for presence and activity auto-expiry
+    const cfnTable = this.tableName.node.defaultChild as dynamodb.CfnTable;
+    cfnTable.timeToLiveSpecification = {
+      attributeName: 'ttl',
+      enabled: true,
+    };
+
     // Outputs
     new cdk.CfnOutput(this, 'TableName', {
       value: this.tableName.tableName,

@@ -16,7 +16,9 @@ import {
   httpErrorMiddleware,
   orgMembershipMiddleware,
   requirePermission,
+  type AuthedEvent,
 } from '@/middleware/rbac-middleware';
+import { auditMiddleware, setAuditContext } from '@/middleware/audit-middleware';
 
 interface DeleteOrgResult {
   projects: {
@@ -60,7 +62,7 @@ async function deleteOrganizationWithCleanup(orgId: string): Promise<DeleteOrgRe
 }
 
 export const baseHandler = async (
-  event: APIGatewayProxyEventV2,
+  event: AuthedEvent,
 ): Promise<APIGatewayProxyResultV2> => {
   try {
     const orgId = event.pathParameters?.id;
@@ -70,6 +72,13 @@ export const baseHandler = async (
     }
 
     const cleanup = await deleteOrganizationWithCleanup(orgId);
+
+    
+    setAuditContext(event, {
+      action: 'ORG_SETTINGS_CHANGED',
+      resource: 'organization',
+      resourceId: event.pathParameters?.orgId ?? event.queryStringParameters?.orgId ?? 'unknown',
+    });
 
     return apiResponse(200, {
       success: true,
@@ -96,5 +105,6 @@ export const handler = withSentryLambda(
     .use(authContextMiddleware())
     .use(orgMembershipMiddleware())
     .use(requirePermission('org:delete'))
+    .use(auditMiddleware())
     .use(httpErrorMiddleware()),
 );

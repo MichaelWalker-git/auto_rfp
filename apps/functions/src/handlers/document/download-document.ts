@@ -9,7 +9,9 @@ import {
   httpErrorMiddleware,
   orgMembershipMiddleware,
   requirePermission,
+  type AuthedEvent,
 } from '@/middleware/rbac-middleware';
+import { auditMiddleware, setAuditContext } from '@/middleware/audit-middleware';
 import middy from '@middy/core';
 import { requireEnv } from '@/helpers/env';
 
@@ -26,7 +28,7 @@ const s3Client = new S3Client({ region: REGION });
  * GET /document/download?id={documentId}&kbId={kbId}
  */
 export const baseHandler = async (
-  event: APIGatewayProxyEventV2,
+  event: AuthedEvent,
 ): Promise<APIGatewayProxyResultV2> => {
   try {
     const documentId = event.queryStringParameters?.id;
@@ -72,6 +74,13 @@ export const baseHandler = async (
       expiresIn: URL_EXPIRATION_SECONDS,
     });
 
+    
+    setAuditContext(event, {
+      action: 'DOCUMENT_VIEWED',
+      resource: 'document',
+      resourceId: event.pathParameters?.id ?? event.queryStringParameters?.id ?? 'unknown',
+    });
+
     return apiResponse(200, {
       url,
       method: 'GET',
@@ -92,5 +101,6 @@ export const handler = withSentryLambda(
     .use(authContextMiddleware())
     .use(orgMembershipMiddleware())
     .use(requirePermission('document:read'))
+    .use(auditMiddleware())
     .use(httpErrorMiddleware()),
 );

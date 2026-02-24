@@ -36,7 +36,7 @@ export function ProjectKBSettings({ projectId, orgId }: ProjectKBSettingsProps) 
 
   const handleLink = useCallback(async (kbId: string) => {
     try {
-      await linkKB({ projectId, kbId });
+      await linkKB({ orgId, projectId, kbId });
       await mutateLinks();
       toast({ title: 'Knowledge base linked', description: 'KB has been assigned to this project.' });
     } catch (err) {
@@ -50,7 +50,7 @@ export function ProjectKBSettings({ projectId, orgId }: ProjectKBSettingsProps) 
 
   const handleUnlink = useCallback(async (kbId: string) => {
     try {
-      await unlinkKB({ projectId, kbId });
+      await unlinkKB({ orgId, projectId, kbId });
       await mutateLinks();
       toast({ title: 'Knowledge base unlinked', description: 'KB has been removed from this project.' });
     } catch (err) {

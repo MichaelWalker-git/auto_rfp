@@ -11,7 +11,9 @@ import {
   httpErrorMiddleware,
   orgMembershipMiddleware,
   requirePermission,
+  type AuthedEvent,
 } from '@/middleware/rbac-middleware';
+import { auditMiddleware, setAuditContext } from '@/middleware/audit-middleware';
 import middy from '@middy/core';
 import { requireEnv } from '@/helpers/env';
 import {
@@ -20,7 +22,7 @@ import {
   proposalToHtml,
   proposalToMarkdown,
   sanitizeFileName,
-} from './export-utils';
+} from '@/helpers/export';
 
 const DOCUMENTS_BUCKET = requireEnv('DOCUMENTS_BUCKET');
 const REGION = requireEnv('REGION', 'us-east-1');
@@ -36,7 +38,7 @@ interface BatchExportRequest {
 }
 
 export const baseHandler = async (
-  event: APIGatewayProxyEventV2,
+  event: AuthedEvent,
 ): Promise<APIGatewayProxyResultV2> => {
   try {
     if (!event.body) {
@@ -57,7 +59,7 @@ export const baseHandler = async (
 
     const organizationId = proposal.organizationId || getOrgId(event) || 'DEFAULT';
     const doc = proposal.document;
-    const baseName = sanitizeFileName(doc.proposalTitle);
+    const baseName = sanitizeFileName(doc.title);
 
     const requestedFormats: ExportFormat[] = formats && formats.length > 0
       ? formats.filter(f => ['html', 'txt', 'md'].includes(f))
@@ -119,9 +121,16 @@ export const baseHandler = async (
       Key: key,
     }), { expiresIn: PRESIGN_EXPIRES_IN });
 
+    
+    setAuditContext(event, {
+      action: 'DATA_EXPORTED',
+      resource: 'proposal',
+      resourceId: event.queryStringParameters?.projectId ?? 'unknown',
+    });
+
     return apiResponse(200, {
       success: true,
-      proposal: { id: proposal.id, title: doc.proposalTitle },
+      proposal: { id: proposal.id, title: doc.title },
       export: {
         format: 'zip',
         bucket: DOCUMENTS_BUCKET,
@@ -147,5 +156,6 @@ export const handler = withSentryLambda(
     .use(authContextMiddleware())
     .use(orgMembershipMiddleware())
     .use(requirePermission('proposal:export'))
+    .use(auditMiddleware())
     .use(httpErrorMiddleware()),
 );

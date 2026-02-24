@@ -8,7 +8,9 @@ import {
   httpErrorMiddleware,
   orgMembershipMiddleware,
   requirePermission,
+  type AuthedEvent,
 } from '@/middleware/rbac-middleware';
+import { auditMiddleware, setAuditContext } from '@/middleware/audit-middleware';
 import middy from '@middy/core';
 import { GOOGLE_SECRET_PREFIX } from '@/constants/google';
 
@@ -42,6 +44,13 @@ export const baseHandler = async (event: APIGatewayProxyEventV2) => {
 
     await storeApiKey(orgId, GOOGLE_SECRET_PREFIX, apiKey);
 
+    
+    setAuditContext(event, {
+      action: 'CONFIG_CHANGED',
+      resource: 'config',
+      resourceId: 'unknown',
+    });
+
     return apiResponse(201, {
       message: 'API key stored successfully',
       orgId,
@@ -57,5 +66,6 @@ export const handler = withSentryLambda(
     .use(authContextMiddleware())
     .use(orgMembershipMiddleware())
     .use(requirePermission('org:edit'))
+    .use(auditMiddleware())
     .use(httpErrorMiddleware()),
 );

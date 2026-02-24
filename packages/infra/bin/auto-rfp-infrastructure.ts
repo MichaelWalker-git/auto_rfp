@@ -11,6 +11,8 @@ import { DocumentPipelineStack } from '../document-pipeline-step-function';
 import { QuestionExtractionPipelineStack } from '../question-pipeline-step-function';
 import { AnswerGenerationPipelineStack } from '../answer-generation-step-function';
 import { ApiOrchestratorStack } from '../api/api-orchestrator-stack';
+import { CollaborationWebSocketStack } from '../collaboration-websocket-stack';
+import { AuditStack } from '../audit-stack';
 import { AwsSolutionsChecks } from 'cdk-nag';
 import {
   addAllSuppressions,
@@ -78,7 +80,8 @@ const auth = new AuthStack(app, `AutoRfp-Auth-${stage}`, {
     `https://${branch}.d*.amplifyapp.com`,
     `https://*.d*.amplifyapp.com`,
     'https://main.d*.amplifyapp.com',
-    'https://develop.d*.amplifyapp.com'
+    'https://develop.d*.amplifyapp.com',
+    'https://rfp.horustech.dev',
   ]
 });
 
@@ -127,6 +130,9 @@ const api = new ApiOrchestratorStack(app, `ApiOrchestrator-${stage}`, {
   execBriefQueue: storage.execBriefQueue,
   googleDriveSyncQueue: storage.googleDriveSyncQueue,
   documentGenerationQueue: storage.documentGenerationQueue,
+  // Pass the queue name (plain string) — not the queue object — to avoid a cross-stack token cycle
+  notificationQueueName: `auto-rfp-notifications-${stage.toLowerCase()}`,
+  auditLogQueueName: `auto-rfp-audit-log-${stage.toLowerCase()}`,
   documentPipelineStateMachineArn: pipelineStack.stateMachine.stateMachineArn,
   questionPipelineStateMachineArn: questionsPipelineStack.stateMachine.stateMachineArn,
   sentryDNS,
@@ -139,6 +145,54 @@ api.addDependency(db);
 api.addDependency(storage);
 api.addDependency(pipelineStack);
 api.addDependency(questionsPipelineStack);
+
+const notificationQueueName = `auto-rfp-notifications-${stage.toLowerCase()}`;
+
+const collaborationWsStack = new CollaborationWebSocketStack(app, `AutoRfp-${stage}-CollaborationWS`, {
+  env,
+  stage,
+  mainTable: db.tableName,
+  userPool: auth.userPool,
+  commonLambdaRoleArn: api.commonLambdaRoleArn,
+  notificationQueueName,
+  commonEnv: {
+    STAGE: stage,
+    DB_TABLE_NAME: db.tableName.tableName,
+    COGNITO_USER_POOL_ID: auth.userPool.userPoolId,
+    REGION: env.region ?? 'us-east-1',
+    SENTRY_DSN: sentryDNS,
+    SENTRY_ENVIRONMENT: stage,
+    NODE_ENV: 'production',
+  },
+});
+
+collaborationWsStack.addDependency(auth);
+collaborationWsStack.addDependency(db);
+collaborationWsStack.addDependency(api);
+
+const auditStack = new AuditStack(app, `AutoRfp-Audit-${stage}`, {
+  env,
+  stage,
+  mainTable: db.tableName,
+  commonLambdaRoleArn: api.commonLambdaRoleArn,
+  commonEnv: {
+    STAGE: stage,
+    DB_TABLE_NAME: db.tableName.tableName,
+    REGION: env.region ?? 'us-east-1',
+    SENTRY_DSN: sentryDNS,
+    SENTRY_ENVIRONMENT: stage,
+    NODE_ENV: 'production',
+  },
+});
+
+auditStack.addDependency(db);
+auditStack.addDependency(api);
+
+new cdk.CfnOutput(collaborationWsStack, 'CollaborationWsApiUrl', {
+  value: collaborationWsStack.wsApiUrl,
+  description: 'WebSocket API URL for real-time collaboration',
+  exportName: `AutoRfp-CollaborationWsUrl-${stage}`,
+});
 
 const amplifyStack = new AmplifyFeStack(app, `AmplifyFeStack-${stage}`, {
   stage,
@@ -154,6 +208,8 @@ const amplifyStack = new AmplifyFeStack(app, `AmplifyFeStack-${stage}`, {
   baseApiUrl: api.apiUrl,
   region: env.region!,
   sentryDNS,
+  // Attach rfp.horustech.dev to the main branch only
+  ...(branch === 'main' ? { customDomain: 'rfp.horustech.dev' } : {}),
 });
 
 amplifyStack.addDependency(auth);
@@ -221,6 +277,14 @@ addSNSSuppressions(questionsPipelineStack, isProduction);
 
 addLambdaSuppressions(answerGenerationStack, isProduction);
 addStepFunctionsSuppressions(answerGenerationStack, isProduction);
+
+addAllSuppressions(collaborationWsStack, isProduction);
+addSQSSuppressions(collaborationWsStack, isProduction);
+
+addAllSuppressions(auditStack, isProduction);
+addSQSSuppressions(auditStack, isProduction);
+addS3Suppressions(auditStack, isProduction);
+addLambdaSuppressions(auditStack, isProduction);
 
 console.log(`\n=📝 Note: After deployment, update Cognito callback URLs with the actual Amplify domain from the FrontendURL output if needed.`);
 console.log('=🔒 CDK NAG AWS Solutions Checks enabled for security compliance');

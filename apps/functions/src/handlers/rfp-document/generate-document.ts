@@ -11,19 +11,23 @@ import {
   httpErrorMiddleware,
   orgMembershipMiddleware,
   requirePermission,
+  type AuthedEvent,
 } from '@/middleware/rbac-middleware';
+import { auditMiddleware, setAuditContext } from '@/middleware/audit-middleware';
 import { putRFPDocument } from '@/helpers/rfp-document';
 import { enqueueDocumentGeneration } from '@/helpers/document-generation-queue';
+import { nowIso } from '@/helpers/date';
 import { PK_NAME, SK_NAME } from '@/constants/common';
 import { RFP_DOCUMENT_PK } from '@/constants/rfp-document';
 import type { DBProjectItem } from '@/types/project';
+import { RFP_DOCUMENT_TYPES, RFPDocumentTypeSchema } from '@auto-rfp/core';
 
-// ─── Input ───
+// ─── Input Schema ───
 
 const InputSchema = z.object({
   projectId: z.string().min(1),
   opportunityId: z.string().optional(),
-  documentType: z.string().min(1).default('TECHNICAL_PROPOSAL'),
+  documentType: RFPDocumentTypeSchema.default('TECHNICAL_PROPOSAL'),
   templateId: z.string().optional(),
 });
 
@@ -31,18 +35,22 @@ const InputSchema = z.object({
 
 const extractOrgId = (sortKey: string) => String(sortKey ?? '').split('#')[0] || '';
 
+const buildPlaceholderName = (documentType: string): string =>
+  `Generating ${RFP_DOCUMENT_TYPES[documentType as keyof typeof RFP_DOCUMENT_TYPES] ?? documentType}...`;
+
 // ─── Handler ───
 
 export const baseHandler = async (
-  event: APIGatewayProxyEventV2,
+  event: AuthedEvent,
 ): Promise<APIGatewayProxyResultV2> => {
   try {
     // 1. Parse & validate input
-    const input = InputSchema.safeParse(JSON.parse(event?.body || ''));
-    if (!input.success) {
-      return apiResponse(400, { message: 'Validation error', errors: input.error.format() });
+    const { success, data, error } = InputSchema.safeParse(JSON.parse(event?.body || ''));
+    if (!success) {
+      return apiResponse(400, { message: 'Validation error', errors: error.format() });
     }
-    const { projectId, opportunityId, documentType, templateId } = input.data;
+
+    const { projectId, opportunityId, documentType, templateId } = data;
 
     // 2. Load project & extract orgId
     const project = await getProjectById(projectId);
@@ -52,21 +60,20 @@ export const baseHandler = async (
     if (!orgId) return apiResponse(400, { message: 'Cannot extract orgId from project' });
 
     const userId = getUserId(event);
-
-    // 3. Create a placeholder RFP document in DB with status GENERATING
     const documentId = uuidv4();
-    const now = new Date().toISOString();
+    const now = nowIso();
     const effectiveOpportunityId = opportunityId || 'default';
     const sk = `${projectId}#${effectiveOpportunityId}#${documentId}`;
 
-    const item: Record<string, any> = {
+    // 3. Create a placeholder RFP document in DB with status GENERATING
+    await putRFPDocument({
       [PK_NAME]: RFP_DOCUMENT_PK,
       [SK_NAME]: sk,
       documentId,
       projectId,
       opportunityId: effectiveOpportunityId,
       orgId,
-      name: `Generating ${documentType}...`,
+      name: buildPlaceholderName(documentType),
       description: null,
       documentType,
       mimeType: 'application/json',
@@ -82,13 +89,11 @@ export const baseHandler = async (
       lastSyncedAt: null,
       deletedAt: null,
       status: 'GENERATING',
-      createdBy: userId || null,
-      updatedBy: userId || null,
+      createdBy: userId ?? null,
+      updatedBy: userId ?? null,
       createdAt: now,
       updatedAt: now,
-    };
-
-    await putRFPDocument(item);
+    });
 
     // 4. Enqueue the generation job to SQS
     await enqueueDocumentGeneration({
@@ -100,7 +105,14 @@ export const baseHandler = async (
       documentId,
     });
 
-    // 5. Return 202 Accepted with the document record
+    // 5. Return 202 Accepted
+    
+    setAuditContext(event, {
+      action: 'CONFIG_CHANGED',
+      resource: 'config',
+      resourceId: 'unknown',
+    });
+
     return apiResponse(202, {
       ok: true,
       status: 'GENERATING',
@@ -124,5 +136,6 @@ export const handler = withSentryLambda(
     .use(authContextMiddleware())
     .use(orgMembershipMiddleware())
     .use(requirePermission('proposal:create'))
+    .use(auditMiddleware())
     .use(httpErrorMiddleware()),
 );

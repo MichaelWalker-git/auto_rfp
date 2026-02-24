@@ -9,6 +9,7 @@ import {
   httpErrorMiddleware,
   type AuthedEvent,
 } from '@/middleware/rbac-middleware';
+import { auditMiddleware, setAuditContext } from '@/middleware/audit-middleware';
 
 const baseHandler = async (event: AuthedEvent): Promise<APIGatewayProxyResultV2> => {
   try {
@@ -36,6 +37,13 @@ const baseHandler = async (event: AuthedEvent): Promise<APIGatewayProxyResultV2>
 
     await deletePastProject(orgId, projectId, hardDelete);
 
+    
+    setAuditContext(event, {
+      action: 'CONFIG_CHANGED',
+      resource: 'config',
+      resourceId: event.pathParameters?.projectId ?? 'unknown',
+    });
+
     return apiResponse(200, {
       ok: true,
       message: hardDelete ? 'Project permanently deleted' : 'Project archived',
@@ -61,5 +69,6 @@ const baseHandler = async (event: AuthedEvent): Promise<APIGatewayProxyResultV2>
 export const handler = withSentryLambda(
   middy(baseHandler)
     .use(authContextMiddleware())
-    .use(httpErrorMiddleware())
+    .use(auditMiddleware())
+    .use(httpErrorMiddleware()),
 );

@@ -16,6 +16,7 @@ import {
   orgMembershipMiddleware,
   requirePermission,
 } from '@/middleware/rbac-middleware';
+import { auditMiddleware, setAuditContext } from '@/middleware/audit-middleware';
 import { requireEnv } from '@/helpers/env';
 import { docClient } from '@/helpers/db';
 import type { DBFOIARequestItem } from '@/types/project-outcome';
@@ -54,6 +55,13 @@ export const baseHandler = async (
     }
 
     const updatedRequest = await updateFOIARequest(dto, existing);
+
+    
+    setAuditContext(event, {
+      action: 'CONFIG_CHANGED',
+      resource: 'config',
+      resourceId: event.pathParameters?.requestId ?? 'unknown',
+    });
 
     return apiResponse(200, { foiaRequest: updatedRequest });
   } catch (err: unknown) {
@@ -185,5 +193,6 @@ export const handler = withSentryLambda(
     .use(authContextMiddleware())
     .use(orgMembershipMiddleware())
     .use(requirePermission('project:edit'))
-    .use(httpErrorMiddleware())
+    .use(auditMiddleware())
+    .use(httpErrorMiddleware()),
 );

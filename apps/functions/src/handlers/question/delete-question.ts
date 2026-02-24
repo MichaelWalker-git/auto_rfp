@@ -6,16 +6,20 @@ import { withSentryLambda } from '@/sentry-lambda';
 import { PK_NAME, SK_NAME } from '@/constants/common';
 import { QUESTION_PK } from '@/constants/question';
 import { ANSWER_PK } from '@/constants/answer';
+import { PK as COLLAB_PK } from '@/constants/collaboration';
 import middy from '@middy/core';
 import {
   authContextMiddleware,
   httpErrorMiddleware,
   orgMembershipMiddleware,
-  requirePermission
+  requirePermission,
+  type AuthedEvent,
 } from '@/middleware/rbac-middleware';
+import { auditMiddleware, setAuditContext } from '@/middleware/audit-middleware';
 import { requireEnv } from '@/helpers/env';
-import { deleteItem, docClient } from '@/helpers/db';
+import { deleteItem, docClient, queryBySkPrefix } from '@/helpers/db';
 import { buildQuestionSK } from '@/helpers/question';
+import { buildAssignmentSK, buildCommentSK } from '@/helpers/collaboration';
 
 const DB_TABLE_NAME = requireEnv('DB_TABLE_NAME');
 
@@ -105,7 +109,7 @@ async function deleteAnswerItems(keys: Array<Record<string, any>>): Promise<numb
 }
 
 export const baseHandler = async (
-  event: APIGatewayProxyEventV2,
+  event: AuthedEvent,
 ): Promise<APIGatewayProxyResultV2> => {
   console.log('remove-question event:', JSON.stringify(event));
 
@@ -127,12 +131,53 @@ export const baseHandler = async (
     const answerKeys = await findAnswerKeysForQuestion(projectId, questionId);
     const answersDeleted = await deleteAnswerItems(answerKeys);
 
+    // 3) cascade delete assignments for this question
+    // Assignments use SK prefix: {orgId}#{projectId}#{questionId}
+    // We need orgId — get it from query params or scan by projectId prefix
+    const orgId = event.queryStringParameters?.orgId;
+    let assignmentsDeleted = 0;
+    let commentsDeleted = 0;
+
+    if (orgId) {
+      // Delete all assignments for this question (per-user SK: orgId#projectId#questionId#userId)
+      const assignmentPrefix = `${orgId}#${projectId}#${questionId}`;
+      const assignmentItems = await queryBySkPrefix<{ partition_key: string; sort_key: string }>(
+        COLLAB_PK.ASSIGNMENT,
+        assignmentPrefix,
+      );
+      for (const item of assignmentItems) {
+        await deleteItem(COLLAB_PK.ASSIGNMENT, item.sort_key);
+        assignmentsDeleted++;
+      }
+
+      // Delete all comments for this question (all entity types)
+      // Comment SK: orgId#projectId#QUESTION#questionId#commentId
+      const commentPrefix = `${orgId}#${projectId}#QUESTION#${questionId}#`;
+      const commentItems = await queryBySkPrefix<{ partition_key: string; sort_key: string }>(
+        COLLAB_PK.COMMENT,
+        commentPrefix,
+      );
+      for (const item of commentItems) {
+        await deleteItem(COLLAB_PK.COMMENT, item.sort_key);
+        commentsDeleted++;
+      }
+    }
+
+    
+    setAuditContext(event, {
+      action: 'ANSWER_DELETED',
+      resource: 'question',
+      resourceId: event.pathParameters?.questionId ?? event.queryStringParameters?.questionId ?? 'unknown',
+    });
+
     return apiResponse(200, {
       ok: true,
       projectId,
       questionId,
       questionDeleted: true,
       answersDeleted,
+      assignmentsDeleted,
+      commentsDeleted,
     });
   } catch (err: any) {
     console.error('remove-question error:', err);
@@ -148,5 +193,6 @@ export const handler = withSentryLambda(
     .use(authContextMiddleware())
     .use(orgMembershipMiddleware())
     .use(requirePermission('question:delete'))
-    .use(httpErrorMiddleware())
+    .use(auditMiddleware())
+    .use(httpErrorMiddleware()),
 );

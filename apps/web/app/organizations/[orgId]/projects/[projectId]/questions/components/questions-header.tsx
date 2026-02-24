@@ -2,10 +2,12 @@
 
 import { Button } from '@/components/ui/button';
 import { Spinner } from '@/components/ui/spinner';
-import { Download, Save, RefreshCw } from 'lucide-react';
+import { Download, Save, RefreshCw, ChevronRight } from 'lucide-react';
 import PermissionWrapper from '@/components/permission-wrapper';
 import { PageHeader } from '@/components/layout/page-header';
 import { PageSearch } from '@/components/layout/page-search';
+import { PresenceAvatars, usePresence } from '@/features/collaboration';
+import { useQuestions } from './questions-provider';
 
 interface QuestionsHeaderProps {
   searchQuery: string;
@@ -15,6 +17,7 @@ interface QuestionsHeaderProps {
   unsavedCount: number;
   isSaving: boolean;
   projectId: string;
+  orgId: string;
   onReload: () => void;
 }
 
@@ -25,15 +28,32 @@ export function QuestionsHeader({
   onExport,
   unsavedCount,
   isSaving,
+  projectId,
+  orgId,
   onReload,
 }: QuestionsHeaderProps) {
+  const { activeUsers } = usePresence(projectId, orgId);
+  const { selectedQuestion, getSelectedQuestionData, setSelectedQuestion } = useQuestions() as any;
+
+  const questionData = selectedQuestion ? getSelectedQuestionData() : null;
+  const questionText = questionData?.question?.question as string | undefined;
+
   return (
-    <div className="space-y-2">
+    <div className="space-y-1">
       <PageHeader
-        title="RFP Questions"
-        description={unsavedCount > 0 ? `${unsavedCount} question${unsavedCount > 1 ? 's' : ''} with unsaved changes` : undefined}
+        title={questionText ? '' : 'RFP Questions'}
+        description={
+          !questionText && unsavedCount > 0
+            ? `${unsavedCount} question${unsavedCount > 1 ? 's' : ''} with unsaved changes`
+            : undefined
+        }
+        className={questionText ? 'mb-2' : undefined}
         actions={
           <>
+            {/* Real-time presence avatars */}
+            {activeUsers.length > 0 && (
+              <PresenceAvatars users={activeUsers} maxVisible={5} />
+            )}
             <PageSearch
               value={searchQuery}
               onChange={onSearchChange}

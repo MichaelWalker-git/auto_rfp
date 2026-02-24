@@ -67,7 +67,7 @@ export const QuickSummarySchema = z.object({
 
   placeOfPerformance: z.string().optional().nullable(),
 
-  estimatedValueUsd: z.number().nonnegative().optional().nullable(),
+  estimatedValueUsd: z.string().optional().nullable(),
   periodOfPerformance: z.string().optional().nullable(),
 
   summary: z.string().min(10),

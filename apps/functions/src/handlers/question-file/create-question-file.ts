@@ -7,14 +7,16 @@ import {
   authContextMiddleware,
   httpErrorMiddleware,
   orgMembershipMiddleware,
-  requirePermission
+  requirePermission,
+  type AuthedEvent,
 } from '@/middleware/rbac-middleware';
+import { auditMiddleware, setAuditContext } from '@/middleware/audit-middleware';
 import middy from '@middy/core';
 import { createQuestionFile } from '@/helpers/questionFile';
 import { CreateQuestionFileRequestSchema } from '@auto-rfp/core';
 
 export const baseHandler = async (
-  event: APIGatewayProxyEventV2,
+  event: AuthedEvent,
 ): Promise<APIGatewayProxyResultV2> => {
   try {
     const orgId = getOrgId(event);
@@ -29,6 +31,13 @@ export const baseHandler = async (
     }
 
     const created = await createQuestionFile(orgId, data);
+
+    
+    setAuditContext(event, {
+      action: 'DOCUMENT_UPLOADED',
+      resource: 'document',
+      resourceId: 'question-file',
+    });
 
     return apiResponse(201, created);
   } catch (err) {
@@ -45,5 +54,6 @@ export const handler = withSentryLambda(
     .use(authContextMiddleware())
     .use(orgMembershipMiddleware())
     .use(requirePermission('question:create'))
-    .use(httpErrorMiddleware())
+    .use(auditMiddleware())
+    .use(httpErrorMiddleware()),
 );

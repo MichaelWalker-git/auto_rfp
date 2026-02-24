@@ -15,6 +15,7 @@ export const ProjectKBLinkSchema = z.object({
 export type ProjectKBLink = z.infer<typeof ProjectKBLinkSchema>;
 
 export const LinkKBToProjectRequestSchema = z.object({
+  orgId: z.string().min(1),
   projectId: z.string().min(1, 'Project ID is required'),
   kbId: z.string().min(1, 'Knowledge Base ID is required'),
 });

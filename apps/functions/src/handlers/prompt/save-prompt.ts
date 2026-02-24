@@ -9,6 +9,7 @@ import {
   orgMembershipMiddleware,
   requirePermission,
 } from '@/middleware/rbac-middleware';
+import { auditMiddleware, setAuditContext } from '@/middleware/audit-middleware';
 
 import { type PromptItem, PromptItemSchema, PromptScopeSchema, SavePromptBodySchema, } from '@auto-rfp/core';
 import { saveSystemPrompt, saveUserPrompt } from '@/helpers/prompt';
@@ -54,7 +55,14 @@ const baseHandler = async (event: APIGatewayProxyEventV2): Promise<APIGatewayPro
     });
   }
 
-  return apiResponse(200, { ok: true, item: validated.data as PromptItem });
+  
+    setAuditContext(event, {
+      action: 'CONFIG_CHANGED',
+      resource: 'config',
+      resourceId: 'prompt',
+    });
+
+    return apiResponse(200, { ok: true, item: validated.data as PromptItem });
 };
 
 export const handler = withSentryLambda(
@@ -62,5 +70,6 @@ export const handler = withSentryLambda(
     .use(authContextMiddleware())
     .use(orgMembershipMiddleware())
     .use(requirePermission('prompt:create'))
+    .use(auditMiddleware())
     .use(httpErrorMiddleware()),
 );

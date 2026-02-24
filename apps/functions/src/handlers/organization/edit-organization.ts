@@ -9,8 +9,10 @@ import {
   authContextMiddleware,
   httpErrorMiddleware,
   orgMembershipMiddleware,
-  requirePermission
+  requirePermission,
+  type AuthedEvent,
 } from '@/middleware/rbac-middleware';
+import { auditMiddleware, setAuditContext } from '@/middleware/audit-middleware';
 import { requireEnv } from '@/helpers/env';
 import middy from '@middy/core';
 import { docClient } from '@/helpers/db';
@@ -50,6 +52,13 @@ export const baseHandler = async (
 
     const userId = getUserId(event) ?? 'system';
     const updatedOrganization = await editOrganization(orgId, validatedOrgData, userId);
+
+    
+    setAuditContext(event, {
+      action: 'ORG_SETTINGS_CHANGED',
+      resource: 'organization',
+      resourceId: event.pathParameters?.orgId ?? event.queryStringParameters?.orgId ?? 'unknown',
+    });
 
     return apiResponse(200, updatedOrganization);
   } catch (err) {
@@ -152,5 +161,6 @@ export const handler = withSentryLambda(
     .use(authContextMiddleware())
     .use(orgMembershipMiddleware())
     .use(requirePermission('org:edit'))
-    .use(httpErrorMiddleware())
+    .use(auditMiddleware())
+    .use(httpErrorMiddleware()),
 );

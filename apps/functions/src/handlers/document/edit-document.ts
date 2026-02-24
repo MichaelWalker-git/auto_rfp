@@ -13,8 +13,10 @@ import {
   authContextMiddleware,
   httpErrorMiddleware,
   orgMembershipMiddleware,
-  requirePermission
+  requirePermission,
+  type AuthedEvent,
 } from '@/middleware/rbac-middleware';
+import { auditMiddleware, setAuditContext } from '@/middleware/audit-middleware';
 import middy from '@middy/core';
 import { requireEnv } from '@/helpers/env';
 import { nowIso } from '@/helpers/date';
@@ -28,7 +30,7 @@ const docClient = DynamoDBDocumentClient.from(ddbClient, {
 });
 
 export const baseHandler = async (
-  event: APIGatewayProxyEventV2,
+  event: AuthedEvent,
 ): Promise<APIGatewayProxyResultV2> => {
   try {
     if (!event.body) {
@@ -58,6 +60,13 @@ export const baseHandler = async (
     const dto: UpdateDocumentDTO = parsed.data;
 
     const updated = await updateDocument(dto);
+
+    
+    setAuditContext(event, {
+      action: 'DOCUMENT_VIEWED',
+      resource: 'document',
+      resourceId: event.pathParameters?.id ?? event.queryStringParameters?.id ?? 'unknown',
+    });
 
     return apiResponse(200, updated);
   } catch (err) {
@@ -117,5 +126,6 @@ export const handler = withSentryLambda(
     .use(authContextMiddleware())
     .use(orgMembershipMiddleware())
     .use(requirePermission('document:edit'))
-    .use(httpErrorMiddleware())
+    .use(auditMiddleware())
+    .use(httpErrorMiddleware()),
 );

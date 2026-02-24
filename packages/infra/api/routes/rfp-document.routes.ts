@@ -19,7 +19,6 @@ export function rfpDocumentDomain(args?: {
       { method: 'POST', path: 'download-url', entry: lambdaEntry('rfp-document/get-document-download-url.ts') },
       { method: 'POST', path: 'update-signature', entry: lambdaEntry('rfp-document/update-signature-status.ts') },
       { method: 'POST', path: 'export', entry: lambdaEntry('rfp-document/export-rfp-document.ts') },
-      { method: 'POST', path: 'generate-proposal', entry: lambdaEntry('rfp-document/generate-proposal.ts') },
       {
         method: 'POST',
         path: 'generate-document',

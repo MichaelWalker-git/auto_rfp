@@ -50,13 +50,9 @@ const baseHandler = async (
         title: replaceMacros(section.title, allMacros),
         content: replaceMacros(section.content, allMacros),
         required: section.required,
-        subsections: (section.subsections ?? [])
-          .sort((a, b) => a.order - b.order)
-          .map(sub => ({
-            id: sub.id,
-            title: replaceMacros(sub.title, allMacros),
-            content: replaceMacros(sub.content, allMacros),
-          })),
+        description: section.description
+          ? replaceMacros(section.description, allMacros)
+          : undefined,
       }));
 
     return apiResponse(200, {

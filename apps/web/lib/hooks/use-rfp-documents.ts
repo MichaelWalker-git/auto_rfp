@@ -17,6 +17,7 @@ import type {
 } from '@auto-rfp/core';
 import {
   RFP_DOCUMENT_TYPES,
+  RFP_DOCUMENT_TYPE_DESCRIPTIONS,
   SIGNATURE_STATUSES,
   LINEAR_SYNC_STATUSES,
   RFP_EXPORT_FORMAT_LABELS,
@@ -27,7 +28,7 @@ import {
 export type { RFPDocumentItem, RFPDocumentType, SignatureStatus, SignatureDetails, EditHistoryEntry, LinearSyncStatus };
 export type { CreateRFPDocumentDTO, UpdateRFPDocumentDTO };
 export type { RFPExportFormat as ExportFormat };
-export { RFP_DOCUMENT_TYPES, SIGNATURE_STATUSES, LINEAR_SYNC_STATUSES };
+export { RFP_DOCUMENT_TYPES, RFP_DOCUMENT_TYPE_DESCRIPTIONS, SIGNATURE_STATUSES, LINEAR_SYNC_STATUSES };
 export { RFP_EXPORT_FORMAT_LABELS as EXPORT_FORMAT_LABELS, RFP_EXPORT_FORMAT_EXTENSIONS as EXPORT_FORMAT_EXTENSIONS };
 
 import { z } from 'zod';
@@ -298,6 +299,87 @@ export function useSyncRFPDocumentToGoogleDrive(orgId?: string) {
     `${BASE}/sync-to-google-drive${orgId ? `?orgId=${orgId}` : ''}`,
     (url, { arg }) => postJson(url, arg),
   );
+}
+
+// ─── Generate Document ───
+
+const GenerateRFPDocumentRequestSchema = z.object({
+  projectId: z.string().min(1),
+  opportunityId: z.string().optional(),
+  documentType: z.string().optional(),
+  templateId: z.string().optional(),
+});
+
+export type GenerateRFPDocumentRequest = z.infer<typeof GenerateRFPDocumentRequestSchema>;
+
+const GenerateRFPDocumentResponseSchema = z.object({
+  ok: z.boolean(),
+  status: z.string(),
+  documentId: z.string(),
+  projectId: z.string(),
+  opportunityId: z.string(),
+  documentType: z.string(),
+  message: z.string().optional(),
+});
+
+export type GenerateRFPDocumentResponse = z.infer<typeof GenerateRFPDocumentResponseSchema>;
+
+/**
+ * Trigger async document generation (POST /rfp-document/generate-document).
+ * Returns 202 Accepted with a documentId to poll.
+ */
+export function useGenerateRFPDocument(orgId?: string) {
+  return useSWRMutation<GenerateRFPDocumentResponse, Error, string, GenerateRFPDocumentRequest>(
+    `${BASE}/generate-document${orgId ? `?orgId=${orgId}` : ''}`,
+    (url, { arg }) => postJson<GenerateRFPDocumentResponse>(url, arg),
+  );
+}
+
+/**
+ * Poll a single RFP document by documentId until its status is no longer GENERATING.
+ * Returns null while the document is still being generated or not yet fetched.
+ */
+export function useRFPDocumentPolling(
+  projectId: string | null,
+  opportunityId: string | null,
+  documentId: string | null,
+  orgId: string | null,
+) {
+  const params = new URLSearchParams();
+  if (projectId) params.set('projectId', projectId);
+  if (opportunityId) params.set('opportunityId', opportunityId);
+  if (documentId) params.set('documentId', documentId);
+  if (orgId) params.set('orgId', orgId);
+
+  const shouldPoll = !!(projectId && opportunityId && documentId && orgId);
+
+  const { data, error, isLoading } = useSWR<RFPDocumentResponse>(
+    shouldPoll ? `${BASE}/get?${params.toString()}` : null,
+    async (url: string) => {
+      const res = await authFetcher(url);
+      if (!res.ok) throw new Error('Failed to fetch RFP document');
+      return res.json();
+    },
+    {
+      refreshInterval: (latestData) => {
+        if (!latestData) return 3000;
+        const status = latestData.document?.status;
+        return status === 'GENERATING' ? 3000 : 0;
+      },
+      revalidateOnFocus: false,
+    },
+  );
+
+  const document = data?.document ?? null;
+  const isGenerating = !document || document.status === 'GENERATING';
+
+  return {
+    document,
+    isGenerating,
+    isLoading,
+    isError: !!error,
+    error,
+  };
 }
 
 /** Export an RFP document (content-based documents only) */

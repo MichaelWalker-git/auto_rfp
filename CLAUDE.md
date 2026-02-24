@@ -585,7 +585,7 @@ cd web-app && pnpm test:a11y
 - **223 `any` type usages** across 97 files
 - High-priority files needing type fixes:
   - `web-app/app/.../proposals/[proposalId]/page.tsx` - 17 implicit any errors
-  - `web-app/app/.../GenerateProposalModal.tsx` - 16 implicit any errors
+  - `web-app/app/.../GenerateRFPDocumentModel.tsx` - 16 implicit any errors
   - `web-app/components/brief/helpers.ts` - 4 implicit any errors
 
 ### Infrastructure tsconfig Relaxations

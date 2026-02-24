@@ -120,7 +120,7 @@ export function TemplateCard({
         <div className="flex items-center justify-between text-xs text-muted-foreground">
           <span className="flex items-center gap-1">
             <FileText className="h-3 w-3" />
-            {template.sections.length} section{template.sections.length !== 1 ? 's' : ''}
+            {template.category === 'CUSTOM' ? 'Custom template' : 'Document template'}
           </span>
           <span className="flex items-center gap-1">
             <Clock className="h-3 w-3" />

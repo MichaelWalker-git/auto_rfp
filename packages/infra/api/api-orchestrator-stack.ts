@@ -41,6 +41,10 @@ import { rfpDocumentDomain } from './routes/rfp-document.routes';
 import { templateDomain } from './routes/template.routes';
 import { googleDomain } from './routes/google.routes';
 import { clusteringDomain } from './routes/clustering.routes';
+import { collaborationDomain } from './routes/collaboration.routes';
+import { opportunityContextDomain } from './routes/opportunity-context.routes';
+import { notificationDomain } from './routes/notification.routes';
+import { auditDomain } from './routes/audit.routes';
 
 export interface ApiOrchestratorStackProps extends cdk.StackProps {
   stage: string;
@@ -50,6 +54,8 @@ export interface ApiOrchestratorStackProps extends cdk.StackProps {
   execBriefQueue?: sqs.IQueue;
   googleDriveSyncQueue?: sqs.IQueue;
   documentGenerationQueue?: sqs.IQueue;
+  notificationQueueName?: string;
+  auditLogQueueName?: string;
   documentPipelineStateMachineArn: string;
   questionPipelineStateMachineArn: string;
   sentryDNS: string;
@@ -83,6 +89,8 @@ export class ApiOrchestratorStack extends cdk.Stack {
       execBriefQueue,
       googleDriveSyncQueue,
       documentGenerationQueue,
+      notificationQueueName,
+      auditLogQueueName,
       documentPipelineStateMachineArn,
       questionPipelineStateMachineArn,
       sentryDNS,
@@ -137,6 +145,14 @@ export class ApiOrchestratorStack extends cdk.Stack {
       PINECONE_API_KEY: pineconeApiKey,
       PINECONE_INDEX: 'documents',
       SAM_OPPS_BASE_URL: 'https://api.sam.gov',
+      // Construct the notification queue URL from the queue name — no cross-stack token reference
+      ...(notificationQueueName ? {
+        NOTIFICATION_QUEUE_URL: `https://sqs.${cdk.Aws.REGION}.amazonaws.com/${cdk.Aws.ACCOUNT_ID}/${notificationQueueName}`,
+      } : {}),
+      // Audit log queue URL — allows REST Lambda handlers to enqueue audit events
+      ...(auditLogQueueName ? {
+        AUDIT_LOG_QUEUE_URL: `https://sqs.${cdk.Aws.REGION}.amazonaws.com/${cdk.Aws.ACCOUNT_ID}/${auditLogQueueName}`,
+      } : {}),
     };
 
     const sharedInfraStack = new ApiSharedInfraStack(this, 'SharedInfra', {
@@ -216,6 +232,33 @@ export class ApiOrchestratorStack extends cdk.Stack {
         resources: [`arn:aws:secretsmanager:${cdk.Aws.REGION}:${cdk.Aws.ACCOUNT_ID}:secret:*-api-key-*`],
       }),
     );
+
+    // Grant notification queue send permission to all REST Lambda handlers.
+    // Use a name-pattern ARN to avoid a cross-stack reference cycle.
+    if (notificationQueueName) {
+      sharedInfraStack.commonLambdaRole.addToPrincipalPolicy(
+        new iam.PolicyStatement({
+          sid: 'NotificationQueueSend',
+          actions: ['sqs:SendMessage'],
+          resources: [
+            `arn:aws:sqs:${cdk.Aws.REGION}:${cdk.Aws.ACCOUNT_ID}:${notificationQueueName}`,
+          ],
+        }),
+      );
+    }
+
+    // Grant audit queue send permission to all REST Lambda handlers (for audit middleware).
+    if (auditLogQueueName) {
+      sharedInfraStack.commonLambdaRole.addToPrincipalPolicy(
+        new iam.PolicyStatement({
+          sid: 'AuditQueueSend',
+          actions: ['sqs:SendMessage'],
+          resources: [
+            `arn:aws:sqs:${cdk.Aws.REGION}:${cdk.Aws.ACCOUNT_ID}:${auditLogQueueName}`,
+          ],
+        }),
+      );
+    }
 
     if (execBriefQueue) {
       execBriefQueue.grantSendMessages(sharedInfraStack.commonLambdaRole);
@@ -351,6 +394,10 @@ export class ApiOrchestratorStack extends cdk.Stack {
       linearRoutes,
       googleDomain(),
       clusteringDomain(),
+      collaborationDomain(),
+      opportunityContextDomain(),
+      notificationDomain(),
+      auditDomain(),
     ];
 
     // Compute a hash of all route definitions so the deployment logical ID changes
@@ -400,6 +447,10 @@ export class ApiOrchestratorStack extends cdk.Stack {
       'LinearRoutes',
       'GoogleRoutes',
       'ClusteringRoutes',
+      'CollaborationRoutes',
+      'OpportunityContextRoutes',
+      'NotificationRoutes',
+      'AuditRoutes',
     ];
 
     const routeNestedStacks: ApiDomainRoutesStack[] = [];

@@ -82,6 +82,14 @@ export const ALL_PERMISSIONS = [
   'template:delete',
   'template:publish',
   'template:apply',
+  'collaboration:presence',
+  'collaboration:comment',
+  'collaboration:assign',
+  'collaboration:activity',
+  'notification:read',
+  'notification:manage',
+  'audit:read',
+  'audit:report',
 ] as const;
 
 export type Permission = (typeof ALL_PERMISSIONS)[number];
@@ -93,12 +101,22 @@ export const VIEWER_PERMISSIONS = [
 
 export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
   ADMIN: [...ALL_PERMISSIONS],
-  VIEWER: [...VIEWER_PERMISSIONS],
+  VIEWER: [
+    ...VIEWER_PERMISSIONS,
+    'collaboration:presence',
+    'collaboration:activity',
+    'notification:read',
+  ],
   EDITOR: [
     ...VIEWER_PERMISSIONS,
     'question:create', 'org:create', 'kb:create', 'proposal:create', 'project:create', 'document:create', 'user:create', 'answer:create',
     'question:edit', 'org:edit', 'kb:edit', 'proposal:edit', 'project:edit', 'document:edit', 'user:edit', 'answer:edit',
     'template:create', 'template:update', 'template:publish', 'template:apply',
+    'collaboration:presence',
+    'collaboration:comment',
+    'collaboration:assign',
+    'collaboration:activity',
+    'notification:read',
   ],
   BILLING: [
     'question:read', 'org:read', 'kb:read', 'proposal:read', 'project:read',

@@ -1,5 +1,7 @@
 import type { APIGatewayProxyEventV2, APIGatewayProxyResultV2 } from 'aws-lambda';
 import middy from '@middy/core';
+import { authContextMiddleware, httpErrorMiddleware, orgMembershipMiddleware, requirePermission, type AuthedEvent } from '@/middleware/rbac-middleware';
+import { auditMiddleware, setAuditContext } from '@/middleware/audit-middleware';
 import { v4 as uuidv4 } from 'uuid';
 import { PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
@@ -29,13 +31,32 @@ const ALLOWED_MIME_TYPES = new Set([
 const MAX_FILE_SIZE_BYTES = 100 * 1024 * 1024;
 
 /**
- * Content-based document types that don't require file upload (e.g., PROPOSAL).
- * These documents store structured content in DynamoDB directly.
+ * Document types that store structured JSON content in DynamoDB (no file upload required).
+ * These are AI-generated proposal sections that can be edited, exported, and synced.
  */
-const CONTENT_BASED_DOCUMENT_TYPES = new Set(['TECHNICAL_PROPOSAL']);
+const CONTENT_BASED_DOCUMENT_TYPES = new Set([
+  // Core proposal sections — all AI-generatable
+  'COVER_LETTER',
+  'EXECUTIVE_SUMMARY',
+  'UNDERSTANDING_OF_REQUIREMENTS',
+  'TECHNICAL_PROPOSAL',
+  'PROJECT_PLAN',
+  'TEAM_QUALIFICATIONS',
+  'PAST_PERFORMANCE',
+  'COST_PROPOSAL',
+  'MANAGEMENT_APPROACH',
+  'RISK_MANAGEMENT',
+  'COMPLIANCE_MATRIX',
+  'CERTIFICATIONS',
+  'APPENDICES',
+  // Supporting sections — also AI-generatable
+  'MANAGEMENT_PROPOSAL',
+  'PRICE_VOLUME',
+  'QUALITY_MANAGEMENT',
+]);
 
 export const baseHandler = async (
-  event: APIGatewayProxyEventV2,
+  event: AuthedEvent,
 ): Promise<APIGatewayProxyResultV2> => {
   try {
     const orgId = getOrgId(event);
@@ -126,7 +147,7 @@ export const baseHandler = async (
     if (isContentBased && data.content) {
       item.content = data.content;
       item.status = data.status ?? 'NEW';
-      item.title = data.title ?? data.content?.proposalTitle ?? data.name;
+      item.title = data.title ?? data.content?.title ?? data.name;
     }
 
     await putRFPDocument(item);
@@ -146,6 +167,13 @@ export const baseHandler = async (
         expiresIn: 900,
       };
     }
+
+    
+    setAuditContext(event, {
+      action: 'PROPOSAL_SUBMITTED',
+      resource: 'proposal',
+      resourceId: 'rfp-document',
+    });
 
     return apiResponse(201, response);
   } catch (err) {

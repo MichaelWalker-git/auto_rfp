@@ -10,7 +10,9 @@ import {
   httpErrorMiddleware,
   orgMembershipMiddleware,
   requirePermission,
+  type AuthedEvent,
 } from '@/middleware/rbac-middleware';
+import { auditMiddleware, setAuditContext } from '@/middleware/audit-middleware';
 import middy from '@middy/core';
 import { requireEnv } from '@/helpers/env';
 import {
@@ -19,7 +21,7 @@ import {
   type ExportRequest,
   flattenProposalToText,
   sanitizeFileName,
-} from './export-utils';
+} from '@/helpers/export';
 
 const DOCUMENTS_BUCKET = requireEnv('DOCUMENTS_BUCKET');
 const REGION = requireEnv('REGION', 'us-east-1');
@@ -28,7 +30,7 @@ const PRESIGN_EXPIRES_IN = Number(process.env.PRESIGN_EXPIRES_IN || 3600);
 const s3Client = new S3Client({ region: REGION });
 
 export const baseHandler = async (
-  event: APIGatewayProxyEventV2,
+  event: AuthedEvent,
 ): Promise<APIGatewayProxyResultV2> => {
   try {
     if (!event.body) {
@@ -51,7 +53,7 @@ export const baseHandler = async (
     const textContent = flattenProposalToText(proposal.document);
     const textBuffer = Buffer.from(textContent, 'utf-8');
 
-    const key = buildS3Key(organizationId, projectId, opportunityId, proposalId, proposal.document.proposalTitle, 'txt');
+    const key = buildS3Key(organizationId, projectId, opportunityId, proposalId, proposal.document.title, 'txt');
 
     await s3Client.send(new PutObjectCommand({
       Bucket: DOCUMENTS_BUCKET,
@@ -65,9 +67,16 @@ export const baseHandler = async (
       Key: key,
     }), { expiresIn: PRESIGN_EXPIRES_IN });
 
+    
+    setAuditContext(event, {
+      action: 'DATA_EXPORTED',
+      resource: 'proposal',
+      resourceId: event.queryStringParameters?.projectId ?? 'unknown',
+    });
+
     return apiResponse(200, {
       success: true,
-      proposal: { id: proposal.id, title: proposal.document.proposalTitle },
+      proposal: { id: proposal.id, title: proposal.document.title },
       export: {
         format: 'txt',
         bucket: DOCUMENTS_BUCKET,
@@ -75,7 +84,7 @@ export const baseHandler = async (
         url,
         expiresIn: PRESIGN_EXPIRES_IN,
         contentType: CONTENT_TYPES.txt,
-        fileName: `${sanitizeFileName(proposal.document.proposalTitle)}.txt`,
+        fileName: `${sanitizeFileName(proposal.document.title)}.txt`,
       },
     });
   } catch (err) {
@@ -92,5 +101,6 @@ export const handler = withSentryLambda(
     .use(authContextMiddleware())
     .use(orgMembershipMiddleware())
     .use(requirePermission('proposal:export'))
+    .use(auditMiddleware())
     .use(httpErrorMiddleware()),
 );

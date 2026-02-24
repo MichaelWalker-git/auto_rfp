@@ -6,12 +6,14 @@ import {
   httpErrorMiddleware,
   orgMembershipMiddleware,
   requirePermission,
+  type AuthedEvent,
 } from '@/middleware/rbac-middleware';
+import { auditMiddleware, setAuditContext } from '@/middleware/audit-middleware';
 import middy from '@middy/core';
 import { deleteSubscription } from '@/helpers/calendar-subscription';
 
 const baseHandler = async (
-  event: APIGatewayProxyEventV2,
+  event: AuthedEvent,
 ): Promise<APIGatewayProxyResultV2> => {
   const orgId = event.pathParameters?.orgId;
 
@@ -22,6 +24,13 @@ const baseHandler = async (
   try {
     await deleteSubscription(orgId);
     
+    
+    setAuditContext(event, {
+      action: 'CONFIG_CHANGED',
+      resource: 'config',
+      resourceId: 'calendar-subscription',
+    });
+
     return apiResponse(200, {
       ok: true,
       message: 'Subscription revoked. All calendar URLs for this organization are now invalid.',
@@ -40,5 +49,6 @@ export const handler = withSentryLambda(
     .use(authContextMiddleware())
     .use(orgMembershipMiddleware())
     .use(requirePermission('org:edit'))
-    .use(httpErrorMiddleware())
+    .use(auditMiddleware())
+    .use(httpErrorMiddleware()),
 );

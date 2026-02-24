@@ -4,35 +4,38 @@ import { RoleSchema } from '@auto-rfp/core';
 export const SYSTEM_PROMPT_PK = 'SYSTEM_PROMPT';
 export const USER_PROMPT_PK = 'USER_PROMPT';
 
-export const PROPOSAL_SYSTEM_PROMPT = `
-You are a proposal writer for US government and commercial RFPs.
+export const RFP_DOCUMENT_SYSTEM_PROMPT = `
+You are a senior proposal writer for US government and commercial RFPs.
 
 Return ONLY valid JSON with this structure:
 
 {
-  "proposalTitle": string,
+  "title": string,
   "customerName"?: string,
   "opportunityId"?: string,
   "outlineSummary"?: string,
-  "sections": [
-    {
-      "id": string,
-      "title": string,
-      "summary"?: string,
-      "subsections": [
-        { "id": string, "title": string, "content": string }
-      ]
-    }
-  ]
+  "htmlContent": string  (complete styled HTML document body — no <html>/<head>/<body> tags)
 }
+
+HTML REQUIREMENTS for "htmlContent":
+- Use <h1 style="font-size:2em;font-weight:700;margin:0 0 0.5em;color:#1a1a2e;border-bottom:3px solid #4f46e5;padding-bottom:0.3em"> for document title
+- Use <h2 style="font-size:1.4em;font-weight:700;margin:1.5em 0 0.5em;color:#1a1a2e;border-bottom:1px solid #e2e8f0;padding-bottom:0.2em"> for major sections
+- Use <h3 style="font-size:1.1em;font-weight:600;margin:1.2em 0 0.4em;color:#374151"> for subsections
+- Use <p style="margin:0 0 1em;line-height:1.7;color:#374151"> for body text
+- Use <ul style="margin:0 0 1em;padding-left:1.5em"> with <li style="margin-bottom:0.4em;line-height:1.6;color:#374151"> for lists
+- Use <div style="background:#eff6ff;border-left:4px solid #4f46e5;padding:1em 1.2em;margin:1em 0;border-radius:0 6px 6px 0"> for callout boxes
 
 Rules:
 - Use information from Q&A and knowledge base snippets wherever relevant.
 - If unknown, use generic language. Do NOT invent specific numbers, dates, IDs.
 - Do NOT include any text outside JSON.
+- Generate COMPLETE, DETAILED content — not placeholders.
 `.trim();
 
-export const PROPOSAL_USER_PROMPT = `
+/** @deprecated Use RFP_DOCUMENT_SYSTEM_PROMPT */
+export const PROPOSAL_SYSTEM_PROMPT = RFP_DOCUMENT_SYSTEM_PROMPT;
+
+export const RFP_DOCUMENT_USER_PROMPT = `
 ═══════════════════════════════════════
 SOLICITATION / RFP DOCUMENTS
 ═══════════════════════════════════════
@@ -44,14 +47,14 @@ Carefully identify ALL requirements, evaluation criteria (Section M), and submis
 ═══════════════════════════════════════
 QUESTIONS & ANSWERS
 ═══════════════════════════════════════
-These are previously answered questions about this opportunity. Use these answers as authoritative content for your proposal sections. Each Q&A pair represents validated information about the company's approach.
+These are previously answered questions about this opportunity. Use these answers as authoritative content for your document sections. Each Q&A pair represents validated information about the company's approach.
 
 {{QA_TEXT}}
 
 ═══════════════════════════════════════
 ENRICHMENT CONTEXT (Knowledge Base, Past Performance, Executive Brief, Content Library)
 ═══════════════════════════════════════
-The following context has been gathered from multiple sources. Use it to enrich your proposal with:
+The following context has been gathered from multiple sources. Use it to enrich your document with:
 - Company-specific capabilities and processes (Knowledge Base)
 - Relevant past contract performance and results (Past Performance)
 - Pre-analyzed opportunity intelligence including risks, requirements, and scoring (Executive Brief)
@@ -64,27 +67,42 @@ YOUR TASK
 ═══════════════════════════════════════
 1. ANALYZE the solicitation to identify ALL requirements, evaluation criteria, and submission instructions.
 2. DEVELOP 2-3 win themes (key differentiators) based on the company's strengths from the context provided.
-3. CREATE a comprehensive proposal outline with sections that map to the solicitation's requirements and evaluation criteria.
-4. WRITE each section with substantial, detailed content (2-5 paragraphs per subsection, 150-400 words each).
-5. ENSURE every requirement from the solicitation is addressed somewhere in the proposal.
+3. WRITE a comprehensive document with sections that map to the solicitation's requirements and evaluation criteria.
+4. WRITE each section with substantial, detailed content (3-6 paragraphs per section, 150-400 words each).
+5. ENSURE every requirement from the solicitation is addressed somewhere in the document.
 6. SUPPORT claims with evidence from past performance, knowledge base, and content library.
 7. MAINTAIN customer focus throughout — write from the customer's perspective.
 8. Return ONLY valid JSON in the required format. No text outside the JSON object.
 `.trim();
 
-export const getProposalSystemPrompt = async (orgId: string) => {
-  const { prompt } = await readSystemPrompt(orgId, 'PROPOSAL') || {};
-  return prompt ? prompt : PROPOSAL_SYSTEM_PROMPT;
+/** @deprecated Use RFP_DOCUMENT_USER_PROMPT */
+export const PROPOSAL_USER_PROMPT = RFP_DOCUMENT_USER_PROMPT;
+
+export const getRfpDocumentSystemPrompt = async (orgId: string) => {
+  const { prompt } = await readSystemPrompt(orgId, 'RFP_DOCUMENT') || {};
+  // Fall back to legacy PROPOSAL key for backwards compatibility
+  if (!prompt) {
+    const { prompt: legacyPrompt } = await readSystemPrompt(orgId, 'PROPOSAL') || {};
+    return legacyPrompt || RFP_DOCUMENT_SYSTEM_PROMPT;
+  }
+  return prompt;
 };
 
-export const useProposalSystemPrompt = async (orgId: string) => {
-  return await getProposalSystemPrompt(orgId);
+/** @deprecated Use getRfpDocumentSystemPrompt */
+export const getProposalSystemPrompt = getRfpDocumentSystemPrompt;
+export const useProposalSystemPrompt = async (orgId: string) => getRfpDocumentSystemPrompt(orgId);
+
+export const getRfpDocumentUserPrompt = async (orgId: string) => {
+  const { prompt } = await readUserPrompt(orgId, 'RFP_DOCUMENT') || {};
+  if (!prompt) {
+    const { prompt: legacyPrompt } = await readUserPrompt(orgId, 'PROPOSAL') || {};
+    return legacyPrompt || RFP_DOCUMENT_USER_PROMPT;
+  }
+  return prompt;
 };
 
-export const getProposalUserPrompt = async (orgId: string) => {
-  const { prompt } = await readUserPrompt(orgId, 'PROPOSAL') || {};
-  return prompt ? prompt : PROPOSAL_USER_PROMPT;
-};
+/** @deprecated Use getRfpDocumentUserPrompt */
+export const getProposalUserPrompt = getRfpDocumentUserPrompt;
 
 export const useProposalUserPrompt = async (
   orgId: string,
@@ -92,8 +110,8 @@ export const useProposalUserPrompt = async (
   qaText?: string,
   kbText?: string
 ): Promise<string | undefined> => {
-  const prompt = await getProposalUserPrompt(orgId);
-  return prompt && prompt
+  const prompt = await getRfpDocumentUserPrompt(orgId);
+  return prompt
     .replace('{{QA_TEXT}}', qaText ?? 'None')
     .replace('{{KB_TEXT}}', kbText ?? 'None')
     .replace('{{SOLICITATION}}', solicitation ?? 'None');
@@ -118,7 +136,7 @@ export const SUMMARY_SYSTEM_PROMPT = [
   '- contractType (optional): Type of contract (FIXED_PRICE, COST_PLUS, T&M, INDEFINITE_DELIVERY, etc.) - use UNKNOWN if unclear.',
   '- setAside (optional): Small business set-aside category (SMALL_BUSINESS, WOMEN_OWNED, VETERAN_OWNED, DISADVANTAGED, NONE, etc.) - use UNKNOWN if not mentioned.',
   '- naics (optional): NAICS code(s) as string (e.g., "334511" or "541611,541612").',
-  '- estimatedValueUsd (optional): Single NUMBER value (no commas, no range) representing contract value if clearly stated.',
+  '- estimatedValueUsd (optional): Contract value as a STRING (e.g. "$1.5M", "$500,000", "Up to $2M"). Include the original text as-is from the solicitation.',
   '- placeOfPerformance (optional): Location/region where work will be performed.',
   '- evidence (optional): Array of objects with source and snippet; used for key claims.',
   '',
@@ -148,7 +166,7 @@ export const SUMMARY_USER_PROMPT = [
   '  "contractType": "string (optional, use UNKNOWN if unclear)",',
   '  "setAside": "string (optional, use UNKNOWN if not mentioned)",',
   '  "naics": "string (optional, numeric codes)",',
-  '  "estimatedValueUsd": 1000000,',
+  '  "estimatedValueUsd": "$1,000,000",',
   '  "placeOfPerformance": "string (optional)",',
   '  "evidence": [',
   '    { "source": "SOLICITATION", "snippet": "short quote" }',
@@ -191,9 +209,9 @@ export const SUMMARY_USER_PROMPT = [
   '- If not present, omit.',
   '',
   'ESTIMATED VALUE:',
-  '- Use a single NUMBER (no commas, no $ symbol, no range).',
-  '- If a range is given (e.g., "$1M-$2M"), use the midpoint or omit.',
-  '- If unclear, omit.',
+  '- Use a STRING with the original value text from the solicitation (e.g., "$1,500,000", "$1.5M", "Up to $2M", "$1M-$2M").',
+  '- Do NOT convert to a number. Preserve the original format including $ signs, commas, and ranges.',
+  '- If unclear or not stated, omit.',
   '',
   'PLACE OF PERFORMANCE:',
   '- City, state, or region where work will be performed.',

@@ -18,7 +18,9 @@ import {
   httpErrorMiddleware,
   orgMembershipMiddleware,
   requirePermission,
+  type AuthedEvent,
 } from '@/middleware/rbac-middleware';
+import { auditMiddleware, setAuditContext } from '@/middleware/audit-middleware';
 import { docClient } from '@/helpers/db';
 import { requireEnv } from '@/helpers/env';
 import { QuestionFileItem } from '@auto-rfp/core';
@@ -179,6 +181,13 @@ export const baseHandler = async (event: APIGatewayProxyEventV2): Promise<APIGat
       }),
     );
 
+    
+    setAuditContext(event, {
+      action: 'DOCUMENT_DELETED',
+      resource: 'document',
+      resourceId: event.pathParameters?.id ?? event.queryStringParameters?.id ?? 'unknown',
+    });
+
     return apiResponse(200, {
       success: true,
       deleted: {
@@ -216,5 +225,6 @@ export const handler = withSentryLambda(
     .use(authContextMiddleware())
     .use(orgMembershipMiddleware())
     .use(requirePermission('question:delete'))
+    .use(auditMiddleware())
     .use(httpErrorMiddleware()),
 );

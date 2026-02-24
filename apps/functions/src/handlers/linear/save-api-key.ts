@@ -8,7 +8,9 @@ import {
   httpErrorMiddleware,
   orgMembershipMiddleware,
   requirePermission,
+  type AuthedEvent,
 } from '@/middleware/rbac-middleware';
+import { auditMiddleware, setAuditContext } from '@/middleware/audit-middleware';
 import { z } from 'zod';
 
 const SaveLinearApiKeySchema = z.object({
@@ -16,7 +18,7 @@ const SaveLinearApiKeySchema = z.object({
 });
 
 export const baseHandler = async (
-  event: APIGatewayProxyEventV2,
+  event: AuthedEvent,
 ): Promise<APIGatewayProxyResultV2> => {
   try {
     const orgId = getOrgId(event);
@@ -30,6 +32,13 @@ export const baseHandler = async (
 
     // Store the API key with 'linear' prefix
     await storeApiKey(orgId, apiKey, 'linear');
+
+    
+    setAuditContext(event, {
+      action: 'API_KEY_CREATED',
+      resource: 'api_key',
+      resourceId: 'linear-api-key',
+    });
 
     return apiResponse(200, {
       success: true,
@@ -50,5 +59,6 @@ export const handler = withSentryLambda(
     .use(authContextMiddleware())
     .use(orgMembershipMiddleware())
     .use(requirePermission('opportunity:read'))
+    .use(auditMiddleware())
     .use(httpErrorMiddleware()),
 );

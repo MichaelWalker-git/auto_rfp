@@ -21,7 +21,7 @@ const s3Client = new S3Client({ region: REGION });
 
 interface IndexChunkEvent {
   orgId: string;
-  knowledgeBaseId: string;
+  knowledgeBaseId?: string;
   documentId?: string;
   bucket?: string;
   chunkKey?: string;

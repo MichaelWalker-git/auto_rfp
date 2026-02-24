@@ -12,6 +12,9 @@ interface ProjectContextType {
   loading: boolean;
   setCurrentProject: (p: ProjectItem | null) => void;
   refreshProjects: () => Promise<void>;
+  /** Optional extra breadcrumb label appended after the current page (e.g. selected question text) */
+  breadcrumbSuffix: string | null;
+  setBreadcrumbSuffix: (label: string | null) => void;
 }
 
 const ProjectContext = createContext<ProjectContextType | undefined>(undefined);
@@ -58,6 +61,7 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
   const { data: projects = [], mutate: mutateProjects, isLoading: isProjectsLoading } = useProjects(orgId);
 
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
+  const [breadcrumbSuffix, setBreadcrumbSuffix] = useState<string | null>(null);
 
   useEffect(() => {
     if (!orgId) {
@@ -118,6 +122,8 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
     loading: isProjectsLoading,
     setCurrentProject,
     refreshProjects,
+    breadcrumbSuffix,
+    setBreadcrumbSuffix,
   };
 
   return <ProjectContext.Provider value={value}>{children}</ProjectContext.Provider>;
