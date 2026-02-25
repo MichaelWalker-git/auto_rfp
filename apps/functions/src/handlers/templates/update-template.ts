@@ -11,7 +11,7 @@ import {
 } from '@/middleware/rbac-middleware';
 import { auditMiddleware, setAuditContext } from '@/middleware/audit-middleware';
 import { nowIso } from '@/helpers/date';
-import { getTemplate, putTemplate, saveTemplateVersion } from '@/helpers/template';
+import { getTemplate, putTemplate, uploadTemplateHtml } from '@/helpers/template';
 
 const baseHandler = async (
   event: APIGatewayProxyEventV2,
@@ -21,12 +21,11 @@ const baseHandler = async (
     if (!templateId) return apiResponse(400, { error: 'Missing template ID' });
 
     const body = JSON.parse(event.body || '');
-    const parsed = UpdateTemplateDTOSchema.safeParse(body);
-    if (!parsed.success) {
-      return apiResponse(400, { error: 'Validation failed', details: parsed.error.format() });
+    const { success, data, error } = UpdateTemplateDTOSchema.safeParse(body);
+    if (!success) {
+      return apiResponse(400, { error: 'Validation failed', details: error.format() });
     }
 
-    const { data } = parsed;
     const orgId = getOrgId(event);
     if (!orgId) return apiResponse(400, { error: 'Missing orgId' });
 
@@ -37,25 +36,10 @@ const baseHandler = async (
     if (!existing) return apiResponse(404, { error: 'Template not found' });
     if (existing.isArchived) return apiResponse(410, { error: 'Template is archived' });
 
-    const newVersion = existing.currentVersion + 1;
-    const updatedSections = data.sections ?? existing.sections;
-    const updatedMacros = data.macros ?? existing.macros;
-    const updatedStyling = data.styling ?? existing.styling;
-
-    const s3Key = await saveTemplateVersion(orgId, templateId, newVersion, {
-      sections: updatedSections,
-      macros: updatedMacros,
-      styling: updatedStyling,
-    });
-
-    const versionMeta = {
-      version: newVersion,
-      createdAt: now,
-      createdBy: userId,
-      changeNotes: data.changeNotes ?? `Version ${newVersion}`,
-      s3ContentKey: s3Key,
-      status: 'DRAFT' as const,
-    };
+    // Upload new HTML content to S3 if provided
+    const htmlContentKey = data.htmlContent !== undefined
+      ? await uploadTemplateHtml(orgId, templateId, data.htmlContent)
+      : existing.htmlContentKey;
 
     const updated = {
       ...existing,
@@ -64,21 +48,20 @@ const baseHandler = async (
       ...(data.tags !== undefined && { tags: data.tags }),
       ...(data.agencyId !== undefined && { agencyId: data.agencyId }),
       ...(data.agencyName !== undefined && { agencyName: data.agencyName }),
-      sections: updatedSections,
-      macros: updatedMacros,
-      styling: updatedStyling,
-      currentVersion: newVersion,
-      versions: [...existing.versions, versionMeta],
+      ...(data.macros !== undefined && { macros: data.macros }),
+      ...(data.styling !== undefined && { styling: data.styling }),
+      htmlContentKey,
+      sections: [],
       updatedAt: now,
       updatedBy: userId,
     };
 
     await putTemplate(updated);
-    
+
     setAuditContext(event, {
       action: 'CONFIG_CHANGED',
       resource: 'template',
-      resourceId: event.pathParameters?.templateId ?? event.queryStringParameters?.templateId ?? 'unknown',
+      resourceId: templateId,
     });
 
     return apiResponse(200, { data: updated });

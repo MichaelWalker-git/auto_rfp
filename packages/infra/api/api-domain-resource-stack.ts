@@ -107,6 +107,7 @@ export class ApiDomainRoutesStack extends cdk.NestedStack {
             '@aws-sdk/s3-request-presigner',
             '@aws-sdk/client-rds-data',
           ],
+          ...(route.nodeModules?.length ? { nodeModules: route.nodeModules } : {}),
           minify: true,
           sourceMap: false,
           target: 'es2022',

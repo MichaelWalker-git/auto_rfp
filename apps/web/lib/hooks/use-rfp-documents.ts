@@ -201,8 +201,15 @@ export function useRFPDocuments(
     },
   );
 
+  // Sort documents newest first by updatedAt
+  const sortedDocuments = data?.items
+    ? [...data.items].sort(
+        (a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime(),
+      )
+    : [];
+
   return {
-    documents: data?.items ?? [],
+    documents: sortedDocuments,
     count: data?.count ?? 0,
     nextToken: data?.nextToken ?? null,
     isLoading,
@@ -301,6 +308,19 @@ export function useSyncRFPDocumentToGoogleDrive(orgId?: string) {
   );
 }
 
+/** Sync an RFP document back from Google Drive into the app */
+export function useSyncRFPDocumentFromGoogleDrive(orgId?: string) {
+  return useSWRMutation<
+    { message: string; documentId: string; isDocx: boolean; lastSyncedAt: string },
+    Error,
+    string,
+    { projectId: string; opportunityId: string; documentId: string }
+  >(
+    `${BASE}/sync-from-google-drive${orgId ? `?orgId=${orgId}` : ''}`,
+    (url, { arg }) => postJson(url, arg),
+  );
+}
+
 // ─── Generate Document ───
 
 const GenerateRFPDocumentRequestSchema = z.object({
@@ -388,6 +408,58 @@ export function useExportRFPDocument(orgId?: string) {
     `${BASE}/export${orgId ? `?orgId=${orgId}` : ''}`,
     (url, { arg }) => postJson<ExportRFPDocumentResponse>(url, arg),
   );
+}
+
+// ─── HTML Content ───
+
+const HtmlContentResponseSchema = z.object({
+  ok: z.boolean(),
+  html: z.string(),
+  htmlContentKey: z.string().nullable(),
+  documentId: z.string(),
+});
+
+type HtmlContentResponse = z.infer<typeof HtmlContentResponseSchema>;
+
+/**
+ * Fetch the HTML content for a content-based RFP document.
+ * Loads from S3 via the backend (htmlContentKey) with fallback to inline DynamoDB content.
+ */
+export function useRFPDocumentHtmlContent(
+  projectId: string | null,
+  opportunityId: string | null,
+  documentId: string | null,
+  orgId: string | null,
+) {
+  const params = new URLSearchParams();
+  if (projectId) params.set('projectId', projectId);
+  if (opportunityId) params.set('opportunityId', opportunityId);
+  if (documentId) params.set('documentId', documentId);
+  if (orgId) params.set('orgId', orgId);
+
+  const key =
+    projectId && opportunityId && documentId && orgId
+      ? `${BASE}/html-content?${params.toString()}`
+      : null;
+
+  const { data, error, isLoading, mutate } = useSWR<HtmlContentResponse>(
+    key,
+    async (url: string) => {
+      const res = await authFetcher(url);
+      if (!res.ok) throw new Error('Failed to fetch HTML content');
+      return res.json();
+    },
+    { revalidateOnFocus: false },
+  );
+
+  return {
+    html: data?.html ?? '',
+    htmlContentKey: data?.htmlContentKey ?? null,
+    isLoading,
+    isError: !!error,
+    error,
+    mutate,
+  };
 }
 
 /** Upload file to S3 using presigned URL */

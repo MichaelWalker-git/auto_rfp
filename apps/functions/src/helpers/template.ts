@@ -173,6 +173,35 @@ export const loadTemplateVersion = async (
 };
 
 // ================================
+// HTML Content S3 Helpers
+// ================================
+
+/**
+ * Build the S3 key for a template's HTML content.
+ */
+export const buildTemplateHtmlKey = (orgId: string, templateId: string): string =>
+  `templates/${orgId}/${templateId}/content.html`;
+
+/**
+ * Upload raw HTML content to S3 and return the S3 key.
+ */
+export const uploadTemplateHtml = async (
+  orgId: string,
+  templateId: string,
+  html: string,
+): Promise<string> => {
+  const key = buildTemplateHtmlKey(orgId, templateId);
+  await uploadToS3(DOCUMENTS_BUCKET, key, html, 'text/html');
+  return key;
+};
+
+/**
+ * Load raw HTML content from S3 for a template.
+ */
+export const loadTemplateHtml = async (htmlContentKey: string): Promise<string> =>
+  loadTextFromS3(DOCUMENTS_BUCKET, htmlContentKey);
+
+// ================================
 // Macro Engine
 // ================================
 

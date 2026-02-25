@@ -7,18 +7,19 @@ import {
   httpErrorMiddleware,
   orgMembershipMiddleware,
 } from '@/middleware/rbac-middleware';
-import { getTemplate, replaceMacros } from '@/helpers/template';
+import { getTemplate, loadTemplateHtml, replaceMacros } from '@/helpers/template';
 
 const SAMPLE_MACRO_VALUES: Record<string, string> = {
-  company_name: 'Acme Corporation',
-  project_title: 'Cloud Migration Services',
-  contract_number: 'W911NF-26-R-0001',
-  submission_date: '2026-03-15',
-  page_limit: '50',
-  opportunity_id: 'SAM-2026-001',
-  agency_name: 'Department of Defense',
-  current_date: new Date().toISOString().split('T')[0],
-  proposal_title: 'Technical Proposal for Cloud Migration Services',
+  COMPANY_NAME:    'Acme Corporation',
+  PROJECT_TITLE:   'Cloud Migration Services',
+  CONTRACT_NUMBER: 'W911NF-26-R-0001',
+  SUBMISSION_DATE: '2026-03-15',
+  PAGE_LIMIT:      '50',
+  OPPORTUNITY_ID:  'SAM-2026-001',
+  AGENCY_NAME:     'Department of Defense',
+  TODAY:           new Date().toISOString().split('T')[0],
+  PROPOSAL_TITLE:  'Technical Proposal for Cloud Migration Services',
+  CONTENT:         '[Content will be generated here]',
 };
 
 const baseHandler = async (
@@ -34,6 +35,16 @@ const baseHandler = async (
     const template = await getTemplate(orgId, templateId);
     if (!template) return apiResponse(404, { error: 'Template not found' });
 
+    // Load HTML content from S3
+    let htmlContent = '';
+    if (template.htmlContentKey) {
+      try {
+        htmlContent = await loadTemplateHtml(template.htmlContentKey);
+      } catch (err) {
+        console.warn('Failed to load template HTML from S3:', err);
+      }
+    }
+
     const customMacroDefaults = template.macros
       .filter(m => m.type === 'CUSTOM' && m.defaultValue)
       .reduce<Record<string, string>>((acc, m) => {
@@ -43,17 +54,7 @@ const baseHandler = async (
 
     const allMacros = { ...SAMPLE_MACRO_VALUES, ...customMacroDefaults };
 
-    const previewSections = template.sections
-      .sort((a, b) => a.order - b.order)
-      .map(section => ({
-        id: section.id,
-        title: replaceMacros(section.title, allMacros),
-        content: replaceMacros(section.content, allMacros),
-        required: section.required,
-        description: section.description
-          ? replaceMacros(section.description, allMacros)
-          : undefined,
-      }));
+    const previewHtml = replaceMacros(htmlContent, allMacros);
 
     return apiResponse(200, {
       templateId: template.id,
@@ -61,7 +62,7 @@ const baseHandler = async (
       description: template.description
         ? replaceMacros(template.description, allMacros)
         : null,
-      sections: previewSections,
+      htmlContent: previewHtml,
       macrosUsed: allMacros,
       styling: template.styling,
     });

@@ -26,6 +26,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/components/ui/use-toast';
+import { useConfirmDialog } from '@/components/ui/confirm-dialog';
 import {
   type RFPDocumentItem,
   RFP_DOCUMENT_TYPES,
@@ -90,6 +91,7 @@ export function OpportunityRFPDocuments() {
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
   const [previewLoading, setPreviewLoading] = useState(false);
+  const { confirm, ConfirmDialog } = useConfirmDialog();
 
   const handlePreview = useCallback(async (doc: RFPDocumentItem) => {
     try {
@@ -153,7 +155,13 @@ export function OpportunityRFPDocuments() {
 
   const handleDelete = useCallback(async (doc: RFPDocumentItem) => {
     if (deletingId === doc.documentId) return;
-    if (!window.confirm(`Delete "${doc.name}"? This action cannot be undone.`)) return;
+    const ok = await confirm({
+      title: `Delete "${doc.name}"?`,
+      description: 'This action cannot be undone.',
+      confirmLabel: 'Delete',
+      variant: 'destructive',
+    });
+    if (!ok) return;
     try {
       setDeletingId(doc.documentId);
       await deleteDocument({
@@ -409,6 +417,7 @@ export function OpportunityRFPDocuments() {
         document={exportDoc}
         orgId={orgId}
       />
+      <ConfirmDialog />
     </>
   );
 }

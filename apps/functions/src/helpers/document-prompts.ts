@@ -726,20 +726,21 @@ ${HTML_REQUIREMENTS}`;
     prompt += `
 
 ═══════════════════════════════════════
-HTML TEMPLATE SCAFFOLD (REQUIRED — FILL IN EXACTLY)
+⚠️  MANDATORY HTML TEMPLATE SCAFFOLD — OVERRIDE ALL OTHER STRUCTURE GUIDANCE ⚠️
 ═══════════════════════════════════════
-A pre-approved HTML template has been provided for this document type.
-You MUST use this scaffold as the structure for "htmlContent".
+A pre-approved HTML template has been provided. This template OVERRIDES all document structure guidance above.
+You MUST use this scaffold as the EXACT structure for "htmlContent". Do NOT deviate from it.
 
-INSTRUCTIONS:
-1. Keep ALL existing <h1>, <h2>, <h3> headings exactly as written — do NOT rename or reorder sections.
-2. Replace every [CONTENT: ...] placeholder with real, detailed content based on the solicitation and context.
-3. Keep any pre-authored boilerplate text that is NOT a placeholder — it is approved content.
-4. Add additional <h3> subsections and <p> paragraphs as needed within each section.
-5. Do NOT remove any sections from the template — all sections are required.
-6. The final "htmlContent" must be a complete, valid HTML body (no <html>/<head>/<body> tags).
+STRICT INSTRUCTIONS:
+1. PRESERVE ALL HEADINGS: Keep every <h1>, <h2>, <h3> heading exactly as written. Do NOT rename, reorder, or remove any heading.
+2. FILL ALL PLACEHOLDERS: Replace every [CONTENT: ...], [placeholder], and [Your ...] marker with real, detailed, substantive content based on the solicitation and context provided.
+3. KEEP BOILERPLATE: Any text that is NOT a placeholder is pre-approved content — keep it exactly as written.
+4. EXPAND CONTENT: Add <h3> subsections and <p> paragraphs within each section as needed to produce a complete, professional document.
+5. NO REMOVALS: Do NOT remove any section, heading, or structural element from the template.
+6. COMPLETE HTML: The final "htmlContent" must be a complete, valid HTML body (no <html>/<head>/<body> tags).
+7. IGNORE STRUCTURE GUIDANCE ABOVE: The document type structure guidance above is SUPERSEDED by this template.
 
-TEMPLATE SCAFFOLD:
+TEMPLATE SCAFFOLD (FOLLOW EXACTLY):
 ${templateHtmlScaffold}`;
   } else if (templateSections?.length) {
     // Legacy: section outline only (no HTML scaffold)

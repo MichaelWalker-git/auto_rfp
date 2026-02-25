@@ -135,6 +135,7 @@ export function RFPDocumentsContent({ projectId, orgId, opportunityId }: RFPDocu
         key={doc.documentId}
         document={doc}
         orgId={orgId}
+        projectId={projectId}
         isDeleting={deletingId === doc.documentId}
         isDownloading={downloadingId === doc.documentId}
         isPreviewLoading={previewLoading}
@@ -147,7 +148,7 @@ export function RFPDocumentsContent({ projectId, orgId, opportunityId }: RFPDocu
         onSyncComplete={handleMutate}
       />
     ),
-    [orgId, deletingId, downloadingId, previewLoading, handlePreview, handleDownload, handleMutate],
+    [orgId, projectId, deletingId, downloadingId, previewLoading, handlePreview, handleDownload, handleMutate],
   );
 
   return (

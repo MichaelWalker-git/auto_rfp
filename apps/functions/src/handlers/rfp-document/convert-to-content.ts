@@ -3,283 +3,79 @@ import middy from '@middy/core';
 import { GetObjectCommand, S3Client } from '@aws-sdk/client-s3';
 import mammoth from 'mammoth';
 import { withSentryLambda } from '@/sentry-lambda';
-import { getRFPDocument, updateRFPDocumentMetadata } from '@/helpers/rfp-document';
+import {
+  getRFPDocument,
+  updateRFPDocumentMetadata,
+  uploadRFPDocumentHtml,
+} from '@/helpers/rfp-document';
 import { apiResponse, getOrgId, getUserId } from '@/helpers/api';
 import { requireEnv } from '@/helpers/env';
-import { v4 as uuidv4 } from 'uuid';
 
 const DOCUMENTS_BUCKET = requireEnv('DOCUMENTS_BUCKET');
 const REGION = requireEnv('REGION', 'us-east-1');
 const s3Client = new S3Client({ region: REGION });
 
-/**
- * Parse HTML output from mammoth into a structured RFPDocumentContent.
- * Uses regex to extract complete HTML elements (headings and paragraphs),
- * then maps them into sections and subsections.
- */
-function htmlToRFPDocumentContent(html: string, title: string): Record<string, any> {
-  // Extract all block-level elements as an ordered list of { type, level, text }
-  interface Block {
-    type: 'heading' | 'paragraph';
-    level: number; // 1-6 for headings, 0 for paragraphs
-    text: string;
-  }
-
-  const blocks: Block[] = [];
-
-  // Match headings: <h1>...</h1> through <h6>...</h6>
-  // Match paragraphs: <p>...</p>
-  // Match list items: <li>...</li>
-  const blockRegex = /<(h[1-6]|p|li)[^>]*>([\s\S]*?)<\/\1>/gi;
-  let match: RegExpExecArray | null;
-
-  while ((match = blockRegex.exec(html)) !== null) {
-    const tag = match[1].toLowerCase();
-    const innerHtml = match[2];
-    const text = stripHtml(innerHtml).trim();
-
-    if (!text) continue;
-
-    if (tag.startsWith('h')) {
-      const level = parseInt(tag[1], 10);
-      blocks.push({ type: 'heading', level, text });
-    } else {
-      blocks.push({ type: 'paragraph', level: 0, text });
-    }
-  }
-
-  // If no blocks extracted (e.g., plain text without tags), fall back to full text
-  if (blocks.length === 0) {
-    const plainText = stripHtml(html).trim();
-    if (plainText) {
-      blocks.push({ type: 'paragraph', level: 0, text: plainText });
-    }
-  }
-
-  // Now build sections/subsections from the blocks
-  const sections: any[] = [];
-  let currentSection: any = null;
-  let currentSubsection: any = null;
-  let contentBuffer: string[] = [];
-
-  function flushContent() {
-    if (contentBuffer.length === 0) return;
-    const text = contentBuffer.join('\n\n');
-    contentBuffer = [];
-
-    if (currentSubsection) {
-      currentSubsection.content = currentSubsection.content
-        ? `${currentSubsection.content}\n\n${text}`
-        : text;
-    } else if (currentSection) {
-      // Create a default subsection for the content
-      currentSubsection = {
-        id: uuidv4(),
-        title: 'Content',
-        content: text,
-      };
-      currentSection.subsections.push(currentSubsection);
-    } else {
-      // No section yet — create a default one
-      currentSection = {
-        id: uuidv4(),
-        title: 'Document Content',
-        summary: null,
-        subsections: [],
-      };
-      currentSubsection = {
-        id: uuidv4(),
-        title: 'Content',
-        content: text,
-      };
-      currentSection.subsections.push(currentSubsection);
-      sections.push(currentSection);
-    }
-  }
-
-  for (const block of blocks) {
-    if (block.type === 'heading') {
-      // Flush any accumulated content before starting a new section/subsection
-      flushContent();
-
-      if (block.level <= 2) {
-        // H1/H2 → new section
-        currentSubsection = null;
-        currentSection = {
-          id: uuidv4(),
-          title: block.text,
-          summary: null,
-          subsections: [],
-        };
-        sections.push(currentSection);
-      } else {
-        // H3+ → new subsection within current section
-        if (!currentSection) {
-          currentSection = {
-            id: uuidv4(),
-            title: 'Document Content',
-            summary: null,
-            subsections: [],
-          };
-          sections.push(currentSection);
-        }
-        currentSubsection = {
-          id: uuidv4(),
-          title: block.text,
-          content: '',
-        };
-        currentSection.subsections.push(currentSubsection);
-      }
-    } else {
-      // Paragraph or list item → accumulate as content
-      contentBuffer.push(block.text);
-    }
-  }
-
-  // Flush remaining content
-  flushContent();
-
-  // If no sections were created, create a default one
-  if (sections.length === 0) {
-    const plainText = stripHtml(html).trim();
-    sections.push({
-      id: uuidv4(),
-      title: 'Document Content',
-      summary: null,
-      subsections: [{
-        id: uuidv4(),
-        title: 'Content',
-        content: plainText || '',
-      }],
-    });
-  }
-
-  // Ensure all sections have at least one subsection
-  for (const section of sections) {
-    if (section.subsections.length === 0) {
-      section.subsections.push({
-        id: uuidv4(),
-        title: 'Content',
-        content: '',
-      });
-    }
-  }
-
-  return {
-    title: title,
-    customerName: null,
-    opportunityId: null,
-    outlineSummary: null,
-    sections,
-  };
-}
+// ─── HTML helpers ─────────────────────────────────────────────────────────────
 
 /**
- * Convert plain text to simple HTML paragraphs for the rich text editor.
+ * Convert plain text to simple HTML paragraphs.
  * Each double-newline-separated block becomes a <p> tag.
  */
-function textToHtml(text: string): string {
+const textToHtml = (text: string): string => {
   if (!text?.trim()) return '<p></p>';
   return text
     .split(/\n{2,}/)
     .map((para) => para.trim())
     .filter(Boolean)
     .map((para) => {
-      // Escape HTML special chars
       const escaped = para
         .replace(/&/g, '&amp;')
         .replace(/</g, '&lt;')
         .replace(/>/g, '&gt;')
         .replace(/\n/g, '<br>');
-      return `<p>${escaped}</p>`;
+      return `<p style="margin:0 0 1em;line-height:1.7;color:#374151">${escaped}</p>`;
     })
     .join('\n');
-}
-
-function stripHtml(html: string): string {
-  return html
-    .replace(/<[^>]*>/g, '')
-    .replace(/&amp;/g, '&')
-    .replace(/&lt;/g, '<')
-    .replace(/&gt;/g, '>')
-    .replace(/&quot;/g, '"')
-    .replace(/&#39;/g, "'")
-    .replace(/&nbsp;/g, ' ')
-    .trim();
-}
+};
 
 /**
- * Convert plain text to RFPDocumentContent structure.
+ * Wrap raw mammoth HTML output in a styled document shell.
+ * Mammoth produces clean semantic HTML — we just add consistent styling.
  */
-function textToRFPDocumentContent(text: string, title: string): Record<string, any> {
-  const paragraphs = text.split(/\n{2,}/);
-  const sections: any[] = [];
-  let currentContent = '';
+const wrapMammothHtml = (html: string, title: string): string => {
+  // Add inline styles to mammoth's output elements
+  const styled = html
+    .replace(/<h1>/g, '<h1 style="font-size:2em;font-weight:700;margin:0 0 0.5em;color:#1a1a2e;border-bottom:3px solid #4f46e5;padding-bottom:0.3em">')
+    .replace(/<h2>/g, '<h2 style="font-size:1.4em;font-weight:700;margin:1.5em 0 0.5em;color:#1a1a2e;border-bottom:1px solid #e2e8f0;padding-bottom:0.2em">')
+    .replace(/<h3>/g, '<h3 style="font-size:1.1em;font-weight:600;margin:1.2em 0 0.4em;color:#374151">')
+    .replace(/<p>/g, '<p style="margin:0 0 1em;line-height:1.7;color:#374151">')
+    .replace(/<ul>/g, '<ul style="margin:0 0 1em;padding-left:1.5em">')
+    .replace(/<ol>/g, '<ol style="margin:0 0 1em;padding-left:1.5em">')
+    .replace(/<li>/g, '<li style="margin-bottom:0.4em;line-height:1.6;color:#374151">')
+    .replace(/<table>/g, '<table style="width:100%;border-collapse:collapse;margin:1em 0">')
+    .replace(/<th>/g, '<th style="padding:0.6em 0.8em;text-align:left;font-weight:600;font-size:0.9em;background:#4f46e5;color:#fff">')
+    .replace(/<td>/g, '<td style="padding:0.6em 0.8em;font-size:0.9em;color:#374151;border-bottom:1px solid #e2e8f0">');
 
-  for (const para of paragraphs) {
-    const trimmed = para.trim();
-    if (!trimmed) continue;
+  return [
+    `<h1 style="font-size:2em;font-weight:700;margin:0 0 0.5em;color:#1a1a2e;border-bottom:3px solid #4f46e5;padding-bottom:0.3em">${title}</h1>`,
+    styled,
+  ].join('\n');
+};
 
-    // Heuristic: lines that are short and don't end with punctuation might be headings
-    const isHeading = trimmed.length < 100 && !trimmed.endsWith('.') && !trimmed.endsWith(',');
+// ─── Metadata extraction ──────────────────────────────────────────────────────
 
-    if (isHeading && currentContent) {
-      // Save previous content as a section
-      if (sections.length === 0) {
-        sections.push({
-          id: uuidv4(),
-          title: 'Introduction',
-          summary: null,
-          subsections: [{ id: uuidv4(), title: 'Content', content: currentContent.trim() }],
-        });
-      } else {
-        const lastSection = sections[sections.length - 1];
-        lastSection.subsections.push({ id: uuidv4(), title: 'Content', content: currentContent.trim() });
-      }
-      currentContent = '';
-      sections.push({
-        id: uuidv4(),
-        title: trimmed,
-        summary: null,
-        subsections: [],
-      });
-    } else {
-      currentContent += (currentContent ? '\n\n' : '') + trimmed;
-    }
+/**
+ * Extract a plain-text title from the first heading or first line of HTML.
+ */
+const extractTitleFromHtml = (html: string, fallback: string): string => {
+  const h1Match = html.match(/<h1[^>]*>([\s\S]*?)<\/h1>/i);
+  if (h1Match) {
+    return h1Match[1].replace(/<[^>]*>/g, '').trim() || fallback;
   }
+  return fallback;
+};
 
-  // Flush remaining content
-  if (currentContent.trim()) {
-    if (sections.length === 0) {
-      sections.push({
-        id: uuidv4(),
-        title: 'Document Content',
-        summary: null,
-        subsections: [{ id: uuidv4(), title: 'Content', content: currentContent.trim() }],
-      });
-    } else {
-      const lastSection = sections[sections.length - 1];
-      lastSection.subsections.push({ id: uuidv4(), title: 'Content', content: currentContent.trim() });
-    }
-  }
-
-  if (sections.length === 0) {
-    sections.push({
-      id: uuidv4(),
-      title: 'Document Content',
-      summary: null,
-      subsections: [{ id: uuidv4(), title: 'Content', content: text }],
-    });
-  }
-
-  return {
-    title: title,
-    customerName: null,
-    opportunityId: null,
-    outlineSummary: null,
-    sections,
-  };
-}
+// ─── Handler ──────────────────────────────────────────────────────────────────
 
 export const baseHandler = async (
   event: APIGatewayProxyEventV2,
@@ -299,18 +95,19 @@ export const baseHandler = async (
       return apiResponse(400, { message: 'projectId, opportunityId, and documentId are required' });
     }
 
-    // Get the document
+    // Load document record
     const doc = await getRFPDocument(projectId, opportunityId, documentId);
-    if (!doc || doc.deletedAt) {
-      return apiResponse(404, { message: 'Document not found' });
-    }
-    if (doc.orgId !== orgId) {
-      return apiResponse(403, { message: 'Access denied' });
-    }
+    if (!doc || doc.deletedAt) return apiResponse(404, { message: 'Document not found' });
+    if (doc.orgId !== orgId) return apiResponse(403, { message: 'Access denied' });
 
-    // If already has content, return it
-    if (doc.content) {
-      return apiResponse(200, { ok: true, content: doc.content, alreadyConverted: true });
+    // Already converted — return existing htmlContentKey or inline content
+    if (doc.htmlContentKey || doc.content) {
+      return apiResponse(200, {
+        ok: true,
+        htmlContentKey: doc.htmlContentKey ?? null,
+        content: doc.content ?? null,
+        alreadyConverted: true,
+      });
     }
 
     // Must have a file to convert
@@ -318,10 +115,11 @@ export const baseHandler = async (
       return apiResponse(400, { message: 'Document has no file to convert' });
     }
 
-    const mimeType = doc.mimeType || '';
-    const isDocx = mimeType.includes('wordprocessingml') || mimeType.includes('msword') || doc.fileKey.endsWith('.docx');
-    const isPdf = mimeType.includes('application/pdf') || doc.fileKey.endsWith('.pdf');
-    const isText = mimeType.includes('text/plain') || mimeType.includes('text/markdown') || doc.fileKey.endsWith('.txt') || doc.fileKey.endsWith('.md');
+    const mimeType = (doc.mimeType as string) || '';
+    const fileKey = doc.fileKey as string;
+    const isDocx = mimeType.includes('wordprocessingml') || mimeType.includes('msword') || fileKey.endsWith('.docx');
+    const isPdf = mimeType.includes('application/pdf') || fileKey.endsWith('.pdf');
+    const isText = mimeType.includes('text/plain') || mimeType.includes('text/markdown') || fileKey.endsWith('.txt') || fileKey.endsWith('.md');
 
     if (!isDocx && !isPdf && !isText) {
       return apiResponse(400, {
@@ -330,34 +128,22 @@ export const baseHandler = async (
     }
 
     // Download file from S3
-    const getCmd = new GetObjectCommand({ Bucket: DOCUMENTS_BUCKET, Key: doc.fileKey });
+    const getCmd = new GetObjectCommand({ Bucket: DOCUMENTS_BUCKET, Key: fileKey });
     const s3Response = await s3Client.send(getCmd);
+    if (!s3Response.Body) return apiResponse(500, { message: 'Failed to download file from S3' });
 
-    if (!s3Response.Body) {
-      return apiResponse(500, { message: 'Failed to download file from S3' });
-    }
-
-    let content: Record<string, any>;
-    const docTitle = doc.name || doc.title || 'Untitled Document';
+    const docTitle = (doc.name as string) || (doc.title as string) || 'Untitled Document';
+    let html = '';
 
     if (isDocx) {
       const buffer = Buffer.from(await s3Response.Body.transformToByteArray());
       const result = await mammoth.convertToHtml({ buffer });
-      const html = result.value;
-
       if (result.messages.length > 0) {
         console.warn('Mammoth conversion warnings:', result.messages);
       }
-
-      // Store the raw HTML as the canonical editable content
-      content = {
-        ...htmlToRFPDocumentContent(html, docTitle),
-        htmlContent: html,
-      };
+      html = wrapMammothHtml(result.value, extractTitleFromHtml(result.value, docTitle));
     } else if (isPdf) {
       const buffer = Buffer.from(await s3Response.Body.transformToByteArray());
-      // Extract text from PDF using pdf-parse with test mode disabled
-      // pdf-parse requires a workaround for Lambda (no DOM/canvas)
       let pdfText = '';
       try {
         const pdfParseModule = require('pdf-parse/lib/pdf-parse');
@@ -365,9 +151,8 @@ export const baseHandler = async (
         pdfText = pdfResult.text;
       } catch (pdfErr) {
         console.warn('pdf-parse failed, falling back to basic text extraction:', pdfErr);
-        // Fallback: extract readable text from PDF buffer using regex
         const rawText = buffer.toString('utf-8', 0, Math.min(buffer.length, 500000));
-        const textMatches = rawText.match(/\(([^)]+)\)/g) || [];
+        const textMatches = rawText.match(/\(([^)]+)\)/g) ?? [];
         pdfText = textMatches
           .map((m: string) => m.slice(1, -1))
           .filter((t: string) => t.length > 1 && /[a-zA-Z]/.test(t))
@@ -376,30 +161,43 @@ export const baseHandler = async (
           pdfText = 'PDF content could not be extracted. Please convert this PDF to DOCX or TXT format for editing.';
         }
       }
-      // Convert plain text to HTML paragraphs for the rich text editor
-      const html = textToHtml(pdfText);
-      content = {
-        ...textToRFPDocumentContent(pdfText, docTitle),
-        htmlContent: html,
-      };
+      html = [
+        `<h1 style="font-size:2em;font-weight:700;margin:0 0 0.5em;color:#1a1a2e;border-bottom:3px solid #4f46e5;padding-bottom:0.3em">${docTitle}</h1>`,
+        textToHtml(pdfText),
+      ].join('\n');
     } else {
       // Plain text / markdown
       const text = await s3Response.Body.transformToString('utf-8');
-      const html = textToHtml(text);
-      content = {
-        ...textToRFPDocumentContent(text, docTitle),
-        htmlContent: html,
-      };
+      html = [
+        `<h1 style="font-size:2em;font-weight:700;margin:0 0 0.5em;color:#1a1a2e;border-bottom:3px solid #4f46e5;padding-bottom:0.3em">${docTitle}</h1>`,
+        textToHtml(text),
+      ].join('\n');
     }
 
-    // Save content to the document and add edit history entry
-    const editHistory = doc.editHistory || [];
+    // ── Upload HTML to S3 — store only the key in DynamoDB ──
+    const htmlContentKey = await uploadRFPDocumentHtml({
+      orgId,
+      projectId,
+      opportunityId,
+      documentId,
+      html,
+    });
+
+    // Metadata stored in DynamoDB (no HTML inline)
+    const contentMeta = {
+      title: docTitle,
+      customerName: null,
+      opportunityId,
+      outlineSummary: null,
+    };
+
+    const editHistory = ((doc.editHistory as Record<string, unknown>[] | undefined) ?? []);
     editHistory.push({
       editedBy: userId,
       editedAt: new Date().toISOString(),
       action: 'CONVERT',
-      changeNote: `Converted from ${isDocx ? 'DOCX' : isPdf ? 'PDF' : 'text'} to editable content`,
-      version: doc.version || 1,
+      changeNote: `Converted from ${isDocx ? 'DOCX' : isPdf ? 'PDF' : 'text'} to HTML`,
+      version: (doc.version as number) || 1,
     });
 
     await updateRFPDocumentMetadata({
@@ -407,15 +205,18 @@ export const baseHandler = async (
       opportunityId,
       documentId,
       updates: {
-        content,
-        title: content.title || docTitle,
+        content: contentMeta,
+        htmlContentKey,
+        title: docTitle,
+        editHistory,
       },
       updatedBy: userId,
     });
 
     return apiResponse(200, {
       ok: true,
-      content,
+      htmlContentKey,
+      content: contentMeta,
       alreadyConverted: false,
     });
   } catch (err) {
