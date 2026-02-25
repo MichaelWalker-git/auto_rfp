@@ -1,5 +1,5 @@
 import { queryBySkPrefix } from '@/helpers/db';
-import { updateRFPDocumentMetadata } from '@/helpers/rfp-document';
+import { updateRFPDocumentMetadata, uploadRFPDocumentHtml } from '@/helpers/rfp-document';
 import { loadAllSolicitationTexts } from '@/helpers/executive-opportunity-brief';
 import { getTemplate, listTemplatesByOrg } from '@/helpers/template';
 import { MAX_SOLICITATION_CHARS } from '@/constants/document-generation';
@@ -104,6 +104,10 @@ export async function resolveTemplateSections(
 }
 
 // ─── Document status update ───
+// When status is COMPLETE and content is provided:
+//   1. Upload the HTML body to S3 and store only the key in DynamoDB (htmlContentKey).
+//   2. Store metadata (title, customerName, outlineSummary, opportunityId) in DynamoDB content field
+//      WITHOUT the large `content` (html) string — that lives in S3.
 
 export async function updateDocumentStatus(
   projectId: string,
@@ -112,18 +116,49 @@ export async function updateDocumentStatus(
   status: 'COMPLETE' | 'FAILED',
   content?: RFPDocumentContent,
   generationError?: string,
+  orgId?: string,
 ): Promise<void> {
+  let htmlContentKey: string | undefined;
+
+  // Upload HTML to S3 when we have content and an orgId to build the key
+  if (status === 'COMPLETE' && content?.content && orgId) {
+    try {
+      htmlContentKey = await uploadRFPDocumentHtml({
+        orgId,
+        projectId,
+        opportunityId,
+        documentId,
+        html: content.content,
+      });
+      console.log(`HTML content uploaded to S3: ${htmlContentKey}`);
+    } catch (err) {
+      console.error('Failed to upload HTML to S3, falling back to DynamoDB storage:', err);
+      // Fall back: keep content in DynamoDB if S3 upload fails
+    }
+  }
+
+  // Build the content object stored in DynamoDB — metadata only, no HTML (HTML lives in S3)
+  const dbContent = content
+    ? {
+        title: content.title,
+        customerName: content.customerName,
+        opportunityId: content.opportunityId,
+        outlineSummary: content.outlineSummary,
+      }
+    : undefined;
+
   await updateRFPDocumentMetadata({
     projectId,
     opportunityId,
     documentId,
     updates: {
       status,
-      ...(content && {
-        content,
-        title: content.title || 'Generated Document',
-        name: content.title || 'Generated Document',
+      ...(dbContent && {
+        content: dbContent,
+        title: content!.title || 'Generated Document',
+        name: content!.title || 'Generated Document',
       }),
+      ...(htmlContentKey && { htmlContentKey }),
       ...(generationError && { generationError }),
     },
     updatedBy: 'system',

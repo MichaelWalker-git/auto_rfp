@@ -140,8 +140,8 @@ async function processJob(job: Job): Promise<void> {
   // 7. Ensure htmlContent is present — convert legacy sections to HTML if needed
   const finalDocument = ensureHtmlContent(data);
 
-  // 8. Persist generated content
-  await updateDocumentStatus(projectId, effectiveOpportunityId, documentId, 'COMPLETE', finalDocument);
+  // 8. Persist generated content — HTML goes to S3, only key stored in DynamoDB
+  await updateDocumentStatus(projectId, effectiveOpportunityId, documentId, 'COMPLETE', finalDocument, undefined, orgId);
   console.log(`Document generation complete for documentId=${documentId}`);
 }
 

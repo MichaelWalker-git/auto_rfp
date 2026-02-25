@@ -6,7 +6,7 @@ import * as Sentry from '@sentry/nextjs';
 
 export const metadata: Metadata = {
   title: 'AutoRFP - AI-Powered RFP Response Solution',
-  description: 'Automatically answer RFP questions with AI document agents powered by LlamaIndex',
+  description: 'Streamline your RFP process with AI-powered document analysis, proposal generation, and automated responses',
   other: {
     ...Sentry.getTraceData(),
   },

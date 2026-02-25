@@ -18,6 +18,7 @@ import { auditMiddleware, setAuditContext } from '@/middleware/audit-middleware'
 import middy from '@middy/core';
 import { requireEnv } from '@/helpers/env';
 import { type RFPDocumentContent } from '@auto-rfp/core';
+import { loadDocumentHtmlForExport } from '@/helpers/export';
 const DOCUMENTS_BUCKET = requireEnv('DOCUMENTS_BUCKET');
 const REGION = requireEnv('REGION', 'us-east-1');
 const PRESIGN_EXPIRES_IN = Number(process.env.PRESIGN_EXPIRES_IN || 3600);
@@ -407,11 +408,15 @@ export const baseHandler = async (
     const proposalDoc = rfpDoc.content as RFPDocumentContent;
     const organizationId = rfpDoc.orgId || getOrgId(event) || 'DEFAULT';
 
+    // Load HTML from S3 (or inline fallback) with S3 image keys resolved
+    const resolvedHtml = await loadDocumentHtmlForExport(rfpDoc as Record<string, unknown>);
+    const proposalDocWithHtml: RFPDocumentContent = { ...proposalDoc, content: resolvedHtml };
+
     // Get or create template document
     const templateBuffer = await getOrCreateTemplate(organizationId);
 
-    // Build proposal sections with options
-    const proposalSections = buildProposalSections(proposalDoc, body.options);
+    // Build proposal sections with options (using resolved HTML content)
+    const proposalSections = buildProposalSections(proposalDocWithHtml, body.options);
 
     // Merge proposal with template
     const wordBuffer = await mergeProposalWithTemplate(templateBuffer, proposalSections);

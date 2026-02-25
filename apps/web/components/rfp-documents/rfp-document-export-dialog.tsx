@@ -25,15 +25,24 @@ import {
   EXPORT_FORMAT_EXTENSIONS,
   type RFPDocumentItem,
   useExportRFPDocument,
+  useRFPDocumentHtmlContent,
 } from '@/lib/hooks/use-rfp-documents';
 import { env } from '@/lib/env';
 import { authFetcher } from '@/lib/auth/auth-fetcher';
+import { htmlToDocxBlob } from '@/lib/utils/html-to-docx';
+import { usePresignDownload } from '@/lib/hooks/use-presign';
 
 interface Props {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   document: RFPDocumentItem | null;
   orgId: string;
+  /**
+   * Pre-resolved HTML content from the editor.
+   * When provided, DOCX is generated from this directly.
+   * When omitted, the dialog fetches HTML from the backend on demand.
+   */
+  htmlContent?: string;
 }
 
 const FORMAT_ICONS: Record<ExportFormat, typeof FileDown> = {
@@ -46,7 +55,7 @@ const FORMAT_ICONS: Record<ExportFormat, typeof FileDown> = {
 };
 
 const FORMAT_DESCRIPTIONS: Record<ExportFormat, string> = {
-  docx: 'Professional Word document using your organization\'s template.',
+  docx: 'Professional Word document with full formatting, tables, and images.',
   pdf: 'Portable Document Format with professional formatting.',
   html: 'Web-ready HTML format for email or web-based submissions.',
   txt: 'Plain text format for email submissions or accessibility.',
@@ -55,21 +64,31 @@ const FORMAT_DESCRIPTIONS: Record<ExportFormat, string> = {
 };
 
 /** Formats handled by the /export/ domain (legacy export lambdas) */
-const LEGACY_EXPORT_FORMATS = new Set<ExportFormat>(['docx', 'pdf', 'pptx']);
+const LEGACY_EXPORT_FORMATS = new Set<ExportFormat>(['pdf', 'pptx']);
 
 /** Endpoint mapping for legacy export formats */
 const LEGACY_EXPORT_ENDPOINTS: Record<string, string> = {
-  docx: 'generate-word',
   pdf: 'generate-pdf',
   pptx: 'generate-pptx',
 };
 
-export function RFPDocumentExportDialog({ open, onOpenChange, document: doc, orgId }: Props) {
+export const RFPDocumentExportDialog = ({ open, onOpenChange, document: doc, orgId, htmlContent: htmlContentProp }: Props) => {
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
   const [selectedFormat, setSelectedFormat] = useState<ExportFormat>('docx');
   const [pageSize, setPageSize] = useState<'letter' | 'a4'>('letter');
   const { trigger: exportDocument } = useExportRFPDocument(orgId);
+  const { trigger: triggerPresignDownload } = usePresignDownload();
+
+  // Fetch HTML content from backend when dialog is open and DOCX is selected
+  // and no htmlContent was passed in as a prop.
+  const shouldFetchHtml = open && selectedFormat === 'docx' && !htmlContentProp && !!doc;
+  const { html: fetchedHtml, isLoading: isHtmlLoading } = useRFPDocumentHtmlContent(
+    shouldFetchHtml ? doc?.projectId ?? null : null,
+    shouldFetchHtml ? doc?.opportunityId ?? null : null,
+    shouldFetchHtml ? doc?.documentId ?? null : null,
+    shouldFetchHtml ? orgId : null,
+  );
 
   const handleExport = async () => {
     if (!doc) return;
@@ -77,10 +96,40 @@ export function RFPDocumentExportDialog({ open, onOpenChange, document: doc, org
     try {
       setIsLoading(true);
 
+      const fileName = doc.title || doc.name || 'document';
+
+      // ── DOCX: generated entirely client-side — no Lambda call ──
+      if (selectedFormat === 'docx') {
+        const html = htmlContentProp || fetchedHtml || '';
+        if (!html) {
+          throw new Error('No document content available for DOCX export.');
+        }
+        const resolveS3Key = async (key: string): Promise<string> => {
+          const presign = await triggerPresignDownload({ key });
+          return presign.url;
+        };
+        const blob = await htmlToDocxBlob(html, { resolveS3Key });
+        const objectUrl = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = objectUrl;
+        link.download = `${fileName}.docx`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(objectUrl);
+
+        toast({
+          title: 'Export successful',
+          description: 'Document exported as Word Document (.docx)',
+        });
+        onOpenChange(false);
+        return;
+      }
+
       let exportUrl: string | null = null;
 
       if (LEGACY_EXPORT_FORMATS.has(selectedFormat)) {
-        // Use the /export/ domain endpoints for docx, pdf, pptx
+        // Use the /export/ domain endpoints for pdf, pptx
         const endpoint = LEGACY_EXPORT_ENDPOINTS[selectedFormat];
         const url = `${env.BASE_API_URL}/export/${endpoint}${orgId ? `?orgId=${orgId}` : ''}`;
 
@@ -89,7 +138,7 @@ export function RFPDocumentExportDialog({ open, onOpenChange, document: doc, org
           body: JSON.stringify({
             projectId: doc.projectId,
             opportunityId: doc.opportunityId,
-            proposalId: doc.documentId, // legacy endpoints use proposalId
+            proposalId: doc.documentId,
             documentId: doc.documentId,
             options: selectedFormat === 'pdf' ? { pageSize } : undefined,
           }),
@@ -117,7 +166,7 @@ export function RFPDocumentExportDialog({ open, onOpenChange, document: doc, org
         const link = document.createElement('a');
         link.href = exportUrl;
         const ext = EXPORT_FORMAT_EXTENSIONS[selectedFormat] || '';
-        link.download = `${doc.title || doc.name || 'document'}${ext}`;
+        link.download = `${fileName}${ext}`;
         link.setAttribute('target', '_blank');
         document.body.appendChild(link);
         link.click();
@@ -147,6 +196,7 @@ export function RFPDocumentExportDialog({ open, onOpenChange, document: doc, org
   if (!doc) return null;
 
   const FormatIcon = FORMAT_ICONS[selectedFormat];
+  const isDocxLoading = selectedFormat === 'docx' && !htmlContentProp && isHtmlLoading;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -208,13 +258,20 @@ export function RFPDocumentExportDialog({ open, onOpenChange, document: doc, org
               </div>
             </div>
           </div>
+
+          {isDocxLoading && (
+            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+              <Loader2 className="h-3 w-3 animate-spin" />
+              Loading document content…
+            </div>
+          )}
         </div>
 
         <div className="flex gap-3 justify-end">
           <Button variant="outline" onClick={() => onOpenChange(false)} disabled={isLoading}>
             Cancel
           </Button>
-          <Button onClick={handleExport} disabled={isLoading} className="gap-2">
+          <Button onClick={handleExport} disabled={isLoading || isDocxLoading} className="gap-2">
             {isLoading ? (
               <>
                 <Loader2 className="h-4 w-4 animate-spin" />
@@ -231,4 +288,4 @@ export function RFPDocumentExportDialog({ open, onOpenChange, document: doc, org
       </DialogContent>
     </Dialog>
   );
-}
+};

@@ -9,10 +9,12 @@
     "clean": "rm -rf lib cdk.out .turbo node_modules/.cache",
     "test": "jest",
     "cdk": "cdk",
-    "deploy:dev:api": "cdk deploy ApiOrchestrator-Dev",
-    "deploy:test:api": "cdk deploy ApiOrchestrator-Test",
-    "deploy:dev": "STAGE=Dev cdk deploy --all",
-    "deploy:test": "STAGE=Test cdk deploy --all"
+    "deploy:dev:api": "tsc --noEmit false && cross-env STAGE=Dev cdk deploy ApiOrchestrator-Dev --require-approval never --concurrency 5",
+    "deploy:test:api": "tsc --noEmit false && cross-env STAGE=Test cdk deploy ApiOrchestrator-Test --require-approval never --concurrency 5",
+    "deploy:dev": "tsc --noEmit false && cross-env STAGE=Dev cdk deploy --all --require-approval never --concurrency 10",
+    "deploy:dev:hotswap": "tsc --noEmit false && cross-env STAGE=Dev cdk deploy --all --require-approval never --concurrency 10 --hotswap",
+    "deploy:test": "tsc --noEmit false && cross-env STAGE=Test cdk deploy --all --require-approval never --concurrency 10",
+    "deploy:test:hotswap": "tsc --noEmit false && cross-env STAGE=Test cdk deploy --all --require-approval never --concurrency 10 --hotswap"
   },
   "devDependencies": {
     "@types/aws-lambda": "^8.10.160",
@@ -22,6 +24,7 @@
     "aws-cdk-lib": "^2.237.1",
     "aws-lambda": "^1.0.7",
     "constructs": "^10.4.5",
+    "cross-env": "^10.1.0",
     "esbuild": "^0.27.2",
     "jest": "^30.2.0",
     "ts-jest": "^29.4.6",
@@ -37,9 +40,9 @@
     "@aws-sdk/client-dynamodb": "^3.982.0",
     "@aws-sdk/client-lambda": "^3.982.0",
     "@aws-sdk/client-s3": "^3.982.0",
-    "@aws-sdk/client-sns": "^3.982.0",
     "@aws-sdk/client-secrets-manager": "^3.982.0",
     "@aws-sdk/client-sfn": "^3.982.0",
+    "@aws-sdk/client-sns": "^3.982.0",
     "@aws-sdk/client-sqs": "^3.982.0",
     "@aws-sdk/client-ssm": "^3.982.0",
     "@aws-sdk/client-textract": "^3.982.0",
@@ -57,10 +60,10 @@
     "googleapis": "^171.4.0",
     "jszip": "^3.10.1",
     "mammoth": "^1.11.0",
-    "xlsx": "^0.18.5",
     "pdf-parse": "^2.4.5",
     "pptxgenjs": "^4.0.1",
     "uuid": "^13.0.0",
+    "xlsx": "^0.18.5",
     "zod": "^3.25.0"
   }
 }

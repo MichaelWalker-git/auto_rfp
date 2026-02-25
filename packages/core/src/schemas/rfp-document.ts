@@ -264,6 +264,15 @@ export const RFPDocumentItemSchema = z.object({
   googleDriveFileId: z.string().nullable().optional(),
   /** Google Drive URL when synced */
   googleDriveUrl: z.string().nullable().optional(),
+  /**
+   * S3 key for the generated/edited HTML content.
+   * When present, the HTML body lives in S3 and this field is the key.
+   * The `content.content` field will be absent (stripped to save DynamoDB space).
+   * Legacy documents may still have HTML inline in `content.content`.
+   */
+  htmlContentKey: z.string().nullable().optional(),
+  /** Generation error message when status is FAILED */
+  generationError: z.string().nullable().optional(),
 });
 
 export type RFPDocumentItem = z.infer<typeof RFPDocumentItemSchema>;

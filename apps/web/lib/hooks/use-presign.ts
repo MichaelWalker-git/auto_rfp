@@ -8,7 +8,7 @@ import { env } from "@/lib/env";
  * Adjust this to match your backend route
  * e.g. API Gateway:  `${env.BASE_API_URL}/file/presign`
  */
-const PRESIGN_URL = `${env.BASE_API_URL}/presigned/presigned-url`;
+const PRESIGN_URL = `${env.BASE_API_URL}/presigned/generate-presigned-url`;
 
 export type PresignUploadResponse = {
   operation: "upload";

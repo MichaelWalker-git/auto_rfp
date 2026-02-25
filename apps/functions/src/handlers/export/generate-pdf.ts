@@ -16,7 +16,7 @@ import { auditMiddleware, setAuditContext } from '@/middleware/audit-middleware'
 import middy from '@middy/core';
 import { requireEnv } from '@/helpers/env';
 import { type RFPDocumentContent } from '@auto-rfp/core';
-import { buildS3Key, CONTENT_TYPES, type ExportRequest, sanitizeFileName } from '@/helpers/export';
+import { buildS3Key, CONTENT_TYPES, type ExportRequest, sanitizeFileName, loadDocumentHtmlForExport } from '@/helpers/export';
 
 const DOCUMENTS_BUCKET = requireEnv('DOCUMENTS_BUCKET');
 const REGION = requireEnv('REGION', 'us-east-1');
@@ -270,7 +270,12 @@ export const baseHandler = async (
     const proposal = { id: rfpDoc.documentId, organizationId: rfpDoc.orgId, document: rfpDoc.content as any };
 
     const organizationId = proposal.organizationId || getOrgId(event) || 'DEFAULT';
-    const pdfBuffer = buildPdfBuffer(proposal.document, { pageSize: options?.pageSize });
+
+    // Load HTML from S3 (or inline fallback) with S3 image keys resolved
+    const resolvedHtml = await loadDocumentHtmlForExport(rfpDoc as Record<string, unknown>);
+    const docWithHtml = { ...proposal.document, content: resolvedHtml };
+
+    const pdfBuffer = buildPdfBuffer(docWithHtml, { pageSize: options?.pageSize });
 
     const key = buildS3Key(organizationId, projectId, opportunityId, proposalId, proposal.document.title, 'pdf');
 

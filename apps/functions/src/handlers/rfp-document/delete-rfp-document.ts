@@ -1,10 +1,20 @@
 import type { APIGatewayProxyEventV2, APIGatewayProxyResultV2 } from 'aws-lambda';
 import middy from '@middy/core';
-import { authContextMiddleware, httpErrorMiddleware, orgMembershipMiddleware, requirePermission, type AuthedEvent } from '@/middleware/rbac-middleware';
+import {
+  authContextMiddleware,
+  httpErrorMiddleware,
+  orgMembershipMiddleware,
+  requirePermission,
+  type AuthedEvent,
+} from '@/middleware/rbac-middleware';
 import { auditMiddleware, setAuditContext } from '@/middleware/audit-middleware';
 import { withSentryLambda } from '@/sentry-lambda';
 import { getRFPDocument, softDeleteRFPDocument } from '@/helpers/rfp-document';
+import { deleteS3ObjectsFromKeys } from '@/helpers/s3';
 import { apiResponse, getOrgId, getUserId } from '@/helpers/api';
+import { requireEnv } from '@/helpers/env';
+
+const DOCUMENTS_BUCKET = requireEnv('DOCUMENTS_BUCKET');
 
 export const baseHandler = async (
   event: AuthedEvent,
@@ -32,13 +42,26 @@ export const baseHandler = async (
       return apiResponse(403, { message: 'Access denied' });
     }
 
+    // ── Soft-delete the DynamoDB record ──
     await softDeleteRFPDocument({ projectId, opportunityId, documentId, deletedBy: userId });
 
-    
+    // ── Clean up all S3 objects associated with this document (best-effort) ──
+    const s3KeysToDelete: unknown[] = [
+      existing.fileKey,        // original uploaded file
+      existing.htmlContentKey, // generated/converted HTML content
+    ];
+
+    const { deleted, failed, skipped } = await deleteS3ObjectsFromKeys(DOCUMENTS_BUCKET, s3KeysToDelete);
+    if (failed > 0) {
+      console.warn(`S3 cleanup: deleted=${deleted}, failed=${failed}, skipped=${skipped} for documentId=${documentId}`);
+    } else {
+      console.log(`S3 cleanup: deleted=${deleted}, skipped=${skipped} for documentId=${documentId}`);
+    }
+
     setAuditContext(event, {
       action: 'DATA_EXPORTED',
       resource: 'proposal',
-      resourceId: event.pathParameters?.documentId ?? event.queryStringParameters?.documentId ?? 'unknown',
+      resourceId: documentId,
     });
 
     return apiResponse(200, { ok: true, message: 'Document deleted' });
@@ -51,4 +74,11 @@ export const baseHandler = async (
   }
 };
 
-export const handler = withSentryLambda(middy(baseHandler));
+export const handler = withSentryLambda(
+  middy(baseHandler)
+    .use(authContextMiddleware())
+    .use(orgMembershipMiddleware())
+    .use(requirePermission('proposal:delete'))
+    .use(auditMiddleware())
+    .use(httpErrorMiddleware()),
+);

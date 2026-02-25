@@ -9,6 +9,8 @@ export type RouteDef = {
   extraEnv?: Record<string, string>;
   memorySize?: number;
   timeoutSeconds?: number;
+  /** Extra npm packages to install alongside the bundle (not bundled by esbuild) */
+  nodeModules?: string[];
 };
 
 export type DomainRoutes = {
