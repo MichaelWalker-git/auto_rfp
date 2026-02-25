@@ -22,10 +22,8 @@ import PermissionWrapper from '@/components/permission-wrapper';
 
 /**
  * All AI-generatable document types in win-optimized proposal order.
- * These map to CONTENT_BASED_DOCUMENT_TYPES on the backend.
  */
 const GENERATABLE_TYPES_CONFIG: { key: string; label: string }[] = [
-  // Core proposal sections (win-optimized order)
   { key: 'COVER_LETTER',                  label: RFP_DOCUMENT_TYPES.COVER_LETTER },
   { key: 'EXECUTIVE_SUMMARY',             label: RFP_DOCUMENT_TYPES.EXECUTIVE_SUMMARY },
   { key: 'UNDERSTANDING_OF_REQUIREMENTS', label: RFP_DOCUMENT_TYPES.UNDERSTANDING_OF_REQUIREMENTS },
@@ -39,7 +37,6 @@ const GENERATABLE_TYPES_CONFIG: { key: string; label: string }[] = [
   { key: 'COMPLIANCE_MATRIX',             label: RFP_DOCUMENT_TYPES.COMPLIANCE_MATRIX },
   { key: 'CERTIFICATIONS',                label: RFP_DOCUMENT_TYPES.CERTIFICATIONS },
   { key: 'APPENDICES',                    label: RFP_DOCUMENT_TYPES.APPENDICES },
-  // Supporting sections
   { key: 'MANAGEMENT_PROPOSAL',           label: RFP_DOCUMENT_TYPES.MANAGEMENT_PROPOSAL },
   { key: 'PRICE_VOLUME',                  label: RFP_DOCUMENT_TYPES.PRICE_VOLUME },
   { key: 'QUALITY_MANAGEMENT',            label: RFP_DOCUMENT_TYPES.QUALITY_MANAGEMENT },
@@ -71,6 +68,8 @@ export function GenerateDocumentDialog({
     setIsOpen(false);
 
     try {
+      // No templateId passed — backend auto-selects the most recent active template
+      // for the selected document type
       await triggerGenerate({
         projectId,
         opportunityId,
@@ -163,10 +162,10 @@ export function GenerateDocumentDialog({
               onClick={handleGenerate}
             >
               <Brain className="h-3.5 w-3.5 mr-1.5 shrink-0" />
-              <span className="truncate">Generate</span>
+              <span className="truncate">Generate {selectedLabel}</span>
             </Button>
             <p className="text-[10px] text-muted-foreground leading-tight">
-              AI will generate the document using your solicitation files, Q&A, and knowledge base. It will appear in the list automatically.
+              AI will generate the document using your solicitation files, Q&A, knowledge base, and the most recent template for this document type.
             </p>
           </div>
         </DropdownMenuContent>

@@ -15,6 +15,11 @@ export const RFPDocumentContentSchema = z.object({
   outlineSummary: z.string().nullable().optional(),
   /** Raw HTML content — the canonical editable representation of the document. */
   content: z.string().nullable().optional(),
+  /**
+   * Alias for `content` — the AI model returns this field name.
+   * Normalized to `content` after parsing via the `transform` step in the worker.
+   */
+  htmlContent: z.string().nullable().optional(),
 });
 
 export type RFPDocumentContent = z.infer<typeof RFPDocumentContentSchema>;

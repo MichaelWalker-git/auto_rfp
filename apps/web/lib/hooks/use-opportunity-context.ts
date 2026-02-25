@@ -18,6 +18,7 @@ export type { ContextItem, ContextItemSource, ContextOverrideAction };
 export interface OpportunityContextData {
   suggestedItems: ContextItem[];
   pinnedItems: ContextItem[];
+  excludedItems: ContextItem[];
   excludedIds: string[];
   lastRefreshedAt?: string;
 }
@@ -130,6 +131,7 @@ export function useOpportunityContext(
   return {
     suggestedItems: data?.suggestedItems ?? [],
     pinnedItems: data?.pinnedItems ?? [],
+    excludedItems: data?.excludedItems ?? [],
     excludedIds: data?.excludedIds ?? [],
     lastRefreshedAt: data?.lastRefreshedAt,
     isLoading,

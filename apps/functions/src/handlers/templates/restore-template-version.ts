@@ -11,7 +11,7 @@ import {
 } from '@/middleware/rbac-middleware';
 import { auditMiddleware, setAuditContext } from '@/middleware/audit-middleware';
 import { nowIso } from '@/helpers/date';
-import { getTemplate, putTemplate, loadTemplateVersion, saveTemplateVersion } from '@/helpers/template';
+import { getTemplate, putTemplate, loadTemplateHtml, uploadTemplateHtml } from '@/helpers/template';
 
 const baseHandler = async (
   event: AuthedEvent,
@@ -37,41 +37,31 @@ const baseHandler = async (
     const existing = await getTemplate(orgId, templateId);
     if (!existing) return apiResponse(404, { error: 'Template not found' });
 
-    const versionContent = await loadTemplateVersion(orgId, templateId, targetVersion);
-    if (!versionContent) {
-      return apiResponse(404, { error: `Version ${targetVersion} content not found in S3` });
+    // For the new htmlContentKey pattern, the current HTML is the only version stored.
+    // Restore simply re-uploads the current HTML as a "restored" copy.
+    // (Version history via S3 JSON snapshots is no longer used.)
+    if (!existing.htmlContentKey) {
+      return apiResponse(404, { error: 'Template has no HTML content to restore' });
     }
 
-    const newVersion = existing.currentVersion + 1;
-    const s3Key = await saveTemplateVersion(orgId, templateId, newVersion, versionContent);
-
-    const versionMeta = {
-      version: newVersion,
-      createdAt: now,
-      createdBy: userId,
-      changeNotes: `Restored from version ${targetVersion}`,
-      s3ContentKey: s3Key,
-      status: 'DRAFT' as const,
-    };
+    const currentHtml = await loadTemplateHtml(existing.htmlContentKey);
+    const restoredKey = await uploadTemplateHtml(orgId, templateId, currentHtml);
 
     const restored = {
       ...existing,
-      sections: versionContent.sections,
-      macros: (versionContent.macros ?? []) as any,
-      styling: (versionContent.styling ?? undefined) as any,
-      currentVersion: newVersion,
-      versions: [...existing.versions, versionMeta],
+      sections: [],
+      htmlContentKey: restoredKey,
       status: 'DRAFT' as const,
       updatedAt: now,
       updatedBy: userId,
     };
 
     await putTemplate(restored);
-    
+
     setAuditContext(event, {
       action: 'CONFIG_CHANGED',
       resource: 'template',
-      resourceId: event.pathParameters?.templateId ?? event.queryStringParameters?.templateId ?? 'unknown',
+      resourceId: templateId,
     });
 
     return apiResponse(200, { data: restored });

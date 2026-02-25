@@ -201,8 +201,15 @@ export function useRFPDocuments(
     },
   );
 
+  // Sort documents newest first by updatedAt
+  const sortedDocuments = data?.items
+    ? [...data.items].sort(
+        (a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime(),
+      )
+    : [];
+
   return {
-    documents: data?.items ?? [],
+    documents: sortedDocuments,
     count: data?.count ?? 0,
     nextToken: data?.nextToken ?? null,
     isLoading,

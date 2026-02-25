@@ -1,7 +1,8 @@
 import type { APIGatewayProxyEventV2, APIGatewayProxyResultV2 } from 'aws-lambda';
 import { v4 as uuidv4 } from 'uuid';
 import middy from '@middy/core';
-import { ImportTemplateDTOSchema, SYSTEM_MACROS } from '@auto-rfp/core';
+import { z } from 'zod';
+import { TemplateCategorySchema, SYSTEM_MACROS } from '@auto-rfp/core';
 import { apiResponse, getOrgId } from '@/helpers/api';
 import { withSentryLambda } from '@/sentry-lambda';
 import {
@@ -13,19 +14,31 @@ import {
 } from '@/middleware/rbac-middleware';
 import { auditMiddleware, setAuditContext } from '@/middleware/audit-middleware';
 import { nowIso } from '@/helpers/date';
-import { putTemplate, saveTemplateVersion } from '@/helpers/template';
+import { putTemplate, uploadTemplateHtml } from '@/helpers/template';
+
+// Import DTO — accepts htmlContent for the new pattern
+const ImportTemplateDTOSchema = z.object({
+  orgId: z.string().uuid(),
+  templateData: z.object({
+    name: z.string().min(1).max(500),
+    type: TemplateCategorySchema,
+    category: TemplateCategorySchema,
+    description: z.string().max(2000).optional(),
+    htmlContent: z.string().max(10_000_000).optional(),
+    tags: z.array(z.string().max(50)).max(20).optional(),
+  }),
+});
 
 const baseHandler = async (
   event: AuthedEvent,
 ): Promise<APIGatewayProxyResultV2> => {
   try {
     const body = JSON.parse(event.body || '');
-    const parsed = ImportTemplateDTOSchema.safeParse(body);
-    if (!parsed.success) {
-      return apiResponse(400, { error: 'Validation failed', details: parsed.error.format() });
+    const { success, data, error } = ImportTemplateDTOSchema.safeParse(body);
+    if (!success) {
+      return apiResponse(400, { error: 'Validation failed', details: error.format() });
     }
 
-    const { data } = parsed;
     const orgId = data.orgId || getOrgId(event);
     if (!orgId) return apiResponse(400, { error: 'Missing orgId' });
 
@@ -34,13 +47,10 @@ const baseHandler = async (
     const now = nowIso();
     const td = data.templateData;
 
-    const allMacros = [...SYSTEM_MACROS, ...(td.macros ?? [])];
-
-    const s3Key = await saveTemplateVersion(orgId, templateId, 1, {
-      sections: td.sections,
-      macros: allMacros,
-      styling: td.styling,
-    });
+    // Upload HTML content to S3
+    const htmlContentKey = td.htmlContent
+      ? await uploadTemplateHtml(orgId, templateId, td.htmlContent)
+      : null;
 
     const item = {
       id: templateId,
@@ -49,21 +59,15 @@ const baseHandler = async (
       type: td.type,
       category: td.category,
       description: td.description,
-      sections: td.sections,
-      macros: allMacros,
-      styling: td.styling,
+      sections: [],
+      macros: [...SYSTEM_MACROS],
+      styling: undefined,
+      htmlContentKey,
       tags: td.tags ?? [],
       isDefault: false,
       status: 'DRAFT' as const,
       currentVersion: 1,
-      versions: [{
-        version: 1,
-        createdAt: now,
-        createdBy: userId,
-        changeNotes: 'Imported',
-        s3ContentKey: s3Key,
-        status: 'DRAFT' as const,
-      }],
+      versions: [],
       createdAt: now,
       updatedAt: now,
       createdBy: userId,
@@ -77,11 +81,11 @@ const baseHandler = async (
     };
 
     await putTemplate(item);
-    
+
     setAuditContext(event, {
       action: 'CONFIG_CHANGED',
       resource: 'template',
-      resourceId: 'template',
+      resourceId: templateId,
     });
 
     return apiResponse(201, { data: item });

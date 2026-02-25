@@ -10,7 +10,7 @@ import {
   requirePermission,
 } from '@/middleware/rbac-middleware';
 import { auditMiddleware, setAuditContext } from '@/middleware/audit-middleware';
-import { getTemplate, replaceMacros } from '@/helpers/template';
+import { getTemplate, loadTemplateHtml, replaceMacros } from '@/helpers/template';
 import { getProjectById } from '@/helpers/project';
 
 const resolveSystemMacros = async (
@@ -21,15 +21,16 @@ const resolveSystemMacros = async (
   const org = (project as any)?.organization;
 
   return {
-    company_name: org?.name ?? '',
-    project_title: (project as any)?.name ?? '',
-    contract_number: (project as any)?.contractNumber ?? '',
-    submission_date: (project as any)?.submissionDate ?? '',
-    page_limit: (project as any)?.pageLimit?.toString() ?? '',
-    opportunity_id: (project as any)?.opportunityId ?? '',
-    agency_name: (project as any)?.agencyName ?? '',
-    current_date: new Date().toISOString().split('T')[0] ?? '',
-    proposal_title: (project as any)?.title ?? (project as any)?.name ?? '',
+    COMPANY_NAME:    org?.name ?? '',
+    PROJECT_TITLE:   (project as any)?.name ?? '',
+    CONTRACT_NUMBER: (project as any)?.contractNumber ?? '',
+    SUBMISSION_DATE: (project as any)?.submissionDate ?? '',
+    PAGE_LIMIT:      (project as any)?.pageLimit?.toString() ?? '',
+    OPPORTUNITY_ID:  (project as any)?.opportunityId ?? '',
+    AGENCY_NAME:     (project as any)?.agencyName ?? '',
+    TODAY:           new Date().toISOString().split('T')[0] ?? '',
+    PROPOSAL_TITLE:  (project as any)?.title ?? (project as any)?.name ?? '',
+    CONTENT:         '',
   };
 };
 
@@ -41,12 +42,11 @@ const baseHandler = async (
     if (!templateId) return apiResponse(400, { error: 'Missing template ID' });
 
     const body = JSON.parse(event.body || '');
-    const parsed = ApplyTemplateDTOSchema.safeParse(body);
-    if (!parsed.success) {
-      return apiResponse(400, { error: 'Validation failed', details: parsed.error.format() });
+    const { success, data, error } = ApplyTemplateDTOSchema.safeParse(body);
+    if (!success) {
+      return apiResponse(400, { error: 'Validation failed', details: error.format() });
     }
 
-    const { data } = parsed;
     const orgId = getOrgId(event);
     if (!orgId) return apiResponse(400, { error: 'Missing orgId' });
 
@@ -54,60 +54,36 @@ const baseHandler = async (
     if (!template) return apiResponse(404, { error: 'Template not found' });
     if (template.isArchived) return apiResponse(410, { error: 'Template is archived' });
 
+    // Load HTML content from S3
+    let htmlContent = '';
+    if (template.htmlContentKey) {
+      try {
+        htmlContent = await loadTemplateHtml(template.htmlContentKey);
+      } catch (err) {
+        console.warn('Failed to load template HTML from S3:', err);
+      }
+    }
+
     const systemMacros = await resolveSystemMacros(data.projectId, orgId);
     const allMacros = { ...systemMacros, ...(data.customMacros ?? {}) };
 
-    // Build HTML from template sections — structure is expressed via HTML headings
-    const filteredSections = template.sections
-      .filter(s => data.includeOptionalSections || s.required)
-      .sort((a, b) => a.order - b.order);
-
-    const htmlParts: string[] = [
-      `<h1 style="font-size:2em;font-weight:700;margin:0 0 0.5em;color:#1a1a2e;border-bottom:3px solid #4f46e5;padding-bottom:0.3em">${replaceMacros(template.name, allMacros)}</h1>`,
-    ];
-
-    if (template.description) {
-      htmlParts.push(
-        `<div style="background:#eff6ff;border-left:4px solid #4f46e5;padding:1em 1.2em;margin:1em 0;border-radius:0 6px 6px 0"><p style="margin:0;line-height:1.7;color:#374151">${replaceMacros(template.description, allMacros)}</p></div>`,
-      );
-    }
-
-    for (const section of filteredSections) {
-      const sectionTitle = replaceMacros(section.title, allMacros);
-      htmlParts.push(
-        `<h2 style="font-size:1.4em;font-weight:700;margin:1.5em 0 0.5em;color:#1a1a2e;border-bottom:1px solid #e2e8f0;padding-bottom:0.2em">${sectionTitle}</h2>`,
-      );
-
-      if (section.description) {
-        htmlParts.push(
-          `<p style="margin:0 0 1em;line-height:1.7;color:#374151"><em>${replaceMacros(section.description, allMacros)}</em></p>`,
-        );
-      }
-
-      if (section.content?.trim()) {
-        htmlParts.push(
-          `<p style="margin:0 0 1em;line-height:1.7;color:#374151">${replaceMacros(section.content, allMacros)}</p>`,
-        );
-      }
-
-      // Sections no longer have subsections — content is stored directly in section.content
-    }
+    // Apply macro replacement to the full HTML content
+    const resolvedHtml = replaceMacros(htmlContent, allMacros);
 
     const proposalDocument: RFPDocumentContent = {
       title: replaceMacros(template.name, allMacros),
-      customerName: allMacros.agency_name || null,
-      opportunityId: allMacros.opportunity_id || null,
+      customerName: allMacros['AGENCY_NAME'] || null,
+      opportunityId: allMacros['OPPORTUNITY_ID'] || null,
       outlineSummary: template.description
         ? replaceMacros(template.description, allMacros)
         : null,
-      content: htmlParts.join('\n'),
+      content: resolvedHtml,
     };
 
-    
     setAuditContext(event, {
       action: 'CONFIG_CHANGED',
       resource: 'template',
-      resourceId: event.pathParameters?.templateId ?? event.queryStringParameters?.templateId ?? 'unknown',
+      resourceId: templateId,
     });
 
     return apiResponse(200, {

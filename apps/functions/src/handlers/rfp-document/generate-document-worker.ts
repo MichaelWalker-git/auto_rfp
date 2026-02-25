@@ -10,26 +10,29 @@ import {
   buildUserPromptForDocumentType,
 } from '@/helpers/document-prompts';
 import {
-  buildTemplateHtmlScaffold,
   extractBedrockText,
   loadQaPairs,
   loadSolicitation,
-  resolveTemplateSections,
+  resolveTemplateHtml,
   updateDocumentStatus,
 } from '@/helpers/document-generation';
-import type { TemplateSection } from '@auto-rfp/core';
 import { BEDROCK_MODEL_ID, MAX_TOKENS, TEMPERATURE } from '@/constants/document-generation';
 import { RFPDocumentContentSchema, RFPDocumentTypeSchema, type RFPDocumentContent } from '@auto-rfp/core';
 
 // ─── Helpers ───
 
 /**
- * Ensures the document has htmlContent.
- * If the model did not return htmlContent, generates a minimal HTML fallback
- * from the metadata fields.
+ * Normalize the model response: the AI returns `htmlContent` but the schema
+ * canonical field is `content`. Merge them so downstream code always uses `content`.
+ * Also generates a minimal HTML fallback if neither field has content.
  */
 const ensureHtmlContent = (doc: RFPDocumentContent): RFPDocumentContent => {
-  if (doc.content) return doc;
+  // Normalize: if model returned htmlContent but not content, promote it
+  const effectiveContent = doc.content || doc.htmlContent || null;
+
+  if (effectiveContent) {
+    return { ...doc, content: effectiveContent, htmlContent: undefined };
+  }
 
   console.warn('Model did not return htmlContent — generating minimal HTML fallback');
 
@@ -40,7 +43,7 @@ const ensureHtmlContent = (doc: RFPDocumentContent): RFPDocumentContent => {
       : '',
   ].filter(Boolean).join('\n');
 
-  return { ...doc, content: html };
+  return { ...doc, content: html, htmlContent: undefined };
 };
 
 // ─── Job Schema ───
@@ -77,23 +80,18 @@ async function processJob(job: Job): Promise<void> {
   // 2. Load solicitation text
   const solicitation = await loadSolicitation(projectId, opportunityId);
 
-  // 3. Gather enrichment context + resolve template in parallel
+  // 3. Gather enrichment context + resolve template HTML in parallel
   // Pass documentType so context budgets are allocated toward the most relevant sources
-  const [enrichedKbText, templateSections] = await Promise.all([
+  const [enrichedKbText, templateHtmlScaffold] = await Promise.all([
     gatherAllContext({ projectId, orgId, opportunityId, solicitation, documentType }),
-    resolveTemplateSections(orgId, documentType, templateId),
+    resolveTemplateHtml(orgId, documentType, templateId),
   ]);
 
-  // 4. Build HTML scaffold from template sections (if available) and pass to prompt builder
-  const templateHtmlScaffold = templateSections?.length
-    ? buildTemplateHtmlScaffold(templateSections as TemplateSection[])
-    : null;
-
   if (templateHtmlScaffold) {
-    console.log(`Using HTML template scaffold (${templateSections!.length} sections) for documentId=${documentId}`);
+    console.log(`Using HTML template scaffold for documentId=${documentId} (${templateHtmlScaffold.length} chars)`);
   }
 
-  const systemPrompt = buildSystemPromptForDocumentType(documentType, templateSections, templateHtmlScaffold);
+  const systemPrompt = buildSystemPromptForDocumentType(documentType, null, templateHtmlScaffold);
   const userPrompt = buildUserPromptForDocumentType(
     documentType,
     solicitation,

@@ -37,15 +37,6 @@ import { cn } from '@/lib/utils';
 
 type ImageAlign = 'left' | 'center' | 'right';
 
-interface ResizableImageAttrs {
-  src: string;
-  alt: string;
-  title: string | null;
-  width: number | null;
-  align: ImageAlign;
-  's3key': string | null;
-}
-
 /**
  * React NodeView for images — renders a resizable, selectable image with a
  * floating toolbar (align left/center/right + preset widths).
@@ -663,6 +654,8 @@ interface RichTextEditorProps {
   onUploadImageToS3?: (file: File) => Promise<string>;
   onGetDownloadUrl?: (key: string) => Promise<string>;
   onUploadingChange?: (isUploading: boolean) => void;
+  /** Called once the editor instance is ready — use to get a ref for programmatic control (e.g. macro insertion) */
+  onEditorReady?: (editor: Editor) => void;
 }
 
 // ─── RichTextEditor ───────────────────────────────────────────────────────────
@@ -680,6 +673,7 @@ export const RichTextEditor = ({
   onUploadImageToS3,
   onGetDownloadUrl,
   onUploadingChange,
+  onEditorReady,
 }: RichTextEditorProps) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isUploadingImage, setIsUploadingImage] = useState(false);
@@ -722,6 +716,9 @@ export const RichTextEditor = ({
       const html = e.getHTML();
       onChange(stripPresignedUrlsFromHtml(html));
     },
+    onCreate: ({ editor: e }) => {
+      onEditorReady?.(e);
+    },
   });
 
   // Sync external `value` into the editor when it changes from outside
@@ -757,19 +754,26 @@ export const RichTextEditor = ({
     setIsUploadingImage(true);
     onUploadingChange?.(true);
     try {
-      const s3Key = await onUploadImageToS3(file);
+      const keyOrDataUrl = await onUploadImageToS3(file);
 
-      // Get a presigned URL for display; fall back to s3key: placeholder
-      let displaySrc = `s3key:${s3Key}`;
-      if (onGetDownloadUrl) {
-        try { displaySrc = await onGetDownloadUrl(s3Key); }
+      // If the returned value is a data URL (base64), use it directly as src
+      // with no s3key attribute — the image is embedded in the HTML.
+      const isDataUrl = keyOrDataUrl.startsWith('data:');
+
+      let displaySrc = isDataUrl ? keyOrDataUrl : `s3key:${keyOrDataUrl}`;
+      if (!isDataUrl && onGetDownloadUrl) {
+        try { displaySrc = await onGetDownloadUrl(keyOrDataUrl); }
         catch { console.warn('Failed to get presigned URL'); }
       }
 
-      // Insert via insertContent — s3key stored as node attribute, no DOM hacks needed.
+      // Insert via insertContent — for data URLs, no s3key attribute is set.
       editor.chain().focus().insertContent({
         type: 'image',
-        attrs: { src: displaySrc, alt: file.name, 's3key': s3Key },
+        attrs: {
+          src: displaySrc,
+          alt: file.name,
+          ...(isDataUrl ? {} : { 's3key': keyOrDataUrl }),
+        },
       }).run();
     } catch (err) {
       setUploadErrorMsg(err instanceof Error ? err.message : 'Image upload failed.');

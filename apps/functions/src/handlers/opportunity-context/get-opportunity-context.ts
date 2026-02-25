@@ -334,10 +334,25 @@ const baseHandler = async (
     (item) => !excludedIds.has(item.id) && !pinnedIds.has(item.id),
   );
 
+  // 5. Build full excluded items list (with full ContextItem data for display)
+  const excludedItems: ContextItem[] = [...excludedIds].map((id) => {
+    const override = overrides.find((o) => o.id === id && o.action === 'EXCLUDED');
+    return (
+      suggestedById.get(id) ?? {
+        id,
+        source: override?.source ?? 'KNOWLEDGE_BASE',
+        title: override?.label ?? id,
+        preview: '',
+        relevanceScore: undefined,
+      }
+    );
+  });
+
   return apiResponse(200, {
     ok: true,
     suggestedItems: filteredSuggestions,
     pinnedItems,
+    excludedItems,
     excludedIds: [...excludedIds],
     lastRefreshedAt,
   });
