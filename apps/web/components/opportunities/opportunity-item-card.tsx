@@ -3,7 +3,11 @@
 import React, { useCallback, useState } from 'react';
 import { useParams } from 'next/navigation';
 import type { OpportunityItem } from '@auto-rfp/core';
-import { Building2, FileText, Hash, Loader2, Pencil, Tag, Trash2 } from 'lucide-react';
+import { Building2, FileText, Hash, Loader2, Pencil, Tag, Trash2, UserCircle2 } from 'lucide-react';
+import DOMPurify from 'dompurify';
+import { authFetcher } from '@/lib/auth/auth-fetcher';
+import { env } from '@/lib/env';
+import { cn } from '@/lib/utils';
 
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -20,6 +24,112 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useDeleteOpportunity } from '@/lib/hooks/use-opportunities';
 import { useCurrentOrganization } from '@/context/organization-context';
 import { EditOpportunityDialog } from './edit-opportunity-dialog';
+
+// ─── Description section — auto-fetches if description is a URL ──────────────
+
+const isUrl = (s: string | null | undefined): boolean => {
+  if (!s) return false;
+  return s.startsWith('http://') || s.startsWith('https://');
+};
+
+const useAutoDescription = (orgId: string | undefined, descriptionOrUrl: string | null | undefined) => {
+  const needsFetch = isUrl(descriptionOrUrl);
+  const [fetched, setFetched] = useState<string | null>(null);
+  const [isLoading, setLoading] = useState(false);
+
+  React.useEffect(() => {
+    if (!needsFetch || !orgId || !descriptionOrUrl) return;
+    setLoading(true);
+    authFetcher(
+      `${env.BASE_API_URL}/search-opportunities/opportunity-description?orgId=${encodeURIComponent(orgId)}`,
+      { method: 'POST', body: JSON.stringify({ descriptionUrl: descriptionOrUrl }) },
+    )
+      .then(async (res) => {
+        if (!res.ok) return;
+        const data = await res.json() as { description?: string; content?: string; opportunityDescription?: string };
+        setFetched(data.description ?? data.content ?? data.opportunityDescription ?? null);
+      })
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [orgId, descriptionOrUrl]);
+
+  return {
+    description: needsFetch ? fetched : (descriptionOrUrl ?? null),
+    isLoading: needsFetch && isLoading,
+  };
+};
+
+const DESCRIPTION_PROSE = cn(
+  // Base
+  'prose prose-sm max-w-none text-sm text-muted-foreground leading-relaxed',
+  // Paragraphs & divs
+  '[&_p]:mb-2 [&_p:last-child]:mb-0',
+  '[&_div]:mb-1',
+  '[&_br]:block',
+  // Lists
+  '[&_ul]:mb-2 [&_ul]:pl-5 [&_ul>li]:list-disc [&_ul>li]:mb-0.5',
+  '[&_ol]:mb-2 [&_ol]:pl-5 [&_ol>li]:list-decimal [&_ol>li]:mb-0.5',
+  // Inline
+  '[&_strong]:font-semibold [&_strong]:text-foreground',
+  '[&_b]:font-semibold [&_b]:text-foreground',
+  '[&_em]:italic',
+  '[&_u]:underline',
+  '[&_s]:line-through',
+  // Headings
+  '[&_h1]:text-base [&_h1]:font-semibold [&_h1]:text-foreground [&_h1]:mt-3 [&_h1]:mb-1',
+  '[&_h2]:text-sm [&_h2]:font-semibold [&_h2]:text-foreground [&_h2]:mt-2 [&_h2]:mb-1',
+  '[&_h3]:text-sm [&_h3]:font-medium [&_h3]:text-foreground [&_h3]:mt-2 [&_h3]:mb-0.5',
+  '[&_h4]:text-xs [&_h4]:font-medium [&_h4]:text-foreground [&_h4]:mt-1 [&_h4]:mb-0.5',
+  // Links
+  '[&_a]:text-primary [&_a]:underline [&_a]:underline-offset-2 [&_a]:hover:opacity-80',
+  // Tables
+  '[&_table]:w-full [&_table]:border-collapse [&_table]:text-xs [&_table]:mb-2',
+  '[&_th]:border [&_th]:border-border [&_th]:px-2 [&_th]:py-1 [&_th]:bg-muted [&_th]:font-medium [&_th]:text-left',
+  '[&_td]:border [&_td]:border-border [&_td]:px-2 [&_td]:py-1',
+  // Blockquote
+  '[&_blockquote]:border-l-2 [&_blockquote]:border-border [&_blockquote]:pl-3 [&_blockquote]:italic [&_blockquote]:text-muted-foreground',
+  // Code
+  '[&_code]:bg-muted [&_code]:px-1 [&_code]:rounded [&_code]:text-xs [&_code]:font-mono',
+  // Horizontal rule
+  '[&_hr]:border-border [&_hr]:my-2',
+  // Span (SAM.gov uses spans heavily)
+  '[&_span]:leading-relaxed',
+);
+
+const DescriptionSection = ({ item, orgId }: { item: OpportunityItem; orgId?: string }) => {
+  const { description, isLoading } = useAutoDescription(orgId, item.description);
+
+  if (!item.description) return null;
+
+  return (
+    <div className="mt-3 pt-3 border-t" onClick={e => e.stopPropagation()}>
+      {isLoading ? (
+        <div className="space-y-1.5">
+          <div className="h-3 w-full bg-muted animate-pulse rounded" />
+          <div className="h-3 w-5/6 bg-muted animate-pulse rounded" />
+          <div className="h-3 w-4/6 bg-muted animate-pulse rounded" />
+        </div>
+      ) : description ? (
+        <div
+          className={DESCRIPTION_PROSE}
+          dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(description, {
+            ALLOWED_TAGS: [
+              'p', 'br', 'div', 'span', 'strong', 'b', 'em', 'i', 'u', 's', 'strike',
+              'h1', 'h2', 'h3', 'h4', 'h5', 'h6',
+              'ul', 'ol', 'li',
+              'a', 'blockquote', 'code', 'pre', 'hr',
+              'table', 'thead', 'tbody', 'tr', 'th', 'td',
+              'img',
+            ],
+            ALLOWED_ATTR: ['href', 'target', 'rel', 'src', 'alt', 'class', 'style'],
+            FORCE_BODY: true,
+          }) }}
+        />
+      ) : null}
+    </div>
+  );
+};
 
 export type OpportunityItemCardVariant = 'full' | 'compact';
 
@@ -219,12 +329,26 @@ export function OpportunityItemCard({
             </div>
           )}
 
-          {/* Description - Only show in full variant and when enabled */}
-          {showDescription && !isCompact && item.description ? (
-            <p className="text-sm text-muted-foreground line-clamp-2 mt-3">
-              {item.description}
-            </p>
+          {/* Audit row — who created / last updated */}
+          {!isCompact && (item.createdByName ?? item.updatedByName) ? (
+            <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1">
+              {item.createdByName ? (
+                <MetaRow icon={<UserCircle2 className="h-3.5 w-3.5" />} label="Created by:">
+                  {item.createdByName}
+                </MetaRow>
+              ) : null}
+              {item.updatedByName && item.updatedByName !== item.createdByName ? (
+                <MetaRow icon={<UserCircle2 className="h-3.5 w-3.5" />} label="Updated by:">
+                  {item.updatedByName}
+                </MetaRow>
+              ) : null}
+            </div>
           ) : null}
+
+          {/* Description — expandable, lazy-loads SAM.gov description */}
+          {showDescription && !isCompact && (
+            <DescriptionSection item={item} orgId={currentOrganization?.id} />
+          )}
         </CardContent>
         <Dialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
           <DialogContent className="sm:max-w-[425px]">

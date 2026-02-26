@@ -3,7 +3,7 @@
 import React, { useCallback, useMemo, useState } from 'react';
 import {
   AlertCircle, Download, ExternalLink, FileText, FolderOpen,
-  Loader2, MoreHorizontal, Trash2,
+  Loader2, MoreHorizontal, RefreshCw, Trash2,
 } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -17,7 +17,7 @@ import {
 import { cn } from '@/lib/utils';
 import PermissionWrapper from '@/components/permission-wrapper';
 import { CancelPipelineButton } from '@/components/cancel-pipeline-button';
-import { useDeleteQuestionFile, useQuestionFiles } from '@/lib/hooks/use-question-file';
+import { useDeleteQuestionFile, useQuestionFiles, useStartQuestionFilePipeline } from '@/lib/hooks/use-question-file';
 import { useDownloadFromS3 } from '@/lib/hooks/use-file';
 import { useToast } from '@/components/ui/use-toast';
 import { useConfirmDialog } from '@/components/ui/confirm-dialog';
@@ -25,7 +25,7 @@ import {
   QuestionFileUploadDialog,
 } from '@/app/organizations/[orgId]/projects/[projectId]/questions/components/question-extraction-dialog';
 import { useOpportunityContext } from './opportunity-context';
-import { formatDateTime, getStatusChip, pickDisplayName } from './opportunity-helpers';
+import { formatDateTime, getStatusChip, pickDisplayName, guessDownloadName } from './opportunity-helpers';
 
 interface AttachmentRow {
   questionFileId: string | undefined;
@@ -48,8 +48,10 @@ export function OpportunitySolicitationDocuments() {
   const { downloadFile, error: downloadError } = useDownloadFromS3();
   const { trigger: deleteQuestionFile } = useDeleteQuestionFile();
 
+  const { trigger: startPipeline } = useStartQuestionFilePipeline();
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
+  const [retryingId, setRetryingId] = useState<string | null>(null);
 
   const rows = useMemo<AttachmentRow[]>(
     () => (qItems ?? []).map((qf: any) => ({
@@ -70,11 +72,30 @@ export function OpportunitySolicitationDocuments() {
     if (!row.questionFileId || !row.fileKey || downloadingId === row.questionFileId) return;
     try {
       setDownloadingId(row.questionFileId);
-      await downloadFile({ key: row.fileKey, fileName: row.name });
+      const fileName = guessDownloadName(row.fileKey, row.name);
+      await downloadFile({ key: row.fileKey, fileName });
     } finally {
       setDownloadingId((prev) => (prev === row.questionFileId ? null : prev));
     }
   }, [downloadingId, downloadFile]);
+
+  const handleRetry = useCallback(async (row: AttachmentRow) => {
+    if (!row.questionFileId || retryingId === row.questionFileId) return;
+    try {
+      setRetryingId(row.questionFileId);
+      await startPipeline({ projectId, oppId, questionFileId: row.questionFileId });
+      toast({ title: 'Processing restarted', description: `"${row.name}" is being re-processed.` });
+      await refetchFiles();
+    } catch (err) {
+      toast({
+        title: 'Retry failed',
+        description: err instanceof Error ? err.message : 'Could not restart processing',
+        variant: 'destructive',
+      });
+    } finally {
+      setRetryingId((prev) => (prev === row.questionFileId ? null : prev));
+    }
+  }, [projectId, oppId, retryingId, startPipeline, toast, refetchFiles]);
 
   const handleDelete = useCallback(async (row: AttachmentRow) => {
     if (!row.questionFileId || deletingId === row.questionFileId) return;
@@ -159,6 +180,8 @@ export function OpportunitySolicitationDocuments() {
                 const st = getStatusChip(f.status);
                 const isDeleting = !!f.questionFileId && deletingId === f.questionFileId;
                 const isDownloading = !!f.questionFileId && downloadingId === f.questionFileId;
+                const isRetrying = !!f.questionFileId && retryingId === f.questionFileId;
+                const isFailed = f.status === 'FAILED' || f.status === 'TEXT_EXTRACTION_FAILED';
                 return (
                   <div key={f.questionFileId ?? f.name} className={cn('rounded-xl border bg-background p-3', (isDeleting || isDownloading) && 'opacity-80')}>
                     <div className="flex items-start gap-3">
@@ -194,12 +217,28 @@ export function OpportunitySolicitationDocuments() {
                         )}
                       </div>
                       <div className="flex items-center gap-1 shrink-0">
+                        {/* Retry button — shown inline for failed files */}
+                        {isFailed && f.questionFileId && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="h-8 px-2 gap-1 text-xs text-orange-600 border-orange-200 hover:bg-orange-50"
+                            disabled={isRetrying}
+                            onClick={() => void handleRetry(f)}
+                            title="Retry processing"
+                          >
+                            {isRetrying
+                              ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                              : <RefreshCw className="h-3.5 w-3.5" />}
+                            Retry
+                          </Button>
+                        )}
                         {f.fileKey && (
                           <Button size="sm" variant="ghost" className="h-8 w-8 p-0" disabled={isDownloading} onClick={() => void handleDownload(f)} title="Download">
                             {isDownloading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
                           </Button>
                         )}
-                        {f.status !== 'PROCESSED' && f.status !== 'FAILED' && f.status !== 'DELETED' && (
+                        {f.status !== 'PROCESSED' && f.status !== 'FAILED' && f.status !== 'DELETED' && f.status !== 'TEXT_EXTRACTION_FAILED' && (
                           <CancelPipelineButton projectId={projectId} opportunityId={oppId} questionFileId={f.questionFileId} status={f.status} onMutate={refetchFiles} />
                         )}
                         <DropdownMenu>
@@ -207,6 +246,12 @@ export function OpportunitySolicitationDocuments() {
                             <Button size="sm" variant="ghost" className="h-8 w-8 p-0"><MoreHorizontal className="h-4 w-4" /></Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
+                            {isFailed && f.questionFileId && (
+                              <DropdownMenuItem disabled={isRetrying} onClick={() => void handleRetry(f)}>
+                                {isRetrying ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <RefreshCw className="h-4 w-4 mr-2" />}
+                                Retry processing
+                              </DropdownMenuItem>
+                            )}
                             {f.fileKey && (
                               <DropdownMenuItem disabled={isDownloading} onClick={() => void handleDownload(f)}>
                                 <Download className="h-4 w-4 mr-2" /> Download
@@ -217,7 +262,7 @@ export function OpportunitySolicitationDocuments() {
                                 <ExternalLink className="h-4 w-4 mr-2" /> Open in Google Drive
                               </DropdownMenuItem>
                             )}
-                            {(f.status === 'PROCESSED' || f.status === 'FAILED') && (
+                            {(f.status === 'PROCESSED' || isFailed) && (
                               <>
                                 <DropdownMenuSeparator />
                                 <DropdownMenuItem className="text-red-600" disabled={!f.questionFileId || isDeleting} onClick={() => void handleDelete(f)}>

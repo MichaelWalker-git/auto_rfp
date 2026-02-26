@@ -382,9 +382,7 @@ export function QuestionFileUploadDialog({
           naicsCode: null,
           pscCode: null,
           organizationName: currentOrganization?.name || null,
-          organizationCode: null,
           setAside: null,
-          setAsideCode: null,
           description: `Batch document upload containing ${items.length} file(s)`,
           baseAndAllOptionsValue: null,
         };
@@ -448,7 +446,7 @@ export function QuestionFileUploadDialog({
             Upload Question Files
           </DialogTitle>
           <DialogDescription id="upload-dialog-description">
-            Upload files to extract questions for analysis (PDF, DOC, DOCX, XLSX, max 50MB each)
+            Upload solicitation documents to extract questions for analysis
           </DialogDescription>
         </DialogHeader>
 
@@ -494,11 +492,30 @@ export function QuestionFileUploadDialog({
                   <div className="p-4 bg-primary/10 rounded-full">
                     <Upload className="h-8 w-8 text-primary" aria-hidden="true"/>
                   </div>
-                  <div>
+                  <div className="space-y-2">
                     <p className="text-sm font-medium">
                       Drop files here, or <span className="text-primary">browse</span>
                     </p>
-                    <p className="text-xs text-muted-foreground mt-1">Supports PDF, DOC, DOCX, XLSX (max 50MB each)</p>
+                    {/* File type badges */}
+                    <div className="flex flex-wrap justify-center gap-1.5">
+                      {[
+                        { ext: 'PDF', color: 'bg-red-50 text-red-700 border-red-200', tip: 'Solicitation PDFs' },
+                        { ext: 'DOCX', color: 'bg-blue-50 text-blue-700 border-blue-200', tip: 'Word documents' },
+                        { ext: 'DOC', color: 'bg-blue-50 text-blue-700 border-blue-200', tip: 'Word documents' },
+                        { ext: 'XLSX', color: 'bg-green-50 text-green-700 border-green-200', tip: 'Excel spreadsheets' },
+                        { ext: 'XLS', color: 'bg-green-50 text-green-700 border-green-200', tip: 'Excel spreadsheets' },
+                        { ext: 'TXT', color: 'bg-slate-50 text-slate-600 border-slate-200', tip: 'Plain text' },
+                      ].map(({ ext, color, tip }) => (
+                        <span
+                          key={ext}
+                          title={tip}
+                          className={`inline-flex items-center px-2 py-0.5 rounded border text-xs font-semibold tracking-wide ${color}`}
+                        >
+                          {ext}
+                        </span>
+                      ))}
+                    </div>
+                    <p className="text-xs text-muted-foreground">Max 50 MB per file · Multiple files supported</p>
                   </div>
                 </div>
               </div>

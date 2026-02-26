@@ -45,7 +45,7 @@ export function SamGovApiKeySetup({ orgId, open, onOpenChange, onSuccess }: SamG
     setIsValidating(true);
     try {
       const response = await authFetcher(
-        `${env.BASE_API_URL}/samgov/validate-api-key?orgId=${encodeURIComponent(orgId)}`,
+        `${env.BASE_API_URL}/search-opportunities/samgov/validate-api-key?orgId=${encodeURIComponent(orgId)}`,
         {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -95,7 +95,7 @@ export function SamGovApiKeySetup({ orgId, open, onOpenChange, onSuccess }: SamG
     setIsLoading(true);
     try {
       const response = await authFetcher(
-        `${env.BASE_API_URL}/samgov/set-api-key?orgId=${encodeURIComponent(orgId)}`,
+        `${env.BASE_API_URL}/search-opportunities/api-key?orgId=${encodeURIComponent(orgId)}`,
         {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },

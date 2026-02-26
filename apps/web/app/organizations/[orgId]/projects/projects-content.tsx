@@ -7,6 +7,7 @@ import { PlusCircle } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 
 import { ProjectGrid } from '@/components/projects/ProjectGrid';
+import { ProjectCardSkeleton } from '@/components/projects/ProjectCardSkeleton';
 import { CreateProjectDialog } from '@/components/projects/CreateProjectDialog';
 import { Button } from '@/components/ui/button';
 import { useProjects } from '@/lib/hooks/use-api';
@@ -32,13 +33,21 @@ interface ProjectsPageContentProps {
 function ProjectsListSkeleton() {
   return (
     <div className="container mx-auto p-12">
-      <div className="flex justify-between items-center mb-6">
-        <Skeleton className="h-9 w-36" />
-        <Skeleton className="h-10 w-32" />
+      {/* Header skeleton — matches PageHeader layout */}
+      <div className="flex items-start justify-between gap-4 mb-8">
+        <div className="space-y-2">
+          <Skeleton className="h-8 w-32" />
+          <Skeleton className="h-4 w-64" />
+        </div>
+        <div className="flex items-center gap-2">
+          <Skeleton className="h-9 w-48 rounded-md" />
+          <Skeleton className="h-9 w-32 rounded-md" />
+        </div>
       </div>
+      {/* Project cards skeleton — matches ProjectCardSkeleton */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {Array.from({ length: 3 }).map((_, i) => (
-          <Skeleton key={i} className="h-48 w-full rounded-lg" />
+        {Array.from({ length: 6 }).map((_, i) => (
+          <ProjectCardSkeleton key={i} />
         ))}
       </div>
     </div>

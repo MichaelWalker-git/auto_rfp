@@ -5,7 +5,7 @@ import { invokeModel } from '@/helpers/bedrock-http-client';
 
 import { apiResponse } from '@/helpers/api';
 import { PK_NAME, SK_NAME } from '@/constants/common';
-import { getEmbedding, semanticSearchChunks, semanticSearchContentLibrary } from '@/helpers/embeddings';
+import { getEmbedding, semanticSearchChunks, semanticSearchContentLibrary, semanticSearchPastPerformance } from '@/helpers/embeddings';
 import { PineconeHit } from '@/helpers/pinecone';
 
 import { withSentryLambda } from '@/sentry-lambda';
@@ -258,7 +258,11 @@ export async function generateAnswerForQuestion(params: GenerateAnswerParams): P
     }
   }
 
-  const hits = await semanticSearchChunks(orgId, questionEmbedding, topK);
+  // Step 2: Search KB chunks and past performance in parallel
+  const [hits, pastPerfHits] = await Promise.all([
+    semanticSearchChunks(orgId, questionEmbedding, topK),
+    semanticSearchPastPerformance(orgId, questionEmbedding, 5),
+  ]);
   console.log('Hits:', JSON.stringify(hits));
 
   if (!hits.length) {
@@ -267,9 +271,26 @@ export async function generateAnswerForQuestion(params: GenerateAnswerParams): P
 
   const texts = await buildContextFromChunkHits(hits);
 
-  const finalContext = texts
-    .map(h => `CHUNK_KEY: ${h.source?.chunkKey}\nTEXT:\n${h.text}\n---`)
-    .join('\n');
+  // Build past performance context snippet (top 3 most relevant)
+  const pastPerfContext = pastPerfHits.slice(0, 3)
+    .map(h => {
+      const m = h.source as any;
+      if (!m?.projectId) return '';
+      const parts = [
+        `PAST PERFORMANCE: ${m.title || ''}`,
+        `Client: ${m.client || ''}`,
+        m.domain ? `Domain: ${m.domain}` : '',
+        m.technologies?.length ? `Technologies: ${(m.technologies as string[]).join(', ')}` : '',
+      ].filter(Boolean);
+      return parts.join('\n');
+    })
+    .filter(Boolean)
+    .join('\n---\n');
+
+  const finalContext = [
+    texts.map(h => `CHUNK_KEY: ${h.source?.chunkKey}\nTEXT:\n${h.text}\n---`).join('\n'),
+    pastPerfContext ? `\n\nRELEVANT PAST PERFORMANCE:\n${pastPerfContext}` : '',
+  ].join('');
 
   // Fetch org-specific custom prompts (falls back to defaults if none configured)
   const [customSystemPrompt, customUserPrompt] = await Promise.all([

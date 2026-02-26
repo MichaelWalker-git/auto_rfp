@@ -8,9 +8,9 @@ export * from './kb';
 export * from './project';
 export * from './project-kb';
 export * from './user-kb';
-export * from './samgov';
-export * from './prompt'
 export * from './opportunity'
+export * from './search-opportunity';
+export * from './prompt'
 export * from './project-outcome'
 export * from './debriefing'
 export * from './foia'

@@ -19,6 +19,8 @@ export const NotificationTypeSchema = z.enum([
   'DEADLINE_3_DAYS',
   'DEADLINE_1_DAY',
   'DEADLINE_6_HOURS',
+  // Solicitation import
+  'SOLICITATION_IMPORTED',
   // System
   'PROCESSING_COMPLETE',
   'PROCESSING_ERROR',

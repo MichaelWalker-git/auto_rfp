@@ -33,8 +33,14 @@ export function OpportunitiesList({ projectId, limit = 25, className }: Props) {
 
   const showLoadingSkeleton = isLoading && items.length === 0;
 
-  const handleOpen = (it: OpportunityItemType) => {
+  // Sort newest first by postedDateIso (most recently posted first)
+  const sortedItems = [...items].sort((a, b) => {
+    const aDate = a.postedDateIso ?? '';
+    const bDate = b.postedDateIso ?? '';
+    return bDate.localeCompare(aDate);
+  });
 
+  const handleOpen = (it: OpportunityItemType) => {
     const id = it.oppId ?? it.id;
     const base = (pathname ?? '').replace(/\/$/, '');
     router.push(`${base}/${encodeURIComponent(id)}`);
@@ -57,10 +63,10 @@ export function OpportunitiesList({ projectId, limit = 25, className }: Props) {
           <Skeleton className="h-24 w-full"/>
           <Skeleton className="h-24 w-full"/>
         </div>
-      ) : items.length === 0 ? (
+      ) : sortedItems.length === 0 ? (
         <div className="text-sm text-muted-foreground">No opportunities found.</div>
       ) : (
-        items.map((it) => (
+        sortedItems.map((it) => (
           <OpportunityItemCard
             key={`${it.source}#${it.oppId}`}
             item={it}

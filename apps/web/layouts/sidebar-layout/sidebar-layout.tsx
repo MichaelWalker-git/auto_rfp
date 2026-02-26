@@ -20,6 +20,7 @@ import { TooltipProvider } from '@/components/ui/tooltip';
 import { UserSection } from '@/components/user-section';
 
 import {
+  BarChart2,
   BookOpen,
   Briefcase,
   CalendarClock,
@@ -62,10 +63,12 @@ interface NavItem {
 }
 
 function getRouteIds(pathname: string): RouteInfo {
-  const orgMatch = pathname.match(/^\/organizations\/([^/]+)/);
+  // Support both /organizations/... and /org/... (short alias)
+  const orgMatch = pathname.match(/^\/(?:organizations|org)\/([^/]+)/);
   const orgId = orgMatch?.[1] ?? null;
 
-  const projectMatch = pathname.match(/^\/organizations\/[^/]+\/projects\/([^/]+)/);
+  // Support both /projects/... and /prs/... (short alias)
+  const projectMatch = pathname.match(/^\/(?:organizations|org)\/[^/]+\/(?:projects|prs)\/([^/]+)/);
   const projectId = projectMatch?.[1] ?? null;
 
   const isProjectRoute = !!orgId && !!projectId;
@@ -110,19 +113,20 @@ function AppSidebar() {
   const orgId = route.orgId ?? currentOrganization?.id ?? null;
   const projectId = route.projectId ?? currentProject?.id ?? null;
 
+  // Use short URL aliases: /org/:orgId/... and /org/:orgId/prs/:projectId/...
   const orgNav: NavItem[] = useMemo(
     () =>
       orgId
         ? [
-          { title: 'Projects', url: `/organizations/${orgId}/projects`, icon: FolderOpen },
-          { title: 'Knowledge Base', url: `/organizations/${orgId}/knowledge-base`, icon: BookOpen },
-          { title: 'Past Performance', url: `/organizations/${orgId}/past-performance`, icon: Briefcase },
-          { title: 'Search Opportunities', url: `/organizations/${orgId}/opportunities`, icon: Search },
-          { title: 'Deadlines', url: `/organizations/${orgId}/deadlines`, icon: CalendarClock },
-          { title: 'Templates', url: `/organizations/${orgId}/templates`, icon: LayoutTemplate },
-          { title: 'Team', url: `/organizations/${orgId}/team`, icon: Users },
-          ...(canViewAudit ? [{ title: 'Audit Trail', url: `/organizations/${orgId}/audit`, icon: ShieldCheck }] : []),
-          { title: 'Settings', url: `/organizations/${orgId}/settings`, icon: Settings },
+          { title: 'Dashboard',       url: `/org/${orgId}/dashboard`,      icon: BarChart2 },
+          { title: 'Projects',        url: `/org/${orgId}/projects`,       icon: FolderOpen },
+          { title: 'Knowledge Base',  url: `/org/${orgId}/knowledge-base`, icon: BookOpen },
+          { title: 'Past Performance',url: `/org/${orgId}/past-performance`,icon: Briefcase },
+          { title: 'Deadlines',       url: `/org/${orgId}/deadlines`,      icon: CalendarClock },
+          { title: 'Templates',       url: `/org/${orgId}/templates`,      icon: LayoutTemplate },
+          { title: 'Org Members',     url: `/org/${orgId}/team`,           icon: Users },
+          ...(canViewAudit ? [{ title: 'Audit Trail', url: `/org/${orgId}/audit`, icon: ShieldCheck }] : []),
+          { title: 'Settings',        url: `/org/${orgId}/settings`,       icon: Settings },
         ]
         : [],
     [orgId, canViewAudit]
@@ -132,11 +136,12 @@ function AppSidebar() {
     () =>
       orgId && projectId
         ? [
-          { title: 'Dashboard', url: `/organizations/${orgId}/projects/${projectId}/dashboard`, icon: Home },
-          { title: 'Executive Brief', url: `/organizations/${orgId}/projects/${projectId}/brief`, icon: Target },
-          { title: 'Opportunities', url: `/organizations/${orgId}/projects/${projectId}/opportunities`, icon: Briefcase },
-          { title: 'Questions', url: `/organizations/${orgId}/projects/${projectId}/questions`, icon: MessageSquare },
-          { title: 'Solicitation Documents', url: `/organizations/${orgId}/projects/${projectId}/documents`, icon: FileText },
+          { title: 'Dashboard',             url: `/org/${orgId}/prs/${projectId}/dashboard`,            icon: Home },
+          { title: 'Search Opportunities',  url: `/org/${orgId}/prs/${projectId}/search-opportunities`, icon: Search },
+          { title: 'Opportunities',         url: `/org/${orgId}/prs/${projectId}/opportunities`,        icon: Briefcase },
+          { title: 'Questions',             url: `/org/${orgId}/prs/${projectId}/questions`,            icon: MessageSquare },
+          { title: 'Executive Briefs',       url: `/org/${orgId}/prs/${projectId}/brief`,                icon: Target },
+          { title: 'Solicitation Documents',url: `/org/${orgId}/prs/${projectId}/documents`,            icon: FileText },
         ]
         : [],
     [orgId, projectId]

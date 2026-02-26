@@ -28,15 +28,18 @@ import {
 } from '@/middleware/rbac-middleware';
 import { auditMiddleware, setAuditContext } from '@/middleware/audit-middleware';
 import { apiResponse, getOrgId } from '@/helpers/api';
-import { getItem, updateItem } from '@/helpers/db';
+import { getItem, updateItem, docClient } from '@/helpers/db';
 import { requireEnv } from '@/helpers/env';
 import { getApiKey } from '@/helpers/api-key-storage';
 import { GOOGLE_SECRET_PREFIX } from '@/constants/google';
 import { RFP_DOCUMENT_PK } from '@/constants/rfp-document';
 import { PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
-// PK_NAME and SK_NAME not needed — we use composite SK directly
+import { QueryCommand } from '@aws-sdk/lib-dynamodb';
 import { drive_v3, google } from 'googleapis';
 import type { DBItem } from '@/helpers/db';
+import { PK_NAME, SK_NAME } from '@/constants/common';
+import { USER_PK } from '@/constants/user';
+import { userSk } from '@/helpers/user';
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const mammoth = require('mammoth') as { convertToHtml: (input: { buffer: Buffer }) => Promise<{ value: string }> };
 
@@ -69,13 +72,42 @@ interface RFPDocumentDBItem extends DBItem {
 
 // ─── Auth — Domain-Wide Delegation ───────────────────────────────────────────
 
+const DB_TABLE_NAME = requireEnv('DB_TABLE_NAME');
+
+
+async function getOrgMemberEmails(orgId: string): Promise<string[]> {
+  const emails: string[] = [];
+  let ExclusiveStartKey: Record<string, unknown> | undefined;
+  do {
+    const res = await docClient.send(
+      new QueryCommand({
+        TableName: DB_TABLE_NAME,
+        KeyConditionExpression: '#pk = :pk AND begins_with(#sk, :skPrefix)',
+        ExpressionAttributeNames: { '#pk': PK_NAME, '#sk': SK_NAME },
+        ExpressionAttributeValues: { ':pk': USER_PK, ':skPrefix': userSk(orgId, '') },
+        ProjectionExpression: 'email',
+        ExclusiveStartKey,
+      }),
+    );
+    for (const item of res.Items ?? []) {
+      if (item.email) emails.push(item.email as string);
+    }
+    ExclusiveStartKey = res.LastEvaluatedKey as Record<string, unknown> | undefined;
+  } while (ExclusiveStartKey);
+  return emails;
+}
+
 const getDriveClient = async (orgId: string): Promise<drive_v3.Drive | null> => {
   const serviceAccountJson = await getApiKey(orgId, GOOGLE_SECRET_PREFIX);
-  if (!serviceAccountJson) return null;
+  if (!serviceAccountJson) {
+    console.log(`[GoogleDrive] No service account key configured for org ${orgId}`);
+    return null;
+  }
 
   let credentials: {
     client_email?: string;
     private_key?: string;
+    client_id?: string;
     delegate_email?: string;
   };
 
@@ -91,9 +123,28 @@ const getDriveClient = async (orgId: string): Promise<drive_v3.Drive | null> => 
     return null;
   }
 
-  const delegateEmail = credentials.delegate_email;
+  // Resolve delegate email: prefer explicit field, fall back to first org member
+  let delegateEmail = credentials.delegate_email;
   if (!delegateEmail) {
-    console.error('[GoogleDrive] No delegate_email — domain-wide delegation required');
+    console.log('[GoogleDrive] No delegate_email in credentials, looking up org member emails...');
+    try {
+      const emails = await getOrgMemberEmails(orgId);
+      if (emails.length > 0) {
+        delegateEmail = emails[0];
+        console.log(`[GoogleDrive] Using first org member as delegate: ${delegateEmail}`);
+      }
+    } catch (emailErr) {
+      console.error(`[GoogleDrive] Failed to get org member emails: ${(emailErr as Error)?.message}`);
+    }
+  }
+
+  if (!delegateEmail) {
+    console.error(
+      '[GoogleDrive] No delegate email available. ' +
+      'Add "delegate_email": "user@yourdomain.com" to the service account JSON in org settings, ' +
+      `then configure domain-wide delegation for client_id ${credentials.client_id ?? '(unknown)'} ` +
+      'with scope https://www.googleapis.com/auth/drive in admin.google.com.',
+    );
     return null;
   }
 
@@ -105,9 +156,10 @@ const getDriveClient = async (orgId: string): Promise<drive_v3.Drive | null> => 
       subject: delegateEmail,
     });
     await jwtClient.authorize();
+    console.log(`[GoogleDrive] Authorized with domain-wide delegation as ${delegateEmail}`);
     return google.drive({ version: 'v3', auth: jwtClient });
   } catch (err) {
-    console.error(`[GoogleDrive] JWT auth failed: ${(err as Error)?.message}`);
+    console.error(`[GoogleDrive] JWT auth failed for delegate ${delegateEmail}: ${(err as Error)?.message}`);
     return null;
   }
 };
@@ -146,7 +198,11 @@ export const baseHandler = async (event: APIGatewayProxyEventV2) => {
     if (!drive) {
       return apiResponse(400, {
         error: 'Google Drive not configured for this organization.',
-        details: 'Add a service account JSON with delegate_email to org settings.',
+        details:
+          'To enable Google Drive sync, go to Organization Settings and add a Google Service Account JSON key. ' +
+          'The JSON must include "delegate_email" set to a Google Workspace user with Drive storage. ' +
+          'Then configure domain-wide delegation in admin.google.com: ' +
+          'Security → API controls → Manage Domain Wide Delegation.',
       });
     }
 

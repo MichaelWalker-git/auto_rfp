@@ -2,6 +2,7 @@
 
 import React, { useCallback, useState } from 'react';
 import { ExternalLink, Loader2, Upload, Download, ChevronDown } from 'lucide-react';
+import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -16,6 +17,7 @@ import {
   useSyncRFPDocumentToGoogleDrive,
   useSyncRFPDocumentFromGoogleDrive,
 } from '@/lib/hooks/use-rfp-documents';
+import { useCurrentOrganization } from '@/context/organization-context';
 
 interface GoogleDriveSyncButtonProps {
   document: RFPDocumentItem;
@@ -64,12 +66,22 @@ export const GoogleDriveSyncButton = ({
   const { trigger: syncTo } = useSyncRFPDocumentToGoogleDrive(orgId);
   const { trigger: syncFrom } = useSyncRFPDocumentFromGoogleDrive(orgId);
   const { toast } = useToast();
+  const { currentOrganization } = useCurrentOrganization();
   const [isSyncingTo, setIsSyncingTo] = useState(false);
   const [isSyncingFrom, setIsSyncingFrom] = useState(false);
 
   const hasContent = !!(doc.fileKey || doc.htmlContentKey);
   const isSynced = !!doc.googleDriveUrl;
   const isBusy = isSyncingTo || isSyncingFrom;
+
+  const settingsUrl = currentOrganization?.id
+    ? `/organizations/${currentOrganization.id}/settings`
+    : '/organizations';
+
+  const isNotConfiguredError = (err: unknown): boolean => {
+    const msg = err instanceof Error ? err.message : String(err);
+    return msg.toLowerCase().includes('not configured') || msg.toLowerCase().includes('delegate_email');
+  };
 
   const handleSyncTo = useCallback(async () => {
     if (isBusy || !hasContent) return;
@@ -86,15 +98,28 @@ export const GoogleDriveSyncButton = ({
       });
       onSyncComplete?.();
     } catch (err) {
-      toast({
-        title: 'Sync to Drive failed',
-        description: err instanceof Error ? err.message : 'Could not sync to Google Drive',
-        variant: 'destructive',
-      });
+      if (isNotConfiguredError(err)) {
+        toast({
+          title: 'Google Drive not configured',
+          description: 'Add a Google service account JSON key in Organization Settings to enable Drive sync.',
+          variant: 'destructive',
+          action: (
+            <Link href={settingsUrl} className="underline text-xs font-medium whitespace-nowrap">
+              Open Settings
+            </Link>
+          ),
+        });
+      } else {
+        toast({
+          title: 'Sync to Drive failed',
+          description: err instanceof Error ? err.message : 'Could not sync to Google Drive',
+          variant: 'destructive',
+        });
+      }
     } finally {
       setIsSyncingTo(false);
     }
-  }, [isBusy, hasContent, isSynced, syncTo, doc, toast, onSyncComplete]);
+  }, [isBusy, hasContent, isSynced, syncTo, doc, toast, onSyncComplete, settingsUrl]);
 
   const handleSyncFrom = useCallback(async () => {
     if (isBusy || !isSynced) return;
@@ -113,15 +138,28 @@ export const GoogleDriveSyncButton = ({
       });
       onSyncComplete?.();
     } catch (err) {
-      toast({
-        title: 'Sync from Drive failed',
-        description: err instanceof Error ? err.message : 'Could not sync from Google Drive',
-        variant: 'destructive',
-      });
+      if (isNotConfiguredError(err)) {
+        toast({
+          title: 'Google Drive not configured',
+          description: 'Add a Google service account JSON key in Organization Settings to enable Drive sync.',
+          variant: 'destructive',
+          action: (
+            <Link href={settingsUrl} className="underline text-xs font-medium whitespace-nowrap">
+              Open Settings
+            </Link>
+          ),
+        });
+      } else {
+        toast({
+          title: 'Sync from Drive failed',
+          description: err instanceof Error ? err.message : 'Could not sync from Google Drive',
+          variant: 'destructive',
+        });
+      }
     } finally {
       setIsSyncingFrom(false);
     }
-  }, [isBusy, isSynced, syncFrom, doc, toast, onSyncComplete]);
+  }, [isBusy, isSynced, syncFrom, doc, toast, onSyncComplete, settingsUrl]);
 
   // Don't render if there's nothing to sync and it's never been synced
   if (!hasContent && !isSynced) return null;

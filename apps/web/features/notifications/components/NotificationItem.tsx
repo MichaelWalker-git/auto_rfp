@@ -2,7 +2,7 @@
 
 import { useRouter } from 'next/navigation';
 import { formatDistanceToNow } from 'date-fns';
-import { X, Bell, AtSign, UserCheck, FileText, CheckCircle, Trophy, XCircle, Clock, AlertCircle, FileCheck } from 'lucide-react';
+import { X, Bell, AtSign, UserCheck, FileText, CheckCircle, Trophy, XCircle, Clock, AlertCircle, FileCheck, Download } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import type { NotificationItem as NotificationItemType, NotificationType } from '@auto-rfp/core';
@@ -32,6 +32,7 @@ const TYPE_CONFIG: Record<NotificationType, { icon: React.ElementType; color: st
   DEADLINE_3_DAYS:      { icon: Clock,        color: 'text-orange-600', bg: 'bg-orange-100' },
   DEADLINE_1_DAY:       { icon: AlertCircle,  color: 'text-red-500',    bg: 'bg-red-100' },
   DEADLINE_6_HOURS:     { icon: AlertCircle,  color: 'text-red-600',    bg: 'bg-red-100' },
+  SOLICITATION_IMPORTED:{ icon: Download,     color: 'text-emerald-600',bg: 'bg-emerald-100' },
   PROCESSING_COMPLETE:  { icon: CheckCircle,  color: 'text-emerald-600',bg: 'bg-emerald-100' },
   PROCESSING_ERROR:     { icon: AlertCircle,  color: 'text-red-500',    bg: 'bg-red-100' },
   EXPORT_READY:         { icon: FileText,     color: 'text-blue-600',   bg: 'bg-blue-100' },
@@ -64,6 +65,8 @@ const buildNotificationLink = (
       return `${base}/outcomes`;
     case 'RFP_UPLOADED':
       return `${base}/documents`;
+    case 'SOLICITATION_IMPORTED':
+      return entityId ? `${base}/opportunities` : `${base}/search-opportunities`;
     case 'DEADLINE_7_DAYS':
     case 'DEADLINE_3_DAYS':
     case 'DEADLINE_1_DAY':

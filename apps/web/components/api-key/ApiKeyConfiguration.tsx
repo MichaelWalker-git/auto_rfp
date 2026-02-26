@@ -16,7 +16,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
-import { AlertCircle, Key, Loader2, Eye, EyeOff } from 'lucide-react';
+import { AlertCircle, Key, Loader2, Eye, EyeOff, Trash2 } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
 
 interface ApiKeyConfigurationProps {
@@ -51,11 +51,32 @@ export function ApiKeyConfiguration({
 }: ApiKeyConfigurationProps) {
   const { toast } = useToast();
   const [showDialog, setShowDialog] = useState(false);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [apiKey, setApiKey] = useState('');
   const [showApiKey, setShowApiKey] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
-  
+  const [isDeleting, setIsDeleting] = useState(false);
+
   const hasApiKey = !!apiKeyHook.apiKey;
+
+  const handleDelete = async () => {
+    try {
+      setIsDeleting(true);
+      // Write empty string to effectively delete/clear the API key
+      await saveKey('');
+      toast({ title: 'API Key Removed', description: `${title} API key has been removed.` });
+      setShowDeleteDialog(false);
+      apiKeyHook.mutate();
+    } catch (error) {
+      toast({
+        title: 'Error',
+        description: error instanceof Error ? error.message : 'Failed to remove API key.',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsDeleting(false);
+    }
+  };
 
   const handleSave = async () => {
     if (!apiKey.trim()) {
@@ -118,6 +139,17 @@ export function ApiKeyConfiguration({
                 <Key className="h-4 w-4 mr-2" />
                 {hasApiKey ? "Update" : "Configure"}
               </Button>
+              {hasApiKey && (
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                  onClick={() => setShowDeleteDialog(true)}
+                  title="Remove API key"
+                >
+                  <Trash2 className="h-4 w-4" />
+                </Button>
+              )}
             </div>
           </div>
         </CardContent>
@@ -229,6 +261,33 @@ export function ApiKeyConfiguration({
                   <Key className="mr-2 h-4 w-4" />
                   Save
                 </>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Delete confirmation dialog ── */}
+      <Dialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+        <DialogContent className="sm:max-w-[400px]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-destructive">
+              <Trash2 className="h-5 w-5" />
+              Remove {title} API Key
+            </DialogTitle>
+            <DialogDescription>
+              This will clear the stored API key. You will need to reconfigure it to use {title} again.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowDeleteDialog(false)} disabled={isDeleting}>
+              Cancel
+            </Button>
+            <Button variant="destructive" onClick={handleDelete} disabled={isDeleting}>
+              {isDeleting ? (
+                <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Removing…</>
+              ) : (
+                <><Trash2 className="mr-2 h-4 w-4" />Remove Key</>
               )}
             </Button>
           </DialogFooter>

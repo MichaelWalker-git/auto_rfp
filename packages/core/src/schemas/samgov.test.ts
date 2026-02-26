@@ -7,7 +7,7 @@ import {
   PatchSchema,
   DollarRangeSchema,
   SavedSearchFrequencySchema,
-} from './samgov';
+} from './search-opportunity';
 
 /**
  * Regression tests for Sentry issues:
