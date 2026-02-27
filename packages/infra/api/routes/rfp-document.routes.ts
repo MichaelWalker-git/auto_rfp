@@ -29,6 +29,8 @@ export function rfpDocumentDomain(args?: {
       { method: 'POST', path: 'sync-to-google-drive', entry: lambdaEntry('rfp-document/sync-to-google-drive.ts'), timeoutSeconds: 60 },
       { method: 'POST', path: 'sync-from-google-drive', entry: lambdaEntry('rfp-document/sync-from-google-drive.ts'), timeoutSeconds: 60 },
       { method: 'GET', path: 'html-content', entry: lambdaEntry('rfp-document/get-html-content.ts') },
+      { method: 'GET', path: 'custom-document-types', entry: lambdaEntry('rfp-document/get-custom-document-types.ts') },
+      { method: 'POST', path: 'custom-document-types', entry: lambdaEntry('rfp-document/save-custom-document-type.ts') },
     ],
   };
 }

@@ -317,6 +317,36 @@ export const UpdateRFPDocumentDTOSchema = z.object({
 
 export type UpdateRFPDocumentDTO = z.infer<typeof UpdateRFPDocumentDTOSchema>;
 
+// ─── Custom Document Type ────────────────────────────────────────────────────
+
+/**
+ * A custom (org-specific) document type discovered by AI during brief generation.
+ * Stored in DynamoDB so it can be reused across future generations.
+ */
+export const CustomDocumentTypeSchema = z.object({
+  orgId: z.string().min(1),
+  /** Slug used as the documentType key (e.g., "ORAL_PRESENTATION_PLAN") */
+  slug: z.string().min(1),
+  /** Human-readable name (e.g., "Oral Presentation Plan") */
+  name: z.string().min(1),
+  description: z.string().optional().nullable(),
+  /** True = discovered by AI; false = manually created */
+  isAiDiscovered: z.boolean().default(true),
+  createdAt: z.string(),
+  updatedAt: z.string(),
+});
+
+export type CustomDocumentType = z.infer<typeof CustomDocumentTypeSchema>;
+
+export const CreateCustomDocumentTypeDTOSchema = z.object({
+  orgId: z.string().min(1),
+  name: z.string().min(1),
+  description: z.string().optional().nullable(),
+  isAiDiscovered: z.boolean().optional().default(false),
+});
+
+export type CreateCustomDocumentTypeDTO = z.infer<typeof CreateCustomDocumentTypeDTOSchema>;
+
 // ─── RFP Document Export Format ───
 
 export const RFPExportFormatSchema = z.enum(['docx', 'pdf', 'html', 'txt', 'pptx', 'md']);

@@ -7,7 +7,10 @@ import { Label } from '@/components/ui/label';
 import {
   Select,
   SelectContent,
+  SelectGroup,
   SelectItem,
+  SelectLabel,
+  SelectSeparator,
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
@@ -17,7 +20,8 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 
-import { type RFPDocumentType, RFP_DOCUMENT_TYPES, RFP_DOCUMENT_TYPE_DESCRIPTIONS, useGenerateRFPDocument } from '@/lib/hooks/use-rfp-documents';
+import { type RFPDocumentType, RFP_DOCUMENT_TYPES, RFP_DOCUMENT_TYPE_DESCRIPTIONS, useGenerateRFPDocument, useCustomDocumentTypes } from '@/lib/hooks/use-rfp-documents';
+import { useCurrentOrganization } from '@/context/organization-context';
 import PermissionWrapper from '@/components/permission-wrapper';
 
 /**
@@ -55,12 +59,20 @@ export function GenerateDocumentDialog({
   orgId,
   onSuccess,
 }: GenerateDocumentDialogProps) {
-  const [selectedType, setSelectedType] = useState<RFPDocumentType>('TECHNICAL_PROPOSAL');
+  const [selectedType, setSelectedType] = useState<string>('TECHNICAL_PROPOSAL');
   const [isOpen, setIsOpen] = useState(false);
   const [status, setStatus] = useState<'idle' | 'generating' | 'success' | 'error'>('idle');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const { trigger: triggerGenerate } = useGenerateRFPDocument(orgId);
+  const { currentOrganization } = useCurrentOrganization();
+  const { customTypes } = useCustomDocumentTypes(currentOrganization?.id ?? null);
+
+  // Merge built-in types with custom types (custom types appear at the bottom under "Custom")
+  const allTypes: { key: string; label: string; isCustom?: boolean }[] = [
+    ...GENERATABLE_TYPES_CONFIG,
+    ...customTypes.map(ct => ({ key: ct.slug, label: ct.name, isCustom: true })),
+  ];
 
   const handleGenerate = async () => {
     setStatus('generating');
@@ -135,19 +147,32 @@ export function GenerateDocumentDialog({
           <div className="space-y-3">
             <div className="space-y-1.5">
               <Label className="text-xs font-medium">Document Type</Label>
-              <Select
-                value={selectedType}
-                onValueChange={(v) => setSelectedType(v as RFPDocumentType)}
-              >
+              <Select value={selectedType} onValueChange={setSelectedType}>
                 <SelectTrigger className="h-8 text-xs">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {GENERATABLE_TYPES_CONFIG.map(({ key, label }) => (
-                    <SelectItem key={key} value={key} className="text-xs">
-                      {label}
-                    </SelectItem>
-                  ))}
+                  <SelectGroup>
+                    <SelectLabel className="text-xs text-muted-foreground">Standard</SelectLabel>
+                    {GENERATABLE_TYPES_CONFIG.map(({ key, label }) => (
+                      <SelectItem key={key} value={key} className="text-xs">
+                        {label}
+                      </SelectItem>
+                    ))}
+                  </SelectGroup>
+                  {customTypes.length > 0 && (
+                    <>
+                      <SelectSeparator />
+                      <SelectGroup>
+                        <SelectLabel className="text-xs text-muted-foreground">AI-Discovered</SelectLabel>
+                        {customTypes.map(ct => (
+                          <SelectItem key={ct.slug} value={ct.slug} className="text-xs">
+                            {ct.name}
+                          </SelectItem>
+                        ))}
+                      </SelectGroup>
+                    </>
+                  )}
                 </SelectContent>
               </Select>
               {selectedType && RFP_DOCUMENT_TYPE_DESCRIPTIONS[selectedType as keyof typeof RFP_DOCUMENT_TYPE_DESCRIPTIONS] && (

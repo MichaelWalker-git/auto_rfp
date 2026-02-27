@@ -3,6 +3,7 @@
 import React, { useCallback, useMemo, useState } from 'react';
 import {
   Download,
+  ExternalLink,
   Eye,
   FileDown,
   FileText,
@@ -10,6 +11,7 @@ import {
   Loader2,
   MoreHorizontal,
   Pencil,
+  RefreshCw,
   Trash2,
   Upload,
 } from 'lucide-react';
@@ -45,6 +47,8 @@ import { GoogleDriveSyncButton } from '@/components/rfp-documents/google-drive-s
 import { GenerateDocumentDialog } from '@/components/rfp-documents/generate-document-dialog';
 import { useOpportunityContext } from './opportunity-context';
 import { formatDateTime } from './opportunity-helpers';
+import Link from 'next/link';
+import { useCurrentOrganization } from '@/context/organization-context';
 
 function documentTypeChip(type: string) {
   const typeMap: Record<string, { cls: string }> = {
@@ -74,6 +78,8 @@ function formatFileSize(bytes: number): string {
 
 export function OpportunityRFPDocuments() {
   const { projectId, oppId, orgId } = useOpportunityContext();
+  const { currentOrganization } = useCurrentOrganization();
+  const navOrgId = currentOrganization?.id ?? orgId;
   const { documents, isLoading, mutate } = useRFPDocuments(projectId, orgId, oppId);
   const { trigger: deleteDocument } = useDeleteRFPDocument(orgId);
   const { trigger: getPreviewUrl } = useDocumentPreviewUrl(orgId);
@@ -221,6 +227,16 @@ export function OpportunityRFPDocuments() {
             </CardDescription>
           </div>
           <div className="flex items-center gap-2">
+            <Button
+              size="sm"
+              variant="ghost"
+              className="h-8 w-8 p-0"
+              onClick={() => mutate()}
+              disabled={isLoading}
+              title="Reload documents"
+            >
+              <RefreshCw className={cn('h-3.5 w-3.5', isLoading && 'animate-spin')} />
+            </Button>
             <GenerateDocumentDialog
               projectId={projectId}
               opportunityId={oppId}
@@ -333,6 +349,13 @@ export function OpportunityRFPDocuments() {
                         {doc.content && (
                           <Button size="sm" variant="ghost" className="h-8 w-8 p-0" onClick={() => setExportDoc(doc)} title="Export">
                             <FileDown className="h-4 w-4" />
+                          </Button>
+                        )}
+                        {doc.content && navOrgId && (
+                          <Button size="sm" variant="ghost" className="h-8 w-8 p-0" asChild title="Open in editor">
+                            <Link href={`/organizations/${navOrgId}/projects/${projectId}/opportunities/${oppId}/rfp-documents/${doc.documentId}/edit`}>
+                              <ExternalLink className="h-4 w-4" />
+                            </Link>
                           </Button>
                         )}
                         {doc.content && (

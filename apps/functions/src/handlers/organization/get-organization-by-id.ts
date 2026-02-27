@@ -72,7 +72,7 @@ const enrichUsersCount = (org: OrganizationItem) => {
   return {
     ...org,
     _count: count,
-    id: org.sort_key ? orgSortKeyToId(org.sort_key) : org.id,
+    id: org.sort_key ? orgSortKeyToId(org.sort_key) : undefined,
   };
 };
 

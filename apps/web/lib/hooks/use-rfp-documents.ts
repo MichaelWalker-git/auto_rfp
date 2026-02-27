@@ -14,6 +14,7 @@ import type {
   UpdateRFPDocumentDTO,
   RFPExportFormat,
   LinearSyncStatus,
+  CustomDocumentType,
 } from '@auto-rfp/core';
 import {
   RFP_DOCUMENT_TYPES,
@@ -328,6 +329,8 @@ const GenerateRFPDocumentRequestSchema = z.object({
   opportunityId: z.string().optional(),
   documentType: z.string().optional(),
   templateId: z.string().optional(),
+  /** If provided, regenerate content into this existing document instead of creating a new one */
+  documentId: z.string().optional(),
 });
 
 export type GenerateRFPDocumentRequest = z.infer<typeof GenerateRFPDocumentRequestSchema>;
@@ -460,6 +463,48 @@ export function useRFPDocumentHtmlContent(
     error,
     mutate,
   };
+}
+
+// ─── Custom Document Types ───
+
+export type { CustomDocumentType };
+
+/**
+ * Fetch org-specific custom document types discovered by AI.
+ * Returns both built-in types (from RFP_DOCUMENT_TYPES) and custom types merged together.
+ */
+export function useCustomDocumentTypes(orgId: string | null) {
+  const key = orgId ? `${BASE}/custom-document-types?orgId=${orgId}` : null;
+
+  const { data, error, isLoading, mutate } = useSWR<{ ok: boolean; items: CustomDocumentType[]; count: number }>(
+    key,
+    async (url: string) => {
+      const res = await authFetcher(url);
+      if (!res.ok) throw new Error('Failed to fetch custom document types');
+      return res.json();
+    },
+    { revalidateOnFocus: false },
+  );
+
+  return {
+    customTypes: data?.items ?? [],
+    isLoading,
+    isError: !!error,
+    mutate,
+  };
+}
+
+/** Save a new custom document type manually */
+export function useSaveCustomDocumentType(orgId: string | null) {
+  return useSWRMutation<
+    { ok: boolean; item: CustomDocumentType },
+    Error,
+    string,
+    { name: string; description?: string | null }
+  >(
+    orgId ? `${BASE}/custom-document-types?orgId=${orgId}` : 'noop',
+    (url, { arg }) => postJson(url, arg),
+  );
 }
 
 /** Upload file to S3 using presigned URL */

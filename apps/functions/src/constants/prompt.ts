@@ -1,5 +1,5 @@
-import { readSystemPrompt, readUserPrompt } from '../helpers/prompt';
-import { RoleSchema } from '@auto-rfp/core';
+import { readSystemPrompt, readUserPrompt } from '@/helpers/prompt';
+import { RequirementsSectionSchema, RoleSchema } from '@auto-rfp/core';
 
 export const SYSTEM_PROMPT_PK = 'SYSTEM_PROMPT';
 export const USER_PROMPT_PK = 'USER_PROMPT';
@@ -332,7 +332,20 @@ export const REQUIREMENTS_SYSTEM_PROMPT = [
   '- Each requirement item: { category?: string, requirement: string (min 5), mustHave: boolean, evidence: EvidenceRef[] }',
   '- deliverables: string[] (can be empty).',
   '- evaluationFactors: string[] (can be empty).',
-  '- submissionCompliance: { format: string[], requiredVolumes: string[], attachmentsAndForms: string[] }',
+  '- submissionCompliance: { format: string[], requiredVolumes: string[], attachmentsAndForms: string[], requiredDocuments: RequiredOutputDocument[] }',
+  '',
+  'RequiredOutputDocument schema:',
+  '{ documentType: string (one of the allowed types), name: string, description?: string, pageLimit?: string, required: boolean }',
+  '',
+  'CRITICAL — requiredDocuments FIELD:',
+  '- This is the MOST IMPORTANT field in submissionCompliance.',
+  '- You MUST scan the ENTIRE solicitation for Section L (Instructions to Offerors), Section M (Evaluation Factors),',
+  '  and any submission instructions that list required proposal volumes, documents, or attachments.',
+  '- For EVERY required response document found, add an entry to requiredDocuments.',
+  '- Common examples: Technical Volume, Management Volume, Price/Cost Volume, Past Performance Volume,',
+  '  Cover Letter, Executive Summary, Compliance Matrix, Certifications, Appendices.',
+  '- If the solicitation mentions ANY required submission documents, requiredDocuments MUST be non-empty.',
+  '- Only use [] if the solicitation truly has NO submission instructions at all.',
   '',
   'EVIDENCE FORMAT (IMPORTANT):',
   '- evidence is an array of objects (NOT strings).',
@@ -344,6 +357,7 @@ export const REQUIREMENTS_SYSTEM_PROMPT = [
   '- Do not invent requirements. If unclear, omit or use category "OTHER".',
   '- Prefer concise requirement strings (short, imperative).',
   '- Focus on: technical requirements, deliverables, compliance/submission rules, evaluation factors.',
+  '- Map each required document to the closest documentType from the allowed list.',
 ].join('\n');
 
 export const REQUIREMENTS_USER_PROMPT = [
@@ -371,7 +385,16 @@ export const REQUIREMENTS_USER_PROMPT = [
   '  "submissionCompliance": {',
   '    "format": [],',
   '    "requiredVolumes": [],',
-  '    "attachmentsAndForms": []',
+  '    "attachmentsAndForms": [],',
+  '    "requiredDocuments": [',
+  '      {',
+  '        "documentType": "TECHNICAL_PROPOSAL",',
+  '        "name": "Technical Volume",',
+  '        "description": "Detailed technical approach and methodology",',
+  '        "pageLimit": "50 pages",',
+  '        "required": true',
+  '      }',
+  '    ]',
   '  }',
   '}',
   '',
@@ -381,11 +404,34 @@ export const REQUIREMENTS_USER_PROMPT = [
   '- Deliverables list (if explicit).',
   '- Evaluation factors list (if explicit).',
   '- Submission compliance rules: page limits, formatting, required volumes, attachments/forms, portals, file naming.',
+  '- requiredDocuments: structured list of response documents required by the solicitation (Section L / submission instructions).',
+  '',
+  'ALLOWED documentType VALUES (use ONLY these exact strings):',
+  '  COVER_LETTER, EXECUTIVE_SUMMARY, UNDERSTANDING_OF_REQUIREMENTS, TECHNICAL_PROPOSAL,',
+  '  PROJECT_PLAN, TEAM_QUALIFICATIONS, PAST_PERFORMANCE, COST_PROPOSAL, MANAGEMENT_APPROACH,',
+  '  RISK_MANAGEMENT, COMPLIANCE_MATRIX, CERTIFICATIONS, APPENDICES, MANAGEMENT_PROPOSAL,',
+  '  PRICE_VOLUME, QUALITY_MANAGEMENT, OTHER',
+  '',
+  'MAPPING GUIDANCE for requiredDocuments:',
+  '  "Technical Volume" / "Technical Proposal" → TECHNICAL_PROPOSAL',
+  '  "Management Volume" / "Management Approach" → MANAGEMENT_APPROACH or MANAGEMENT_PROPOSAL',
+  '  "Price Volume" / "Cost Volume" / "Pricing" → COST_PROPOSAL or PRICE_VOLUME',
+  '  "Past Performance Volume" → PAST_PERFORMANCE',
+  '  "Cover Letter" / "Transmittal Letter" → COVER_LETTER',
+  '  "Executive Summary" → EXECUTIVE_SUMMARY',
+  '  "Compliance Matrix" / "Requirements Traceability" → COMPLIANCE_MATRIX',
+  '  "Certifications and Representations" / "Reps and Certs" → CERTIFICATIONS',
+  '  "Quality Management Plan" / "QA Plan" → QUALITY_MANAGEMENT',
+  '  "Risk Management Plan" → RISK_MANAGEMENT',
+  '  "Appendices" / "Attachments" → APPENDICES',
+  '  Anything else → OTHER',
   '',
   'RULES:',
   '- "mustHave" should be true if the solicitation makes it mandatory.',
   '- evidence[] must be objects with "snippet" (not strings). Use [] if no quote.',
   '- Do not add company marketing; only summarize the solicitation.',
+  '- requiredDocuments should be empty [] if the solicitation does not specify required response volumes/documents.',
+  '- Do NOT invent required documents — only include what is explicitly stated in the solicitation.',
   '',
   'COMPANY CONTEXT (KB excerpts; may be empty):',
   '{{KB_TEXT}}',
@@ -406,9 +452,11 @@ export const getRequirementsUserPrompt = async (orgId: string) => {
 
 export const useRequirementsUserPrompt = async (orgId: string, solicitation?: string, kbText?: string) => {
   const prompt = await getRequirementsUserPrompt(orgId);
+  const schemaStr = JSON.stringify(RequirementsSectionSchema.shape, null, 2);
   return prompt && prompt
-    .replace('{{SOLICITATION}}', solicitation ?? 'None')
-    .replace('{{KB_TEXT}}', kbText ?? 'None');
+    .replace('{{REQUIREMENTS_SCHEMA}}', schemaStr)
+    .replace('{{KB_TEXT}}', kbText ?? 'None')
+    .replace('{{SOLICITATION}}', solicitation ?? 'None');
 };
 
 export const RISK_SYSTEM_PROMPT = [

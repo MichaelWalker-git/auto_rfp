@@ -24,7 +24,6 @@ import {
   BookOpen,
   Briefcase,
   CalendarClock,
-  FileText,
   FolderOpen,
   HelpCircle,
   Home,
@@ -139,10 +138,9 @@ function AppSidebar() {
           { title: 'Dashboard',             url: `/org/${orgId}/prs/${projectId}/dashboard`,            icon: Home },
           { title: 'Search Opportunities',  url: `/org/${orgId}/prs/${projectId}/search-opportunities`, icon: Search },
           { title: 'Opportunities',         url: `/org/${orgId}/prs/${projectId}/opportunities`,        icon: Briefcase },
-          { title: 'Questions',             url: `/org/${orgId}/prs/${projectId}/questions`,            icon: MessageSquare },
           { title: 'Executive Briefs',       url: `/org/${orgId}/prs/${projectId}/brief`,                icon: Target },
           { title: 'Q&A Engagement Tools', url: `/org/${orgId}/prs/${projectId}/qa-engagement`, icon: MessageSquare },
-          { title: 'Solicitation Documents',url: `/org/${orgId}/prs/${projectId}/documents`,            icon: FileText },
+          { title: 'Questions',             url: `/org/${orgId}/prs/${projectId}/questions`,            icon: MessageSquare },
         ]
         : [],
     [orgId, projectId]

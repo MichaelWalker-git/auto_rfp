@@ -2,8 +2,8 @@
 
 import React, { useCallback, useMemo, useState } from 'react';
 import {
-  AlertCircle, Download, ExternalLink, FileText, FolderOpen,
-  Loader2, MoreHorizontal, RefreshCw, Trash2,
+  AlertCircle, Download, ExternalLink, Eye, FileText, FolderOpen,
+  Loader2, MoreHorizontal, RefreshCw, Trash2, X,
 } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -11,14 +11,17 @@ import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import {
+  Dialog, DialogContent,
+} from '@/components/ui/dialog';
+import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem,
   DropdownMenuSeparator, DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { cn } from '@/lib/utils';
-import PermissionWrapper from '@/components/permission-wrapper';
 import { CancelPipelineButton } from '@/components/cancel-pipeline-button';
 import { useDeleteQuestionFile, useQuestionFiles, useStartQuestionFilePipeline } from '@/lib/hooks/use-question-file';
 import { useDownloadFromS3 } from '@/lib/hooks/use-file';
+import { usePresignDownload } from '@/lib/hooks/use-presign';
 import { useToast } from '@/components/ui/use-toast';
 import { useConfirmDialog } from '@/components/ui/confirm-dialog';
 import {
@@ -26,6 +29,49 @@ import {
 } from '@/app/organizations/[orgId]/projects/[projectId]/questions/components/question-extraction-dialog';
 import { useOpportunityContext } from './opportunity-context';
 import { formatDateTime, getStatusChip, pickDisplayName, guessDownloadName } from './opportunity-helpers';
+
+// ─── Helpers ─────────────────────────────────────────────────────────────────
+
+const IMAGE_EXTENSIONS = new Set(['png', 'jpg', 'jpeg', 'gif', 'webp', 'svg']);
+
+const getFileExtension = (key: string): string =>
+  (key.split('.').pop() ?? '').toLowerCase();
+
+const isImage = (key: string): boolean =>
+  IMAGE_EXTENSIONS.has(getFileExtension(key));
+
+// ─── Image Lightbox ───────────────────────────────────────────────────────────
+
+interface ImageLightboxProps {
+  open: boolean;
+  onClose: () => void;
+  name: string;
+  url: string;
+}
+
+const ImageLightbox = ({ open, onClose, name, url }: ImageLightboxProps) => (
+  <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
+    <DialogContent className="max-w-4xl w-full p-2 bg-black/90 border-0">
+      <div className="relative">
+        <button
+          onClick={onClose}
+          className="absolute top-2 right-2 z-10 rounded-full bg-black/60 p-1.5 text-white hover:bg-black/80 transition-colors"
+        >
+          <X className="h-4 w-4" />
+        </button>
+        <div className="flex flex-col items-center gap-2">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={url}
+            alt={name}
+            className="max-h-[80vh] max-w-full object-contain rounded"
+          />
+          <p className="text-xs text-white/70 truncate max-w-full px-2">{name}</p>
+        </div>
+      </div>
+    </DialogContent>
+  </Dialog>
+);
 
 interface AttachmentRow {
   questionFileId: string | undefined;
@@ -47,11 +93,14 @@ export function OpportunitySolicitationDocuments() {
   const { items: qItems, isLoading: isLoadingFiles, isError: isFilesError, error: filesError, refetch: refetchFiles } = useQuestionFiles(projectId, { oppId });
   const { downloadFile, error: downloadError } = useDownloadFromS3();
   const { trigger: deleteQuestionFile } = useDeleteQuestionFile();
+  const { trigger: presignDownload } = usePresignDownload();
 
   const { trigger: startPipeline } = useStartQuestionFilePipeline();
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
   const [retryingId, setRetryingId] = useState<string | null>(null);
+  const [viewingId, setViewingId] = useState<string | null>(null);
+  const [previewState, setPreviewState] = useState<{ name: string; url: string; fileKey: string } | null>(null);
 
   const rows = useMemo<AttachmentRow[]>(
     () => (qItems ?? []).map((qf: any) => ({
@@ -67,6 +116,29 @@ export function OpportunitySolicitationDocuments() {
     })),
     [qItems],
   );
+
+  const handleView = useCallback(async (row: AttachmentRow) => {
+    if (!row.fileKey || !row.questionFileId || viewingId === row.questionFileId) return;
+    try {
+      setViewingId(row.questionFileId);
+      const presign = await presignDownload({ key: row.fileKey });
+      if (isImage(row.fileKey)) {
+        // Show image in lightbox
+        setPreviewState({ name: row.name, url: presign.url, fileKey: row.fileKey });
+      } else {
+        // Open everything else (PDF, docx, txt, etc.) in a new browser tab
+        window.open(presign.url, '_blank', 'noopener,noreferrer');
+      }
+    } catch (err) {
+      toast({
+        title: 'Could not open document',
+        description: err instanceof Error ? err.message : 'Failed to get document URL.',
+        variant: 'destructive',
+      });
+    } finally {
+      setViewingId((prev) => (prev === row.questionFileId ? null : prev));
+    }
+  }, [viewingId, presignDownload, toast]);
 
   const handleDownload = useCallback(async (row: AttachmentRow) => {
     if (!row.questionFileId || !row.fileKey || downloadingId === row.questionFileId) return;
@@ -142,7 +214,19 @@ export function OpportunitySolicitationDocuments() {
               {rows.length} {rows.length === 1 ? 'document' : 'documents'} for this opportunity
             </CardDescription>
           </div>
-          <QuestionFileUploadDialog projectId={projectId} oppId={oppId} />
+          <div className="flex items-center gap-2">
+            <Button
+              size="sm"
+              variant="ghost"
+              className="h-8 w-8 p-0"
+              onClick={() => refetchFiles()}
+              disabled={isLoadingFiles}
+              title="Reload documents"
+            >
+              <RefreshCw className={cn('h-3.5 w-3.5', isLoadingFiles && 'animate-spin')} />
+            </Button>
+            <QuestionFileUploadDialog projectId={projectId} oppId={oppId} triggerLabel="Upload" />
+          </div>
         </CardHeader>
 
         <CardContent className="space-y-3">
@@ -233,6 +317,21 @@ export function OpportunitySolicitationDocuments() {
                             Retry
                           </Button>
                         )}
+                        {/* View button — shown for all files with a key */}
+                        {f.fileKey && (
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="h-8 w-8 p-0"
+                            disabled={viewingId === f.questionFileId}
+                            onClick={() => void handleView(f)}
+                            title={isImage(f.fileKey) ? 'View image' : 'Open in new tab'}
+                          >
+                            {viewingId === f.questionFileId
+                              ? <Loader2 className="h-4 w-4 animate-spin" />
+                              : <Eye className="h-4 w-4" />}
+                          </Button>
+                        )}
                         {f.fileKey && (
                           <Button size="sm" variant="ghost" className="h-8 w-8 p-0" disabled={isDownloading} onClick={() => void handleDownload(f)} title="Download">
                             {isDownloading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
@@ -250,6 +349,12 @@ export function OpportunitySolicitationDocuments() {
                               <DropdownMenuItem disabled={isRetrying} onClick={() => void handleRetry(f)}>
                                 {isRetrying ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <RefreshCw className="h-4 w-4 mr-2" />}
                                 Retry processing
+                              </DropdownMenuItem>
+                            )}
+                            {f.fileKey && (
+                              <DropdownMenuItem disabled={viewingId === f.questionFileId} onClick={() => void handleView(f)}>
+                                <Eye className="h-4 w-4 mr-2" />
+                                {isImage(f.fileKey) ? 'View image' : 'Open in new tab'}
                               </DropdownMenuItem>
                             )}
                             {f.fileKey && (
@@ -283,6 +388,14 @@ export function OpportunitySolicitationDocuments() {
         </CardContent>
       </Card>
       <ConfirmDialog />
+      {previewState && (
+        <ImageLightbox
+          open={!!previewState}
+          onClose={() => setPreviewState(null)}
+          name={previewState.name}
+          url={previewState.url}
+        />
+      )}
     </>
   );
 }

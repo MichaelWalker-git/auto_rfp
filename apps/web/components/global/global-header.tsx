@@ -27,6 +27,7 @@ import { useOpportunity } from '@/lib/hooks/use-opportunities';
 import { useKnowledgeBase } from '@/lib/hooks/use-knowledgebase';
 import { useProfile } from '@/lib/hooks/use-profile';
 import { useUsersList } from '@/lib/hooks/use-user';
+import { useRFPDocumentPolling } from '@/lib/hooks/use-rfp-documents';
 
 // ─── Types ───
 
@@ -74,11 +75,13 @@ function useRouteIds(pathname: string) {
     const oppMatch = pathname.match(/\/projects\/([^/]+)\/opportunities\/([^/]+)/);
     const kbMatch = pathname.match(/\/knowledge-base\/([^/]+)/);
     const teamMemberMatch = pathname.match(/\/team\/([^/]+)/);
+    const rfpDocMatch = pathname.match(/\/opportunities\/[^/]+\/rfp-documents\/([^/]+)/);
     return {
       projectId: oppMatch?.[1] ?? null,
       opportunityId: oppMatch?.[2] ?? null,
       kbId: kbMatch?.[1] && UUID_REGEX.test(kbMatch[1]) ? kbMatch[1] : null,
       userId: teamMemberMatch?.[1] && UUID_REGEX.test(teamMemberMatch[1]) ? teamMemberMatch[1] : null,
+      rfpDocumentId: rfpDocMatch?.[1] ?? null,
     };
   }, [pathname]);
 }
@@ -93,6 +96,7 @@ function useBreadcrumbs(
   opportunityTitle: string | undefined,
   kbName: string | undefined,
   userName: string | undefined,
+  rfpDocumentName: string | undefined,
 ): BreadcrumbItem[] {
   return useMemo(() => {
     if (HIDDEN_PATHS.has(pathname)) return [];
@@ -125,6 +129,26 @@ function useBreadcrumbs(
       currentPath += `/${segment}`;
       const isLast = i === segments.length - 1;
       const prevSegment = segments[i - 1];
+      const nextSegment = segments[i + 1];
+
+      // ── RFP document route handling ──
+      // Path: .../opportunities/{oppId}/rfp-documents/{docId}/edit
+      // Show: Opportunities / {oppName} / {docName}  (skip rfp-documents segment and edit segment)
+      if (segment === 'rfp-documents') {
+        // Skip this segment entirely — document name will appear as next crumb
+        continue;
+      }
+
+      // Skip "edit" segment when inside rfp-documents route
+      if (segment === 'edit' && segments[i - 2] === 'rfp-documents') {
+        continue;
+      }
+
+      // UUID under rfp-documents → show document name as active crumb
+      if (UUID_REGEX.test(segment) && prevSegment === 'rfp-documents') {
+        bc.push({ label: rfpDocumentName || 'Document', isActive: true });
+        continue;
+      }
 
       // Inside a KB detail route, skip sub-page labels and let the kbName breadcrumb be the active one
       const isKbSubPage = segment === 'content-library' || segment === 'access';
@@ -160,7 +184,7 @@ function useBreadcrumbs(
     }
 
     return bc;
-  }, [pathname, orgName, orgId, projectName, opportunityTitle, kbName]);
+  }, [pathname, orgName, orgId, projectName, opportunityTitle, kbName, rfpDocumentName]);
 }
 
 // ─── Sub-components ───
@@ -306,9 +330,17 @@ export function GlobalHeader() {
   const isHidden = HIDDEN_PATHS.has(pathname);
 
   // Extract route IDs for breadcrumb resolution
-  const { projectId: routeProjectId, opportunityId: routeOppId, kbId: routeKbId, userId: routeUserId } = useRouteIds(pathname);
+  const { projectId: routeProjectId, opportunityId: routeOppId, kbId: routeKbId, userId: routeUserId, rfpDocumentId: routeRfpDocId } = useRouteIds(pathname);
   const { data: opportunityData } = useOpportunity(routeProjectId, routeOppId, currentOrganization?.id);
   const { data: kbData } = useKnowledgeBase(routeKbId, currentOrganization?.id ?? null);
+
+  // Fetch RFP document name for breadcrumb when on rfp-documents route
+  const { document: rfpDocumentData } = useRFPDocumentPolling(
+    routeRfpDocId ? routeProjectId : null,
+    routeRfpDocId ? routeOppId : null,
+    routeRfpDocId,
+    routeRfpDocId ? (currentOrganization?.id ?? null) : null,
+  );
 
   const { profile } = useProfile();
 
@@ -332,6 +364,7 @@ export function GlobalHeader() {
     (opportunityData as any)?.title,
     kbData?.name,
     teamMemberName,
+    rfpDocumentData?.name,
   );
 
   // Append the dynamic breadcrumb suffix (e.g. selected question text) if present

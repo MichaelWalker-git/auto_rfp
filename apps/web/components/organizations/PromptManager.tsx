@@ -213,7 +213,7 @@ export function PromptsManager() {
 
   const { currentOrganization } = useCurrentOrganization();
   const { system, user, isLoading, error, refresh } = usePrompts(currentOrganization?.id);
-  const { trigger: saveTrigger, isMutating: isSaving } = useSavePrompt();
+  const { trigger: saveTrigger, isMutating: isSaving } = useSavePrompt(currentOrganization?.id);
 
   React.useEffect(() => {
     if (error) {

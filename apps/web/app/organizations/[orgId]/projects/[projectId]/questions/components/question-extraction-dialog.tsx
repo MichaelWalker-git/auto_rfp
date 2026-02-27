@@ -430,8 +430,8 @@ export function QuestionFileUploadDialog({
       }}
     >
       <DialogTrigger asChild>
-        <Button className="gap-2 px-6 py-2.5 font-medium">
-          <Upload className="h-4 w-4" aria-hidden="true"/>
+        <Button size="sm" className="h-8 text-xs gap-1.5">
+          <Upload className="h-3.5 w-3.5" aria-hidden="true"/>
           {triggerLabel}
         </Button>
       </DialogTrigger>
