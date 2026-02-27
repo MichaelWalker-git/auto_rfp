@@ -47,7 +47,7 @@ export function OpportunitiesList({ projectId, limit = 25, className }: Props) {
   };
 
   return (
-    <div className={'space-y-2'}>
+    <div className={'space-y-4'}>
       {error ? (
         <Alert variant="destructive">
           <AlertDescription>
@@ -58,23 +58,26 @@ export function OpportunitiesList({ projectId, limit = 25, className }: Props) {
       ) : null}
 
       {showLoadingSkeleton ? (
-        <div className="space-y-3">
-          <Skeleton className="h-24 w-full"/>
-          <Skeleton className="h-24 w-full"/>
-          <Skeleton className="h-24 w-full"/>
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+          {Array.from({ length: 8 }).map((_, i) => (
+            <Skeleton key={i} className="h-44 rounded-xl"/>
+          ))}
         </div>
       ) : sortedItems.length === 0 ? (
         <div className="text-sm text-muted-foreground">No opportunities found.</div>
       ) : (
-        sortedItems.map((it) => (
-          <OpportunityItemCard
-            key={`${it.source}#${it.oppId}`}
-            item={it}
-            onOpen={() => handleOpen(it)}
-            onUpdated={() => refresh()}
-            onDeleted={() => refresh()}
-          />
-        ))
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+          {sortedItems.map((it) => (
+            <OpportunityItemCard
+              key={`${it.source}#${it.oppId}`}
+              item={it}
+              onOpen={() => handleOpen(it)}
+              onUpdated={() => refresh()}
+              onDeleted={() => refresh()}
+              showDescription={false}
+            />
+          ))}
+        </div>
       )}
 
       <div className="flex justify-center pt-2">

@@ -216,7 +216,7 @@ export function QuestionFileUploadDialog({
   }, [isGettingPresigned, isStartingPipeline, isProcessing, items]);
 
   const handleClose = () => {
-    window.location.reload();
+    setOpen(false);
   };
 
   const addFiles = useCallback(

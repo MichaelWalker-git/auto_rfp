@@ -181,8 +181,8 @@ const RecentSearches = ({ orgId, onApply }: { orgId: string; onApply: (s: SavedS
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
-        <Button type="button" variant="ghost" size="sm" className="h-8 px-2 text-xs text-muted-foreground hover:text-foreground gap-1">
-          <BookmarkPlus className="h-3.5 w-3.5" />Recent
+        <Button type="button" variant="outline" className="h-10 px-3 shrink-0 text-sm gap-1.5 text-muted-foreground hover:text-foreground">
+          <BookmarkPlus className="h-4 w-4" />Recent
         </Button>
       </PopoverTrigger>
       <PopoverContent className="w-72 p-0" align="end">

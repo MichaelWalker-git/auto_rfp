@@ -134,7 +134,6 @@ const useSamDescription = (orgId: string | undefined, descriptionUrl: string | n
         const data = await res.json() as { description?: string; content?: string; opportunityDescription?: string };
         setDescription(data.description ?? data.content ?? data.opportunityDescription ?? null);
       } else if (res.status === 404 || res.status === 400) {
-        // Description not found or not available — treat as empty, not an error
         setDescription(null);
       }
     } catch {
