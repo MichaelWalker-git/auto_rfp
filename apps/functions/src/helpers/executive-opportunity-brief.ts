@@ -45,8 +45,9 @@ export function truncateText(text: string, maxChars: number) {
 }
 
 /**
- * Extract JSON even if the model wraps it in text or ```json fences.
+ * Extract JSON object or array even if the model wraps it in text or ```json fences.
  * Fixes AUTO-RFP-67 and AUTO-RFP-5D: Better error handling for truncated/malformed responses.
+ * Supports both JSON objects {...} and arrays [...].
  */
 export function extractFirstJsonObject(text: string): string {
   if (!text) throw new Error('Empty model output');
@@ -59,16 +60,41 @@ export function extractFirstJsonObject(text: string): string {
   try {
     JSON.parse(candidate);
     return candidate;
-  } catch (directParseError) {
-    // continue to brace scanning
+  } catch {
+    // continue to bracket scanning
   }
 
-  // Find first { ... } block via a simple brace scan
-  const start = candidate.indexOf('{');
-  if (start === -1) {
-    // Provide more context about what we received
+  // Find first { or [ to support both objects and arrays
+  const objectStart = candidate.indexOf('{');
+  const arrayStart = candidate.indexOf('[');
+  
+  // Determine which comes first (or if neither exists)
+  let start: number;
+  let openBracket: string;
+  let closeBracket: string;
+  
+  if (objectStart === -1 && arrayStart === -1) {
     const preview = candidate.length > 200 ? candidate.slice(0, 200) + '...' : candidate;
-    throw new Error(`No JSON object start "{" found in model output. Received: ${preview}`);
+    throw new Error(`No JSON start "{" or "[" found in model output. Received: ${preview}`);
+  } else if (objectStart === -1) {
+    start = arrayStart;
+    openBracket = '[';
+    closeBracket = ']';
+  } else if (arrayStart === -1) {
+    start = objectStart;
+    openBracket = '{';
+    closeBracket = '}';
+  } else {
+    // Both exist - use whichever comes first
+    if (arrayStart < objectStart) {
+      start = arrayStart;
+      openBracket = '[';
+      closeBracket = ']';
+    } else {
+      start = objectStart;
+      openBracket = '{';
+      closeBracket = '}';
+    }
   }
 
   let depth = 0;
@@ -92,10 +118,11 @@ export function extractFirstJsonObject(text: string): string {
       continue;
     }
 
-    // Only count braces outside of strings
+    // Only count brackets outside of strings
+    // Track both {} and [] for nested structures
     if (!inString) {
-      if (ch === '{') depth++;
-      if (ch === '}') depth--;
+      if (ch === '{' || ch === '[') depth++;
+      if (ch === '}' || ch === ']') depth--;
       if (depth === 0) {
         const jsonStr = candidate.slice(start, i + 1);
         try {
@@ -104,7 +131,7 @@ export function extractFirstJsonObject(text: string): string {
         } catch (parseErr) {
           // Fix AUTO-RFP-67: Better error context for JSON parse failures
           const errorMsg = parseErr instanceof Error ? parseErr.message : 'Unknown parse error';
-          throw new Error(`JSON SyntaxError parsing extracted object: ${errorMsg}. JSON length: ${jsonStr.length}`);
+          throw new Error(`JSON SyntaxError parsing extracted JSON: ${errorMsg}. JSON length: ${jsonStr.length}`);
         }
       }
     }
@@ -113,7 +140,7 @@ export function extractFirstJsonObject(text: string): string {
   // Fix AUTO-RFP-5D: Better error message for truncated responses
   const truncatedPreview = candidate.length > 300 ? candidate.slice(-300) : candidate;
   throw new Error(
-    `No complete JSON object found in model output. Response may be truncated. ` +
+    `No complete JSON found in model output. Response may be truncated. ` +
     `Depth at end: ${depth}, in string: ${inString}. End of response: ...${truncatedPreview}`
   );
 }

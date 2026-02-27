@@ -16,8 +16,12 @@ import {
 
 // ---------- Fetchers ----------
 
-async function fetchClusters(projectId: string): Promise<GetClustersResponse> {
-  const res = await authFetcher(`${env.BASE_API_URL}/clustering/clusters/${projectId}`, {
+async function fetchClusters(projectId: string, opportunityId?: string | null): Promise<GetClustersResponse> {
+  const params = new URLSearchParams();
+  if (opportunityId) params.set('opportunityId', opportunityId);
+  const queryString = params.toString() ? `?${params.toString()}` : '';
+  
+  const res = await authFetcher(`${env.BASE_API_URL}/clustering/clusters/${projectId}${queryString}`, {
     method: 'GET',
   });
 
@@ -82,12 +86,12 @@ async function applyClusterAnswer(
 // ---------- Hooks ----------
 
 /**
- * Get all clusters for a project
+ * Get all clusters for a project, optionally filtered by opportunity
  */
-export function useClusters(projectId?: string) {
+export function useClusters(projectId?: string, opportunityId?: string | null) {
   return useSWR<GetClustersResponse, Error>(
-    projectId ? ['clusters', projectId] : null,
-    () => fetchClusters(projectId!),
+    projectId ? ['clusters', projectId, opportunityId ?? 'all'] : null,
+    () => fetchClusters(projectId!, opportunityId),
     {
       revalidateOnFocus: false,
       revalidateOnReconnect: true,

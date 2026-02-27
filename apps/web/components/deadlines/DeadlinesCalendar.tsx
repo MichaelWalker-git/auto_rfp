@@ -37,6 +37,8 @@ const localizer = dateFnsLocalizer({
 interface FlattenedDeadline {
   projectId: string;
   projectName?: string;
+  opportunityId?: string;
+  opportunityTitle?: string;
   dateTimeIso?: string;
   label?: string;
   type?: string;
@@ -57,7 +59,7 @@ interface CalendarEvent {
 
 interface DeadlinesCalendarProps {
   deadlines: FlattenedDeadline[];
-  displayType: 'project' | 'organization' | 'all';
+  displayType: 'opportunity' | 'project' | 'organization' | 'all';
 }
 
 function getUrgency(daysUntil: number | undefined): 'urgent' | 'warning' | 'upcoming' | 'passed' {
@@ -254,7 +256,7 @@ export default function DeadlinesCalendar({ deadlines, displayType }: DeadlinesC
                 {getUrgencyBadge(selectedEvent.urgency, selectedEvent.deadline.daysUntil)}
               </div>
 
-              {displayType !== 'project' && selectedEvent.deadline.projectName && (
+              {displayType !== 'project' && displayType !== 'opportunity' && selectedEvent.deadline.projectName && (
                 <div className="space-y-1">
                   <div className="text-sm font-medium text-muted-foreground">Project</div>
                   <Link
@@ -262,6 +264,19 @@ export default function DeadlinesCalendar({ deadlines, displayType }: DeadlinesC
                     className="text-sm text-primary hover:underline flex items-center gap-1"
                   >
                     {selectedEvent.deadline.projectName}
+                    <ExternalLink className="h-3 w-3" />
+                  </Link>
+                </div>
+              )}
+
+              {displayType !== 'opportunity' && selectedEvent.deadline.opportunityTitle && (
+                <div className="space-y-1">
+                  <div className="text-sm font-medium text-muted-foreground">Opportunity</div>
+                  <Link
+                    href={`/organizations/${currentOrganization?.id}/projects/${selectedEvent.deadline.projectId}/opportunities/${selectedEvent.deadline.opportunityId}`}
+                    className="text-sm text-primary hover:underline flex items-center gap-1"
+                  >
+                    {selectedEvent.deadline.opportunityTitle}
                     <ExternalLink className="h-3 w-3" />
                   </Link>
                 </div>

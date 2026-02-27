@@ -22,6 +22,8 @@ export interface DeadlineRecord {
   orgId: string;
   projectId: string;
   projectName?: string;
+  opportunityId?: string;
+  opportunityTitle?: string;
   deadlines?: DeadlineItem[];
   submissionDeadlineIso?: string;
   hasSubmissionDeadline?: boolean;
@@ -35,6 +37,7 @@ export interface DeadlineRecord {
 export interface GetDeadlinesParams {
   orgId?: string;
   projectId?: string;
+  opportunityId?: string;
   urgentOnly?: boolean;
 }
 
@@ -58,6 +61,7 @@ async function fetchDeadlines(params: GetDeadlinesParams): Promise<GetDeadlinesR
   
   if (params.orgId) searchParams.append('orgId', params.orgId);
   if (params.projectId) searchParams.append('projectId', params.projectId);
+  if (params.opportunityId) searchParams.append('opportunityId', params.opportunityId);
   if (params.urgentOnly) searchParams.append('urgentOnly', 'true');
 
   const url = `${env.BASE_API_URL}/deadlines/get-deadlines?${searchParams.toString()}`;
@@ -108,10 +112,24 @@ export function useProjectDeadlines(projectId?: string) {
 }
 
 /**
+ * Get deadlines for a specific opportunity
+ */
+export function useOpportunityDeadlines(projectId?: string, opportunityId?: string) {
+  return useSWR<GetDeadlinesResponse, Error>(
+    projectId && opportunityId ? ['deadlines', 'opportunity', projectId, opportunityId] : null,
+    () => fetchDeadlines({ projectId, opportunityId }),
+    {
+      revalidateOnFocus: false,
+      revalidateOnReconnect: true,
+    }
+  );
+}
+
+/**
  * Generic hook with full control over params
  */
 export function useDeadlines(params: GetDeadlinesParams) {
-  const key = ['deadlines', params.orgId || 'all', params.projectId || 'all', params.urgentOnly || false];
+  const key = ['deadlines', params.orgId || 'all', params.projectId || 'all', params.opportunityId || 'all', params.urgentOnly || false];
 
   return useSWR<GetDeadlinesResponse, Error>(
     key,

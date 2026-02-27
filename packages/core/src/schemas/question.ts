@@ -2,6 +2,7 @@ import { z } from 'zod';
 
 export const QuestionItemSchema = z.object({
   projectId: z.string().optional(),
+  opportunityId: z.string().optional(),
   questionFileId: z.string().optional(),
   questionId: z.string().uuid(),
   question: z.string().optional(),
@@ -21,6 +22,7 @@ export type QuestionItem = z.infer<typeof QuestionItemSchema>;
 
 export const GroupedQuestionSchema = z.object({
   id: z.string().min(1),
+  opportunityId: z.string().optional(),
   question: z.string().min(1),
   answer: z.string().nullable(),
   // Clustering fields for UI display
@@ -43,6 +45,7 @@ export type GroupedSection = z.infer<typeof GroupedSectionSchema>;
 
 export const QAItemSchema = z.object({
   questionId: z.string().min(1),
+  opportunityId: z.string().optional(),
   documentId: z.string().min(1),
   question: z.string().min(1),
   answer: z.string(),

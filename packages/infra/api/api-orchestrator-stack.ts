@@ -49,6 +49,8 @@ import { opportunityContextDomain } from './routes/opportunity-context.routes';
 import { notificationDomain } from './routes/notification.routes';
 import { auditDomain } from './routes/audit.routes';
 import { analyticsDomain } from './routes/analytics.routes';
+import { clarifyingQuestionDomain } from './routes/clarifying-question.routes';
+import { engagementLogDomain } from './routes/engagement-log.routes';
 
 export interface ApiOrchestratorStackProps extends cdk.StackProps {
   stage: string;
@@ -404,6 +406,8 @@ export class ApiOrchestratorStack extends cdk.Stack {
       notificationDomain(),
       auditDomain(),
       analyticsDomain(),
+      clarifyingQuestionDomain(),
+      engagementLogDomain(),
     ];
 
     // Compute a hash of all route definitions so the deployment logical ID changes
@@ -458,6 +462,8 @@ export class ApiOrchestratorStack extends cdk.Stack {
       'NotificationRoutes',
       'AuditRoutes',
       'AnalyticsRoutes',
+      'ClarifyingQuestionRoutes',
+      'EngagementLogRoutes',
     ];
 
     const routeNestedStacks: ApiDomainRoutesStack[] = [];

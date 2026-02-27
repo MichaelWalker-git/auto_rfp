@@ -14,17 +14,17 @@ function BriefPageLoading() {
 
 interface BriefPageProps {
   params: Promise<{ projectId: string; orgId: string }>;
-  searchParams: Promise<{ opportunityId?: string }>;
+  searchParams: Promise<{ oppId?: string }>;
 }
 
 export default async function BriefPage({ params, searchParams }: BriefPageProps) {
   const { projectId } = await params;
-  const { opportunityId } = await searchParams;
+  const { oppId } = await searchParams;
 
   return (
     <ProjectPageProvider projectId={projectId}>
       <Suspense fallback={<BriefPageLoading/>}>
-        <ExecutiveBriefContent projectId={projectId} initialOpportunityId={opportunityId}/>
+        <ExecutiveBriefContent projectId={projectId} initialOpportunityId={oppId}/>
       </Suspense>
     </ProjectPageProvider>
   );

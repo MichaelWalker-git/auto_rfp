@@ -141,6 +141,7 @@ function AppSidebar() {
           { title: 'Opportunities',         url: `/org/${orgId}/prs/${projectId}/opportunities`,        icon: Briefcase },
           { title: 'Questions',             url: `/org/${orgId}/prs/${projectId}/questions`,            icon: MessageSquare },
           { title: 'Executive Briefs',       url: `/org/${orgId}/prs/${projectId}/brief`,                icon: Target },
+          { title: 'Q&A Engagement Tools', url: `/org/${orgId}/prs/${projectId}/qa-engagement`, icon: MessageSquare },
           { title: 'Solicitation Documents',url: `/org/${orgId}/prs/${projectId}/documents`,            icon: FileText },
         ]
         : [],

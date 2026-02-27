@@ -126,6 +126,7 @@ export const baseHandler = async (
   const totalQuestions = await saveQuestionsFromSections(
     questionFileId,
     projectId,
+    opportunityId,
     { sections: mergedSections },
   );
 
@@ -233,6 +234,7 @@ function deduplicateQuestions(questions: any[]): any[] {
 async function saveQuestionsFromSections(
   questionFileId: string,
   projectId: string,
+  opportunityId: string,
   extracted: ExtractedQuestions,
 ): Promise<number> {
   const now = nowIso();
@@ -271,6 +273,7 @@ async function saveQuestionsFromSections(
         [SK_NAME]: sortKey,
 
         projectId,
+        opportunityId,
         questionFileId,
 
         questionId,

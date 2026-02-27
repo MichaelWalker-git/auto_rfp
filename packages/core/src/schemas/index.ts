@@ -26,3 +26,5 @@ export * from './collaboration';
 export * from './opportunity-context';
 export * from './notification';
 export * from './audit';
+export * from './clarifying-question';
+export * from './engagement-log';

@@ -845,3 +845,139 @@ export const useAnswerUserPrompt = async (
     .replace('{{CONTEXT}}', context || '')
     .replace('{{QUESTION}}', question || '');
 };
+
+// ═══════════════════════════════════════════════════════════════════════════
+// CLARIFYING QUESTIONS GENERATION (Q&A Period Engagement)
+// ═══════════════════════════════════════════════════════════════════════════
+
+export const CLARIFYING_QUESTIONS_SYSTEM_PROMPT = [
+  'You are an expert government contracting capture manager helping to identify ambiguities in RFP solicitations.',
+  '',
+  'Your goal is to generate clarifying questions that:',
+  '1. Help resolve genuine ambiguities in the solicitation',
+  '2. Build relationships with contracting officers during the Q&A period',
+  '3. Demonstrate thoughtful analysis and serious interest in the opportunity',
+  '4. Position the company favorably for evaluation',
+  '',
+  'STRICT OUTPUT CONTRACT (MUST FOLLOW):',
+  '- Output ONLY a valid JSON array of question objects.',
+  '- Do NOT output any text before "[" or after "]".',
+  '- No prose, no markdown, no code fences, no commentary.',
+  '- The first character of your response MUST be "[" and the last character MUST be "]".',
+  '',
+  'QUESTION OBJECT SCHEMA:',
+  '{',
+  '  "question": "string (the clarifying question to ask, min 20 chars)",',
+  '  "category": "SCOPE|TECHNICAL|PRICING|SCHEDULE|COMPLIANCE|EVALUATION|OTHER",',
+  '  "rationale": "string (why this question is valuable, min 20 chars)",',
+  '  "priority": "HIGH|MEDIUM|LOW",',
+  '  "ambiguitySource": {',
+  '    "snippet": "string (quote from solicitation that is ambiguous)",',
+  '    "sectionRef": "string (optional section reference like L.4.2 or M.3)"',
+  '  }',
+  '}',
+  '',
+  'CATEGORY DEFINITIONS:',
+  '- SCOPE: Questions about what is/is not included in the contract scope',
+  '- TECHNICAL: Questions about technical requirements, specifications, or approaches',
+  '- PRICING: Questions about pricing structure, CLINs, or cost volume requirements',
+  '- SCHEDULE: Questions about timeline, milestones, or delivery dates',
+  '- COMPLIANCE: Questions about mandatory certifications, clearances, or compliance requirements',
+  '- EVALUATION: Questions about evaluation criteria, scoring methodology, or proposal requirements',
+  '- OTHER: Questions that do not fit the above categories',
+  '',
+  'PRIORITY GUIDANCE:',
+  '- HIGH: Questions that could significantly impact bid/no-bid decision or proposal approach',
+  '- MEDIUM: Questions that clarify important details but do not fundamentally change approach',
+  '- LOW: Nice-to-know clarifications that improve proposal quality but are not critical',
+  '',
+  'QUESTION QUALITY RULES:',
+  '- Questions must be specific and tied to solicitation text',
+  '- Questions should not have obvious answers already in the solicitation',
+  '- Questions should not reveal proprietary strategy or competitive information',
+  '- Questions should be professionally worded and appropriate for formal Q&A',
+  '- Avoid yes/no questions; prefer open-ended questions that elicit detailed responses',
+  '- Focus on ambiguities that affect multiple offerors (not just your company)',
+].join('\n');
+
+export const CLARIFYING_QUESTIONS_USER_PROMPT = [
+  'TASK: Generate {{TOP_K}} clarifying questions for submission during the Q&A period.',
+  '',
+  'Return JSON ONLY. First char "[" last char "]".',
+  '',
+  'QUESTION CATEGORIES TO CONSIDER:',
+  '1. SCOPE ambiguities (unclear boundaries of work)',
+  '2. TECHNICAL ambiguities (unclear specifications or requirements)',
+  '3. PRICING ambiguities (unclear pricing structure or assumptions)',
+  '4. SCHEDULE ambiguities (unclear timelines or milestones)',
+  '5. COMPLIANCE ambiguities (unclear mandatory requirements)',
+  '6. EVALUATION ambiguities (unclear scoring or selection criteria)',
+  '',
+  'EXAMPLE OUTPUT:',
+  '[',
+  '  {',
+  '    "question": "Section L.4.2 states that the Technical Volume should address \'relevant experience\' but does not specify a minimum contract value or recency requirement. Could the Government clarify what threshold values or date ranges would be considered relevant for past performance citations?",',
+  '    "category": "EVALUATION",',
+  '    "rationale": "This ambiguity affects how contractors select and present past performance, which is often 30-40% of the evaluation score. Clarification ensures all offerors cite appropriate experience.",',
+  '    "priority": "HIGH",',
+  '    "ambiguitySource": {',
+  '      "snippet": "relevant experience",',
+  '      "sectionRef": "L.4.2"',
+  '    }',
+  '  }',
+  ']',
+  '',
+  'EXECUTIVE BRIEF SUMMARY (for context on opportunity):',
+  '{{SUMMARY}}',
+  '',
+  'REQUIREMENTS IDENTIFIED:',
+  '{{REQUIREMENTS}}',
+  '',
+  'EVALUATION CRITERIA:',
+  '{{EVALUATION}}',
+  '',
+  'DEADLINES (Q&A deadline is critical context):',
+  '{{DEADLINES}}',
+  '',
+  'RISKS AND RED FLAGS IDENTIFIED:',
+  '{{RISKS}}',
+  '',
+  'COMPANY CAPABILITIES (from Knowledge Base):',
+  '{{KB_TEXT}}',
+  '',
+  'FULL SOLICITATION TEXT:',
+  '{{SOLICITATION}}',
+].join('\n');
+
+export const getClarifyingQuestionsSystemPrompt = async (orgId: string) => {
+  const { prompt } = await readSystemPrompt(orgId, 'CLARIFYING_QUESTIONS') || {};
+  return prompt || CLARIFYING_QUESTIONS_SYSTEM_PROMPT;
+};
+
+export const getClarifyingQuestionsUserPrompt = async (orgId: string) => {
+  const { prompt } = await readUserPrompt(orgId, 'CLARIFYING_QUESTIONS') || {};
+  return prompt || CLARIFYING_QUESTIONS_USER_PROMPT;
+};
+
+export const useClarifyingQuestionsUserPrompt = async (
+  orgId: string,
+  solicitation?: string,
+  summary?: string,
+  requirements?: string,
+  evaluation?: string,
+  deadlines?: string,
+  risks?: string,
+  kbText?: string,
+  topK = 10
+) => {
+  const prompt = await getClarifyingQuestionsUserPrompt(orgId);
+  return prompt
+    .replace('{{TOP_K}}', String(topK))
+    .replace('{{SUMMARY}}', summary || 'None')
+    .replace('{{REQUIREMENTS}}', requirements || 'None')
+    .replace('{{EVALUATION}}', evaluation || 'None')
+    .replace('{{DEADLINES}}', deadlines || 'None')
+    .replace('{{RISKS}}', risks || 'None')
+    .replace('{{KB_TEXT}}', kbText || 'None')
+    .replace('{{SOLICITATION}}', solicitation || 'None');
+};

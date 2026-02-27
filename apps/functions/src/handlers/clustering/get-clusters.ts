@@ -23,6 +23,7 @@ export const baseHandler = async (
 ): Promise<APIGatewayProxyResultV2> => {
   try {
     const { projectId } = event.pathParameters || {};
+    const { opportunityId } = event.queryStringParameters || {};
     
     if (!projectId) {
       return apiResponse(400, { message: 'Missing projectId' });
@@ -52,6 +53,23 @@ export const baseHandler = async (
       if (result.Items) {
         for (const item of result.Items) {
           const cluster = item as QuestionCluster;
+          
+          // Filter by opportunityId if provided
+          // - If opportunityId is provided and not 'all', only include clusters for that opportunity
+          // - If opportunityId is 'other', include clusters without an opportunityId
+          if (opportunityId && opportunityId !== 'all') {
+            if (opportunityId === 'other') {
+              // Only include clusters without an opportunityId
+              if (cluster.opportunityId) {
+                continue;
+              }
+            } else {
+              // Only include clusters that match the specified opportunityId
+              if (cluster.opportunityId !== opportunityId) {
+                continue;
+              }
+            }
+          }
           
           // Update hasAnswer status for each member
           const updatedMembers: ClusterMember[] = await Promise.all(

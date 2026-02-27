@@ -41,7 +41,7 @@ export class AuditStack extends cdk.Stack {
     // Generate a random secret and store it in SSM Parameter Store.
     // In production, rotate this via a separate process.
     const hmacSecret = new ssm.StringParameter(this, 'AuditHmacSecret', {
-      parameterName: '/auto-rfp/audit-hmac-secret',
+      parameterName: `/auto-rfp/audit-hmac-secret-${stage.toLowerCase()}`,
       stringValue: crypto.randomBytes(32).toString('hex'),
       description: 'HMAC secret for audit log integrity hashing',
       tier: ssm.ParameterTier.STANDARD,

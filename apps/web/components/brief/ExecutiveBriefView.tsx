@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { useRouter } from 'next/navigation';
 
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -211,6 +212,7 @@ interface ExecutiveBriefViewProps {
 }
 
 export function ExecutiveBriefView({ projectId, initialOpportunityId }: ExecutiveBriefViewProps) {
+  const router = useRouter();
   const { data: project, isLoading, isError, mutate: refetchProject } = useProject(projectId);
   const { currentOrganization } = useCurrentOrganization();
   const { outcome: projectOutcome } = useProjectOutcome(project?.orgId ?? null, projectId);
@@ -408,6 +410,17 @@ export function ExecutiveBriefView({ projectId, initialOpportunityId }: Executiv
     setBriefItem(null);
     setPreviousBrief(null);
     setRegenError(null);
+    
+    // Update URL query param
+    if (typeof window !== 'undefined') {
+      const url = new URL(window.location.href);
+      if (oppId) {
+        url.searchParams.set('oppId', oppId);
+      } else {
+        url.searchParams.delete('oppId');
+      }
+      router.replace(url.pathname + url.search, { scroll: false });
+    }
     
     if (oppId) {
       setIsFetchingBrief(true);
@@ -997,7 +1010,8 @@ export function ExecutiveBriefView({ projectId, initialOpportunityId }: Executiv
               >
                 <DecisionCard 
                   projectName={project.name}
-                  projectId={projectId}  
+                  projectId={projectId}
+                  orgId={currentOrganization?.id}
                   summary={summary}
                   briefItem={briefItem}
                   previousBrief={previousBrief}

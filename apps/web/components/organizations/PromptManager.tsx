@@ -253,6 +253,7 @@ export function PromptsManager() {
       type: args.type,
       prompt: args.prompt,
       params: normalizeParams(args.params),
+      orgId: currentOrganization?.id,
     };
 
     try {

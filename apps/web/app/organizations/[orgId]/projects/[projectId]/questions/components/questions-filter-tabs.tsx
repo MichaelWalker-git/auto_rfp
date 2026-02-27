@@ -17,9 +17,10 @@ interface QuestionsFilterTabsProps {
   rfpDocument: any;
   orgId: string;
   projectId: string;
+  opportunityId?: string | null;
 }
 
-export function QuestionsFilterTabs({ rfpDocument, orgId, projectId }: QuestionsFilterTabsProps) {
+export function QuestionsFilterTabs({ rfpDocument, orgId, projectId, opportunityId }: QuestionsFilterTabsProps) {
   const {
     activeTab,
     setActiveTab,
@@ -28,9 +29,6 @@ export function QuestionsFilterTabs({ rfpDocument, orgId, projectId }: Questions
     setShowAIPanel,
 
     getSelectedQuestionData,
-    getFilteredQuestions,
-    getCounts,
-    getConfidenceCounts,
 
     confidenceFilter,
     setConfidenceFilter,
@@ -59,11 +57,111 @@ export function QuestionsFilterTabs({ rfpDocument, orgId, projectId }: Questions
   const searchParams = useSearchParams();
 
   const questionData = getSelectedQuestionData();
-  const counts = getCounts();
-  const confidenceCounts = getConfidenceCounts();
 
-  // Get cluster count for the badge
-  const { data: clustersData } = useClusters(projectId);
+  // Compute counts from rfpDocument prop (already filtered by opportunity)
+  const counts = React.useMemo(() => {
+    if (!rfpDocument?.sections?.length) return { all: 0, answered: 0, unanswered: 0 };
+    
+    const allQuestions = rfpDocument.sections.flatMap((s: any) => s.questions);
+    const answeredCount = allQuestions.filter((q: any) => {
+      const text = answers[q?.id]?.text;
+      return typeof text === 'string' && text.trim().length > 0;
+    }).length;
+    
+    return {
+      all: allQuestions.length,
+      answered: answeredCount,
+      unanswered: allQuestions.length - answeredCount,
+    };
+  }, [rfpDocument, answers]);
+
+  // Compute confidence counts from rfpDocument
+  const confidenceCounts = React.useMemo(() => {
+    if (!rfpDocument?.sections?.length) return { high: 0, medium: 0, low: 0 };
+    
+    const allQuestions = rfpDocument.sections.flatMap((s: any) => s.questions);
+    let high = 0, medium = 0, low = 0;
+    
+    for (const q of allQuestions) {
+      const answerData = answers[q.id];
+      if (!answerData?.confidence) {
+        if (answerData?.text) low++;
+        continue;
+      }
+      // Normalize confidence (handle both 0-1 and 0-100 ranges)
+      const rawConf = answerData.confidence;
+      const pct = rawConf > 1 ? rawConf : Math.round(rawConf * 100);
+      if (pct >= 90) high++;
+      else if (pct >= 70) medium++;
+      else low++;
+    }
+    
+    return { high, medium, low };
+  }, [rfpDocument, answers]);
+
+  // Filter questions based on tab and search (using rfpDocument)
+  const getFilteredQuestions = React.useCallback((filterType: string = 'all') => {
+    if (!rfpDocument?.sections?.length) return [];
+    
+    const allQuestions = rfpDocument.sections.flatMap((section: any) =>
+      section.questions.map((question: any) => ({
+        ...question,
+        sectionTitle: section.title,
+        sectionId: section.id,
+      })),
+    );
+
+    let statusFiltered = allQuestions;
+
+    const hasAnswer = (q: any) => {
+      const text = answers[q.id]?.text;
+      return typeof text === 'string' && text.trim().length > 0;
+    };
+
+    if (filterType === 'answered') {
+      statusFiltered = allQuestions.filter(hasAnswer);
+    } else if (filterType === 'unanswered') {
+      statusFiltered = allQuestions.filter((q: any) => !hasAnswer(q));
+    }
+
+    // Apply confidence band filter
+    if (confidenceFilter !== 'all') {
+      statusFiltered = statusFiltered.filter((q: any) => {
+        const answerData = answers[q.id];
+        if (!answerData?.text?.trim()) return false;
+        if (answerData.confidence == null) return confidenceFilter === 'low';
+        const rawConf = answerData.confidence;
+        const pct = rawConf > 1 ? rawConf : Math.round(rawConf * 100);
+        if (confidenceFilter === 'high') return pct >= 90;
+        if (confidenceFilter === 'medium') return pct >= 70 && pct < 90;
+        return pct < 70;
+      });
+    }
+
+    // Apply search query
+    let result = statusFiltered;
+    if (searchQuery) {
+      const query = searchQuery.toLowerCase();
+      result = result.filter((q: any) => 
+        q.question.toLowerCase().includes(query) || 
+        q.sectionTitle.toLowerCase().includes(query)
+      );
+    }
+
+    // Sort by confidence if enabled
+    if (sortByConfidence) {
+      result = [...result].sort((a: any, b: any) => {
+        const confA = answers[a.id]?.confidence ?? 0;
+        const confB = answers[b.id]?.confidence ?? 0;
+        return confA - confB;
+      });
+    }
+
+    return result;
+  }, [rfpDocument, answers, confidenceFilter, searchQuery, sortByConfidence]);
+
+  // Get cluster count for the badge - filtered by opportunityId
+  const { data: clustersData } = useClusters(projectId, opportunityId);
   const clusterCount = clustersData?.clusters?.length ?? 0;
 
   // On mount: read ?questionId= from URL and auto-select that question
@@ -200,6 +298,7 @@ export function QuestionsFilterTabs({ rfpDocument, orgId, projectId }: Questions
           }}
           selectedQuestion={selectedQuestion}
           answers={answers}
+          opportunityId={opportunityId}
         />
       </TabsContent>
     </Tabs>

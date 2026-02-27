@@ -1,8 +1,8 @@
 'use client';
 
-import React from 'react';
+import React, { useEffect } from 'react';
 import Link from 'next/link';
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, MessageSquare, HelpCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 
@@ -10,10 +10,12 @@ import { OpportunityProvider, useOpportunityContext } from './opportunity-contex
 import { OpportunityHeader } from './opportunity-header';
 import { OpportunitySolicitationDocuments } from './opportunity-attachments';
 import { OpportunityRFPDocuments } from './opportunity-rfp-documents';
+import { OpportunityActionCard } from './opportunity-action-card';
 import { ProjectOutcomeCard } from '@/components/project-outcome/ProjectOutcomeCard';
 import { FOIARequestCard } from '@/components/foia/FOIARequestCard';
 import { OpportunityContextPanel } from './opportunity-context-panel';
 import { useCurrentOrganization } from '@/context/organization-context';
+import { saveSelectedOpportunity } from '@/lib/utils/opportunity-selection';
 
 interface OpportunityViewProps {
   projectId: string;
@@ -37,6 +39,14 @@ function OpportunityContent({ className }: { className?: string }) {
   const { currentOrganization } = useCurrentOrganization();
   const navOrgId = currentOrganization?.id;
 
+  // Save oppId to session storage so other pages (Questions, Brief, etc.) 
+  // use this opportunity by default when navigating from this page
+  useEffect(() => {
+    if (projectId && oppId) {
+      saveSelectedOpportunity(projectId, oppId);
+    }
+  }, [projectId, oppId]);
+
   const backUrl = navOrgId
     ? `/organizations/${navOrgId}/projects/${projectId}/opportunities`
     : '#';
@@ -50,6 +60,31 @@ function OpportunityContent({ className }: { className?: string }) {
         </Link>
       </Button>
       <OpportunityHeader />
+
+      {/* Questions & Answers Card */}
+      {navOrgId && (
+        <OpportunityActionCard
+          icon={HelpCircle}
+          iconColor="text-blue-500"
+          title="Questions & Answers"
+          description="View and answer RFP questions for this opportunity"
+          buttonText="View Questions"
+          href={`/organizations/${navOrgId}/projects/${projectId}/opportunities/${oppId}/questions`}
+        />
+      )}
+
+      {/* Q&A Engagement Card */}
+      {navOrgId && (
+        <OpportunityActionCard
+          icon={MessageSquare}
+          iconColor="text-indigo-500"
+          title="Q&A Period Engagement"
+          description="Build relationships with contracting officers through clarifying questions"
+          buttonText="Manage Q&A Engagement"
+          href={`/organizations/${navOrgId}/projects/${projectId}/opportunities/${oppId}/qa-engagement`}
+        />
+      )}
+
       <OpportunitySolicitationDocuments />
       <OpportunityRFPDocuments />
       <OpportunityContextPanel />

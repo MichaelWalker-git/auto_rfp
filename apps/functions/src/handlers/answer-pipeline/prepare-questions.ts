@@ -29,6 +29,7 @@ export interface QuestionForAnswerGeneration {
   questionText: string;
   sectionId?: string;
   sectionTitle?: string;
+  opportunityId?: string;
   // Clustering fields
   clusterId?: string;
   isClusterMaster?: boolean;
@@ -205,23 +206,28 @@ async function clusterAndSort(
       ? nonMasterMembersWithSim.reduce((sum, m) => sum + m.similarity, 0) / nonMasterMembersWithSim.length
       : 1.0;
     
-    // Save cluster
+    // Save cluster - use opportunityId from master question
+    const clusterItem: Record<string, unknown> = {
+      [PK_NAME]: QUESTION_CLUSTER_PK,
+      [SK_NAME]: `${projectId}#${clusterId}`,
+      clusterId,
+      projectId,
+      masterQuestionId: cluster.master.questionId,
+      masterQuestionText: cluster.master.questionText,
+      members,
+      avgSimilarity,
+      questionCount: members.length,
+      createdAt: nowIso(),
+      updatedAt: nowIso(),
+    };
+    // Add opportunityId if present on master question
+    if (cluster.master.opportunityId) {
+      clusterItem.opportunityId = cluster.master.opportunityId;
+    }
     await docClient.send(
       new PutCommand({
         TableName: DB_TABLE_NAME,
-        Item: {
-          [PK_NAME]: QUESTION_CLUSTER_PK,
-          [SK_NAME]: `${projectId}#${clusterId}`,
-          clusterId,
-          projectId,
-          masterQuestionId: cluster.master.questionId,
-          masterQuestionText: cluster.master.questionText,
-          members,
-          avgSimilarity,
-          questionCount: members.length,
-          createdAt: nowIso(),
-          updatedAt: nowIso(),
-        },
+        Item: clusterItem,
       })
     );
     
@@ -352,6 +358,7 @@ export const baseHandler = async (
             questionText,
             sectionId: item.sectionId as string | undefined,
             sectionTitle: item.sectionTitle as string | undefined,
+            opportunityId: item.opportunityId as string | undefined,
             // Preserve existing cluster assignments
             clusterId: item.clusterId as string | undefined,
             isClusterMaster: item.isClusterMaster as boolean | undefined,

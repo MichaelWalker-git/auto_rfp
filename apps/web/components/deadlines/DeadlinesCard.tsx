@@ -13,13 +13,14 @@ interface StatusObject {
 
 export default function DeadlineCard({ deadline, displayType }: {
   deadline: any,
-  displayType: 'project' | 'organization' | 'all'
+  displayType: 'opportunity' | 'project' | 'organization' | 'all'
 }) {
   const { currentOrganization } = useCurrentOrganization();
   const dt = deadline?.dateTimeIso ? new Date(deadline.dateTimeIso) : null;
   const isPassed = dt && (dt.getTime() - Date.now()) < 0;
   const isUrgent = dt && !isPassed && (dt.getTime() - Date.now()) < 7 * 24 * 60 * 60 * 1000;
 
+  console.log('DeadlineCard render', { deadline });
   const daysUntil = dt
     ? Math.ceil((dt.getTime() - Date.now()) / (24 * 60 * 60 * 1000))
     : null;
@@ -95,11 +96,22 @@ export default function DeadlineCard({ deadline, displayType }: {
       className={`rounded-lg border p-4 transition-all hover:shadow-md  border-${statusObj.variant} bg-${statusObj.variant}/5 `}>
       <div className="flex justify-between items-start gap-4">
         <div className="flex-1">
-          {displayType !== 'project' && (
+          {displayType !== 'project' && displayType !== 'opportunity' && (
             <div>
               {`Project: `}
               <Link href={`/organizations/${currentOrganization?.id}/projects/${deadline.projectId}`} className="font-bold mb-4 inline-block">
                 {deadline.projectName}
+              </Link>
+            </div>
+          )}
+          {displayType !== 'opportunity' && deadline.opportunityTitle && (
+            <div className="text-sm text-muted-foreground mb-1">
+              {`Opportunity: `}
+              <Link 
+                href={`/organizations/${currentOrganization?.id}/projects/${deadline.projectId}/opportunities/${deadline.opportunityId}`} 
+                className="text-primary hover:underline"
+              >
+                {deadline.opportunityTitle}
               </Link>
             </div>
           )}
