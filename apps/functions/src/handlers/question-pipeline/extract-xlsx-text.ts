@@ -19,18 +19,27 @@ type Event = {
   sourceFileKey: string;
 };
 
+// Max text output size — keeps Lambda memory usage bounded and avoids S3 upload timeouts
+const MAX_TEXT_CHARS = 500_000;
+
 /**
  * Convert an XLSX/XLS workbook to plain text.
  * Each sheet is separated by a header line, and rows are tab-separated.
+ * Truncates output at MAX_TEXT_CHARS to avoid memory/timeout issues with huge files.
  */
 function workbookToText(workbook: XLSX.WorkBook): string {
-  const lines: string[] = [];
+  const parts: string[] = [];
+  let totalChars = 0;
 
   for (const sheetName of workbook.SheetNames) {
+    if (totalChars >= MAX_TEXT_CHARS) break;
+
     const sheet = workbook.Sheets[sheetName];
     if (!sheet) continue;
 
-    lines.push(`\n=== Sheet: ${sheetName} ===\n`);
+    const header = `\n=== Sheet: ${sheetName} ===\n`;
+    parts.push(header);
+    totalChars += header.length;
 
     // Convert sheet to array of arrays (row → cells)
     const rows: string[][] = XLSX.utils.sheet_to_json(sheet, {
@@ -40,12 +49,19 @@ function workbookToText(workbook: XLSX.WorkBook): string {
     });
 
     for (const row of rows) {
+      if (totalChars >= MAX_TEXT_CHARS) {
+        parts.push('\n[Truncated — file too large]');
+        break;
+      }
       const line = row.map((cell) => String(cell ?? '').trim()).join('\t');
-      if (line.trim()) lines.push(line);
+      if (line.trim()) {
+        parts.push(line);
+        totalChars += line.length + 1;
+      }
     }
   }
 
-  return lines.join('\n');
+  return parts.join('\n');
 }
 
 const baseHandler = async (event: Event) => {

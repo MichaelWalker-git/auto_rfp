@@ -9,7 +9,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { Label } from '@/components/ui/label';
 
-import { AlertTriangle, Briefcase, CalendarClock, CheckCircle2, Clock, Download, FileSearch, FileText, ListChecks, Loader2, RefreshCw, Shield, Target, Users, XCircle } from 'lucide-react';
+import { AlertTriangle, ArrowLeft, Briefcase, CalendarClock, CheckCircle2, Clock, Download, FileSearch, FileText, ListChecks, Loader2, RefreshCw, Shield, Target, Users, XCircle } from 'lucide-react';
+import Link from 'next/link';
 import { Skeleton } from '@/components/ui/skeleton';
 
 import DeadlinesDashboard from '../deadlines/DeadlinesDashboard';
@@ -703,7 +704,7 @@ export function ExecutiveBriefView({ projectId, initialOpportunityId }: Executiv
   return (
     <div className="space-y-6">
       {/* Opportunity Selector - Compact inline version */}
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-3 flex-wrap">
         <Label className="text-sm font-medium whitespace-nowrap">Opportunity:</Label>
         <div className="flex-1 max-w-md">
           <OpportunitySelector
@@ -715,7 +716,7 @@ export function ExecutiveBriefView({ projectId, initialOpportunityId }: Executiv
           />
         </div>
         {selectedOpportunity && (
-          <div className="flex flex-wrap gap-1.5">
+          <div className="flex flex-wrap items-center gap-1.5">
             {selectedOpportunity.solicitationNumber && (
               <Badge variant="secondary" className="text-xs">
                 {selectedOpportunity.solicitationNumber}
@@ -862,6 +863,14 @@ export function ExecutiveBriefView({ projectId, initialOpportunityId }: Executiv
               )}
             </div>
             <div className="flex items-center gap-2">
+              {selectedOpportunityId && currentOrganization?.id && (
+                <Button variant="outline" size="sm" asChild>
+                  <Link href={`/organizations/${currentOrganization.id}/projects/${projectId}/opportunities/${selectedOpportunityId}`}>
+                    <ArrowLeft className="h-4 w-4 mr-1.5" />
+                    Opportunity
+                  </Link>
+                </Button>
+              )}
               <Button
                 variant="outline"
                 size="sm"

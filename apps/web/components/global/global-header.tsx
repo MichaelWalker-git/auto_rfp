@@ -46,7 +46,7 @@ const ROUTE_LABELS: Record<string, string> = {
   settings: 'Settings',
   'content-library': 'Content Library',
   opportunities: 'Opportunities',
-  brief: 'Executive Brief',
+  brief: 'Executive Briefs',
   questions: 'Questions',
   documents: 'Solicitation Documents',
   dashboard: 'Dashboard',
@@ -313,7 +313,7 @@ export function GlobalHeader() {
   const { profile } = useProfile();
 
   // Fetch user data for team member breadcrumb
-  const { data: usersData } = useUsersList(currentOrganization?.id, { limit: 200 });
+  const { data: usersData } = useUsersList(currentOrganization?.id || '', { limit: 200 });
   const teamMember = useMemo(
     () => routeUserId ? usersData?.items?.find((u: any) => u.userId === routeUserId) : null,
     [routeUserId, usersData],

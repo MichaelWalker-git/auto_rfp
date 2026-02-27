@@ -15,6 +15,8 @@ import { CreateEditOrganizationDialog } from '@/components/organizations/CreateE
 import { EmptyOrganizationsState } from '@/components/organizations/EmptyOrganizationsState';
 import { useDeleteOrganization } from '@/lib/hooks/use-delete-organization';
 import { GlobalHeader } from '@/components/global/global-header';
+import { Skeleton } from '@/components/ui/skeleton';
+import type { OrganizationItem } from '@auto-rfp/core';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -26,127 +28,77 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 
-export interface Organization {
-  id: string;
-  name: string;
-  slug?: string;
-  description?: string;
-  iconKey?: string;
-  bucketName?: string;
-  aiProcessingEnabled?: boolean;
-  autoApprovalThreshold?: number;
-  createdAt?: string;
-  updatedAt?: string;
-  organizationUsers?: Array<{
-    id: string;
-    role: string;
-    user: { id: string; email: string; name?: string };
-  }>;
-  projects?: Array<{
-    id: string;
-    name: string;
-    description?: string;
-    createdAt: string;
-  }>;
-  _count?: { projects: number; organizationUsers: number };
-}
+// ─── Loading skeleton ─────────────────────────────────────────────────────────
 
-interface CreateOrganizationData {
-  name: string;
-  slug: string;
-  description: string;
-}
-
-// ─── Loading skeleton ───
-
-function OrganizationsLoadingSkeleton() {
-  return (
-    <div className="w-full max-w-7xl mx-auto">
-      <div className="container mx-auto p-12">
-        <div className="space-y-6">
-          <div className="flex items-center justify-between">
-            <h1 className="text-3xl font-bold">Organizations</h1>
+const OrganizationsLoadingSkeleton = () => (
+  <div className="w-full max-w-7xl mx-auto">
+    <div className="container mx-auto p-12">
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <div className="space-y-2">
+            <Skeleton className="h-9 w-48" />
+            <Skeleton className="h-4 w-64" />
           </div>
-          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-            {[...Array(3)].map((_, i) => (
-              <div
-                key={i}
-                className="rounded-lg border border-border bg-gradient-to-br from-background to-muted/30 animate-pulse"
-              >
-                <div className="p-4 space-y-2">
-                  <div className="h-6 bg-gray-200 rounded w-3/4" />
-                  <div className="h-4 bg-gray-200 rounded w-1/2" />
-                </div>
-              </div>
-            ))}
-          </div>
+          <Skeleton className="h-10 w-40" />
+        </div>
+        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+          {Array.from({ length: 3 }).map((_, i) => (
+            <Skeleton key={i} className="h-36 rounded-xl" />
+          ))}
         </div>
       </div>
     </div>
-  );
-}
+  </div>
+);
 
-// ─── Page header ───
+// ─── Page header ──────────────────────────────────────────────────────────────
 
-function OrganizationsHeader({
+const OrganizationsHeader = ({
   onCreateClick,
   onDeadlinesClick,
 }: {
   onCreateClick: () => void;
   onDeadlinesClick: () => void;
-}) {
-  return (
-    <div className="flex items-center justify-between">
-      <div>
-        <h1 className="text-3xl font-bold">Organizations</h1>
-        <p className="text-muted-foreground">
-          Manage organizations and their settings
-        </p>
-      </div>
-      <div className="flex items-center justify-between gap-2">
-        <Button variant="outline" onClick={onDeadlinesClick}>
-          <CalendarClock className="mr-2 h-4 w-4" />
-          Check the deadlines
-        </Button>
-        <Button onClick={onCreateClick}>
-          <Plus className="mr-2 h-4 w-4" />
-          Create Organization
-        </Button>
-      </div>
+}) => (
+  <div className="flex items-center justify-between">
+    <div>
+      <h1 className="text-3xl font-bold">Organizations</h1>
+      <p className="text-muted-foreground">Manage organizations and their settings</p>
     </div>
-  );
-}
+    <div className="flex items-center gap-2">
+      <Button variant="outline" onClick={onDeadlinesClick}>
+        <CalendarClock className="mr-2 h-4 w-4" />
+        Deadlines
+      </Button>
+      <Button onClick={onCreateClick}>
+        <Plus className="mr-2 h-4 w-4" />
+        New Organization
+      </Button>
+    </div>
+  </div>
+);
 
-// ─── Org grid ───
+// ─── Org grid ─────────────────────────────────────────────────────────────────
 
-function OrganizationsGrid({
+const OrganizationsGrid = ({
   organizations,
   onDelete,
 }: {
-  organizations: Organization[];
-  onDelete: (org: Organization) => void;
-}) {
-  return (
-    <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-      {organizations
-        .filter(
-          (org): org is Organization =>
-            org != null && typeof org.id === 'string',
-        )
-        .map((org) => (
-          <OrganizationCard
-            key={org.id}
-            organization={org}
-            onDelete={onDelete}
-          />
-        ))}
-    </div>
-  );
-}
+  organizations: OrganizationItem[];
+  onDelete: (org: OrganizationItem) => void;
+}) => (
+  <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+    {organizations
+      .filter((org): org is OrganizationItem => org != null && typeof org.id === 'string')
+      .map((org) => (
+        <OrganizationCard key={org.id} organization={org} onDelete={onDelete} />
+      ))}
+  </div>
+);
 
-// ─── Delete confirmation ───
+// ─── Delete confirmation ──────────────────────────────────────────────────────
 
-function DeleteOrganizationDialog({
+const DeleteOrganizationDialog = ({
   isOpen,
   onOpenChange,
   organization,
@@ -155,42 +107,35 @@ function DeleteOrganizationDialog({
 }: {
   isOpen: boolean;
   onOpenChange: (open: boolean) => void;
-  organization: Organization | null;
+  organization: OrganizationItem | null;
   isDeleting: boolean;
   onConfirm: () => void;
-}) {
-  return (
-    <AlertDialog open={isOpen} onOpenChange={onOpenChange}>
-      <AlertDialogContent>
-        <AlertDialogHeader>
-          <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
-          <AlertDialogDescription>
-            This action cannot be undone. This will permanently delete the
-            organization
-            <span className="font-semibold">
-              {' '}
-              &ldquo;{organization?.name}&rdquo;
-            </span>{' '}
-            and remove all associated data including projects, users, and
-            settings.
-          </AlertDialogDescription>
-        </AlertDialogHeader>
-        <AlertDialogFooter>
-          <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
-          <AlertDialogAction
-            onClick={onConfirm}
-            disabled={isDeleting}
-            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-          >
-            {isDeleting ? 'Deleting...' : 'Delete Organization'}
-          </AlertDialogAction>
-        </AlertDialogFooter>
-      </AlertDialogContent>
-    </AlertDialog>
-  );
-}
+}) => (
+  <AlertDialog open={isOpen} onOpenChange={onOpenChange}>
+    <AlertDialogContent>
+      <AlertDialogHeader>
+        <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+        <AlertDialogDescription>
+          This action cannot be undone. This will permanently delete{' '}
+          <span className="font-semibold">&ldquo;{organization?.name}&rdquo;</span> and remove all
+          associated data including projects, users, and settings.
+        </AlertDialogDescription>
+      </AlertDialogHeader>
+      <AlertDialogFooter>
+        <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
+        <AlertDialogAction
+          onClick={onConfirm}
+          disabled={isDeleting}
+          className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+        >
+          {isDeleting ? 'Deleting…' : 'Delete Organization'}
+        </AlertDialogAction>
+      </AlertDialogFooter>
+    </AlertDialogContent>
+  </AlertDialog>
+);
 
-// ─── Main page ───
+// ─── Main page ────────────────────────────────────────────────────────────────
 
 export default function OrganizationsPage() {
   const { toast } = useToast();
@@ -198,40 +143,29 @@ export default function OrganizationsPage() {
   const { setCurrentOrganization } = useCurrentOrganization();
   const { createOrganization } = useCreateOrganization();
   const { deleteOrganization } = useDeleteOrganization();
-  const {
-    data: organizations,
-    error,
-    mutate: fetchOrganizations,
-    isLoading: loading,
-  } = useOrganizations();
+  const { data: organizations, error, mutate: refresh, isLoading } = useOrganizations();
 
-  // Dialog state
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
-  const [editingOrg, setEditingOrg] = useState<Organization | null>(null);
+  const [editingOrg, setEditingOrg] = useState<OrganizationItem | null>(null);
   const [isCreating, setIsCreating] = useState(false);
   const [isUpdating, setIsUpdating] = useState(false);
-
-  // Delete state
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
-  const [orgToDelete, setOrgToDelete] = useState<Organization | null>(null);
+  const [orgToDelete, setOrgToDelete] = useState<OrganizationItem | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
 
-  // Form state
-  const [formData, setFormData] = useState<CreateOrganizationData>({
-    name: '',
-    slug: '',
-    description: '',
-  });
+  const [formData, setFormData] = useState({ name: '', slug: '', description: '' });
 
   useEffect(() => {
     if (error) {
-      toast({
-        title: 'Error',
-        description: 'Failed to fetch organizations',
-        variant: 'destructive',
-      });
+      toast({ title: 'Error', description: 'Failed to fetch organizations', variant: 'destructive' });
     }
   }, [error, toast]);
+
+  const handleCloseDialog = () => {
+    setEditingOrg(null);
+    setCreateDialogOpen(false);
+    setFormData({ name: '', slug: '', description: '' });
+  };
 
   const handleCreateOrganization = async () => {
     try {
@@ -240,11 +174,10 @@ export default function OrganizationsPage() {
         name: formData.name,
         description: formData.description || undefined,
       });
-
       if (data.id) {
-        toast({ title: 'Success', description: 'Organization created successfully' });
+        toast({ title: 'Organization created' });
         handleCloseDialog();
-        fetchOrganizations();
+        refresh();
       } else {
         toast({ title: 'Error', description: 'Failed to create organization', variant: 'destructive' });
       }
@@ -257,26 +190,19 @@ export default function OrganizationsPage() {
 
   const handleUpdateOrganization = async () => {
     if (!editingOrg) return;
-
     try {
       setIsUpdating(true);
-      const url = `${env.BASE_API_URL}/organization/edit-organization/${editingOrg.id}`;
-      const response = await authFetcher(url, {
+      const res = await authFetcher(`${env.BASE_API_URL}/organization/edit-organization/${editingOrg.id}`, {
         method: 'PATCH',
-        body: JSON.stringify({
-          name: formData.name,
-          description: formData.description || undefined,
-        }),
+        body: JSON.stringify({ name: formData.name, description: formData.description || undefined }),
       });
-
-      const data = await response.json();
-
-      if (response.ok) {
-        toast({ title: 'Success', description: 'Organization updated successfully' });
+      const data = await res.json() as OrganizationItem;
+      if (res.ok) {
+        toast({ title: 'Organization updated' });
         handleCloseDialog();
-        fetchOrganizations();
+        refresh();
       } else {
-        toast({ title: 'Error', description: data.message || 'Failed to update organization', variant: 'destructive' });
+        toast({ title: 'Error', description: (data as unknown as { message?: string }).message ?? 'Failed to update', variant: 'destructive' });
       }
     } catch {
       toast({ title: 'Error', description: 'Failed to update organization', variant: 'destructive' });
@@ -285,32 +211,20 @@ export default function OrganizationsPage() {
     }
   };
 
-  const handleCloseDialog = () => {
-    setEditingOrg(null);
-    setCreateDialogOpen(false);
-    setFormData({ name: '', slug: '', description: '' });
-  };
-
-  const handleDeleteClick = (org: Organization) => {
+  const handleDeleteClick = (org: OrganizationItem) => {
     setOrgToDelete(org);
     setDeleteConfirmOpen(true);
   };
 
   const handleConfirmDelete = async () => {
     if (!orgToDelete) return;
-
     try {
       setIsDeleting(true);
       await deleteOrganization(orgToDelete.id);
-      toast({ title: 'Success', description: `Organization "${orgToDelete.name}" has been deleted successfully.` });
-      fetchOrganizations();
-    } catch (err) {
-      console.error('Failed to delete organization:', err);
-      toast({
-        title: 'Error',
-        description: `Failed to delete organization "${orgToDelete.name}". Please try again.`,
-        variant: 'destructive',
-      });
+      toast({ title: 'Deleted', description: `"${orgToDelete.name}" has been deleted.` });
+      refresh();
+    } catch {
+      toast({ title: 'Error', description: `Failed to delete "${orgToDelete.name}".`, variant: 'destructive' });
     } finally {
       setIsDeleting(false);
       setDeleteConfirmOpen(false);
@@ -318,7 +232,7 @@ export default function OrganizationsPage() {
     }
   };
 
-  if (loading) return (
+  if (isLoading) return (
     <>
       <GlobalHeader />
       <OrganizationsLoadingSkeleton />
@@ -329,18 +243,17 @@ export default function OrganizationsPage() {
     <>
       <GlobalHeader />
       <div className="w-full max-w-7xl mx-auto">
-        <div className="container mx-auto p-12">
-        <div className="space-y-6">
+        <div className="container mx-auto p-12 space-y-6">
           <OrganizationsHeader
             onCreateClick={() => setCreateDialogOpen(true)}
             onDeadlinesClick={() => router.push('/deadlines')}
           />
 
-          {organizations?.length === 0 ? (
+          {(organizations?.length ?? 0) === 0 ? (
             <EmptyOrganizationsState onCreateClick={() => setCreateDialogOpen(true)} />
           ) : (
             <OrganizationsGrid
-              organizations={organizations ?? []}
+              organizations={(organizations ?? []) as OrganizationItem[]}
               onDelete={handleDeleteClick}
             />
           )}
@@ -362,7 +275,6 @@ export default function OrganizationsPage() {
             isDeleting={isDeleting}
             onConfirm={handleConfirmDelete}
           />
-        </div>
         </div>
       </div>
     </>

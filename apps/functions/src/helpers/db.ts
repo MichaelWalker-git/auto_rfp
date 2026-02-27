@@ -28,7 +28,16 @@ export type DBItem = {
   [SK_NAME]: string;
   createdAt?: string;
   updatedAt?: string;
+  createdBy?: string;
+  updatedBy?: string;
+  createdByName?: string;
+  updatedByName?: string;
 }
+
+export type UserContext = {
+  userId?: string;
+  userName?: string;
+};
 
 /**
  * Generic create item helper

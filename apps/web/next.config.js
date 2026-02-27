@@ -10,6 +10,32 @@ const nextConfig = {
     ignoreBuildErrors: true,
   },
   transpilePackages: ['@auto-rfp/shared'],
+
+  // ── Short URL aliases ──────────────────────────────────────────────────────
+  // /org/:orgId/... → /organizations/:orgId/...
+  // /org/:orgId/prs/:projectId/... → /organizations/:orgId/projects/:projectId/...
+  async redirects() {
+    return [
+      // /org/:orgId/prs/:projectId/:rest* → /organizations/:orgId/projects/:projectId/:rest*
+      {
+        source: '/org/:orgId/prs/:projectId/:path*',
+        destination: '/organizations/:orgId/projects/:projectId/:path*',
+        permanent: false,
+      },
+      // /org/:orgId/:rest* → /organizations/:orgId/:rest*
+      {
+        source: '/org/:orgId/:path*',
+        destination: '/organizations/:orgId/:path*',
+        permanent: false,
+      },
+      // /org → /organizations
+      {
+        source: '/org',
+        destination: '/organizations',
+        permanent: false,
+      },
+    ];
+  },
 };
 
 module.exports = withSentryConfig(

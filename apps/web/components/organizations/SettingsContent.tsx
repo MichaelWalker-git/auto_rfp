@@ -14,10 +14,10 @@ import Link from 'next/link';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { PageHeader } from '@/components/layout/page-header';
 import PermissionWrapper from '@/components/permission-wrapper';
-import { SavedSearchList } from '@/components/organizations/SavedSearchList';
 import { DocxTemplateUpload } from '@/components/organizations/DocxTemplateUpload';
 import { ClusteringSettings } from '@/components/organizations/ClusteringSettings';
 import { SamGovApiKeyConfiguration } from '@/components/api-key/SamGovApiKeyConfiguration';
+import { DibbsApiKeyConfiguration } from '@/components/api-key/DibbsApiKeyConfiguration';
 import { LinearApiKeyConfiguration } from '@/components/api-key/LinearApiKeyConfiguration';
 import { GoogleApiKeyConfiguration } from '@/components/api-key/GoogleApiKeyConfiguration';
 import { authFetcher } from '@/lib/auth/auth-fetcher';
@@ -255,9 +255,9 @@ export function SettingsContent({ orgId }: SettingsContentProps) {
       <div className="flex flex-col gap-6">
         <PageHeader title="Organization Settings" description="Manage your organization configuration and integrations" />
 
-          <SavedSearchList orgId={orgId}/>
-
           <SamGovApiKeyConfiguration orgId={orgId} />
+
+          <DibbsApiKeyConfiguration orgId={orgId} />
 
           <GoogleApiKeyConfiguration orgId={orgId} />
 

@@ -1,117 +1,57 @@
-import { z } from 'zod';
-import { SamOpportunitySlimSchema } from './samgov';
-
 /**
- * A normalized “Opportunity” shape for your UI / DB / internal use.
- * Keep it stable even if SAM response fields are missing or inconsistent.
+ * opportunity.ts
+ *
+ * Types for STORED / IMPORTED opportunities — records saved to DynamoDB.
+ * Search-related types live in search-opportunity.ts.
+ *
+ * NOTE: OpportunitySourceSchema is defined here (not in search-opportunity.ts)
+ * to avoid a circular dependency — search-opportunity.ts imports from here.
  */
-export const OpportunitySourceSchema = z.enum(['SAM_GOV', 'MANUAL_UPLOAD']);
+
+import { z } from 'zod';
+
+// ─── Source enum ──────────────────────────────────────────────────────────────
+
+export const OpportunitySourceSchema = z.enum(['SAM_GOV', 'DIBBS', 'MANUAL_UPLOAD']);
 export type OpportunitySource = z.infer<typeof OpportunitySourceSchema>;
 
+// ─── Stored opportunity item ──────────────────────────────────────────────────
+
 export const OpportunityItemSchema = z.object({
-  orgId: z.string().optional(),
+  orgId:     z.string().optional(),
   projectId: z.string().optional(),
-  oppId: z.string().optional(),
-  source: OpportunitySourceSchema,
-  id: z.string().min(1),
-  title: z.string().min(1),
-  type: z.string().nullable(),
-  postedDateIso: z.string().datetime().nullable(),
+  oppId:     z.string().optional(),
+  source:    OpportunitySourceSchema,
+  id:        z.string().min(1),
+  title:     z.string().min(1),
+  type:      z.string().nullable(),
+  postedDateIso:       z.string().datetime().nullable(),
   responseDeadlineIso: z.string().datetime().nullable(),
-  noticeId: z.string().nullable(),
-  solicitationNumber: z.string().nullable(),
-  naicsCode: z.string().nullable(),
-  pscCode: z.string().nullable(),
-  organizationName: z.string().nullable(),
-  organizationCode: z.string().nullable(),
-  setAside: z.string().nullable(),
-  setAsideCode: z.string().nullable(),
-  description: z.string().nullable(),
-  active: z.boolean(),
+  noticeId:            z.string().nullable(),
+  solicitationNumber:  z.string().nullable(),
+  naicsCode:           z.string().nullable(),
+  /** PSC / classification code — kept for pipeline filtering */
+  pscCode:             z.string().nullable(),
+  /** Issuing agency name */
+  organizationName:    z.string().nullable(),
+  /** Set-aside description */
+  setAside:            z.string().nullable(),
+  description:         z.string().nullable(),
+  active:              z.boolean(),
   baseAndAllOptionsValue: z.number().nonnegative().nullable(),
-  raw: SamOpportunitySlimSchema.optional(),
+  // Audit fields
+  createdBy:     z.string().optional(),
+  updatedBy:     z.string().optional(),
+  createdByName: z.string().optional(),
+  updatedByName: z.string().optional(),
 });
 
 export type OpportunityItem = z.infer<typeof OpportunityItemSchema>;
 
-/**
- * Helpers to normalize SAM weirdness.
- */
-const ActiveBoolSchema = z
-  .union([z.boolean(), z.string()])
-  .optional()
-  .transform((v) => {
-    if (typeof v === 'boolean') return v;
-    if (typeof v === 'string') {
-      const s = v.trim().toLowerCase();
-      if (['true', 't', 'yes', 'y', '1', 'active'].includes(s)) return true;
-      if (['false', 'f', 'no', 'n', '0', 'inactive'].includes(s)) return false;
-    }
-    return false;
-  });
-
-const NullableIsoDatetimeSchema = z
-  .string()
-  .optional()
-  .transform((v) => (v ? v : null))
-  .pipe(z.string().datetime().nullable());
-
-/**
- * Convert SAM slim -> OpportunityItem
- */
-export const SamSlimToOpportunityItemSchema = SamOpportunitySlimSchema.transform((o) => {
-  const noticeId = o.noticeId ?? null;
-  const solicitationNumber = o.solicitationNumber ?? null;
-
-  const id = noticeId || solicitationNumber || ''; // validated below
-
-  return {
-    source: 'SAM_GOV' as const,
-
-    id,
-    title: o.title?.trim() || '',
-
-    type: o.type ?? null,
-
-    postedDateIso: o.postedDate ?? null,
-    responseDeadlineIso: o.responseDeadLine ?? null,
-
-    noticeId,
-    solicitationNumber,
-
-    naicsCode: o.naicsCode ?? null,
-    pscCode: o.classificationCode ?? null,
-
-    organizationName: o.fullParentPathName ?? null,
-    organizationCode: o.fullParentPathCode ?? null,
-
-    setAside: o.setAside ?? null,
-    setAsideCode: o.setAsideCode ?? null,
-
-    description: o.description ?? null,
-
-    // normalize later via schema below
-    active: o.active as any,
-
-    baseAndAllOptionsValue: o.baseAndAllOptionsValue ?? null,
-
-    raw: o,
-  };
-}).pipe(
-  OpportunityItemSchema.extend({
-    // override with normalized parsers
-    active: ActiveBoolSchema,
-    postedDateIso: NullableIsoDatetimeSchema,
-    responseDeadlineIso: NullableIsoDatetimeSchema,
-    id: z.string().min(1, 'Opportunity is missing noticeId/solicitationNumber'),
-    title: z.string().min(1, 'Opportunity title is missing'),
-  }),
-);
-
-export type OpportunityItemFromSam = z.infer<typeof SamSlimToOpportunityItemSchema>;
+// ─── Query DTO ────────────────────────────────────────────────────────────────
 
 export const OpportunityQuerySchema = z.object({
-  orgId: z.string().nullable(),
+  orgId:     z.string().nullable(),
   projectId: z.string().min(1),
   limit: z
     .string()

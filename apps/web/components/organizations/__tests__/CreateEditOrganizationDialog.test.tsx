@@ -1,7 +1,7 @@
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { CreateEditOrganizationDialog } from '../CreateEditOrganizationDialog';
-import type { Organization } from '@/app/organizations/page';
+import type { OrganizationItem as Organization } from '@auto-rfp/core';
 
 // Mock useToast
 jest.mock('@/components/ui/use-toast', () => ({

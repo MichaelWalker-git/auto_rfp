@@ -7,7 +7,7 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Key } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
-import type { LoadSamOpportunitiesRequest, SamOpportunitySlim } from '@auto-rfp/core';
+import type { LoadSearchOpportunitiesRequest, SamOpportunitySlim } from '@auto-rfp/core';
 import { useSearchOpportunities } from '@/lib/hooks/use-opportunities';
 
 import {
@@ -62,7 +62,7 @@ export default function SamGovOpportunitySearchPage({ orgId }: Props) {
     const checkApiKeyStatus = async () => {
       try {
         const response = await authFetcher(
-          `${env.BASE_API_URL}/samgov/get-api-key?orgId=${encodeURIComponent(orgId)}`
+          `${env.BASE_API_URL}/search-opportunities/api-key?source=SAM_GOV&orgId=${encodeURIComponent(orgId)}`
         );
         
         if (response.status === 404) {
@@ -152,7 +152,7 @@ export default function SamGovOpportunitySearchPage({ orgId }: Props) {
     ].filter(Boolean).length;
   }, [filters]);
 
-  const onSearch = async (req: LoadSamOpportunitiesRequest) => {
+  const onSearch = async (req: LoadSearchOpportunitiesRequest) => {
     if (!hasApiKey) {
       toast({
         title: 'API Key Required',
