@@ -1,9 +1,10 @@
 const {withSentryConfig} = require("@sentry/nextjs");
 
 const nextConfig = {
-  // Note: 'standalone' output causes issues on Windows due to special characters in filenames
-  // The CI/CD pipeline on Linux handles production builds correctly
-  output: process.env.CI ? 'standalone' : undefined,
+  // Always use standalone output for Amplify SSR (WEB_COMPUTE) deployments.
+  // The standalone bundle is required for Next.js server-side rendering on Amplify.
+  // Local dev is unaffected — `next dev` ignores the output setting.
+  output: 'standalone',
   trailingSlash: true,
   images: {
     unoptimized: true,

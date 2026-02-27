@@ -2,6 +2,27 @@ import * as cdk from 'aws-cdk-lib';
 import { Construct } from 'constructs';
 import * as amplify from '@aws-cdk/aws-amplify-alpha';
 
+/**
+ * Custom GitHub source code provider that uses `accessToken` (GitHub App)
+ * instead of `oauthToken` (legacy OAuth). AWS Amplify migrated from OAuth to
+ * GitHub Apps — the underlying CloudFormation `AccessToken` field is what the
+ * GitHub App installation token maps to.
+ */
+class GitHubAppSourceCodeProvider implements amplify.ISourceCodeProvider {
+  constructor(
+    private readonly owner: string,
+    private readonly repository: string,
+    private readonly accessToken: cdk.SecretValue,
+  ) {}
+
+  bind(_app: amplify.App): amplify.SourceCodeProviderConfig {
+    return {
+      repository: `https://github.com/${this.owner}/${this.repository}`,
+      accessToken: this.accessToken,
+    };
+  }
+}
+
 export interface AmplifyFeStackProps extends cdk.StackProps {
   stage: string;
   owner: string; // MichaelWalker-git
@@ -45,11 +66,11 @@ export class AmplifyFeStack extends cdk.Stack {
     this.amplifyApp = new amplify.App(this, 'NextJsAmplifyApp', {
       appName: `auto-rfp-fe-${stage}`,
 
-      sourceCodeProvider: new amplify.GitHubSourceCodeProvider({
-        owner,
-        repository,
-        oauthToken: githubToken,
-      }),
+      // Use GitHub App (accessToken) instead of legacy OAuth (oauthToken).
+      // The Amplify console message "Migrate to our GitHub app" means the
+      // underlying CloudFormation resource must use AccessToken, not OauthToken.
+      // Our custom provider sets `accessToken` in SourceCodeProviderConfig.
+      sourceCodeProvider: new GitHubAppSourceCodeProvider(owner, repository, githubToken),
 
       platform: amplify.Platform.WEB_COMPUTE,
 
