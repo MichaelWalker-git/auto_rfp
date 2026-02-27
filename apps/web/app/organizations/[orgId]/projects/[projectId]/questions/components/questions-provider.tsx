@@ -114,12 +114,16 @@ export function useQuestions() {
   return context;
 }
 
+// Constant for "Other / Legacy Questions" option (questions without opportunityId)
+const OTHER_LEGACY_OPPORTUNITY_ID = '__other__';
+
 interface QuestionsProviderProps {
   children: ReactNode;
   projectId: string;
+  opportunityId?: string | null;
 }
 
-export function QuestionsProvider({ children, projectId }: QuestionsProviderProps) {
+export function QuestionsProvider({ children, projectId, opportunityId }: QuestionsProviderProps) {
   // UI state
   const [showAIPanel, setShowAIPanel] = useState(false);
   const [selectedQuestion, setSelectedQuestion] = useState<string | null>(null);
@@ -412,16 +416,36 @@ export function QuestionsProvider({ children, projectId }: QuestionsProviderProp
     return null;
   };
 
+  // Helper to filter questions by opportunityId
+  const filterByOpportunity = (questionsList: any[]) => {
+    if (!opportunityId) return questionsList; // No filter applied
+    
+    const isOtherSelected = opportunityId === OTHER_LEGACY_OPPORTUNITY_ID;
+    
+    return questionsList.filter((q: any) => {
+      const qOppId = q.opportunityId;
+      if (isOtherSelected) {
+        // For "Other / Legacy" - show questions without opportunityId
+        return !qOppId || qOppId === null || qOppId === '';
+      }
+      // For normal opportunities - only show questions that match
+      return qOppId === opportunityId;
+    });
+  };
+
   const getFilteredQuestions = (filterType = 'all') => {
     if (!questions) return [];
 
-    const allQuestions = questions.sections.flatMap((section: any) =>
+    let allQuestions = questions.sections.flatMap((section: any) =>
       section.questions.map((question: any) => ({
         ...question,
         sectionTitle: section.title,
         sectionId: section.id,
       })),
     );
+    
+    // Apply opportunity filter first
+    allQuestions = filterByOpportunity(allQuestions);
 
     let statusFiltered = allQuestions;
 
@@ -474,7 +498,10 @@ export function QuestionsProvider({ children, projectId }: QuestionsProviderProp
   const getCounts = () => {
     if (!questions) return { all: 0, answered: 0, unanswered: 0 };
 
-    const allQuestions = questions.sections.flatMap((s: any) => s.questions);
+    let allQuestions = questions.sections.flatMap((s: any) => s.questions);
+    // Apply opportunity filter
+    allQuestions = filterByOpportunity(allQuestions);
+    
     const answeredCount = allQuestions.filter((q: any) => {
       const text = answers[q?.id]?.text;
       return typeof text === 'string' && text.trim().length > 0;
@@ -490,7 +517,10 @@ export function QuestionsProvider({ children, projectId }: QuestionsProviderProp
   const getConfidenceCounts = () => {
     if (!questions) return { high: 0, medium: 0, low: 0 };
 
-    const allQuestions = questions.sections.flatMap((s: any) => s.questions);
+    let allQuestions = questions.sections.flatMap((s: any) => s.questions);
+    // Apply opportunity filter
+    allQuestions = filterByOpportunity(allQuestions);
+    
     let high = 0;
     let medium = 0;
     let low = 0;

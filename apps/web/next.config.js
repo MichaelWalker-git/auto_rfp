@@ -1,7 +1,9 @@
 const {withSentryConfig} = require("@sentry/nextjs");
 
 const nextConfig = {
-  output: 'standalone',
+  // Note: 'standalone' output causes issues on Windows due to special characters in filenames
+  // The CI/CD pipeline on Linux handles production builds correctly
+  output: process.env.CI ? 'standalone' : undefined,
   trailingSlash: true,
   images: {
     unoptimized: true,

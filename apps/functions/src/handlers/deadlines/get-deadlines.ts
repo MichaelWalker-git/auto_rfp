@@ -21,6 +21,7 @@ const DB_TABLE_NAME = process.env.DB_TABLE_NAME!;
 const RequestSchema = z.object({
     orgId: z.string().min(1).optional(),
     projectId: z.string().min(1).optional(),
+    opportunityId: z.string().min(1).optional(),
     urgentOnly: z.coerce.boolean().optional(),
 });
 
@@ -81,10 +82,12 @@ function hasUrgentDeadlines(item: any): boolean {
 
 /**
  * Query deadlines from DEADLINE table
+ * SK format: `${orgId}#${projectId}#${opportunityId}` or `${orgId}#${projectId}` for legacy
  */
 async function queryDeadlines(
     orgId?: string,
     projectId?: string,
+    opportunityId?: string,
     urgentOnly?: boolean
 ): Promise<any[]> {
     let keyConditionExpression = '#pk = :pk';
@@ -95,11 +98,17 @@ async function queryDeadlines(
         '#pk': PK_NAME,
     };
 
-    // If we have orgId and projectId, query specific project
-    if (orgId && projectId) {
+    // Build SK prefix based on provided parameters
+    if (orgId && projectId && opportunityId) {
+        // Query specific opportunity
         keyConditionExpression += ' AND #sk = :sk';
         expressionAttributeNames['#sk'] = SK_NAME;
-        expressionAttributeValues[':sk'] = `${orgId}#${projectId}`;
+        expressionAttributeValues[':sk'] = `${orgId}#${projectId}#${opportunityId}`;
+    } else if (orgId && projectId) {
+        // Query all opportunities for a project (prefix match)
+        keyConditionExpression += ' AND begins_with(#sk, :skPrefix)';
+        expressionAttributeNames['#sk'] = SK_NAME;
+        expressionAttributeValues[':skPrefix'] = `${orgId}#${projectId}`;
     } else if (orgId) {
         // Query all projects for an org
         keyConditionExpression += ' AND begins_with(#sk, :orgPrefix)';
@@ -141,11 +150,12 @@ export const baseHandler = async (
 ): Promise<APIGatewayProxyResultV2> => {
     try {
         const params = event.queryStringParameters || {};
-        const { orgId, projectId, urgentOnly } = RequestSchema.parse(params);
+        const { orgId, projectId, opportunityId, urgentOnly } = RequestSchema.parse(params);
 
         const deadlines = await queryDeadlines(
             orgId,
             projectId,
+            opportunityId,
             urgentOnly
         );
 
@@ -156,6 +166,7 @@ export const baseHandler = async (
             filters: {
                 orgId: orgId || 'all',
                 projectId: projectId || 'all',
+                opportunityId: opportunityId || 'all',
                 urgentOnly: urgentOnly || false,
             },
         });

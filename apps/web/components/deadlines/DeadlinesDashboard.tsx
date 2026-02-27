@@ -21,6 +21,8 @@ import CalendarSubscription from './CalendarSubscription';
 interface FlattenedDeadline {
   projectId: string;
   projectName?: string;
+  opportunityId?: string;
+  opportunityTitle?: string;
   dateTimeIso?: string;
   label?: string;
   type?: string;
@@ -34,6 +36,7 @@ interface FlattenedDeadline {
 interface DeadlinesDashboardProps {
   orgId?: string;
   projectId?: string;
+  opportunityId?: string;
   title?: string;
   showFilters?: boolean;
 }
@@ -61,7 +64,8 @@ const DEADLINE_TYPES = [
 
 export default function DeadlinesDashboard({ 
   orgId, 
-  projectId, 
+  projectId,
+  opportunityId,
   title,
   showFilters = true,
 }: DeadlinesDashboardProps) {
@@ -71,12 +75,14 @@ export default function DeadlinesDashboard({
   // Filter states
   const [urgencyFilter, setUrgencyFilter] = useState<UrgencyFilter>('all');
   const [selectedProject, setSelectedProject] = useState<string>('all');
+  const [selectedOpportunity, setSelectedOpportunity] = useState<string>('all');
   const [selectedType, setSelectedType] = useState<string>('all');
   
   // Build params based on what's provided
   const params: GetDeadlinesParams = {
     ...(orgId && { orgId }),
     ...(projectId && { projectId }),
+    ...(opportunityId && { opportunityId }),
   };
   
   const { data, isLoading, error } = useDeadlines(params);
@@ -87,6 +93,8 @@ export default function DeadlinesDashboard({
       (item.deadlines ?? []).map((deadline) => ({
         projectId: item.projectId,
         projectName: item.projectName,
+        opportunityId: item.opportunityId,
+        opportunityTitle: item.opportunityTitle,
         ...deadline,
         isSubmissionDeadline: false,
       })),
@@ -117,6 +125,21 @@ export default function DeadlinesDashboard({
     return Array.from(projectMap.entries()).map(([id, name]) => ({ id, name }));
   }, [allDeadlines]);
 
+  // Get unique opportunities for filter dropdown - filtered by selected project
+  const uniqueOpportunities = useMemo(() => {
+    const oppMap = new Map<string, string>();
+    const deadlinesToUse = selectedProject === 'all' 
+      ? allDeadlines 
+      : allDeadlines.filter(d => d.projectId === selectedProject);
+    
+    deadlinesToUse.forEach((d) => {
+      if (d.opportunityId && d.opportunityTitle) {
+        oppMap.set(d.opportunityId, d.opportunityTitle);
+      }
+    });
+    return Array.from(oppMap.entries()).map(([id, title]) => ({ id, title }));
+  }, [allDeadlines, selectedProject]);
+
   // Apply all filters
   const filteredDeadlines = useMemo(() => {
     let filtered = deadlinesWithDays;
@@ -137,6 +160,11 @@ export default function DeadlinesDashboard({
       filtered = filtered.filter((d) => d.projectId === selectedProject);
     }
 
+    // Filter by selected opportunity
+    if (selectedOpportunity !== 'all') {
+      filtered = filtered.filter((d) => d.opportunityId === selectedOpportunity);
+    }
+
     // Filter by deadline type
     if (selectedType !== 'all') {
       filtered = filtered.filter((d) => {
@@ -149,7 +177,7 @@ export default function DeadlinesDashboard({
     }
 
     return filtered;
-  }, [deadlinesWithDays, urgencyFilter, selectedProject, selectedType]);
+  }, [deadlinesWithDays, urgencyFilter, selectedProject, selectedOpportunity, selectedType]);
 
   // Separate parsed and unparsed deadlines
   const unparsedDeadlines = filteredDeadlines.filter((d) => !d.dateTimeIso);
@@ -165,12 +193,14 @@ export default function DeadlinesDashboard({
   // Determine title based on scope
   const getTitle = () => {
     if (title) return title;
+    if (opportunityId) return 'Opportunity Deadlines';
     if (projectId) return 'Project Deadlines';
     if (orgId) return 'Organization Deadlines';
     return 'All Deadlines';
   };
 
-  const getDashboardType = (): 'project' | 'organization' | 'all' => {
+  const getDashboardType = (): 'opportunity' | 'project' | 'organization' | 'all' => {
+    if (opportunityId) return 'opportunity';
     if (projectId) return 'project';
     if (orgId) return 'organization';
     return 'all';
@@ -180,11 +210,12 @@ export default function DeadlinesDashboard({
   const clearFilters = () => {
     setUrgencyFilter('all');
     setSelectedProject('all');
+    setSelectedOpportunity('all');
     setSelectedType('all');
   };
 
   // Check if any filters are active
-  const hasActiveFilters = urgencyFilter !== 'all' || selectedProject !== 'all' || selectedType !== 'all';
+  const hasActiveFilters = urgencyFilter !== 'all' || selectedProject !== 'all' || selectedOpportunity !== 'all' || selectedType !== 'all';
 
   if (isLoading) {
     return (
@@ -286,7 +317,11 @@ export default function DeadlinesDashboard({
                 <Label htmlFor="project-filter" className="text-sm text-muted-foreground">
                   Project
                 </Label>
-                <Select value={selectedProject} onValueChange={setSelectedProject}>
+                <Select value={selectedProject} onValueChange={(value) => {
+                  setSelectedProject(value);
+                  // Reset opportunity when project changes
+                  setSelectedOpportunity('all');
+                }}>
                   <SelectTrigger id="project-filter" className="w-[200px]">
                     <SelectValue placeholder="Select project" />
                   </SelectTrigger>
@@ -295,6 +330,28 @@ export default function DeadlinesDashboard({
                     {uniqueProjects.map((project) => (
                       <SelectItem key={project.id} value={project.id}>
                         {project.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+
+            {/* Opportunity Filter - only show when viewing project-level or org-level */}
+            {!opportunityId && uniqueOpportunities.length > 0 && (
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="opportunity-filter" className="text-sm text-muted-foreground">
+                  Opportunity
+                </Label>
+                <Select value={selectedOpportunity} onValueChange={setSelectedOpportunity}>
+                  <SelectTrigger id="opportunity-filter" className="w-[200px]">
+                    <SelectValue placeholder="Select opportunity" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All opportunities</SelectItem>
+                    {uniqueOpportunities.map((opp) => (
+                      <SelectItem key={opp.id} value={opp.id}>
+                        {opp.title}
                       </SelectItem>
                     ))}
                   </SelectContent>

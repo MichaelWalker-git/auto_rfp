@@ -185,7 +185,8 @@ async function runDeadlines(job: Job): Promise<void> {
       topLevelPatch: { status: 'IN_PROGRESS' },
     });
 
-    await storeDeadlinesSeparately(executiveBriefId, brief.projectId, normalized);
+    // Store deadlines separately with opportunityId for per-opportunity queries
+    await storeDeadlinesSeparately(executiveBriefId, brief.projectId, normalized, brief.opportunityId);
   } catch (err) {
     await markSectionFailed({
       executiveBriefId,

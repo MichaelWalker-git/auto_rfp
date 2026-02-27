@@ -22,6 +22,12 @@ export const AuditActionSchema = z.enum([
   'ANSWER_EDITED',
   'ANSWER_DELETED',
   'ANSWER_GENERATED',
+  // Clarifying question actions
+  'CLARIFYING_QUESTION_GENERATED',
+  'CLARIFYING_QUESTION_UPDATED',
+  // Engagement log actions
+  'ENGAGEMENT_LOG_CREATED',
+  'ENGAGEMENT_LOG_UPDATED',
   // Proposal actions
   'PROPOSAL_SUBMITTED',
   'PROPOSAL_EXPORTED',
@@ -66,6 +72,8 @@ export const AuditResourceSchema = z.enum([
   'document',
   'answer',
   'question',
+  'clarifying-question',
+  'engagement-log',
   'proposal',
   'knowledge_base',
   'template',

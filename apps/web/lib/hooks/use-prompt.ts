@@ -30,6 +30,7 @@ export interface SavePromptBody {
 
 export type SavePromptArgs = SavePromptBody & {
   scope: PromptScope;
+  orgId?: string;
 };
 
 // Simple runtime validation
@@ -66,13 +67,15 @@ const validateSavePromptResponse = (data: unknown): SavePromptResponse | null =>
 // in the @auto-rfp/core package that define PromptScope and PromptType.
 // If new scopes or types are added there, they must be added here as well.
 const validScopes: PromptScope[] = ['SYSTEM', 'USER'];
-const validTypes: PromptType[] = ['TECHNICAL_PROPOSAL', 'SUMMARY', 'REQUIREMENTS', 'CONTACTS', 'RISK', 'DEADLINE', 'SCORING', 'ANSWER'];
+const validTypes: PromptType[] = ['TECHNICAL_PROPOSAL', 'SUMMARY', 'REQUIREMENTS', 'CONTACTS', 'RISK', 'DEADLINE', 'SCORING', 'ANSWER', 'CLARIFYING_QUESTIONS', 'PROPOSAL', 'RFP_DOCUMENT'];
 
 export function usePrompts(orgId?: string) {
-  const url = promptApi.list(orgId);
-  const key = ['prompts', url] as const;
+  // Don't fetch until orgId is available - the API requires it
+  const shouldFetch = Boolean(orgId);
+  const url = shouldFetch ? promptApi.list(orgId) : null;
+  const key = url ? ['prompts', url] : null;
 
-  const { data, error, isLoading, mutate } = useApi<unknown>([...key], url);
+  const { data, error, isLoading, mutate } = useApi<unknown>(key, url ?? '');
 
   const parsed = data ? validatePromptListResponse(data) : null;
 
@@ -80,7 +83,7 @@ export function usePrompts(orgId?: string) {
     system: parsed?.items.system ?? [],
     user: parsed?.items.user ?? [],
     error: error ?? (data && !parsed ? new Error('Invalid response format') : null),
-    isLoading,
+    isLoading: shouldFetch ? isLoading : false,
     refresh: mutate,
   };
 }
@@ -107,7 +110,7 @@ export function useSavePrompt() {
         }
       }
 
-      const url = promptApi.save(arg.scope);
+      const url = promptApi.save(arg.scope, arg.orgId);
       const body: SavePromptBody = {
         type: arg.type,
         prompt: arg.prompt,

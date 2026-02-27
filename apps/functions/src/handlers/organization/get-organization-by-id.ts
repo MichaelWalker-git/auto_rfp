@@ -63,7 +63,7 @@ export async function getOrganizationById(
   return res.Item as OrganizationItem | undefined;
 }
 
-const enrichUsersCount = (org: OrganizationItem & { sort_key: string }) => {
+const enrichUsersCount = (org: OrganizationItem) => {
   const count = {
     organizationUsers: 0,
     projects: 0,
@@ -72,7 +72,7 @@ const enrichUsersCount = (org: OrganizationItem & { sort_key: string }) => {
   return {
     ...org,
     _count: count,
-    id: orgSortKeyToId(org.sort_key),
+    id: org.sort_key ? orgSortKeyToId(org.sort_key) : org.id,
   };
 };
 

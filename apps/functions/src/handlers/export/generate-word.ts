@@ -73,9 +73,9 @@ const BASE_SIZE = TWIP(11);
 /** Create a consistent base TextRun with overrides */
 const run = (text: string, opts: Partial<{
   bold: boolean; italics: boolean; strike: boolean;
-  underline: { type: UnderlineType };
+  underline: { type: typeof UnderlineType[keyof typeof UnderlineType] };
   color: string; size: number; font: string;
-  shading: { type: ShadingType; color: string; fill: string };
+  shading: { type: typeof ShadingType[keyof typeof ShadingType]; color: string; fill: string };
 }> = {}): TextRun => new TextRun({
   text,
   font: opts.font ?? FONTS.body,

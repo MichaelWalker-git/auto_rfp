@@ -44,6 +44,7 @@ function ScoreChangeIndicator({ prev, current }: { prev?: number; current?: numb
 export function DecisionCard({
   projectName,
   projectId,
+  orgId,
   summary,
   briefItem,
   previousBrief,
@@ -51,14 +52,15 @@ export function DecisionCard({
 }: {
   projectName: string;
   projectId: string;
+  orgId?: string;
   summary: any;
   briefItem: any;
   previousBrief: any;
   onBriefUpdate?: (brief: any) => void;
 }) {
-  const updateDecision = useUpdateDecision();
-  const handleLinearTicket = useHandleLinearTicket();
-  const getBriefByProject = useGetExecutiveBriefByProject();
+  const updateDecision = useUpdateDecision(orgId);
+  const handleLinearTicket = useHandleLinearTicket(orgId);
+  const getBriefByProject = useGetExecutiveBriefByProject(orgId);
   
   const [isUpdating, setIsUpdating] = useState(false);
   const scoring = briefItem?.sections?.scoring?.data;

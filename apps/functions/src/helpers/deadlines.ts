@@ -1,4 +1,5 @@
 import { getProjectById } from './project';
+import { getOpportunity } from './opportunity';
 import { PK_NAME, SK_NAME } from '../constants/common';
 import { docClient } from './db';
 import { requireEnv } from './env';
@@ -12,12 +13,14 @@ import type { Deadline, DeadlinesSection } from '@auto-rfp/core';
 const DB_TABLE_NAME = requireEnv('DB_TABLE_NAME');
 
 /**
- * Store deadlines separately as DEADLINE items for cross-project queries
+ * Store deadlines separately as DEADLINE items for cross-project/opportunity queries
+ * SK format: `${orgId}#${projectId}#${opportunityId}`
  */
 export async function storeDeadlinesSeparately(
   executiveBriefId: string,
   briefProjectId: string,
   deadlinesData: DeadlinesSection,
+  opportunityId?: string,
 ): Promise<void> {
   try {
     const project = await getProjectById(briefProjectId);
@@ -37,7 +40,22 @@ export async function storeDeadlinesSeparately(
     }
 
     const projectName = project?.name;
-    const sortKey = `${orgId}#${briefProjectId}`;
+    
+    // Fetch opportunity title if opportunityId is provided
+    let opportunityTitle: string | null = null;
+    if (opportunityId && orgId) {
+      try {
+        const oppResult = await getOpportunity({ orgId, projectId: briefProjectId, oppId: opportunityId });
+        opportunityTitle = oppResult?.item?.title || null;
+      } catch (err) {
+        console.warn('Could not fetch opportunity title:', err);
+      }
+    }
+    
+    // Include opportunityId in sort key if provided
+    const sortKey = opportunityId 
+      ? `${orgId}#${briefProjectId}#${opportunityId}`
+      : `${orgId}#${briefProjectId}`;
 
     const deadlineData: Partial<DeadlinesSection> = {
       hasSubmissionDeadline: deadlinesData.hasSubmissionDeadline,
@@ -68,6 +86,8 @@ export async function storeDeadlinesSeparately(
           [SK_NAME]: sortKey,
           orgId,
           projectId: briefProjectId,
+          opportunityId: opportunityId || null,
+          opportunityTitle,
           projectName,
           ...deadlineData,
           source: { executiveBriefId },

@@ -4,5 +4,5 @@ const BASE = `${env.BASE_API_URL}/prompt`;
 
 export const promptApi = {
   list: (orgId?: string) => `${BASE}/get-prompts${orgId ? `?orgId=${orgId}` : ''}`,
-  save: (scope: 'SYSTEM' | 'USER') => `${BASE}/save-prompt/${scope}`,
+  save: (scope: 'SYSTEM' | 'USER', orgId?: string) => `${BASE}/save-prompt/${scope}${orgId ? `?orgId=${orgId}` : ''}`,
 };
