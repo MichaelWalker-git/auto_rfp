@@ -10,7 +10,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { Label } from '@/components/ui/label';
 
-import { AlertTriangle, ArrowLeft, Briefcase, CalendarClock, CheckCircle2, Clock, Download, FileSearch, FileText, ListChecks, Loader2, RefreshCw, Shield, Target, Users, XCircle } from 'lucide-react';
+import { AlertTriangle, ArrowLeft, Briefcase, CalendarClock, CheckCircle2, Clock, Download, ExternalLink, FileSearch, FileText, ListChecks, Loader2, RefreshCw, Shield, Target, Users, XCircle } from 'lucide-react';
 import Link from 'next/link';
 import { Skeleton } from '@/components/ui/skeleton';
 
@@ -879,7 +879,7 @@ export function ExecutiveBriefView({ projectId, initialOpportunityId }: Executiv
               {selectedOpportunityId && currentOrganization?.id && (
                 <Button variant="outline" size="sm" asChild>
                   <Link href={`/organizations/${currentOrganization.id}/projects/${projectId}/opportunities/${selectedOpportunityId}`}>
-                    <ArrowLeft className="h-4 w-4 mr-1.5" />
+                    <ExternalLink className="h-4 w-4 mr-1.5" />
                     Opportunity
                   </Link>
                 </Button>
@@ -1015,7 +1015,8 @@ export function ExecutiveBriefView({ projectId, initialOpportunityId }: Executiv
                   summary={summary}
                   briefItem={briefItem}
                   previousBrief={previousBrief}
-                  onBriefUpdate={(brief) => setBriefItem(brief)}  
+                  onBriefUpdate={(brief) => setBriefItem(brief)}
+                  requirements={requirements}
                 />
                 <ExecutiveCloseOutCard scoring={scoring}/>
                 <ScoringGrid scoring={scoring}/>

@@ -37,6 +37,7 @@ import {
   queryCompanyKnowledgeBase,
   truncateText,
 } from '@/helpers/executive-opportunity-brief';
+import { syncRequiredDocumentsToCustomTypes } from '@/helpers/custom-document-types';
 
 import { enqueueGoogleDriveSync } from '@/helpers/google-drive-queue';
 import { getProjectById } from '@/helpers/project';
@@ -262,6 +263,16 @@ async function runRequirements(job: Job): Promise<void> {
       data,
       topLevelPatch: { status: 'IN_PROGRESS' },
     });
+
+    // ─── Sync new document types to DynamoDB (non-blocking) ───
+    // If AI extracted required documents with types not in the standard enum,
+    // save them as custom types so they can be reused in future generations.
+    const requiredDocs = (data as any)?.submissionCompliance?.requiredDocuments;
+    if (requiredDocs?.length && orgId) {
+      syncRequiredDocumentsToCustomTypes(orgId, requiredDocs).catch(err =>
+        console.warn('syncRequiredDocumentsToCustomTypes failed (non-blocking):', (err as Error)?.message),
+      );
+    }
   } catch (err) {
     await markSectionFailed({
       executiveBriefId,

@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { PastPerformanceSectionSchema } from './past-performance';
+import { RFPDocumentTypeSchema } from './rfp-document';
 
 /**
  * Common enums
@@ -38,9 +39,18 @@ export type ContactRole = z.infer<typeof RoleSchema>;
  */
 export const EvidenceRefSchema = z.object({
   source: z.string().optional().nullable(),
-  snippet: z.string().min(1).optional().nullable(),
-  chunkKey: z.string().min(1).optional().nullable(),
-  documentId: z.string().min(1).optional().nullable(),
+  snippet: z.preprocess(
+    (v) => (v === '' ? undefined : v),
+    z.string().min(1).optional().nullable(),
+  ),
+  chunkKey: z.preprocess(
+    (v) => (v === '' ? undefined : v),
+    z.string().min(1).optional().nullable(),
+  ),
+  documentId: z.preprocess(
+    (v) => (v === '' ? undefined : v),
+    z.string().min(1).optional().nullable(),
+  ),
 });
 
 export type EvidenceRef = z.infer<typeof EvidenceRefSchema>;
@@ -114,6 +124,25 @@ export const RequirementItemSchema = z.object({
   evidence: z.array(EvidenceRefSchema).default([]),
 });
 
+/**
+ * A required output (response) document extracted from the solicitation's
+ * Section L / submission instructions.
+ * Uses passthrough + coercion so unknown documentType values don't drop the item.
+ */
+export const RequiredOutputDocumentSchema = z.object({
+  documentType: z.union([RFPDocumentTypeSchema, z.string()]).transform(val => {
+    // Coerce unknown values to 'OTHER' so the item is never dropped
+    const valid = RFPDocumentTypeSchema.safeParse(val);
+    return valid.success ? valid.data : 'OTHER' as const;
+  }),
+  name: z.string().min(1),
+  description: z.string().optional().nullable(),
+  pageLimit: z.string().optional().nullable(),
+  required: z.boolean().default(true),
+});
+
+export type RequiredOutputDocument = z.infer<typeof RequiredOutputDocumentSchema>;
+
 export const RequirementsSectionSchema = z.object({
   overview: z.string().min(10),
   requirements: z.array(RequirementItemSchema).min(1),
@@ -123,6 +152,8 @@ export const RequirementsSectionSchema = z.object({
     format: z.array(z.string().min(1)).default([]), // page limits, font size, file naming, etc.
     requiredVolumes: z.array(z.string().min(1)).default([]), // technical/management/price
     attachmentsAndForms: z.array(z.string().min(1)).default([]),
+    /** Structured list of required output/response documents extracted from Section L */
+    requiredDocuments: z.array(RequiredOutputDocumentSchema).default([]),
   }),
 });
 

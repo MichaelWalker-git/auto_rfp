@@ -4,6 +4,21 @@ import { requireEnv } from './env';
 const sqs = new SQSClient({});
 const DOCUMENT_GENERATION_QUEUE_URL = requireEnv('DOCUMENT_GENERATION_QUEUE_URL');
 
+export interface OrgContactInfo {
+  orgName?: string;
+  orgAddress?: string;
+  orgPhone?: string;
+  orgEmail?: string;
+  orgWebsite?: string;
+}
+
+export interface UserContactInfo {
+  name?: string;
+  email?: string;
+  title?: string;
+  phone?: string;
+}
+
 export interface DocumentGenerationMessage {
   orgId: string;
   projectId: string;
@@ -11,6 +26,10 @@ export interface DocumentGenerationMessage {
   documentType: string;
   templateId?: string;
   documentId: string;
+  /** Organization contact info for use in cover letters and proposals */
+  orgContact?: OrgContactInfo;
+  /** Submitting user contact info for use in cover letters and proposals */
+  userContact?: UserContactInfo;
 }
 
 /**

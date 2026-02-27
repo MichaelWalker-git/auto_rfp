@@ -12,6 +12,7 @@ import {
   useHandleLinearTicket,
   useGetExecutiveBriefByProject,
 } from '@/lib/hooks/use-executive-brief';
+import { RequiredDocumentsPanel } from './RequiredDocumentsPanel';
 
 function ConfidenceBadge({ confidence }: { confidence?: number }) {
   const pct = Math.round(confidence ?? 0);
@@ -49,6 +50,7 @@ export function DecisionCard({
   briefItem,
   previousBrief,
   onBriefUpdate,
+  requirements,
 }: {
   projectName: string;
   projectId: string;
@@ -57,6 +59,7 @@ export function DecisionCard({
   briefItem: any;
   previousBrief: any;
   onBriefUpdate?: (brief: any) => void;
+  requirements?: any;
 }) {
   const updateDecision = useUpdateDecision(orgId);
   const handleLinearTicket = useHandleLinearTicket(orgId);
@@ -239,7 +242,22 @@ export function DecisionCard({
         <div className="hidden">{projectName}</div>
       </CardHeader>
 
-      <CardContent className="hidden" />
+      {/* Required documents panel — shown when decision is GO or CONDITIONAL_GO */}
+      {(decisionBadge === 'GO' || decisionBadge === 'CONDITIONAL_GO') &&
+        briefItem?.opportunityId &&
+        requirements?.submissionCompliance?.requiredDocuments?.length > 0 && (
+          <CardContent className="pt-0">
+            <RequiredDocumentsPanel
+              projectId={projectId}
+              opportunityId={briefItem.opportunityId}
+              requiredDocuments={requirements.submissionCompliance.requiredDocuments}
+            />
+          </CardContent>
+        )}
+
+      {!(decisionBadge === 'GO' || decisionBadge === 'CONDITIONAL_GO') && (
+        <CardContent className="hidden" />
+      )}
     </Card>
   );
 }

@@ -88,9 +88,9 @@ export function usePrompts(orgId?: string) {
   };
 }
 
-export function useSavePrompt() {
+export function useSavePrompt(orgId?: string) {
   return useSWRMutation<PromptItem, Error, string, SavePromptArgs>(
-    'prompt/save-prompt',
+    `prompt/save-prompt${orgId ? `?orgId=${orgId}` : ''}`,
     async (_key, { arg }) => {
       // Validate scope
       if (!validScopes.includes(arg.scope)) {
@@ -110,7 +110,7 @@ export function useSavePrompt() {
         }
       }
 
-      const url = promptApi.save(arg.scope, arg.orgId);
+      const url = promptApi.save(arg.scope, orgId);
       const body: SavePromptBody = {
         type: arg.type,
         prompt: arg.prompt,
