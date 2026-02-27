@@ -19,7 +19,7 @@ applications:
             # Copy public assets and static files into the standalone bundle
             # (required for Next.js standalone mode to serve them correctly).
             # Guard: fail fast with a clear message if standalone dir is missing.
-            - test -d apps/web/.next/standalone || (echo "ERROR: .next/standalone not found — ensure output:'standalone' is set in next.config.js" && exit 1)
+            - "test -d apps/web/.next/standalone || (echo 'ERROR: .next/standalone not found. Ensure output standalone is set in next.config.js' && exit 1)"
             - cp -r apps/web/public apps/web/.next/standalone/public
             - mkdir -p apps/web/.next/standalone/.next
             - cp -r apps/web/.next/static apps/web/.next/standalone/.next/static
