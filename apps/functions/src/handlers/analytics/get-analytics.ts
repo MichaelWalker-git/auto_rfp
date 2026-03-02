@@ -3,7 +3,7 @@ import { QueryCommand } from '@aws-sdk/lib-dynamodb';
 import middy from '@middy/core';
 
 import { PK_NAME, SK_NAME } from '@/constants/common';
-import { PROJECT_OUTCOME_PK, PROJECT_PK } from '@/constants/organization';
+import { FOIA_REQUEST_PK, PROJECT_OUTCOME_PK, PROJECT_PK } from '@/constants/organization';
 import { apiResponse } from '@/helpers/api';
 import { withSentryLambda } from '@/sentry-lambda';
 import {
@@ -53,6 +53,9 @@ export const baseHandler = async (
 
   // ── 2. Fetch all projects for the org (to get submission dates) ────────────
   const projects = await fetchOrgProjects(orgId);
+
+  // ── 2b. Fetch all FOIA requests for the org ────────────────────────────────
+  const foiaItems = await fetchOrgFoiaRequests(orgId);
 
   // Build a map: projectId → project
   const projectMap = new Map<string, { createdAt: string; submittedAt?: string }>();
@@ -140,6 +143,25 @@ export const baseHandler = async (
         (entry as any)._timeToDecisionSum = ((entry as any)._timeToDecisionSum ?? 0) + days;
         (entry as any)._timeToDecisionCount = ((entry as any)._timeToDecisionCount ?? 0) + 1;
       }
+    }
+  }
+
+  // ── 3b. Aggregate FOIA counts per month ───────────────────────────────────
+  for (const foiaItem of foiaItems) {
+    const createdAt = foiaItem.createdAt as string | undefined;
+    if (!createdAt) continue;
+
+    const month = formatMonth(new Date(createdAt));
+    const entry = monthlyMap.get(month);
+    if (!entry) continue;
+
+    // Count every FOIA request created in this month
+    entry.foiaRequestsGenerated++;
+
+    // Count responses received in this month (by responseReceivedAt or responseDate)
+    const responseDate = (foiaItem.responseReceivedAt ?? foiaItem.responseDate) as string | undefined;
+    if (responseDate && formatMonth(new Date(responseDate)) === month) {
+      entry.foiaResponsesReceived++;
     }
   }
 
@@ -287,6 +309,35 @@ async function fetchOrgProjects(orgId: string): Promise<ProjectRecord[]> {
       const projectId = parts[1] ?? sk;
       items.push({ projectId, createdAt: item.createdAt as string, submittedAt: item.submittedAt as string | undefined });
     }
+    lastKey = res.LastEvaluatedKey as Record<string, unknown> | undefined;
+  } while (lastKey);
+
+  return items;
+}
+
+interface FoiaRecord {
+  createdAt?: string;
+  responseReceivedAt?: string;
+  responseDate?: string;
+  status?: string;
+}
+
+async function fetchOrgFoiaRequests(orgId: string): Promise<FoiaRecord[]> {
+  const items: FoiaRecord[] = [];
+  let lastKey: Record<string, unknown> | undefined;
+
+  do {
+    const cmd = new QueryCommand({
+      TableName: DB_TABLE_NAME,
+      KeyConditionExpression: '#pk = :pk AND begins_with(#sk, :prefix)',
+      ExpressionAttributeNames: { '#pk': PK_NAME, '#sk': SK_NAME, '#s': 'status' },
+      ExpressionAttributeValues: { ':pk': FOIA_REQUEST_PK, ':prefix': orgId },
+      ProjectionExpression: 'createdAt, responseReceivedAt, responseDate, #s',
+      ExclusiveStartKey: lastKey,
+      Limit: 500,
+    });
+    const res = await docClient.send(cmd);
+    items.push(...((res.Items ?? []) as FoiaRecord[]));
     lastKey = res.LastEvaluatedKey as Record<string, unknown> | undefined;
   } while (lastKey);
 

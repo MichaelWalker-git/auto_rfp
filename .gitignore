@@ -2,6 +2,8 @@
 /.cursor/
 /local-docs/
 .DS_Store
+# Claude Code local settings (but keep rules directory)
+.claude/settings.local.json
 **/.DS_Store
 node_modules
 /node_modules/

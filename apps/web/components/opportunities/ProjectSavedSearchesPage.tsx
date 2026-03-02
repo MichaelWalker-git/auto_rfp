@@ -91,7 +91,7 @@ const SavedSearchCard = ({ s, onRun, onDelete, onToggle, isDeleting, isUpdating 
 // ─── Skeleton ─────────────────────────────────────────────────────────────────
 
 const LoadingSkeleton = () => (
-  <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+  <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
     {Array.from({ length: 3 }).map((_, i) => (
       <div key={i} className="rounded-xl border overflow-hidden">
         <div className="p-4 space-y-2">
@@ -194,7 +194,7 @@ export default function ProjectSavedSearchesPage({ orgId, projectId }: Props) {
       {isLoading ? <LoadingSkeleton />
         : sorted.length === 0 ? <EmptyState searchBase={searchBase} />
         : (
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
             {sorted.map(s => (
               <SavedSearchCard key={s.savedSearchId} s={s}
                 onRun={handleRun} onDelete={handleDelete} onToggle={handleToggle}

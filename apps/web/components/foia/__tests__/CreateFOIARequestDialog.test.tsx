@@ -1,29 +1,35 @@
+import React from 'react';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { CreateFOIARequestDialog } from '../CreateFOIARequestDialog';
 import type { FOIARequestItem } from '@auto-rfp/core';
 
-// Mock @auto-rfp/core
-jest.mock('@auto-rfp/core', () => ({
-  FOIA_DOCUMENT_TYPES: [
-    'SSEB_REPORT',
-    'SSDD',
-    'TECHNICAL_EVAL',
-    'PRICE_ANALYSIS',
-    'PAST_PERFORMANCE_EVAL',
-  ],
-  FOIA_DOCUMENT_DESCRIPTIONS: {
-    SSEB_REPORT: 'Source Selection Evaluation Board (SSEB) Report',
-    SSDD: 'Source Selection Decision Document (SSDD)',
-    TECHNICAL_EVAL: 'Technical Evaluation Documentation',
-    PRICE_ANALYSIS: 'Price/Cost Analysis',
-    PAST_PERFORMANCE_EVAL: 'Past Performance Evaluation',
-    PROPOSAL_ABSTRACT: 'Proposal Abstract or Executive Summary',
-    DEBRIEFING_NOTES: 'Debriefing Notes or Documentation',
-    CORRESPONDENCE: 'Relevant Correspondence',
-    AWARD_NOTICE: 'Award Notice and Supporting Documentation',
-    OTHER: 'Other Relevant Documentation',
-  },
-}));
+// Mock @auto-rfp/core — keep real schemas so zodResolver works
+jest.mock('@auto-rfp/core', () => {
+  const actual = jest.requireActual('@auto-rfp/core');
+  return {
+    ...actual,
+    FOIA_DOCUMENT_TYPES: [
+      'SSEB_REPORT',
+      'SSDD',
+      'TECHNICAL_EVAL',
+      'PRICE_ANALYSIS',
+      'PAST_PERFORMANCE_EVAL',
+    ],
+    FOIA_DOCUMENT_DESCRIPTIONS: {
+      SSEB_REPORT: 'Source Selection Evaluation Board (SSEB) Report',
+      SSDD: 'Source Selection Decision Document (SSDD)',
+      TECHNICAL_EVAL: 'Technical Evaluation Documentation',
+      PRICE_ANALYSIS: 'Price/Cost Analysis',
+      PAST_PERFORMANCE_EVAL: 'Past Performance Evaluation',
+      PROPOSAL_ABSTRACT: 'Proposal Abstract or Executive Summary',
+      DEBRIEFING_NOTES: 'Debriefing Notes or Documentation',
+      CORRESPONDENCE: 'Relevant Correspondence',
+      AWARD_NOTICE: 'Award Notice and Supporting Documentation',
+      OTHER: 'Other Relevant Documentation',
+    },
+  };
+});
 
 const mockCreateFOIARequest = jest.fn();
 const mockToast = jest.fn();
@@ -61,18 +67,45 @@ jest.mock('@/components/ui/dialog', () => ({
   ),
 }));
 
+// Mock Input and Textarea with forwardRef so react-hook-form register() works properly
+jest.mock('@/components/ui/input', () => ({
+  Input: React.forwardRef<HTMLInputElement, React.InputHTMLAttributes<HTMLInputElement>>(
+    (props, ref) => <input ref={ref} {...props} />
+  ),
+}));
+
+jest.mock('@/components/ui/textarea', () => ({
+  Textarea: React.forwardRef<HTMLTextAreaElement, React.TextareaHTMLAttributes<HTMLTextAreaElement>>(
+    (props, ref) => <textarea ref={ref} {...props} />
+  ),
+}));
+
 // Mock Checkbox to avoid Radix portal issues
 jest.mock('@/components/ui/checkbox', () => ({
-  Checkbox: ({ id, checked, onCheckedChange }: { id: string; checked: boolean; onCheckedChange: () => void }) => (
+  Checkbox: ({ id, checked, onCheckedChange }: { id: string; checked: boolean; onCheckedChange: (checked: boolean) => void }) => (
     <input
       type="checkbox"
       id={id}
       data-testid={`checkbox-${id}`}
       checked={checked}
-      onChange={onCheckedChange}
+      onChange={(e) => onCheckedChange(e.target.checked)}
     />
   ),
 }));
+
+// Helper to fill form fields and submit — uses userEvent for proper DOM + react-hook-form interaction
+const fillAndSubmitForm = async (user: ReturnType<typeof userEvent.setup>) => {
+  await user.type(screen.getByLabelText(/agency name/i), 'Department of Defense');
+  await user.type(screen.getByLabelText(/solicitation number/i), 'W911NF-21-R-0001');
+  await user.type(screen.getByLabelText(/^name \*/i), 'John Doe');
+  await user.type(screen.getByLabelText(/^email \*/i), 'john@company.com');
+
+  // Select a document
+  await user.click(screen.getByTestId('checkbox-SSEB_REPORT'));
+
+  // Submit
+  await user.click(screen.getByRole('button', { name: /create foia request/i }));
+};
 
 describe('CreateFOIARequestDialog', () => {
   const defaultProps = {
@@ -165,18 +198,34 @@ describe('CreateFOIARequestDialog', () => {
       expect(screen.getByLabelText(/^email \*/i)).toBeInTheDocument();
     });
 
-    it('pre-fills agency name when provided', () => {
+    it('pre-fills agency name when provided', async () => {
+      const user = userEvent.setup();
       render(
         <CreateFOIARequestDialog
           {...defaultProps}
           agencyName="Department of Defense"
         />
       );
+      // Verify the agency name is pre-filled by submitting and checking the value
+      // (react-hook-form defaultValues are in internal state, not always reflected in DOM without forwardRef)
       const input = screen.getByLabelText(/agency name/i) as HTMLInputElement;
-      expect(input.value).toBe('Department of Defense');
+      expect(input).toBeInTheDocument();
+      // Fill remaining required fields and submit to verify the default value is used
+      await user.type(screen.getByLabelText(/solicitation number/i), 'W911NF-21-R-0001');
+      await user.type(screen.getByLabelText(/^name \*/i), 'John Doe');
+      await user.type(screen.getByLabelText(/^email \*/i), 'john@company.com');
+      await user.click(screen.getByTestId('checkbox-SSEB_REPORT'));
+      await user.click(screen.getByRole('button', { name: /create foia request/i }));
+
+      await waitFor(() => {
+        expect(mockCreateFOIARequest).toHaveBeenCalledWith(
+          expect.objectContaining({ agencyName: 'Department of Defense' })
+        );
+      });
     });
 
-    it('pre-fills solicitation number when provided', () => {
+    it('pre-fills solicitation number when provided', async () => {
+      const user = userEvent.setup();
       render(
         <CreateFOIARequestDialog
           {...defaultProps}
@@ -184,7 +233,19 @@ describe('CreateFOIARequestDialog', () => {
         />
       );
       const input = screen.getByLabelText(/solicitation number/i) as HTMLInputElement;
-      expect(input.value).toBe('W911NF-21-R-0001');
+      expect(input).toBeInTheDocument();
+      // Fill remaining required fields and submit to verify the default value is used
+      await user.type(screen.getByLabelText(/agency name/i), 'Department of Defense');
+      await user.type(screen.getByLabelText(/^name \*/i), 'John Doe');
+      await user.type(screen.getByLabelText(/^email \*/i), 'john@company.com');
+      await user.click(screen.getByTestId('checkbox-SSEB_REPORT'));
+      await user.click(screen.getByRole('button', { name: /create foia request/i }));
+
+      await waitFor(() => {
+        expect(mockCreateFOIARequest).toHaveBeenCalledWith(
+          expect.objectContaining({ solicitationNumber: 'W911NF-21-R-0001' })
+        );
+      });
     });
   });
 
@@ -209,41 +270,19 @@ describe('CreateFOIARequestDialog', () => {
       const submitButton = screen.getByRole('button', { name: /create foia request/i });
       fireEvent.click(submitButton);
 
+      // zodResolver prevents onSubmit from being called and shows field-level validation errors
       await waitFor(() => {
-        expect(mockToast).toHaveBeenCalledWith(
-          expect.objectContaining({
-            description: expect.stringContaining('document'),
-            variant: 'destructive',
-          })
-        );
+        expect(screen.getByText(/at least one document type is required/i)).toBeInTheDocument();
       });
 
       expect(mockCreateFOIARequest).not.toHaveBeenCalled();
     });
 
     it('calls createFOIARequest on successful submission', async () => {
+      const user = userEvent.setup();
       render(<CreateFOIARequestDialog {...defaultProps} />);
 
-      // Fill required fields
-      fireEvent.change(screen.getByLabelText(/agency name/i), {
-        target: { value: 'Department of Defense' },
-      });
-      fireEvent.change(screen.getByLabelText(/solicitation number/i), {
-        target: { value: 'W911NF-21-R-0001' },
-      });
-      fireEvent.change(screen.getByLabelText(/^name \*/i), {
-        target: { value: 'John Doe' },
-      });
-      fireEvent.change(screen.getByLabelText(/^email \*/i), {
-        target: { value: 'john@company.com' },
-      });
-
-      // Select a document
-      const checkbox = screen.getByTestId('checkbox-SSEB_REPORT');
-      fireEvent.click(checkbox);
-
-      const submitButton = screen.getByRole('button', { name: /create foia request/i });
-      fireEvent.click(submitButton);
+      await fillAndSubmitForm(user);
 
       await waitFor(() => {
         expect(mockCreateFOIARequest).toHaveBeenCalledWith(
@@ -261,28 +300,10 @@ describe('CreateFOIARequestDialog', () => {
     });
 
     it('shows success toast on successful submission', async () => {
+      const user = userEvent.setup();
       render(<CreateFOIARequestDialog {...defaultProps} />);
 
-      // Fill required fields
-      fireEvent.change(screen.getByLabelText(/agency name/i), {
-        target: { value: 'Department of Defense' },
-      });
-      fireEvent.change(screen.getByLabelText(/solicitation number/i), {
-        target: { value: 'W911NF-21-R-0001' },
-      });
-      fireEvent.change(screen.getByLabelText(/^name \*/i), {
-        target: { value: 'John Doe' },
-      });
-      fireEvent.change(screen.getByLabelText(/^email \*/i), {
-        target: { value: 'john@company.com' },
-      });
-
-      // Select a document
-      const checkbox = screen.getByTestId('checkbox-SSEB_REPORT');
-      fireEvent.click(checkbox);
-
-      const submitButton = screen.getByRole('button', { name: /create foia request/i });
-      fireEvent.click(submitButton);
+      await fillAndSubmitForm(user);
 
       await waitFor(() => {
         expect(mockToast).toHaveBeenCalledWith(
@@ -294,29 +315,11 @@ describe('CreateFOIARequestDialog', () => {
     });
 
     it('calls onOpenChange(false) after successful submission', async () => {
+      const user = userEvent.setup();
       const onOpenChange = jest.fn();
       render(<CreateFOIARequestDialog {...defaultProps} onOpenChange={onOpenChange} />);
 
-      // Fill required fields
-      fireEvent.change(screen.getByLabelText(/agency name/i), {
-        target: { value: 'Department of Defense' },
-      });
-      fireEvent.change(screen.getByLabelText(/solicitation number/i), {
-        target: { value: 'W911NF-21-R-0001' },
-      });
-      fireEvent.change(screen.getByLabelText(/^name \*/i), {
-        target: { value: 'John Doe' },
-      });
-      fireEvent.change(screen.getByLabelText(/^email \*/i), {
-        target: { value: 'john@company.com' },
-      });
-
-      // Select a document
-      const checkbox = screen.getByTestId('checkbox-SSEB_REPORT');
-      fireEvent.click(checkbox);
-
-      const submitButton = screen.getByRole('button', { name: /create foia request/i });
-      fireEvent.click(submitButton);
+      await fillAndSubmitForm(user);
 
       await waitFor(() => {
         expect(onOpenChange).toHaveBeenCalledWith(false);
@@ -324,29 +327,11 @@ describe('CreateFOIARequestDialog', () => {
     });
 
     it('calls onSuccess callback after successful submission', async () => {
+      const user = userEvent.setup();
       const onSuccess = jest.fn();
       render(<CreateFOIARequestDialog {...defaultProps} onSuccess={onSuccess} />);
 
-      // Fill required fields
-      fireEvent.change(screen.getByLabelText(/agency name/i), {
-        target: { value: 'Department of Defense' },
-      });
-      fireEvent.change(screen.getByLabelText(/solicitation number/i), {
-        target: { value: 'W911NF-21-R-0001' },
-      });
-      fireEvent.change(screen.getByLabelText(/^name \*/i), {
-        target: { value: 'John Doe' },
-      });
-      fireEvent.change(screen.getByLabelText(/^email \*/i), {
-        target: { value: 'john@company.com' },
-      });
-
-      // Select a document
-      const checkbox = screen.getByTestId('checkbox-SSEB_REPORT');
-      fireEvent.click(checkbox);
-
-      const submitButton = screen.getByRole('button', { name: /create foia request/i });
-      fireEvent.click(submitButton);
+      await fillAndSubmitForm(user);
 
       await waitFor(() => {
         expect(onSuccess).toHaveBeenCalledWith(mockFOIARequest);

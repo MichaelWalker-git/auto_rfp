@@ -95,6 +95,36 @@ export function useUpdateFOIARequest() {
   return { updateFOIARequest };
 }
 
+export function useSubmitFOIARequest() {
+  const submitFOIARequest = async (
+    orgId: string,
+    projectId: string,
+    foiaRequestId: string,
+    method: 'AUTO_EMAIL' | 'MANUAL',
+  ): Promise<{ foiaRequest: FOIARequestItem; autoSubmitted: boolean; error?: string }> => {
+    const url = `${env.BASE_API_URL}/foia/submit-foia-request`;
+
+    const res = await authFetcher(url, {
+      method: 'POST',
+      body: JSON.stringify({ orgId, projectId, foiaRequestId, method }),
+    });
+
+    if (!res.ok) {
+      const body = await res.text().catch(() => '');
+      throw new Error(`Failed to submit FOIA request: ${res.status}. ${body}`);
+    }
+
+    const data = await res.json();
+    return {
+      foiaRequest: data.foiaRequest as FOIARequestItem,
+      autoSubmitted: data.autoSubmitted as boolean,
+      error: data.error as string | undefined,
+    };
+  };
+
+  return { submitFOIARequest };
+}
+
 export function useGenerateFOIALetter() {
   const generateFOIALetter = async (
     orgId: string,

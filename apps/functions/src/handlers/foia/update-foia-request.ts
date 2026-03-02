@@ -5,6 +5,7 @@ import middy from '@middy/core';
 import {
   UpdateFOIARequestSchema,
   type UpdateFOIARequest,
+  type FOIAStatusChange,
 } from '@auto-rfp/core';
 import { PK_NAME, SK_NAME } from '@/constants/common';
 import { FOIA_REQUEST_PK } from '@/constants/organization';
@@ -15,6 +16,7 @@ import {
   httpErrorMiddleware,
   orgMembershipMiddleware,
   requirePermission,
+  type AuthedEvent,
 } from '@/middleware/rbac-middleware';
 import { auditMiddleware, setAuditContext } from '@/middleware/audit-middleware';
 import { requireEnv } from '@/helpers/env';
@@ -24,7 +26,7 @@ import type { DBFOIARequestItem } from '@/types/project-outcome';
 const DB_TABLE_NAME = requireEnv('DB_TABLE_NAME');
 
 export const baseHandler = async (
-  event: APIGatewayProxyEventV2
+  event: AuthedEvent
 ): Promise<APIGatewayProxyResultV2> => {
   if (!event.body) {
     return apiResponse(400, { message: 'Request body is missing' });
@@ -32,29 +34,27 @@ export const baseHandler = async (
 
   try {
     const rawBody = JSON.parse(event.body);
-    const validationResult = UpdateFOIARequestSchema.safeParse(rawBody);
+    const { success, data, error } = UpdateFOIARequestSchema.safeParse(rawBody);
 
-    if (!validationResult.success) {
-      const errorDetails = validationResult.error.issues.map((issue) => ({
-        path: issue.path.join('.'),
-        message: issue.message,
-      }));
-
+    if (!success) {
       return apiResponse(400, {
         message: 'Validation failed',
-        errors: errorDetails,
+        errors: error.issues.map((issue) => ({
+          path: issue.path.join('.'),
+          message: issue.message,
+        })),
       });
     }
 
-    const dto: UpdateFOIARequest = validationResult.data;
+    const userId = event.auth?.userId ?? 'unknown';
 
     // Verify FOIA request exists
-    const existing = await getFOIARequest(dto.orgId, dto.projectId, dto.foiaRequestId);
+    const existing = await getFOIARequest(data.orgId, data.projectId, data.foiaRequestId);
     if (!existing) {
       return apiResponse(404, { message: 'FOIA request not found' });
     }
 
-    const updatedRequest = await updateFOIARequest(dto, existing);
+    const updatedRequest = await updateFOIARequest(data, existing, userId);
 
     
     setAuditContext(event, {
@@ -99,7 +99,8 @@ async function getFOIARequest(
 
 export async function updateFOIARequest(
   dto: UpdateFOIARequest,
-  existing: DBFOIARequestItem
+  existing: DBFOIARequestItem,
+  userId: string = 'unknown',
 ): Promise<DBFOIARequestItem> {
   const {
     status,
@@ -125,6 +126,16 @@ export async function updateFOIARequest(
     updateParts.push('#status = :status');
     expressionNames['#status'] = 'status';
     expressionValues[':status'] = status;
+
+    // Append to statusHistory so every transition is auditable
+    const historyEntry: FOIAStatusChange = {
+      status,
+      changedAt: now,
+      changedBy: userId,
+      ...(notes !== undefined ? { notes } : {}),
+    };
+    updateParts.push('statusHistory = list_append(statusHistory, :newHistoryEntry)');
+    expressionValues[':newHistoryEntry'] = [historyEntry];
   }
 
   if (submittedDate !== undefined) {

@@ -41,7 +41,7 @@ const OrganizationsLoadingSkeleton = () => (
           </div>
           <Skeleton className="h-10 w-40" />
         </div>
-        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+        <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           {Array.from({ length: 3 }).map((_, i) => (
             <Skeleton key={i} className="h-36 rounded-xl" />
           ))}
@@ -87,7 +87,7 @@ const OrganizationsGrid = ({
   organizations: OrganizationItem[];
   onDelete: (org: OrganizationItem) => void;
 }) => (
-  <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+  <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
     {organizations
       .filter((org): org is OrganizationItem => org != null && typeof org.id === 'string')
       .map((org) => (

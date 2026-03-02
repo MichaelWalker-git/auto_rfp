@@ -7,6 +7,11 @@ jest.mock('@middy/core', () => {
   return { __esModule: true, default: middy };
 });
 
+// Mock uuid (ESM module)
+jest.mock('uuid', () => ({
+  v4: jest.fn(() => 'mock-uuid'),
+}));
+
 // Mock AWS SDK
 const mockSend = jest.fn();
 jest.mock('@aws-sdk/client-dynamodb', () => ({
@@ -42,17 +47,29 @@ describe('update-foia-request handler', () => {
       partition_key: 'FOIA_REQUEST',
       sort_key: 'org-456#proj-123#foia-1',
       id: 'foia-1',
+      foiaId: 'foia-1',
       projectId: 'proj-123',
       orgId: 'org-456',
       status: 'DRAFT',
+      agencyId: 'DOD',
       agencyName: 'DOD',
+      agencyAbbreviation: 'DOD',
       solicitationNumber: 'W911NF-21-R-0001',
+      contractTitle: 'IT Services',
       requestedDocuments: ['SSEB_REPORT'],
+      requesterCategory: 'OTHER',
+      feeLimit: 50,
+      requestFeeWaiver: false,
       requesterName: 'John Doe',
       requesterEmail: 'john@example.com',
       requestedBy: 'user-789',
+      statusHistory: [{ status: 'DRAFT', changedAt: '2025-01-15T00:00:00Z', changedBy: 'user-789' }],
+      autoSubmitAttempted: false,
+      generatedLetterS3Key: 's3-key',
+      generatedLetterVersion: 1,
       createdAt: '2025-01-15T00:00:00Z',
       updatedAt: '2025-01-15T00:00:00Z',
+      createdBy: 'user-789',
     };
 
     it('updates status to SUBMITTED', async () => {
@@ -70,7 +87,7 @@ describe('update-foia-request handler', () => {
         status: 'SUBMITTED',
       };
 
-      const result = await updateFOIARequest(dto, existingRequest);
+      const result = await updateFOIARequest(dto, existingRequest, 'user-789');
 
       expect(result.status).toBe('SUBMITTED');
       expect(mockSend).toHaveBeenCalledWith(
@@ -78,7 +95,136 @@ describe('update-foia-request handler', () => {
           params: expect.objectContaining({
             UpdateExpression: expect.stringContaining('#status = :status'),
           }),
-        })
+        }),
+      );
+    });
+
+    it('appends to statusHistory when status changes', async () => {
+      const updatedItem = {
+        ...existingRequest,
+        status: 'SUBMITTED',
+        updatedAt: expect.any(String),
+      };
+      mockSend.mockResolvedValue({ Attributes: updatedItem });
+
+      const dto: UpdateFOIARequest = {
+        orgId: 'org-456',
+        projectId: 'proj-123',
+        foiaRequestId: 'foia-1',
+        status: 'SUBMITTED',
+      };
+
+      await updateFOIARequest(dto, existingRequest, 'user-abc');
+
+      expect(mockSend).toHaveBeenCalledWith(
+        expect.objectContaining({
+          params: expect.objectContaining({
+            UpdateExpression: expect.stringContaining('list_append(statusHistory, :newHistoryEntry)'),
+            ExpressionAttributeValues: expect.objectContaining({
+              ':newHistoryEntry': [
+                expect.objectContaining({
+                  status: 'SUBMITTED',
+                  changedBy: 'user-abc',
+                  changedAt: expect.any(String),
+                }),
+              ],
+            }),
+          }),
+        }),
+      );
+    });
+
+    it('includes notes in statusHistory entry when provided with status change', async () => {
+      const updatedItem = {
+        ...existingRequest,
+        status: 'SUBMITTED',
+        notes: 'Submitted via email',
+        updatedAt: expect.any(String),
+      };
+      mockSend.mockResolvedValue({ Attributes: updatedItem });
+
+      const dto: UpdateFOIARequest = {
+        orgId: 'org-456',
+        projectId: 'proj-123',
+        foiaRequestId: 'foia-1',
+        status: 'SUBMITTED',
+        notes: 'Submitted via email',
+      };
+
+      await updateFOIARequest(dto, existingRequest, 'user-abc');
+
+      expect(mockSend).toHaveBeenCalledWith(
+        expect.objectContaining({
+          params: expect.objectContaining({
+            ExpressionAttributeValues: expect.objectContaining({
+              ':newHistoryEntry': [
+                expect.objectContaining({
+                  status: 'SUBMITTED',
+                  changedBy: 'user-abc',
+                  notes: 'Submitted via email',
+                }),
+              ],
+            }),
+          }),
+        }),
+      );
+    });
+
+    it('does not append to statusHistory when status is not changed', async () => {
+      const updatedItem = {
+        ...existingRequest,
+        notes: 'Just a note update',
+        updatedAt: expect.any(String),
+      };
+      mockSend.mockResolvedValue({ Attributes: updatedItem });
+
+      const dto: UpdateFOIARequest = {
+        orgId: 'org-456',
+        projectId: 'proj-123',
+        foiaRequestId: 'foia-1',
+        notes: 'Just a note update',
+      };
+
+      await updateFOIARequest(dto, existingRequest, 'user-abc');
+
+      expect(mockSend).toHaveBeenCalledWith(
+        expect.objectContaining({
+          params: expect.objectContaining({
+            UpdateExpression: expect.not.stringContaining('statusHistory'),
+          }),
+        }),
+      );
+    });
+
+    it('defaults userId to unknown when not provided', async () => {
+      const updatedItem = {
+        ...existingRequest,
+        status: 'ACKNOWLEDGED',
+        updatedAt: expect.any(String),
+      };
+      mockSend.mockResolvedValue({ Attributes: updatedItem });
+
+      const dto: UpdateFOIARequest = {
+        orgId: 'org-456',
+        projectId: 'proj-123',
+        foiaRequestId: 'foia-1',
+        status: 'ACKNOWLEDGED',
+      };
+
+      await updateFOIARequest(dto, existingRequest);
+
+      expect(mockSend).toHaveBeenCalledWith(
+        expect.objectContaining({
+          params: expect.objectContaining({
+            ExpressionAttributeValues: expect.objectContaining({
+              ':newHistoryEntry': [
+                expect.objectContaining({
+                  changedBy: 'unknown',
+                }),
+              ],
+            }),
+          }),
+        }),
       );
     });
 
@@ -97,7 +243,7 @@ describe('update-foia-request handler', () => {
         trackingNumber: 'FOIA-2025-001234',
       };
 
-      const result = await updateFOIARequest(dto, existingRequest);
+      const result = await updateFOIARequest(dto, existingRequest, 'user-789');
 
       expect(result.trackingNumber).toBe('FOIA-2025-001234');
     });
@@ -124,7 +270,7 @@ describe('update-foia-request handler', () => {
         receivedDocuments: ['SSEB_REPORT'],
       };
 
-      const result = await updateFOIARequest(dto, existingRequest);
+      const result = await updateFOIARequest(dto, existingRequest, 'user-789');
 
       expect(result.status).toBe('RESPONSE_RECEIVED');
       expect(result.responseDate).toBe(responseDate);
@@ -152,31 +298,11 @@ describe('update-foia-request handler', () => {
         appealDate,
       };
 
-      const result = await updateFOIARequest(dto, existingRequest);
+      const result = await updateFOIARequest(dto, existingRequest, 'user-789');
 
       expect(result.status).toBe('APPEAL_FILED');
       expect(result.appealDeadline).toBe(appealDeadline);
       expect(result.appealDate).toBe(appealDate);
-    });
-
-    it('updates notes', async () => {
-      const updatedItem = {
-        ...existingRequest,
-        notes: 'Following up next week',
-        updatedAt: expect.any(String),
-      };
-      mockSend.mockResolvedValue({ Attributes: updatedItem });
-
-      const dto: UpdateFOIARequest = {
-        orgId: 'org-456',
-        projectId: 'proj-123',
-        foiaRequestId: 'foia-1',
-        notes: 'Following up next week',
-      };
-
-      const result = await updateFOIARequest(dto, existingRequest);
-
-      expect(result.notes).toBe('Following up next week');
     });
 
     it('always updates updatedAt timestamp', async () => {
@@ -194,14 +320,14 @@ describe('update-foia-request handler', () => {
         notes: 'Test note',
       };
 
-      await updateFOIARequest(dto, existingRequest);
+      await updateFOIARequest(dto, existingRequest, 'user-789');
 
       expect(mockSend).toHaveBeenCalledWith(
         expect.objectContaining({
           params: expect.objectContaining({
             UpdateExpression: expect.stringContaining('updatedAt = :updatedAt'),
           }),
-        })
+        }),
       );
     });
 
@@ -215,7 +341,7 @@ describe('update-foia-request handler', () => {
         notes: 'Test',
       };
 
-      await updateFOIARequest(dto, existingRequest);
+      await updateFOIARequest(dto, existingRequest, 'user-789');
 
       expect(mockSend).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -226,7 +352,7 @@ describe('update-foia-request handler', () => {
               sort_key: 'org-456#proj-123#foia-1',
             },
           }),
-        })
+        }),
       );
     });
   });

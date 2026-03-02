@@ -58,11 +58,20 @@ const JobSchema = z.object({
 type Job = z.infer<typeof JobSchema>;
 type Section = Job['section'];
 
+/** Weighted scoring criteria – must match the prompt instructions */
+const SCORING_WEIGHTS: Record<string, number> = {
+  TECHNICAL_FIT: 0.20,
+  PAST_PERFORMANCE_RELEVANCE: 0.25,
+  PRICING_POSITION: 0.15,
+  STRATEGIC_ALIGNMENT: 0.25,
+  INCUMBENT_RISK: 0.15,
+};
+
 const BEDROCK_MODEL_ID = requireEnv('BEDROCK_MODEL_ID');
 const MAX_SOLICITATION_CHARS = Number(requireEnv('BRIEF_MAX_SOLICITATION_CHARS', '45000'));
 const KB_TOPK_DEFAULT = Number(requireEnv('BRIEF_KB_TOPK', '20'));
 const DOCUMENTS_BUCKET = requireEnv('DOCUMENTS_BUCKET');
-const COST_SAVING = Boolean(requireEnv('COST_SAVING', 'true'));
+const COST_SAVING = requireEnv('COST_SAVING', 'true') === 'true';
 
 async function runSummary(job: Job): Promise<void> {
   const { orgId, executiveBriefId, topK, inputHash: inputHashFromJob } = job;
@@ -417,39 +426,36 @@ async function runScoring(job: Job): Promise<void> {
     throw new Error('orgId is missing in SQS job payload');
   }
 
-  const brief: ExecutiveBriefItem = await getExecutiveBrief(executiveBriefId);
-
-  const prereq = scoringPrereqsComplete(brief);
-  if (!prereq.ok) {
-    // Include missing sections in error for better debugging - fixes AUTO-RFP-5C
-    const missing = (prereq as { ok: false; missing: string[] }).missing;
-    throw new Error(`All fields should be ready before calling scoring. Missing: ${missing.join(', ')}`);
-  }
-
-  // Fix AUTO-RFP-5X: Extract section data with explicit null checks
-  // This ensures we have valid data objects to pass to the scoring prompt
-  const sections = brief.sections as any;
-  const summaryData = sections?.summary?.data;
-  const deadlinesData = sections?.deadlines?.data;
-  const requirementsData = sections?.requirements?.data;
-  const contactsData = sections?.contacts?.data;
-  const risksData = sections?.risks?.data;
-
-  // Double-check all data is present (belt and suspenders with scoringPrereqsComplete)
-  if (!summaryData || !deadlinesData || !requirementsData || !contactsData || !risksData) {
-    const missingData = [];
-    if (!summaryData) missingData.push('summary.data');
-    if (!deadlinesData) missingData.push('deadlines.data');
-    if (!requirementsData) missingData.push('requirements.data');
-    if (!contactsData) missingData.push('contacts.data');
-    if (!risksData) missingData.push('risks.data');
-    throw new Error(`Section data missing for scoring: ${missingData.join(', ')}`);
-  }
-
-  // Get past performance data if available (optional - scoring can proceed without it)
-  const pastPerformanceData = sections?.pastPerformance?.data;
-
   try {
+    const brief: ExecutiveBriefItem = await getExecutiveBrief(executiveBriefId);
+
+    const prereq = scoringPrereqsComplete(brief);
+    if (!prereq.ok) {
+      const missing = (prereq as { ok: false; missing: string[] }).missing;
+      throw new Error(`All fields should be ready before calling scoring. Missing: ${missing.join(', ')}`);
+    }
+
+    // Extract section data with explicit null checks
+    const sections = brief.sections as Record<string, { data?: Record<string, unknown> }>;
+    const summaryData = sections?.summary?.data;
+    const deadlinesData = sections?.deadlines?.data;
+    const requirementsData = sections?.requirements?.data;
+    const contactsData = sections?.contacts?.data;
+    const risksData = sections?.risks?.data;
+
+    if (!summaryData || !deadlinesData || !requirementsData || !contactsData || !risksData) {
+      const missingData: string[] = [];
+      if (!summaryData) missingData.push('summary.data');
+      if (!deadlinesData) missingData.push('deadlines.data');
+      if (!requirementsData) missingData.push('requirements.data');
+      if (!contactsData) missingData.push('contacts.data');
+      if (!risksData) missingData.push('risks.data');
+      throw new Error(`Section data missing for scoring: ${missingData.join(', ')}`);
+    }
+
+    // Past performance is optional — scoring can proceed without it
+    const pastPerformanceData = sections?.pastPerformance?.data;
+
     const inputHash =
       inputHashFromJob ||
       buildSectionInputHash({
@@ -511,8 +517,7 @@ async function runScoring(job: Job): Promise<void> {
       temperature: 0.2,
     });
 
-    const scores = data?.criteria?.map((c) => c.score || 0);
-    const computedComposite = Math.round(average(scores || []) * 10) / 10;
+    const computedComposite = weightedCompositeScore(data?.criteria ?? []);
 
     const normalized = {
       ...data,
@@ -567,8 +572,8 @@ async function runScoring(job: Job): Promise<void> {
           executiveBriefId,
           linearTicketId: updatedBrief.linearTicketId as string | undefined,
           linearTicketIdentifier: updatedBrief.linearTicketIdentifier as string | undefined,
-          agencyName: summaryData?.agency,
-          projectTitle: summaryData?.title || projectName,
+          agencyName: summaryData?.agency as string | undefined,
+          projectTitle: (summaryData?.title as string | undefined) || projectName,
         });
       } catch (enqueueErr) {
         // Non-blocking — don't fail scoring if enqueue fails
@@ -606,24 +611,47 @@ const baseHandler = async (event: SQSEvent): Promise<SQSBatchResponse> => {
   const batchItemFailures: SQSBatchResponse['batchItemFailures'] = [];
 
   for (const record of event.Records) {
-    // Parse job with better error context - fixes AUTO-RFP-5Q
-    let job: Job;
-    try {
-      const rawBody = JSON.parse(record.body);
-      job = JobSchema.parse(rawBody);
-    } catch (parseError) {
-      console.error('Failed to parse SQS message body:', record.body);
-      console.error('Parse error:', parseError);
-      throw parseError;
-    }
+    const rawBody = JSON.parse(record.body);
+    const job = JobSchema.parse(rawBody);
     await runSection(job);
   }
+
   return { batchItemFailures };
 };
 
 function average(nums: number[]): number {
   if (!nums.length) return 0;
   return nums.reduce((a, b) => a + b, 0) / nums.length;
+}
+
+/**
+ * Compute a weighted composite score using SCORING_WEIGHTS.
+ * Falls back to a simple average if the criteria names don't match the weight map.
+ */
+function weightedCompositeScore(criteria: Array<{ name?: string; score?: number }>): number {
+  if (!criteria.length) return 0;
+
+  let weightedSum = 0;
+  let totalWeight = 0;
+  let matched = 0;
+
+  for (const c of criteria) {
+    const score = c.score ?? 0;
+    const weight = c.name ? SCORING_WEIGHTS[c.name] : undefined;
+    if (weight !== undefined) {
+      weightedSum += score * weight;
+      totalWeight += weight;
+      matched++;
+    }
+  }
+
+  // Fall back to simple average if fewer than half the criteria matched weights
+  if (matched < criteria.length / 2 || totalWeight === 0) {
+    const scores = criteria.map((c) => c.score ?? 0);
+    return Math.round(average(scores) * 10) / 10;
+  }
+
+  return Math.round((weightedSum / totalWeight) * 10) / 10;
 }
 
 function computeMissingRoles(foundRoles: string[]): string[] {

@@ -58,7 +58,7 @@ export function OpportunitiesList({ projectId, limit = 25, className }: Props) {
       ) : null}
 
       {showLoadingSkeleton ? (
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
           {Array.from({ length: 8 }).map((_, i) => (
             <Skeleton key={i} className="h-44 rounded-xl"/>
           ))}
@@ -66,7 +66,7 @@ export function OpportunitiesList({ projectId, limit = 25, className }: Props) {
       ) : sortedItems.length === 0 ? (
         <div className="text-sm text-muted-foreground">No opportunities found.</div>
       ) : (
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
           {sortedItems.map((it) => (
             <OpportunityItemCard
               key={`${it.source}#${it.oppId}`}
