@@ -240,7 +240,7 @@ export const CreateFOIARequestSchema = z.object({
   projectId: z.string().min(1, 'Project ID is required'),
   orgId: z.string().min(1, 'Organization ID is required'),
   agencyName: z.string().min(1, 'Agency name is required'),
-  agencyFOIAEmail: z.string().email().optional(),
+  agencyFOIAEmail: z.union([z.string().email(), z.literal('')]).optional(),
   agencyFOIAAddress: z.string().optional(),
   solicitationNumber: z.string().min(1, 'Solicitation number is required'),
   contractNumber: z.string().optional(),
