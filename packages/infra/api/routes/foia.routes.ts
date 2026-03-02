@@ -26,6 +26,11 @@ export function foiaDomain(): DomainRoutes {
         path: 'generate-foia-letter',
         entry: lambdaEntry('foia/generate-foia-letter.ts'),
       },
+      {
+        method: 'POST',
+        path: 'submit-foia-request',
+        entry: lambdaEntry('foia/submit-foia-request.ts'),
+      },
     ],
   };
 }

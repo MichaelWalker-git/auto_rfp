@@ -23,7 +23,7 @@ export function ProjectsList({
 }: ProjectsListProps) {
   if (isLoading) {
     return (
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
         {[...Array(6)].map((_, i) => (
           <div key={i} className="h-48 rounded-md border border-border animate-pulse bg-muted/20" />
         ))}
@@ -48,7 +48,7 @@ export function ProjectsList({
         </div>
       )}
       
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
         {projects.map((project) => (
           <ProjectCard 
             key={project.id}

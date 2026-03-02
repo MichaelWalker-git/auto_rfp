@@ -10,7 +10,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { Label } from '@/components/ui/label';
 
-import { AlertTriangle, ArrowLeft, Briefcase, CalendarClock, CheckCircle2, Clock, Download, ExternalLink, FileSearch, FileText, ListChecks, Loader2, RefreshCw, Shield, Target, Users, XCircle } from 'lucide-react';
+import { AlertTriangle, Briefcase, CalendarClock, CheckCircle2, Clock, Download, ExternalLink, FileText, ListChecks, Loader2, RefreshCw, Shield, Target, Users, XCircle } from 'lucide-react';
 import Link from 'next/link';
 import { Skeleton } from '@/components/ui/skeleton';
 
@@ -33,8 +33,6 @@ import {
 import type { SectionKey, SectionStatus } from './types';
 import { SECTION_ORDER } from './types';
 import { buildSectionsState, calcProgress, exportBriefAsDocx, scoringPrereqsComplete } from './helpers';
-
-import { ChangesSummary } from './components/ChangesSummary';
 
 import { DecisionCard } from './components/DecisionCard';
 import { ExecutiveCloseOutCard } from './components/ExecutiveCloseOutCard';
@@ -862,8 +860,6 @@ export function ExecutiveBriefView({ projectId, initialOpportunityId }: Executiv
         </div>
       ) : (
         <>
-          {previousBrief && <ChangesSummary previous={previousBrief} current={briefItem}/>}
-
           {/* Header with Generate All button */}
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
@@ -1019,7 +1015,6 @@ export function ExecutiveBriefView({ projectId, initialOpportunityId }: Executiv
                   requirements={requirements}
                 />
                 <ExecutiveCloseOutCard scoring={scoring}/>
-                <ScoringGrid scoring={scoring}/>
               </SectionContent>
             </TabsContent>
 

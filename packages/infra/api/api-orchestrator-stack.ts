@@ -267,6 +267,15 @@ export class ApiOrchestratorStack extends cdk.Stack {
       );
     }
 
+    // Grant SES send permission for FOIA auto-submit via email
+    sharedInfraStack.commonLambdaRole.addToPrincipalPolicy(
+      new iam.PolicyStatement({
+        sid: 'SESFoiaSubmit',
+        actions: ['ses:SendEmail', 'ses:SendRawEmail'],
+        resources: [`arn:aws:ses:${cdk.Aws.REGION}:${cdk.Aws.ACCOUNT_ID}:identity/*`],
+      }),
+    );
+
     if (execBriefQueue) {
       execBriefQueue.grantSendMessages(sharedInfraStack.commonLambdaRole);
 
