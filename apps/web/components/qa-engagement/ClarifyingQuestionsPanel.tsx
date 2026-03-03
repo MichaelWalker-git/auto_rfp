@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -13,6 +13,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
 import { useQAEngagementContext } from './qa-engagement-context';
 import {
   Sparkles,
@@ -23,6 +28,8 @@ import {
   CheckCircle,
   MessageSquare,
   AlertCircle,
+  FileText,
+  Loader2,
 } from 'lucide-react';
 import type { ClarifyingQuestionItem, ClarifyingQuestionStatus } from '@auto-rfp/core';
 
@@ -52,22 +59,66 @@ const PRIORITY_ICONS: Record<string, React.ReactNode> = {
 
 export function ClarifyingQuestionsPanel() {
   const {
+    opportunityId,
     questions,
     questionsLoading,
     questionsError,
     generateQuestions,
     updateQuestion,
     refreshQuestions,
+    documentsState,
+    documentsLoading,
   } = useQAEngagementContext();
 
   const [isGenerating, setIsGenerating] = useState(false);
+  const [generateError, setGenerateError] = useState<string | null>(null);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [statusFilter, setStatusFilter] = useState<string>('ALL');
 
+  // Reset local state when opportunity changes
+  useEffect(() => {
+    setIsGenerating(false);
+    setGenerateError(null);
+    setExpandedId(null);
+    setStatusFilter('ALL');
+  }, [opportunityId]);
+
+  // Determine if generation is allowed based on document state
+  // When still loading documents, we don't know yet - treat as "checking"
+  // Also block generation while any documents are still processing
+  const isDocumentsProcessing = documentsState.isProcessing;
+  const hasNoDocuments = !documentsLoading && !documentsState.hasDocuments;
+  const isCheckingDocuments = documentsLoading;
+  const canGenerate = !documentsLoading && documentsState.hasProcessedDocuments && !isDocumentsProcessing;
+
+  // Helper to extract user-friendly error message from API response
+  const extractErrorMessage = (errorText: string): string => {
+    // Try to parse as JSON to extract message field
+    try {
+      const parsed = JSON.parse(errorText) as { message?: string; error?: string; code?: string };
+      if (parsed.message) return parsed.message;
+      if (parsed.error) return parsed.error;
+    } catch {
+      // Not JSON, use as-is
+    }
+    return errorText;
+  };
+
   const handleGenerate = async (force = false) => {
+    setGenerateError(null);
     setIsGenerating(true);
     try {
       await generateQuestions(force);
+    } catch (err) {
+      // Handle backend validation errors with user-friendly message
+      const rawMessage = err instanceof Error ? err.message : 'Failed to generate questions';
+      const errorMsg = extractErrorMessage(rawMessage);
+      
+      if (errorMsg.includes('NO_DOCUMENTS') || errorMsg.includes('No solicitation documents')) {
+        setGenerateError('Please upload and process solicitation documents before generating clarifying questions.');
+      } else {
+        setGenerateError(errorMsg);
+      }
     } finally {
       setIsGenerating(false);
     }
@@ -115,18 +166,37 @@ export function ClarifyingQuestionsPanel() {
             >
               <RefreshCw className="h-4 w-4" />
             </Button>
-            <Button
-              size="sm"
-              onClick={() => handleGenerate(questions.length === 0 ? false : true)}
-              disabled={isGenerating}
-            >
-              {isGenerating ? (
-                <RefreshCw className="h-4 w-4 animate-spin mr-2" />
-              ) : (
-                <Sparkles className="h-4 w-4 mr-2" />
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <span>
+                  <Button
+                    size="sm"
+                    onClick={() => handleGenerate(questions.length === 0 ? false : true)}
+                    disabled={isGenerating || !canGenerate}
+                  >
+                    {isGenerating ? (
+                      <RefreshCw className="h-4 w-4 animate-spin mr-2" />
+                    ) : isDocumentsProcessing ? (
+                      <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                    ) : (
+                      <Sparkles className="h-4 w-4 mr-2" />
+                    )}
+                    {questions.length === 0 ? 'Generate' : 'Generate more'}
+                  </Button>
+                </span>
+              </TooltipTrigger>
+              {!canGenerate && (
+                <TooltipContent side="bottom" className="max-w-xs">
+                  {isCheckingDocuments
+                    ? 'Checking document status...'
+                    : hasNoDocuments
+                    ? 'Upload solicitation documents first'
+                    : isDocumentsProcessing
+                    ? 'Documents are still processing. Please wait...'
+                    : 'Documents must be fully processed before generating questions'}
+                </TooltipContent>
               )}
-              {questions.length === 0 ? 'Generate' : 'Generate more'}
-            </Button>
+            </Tooltip>
           </div>
         </div>
       </CardHeader>
@@ -158,15 +228,43 @@ export function ClarifyingQuestionsPanel() {
           </span>
         </div>
 
+        {/* Generation error message */}
+        {generateError && (
+          <div className="text-amber-700 text-sm p-3 bg-amber-50 border border-amber-200 rounded flex items-start gap-2">
+            <AlertCircle className="h-4 w-4 flex-shrink-0 mt-0.5" />
+            <span>{generateError}</span>
+          </div>
+        )}
+
         {/* Questions list */}
         {filteredQuestions.length === 0 ? (
           <div className="text-center py-8 text-muted-foreground">
             {questions.length === 0 ? (
-              <>
-                <Sparkles className="h-12 w-12 mx-auto mb-4 opacity-30" />
-                <p>No clarifying questions generated yet.</p>
-                <p className="text-sm">Click &quot;Generate&quot; to create AI-powered questions.</p>
-              </>
+              isCheckingDocuments ? (
+                <>
+                  <Loader2 className="h-12 w-12 mx-auto mb-4 opacity-30 animate-spin" />
+                  <p className="font-medium">Checking documents...</p>
+                  <p className="text-sm mt-1">Loading document status to determine if generation is available.</p>
+                </>
+              ) : hasNoDocuments ? (
+                <>
+                  <FileText className="h-12 w-12 mx-auto mb-4 opacity-30" />
+                  <p className="font-medium">No solicitation documents</p>
+                  <p className="text-sm mt-1">Upload solicitation documents first, then generate clarifying questions.</p>
+                </>
+              ) : isDocumentsProcessing ? (
+                <>
+                  <Loader2 className="h-12 w-12 mx-auto mb-4 opacity-30 animate-spin" />
+                  <p className="font-medium">Documents are processing...</p>
+                  <p className="text-sm mt-1">Please wait for documents to finish processing before generating questions.</p>
+                </>
+              ) : (
+                <>
+                  <Sparkles className="h-12 w-12 mx-auto mb-4 opacity-30" />
+                  <p>No clarifying questions generated yet.</p>
+                  <p className="text-sm">Click &quot;Generate&quot; to create AI-powered questions.</p>
+                </>
+              )
             ) : (
               <p>No questions match the selected filter.</p>
             )}

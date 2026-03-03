@@ -4,9 +4,10 @@ import React, { createContext, useContext, useCallback, useMemo } from 'react';
 import useSWR, { mutate } from 'swr';
 import { authFetcher } from '@/lib/auth/auth-fetcher';
 import { env } from '@/lib/env';
-import type { ClarifyingQuestionItem, EngagementLogItem, EngagementMetrics, Deadline } from '@auto-rfp/core';
+import type { ClarifyingQuestionItem, EngagementLogItem, EngagementMetrics, Deadline, QuestionFileItem } from '@auto-rfp/core';
 
 const BASE_URL = env.BASE_API_URL;
+const QUESTION_FILE_BASE = `${env.BASE_API_URL}/questionfile`;
 
 interface QuestionDeadlineInfo {
   dateIso: string;
@@ -14,6 +15,14 @@ interface QuestionDeadlineInfo {
   daysLeft: number;
   isPast: boolean;
   warningLevel: 'urgent' | 'warning' | 'ok' | 'expired';
+}
+
+interface DocumentsState {
+  hasDocuments: boolean;
+  hasProcessedDocuments: boolean;
+  isProcessing: boolean;
+  totalCount: number;
+  processedCount: number;
 }
 
 interface QAEngagementContextValue {
@@ -41,6 +50,10 @@ interface QAEngagementContextValue {
   // Question deadline
   questionDeadline: QuestionDeadlineInfo | null;
   deadlinesLoading: boolean;
+  // Documents state (for validation)
+  documentsState: DocumentsState;
+  documentsLoading: boolean;
+  refreshDocuments: () => void;
 }
 
 const QAEngagementContext = createContext<QAEngagementContextValue | null>(null);
@@ -116,6 +129,45 @@ export function QAEngagementProvider({
   } = useSWR<DeadlinesResponse>(deadlinesUrl, swrFetcher, {
     onError: () => {}, // Don't throw - deadline is optional
   });
+
+  // Documents SWR (for checking if solicitation documents exist)
+  // Poll only when documents are still processing, stop when done
+  const documentsUrl = `${QUESTION_FILE_BASE}/get-question-files?projectId=${encodeURIComponent(projectId)}&oppId=${encodeURIComponent(opportunityId)}`;
+  const {
+    data: documentsData,
+    isLoading: documentsLoading,
+    mutate: mutateDocuments,
+  } = useSWR<{ items: QuestionFileItem[] }>(documentsUrl, swrFetcher, {
+    onError: () => {}, // Don't throw - documents check is for UX
+    // Conditional polling: only poll when documents are still processing
+    refreshInterval: (data) => {
+      if (!data?.items?.length) return 0; // No documents, no need to poll
+      const hasProcessing = data.items.some(
+        (item) => item.status === 'PROCESSING' || item.status === 'UPLOADED' || item.status === 'TEXTRACT_RUNNING'
+      );
+      return hasProcessing ? 5000 : 0; // Poll every 5s only if processing, otherwise stop
+    },
+  });
+
+  // Compute documents state for UI validation
+  // Status values from QuestionFileStatusSchema: UPLOADED, PROCESSING, TEXTRACT_RUNNING, TEXT_READY, PROCESSED, FAILED, DELETED, CANCELLED
+  const documentsState = useMemo<DocumentsState>(() => {
+    const items = documentsData?.items ?? [];
+    const processedItems = items.filter(
+      (item) => item.status === 'PROCESSED' || item.status === 'TEXT_READY'
+    );
+    const processingItems = items.filter(
+      (item) => item.status === 'PROCESSING' || item.status === 'UPLOADED' || item.status === 'TEXTRACT_RUNNING'
+    );
+
+    return {
+      hasDocuments: items.length > 0,
+      hasProcessedDocuments: processedItems.length > 0,
+      isProcessing: processingItems.length > 0,
+      totalCount: items.length,
+      processedCount: processedItems.length,
+    };
+  }, [documentsData]);
 
   // Extract question deadline from deadlines response
   const questionDeadline = useMemo<QuestionDeadlineInfo | null>(() => {
@@ -195,6 +247,7 @@ export function QAEngagementProvider({
   const refreshQuestions = useCallback(() => mutate(questionsUrl), [questionsUrl]);
   const refreshLogs = useCallback(() => mutate(logsUrl), [logsUrl]);
   const refreshMetrics = useCallback(() => mutate(metricsUrl), [metricsUrl]);
+  const refreshDocuments = useCallback(() => mutateDocuments(), [mutateDocuments]);
 
   const value = useMemo<QAEngagementContextValue>(
     () => ({
@@ -218,6 +271,9 @@ export function QAEngagementProvider({
       refreshMetrics,
       questionDeadline,
       deadlinesLoading,
+      documentsState,
+      documentsLoading,
+      refreshDocuments,
     }),
     [
       orgId,
@@ -240,6 +296,9 @@ export function QAEngagementProvider({
       refreshMetrics,
       questionDeadline,
       deadlinesLoading,
+      documentsState,
+      documentsLoading,
+      refreshDocuments,
     ],
   );
 

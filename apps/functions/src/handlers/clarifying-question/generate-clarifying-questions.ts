@@ -41,15 +41,16 @@ const RequestBodySchema = z.object({
 });
 
 // Schema for parsing AI response
+// Note: Claude may return `null` for optional fields, so we use .nullable() to accept both null and undefined
 const AIQuestionSchema = z.object({
   question: z.string().min(10),
   category: z.enum(['SCOPE', 'TECHNICAL', 'PRICING', 'SCHEDULE', 'COMPLIANCE', 'EVALUATION', 'OTHER']),
   rationale: z.string().min(10),
   priority: z.enum(['HIGH', 'MEDIUM', 'LOW']),
   ambiguitySource: z.object({
-    snippet: z.string().optional(),
-    sectionRef: z.string().optional(),
-  }).optional(),
+    snippet: z.string().nullable().optional(),
+    sectionRef: z.string().nullable().optional(),
+  }).nullable().optional(),
 });
 
 const AIResponseSchema = z.array(AIQuestionSchema);
@@ -141,7 +142,18 @@ const baseHandler = async (event: APIGatewayProxyEventV2): Promise<APIGatewayPro
 
   // Get solicitation text - truncate to avoid exceeding model context limits
   const MAX_SOLICITATION_CHARS = 30000; // Use smaller limit for clarifying questions
-  const rawSolicitationText = await loadAllSolicitationTexts(projectId, opportunityId) || 'None';
+  const rawSolicitationText = await loadAllSolicitationTexts(projectId, opportunityId);
+  
+  // Validate that we have solicitation documents - can't generate clarifying questions without them
+  if (!rawSolicitationText || rawSolicitationText.trim().length < 100) {
+    return apiResponse(400, {
+      ok: false,
+      error: 'No solicitation documents available',
+      code: 'NO_DOCUMENTS',
+      message: 'Please upload solicitation documents before generating clarifying questions. Documents must be fully processed.',
+    });
+  }
+  
   const solicitationText = truncateText(rawSolicitationText, MAX_SOLICITATION_CHARS);
 
   // Get KB context from semantic search - use truncated text for query
@@ -203,15 +215,31 @@ const baseHandler = async (event: APIGatewayProxyEventV2): Promise<APIGatewayPro
   }
 
   // Transform to our schema format and save
-  const questionsToSave = parsedQuestions.map((q) => ({
-    question: q.question,
-    category: q.category as ClarifyingQuestionCategory,
-    rationale: q.rationale,
-    priority: q.priority as ClarifyingQuestionPriority,
-    ambiguitySource: q.ambiguitySource as AmbiguitySource | undefined,
-    status: 'SUGGESTED' as const,
-    responseReceived: false,
-  }));
+  // Clean up null values from AI response - convert to undefined for DynamoDB compatibility
+  const questionsToSave = parsedQuestions.map((q) => {
+    // Handle ambiguitySource: convert null to undefined and clean nested nulls
+    let ambiguitySource: AmbiguitySource | undefined;
+    if (q.ambiguitySource) {
+      ambiguitySource = {
+        snippet: q.ambiguitySource.snippet ?? undefined,
+        sectionRef: q.ambiguitySource.sectionRef ?? undefined,
+      };
+      // If both fields are undefined, set the whole object to undefined
+      if (!ambiguitySource.snippet && !ambiguitySource.sectionRef) {
+        ambiguitySource = undefined;
+      }
+    }
+
+    return {
+      question: q.question,
+      category: q.category as ClarifyingQuestionCategory,
+      rationale: q.rationale,
+      priority: q.priority as ClarifyingQuestionPriority,
+      ambiguitySource,
+      status: 'SUGGESTED' as const,
+      responseReceived: false,
+    };
+  });
 
   const result = await createClarifyingQuestionsBatch({
     orgId,
