@@ -16,10 +16,7 @@ type Props = {
 };
 
 const KnowledgeBaseCard = ({ kb, onOpen, onEdit, onDelete }: Props) => {
-  const countLabel =
-    kb.type === 'CONTENT_LIBRARY'
-      ? `${kb?._count?.questions ?? 0} questions`
-      : `${kb?._count?.documents ?? 0} documents`;
+  const countLabel = `${kb?._count?.documents ?? 0} documents`;
 
   const handleEdit = (e: React.MouseEvent) => {
     e.stopPropagation();

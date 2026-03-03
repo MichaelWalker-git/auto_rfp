@@ -2,7 +2,7 @@
 
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
-import { ArrowLeft, FileText, Loader2, RefreshCw, Save } from 'lucide-react';
+import { ArrowLeft, FileDown, FileText, Loader2, RefreshCw, Save } from 'lucide-react';
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -17,6 +17,7 @@ import {
 } from '@/lib/hooks/use-rfp-documents';
 import { uploadFileToS3, usePresignDownload, usePresignUpload } from '@/lib/hooks/use-presign';
 import { RichTextEditor, stripPresignedUrlsFromHtml } from './rich-text-editor';
+import { RFPDocumentExportDialog } from './rfp-document-export-dialog';
 
 // ─── Props ────────────────────────────────────────────────────────────────────
 
@@ -46,6 +47,7 @@ export const OpportunityDocumentEditorPage = ({
 }: OpportunityDocumentEditorPageProps) => {
   const { toast } = useToast();
   const [isImageUploading, setIsImageUploading] = useState(false);
+  const [showExport, setShowExport] = useState(false);
   const [htmlContent, setHtmlContent] = useState('');
   // Track whether we've initialized the editor with content from the server.
   // Must be state (not ref) so React re-renders when initialization completes.
@@ -62,17 +64,19 @@ export const OpportunityDocumentEditorPage = ({
     orgId,
   );
 
-  // Only fetch HTML once doc is loaded (key is null until then)
+  // Only fetch HTML once doc is loaded (key is null until then).
+  // The hook always returns html as a string ('' when not yet loaded).
+  const htmlFetchEnabled = !!doc;
   const {
     html: serverHtml,
     isLoading: isHtmlLoading,
     isError: isHtmlError,
     mutate: mutateHtml,
   } = useRFPDocumentHtmlContent(
-    doc ? projectId : null,
-    doc ? opportunityId : null,
-    doc ? documentId : null,
-    doc ? orgId : null,
+    htmlFetchEnabled ? projectId : null,
+    htmlFetchEnabled ? opportunityId : null,
+    htmlFetchEnabled ? documentId : null,
+    htmlFetchEnabled ? orgId : null,
   );
 
   const { trigger: updateDocument, isMutating } = useUpdateRFPDocument(orgId);
@@ -97,21 +101,34 @@ export const OpportunityDocumentEditorPage = ({
     return presign.url;
   }, [triggerPresignDownload]);
 
+  // Track whether the HTML fetch has ever been in a loading state.
+  // This prevents initializing with '' before the fetch actually starts.
+  const htmlFetchStartedRef = useRef(false);
+  useEffect(() => {
+    if (isHtmlLoading) htmlFetchStartedRef.current = true;
+  }, [isHtmlLoading]);
+
+  // Reset fetch-started flag when document changes
+  useEffect(() => {
+    htmlFetchStartedRef.current = false;
+  }, [documentId]);
+
   // ── HTML initialization ──
   // Initialize the editor once:
-  //   - doc is loaded (so the HTML hook key is non-null and fetch has started)
-  //   - HTML fetch is no longer loading (either success or error)
-  //   - not already initialized
+  //   1. doc is loaded (HTML fetch key is non-null)
+  //   2. The fetch has started (isHtmlLoading was true at least once)
+  //   3. The fetch is now done (isHtmlLoading is false)
+  //   4. Not already initialized
 
   useEffect(() => {
     if (!doc) return;
     if (isHtmlLoading) return;
+    if (!htmlFetchStartedRef.current && !isHtmlError) return; // fetch hasn't started yet
     if (htmlInitializedRef.current) return;
 
     htmlInitializedRef.current = true;
     setHtmlInitialized(true);
-    // On error, start with empty content so the editor is still usable
-    setHtmlContent(serverHtml ?? '');
+    setHtmlContent(serverHtml || '');
   }, [doc, isHtmlLoading, isHtmlError, serverHtml]);
 
   // Reset when navigating to a different document
@@ -199,16 +216,46 @@ export const OpportunityDocumentEditorPage = ({
     <div className="flex flex-col" style={{ height: 'calc(100vh - 56px)' }}>
 
       {/* ── Toolbar ── */}
-      <div className="flex items-center justify-end gap-2 px-4 py-2 border-b bg-background shrink-0">
+      <div className="flex items-center gap-2 px-4 py-2 border-b bg-background shrink-0">
+        {/* Back button */}
+        <Button
+          variant="ghost"
+          size="sm"
+          className="gap-1 text-muted-foreground hover:text-foreground px-2 shrink-0"
+          asChild
+        >
+          <Link href={backUrl}>
+            <ArrowLeft className="h-4 w-4" />
+            Back
+          </Link>
+        </Button>
+
+        {/* Generating badge */}
         {isGenerating && (
           <Badge
             variant="outline"
-            className="text-xs border-amber-500/30 text-amber-600 bg-amber-500/5 animate-pulse mr-auto"
+            className="text-xs border-amber-500/30 text-amber-600 bg-amber-500/5 animate-pulse shrink-0"
           >
             <Loader2 className="h-3 w-3 mr-1 animate-spin" />
             Generating…
           </Badge>
         )}
+
+        {/* Spacer — pushes actions to the right */}
+        <div className="flex-1" />
+
+        {/* Actions */}
+        <div className="flex items-center gap-2 shrink-0">
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => setShowExport(true)}
+          disabled={isBusy || !isEditorReady}
+          title="Export document"
+        >
+          <FileDown className="h-4 w-4 mr-2" />
+          Export
+        </Button>
 
         <Button
           variant="outline"
@@ -247,7 +294,8 @@ export const OpportunityDocumentEditorPage = ({
             </>
           )}
         </Button>
-      </div>
+        </div>{/* end actions */}
+      </div>{/* end toolbar */}
 
       {/* ── Editor ── */}
       <div className="flex-1 min-h-0 overflow-hidden">
@@ -275,6 +323,15 @@ export const OpportunityDocumentEditorPage = ({
           />
         )}
       </div>
+
+      {/* ── Export dialog ── */}
+      <RFPDocumentExportDialog
+        open={showExport}
+        onOpenChange={setShowExport}
+        document={doc}
+        orgId={orgId}
+        htmlContent={htmlContent}
+      />
     </div>
   );
 };

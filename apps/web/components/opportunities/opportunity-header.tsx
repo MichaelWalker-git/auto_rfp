@@ -4,11 +4,15 @@ import React, { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useParams } from 'next/navigation';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { z } from 'zod';
 import DOMPurify from 'dompurify';
 import {
   AlertCircle,
   CalendarClock,
   Check,
+  ClipboardCheck,
   FolderOpen,
   Loader2,
   Pencil,
@@ -25,7 +29,6 @@ import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
-import { Switch } from '@/components/ui/switch';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import {
@@ -40,6 +43,24 @@ import { useOpportunityContext } from './opportunity-context';
 import { useCurrentOrganization } from '@/context/organization-context';
 import { formatDateTime } from './opportunity-helpers';
 import { useDeleteOpportunity, useUpdateOpportunity } from '@/lib/hooks/use-opportunities';
+import { OpportunityStageBadge } from './opportunity-stage-badge';
+import type { OpportunityStage } from '@auto-rfp/core';
+
+// ─── Form schema ──────────────────────────────────────────────────────────────
+
+const EditFormSchema = z.object({
+  title: z.string().trim().min(1, 'Title is required'),
+  description: z.string().trim().optional(),
+  organizationName: z.string().trim().optional(),
+  type: z.string().trim().optional(),
+  setAside: z.string().trim().optional(),
+  naicsCode: z.string().trim().optional(),
+  pscCode: z.string().trim().optional(),
+});
+
+type EditFormValues = z.input<typeof EditFormSchema>;
+
+// ─── Component ────────────────────────────────────────────────────────────────
 
 export function OpportunityHeader() {
   const { projectId, oppId, opportunity, isLoading, error, refetch } = useOpportunityContext();
@@ -53,33 +74,34 @@ export function OpportunityHeader() {
 
   const [isEditing, setIsEditing] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [showRequestReview, setShowRequestReview] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
-  const [updateError, setUpdateError] = useState<string | null>(null);
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
-  // Form state
-  const [title, setTitle] = useState('');
-  const [description, setDescription] = useState('');
-  const [type, setType] = useState('');
-  const [setAside, setSetAside] = useState('');
-  const [naicsCode, setNaicsCode] = useState('');
-  const [pscCode, setPscCode] = useState('');
-  const [active, setActive] = useState(false);
-  const [organizationName, setOrganizationName] = useState('');
+  const {
+    register,
+    handleSubmit,
+    reset,
+    formState: { errors },
+  } = useForm<EditFormValues>({
+    resolver: zodResolver(EditFormSchema),
+  });
 
   // Populate form when entering edit mode
   useEffect(() => {
     if (isEditing && opportunity) {
-      setTitle(opportunity.title);
-      setDescription(opportunity.description || '');
-      setType(opportunity.type || '');
-      setSetAside(opportunity.setAside || '');
-      setNaicsCode(opportunity.naicsCode || '');
-      setPscCode(opportunity.pscCode || '');
-      setActive(opportunity.active);
-      setOrganizationName(opportunity.organizationName || '');
-      setUpdateError(null);
+      reset({
+        title: opportunity.title,
+        description: opportunity.description || '',
+        organizationName: opportunity.organizationName || '',
+        type: opportunity.type || '',
+        setAside: opportunity.setAside || '',
+        naicsCode: opportunity.naicsCode || '',
+        pscCode: opportunity.pscCode || '',
+      });
+      setSubmitError(null);
     }
-  }, [isEditing, opportunity]);
+  }, [isEditing, opportunity, reset]);
 
   const briefUrl = orgId
     ? `/organizations/${orgId}/projects/${projectId}/brief?opportunityId=${oppId}`
@@ -89,15 +111,8 @@ export function OpportunityHeader() {
     ? `/organizations/${orgId}/projects/${projectId}/opportunities`
     : '#';
 
-  const handleSave = useCallback(async (e: React.FormEvent) => {
-    e.preventDefault();
-    setUpdateError(null);
-
-    if (!title.trim()) {
-      setUpdateError('Title is required');
-      return;
-    }
-
+  const onSubmit = useCallback(async (values: EditFormValues) => {
+    setSubmitError(null);
     const resolvedProjectId = (params?.projectId as string) || opportunity?.projectId || projectId;
 
     try {
@@ -105,22 +120,21 @@ export function OpportunityHeader() {
         projectId: resolvedProjectId,
         oppId,
         patch: {
-          title: title.trim(),
-          description: description.trim() || null,
-          type: type.trim() || null,
-          setAside: setAside.trim() || null,
-          naicsCode: naicsCode.trim() || null,
-          pscCode: pscCode.trim() || null,
-          active,
-          organizationName: organizationName.trim() || null,
+          title: values.title,
+          description: values.description?.trim() || null,
+          type: values.type?.trim() || null,
+          setAside: values.setAside?.trim() || null,
+          naicsCode: values.naicsCode?.trim() || null,
+          pscCode: values.pscCode?.trim() || null,
+          organizationName: values.organizationName?.trim() || null,
         },
       });
       setIsEditing(false);
       refetch();
-    } catch (err: any) {
-      setUpdateError(err?.message || 'Failed to update opportunity');
+    } catch (err: unknown) {
+      setSubmitError((err as Error)?.message || 'Failed to update opportunity');
     }
-  }, [title, description, type, setAside, naicsCode, pscCode, active, organizationName, oppId, projectId, params, opportunity, updateOpportunity, refetch]);
+  }, [oppId, projectId, params, opportunity, updateOpportunity, refetch]);
 
   const handleConfirmDelete = useCallback(async () => {
     if (!oppId || !projectId) return;
@@ -128,8 +142,8 @@ export function OpportunityHeader() {
       await deleteOpportunity({ projectId, oppId, orgId: orgId || '' });
       setShowDeleteConfirm(false);
       router.push(backUrl);
-    } catch (err: any) {
-      setDeleteError(err?.message || 'Failed to delete opportunity');
+    } catch (err: unknown) {
+      setDeleteError((err as Error)?.message || 'Failed to delete opportunity');
     }
   }, [oppId, projectId, orgId, deleteOpportunity, router, backUrl]);
 
@@ -140,96 +154,48 @@ export function OpportunityHeader() {
           <div className="min-w-0 flex-1">
             {isEditing ? (
               /* ── Inline edit form ── */
-              <form id="opp-edit-form" onSubmit={handleSave} className="space-y-4">
-                {/* Title */}
+              <form id="opp-edit-form" onSubmit={handleSubmit(onSubmit)} className="space-y-4">
                 <div className="grid gap-1.5">
                   <Label htmlFor="opp-title">Title *</Label>
-                  <Input
-                    id="opp-title"
-                    value={title}
-                    onChange={(e) => setTitle(e.target.value)}
-                    placeholder="Opportunity title"
-                    required
-                    autoFocus
-                  />
+                  <Input id="opp-title" placeholder="Opportunity title" autoFocus {...register('title')} />
+                  {errors.title && <p className="text-xs text-destructive">{errors.title.message}</p>}
                 </div>
 
-                {/* Organization */}
                 <div className="grid gap-1.5">
                   <Label htmlFor="opp-org">Organization</Label>
-                  <Input
-                    id="opp-org"
-                    value={organizationName}
-                    onChange={(e) => setOrganizationName(e.target.value)}
-                    placeholder="Organization name"
-                  />
+                  <Input id="opp-org" placeholder="Organization name" {...register('organizationName')} />
                 </div>
 
-                {/* Type + Set-Aside */}
                 <div className="grid grid-cols-2 gap-4">
                   <div className="grid gap-1.5">
                     <Label htmlFor="opp-type">Type</Label>
-                    <Input
-                      id="opp-type"
-                      value={type}
-                      onChange={(e) => setType(e.target.value)}
-                      placeholder="e.g., Solicitation"
-                    />
+                    <Input id="opp-type" placeholder="e.g., Solicitation" {...register('type')} />
                   </div>
                   <div className="grid gap-1.5">
                     <Label htmlFor="opp-setaside">Set-Aside</Label>
-                    <Input
-                      id="opp-setaside"
-                      value={setAside}
-                      onChange={(e) => setSetAside(e.target.value)}
-                      placeholder="e.g., 8(a)"
-                    />
+                    <Input id="opp-setaside" placeholder="e.g., 8(a)" {...register('setAside')} />
                   </div>
                 </div>
 
-                {/* NAICS + PSC */}
                 <div className="grid grid-cols-2 gap-4">
                   <div className="grid gap-1.5">
                     <Label htmlFor="opp-naics">NAICS Code</Label>
-                    <Input
-                      id="opp-naics"
-                      value={naicsCode}
-                      onChange={(e) => setNaicsCode(e.target.value)}
-                      placeholder="e.g., 541512"
-                    />
+                    <Input id="opp-naics" placeholder="e.g., 541512" {...register('naicsCode')} />
                   </div>
                   <div className="grid gap-1.5">
                     <Label htmlFor="opp-psc">PSC Code</Label>
-                    <Input
-                      id="opp-psc"
-                      value={pscCode}
-                      onChange={(e) => setPscCode(e.target.value)}
-                      placeholder="e.g., D302"
-                    />
+                    <Input id="opp-psc" placeholder="e.g., D302" {...register('pscCode')} />
                   </div>
                 </div>
 
-                {/* Description */}
                 <div className="grid gap-1.5">
                   <Label htmlFor="opp-desc">Description</Label>
-                  <Textarea
-                    id="opp-desc"
-                    value={description}
-                    onChange={(e) => setDescription(e.target.value)}
-                    placeholder="Opportunity description"
-                    rows={3}
-                  />
+                  <Textarea id="opp-desc" placeholder="Opportunity description" rows={3} {...register('description')} />
                 </div>
 
-                {/* Active toggle */}
-                <div className="flex items-center justify-between">
-                  <Label htmlFor="opp-active" className="cursor-pointer">Active</Label>
-                  <Switch id="opp-active" checked={active} onCheckedChange={setActive} />
-                </div>
-
-                {updateError && (
+                {submitError && (
                   <Alert variant="destructive">
-                    <AlertDescription>{updateError}</AlertDescription>
+                    <AlertDescription>{submitError}</AlertDescription>
                   </Alert>
                 )}
               </form>
@@ -245,9 +211,16 @@ export function OpportunityHeader() {
                 </CardDescription>
 
                 {opportunity && (
-                  <div className="mt-3 flex flex-wrap gap-2">
+                  <div className="mt-3 flex flex-wrap gap-2 items-center">
+                    <OpportunityStageBadge
+                      stage={(opportunity.stage as OpportunityStage | undefined) ?? 'IDENTIFIED'}
+                      orgId={orgId}
+                      projectId={projectId ?? undefined}
+                      oppId={oppId ?? undefined}
+                      editable={!!(orgId && projectId && oppId)}
+                      onStageChanged={() => refetch()}
+                    />
                     <Badge variant="secondary">{opportunity.source}</Badge>
-                    {opportunity.active ? <Badge>ACTIVE</Badge> : <Badge variant="outline">INACTIVE</Badge>}
                     {opportunity.type && <Badge variant="outline">{opportunity.type}</Badge>}
                     {opportunity.naicsCode && (
                       <Badge variant="outline" className="gap-1">
@@ -301,26 +274,11 @@ export function OpportunityHeader() {
           <div className="shrink-0 flex items-center gap-2">
             {isEditing ? (
               <>
-                <Button
-                  type="submit"
-                  form="opp-edit-form"
-                  size="sm"
-                  disabled={isUpdating}
-                >
-                  {isUpdating ? (
-                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  ) : (
-                    <Check className="h-4 w-4 mr-2" />
-                  )}
+                <Button type="submit" form="opp-edit-form" size="sm" disabled={isUpdating}>
+                  {isUpdating ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Check className="h-4 w-4 mr-2" />}
                   Save
                 </Button>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setIsEditing(false)}
-                  disabled={isUpdating}
-                >
+                <Button type="button" variant="outline" size="sm" onClick={() => setIsEditing(false)} disabled={isUpdating}>
                   <X className="h-4 w-4 mr-2" />
                   Cancel
                 </Button>
@@ -335,11 +293,11 @@ export function OpportunityHeader() {
                 </Button>
                 {opportunity && (
                   <>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setIsEditing(true)}
-                    >
+                    <Button variant="outline" size="sm" onClick={() => setShowRequestReview(true)}>
+                      <ClipboardCheck className="h-4 w-4 mr-2" />
+                      Request Review
+                    </Button>
+                    <Button variant="outline" size="sm" onClick={() => setIsEditing(true)}>
                       <Pencil className="h-4 w-4 mr-2" />
                       Edit
                     </Button>
@@ -350,11 +308,7 @@ export function OpportunityHeader() {
                       disabled={isDeleting}
                       className="text-destructive hover:text-destructive hover:bg-destructive/10"
                     >
-                      {isDeleting ? (
-                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                      ) : (
-                        <Trash2 className="h-4 w-4 mr-2" />
-                      )}
+                      {isDeleting ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Trash2 className="h-4 w-4 mr-2" />}
                       Delete
                     </Button>
                   </>
@@ -383,7 +337,6 @@ export function OpportunityHeader() {
                 className={cn(
                   'prose prose-sm max-w-none text-sm text-muted-foreground leading-relaxed',
                   '[&_p]:mb-2 [&_p:last-child]:mb-0',
-                  '[&_div]:mb-1',
                   '[&_ul]:mb-2 [&_ul]:pl-5 [&_ul>li]:list-disc [&_ul>li]:mb-0.5',
                   '[&_ol]:mb-2 [&_ol]:pl-5 [&_ol>li]:list-decimal [&_ol>li]:mb-0.5',
                   '[&_strong]:font-semibold [&_strong]:text-foreground',
@@ -398,7 +351,6 @@ export function OpportunityHeader() {
                   '[&_th]:border [&_th]:border-border [&_th]:px-2 [&_th]:py-1 [&_th]:bg-muted [&_th]:font-medium [&_th]:text-left',
                   '[&_td]:border [&_td]:border-border [&_td]:px-2 [&_td]:py-1',
                   '[&_hr]:border-border [&_hr]:my-2',
-                  '[&_span]:leading-relaxed',
                 )}
                 dangerouslySetInnerHTML={{
                   __html: DOMPurify.sanitize(opportunity.description, {
@@ -420,6 +372,26 @@ export function OpportunityHeader() {
           </CardContent>
         )}
       </Card>
+
+      {/* Request Review — feature not yet implemented */}
+      <Dialog open={showRequestReview} onOpenChange={setShowRequestReview}>
+        <DialogContent className="sm:max-w-[400px]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <ClipboardCheck className="h-5 w-5 text-muted-foreground" />
+              Request Review
+            </DialogTitle>
+            <DialogDescription>
+              This feature is not implemented yet. Proposal review workflows are coming soon.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowRequestReview(false)}>
+              Close
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Delete confirmation dialog */}
       <Dialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>

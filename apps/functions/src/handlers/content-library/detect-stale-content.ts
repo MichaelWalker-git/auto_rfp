@@ -5,6 +5,11 @@ import {
   sendStaleNotifications,
 } from './stale-content.service';
 import type { DetectionSummary } from './stale-content.service';
+import { docClient } from '@/helpers/db';
+import { ScanCommand } from '@aws-sdk/lib-dynamodb';
+import { CONTENT_LIBRARY_PK, ContentLibraryItem } from '@auto-rfp/core';
+import { PK_NAME } from '@/constants/common';
+import { DBItem } from '@/helpers/db';
 
 const TABLE_NAME = requireEnv('DB_TABLE_NAME');
 const SNS_TOPIC_ARN = process.env.STALE_CONTENT_SNS_TOPIC_ARN || '';
@@ -27,11 +32,19 @@ export const handler = async (): Promise<{ statusCode: number; body: string }> =
 
     const allResults = [...clResults, ...kbResults];
 
-    // 3. Send notifications for newly detected stale/warning items
+    // 3. Fetch all content library items for author lookup in notifications
+    const clScanResult = await docClient.send(new ScanCommand({
+      TableName: TABLE_NAME,
+      FilterExpression: `${PK_NAME} = :pk`,
+      ExpressionAttributeValues: { ':pk': CONTENT_LIBRARY_PK },
+    }));
+    const contentItems = (clScanResult.Items || []) as Array<ContentLibraryItem & DBItem>;
+
+    // 4. Send notifications for newly detected stale/warning items
     const newlyFlagged = allResults.filter(
       (r) => r.previousStatus === 'ACTIVE' && (r.newStatus === 'STALE' || r.newStatus === 'WARNING'),
     );
-    await sendStaleNotifications(SNS_TOPIC_ARN, newlyFlagged);
+    await sendStaleNotifications(SNS_TOPIC_ARN, newlyFlagged, contentItems);
 
     const summary: DetectionSummary = {
       totalScanned: clResults.length + kbResults.length,

@@ -24,19 +24,13 @@ import {
 } from '@/lib/hooks/use-knowledgebase';
 import PermissionWrapper from '@/components/permission-wrapper';
 import { KnowledgeBase } from '@auto-rfp/core';
-import { KBTypeSelect } from '@/components/kb/KBTypeSelect';
 import KnowledgeBaseCard from '@/components/kb/KnowledgeBaseCard';
-import { useCurrentOrganization } from '@/context/organization-context';
 
 export function useOpenKnowledgeBase(orgId: string) {
   const router = useRouter();
 
   return (kb: KnowledgeBase) => {
-    if (kb.type !== 'CONTENT_LIBRARY') {
-      router.push(`/organizations/${orgId}/knowledge-base/${kb.id}`);
-    } else {
-      router.push(`/organizations/${orgId}/knowledge-base/${kb.id}/content-library`);
-    }
+    router.push(`/organizations/${orgId}/knowledge-base/${kb.id}`);
   };
 }
 
@@ -159,10 +153,10 @@ export function KnowledgeBaseContent({}: KnowledgeBaseContentProps) {
         <div>
           <h1 className="text-3xl font-bold flex items-center gap-2">
             <BookOpen className="h-8 w-8" />
-            Knowledge Base
+            Org Documents
           </h1>
           <p className="text-gray-600 mt-1">
-            Manage pre-built questions and answers for common RFP responses
+            Manage document folders for indexing and Q&amp;A retrieval
           </p>
         </div>
 
@@ -178,16 +172,16 @@ export function KnowledgeBaseContent({}: KnowledgeBaseContentProps) {
             <DialogTrigger asChild>
               <Button>
                 <Plus className="mr-2 h-4 w-4" />
-                New Knowledge Base
+                New Folder
               </Button>
             </DialogTrigger>
           </PermissionWrapper>
 
           <DialogContent>
             <DialogHeader>
-              <DialogTitle>Create Knowledge Base</DialogTitle>
+              <DialogTitle>Create Document Folder</DialogTitle>
               <DialogDescription>
-                Create a new knowledge base to organize your questions and answers.
+                Create a new folder to organize and index your documents.
               </DialogDescription>
             </DialogHeader>
 
@@ -198,7 +192,7 @@ export function KnowledgeBaseContent({}: KnowledgeBaseContentProps) {
                   id="name"
                   value={kbForm.name}
                   onChange={(e) => setKbForm({ ...kbForm, name: e.target.value })}
-                  placeholder="e.g., Technical Questions, Compliance, Pricing"
+                  placeholder="e.g., Technical Docs, Compliance, Pricing"
                   required
                 />
               </div>
@@ -209,15 +203,7 @@ export function KnowledgeBaseContent({}: KnowledgeBaseContentProps) {
                   id="description"
                   value={kbForm?.description || ''}
                   onChange={(e) => setKbForm({ ...kbForm, description: e.target.value })}
-                  placeholder="Describe what types of questions this knowledge base contains"
-                />
-              </div>
-
-              <div>
-                <KBTypeSelect
-                  value={kbForm.type as any}
-                  onChange={(type) => setKbForm({ ...kbForm, type })}
-                  helperText="You can't change this later."
+                  placeholder="Describe what types of documents this folder contains"
                 />
               </div>
 
@@ -244,8 +230,8 @@ export function KnowledgeBaseContent({}: KnowledgeBaseContentProps) {
         >
           <DialogContent>
             <DialogHeader>
-              <DialogTitle>Edit Knowledge Base</DialogTitle>
-              <DialogDescription>Update the knowledge base details.</DialogDescription>
+              <DialogTitle>Edit Folder</DialogTitle>
+              <DialogDescription>Update the folder details.</DialogDescription>
             </DialogHeader>
 
             <form onSubmit={handleSaveEdit} className="space-y-4">
@@ -255,7 +241,7 @@ export function KnowledgeBaseContent({}: KnowledgeBaseContentProps) {
                   id="edit-name"
                   value={kbForm.name}
                   onChange={(e) => setKbForm({ ...kbForm, name: e.target.value })}
-                  placeholder="e.g., Technical Questions, Compliance, Pricing"
+                  placeholder="e.g., Technical Docs, Compliance, Pricing"
                   required
                 />
               </div>
@@ -266,7 +252,7 @@ export function KnowledgeBaseContent({}: KnowledgeBaseContentProps) {
                   id="edit-description"
                   value={kbForm?.description || ''}
                   onChange={(e) => setKbForm({ ...kbForm, description: e.target.value })}
-                  placeholder="Describe what types of questions this knowledge base contains"
+                  placeholder="Describe what types of documents this folder contains"
                 />
               </div>
 
@@ -290,13 +276,13 @@ export function KnowledgeBaseContent({}: KnowledgeBaseContentProps) {
         >
           <DialogContent>
             <DialogHeader>
-              <DialogTitle>Delete knowledge base?</DialogTitle>
+              <DialogTitle>Delete folder?</DialogTitle>
               <DialogDescription>
                 This action cannot be undone. This will permanently delete{' '}
                 <span className="font-medium text-foreground">
-                  {deletingKb?.name ?? 'this knowledge base'}
-                </span>
-                .
+                  {deletingKb?.name ?? 'this folder'}
+                </span>{' '}
+                and all its documents.
               </DialogDescription>
             </DialogHeader>
 
@@ -329,15 +315,14 @@ export function KnowledgeBaseContent({}: KnowledgeBaseContentProps) {
           <div className="rounded-full bg-muted p-4 mb-6">
             <BookOpen className="h-10 w-10 text-muted-foreground" />
           </div>
-          <h3 className="text-xl font-semibold mb-2">No knowledge bases yet</h3>
+          <h3 className="text-xl font-semibold mb-2">No document folders yet</h3>
           <p className="text-muted-foreground text-center max-w-md mb-6">
-            Knowledge bases help you organize pre-built questions and answers for common RFP responses.
-            Create your first one to get started.
+            Create folders to organize and index your documents for Q&amp;A and retrieval.
           </p>
           <PermissionWrapper requiredPermission="kb:create">
             <Button size="lg" onClick={() => setIsCreateKBOpen(true)}>
               <Plus className="mr-2 h-5 w-5" />
-              Create Your First Knowledge Base
+              Create Your First Folder
             </Button>
           </PermissionWrapper>
         </div>

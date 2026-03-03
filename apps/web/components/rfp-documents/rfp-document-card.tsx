@@ -3,7 +3,6 @@
 import React, { useCallback, useState } from 'react';
 import Link from 'next/link';
 import {
-  Download,
   ExternalLink,
   FileDown,
   FileText,
@@ -11,7 +10,6 @@ import {
   MoreHorizontal,
   Pencil,
   RefreshCw,
-  Settings2 as Settings2Icon,
   Trash2,
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
@@ -56,11 +54,6 @@ interface RFPDocumentCardProps {
   orgId: string;
   projectId: string;
   isDeleting: boolean;
-  isDownloading: boolean;
-  isPreviewLoading: boolean;
-  onPreview: (doc: RFPDocumentItem) => void;
-  onDownload: (doc: RFPDocumentItem) => void;
-  onEdit: (doc: RFPDocumentItem) => void;
   onExport: (doc: RFPDocumentItem) => void;
   onSignature: (doc: RFPDocumentItem) => void;
   onDelete: (doc: RFPDocumentItem) => void;
@@ -74,21 +67,15 @@ export function RFPDocumentCard({
   orgId,
   projectId,
   isDeleting,
-  isDownloading,
-  isPreviewLoading,
-  onPreview,
-  onDownload,
-  onEdit,
   onExport,
   onSignature,
   onDelete,
   onSyncComplete,
 }: RFPDocumentCardProps) {
   const typeStyle = getDocumentTypeStyle(doc.documentType);
-  const isBusy = isDeleting || isDownloading;
 
   return (
-    <div className={cn('rounded-xl border bg-background p-3', isBusy && 'opacity-80')}>
+    <div className={cn('rounded-xl border bg-background p-3', isDeleting && 'opacity-80')}>
       <div className="flex items-start gap-3">
         <DocumentIcon />
         <DocumentInfo doc={doc} typeStyle={typeStyle} />
@@ -97,11 +84,6 @@ export function RFPDocumentCard({
           orgId={orgId}
           projectId={projectId}
           isDeleting={isDeleting}
-          isDownloading={isDownloading}
-          isPreviewLoading={isPreviewLoading}
-          onPreview={onPreview}
-          onDownload={onDownload}
-          onEdit={onEdit}
           onExport={onExport}
           onSignature={onSignature}
           onDelete={onDelete}
@@ -203,11 +185,6 @@ interface DocumentActionsProps {
   orgId: string;
   projectId: string;
   isDeleting: boolean;
-  isDownloading: boolean;
-  isPreviewLoading: boolean;
-  onPreview: (doc: RFPDocumentItem) => void;
-  onDownload: (doc: RFPDocumentItem) => void;
-  onEdit: (doc: RFPDocumentItem) => void;
   onExport: (doc: RFPDocumentItem) => void;
   onSignature: (doc: RFPDocumentItem) => void;
   onDelete: (doc: RFPDocumentItem) => void;
@@ -219,9 +196,6 @@ function DocumentActions({
   orgId,
   projectId,
   isDeleting,
-  isDownloading,
-  onDownload,
-  onEdit,
   onExport,
   onSignature,
   onDelete,
@@ -263,24 +237,6 @@ function DocumentActions({
 
   return (
     <div className="flex items-center gap-2 shrink-0">
-      {/* Download — only for originally uploaded files (not AI-generated content) */}
-      {doc.fileKey && !doc.htmlContentKey && (
-        <Button
-          size="sm"
-          variant="outline"
-          className="gap-2"
-          disabled={isDownloading}
-          onClick={() => onDownload(doc)}
-          title="Download original file"
-        >
-          {isDownloading ? (
-            <Loader2 className="h-4 w-4 animate-spin" />
-          ) : (
-            <Download className="h-4 w-4" />
-          )}
-        </Button>
-      )}
-
       {/* Edit Content — full-page editor for AI-generated / content-based docs */}
       {isContentDoc && doc.status !== 'GENERATING' && (
         <Button size="sm" variant="outline" className="gap-2" asChild title="Edit document content">
@@ -288,13 +244,6 @@ function DocumentActions({
             <Pencil className="h-4 w-4" />
             <span className="hidden sm:inline">Edit</span>
           </Link>
-        </Button>
-      )}
-
-      {/* Export */}
-      {isContentDoc && (
-        <Button size="sm" variant="outline" className="gap-2" onClick={() => onExport(doc)} title="Export document">
-          <FileDown className="h-4 w-4" />
         </Button>
       )}
 
@@ -316,8 +265,8 @@ function DocumentActions({
             </DropdownMenuItem>
           )}
 
-          {/* Google Drive — sync / re-sync */}
-          {canSync && (
+          {/* Google Drive — sync / re-sync (hidden while generating) */}
+          {canSync && doc.status !== 'GENERATING' && (
             <DropdownMenuItem
               disabled={isSyncing}
               onClick={handleSync}
@@ -345,12 +294,6 @@ function DocumentActions({
               </Link>
             </DropdownMenuItem>
           )}
-
-          {/* Edit Details — metadata dialog */}
-          <DropdownMenuItem onClick={() => onEdit(doc)}>
-            <Settings2Icon className="h-4 w-4 mr-2" />
-            Edit Details
-          </DropdownMenuItem>
 
           {isContentDoc && (
             <DropdownMenuItem onClick={() => onExport(doc)}>

@@ -70,7 +70,6 @@ export async function storeDeadlinesSeparately(
         rawText: deadline.rawText,
         timezone: deadline.timezone,
         notes: deadline.notes,
-        evidence: deadline.evidence || [],
       }));
     }
 

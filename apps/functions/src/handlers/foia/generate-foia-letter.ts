@@ -16,7 +16,9 @@ import {
 } from '@/middleware/rbac-middleware';
 import { requireEnv } from '@/helpers/env';
 import { docClient } from '@/helpers/db';
+import { getOrgPrimaryContact } from '@/helpers/org-contact';
 import type { DBFOIARequestItem } from '@/types/project-outcome';
+import type { OrgPrimaryContactItem } from '@auto-rfp/core';
 
 const DB_TABLE_NAME = requireEnv('DB_TABLE_NAME');
 
@@ -39,13 +41,20 @@ export const baseHandler = async (
 
     const { orgId, projectId, foiaRequestId } = data;
 
-    const foiaRequest = await getFOIARequest(orgId, projectId, foiaRequestId);
+    const [foiaRequest, primaryContact] = await Promise.all([
+      getFOIARequest(orgId, projectId, foiaRequestId),
+      getOrgPrimaryContact(orgId).catch(() => null),
+    ]);
 
     if (!foiaRequest) {
       return apiResponse(404, { message: 'FOIA request not found' });
     }
 
-    const letter = generateFOIALetter(foiaRequest);
+    // Enrich the FOIA request with primary contact data as fallback
+    // for any missing requester fields
+    const enrichedRequest = enrichWithPrimaryContact(foiaRequest, primaryContact);
+
+    const letter = generateFOIALetter(enrichedRequest);
 
     return apiResponse(200, { letter });
   } catch (err: unknown) {
@@ -56,6 +65,25 @@ export const baseHandler = async (
       error: err instanceof Error ? err.message : 'Unknown error',
     });
   }
+};
+
+/**
+ * Enrich a FOIA request with org primary contact data.
+ * Only fills in fields that are missing or empty — never overwrites user-provided data.
+ */
+const enrichWithPrimaryContact = (
+  request: DBFOIARequestItem,
+  contact: OrgPrimaryContactItem | null,
+): DBFOIARequestItem => {
+  if (!contact) return request;
+
+  return {
+    ...request,
+    requesterName: request.requesterName || contact.name,
+    requesterEmail: request.requesterEmail || contact.email,
+    requesterPhone: request.requesterPhone || contact.phone || undefined,
+    requesterAddress: request.requesterAddress || contact.address || undefined,
+  };
 };
 
 async function getFOIARequest(

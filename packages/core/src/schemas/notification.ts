@@ -25,6 +25,9 @@ export const NotificationTypeSchema = z.enum([
   'PROCESSING_COMPLETE',
   'PROCESSING_ERROR',
   'EXPORT_READY',
+  // Stale content
+  'STALE_CONTENT_WARNING',
+  'STALE_CONTENT_DETECTED',
 ]);
 export type NotificationType = z.infer<typeof NotificationTypeSchema>;
 

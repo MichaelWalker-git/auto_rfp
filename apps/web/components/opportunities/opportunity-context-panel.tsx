@@ -284,7 +284,7 @@ export function OpportunityContextPanel() {
           </Button>
         </div>
         <p className="text-xs text-slate-500 mt-0.5">
-          Relevant KB, past performance, and content library items used when generating
+          Relevant document folder, past performance, and content library items used when generating
           documents. Pin items to always include them, or exclude items to remove them.
         </p>
         {lastRefreshedAt && (

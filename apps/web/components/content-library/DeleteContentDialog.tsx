@@ -36,8 +36,7 @@ export function DeleteContentDialog({
 
   const { deleteItem } = useDeleteContentLibraryItem(
     item?.orgId || '',
-    item?.kbId || '',
-    item?.id || ''
+    item?.id || '',
   );
 
   const handleDelete = async () => {

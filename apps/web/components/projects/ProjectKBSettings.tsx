@@ -1,11 +1,9 @@
 'use client';
 
 import React, { useCallback } from 'react';
-import { mutate as globalMutate } from 'swr';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { Loader2, Database, Plus, X, Info } from 'lucide-react';
+import { Loader2, FolderOpen, Plus, X, Info } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useProjectKBs, useLinkKB, useUnlinkKB } from '@/lib/hooks/use-project-kbs';
@@ -20,13 +18,9 @@ interface ProjectKBSettingsProps {
 export function ProjectKBSettings({ projectId, orgId }: ProjectKBSettingsProps) {
   const { toast } = useToast();
 
-  // Fetch linked KBs for this project
   const { data: linkedKBs, isLoading: isLoadingLinks, mutate: mutateLinks } = useProjectKBs(projectId, orgId);
-
-  // Fetch all org KBs to show available ones
   const { data: allKBs, isLoading: isLoadingKBs } = useKnowledgeBases(orgId);
 
-  // Mutation hooks
   const { trigger: linkKB, isMutating: isLinking } = useLinkKB();
   const { trigger: unlinkKB, isMutating: isUnlinking } = useUnlinkKB();
 
@@ -38,31 +32,30 @@ export function ProjectKBSettings({ projectId, orgId }: ProjectKBSettingsProps) 
     try {
       await linkKB({ orgId, projectId, kbId });
       await mutateLinks();
-      toast({ title: 'Knowledge base linked', description: 'KB has been assigned to this project.' });
+      toast({ title: 'Folder assigned', description: 'Document folder has been assigned to this project.' });
     } catch (err) {
       toast({
         title: 'Error',
-        description: err instanceof Error ? err.message : 'Failed to link knowledge base',
+        description: err instanceof Error ? err.message : 'Failed to assign folder',
         variant: 'destructive',
       });
     }
-  }, [projectId, linkKB, mutateLinks, toast]);
+  }, [projectId, orgId, linkKB, mutateLinks, toast]);
 
   const handleUnlink = useCallback(async (kbId: string) => {
     try {
       await unlinkKB({ orgId, projectId, kbId });
       await mutateLinks();
-      toast({ title: 'Knowledge base unlinked', description: 'KB has been removed from this project.' });
+      toast({ title: 'Folder removed', description: 'Document folder has been removed from this project.' });
     } catch (err) {
       toast({
         title: 'Error',
-        description: err instanceof Error ? err.message : 'Failed to unlink knowledge base',
+        description: err instanceof Error ? err.message : 'Failed to remove folder',
         variant: 'destructive',
       });
     }
-  }, [projectId, unlinkKB, mutateLinks, toast]);
+  }, [projectId, orgId, unlinkKB, mutateLinks, toast]);
 
-  // Separate KBs into linked and available
   const linkedKBList = (allKBs ?? []).filter((kb: KnowledgeBase) => linkedKBIds.has(kb.id));
   const availableKBList = (allKBs ?? []).filter((kb: KnowledgeBase) => !linkedKBIds.has(kb.id));
 
@@ -70,11 +63,11 @@ export function ProjectKBSettings({ projectId, orgId }: ProjectKBSettingsProps) 
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          <Database className="h-5 w-5" />
-          Knowledge Bases
+          <FolderOpen className="h-5 w-5" />
+          Org Document Folders
         </CardTitle>
         <CardDescription>
-          Assign knowledge bases to this project. Only assigned KBs will be used for answer generation.
+          Assign document folders to this project. Only assigned folders will be used for answer generation.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -84,10 +77,10 @@ export function ProjectKBSettings({ projectId, orgId }: ProjectKBSettingsProps) 
           </div>
         ) : (
           <>
-            {/* Linked KBs */}
+            {/* Assigned folders */}
             {linkedKBList.length > 0 ? (
               <div className="space-y-2">
-                <p className="text-sm font-medium text-muted-foreground">Assigned Knowledge Bases</p>
+                <p className="text-sm font-medium text-muted-foreground">Assigned Folders</p>
                 <div className="space-y-2">
                   {linkedKBList.map((kb: KnowledgeBase) => (
                     <div
@@ -95,16 +88,13 @@ export function ProjectKBSettings({ projectId, orgId }: ProjectKBSettingsProps) 
                       className="flex items-center justify-between rounded-lg border p-3"
                     >
                       <div className="flex items-center gap-3">
-                        <Database className="h-4 w-4 text-primary" />
+                        <FolderOpen className="h-4 w-4 text-primary" />
                         <div>
                           <p className="text-sm font-medium">{kb.name}</p>
                           {kb.description && (
                             <p className="text-xs text-muted-foreground">{kb.description}</p>
                           )}
                         </div>
-                        <Badge variant="secondary" className="text-xs">
-                          {kb.type === 'CONTENT_LIBRARY' ? 'Q&A' : 'Documents'}
-                        </Badge>
                       </div>
                       <Button
                         variant="ghost"
@@ -123,15 +113,15 @@ export function ProjectKBSettings({ projectId, orgId }: ProjectKBSettingsProps) 
               <Alert>
                 <Info className="h-4 w-4" />
                 <AlertDescription>
-                  No knowledge bases assigned. All organization KBs will be used for answer generation (default behavior).
+                  No folders assigned. All organization document folders will be used for answer generation (default behavior).
                 </AlertDescription>
               </Alert>
             )}
 
-            {/* Available KBs to add */}
+            {/* Available folders to add */}
             {availableKBList.length > 0 && (
               <div className="space-y-2">
-                <p className="text-sm font-medium text-muted-foreground">Available Knowledge Bases</p>
+                <p className="text-sm font-medium text-muted-foreground">Available Folders</p>
                 <div className="space-y-2">
                   {availableKBList.map((kb: KnowledgeBase) => (
                     <div
@@ -139,16 +129,13 @@ export function ProjectKBSettings({ projectId, orgId }: ProjectKBSettingsProps) 
                       className="flex items-center justify-between rounded-lg border border-dashed p-3"
                     >
                       <div className="flex items-center gap-3">
-                        <Database className="h-4 w-4 text-muted-foreground" />
+                        <FolderOpen className="h-4 w-4 text-muted-foreground" />
                         <div>
                           <p className="text-sm font-medium text-muted-foreground">{kb.name}</p>
                           {kb.description && (
                             <p className="text-xs text-muted-foreground">{kb.description}</p>
                           )}
                         </div>
-                        <Badge variant="outline" className="text-xs">
-                          {kb.type === 'CONTENT_LIBRARY' ? 'Q&A' : 'Documents'}
-                        </Badge>
                       </div>
                       <Button
                         variant="outline"
@@ -167,7 +154,7 @@ export function ProjectKBSettings({ projectId, orgId }: ProjectKBSettingsProps) 
 
             {(allKBs ?? []).length === 0 && (
               <p className="text-sm text-muted-foreground text-center py-4">
-                No knowledge bases found in this organization. Create one first in the Knowledge Base section.
+                No document folders found in this organization. Create one first in the Org Documents section.
               </p>
             )}
           </>

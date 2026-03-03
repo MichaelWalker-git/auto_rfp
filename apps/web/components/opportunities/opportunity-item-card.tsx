@@ -24,6 +24,8 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useDeleteOpportunity } from '@/lib/hooks/use-opportunities';
 import { useCurrentOrganization } from '@/context/organization-context';
 import { EditOpportunityDialog } from './edit-opportunity-dialog';
+import { OpportunityStageBadge } from './opportunity-stage-badge';
+import type { OpportunityStage } from '@auto-rfp/core';
 
 // ─── Description section — auto-fetches if description is a URL ──────────────
 
@@ -211,16 +213,23 @@ export const OpportunityItemCard = ({
       className={`group cursor-pointer overflow-hidden transition-all duration-200 hover:shadow-md hover:border-primary/20 flex flex-col bg-gradient-to-br from-background to-muted/30 ${className || ''}`}
     >
       <CardContent className="p-3 flex-1 flex flex-col gap-1.5" onClick={() => onOpen?.(item)}>
-        {/* Top row: title + status badge (top-right) */}
-        <div className="flex items-start gap-2">
-          <h3 className="text-xs font-semibold leading-snug line-clamp-3 text-foreground/90 flex-1">
+        {/* Top row: title + pipeline stage badge (top-right) */}
+        <div className="flex items-start gap-2" onClick={e => e.stopPropagation()}>
+          <h3
+            className="text-xs font-semibold leading-snug line-clamp-3 text-foreground/90 flex-1 cursor-pointer"
+            onClick={() => onOpen?.(item)}
+          >
             {item.title}
           </h3>
-          <Badge className={`shrink-0 text-xs h-4 px-1.5 mt-0.5 ${
-            item.active ? 'bg-green-600/90' : 'bg-muted text-muted-foreground'
-          }`}>
-            {item.active ? 'Active' : 'Inactive'}
-          </Badge>
+          <OpportunityStageBadge
+            stage={(item.stage as OpportunityStage | undefined) ?? (item.active ? 'PURSUING' : 'IDENTIFIED')}
+            orgId={currentOrganization?.id}
+            projectId={projectId ?? undefined}
+            oppId={oppId ?? undefined}
+            editable={!!(currentOrganization?.id && projectId && oppId)}
+            onStageChanged={(newStage) => onUpdated?.({ ...item, stage: newStage })}
+            className="shrink-0 mt-0.5"
+          />
         </div>
 
         {/* Meta */}

@@ -38,13 +38,15 @@ import {
   truncateText,
 } from '@/helpers/executive-opportunity-brief';
 import { syncRequiredDocumentsToCustomTypes } from '@/helpers/custom-document-types';
-
+import type { RequiredOutputDocument } from '@auto-rfp/core';
 import { enqueueGoogleDriveSync } from '@/helpers/google-drive-queue';
 import { getProjectById } from '@/helpers/project';
-
 import { requireEnv } from '@/helpers/env';
 import { loadTextFromS3 } from '@/helpers/s3';
 import { storeDeadlinesSeparately } from '@/helpers/deadlines';
+import { invokeClaudeWithTools } from '@/helpers/bedrock-tool-loop';
+import { BRIEF_TOOLS, executeBriefTool } from '@/helpers/brief-tools';
+import { onBriefScoringComplete } from '@/helpers/opportunity-stage';
 
 const JobSchema = z.object({
   orgId: z.string().min(1),
@@ -69,68 +71,79 @@ const SCORING_WEIGHTS: Record<string, number> = {
 
 const BEDROCK_MODEL_ID = requireEnv('BEDROCK_MODEL_ID');
 const MAX_SOLICITATION_CHARS = Number(requireEnv('BRIEF_MAX_SOLICITATION_CHARS', '45000'));
-const KB_TOPK_DEFAULT = Number(requireEnv('BRIEF_KB_TOPK', '20'));
 const DOCUMENTS_BUCKET = requireEnv('DOCUMENTS_BUCKET');
-const COST_SAVING = requireEnv('COST_SAVING', 'true') === 'true';
+
+// ─── KB Primer ────────────────────────────────────────────────────────────────
+
+/**
+ * Load a small KB primer (top N chunks) to give Claude initial context.
+ * Claude uses tools to pull deeper, more specific KB data as needed.
+ * Replaces the 20-line inline KB loading block repeated in each section handler.
+ */
+const loadKbPrimer = async (
+  orgId: string,
+  solicitationText: string,
+  topK = 3,
+): Promise<string> => {
+  try {
+    const kbMatches = await queryCompanyKnowledgeBase(orgId, solicitationText, topK * 2);
+    const kbParts = await Promise.all(
+      (kbMatches ?? []).slice(0, topK).map(async (m, i) => {
+        const header = `#${i + 1} score=${m.score}${m.source?.chunkKey ? ` chunkKey=${m.source.chunkKey}` : ''}`;
+        const text = m.source?.chunkKey
+          ? await loadTextFromS3(DOCUMENTS_BUCKET, m.source.chunkKey).catch(() => '')
+          : '';
+        return [header, text].filter(Boolean).join('\n');
+      }),
+    );
+    return kbParts.join('\n\n');
+  } catch (err) {
+    console.warn('loadKbPrimer error:', (err as Error)?.message);
+    return '';
+  }
+};
+
+// ─── Section Handlers ─────────────────────────────────────────────────────────
 
 async function runSummary(job: Job): Promise<void> {
-  const { orgId, executiveBriefId, topK, inputHash: inputHashFromJob } = job;
+  const { orgId, executiveBriefId, inputHash: inputHashFromJob } = job;
 
   try {
     const brief: ExecutiveBriefItem = await getExecutiveBrief(executiveBriefId);
+    const projectId = brief.projectId;
+    const opportunityId = brief.opportunityId as string;
 
     const inputHash =
       inputHashFromJob ||
       buildSectionInputHash({
         executiveBriefId,
         section: 'summary',
-        opportunityId: brief.opportunityId as string,
+        opportunityId,
         allTextKeys: brief.allTextKeys,
       });
 
-    await markSectionInProgress({
-      executiveBriefId,
-      section: 'summary',
-      inputHash,
-    });
+    await markSectionInProgress({ executiveBriefId, section: 'summary', inputHash });
 
     const { solicitationText: rawText } = await loadSolicitationForBrief(brief);
     const solicitationText = truncateText(rawText, MAX_SOLICITATION_CHARS);
+    const kbPrimer = await loadKbPrimer(orgId, solicitationText, 3);
 
-    const kbMatches = COST_SAVING
-      ? []
-      : await queryCompanyKnowledgeBase(orgId, solicitationText, topK ?? KB_TOPK_DEFAULT);
-
-    const kbParts = await Promise.all(
-      (kbMatches ?? [])
-        .slice(0, topK ?? KB_TOPK_DEFAULT)
-        .map(async (m, i) => {
-          const header = `#${i + 1} score=${m.score}${
-            m.source?.documentId ? ` doc=${m.source.documentId}` : ''
-          }${m.source?.chunkKey ? ` chunkKey=${m.source?.chunkKey}` : ''}`;
-
-          const text = m.source?.chunkKey
-            ? await loadTextFromS3(DOCUMENTS_BUCKET, m.source?.chunkKey)
-            : '';
-
-          return [header, text].filter(Boolean).join('\n');
-        }),
-    );
-
-    const kbText = kbParts.join('\n\n');
-
-    const data = await invokeClaudeJson({
+    const data = await invokeClaudeWithTools({
       modelId: BEDROCK_MODEL_ID,
       system: await getSummarySystemPrompt(orgId),
       user: await useSummaryUserPrompt(
         orgId,
         solicitationText,
-        kbText,
+        kbPrimer,
         JSON.stringify(QuickSummarySchema.shape, null, 2),
       ),
+      tools: BRIEF_TOOLS,
+      toolExecutor: (toolName, toolInput, toolUseId) =>
+        executeBriefTool({ toolName, toolInput, toolUseId, orgId, projectId, opportunityId, executiveBriefId }),
       outputSchema: QuickSummarySchema,
       maxTokens: 1200,
       temperature: 0.2,
+      maxToolRounds: 2,
     });
 
     await markSectionComplete({
@@ -140,17 +153,13 @@ async function runSummary(job: Job): Promise<void> {
       topLevelPatch: { status: 'IN_PROGRESS' },
     });
   } catch (err) {
-    await markSectionFailed({
-      executiveBriefId,
-      section: 'summary',
-      error: err,
-    });
+    await markSectionFailed({ executiveBriefId, section: 'summary', error: err });
     throw err;
   }
 }
 
 async function runDeadlines(job: Job): Promise<void> {
-  const { executiveBriefId, inputHash: inputHashFromJob } = job;
+  const { orgId, executiveBriefId, inputHash: inputHashFromJob } = job;
 
   try {
     const brief: ExecutiveBriefItem = await getExecutiveBrief(executiveBriefId);
@@ -164,19 +173,16 @@ async function runDeadlines(job: Job): Promise<void> {
         allTextKeys: brief.allTextKeys,
       });
 
-    await markSectionInProgress({
-      executiveBriefId,
-      section: 'deadlines',
-      inputHash,
-    });
+    await markSectionInProgress({ executiveBriefId, section: 'deadlines', inputHash });
 
     const { solicitationText: rawText } = await loadSolicitationForBrief(brief);
     const solicitationText = truncateText(rawText, MAX_SOLICITATION_CHARS);
 
+    // Deadlines: pure extraction from solicitation — no tools needed
     const data = await invokeClaudeJson({
       modelId: BEDROCK_MODEL_ID,
-      system: await useDeadlineSystemPrompt(job.orgId),
-      user: await useDeadlineUserPrompt(job.orgId, solicitationText),
+      system: await useDeadlineSystemPrompt(orgId),
+      user: await useDeadlineUserPrompt(orgId, solicitationText),
       outputSchema: DeadlinesSectionSchema,
       maxTokens: 4000,
       temperature: 0.1,
@@ -185,7 +191,7 @@ async function runDeadlines(job: Job): Promise<void> {
     const normalized = {
       ...data,
       hasSubmissionDeadline:
-        (data as any).hasSubmissionDeadline || Boolean((data as any).submissionDeadlineIso),
+        Boolean((data as Record<string, unknown>).hasSubmissionDeadline) || Boolean((data as Record<string, unknown>).submissionDeadlineIso),
     };
 
     await markSectionComplete({
@@ -195,75 +201,49 @@ async function runDeadlines(job: Job): Promise<void> {
       topLevelPatch: { status: 'IN_PROGRESS' },
     });
 
-    // Store deadlines separately with opportunityId for per-opportunity queries
     await storeDeadlinesSeparately(executiveBriefId, brief.projectId, normalized, brief.opportunityId);
   } catch (err) {
-    await markSectionFailed({
-      executiveBriefId,
-      section: 'deadlines',
-      error: err,
-    });
+    await markSectionFailed({ executiveBriefId, section: 'deadlines', error: err });
     throw err;
   }
 }
 
 async function runRequirements(job: Job): Promise<void> {
-  const { orgId, executiveBriefId, topK, inputHash: inputHashFromJob } = job;
+  const { orgId, executiveBriefId, inputHash: inputHashFromJob } = job;
 
-  if (!orgId) {
-    throw new Error('orgId is missing in SQS job payload');
-  }
+  if (!orgId) throw new Error('orgId is missing in SQS job payload');
 
   try {
     const brief: ExecutiveBriefItem = await getExecutiveBrief(executiveBriefId);
+    const projectId = brief.projectId;
+    const opportunityId = brief.opportunityId as string;
 
     const inputHash =
       inputHashFromJob ||
       buildSectionInputHash({
         executiveBriefId,
         section: 'requirements',
-        opportunityId: brief.opportunityId as string,
+        opportunityId,
         allTextKeys: brief.allTextKeys,
       });
 
-    await markSectionInProgress({
-      executiveBriefId,
-      section: 'requirements',
-      inputHash,
-    });
+    await markSectionInProgress({ executiveBriefId, section: 'requirements', inputHash });
 
     const { solicitationText: rawText } = await loadSolicitationForBrief(brief);
     const solicitationText = truncateText(rawText, MAX_SOLICITATION_CHARS);
+    const kbPrimer = await loadKbPrimer(orgId, solicitationText, 3);
 
-    const kbMatches = COST_SAVING
-      ? []
-      : await queryCompanyKnowledgeBase(orgId, solicitationText, topK ?? KB_TOPK_DEFAULT);
-
-    const kbParts = await Promise.all(
-      (kbMatches ?? [])
-        .slice(0, topK ?? KB_TOPK_DEFAULT)
-        .map(async (m, i) => {
-          const header = `#${i + 1} score=${m.score}${
-            m.source?.documentId ? ` doc=${m.source.documentId}` : ''
-          }${m.source?.chunkKey ? ` chunkKey=${m.source?.chunkKey}` : ''}`;
-
-          const text = m.source?.chunkKey
-            ? await loadTextFromS3(DOCUMENTS_BUCKET, m.source?.chunkKey)
-            : '';
-
-          return [header, text].filter(Boolean).join('\n');
-        }),
-    );
-
-    const kbText = kbParts.join('\n\n');
-
-    const data = await invokeClaudeJson({
+    const data = await invokeClaudeWithTools({
       modelId: BEDROCK_MODEL_ID,
       system: await useRequirementsSystemPrompt(orgId),
-      user: await useRequirementsUserPrompt(orgId, solicitationText, kbText),
+      user: await useRequirementsUserPrompt(orgId, solicitationText, kbPrimer),
+      tools: BRIEF_TOOLS,
+      toolExecutor: (toolName, toolInput, toolUseId) =>
+        executeBriefTool({ toolName, toolInput, toolUseId, orgId, projectId, opportunityId, executiveBriefId }),
       outputSchema: RequirementsSectionSchema,
       maxTokens: 5000,
       temperature: 0.2,
+      maxToolRounds: 2,
     });
 
     await markSectionComplete({
@@ -273,21 +253,17 @@ async function runRequirements(job: Job): Promise<void> {
       topLevelPatch: { status: 'IN_PROGRESS' },
     });
 
-    // ─── Sync new document types to DynamoDB (non-blocking) ───
-    // If AI extracted required documents with types not in the standard enum,
-    // save them as custom types so they can be reused in future generations.
-    const requiredDocs = (data as any)?.submissionCompliance?.requiredDocuments;
+    // Sync new document types to DynamoDB (non-blocking)
+    const dataRec = data as unknown as Record<string, unknown>;
+    const submissionCompliance = dataRec?.submissionCompliance as Record<string, unknown> | undefined;
+    const requiredDocs = submissionCompliance?.requiredDocuments as RequiredOutputDocument[] | undefined;
     if (requiredDocs?.length && orgId) {
       syncRequiredDocumentsToCustomTypes(orgId, requiredDocs).catch(err =>
         console.warn('syncRequiredDocumentsToCustomTypes failed (non-blocking):', (err as Error)?.message),
       );
     }
   } catch (err) {
-    await markSectionFailed({
-      executiveBriefId,
-      section: 'requirements',
-      error: err,
-    });
+    await markSectionFailed({ executiveBriefId, section: 'requirements', error: err });
     throw err;
   }
 }
@@ -295,9 +271,7 @@ async function runRequirements(job: Job): Promise<void> {
 async function runContacts(job: Job): Promise<void> {
   const { orgId, executiveBriefId, inputHash: inputHashFromJob } = job;
 
-  if (!orgId) {
-    throw new Error('orgId is missing in SQS job payload');
-  }
+  if (!orgId) throw new Error('orgId is missing in SQS job payload');
 
   try {
     const brief: ExecutiveBriefItem = await getExecutiveBrief(executiveBriefId);
@@ -311,15 +285,12 @@ async function runContacts(job: Job): Promise<void> {
         allTextKeys: brief.allTextKeys,
       });
 
-    await markSectionInProgress({
-      executiveBriefId,
-      section: 'contacts',
-      inputHash,
-    });
+    await markSectionInProgress({ executiveBriefId, section: 'contacts', inputHash });
 
     const { solicitationText: rawText } = await loadSolicitationForBrief(brief);
     const solicitationText = truncateText(rawText, MAX_SOLICITATION_CHARS);
 
+    // Contacts: pure extraction from solicitation — no tools needed
     const data = await invokeClaudeJson({
       modelId: BEDROCK_MODEL_ID,
       system: await useContactsSystemPrompt(orgId),
@@ -329,13 +300,14 @@ async function runContacts(job: Job): Promise<void> {
       temperature: 0.1,
     });
 
-    const foundRoles = (data.contacts ?? []).map((c: any) => c.role);
+    const foundRoles = (data.contacts ?? []).map((c: Record<string, unknown>) => c.role);
+    const dataContactsRec = data as unknown as Record<string, unknown>;
+    const existingMissingRoles = dataContactsRec.missingRecommendedRoles as string[] | undefined;
     const normalized = {
       ...data,
-      missingRecommendedRoles:
-        (data as any).missingRecommendedRoles?.length
-          ? (data as any).missingRecommendedRoles
-          : (computeMissingRoles(foundRoles) as any),
+      missingRecommendedRoles: existingMissingRoles?.length
+        ? existingMissingRoles
+        : computeMissingRoles(foundRoles as string[]),
     };
 
     await markSectionComplete({
@@ -345,11 +317,7 @@ async function runContacts(job: Job): Promise<void> {
       topLevelPatch: { status: 'IN_PROGRESS' },
     });
   } catch (err) {
-    await markSectionFailed({
-      executiveBriefId,
-      section: 'contacts',
-      error: err,
-    });
+    await markSectionFailed({ executiveBriefId, section: 'contacts', error: err });
     throw err;
   }
 }
@@ -359,48 +327,51 @@ async function runRisks(job: Job): Promise<void> {
 
   try {
     const brief: ExecutiveBriefItem = await getExecutiveBrief(executiveBriefId);
+    const projectId = brief.projectId;
+    const opportunityId = brief.opportunityId as string;
 
     const inputHash =
       inputHashFromJob ||
       buildSectionInputHash({
         executiveBriefId,
         section: 'risks',
-        opportunityId: brief.opportunityId as string,
+        opportunityId,
         allTextKeys: brief.allTextKeys,
       });
 
-    await markSectionInProgress({
-      executiveBriefId,
-      section: 'risks',
-      inputHash,
-    });
+    await markSectionInProgress({ executiveBriefId, section: 'risks', inputHash });
 
     const { solicitationText: rawText } = await loadSolicitationForBrief(brief);
     const solicitationText = truncateText(rawText, MAX_SOLICITATION_CHARS);
+    const kbPrimer = await loadKbPrimer(orgId, solicitationText, 2);
 
-    const data = await invokeClaudeJson({
+    const data = await invokeClaudeWithTools({
       modelId: BEDROCK_MODEL_ID,
       system: await useRiskSystemPrompt(orgId),
       user: await useRiskUserPrompt(orgId, solicitationText),
+      tools: BRIEF_TOOLS,
+      toolExecutor: (toolName, toolInput, toolUseId) =>
+        executeBriefTool({ toolName, toolInput, toolUseId, orgId, projectId, opportunityId, executiveBriefId }),
       outputSchema: RisksSectionSchema,
       maxTokens: 4000,
       temperature: 0.2,
+      maxToolRounds: 2,
     });
 
-    // Small normalization: if something is CRITICAL/HIGH but impactsScore missing, set it true.
-    const normalize = (items: any[]) =>
+    const normalize = (items: Record<string, unknown>[]) =>
       (items ?? []).map((r) => ({
         ...r,
         impactsScore:
           typeof r?.impactsScore === 'boolean'
             ? r.impactsScore
-            : ['HIGH', 'CRITICAL'].includes(r?.severity),
+            : ['HIGH', 'CRITICAL'].includes(r?.severity as string),
       }));
 
+    const dataAsRecord = data as unknown as Record<string, unknown>;
     const normalized = {
       ...data,
-      risks: normalize((data as any).risks),
-      redFlags: normalize((data as any).redFlags),
+      risks: normalize((dataAsRecord.risks as Record<string, unknown>[] | undefined) ?? []),
+      redFlags: normalize((dataAsRecord.redFlags as Record<string, unknown>[] | undefined) ?? []),
     };
 
     await markSectionComplete({
@@ -410,24 +381,20 @@ async function runRisks(job: Job): Promise<void> {
       topLevelPatch: { status: 'IN_PROGRESS' },
     });
   } catch (err) {
-    await markSectionFailed({
-      executiveBriefId,
-      section: 'risks',
-      error: err,
-    });
+    await markSectionFailed({ executiveBriefId, section: 'risks', error: err });
     throw err;
   }
 }
 
 async function runScoring(job: Job): Promise<void> {
-  const { orgId, executiveBriefId, topK, inputHash: inputHashFromJob } = job;
+  const { orgId, executiveBriefId, inputHash: inputHashFromJob } = job;
 
-  if (!orgId) {
-    throw new Error('orgId is missing in SQS job payload');
-  }
+  if (!orgId) throw new Error('orgId is missing in SQS job payload');
 
   try {
     const brief: ExecutiveBriefItem = await getExecutiveBrief(executiveBriefId);
+    const projectId = brief.projectId;
+    const opportunityId = brief.opportunityId as string;
 
     const prereq = scoringPrereqsComplete(brief);
     if (!prereq.ok) {
@@ -435,7 +402,6 @@ async function runScoring(job: Job): Promise<void> {
       throw new Error(`All fields should be ready before calling scoring. Missing: ${missing.join(', ')}`);
     }
 
-    // Extract section data with explicit null checks
     const sections = brief.sections as Record<string, { data?: Record<string, unknown> }>;
     const summaryData = sections?.summary?.data;
     const deadlinesData = sections?.deadlines?.data;
@@ -453,7 +419,6 @@ async function runScoring(job: Job): Promise<void> {
       throw new Error(`Section data missing for scoring: ${missingData.join(', ')}`);
     }
 
-    // Past performance is optional — scoring can proceed without it
     const pastPerformanceData = sections?.pastPerformance?.data;
 
     const inputHash =
@@ -461,44 +426,17 @@ async function runScoring(job: Job): Promise<void> {
       buildSectionInputHash({
         executiveBriefId,
         section: 'scoring',
-        opportunityId: brief.opportunityId as string,
+        opportunityId,
         allTextKeys: brief.allTextKeys,
       });
 
-    await markSectionInProgress({
-      executiveBriefId,
-      section: 'scoring',
-      inputHash,
-    });
+    await markSectionInProgress({ executiveBriefId, section: 'scoring', inputHash });
 
     const { solicitationText: rawText } = await loadSolicitationForBrief(brief);
     const solicitationText = truncateText(rawText, MAX_SOLICITATION_CHARS);
+    const kbPrimer = await loadKbPrimer(orgId, solicitationText, 3);
 
-    const kbMatches = COST_SAVING
-      ? []
-      : await queryCompanyKnowledgeBase(orgId, solicitationText, topK ?? KB_TOPK_DEFAULT);
-
-    const kbParts = await Promise.all(
-      (kbMatches ?? [])
-        .slice(0, topK ?? KB_TOPK_DEFAULT)
-        .map(async (m, i) => {
-          const header = `#${i + 1} score=${m.score}${
-            m.source?.documentId ? ` doc=${m.source.documentId}` : ''
-          }${m.source?.chunkKey ? ` chunkKey=${m.source?.chunkKey}` : ''}`;
-
-          const text = m.source?.chunkKey
-            ? await loadTextFromS3(DOCUMENTS_BUCKET, m.source?.chunkKey)
-            : '';
-
-          return [header, text].filter(Boolean).join('\n');
-        }),
-    );
-
-    const kbText = kbParts.join('\n\n');
-
-    // Fix AUTO-RFP-5X: Use extracted data objects instead of full section wrappers
-    // Include past performance data for scoring (critical for bid/no-bid decision)
-    const data = await invokeClaudeJson({
+    const data = await invokeClaudeWithTools({
       modelId: BEDROCK_MODEL_ID,
       system: await useScoringSystemPrompt(orgId),
       user: await useScoringUserPrompt(
@@ -510,11 +448,15 @@ async function runScoring(job: Job): Promise<void> {
         JSON.stringify(contactsData),
         JSON.stringify(risksData),
         pastPerformanceData ? JSON.stringify(pastPerformanceData) : undefined,
-        kbText,
+        kbPrimer,
       ),
+      tools: BRIEF_TOOLS,
+      toolExecutor: (toolName, toolInput, toolUseId) =>
+        executeBriefTool({ toolName, toolInput, toolUseId, orgId, projectId, opportunityId, executiveBriefId }),
       outputSchema: ScoringSectionSchema,
       maxTokens: 5000,
       temperature: 0.2,
+      maxToolRounds: 2,
     });
 
     const computedComposite = weightedCompositeScore(data?.criteria ?? []);
@@ -534,10 +476,10 @@ async function runScoring(job: Job): Promise<void> {
       confidenceDrivers: data.confidenceDrivers ?? [],
     };
 
-    // scoring completion may update overall status
-    const nextSections: any = {
-      ...brief.sections,
-      scoring: { ...(brief.sections as any).scoring, status: 'COMPLETE' },
+    type SectionStatus = 'FAILED' | 'IN_PROGRESS' | 'IDLE' | 'COMPLETE';
+    const nextSections: Record<string, { status: SectionStatus }> = {
+      ...(brief.sections as Record<string, { status: SectionStatus }>),
+      scoring: { status: 'COMPLETE' as SectionStatus },
     };
     const overall = computeOverallStatus(nextSections);
 
@@ -554,41 +496,44 @@ async function runScoring(job: Job): Promise<void> {
       },
     });
 
-    // ─── Google Drive Sync on GO Decision (async via SQS) ───
-    // When the decision is GO, enqueue Google Drive sync to run asynchronously.
-    // This avoids blocking the scoring worker with potentially slow Drive operations.
+    // Auto-transition opportunity stage based on scoring decision (non-blocking)
+    onBriefScoringComplete({
+      orgId,
+      projectId,
+      oppId: opportunityId,
+      decision: normalized.decision as 'GO' | 'NO_GO' | 'CONDITIONAL_GO',
+      compositeScore: normalized.compositeScore,
+    }).catch(err => console.warn('onBriefScoringComplete failed (non-blocking):', (err as Error)?.message));
+
+    // Google Drive Sync on GO Decision (async via SQS)
     if (normalized.decision === 'GO') {
       try {
         console.log(`GO decision detected for brief ${executiveBriefId} — enqueuing Google Drive sync`);
-
         const updatedBrief = await getExecutiveBrief(executiveBriefId);
         const project = await getProjectById(brief.projectId);
-        const projectName = (project as any)?.name || brief.projectId;
+        const projectName = (project as Record<string, unknown>)?.name || brief.projectId;
 
         await enqueueGoogleDriveSync({
           orgId,
           projectId: brief.projectId,
-          opportunityId: brief.opportunityId as string,
+          opportunityId,
           executiveBriefId,
           linearTicketId: updatedBrief.linearTicketId as string | undefined,
           linearTicketIdentifier: updatedBrief.linearTicketIdentifier as string | undefined,
           agencyName: summaryData?.agency as string | undefined,
-          projectTitle: (summaryData?.title as string | undefined) || projectName,
+          projectTitle: (summaryData?.title as string | undefined) || String(projectName),
         });
       } catch (enqueueErr) {
-        // Non-blocking — don't fail scoring if enqueue fails
         console.error('Failed to enqueue Google Drive sync (non-blocking):', (enqueueErr as Error)?.message);
       }
     }
   } catch (err) {
-    await markSectionFailed({
-      executiveBriefId,
-      section: 'scoring',
-      error: err,
-    });
+    await markSectionFailed({ executiveBriefId, section: 'scoring', error: err });
     throw err;
   }
 }
+
+// ─── Section dispatcher ───────────────────────────────────────────────────────
 
 const sectionHandlers: Record<Section, (job: Job) => Promise<void>> = {
   summary: runSummary,
@@ -599,13 +544,13 @@ const sectionHandlers: Record<Section, (job: Job) => Promise<void>> = {
   scoring: runScoring,
 };
 
-async function runSection(job: Job): Promise<void> {
+const runSection = async (job: Job): Promise<void> => {
   const handler = sectionHandlers[job.section];
-  if (!handler) {
-    throw new Error(`No handler for section: ${job.section}`);
-  }
+  if (!handler) throw new Error(`No handler for section: ${job.section}`);
   await handler(job);
-}
+};
+
+// ─── SQS Handler ─────────────────────────────────────────────────────────────
 
 const baseHandler = async (event: SQSEvent): Promise<SQSBatchResponse> => {
   const batchItemFailures: SQSBatchResponse['batchItemFailures'] = [];
@@ -619,16 +564,14 @@ const baseHandler = async (event: SQSEvent): Promise<SQSBatchResponse> => {
   return { batchItemFailures };
 };
 
-function average(nums: number[]): number {
+// ─── Utilities ────────────────────────────────────────────────────────────────
+
+const average = (nums: number[]): number => {
   if (!nums.length) return 0;
   return nums.reduce((a, b) => a + b, 0) / nums.length;
-}
+};
 
-/**
- * Compute a weighted composite score using SCORING_WEIGHTS.
- * Falls back to a simple average if the criteria names don't match the weight map.
- */
-function weightedCompositeScore(criteria: Array<{ name?: string; score?: number }>): number {
+const weightedCompositeScore = (criteria: Array<{ name?: string; score?: number }>): number => {
   if (!criteria.length) return 0;
 
   let weightedSum = 0;
@@ -645,16 +588,15 @@ function weightedCompositeScore(criteria: Array<{ name?: string; score?: number 
     }
   }
 
-  // Fall back to simple average if fewer than half the criteria matched weights
   if (matched < criteria.length / 2 || totalWeight === 0) {
     const scores = criteria.map((c) => c.score ?? 0);
     return Math.round(average(scores) * 10) / 10;
   }
 
   return Math.round((weightedSum / totalWeight) * 10) / 10;
-}
+};
 
-function computeMissingRoles(foundRoles: string[]): string[] {
+const computeMissingRoles = (foundRoles: string[]): string[] => {
   const recommended = [
     'CONTRACTING_OFFICER',
     'CONTRACT_SPECIALIST',
@@ -664,24 +606,18 @@ function computeMissingRoles(foundRoles: string[]): string[] {
 
   const found = new Set(foundRoles);
   return recommended.filter((r) => !found.has(r));
-}
+};
 
-/**
- * Check if a section has valid data that can be used for scoring.
- * Fixes AUTO-RFP-5X: Validates that section data exists, not just status.
- */
-function isSectionDataValid(brief: ExecutiveBriefItem, section: Exclude<Section, 'scoring'>): boolean {
-  const s = (brief.sections as any)?.[section];
+const isSectionDataValid = (brief: ExecutiveBriefItem, section: Exclude<Section, 'scoring'>): boolean => {
+  const s = (brief.sections as Record<string, { status?: string; data?: unknown }>)?.[section];
   if (!s || s.status !== 'COMPLETE') return false;
-  // Ensure data actually exists and is not null/undefined
   return s.data !== null && s.data !== undefined;
-}
+};
 
-function scoringPrereqsComplete(brief: ExecutiveBriefItem): { ok: true } | { ok: false; missing: string[] } {
+const scoringPrereqsComplete = (brief: ExecutiveBriefItem): { ok: true } | { ok: false; missing: string[] } => {
   const prereqs: Exclude<Section, 'scoring'>[] = ['summary', 'deadlines', 'requirements', 'contacts', 'risks'];
-  // Fix AUTO-RFP-5X: Check both status AND data validity
   const missing = prereqs.filter((s) => !isSectionDataValid(brief, s));
   return missing.length ? { ok: false, missing } : { ok: true };
-}
+};
 
 export const handler = withSentryLambda(baseHandler);

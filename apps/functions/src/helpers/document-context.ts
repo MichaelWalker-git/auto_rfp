@@ -27,19 +27,24 @@ const MAX_SEARCH_QUERY_CHARS = 15_000;
 
 /**
  * Hard total budget for the combined enrichment context string passed to the
- * generation model.  Claude 3 Sonnet/Haiku have a 200k-token context window,
- * but we keep the enrichment context lean so the model focuses on the
- * solicitation text and Q&A pairs rather than drowning in raw KB chunks.
+ * generation model.
+ *
+ * Reduced from 26,000 to 18,000 chars because AI tools now fill the gap on demand.
+ * The pre-fetched context serves as a "primer" — enough for Claude to understand
+ * what's available and formulate good tool queries.
  *
  * Budget breakdown (chars):
- *   Executive Brief  →  8,000  (structured, already compressed)
- *   Knowledge Base   →  8,000  (top relevant chunks only)
- *   Past Performance →  6,000  (top 3 projects, compressed)
- *   Content Library  →  4,000  (top snippets only)
+ *   Executive Brief  →  6,000  (structured, already compressed)
+ *   Knowledge Base   →  5,000  (top relevant chunks only)
+ *   Past Performance →  4,000  (top 3 projects, compressed)
+ *   Content Library  →  3,000  (top snippets only)
  *   ─────────────────────────
- *   Total            → 26,000  (~6,500 tokens)
+ *   Total            → 18,000  (~4,500 tokens)
+ *
+ * Claude uses tools (get_executive_brief_analysis, search_knowledge_base,
+ * search_past_performance, get_content_library) to pull deeper data as needed.
  */
-const TOTAL_CONTEXT_BUDGET = 26_000;
+const TOTAL_CONTEXT_BUDGET = 18_000;
 
 /** Minimum relevance score (cosine similarity, 0–1) to include a KB chunk. */
 const KB_MIN_SCORE = 0.45;

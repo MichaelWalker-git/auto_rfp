@@ -8,8 +8,9 @@ import {
   UpdateContentLibraryItemDTOSchema,
 } from '@auto-rfp/core';
 import { apiResponse, getOrgId } from '@/helpers/api';
-import { docClient } from '@/helpers/db';
+import { docClient, getItem } from '@/helpers/db';
 import { requireEnv } from '@/helpers/env';
+import { PK_NAME, SK_NAME } from '@/constants/common';
 import { withSentryLambda } from '@/sentry-lambda';
 import { authContextMiddleware, httpErrorMiddleware, orgMembershipMiddleware,   type AuthedEvent,
 } from '@/middleware/rbac-middleware';
@@ -33,39 +34,32 @@ async function baseHandler(
       return apiResponse(400, { error: 'Missing itemId' });
     }
 
-    if (!orgId || !kbId) {
-      return apiResponse(400, { error: 'Missing orgId or kbId' });
+    if (!orgId) {
+      return apiResponse(400, { error: 'Missing orgId' });
     }
 
-    let body = JSON.parse(event.body || '');
-
-    if (!body) {
-      return apiResponse(400, { error: 'Request body is required' });
-    }
-
-    const { success, data, error: errors } = UpdateContentLibraryItemDTOSchema.safeParse(body);
+    const { success, data, error: errors } = UpdateContentLibraryItemDTOSchema.safeParse(
+      JSON.parse(event.body || '{}'),
+    );
     if (!success) {
       return apiResponse(400, { error: 'Validation failed', details: errors.format() });
     }
 
-    const userId = (event.requestContext as any)?.authorizer?.claims?.sub || 'system';
+    const userId = event.auth?.userId ?? 'system';
     const now = new Date().toISOString();
     const updateData = data;
 
-    // First get the existing item
-    const existingResult = await docClient.send(new GetCommand({
-      TableName: TABLE_NAME,
-      Key: {
-        partition_key: CONTENT_LIBRARY_PK,
-        sort_key: createContentLibrarySK(orgId, kbId, itemId),
-      },
-    }));
-
-    if (!existingResult.Item) {
-      return apiResponse(404, { error: 'Content library item not found' });
+    // Resolve SK: try new format (orgId#itemId) first, fall back to legacy (orgId#kbId#itemId)
+    let sk = createContentLibrarySK(orgId, itemId);
+    let existing = await getItem<ContentLibraryItem>(CONTENT_LIBRARY_PK, sk);
+    if (!existing && kbId) {
+      sk = createContentLibrarySK(orgId, kbId, itemId);
+      existing = await getItem<ContentLibraryItem>(CONTENT_LIBRARY_PK, sk);
     }
 
-    const existing = existingResult.Item as ContentLibraryItem;
+    if (!existing) {
+      return apiResponse(404, { error: 'Content library item not found' });
+    }
 
     // Build update expression
     const updateExpressions: string[] = ['#updatedAt = :updatedAt', '#updatedBy = :updatedBy'];
@@ -137,10 +131,7 @@ async function baseHandler(
 
     await docClient.send(new UpdateCommand({
       TableName: TABLE_NAME,
-      Key: {
-        partition_key: CONTENT_LIBRARY_PK,
-        sort_key: createContentLibrarySK(orgId, kbId, itemId),
-      },
+      Key: { [PK_NAME]: CONTENT_LIBRARY_PK, [SK_NAME]: sk },
       UpdateExpression: `SET ${updateExpressions.join(', ')}`,
       ExpressionAttributeNames: expressionNames,
       ExpressionAttributeValues: expressionValues,
@@ -150,13 +141,10 @@ async function baseHandler(
     // Fetch the updated item
     const updatedResult = await docClient.send(new GetCommand({
       TableName: TABLE_NAME,
-      Key: {
-        partition_key: CONTENT_LIBRARY_PK,
-        sort_key: createContentLibrarySK(orgId, kbId, itemId),
-      },
+      Key: { [PK_NAME]: CONTENT_LIBRARY_PK, [SK_NAME]: sk },
     }));
 
-    const item = updatedResult.Item || {};
+    const item = updatedResult.Item ?? {};
     
     setAuditContext(event, {
       action: 'CONFIG_CHANGED',

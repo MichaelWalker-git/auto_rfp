@@ -1,54 +1,43 @@
-import type { APIGatewayProxyEventV2, APIGatewayProxyResultV2 } from 'aws-lambda';
-import { UpdateCommand } from '@aws-sdk/lib-dynamodb';
+import type { APIGatewayProxyResultV2 } from 'aws-lambda';
 import middy from '@middy/core';
-import { CONTENT_LIBRARY_PK, createContentLibrarySK, } from '@auto-rfp/core';
+import { CONTENT_LIBRARY_PK, ContentLibraryItem, createContentLibrarySK } from '@auto-rfp/core';
 import { apiResponse, getOrgId } from '@/helpers/api';
-import { docClient } from '@/helpers/db';
-import { requireEnv } from '@/helpers/env';
+import { getItem, updateItem } from '@/helpers/db';
 import { withSentryLambda } from '@/sentry-lambda';
-import { authContextMiddleware, httpErrorMiddleware, orgMembershipMiddleware,   type AuthedEvent,
+import {
+  authContextMiddleware,
+  httpErrorMiddleware,
+  orgMembershipMiddleware,
+  type AuthedEvent,
 } from '@/middleware/rbac-middleware';
 import { auditMiddleware, setAuditContext } from '@/middleware/audit-middleware';
-import { nowIso } from '@/helpers/date';
-import { PK_NAME, SK_NAME } from '@/constants/common';
 
-const TABLE_NAME = requireEnv('DB_TABLE_NAME');
-
-async function baseHandler(
-  event: AuthedEvent
-): Promise<APIGatewayProxyResultV2> {
+async function baseHandler(event: AuthedEvent): Promise<APIGatewayProxyResultV2> {
   try {
     const itemId = event.pathParameters?.id;
     const orgId = event.queryStringParameters?.orgId || getOrgId(event);
-    const kbId = event.queryStringParameters?.kbId;
-    if (!itemId || !kbId || !orgId) {
-      return apiResponse(400, { error: 'Missing itemId or kbId or orgId.' });
+
+    if (!itemId || !orgId) {
+      return apiResponse(400, { error: 'Missing itemId or orgId' });
     }
 
-    const now = nowIso();
+    const sk = createContentLibrarySK(orgId, itemId);
+    const item = await getItem<ContentLibraryItem>(CONTENT_LIBRARY_PK, sk);
 
-    await docClient.send(new UpdateCommand({
-      TableName: TABLE_NAME,
-      Key: {
-        [PK_NAME]: CONTENT_LIBRARY_PK,
-        [SK_NAME]: createContentLibrarySK(orgId, kbId, itemId),
-      },
-      UpdateExpression: 'SET #approvalStatus = :status, #updatedAt = :updatedAt',
-      ExpressionAttributeNames: {
-        '#approvalStatus': 'approvalStatus',
-        '#updatedAt': 'updatedAt',
-      },
-      ExpressionAttributeValues: {
-        ':status': 'DEPRECATED',
-        ':updatedAt': now,
-      },
-    }));
+    if (!item) {
+      return apiResponse(404, { error: 'Content library item not found' });
+    }
 
-    
+    if (item.isArchived) {
+      return apiResponse(400, { error: 'Cannot deprecate an archived item' });
+    }
+
+    await updateItem(CONTENT_LIBRARY_PK, sk, { approvalStatus: 'DEPRECATED' });
+
     setAuditContext(event, {
       action: 'CONFIG_CHANGED',
       resource: 'knowledge_base',
-      resourceId: event.pathParameters?.id ?? 'unknown',
+      resourceId: itemId,
     });
 
     return apiResponse(200, { message: 'Item deprecated' });

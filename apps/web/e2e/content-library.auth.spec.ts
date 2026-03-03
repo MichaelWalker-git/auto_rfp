@@ -1,9 +1,8 @@
 import { test, expect } from './fixtures/auth';
 
-// Test data - URL pattern: /organizations/[orgId]/knowledge-base/[kbId]/content-library
+// Test data - URL pattern: /organizations/[orgId]/content-library
 const TEST_ORG_ID = 'test-org-id';
-const TEST_KB_ID = 'test-kb-id';
-const CONTENT_LIBRARY_URL = `/organizations/${TEST_ORG_ID}/knowledge-base/${TEST_KB_ID}/content-library`;
+const CONTENT_LIBRARY_URL = `/organizations/${TEST_ORG_ID}/content-library`;
 
 test.describe('Content Library', () => {
   test.beforeEach(async ({ page }) => {

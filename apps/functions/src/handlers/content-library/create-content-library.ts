@@ -41,14 +41,13 @@ async function baseHandler(
       return apiResponse(400, { error: 'Missing orgId' });
     }
 
-    const userId = (event.requestContext as any)?.authorizer?.claims?.sub || 'system';
+    const userId = event.auth?.userId ?? 'system';
     const itemId = uuidv4();
     const now = nowIso();
 
     const item: ContentLibraryItem = {
       id: itemId,
       orgId,
-      kbId: data.kbId,
       question: data.question,
       answer: data.answer,
       category: data.category,
@@ -83,11 +82,14 @@ async function baseHandler(
       createdBy: userId,
     };
 
+    // SK: orgId#itemId
+    const sk = createContentLibrarySK(item.orgId, item.id);
+
     const dbItem = {
       [PK_NAME]: CONTENT_LIBRARY_PK,
-      [SK_NAME]: createContentLibrarySK(item.orgId, item.kbId, item.id),
+      [SK_NAME]: sk,
       ...item,
-    }
+    };
 
     await docClient.send(new PutCommand({
       TableName: TABLE_NAME,

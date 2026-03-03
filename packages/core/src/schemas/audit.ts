@@ -52,6 +52,9 @@ export const AuditActionSchema = z.enum([
   'AI_GENERATION_STARTED',
   'AI_GENERATION_COMPLETED',
   'AI_GENERATION_FAILED',
+  // AI tool invocation events
+  'AI_TOOL_CALLED',
+  'AI_TOOL_FAILED',
   'INTEGRATION_SYNC_STARTED',
   'INTEGRATION_SYNC_COMPLETED',
   'INTEGRATION_SYNC_FAILED',
@@ -83,6 +86,7 @@ export const AuditResourceSchema = z.enum([
   'report',
   'config',
   'system',
+  'ai_tool',
 ]);
 export type AuditResource = z.infer<typeof AuditResourceSchema>;
 

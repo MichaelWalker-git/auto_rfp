@@ -55,7 +55,7 @@ export function ImportSolicitationDialog({
 
   const noticeId = opportunity?.noticeId ?? '';
   const title = opportunity?.title ?? '(No title)';
-  const isActive = (opportunity?.active as any) === true || opportunity?.active === 'Yes';
+  const isActive = (opportunity?.active as unknown) === true || (opportunity?.active as unknown) === 'Yes';
 
   React.useEffect(() => {
     if (!open) return;

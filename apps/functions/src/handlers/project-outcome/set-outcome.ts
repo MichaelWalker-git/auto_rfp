@@ -19,6 +19,7 @@ import {
 import { auditMiddleware, setAuditContext } from '@/middleware/audit-middleware';
 import { requireEnv } from '@/helpers/env';
 import { docClient } from '@/helpers/db';
+import { onProjectOutcomeSet } from '@/helpers/opportunity-stage';
 import type { DBProjectOutcome } from '@/types/project-outcome';
 
 const DB_TABLE_NAME = requireEnv('DB_TABLE_NAME');
@@ -159,6 +160,15 @@ export async function setProjectOutcome(
   });
 
   await docClient.send(cmd);
+
+  // Auto-transition opportunity stage based on outcome (non-blocking)
+  onProjectOutcomeSet({
+    orgId,
+    projectId,
+    oppId: opportunityId,
+    outcomeStatus: status,
+    changedBy: userId,
+  }).catch(err => console.warn('onProjectOutcomeSet failed (non-blocking):', (err as Error)?.message));
 
   return outcomeItem;
 }

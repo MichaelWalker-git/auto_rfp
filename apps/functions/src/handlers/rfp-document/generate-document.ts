@@ -6,6 +6,8 @@ import { z } from 'zod';
 import { apiResponse, getOrgId, getUserId } from '@/helpers/api';
 import { withSentryLambda } from '@/sentry-lambda';
 import { getProjectById } from '@/helpers/project';
+// Note: org/user contact info is now fetched directly by the get_organization_context
+// AI tool during generation — no need to pass it through the SQS message.
 import {
   authContextMiddleware,
   httpErrorMiddleware,
@@ -19,9 +21,6 @@ import { enqueueDocumentGeneration } from '@/helpers/document-generation-queue';
 import { nowIso } from '@/helpers/date';
 import { PK_NAME, SK_NAME } from '@/constants/common';
 import { RFP_DOCUMENT_PK } from '@/constants/rfp-document';
-import { ORG_PK } from '@/constants/organization';
-import { getItem } from '@/helpers/db';
-import { getUserByOrgAndId } from '@/helpers/user';
 import type { DBProjectItem } from '@/types/project';
 import { RFP_DOCUMENT_TYPES, RFPDocumentTypeSchema } from '@auto-rfp/core';
 
@@ -114,43 +113,9 @@ export const baseHandler = async (
       });
     }
 
-    // 3. Fetch org + user contact info for document generation (best-effort, non-blocking)
-    let orgContact: import('@/helpers/document-generation-queue').OrgContactInfo | undefined;
-    let userContact: import('@/helpers/document-generation-queue').UserContactInfo | undefined;
-
-    try {
-      const [orgItem, userItem] = await Promise.all([
-        getItem<Record<string, unknown>>(ORG_PK, `ORG#${orgId}`),
-        userId ? getUserByOrgAndId(orgId, userId) : Promise.resolve(null),
-      ]);
-
-      if (orgItem) {
-        orgContact = {
-          orgName: (orgItem.name as string | undefined) ?? undefined,
-          orgAddress: (orgItem.address as string | undefined) ?? undefined,
-          orgPhone: (orgItem.phone as string | undefined) ?? undefined,
-          orgEmail: (orgItem.email as string | undefined) ?? undefined,
-          orgWebsite: (orgItem.website as string | undefined) ?? undefined,
-        };
-      }
-
-      if (userItem) {
-        const displayName = userItem.displayName
-          ?? (userItem.firstName && userItem.lastName
-            ? `${userItem.firstName} ${userItem.lastName}`
-            : userItem.firstName ?? undefined);
-        userContact = {
-          name: displayName,
-          email: userItem.email,
-          title: (userItem as unknown as Record<string, unknown>).title as string | undefined,
-          phone: (userItem as unknown as Record<string, unknown>).phone as string | undefined,
-        };
-      }
-    } catch (contactErr) {
-      console.warn('Could not fetch org/user contact info for document generation:', (contactErr as Error)?.message);
-    }
-
-    // 4. Enqueue the generation job to SQS
+    // 3. Enqueue the generation job to SQS
+    // Org/user contact info is fetched directly by the get_organization_context AI tool
+    // during generation — no need to pass it through the SQS message.
     await enqueueDocumentGeneration({
       orgId,
       projectId,
@@ -158,8 +123,6 @@ export const baseHandler = async (
       documentType,
       templateId,
       documentId,
-      orgContact,
-      userContact,
     });
 
     // 5. Return 202 Accepted

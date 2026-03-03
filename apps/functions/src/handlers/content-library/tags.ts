@@ -7,6 +7,7 @@ import {
 } from '@auto-rfp/core';
 import { apiResponse, getOrgId } from '@/helpers/api';
 import { docClient } from '@/helpers/db';
+import { PK_NAME, SK_NAME } from '@/constants/common';
 import { requireEnv } from '@/helpers/env';
 import { withSentryLambda } from '@/sentry-lambda';
 import {
@@ -35,7 +36,8 @@ async function baseHandler(
 
     const result = await docClient.send(new QueryCommand({
       TableName: TABLE_NAME,
-      KeyConditionExpression: 'partition_key = :pk AND begins_with(sort_key, :sk_prefix)',
+      KeyConditionExpression: '#pk = :pk AND begins_with(#sk, :sk_prefix)',
+      ExpressionAttributeNames: { '#pk': PK_NAME, '#sk': SK_NAME },
       ExpressionAttributeValues: {
         ':pk': CONTENT_LIBRARY_PK,
         ':sk_prefix': `${orgId}#`,

@@ -13,11 +13,10 @@ const DOCUMENT_PK = 'DOCUMENT';
  */
 export async function trackContentLibraryUsage(
   orgId: string,
-  kbId: string,
   itemId: string,
   projectId?: string,
 ): Promise<void> {
-  const sk = createContentLibrarySK(orgId, kbId, itemId);
+  const sk = createContentLibrarySK(orgId, itemId);
   const now = new Date().toISOString();
 
   try {

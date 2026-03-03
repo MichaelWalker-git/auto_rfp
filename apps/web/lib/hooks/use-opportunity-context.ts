@@ -78,7 +78,7 @@ async function deleteJson<T>(url: string, body: unknown): Promise<T> {
 // ─── Source label helpers ─────────────────────────────────────────────────────
 
 export const CONTEXT_SOURCE_LABELS: Record<ContextItemSource, string> = {
-  KNOWLEDGE_BASE: 'Knowledge Base',
+  KNOWLEDGE_BASE: 'Document Folder',
   PAST_PERFORMANCE: 'Past Performance',
   CONTENT_LIBRARY: 'Content Library',
   EXECUTIVE_BRIEF: 'Executive Brief',

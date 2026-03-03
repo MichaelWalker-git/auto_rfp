@@ -3,7 +3,6 @@ import { z } from 'zod';
 
 import { withSentryLambda } from '@/sentry-lambda';
 import { safeParseJsonFromModel } from '@/helpers/json';
-import { invokeModel } from '@/helpers/bedrock-http-client';
 import { gatherAllContext } from '@/helpers/document-context';
 import {
   buildSystemPromptForDocumentType,
@@ -20,7 +19,13 @@ import {
 import { BEDROCK_MODEL_ID, MAX_TOKENS, TEMPERATURE } from '@/constants/document-generation';
 import { RFPDocumentContentSchema, RFPDocumentTypeSchema, type RFPDocumentContent } from '@auto-rfp/core';
 import { DOCUMENT_TOOLS, executeDocumentTool } from '@/helpers/document-tools';
-import type { OrgContactInfo, UserContactInfo } from '@/helpers/document-generation-queue';
+import { invokeModel } from '@/helpers/bedrock-http-client';
+import {
+  SECTIONED_DOCUMENT_TYPES,
+  DOCUMENT_SECTIONS,
+  generateDocumentSectionBySectionHtml,
+  buildDocumentTitleHtml,
+} from '@/helpers/document-section-generator';
 
 // ─── Helpers ───
 
@@ -30,7 +35,6 @@ import type { OrgContactInfo, UserContactInfo } from '@/helpers/document-generat
  * Also generates a minimal HTML fallback if neither field has content.
  */
 const ensureHtmlContent = (doc: RFPDocumentContent): RFPDocumentContent => {
-  // Normalize: if model returned htmlContent but not content, promote it
   const effectiveContent = doc.content || doc.htmlContent || null;
 
   if (effectiveContent) {
@@ -51,21 +55,6 @@ const ensureHtmlContent = (doc: RFPDocumentContent): RFPDocumentContent => {
 
 // ─── Job Schema ───
 
-const OrgContactSchema = z.object({
-  orgName: z.string().optional(),
-  orgAddress: z.string().optional(),
-  orgPhone: z.string().optional(),
-  orgEmail: z.string().optional(),
-  orgWebsite: z.string().optional(),
-}).optional();
-
-const UserContactSchema = z.object({
-  name: z.string().optional(),
-  email: z.string().optional(),
-  title: z.string().optional(),
-  phone: z.string().optional(),
-}).optional();
-
 const JobSchema = z.object({
   orgId: z.string().min(1),
   projectId: z.string().min(1),
@@ -73,45 +62,14 @@ const JobSchema = z.object({
   documentType: RFPDocumentTypeSchema,
   templateId: z.string().optional(),
   documentId: z.string().min(1),
-  orgContact: OrgContactSchema,
-  userContact: UserContactSchema,
 });
 
 type Job = z.infer<typeof JobSchema>;
 
-// ─── Format org/user contact context ─────────────────────────────────────────
-
-const formatContactContext = (
-  orgContact?: OrgContactInfo | null,
-  userContact?: UserContactInfo | null,
-): string => {
-  const parts: string[] = [];
-
-  if (orgContact?.orgName || orgContact?.orgAddress || orgContact?.orgPhone || orgContact?.orgEmail || orgContact?.orgWebsite) {
-    parts.push('=== SUBMITTING ORGANIZATION ===');
-    if (orgContact.orgName) parts.push(`Company Name: ${orgContact.orgName}`);
-    if (orgContact.orgAddress) parts.push(`Address: ${orgContact.orgAddress}`);
-    if (orgContact.orgPhone) parts.push(`Phone: ${orgContact.orgPhone}`);
-    if (orgContact.orgEmail) parts.push(`Email: ${orgContact.orgEmail}`);
-    if (orgContact.orgWebsite) parts.push(`Website: ${orgContact.orgWebsite}`);
-  }
-
-  if (userContact?.name || userContact?.email || userContact?.title || userContact?.phone) {
-    parts.push('\n=== POINT OF CONTACT (PROPOSAL SIGNATORY) ===');
-    if (userContact.name) parts.push(`Name: ${userContact.name}`);
-    if (userContact.title) parts.push(`Title: ${userContact.title}`);
-    if (userContact.email) parts.push(`Email: ${userContact.email}`);
-    if (userContact.phone) parts.push(`Phone: ${userContact.phone}`);
-  }
-
-  return parts.join('\n');
-};
-
 // ─── Process Job ───
 
-async function processJob(job: Job): Promise<void> {
-  const { orgId, projectId, opportunityId, documentType, templateId, documentId, orgContact, userContact } = job;
-  const effectiveOpportunityId = opportunityId || 'default';
+const processJob = async (job: Job): Promise<void> => {
+  const { orgId, projectId, opportunityId, documentType, templateId, documentId } = job;
 
   console.log(`Processing document generation for documentId=${documentId}, type=${documentType}`);
 
@@ -119,7 +77,7 @@ async function processJob(job: Job): Promise<void> {
   const qaPairs = await loadQaPairs(projectId);
   if (!qaPairs.length) {
     await updateDocumentStatus(
-      projectId, effectiveOpportunityId, documentId, 'FAILED',
+      projectId, opportunityId, documentId, 'FAILED',
       undefined, 'No questions found for this project',
     );
     return;
@@ -129,7 +87,6 @@ async function processJob(job: Job): Promise<void> {
   const solicitation = await loadSolicitation(projectId, opportunityId);
 
   // 3. Gather enrichment context + resolve template HTML in parallel
-  // Pass documentType so context budgets are allocated toward the most relevant sources
   const [enrichedKbText, templateHtmlScaffold] = await Promise.all([
     gatherAllContext({ projectId, orgId, opportunityId, solicitation, documentType }),
     resolveTemplateHtml(orgId, documentType, templateId),
@@ -139,36 +96,91 @@ async function processJob(job: Job): Promise<void> {
     console.log(`Using HTML template scaffold for documentId=${documentId} (${templateHtmlScaffold.length} chars)`);
   }
 
-  // Build contact context section and prepend to enriched KB text
-  const contactContext = formatContactContext(orgContact, userContact);
-  const enrichedWithContact = contactContext
-    ? `--- COMPANY & CONTACT INFORMATION ---\n(Use this EXACT information for all contact details, signatures, and company references in the document. Do NOT use placeholder names or fake contact info.)\n${contactContext}\n\n${enrichedKbText}`
-    : enrichedKbText;
-
   const systemPrompt = buildSystemPromptForDocumentType(documentType, null, templateHtmlScaffold);
   const userPrompt = buildUserPromptForDocumentType(
     documentType,
     solicitation,
     JSON.stringify(qaPairs),
-    enrichedWithContact,
+    enrichedKbText,
   );
 
   if (!userPrompt.trim() || !systemPrompt.trim()) {
     await updateDocumentStatus(
-      projectId, effectiveOpportunityId, documentId, 'FAILED',
+      projectId, opportunityId, documentId, 'FAILED',
       undefined, 'Prompt generation failed',
     );
     return;
   }
 
-  // 5. Call Bedrock with tool use loop (max 3 tool rounds, then force final generation)
-  // Table-heavy document types (compliance matrix, appendices) need more tokens
+  // 4. Choose generation strategy:
+  //    - Section-by-section: for large multi-section documents (no template override)
+  //    - Single-shot: for short documents or when a template scaffold is provided
+
+  const useSectionedGeneration =
+    SECTIONED_DOCUMENT_TYPES.has(documentType) &&
+    !templateHtmlScaffold &&
+    DOCUMENT_SECTIONS[documentType] !== undefined;
+
+  if (useSectionedGeneration) {
+    // ── Section-by-section generation ──────────────────────────────────────
+    console.log(`Using section-by-section generation for documentId=${documentId}, type=${documentType}`);
+
+    const sections = DOCUMENT_SECTIONS[documentType]!;
+    const htmlFragments = await generateDocumentSectionBySectionHtml({
+      modelId: BEDROCK_MODEL_ID,
+      systemPrompt,
+      initialUserPrompt: userPrompt,
+      sections,
+      orgId,
+      projectId,
+      opportunityId,
+      documentId,
+      qaPairs,
+      maxTokensPerSection: 6000,
+      temperature: TEMPERATURE,
+      maxToolRoundsPerSection: 2,
+    });
+
+    if (!htmlFragments.length) {
+      await updateDocumentStatus(
+        projectId, opportunityId, documentId, 'FAILED',
+        undefined, 'Section-by-section generation produced no content',
+      );
+      return;
+    }
+
+    // Derive a proper document title from the type label
+    const { TEMPLATE_CATEGORY_LABELS } = await import('@auto-rfp/core');
+    const docTitle =
+      TEMPLATE_CATEGORY_LABELS[documentType as keyof typeof TEMPLATE_CATEGORY_LABELS] ??
+      documentType.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+
+    // Stitch sections together — replace literal \n escape sequences with real newlines
+    const cleanFragments = htmlFragments.map(f =>
+      f.replace(/\\n/g, '\n').replace(/\\t/g, '\t'),
+    );
+
+    const stitchedHtml = [
+      buildDocumentTitleHtml(docTitle),
+      ...cleanFragments,
+    ].join('\n\n');
+
+    const finalDocument: RFPDocumentContent = {
+      title: docTitle,
+      content: stitchedHtml,
+    };
+
+    await updateDocumentStatus(projectId, opportunityId, documentId, 'COMPLETE', finalDocument, undefined, orgId);
+    console.log(`Section-by-section generation complete for documentId=${documentId}: ${sections.length} sections, ${stitchedHtml.length} chars`);
+    return;
+  }
+
+  // ── Single-shot generation (with tool-use loop) ─────────────────────────
   const TABLE_HEAVY_TYPES = new Set(['COMPLIANCE_MATRIX', 'APPENDICES', 'PAST_PERFORMANCE', 'CERTIFICATIONS']);
   const baseMaxTokens = TABLE_HEAVY_TYPES.has(documentType) ? Math.max(MAX_TOKENS, 16000) : MAX_TOKENS;
   const effectiveMaxTokens = enrichedKbText.length > 1000 ? Math.max(baseMaxTokens, 8000) : baseMaxTokens;
   const MAX_TOOL_ROUNDS = 3;
 
-  // Conversation messages — starts with the user prompt, grows as tools are called
   const messages: Array<{ role: string; content: unknown }> = [
     { role: 'user', content: [{ type: 'text', text: userPrompt }] },
   ];
@@ -187,7 +199,6 @@ async function processJob(job: Job): Promise<void> {
       temperature: TEMPERATURE,
     };
 
-    // Offer tools only in non-final rounds; on the last round force text output
     if (!isLastRound) {
       requestBody.tools = DOCUMENT_TOOLS;
     }
@@ -199,12 +210,10 @@ async function processJob(job: Job): Promise<void> {
     const content: Array<{ type: string; id?: string; name?: string; input?: unknown; text?: string }> =
       parsed.content ?? [];
 
-    // If Claude wants to use tools and we still have rounds left, execute them
     if (stopReason === 'tool_use' && !isLastRound) {
       const toolUseBlocks = content.filter(c => c.type === 'tool_use');
       console.log(`Tool use round ${toolRounds + 1}: ${toolUseBlocks.length} tool call(s)`);
 
-      // Add assistant response to conversation
       messages.push({ role: 'assistant', content });
 
       const toolResults = await Promise.all(
@@ -215,12 +224,13 @@ async function processJob(job: Job): Promise<void> {
             toolUseId: block.id ?? '',
             orgId,
             projectId,
+            opportunityId,
+            documentId,
             qaPairs,
           })
         )
       );
 
-      // Add tool results as user message
       messages.push({
         role: 'user',
         content: toolResults.map(r => ({
@@ -234,7 +244,6 @@ async function processJob(job: Job): Promise<void> {
       continue;
     }
 
-    // Extract final text response (may include both text and tool_use blocks — take text only)
     rawText = content
       .filter(c => c.type === 'text')
       .map(c => c.text ?? '')
@@ -242,11 +251,9 @@ async function processJob(job: Job): Promise<void> {
       .trim();
 
     if (!rawText) {
-      // Fallback: try legacy extractBedrockText
       rawText = extractBedrockText(parsed);
     }
 
-    // If still no text (e.g. Claude only returned tool_use on last round), add a final prompt
     if (!rawText && stopReason === 'tool_use' && isLastRound) {
       console.warn('Last round still returned tool_use — sending final generation request without tools');
       messages.push({ role: 'assistant', content });
@@ -272,35 +279,33 @@ async function processJob(job: Job): Promise<void> {
     break;
   }
 
-  // 6. Parse model JSON — with fallback for plain-text/HTML responses
+  // 5. Parse model JSON — with fallback for plain-text/HTML responses
   let modelJson: unknown;
   try {
     modelJson = safeParseJsonFromModel(rawText);
   } catch (parseErr) {
-    // Model returned plain text or HTML without a JSON wrapper.
-    // Wrap it so we can still produce a usable document.
     console.warn(`safeParseJsonFromModel failed for documentId=${documentId}: ${(parseErr as Error).message}. Wrapping raw text as HTML.`);
     modelJson = { title: `Generated ${documentType.replace(/_/g, ' ')}`, htmlContent: rawText };
   }
 
-  // 7. Validate model output against RFPDocumentContent schema
+  // 6. Validate model output against RFPDocumentContent schema
   const { success, data, error } = RFPDocumentContentSchema.safeParse(modelJson);
   if (!success) {
     console.error('Document validation failed', error, { modelJson });
     await updateDocumentStatus(
-      projectId, effectiveOpportunityId, documentId, 'FAILED',
+      projectId, opportunityId, documentId, 'FAILED',
       undefined, 'Model did not return a valid document',
     );
     return;
   }
 
-  // 7. Ensure htmlContent is present — convert legacy sections to HTML if needed
+  // 7. Ensure htmlContent is present
   const finalDocument = ensureHtmlContent(data);
 
   // 8. Persist generated content — HTML goes to S3, only key stored in DynamoDB
-  await updateDocumentStatus(projectId, effectiveOpportunityId, documentId, 'COMPLETE', finalDocument, undefined, orgId);
+  await updateDocumentStatus(projectId, opportunityId, documentId, 'COMPLETE', finalDocument, undefined, orgId);
   console.log(`Document generation complete for documentId=${documentId}`);
-}
+};
 
 // ─── SQS Handler ───
 

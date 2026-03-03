@@ -16,6 +16,7 @@
 7. **[07-infrastructure.md](07-infrastructure.md)** — AWS CDK infrastructure definitions
 8. **[08-cicd.md](08-cicd.md)** — CI/CD workflows and deployment strategies
 9. **[09-testing.md](09-testing.md)** — Testing rules and conventions
+10. **[10-audit-trail.md](10-audit-trail.md)** — Audit trail requirements for every new feature
 
 ---
 

@@ -1,6 +1,6 @@
 export interface ContentLibraryProps {
   orgId: string;
-  kbId: string;
+  kbId?: string;
 }
 
 export interface DialogState {
