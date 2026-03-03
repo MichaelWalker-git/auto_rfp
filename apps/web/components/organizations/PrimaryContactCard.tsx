@@ -55,6 +55,7 @@ export const PrimaryContactCard = ({ orgId }: PrimaryContactCardProps) => {
     formState: { errors, isDirty, isValid },
   } = useForm<ContactFormValues>({
     resolver: zodResolver(ContactFormSchema),
+    mode: 'onChange',
     defaultValues: {
       name: '',
       title: '',
@@ -258,7 +259,7 @@ export const PrimaryContactCard = ({ orgId }: PrimaryContactCardProps) => {
             <Button
               type="submit"
               size="sm"
-              disabled={isSaving || (!isDirty && !isValid)}
+              disabled={isSaving || !isDirty || !isValid}
             >
               {isSaving ? (
                 <>

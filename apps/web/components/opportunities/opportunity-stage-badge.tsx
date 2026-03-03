@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { ChevronDown, Loader2 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import {
@@ -64,10 +64,12 @@ export const OpportunityStageBadge = ({
   const [currentStage, setCurrentStage] = useState<OpportunityStage>(stage ?? 'IDENTIFIED');
   const [isUpdating, setIsUpdating] = useState(false);
 
-  // Sync with prop changes
-  if (stage && stage !== currentStage && !isUpdating) {
-    setCurrentStage(stage);
-  }
+  // Sync prop → state when the parent updates the stage externally
+  useEffect(() => {
+    if (stage && stage !== currentStage && !isUpdating) {
+      setCurrentStage(stage);
+    }
+  }, [stage, isUpdating]);
 
   const colorClass = OPPORTUNITY_STAGE_COLORS[currentStage];
   const label = OPPORTUNITY_STAGE_LABELS[currentStage];

@@ -12,7 +12,7 @@ export const getOrgPrimaryContact = async (orgId: string): Promise<OrgPrimaryCon
 
 /**
  * Create or update the primary contact for an organization.
- * Uses upsert (putItem with preserveCreatedAt=true) — one record per org.
+ * Reads the existing record first to preserve the original createdAt on updates.
  */
 export const upsertOrgPrimaryContact = async (
   orgId: string,
@@ -20,6 +20,10 @@ export const upsertOrgPrimaryContact = async (
   updatedBy: string,
 ): Promise<OrgPrimaryContactItem> => {
   const now = nowIso();
+  // Read existing record to preserve original createdAt
+  const existing = await getOrgPrimaryContact(orgId);
+  const createdAt = existing?.createdAt ?? now;
+
   return putItem<OrgPrimaryContactItem>(
     ORG_CONTACT_PK,
     orgId,
@@ -27,9 +31,9 @@ export const upsertOrgPrimaryContact = async (
       ...dto,
       orgId,
       updatedBy,
-      createdAt: now,
+      createdAt,
     },
-    true, // preserveCreatedAt — keeps original createdAt on updates
+    false, // createdAt is explicitly set above — no need for preserveCreatedAt logic
   );
 };
 

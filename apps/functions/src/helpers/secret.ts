@@ -49,6 +49,12 @@ export const getHmacSecret = async (): Promise<string> => {
     }),
   );
 
-  cachedHmacSecret = res.Parameter?.Value ?? '';
+  const value = res.Parameter?.Value?.trim() ?? '';
+  if (!value) {
+    throw new Error(
+      `HMAC secret parameter "${AUDIT_HMAC_SECRET_PARAM}" is missing or empty. Audit integrity signing cannot proceed with a blank secret.`,
+    );
+  }
+  cachedHmacSecret = value;
   return cachedHmacSecret;
 };
