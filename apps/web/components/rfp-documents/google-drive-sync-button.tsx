@@ -161,7 +161,8 @@ export const GoogleDriveSyncButton = ({
     }
   }, [isBusy, isSynced, syncFrom, doc, toast, onSyncComplete, settingsUrl]);
 
-  // Don't render if there's nothing to sync and it's never been synced
+  // Don't render if document is still generating or there's nothing to sync
+  if (doc.status === 'GENERATING') return null;
   if (!hasContent && !isSynced) return null;
 
   return (

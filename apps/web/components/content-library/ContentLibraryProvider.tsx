@@ -22,7 +22,7 @@ const ContentLibraryContext = createContext<ContentLibraryContextValue | undefin
 interface ContentLibraryProviderProps {
   children: ReactNode;
   orgId: string;
-  kbId: string;
+  kbId?: string;
 }
 
 const ITEMS_PER_PAGE = 20;

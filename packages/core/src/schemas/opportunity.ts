@@ -15,6 +15,92 @@ import { z } from 'zod';
 export const OpportunitySourceSchema = z.enum(['SAM_GOV', 'DIBBS', 'MANUAL_UPLOAD']);
 export type OpportunitySource = z.infer<typeof OpportunitySourceSchema>;
 
+// ─── Pipeline Stage ───────────────────────────────────────────────────────────
+
+/**
+ * Opportunity pipeline stages — replaces the binary active/inactive flag.
+ *
+ * Flow:
+ *   IDENTIFIED → QUALIFYING → PURSUING → SUBMITTED → WON | LOST
+ *                           ↘ NO_BID
+ *                                                  ↘ WITHDRAWN
+ *
+ * Automatic transitions:
+ *   IDENTIFIED  → QUALIFYING  when executive brief generation starts
+ *   QUALIFYING  → PURSUING    when brief scoring decision = GO
+ *   QUALIFYING  → NO_BID      when brief scoring decision = NO_GO
+ *   PURSUING    → SUBMITTED   when project outcome status = PENDING (proposal submitted)
+ *   SUBMITTED   → WON         when project outcome status = WON
+ *   SUBMITTED   → LOST        when project outcome status = LOST
+ *   Any stage   → WITHDRAWN   when project outcome status = WITHDRAWN
+ *
+ * Manual transitions: any stage can be moved to any other stage by an org admin.
+ */
+export const OpportunityStageSchema = z.enum([
+  'IDENTIFIED',   // Opportunity found/imported, not yet analyzed
+  'QUALIFYING',   // Brief generation in progress, evaluating bid/no-bid
+  'PURSUING',     // GO decision made, actively working on proposal
+  'SUBMITTED',    // Proposal submitted, awaiting award decision
+  'WON',          // Contract awarded to us
+  'LOST',         // Contract awarded to competitor
+  'NO_BID',       // Decided not to pursue
+  'WITHDRAWN',    // Withdrew from competition
+]);
+
+export type OpportunityStage = z.infer<typeof OpportunityStageSchema>;
+
+/** Human-readable labels for each pipeline stage */
+export const OPPORTUNITY_STAGE_LABELS: Record<OpportunityStage, string> = {
+  IDENTIFIED:  'Identified',
+  QUALIFYING:  'Qualifying',
+  PURSUING:    'Pursuing',
+  SUBMITTED:   'Submitted',
+  WON:         'Won',
+  LOST:        'Lost',
+  NO_BID:      'No Bid',
+  WITHDRAWN:   'Withdrawn',
+};
+
+/** Tailwind color classes for each stage badge */
+export const OPPORTUNITY_STAGE_COLORS: Record<OpportunityStage, string> = {
+  IDENTIFIED:  'bg-slate-100 text-slate-700 border-slate-200',
+  QUALIFYING:  'bg-blue-100 text-blue-700 border-blue-200',
+  PURSUING:    'bg-indigo-100 text-indigo-700 border-indigo-200',
+  SUBMITTED:   'bg-amber-100 text-amber-700 border-amber-200',
+  WON:         'bg-emerald-100 text-emerald-700 border-emerald-200',
+  LOST:        'bg-red-100 text-red-700 border-red-200',
+  NO_BID:      'bg-gray-100 text-gray-600 border-gray-200',
+  WITHDRAWN:   'bg-gray-100 text-gray-500 border-gray-200',
+};
+
+/** Stages that represent active pursuit (not terminal) */
+export const ACTIVE_OPPORTUNITY_STAGES: OpportunityStage[] = [
+  'IDENTIFIED',
+  'QUALIFYING',
+  'PURSUING',
+  'SUBMITTED',
+];
+
+/** Terminal stages — no further action expected */
+export const TERMINAL_OPPORTUNITY_STAGES: OpportunityStage[] = [
+  'WON',
+  'LOST',
+  'NO_BID',
+  'WITHDRAWN',
+];
+
+/** Stage transition history entry */
+export const OpportunityStageTransitionSchema = z.object({
+  from:      OpportunityStageSchema.nullable(),
+  to:        OpportunityStageSchema,
+  changedAt: z.string().datetime(),
+  changedBy: z.string().min(1),  // userId or 'system'
+  reason:    z.string().optional(),
+  source:    z.enum(['MANUAL', 'BRIEF_SCORING', 'PROJECT_OUTCOME', 'SYSTEM']),
+});
+
+export type OpportunityStageTransition = z.infer<typeof OpportunityStageTransitionSchema>;
+
 // ─── Stored opportunity item ──────────────────────────────────────────────────
 
 export const OpportunityItemSchema = z.object({
@@ -37,7 +123,23 @@ export const OpportunityItemSchema = z.object({
   /** Set-aside description */
   setAside:            z.string().nullable(),
   description:         z.string().nullable(),
-  active:              z.boolean(),
+  /**
+   * Pipeline stage — replaces the binary `active` flag.
+   * Defaults to IDENTIFIED for new opportunities.
+   * `active` is kept for backward compatibility but derived from stage.
+   * Optional so existing code that creates OpportunityItem without stage still compiles.
+   * The default 'IDENTIFIED' is applied at the DB/helper layer, not enforced here.
+   */
+  stage:               OpportunityStageSchema.optional(),
+  /**
+   * Kept for backward compatibility with existing DB records.
+   * Derived from stage: active = stage is in ACTIVE_OPPORTUNITY_STAGES.
+   * Do not set this directly — use stage instead.
+   * @deprecated Use `stage` instead.
+   */
+  active:              z.boolean().optional(),
+  /** History of stage transitions */
+  stageHistory:        z.array(OpportunityStageTransitionSchema).optional(),
   baseAndAllOptionsValue: z.number().nonnegative().nullable(),
   // Audit fields
   createdBy:     z.string().optional(),
@@ -47,6 +149,17 @@ export const OpportunityItemSchema = z.object({
 });
 
 export type OpportunityItem = z.infer<typeof OpportunityItemSchema>;
+
+// ─── Stage update DTO ─────────────────────────────────────────────────────────
+
+export const UpdateOpportunityStageSchema = z.object({
+  projectId: z.string().min(1),
+  oppId:     z.string().min(1),
+  stage:     OpportunityStageSchema,
+  reason:    z.string().optional(),
+});
+
+export type UpdateOpportunityStageDTO = z.infer<typeof UpdateOpportunityStageSchema>;
 
 // ─── Query DTO ────────────────────────────────────────────────────────────────
 

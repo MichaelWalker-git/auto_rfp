@@ -225,6 +225,61 @@
 
 ---
 
+## 🔒 Audit Trail
+
+**Every new handler, service, or AI feature MUST write audit log entries for all significant actions.**
+Never ship a new feature without audit coverage. Audit logs are required for security compliance (FedRAMP, ISO 27001), debugging, and data access tracking.
+
+### When to Write Audit Logs
+
+Write an audit log entry for **every** action that:
+- Creates, updates, or deletes a resource (CRUD)
+- Triggers an AI generation (document, brief, answer)
+- Invokes an AI tool (DynamoDB query, semantic search, etc.)
+- Changes permissions or configuration
+- Accesses sensitive data (org details, user info, contact data)
+- Starts or completes a pipeline or background job
+- Results in a failure or error that affects a user
+
+### How to Write Audit Logs
+
+Use `writeAuditLog()` from `apps/functions/src/helpers/audit-log.ts`:
+
+```typescript
+import { writeAuditLog } from '@/helpers/audit-log';
+import { getHmacSecret } from '@/helpers/secret';
+import { v4 as uuidv4 } from 'uuid';
+import { nowIso } from '@/helpers/date';
+
+await writeAuditLog(
+  {
+    logId: uuidv4(),
+    timestamp: nowIso(),
+    userId: event.auth?.userId ?? 'system',
+    userName: event.auth?.userName ?? 'system',
+    organizationId: orgId,
+    action: 'DOCUMENT_CREATED',
+    resource: 'document',
+    resourceId: documentId,
+    changes: { after: { documentType, title } },
+    ipAddress: event.requestContext?.http?.sourceIp ?? '0.0.0.0',
+    userAgent: event.headers?.['user-agent'] ?? 'system',
+    result: 'success',
+  },
+  await getHmacSecret(),
+);
+```
+
+- **Background workers** (SQS, Step Functions): use `userId: 'system'`, `ipAddress: '0.0.0.0'`, `userAgent: 'system'`
+- **High-frequency events** (e.g., AI tool calls): use non-blocking `.catch()` pattern — never `await` for non-critical audit writes
+- **New audit actions**: add to `AuditActionSchema` in `packages/core/src/schemas/audit.ts` before using
+- **Do NOT log PII or secrets** in `changes` — omit passwords, tokens, truncate large text fields (max 500 chars)
+- **Always log failures** — emit `*_FAILED` action on errors, not just success
+
+See [10-audit-trail.md](10-audit-trail.md) for full details and examples.
+
+---
+
 ## 🎯 TypeScript Best Practices
 
 - **NEVER use `any` type.** Always use proper types, `unknown`, or type assertions when absolutely necessary.

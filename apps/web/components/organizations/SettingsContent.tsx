@@ -9,13 +9,14 @@ import { Label } from '@/components/ui/label';
 import { useToast } from '@/components/ui/use-toast';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
-import { AlertCircle, ArrowRight, Building2, Loader2, Settings2, Trash2, Upload } from 'lucide-react';
+import { AlertCircle, ArrowRight, Building2, Loader2, Search, Settings2, Trash2, Upload } from 'lucide-react';
 import Link from 'next/link';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { PageHeader } from '@/components/layout/page-header';
 import PermissionWrapper from '@/components/permission-wrapper';
 import { DocxTemplateUpload } from '@/components/organizations/DocxTemplateUpload';
 import { ClusteringSettings } from '@/components/organizations/ClusteringSettings';
+import { PrimaryContactCard } from '@/components/organizations/PrimaryContactCard';
 import { SamGovApiKeyConfiguration } from '@/components/api-key/SamGovApiKeyConfiguration';
 import { DibbsApiKeyConfiguration } from '@/components/api-key/DibbsApiKeyConfiguration';
 import { LinearApiKeyConfiguration } from '@/components/api-key/LinearApiKeyConfiguration';
@@ -281,111 +282,150 @@ export function SettingsContent({ orgId }: SettingsContentProps) {
             </Link>
           </Card>
 
+          {/* Semantic Search Tester Link */}
+          <Card className="hover:border-primary/50 transition-colors">
+            <Link href={`/organizations/${orgId}/settings/semantic-search`}>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0">
+                <div className="space-y-1">
+                  <CardTitle className="flex items-center gap-2">
+                    <Search className="h-5 w-5" />
+                    Semantic Search Tester
+                  </CardTitle>
+                  <CardDescription>
+                    Test how semantic search retrieves content from Org Documents, Q&amp;A Library, and Past Performance
+                  </CardDescription>
+                </div>
+                <ArrowRight className="h-5 w-5 text-muted-foreground" />
+              </CardHeader>
+            </Link>
+          </Card>
+
           {/* DOCX Template Upload Section */}
           <DocxTemplateUpload orgId={orgId} />
 
           {/* Question Clustering Settings */}
           <ClusteringSettings orgId={orgId} />
 
+          {/* Primary Contact (Proposal Signatory) */}
+          <PrimaryContactCard orgId={orgId} />
+
           {/* General Settings Section */}
           <Card>
-            <CardHeader>
-              <CardTitle>General Settings</CardTitle>
-              <CardDescription>
-                Manage your organization's basic information
-              </CardDescription>
+            <CardHeader className="pb-4">
+              <div className="flex items-center gap-3">
+                <div className="h-10 w-10 rounded-full bg-slate-500/10 flex items-center justify-center shrink-0">
+                  <Building2 className="h-5 w-5 text-slate-500" />
+                </div>
+                <div>
+                  <CardTitle className="text-base">General Settings</CardTitle>
+                  <CardDescription className="text-xs mt-0.5">Organization profile</CardDescription>
+                </div>
+              </div>
             </CardHeader>
-            <CardContent>
-              <form onSubmit={handleUpdateOrganization} id="general-form">
-                <div className="grid gap-6 py-2">
-                  {/* Company Icon */}
-                  <div className="grid gap-3">
-                    <Label>Company Icon</Label>
-                    <div className="flex items-start gap-4">
-                      <div className="relative flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-lg border-2 border-dashed border-muted-foreground/25 bg-muted/50">
-                        {iconUrl ? (
-                          <Image
-                            src={iconUrl}
-                            alt="Company icon"
-                            width={80}
-                            height={80}
-                            className="h-full w-full object-contain"
-                            unoptimized
-                          />
-                        ) : (
-                          <Building2 className="h-8 w-8 text-muted-foreground/50" />
-                        )}
-                      </div>
-                      <div className="flex flex-col gap-2">
-                        <div className="flex items-center gap-2">
+
+            <Separator />
+
+            <form onSubmit={handleUpdateOrganization} id="general-form">
+              <CardContent className="pt-5 space-y-5">
+                {/* Company Icon */}
+                <div className="space-y-2">
+                  <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                    Company Icon
+                  </Label>
+                  <div className="flex items-center gap-4">
+                    <div className="relative flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-xl border bg-muted/50">
+                      {iconUrl ? (
+                        <Image
+                          src={iconUrl}
+                          alt="Company icon"
+                          width={64}
+                          height={64}
+                          className="h-full w-full object-contain"
+                          unoptimized
+                        />
+                      ) : (
+                        <Building2 className="h-7 w-7 text-muted-foreground/40" />
+                      )}
+                    </div>
+                    <div className="flex flex-col gap-1.5">
+                      <div className="flex items-center gap-2">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          className="h-8 text-xs"
+                          onClick={() => fileInputRef.current?.click()}
+                          disabled={isUploadingIcon || isSaving}
+                        >
+                          {isUploadingIcon ? (
+                            <>
+                              <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
+                              Uploading…
+                            </>
+                          ) : (
+                            <>
+                              <Upload className="h-3.5 w-3.5 mr-1.5" />
+                              Upload
+                            </>
+                          )}
+                        </Button>
+                        {iconUrl && (
                           <Button
                             type="button"
-                            variant="outline"
+                            variant="ghost"
                             size="sm"
-                            onClick={() => fileInputRef.current?.click()}
+                            className="h-8 text-xs text-destructive hover:text-destructive hover:bg-destructive/10"
+                            onClick={handleRemoveIcon}
                             disabled={isUploadingIcon || isSaving}
                           >
-                            {isUploadingIcon ? (
-                              <>
-                                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                                Uploading...
-                              </>
-                            ) : (
-                              <>
-                                <Upload className="h-4 w-4 mr-2" />
-                                Upload Icon
-                              </>
-                            )}
+                            <Trash2 className="h-3.5 w-3.5" />
                           </Button>
-                          {iconUrl && (
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="sm"
-                              onClick={handleRemoveIcon}
-                              disabled={isUploadingIcon || isSaving}
-                              className="text-destructive hover:text-destructive"
-                            >
-                              <Trash2 className="h-4 w-4 mr-2" />
-                              Remove
-                            </Button>
-                          )}
-                        </div>
-                        <p className="text-xs text-muted-foreground">
-                          PNG, JPEG, GIF, SVG, or WebP. Max 2MB. Recommended: 256×256px.
-                        </p>
+                        )}
                       </div>
-                      <input
-                        ref={fileInputRef}
-                        type="file"
-                        accept={ACCEPTED_IMAGE_TYPES.join(',')}
-                        onChange={handleFileChange}
-                        className="hidden"
-                      />
+                      <p className="text-xs text-muted-foreground">
+                        PNG, JPEG, GIF, SVG, or WebP · Max 2MB
+                      </p>
                     </div>
-                  </div>
-
-                  {/* Organization Name */}
-                  <div className="grid gap-2">
-                    <Label htmlFor="name">Organization Name</Label>
-                    <Input
-                      id="name"
-                      value={name}
-                      onChange={(e) => setName(e.target.value)}
-                      placeholder="Enter organization name"
-                      required
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept={ACCEPTED_IMAGE_TYPES.join(',')}
+                      onChange={handleFileChange}
+                      className="hidden"
                     />
                   </div>
                 </div>
-              </form>
-            </CardContent>
-            <CardFooter>
-              <PermissionWrapper requiredPermission={'org:edit'}>
-                <Button type="submit" form="general-form" disabled={isSaving}>
-                  {isSaving ? 'Saving...' : 'Save Changes'}
-                </Button>
-              </PermissionWrapper>
-            </CardFooter>
+
+                {/* Organization Name */}
+                <div className="space-y-1.5">
+                  <Label htmlFor="name" className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                    Organization Name
+                  </Label>
+                  <Input
+                    id="name"
+                    className="h-9 text-sm"
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    placeholder="Enter organization name"
+                    required
+                  />
+                </div>
+
+                {/* Save button */}
+                <div className="flex justify-end pt-1">
+                  <Button type="submit" size="sm" disabled={isSaving}>
+                    {isSaving ? (
+                      <>
+                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                        Saving…
+                      </>
+                    ) : (
+                      'Save Changes'
+                    )}
+                  </Button>
+                </div>
+              </CardContent>
+            </form>
           </Card>
 
           {/* Danger Zone Section */}

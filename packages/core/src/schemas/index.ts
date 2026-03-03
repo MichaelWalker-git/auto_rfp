@@ -16,6 +16,7 @@ export * from './debriefing'
 export * from './foia'
 export * from './analytics'
 export * from './organization';
+export * from './org-contact';
 export * from './content-library';
 export * from './api-key';
 export * from './past-performance';

@@ -52,9 +52,9 @@ export function ContentLibraryTable({
         <div className="rounded-full bg-muted p-4 mb-6">
           <FileText className="h-10 w-10 text-muted-foreground" />
         </div>
-        <h3 className="text-xl font-semibold mb-2">No content found</h3>
+        <h3 className="text-xl font-semibold mb-2">No Q&A items found</h3>
         <p className="text-muted-foreground text-center max-w-md">
-          Start building your content library by adding frequently asked questions
+          Start building your Q&A Library by adding frequently asked questions
           and their answers.
         </p>
       </div>
@@ -97,16 +97,16 @@ export function ContentLibraryTable({
               <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
                 <Badge variant="secondary" className="text-[10px]">{item.category}</Badge>
 
-                {item.tags.length > 0 && (
+                {(item.tags?.length ?? 0) > 0 && (
                   <span className="flex items-center gap-1">
                     <Tag className="h-3 w-3" />
-                    {item.tags.slice(0, 3).map((tag) => (
+                    {(item.tags ?? []).slice(0, 3).map((tag) => (
                       <Badge key={tag} variant="outline" className="text-[10px] px-1.5 py-0">
                         {tag}
                       </Badge>
                     ))}
-                    {item.tags.length > 3 && (
-                      <span>+{item.tags.length - 3}</span>
+                    {(item.tags?.length ?? 0) > 3 && (
+                      <span>+{(item.tags?.length ?? 0) - 3}</span>
                     )}
                   </span>
                 )}
@@ -114,7 +114,7 @@ export function ContentLibraryTable({
                 <span>· {item.usageCount} {item.usageCount === 1 ? 'use' : 'uses'}</span>
 
                 <span>
-                  · {formatDistanceToNow(new Date(item.updatedAt), { addSuffix: true })}
+                  {item.updatedAt ? `· ${formatDistanceToNow(new Date(item.updatedAt), { addSuffix: true })}` : ''}
                 </span>
               </div>
             </div>

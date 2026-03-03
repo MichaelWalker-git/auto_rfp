@@ -8,5 +8,7 @@ export function opportunityDomain(): DomainRoutes {
     { method: 'GET', path: 'get-opportunity', entry: lambdaEntry('opportunity/get-opportunity.ts') },
     { method: 'PUT', path: 'update-opportunity', entry: lambdaEntry('opportunity/update-opportunity.ts') },
     { method: 'DELETE', path: 'delete-opportunity', entry: lambdaEntry('opportunity/delete-opportunity.ts') },
+    // Pipeline stage transition (manual)
+    { method: 'PATCH', path: 'stage', entry: lambdaEntry('opportunity/update-opportunity-stage.ts') },
   ]};
 }

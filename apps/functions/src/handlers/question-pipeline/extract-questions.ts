@@ -327,21 +327,32 @@ async function saveQuestionsFromSections(
 
 const getSystemPrompt = () => {
   return `
-You are an expert at analyzing U.S. government procurement opportunity documents (SAM.gov solicitations, RFPs, RFIs, IFBs, amendments, attachments) and extracting every item that a vendor/offeror must answer, provide, or comply with.
+You are an expert at analyzing U.S. government procurement documents (RFPs, RFIs, IFBs, solicitations) and extracting ONLY the substantive questions that a vendor must answer in their proposal.
 
-Goal:
-Extract all "candidate questions" (anything the vendor must respond to or submit) and organize them by section.
+GOAL:
+Extract only questions that require a written, substantive answer from the vendor — questions that will be answered in a proposal Q&A database and used to generate proposal content.
 
-What counts as a candidate question (include all of these):
-- Direct questions (ending with "?")
-- Prompts / instructions that require a response (e.g., "Provide...", "Describe...", "Explain...", "Submit...", "Include...", "The offeror shall...")
-- Requested documents/artifacts (e.g., past performance references, resumes, certifications, plans, narratives)
-- Pricing deliverables (pricing tables, CLIN pricing, rate sheets)
-- Compliance matrices / representations & certifications / forms to fill
-- Submission requirements (format, page limits, file naming, portal steps) when they require an action from the offeror
+INCLUDE — questions that require a substantive written answer:
+- Direct questions about the vendor's approach, capabilities, experience, or qualifications (e.g., "Describe your technical approach to...", "How will you ensure...", "What experience does your team have with...")
+- Questions about past performance, relevant contracts, or demonstrated capabilities
+- Questions about the vendor's management approach, staffing plan, or key personnel
+- Questions about the vendor's understanding of requirements or the problem
+- Questions about pricing methodology, cost approach, or value proposition
+- Questions about security clearances, certifications, or specific qualifications required
+- Questions about the vendor's proposed solution, methodology, or innovation
 
-What does NOT count (exclude unless it demands a vendor action):
-- Background, agency overview, general context, definitions, boilerplate with no vendor action
+EXCLUDE — do NOT extract these (they are not questions requiring a written answer):
+- Submission format instructions (page limits, font size, file naming, upload procedures)
+- Administrative requirements (registration in SAM.gov, representations & certifications checkboxes)
+- Boilerplate compliance statements ("The offeror shall comply with FAR 52.xxx")
+- General background, agency overview, definitions, or context paragraphs
+- Evaluation criteria descriptions (how the government will evaluate — not what the vendor must answer)
+- Contract terms and conditions
+- Delivery schedules, CLINs, or pricing tables (unless asking the vendor to explain their pricing approach)
+- Statements of work descriptions (what the government needs — not what the vendor must answer about)
+- Procedural steps ("Submit via email to...", "Questions must be submitted by...")
+
+THE KEY TEST: Ask yourself — "Would a proposal writer need to write a substantive answer to this?" If yes, include it. If it's a checkbox, a format rule, a background statement, or a government requirement description, exclude it.
 
 Output format:
 Return ONLY valid JSON (no markdown, no commentary). Use exactly this schema:
@@ -349,18 +360,18 @@ Return ONLY valid JSON (no markdown, no commentary). Use exactly this schema:
 {
   "sections": [
     {
-      "title": "Section Title",
-      "description": "Optional section context (short). Empty string if none.",
-      "locationHint": "Optional: page/paragraph/heading reference if present; else empty string.",
+      "title": "Section Title (e.g., 'Technical Approach', 'Past Performance', 'Management')",
+      "description": "Brief context for this section. Empty string if none.",
+      "locationHint": "Page/paragraph/section reference if present; else empty string.",
       "questions": [
         {
-          "question": "Exact vendor-facing requirement text (preserve wording).",
-          "type": "technical|management|past_performance|pricing|compliance|security|legal|administrative|submission|other",
+          "question": "The exact question or requirement text that needs a written answer.",
+          "type": "technical|management|past_performance|pricing|security|qualifications|other",
           "isExplicitQuestion": true,
           "isRequired": "required|optional|unknown",
-          "deliverable": "What must be produced (e.g., 'Technical Volume narrative', 'Pricing spreadsheet', 'Resume') or empty string.",
-          "responseFormat": "If stated: table/form/narrative/bullets/spreadsheet/upload/portal-entry or empty string.",
-          "constraints": ["page limit, font, file type, deadline, naming rules, etc."],
+          "deliverable": "What the answer should produce (e.g., 'Technical narrative', 'Past performance reference', 'Staffing plan') or empty string.",
+          "responseFormat": "narrative|table|bullets|spreadsheet or empty string.",
+          "constraints": []
         }
       ]
     }
@@ -368,25 +379,26 @@ Return ONLY valid JSON (no markdown, no commentary). Use exactly this schema:
 }
 
 Rules:
-- Preserve the exact wording of each extracted vendor requirement in "question".
-- If the document has subsections (e.g., 1.1, L, M, Volume I/II/III), treat each as its own section.
-- If a requirement appears in a list/bullets, extract each bullet as a separate question when it implies a separate response/deliverable.
-- If a section contains no vendor-facing requirements, include it with "questions": [] only if the section title helps navigation; otherwise omit.
-- Ensure the JSON is strictly valid:
-  - Use double quotes for all strings
-  - No trailing commas
-  - No undefined/null (use empty string/[] instead)
+- Only include questions where a proposal writer would write a substantive answer.
+- Preserve the exact wording of each question.
+- Group questions by the proposal section they belong to (Technical, Management, Past Performance, Pricing, etc.).
+- If a section has no substantive questions, omit it entirely.
+- Ensure the JSON is strictly valid: double quotes, no trailing commas, no null/undefined (use empty string/[] instead).
 - Do NOT invent facts. If required/optional is unclear, set "isRequired":"unknown".
+- Aim for quality over quantity — 20 focused questions is better than 100 noisy ones.
   `.trim();
 };
 
 const buildUserPrompt = (content: string, chunkIndex: number, totalChunks: number) => {
   const chunkInfo = totalChunks > 1
-    ? `\n\nNOTE: This is chunk ${chunkIndex + 1} of ${totalChunks}. Extract questions from this portion only.`
+    ? `\n\nNOTE: This is chunk ${chunkIndex + 1} of ${totalChunks}. Extract questions from this portion only. Focus on sections like "Instructions to Offerors", "Evaluation Criteria", "Technical Requirements", "Past Performance", "Management Approach".`
     : '';
   return `
-Extract vendor/offeror response requirements from the following opportunity text.
-If the content includes headers like "Instructions to Offerors", "Proposal Submission", "Evaluation Criteria", "Volumes", "Representations and Certifications", "Questions", "Attachments", include all vendor action items and prompts.
+Extract ONLY the substantive questions that require a written answer from the vendor in their proposal.
+
+Do NOT extract: submission format rules, administrative checkboxes, background context, compliance statements, or government requirement descriptions.
+
+Only extract questions where a proposal writer would need to write a substantive response.
 
 Return ONLY JSON that matches the schema from the system message.${chunkInfo}
 

@@ -10,5 +10,9 @@ export function organizationDomain(): DomainRoutes {
     { method: 'DELETE', path: 'delete-organization/{id}', entry: lambdaEntry('organization/delete-organization.ts') },
     { method: 'POST', path: 'upload-icon', entry: lambdaEntry('organization/upload-icon.ts') },
     { method: 'GET', path: 'get-icon', entry: lambdaEntry('organization/get-icon.ts') },
+    // Primary contact (proposal signatory)
+    { method: 'GET', path: '{orgId}/contact', entry: lambdaEntry('org-contact/get-org-contact.ts') },
+    { method: 'PUT', path: '{orgId}/contact', entry: lambdaEntry('org-contact/upsert-org-contact.ts') },
+    { method: 'DELETE', path: '{orgId}/contact', entry: lambdaEntry('org-contact/delete-org-contact.ts') },
   ]};
 }

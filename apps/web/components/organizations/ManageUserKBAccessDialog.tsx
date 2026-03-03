@@ -2,7 +2,6 @@
 
 import React, { useCallback, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
 import {
   Dialog,
   DialogContent,
@@ -12,8 +11,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
-import { Database, Loader2, Plus, X, Info } from 'lucide-react';
-import { Alert, AlertDescription } from '@/components/ui/alert';
+import { FolderOpen, Loader2, Plus, X } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
 import { grantKBAccessApi, revokeKBAccessApi, useUserKBAccess } from '@/lib/hooks/use-user';
 import { useKnowledgeBases } from '@/lib/hooks/use-knowledgebase';
@@ -92,11 +90,11 @@ export function ManageUserKBAccessDialog({
       <DialogContent className="sm:max-w-[500px]">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <Database className="h-5 w-5" />
-            Manage KB Access
+            <FolderOpen className="h-5 w-5" />
+            Manage Folder Access
           </DialogTitle>
           <DialogDescription>
-            Control which knowledge bases <strong>{member.email}</strong> can access.
+            Control which document folders <strong>{member.email}</strong> can access.
           </DialogDescription>
         </DialogHeader>
 
@@ -107,12 +105,12 @@ export function ManageUserKBAccessDialog({
             </div>
           ) : allKBs.length === 0 ? (
             <p className="text-sm text-muted-foreground text-center py-4">
-              No knowledge bases found in this organization.
+              No document folders found in this organization.
             </p>
           ) : (
             <div className="space-y-2">
               <Label className="text-sm font-medium text-muted-foreground">
-                Knowledge Bases ({grantedKBIds.size} of {allKBs.length} granted)
+                Folders ({grantedKBIds.size} of {allKBs.length} granted)
               </Label>
               {allKBs.map((kb: KnowledgeBase) => {
                 const hasAccess = grantedKBIds.has(kb.id);
@@ -126,16 +124,13 @@ export function ManageUserKBAccessDialog({
                     }`}
                   >
                     <div className="flex items-center gap-3">
-                      <Database className={`h-4 w-4 ${hasAccess ? 'text-primary' : 'text-muted-foreground'}`} />
+                      <FolderOpen className={`h-4 w-4 ${hasAccess ? 'text-primary' : 'text-muted-foreground'}`} />
                       <div>
                         <p className="text-sm font-medium">{kb.name}</p>
                         {kb.description && (
                           <p className="text-xs text-muted-foreground">{kb.description}</p>
                         )}
                       </div>
-                      <Badge variant={hasAccess ? 'default' : 'outline'} className="text-xs">
-                        {kb.type === 'CONTENT_LIBRARY' ? 'Q&A' : 'Documents'}
-                      </Badge>
                     </div>
                     {hasAccess ? (
                       <Button

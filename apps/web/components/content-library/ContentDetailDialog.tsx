@@ -94,14 +94,14 @@ export function ContentDetailDialog({
             </div>
           )}
 
-          {item.tags.length > 0 && (
+          {(item.tags?.length ?? 0) > 0 && (
             <div>
               <h4 className="text-sm font-medium mb-2 flex items-center gap-2">
                 <Tag className="h-4 w-4" />
                 Tags
               </h4>
               <div className="flex flex-wrap gap-1">
-                {item.tags.map((tag) => (
+                {(item.tags ?? []).map((tag) => (
                   <Badge key={tag} variant="outline">
                     {tag}
                   </Badge>
@@ -135,7 +135,7 @@ export function ContentDetailDialog({
                 Created
               </p>
               <p className="font-medium">
-                {format(new Date(item.createdAt), 'MMM d, yyyy')}
+                {item.createdAt ? format(new Date(item.createdAt), 'MMM d, yyyy') : '—'}
               </p>
             </div>
             <div className="space-y-1">
@@ -144,14 +144,12 @@ export function ContentDetailDialog({
                 Updated
               </p>
               <p className="font-medium">
-                {formatDistanceToNow(new Date(item.updatedAt), {
-                  addSuffix: true,
-                })}
+                {item.updatedAt ? formatDistanceToNow(new Date(item.updatedAt), { addSuffix: true }) : '—'}
               </p>
             </div>
           </div>
 
-          {item.versions.length > 1 && (
+          {(item.versions?.length ?? 0) > 1 && (
             <>
               <Separator />
               <div>
@@ -174,7 +172,7 @@ export function ContentDetailDialog({
                           )}
                         </div>
                         <span className="text-muted-foreground">
-                          {format(new Date(version.createdAt), 'MMM d, yyyy')}
+                          {version.createdAt ? format(new Date(version.createdAt), 'MMM d, yyyy') : '—'}
                         </span>
                       </div>
                     ))}
@@ -213,12 +211,7 @@ export function ContentDetailDialog({
               Deprecate
             </Button>
           )}
-          <Button
-            onClick={() => {
-              onEdit();
-              onOpenChange(false);
-            }}
-          >
+          <Button onClick={onEdit}>
             <Pencil className="h-4 w-4 mr-2" />
             Edit
           </Button>

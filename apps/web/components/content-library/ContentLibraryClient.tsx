@@ -7,8 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
-import { FileText, Plus, ShieldAlert, Tag } from 'lucide-react';
-import Link from 'next/link';
+import { FileText, Plus, Tag } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 
 import { PageHeader } from '@/components/layout/page-header';
@@ -24,21 +23,36 @@ import {
   ApprovalStatus,
   ContentLibraryItem,
   useApproveContentLibraryItem,
-  useDeprecateContentLibraryItem
+  useDeprecateContentLibraryItem,
 } from '@/lib/hooks/use-content-library';
 
 interface ContentLibraryClientProps {
   orgId: string;
-  kbId: string;
+  kbId?: string;
 }
+
+// ─── Dialog state — only one dialog open at a time ───────────────────────────
+
+type DialogMode = 'none' | 'create' | 'view' | 'edit' | 'delete';
+
+interface DialogState {
+  mode: DialogMode;
+  item: ContentLibraryItem | null;
+}
+
+const CLOSED: DialogState = { mode: 'none', item: null };
+
+// ─── Constants ────────────────────────────────────────────────────────────────
 
 const ITEMS_PER_PAGE = 20;
 
-const statusStyles: Record<string, string> = {
+const STATUS_STYLES: Record<string, string> = {
   DRAFT: 'bg-yellow-100 text-yellow-800 border-yellow-200',
   APPROVED: 'bg-green-100 text-green-800 border-green-200',
   DEPRECATED: 'bg-gray-100 text-gray-500 border-gray-200',
 };
+
+// ─── Component ────────────────────────────────────────────────────────────────
 
 export function ContentLibraryClient({ orgId, kbId }: ContentLibraryClientProps) {
   const { toast } = useToast();
@@ -46,6 +60,7 @@ export function ContentLibraryClient({ orgId, kbId }: ContentLibraryClientProps)
   const router = useRouter();
   const searchParams = useSearchParams();
 
+  // URL-driven filter state
   const search = searchParams.get('search') || '';
   const category = searchParams.get('category') || undefined;
   const status = searchParams.get('status') as ApprovalStatus | undefined;
@@ -61,8 +76,16 @@ export function ContentLibraryClient({ orgId, kbId }: ContentLibraryClientProps)
     router.push(`?${params.toString()}`);
   }, [searchParams, router]);
 
-  const [dialogs, setDialogs] = useState({ create: false, edit: false, view: false, delete: false });
-  const [selectedItem, setSelectedItem] = useState<ContentLibraryItem | null>(null);
+  // Single dialog state — only one dialog open at a time
+  const [dialog, setDialog] = useState<DialogState>(CLOSED);
+
+  const openDialog = useCallback((mode: DialogMode, item?: ContentLibraryItem) => {
+    setDialog({ mode, item: item ?? null });
+  }, []);
+
+  const closeDialog = useCallback(() => {
+    setDialog(CLOSED);
+  }, []);
 
   const { categories, items, total, isLoading, mutate } = useContentLibraryContext();
   const { approve } = useApproveContentLibraryItem(orgId, kbId);
@@ -74,37 +97,44 @@ export function ContentLibraryClient({ orgId, kbId }: ContentLibraryClientProps)
     updateUrlParams({ search: query || null, page: '1' });
   }, [updateUrlParams]);
 
-  const openDialog = (dialogName: keyof typeof dialogs, item?: ContentLibraryItem) => {
-    if (item) setSelectedItem(item);
-    setDialogs(prev => ({ ...prev, [dialogName]: true }));
-  };
-
-  const closeDialog = (dialogName: keyof typeof dialogs) => {
-    setDialogs(prev => ({ ...prev, [dialogName]: false }));
-    if (dialogName !== 'edit') setSelectedItem(null);
-  };
-
-  const handleApprove = async (item: ContentLibraryItem) => {
+  const handleApprove = useCallback(async (item: ContentLibraryItem) => {
     startTransition(async () => {
-      try { await approve(item.id); toast({ title: 'Content item approved' }); await mutate(); }
-      catch (e) { toast({ title: 'Error', description: e instanceof Error ? e.message : 'Failed', variant: 'destructive' }); }
+      try {
+        await approve(item.id);
+        toast({ title: 'Q&A item approved' });
+        await mutate();
+      } catch (e) {
+        toast({ title: 'Error', description: e instanceof Error ? e.message : 'Failed', variant: 'destructive' });
+      }
     });
-  };
+  }, [approve, mutate, toast]);
 
-  const handleDeprecate = async (item: ContentLibraryItem) => {
+  const handleDeprecate = useCallback(async (item: ContentLibraryItem) => {
     startTransition(async () => {
-      try { await deprecate(item.id); toast({ title: 'Content item deprecated' }); await mutate(); }
-      catch (e) { toast({ title: 'Error', description: e instanceof Error ? e.message : 'Failed', variant: 'destructive' }); }
+      try {
+        await deprecate(item.id);
+        toast({ title: 'Q&A item deprecated' });
+        await mutate();
+      } catch (e) {
+        toast({ title: 'Error', description: e instanceof Error ? e.message : 'Failed', variant: 'destructive' });
+      }
     });
-  };
+  }, [deprecate, mutate, toast]);
 
-  const handleSuccess = async () => { startTransition(async () => { await mutate(); }); };
+  const handleSuccess = useCallback(() => {
+    startTransition(async () => { await mutate(); });
+  }, [mutate]);
+
+  // Transition from view → edit without flash
+  const handleEditFromView = useCallback(() => {
+    setDialog(prev => ({ mode: 'edit', item: prev.item }));
+  }, []);
 
   return (
     <div className="space-y-6">
-      {/* Header — same pattern as TemplatesHeader */}
+      {/* Header */}
       <PageHeader
-        title="Content Library"
+        title="Q&A Library"
         description={`${total} ${total === 1 ? 'item' : 'items'} in your library`}
         actions={
           <>
@@ -114,25 +144,16 @@ export function ContentLibraryClient({ orgId, kbId }: ContentLibraryClientProps)
               placeholder="Search questions..."
               widthClass="w-64"
             />
-            {orgId && kbId && (
-              <Button variant="outline" asChild>
-                <Link href={`/organizations/${orgId}/knowledge-base/${kbId}/stale-report`}>
-                  <ShieldAlert className="h-4 w-4 mr-2" />
-                  Stale Report
-                </Link>
-              </Button>
-            )}
             <Button onClick={() => openDialog('create')}>
               <Plus className="h-4 w-4 mr-2" />
-              Add Content
+              Add Q&amp;A
             </Button>
           </>
         }
       />
 
-      {/* Category + Status filter pills — same pattern as TemplateCategoryFilter */}
+      {/* Filter pills */}
       <div className="flex flex-wrap gap-2">
-        {/* Status pills */}
         <button
           onClick={() => updateUrlParams({ status: null, page: '1' })}
           className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${
@@ -156,7 +177,6 @@ export function ContentLibraryClient({ orgId, kbId }: ContentLibraryClientProps)
 
         {categories.length > 0 && <span className="h-8 w-px bg-border self-center mx-1" />}
 
-        {/* Category pills */}
         {categories.filter(c => c.count > 0).map((cat) => (
           <button
             key={cat.name}
@@ -190,20 +210,20 @@ export function ContentLibraryClient({ orgId, kbId }: ContentLibraryClientProps)
           <div className="rounded-full bg-muted p-4 mb-6">
             <FileText className="h-10 w-10 text-muted-foreground" />
           </div>
-          <h3 className="text-xl font-semibold mb-2">No content found</h3>
+          <h3 className="text-xl font-semibold mb-2">No Q&amp;A items found</h3>
           <p className="text-muted-foreground text-center max-w-md mb-6">
-            Start building your content library by adding frequently asked questions and their answers.
+            Start building your Q&amp;A Library by adding frequently asked questions and their answers.
           </p>
           <Button onClick={() => openDialog('create')}>
             <Plus className="h-4 w-4 mr-2" />
-            Add Your First Content
+            Add Your First Q&amp;A
           </Button>
         </div>
       ) : (
         <div className="space-y-2">
-          {items.map((item) => (
+          {items.map((item, idx) => (
             <Card
-              key={item.id}
+              key={item.id ?? idx}
               className="group px-4 py-3 hover:bg-muted/60 transition-colors cursor-pointer"
               onClick={() => openDialog('view', item)}
             >
@@ -215,9 +235,11 @@ export function ContentLibraryClient({ orgId, kbId }: ContentLibraryClientProps)
                   {/* Question row */}
                   <div className="flex items-start gap-2">
                     <span className="text-xs font-semibold text-primary/60 uppercase shrink-0 mt-0.5">Q</span>
-                    <div className="flex flex-wrap items-center gap-1.5 min-w-0">
+                    <div className="flex flex-wrap items-center gap-1.5 min-w-0 flex-1">
                       <span className="text-sm line-clamp-1">{item.question}</span>
-                      <Badge className={`text-[10px] shrink-0 ${statusStyles[item.approvalStatus]}`}>{item.approvalStatus}</Badge>
+                      <Badge className={`text-[10px] shrink-0 ${STATUS_STYLES[item.approvalStatus] ?? ''}`}>
+                        {item.approvalStatus}
+                      </Badge>
                       <FreshnessStatusBadge
                         status={(item as Record<string, unknown>).freshnessStatus as 'ACTIVE' | 'WARNING' | 'STALE' | 'ARCHIVED' | undefined}
                         reason={(item as Record<string, unknown>).staleReason as string | undefined}
@@ -225,7 +247,10 @@ export function ContentLibraryClient({ orgId, kbId }: ContentLibraryClientProps)
                         compact
                       />
                     </div>
-                    <div className="shrink-0 ml-auto opacity-0 group-hover:opacity-100 transition-opacity" onClick={(e) => e.stopPropagation()}>
+                    <div
+                      className="shrink-0 ml-auto opacity-0 group-hover:opacity-100 transition-opacity"
+                      onClick={(e) => e.stopPropagation()}
+                    >
                       <ContentActionsDropdown
                         item={item}
                         onEdit={() => openDialog('edit', item)}
@@ -243,18 +268,26 @@ export function ContentLibraryClient({ orgId, kbId }: ContentLibraryClientProps)
                   </div>
                   {/* Meta row */}
                   <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground pl-5">
-                    <Badge variant="secondary" className="text-[10px]">{item.category}</Badge>
-                    {item.tags.length > 0 && (
+                    {item.category && (
+                      <Badge variant="secondary" className="text-[10px]">{item.category}</Badge>
+                    )}
+                    {(item.tags?.length ?? 0) > 0 && (
                       <span className="flex items-center gap-1">
                         <Tag className="h-3 w-3" />
-                        {item.tags.slice(0, 3).map((tag) => (
+                        {(item.tags ?? []).slice(0, 3).map((tag) => (
                           <Badge key={tag} variant="outline" className="text-[10px] px-1.5 py-0">{tag}</Badge>
                         ))}
-                        {item.tags.length > 3 && <span>+{item.tags.length - 3}</span>}
+                        {(item.tags?.length ?? 0) > 3 && (
+                          <span>+{(item.tags?.length ?? 0) - 3}</span>
+                        )}
                       </span>
                     )}
-                    <span>· {item.usageCount} {item.usageCount === 1 ? 'use' : 'uses'}</span>
-                    <span>· {formatDistanceToNow(new Date(item.updatedAt), { addSuffix: true })}</span>
+                    {(item.usageCount ?? 0) > 0 && (
+                      <span>· {item.usageCount} {item.usageCount === 1 ? 'use' : 'uses'}</span>
+                    )}
+                    {item.updatedAt && (
+                      <span>· {formatDistanceToNow(new Date(item.updatedAt), { addSuffix: true })}</span>
+                    )}
                   </div>
                 </div>
               </div>
@@ -272,11 +305,39 @@ export function ContentLibraryClient({ orgId, kbId }: ContentLibraryClientProps)
         </div>
       )}
 
-      {/* Dialogs */}
-      <CreateContentDialog isOpen={dialogs.create} onOpenChange={(o) => !o && closeDialog('create')} orgId={orgId} kbId={kbId} categories={categories} onSuccess={handleSuccess} />
-      <EditContentDialog isOpen={dialogs.edit} onOpenChange={(o) => !o && closeDialog('edit')} item={selectedItem} categories={categories} onSuccess={handleSuccess} />
-      <ContentDetailDialog isOpen={dialogs.view} onOpenChange={(o) => !o && closeDialog('view')} item={selectedItem} onEdit={() => { closeDialog('view'); openDialog('edit', selectedItem!); }} onApprove={() => selectedItem && handleApprove(selectedItem)} onDeprecate={() => selectedItem && handleDeprecate(selectedItem)} />
-      <DeleteContentDialog isOpen={dialogs.delete} onOpenChange={(o) => !o && closeDialog('delete')} item={selectedItem} onSuccess={handleSuccess} />
+      {/* ─── Dialogs — only one open at a time ─── */}
+      <CreateContentDialog
+        isOpen={dialog.mode === 'create'}
+        onOpenChange={(open) => !open && closeDialog()}
+        orgId={orgId}
+        kbId={kbId}
+        categories={categories}
+        onSuccess={handleSuccess}
+      />
+
+      <ContentDetailDialog
+        isOpen={dialog.mode === 'view'}
+        onOpenChange={(open) => !open && closeDialog()}
+        item={dialog.item}
+        onEdit={handleEditFromView}
+        onApprove={() => dialog.item && handleApprove(dialog.item)}
+        onDeprecate={() => dialog.item && handleDeprecate(dialog.item)}
+      />
+
+      <EditContentDialog
+        isOpen={dialog.mode === 'edit'}
+        onOpenChange={(open) => !open && closeDialog()}
+        item={dialog.item}
+        categories={categories}
+        onSuccess={() => { closeDialog(); handleSuccess(); }}
+      />
+
+      <DeleteContentDialog
+        isOpen={dialog.mode === 'delete'}
+        onOpenChange={(open) => !open && closeDialog()}
+        item={dialog.item}
+        onSuccess={() => { closeDialog(); handleSuccess(); }}
+      />
     </div>
   );
 }

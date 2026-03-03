@@ -16,6 +16,8 @@ import type {
 } from '@auto-rfp/core';
 import { docClient, DBItem } from '@/helpers/db';
 import { PK_NAME, SK_NAME } from '@/constants/common';
+import { sendNotification, buildNotification } from '@/helpers/send-notification';
+import { getOrgMembers, getUserByOrgAndId } from '@/helpers/user';
 
 // ─── DB Item Types ───
 
@@ -270,40 +272,166 @@ async function touchFreshnessCheck(tableName: string, pk: string, sk: string, no
 
 // ─── Notification ───
 
+const STALE_REASON_LABELS: Record<string, string> = {
+  NOT_USED: 'not been used recently',
+  CERT_EXPIRED: 'a certification has expired',
+  SOURCE_UPDATED: 'a source document was updated',
+  CONFLICTING_ANSWER: 'a conflicting answer was found',
+  MANUAL: 'it was manually flagged',
+};
+
+/**
+ * Send both SNS (email/webhook) and in-app notifications for newly stale/warning items.
+ * - Notifies the content author (createdBy) if available.
+ * - Falls back to all org members if no author is found.
+ */
 export async function sendStaleNotifications(
   snsTopicArn: string,
   results: DetectionResult[],
+  contentItems?: ContentLibraryDBItem[],
 ): Promise<void> {
-  if (!snsTopicArn || results.length === 0) return;
+  if (results.length === 0) return;
 
-  const snsClient = new SNSClient({});
   const staleCount = results.filter((r) => r.newStatus === 'STALE').length;
   const warningCount = results.filter((r) => r.newStatus === 'WARNING').length;
 
-  const message = JSON.stringify({
-    type: 'STALE_CONTENT_DETECTED',
-    timestamp: new Date().toISOString(),
-    summary: { totalFlagged: results.length, stale: staleCount, warning: warningCount },
-    items: results.map((r) => ({
-      itemId: r.itemId,
-      orgId: r.orgId,
-      kbId: r.kbId,
-      source: r.source,
-      status: r.newStatus,
-      reason: r.reason,
-    })),
-  });
+  // ── 1. SNS notification (email/webhook) ──
+  if (snsTopicArn) {
+    const snsClient = new SNSClient({});
+    const message = JSON.stringify({
+      type: 'STALE_CONTENT_DETECTED',
+      timestamp: new Date().toISOString(),
+      summary: { totalFlagged: results.length, stale: staleCount, warning: warningCount },
+      items: results.map((r) => ({
+        itemId: r.itemId,
+        orgId: r.orgId,
+        source: r.source,
+        status: r.newStatus,
+        reason: r.reason,
+      })),
+    });
 
-  try {
-    await snsClient.send(
-      new PublishCommand({
-        TopicArn: snsTopicArn,
-        Subject: `Stale Content Alert: ${staleCount} stale, ${warningCount} warnings`,
-        Message: message,
-      }),
-    );
-  } catch (err) {
-    console.error('Failed to send SNS notification:', err);
+    try {
+      await snsClient.send(
+        new PublishCommand({
+          TopicArn: snsTopicArn,
+          Subject: `Stale Content Alert: ${staleCount} stale, ${warningCount} warnings`,
+          Message: message,
+        }),
+      );
+    } catch (err) {
+      console.error('Failed to send SNS notification:', err);
+    }
+  }
+
+  // ── 2. In-app notifications per org ──
+  // Group results by orgId
+  const byOrg = new Map<string, DetectionResult[]>();
+  for (const r of results) {
+    if (!r.orgId) continue;
+    if (!byOrg.has(r.orgId)) byOrg.set(r.orgId, []);
+    byOrg.get(r.orgId)!.push(r);
+  }
+
+  // Build a lookup map: itemId → createdBy
+  const authorMap = new Map<string, string>();
+  if (contentItems) {
+    for (const item of contentItems) {
+      if (item.id && item.createdBy) {
+        authorMap.set(item.id, item.createdBy);
+      }
+    }
+  }
+
+  for (const [orgId, orgResults] of byOrg) {
+    // Group by author so each author gets one notification per run
+    const byAuthor = new Map<string, DetectionResult[]>();
+
+    for (const r of orgResults) {
+      const authorId = authorMap.get(r.itemId);
+      const key = authorId || '__all__';
+      if (!byAuthor.has(key)) byAuthor.set(key, []);
+      byAuthor.get(key)!.push(r);
+    }
+
+    // Resolve recipients for __all__ (org members fallback)
+    let orgMembers: Array<{ userId: string; email: string }> = [];
+    if (byAuthor.has('__all__')) {
+      try {
+        orgMembers = await getOrgMembers(orgId);
+      } catch (err) {
+        console.warn(`Failed to fetch org members for ${orgId}:`, err);
+      }
+    }
+
+    for (const [authorKey, authorResults] of byAuthor) {
+      const stale = authorResults.filter((r) => r.newStatus === 'STALE');
+      const warnings = authorResults.filter((r) => r.newStatus === 'WARNING');
+
+      let recipientUserIds: string[] = [];
+      let recipientEmails: string[] = [];
+
+      if (authorKey === '__all__') {
+        recipientUserIds = orgMembers.map((m) => m.userId);
+        recipientEmails = orgMembers.map((m) => m.email);
+      } else {
+        // Verify the author exists in this org
+        try {
+          const author = await getUserByOrgAndId(orgId, authorKey);
+          if (author) {
+            recipientUserIds = [author.userId];
+            recipientEmails = author.email ? [author.email] : [];
+          } else {
+            // Author not found in org — fall back to all members
+            if (orgMembers.length === 0) {
+              orgMembers = await getOrgMembers(orgId);
+            }
+            recipientUserIds = orgMembers.map((m) => m.userId);
+            recipientEmails = orgMembers.map((m) => m.email);
+          }
+        } catch (err) {
+          console.warn(`Failed to fetch author ${authorKey}:`, err);
+          continue;
+        }
+      }
+
+      if (recipientUserIds.length === 0) continue;
+
+      // Build notification message
+      const totalFlagged = authorResults.length;
+      const firstResult = authorResults[0];
+      const reasonLabel = STALE_REASON_LABELS[firstResult.reason] ?? firstResult.reason;
+
+      const isStale = stale.length > 0;
+      const type = isStale ? 'STALE_CONTENT_DETECTED' : 'STALE_CONTENT_WARNING';
+      const title = isStale
+        ? `${stale.length} Q&A ${stale.length === 1 ? 'item' : 'items'} marked stale`
+        : `${warnings.length} Q&A ${warnings.length === 1 ? 'item' : 'items'} need review`;
+
+      const message = totalFlagged === 1
+        ? `A Q&A Library item has been flagged because ${reasonLabel}. Please review and update it.`
+        : `${totalFlagged} Q&A Library items have been flagged (${stale.length} stale, ${warnings.length} warnings). Please review and update them.`;
+
+      // Send one notification per recipient
+      for (const userId of recipientUserIds) {
+        const payload = buildNotification(
+          type as 'STALE_CONTENT_DETECTED' | 'STALE_CONTENT_WARNING',
+          title,
+          message,
+          {
+            orgId,
+            entityId: totalFlagged === 1 ? firstResult.itemId : undefined,
+            recipientUserIds: [userId],
+            recipientEmails: recipientEmails.filter((_, i) => recipientUserIds[i] === userId),
+            actorDisplayName: 'Stale Content Scanner',
+          },
+        );
+
+        sendNotification(payload).catch((err: unknown) =>
+          console.warn('Failed to send stale content in-app notification:', err),
+        );
+      }
+    }
   }
 }
 
@@ -343,7 +471,7 @@ export async function detectStaleContentLibrary(tableName: string, now: Date): P
   const itemsByOrg = new Map<string, ContentLibraryDBItem[]>();
   for (const item of allItems) {
     if (item.isArchived) continue;
-    const key = `${item.orgId}#${item.kbId}`;
+    const key = item.orgId;
     if (!itemsByOrg.has(key)) itemsByOrg.set(key, []);
     itemsByOrg.get(key)!.push(item);
   }
@@ -379,8 +507,7 @@ export async function detectStaleContentLibrary(tableName: string, now: Date): P
     }
 
     // Rule 4: Check for conflicting answers
-    const orgKey = `${item.orgId}#${item.kbId}`;
-    const orgItems = itemsByOrg.get(orgKey) || [];
+    const orgItems = itemsByOrg.get(item.orgId) || [];
     const conflictResult = detectConflicts(item, orgItems);
     if (conflictResult && statusSeverity(conflictResult.status) > statusSeverity(worstStatus)) {
       worstStatus = conflictResult.status;
@@ -401,7 +528,7 @@ export async function detectStaleContentLibrary(tableName: string, now: Date): P
           results.push({
             itemId: parsed.itemId,
             orgId: parsed.orgId,
-            kbId: parsed.kbId,
+            kbId: '',
             source: 'CONTENT_LIBRARY',
             previousStatus,
             newStatus: worstStatus,

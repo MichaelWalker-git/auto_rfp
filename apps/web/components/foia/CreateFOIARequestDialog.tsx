@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useEffect } from 'react';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import {
@@ -18,6 +18,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Checkbox } from '@/components/ui/checkbox';
 import { useToast } from '@/components/ui/use-toast';
 import { useCreateFOIARequest } from '@/lib/hooks/use-foia-requests';
+import { useOrgPrimaryContact } from '@/lib/hooks/use-org-contact';
 import {
   CreateFOIARequestSchema,
   FOIA_DOCUMENT_TYPES,
@@ -50,6 +51,10 @@ export const CreateFOIARequestDialog = ({
   const { toast } = useToast();
   const { createFOIARequest } = useCreateFOIARequest();
 
+  // Fetch org primary contact to pre-populate requester fields
+  const { data: contactData } = useOrgPrimaryContact(orgId);
+  const primaryContact = contactData?.contact;
+
   const {
     register,
     handleSubmit,
@@ -70,6 +75,20 @@ export const CreateFOIARequestDialog = ({
     },
   });
 
+  // When the dialog opens and primary contact is available, pre-populate requester fields
+  // Only sets values if the fields are currently empty (don't overwrite user edits)
+  useEffect(() => {
+    if (isOpen && primaryContact) {
+      reset((prev) => ({
+        ...prev,
+        requesterName: prev.requesterName || primaryContact.name,
+        requesterEmail: prev.requesterEmail || primaryContact.email,
+        requesterPhone: prev.requesterPhone || primaryContact.phone || '',
+        requesterAddress: prev.requesterAddress || primaryContact.address || '',
+      }));
+    }
+  }, [isOpen, primaryContact, reset]);
+
   const onSubmit = async (values: CreateFOIARequestFormValues) => {
     try {
       const result = await createFOIARequest(values);
@@ -79,6 +98,7 @@ export const CreateFOIARequestDialog = ({
         description: 'Your FOIA request has been created as a draft.',
       });
 
+      // Reset form — restore primary contact defaults for next use
       reset({
         projectId,
         orgId,
@@ -88,6 +108,10 @@ export const CreateFOIARequestDialog = ({
         requesterCategory: 'OTHER',
         feeLimit: 50,
         requestFeeWaiver: false,
+        requesterName: primaryContact?.name ?? '',
+        requesterEmail: primaryContact?.email ?? '',
+        requesterPhone: primaryContact?.phone ?? '',
+        requesterAddress: primaryContact?.address ?? '',
       });
       onOpenChange(false);
       onSuccess?.(result);
@@ -215,7 +239,16 @@ export const CreateFOIARequestDialog = ({
 
             {/* Requester Information */}
             <div className="space-y-4">
-              <h4 className="text-sm font-medium">Your Contact Information</h4>
+              <div className="flex items-center justify-between">
+                <h4 className="text-sm font-medium">Your Contact Information</h4>
+                {primaryContact && (
+                  <span className="text-xs text-muted-foreground">
+                    Pre-filled from{' '}
+                    <span className="font-medium text-foreground">{primaryContact.name}</span>
+                    {' '}(primary contact)
+                  </span>
+                )}
+              </div>
               <div className="grid gap-3">
                 <div className="grid gap-2">
                   <Label htmlFor="requesterName">Name *</Label>

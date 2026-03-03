@@ -4,10 +4,14 @@
  * These tools allow Claude to actively query the database during document
  * generation rather than relying solely on pre-fetched context.
  *
- * Available tools:
- *  - search_past_performance  → semantic search over past projects
- *  - search_knowledge_base    → semantic search over company KB
- *  - get_qa_answers           → filter Q&A pairs by topic
+ * Available tools (7 total):
+ *  - search_past_performance      → semantic search over past projects
+ *  - search_knowledge_base        → semantic search over company KB
+ *  - get_qa_answers               → filter Q&A pairs by topic
+ *  - get_organization_context     → org details, primary contact, project, team
+ *  - get_executive_brief_analysis → pre-analyzed opportunity intelligence
+ *  - get_content_library          → search pre-approved content snippets
+ *  - get_deadlines                → deadline information for the opportunity
  */
 
 import { searchPastProjects, getPastProject } from './past-performance';
@@ -16,15 +20,22 @@ import { loadTextFromS3 } from './s3';
 import { requireEnv } from './env';
 import { truncateText } from './executive-opportunity-brief';
 import type { QaPair } from './document-generation';
-import { getProjectById } from './project';
-import { getOrgMembers } from './user';
-import { docClient } from './db';
-import { GetCommand } from '@aws-sdk/lib-dynamodb';
-import { PK_NAME, SK_NAME } from '@/constants/common';
-import { ORG_PK } from '@/constants/organization';
+import {
+  fetchOrganizationDetails,
+  fetchOrgPrimaryContact,
+  fetchProjectDetails,
+  fetchTeamMembers,
+  fetchExecutiveBriefAnalysis,
+  fetchContentLibraryMatches,
+  fetchDeadlineInfo,
+  logToolUsage,
+} from './db-tool-helpers';
+import type { BriefSectionName } from './executive-opportunity-brief';
+import type { ToolResult } from '@/types/tool';
+
+export type { ToolResult };
 
 const DOCUMENTS_BUCKET = requireEnv('DOCUMENTS_BUCKET');
-const DB_TABLE_NAME = requireEnv('DB_TABLE_NAME');
 
 // ─── Tool schemas (Claude tool_use format) ────────────────────────────────────
 
@@ -103,12 +114,69 @@ export const DOCUMENT_TOOLS = [
   {
     name: 'get_organization_context',
     description:
-      'Retrieve organization, project, and team member information in a single call. ' +
-      'Use this when you need to fill in company-specific details such as: ' +
-      'company name, address, contact information, signatory details (name, title, email, phone), ' +
-      'team member names and roles, project name, or any other organizational metadata. ' +
-      'Always call this tool when generating Cover Letters, Commitment Statements, ' +
-      'Team Qualifications, or any section requiring real company/personnel details.',
+      'Retrieve organization, primary contact (proposal signatory), project, and team member ' +
+      'information in a single call. Use this when generating Cover Letters, Commitment Statements, ' +
+      'Team Qualifications, or any section requiring real company/personnel details. ' +
+      'Includes: company name, address, CAGE/DUNS, primary contact name/title/email/phone, ' +
+      'team member names and roles, and project name.',
+    input_schema: {
+      type: 'object' as const,
+      properties: {},
+      required: [],
+    },
+  },
+  {
+    name: 'get_executive_brief_analysis',
+    description:
+      'Retrieve pre-analyzed executive brief data for this opportunity. ' +
+      'Returns structured analysis including: opportunity summary, key requirements, ' +
+      'identified risks, contacts, deadlines, and bid/no-bid scoring. ' +
+      'Use this when you need pre-analyzed intelligence about the opportunity ' +
+      'to inform your document content, especially for Executive Summary, ' +
+      'Understanding of Requirements, and Risk Management sections.',
+    input_schema: {
+      type: 'object' as const,
+      properties: {
+        sections: {
+          type: 'array',
+          items: {
+            type: 'string',
+            enum: ['summary', 'requirements', 'risks', 'contacts', 'deadlines', 'scoring'],
+          },
+          description: 'Which brief sections to retrieve. Omit to get all completed sections.',
+        },
+      },
+      required: [],
+    },
+  },
+  {
+    name: 'get_content_library',
+    description:
+      'Search the organization\'s content library for pre-approved content snippets. ' +
+      'The content library contains vetted Q&A pairs and boilerplate text approved for proposals. ' +
+      'Use this when you need standard language for certifications, compliance statements, ' +
+      'company descriptions, or recurring proposal themes.',
+    input_schema: {
+      type: 'object' as const,
+      properties: {
+        query: {
+          type: 'string',
+          description: 'Search query. Example: "ISO 9001 certification" or "small business status"',
+        },
+        limit: {
+          type: 'number',
+          description: 'Maximum number of content items to return (1–5). Default: 3.',
+        },
+      },
+      required: ['query'],
+    },
+  },
+  {
+    name: 'get_deadlines',
+    description:
+      'Retrieve deadline information for this opportunity. ' +
+      'Returns submission deadlines, Q&A periods, site visit dates, and other key dates. ' +
+      'Use this when generating Cover Letters, Project Plans, or any section referencing specific dates.',
     input_schema: {
       type: 'object' as const,
       properties: {},
@@ -118,13 +186,6 @@ export const DOCUMENT_TOOLS = [
 ] as const;
 
 export type ToolName = typeof DOCUMENT_TOOLS[number]['name'];
-
-// ─── Tool result type ─────────────────────────────────────────────────────────
-
-export interface ToolResult {
-  tool_use_id: string;
-  content: string;
-}
 
 // ─── Tool executors ───────────────────────────────────────────────────────────
 
@@ -242,77 +303,22 @@ const executeGetQaAnswers = (
   return `Found ${scored.length} relevant Q&A pair(s) for "${topic}":\n\n${formatted}`;
 };
 
-// ─── Organization context executor ───────────────────────────────────────────
-
 const executeGetOrganizationContext = async (
   orgId: string,
   projectId: string,
 ): Promise<string> => {
   try {
-    const parts: string[] = [];
+    const [orgDetails, primaryContact, projectDetails, teamMembers] = await Promise.all([
+      fetchOrganizationDetails(orgId),
+      fetchOrgPrimaryContact(orgId),
+      fetchProjectDetails(projectId),
+      fetchTeamMembers(orgId, 10),
+    ]);
 
-    // Load organization details
-    try {
-      const orgRes = await docClient.send(new GetCommand({
-        TableName: DB_TABLE_NAME,
-        Key: { [PK_NAME]: ORG_PK, [SK_NAME]: `ORG#${orgId}` },
-      }));
-      const org = orgRes.Item as Record<string, unknown> | undefined;
-      if (org) {
-        parts.push('=== ORGANIZATION ===');
-        if (org.name) parts.push(`Company Name: ${org.name}`);
-        if (org.description) parts.push(`Description: ${org.description}`);
-        if (org.website) parts.push(`Website: ${org.website}`);
-        if (org.address) parts.push(`Address: ${org.address}`);
-        if (org.phone) parts.push(`Phone: ${org.phone}`);
-        if (org.email) parts.push(`Email: ${org.email}`);
-        if (org.cage) parts.push(`CAGE Code: ${org.cage}`);
-        if (org.duns) parts.push(`DUNS/UEI: ${org.duns}`);
-        if (org.naicsCodes) parts.push(`NAICS Codes: ${org.naicsCodes}`);
-        if (org.businessType) parts.push(`Business Type: ${org.businessType}`);
-        if (org.setAside) parts.push(`Set-Aside: ${org.setAside}`);
-        if (org.slug) parts.push(`Slug: ${org.slug}`);
-      }
-    } catch (err) {
-      console.warn('get_organization_context: failed to load org:', (err as Error)?.message);
-    }
-
-    // Load project details
-    try {
-      const project = await getProjectById(projectId);
-      if (project) {
-        parts.push('\n=== PROJECT ===');
-        if ((project as any).name) parts.push(`Project Name: ${(project as any).name}`);
-        if ((project as any).description) parts.push(`Project Description: ${(project as any).description}`);
-      }
-    } catch (err) {
-      console.warn('get_organization_context: failed to load project:', (err as Error)?.message);
-    }
-
-    // Load team members (up to 10)
-    try {
-      const members = await getOrgMembers(orgId);
-      if (members?.length) {
-        parts.push('\n=== TEAM MEMBERS ===');
-        members.slice(0, 10).forEach((m: any) => {
-          const line: string[] = [];
-          if (m.name || m.displayName) line.push(m.name || m.displayName);
-          if (m.title || m.jobTitle) line.push(m.title || m.jobTitle);
-          if (m.email) line.push(m.email);
-          if (m.phone) line.push(m.phone);
-          if (m.role) line.push(`(${m.role})`);
-          if (line.length) parts.push(`• ${line.join(' | ')}`);
-        });
-      }
-    } catch (err) {
-      console.warn('get_organization_context: failed to load members:', (err as Error)?.message);
-    }
-
-    if (parts.length === 0) {
-      return 'No organization context available. Use placeholder values like [Company Name], [Contact Name], [Title], [Email], [Phone].';
-    }
-
-    return parts.join('\n');
+    const parts = [orgDetails, primaryContact, projectDetails, teamMembers].filter(Boolean);
+    return parts.length
+      ? parts.join('\n\n')
+      : 'No organization context available. Use placeholder values like [Company Name], [Contact Name], [Title], [Email], [Phone].';
   } catch (err) {
     console.warn('get_organization_context tool error:', (err as Error)?.message);
     return 'Could not load organization context. Use placeholder values like [Company Name], [Contact Name], [Title], [Email], [Phone].';
@@ -327,45 +333,95 @@ export const executeDocumentTool = async (args: {
   toolUseId: string;
   orgId: string;
   projectId: string;
+  opportunityId: string;
+  documentId: string;
   qaPairs: QaPair[];
 }): Promise<ToolResult> => {
-  const { toolName, toolInput, toolUseId, orgId, projectId, qaPairs } = args;
+  const { toolName, toolInput, toolUseId, orgId, projectId, opportunityId, documentId, qaPairs } = args;
 
+  const start = Date.now();
   let content: string;
+  let result: 'success' | 'failure' = 'success';
+  let errorMessage: string | undefined;
 
-  switch (toolName) {
-    case 'search_past_performance':
-      content = await executePastPerformanceSearch(
-        orgId,
-        String(toolInput.keywords ?? ''),
-        typeof toolInput.limit === 'number' ? toolInput.limit : 3,
-      );
-      break;
+  try {
+    switch (toolName) {
+      case 'search_past_performance':
+        content = await executePastPerformanceSearch(
+          orgId,
+          String(toolInput.keywords ?? ''),
+          typeof toolInput.limit === 'number' ? toolInput.limit : 3,
+        );
+        break;
 
-    case 'search_knowledge_base':
-      content = await executeKnowledgeBaseSearch(
-        orgId,
-        String(toolInput.query ?? ''),
-        typeof toolInput.limit === 'number' ? toolInput.limit : 3,
-      );
-      break;
+      case 'search_knowledge_base':
+        content = await executeKnowledgeBaseSearch(
+          orgId,
+          String(toolInput.query ?? ''),
+          typeof toolInput.limit === 'number' ? toolInput.limit : 3,
+        );
+        break;
 
-    case 'get_qa_answers':
-      content = executeGetQaAnswers(
-        qaPairs,
-        String(toolInput.topic ?? ''),
-        typeof toolInput.limit === 'number' ? toolInput.limit : 5,
-      );
-      break;
+      case 'get_qa_answers':
+        content = executeGetQaAnswers(
+          qaPairs,
+          String(toolInput.topic ?? ''),
+          typeof toolInput.limit === 'number' ? toolInput.limit : 5,
+        );
+        break;
 
-    case 'get_organization_context':
-      content = await executeGetOrganizationContext(orgId, projectId);
-      break;
+      case 'get_organization_context':
+        content = await executeGetOrganizationContext(orgId, projectId);
+        break;
 
-    default:
-      content = `Unknown tool: ${toolName}`;
+      case 'get_executive_brief_analysis':
+        content = await fetchExecutiveBriefAnalysis(
+          projectId,
+          opportunityId,
+          toolInput.sections as BriefSectionName[] | undefined,
+        );
+        if (!content) content = 'No executive brief analysis available for this opportunity.';
+        break;
+
+      case 'get_content_library':
+        content = await fetchContentLibraryMatches(
+          orgId,
+          String(toolInput.query ?? ''),
+          typeof toolInput.limit === 'number' ? toolInput.limit : 3,
+        );
+        if (!content) content = 'No content library matches found for that query.';
+        break;
+
+      case 'get_deadlines':
+        content = await fetchDeadlineInfo(projectId, opportunityId);
+        if (!content) content = 'No deadline information available for this opportunity.';
+        break;
+
+      default:
+        content = `Unknown tool: ${toolName}`;
+    }
+  } catch (err) {
+    result = 'failure';
+    errorMessage = (err as Error)?.message ?? 'Unknown error';
+    content = `Error executing tool "${toolName}": ${errorMessage}`;
+    console.error(`Tool "${toolName}" failed:`, errorMessage);
   }
 
-  console.log(`Tool "${toolName}" executed: ${content.length} chars returned`);
+  const durationMs = Date.now() - start;
+  console.log(`Tool "${toolName}" executed: ${content.length} chars, ${durationMs}ms`);
+
+  // Non-blocking audit log — never block the critical path
+  logToolUsage({
+    orgId,
+    resourceId: documentId,
+    toolName,
+    toolInput,
+    resultLength: content.length,
+    resultEmpty: content.length === 0,
+    durationMs,
+    result,
+    errorMessage,
+  }).catch(err => console.warn('Failed to write tool audit log (non-blocking):', (err as Error)?.message));
+
   return { tool_use_id: toolUseId, content };
 };

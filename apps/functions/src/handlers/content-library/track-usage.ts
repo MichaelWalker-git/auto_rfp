@@ -1,51 +1,53 @@
-import type { APIGatewayProxyEventV2, APIGatewayProxyResultV2 } from 'aws-lambda';
+import type { APIGatewayProxyResultV2 } from 'aws-lambda';
 import { UpdateCommand } from '@aws-sdk/lib-dynamodb';
 import middy from '@middy/core';
-import { CONTENT_LIBRARY_PK, createContentLibrarySK, } from '@auto-rfp/core';
+import { CONTENT_LIBRARY_PK, ContentLibraryItem, TrackUsageDTOSchema, createContentLibrarySK } from '@auto-rfp/core';
 import { apiResponse, getOrgId } from '@/helpers/api';
-import { docClient } from '@/helpers/db';
+import { docClient, getItem } from '@/helpers/db';
 import { requireEnv } from '@/helpers/env';
 import { withSentryLambda } from '@/sentry-lambda';
-import { authContextMiddleware, httpErrorMiddleware, orgMembershipMiddleware,   type AuthedEvent,
+import {
+  authContextMiddleware,
+  httpErrorMiddleware,
+  orgMembershipMiddleware,
+  type AuthedEvent,
 } from '@/middleware/rbac-middleware';
 import { auditMiddleware, setAuditContext } from '@/middleware/audit-middleware';
+import { nowIso } from '@/helpers/date';
+import { PK_NAME, SK_NAME } from '@/constants/common';
 
 const TABLE_NAME = requireEnv('DB_TABLE_NAME');
 
-async function baseHandler(
-  event: AuthedEvent
-): Promise<APIGatewayProxyResultV2> {
+async function baseHandler(event: AuthedEvent): Promise<APIGatewayProxyResultV2> {
   try {
     const itemId = event.pathParameters?.id;
     const orgId = event.queryStringParameters?.orgId || getOrgId(event);
 
-    if (!itemId) {
-      return apiResponse(400, { error: 'Missing itemId' });
+    if (!itemId || !orgId) {
+      return apiResponse(400, { error: 'Missing itemId or orgId' });
     }
 
-    if (!orgId) {
-      return apiResponse(400, { error: 'Missing orgId' });
+    const { success, data, error: errors } = TrackUsageDTOSchema.safeParse(
+      JSON.parse(event.body || '{}'),
+    );
+
+    if (!success) {
+      return apiResponse(400, { error: 'Invalid request body', details: errors.flatten() });
     }
 
-    let body: unknown;
-    try {
-      body = event.body ? JSON.parse(event.body) : null;
-    } catch {
-      return apiResponse(400, { error: 'Invalid JSON in request body' });
+    const { projectId } = data;
+    const sk = createContentLibrarySK(orgId, itemId);
+    const now = nowIso();
+
+    // Verify item exists
+    const existing = await getItem<ContentLibraryItem>(CONTENT_LIBRARY_PK, sk);
+    if (!existing) {
+      return apiResponse(404, { error: 'Content library item not found' });
     }
 
-    const projectId = (body as any)?.projectId;
-    if (!projectId) {
-      return apiResponse(400, { error: 'Missing projectId in request body' });
-    }
+    const key = { [PK_NAME]: CONTENT_LIBRARY_PK, [SK_NAME]: sk };
 
-    const now = new Date().toISOString();
-    const kbId = event.queryStringParameters?.kbId || '';
-    const key = {
-      partition_key: CONTENT_LIBRARY_PK,
-      sort_key: createContentLibrarySK(orgId, kbId, itemId),
-    };
-
+    // Increment usage count and update lastUsedAt
     await docClient.send(new UpdateCommand({
       TableName: TABLE_NAME,
       Key: key,
@@ -61,6 +63,7 @@ async function baseHandler(
       },
     }));
 
+    // Add projectId to usedInProjectIds if not already present
     try {
       await docClient.send(new UpdateCommand({
         TableName: TABLE_NAME,
@@ -77,21 +80,19 @@ async function baseHandler(
         },
       }));
     } catch (conditionalError: unknown) {
+      // Ignore ConditionalCheckFailedException — projectId already in list
       if (
-        conditionalError &&
-        typeof conditionalError === 'object' &&
-        'name' in conditionalError &&
-        conditionalError.name !== 'ConditionalCheckFailedException'
+        !(conditionalError instanceof Error) ||
+        !conditionalError.name.includes('ConditionalCheckFailed')
       ) {
         throw conditionalError;
       }
     }
 
-    
     setAuditContext(event, {
       action: 'CONFIG_CHANGED',
       resource: 'knowledge_base',
-      resourceId: event.pathParameters?.id ?? 'unknown',
+      resourceId: itemId,
     });
 
     return apiResponse(200, { message: 'Usage tracked' });

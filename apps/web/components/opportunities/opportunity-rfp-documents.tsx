@@ -2,9 +2,6 @@
 
 import React, { useCallback, useMemo, useState } from 'react';
 import {
-  Download,
-  ExternalLink,
-  Eye,
   FileDown,
   FileText,
   FolderOpen,
@@ -40,7 +37,6 @@ import {
 } from '@/lib/hooks/use-rfp-documents';
 import { RFPDocumentUploadDialog } from '@/components/rfp-documents/rfp-document-upload-dialog';
 import { RFPDocumentPreviewDialog } from '@/components/rfp-documents/rfp-document-preview-dialog';
-import { RFPDocumentEditDialog } from '@/components/rfp-documents/rfp-document-edit-dialog';
 import { RFPDocumentExportDialog } from '@/components/rfp-documents/rfp-document-export-dialog';
 import { SignatureStatusBadge } from '@/components/rfp-documents/signature-status-badge';
 import { GoogleDriveSyncButton } from '@/components/rfp-documents/google-drive-sync-button';
@@ -91,7 +87,6 @@ export function OpportunityRFPDocuments() {
   const [uploadDialogOpen, setUploadDialogOpen] = useState(false);
   const [previewDoc, setPreviewDoc] = useState<RFPDocumentItem | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
-  const [editDoc, setEditDoc] = useState<RFPDocumentItem | null>(null);
   const [exportDoc, setExportDoc] = useState<RFPDocumentItem | null>(null);
   const [convertingId, setConvertingId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
@@ -336,31 +331,11 @@ export function OpportunityRFPDocuments() {
                       </div>
 
                       <div className="flex items-center gap-1 shrink-0">
-                        {doc.fileKey && (
-                          <Button size="sm" variant="ghost" className="h-8 w-8 p-0" disabled={previewLoading} onClick={() => handlePreview(doc)} title="Preview">
-                            <Eye className="h-4 w-4" />
-                          </Button>
-                        )}
-                        {doc.fileKey && (
-                          <Button size="sm" variant="ghost" className="h-8 w-8 p-0" disabled={isDownloading} onClick={() => handleDownload(doc)} title="Download">
-                            {isDownloading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
-                          </Button>
-                        )}
-                        {doc.content && (
-                          <Button size="sm" variant="ghost" className="h-8 w-8 p-0" onClick={() => setExportDoc(doc)} title="Export">
-                            <FileDown className="h-4 w-4" />
-                          </Button>
-                        )}
-                        {doc.content && navOrgId && (
-                          <Button size="sm" variant="ghost" className="h-8 w-8 p-0" asChild title="Open in editor">
+                        {doc.content && doc.status !== 'GENERATING' && navOrgId && (
+                          <Button size="sm" variant="ghost" className="h-8 w-8 p-0" asChild title="Edit document">
                             <Link href={`/organizations/${navOrgId}/projects/${projectId}/opportunities/${oppId}/rfp-documents/${doc.documentId}/edit`}>
-                              <ExternalLink className="h-4 w-4" />
+                              <Pencil className="h-4 w-4" />
                             </Link>
-                          </Button>
-                        )}
-                        {doc.content && (
-                          <Button size="sm" variant="ghost" className="h-8 w-8 p-0" onClick={() => setEditDoc(doc)} title="Edit content">
-                            <Pencil className="h-4 w-4" />
                           </Button>
                         )}
                         {!doc.content && doc.fileKey && (doc.mimeType?.includes('word') || doc.mimeType?.includes('text') || doc.mimeType?.includes('pdf') || doc.fileKey?.endsWith('.docx') || doc.fileKey?.endsWith('.pdf') || doc.fileKey?.endsWith('.txt') || doc.fileKey?.endsWith('.md')) && (
@@ -380,9 +355,11 @@ export function OpportunityRFPDocuments() {
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
-                            {doc.content && (
-                              <DropdownMenuItem onClick={() => setEditDoc(doc)}>
-                                <Pencil className="h-4 w-4 mr-2" /> Edit Content
+                            {doc.content && navOrgId && (
+                              <DropdownMenuItem asChild>
+                                <Link href={`/organizations/${navOrgId}/projects/${projectId}/opportunities/${oppId}/rfp-documents/${doc.documentId}/edit`} className="flex items-center">
+                                  <Pencil className="h-4 w-4 mr-2" /> Edit Content
+                                </Link>
                               </DropdownMenuItem>
                             )}
                             {!doc.content && doc.fileKey && (
@@ -426,13 +403,6 @@ export function OpportunityRFPDocuments() {
         onOpenChange={(open) => { if (!open) { setPreviewDoc(null); setPreviewUrl(null); } }}
         document={previewDoc}
         previewUrl={previewUrl}
-      />
-      <RFPDocumentEditDialog
-        open={!!editDoc}
-        onOpenChange={(open) => { if (!open) setEditDoc(null); }}
-        document={editDoc}
-        orgId={orgId}
-        onSuccess={() => mutate()}
       />
       <RFPDocumentExportDialog
         open={!!exportDoc}

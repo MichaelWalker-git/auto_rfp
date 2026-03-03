@@ -26,6 +26,7 @@ import { auditMiddleware, setAuditContext } from '@/middleware/audit-middleware'
 import middy from '@middy/core';
 import { requireEnv } from '@/helpers/env';
 import { nowIso } from '@/helpers/date';
+import { onBriefGenerationStarted } from '@/helpers/opportunity-stage';
 
 
 const DOCUMENTS_BUCKET = requireEnv('DOCUMENTS_BUCKET');
@@ -134,6 +135,12 @@ export const baseHandler = async (
     ExecutiveBriefItemSchema.parse(brief);
 
     await putExecutiveBrief(brief);
+
+    // Auto-transition opportunity: IDENTIFIED → QUALIFYING (non-blocking)
+    if (orgId && opportunityId) {
+      onBriefGenerationStarted({ orgId, projectId, oppId: opportunityId })
+        .catch(err => console.warn('onBriefGenerationStarted failed (non-blocking):', (err as Error)?.message));
+    }
 
     const effectiveSk = isRegeneration ? (existingBrief as any)[SK_NAME] : sk;
 
