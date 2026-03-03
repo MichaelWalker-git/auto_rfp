@@ -131,6 +131,7 @@ export function QAEngagementProvider({
   });
 
   // Documents SWR (for checking if solicitation documents exist)
+  // Poll only when documents are still processing, stop when done
   const documentsUrl = `${QUESTION_FILE_BASE}/get-question-files?projectId=${encodeURIComponent(projectId)}&oppId=${encodeURIComponent(opportunityId)}`;
   const {
     data: documentsData,
@@ -138,7 +139,14 @@ export function QAEngagementProvider({
     mutate: mutateDocuments,
   } = useSWR<{ items: QuestionFileItem[] }>(documentsUrl, swrFetcher, {
     onError: () => {}, // Don't throw - documents check is for UX
-    refreshInterval: 5000, // Poll every 5s to catch processing completion
+    // Conditional polling: only poll when documents are still processing
+    refreshInterval: (data) => {
+      if (!data?.items?.length) return 0; // No documents, no need to poll
+      const hasProcessing = data.items.some(
+        (item) => item.status === 'PROCESSING' || item.status === 'UPLOADED' || item.status === 'TEXTRACT_RUNNING'
+      );
+      return hasProcessing ? 5000 : 0; // Poll every 5s only if processing, otherwise stop
+    },
   });
 
   // Compute documents state for UI validation

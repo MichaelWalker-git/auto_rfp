@@ -59,6 +59,7 @@ const PRIORITY_ICONS: Record<string, React.ReactNode> = {
 
 export function ClarifyingQuestionsPanel() {
   const {
+    opportunityId,
     questions,
     questionsLoading,
     questionsError,
@@ -74,9 +75,6 @@ export function ClarifyingQuestionsPanel() {
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [statusFilter, setStatusFilter] = useState<string>('ALL');
 
-  // Get opportunityId from context to reset state when it changes
-  const { opportunityId } = useQAEngagementContext();
-
   // Reset local state when opportunity changes
   useEffect(() => {
     setIsGenerating(false);
@@ -86,9 +84,25 @@ export function ClarifyingQuestionsPanel() {
   }, [opportunityId]);
 
   // Determine if generation is allowed based on document state
-  const canGenerate = documentsState.hasProcessedDocuments;
+  // When still loading documents, we don't know yet - treat as "checking"
+  // Also block generation while any documents are still processing
   const isDocumentsProcessing = documentsState.isProcessing;
-  const hasNoDocuments = !documentsState.hasDocuments;
+  const hasNoDocuments = !documentsLoading && !documentsState.hasDocuments;
+  const isCheckingDocuments = documentsLoading;
+  const canGenerate = !documentsLoading && documentsState.hasProcessedDocuments && !isDocumentsProcessing;
+
+  // Helper to extract user-friendly error message from API response
+  const extractErrorMessage = (errorText: string): string => {
+    // Try to parse as JSON to extract message field
+    try {
+      const parsed = JSON.parse(errorText) as { message?: string; error?: string; code?: string };
+      if (parsed.message) return parsed.message;
+      if (parsed.error) return parsed.error;
+    } catch {
+      // Not JSON, use as-is
+    }
+    return errorText;
+  };
 
   const handleGenerate = async (force = false) => {
     setGenerateError(null);
@@ -97,7 +111,9 @@ export function ClarifyingQuestionsPanel() {
       await generateQuestions(force);
     } catch (err) {
       // Handle backend validation errors with user-friendly message
-      const errorMsg = err instanceof Error ? err.message : 'Failed to generate questions';
+      const rawMessage = err instanceof Error ? err.message : 'Failed to generate questions';
+      const errorMsg = extractErrorMessage(rawMessage);
+      
       if (errorMsg.includes('NO_DOCUMENTS') || errorMsg.includes('No solicitation documents')) {
         setGenerateError('Please upload and process solicitation documents before generating clarifying questions.');
       } else {
@@ -171,7 +187,9 @@ export function ClarifyingQuestionsPanel() {
               </TooltipTrigger>
               {!canGenerate && (
                 <TooltipContent side="bottom" className="max-w-xs">
-                  {hasNoDocuments
+                  {isCheckingDocuments
+                    ? 'Checking document status...'
+                    : hasNoDocuments
                     ? 'Upload solicitation documents first'
                     : isDocumentsProcessing
                     ? 'Documents are still processing. Please wait...'
@@ -222,7 +240,13 @@ export function ClarifyingQuestionsPanel() {
         {filteredQuestions.length === 0 ? (
           <div className="text-center py-8 text-muted-foreground">
             {questions.length === 0 ? (
-              hasNoDocuments ? (
+              isCheckingDocuments ? (
+                <>
+                  <Loader2 className="h-12 w-12 mx-auto mb-4 opacity-30 animate-spin" />
+                  <p className="font-medium">Checking documents...</p>
+                  <p className="text-sm mt-1">Loading document status to determine if generation is available.</p>
+                </>
+              ) : hasNoDocuments ? (
                 <>
                   <FileText className="h-12 w-12 mx-auto mb-4 opacity-30" />
                   <p className="font-medium">No solicitation documents</p>
