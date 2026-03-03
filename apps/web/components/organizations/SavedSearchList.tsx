@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useMemo } from 'react';
-import type { LoadSamOpportunitiesRequest, SavedSearch } from '@auto-rfp/core';
+import type { LoadSearchOpportunitiesRequest, SavedSearch } from '@auto-rfp/core';
 
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -33,10 +33,15 @@ function formatMoney(n: number) {
   }
 }
 
-function criteriaChips(c: LoadSamOpportunitiesRequest): Array<{ label: string; variant?: any }> {
+function criteriaChips(c: LoadSearchOpportunitiesRequest): Array<{ label: string; variant?: any }> {
   const chips: Array<{ label: string; variant?: any }> = [];
 
-  chips.push({ label: `Posted ${c.postedFrom} → ${c.postedTo}`, variant: 'secondary' });
+  if (c.postedFrom || c.postedTo) {
+    chips.push({ label: `Posted ${c.postedFrom ?? '—'} → ${c.postedTo ?? '—'}`, variant: 'secondary' });
+  }
+  if (c.closingFrom || c.closingTo) {
+    chips.push({ label: `Closes ${c.closingFrom ?? '—'} → ${c.closingTo ?? '—'}`, variant: 'secondary' });
+  }
 
   if (c.keywords) chips.push({ label: `Keywords: ${c.keywords}` });
   if (c.title) chips.push({ label: `Title: ${c.title}` });

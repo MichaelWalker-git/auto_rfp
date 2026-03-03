@@ -3,7 +3,6 @@ import { Spinner } from '@/components/ui/spinner';
 import { ProjectPageProvider } from '@/app/organizations/[orgId]/projects/components/project-page-provider';
 import { ProjectContent } from '@/app/organizations/[orgId]/projects/components/project-content';
 
-// Loading fallback component
 function ProjectPageLoading() {
   return (
     <div className="flex flex-col items-center justify-center h-64">
@@ -13,7 +12,6 @@ function ProjectPageLoading() {
   );
 }
 
-// Main page component with Suspense boundary
 interface ProjectPageProps {
   params: Promise<{ orgId: string; projectId: string }>;
 }

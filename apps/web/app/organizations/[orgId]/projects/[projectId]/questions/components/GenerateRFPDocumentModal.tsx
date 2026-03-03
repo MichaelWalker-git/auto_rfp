@@ -3,7 +3,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { Brain, Loader2, Save } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
@@ -11,7 +11,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Separator } from '@/components/ui/separator';
 
 import {
-  useCreateRFPDocument,
   useGenerateRFPDocument,
   useRFPDocumentPolling,
   useUpdateRFPDocument,
@@ -28,26 +27,29 @@ type Props = {
 };
 
 export const GenerateRFPDocumentModal: React.FC<Props> = ({
-                                                            projectId,
-                                                            opportunityId,
-                                                            onSave,
-                                                          }) => {
+  projectId,
+  opportunityId,
+  onSave,
+}) => {
   const [open, setOpen] = useState(false);
   const [proposal, setProposal] = useState<RFPDocumentContent | undefined>();
   const [htmlContent, setHtmlContent] = useState('');
   const [localError, setLocalError] = useState<string | null>(null);
-  const [savedDocumentId, setSavedDocumentId] = useState<string | null>(null);
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
 
   // Track the in-flight generation job so we can poll it
   const [generatingDocumentId, setGeneratingDocumentId] = useState<string | null>(null);
   const [generatingOpportunityId, setGeneratingOpportunityId] = useState<string | null>(null);
 
+  // The document ID created by the generate-document Lambda.
+  // We UPDATE this document on save — never create a new one.
+  const [generatedDocumentId, setGeneratedDocumentId] = useState<string | null>(null);
+  const [generatedOpportunityId, setGeneratedOpportunityId] = useState<string | null>(null);
+
   const { currentOrganization } = useCurrentOrganization();
   const orgId = currentOrganization?.id;
 
   const { trigger: triggerGenerate, isMutating: isEnqueuing, error: enqueueError } = useGenerateRFPDocument(orgId);
-  const { trigger: triggerCreate, isMutating: isCreating } = useCreateRFPDocument(orgId);
   const { trigger: triggerUpdate, isMutating: isUpdating } = useUpdateRFPDocument(orgId);
 
   // Poll the document until generation completes
@@ -64,7 +66,7 @@ export const GenerateRFPDocumentModal: React.FC<Props> = ({
   );
 
   const isMutating = isEnqueuing || isGenerating;
-  const isSaving = isCreating || isUpdating;
+  const isSaving = isUpdating;
 
   // Once polling resolves a completed document, extract its content
   useEffect(() => {
@@ -76,7 +78,12 @@ export const GenerateRFPDocumentModal: React.FC<Props> = ({
       setProposal(content);
       setHtmlContent(content.content ?? '');
     }
-    // Stop polling by clearing the generatingDocumentId
+
+    // Store the generated document ID so we can update it on save
+    setGeneratedDocumentId(polledDocument.documentId);
+    setGeneratedOpportunityId(polledDocument.opportunityId);
+
+    // Stop polling
     setGeneratingDocumentId(null);
     setGeneratingOpportunityId(null);
   }, [polledDocument, isGenerating]);
@@ -97,9 +104,11 @@ export const GenerateRFPDocumentModal: React.FC<Props> = ({
     setLocalError(null);
     setGeneratingDocumentId(null);
     setGeneratingOpportunityId(null);
+    setGeneratedDocumentId(null);
+    setGeneratedOpportunityId(null);
 
     try {
-      const result = await triggerGenerate({ projectId });
+      const result = await triggerGenerate({ projectId, opportunityId });
       if (result?.documentId) {
         setGeneratingDocumentId(result.documentId);
         setGeneratingOpportunityId(result.opportunityId ?? opportunityId ?? 'default');
@@ -125,44 +134,31 @@ export const GenerateRFPDocumentModal: React.FC<Props> = ({
   }, []);
 
   const handleSave = async () => {
-    if (!proposal) return;
+    if (!proposal || !generatedDocumentId) return;
     setSaveMessage(null);
     setLocalError(null);
 
     try {
-      const effectiveOpportunityId = opportunityId || 'default';
-      const finalProposal: RFPDocumentContent = {
-        ...proposal,
-        content: htmlContent || proposal.content,
-      };
+      const effectiveOpportunityId = generatedOpportunityId ?? opportunityId ?? 'default';
 
-      if (savedDocumentId) {
-        await triggerUpdate({
-          projectId,
-          opportunityId: effectiveOpportunityId,
-          documentId: savedDocumentId,
-          name: finalProposal.title || 'Generated Proposal',
-          documentType: 'TECHNICAL_PROPOSAL',
-          content: finalProposal,
-          title: finalProposal.title || 'Generated Proposal',
-        });
-      } else {
-        const result = await triggerCreate({
-          projectId,
-          opportunityId: effectiveOpportunityId,
-          name: finalProposal.title || 'Generated Proposal',
-          documentType: 'TECHNICAL_PROPOSAL',
-          mimeType: 'application/json',
-          fileSizeBytes: 0,
-          content: finalProposal as unknown as Record<string, unknown>,
-          status: 'NEW',
-          title: finalProposal.title ?? null,
-        });
-
-        if (result?.document?.documentId) {
-          setSavedDocumentId(result.document.documentId);
-        }
-      }
+      // Update the document that was already created by the generate-document Lambda.
+      // Never create a new document — that would result in duplicates.
+      await triggerUpdate({
+        projectId,
+        opportunityId: effectiveOpportunityId,
+        documentId: generatedDocumentId,
+        name: proposal.title || 'Generated Proposal',
+        documentType: 'TECHNICAL_PROPOSAL',
+        content: {
+          title: proposal.title,
+          customerName: proposal.customerName,
+          outlineSummary: proposal.outlineSummary,
+          opportunityId: proposal.opportunityId,
+          // Pass HTML — backend will upload to S3
+          content: htmlContent || proposal.content,
+        },
+        title: proposal.title || 'Generated Proposal',
+      });
 
       setSaveMessage('Saved ✅');
       onSave?.();
@@ -173,6 +169,7 @@ export const GenerateRFPDocumentModal: React.FC<Props> = ({
   };
 
   const hasHtml = !!(proposal?.content || htmlContent);
+  const canSave = !!proposal && !!generatedDocumentId;
 
   return (
     <>
@@ -180,12 +177,12 @@ export const GenerateRFPDocumentModal: React.FC<Props> = ({
         <Button onClick={handleOpen} disabled={isMutating} variant="outline" className="gap-1">
           {isMutating && !proposal ? (
             <>
-              <Loader2 className="mr-2 h-4 w-4 animate-spin"/>
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
               Generating…
             </>
           ) : (
             <>
-              <Brain className="h-4 w-4"/>
+              <Brain className="h-4 w-4" />
               Generate Proposal
             </>
           )}
@@ -201,7 +198,7 @@ export const GenerateRFPDocumentModal: React.FC<Props> = ({
             </DialogDescription>
           </DialogHeader>
 
-          <Separator className="shrink-0"/>
+          <Separator className="shrink-0" />
 
           {/* Status messages */}
           {localError && (
@@ -210,8 +207,7 @@ export const GenerateRFPDocumentModal: React.FC<Props> = ({
             </div>
           )}
           {saveMessage && (
-            <div
-              className="shrink-0 text-sm text-green-600 border border-green-600/30 rounded-md px-3 py-2 bg-green-500/5">
+            <div className="shrink-0 text-sm text-green-600 border border-green-600/30 rounded-md px-3 py-2 bg-green-500/5">
               {saveMessage}
             </div>
           )}
@@ -219,7 +215,7 @@ export const GenerateRFPDocumentModal: React.FC<Props> = ({
           {/* Loading state */}
           {isMutating && !proposal && (
             <div className="flex-1 flex items-center justify-center">
-              <Loader2 className="h-6 w-6 animate-spin mr-2"/>
+              <Loader2 className="h-6 w-6 animate-spin mr-2" />
               <span className="text-sm text-muted-foreground">Generating proposal from AI…</span>
             </div>
           )}
@@ -269,10 +265,7 @@ export const GenerateRFPDocumentModal: React.FC<Props> = ({
                     <Textarea
                       rows={4}
                       value={proposal.outlineSummary ?? ''}
-                      onChange={(e) => setProposal((p) => p ? {
-                        ...p,
-                        outlineSummary: e.target.value || undefined
-                      } : p)}
+                      onChange={(e) => setProposal((p) => p ? { ...p, outlineSummary: e.target.value || undefined } : p)}
                     />
                   </div>
                 </div>
@@ -297,18 +290,18 @@ export const GenerateRFPDocumentModal: React.FC<Props> = ({
             </Tabs>
           )}
 
-          <Separator className="shrink-0 mt-2"/>
+          <Separator className="shrink-0 mt-2" />
 
           {/* Footer */}
           <div className="shrink-0 pt-3 flex justify-between items-center gap-2">
             <Button variant="outline" onClick={handleRegenerate} disabled={isMutating || isSaving}>
               Regenerate from AI
             </Button>
-            <Button onClick={handleSave} disabled={!proposal || isSaving}>
+            <Button onClick={handleSave} disabled={!canSave || isSaving}>
               {isSaving ? (
-                <><Loader2 className="mr-2 h-4 w-4 animate-spin"/>Saving…</>
+                <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Saving…</>
               ) : (
-                <><Save className="mr-2 h-4 w-4"/>Save as RFP Document</>
+                <><Save className="mr-2 h-4 w-4" />Save as RFP Document</>
               )}
             </Button>
           </div>

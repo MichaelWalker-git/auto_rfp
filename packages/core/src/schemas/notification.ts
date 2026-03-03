@@ -19,10 +19,15 @@ export const NotificationTypeSchema = z.enum([
   'DEADLINE_3_DAYS',
   'DEADLINE_1_DAY',
   'DEADLINE_6_HOURS',
+  // Solicitation import
+  'SOLICITATION_IMPORTED',
   // System
   'PROCESSING_COMPLETE',
   'PROCESSING_ERROR',
   'EXPORT_READY',
+  // Stale content
+  'STALE_CONTENT_WARNING',
+  'STALE_CONTENT_DETECTED',
 ]);
 export type NotificationType = z.infer<typeof NotificationTypeSchema>;
 

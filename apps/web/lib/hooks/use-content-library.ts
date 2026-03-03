@@ -17,7 +17,7 @@ export type { ContentLibraryItem, ContentLibraryListResponse, ContentLibraryTags
 // Search params type (frontend-only, not in shared)
 export interface SearchContentLibraryParams {
   orgId: string;
-  kbId: string;
+  kbId?: string;
   query?: string;
   category?: string;
   tags?: string[];
@@ -127,8 +127,8 @@ export function useCreateContentLibraryItem() {
   };
 }
 
-export function useUpdateContentLibraryItem(orgId: string, kbId: string, itemId: string) {
-  const url = buildApiUrl(`content-library/edit-content-library/${itemId}`, { orgId, kbId });
+export function useUpdateContentLibraryItem(orgId: string, itemId: string, kbId?: string) {
+  const url = buildApiUrl(`content-library/edit-content-library/${itemId}`, { orgId, ...(kbId ? { kbId } : {}) });
 
   const { trigger, isMutating, error } = useSWRMutation<
     ContentLibraryItem,
@@ -144,11 +144,14 @@ export function useUpdateContentLibraryItem(orgId: string, kbId: string, itemId:
   };
 }
 
-export function useDeleteContentLibraryItem(orgId: string, kbId: string, itemId: string) {
+export function useDeleteContentLibraryItem(orgId: string, itemId: string, kbId?: string) {
   const deleteItem = async (hardDelete = false) => {
+    if (!itemId || !orgId) {
+      throw new Error('itemId and orgId are required to delete a content library item');
+    }
     const url = buildApiUrl(`content-library/delete-content-library/${itemId}`, {
       orgId,
-      kbId,
+      ...(kbId ? { kbId } : {}),
       hardDelete: hardDelete || undefined,
     });
     return apiMutate<{ message: string }>(url, 'DELETE');
@@ -157,18 +160,18 @@ export function useDeleteContentLibraryItem(orgId: string, kbId: string, itemId:
   return { deleteItem };
 }
 
-export function useApproveContentLibraryItem(orgId: string, kbId: string) {
+export function useApproveContentLibraryItem(orgId: string, kbId?: string) {
   const approve = async (itemId: string) => {
-    const url = buildApiUrl(`content-library/approve/${itemId}`, { orgId, kbId });
+    const url = buildApiUrl(`content-library/approve/${itemId}`, { orgId, ...(kbId ? { kbId } : {}) });
     return apiMutate<{ message: string }>(url, 'POST');
   };
 
   return { approve };
 }
 
-export function useDeprecateContentLibraryItem(orgId: string, kbId: string) {
+export function useDeprecateContentLibraryItem(orgId: string, kbId?: string) {
   const deprecate = async (itemId: string) => {
-    const url = buildApiUrl(`content-library/deprecate/${itemId}`, { orgId, kbId });
+    const url = buildApiUrl(`content-library/deprecate/${itemId}`, { orgId, ...(kbId ? { kbId } : {}) });
     return apiMutate<{ message: string }>(url, 'POST');
   };
 

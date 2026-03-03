@@ -5,7 +5,7 @@ import { requireEnv } from './env';
 import { nowIso } from './date';
 import { getEmbedding } from './embeddings';
 import { getPineconeClient } from './pinecone';
-import { PK_NAME, SK_NAME } from '../constants/common';
+import { PK_NAME, SK_NAME } from '@/constants/common';
 import {
   type PastProject,
   type CreatePastProjectDTO,

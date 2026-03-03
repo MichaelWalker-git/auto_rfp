@@ -41,7 +41,6 @@ export type StaleReason = z.infer<typeof StaleReasonSchema>;
 export const ContentLibraryItemSchema = z.object({
   id: z.string().uuid(),
   orgId: z.string().uuid(),
-  kbId: z.string().uuid(),
 
   question: z.string().min(1),
   answer: z.string().min(1),
@@ -84,7 +83,6 @@ export type ContentLibraryItem = z.infer<typeof ContentLibraryItemSchema>;
 
 export const CreateContentLibraryItemDTOSchema = z.object({
   orgId: z.string().uuid(),
-  kbId: z.string().uuid(),
   question: z.string().min(1, 'Question is required'),
   answer: z.string().min(1, 'Answer is required'),
   category: z.string().min(1).max(100),
@@ -112,7 +110,7 @@ export type UpdateContentLibraryItemDTO = z.infer<typeof UpdateContentLibraryIte
 // Search/filter content library
 export const SearchContentLibraryDTOSchema = z.object({
   orgId: z.string().uuid(),
-  kbId: z.string().uuid(),
+  kbId: z.string().uuid().optional(),
   query: z.string().optional(),
   category: z.string().optional(),
   tags: z.array(z.string()).optional(),
@@ -186,14 +184,27 @@ export type ContentLibraryTagsResponse = z.infer<typeof ContentLibraryTagsRespon
 
 export const CONTENT_LIBRARY_PK = 'CONTENT_LIBRARY';
 
-export function createContentLibrarySK(orgId: string, kbId: string, itemId: string): string {
-  return `${orgId}#${kbId}#${itemId}`;
+/**
+ * Build the DynamoDB sort key for a content library item.
+ * New format: `{orgId}#{itemId}` (2-arg)
+ * Legacy format: `{orgId}#{kbId}#{itemId}` (3-arg, kept for backward compat during migration)
+ */
+export function createContentLibrarySK(orgId: string, itemId: string): string;
+export function createContentLibrarySK(orgId: string, kbId: string, itemId: string): string;
+export function createContentLibrarySK(orgId: string, itemIdOrKbId: string, itemId?: string): string {
+  if (itemId !== undefined) {
+    return `${orgId}#${itemIdOrKbId}#${itemId}`;
+  }
+  return `${orgId}#${itemIdOrKbId}`;
 }
 
-export function parseContentLibrarySK(sk: string): { orgId: string; itemId: string, kbId: string } | null {
+export function parseContentLibrarySK(sk: string): { orgId: string; itemId: string } | null {
   const parts = sk.split('#');
-  if (parts.length !== 3) return null;
-  return { orgId: parts[0], kbId: parts[1], itemId: parts[2] };
+  if (parts.length < 2) return null;
+  // Support both 2-part (new) and 3-part (legacy) SKs
+  if (parts.length === 2) return { orgId: parts[0], itemId: parts[1] };
+  if (parts.length === 3) return { orgId: parts[0], itemId: parts[2] }; // legacy: orgId#kbId#itemId
+  return null;
 }
 
 // ================================

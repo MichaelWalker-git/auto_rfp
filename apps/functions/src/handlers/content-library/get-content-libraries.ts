@@ -22,16 +22,15 @@ async function baseHandler(
   try {
     const params = event.queryStringParameters || {};
     const orgId = params.orgId || getOrgId(event);
-    const kbId = params.kbId
+    const kbId = params.kbId;
 
-
-    if (!orgId || !kbId) {
-      return apiResponse(400, { error: 'Missing orgId or kbId' });
+    if (!orgId) {
+      return apiResponse(400, { error: 'Missing orgId' });
     }
 
     const searchParams: SearchContentLibraryDTO = {
       orgId,
-      kbId,
+      kbId: kbId || undefined,
       query: params.query,
       category: params.category,
       tags: params.tags ? params.tags.split(',') : undefined,
@@ -57,12 +56,13 @@ async function baseHandler(
       },
       ExpressionAttributeValues: {
         ':pk': CONTENT_LIBRARY_PK,
-        ':sk_prefix': `${orgId}#${kbId}`,
+        // When kbId is provided, scope to that KB; otherwise scope to all org items
+        ':sk_prefix': kbId ? `${orgId}#${kbId}` : `${orgId}#`,
       },
     }));
 
     let items = (result.Items || []).map((item) => {
-      const { partition_key, sort_key, ...rest } = item;
+      const { [PK_NAME]: _pk, [SK_NAME]: _sk, ...rest } = item;
       return rest as ContentLibraryItem;
     });
 
@@ -77,22 +77,22 @@ async function baseHandler(
 
     if (category) {
       items = items.filter((item) =>
-        item.category.toLowerCase() === category.toLowerCase()
+        item.category?.toLowerCase() === category.toLowerCase()
       );
     }
 
     if (tags && tags.length > 0) {
       items = items.filter((item) =>
-        tags.some((tag) => item.tags.includes(tag))
+        tags.some((tag) => (item.tags ?? []).includes(tag))
       );
     }
 
     if (query) {
       const lowerQuery = query.toLowerCase();
       items = items.filter((item) =>
-        item.question.toLowerCase().includes(lowerQuery) ||
-        item.answer.toLowerCase().includes(lowerQuery) ||
-        item.tags.some((tag) => tag.toLowerCase().includes(lowerQuery))
+        item.question?.toLowerCase().includes(lowerQuery) ||
+        item.answer?.toLowerCase().includes(lowerQuery) ||
+        (item.tags ?? []).some((tag) => tag.toLowerCase().includes(lowerQuery))
       );
     }
 

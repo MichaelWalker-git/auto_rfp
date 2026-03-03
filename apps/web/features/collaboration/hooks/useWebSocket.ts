@@ -12,23 +12,39 @@ interface UseWebSocketOptions {
   enabled?: boolean;
 }
 
+// Track if we've already warned about missing WebSocket URL
+let wsWarningShown = false;
+
 export function useWebSocket({ projectId, orgId, onMessage, enabled = true }: UseWebSocketOptions) {
   const clientRef = useRef<WsClient | null>(null);
 
   useEffect(() => {
     if (!enabled || !projectId || !orgId) return;
 
+    // Skip WebSocket connection if URL is not configured
+    const wsUrl = process.env.NEXT_PUBLIC_WS_API_URL ?? '';
+    if (!wsUrl || (!wsUrl.startsWith('wss://') && !wsUrl.startsWith('ws://'))) {
+      if (!wsWarningShown) {
+        wsWarningShown = true;
+        console.warn('WebSocket URL not configured or invalid, collaboration features disabled');
+      }
+      return;
+    }
+
     let mounted = true;
 
     const init = async () => {
-      const session = await fetchAuthSession();
-      const token = session.tokens?.idToken?.toString();
-      if (!token || !mounted) return;
+      try {
+        const session = await fetchAuthSession();
+        const token = session.tokens?.idToken?.toString();
+        if (!token || !mounted) return;
 
-      const wsUrl = process.env.NEXT_PUBLIC_WS_API_URL ?? '';
-      const client = new WsClient({ wsUrl, token, projectId, orgId, onMessage });
-      clientRef.current = client;
-      client.connect();
+        const client = new WsClient({ wsUrl, token, projectId, orgId, onMessage });
+        clientRef.current = client;
+        client.connect();
+      } catch (err) {
+        console.warn('Failed to initialize WebSocket connection:', err);
+      }
     };
 
     init();

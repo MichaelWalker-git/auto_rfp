@@ -93,8 +93,10 @@ export function useTemplates(params: {
   };
 }
 
+export type TemplateWithContent = TemplateItem & { htmlContent: string | null };
+
 export function useTemplate(orgId: string | null, templateId: string | null) {
-  const { data, error, isLoading, mutate } = useSWR<TemplateItem>(
+  const { data, error, isLoading, mutate } = useSWR<TemplateWithContent>(
     orgId && templateId ? `${API_BASE}/get/${templateId}?orgId=${orgId}` : null,
     fetcher,
     { revalidateOnFocus: false },

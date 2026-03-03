@@ -12,19 +12,18 @@ import {
 } from '@/middleware/rbac-middleware';
 import { auditMiddleware, setAuditContext } from '@/middleware/audit-middleware';
 import { nowIso } from '@/helpers/date';
-import { putTemplate, saveTemplateVersion } from '@/helpers/template';
+import { putTemplate, uploadTemplateHtml } from '@/helpers/template';
 
 const baseHandler = async (
   event: APIGatewayProxyEventV2,
 ): Promise<APIGatewayProxyResultV2> => {
   try {
     const body = JSON.parse(event.body || '');
-    const parsed = CreateTemplateDTOSchema.safeParse(body);
-    if (!parsed.success) {
-      return apiResponse(400, { error: 'Validation failed', details: parsed.error.format() });
+    const { success, data, error } = CreateTemplateDTOSchema.safeParse(body);
+    if (!success) {
+      return apiResponse(400, { error: 'Validation failed', details: error.format() });
     }
 
-    const { data } = parsed;
     const orgId = data.orgId || getOrgId(event);
     if (!orgId) return apiResponse(400, { error: 'Missing orgId' });
 
@@ -34,11 +33,10 @@ const baseHandler = async (
 
     const allMacros = [...SYSTEM_MACROS, ...(data.macros ?? [])];
 
-    const s3Key = await saveTemplateVersion(orgId, templateId, 1, {
-      sections: data.sections,
-      macros: allMacros,
-      styling: data.styling,
-    });
+    // Upload HTML content to S3
+    const htmlContentKey = data.htmlContent
+      ? await uploadTemplateHtml(orgId, templateId, data.htmlContent)
+      : null;
 
     const item = {
       id: templateId,
@@ -47,21 +45,15 @@ const baseHandler = async (
       type: data.type,
       category: data.category,
       description: data.description,
-      sections: data.sections,
+      sections: [],
       macros: allMacros,
       styling: data.styling,
+      htmlContentKey,
       tags: data.tags ?? [],
       isDefault: false,
       status: 'DRAFT' as const,
       currentVersion: 1,
-      versions: [{
-        version: 1,
-        createdAt: now,
-        createdBy: userId,
-        changeNotes: 'Initial version',
-        s3ContentKey: s3Key,
-        status: 'DRAFT' as const,
-      }],
+      versions: [],
       createdAt: now,
       updatedAt: now,
       createdBy: userId,
@@ -77,11 +69,11 @@ const baseHandler = async (
     };
 
     await putTemplate(item);
-    
+
     setAuditContext(event, {
       action: 'CONFIG_CHANGED',
       resource: 'template',
-      resourceId: 'template',
+      resourceId: templateId,
     });
 
     return apiResponse(201, { data: item });

@@ -5,7 +5,7 @@ import { apiMutate, buildApiUrl, ApiError } from './api-helpers';
 import { SetApiKeyResponse } from '@auto-rfp/core';
 
 export function useSetApiKey(orgId?: string) {
-  const url = buildApiUrl('samgov/set-api-key', { orgId });
+  const url = buildApiUrl('search-opportunities/api-key', { orgId });
 
   const { trigger, isMutating, error, data } = useSWRMutation<
     SetApiKeyResponse,

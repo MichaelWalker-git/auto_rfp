@@ -42,14 +42,42 @@ export const CreateOrganizationSchema = z.object({
  */
 export type CreateOrganizationDTO = z.infer<typeof CreateOrganizationSchema>;
 
-// --- DynamoDB Item Schema (Optional, but good practice) ---
+// --- DynamoDB Item Schema ---
 // This represents the final item structure stored in DynamoDB, including keys and timestamps.
 export const OrganizationItemSchema = CreateOrganizationSchema.extend({
-  partition_key: z.string(), // Partition Key (ORG_PK)
-  sort_key: z.string().startsWith('ORG#'), // Sort Key (e.g., ORG#<UUID>)
-  createdAt: z.string().datetime(),
-  updatedAt: z.string().datetime(),
+  partition_key: z.string().optional(), // Partition Key (ORG_PK)
+  sort_key: z.string().optional(),      // Sort Key (e.g., ORG#<UUID>)
+  createdAt: z.string().datetime().optional(),
+  updatedAt: z.string().datetime().optional(),
   id: z.string(),
+  /** Optional aggregated counts returned by the API */
+  _count: z.object({
+    projects:          z.number().int().nonnegative(),
+    organizationUsers: z.number().int().nonnegative(),
+  }).optional(),
+  /** Shallow list of org members (optional, returned by some endpoints) */
+  organizationUsers: z.array(z.object({
+    id:   z.string(),
+    role: z.string(),
+    user: z.object({
+      id:    z.string(),
+      email: z.string(),
+      name:  z.string().optional(),
+    }),
+  })).optional(),
+  /** Shallow list of projects (optional) */
+  projects: z.array(z.object({
+    id:          z.string(),
+    name:        z.string(),
+    description: z.string().optional(),
+    createdAt:   z.string(),
+  })).optional(),
+  /** Whether AI processing is enabled for this org */
+  aiProcessingEnabled: z.boolean().optional(),
+  /** Auto-approval threshold for content library (0–1) */
+  autoApprovalThreshold: z.number().min(0).max(1).optional(),
+  /** Org slug (short identifier) */
+  slug: z.string().optional(),
 });
 
 /**

@@ -179,18 +179,37 @@ export function deadlinesToCalendarEvents(
 
   deadlineItems.forEach((item) => {
     const projectName = item.projectName || 'Untitled Project';
-    const projectUrl = `${frontendUrl}/projects/${item.projectId}`;
+    const opportunityTitle = item.opportunityTitle;
+    const opportunityId = item.opportunityId;
+    
+    // Build the URL - include opportunity if available
+    let eventUrl = `${frontendUrl}/projects/${item.projectId}`;
+    if (opportunityId) {
+      eventUrl = `${frontendUrl}/projects/${item.projectId}/opportunities/${opportunityId}`;
+    }
+    
+    // Build display name including opportunity if available
+    const displayName = opportunityTitle 
+      ? `${opportunityTitle} (${projectName})`
+      : projectName;
 
     if (item.submissionDeadlineIso) {
       const startDate = new Date(item.submissionDeadlineIso);
       const endDate = new Date(startDate.getTime() + 60 * 60 * 1000);
       
       events.push({
-        summary: `🔴 Proposal Due: ${projectName}`,
-        description: `Proposal submission deadline for ${projectName}.\n\n⚠️ RECOMMENDED: Submit 24 hours early.`,
+        summary: `🔴 Proposal Due: ${displayName}`,
+        description: [
+          `Proposal submission deadline for ${displayName}.`,
+          '',
+          '⚠️ RECOMMENDED: Submit 24 hours early.',
+          '',
+          `Project: ${projectName}`,
+          opportunityTitle ? `Opportunity: ${opportunityTitle}` : '',
+        ].filter(Boolean).join('\n'),
         start: startDate,
         end: endDate,
-        url: projectUrl,
+        url: eventUrl,
         alarms: [24 * 60, 60],
       });
     }
@@ -205,16 +224,17 @@ export function deadlinesToCalendarEvents(
                    deadline.type === 'SITE_VISIT' ? '📍' : '📅';
 
       events.push({
-        summary: `${icon} ${deadline.label || deadline.type}: ${projectName}`,
+        summary: `${icon} ${deadline.label || deadline.type}: ${displayName}`,
         description: [
           deadline.label || deadline.type,
           `Project: ${projectName}`,
+          opportunityTitle ? `Opportunity: ${opportunityTitle}` : '',
           deadline.notes ? `Notes: ${deadline.notes}` : '',
         ].filter(Boolean).join('\n'),
         start: startDate,
         end: endDate,
         location: deadline.type === 'SITE_VISIT' ? (deadline.location || 'TBD') : undefined,
-        url: projectUrl,
+        url: eventUrl,
         alarms: [24 * 60, 60],
       });
     });

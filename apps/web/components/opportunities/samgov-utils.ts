@@ -1,5 +1,5 @@
 import type { SamGovFiltersState } from '@/components/opportunities/samgov-filters';
-import type { LoadSamOpportunitiesRequest, MmDdYyyy } from '@auto-rfp/core';
+import type { LoadSearchOpportunitiesRequest, MmDdYyyy } from '@auto-rfp/core';
 
 export function toIso(d: Date) {
   const mm = String(d.getMonth() + 1).padStart(2, '0');
@@ -40,7 +40,7 @@ export const QUICK_FILTERS = [
 ];
 
 export function reqToFiltersState(
-  req: Partial<LoadSamOpportunitiesRequest>,
+  req: Partial<LoadSearchOpportunitiesRequest>,
   fallback: { postedFrom: string; postedTo: string; rdlfrom: string },
 ): SamGovFiltersState {
   // Map request -> UI filters
@@ -69,11 +69,11 @@ export function safeDecodeSearchParam(raw: string): any | null {
 export function filtersToRequest(
   filters: SamGovFiltersState,
   opts?: { limit?: number; offset?: number },
-): LoadSamOpportunitiesRequest {
+): LoadSearchOpportunitiesRequest {
   const naics = filters.naicsCsv.split(',').map((s) => s.trim()).filter(Boolean);
   const ptype = filters.ptypeCsv.split(',').map((s) => s.trim()).filter(Boolean);
 
-  // Convert dates to MM/dd/yyyy format - fixes AUTO-RFP-4B, AUTO-RFP-5K, AUTO-RFP-53
+  // Convert dates to MM/dd/yyyy format
   return {
     postedFrom: isoToMMDDYYYY(filters.postedFrom),
     postedTo: isoToMMDDYYYY(filters.postedTo),
@@ -85,7 +85,7 @@ export function filtersToRequest(
     ptype: ptype.length ? ptype : undefined,
     limit: opts?.limit ?? 25,
     offset: opts?.offset ?? 0,
-  } as any;
+  };
 }
 
 export function isoToMMDDYYYY (iso: string): MmDdYyyy  {

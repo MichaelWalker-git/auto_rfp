@@ -43,8 +43,8 @@ export type MacroType = z.infer<typeof MacroTypeSchema>;
 
 export const MacroDefinitionSchema = z.object({
   key: z.string().min(1).max(100).regex(
-    /^[a-z][a-z0-9_]*$/,
-    'Macro key must be lowercase alphanumeric with underscores, starting with a letter',
+    /^[A-Z][A-Z0-9_]*$/,
+    'Macro key must be UPPER_CASE alphanumeric with underscores, starting with a letter',
   ),
   label: z.string().min(1).max(200),
   description: z.string().max(500).optional(),
@@ -111,9 +111,16 @@ export const TemplateItemSchema = z.object({
   description: z.string().max(2000).optional(),
 
   // Template content (current version)
-  sections: z.array(TemplateSectionSchema).min(1),
+  // sections is kept for backward compat but content is stored in S3 via htmlContentKey
+  sections: z.array(TemplateSectionSchema).default([]),
   macros: z.array(MacroDefinitionSchema).default([]),
   styling: StylingConfigSchema.optional(),
+  /**
+   * S3 key for the HTML content of the template.
+   * When present, the full HTML lives in S3 and this field is the key.
+   * Replaces the sections[].content pattern for simpler storage.
+   */
+  htmlContentKey: z.string().nullable().optional(),
 
   // Metadata
   tags: z.array(z.string().max(50)).max(20).default([]),
@@ -160,7 +167,8 @@ export const CreateTemplateDTOSchema = z.object({
   type: TemplateCategorySchema,
   category: TemplateCategorySchema,
   description: z.string().max(2000).optional(),
-  sections: z.array(TemplateSectionSchema).min(1),
+  /** Raw HTML content — stored in S3, key saved as htmlContentKey */
+  htmlContent: z.string().max(10_000_000).optional(),
   macros: z.array(MacroDefinitionSchema).optional(),
   styling: StylingConfigSchema.optional(),
   tags: z.array(z.string().max(50)).max(20).optional(),
@@ -173,7 +181,8 @@ export type CreateTemplateDTO = z.infer<typeof CreateTemplateDTOSchema>;
 export const UpdateTemplateDTOSchema = z.object({
   name: z.string().min(1).max(500).optional(),
   description: z.string().max(2000).optional(),
-  sections: z.array(TemplateSectionSchema).min(1).optional(),
+  /** Raw HTML content — stored in S3, key saved as htmlContentKey */
+  htmlContent: z.string().max(10_000_000).optional(),
   macros: z.array(MacroDefinitionSchema).optional(),
   styling: StylingConfigSchema.optional(),
   tags: z.array(z.string().max(50)).max(20).optional(),
@@ -208,7 +217,8 @@ export const ImportTemplateDTOSchema = z.object({
     type: TemplateCategorySchema,
     category: TemplateCategorySchema,
     description: z.string().max(2000).optional(),
-    sections: z.array(TemplateSectionSchema).min(1),
+    /** Raw HTML content — stored in S3, key saved as htmlContentKey */
+    htmlContent: z.string().max(10_000_000).optional(),
     macros: z.array(MacroDefinitionSchema).optional(),
     styling: StylingConfigSchema.optional(),
     tags: z.array(z.string().max(50)).max(20).optional(),
@@ -268,18 +278,20 @@ export const parseTemplateSK = (sk: string): { orgId: string; templateId: string
 
 // ================================
 // System Macro Definitions
+// Keys use UPPER_CASE — use as {{TODAY}}, {{COMPANY_NAME}}, etc. in template content
 // ================================
 
 export const SYSTEM_MACROS: MacroDefinition[] = [
-  { key: 'company_name', label: 'Company Name', description: 'Your organization name', type: 'SYSTEM', dataSource: 'organization.name', required: false },
-  { key: 'project_title', label: 'Project Title', description: 'The project/proposal title', type: 'SYSTEM', dataSource: 'project.name', required: false },
-  { key: 'contract_number', label: 'Contract Number', description: 'The contract or solicitation number', type: 'SYSTEM', dataSource: 'project.contractNumber', required: false },
-  { key: 'submission_date', label: 'Submission Date', description: 'Proposal submission deadline', type: 'SYSTEM', dataSource: 'project.submissionDate', required: false },
-  { key: 'page_limit', label: 'Page Limit', description: 'Maximum page count for the proposal', type: 'SYSTEM', dataSource: 'project.pageLimit', required: false },
-  { key: 'opportunity_id', label: 'Opportunity ID', description: 'SAM.gov or agency opportunity identifier', type: 'SYSTEM', dataSource: 'opportunity.noticeId', required: false },
-  { key: 'agency_name', label: 'Agency Name', description: 'The contracting agency name', type: 'SYSTEM', dataSource: 'opportunity.agencyName', required: false },
-  { key: 'current_date', label: 'Current Date', description: "Today's date (auto-generated)", type: 'SYSTEM', dataSource: '_generated.currentDate', required: false },
-  { key: 'proposal_title', label: 'Proposal Title', description: 'Title of the proposal being generated', type: 'SYSTEM', dataSource: 'project.title', required: false },
+  { key: 'COMPANY_NAME',    label: 'Company Name',    description: 'Your organization name',                          type: 'SYSTEM', dataSource: 'organization.name',        required: false },
+  { key: 'PROJECT_TITLE',   label: 'Project Title',   description: 'The project/proposal title',                     type: 'SYSTEM', dataSource: 'project.name',             required: false },
+  { key: 'CONTRACT_NUMBER', label: 'Contract Number', description: 'The contract or solicitation number',            type: 'SYSTEM', dataSource: 'project.contractNumber',   required: false },
+  { key: 'SUBMISSION_DATE', label: 'Submission Date', description: 'Proposal submission deadline',                   type: 'SYSTEM', dataSource: 'project.submissionDate',   required: false },
+  { key: 'PAGE_LIMIT',      label: 'Page Limit',      description: 'Maximum page count for the proposal',            type: 'SYSTEM', dataSource: 'project.pageLimit',        required: false },
+  { key: 'OPPORTUNITY_ID',  label: 'Opportunity ID',  description: 'SAM.gov or agency opportunity identifier',       type: 'SYSTEM', dataSource: 'opportunity.noticeId',     required: false },
+  { key: 'AGENCY_NAME',     label: 'Agency Name',     description: 'The contracting agency name',                    type: 'SYSTEM', dataSource: 'opportunity.agencyName',   required: false },
+  { key: 'TODAY',           label: 'Today\'s Date',   description: "Today's date (auto-generated, YYYY-MM-DD)",      type: 'SYSTEM', dataSource: '_generated.currentDate',   required: false },
+  { key: 'PROPOSAL_TITLE',  label: 'Proposal Title',  description: 'Title of the proposal being generated',          type: 'SYSTEM', dataSource: 'project.title',            required: false },
+  { key: 'CONTENT',         label: 'Content',         description: 'Main body content placeholder for this section', type: 'SYSTEM', dataSource: '_generated.content',       required: false },
 ];
 
 // ================================

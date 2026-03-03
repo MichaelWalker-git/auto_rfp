@@ -64,6 +64,7 @@ export const AnswerItemSchema = z.object({
   id: z.string(),
   questionId: z.string(),
   projectId: z.string().optional(),
+  opportunityId: z.string().optional(),
   organizationId: z.string().optional(),
   text: z.string(),
   status: AnswerStatusSchema.default('DRAFT'),
@@ -88,6 +89,7 @@ export const SaveAnswerDTOSchema = z.object({
   questionId: z.string(),
   text: z.string().min(1, 'Answer text is required'),
   projectId: z.string().optional(),
+  opportunityId: z.string().optional(),
   organizationId: z.string().optional(),
   sources: AnswerSourcesSchema.optional(),
   status: AnswerStatusSchema.optional(),
@@ -102,6 +104,7 @@ export type SaveAnswerDTO = z.infer<typeof SaveAnswerDTOSchema>;
 export const AnswerQuestionRequestBodySchema = z.object({
   orgId: z.string().optional(),
   projectId: z.string().min(1),
+  opportunityId: z.string().optional(),
   questionId: z.string().min(1).optional(),
   question: z.string().min(1).optional(),
   topK: z.number().int().positive().optional(),
@@ -128,6 +131,7 @@ export type BedrockAnswerResult = z.infer<typeof BedrockAnswerResultSchema>;
 export const AnswerQuestionResponseSchema = z.object({
   documentId: z.string().min(1),
   questionId: z.string().min(1),
+  opportunityId: z.string().optional(),
   answer: z.string().optional(),      // you return { answer, confidence, found }
   confidence: z.number().min(0).max(1).optional(),
   found: z.boolean().optional(),

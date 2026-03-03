@@ -17,6 +17,7 @@ import {
   DEADLINE_SYSTEM_PROMPT, DEADLINE_USER_PROMPT,
   SCORING_SYSTEM_PROMPT, SCORING_USER_PROMPT,
   ANSWER_SYSTEM_PROMPT, ANSWER_USER_PROMPT,
+  CLARIFYING_QUESTIONS_SYSTEM_PROMPT, CLARIFYING_QUESTIONS_USER_PROMPT,
 } from '@/constants/prompt';
 
 import { withSentryLambda } from '@/sentry-lambda';
@@ -89,6 +90,7 @@ const baseHandler = async (event: APIGatewayProxyEventV2): Promise<APIGatewayPro
     DEADLINE: DEADLINE_SYSTEM_PROMPT,
     SCORING: SCORING_SYSTEM_PROMPT,
     ANSWER: ANSWER_SYSTEM_PROMPT,
+    CLARIFYING_QUESTIONS: CLARIFYING_QUESTIONS_SYSTEM_PROMPT,
   };
 
   const defaultUserPrompts: Record<string, string> = {
@@ -100,6 +102,7 @@ const baseHandler = async (event: APIGatewayProxyEventV2): Promise<APIGatewayPro
     DEADLINE: DEADLINE_USER_PROMPT,
     SCORING: SCORING_USER_PROMPT,
     ANSWER: ANSWER_USER_PROMPT,
+    CLARIFYING_QUESTIONS: CLARIFYING_QUESTIONS_USER_PROMPT,
   };
 
   // Merge: for each known type, if not in DB, add a default entry

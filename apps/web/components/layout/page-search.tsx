@@ -38,6 +38,7 @@ export function PageSearch({
       if (e.metaKey || e.ctrlKey || e.altKey) return;
 
       if (e.key.length === 1 && !isVisible) {
+        e.preventDefault();
         setIsVisible(true);
         onChange(e.key);
         setTimeout(() => inputRef.current?.focus(), 0);

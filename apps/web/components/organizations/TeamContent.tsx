@@ -130,7 +130,7 @@ export function TeamContent({ orgId }: TeamContentProps) {
   return (
     <div className="container mx-auto p-6 md:p-12">
       <ListingPageLayout
-        title="Team Members"
+        title="Org Members"
         description={`${filteredMembers.length} member${filteredMembers.length !== 1 ? 's' : ''} in your organization`}
         headerActions={
           <>
@@ -143,7 +143,7 @@ export function TeamContent({ orgId }: TeamContentProps) {
         emptyState={
           <div className="flex flex-col items-center justify-center py-16 text-center">
             <Users className="h-12 w-12 text-muted-foreground/40 mb-4" />
-            <h3 className="text-lg font-semibold">No team members found</h3>
+            <h3 className="text-lg font-semibold">No org members found</h3>
             <p className="text-sm text-muted-foreground mt-1 max-w-sm">
               {searchQuery
                 ? `No members match "${searchQuery}". Try a different search term.`

@@ -21,6 +21,7 @@ import {
   type ExportRequest,
   proposalToHtml,
   sanitizeFileName,
+  loadDocumentHtmlForExport,
 } from '@/helpers/export';
 
 const DOCUMENTS_BUCKET = requireEnv('DOCUMENTS_BUCKET');
@@ -54,7 +55,11 @@ export const baseHandler = async (
     const proposal = { id: rfpDoc.documentId, organizationId: rfpDoc.orgId, document: rfpDoc.content as any };
 
     const organizationId = proposal.organizationId || getOrgId(event) || 'DEFAULT';
-    const htmlContent = proposalToHtml(proposal.document);
+
+    // Load HTML from S3 (or inline fallback) with S3 image keys resolved to presigned URLs
+    const resolvedHtml = await loadDocumentHtmlForExport(rfpDoc as Record<string, unknown>);
+    const docWithHtml = { ...proposal.document, content: resolvedHtml };
+    const htmlContent = proposalToHtml(docWithHtml);
     const htmlBuffer = Buffer.from(htmlContent, 'utf-8');
 
     const key = buildS3Key(organizationId, projectId, opportunityId, proposalId, proposal.document.title, 'html');

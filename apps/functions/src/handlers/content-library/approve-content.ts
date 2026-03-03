@@ -22,14 +22,21 @@ async function baseHandler(
     const orgId = event.queryStringParameters?.orgId || getOrgId(event);
     const kbId = event.queryStringParameters?.kbId;
 
-    if (!itemId || !orgId || !kbId) {
+    if (!itemId || !orgId) {
       return apiResponse(400, { error: 'Missing required field' });
     }
 
-    const item = await getItem<ContentLibraryItem>(
+    // Try new SK format first (orgId#itemId), fall back to legacy (orgId#kbId#itemId)
+    let item = await getItem<ContentLibraryItem>(
       CONTENT_LIBRARY_PK,
-      createContentLibrarySK(orgId, kbId, itemId)
+      createContentLibrarySK(orgId, itemId)
     );
+    let sk = createContentLibrarySK(orgId, itemId);
+
+    if (!item && kbId) {
+      sk = createContentLibrarySK(orgId, kbId, itemId);
+      item = await getItem<ContentLibraryItem>(CONTENT_LIBRARY_PK, sk);
+    }
 
     if (!item) {
       return apiResponse(404, { error: 'Content library item not found' });
@@ -39,14 +46,14 @@ async function baseHandler(
       return apiResponse(400, { error: 'Cannot approve an archived item' });
     }
 
-    const userId = (event.requestContext as any)?.authorizer?.claims?.sub || 'system'
+    const userId = event.auth?.userId ?? 'system';
     const now = nowIso();
 
     await docClient.send(new UpdateCommand({
       TableName: TABLE_NAME,
       Key: {
         [PK_NAME]: CONTENT_LIBRARY_PK,
-        [SK_NAME]: createContentLibrarySK(orgId, kbId, itemId),
+        [SK_NAME]: sk,
       },
       UpdateExpression: 'SET #approvalStatus = :status, #approvedBy = :approvedBy, #approvedAt = :approvedAt, #updatedAt = :updatedAt',
       ExpressionAttributeNames: {

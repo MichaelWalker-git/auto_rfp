@@ -7,7 +7,7 @@ import {
   httpErrorMiddleware,
   orgMembershipMiddleware,
 } from '@/middleware/rbac-middleware';
-import { getTemplate } from '@/helpers/template';
+import { getTemplate, loadTemplateHtml } from '@/helpers/template';
 
 const baseHandler = async (
   event: APIGatewayProxyEventV2,
@@ -22,12 +22,22 @@ const baseHandler = async (
     const template = await getTemplate(orgId, templateId);
     if (!template) return apiResponse(404, { error: 'Template not found' });
 
+    // Load HTML content from S3
+    let htmlContent: string | null = null;
+    if (template.htmlContentKey) {
+      try {
+        htmlContent = await loadTemplateHtml(template.htmlContentKey);
+      } catch (err) {
+        console.warn('Failed to load template HTML for export:', err);
+      }
+    }
+
     const exportData = {
       name: template.name,
       type: template.type,
       category: template.category,
       description: template.description,
-      sections: template.sections,
+      htmlContent,
       macros: template.macros.filter(m => m.type === 'CUSTOM'),
       styling: template.styling,
       tags: template.tags,

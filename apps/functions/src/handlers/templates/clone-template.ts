@@ -13,7 +13,7 @@ import {
 } from '@/middleware/rbac-middleware';
 import { auditMiddleware, setAuditContext } from '@/middleware/audit-middleware';
 import { nowIso } from '@/helpers/date';
-import { getTemplate, putTemplate, saveTemplateVersion } from '@/helpers/template';
+import { getTemplate, loadTemplateHtml, putTemplate, uploadTemplateHtml } from '@/helpers/template';
 
 const baseHandler = async (
   event: AuthedEvent,
@@ -23,12 +23,11 @@ const baseHandler = async (
     if (!templateId) return apiResponse(400, { error: 'Missing template ID' });
 
     const body = JSON.parse(event.body || '');
-    const parsed = CloneTemplateDTOSchema.safeParse(body);
-    if (!parsed.success) {
-      return apiResponse(400, { error: 'Validation failed', details: parsed.error.format() });
+    const { success, data, error } = CloneTemplateDTOSchema.safeParse(body);
+    if (!success) {
+      return apiResponse(400, { error: 'Validation failed', details: error.format() });
     }
 
-    const { data } = parsed;
     const orgId = data.orgId || getOrgId(event);
     if (!orgId) return apiResponse(400, { error: 'Missing orgId' });
 
@@ -40,13 +39,17 @@ const baseHandler = async (
     const newId = uuidv4();
     const now = nowIso();
 
-    const s3Key = await saveTemplateVersion(orgId, newId, 1, {
-      sections: source.sections ?? [],
-      macros: source.macros ?? [],
-      styling: source.styling ?? undefined,
-    });
+    // Copy HTML content from source to new template in S3
+    let htmlContentKey: string | null = null;
+    if (source.htmlContentKey) {
+      try {
+        const sourceHtml = await loadTemplateHtml(source.htmlContentKey);
+        htmlContentKey = await uploadTemplateHtml(orgId, newId, sourceHtml);
+      } catch (err) {
+        console.warn('Failed to copy template HTML during clone:', err);
+      }
+    }
 
-    // Build cloned item — avoid spreading source to prevent stale PK/SK
     const cloned = {
       id: newId,
       orgId,
@@ -54,21 +57,15 @@ const baseHandler = async (
       type: source.type ?? source.category ?? 'CUSTOM',
       category: source.category ?? source.type ?? 'CUSTOM',
       description: source.description ?? '',
-      sections: source.sections ?? [],
+      sections: [],
       macros: source.macros ?? [],
       styling: source.styling ?? undefined,
+      htmlContentKey,
       tags: source.tags ?? [],
       isDefault: false,
       status: 'DRAFT' as const,
       currentVersion: 1,
-      versions: [{
-        version: 1,
-        createdAt: now,
-        createdBy: userId,
-        changeNotes: `Cloned from "${source.name}" (${source.id})`,
-        s3ContentKey: s3Key,
-        status: 'DRAFT' as const,
-      }],
+      versions: [],
       createdAt: now,
       updatedAt: now,
       createdBy: userId,
@@ -84,11 +81,11 @@ const baseHandler = async (
     };
 
     await putTemplate(cloned);
-    
+
     setAuditContext(event, {
       action: 'CONFIG_CHANGED',
       resource: 'template',
-      resourceId: event.pathParameters?.templateId ?? event.queryStringParameters?.templateId ?? 'unknown',
+      resourceId: newId,
     });
 
     return apiResponse(201, { data: cloned });

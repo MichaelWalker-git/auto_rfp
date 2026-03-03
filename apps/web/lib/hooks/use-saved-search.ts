@@ -22,7 +22,7 @@ async function parseJsonOrThrow<T>(res: Response, fallbackMsg: string): Promise<
   if (!res.ok) {
     const message = await res.text().catch(() => '');
     const error = new Error(message || fallbackMsg) as Error & { status?: number };
-    (error as any).status = res.status;
+    (error as Error & { status?: number }).status = res.status;
     throw error;
   }
 
@@ -36,28 +36,32 @@ async function parseJsonOrThrow<T>(res: Response, fallbackMsg: string): Promise<
   }
 }
 
-export function useCreateSavedSearch() {
-  return useSWRMutation<SavedSearch, any, string, CreateSavedSearchRequest>(
-    `${env.BASE_API_URL}/samgov/create-saved-search`,
+// ─── Unified saved-search endpoint ───────────────────────────────────────────
+// All saved-search operations now go through /search-opportunities/saved-search
+// with a `source` field in the body (SAM_GOV or DIBBS).
+
+const BASE = `${env.BASE_API_URL}/search-opportunities`;
+
+export const useCreateSavedSearch = () =>
+  useSWRMutation<SavedSearch, Error, string, CreateSavedSearchRequest>(
+    `${BASE}/saved-search`,
     async (url, { arg }) => {
+      // spread arg first, then default source to SAM_GOV if not set
+      const payload = { ...arg, source: arg.source ?? ('SAM_GOV' as const) };
       const res = await authFetcher(url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(arg),
+        body: JSON.stringify(payload),
       });
-
       return parseJsonOrThrow<SavedSearch>(res, 'Failed to create saved search');
     },
   );
-}
 
-export function useListSavedSearches(args: { orgId?: string; limit?: number; nextToken?: string | null }) {
+export const useListSavedSearches = (args: { orgId?: string; limit?: number; nextToken?: string | null }) => {
   const { orgId, limit = 50, nextToken } = args;
 
   const url = orgId
-    ? `${env.BASE_API_URL}/samgov/list-saved-search?orgId=${encodeURIComponent(
-      orgId,
-    )}&limit=${encodeURIComponent(String(limit))}${nextToken ? `&nextToken=${encodeURIComponent(nextToken)}` : ''}`
+    ? `${BASE}/saved-search?orgId=${encodeURIComponent(orgId)}&source=SAM_GOV&limit=${encodeURIComponent(String(limit))}${nextToken ? `&nextToken=${encodeURIComponent(nextToken)}` : ''}`
     : null;
 
   const { data, error, isLoading, mutate } = useSWR<ListSavedSearchesResponse>(
@@ -77,26 +81,25 @@ export function useListSavedSearches(args: { orgId?: string; limit?: number; nex
     error,
     refresh: mutate,
   };
-}
+};
 
-export function useDeleteSavedSearch() {
-  return useSWRMutation<
+export const useDeleteSavedSearch = () =>
+  useSWRMutation<
     { ok: boolean; savedSearchId?: string },
-    any,
+    Error,
     string,
     { orgId: string; savedSearchId: string }
-  >(`${env.BASE_API_URL}/samgov/delete-saved-search`, async (baseUrl, { arg }) => {
-    const url = `${baseUrl}/${encodeURIComponent(arg.savedSearchId)}?orgId=${encodeURIComponent(arg.orgId)}`;
+  >(`${BASE}/saved-search`, async (baseUrl, { arg }) => {
+    const url = `${baseUrl}/${encodeURIComponent(arg.savedSearchId)}?orgId=${encodeURIComponent(arg.orgId)}&source=SAM_GOV`;
     const res = await authFetcher(url, { method: 'DELETE' });
     return parseJsonOrThrow<{ ok: boolean; savedSearchId?: string }>(res, 'Failed to delete saved search');
   });
-}
 
-export function useUpdateSavedSearch() {
-  return useSWRMutation<SavedSearch, any, string, UpdateSavedSearchRequest>(
-    `${env.BASE_API_URL}/samgov/edit-saved-search`,
+export const useUpdateSavedSearch = () =>
+  useSWRMutation<SavedSearch, Error, string, UpdateSavedSearchRequest>(
+    `${BASE}/saved-search`,
     async (baseUrl, { arg }) => {
-      const url = `${baseUrl}/${encodeURIComponent(arg.savedSearchId)}?orgId=${encodeURIComponent(arg.orgId)}`;
+      const url = `${baseUrl}/${encodeURIComponent(arg.savedSearchId)}?orgId=${encodeURIComponent(arg.orgId)}&source=SAM_GOV`;
 
       const res = await authFetcher(url, {
         method: 'PATCH',
@@ -107,4 +110,3 @@ export function useUpdateSavedSearch() {
       return parseJsonOrThrow<SavedSearch>(res, 'Failed to update saved search');
     },
   );
-}

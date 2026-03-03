@@ -1,7 +1,7 @@
 import { queryBySkPrefix } from '@/helpers/db';
-import { updateRFPDocumentMetadata } from '@/helpers/rfp-document';
+import { updateRFPDocumentMetadata, uploadRFPDocumentHtml } from '@/helpers/rfp-document';
 import { loadAllSolicitationTexts } from '@/helpers/executive-opportunity-brief';
-import { getTemplate, listTemplatesByOrg } from '@/helpers/template';
+import { getTemplate, listTemplatesByOrg, loadTemplateHtml } from '@/helpers/template';
 import { MAX_SOLICITATION_CHARS } from '@/constants/document-generation';
 import { QUESTION_PK } from '@/constants/question';
 import type { RFPDocumentContent, TemplateSection } from '@auto-rfp/core';
@@ -80,8 +80,140 @@ export async function loadSolicitation(projectId: string, opportunityId: string)
   }
 }
 
-// ─── Template sections ───
+// ─── Template scaffold preprocessing ───
 
+/**
+ * Macro labels for display in the AI scaffold.
+ * These replace {{MACRO}} placeholders so the AI understands what value to use.
+ */
+const MACRO_LABELS: Record<string, string> = {
+  COMPANY_NAME:    '[Your Company Name]',
+  PROJECT_TITLE:   '[Project Title]',
+  CONTRACT_NUMBER: '[Contract/Solicitation Number]',
+  SUBMISSION_DATE: '[Submission Deadline Date]',
+  PAGE_LIMIT:      '[Page Limit]',
+  OPPORTUNITY_ID:  '[Opportunity ID]',
+  AGENCY_NAME:     '[Agency/Customer Name]',
+  TODAY:           '[Current Date]',
+  PROPOSAL_TITLE:  '[Proposal Title]',
+  CONTENT:         '[CONTENT: Write detailed, substantive content here based on the solicitation requirements and provided context. Minimum 3-5 paragraphs.]',
+};
+
+/**
+ * Prepare a template's HTML for use as an AI scaffold:
+ * 1. Replace {{MACRO}} placeholders with descriptive labels the AI can understand
+ * 2. Strip broken s3key: image src attributes (replace with placeholder)
+ * 3. Add a scaffold header comment
+ */
+export const prepareTemplateScaffoldForAI = (html: string): string => {
+  if (!html?.trim()) return '';
+
+  let scaffold = html;
+
+  // Replace {{MACRO}} placeholders with descriptive labels
+  scaffold = scaffold.replace(/\{\{([A-Z0-9_]+)\}\}/g, (match, key) => {
+    return MACRO_LABELS[key] ?? `[${key.replace(/_/g, ' ')}]`;
+  });
+
+  // Replace broken s3key: image src with a placeholder comment
+  scaffold = scaffold.replace(
+    /<img([^>]*?)src="s3key:[^"]*"([^>]*?)>/gi,
+    '<!-- [IMAGE PLACEHOLDER: Insert relevant image or diagram here] -->',
+  );
+
+  // Also handle data-s3-key images that might have presigned URLs
+  scaffold = scaffold.replace(
+    /<img([^>]*?)data-s3-key="[^"]*"([^>]*?)>/gi,
+    '<!-- [IMAGE PLACEHOLDER: Insert relevant image or diagram here] -->',
+  );
+
+  // Determine if the template has meaningful structure (headings) or is just a content placeholder
+  const hasHeadings = /<h[1-6]/i.test(scaffold);
+
+  if (hasHeadings) {
+    // Structured template — AI must preserve all headings and fill in content
+    return `<!-- TEMPLATE SCAFFOLD: You MUST follow this exact structure. Keep ALL <h1>, <h2>, <h3> headings exactly as written. Fill in all [CONTENT] and [placeholder] markers with real, detailed content. Do NOT add extra sections or headings not in this template. -->\n${scaffold}`;
+  } else {
+    // Simple content placeholder template — AI should generate full content and wrap it in the template structure
+    return `<!-- TEMPLATE SCAFFOLD: This template defines the document wrapper/structure. Replace [CONTENT: ...] with a complete, well-structured HTML document body including appropriate headings and paragraphs. Keep all other text and elements (dates, company name placeholders, etc.) in their original positions. -->\n${scaffold}`;
+  }
+};
+
+// ─── Template HTML resolution ───
+
+/**
+ * Resolve the HTML scaffold for a template.
+ * Loads the template's HTML content from S3 via htmlContentKey.
+ * Falls back to building a scaffold from sections for legacy templates.
+ * Returns null if no template is found or has no content.
+ */
+export async function resolveTemplateHtml(
+  orgId: string,
+  documentType: string,
+  templateId?: string,
+): Promise<string | null> {
+  let template = null;
+
+  if (templateId) {
+    template = await getTemplate(orgId, templateId);
+  } else {
+    try {
+      // Load all non-archived templates for this category (up to 50)
+      // and pick the most recently updated one, preferring PUBLISHED over DRAFT
+      const { items: allItems } = await listTemplatesByOrg(orgId, {
+        category: documentType,
+        excludeArchived: true,
+        limit: 50,
+      });
+
+      if (allItems.length === 0) {
+        return null;
+      }
+
+      // Sort: PUBLISHED first, then by updatedAt descending (most recent first)
+      const sorted = [...allItems].sort((a, b) => {
+        // PUBLISHED templates take priority over DRAFT
+        if (a.status === 'PUBLISHED' && b.status !== 'PUBLISHED') return -1;
+        if (b.status === 'PUBLISHED' && a.status !== 'PUBLISHED') return 1;
+        // Within same status, most recently updated first
+        return new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime();
+      });
+
+      template = sorted[0];
+      console.log(`Auto-selected template for ${documentType}: "${template.name}" (${template.status}, updated: ${template.updatedAt})`);
+    } catch {
+      return null;
+    }
+  }
+
+  if (!template) return null;
+
+  // New pattern: HTML content stored in S3 via htmlContentKey
+  if (template.htmlContentKey) {
+    try {
+      const html = await loadTemplateHtml(template.htmlContentKey);
+      if (html?.trim()) {
+        console.log(`Loaded template HTML from S3: ${template.htmlContentKey}`);
+        // Preprocess the HTML for AI consumption: resolve macros, strip broken images
+        return prepareTemplateScaffoldForAI(html);
+      }
+    } catch (err) {
+      console.warn('Failed to load template HTML from S3, falling back to sections:', err);
+    }
+  }
+
+  // Legacy fallback: build scaffold from sections
+  if (template.sections?.length) {
+    return buildTemplateHtmlScaffold(template.sections as TemplateSection[]);
+  }
+
+  return null;
+}
+
+/**
+ * @deprecated Use resolveTemplateHtml instead.
+ * Kept for backward compatibility — returns sections array.
+ */
 export async function resolveTemplateSections(
   orgId: string,
   documentType: string,
@@ -104,6 +236,10 @@ export async function resolveTemplateSections(
 }
 
 // ─── Document status update ───
+// When status is COMPLETE and content is provided:
+//   1. Upload the HTML body to S3 and store only the key in DynamoDB (htmlContentKey).
+//   2. Store metadata (title, customerName, outlineSummary, opportunityId) in DynamoDB content field
+//      WITHOUT the large `content` (html) string — that lives in S3.
 
 export async function updateDocumentStatus(
   projectId: string,
@@ -112,18 +248,49 @@ export async function updateDocumentStatus(
   status: 'COMPLETE' | 'FAILED',
   content?: RFPDocumentContent,
   generationError?: string,
+  orgId?: string,
 ): Promise<void> {
+  let htmlContentKey: string | undefined;
+
+  // Upload HTML to S3 when we have content and an orgId to build the key
+  if (status === 'COMPLETE' && content?.content && orgId) {
+    try {
+      htmlContentKey = await uploadRFPDocumentHtml({
+        orgId,
+        projectId,
+        opportunityId,
+        documentId,
+        html: content.content,
+      });
+      console.log(`HTML content uploaded to S3: ${htmlContentKey}`);
+    } catch (err) {
+      console.error('Failed to upload HTML to S3, falling back to DynamoDB storage:', err);
+      // Fall back: keep content in DynamoDB if S3 upload fails
+    }
+  }
+
+  // Build the content object stored in DynamoDB — metadata only, no HTML (HTML lives in S3)
+  const dbContent = content
+    ? {
+        title: content.title,
+        customerName: content.customerName,
+        opportunityId: content.opportunityId,
+        outlineSummary: content.outlineSummary,
+      }
+    : undefined;
+
   await updateRFPDocumentMetadata({
     projectId,
     opportunityId,
     documentId,
     updates: {
       status,
-      ...(content && {
-        content,
-        title: content.title || 'Generated Document',
-        name: content.title || 'Generated Document',
+      ...(dbContent && {
+        content: dbContent,
+        title: content!.title || 'Generated Document',
+        name: content!.title || 'Generated Document',
       }),
+      ...(htmlContentKey && { htmlContentKey }),
       ...(generationError && { generationError }),
     },
     updatedBy: 'system',

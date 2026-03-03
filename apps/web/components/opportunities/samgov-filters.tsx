@@ -32,7 +32,7 @@ import {
   DialogTrigger,
 } from '@/components/ui/dialog';
 
-import type { CreateSavedSearchRequest, LoadSamOpportunitiesRequest, SavedSearchFrequency } from '@auto-rfp/core';
+import type { CreateSavedSearchRequest, LoadSearchOpportunitiesRequest, SavedSearchFrequency } from '@auto-rfp/core';
 
 import { defaultDateRange, QUICK_FILTERS, isoToMMDDYYYY } from './samgov-utils';
 import { useCreateSavedSearch } from '@/lib/hooks/use-saved-search';
@@ -57,7 +57,7 @@ type Props = {
 
   activeFilterCount: number;
 
-  onSearch: (req: LoadSamOpportunitiesRequest) => Promise<void>;
+  onSearch: (req: LoadSearchOpportunitiesRequest) => Promise<void>;
 };
 
 export function SamGovFilters({
@@ -90,19 +90,18 @@ export function SamGovFilters({
     [value.ptypeCsv],
   );
 
-  const buildCriteria = (offset = 0): LoadSamOpportunitiesRequest =>
-    ({
-      postedFrom: isoToMMDDYYYY(value.postedFrom),
-      postedTo: isoToMMDDYYYY(value.postedTo),
-      rdlfrom: isoToMMDDYYYY(value.rdlfrom),
-      keywords: value.keywords.trim() || undefined,
-      naics: naics.length ? naics : undefined,
-      organizationName: value.agencyName.trim() || undefined,
-      setAsideCode: value.setAsideCode.trim() || undefined,
-      ptype: ptype.length ? ptype : undefined,
-      limit: 25,
-      offset,
-    } as any);
+  const buildCriteria = (offset = 0): LoadSearchOpportunitiesRequest => ({
+    postedFrom: isoToMMDDYYYY(value.postedFrom),
+    postedTo: isoToMMDDYYYY(value.postedTo),
+    rdlfrom: isoToMMDDYYYY(value.rdlfrom),
+    keywords: value.keywords.trim() || undefined,
+    naics: naics.length ? naics : undefined,
+    organizationName: value.agencyName.trim() || undefined,
+    setAsideCode: value.setAsideCode.trim() || undefined,
+    ptype: ptype.length ? ptype : undefined,
+    limit: 25,
+    offset,
+  });
 
   const doSearch = async () => {
     await onSearch(buildCriteria(0));

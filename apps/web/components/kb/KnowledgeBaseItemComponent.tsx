@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button';
 import { ListingPageLayout } from '@/components/layout/ListingPageLayout';
 import { PageSearch } from '@/components/layout/page-search';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { AlertCircle, FileText, PlusCircle, Shield, ShieldAlert, Upload } from 'lucide-react';
+import { AlertCircle, FileText, PlusCircle, Shield, Upload } from 'lucide-react';
 import PermissionWrapper from '@/components/permission-wrapper';
 
 import { useKnowledgeBase } from '@/lib/hooks/use-knowledgebase';
@@ -149,14 +149,6 @@ export default function KnowledgeBaseItemComponent() {
               onChange={setSearchQuery}
               placeholder="Search documents..."
             />
-            {orgId && kbId && (
-              <Button variant="outline" asChild>
-                <Link href={`/organizations/${orgId}/knowledge-base/${kbId}/stale-report`}>
-                  <ShieldAlert className="h-4 w-4 mr-2" />
-                  Stale Report
-                </Link>
-              </Button>
-            )}
             <PermissionWrapper requiredPermission="kb:edit">
               {orgId && kbId && (
                 <Button variant="outline" asChild>

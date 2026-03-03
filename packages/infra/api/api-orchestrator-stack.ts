@@ -11,6 +11,9 @@ import * as lambdaNodejs from 'aws-cdk-lib/aws-lambda-nodejs';
 import * as lambdaEventSources from 'aws-cdk-lib/aws-lambda-event-sources';
 import * as path from 'path';
 import * as crypto from 'crypto';
+import * as events from 'aws-cdk-lib/aws-events';
+import * as eventsTargets from 'aws-cdk-lib/aws-events-targets';
+import * as logs from 'aws-cdk-lib/aws-logs';
 
 import { ApiSharedInfraStack } from './api-shared-infra-stack';
 import { ApiDomainRoutesStack } from './api-domain-resource-stack';
@@ -33,7 +36,7 @@ import { contentlibraryDomain } from './routes/content-library.routes';
 import { projectoutcomeDomain } from './routes/project-outcome.routes';
 import { projectsDomain } from './routes/projects.routes';
 import { promptDomain } from './routes/prompt.routes';
-import { samgovDomain } from './routes/samgov.routes';
+import { searchOpportunityDomain } from './routes/search-opportunity.routes';
 import { linearRoutes } from './routes/linear.routes';
 import { briefDomain } from './routes/brief.routes';
 import { pastperfDomain } from './routes/pastperf.routes';
@@ -45,6 +48,9 @@ import { collaborationDomain } from './routes/collaboration.routes';
 import { opportunityContextDomain } from './routes/opportunity-context.routes';
 import { notificationDomain } from './routes/notification.routes';
 import { auditDomain } from './routes/audit.routes';
+import { analyticsDomain } from './routes/analytics.routes';
+import { clarifyingQuestionDomain } from './routes/clarifying-question.routes';
+import { engagementLogDomain } from './routes/engagement-log.routes';
 
 export interface ApiOrchestratorStackProps extends cdk.StackProps {
   stage: string;
@@ -145,6 +151,7 @@ export class ApiOrchestratorStack extends cdk.Stack {
       PINECONE_API_KEY: pineconeApiKey,
       PINECONE_INDEX: 'documents',
       SAM_OPPS_BASE_URL: 'https://api.sam.gov',
+      DIBBS_BASE_URL: 'https://www.dibbs.bsm.dla.mil',
       // Construct the notification queue URL from the queue name — no cross-stack token reference
       ...(notificationQueueName ? {
         NOTIFICATION_QUEUE_URL: `https://sqs.${cdk.Aws.REGION}.amazonaws.com/${cdk.Aws.ACCOUNT_ID}/${notificationQueueName}`,
@@ -259,6 +266,15 @@ export class ApiOrchestratorStack extends cdk.Stack {
         }),
       );
     }
+
+    // Grant SES send permission for FOIA auto-submit via email
+    sharedInfraStack.commonLambdaRole.addToPrincipalPolicy(
+      new iam.PolicyStatement({
+        sid: 'SESFoiaSubmit',
+        actions: ['ses:SendEmail', 'ses:SendRawEmail'],
+        resources: [`arn:aws:ses:${cdk.Aws.REGION}:${cdk.Aws.ACCOUNT_ID}:identity/*`],
+      }),
+    );
 
     if (execBriefQueue) {
       execBriefQueue.grantSendMessages(sharedInfraStack.commonLambdaRole);
@@ -388,7 +404,7 @@ export class ApiOrchestratorStack extends cdk.Stack {
       pastperfDomain({ execBriefQueueUrl: execBriefQueue?.queueUrl || '' }),
       projectsDomain(),
       promptDomain(),
-      samgovDomain(),
+      searchOpportunityDomain(),
       rfpDocumentDomain({ documentGenerationQueueUrl: docGenQueueUrl }),
       templateDomain(),
       linearRoutes,
@@ -398,6 +414,9 @@ export class ApiOrchestratorStack extends cdk.Stack {
       opportunityContextDomain(),
       notificationDomain(),
       auditDomain(),
+      analyticsDomain(),
+      clarifyingQuestionDomain(),
+      engagementLogDomain(),
     ];
 
     // Compute a hash of all route definitions so the deployment logical ID changes
@@ -441,7 +460,7 @@ export class ApiOrchestratorStack extends cdk.Stack {
       'PastPerfRoutes',
       'ProjectsRoutes',
       'PromptRoutes',
-      'SamgovRoutes',
+      'SearchOpportunityRoutes',
       'RfpDocumentRoutes',
       'TemplateRoutes',
       'LinearRoutes',
@@ -451,6 +470,9 @@ export class ApiOrchestratorStack extends cdk.Stack {
       'OpportunityContextRoutes',
       'NotificationRoutes',
       'AuditRoutes',
+      'AnalyticsRoutes',
+      'ClarifyingQuestionRoutes',
+      'EngagementLogRoutes',
     ];
 
     const routeNestedStacks: ApiDomainRoutesStack[] = [];
@@ -500,6 +522,35 @@ export class ApiOrchestratorStack extends cdk.Stack {
     for (const nestedStack of routeNestedStacks) {
       deployment.node.addDependency(nestedStack);
     }
+
+    // ─── DIBBS run-saved-search scheduler ────────────────────────────────────
+    const dibbsRunSavedSearchFn = new lambdaNodejs.NodejsFunction(this, `DibbsRunSavedSearch-${stage}`, {
+      functionName: `auto-rfp-dibbs-run-saved-search-${stage}`,
+      entry: path.join(__dirname, '../../../apps/functions/src/handlers/search-opportunity/run-saved-search.ts'),
+      handler: 'handler',
+      runtime: lambda.Runtime.NODEJS_20_X,
+      timeout: cdk.Duration.minutes(5),
+      memorySize: 256,
+      role: sharedInfraStack.commonLambdaRole,
+      environment: { ...commonEnv },
+      bundling: { minify: true, sourceMap: true, externalModules: ['@aws-sdk/*'] },
+    });
+
+    new logs.LogGroup(this, `DibbsRunSavedSearchLogs-${stage}`, {
+      logGroupName: `/aws/lambda/auto-rfp-dibbs-run-saved-search-${stage}`,
+      retention: stage === 'prod' ? logs.RetentionDays.INFINITE : logs.RetentionDays.TWO_WEEKS,
+      removalPolicy: cdk.RemovalPolicy.DESTROY,
+    });
+
+    new events.Rule(this, `DibbsRunSavedSearchRule-${stage}`, {
+      ruleName: `auto-rfp-dibbs-run-saved-search-${stage}`,
+      schedule: events.Schedule.rate(cdk.Duration.hours(1)),
+      targets: [
+        new eventsTargets.LambdaFunction(dibbsRunSavedSearchFn, {
+          event: events.RuleTargetInput.fromObject({ dryRun: false }),
+        }),
+      ],
+    });
 
     new cdk.CfnOutput(this, 'RestApiId', {
       value: this.restApiId,

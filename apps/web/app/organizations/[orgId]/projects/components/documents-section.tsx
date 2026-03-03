@@ -37,6 +37,7 @@ import {
 } from 'lucide-react';
 import { formatDateTime, getStatusChip, pickDisplayName } from '@/components/opportunities/opportunity-helpers';
 import { PageHeader } from '@/components/layout/page-header';
+import { useConfirmDialog } from '@/components/ui/confirm-dialog';
 
 interface Props {
   projectId?: string;
@@ -65,6 +66,7 @@ export function DocumentsSection({ projectId: propProjectId }: Props) {
 
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
+  const { confirm, ConfirmDialog } = useConfirmDialog();
 
   const rows: DocumentRow[] = useMemo(() => {
     return (items ?? []).map((qf: any) => ({
@@ -100,7 +102,12 @@ export function DocumentsSection({ projectId: propProjectId }: Props) {
       if (!questionFileId || !projectId || !oppId) return;
       if (deletingId === questionFileId) return;
 
-      const ok = window.confirm(`Delete "${name}"?`);
+      const ok = await confirm({
+        title: `Delete "${name}"?`,
+        description: 'This action cannot be undone.',
+        confirmLabel: 'Delete',
+        variant: 'destructive',
+      });
       if (!ok) return;
 
       try {
@@ -128,6 +135,7 @@ export function DocumentsSection({ projectId: propProjectId }: Props) {
             </div>
           </CardContent>
         </Card>
+        <ConfirmDialog />
       </div>
     );
   }
@@ -188,7 +196,6 @@ export function DocumentsSection({ projectId: propProjectId }: Props) {
       )}
 
       <Card className="overflow-hidden">
-
         <CardContent className="space-y-3">
           {isError && (
             <div className="rounded-xl border bg-red-50 p-4">
@@ -334,6 +341,7 @@ export function DocumentsSection({ projectId: propProjectId }: Props) {
           )}
         </CardContent>
       </Card>
+      <ConfirmDialog />
     </div>
   );
 }

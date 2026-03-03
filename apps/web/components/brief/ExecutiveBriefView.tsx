@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { useRouter } from 'next/navigation';
 
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -9,7 +10,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { Label } from '@/components/ui/label';
 
-import { AlertTriangle, Briefcase, CalendarClock, CheckCircle2, Clock, Download, FileSearch, FileText, ListChecks, Loader2, RefreshCw, Shield, Target, Users, XCircle } from 'lucide-react';
+import { AlertTriangle, Briefcase, CalendarClock, CheckCircle2, Clock, Download, ExternalLink, FileText, ListChecks, Loader2, RefreshCw, Shield, Target, Users, XCircle } from 'lucide-react';
+import Link from 'next/link';
 import { Skeleton } from '@/components/ui/skeleton';
 
 import DeadlinesDashboard from '../deadlines/DeadlinesDashboard';
@@ -31,8 +33,6 @@ import {
 import type { SectionKey, SectionStatus } from './types';
 import { SECTION_ORDER } from './types';
 import { buildSectionsState, calcProgress, exportBriefAsDocx, scoringPrereqsComplete } from './helpers';
-
-import { ChangesSummary } from './components/ChangesSummary';
 
 import { DecisionCard } from './components/DecisionCard';
 import { ExecutiveCloseOutCard } from './components/ExecutiveCloseOutCard';
@@ -210,6 +210,7 @@ interface ExecutiveBriefViewProps {
 }
 
 export function ExecutiveBriefView({ projectId, initialOpportunityId }: ExecutiveBriefViewProps) {
+  const router = useRouter();
   const { data: project, isLoading, isError, mutate: refetchProject } = useProject(projectId);
   const { currentOrganization } = useCurrentOrganization();
   const { outcome: projectOutcome } = useProjectOutcome(project?.orgId ?? null, projectId);
@@ -407,6 +408,17 @@ export function ExecutiveBriefView({ projectId, initialOpportunityId }: Executiv
     setBriefItem(null);
     setPreviousBrief(null);
     setRegenError(null);
+    
+    // Update URL query param
+    if (typeof window !== 'undefined') {
+      const url = new URL(window.location.href);
+      if (oppId) {
+        url.searchParams.set('oppId', oppId);
+      } else {
+        url.searchParams.delete('oppId');
+      }
+      router.replace(url.pathname + url.search, { scroll: false });
+    }
     
     if (oppId) {
       setIsFetchingBrief(true);
@@ -703,7 +715,7 @@ export function ExecutiveBriefView({ projectId, initialOpportunityId }: Executiv
   return (
     <div className="space-y-6">
       {/* Opportunity Selector - Compact inline version */}
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-3 flex-wrap">
         <Label className="text-sm font-medium whitespace-nowrap">Opportunity:</Label>
         <div className="flex-1 max-w-md">
           <OpportunitySelector
@@ -715,7 +727,7 @@ export function ExecutiveBriefView({ projectId, initialOpportunityId }: Executiv
           />
         </div>
         {selectedOpportunity && (
-          <div className="flex flex-wrap gap-1.5">
+          <div className="flex flex-wrap items-center gap-1.5">
             {selectedOpportunity.solicitationNumber && (
               <Badge variant="secondary" className="text-xs">
                 {selectedOpportunity.solicitationNumber}
@@ -848,8 +860,6 @@ export function ExecutiveBriefView({ projectId, initialOpportunityId }: Executiv
         </div>
       ) : (
         <>
-          {previousBrief && <ChangesSummary previous={previousBrief} current={briefItem}/>}
-
           {/* Header with Generate All button */}
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
@@ -862,6 +872,14 @@ export function ExecutiveBriefView({ projectId, initialOpportunityId }: Executiv
               )}
             </div>
             <div className="flex items-center gap-2">
+              {selectedOpportunityId && currentOrganization?.id && (
+                <Button variant="outline" size="sm" asChild>
+                  <Link href={`/organizations/${currentOrganization.id}/projects/${projectId}/opportunities/${selectedOpportunityId}`}>
+                    <ExternalLink className="h-4 w-4 mr-1.5" />
+                    Opportunity
+                  </Link>
+                </Button>
+              )}
               <Button
                 variant="outline"
                 size="sm"
@@ -988,14 +1006,15 @@ export function ExecutiveBriefView({ projectId, initialOpportunityId }: Executiv
               >
                 <DecisionCard 
                   projectName={project.name}
-                  projectId={projectId}  
+                  projectId={projectId}
+                  orgId={currentOrganization?.id}
                   summary={summary}
                   briefItem={briefItem}
                   previousBrief={previousBrief}
-                  onBriefUpdate={(brief) => setBriefItem(brief)}  
+                  onBriefUpdate={(brief) => setBriefItem(brief)}
+                  requirements={requirements}
                 />
                 <ExecutiveCloseOutCard scoring={scoring}/>
-                <ScoringGrid scoring={scoring}/>
               </SectionContent>
             </TabsContent>
 

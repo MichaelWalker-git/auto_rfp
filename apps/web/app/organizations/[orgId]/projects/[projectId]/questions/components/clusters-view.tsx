@@ -14,6 +14,7 @@ interface ClustersViewProps {
   onSelectQuestion: (questionId: string) => void;
   selectedQuestion: string | null;
   answers: Record<string, { text?: string }>;
+  opportunityId?: string | null;
 }
 
 export function ClustersView({
@@ -21,8 +22,9 @@ export function ClustersView({
   onSelectQuestion,
   selectedQuestion,
   answers,
+  opportunityId,
 }: ClustersViewProps) {
-  const { data, isLoading, error } = useClusters(projectId);
+  const { data, isLoading, error } = useClusters(projectId, opportunityId);
   const [expandedClusters, setExpandedClusters] = useState<Set<string>>(new Set());
 
   const clusters = data?.clusters ?? [];

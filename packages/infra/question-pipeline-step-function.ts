@@ -87,6 +87,13 @@ export class QuestionExtractionPipelineStack extends Stack {
         resources: [textractRole.roleArn],
       }),
     );
+    // Required to send task failure back to Step Functions when Textract fails to start
+    startTextractLambda.addToRolePolicy(
+      new iam.PolicyStatement({
+        actions: ['states:SendTaskSuccess', 'states:SendTaskFailure'],
+        resources: ['*'],
+      }),
+    );
 
     const callbackLambda = new lambdaNode.NodejsFunction(this, 'TextractCallbackLambda', {
       runtime: lambda.Runtime.NODEJS_24_X,
@@ -111,7 +118,8 @@ export class QuestionExtractionPipelineStack extends Stack {
       logGroup: mkFnLogGroup('ExtractXlsxText'),
       entry: path.join(__dirname, '../../apps/functions/src/handlers/question-pipeline/extract-xlsx-text.ts'),
       handler: 'handler',
-      timeout: Duration.seconds(60),
+      timeout: Duration.minutes(5),  // Increased from 60s — large XLSX files can take longer
+      memorySize: 512,               // More memory for large workbooks
       environment: commonLambdaEnv,
     });
     documentsBucket.grantReadWrite(extractXlsxTextLambda);

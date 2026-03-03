@@ -81,7 +81,9 @@ export const GetOpportunityContextResponseSchema = z.object({
   suggestedItems: z.array(ContextItemSchema),
   /** Items the user has explicitly pinned (always included in generation) */
   pinnedItems: z.array(ContextItemSchema),
-  /** Items the user has explicitly excluded */
+  /** Full item data for excluded items (for display in UI, grayed out) */
+  excludedItems: z.array(ContextItemSchema).default([]),
+  /** IDs of excluded items (kept for backward compatibility) */
   excludedIds: z.array(z.string()),
   lastRefreshedAt: z.string().datetime().optional(),
 });

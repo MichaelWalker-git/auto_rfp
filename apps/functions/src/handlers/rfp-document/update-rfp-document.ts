@@ -1,9 +1,8 @@
 import type { APIGatewayProxyEventV2, APIGatewayProxyResultV2 } from 'aws-lambda';
 import middy from '@middy/core';
 import { withSentryLambda } from '@/sentry-lambda';
-import { getRFPDocument, updateRFPDocumentMetadata } from '@/helpers/rfp-document';
+import { getRFPDocument, updateRFPDocumentMetadata, uploadRFPDocumentHtml } from '@/helpers/rfp-document';
 import { apiResponse, getOrgId, getUserId } from '@/helpers/api';
-
 
 export const baseHandler = async (
   event: APIGatewayProxyEventV2,
@@ -33,11 +32,44 @@ export const baseHandler = async (
       return apiResponse(403, { message: 'Access denied' });
     }
 
-    const updates: Record<string, any> = {};
+    // ── Extract HTML from content payload and upload to S3 ──
+    let htmlContentKey: string | undefined;
+    let contentForDb: Record<string, unknown> | undefined;
+
+    if (rawBody.content !== undefined) {
+      const incomingContent = rawBody.content as Record<string, unknown>;
+      const htmlString = incomingContent.content as string | undefined;
+
+      if (htmlString && typeof htmlString === 'string') {
+        // Upload HTML to S3 — store only the key in DynamoDB
+        try {
+          htmlContentKey = await uploadRFPDocumentHtml({
+            orgId,
+            projectId,
+            opportunityId,
+            documentId,
+            html: htmlString,
+          });
+        } catch (err) {
+          console.error('Failed to upload HTML to S3, falling back to inline storage:', err);
+        }
+      }
+
+      // Strip the HTML string — only metadata goes to DynamoDB, HTML lives in S3
+      contentForDb = {
+        title: incomingContent.title,
+        customerName: incomingContent.customerName,
+        opportunityId: incomingContent.opportunityId,
+        outlineSummary: incomingContent.outlineSummary,
+      };
+    }
+
+    const updates: Record<string, unknown> = {};
     if (rawBody.name !== undefined) updates.name = rawBody.name;
     if (rawBody.description !== undefined) updates.description = rawBody.description;
     if (rawBody.documentType !== undefined) updates.documentType = rawBody.documentType;
-    if (rawBody.content !== undefined) updates.content = rawBody.content;
+    if (contentForDb !== undefined) updates.content = contentForDb;
+    if (htmlContentKey !== undefined) updates.htmlContentKey = htmlContentKey;
     if (rawBody.status !== undefined) updates.status = rawBody.status;
     if (rawBody.title !== undefined) updates.title = rawBody.title;
 
@@ -45,7 +77,7 @@ export const baseHandler = async (
       projectId,
       opportunityId,
       documentId,
-      updates,
+      updates: updates as Parameters<typeof updateRFPDocumentMetadata>[0]['updates'],
       updatedBy: userId,
     });
 

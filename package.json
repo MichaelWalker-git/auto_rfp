@@ -10,8 +10,10 @@
     "lint": "pnpm -r lint",
     "clean": "pnpm -r clean",
     "deploy:dev": "pnpm --filter @auto-rfp/infra deploy:dev",
-    "deploy:test": "pnpm --filter @auto-rfp/infra deploy:test",
+    "deploy:dev:hotswap": "pnpm --filter @auto-rfp/infra deploy:dev:hotswap",
     "deploy:dev:api": "pnpm --filter @auto-rfp/infra deploy:dev:api",
+    "deploy:test": "pnpm --filter @auto-rfp/infra deploy:test",
+    "deploy:test:hotswap": "pnpm --filter @auto-rfp/infra deploy:test:hotswap",
     "deploy:test:api": "pnpm --filter @auto-rfp/infra deploy:test:api",
     "cdk": "pnpm --filter @auto-rfp/infra cdk"
   },

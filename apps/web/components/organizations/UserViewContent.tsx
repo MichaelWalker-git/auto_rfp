@@ -10,6 +10,7 @@ import {
   Calendar,
   Check,
   Database,
+  FolderOpen,
   Loader2,
   Mail,
   Pencil,
@@ -391,7 +392,7 @@ export function UserViewContent({ orgId, userId }: UserViewContentProps) {
         <OrganizationAccessSection userId={userId} orgId={orgId} email={user.email} />
       </PermissionWrapper>
 
-      {/* ─── Knowledge Base Access ─── */}
+      {/* ─── Org Document Folder Access ─── */}
       <PermissionWrapper requiredPermission="kb:edit">
         <KBAccessSection userId={userId} orgId={orgId} />
       </PermissionWrapper>
@@ -508,7 +509,7 @@ function OrganizationAccessSection({
 }
 
 // ────────────────────────────────────────────
-// Knowledge Base Access Section
+// Org Document Folder Access Section
 // ────────────────────────────────────────────
 
 function KBAccessSection({ userId, orgId }: { userId: string; orgId: string }) {
@@ -561,11 +562,11 @@ function KBAccessSection({ userId, orgId }: { userId: string; orgId: string }) {
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          <Database className="h-5 w-5" />
-          Knowledge Base Access
+          <FolderOpen className="h-5 w-5" />
+          Org Document Folder Access
         </CardTitle>
         <CardDescription>
-          Control which knowledge bases this user can access ({grantedKBIds.size} of {allKBs.length}{' '}
+          Control which document folders this user can access ({grantedKBIds.size} of {allKBs.length}{' '}
           granted)
         </CardDescription>
       </CardHeader>
@@ -585,7 +586,7 @@ function KBAccessSection({ userId, orgId }: { userId: string; orgId: string }) {
           </div>
         ) : allKBs.length === 0 ? (
           <p className="text-sm text-muted-foreground text-center py-6">
-            No knowledge bases found in this organization.
+            No document folders found in this organization.
           </p>
         ) : (
           <div className="space-y-2">
@@ -601,7 +602,7 @@ function KBAccessSection({ userId, orgId }: { userId: string; orgId: string }) {
                   }`}
                 >
                   <div className="flex items-center gap-3 min-w-0">
-                    <Database
+                    <FolderOpen
                       className={`h-4 w-4 shrink-0 ${hasAccess ? 'text-primary' : 'text-muted-foreground'}`}
                     />
                     <div className="min-w-0">
@@ -610,9 +611,6 @@ function KBAccessSection({ userId, orgId }: { userId: string; orgId: string }) {
                         <p className="text-xs text-muted-foreground truncate">{kb.description}</p>
                       )}
                     </div>
-                    <Badge variant={hasAccess ? 'default' : 'outline'} className="text-xs shrink-0">
-                      {kb.type === 'CONTENT_LIBRARY' ? 'Q&A' : 'Documents'}
-                    </Badge>
                   </div>
                   {hasAccess ? (
                     <Button

@@ -34,7 +34,7 @@ describe('SamGovOpportunityList', () => {
     jest.clearAllMocks();
   });
 
-  it('shows "No files" badge when attachmentsCount is 0', () => {
+  it('does not show attachment info when attachmentsCount is 0', () => {
     const data = {
       opportunities: [{ ...baseOpportunity, attachmentsCount: 0 }],
       totalRecords: 1,
@@ -51,7 +51,7 @@ describe('SamGovOpportunityList', () => {
       />
     );
 
-    expect(screen.getByText('No files')).toBeInTheDocument();
+    expect(screen.queryByText(/attachment/i)).not.toBeInTheDocument();
   });
 
   it('shows attachment count when attachments are available', () => {
@@ -71,8 +71,7 @@ describe('SamGovOpportunityList', () => {
       />
     );
 
-    expect(screen.getByText('5')).toBeInTheDocument();
-    expect(screen.queryByText('No files')).not.toBeInTheDocument();
+    expect(screen.getByText('5 attachments')).toBeInTheDocument();
   });
 
   it('renders opportunity title', () => {

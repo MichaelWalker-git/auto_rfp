@@ -39,6 +39,24 @@ export class StorageStack extends cdk.Stack {
             },
           ],
         },
+        // ── RFP document HTML versions: keep last 10 versions, expire old ones after 90 days ──
+        {
+          id: 'rfp-documents-version-cleanup',
+          prefix: 'rfp-documents/',
+          noncurrentVersionExpiration: cdk.Duration.days(90),
+          noncurrentVersionsToRetain: 10,
+        },
+        // ── Editor images: no versioning needed, transition to IA after 30 days ──
+        {
+          id: 'editor-images-ia',
+          prefix: 'editor-images/',
+          transitions: [
+            {
+              storageClass: s3.StorageClass.INFREQUENT_ACCESS,
+              transitionAfter: cdk.Duration.days(30),
+            },
+          ],
+        },
       ],
       cors: [
         {

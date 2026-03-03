@@ -1,7 +1,7 @@
 import { GetCommand, QueryCommand, UpdateCommand, DeleteCommand } from '@aws-sdk/lib-dynamodb';
 import { v4 as uuidv4 } from 'uuid';
 
-import { createItem, DBItem, docClient } from './db';
+import { createItem, DBItem, docClient, UserContext } from './db';
 import { requireEnv } from './env';
 import { PK_NAME, SK_NAME } from '../constants/common';
 import { OPPORTUNITY_PK } from '../constants/opportunity';
@@ -9,6 +9,7 @@ import { safeSplit } from './safe-string';
 
 import type { OpportunityItem } from '@auto-rfp/core';
 import { nowIso } from './date';
+import { enrichWithUserNames } from './resolve-users';
 
 const DOCUMENTS_TABLE = requireEnv('DB_TABLE_NAME');
 
@@ -30,8 +31,14 @@ export type OpportunityDBItem = OpportunityItem & DBItem;
  * PK: OPPORTUNITY_PK
  * SK: `${orgId}#${projectId}#${oppId}`
  */
-export const createOpportunity = async (args: { orgId: string; projectId: string; opportunity: OpportunityItem }) => {
+export const createOpportunity = async (args: {
+  orgId: string;
+  projectId: string;
+  opportunity: OpportunityItem;
+  userContext?: UserContext;
+}) => {
   const oppId = uuidv4();
+  const { userId, userName } = args.userContext ?? {};
 
   const item = await createItem<OpportunityDBItem>(
     OPPORTUNITY_PK,
@@ -39,6 +46,8 @@ export const createOpportunity = async (args: { orgId: string; projectId: string
     {
       ...args.opportunity,
       oppId,
+      ...(userId ? { createdBy: userId, updatedBy: userId } : {}),
+      ...(userName ? { createdByName: userName, updatedByName: userName } : {}),
     } as any
   );
 
@@ -67,6 +76,7 @@ export const getOpportunity = async (args: { orgId: string; projectId: string; o
  * LIST (by project)
  * PK = OPPORTUNITY_PK
  * SK begins_with `${orgId}#${projectId}#`
+ * Enriches items with createdByName / updatedByName from the user table.
  */
 export const listOpportunitiesByProject = async (args: {
   orgId: string;
@@ -96,10 +106,24 @@ export const listOpportunitiesByProject = async (args: {
 
   const items = (res.Items as OpportunityDBItem[]) ?? [];
 
+  // Enrich with human-readable names for createdBy / updatedBy
+  const enriched = await enrichWithUserNames(args.orgId, items);
+
   return {
-    items,
+    items: enriched,
     nextToken: res.LastEvaluatedKey ?? null,
   };
+};
+
+/**
+ * READ (by oppId) — enriches with user names
+ */
+export const getOpportunityEnriched = async (args: { orgId: string; projectId: string; oppId: string }) => {
+  const result = await getOpportunity(args);
+  if (!result) return undefined;
+
+  const [enriched] = await enrichWithUserNames(args.orgId, [result.item]);
+  return { item: enriched, oppId: args.oppId };
 };
 
 /**
@@ -112,9 +136,19 @@ export const updateOpportunity = async (args: {
   projectId: string;
   oppId: string;
   patch: Partial<OpportunityItem>;
+  userContext?: UserContext;
 }) => {
   const forbidden = new Set<string>([PK_NAME, SK_NAME, 'createdAt', 'updatedAt']);
-  const patchEntries = Object.entries(args.patch).filter(([k, v]) => !forbidden.has(k) && typeof v !== 'undefined');
+  const { userId, userName } = args.userContext ?? {};
+
+  // Merge user context into patch so it gets written
+  const patchWithUser: Partial<OpportunityItem> = {
+    ...args.patch,
+    ...(userId ? { updatedBy: userId } : {}),
+    ...(userName ? { updatedByName: userName } : {}),
+  };
+
+  const patchEntries = Object.entries(patchWithUser).filter(([k, v]) => !forbidden.has(k) && typeof v !== 'undefined');
 
   const names: Record<string, string> = {
     '#pk': PK_NAME,

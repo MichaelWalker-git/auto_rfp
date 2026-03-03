@@ -3,6 +3,7 @@ import middy from '@middy/core';
 import { apiResponse, getOrgId } from '@/helpers/api';
 import { withSentryLambda } from '@/sentry-lambda';
 import { storeApiKey } from '@/helpers/api-key-storage';
+import { LINEAR_SECRET_PREFIX } from '@/constants/linear';
 import {
   authContextMiddleware,
   httpErrorMiddleware,
@@ -31,7 +32,7 @@ export const baseHandler = async (
     const { apiKey } = data;
 
     // Store the API key with 'linear' prefix
-    await storeApiKey(orgId, apiKey, 'linear');
+    await storeApiKey(orgId, LINEAR_SECRET_PREFIX, apiKey);
 
     
     setAuditContext(event, {

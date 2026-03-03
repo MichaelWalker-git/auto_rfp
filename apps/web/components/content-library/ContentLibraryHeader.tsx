@@ -59,7 +59,7 @@ export function ContentLibraryHeader({
       {/* Top row: Title + Actions — matching ListingPageLayout pattern */}
       <div className="flex flex-col md:flex-row justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Content Library</h1>
+          <h1 className="text-2xl font-semibold tracking-tight">Q&A Library</h1>
           <p className="text-sm text-muted-foreground mt-1">
             {total} {total === 1 ? 'item' : 'items'} in your library
           </p>
@@ -80,7 +80,7 @@ export function ContentLibraryHeader({
           )}
           <Button onClick={onCreateClick}>
             <Plus className="h-4 w-4 mr-2" />
-            Add Content
+            Add Q&A
           </Button>
         </div>
       </div>

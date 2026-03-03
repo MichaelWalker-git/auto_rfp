@@ -1,10 +1,12 @@
 import { PutCommand, QueryCommand, GetCommand, UpdateCommand } from '@aws-sdk/lib-dynamodb';
 import { requireEnv } from './env';
 import { docClient } from './db';
+import { uploadToS3, loadTextFromS3 } from './s3';
 import { PK_NAME, SK_NAME } from '../constants/common';
 import { RFP_DOCUMENT_PK } from '../constants/rfp-document';
 
 const DB_TABLE_NAME = requireEnv('DB_TABLE_NAME');
+const DOCUMENTS_BUCKET = requireEnv('DOCUMENTS_BUCKET');
 
 function nowIso(): string {
   return new Date().toISOString();
@@ -116,6 +118,9 @@ export async function updateRFPDocumentMetadata(args: {
     status?: string;
     title?: string | null;
     editHistory?: Record<string, any>[];
+    /** S3 key for the HTML content — replaces storing HTML inline in DynamoDB */
+    htmlContentKey?: string;
+    generationError?: string;
   };
   updatedBy: string;
 }): Promise<Record<string, any>> {
@@ -166,6 +171,16 @@ export async function updateRFPDocumentMetadata(args: {
     setParts.push('#editHistory = :editHistory');
     names['#editHistory'] = 'editHistory';
     values[':editHistory'] = args.updates.editHistory;
+  }
+  if (args.updates.htmlContentKey !== undefined) {
+    setParts.push('#htmlContentKey = :htmlContentKey');
+    names['#htmlContentKey'] = 'htmlContentKey';
+    values[':htmlContentKey'] = args.updates.htmlContentKey;
+  }
+  if (args.updates.generationError !== undefined) {
+    setParts.push('#generationError = :generationError');
+    names['#generationError'] = 'generationError';
+    values[':generationError'] = args.updates.generationError;
   }
 
   const res = await docClient.send(
@@ -251,6 +266,67 @@ export async function updateRFPDocumentSignatureStatus(args: {
       UpdateExpression: `SET ${setParts.join(', ')}`,
       ExpressionAttributeNames: names,
       ExpressionAttributeValues: values,
+      ReturnValues: 'ALL_NEW',
+    }),
+  );
+
+  return res.Attributes as Record<string, any>;
+}
+
+// ─── HTML Content S3 Key Builder ───
+export function buildRFPDocumentHtmlKey(args: {
+  orgId: string;
+  projectId: string;
+  opportunityId: string;
+  documentId: string;
+}): string {
+  return `${args.orgId}/${args.projectId}/${args.opportunityId}/rfp-documents/${args.documentId}/content.html`;
+}
+
+// ─── Upload HTML content to S3, return the S3 key ───
+export async function uploadRFPDocumentHtml(args: {
+  orgId: string;
+  projectId: string;
+  opportunityId: string;
+  documentId: string;
+  html: string;
+}): Promise<string> {
+  const key = buildRFPDocumentHtmlKey(args);
+  await uploadToS3(DOCUMENTS_BUCKET, key, args.html, 'text/html; charset=utf-8');
+  return key;
+}
+
+// ─── Load HTML content from S3 ───
+export async function loadRFPDocumentHtml(htmlContentKey: string): Promise<string> {
+  return loadTextFromS3(DOCUMENTS_BUCKET, htmlContentKey);
+}
+
+// ─── Update Metadata with htmlContentKey (replaces storing HTML in DynamoDB) ───
+export async function updateRFPDocumentHtmlKey(args: {
+  projectId: string;
+  opportunityId: string;
+  documentId: string;
+  htmlContentKey: string;
+  updatedBy: string;
+}): Promise<Record<string, any>> {
+  const sk = buildRFPDocumentSK(args.projectId, args.opportunityId, args.documentId);
+  const now = nowIso();
+
+  const res = await docClient.send(
+    new UpdateCommand({
+      TableName: DB_TABLE_NAME,
+      Key: { [PK_NAME]: RFP_DOCUMENT_PK, [SK_NAME]: sk },
+      UpdateExpression: 'SET #htmlContentKey = :key, #updatedAt = :now, #updatedBy = :updatedBy',
+      ExpressionAttributeNames: {
+        '#htmlContentKey': 'htmlContentKey',
+        '#updatedAt': 'updatedAt',
+        '#updatedBy': 'updatedBy',
+      },
+      ExpressionAttributeValues: {
+        ':key': args.htmlContentKey,
+        ':now': now,
+        ':updatedBy': args.updatedBy,
+      },
       ReturnValues: 'ALL_NEW',
     }),
   );

@@ -2,14 +2,8 @@
 
 import React, { useCallback, useMemo, useState } from 'react';
 import {
-  AlertCircle,
-  Download,
-  ExternalLink,
-  FileText,
-  FolderOpen,
-  Loader2,
-  MoreHorizontal,
-  Trash2,
+  AlertCircle, Download, ExternalLink, Eye, FileText, FolderOpen,
+  Loader2, MoreHorizontal, RefreshCw, Trash2, X,
 } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -17,24 +11,67 @@ import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
+  Dialog, DialogContent,
+} from '@/components/ui/dialog';
+import {
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem,
+  DropdownMenuSeparator, DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { cn } from '@/lib/utils';
-
-import PermissionWrapper from '@/components/permission-wrapper';
 import { CancelPipelineButton } from '@/components/cancel-pipeline-button';
-import { useDeleteQuestionFile, useQuestionFiles } from '@/lib/hooks/use-question-file';
+import { useDeleteQuestionFile, useQuestionFiles, useStartQuestionFilePipeline } from '@/lib/hooks/use-question-file';
 import { useDownloadFromS3 } from '@/lib/hooks/use-file';
+import { usePresignDownload } from '@/lib/hooks/use-presign';
 import { useToast } from '@/components/ui/use-toast';
+import { useConfirmDialog } from '@/components/ui/confirm-dialog';
 import {
   QuestionFileUploadDialog,
 } from '@/app/organizations/[orgId]/projects/[projectId]/questions/components/question-extraction-dialog';
 import { useOpportunityContext } from './opportunity-context';
-import { formatDateTime, getStatusChip, pickDisplayName } from './opportunity-helpers';
+import { formatDateTime, getStatusChip, pickDisplayName, guessDownloadName } from './opportunity-helpers';
+
+// ─── Helpers ─────────────────────────────────────────────────────────────────
+
+const IMAGE_EXTENSIONS = new Set(['png', 'jpg', 'jpeg', 'gif', 'webp', 'svg']);
+
+const getFileExtension = (key: string): string =>
+  (key.split('.').pop() ?? '').toLowerCase();
+
+const isImage = (key: string): boolean =>
+  IMAGE_EXTENSIONS.has(getFileExtension(key));
+
+// ─── Image Lightbox ───────────────────────────────────────────────────────────
+
+interface ImageLightboxProps {
+  open: boolean;
+  onClose: () => void;
+  name: string;
+  url: string;
+}
+
+const ImageLightbox = ({ open, onClose, name, url }: ImageLightboxProps) => (
+  <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
+    <DialogContent className="max-w-4xl w-full p-2 bg-black/90 border-0">
+      <div className="relative">
+        <button
+          onClick={onClose}
+          className="absolute top-2 right-2 z-10 rounded-full bg-black/60 p-1.5 text-white hover:bg-black/80 transition-colors"
+        >
+          <X className="h-4 w-4" />
+        </button>
+        <div className="flex flex-col items-center gap-2">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={url}
+            alt={name}
+            className="max-h-[80vh] max-w-full object-contain rounded"
+          />
+          <p className="text-xs text-white/70 truncate max-w-full px-2">{name}</p>
+        </div>
+      </div>
+    </DialogContent>
+  </Dialog>
+);
 
 interface AttachmentRow {
   questionFileId: string | undefined;
@@ -48,246 +85,317 @@ interface AttachmentRow {
   googleDriveFileId: string | undefined;
 }
 
-/**
- * Solicitation Documents section — displays question files (solicitation attachments)
- * uploaded for this opportunity. Supports upload, download, delete, and pipeline cancellation.
- */
 export function OpportunitySolicitationDocuments() {
   const { projectId, oppId } = useOpportunityContext();
   const { toast } = useToast();
+  const { confirm, ConfirmDialog } = useConfirmDialog();
 
-  const {
-    items: qItems,
-    isLoading: isLoadingFiles,
-    isError: isFilesError,
-    error: filesError,
-    refetch: refetchFiles,
-  } = useQuestionFiles(projectId, { oppId });
-
+  const { items: qItems, isLoading: isLoadingFiles, isError: isFilesError, error: filesError, refetch: refetchFiles } = useQuestionFiles(projectId, { oppId });
   const { downloadFile, error: downloadError } = useDownloadFromS3();
   const { trigger: deleteQuestionFile } = useDeleteQuestionFile();
+  const { trigger: presignDownload } = usePresignDownload();
 
+  const { trigger: startPipeline } = useStartQuestionFilePipeline();
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
+  const [retryingId, setRetryingId] = useState<string | null>(null);
+  const [viewingId, setViewingId] = useState<string | null>(null);
+  const [previewState, setPreviewState] = useState<{ name: string; url: string; fileKey: string } | null>(null);
 
   const rows = useMemo<AttachmentRow[]>(
-    () =>
-      (qItems ?? []).map((qf: any) => ({
-        questionFileId: qf?.questionFileId,
-        name: pickDisplayName(qf),
-        status: qf?.status,
-        createdAt: qf?.createdAt,
-        updatedAt: qf?.updatedAt,
-        fileKey: qf?.fileKey,
-        errorMessage: qf?.errorMessage,
-        googleDriveUrl: qf?.googleDriveUrl,
-        googleDriveFileId: qf?.googleDriveFileId,
-      })),
+    () => (qItems ?? []).map((qf: any) => ({
+      questionFileId: qf?.questionFileId,
+      name: pickDisplayName(qf),
+      status: qf?.status,
+      createdAt: qf?.createdAt,
+      updatedAt: qf?.updatedAt,
+      fileKey: qf?.fileKey,
+      errorMessage: qf?.errorMessage,
+      googleDriveUrl: qf?.googleDriveUrl,
+      googleDriveFileId: qf?.googleDriveFileId,
+    })),
     [qItems],
   );
 
-  const handleDownload = useCallback(
-    async (row: AttachmentRow) => {
-      if (!row.questionFileId || !row.fileKey || downloadingId === row.questionFileId) return;
-      try {
-        setDownloadingId(row.questionFileId);
-        await downloadFile({ key: row.fileKey, fileName: row.name });
-      } finally {
-        setDownloadingId((prev) => (prev === row.questionFileId ? null : prev));
+  const handleView = useCallback(async (row: AttachmentRow) => {
+    if (!row.fileKey || !row.questionFileId || viewingId === row.questionFileId) return;
+    try {
+      setViewingId(row.questionFileId);
+      const presign = await presignDownload({ key: row.fileKey });
+      if (isImage(row.fileKey)) {
+        // Show image in lightbox
+        setPreviewState({ name: row.name, url: presign.url, fileKey: row.fileKey });
+      } else {
+        // Open everything else (PDF, docx, txt, etc.) in a new browser tab
+        window.open(presign.url, '_blank', 'noopener,noreferrer');
       }
-    },
-    [downloadingId, downloadFile],
-  );
+    } catch (err) {
+      toast({
+        title: 'Could not open document',
+        description: err instanceof Error ? err.message : 'Failed to get document URL.',
+        variant: 'destructive',
+      });
+    } finally {
+      setViewingId((prev) => (prev === row.questionFileId ? null : prev));
+    }
+  }, [viewingId, presignDownload, toast]);
 
-  const handleDelete = useCallback(
-    async (row: AttachmentRow) => {
-      if (!row.questionFileId || deletingId === row.questionFileId) return;
-      if (!window.confirm(`Delete "${row.name}"?`)) return;
-      try {
-        setDeletingId(row.questionFileId);
-        await deleteQuestionFile({ projectId, oppId, questionFileId: row.questionFileId });
-        await refetchFiles();
-      } finally {
-        setDeletingId((prev) => (prev === row.questionFileId ? null : prev));
-      }
-    },
-    [projectId, oppId, deletingId, deleteQuestionFile, refetchFiles],
-  );
+  const handleDownload = useCallback(async (row: AttachmentRow) => {
+    if (!row.questionFileId || !row.fileKey || downloadingId === row.questionFileId) return;
+    try {
+      setDownloadingId(row.questionFileId);
+      const fileName = guessDownloadName(row.fileKey, row.name);
+      await downloadFile({ key: row.fileKey, fileName });
+    } finally {
+      setDownloadingId((prev) => (prev === row.questionFileId ? null : prev));
+    }
+  }, [downloadingId, downloadFile]);
 
-  // Loading skeleton
+  const handleRetry = useCallback(async (row: AttachmentRow) => {
+    if (!row.questionFileId || retryingId === row.questionFileId) return;
+    try {
+      setRetryingId(row.questionFileId);
+      await startPipeline({ projectId, oppId, questionFileId: row.questionFileId });
+      toast({ title: 'Processing restarted', description: `"${row.name}" is being re-processed.` });
+      await refetchFiles();
+    } catch (err) {
+      toast({
+        title: 'Retry failed',
+        description: err instanceof Error ? err.message : 'Could not restart processing',
+        variant: 'destructive',
+      });
+    } finally {
+      setRetryingId((prev) => (prev === row.questionFileId ? null : prev));
+    }
+  }, [projectId, oppId, retryingId, startPipeline, toast, refetchFiles]);
+
+  const handleDelete = useCallback(async (row: AttachmentRow) => {
+    if (!row.questionFileId || deletingId === row.questionFileId) return;
+    const ok = await confirm({
+      title: `Delete "${row.name}"?`,
+      description: 'This action cannot be undone.',
+      confirmLabel: 'Delete',
+      variant: 'destructive',
+    });
+    if (!ok) return;
+    try {
+      setDeletingId(row.questionFileId);
+      await deleteQuestionFile({ projectId, oppId, questionFileId: row.questionFileId });
+      await refetchFiles();
+    } finally {
+      setDeletingId((prev) => (prev === row.questionFileId ? null : prev));
+    }
+  }, [projectId, oppId, deletingId, deleteQuestionFile, refetchFiles, confirm]);
+
   if (isLoadingFiles && rows.length === 0) {
     return (
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle className="text-sm font-medium">Solicitation Documents</CardTitle>
-          <Skeleton className="h-8 w-40" />
-        </CardHeader>
-        <CardContent className="space-y-3">
-          {[1, 2, 3].map((i) => <Skeleton key={i} className="h-16 w-full" />)}
-        </CardContent>
-      </Card>
+      <>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Solicitation Documents</CardTitle>
+            <Skeleton className="h-8 w-40" />
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {[1, 2, 3].map((i) => <Skeleton key={i} className="h-16 w-full" />)}
+          </CardContent>
+        </Card>
+        <ConfirmDialog />
+      </>
     );
   }
 
   return (
-    <Card className="overflow-hidden">
-      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-        <div>
-          <CardTitle className="text-sm font-medium">Solicitation Documents</CardTitle>
-          <CardDescription className="mt-1">
-            {rows.length} {rows.length === 1 ? 'document' : 'documents'} for this opportunity
-          </CardDescription>
-        </div>
-        <QuestionFileUploadDialog projectId={projectId} oppId={oppId} />
-      </CardHeader>
+    <>
+      <Card className="overflow-hidden">
+        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+          <div>
+            <CardTitle className="text-sm font-medium">Solicitation Documents</CardTitle>
+            <CardDescription className="mt-1">
+              {rows.length} {rows.length === 1 ? 'document' : 'documents'} for this opportunity
+            </CardDescription>
+          </div>
+          <div className="flex items-center gap-2">
+            <Button
+              size="sm"
+              variant="ghost"
+              className="h-8 w-8 p-0"
+              onClick={() => refetchFiles()}
+              disabled={isLoadingFiles}
+              title="Reload documents"
+            >
+              <RefreshCw className={cn('h-3.5 w-3.5', isLoadingFiles && 'animate-spin')} />
+            </Button>
+            <QuestionFileUploadDialog projectId={projectId} oppId={oppId} triggerLabel="Upload" />
+          </div>
+        </CardHeader>
 
-      <CardContent className="space-y-3">
-        {isFilesError && (
-          <div className="rounded-xl border bg-red-50 p-4">
-            <div className="flex items-start gap-3">
-              <AlertCircle className="h-5 w-5 text-red-600 mt-0.5" />
-              <div className="flex-1">
-                <p className="font-medium text-red-900">Failed to load documents</p>
-                <p className="text-sm text-red-700 mt-1">
-                  {filesError instanceof Error ? filesError.message : 'Unknown error'}
-                </p>
-                <Button variant="outline" size="sm" className="mt-3" onClick={() => refetchFiles()}>
-                  Retry
-                </Button>
+        <CardContent className="space-y-3">
+          {isFilesError && (
+            <div className="rounded-xl border bg-red-50 p-4">
+              <div className="flex items-start gap-3">
+                <AlertCircle className="h-5 w-5 text-red-600 mt-0.5" />
+                <div className="flex-1">
+                  <p className="font-medium text-red-900">Failed to load documents</p>
+                  <p className="text-sm text-red-700 mt-1">{filesError instanceof Error ? filesError.message : 'Unknown error'}</p>
+                  <Button variant="outline" size="sm" className="mt-3" onClick={() => refetchFiles()}>Retry</Button>
+                </div>
               </div>
             </div>
-          </div>
-        )}
+          )}
 
-        {downloadError && (
-          <Alert variant="destructive">
-            <AlertCircle className="h-4 w-4" />
-            <AlertDescription>Download failed: {downloadError.message}</AlertDescription>
-          </Alert>
-        )}
+          {downloadError && (
+            <Alert variant="destructive">
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription>Download failed: {downloadError.message}</AlertDescription>
+            </Alert>
+          )}
 
-        {!isFilesError && rows.length === 0 && (
-          <div className="text-center py-6">
-            <FolderOpen className="mx-auto h-8 w-8 text-muted-foreground mb-2" />
-            <p className="text-sm text-muted-foreground">No solicitation documents yet</p>
-            <p className="text-xs text-muted-foreground mt-1">Upload a document to start question extraction.</p>
-          </div>
-        )}
+          {!isFilesError && rows.length === 0 && (
+            <div className="text-center py-6">
+              <FolderOpen className="mx-auto h-8 w-8 text-muted-foreground mb-2" />
+              <p className="text-sm text-muted-foreground">No solicitation documents yet</p>
+              <p className="text-xs text-muted-foreground mt-1">Upload a document to start question extraction.</p>
+            </div>
+          )}
 
-        {!isFilesError && rows.length > 0 && (
-          <div className="space-y-2">
-            {rows.map((f) => {
-              const st = getStatusChip(f.status);
-              const isDeleting = !!f.questionFileId && deletingId === f.questionFileId;
-              const isDownloading = !!f.questionFileId && downloadingId === f.questionFileId;
-
-              return (
-                <div
-                  key={f.questionFileId ?? f.name}
-                  className={cn(
-                    'rounded-xl border bg-background p-3',
-                    (isDeleting || isDownloading) && 'opacity-80',
-                  )}
-                >
-                  <div className="flex items-start gap-3">
-                    <div className="h-10 w-10 rounded-lg bg-muted flex items-center justify-center shrink-0">
-                      <FileText className="h-5 w-5 text-muted-foreground" />
-                    </div>
-
-                    <div className="min-w-0 flex-1">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <p className="font-medium truncate text-sm" title={f.name}>{f.name}</p>
-                        <Badge variant="outline" className={cn('text-xs border', st.cls)}>{st.label}</Badge>
-                        {f.googleDriveUrl && (
-                          <a
-                            href={f.googleDriveUrl}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            title="Open in Google Drive"
-                          >
-                            <Badge variant="secondary" className="text-xs gap-1 cursor-pointer hover:bg-blue-100 dark:hover:bg-blue-900/30">
-                              <svg className="h-3 w-3" viewBox="0 0 87.3 78" xmlns="http://www.w3.org/2000/svg">
-                                <path d="m6.6 66.85 3.85 6.65c.8 1.4 1.95 2.5 3.3 3.3l13.75-23.8h-27.5c0 1.55.4 3.1 1.2 4.5z" fill="#0066da"/>
-                                <path d="m43.65 25-13.75-23.8c-1.35.8-2.5 1.9-3.3 3.3l-20.4 35.3c-.8 1.4-1.2 2.95-1.2 4.5h27.5z" fill="#00ac47"/>
-                                <path d="m73.55 76.8c1.35-.8 2.5-1.9 3.3-3.3l1.6-2.75 7.65-13.25c.8-1.4 1.2-2.95 1.2-4.5h-27.5l5.85 13.15z" fill="#ea4335"/>
-                                <path d="m43.65 25 13.75-23.8c-1.35-.8-2.9-1.2-4.5-1.2h-18.5c-1.6 0-3.15.45-4.5 1.2z" fill="#00832d"/>
-                                <path d="m59.8 53h-32.3l-13.75 23.8c1.35.8 2.9 1.2 4.5 1.2h50.8c1.6 0 3.15-.45 4.5-1.2z" fill="#2684fc"/>
-                                <path d="m73.4 26.5-10.1-17.5c-.8-1.4-1.95-2.5-3.3-3.3l-13.75 23.8 16.15 23.5h27.45c0-1.55-.4-3.1-1.2-4.5z" fill="#ffba00"/>
-                              </svg>
-                              Drive
-                            </Badge>
-                          </a>
+          {!isFilesError && rows.length > 0 && (
+            <div className="space-y-2">
+              {rows.map((f) => {
+                const st = getStatusChip(f.status);
+                const isDeleting = !!f.questionFileId && deletingId === f.questionFileId;
+                const isDownloading = !!f.questionFileId && downloadingId === f.questionFileId;
+                const isRetrying = !!f.questionFileId && retryingId === f.questionFileId;
+                const isFailed = f.status === 'FAILED' || f.status === 'TEXT_EXTRACTION_FAILED';
+                return (
+                  <div key={f.questionFileId ?? f.name} className={cn('rounded-xl border bg-background p-3', (isDeleting || isDownloading) && 'opacity-80')}>
+                    <div className="flex items-start gap-3">
+                      <div className="h-10 w-10 rounded-lg bg-muted flex items-center justify-center shrink-0">
+                        <FileText className="h-5 w-5 text-muted-foreground" />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <p className="font-medium truncate text-sm" title={f.name}>{f.name}</p>
+                          <Badge variant="outline" className={cn('text-xs border', st.cls)}>{st.label}</Badge>
+                          {f.googleDriveUrl && (
+                            <a href={f.googleDriveUrl} target="_blank" rel="noopener noreferrer" title="Open in Google Drive">
+                              <Badge variant="secondary" className="text-xs gap-1 cursor-pointer hover:bg-blue-100">
+                                <svg className="h-3 w-3" viewBox="0 0 87.3 78" xmlns="http://www.w3.org/2000/svg">
+                                  <path d="m6.6 66.85 3.85 6.65c.8 1.4 1.95 2.5 3.3 3.3l13.75-23.8h-27.5c0 1.55.4 3.1 1.2 4.5z" fill="#0066da"/>
+                                  <path d="m43.65 25-13.75-23.8c-1.35.8-2.5 1.9-3.3 3.3l-20.4 35.3c-.8 1.4-1.2 2.95-1.2 4.5h27.5z" fill="#00ac47"/>
+                                  <path d="m73.55 76.8c1.35-.8 2.5-1.9 3.3-3.3l1.6-2.75 7.65-13.25c.8-1.4 1.2-2.95 1.2-4.5h-27.5l5.85 13.15z" fill="#ea4335"/>
+                                  <path d="m43.65 25 13.75-23.8c-1.35-.8-2.9-1.2-4.5-1.2h-18.5c-1.6 0-3.15.45-4.5 1.2z" fill="#00832d"/>
+                                  <path d="m59.8 53h-32.3l-13.75 23.8c1.35.8 2.9 1.2 4.5 1.2h50.8c1.6 0 3.15-.45 4.5-1.2z" fill="#2684fc"/>
+                                  <path d="m73.4 26.5-10.1-17.5c-.8-1.4-1.95-2.5-3.3-3.3l-13.75 23.8 16.15 23.5h27.45c0-1.55-.4-3.1-1.2-4.5z" fill="#ffba00"/>
+                                </svg>
+                                Drive
+                              </Badge>
+                            </a>
+                          )}
+                        </div>
+                        <div className="mt-1 text-xs text-muted-foreground">
+                          {formatDateTime(f.createdAt)}
+                          {f.updatedAt && f.updatedAt !== f.createdAt ? ` • Updated: ${formatDateTime(f.updatedAt)}` : ''}
+                        </div>
+                        {f.errorMessage && (
+                          <div className="mt-2 rounded-lg border border-red-200 bg-red-50 p-2 text-xs text-red-700">{f.errorMessage}</div>
                         )}
                       </div>
-                      <div className="mt-1 text-xs text-muted-foreground">
-                        {formatDateTime(f.createdAt)}
-                        {f.updatedAt && f.updatedAt !== f.createdAt ? ` • Updated: ${formatDateTime(f.updatedAt)}` : ''}
-                      </div>
-                      {f.errorMessage && (
-                        <div className="mt-2 rounded-lg border border-red-200 bg-red-50 p-2 text-xs text-red-700">
-                          {f.errorMessage}
-                        </div>
-                      )}
-                    </div>
-
-                    <div className="flex items-center gap-1 shrink-0">
-                      {f.fileKey && (
-                        <Button size="sm" variant="ghost" className="h-8 w-8 p-0" disabled={isDownloading} onClick={() => void handleDownload(f)} title="Download">
-                          {isDownloading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
-                        </Button>
-                      )}
-
-                      {f.status !== 'PROCESSED' && f.status !== 'FAILED' && f.status !== 'DELETED' && (
-                        <CancelPipelineButton
-                          projectId={projectId}
-                          opportunityId={oppId}
-                          questionFileId={f.questionFileId}
-                          status={f.status}
-                          onMutate={refetchFiles}
-                        />
-                      )}
-
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button size="sm" variant="ghost" className="h-8 w-8 p-0">
-                            <MoreHorizontal className="h-4 w-4" />
+                      <div className="flex items-center gap-1 shrink-0">
+                        {/* Retry button — shown inline for failed files */}
+                        {isFailed && f.questionFileId && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="h-8 px-2 gap-1 text-xs text-orange-600 border-orange-200 hover:bg-orange-50"
+                            disabled={isRetrying}
+                            onClick={() => void handleRetry(f)}
+                            title="Retry processing"
+                          >
+                            {isRetrying
+                              ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                              : <RefreshCw className="h-3.5 w-3.5" />}
+                            Retry
                           </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          {f.fileKey && (
-                            <DropdownMenuItem disabled={isDownloading} onClick={() => void handleDownload(f)}>
-                              <Download className="h-4 w-4 mr-2" /> Download
-                            </DropdownMenuItem>
-                          )}
-                          {f.googleDriveUrl && (
-                            <DropdownMenuItem onClick={() => window.open(f.googleDriveUrl, '_blank')}>
-                              <ExternalLink className="h-4 w-4 mr-2" /> Open in Google Drive
-                            </DropdownMenuItem>
-                          )}
-                          {(f.status === 'PROCESSED' || f.status === 'FAILED') && (
-                            <>
-                              <DropdownMenuSeparator />
-                              <DropdownMenuItem
-                                className="text-red-600"
-                                disabled={!f.questionFileId || isDeleting}
-                                onClick={() => void handleDelete(f)}
-                              >
-                                {isDeleting ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Trash2 className="h-4 w-4 mr-2" />}
-                                Delete
+                        )}
+                        {/* View button — shown for all files with a key */}
+                        {f.fileKey && (
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="h-8 w-8 p-0"
+                            disabled={viewingId === f.questionFileId}
+                            onClick={() => void handleView(f)}
+                            title={isImage(f.fileKey) ? 'View image' : 'Open in new tab'}
+                          >
+                            {viewingId === f.questionFileId
+                              ? <Loader2 className="h-4 w-4 animate-spin" />
+                              : <Eye className="h-4 w-4" />}
+                          </Button>
+                        )}
+                        {f.fileKey && (
+                          <Button size="sm" variant="ghost" className="h-8 w-8 p-0" disabled={isDownloading} onClick={() => void handleDownload(f)} title="Download">
+                            {isDownloading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
+                          </Button>
+                        )}
+                        {f.status !== 'PROCESSED' && f.status !== 'FAILED' && f.status !== 'DELETED' && f.status !== 'TEXT_EXTRACTION_FAILED' && (
+                          <CancelPipelineButton projectId={projectId} opportunityId={oppId} questionFileId={f.questionFileId} status={f.status} onMutate={refetchFiles} />
+                        )}
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button size="sm" variant="ghost" className="h-8 w-8 p-0"><MoreHorizontal className="h-4 w-4" /></Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            {isFailed && f.questionFileId && (
+                              <DropdownMenuItem disabled={isRetrying} onClick={() => void handleRetry(f)}>
+                                {isRetrying ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <RefreshCw className="h-4 w-4 mr-2" />}
+                                Retry processing
                               </DropdownMenuItem>
-                            </>
-                          )}
-                        </DropdownMenuContent>
-                      </DropdownMenu>
+                            )}
+                            {f.fileKey && (
+                              <DropdownMenuItem disabled={viewingId === f.questionFileId} onClick={() => void handleView(f)}>
+                                <Eye className="h-4 w-4 mr-2" />
+                                {isImage(f.fileKey) ? 'View image' : 'Open in new tab'}
+                              </DropdownMenuItem>
+                            )}
+                            {f.fileKey && (
+                              <DropdownMenuItem disabled={isDownloading} onClick={() => void handleDownload(f)}>
+                                <Download className="h-4 w-4 mr-2" /> Download
+                              </DropdownMenuItem>
+                            )}
+                            {f.googleDriveUrl && (
+                              <DropdownMenuItem onClick={() => window.open(f.googleDriveUrl, '_blank')}>
+                                <ExternalLink className="h-4 w-4 mr-2" /> Open in Google Drive
+                              </DropdownMenuItem>
+                            )}
+                            {(f.status === 'PROCESSED' || isFailed) && (
+                              <>
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem className="text-red-600" disabled={!f.questionFileId || isDeleting} onClick={() => void handleDelete(f)}>
+                                  {isDeleting ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Trash2 className="h-4 w-4 mr-2" />}
+                                  Delete
+                                </DropdownMenuItem>
+                              </>
+                            )}
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </div>
                     </div>
                   </div>
-                </div>
-              );
-            })}
-          </div>
-        )}
-
-      </CardContent>
-    </Card>
+                );
+              })}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+      <ConfirmDialog />
+      {previewState && (
+        <ImageLightbox
+          open={!!previewState}
+          onClose={() => setPreviewState(null)}
+          name={previewState.name}
+          url={previewState.url}
+        />
+      )}
+    </>
   );
 }

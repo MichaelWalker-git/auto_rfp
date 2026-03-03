@@ -55,6 +55,10 @@ export async function semanticSearchContentLibrary(orgId: string, embedding: num
   return pineconeSearch(orgId, embedding, k, 'content_library', kbIds);
 }
 
+export async function semanticSearchPastPerformance(orgId: string, embedding: number[], k: number): Promise<PineconeHit[]> {
+  return pineconeSearch(orgId, embedding, k, 'past_project');
+}
+
 function truncateForTitan(text: string, maxChars = TITAN_V2_SAFE_CHARS): string {
   // Ensure text is a string before calling .trim() - fixes AUTO-RFP-3V
   const t = (typeof text === 'string' ? text : String(text ?? '')).trim();

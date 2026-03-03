@@ -22,17 +22,19 @@ function QuestionsLoadingFallback() {
   );
 }
 
-type Props = { params: Promise<{ projectId: string, orgId: string }> }
+interface QuestionsPageProps {
+  params: Promise<{ projectId: string; orgId: string }>;
+  searchParams: Promise<{ oppId?: string }>;
+}
 
-export default async function QuestionsPage({ params }: Props) {
+export default async function QuestionsPage({ params, searchParams }: QuestionsPageProps) {
   const { projectId, orgId } = await params;
+  const { oppId } = await searchParams;
 
   return (
-
     <Suspense fallback={<QuestionsLoadingFallback/>}>
-      <QuestionsSection orgId={orgId} projectId={projectId}/>
+      <QuestionsSection orgId={orgId} projectId={projectId} initialOpportunityId={oppId}/>
       <Toaster/>
     </Suspense>
-
   );
 }

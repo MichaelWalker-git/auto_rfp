@@ -1,7 +1,7 @@
 import https from 'https';
 import crypto from 'crypto';
 import path from 'path';
-import type { LoadSamOpportunitiesRequest, LoadSamOpportunitiesResponse, SamOpportunitySlim, } from '@auto-rfp/core';
+import type { LoadSearchOpportunitiesRequest, LoadSamOpportunitiesResponse, SamOpportunitySlim, } from '@auto-rfp/core';
 
 const DEFAULT_LIMIT = 25;
 const DEFAULT_OFFSET = 0;
@@ -136,7 +136,7 @@ function filterByDollarRange(items: SamOpportunitySlim[], range?: { min?: number
 
 export async function searchSamOpportunities(
   cfg: SamSearchConfig,
-  body: LoadSamOpportunitiesRequest,
+  body: LoadSearchOpportunitiesRequest,
 ): Promise<LoadSamOpportunitiesResponse> {
   const limit = clampLimit(body.limit);
   const offset = clampOffset(body.offset);

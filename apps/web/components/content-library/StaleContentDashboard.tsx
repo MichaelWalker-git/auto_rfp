@@ -26,7 +26,7 @@ import type { StaleContentReportItem } from '@auto-rfp/core';
 
 interface StaleContentDashboardProps {
   orgId: string;
-  kbId: string;
+  kbId?: string;
 }
 
 const REASON_ICONS: Record<string, React.ElementType> = {
@@ -47,9 +47,9 @@ const REASON_LABELS: Record<string, string> = {
 
 export function StaleContentDashboard({ orgId, kbId }: StaleContentDashboardProps) {
   const { summary, staleItems, warningItems, lastScanAt, isLoading, mutate } =
-    useStaleContentReport(orgId, kbId);
-  const { reactivate } = useReactivateContentItem(orgId, kbId);
-  const { bulkReview, isBulkReviewing } = useBulkReviewContent(orgId, kbId);
+    useStaleContentReport(orgId, kbId ?? null);
+  const { reactivate } = useReactivateContentItem(orgId, kbId ?? '');
+  const { bulkReview, isBulkReviewing } = useBulkReviewContent(orgId, kbId ?? '');
 
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [activeTab, setActiveTab] = useState<'stale' | 'warning'>('stale');
@@ -191,7 +191,7 @@ export function StaleContentDashboard({ orgId, kbId }: StaleContentDashboardProp
           </h3>
           <p className="text-muted-foreground text-center max-w-md">
             {activeTab === 'stale'
-              ? 'All content library items and KB documents are current and safe to use.'
+              ? 'All Q&A Library items and Org Documents are current and safe to use.'
               : 'No items require review at this time.'}
           </p>
         </div>

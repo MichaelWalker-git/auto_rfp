@@ -48,15 +48,14 @@ export function EditContentDialog({
 
   const { update, isUpdating } = useUpdateContentLibraryItem(
     item?.orgId || '',
-    item?.kbId || '',
     item?.id || '',
   );
 
   useEffect(() => {
     if (item) {
-      setQuestion(item.question);
-      setAnswer(item.answer);
-      setCategory(item.category);
+      setQuestion(item.question ?? '');
+      setAnswer(item.answer ?? '');
+      setCategory(item.category ?? '');
       setTags(item.tags || []);
       setDescription(item.description || '');
       setChangeNotes('');
@@ -260,8 +259,8 @@ export function EditContentDialog({
                 disabled={isUpdating}
               />
               <p className="text-xs text-muted-foreground">
-                Version {item.currentVersion} &rarr; Version{' '}
-                {item.currentVersion + 1}
+                Version {item.currentVersion ?? 1} &rarr; Version{' '}
+                {(item.currentVersion ?? 1) + 1}
               </p>
             </div>
           </div>

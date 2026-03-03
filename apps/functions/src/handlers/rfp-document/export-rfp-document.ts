@@ -8,15 +8,12 @@ import { withSentryLambda } from '@/sentry-lambda';
 import { getRFPDocument } from '@/helpers/rfp-document';
 import { apiResponse, getOrgId } from '@/helpers/api';
 import { requireEnv } from '@/helpers/env';
-import { type RFPDocumentContent, RFPDocumentContentSchema } from '@auto-rfp/core';
 import {
   type ExportFormat,
   CONTENT_TYPES,
   FILE_EXTENSIONS,
   sanitizeFileName,
-  flattenProposalToText,
-  proposalToMarkdown,
-  proposalToHtml,
+  loadDocumentHtmlForExport,
 } from '@/helpers/export';
 
 const DOCUMENTS_BUCKET = requireEnv('DOCUMENTS_BUCKET');
@@ -93,10 +90,11 @@ export const baseHandler = async (
       });
     }
 
+    // DOCX is generated client-side — only text-based formats are supported here
     const validFormats: ExportFormat[] = ['html', 'txt', 'md'];
     if (!validFormats.includes(format)) {
       return apiResponse(400, {
-        message: `Unsupported export format: ${format}. Supported: ${validFormats.join(', ')}`,
+        message: `Unsupported export format: ${format}. Supported: ${validFormats.join(', ')}. DOCX is generated client-side.`,
       });
     }
 
@@ -108,42 +106,74 @@ export const baseHandler = async (
       return apiResponse(404, { message: 'Document not found' });
     }
 
-    // Validate that the document has structured content (proposal-type)
-    if (!doc.content) {
+    // Require either htmlContentKey or structured content
+    if (!doc.htmlContentKey && !doc.content) {
       return apiResponse(400, {
-        message: 'This document does not have structured content for export. Only content-based documents (e.g., PROPOSAL) can be exported.',
+        message: 'This document does not have content for export.',
       });
     }
 
-    const contentParsed = RFPDocumentContentSchema.safeParse(doc.content);
-    if (!contentParsed.success) {
+    const title = doc.title || (doc.content as Record<string, unknown>)?.title as string | undefined || doc.name || 'document';
+    const contentType = CONTENT_TYPES[format] || 'application/octet-stream';
+    const s3Key = buildExportS3Key(orgId, projectId, opportunityId, documentId, title, format);
+
+    // ── Text-based exports (html, md, txt) — use raw HTML from S3 ──
+    // Load HTML from S3 with S3 image keys resolved to presigned URLs
+    const resolvedHtml = await loadDocumentHtmlForExport(doc as Record<string, unknown>);
+
+    if (!resolvedHtml && !doc.content) {
       return apiResponse(400, {
-        message: 'Document content is not a valid proposal document structure',
-        issues: contentParsed.error.format(),
+        message: 'This document does not have content for export.',
       });
     }
 
-    const proposalDoc: RFPDocumentContent = contentParsed.data;
-    const title = doc.title || proposalDoc.title || doc.name || 'document';
+    // For HTML: wrap the raw editor HTML in a minimal page shell
+    // For MD/TXT: strip HTML tags from the raw content
+    const rawHtml = resolvedHtml || (doc.content as Record<string, unknown>)?.content as string || '';
 
     let exportContent: string;
-    const contentType = CONTENT_TYPES[format] || 'application/octet-stream';
 
     switch (format) {
       case 'html':
-        exportContent = proposalToHtml(proposalDoc);
+        // Wrap in a minimal HTML page so it opens correctly in browsers
+        exportContent = `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${title}</title></head><body>${rawHtml}</body></html>`;
         break;
       case 'md':
-        exportContent = proposalToMarkdown(proposalDoc);
+        // Convert HTML to Markdown by stripping tags and converting headings
+        exportContent = rawHtml
+          .replace(/<h1[^>]*>([\s\S]*?)<\/h1>/gi, '# $1\n')
+          .replace(/<h2[^>]*>([\s\S]*?)<\/h2>/gi, '## $1\n')
+          .replace(/<h3[^>]*>([\s\S]*?)<\/h3>/gi, '### $1\n')
+          .replace(/<h4[^>]*>([\s\S]*?)<\/h4>/gi, '#### $1\n')
+          .replace(/<strong[^>]*>([\s\S]*?)<\/strong>/gi, '**$1**')
+          .replace(/<em[^>]*>([\s\S]*?)<\/em>/gi, '*$1*')
+          .replace(/<br\s*\/?>/gi, '\n')
+          .replace(/<\/p>/gi, '\n\n')
+          .replace(/<\/li>/gi, '\n')
+          .replace(/<li[^>]*>/gi, '- ')
+          .replace(/<[^>]+>/g, '')
+          .replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>')
+          .replace(/&quot;/g, '"').replace(/&#039;/g, "'").replace(/&nbsp;/g, ' ')
+          .replace(/\n{3,}/g, '\n\n')
+          .trim();
         break;
       case 'txt':
-        exportContent = flattenProposalToText(proposalDoc);
+        // Strip all HTML tags for plain text
+        exportContent = rawHtml
+          .replace(/<br\s*\/?>/gi, '\n')
+          .replace(/<\/p>/gi, '\n\n')
+          .replace(/<\/h[1-6]>/gi, '\n\n')
+          .replace(/<\/li>/gi, '\n')
+          .replace(/<[^>]+>/g, '')
+          .replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>')
+          .replace(/&quot;/g, '"').replace(/&#039;/g, "'").replace(/&nbsp;/g, ' ')
+          .replace(/\n{3,}/g, '\n\n')
+          .trim();
         break;
       default:
         return apiResponse(400, { message: `Unsupported format: ${format}` });
     }
 
-    const s3Key = buildExportS3Key(orgId, projectId, opportunityId, documentId, title, format);
     const url = await uploadAndPresign(exportContent, s3Key, contentType);
 
     

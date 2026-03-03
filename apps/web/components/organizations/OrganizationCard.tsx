@@ -9,14 +9,14 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { BaseCard } from '@/components/ui/base-card';
 import { useCurrentOrganization } from '@/context/organization-context';
-import type { Organization } from '@/app/organizations/page';
+import type { OrganizationItem } from '@auto-rfp/core';
 import PermissionWrapper from '../permission-wrapper';
 import { CreateEditOrganizationDialog } from '@/components/organizations/CreateEditOrganizationDialog';
 
 interface OrganizationCardProps {
-  organization: Organization;
-  onDelete?: (org: Organization) => void;
-  onUpdate?: (updatedOrganization: Organization) => void;
+  organization: OrganizationItem;
+  onDelete?: (org: OrganizationItem) => void;
+  onUpdate?: (updatedOrganization: OrganizationItem) => void;
 }
 
 export function OrganizationCard({ organization, onDelete, onUpdate }: OrganizationCardProps) {

@@ -6,6 +6,8 @@ import { z } from 'zod';
 import { apiResponse, getOrgId, getUserId } from '@/helpers/api';
 import { withSentryLambda } from '@/sentry-lambda';
 import { getProjectById } from '@/helpers/project';
+// Note: org/user contact info is now fetched directly by the get_organization_context
+// AI tool during generation — no need to pass it through the SQS message.
 import {
   authContextMiddleware,
   httpErrorMiddleware,
@@ -14,7 +16,7 @@ import {
   type AuthedEvent,
 } from '@/middleware/rbac-middleware';
 import { auditMiddleware, setAuditContext } from '@/middleware/audit-middleware';
-import { putRFPDocument } from '@/helpers/rfp-document';
+import { putRFPDocument, updateRFPDocumentMetadata } from '@/helpers/rfp-document';
 import { enqueueDocumentGeneration } from '@/helpers/document-generation-queue';
 import { nowIso } from '@/helpers/date';
 import { PK_NAME, SK_NAME } from '@/constants/common';
@@ -29,6 +31,8 @@ const InputSchema = z.object({
   opportunityId: z.string().optional(),
   documentType: RFPDocumentTypeSchema.default('TECHNICAL_PROPOSAL'),
   templateId: z.string().optional(),
+  /** If provided, regenerate content into this existing document instead of creating a new one */
+  documentId: z.string().optional(),
 });
 
 // ─── Helpers ───
@@ -50,7 +54,7 @@ export const baseHandler = async (
       return apiResponse(400, { message: 'Validation error', errors: error.format() });
     }
 
-    const { projectId, opportunityId, documentType, templateId } = data;
+    const { projectId, opportunityId, documentType, templateId, documentId: existingDocumentId } = data;
 
     // 2. Load project & extract orgId
     const project = await getProjectById(projectId);
@@ -60,42 +64,58 @@ export const baseHandler = async (
     if (!orgId) return apiResponse(400, { message: 'Cannot extract orgId from project' });
 
     const userId = getUserId(event);
-    const documentId = uuidv4();
-    const now = nowIso();
     const effectiveOpportunityId = opportunityId || 'default';
-    const sk = `${projectId}#${effectiveOpportunityId}#${documentId}`;
 
-    // 3. Create a placeholder RFP document in DB with status GENERATING
-    await putRFPDocument({
-      [PK_NAME]: RFP_DOCUMENT_PK,
-      [SK_NAME]: sk,
-      documentId,
-      projectId,
-      opportunityId: effectiveOpportunityId,
-      orgId,
-      name: buildPlaceholderName(documentType),
-      description: null,
-      documentType,
-      mimeType: 'application/json',
-      fileSizeBytes: 0,
-      originalFileName: null,
-      fileKey: null,
-      version: 1,
-      previousVersionId: null,
-      signatureStatus: 'NOT_REQUIRED',
-      signatureDetails: null,
-      linearSyncStatus: 'NOT_SYNCED',
-      linearCommentId: null,
-      lastSyncedAt: null,
-      deletedAt: null,
-      status: 'GENERATING',
-      createdBy: userId ?? null,
-      updatedBy: userId ?? null,
-      createdAt: now,
-      updatedAt: now,
-    });
+    let documentId: string;
 
-    // 4. Enqueue the generation job to SQS
+    if (existingDocumentId) {
+      // ── Regenerate: reuse existing document, reset status to GENERATING ──
+      documentId = existingDocumentId;
+      await updateRFPDocumentMetadata({
+        projectId,
+        opportunityId: effectiveOpportunityId,
+        documentId,
+        updates: { status: 'GENERATING', content: null, htmlContentKey: undefined },
+        updatedBy: userId ?? 'system',
+      });
+    } else {
+      // ── New document: create a placeholder with status GENERATING ──
+      documentId = uuidv4();
+      const now = nowIso();
+      const sk = `${projectId}#${effectiveOpportunityId}#${documentId}`;
+      await putRFPDocument({
+        [PK_NAME]: RFP_DOCUMENT_PK,
+        [SK_NAME]: sk,
+        documentId,
+        projectId,
+        opportunityId: effectiveOpportunityId,
+        orgId,
+        name: buildPlaceholderName(documentType),
+        description: null,
+        documentType,
+        mimeType: 'application/json',
+        fileSizeBytes: 0,
+        originalFileName: null,
+        fileKey: null,
+        version: 1,
+        previousVersionId: null,
+        signatureStatus: 'NOT_REQUIRED',
+        signatureDetails: null,
+        linearSyncStatus: 'NOT_SYNCED',
+        linearCommentId: null,
+        lastSyncedAt: null,
+        deletedAt: null,
+        status: 'GENERATING',
+        createdBy: userId ?? null,
+        updatedBy: userId ?? null,
+        createdAt: now,
+        updatedAt: now,
+      });
+    }
+
+    // 3. Enqueue the generation job to SQS
+    // Org/user contact info is fetched directly by the get_organization_context AI tool
+    // during generation — no need to pass it through the SQS message.
     await enqueueDocumentGeneration({
       orgId,
       projectId,

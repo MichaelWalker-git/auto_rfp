@@ -6,7 +6,7 @@ import useSWRMutation from 'swr/mutation';
 import { env } from '@/lib/env';
 import { authFetcher } from '@/lib/auth/auth-fetcher';
 import type {
-  LoadSamOpportunitiesRequest,
+  LoadSearchOpportunitiesRequest,
   LoadSamOpportunitiesResponse,
   OpportunityItem,
   OpportunityQuery,
@@ -59,7 +59,7 @@ const readAuthJson = async <T, >(res: any, fallbackError = 'Request failed'): Pr
 
 const normalizeSamSearch = (
   data: LoadSamOpportunitiesResponse | any,
-  req: LoadSamOpportunitiesRequest,
+  req: LoadSearchOpportunitiesRequest,
 ): LoadSamOpportunitiesResponse => {
   const d = (data ?? {}) as any;
 
@@ -128,12 +128,12 @@ const dedupeOpportunities = (items: OpportunityItem[]) => {
 };
 
 export function useSearchOpportunities(orgId?: string) {
-  const baseUrl = `${env.BASE_API_URL}/samgov/search-opportunities`;
+  const baseUrl = `${env.BASE_API_URL}/search-opportunities/samgov/search-opportunities`;
   const url = orgId ? `${baseUrl}?orgId=${encodeURIComponent(orgId)}` : baseUrl;
   
-  return useSWRMutation<LoadSamOpportunitiesResponse, ErrorShape, string, LoadSamOpportunitiesRequest>(
+  return useSWRMutation<LoadSamOpportunitiesResponse, ErrorShape, string, LoadSearchOpportunitiesRequest>(
     url,
-    async (url: string, { arg }: { arg: LoadSamOpportunitiesRequest }) => {
+    async (url: string, { arg }: { arg: LoadSearchOpportunitiesRequest }) => {
       const res = await authFetcher(url, {
         method: 'POST',
         body: JSON.stringify(arg),
@@ -280,7 +280,7 @@ export type SamGovDescriptionResponse = {
 
 export function useSamGovDescription(orgId?: string) {
   return useSWRMutation<SamGovDescriptionResponse, ErrorShape, string, { descriptionUrl: string }>(
-    `${env.BASE_API_URL}/samgov/opportunity-description`,
+    `${env.BASE_API_URL}/search-opportunities/samgov/opportunity-description`,
     async (url: string, { arg }: { arg: { descriptionUrl: string } }) => {
       const res = await authFetcher(`${url}?${orgId ? `orgId=${encodeURIComponent(orgId)}` : ''}`, {
         method: 'POST',

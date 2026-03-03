@@ -47,7 +47,7 @@ function resolveExtension(contentType: string): string {
 }
 
 function buildIconKey(orgId: string, extension: string): string {
-  return `organizations/${orgId}/icon/icon.${extension}`;
+  return `org/${orgId}/icon/icon.${extension}`;
 }
 
 export function validateIconInput(input: UploadIconInput): string | null {

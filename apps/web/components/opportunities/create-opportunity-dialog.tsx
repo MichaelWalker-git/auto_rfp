@@ -2,10 +2,15 @@
 
 import React, { useCallback, useState } from 'react';
 import { useParams } from 'next/navigation';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { z } from 'zod';
+import { format } from 'date-fns';
 import type { OpportunityItem } from '@auto-rfp/core';
-import { Loader2, Plus } from 'lucide-react';
+import { CalendarIcon, Loader2, Plus } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
+import { Calendar } from '@/components/ui/calendar';
 import {
   Dialog,
   DialogContent,
@@ -17,11 +22,29 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Textarea } from '@/components/ui/textarea';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Switch } from '@/components/ui/switch';
+import { cn } from '@/lib/utils';
 import { useCreateOpportunity } from '@/lib/hooks/use-opportunities';
 import { useCurrentOrganization } from '@/context/organization-context';
+
+// ─── Form schema ──────────────────────────────────────────────────────────────
+
+const CreateOpportunityFormSchema = z.object({
+  title: z.string().trim().min(1, 'Title is required'),
+  solicitationNumber: z.string().trim().optional(),
+  description: z.string().trim().optional(),
+  organizationName: z.string().trim().optional(),
+  type: z.string().trim().optional(),
+  setAside: z.string().trim().optional(),
+  naicsCode: z.string().trim().optional(),
+  pscCode: z.string().trim().optional(),
+});
+
+type CreateOpportunityFormValues = z.input<typeof CreateOpportunityFormSchema>;
+
+// ─── Props ────────────────────────────────────────────────────────────────────
 
 interface CreateOpportunityDialogProps {
   projectId?: string;
@@ -29,64 +52,58 @@ interface CreateOpportunityDialogProps {
   trigger?: React.ReactNode;
 }
 
+// ─── Component ────────────────────────────────────────────────────────────────
+
 export function CreateOpportunityDialog({ projectId: propProjectId, onCreated, trigger }: CreateOpportunityDialogProps) {
   const { currentOrganization } = useCurrentOrganization();
   const params = useParams();
   const { trigger: createOpportunity, isMutating: isCreating } = useCreateOpportunity();
 
   const [open, setOpen] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  // Form state
-  const [title, setTitle] = useState('');
-  const [description, setDescription] = useState('');
-  const [type, setType] = useState('');
-  const [setAside, setSetAside] = useState('');
-  const [naicsCode, setNaicsCode] = useState('');
-  const [pscCode, setPscCode] = useState('');
-  const [active, setActive] = useState(true);
-  const [organizationName, setOrganizationName] = useState('');
-  const [solicitationNumber, setSolicitationNumber] = useState('');
-  const [responseDeadline, setResponseDeadline] = useState('');
+  const [submitError, setSubmitError] = useState<string | null>(null);
+  const [deadlineDate, setDeadlineDate] = useState<Date | undefined>(undefined);
+  const [calendarOpen, setCalendarOpen] = useState(false);
 
   const projectId = propProjectId || (params?.projectId as string);
   const orgId = currentOrganization?.id;
 
-  // Reset form when dialog opens
+  const {
+    register,
+    handleSubmit,
+    reset,
+    formState: { errors },
+  } = useForm<CreateOpportunityFormValues>({
+    resolver: zodResolver(CreateOpportunityFormSchema),
+    defaultValues: {
+      title: '',
+      solicitationNumber: '',
+      description: '',
+      organizationName: '',
+      type: '',
+      setAside: '',
+      naicsCode: '',
+      pscCode: '',
+    },
+  });
+
   const handleOpenChange = useCallback((newOpen: boolean) => {
     if (newOpen) {
-      // Reset form on open
-      setTitle('');
-      setDescription('');
-      setType('');
-      setSetAside('');
-      setNaicsCode('');
-      setPscCode('');
-      setActive(true);
-      setOrganizationName('');
-      setSolicitationNumber('');
-      setResponseDeadline('');
-      setError(null);
+      reset();
+      setSubmitError(null);
+      setDeadlineDate(undefined);
     }
     setOpen(newOpen);
-  }, []);
+  }, [reset]);
 
-  const handleSubmit = useCallback(async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError(null);
+  const onSubmit = useCallback(async (values: CreateOpportunityFormValues) => {
+    setSubmitError(null);
 
     if (!projectId) {
-      setError('Missing projectId');
+      setSubmitError('Missing projectId');
       return;
     }
 
-    if (!title.trim()) {
-      setError('Title is required');
-      return;
-    }
-
-    // Generate a unique ID for manual entries
-    const uniqueId = solicitationNumber.trim() || `manual-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
+    const uniqueId = values.solicitationNumber?.trim() || `manual-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
 
     try {
       const opportunityData: OpportunityItem = {
@@ -94,31 +111,28 @@ export function CreateOpportunityDialog({ projectId: propProjectId, onCreated, t
         projectId,
         source: 'MANUAL_UPLOAD',
         id: uniqueId,
-        title: title.trim(),
-        type: type.trim() || null,
+        title: values.title,
+        type: values.type?.trim() || null,
         postedDateIso: new Date().toISOString(),
-        responseDeadlineIso: responseDeadline ? new Date(responseDeadline).toISOString() : null,
+        responseDeadlineIso: deadlineDate ? deadlineDate.toISOString() : null,
         noticeId: null,
-        solicitationNumber: solicitationNumber.trim() || null,
-        naicsCode: naicsCode.trim() || null,
-        pscCode: pscCode.trim() || null,
-        organizationName: organizationName.trim() || null,
-        organizationCode: null,
-        setAside: setAside.trim() || null,
-        setAsideCode: null,
-        description: description.trim() || null,
-        active,
+        solicitationNumber: values.solicitationNumber?.trim() || null,
+        naicsCode: values.naicsCode?.trim() || null,
+        pscCode: values.pscCode?.trim() || null,
+        organizationName: values.organizationName?.trim() || null,
+        setAside: values.setAside?.trim() || null,
+        description: values.description?.trim() || null,
+        stage: 'IDENTIFIED',
         baseAndAllOptionsValue: null,
       };
 
       const result = await createOpportunity(opportunityData);
-
       setOpen(false);
       onCreated?.(result.item);
-    } catch (err: any) {
-      setError(err?.message || 'Failed to create opportunity');
+    } catch (err: unknown) {
+      setSubmitError((err as Error)?.message || 'Failed to create opportunity');
     }
-  }, [projectId, orgId, title, description, type, setAside, naicsCode, pscCode, active, organizationName, solicitationNumber, responseDeadline, createOpportunity, onCreated]);
+  }, [projectId, orgId, deadlineDate, createOpportunity, onCreated]);
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
@@ -131,7 +145,7 @@ export function CreateOpportunityDialog({ projectId: propProjectId, onCreated, t
         )}
       </DialogTrigger>
       <DialogContent className="sm:max-w-[500px] max-h-[90vh] overflow-y-auto">
-        <form onSubmit={handleSubmit}>
+        <form onSubmit={handleSubmit(onSubmit)}>
           <DialogHeader>
             <DialogTitle>Create Opportunity</DialogTitle>
             <DialogDescription>
@@ -140,121 +154,83 @@ export function CreateOpportunityDialog({ projectId: propProjectId, onCreated, t
           </DialogHeader>
 
           <div className="grid gap-4 py-4">
-            {/* Title */}
             <div className="grid gap-2">
               <Label htmlFor="title">Title *</Label>
-              <Input
-                id="title"
-                value={title}
-                onChange={(e) => setTitle(e.target.value)}
-                placeholder="Opportunity title"
-                required
-              />
+              <Input id="title" placeholder="Opportunity title" {...register('title')} />
+              {errors.title && <p className="text-xs text-destructive">{errors.title.message}</p>}
             </div>
 
-            {/* Solicitation Number */}
             <div className="grid gap-2">
               <Label htmlFor="solicitationNumber">Solicitation Number</Label>
-              <Input
-                id="solicitationNumber"
-                value={solicitationNumber}
-                onChange={(e) => setSolicitationNumber(e.target.value)}
-                placeholder="e.g., FA8532-24-R-0001"
-              />
+              <Input id="solicitationNumber" placeholder="e.g., FA8532-24-R-0001" {...register('solicitationNumber')} />
             </div>
 
-            {/* Description */}
             <div className="grid gap-2">
               <Label htmlFor="description">Description</Label>
-              <Textarea
-                id="description"
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                placeholder="Opportunity description"
-                rows={3}
-              />
+              <Textarea id="description" placeholder="Opportunity description" rows={3} {...register('description')} />
             </div>
 
-            {/* Organization Name */}
             <div className="grid gap-2">
               <Label htmlFor="organizationName">Organization</Label>
-              <Input
-                id="organizationName"
-                value={organizationName}
-                onChange={(e) => setOrganizationName(e.target.value)}
-                placeholder="Contracting organization name"
-              />
+              <Input id="organizationName" placeholder="Contracting organization name" {...register('organizationName')} />
             </div>
 
-            {/* Response Deadline */}
             <div className="grid gap-2">
-              <Label htmlFor="responseDeadline">Response Deadline</Label>
-              <Input
-                id="responseDeadline"
-                type="datetime-local"
-                value={responseDeadline}
-                onChange={(e) => setResponseDeadline(e.target.value)}
-              />
+              <Label>Response Deadline</Label>
+              <Popover open={calendarOpen} onOpenChange={setCalendarOpen}>
+                <PopoverTrigger asChild>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className={cn(
+                      'w-full justify-start text-left font-normal h-9 text-sm',
+                      !deadlineDate && 'text-muted-foreground',
+                    )}
+                  >
+                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    {deadlineDate ? format(deadlineDate, 'PPP') : 'Pick a date'}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <Calendar
+                    mode="single"
+                    selected={deadlineDate}
+                    onSelect={(date) => {
+                      setDeadlineDate(date);
+                      setCalendarOpen(false);
+                    }}
+                    initialFocus
+                  />
+                </PopoverContent>
+              </Popover>
             </div>
 
-            {/* Type and Set-Aside */}
             <div className="grid grid-cols-2 gap-4">
               <div className="grid gap-2">
                 <Label htmlFor="type">Type</Label>
-                <Input
-                  id="type"
-                  value={type}
-                  onChange={(e) => setType(e.target.value)}
-                  placeholder="e.g., Solicitation"
-                />
+                <Input id="type" placeholder="e.g., Solicitation" {...register('type')} />
               </div>
               <div className="grid gap-2">
                 <Label htmlFor="setAside">Set-Aside</Label>
-                <Input
-                  id="setAside"
-                  value={setAside}
-                  onChange={(e) => setSetAside(e.target.value)}
-                  placeholder="e.g., 8(a)"
-                />
+                <Input id="setAside" placeholder="e.g., 8(a)" {...register('setAside')} />
               </div>
             </div>
 
-            {/* NAICS and PSC Codes */}
             <div className="grid grid-cols-2 gap-4">
               <div className="grid gap-2">
                 <Label htmlFor="naicsCode">NAICS Code</Label>
-                <Input
-                  id="naicsCode"
-                  value={naicsCode}
-                  onChange={(e) => setNaicsCode(e.target.value)}
-                  placeholder="e.g., 541512"
-                />
+                <Input id="naicsCode" placeholder="e.g., 541512" {...register('naicsCode')} />
               </div>
               <div className="grid gap-2">
                 <Label htmlFor="pscCode">PSC Code</Label>
-                <Input
-                  id="pscCode"
-                  value={pscCode}
-                  onChange={(e) => setPscCode(e.target.value)}
-                  placeholder="e.g., D302"
-                />
+                <Input id="pscCode" placeholder="e.g., D302" {...register('pscCode')} />
               </div>
-            </div>
-
-            {/* Active Status */}
-            <div className="flex items-center justify-between">
-              <Label htmlFor="active" className="cursor-pointer">Active</Label>
-              <Switch
-                id="active"
-                checked={active}
-                onCheckedChange={setActive}
-              />
             </div>
           </div>
 
-          {error && (
+          {submitError && (
             <Alert variant="destructive" className="mb-4">
-              <AlertDescription>{error}</AlertDescription>
+              <AlertDescription>{submitError}</AlertDescription>
             </Alert>
           )}
 

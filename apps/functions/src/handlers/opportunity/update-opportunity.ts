@@ -3,7 +3,7 @@ import middy from '@middy/core';
 import { z } from 'zod';
 
 import { withSentryLambda } from '@/sentry-lambda';
-import { apiResponse, getOrgId } from '@/helpers/api';
+import { apiResponse, getOrgId, getUserId } from '@/helpers/api';
 
 import {
   authContextMiddleware,
@@ -16,6 +16,7 @@ import { auditMiddleware, setAuditContext } from '@/middleware/audit-middleware'
 
 import { updateOpportunity, getOpportunity } from '@/helpers/opportunity';
 import { OpportunityItemSchema } from '@auto-rfp/core';
+import { resolveUserNames } from '@/helpers/resolve-users';
 
 // Schema for update request - all fields optional except identifiers
 const UpdateOpportunityRequestSchema = z.object({
@@ -31,7 +32,7 @@ const UpdateOpportunityRequestSchema = z.object({
 /**
  * Update an existing opportunity
  */
-const baseHandler = async (event: APIGatewayProxyEventV2): Promise<APIGatewayProxyResultV2> => {
+const baseHandler = async (event: AuthedEvent): Promise<APIGatewayProxyResultV2> => {
   try {
     console.log('Update Opportunity Event:', JSON.stringify(event, null, 2));
 
@@ -55,15 +56,24 @@ const baseHandler = async (event: APIGatewayProxyEventV2): Promise<APIGatewayPro
       });
     }
 
+    const userId = getUserId(event);
+
+    // Resolve the caller's display name from the user table
+    let userName: string | undefined;
+    if (userId && orgId) {
+      const nameMap = await resolveUserNames(orgId, [userId]);
+      userName = nameMap[userId];
+    }
+
     // Update the opportunity
     const { item } = await updateOpportunity({
       orgId,
       projectId,
       oppId,
       patch,
+      userContext: { userId, userName },
     });
 
-    
     setAuditContext(event, {
       action: 'CONFIG_CHANGED',
       resource: 'config',
@@ -75,18 +85,18 @@ const baseHandler = async (event: APIGatewayProxyEventV2): Promise<APIGatewayPro
       oppId,
       item,
     });
-  } catch (err: any) {
+  } catch (err: unknown) {
     console.error('Update opportunity error:', err);
 
-    if (err.name === 'ZodError') {
+    if (err instanceof Error && err.name === 'ZodError') {
       return apiResponse(400, {
         ok: false,
         error: 'Validation error',
-        details: err.errors,
+        details: (err as z.ZodError).errors,
       });
     }
 
-    if (err.name === 'ConditionalCheckFailedException') {
+    if (err instanceof Error && err.name === 'ConditionalCheckFailedException') {
       return apiResponse(404, {
         ok: false,
         error: 'Opportunity not found',
@@ -95,13 +105,13 @@ const baseHandler = async (event: APIGatewayProxyEventV2): Promise<APIGatewayPro
 
     return apiResponse(500, {
       ok: false,
-      error: err?.message ?? 'Internal Server Error',
+      error: err instanceof Error ? err.message : 'Internal Server Error',
     });
   }
 };
 
 export const handler = withSentryLambda(
-  middy<APIGatewayProxyEventV2, APIGatewayProxyResultV2>(baseHandler)
+  middy<AuthedEvent, APIGatewayProxyResultV2>(baseHandler)
     .use(auditMiddleware())
     .use(httpErrorMiddleware())
     .use(authContextMiddleware())

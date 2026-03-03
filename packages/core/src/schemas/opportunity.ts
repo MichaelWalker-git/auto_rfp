@@ -1,117 +1,170 @@
-import { z } from 'zod';
-import { SamOpportunitySlimSchema } from './samgov';
-
 /**
- * A normalized “Opportunity” shape for your UI / DB / internal use.
- * Keep it stable even if SAM response fields are missing or inconsistent.
+ * opportunity.ts
+ *
+ * Types for STORED / IMPORTED opportunities — records saved to DynamoDB.
+ * Search-related types live in search-opportunity.ts.
+ *
+ * NOTE: OpportunitySourceSchema is defined here (not in search-opportunity.ts)
+ * to avoid a circular dependency — search-opportunity.ts imports from here.
  */
-export const OpportunitySourceSchema = z.enum(['SAM_GOV', 'MANUAL_UPLOAD']);
+
+import { z } from 'zod';
+
+// ─── Source enum ──────────────────────────────────────────────────────────────
+
+export const OpportunitySourceSchema = z.enum(['SAM_GOV', 'DIBBS', 'MANUAL_UPLOAD']);
 export type OpportunitySource = z.infer<typeof OpportunitySourceSchema>;
 
+// ─── Pipeline Stage ───────────────────────────────────────────────────────────
+
+/**
+ * Opportunity pipeline stages — replaces the binary active/inactive flag.
+ *
+ * Flow:
+ *   IDENTIFIED → QUALIFYING → PURSUING → SUBMITTED → WON | LOST
+ *                           ↘ NO_BID
+ *                                                  ↘ WITHDRAWN
+ *
+ * Automatic transitions:
+ *   IDENTIFIED  → QUALIFYING  when executive brief generation starts
+ *   QUALIFYING  → PURSUING    when brief scoring decision = GO
+ *   QUALIFYING  → NO_BID      when brief scoring decision = NO_GO
+ *   PURSUING    → SUBMITTED   when project outcome status = PENDING (proposal submitted)
+ *   SUBMITTED   → WON         when project outcome status = WON
+ *   SUBMITTED   → LOST        when project outcome status = LOST
+ *   Any stage   → WITHDRAWN   when project outcome status = WITHDRAWN
+ *
+ * Manual transitions: any stage can be moved to any other stage by an org admin.
+ */
+export const OpportunityStageSchema = z.enum([
+  'IDENTIFIED',   // Opportunity found/imported, not yet analyzed
+  'QUALIFYING',   // Brief generation in progress, evaluating bid/no-bid
+  'PURSUING',     // GO decision made, actively working on proposal
+  'SUBMITTED',    // Proposal submitted, awaiting award decision
+  'WON',          // Contract awarded to us
+  'LOST',         // Contract awarded to competitor
+  'NO_BID',       // Decided not to pursue
+  'WITHDRAWN',    // Withdrew from competition
+]);
+
+export type OpportunityStage = z.infer<typeof OpportunityStageSchema>;
+
+/** Human-readable labels for each pipeline stage */
+export const OPPORTUNITY_STAGE_LABELS: Record<OpportunityStage, string> = {
+  IDENTIFIED:  'Identified',
+  QUALIFYING:  'Qualifying',
+  PURSUING:    'Pursuing',
+  SUBMITTED:   'Submitted',
+  WON:         'Won',
+  LOST:        'Lost',
+  NO_BID:      'No Bid',
+  WITHDRAWN:   'Withdrawn',
+};
+
+/** Tailwind color classes for each stage badge */
+export const OPPORTUNITY_STAGE_COLORS: Record<OpportunityStage, string> = {
+  IDENTIFIED:  'bg-slate-100 text-slate-700 border-slate-200',
+  QUALIFYING:  'bg-blue-100 text-blue-700 border-blue-200',
+  PURSUING:    'bg-indigo-100 text-indigo-700 border-indigo-200',
+  SUBMITTED:   'bg-amber-100 text-amber-700 border-amber-200',
+  WON:         'bg-emerald-100 text-emerald-700 border-emerald-200',
+  LOST:        'bg-red-100 text-red-700 border-red-200',
+  NO_BID:      'bg-gray-100 text-gray-600 border-gray-200',
+  WITHDRAWN:   'bg-gray-100 text-gray-500 border-gray-200',
+};
+
+/** Stages that represent active pursuit (not terminal) */
+export const ACTIVE_OPPORTUNITY_STAGES: OpportunityStage[] = [
+  'IDENTIFIED',
+  'QUALIFYING',
+  'PURSUING',
+  'SUBMITTED',
+];
+
+/** Terminal stages — no further action expected */
+export const TERMINAL_OPPORTUNITY_STAGES: OpportunityStage[] = [
+  'WON',
+  'LOST',
+  'NO_BID',
+  'WITHDRAWN',
+];
+
+/** Stage transition history entry */
+export const OpportunityStageTransitionSchema = z.object({
+  from:      OpportunityStageSchema.nullable(),
+  to:        OpportunityStageSchema,
+  changedAt: z.string().datetime(),
+  changedBy: z.string().min(1),  // userId or 'system'
+  reason:    z.string().optional(),
+  source:    z.enum(['MANUAL', 'BRIEF_SCORING', 'PROJECT_OUTCOME', 'SYSTEM']),
+});
+
+export type OpportunityStageTransition = z.infer<typeof OpportunityStageTransitionSchema>;
+
+// ─── Stored opportunity item ──────────────────────────────────────────────────
+
 export const OpportunityItemSchema = z.object({
-  orgId: z.string().optional(),
+  orgId:     z.string().optional(),
   projectId: z.string().optional(),
-  oppId: z.string().optional(),
-  source: OpportunitySourceSchema,
-  id: z.string().min(1),
-  title: z.string().min(1),
-  type: z.string().nullable(),
-  postedDateIso: z.string().datetime().nullable(),
+  oppId:     z.string().optional(),
+  source:    OpportunitySourceSchema,
+  id:        z.string().min(1),
+  title:     z.string().min(1),
+  type:      z.string().nullable(),
+  postedDateIso:       z.string().datetime().nullable(),
   responseDeadlineIso: z.string().datetime().nullable(),
-  noticeId: z.string().nullable(),
-  solicitationNumber: z.string().nullable(),
-  naicsCode: z.string().nullable(),
-  pscCode: z.string().nullable(),
-  organizationName: z.string().nullable(),
-  organizationCode: z.string().nullable(),
-  setAside: z.string().nullable(),
-  setAsideCode: z.string().nullable(),
-  description: z.string().nullable(),
-  active: z.boolean(),
+  noticeId:            z.string().nullable(),
+  solicitationNumber:  z.string().nullable(),
+  naicsCode:           z.string().nullable(),
+  /** PSC / classification code — kept for pipeline filtering */
+  pscCode:             z.string().nullable(),
+  /** Issuing agency name */
+  organizationName:    z.string().nullable(),
+  /** Set-aside description */
+  setAside:            z.string().nullable(),
+  description:         z.string().nullable(),
+  /**
+   * Pipeline stage — replaces the binary `active` flag.
+   * Defaults to IDENTIFIED for new opportunities.
+   * `active` is kept for backward compatibility but derived from stage.
+   * Optional so existing code that creates OpportunityItem without stage still compiles.
+   * The default 'IDENTIFIED' is applied at the DB/helper layer, not enforced here.
+   */
+  stage:               OpportunityStageSchema.optional(),
+  /**
+   * Kept for backward compatibility with existing DB records.
+   * Derived from stage: active = stage is in ACTIVE_OPPORTUNITY_STAGES.
+   * Do not set this directly — use stage instead.
+   * @deprecated Use `stage` instead.
+   */
+  active:              z.boolean().optional(),
+  /** History of stage transitions */
+  stageHistory:        z.array(OpportunityStageTransitionSchema).optional(),
   baseAndAllOptionsValue: z.number().nonnegative().nullable(),
-  raw: SamOpportunitySlimSchema.optional(),
+  // Audit fields
+  createdBy:     z.string().optional(),
+  updatedBy:     z.string().optional(),
+  createdByName: z.string().optional(),
+  updatedByName: z.string().optional(),
 });
 
 export type OpportunityItem = z.infer<typeof OpportunityItemSchema>;
 
-/**
- * Helpers to normalize SAM weirdness.
- */
-const ActiveBoolSchema = z
-  .union([z.boolean(), z.string()])
-  .optional()
-  .transform((v) => {
-    if (typeof v === 'boolean') return v;
-    if (typeof v === 'string') {
-      const s = v.trim().toLowerCase();
-      if (['true', 't', 'yes', 'y', '1', 'active'].includes(s)) return true;
-      if (['false', 'f', 'no', 'n', '0', 'inactive'].includes(s)) return false;
-    }
-    return false;
-  });
+// ─── Stage update DTO ─────────────────────────────────────────────────────────
 
-const NullableIsoDatetimeSchema = z
-  .string()
-  .optional()
-  .transform((v) => (v ? v : null))
-  .pipe(z.string().datetime().nullable());
+export const UpdateOpportunityStageSchema = z.object({
+  projectId: z.string().min(1),
+  oppId:     z.string().min(1),
+  stage:     OpportunityStageSchema,
+  reason:    z.string().optional(),
+});
 
-/**
- * Convert SAM slim -> OpportunityItem
- */
-export const SamSlimToOpportunityItemSchema = SamOpportunitySlimSchema.transform((o) => {
-  const noticeId = o.noticeId ?? null;
-  const solicitationNumber = o.solicitationNumber ?? null;
+export type UpdateOpportunityStageDTO = z.infer<typeof UpdateOpportunityStageSchema>;
 
-  const id = noticeId || solicitationNumber || ''; // validated below
-
-  return {
-    source: 'SAM_GOV' as const,
-
-    id,
-    title: o.title?.trim() || '',
-
-    type: o.type ?? null,
-
-    postedDateIso: o.postedDate ?? null,
-    responseDeadlineIso: o.responseDeadLine ?? null,
-
-    noticeId,
-    solicitationNumber,
-
-    naicsCode: o.naicsCode ?? null,
-    pscCode: o.classificationCode ?? null,
-
-    organizationName: o.fullParentPathName ?? null,
-    organizationCode: o.fullParentPathCode ?? null,
-
-    setAside: o.setAside ?? null,
-    setAsideCode: o.setAsideCode ?? null,
-
-    description: o.description ?? null,
-
-    // normalize later via schema below
-    active: o.active as any,
-
-    baseAndAllOptionsValue: o.baseAndAllOptionsValue ?? null,
-
-    raw: o,
-  };
-}).pipe(
-  OpportunityItemSchema.extend({
-    // override with normalized parsers
-    active: ActiveBoolSchema,
-    postedDateIso: NullableIsoDatetimeSchema,
-    responseDeadlineIso: NullableIsoDatetimeSchema,
-    id: z.string().min(1, 'Opportunity is missing noticeId/solicitationNumber'),
-    title: z.string().min(1, 'Opportunity title is missing'),
-  }),
-);
-
-export type OpportunityItemFromSam = z.infer<typeof SamSlimToOpportunityItemSchema>;
+// ─── Query DTO ────────────────────────────────────────────────────────────────
 
 export const OpportunityQuerySchema = z.object({
-  orgId: z.string().nullable(),
+  orgId:     z.string().nullable(),
   projectId: z.string().min(1),
   limit: z
     .string()

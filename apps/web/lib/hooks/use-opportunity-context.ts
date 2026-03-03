@@ -18,6 +18,7 @@ export type { ContextItem, ContextItemSource, ContextOverrideAction };
 export interface OpportunityContextData {
   suggestedItems: ContextItem[];
   pinnedItems: ContextItem[];
+  excludedItems: ContextItem[];
   excludedIds: string[];
   lastRefreshedAt?: string;
 }
@@ -77,7 +78,7 @@ async function deleteJson<T>(url: string, body: unknown): Promise<T> {
 // ─── Source label helpers ─────────────────────────────────────────────────────
 
 export const CONTEXT_SOURCE_LABELS: Record<ContextItemSource, string> = {
-  KNOWLEDGE_BASE: 'Knowledge Base',
+  KNOWLEDGE_BASE: 'Document Folder',
   PAST_PERFORMANCE: 'Past Performance',
   CONTENT_LIBRARY: 'Content Library',
   EXECUTIVE_BRIEF: 'Executive Brief',
@@ -130,6 +131,7 @@ export function useOpportunityContext(
   return {
     suggestedItems: data?.suggestedItems ?? [],
     pinnedItems: data?.pinnedItems ?? [],
+    excludedItems: data?.excludedItems ?? [],
     excludedIds: data?.excludedIds ?? [],
     lastRefreshedAt: data?.lastRefreshedAt,
     isLoading,

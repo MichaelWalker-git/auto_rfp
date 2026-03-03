@@ -30,6 +30,7 @@ export type ClusterMember = z.infer<typeof ClusterMemberSchema>;
 export const QuestionClusterSchema = z.object({
   clusterId: z.string().min(1),
   projectId: z.string().min(1),
+  opportunityId: z.string().optional(),
   masterQuestionId: z.string().min(1),
   masterQuestionText: z.string().min(1),
   members: z.array(ClusterMemberSchema),
@@ -61,6 +62,7 @@ export type SimilarQuestion = z.infer<typeof SimilarQuestionSchema>;
 
 export const ClusterQuestionsRequestSchema = z.object({
   projectId: z.string().min(1),
+  opportunityId: z.string().optional(),
   questionFileId: z.string().optional(),
   forceRecluster: z.boolean().optional(),
 });
@@ -132,6 +134,7 @@ export type ApplyClusterAnswerResponse = z.infer<typeof ApplyClusterAnswerRespon
 export interface QuestionWithEmbedding {
   questionId: string;
   projectId: string;
+  opportunityId?: string;
   orgId: string;
   questionText: string;
   sectionId?: string;
@@ -149,6 +152,7 @@ export interface ClusteringResult {
 export interface QuestionForAnswerWithCluster {
   questionId: string;
   projectId: string;
+  opportunityId?: string;
   orgId: string;
   questionText: string;
   clusterId?: string;

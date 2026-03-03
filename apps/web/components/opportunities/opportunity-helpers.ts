@@ -16,12 +16,43 @@ export function formatDateTime(dateString?: string | null): string {
 }
 
 export function pickDisplayName(qf: any): string {
-  return (
+  // Priority: explicit fileName > originalFileName > last segment of fileKey (decoded) > fallback
+  const fromFileKey = typeof qf?.fileKey === 'string'
+    ? decodeURIComponent(qf.fileKey.split('/').pop() ?? '')
+    : undefined;
+
+  const raw =
     qf?.fileName ??
     qf?.originalFileName ??
-    (typeof qf?.fileKey === 'string' ? qf.fileKey.split('/').pop() : undefined) ??
-    'Unknown file'
-  );
+    fromFileKey ??
+    'Unknown file';
+
+  // If the name has no extension but the fileKey does, append the extension
+  if (raw && !raw.includes('.') && fromFileKey && fromFileKey.includes('.')) {
+    const ext = fromFileKey.split('.').pop();
+    if (ext) return `${raw}.${ext}`;
+  }
+
+  return raw || 'Unknown file';
+}
+
+/**
+ * Guess a download filename from an S3 key + optional display name.
+ * Ensures the result always has a file extension.
+ */
+export function guessDownloadName(fileKey: string, displayName?: string): string {
+  const keyBasename = decodeURIComponent(fileKey.split('/').pop() ?? '');
+  const keyExt = keyBasename.includes('.') ? `.${keyBasename.split('.').pop()}` : '';
+
+  if (displayName && displayName !== 'Unknown file' && displayName !== 'download') {
+    // If displayName already has an extension, use it as-is
+    if (displayName.includes('.')) return displayName;
+    // Otherwise append the extension from the key
+    return keyExt ? `${displayName}${keyExt}` : displayName;
+  }
+
+  // Fall back to the key basename
+  return keyBasename || 'download';
 }
 
 export function getStatusChip(status?: string): { label: string; cls: string } {

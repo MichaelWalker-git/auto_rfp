@@ -10,12 +10,8 @@ import {
   type RFPDocumentItem,
   useRFPDocuments,
   useDeleteRFPDocument,
-  useDocumentDownloadUrl,
-  useDocumentPreviewUrl,
 } from '@/lib/hooks/use-rfp-documents';
 import { RFPDocumentUploadDialog } from './rfp-document-upload-dialog';
-import { RFPDocumentPreviewDialog } from './rfp-document-preview-dialog';
-import { RFPDocumentEditDialog } from './rfp-document-edit-dialog';
 import { RFPDocumentExportDialog } from './rfp-document-export-dialog';
 import { SignatureTrackerDialog } from './signature-tracker-dialog';
 import { RFPDocumentCard } from './rfp-document-card';
@@ -33,74 +29,13 @@ interface RFPDocumentsContentProps {
 export function RFPDocumentsContent({ projectId, orgId, opportunityId }: RFPDocumentsContentProps) {
   const { documents, isLoading, mutate } = useRFPDocuments(projectId, orgId, opportunityId);
   const { trigger: deleteDocument } = useDeleteRFPDocument(orgId);
-  const { trigger: getPreviewUrl } = useDocumentPreviewUrl(orgId);
-  const { trigger: getDownloadUrl } = useDocumentDownloadUrl(orgId);
   const { toast } = useToast();
 
   const [uploadDialogOpen, setUploadDialogOpen] = useState(false);
-  const [previewDoc, setPreviewDoc] = useState<RFPDocumentItem | null>(null);
-  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
-  const [editDoc, setEditDoc] = useState<RFPDocumentItem | null>(null);
   const [signatureDoc, setSignatureDoc] = useState<RFPDocumentItem | null>(null);
   const [exportDoc, setExportDoc] = useState<RFPDocumentItem | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [deleteConfirmDoc, setDeleteConfirmDoc] = useState<RFPDocumentItem | null>(null);
-  const [downloadingId, setDownloadingId] = useState<string | null>(null);
-  const [previewLoading, setPreviewLoading] = useState(false);
-
-  const handlePreview = useCallback(
-    async (doc: RFPDocumentItem) => {
-      try {
-        setPreviewLoading(true);
-        const result = await getPreviewUrl({
-          projectId: doc.projectId,
-          opportunityId: doc.opportunityId,
-          documentId: doc.documentId,
-        });
-        setPreviewUrl(result.url);
-        setPreviewDoc(doc);
-      } catch (err) {
-        toast({
-          title: 'Preview failed',
-          description: err instanceof Error ? err.message : 'Could not generate preview URL',
-          variant: 'destructive',
-        });
-      } finally {
-        setPreviewLoading(false);
-      }
-    },
-    [getPreviewUrl, toast],
-  );
-
-  const handleDownload = useCallback(
-    async (doc: RFPDocumentItem) => {
-      if (downloadingId === doc.documentId) return;
-      try {
-        setDownloadingId(doc.documentId);
-        const result = await getDownloadUrl({
-          projectId: doc.projectId,
-          opportunityId: doc.opportunityId,
-          documentId: doc.documentId,
-        });
-        const a = document.createElement('a');
-        a.href = result.url;
-        a.download = doc.name;
-        a.target = '_blank';
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-      } catch (err) {
-        toast({
-          title: 'Download failed',
-          description: err instanceof Error ? err.message : 'Could not generate download URL',
-          variant: 'destructive',
-        });
-      } finally {
-        setDownloadingId(null);
-      }
-    },
-    [downloadingId, getDownloadUrl, toast],
-  );
 
   const confirmDelete = useCallback(async () => {
     const doc = deleteConfirmDoc;
@@ -135,19 +70,15 @@ export function RFPDocumentsContent({ projectId, orgId, opportunityId }: RFPDocu
         key={doc.documentId}
         document={doc}
         orgId={orgId}
+        projectId={projectId}
         isDeleting={deletingId === doc.documentId}
-        isDownloading={downloadingId === doc.documentId}
-        isPreviewLoading={previewLoading}
-        onPreview={handlePreview}
-        onDownload={handleDownload}
-        onEdit={setEditDoc}
         onExport={setExportDoc}
         onSignature={setSignatureDoc}
         onDelete={setDeleteConfirmDoc}
         onSyncComplete={handleMutate}
       />
     ),
-    [orgId, deletingId, downloadingId, previewLoading, handlePreview, handleDownload, handleMutate],
+    [orgId, projectId, deletingId, handleMutate],
   );
 
   return (
@@ -182,28 +113,6 @@ export function RFPDocumentsContent({ projectId, orgId, opportunityId }: RFPDocu
         open={uploadDialogOpen}
         onOpenChange={setUploadDialogOpen}
         projectId={projectId}
-        orgId={orgId}
-        onSuccess={handleMutate}
-      />
-
-      <RFPDocumentPreviewDialog
-        open={!!previewDoc}
-        onOpenChange={(open) => {
-          if (!open) {
-            setPreviewDoc(null);
-            setPreviewUrl(null);
-          }
-        }}
-        document={previewDoc}
-        previewUrl={previewUrl}
-      />
-
-      <RFPDocumentEditDialog
-        open={!!editDoc}
-        onOpenChange={(open) => {
-          if (!open) setEditDoc(null);
-        }}
-        document={editDoc}
         orgId={orgId}
         onSuccess={handleMutate}
       />

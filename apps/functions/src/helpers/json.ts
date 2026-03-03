@@ -5,6 +5,28 @@ export function safeParseJsonFromModel(text: string) {
     text = fenceMatch[1].trim();
   }
 
+  // 0b) If the model returned plain text/HTML with no JSON wrapper at all,
+  //     wrap it in a minimal JSON structure so downstream processing can continue.
+  //     This handles cases where the model ignores the JSON instruction and returns
+  //     raw HTML or markdown (common for very large compliance matrix / table outputs).
+  const firstBrace = text.indexOf('{');
+  const firstAngle = text.indexOf('<');
+  const firstHash = text.indexOf('#');
+  const hasJson = firstBrace !== -1;
+  const looksLikePlainHtml = !hasJson && firstAngle !== -1 && firstAngle < 50;
+  const looksLikeMarkdown = !hasJson && firstHash !== -1 && firstHash < 10;
+
+  if (looksLikePlainHtml || looksLikeMarkdown) {
+    // Wrap the raw content as htmlContent in a minimal JSON object
+    const escaped = text
+      .replace(/\\/g, '\\\\')
+      .replace(/"/g, '\\"')
+      .replace(/\n/g, '\\n')
+      .replace(/\r/g, '\\r')
+      .replace(/\t/g, '\\t');
+    return JSON.parse(`{"title":"Generated Document","htmlContent":"${escaped}"}`);
+  }
+
   // 1) Find the first '{' and then use brace-depth scanning to find the
   //    matching closing '}'. This correctly handles HTML content inside
   //    JSON string values (which contain '{' and '}' in inline CSS).

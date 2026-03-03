@@ -3,206 +3,242 @@
 import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Target, TrendingUp, Users, Clock, AlertTriangle } from 'lucide-react';
+import {
+  Target,
+  TrendingUp,
+  TrendingDown,
+  Briefcase,
+  DollarSign,
+  Shield,
+  AlertTriangle,
+  CheckCircle2,
+  XCircle,
+  ChevronRight,
+  type LucideIcon,
+} from 'lucide-react';
+import type { ScoringSection } from '@auto-rfp/core';
 
-export function ScoringGrid({ scoring }: { scoring: any }) {
+interface CriterionDef {
+  key: string;
+  label: string;
+  icon: LucideIcon;
+  weight: number;
+}
+
+const CRITERIA_DEFS: CriterionDef[] = [
+  { key: 'PAST_PERFORMANCE_RELEVANCE', label: 'Past Performance', icon: Briefcase, weight: 0.25 },
+  { key: 'STRATEGIC_ALIGNMENT', label: 'Strategic Fit', icon: Target, weight: 0.25 },
+  { key: 'TECHNICAL_FIT', label: 'Technical Fit', icon: TrendingUp, weight: 0.20 },
+  { key: 'PRICING_POSITION', label: 'Pricing', icon: DollarSign, weight: 0.15 },
+  { key: 'INCUMBENT_RISK', label: 'Incumbent Risk', icon: Shield, weight: 0.15 },
+];
+
+const scoreColor = (score: number) => {
+  if (score >= 4) return 'text-green-600';
+  if (score >= 3) return 'text-yellow-600';
+  return 'text-red-600';
+};
+
+const scoreBarColor = (score: number) => {
+  if (score >= 4) return 'bg-green-500';
+  if (score >= 3) return 'bg-yellow-500';
+  return 'bg-red-500';
+};
+
+const scoreBarBg = (score: number) => {
+  if (score >= 4) return 'bg-green-100 dark:bg-green-950/30';
+  if (score >= 3) return 'bg-yellow-100 dark:bg-yellow-950/30';
+  return 'bg-red-100 dark:bg-red-950/30';
+};
+
+const decisionConfig = (decision?: string) => {
+  switch (decision) {
+    case 'GO':
+      return { label: 'GO', color: 'bg-green-600 text-white', icon: CheckCircle2, description: 'Pursue this opportunity aggressively' };
+    case 'CONDITIONAL_GO':
+      return { label: 'CONDITIONAL GO', color: 'bg-yellow-500 text-white', icon: AlertTriangle, description: 'Proceed with conditions — resolve blockers first' };
+    case 'NO_GO':
+      return { label: 'NO GO', color: 'bg-red-600 text-white', icon: XCircle, description: 'Do not pursue this opportunity' };
+    default:
+      return { label: 'PENDING', color: 'bg-muted text-muted-foreground', icon: Target, description: 'Scoring not yet complete' };
+  }
+};
+
+export const ScoringGrid = ({ scoring }: { scoring: ScoringSection | undefined | null }) => {
   if (!scoring) return null;
 
-  // Extract the 4 main scoring dimensions from criteria
-  const capabilityScore = scoring?.criteria?.find((c: any) => c.name === 'TECHNICAL_FIT')?.score ?? 3;
-  const scheduleScore = scoring?.criteria?.find((c: any) => c.name === 'SCHEDULE')?.score ?? 3;
-  const winProbScore = scoring?.criteria?.find((c: any) => c.name === 'WIN_PROBABILITY')?.score ?? 3;
-  const resourceScore = scoring?.criteria?.find((c: any) => c.name === 'RESOURCE')?.score ?? 3;
+  const criteriaList = scoring.criteria ?? [];
+  const compositeScore = scoring.compositeScore ?? 0;
+  const confidence = scoring.confidence ?? 0;
+  const decision = decisionConfig(scoring.decision);
+  const DecisionIcon = decision.icon;
 
-  const compositeScore = scoring?.compositeScore ?? Math.round(((capabilityScore + scheduleScore + winProbScore + resourceScore) / 4) * 10) / 10;
+  const getCriterion = (key: string) => criteriaList.find((c) => c.name === key);
+
+  const hasBlockers = (scoring.blockers?.length ?? 0) > 0;
+  const hasActions = (scoring.requiredActions?.length ?? 0) > 0;
 
   return (
     <div className="space-y-6">
-      {/* Four Dimension Scoring */}
-      <div>
-        <h3 className="text-sm font-semibold mb-3">Opportunity Scoring Dimensions</h3>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-          <div className="border rounded-lg p-4 space-y-2">
-            <div className="flex items-center gap-2">
-              <TrendingUp className="h-4 w-4" />
-              <span className="text-sm font-medium">Capability</span>
-            </div>
-            <div className="ml-6">
-              <Badge variant={capabilityScore >= 4 ? 'default' : capabilityScore <= 2 ? 'destructive' : 'secondary'} className="text-base px-3 py-1">
-                {capabilityScore}/5
-              </Badge>
-              <p className="text-xs text-muted-foreground mt-1">Technical fit & alignment</p>
-            </div>
-          </div>
-
-          <div className="border rounded-lg p-4 space-y-2">
-            <div className="flex items-center gap-2">
-              <Clock className="h-4 w-4" />
-              <span className="text-sm font-medium">Schedule</span>
-            </div>
-            <div className="ml-6">
-              <Badge variant={scheduleScore >= 4 ? 'default' : scheduleScore <= 2 ? 'destructive' : 'secondary'} className="text-base px-3 py-1">
-                {scheduleScore}/5
-              </Badge>
-              <p className="text-xs text-muted-foreground mt-1">Deadline feasibility</p>
-            </div>
-          </div>
-
-          <div className="border rounded-lg p-4 space-y-2">
-            <div className="flex items-center gap-2">
-              <Target className="h-4 w-4" />
-              <span className="text-sm font-medium">Win Prob</span>
-            </div>
-            <div className="ml-6">
-              <Badge variant={winProbScore >= 4 ? 'default' : winProbScore <= 2 ? 'destructive' : 'secondary'} className="text-base px-3 py-1">
-                {winProbScore}/5
-              </Badge>
-              <p className="text-xs text-muted-foreground mt-1">Competitive positioning</p>
-            </div>
-          </div>
-
-          <div className="border rounded-lg p-4 space-y-2">
-            <div className="flex items-center gap-2">
-              <Users className="h-4 w-4" />
-              <span className="text-sm font-medium">Resources</span>
-            </div>
-            <div className="ml-6">
-              <Badge variant={resourceScore >= 4 ? 'default' : resourceScore <= 2 ? 'destructive' : 'secondary'} className="text-base px-3 py-1">
-                {resourceScore}/5
-              </Badge>
-              <p className="text-xs text-muted-foreground mt-1">Staffing availability</p>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Overall Score */}
-      <div className="border-l-4 pl-4 py-2 space-y-3">
-        <div className="flex items-baseline justify-between">
-          <h3 className="text-sm font-semibold">Overall Weighted Score</h3>
-          <span className="text-4xl font-bold">{compositeScore.toFixed(1)}/5.0</span>
-        </div>
-        <p className="text-xs text-muted-foreground">(Capability 25% + Schedule 20% + Win Prob 35% + Resources 20%)</p>
-        <div className="grid grid-cols-2 gap-2 text-xs">
-          <div><span className="font-semibold">4.0+</span>: STRONG GO</div>
-          <div><span className="font-semibold">3.0-3.9</span>: GO / CONDITIONAL_GO</div>
-          <div><span className="font-semibold">2.0-2.9</span>: CONDITIONAL_GO</div>
-          <div><span className="font-semibold">&lt;2.0</span>: NO_GO</div>
-        </div>
-      </div>
-
-      {/* Detailed Criteria */}
-      <div>
-        <h3 className="text-sm font-semibold mb-3">Detailed Scoring Criteria</h3>
-        {scoring?.summaryJustification && (
-          <p className="text-sm text-muted-foreground mb-4 border-l-4 pl-3">{scoring.summaryJustification}</p>
-        )}
-        <div className="grid gap-3 md:grid-cols-5">
-          {(scoring?.criteria ?? []).map((c: any) => (
-            <div key={c.name} className="border rounded-lg p-4 space-y-3">
-              <div>
-                <p className="text-xs uppercase tracking-wide font-semibold mb-2">
-                  {String(c.name).replace(/_/g, ' ')}
-                </p>
-                <Badge
-                  variant={c.score >= 4 ? 'default' : c.score <= 2 ? 'destructive' : 'secondary'}
-                  className="text-base px-3 py-1"
-                >
-                  {c.score}/5
-                </Badge>
+      {/* Hero: Decision + Composite Score */}
+      <div className="grid gap-4 md:grid-cols-3">
+        {/* Decision Badge */}
+        <Card className="md:col-span-2">
+          <CardContent className="pt-6">
+            <div className="flex items-start gap-4">
+              <div className={`flex items-center justify-center w-14 h-14 rounded-xl ${decision.color}`}>
+                <DecisionIcon className="h-7 w-7" />
               </div>
-
-              <p className="text-xs leading-relaxed">{c.rationale}</p>
-
-              {c.gaps?.length > 0 && (
-                <details className="text-xs">
-                  <summary className="cursor-pointer font-medium hover:underline">
-                    Gaps ({c.gaps.length})
-                  </summary>
-                  <ul className="list-disc pl-4 mt-2 space-y-1 text-muted-foreground">
-                    {c.gaps.map((g: string, i: number) => (
-                      <li key={i}>{g}</li>
-                    ))}
-                  </ul>
-                </details>
-              )}
+              <div className="flex-1">
+                <div className="flex items-center gap-3 mb-1">
+                  <h2 className="text-2xl font-bold">{decision.label}</h2>
+                  <Badge variant="outline" className="text-sm">
+                    {confidence}% confidence
+                  </Badge>
+                </div>
+                <p className="text-sm text-muted-foreground">{decision.description}</p>
+                {scoring.decisionRationale && (
+                  <p className="text-sm mt-3 leading-relaxed">{scoring.decisionRationale}</p>
+                )}
+              </div>
             </div>
-          ))}
-        </div>
-      </div>
-
-      {/* Blockers and Required Actions */}
-      {(scoring?.blockers?.length > 0 || scoring?.requiredActions?.length > 0) && (
-        <Card className="border-2 border-dashed">
-          <CardHeader>
-            <CardTitle className="text-base flex items-center gap-2">
-              <AlertTriangle className="h-5 w-5" />
-              Critical Blockers & Required Actions
-            </CardTitle>
-            <p className="text-sm text-muted-foreground mt-2">Must be addressed before proceeding with bid</p>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {scoring?.blockers?.length > 0 && (
-              <div className="border-l-4 pl-3">
-                <p className="font-semibold text-sm mb-2">Go/No-Go Blockers:</p>
-                <ul className="space-y-2">
-                  {scoring.blockers.map((b: string, i: number) => (
-                    <li key={i} className="text-sm">
-                      <span className="font-medium">{i + 1}.</span> {b}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
-            {scoring?.requiredActions?.length > 0 && (
-              <div className="border-l-4 pl-3 pt-3">
-                <p className="font-semibold text-sm mb-2">Required Actions Before Bid:</p>
-                <ol className="space-y-2">
-                  {scoring.requiredActions.map((a: string, i: number) => (
-                    <li key={i} className="text-sm">
-                      <span className="font-medium">{i + 1}.</span> {a}
-                    </li>
-                  ))}
-                </ol>
-              </div>
-            )}
           </CardContent>
         </Card>
+
+        {/* Composite Score */}
+        <Card>
+          <CardContent className="pt-6 flex flex-col items-center justify-center text-center">
+            <span className={`text-5xl font-bold ${scoreColor(compositeScore)}`}>
+              {compositeScore.toFixed(1)}
+            </span>
+            <span className="text-sm text-muted-foreground mt-1">out of 5.0</span>
+            <div className="w-full mt-3 h-2 rounded-full bg-muted overflow-hidden">
+              <div
+                className={`h-full rounded-full transition-all ${scoreBarColor(compositeScore)}`}
+                style={{ width: `${(compositeScore / 5) * 100}%` }}
+              />
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Scoring Criteria Breakdown */}
+      <div className="space-y-3">
+        <h3 className="text-sm font-semibold">Scoring Breakdown</h3>
+        {CRITERIA_DEFS.map((def) => {
+          const criterion = getCriterion(def.key);
+          const score = criterion?.score ?? 0;
+          const Icon = def.icon;
+
+          return (
+            <div key={def.key} className={`rounded-lg p-4 ${scoreBarBg(score)}`}>
+              <div className="flex items-center gap-3">
+                <Icon className="h-5 w-5 flex-shrink-0" />
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center justify-between mb-1">
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-medium">{def.label}</span>
+                      <span className="text-xs text-muted-foreground">({Math.round(def.weight * 100)}% weight)</span>
+                    </div>
+                    <span className={`text-lg font-bold ${scoreColor(score)}`}>{score}/5</span>
+                  </div>
+                  {/* Score bar */}
+                  <div className="w-full h-1.5 rounded-full bg-background/50 overflow-hidden mb-2">
+                    <div
+                      className={`h-full rounded-full transition-all ${scoreBarColor(score)}`}
+                      style={{ width: `${(score / 5) * 100}%` }}
+                    />
+                  </div>
+                  {criterion?.rationale && (
+                    <p className="text-xs text-muted-foreground leading-relaxed">{criterion.rationale}</p>
+                  )}
+                  {(criterion?.gaps?.length ?? 0) > 0 && (
+                    <div className="mt-2 flex flex-wrap gap-1.5">
+                      {criterion?.gaps?.map((g: string, i: number) => (
+                        <Badge key={i} variant="outline" className="text-xs font-normal">
+                          {g}
+                        </Badge>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Action Items — Blockers & Required Actions */}
+      {(hasBlockers || hasActions) && (
+        <div className="grid gap-4 md:grid-cols-2">
+          {hasBlockers && (
+            <Card className="border-red-200 dark:border-red-900">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-sm flex items-center gap-2 text-red-700 dark:text-red-400">
+                  <XCircle className="h-4 w-4" />
+                  Blockers ({scoring.blockers?.length})
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-2">
+                {scoring.blockers?.map((b: string, i: number) => (
+                  <div key={i} className="flex items-start gap-2 text-sm">
+                    <ChevronRight className="h-4 w-4 mt-0.5 text-red-500 flex-shrink-0" />
+                    <span>{b}</span>
+                  </div>
+                ))}
+              </CardContent>
+            </Card>
+          )}
+          {hasActions && (
+            <Card className="border-yellow-200 dark:border-yellow-900">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-sm flex items-center gap-2 text-yellow-700 dark:text-yellow-400">
+                  <AlertTriangle className="h-4 w-4" />
+                  Required Actions ({scoring.requiredActions?.length})
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-2">
+                {scoring.requiredActions?.map((a: string, i: number) => (
+                  <div key={i} className="flex items-start gap-2 text-sm">
+                    <ChevronRight className="h-4 w-4 mt-0.5 text-yellow-500 flex-shrink-0" />
+                    <span>{a}</span>
+                  </div>
+                ))}
+              </CardContent>
+            </Card>
+          )}
+        </div>
       )}
 
       {/* Confidence Drivers */}
-      {scoring?.confidenceDrivers?.length > 0 && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Confidence & Key Drivers</CardTitle>
-            <p className="text-sm text-muted-foreground mt-1">Factors influencing this assessment</p>
-            {scoring?.confidenceExplanation && (
-              <p className="text-sm mt-3 border-l-4 pl-3">{scoring.confidenceExplanation}</p>
-            )}
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              {scoring.confidenceDrivers.map((d: any, i: number) => (
-                <div key={i} className="flex items-start gap-3 p-3 border rounded">
-                  {d.direction === 'UP' ? (
-                    <TrendingUp className="h-5 w-5 mt-0.5 flex-shrink-0" />
-                  ) : (
-                    <div className="transform rotate-180">
-                      <TrendingUp className="h-5 w-5 mt-0.5 flex-shrink-0" />
-                    </div>
-                  )}
-                  <div>
-                    <p className="text-xs font-semibold text-muted-foreground mb-1">
-                      {d.direction === 'UP' ? 'Positive Driver' : 'Risk Factor'}
-                    </p>
-                    <p className="text-sm">{d.factor}</p>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
+      {(scoring.confidenceDrivers?.length ?? 0) > 0 && (
+        <div>
+          <h3 className="text-sm font-semibold mb-3">Confidence Drivers</h3>
+          {scoring.confidenceExplanation && (
+            <p className="text-sm text-muted-foreground mb-3">{scoring.confidenceExplanation}</p>
+          )}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+            {scoring.confidenceDrivers?.map((d, i: number) => (
+              <div key={i} className="flex items-center gap-2 p-2 rounded border text-sm">
+                {d.direction === 'UP' ? (
+                  <TrendingUp className="h-4 w-4 text-green-600 flex-shrink-0" />
+                ) : (
+                  <TrendingDown className="h-4 w-4 text-red-600 flex-shrink-0" />
+                )}
+                <span className="text-muted-foreground">{d.factor}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Summary Justification */}
+      {scoring.summaryJustification && (
+        <div className="border-t pt-4">
+          <h3 className="text-sm font-semibold mb-2">Summary Justification</h3>
+          <p className="text-sm text-muted-foreground leading-relaxed">{scoring.summaryJustification}</p>
+        </div>
       )}
     </div>
   );
-}
+};

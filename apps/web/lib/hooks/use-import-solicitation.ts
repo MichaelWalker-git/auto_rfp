@@ -27,7 +27,7 @@ export function useImportSolicitation() {
     any,
     string,
     ImportSolicitationRequest
-  >(`${env.BASE_API_URL}/samgov/import-solicitation`, async (url, { arg }) => {
+  >(`${env.BASE_API_URL}/search-opportunities/samgov/import-solicitation`, async (url, { arg }) => {
     const res = await authFetcher(url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },

@@ -5,8 +5,8 @@ import { GetApiKeyResponse } from '@auto-rfp/core';
 
 export function useGetApiKey(orgId?: string) {
   const { data, isLoading, isError, error, mutate } = useApi<GetApiKeyResponse>(
-    orgId ? ['samgov/api-key', orgId] : null,
-    orgId ? buildApiUrl('samgov/get-api-key', { orgId }) : null,
+    orgId ? ['search-opportunities/api-key', orgId] : null,
+    orgId ? buildApiUrl('search-opportunities/api-key', { orgId, source: 'SAM_GOV' }) : null,
   );
 
   return {

@@ -1,6 +1,8 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useEffect } from 'react';
+import { useForm, Controller } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
 import {
   Dialog,
   DialogContent,
@@ -16,8 +18,16 @@ import { Textarea } from '@/components/ui/textarea';
 import { Checkbox } from '@/components/ui/checkbox';
 import { useToast } from '@/components/ui/use-toast';
 import { useCreateFOIARequest } from '@/lib/hooks/use-foia-requests';
-import { FOIA_DOCUMENT_TYPES, FOIA_DOCUMENT_DESCRIPTIONS } from '@auto-rfp/core';
+import { useOrgPrimaryContact } from '@/lib/hooks/use-org-contact';
+import {
+  CreateFOIARequestSchema,
+  FOIA_DOCUMENT_TYPES,
+  FOIA_DOCUMENT_DESCRIPTIONS,
+} from '@auto-rfp/core';
 import type { FOIARequestItem, FOIADocumentType } from '@auto-rfp/core';
+import { z } from 'zod';
+
+type CreateFOIARequestFormValues = z.input<typeof CreateFOIARequestSchema>;
 
 interface CreateFOIARequestDialogProps {
   isOpen: boolean;
@@ -29,7 +39,7 @@ interface CreateFOIARequestDialogProps {
   onSuccess?: (foiaRequest: FOIARequestItem) => void;
 }
 
-export function CreateFOIARequestDialog({
+export const CreateFOIARequestDialog = ({
   isOpen,
   onOpenChange,
   projectId,
@@ -37,80 +47,72 @@ export function CreateFOIARequestDialog({
   agencyName: initialAgencyName = '',
   solicitationNumber: initialSolicitationNumber = '',
   onSuccess,
-}: CreateFOIARequestDialogProps) {
-  const [agencyName, setAgencyName] = useState(initialAgencyName);
-  const [agencyFOIAEmail, setAgencyFOIAEmail] = useState('');
-  const [agencyFOIAAddress, setAgencyFOIAAddress] = useState('');
-  const [solicitationNumber, setSolicitationNumber] = useState(initialSolicitationNumber);
-  const [contractNumber, setContractNumber] = useState('');
-  const [selectedDocuments, setSelectedDocuments] = useState<FOIADocumentType[]>([]);
-  const [requesterName, setRequesterName] = useState('');
-  const [requesterEmail, setRequesterEmail] = useState('');
-  const [requesterPhone, setRequesterPhone] = useState('');
-  const [requesterAddress, setRequesterAddress] = useState('');
-  const [notes, setNotes] = useState('');
-  const [isSubmitting, setIsSubmitting] = useState(false);
+}: CreateFOIARequestDialogProps) => {
   const { toast } = useToast();
   const { createFOIARequest } = useCreateFOIARequest();
 
-  const handleDocumentToggle = (docType: FOIADocumentType) => {
-    setSelectedDocuments((prev) =>
-      prev.includes(docType)
-        ? prev.filter((d) => d !== docType)
-        : [...prev, docType]
-    );
-  };
+  // Fetch org primary contact to pre-populate requester fields
+  const { data: contactData } = useOrgPrimaryContact(orgId);
+  const primaryContact = contactData?.contact;
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const {
+    register,
+    handleSubmit,
+    control,
+    reset,
+    formState: { errors, isSubmitting },
+  } = useForm<CreateFOIARequestFormValues>({
+    resolver: zodResolver(CreateFOIARequestSchema),
+    defaultValues: {
+      projectId,
+      orgId,
+      agencyName: initialAgencyName,
+      solicitationNumber: initialSolicitationNumber,
+      requestedDocuments: [],
+      requesterCategory: 'OTHER',
+      feeLimit: 50,
+      requestFeeWaiver: false,
+    },
+  });
 
-    if (!agencyName || !solicitationNumber || !requesterName || !requesterEmail) {
-      toast({
-        title: 'Error',
-        description: 'Please fill in all required fields',
-        variant: 'destructive',
-      });
-      return;
+  // When the dialog opens and primary contact is available, pre-populate requester fields
+  // Only sets values if the fields are currently empty (don't overwrite user edits)
+  useEffect(() => {
+    if (isOpen && primaryContact) {
+      reset((prev) => ({
+        ...prev,
+        requesterName: prev.requesterName || primaryContact.name,
+        requesterEmail: prev.requesterEmail || primaryContact.email,
+        requesterPhone: prev.requesterPhone || primaryContact.phone || '',
+        requesterAddress: prev.requesterAddress || primaryContact.address || '',
+      }));
     }
+  }, [isOpen, primaryContact, reset]);
 
-    if (selectedDocuments.length === 0) {
-      toast({
-        title: 'Error',
-        description: 'Please select at least one document type to request',
-        variant: 'destructive',
-      });
-      return;
-    }
-
-    setIsSubmitting(true);
-
+  const onSubmit = async (values: CreateFOIARequestFormValues) => {
     try {
-      const result = await createFOIARequest({
-        projectId,
-        orgId,
-        agencyName,
-        agencyFOIAEmail: agencyFOIAEmail || undefined,
-        agencyFOIAAddress: agencyFOIAAddress || undefined,
-        solicitationNumber,
-        contractNumber: contractNumber || undefined,
-        requestedDocuments: selectedDocuments,
-        requesterName,
-        requesterEmail,
-        requesterPhone: requesterPhone || undefined,
-        requesterAddress: requesterAddress || undefined,
-        requesterCategory: 'OTHER',
-        feeLimit: 50,
-        requestFeeWaiver: false,
-        notes: notes || undefined,
-      });
+      const result = await createFOIARequest(values);
 
       toast({
         title: 'FOIA Request Created',
         description: 'Your FOIA request has been created as a draft.',
       });
 
-      // Reset form
-      resetForm();
+      // Reset form — restore primary contact defaults for next use
+      reset({
+        projectId,
+        orgId,
+        agencyName: initialAgencyName,
+        solicitationNumber: initialSolicitationNumber,
+        requestedDocuments: [],
+        requesterCategory: 'OTHER',
+        feeLimit: 50,
+        requestFeeWaiver: false,
+        requesterName: primaryContact?.name ?? '',
+        requesterEmail: primaryContact?.email ?? '',
+        requesterPhone: primaryContact?.phone ?? '',
+        requesterAddress: primaryContact?.address ?? '',
+      });
       onOpenChange(false);
       onSuccess?.(result);
     } catch (error) {
@@ -119,29 +121,13 @@ export function CreateFOIARequestDialog({
         description: error instanceof Error ? error.message : 'Failed to create FOIA request',
         variant: 'destructive',
       });
-    } finally {
-      setIsSubmitting(false);
     }
-  };
-
-  const resetForm = () => {
-    setAgencyName(initialAgencyName);
-    setAgencyFOIAEmail('');
-    setAgencyFOIAAddress('');
-    setSolicitationNumber(initialSolicitationNumber);
-    setContractNumber('');
-    setSelectedDocuments([]);
-    setRequesterName('');
-    setRequesterEmail('');
-    setRequesterPhone('');
-    setRequesterAddress('');
-    setNotes('');
   };
 
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
-        <form onSubmit={handleSubmit}>
+        <form onSubmit={handleSubmit(onSubmit)}>
           <DialogHeader>
             <DialogTitle>Create FOIA Request</DialogTitle>
             <DialogDescription>
@@ -158,29 +144,31 @@ export function CreateFOIARequestDialog({
                   <Label htmlFor="agencyName">Agency Name *</Label>
                   <Input
                     id="agencyName"
-                    value={agencyName}
-                    onChange={(e) => setAgencyName(e.target.value)}
                     placeholder="e.g., Department of Defense"
-                    required
+                    {...register('agencyName')}
                   />
+                  {errors.agencyName && (
+                    <p className="text-xs text-destructive">{errors.agencyName.message}</p>
+                  )}
                 </div>
                 <div className="grid gap-2">
                   <Label htmlFor="agencyFOIAEmail">FOIA Office Email</Label>
                   <Input
                     id="agencyFOIAEmail"
                     type="email"
-                    value={agencyFOIAEmail}
-                    onChange={(e) => setAgencyFOIAEmail(e.target.value)}
                     placeholder="foia@agency.gov"
+                    {...register('agencyFOIAEmail')}
                   />
+                  {errors.agencyFOIAEmail && (
+                    <p className="text-xs text-destructive">{errors.agencyFOIAEmail.message}</p>
+                  )}
                 </div>
                 <div className="grid gap-2">
                   <Label htmlFor="agencyFOIAAddress">FOIA Office Address</Label>
                   <Input
                     id="agencyFOIAAddress"
-                    value={agencyFOIAAddress}
-                    onChange={(e) => setAgencyFOIAAddress(e.target.value)}
                     placeholder="FOIA Office, 123 Agency Blvd, Washington DC 20001"
+                    {...register('agencyFOIAAddress')}
                   />
                 </div>
               </div>
@@ -194,19 +182,19 @@ export function CreateFOIARequestDialog({
                   <Label htmlFor="solicitationNumber">Solicitation Number *</Label>
                   <Input
                     id="solicitationNumber"
-                    value={solicitationNumber}
-                    onChange={(e) => setSolicitationNumber(e.target.value)}
                     placeholder="e.g., W911NF-21-R-0001"
-                    required
+                    {...register('solicitationNumber')}
                   />
+                  {errors.solicitationNumber && (
+                    <p className="text-xs text-destructive">{errors.solicitationNumber.message}</p>
+                  )}
                 </div>
                 <div className="grid gap-2">
                   <Label htmlFor="contractNumber">Contract Number (if known)</Label>
                   <Input
                     id="contractNumber"
-                    value={contractNumber}
-                    onChange={(e) => setContractNumber(e.target.value)}
                     placeholder="e.g., W911NF-21-C-0001"
+                    {...register('contractNumber')}
                   />
                 </div>
               </div>
@@ -215,66 +203,91 @@ export function CreateFOIARequestDialog({
             {/* Requested Documents */}
             <div className="space-y-4">
               <h4 className="text-sm font-medium">Documents to Request *</h4>
-              <div className="grid gap-2">
-                {FOIA_DOCUMENT_TYPES.map((docType) => (
-                  <div key={docType} className="flex items-start space-x-3">
-                    <Checkbox
-                      id={docType}
-                      checked={selectedDocuments.includes(docType)}
-                      onCheckedChange={() => handleDocumentToggle(docType)}
-                    />
-                    <div className="grid gap-1 leading-none">
-                      <Label htmlFor={docType} className="text-sm font-normal cursor-pointer">
-                        {FOIA_DOCUMENT_DESCRIPTIONS[docType]}
-                      </Label>
-                    </div>
+              <Controller
+                name="requestedDocuments"
+                control={control}
+                render={({ field }) => (
+                  <div className="grid gap-2">
+                    {FOIA_DOCUMENT_TYPES.map((docType: FOIADocumentType) => (
+                      <div key={docType} className="flex items-start space-x-3">
+                        <Checkbox
+                          id={docType}
+                          checked={field.value?.includes(docType) ?? false}
+                          onCheckedChange={(checked) => {
+                            const current = field.value ?? [];
+                            field.onChange(
+                              checked
+                                ? [...current, docType]
+                                : current.filter((d) => d !== docType),
+                            );
+                          }}
+                        />
+                        <div className="grid gap-1 leading-none">
+                          <Label htmlFor={docType} className="text-sm font-normal cursor-pointer">
+                            {FOIA_DOCUMENT_DESCRIPTIONS[docType]}
+                          </Label>
+                        </div>
+                      </div>
+                    ))}
                   </div>
-                ))}
-              </div>
+                )}
+              />
+              {errors.requestedDocuments && (
+                <p className="text-xs text-destructive">{errors.requestedDocuments.message}</p>
+              )}
             </div>
 
             {/* Requester Information */}
             <div className="space-y-4">
-              <h4 className="text-sm font-medium">Your Contact Information</h4>
+              <div className="flex items-center justify-between">
+                <h4 className="text-sm font-medium">Your Contact Information</h4>
+                {primaryContact && (
+                  <span className="text-xs text-muted-foreground">
+                    Pre-filled from{' '}
+                    <span className="font-medium text-foreground">{primaryContact.name}</span>
+                    {' '}(primary contact)
+                  </span>
+                )}
+              </div>
               <div className="grid gap-3">
                 <div className="grid gap-2">
                   <Label htmlFor="requesterName">Name *</Label>
                   <Input
                     id="requesterName"
-                    value={requesterName}
-                    onChange={(e) => setRequesterName(e.target.value)}
                     placeholder="John Smith"
-                    required
+                    {...register('requesterName')}
                   />
+                  {errors.requesterName && (
+                    <p className="text-xs text-destructive">{errors.requesterName.message}</p>
+                  )}
                 </div>
                 <div className="grid gap-2">
                   <Label htmlFor="requesterEmail">Email *</Label>
                   <Input
                     id="requesterEmail"
                     type="email"
-                    value={requesterEmail}
-                    onChange={(e) => setRequesterEmail(e.target.value)}
                     placeholder="john@company.com"
-                    required
+                    {...register('requesterEmail')}
                   />
+                  {errors.requesterEmail && (
+                    <p className="text-xs text-destructive">{errors.requesterEmail.message}</p>
+                  )}
                 </div>
                 <div className="grid gap-2">
                   <Label htmlFor="requesterPhone">Phone</Label>
                   <Input
                     id="requesterPhone"
                     type="tel"
-                    value={requesterPhone}
-                    onChange={(e) => setRequesterPhone(e.target.value)}
                     placeholder="(555) 123-4567"
+                    {...register('requesterPhone')}
                   />
                 </div>
                 <div className="grid gap-2">
                   <Label htmlFor="requesterAddress">Mailing Address</Label>
                   <Input
                     id="requesterAddress"
-                    value={requesterAddress}
-                    onChange={(e) => setRequesterAddress(e.target.value)}
                     placeholder="123 Business Ave, Suite 100, City, ST 12345"
+                    {...register('requesterAddress')}
                   />
                 </div>
               </div>
@@ -285,10 +298,9 @@ export function CreateFOIARequestDialog({
               <Label htmlFor="notes">Additional Notes</Label>
               <Textarea
                 id="notes"
-                value={notes}
-                onChange={(e) => setNotes(e.target.value)}
                 placeholder="Any additional context or notes for this FOIA request..."
                 rows={3}
+                {...register('notes')}
               />
             </div>
           </div>
@@ -310,4 +322,4 @@ export function CreateFOIARequestDialog({
       </DialogContent>
     </Dialog>
   );
-}
+};

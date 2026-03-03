@@ -54,7 +54,7 @@ const readPrompt = async (orgId: string, type: PromptType, pk: string): Promise<
       TableName: DB_TABLE_NAME,
       Key: {
         [PK_NAME]: pk,
-        [SK_NAME]: `${type}#${orgId}`,
+        [SK_NAME]: `${orgId}#${type}`,
       },
       ConsistentRead: false,
     }),

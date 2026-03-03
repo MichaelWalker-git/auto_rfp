@@ -45,8 +45,9 @@ export function truncateText(text: string, maxChars: number) {
 }
 
 /**
- * Extract JSON even if the model wraps it in text or ```json fences.
+ * Extract JSON object or array even if the model wraps it in text or ```json fences.
  * Fixes AUTO-RFP-67 and AUTO-RFP-5D: Better error handling for truncated/malformed responses.
+ * Supports both JSON objects {...} and arrays [...].
  */
 export function extractFirstJsonObject(text: string): string {
   if (!text) throw new Error('Empty model output');
@@ -59,16 +60,41 @@ export function extractFirstJsonObject(text: string): string {
   try {
     JSON.parse(candidate);
     return candidate;
-  } catch (directParseError) {
-    // continue to brace scanning
+  } catch {
+    // continue to bracket scanning
   }
 
-  // Find first { ... } block via a simple brace scan
-  const start = candidate.indexOf('{');
-  if (start === -1) {
-    // Provide more context about what we received
+  // Find first { or [ to support both objects and arrays
+  const objectStart = candidate.indexOf('{');
+  const arrayStart = candidate.indexOf('[');
+  
+  // Determine which comes first (or if neither exists)
+  let start: number;
+  let openBracket: string;
+  let closeBracket: string;
+  
+  if (objectStart === -1 && arrayStart === -1) {
     const preview = candidate.length > 200 ? candidate.slice(0, 200) + '...' : candidate;
-    throw new Error(`No JSON object start "{" found in model output. Received: ${preview}`);
+    throw new Error(`No JSON start "{" or "[" found in model output. Received: ${preview}`);
+  } else if (objectStart === -1) {
+    start = arrayStart;
+    openBracket = '[';
+    closeBracket = ']';
+  } else if (arrayStart === -1) {
+    start = objectStart;
+    openBracket = '{';
+    closeBracket = '}';
+  } else {
+    // Both exist - use whichever comes first
+    if (arrayStart < objectStart) {
+      start = arrayStart;
+      openBracket = '[';
+      closeBracket = ']';
+    } else {
+      start = objectStart;
+      openBracket = '{';
+      closeBracket = '}';
+    }
   }
 
   let depth = 0;
@@ -92,10 +118,11 @@ export function extractFirstJsonObject(text: string): string {
       continue;
     }
 
-    // Only count braces outside of strings
+    // Only count brackets outside of strings
+    // Track both {} and [] for nested structures
     if (!inString) {
-      if (ch === '{') depth++;
-      if (ch === '}') depth--;
+      if (ch === '{' || ch === '[') depth++;
+      if (ch === '}' || ch === ']') depth--;
       if (depth === 0) {
         const jsonStr = candidate.slice(start, i + 1);
         try {
@@ -104,7 +131,7 @@ export function extractFirstJsonObject(text: string): string {
         } catch (parseErr) {
           // Fix AUTO-RFP-67: Better error context for JSON parse failures
           const errorMsg = parseErr instanceof Error ? parseErr.message : 'Unknown parse error';
-          throw new Error(`JSON SyntaxError parsing extracted object: ${errorMsg}. JSON length: ${jsonStr.length}`);
+          throw new Error(`JSON SyntaxError parsing extracted JSON: ${errorMsg}. JSON length: ${jsonStr.length}`);
         }
       }
     }
@@ -113,7 +140,7 @@ export function extractFirstJsonObject(text: string): string {
   // Fix AUTO-RFP-5D: Better error message for truncated responses
   const truncatedPreview = candidate.length > 300 ? candidate.slice(-300) : candidate;
   throw new Error(
-    `No complete JSON object found in model output. Response may be truncated. ` +
+    `No complete JSON found in model output. Response may be truncated. ` +
     `Depth at end: ${depth}, in string: ${inString}. End of response: ...${truncatedPreview}`
   );
 }
@@ -667,76 +694,85 @@ export async function invokeClaudeJson<S extends SchemaLike<any>>(args: {
   }
 }
 
-export async function loadSolicitationForBrief(brief: ExecutiveBriefItem): Promise<{ solicitationText: string; }> {
+export async function loadSolicitationForBrief(brief: ExecutiveBriefItem): Promise<{ solicitationText: string; textKeys: string[] }> {
   const bucket = brief.documentsBucket || DOCUMENTS_BUCKET;
-  const allTextKeys = brief.allTextKeys;
 
-  // Collect all text keys to load
-  const textKeysToLoad: string[] = [];
-
-  if (allTextKeys && allTextKeys.length > 0) {
-    // Use all text keys if available
-    textKeysToLoad.push(...allTextKeys.filter(Boolean));
+  // ── Step 1: Dynamically fetch ALL current processed question files for this opportunity ──
+  // This ensures newly uploaded documents are always included, even if uploaded after init.
+  let dynamicTextKeys: string[] = [];
+  try {
+    const liveFiles = await loadAllQuestionFiles(brief.projectId, brief.opportunityId as string);
+    const processedFiles = liveFiles.filter((f: any) => f.textFileKey && f.status === 'PROCESSED');
+    dynamicTextKeys = processedFiles.map((f: any) => f.textFileKey).filter(Boolean) as string[];
+    console.log(`loadSolicitationForBrief: found ${dynamicTextKeys.length} live processed files for opportunityId=${brief.opportunityId}`);
+  } catch (err) {
+    console.warn(`loadSolicitationForBrief: failed to fetch live question files, falling back to allTextKeys:`, (err as Error)?.message);
   }
 
-  if (textKeysToLoad.length === 0) {
-    throw new Error(`No text keys found for brief projectId=${brief.projectId}, opportunityId=${brief.opportunityId}`);
+  // ── Step 2: Merge with stored allTextKeys (union, deduplicated) ──
+  // Prefer live keys but keep any stored keys that may not be in the live query result.
+  const storedKeys = (brief.allTextKeys ?? []).filter(Boolean) as string[];
+  const allKeys = Array.from(new Set([...dynamicTextKeys, ...storedKeys]));
+
+  if (allKeys.length === 0) {
+    throw new Error(
+      `No processed question files found for brief. ` +
+      `projectId=${brief.projectId}, opportunityId=${brief.opportunityId}. ` +
+      `Please upload and process solicitation documents before generating the brief.`
+    );
   }
 
-  // Load all text files in parallel
-  const textPromises = textKeysToLoad.map(async (textKey) => {
+  console.log(`loadSolicitationForBrief: loading ${allKeys.length} text key(s) (${dynamicTextKeys.length} live + ${storedKeys.length} stored, deduplicated)`);
+
+  // ── Step 3: Load all text files in parallel ──
+  const textPromises = allKeys.map(async (textKey) => {
     try {
       const text = await loadTextFromS3(bucket, textKey);
       return { textKey, text, success: true };
     } catch (err) {
-      console.warn(`Failed to load text from ${textKey}:`, err);
+      console.warn(`Failed to load text from ${textKey}:`, (err as Error)?.message);
       return { textKey, text: '', success: false };
     }
   });
 
   const results = await Promise.all(textPromises);
 
-  // Filter successful loads and merge texts
-  const successfulTexts: string[] = results
-    .filter((r): r is { textKey: string; text: string; success: true } =>
+  const successfulResults = results.filter(
+    (r): r is { textKey: string; text: string; success: true } =>
       r.success && r.text.trim().length > 0
-    )
-    .map(r => r.text);
+  );
 
-  if (successfulTexts.length === 0) {
+  if (successfulResults.length === 0) {
     const failedKeys = results.filter(r => !r.success).map(r => r.textKey);
     throw new Error(
       `Failed to load any solicitation text. ` +
-      `Attempted keys: ${textKeysToLoad.join(', ')}. ` +
-      `Failed keys: ${failedKeys.join(', ')}. ` +
+      `Attempted ${allKeys.length} key(s). Failed: ${failedKeys.join(', ')}. ` +
       `bucket=${bucket}, projectId=${brief.projectId}, opportunityId=${brief.opportunityId}`
     );
   }
 
-  // Merge all texts with separators
+  // ── Step 4: Merge texts with document separators ──
   let solicitationText: string;
-  if (successfulTexts.length === 1) {
-    solicitationText = successfulTexts[0] || 'Empty solicitation';
+  if (successfulResults.length === 1) {
+    solicitationText = successfulResults[0]!.text;
   } else {
-    solicitationText = successfulTexts.map((text, i) => {
-      const header = `\n\n=== DOCUMENT ${i + 1} of ${successfulTexts.length} ===\n\n`;
-      return header + text;
-    }).join('');
+    solicitationText = successfulResults
+      .map((r, i) => `\n\n=== DOCUMENT ${i + 1} of ${successfulResults.length} ===\n\n${r.text}`)
+      .join('');
   }
 
-  // Validate merged text
   const trimmedLength = solicitationText.trim().length;
   if (trimmedLength < 20) {
     throw new Error(
       `Merged solicitation text is too short (${trimmedLength} chars). ` +
-      `Loaded ${successfulTexts.length} document(s) from ${textKeysToLoad.length} key(s). ` +
+      `Loaded ${successfulResults.length} document(s). ` +
       `bucket=${bucket}, projectId=${brief.projectId}, opportunityId=${brief.opportunityId}`
     );
   }
 
-  console.log(`Loaded solicitation text: ${successfulTexts.length} document(s), ${solicitationText.length} total chars`);
+  console.log(`loadSolicitationForBrief: loaded ${successfulResults.length} document(s), ${solicitationText.length} total chars`);
 
-  return { solicitationText };
+  return { solicitationText, textKeys: successfulResults.map(r => r.textKey) };
 }
 
 /**

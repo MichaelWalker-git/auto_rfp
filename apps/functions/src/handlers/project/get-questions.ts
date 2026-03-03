@@ -121,6 +121,7 @@ async function groupQuestions(
       id: qId,
       question: item.question,
       answer: answerItem?.text ?? null,
+      opportunityId: item.opportunityId ?? null,
     });
   }
 

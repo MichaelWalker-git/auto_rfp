@@ -2,7 +2,7 @@ import type { APIGatewayProxyEventV2, APIGatewayProxyResultV2 } from 'aws-lambda
 import middy from '@middy/core';
 import { CONTENT_LIBRARY_PK, ContentLibraryItem, createContentLibrarySK, } from '@auto-rfp/core';
 import { apiResponse, getOrgId } from '@/helpers/api';
-import { getItem } from '@/helpers/db';
+import { getItem, queryBySkPrefix } from '@/helpers/db';
 import { withSentryLambda } from '@/sentry-lambda';
 import { authContextMiddleware, httpErrorMiddleware, orgMembershipMiddleware, } from '@/middleware/rbac-middleware';
 
@@ -18,14 +18,22 @@ async function baseHandler(
     const orgId = event.queryStringParameters?.orgId || getOrgId(event);
     const kbId = event.queryStringParameters?.kbId;
 
-    if (!orgId || !kbId || !itemId) {
-      return apiResponse(400, { error: 'Missing orgId, kbId or itemId' });
+    if (!orgId || !itemId) {
+      return apiResponse(400, { error: 'Missing orgId or itemId' });
     }
 
-    const result = await getItem<ContentLibraryItem>(
+    // Try new SK format first (orgId#itemId), fall back to legacy (orgId#kbId#itemId)
+    let result = await getItem<ContentLibraryItem>(
       CONTENT_LIBRARY_PK,
-      createContentLibrarySK(orgId, kbId, itemId)
+      createContentLibrarySK(orgId, itemId)
     );
+
+    if (!result && kbId) {
+      result = await getItem<ContentLibraryItem>(
+        CONTENT_LIBRARY_PK,
+        createContentLibrarySK(orgId, kbId, itemId)
+      );
+    }
 
     if (!result) {
       return apiResponse(404, { error: 'Content library item not found' });

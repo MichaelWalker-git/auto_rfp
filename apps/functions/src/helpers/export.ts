@@ -1,4 +1,76 @@
+import { GetObjectCommand, S3Client } from '@aws-sdk/client-s3';
+import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { type RFPDocumentContent } from '@auto-rfp/core';
+import { loadRFPDocumentHtml } from './rfp-document';
+import { requireEnv } from './env';
+
+const DOCUMENTS_BUCKET = requireEnv('DOCUMENTS_BUCKET');
+const REGION = requireEnv('REGION', 'us-east-1');
+const PRESIGN_EXPIRES_IN = Number(process.env.PRESIGN_EXPIRES_IN || 3600);
+const s3ExportClient = new S3Client({ region: REGION });
+
+// ─── S3 image resolver ────────────────────────────────────────────────────────
+
+/**
+ * Resolve all `data-s3-key` attributes in an HTML string to presigned GET URLs.
+ * Used by export lambdas so exported documents contain real image URLs.
+ */
+export async function resolveS3ImagesForExport(html: string): Promise<string> {
+  if (!html) return html;
+
+  const s3KeyRegex = /data-s3-key="([^"]+)"/g;
+  const keys: string[] = [];
+  let match: RegExpExecArray | null;
+  while ((match = s3KeyRegex.exec(html)) !== null) {
+    keys.push(match[1]);
+  }
+  if (!keys.length) return html;
+
+  // Resolve all keys in parallel
+  const urlMap = new Map<string, string>();
+  await Promise.all(
+    keys.map(async (key) => {
+      try {
+        const url = await getSignedUrl(
+          s3ExportClient as Parameters<typeof getSignedUrl>[0],
+          new GetObjectCommand({ Bucket: DOCUMENTS_BUCKET, Key: key }),
+          { expiresIn: PRESIGN_EXPIRES_IN },
+        );
+        urlMap.set(key, url);
+      } catch (err) {
+        console.warn(`Failed to resolve S3 image key for export: ${key}`, err);
+      }
+    }),
+  );
+
+  return html.replace(
+    /<img([^>]*?)data-s3-key="([^"]+)"([^>]*?)>/g,
+    (fullMatch, before, key, after) => {
+      const resolvedUrl = urlMap.get(key);
+      if (!resolvedUrl) return fullMatch;
+      const withoutSrc = (before + after).replace(/\s*src="[^"]*"/, '');
+      return `<img${withoutSrc} src="${resolvedUrl}">`;
+    },
+  );
+}
+
+// ─── HTML content loader ──────────────────────────────────────────────────────
+
+/**
+ * Load the HTML content for a document.
+ * Prefers S3 (htmlContentKey) over inline DynamoDB content.
+ * Resolves data-s3-key image references to presigned URLs.
+ */
+export async function loadDocumentHtmlForExport(doc: Record<string, unknown>): Promise<string> {
+  if (!doc.htmlContentKey || typeof doc.htmlContentKey !== 'string') {
+    console.warn(`loadDocumentHtmlForExport: document has no htmlContentKey — returning empty HTML`);
+    return '';
+  }
+
+  const html = await loadRFPDocumentHtml(doc.htmlContentKey);
+  // Resolve data-s3-key images to presigned URLs for export
+  return resolveS3ImagesForExport(html);
+}
 
 /**
  * Shared utilities for proposal export across all formats.
@@ -197,6 +269,8 @@ export function proposalToMarkdown(doc: RFPDocumentContent): string {
 /**
  * Convert proposal document to full HTML page for export.
  * Wraps the stored htmlContent in a complete HTML document with styling.
+ * The `doc.content` field should already contain the full styled HTML body
+ * (loaded from S3 via loadDocumentHtmlForExport before calling this function).
  */
 export function proposalToHtml(doc: RFPDocumentContent): string {
   const escapeHtml = (text: string): string =>
@@ -216,44 +290,65 @@ export function proposalToHtml(doc: RFPDocumentContent): string {
   lines.push('  <meta name="viewport" content="width=device-width, initial-scale=1.0">');
   lines.push(`  <title>${escapeHtml(doc.title)}</title>`);
   lines.push('  <style>');
-  lines.push('    body { font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif; max-width: 900px; margin: 0 auto; padding: 40px 20px; color: #333; line-height: 1.6; }');
-  lines.push('    h1 { color: #1a1a2e; border-bottom: 3px solid #4f46e5; padding-bottom: 12px; margin-top: 0; }');
-  lines.push('    h2 { color: #1a1a2e; border-bottom: 1px solid #e2e8f0; padding-bottom: 8px; margin-top: 32px; }');
-  lines.push('    h3 { color: #374151; margin-top: 24px; }');
-  lines.push('    p { margin: 0 0 1em; line-height: 1.7; color: #374151; }');
-  lines.push('    ul, ol { margin: 0 0 1em; padding-left: 1.5em; }');
-  lines.push('    li { margin-bottom: 0.4em; line-height: 1.6; color: #374151; }');
-  lines.push('    table { width: 100%; border-collapse: collapse; margin: 1em 0; }');
-  lines.push('    th { background: #4f46e5; color: #fff; padding: 0.6em 0.8em; text-align: left; font-size: 0.9em; }');
-  lines.push('    td { padding: 0.6em 0.8em; font-size: 0.9em; color: #374151; border-bottom: 1px solid #e2e8f0; }');
-  lines.push('    .metadata { color: #718096; font-size: 0.95em; margin-bottom: 24px; }');
+  // Page layout — matches the Word-like editor (816px wide, 1-inch margins)
+  lines.push('    * { box-sizing: border-box; }');
+  lines.push('    body { font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif; background: #f3f4f6; margin: 0; padding: 32px 16px; color: #374151; line-height: 1.6; }');
+  lines.push('    .page { max-width: 816px; margin: 0 auto; background: #fff; padding: 72px 96px; box-shadow: 0 2px 8px rgba(0,0,0,0.12); }');
+  lines.push('    .metadata { color: #6b7280; font-size: 0.9em; margin-bottom: 24px; border-bottom: 1px solid #e5e7eb; padding-bottom: 12px; }');
   lines.push('    .metadata span { display: inline-block; margin-right: 24px; }');
-  lines.push('    @media print { body { max-width: 100%; padding: 20px; } }');
+  // Typography — matches the Tiptap editor styles
+  lines.push('    h1 { font-size: 1.875rem; font-weight: 700; margin: 1.5rem 0 0.5rem; color: #111827; border-bottom: 3px solid #4f46e5; padding-bottom: 0.3em; }');
+  lines.push('    h2 { font-size: 1.5rem; font-weight: 600; margin: 1.25rem 0 0.5rem; color: #1f2937; border-bottom: 1px solid #e5e7eb; padding-bottom: 0.2em; }');
+  lines.push('    h3 { font-size: 1.25rem; font-weight: 600; margin: 1rem 0 0.4rem; color: #1f2937; }');
+  lines.push('    p { margin: 0 0 0.75rem; line-height: 1.75; color: #374151; }');
+  lines.push('    ul { list-style: disc; margin: 0 0 0.75rem; padding-left: 1.5rem; }');
+  lines.push('    ol { list-style: decimal; margin: 0 0 0.75rem; padding-left: 1.5rem; }');
+  lines.push('    li { margin-bottom: 0.25rem; line-height: 1.75; color: #374151; }');
+  lines.push('    blockquote { border-left: 4px solid #d1d5db; padding-left: 1rem; margin: 1rem 0; font-style: italic; color: #6b7280; }');
+  lines.push('    table { width: 100%; border-collapse: collapse; margin: 1rem 0; }');
+  lines.push('    th { background: #4f46e5; color: #fff; padding: 0.6em 0.8em; text-align: left; font-size: 0.9em; font-weight: 600; }');
+  lines.push('    td { padding: 0.6em 0.8em; font-size: 0.9em; color: #374151; border-bottom: 1px solid #e5e7eb; }');
+  lines.push('    tr:nth-child(even) td { background: #f9fafb; }');
+  lines.push('    a { color: #2563eb; text-decoration: underline; }');
+  lines.push('    strong { font-weight: 700; }');
+  lines.push('    em { font-style: italic; }');
+  lines.push('    code { background: #f3f4f6; padding: 0.1em 0.3em; border-radius: 3px; font-family: monospace; font-size: 0.9em; }');
+  lines.push('    img { max-width: 100%; border-radius: 4px; margin: 0.5rem 0; }');
+  lines.push('    hr { border: none; border-top: 1px solid #e5e7eb; margin: 1.5rem 0; }');
+  lines.push('    @media print { body { background: #fff; padding: 0; } .page { box-shadow: none; padding: 20px; } }');
   lines.push('  </style>');
   lines.push('</head>');
   lines.push('<body>');
+  lines.push('  <div class="page">');
 
-  lines.push('  <div class="metadata">');
-  if (doc.customerName) {
-    lines.push(`    <span><strong>Customer:</strong> ${escapeHtml(doc.customerName)}</span>`);
+  // Metadata bar
+  if (doc.customerName || doc.opportunityId) {
+    lines.push('    <div class="metadata">');
+    if (doc.customerName) {
+      lines.push(`      <span><strong>Customer:</strong> ${escapeHtml(doc.customerName)}</span>`);
+    }
+    if (doc.opportunityId) {
+      lines.push(`      <span><strong>Opportunity ID:</strong> ${escapeHtml(doc.opportunityId)}</span>`);
+    }
+    lines.push(`      <span><strong>Date:</strong> ${new Date().toLocaleDateString()}</span>`);
+    lines.push('    </div>');
   }
-  if (doc.opportunityId) {
-    lines.push(`    <span><strong>Opportunity ID:</strong> ${escapeHtml(doc.opportunityId)}</span>`);
-  }
-  lines.push(`    <span><strong>Date:</strong> ${new Date().toLocaleDateString()}</span>`);
-  lines.push('  </div>');
 
+  // Main content — use the full HTML body from the editor/S3
   if (doc.content) {
-    lines.push(`  <div class="content">${doc.content}</div>`);
+    lines.push(`    <div class="content">${doc.content}</div>`);
   } else {
-    lines.push(`  <h1>${escapeHtml(doc.title)}</h1>`);
+    // Fallback when no HTML content available
+    lines.push(`    <h1>${escapeHtml(doc.title)}</h1>`);
     if (doc.outlineSummary) {
-      lines.push(`  <p>${escapeHtml(doc.outlineSummary)}</p>`);
+      lines.push(`    <p>${escapeHtml(doc.outlineSummary)}</p>`);
     }
   }
 
+  lines.push('  </div>');
   lines.push('</body>');
   lines.push('</html>');
 
   return lines.join('\n');
 }
+

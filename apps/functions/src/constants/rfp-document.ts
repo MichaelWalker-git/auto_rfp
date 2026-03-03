@@ -1,1 +1,2 @@
 export const RFP_DOCUMENT_PK = 'RFP_DOCUMENT';
+export const CUSTOM_DOC_TYPE_PK = 'CUSTOM_DOC_TYPE';

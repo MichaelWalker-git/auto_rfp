@@ -35,6 +35,7 @@ import {
 import { Separator } from '@/components/ui/separator';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
+import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/components/ui/use-toast';
 
 import {
@@ -42,8 +43,14 @@ import {
   type RFPDocumentType,
   RFP_DOCUMENT_TYPES,
   useUpdateRFPDocument,
+  useRFPDocumentHtmlContent,
 } from '@/lib/hooks/use-rfp-documents';
-import { RichTextEditor } from './rich-text-editor';
+import { RichTextEditor, stripPresignedUrlsFromHtml } from './rich-text-editor';
+import {
+  usePresignUpload,
+  usePresignDownload,
+  uploadFileToS3,
+} from '@/lib/hooks/use-presign';
 
 // ─── Form schema ──────────────────────────────────────────────────────────────
 
@@ -70,10 +77,8 @@ interface Props {
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-const getDocumentHtml = (doc: RFPDocumentItem): string =>
-  (doc.content as Record<string, unknown> | null | undefined)?.content as string ?? '';
-
-const isContentDocument = (doc: RFPDocumentItem): boolean => doc.content != null;
+const isContentDocument = (doc: RFPDocumentItem): boolean =>
+  !!(doc.content || doc.htmlContentKey);
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
@@ -96,12 +101,40 @@ export const RFPDocumentEditDialog = ({
   const { trigger: updateDocument, isMutating } = useUpdateRFPDocument(orgId);
   const { toast } = useToast();
 
-  // HTML content is managed outside react-hook-form because RichTextEditor
-  // is an uncontrolled-style component that emits HTML strings.
-  const [htmlContent, setHtmlContent] = useState('');
-  const htmlDirtyRef = useRef(false);
+  // ── Presign hooks for image upload/download ──
+  const { trigger: triggerPresignUpload } = usePresignUpload();
+  const { trigger: triggerPresignDownload } = usePresignDownload();
+
+  const handleUploadImageToS3 = useCallback(async (file: File): Promise<string> => {
+    const prefix = `${orgId}/editor-images`;
+    const presign = await triggerPresignUpload({ fileName: file.name, contentType: file.type, prefix });
+    await uploadFileToS3(presign.url, presign.method, file);
+    return presign.key;
+  }, [orgId, triggerPresignUpload]);
+
+  const handleGetDownloadUrl = useCallback(async (key: string): Promise<string> => {
+    const presign = await triggerPresignDownload({ key });
+    return presign.url;
+  }, [triggerPresignDownload]);
 
   const hasContent = doc ? isContentDocument(doc) : false;
+  const [isImageUploading, setIsImageUploading] = useState(false);
+
+  // ── Load HTML from S3 (or legacy inline fallback) when dialog is open ──
+  const {
+    html: remoteHtml,
+    isLoading: isHtmlLoading,
+    mutate: mutateHtml,
+  } = useRFPDocumentHtmlContent(
+    open && doc ? doc.projectId : null,
+    open && doc ? doc.opportunityId : null,
+    open && doc ? doc.documentId : null,
+    open && doc ? orgId : null,
+  );
+
+  // HTML content is managed outside react-hook-form
+  const [htmlContent, setHtmlContent] = useState('');
+  const htmlInitializedRef = useRef(false);
 
   const form = useForm<MetadataFormValues>({
     resolver: zodResolver(MetadataSchema),
@@ -115,28 +148,41 @@ export const RFPDocumentEditDialog = ({
     },
   });
 
-  // Populate form when document changes
+  // Populate metadata form when document changes
   useEffect(() => {
     if (!doc) return;
-
     const c = doc.content as Record<string, unknown> | null | undefined;
-
     form.reset({
       name: doc.name,
       description: doc.description ?? '',
       documentType: doc.documentType,
-      title: (c?.title as string | undefined) ?? '',
+      title: (c?.title as string | undefined) ?? doc.title ?? '',
       customerName: (c?.customerName as string | undefined) ?? '',
       outlineSummary: (c?.outlineSummary as string | undefined) ?? '',
     });
-
-    setHtmlContent(getDocumentHtml(doc));
-    htmlDirtyRef.current = false;
+    // Reset HTML init flag so it re-loads when a new doc opens
+    htmlInitializedRef.current = false;
+    setHtmlContent('');
   }, [doc, form]);
+
+  // Populate HTML once loaded from S3.
+  // The Lambda already resolved s3key: placeholders to presigned URLs server-side.
+  useEffect(() => {
+    if (isHtmlLoading || htmlInitializedRef.current || remoteHtml === undefined) return;
+    htmlInitializedRef.current = true;
+    setHtmlContent(remoteHtml);
+  }, [remoteHtml, isHtmlLoading]);
+
+  // Reset when dialog closes
+  useEffect(() => {
+    if (!open) {
+      htmlInitializedRef.current = false;
+      setHtmlContent('');
+    }
+  }, [open]);
 
   const handleHtmlChange = useCallback((html: string) => {
     setHtmlContent(html);
-    htmlDirtyRef.current = true;
   }, []);
 
   const handleClose = useCallback(() => {
@@ -157,14 +203,15 @@ export const RFPDocumentEditDialog = ({
           documentType: values.documentType,
         };
 
-        if (hasContent && doc.content) {
-          const baseContent = doc.content as Record<string, unknown>;
+        if (hasContent) {
+          const c = doc.content as Record<string, unknown> | null | undefined;
           const updatedContent: Record<string, unknown> = {
-            ...baseContent,
+            ...(c ?? {}),
             title: values.title?.trim() || values.name.trim(),
             customerName: values.customerName?.trim() || undefined,
             outlineSummary: values.outlineSummary?.trim() || undefined,
-            content: htmlContent,
+            // Always strip presigned/blob URLs before saving
+            content: stripPresignedUrlsFromHtml(htmlContent),
           };
 
           payload.content = updatedContent;
@@ -172,6 +219,9 @@ export const RFPDocumentEditDialog = ({
         }
 
         await updateDocument(payload as Parameters<typeof updateDocument>[0]);
+        // Revalidate SWR cache in background — keep editor content to avoid breaking images
+        htmlInitializedRef.current = true;
+        await mutateHtml();
 
         toast({
           title: 'Document updated',
@@ -188,7 +238,7 @@ export const RFPDocumentEditDialog = ({
         });
       }
     },
-    [doc, hasContent, htmlContent, updateDocument, toast, onOpenChange, onSuccess],
+    [doc, hasContent, htmlContent, updateDocument, mutateHtml, toast, onOpenChange, onSuccess],
   );
 
   if (!doc) return null;
@@ -231,24 +281,34 @@ export const RFPDocumentEditDialog = ({
 
                 {/* Metadata tab */}
                 <TabsContent value="metadata" className="flex-1 overflow-y-auto space-y-4 pr-1">
-                  <MetadataFields form={form} isMutating={isMutating} showContentFields />
+                  <MetadataFields form={form} isMutating={isMutating} />
                 </TabsContent>
 
-                {/* Content tab — always uses RichTextEditor */}
+                {/* Content tab — loads HTML from S3 via useRFPDocumentHtmlContent */}
                 <TabsContent value="content" className="flex-1 min-h-0 flex flex-col">
-                  <RichTextEditor
-                    value={htmlContent}
-                    onChange={handleHtmlChange}
-                    disabled={isMutating}
-                    className="flex-1 min-h-0"
-                    minHeight="calc(92vh - 220px)"
-                  />
+                  {isHtmlLoading ? (
+                    <div className="flex-1 flex flex-col gap-3 p-4">
+                      <Skeleton className="h-8 w-full" />
+                      <Skeleton className="h-full w-full" />
+                    </div>
+                  ) : (
+                    <RichTextEditor
+                      value={htmlContent}
+                      onChange={handleHtmlChange}
+                      disabled={isMutating}
+                      className="flex-1 min-h-0"
+                      minHeight="calc(92vh - 220px)"
+                      onUploadImageToS3={handleUploadImageToS3}
+                      onGetDownloadUrl={handleGetDownloadUrl}
+                      onUploadingChange={setIsImageUploading}
+                    />
+                  )}
                 </TabsContent>
               </Tabs>
             ) : (
               /* ── Metadata-only document (uploaded file, no editable content) ── */
               <div className="flex-1 overflow-y-auto space-y-4 py-2 pr-1">
-                <MetadataFields form={form} isMutating={isMutating} showContentFields={false} />
+                <MetadataFields form={form} isMutating={isMutating} />
               </div>
             )}
 
@@ -264,7 +324,7 @@ export const RFPDocumentEditDialog = ({
                 <X className="h-4 w-4 mr-2" />
                 Cancel
               </Button>
-              <Button type="submit" disabled={isMutating}>
+              <Button type="submit" disabled={isMutating || isHtmlLoading || isImageUploading} title={isImageUploading ? 'Please wait for image upload to complete' : undefined}>
                 {isMutating ? (
                   <>
                     <Loader2 className="h-4 w-4 mr-2 animate-spin" />
@@ -290,10 +350,9 @@ export const RFPDocumentEditDialog = ({
 interface MetadataFieldsProps {
   form: ReturnType<typeof useForm<MetadataFormValues>>;
   isMutating: boolean;
-  showContentFields: boolean;
 }
 
-const MetadataFields = ({ form, isMutating, showContentFields }: MetadataFieldsProps) => (
+const MetadataFields = ({ form, isMutating }: MetadataFieldsProps) => (
   <>
     {/* Name */}
     <FormField
@@ -359,74 +418,5 @@ const MetadataFields = ({ form, isMutating, showContentFields }: MetadataFieldsP
         </FormItem>
       )}
     />
-
-    {/* Content-specific fields */}
-    {showContentFields && (
-      <>
-        <Separator />
-
-        <p className="text-xs text-muted-foreground font-medium uppercase tracking-wide">
-          Document Content Fields
-        </p>
-
-        {/* Proposal Title */}
-        <FormField
-          control={form.control}
-          name="title"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Document Title</FormLabel>
-              <FormControl>
-                <Input
-                  {...field}
-                  disabled={isMutating}
-                  placeholder="Title shown in the document header"
-                />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-
-        {/* Customer Name */}
-        <FormField
-          control={form.control}
-          name="customerName"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Customer / Agency Name</FormLabel>
-              <FormControl>
-                <Input
-                  {...field}
-                  disabled={isMutating}
-                  placeholder="e.g. Department of Defense"
-                />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-
-        {/* Executive Summary */}
-        <FormField
-          control={form.control}
-          name="outlineSummary"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Executive Summary / Outline</FormLabel>
-              <FormControl>
-                <Textarea
-                  {...field}
-                  rows={4}
-                  disabled={isMutating}
-                  placeholder="High-level summary or outline for this document…"
-                />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-      </>
-    )}
   </>
 );
