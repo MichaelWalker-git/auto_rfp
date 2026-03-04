@@ -62,6 +62,12 @@ export const CONTENT_LIBRARY_PERMISSIONS = [
   'content_library:approve-content'
 ] as const;
 
+export const APN_PERMISSIONS = [
+  'apn:read',
+  'apn:configure',
+  'apn:retry',
+] as const;
+
 export const ALL_PERMISSIONS = [
   ...USER_PERMISSIONS,
   ...ORG_PERMISSIONS,
@@ -69,6 +75,7 @@ export const ALL_PERMISSIONS = [
   ...OPPORTUNITY_PERMISSIONS,
   ...PROMPT_PERMISSIONS,
   ...CONTENT_LIBRARY_PERMISSIONS,
+  ...APN_PERMISSIONS,
   'kb:upload', 'kb:read', 'kb:create', 'kb:edit', 'kb:delete',
   'project:create', 'project:edit', 'project:read', 'project:delete',
   'question:read', 'question:create', 'question:edit', 'question:delete',
@@ -106,6 +113,7 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     'collaboration:presence',
     'collaboration:activity',
     'notification:read',
+    'apn:read',
   ],
   EDITOR: [
     ...VIEWER_PERMISSIONS,
@@ -117,6 +125,8 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     'collaboration:assign',
     'collaboration:activity',
     'notification:read',
+    'apn:read',
+    'apn:retry',
   ],
   BILLING: [
     'question:read', 'org:read', 'kb:read', 'proposal:read', 'project:read',
