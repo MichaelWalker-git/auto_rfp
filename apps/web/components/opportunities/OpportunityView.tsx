@@ -16,6 +16,7 @@ import { FOIARequestCard } from '@/components/foia/FOIARequestCard';
 import { OpportunityContextPanel } from './opportunity-context-panel';
 import { useCurrentOrganization } from '@/context/organization-context';
 import { saveSelectedOpportunity } from '@/lib/utils/opportunity-selection';
+import { ApnRegistrationCard } from '@/features/apn';
 
 interface OpportunityViewProps {
   projectId: string;
@@ -60,6 +61,9 @@ function OpportunityContent({ className }: { className?: string }) {
         </Link>
       </Button>
       <OpportunityHeader />
+
+      {/* APN Registration Status */}
+      <ApnRegistrationCard orgId={orgId} projectId={projectId} oppId={oppId} />
 
       {/* Questions & Answers Card */}
       {navOrgId && (

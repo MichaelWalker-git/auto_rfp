@@ -63,6 +63,11 @@ export const AuditActionSchema = z.enum([
   'REPORT_GENERATED',
   // Configuration
   'CONFIG_CHANGED',
+  // APN (AWS Partner Network) registration events
+  'APN_REGISTRATION_STARTED',
+  'APN_REGISTRATION_COMPLETED',
+  'APN_REGISTRATION_FAILED',
+  'APN_REGISTRATION_RETRIED',
 ]);
 export type AuditAction = z.infer<typeof AuditActionSchema>;
 
@@ -87,6 +92,7 @@ export const AuditResourceSchema = z.enum([
   'config',
   'system',
   'ai_tool',
+  'apn_registration',
 ]);
 export type AuditResource = z.infer<typeof AuditResourceSchema>;
 

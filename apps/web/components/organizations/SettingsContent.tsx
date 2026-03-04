@@ -21,6 +21,7 @@ import { SamGovApiKeyConfiguration } from '@/components/api-key/SamGovApiKeyConf
 import { DibbsApiKeyConfiguration } from '@/components/api-key/DibbsApiKeyConfiguration';
 import { LinearApiKeyConfiguration } from '@/components/api-key/LinearApiKeyConfiguration';
 import { GoogleApiKeyConfiguration } from '@/components/api-key/GoogleApiKeyConfiguration';
+import { ApnCredentialsForm } from '@/features/apn';
 import { authFetcher } from '@/lib/auth/auth-fetcher';
 import { env } from '@/lib/env';
 import { usePresignUpload, uploadFileToS3 } from '@/lib/hooks/use-presign';
@@ -263,6 +264,11 @@ export function SettingsContent({ orgId }: SettingsContentProps) {
           <GoogleApiKeyConfiguration orgId={orgId} />
 
           <LinearApiKeyConfiguration orgId={orgId} />
+
+          {/* AWS Partner Network (APN) Credentials */}
+          <PermissionWrapper requiredPermission="org:manage_settings">
+            <ApnCredentialsForm orgId={orgId} />
+          </PermissionWrapper>
 
           {/* Prompts Management Link */}
           <Card className="hover:border-primary/50 transition-colors">

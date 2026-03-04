@@ -51,6 +51,7 @@ import { auditDomain } from './routes/audit.routes';
 import { analyticsDomain } from './routes/analytics.routes';
 import { clarifyingQuestionDomain } from './routes/clarifying-question.routes';
 import { engagementLogDomain } from './routes/engagement-log.routes';
+import { apnDomain } from './routes/apn.routes';
 
 export interface ApiOrchestratorStackProps extends cdk.StackProps {
   stage: string;
@@ -417,6 +418,7 @@ export class ApiOrchestratorStack extends cdk.Stack {
       analyticsDomain(),
       clarifyingQuestionDomain(),
       engagementLogDomain(),
+      apnDomain(),
     ];
 
     // Compute a hash of all route definitions so the deployment logical ID changes
@@ -473,6 +475,7 @@ export class ApiOrchestratorStack extends cdk.Stack {
       'AnalyticsRoutes',
       'ClarifyingQuestionRoutes',
       'EngagementLogRoutes',
+      'ApnRoutes',
     ];
 
     const routeNestedStacks: ApiDomainRoutesStack[] = [];
@@ -551,6 +554,25 @@ export class ApiOrchestratorStack extends cdk.Stack {
         }),
       ],
     });
+
+    // ─── APN Lambda CloudWatch Log Groups ────────────────────────────────────
+    const apnHandlers = [
+      'get-apn-credentials',
+      'save-apn-credentials',
+      'get-apn-registration',
+      'retry-apn-registration',
+      'list-apn-registrations',
+    ];
+
+    for (const handlerName of apnHandlers) {
+      new logs.LogGroup(this, `ApnLogs-${handlerName}-${stage}`, {
+        logGroupName: `/aws/lambda/auto-rfp-apn-${handlerName}-${stage}`,
+        retention: stage === 'prod'
+          ? logs.RetentionDays.INFINITE
+          : logs.RetentionDays.TWO_WEEKS,
+        removalPolicy: cdk.RemovalPolicy.DESTROY,
+      });
+    }
 
     new cdk.CfnOutput(this, 'RestApiId', {
       value: this.restApiId,
