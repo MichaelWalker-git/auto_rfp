@@ -37,8 +37,19 @@ jest.mock('@/components/ui/use-toast', () => ({
   }),
 }));
 
-jest.mock('@/components/permission-wrapper', () => ({
-  PermissionWrapper: ({ children }: { children: React.ReactNode }) => <>{children}</>,
+jest.mock('@/components/permission-wrapper', () => {
+  const PermissionWrapper = ({ children }: { children: React.ReactNode }) => <>{children}</>;
+  return {
+    __esModule: true,
+    default: PermissionWrapper,
+    PermissionWrapper,
+  };
+});
+
+// Mock RequestDebriefingDialog to avoid deep dependency issues
+jest.mock('../RequestDebriefingDialog', () => ({
+  RequestDebriefingDialog: ({ isOpen }: { isOpen: boolean }) =>
+    isOpen ? <div data-testid="request-debriefing-dialog">Request Dialog</div> : null,
 }));
 
 // Mock Dialog to avoid portal issues
@@ -179,7 +190,7 @@ describe('DebriefingCard', () => {
       const buttons = screen.getAllByRole('button', { name: /request debriefing/i });
       fireEvent.click(buttons[0]);
 
-      expect(screen.getByTestId('dialog')).toBeInTheDocument();
+      expect(screen.getByTestId('request-debriefing-dialog')).toBeInTheDocument();
     });
   });
 });
