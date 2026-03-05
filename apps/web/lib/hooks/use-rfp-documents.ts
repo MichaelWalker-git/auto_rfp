@@ -7,8 +7,6 @@ import { authFetcher } from '@/lib/auth/auth-fetcher';
 import type {
   RFPDocumentItem,
   RFPDocumentType,
-  SignatureStatus,
-  SignatureDetails,
   EditHistoryEntry,
   CreateRFPDocumentDTO,
   UpdateRFPDocumentDTO,
@@ -19,38 +17,25 @@ import type {
 import {
   RFP_DOCUMENT_TYPES,
   RFP_DOCUMENT_TYPE_DESCRIPTIONS,
-  SIGNATURE_STATUSES,
   LINEAR_SYNC_STATUSES,
   RFP_EXPORT_FORMAT_LABELS,
   RFP_EXPORT_FORMAT_EXTENSIONS,
 } from '@auto-rfp/core';
 
 // Re-export types and constants from shared for convenience
-export type { RFPDocumentItem, RFPDocumentType, SignatureStatus, SignatureDetails, EditHistoryEntry, LinearSyncStatus };
+export type { RFPDocumentItem, RFPDocumentType, EditHistoryEntry, LinearSyncStatus };
 export type { CreateRFPDocumentDTO, UpdateRFPDocumentDTO };
 export type { RFPExportFormat as ExportFormat };
-export { RFP_DOCUMENT_TYPES, RFP_DOCUMENT_TYPE_DESCRIPTIONS, SIGNATURE_STATUSES, LINEAR_SYNC_STATUSES };
+export { RFP_DOCUMENT_TYPES, RFP_DOCUMENT_TYPE_DESCRIPTIONS, LINEAR_SYNC_STATUSES };
 export { RFP_EXPORT_FORMAT_LABELS as EXPORT_FORMAT_LABELS, RFP_EXPORT_FORMAT_EXTENSIONS as EXPORT_FORMAT_EXTENSIONS };
 
 import { z } from 'zod';
 import {
   RFPDocumentItemSchema,
-  SignatureStatusSchema,
-  SignatureDetailsSchema,
   RFPExportFormatSchema,
 } from '@auto-rfp/core';
 
 // ─── Zod-defined response/request schemas ───
-
-const UpdateSignatureStatusDTOSchema = z.object({
-  projectId: z.string(),
-  opportunityId: z.string(),
-  documentId: z.string(),
-  signatureStatus: SignatureStatusSchema,
-  signatureDetails: SignatureDetailsSchema.nullable().optional(),
-});
-
-export type UpdateSignatureStatusDTO = z.infer<typeof UpdateSignatureStatusDTOSchema>;
 
 const RFPDocumentsListResponseSchema = z.object({
   ok: z.boolean(),
@@ -275,14 +260,6 @@ export function useDocumentDownloadUrl(orgId?: string) {
   );
 }
 
-/** Update signature status */
-export function useUpdateSignatureStatus(orgId?: string) {
-  return useSWRMutation<RFPDocumentResponse, Error, string, UpdateSignatureStatusDTO>(
-    `${BASE}/update-signature${orgId ? `?orgId=${orgId}` : ''}`,
-    (url, { arg }) => postJson<RFPDocumentResponse>(url, arg),
-  );
-}
-
 /** Convert a file-based document to editable content */
 export function useConvertToContent(orgId?: string) {
   return useSWRMutation<
@@ -376,7 +353,7 @@ export function useRFPDocumentPolling(
 
   const shouldPoll = !!(projectId && opportunityId && documentId && orgId);
 
-  const { data, error, isLoading } = useSWR<RFPDocumentResponse>(
+  const { data, error, isLoading, mutate } = useSWR<RFPDocumentResponse>(
     shouldPoll ? `${BASE}/get?${params.toString()}` : null,
     async (url: string) => {
       const res = await authFetcher(url);
@@ -402,6 +379,7 @@ export function useRFPDocumentPolling(
     isLoading,
     isError: !!error,
     error,
+    mutate,
   };
 }
 

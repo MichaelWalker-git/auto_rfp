@@ -175,7 +175,6 @@ export function SetProjectOutcomeDialog({
                   <SelectValue placeholder="Select outcome" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="PENDING">Pending</SelectItem>
                   <SelectItem value="WON">Won</SelectItem>
                   <SelectItem value="LOST">Lost</SelectItem>
                   <SelectItem value="NO_BID">No Bid</SelectItem>

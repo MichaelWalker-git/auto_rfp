@@ -17,7 +17,14 @@ export const useApnRegistration = (
   const { data, error, isLoading, mutate } = useSWR<ApnRegistrationResponse>(
     url,
     apiFetcher,
-    { refreshInterval: 10_000 }, // poll every 10s while PENDING/RETRYING
+    {
+      // Only poll when status is PENDING or RETRYING — stop once settled
+      refreshInterval: (data) =>
+        data?.registration?.status === 'PENDING' || data?.registration?.status === 'RETRYING'
+          ? 10_000
+          : 0,
+      revalidateOnFocus: false,
+    },
   );
 
   return {

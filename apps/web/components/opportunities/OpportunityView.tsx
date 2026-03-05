@@ -12,11 +12,18 @@ import { OpportunitySolicitationDocuments } from './opportunity-attachments';
 import { OpportunityRFPDocuments } from './opportunity-rfp-documents';
 import { OpportunityActionCard } from './opportunity-action-card';
 import { ProjectOutcomeCard } from '@/components/project-outcome/ProjectOutcomeCard';
+import { DebriefingCard } from '@/components/debriefing';
 import { FOIARequestCard } from '@/components/foia/FOIARequestCard';
 import { OpportunityContextPanel } from './opportunity-context-panel';
 import { useCurrentOrganization } from '@/context/organization-context';
 import { saveSelectedOpportunity } from '@/lib/utils/opportunity-selection';
 import { ApnRegistrationCard } from '@/features/apn';
+import {
+  SubmissionChecklist,
+  SubmitProposalButton,
+  SubmissionHistoryCard,
+} from '@/features/proposal-submission';
+import PermissionWrapper from '@/components/permission-wrapper';
 
 interface OpportunityViewProps {
   projectId: string;
@@ -53,47 +60,102 @@ function OpportunityContent({ className }: { className?: string }) {
     : '#';
 
   return (
-    <div className={cn('space-y-6', className)}>
+    <div className={cn('space-y-8', className)}>
+      {/* Back Navigation */}
       <Button variant="ghost" size="sm" asChild className="gap-2 -ml-2">
         <Link href={backUrl}>
           <ArrowLeft className="h-4 w-4" />
           Back to Opportunities
         </Link>
       </Button>
+
+      {/* Opportunity Header - Hero Section */}
       <OpportunityHeader />
 
       {/* APN Registration Status */}
       <ApnRegistrationCard orgId={orgId} projectId={projectId} oppId={oppId} />
 
-      {/* Questions & Answers Card */}
-      {navOrgId && (
-        <OpportunityActionCard
-          icon={HelpCircle}
-          iconColor="text-blue-500"
-          title="Questions & Answers"
-          description="View and answer RFP questions for this opportunity"
-          buttonText="View Questions"
-          href={`/organizations/${navOrgId}/projects/${projectId}/opportunities/${oppId}/questions`}
-        />
-      )}
+      {/* Primary Actions - Prominent Section */}
+      <div className="space-y-3">
+        <h2 className="text-lg font-semibold text-foreground">Quick Actions</h2>
+        <div className="grid gap-4 md:grid-cols-2">
+          {/* Questions & Answers Card */}
+          {navOrgId && (
+            <OpportunityActionCard
+              icon={HelpCircle}
+              iconColor="text-blue-600"
+              iconBgGradient="from-blue-50 to-blue-100"
+              title="Questions & Answers"
+              description="View and answer RFP questions for this opportunity"
+              buttonText="View Questions"
+              href={`/organizations/${navOrgId}/projects/${projectId}/opportunities/${oppId}/questions`}
+              variant="compact"
+            />
+          )}
 
-      {/* Q&A Engagement Card */}
-      {navOrgId && (
-        <OpportunityActionCard
-          icon={MessageSquare}
-          iconColor="text-indigo-500"
-          title="Q&A Period Engagement"
-          description="Build relationships with contracting officers through clarifying questions"
-          buttonText="Manage Q&A Engagement"
-          href={`/organizations/${navOrgId}/projects/${projectId}/opportunities/${oppId}/qa-engagement`}
-        />
-      )}
+          {/* Q&A Engagement Card */}
+          {navOrgId && (
+            <OpportunityActionCard
+              icon={MessageSquare}
+              iconColor="text-indigo-600"
+              iconBgGradient="from-indigo-50 to-indigo-100"
+              title="Q&A Period Engagement"
+              description="Build relationships with contracting officers through clarifying questions"
+              buttonText="Manage Engagement"
+              href={`/organizations/${navOrgId}/projects/${projectId}/opportunities/${oppId}/qa-engagement`}
+              variant="compact"
+            />
+          )}
+        </div>
+      </div>
 
-      <OpportunitySolicitationDocuments />
-      <OpportunityRFPDocuments />
+      {/* Documents Section - Grouped for Clarity */}
+      <div className="space-y-4">
+        <div className="flex items-center gap-2">
+          <div className="h-px flex-1 bg-border" />
+          <h2 className="text-lg font-semibold text-foreground">Documents</h2>
+          <div className="h-px flex-1 bg-border" />
+        </div>
+        <div className="space-y-4">
+          <OpportunitySolicitationDocuments />
+          <OpportunityRFPDocuments />
+        </div>
+      </div>
+
+      {/* Context & Knowledge Base */}
       <OpportunityContextPanel />
-      <ProjectOutcomeCard projectId={projectId} orgId={orgId} opportunityId={oppId} />
-      <FOIARequestCard projectId={projectId} orgId={orgId} projectOutcomeStatus="LOST" />
+
+      {/* Submission Section - Clear Visual Separation */}
+      <div className="space-y-4 pt-4 border-t-2 border-dashed">
+        <div className="flex items-center gap-2">
+          <div className="h-px flex-1 bg-border" />
+          <h2 className="text-lg font-semibold text-foreground">Submission</h2>
+          <div className="h-px flex-1 bg-border" />
+        </div>
+        <SubmissionChecklist orgId={orgId} projectId={projectId} oppId={oppId} />
+        <div className="flex justify-end">
+          <PermissionWrapper requiredPermission="proposal:create">
+            <SubmitProposalButton
+              orgId={orgId}
+              projectId={projectId}
+              oppId={oppId}
+            />
+          </PermissionWrapper>
+        </div>
+        <SubmissionHistoryCard orgId={orgId} projectId={projectId} oppId={oppId} />
+      </div>
+
+      {/* Post-Award Section - Only visible after decision */}
+      <div className="space-y-4 pt-4 border-t">
+        <div className="flex items-center gap-2">
+          <div className="h-px flex-1 bg-border" />
+          <h2 className="text-lg font-semibold text-muted-foreground">Post-Award</h2>
+          <div className="h-px flex-1 bg-border" />
+        </div>
+        <ProjectOutcomeCard projectId={projectId} orgId={orgId} opportunityId={oppId} />
+        <DebriefingCard projectId={projectId} orgId={orgId} projectOutcomeStatus="LOST" />
+        <FOIARequestCard projectId={projectId} orgId={orgId} projectOutcomeStatus="LOST" />
+      </div>
     </div>
   );
 }

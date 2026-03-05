@@ -83,8 +83,9 @@ export const QuestionFileItemSchema = z
 export type QuestionFileItem = z.infer<typeof QuestionFileItemSchema>;
 
 export const CreateQuestionFileRequestSchema = z.object({
+  orgId: z.string().min(1, 'orgId is required'),
   projectId: z.string().min(1),
-  oppId: z.string(),
+  oppId: z.string().min(1),
   originalFileName: z.string().min(1),
   fileKey: z.string().min(1),
   mimeType: z.string().min(1),
@@ -92,3 +93,34 @@ export const CreateQuestionFileRequestSchema = z.object({
 });
 
 export type CreateQuestionFileRequest = z.infer<typeof CreateQuestionFileRequestSchema>;
+
+export const ReextractQuestionsSchema = z.object({
+  projectId: z.string().min(1, 'projectId is required'),
+  oppId: z.string().min(1, 'oppId is required'),
+  questionFileId: z.string().min(1, 'questionFileId is required'),
+});
+
+export type ReextractQuestions = z.infer<typeof ReextractQuestionsSchema>;
+
+export const ReextractAllQuestionsSchema = z.object({
+  projectId: z.string().min(1, 'projectId is required'),
+  oppId: z.string().min(1, 'oppId is required'),
+});
+
+export type ReextractAllQuestions = z.infer<typeof ReextractAllQuestionsSchema>;
+
+export const StartQuestionPipelineSchema = z.object({
+  projectId: z.string().min(1, 'projectId is required'),
+  oppId: z.string().min(1, 'oppId is required'),
+  questionFileId: z.string().min(1, 'questionFileId is required'),
+});
+
+export type StartQuestionPipeline = z.infer<typeof StartQuestionPipelineSchema>;
+
+export const StopQuestionPipelineSchema = z.object({
+  projectId: z.string().min(1, 'projectId is required'),
+  opportunityId: z.string().min(1, 'opportunityId is required'),
+  questionFileId: z.string().min(1, 'questionFileId is required'),
+});
+
+export type StopQuestionPipeline = z.infer<typeof StopQuestionPipelineSchema>;

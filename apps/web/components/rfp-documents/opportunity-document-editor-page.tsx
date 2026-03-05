@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { ArrowLeft, FileDown, FileText, Loader2, RefreshCw, Save } from 'lucide-react';
 
@@ -8,6 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/components/ui/use-toast';
+import { isDocumentGenerating, isDocumentFailed, isDocumentReady } from '@/lib/constants/rfp-document-status';
 
 import {
   useGenerateRFPDocument,
@@ -18,6 +19,8 @@ import {
 import { uploadFileToS3, usePresignDownload, usePresignUpload } from '@/lib/hooks/use-presign';
 import { RichTextEditor, stripPresignedUrlsFromHtml } from './rich-text-editor';
 import { RFPDocumentExportDialog } from './rfp-document-export-dialog';
+import { RequestApprovalButton } from '@/features/document-approval';
+import { useAuth } from '@/components/AuthProvider';
 
 // ─── Props ────────────────────────────────────────────────────────────────────
 
@@ -54,10 +57,12 @@ export const OpportunityDocumentEditorPage = ({
   const [htmlInitialized, setHtmlInitialized] = useState(false);
   // Ref mirrors state to avoid stale closure issues in callbacks
   const htmlInitializedRef = useRef(false);
+  // Manual state to track regeneration start (independent of SWR mutation state)
+  const [isRegenerateStarting, setIsRegenerateStarting] = useState(false);
 
   // ── Data fetching ──
 
-  const { document: doc, isLoading: isDocLoading } = useRFPDocumentPolling(
+  const { document: doc, isLoading: isDocLoading, mutate: mutateDoc } = useRFPDocumentPolling(
     projectId,
     opportunityId,
     documentId,
@@ -101,35 +106,74 @@ export const OpportunityDocumentEditorPage = ({
     return presign.url;
   }, [triggerPresignDownload]);
 
-  // Track whether the HTML fetch has ever been in a loading state.
-  // This prevents initializing with '' before the fetch actually starts.
-  const htmlFetchStartedRef = useRef(false);
-  useEffect(() => {
-    if (isHtmlLoading) htmlFetchStartedRef.current = true;
-  }, [isHtmlLoading]);
-
-  // Reset fetch-started flag when document changes
-  useEffect(() => {
-    htmlFetchStartedRef.current = false;
-  }, [documentId]);
-
   // ── HTML initialization ──
-  // Initialize the editor once:
-  //   1. doc is loaded (HTML fetch key is non-null)
-  //   2. The fetch has started (isHtmlLoading was true at least once)
-  //   3. The fetch is now done (isHtmlLoading is false)
-  //   4. Not already initialized
+  // Initialize the editor once the HTML fetch completes (or fails):
+  //   1. doc is loaded (HTML fetch is enabled)
+  //   2. The fetch is complete (not loading) OR errored
+  //   3. Not already initialized
+  // Note: We don't check if serverHtml is empty — an empty response is valid and should initialize the editor.
 
   useEffect(() => {
     if (!doc) return;
-    if (isHtmlLoading) return;
-    if (!htmlFetchStartedRef.current && !isHtmlError) return; // fetch hasn't started yet
+    // Wait for loading to complete OR error to occur
+    if (isHtmlLoading && !isHtmlError) return;
     if (htmlInitializedRef.current) return;
+
+    console.log('[OpportunityDocEditor] Initializing HTML content', {
+      docStatus: doc?.status,
+      htmlLength: serverHtml?.length || 0,
+      isHtmlError,
+    });
 
     htmlInitializedRef.current = true;
     setHtmlInitialized(true);
     setHtmlContent(serverHtml || '');
-  }, [doc, isHtmlLoading, isHtmlError, serverHtml]);
+
+    // Show error toast if HTML fetch failed
+    if (isHtmlError) {
+      toast({
+        title: 'Content load warning',
+        description: 'Could not load existing content. You can still edit and save.',
+        variant: 'default',
+      });
+    }
+  }, [doc, isHtmlLoading, isHtmlError, serverHtml, toast]);
+
+  // Manual polling while waiting for regeneration to start
+  useEffect(() => {
+    if (!isRegenerateStarting) return;
+
+    const interval = setInterval(() => {
+      console.log('[OpportunityDocEditor] Polling document status during regeneration start');
+      mutateDoc();
+    }, 3000);
+
+    return () => clearInterval(interval);
+  }, [isRegenerateStarting, mutateDoc]);
+
+  // Track status changes for regeneration lifecycle
+  const prevStatusRef = useRef<string | null | undefined>(undefined);
+  useEffect(() => {
+    const currentStatus = doc?.status;
+
+    // When status becomes GENERATING, clear the regenerate starting flag
+    if (currentStatus === 'GENERATING' && prevStatusRef.current !== 'GENERATING') {
+      console.log('[OpportunityDocEditor] Status became GENERATING, stopping manual polling');
+      setIsRegenerateStarting(false);
+    }
+
+    // When generation completes (status transitions away from GENERATING),
+    // invalidate the HTML cache so the editor picks up the newly generated content
+    // Note: currentStatus can be null (ready) or 'FAILED', both mean generation is done
+    if (prevStatusRef.current === 'GENERATING' && currentStatus !== 'GENERATING') {
+      console.log('[OpportunityDocEditor] Generation completed, refetching HTML', { currentStatus });
+      htmlInitializedRef.current = false;
+      setHtmlInitialized(false);
+      mutateHtml();
+    }
+
+    prevStatusRef.current = currentStatus;
+  }, [doc?.status, mutateHtml]);
 
   // Reset when navigating to a different document
   useEffect(() => {
@@ -142,6 +186,7 @@ export const OpportunityDocumentEditorPage = ({
 
   const handleRegenerate = useCallback(async () => {
     if (!doc) return;
+    setIsRegenerateStarting(true);
     try {
       await triggerGenerate({
         projectId,
@@ -150,14 +195,19 @@ export const OpportunityDocumentEditorPage = ({
         documentId,
       });
       toast({ title: 'Regeneration started', description: 'The document is being regenerated by AI.' });
+      // Force polling hook to refetch document status immediately
+      mutateDoc();
+      // Don't reset isRegenerateStarting here - let it stay true until status becomes GENERATING
+      // Don't reset HTML state here - let the status change effect handle it when generation completes
     } catch (err) {
       toast({
         title: 'Regeneration failed',
         description: err instanceof Error ? err.message : 'Could not start regeneration.',
         variant: 'destructive',
       });
+      setIsRegenerateStarting(false); // Only reset on error
     }
-  }, [doc, projectId, opportunityId, documentId, triggerGenerate, toast]);
+  }, [doc, projectId, opportunityId, documentId, triggerGenerate, mutateDoc, toast]);
 
   const handleSaveContent = useCallback(async () => {
     if (!doc) return;
@@ -186,11 +236,14 @@ export const OpportunityDocumentEditorPage = ({
 
   // ── Derived state ──
 
-  const isGenerating = doc?.status === 'GENERATING';
-  // Editor is ready when: not generating, HTML fetch done (or errored), and initialized.
+  const { userSub } = useAuth();
+  const isGenerating = isDocumentGenerating(doc?.status);
+  const isFailed = isDocumentFailed(doc?.status);
+  const isReady = isDocumentReady(doc?.status);
+  // Editor is ready when: document is ready (not generating/failed), HTML fetch done, and initialized.
   // Uses htmlInitialized (state) so React re-renders when initialization completes.
-  const isEditorReady = !isGenerating && !isHtmlLoading && htmlInitialized;
-  const isBusy = isMutating || isRegenerating || isGenerating;
+  const isEditorReady = isReady && !isHtmlLoading && htmlInitialized;
+  const isBusy = isMutating || isRegenerating || isGenerating || isRegenerateStarting;
   const backUrl = `/organizations/${orgId}/projects/${projectId}/opportunities/${opportunityId}`;
 
   // ── Render ──
@@ -230,7 +283,7 @@ export const OpportunityDocumentEditorPage = ({
           </Link>
         </Button>
 
-        {/* Generating badge */}
+        {/* Status badges */}
         {isGenerating && (
           <Badge
             variant="outline"
@@ -240,12 +293,32 @@ export const OpportunityDocumentEditorPage = ({
             Generating…
           </Badge>
         )}
+        {isFailed && (
+          <Badge
+            variant="outline"
+            className="text-xs border-red-500/30 text-red-600 bg-red-500/5 shrink-0"
+          >
+            Generation Failed
+          </Badge>
+        )}
 
         {/* Spacer — pushes actions to the right */}
         <div className="flex-1" />
 
         {/* Actions */}
         <div className="flex items-center gap-2 shrink-0">
+        {/* Request Review — only for ready (non-generating, non-failed) documents */}
+        {doc && doc.status !== 'GENERATING' && doc.status !== 'FAILED' && userSub && (
+          <RequestApprovalButton
+            orgId={orgId}
+            projectId={projectId}
+            opportunityId={opportunityId}
+            documentId={documentId}
+            documentName={doc.name}
+            disabled={isBusy}
+          />
+        )}
+
         <Button
           variant="outline"
           size="sm"
@@ -262,11 +335,17 @@ export const OpportunityDocumentEditorPage = ({
           size="sm"
           onClick={handleRegenerate}
           disabled={isBusy}
+          title={isGenerating ? 'Document is currently generating' : 'Regenerate document with AI'}
         >
-          {isRegenerating ? (
+          {isRegenerateStarting || isRegenerating ? (
             <>
               <Loader2 className="h-4 w-4 mr-2 animate-spin" />
               Starting…
+            </>
+          ) : isGenerating ? (
+            <>
+              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              Generating…
             </>
           ) : (
             <>
@@ -280,7 +359,13 @@ export const OpportunityDocumentEditorPage = ({
           size="sm"
           onClick={handleSaveContent}
           disabled={isBusy || isHtmlLoading || isImageUploading}
-          title={isImageUploading ? 'Please wait for image upload to complete' : undefined}
+          title={
+            isImageUploading
+              ? 'Please wait for image upload to complete'
+              : isGenerating
+              ? 'Cannot save while document is generating'
+              : undefined
+          }
         >
           {isMutating ? (
             <>
@@ -299,11 +384,32 @@ export const OpportunityDocumentEditorPage = ({
 
       {/* ── Editor ── */}
       <div className="flex-1 min-h-0 overflow-hidden">
-        {isGenerating ? (
+        {(isGenerating || isRegenerateStarting) ? (
           <div className="flex flex-col items-center justify-center h-full gap-4 text-muted-foreground">
             <Loader2 className="h-10 w-10 animate-spin text-indigo-500" />
             <p className="text-sm font-medium">Generating document content…</p>
             <p className="text-xs">This may take up to a minute.</p>
+          </div>
+        ) : isFailed ? (
+          <div className="flex flex-col items-center justify-center h-full gap-4">
+            <div className="rounded-full bg-red-50 p-3">
+              <FileText className="h-10 w-10 text-red-500" />
+            </div>
+            <div className="text-center max-w-md">
+              <p className="text-sm font-medium text-red-600 mb-1">Generation Failed</p>
+              <p className="text-xs text-muted-foreground mb-4">
+                {doc?.generationError || 'The AI encountered an error while generating this document.'}
+              </p>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={handleRegenerate}
+                disabled={isBusy}
+              >
+                <RefreshCw className="h-4 w-4 mr-2" />
+                Try Again
+              </Button>
+            </div>
           </div>
         ) : !isEditorReady ? (
           <div className="flex flex-col items-center justify-center h-full gap-3 text-muted-foreground">

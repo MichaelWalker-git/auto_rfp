@@ -6,6 +6,7 @@ import {
 import { loadTextFromS3 } from './s3';
 import { searchPastProjects, listPastProjects } from './past-performance';
 import { getEmbedding, semanticSearchContentLibrary } from './embeddings';
+import { getOrgPrimaryContact } from './org-contact';
 import { requireEnv } from './env';
 
 const DOCUMENTS_BUCKET = requireEnv('DOCUMENTS_BUCKET');
@@ -496,21 +497,41 @@ export async function gatherAllContext(args: {
     `budgets=${JSON.stringify(budgets)}`,
   );
 
-  const [execBrief, kb, pastPerf, contentLib] = await Promise.all([
+  const [execBrief, kb, pastPerf, contentLib, orgContact] = await Promise.all([
     loadExecutiveBriefContext(projectId, opportunityId, budgets.execBrief),
     loadKnowledgeBaseContext(orgId, solicitation, budgets.kb),
     loadPastPerformanceContext(orgId, solicitation, budgets.pastPerf),
     loadContentLibraryContext(orgId, solicitation, budgets.contentLib),
+    getOrgPrimaryContact(orgId).catch(() => null),
   ]);
 
-  const totalRaw = execBrief.length + kb.length + pastPerf.length + contentLib.length;
+  // Build org contact block — always include when available (small, high-value)
+  const orgContactText = orgContact
+    ? [
+        '=== ORGANIZATION PRIMARY CONTACT ===',
+        `IMPORTANT: Use the following contact details for ALL signature blocks, cover letters,`,
+        `and any section requiring a point of contact. Do NOT invent or substitute other contact info.`,
+        `Name:    ${orgContact.name}`,
+        `Title:   ${orgContact.title}`,
+        `Email:   ${orgContact.email}`,
+        ...(orgContact.phone ? [`Phone:   ${orgContact.phone}`] : []),
+        ...(orgContact.address ? [`Address: ${orgContact.address}`] : []),
+      ].join('\n')
+    : '';
+
+  const totalRaw = execBrief.length + kb.length + pastPerf.length + contentLib.length + orgContactText.length;
   console.log(
     `Context gathered: execBrief=${execBrief.length}, kb=${kb.length}, ` +
-    `pastPerf=${pastPerf.length}, contentLib=${contentLib.length} chars ` +
-    `(total=${totalRaw}, budget=${TOTAL_CONTEXT_BUDGET})`,
+    `pastPerf=${pastPerf.length}, contentLib=${contentLib.length}, ` +
+    `orgContact=${orgContactText.length} chars (total=${totalRaw}, budget=${TOTAL_CONTEXT_BUDGET})`,
   );
 
   const sections: [string, string, string][] = [
+    [
+      'ORGANIZATION PRIMARY CONTACT',
+      'Use these contact details verbatim in all signature blocks, cover letters, and POC sections. Never invent contact information.',
+      orgContactText,
+    ],
     [
       'EXECUTIVE OPPORTUNITY BRIEF',
       'Pre-analyzed opportunity intelligence. Use to align with evaluation criteria and address risks.',

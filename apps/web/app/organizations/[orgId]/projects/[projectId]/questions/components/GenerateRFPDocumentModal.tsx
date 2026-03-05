@@ -45,6 +45,7 @@ export const GenerateRFPDocumentModal: React.FC<Props> = ({
   // We UPDATE this document on save — never create a new one.
   const [generatedDocumentId, setGeneratedDocumentId] = useState<string | null>(null);
   const [generatedOpportunityId, setGeneratedOpportunityId] = useState<string | null>(null);
+  const [hasBeenSaved, setHasBeenSaved] = useState(false);
 
   const { currentOrganization } = useCurrentOrganization();
   const orgId = currentOrganization?.id;
@@ -106,6 +107,7 @@ export const GenerateRFPDocumentModal: React.FC<Props> = ({
     setGeneratingOpportunityId(null);
     setGeneratedDocumentId(null);
     setGeneratedOpportunityId(null);
+    setHasBeenSaved(false);
 
     try {
       const result = await triggerGenerate({ projectId, opportunityId });
@@ -161,6 +163,7 @@ export const GenerateRFPDocumentModal: React.FC<Props> = ({
       });
 
       setSaveMessage('Saved ✅');
+      setHasBeenSaved(true);
       onSave?.();
       setTimeout(() => setSaveMessage(null), 2000);
     } catch (err) {
@@ -209,6 +212,11 @@ export const GenerateRFPDocumentModal: React.FC<Props> = ({
           {saveMessage && (
             <div className="shrink-0 text-sm text-green-600 border border-green-600/30 rounded-md px-3 py-2 bg-green-500/5">
               {saveMessage}
+              {hasBeenSaved && (
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Use the Export button on the RFP Documents page to download this document.
+                </p>
+              )}
             </div>
           )}
 
@@ -294,7 +302,7 @@ export const GenerateRFPDocumentModal: React.FC<Props> = ({
 
           {/* Footer */}
           <div className="shrink-0 pt-3 flex justify-between items-center gap-2">
-            <Button variant="outline" onClick={handleRegenerate} disabled={isMutating || isSaving}>
+            <Button variant="outline" onClick={handleRegenerate} disabled={isMutating || isSaving || hasBeenSaved} title={hasBeenSaved ? 'Document already saved. Export instead.' : 'Regenerate from AI'}>
               Regenerate from AI
             </Button>
             <Button onClick={handleSave} disabled={!canSave || isSaving}>

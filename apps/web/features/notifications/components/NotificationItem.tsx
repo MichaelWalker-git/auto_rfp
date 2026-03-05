@@ -2,7 +2,7 @@
 
 import { useRouter } from 'next/navigation';
 import { formatDistanceToNow } from 'date-fns';
-import { X, Bell, AtSign, UserCheck, FileText, CheckCircle, Trophy, XCircle, Clock, AlertCircle, FileCheck, Download } from 'lucide-react';
+import { X, Bell, AtSign, UserCheck, FileText, CheckCircle, Trophy, XCircle, Clock, AlertCircle, FileCheck, Download, ClipboardCheck, AlertTriangle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import type { NotificationItem as NotificationItemType, NotificationType } from '@auto-rfp/core';
@@ -36,6 +36,11 @@ const TYPE_CONFIG: Record<NotificationType, { icon: React.ElementType; color: st
   PROCESSING_COMPLETE:  { icon: CheckCircle,  color: 'text-emerald-600',bg: 'bg-emerald-100' },
   PROCESSING_ERROR:     { icon: AlertCircle,  color: 'text-red-500',    bg: 'bg-red-100' },
   EXPORT_READY:         { icon: FileText,     color: 'text-blue-600',   bg: 'bg-blue-100' },
+  STALE_CONTENT_WARNING:  { icon: AlertTriangle, color: 'text-amber-600', bg: 'bg-amber-100' },
+  STALE_CONTENT_DETECTED: { icon: AlertTriangle, color: 'text-orange-600', bg: 'bg-orange-100' },
+  DOCUMENT_APPROVAL_REQUESTED: { icon: ClipboardCheck, color: 'text-indigo-600', bg: 'bg-indigo-100' },
+  DOCUMENT_APPROVED:    { icon: CheckCircle,  color: 'text-emerald-600', bg: 'bg-emerald-100' },
+  DOCUMENT_REJECTED:    { icon: XCircle,      color: 'text-red-500',    bg: 'bg-red-100' },
 };
 
 const DEFAULT_CONFIG = { icon: Bell, color: 'text-slate-500', bg: 'bg-slate-100' };
@@ -64,6 +69,14 @@ const buildNotificationLink = (
     case 'PROPOSAL_SUBMITTED':
       return `${base}/outcomes`;
     case 'RFP_UPLOADED':
+      return `${base}/documents`;
+    case 'DOCUMENT_APPROVAL_REQUESTED':
+    case 'DOCUMENT_APPROVED':
+    case 'DOCUMENT_REJECTED':
+      // Deep-link to the specific document if entityId (documentId) is available
+      return entityId ? `${base}/documents?documentId=${entityId}` : `${base}/documents`;
+    case 'STALE_CONTENT_WARNING':
+    case 'STALE_CONTENT_DETECTED':
       return `${base}/documents`;
     case 'SOLICITATION_IMPORTED':
       return entityId ? `${base}/opportunities` : `${base}/search-opportunities`;

@@ -1,5 +1,28 @@
 import { z } from 'zod';
 
+// ─── Create Question DTOs ─────────────────────────────────────────────────────
+
+export const CreateQuestionInputSchema = z.object({
+  question: z.string().min(1, 'Question text is required'),
+});
+export type CreateQuestionInput = z.infer<typeof CreateQuestionInputSchema>;
+
+export const CreateQuestionSectionSchema = z.object({
+  id: z.string().optional(),
+  title: z.string().optional(),
+  questions: z.array(CreateQuestionInputSchema).min(1, 'At least one question is required'),
+});
+export type CreateQuestionSection = z.infer<typeof CreateQuestionSectionSchema>;
+
+export const CreateQuestionsSchema = z.object({
+  orgId: z.string().min(1, 'orgId is required'),
+  projectId: z.string().min(1, 'projectId is required'),
+  opportunityId: z.string().min(1, 'opportunityId is required'),
+  questionFileId: z.string().optional(),
+  sections: z.array(CreateQuestionSectionSchema).min(1, 'At least one section is required'),
+});
+export type CreateQuestions = z.infer<typeof CreateQuestionsSchema>;
+
 export const QuestionItemSchema = z.object({
   projectId: z.string().optional(),
   opportunityId: z.string().optional(),
@@ -23,6 +46,7 @@ export type QuestionItem = z.infer<typeof QuestionItemSchema>;
 export const GroupedQuestionSchema = z.object({
   id: z.string().min(1),
   opportunityId: z.string().optional(),
+  questionFileId: z.string().optional(),
   question: z.string().min(1),
   answer: z.string().nullable(),
   // Clustering fields for UI display
@@ -46,6 +70,7 @@ export type GroupedSection = z.infer<typeof GroupedSectionSchema>;
 export const QAItemSchema = z.object({
   questionId: z.string().min(1),
   opportunityId: z.string().optional(),
+  questionFileId: z.string().optional(),
   documentId: z.string().min(1),
   question: z.string().min(1),
   answer: z.string(),

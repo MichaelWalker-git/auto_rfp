@@ -9,6 +9,7 @@ import {
   GetApnCredentialsResponseSchema,
   ApnRegistrationResponseSchema,
   RetryApnRegistrationResponseSchema,
+  ApnRegistrationsListResponseSchema,
 } from './apn';
 
 const validRegistrationItem = {
@@ -245,5 +246,30 @@ describe('RetryApnRegistrationResponseSchema', () => {
       registration: { ...validRegistrationItem, status: 'REGISTERED' },
     });
     expect(result.success).toBe(true);
+  });
+});
+
+describe('ApnRegistrationsListResponseSchema', () => {
+  it('validates response with items', () => {
+    const result = ApnRegistrationsListResponseSchema.safeParse({
+      items: [validRegistrationItem],
+      count: 1,
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it('validates empty list response', () => {
+    const result = ApnRegistrationsListResponseSchema.safeParse({
+      items: [],
+      count: 0,
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it('rejects missing count', () => {
+    const result = ApnRegistrationsListResponseSchema.safeParse({
+      items: [],
+    });
+    expect(result.success).toBe(false);
   });
 });

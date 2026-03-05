@@ -56,6 +56,15 @@ export async function createPastProject(
     setAside: dto.setAside || null,
     teamSize: dto.teamSize || null,
     durationMonths: dto.durationMonths || null,
+    usageCount: 0,
+    lastUsedAt: null,
+    usedInBriefIds: [],
+    freshnessStatus: 'ACTIVE',
+    staleSince: null,
+    staleReason: null,
+    lastFreshnessCheck: null,
+    reactivatedAt: null,
+    reactivatedBy: null,
     createdAt: now,
     updatedAt: now,
     createdBy,
@@ -669,4 +678,52 @@ export async function performGapAnalysis(
     criticalGaps,
     recommendations,
   };
+}
+
+// ================================
+// Usage Tracking
+// ================================
+
+/**
+ * Track usage of a past performance project in an executive brief.
+ * Updates lastUsedAt, usageCount, and usedInBriefIds.
+ */
+export async function trackPastProjectUsage(
+  orgId: string,
+  projectId: string,
+  briefId: string,
+): Promise<void> {
+  const sk = createPastProjectSK(orgId, projectId);
+  const now = nowIso();
+
+  try {
+    await docClient.send(
+      new UpdateCommand({
+        TableName: DB_TABLE_NAME,
+        Key: {
+          [PK_NAME]: PAST_PROJECT_PK,
+          [SK_NAME]: sk,
+        },
+        UpdateExpression:
+          'SET #lastUsedAt = :now, #usageCount = if_not_exists(#usageCount, :zero) + :one, #usedInBriefIds = list_append(if_not_exists(#usedInBriefIds, :emptyList), :briefList), #updatedAt = :now',
+        ExpressionAttributeNames: {
+          '#lastUsedAt': 'lastUsedAt',
+          '#usageCount': 'usageCount',
+          '#usedInBriefIds': 'usedInBriefIds',
+          '#updatedAt': 'updatedAt',
+        },
+        ExpressionAttributeValues: {
+          ':now': now,
+          ':zero': 0,
+          ':one': 1,
+          ':emptyList': [],
+          ':briefList': [briefId],
+        },
+      }),
+    );
+    console.log(`Tracked usage of past project ${projectId} in brief ${briefId}`);
+  } catch (error) {
+    console.error(`Failed to track usage for past project ${projectId}:`, error);
+    // Don't throw - tracking is best-effort
+  }
 }

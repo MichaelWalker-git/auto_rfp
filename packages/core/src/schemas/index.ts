@@ -30,3 +30,5 @@ export * from './audit';
 export * from './clarifying-question';
 export * from './engagement-log';
 export * from './apn';
+export * from './proposal-submission';
+export * from './document-approval';

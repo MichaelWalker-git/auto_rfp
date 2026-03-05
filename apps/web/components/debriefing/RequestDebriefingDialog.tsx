@@ -1,6 +1,8 @@
 'use client';
 
 import React, { useState } from 'react';
+import { format } from 'date-fns';
+import { Calendar as CalendarIcon } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -11,9 +13,14 @@ import {
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
-import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
+import { Calendar } from '@/components/ui/calendar';
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover';
 import { useToast } from '@/components/ui/use-toast';
+import { cn } from '@/lib/utils';
 import { useCreateDebriefing } from '@/lib/hooks/use-debriefing';
 import type { DebriefingItem } from '@auto-rfp/core';
 
@@ -32,7 +39,8 @@ export function RequestDebriefingDialog({
   orgId,
   onSuccess,
 }: RequestDebriefingDialogProps) {
-  const [requestDeadline, setRequestDeadline] = useState('');
+  const [deadlineDate, setDeadlineDate] = useState<Date | undefined>(undefined);
+  const [isCalendarOpen, setIsCalendarOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { toast } = useToast();
   const { createDebriefing } = useCreateDebriefing();
@@ -46,7 +54,7 @@ export function RequestDebriefingDialog({
       const result = await createDebriefing({
         projectId,
         orgId,
-        requestDeadline: requestDeadline || undefined,
+        requestDeadline: deadlineDate ? deadlineDate.toISOString() : undefined,
       });
 
       toast({
@@ -55,7 +63,7 @@ export function RequestDebriefingDialog({
       });
 
       // Reset form
-      setRequestDeadline('');
+      setDeadlineDate(undefined);
 
       onOpenChange(false);
       onSuccess?.(result);
@@ -83,15 +91,36 @@ export function RequestDebriefingDialog({
 
           <div className="grid gap-4 py-4">
             <div className="grid gap-2">
-              <Label htmlFor="requestDeadline">Request Deadline (Optional)</Label>
-              <Input
-                id="requestDeadline"
-                type="datetime-local"
-                value={requestDeadline}
-                onChange={(e) => setRequestDeadline(e.target.value)}
-              />
+              <Label>Request Deadline (Optional)</Label>
+              <Popover open={isCalendarOpen} onOpenChange={setIsCalendarOpen}>
+                <PopoverTrigger asChild>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className={cn(
+                      'w-full justify-start text-left font-normal h-9 text-sm',
+                      !deadlineDate && 'text-muted-foreground'
+                    )}
+                  >
+                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    {deadlineDate ? format(deadlineDate, 'PPP') : 'Pick a date'}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <Calendar
+                    mode="single"
+                    selected={deadlineDate}
+                    onSelect={(date) => {
+                      setDeadlineDate(date);
+                      setIsCalendarOpen(false);
+                    }}
+                    disabled={(date) => date < new Date()}
+                    initialFocus
+                  />
+                </PopoverContent>
+              </Popover>
               <p className="text-xs text-muted-foreground">
-                If not provided, the deadline will be set to 3 business days from now.
+                If not provided, the deadline will be set to 3 business days from now (per FAR 15.506).
               </p>
             </div>
           </div>

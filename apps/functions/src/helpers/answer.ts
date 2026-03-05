@@ -1,4 +1,4 @@
-import { QueryCommand } from '@aws-sdk/lib-dynamodb';
+import { GetCommand } from '@aws-sdk/lib-dynamodb';
 import { AnswerItem } from '@auto-rfp/core';
 import { docClient, DBItem } from './db';
 import { requireEnv } from './env';
@@ -7,29 +7,49 @@ import { ANSWER_PK } from '../constants/answer';
 
 const DB_TABLE_NAME = requireEnv('DB_TABLE_NAME');
 
-export async function getAnswerForQuestion(projectId: string, questionId: string): Promise<(AnswerItem & DBItem) | null> {
-  const skPrefix = `${projectId}#${questionId}#`;
+/**
+ * Build the answer SK.
+ * Pattern: {projectId}#{opportunityId}#{fileId}#{questionId}
+ * Mirrors the question SK exactly — one answer per question.
+ */
+export const buildAnswerSK = (
+  projectId: string,
+  opportunityId: string,
+  fileId: string,
+  questionId: string,
+): string => `${projectId}#${opportunityId}#${fileId}#${questionId}`;
+
+/**
+ * Get the answer for a question using the SK pattern:
+ * PK=ANSWER, SK={projectId}#{opportunityId}#{fileId}#{questionId}
+ */
+export const getAnswerForQuestion = async (
+  projectId: string,
+  opportunityId: string,
+  fileId: string,
+  questionId: string,
+): Promise<(AnswerItem & DBItem) | null> => {
+  const sk = buildAnswerSK(projectId, opportunityId, fileId, questionId);
 
   const res = await docClient.send(
-    new QueryCommand({
+    new GetCommand({
       TableName: DB_TABLE_NAME,
-      KeyConditionExpression: '#pk = :pk AND begins_with(#sk, :skPrefix)',
-      ExpressionAttributeNames: {
-        '#pk': PK_NAME,
-        '#sk': SK_NAME,
+      Key: {
+        [PK_NAME]: ANSWER_PK,
+        [SK_NAME]: sk,
       },
-      ExpressionAttributeValues: {
-        ':pk': ANSWER_PK,
-        ':skPrefix': skPrefix,
-      },
-      Limit: 1,
     }),
   );
 
-  return (res.Items?.[0] as (AnswerItem & DBItem) | undefined) ?? null;
+  return (res.Item as (AnswerItem & DBItem) | undefined) ?? null;
 }
 
-export async function hasAnswer(projectId: string, questionId: string): Promise<boolean> {
-  const answer = await getAnswerForQuestion(projectId, questionId);
+export const hasAnswer = async (
+  projectId: string,
+  opportunityId: string,
+  fileId: string,
+  questionId: string,
+): Promise<boolean> => {
+  const answer = await getAnswerForQuestion(projectId, opportunityId, fileId, questionId);
   return !!(answer && answer.text);
 }

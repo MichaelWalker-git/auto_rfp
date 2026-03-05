@@ -21,7 +21,6 @@ import { nowIso } from '@/helpers/date';
 import { PK_NAME, SK_NAME } from '@/constants/common';
 import { OPPORTUNITY_PK } from '@/constants/opportunity';
 import { buildOpportunitySk, getOpportunity } from '@/helpers/opportunity';
-import { triggerApnRegistration } from '@/helpers/apn';
 import type {
   OpportunityItem,
   OpportunityStage,
@@ -241,27 +240,33 @@ export const onProjectOutcomeSet = async (args: {
     console.warn('[opportunity-stage] onProjectOutcomeSet failed (non-blocking):', (err as Error)?.message);
   }
 
-  // Trigger APN registration non-blocking when stage transitions to SUBMITTED
+  // Trigger APN registration non-blocking when stage transitions to SUBMITTED.
+  // Uses dynamic import to avoid pulling in @smithy/signature-v4 at module load
+  // time — that package is not available in the Lambda runtime when marked external.
   if (outcomeStatus === 'PENDING') {
     const { orgId, projectId, oppId } = location;
     const opp = await getOpportunity({ orgId, projectId, oppId }).catch(() => null);
     if (opp?.item) {
-      triggerApnRegistration({
-        orgId,
-        projectId,
-        oppId,
-        customerName:      (opp.item.organizationName as string | undefined) ?? 'Unknown Customer',
-        opportunityValue:  (opp.item.baseAndAllOptionsValue as number | undefined) ?? 0,
-        awsServices:       ['Other'],
-        expectedCloseDate: (opp.item.responseDeadlineIso as string | undefined) ?? new Date().toISOString(),
-        proposalStatus:    'SUBMITTED',
-        description:       typeof opp.item.description === 'string'
-          ? opp.item.description.substring(0, 500)
-          : undefined,
-        registeredBy:      changedBy,
-      }).catch(err =>
-        console.warn('[APN] triggerApnRegistration failed (non-blocking):', (err as Error).message),
-      );
+      import('@/helpers/apn-client')
+        .then(({ triggerApnRegistration }) =>
+          triggerApnRegistration({
+            orgId,
+            projectId,
+            oppId,
+            customerName:      (opp.item.organizationName as string | undefined) ?? 'Unknown Customer',
+            opportunityValue:  (opp.item.baseAndAllOptionsValue as number | undefined) ?? 0,
+            awsServices:       ['Other'],
+            expectedCloseDate: (opp.item.responseDeadlineIso as string | undefined) ?? new Date().toISOString(),
+            proposalStatus:    'SUBMITTED',
+            description:       typeof opp.item.description === 'string'
+              ? opp.item.description.substring(0, 500)
+              : undefined,
+            registeredBy:      changedBy,
+          }),
+        )
+        .catch(err =>
+          console.warn('[APN] triggerApnRegistration failed (non-blocking):', (err as Error).message),
+        );
     }
   }
 };

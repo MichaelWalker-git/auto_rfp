@@ -9,5 +9,7 @@ export function questionfileDomain(): DomainRoutes {
     { method: 'GET', path: 'get-question-files', entry: lambdaEntry('question-file/get-question-files.ts') },
     { method: 'DELETE', path: 'delete-question-file', entry: lambdaEntry('question-file/delete-question-file.ts') },
     { method: 'POST', path: 'stop-question-pipeline', entry: lambdaEntry('question-file/stop-question-pipeline.ts') },
+    { method: 'POST', path: 'reextract-questions', entry: lambdaEntry('question-file/reextract-questions.ts'), timeoutSeconds: 60 },
+    { method: 'POST', path: 'reextract-all-questions', entry: lambdaEntry('question-file/reextract-all-questions.ts'), timeoutSeconds: 120 },
   ]};
 }

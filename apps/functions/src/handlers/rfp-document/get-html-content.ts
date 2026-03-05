@@ -77,18 +77,13 @@ export const baseHandler = async (
     if (!doc || doc.deletedAt) return apiResponse(404, { message: 'Document not found' });
     if (doc.orgId !== orgId) return apiResponse(403, { message: 'Access denied' });
 
-    let rawHtml = '';
-    let htmlContentKey: string | null = null;
-
-    if (doc.htmlContentKey && typeof doc.htmlContentKey === 'string') {
-      // Primary path: load HTML from S3
-      htmlContentKey = doc.htmlContentKey as string;
-      rawHtml = await loadRFPDocumentHtml(htmlContentKey);
-    } else if (doc.content && typeof doc.content === 'object') {
-      // Fallback: legacy inline content stored in DynamoDB
-      const c = doc.content as Record<string, unknown>;
-      rawHtml = (c.content as string | undefined) ?? (c.htmlContent as string | undefined) ?? '';
+    // HTML content must be stored in S3
+    if (!doc.htmlContentKey || typeof doc.htmlContentKey !== 'string') {
+      return apiResponse(404, { message: 'HTML content not available (missing S3 key)' });
     }
+
+    const htmlContentKey = doc.htmlContentKey as string;
+    const rawHtml = await loadRFPDocumentHtml(htmlContentKey);
 
     // Always return 200 — even if empty, so the editor can render (empty doc is valid)
     // Replace s3key: placeholders with presigned URLs server-side

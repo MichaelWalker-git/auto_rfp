@@ -62,6 +62,7 @@ export const extractBedrockText = (outer: BedrockResponse): string => {
 // ─── Q&A pairs ───
 
 export async function loadQaPairs(projectId: string): Promise<QaPair[]> {
+  // New SK: {projectId}#{opportunityId}#{questionId} — query by projectId prefix to get all
   const items = await queryBySkPrefix<QaPair & { question?: string; answer?: string }>(
     QUESTION_PK,
     `${projectId}#`,
@@ -264,8 +265,19 @@ export async function updateDocumentStatus(
       });
       console.log(`HTML content uploaded to S3: ${htmlContentKey}`);
     } catch (err) {
-      console.error('Failed to upload HTML to S3, falling back to DynamoDB storage:', err);
-      // Fall back: keep content in DynamoDB if S3 upload fails
+      console.error('Failed to upload HTML to S3:', err);
+      // Mark document as failed if S3 upload fails
+      await updateRFPDocumentMetadata({
+        projectId,
+        opportunityId,
+        documentId,
+        updates: {
+          status: 'FAILED',
+          generationError: 'Failed to upload HTML content to S3',
+        },
+        updatedBy: 'system',
+      });
+      throw new Error('Failed to upload HTML content to S3');
     }
   }
 

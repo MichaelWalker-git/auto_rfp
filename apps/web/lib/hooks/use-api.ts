@@ -13,6 +13,13 @@
 import { SWRConfiguration } from 'swr';
 import { useApi, buildApiUrl, ApiError, apiFetcher, apiMutate } from './api-helpers';
 import { OrganizationItem, AnswerItem, GroupedSection, ProjectItem } from '@auto-rfp/core';
+
+// ─── Questions + Answers combined response ───
+
+export interface QuestionsWithAnswersResponse {
+  sections: GroupedSection[];
+  answers: Record<string, AnswerItem>;
+}
 import useSWR from 'swr';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
@@ -88,7 +95,7 @@ export function useQuestions(projectId: string | null, includeAll = false, optio
     refreshInterval: options?.refreshInterval,
   };
 
-  return useApi<{ sections: GroupedSection[] }>(
+  return useApi<QuestionsWithAnswersResponse>(
     projectId ? ['questions', projectId, includeAll] : null,
     projectId ? buildApiUrl(`projects/questions/${projectId}`, { include: includeAll ? 'all' : undefined }) : null,
     config,
@@ -102,6 +109,10 @@ interface PaginatedAnswersResponse {
   nextToken: string | null;
 }
 
+/**
+ * @deprecated Use `useQuestions()` instead — answers are now included in the questions response.
+ * Kept for backward compatibility; will be removed in a future cleanup.
+ */
 export function useAnswers(projectId: string | null, includeSourceContent = false) {
   const [allAnswers, setAllAnswers] = useState<Record<string, AnswerItem>>({});
   const [isLoadingAll, setIsLoadingAll] = useState(false);

@@ -1,7 +1,7 @@
 import type { DomainRoutes } from './types';
 import { lambdaEntry } from './route-helper';
 
-export function clusteringDomain(): DomainRoutes {
+export const clusteringDomain = (): DomainRoutes => {
   return {
     basePath: 'clustering',
     routes: [
@@ -10,4 +10,4 @@ export function clusteringDomain(): DomainRoutes {
       { method: 'POST', path: 'apply-answer', entry: lambdaEntry('clustering/apply-cluster-answer.ts') },
     ],
   };
-}
+};

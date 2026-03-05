@@ -15,6 +15,8 @@ const TABLE_NAME = requireEnv('DB_TABLE_NAME');
 /**
  * GET /content-library/stale-report?orgId=&kbId=
  * Returns freshness summary for both Content Library items AND KB Documents.
+ * If kbId is provided, filters to that knowledge base.
+ * If kbId is omitted, returns all content for the org.
  * Delegates all business logic to stale-content.service.ts.
  */
 async function baseHandler(
@@ -22,10 +24,10 @@ async function baseHandler(
 ): Promise<APIGatewayProxyResultV2> {
   const params = event.queryStringParameters || {};
   const orgId = params.orgId || getOrgId(event);
-  const kbId = params.kbId;
+  const kbId = params.kbId || null;
 
-  if (!orgId || !kbId) {
-    return apiResponse(400, { error: 'orgId and kbId are required' });
+  if (!orgId) {
+    return apiResponse(400, { error: 'orgId is required' });
   }
 
   try {

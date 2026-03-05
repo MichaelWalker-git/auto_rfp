@@ -1,8 +1,9 @@
 import { z } from 'zod';
+import { CLUSTERING_THRESHOLDS } from './clustering';
 
-// Default threshold values
-export const DEFAULT_CLUSTER_THRESHOLD = 0.80; // Questions >= 80% similarity are auto-clustered
-export const DEFAULT_SIMILAR_THRESHOLD = 0.50; // Questions >= 50% similarity are shown as "similar"
+// Re-export default threshold values from the single source of truth
+export const DEFAULT_CLUSTER_THRESHOLD = CLUSTERING_THRESHOLDS.CLUSTER_THRESHOLD;
+export const DEFAULT_SIMILAR_THRESHOLD = CLUSTERING_THRESHOLDS.SIMILAR_THRESHOLD;
 
 /**
  * Zod Schema for the incoming request body (Data Transfer Object)

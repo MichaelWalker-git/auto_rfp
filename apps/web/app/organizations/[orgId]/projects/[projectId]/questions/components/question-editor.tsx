@@ -270,9 +270,11 @@ export function QuestionEditor({
           )}
 
           {/* Similar Questions */}
-          {projectId && question?.id && (
+          {projectId && question?.id && question?.opportunityId && (
             <SimilarQuestionsPanel
               projectId={projectId}
+              opportunityId={question.opportunityId}
+              questionFileId={question.questionFileId}
               questionId={question.id}
               currentAnswer={answer?.text}
               isUnsaved={isUnsaved}

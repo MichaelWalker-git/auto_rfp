@@ -1,63 +1,66 @@
-import { APIGatewayProxyEventV2, APIGatewayProxyResultV2 } from 'aws-lambda';
+import type { APIGatewayProxyResultV2 } from 'aws-lambda';
+import middy from '@middy/core';
 
+import { StartQuestionPipelineSchema } from '@auto-rfp/core';
 import { apiResponse } from '@/helpers/api';
-import { withSentryLambda } from '@/sentry-lambda';
 import { getQuestionFileItem, updateQuestionFile } from '@/helpers/questionFile';
 import { startPipeline } from '@/helpers/solicitation';
+import { withSentryLambda } from '@/sentry-lambda';
+import {
+  authContextMiddleware,
+  httpErrorMiddleware,
+  orgMembershipMiddleware,
+  requirePermission,
+  type AuthedEvent,
+} from '@/middleware/rbac-middleware';
+import { auditMiddleware, setAuditContext } from '@/middleware/audit-middleware';
 
-type StartBody = {
-  projectId?: string;
-  questionFileId?: string;
-  oppId?: string;
-}
+export const baseHandler = async (event: AuthedEvent): Promise<APIGatewayProxyResultV2> => {
+  if (!event.body) return apiResponse(400, { message: 'Request body is required' });
 
-export const baseHandler = async (
-  event: APIGatewayProxyEventV2,
-): Promise<APIGatewayProxyResultV2> => {
-  console.log('start-question-pipeline event:', JSON.stringify(event));
+  const { success, data, error } = StartQuestionPipelineSchema.safeParse(JSON.parse(event.body));
+  if (!success) return apiResponse(400, { message: 'Validation failed', issues: error.issues });
 
-  const body: StartBody = JSON.parse(event.body || '');
+  const { projectId, oppId, questionFileId } = data;
 
-  const { questionFileId, projectId, oppId } = body;
+  const qf = await getQuestionFileItem(projectId, oppId, questionFileId);
+  if (!qf) return apiResponse(404, { message: 'Question file not found' });
 
-  if (!questionFileId || !projectId || !oppId) {
-    return apiResponse(400, {
-      message: 'questionFileId, oppId and projectId are required',
-    });
-  }
+  const { executionArn, startDate } = await startPipeline(
+    projectId,
+    oppId,
+    questionFileId,
+    qf.fileKey,
+    qf.mimeType,
+  );
 
-  try {
-    const { fileKey, mimeType } = await getQuestionFileItem(projectId, oppId, questionFileId) || {};
+  await updateQuestionFile(projectId, oppId, questionFileId, {
+    status: 'PROCESSING',
+    executionArn,
+  });
 
-    // Note: orgId is looked up from project in lambdas that need it
-    const { executionArn, startDate } = await startPipeline(
-      projectId,
-      oppId,
-      questionFileId,
-      fileKey,
-      mimeType,
-    );
+  setAuditContext(event, {
+    action: 'PIPELINE_STARTED',
+    resource: 'question_file',
+    resourceId: questionFileId,
+    changes: {
+      after: { projectId, oppId, questionFileId, executionArn },
+    },
+  });
 
-    await updateQuestionFile(projectId, oppId, questionFileId, {
-      status: 'PROCESSING',
-      executionArn: executionArn, 
-    });
-
-    return apiResponse(202, {
-      message: 'Question pipeline started',
-      executionArn,
-      startDate,
-    });
-  } catch (err: any) {
-    console.error('Error starting question pipeline:', err);
-    if (err?.name === 'ConditionalCheckFailedException') {
-      return apiResponse(404, { message: 'Question file not found' });
-    }
-    return apiResponse(500, {
-      message: 'Failed to start question pipeline',
-      error: err instanceof Error ? err.message : 'Unknown error',
-    });
-  }
+  return apiResponse(202, {
+    message: 'Question pipeline started',
+    questionFileId,
+    executionArn,
+    startDate,
+  });
 };
 
-export const handler = withSentryLambda(baseHandler);
+export const handler = withSentryLambda(
+  middy(baseHandler)
+    .use(authContextMiddleware())
+    .use(orgMembershipMiddleware())
+    .use(requirePermission('question:create'))
+    .use(auditMiddleware())
+    .use(httpErrorMiddleware()),
+);

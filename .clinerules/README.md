@@ -20,6 +20,29 @@
 
 ---
 
+## 🔄 Workflows
+
+Workflows are step-by-step guides for Cline/Claude to follow when performing specific tasks:
+
+| Workflow | Trigger | Description |
+|---|---|---|
+| **[Architecture](workflows/architecture.md)** | "Design [feature]" | Produce implementation-ready architecture docs for new features |
+| **[Implementation](workflows/implementation.md)** | "Implement [feature]" | Build a feature from an existing architecture doc |
+| **[Code Review](workflows/code-review.md)** | "Review [feature/file/dir]" | AI-powered code audit with structured findings report |
+| **[Fix Review](workflows/fix-review.md)** | "Fix [review report]" | Systematically resolve issues found by code review |
+
+### Code Review Quick Start
+
+Ask Cline/Claude to review code using any of these patterns:
+- `"Review the answer feature"` — Full feature review (schemas, handlers, tests, frontend)
+- `"Review apps/functions/src/handlers/clustering/"` — Directory review
+- `"Review apps/web/components/brief/helpers.ts"` — Single file review
+- `"Security review the auth handlers"` — Security-focused review
+
+Reports are generated at `docs/reviews/<target>-review-YYYY-MM-DD.md`.
+
+---
+
 ## 🎯 Quick Reference
 
 ### For Backend Development

@@ -11,43 +11,44 @@ import { useOrganization } from '@/lib/hooks/use-api';
 import { authFetcher } from '@/lib/auth/auth-fetcher';
 import { env } from '@/lib/env';
 import PermissionWrapper from '@/components/permission-wrapper';
+import { CLUSTERING_THRESHOLDS } from '@auto-rfp/core';
 
 interface ClusteringSettingsProps {
   orgId: string;
 }
 
-// Default values (match backend)
-const DEFAULT_CLUSTER_THRESHOLD = 80;
-const DEFAULT_SIMILAR_THRESHOLD = 50;
+// Default values from the single source of truth
+const DEFAULT_CLUSTER_THRESHOLD_PCT = Math.round(CLUSTERING_THRESHOLDS.CLUSTER_THRESHOLD * 100);
+const DEFAULT_SIMILAR_THRESHOLD_PCT = Math.round(CLUSTERING_THRESHOLDS.SIMILAR_THRESHOLD * 100);
 
-export function ClusteringSettings({ orgId }: ClusteringSettingsProps) {
+export const ClusteringSettings = ({ orgId }: ClusteringSettingsProps) => {
   const { data: organization, mutate } = useOrganization(orgId);
   const { toast } = useToast();
   
-  const [clusterThreshold, setClusterThreshold] = useState(DEFAULT_CLUSTER_THRESHOLD);
-  const [similarThreshold, setSimilarThreshold] = useState(DEFAULT_SIMILAR_THRESHOLD);
+  const [clusterThreshold, setClusterThreshold] = useState(DEFAULT_CLUSTER_THRESHOLD_PCT);
+  const [similarThreshold, setSimilarThreshold] = useState(DEFAULT_SIMILAR_THRESHOLD_PCT);
   const [isSaving, setIsSaving] = useState(false);
   const [hasChanges, setHasChanges] = useState(false);
 
   // Load initial values from organization
   useEffect(() => {
     if (organization) {
-      const orgCluster = (organization as any).clusterThreshold;
-      const orgSimilar = (organization as any).similarThreshold;
+      const orgCluster = organization.clusterThreshold;
+      const orgSimilar = organization.similarThreshold;
       
       // Convert from 0-1 to percentage (0-100)
       setClusterThreshold(
-        orgCluster != null ? Math.round(orgCluster * 100) : DEFAULT_CLUSTER_THRESHOLD
+        orgCluster != null ? Math.round(orgCluster * 100) : DEFAULT_CLUSTER_THRESHOLD_PCT
       );
       setSimilarThreshold(
-        orgSimilar != null ? Math.round(orgSimilar * 100) : DEFAULT_SIMILAR_THRESHOLD
+        orgSimilar != null ? Math.round(orgSimilar * 100) : DEFAULT_SIMILAR_THRESHOLD_PCT
       );
       setHasChanges(false);
     }
   }, [organization]);
 
   const handleClusterChange = (value: number[]) => {
-    const newValue = value[0] ?? DEFAULT_CLUSTER_THRESHOLD;
+    const newValue = value[0] ?? DEFAULT_CLUSTER_THRESHOLD_PCT;
     setClusterThreshold(newValue);
     setHasChanges(true);
     
@@ -58,7 +59,7 @@ export function ClusteringSettings({ orgId }: ClusteringSettingsProps) {
   };
 
   const handleSimilarChange = (value: number[]) => {
-    const newValue = value[0] ?? DEFAULT_SIMILAR_THRESHOLD;
+    const newValue = value[0] ?? DEFAULT_SIMILAR_THRESHOLD_PCT;
     setSimilarThreshold(newValue);
     setHasChanges(true);
   };
@@ -86,8 +87,7 @@ export function ClusteringSettings({ orgId }: ClusteringSettingsProps) {
         title: 'Settings saved',
         description: 'Clustering thresholds updated successfully.',
       });
-    } catch (error) {
-      console.error('Error saving clustering settings:', error);
+    } catch {
       toast({
         title: 'Error',
         description: 'Failed to save clustering settings.',
@@ -99,8 +99,8 @@ export function ClusteringSettings({ orgId }: ClusteringSettingsProps) {
   };
 
   const handleReset = () => {
-    setClusterThreshold(DEFAULT_CLUSTER_THRESHOLD);
-    setSimilarThreshold(DEFAULT_SIMILAR_THRESHOLD);
+    setClusterThreshold(DEFAULT_CLUSTER_THRESHOLD_PCT);
+    setSimilarThreshold(DEFAULT_SIMILAR_THRESHOLD_PCT);
     setHasChanges(true);
   };
 
@@ -160,7 +160,7 @@ export function ClusteringSettings({ orgId }: ClusteringSettingsProps) {
           />
           <p className="text-xs text-muted-foreground">
             Questions with similarity ≥ {similarThreshold}% (but &lt; {clusterThreshold}%) are shown as suggestions
-            in the "Similar Questions" panel, allowing you to manually apply answers.
+            in the &quot;Similar Questions&quot; panel, allowing you to manually apply answers.
           </p>
         </div>
 
@@ -200,4 +200,4 @@ export function ClusteringSettings({ orgId }: ClusteringSettingsProps) {
       </CardFooter>
     </Card>
   );
-}
+};

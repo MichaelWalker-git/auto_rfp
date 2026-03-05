@@ -59,7 +59,7 @@ const ALL_STATUSES: ApnRegistrationStatus[] = [
   'PENDING', 'REGISTERED', 'FAILED', 'RETRYING', 'NOT_CONFIGURED',
 ];
 
-function TableSkeleton() {
+const TableSkeleton = () => {
   return (
     <div className="space-y-2">
       {Array.from({ length: 5 }).map((_, i) => (
@@ -67,9 +67,9 @@ function TableSkeleton() {
       ))}
     </div>
   );
-}
+};
 
-function StatusBadge({ status }: { status: ApnRegistrationStatus }) {
+const StatusBadge = ({ status }: { status: ApnRegistrationStatus }) => {
   const cfg = STATUS_BADGE[status];
   return (
     <Badge variant={cfg.variant} className="gap-1 text-xs">
@@ -77,9 +77,9 @@ function StatusBadge({ status }: { status: ApnRegistrationStatus }) {
       {cfg.label}
     </Badge>
   );
-}
+};
 
-function RegistrationRow({
+const RegistrationRow = ({
   item,
   orgId,
   onRetrySuccess,
@@ -87,7 +87,7 @@ function RegistrationRow({
   item: ApnRegistrationItem;
   orgId: string;
   onRetrySuccess: () => void;
-}) {
+}) => {
   return (
     <TableRow>
       {/* Status */}

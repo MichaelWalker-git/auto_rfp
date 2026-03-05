@@ -233,10 +233,10 @@ export function useCreateOpportunity() {
 }
 
 export function useOpportunity(projectId: string | null, oppId: string | null, orgId?: string) {
-  const shouldFetch = !!projectId && !!oppId;
+  const shouldFetch = !!projectId && !!oppId && !!orgId;
 
   const url = shouldFetch
-    ? `${env.BASE_API_URL}/opportunity/get-opportunity?projectId=${encodeURIComponent(projectId!)}&oppId=${encodeURIComponent(oppId!)}&orgId=${orgId}`
+    ? `${env.BASE_API_URL}/opportunity/get-opportunity?projectId=${encodeURIComponent(projectId!)}&oppId=${encodeURIComponent(oppId!)}&orgId=${encodeURIComponent(orgId!)}`
     : null;
 
   const { data, error, isLoading, mutate } = useSWR<OpportunityItem>(

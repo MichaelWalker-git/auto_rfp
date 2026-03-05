@@ -23,6 +23,7 @@ export const apnDomain = (): DomainRoutes => ({
       method:  'POST',
       path:    'retry-registration',
       entry:   lambdaEntry('apn/retry-apn-registration.ts'),
+      nodeModules: ['@smithy/signature-v4', '@smithy/protocol-http', '@aws-crypto/sha256-js'],
     },
     {
       method:  'GET',

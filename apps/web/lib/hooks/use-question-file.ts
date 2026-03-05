@@ -263,3 +263,92 @@ export function useStopQuestionPipeline() {
     stopQuestionPipelineFetcher,
   );
 }
+
+// ─── Re-extract Questions ─────────────────────────────────────────────────────
+
+type ReextractQuestionsPayload = {
+  projectId: string;
+  oppId: string;
+  questionFileId: string;
+};
+
+type ReextractQuestionsResponse = {
+  ok: boolean;
+  message: string;
+  deletedCount: number;
+  executionArn: string;
+};
+
+export async function reextractQuestionsFetcher(
+  url: string,
+  { arg }: { arg: ReextractQuestionsPayload },
+): Promise<ReextractQuestionsResponse> {
+  const res = await authFetcher(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(arg),
+  });
+
+  if (!res.ok) {
+    const text = await res.text().catch(() => '');
+    const err = new Error(text || 'Failed to re-extract questions') as Error & { status?: number };
+    (err as any).status = res.status;
+    throw err;
+  }
+
+  return res.json();
+}
+
+export function useReextractQuestions() {
+  return useSWRMutation<ReextractQuestionsResponse, any, string, ReextractQuestionsPayload>(
+    `${BASE}/reextract-questions`,
+    reextractQuestionsFetcher,
+  );
+}
+
+// ─── Re-extract All Questions ─────────────────────────────────────────────────
+
+type ReextractAllQuestionsPayload = {
+  projectId: string;
+  oppId: string;
+};
+
+type ReextractAllQuestionsResponse = {
+  ok: boolean;
+  message: string;
+  questionsDeleted: number;
+  answersDeleted: number;
+  clustersDeleted: number;
+  filesProcessed: number;
+  pipelinesStarted: Array<{
+    questionFileId: string;
+    executionArn?: string;
+  }>;
+};
+
+export const reextractAllQuestionsFetcher = async (
+  url: string,
+  { arg }: { arg: ReextractAllQuestionsPayload },
+): Promise<ReextractAllQuestionsResponse> => {
+  const res = await authFetcher(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(arg),
+  });
+
+  if (!res.ok) {
+    const text = await res.text().catch(() => '');
+    const err = new Error(text || 'Failed to re-extract all questions') as Error & { status?: number };
+    (err as any).status = res.status;
+    throw err;
+  }
+
+  return res.json();
+};
+
+export const useReextractAllQuestions = () => {
+  return useSWRMutation<ReextractAllQuestionsResponse, any, string, ReextractAllQuestionsPayload>(
+    `${BASE}/reextract-all-questions`,
+    reextractAllQuestionsFetcher,
+  );
+};

@@ -283,6 +283,25 @@ const processJob = async (job: Job): Promise<void> => {
   let modelJson: unknown;
   try {
     modelJson = safeParseJsonFromModel(rawText);
+
+    // Check if the model returned a JSON structure as text instead of as structured data
+    // This happens when the model outputs something like: { "title": "...", "content": "..." } as a string
+    if (typeof modelJson === 'object' && modelJson !== null) {
+      const obj = modelJson as Record<string, unknown>;
+      // If htmlContent or content contains what looks like a JSON object, try to parse it
+      const htmlField = obj.htmlContent || obj.content;
+      if (typeof htmlField === 'string' && htmlField.trim().startsWith('{')) {
+        try {
+          const parsed = JSON.parse(htmlField);
+          if (parsed && typeof parsed === 'object' && (parsed.content || parsed.htmlContent)) {
+            console.warn('Detected JSON-as-text in content field, extracting actual HTML');
+            modelJson = parsed;
+          }
+        } catch {
+          // Not valid JSON, continue with the original
+        }
+      }
+    }
   } catch (parseErr) {
     console.warn(`safeParseJsonFromModel failed for documentId=${documentId}: ${(parseErr as Error).message}. Wrapping raw text as HTML.`);
     modelJson = { title: `Generated ${documentType.replace(/_/g, ' ')}`, htmlContent: rawText };

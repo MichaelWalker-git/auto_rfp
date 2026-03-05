@@ -3,9 +3,10 @@ import middy from '@middy/core';
 import { withSentryLambda } from '@/sentry-lambda';
 import { MatchProjectsRequestSchema, type PastPerformanceSection } from '@auto-rfp/core';
 import type { ExecutiveBriefItem } from '@auto-rfp/core';
-import { 
-  matchProjectsToRequirements, 
-  performGapAnalysis 
+import {
+  matchProjectsToRequirements,
+  performGapAnalysis,
+  trackPastProjectUsage,
 } from '@/helpers/past-performance';
 import {
   getExecutiveBrief,
@@ -140,6 +141,11 @@ const baseHandler = async (event: AuthedEvent): Promise<APIGatewayProxyResultV2>
         solicitationText,
         topK || 5
       );
+
+      // Track usage of matched projects
+      for (const match of matches) {
+        await trackPastProjectUsage(orgId, match.project.projectId, executiveBriefId);
+      }
 
       // Perform gap analysis
       const requirementsWithCategory = requirementsSection?.requirements?.map((r: any) => ({

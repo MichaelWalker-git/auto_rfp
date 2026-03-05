@@ -10,7 +10,7 @@ import middy from '@middy/core';
 import https from 'https';
 import { z } from 'zod';
 
-import { apiResponse } from '@/helpers/api';
+import { apiResponse, getUserId } from '@/helpers/api';
 import { requireEnv } from '@/helpers/env';
 import { withSentryLambda } from '@/sentry-lambda';
 import {
@@ -27,7 +27,6 @@ import { createOpportunity } from '@/helpers/opportunity';
 import { createQuestionFile } from '@/helpers/questionFile';
 import { startPipeline } from '@/helpers/solicitation';
 import { sendNotification, buildNotification } from '@/helpers/send-notification';
-import { getUserId } from '@/helpers/api';
 import { resolveUserNames } from '@/helpers/resolve-users';
 import {
   httpsGetBuffer,
@@ -96,7 +95,7 @@ export const baseHandler = async (event: AuthedEvent): Promise<APIGatewayProxyRe
 
 const ALLOWED_SAM_DOMAINS = ['api.sam.gov', 'sam.gov'];
 
-function isSamGovUrl(s: string): boolean {
+const isSamGovUrl = (s: string): boolean => {
   try {
     const u = new URL(s);
     if (u.protocol !== 'https:') return false;
@@ -105,13 +104,16 @@ function isSamGovUrl(s: string): boolean {
   } catch {
     return false;
   }
-}
+};
 
 /**
  * If the description field is a SAM.gov URL, fetch the actual HTML/text content.
  * Returns the fetched content, or the original value if it's not a URL.
  */
-async function resolveDescription(description: string | null | undefined, apiKey: string): Promise<string | null> {
+const resolveDescription = async (
+  description: string | null | undefined,
+  apiKey: string,
+): Promise<string | null> => {
   if (!description) return null;
   if (!isSamGovUrl(description)) return description;
 
@@ -122,18 +124,36 @@ async function resolveDescription(description: string | null | undefined, apiKey
 
     if (contentType?.includes('json')) {
       const json = JSON.parse(buf.toString('utf-8')) as Record<string, unknown>;
-      // SAM.gov returns { opportunityDescription: '...' } or { description: '...' }
       const text = (json.opportunityDescription ?? json.description ?? json.content) as string | undefined;
       return text ?? buf.toString('utf-8');
     }
 
-    // HTML or plain text — return as-is
     return buf.toString('utf-8');
   } catch (err) {
     console.warn(`[importSamGov] Failed to fetch description from ${description}:`, (err as Error)?.message);
-    return description; // fall back to storing the URL if fetch fails
+    return description;
   }
-}
+};
+
+/** Map common MIME types to file extensions */
+const contentTypeToExt = (ct: string): string | null => {
+  const map: Record<string, string> = {
+    'application/pdf': '.pdf',
+    'application/msword': '.doc',
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document': '.docx',
+    'application/vnd.ms-excel': '.xls',
+    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': '.xlsx',
+    'text/plain': '.txt',
+    'text/html': '.html',
+    'image/png': '.png',
+    'image/jpeg': '.jpg',
+    'image/tiff': '.tiff',
+    'application/zip': '.zip',
+    'application/x-zip-compressed': '.zip',
+  };
+  const base = ct.split(';')[0]?.trim().toLowerCase() ?? '';
+  return map[base] ?? null;
+};
 
 // ─── SAM.gov import ───────────────────────────────────────────────────────────
 
@@ -153,7 +173,6 @@ const importSamGov = async (
   });
   const attachments = extractAttachmentsFromOpportunity(oppRaw);
 
-  // Resolve description: if it's a SAM.gov URL, fetch the actual content
   const rawDescription = ((oppRaw as Record<string, unknown>)?.description ?? null) as string | null;
   const description = await resolveDescription(rawDescription, apiKey);
 
@@ -181,10 +200,30 @@ const importSamGov = async (
     },
   });
 
-  const files = await importAttachments({ orgId: data.orgId, projectId: data.projectId, id: data.noticeId, attachments, oppId, sourceDocumentId: data.sourceDocumentId });
-  setAuditContext(event, { action: 'PROJECT_CREATED', resource: 'project', resourceId: oppId });
+  const files = await importAttachments({
+    orgId: data.orgId,
+    projectId: data.projectId,
+    id: data.noticeId,
+    attachments,
+    oppId,
+    sourceDocumentId: data.sourceDocumentId,
+  });
 
-  // Send import notification
+  setAuditContext(event, {
+    action: 'SOLICITATION_IMPORTED',
+    resource: 'opportunity',
+    resourceId: oppId,
+    orgId: data.orgId,
+    changes: {
+      after: {
+        source: 'SAM_GOV',
+        noticeId: data.noticeId,
+        projectId: data.projectId,
+        filesImported: files.length,
+      },
+    },
+  });
+
   const userId = getUserId(event);
   if (userId) {
     const nameMap = await resolveUserNames(data.orgId, [userId]).catch(() => ({} as Record<string, string>));
@@ -198,7 +237,16 @@ const importSamGov = async (
     ));
   }
 
-  return apiResponse(202, { ok: true, source: 'SAM_GOV', projectId: data.projectId, noticeId: data.noticeId, opportunityId: oppId, imported: files.length, opportunity: item, files });
+  return apiResponse(202, {
+    ok: true,
+    source: 'SAM_GOV',
+    projectId: data.projectId,
+    noticeId: data.noticeId,
+    opportunityId: oppId,
+    imported: files.length,
+    opportunity: item,
+    files,
+  });
 };
 
 // ─── DIBBS import ─────────────────────────────────────────────────────────────
@@ -238,10 +286,30 @@ const importDibbs = async (
     },
   });
 
-  const files = await importAttachments({ orgId: data.orgId, projectId: data.projectId, id: data.solicitationNumber, attachments, oppId, sourceDocumentId: data.sourceDocumentId });
-  setAuditContext(event, { action: 'PROJECT_CREATED', resource: 'project', resourceId: oppId });
+  const files = await importAttachments({
+    orgId: data.orgId,
+    projectId: data.projectId,
+    id: data.solicitationNumber,
+    attachments,
+    oppId,
+    sourceDocumentId: data.sourceDocumentId,
+  });
 
-  // Send import notification
+  setAuditContext(event, {
+    action: 'SOLICITATION_IMPORTED',
+    resource: 'opportunity',
+    resourceId: oppId,
+    orgId: data.orgId,
+    changes: {
+      after: {
+        source: 'DIBBS',
+        solicitationNumber: data.solicitationNumber,
+        projectId: data.projectId,
+        filesImported: files.length,
+      },
+    },
+  });
+
   const userId = getUserId(event);
   if (userId) {
     const nameMap = await resolveUserNames(data.orgId, [userId]).catch(() => ({} as Record<string, string>));
@@ -255,7 +323,16 @@ const importDibbs = async (
     ));
   }
 
-  return apiResponse(202, { ok: true, source: 'DIBBS', projectId: data.projectId, solicitationNumber: data.solicitationNumber, opportunityId: oppId, imported: files.length, opportunity: item, files });
+  return apiResponse(202, {
+    ok: true,
+    source: 'DIBBS',
+    projectId: data.projectId,
+    solicitationNumber: data.solicitationNumber,
+    opportunityId: oppId,
+    imported: files.length,
+    opportunity: item,
+    files,
+  });
 };
 
 // ─── Shared attachment import ─────────────────────────────────────────────────
@@ -271,50 +348,51 @@ const importAttachments = async (args: {
   sourceDocumentId?: string;
 }): Promise<Array<{ questionFileId: string; fileKey: string; executionArn?: string }>> => {
   const files: Array<{ questionFileId: string; fileKey: string; executionArn?: string }> = [];
+
   for (const a of args.attachments) {
-    // Fetch first so we have the Content-Disposition filename and content-type
     const { buf, contentType, filename: headerFilename } = await httpsGetBuffer(new URL(a.url), { httpsAgent });
 
-    // Build filename: prefer Content-Disposition header, then attachment name, then URL path
     let filename = buildAttachmentFilename(a, headerFilename);
-
-    // Determine content type
     const ct = a.mimeType || contentType || guessContentType(filename);
 
-    // If filename still has no extension, try to add one from content-type
     if (filename && !filename.includes('.') && ct) {
       const extFromCt = contentTypeToExt(ct);
       if (extFromCt) filename = `${filename}${extFromCt}`;
     }
 
-    const fileKey = buildAttachmentS3Key({ orgId: args.orgId, projectId: args.projectId, noticeId: args.id, attachmentUrl: a.url, filename });
+    const fileKey = buildAttachmentS3Key({
+      orgId: args.orgId,
+      projectId: args.projectId,
+      noticeId: args.id,
+      attachmentUrl: a.url,
+      filename,
+    });
+
     await uploadToS3(DOCUMENTS_BUCKET, fileKey, buf, ct ?? 'application/octet-stream');
-    const qf = await createQuestionFile(args.orgId, { oppId: args.oppId, projectId: args.projectId, fileKey, originalFileName: filename, mimeType: ct ?? null, sourceDocumentId: args.sourceDocumentId });
-    const { executionArn } = await startPipeline(args.projectId, args.oppId, qf.questionFileId, qf.fileKey, qf.mimeType ?? undefined);
+
+    const qf = await createQuestionFile({
+      orgId: args.orgId,
+      oppId: args.oppId,
+      projectId: args.projectId,
+      fileKey,
+      originalFileName: filename,
+      mimeType: ct ?? 'application/octet-stream',
+      sourceDocumentId: args.sourceDocumentId,
+    });
+
+    const { executionArn } = await startPipeline(
+      args.projectId,
+      args.oppId,
+      qf.questionFileId,
+      qf.fileKey,
+      qf.mimeType ?? undefined,
+    );
+
     files.push({ questionFileId: qf.questionFileId, fileKey, executionArn });
   }
+
   return files;
 };
-
-/** Map common MIME types to file extensions */
-function contentTypeToExt(ct: string): string | null {
-  const map: Record<string, string> = {
-    'application/pdf': '.pdf',
-    'application/msword': '.doc',
-    'application/vnd.openxmlformats-officedocument.wordprocessingml.document': '.docx',
-    'application/vnd.ms-excel': '.xls',
-    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': '.xlsx',
-    'text/plain': '.txt',
-    'text/html': '.html',
-    'image/png': '.png',
-    'image/jpeg': '.jpg',
-    'image/tiff': '.tiff',
-    'application/zip': '.zip',
-    'application/x-zip-compressed': '.zip',
-  };
-  const base = ct.split(';')[0]?.trim().toLowerCase() ?? '';
-  return map[base] ?? null;
-}
 
 // ─── Export ───────────────────────────────────────────────────────────────────
 
