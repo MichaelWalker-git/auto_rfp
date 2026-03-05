@@ -1,8 +1,8 @@
 import type { APIGatewayProxyResultV2 } from 'aws-lambda';
 import middy from '@middy/core';
-import { apiResponse } from '@/helpers/api';
+import { apiResponse, getOrgId } from '@/helpers/api';
 import { withSentryLambda } from '@/sentry-lambda';
-import { getApnRegistration } from '@/helpers/apn';
+import { getApnRegistration } from '@/helpers/apn-db';
 import {
   authContextMiddleware,
   httpErrorMiddleware,
@@ -12,9 +12,10 @@ import {
 } from '@/middleware/rbac-middleware';
 
 export const baseHandler = async (event: AuthedEvent): Promise<APIGatewayProxyResultV2> => {
-  const { orgId, projectId, oppId } = event.queryStringParameters ?? {};
-
+  const orgId = getOrgId(event);
   if (!orgId) return apiResponse(400, { message: 'orgId is required' });
+
+  const { projectId, oppId } = event.queryStringParameters ?? {};
   if (!projectId) return apiResponse(400, { message: 'projectId is required' });
   if (!oppId) return apiResponse(400, { message: 'oppId is required' });
 

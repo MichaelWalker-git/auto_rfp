@@ -3,7 +3,7 @@
 import React, { useCallback, useMemo, useState } from 'react';
 import {
   AlertCircle, Download, ExternalLink, Eye, FileText, FolderOpen,
-  Loader2, MoreHorizontal, RefreshCw, Trash2, X,
+  Loader2, MoreHorizontal, RefreshCw, RotateCcw, Trash2, X,
 } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -19,7 +19,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { cn } from '@/lib/utils';
 import { CancelPipelineButton } from '@/components/cancel-pipeline-button';
-import { useDeleteQuestionFile, useQuestionFiles, useStartQuestionFilePipeline } from '@/lib/hooks/use-question-file';
+import { useDeleteQuestionFile, useQuestionFiles, useReextractQuestions, useReextractAllQuestions, useStartQuestionFilePipeline } from '@/lib/hooks/use-question-file';
 import { useDownloadFromS3 } from '@/lib/hooks/use-file';
 import { usePresignDownload } from '@/lib/hooks/use-presign';
 import { useToast } from '@/components/ui/use-toast';
@@ -96,9 +96,13 @@ export function OpportunitySolicitationDocuments() {
   const { trigger: presignDownload } = usePresignDownload();
 
   const { trigger: startPipeline } = useStartQuestionFilePipeline();
+  const { trigger: reextractQuestions } = useReextractQuestions();
+  const { trigger: reextractAllQuestions } = useReextractAllQuestions();
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
   const [retryingId, setRetryingId] = useState<string | null>(null);
+  const [reextractingId, setReextractingId] = useState<string | null>(null);
+  const [isReextractingAll, setIsReextractingAll] = useState(false);
   const [viewingId, setViewingId] = useState<string | null>(null);
   const [previewState, setPreviewState] = useState<{ name: string; url: string; fileKey: string } | null>(null);
 
@@ -169,6 +173,34 @@ export function OpportunitySolicitationDocuments() {
     }
   }, [projectId, oppId, retryingId, startPipeline, toast, refetchFiles]);
 
+  const handleReextract = useCallback(async (row: AttachmentRow) => {
+    if (!row.questionFileId || reextractingId === row.questionFileId) return;
+    const ok = await confirm({
+      title: `Re-extract questions from "${row.name}"?`,
+      description: 'All previously extracted questions from this file will be deleted and re-extracted. Existing answers for those questions will also be removed.',
+      confirmLabel: 'Re-extract',
+      variant: 'destructive',
+    });
+    if (!ok) return;
+    try {
+      setReextractingId(row.questionFileId);
+      await reextractQuestions({ projectId, oppId, questionFileId: row.questionFileId });
+      toast({
+        title: '🔄 Re-extraction started',
+        description: `Previous questions deleted. "${row.name}" is being re-processed.`,
+      });
+      await refetchFiles();
+    } catch (err) {
+      toast({
+        title: 'Re-extraction failed',
+        description: err instanceof Error ? err.message : 'Could not start re-extraction',
+        variant: 'destructive',
+      });
+    } finally {
+      setReextractingId((prev) => (prev === row.questionFileId ? null : prev));
+    }
+  }, [projectId, oppId, reextractingId, reextractQuestions, toast, refetchFiles, confirm]);
+
   const handleDelete = useCallback(async (row: AttachmentRow) => {
     if (!row.questionFileId || deletingId === row.questionFileId) return;
     const ok = await confirm({
@@ -186,6 +218,34 @@ export function OpportunitySolicitationDocuments() {
       setDeletingId((prev) => (prev === row.questionFileId ? null : prev));
     }
   }, [projectId, oppId, deletingId, deleteQuestionFile, refetchFiles, confirm]);
+
+  const handleReextractAll = useCallback(async () => {
+    if (isReextractingAll || rows.length === 0) return;
+    const ok = await confirm({
+      title: 'Re-extract all questions?',
+      description: `This will delete ALL questions, answers, and clusters for this opportunity across all ${rows.length} file(s), then re-process each file from scratch. This action cannot be undone.`,
+      confirmLabel: 'Re-extract All',
+      variant: 'destructive',
+    });
+    if (!ok) return;
+    try {
+      setIsReextractingAll(true);
+      const result = await reextractAllQuestions({ projectId, oppId });
+      toast({
+        title: '🔄 Re-extraction started for all files',
+        description: result.message,
+      });
+      await refetchFiles();
+    } catch (err) {
+      toast({
+        title: 'Re-extraction failed',
+        description: err instanceof Error ? err.message : 'Could not start re-extraction for all files',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsReextractingAll(false);
+    }
+  }, [projectId, oppId, isReextractingAll, rows.length, reextractAllQuestions, toast, refetchFiles, confirm]);
 
   if (isLoadingFiles && rows.length === 0) {
     return (
@@ -217,14 +277,28 @@ export function OpportunitySolicitationDocuments() {
           <div className="flex items-center gap-2">
             <Button
               size="sm"
-              variant="ghost"
-              className="h-8 w-8 p-0"
+              variant="outline"
               onClick={() => refetchFiles()}
               disabled={isLoadingFiles}
-              title="Reload documents"
+              title="Reload"
             >
-              <RefreshCw className={cn('h-3.5 w-3.5', isLoadingFiles && 'animate-spin')} />
+              <RefreshCw className={cn('h-4 w-4 mr-2', isLoadingFiles && 'animate-spin')} />
+              Reload
             </Button>
+            {rows.length > 0 && (
+              <Button
+                size="sm"
+                variant="outline"
+                disabled={isReextractingAll}
+                onClick={() => void handleReextractAll()}
+                title="Re-extract questions from all files"
+              >
+                {isReextractingAll
+                  ? <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  : <RotateCcw className="h-4 w-4 mr-2" />}
+                Re-extract All
+              </Button>
+            )}
             <QuestionFileUploadDialog projectId={projectId} oppId={oppId} triggerLabel="Upload" />
           </div>
         </CardHeader>
@@ -349,6 +423,18 @@ export function OpportunitySolicitationDocuments() {
                               <DropdownMenuItem disabled={isRetrying} onClick={() => void handleRetry(f)}>
                                 {isRetrying ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <RefreshCw className="h-4 w-4 mr-2" />}
                                 Retry processing
+                              </DropdownMenuItem>
+                            )}
+                            {/* Re-extract — available for PROCESSED files */}
+                            {f.status === 'PROCESSED' && f.questionFileId && (
+                              <DropdownMenuItem
+                                disabled={reextractingId === f.questionFileId}
+                                onClick={() => void handleReextract(f)}
+                              >
+                                {reextractingId === f.questionFileId
+                                  ? <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                                  : <RotateCcw className="h-4 w-4 mr-2" />}
+                                Re-extract Questions
                               </DropdownMenuItem>
                             )}
                             {f.fileKey && (

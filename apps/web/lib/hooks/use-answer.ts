@@ -44,11 +44,13 @@ export function useGenerateAnswer() {
   return useSWRMutation<GenerateAnswerResponse, ApiError, string, AnswerQuestionRequestBody>(
     buildApiUrl('answer/generate-answer'),
     async (url, { arg }) => {
-      const { orgId, projectId, questionId, topK } = arg;
+      const { orgId, projectId, questionId, opportunityId, questionFileId, topK } = arg;
       return apiMutate<GenerateAnswerResponse>(url, 'POST', {
         orgId,
         projectId,
         questionId,
+        opportunityId,
+        questionFileId,
         topK: topK ?? 15,
       });
     },

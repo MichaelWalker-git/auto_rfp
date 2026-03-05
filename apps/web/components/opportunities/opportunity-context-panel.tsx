@@ -20,6 +20,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Separator } from '@/components/ui/separator';
+import { cn } from '@/lib/utils';
 
 import {
   useOpportunityContext,
@@ -273,14 +274,14 @@ export function OpportunityContextPanel() {
             )}
           </div>
           <Button
-            variant="ghost"
+            variant="outline"
             size="sm"
-            className="gap-1.5 text-xs text-slate-500 hover:text-slate-700"
             disabled={isRefreshing || isLoading}
             onClick={handleRefresh}
+            title="Reload"
           >
-            <RefreshCw className={`h-3.5 w-3.5 ${isRefreshing ? 'animate-spin' : ''}`} />
-            {isRefreshing ? 'Searching…' : 'Refresh'}
+            <RefreshCw className={cn('h-4 w-4 mr-2', isRefreshing && 'animate-spin')} />
+            Reload
           </Button>
         </div>
         <p className="text-xs text-slate-500 mt-0.5">
@@ -289,7 +290,7 @@ export function OpportunityContextPanel() {
         </p>
         {lastRefreshedAt && (
           <p className="text-xs text-slate-400">
-            Last refreshed: {new Date(lastRefreshedAt).toLocaleString()}
+            Last reloaded: {new Date(lastRefreshedAt).toLocaleString()}
           </p>
         )}
       </CardHeader>
@@ -303,7 +304,7 @@ export function OpportunityContextPanel() {
               No relevant context found yet.
             </p>
             <p className="text-xs text-slate-400 mt-1">
-              Upload a solicitation document, then click Refresh to search for relevant content.
+              Upload a solicitation document, then click Reload to search for relevant content.
             </p>
           </div>
         ) : (

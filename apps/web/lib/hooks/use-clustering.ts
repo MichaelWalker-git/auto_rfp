@@ -4,6 +4,7 @@ import useSWR from 'swr';
 import useSWRMutation from 'swr/mutation';
 import { env } from '@/lib/env';
 import { authFetcher } from '@/lib/auth/auth-fetcher';
+import { ApiError } from '@/lib/hooks/api-helpers';
 import {
   QuestionCluster,
   SimilarQuestion,
@@ -16,7 +17,7 @@ import {
 
 // ---------- Fetchers ----------
 
-async function fetchClusters(projectId: string, opportunityId?: string | null): Promise<GetClustersResponse> {
+const fetchClusters = async (projectId: string, opportunityId?: string | null): Promise<GetClustersResponse> => {
   const params = new URLSearchParams();
   if (opportunityId) params.set('opportunityId', opportunityId);
   const queryString = params.toString() ? `?${params.toString()}` : '';
@@ -27,25 +28,27 @@ async function fetchClusters(projectId: string, opportunityId?: string | null): 
 
   if (!res.ok) {
     const raw = await res.text().catch(() => '');
-    const err = new Error(raw || 'Failed to fetch clusters');
-    (err as any).status = res.status;
-    throw err;
+    throw new ApiError(raw || 'Failed to fetch clusters', res.status);
   }
 
   return res.json();
-}
+};
 
-async function fetchSimilarQuestions(
+const fetchSimilarQuestions = async (
   projectId: string,
   questionId: string,
   orgId?: string,
   threshold?: number,
-  limit?: number
-): Promise<FindSimilarQuestionsResponse> {
+  limit?: number,
+  opportunityId?: string,
+  fileId?: string,
+): Promise<FindSimilarQuestionsResponse> => {
   const params = new URLSearchParams();
   if (orgId) params.set('orgId', orgId);
   if (threshold) params.set('threshold', threshold.toString());
   if (limit) params.set('limit', limit.toString());
+  if (opportunityId) params.set('opportunityId', opportunityId);
+  if (fileId) params.set('fileId', fileId);
   const queryString = params.toString() ? `?${params.toString()}` : '';
 
   const res = await authFetcher(
@@ -55,18 +58,16 @@ async function fetchSimilarQuestions(
 
   if (!res.ok) {
     const raw = await res.text().catch(() => '');
-    const err = new Error(raw || 'Failed to fetch similar questions');
-    (err as any).status = res.status;
-    throw err;
+    throw new ApiError(raw || 'Failed to fetch similar questions', res.status);
   }
 
   return res.json();
-}
+};
 
-async function applyClusterAnswer(
+const applyClusterAnswer = async (
   _key: string,
   { arg }: { arg: ApplyClusterAnswerRequest }
-): Promise<ApplyClusterAnswerResponse> {
+): Promise<ApplyClusterAnswerResponse> => {
   const res = await authFetcher(`${env.BASE_API_URL}/clustering/apply-answer`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -75,21 +76,19 @@ async function applyClusterAnswer(
 
   if (!res.ok) {
     const raw = await res.text().catch(() => '');
-    const err = new Error(raw || 'Failed to apply cluster answer');
-    (err as any).status = res.status;
-    throw err;
+    throw new ApiError(raw || 'Failed to apply cluster answer', res.status);
   }
 
   return res.json();
-}
+};
 
 // ---------- Hooks ----------
 
 /**
  * Get all clusters for a project, optionally filtered by opportunity
  */
-export function useClusters(projectId?: string, opportunityId?: string | null) {
-  return useSWR<GetClustersResponse, Error>(
+export const useClusters = (projectId?: string, opportunityId?: string | null) => {
+  return useSWR<GetClustersResponse, ApiError>(
     projectId ? ['clusters', projectId, opportunityId ?? 'all'] : null,
     () => fetchClusters(projectId!, opportunityId),
     {
@@ -98,48 +97,48 @@ export function useClusters(projectId?: string, opportunityId?: string | null) {
       dedupingInterval: 30_000,
     }
   );
-}
+};
 
 /**
  * Get similar questions for a specific question
  */
-export function useSimilarQuestions(
+export const useSimilarQuestions = (
   projectId?: string,
   questionId?: string,
-  options?: { threshold?: number; limit?: number; orgId?: string }
-) {
-  return useSWR<FindSimilarQuestionsResponse, Error>(
+  options?: { threshold?: number; limit?: number; orgId?: string; opportunityId?: string; fileId?: string }
+) => {
+  return useSWR<FindSimilarQuestionsResponse, ApiError>(
     projectId && questionId && options?.orgId
-      ? ['similar-questions', projectId, questionId, options.orgId, options?.threshold, options?.limit]
+      ? ['similar-questions', projectId, questionId, options.orgId, options?.opportunityId, options?.fileId, options?.threshold, options?.limit]
       : null,
-    () => fetchSimilarQuestions(projectId!, questionId!, options?.orgId, options?.threshold, options?.limit),
+    () => fetchSimilarQuestions(projectId!, questionId!, options?.orgId, options?.threshold, options?.limit, options?.opportunityId, options?.fileId),
     {
       revalidateOnFocus: false,
       revalidateOnReconnect: true,
       dedupingInterval: 60_000,
     }
   );
-}
+};
 
 /**
  * Apply an answer to similar questions (mutation)
  */
-export function useApplyClusterAnswer() {
-  return useSWRMutation<ApplyClusterAnswerResponse, Error, string, ApplyClusterAnswerRequest>(
+export const useApplyClusterAnswer = () => {
+  return useSWRMutation<ApplyClusterAnswerResponse, ApiError, string, ApplyClusterAnswerRequest>(
     'apply-cluster-answer',
     applyClusterAnswer
   );
-}
+};
 
 // ---------- Helpers ----------
 
 /**
  * Helper to get cluster info for a specific question
  */
-export function getQuestionClusterInfo(
+export const getQuestionClusterInfo = (
   clusters: QuestionCluster[],
   questionId: string
-): { cluster: QuestionCluster; isMaster: boolean; similarity: number } | null {
+): { cluster: QuestionCluster; isMaster: boolean; similarity: number } | null => {
   for (const cluster of clusters) {
     if (cluster.masterQuestionId === questionId) {
       return { cluster, isMaster: true, similarity: 1.0 };
@@ -150,22 +149,22 @@ export function getQuestionClusterInfo(
     }
   }
   return null;
-}
+};
 
 /**
  * Helper to check if a question is a cluster master
  */
-export function isClusterMaster(clusters: QuestionCluster[], questionId: string): boolean {
+export const isClusterMaster = (clusters: QuestionCluster[], questionId: string): boolean => {
   return clusters.some((c) => c.masterQuestionId === questionId);
-}
+};
 
 /**
  * Helper to get all similar questions for display
  */
-export function getClusterMembers(
+export const getClusterMembers = (
   clusters: QuestionCluster[],
   questionId: string
-): SimilarQuestion[] {
+): SimilarQuestion[] => {
   const info = getQuestionClusterInfo(clusters, questionId);
   if (!info) return [];
 
@@ -182,4 +181,4 @@ export function getClusterMembers(
       inSameCluster: true,
       clusterId: info.cluster.clusterId,
     }));
-}
+};

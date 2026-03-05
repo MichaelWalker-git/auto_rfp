@@ -6,6 +6,8 @@ import {
   FRESHNESS_STALE_DAYS,
   CERTIFICATION_KEYWORDS,
   parseContentLibrarySK,
+  PAST_PROJECT_PK,
+  parsePastProjectSK,
 } from '@auto-rfp/core';
 import type {
   FreshnessStatus,
@@ -13,6 +15,7 @@ import type {
   ContentLibraryItem,
   StaleContentReportResponse,
   StaleContentReportItem,
+  PastProject as PastProjectItem,
 } from '@auto-rfp/core';
 import { docClient, DBItem } from '@/helpers/db';
 import { PK_NAME, SK_NAME } from '@/constants/common';
@@ -23,6 +26,7 @@ import { getOrgMembers, getUserByOrgAndId } from '@/helpers/user';
 
 type ContentLibraryDBItem = ContentLibraryItem & DBItem;
 type DocumentDBItem = DocumentItem & DBItem;
+type PastProjectDBItem = PastProjectItem & DBItem;
 
 // ─── Types ───
 
@@ -30,7 +34,7 @@ export interface DetectionResult {
   itemId: string;
   orgId: string;
   kbId: string;
-  source: 'CONTENT_LIBRARY' | 'KB_DOCUMENT';
+  source: 'CONTENT_LIBRARY' | 'KB_DOCUMENT' | 'PAST_PERFORMANCE';
   previousStatus: FreshnessStatus;
   newStatus: FreshnessStatus;
   reason: StaleReason;
@@ -40,6 +44,7 @@ export interface DetectionSummary {
   totalScanned: number;
   contentLibraryScanned: number;
   kbDocumentsScanned: number;
+  pastPerformanceScanned: number;
   staleDetected: number;
   warningDetected: number;
   notificationsSent: boolean;
@@ -611,41 +616,143 @@ export async function detectStaleKBDocuments(tableName: string, now: Date): Prom
   return results;
 }
 
+// ─── Core Detection: Past Performance Projects ───
+
+async function scanPastProjects(tableName: string): Promise<PastProjectDBItem[]> {
+  let lastEvaluatedKey: Record<string, unknown> | undefined;
+  const allProjects: PastProjectDBItem[] = [];
+
+  do {
+    const scanResult = await docClient.send(
+      new ScanCommand({
+        TableName: tableName,
+        FilterExpression: `${PK_NAME} = :pk`,
+        ExpressionAttributeValues: { ':pk': PAST_PROJECT_PK },
+        ExclusiveStartKey: lastEvaluatedKey,
+      }),
+    );
+
+    for (const rawItem of scanResult.Items || []) {
+      allProjects.push(rawItem as unknown as PastProjectDBItem);
+    }
+
+    lastEvaluatedKey = scanResult.LastEvaluatedKey as Record<string, unknown> | undefined;
+  } while (lastEvaluatedKey);
+
+  return allProjects;
+}
+
+export async function detectStalePastProjects(tableName: string, now: Date): Promise<DetectionResult[]> {
+  const allProjects = await scanPastProjects(tableName);
+  const results: DetectionResult[] = [];
+
+  console.log(`Found ${allProjects.length} past performance projects to check`);
+
+  for (const project of allProjects) {
+    if (project.isArchived) continue;
+
+    const previousStatus: FreshnessStatus = project.freshnessStatus || 'ACTIVE';
+    if (previousStatus === 'ARCHIVED') continue;
+
+    // Check usage staleness (same logic as KB documents)
+    const referenceDate = project.lastUsedAt || project.createdAt;
+    const days = daysBetween(referenceDate, now);
+
+    let newStatus: FreshnessStatus = 'ACTIVE';
+    let reason: StaleReason | null = null;
+
+    if (days >= FRESHNESS_STALE_DAYS) {
+      newStatus = 'STALE';
+      reason = 'NOT_USED';
+    } else if (days >= FRESHNESS_WARNING_DAYS) {
+      newStatus = 'WARNING';
+      reason = 'NOT_USED';
+    }
+
+    if (newStatus !== previousStatus) {
+      if (newStatus === 'ACTIVE') {
+        await clearItemStaleness(tableName, PAST_PROJECT_PK, project[SK_NAME], now);
+      } else if (reason) {
+        await updateItemFreshness(tableName, PAST_PROJECT_PK, project[SK_NAME], newStatus, reason, now);
+
+        const parsed = parsePastProjectSK(project[SK_NAME]);
+        if (parsed) {
+          results.push({
+            itemId: parsed.projectId,
+            orgId: parsed.orgId,
+            kbId: '',
+            source: 'PAST_PERFORMANCE',
+            previousStatus,
+            newStatus,
+            reason,
+          });
+        }
+      }
+    } else {
+      await touchFreshnessCheck(tableName, PAST_PROJECT_PK, project[SK_NAME], now);
+    }
+  }
+
+  return results;
+}
+
 // ─── Report Generation ───
 
 export async function generateStaleReport(
   tableName: string,
   orgId: string,
-  kbId: string,
+  kbId: string | null,
 ): Promise<StaleContentReportResponse> {
   const now = new Date();
 
   // Query content library items
+  // If kbId is provided, filter to that KB; otherwise, get all items for the org
+  const clSkPrefix = kbId ? `${orgId}#${kbId}` : `${orgId}#`;
   const clResult = await docClient.send(
     new QueryCommand({
       TableName: tableName,
       KeyConditionExpression: `${PK_NAME} = :pk AND begins_with(${SK_NAME}, :skPrefix)`,
       ExpressionAttributeValues: {
         ':pk': CONTENT_LIBRARY_PK,
-        ':skPrefix': `${orgId}#${kbId}`,
+        ':skPrefix': clSkPrefix,
       },
     }),
   );
 
-  // Also query KB documents for this KB
-  const docResult = await docClient.send(
+  // Query KB documents
+  // If kbId is provided, filter to that KB; otherwise, skip KB documents (org-level report shows content library only)
+  let docResult;
+  if (kbId) {
+    docResult = await docClient.send(
+      new QueryCommand({
+        TableName: tableName,
+        KeyConditionExpression: `${PK_NAME} = :pk AND begins_with(${SK_NAME}, :skPrefix)`,
+        ExpressionAttributeValues: {
+          ':pk': DOCUMENT_PK,
+          ':skPrefix': `KB#${kbId}`,
+        },
+      }),
+    );
+  } else {
+    // For org-level report, don't include KB documents (they're KB-specific)
+    docResult = { Items: [] };
+  }
+
+  // Query Past Performance projects for this org
+  const ppResult = await docClient.send(
     new QueryCommand({
       TableName: tableName,
       KeyConditionExpression: `${PK_NAME} = :pk AND begins_with(${SK_NAME}, :skPrefix)`,
       ExpressionAttributeValues: {
-        ':pk': DOCUMENT_PK,
-        ':skPrefix': `KB#${kbId}`,
+        ':pk': PAST_PROJECT_PK,
+        ':skPrefix': `${orgId}#`,
       },
     }),
   );
 
   const clItems = (clResult.Items || []) as unknown as ContentLibraryItem[];
   const docItems = (docResult.Items || []) as unknown as DocumentItem[];
+  const ppItems = (ppResult.Items || []) as unknown as PastProjectItem[];
 
   let active = 0;
   let warning = 0;
@@ -740,10 +847,70 @@ export async function generateStaleReport(
     }
   }
 
+  // Process Past Performance projects
+  for (const project of ppItems) {
+    if (project.isArchived) { archived++; continue; }
+
+    const status = project.freshnessStatus || 'ACTIVE';
+    if (status === 'ARCHIVED') { archived++; continue; }
+
+    const virtualItem = {
+      id: project.projectId,
+      orgId,
+      kbId,
+      question: `[Past Performance] ${project.title}`,
+      answer: `Past Performance Project: ${project.title} - ${project.client}`,
+      category: 'Past Performance',
+      tags: project.technologies || [],
+      usageCount: project.usageCount || 0,
+      lastUsedAt: project.lastUsedAt || null,
+      usedInProjectIds: [],
+      currentVersion: 1,
+      versions: [],
+      isArchived: false,
+      archivedAt: null,
+      approvalStatus: 'APPROVED' as const,
+      approvedBy: null,
+      approvedAt: null,
+      freshnessStatus: status,
+      staleReason: project.staleReason || null,
+      staleSince: project.staleSince || null,
+      lastFreshnessCheck: project.lastFreshnessCheck || null,
+      reactivatedAt: project.reactivatedAt || null,
+      reactivatedBy: project.reactivatedBy || null,
+      createdAt: project.createdAt || now.toISOString(),
+      updatedAt: project.updatedAt || now.toISOString(),
+      createdBy: project.createdBy || '00000000-0000-0000-0000-000000000000',
+    } as unknown as ContentLibraryItem;
+
+    if (status === 'STALE') {
+      stale++;
+      staleItems.push({
+        item: virtualItem,
+        reason: project.staleReason || 'NOT_USED',
+        daysSinceLastUse: daysBetween(project.lastUsedAt || project.createdAt, now),
+        certExpired: false,
+        conflictsWith: null,
+      });
+    } else if (status === 'WARNING') {
+      warning++;
+      warningItems.push({
+        item: virtualItem,
+        reason: project.staleReason || 'NOT_USED',
+        daysSinceLastUse: daysBetween(project.lastUsedAt || project.createdAt, now),
+        certExpired: false,
+        conflictsWith: null,
+      });
+    } else {
+      active++;
+    }
+  }
+
   // Find latest scan timestamp across all items
   const allChecks = [
     ...clItems.map((i) => (i as Record<string, unknown>).lastFreshnessCheck as string | undefined),
     ...docItems.map((d) => d.lastFreshnessCheck),
+    ...ppItems.map((p) => p.lastFreshnessCheck),
   ].filter(Boolean) as string[];
 
   const lastScanAt = allChecks.length > 0
@@ -752,7 +919,7 @@ export async function generateStaleReport(
 
   return {
     summary: {
-      total: clItems.length + docItems.length,
+      total: clItems.length + docItems.length + ppItems.length,
       active,
       warning,
       stale,

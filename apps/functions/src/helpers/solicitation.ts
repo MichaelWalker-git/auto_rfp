@@ -3,7 +3,8 @@ import { requireEnv } from './env';
 
 const sfn = new SFNClient({});
 
-const STATE_MACHINE_ARN = requireEnv('QUESTION_PIPELINE_STATE_MACHINE_ARN');
+// Resolved lazily — not all Lambdas that import this file have this env var
+const getStateMachineArn = () => requireEnv('QUESTION_PIPELINE_STATE_MACHINE_ARN');
 
 export async function startPipeline(
   projectId: string,
@@ -14,7 +15,7 @@ export async function startPipeline(
 ) {
   const res = await sfn.send(
     new StartExecutionCommand({
-      stateMachineArn: STATE_MACHINE_ARN,
+      stateMachineArn: getStateMachineArn(),
       input: JSON.stringify({
         oppId,
         projectId,

@@ -48,6 +48,10 @@ jest.mock('@smithy/protocol-http', () => ({
   HttpRequest: jest.fn().mockImplementation((opts: unknown) => opts),
 }));
 
+jest.mock('@aws-crypto/sha256-js', () => ({
+  Sha256: jest.fn(),
+}));
+
 // Set required environment variables
 process.env['DB_TABLE_NAME'] = 'test-table';
 process.env['REGION'] = 'us-east-1';

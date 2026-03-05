@@ -1,0 +1,1 @@
+export const PROPOSAL_SUBMISSION_PK = 'PROPOSAL_SUBMISSION' as const;

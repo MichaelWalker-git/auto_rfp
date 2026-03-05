@@ -4,17 +4,18 @@
  * These tools allow Claude to actively query the database during answer
  * generation rather than relying solely on pre-fetched context.
  *
- * Available tools (4 total):
+ * Available tools (5 total):
  *  - search_knowledge_base    → semantic search over company KB chunks
  *  - search_past_performance  → semantic search over past projects
  *  - get_content_library      → search pre-approved Q&A pairs
  *  - get_organization_context → org details, primary contact, team
+ *  - get_solicitation_text    → load the original solicitation/RFP document text
  */
 
 import { getEmbedding, semanticSearchChunks, semanticSearchPastPerformance } from '@/helpers/embeddings';
 import { loadTextFromS3 } from '@/helpers/s3';
 import { requireEnv } from '@/helpers/env';
-import { truncateText } from '@/helpers/executive-opportunity-brief';
+import { truncateText, loadAllSolicitationTexts } from '@/helpers/executive-opportunity-brief';
 import {
   fetchOrganizationDetails,
   fetchOrgPrimaryContact,
@@ -102,6 +103,25 @@ export const ANSWER_TOOLS = [
     input_schema: {
       type: 'object' as const,
       properties: {},
+      required: [],
+    },
+  },
+  {
+    name: 'get_solicitation_text',
+    description:
+      'Load the original solicitation/RFP document text for this project. ' +
+      'Use this when the question references specific solicitation requirements, ' +
+      'Section L/M criteria, submission instructions, deadlines, evaluation factors, ' +
+      'contract terms, or any details that would be found in the original RFP documents. ' +
+      'This returns the full text of the uploaded solicitation documents.',
+    input_schema: {
+      type: 'object' as const,
+      properties: {
+        max_chars: {
+          type: 'number',
+          description: 'Maximum characters to return (default: 30000). Use a smaller value if you only need a quick reference.',
+        },
+      },
       required: [],
     },
   },
@@ -203,8 +223,10 @@ export const executeAnswerTool = async (args: {
   toolUseId: string;
   orgId: string;
   questionId: string;
+  projectId?: string;
+  opportunityId?: string;
 }): Promise<ToolResult> => {
-  const { toolName, toolInput, toolUseId, orgId, questionId } = args;
+  const { toolName, toolInput, toolUseId, orgId, questionId, projectId, opportunityId } = args;
 
   const start = Date.now();
   let content: string;
@@ -245,6 +267,23 @@ export const executeAnswerTool = async (args: {
         ]);
         const parts = [orgDetails, primaryContact].filter(Boolean);
         content = parts.length ? parts.join('\n\n') : 'No organization context available.';
+        break;
+      }
+
+      case 'get_solicitation_text': {
+        if (!projectId) {
+          content = 'Cannot load solicitation text: projectId is not available.';
+          break;
+        }
+        const maxChars = typeof toolInput.max_chars === 'number'
+          ? Math.min(Math.max(toolInput.max_chars, 1000), 80000)
+          : 30000;
+        const solText = await loadAllSolicitationTexts(projectId, opportunityId ?? '', maxChars);
+        if (!solText.trim()) {
+          content = 'No solicitation documents found for this project. The solicitation may not have been uploaded yet.';
+        } else {
+          content = `Solicitation document text (${solText.length} chars):\n\n${solText}`;
+        }
         break;
       }
 

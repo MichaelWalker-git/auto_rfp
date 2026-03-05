@@ -15,7 +15,7 @@ import {
   requirePermission
 } from '@/middleware/rbac-middleware';
 import middy from '@middy/core';
-import { AnswerItem, GroupedSection, QuestionItem } from '@auto-rfp/core';
+import { AnswerItem, AnswerSource, GroupedSection, QuestionItem } from '@auto-rfp/core';
 
 const DB_TABLE_NAME = requireEnv('DB_TABLE_NAME');
 
@@ -28,10 +28,22 @@ export const baseHandler = async (
       return apiResponse(400, { message: 'Missing projectId' });
     }
 
-    const flatQuestions = await loadQuestions(projectId);
-    const grouped: GroupedSection[] = await groupQuestions(projectId, flatQuestions);
+    // Run both queries in parallel — 2 DB queries total instead of N+1
+    const [flatQuestions, answersMap] = await Promise.all([
+      loadQuestions(projectId),
+      loadAnswers(projectId),
+    ]);
 
-    return apiResponse(200, { sections: grouped });
+    const sections = groupQuestions(flatQuestions, answersMap);
+
+    console.log('[get-questions] Response data:', {
+      sectionsCount: sections.length,
+      answersCount: Object.keys(answersMap).length,
+      answerKeys: Object.keys(answersMap).slice(0, 5),
+      sampleAnswer: Object.values(answersMap)[0],
+    });
+
+    return apiResponse(200, { sections, answers: answersMap });
   } catch (err) {
     console.error('getProjectQuestions error', err);
     return apiResponse(500, {
@@ -41,10 +53,12 @@ export const baseHandler = async (
   }
 };
 
-async function loadQuestions(projectId: string) {
-  let items: any[] = [];
-  let LastKey: Record<string, any> | undefined;
-
+/**
+ * Load all questions for a project in a single query.
+ */
+const loadQuestions = async (projectId: string): Promise<QuestionItem[]> => {
+  const items: QuestionItem[] = [];
+  let lastKey: Record<string, unknown> | undefined;
   const prefix = `${projectId}#`;
 
   do {
@@ -60,73 +74,129 @@ async function loadQuestions(projectId: string) {
           ':pk': QUESTION_PK,
           ':prefix': prefix,
         },
-        ExclusiveStartKey: LastKey,
+        ExclusiveStartKey: lastKey,
       }),
     );
 
-    if (res.Items) items.push(...res.Items);
-    LastKey = res.LastEvaluatedKey as Record<string, any> | undefined;
-  } while (LastKey);
+    if (res.Items) items.push(...(res.Items as QuestionItem[]));
+    lastKey = res.LastEvaluatedKey as Record<string, unknown> | undefined;
+  } while (lastKey);
 
-  return items as QuestionItem[];
-}
+  return items;
+};
 
-async function getAnswer(projectId: string, questionId: string) {
-  const prefix = `${projectId}#${questionId}#`;
+/**
+ * Load all answers for a project in a single query, grouped by questionId (latest wins).
+ * Source textContent is stripped to reduce payload size.
+ */
+const loadAnswers = async (projectId: string): Promise<Record<string, AnswerItem>> => {
+  const grouped: Record<string, AnswerItem> = {};
+  let lastKey: Record<string, unknown> | undefined;
+  const prefix = `${projectId}#`;
 
-  const res = await docClient.send(
-    new QueryCommand({
-      TableName: DB_TABLE_NAME,
-      KeyConditionExpression: '#pk = :pk AND begins_with(#sk, :prefix)',
-      ExpressionAttributeNames: {
-        '#pk': PK_NAME,
-        '#sk': SK_NAME,
-      },
-      ExpressionAttributeValues: {
-        ':pk': ANSWER_PK,
-        ':prefix': prefix,
-      },
-      Limit: 1,
+  console.log('[loadAnswers] Querying answers with PK:', ANSWER_PK, 'SK prefix:', prefix);
+
+  do {
+    const res = await docClient.send(
+      new QueryCommand({
+        TableName: DB_TABLE_NAME,
+        KeyConditionExpression: '#pk = :pk AND begins_with(#sk, :prefix)',
+        ExpressionAttributeNames: {
+          '#pk': PK_NAME,
+          '#sk': SK_NAME,
+        },
+        ExpressionAttributeValues: {
+          ':pk': ANSWER_PK,
+          ':prefix': prefix,
+        },
+        ExclusiveStartKey: lastKey,
+      }),
+    );
+
+    console.log('[loadAnswers] Query returned', res.Items?.length ?? 0, 'items');
+    if (res.Items && res.Items.length > 0) {
+      console.log('[loadAnswers] Sample item:', res.Items[0]);
+    }
+
+    if (res.Items) {
+      for (const item of res.Items as AnswerItem[]) {
+        const questionId = item.questionId;
+        if (!questionId) continue;
+
+        const current = grouped[questionId];
+        if (!current) {
+          grouped[questionId] = stripSourceContent(item);
+        } else {
+          // Keep the most recent answer
+          const curTime = new Date(current.updatedAt || current.createdAt || '0').getTime();
+          const candTime = new Date(item.updatedAt || item.createdAt || '0').getTime();
+          if (candTime > curTime) {
+            grouped[questionId] = stripSourceContent(item);
+          }
+        }
+      }
+    }
+
+    lastKey = res.LastEvaluatedKey as Record<string, unknown> | undefined;
+  } while (lastKey);
+
+  console.log('[loadAnswers] Grouped answers:', Object.keys(grouped).length, 'unique questions');
+  return grouped;
+};
+
+/**
+ * Strip textContent from sources to reduce payload size.
+ */
+const stripSourceContent = (answer: AnswerItem): AnswerItem => {
+  if (!answer.sources || answer.sources.length === 0) return answer;
+  return {
+    ...answer,
+    sources: answer.sources.map((source: AnswerSource) => {
+      const { textContent: _, ...rest } = source;
+      return rest;
     }),
-  );
+  };
+};
 
-  if (!res.Items || res.Items.length === 0) {
-    return null;
-  }
-
-  return res.Items[0] as AnswerItem;
-}
-
-async function groupQuestions(
-  projectId: string,
-  flat: any[],
-) {
-  const sectionsMap = new Map<string, any>();
+/**
+ * Group flat questions into sections, attaching inline answer text from the pre-fetched map.
+ * This is now synchronous — no per-question DB calls.
+ */
+const groupQuestions = (
+  flat: QuestionItem[],
+  answersMap: Record<string, AnswerItem>,
+): GroupedSection[] => {
+  const sectionsMap = new Map<string, GroupedSection>();
 
   for (const item of flat) {
     const secId = item.sectionId;
     if (!sectionsMap.has(secId)) {
       sectionsMap.set(secId, {
         id: secId,
-        title: item.sectionTitle,
+        title: item.sectionTitle ?? '',
         description: item.sectionDescription ?? null,
         questions: [],
       });
     }
 
-    const qId = item.questionId as string;
-    const answerItem = await getAnswer(projectId, qId);
+    const qId = item.questionId;
+    const answerItem = answersMap[qId];
 
-    sectionsMap.get(secId).questions.push({
+    sectionsMap.get(secId)!.questions.push({
       id: qId,
-      question: item.question,
+      question: item.question ?? '',
       answer: answerItem?.text ?? null,
-      opportunityId: item.opportunityId ?? null,
+      opportunityId: item.opportunityId ?? undefined,
+      questionFileId: item.questionFileId ?? undefined,
+      clusterId: item.clusterId,
+      isClusterMaster: item.isClusterMaster,
+      similarityToMaster: item.similarityToMaster,
+      linkedToMasterQuestionId: item.linkedToMasterQuestionId,
     });
   }
 
-  return Array.from(sectionsMap.values()) as GroupedSection[];
-}
+  return Array.from(sectionsMap.values());
+};
 
 export const handler = withSentryLambda(
   middy(baseHandler)

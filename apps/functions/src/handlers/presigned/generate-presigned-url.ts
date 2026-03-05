@@ -69,8 +69,8 @@ export const baseHandler = async (
       const objectKey =
         key ??
         (fileName
-          ? `${safePrefix}/${fileId}/${sanitizeFileName(fileName)}`
-          : `${safePrefix}/${fileId}`);
+          ? `${safePrefix}${fileId}/${sanitizeFileName(fileName)}`
+          : `${safePrefix}${fileId}`);
 
       const putObjectCmd = new PutObjectCommand({
         Bucket: BUCKET_NAME,

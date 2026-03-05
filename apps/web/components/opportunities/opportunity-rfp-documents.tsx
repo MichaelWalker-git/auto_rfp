@@ -38,7 +38,6 @@ import {
 import { RFPDocumentUploadDialog } from '@/components/rfp-documents/rfp-document-upload-dialog';
 import { RFPDocumentPreviewDialog } from '@/components/rfp-documents/rfp-document-preview-dialog';
 import { RFPDocumentExportDialog } from '@/components/rfp-documents/rfp-document-export-dialog';
-import { SignatureStatusBadge } from '@/components/rfp-documents/signature-status-badge';
 import { GoogleDriveSyncButton } from '@/components/rfp-documents/google-drive-sync-button';
 import { GenerateDocumentDialog } from '@/components/rfp-documents/generate-document-dialog';
 import { useOpportunityContext } from './opportunity-context';
@@ -224,13 +223,13 @@ export function OpportunityRFPDocuments() {
           <div className="flex items-center gap-2">
             <Button
               size="sm"
-              variant="ghost"
-              className="h-8 w-8 p-0"
+              variant="outline"
               onClick={() => mutate()}
               disabled={isLoading}
-              title="Reload documents"
+              title="Reload"
             >
-              <RefreshCw className={cn('h-3.5 w-3.5', isLoading && 'animate-spin')} />
+              <RefreshCw className={cn('h-4 w-4 mr-2', isLoading && 'animate-spin')} />
+              Reload
             </Button>
             <GenerateDocumentDialog
               projectId={projectId}
@@ -238,8 +237,8 @@ export function OpportunityRFPDocuments() {
               orgId={orgId}
               onSuccess={() => mutate()}
             />
-            <Button size="sm" onClick={() => setUploadDialogOpen(true)} className="h-8 text-xs">
-              <Upload className="h-3.5 w-3.5 mr-1" />
+            <Button size="sm" onClick={() => setUploadDialogOpen(true)}>
+              <Upload className="h-4 w-4 mr-2" />
               Upload
             </Button>
           </div>
@@ -317,7 +316,6 @@ export function OpportunityRFPDocuments() {
                           <Badge variant="outline" className={cn('text-xs border', typeChip.cls)}>
                             {RFP_DOCUMENT_TYPES[doc.documentType] ?? doc.documentType}
                           </Badge>
-                          <SignatureStatusBadge status={doc.signatureStatus} />
                         </div>
 
                         <div className="mt-1 flex flex-wrap gap-x-3 text-xs text-muted-foreground">

@@ -1,8 +1,9 @@
 import { z } from 'zod';
+import { FreshnessStatusSchema, StaleReasonSchema } from './content-library';
 
 /**
  * Past Performance Matching Feature
- * 
+ *
  * This module provides schemas for managing past projects and matching them
  * to RFP requirements for Bid/No-Bid decisions (Criterion 2: Past Performance Relevance).
  */
@@ -50,6 +51,19 @@ export const PastProjectSchema = z.object({
   // Scale metrics
   teamSize: z.number().int().positive().optional().nullable(),
   durationMonths: z.number().int().positive().optional().nullable(),
+
+  // Usage tracking
+  usageCount: z.number().int().nonnegative().default(0),
+  lastUsedAt: z.string().datetime().nullable().optional(),
+  usedInBriefIds: z.array(z.string()).max(100).default([]),
+
+  // Freshness / stale content detection fields
+  freshnessStatus: FreshnessStatusSchema.default('ACTIVE'),
+  staleSince: z.string().datetime().nullable().optional(),
+  staleReason: StaleReasonSchema.nullable().optional(),
+  lastFreshnessCheck: z.string().datetime().nullable().optional(),
+  reactivatedAt: z.string().datetime().nullable().optional(),
+  reactivatedBy: z.string().uuid().nullable().optional(),
 
   // Metadata
   createdAt: z.string().datetime(),

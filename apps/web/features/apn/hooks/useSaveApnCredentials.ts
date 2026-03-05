@@ -2,17 +2,22 @@
 
 import { useState } from 'react';
 import { apiMutate, buildApiUrl } from '@/lib/hooks/api-helpers';
-import type { SaveApnCredentials } from '@auto-rfp/core';
+import { SaveApnCredentialsSchema } from '@auto-rfp/core';
+import type { z } from 'zod';
+
+type SaveApnCredentialsInput = z.input<typeof SaveApnCredentialsSchema>;
 
 export const useSaveApnCredentials = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const save = async (dto: SaveApnCredentials): Promise<boolean> => {
+  const save = async (dto: SaveApnCredentialsInput): Promise<boolean> => {
     setIsLoading(true);
     setError(null);
     try {
-      await apiMutate(buildApiUrl('apn/credentials'), 'POST', dto);
+      // Parse through Zod to apply defaults (e.g., region)
+      const parsed = SaveApnCredentialsSchema.parse(dto);
+      await apiMutate(buildApiUrl('apn/credentials'), 'POST', parsed);
       return true;
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to save credentials');

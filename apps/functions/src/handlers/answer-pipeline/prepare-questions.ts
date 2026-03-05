@@ -235,7 +235,7 @@ async function clusterAndSort(
     await docClient.send(
       new UpdateCommand({
         TableName: DB_TABLE_NAME,
-        Key: { [PK_NAME]: QUESTION_PK, [SK_NAME]: `${projectId}#${cluster.master.questionId}` },
+        Key: { [PK_NAME]: QUESTION_PK, [SK_NAME]: `${projectId}#${cluster.master.opportunityId ?? ''}#${cluster.master.questionId}` },
         UpdateExpression: 'SET clusterId = :cid, isClusterMaster = :icm, similarityToMaster = :sim, updatedAt = :now',
         ExpressionAttributeValues: { ':cid': clusterId, ':icm': true, ':sim': 1.0, ':now': nowIso() },
       })
@@ -252,7 +252,7 @@ async function clusterAndSort(
       await docClient.send(
         new UpdateCommand({
           TableName: DB_TABLE_NAME,
-          Key: { [PK_NAME]: QUESTION_PK, [SK_NAME]: `${projectId}#${member.q.questionId}` },
+          Key: { [PK_NAME]: QUESTION_PK, [SK_NAME]: `${projectId}#${member.q.opportunityId ?? ''}#${member.q.questionId}` },
           UpdateExpression: 'SET clusterId = :cid, isClusterMaster = :icm, similarityToMaster = :sim, linkedToMasterQuestionId = :mid, updatedAt = :now',
           ExpressionAttributeValues: { ':cid': clusterId, ':icm': false, ':sim': sim, ':mid': cluster.master.questionId, ':now': nowIso() },
         })
@@ -395,7 +395,7 @@ export const baseHandler = async (
   }
 
   // Get org settings for clustering threshold
-  let clusterThreshold = CLUSTER_THRESHOLD;
+  let clusterThreshold: number = CLUSTER_THRESHOLD;
   try {
     const org = await getOrganizationById(orgId);
     if (org?.clusterThreshold != null && typeof org.clusterThreshold === 'number') {
@@ -460,7 +460,7 @@ export const baseHandler = async (
           await docClient.send(
             new UpdateCommand({
               TableName: DB_TABLE_NAME,
-              Key: { [PK_NAME]: QUESTION_PK, [SK_NAME]: `${projectId}#${newQ.questionId}` },
+              Key: { [PK_NAME]: QUESTION_PK, [SK_NAME]: `${projectId}#${newQ.opportunityId ?? ''}#${newQ.questionId}` },
               UpdateExpression: 'SET clusterId = :cid, isClusterMaster = :icm, similarityToMaster = :sim, linkedToMasterQuestionId = :mid, updatedAt = :now',
               ExpressionAttributeValues: { 
                 ':cid': matchedMaster.clusterId, 

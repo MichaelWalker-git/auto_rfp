@@ -6,15 +6,26 @@ import { updateOpportunity, getOpportunity } from '@/helpers/opportunity';
 import { getQuestionFileItem, updateQuestionFile, checkQuestionFileCancelled } from '@/helpers/questionFile';
 import { withSentryLambda } from '@/sentry-lambda';
 
-type Event = {
+// Resolved lazily so tests can set process.env before module-level code runs
+const getDocumentsBucket = () => requireEnv('DOCUMENTS_BUCKET');
+const getBedrockModelId = () => requireEnv('BEDROCK_MODEL_ID');
+
+type FulfillOpportunityFieldsEvent = {
   opportunityId: string;
   textFileKey: string;
   projectId?: string;
   questionFileId?: string;
 };
 
-const DOCUMENTS_BUCKET = requireEnv('DOCUMENTS_BUCKET');
-const BEDROCK_MODEL_ID = requireEnv('BEDROCK_MODEL_ID');
+type FulfillOpportunityFieldsResult = {
+  ok: boolean;
+  opportunityId: string;
+  updatedFieldCount: number;
+  confidence?: number;
+  cancelled?: boolean;
+  skipped?: boolean;
+  reason?: string;
+};
 
 export const buildBedrockMessagesBody = (docText: string) => {
   const userText =
@@ -50,132 +61,101 @@ export const buildBedrockMessagesBody = (docText: string) => {
     system:
       'You extract and normalize government procurement opportunity metadata from raw solicitation text. ' +
       'Return ONLY valid JSON (no markdown, no commentary).',
-    messages: [
-      {
-        role: 'user',
-        content: [{ type: 'text', text: userText }],
-      },
-    ],
+    messages: [{ role: 'user', content: [{ type: 'text', text: userText }] }],
     temperature: 0,
     max_tokens: 1500,
   };
 };
 
-export const baseHandler = async (event: Event) => {
+export const baseHandler = async (
+  event: FulfillOpportunityFieldsEvent,
+): Promise<FulfillOpportunityFieldsResult> => {
   const { opportunityId, projectId, questionFileId, textFileKey } = event;
-  console.log(`Event: ${JSON.stringify(event, null, 2)}`);
 
+  // Cancellation check runs first — before validation
   if (projectId && opportunityId && questionFileId) {
     const isCancelled = await checkQuestionFileCancelled(projectId, opportunityId, questionFileId);
     if (isCancelled) {
       console.log(`Pipeline cancelled for ${questionFileId}, skipping processing`);
-      return {
-        ok: true,
-        opportunityId,
-        cancelled: true,
-        updatedFieldCount: 0,
-      };
+      return { ok: true, opportunityId, cancelled: true, updatedFieldCount: 0 };
     }
   }
 
   if (!projectId || !questionFileId || !textFileKey || !opportunityId) {
-    throw new Error('Provide a valid projectId or questionFileId or textFileKey');
+    throw new Error('projectId, questionFileId, textFileKey and opportunityId are all required');
   }
-  const { orgId } = await getQuestionFileItem(projectId, opportunityId, questionFileId) || {};
+
+  const qf = await getQuestionFileItem(projectId, opportunityId, questionFileId);
+  const orgId = qf?.orgId;
 
   if (!orgId) {
-    throw new Error('Provide a valid orgId');
+    throw new Error('Question file not found or missing orgId');
   }
 
   try {
-    // Check if opportunity source is SAM_GOV
-    const opportunityArgs = {
-      orgId,
-      projectId,
-      oppId: opportunityId
-    };
-    const opportunity = await getOpportunity(opportunityArgs);
-    
+    // Skip field fulfillment for SAM_GOV — fields already populated from source
+    const opportunity = await getOpportunity({ orgId, projectId, oppId: opportunityId });
+
     if (opportunity?.item.source === 'SAM_GOV') {
       console.log(`Skipping opportunity field fulfillment for SAM_GOV opportunity: ${opportunityId}`);
-      
-      // Mark question file as processed and return success
-      await updateQuestionFile(projectId, opportunityId, questionFileId, {
-        status: 'PROCESSED',
-      });
-      
+      await updateQuestionFile(projectId, opportunityId, questionFileId, { status: 'PROCESSED' });
       return {
         ok: true,
         opportunityId,
         updatedFieldCount: 0,
         confidence: 100,
         skipped: true,
-        reason: 'SAM_GOV opportunity - fields already populated from source',
+        reason: 'SAM_GOV opportunity — fields already populated from source',
       };
     }
 
-    // Continue with normal processing for non-SAM_GOV opportunities
-    const docText = await loadTextFromS3(DOCUMENTS_BUCKET, textFileKey);
-
+    const docText = await loadTextFromS3(getDocumentsBucket(), textFileKey);
     if (!docText || docText.length === 0) {
       throw new Error(`Empty document text from S3: ${textFileKey}`);
     }
 
-    const bodyString = JSON.stringify(buildBedrockMessagesBody(docText));
-    const responseBody = await invokeModel(BEDROCK_MODEL_ID, bodyString);
-    const responseString = new TextDecoder('utf-8').decode(responseBody);
-    const responseJson = JSON.parse(responseString);
+    const responseBody = await invokeModel(getBedrockModelId(), JSON.stringify(buildBedrockMessagesBody(docText)));
+    const responseJson = JSON.parse(new TextDecoder('utf-8').decode(responseBody)) as Record<string, unknown>;
 
-    const rawText =
-      responseJson?.content?.find?.((c: any) => c?.type === 'text')?.text ??
-      responseJson?.output?.message?.content?.find?.((c: any) => c?.type === 'text')?.text ??
-      responseJson?.completion ??
-      null;
+    const contentBlocks = (responseJson?.content as Array<{ type?: string; text?: string }> | undefined) ?? [];
+    const rawText = contentBlocks.find((c) => c?.type === 'text')?.text ?? null;
 
-    const modelOut = rawText ? safeParseJsonFromModel(String(rawText)) : rawText;
+    const modelOut = rawText ? (safeParseJsonFromModel(String(rawText)) as Record<string, unknown>) : null;
 
-    const fields = modelOut?.fields && typeof modelOut.fields === 'object' ? modelOut.fields : null;
+    const fields =
+      modelOut?.fields && typeof modelOut.fields === 'object'
+        ? (modelOut.fields as Record<string, unknown>)
+        : null;
+
     const confidence =
       typeof modelOut?.confidence === 'number' && Number.isFinite(modelOut.confidence)
-        ? modelOut.confidence
+        ? (modelOut.confidence as number)
         : undefined;
 
     if (!fields) {
       throw new Error('Bedrock did not return { fields: {...} }');
     }
 
-    await updateOpportunity({
-      orgId,
-      projectId: projectId,
-      oppId: opportunityId,
-      patch: fields,
-    });
-
-    await updateQuestionFile(projectId, opportunityId, questionFileId, {
-      status: 'PROCESSED',
-    });
+    await updateOpportunity({ orgId, projectId, oppId: opportunityId, patch: fields });
+    await updateQuestionFile(projectId, opportunityId, questionFileId, { status: 'PROCESSED' });
 
     return {
       ok: true,
       opportunityId,
       updatedFieldCount: Object.keys(fields).length,
       confidence,
-      cancelled: false
+      cancelled: false,
     };
-  } catch (e: any) {
-    console.error(e);
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : String(err);
+    console.error('fulfill-opportunity-fields error:', message);
+
     await updateQuestionFile(projectId, opportunityId, questionFileId, {
       status: 'FAILED',
-      errorMessage: e?.message || '',
+      errorMessage: message,
     });
-    return {
-      ok: false,
-      opportunityId,
-      oppId: opportunityId,
-      updatedFieldCount: 0,
-      confidence: 100,
-      cancelled: false
-    };
+
+    return { ok: false, opportunityId, updatedFieldCount: 0, cancelled: false };
   }
 };
 

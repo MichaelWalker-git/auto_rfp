@@ -130,6 +130,28 @@ export async function createLinearComment(
   return { id: created.id };
 }
 
+export async function reassignLinearTicket(
+  orgId: string,
+  issueId: string,
+  assigneeId: string,
+  comment?: string,
+): Promise<void> {
+  try {
+    const apiKey = await getLinearApiKey(orgId);
+    const client = new LinearClient({ apiKey });
+
+    await client.updateIssue(issueId, { assigneeId });
+
+    if (comment) {
+      await client.createComment({ issueId, body: comment });
+    }
+
+    console.log(`✅ Ticket ${issueId} reassigned to ${assigneeId}`);
+  } catch (err) {
+    console.warn(`[linear] Failed to reassign ticket ${issueId}:`, (err as Error).message);
+  }
+}
+
 export async function updateLinearTicket(
   orgId: string,
   issueId: string,

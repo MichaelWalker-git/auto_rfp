@@ -1,23 +1,21 @@
-import { Context } from 'aws-lambda';
+import type { Context } from 'aws-lambda';
 import { GetObjectCommand, PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
-import { UpdateCommand, } from '@aws-sdk/lib-dynamodb';
 
 import * as mammoth from 'mammoth';
 
 import { withSentryLambda } from '@/sentry-lambda';
-import { PK_NAME, SK_NAME } from '@/constants/common';
 import { DOCUMENT_PK } from '@/constants/document';
 import { requireEnv } from '@/helpers/env';
-import { docClient, getItem } from '@/helpers/db';
+import { getItem, updateItem } from '@/helpers/db';
 import { nowIso } from '@/helpers/date';
 import { DocumentItem } from '@auto-rfp/core';
 import { buildDocumentSK } from '@/helpers/document';
 
-const REGION = requireEnv('REGION');
-const DB_TABLE_NAME = requireEnv('DB_TABLE_NAME');
-const DOCUMENTS_BUCKET = requireEnv('DOCUMENTS_BUCKET');
+// Resolved lazily so tests can set process.env before module-level code runs
+const getRegion = () => requireEnv('REGION');
+const getDocumentsBucket = () => requireEnv('DOCUMENTS_BUCKET');
 
-const s3 = new S3Client({ region: REGION });
+const s3 = new S3Client({});
 
 type DocxProcessingEvent = {
   orgId: string;
@@ -25,9 +23,9 @@ type DocxProcessingEvent = {
   documentId?: string;
   fileKey?: string;
   bucket?: string;
-}
+};
 
-type Res = {
+type DocxProcessingResult = {
   orgId: string;
   documentId: string;
   knowledgeBaseId: string;
@@ -35,37 +33,32 @@ type Res = {
   bucket: string;
   txtKey: string;
   textLength: number;
-}
+};
 
-function streamToBuffer(stream: any): Promise<Buffer> {
-  return new Promise((resolve, reject) => {
+const streamToBuffer = (stream: NodeJS.ReadableStream): Promise<Buffer> =>
+  new Promise((resolve, reject) => {
     const chunks: Buffer[] = [];
     stream.on('data', (c: Buffer) => chunks.push(Buffer.isBuffer(c) ? c : Buffer.from(c)));
     stream.on('error', reject);
     stream.on('end', () => resolve(Buffer.concat(chunks)));
   });
-}
 
-function buildTxtKeyNextToOriginal(originalKey: string): string {
-  // Split and safely get the first part (before any query string)
+const buildTxtKeyNextToOriginal = (originalKey: string): string => {
   const clean = originalKey.split('?')[0] ?? originalKey;
   const idx = clean.lastIndexOf('.');
-  if (idx === -1) return `${clean}.txt`;
-  return `${clean.slice(0, idx)}.txt`;
-}
+  return idx === -1 ? `${clean}.txt` : `${clean.slice(0, idx)}.txt`;
+};
 
 export const baseHandler = async (
   event: DocxProcessingEvent,
   _ctx: Context,
-): Promise<Res> => {
-  console.log('docx-processing event:', JSON.stringify(event));
-
+): Promise<DocxProcessingResult> => {
   const { orgId, knowledgeBaseId, documentId } = event;
   if (!documentId) throw new Error('documentId is required');
 
-  const bucket = event.bucket || DOCUMENTS_BUCKET;
+  const bucket = event.bucket ?? getDocumentsBucket();
 
-  // Prefer fileKey from event (start-processing result), fallback to Dynamo
+  // Prefer fileKey from event (start-processing result), fallback to DynamoDB
   let fileKey = event.fileKey;
   if (!fileKey) {
     const doc = await getItem<DocumentItem>(DOCUMENT_PK, buildDocumentSK(knowledgeBaseId, documentId));
@@ -73,25 +66,20 @@ export const baseHandler = async (
     if (!fileKey) throw new Error(`Document ${documentId} has no fileKey in DynamoDB`);
   }
 
-  // 1) Download DOCX
+  // 1. Download DOCX from S3
   const obj = await s3.send(
-    new GetObjectCommand({
-      Bucket: bucket,
-      Key: fileKey,
-    }),
+    new GetObjectCommand({ Bucket: bucket, Key: fileKey }),
   );
 
-  const buf = await streamToBuffer(obj.Body as any);
+  const buf = await streamToBuffer(obj.Body as NodeJS.ReadableStream);
 
-  // 2) Convert DOCX -> text (mammoth)
-  const res = await mammoth.extractRawText({ buffer: buf });
-  const text = (res?.value || '').trim();
+  // 2. Convert DOCX → plain text via mammoth
+  const { value: rawText } = await mammoth.extractRawText({ buffer: buf });
+  const text = rawText.trim();
 
-  if (!text) {
-    throw new Error('DOCX extracted text is empty');
-  }
+  if (!text) throw new Error('DOCX extracted text is empty');
 
-  // 3) Store txt next to original
+  // 3. Store .txt file next to the original
   const txtKey = buildTxtKeyNextToOriginal(fileKey);
 
   await s3.send(
@@ -103,32 +91,19 @@ export const baseHandler = async (
     }),
   );
 
+  // 4. Update document status in DynamoDB
   try {
-    await docClient.send(
-      new UpdateCommand({
-        TableName: DB_TABLE_NAME,
-        Key: {
-          [PK_NAME]: DOCUMENT_PK,
-          [SK_NAME]: buildDocumentSK(knowledgeBaseId, documentId)
-        },
-        UpdateExpression: 'SET #indexStatus = :s, #textFileKey = :t, #updatedAt = :u',
-        ExpressionAttributeNames: {
-          '#indexStatus': 'indexStatus',
-          '#textFileKey': 'textFileKey',
-          '#updatedAt': 'updatedAt',
-        },
-        ExpressionAttributeValues: {
-          ':s': 'TEXT_EXTRACTED',
-          ':t': txtKey,
-          ':u': nowIso(),
-        },
-      }),
+    await updateItem(
+      DOCUMENT_PK,
+      buildDocumentSK(knowledgeBaseId, documentId),
+      { indexStatus: 'TEXT_EXTRACTED', textFileKey: txtKey, updatedAt: nowIso() },
+      { condition: 'attribute_exists(#pk)', conditionNames: { '#pk': 'partition_key' } },
     );
-  } catch (e) {
-    console.warn('Failed to update Dynamo status/textFileKey (continuing):', e);
+  } catch (err) {
+    console.warn('Failed to update DynamoDB status/textFileKey (continuing):', err);
   }
 
-  // 5) Return payload for the NEXT step (chunking lambda)
+  // 5. Return payload for the next Step Function step (chunking)
   return {
     orgId,
     documentId,

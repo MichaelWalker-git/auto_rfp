@@ -225,54 +225,6 @@ export async function softDeleteRFPDocument(args: {
   );
 }
 
-// ─── Update Signature Status ───
-export async function updateRFPDocumentSignatureStatus(args: {
-  projectId: string;
-  opportunityId: string;
-  documentId: string;
-  signatureStatus: string;
-  signatureDetails?: any;
-  updatedBy: string;
-}): Promise<Record<string, any>> {
-  const sk = buildRFPDocumentSK(args.projectId, args.opportunityId, args.documentId);
-  const now = nowIso();
-
-  const setParts: string[] = [
-    '#signatureStatus = :signatureStatus',
-    '#updatedAt = :now',
-    '#updatedBy = :updatedBy',
-  ];
-  const names: Record<string, string> = {
-    '#signatureStatus': 'signatureStatus',
-    '#updatedAt': 'updatedAt',
-    '#updatedBy': 'updatedBy',
-  };
-  const values: Record<string, any> = {
-    ':signatureStatus': args.signatureStatus,
-    ':now': now,
-    ':updatedBy': args.updatedBy,
-  };
-
-  if (args.signatureDetails !== undefined) {
-    setParts.push('#signatureDetails = :signatureDetails');
-    names['#signatureDetails'] = 'signatureDetails';
-    values[':signatureDetails'] = args.signatureDetails;
-  }
-
-  const res = await docClient.send(
-    new UpdateCommand({
-      TableName: DB_TABLE_NAME,
-      Key: { [PK_NAME]: RFP_DOCUMENT_PK, [SK_NAME]: sk },
-      UpdateExpression: `SET ${setParts.join(', ')}`,
-      ExpressionAttributeNames: names,
-      ExpressionAttributeValues: values,
-      ReturnValues: 'ALL_NEW',
-    }),
-  );
-
-  return res.Attributes as Record<string, any>;
-}
-
 // ─── HTML Content S3 Key Builder ───
 export function buildRFPDocumentHtmlKey(args: {
   orgId: string;
@@ -375,4 +327,76 @@ export async function updateRFPDocumentLinearSync(args: {
       ExpressionAttributeValues: values,
     }),
   );
+}
+
+// ─── Update Document with Content (handles HTML upload to S3) ───
+export async function updateRFPDocumentWithContent(args: {
+  orgId: string;
+  projectId: string;
+  opportunityId: string;
+  documentId: string;
+  dto: {
+    name?: string;
+    description?: string | null;
+    documentType?: string;
+    content?: Record<string, unknown> | null;
+    status?: string;
+    title?: string | null;
+  };
+  userId: string;
+}): Promise<Record<string, any>> {
+  const { orgId, projectId, opportunityId, documentId, dto, userId } = args;
+
+  // Extract HTML from content payload and upload to S3
+  let htmlContentKey: string | undefined;
+  let contentForDb: Record<string, unknown> | null | undefined;
+
+  if (dto.content !== undefined && dto.content !== null) {
+    const incomingContent = dto.content;
+    const htmlString = incomingContent.content as string | undefined;
+
+    if (htmlString && typeof htmlString === 'string') {
+      // Upload HTML to S3 — store only the key in DynamoDB
+      htmlContentKey = await uploadRFPDocumentHtml({
+        orgId,
+        projectId,
+        opportunityId,
+        documentId,
+        html: htmlString,
+      });
+
+      // Strip the HTML string — only metadata goes to DynamoDB, HTML lives in S3
+      contentForDb = {
+        title: incomingContent.title,
+        customerName: incomingContent.customerName,
+        opportunityId: incomingContent.opportunityId,
+        outlineSummary: incomingContent.outlineSummary,
+      };
+    } else {
+      // No HTML content provided, just store metadata
+      contentForDb = {
+        title: incomingContent.title,
+        customerName: incomingContent.customerName,
+        opportunityId: incomingContent.opportunityId,
+        outlineSummary: incomingContent.outlineSummary,
+      };
+    }
+  }
+
+  const updates: Record<string, unknown> = {};
+  if (dto.name !== undefined) updates.name = dto.name;
+  if (dto.description !== undefined) updates.description = dto.description;
+  if (dto.documentType !== undefined) updates.documentType = dto.documentType;
+  if (contentForDb !== undefined) updates.content = contentForDb;
+  if (htmlContentKey !== undefined) updates.htmlContentKey = htmlContentKey;
+  if (dto.status !== undefined) updates.status = dto.status;
+  if (dto.title !== undefined) updates.title = dto.title;
+
+  return updateRFPDocumentMetadata({
+    projectId,
+    opportunityId,
+    documentId,
+    updates: updates as Parameters<typeof updateRFPDocumentMetadata>[0]['updates'],
+    updatedBy: userId,
+  });
 }

@@ -7,6 +7,11 @@ jest.mock('@middy/core', () => {
   return { __esModule: true, default: middy };
 });
 
+// Mock uuid (ESM package — must be mocked before imports)
+jest.mock('uuid', () => ({
+  v4: jest.fn(() => 'mock-uuid-1234'),
+}));
+
 // Mock AWS SDK
 const mockSend = jest.fn();
 jest.mock('@aws-sdk/client-dynamodb', () => ({

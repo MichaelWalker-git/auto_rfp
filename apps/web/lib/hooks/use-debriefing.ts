@@ -79,16 +79,17 @@ export function useCreateDebriefing() {
 export function useUpdateDebriefing() {
   const updateDebriefing = async (payload: UpdateDebriefingRequest): Promise<DebriefingItem> => {
     const baseUrl = env.BASE_API_URL.replace(/\/$/, '');
-    const url = `${baseUrl}/debriefing/update-debriefing`;
+    const { orgId, projectId, debriefingId, ...updateFields } = payload;
+    const url = `${baseUrl}/debriefing/update-debriefing?orgId=${orgId}&projectId=${projectId}&debriefingId=${debriefingId}`;
 
     const res = await authFetcher(url, {
-      method: 'PUT',
-      body: JSON.stringify(payload),
+      method: 'PATCH',
+      body: JSON.stringify(updateFields),
     });
 
     if (!res.ok) {
-      const body = await res.text().catch(() => '');
-      throw new Error(`Failed to update debriefing: ${res.status}. ${body}`);
+      const errBody = await res.text().catch(() => '');
+      throw new Error(`Failed to update debriefing: ${res.status}. ${errBody}`);
     }
 
     const data = await res.json();

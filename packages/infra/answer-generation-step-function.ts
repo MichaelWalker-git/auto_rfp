@@ -54,6 +54,7 @@ export class AnswerGenerationPipelineStack extends Stack {
       DOCUMENTS_BUCKET: documentsBucket.bucketName,
       SENTRY_DSN: sentryDNS,
       SENTRY_ENVIRONMENT: stage,
+      STAGE: stage,
     } as const;
 
     // Prepare Questions Lambda - loads all questions, embeds, clusters

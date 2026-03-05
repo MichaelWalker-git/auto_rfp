@@ -18,14 +18,13 @@ import { auditMiddleware, setAuditContext } from '@/middleware/audit-middleware'
 import middy from '@middy/core';
 import { requireEnv } from '@/helpers/env';
 import {
-  AnswerQuestionRequestBody,
+  AnswerQuestionRequestBodySchema,
   AnswerSource,
   ConfidenceBreakdown,
   ContentLibraryItem,
   QAItem,
-  QuestionItem,
 } from '@auto-rfp/core';
-import { getQuestionItemById } from '@/helpers/question';
+import { getQuestionItemById, QuestionItemDynamo } from '@/helpers/question';
 import { saveAnswer } from './save-answer';
 import { DBItem, getItem } from '@/helpers/db';
 import { safeParseJsonFromModel } from '@/helpers/json';
@@ -36,12 +35,12 @@ import { ANSWER_TOOLS, executeAnswerTool } from '@/helpers/answer-tools';
 
 const BEDROCK_MODEL_ID = requireEnv('BEDROCK_MODEL_ID');
 
-export type QuestionItemDynamo = QuestionItem & DBItem;
-
 export interface GenerateAnswerParams {
   questionId: string;
   projectId: string;
   orgId: string;
+  opportunityId?: string;
+  questionFileId?: string;
   questionText?: string;
   topK?: number;
 }
@@ -125,6 +124,8 @@ const generateAnswerWithTools = async (
   orgId: string,
   questionId: string,
   systemPrompt: string,
+  projectId?: string,
+  opportunityId?: string,
 ): Promise<{ answer: string; found: boolean; toolsUsed: string[] }> => {
   const MAX_TOOL_ROUNDS = 3;
   const toolsUsed: string[] = [];
@@ -138,8 +139,9 @@ Instructions:
 2. Use search_past_performance if the question asks about experience or past work
 3. Use get_organization_context if the question asks about company details, certifications, or contact info
 4. Use get_content_library for standard compliance or certification language
-5. After gathering information, provide a complete, professional answer
-6. Return ONLY valid JSON: {"answer": "<your complete answer>", "confidence": <0.0-1.0>, "found": <true|false>}
+5. Use get_solicitation_text if the question references specific RFP requirements, Section L/M criteria, deadlines, evaluation factors, or any solicitation-specific details
+6. After gathering information, provide a complete, professional answer
+7. Return ONLY valid JSON: {"answer": "<your complete answer>", "confidence": <0.0-1.0>, "found": <true|false>}
    - found: true if you found relevant information to answer the question
    - found: false if you could not find sufficient information`;
 
@@ -153,17 +155,23 @@ Instructions:
   while (toolRounds <= MAX_TOOL_ROUNDS) {
     const isLastRound = toolRounds >= MAX_TOOL_ROUNDS;
 
+    // Always include tools when the conversation contains tool_use/tool_result blocks,
+    // otherwise the Anthropic API rejects the request with:
+    // "Requests which include tool_use or tool_result blocks must define tools."
+    const hasToolBlocks = toolRounds > 0;
+
     const requestBody: Record<string, unknown> = {
       anthropic_version: 'bedrock-2023-05-31',
       system: systemPrompt,
       messages,
       max_tokens: 4096,
       temperature: 0.2,
+      // Include tools on every round that has tool history, or when we still allow tool use
+      ...((hasToolBlocks || !isLastRound) ? { tools: ANSWER_TOOLS } : {}),
     };
 
-    if (!isLastRound) {
-      requestBody.tools = ANSWER_TOOLS;
-    }
+    // NOTE: The "stop using tools" instruction is now appended to the tool_result
+    // user message in the previous iteration to avoid consecutive user roles.
 
     const responseBody = await invokeModel(BEDROCK_MODEL_ID, JSON.stringify(requestBody));
     const parsed = JSON.parse(new TextDecoder('utf-8').decode(responseBody)) as {
@@ -189,17 +197,30 @@ Instructions:
             toolUseId: block.id ?? '',
             orgId,
             questionId,
+            projectId,
+            opportunityId,
           });
         }),
       );
 
+      const toolResultContent: Array<unknown> = toolResults.map(r => ({
+        type: 'tool_result',
+        tool_use_id: r.tool_use_id,
+        content: r.content,
+      }));
+
+      // If the next iteration will be the last round, append a "stop using tools"
+      // instruction to the same user message to avoid consecutive user roles.
+      if (toolRounds + 1 >= MAX_TOOL_ROUNDS) {
+        toolResultContent.push({
+          type: 'text',
+          text: 'You have gathered enough information. Do NOT use any more tools. Provide your final answer now as JSON: {"answer": "<answer>", "confidence": <0.0-1.0>, "found": <true|false>}',
+        });
+      }
+
       messages.push({
         role: 'user',
-        content: toolResults.map(r => ({
-          type: 'tool_result',
-          tool_use_id: r.tool_use_id,
-          content: r.content,
-        })),
+        content: toolResultContent,
       });
 
       toolRounds++;
@@ -226,6 +247,8 @@ Instructions:
         messages,
         max_tokens: 4096,
         temperature: 0.2,
+        // Must include tools when conversation has tool_use/tool_result blocks
+        tools: ANSWER_TOOLS,
       }));
       const finalParsed = JSON.parse(new TextDecoder('utf-8').decode(finalResponse)) as { content?: Array<{ type: string; text?: string }> };
       rawText = (finalParsed.content ?? []).filter(c => c.type === 'text').map(c => c.text ?? '').join('\n').trim();
@@ -264,12 +287,13 @@ Instructions:
 export const generateAnswerForQuestion = async (
   params: GenerateAnswerParams,
 ): Promise<GenerateAnswerResult> => {
-  const { questionId, projectId, orgId, questionText } = params;
+  const { questionId, projectId, orgId, opportunityId, questionText, questionFileId } = params;
 
-  // Get question text
+  // Get question text — use opportunityId + fileId for new SK pattern
+  // Coerce to string defensively — callers (e.g. Step Functions) may pass non-string values
   const question = questionText
-    ? questionText.trim()
-    : (await getQuestionItemById(projectId, questionId)).question;
+    ? String(questionText).trim()
+    : String((await getQuestionItemById(projectId, opportunityId ?? '', questionFileId ?? '', questionId)).question ?? '').trim();
 
   if (!question) {
     throw new Error('No question text available');
@@ -333,6 +357,8 @@ export const generateAnswerForQuestion = async (
     orgId,
     questionId,
     systemPrompt,
+    projectId,
+    opportunityId,
   );
 
   console.log(`[answer] Tool-based generation complete. found=${found}, tools=[${toolsUsed.join(', ')}]`);
@@ -376,21 +402,25 @@ export const baseHandler = async (
 ): Promise<APIGatewayProxyResultV2> => {
   console.log('answer-question event:', JSON.stringify(event));
 
-  const body: AnswerQuestionRequestBody = JSON.parse(event.body || '');
-  const topK = body.topK && body.topK > 0 ? body.topK : 30;
-  const { questionId, projectId, question: requestQuestion, orgId } = body;
+  const raw = JSON.parse(event.body || '{}');
+  const { success, data, error } = AnswerQuestionRequestBodySchema.safeParse(raw);
+
+  if (!success) {
+    return apiResponse(400, { message: 'Invalid payload', issues: error.issues });
+  }
+
+  const topK = data.topK && data.topK > 0 ? data.topK : 30;
+  const { questionId, projectId, opportunityId, questionFileId, question: requestQuestion, orgId } = data;
 
   if (!orgId) return apiResponse(400, { message: 'Org Id is required' });
-
-  if (!questionId && !requestQuestion?.trim()) {
-    return apiResponse(400, { message: 'Either questionId (preferred) or question text must be provided' });
-  }
 
   try {
     const result = await generateAnswerForQuestion({
       questionId: questionId || '',
       projectId,
       orgId,
+      opportunityId,
+      questionFileId,
       questionText: requestQuestion,
       topK,
     });

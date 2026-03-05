@@ -28,9 +28,10 @@ import {
   RFP_DOCUMENT_TYPES,
   useSyncRFPDocumentToGoogleDrive,
 } from '@/lib/hooks/use-rfp-documents';
-import { SignatureStatusBadge } from './signature-status-badge';
 import { LinearSyncIndicator } from './linear-sync-indicator';
 import { formatDate, formatFileSize, getDocumentTypeStyle } from './rfp-document-utils';
+import { RequestApprovalButton, ApprovalHistoryCard } from '@/features/document-approval';
+import { useAuth } from '@/components/AuthProvider';
 
 // ─── Google Drive icon ────────────────────────────────────────────────────────
 
@@ -55,7 +56,6 @@ interface RFPDocumentCardProps {
   projectId: string;
   isDeleting: boolean;
   onExport: (doc: RFPDocumentItem) => void;
-  onSignature: (doc: RFPDocumentItem) => void;
   onDelete: (doc: RFPDocumentItem) => void;
   onSyncComplete: () => void;
 }
@@ -68,28 +68,61 @@ export function RFPDocumentCard({
   projectId,
   isDeleting,
   onExport,
-  onSignature,
   onDelete,
   onSyncComplete,
 }: RFPDocumentCardProps) {
   const typeStyle = getDocumentTypeStyle(doc.documentType);
+  const { userSub } = useAuth();
+  const [approvalRefreshKey, setApprovalRefreshKey] = useState(0);
+
+  const handleApprovalChange = useCallback(() => {
+    setApprovalRefreshKey((k) => k + 1);
+    onSyncComplete(); // refresh the document list to pick up signatureStatus changes
+  }, [onSyncComplete]);
 
   return (
-    <div className={cn('rounded-xl border bg-background p-3', isDeleting && 'opacity-80')}>
-      <div className="flex items-start gap-3">
+    <div className={cn('rounded-xl border bg-background', isDeleting && 'opacity-80')}>
+      <div className="flex items-start gap-3 p-3">
         <DocumentIcon />
         <DocumentInfo doc={doc} typeStyle={typeStyle} />
-        <DocumentActions
-          doc={doc}
-          orgId={orgId}
-          projectId={projectId}
-          isDeleting={isDeleting}
-          onExport={onExport}
-          onSignature={onSignature}
-          onDelete={onDelete}
-          onSyncComplete={onSyncComplete}
-        />
+        <div className="flex items-center gap-2 shrink-0">
+          {/* Request Approval button — only for ready documents */}
+          {doc.status !== 'GENERATING' && doc.status !== 'FAILED' && (
+            <RequestApprovalButton
+              orgId={orgId}
+              projectId={projectId}
+              opportunityId={doc.opportunityId}
+              documentId={doc.documentId}
+              documentName={doc.name}
+              onSuccess={handleApprovalChange}
+            />
+          )}
+          <DocumentActions
+            doc={doc}
+            orgId={orgId}
+            projectId={projectId}
+            isDeleting={isDeleting}
+            onExport={onExport}
+            onDelete={onDelete}
+            onSyncComplete={onSyncComplete}
+          />
+        </div>
       </div>
+
+      {/* Approval history + reviewer decision panel */}
+      {userSub && (
+        <div className="px-3 pb-3">
+          <ApprovalHistoryCard
+            key={approvalRefreshKey}
+            orgId={orgId}
+            projectId={projectId}
+            opportunityId={doc.opportunityId}
+            documentId={doc.documentId}
+            currentUserId={userSub}
+            onReviewComplete={handleApprovalChange}
+          />
+        </div>
+      )}
     </div>
   );
 }
@@ -115,7 +148,6 @@ function DocumentInfo({ doc, typeStyle }: { doc: RFPDocumentItem; typeStyle: { c
           {RFP_DOCUMENT_TYPES[doc.documentType] ?? doc.documentType}
         </Badge>
         <DocumentStatusBadges doc={doc} />
-        <SignatureStatusBadge status={doc.signatureStatus} />
         <LinearSyncIndicator status={doc.linearSyncStatus} lastSyncedAt={doc.lastSyncedAt} />
       </div>
 
@@ -186,7 +218,6 @@ interface DocumentActionsProps {
   projectId: string;
   isDeleting: boolean;
   onExport: (doc: RFPDocumentItem) => void;
-  onSignature: (doc: RFPDocumentItem) => void;
   onDelete: (doc: RFPDocumentItem) => void;
   onSyncComplete: () => void;
 }
@@ -197,7 +228,6 @@ function DocumentActions({
   projectId,
   isDeleting,
   onExport,
-  onSignature,
   onDelete,
   onSyncComplete,
 }: DocumentActionsProps) {
@@ -301,11 +331,6 @@ function DocumentActions({
               Export
             </DropdownMenuItem>
           )}
-
-          <DropdownMenuItem onClick={() => onSignature(doc)}>
-            <FileText className="h-4 w-4 mr-2" />
-            Signature Status
-          </DropdownMenuItem>
 
           <DropdownMenuSeparator />
 

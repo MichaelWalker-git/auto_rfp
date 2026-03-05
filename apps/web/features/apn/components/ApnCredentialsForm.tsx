@@ -4,7 +4,6 @@ import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { SaveApnCredentialsSchema } from '@auto-rfp/core';
-import type { SaveApnCredentials } from '@auto-rfp/core';
 import { z } from 'zod';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -48,7 +47,7 @@ export const ApnCredentialsForm = ({ orgId, onSaved }: ApnCredentialsFormProps) 
   const isConfigured = credentials?.configured ?? false;
 
   const onSubmit = async (values: FormValues) => {
-    const ok = await save(values as SaveApnCredentials);
+    const ok = await save(values);
     if (ok) {
       toast({
         title: 'APN Credentials Saved',

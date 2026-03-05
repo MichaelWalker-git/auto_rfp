@@ -10,6 +10,7 @@ import {
   Collapsible,
   CollapsibleContent,
 } from '@/components/ui/collapsible';
+import { Skeleton } from '@/components/ui/skeleton';
 import { ChevronDown, ChevronRight, Copy, Link, CheckCircle2, Loader2 } from 'lucide-react';
 import { useSimilarQuestions, useApplyClusterAnswer } from '@/lib/hooks/use-clustering';
 import { toast } from '@/components/ui/use-toast';
@@ -19,6 +20,8 @@ import { DEFAULT_CLUSTER_THRESHOLD } from '@/lib/constants';
 
 interface SimilarQuestionsPanelProps {
   projectId: string;
+  opportunityId: string;
+  questionFileId?: string;
   questionId: string;
   currentAnswer?: string;
   isUnsaved?: boolean;
@@ -26,17 +29,20 @@ interface SimilarQuestionsPanelProps {
   onAnswerApplied?: (targetQuestionIds: string[], answerText: string) => void;
 }
 
-export function SimilarQuestionsPanel({
+export const SimilarQuestionsPanel = ({
   projectId,
+  opportunityId,
+  questionFileId,
   questionId,
   currentAnswer,
   isUnsaved = false,
   onSelectQuestion,
   onAnswerApplied,
-}: SimilarQuestionsPanelProps) {
+}: SimilarQuestionsPanelProps) => {
   // Get orgId from URL params instead of prop drilling
   const params = useParams();
-  const orgId = params.orgId as string;
+  const rawOrgId = params.orgId;
+  const orgId = Array.isArray(rawOrgId) ? rawOrgId[0] : rawOrgId ?? '';
   
   const [isOpen, setIsOpen] = useState(false);
   const [selectedQuestions, setSelectedQuestions] = useState<Set<string>>(new Set());
@@ -49,6 +55,8 @@ export function SimilarQuestionsPanel({
     threshold: clusterThreshold,
     limit: 10,
     orgId,
+    opportunityId,
+    fileId: questionFileId,
   });
   
   const { trigger: applyAnswer, isMutating: isApplying } = useApplyClusterAnswer();
@@ -98,7 +106,10 @@ export function SimilarQuestionsPanel({
     
     try {
       const result = await applyAnswer({
+        orgId,
         projectId,
+        opportunityId,
+        questionFileId,
         sourceQuestionId: questionId,
         targetQuestionIds: Array.from(selectedQuestions),
       });
@@ -169,8 +180,8 @@ export function SimilarQuestionsPanel({
             
             {isLoading ? (
               <div className="flex items-center gap-2">
-                <Loader2 className="h-4 w-4 animate-spin text-blue-600" />
-                <span className="text-xs text-muted-foreground">Searching...</span>
+                <Skeleton className="h-4 w-16" />
+                <Skeleton className="h-4 w-12" />
               </div>
             ) : hasNoSimilar ? (
               <span className="text-xs text-muted-foreground">No similar questions found</span>

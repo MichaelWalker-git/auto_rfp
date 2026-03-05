@@ -18,7 +18,9 @@
       "@/constants/*": ["constants/*"],
       "@/types/*": ["types/*"],
       "@/middleware/*": ["middleware/*"],
-      "@/handlers/*": ["handlers/*"]
+      "@/handlers/*": ["handlers/*"],
+      "helpers/*": ["helpers/*"],
+      "middleware/*": ["middleware/*"]
     }
   },
   "include": ["./**/*.ts"],

@@ -3,12 +3,14 @@ import { z } from 'zod';
 // ─── Clustering Thresholds ───
 
 export const CLUSTERING_THRESHOLDS = {
-  /** Questions with similarity >= 90% are auto-clustered and answers are copied */
-  CLUSTER_THRESHOLD: 0.90,
-  /** Questions with similarity >= 80% are shown as "similar" for reference */
-  SIMILAR_THRESHOLD: 0.80,
+  /** Questions with similarity >= 80% are auto-clustered and answers are copied */
+  CLUSTER_THRESHOLD: 0.80,
+  /** Questions with similarity >= 50% are shown as "similar" for reference */
+  SIMILAR_THRESHOLD: 0.50,
   /** Maximum questions to return when finding similar questions */
   MAX_SIMILAR_QUESTIONS: 20,
+  /** Maximum questions to process in a single clustering run */
+  MAX_QUESTIONS_TO_CLUSTER: 500,
 } as const;
 
 // ─── Cluster Member ───
@@ -31,6 +33,7 @@ export const QuestionClusterSchema = z.object({
   clusterId: z.string().min(1),
   projectId: z.string().min(1),
   opportunityId: z.string().optional(),
+  questionFileId: z.string().optional(),
   masterQuestionId: z.string().min(1),
   masterQuestionText: z.string().min(1),
   members: z.array(ClusterMemberSchema),
@@ -105,12 +108,17 @@ export const FindSimilarQuestionsResponseSchema = z.object({
   questionId: z.string(),
   questionText: z.string(),
   similarQuestions: z.array(SimilarQuestionSchema),
+  threshold: z.number().optional(),
+  limit: z.number().optional(),
 });
 
 export type FindSimilarQuestionsResponse = z.infer<typeof FindSimilarQuestionsResponseSchema>;
 
 export const ApplyClusterAnswerRequestSchema = z.object({
+  orgId: z.string().min(1, 'orgId is required'),
   projectId: z.string().min(1),
+  opportunityId: z.string().min(1, 'opportunityId is required'),
+  questionFileId: z.string().optional(),
   sourceQuestionId: z.string().min(1),
   targetQuestionIds: z.array(z.string().min(1)).min(1),
   customText: z.string().optional(),
@@ -131,32 +139,38 @@ export type ApplyClusterAnswerResponse = z.infer<typeof ApplyClusterAnswerRespon
 
 // ─── Pipeline Event Types ───
 
-export interface QuestionWithEmbedding {
-  questionId: string;
-  projectId: string;
-  opportunityId?: string;
-  orgId: string;
-  questionText: string;
-  sectionId?: string;
-  sectionTitle?: string;
-  embedding?: number[];
-}
+export const QuestionWithEmbeddingSchema = z.object({
+  questionId: z.string(),
+  projectId: z.string(),
+  opportunityId: z.string().optional(),
+  orgId: z.string(),
+  questionText: z.string(),
+  sectionId: z.string().optional(),
+  sectionTitle: z.string().optional(),
+  embedding: z.array(z.number()).optional(),
+});
 
-export interface ClusteringResult {
-  clusters: QuestionCluster[];
-  masterQuestionIds: string[];
-  nonMasterQuestionIds: string[];
-  questionsProcessed: number;
-}
+export type QuestionWithEmbedding = z.infer<typeof QuestionWithEmbeddingSchema>;
 
-export interface QuestionForAnswerWithCluster {
-  questionId: string;
-  projectId: string;
-  opportunityId?: string;
-  orgId: string;
-  questionText: string;
-  clusterId?: string;
-  isClusterMaster?: boolean;
-  masterQuestionId?: string;
-  similarityToMaster?: number;
-}
+export const ClusteringResultSchema = z.object({
+  clusters: z.array(QuestionClusterSchema),
+  masterQuestionIds: z.array(z.string()),
+  nonMasterQuestionIds: z.array(z.string()),
+  questionsProcessed: z.number(),
+});
+
+export type ClusteringResult = z.infer<typeof ClusteringResultSchema>;
+
+export const QuestionForAnswerWithClusterSchema = z.object({
+  questionId: z.string(),
+  projectId: z.string(),
+  opportunityId: z.string().optional(),
+  orgId: z.string(),
+  questionText: z.string(),
+  clusterId: z.string().optional(),
+  isClusterMaster: z.boolean().optional(),
+  masterQuestionId: z.string().optional(),
+  similarityToMaster: z.number().optional(),
+});
+
+export type QuestionForAnswerWithCluster = z.infer<typeof QuestionForAnswerWithClusterSchema>;

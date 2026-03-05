@@ -58,6 +58,7 @@ export class QuestionExtractionPipelineStack extends Stack {
       DOCUMENTS_BUCKET: documentsBucket.bucketName,
       SENTRY_DSN: sentryDNS,
       SENTRY_ENVIRONMENT: stage,
+      STAGE: stage,
     } as const;
 
     const startTextractLambda = new lambdaNode.NodejsFunction(this, 'StartTextractLambda', {

@@ -3,7 +3,7 @@ import middy from '@middy/core';
 import { v4 as uuidv4 } from 'uuid';
 import { apiResponse, getOrgId, getUserId } from '@/helpers/api';
 import { withSentryLambda } from '@/sentry-lambda';
-import { retryApnRegistration } from '@/helpers/apn';
+import { retryApnRegistration } from '@/helpers/apn-client';
 import { RetryApnRegistrationSchema } from '@auto-rfp/core';
 import {
   authContextMiddleware,
@@ -23,9 +23,9 @@ export const baseHandler = async (event: AuthedEvent): Promise<APIGatewayProxyRe
     return apiResponse(400, { message: 'orgId is required' });
   }
 
-  const bodyRaw = JSON.parse(event.body || '{}') as Record<string, unknown>;
+  const bodyRaw: unknown = JSON.parse(event.body || '{}');
   const { success, data, error } = RetryApnRegistrationSchema.safeParse({
-    ...bodyRaw,
+    ...(bodyRaw as Record<string, unknown>),
     orgId,
   });
 
@@ -45,7 +45,7 @@ export const baseHandler = async (event: AuthedEvent): Promise<APIGatewayProxyRe
     });
 
     setAuditContext(event, {
-      action:     'INTEGRATION_SYNC_COMPLETED',
+      action:     'APN_REGISTRATION_RETRIED',
       resource:   'apn_registration',
       resourceId: data.registrationId,
       orgId,
@@ -63,7 +63,7 @@ export const baseHandler = async (event: AuthedEvent): Promise<APIGatewayProxyRe
         userId,
         userName:       (event.auth?.claims?.['cognito:username'] as string | undefined) ?? userId,
         organizationId: orgId,
-        action:         'INTEGRATION_SYNC_FAILED',
+        action:         'APN_REGISTRATION_FAILED',
         resource:       'apn_registration',
         resourceId:     data.registrationId,
         changes: {
