@@ -138,7 +138,7 @@ export class AnswerGenerationPipelineStack extends Stack {
       payload: sfn.TaskInput.fromObject({
         projectId: sfn.JsonPath.stringAt('$.projectId'),
         orgId: sfn.JsonPath.stringAt('$.orgId'),
-        // No questionFileId - process ALL questions in project
+        opportunityId: sfn.JsonPath.stringAt('$.opportunityId'),
       }),
       resultPath: '$.prepareResult',
       payloadResponseOnly: true,

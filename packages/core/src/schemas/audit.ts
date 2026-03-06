@@ -17,6 +17,11 @@ export const AuditActionSchema = z.enum([
   'DOCUMENT_DELETED',
   'DOCUMENT_EXPORTED',
   'DOCUMENT_VIEWED',
+  'DOCUMENT_UPDATED',
+  // Document version actions
+  'DOCUMENT_VERSION_CREATED',
+  'DOCUMENT_VERSION_REVERTED',
+  'DOCUMENT_VERSION_CHERRYPICKED',
   // Answer actions
   'ANSWER_CREATED',
   'ANSWER_EDITED',
@@ -97,6 +102,8 @@ export const AuditResourceSchema = z.enum([
   'project',
   'opportunity',
   'document',
+  'rfp_document',
+  'document_version',
   'answer',
   'question',
   'question_file',

@@ -325,6 +325,8 @@ export const generateAnswerForQuestion = async (
     await saveAnswer({
       questionId,
       projectId,
+      opportunityId,
+      questionFileId,
       text: clMatch.item.answer,
       confidence: confidence.overall / 100,
       confidenceBreakdown: confidence.breakdown,
@@ -376,6 +378,8 @@ export const generateAnswerForQuestion = async (
   await saveAnswer({
     questionId,
     projectId,
+    opportunityId,
+    questionFileId,
     text: answer,
     confidence: confidence.overall / 100,
     confidenceBreakdown: confidence.breakdown,

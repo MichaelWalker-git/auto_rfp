@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
-import { ArrowLeft, FileDown, FileText, Loader2, RefreshCw, Save } from 'lucide-react';
+import { ArrowLeft, FileDown, FileText, History, Loader2, RefreshCw, Save } from 'lucide-react';
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -10,6 +10,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/components/ui/use-toast';
 import { isDocumentGenerating, isDocumentFailed, isDocumentReady } from '@/lib/constants/rfp-document-status';
 
+import { useSWRConfig } from 'swr';
 import {
   useGenerateRFPDocument,
   useRFPDocumentHtmlContent,
@@ -17,10 +18,16 @@ import {
   useUpdateRFPDocument,
 } from '@/lib/hooks/use-rfp-documents';
 import { uploadFileToS3, usePresignDownload, usePresignUpload } from '@/lib/hooks/use-presign';
+import { useRevertVersion, useCherryPick } from '@/lib/hooks/use-document-versions';
 import { RichTextEditor, stripPresignedUrlsFromHtml } from './rich-text-editor';
 import { RFPDocumentExportDialog } from './rfp-document-export-dialog';
 import { RequestApprovalButton } from '@/features/document-approval';
 import { useAuth } from '@/components/AuthProvider';
+import { VersionHistoryPanel } from './version-history/VersionHistoryPanel';
+import { VersionDiffView } from './version-diff/VersionDiffView';
+import { RevertConfirmDialog } from './dialogs/RevertConfirmDialog';
+import { CherryPickConfirmDialog } from './dialogs/CherryPickConfirmDialog';
+import type { RFPDocumentVersion } from '@auto-rfp/core';
 
 // ─── Props ────────────────────────────────────────────────────────────────────
 
@@ -59,6 +66,19 @@ export const OpportunityDocumentEditorPage = ({
   const htmlInitializedRef = useRef(false);
   // Manual state to track regeneration start (independent of SWR mutation state)
   const [isRegenerateStarting, setIsRegenerateStarting] = useState(false);
+  // Counter to force editor remount when content is programmatically replaced
+  const [editorKey, setEditorKey] = useState(0);
+
+  // ── Version history state ──
+  const [showVersionHistory, setShowVersionHistory] = useState(false);
+  const [showDiffView, setShowDiffView] = useState(false);
+  const [diffVersions, setDiffVersions] = useState<{ from: number; to: number } | null>(null);
+  const [revertVersion, setRevertVersion] = useState<RFPDocumentVersion | null>(null);
+  const [cherryPickData, setCherryPickData] = useState<{
+    mergedHtml: string;
+    sourceVersion: number;
+    selectedCount: number;
+  } | null>(null);
 
   // ── Data fetching ──
 
@@ -88,6 +108,18 @@ export const OpportunityDocumentEditorPage = ({
   const { trigger: triggerGenerate, isMutating: isRegenerating } = useGenerateRFPDocument(orgId);
   const { trigger: triggerPresignUpload } = usePresignUpload();
   const { trigger: triggerPresignDownload } = usePresignDownload();
+
+  // ── Version mutation hooks ──
+  const { trigger: triggerRevert, isMutating: isReverting } = useRevertVersion();
+  const { trigger: triggerCherryPick, isMutating: isCherryPicking } = useCherryPick();
+
+  // ── SWR config for cache invalidation ──
+  const { mutate: globalMutate } = useSWRConfig();
+  
+  // Helper to invalidate version history cache
+  const invalidateVersionsCache = useCallback(() => {
+    globalMutate(['document-versions', projectId, opportunityId, documentId, orgId]);
+  }, [globalMutate, projectId, opportunityId, documentId, orgId]);
 
   // ── Image upload handlers ──
 
@@ -224,6 +256,7 @@ export const OpportunityDocumentEditorPage = ({
       } as Parameters<typeof updateDocument>[0]);
       htmlInitializedRef.current = true;
       await mutateHtml();
+      invalidateVersionsCache(); // Refresh version history
       toast({ title: 'Document saved', description: 'Content has been saved successfully.' });
     } catch (err) {
       toast({
@@ -232,7 +265,91 @@ export const OpportunityDocumentEditorPage = ({
         variant: 'destructive',
       });
     }
-  }, [doc, projectId, opportunityId, documentId, htmlContent, updateDocument, mutateHtml, toast]);
+  }, [doc, projectId, opportunityId, documentId, htmlContent, updateDocument, mutateHtml, invalidateVersionsCache, toast]);
+
+  // ── Version history handlers ──
+  const handleCompareVersions = useCallback((fromVersion: number, toVersion: number) => {
+    setDiffVersions({ from: fromVersion, to: toVersion });
+    setShowDiffView(true);
+    setShowVersionHistory(false);
+  }, []);
+
+  const handleRevertConfirm = useCallback(async (changeNote?: string) => {
+    if (!revertVersion) return;
+    try {
+      const revertedData = await triggerRevert({
+        documentId,
+        projectId,
+        opportunityId,
+        orgId,
+        targetVersion: revertVersion.versionNumber,
+        changeNote,
+      });
+      setRevertVersion(null);
+      
+      // Update editor directly with the reverted HTML content from the response
+      if (revertedData?.html) {
+        setHtmlContent(revertedData.html);
+        // Force editor remount to pick up new content
+        setEditorKey((k) => k + 1);
+      }
+      
+      // Also revalidate the SWR cache for consistency
+      await mutateHtml();
+      invalidateVersionsCache(); // Refresh version history
+      
+      toast({ title: 'Version reverted', description: `Reverted to version ${revertVersion.versionNumber}.` });
+    } catch (err) {
+      toast({
+        title: 'Revert failed',
+        description: err instanceof Error ? err.message : 'Could not revert version.',
+        variant: 'destructive',
+      });
+    }
+  }, [revertVersion, documentId, projectId, opportunityId, orgId, triggerRevert, mutateHtml, invalidateVersionsCache, toast]);
+
+  const handleCherryPick = useCallback((mergedHtml: string, sourceVersion: number) => {
+    setCherryPickData({ mergedHtml, sourceVersion, selectedCount: 1 });
+    // Hide the diff view but keep diffVersions so we can go back
+    setShowDiffView(false);
+  }, []);
+
+  // Handler to go back to cherry-pick selection from the confirmation dialog
+  const handleGoBackToSelection = useCallback(() => {
+    setCherryPickData(null);
+    setShowDiffView(true);
+  }, []);
+
+  const handleCherryPickConfirm = useCallback(async (changeNote?: string) => {
+    if (!cherryPickData) return;
+    try {
+      await triggerCherryPick({
+        documentId,
+        projectId,
+        opportunityId,
+        orgId,
+        sourceVersion: cherryPickData.sourceVersion,
+        mergedHtml: cherryPickData.mergedHtml,
+        changeNote,
+      });
+      // Update editor immediately with merged HTML
+      const mergedContent = cherryPickData.mergedHtml;
+      setCherryPickData(null);
+      setHtmlContent(mergedContent);
+      // Force editor remount to pick up new content
+      setEditorKey((k) => k + 1);
+      // Revalidate the SWR cache
+      await mutateHtml();
+      invalidateVersionsCache(); // Refresh version history
+      toast({ title: 'Changes applied', description: 'Cherry-picked changes have been applied.' });
+    } catch (err) {
+      toast({
+        title: 'Cherry-pick failed',
+        description: err instanceof Error ? err.message : 'Could not apply changes.',
+        variant: 'destructive',
+      });
+    }
+  }, [cherryPickData, documentId, projectId, opportunityId, orgId, triggerCherryPick, mutateHtml, invalidateVersionsCache, toast]);
 
   // ── Derived state ──
 
@@ -322,6 +439,17 @@ export const OpportunityDocumentEditorPage = ({
         <Button
           variant="outline"
           size="sm"
+          onClick={() => setShowVersionHistory(!showVersionHistory)}
+          disabled={isGenerating}
+          title="Version history"
+        >
+          <History className="h-4 w-4 mr-2" />
+          History
+        </Button>
+
+        <Button
+          variant="outline"
+          size="sm"
           onClick={() => setShowExport(true)}
           disabled={isBusy || !isEditorReady}
           title="Export document"
@@ -382,52 +510,67 @@ export const OpportunityDocumentEditorPage = ({
         </div>{/* end actions */}
       </div>{/* end toolbar */}
 
-      {/* ── Editor ── */}
-      <div className="flex-1 min-h-0 overflow-hidden">
-        {(isGenerating || isRegenerateStarting) ? (
-          <div className="flex flex-col items-center justify-center h-full gap-4 text-muted-foreground">
-            <Loader2 className="h-10 w-10 animate-spin text-indigo-500" />
-            <p className="text-sm font-medium">Generating document content…</p>
-            <p className="text-xs">This may take up to a minute.</p>
-          </div>
-        ) : isFailed ? (
-          <div className="flex flex-col items-center justify-center h-full gap-4">
-            <div className="rounded-full bg-red-50 p-3">
-              <FileText className="h-10 w-10 text-red-500" />
+      {/* ── Editor with optional side panel ── */}
+      <div className="flex flex-1 min-h-0 overflow-hidden">
+        <div className="flex-1 min-h-0 overflow-hidden">
+          {(isGenerating || isRegenerateStarting) ? (
+            <div className="flex flex-col items-center justify-center h-full gap-4 text-muted-foreground">
+              <Loader2 className="h-10 w-10 animate-spin text-indigo-500" />
+              <p className="text-sm font-medium">Generating document content…</p>
+              <p className="text-xs">This may take up to a minute.</p>
             </div>
-            <div className="text-center max-w-md">
-              <p className="text-sm font-medium text-red-600 mb-1">Generation Failed</p>
-              <p className="text-xs text-muted-foreground mb-4">
-                {doc?.generationError || 'The AI encountered an error while generating this document.'}
-              </p>
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={handleRegenerate}
-                disabled={isBusy}
-              >
-                <RefreshCw className="h-4 w-4 mr-2" />
-                Try Again
-              </Button>
+          ) : isFailed ? (
+            <div className="flex flex-col items-center justify-center h-full gap-4">
+              <div className="rounded-full bg-red-50 p-3">
+                <FileText className="h-10 w-10 text-red-500" />
+              </div>
+              <div className="text-center max-w-md">
+                <p className="text-sm font-medium text-red-600 mb-1">Generation Failed</p>
+                <p className="text-xs text-muted-foreground mb-4">
+                  {doc?.generationError || 'The AI encountered an error while generating this document.'}
+                </p>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={handleRegenerate}
+                  disabled={isBusy}
+                >
+                  <RefreshCw className="h-4 w-4 mr-2" />
+                  Try Again
+                </Button>
+              </div>
             </div>
-          </div>
-        ) : !isEditorReady ? (
-          <div className="flex flex-col items-center justify-center h-full gap-3 text-muted-foreground">
-            <Loader2 className="h-8 w-8 animate-spin" />
-            <p className="text-sm">Loading content…</p>
-          </div>
-        ) : (
-          <RichTextEditor
-            value={htmlContent}
-            onChange={setHtmlContent}
-            disabled={isMutating}
-            className="h-full rounded-none border-0"
-            minHeight="100%"
-            onUploadImageToS3={handleUploadImageToS3}
-            onGetDownloadUrl={handleGetDownloadUrl}
-            onUploadingChange={setIsImageUploading}
-          />
-        )}
+          ) : !isEditorReady ? (
+            <div className="flex flex-col items-center justify-center h-full gap-3 text-muted-foreground">
+              <Loader2 className="h-8 w-8 animate-spin" />
+              <p className="text-sm">Loading content…</p>
+            </div>
+          ) : (
+            <RichTextEditor
+              key={editorKey}
+              value={htmlContent}
+              onChange={setHtmlContent}
+              disabled={isMutating}
+              className="h-full rounded-none border-0"
+              minHeight="100%"
+              onUploadImageToS3={handleUploadImageToS3}
+              onGetDownloadUrl={handleGetDownloadUrl}
+              onUploadingChange={setIsImageUploading}
+            />
+          )}
+        </div>
+
+        {/* ── Version History Side Panel ── */}
+        <VersionHistoryPanel
+          projectId={projectId}
+          opportunityId={opportunityId}
+          documentId={documentId}
+          orgId={orgId}
+          isOpen={showVersionHistory}
+          onClose={() => setShowVersionHistory(false)}
+          onCompare={handleCompareVersions}
+          onRevert={(version) => setRevertVersion(version)}
+        />
       </div>
 
       {/* ── Export dialog ── */}
@@ -437,6 +580,48 @@ export const OpportunityDocumentEditorPage = ({
         document={doc}
         orgId={orgId}
         htmlContent={htmlContent}
+      />
+
+      {/* ── Version Diff View (full screen overlay) ── */}
+      {showDiffView && diffVersions && (
+        <VersionDiffView
+          projectId={projectId}
+          opportunityId={opportunityId}
+          documentId={documentId}
+          orgId={orgId}
+          fromVersion={diffVersions.from}
+          toVersion={diffVersions.to}
+          onClose={() => {
+            setShowDiffView(false);
+            setDiffVersions(null);
+          }}
+          onCherryPick={handleCherryPick}
+          onRevertToOlder={(version) => {
+            setShowDiffView(false);
+            setRevertVersion(version);
+          }}
+        />
+      )}
+
+      {/* ── Revert Confirmation Dialog ── */}
+      <RevertConfirmDialog
+        isOpen={!!revertVersion}
+        onClose={() => setRevertVersion(null)}
+        version={revertVersion}
+        onConfirm={handleRevertConfirm}
+        isLoading={isReverting}
+      />
+
+      {/* ── Cherry-Pick Confirmation Dialog ── */}
+      <CherryPickConfirmDialog
+        isOpen={!!cherryPickData}
+        onClose={() => setCherryPickData(null)}
+        selectedCount={cherryPickData?.selectedCount ?? 0}
+        sourceVersion={cherryPickData?.sourceVersion ?? 0}
+        previewHtml={cherryPickData?.mergedHtml ?? ''}
+        onConfirm={handleCherryPickConfirm}
+        isLoading={isCherryPicking}
+        onGoBack={handleGoBackToSelection}
       />
     </div>
   );

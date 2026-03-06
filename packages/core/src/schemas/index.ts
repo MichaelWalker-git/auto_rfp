@@ -32,3 +32,4 @@ export * from './engagement-log';
 export * from './apn';
 export * from './proposal-submission';
 export * from './document-approval';
+export * from './rfp-document-version';
