@@ -20,8 +20,12 @@ const PINECONE_INDEX = requireEnv('PINECONE_INDEX');
 export interface PrepareQuestionsEvent {
   projectId: string;
   orgId?: string; // Passed from SF, but we also look it up from project
+  opportunityId: string; // Required - all questions belong to an opportunity
 }
 
+/**
+ * Full question data for answer generation (used internally)
+ */
 export interface QuestionForAnswerGeneration {
   questionId: string;
   projectId: string;
@@ -29,7 +33,7 @@ export interface QuestionForAnswerGeneration {
   questionText: string;
   sectionId?: string;
   sectionTitle?: string;
-  opportunityId?: string;
+  opportunityId: string;
   // Clustering fields
   clusterId?: string;
   isClusterMaster?: boolean;
@@ -37,17 +41,47 @@ export interface QuestionForAnswerGeneration {
   similarityToMaster?: number;
 }
 
+/**
+ * Minimal question reference for Step Function payload (avoids 256KB limit)
+ * The generate-answer-pipeline Lambda will fetch full question data from DynamoDB
+ */
+export interface QuestionReference {
+  questionId: string;
+  projectId: string;
+  orgId: string;
+  opportunityId: string;
+  // Clustering fields needed for skip logic
+  clusterId?: string;
+  isClusterMaster?: boolean;
+  masterQuestionId?: string;
+}
+
 interface QuestionWithEmbedding extends QuestionForAnswerGeneration {
   embedding?: number[];
 }
 
 export interface PrepareQuestionsResult {
-  questions: QuestionForAnswerGeneration[];
+  /** Minimal question references (IDs only) to avoid 256KB Step Function limit */
+  questions: QuestionReference[];
   totalCount: number;
   projectId: string;
   orgId: string;
+  opportunityId: string;
   clustersCreated: number;
 }
+
+/**
+ * Convert full question to minimal reference for Step Function payload
+ */
+const toQuestionReference = (q: QuestionForAnswerGeneration): QuestionReference => ({
+  questionId: q.questionId,
+  projectId: q.projectId,
+  orgId: q.orgId,
+  opportunityId: q.opportunityId,
+  clusterId: q.clusterId,
+  isClusterMaster: q.isClusterMaster,
+  masterQuestionId: q.masterQuestionId,
+});
 
 /**
  * Compute cosine similarity between two vectors
@@ -300,10 +334,14 @@ export const baseHandler = async (
 ): Promise<PrepareQuestionsResult> => {
   console.log('prepare-questions event:', JSON.stringify(event));
 
-  const { projectId } = event;
+  const { projectId, opportunityId } = event;
 
   if (!projectId) {
     throw new Error('projectId is required');
+  }
+
+  if (!opportunityId) {
+    throw new Error('opportunityId is required');
   }
 
   // Get orgId from project (we validate even if passed in event)
@@ -317,11 +355,13 @@ export const baseHandler = async (
     throw new Error(`Project ${projectId} has no orgId`);
   }
 
-  // Query ALL questions for the project - process entire project at once
+  // Query questions for the specific opportunity only
   const allQuestions: QuestionForAnswerGeneration[] = [];
   let lastKey: Record<string, any> | undefined;
 
-  const prefix = `${projectId}#`;
+  // SK format: {projectId}#{opportunityId}#{questionId}
+  const prefix = `${projectId}#${opportunityId}#`;
+  console.log(`Querying questions with SK prefix: ${prefix}`);
 
   // Track questions that already have clusters (skip re-clustering them)
   const alreadyClusteredQuestions: QuestionForAnswerGeneration[] = [];
@@ -358,7 +398,7 @@ export const baseHandler = async (
             questionText,
             sectionId: item.sectionId as string | undefined,
             sectionTitle: item.sectionTitle as string | undefined,
-            opportunityId: item.opportunityId as string | undefined,
+            opportunityId, // Use the required opportunityId from event
             // Preserve existing cluster assignments
             clusterId: item.clusterId as string | undefined,
             isClusterMaster: item.isClusterMaster as boolean | undefined,
@@ -386,10 +426,11 @@ export const baseHandler = async (
   // Skip clustering for very small sets
   if (allQuestions.length < 2) {
     return {
-      questions: allQuestions,
+      questions: allQuestions.map(toQuestionReference),
       totalCount: allQuestions.length,
       projectId,
       orgId,
+      opportunityId,
       clustersCreated: 0,
     };
   }
@@ -561,11 +602,13 @@ export const baseHandler = async (
   
   console.log(`Returning ${sortedQuestions.length} questions: ${masterQuestions.length} masters, ${unclusteredQuestions.length} unclustered, ${memberQuestions.length} members, ${clustersCreated} new clusters created`);
 
+  // Convert to minimal references to avoid 256KB Step Function payload limit
   return {
-    questions: sortedQuestions,
+    questions: sortedQuestions.map(toQuestionReference),
     totalCount: sortedQuestions.length,
     projectId,
     orgId,
+    opportunityId,
     clustersCreated,
   };
 };

@@ -30,6 +30,11 @@ export function rfpDocumentDomain(args?: {
       { method: 'GET', path: 'html-content', entry: lambdaEntry('rfp-document/get-html-content.ts') },
       { method: 'GET', path: 'custom-document-types', entry: lambdaEntry('rfp-document/get-custom-document-types.ts') },
       { method: 'POST', path: 'custom-document-types', entry: lambdaEntry('rfp-document/save-custom-document-type.ts') },
+      // Version comparison routes
+      { method: 'GET', path: 'versions', entry: lambdaEntry('rfp-document/get-versions.ts') },
+      { method: 'GET', path: 'compare', entry: lambdaEntry('rfp-document/compare-versions.ts') },
+      { method: 'POST', path: 'revert', entry: lambdaEntry('rfp-document/revert-version.ts') },
+      { method: 'POST', path: 'cherry-pick', entry: lambdaEntry('rfp-document/cherry-pick-version.ts') },
     ],
   };
 }

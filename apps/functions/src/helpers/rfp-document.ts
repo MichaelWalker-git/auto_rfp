@@ -1,9 +1,15 @@
 import { PutCommand, QueryCommand, GetCommand, UpdateCommand } from '@aws-sdk/lib-dynamodb';
+import { v4 as uuidv4 } from 'uuid';
 import { requireEnv } from './env';
 import { docClient } from './db';
 import { uploadToS3, loadTextFromS3 } from './s3';
 import { PK_NAME, SK_NAME } from '../constants/common';
 import { RFP_DOCUMENT_PK } from '../constants/rfp-document';
+import {
+  createVersion,
+  getLatestVersionNumber,
+  saveVersionHtml,
+} from '@/helpers/rfp-document-version';
 
 const DB_TABLE_NAME = requireEnv('DB_TABLE_NAME');
 const DOCUMENTS_BUCKET = requireEnv('DOCUMENTS_BUCKET');
@@ -391,6 +397,51 @@ export async function updateRFPDocumentWithContent(args: {
   if (htmlContentKey !== undefined) updates.htmlContentKey = htmlContentKey;
   if (dto.status !== undefined) updates.status = dto.status;
   if (dto.title !== undefined) updates.title = dto.title;
+
+  // ── Create version snapshot when HTML content is saved ──
+  if (htmlContentKey && dto.content) {
+    try {
+      // Get existing document for metadata
+      const existingDoc = await getRFPDocument(projectId, opportunityId, documentId);
+      
+      const latestVersionNum = await getLatestVersionNumber(projectId, opportunityId, documentId);
+      const newVersionNumber = latestVersionNum + 1;
+      const htmlContentStr = (dto.content.content as string) ?? '';
+
+      // Save HTML to version-specific S3 location
+      const versionHtmlKey = await saveVersionHtml(
+        orgId,
+        projectId,
+        opportunityId,
+        documentId,
+        newVersionNumber,
+        htmlContentStr,
+      );
+
+      // Create version metadata record in DynamoDB
+      const versionId = uuidv4();
+      await createVersion({
+        versionId,
+        documentId,
+        projectId,
+        opportunityId,
+        orgId,
+        versionNumber: newVersionNumber,
+        htmlContentKey: versionHtmlKey,
+        title: existingDoc?.title ?? existingDoc?.name ?? 'Untitled',
+        documentType: existingDoc?.documentType ?? 'UNKNOWN',
+        wordCount: htmlContentStr.split(/\s+/).length,
+        changeNote: 'Content saved',
+        createdBy: userId,
+      });
+
+      console.log(`Created version ${newVersionNumber} for document ${documentId}`);
+
+    } catch (versionErr) {
+      // Log but don't fail the save if version creation fails
+      console.error('Failed to create version snapshot:', versionErr);
+    }
+  }
 
   return updateRFPDocumentMetadata({
     projectId,
