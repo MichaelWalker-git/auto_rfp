@@ -1,9 +1,9 @@
 'use client';
 
-import React, { useState } from 'react';
+import React from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Pencil, Trash2 } from 'lucide-react';
+import { Pencil, Trash2, Star } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import { BaseCard } from '@/components/ui/base-card';
@@ -11,7 +11,7 @@ import { useCurrentOrganization } from '@/context/organization-context';
 import { useProjectContext } from '@/context/project-context';
 import type { Project } from '@/types/project';
 import PermissionWrapper from '../permission-wrapper';
-import { EditProjectDialog } from '@/components/projects/EditProjectDialog';
+import { useFavoriteProjects } from '@/lib/hooks/use-favorite-projects';
 
 interface ProjectCardProps {
   project: Project;
@@ -19,14 +19,15 @@ interface ProjectCardProps {
   onUpdate?: (updatedProject: Project) => void;
 }
 
-export function ProjectCard({ project, onDelete, onUpdate }: ProjectCardProps) {
+export function ProjectCard({ project, onDelete }: ProjectCardProps) {
   const router = useRouter();
-  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
 
   const { currentOrganization } = useCurrentOrganization();
   const { setCurrentProject } = useProjectContext();
+  const { isFavorite, toggleFavorite } = useFavoriteProjects();
 
   const orgId = currentOrganization?.id;
+  const isFav = isFavorite(project.id);
 
   const href = orgId ? `/organizations/${orgId}/projects/${project.id}` : '#';
 
@@ -43,7 +44,15 @@ export function ProjectCard({ project, onDelete, onUpdate }: ProjectCardProps) {
   const handleEditClick = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    setIsEditDialogOpen(true);
+    if (orgId) {
+      router.push(`/organizations/${orgId}/projects/${project.id}/edit`);
+    }
+  };
+
+  const handleToggleFavorite = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    toggleFavorite(project.id);
   };
 
   return (
@@ -55,6 +64,19 @@ export function ProjectCard({ project, onDelete, onUpdate }: ProjectCardProps) {
           isHoverable
           actions={
             <>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="rounded-xl"
+                onClick={handleToggleFavorite}
+                aria-label={isFav ? 'Remove from favorites' : 'Add to favorites'}
+                title={isFav ? 'Remove from favorites' : 'Add to favorites'}
+              >
+                <Star
+                  className={`h-3.5 w-3.5 ${isFav ? 'fill-yellow-400 text-yellow-400' : ''}`}
+                />
+              </Button>
+
               <PermissionWrapper requiredPermission={'project:edit'}>
                 <Button
                   variant="ghost"
@@ -96,14 +118,6 @@ export function ProjectCard({ project, onDelete, onUpdate }: ProjectCardProps) {
           }
         />
       </Link>
-
-      <EditProjectDialog
-        isOpen={isEditDialogOpen}
-        onOpenChange={setIsEditDialogOpen}
-        project={project}
-        organizationId={orgId || ''}
-        onSuccess={onUpdate}
-      />
     </>
   );
 }

@@ -364,7 +364,7 @@ export class ApiOrchestratorStack extends cdk.Stack {
         environment: {
           ...commonEnv,
           PROPOSAL_MAX_SOLICITATION_CHARS: '80000',
-          BEDROCK_MAX_TOKENS: '4000',
+          BEDROCK_MAX_TOKENS: '40000',
           BEDROCK_TEMPERATURE: '0.1',
         },
         bundling: {

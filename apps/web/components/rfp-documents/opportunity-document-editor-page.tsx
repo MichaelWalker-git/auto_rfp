@@ -138,6 +138,22 @@ export const OpportunityDocumentEditorPage = ({
     return presign.url;
   }, [triggerPresignDownload]);
 
+  // ── Reset initialization when HTML fetching becomes enabled ──
+  // This handles the case where you navigate back and then edit the same document again.
+  // Without this, the cached SWR data would return immediately with isLoading=false,
+  // but htmlInitialized would still be true, preventing re-initialization.
+  const prevHtmlFetchEnabledRef = useRef(htmlFetchEnabled);
+  useEffect(() => {
+    if (!prevHtmlFetchEnabledRef.current && htmlFetchEnabled) {
+      // HTML fetching just became enabled (key changed from null to URL)
+      // Reset initialization state to ensure we initialize with fresh/cached data
+      console.log('[OpportunityDocEditor] HTML fetch enabled, resetting initialization state');
+      htmlInitializedRef.current = false;
+      setHtmlInitialized(false);
+    }
+    prevHtmlFetchEnabledRef.current = htmlFetchEnabled;
+  }, [htmlFetchEnabled]);
+
   // ── HTML initialization ──
   // Initialize the editor once the HTML fetch completes (or fails):
   //   1. doc is loaded (HTML fetch is enabled)

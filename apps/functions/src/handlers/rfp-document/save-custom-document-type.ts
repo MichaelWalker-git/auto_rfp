@@ -1,8 +1,15 @@
 import type { APIGatewayProxyEventV2, APIGatewayProxyResultV2 } from 'aws-lambda';
+import middy from '@middy/core';
 import { z } from 'zod';
 import { withSentryLambda } from '@/sentry-lambda';
 import { apiResponse, getOrgId } from '@/helpers/api';
 import { saveCustomDocumentType } from '@/helpers/custom-document-types';
+import {
+  authContextMiddleware,
+  httpErrorMiddleware,
+  orgMembershipMiddleware,
+  requirePermission,
+} from '@/middleware/rbac-middleware';
 
 const BodySchema = z.object({
   name: z.string().min(1),
@@ -34,4 +41,10 @@ export const baseHandler = async (
   }
 };
 
-export const handler = withSentryLambda(baseHandler);
+export const handler = withSentryLambda(
+  middy(baseHandler)
+    .use(authContextMiddleware())
+    .use(orgMembershipMiddleware())
+    .use(requirePermission('proposal:create'))
+    .use(httpErrorMiddleware()),
+);

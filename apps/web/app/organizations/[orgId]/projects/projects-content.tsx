@@ -8,7 +8,6 @@ import { Skeleton } from '@/components/ui/skeleton';
 
 import { ProjectGrid } from '@/components/projects/ProjectGrid';
 import { ProjectCardSkeleton } from '@/components/projects/ProjectCardSkeleton';
-import { CreateProjectDialog } from '@/components/projects/CreateProjectDialog';
 import { Button } from '@/components/ui/button';
 import { useProjects } from '@/lib/hooks/use-api';
 import { useCurrentOrganization } from '@/context/organization-context';
@@ -17,6 +16,7 @@ import PermissionWrapper from '@/components/permission-wrapper';
 import { PageHeader } from '@/components/layout/page-header';
 import { PageSearch } from '@/components/layout/page-search';
 import { DeleteProjectDialog } from './components/delete-project-dialog';
+import { useFavoriteProjects } from '@/lib/hooks/use-favorite-projects';
 
 // ────────────────────────────────────────────
 // Types
@@ -71,7 +71,6 @@ export function ProjectsPageContent({ orgId }: ProjectsPageContentProps) {
 // ────────────────────────────────────────────
 
 function ProjectsList({ orgId }: { orgId: string }) {
-  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [pendingDeleteProject, setPendingDeleteProject] = useState<Project | null>(null);
@@ -79,17 +78,35 @@ function ProjectsList({ orgId }: { orgId: string }) {
   const router = useRouter();
   const { currentOrganization } = useCurrentOrganization();
   const { data: projects, mutate: refetchProjects } = useProjects(orgId);
+  const { isFavorite } = useFavoriteProjects();
 
   // ── Derived state ──────────────────────────
 
   const filteredProjects = useMemo(() => {
     if (!projects) return [];
     const query = searchQuery.trim().toLowerCase();
-    if (!query) return projects as unknown as Project[];
-    return (projects as unknown as Project[]).filter(
-      (p) => p.name.toLowerCase().includes(query) || (p.description ?? '').toLowerCase().includes(query),
-    );
-  }, [projects, searchQuery]);
+
+    // Filter projects based on search query
+    let filtered = projects as unknown as Project[];
+    if (query) {
+      filtered = filtered.filter(
+        (p) => p.name.toLowerCase().includes(query) || (p.description ?? '').toLowerCase().includes(query),
+      );
+    }
+
+    // Sort: favorites first, then by creation date (newest first)
+    return filtered.sort((a, b) => {
+      const aIsFav = isFavorite(a.id);
+      const bIsFav = isFavorite(b.id);
+
+      // If one is favorite and the other isn't, favorite comes first
+      if (aIsFav && !bIsFav) return -1;
+      if (!aIsFav && bIsFav) return 1;
+
+      // If both have the same favorite status, sort by creation date
+      return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+    });
+  }, [projects, searchQuery, isFavorite]);
 
   const hasProjects = Boolean(projects && projects.length > 0);
 
@@ -109,13 +126,9 @@ function ProjectsList({ orgId }: { orgId: string }) {
     refetchProjects();
   }, [refetchProjects]);
 
-  const handleCreateSuccess = useCallback(
-    (projectId: string) => {
-      refetchProjects();
-      router.push(`/organizations/${orgId}/projects/${projectId}/dashboard`);
-    },
-    [refetchProjects, router, orgId],
-  );
+  const handleCreateClick = () => {
+    router.push(`/organizations/${orgId}/projects/create`);
+  };
 
   // ── Early return ───────────────────────────
 
@@ -144,7 +157,7 @@ function ProjectsList({ orgId }: { orgId: string }) {
           <>
             <PageSearch value={searchQuery} onChange={setSearchQuery} placeholder="Search projects..." />
             <PermissionWrapper requiredPermission="project:create">
-              <Button onClick={() => setIsCreateDialogOpen(true)}>
+              <Button onClick={handleCreateClick}>
                 <PlusCircle className="mr-2 h-4 w-4" />
                 New Project
               </Button>
@@ -162,16 +175,9 @@ function ProjectsList({ orgId }: { orgId: string }) {
             onUpdateProject={handleProjectUpdate}
           />
         ) : (
-          <EmptyState onCreateClick={() => setIsCreateDialogOpen(true)} />
+          <EmptyState onCreateClick={handleCreateClick} />
         )}
       </div>
-
-      <CreateProjectDialog
-        isOpen={isCreateDialogOpen}
-        onOpenChange={setIsCreateDialogOpen}
-        organizationId={orgId}
-        onSuccess={handleCreateSuccess}
-      />
 
       <DeleteProjectDialog
         project={pendingDeleteProject}

@@ -98,7 +98,7 @@ export const baseHandler = async (
 
     if (opportunity?.item.source === 'SAM_GOV') {
       console.log(`Skipping opportunity field fulfillment for SAM_GOV opportunity: ${opportunityId}`);
-      await updateQuestionFile(projectId, opportunityId, questionFileId, { status: 'PROCESSED' });
+      // Don't mark as PROCESSED here - extract-questions will do that after it completes
       return {
         ok: true,
         opportunityId,
@@ -137,7 +137,8 @@ export const baseHandler = async (
     }
 
     await updateOpportunity({ orgId, projectId, oppId: opportunityId, patch: fields });
-    await updateQuestionFile(projectId, opportunityId, questionFileId, { status: 'PROCESSED' });
+    // Don't mark as PROCESSED here - extract-questions will do that after it completes
+    // This prevents a race condition where the file is marked PROCESSED before questions are extracted
 
     return {
       ok: true,

@@ -101,9 +101,21 @@ export const RFPDocumentEditorPage = ({
   const htmlInitializedRef = useRef(false);
   const [isImageUploading, setIsImageUploading] = useState(false);
 
-  // Header / footer state
-  const [headerText, setHeaderText] = useState('');
-  const [footerText, setFooterText] = useState('');
+  // ── Reset initialization when component mounts or doc changes ──
+  // This handles the case where you navigate back and then edit the same document again.
+  // Without this, the cached SWR data would return immediately with isLoading=false,
+  // but htmlInitialized would still be true, preventing re-initialization.
+  const docIdRef = useRef(doc?.documentId);
+  useEffect(() => {
+    const currentDocId = doc?.documentId;
+    if (docIdRef.current !== currentDocId && currentDocId) {
+      // Document changed, reset initialization state
+      console.log('[RFPDocEditor] Document changed, resetting initialization state');
+      htmlInitializedRef.current = false;
+      setHtmlContent('');
+    }
+    docIdRef.current = currentDocId;
+  }, [doc?.documentId]);
 
   // Populate HTML once the fetch completes (or fails)
   // Note: initialHtml is always a string ('' when no data), so we initialize when loading completes or errors
@@ -315,10 +327,6 @@ export const RFPDocumentEditorPage = ({
             disabled={isMutating}
             className="h-full rounded-none border-0"
             minHeight="100%"
-            header={headerText}
-            onHeaderChange={setHeaderText}
-            footer={footerText}
-            onFooterChange={setFooterText}
             onUploadImageToS3={handleUploadImageToS3}
             onGetDownloadUrl={handleGetDownloadUrl}
             onUploadingChange={setIsImageUploading}

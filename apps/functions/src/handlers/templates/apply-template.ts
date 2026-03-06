@@ -11,28 +11,7 @@ import {
 } from '@/middleware/rbac-middleware';
 import { auditMiddleware, setAuditContext } from '@/middleware/audit-middleware';
 import { getTemplate, loadTemplateHtml, replaceMacros } from '@/helpers/template';
-import { getProjectById } from '@/helpers/project';
-
-const resolveSystemMacros = async (
-  projectId: string,
-  _orgId: string,
-): Promise<Record<string, string>> => {
-  const project = await getProjectById(projectId);
-  const org = (project as any)?.organization;
-
-  return {
-    COMPANY_NAME:    org?.name ?? '',
-    PROJECT_TITLE:   (project as any)?.name ?? '',
-    CONTRACT_NUMBER: (project as any)?.contractNumber ?? '',
-    SUBMISSION_DATE: (project as any)?.submissionDate ?? '',
-    PAGE_LIMIT:      (project as any)?.pageLimit?.toString() ?? '',
-    OPPORTUNITY_ID:  (project as any)?.opportunityId ?? '',
-    AGENCY_NAME:     (project as any)?.agencyName ?? '',
-    TODAY:           new Date().toISOString().split('T')[0] ?? '',
-    PROPOSAL_TITLE:  (project as any)?.title ?? (project as any)?.name ?? '',
-    CONTENT:         '',
-  };
-};
+import { buildMacroValues } from '@/helpers/document-generation';
 
 const baseHandler = async (
   event: APIGatewayProxyEventV2,
@@ -64,7 +43,14 @@ const baseHandler = async (
       }
     }
 
-    const systemMacros = await resolveSystemMacros(data.projectId, orgId);
+    // Build macro values from actual org, project, and opportunity data
+    // Note: opportunityId is not available in the DTO, so it will be undefined
+    // This means opportunity-specific variables won't be populated during template application
+    const systemMacros = await buildMacroValues({
+      orgId,
+      projectId: data.projectId,
+      opportunityId: undefined,
+    });
     const allMacros = { ...systemMacros, ...(data.customMacros ?? {}) };
 
     // Apply macro replacement to the full HTML content

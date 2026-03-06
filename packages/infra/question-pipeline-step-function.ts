@@ -390,8 +390,8 @@ export class QuestionExtractionPipelineStack extends Stack {
       payload: sfn.TaskInput.fromObject({
         questionFileId: sfn.JsonPath.stringAt('$.questionFileId'),
         projectId: sfn.JsonPath.stringAt('$.projectId'),
-        textFileKey: sfn.JsonPath.stringAt('$.process.textFileKey'),
         opportunityId: sfn.JsonPath.stringAt('$.oppId'),
+        textFileKey: sfn.JsonPath.stringAt('$.process.textFileKey'),
       }),
       resultPath: '$.extractResult',
       payloadResponseOnly: true,
@@ -404,8 +404,8 @@ export class QuestionExtractionPipelineStack extends Stack {
       lambdaFunction: checkAndTriggerLambda,
       payload: sfn.TaskInput.fromObject({
         projectId: sfn.JsonPath.stringAt('$.projectId'),
-        opportunityId: sfn.JsonPath.stringAt('$.oppId'),
         questionFileId: sfn.JsonPath.stringAt('$.questionFileId'),
+        opportunityId: sfn.JsonPath.stringAt('$.oppId'),
       }),
       resultPath: '$.triggerResult',
       payloadResponseOnly: true,
@@ -426,8 +426,8 @@ export class QuestionExtractionPipelineStack extends Stack {
       lambdaFunction: checkAndTriggerLambda,
       payload: sfn.TaskInput.fromObject({
         projectId: sfn.JsonPath.stringAt('$.projectId'),
-        opportunityId: sfn.JsonPath.stringAt('$.oppId'),
         questionFileId: sfn.JsonPath.stringAt('$.questionFileId'),
+        opportunityId: sfn.JsonPath.stringAt('$.oppId'),
       }),
       resultPath: '$.triggerResult',
       payloadResponseOnly: true,

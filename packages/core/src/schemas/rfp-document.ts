@@ -294,7 +294,7 @@ export const CreateRFPDocumentDTOSchema = z.object({
   fileSizeBytes: z.number().optional(),
   originalFileName: z.string().nullable().optional(),
   /** For content-based documents */
-  content: z.record(z.any()).nullable().optional(),
+  content: RFPDocumentContentSchema.nullable().optional(),
   status: z.string().optional(),
   title: z.string().nullable().optional(),
 });
@@ -310,7 +310,7 @@ export const UpdateRFPDocumentDTOSchema = z.object({
   name: z.string().optional(),
   description: z.string().nullable().optional(),
   documentType: RFPDocumentTypeSchema.optional(),
-  content: z.record(z.any()).nullable().optional(),
+  content: RFPDocumentContentSchema.nullable().optional(),
   status: z.string().optional(),
   title: z.string().nullable().optional(),
 });

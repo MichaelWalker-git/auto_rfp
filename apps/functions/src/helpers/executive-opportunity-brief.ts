@@ -185,7 +185,7 @@ export async function loadAllQuestionFiles(projectId: string, opportunityId: str
   } while (ExclusiveStartKey);
 
   return items
-    .filter((item: any) => item.status !== 'DELETED' && item.fileKey)
+    .filter((item: any) => item.status !== 'DELETED' && (item.textFileKey || item.fileKey))
     .sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1));
 }
 
@@ -206,12 +206,14 @@ export async function loadAllSolicitationTexts(
   }
 
   const textPromises = files.map(async (file: any) => {
+    // Prefer textFileKey (extracted text) over fileKey (raw PDF/binary)
+    const key = file.textFileKey || file.fileKey;
     try {
-      const text = await loadTextFromS3(DOCUMENTS_BUCKET, file.fileKey);
-      return { fileName: file.originalFileName || file.fileKey, text, success: true };
+      const text = await loadTextFromS3(DOCUMENTS_BUCKET, key);
+      return { fileName: file.originalFileName || key, text, success: true };
     } catch (err) {
-      console.warn(`Failed to load text from ${file.fileKey}:`, (err as Error)?.message);
-      return { fileName: file.fileKey, text: '', success: false };
+      console.warn(`Failed to load text from ${key}:`, (err as Error)?.message);
+      return { fileName: key, text: '', success: false };
     }
   });
 

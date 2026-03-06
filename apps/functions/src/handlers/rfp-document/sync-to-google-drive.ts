@@ -687,9 +687,9 @@ export const baseHandler = async (event: APIGatewayProxyEventV2) => {
 
     
     setAuditContext(event, {
-      action: 'DATA_EXPORTED',
-      resource: 'proposal',
-      resourceId: event.pathParameters?.documentId ?? event.queryStringParameters?.documentId ?? 'unknown',
+      action: 'INTEGRATION_SYNC_COMPLETED',
+      resource: 'document',
+      resourceId: documentId,
     });
 
     return apiResponse(200, {
@@ -699,9 +699,7 @@ export const baseHandler = async (event: APIGatewayProxyEventV2) => {
     });
   } catch (error) {
     console.error('Error syncing RFP document to Google Drive:', error);
-    const message =
-      error instanceof Error ? error.message : 'Failed to sync document to Google Drive';
-    return apiResponse(500, { error: message });
+    return apiResponse(500, { message: 'Failed to sync document to Google Drive' });
   }
 };
 

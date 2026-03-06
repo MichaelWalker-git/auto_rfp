@@ -42,7 +42,6 @@ const baseHandler = async (
       id: templateId,
       orgId,
       name: data.name,
-      type: data.type,
       category: data.category,
       description: data.description,
       sections: [],

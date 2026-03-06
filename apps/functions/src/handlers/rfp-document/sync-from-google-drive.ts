@@ -256,8 +256,8 @@ export const baseHandler = async (event: APIGatewayProxyEventV2) => {
     await updateItem(RFP_DOCUMENT_PK, sk, updates, {});
 
     setAuditContext(event, {
-      action: 'DATA_EXPORTED',
-      resource: 'proposal',
+      action: 'INTEGRATION_SYNC_COMPLETED',
+      resource: 'document',
       resourceId: documentId,
     });
 
@@ -269,9 +269,7 @@ export const baseHandler = async (event: APIGatewayProxyEventV2) => {
     });
   } catch (error) {
     console.error('Error syncing from Google Drive:', error);
-    return apiResponse(500, {
-      error: error instanceof Error ? error.message : 'Failed to sync from Google Drive',
-    });
+    return apiResponse(500, { message: 'Failed to sync from Google Drive' });
   }
 };
 

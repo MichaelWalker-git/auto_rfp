@@ -110,13 +110,16 @@ function calculateSourceRecency(input: ConfidenceScoreInput): number {
 function calculateAnswerCoverage(input: ConfidenceScoreInput): number {
   const { questionText, answerText, found } = input;
 
-  if (!answerText || answerText.trim().length === 0) return 0;
+  // Defensive: coerce answerText to string if it's not already
+  const answerStr = typeof answerText === 'string' ? answerText : String(answerText ?? '');
+
+  if (!answerStr || answerStr.trim().length === 0) return 0;
 
   let score = 50; // baseline
 
   // Detect multi-part questions (contains "and", numbered items, semicolons, question marks)
   const questionParts = estimateQuestionParts(questionText);
-  const answerLength = answerText.trim().length;
+  const answerLength = answerStr.trim().length;
 
   // Length adequacy — longer answers for complex questions
   if (questionParts <= 1) {
@@ -145,7 +148,7 @@ function calculateAnswerCoverage(input: ConfidenceScoreInput): number {
     /\bgenerally\b/i,
   ];
 
-  const hedgingCount = hedgingPatterns.filter((p) => p.test(answerText)).length;
+  const hedgingCount = hedgingPatterns.filter((p) => p.test(answerStr)).length;
   score -= hedgingCount * 5;
 
   return Math.round(Math.min(100, Math.max(0, score)));
@@ -194,6 +197,9 @@ function calculateSourceAuthority(input: ConfidenceScoreInput): number {
 function calculateConsistency(input: ConfidenceScoreInput): number {
   const { answerText, found, llmConfidence } = input;
 
+  // Defensive: coerce answerText to string if it's not already
+  const answerStr = typeof answerText === 'string' ? answerText : String(answerText ?? '');
+
   let score = 70; // baseline — assume reasonable consistency
 
   // If LLM says found but confidence is low, that's inconsistent
@@ -203,10 +209,10 @@ function calculateConsistency(input: ConfidenceScoreInput): number {
   if (!found && llmConfidence > 0.8) score -= 15;
 
   // Very short answers for complex-seeming questions
-  if (answerText && answerText.length < 30) score -= 10;
+  if (answerStr && answerStr.length < 30) score -= 10;
 
   // If answer is reasonable length and found, boost
-  if (found && answerText && answerText.length > 100) score += 15;
+  if (found && answerStr && answerStr.length > 100) score += 15;
 
   return Math.round(Math.min(100, Math.max(0, score)));
 }

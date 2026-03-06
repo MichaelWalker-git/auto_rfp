@@ -6,6 +6,11 @@ import { withSentryLambda } from '@/sentry-lambda';
 import { getRFPDocument } from '@/helpers/rfp-document';
 import { requireEnv } from '@/helpers/env';
 import { apiResponse, getOrgId } from '@/helpers/api';
+import {
+  authContextMiddleware,
+  httpErrorMiddleware,
+  orgMembershipMiddleware,
+} from '@/middleware/rbac-middleware';
 
 const DOCUMENTS_BUCKET = requireEnv('DOCUMENTS_BUCKET');
 const s3Client = new S3Client({});
@@ -34,8 +39,13 @@ export const baseHandler = async (event: APIGatewayProxyEventV2): Promise<APIGat
     return apiResponse(200, { ok: true, url, mimeType: doc.mimeType, fileName: doc.name, expiresIn: 3600 });
   } catch (err) {
     console.error('Error in get-document-preview-url:', err);
-    return apiResponse(500, { message: 'Internal server error', error: err instanceof Error ? err.message : 'Unknown error' });
+    return apiResponse(500, { message: 'Internal server error' });
   }
 };
 
-export const handler = withSentryLambda(middy(baseHandler));
+export const handler = withSentryLambda(
+  middy(baseHandler)
+    .use(authContextMiddleware())
+    .use(orgMembershipMiddleware())
+    .use(httpErrorMiddleware()),
+);

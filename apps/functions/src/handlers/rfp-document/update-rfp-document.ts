@@ -1,18 +1,11 @@
-import type { APIGatewayProxyResultV2 } from 'aws-lambda';
+import type { APIGatewayProxyEventV2, APIGatewayProxyResultV2 } from 'aws-lambda';
 import middy from '@middy/core';
-import { v4 as uuidv4 } from 'uuid';
+import { UpdateRFPDocumentDTOSchema } from '@auto-rfp/core';
 import { withSentryLambda } from '@/sentry-lambda';
 import { getRFPDocument, updateRFPDocumentWithContent } from '@/helpers/rfp-document';
 import { apiResponse, getOrgId, getUserId } from '@/helpers/api';
-import {
-  authContextMiddleware,
-  httpErrorMiddleware,
-  type AuthedEvent,
-} from '@/middleware/rbac-middleware';
-import { writeAuditLog } from '@/helpers/audit-log';
-import { getHmacSecret } from '@/helpers/secret';
-import { nowIso } from '@/helpers/date';
-import { UpdateRFPDocumentDTOSchema } from '@auto-rfp/core';
+import { authContextMiddleware, httpErrorMiddleware, orgMembershipMiddleware, requirePermission } from '@/middleware/rbac-middleware';
+import { auditMiddleware, setAuditContext } from '@/middleware/audit-middleware';
 
 /**
  * PATCH /rfp-document/update
@@ -24,78 +17,59 @@ import { UpdateRFPDocumentDTOSchema } from '@auto-rfp/core';
  * Body: UpdateRFPDocumentDTO
  */
 export const baseHandler = async (
-  event: AuthedEvent,
+  event: APIGatewayProxyEventV2,
 ): Promise<APIGatewayProxyResultV2> => {
-  try {
-    const orgId = getOrgId(event);
-    if (!orgId) return apiResponse(400, { message: 'OrgId is missing' });
-    const userId = getUserId(event);
-    if (!userId) return apiResponse(401, { message: 'User not authenticated' });
-    const userName = event.auth?.claims?.name || event.auth?.claims?.email || 'Unknown';
+  const orgId = getOrgId(event);
+  if (!orgId) return apiResponse(400, { message: 'OrgId is missing' });
 
-    if (!event.body) return apiResponse(400, { message: 'Request body is missing' });
+  const userId = getUserId(event);
+  if (!userId) return apiResponse(401, { message: 'User not authenticated' });
 
-    const rawBody = JSON.parse(event.body);
-    const { success, data: dto, error } = UpdateRFPDocumentDTOSchema.safeParse(rawBody);
+  if (!event.body) return apiResponse(400, { message: 'Request body is missing' });
 
-    if (!success) {
-      return apiResponse(400, {
-        message: 'Invalid request payload',
-        issues: error.issues,
-      });
-    }
+  const rawBody = JSON.parse(event.body);
+  const { success, data: dto, error } = UpdateRFPDocumentDTOSchema.safeParse(rawBody);
 
-    // Verify document exists and user has access
-    const existing = await getRFPDocument(dto.projectId, dto.opportunityId, dto.documentId);
-    if (!existing || existing.deletedAt) {
-      return apiResponse(404, { message: 'Document not found' });
-    }
-    if (existing.orgId !== orgId) {
-      return apiResponse(403, { message: 'Access denied' });
-    }
-
-    // Update document (business logic in helper)
-    const updated = await updateRFPDocumentWithContent({
-      orgId,
-      projectId: dto.projectId,
-      opportunityId: dto.opportunityId,
-      documentId: dto.documentId,
-      dto,
-      userId,
+  if (!success) {
+    return apiResponse(400, {
+      message: 'Invalid request payload',
+      issues: error.issues,
     });
-
-    // Write audit log
-    writeAuditLog(
-      {
-        logId: uuidv4(),
-        timestamp: nowIso(),
-        userId,
-        userName,
-        organizationId: orgId,
-        action: 'DOCUMENT_UPDATED',
-        resource: 'rfp_document',
-        resourceId: dto.documentId,
-        changes: {
-          before: { title: existing.title },
-          after: { title: dto.content?.title ?? existing.title },
-        },
-        ipAddress: event.requestContext?.http?.sourceIp ?? '0.0.0.0',
-        userAgent: event.headers?.['user-agent'] ?? 'unknown',
-        result: 'success',
-      },
-      await getHmacSecret(),
-    ).catch((err) => console.warn('Non-blocking audit log failed:', err));
-
-    return apiResponse(200, { ok: true, document: updated });
-  } catch (err) {
-    console.error('Error updating RFP document:', err);
-    return apiResponse(500, { message: 'Internal server error' });
   }
-};
 
+  // Verify document exists and user has access
+  const existing = await getRFPDocument(dto.projectId, dto.opportunityId, dto.documentId);
+  if (!existing || existing.deletedAt) {
+    return apiResponse(404, { message: 'Document not found' });
+  }
+  if (existing.orgId !== orgId) {
+    return apiResponse(403, { message: 'Access denied' });
+  }
+
+  // Update document (business logic in helper)
+  const updated = await updateRFPDocumentWithContent({
+    orgId,
+    projectId: dto.projectId,
+    opportunityId: dto.opportunityId,
+    documentId: dto.documentId,
+    dto,
+    userId,
+  });
+
+  setAuditContext(event, {
+    action: 'DOCUMENT_UPLOADED',
+    resource: 'document',
+    resourceId: dto.documentId,
+  });
+
+  return apiResponse(200, { ok: true, document: updated });
+};
 
 export const handler = withSentryLambda(
   middy(baseHandler)
     .use(authContextMiddleware())
+    .use(orgMembershipMiddleware())
+    .use(requirePermission('proposal:edit'))
+    .use(auditMiddleware())
     .use(httpErrorMiddleware()),
 );

@@ -47,6 +47,7 @@ export class AnswerGenerationPipelineStack extends Stack {
       });
 
     const bedrockApiKeyParamArn = `arn:aws:ssm:us-east-1:${this.account}:parameter/auto-rfp/bedrock/api-key`;
+    const auditHmacSecretParamArn = `arn:aws:ssm:us-east-1:${this.account}:parameter/auto-rfp/audit-hmac-secret-${stage.toLowerCase()}`;
 
     const commonLambdaEnv = {
       REGION: this.region,
@@ -73,7 +74,8 @@ export class AnswerGenerationPipelineStack extends Stack {
       },
     });
     mainTable.grantReadWriteData(prepareQuestionsLambda);
-    
+    documentsBucket.grantWrite(prepareQuestionsLambda); // Grant write access to write questions JSONL
+
     prepareQuestionsLambda.addToRolePolicy(
       new iam.PolicyStatement({
         actions: ['bedrock:InvokeModel'],
@@ -116,7 +118,7 @@ export class AnswerGenerationPipelineStack extends Stack {
     generateAnswerLambda.addToRolePolicy(
       new iam.PolicyStatement({
         actions: ['ssm:GetParameter'],
-        resources: [bedrockApiKeyParamArn],
+        resources: [bedrockApiKeyParamArn, auditHmacSecretParamArn],
       }),
     );
 
@@ -144,16 +146,39 @@ export class AnswerGenerationPipelineStack extends Stack {
       payloadResponseOnly: true,
     });
 
-    const generateAnswersMap = new sfn.Map(this, 'Generate Answers Map', {
-      itemsPath: '$.prepareResult.questions',
-      maxConcurrency: 5,
-      resultPath: '$.answersResult',
+    // Use Distributed Map to read questions from S3 and process in parallel
+    // This avoids the 256KB payload limit by streaming from S3
+    const generateAnswersMap = new sfn.DistributedMap(this, 'Generate Answers Map', {
+      maxConcurrency: 5, // Reduced from 10 to avoid API throttling
+      toleratedFailurePercentage: 80, // Increased from 50% to 80% - some questions may fail but pipeline continues
+      itemReader: new sfn.S3JsonLItemReader({
+        bucket: documentsBucket,
+        key: sfn.JsonPath.stringAt('$.prepareResult.s3Key'),
+      }),
+      resultPath: sfn.JsonPath.DISCARD, // Discard results to avoid accumulating large payloads
     });
 
     generateAnswersMap.itemProcessor(
       new tasks.LambdaInvoke(this, 'Generate Answer', {
         lambdaFunction: generateAnswerLambda,
+        payload: sfn.TaskInput.fromObject({
+          // Map input is the individual question object from JSONL
+          questionId: sfn.JsonPath.stringAt('$.questionId'),
+          projectId: sfn.JsonPath.stringAt('$.projectId'),
+          orgId: sfn.JsonPath.stringAt('$.orgId'),
+          opportunityId: sfn.JsonPath.stringAt('$.opportunityId'),
+          questionFileId: sfn.JsonPath.stringAt('$.questionFileId'),
+          isClusterMaster: sfn.JsonPath.stringAt('$.isClusterMaster'),
+          masterQuestionId: sfn.JsonPath.stringAt('$.masterQuestionId'),
+        }),
         payloadResponseOnly: true,
+        // Retry on transient errors (throttling, timeouts)
+        retryOnServiceExceptions: true,
+      }).addRetry({
+        errors: ['States.TaskFailed', 'Lambda.ServiceException', 'Lambda.TooManyRequestsException'],
+        interval: Duration.seconds(2),
+        maxAttempts: 3,
+        backoffRate: 2.0, // Exponential backoff: 2s, 4s, 8s
       }).addCatch(new sfn.Pass(this, 'Catch Answer Error'), {
         errors: ['States.ALL'],
         resultPath: '$.error',
@@ -180,8 +205,11 @@ export class AnswerGenerationPipelineStack extends Stack {
     this.stateMachine = new sfn.StateMachine(this, 'AnswerGenerationStateMachine', {
       stateMachineName: `${prefix}-Pipeline`,
       definitionBody: sfn.DefinitionBody.fromChainable(definition),
-      timeout: Duration.minutes(60), // Longer timeout for large projects
+      timeout: Duration.minutes(120), // Longer timeout for large projects with Distributed Map
       logs: { destination: sfLogGroup, level: sfn.LogLevel.ERROR },
     });
+
+    // Grant Step Functions read access to S3 for Distributed Map
+    documentsBucket.grantRead(this.stateMachine);
   }
 }
