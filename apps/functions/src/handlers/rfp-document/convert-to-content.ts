@@ -9,6 +9,12 @@ import {
   uploadRFPDocumentHtml,
 } from '@/helpers/rfp-document';
 import { apiResponse, getOrgId, getUserId } from '@/helpers/api';
+import {
+  authContextMiddleware,
+  httpErrorMiddleware,
+  orgMembershipMiddleware,
+  requirePermission,
+} from '@/middleware/rbac-middleware';
 import { requireEnv } from '@/helpers/env';
 
 const DOCUMENTS_BUCKET = requireEnv('DOCUMENTS_BUCKET');
@@ -221,11 +227,14 @@ export const baseHandler = async (
     });
   } catch (err) {
     console.error('Error converting document:', err);
-    return apiResponse(500, {
-      message: 'Failed to convert document',
-      error: err instanceof Error ? err.message : 'Unknown error',
-    });
+    return apiResponse(500, { message: 'Failed to convert document' });
   }
 };
 
-export const handler = withSentryLambda(middy(baseHandler));
+export const handler = withSentryLambda(
+  middy(baseHandler)
+    .use(authContextMiddleware())
+    .use(orgMembershipMiddleware())
+    .use(requirePermission('proposal:edit'))
+    .use(httpErrorMiddleware()),
+);

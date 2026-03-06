@@ -109,6 +109,8 @@ export const baseHandler = async (
             const savedAnswer = await saveAnswer({
               questionId: member.questionId,
               projectId,
+              opportunityId: clusterOpportunityId,
+              questionFileId: clusterFileId,
               text: masterAnswer.text,
               confidence: masterAnswer.confidence,
               confidenceBreakdown: masterAnswer.confidenceBreakdown,

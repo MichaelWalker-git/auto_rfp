@@ -126,7 +126,7 @@ describe('fulfill-opportunity-fields', () => {
       await expect(baseHandler(validEvent)).rejects.toThrow('Question file not found or missing orgId');
     });
 
-    it('skips processing for SAM_GOV opportunity and marks as PROCESSED', async () => {
+    it('skips processing for SAM_GOV opportunity without marking as PROCESSED', async () => {
       mockGetQuestionFileItem.mockResolvedValueOnce(mockQf);
       mockGetOpportunity.mockResolvedValueOnce({ item: { source: 'SAM_GOV' } } as never);
 
@@ -135,7 +135,8 @@ describe('fulfill-opportunity-fields', () => {
       expect(result.ok).toBe(true);
       expect(result.skipped).toBe(true);
       expect(result.updatedFieldCount).toBe(0);
-      expect(mockUpdateQuestionFile).toHaveBeenCalledWith('proj-1', 'opp-1', 'qf-1', { status: 'PROCESSED' });
+      // Should NOT mark as PROCESSED - extract-questions will do that
+      expect(mockUpdateQuestionFile).not.toHaveBeenCalled();
       expect(mockInvokeModel).not.toHaveBeenCalled();
     });
 
@@ -160,7 +161,8 @@ describe('fulfill-opportunity-fields', () => {
           patch: { title: 'Test RFP', solicitationNumber: 'W911NF-24-R-0001' },
         }),
       );
-      expect(mockUpdateQuestionFile).toHaveBeenCalledWith('proj-1', 'opp-1', 'qf-1', { status: 'PROCESSED' });
+      // Should NOT mark as PROCESSED - extract-questions will do that
+      expect(mockUpdateQuestionFile).not.toHaveBeenCalled();
     });
 
     it('returns ok:false and marks FAILED when Bedrock returns no fields', async () => {

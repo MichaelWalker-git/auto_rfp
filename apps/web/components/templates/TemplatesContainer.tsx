@@ -1,11 +1,10 @@
 'use client';
 
 import { useState, useCallback } from 'react';
+import { useRouter } from 'next/navigation';
 import { TemplatesHeader } from './TemplatesHeader';
 import { TemplateCategoryFilter } from './TemplateCategoryFilter';
 import { TemplateLibrary } from './TemplateLibrary';
-import { CreateTemplateDialog } from './CreateTemplateDialog';
-import { EditTemplateDialog } from './EditTemplateDialog';
 import { DeleteTemplateDialog } from './DeleteTemplateDialog';
 import {
   useTemplates,
@@ -22,10 +21,9 @@ interface TemplatesContainerProps {
 }
 
 export function TemplatesContainer({ orgId }: TemplatesContainerProps) {
+  const router = useRouter();
   const [selectedCategory, setSelectedCategory] = useState<string | undefined>();
   const [searchQuery, setSearchQuery] = useState('');
-  const [isCreateOpen, setIsCreateOpen] = useState(false);
-  const [editTarget, setEditTarget] = useState<TemplateItem | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<TemplateItem | null>(null);
 
   const { toast } = useToast();
@@ -49,11 +47,13 @@ export function TemplatesContainer({ orgId }: TemplatesContainerProps) {
       )
     : items;
 
-  const handleCreateSuccess = useCallback(() => {
-    setIsCreateOpen(false);
-    mutate();
-    toast({ title: 'Template created successfully' });
-  }, [mutate, toast]);
+  const handleCreateClick = useCallback(() => {
+    router.push(`/organizations/${orgId}/templates/create`);
+  }, [router, orgId]);
+
+  const handleEditClick = useCallback((template: TemplateItem) => {
+    router.push(`/organizations/${orgId}/templates/${template.id}/edit`);
+  }, [router, orgId]);
 
   const handleDelete = useCallback(
     async (template: TemplateItem) => {
@@ -104,7 +104,7 @@ export function TemplatesContainer({ orgId }: TemplatesContainerProps) {
           total={total}
           searchQuery={searchQuery}
           onSearchChange={setSearchQuery}
-          onCreateClick={() => setIsCreateOpen(true)}
+          onCreateClick={handleCreateClick}
         />
 
         <TemplateCategoryFilter
@@ -116,26 +116,11 @@ export function TemplatesContainer({ orgId }: TemplatesContainerProps) {
         <TemplateLibrary
           items={filteredItems}
           isLoading={isLoading}
-          onEdit={setEditTarget}
+          onEdit={handleEditClick}
           onPublish={handlePublish}
           onClone={handleClone}
           onDelete={setDeleteTarget}
           orgId={orgId}
-        />
-
-        <CreateTemplateDialog
-          isOpen={isCreateOpen}
-          onOpenChange={setIsCreateOpen}
-          orgId={orgId}
-          onSuccess={handleCreateSuccess}
-        />
-
-        <EditTemplateDialog
-          isOpen={!!editTarget}
-          onOpenChange={(open) => { if (!open) setEditTarget(null); }}
-          template={editTarget}
-          orgId={orgId}
-          onSuccess={() => { setEditTarget(null); mutate(); }}
         />
 
         <DeleteTemplateDialog

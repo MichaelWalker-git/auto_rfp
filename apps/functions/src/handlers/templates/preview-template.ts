@@ -10,16 +10,39 @@ import {
 import { getTemplate, loadTemplateHtml, replaceMacros } from '@/helpers/template';
 
 const SAMPLE_MACRO_VALUES: Record<string, string> = {
-  COMPANY_NAME:    'Acme Corporation',
-  PROJECT_TITLE:   'Cloud Migration Services',
-  CONTRACT_NUMBER: 'W911NF-26-R-0001',
-  SUBMISSION_DATE: '2026-03-15',
-  PAGE_LIMIT:      '50',
-  OPPORTUNITY_ID:  'SAM-2026-001',
-  AGENCY_NAME:     'Department of Defense',
-  TODAY:           new Date().toISOString().split('T')[0],
-  PROPOSAL_TITLE:  'Technical Proposal for Cloud Migration Services',
-  CONTENT:         '[Content will be generated here]',
+  // Organization
+  COMPANY_NAME:              'Acme Corporation',
+  ORGANIZATION_DESCRIPTION:  'Leading provider of cloud infrastructure solutions',
+  // Project
+  PROJECT_TITLE:             'Cloud Migration Services',
+  PROJECT_DESCRIPTION:       'Enterprise cloud migration and modernization',
+  PROPOSAL_TITLE:            'Technical Proposal for Cloud Migration Services',
+  // Opportunity
+  OPPORTUNITY_ID:            '140D6426R00001',
+  OPPORTUNITY_TITLE:         'Cloud Infrastructure Modernization',
+  SOLICITATION_NUMBER:       'W911NF-26-R-0001',
+  NOTICE_ID:                 '140d6426r00001',
+  // Agency
+  AGENCY_NAME:               'GSA',
+  ISSUING_OFFICE:            'General Services Administration, Federal Acquisition Service',
+  // Dates
+  TODAY:                     new Date().toISOString().split('T')[0],
+  CURRENT_YEAR:              new Date().getFullYear().toString(),
+  CURRENT_MONTH:             new Date().toLocaleDateString('en-US', { month: 'long' }),
+  CURRENT_DAY:               new Date().getDate().toString(),
+  POSTED_DATE:               'January 15, 2026',
+  RESPONSE_DEADLINE:         'March 15, 2026',
+  SUBMISSION_DATE:           'March 15, 2026',
+  // Compliance
+  NAICS_CODE:                '541512',
+  PSC_CODE:                  'D302',
+  SET_ASIDE:                 'Total Small Business Set-Aside',
+  OPPORTUNITY_TYPE:          'Combined Synopsis/Solicitation',
+  // Financial
+  ESTIMATED_VALUE:           '$5,000,000',
+  BASE_AND_OPTIONS_VALUE:    '$5,000,000',
+  // Content
+  CONTENT:                   '[Content will be generated here]',
 };
 
 const baseHandler = async (

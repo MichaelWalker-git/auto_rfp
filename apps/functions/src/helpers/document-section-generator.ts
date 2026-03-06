@@ -27,6 +27,8 @@ export interface DocumentSection {
   description?: string;
   /** Guidance injected into the per-section prompt */
   guidance?: string;
+  /** Original template HTML content for this section (boilerplate, images, resolved macros) */
+  templateContent?: string;
 }
 
 export interface GenerateSectionBySection {
@@ -58,80 +60,13 @@ type Message = {
   content: unknown;
 };
 
-// ─── Document types that benefit from section-by-section generation ───────────
-
-/**
- * Document types where section-by-section generation produces better results.
- * These are large, multi-section documents where a single generation often truncates.
- */
-export const SECTIONED_DOCUMENT_TYPES = new Set([
-  'TECHNICAL_PROPOSAL',
-  'MANAGEMENT_PROPOSAL',
-  'MANAGEMENT_APPROACH',
-  'PAST_PERFORMANCE',
-  'RISK_MANAGEMENT',
-  'QUALITY_MANAGEMENT',
-  'COMPLIANCE_MATRIX',
-  'APPENDICES',
-]);
-
-// ─── Section definitions for each document type ───────────────────────────────
-
-export const DOCUMENT_SECTIONS: Record<string, DocumentSection[]> = {
-  TECHNICAL_PROPOSAL: [
-    { title: 'Understanding of the Requirement', description: 'Customer mission, current state, requirements analysis' },
-    { title: 'Technical Approach', description: 'Problem → Solution → Benefit for each major requirement' },
-    { title: 'Management Approach', description: 'Org structure, key personnel, communication plan' },
-    { title: 'Staffing Plan', description: 'Labor categories, recruitment, retention' },
-    { title: 'Transition & Phase-In Plan', description: 'Knowledge transfer, timeline, continuity' },
-  ],
-  MANAGEMENT_PROPOSAL: [
-    { title: 'Program Management Approach', description: 'Methodology, governance, PMO structure' },
-    { title: 'Organizational Structure', description: 'Org chart, roles, responsibilities' },
-    { title: 'Key Personnel', description: 'Profiles, qualifications, certifications' },
-    { title: 'Communication & Reporting', description: 'Meeting cadence, reporting, escalation' },
-    { title: 'Risk Management', description: 'Top 5 risks with mitigations' },
-    { title: 'Quality Management', description: 'QA/QC processes, metrics, continuous improvement' },
-    { title: 'Security & Compliance', description: 'FISMA, FedRAMP, personnel security' },
-  ],
-  MANAGEMENT_APPROACH: [
-    { title: 'Program Management Methodology', description: 'PMP, Agile, Hybrid approach' },
-    { title: 'Organizational Structure & Key Personnel', description: 'Org chart, key roles' },
-    { title: 'Communication & Reporting Plan', description: 'Meeting cadence, deliverables, escalation' },
-    { title: 'Risk Management', description: 'Top risks with mitigations' },
-    { title: 'Quality Assurance & Control', description: 'QA/QC processes, metrics, SLAs' },
-  ],
-  PAST_PERFORMANCE: [
-    { title: 'Past Performance Overview', description: 'Summary of relevant experience and relevance matrix' },
-    { title: 'Contract 1: Most Relevant Project', description: 'STAR format: situation, task, action, result' },
-    { title: 'Contract 2: Second Most Relevant Project', description: 'STAR format: situation, task, action, result' },
-    { title: 'Contract 3: Third Most Relevant Project', description: 'STAR format: situation, task, action, result' },
-    { title: 'Relevance Summary', description: 'Cross-reference matrix mapping past work to current requirements' },
-  ],
-  RISK_MANAGEMENT: [
-    { title: 'Risk Management Approach', description: 'Methodology, framework, roles, reporting cadence' },
-    { title: 'Risk Assessment Matrix', description: 'Likelihood/impact scales, scoring methodology' },
-    { title: 'Technical & Schedule Risks', description: 'Top technical and schedule risks with mitigations' },
-    { title: 'Cost & Personnel Risks', description: 'Cost and staffing risks with mitigations' },
-    { title: 'External & Government Risks', description: 'Regulatory, supply chain, and government-side risks' },
-    { title: 'Risk Monitoring & Reporting', description: 'Risk register, dashboard, escalation procedures' },
-  ],
-  QUALITY_MANAGEMENT: [
-    { title: 'Quality Management Philosophy & Framework', description: 'ISO 9001, CMMI, Six Sigma approach' },
-    { title: 'Quality Assurance Plan', description: 'QA activities, roles, reporting, standards compliance' },
-    { title: 'Quality Control Processes', description: 'QC checkpoints, peer reviews, defect tracking' },
-    { title: 'Performance Metrics & KPIs', description: 'Key metrics, measurement methodology, thresholds' },
-    { title: 'Continuous Improvement', description: 'Lessons learned, root cause analysis, process improvement' },
-    { title: 'Customer Satisfaction Management', description: 'Feedback collection, surveys, escalation' },
-  ],
-  COMPLIANCE_MATRIX: [
-    { title: 'Introduction', description: 'Purpose, how to use, reference to Section L and M' },
-    { title: 'Section L Compliance Matrix', description: 'Instructions to offerors — requirement, compliance, location, notes' },
-    { title: 'Section M Compliance Matrix', description: 'Evaluation criteria — factor, weight, location, discriminators, evidence' },
-    { title: 'Technical Requirements Traceability', description: 'SOW/PWS requirements mapped to proposal sections' },
-    { title: 'Deliverables Compliance', description: 'All required deliverables with format and submission confirmation' },
-  ],
-};
+// ───────────────────────────────────────────────────────────────────────────────
+// NOTE: This file previously contained hardcoded DOCUMENT_SECTIONS and
+// SECTIONED_DOCUMENT_TYPES exports. These have been removed in favor of
+// template-driven section generation using parseTemplateSections from
+// template-section-parser.ts. Section structures are now defined in database
+// templates via <h2> and <h3> HTML headings, not in code.
+// ───────────────────────────────────────────────────────────────────────────────
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -216,19 +151,34 @@ export const generateDocumentSectionBySectionHtml = async (
       ? `\n\nPreviously generated sections (DO NOT repeat their content): ${completedSections.map(s => `"${s}"`).join(', ')}.`
       : '';
 
+    // Build template content instruction if the section has original template content
+    const templateContentHint = section.templateContent
+      ? `\n\nTEMPLATE CONTENT FOR THIS SECTION:
+The template contains the following existing content for this section. You MUST:
+- PRESERVE all <img> tags exactly as-is (especially those with src="s3key:..." or data-s3-key="...")
+- PRESERVE all pre-filled values (company names, dates, solicitation numbers, etc.) — these are real data
+- ONLY replace text that is clearly a placeholder: [CONTENT: ...], [placeholder], [Your ...], or similar bracketed markers
+- KEEP the same inline styles from the template — do NOT add borders, colors, or decorations not in the template
+- EXPAND placeholder content with real, detailed, substantive content
+
+Template content:
+${section.templateContent}`
+      : '';
+
     // Each section gets its own fresh conversation with full context
     const sectionInstruction = `${initialUserPrompt}${continuityHint}
 
 ---
 
-Generate ONLY the "${section.title}" section of this document.${section.description ? ` Focus on: ${section.description}.` : ''}${isLast ? ' This is the final section — include a professional closing statement at the end.' : ''}
+Generate ONLY the "${section.title}" section of this document.${section.description ? ` Focus on: ${section.description}.` : ''}${isLast ? ' This is the final section — include a professional closing statement at the end.' : ''}${templateContentHint}
 
 IMPORTANT:
 - Return ONLY the HTML for this section, starting with <h2>${section.title}</h2>
 - Do NOT include the document title (<h1>)
 - Do NOT repeat content from other sections
 - Do NOT include any text outside the HTML
-- Use proper HTML with inline styles (h2, h3, p, ul, li, table elements)
+- Use the same inline styles as the template — do NOT add borders or decorations not in the template
+- Preserve all <img> tags from the template exactly as-is
 - Replace all \\n with actual newlines in the HTML output`;
 
     // Fresh conversation for each section
@@ -318,7 +268,26 @@ IMPORTANT:
 };
 
 /**
- * Build a document title HTML header from the document type and title.
+ * Extract <h1> styling from template HTML.
+ * Returns the style attribute value if found, otherwise returns a minimal default.
  */
-export const buildDocumentTitleHtml = (title: string): string =>
-  `<h1 style="font-size:2em;font-weight:700;margin:0 0 0.5em;color:#1a1a2e;border-bottom:3px solid #4f46e5;padding-bottom:0.3em">${title}</h1>`;
+export const extractH1StyleFromTemplate = (templateHtml: string): string => {
+  const h1Match = templateHtml.match(/<h1([^>]*)>/i);
+  if (h1Match) {
+    const styleMatch = h1Match[1]?.match(/style="([^"]*)"/i);
+    if (styleMatch?.[1]) {
+      return styleMatch[1];
+    }
+  }
+  // Minimal fallback — no hardcoded border
+  return 'font-size:2em;font-weight:700;margin:0 0 0.5em;color:#1a1a2e';
+};
+
+/**
+ * Build a document title HTML header from the document type and title.
+ * Uses styling from the template if provided, otherwise uses minimal default.
+ */
+export const buildDocumentTitleHtml = (title: string, templateHtml?: string): string => {
+  const style = templateHtml ? extractH1StyleFromTemplate(templateHtml) : 'font-size:2em;font-weight:700;margin:0 0 0.5em;color:#1a1a2e';
+  return `<h1 style="${style}">${title}</h1>`;
+};

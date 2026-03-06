@@ -1,3 +1,10 @@
+/**
+ * @deprecated This dialog-based template editing is deprecated in favor of the dedicated
+ * template edit page at /organizations/[orgId]/templates/[templateId]/edit.
+ * This component is kept for backward compatibility but should not be used in new code.
+ * Use router.push('/organizations/{orgId}/templates/{templateId}/edit') instead.
+ */
+
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -26,6 +33,9 @@ import { RichTextEditor, stripPresignedUrlsFromHtml } from '@/components/rfp-doc
 import { useUpdateTemplate, useTemplate, type TemplateItem } from '@/lib/hooks/use-templates';
 import { usePresignUpload, usePresignDownload, uploadFileToS3 } from '@/lib/hooks/use-presign';
 import type { Editor } from '@tiptap/react';
+import { MacroDocumentation } from './MacroDocumentation';
+import { MacroInsertionBar } from './MacroInsertionBar';
+import { TemplateStructureGuidance } from './TemplateStructureGuidance';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -47,20 +57,6 @@ const CATEGORIES = [
   { value: 'PRICE_VOLUME', label: 'Price Volume' },
   { value: 'QUALITY_MANAGEMENT', label: 'Quality Management Plan' },
   { value: 'CUSTOM', label: 'Custom' },
-];
-
-/** Predefined system variables users can insert into template content */
-const SYSTEM_VARIABLES = [
-  { key: 'TODAY',           label: "Today's Date" },
-  { key: 'COMPANY_NAME',    label: 'Company Name' },
-  { key: 'AGENCY_NAME',     label: 'Agency Name' },
-  { key: 'PROJECT_TITLE',   label: 'Project Title' },
-  { key: 'CONTENT',         label: 'Content' },
-  { key: 'CONTRACT_NUMBER', label: 'Contract #' },
-  { key: 'SUBMISSION_DATE', label: 'Submission Date' },
-  { key: 'PROPOSAL_TITLE',  label: 'Proposal Title' },
-  { key: 'OPPORTUNITY_ID',  label: 'Opportunity ID' },
-  { key: 'PAGE_LIMIT',      label: 'Page Limit' },
 ];
 
 // ─── Props ────────────────────────────────────────────────────────────────────
@@ -187,7 +183,6 @@ export function EditTemplateDialog({
 
       await update({
         name: name.trim(),
-        type: category,
         category,
         htmlContent: cleanContent,
       });
@@ -246,23 +241,19 @@ export function EditTemplateDialog({
             </div>
           </div>
 
+          {/* ── Help Documentation ── */}
+          <div className="shrink-0">
+            <MacroDocumentation />
+          </div>
+
           {/* ── Macro insertion bar ── */}
-          <div className="shrink-0 mb-2">
-            <div className="flex flex-wrap items-center gap-1.5">
-              <span className="text-xs text-muted-foreground font-medium shrink-0">Insert variable:</span>
-              {SYSTEM_VARIABLES.map(({ key }) => (
-                <button
-                  key={key}
-                  type="button"
-                  onClick={() => insertMacro(key)}
-                  disabled={isDisabled}
-                  className="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-mono font-medium bg-indigo-50 text-indigo-700 border border-indigo-200 hover:bg-indigo-100 hover:border-indigo-300 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                  title={`Insert {{${key}}}`}
-                >
-                  {`{{${key}}}`}
-                </button>
-              ))}
-            </div>
+          <div className="shrink-0">
+            <MacroInsertionBar onInsert={insertMacro} disabled={isDisabled} />
+          </div>
+
+          {/* ── Template Structure Guidance ── */}
+          <div className="shrink-0">
+            <TemplateStructureGuidance />
           </div>
 
           {/* ── Content editor ── */}
@@ -270,7 +261,7 @@ export function EditTemplateDialog({
             <Label className="shrink-0">
               Template Content{' '}
               <span className="text-xs text-muted-foreground font-normal">
-                (HTML — click a variable above to insert it at cursor position)
+                (Click a variable button above to insert it at cursor position)
               </span>
             </Label>
             {isLoadingContent || isResolvingImages ? (
@@ -287,7 +278,7 @@ export function EditTemplateDialog({
                 onChange={setContent}
                 disabled={isUpdating}
                 className="flex-1 min-h-0"
-                minHeight="calc(92vh - 260px)"
+                minHeight="calc(92vh - 400px)"
                 onUploadImageToS3={handleUploadImageToS3}
                 onGetDownloadUrl={handleGetDownloadUrl}
                 onUploadingChange={setIsImageUploading}

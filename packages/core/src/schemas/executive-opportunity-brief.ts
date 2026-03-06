@@ -136,12 +136,12 @@ export type RequirementsSection = z.infer<typeof RequirementsSectionSchema>;
  */
 export const ContactSchema = z.object({
   role: RoleSchema,
-  name: z.string().optional(),
-  title: z.string().optional(),
-  email: z.string().email().optional(),
-  phone: z.string().optional(),
-  organization: z.string().optional(),
-  notes: z.string().optional(),
+  name: z.string().nullish(),
+  title: z.string().nullish(),
+  email: z.string().email().nullish(),
+  phone: z.string().nullish(),
+  organization: z.string().nullish(),
+  notes: z.string().nullish(),
 });
 
 export const ContactsSectionSchema = z.object({

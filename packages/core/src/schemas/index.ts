@@ -21,6 +21,7 @@ export * from './content-library';
 export * from './api-key';
 export * from './past-performance';
 export * from './template';
+export * from './template-variables';
 export * from './rfp-document';
 export * from './clustering';
 export * from './collaboration';

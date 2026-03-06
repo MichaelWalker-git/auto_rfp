@@ -405,6 +405,7 @@ export class QuestionExtractionPipelineStack extends Stack {
       payload: sfn.TaskInput.fromObject({
         projectId: sfn.JsonPath.stringAt('$.projectId'),
         questionFileId: sfn.JsonPath.stringAt('$.questionFileId'),
+        opportunityId: sfn.JsonPath.stringAt('$.oppId'),
       }),
       resultPath: '$.triggerResult',
       payloadResponseOnly: true,
@@ -415,6 +416,7 @@ export class QuestionExtractionPipelineStack extends Stack {
       payload: sfn.TaskInput.fromObject({
         projectId: sfn.JsonPath.stringAt('$.projectId'),
         questionFileId: sfn.JsonPath.stringAt('$.questionFileId'),
+        opportunityId: sfn.JsonPath.stringAt('$.oppId'),
       }),
       resultPath: '$.triggerResult',
       payloadResponseOnly: true,
@@ -425,6 +427,7 @@ export class QuestionExtractionPipelineStack extends Stack {
       payload: sfn.TaskInput.fromObject({
         projectId: sfn.JsonPath.stringAt('$.projectId'),
         questionFileId: sfn.JsonPath.stringAt('$.questionFileId'),
+        opportunityId: sfn.JsonPath.stringAt('$.oppId'),
       }),
       resultPath: '$.triggerResult',
       payloadResponseOnly: true,

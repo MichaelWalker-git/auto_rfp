@@ -170,9 +170,9 @@ export const baseHandler = async (
 
     
     setAuditContext(event, {
-      action: 'PROPOSAL_SUBMITTED',
-      resource: 'proposal',
-      resourceId: 'rfp-document',
+      action: 'DOCUMENT_UPLOADED',
+      resource: 'document',
+      resourceId: documentId,
     });
 
     return apiResponse(201, response);
@@ -181,11 +181,15 @@ export const baseHandler = async (
     if (err instanceof SyntaxError) {
       return apiResponse(400, { message: 'Invalid JSON in request body' });
     }
-    return apiResponse(500, {
-      message: 'Internal server error',
-      error: err instanceof Error ? err.message : 'Unknown error',
-    });
+    return apiResponse(500, { message: 'Internal server error' });
   }
 };
 
-export const handler = withSentryLambda(middy(baseHandler));
+export const handler = withSentryLambda(
+  middy(baseHandler)
+    .use(authContextMiddleware())
+    .use(orgMembershipMiddleware())
+    .use(requirePermission('proposal:create'))
+    .use(auditMiddleware())
+    .use(httpErrorMiddleware()),
+);

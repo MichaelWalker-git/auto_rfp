@@ -4,7 +4,8 @@ import { UpdateRFPDocumentDTOSchema } from '@auto-rfp/core';
 import { withSentryLambda } from '@/sentry-lambda';
 import { getRFPDocument, updateRFPDocumentWithContent } from '@/helpers/rfp-document';
 import { apiResponse, getOrgId, getUserId } from '@/helpers/api';
-import { authContextMiddleware, httpErrorMiddleware } from '@/middleware/rbac-middleware';
+import { authContextMiddleware, httpErrorMiddleware, orgMembershipMiddleware, requirePermission } from '@/middleware/rbac-middleware';
+import { auditMiddleware, setAuditContext } from '@/middleware/audit-middleware';
 
 /**
  * PATCH /rfp-document/update
@@ -55,11 +56,20 @@ export const baseHandler = async (
     userId,
   });
 
+  setAuditContext(event, {
+    action: 'DOCUMENT_UPLOADED',
+    resource: 'document',
+    resourceId: dto.documentId,
+  });
+
   return apiResponse(200, { ok: true, document: updated });
 };
 
 export const handler = withSentryLambda(
   middy(baseHandler)
     .use(authContextMiddleware())
+    .use(orgMembershipMiddleware())
+    .use(requirePermission('proposal:edit'))
+    .use(auditMiddleware())
     .use(httpErrorMiddleware()),
 );

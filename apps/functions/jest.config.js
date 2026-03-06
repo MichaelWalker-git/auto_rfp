@@ -26,4 +26,7 @@ export default {
   testMatch: ['**/*.test.ts'],
   testPathIgnorePatterns: ['/node_modules/', '/dist/'],
   moduleFileExtensions: ['ts', 'js', 'json'],
+  transformIgnorePatterns: [
+    'node_modules/(?!(uuid)/)',
+  ],
 };

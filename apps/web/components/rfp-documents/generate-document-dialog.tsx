@@ -53,12 +53,12 @@ interface GenerateDocumentDialogProps {
   onSuccess?: () => void;
 }
 
-export function GenerateDocumentDialog({
+export const GenerateDocumentDialog = ({
   projectId,
   opportunityId,
   orgId,
   onSuccess,
-}: GenerateDocumentDialogProps) {
+}: GenerateDocumentDialogProps) => {
   const [selectedType, setSelectedType] = useState<string>('TECHNICAL_PROPOSAL');
   const [isOpen, setIsOpen] = useState(false);
   const [status, setStatus] = useState<'idle' | 'generating' | 'success' | 'error'>('idle');

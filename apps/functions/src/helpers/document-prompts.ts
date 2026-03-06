@@ -588,7 +588,7 @@ const JSON_SCHEMA = `{
   "htmlContent": string  (complete styled HTML document — see HTML REQUIREMENTS below)
 }`;
 
-const HTML_REQUIREMENTS = `
+const HTML_REQUIREMENTS_NO_TEMPLATE = `
 ═══════════════════════════════════════
 HTML CONTENT REQUIREMENTS
 ═══════════════════════════════════════
@@ -597,8 +597,8 @@ The "htmlContent" field MUST be a complete, well-structured HTML document body (
 Use the following HTML elements and inline styles to produce a professional, readable document:
 
 HEADINGS:
-- <h1 style="font-size:2em;font-weight:700;margin:0 0 0.5em;color:#1a1a2e;border-bottom:3px solid #4f46e5;padding-bottom:0.3em"> — Document title
-- <h2 style="font-size:1.4em;font-weight:700;margin:1.5em 0 0.5em;color:#1a1a2e;border-bottom:1px solid #e2e8f0;padding-bottom:0.2em"> — Major sections
+- <h1 style="font-size:2em;font-weight:700;margin:0 0 0.5em;color:#1a1a2e"> — Document title
+- <h2 style="font-size:1.4em;font-weight:700;margin:1.5em 0 0.5em;color:#1a1a2e"> — Major sections
 - <h3 style="font-size:1.1em;font-weight:600;margin:1.2em 0 0.4em;color:#374151"> — Subsections
 
 PARAGRAPHS:
@@ -615,22 +615,48 @@ TABLES (for compliance matrices, risk registers, etc.):
 - <tbody><tr style="border-bottom:1px solid #e2e8f0"> (alternate: background:#f8fafc)
 - <td style="padding:0.6em 0.8em;font-size:0.9em;color:#374151">
 
-CALLOUT BOXES (for win themes, key points):
-- <div style="background:#eff6ff;border-left:4px solid #4f46e5;padding:1em 1.2em;margin:1em 0;border-radius:0 6px 6px 0">
-
 EMPHASIS:
 - <strong> for bold key terms
 - <em> for italics
 
 DOCUMENT STRUCTURE PATTERN:
 1. Start with the document title in <h1>
-2. Add a brief executive overview in a callout box <div style="background:#eff6ff...">
-3. Use <h2> for each major section
-4. Use <h3> for subsections within each major section
-5. Use <p> for body text, <ul>/<ol> for lists, <table> for structured data
-6. End with a professional closing statement
+2. Use <h2> for each major section
+3. Use <h3> for subsections within each major section
+4. Use <p> for body text, <ul>/<ol> for lists, <table> for structured data
+5. End with a professional closing statement
 
 IMPORTANT:
+- Generate COMPLETE, DETAILED content — not placeholders
+- Each major section should have 3-6 paragraphs of substantive content
+- The HTML must be valid and renderable in a browser
+- Do NOT include \`\`\`html fences or any text outside the JSON object`;
+
+const HTML_REQUIREMENTS_WITH_TEMPLATE = `
+═══════════════════════════════════════
+HTML CONTENT REQUIREMENTS (TEMPLATE MODE)
+═══════════════════════════════════════
+The "htmlContent" field MUST be a complete, well-structured HTML document body (no <html>/<head>/<body> tags — just the inner content).
+
+CRITICAL — TEMPLATE STYLING RULES:
+- You MUST use the EXACT same inline styles that appear in the template scaffold below.
+- Do NOT add any styles, borders, colors, or decorations that are NOT already in the template.
+- Do NOT add border-bottom, border-left, or any colored borders to headings unless the template already has them.
+- Do NOT add colored callout boxes or divs with background colors unless the template already has them.
+- If the template uses plain headings without borders, your output must also use plain headings without borders.
+- Copy the style="..." attributes from the template's elements exactly.
+
+IMAGE PRESERVATION:
+- Any <img> tags in the template (especially those with src="s3key:..." or data-s3-key="...") MUST be preserved EXACTLY as-is in your output.
+- Do NOT modify, remove, or replace any image tags from the template.
+- Place them in the same position relative to the surrounding content.
+
+VALUE PRESERVATION:
+- Any text that has already been filled in (company names, dates, solicitation numbers, etc.) is real data — keep it exactly as written.
+- Only replace text that is clearly a placeholder: [CONTENT: ...], [placeholder], [Your ...], or similar bracketed markers.
+
+GENERAL HTML RULES:
+- Use <strong> for bold key terms, <em> for italics
 - Generate COMPLETE, DETAILED content — not placeholders
 - Each major section should have 3-6 paragraphs of substantive content
 - The HTML must be valid and renderable in a browser
@@ -642,11 +668,11 @@ IMPORTANT:
  * Incorporates RFP best practices: compliance focus, win themes, customer-centric language,
  * evidence-based claims, and evaluation criteria alignment.
  */
-export function buildSystemPromptForDocumentType(
+export const buildSystemPromptForDocumentType = (
   documentType: string,
-  templateSections: any[] | null,
+  templateSections: Array<{ title: string; description?: string }> | null,
   templateHtmlScaffold?: string | null,
-): string {
+): string => {
   const typeLabel =
     TEMPLATE_CATEGORY_LABELS[documentType as keyof typeof TEMPLATE_CATEGORY_LABELS] ??
     documentType.replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase());
@@ -719,7 +745,7 @@ You will receive several types of context. Use them as follows:
 5. PAST PERFORMANCE: Relevant past projects. Reference these to prove track record and relevant experience.
 6. CONTENT LIBRARY: Pre-approved content snippets. Use where relevant for consistent, vetted messaging.
 
-${HTML_REQUIREMENTS}`;
+${templateHtmlScaffold ? HTML_REQUIREMENTS_WITH_TEMPLATE : HTML_REQUIREMENTS_NO_TEMPLATE}`;
 
   if (templateHtmlScaffold) {
     // HTML scaffold takes priority — model fills in the pre-structured template

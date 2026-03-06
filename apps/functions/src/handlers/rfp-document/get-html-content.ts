@@ -97,10 +97,7 @@ export const baseHandler = async (
     });
   } catch (err) {
     console.error('Error in get-html-content:', err);
-    return apiResponse(500, {
-      message: 'Internal server error',
-      error: err instanceof Error ? err.message : 'Unknown error',
-    });
+    return apiResponse(500, { message: 'Internal server error' });
   }
 };
 

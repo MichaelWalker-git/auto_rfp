@@ -7,6 +7,7 @@ import { authFetcher } from '@/lib/auth/auth-fetcher';
 import type {
   RFPDocumentItem,
   RFPDocumentType,
+  RFPDocumentContent,
   EditHistoryEntry,
   CreateRFPDocumentDTO,
   UpdateRFPDocumentDTO,
@@ -110,16 +111,23 @@ type ExportRFPDocumentResponse = z.infer<typeof ExportRFPDocumentResponseSchema>
 
 // ─── Helpers ───
 
-async function postJson<T>(url: string, body: unknown): Promise<T> {
+class ApiError extends Error {
+  status: number;
+  constructor(message: string, status: number) {
+    super(message);
+    this.name = 'ApiError';
+    this.status = status;
+  }
+}
+
+const postJson = async <T>(url: string, body: unknown): Promise<T> => {
   const res = await authFetcher(url, {
     method: 'POST',
     body: JSON.stringify(body),
   });
   if (!res.ok) {
     const raw = await res.text().catch(() => '');
-    const err = new Error(raw || 'Request failed');
-    (err as any).status = res.status;
-    throw err;
+    throw new ApiError(raw || 'Request failed', res.status);
   }
   const raw = await res.text().catch(() => '');
   if (!raw) return { ok: true } as T;
@@ -128,35 +136,31 @@ async function postJson<T>(url: string, body: unknown): Promise<T> {
   } catch {
     return { ok: true } as T;
   }
-}
+};
 
-async function patchJson<T>(url: string, body: unknown): Promise<T> {
+const patchJson = async <T>(url: string, body: unknown): Promise<T> => {
   const res = await authFetcher(url, {
     method: 'PATCH',
     body: JSON.stringify(body),
   });
   if (!res.ok) {
     const raw = await res.text().catch(() => '');
-    const err = new Error(raw || 'Request failed');
-    (err as any).status = res.status;
-    throw err;
+    throw new ApiError(raw || 'Request failed', res.status);
   }
   return res.json();
-}
+};
 
-async function deleteJson<T>(url: string, body: unknown): Promise<T> {
+const deleteJson = async <T>(url: string, body: unknown): Promise<T> => {
   const res = await authFetcher(url, {
     method: 'DELETE',
     body: JSON.stringify(body),
   });
   if (!res.ok) {
     const raw = await res.text().catch(() => '');
-    const err = new Error(raw || 'Request failed');
-    (err as any).status = res.status;
-    throw err;
+    throw new ApiError(raw || 'Request failed', res.status);
   }
   return res.json();
-}
+};
 
 const BASE = `${env.BASE_API_URL}/rfp-document`;
 
@@ -263,7 +267,7 @@ export function useDocumentDownloadUrl(orgId?: string) {
 /** Convert a file-based document to editable content */
 export function useConvertToContent(orgId?: string) {
   return useSWRMutation<
-    { ok: boolean; content: Record<string, any>; alreadyConverted: boolean },
+    { ok: boolean; content: RFPDocumentContent | null; htmlContentKey: string | null; alreadyConverted: boolean },
     Error,
     string,
     { projectId: string; opportunityId: string; documentId: string }

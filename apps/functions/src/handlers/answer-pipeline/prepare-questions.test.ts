@@ -1,60 +1,56 @@
 /**
  * Unit tests for prepare-questions Lambda
- * 
+ *
  * Tests the incremental clustering logic that:
  * 1. Preserves existing cluster assignments
  * 2. Matches new questions to existing clusters
  * 3. Creates new clusters from remaining orphans
  */
 
-jest.mock('uuid', () => ({
-  v4: jest.fn(() => 'mock-uuid-v4'),
-}));
+// ─── Mocks ───
 
 jest.mock('@/helpers/env', () => ({
   requireEnv: jest.fn((name: string) => {
     const envMap: Record<string, string> = {
       DB_TABLE_NAME: 'test-table',
       PINECONE_INDEX: 'test-index',
+      DOCUMENTS_BUCKET: 'test-bucket',
     };
     return envMap[name] || `mock-${name}`;
   }),
-}));
-
-jest.mock('@/helpers/db', () => ({
-  docClient: {
-    send: jest.fn(),
-  },
 }));
 
 jest.mock('@/helpers/project', () => ({
   getProjectById: jest.fn(),
 }));
 
-jest.mock('@/handlers/organization/get-organization-by-id', () => ({
-  getOrganizationById: jest.fn(),
+const mockFetchAllProjectQuestions = jest.fn();
+const mockGetClusterThreshold = jest.fn();
+jest.mock('@/helpers/prepare-questions-db', () => ({
+  fetchAllProjectQuestions: mockFetchAllProjectQuestions,
+  getClusterThreshold: mockGetClusterThreshold,
 }));
 
-jest.mock('@/helpers/embeddings', () => ({
-  getEmbedding: jest.fn(),
+const mockWriteQuestionsToS3 = jest.fn();
+jest.mock('@/helpers/prepare-questions-s3', () => ({
+  writeQuestionsToS3: mockWriteQuestionsToS3,
+  getDocumentsBucket: jest.fn(() => 'test-bucket'),
 }));
 
-jest.mock('@/helpers/pinecone', () => ({
-  getPineconeClient: jest.fn(() => ({
-    Index: jest.fn(() => ({
-      namespace: jest.fn(() => ({
-        upsert: jest.fn(),
-        query: jest.fn(() => Promise.resolve({ matches: [] })),
-      })),
-    })),
-  })),
+const mockRunClusteringPipeline = jest.fn();
+jest.mock('@/helpers/pipeline-clustering', () => ({
+  runClusteringPipeline: mockRunClusteringPipeline,
 }));
 
 jest.mock('@/sentry-lambda', () => ({
-  withSentryLambda: (fn: any) => fn,
+  withSentryLambda: (fn: unknown) => fn,
 }));
 
+// ─── Imports ───
+
 import { baseHandler, PrepareQuestionsEvent } from './prepare-questions';
+
+// ─── Tests ───
 
 describe('prepare-questions Lambda', () => {
   const mockContext = {
@@ -63,227 +59,184 @@ describe('prepare-questions Lambda', () => {
     invokedFunctionArn: 'arn:aws:lambda:us-east-1:123456789:function:test',
     awsRequestId: 'request-123',
     getRemainingTimeInMillis: () => 30000,
-  } as any;
+  } as never;
 
-  const validEvent: PrepareQuestionsEvent = {
-    projectId: 'proj-123',
-  };
+  const validEvent: PrepareQuestionsEvent = { projectId: 'proj-123', opportunityId: 'opp-456' };
 
-  const { docClient } = require('@/helpers/db');
   const { getProjectById } = require('@/helpers/project');
-  const { getOrganizationById } = require('@/handlers/organization/get-organization-by-id');
 
   beforeEach(() => {
     jest.clearAllMocks();
+    mockFetchAllProjectQuestions.mockReset();
+    mockGetClusterThreshold.mockResolvedValue(0.5);
+    mockWriteQuestionsToS3.mockResolvedValue('answer-pipeline/proj-123/12345-questions.jsonl');
+    mockRunClusteringPipeline.mockReset();
   });
+
+  // ─── Input Validation ───
 
   describe('Input Validation', () => {
     it('should throw when projectId is missing', async () => {
-      const event = {} as any;
-
-      await expect(baseHandler(event, mockContext)).rejects.toThrow(
-        'projectId is required'
-      );
+      await expect(baseHandler({} as PrepareQuestionsEvent, mockContext)).rejects.toThrow('projectId is required');
     });
 
     it('should throw when projectId is empty string', async () => {
-      const event: PrepareQuestionsEvent = { projectId: '' };
+      await expect(baseHandler({ projectId: '', opportunityId: 'opp-1' } as PrepareQuestionsEvent, mockContext)).rejects.toThrow('projectId is required');
+    });
 
-      await expect(baseHandler(event, mockContext)).rejects.toThrow(
-        'projectId is required'
-      );
+    it('should throw when opportunityId is missing', async () => {
+      await expect(baseHandler({ projectId: 'proj-123' } as PrepareQuestionsEvent, mockContext)).rejects.toThrow('opportunityId is required');
+    });
+
+    it('should throw when opportunityId is empty string', async () => {
+      await expect(baseHandler({ projectId: 'proj-123', opportunityId: '' }, mockContext)).rejects.toThrow('opportunityId is required');
     });
   });
+
+  // ─── Project Validation ───
 
   describe('Project Validation', () => {
     it('should throw when project is not found', async () => {
-      getProjectById.mockResolvedValueOnce(null);
-
-      await expect(baseHandler(validEvent, mockContext)).rejects.toThrow(
-        'Project not found: proj-123'
-      );
+      getProjectById.mockImplementation(() => Promise.resolve(null));
+      await expect(baseHandler(validEvent, mockContext)).rejects.toThrow('Project not found: proj-123');
     });
 
     it('should throw when project has no orgId', async () => {
-      getProjectById.mockResolvedValueOnce({ id: 'proj-123', name: 'Test Project' });
-
-      await expect(baseHandler(validEvent, mockContext)).rejects.toThrow(
-        'Project proj-123 has no orgId'
-      );
+      getProjectById.mockImplementation(() => Promise.resolve({ id: 'proj-123', name: 'Test Project' }));
+      await expect(baseHandler(validEvent, mockContext)).rejects.toThrow('Project proj-123 has no orgId');
     });
   });
+
+  // ─── Question Retrieval ───
 
   describe('Question Retrieval', () => {
     beforeEach(() => {
       getProjectById.mockResolvedValue({ id: 'proj-123', orgId: 'org-789' });
-      getOrganizationById.mockResolvedValue({ id: 'org-789', clusterThreshold: 0.5 });
     });
 
-    it('should return empty array when no questions exist', async () => {
-      docClient.send.mockResolvedValueOnce({ Items: [] });
+    it('should return S3 location when no questions exist', async () => {
+      mockFetchAllProjectQuestions.mockResolvedValueOnce({
+        allQuestions: [],
+        alreadyClusteredQuestions: [],
+        newQuestions: [],
+      });
 
       const result = await baseHandler(validEvent, mockContext);
 
-      expect(result).toEqual({
-        questions: [],
-        totalCount: 0,
-        projectId: 'proj-123',
-        orgId: 'org-789',
-        clustersCreated: 0,
-      });
+      expect(result.s3Bucket).toBe('test-bucket');
+      expect(result.totalCount).toBe(0);
+      expect(result.projectId).toBe('proj-123');
+      expect(result.orgId).toBe('org-789');
+      expect(result.clustersCreated).toBe(0);
+      expect(result.mastersCount).toBe(0);
+      expect(result.unclusteredCount).toBe(0);
+      expect(result.membersCount).toBe(0);
+      expect(mockWriteQuestionsToS3).toHaveBeenCalledWith('proj-123', []);
+      // Should NOT call clustering pipeline
+      expect(mockRunClusteringPipeline).not.toHaveBeenCalled();
     });
 
     it('should return single question without clustering', async () => {
-      docClient.send.mockResolvedValueOnce({
-        Items: [
-          { questionId: 'q-1', question: 'Question 1' },
-        ],
+      const singleQuestion = { questionId: 'q-1', projectId: 'proj-123', orgId: 'org-789', questionText: 'Question 1' };
+      mockFetchAllProjectQuestions.mockResolvedValueOnce({
+        allQuestions: [singleQuestion],
+        alreadyClusteredQuestions: [],
+        newQuestions: [singleQuestion],
       });
 
       const result = await baseHandler(validEvent, mockContext);
 
       expect(result.totalCount).toBe(1);
-      expect(result.questions).toHaveLength(1);
       expect(result.clustersCreated).toBe(0);
-      
-      const firstQuestion = result.questions[0];
-      expect(firstQuestion).toBeDefined();
-      expect(firstQuestion?.questionId).toBe('q-1');
-      expect(firstQuestion?.projectId).toBe('proj-123');
-      expect(firstQuestion?.orgId).toBe('org-789');
-      expect(firstQuestion?.questionText).toBe('Question 1');
-    });
-
-    it('should skip items without questionId or question text', async () => {
-      docClient.send.mockResolvedValueOnce({
-        Items: [
-          { questionId: 'q-1', question: 'Question 1' },
-          { questionId: null, question: 'Missing ID' },
-          { questionId: 'q-3', question: null },
-          { questionId: 'q-4', question: '' },
-        ],
-      });
-
-      const result = await baseHandler(validEvent, mockContext);
-
-      expect(result.totalCount).toBe(1);
-      expect(result.questions).toHaveLength(1);
-      
-      const onlyQuestion = result.questions[0];
-      expect(onlyQuestion).toBeDefined();
-      expect(onlyQuestion?.questionId).toBe('q-1');
-    });
-
-    it('should handle pagination with LastEvaluatedKey', async () => {
-      // First page
-      docClient.send
-        .mockResolvedValueOnce({
-          Items: [
-            { questionId: 'q-1', question: 'Question 1' },
-          ],
-          LastEvaluatedKey: { pk: 'QUESTION', sk: 'proj-123#q-1' },
-        })
-        // Second page
-        .mockResolvedValueOnce({
-          Items: [],
-        });
-
-      const result = await baseHandler(validEvent, mockContext);
-
-      expect(result.totalCount).toBe(1);
-      expect(docClient.send).toHaveBeenCalledTimes(2);
+      expect(result.unclusteredCount).toBe(1);
+      expect(mockWriteQuestionsToS3).toHaveBeenCalledWith('proj-123', [singleQuestion]);
+      expect(mockRunClusteringPipeline).not.toHaveBeenCalled();
     });
   });
 
-  describe('Cluster Preservation', () => {
+  // ─── Clustering Pipeline ───
+
+  describe('Clustering Pipeline', () => {
     beforeEach(() => {
       getProjectById.mockResolvedValue({ id: 'proj-123', orgId: 'org-789' });
-      getOrganizationById.mockResolvedValue({ id: 'org-789', clusterThreshold: 0.5 });
     });
 
-    it('should preserve already-clustered questions without re-embedding', async () => {
-      docClient.send.mockResolvedValueOnce({
-        Items: [
-          { 
-            questionId: 'q-master', 
-            question: 'Master Question',
-            clusterId: 'cluster-123',
-            isClusterMaster: true,
-            similarityToMaster: 1.0,
-          },
-          { 
-            questionId: 'q-member', 
-            question: 'Member Question',
-            clusterId: 'cluster-123',
-            isClusterMaster: false,
-            linkedToMasterQuestionId: 'q-master',
-            similarityToMaster: 0.85,
-          },
-        ],
+    it('should call runClusteringPipeline when >= 2 questions', async () => {
+      const q1 = { questionId: 'q-1', projectId: 'proj-123', orgId: 'org-789', questionText: 'Question 1' };
+      const q2 = { questionId: 'q-2', projectId: 'proj-123', orgId: 'org-789', questionText: 'Question 2' };
+
+      mockFetchAllProjectQuestions.mockResolvedValueOnce({
+        allQuestions: [q1, q2],
+        alreadyClusteredQuestions: [],
+        newQuestions: [q1, q2],
+      });
+
+      mockRunClusteringPipeline.mockResolvedValueOnce({
+        sortedQuestions: [q1, q2],
+        clustersCreated: 0,
+        mastersCount: 0,
+        unclusteredCount: 2,
+        membersCount: 0,
       });
 
       const result = await baseHandler(validEvent, mockContext);
 
       expect(result.totalCount).toBe(2);
-      expect(result.clustersCreated).toBe(0); // No new clusters
-      
-      // Verify cluster info preserved
-      const master = result.questions.find(q => q.questionId === 'q-master');
-      const member = result.questions.find(q => q.questionId === 'q-member');
-      
-      expect(master?.clusterId).toBe('cluster-123');
-      expect(master?.isClusterMaster).toBe(true);
-      expect(member?.clusterId).toBe('cluster-123');
-      expect(member?.isClusterMaster).toBe(false);
-      expect(member?.masterQuestionId).toBe('q-master');
+      expect(mockRunClusteringPipeline).toHaveBeenCalledWith('proj-123', 'org-789', [], [q1, q2], 0.5);
+      expect(mockWriteQuestionsToS3).toHaveBeenCalledWith('proj-123', [q1, q2]);
     });
 
-    it('should order masters first, then unclustered, then members', async () => {
-      docClient.send.mockResolvedValueOnce({
-        Items: [
-          { questionId: 'q-member', question: 'Member Question', clusterId: 'c1', isClusterMaster: false, linkedToMasterQuestionId: 'q-master' },
-          { questionId: 'q-unclustered', question: 'Unclustered Question' },
-          { questionId: 'q-master', question: 'Master Question Long Text', clusterId: 'c1', isClusterMaster: true },
-        ],
+    it('should preserve already-clustered questions', async () => {
+      const master = { questionId: 'q-master', projectId: 'proj-123', orgId: 'org-789', questionText: 'Master Question', clusterId: 'c1', isClusterMaster: true };
+      const member = { questionId: 'q-member', projectId: 'proj-123', orgId: 'org-789', questionText: 'Member Question', clusterId: 'c1', isClusterMaster: false, masterQuestionId: 'q-master' };
+
+      mockFetchAllProjectQuestions.mockResolvedValueOnce({
+        allQuestions: [master, member],
+        alreadyClusteredQuestions: [master, member],
+        newQuestions: [],
+      });
+
+      mockRunClusteringPipeline.mockResolvedValueOnce({
+        sortedQuestions: [master, member],
+        clustersCreated: 0,
+        mastersCount: 1,
+        unclusteredCount: 0,
+        membersCount: 1,
       });
 
       const result = await baseHandler(validEvent, mockContext);
 
-      // Should be sorted: masters, unclustered, members
-      expect(result.questions[0]?.questionId).toBe('q-master');
-      expect(result.questions[1]?.questionId).toBe('q-unclustered');
-      expect(result.questions[2]?.questionId).toBe('q-member');
-    });
-  });
-
-  describe('Organization Settings', () => {
-    beforeEach(() => {
-      getProjectById.mockResolvedValue({ id: 'proj-123', orgId: 'org-789' });
+      expect(result.totalCount).toBe(2);
+      expect(result.clustersCreated).toBe(0);
+      expect(result.mastersCount).toBe(1);
+      expect(result.membersCount).toBe(1);
+      expect(mockRunClusteringPipeline).toHaveBeenCalledWith('proj-123', 'org-789', [master, member], [], 0.5);
     });
 
-    it('should use default threshold when org has no clusterThreshold', async () => {
-      getOrganizationById.mockResolvedValue({ id: 'org-789' }); // No clusterThreshold
+    it('should pass correct cluster threshold from org settings', async () => {
+      const q1 = { questionId: 'q-1', projectId: 'proj-123', orgId: 'org-789', questionText: 'Q1' };
+      const q2 = { questionId: 'q-2', projectId: 'proj-123', orgId: 'org-789', questionText: 'Q2' };
 
-      docClient.send.mockResolvedValueOnce({
-        Items: [{ questionId: 'q-1', question: 'Question 1' }],
+      mockFetchAllProjectQuestions.mockResolvedValueOnce({
+        allQuestions: [q1, q2],
+        alreadyClusteredQuestions: [],
+        newQuestions: [q1, q2],
       });
 
-      const result = await baseHandler(validEvent, mockContext);
+      mockGetClusterThreshold.mockResolvedValueOnce(0.85);
 
-      expect(result.totalCount).toBe(1);
-      // Function should complete without error using default
-    });
-
-    it('should handle org lookup failure gracefully', async () => {
-      getOrganizationById.mockRejectedValue(new Error('DB error'));
-
-      docClient.send.mockResolvedValueOnce({
-        Items: [{ questionId: 'q-1', question: 'Question 1' }],
+      mockRunClusteringPipeline.mockResolvedValueOnce({
+        sortedQuestions: [q1, q2],
+        clustersCreated: 0,
+        mastersCount: 0,
+        unclusteredCount: 2,
+        membersCount: 0,
       });
 
-      // Should not throw, uses default threshold
-      const result = await baseHandler(validEvent, mockContext);
-      expect(result.totalCount).toBe(1);
+      await baseHandler(validEvent, mockContext);
+
+      expect(mockGetClusterThreshold).toHaveBeenCalledWith('org-789');
+      expect(mockRunClusteringPipeline).toHaveBeenCalledWith('proj-123', 'org-789', [], [q1, q2], 0.85);
     });
   });
 });

@@ -7,7 +7,9 @@ export interface GenerateAnswerPipelineEvent {
   questionId: string;
   projectId: string;
   orgId: string;
-  questionText?: string;
+  opportunityId?: string;
+  questionFileId?: string;
+  questionText?: string; // Optional - will be fetched from DynamoDB if not provided
   // Clustering fields from prepare-questions
   clusterId?: string;
   isClusterMaster?: boolean;
@@ -36,7 +38,13 @@ export const baseHandler = async (
 ): Promise<GenerateAnswerPipelineResult> => {
   console.log('generate-answer-pipeline event:', JSON.stringify(event));
 
-  const { questionId, projectId, orgId, questionText, masterQuestionId, isClusterMaster } = event;
+  // Convert null to undefined for optional fields (Step Function passes null for missing JSON fields)
+  const { questionId, projectId, orgId } = event;
+  const opportunityId = event.opportunityId || undefined;
+  const questionFileId = event.questionFileId || undefined;
+  const questionText = event.questionText || undefined;
+  const masterQuestionId = event.masterQuestionId || undefined;
+  const isClusterMaster = event.isClusterMaster ?? undefined;
 
   if (!questionId || !projectId || !orgId) {
     return {
@@ -59,10 +67,13 @@ export const baseHandler = async (
     }
 
     // Generate answer using full answer generation logic
+    // questionText is optional - will be fetched from DynamoDB if not provided
     const result: GenerateAnswerResult = await generateAnswerForQuestion({
       questionId,
       projectId,
       orgId,
+      opportunityId,
+      questionFileId,
       questionText,
     });
 
