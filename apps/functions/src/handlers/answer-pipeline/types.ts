@@ -44,6 +44,7 @@ export interface PrepareQuestionsResult {
   totalCount: number;
   projectId: string;
   orgId: string;
+  opportunityId: string;
   clustersCreated: number;
   mastersCount: number;
   unclusteredCount: number;
