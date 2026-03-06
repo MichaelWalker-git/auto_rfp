@@ -363,11 +363,10 @@ export async function resolveTemplateHtml(
     try {
       const html = await loadTemplateHtml(template.htmlContentKey);
       if (html?.trim()) {
-        console.log(`Loaded template HTML from S3: ${template.htmlContentKey}`);
-        console.log(`[DEBUG] Raw template HTML (${html.length} chars, first 1000):`, html.substring(0, 1000));
+        console.log(`Loaded template HTML from S3: ${template.htmlContentKey} (${html.length} chars)`);
         // Preprocess the HTML for AI consumption: resolve macros with real values, strip broken images
         const scaffoldForAI = prepareTemplateScaffoldForAI(html, macroValues);
-        console.log(`[DEBUG] After preprocessing for AI (${scaffoldForAI.length} chars, first 1000):`, scaffoldForAI.substring(0, 1000));
+        console.log(`Template preprocessed for AI: ${scaffoldForAI.length} chars`);
         return scaffoldForAI;
       }
     } catch (err) {

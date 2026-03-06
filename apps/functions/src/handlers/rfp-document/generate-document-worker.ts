@@ -78,7 +78,32 @@ type Job = z.infer<typeof JobSchema>;
 const processJob = async (job: Job): Promise<void> => {
   const { orgId, projectId, opportunityId, documentType, templateId, documentId } = job;
 
-  console.log(`Processing document generation for documentId=${documentId}, type=${documentType}`);
+  console.log(`Processing document generation for documentId=${documentId}, type=${documentType}, orgId=${orgId}, projectId=${projectId}, opportunityId=${opportunityId}`);
+
+  try {
+    await processJobInner(job);
+  } catch (err) {
+    const errorMessage = err instanceof Error ? err.message : 'Unknown error';
+    console.error(`[FATAL] processJob failed for documentId=${documentId}:`, errorMessage, err);
+
+    // Always mark the document as FAILED so it doesn't stay stuck in GENERATING
+    try {
+      await updateDocumentStatus(
+        projectId, opportunityId, documentId, 'FAILED',
+        undefined, `Generation failed: ${errorMessage.substring(0, 500)}`,
+      );
+      console.log(`Marked documentId=${documentId} as FAILED`);
+    } catch (statusErr) {
+      console.error(`[FATAL] Failed to mark documentId=${documentId} as FAILED:`, (statusErr as Error)?.message);
+    }
+
+    // Re-throw so the SQS handler can report the failure
+    throw err;
+  }
+};
+
+const processJobInner = async (job: Job): Promise<void> => {
+  const { orgId, projectId, opportunityId, documentType, templateId, documentId } = job;
 
   // 1. Load Q&A pairs — required to generate any document
   const qaPairs = await loadQaPairs(projectId);
@@ -96,7 +121,6 @@ const processJob = async (job: Job): Promise<void> => {
   // 3. Build macro values from real project/org/opportunity data first, then use them for template resolution
   const macroValues = await buildMacroValues({ orgId, projectId, opportunityId });
   console.log(`Built macro values for documentId=${documentId}:`, Object.keys(macroValues));
-  console.log(`[DEBUG] Macro values content:`, JSON.stringify(macroValues, null, 2));
 
   // 4. Gather enrichment context + resolve template HTML in parallel (now with macro values)
   const [enrichedKbText, templateHtmlScaffold] = await Promise.all([
@@ -106,8 +130,6 @@ const processJob = async (job: Job): Promise<void> => {
 
   if (templateHtmlScaffold) {
     console.log(`Using HTML template scaffold for documentId=${documentId} (${templateHtmlScaffold.length} chars)`);
-    console.log(`[DEBUG] Template scaffold (first 1000 chars):`, templateHtmlScaffold.substring(0, 1000));
-    console.log(`[DEBUG] Template scaffold (last 500 chars):`, templateHtmlScaffold.substring(Math.max(0, templateHtmlScaffold.length - 500)));
   }
 
   const systemPrompt = buildSystemPromptForDocumentType(documentType, null, templateHtmlScaffold);
@@ -118,10 +140,7 @@ const processJob = async (job: Job): Promise<void> => {
     enrichedKbText,
   );
 
-  console.log(`[DEBUG] System prompt length: ${systemPrompt.length} chars`);
-  console.log(`[DEBUG] System prompt (first 500 chars):`, systemPrompt.substring(0, 500));
-  console.log(`[DEBUG] User prompt length: ${userPrompt.length} chars`);
-  console.log(`[DEBUG] User prompt (first 500 chars):`, userPrompt.substring(0, 500));
+  console.log(`Prompt sizes: system=${systemPrompt.length} chars, user=${userPrompt.length} chars, solicitation=${solicitation.length} chars, qaPairs=${qaPairs.length}, enrichedKb=${enrichedKbText.length} chars`);
 
   if (!userPrompt.trim() || !systemPrompt.trim()) {
     await updateDocumentStatus(
