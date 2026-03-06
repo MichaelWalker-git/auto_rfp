@@ -1,9 +1,15 @@
+import { v4 as uuidv4 } from 'uuid';
 import { queryBySkPrefix } from '@/helpers/db';
-import { updateRFPDocumentMetadata, uploadRFPDocumentHtml } from '@/helpers/rfp-document';
+import { updateRFPDocumentMetadata, uploadRFPDocumentHtml, getRFPDocument } from '@/helpers/rfp-document';
 import { loadAllSolicitationTexts } from '@/helpers/executive-opportunity-brief';
 import { getTemplate, listTemplatesByOrg, loadTemplateHtml } from '@/helpers/template';
 import { MAX_SOLICITATION_CHARS } from '@/constants/document-generation';
 import { QUESTION_PK } from '@/constants/question';
+import {
+  createVersion,
+  getLatestVersionNumber,
+  saveVersionHtml,
+} from '@/helpers/rfp-document-version';
 import type { RFPDocumentContent, TemplateSection } from '@auto-rfp/core';
 import type { BedrockResponse, QaPair } from '@/types/document-generation';
 
@@ -307,4 +313,49 @@ export async function updateDocumentStatus(
     },
     updatedBy: 'system',
   });
+
+  // ── Create version snapshot when document generation completes successfully ──
+  if (status === 'COMPLETE' && content?.content && orgId) {
+    try {
+      // Get existing document for metadata (document type)
+      const existingDoc = await getRFPDocument(projectId, opportunityId, documentId);
+      
+      const latestVersionNum = await getLatestVersionNumber(projectId, opportunityId, documentId);
+      const newVersionNumber = latestVersionNum + 1;
+      const htmlContentStr = content.content;
+
+      // Save HTML to version-specific S3 location
+      const versionHtmlKey = await saveVersionHtml(
+        orgId,
+        projectId,
+        opportunityId,
+        documentId,
+        newVersionNumber,
+        htmlContentStr,
+      );
+
+      // Create version metadata record in DynamoDB
+      const versionId = uuidv4();
+      await createVersion({
+        versionId,
+        documentId,
+        projectId,
+        opportunityId,
+        orgId,
+        versionNumber: newVersionNumber,
+        htmlContentKey: versionHtmlKey,
+        title: content.title ?? existingDoc?.title ?? existingDoc?.name ?? 'Generated Document',
+        documentType: existingDoc?.documentType ?? 'UNKNOWN',
+        wordCount: htmlContentStr.split(/\s+/).length,
+        changeNote: newVersionNumber === 1 ? 'Initial AI generation' : 'AI regeneration',
+        createdBy: existingDoc?.createdBy ?? 'system',
+      });
+
+      console.log(`Created version ${newVersionNumber} for document ${documentId} (AI generation)`);
+
+    } catch (versionErr) {
+      // Log but don't fail the update if version creation fails
+      console.error('Failed to create version snapshot after AI generation:', versionErr);
+    }
+  }
 }
