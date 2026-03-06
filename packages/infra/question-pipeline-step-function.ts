@@ -404,6 +404,7 @@ export class QuestionExtractionPipelineStack extends Stack {
       lambdaFunction: checkAndTriggerLambda,
       payload: sfn.TaskInput.fromObject({
         projectId: sfn.JsonPath.stringAt('$.projectId'),
+        opportunityId: sfn.JsonPath.stringAt('$.oppId'),
         questionFileId: sfn.JsonPath.stringAt('$.questionFileId'),
         opportunityId: sfn.JsonPath.stringAt('$.oppId'),
       }),
@@ -415,6 +416,7 @@ export class QuestionExtractionPipelineStack extends Stack {
       lambdaFunction: checkAndTriggerLambda,
       payload: sfn.TaskInput.fromObject({
         projectId: sfn.JsonPath.stringAt('$.projectId'),
+        opportunityId: sfn.JsonPath.stringAt('$.oppId'),
         questionFileId: sfn.JsonPath.stringAt('$.questionFileId'),
         opportunityId: sfn.JsonPath.stringAt('$.oppId'),
       }),
@@ -426,6 +428,7 @@ export class QuestionExtractionPipelineStack extends Stack {
       lambdaFunction: checkAndTriggerLambda,
       payload: sfn.TaskInput.fromObject({
         projectId: sfn.JsonPath.stringAt('$.projectId'),
+        opportunityId: sfn.JsonPath.stringAt('$.oppId'),
         questionFileId: sfn.JsonPath.stringAt('$.questionFileId'),
         opportunityId: sfn.JsonPath.stringAt('$.oppId'),
       }),
