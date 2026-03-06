@@ -26,7 +26,13 @@ export const baseHandler = async (
   }
 
   // Validate project and resolve orgId
-  const { orgId } = await getProjectById(projectId) || {};
+  const project = await getProjectById(projectId);
+
+  if (!project) {
+    throw new Error(`Project not found: ${projectId}`);
+  }
+
+  const { orgId } = project;
 
   if (!orgId) {
     throw new Error(`Project ${projectId} has no orgId`);

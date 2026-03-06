@@ -25,6 +25,7 @@ describe('generate-answer-pipeline Lambda', () => {
     questionId: 'q-123',
     projectId: 'proj-456',
     orgId: 'org-789',
+    opportunityId: 'opp-001',
     questionText: 'What is the deadline?',
   };
 
@@ -179,7 +180,31 @@ describe('generate-answer-pipeline Lambda', () => {
       expect(result.confidence).toBe(0.35);
     });
 
-    it('should pass questionText when provided', async () => {
+    it('should pass opportunityId and questionFileId to generateAnswerForQuestion', async () => {
+      generateAnswerForQuestion.mockResolvedValueOnce({
+        questionId: 'q-123',
+        answer: 'Test answer',
+        confidence: 0.8,
+        found: true,
+      });
+
+      const eventWithFile: GenerateAnswerPipelineEvent = {
+        ...validEvent,
+        questionFileId: 'file-001',
+      };
+
+      await baseHandler(eventWithFile, mockContext);
+
+      expect(generateAnswerForQuestion).toHaveBeenCalledWith({
+        questionId: 'q-123',
+        projectId: 'proj-456',
+        orgId: 'org-789',
+        opportunityId: 'opp-001',
+        questionFileId: 'file-001',
+      });
+    });
+
+    it('should work without optional fields', async () => {
       generateAnswerForQuestion.mockResolvedValueOnce({
         questionId: 'q-123',
         answer: 'Test answer',
@@ -193,31 +218,8 @@ describe('generate-answer-pipeline Lambda', () => {
         questionId: 'q-123',
         projectId: 'proj-456',
         orgId: 'org-789',
-        questionText: 'What is the deadline?',
-      });
-    });
-
-    it('should work without questionText', async () => {
-      generateAnswerForQuestion.mockResolvedValueOnce({
-        questionId: 'q-123',
-        answer: 'Test answer',
-        confidence: 0.8,
-        found: true,
-      });
-
-      const eventWithoutText: GenerateAnswerPipelineEvent = {
-        questionId: 'q-123',
-        projectId: 'proj-456',
-        orgId: 'org-789',
-      };
-
-      await baseHandler(eventWithoutText, mockContext);
-
-      expect(generateAnswerForQuestion).toHaveBeenCalledWith({
-        questionId: 'q-123',
-        projectId: 'proj-456',
-        orgId: 'org-789',
-        questionText: undefined,
+        opportunityId: 'opp-001',
+        questionFileId: undefined,
       });
     });
   });
