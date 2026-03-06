@@ -428,14 +428,29 @@ const baseHandler = async (event: SQSEvent): Promise<SQSBatchResponse> => {
   const batchItemFailures: SQSBatchResponse['batchItemFailures'] = [];
 
   for (const record of event.Records) {
+    let job: Job | null = null;
     try {
-      const job = JobSchema.parse(JSON.parse(record.body));
+      job = JobSchema.parse(JSON.parse(record.body));
       await processJob(job);
     } catch (err) {
+      const errorMessage = (err as Error)?.message ?? 'Unknown error';
       console.error(
         `Failed to process document generation message ${record.messageId}:`,
-        (err as Error)?.message,
+        errorMessage,
       );
+
+      // Mark the document as FAILED so it doesn't stay stuck in GENERATING forever
+      if (job) {
+        try {
+          await updateDocumentStatus(
+            job.projectId, job.opportunityId, job.documentId, 'FAILED',
+            undefined, `Generation failed: ${errorMessage.substring(0, 500)}`,
+          );
+        } catch (statusErr) {
+          console.error('Failed to update document status to FAILED:', (statusErr as Error)?.message);
+        }
+      }
+
       batchItemFailures.push({ itemIdentifier: record.messageId });
     }
   }
