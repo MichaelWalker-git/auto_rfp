@@ -4,6 +4,7 @@ import { apiResponse, getOrgId } from '@/helpers/api';
 import { withSentryLambda } from '@/sentry-lambda';
 import { listVersions } from '@/helpers/rfp-document-version';
 import { getRFPDocument } from '@/helpers/rfp-document';
+import { enrichWithUserNames } from '@/helpers/resolve-users';
 import {
   authContextMiddleware,
   httpErrorMiddleware,
@@ -28,7 +29,10 @@ export const baseHandler = async (event: AuthedEvent): Promise<APIGatewayProxyRe
 
   const versions = await listVersions(projectId, opportunityId, documentId);
 
-  return apiResponse(200, { items: versions, count: versions.length });
+  // Enrich versions with user display names (resolves createdBy -> createdByName)
+  const enrichedVersions = await enrichWithUserNames(orgId, versions);
+
+  return apiResponse(200, { items: enrichedVersions, count: enrichedVersions.length });
 };
 
 export const handler = withSentryLambda(
