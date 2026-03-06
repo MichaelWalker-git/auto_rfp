@@ -125,12 +125,12 @@ export const baseHandler = async (
       documentId,
     });
 
-    // 5. Return 202 Accepted
+    // 4. Return 202 Accepted
     
     setAuditContext(event, {
-      action: 'CONFIG_CHANGED',
-      resource: 'config',
-      resourceId: 'unknown',
+      action: 'AI_GENERATION_STARTED',
+      resource: 'document',
+      resourceId: documentId,
     });
 
     return apiResponse(202, {
@@ -144,10 +144,7 @@ export const baseHandler = async (
     });
   } catch (err) {
     console.error('Error in generate-document handler:', err);
-    return apiResponse(500, {
-      message: 'Internal server error during document generation',
-      error: err instanceof Error ? err.message : 'Unknown error',
-    });
+    return apiResponse(500, { message: 'Internal server error during document generation' });
   }
 };
 

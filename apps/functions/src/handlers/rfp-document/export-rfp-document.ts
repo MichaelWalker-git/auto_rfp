@@ -178,9 +178,9 @@ export const baseHandler = async (
 
     
     setAuditContext(event, {
-      action: 'PROPOSAL_EXPORTED',
-      resource: 'proposal',
-      resourceId: event.pathParameters?.documentId ?? event.queryStringParameters?.documentId ?? 'unknown',
+      action: 'DOCUMENT_EXPORTED',
+      resource: 'document',
+      resourceId: documentId,
     });
 
     return apiResponse(200, {
@@ -202,11 +202,15 @@ export const baseHandler = async (
     });
   } catch (err) {
     console.error('Error exporting RFP document:', err);
-    return apiResponse(500, {
-      message: 'Failed to export document',
-      error: err instanceof Error ? err.message : 'Unknown error',
-    });
+    return apiResponse(500, { message: 'Failed to export document' });
   }
 };
 
-export const handler = withSentryLambda(middy(baseHandler));
+export const handler = withSentryLambda(
+  middy(baseHandler)
+    .use(authContextMiddleware())
+    .use(orgMembershipMiddleware())
+    .use(requirePermission('proposal:create'))
+    .use(auditMiddleware())
+    .use(httpErrorMiddleware()),
+);

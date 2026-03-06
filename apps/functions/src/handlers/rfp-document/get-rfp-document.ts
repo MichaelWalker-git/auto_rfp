@@ -40,10 +40,7 @@ export const baseHandler = async (
     return apiResponse(200, { ok: true, document });
   } catch (err) {
     console.error('Error in get-rfp-document:', err);
-    return apiResponse(500, {
-      message: 'Internal server error',
-      error: err instanceof Error ? err.message : 'Unknown error',
-    });
+    return apiResponse(500, { message: 'Internal server error' });
   }
 };
 

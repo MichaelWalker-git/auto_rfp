@@ -7,8 +7,7 @@ import { authFetcher } from '@/lib/auth/auth-fetcher';
 import type {
   RFPDocumentItem,
   RFPDocumentType,
-  SignatureStatus,
-  SignatureDetails,
+  RFPDocumentContent,
   EditHistoryEntry,
   CreateRFPDocumentDTO,
   UpdateRFPDocumentDTO,
@@ -19,38 +18,25 @@ import type {
 import {
   RFP_DOCUMENT_TYPES,
   RFP_DOCUMENT_TYPE_DESCRIPTIONS,
-  SIGNATURE_STATUSES,
   LINEAR_SYNC_STATUSES,
   RFP_EXPORT_FORMAT_LABELS,
   RFP_EXPORT_FORMAT_EXTENSIONS,
 } from '@auto-rfp/core';
 
 // Re-export types and constants from shared for convenience
-export type { RFPDocumentItem, RFPDocumentType, SignatureStatus, SignatureDetails, EditHistoryEntry, LinearSyncStatus };
+export type { RFPDocumentItem, RFPDocumentType, EditHistoryEntry, LinearSyncStatus };
 export type { CreateRFPDocumentDTO, UpdateRFPDocumentDTO };
 export type { RFPExportFormat as ExportFormat };
-export { RFP_DOCUMENT_TYPES, RFP_DOCUMENT_TYPE_DESCRIPTIONS, SIGNATURE_STATUSES, LINEAR_SYNC_STATUSES };
+export { RFP_DOCUMENT_TYPES, RFP_DOCUMENT_TYPE_DESCRIPTIONS, LINEAR_SYNC_STATUSES };
 export { RFP_EXPORT_FORMAT_LABELS as EXPORT_FORMAT_LABELS, RFP_EXPORT_FORMAT_EXTENSIONS as EXPORT_FORMAT_EXTENSIONS };
 
 import { z } from 'zod';
 import {
   RFPDocumentItemSchema,
-  SignatureStatusSchema,
-  SignatureDetailsSchema,
   RFPExportFormatSchema,
 } from '@auto-rfp/core';
 
 // ─── Zod-defined response/request schemas ───
-
-const UpdateSignatureStatusDTOSchema = z.object({
-  projectId: z.string(),
-  opportunityId: z.string(),
-  documentId: z.string(),
-  signatureStatus: SignatureStatusSchema,
-  signatureDetails: SignatureDetailsSchema.nullable().optional(),
-});
-
-export type UpdateSignatureStatusDTO = z.infer<typeof UpdateSignatureStatusDTOSchema>;
 
 const RFPDocumentsListResponseSchema = z.object({
   ok: z.boolean(),
@@ -125,16 +111,23 @@ type ExportRFPDocumentResponse = z.infer<typeof ExportRFPDocumentResponseSchema>
 
 // ─── Helpers ───
 
-async function postJson<T>(url: string, body: unknown): Promise<T> {
+class ApiError extends Error {
+  status: number;
+  constructor(message: string, status: number) {
+    super(message);
+    this.name = 'ApiError';
+    this.status = status;
+  }
+}
+
+const postJson = async <T>(url: string, body: unknown): Promise<T> => {
   const res = await authFetcher(url, {
     method: 'POST',
     body: JSON.stringify(body),
   });
   if (!res.ok) {
     const raw = await res.text().catch(() => '');
-    const err = new Error(raw || 'Request failed');
-    (err as any).status = res.status;
-    throw err;
+    throw new ApiError(raw || 'Request failed', res.status);
   }
   const raw = await res.text().catch(() => '');
   if (!raw) return { ok: true } as T;
@@ -143,35 +136,31 @@ async function postJson<T>(url: string, body: unknown): Promise<T> {
   } catch {
     return { ok: true } as T;
   }
-}
+};
 
-async function patchJson<T>(url: string, body: unknown): Promise<T> {
+const patchJson = async <T>(url: string, body: unknown): Promise<T> => {
   const res = await authFetcher(url, {
     method: 'PATCH',
     body: JSON.stringify(body),
   });
   if (!res.ok) {
     const raw = await res.text().catch(() => '');
-    const err = new Error(raw || 'Request failed');
-    (err as any).status = res.status;
-    throw err;
+    throw new ApiError(raw || 'Request failed', res.status);
   }
   return res.json();
-}
+};
 
-async function deleteJson<T>(url: string, body: unknown): Promise<T> {
+const deleteJson = async <T>(url: string, body: unknown): Promise<T> => {
   const res = await authFetcher(url, {
     method: 'DELETE',
     body: JSON.stringify(body),
   });
   if (!res.ok) {
     const raw = await res.text().catch(() => '');
-    const err = new Error(raw || 'Request failed');
-    (err as any).status = res.status;
-    throw err;
+    throw new ApiError(raw || 'Request failed', res.status);
   }
   return res.json();
-}
+};
 
 const BASE = `${env.BASE_API_URL}/rfp-document`;
 
@@ -275,18 +264,10 @@ export function useDocumentDownloadUrl(orgId?: string) {
   );
 }
 
-/** Update signature status */
-export function useUpdateSignatureStatus(orgId?: string) {
-  return useSWRMutation<RFPDocumentResponse, Error, string, UpdateSignatureStatusDTO>(
-    `${BASE}/update-signature${orgId ? `?orgId=${orgId}` : ''}`,
-    (url, { arg }) => postJson<RFPDocumentResponse>(url, arg),
-  );
-}
-
 /** Convert a file-based document to editable content */
 export function useConvertToContent(orgId?: string) {
   return useSWRMutation<
-    { ok: boolean; content: Record<string, any>; alreadyConverted: boolean },
+    { ok: boolean; content: RFPDocumentContent | null; htmlContentKey: string | null; alreadyConverted: boolean },
     Error,
     string,
     { projectId: string; opportunityId: string; documentId: string }
@@ -376,7 +357,7 @@ export function useRFPDocumentPolling(
 
   const shouldPoll = !!(projectId && opportunityId && documentId && orgId);
 
-  const { data, error, isLoading } = useSWR<RFPDocumentResponse>(
+  const { data, error, isLoading, mutate } = useSWR<RFPDocumentResponse>(
     shouldPoll ? `${BASE}/get?${params.toString()}` : null,
     async (url: string) => {
       const res = await authFetcher(url);
@@ -402,6 +383,7 @@ export function useRFPDocumentPolling(
     isLoading,
     isError: !!error,
     error,
+    mutate,
   };
 }
 

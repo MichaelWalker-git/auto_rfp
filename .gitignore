@@ -4,6 +4,9 @@
 .DS_Store
 # Claude Code local settings (but keep rules directory)
 .claude/settings.local.json
+# Code review reports (generated locally, not committed)
+docs/reviews/
+!docs/reviews/.gitkeep
 **/.DS_Store
 node_modules
 /node_modules/

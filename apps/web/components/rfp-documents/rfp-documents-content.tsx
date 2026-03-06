@@ -13,7 +13,6 @@ import {
 } from '@/lib/hooks/use-rfp-documents';
 import { RFPDocumentUploadDialog } from './rfp-document-upload-dialog';
 import { RFPDocumentExportDialog } from './rfp-document-export-dialog';
-import { SignatureTrackerDialog } from './signature-tracker-dialog';
 import { RFPDocumentCard } from './rfp-document-card';
 import { RFPDocumentEmptyState } from './rfp-document-empty-state';
 import {
@@ -32,7 +31,6 @@ export function RFPDocumentsContent({ projectId, orgId, opportunityId }: RFPDocu
   const { toast } = useToast();
 
   const [uploadDialogOpen, setUploadDialogOpen] = useState(false);
-  const [signatureDoc, setSignatureDoc] = useState<RFPDocumentItem | null>(null);
   const [exportDoc, setExportDoc] = useState<RFPDocumentItem | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [deleteConfirmDoc, setDeleteConfirmDoc] = useState<RFPDocumentItem | null>(null);
@@ -73,7 +71,6 @@ export function RFPDocumentsContent({ projectId, orgId, opportunityId }: RFPDocu
         projectId={projectId}
         isDeleting={deletingId === doc.documentId}
         onExport={setExportDoc}
-        onSignature={setSignatureDoc}
         onDelete={setDeleteConfirmDoc}
         onSyncComplete={handleMutate}
       />
@@ -113,16 +110,6 @@ export function RFPDocumentsContent({ projectId, orgId, opportunityId }: RFPDocu
         open={uploadDialogOpen}
         onOpenChange={setUploadDialogOpen}
         projectId={projectId}
-        orgId={orgId}
-        onSuccess={handleMutate}
-      />
-
-      <SignatureTrackerDialog
-        open={!!signatureDoc}
-        onOpenChange={(open) => {
-          if (!open) setSignatureDoc(null);
-        }}
-        document={signatureDoc}
         orgId={orgId}
         onSuccess={handleMutate}
       />

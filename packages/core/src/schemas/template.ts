@@ -106,7 +106,6 @@ export const TemplateItemSchema = z.object({
   id: z.string().uuid(),
   orgId: z.string().uuid(),
   name: z.string().min(1).max(500),
-  type: TemplateCategorySchema,
   category: TemplateCategorySchema,
   description: z.string().max(2000).optional(),
 
@@ -164,7 +163,6 @@ export type TemplateItem = z.infer<typeof TemplateItemSchema>;
 export const CreateTemplateDTOSchema = z.object({
   orgId: z.string().uuid(),
   name: z.string().min(1).max(500),
-  type: TemplateCategorySchema,
   category: TemplateCategorySchema,
   description: z.string().max(2000).optional(),
   /** Raw HTML content — stored in S3, key saved as htmlContentKey */
@@ -180,6 +178,7 @@ export type CreateTemplateDTO = z.infer<typeof CreateTemplateDTOSchema>;
 
 export const UpdateTemplateDTOSchema = z.object({
   name: z.string().min(1).max(500).optional(),
+  category: TemplateCategorySchema.optional(),
   description: z.string().max(2000).optional(),
   /** Raw HTML content — stored in S3, key saved as htmlContentKey */
   htmlContent: z.string().max(10_000_000).optional(),
@@ -214,7 +213,6 @@ export const ImportTemplateDTOSchema = z.object({
   orgId: z.string().uuid(),
   templateData: z.object({
     name: z.string().min(1).max(500),
-    type: TemplateCategorySchema,
     category: TemplateCategorySchema,
     description: z.string().max(2000).optional(),
     /** Raw HTML content — stored in S3, key saved as htmlContentKey */
@@ -282,16 +280,39 @@ export const parseTemplateSK = (sk: string): { orgId: string; templateId: string
 // ================================
 
 export const SYSTEM_MACROS: MacroDefinition[] = [
-  { key: 'COMPANY_NAME',    label: 'Company Name',    description: 'Your organization name',                          type: 'SYSTEM', dataSource: 'organization.name',        required: false },
-  { key: 'PROJECT_TITLE',   label: 'Project Title',   description: 'The project/proposal title',                     type: 'SYSTEM', dataSource: 'project.name',             required: false },
-  { key: 'CONTRACT_NUMBER', label: 'Contract Number', description: 'The contract or solicitation number',            type: 'SYSTEM', dataSource: 'project.contractNumber',   required: false },
-  { key: 'SUBMISSION_DATE', label: 'Submission Date', description: 'Proposal submission deadline',                   type: 'SYSTEM', dataSource: 'project.submissionDate',   required: false },
-  { key: 'PAGE_LIMIT',      label: 'Page Limit',      description: 'Maximum page count for the proposal',            type: 'SYSTEM', dataSource: 'project.pageLimit',        required: false },
-  { key: 'OPPORTUNITY_ID',  label: 'Opportunity ID',  description: 'SAM.gov or agency opportunity identifier',       type: 'SYSTEM', dataSource: 'opportunity.noticeId',     required: false },
-  { key: 'AGENCY_NAME',     label: 'Agency Name',     description: 'The contracting agency name',                    type: 'SYSTEM', dataSource: 'opportunity.agencyName',   required: false },
-  { key: 'TODAY',           label: 'Today\'s Date',   description: "Today's date (auto-generated, YYYY-MM-DD)",      type: 'SYSTEM', dataSource: '_generated.currentDate',   required: false },
-  { key: 'PROPOSAL_TITLE',  label: 'Proposal Title',  description: 'Title of the proposal being generated',          type: 'SYSTEM', dataSource: 'project.title',            required: false },
-  { key: 'CONTENT',         label: 'Content',         description: 'Main body content placeholder for this section', type: 'SYSTEM', dataSource: '_generated.content',       required: false },
+  // Organization
+  { key: 'COMPANY_NAME',              label: 'Company Name',              description: 'Your organization name',                                     type: 'SYSTEM', dataSource: 'organization.name',                 required: false },
+  { key: 'ORGANIZATION_DESCRIPTION',  label: 'Organization Description',  description: 'Organization description/overview',                          type: 'SYSTEM', dataSource: 'organization.description',          required: false },
+  // Project
+  { key: 'PROJECT_TITLE',             label: 'Project Title',             description: 'Project name',                                               type: 'SYSTEM', dataSource: 'project.name',                      required: false },
+  { key: 'PROJECT_DESCRIPTION',       label: 'Project Description',       description: 'Project description',                                        type: 'SYSTEM', dataSource: 'project.description',               required: false },
+  { key: 'PROPOSAL_TITLE',            label: 'Proposal Title',            description: 'Proposal title (alias for PROJECT_TITLE)',                   type: 'SYSTEM', dataSource: 'project.name',                      required: false },
+  // Opportunity
+  { key: 'OPPORTUNITY_ID',            label: 'Opportunity ID',            description: 'Unique opportunity identifier',                              type: 'SYSTEM', dataSource: 'opportunity.id',                    required: false },
+  { key: 'OPPORTUNITY_TITLE',         label: 'Opportunity Title',         description: 'Official title of the opportunity',                          type: 'SYSTEM', dataSource: 'opportunity.title',                 required: false },
+  { key: 'SOLICITATION_NUMBER',       label: 'Solicitation Number',       description: 'Official solicitation number',                               type: 'SYSTEM', dataSource: 'opportunity.solicitationNumber',    required: false },
+  { key: 'NOTICE_ID',                 label: 'Notice ID',                 description: 'SAM.gov notice ID',                                          type: 'SYSTEM', dataSource: 'opportunity.noticeId',              required: false },
+  // Agency/Customer
+  { key: 'AGENCY_NAME',               label: 'Agency Name',               description: 'Primary agency name',                                        type: 'SYSTEM', dataSource: 'opportunity.organizationName',      required: false },
+  { key: 'ISSUING_OFFICE',            label: 'Issuing Office',            description: 'Full issuing office name',                                   type: 'SYSTEM', dataSource: 'opportunity.organizationName',      required: false },
+  // Dates
+  { key: 'TODAY',                     label: 'Today',                     description: 'Current date (YYYY-MM-DD format)',                           type: 'SYSTEM', dataSource: '_generated.currentDate',            required: false },
+  { key: 'CURRENT_YEAR',              label: 'Current Year',              description: 'Current year',                                               type: 'SYSTEM', dataSource: '_generated.currentYear',            required: false },
+  { key: 'CURRENT_MONTH',             label: 'Current Month',             description: 'Current month name',                                         type: 'SYSTEM', dataSource: '_generated.currentMonth',           required: false },
+  { key: 'CURRENT_DAY',               label: 'Current Day',               description: 'Current day of month',                                       type: 'SYSTEM', dataSource: '_generated.currentDay',             required: false },
+  { key: 'POSTED_DATE',               label: 'Posted Date',               description: 'Date opportunity was posted',                                type: 'SYSTEM', dataSource: 'opportunity.postedDateIso',          required: false },
+  { key: 'RESPONSE_DEADLINE',         label: 'Response Deadline',         description: 'Proposal submission deadline',                               type: 'SYSTEM', dataSource: 'opportunity.responseDeadlineIso',    required: false },
+  { key: 'SUBMISSION_DATE',           label: 'Submission Date',           description: 'Alias for RESPONSE_DEADLINE',                                type: 'SYSTEM', dataSource: 'opportunity.responseDeadlineIso',    required: false },
+  // Compliance & Classification
+  { key: 'NAICS_CODE',                label: 'NAICS Code',                description: 'North American Industry Classification System code',         type: 'SYSTEM', dataSource: 'opportunity.naicsCode',             required: false },
+  { key: 'PSC_CODE',                  label: 'PSC Code',                  description: 'Product/Service Code',                                       type: 'SYSTEM', dataSource: 'opportunity.pscCode',               required: false },
+  { key: 'SET_ASIDE',                 label: 'Set-Aside Type',            description: 'Set-aside category',                                         type: 'SYSTEM', dataSource: 'opportunity.setAside',              required: false },
+  { key: 'OPPORTUNITY_TYPE',          label: 'Opportunity Type',          description: 'Type of opportunity/contract',                               type: 'SYSTEM', dataSource: 'opportunity.type',                  required: false },
+  // Financial
+  { key: 'ESTIMATED_VALUE',           label: 'Estimated Value',           description: 'Estimated contract value (formatted as USD)',                type: 'SYSTEM', dataSource: 'opportunity.baseAndAllOptionsValue', required: false },
+  { key: 'BASE_AND_OPTIONS_VALUE',    label: 'Base and Options Value',    description: 'Total base + option periods value',                          type: 'SYSTEM', dataSource: 'opportunity.baseAndAllOptionsValue', required: false },
+  // Content
+  { key: 'CONTENT',                   label: 'Content',                   description: 'Placeholder for AI-generated or user-authored content',      type: 'SYSTEM', dataSource: '_generated.content',                required: false },
 ];
 
 // ================================

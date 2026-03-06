@@ -4,6 +4,11 @@ import { withSentryLambda } from '@/sentry-lambda';
 import { listRFPDocumentsByProject } from '@/helpers/rfp-document';
 import { enrichWithUserNames } from '@/helpers/resolve-users';
 import { apiResponse, getOrgId } from '@/helpers/api';
+import {
+  authContextMiddleware,
+  httpErrorMiddleware,
+  orgMembershipMiddleware,
+} from '@/middleware/rbac-middleware';
 
 export const baseHandler = async (
   event: APIGatewayProxyEventV2,
@@ -46,11 +51,13 @@ export const baseHandler = async (
     });
   } catch (err) {
     console.error('Error in get-rfp-documents:', err);
-    return apiResponse(500, {
-      message: 'Internal server error',
-      error: err instanceof Error ? err.message : 'Unknown error',
-    });
+    return apiResponse(500, { message: 'Internal server error' });
   }
 };
 
-export const handler = withSentryLambda(middy(baseHandler));
+export const handler = withSentryLambda(
+  middy(baseHandler)
+    .use(authContextMiddleware())
+    .use(orgMembershipMiddleware())
+    .use(httpErrorMiddleware()),
+);

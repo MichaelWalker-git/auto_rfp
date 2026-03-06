@@ -58,6 +58,7 @@ export class QuestionExtractionPipelineStack extends Stack {
       DOCUMENTS_BUCKET: documentsBucket.bucketName,
       SENTRY_DSN: sentryDNS,
       SENTRY_ENVIRONMENT: stage,
+      STAGE: stage,
     } as const;
 
     const startTextractLambda = new lambdaNode.NodejsFunction(this, 'StartTextractLambda', {
@@ -389,8 +390,8 @@ export class QuestionExtractionPipelineStack extends Stack {
       payload: sfn.TaskInput.fromObject({
         questionFileId: sfn.JsonPath.stringAt('$.questionFileId'),
         projectId: sfn.JsonPath.stringAt('$.projectId'),
-        textFileKey: sfn.JsonPath.stringAt('$.process.textFileKey'),
         opportunityId: sfn.JsonPath.stringAt('$.oppId'),
+        textFileKey: sfn.JsonPath.stringAt('$.process.textFileKey'),
       }),
       resultPath: '$.extractResult',
       payloadResponseOnly: true,
@@ -404,6 +405,7 @@ export class QuestionExtractionPipelineStack extends Stack {
       payload: sfn.TaskInput.fromObject({
         projectId: sfn.JsonPath.stringAt('$.projectId'),
         questionFileId: sfn.JsonPath.stringAt('$.questionFileId'),
+        opportunityId: sfn.JsonPath.stringAt('$.oppId'),
       }),
       resultPath: '$.triggerResult',
       payloadResponseOnly: true,
@@ -413,6 +415,7 @@ export class QuestionExtractionPipelineStack extends Stack {
       lambdaFunction: checkAndTriggerLambda,
       payload: sfn.TaskInput.fromObject({
         projectId: sfn.JsonPath.stringAt('$.projectId'),
+        opportunityId: sfn.JsonPath.stringAt('$.oppId'),
         questionFileId: sfn.JsonPath.stringAt('$.questionFileId'),
       }),
       resultPath: '$.triggerResult',
@@ -424,6 +427,7 @@ export class QuestionExtractionPipelineStack extends Stack {
       payload: sfn.TaskInput.fromObject({
         projectId: sfn.JsonPath.stringAt('$.projectId'),
         questionFileId: sfn.JsonPath.stringAt('$.questionFileId'),
+        opportunityId: sfn.JsonPath.stringAt('$.oppId'),
       }),
       resultPath: '$.triggerResult',
       payloadResponseOnly: true,

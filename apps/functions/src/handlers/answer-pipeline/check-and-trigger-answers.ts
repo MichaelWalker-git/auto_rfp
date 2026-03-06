@@ -18,6 +18,7 @@ const sfnClient = new SFNClient({});
 export interface CheckAndTriggerEvent {
   projectId: string;
   orgId?: string; // Optional - will look up from project if not provided
+  opportunityId: string; // Required - answer generation is per-opportunity
   questionFileId: string;
 }
 
@@ -26,6 +27,7 @@ export interface CheckAndTriggerResult {
   reason: string;
   totalFiles: number;
   processedFiles: number;
+  opportunityId?: string;
   executionArn?: string;
 }
 
@@ -33,6 +35,8 @@ interface QuestionFileItem {
   questionFileId: string;
   status: string;
   projectId: string;
+  updatedAt?: string;
+  opportunityId?: string;
 }
 
 // Terminal states - file processing is complete (success or failure)
@@ -41,9 +45,13 @@ const TERMINAL_STATUSES = ['PROCESSED', 'FAILED'];
 // Ignored states - these files should not block answer generation
 const IGNORED_STATUSES = ['DELETED', 'CANCELLED'];
 
+// Maximum age (in minutes) for a file in PROCESSING state before it's considered stale/stuck.
+// Step Function timeout is 30 minutes, so anything older than 35 minutes is definitely stuck.
+const STALE_PROCESSING_THRESHOLD_MINUTES = 35;
+
 /**
- * Check if all question files for a project are extracted.
- * If yes, trigger the Answer Generation Step Function.
+ * Check if all question files for an opportunity are extracted.
+ * If yes, trigger the Answer Generation Step Function for that opportunity.
  */
 export const baseHandler = async (
   event: CheckAndTriggerEvent,
@@ -51,13 +59,22 @@ export const baseHandler = async (
 ): Promise<CheckAndTriggerResult> => {
   console.log('check-and-trigger-answers event:', JSON.stringify(event));
 
-  const { projectId } = event;
+  const { projectId, opportunityId } = event;
   let { orgId } = event;
 
   if (!projectId) {
     return {
       triggered: false,
       reason: 'Missing projectId',
+      totalFiles: 0,
+      processedFiles: 0,
+    };
+  }
+
+  if (!opportunityId) {
+    return {
+      triggered: false,
+      reason: 'Missing opportunityId',
       totalFiles: 0,
       processedFiles: 0,
     };
@@ -78,8 +95,9 @@ export const baseHandler = async (
     }
   }
 
-  // Query all question files for this project
-  const files: QuestionFileItem[] = [];
+  // Query all question files for this project/opportunity
+  // QuestionFile SK format: {projectId}#{opportunityId}#{questionFileId}
+  const allFiles: QuestionFileItem[] = [];
   let lastKey: Record<string, any> | undefined;
 
   do {
@@ -93,7 +111,7 @@ export const baseHandler = async (
         },
         ExpressionAttributeValues: {
           ':pk': QUESTION_FILE_PK,
-          ':prefix': `${projectId}#`,
+          ':prefix': `${projectId}#${opportunityId}#`,
         },
         ExclusiveStartKey: lastKey,
       })
@@ -101,10 +119,12 @@ export const baseHandler = async (
 
     if (result.Items) {
       for (const item of result.Items) {
-        files.push({
+        allFiles.push({
           questionFileId: item.questionFileId as string,
           status: item.status as string,
           projectId: item.projectId as string,
+          opportunityId: item.opportunityId as string | undefined,
+          updatedAt: (item.updatedAt as string) ?? (item.createdAt as string),
         });
       }
     }
@@ -112,23 +132,49 @@ export const baseHandler = async (
     lastKey = result.LastEvaluatedKey;
   } while (lastKey);
 
-  console.log(`Found ${files.length} total question files for project ${projectId}`);
+  // Filter to only this opportunity's files
+  const files = allFiles.filter(f => f.opportunityId === opportunityId || !f.opportunityId);
+  console.log(`Found ${files.length} question files for opportunity ${opportunityId} (project ${projectId})`);
 
   // Filter out ignored files (DELETED, CANCELLED)
   const relevantFiles = files.filter(f => !IGNORED_STATUSES.includes(f.status));
   
-  // Categorize
+  // Detect stale files: files stuck in non-terminal status for longer than the threshold.
+  // This handles cases where a Step Function execution timed out or crashed without
+  // updating the file status, which would otherwise block answer generation forever.
+  const now = Date.now();
+  const staleThresholdMs = STALE_PROCESSING_THRESHOLD_MINUTES * 60 * 1000;
+
+  const isStale = (f: QuestionFileItem): boolean => {
+    if (TERMINAL_STATUSES.includes(f.status)) return false;
+    if (!f.updatedAt) return false;
+    const updatedAtMs = new Date(f.updatedAt).getTime();
+    return (now - updatedAtMs) > staleThresholdMs;
+  };
+
+  // Categorize — treat stale non-terminal files as effectively FAILED
   const processedFiles = relevantFiles.filter(f => f.status === 'PROCESSED');
   const failedFiles = relevantFiles.filter(f => f.status === 'FAILED');
-  const pendingFiles = relevantFiles.filter(f => !TERMINAL_STATUSES.includes(f.status));
+  const staleFiles = relevantFiles.filter(f => !TERMINAL_STATUSES.includes(f.status) && isStale(f));
+  const activePendingFiles = relevantFiles.filter(f => !TERMINAL_STATUSES.includes(f.status) && !isStale(f));
 
-  console.log(`Status: ${processedFiles.length} processed, ${failedFiles.length} failed, ${pendingFiles.length} pending (ignoring ${files.length - relevantFiles.length} deleted/cancelled)`);
+  console.log(`Status: ${processedFiles.length} processed, ${failedFiles.length} failed, ${activePendingFiles.length} pending, ${staleFiles.length} stale (ignoring ${files.length - relevantFiles.length} deleted/cancelled)`);
 
-  // Not all files are done yet
-  if (pendingFiles.length > 0) {
+  if (staleFiles.length > 0) {
+    console.warn(`Found ${staleFiles.length} stale file(s) stuck in non-terminal status — treating as done:`,
+      staleFiles.map(f => ({ id: f.questionFileId, status: f.status, updatedAt: f.updatedAt })),
+    );
+  }
+
+  if (activePendingFiles.length > 0) {
+    console.log(`Pending file details:`, activePendingFiles.map(f => ({ id: f.questionFileId, status: f.status, updatedAt: f.updatedAt })));
+  }
+
+  // Not all files are done yet (only truly active pending files block the trigger)
+  if (activePendingFiles.length > 0) {
     return {
       triggered: false,
-      reason: `${pendingFiles.length} files still processing`,
+      reason: `${activePendingFiles.length} files still processing`,
       totalFiles: relevantFiles.length,
       processedFiles: processedFiles.length,
     };
@@ -144,7 +190,7 @@ export const baseHandler = async (
     };
   }
 
-  // Check if answer generation is already running for this project
+  // Check if answer generation is already running for this opportunity
   if (ANSWER_GENERATION_STATE_MACHINE_ARN) {
     try {
       const executions = await sfnClient.send(
@@ -155,17 +201,19 @@ export const baseHandler = async (
         })
       );
 
-      const runningForProject = executions.executions?.find(e => 
-        e.name?.includes(projectId)
+      // Check for running execution for this specific opportunity
+      const runningForOpportunity = executions.executions?.find(e =>
+        e.name?.includes(opportunityId)
       );
 
-      if (runningForProject) {
+      if (runningForOpportunity) {
         return {
           triggered: false,
-          reason: 'Answer generation already running for this project',
+          reason: 'Answer generation already running for this opportunity',
           totalFiles: relevantFiles.length,
           processedFiles: processedFiles.length,
-          executionArn: runningForProject.executionArn,
+          opportunityId,
+          executionArn: runningForOpportunity.executionArn,
         };
       }
     } catch (err) {
@@ -185,9 +233,10 @@ export const baseHandler = async (
     };
   }
 
-  console.log(`All ${processedFiles.length} files processed! Triggering answer generation...`);
+  console.log(`All ${processedFiles.length} files processed for opportunity ${opportunityId}! Triggering answer generation...`);
 
-  const executionName = `${projectId}-${Date.now()}`;
+  // Include opportunityId in execution name for uniqueness and tracking
+  const executionName = `${opportunityId}-${Date.now()}`;
   
   const startResult = await sfnClient.send(
     new StartExecutionCommand({
@@ -196,6 +245,7 @@ export const baseHandler = async (
       input: JSON.stringify({
         projectId,
         orgId,
+        opportunityId,
         triggeredBy: 'check-and-trigger-answers',
         totalFiles: processedFiles.length,
       }),
@@ -229,6 +279,7 @@ export const baseHandler = async (
     reason: `Triggered answer generation for ${processedFiles.length} files`,
     totalFiles: relevantFiles.length,
     processedFiles: processedFiles.length,
+    opportunityId,
     executionArn: startResult.executionArn,
   };
 };

@@ -35,7 +35,7 @@ type Question = {
   question: string;
 };
 
-function CreateQuestionsPageInner({ orgId, projectId }: { orgId: string; projectId: string }) {
+function CreateQuestionsPageInner({ orgId, projectId, opportunityId }: { orgId: string; projectId: string; opportunityId?: string }) {
   const router = useRouter();
   const { data: project, isLoading } = useProject(projectId);
 
@@ -184,12 +184,22 @@ function CreateQuestionsPageInner({ orgId, projectId }: { orgId: string; project
 
     setIsSaving(true);
 
+    if (!opportunityId) {
+      toast({
+        title: 'Error',
+        description: 'No opportunity selected. Please go back and select an opportunity.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
     try {
       // Save all questions in bulk via the create-question endpoint
       const url = buildApiUrl('question/create-question', { orgId });
       await apiMutate(url, 'POST', {
         projectId,
         orgId,
+        opportunityId,
         sections: sections.map((section) => ({
           id: section.id,
           title: section.title,
@@ -385,10 +395,13 @@ function CreateQuestionsPageInner({ orgId, projectId }: { orgId: string; project
 
 export default function CreateQuestionsPage({
                                               params,
+                                              searchParams,
                                             }: {
   params: Promise<{ orgId: string; projectId: string }>;
+  searchParams: Promise<{ opportunityId?: string }>;
 }) {
   const { orgId, projectId } = use(params);
+  const { opportunityId } = use(searchParams);
 
   return (
     <Suspense
@@ -401,7 +414,7 @@ export default function CreateQuestionsPage({
         </div>
       }
     >
-      <CreateQuestionsPageInner orgId={orgId} projectId={projectId}/>
+      <CreateQuestionsPageInner orgId={orgId} projectId={projectId} opportunityId={opportunityId}/>
     </Suspense>
   );
 }

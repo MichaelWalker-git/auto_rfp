@@ -3,7 +3,6 @@
 import React, { Suspense, useState } from 'react';
 import { ProjectOverview } from './project-overview';
 import { QuestionsProvider, QuestionsSection } from '../[projectId]/questions/components';
-import { DocumentsSection } from './documents-section';
 import { TeamSection } from './team-section';
 import { useProject } from '@/lib/hooks/use-api';
 import { useSentryProject } from '@/lib/hooks/use-sentry-context';
@@ -21,8 +20,6 @@ function ProjectContentInner({ projectId }: { projectId: string }) {
     switch (activeSection) {
       case 'questions':
         return <QuestionsSection orgId={currentOrganization?.id || ''} projectId={projectId}/>;
-      case 'documents':
-        return <DocumentsSection/>;
       case 'team':
         return <TeamSection/>;
       case 'overview':

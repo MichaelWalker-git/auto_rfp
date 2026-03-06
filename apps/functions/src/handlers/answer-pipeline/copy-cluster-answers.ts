@@ -77,8 +77,10 @@ export const baseHandler = async (
           continue;
         }
         
-        // Get master's answer
-        const masterAnswer = await getAnswerForQuestion(projectId, masterQuestionId);
+        // Get master's answer — opportunityId + fileId stored on cluster item
+        const clusterOpportunityId = (cluster.opportunityId as string | undefined) ?? '';
+        const clusterFileId = (cluster.questionFileId as string | undefined) ?? '';
+        const masterAnswer = await getAnswerForQuestion(projectId, clusterOpportunityId, clusterFileId, masterQuestionId);
         
         if (!masterAnswer || !masterAnswer.text) {
           console.log(`Master ${masterQuestionId} has no answer, skipping cluster ${cluster.clusterId}`);
@@ -96,7 +98,7 @@ export const baseHandler = async (
           
           try {
             // Check if member already has an answer
-            const existingAnswer = await getAnswerForQuestion(projectId, member.questionId);
+            const existingAnswer = await getAnswerForQuestion(projectId, clusterOpportunityId, clusterFileId, member.questionId);
             
             if (existingAnswer && existingAnswer.text) {
               console.log(`Member ${member.questionId} already has answer, skipping`);
@@ -107,6 +109,8 @@ export const baseHandler = async (
             const savedAnswer = await saveAnswer({
               questionId: member.questionId,
               projectId,
+              opportunityId: clusterOpportunityId,
+              questionFileId: clusterFileId,
               text: masterAnswer.text,
               confidence: masterAnswer.confidence,
               confidenceBreakdown: masterAnswer.confidenceBreakdown,

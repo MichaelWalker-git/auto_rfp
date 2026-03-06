@@ -18,14 +18,13 @@ import { auditMiddleware, setAuditContext } from '@/middleware/audit-middleware'
 import middy from '@middy/core';
 import { requireEnv } from '@/helpers/env';
 import {
-  AnswerQuestionRequestBody,
+  AnswerQuestionRequestBodySchema,
   AnswerSource,
   ConfidenceBreakdown,
   ContentLibraryItem,
   QAItem,
-  QuestionItem,
 } from '@auto-rfp/core';
-import { getQuestionItemById } from '@/helpers/question';
+import { getQuestionItemById, QuestionItemDynamo } from '@/helpers/question';
 import { saveAnswer } from './save-answer';
 import { DBItem, getItem } from '@/helpers/db';
 import { safeParseJsonFromModel } from '@/helpers/json';
@@ -36,12 +35,12 @@ import { ANSWER_TOOLS, executeAnswerTool } from '@/helpers/answer-tools';
 
 const BEDROCK_MODEL_ID = requireEnv('BEDROCK_MODEL_ID');
 
-export type QuestionItemDynamo = QuestionItem & DBItem;
-
 export interface GenerateAnswerParams {
   questionId: string;
   projectId: string;
   orgId: string;
+  opportunityId?: string;
+  questionFileId?: string;
   questionText?: string;
   topK?: number;
 }
@@ -59,21 +58,36 @@ export interface GenerateAnswerResult {
 
 // ─── Content Library Check ────────────────────────────────────────────────────
 
+// Minimum cosine similarity score to even consider a content library match.
+// Below this threshold, the question is too different to be a direct match.
+const CL_MIN_SIMILARITY_THRESHOLD = 0.82;
+
 /**
  * Check if the content library has a direct answer for the question.
  * Returns the matched item and its score, or null if no match.
+ *
+ * Uses a two-stage filter:
+ * 1. Semantic similarity threshold (>= 0.82) to eliminate weak matches
+ * 2. LLM evaluation to confirm the match is a genuine direct answer
  */
 const checkContentLibrary = async (
   orgId: string,
   question: string,
   questionEmbedding: number[],
 ): Promise<{ item: ContentLibraryItem & DBItem; score: number } | null> => {
-  const hits = await semanticSearchContentLibrary(orgId, questionEmbedding, 10);
+  const hits = await semanticSearchContentLibrary(orgId, questionEmbedding, 5);
   if (!hits.length) return null;
+
+  // Stage 1: Filter by minimum similarity threshold
+  const strongHits = hits.filter((h) => (h.score ?? 0) >= CL_MIN_SIMILARITY_THRESHOLD);
+  if (!strongHits.length) {
+    console.log(`[CL-Check] No hits above threshold ${CL_MIN_SIMILARITY_THRESHOLD} (best: ${(hits[0]?.score ?? 0).toFixed(3)})`);
+    return null;
+  }
 
   // Load matched items from DynamoDB
   const clItems: Array<{ item: ContentLibraryItem & DBItem; score: number }> = [];
-  for (const hit of hits) {
+  for (const hit of strongHits) {
     const pk = hit?.source?.[PK_NAME];
     const sk = hit?.source?.[SK_NAME];
     if (!pk || !sk) continue;
@@ -83,7 +97,7 @@ const checkContentLibrary = async (
 
   if (!clItems.length) return null;
 
-  // Ask LLM if any content library item directly answers the question
+  // Stage 2: Ask LLM to confirm the match is a genuine direct answer
   const clContext = clItems.map(({ item }, i) =>
     `[CL_ITEM_${i}]\nQuestion: ${item.question}\nAnswer: ${item.answer}\n---`
   ).join('\n');
@@ -92,8 +106,19 @@ const checkContentLibrary = async (
     anthropic_version: 'bedrock-2023-05-31',
     max_tokens: 256,
     temperature: 0,
-    system: 'You are evaluating if any pre-existing Q&A pair from a content library directly answers a given question. If one of the provided Q&A pairs directly answers the question (same topic, relevant answer), respond with ONLY valid JSON: {"match": true, "index": <number>}. If none match, respond: {"match": false, "index": -1}. Return ONLY JSON, no explanation.',
-    messages: [{ role: 'user', content: [{ type: 'text', text: `Question: ${question}\n\nContent Library Q&A Pairs:\n${clContext}` }] }],
+    system: `You are a strict evaluator deciding if a pre-existing Q&A pair can be used as-is to answer a new question.
+
+MATCH CRITERIA (ALL must be true):
+- The content library question asks essentially the SAME thing as the new question (not just related topic)
+- The content library answer DIRECTLY and COMPLETELY answers the new question
+- The answer would NOT be misleading or incomplete if submitted as the response
+
+Return ONLY valid JSON:
+- If a Q&A pair is a direct, complete answer: {"match": true, "index": <number>}
+- If no Q&A pair fully answers the question: {"match": false, "index": -1}
+
+When in doubt, return {"match": false, "index": -1}. It is better to generate a fresh answer than to reuse a wrong one.`,
+    messages: [{ role: 'user', content: [{ type: 'text', text: `New Question: ${question}\n\nContent Library Q&A Pairs:\n${clContext}` }] }],
   };
 
   try {
@@ -104,8 +129,12 @@ const checkContentLibrary = async (
     const eval_ = safeParseJsonFromModel(text) as { match?: boolean; index?: number };
 
     if (eval_.match && typeof eval_.index === 'number' && eval_.index >= 0 && eval_.index < clItems.length) {
-      return clItems[eval_.index]!;
+      const matched = clItems[eval_.index]!;
+      console.log(`[CL-Check] ✅ LLM confirmed match at index ${eval_.index} (score: ${matched.score.toFixed(3)})`);
+      return matched;
     }
+
+    console.log(`[CL-Check] LLM rejected all ${clItems.length} candidates`);
   } catch (err) {
     console.warn('[CL-Check] Evaluation failed, falling through to tool-based generation:', (err as Error)?.message);
   }
@@ -125,23 +154,34 @@ const generateAnswerWithTools = async (
   orgId: string,
   questionId: string,
   systemPrompt: string,
+  projectId?: string,
+  opportunityId?: string,
 ): Promise<{ answer: string; found: boolean; toolsUsed: string[] }> => {
   const MAX_TOOL_ROUNDS = 3;
   const toolsUsed: string[] = [];
 
-  const userPrompt = `You are answering a proposal question for a government contract. Use the available tools to search for relevant information, then provide a comprehensive, accurate answer.
+  const userPrompt = `You are writing a winning RFP response on behalf of our company. The evaluator will score this answer to decide whether to award us the contract. Quality and specificity are critical.
 
-QUESTION: ${question}
+QUESTION FROM THE RFP: ${question}
 
-Instructions:
-1. Use the search_knowledge_base tool to find relevant company information
-2. Use search_past_performance if the question asks about experience or past work
-3. Use get_organization_context if the question asks about company details, certifications, or contact info
-4. Use get_content_library for standard compliance or certification language
-5. After gathering information, provide a complete, professional answer
-6. Return ONLY valid JSON: {"answer": "<your complete answer>", "confidence": <0.0-1.0>, "found": <true|false>}
-   - found: true if you found relevant information to answer the question
-   - found: false if you could not find sufficient information`;
+RESEARCH STRATEGY — use tools to gather the strongest possible evidence:
+1. search_knowledge_base — find our company capabilities, processes, and technical expertise relevant to this question
+2. search_past_performance — find specific contract examples, metrics, and results that demonstrate our track record (critical for scoring)
+3. get_organization_context — get our certifications, clearances, team size, and company details to cite in the answer
+4. get_content_library — find pre-approved language for compliance, certifications, or standard responses
+5. get_solicitation_text — check the RFP for specific requirements, evaluation criteria, or context that this question references
+
+WRITING INSTRUCTIONS:
+- Write as "we" / "our team" — this is our company's official response to the evaluator
+- Lead with our strongest capability or most relevant experience
+- Include specific evidence: project names, contract values, team sizes, SLA metrics, years of experience
+- Address every part of the question — missing sub-questions loses evaluation points
+- Be confident and direct — avoid hedging language like "we believe" or "we think"
+- Keep the answer 150-400 words depending on complexity
+
+Return ONLY valid JSON: {"answer": "<complete submission-ready answer>", "confidence": <0.0-1.0>, "found": <true|false>}
+- found: true if you found relevant company-specific information to support the answer
+- found: false if you had to rely on general best practices (still provide a professional answer)`;
 
   const messages: Array<{ role: string; content: unknown }> = [
     { role: 'user', content: [{ type: 'text', text: userPrompt }] },
@@ -153,17 +193,23 @@ Instructions:
   while (toolRounds <= MAX_TOOL_ROUNDS) {
     const isLastRound = toolRounds >= MAX_TOOL_ROUNDS;
 
+    // Always include tools when the conversation contains tool_use/tool_result blocks,
+    // otherwise the Anthropic API rejects the request with:
+    // "Requests which include tool_use or tool_result blocks must define tools."
+    const hasToolBlocks = toolRounds > 0;
+
     const requestBody: Record<string, unknown> = {
       anthropic_version: 'bedrock-2023-05-31',
       system: systemPrompt,
       messages,
       max_tokens: 4096,
       temperature: 0.2,
+      // Include tools on every round that has tool history, or when we still allow tool use
+      ...((hasToolBlocks || !isLastRound) ? { tools: ANSWER_TOOLS } : {}),
     };
 
-    if (!isLastRound) {
-      requestBody.tools = ANSWER_TOOLS;
-    }
+    // NOTE: The "stop using tools" instruction is now appended to the tool_result
+    // user message in the previous iteration to avoid consecutive user roles.
 
     const responseBody = await invokeModel(BEDROCK_MODEL_ID, JSON.stringify(requestBody));
     const parsed = JSON.parse(new TextDecoder('utf-8').decode(responseBody)) as {
@@ -189,17 +235,30 @@ Instructions:
             toolUseId: block.id ?? '',
             orgId,
             questionId,
+            projectId,
+            opportunityId,
           });
         }),
       );
 
+      const toolResultContent: Array<unknown> = toolResults.map(r => ({
+        type: 'tool_result',
+        tool_use_id: r.tool_use_id,
+        content: r.content,
+      }));
+
+      // If the next iteration will be the last round, append a "stop using tools"
+      // instruction to the same user message to avoid consecutive user roles.
+      if (toolRounds + 1 >= MAX_TOOL_ROUNDS) {
+        toolResultContent.push({
+          type: 'text',
+          text: 'You have gathered enough information. Do NOT use any more tools. Provide your final answer now as JSON: {"answer": "<answer>", "confidence": <0.0-1.0>, "found": <true|false>}',
+        });
+      }
+
       messages.push({
         role: 'user',
-        content: toolResults.map(r => ({
-          type: 'tool_result',
-          tool_use_id: r.tool_use_id,
-          content: r.content,
-        })),
+        content: toolResultContent,
       });
 
       toolRounds++;
@@ -226,6 +285,8 @@ Instructions:
         messages,
         max_tokens: 4096,
         temperature: 0.2,
+        // Must include tools when conversation has tool_use/tool_result blocks
+        tools: ANSWER_TOOLS,
       }));
       const finalParsed = JSON.parse(new TextDecoder('utf-8').decode(finalResponse)) as { content?: Array<{ type: string; text?: string }> };
       rawText = (finalParsed.content ?? []).filter(c => c.type === 'text').map(c => c.text ?? '').join('\n').trim();
@@ -241,9 +302,12 @@ Instructions:
 
   try {
     const parsed = safeParseJsonFromModel(rawText) as Partial<QAItem> & { found?: boolean };
+    // Defensive: ensure answer is always a string
+    const answerValue = parsed.answer;
+    const answerStr = typeof answerValue === 'string' ? answerValue : String(answerValue ?? '');
     return {
-      answer: parsed.answer || '',
-      found: parsed.found ?? !!(parsed.answer?.trim()),
+      answer: answerStr || '',
+      found: parsed.found ?? !!(answerStr?.trim()),
       toolsUsed,
     };
   } catch {
@@ -264,12 +328,13 @@ Instructions:
 export const generateAnswerForQuestion = async (
   params: GenerateAnswerParams,
 ): Promise<GenerateAnswerResult> => {
-  const { questionId, projectId, orgId, questionText } = params;
+  const { questionId, projectId, orgId, opportunityId, questionText, questionFileId } = params;
 
-  // Get question text
+  // Get question text — use opportunityId + fileId for new SK pattern
+  // Coerce to string defensively — callers (e.g. Step Functions) may pass non-string values
   const question = questionText
-    ? questionText.trim()
-    : (await getQuestionItemById(projectId, questionId)).question;
+    ? String(questionText).trim()
+    : String((await getQuestionItemById(projectId, opportunityId ?? '', questionFileId ?? '', questionId)).question ?? '').trim();
 
   if (!question) {
     throw new Error('No question text available');
@@ -301,6 +366,8 @@ export const generateAnswerForQuestion = async (
     await saveAnswer({
       questionId,
       projectId,
+      opportunityId,
+      questionFileId,
       text: clMatch.item.answer,
       confidence: confidence.overall / 100,
       confidenceBreakdown: confidence.breakdown,
@@ -333,6 +400,8 @@ export const generateAnswerForQuestion = async (
     orgId,
     questionId,
     systemPrompt,
+    projectId,
+    opportunityId,
   );
 
   console.log(`[answer] Tool-based generation complete. found=${found}, tools=[${toolsUsed.join(', ')}]`);
@@ -350,6 +419,8 @@ export const generateAnswerForQuestion = async (
   await saveAnswer({
     questionId,
     projectId,
+    opportunityId,
+    questionFileId,
     text: answer,
     confidence: confidence.overall / 100,
     confidenceBreakdown: confidence.breakdown,
@@ -376,21 +447,25 @@ export const baseHandler = async (
 ): Promise<APIGatewayProxyResultV2> => {
   console.log('answer-question event:', JSON.stringify(event));
 
-  const body: AnswerQuestionRequestBody = JSON.parse(event.body || '');
-  const topK = body.topK && body.topK > 0 ? body.topK : 30;
-  const { questionId, projectId, question: requestQuestion, orgId } = body;
+  const raw = JSON.parse(event.body || '{}');
+  const { success, data, error } = AnswerQuestionRequestBodySchema.safeParse(raw);
+
+  if (!success) {
+    return apiResponse(400, { message: 'Invalid payload', issues: error.issues });
+  }
+
+  const topK = data.topK && data.topK > 0 ? data.topK : 30;
+  const { questionId, projectId, opportunityId, questionFileId, question: requestQuestion, orgId } = data;
 
   if (!orgId) return apiResponse(400, { message: 'Org Id is required' });
-
-  if (!questionId && !requestQuestion?.trim()) {
-    return apiResponse(400, { message: 'Either questionId (preferred) or question text must be provided' });
-  }
 
   try {
     const result = await generateAnswerForQuestion({
       questionId: questionId || '',
       projectId,
       orgId,
+      opportunityId,
+      questionFileId,
       questionText: requestQuestion,
       topK,
     });

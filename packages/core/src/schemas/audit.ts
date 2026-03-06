@@ -17,6 +17,11 @@ export const AuditActionSchema = z.enum([
   'DOCUMENT_DELETED',
   'DOCUMENT_EXPORTED',
   'DOCUMENT_VIEWED',
+  'DOCUMENT_UPDATED',
+  // Document version actions
+  'DOCUMENT_VERSION_CREATED',
+  'DOCUMENT_VERSION_REVERTED',
+  'DOCUMENT_VERSION_CHERRYPICKED',
   // Answer actions
   'ANSWER_CREATED',
   'ANSWER_EDITED',
@@ -63,6 +68,29 @@ export const AuditActionSchema = z.enum([
   'REPORT_GENERATED',
   // Configuration
   'CONFIG_CHANGED',
+  // APN (AWS Partner Network) registration events
+  'APN_REGISTRATION_STARTED',
+  'APN_REGISTRATION_COMPLETED',
+  'APN_REGISTRATION_FAILED',
+  'APN_REGISTRATION_RETRIED',
+  // Document approval events
+  'DOCUMENT_APPROVAL_REQUESTED',
+  'DOCUMENT_APPROVED',
+  'DOCUMENT_REJECTED',
+  'DOCUMENT_APPROVAL_CANCELLED',
+  // Question actions
+  'QUESTION_CREATED',
+  'QUESTION_DELETED',
+  // Clustering actions
+  'CLUSTERS_VIEWED',
+  'SIMILAR_QUESTIONS_SEARCHED',
+  'CLUSTER_ANSWER_APPLIED',
+  // Question file actions
+  'QUESTION_FILE_CREATED',
+  'QUESTION_FILE_DELETED',
+  'QUESTION_FILE_REEXTRACT_ALL',
+  // Solicitation import
+  'SOLICITATION_IMPORTED',
 ]);
 export type AuditAction = z.infer<typeof AuditActionSchema>;
 
@@ -72,9 +100,13 @@ export const AuditResourceSchema = z.enum([
   'user',
   'organization',
   'project',
+  'opportunity',
   'document',
+  'rfp_document',
+  'document_version',
   'answer',
   'question',
+  'question_file',
   'clarifying-question',
   'engagement-log',
   'proposal',
@@ -87,6 +119,7 @@ export const AuditResourceSchema = z.enum([
   'config',
   'system',
   'ai_tool',
+  'apn_registration',
 ]);
 export type AuditResource = z.infer<typeof AuditResourceSchema>;
 

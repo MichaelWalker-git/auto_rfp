@@ -37,6 +37,13 @@ export function pastperfDomain(args: {
         entry: lambdaEntry('pastperf/list-projects.ts'),
       },
 
+      // Stale content detection
+      {
+        method: 'PATCH',
+        path: 'set-last-used/{projectId}',
+        entry: lambdaEntry('pastperf/set-last-used.ts'),
+      },
+
       // Matching & Analysis
       {
         method: 'POST',

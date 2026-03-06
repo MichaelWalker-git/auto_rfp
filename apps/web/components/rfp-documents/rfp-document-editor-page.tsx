@@ -3,12 +3,13 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { ArrowLeft, ChevronRight, FileText, Loader2, Save } from 'lucide-react';
+import { ArrowLeft, ChevronRight, FileText, Loader2, RefreshCw, Save } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/components/ui/use-toast';
+import { isDocumentGenerating, isDocumentFailed, isDocumentReady } from '@/lib/constants/rfp-document-status';
 
 import {
   useUpdateRFPDocument,
@@ -65,6 +66,7 @@ export const RFPDocumentEditorPage = ({
   const {
     html: initialHtml,
     isLoading: isHtmlLoading,
+    isError: isHtmlError,
     mutate: mutateHtml,
   } = useRFPDocumentHtmlContent(
     doc ? projectId : null,
@@ -99,16 +101,70 @@ export const RFPDocumentEditorPage = ({
   const htmlInitializedRef = useRef(false);
   const [isImageUploading, setIsImageUploading] = useState(false);
 
-  // Header / footer state
-  const [headerText, setHeaderText] = useState('');
-  const [footerText, setFooterText] = useState('');
-
-  // Populate HTML once loaded
+  // ── Reset initialization when component mounts or doc changes ──
+  // This handles the case where you navigate back and then edit the same document again.
+  // Without this, the cached SWR data would return immediately with isLoading=false,
+  // but htmlInitialized would still be true, preventing re-initialization.
+  const docIdRef = useRef(doc?.documentId);
   useEffect(() => {
-    if (isHtmlLoading || htmlInitializedRef.current || initialHtml === undefined) return;
+    const currentDocId = doc?.documentId;
+    if (docIdRef.current !== currentDocId && currentDocId) {
+      // Document changed, reset initialization state
+      console.log('[RFPDocEditor] Document changed, resetting initialization state');
+      htmlInitializedRef.current = false;
+      setHtmlContent('');
+    }
+    docIdRef.current = currentDocId;
+  }, [doc?.documentId]);
+
+  // Populate HTML once the fetch completes (or fails)
+  // Note: initialHtml is always a string ('' when no data), so we initialize when loading completes or errors
+  useEffect(() => {
+    if (!doc) return;
+    // Wait for loading to complete OR error to occur
+    if (isHtmlLoading && !isHtmlError) return;
+    if (htmlInitializedRef.current) return;
+
+    console.log('[RFPDocEditor] Initializing HTML content', {
+      docStatus: doc?.status,
+      htmlLength: initialHtml?.length || 0,
+      isReady: isDocumentReady(doc?.status),
+      isHtmlError,
+    });
+
     htmlInitializedRef.current = true;
-    setHtmlContent(initialHtml);
-  }, [initialHtml, isHtmlLoading]);
+    setHtmlContent(initialHtml || '');
+
+    // Show error toast if HTML fetch failed
+    if (isHtmlError) {
+      toast({
+        title: 'Content load warning',
+        description: 'Could not load existing content. You can still edit and save.',
+        variant: 'default',
+      });
+    }
+  }, [doc, initialHtml, isHtmlLoading, isHtmlError, toast]);
+
+  // When the document finishes generating (status transitions away from GENERATING),
+  // invalidate the HTML cache so the editor picks up the newly generated content.
+  // Note: currentStatus can be null (ready) or 'FAILED', both mean generation is done
+  const prevStatusRef = useRef<string | null | undefined>(undefined);
+  useEffect(() => {
+    const currentStatus = doc?.status;
+    if (prevStatusRef.current === 'GENERATING' && currentStatus !== 'GENERATING') {
+      // Generation just completed — refetch HTML and re-initialize the editor
+      console.log('[RFPDocEditor] Generation completed, refetching HTML', { currentStatus });
+      htmlInitializedRef.current = false;
+      mutateHtml();
+    }
+    prevStatusRef.current = currentStatus;
+  }, [doc?.status, mutateHtml]);
+
+  // Reset when navigating to a different document
+  useEffect(() => {
+    htmlInitializedRef.current = false;
+    setHtmlContent('');
+  }, [documentId]);
 
   const handleHtmlChange = useCallback((html: string) => {
     setHtmlContent(html);
@@ -146,7 +202,9 @@ export const RFPDocumentEditorPage = ({
   }, [doc, projectId, opportunityId, documentId, htmlContent, updateDocument, mutateHtml, toast]);
 
   const isLoading = isDocLoading || isHtmlLoading;
-  const isGenerating = doc?.status === 'GENERATING';
+  const isGenerating = isDocumentGenerating(doc?.status);
+  const isFailed = isDocumentFailed(doc?.status);
+  const isReady = isDocumentReady(doc?.status);
 
   if (isLoading && !doc) return <EditorSkeleton />;
 
@@ -193,13 +251,27 @@ export const RFPDocumentEditorPage = ({
               Generating…
             </Badge>
           )}
+          {isFailed && (
+            <Badge
+              variant="outline"
+              className="text-xs border-red-500/30 text-red-600 bg-red-500/5 shrink-0"
+            >
+              Generation Failed
+            </Badge>
+          )}
         </div>
 
         <Button
           size="sm"
           onClick={handleSaveContent}
           disabled={isMutating || isGenerating || isHtmlLoading || isImageUploading}
-          title={isImageUploading ? 'Please wait for image upload to complete' : undefined}
+          title={
+            isImageUploading
+              ? 'Please wait for image upload to complete'
+              : isGenerating
+              ? 'Cannot save while document is generating'
+              : undefined
+          }
         >
           {isMutating ? (
             <>
@@ -223,6 +295,26 @@ export const RFPDocumentEditorPage = ({
             <p className="text-sm font-medium">Generating document content…</p>
             <p className="text-xs">This may take up to a minute. The editor will unlock when ready.</p>
           </div>
+        ) : isFailed ? (
+          <div className="flex flex-col items-center justify-center h-full gap-4">
+            <div className="rounded-full bg-red-50 p-3">
+              <FileText className="h-10 w-10 text-red-500" />
+            </div>
+            <div className="text-center max-w-md">
+              <p className="text-sm font-medium text-red-600 mb-1">Generation Failed</p>
+              <p className="text-xs text-muted-foreground mb-4">
+                {doc?.generationError || 'The AI encountered an error while generating this document.'}
+              </p>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => router.back()}
+              >
+                <ArrowLeft className="h-4 w-4 mr-2" />
+                Go Back
+              </Button>
+            </div>
+          </div>
         ) : isHtmlLoading ? (
           <div className="flex flex-col items-center justify-center h-full gap-3 text-muted-foreground">
             <Loader2 className="h-8 w-8 animate-spin" />
@@ -235,10 +327,6 @@ export const RFPDocumentEditorPage = ({
             disabled={isMutating}
             className="h-full rounded-none border-0"
             minHeight="100%"
-            header={headerText}
-            onHeaderChange={setHeaderText}
-            footer={footerText}
-            onFooterChange={setFooterText}
             onUploadImageToS3={handleUploadImageToS3}
             onGetDownloadUrl={handleGetDownloadUrl}
             onUploadingChange={setIsImageUploading}

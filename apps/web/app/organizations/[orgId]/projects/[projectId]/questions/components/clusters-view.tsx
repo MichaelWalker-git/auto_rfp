@@ -3,7 +3,8 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Loader2, Link, CheckCircle2, ChevronDown, ChevronRight } from 'lucide-react';
+import { Skeleton } from '@/components/ui/skeleton';
+import { Link, CheckCircle2, ChevronDown, ChevronRight } from 'lucide-react';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { useClusters } from '@/lib/hooks/use-clustering';
 import { QuestionCluster, ClusterMember } from '@auto-rfp/core';
@@ -17,13 +18,13 @@ interface ClustersViewProps {
   opportunityId?: string | null;
 }
 
-export function ClustersView({
+export const ClustersView = ({
   projectId,
   onSelectQuestion,
   selectedQuestion,
   answers,
   opportunityId,
-}: ClustersViewProps) {
+}: ClustersViewProps) => {
   const { data, isLoading, error } = useClusters(projectId, opportunityId);
   const [expandedClusters, setExpandedClusters] = useState<Set<string>>(new Set());
 
@@ -57,9 +58,17 @@ export function ClustersView({
   if (isLoading) {
     return (
       <Card>
-        <CardContent className="flex items-center justify-center py-12">
-          <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-          <span className="ml-2 text-muted-foreground">Loading clusters...</span>
+        <CardContent className="space-y-4 py-6">
+          {[1, 2, 3].map((i) => (
+            <div key={i} className="space-y-2">
+              <Skeleton className="h-5 w-3/4" />
+              <Skeleton className="h-4 w-1/2" />
+              <div className="flex gap-2">
+                <Skeleton className="h-5 w-20" />
+                <Skeleton className="h-5 w-28" />
+              </div>
+            </div>
+          ))}
         </CardContent>
       </Card>
     );
@@ -122,7 +131,6 @@ export function ClustersView({
       {/* Cluster list */}
       {clusters.map((cluster: QuestionCluster) => {
         const isExpanded = expandedClusters.has(cluster.clusterId);
-        const masterHasAnswer = hasAnswer(cluster.masterQuestionId);
         const answeredCount = cluster.members.filter((m: ClusterMember) => hasAnswer(m.questionId)).length;
 
         return (

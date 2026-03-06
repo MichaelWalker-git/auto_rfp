@@ -1,80 +1,59 @@
-import type { APIGatewayProxyEventV2, APIGatewayProxyResultV2 } from 'aws-lambda';
-import { PutCommand } from '@aws-sdk/lib-dynamodb';
-import { v4 as uuidv4 } from 'uuid';
+import { APIGatewayProxyResultV2 } from 'aws-lambda';
 import middy from '@middy/core';
-import { apiResponse, getOrgId } from '@/helpers/api';
-import { docClient } from '@/helpers/db';
-import { requireEnv } from '@/helpers/env';
+
+import { CreateQuestionsSchema } from '@auto-rfp/core';
+import { apiResponse } from '@/helpers/api';
+import { createQuestions } from '@/helpers/question';
 import { withSentryLambda } from '@/sentry-lambda';
-import { authContextMiddleware, httpErrorMiddleware, orgMembershipMiddleware } from '@/middleware/rbac-middleware';
-import { PK_NAME, SK_NAME } from '@/constants/common';
-import { QUESTION_PK } from '@/constants/question';
-import { buildQuestionSK } from '@/helpers/question';
+import {
+  authContextMiddleware,
+  type AuthedEvent,
+  httpErrorMiddleware,
+  orgMembershipMiddleware,
+  requirePermission,
+} from '@/middleware/rbac-middleware';
+import { auditMiddleware, setAuditContext } from '@/middleware/audit-middleware';
 
-const TABLE_NAME = requireEnv('DB_TABLE_NAME');
-
-/**
- * POST /question/create-question
- * Creates manual questions for a project.
- * Body: { projectId, sections: [{ title, questions: [{ question }] }] }
- */
-async function baseHandler(event: APIGatewayProxyEventV2): Promise<APIGatewayProxyResultV2> {
-  const orgId = getOrgId(event);
-  const body = JSON.parse(event.body || '{}');
-  const { projectId, sections } = body;
-
-  if (!projectId || !orgId) {
-    return apiResponse(400, { error: 'projectId and orgId are required' });
+export const baseHandler = async (event: AuthedEvent): Promise<APIGatewayProxyResultV2> => {
+  if (!event.body) {
+    return apiResponse(400, { message: 'Request body is missing' });
   }
 
-  if (!sections || !Array.isArray(sections) || sections.length === 0) {
-    return apiResponse(400, { error: 'sections array is required' });
+  const { success, data, error } = CreateQuestionsSchema.safeParse(JSON.parse(event.body));
+
+  if (!success) {
+    return apiResponse(400, { message: 'Validation failed', issues: error.issues });
   }
 
-  const now = new Date().toISOString();
-  const createdQuestions: Array<{ questionId: string; question: string; sectionTitle: string }> = [];
+  const questions = await createQuestions(data);
 
-  for (const section of sections) {
-    const sectionId = section.id || uuidv4();
-    const sectionTitle = section.title || 'Untitled Section';
-
-    for (const q of section.questions || []) {
-      if (!q.question?.trim()) continue;
-
-      const questionId = uuidv4();
-      const sk = buildQuestionSK(projectId, questionId);
-
-      await docClient.send(
-        new PutCommand({
-          TableName: TABLE_NAME,
-          Item: {
-            [PK_NAME]: QUESTION_PK,
-            [SK_NAME]: sk,
-            projectId,
-            questionFileId: 'manual',
-            questionId,
-            question: q.question.trim(),
-            sectionId,
-            sectionTitle,
-            sectionDescription: null,
-            createdAt: now,
-            updatedAt: now,
-          },
-        }),
-      );
-
-      createdQuestions.push({ questionId, question: q.question.trim(), sectionTitle });
-    }
-  }
+  setAuditContext(event, {
+    action: 'QUESTION_CREATED',
+    resource: 'question',
+    resourceId: data.projectId,
+    orgId: data.orgId,
+    changes: {
+      after: {
+        projectId: data.projectId,
+        opportunityId: data.opportunityId,
+        questionFileId: data.questionFileId,
+        count: questions.length,
+      },
+    },
+  });
 
   return apiResponse(201, {
-    message: `${createdQuestions.length} questions created`,
-    projectId,
-    questions: createdQuestions,
+    message: `${questions.length} questions created`,
+    projectId: data.projectId,
+    questions,
   });
-}
+};
 
-export const handler = middy(withSentryLambda(baseHandler))
-  .use(httpErrorMiddleware())
-  .use(authContextMiddleware())
-  .use(orgMembershipMiddleware());
+export const handler = withSentryLambda(
+  middy(baseHandler)
+    .use(authContextMiddleware())
+    .use(orgMembershipMiddleware())
+    .use(requirePermission('question:create'))
+    .use(auditMiddleware())
+    .use(httpErrorMiddleware()),
+);

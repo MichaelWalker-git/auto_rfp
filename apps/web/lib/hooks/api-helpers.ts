@@ -39,7 +39,16 @@ export async function apiFetcher<T>(url: string): Promise<T> {
   }
 
   const text = await res.text();
-  return (text ? JSON.parse(text) : null) as T;
+  const parsed = (text ? JSON.parse(text) : null) as T;
+
+  // Debug logging for questions endpoint
+  if (url.includes('projects/questions')) {
+    console.log('[apiFetcher] Response from', url);
+    console.log('[apiFetcher] Response keys:', parsed ? Object.keys(parsed as any) : 'none');
+    console.log('[apiFetcher] Answers map:', (parsed as any)?.answers ? Object.keys((parsed as any).answers).length : 'none');
+  }
+
+  return parsed;
 }
 
 // ─── Shared Mutator (POST/PUT/PATCH/DELETE) ───

@@ -3,7 +3,7 @@
 import React, { createContext, ReactNode, useCallback, useContext, useEffect, useRef, useState } from 'react';
 import { toast } from '@/components/ui/use-toast';
 import { AnswerSource, ConfidenceBreakdown, ConfidenceBand, GroupedSection, type QuestionFileItem, type SaveAnswerDTO } from '@auto-rfp/core';
-import { useAnswers, useQuestions as useLoadQuestions } from '@/lib/hooks/use-api';
+import { useQuestions as useLoadQuestions } from '@/lib/hooks/use-api';
 import { useProject } from '@/lib/hooks/use-project';
 import { useGenerateAnswer, useSaveAnswer, useApproveAnswer } from '@/lib/hooks/use-answer';
 import { useQuestionFiles } from '@/lib/hooks/use-question-file';
@@ -155,22 +155,30 @@ export function QuestionsProvider({ children, projectId, opportunityId }: Questi
   const [unapprovingQuestions, setUnapprovingQuestions] = useState<Set<string>>(new Set());
 
   const { data: project, isLoading: isProjectLoading } = useProject(projectId);
-  const { data: questions, isLoading: isQuestionsLoading, mutate: mutateQuestions } = useLoadQuestions(projectId);
+  const { data: questionsData, isLoading: isQuestionsLoading, mutate: mutateQuestions } = useLoadQuestions(projectId);
   const { items: questionFiles, isLoading: isQuestionFilesLoading } = useQuestionFiles(projectId);
-  const { data: answersData, error: answerError, isLoading: isAnswersLoading, mutate: mutateAnswers } = useAnswers(projectId);
   const { trigger: saveAnswer } = useSaveAnswer(projectId);
   const { trigger: approveAnswer } = useApproveAnswer(projectId);
   const { trigger: generateAnswer } = useGenerateAnswer();
 
+  // Extract questions (sections) and server answers from the combined response
+  const questions = questionsData ? { sections: questionsData.sections } : undefined;
+  const serverAnswers = questionsData?.answers;
+
+  console.log('[QuestionsProvider] questionsData:', questionsData);
+  console.log('[QuestionsProvider] questions:', questions);
+  console.log('[QuestionsProvider] serverAnswers (from questionsData):', serverAnswers);
+
   // Ref to track unsaved questions for autosave (avoids stale closure)
   const unsavedQuestionsRef = useRef<Set<string>>(new Set());
   const answersRef = useRef<Record<string, AnswerData>>({});
+  const questionsRef = useRef<{ sections: GroupedSection[] } | undefined>();
 
   // Get orgId from project to load knowledge bases
   const orgId = project?.orgId ?? null;
   const { data: knowledgeBases, isLoading: isKnowledgeBasesLoading } = useKnowledgeBases(orgId);
 
-  const isLoading = isProjectLoading || isQuestionsLoading || isAnswersLoading;
+  const isLoading = isProjectLoading || isQuestionsLoading;
 
   // Sync knowledge bases to available indexes state
   useEffect(() => {
@@ -248,6 +256,8 @@ export function QuestionsProvider({ children, projectId, opportunityId }: Questi
         orgId,
         projectId,
         questionId,
+        opportunityId: question.opportunityId,
+        questionFileId: question.questionFileId,
         topK: 20,
       });
 
@@ -296,6 +306,13 @@ export function QuestionsProvider({ children, projectId, opportunityId }: Questi
   const handleSaveAnswer = async (questionId: string) => {
     if (!projectId || !answers[questionId]) return;
 
+    // Find the question to get opportunityId and questionFileId
+    const question = questions?.sections?.flatMap((s: any) => s.questions)?.find((q: any) => q.id === questionId);
+    if (!question) {
+      toast({ title: 'Error', description: 'Question not found', variant: 'destructive' });
+      return;
+    }
+
     setSavingQuestions((prev) => {
       const next = new Set(prev);
       next.add(questionId);
@@ -306,6 +323,9 @@ export function QuestionsProvider({ children, projectId, opportunityId }: Questi
       const answerData = answers[questionId];
       const response = await saveAnswer({
         questionId,
+        projectId,
+        opportunityId: question.opportunityId,
+        questionFileId: question.questionFileId,
         text: answerData.text,
         sources: answerData.sources || [],
         ...(answerData.confidence !== undefined && { confidence: answerData.confidence }),
@@ -355,7 +375,18 @@ export function QuestionsProvider({ children, projectId, opportunityId }: Questi
         toSave.map(async (questionId) => {
           const text = answers[questionId]?.text;
           if (!text) return;
-          await saveAnswer({ questionId, text } as SaveAnswerDTO);
+
+          // Find the question to get opportunityId and questionFileId
+          const question = questions?.sections?.flatMap((s: any) => s.questions)?.find((q: any) => q.id === questionId);
+          if (!question) return;
+
+          await saveAnswer({
+            questionId,
+            projectId,
+            opportunityId: question.opportunityId,
+            questionFileId: question.questionFileId,
+            text
+          } as SaveAnswerDTO);
         }),
       );
 
@@ -406,7 +437,7 @@ export function QuestionsProvider({ children, projectId, opportunityId }: Questi
     document.body.removeChild(link);
   };
 
-  const getSelectedQuestionData = () => {
+  const getSelectedQuestionData = useCallback(() => {
     if (!selectedQuestion || !questions) return null;
 
     for (const section of questions.sections) {
@@ -414,7 +445,7 @@ export function QuestionsProvider({ children, projectId, opportunityId }: Questi
       if (question) return { question, section };
     }
     return null;
-  };
+  }, [selectedQuestion, questions]);
 
   // Helper to filter questions by opportunityId
   const filterByOpportunity = (questionsList: any[]) => {
@@ -433,7 +464,8 @@ export function QuestionsProvider({ children, projectId, opportunityId }: Questi
     });
   };
 
-  const getFilteredQuestions = (filterType = 'all') => {
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const getFilteredQuestions = useCallback((filterType = 'all') => {
     if (!questions) return [];
 
     let allQuestions = questions.sections.flatMap((section: any) =>
@@ -443,7 +475,7 @@ export function QuestionsProvider({ children, projectId, opportunityId }: Questi
         sectionId: section.id,
       })),
     );
-    
+
     // Apply opportunity filter first
     allQuestions = filterByOpportunity(allQuestions);
 
@@ -493,15 +525,16 @@ export function QuestionsProvider({ children, projectId, opportunityId }: Questi
     }
 
     return result;
-  };
+  }, [questions, answers, confidenceFilter, searchQuery, sortByConfidence, opportunityId]);
 
-  const getCounts = () => {
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const getCounts = useCallback(() => {
     if (!questions) return { all: 0, answered: 0, unanswered: 0 };
 
     let allQuestions = questions.sections.flatMap((s: any) => s.questions);
     // Apply opportunity filter
     allQuestions = filterByOpportunity(allQuestions);
-    
+
     const answeredCount = allQuestions.filter((q: any) => {
       const text = answers[q?.id]?.text;
       return typeof text === 'string' && text.trim().length > 0;
@@ -512,15 +545,16 @@ export function QuestionsProvider({ children, projectId, opportunityId }: Questi
       answered: answeredCount,
       unanswered: allQuestions.length - answeredCount,
     };
-  };
+  }, [questions, answers, opportunityId]);
 
-  const getConfidenceCounts = () => {
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const getConfidenceCounts = useCallback(() => {
     if (!questions) return { high: 0, medium: 0, low: 0 };
 
     let allQuestions = questions.sections.flatMap((s: any) => s.questions);
     // Apply opportunity filter
     allQuestions = filterByOpportunity(allQuestions);
-    
+
     let high = 0;
     let medium = 0;
     let low = 0;
@@ -538,7 +572,7 @@ export function QuestionsProvider({ children, projectId, opportunityId }: Questi
     }
 
     return { high, medium, low };
-  };
+  }, [questions, answers, opportunityId]);
 
   const handleSourceClick = (source: AnswerSource) => {
     setSelectedSource(source);
@@ -588,10 +622,23 @@ export function QuestionsProvider({ children, projectId, opportunityId }: Questi
     });
 
     try {
-      // Pass orgId so the backend can cascade-delete assignments and comments
-      const orgIdParam = orgId ? `&orgId=${orgId}` : '';
+      // Find the question to get its opportunityId and questionFileId
+      const questionData = questions?.sections
+        ?.flatMap((s: any) => s.questions)
+        ?.find((q: any) => q.id === questionId);
+      const questionOpportunityId = (questionData as any)?.opportunityId ?? '';
+      const questionFileId = (questionData as any)?.questionFileId ?? '';
+
+      const params = new URLSearchParams({
+        projectId,
+        questionId,
+        opportunityId: questionOpportunityId,
+        ...(questionFileId ? { fileId: questionFileId } : {}),
+        ...(orgId ? { orgId } : {}),
+      });
+
       const res = await authFetcher(
-        `${env.BASE_API_URL}/question/delete-question?projectId=${projectId}&questionId=${questionId}${orgIdParam}`,
+        `${env.BASE_API_URL}/question/delete-question?${params.toString()}`,
         {
           method: 'DELETE',
           cache: 'no-store',
@@ -602,20 +649,19 @@ export function QuestionsProvider({ children, projectId, opportunityId }: Questi
         throw new Error(text || `Request failed: ${res.status}`);
       }
 
-      // update local document immediately
-      const nextDoc: any = questions
+      // update local document immediately (optimistic update including answers map)
+      const nextDoc = questionsData
         ? {
-          ...questions,
-          sections: questions.sections.map((s: any) => ({
+          ...questionsData,
+          sections: questionsData.sections.map((s) => ({
             ...s,
-            questions: s.questions.filter((q: any) => q.id !== questionId),
+            questions: s.questions.filter((q) => q.id !== questionId),
           })),
         }
         : null;
 
       // mutateQuestions supports optimistic update if you pass data.
-      // If your `useLoadQuestions` hook returns `mutate` from SWR, this will work.
-      await mutateQuestions(nextDoc, { revalidate: false } as any);
+      await mutateQuestions(nextDoc ?? undefined, { revalidate: false });
 
       // remove local answer + unsaved marker
       setAnswers((prev) => {
@@ -653,12 +699,12 @@ export function QuestionsProvider({ children, projectId, opportunityId }: Questi
     }
   };
 
-  // Poll answers from server every 10s to pick up changes from other users
+  // Poll questions+answers from server every 10s to pick up changes from other users
   // (approve, unapprove, save, last edited by, approved by)
   useEffect(() => {
     const pollInterval = setInterval(() => {
-      if (unsavedQuestionsRef.current.size === 0 && mutateAnswers) {
-        mutateAnswers();
+      if (unsavedQuestionsRef.current.size === 0) {
+        mutateQuestions();
       }
     }, 10_000);
     return () => clearInterval(pollInterval);
@@ -680,13 +726,17 @@ export function QuestionsProvider({ children, projectId, opportunityId }: Questi
   }, [selectedQuestion, questions]);
 
   // Sync server answer data to local state.
-  // Merge server metadata (status, updatedByName, approvedByName, etc.) 
+  // Merge server metadata (status, updatedByName, approvedByName, etc.)
   // while preserving local text edits for unsaved questions.
   useEffect(() => {
-    if (!answersData) return;
+    console.log('[QuestionsProvider] serverAnswers:', serverAnswers);
+    console.log('[QuestionsProvider] serverAnswers type:', typeof serverAnswers);
+    console.log('[QuestionsProvider] serverAnswers keys:', serverAnswers ? Object.keys(serverAnswers) : 'none');
+
+    if (!serverAnswers) return;
     setAnswers((prev) => {
       const next: Record<string, AnswerData> = {};
-      for (const [qId, serverAnswer] of Object.entries(answersData)) {
+      for (const [qId, serverAnswer] of Object.entries(serverAnswers)) {
         const local = prev[qId];
         const hasLocalEdit = unsavedQuestionsRef.current.has(qId);
         next[qId] = {
@@ -699,9 +749,10 @@ export function QuestionsProvider({ children, projectId, opportunityId }: Questi
       for (const [qId, localAnswer] of Object.entries(prev)) {
         if (!next[qId]) next[qId] = localAnswer;
       }
+      console.log('[QuestionsProvider] Setting answers state:', Object.keys(next).length, 'answers');
       return next;
     });
-  }, [answersData]);
+  }, [serverAnswers]);
 
   // Keep refs in sync so autosave interval can read latest values without stale closure
   useEffect(() => {
@@ -711,6 +762,10 @@ export function QuestionsProvider({ children, projectId, opportunityId }: Questi
   useEffect(() => {
     answersRef.current = answers;
   }, [answers]);
+
+  useEffect(() => {
+    questionsRef.current = questions;
+  }, [questions]);
 
   // Autosave as DRAFT every 5 seconds for any unsaved questions
   useEffect(() => {
@@ -722,9 +777,16 @@ export function QuestionsProvider({ children, projectId, opportunityId }: Questi
         const answerData = answersRef.current[questionId];
         if (!answerData?.text?.trim()) continue;
 
+        // Find the question to get opportunityId and questionFileId
+        const question = questionsRef.current?.sections?.flatMap((s: any) => s.questions)?.find((q: any) => q.id === questionId);
+        if (!question) continue;
+
         try {
           await saveAnswer({
             questionId,
+            projectId,
+            opportunityId: question.opportunityId,
+            questionFileId: question.questionFileId,
             text: answerData.text,
             sources: answerData.sources || [],
             status: 'DRAFT',
@@ -753,6 +815,13 @@ export function QuestionsProvider({ children, projectId, opportunityId }: Questi
   const handleApproveAnswer = async (questionId: string) => {
     if (!projectId || !answers[questionId]) return;
 
+    // Find the question to get opportunityId and questionFileId
+    const question = questions?.sections?.flatMap((s: any) => s.questions)?.find((q: any) => q.id === questionId);
+    if (!question) {
+      toast({ title: 'Error', description: 'Question not found', variant: 'destructive' });
+      return;
+    }
+
     setApprovingQuestions((prev) => {
       const next = new Set(prev);
       next.add(questionId);
@@ -763,6 +832,9 @@ export function QuestionsProvider({ children, projectId, opportunityId }: Questi
       const answerData = answers[questionId];
       const response = await approveAnswer({
         questionId,
+        projectId,
+        opportunityId: question.opportunityId,
+        questionFileId: question.questionFileId,
         text: answerData.text,
         sources: answerData.sources || [],
         status: 'APPROVED',
@@ -817,6 +889,13 @@ export function QuestionsProvider({ children, projectId, opportunityId }: Questi
   const handleUnapproveAnswer = async (questionId: string) => {
     if (!projectId || !answers[questionId]) return;
 
+    // Find the question to get opportunityId and questionFileId
+    const question = questions?.sections?.flatMap((s: any) => s.questions)?.find((q: any) => q.id === questionId);
+    if (!question) {
+      toast({ title: 'Error', description: 'Question not found', variant: 'destructive' });
+      return;
+    }
+
     setUnapprovingQuestions((prev) => {
       const next = new Set(prev);
       next.add(questionId);
@@ -827,6 +906,9 @@ export function QuestionsProvider({ children, projectId, opportunityId }: Questi
       const answerData = answers[questionId];
       const response = await saveAnswer({
         questionId,
+        projectId,
+        opportunityId: question.opportunityId,
+        questionFileId: question.questionFileId,
         text: answerData.text,
         sources: answerData.sources || [],
         status: 'DRAFT',

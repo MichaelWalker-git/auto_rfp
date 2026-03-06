@@ -1,14 +1,16 @@
 'use client';
 
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
-import { ArrowLeft, FileDown, FileText, Loader2, RefreshCw, Save } from 'lucide-react';
+import { ArrowLeft, FileDown, FileText, History, Loader2, RefreshCw, Save } from 'lucide-react';
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/components/ui/use-toast';
+import { isDocumentGenerating, isDocumentFailed, isDocumentReady } from '@/lib/constants/rfp-document-status';
 
+import { useSWRConfig } from 'swr';
 import {
   useGenerateRFPDocument,
   useRFPDocumentHtmlContent,
@@ -16,8 +18,16 @@ import {
   useUpdateRFPDocument,
 } from '@/lib/hooks/use-rfp-documents';
 import { uploadFileToS3, usePresignDownload, usePresignUpload } from '@/lib/hooks/use-presign';
+import { useRevertVersion, useCherryPick } from '@/lib/hooks/use-document-versions';
 import { RichTextEditor, stripPresignedUrlsFromHtml } from './rich-text-editor';
 import { RFPDocumentExportDialog } from './rfp-document-export-dialog';
+import { RequestApprovalButton } from '@/features/document-approval';
+import { useAuth } from '@/components/AuthProvider';
+import { VersionHistoryPanel } from './version-history/VersionHistoryPanel';
+import { VersionDiffView } from './version-diff/VersionDiffView';
+import { RevertConfirmDialog } from './dialogs/RevertConfirmDialog';
+import { CherryPickConfirmDialog } from './dialogs/CherryPickConfirmDialog';
+import type { RFPDocumentVersion } from '@auto-rfp/core';
 
 // ─── Props ────────────────────────────────────────────────────────────────────
 
@@ -54,10 +64,25 @@ export const OpportunityDocumentEditorPage = ({
   const [htmlInitialized, setHtmlInitialized] = useState(false);
   // Ref mirrors state to avoid stale closure issues in callbacks
   const htmlInitializedRef = useRef(false);
+  // Manual state to track regeneration start (independent of SWR mutation state)
+  const [isRegenerateStarting, setIsRegenerateStarting] = useState(false);
+  // Counter to force editor remount when content is programmatically replaced
+  const [editorKey, setEditorKey] = useState(0);
+
+  // ── Version history state ──
+  const [showVersionHistory, setShowVersionHistory] = useState(false);
+  const [showDiffView, setShowDiffView] = useState(false);
+  const [diffVersions, setDiffVersions] = useState<{ from: number; to: number } | null>(null);
+  const [revertVersion, setRevertVersion] = useState<RFPDocumentVersion | null>(null);
+  const [cherryPickData, setCherryPickData] = useState<{
+    mergedHtml: string;
+    sourceVersion: number;
+    selectedCount: number;
+  } | null>(null);
 
   // ── Data fetching ──
 
-  const { document: doc, isLoading: isDocLoading } = useRFPDocumentPolling(
+  const { document: doc, isLoading: isDocLoading, mutate: mutateDoc } = useRFPDocumentPolling(
     projectId,
     opportunityId,
     documentId,
@@ -84,6 +109,18 @@ export const OpportunityDocumentEditorPage = ({
   const { trigger: triggerPresignUpload } = usePresignUpload();
   const { trigger: triggerPresignDownload } = usePresignDownload();
 
+  // ── Version mutation hooks ──
+  const { trigger: triggerRevert, isMutating: isReverting } = useRevertVersion();
+  const { trigger: triggerCherryPick, isMutating: isCherryPicking } = useCherryPick();
+
+  // ── SWR config for cache invalidation ──
+  const { mutate: globalMutate } = useSWRConfig();
+  
+  // Helper to invalidate version history cache
+  const invalidateVersionsCache = useCallback(() => {
+    globalMutate(['document-versions', projectId, opportunityId, documentId, orgId]);
+  }, [globalMutate, projectId, opportunityId, documentId, orgId]);
+
   // ── Image upload handlers ──
 
   const handleUploadImageToS3 = useCallback(async (file: File): Promise<string> => {
@@ -101,35 +138,90 @@ export const OpportunityDocumentEditorPage = ({
     return presign.url;
   }, [triggerPresignDownload]);
 
-  // Track whether the HTML fetch has ever been in a loading state.
-  // This prevents initializing with '' before the fetch actually starts.
-  const htmlFetchStartedRef = useRef(false);
+  // ── Reset initialization when HTML fetching becomes enabled ──
+  // This handles the case where you navigate back and then edit the same document again.
+  // Without this, the cached SWR data would return immediately with isLoading=false,
+  // but htmlInitialized would still be true, preventing re-initialization.
+  const prevHtmlFetchEnabledRef = useRef(htmlFetchEnabled);
   useEffect(() => {
-    if (isHtmlLoading) htmlFetchStartedRef.current = true;
-  }, [isHtmlLoading]);
-
-  // Reset fetch-started flag when document changes
-  useEffect(() => {
-    htmlFetchStartedRef.current = false;
-  }, [documentId]);
+    if (!prevHtmlFetchEnabledRef.current && htmlFetchEnabled) {
+      // HTML fetching just became enabled (key changed from null to URL)
+      // Reset initialization state to ensure we initialize with fresh/cached data
+      console.log('[OpportunityDocEditor] HTML fetch enabled, resetting initialization state');
+      htmlInitializedRef.current = false;
+      setHtmlInitialized(false);
+    }
+    prevHtmlFetchEnabledRef.current = htmlFetchEnabled;
+  }, [htmlFetchEnabled]);
 
   // ── HTML initialization ──
-  // Initialize the editor once:
-  //   1. doc is loaded (HTML fetch key is non-null)
-  //   2. The fetch has started (isHtmlLoading was true at least once)
-  //   3. The fetch is now done (isHtmlLoading is false)
-  //   4. Not already initialized
+  // Initialize the editor once the HTML fetch completes (or fails):
+  //   1. doc is loaded (HTML fetch is enabled)
+  //   2. The fetch is complete (not loading) OR errored
+  //   3. Not already initialized
+  // Note: We don't check if serverHtml is empty — an empty response is valid and should initialize the editor.
 
   useEffect(() => {
     if (!doc) return;
-    if (isHtmlLoading) return;
-    if (!htmlFetchStartedRef.current && !isHtmlError) return; // fetch hasn't started yet
+    // Wait for loading to complete OR error to occur
+    if (isHtmlLoading && !isHtmlError) return;
     if (htmlInitializedRef.current) return;
+
+    console.log('[OpportunityDocEditor] Initializing HTML content', {
+      docStatus: doc?.status,
+      htmlLength: serverHtml?.length || 0,
+      isHtmlError,
+    });
 
     htmlInitializedRef.current = true;
     setHtmlInitialized(true);
     setHtmlContent(serverHtml || '');
-  }, [doc, isHtmlLoading, isHtmlError, serverHtml]);
+
+    // Show error toast if HTML fetch failed
+    if (isHtmlError) {
+      toast({
+        title: 'Content load warning',
+        description: 'Could not load existing content. You can still edit and save.',
+        variant: 'default',
+      });
+    }
+  }, [doc, isHtmlLoading, isHtmlError, serverHtml, toast]);
+
+  // Manual polling while waiting for regeneration to start
+  useEffect(() => {
+    if (!isRegenerateStarting) return;
+
+    const interval = setInterval(() => {
+      console.log('[OpportunityDocEditor] Polling document status during regeneration start');
+      mutateDoc();
+    }, 3000);
+
+    return () => clearInterval(interval);
+  }, [isRegenerateStarting, mutateDoc]);
+
+  // Track status changes for regeneration lifecycle
+  const prevStatusRef = useRef<string | null | undefined>(undefined);
+  useEffect(() => {
+    const currentStatus = doc?.status;
+
+    // When status becomes GENERATING, clear the regenerate starting flag
+    if (currentStatus === 'GENERATING' && prevStatusRef.current !== 'GENERATING') {
+      console.log('[OpportunityDocEditor] Status became GENERATING, stopping manual polling');
+      setIsRegenerateStarting(false);
+    }
+
+    // When generation completes (status transitions away from GENERATING),
+    // invalidate the HTML cache so the editor picks up the newly generated content
+    // Note: currentStatus can be null (ready) or 'FAILED', both mean generation is done
+    if (prevStatusRef.current === 'GENERATING' && currentStatus !== 'GENERATING') {
+      console.log('[OpportunityDocEditor] Generation completed, refetching HTML', { currentStatus });
+      htmlInitializedRef.current = false;
+      setHtmlInitialized(false);
+      mutateHtml();
+    }
+
+    prevStatusRef.current = currentStatus;
+  }, [doc?.status, mutateHtml]);
 
   // Reset when navigating to a different document
   useEffect(() => {
@@ -142,6 +234,7 @@ export const OpportunityDocumentEditorPage = ({
 
   const handleRegenerate = useCallback(async () => {
     if (!doc) return;
+    setIsRegenerateStarting(true);
     try {
       await triggerGenerate({
         projectId,
@@ -150,14 +243,19 @@ export const OpportunityDocumentEditorPage = ({
         documentId,
       });
       toast({ title: 'Regeneration started', description: 'The document is being regenerated by AI.' });
+      // Force polling hook to refetch document status immediately
+      mutateDoc();
+      // Don't reset isRegenerateStarting here - let it stay true until status becomes GENERATING
+      // Don't reset HTML state here - let the status change effect handle it when generation completes
     } catch (err) {
       toast({
         title: 'Regeneration failed',
         description: err instanceof Error ? err.message : 'Could not start regeneration.',
         variant: 'destructive',
       });
+      setIsRegenerateStarting(false); // Only reset on error
     }
-  }, [doc, projectId, opportunityId, documentId, triggerGenerate, toast]);
+  }, [doc, projectId, opportunityId, documentId, triggerGenerate, mutateDoc, toast]);
 
   const handleSaveContent = useCallback(async () => {
     if (!doc) return;
@@ -174,6 +272,7 @@ export const OpportunityDocumentEditorPage = ({
       } as Parameters<typeof updateDocument>[0]);
       htmlInitializedRef.current = true;
       await mutateHtml();
+      invalidateVersionsCache(); // Refresh version history
       toast({ title: 'Document saved', description: 'Content has been saved successfully.' });
     } catch (err) {
       toast({
@@ -182,15 +281,102 @@ export const OpportunityDocumentEditorPage = ({
         variant: 'destructive',
       });
     }
-  }, [doc, projectId, opportunityId, documentId, htmlContent, updateDocument, mutateHtml, toast]);
+  }, [doc, projectId, opportunityId, documentId, htmlContent, updateDocument, mutateHtml, invalidateVersionsCache, toast]);
+
+  // ── Version history handlers ──
+  const handleCompareVersions = useCallback((fromVersion: number, toVersion: number) => {
+    setDiffVersions({ from: fromVersion, to: toVersion });
+    setShowDiffView(true);
+    setShowVersionHistory(false);
+  }, []);
+
+  const handleRevertConfirm = useCallback(async (changeNote?: string) => {
+    if (!revertVersion) return;
+    try {
+      const revertedData = await triggerRevert({
+        documentId,
+        projectId,
+        opportunityId,
+        orgId,
+        targetVersion: revertVersion.versionNumber,
+        changeNote,
+      });
+      setRevertVersion(null);
+      
+      // Update editor directly with the reverted HTML content from the response
+      if (revertedData?.html) {
+        setHtmlContent(revertedData.html);
+        // Force editor remount to pick up new content
+        setEditorKey((k) => k + 1);
+      }
+      
+      // Also revalidate the SWR cache for consistency
+      await mutateHtml();
+      invalidateVersionsCache(); // Refresh version history
+      
+      toast({ title: 'Version reverted', description: `Reverted to version ${revertVersion.versionNumber}.` });
+    } catch (err) {
+      toast({
+        title: 'Revert failed',
+        description: err instanceof Error ? err.message : 'Could not revert version.',
+        variant: 'destructive',
+      });
+    }
+  }, [revertVersion, documentId, projectId, opportunityId, orgId, triggerRevert, mutateHtml, invalidateVersionsCache, toast]);
+
+  const handleCherryPick = useCallback((mergedHtml: string, sourceVersion: number) => {
+    setCherryPickData({ mergedHtml, sourceVersion, selectedCount: 1 });
+    // Hide the diff view but keep diffVersions so we can go back
+    setShowDiffView(false);
+  }, []);
+
+  // Handler to go back to cherry-pick selection from the confirmation dialog
+  const handleGoBackToSelection = useCallback(() => {
+    setCherryPickData(null);
+    setShowDiffView(true);
+  }, []);
+
+  const handleCherryPickConfirm = useCallback(async (changeNote?: string) => {
+    if (!cherryPickData) return;
+    try {
+      await triggerCherryPick({
+        documentId,
+        projectId,
+        opportunityId,
+        orgId,
+        sourceVersion: cherryPickData.sourceVersion,
+        mergedHtml: cherryPickData.mergedHtml,
+        changeNote,
+      });
+      // Update editor immediately with merged HTML
+      const mergedContent = cherryPickData.mergedHtml;
+      setCherryPickData(null);
+      setHtmlContent(mergedContent);
+      // Force editor remount to pick up new content
+      setEditorKey((k) => k + 1);
+      // Revalidate the SWR cache
+      await mutateHtml();
+      invalidateVersionsCache(); // Refresh version history
+      toast({ title: 'Changes applied', description: 'Cherry-picked changes have been applied.' });
+    } catch (err) {
+      toast({
+        title: 'Cherry-pick failed',
+        description: err instanceof Error ? err.message : 'Could not apply changes.',
+        variant: 'destructive',
+      });
+    }
+  }, [cherryPickData, documentId, projectId, opportunityId, orgId, triggerCherryPick, mutateHtml, invalidateVersionsCache, toast]);
 
   // ── Derived state ──
 
-  const isGenerating = doc?.status === 'GENERATING';
-  // Editor is ready when: not generating, HTML fetch done (or errored), and initialized.
+  const { userSub } = useAuth();
+  const isGenerating = isDocumentGenerating(doc?.status);
+  const isFailed = isDocumentFailed(doc?.status);
+  const isReady = isDocumentReady(doc?.status);
+  // Editor is ready when: document is ready (not generating/failed), HTML fetch done, and initialized.
   // Uses htmlInitialized (state) so React re-renders when initialization completes.
-  const isEditorReady = !isGenerating && !isHtmlLoading && htmlInitialized;
-  const isBusy = isMutating || isRegenerating || isGenerating;
+  const isEditorReady = isReady && !isHtmlLoading && htmlInitialized;
+  const isBusy = isMutating || isRegenerating || isGenerating || isRegenerateStarting;
   const backUrl = `/organizations/${orgId}/projects/${projectId}/opportunities/${opportunityId}`;
 
   // ── Render ──
@@ -230,7 +416,7 @@ export const OpportunityDocumentEditorPage = ({
           </Link>
         </Button>
 
-        {/* Generating badge */}
+        {/* Status badges */}
         {isGenerating && (
           <Badge
             variant="outline"
@@ -240,12 +426,43 @@ export const OpportunityDocumentEditorPage = ({
             Generating…
           </Badge>
         )}
+        {isFailed && (
+          <Badge
+            variant="outline"
+            className="text-xs border-red-500/30 text-red-600 bg-red-500/5 shrink-0"
+          >
+            Generation Failed
+          </Badge>
+        )}
 
         {/* Spacer — pushes actions to the right */}
         <div className="flex-1" />
 
         {/* Actions */}
         <div className="flex items-center gap-2 shrink-0">
+        {/* Request Review — only for ready (non-generating, non-failed) documents */}
+        {doc && doc.status !== 'GENERATING' && doc.status !== 'FAILED' && userSub && (
+          <RequestApprovalButton
+            orgId={orgId}
+            projectId={projectId}
+            opportunityId={opportunityId}
+            documentId={documentId}
+            documentName={doc.name}
+            disabled={isBusy}
+          />
+        )}
+
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => setShowVersionHistory(!showVersionHistory)}
+          disabled={isGenerating}
+          title="Version history"
+        >
+          <History className="h-4 w-4 mr-2" />
+          History
+        </Button>
+
         <Button
           variant="outline"
           size="sm"
@@ -262,11 +479,17 @@ export const OpportunityDocumentEditorPage = ({
           size="sm"
           onClick={handleRegenerate}
           disabled={isBusy}
+          title={isGenerating ? 'Document is currently generating' : 'Regenerate document with AI'}
         >
-          {isRegenerating ? (
+          {isRegenerateStarting || isRegenerating ? (
             <>
               <Loader2 className="h-4 w-4 mr-2 animate-spin" />
               Starting…
+            </>
+          ) : isGenerating ? (
+            <>
+              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              Generating…
             </>
           ) : (
             <>
@@ -280,7 +503,13 @@ export const OpportunityDocumentEditorPage = ({
           size="sm"
           onClick={handleSaveContent}
           disabled={isBusy || isHtmlLoading || isImageUploading}
-          title={isImageUploading ? 'Please wait for image upload to complete' : undefined}
+          title={
+            isImageUploading
+              ? 'Please wait for image upload to complete'
+              : isGenerating
+              ? 'Cannot save while document is generating'
+              : undefined
+          }
         >
           {isMutating ? (
             <>
@@ -297,31 +526,67 @@ export const OpportunityDocumentEditorPage = ({
         </div>{/* end actions */}
       </div>{/* end toolbar */}
 
-      {/* ── Editor ── */}
-      <div className="flex-1 min-h-0 overflow-hidden">
-        {isGenerating ? (
-          <div className="flex flex-col items-center justify-center h-full gap-4 text-muted-foreground">
-            <Loader2 className="h-10 w-10 animate-spin text-indigo-500" />
-            <p className="text-sm font-medium">Generating document content…</p>
-            <p className="text-xs">This may take up to a minute.</p>
-          </div>
-        ) : !isEditorReady ? (
-          <div className="flex flex-col items-center justify-center h-full gap-3 text-muted-foreground">
-            <Loader2 className="h-8 w-8 animate-spin" />
-            <p className="text-sm">Loading content…</p>
-          </div>
-        ) : (
-          <RichTextEditor
-            value={htmlContent}
-            onChange={setHtmlContent}
-            disabled={isMutating}
-            className="h-full rounded-none border-0"
-            minHeight="100%"
-            onUploadImageToS3={handleUploadImageToS3}
-            onGetDownloadUrl={handleGetDownloadUrl}
-            onUploadingChange={setIsImageUploading}
-          />
-        )}
+      {/* ── Editor with optional side panel ── */}
+      <div className="flex flex-1 min-h-0 overflow-hidden">
+        <div className="flex-1 min-h-0 overflow-hidden">
+          {(isGenerating || isRegenerateStarting) ? (
+            <div className="flex flex-col items-center justify-center h-full gap-4 text-muted-foreground">
+              <Loader2 className="h-10 w-10 animate-spin text-indigo-500" />
+              <p className="text-sm font-medium">Generating document content…</p>
+              <p className="text-xs">This may take up to a minute.</p>
+            </div>
+          ) : isFailed ? (
+            <div className="flex flex-col items-center justify-center h-full gap-4">
+              <div className="rounded-full bg-red-50 p-3">
+                <FileText className="h-10 w-10 text-red-500" />
+              </div>
+              <div className="text-center max-w-md">
+                <p className="text-sm font-medium text-red-600 mb-1">Generation Failed</p>
+                <p className="text-xs text-muted-foreground mb-4">
+                  {doc?.generationError || 'The AI encountered an error while generating this document.'}
+                </p>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={handleRegenerate}
+                  disabled={isBusy}
+                >
+                  <RefreshCw className="h-4 w-4 mr-2" />
+                  Try Again
+                </Button>
+              </div>
+            </div>
+          ) : !isEditorReady ? (
+            <div className="flex flex-col items-center justify-center h-full gap-3 text-muted-foreground">
+              <Loader2 className="h-8 w-8 animate-spin" />
+              <p className="text-sm">Loading content…</p>
+            </div>
+          ) : (
+            <RichTextEditor
+              key={editorKey}
+              value={htmlContent}
+              onChange={setHtmlContent}
+              disabled={isMutating}
+              className="h-full rounded-none border-0"
+              minHeight="100%"
+              onUploadImageToS3={handleUploadImageToS3}
+              onGetDownloadUrl={handleGetDownloadUrl}
+              onUploadingChange={setIsImageUploading}
+            />
+          )}
+        </div>
+
+        {/* ── Version History Side Panel ── */}
+        <VersionHistoryPanel
+          projectId={projectId}
+          opportunityId={opportunityId}
+          documentId={documentId}
+          orgId={orgId}
+          isOpen={showVersionHistory}
+          onClose={() => setShowVersionHistory(false)}
+          onCompare={handleCompareVersions}
+          onRevert={(version) => setRevertVersion(version)}
+        />
       </div>
 
       {/* ── Export dialog ── */}
@@ -331,6 +596,48 @@ export const OpportunityDocumentEditorPage = ({
         document={doc}
         orgId={orgId}
         htmlContent={htmlContent}
+      />
+
+      {/* ── Version Diff View (full screen overlay) ── */}
+      {showDiffView && diffVersions && (
+        <VersionDiffView
+          projectId={projectId}
+          opportunityId={opportunityId}
+          documentId={documentId}
+          orgId={orgId}
+          fromVersion={diffVersions.from}
+          toVersion={diffVersions.to}
+          onClose={() => {
+            setShowDiffView(false);
+            setDiffVersions(null);
+          }}
+          onCherryPick={handleCherryPick}
+          onRevertToOlder={(version) => {
+            setShowDiffView(false);
+            setRevertVersion(version);
+          }}
+        />
+      )}
+
+      {/* ── Revert Confirmation Dialog ── */}
+      <RevertConfirmDialog
+        isOpen={!!revertVersion}
+        onClose={() => setRevertVersion(null)}
+        version={revertVersion}
+        onConfirm={handleRevertConfirm}
+        isLoading={isReverting}
+      />
+
+      {/* ── Cherry-Pick Confirmation Dialog ── */}
+      <CherryPickConfirmDialog
+        isOpen={!!cherryPickData}
+        onClose={() => setCherryPickData(null)}
+        selectedCount={cherryPickData?.selectedCount ?? 0}
+        sourceVersion={cherryPickData?.sourceVersion ?? 0}
+        previewHtml={cherryPickData?.mergedHtml ?? ''}
+        onConfirm={handleCherryPickConfirm}
+        isLoading={isCherryPicking}
+        onGoBack={handleGoBackToSelection}
       />
     </div>
   );

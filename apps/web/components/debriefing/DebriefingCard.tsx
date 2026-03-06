@@ -7,7 +7,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { DebriefingStatusBadge } from './DebriefingStatusBadge';
 import { RequestDebriefingDialog } from './RequestDebriefingDialog';
 import { useDebriefings } from '@/lib/hooks/use-debriefing';
-import { PermissionWrapper } from '@/components/permission-wrapper';
+import PermissionWrapper from '@/components/permission-wrapper';
 import { Calendar, Clock, Mail, Phone, User, AlertTriangle } from 'lucide-react';
 import { format, formatDistanceToNow, isPast } from 'date-fns';
 import type { DebriefingItem } from '@auto-rfp/core';

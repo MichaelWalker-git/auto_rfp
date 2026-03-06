@@ -1,7 +1,13 @@
 import type { APIGatewayProxyEventV2, APIGatewayProxyResultV2 } from 'aws-lambda';
+import middy from '@middy/core';
 import { withSentryLambda } from '@/sentry-lambda';
 import { apiResponse, getOrgId } from '@/helpers/api';
 import { listCustomDocumentTypes } from '@/helpers/custom-document-types';
+import {
+  authContextMiddleware,
+  httpErrorMiddleware,
+  orgMembershipMiddleware,
+} from '@/middleware/rbac-middleware';
 
 export const baseHandler = async (
   event: APIGatewayProxyEventV2,
@@ -22,4 +28,9 @@ export const baseHandler = async (
   }
 };
 
-export const handler = withSentryLambda(baseHandler);
+export const handler = withSentryLambda(
+  middy(baseHandler)
+    .use(authContextMiddleware())
+    .use(orgMembershipMiddleware())
+    .use(httpErrorMiddleware()),
+);

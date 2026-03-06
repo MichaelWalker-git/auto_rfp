@@ -14,10 +14,17 @@ export type { StaleContentReportResponse, ReactivateContentItemDTO, BulkReviewDT
 // ─── GET Hook ───
 
 export function useStaleContentReport(orgId: string | null, kbId: string | null) {
+  // Build query params: orgId is required, kbId is optional
+  const queryParams = orgId
+    ? kbId
+      ? { orgId, kbId }
+      : { orgId }
+    : null;
+
   const { data, isLoading, isError, error, mutate } = useApi<StaleContentReportResponse>(
-    orgId && kbId ? ['stale-content-report', orgId, kbId] : null,
-    orgId && kbId
-      ? buildApiUrl('content-library/stale-report', { orgId, kbId })
+    queryParams ? ['stale-content-report', orgId, kbId ?? 'all'] : null,
+    queryParams
+      ? buildApiUrl('content-library/stale-report', queryParams)
       : null,
     { dedupingInterval: 60_000 },
   );

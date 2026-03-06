@@ -131,7 +131,7 @@ export const RequiredDocumentsPanel = ({
       </CardHeader>
 
       <CardContent className="space-y-2">
-        {requiredDocuments.map((doc) => {
+        {requiredDocuments.map((doc, index) => {
           const isGenerating = generatingTypes.has(doc.documentType);
           const existing = existingByType.get(doc.documentType);
           const isGenerated = !!existing;
@@ -140,7 +140,7 @@ export const RequiredDocumentsPanel = ({
 
           return (
             <div
-              key={doc.documentType}
+              key={`${doc.documentType}-${index}`}
               className="flex items-center gap-3 rounded-lg border bg-background p-3"
             >
               <div className="flex-1 min-w-0">

@@ -8,6 +8,7 @@ import * as sns from 'aws-cdk-lib/aws-sns';
 import * as snsSubscriptions from 'aws-cdk-lib/aws-sns-subscriptions';
 import * as iam from 'aws-cdk-lib/aws-iam';
 import * as dynamodb from 'aws-cdk-lib/aws-dynamodb';
+import * as logs from 'aws-cdk-lib/aws-logs';
 import * as path from 'path';
 import { NagSuppressions } from 'cdk-nag';
 
@@ -86,7 +87,14 @@ export class StaleContentDetectionStack extends cdk.Stack {
     // Grant SNS publish
     staleContentTopic.grantPublish(lambdaRole);
 
-    // 3. Create the stale content detection Lambda
+    // 3. Create CloudWatch Log Group with retention
+    const logGroup = new logs.LogGroup(this, 'DetectStaleContentLogGroup', {
+      logGroupName: `/aws/lambda/auto-rfp-detect-stale-content-${stage}`,
+      retention: stage === 'prod' ? logs.RetentionDays.INFINITE : logs.RetentionDays.TWO_WEEKS,
+      removalPolicy: cdk.RemovalPolicy.DESTROY,
+    });
+
+    // 4. Create the stale content detection Lambda
     const detectStaleContentLambda = new lambdaNodejs.NodejsFunction(this, 'DetectStaleContentFn', {
       functionName: `auto-rfp-detect-stale-content-${stage}`,
       entry: path.join(__dirname, '../../apps/functions/src/handlers/content-library/detect-stale-content.ts'),
@@ -106,7 +114,10 @@ export class StaleContentDetectionStack extends cdk.Stack {
       },
     });
 
-    // 4. Create EventBridge rule — daily at 2am UTC
+    // Ensure log group is created before Lambda
+    detectStaleContentLambda.node.addDependency(logGroup);
+
+    // 5. Create EventBridge rule — daily at 2am UTC
     const dailyRule = new events.Rule(this, 'StaleContentDailyRule', {
       ruleName: `auto-rfp-stale-content-daily-${stage}`,
       description: 'Triggers stale content detection daily at 2am UTC',
@@ -123,7 +134,7 @@ export class StaleContentDetectionStack extends cdk.Stack {
       retryAttempts: 2,
     }));
 
-    // ─── CDK NAG Suppressions ───
+    // 6. CDK NAG Suppressions
     NagSuppressions.addResourceSuppressions(
       lambdaRole,
       [
@@ -136,7 +147,7 @@ export class StaleContentDetectionStack extends cdk.Stack {
       true,
     );
 
-    // Outputs
+    // 7. Outputs
     new cdk.CfnOutput(this, 'StaleContentSnsTopicArn', {
       value: staleContentTopic.topicArn,
       description: 'SNS Topic ARN for stale content notifications',

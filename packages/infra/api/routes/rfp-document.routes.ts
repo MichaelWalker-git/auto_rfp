@@ -17,7 +17,6 @@ export function rfpDocumentDomain(args?: {
       { method: 'DELETE', path: 'delete', entry: lambdaEntry('rfp-document/delete-rfp-document.ts') },
       { method: 'POST', path: 'preview-url', entry: lambdaEntry('rfp-document/get-document-preview-url.ts') },
       { method: 'POST', path: 'download-url', entry: lambdaEntry('rfp-document/get-document-download-url.ts') },
-      { method: 'POST', path: 'update-signature', entry: lambdaEntry('rfp-document/update-signature-status.ts') },
       { method: 'POST', path: 'export', entry: lambdaEntry('rfp-document/export-rfp-document.ts') },
       {
         method: 'POST',
@@ -31,6 +30,11 @@ export function rfpDocumentDomain(args?: {
       { method: 'GET', path: 'html-content', entry: lambdaEntry('rfp-document/get-html-content.ts') },
       { method: 'GET', path: 'custom-document-types', entry: lambdaEntry('rfp-document/get-custom-document-types.ts') },
       { method: 'POST', path: 'custom-document-types', entry: lambdaEntry('rfp-document/save-custom-document-type.ts') },
+      // Version comparison routes
+      { method: 'GET', path: 'versions', entry: lambdaEntry('rfp-document/get-versions.ts') },
+      { method: 'GET', path: 'compare', entry: lambdaEntry('rfp-document/compare-versions.ts') },
+      { method: 'POST', path: 'revert', entry: lambdaEntry('rfp-document/revert-version.ts') },
+      { method: 'POST', path: 'cherry-pick', entry: lambdaEntry('rfp-document/cherry-pick-version.ts') },
     ],
   };
 }

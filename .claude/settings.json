@@ -1,0 +1,18 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(tee /tmp/deploy-dev.log)",
+      "Bash(aws logs tail /aws/lambda/AutoRfp-Dev-AnswerGen-PrepareQuestions --since 10m --format short)",
+      "Bash(aws lambda get-function --function-name AutoRfp-Dev-AnswerGen-PrepareQuestions --query \"Configuration.[LastModified,CodeSize,Handler]\" --output table)",
+      "Bash(aws lambda list-functions --query \"Functions[?contains\\(FunctionName, ''PrepareQuestions''\\)].{Name:FunctionName,Modified:LastModified}\" --output table)",
+      "Bash(aws stepfunctions describe-state-machine --state-machine-arn \"arn:aws:states:us-east-1:039885961427:stateMachine:AutoRfp-Dev-AnswerGen-Pipeline\" --query \"definition\" --output text)",
+      "Bash(aws stepfunctions list-executions --state-machine-arn \"arn:aws:states:us-east-1:039885961427:stateMachine:AutoRfp-Dev-AnswerGen-Pipeline\" --max-results 1 --query \"executions[0].executionArn\" --output text)",
+      "Bash(aws stepfunctions get-execution-history --execution-arn \"arn:aws:states:us-east-1:039885961427:execution:AutoRfp-Dev-AnswerGen-Pipeline:6fbf749f-7173-489c-be0a-564f97ebf8b0-1772799579289\" --query \"events[?type==''TaskStateExited'' && stateExitedEventDetails.name==''Prepare Questions''].stateExitedEventDetails.output\" --output text)",
+      "Bash(aws s3 cp \"s3://auto-rfp-documents-dev-039885961427/answer-pipeline/6fbf749f-7173-489c-be0a-564f97ebf8b0/1772799609513-questions.jsonl\" -)",
+      "Bash(npm list aws-cdk-lib)",
+      "Bash(node -e \"const sfn = require\\(''aws-cdk-lib/aws-stepfunctions''\\); console.log\\(Object.getOwnPropertyNames\\(sfn.S3JsonItemReader.prototype\\)\\);\")",
+      "Bash(grep -A 20 \"class S3JsonItemReader\" node_modules/aws-cdk-lib/aws-stepfunctions/lib/*.d.ts)",
+      "Bash(node -e \"const sfn = require\\(''aws-cdk-lib/aws-stepfunctions''\\); console.log\\(Object.keys\\(sfn\\).filter\\(k => k.includes\\(''Reader''\\) || k.includes\\(''Item''\\)\\)\\);\")"
+    ]
+  }
+}

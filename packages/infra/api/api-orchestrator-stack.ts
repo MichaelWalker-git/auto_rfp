@@ -51,6 +51,9 @@ import { auditDomain } from './routes/audit.routes';
 import { analyticsDomain } from './routes/analytics.routes';
 import { clarifyingQuestionDomain } from './routes/clarifying-question.routes';
 import { engagementLogDomain } from './routes/engagement-log.routes';
+import { apnDomain } from './routes/apn.routes';
+import { proposalSubmissionDomain } from './routes/proposal-submission.routes';
+import { documentApprovalDomain } from './routes/document-approval.routes';
 
 export interface ApiOrchestratorStackProps extends cdk.StackProps {
   stage: string;
@@ -361,7 +364,7 @@ export class ApiOrchestratorStack extends cdk.Stack {
         environment: {
           ...commonEnv,
           PROPOSAL_MAX_SOLICITATION_CHARS: '80000',
-          BEDROCK_MAX_TOKENS: '4000',
+          BEDROCK_MAX_TOKENS: '40000',
           BEDROCK_TEMPERATURE: '0.1',
         },
         bundling: {
@@ -417,6 +420,9 @@ export class ApiOrchestratorStack extends cdk.Stack {
       analyticsDomain(),
       clarifyingQuestionDomain(),
       engagementLogDomain(),
+      apnDomain(),
+      proposalSubmissionDomain(),
+      documentApprovalDomain(),
     ];
 
     // Compute a hash of all route definitions so the deployment logical ID changes
@@ -473,6 +479,9 @@ export class ApiOrchestratorStack extends cdk.Stack {
       'AnalyticsRoutes',
       'ClarifyingQuestionRoutes',
       'EngagementLogRoutes',
+      'ApnRoutes',
+      'ProposalSubmissionRoutes',
+      'DocumentApprovalRoutes',
     ];
 
     const routeNestedStacks: ApiDomainRoutesStack[] = [];
@@ -551,6 +560,69 @@ export class ApiOrchestratorStack extends cdk.Stack {
         }),
       ],
     });
+
+    // ─── Proposal Submission Lambda CloudWatch Log Groups ─────────────────────
+    const proposalSubmissionHandlers = [
+      'get-submission-readiness',
+      'submit-proposal',
+      'get-submission-history',
+      'withdraw-submission',
+    ];
+
+    for (const handlerName of proposalSubmissionHandlers) {
+      new logs.LogGroup(this, `ProposalSubmissionLogs-${handlerName}-${stage}`, {
+        logGroupName: `/aws/lambda/auto-rfp-proposal-submission-${handlerName}-${stage}`,
+        retention: stage === 'prod' ? logs.RetentionDays.INFINITE : logs.RetentionDays.TWO_WEEKS,
+        removalPolicy: cdk.RemovalPolicy.DESTROY,
+      });
+    }
+
+    // ─── APN Lambda CloudWatch Log Groups ────────────────────────────────────
+    const apnHandlers = [
+      'get-apn-credentials',
+      'save-apn-credentials',
+      'get-apn-registration',
+      'retry-apn-registration',
+      'list-apn-registrations',
+    ];
+
+    for (const handlerName of apnHandlers) {
+      new logs.LogGroup(this, `ApnLogs-${handlerName}-${stage}`, {
+        logGroupName: `/aws/lambda/auto-rfp-apn-${handlerName}-${stage}`,
+        retention: stage === 'prod'
+          ? logs.RetentionDays.INFINITE
+          : logs.RetentionDays.TWO_WEEKS,
+        removalPolicy: cdk.RemovalPolicy.DESTROY,
+      });
+    }
+
+    // ─── Re-extract Questions Lambda CloudWatch Log Group ─────────────────────
+    new logs.LogGroup(this, `ReextractQuestionsLogs-${stage}`, {
+      logGroupName: `/aws/lambda/auto-rfp-questionfile-reextract-questions-${stage}`,
+      retention: stage === 'prod' ? logs.RetentionDays.INFINITE : logs.RetentionDays.TWO_WEEKS,
+    });
+
+    // ─── Re-extract All Questions Lambda CloudWatch Log Group ──────────────────
+    new logs.LogGroup(this, `ReextractAllQuestionsLogs-${stage}`, {
+      logGroupName: `/aws/lambda/auto-rfp-questionfile-reextract-all-questions-${stage}`,
+      retention: stage === 'prod' ? logs.RetentionDays.INFINITE : logs.RetentionDays.TWO_WEEKS,
+      removalPolicy: cdk.RemovalPolicy.DESTROY,
+    });
+
+    // ─── Document Approval Lambda CloudWatch Log Groups ───────────────────────
+    const documentApprovalHandlers = [
+      'request-approval',
+      'submit-review',
+      'get-approval-history',
+    ];
+
+    for (const handlerName of documentApprovalHandlers) {
+      new logs.LogGroup(this, `DocumentApprovalLogs-${handlerName}-${stage}`, {
+        logGroupName: `/aws/lambda/auto-rfp-document-approval-${handlerName}-${stage}`,
+        retention: stage === 'prod' ? logs.RetentionDays.INFINITE : logs.RetentionDays.TWO_WEEKS,
+        removalPolicy: cdk.RemovalPolicy.DESTROY,
+      });
+    }
 
     new cdk.CfnOutput(this, 'RestApiId', {
       value: this.restApiId,

@@ -28,6 +28,10 @@ export const NotificationTypeSchema = z.enum([
   // Stale content
   'STALE_CONTENT_WARNING',
   'STALE_CONTENT_DETECTED',
+  // Document approval
+  'DOCUMENT_APPROVAL_REQUESTED',
+  'DOCUMENT_APPROVED',
+  'DOCUMENT_REJECTED',
 ]);
 export type NotificationType = z.infer<typeof NotificationTypeSchema>;
 

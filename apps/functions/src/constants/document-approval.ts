@@ -1,0 +1,1 @@
+export const DOCUMENT_APPROVAL_PK = 'DOCUMENT_APPROVAL' as const;

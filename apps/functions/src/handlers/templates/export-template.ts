@@ -34,7 +34,6 @@ const baseHandler = async (
 
     const exportData = {
       name: template.name,
-      type: template.type,
       category: template.category,
       description: template.description,
       htmlContent,

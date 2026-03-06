@@ -81,7 +81,7 @@ export const baseHandler = async (event: APIGatewayProxyEventV2): Promise<APIGat
 
     // Parse and validate limit
     const limitRaw = queryLimit ? Number(queryLimit) : DEFAULT_LIMIT;
-    const limit = typeof limitRaw === 'number' && Number.isFinite(limitRaw)
+    const limit = Number.isFinite(limitRaw)
       ? Math.max(1, Math.min(MAX_LIMIT, Math.floor(limitRaw)))
       : DEFAULT_LIMIT;
 

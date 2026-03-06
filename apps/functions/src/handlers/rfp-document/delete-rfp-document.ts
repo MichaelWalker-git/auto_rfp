@@ -59,18 +59,15 @@ export const baseHandler = async (
     }
 
     setAuditContext(event, {
-      action: 'DATA_EXPORTED',
-      resource: 'proposal',
+      action: 'DOCUMENT_DELETED',
+      resource: 'document',
       resourceId: documentId,
     });
 
     return apiResponse(200, { ok: true, message: 'Document deleted' });
   } catch (err) {
     console.error('Error in delete-rfp-document:', err);
-    return apiResponse(500, {
-      message: 'Internal server error',
-      error: err instanceof Error ? err.message : 'Unknown error',
-    });
+    return apiResponse(500, { message: 'Internal server error' });
   }
 };
 

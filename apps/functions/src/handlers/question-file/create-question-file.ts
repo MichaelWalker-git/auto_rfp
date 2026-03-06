@@ -1,52 +1,48 @@
-import { APIGatewayProxyEventV2, APIGatewayProxyResultV2, } from 'aws-lambda';
+import { APIGatewayProxyResultV2 } from 'aws-lambda';
+import middy from '@middy/core';
 
-import { apiResponse, getOrgId, getUserId } from '@/helpers/api';
-
+import { CreateQuestionFileRequestSchema } from '@auto-rfp/core';
+import { apiResponse } from '@/helpers/api';
+import { createQuestionFile } from '@/helpers/questionFile';
 import { withSentryLambda } from '@/sentry-lambda';
 import {
   authContextMiddleware,
+  type AuthedEvent,
   httpErrorMiddleware,
   orgMembershipMiddleware,
   requirePermission,
-  type AuthedEvent,
 } from '@/middleware/rbac-middleware';
 import { auditMiddleware, setAuditContext } from '@/middleware/audit-middleware';
-import middy from '@middy/core';
-import { createQuestionFile } from '@/helpers/questionFile';
-import { CreateQuestionFileRequestSchema } from '@auto-rfp/core';
 
-export const baseHandler = async (
-  event: AuthedEvent,
-): Promise<APIGatewayProxyResultV2> => {
-  try {
-    const orgId = getOrgId(event);
-    if (!orgId) {
-      return apiResponse(400, { message: 'OrgId is missing' });
-    }
-    const bodyRaw = JSON.parse(event.body || '{}');
-
-    const { success, data, error: errors } = CreateQuestionFileRequestSchema.safeParse(bodyRaw);
-    if (!success) {
-      return apiResponse(400, { message: errors.message });
-    }
-
-    const created = await createQuestionFile(orgId, data);
-
-    
-    setAuditContext(event, {
-      action: 'DOCUMENT_UPLOADED',
-      resource: 'document',
-      resourceId: 'question-file',
-    });
-
-    return apiResponse(201, created);
-  } catch (err) {
-    console.error('create-question-file error:', err);
-    return apiResponse(500, {
-      message: 'Internal server error',
-      error: err instanceof Error ? err.message : 'Unknown error',
-    });
+export const baseHandler = async (event: AuthedEvent): Promise<APIGatewayProxyResultV2> => {
+  if (!event.body) {
+    return apiResponse(400, { message: 'Request body is missing' });
   }
+
+  const { success, data, error } = CreateQuestionFileRequestSchema.safeParse(JSON.parse(event.body));
+
+  if (!success) {
+    return apiResponse(400, { message: 'Validation failed', issues: error.issues });
+  }
+
+  const created = await createQuestionFile(data);
+
+  setAuditContext(event, {
+    action: 'QUESTION_FILE_CREATED',
+    resource: 'question_file',
+    resourceId: created.questionFileId,
+    orgId: data.orgId,
+    changes: {
+      after: {
+        projectId: data.projectId,
+        oppId: data.oppId,
+        originalFileName: data.originalFileName,
+        mimeType: data.mimeType,
+      },
+    },
+  });
+
+  return apiResponse(201, created);
 };
 
 export const handler = withSentryLambda(

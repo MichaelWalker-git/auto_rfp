@@ -3,16 +3,21 @@ import { ConfidenceBreakdown } from '@auto-rfp/core';
 import { withSentryLambda } from '@/sentry-lambda';
 import { generateAnswerForQuestion, GenerateAnswerResult } from '@/handlers/answer/generate-answer';
 
+/**
+ * Minimal question reference from Step Function (to avoid 256KB payload limit)
+ * Full question data is fetched from DynamoDB
+ */
 export interface GenerateAnswerPipelineEvent {
   questionId: string;
   projectId: string;
   orgId: string;
-  questionText?: string;
+  opportunityId?: string;
+  questionFileId?: string;
+  questionText?: string; // Optional - will be fetched from DynamoDB if not provided
   // Clustering fields from prepare-questions
   clusterId?: string;
   isClusterMaster?: boolean;
   masterQuestionId?: string;
-  similarityToMaster?: number;
 }
 
 export interface GenerateAnswerPipelineResult {
@@ -36,13 +41,17 @@ export const baseHandler = async (
 ): Promise<GenerateAnswerPipelineResult> => {
   console.log('generate-answer-pipeline event:', JSON.stringify(event));
 
-  const { questionId, projectId, orgId, questionText, masterQuestionId, isClusterMaster } = event;
+  const { questionId, projectId, orgId } = event;
+  const opportunityId = event.opportunityId || undefined;
+  const questionFileId = event.questionFileId || undefined;
+  const masterQuestionId = event.masterQuestionId || undefined;
+  const isClusterMaster = event.isClusterMaster ?? undefined;
 
-  if (!questionId || !projectId || !orgId) {
+  if (!questionId || !projectId || !orgId || !opportunityId) {
     return {
       questionId: questionId || 'unknown',
       success: false,
-      error: 'Missing required fields: questionId, projectId, orgId',
+      error: 'Missing required fields: questionId, projectId, orgId, opportunityId',
     };
   }
 
@@ -63,7 +72,8 @@ export const baseHandler = async (
       questionId,
       projectId,
       orgId,
-      questionText,
+      opportunityId,
+      questionFileId,
     });
 
     return {

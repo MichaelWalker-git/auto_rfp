@@ -53,12 +53,12 @@ interface GenerateDocumentDialogProps {
   onSuccess?: () => void;
 }
 
-export function GenerateDocumentDialog({
+export const GenerateDocumentDialog = ({
   projectId,
   opportunityId,
   orgId,
   onSuccess,
-}: GenerateDocumentDialogProps) {
+}: GenerateDocumentDialogProps) => {
   const [selectedType, setSelectedType] = useState<string>('TECHNICAL_PROPOSAL');
   const [isOpen, setIsOpen] = useState(false);
   const [status, setStatus] = useState<'idle' | 'generating' | 'success' | 'error'>('idle');
@@ -102,8 +102,8 @@ export function GenerateDocumentDialog({
 
   if (isGenerating) {
     return (
-      <Button size="sm" variant="outline" className="h-8 text-xs gap-1.5" disabled>
-        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+      <Button size="sm" variant="outline" disabled>
+        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
         Generating {selectedLabel}...
       </Button>
     );
@@ -111,8 +111,8 @@ export function GenerateDocumentDialog({
 
   if (status === 'success') {
     return (
-      <Button size="sm" variant="outline" className="h-8 text-xs gap-1.5 text-green-600 border-green-200" disabled>
-        <CheckCircle2 className="h-3.5 w-3.5" />
+      <Button size="sm" variant="outline" className="text-green-600 border-green-200" disabled>
+        <CheckCircle2 className="h-4 w-4 mr-2" />
         Document created
       </Button>
     );
@@ -123,11 +123,11 @@ export function GenerateDocumentDialog({
       <Button
         size="sm"
         variant="outline"
-        className="h-8 text-xs gap-1.5 text-red-500 border-red-200"
+        className="text-red-500 border-red-200"
         title={errorMessage ?? 'Generation failed'}
         onClick={() => setStatus('idle')}
       >
-        <AlertCircle className="h-3.5 w-3.5" />
+        <AlertCircle className="h-4 w-4 mr-2" />
         Failed — click to retry
       </Button>
     );
@@ -137,10 +137,10 @@ export function GenerateDocumentDialog({
     <PermissionWrapper requiredPermission="proposal:create">
       <DropdownMenu open={isOpen} onOpenChange={setIsOpen}>
         <DropdownMenuTrigger asChild>
-          <Button size="sm" variant="outline" className="h-8 text-xs gap-1">
-            <Brain className="h-3.5 w-3.5" />
+          <Button size="sm" variant="outline">
+            <Brain className="h-4 w-4 mr-2" />
             Generate
-            <ChevronDown className="h-3 w-3 ml-0.5" />
+            <ChevronDown className="h-3 w-3 ml-1" />
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent className="w-64 p-3" align="end">
@@ -183,10 +183,10 @@ export function GenerateDocumentDialog({
             </div>
             <Button
               size="sm"
-              className="w-full h-9 text-xs"
+              className="w-full"
               onClick={handleGenerate}
             >
-              <Brain className="h-3.5 w-3.5 mr-1.5 shrink-0" />
+              <Brain className="h-4 w-4 mr-2 shrink-0" />
               <span className="truncate">Generate {selectedLabel}</span>
             </Button>
             <p className="text-[10px] text-muted-foreground leading-tight">

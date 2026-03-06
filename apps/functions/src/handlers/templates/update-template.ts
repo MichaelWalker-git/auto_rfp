@@ -44,6 +44,7 @@ const baseHandler = async (
     const updated = {
       ...existing,
       ...(data.name !== undefined && { name: data.name }),
+      ...(data.category !== undefined && { category: data.category }),
       ...(data.description !== undefined && { description: data.description }),
       ...(data.tags !== undefined && { tags: data.tags }),
       ...(data.agencyId !== undefined && { agencyId: data.agencyId }),

@@ -463,12 +463,6 @@ export function ProjectOverview({ projectId }: ProjectOverviewProps) {
               Answer Questions
             </Link>
           </Button>
-          <Button variant="outline" size="sm" asChild>
-            <Link href={`${baseUrl}/documents`}>
-              <FileText className="h-4 w-4 mr-2" />
-              Solicitation Documents
-            </Link>
-          </Button>
         </CardContent>
       </Card>
     </div>
