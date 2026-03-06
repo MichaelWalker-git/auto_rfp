@@ -60,6 +60,17 @@ const ensureHtmlContent = (doc: RFPDocumentContent, templateHtml?: string): RFPD
   return { ...doc, content: html, htmlContent: undefined };
 };
 
+/**
+ * Build a minimal default template for document types that don't have a custom template.
+ * Uses a simple {{CONTENT}} placeholder so the AI generates the full document body.
+ */
+const buildDefaultTemplate = (documentType: string): string => {
+  const title = documentType.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+  return `<!-- TEMPLATE SCAFFOLD: This template defines the document wrapper/structure. Replace [CONTENT: ...] with a complete, well-structured HTML document body including appropriate headings and paragraphs. Keep all other text and elements (dates, company name, etc.) in their original positions. -->
+<h1 style="font-size:2em;font-weight:700;margin:0 0 0.5em;color:#1a1a2e">${title}</h1>
+<p style="margin:0 0 1em;line-height:1.7;color:#374151">[CONTENT: Write the complete document content here based on the solicitation requirements and provided context.]</p>`;
+};
+
 // ─── Job Schema ───
 
 const JobSchema = z.object({
@@ -155,16 +166,14 @@ const processJobInner = async (job: Job): Promise<void> => {
   //    - Single-shot: if template is a simple wrapper or has no sections
   //    - Fail: if no template exists at all
 
+  // Use a default simple template if no template exists for this document type
+  const effectiveTemplate = templateHtmlScaffold || buildDefaultTemplate(documentType);
   if (!templateHtmlScaffold) {
-    await updateDocumentStatus(
-      projectId, opportunityId, documentId, 'FAILED',
-      undefined, `No template found for document type: ${documentType}. Please create a template in the Templates page first.`,
-    );
-    return;
+    console.warn(`No template found for documentId=${documentId}, type=${documentType} — using default {{CONTENT}} template`);
   }
 
   // Parse template to extract section structure
-  const templateSections = parseTemplateSections(templateHtmlScaffold);
+  const templateSections = parseTemplateSections(effectiveTemplate);
   const useSectionedGeneration = templateSections !== null && templateSections.length > 1;
 
   console.log(`[DEBUG] Template parsing result: ${templateSections ? `${templateSections.length} sections found` : 'no sections (simple template)'}`);
@@ -202,7 +211,7 @@ const processJobInner = async (job: Job): Promise<void> => {
     }
 
     // Extract document title from template's <h1> or use document type as fallback
-    const titleMatch = templateHtmlScaffold.match(/<h1[^>]*>(.*?)<\/h1>/i);
+    const titleMatch = effectiveTemplate.match(/<h1[^>]*>(.*?)<\/h1>/i);
     const rawTitle = titleMatch ? titleMatch[1] : null;
     const docTitle = rawTitle
       ? rawTitle
@@ -221,7 +230,7 @@ const processJobInner = async (job: Job): Promise<void> => {
     // This preserves the template's preamble (header, logo, title, intro text,
     // images, resolved macros) and postamble (footer, closing) while replacing
     // only the section content with AI-generated text.
-    const rawStitchedHtml = injectSectionsIntoTemplate(templateHtmlScaffold, cleanFragments);
+    const rawStitchedHtml = injectSectionsIntoTemplate(effectiveTemplate, cleanFragments);
 
     // Strip any remaining [CONTENT: ...] placeholders that the AI failed to fill in
     const stitchedHtml = rawStitchedHtml.replace(/\[CONTENT:\s*[^\]]*\]/gi, '');
@@ -246,7 +255,7 @@ const processJobInner = async (job: Job): Promise<void> => {
   }
 
   // ── Single-shot generation (with tool-use loop) ─────────────────────────
-  console.log(`Using single-shot generation for documentId=${documentId} with template scaffold (${templateHtmlScaffold.length} chars)`);
+  console.log(`Using single-shot generation for documentId=${documentId} with template scaffold (${effectiveTemplate.length} chars)`);
   const TABLE_HEAVY_TYPES = new Set(['COMPLIANCE_MATRIX', 'APPENDICES', 'PAST_PERFORMANCE', 'CERTIFICATIONS']);
   const baseMaxTokens = TABLE_HEAVY_TYPES.has(documentType) ? Math.max(MAX_TOKENS, 16000) : MAX_TOKENS;
   const effectiveMaxTokens = enrichedKbText.length > 1000 ? Math.max(baseMaxTokens, 8000) : baseMaxTokens;
@@ -392,7 +401,7 @@ const processJobInner = async (job: Job): Promise<void> => {
   }
 
   // 8. Ensure htmlContent is present
-  const normalizedDocument = ensureHtmlContent(data, templateHtmlScaffold);
+  const normalizedDocument = ensureHtmlContent(data, effectiveTemplate);
 
   // 9. For simple templates (with {{CONTENT}} placeholder), inject the generated
   //    content into the template. For structured templates, the AI returns the full HTML.
@@ -403,9 +412,9 @@ const processJobInner = async (job: Job): Promise<void> => {
 
   // Check if this is a simple template with a [CONTENT: ...] placeholder
   // If so, inject the generated content into the template structure
-  if (templateHtmlScaffold && /\[CONTENT:\s*[^\]]*\]/i.test(templateHtmlScaffold)) {
+  if (/\[CONTENT:\s*[^\]]*\]/i.test(effectiveTemplate)) {
     console.log('[DEBUG] Detected simple template with [CONTENT: ...] placeholder, injecting generated content');
-    const injected = injectContentIntoSimpleTemplate(templateHtmlScaffold, finalHtml);
+    const injected = injectContentIntoSimpleTemplate(effectiveTemplate, finalHtml);
     if (injected) {
       finalHtml = injected;
       console.log(`[DEBUG] Successfully injected content into template (${finalHtml.length} chars)`);
@@ -431,7 +440,7 @@ const processJobInner = async (job: Job): Promise<void> => {
     title: finalDocument.title,
     contentLength: finalDocument.content?.length || 0,
     hasContent: !!finalDocument.content,
-    templatePreserved: !!templateHtmlScaffold,
+    templatePreserved: !!effectiveTemplate,
   });
   console.log(`[DEBUG] Final document content (first 1000 chars):`, finalDocument.content?.substring(0, 1000));
   console.log(`[DEBUG] Final document content (last 500 chars):`, finalDocument.content?.substring(Math.max(0, (finalDocument.content?.length || 0) - 500)));
