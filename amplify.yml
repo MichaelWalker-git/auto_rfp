@@ -12,9 +12,11 @@ applications:
             - pnpm install
         build:
           commands:
+            # Set CI=true so Sentry source map upload logs are visible
+            - export CI=true
             # Build @auto-rfp/core (tsup: esm + cjs + dts) before the Next.js app
             - pnpm --filter @auto-rfp/core build
-            # Build the Next.js app with standalone output
+            # Build the Next.js app with standalone output (Sentry uploads source maps via SENTRY_AUTH_TOKEN)
             - pnpm --filter @auto-rfp/web build
             # Copy public assets and static files into the standalone bundle
             # (required for Next.js standalone mode to serve them correctly).

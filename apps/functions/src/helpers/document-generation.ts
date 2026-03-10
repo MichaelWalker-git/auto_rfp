@@ -15,6 +15,7 @@ import type { BedrockResponse, QaPair } from '@/types/document-generation';
 import { getProjectById } from '@/helpers/project';
 import { getOrganizationById } from '@/handlers/organization/get-organization-by-id';
 import { getOpportunity } from '@/helpers/opportunity';
+import { getExecutiveBriefByProjectId } from '@/helpers/executive-opportunity-brief';
 
 export type { QaPair };
 
@@ -34,7 +35,7 @@ export const buildTemplateHtmlScaffold = (sections: TemplateSection[]): string =
 
   for (const section of sections.sort((a, b) => a.order - b.order)) {
     parts.push(
-      `<h2 style="font-size:1.4em;font-weight:700;margin:1.5em 0 0.5em;color:#1a1a2e">${section.title}</h2>`,
+      `<h2 style="font-size:1.4em;font-weight:700;margin:1.5em 0 0.5em">${section.title}</h2>`,
     );
 
     if (section.description) {
@@ -48,7 +49,7 @@ export const buildTemplateHtmlScaffold = (sections: TemplateSection[]): string =
       parts.push(section.content.trim());
     } else {
       parts.push(
-        `<p style="margin:0 0 1em;line-height:1.7;color:#374151">[CONTENT: Write 3-5 paragraphs for "${section.title}" based on the solicitation and Q&A context]</p>`,
+        `<p style="margin:0 0 1em;line-height:1.7">[CONTENT: Write 3-5 paragraphs for "${section.title}" based on the solicitation and Q&A context]</p>`,
       );
     }
 
@@ -136,6 +137,21 @@ const MACRO_LABELS: Record<string, string> = {
   ESTIMATED_VALUE:           '[Estimated Contract Value]',
   BASE_AND_OPTIONS_VALUE:    '[Base and All Options Value]',
 
+  // Project contact info
+  PROJECT_POC_NAME:          '[Primary POC Name]',
+  PROJECT_POC_EMAIL:         '[Primary POC Email]',
+  PROJECT_POC_PHONE:         '[Primary POC Phone]',
+  PROJECT_POC_TITLE:         '[Primary POC Title]',
+
+  // Solicitation organization
+  SOLICITATION_ORG_NAME:     '[Solicitation Organization Name]',
+  SOLICITATION_ORG_OFFICE:   '[Solicitation Office]',
+  SOLICITATION_ORG_LOCATION: '[Solicitation Location]',
+
+  // Brief contacts
+  CONTRACTING_OFFICER:       '[Contracting Officer]',
+  TECHNICAL_POC:             '[Technical Point of Contact]',
+
   // Content placeholder
   CONTENT:                   '[CONTENT: Write detailed, substantive content here based on the solicitation requirements and provided context. Minimum 3-5 paragraphs.]',
 };
@@ -182,6 +198,12 @@ export const buildMacroValues = async (params: {
     macroValues.PROJECT_TITLE = project.name || '';
     macroValues.PROPOSAL_TITLE = project.name || '';
     macroValues.PROJECT_DESCRIPTION = project.description || '';
+
+    // Project contact info macros
+    macroValues.PROJECT_POC_NAME = project.contactInfo?.primaryPocName || '';
+    macroValues.PROJECT_POC_EMAIL = project.contactInfo?.primaryPocEmail || '';
+    macroValues.PROJECT_POC_PHONE = project.contactInfo?.primaryPocPhone || '';
+    macroValues.PROJECT_POC_TITLE = project.contactInfo?.primaryPocTitle || '';
   }
 
   // Opportunity macros
@@ -249,6 +271,56 @@ export const buildMacroValues = async (params: {
         macroValues.ESTIMATED_VALUE = String(value);
         macroValues.BASE_AND_OPTIONS_VALUE = String(value);
       }
+    }
+
+    // Solicitation organization macros (from opportunity data)
+    macroValues.SOLICITATION_ORG_NAME = opportunity.organizationName || '';
+    macroValues.SOLICITATION_ORG_OFFICE = opportunity.organizationName || '';
+  }
+
+  // Brief contacts macros — load executive brief if opportunity is provided
+  if (opportunityId) {
+    try {
+      const brief = await getExecutiveBriefByProjectId(projectId, opportunityId);
+
+      // Extract solicitation org details from brief summary (more detailed than opportunity)
+      const summaryData = brief?.sections?.summary?.data;
+      if (summaryData) {
+        if (summaryData.office) {
+          macroValues.SOLICITATION_ORG_OFFICE = summaryData.office;
+        }
+        if (summaryData.placeOfPerformance) {
+          macroValues.SOLICITATION_ORG_LOCATION = summaryData.placeOfPerformance;
+        }
+        // Use brief agency name if available and opportunity didn't provide one
+        if (summaryData.agency && !macroValues.SOLICITATION_ORG_NAME) {
+          macroValues.SOLICITATION_ORG_NAME = summaryData.agency;
+        }
+      }
+
+      // Extract contacts from brief
+      const contacts = brief?.sections?.contacts?.data?.contacts;
+      if (contacts?.length) {
+        const formatContact = (contact?: { name?: string | null; email?: string | null }) => {
+          if (!contact) return '';
+          const parts: string[] = [];
+          if (contact.name) parts.push(contact.name);
+          if (contact.email) parts.push(`(${contact.email})`);
+          return parts.join(' ');
+        };
+
+        const contractingOfficer = contacts.find(
+          (c) => c.role === 'CONTRACTING_OFFICER',
+        );
+        const technicalPoc = contacts.find(
+          (c) => c.role === 'TECHNICAL_POC',
+        );
+
+        macroValues.CONTRACTING_OFFICER = formatContact(contractingOfficer);
+        macroValues.TECHNICAL_POC = formatContact(technicalPoc);
+      }
+    } catch (err) {
+      console.warn('No executive brief found for opportunity:', opportunityId, (err as Error)?.message);
     }
   }
 

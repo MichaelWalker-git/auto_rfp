@@ -4,10 +4,11 @@ import { requireEnv } from '@/helpers/env';
 import { getWsConnection, upsertPresence, listPresence } from '@/helpers/collaboration';
 import { WsInboundMessageSchema } from '@auto-rfp/core';
 import type { PresenceItem } from '@auto-rfp/core';
+import { withSentryLambda } from '@/sentry-lambda';
 
 const WS_ENDPOINT = requireEnv('WS_API_ENDPOINT');
 
-export const handler: APIGatewayProxyWebsocketHandlerV2 = async (event) => {
+const baseHandler: APIGatewayProxyWebsocketHandlerV2 = async (event) => {
   const { connectionId } = event.requestContext;
 
   const conn = await getWsConnection(connectionId);
@@ -83,3 +84,5 @@ async function broadcastToProject(
 
   await Promise.allSettled(sends);
 }
+
+export const handler = withSentryLambda(baseHandler);

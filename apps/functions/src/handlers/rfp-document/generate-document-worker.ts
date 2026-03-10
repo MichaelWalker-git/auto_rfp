@@ -53,7 +53,7 @@ const ensureHtmlContent = (doc: RFPDocumentContent, templateHtml?: string): RFPD
   const html = [
     titleHtml,
     doc.outlineSummary
-      ? `<p style="margin:0 0 1em;line-height:1.7;color:#374151">${doc.outlineSummary}</p>`
+      ? `<p style="margin:0 0 1em;line-height:1.7">${doc.outlineSummary}</p>`
       : '',
   ].filter(Boolean).join('\n');
 
@@ -67,8 +67,8 @@ const ensureHtmlContent = (doc: RFPDocumentContent, templateHtml?: string): RFPD
 const buildDefaultTemplate = (documentType: string): string => {
   const title = documentType.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
   return `<!-- TEMPLATE SCAFFOLD: This template defines the document wrapper/structure. Replace [CONTENT: ...] with a complete, well-structured HTML document body including appropriate headings and paragraphs. Keep all other text and elements (dates, company name, etc.) in their original positions. -->
-<h1 style="font-size:2em;font-weight:700;margin:0 0 0.5em;color:#1a1a2e">${title}</h1>
-<p style="margin:0 0 1em;line-height:1.7;color:#374151">[CONTENT: Write the complete document content here based on the solicitation requirements and provided context.]</p>`;
+<h1 style="font-size:2em;font-weight:700;margin:0 0 0.5em">${title}</h1>
+<p style="margin:0 0 1em;line-height:1.7">[CONTENT: Write the complete document content here based on the solicitation requirements and provided context.]</p>`;
 };
 
 // ─── Job Schema ───

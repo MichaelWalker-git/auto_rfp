@@ -57,7 +57,7 @@ export const baseHandler = async (
     const dto: UpdateProjectDTO = validationResult.data;
 
     // If nothing to update (empty body), you can either no-op or return 400
-    if (!dto.name && dto.description === undefined) {
+    if (!dto.name && dto.description === undefined && dto.contactInfo === undefined) {
       return apiResponse(400, {
         message: 'No updatable fields provided',
       });
@@ -124,6 +124,12 @@ export async function updateProject(
     expressionAttributeNames['#description'] = 'description';
     expressionAttributeValues[':description'] = dto.description;
     setExpressions.push('#description = :description');
+  }
+
+  if (dto.contactInfo !== undefined) {
+    expressionAttributeNames['#contactInfo'] = 'contactInfo';
+    expressionAttributeValues[':contactInfo'] = dto.contactInfo;
+    setExpressions.push('#contactInfo = :contactInfo');
   }
 
   const cmd = new UpdateCommand({

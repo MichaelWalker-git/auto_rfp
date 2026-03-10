@@ -3,6 +3,7 @@ import {
   CognitoJwtVerifier,
 } from 'aws-jwt-verify';
 import { requireEnv } from '@/helpers/env';
+import { withSentryLambda } from '@/sentry-lambda';
 
 const USER_POOL_ID = requireEnv('COGNITO_USER_POOL_ID');
 const REGION = requireEnv('REGION', 'us-east-1');
@@ -20,7 +21,7 @@ interface WsAuthorizerEvent {
   queryStringParameters?: Record<string, string>;
 }
 
-export const handler = async (event: WsAuthorizerEvent): Promise<APIGatewayAuthorizerResult> => {
+const baseHandler = async (event: WsAuthorizerEvent): Promise<APIGatewayAuthorizerResult> => {
   const token = event.queryStringParameters?.token ?? '';
 
   try {
@@ -59,3 +60,5 @@ export const handler = async (event: WsAuthorizerEvent): Promise<APIGatewayAutho
     };
   }
 };
+
+export const handler = withSentryLambda(baseHandler);

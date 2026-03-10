@@ -18,6 +18,7 @@ import {
   FileText,
   FolderOpen,
   HelpCircle,
+  Settings,
   Target,
 } from 'lucide-react';
 import { format, formatDistanceToNow } from 'date-fns';
@@ -34,7 +35,6 @@ import { useApi } from '@/lib/hooks/use-api';
 import { env } from '@/lib/env';
 import { useOpportunitiesList } from '@/lib/hooks/use-opportunities';
 import { useCurrentOrganization } from '@/context/organization-context';
-import { ProjectKBSettings } from '@/components/projects/ProjectKBSettings';
 
 interface ProjectOverviewProps {
   projectId: string;
@@ -434,11 +434,6 @@ export function ProjectOverview({ projectId }: ProjectOverviewProps) {
         </Card>
       </div>
 
-      {/* Knowledge Base Assignment */}
-      {orgId && (
-        <ProjectKBSettings projectId={projectId} orgId={orgId} />
-      )}
-
       {/* Quick Actions */}
       <Card>
         <CardHeader>
@@ -461,6 +456,12 @@ export function ProjectOverview({ projectId }: ProjectOverviewProps) {
             <Link href={`${baseUrl}/questions`}>
               <HelpCircle className="h-4 w-4 mr-2" />
               Answer Questions
+            </Link>
+          </Button>
+          <Button variant="outline" size="sm" asChild>
+            <Link href={`${baseUrl}/settings`}>
+              <Settings className="h-4 w-4 mr-2" />
+              Project Settings
             </Link>
           </Button>
         </CardContent>

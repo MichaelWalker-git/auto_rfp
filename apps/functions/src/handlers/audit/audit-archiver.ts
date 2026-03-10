@@ -4,11 +4,12 @@ import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
 import { requireEnv } from '@/helpers/env';
 import { AUDIT_LOG_PK } from '@/constants/audit';
 import { PK_NAME } from '@/constants/common';
+import { withSentryLambda } from '@/sentry-lambda';
 
 const s3 = new S3Client({});
 const AUDIT_ARCHIVE_BUCKET = requireEnv('AUDIT_ARCHIVE_BUCKET');
 
-export const handler: DynamoDBStreamHandler = async (event) => {
+const baseHandler: DynamoDBStreamHandler = async (event) => {
   for (const record of event.Records) {
     // Only process TTL-triggered REMOVE events for AUDIT_LOG items
     if (record.eventName !== 'REMOVE') continue;
@@ -46,3 +47,5 @@ export const handler: DynamoDBStreamHandler = async (event) => {
     }
   }
 };
+
+export const handler = withSentryLambda(baseHandler);

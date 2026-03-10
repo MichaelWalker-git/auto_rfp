@@ -96,6 +96,25 @@ export const fetchProjectDetails = async (projectId: string): Promise<string> =>
     const orgName = (project as Record<string, unknown>).organization as { name?: string } | undefined;
     if (orgName?.name) lines.push(`Organization: ${orgName.name}`);
 
+    // Project contact info (higher priority than org primary contact for proposals)
+    const contactInfo = (project as Record<string, unknown>).contactInfo as {
+      primaryPocName?: string;
+      primaryPocEmail?: string;
+      primaryPocPhone?: string;
+      primaryPocTitle?: string;
+    } | undefined;
+    if (contactInfo) {
+      const hasContact = contactInfo.primaryPocName || contactInfo.primaryPocEmail;
+      if (hasContact) {
+        lines.push('');
+        lines.push('=== PROJECT PRIMARY CONTACT (use this for proposal signatory and POC) ===');
+        if (contactInfo.primaryPocName) lines.push(`Contact Name: ${contactInfo.primaryPocName}`);
+        if (contactInfo.primaryPocTitle) lines.push(`Contact Title: ${contactInfo.primaryPocTitle}`);
+        if (contactInfo.primaryPocEmail) lines.push(`Contact Email: ${contactInfo.primaryPocEmail}`);
+        if (contactInfo.primaryPocPhone) lines.push(`Contact Phone: ${contactInfo.primaryPocPhone}`);
+      }
+    }
+
     return lines.join('\n');
   } catch (err) {
     console.warn('fetchProjectDetails error:', (err as Error)?.message);

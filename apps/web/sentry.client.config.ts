@@ -2,7 +2,10 @@
 // The config you add here will be used whenever a user loads a page in their browser.
 // https://docs.sentry.io/platforms/javascript/guides/nextjs/
 
-import * as Sentry from '@sentry/nextjs';
+// Import from @sentry/browser (not @sentry/nextjs) because this file is loaded
+// via a 'use client' component for Turbopack compatibility, and @sentry/nextjs
+// resolves to its server entry which lacks browser-only integrations.
+import * as Sentry from '@sentry/browser';
 
 const environment = process.env.NEXT_PUBLIC_SENTRY_ENVIRONMENT ?? 'development';
 const isProduction = environment === 'production';
