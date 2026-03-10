@@ -147,6 +147,7 @@ function AppSidebar() {
           { title: 'Executive Briefs',       url: `/org/${orgId}/prs/${projectId}/brief`,                icon: Target },
           { title: 'Q&A Engagement Tools', url: `/org/${orgId}/prs/${projectId}/qa-engagement`, icon: MessageSquare },
           { title: 'Questions',             url: `/org/${orgId}/prs/${projectId}/questions`,            icon: MessageSquare },
+          { title: 'Settings',              url: `/org/${orgId}/prs/${projectId}/settings`,             icon: Settings },
         ]
         : [],
     [orgId, projectId]

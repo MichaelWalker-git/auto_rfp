@@ -73,6 +73,30 @@ export const MacroDocumentation = () => {
                 </Badge>
                 <span className="text-xs text-gray-600">Project description/overview</span>
               </div>
+              <div className="flex items-start gap-2">
+                <Badge variant="outline" className="font-mono text-xs shrink-0 bg-blue-50 border-blue-200 text-blue-700">
+                  {'{{PROJECT_POC_NAME}}'}
+                </Badge>
+                <span className="text-xs text-gray-600">Primary point of contact name <span className="text-blue-600 font-medium">NEW</span></span>
+              </div>
+              <div className="flex items-start gap-2">
+                <Badge variant="outline" className="font-mono text-xs shrink-0 bg-blue-50 border-blue-200 text-blue-700">
+                  {'{{PROJECT_POC_EMAIL}}'}
+                </Badge>
+                <span className="text-xs text-gray-600">Primary POC email <span className="text-blue-600 font-medium">NEW</span></span>
+              </div>
+              <div className="flex items-start gap-2">
+                <Badge variant="outline" className="font-mono text-xs shrink-0 bg-blue-50 border-blue-200 text-blue-700">
+                  {'{{PROJECT_POC_PHONE}}'}
+                </Badge>
+                <span className="text-xs text-gray-600">Primary POC phone <span className="text-blue-600 font-medium">NEW</span></span>
+              </div>
+              <div className="flex items-start gap-2">
+                <Badge variant="outline" className="font-mono text-xs shrink-0 bg-blue-50 border-blue-200 text-blue-700">
+                  {'{{PROJECT_POC_TITLE}}'}
+                </Badge>
+                <span className="text-xs text-gray-600">Primary POC title/role <span className="text-blue-600 font-medium">NEW</span></span>
+              </div>
             </div>
           </div>
 
@@ -121,6 +145,50 @@ export const MacroDocumentation = () => {
                   {'{{SET_ASIDE}}'}
                 </Badge>
                 <span className="text-xs text-gray-600">Set-aside category</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Solicitation Organization */}
+          <div>
+            <div className="font-medium text-xs text-gray-600 mb-1.5">Solicitation Organization</div>
+            <div className="space-y-1">
+              <div className="flex items-start gap-2">
+                <Badge variant="outline" className="font-mono text-xs shrink-0 bg-blue-50 border-blue-200 text-blue-700">
+                  {'{{SOLICITATION_ORG_NAME}}'}
+                </Badge>
+                <span className="text-xs text-gray-600">Government agency name <span className="text-blue-600 font-medium">NEW</span></span>
+              </div>
+              <div className="flex items-start gap-2">
+                <Badge variant="outline" className="font-mono text-xs shrink-0 bg-blue-50 border-blue-200 text-blue-700">
+                  {'{{SOLICITATION_ORG_OFFICE}}'}
+                </Badge>
+                <span className="text-xs text-gray-600">Specific office or department <span className="text-blue-600 font-medium">NEW</span></span>
+              </div>
+              <div className="flex items-start gap-2">
+                <Badge variant="outline" className="font-mono text-xs shrink-0 bg-blue-50 border-blue-200 text-blue-700">
+                  {'{{SOLICITATION_ORG_LOCATION}}'}
+                </Badge>
+                <span className="text-xs text-gray-600">Place of performance/location <span className="text-blue-600 font-medium">NEW</span></span>
+              </div>
+            </div>
+          </div>
+
+          {/* Agency Contacts (from Executive Brief) */}
+          <div>
+            <div className="font-medium text-xs text-gray-600 mb-1.5">Agency Contacts (from Executive Brief)</div>
+            <div className="space-y-1">
+              <div className="flex items-start gap-2">
+                <Badge variant="outline" className="font-mono text-xs shrink-0 bg-blue-50 border-blue-200 text-blue-700">
+                  {'{{CONTRACTING_OFFICER}}'}
+                </Badge>
+                <span className="text-xs text-gray-600">Contracting officer name and email <span className="text-blue-600 font-medium">NEW</span></span>
+              </div>
+              <div className="flex items-start gap-2">
+                <Badge variant="outline" className="font-mono text-xs shrink-0 bg-blue-50 border-blue-200 text-blue-700">
+                  {'{{TECHNICAL_POC}}'}
+                </Badge>
+                <span className="text-xs text-gray-600">Technical point of contact name and email <span className="text-blue-600 font-medium">NEW</span></span>
               </div>
             </div>
           </div>

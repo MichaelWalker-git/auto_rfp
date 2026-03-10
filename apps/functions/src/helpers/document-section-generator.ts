@@ -280,7 +280,7 @@ export const extractH1StyleFromTemplate = (templateHtml: string): string => {
     }
   }
   // Minimal fallback — no hardcoded border
-  return 'font-size:2em;font-weight:700;margin:0 0 0.5em;color:#1a1a2e';
+  return 'font-size:2em;font-weight:700;margin:0 0 0.5em';
 };
 
 /**
@@ -288,6 +288,6 @@ export const extractH1StyleFromTemplate = (templateHtml: string): string => {
  * Uses styling from the template if provided, otherwise uses minimal default.
  */
 export const buildDocumentTitleHtml = (title: string, templateHtml?: string): string => {
-  const style = templateHtml ? extractH1StyleFromTemplate(templateHtml) : 'font-size:2em;font-weight:700;margin:0 0 0.5em;color:#1a1a2e';
+  const style = templateHtml ? extractH1StyleFromTemplate(templateHtml) : 'font-size:2em;font-weight:700;margin:0 0 0.5em';
   return `<h1 style="${style}">${title}</h1>`;
 };

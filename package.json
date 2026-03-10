@@ -22,6 +22,11 @@
     "node": ">=20.0.0",
     "pnpm": ">=10.0.0"
   },
+  "pnpm": {
+    "overrides": {
+      "fast-xml-parser": "5.4.1"
+    }
+  },
   "devDependencies": {
     "typescript": "^5.0.0"
   }

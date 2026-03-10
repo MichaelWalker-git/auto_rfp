@@ -597,23 +597,23 @@ The "htmlContent" field MUST be a complete, well-structured HTML document body (
 Use the following HTML elements and inline styles to produce a professional, readable document:
 
 HEADINGS:
-- <h1 style="font-size:2em;font-weight:700;margin:0 0 0.5em;color:#1a1a2e"> — Document title
-- <h2 style="font-size:1.4em;font-weight:700;margin:1.5em 0 0.5em;color:#1a1a2e"> — Major sections
-- <h3 style="font-size:1.1em;font-weight:600;margin:1.2em 0 0.4em;color:#374151"> — Subsections
+- <h1 style="font-size:2em;font-weight:700;margin:0 0 0.5em"> — Document title
+- <h2 style="font-size:1.4em;font-weight:700;margin:1.5em 0 0.5em"> — Major sections
+- <h3 style="font-size:1.1em;font-weight:600;margin:1.2em 0 0.4em"> — Subsections
 
 PARAGRAPHS:
-- <p style="margin:0 0 1em;line-height:1.7;color:#374151"> — Body text
+- <p style="margin:0 0 1em;line-height:1.7"> — Body text
 
 LISTS:
-- <ul style="margin:0 0 1em;padding-left:1.5em"> with <li style="margin-bottom:0.4em;line-height:1.6;color:#374151">
-- <ol style="margin:0 0 1em;padding-left:1.5em"> with <li style="margin-bottom:0.4em;line-height:1.6;color:#374151">
+- <ul style="margin:0 0 1em;padding-left:1.5em"> with <li style="margin-bottom:0.4em;line-height:1.6">
+- <ol style="margin:0 0 1em;padding-left:1.5em"> with <li style="margin-bottom:0.4em;line-height:1.6">
 
 TABLES (for compliance matrices, risk registers, etc.):
 - <table style="width:100%;border-collapse:collapse;margin:1em 0">
-- <thead><tr style="background:#4f46e5;color:#fff">
+- <thead><tr style="background:#333;color:#fff">
 - <th style="padding:0.6em 0.8em;text-align:left;font-weight:600;font-size:0.9em">
 - <tbody><tr style="border-bottom:1px solid #e2e8f0"> (alternate: background:#f8fafc)
-- <td style="padding:0.6em 0.8em;font-size:0.9em;color:#374151">
+- <td style="padding:0.6em 0.8em;font-size:0.9em">
 
 EMPHASIS:
 - <strong> for bold key terms

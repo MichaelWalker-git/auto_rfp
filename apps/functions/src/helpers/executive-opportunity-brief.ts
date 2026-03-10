@@ -152,6 +152,44 @@ export function safeJsonParse<T>(text: string, schema: SchemaLike<T>): T {
 }
 
 /**
+ * Sanitize a raw Bedrock response before passing it to QuickSummarySchema.
+ * Handles common LLM quirks:
+ * - summary field returned as object/array instead of string
+ * - extra metadata fields that could confuse downstream consumers
+ * - null/undefined coercion for string fields
+ */
+export const sanitizeSummaryResponse = (raw: unknown): unknown => {
+  if (typeof raw !== 'object' || raw === null) return raw;
+
+  const sanitized = { ...(raw as Record<string, unknown>) };
+
+  // Coerce summary field if it's an object or array
+  if (sanitized.summary && typeof sanitized.summary === 'object') {
+    sanitized.summary = JSON.stringify(sanitized.summary);
+  }
+
+  // Coerce null string fields to undefined so .optional() and .default() work
+  const stringFields = [
+    'title', 'agency', 'office', 'solicitationNumber', 'naics',
+    'placeOfPerformance', 'estimatedValueUsd', 'periodOfPerformance',
+    'contractType', 'setAside',
+  ] as const;
+
+  for (const field of stringFields) {
+    if (sanitized[field] === null) {
+      delete sanitized[field];
+    }
+  }
+
+  // Remove fields that might cause issues downstream
+  delete sanitized.metadata;
+  delete sanitized._raw;
+  delete sanitized.evidence;
+
+  return sanitized;
+};
+
+/**
  * Finds latest QuestionFile for project (and optionally opportunity) by createdAt.
  * NOTE: This works only if you can query items for projectId efficiently.
  * Because your SK begins with `${projectId}#`, this Query uses begins_with on SK

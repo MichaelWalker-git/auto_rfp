@@ -18,12 +18,12 @@ Return ONLY valid JSON with this structure:
 }
 
 HTML REQUIREMENTS for "htmlContent":
-- Use <h1 style="font-size:2em;font-weight:700;margin:0 0 0.5em;color:#1a1a2e;border-bottom:3px solid #4f46e5;padding-bottom:0.3em"> for document title
-- Use <h2 style="font-size:1.4em;font-weight:700;margin:1.5em 0 0.5em;color:#1a1a2e;border-bottom:1px solid #e2e8f0;padding-bottom:0.2em"> for major sections
-- Use <h3 style="font-size:1.1em;font-weight:600;margin:1.2em 0 0.4em;color:#374151"> for subsections
-- Use <p style="margin:0 0 1em;line-height:1.7;color:#374151"> for body text
-- Use <ul style="margin:0 0 1em;padding-left:1.5em"> with <li style="margin-bottom:0.4em;line-height:1.6;color:#374151"> for lists
-- Use <div style="background:#eff6ff;border-left:4px solid #4f46e5;padding:1em 1.2em;margin:1em 0;border-radius:0 6px 6px 0"> for callout boxes
+- Use <h1 style="font-size:2em;font-weight:700;margin:0 0 0.5em;border-bottom:2px solid #ccc;padding-bottom:0.3em"> for document title
+- Use <h2 style="font-size:1.4em;font-weight:700;margin:1.5em 0 0.5em;border-bottom:1px solid #e2e8f0;padding-bottom:0.2em"> for major sections
+- Use <h3 style="font-size:1.1em;font-weight:600;margin:1.2em 0 0.4em"> for subsections
+- Use <p style="margin:0 0 1em;line-height:1.7"> for body text
+- Use <ul style="margin:0 0 1em;padding-left:1.5em"> with <li style="margin-bottom:0.4em;line-height:1.6"> for lists
+- Use <div style="background:#f5f5f5;border-left:4px solid #999;padding:1em 1.2em;margin:1em 0;border-radius:0 6px 6px 0"> for callout boxes
 
 Rules:
 - Use information from Q&A and knowledge base snippets wherever relevant.
@@ -128,20 +128,39 @@ export const SUMMARY_SYSTEM_PROMPT = [
   '- The first character of your response MUST be "{" and the last character MUST be "}".',
   '- JSON must match the SummarySection schema exactly. Do NOT add extra keys.',
   '',
+  'REQUIRED JSON STRUCTURE (respond with ONLY this shape):',
+  '{',
+  '  "title": "string (optional)",',
+  '  "agency": "string (optional)",',
+  '  "office": "string (optional)",',
+  '  "solicitationNumber": "string (optional)",',
+  '  "naics": "string (optional)",',
+  '  "contractType": "string (default: UNKNOWN)",',
+  '  "setAside": "string (default: UNKNOWN)",',
+  '  "placeOfPerformance": "string (optional)",',
+  '  "estimatedValueUsd": "string (optional)",',
+  '  "periodOfPerformance": "string (optional)",',
+  '  "summary": "string (REQUIRED, must not be empty)"',
+  '}',
+  '',
+  'CRITICAL FIELD RULES:',
+  '- The "summary" field MUST be a plain string (REQUIRED, minimum 1 character).',
+  '- Do NOT return the summary as an object, array, or nested structure — it MUST be a flat string.',
+  '- Do NOT include any markdown formatting, code fences, or explanatory text outside the JSON.',
+  '- Do NOT include an "evidence" field. It is not needed.',
+  '',
   'CORE REQUIREMENTS:',
-  '- title (required): Official RFP/solicitation title or announcement name.',
-  '- agency (required): Federal agency or organization issuing the solicitation.',
+  '- title (optional): Official RFP/solicitation title or announcement name.',
+  '- agency (optional): Federal agency or organization issuing the solicitation.',
   '- office (optional): Issuing office within the agency.',
   '- solicitationNumber (optional): Official solicitation/RFP/IFB number if present (exact string from solicitation).',
-  '- summary (required): 2-3 sentence overview of what is being procured and why it matters.',
+  '- summary (REQUIRED): 2-3 sentence overview of what is being procured and why it matters.',
   '- contractType (optional): Type of contract (FIXED_PRICE, COST_PLUS, T&M, INDEFINITE_DELIVERY, etc.) - use UNKNOWN if unclear.',
   '- setAside (optional): Small business set-aside category (SMALL_BUSINESS, WOMEN_OWNED, VETERAN_OWNED, DISADVANTAGED, NONE, etc.) - use UNKNOWN if not mentioned.',
   '- naics (optional): NAICS code(s) as string (e.g., "334511" or "541611,541612").',
   '- estimatedValueUsd (optional): Contract value as a STRING (e.g. "$1.5M", "$500,000", "Up to $2M"). Include the original text as-is from the solicitation.',
   '- placeOfPerformance (optional): Location/region where work will be performed.',
   '- periodOfPerformance (optional): Duration or period of performance (e.g., "12 months", "Base year + 4 option years").',
-  '',
-  'IMPORTANT: Do NOT include an "evidence" field. It is not needed.',
   '',
   'NON-HALLUCINATION RULES:',
   '- Do NOT invent or guess RFP numbers, dates, contract values, or agency names.',
