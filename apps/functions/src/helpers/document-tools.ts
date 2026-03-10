@@ -315,7 +315,9 @@ const executeGetOrganizationContext = async (
       fetchTeamMembers(orgId, 10),
     ]);
 
-    const parts = [orgDetails, primaryContact, projectDetails, teamMembers].filter(Boolean);
+    // Order: org details → project details (includes project contact with higher priority) → org primary contact → team
+    // Project contact info takes precedence over org primary contact for proposal signatory/POC
+    const parts = [orgDetails, projectDetails, primaryContact, teamMembers].filter(Boolean);
     return parts.length
       ? parts.join('\n\n')
       : 'No organization context available. Use placeholder values like [Company Name], [Contact Name], [Title], [Email], [Phone].';

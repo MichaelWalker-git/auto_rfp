@@ -1,6 +1,6 @@
 import type { SQSBatchResponse, SQSEvent } from 'aws-lambda';
-import { z } from 'zod';
-import { withSentryLambda } from '@/sentry-lambda';
+import { z, ZodError } from 'zod';
+import { Sentry, withSentryLambda } from '@/sentry-lambda';
 import {
   ContactsSectionSchema,
   DeadlinesSectionSchema,
@@ -35,6 +35,7 @@ import {
   markSectionFailed,
   markSectionInProgress,
   queryCompanyKnowledgeBase,
+  sanitizeSummaryResponse,
   truncateText,
 } from '@/helpers/executive-opportunity-brief';
 import { syncRequiredDocumentsToCustomTypes } from '@/helpers/custom-document-types';
@@ -103,6 +104,35 @@ const loadKbPrimer = async (
   }
 };
 
+// ─── Summary Schema with Sanitization ─────────────────────────────────────────
+
+/**
+ * Wraps QuickSummarySchema with pre-sanitization so that `invokeClaudeWithTools`
+ * (which calls `schema.parse()` internally) automatically sanitizes the raw
+ * Bedrock response before Zod validation.
+ */
+const SanitizedQuickSummarySchema = {
+  parse: (data: unknown) => {
+    const sanitized = sanitizeSummaryResponse(data);
+    return QuickSummarySchema.parse(sanitized);
+  },
+};
+
+/**
+ * Minimal fallback schema for summary — accepts any response with a non-empty
+ * summary string and fills in defaults for missing optional fields.
+ */
+const MinimalSummarySchema = z.object({
+  summary: z.preprocess(
+    (v) => {
+      if (typeof v === 'string') return v.trim();
+      if (typeof v === 'object' && v !== null) return JSON.stringify(v);
+      return String(v || '');
+    },
+    z.string().min(1),
+  ),
+}).passthrough();
+
 // ─── Section Handlers ─────────────────────────────────────────────────────────
 
 async function runSummary(job: Job): Promise<void> {
@@ -128,23 +158,89 @@ async function runSummary(job: Job): Promise<void> {
     const solicitationText = truncateText(rawText, MAX_SOLICITATION_CHARS);
     const kbPrimer = await loadKbPrimer(orgId, solicitationText, 3);
 
-    const data = await invokeClaudeWithTools({
-      modelId: BEDROCK_MODEL_ID,
-      system: await getSummarySystemPrompt(orgId),
-      user: await useSummaryUserPrompt(
-        orgId,
-        solicitationText,
-        kbPrimer,
-        JSON.stringify(QuickSummarySchema.shape, null, 2),
-      ),
-      tools: BRIEF_TOOLS,
-      toolExecutor: (toolName, toolInput, toolUseId) =>
-        executeBriefTool({ toolName, toolInput, toolUseId, orgId, projectId, opportunityId, executiveBriefId }),
-      outputSchema: QuickSummarySchema,
-      maxTokens: 1200,
-      temperature: 0.2,
-      maxToolRounds: 2,
-    });
+    let data: unknown;
+
+    try {
+      // Primary attempt: use sanitized schema wrapper
+      data = await invokeClaudeWithTools({
+        modelId: BEDROCK_MODEL_ID,
+        system: await getSummarySystemPrompt(orgId),
+        user: await useSummaryUserPrompt(
+          orgId,
+          solicitationText,
+          kbPrimer,
+          JSON.stringify(QuickSummarySchema.shape, null, 2),
+        ),
+        tools: BRIEF_TOOLS,
+        toolExecutor: (toolName, toolInput, toolUseId) =>
+          executeBriefTool({ toolName, toolInput, toolUseId, orgId, projectId, opportunityId, executiveBriefId }),
+        outputSchema: SanitizedQuickSummarySchema,
+        maxTokens: 1200,
+        temperature: 0.2,
+        maxToolRounds: 2,
+      });
+    } catch (primaryErr) {
+      // ── Comprehensive error logging for ZodError ──
+      if (primaryErr instanceof ZodError) {
+        console.error('[SUMMARY] Zod validation failed:', JSON.stringify({
+          zodErrors: primaryErr.format(),
+          zodIssues: primaryErr.issues,
+          executiveBriefId,
+          orgId,
+        }));
+
+        Sentry.captureException(new Error('Summary generation ZodError'), {
+          extra: {
+            zodErrors: primaryErr.issues,
+            executiveBriefId,
+            orgId,
+          },
+        });
+      } else {
+        console.error('[SUMMARY] Primary invocation failed:', (primaryErr as Error)?.message);
+      }
+
+      // ── Fallback: retry with minimal schema ──
+      console.warn('[SUMMARY] Retrying with minimal fallback schema...');
+      try {
+        const fallbackData = await invokeClaudeWithTools({
+          modelId: BEDROCK_MODEL_ID,
+          system: await getSummarySystemPrompt(orgId),
+          user: await useSummaryUserPrompt(
+            orgId,
+            solicitationText,
+            kbPrimer,
+            JSON.stringify(QuickSummarySchema.shape, null, 2),
+          ),
+          tools: BRIEF_TOOLS,
+          toolExecutor: (toolName, toolInput, toolUseId) =>
+            executeBriefTool({ toolName, toolInput, toolUseId, orgId, projectId, opportunityId, executiveBriefId }),
+          outputSchema: MinimalSummarySchema,
+          maxTokens: 1200,
+          temperature: 0.1,
+          maxToolRounds: 1,
+        });
+
+        console.warn('[SUMMARY] Fallback schema succeeded — missing optional fields will use defaults');
+        data = {
+          ...fallbackData,
+          contractType: (fallbackData as Record<string, unknown>).contractType ?? 'UNKNOWN',
+          setAside: (fallbackData as Record<string, unknown>).setAside ?? 'UNKNOWN',
+        };
+      } catch (fallbackErr) {
+        console.error('[SUMMARY] Fallback also failed:', (fallbackErr as Error)?.message);
+        Sentry.captureException(new Error('Summary generation fallback failed'), {
+          extra: {
+            primaryError: (primaryErr as Error)?.message,
+            fallbackError: (fallbackErr as Error)?.message,
+            executiveBriefId,
+            orgId,
+          },
+        });
+        // Re-throw the original error for proper failure handling
+        throw primaryErr;
+      }
+    }
 
     await markSectionComplete({
       executiveBriefId,

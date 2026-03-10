@@ -50,8 +50,15 @@ export const QuickSummarySchema = z.object({
   placeOfPerformance: z.string().optional(),
   estimatedValueUsd: z.string().optional(),
   periodOfPerformance: z.string().optional(),
-  summary: z.string().min(10),
-});
+  summary: z.preprocess(
+    (v) => {
+      if (typeof v === 'string') return v.trim();
+      if (typeof v === 'object' && v !== null) return JSON.stringify(v);
+      return String(v || '');
+    },
+    z.string().min(1, 'Summary must not be empty'),
+  ),
+}).passthrough(); // Allow extra fields from LLM without failing validation
 
 export type QuickSummary = z.infer<typeof QuickSummarySchema>;
 
