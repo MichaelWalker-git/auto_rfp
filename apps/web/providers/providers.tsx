@@ -1,5 +1,9 @@
 'use client';
 
+// Initialize Sentry on the client side (must be imported in a 'use client' component
+// because Turbopack doesn't auto-inject sentry.client.config.ts like webpack does)
+import '../sentry.client.config';
+
 import { ThemeProvider } from 'next-themes';
 import { ReactNode } from 'react';
 import { OrganizationProvider } from '@/context/organization-context';

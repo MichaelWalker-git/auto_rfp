@@ -8,4 +8,4 @@ export default function OrganizationsLayout({ children }: Props) {
   return (
     <SidebarLayout>{children}</SidebarLayout>
   );
-} 
+}

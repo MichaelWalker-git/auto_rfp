@@ -38,6 +38,9 @@ export interface AmplifyFeStackProps extends cdk.StackProps {
 
   sentryDNS: string;
 
+  /** Sentry auth token for source map uploads during build (stored in Secrets Manager) */
+  sentryAuthToken?: cdk.SecretValue;
+
   /** Custom domain to attach to the main branch (e.g. 'rfp.horustech.dev') */
   customDomain?: string;
 }
@@ -60,6 +63,7 @@ export class AmplifyFeStack extends cdk.Stack {
       baseApiUrl,
       region,
       sentryDNS,
+      sentryAuthToken,
       customDomain,
     } = props;
 
@@ -88,6 +92,12 @@ export class AmplifyFeStack extends cdk.Stack {
         NEXT_PUBLIC_BASE_API_URL: baseApiUrl.replace(/\/$/, ''),
         NEXT_PUBLIC_SENTRY_DSN: sentryDNS,
         NEXT_PUBLIC_SENTRY_ENVIRONMENT: stage,
+
+        // Sentry build-time vars for source map uploads
+        // SENTRY_AUTH_TOKEN is required by @sentry/nextjs withSentryConfig to upload source maps
+        SENTRY_ORG: 'horus-technology',
+        SENTRY_PROJECT: 'auto-rfp',
+        ...(sentryAuthToken ? { SENTRY_AUTH_TOKEN: sentryAuthToken.unsafeUnwrap() } : {}),
       }
     });
 

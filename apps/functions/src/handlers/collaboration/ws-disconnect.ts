@@ -1,7 +1,8 @@
 import type { APIGatewayProxyWebsocketHandlerV2 } from 'aws-lambda';
 import { getWsConnection, deleteWsConnection, deletePresence } from '@/helpers/collaboration';
+import { withSentryLambda } from '@/sentry-lambda';
 
-export const handler: APIGatewayProxyWebsocketHandlerV2 = async (event) => {
+const baseHandler: APIGatewayProxyWebsocketHandlerV2 = async (event) => {
   const { connectionId } = event.requestContext;
 
   // Look up the connection record to find orgId/projectId/userId
@@ -19,3 +20,5 @@ export const handler: APIGatewayProxyWebsocketHandlerV2 = async (event) => {
 
   return { statusCode: 200, body: 'Disconnected' };
 };
+
+export const handler = withSentryLambda(baseHandler);

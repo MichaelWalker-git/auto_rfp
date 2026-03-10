@@ -1,6 +1,7 @@
 import type { APIGatewayProxyWebsocketEventV2 } from 'aws-lambda';
 import { WS_CONNECTION_TTL_SECONDS } from '@/constants/collaboration';
 import { putWsConnection } from '@/helpers/collaboration';
+import { withSentryLambda } from '@/sentry-lambda';
 
 // The WebSocket event type doesn't expose queryStringParameters in its type definition,
 // but API Gateway does pass them at runtime. We cast to access them safely.
@@ -8,7 +9,7 @@ interface WsConnectEvent extends APIGatewayProxyWebsocketEventV2 {
   queryStringParameters?: Record<string, string>;
 }
 
-export const handler = async (event: WsConnectEvent) => {
+const baseHandler = async (event: WsConnectEvent) => {
   const { connectionId } = event.requestContext;
   // orgId and projectId are passed as query params on the WebSocket upgrade URL
   const { projectId, orgId } = event.queryStringParameters ?? {};
@@ -61,3 +62,5 @@ export const handler = async (event: WsConnectEvent) => {
 
   return { statusCode: 200, body: 'Connected' };
 };
+
+export const handler = withSentryLambda(baseHandler);

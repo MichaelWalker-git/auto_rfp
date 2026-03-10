@@ -4,17 +4,20 @@ import { v4 as uuidv4 } from 'uuid';
 import { requireEnv } from '@/helpers/env';
 import { createNotification, getNotificationPreferences } from '@/helpers/notification';
 import type { NotificationPayload } from '@auto-rfp/core';
+import { withSentryLambda } from '@/sentry-lambda';
 
 const ses = new SESClient({});
 const FROM_EMAIL = requireEnv('NOTIFICATION_FROM_EMAIL');
 const APP_URL = process.env['APP_URL'] ?? 'https://app.auto-rfp.com';
 
-export const handler: SQSHandler = async (event) => {
+const baseHandler: SQSHandler = async (event) => {
   for (const record of event.Records) {
     const payload = JSON.parse(record.body) as NotificationPayload;
     await processNotification(payload);
   }
 };
+
+export const handler = withSentryLambda(baseHandler);
 
 const processNotification = async (payload: NotificationPayload): Promise<void> => {
   const { recipientUserIds, recipientEmails = [], orgId, type, title, message, link, projectId } = payload;

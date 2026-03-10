@@ -4,6 +4,7 @@ import { AuditLogPayloadSchema } from '@auto-rfp/core';
 import { writeAuditLog } from '@/helpers/audit-log';
 import { requireEnv } from '@/helpers/env';
 import { AUDIT_HMAC_SECRET_PARAM } from '@/constants/audit';
+import { withSentryLambda } from '@/sentry-lambda';
 
 const ssm = new SSMClient({});
 requireEnv('REGION', 'us-east-1');
@@ -20,7 +21,7 @@ const getHmacSecret = async (): Promise<string> => {
   return cachedHmacSecret;
 };
 
-export const handler: SQSHandler = async (event) => {
+const baseHandler: SQSHandler = async (event) => {
   const hmacSecret = await getHmacSecret();
 
   for (const record of event.Records) {
@@ -41,3 +42,5 @@ export const handler: SQSHandler = async (event) => {
     }
   }
 };
+
+export const handler = withSentryLambda(baseHandler);

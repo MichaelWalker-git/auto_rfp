@@ -116,6 +116,25 @@ jobs:
           PINECONE_API_KEY: ${{ secrets.PINECONE_API_KEY }}
           PINECONE_INDEX: ${{ secrets.PINECONE_INDEX }}
 
+      - name: Upload Sentry source maps
+        if: success()
+        continue-on-error: true
+        env:
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+          SENTRY_ORG: ${{ vars.SENTRY_ORG }}
+          SENTRY_PROJECT: ${{ vars.SENTRY_PROJECT }}
+        run: |
+          if [ -z "$SENTRY_AUTH_TOKEN" ] || [ -z "$SENTRY_ORG" ] || [ -z "$SENTRY_PROJECT" ]; then
+            echo "⚠️ Sentry source maps upload skipped — missing SENTRY_AUTH_TOKEN, SENTRY_ORG, or SENTRY_PROJECT"
+            exit 0
+          fi
+          RELEASE="${{ github.sha }}"
+          ENVIRONMENT="${{ github.event.inputs.environment || 'Prod' }}"
+          npx @sentry/cli releases new "$RELEASE" --finalize
+          npx @sentry/cli releases set-commits "$RELEASE" --auto
+          npx @sentry/cli releases deploys "$RELEASE" new -e "$ENVIRONMENT"
+          echo "✅ Sentry release $RELEASE created for $ENVIRONMENT"
+
       - name: Deployment Summary
         run: |
           echo "## Deployment Complete" >> $GITHUB_STEP_SUMMARY

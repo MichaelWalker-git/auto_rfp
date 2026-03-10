@@ -1,4 +1,5 @@
 import { requireEnv } from '@/helpers/env';
+import { withSentryLambda } from '@/sentry-lambda';
 import {
   detectStaleContentLibrary,
   detectStaleKBDocuments,
@@ -20,7 +21,7 @@ const SNS_TOPIC_ARN = process.env.STALE_CONTENT_SNS_TOPIC_ARN || '';
  * Scans Content Library items, KB Documents, AND Past Performance projects for staleness.
  * Delegates all business logic to stale-content.service.ts.
  */
-export const handler = async (): Promise<{ statusCode: number; body: string }> => {
+const baseHandler = async (): Promise<{ statusCode: number; body: string }> => {
   console.log('Starting stale content detection job...');
   const now = new Date();
 
@@ -68,3 +69,5 @@ export const handler = async (): Promise<{ statusCode: number; body: string }> =
     return { statusCode: 500, body: JSON.stringify({ error: 'Detection job failed', message: String(error) }) };
   }
 };
+
+export const handler = withSentryLambda(baseHandler);
