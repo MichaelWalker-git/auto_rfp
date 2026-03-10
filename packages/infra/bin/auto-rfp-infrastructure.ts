@@ -54,6 +54,19 @@ if (!pineconeApiKey) {
 }
 
 const githubToken = cdk.SecretValue.secretsManager('auto-rfp/github-token');
+
+// Sentry auth token for source map uploads — optional, widget works without it.
+// Create the secret with: aws secretsmanager create-secret --name auto-rfp/sentry-auth-token --secret-string "sntrys_..."
+// Set SENTRY_AUTH_TOKEN_ENABLED=true to enable source map uploads (requires the secret to exist in Secrets Manager)
+const sentryAuthTokenEnabled = process.env.SENTRY_AUTH_TOKEN_ENABLED === 'true';
+const sentryAuthToken = sentryAuthTokenEnabled
+  ? cdk.SecretValue.secretsManager('auto-rfp/sentry-auth-token')
+  : undefined;
+
+if (!sentryAuthTokenEnabled) {
+  console.warn('⚠️  SENTRY_AUTH_TOKEN_ENABLED not set. Source map uploads will be skipped. Set SENTRY_AUTH_TOKEN_ENABLED=true after creating the secret.');
+}
+
 const branch = stage.toLowerCase() === 'dev' ? 'develop' : 'main';
 
 const storage = new StorageStack(app, `AutoRfp-Storage-${stage}`, {
@@ -208,6 +221,7 @@ const amplifyStack = new AmplifyFeStack(app, `AmplifyFeStack-${stage}`, {
   baseApiUrl: api.apiUrl,
   region: env.region!,
   sentryDNS,
+  sentryAuthToken,
   // Attach rfp.horustech.dev to the main branch only
   ...(branch === 'main' ? { customDomain: 'rfp.horustech.dev' } : {}),
 });

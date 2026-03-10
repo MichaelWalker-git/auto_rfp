@@ -3,6 +3,7 @@ import { SQSClient, SendMessageCommand } from '@aws-sdk/client-sqs';
 import { queryBySkPrefix } from '@/helpers/db';
 import { requireEnv } from '@/helpers/env';
 import type { NotificationPayload } from '@auto-rfp/core';
+import { withSentryLambda } from '@/sentry-lambda';
 
 // Deadline entity shape (minimal — only fields we need)
 interface DeadlineItem {
@@ -25,7 +26,7 @@ const ALERT_WINDOWS_MS = [
   { label: 'DEADLINE_6_HOURS' as const, ms: 6 * 60 * 60 * 1000 },
 ];
 
-export const handler: ScheduledHandler = async () => {
+const baseHandler: ScheduledHandler = async () => {
   const now = Date.now();
 
   // Scan all deadlines — in production scope this by org or use GSI
@@ -60,3 +61,5 @@ export const handler: ScheduledHandler = async () => {
     }
   }
 };
+
+export const handler = withSentryLambda(baseHandler);
