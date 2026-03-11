@@ -2,19 +2,19 @@
 
 import useSWRMutation from 'swr/mutation';
 import { apiMutate, buildApiUrl, ApiError } from './api-helpers';
-import { SetApiKeyResponse } from '@auto-rfp/core';
+import { ApiKeyResponse } from '@auto-rfp/core';
 
 export function useSetApiKey(orgId?: string) {
   const url = buildApiUrl('search-opportunities/api-key', { orgId });
 
   const { trigger, isMutating, error, data } = useSWRMutation<
-    SetApiKeyResponse,
+    ApiKeyResponse,
     ApiError,
     string,
     { apiKey: string }
-  >(url, async (url, { arg }) => apiMutate<SetApiKeyResponse>(url, 'POST', arg));
+  >(url, async (url, { arg }) => apiMutate<ApiKeyResponse>(url, 'POST', arg));
 
-  const setApiKey = async (apiKey: string): Promise<SetApiKeyResponse> => {
+  const setApiKey = async (apiKey: string): Promise<ApiKeyResponse> => {
     return trigger({ apiKey });
   };
 

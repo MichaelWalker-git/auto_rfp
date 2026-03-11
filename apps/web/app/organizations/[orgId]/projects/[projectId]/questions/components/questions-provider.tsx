@@ -2,10 +2,17 @@
 
 import React, { createContext, ReactNode, useCallback, useContext, useEffect, useRef, useState } from 'react';
 import { toast } from '@/components/ui/use-toast';
-import { AnswerSource, ConfidenceBreakdown, ConfidenceBand, GroupedSection, type QuestionFileItem, type SaveAnswerDTO } from '@auto-rfp/core';
+import {
+  AnswerSource,
+  ConfidenceBand,
+  ConfidenceBreakdown,
+  GroupedSection,
+  type QuestionFileItem,
+  type SaveAnswerDTO
+} from '@auto-rfp/core';
 import { useQuestions as useLoadQuestions } from '@/lib/hooks/use-api';
 import { useProject } from '@/lib/hooks/use-project';
-import { useGenerateAnswer, useSaveAnswer, useApproveAnswer } from '@/lib/hooks/use-answer';
+import { useApproveAnswer, useGenerateAnswer, useSaveAnswer } from '@/lib/hooks/use-answer';
 import { useQuestionFiles } from '@/lib/hooks/use-question-file';
 import { useKnowledgeBases } from '@/lib/hooks/use-knowledgebase';
 
@@ -92,7 +99,7 @@ interface QuestionsContextType {
   unapprovingQuestions: Set<string>;
 
   removeQuestion: (questionId: string) => Promise<void>;
-  
+
   // Clustering - update answers locally when applied to similar questions
   handleBatchAnswerApplied: (targetQuestionIds: string[], answerText: string) => void;
 
@@ -172,7 +179,7 @@ export function QuestionsProvider({ children, projectId, opportunityId }: Questi
   // Ref to track unsaved questions for autosave (avoids stale closure)
   const unsavedQuestionsRef = useRef<Set<string>>(new Set());
   const answersRef = useRef<Record<string, AnswerData>>({});
-  const questionsRef = useRef<{ sections: GroupedSection[] } | undefined>();
+  const questionsRef = useRef<{ sections: GroupedSection[] } | undefined>({ sections: [] });
 
   // Get orgId from project to load knowledge bases
   const orgId = project?.orgId ?? null;
@@ -450,9 +457,9 @@ export function QuestionsProvider({ children, projectId, opportunityId }: Questi
   // Helper to filter questions by opportunityId
   const filterByOpportunity = (questionsList: any[]) => {
     if (!opportunityId) return questionsList; // No filter applied
-    
+
     const isOtherSelected = opportunityId === OTHER_LEGACY_OPPORTUNITY_ID;
-    
+
     return questionsList.filter((q: any) => {
       const qOppId = q.opportunityId;
       if (isOtherSelected) {
@@ -601,7 +608,7 @@ export function QuestionsProvider({ children, projectId, opportunityId }: Questi
       }
       return next;
     });
-    
+
     // These are now saved on server, so remove from unsaved set
     setUnsavedQuestions((prev) => {
       const next = new Set(prev);
@@ -708,7 +715,7 @@ export function QuestionsProvider({ children, projectId, opportunityId }: Questi
       }
     }, 10_000);
     return () => clearInterval(pollInterval);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [projectId]);
 
   // Sync selected question text to the global header breadcrumb
@@ -722,7 +729,7 @@ export function QuestionsProvider({ children, projectId, opportunityId }: Questi
       setBreadcrumbSuffix(null);
     }
     return () => setBreadcrumbSuffix(null);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedQuestion, questions]);
 
   // Sync server answer data to local state.
@@ -808,7 +815,7 @@ export function QuestionsProvider({ children, projectId, opportunityId }: Questi
     }, 5_000);
 
     return () => clearInterval(interval);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [projectId]);
 
   // Approve answer — saves with status=APPROVED and logs ANSWER_APPROVED activity

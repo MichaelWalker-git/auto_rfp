@@ -31,7 +31,6 @@ import { questionDomain } from './routes/question.routes';
 import { semanticDomain } from './routes/semantic.routes';
 import { deadlinesDomain } from './routes/deadlines.routes';
 import { opportunityDomain } from './routes/opportunity.routes';
-import { exportDomain } from './routes/export.routes';
 import { contentlibraryDomain } from './routes/content-library.routes';
 import { projectoutcomeDomain } from './routes/project-outcome.routes';
 import { projectsDomain } from './routes/projects.routes';
@@ -399,7 +398,6 @@ export class ApiOrchestratorStack extends cdk.Stack {
       semanticDomain(),
       deadlinesDomain(),
       opportunityDomain(),
-      exportDomain(),
       contentlibraryDomain(),
       projectoutcomeDomain(),
       foiaDomain(),
@@ -458,7 +456,6 @@ export class ApiOrchestratorStack extends cdk.Stack {
       'SemanticRoutes',
       'DeadlinesRoutes',
       'OpportunityRoutes',
-      'ExportRoutes',
       'ContentLibraryRoutes',
       'ProjectOutcomeRoutes',
       'FoiaRoutes',

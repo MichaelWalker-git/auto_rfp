@@ -18,8 +18,8 @@ Return ONLY valid JSON with this structure:
 }
 
 HTML REQUIREMENTS for "htmlContent":
-- Use <h1 style="font-size:2em;font-weight:700;margin:0 0 0.5em;border-bottom:2px solid #ccc;padding-bottom:0.3em"> for document title
-- Use <h2 style="font-size:1.4em;font-weight:700;margin:1.5em 0 0.5em;border-bottom:1px solid #e2e8f0;padding-bottom:0.2em"> for major sections
+- Use <h1 style="font-size:2em;font-weight:700;margin:0 0 0.5em"> for document title
+- Use <h2 style="font-size:1.4em;font-weight:700;margin:1.5em 0 0.5em"> for major sections
 - Use <h3 style="font-size:1.1em;font-weight:600;margin:1.2em 0 0.4em"> for subsections
 - Use <p style="margin:0 0 1em;line-height:1.7"> for body text
 - Use <ul style="margin:0 0 1em;padding-left:1.5em"> with <li style="margin-bottom:0.4em;line-height:1.6"> for lists

@@ -46,7 +46,7 @@ export function DocumentCard({
                 className={`h-1.5 w-1.5 rounded-full ${
                   doc.indexStatus === 'INDEXED'
                     ? 'bg-emerald-500'
-                    : doc.indexStatus === 'FAILED'
+                    : doc.indexStatus === 'failed' || doc.indexStatus === 'TEXT_EXTRACTION_FAILED'
                       ? 'bg-red-500'
                       : 'bg-amber-500'
                 }`}

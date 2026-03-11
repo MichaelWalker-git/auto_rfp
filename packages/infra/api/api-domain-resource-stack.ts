@@ -88,8 +88,8 @@ export class ApiDomainRoutesStack extends cdk.NestedStack {
         runtime: lambda.Runtime.NODEJS_24_X,
         entry: route.entry,
         handler: 'handler',
-        timeout: cdk.Duration.seconds(30),
-        memorySize: 512,
+        timeout: cdk.Duration.seconds(route.timeoutSeconds ?? 30),
+        memorySize: route.memorySize ?? 512,
         role: lambdaRole,
         environment: {
           ...commonEnv,
