@@ -2,7 +2,14 @@
 
 import React, { useEffect } from 'react';
 import Link from 'next/link';
-import { ArrowLeft, MessageSquare, HelpCircle } from 'lucide-react';
+import {
+  ArrowLeft,
+  MessageSquare,
+  HelpCircle,
+  FileText,
+  Trophy,
+  ShieldCheck,
+} from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 
@@ -19,9 +26,9 @@ import { useCurrentOrganization } from '@/context/organization-context';
 import { saveSelectedOpportunity } from '@/lib/utils/opportunity-selection';
 import { ApnRegistrationCard } from '@/features/apn';
 import {
-  SubmissionChecklist,
   SubmitProposalButton,
   SubmissionHistoryCard,
+  ComplianceReport,
 } from '@/features/proposal-submission';
 import PermissionWrapper from '@/components/permission-wrapper';
 
@@ -31,23 +38,52 @@ interface OpportunityViewProps {
   className?: string;
 }
 
+// ─── Section Divider ──────────────────────────────────────────────────────────
+
+interface SectionDividerProps {
+  icon: React.ReactNode;
+  title: string;
+  muted?: boolean;
+}
+
+const SectionDivider = ({ icon, title, muted = false }: SectionDividerProps) => (
+  <div className="flex items-center gap-3 pt-2">
+    <div className={cn(
+      'flex items-center gap-2',
+      muted ? 'text-muted-foreground' : 'text-foreground',
+    )}>
+      {icon}
+      <h2 className={cn(
+        'text-base font-semibold whitespace-nowrap',
+        muted ? 'text-muted-foreground' : 'text-foreground',
+      )}>
+        {title}
+      </h2>
+    </div>
+    <div className="h-px flex-1 bg-border" />
+  </div>
+);
+
+// ─── Main Content ─────────────────────────────────────────────────────────────
+
 /**
  * Opportunity page content — composed of focused, self-contained Card sections.
  * Each section reads shared data from OpportunityContext.
  *
  * Layout:
  * 1. Header — opportunity details, badges, dates
- * 2. Solicitation Documents — uploaded question files for extraction
- * 3. RFP Documents — generated proposals & uploaded response documents
- * 4. Outcome — win/loss tracking
- * 5. FOIA Requests — competitive intelligence
+ * 2. Quick Actions — questions, Q&A engagement
+ * 3. Documents — solicitation + RFP response documents
+ * 4. Context & Knowledge Base
+ * 5. Submission — compliance report, submit button, history
+ * 6. Post-Award — outcome, debriefing, FOIA
  */
-function OpportunityContent({ className }: { className?: string }) {
+const OpportunityContent = ({ className }: { className?: string }) => {
   const { projectId, oppId, orgId } = useOpportunityContext();
   const { currentOrganization } = useCurrentOrganization();
   const navOrgId = currentOrganization?.id;
 
-  // Save oppId to session storage so other pages (Questions, Brief, etc.) 
+  // Save oppId to session storage so other pages (Questions, Brief, etc.)
   // use this opportunity by default when navigating from this page
   useEffect(() => {
     if (projectId && oppId) {
@@ -60,7 +96,7 @@ function OpportunityContent({ className }: { className?: string }) {
     : '#';
 
   return (
-    <div className={cn('space-y-8', className)}>
+    <div className={cn('space-y-6', className)}>
       {/* Back Navigation */}
       <Button variant="ghost" size="sm" asChild className="gap-2 -ml-2">
         <Link href={backUrl}>
@@ -69,17 +105,19 @@ function OpportunityContent({ className }: { className?: string }) {
         </Link>
       </Button>
 
-      {/* Opportunity Header - Hero Section */}
+      {/* Opportunity Header — Hero Section */}
       <OpportunityHeader />
 
       {/* APN Registration Status */}
       <ApnRegistrationCard orgId={orgId} projectId={projectId} oppId={oppId} />
 
-      {/* Primary Actions - Prominent Section */}
-      <div className="space-y-3">
-        <h2 className="text-lg font-semibold text-foreground">Quick Actions</h2>
-        <div className="grid gap-4 md:grid-cols-2">
-          {/* Questions & Answers Card */}
+      {/* ── Quick Actions ──────────────────────────────────────────────── */}
+      <section className="space-y-3">
+        <SectionDivider
+          icon={<HelpCircle className="h-4 w-4" />}
+          title="Quick Actions"
+        />
+        <div className="grid gap-3 md:grid-cols-2">
           {navOrgId && (
             <OpportunityActionCard
               icon={HelpCircle}
@@ -92,8 +130,6 @@ function OpportunityContent({ className }: { className?: string }) {
               variant="compact"
             />
           )}
-
-          {/* Q&A Engagement Card */}
           {navOrgId && (
             <OpportunityActionCard
               icon={MessageSquare}
@@ -107,32 +143,32 @@ function OpportunityContent({ className }: { className?: string }) {
             />
           )}
         </div>
-      </div>
+      </section>
 
-      {/* Documents Section - Grouped for Clarity */}
-      <div className="space-y-4">
-        <div className="flex items-center gap-2">
-          <div className="h-px flex-1 bg-border" />
-          <h2 className="text-lg font-semibold text-foreground">Documents</h2>
-          <div className="h-px flex-1 bg-border" />
-        </div>
+      {/* ── Documents ──────────────────────────────────────────────────── */}
+      <section className="space-y-3">
+        <SectionDivider
+          icon={<FileText className="h-4 w-4" />}
+          title="Documents"
+        />
         <div className="space-y-4">
           <OpportunitySolicitationDocuments />
           <OpportunityRFPDocuments />
         </div>
-      </div>
+      </section>
 
-      {/* Context & Knowledge Base */}
-      <OpportunityContextPanel />
+      {/* ── Context & Knowledge Base ───────────────────────────────────── */}
+      <section className="space-y-3">
+        <OpportunityContextPanel />
+      </section>
 
-      {/* Submission Section - Clear Visual Separation */}
-      <div className="space-y-4 pt-4 border-t-2 border-dashed">
-        <div className="flex items-center gap-2">
-          <div className="h-px flex-1 bg-border" />
-          <h2 className="text-lg font-semibold text-foreground">Submission</h2>
-          <div className="h-px flex-1 bg-border" />
-        </div>
-        <SubmissionChecklist orgId={orgId} projectId={projectId} oppId={oppId} />
+      {/* ── Submission & Compliance ────────────────────────────────────── */}
+      <section className="space-y-4">
+        <SectionDivider
+          icon={<ShieldCheck className="h-4 w-4" />}
+          title="Submission & Compliance"
+        />
+        <ComplianceReport orgId={orgId} projectId={projectId} oppId={oppId} />
         <div className="flex justify-end">
           <PermissionWrapper requiredPermission="proposal:create">
             <SubmitProposalButton
@@ -143,22 +179,26 @@ function OpportunityContent({ className }: { className?: string }) {
           </PermissionWrapper>
         </div>
         <SubmissionHistoryCard orgId={orgId} projectId={projectId} oppId={oppId} />
-      </div>
+      </section>
 
-      {/* Post-Award Section - Only visible after decision */}
-      <div className="space-y-4 pt-4 border-t">
-        <div className="flex items-center gap-2">
-          <div className="h-px flex-1 bg-border" />
-          <h2 className="text-lg font-semibold text-muted-foreground">Post-Award</h2>
-          <div className="h-px flex-1 bg-border" />
+      {/* ── Post-Award ─────────────────────────────────────────────────── */}
+      <section className="space-y-3">
+        <SectionDivider
+          icon={<Trophy className="h-4 w-4" />}
+          title="Post-Award"
+          muted
+        />
+        <div className="space-y-4">
+          <ProjectOutcomeCard projectId={projectId} orgId={orgId} opportunityId={oppId} />
+          <DebriefingCard projectId={projectId} orgId={orgId} projectOutcomeStatus="LOST" />
+          <FOIARequestCard projectId={projectId} orgId={orgId} projectOutcomeStatus="LOST" />
         </div>
-        <ProjectOutcomeCard projectId={projectId} orgId={orgId} opportunityId={oppId} />
-        <DebriefingCard projectId={projectId} orgId={orgId} projectOutcomeStatus="LOST" />
-        <FOIARequestCard projectId={projectId} orgId={orgId} projectOutcomeStatus="LOST" />
-      </div>
+      </section>
     </div>
   );
-}
+};
+
+// ─── Top-Level Wrapper ────────────────────────────────────────────────────────
 
 /**
  * Top-level Opportunity view.

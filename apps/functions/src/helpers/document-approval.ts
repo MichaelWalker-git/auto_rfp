@@ -131,7 +131,7 @@ export const updateApprovalStatus = async (
   documentId: string,
   approvalId: string,
   updates: {
-    status: 'APPROVED' | 'REJECTED' | 'CANCELLED';
+    status: 'PENDING' | 'APPROVED' | 'REJECTED' | 'CANCELLED';
     reviewedAt?: string;
     reviewNote?: string;
   },

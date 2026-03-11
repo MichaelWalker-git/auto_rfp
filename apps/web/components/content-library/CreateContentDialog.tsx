@@ -90,7 +90,6 @@ export function CreateContentDialog({
     try {
       const data: CreateContentLibraryItemDTO = {
         orgId,
-        kbId,
         question: question.trim(),
         answer: answer.trim(),
         category: category.trim(),

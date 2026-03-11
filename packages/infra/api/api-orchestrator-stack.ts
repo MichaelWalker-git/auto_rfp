@@ -561,6 +561,7 @@ export class ApiOrchestratorStack extends cdk.Stack {
     // ─── Proposal Submission Lambda CloudWatch Log Groups ─────────────────────
     const proposalSubmissionHandlers = [
       'get-submission-readiness',
+      'check-compliance',
       'submit-proposal',
       'get-submission-history',
       'withdraw-submission',
@@ -611,6 +612,8 @@ export class ApiOrchestratorStack extends cdk.Stack {
       'request-approval',
       'submit-review',
       'get-approval-history',
+      'resubmit-for-review',
+      'bulk-review',
     ];
 
     for (const handlerName of documentApprovalHandlers) {

@@ -72,9 +72,14 @@ const buildNotificationLink = (
       return `${base}/documents`;
     case 'DOCUMENT_APPROVAL_REQUESTED':
     case 'DOCUMENT_APPROVED':
-    case 'DOCUMENT_REJECTED':
-      // Deep-link to the specific document if entityId (documentId) is available
-      return entityId ? `${base}/documents?documentId=${entityId}` : `${base}/documents`;
+    case 'DOCUMENT_REJECTED': {
+      // entityId is encoded as "opportunityId:documentId"
+      if (entityId?.includes(':')) {
+        const [opportunityId, documentId] = entityId.split(':');
+        return `${base}/opportunities/${opportunityId}/rfp-documents/${documentId}/edit?opportunityId=${opportunityId}`;
+      }
+      return `${base}/documents`;
+    }
     case 'STALE_CONTENT_WARNING':
     case 'STALE_CONTENT_DETECTED':
       return `${base}/documents`;

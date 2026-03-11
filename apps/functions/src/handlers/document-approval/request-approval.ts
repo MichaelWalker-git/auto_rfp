@@ -108,7 +108,7 @@ const baseHandler = async (event: AuthedEvent): Promise<APIGatewayProxyResultV2>
       {
         orgId,
         projectId: data.projectId,
-        entityId: data.documentId,
+        entityId: `${data.opportunityId}:${data.documentId}`,
         recipientUserIds: [data.reviewerId],
         recipientEmails: reviewer.email ? [reviewer.email] : [],
         actorDisplayName: requestedByName,

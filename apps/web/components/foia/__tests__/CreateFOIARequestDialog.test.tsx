@@ -115,20 +115,29 @@ describe('CreateFOIARequestDialog', () => {
     orgId: 'org-456',
   };
 
-  const mockFOIARequest: FOIARequestItem = {
+  const mockFOIARequest = {
     id: 'foia-1',
+    foiaId: 'foia-1',
     projectId: 'proj-123',
     orgId: 'org-456',
     status: 'DRAFT',
     agencyName: 'Department of Defense',
+    agencyId: 'agency-1',
+    agencyAbbreviation: 'DoD',
     solicitationNumber: 'W911NF-21-R-0001',
     requestedDocuments: ['SSEB_REPORT'],
     requesterName: 'John Doe',
     requesterEmail: 'john@company.com',
+    requesterCategory: 'OTHER',
     requestedBy: 'user-789',
+    createdBy: 'user-789',
+    feeLimit: 50,
+    requestFeeWaiver: false,
+    submissionMethod: 'MANUAL',
+    letterFormat: 'STANDARD',
     createdAt: '2025-01-15T00:00:00Z',
     updatedAt: '2025-01-15T00:00:00Z',
-  };
+  } as unknown as FOIARequestItem;
 
   beforeEach(() => {
     jest.clearAllMocks();

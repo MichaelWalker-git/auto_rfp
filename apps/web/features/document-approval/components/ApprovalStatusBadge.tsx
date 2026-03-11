@@ -1,6 +1,6 @@
 'use client';
 import { Badge } from '@/components/ui/badge';
-import { ClipboardCheck, Clock, CheckCircle2, XCircle, Ban } from 'lucide-react';
+import { ClipboardCheck, Clock, CheckCircle2, XCircle, Ban, RefreshCw } from 'lucide-react';
 import type { DocumentApprovalStatus } from '@auto-rfp/core';
 
 interface ApprovalStatusBadgeProps {
@@ -26,6 +26,11 @@ const STATUS_CONFIG: Record<
     label: 'Rejected',
     icon: XCircle,
     className: 'border-red-300 text-red-700 bg-red-50',
+  },
+  REVISION_REQUESTED: {
+    label: 'Revision Requested',
+    icon: RefreshCw,
+    className: 'border-blue-300 text-blue-700 bg-blue-50',
   },
   CANCELLED: {
     label: 'Cancelled',

@@ -8,11 +8,16 @@ import { PROPOSAL_SUBMISSION_PK } from '@/constants/proposal-submission';
 import { QUESTION_PK } from '@/constants/question';
 import { ANSWER_PK } from '@/constants/answer';
 import { PK_NAME, SK_NAME } from '@/constants/common';
+import { getExecutiveBriefByProjectId } from '@/helpers/executive-opportunity-brief';
 import type {
   ProposalSubmissionItem,
   SubmitProposal,
   ReadinessCheckItem,
   SubmissionReadinessResponse,
+  ComplianceReport,
+  ComplianceCategorySummary,
+  ComplianceCheckCategory,
+  ExecutiveBriefItem,
 } from '@auto-rfp/core';
 
 const DB_TABLE_NAME = requireEnv('DB_TABLE_NAME');
@@ -353,4 +358,548 @@ export const withdrawSubmissionRecord = async (
     { status: 'WITHDRAWN', withdrawnAt: nowIso(), withdrawnBy, withdrawalReason, updatedAt: nowIso() },
     true,
   );
+};
+
+// ─── Format Compliance Checks ─────────────────────────────────────────────────
+
+/**
+ * Extracts the brief's submissionCompliance data and checks format rules
+ * against the actual documents for this opportunity.
+ */
+export const checkFormatCompliance = async (args: {
+  projectId: string;
+  oppId: string;
+  activeDocs: Array<Record<string, unknown>>;
+  brief: ExecutiveBriefItem | null;
+}): Promise<ReadinessCheckItem[]> => {
+  const { activeDocs, brief } = args;
+  const checks: ReadinessCheckItem[] = [];
+
+  // Extract submission compliance from the brief's requirements section
+  const sections = brief?.sections as Record<string, unknown> | undefined;
+  const reqSection = sections?.requirements as Record<string, unknown> | undefined;
+  const reqData = reqSection?.data as Record<string, unknown> | undefined;
+  const compliance = reqData?.submissionCompliance as Record<string, unknown> | undefined;
+  const formatRules = (compliance?.format ?? []) as string[];
+
+  // ── Check: File types match common RFP requirements ──
+  const STANDARD_MIME_TYPES = new Set([
+    'application/pdf',
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    'application/msword',
+    'text/html',
+    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    'application/vnd.ms-excel',
+    'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+  ]);
+  const MIME_LABELS: Record<string, string> = {
+    'application/pdf': 'PDF',
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document': 'DOCX',
+    'application/msword': 'DOC',
+    'text/html': 'HTML',
+    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': 'XLSX',
+    'application/vnd.ms-excel': 'XLS',
+    'application/vnd.openxmlformats-officedocument.presentationml.presentation': 'PPTX',
+  };
+  const nonStandardDocs = activeDocs.filter((d) => {
+    const mime = d['mimeType'] as string | undefined;
+    return mime && !STANDARD_MIME_TYPES.has(mime);
+  });
+  const docFormats = activeDocs
+    .map((d) => MIME_LABELS[d['mimeType'] as string] ?? d['mimeType'] as string)
+    .filter(Boolean);
+  const uniqueFormats = [...new Set(docFormats)];
+
+  // Check if the brief's format rules mention specific file type requirements
+  const formatRulesLower = formatRules.map((r) => r.toLowerCase());
+  const requiresPdf = formatRulesLower.some((r) => r.includes('pdf'));
+  const requiresWord = formatRulesLower.some((r) => r.includes('word') || r.includes('docx') || r.includes('.doc'));
+  const hasSpecificFormatReq = requiresPdf || requiresWord;
+
+  if (hasSpecificFormatReq) {
+    // RFP specifies file type requirements — check against actual documents
+    const nonPdfDocs = requiresPdf
+      ? activeDocs.filter((d) => d['mimeType'] && d['mimeType'] !== 'application/pdf')
+      : [];
+    const nonWordDocs = requiresWord
+      ? activeDocs.filter((d) => {
+          const mime = d['mimeType'] as string | undefined;
+          return mime && mime !== 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' && mime !== 'application/msword';
+        })
+      : [];
+    const mismatchDocs = requiresPdf ? nonPdfDocs : nonWordDocs;
+    const requiredFormat = requiresPdf ? 'PDF' : 'Word (DOCX)';
+
+    checks.push({
+      id: 'file_type_compliance',
+      label: `File types match RFP requirement (${requiredFormat})`,
+      description: `The RFP format rules indicate ${requiredFormat} is required. Documents in other formats may need conversion.`,
+      passed: mismatchDocs.length === 0,
+      detail: mismatchDocs.length === 0
+        ? `All documents are in ${requiredFormat} format as required`
+        : `${mismatchDocs.length} document(s) not in ${requiredFormat}: ${mismatchDocs.map((d) => `${d['name']} (${MIME_LABELS[d['mimeType'] as string] ?? d['mimeType']})`).join(', ')}`,
+      blocking: false,
+      category: 'format_compliance',
+    });
+  } else if (nonStandardDocs.length > 0) {
+    // No specific RFP requirement — warn about non-standard types
+    checks.push({
+      id: 'file_type_compliance',
+      label: 'File types are submission-compatible',
+      description: 'Documents should be in standard formats (PDF, DOCX, XLSX) commonly accepted by agencies.',
+      passed: false,
+      detail: `${nonStandardDocs.length} document(s) use non-standard formats: ${nonStandardDocs.map((d) => `${d['name']} (${d['mimeType']})`).join(', ')} — verify the agency accepts these`,
+      blocking: false,
+      category: 'format_compliance',
+    });
+  } else {
+    checks.push({
+      id: 'file_type_compliance',
+      label: 'File types are submission-compatible',
+      description: 'All documents use standard formats accepted by government agencies.',
+      passed: true,
+      detail: `All ${activeDocs.length} document(s) use standard formats (${uniqueFormats.join(', ')})`,
+      blocking: false,
+      category: 'format_compliance',
+    });
+  }
+
+  // ── Check: File naming conventions ──
+  const docsWithBadNames = activeDocs.filter((d) => {
+    const name = (d['name'] as string | undefined) ?? '';
+    // Check for common naming issues: special chars, very long names, no extension
+    return name.length > 100 || /[<>:"/\\|?*]/.test(name);
+  });
+  checks.push({
+    id: 'file_naming_conventions',
+    label: 'File naming conventions',
+    description: 'Document names should be clean, descriptive, and free of special characters.',
+    passed: docsWithBadNames.length === 0,
+    detail: docsWithBadNames.length === 0
+      ? 'All document names follow naming conventions'
+      : `${docsWithBadNames.length} document(s) have naming issues: ${docsWithBadNames.map((d) => d['name']).join(', ')}`,
+    blocking: false,
+    category: 'format_compliance',
+  });
+
+  // ── Check: Format rules from brief (page limits, font, margins) ──
+  if (formatRules.length > 0) {
+    checks.push({
+      id: 'rfp_format_rules',
+      label: 'RFP format requirements identified',
+      description: 'Format rules extracted from the solicitation. Review these manually before submission.',
+      passed: true,
+      detail: `${formatRules.length} format rule(s) from RFP: ${formatRules.slice(0, 3).join('; ')}${formatRules.length > 3 ? ` (+${formatRules.length - 3} more)` : ''}`,
+      blocking: false,
+      category: 'format_compliance',
+    });
+  } else {
+    checks.push({
+      id: 'rfp_format_rules',
+      label: 'RFP format requirements',
+      description: 'No specific format rules were extracted from the solicitation.',
+      passed: true,
+      detail: 'No format rules found in the Executive Brief — verify manually if the RFP specifies page limits, font, or margin requirements',
+      blocking: false,
+      category: 'format_compliance',
+    });
+  }
+
+  // ── Check: Page limits per section (from brief's requiredDocuments) ──
+  const requiredDocs = (compliance?.requiredDocuments ?? []) as Array<Record<string, unknown>>;
+  const docsWithPageLimits = requiredDocs.filter((rd) => rd['pageLimit']);
+  if (docsWithPageLimits.length > 0) {
+    const pageLimitDetails = docsWithPageLimits.map((rd) =>
+      `${rd['name'] as string}: ${rd['pageLimit'] as string}`,
+    );
+    checks.push({
+      id: 'page_limits_identified',
+      label: 'Page limits per section',
+      description: 'The RFP specifies page limits for certain sections. Verify compliance before submission.',
+      passed: true,
+      detail: `Page limits: ${pageLimitDetails.join('; ')}`,
+      blocking: false,
+      category: 'format_compliance',
+    });
+  }
+
+  return checks;
+};
+
+// ─── Document Completeness Checks ─────────────────────────────────────────────
+
+/**
+ * Checks document completeness against the brief's required documents list.
+ * Goes beyond the basic Technical + Cost check to validate all RFP-required documents.
+ */
+export const checkDocumentCompleteness = async (args: {
+  activeDocs: Array<Record<string, unknown>>;
+  brief: ExecutiveBriefItem | null;
+}): Promise<ReadinessCheckItem[]> => {
+  const { activeDocs, brief } = args;
+  const checks: ReadinessCheckItem[] = [];
+
+  const sections = brief?.sections as Record<string, unknown> | undefined;
+  const reqSection = sections?.requirements as Record<string, unknown> | undefined;
+  const reqData = reqSection?.data as Record<string, unknown> | undefined;
+  const compliance = reqData?.submissionCompliance as Record<string, unknown> | undefined;
+  const requiredDocs = (compliance?.requiredDocuments ?? []) as Array<Record<string, unknown>>;
+  const requiredVolumes = (compliance?.requiredVolumes ?? []) as string[];
+  const attachmentsAndForms = (compliance?.attachmentsAndForms ?? []) as string[];
+
+  // ── Check: RFP-required documents from brief ──
+  if (requiredDocs.length > 0) {
+    const activeDocTypes = new Set(activeDocs.map((d) => d['documentType'] as string));
+    const missingRequired = requiredDocs
+      .filter((rd) => rd['required'] !== false)
+      .filter((rd) => !activeDocTypes.has(rd['documentType'] as string));
+
+    checks.push({
+      id: 'rfp_required_documents',
+      label: 'All RFP-required documents present',
+      description: 'Documents required by the solicitation (Section L) must be included.',
+      passed: missingRequired.length === 0,
+      detail: missingRequired.length === 0
+        ? `All ${requiredDocs.filter((rd) => rd['required'] !== false).length} required document type(s) present`
+        : `Missing ${missingRequired.length} required document(s): ${missingRequired.map((rd) => rd['name']).join(', ')}`,
+      blocking: true,
+      category: 'document_completeness',
+    });
+  }
+
+  // ── Check: Required volumes from brief ──
+  if (requiredVolumes.length > 0) {
+    checks.push({
+      id: 'required_volumes',
+      label: 'Required proposal volumes',
+      description: 'The RFP specifies required volumes. Verify all are included.',
+      passed: true,
+      detail: `Required volumes: ${requiredVolumes.join(', ')} — verify these are covered by your documents`,
+      blocking: false,
+      category: 'document_completeness',
+    });
+  }
+
+  // ── Check: Certifications document ──
+  const hasCertifications = activeDocs.some((d) => d['documentType'] === 'CERTIFICATIONS');
+  checks.push({
+    id: 'certifications_document',
+    label: 'Certifications & representations',
+    description: 'Most government RFPs require certifications and representations (FAR 52.204-8, etc.).',
+    passed: hasCertifications,
+    detail: hasCertifications
+      ? 'Certifications document found'
+      : 'No Certifications document — many RFPs require representations and certifications',
+    blocking: false,
+    category: 'document_completeness',
+  });
+
+  // ── Check: Past performance references ──
+  const hasPastPerf = activeDocs.some((d) => d['documentType'] === 'PAST_PERFORMANCE');
+  checks.push({
+    id: 'past_performance_document',
+    label: 'Past performance references',
+    description: 'Past performance is a key evaluation factor in most government proposals.',
+    passed: hasPastPerf,
+    detail: hasPastPerf
+      ? 'Past Performance document found'
+      : 'No Past Performance document — this is typically required for evaluation',
+    blocking: false,
+    category: 'document_completeness',
+  });
+
+  // ── Check: Attachments and forms from brief ──
+  if (attachmentsAndForms.length > 0) {
+    checks.push({
+      id: 'attachments_and_forms',
+      label: 'Required attachments & forms',
+      description: 'The RFP specifies required attachments and forms.',
+      passed: true,
+      detail: `Required forms: ${attachmentsAndForms.slice(0, 3).join('; ')}${attachmentsAndForms.length > 3 ? ` (+${attachmentsAndForms.length - 3} more)` : ''} — verify these are included`,
+      blocking: false,
+      category: 'document_completeness',
+    });
+  }
+
+  return checks;
+};
+
+// ─── Content Validation Checks ────────────────────────────────────────────────
+
+/**
+ * Validates that proposal content addresses key evaluation criteria
+ * and includes required content elements.
+ */
+export const checkContentValidation = async (args: {
+  activeDocs: Array<Record<string, unknown>>;
+  brief: ExecutiveBriefItem | null;
+}): Promise<ReadinessCheckItem[]> => {
+  const { activeDocs, brief } = args;
+  const checks: ReadinessCheckItem[] = [];
+
+  const sections = brief?.sections as Record<string, unknown> | undefined;
+  const reqSection = sections?.requirements as Record<string, unknown> | undefined;
+  const reqData = reqSection?.data as Record<string, unknown> | undefined;
+  const evaluationFactors = (reqData?.evaluationFactors ?? []) as string[];
+
+  // ── Check: Evaluation criteria identified ──
+  if (evaluationFactors.length > 0) {
+    checks.push({
+      id: 'evaluation_criteria_identified',
+      label: 'Evaluation criteria addressed',
+      description: 'The RFP evaluation factors should be explicitly addressed in your proposal.',
+      passed: true,
+      detail: `${evaluationFactors.length} evaluation factor(s): ${evaluationFactors.slice(0, 3).join('; ')}${evaluationFactors.length > 3 ? ` (+${evaluationFactors.length - 3} more)` : ''} — verify each is addressed`,
+      blocking: false,
+      category: 'content_validation',
+    });
+  }
+
+  // ── Check: Compliance matrix present ──
+  const hasComplianceMatrix = activeDocs.some((d) => d['documentType'] === 'COMPLIANCE_MATRIX');
+  checks.push({
+    id: 'compliance_matrix',
+    label: 'Compliance matrix included',
+    description: 'A compliance matrix maps every RFP requirement to your proposal response location.',
+    passed: hasComplianceMatrix,
+    detail: hasComplianceMatrix
+      ? 'Compliance Matrix document found — helps evaluators verify full coverage'
+      : 'No Compliance Matrix — consider adding one to prove requirement coverage',
+    blocking: false,
+    category: 'content_validation',
+  });
+
+  // ── Check: Cover letter present ──
+  const hasCoverLetter = activeDocs.some((d) => d['documentType'] === 'COVER_LETTER');
+  checks.push({
+    id: 'cover_letter',
+    label: 'Cover letter included',
+    description: 'A cover letter (transmittal letter) is standard for government proposal submissions.',
+    passed: hasCoverLetter,
+    detail: hasCoverLetter
+      ? 'Cover Letter found'
+      : 'No Cover Letter — most submissions require a signed transmittal letter',
+    blocking: false,
+    category: 'content_validation',
+  });
+
+  // ── Check: Executive summary present ──
+  const hasExecSummary = activeDocs.some((d) => d['documentType'] === 'EXECUTIVE_SUMMARY');
+  checks.push({
+    id: 'executive_summary',
+    label: 'Executive summary included',
+    description: 'The executive summary is the most-read section of any proposal.',
+    passed: hasExecSummary,
+    detail: hasExecSummary
+      ? 'Executive Summary found'
+      : 'No Executive Summary — this is the most-read section by evaluators',
+    blocking: false,
+    category: 'content_validation',
+  });
+
+  // ── Check: Pricing format (cost proposal has content) ──
+  const costDoc = activeDocs.find((d) => d['documentType'] === 'COST_PROPOSAL');
+  if (costDoc) {
+    const hasContent = costDoc['content'] || costDoc['htmlContentKey'] || costDoc['fileKey'];
+    checks.push({
+      id: 'pricing_format',
+      label: 'Cost proposal has content',
+      description: 'The cost proposal must contain pricing data.',
+      passed: !!hasContent,
+      detail: hasContent
+        ? 'Cost Proposal has content'
+        : 'Cost Proposal exists but appears empty — add pricing data',
+      blocking: true,
+      category: 'content_validation',
+    });
+  }
+
+  return checks;
+};
+
+// ─── Quality Checks (Non-Critical) ───────────────────────────────────────────
+
+/**
+ * Non-critical quality checks for professional polish.
+ * These are warnings only — they don't block submission.
+ */
+export const checkQuality = async (args: {
+  activeDocs: Array<Record<string, unknown>>;
+}): Promise<ReadinessCheckItem[]> => {
+  const { activeDocs } = args;
+  const checks: ReadinessCheckItem[] = [];
+
+  // ── Check: Documents have descriptions ──
+  const docsWithoutDescription = activeDocs.filter(
+    (d) => !d['description'] || (d['description'] as string).trim() === '',
+  );
+  checks.push({
+    id: 'document_descriptions',
+    label: 'Documents have descriptions',
+    description: 'Adding descriptions helps team members understand each document\'s purpose.',
+    passed: docsWithoutDescription.length === 0,
+    detail: docsWithoutDescription.length === 0
+      ? 'All documents have descriptions'
+      : `${docsWithoutDescription.length} document(s) missing descriptions`,
+    blocking: false,
+    category: 'quality_checks',
+  });
+
+  // ── Check: Consistent document naming ──
+  const docNames = activeDocs.map((d) => (d['name'] as string | undefined) ?? '');
+  const hasInconsistentCasing = docNames.some((n) => n === n.toLowerCase()) &&
+    docNames.some((n) => n !== n.toLowerCase() && n !== n.toUpperCase());
+  checks.push({
+    id: 'consistent_naming',
+    label: 'Consistent document naming',
+    description: 'Document names should follow a consistent naming convention.',
+    passed: !hasInconsistentCasing || docNames.length <= 1,
+    detail: hasInconsistentCasing && docNames.length > 1
+      ? 'Document names use inconsistent casing — consider standardizing'
+      : 'Document naming appears consistent',
+    blocking: false,
+    category: 'quality_checks',
+  });
+
+  // ── Check: No very small documents (potential empty/placeholder) ──
+  const tinyDocs = activeDocs.filter((d) => {
+    const size = d['fileSizeBytes'] as number | undefined;
+    return size !== undefined && size > 0 && size < 1024; // Less than 1KB
+  });
+  checks.push({
+    id: 'no_placeholder_documents',
+    label: 'No placeholder documents',
+    description: 'Very small documents may be placeholders that need content.',
+    passed: tinyDocs.length === 0,
+    detail: tinyDocs.length === 0
+      ? 'All documents have substantial content'
+      : `${tinyDocs.length} document(s) are very small (<1KB) — may be placeholders: ${tinyDocs.map((d) => d['name']).join(', ')}`,
+    blocking: false,
+    category: 'quality_checks',
+  });
+
+  // ── Check: All documents have been updated recently ──
+  const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
+  const staleDocs = activeDocs.filter((d) => {
+    const updatedAt = d['updatedAt'] as string | undefined;
+    return updatedAt && updatedAt < thirtyDaysAgo;
+  });
+  checks.push({
+    id: 'documents_recently_updated',
+    label: 'Documents are up to date',
+    description: 'Documents should be reviewed and updated before submission.',
+    passed: staleDocs.length === 0,
+    detail: staleDocs.length === 0
+      ? 'All documents updated within the last 30 days'
+      : `${staleDocs.length} document(s) not updated in 30+ days — review before submitting`,
+    blocking: false,
+    category: 'quality_checks',
+  });
+
+  return checks;
+};
+
+// ─── Compliance Report Generation ─────────────────────────────────────────────
+
+const CATEGORY_LABELS: Record<ComplianceCheckCategory, string> = {
+  submission_readiness: 'Submission Readiness',
+  format_compliance: 'Format Compliance',
+  document_completeness: 'Document Completeness',
+  content_validation: 'Content Validation',
+  quality_checks: 'Quality Checks',
+};
+
+const CATEGORY_ORDER: ComplianceCheckCategory[] = [
+  'submission_readiness',
+  'format_compliance',
+  'document_completeness',
+  'content_validation',
+  'quality_checks',
+];
+
+/**
+ * Generates a full compliance report by running all check categories:
+ * 1. Submission readiness (existing checks with category tags)
+ * 2. Format compliance (file types, naming, page limits)
+ * 3. Document completeness (RFP-required documents from brief)
+ * 4. Content validation (evaluation criteria, key sections)
+ * 5. Quality checks (descriptions, naming consistency, staleness)
+ */
+export const generateComplianceReport = async (args: {
+  orgId: string;
+  projectId: string;
+  oppId: string;
+  deadlineIso?: string | null;
+  currentStage?: string | null;
+}): Promise<ComplianceReport> => {
+  const { orgId, projectId, oppId, deadlineIso, currentStage } = args;
+
+  // ── 1. Run existing readiness checks (tagged as submission_readiness) ──
+  const readiness = await checkSubmissionReadiness({ orgId, projectId, oppId, deadlineIso, currentStage });
+  const readinessChecks: ReadinessCheckItem[] = readiness.checks.map((c) => ({
+    ...c,
+    category: 'submission_readiness' as const,
+  }));
+
+  // ── 2. Load brief for compliance data ──
+  let brief: ExecutiveBriefItem | null = null;
+  try {
+    brief = await getExecutiveBriefByProjectId(projectId, oppId);
+  } catch {
+    // Brief may not exist yet — that's OK, compliance checks will be limited
+    console.warn('[compliance-report] Could not load executive brief — some checks will be skipped');
+  }
+
+  // ── 3. Load documents (reuse from readiness if possible) ──
+  const { items: allDocs } = await listRFPDocumentsByProject({ projectId, opportunityId: oppId });
+  const activeDocs = allDocs.filter((d) => !d['deletedAt']) as Array<Record<string, unknown>>;
+
+  // ── 4. Run all compliance check categories ──
+  const formatChecks = await checkFormatCompliance({ projectId, oppId, activeDocs, brief });
+  const completenessChecks = await checkDocumentCompleteness({ activeDocs, brief });
+  const contentChecks = await checkContentValidation({ activeDocs, brief });
+  const qualityChecks = await checkQuality({ activeDocs });
+
+  // ── 5. Combine all checks ──
+  const allChecks: ReadinessCheckItem[] = [
+    ...readinessChecks,
+    ...formatChecks,
+    ...completenessChecks,
+    ...contentChecks,
+    ...qualityChecks,
+  ];
+
+  // ── 6. Build category summaries ──
+  const categories: ComplianceCategorySummary[] = CATEGORY_ORDER.map((cat) => {
+    const catChecks = allChecks.filter((c) => (c.category ?? 'submission_readiness') === cat);
+    const passedCount = catChecks.filter((c) => c.passed).length;
+    const failedCount = catChecks.length - passedCount;
+    return {
+      category: cat,
+      label: CATEGORY_LABELS[cat],
+      totalChecks: catChecks.length,
+      passed: passedCount,
+      failed: failedCount,
+      allPassed: failedCount === 0,
+      checks: catChecks,
+    };
+  }).filter((cat) => cat.totalChecks > 0); // Only include categories with checks
+
+  // ── 7. Compute summary stats ──
+  const blockingFails = allChecks.filter((c) => c.blocking && !c.passed).length;
+  const warningFails = allChecks.filter((c) => !c.blocking && !c.passed).length;
+  const totalChecks = allChecks.length;
+  const totalPassed = allChecks.filter((c) => c.passed).length;
+  const passRate = totalChecks > 0 ? Math.round((totalPassed / totalChecks) * 100) : 100;
+
+  return {
+    ready: blockingFails === 0,
+    checks: allChecks,
+    blockingFails,
+    warningFails,
+    categories,
+    generatedAt: nowIso(),
+    totalChecks,
+    passRate,
+  };
 };

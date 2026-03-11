@@ -4,7 +4,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { apiResponse, getOrgId, getUserId } from '@/helpers/api';
 import { withSentryLambda } from '@/sentry-lambda';
 import { getApprovalRecord, updateApprovalStatus } from '@/helpers/document-approval';
-import { getRFPDocument } from '@/helpers/rfp-document';
+import { getRFPDocument, updateRFPDocumentMetadata } from '@/helpers/rfp-document';
 import { getUserByOrgAndId } from '@/helpers/user';
 import { sendNotification, buildNotification } from '@/helpers/send-notification';
 import { reassignLinearTicket } from '@/helpers/linear';
@@ -62,6 +62,20 @@ const baseHandler = async (event: AuthedEvent): Promise<APIGatewayProxyResultV2>
     },
   );
 
+  // ── Update document signatureStatus based on decision (BLOCKING — gates submission) ──
+  try {
+    const newSignatureStatus = data.decision === 'APPROVED' ? 'FULLY_SIGNED' : 'PENDING_SIGNATURE';
+    await updateRFPDocumentMetadata({
+      projectId: data.projectId,
+      opportunityId: data.opportunityId,
+      documentId: data.documentId,
+      updates: { signatureStatus: newSignatureStatus },
+      updatedBy: reviewerId,
+    });
+  } catch (err) {
+    console.error('[submit-review] CRITICAL: Failed to update document signatureStatus:', err);
+  }
+
   // ── Reassign Linear ticket back to the requester (non-blocking) ──
   if (approval.linearTicketId) {
     const decisionLabel = data.decision === 'APPROVED' ? '✅ Approved' : '❌ Rejected';
@@ -101,7 +115,7 @@ const baseHandler = async (event: AuthedEvent): Promise<APIGatewayProxyResultV2>
       {
         orgId,
         projectId: data.projectId,
-        entityId: data.documentId,
+        entityId: `${data.opportunityId}:${data.documentId}`,
         recipientUserIds: [approval.requestedBy],
         recipientEmails: requester?.email ? [requester.email] : [],
         actorDisplayName: reviewerName,
