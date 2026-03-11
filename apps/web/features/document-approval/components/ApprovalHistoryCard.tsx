@@ -3,10 +3,11 @@ import { format } from 'date-fns';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
-import { ExternalLink, ClipboardCheck } from 'lucide-react';
+import { ExternalLink, ClipboardCheck, XCircle } from 'lucide-react';
 import { useApprovalHistory } from '../hooks/useApprovalHistory';
 import { ApprovalStatusBadge } from './ApprovalStatusBadge';
 import { ReviewDecisionPanel } from './ReviewDecisionPanel';
+import { ResubmitForReviewButton } from './ResubmitForReviewButton';
 
 interface ApprovalHistoryCardProps {
   orgId: string;
@@ -50,6 +51,11 @@ export const ApprovalHistoryCard = ({
     );
   }
 
+  // Find the most recent rejected approval where current user is the requester
+  const latestRejected = approvals.find(
+    (a) => a.status === 'REJECTED' && a.requestedBy === currentUserId,
+  );
+
   if (count === 0) return null;
 
   return (
@@ -61,6 +67,36 @@ export const ApprovalHistoryCard = ({
           currentUserId={currentUserId}
           onSuccess={handleReviewComplete}
         />
+      )}
+
+      {/* Rejection banner with re-submit — only visible to the requester */}
+      {latestRejected && latestRejected.requestedBy === currentUserId && (
+        <Card className="border-red-200 bg-red-50/50">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium flex items-center gap-2 text-red-700">
+              <XCircle className="h-4 w-4" />
+              Document Rejected
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            <p className="text-xs text-muted-foreground">
+              <span className="font-medium">{latestRejected.reviewerName ?? 'The reviewer'}</span> rejected this document
+              {latestRejected.reviewedAt && (
+                <> on {format(new Date(latestRejected.reviewedAt), 'MMM d, yyyy HH:mm')}</>
+              )}
+            </p>
+            {latestRejected.reviewNote && (
+              <div className="text-xs text-red-800 bg-red-100 p-2 rounded">
+                <strong>Reason:</strong> {latestRejected.reviewNote}
+              </div>
+            )}
+            <ResubmitForReviewButton
+              approval={latestRejected}
+              currentUserId={currentUserId}
+              onSuccess={handleReviewComplete}
+            />
+          </CardContent>
+        </Card>
       )}
 
       {/* Approval history */}

@@ -211,6 +211,23 @@ export const getItem = async <T>(
   return (res.Item as T) ?? null;
 };
 
+export const queryByPk = async <T>(pk: string): Promise<T[]> => {
+  const res = await docClient.send(
+    new QueryCommand({
+      TableName: DB_TABLE_NAME,
+      KeyConditionExpression: '#pk = :pk',
+      ExpressionAttributeNames: {
+        '#pk': PK_NAME,
+      },
+      ExpressionAttributeValues: {
+        ':pk': pk,
+      },
+    }),
+  );
+
+  return (res.Items as T[]) ?? [];
+};
+
 export const queryBySkPrefix = async <T>(pk: string, skPrefix: string): Promise<T[]> => {
   const res = await docClient.send(
     new QueryCommand({

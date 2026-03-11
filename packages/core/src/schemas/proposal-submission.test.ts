@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
   ProposalSubmissionStatusSchema,
   SubmissionMethodSchema,
+  ComplianceCheckCategorySchema,
   ReadinessCheckItemSchema,
   SubmissionReadinessResponseSchema,
   ProposalSubmissionItemSchema,
@@ -9,6 +10,8 @@ import {
   WithdrawSubmissionSchema,
   SubmitProposalResponseSchema,
   ProposalSubmissionHistoryResponseSchema,
+  ComplianceCategorySummarySchema,
+  ComplianceReportSchema,
 } from './proposal-submission';
 
 const validSubmissionItem = {
@@ -349,5 +352,217 @@ describe('ProposalSubmissionHistoryResponseSchema', () => {
       count: 1,
     });
     expect(result.success).toBe(true);
+  });
+});
+
+// ─── ComplianceCheckCategorySchema ────────────────────────────────────────────
+
+describe('ComplianceCheckCategorySchema', () => {
+  it('accepts all valid categories', () => {
+    const categories = [
+      'submission_readiness',
+      'format_compliance',
+      'document_completeness',
+      'content_validation',
+      'quality_checks',
+    ];
+    categories.forEach((c) => {
+      expect(ComplianceCheckCategorySchema.safeParse(c).success).toBe(true);
+    });
+  });
+
+  it('rejects invalid category', () => {
+    expect(ComplianceCheckCategorySchema.safeParse('unknown').success).toBe(false);
+    expect(ComplianceCheckCategorySchema.safeParse('').success).toBe(false);
+  });
+});
+
+// ─── ReadinessCheckItemSchema (category field) ───────────────────────────────
+
+describe('ReadinessCheckItemSchema (category)', () => {
+  it('category is optional and defaults to undefined', () => {
+    const result = ReadinessCheckItemSchema.safeParse({
+      id: 'test',
+      label: 'Test check',
+      passed: true,
+    });
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.category).toBeUndefined();
+    }
+  });
+
+  it('accepts explicit category', () => {
+    const result = ReadinessCheckItemSchema.safeParse({
+      id: 'file_type',
+      label: 'File type check',
+      passed: true,
+      category: 'format_compliance',
+    });
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.category).toBe('format_compliance');
+    }
+  });
+
+  it('rejects invalid category', () => {
+    const result = ReadinessCheckItemSchema.safeParse({
+      id: 'test',
+      label: 'Test',
+      passed: true,
+      category: 'invalid_category',
+    });
+    expect(result.success).toBe(false);
+  });
+});
+
+// ─── ComplianceCategorySummarySchema ──────────────────────────────────────────
+
+describe('ComplianceCategorySummarySchema', () => {
+  it('validates a passing category summary', () => {
+    const result = ComplianceCategorySummarySchema.safeParse({
+      category: 'format_compliance',
+      label: 'Format Compliance',
+      totalChecks: 3,
+      passed: 3,
+      failed: 0,
+      allPassed: true,
+      checks: [
+        { id: 'file_type', label: 'File type', passed: true, blocking: true, category: 'format_compliance' },
+      ],
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it('validates a failing category summary', () => {
+    const result = ComplianceCategorySummarySchema.safeParse({
+      category: 'document_completeness',
+      label: 'Document Completeness',
+      totalChecks: 5,
+      passed: 3,
+      failed: 2,
+      allPassed: false,
+      checks: [
+        { id: 'cert', label: 'Certifications', passed: false, blocking: false, category: 'document_completeness' },
+      ],
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it('rejects negative totalChecks', () => {
+    expect(ComplianceCategorySummarySchema.safeParse({
+      category: 'format_compliance',
+      label: 'Format',
+      totalChecks: -1,
+      passed: 0,
+      failed: 0,
+      allPassed: true,
+      checks: [],
+    }).success).toBe(false);
+  });
+});
+
+// ─── ComplianceReportSchema ───────────────────────────────────────────────────
+
+describe('ComplianceReportSchema', () => {
+  it('validates a complete compliance report', () => {
+    const result = ComplianceReportSchema.safeParse({
+      ready: true,
+      checks: [
+        { id: 'stage', label: 'Stage', passed: true, blocking: true, category: 'submission_readiness' },
+        { id: 'file_type', label: 'File type', passed: true, blocking: true, category: 'format_compliance' },
+      ],
+      blockingFails: 0,
+      warningFails: 0,
+      categories: [
+        {
+          category: 'submission_readiness',
+          label: 'Submission Readiness',
+          totalChecks: 1,
+          passed: 1,
+          failed: 0,
+          allPassed: true,
+          checks: [{ id: 'stage', label: 'Stage', passed: true, blocking: true, category: 'submission_readiness' }],
+        },
+        {
+          category: 'format_compliance',
+          label: 'Format Compliance',
+          totalChecks: 1,
+          passed: 1,
+          failed: 0,
+          allPassed: true,
+          checks: [{ id: 'file_type', label: 'File type', passed: true, blocking: true, category: 'format_compliance' }],
+        },
+      ],
+      generatedAt: '2025-06-15T12:00:00Z',
+      totalChecks: 2,
+      passRate: 100,
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it('validates a report with failures', () => {
+    const result = ComplianceReportSchema.safeParse({
+      ready: false,
+      checks: [
+        { id: 'stage', label: 'Stage', passed: false, blocking: true, category: 'submission_readiness' },
+      ],
+      blockingFails: 1,
+      warningFails: 0,
+      categories: [
+        {
+          category: 'submission_readiness',
+          label: 'Submission Readiness',
+          totalChecks: 1,
+          passed: 0,
+          failed: 1,
+          allPassed: false,
+          checks: [{ id: 'stage', label: 'Stage', passed: false, blocking: true, category: 'submission_readiness' }],
+        },
+      ],
+      generatedAt: '2025-06-15T12:00:00Z',
+      totalChecks: 1,
+      passRate: 0,
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it('rejects passRate > 100', () => {
+    expect(ComplianceReportSchema.safeParse({
+      ready: true,
+      checks: [],
+      blockingFails: 0,
+      warningFails: 0,
+      categories: [],
+      generatedAt: '2025-06-15T12:00:00Z',
+      totalChecks: 0,
+      passRate: 101,
+    }).success).toBe(false);
+  });
+
+  it('rejects passRate < 0', () => {
+    expect(ComplianceReportSchema.safeParse({
+      ready: true,
+      checks: [],
+      blockingFails: 0,
+      warningFails: 0,
+      categories: [],
+      generatedAt: '2025-06-15T12:00:00Z',
+      totalChecks: 0,
+      passRate: -1,
+    }).success).toBe(false);
+  });
+
+  it('rejects invalid generatedAt', () => {
+    expect(ComplianceReportSchema.safeParse({
+      ready: true,
+      checks: [],
+      blockingFails: 0,
+      warningFails: 0,
+      categories: [],
+      generatedAt: 'not-a-date',
+      totalChecks: 0,
+      passRate: 100,
+    }).success).toBe(false);
   });
 });

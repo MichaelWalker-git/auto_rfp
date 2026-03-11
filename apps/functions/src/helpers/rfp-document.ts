@@ -127,6 +127,7 @@ export async function updateRFPDocumentMetadata(args: {
     /** S3 key for the HTML content — replaces storing HTML inline in DynamoDB */
     htmlContentKey?: string;
     generationError?: string;
+    signatureStatus?: string;
   };
   updatedBy: string;
 }): Promise<Record<string, any>> {
@@ -187,6 +188,11 @@ export async function updateRFPDocumentMetadata(args: {
     setParts.push('#generationError = :generationError');
     names['#generationError'] = 'generationError';
     values[':generationError'] = args.updates.generationError;
+  }
+  if (args.updates.signatureStatus !== undefined) {
+    setParts.push('#signatureStatus = :signatureStatus');
+    names['#signatureStatus'] = 'signatureStatus';
+    values[':signatureStatus'] = args.updates.signatureStatus;
   }
 
   const res = await docClient.send(

@@ -30,7 +30,8 @@ import {
 } from '@/lib/hooks/use-rfp-documents';
 import { LinearSyncIndicator } from './linear-sync-indicator';
 import { formatDate, formatFileSize, getDocumentTypeStyle } from './rfp-document-utils';
-import { RequestApprovalButton, ApprovalHistoryCard } from '@/features/document-approval';
+import { RequestApprovalButton, ApprovalHistoryCard, ApprovalStatusBadge } from '@/features/document-approval';
+import { useApprovalHistory } from '@/features/document-approval';
 import { useAuth } from '@/components/AuthProvider';
 
 // ─── Google Drive icon ────────────────────────────────────────────────────────
@@ -75,10 +76,20 @@ export function RFPDocumentCard({
   const { userSub } = useAuth();
   const [approvalRefreshKey, setApprovalRefreshKey] = useState(0);
 
+  const { activeApproval, hasPendingApproval, approvals, refresh: refreshApprovals } = useApprovalHistory(
+    orgId, projectId, doc.opportunityId, doc.documentId,
+  );
+
+  // Check if document has been approved (most recent approval is APPROVED)
+  const isApproved = approvals.length > 0 && approvals[0]?.status === 'APPROVED';
+  // Check if current user is the assigned reviewer for active approval
+  const isReviewer = !!(activeApproval && activeApproval.reviewerId === userSub);
+
   const handleApprovalChange = useCallback(() => {
     setApprovalRefreshKey((k) => k + 1);
+    refreshApprovals();
     onSyncComplete(); // refresh the document list to pick up signatureStatus changes
-  }, [onSyncComplete]);
+  }, [onSyncComplete, refreshApprovals]);
 
   return (
     <div className={cn('rounded-xl border bg-background', isDeleting && 'opacity-80')}>
@@ -86,22 +97,30 @@ export function RFPDocumentCard({
         <DocumentIcon />
         <DocumentInfo doc={doc} typeStyle={typeStyle} />
         <div className="flex items-center gap-2 shrink-0">
-          {/* Request Approval button — only for ready documents */}
+          {/* Approval controls — show badge for reviewer, Request Approval for others */}
           {doc.status !== 'GENERATING' && doc.status !== 'FAILED' && (
-            <RequestApprovalButton
-              orgId={orgId}
-              projectId={projectId}
-              opportunityId={doc.opportunityId}
-              documentId={doc.documentId}
-              documentName={doc.name}
-              onSuccess={handleApprovalChange}
-            />
+            isApproved ? (
+              <ApprovalStatusBadge status="APPROVED" />
+            ) : hasPendingApproval && isReviewer ? (
+              <ApprovalStatusBadge status="PENDING" />
+            ) : (
+              <RequestApprovalButton
+                orgId={orgId}
+                projectId={projectId}
+                opportunityId={doc.opportunityId}
+                documentId={doc.documentId}
+                documentName={doc.name}
+                disabled={hasPendingApproval}
+                onSuccess={handleApprovalChange}
+              />
+            )
           )}
           <DocumentActions
             doc={doc}
             orgId={orgId}
             projectId={projectId}
             isDeleting={isDeleting}
+            isApproved={isApproved}
             onExport={onExport}
             onDelete={onDelete}
             onSyncComplete={onSyncComplete}
@@ -217,6 +236,7 @@ interface DocumentActionsProps {
   orgId: string;
   projectId: string;
   isDeleting: boolean;
+  isApproved: boolean;
   onExport: (doc: RFPDocumentItem) => void;
   onDelete: (doc: RFPDocumentItem) => void;
   onSyncComplete: () => void;
@@ -227,6 +247,7 @@ function DocumentActions({
   orgId,
   projectId,
   isDeleting,
+  isApproved,
   onExport,
   onDelete,
   onSyncComplete,
@@ -267,8 +288,8 @@ function DocumentActions({
 
   return (
     <div className="flex items-center gap-2 shrink-0">
-      {/* Edit Content — full-page editor for AI-generated / content-based docs */}
-      {isContentDoc && doc.status !== 'GENERATING' && (
+      {/* Edit Content — full-page editor for AI-generated / content-based docs (disabled when approved) */}
+      {isContentDoc && doc.status !== 'GENERATING' && !isApproved && (
         <Button size="sm" variant="outline" className="gap-2" asChild title="Edit document content">
           <Link href={editorUrl}>
             <Pencil className="h-4 w-4" />
@@ -315,8 +336,8 @@ function DocumentActions({
 
           {(isAlreadySynced || canSync) && <DropdownMenuSeparator />}
 
-          {/* Edit Content — full-page editor */}
-          {isContentDoc && doc.status !== 'GENERATING' && (
+          {/* Edit Content — full-page editor (hidden when approved) */}
+          {isContentDoc && doc.status !== 'GENERATING' && !isApproved && (
             <DropdownMenuItem asChild>
               <Link href={editorUrl} className="flex items-center">
                 <Pencil className="h-4 w-4 mr-2" />
