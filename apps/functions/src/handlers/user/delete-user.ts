@@ -94,16 +94,19 @@ export const baseHandler = async (
       undefined;
 
     // 2) Count remaining org memberships for this user (before deleting this one)
+    // Use the byUserId GSI to find all memberships for this user
     const membershipQuery = await docClient.send(
       new QueryCommand({
         TableName: DB_TABLE_NAME,
-        KeyConditionExpression: '#pk = :pk AND begins_with(#sk, :skPrefix)',
-        FilterExpression: 'contains(#sk, :userIdSuffix)',
-        ExpressionAttributeNames: { '#pk': PK_NAME, '#sk': SK_NAME },
+        IndexName: 'byUserId',
+        KeyConditionExpression: '#userId = :userId AND #pk = :pk',
+        ExpressionAttributeNames: {
+          '#userId': 'userId',
+          '#pk': PK_NAME,
+        },
         ExpressionAttributeValues: {
+          ':userId': userId,
           ':pk': USER_PK,
-          ':skPrefix': `ORG#`,
-          ':userIdSuffix': `#USER#${userId}`,
         },
         Select: 'COUNT',
       }),

@@ -1,6 +1,7 @@
 'use client';
 
-import { useApi, apiMutate, buildApiUrl } from './api-helpers';
+import { useApi, apiMutate, buildApiUrl, apiFetcher } from './api-helpers';
+import useSWR from 'swr';
 import type {
   UserRole,
   UserListItem,
@@ -31,7 +32,38 @@ export type ListUsersParams = {
   nextToken?: string;
 };
 
-// ─── GET Hook ───
+// ─── Single User Hook ───
+
+interface GetUserResponse {
+  ok: boolean;
+  user: UserListItem;
+}
+
+/**
+ * Fetch a single user by orgId and userId.
+ * Uses the dedicated get-user endpoint for direct lookup (no cache dependencies).
+ */
+export function useUser(orgId: string | null, userId: string | null) {
+  const url = orgId && userId
+    ? buildApiUrl('user/get-user', { orgId, userId })
+    : null;
+
+  const { data, error, isLoading, mutate } = useSWR<GetUserResponse>(
+    orgId && userId ? ['user', orgId, userId] : null,
+    url ? () => apiFetcher<GetUserResponse>(url) : null,
+    { revalidateOnFocus: false },
+  );
+
+  return {
+    user: data?.user ?? null,
+    isLoading,
+    isError: !!error,
+    error,
+    mutate,
+  };
+}
+
+// ─── Users List Hook ───
 
 export function useUsersList(orgId: string, params: ListUsersParams) {
   const url = buildApiUrl('user/get-users', {
