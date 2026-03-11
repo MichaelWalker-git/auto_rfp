@@ -1,7 +1,7 @@
 'use client';
 
 import { apiMutate, buildApiUrl } from './api-helpers';
-import { Organization } from '@auto-rfp/core';
+import { OrganizationItem } from '@auto-rfp/core';
 
 interface CreateOrganizationPayload {
   name: string;
@@ -11,8 +11,8 @@ interface CreateOrganizationPayload {
 }
 
 export function useCreateOrganization() {
-  const createOrganization = async (payload: CreateOrganizationPayload): Promise<Organization> => {
-    return apiMutate<Organization>(buildApiUrl('organization/create-organization'), 'POST', payload);
+  const createOrganization = async (payload: CreateOrganizationPayload): Promise<OrganizationItem> => {
+    return apiMutate<OrganizationItem>(buildApiUrl('organization/create-organization'), 'POST', payload);
   };
 
   return { createOrganization };

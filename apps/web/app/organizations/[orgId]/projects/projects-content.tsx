@@ -104,7 +104,7 @@ function ProjectsList({ orgId }: { orgId: string }) {
       if (!aIsFav && bIsFav) return 1;
 
       // If both have the same favorite status, sort by creation date
-      return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+      return new Date(b.createdAt ?? 0).getTime() - new Date(a.createdAt ?? 0).getTime();
     });
   }, [projects, searchQuery, isFavorite]);
 

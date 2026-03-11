@@ -145,8 +145,8 @@ const pageBreak = () => new Paragraph({ children: [new PageBreak()] });
 
 const heading = (text: string, level: 1 | 2 | 3): Paragraph => {
   const configs = {
-    1: { size: FONT_SIZE.h1, color: COLORS.primary, bold: true, spacing: SPACING.loose, border: { bottom: { style: BorderStyle.SINGLE, size: 4, color: COLORS.accent, space: 4 } } },
-    2: { size: FONT_SIZE.h2, color: COLORS.primary, bold: true, spacing: SPACING.section, border: { bottom: { style: BorderStyle.SINGLE, size: 2, color: COLORS.border, space: 3 } } },
+    1: { size: FONT_SIZE.h1, color: COLORS.primary, bold: true, spacing: SPACING.loose, border: undefined },
+    2: { size: FONT_SIZE.h2, color: COLORS.primary, bold: true, spacing: SPACING.section, border: undefined },
     3: { size: FONT_SIZE.h3, color: COLORS.dark, bold: true, spacing: SPACING.normal, border: undefined },
   };
   const cfg = configs[level];
@@ -193,7 +193,7 @@ const bulletItem = (text: string, level = 0, opts?: { color?: string; bold?: boo
     })],
   });
 
-const bulletList = (items: Array<string | null | undefined>, level = 0): Paragraph[] => {
+const bulletList = (items: Array<string | null | undefined>, level = 0): (Paragraph | Table)[] => {
   const cleaned = items.map((x) => (x ?? '').trim()).filter(Boolean);
   if (!cleaned.length) return [bodyText('None identified.', { color: COLORS.muted, italics: true })];
   return cleaned.map((t) => bulletItem(t, level));
@@ -244,10 +244,10 @@ const infoTable = (rows: Array<{ label: string; value: string }>): Table =>
     ),
   });
 
-const sectionStatusLine = (wrap?: { status?: string | null; updatedAt?: string | null; error?: string | null }): Paragraph[] => {
+const sectionStatusLine = (wrap?: { status?: string | null; updatedAt?: string | null; error?: string | null }): (Paragraph | Table)[] => {
   const status = safeText(wrap?.status, '—');
   const updated = wrap?.updatedAt ? fmtIso(wrap.updatedAt) : '—';
-  const out: Paragraph[] = [
+  const out: (Paragraph | Table)[] = [
     new Paragraph({
       spacing: SPACING.tight,
       children: [
@@ -264,8 +264,8 @@ const sectionStatusLine = (wrap?: { status?: string | null; updatedAt?: string |
 
 // ─── Cover page ───────────────────────────────────────────────────────────────
 
-const buildCoverPage = (projectName: string, brief: ExecutiveBriefItem): Paragraph[] => {
-  const paras: Paragraph[] = [];
+const buildCoverPage = (projectName: string, brief: ExecutiveBriefItem): (Paragraph | Table)[] => {
+  const paras: (Paragraph | Table)[] = [];
 
   // Spacer
   paras.push(new Paragraph({ spacing: { before: TWIP(120), after: 0 } }));
@@ -323,10 +323,10 @@ const buildCoverPage = (projectName: string, brief: ExecutiveBriefItem): Paragra
 
 // ─── Section builders ─────────────────────────────────────────────────────────
 
-const buildSummary = (brief: ExecutiveBriefItem): Paragraph[] => {
+const buildSummary = (brief: ExecutiveBriefItem): (Paragraph | Table)[] => {
   const wrap = brief.sections.summary;
   const data = wrap?.data;
-  const out: Paragraph[] = [heading('1. Opportunity Summary', 1), ...sectionStatusLine(wrap), blank()];
+  const out: (Paragraph | Table)[] = [heading('1. Opportunity Summary', 1), ...sectionStatusLine(wrap), blank()];
 
   if (!data) return out.concat(bodyText('No summary data available.', { color: COLORS.muted, italics: true }));
 
@@ -354,10 +354,10 @@ const buildSummary = (brief: ExecutiveBriefItem): Paragraph[] => {
   return out;
 };
 
-const buildDeadlines = (brief: ExecutiveBriefItem): Paragraph[] => {
+const buildDeadlines = (brief: ExecutiveBriefItem): (Paragraph | Table)[] => {
   const wrap = brief.sections.deadlines;
   const data = wrap?.data;
-  const out: Paragraph[] = [divider(), heading('2. Key Deadlines', 1), ...sectionStatusLine(wrap), blank()];
+  const out: (Paragraph | Table)[] = [divider(), heading('2. Key Deadlines', 1), ...sectionStatusLine(wrap), blank()];
 
   if (!data) return out.concat(bodyText('No deadlines data available.', { color: COLORS.muted, italics: true }));
 
@@ -419,10 +419,10 @@ const buildDeadlines = (brief: ExecutiveBriefItem): Paragraph[] => {
   return out;
 };
 
-const buildRequirements = (brief: ExecutiveBriefItem): Paragraph[] => {
+const buildRequirements = (brief: ExecutiveBriefItem): (Paragraph | Table)[] => {
   const wrap = brief.sections.requirements;
   const data = wrap?.data;
-  const out: Paragraph[] = [divider(), heading('3. Requirements Analysis', 1), ...sectionStatusLine(wrap), blank()];
+  const out: (Paragraph | Table)[] = [divider(), heading('3. Requirements Analysis', 1), ...sectionStatusLine(wrap), blank()];
 
   if (!data) return out.concat(bodyText('No requirements data available.', { color: COLORS.muted, italics: true }));
 
@@ -482,10 +482,10 @@ const buildRequirements = (brief: ExecutiveBriefItem): Paragraph[] => {
   return out;
 };
 
-const buildContacts = (brief: ExecutiveBriefItem): Paragraph[] => {
+const buildContacts = (brief: ExecutiveBriefItem): (Paragraph | Table)[] => {
   const wrap = brief.sections.contacts;
   const data = wrap?.data;
-  const out: Paragraph[] = [divider(), heading('4. Key Contacts', 1), ...sectionStatusLine(wrap), blank()];
+  const out: (Paragraph | Table)[] = [divider(), heading('4. Key Contacts', 1), ...sectionStatusLine(wrap), blank()];
 
   if (!data) return out.concat(bodyText('No contacts data available.', { color: COLORS.muted, italics: true }));
 
@@ -536,10 +536,10 @@ const buildContacts = (brief: ExecutiveBriefItem): Paragraph[] => {
   return out;
 };
 
-const buildRisks = (brief: ExecutiveBriefItem): Paragraph[] => {
+const buildRisks = (brief: ExecutiveBriefItem): (Paragraph | Table)[] => {
   const wrap = brief.sections.risks;
   const data = wrap?.data;
-  const out: Paragraph[] = [divider(), heading('5. Risk Assessment', 1), ...sectionStatusLine(wrap), blank()];
+  const out: (Paragraph | Table)[] = [divider(), heading('5. Risk Assessment', 1), ...sectionStatusLine(wrap), blank()];
 
   if (!data) return out.concat(bodyText('No risks data available.', { color: COLORS.muted, italics: true }));
 
@@ -586,10 +586,10 @@ const buildRisks = (brief: ExecutiveBriefItem): Paragraph[] => {
   return out;
 };
 
-const buildScoring = (brief: ExecutiveBriefItem): Paragraph[] => {
+const buildScoring = (brief: ExecutiveBriefItem): (Paragraph | Table)[] => {
   const wrap = brief.sections.scoring;
   const data = wrap?.data;
-  const out: Paragraph[] = [divider(), heading('6. Bid Scoring & Recommendation', 1), ...sectionStatusLine(wrap), blank()];
+  const out: (Paragraph | Table)[] = [divider(), heading('6. Bid Scoring & Recommendation', 1), ...sectionStatusLine(wrap), blank()];
 
   if (!data) return out.concat(bodyText('No scoring data available.', { color: COLORS.muted, italics: true }));
 
@@ -672,11 +672,11 @@ const buildScoring = (brief: ExecutiveBriefItem): Paragraph[] => {
   // Blockers & required actions
   if ((data.blockers ?? []).length) {
     out.push(blank(), heading('🚫 Blockers', 3));
-    out.push(...bulletList(data.blockers?.slice(0, 10)));
+    out.push(...bulletList(data.blockers?.slice(0, 10) ?? []));
   }
   if ((data.requiredActions ?? []).length) {
     out.push(blank(), heading('✅ Required Actions', 3));
-    out.push(...bulletList(data.requiredActions?.slice(0, 10)));
+    out.push(...bulletList(data.requiredActions?.slice(0, 10) ?? []));
   }
 
   // Confidence drivers

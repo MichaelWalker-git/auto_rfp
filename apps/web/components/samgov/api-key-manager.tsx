@@ -63,7 +63,7 @@ export function ApiKeyManager({ orgId }: ApiKeyManagerProps) {
             <Alert variant="destructive">
               <AlertCircle className="h-4 w-4" />
               <AlertDescription>
-                Failed to load API key: {error.details?.error || error.message}
+                Failed to load API key: {((error.details as Record<string, string>)?.error) || error.message}
               </AlertDescription>
             </Alert>
           )}
@@ -135,7 +135,7 @@ export function ApiKeyManager({ orgId }: ApiKeyManagerProps) {
             <Alert variant="destructive">
               <AlertCircle className="h-4 w-4" />
               <AlertDescription>
-                Failed to save API key: {errorSetting.details?.error || errorSetting.message}
+                Failed to save API key: {(errorSetting.details as Record<string, string>)?.error || errorSetting.message}
               </AlertDescription>
             </Alert>
           )}

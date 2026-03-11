@@ -1,6 +1,8 @@
 import { AlignmentType, Document, HeadingLevel, Packer, Paragraph, TextRun } from 'docx';
 import { saveAs } from 'file-saver';
-import { ProposalDocument } from '@auto-rfp/core';
+import { RFPDocumentContent } from '@auto-rfp/core';
+
+type ProposalDocument = RFPDocumentContent;
 import { PDFDocument, rgb, StandardFonts } from 'pdf-lib';
 
 function sanitizeFileName(name: string) {

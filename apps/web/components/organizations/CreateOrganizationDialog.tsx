@@ -67,7 +67,6 @@ export function CreateOrganizationDialog({
 
       const response = await createOrganization({
         name,
-        slug,
         description,
       });
 

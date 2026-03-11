@@ -51,8 +51,8 @@ const textToHtml = (text: string): string => {
 const wrapMammothHtml = (html: string, title: string): string => {
   // Add inline styles to mammoth's output elements
   const styled = html
-    .replace(/<h1>/g, '<h1 style="font-size:2em;font-weight:700;margin:0 0 0.5em;border-bottom:2px solid #ccc;padding-bottom:0.3em">')
-    .replace(/<h2>/g, '<h2 style="font-size:1.4em;font-weight:700;margin:1.5em 0 0.5em;border-bottom:1px solid #e2e8f0;padding-bottom:0.2em">')
+    .replace(/<h1>/g, '<h1 style="font-size:2em;font-weight:700;margin:0 0 0.5em">')
+    .replace(/<h2>/g, '<h2 style="font-size:1.4em;font-weight:700;margin:1.5em 0 0.5em">')
     .replace(/<h3>/g, '<h3 style="font-size:1.1em;font-weight:600;margin:1.2em 0 0.4em">')
     .replace(/<p>/g, '<p style="margin:0 0 1em;line-height:1.7">')
     .replace(/<ul>/g, '<ul style="margin:0 0 1em;padding-left:1.5em">')
@@ -63,7 +63,7 @@ const wrapMammothHtml = (html: string, title: string): string => {
     .replace(/<td>/g, '<td style="padding:0.6em 0.8em;font-size:0.9em;border-bottom:1px solid #e2e8f0">');
 
   return [
-    `<h1 style="font-size:2em;font-weight:700;margin:0 0 0.5em;border-bottom:2px solid #ccc;padding-bottom:0.3em">${title}</h1>`,
+    `<h1 style="font-size:2em;font-weight:700;margin:0 0 0.5em">${title}</h1>`,
     styled,
   ].join('\n');
 };
@@ -168,14 +168,14 @@ export const baseHandler = async (
         }
       }
       html = [
-        `<h1 style="font-size:2em;font-weight:700;margin:0 0 0.5em;border-bottom:2px solid #ccc;padding-bottom:0.3em">${docTitle}</h1>`,
+        `<h1 style="font-size:2em;font-weight:700;margin:0 0 0.5em">${docTitle}</h1>`,
         textToHtml(pdfText),
       ].join('\n');
     } else {
       // Plain text / markdown
       const text = await s3Response.Body.transformToString('utf-8');
       html = [
-        `<h1 style="font-size:2em;font-weight:700;margin:0 0 0.5em;border-bottom:2px solid #ccc;padding-bottom:0.3em">${docTitle}</h1>`,
+        `<h1 style="font-size:2em;font-weight:700;margin:0 0 0.5em">${docTitle}</h1>`,
         textToHtml(text),
       ].join('\n');
     }
