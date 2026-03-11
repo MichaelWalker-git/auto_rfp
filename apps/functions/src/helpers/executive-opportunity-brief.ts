@@ -45,6 +45,25 @@ export function truncateText(text: string, maxChars: number) {
 }
 
 /**
+ * Attempt to fix common JSON issues from LLM outputs.
+ * - Remove trailing commas before } or ]
+ * - Remove control characters that break parsing
+ * - Handle newlines inside strings
+ */
+function sanitizeJsonString(jsonStr: string): string {
+  // Remove control characters except \n, \r, \t
+  let sanitized = jsonStr.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F]/g, '');
+  
+  // Fix trailing commas: ,} or ,]
+  sanitized = sanitized.replace(/,(\s*[}\]])/g, '$1');
+  
+  // Fix double commas
+  sanitized = sanitized.replace(/,(\s*),/g, ',');
+  
+  return sanitized;
+}
+
+/**
  * Extract JSON object or array even if the model wraps it in text or ```json fences.
  * Fixes AUTO-RFP-67 and AUTO-RFP-5D: Better error handling for truncated/malformed responses.
  * Supports both JSON objects {...} and arrays [...].
@@ -64,37 +83,32 @@ export function extractFirstJsonObject(text: string): string {
     // continue to bracket scanning
   }
 
+  // Try sanitized version
+  try {
+    const sanitized = sanitizeJsonString(candidate);
+    JSON.parse(sanitized);
+    return sanitized;
+  } catch {
+    // continue to bracket scanning
+  }
+
   // Find first { or [ to support both objects and arrays
   const objectStart = candidate.indexOf('{');
   const arrayStart = candidate.indexOf('[');
   
   // Determine which comes first (or if neither exists)
   let start: number;
-  let openBracket: string;
-  let closeBracket: string;
   
   if (objectStart === -1 && arrayStart === -1) {
     const preview = candidate.length > 200 ? candidate.slice(0, 200) + '...' : candidate;
     throw new Error(`No JSON start "{" or "[" found in model output. Received: ${preview}`);
   } else if (objectStart === -1) {
     start = arrayStart;
-    openBracket = '[';
-    closeBracket = ']';
   } else if (arrayStart === -1) {
     start = objectStart;
-    openBracket = '{';
-    closeBracket = '}';
   } else {
     // Both exist - use whichever comes first
-    if (arrayStart < objectStart) {
-      start = arrayStart;
-      openBracket = '[';
-      closeBracket = ']';
-    } else {
-      start = objectStart;
-      openBracket = '{';
-      closeBracket = '}';
-    }
+    start = arrayStart < objectStart ? arrayStart : objectStart;
   }
 
   let depth = 0;
@@ -125,13 +139,32 @@ export function extractFirstJsonObject(text: string): string {
       if (ch === '}' || ch === ']') depth--;
       if (depth === 0) {
         const jsonStr = candidate.slice(start, i + 1);
+        
+        // Try parsing the extracted JSON
         try {
-          JSON.parse(jsonStr); // validate
+          JSON.parse(jsonStr);
           return jsonStr;
-        } catch (parseErr) {
-          // Fix AUTO-RFP-67: Better error context for JSON parse failures
-          const errorMsg = parseErr instanceof Error ? parseErr.message : 'Unknown parse error';
-          throw new Error(`JSON SyntaxError parsing extracted JSON: ${errorMsg}. JSON length: ${jsonStr.length}`);
+        } catch {
+          // Try with sanitization
+          try {
+            const sanitized = sanitizeJsonString(jsonStr);
+            JSON.parse(sanitized);
+            console.warn('extractFirstJsonObject: JSON required sanitization (trailing commas, control chars)');
+            return sanitized;
+          } catch (parseErr) {
+            // Fix AUTO-RFP-67: Better error context for JSON parse failures
+            const errorMsg = parseErr instanceof Error ? parseErr.message : 'Unknown parse error';
+            // Log the problematic area for debugging
+            const errorPosition = errorMsg.match(/position (\d+)/)?.[1];
+            let contextInfo = '';
+            if (errorPosition) {
+              const pos = parseInt(errorPosition, 10);
+              const contextStart = Math.max(0, pos - 50);
+              const contextEnd = Math.min(jsonStr.length, pos + 50);
+              contextInfo = ` Context around error: "...${jsonStr.slice(contextStart, contextEnd)}..."`;
+            }
+            throw new Error(`JSON SyntaxError parsing extracted JSON: ${errorMsg}. JSON length: ${jsonStr.length}.${contextInfo}`);
+          }
         }
       }
     }

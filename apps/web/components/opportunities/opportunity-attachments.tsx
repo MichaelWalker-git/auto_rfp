@@ -370,7 +370,7 @@ export function OpportunitySolicitationDocuments() {
                           {formatDateTime(f.createdAt)}
                           {f.updatedAt && f.updatedAt !== f.createdAt ? ` • Updated: ${formatDateTime(f.updatedAt)}` : ''}
                         </div>
-                        {f.errorMessage && (
+                        {isFailed && f.errorMessage && (
                           <div className="mt-2 rounded-lg border border-red-200 bg-red-50 p-2 text-xs text-red-700">{f.errorMessage}</div>
                         )}
                       </div>

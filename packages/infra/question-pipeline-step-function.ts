@@ -131,7 +131,8 @@ export class QuestionExtractionPipelineStack extends Stack {
       logGroup: mkFnLogGroup('ExtractDocxText'),
       entry: path.join(__dirname, '../../apps/functions/src/handlers/question-pipeline/extract-docx-text.ts'),
       handler: 'handler',
-      timeout: Duration.seconds(30),
+      timeout: Duration.minutes(5),  // Increased from 30s — large DOCX files can take longer
+      memorySize: 512,               // More memory for large documents
       environment: commonLambdaEnv,
     });
     documentsBucket.grantReadWrite(extractDocxTextLambda);
