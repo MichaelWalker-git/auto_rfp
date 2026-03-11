@@ -42,7 +42,6 @@ describe('Content Library Hooks', () => {
       {
         id: 'item-1',
         orgId: 'org-1',
-        kbId: 'kb-1',
         question: 'What is your company?',
         answer: 'We are a tech company...',
         category: 'Company',
@@ -53,6 +52,7 @@ describe('Content Library Hooks', () => {
         versions: [],
         isArchived: false,
         approvalStatus: 'APPROVED',
+        freshnessStatus: 'ACTIVE',
         createdAt: '2025-01-01T00:00:00Z',
         updatedAt: '2025-01-01T00:00:00Z',
         createdBy: 'user-1',
@@ -153,7 +153,6 @@ describe('Content Library Hooks', () => {
     const mockItem: ContentLibraryItem = {
       id: 'item-1',
       orgId: 'org-1',
-      kbId: 'kb-1',
       question: 'What is your company?',
       answer: 'We are a tech company...',
       category: 'Company',
@@ -164,6 +163,7 @@ describe('Content Library Hooks', () => {
       versions: [],
       isArchived: false,
       approvalStatus: 'DRAFT',
+      freshnessStatus: 'ACTIVE',
       createdAt: '2025-01-01T00:00:00Z',
       updatedAt: '2025-01-01T00:00:00Z',
       createdBy: 'user-1',
@@ -265,7 +265,6 @@ describe('Content Library Hooks', () => {
       const newItem: ContentLibraryItem = {
         id: 'new-item',
         orgId: 'org-1',
-        kbId: 'kb-1',
         question: 'New question',
         answer: 'New answer',
         category: 'Technical',
@@ -276,6 +275,7 @@ describe('Content Library Hooks', () => {
         versions: [],
         isArchived: false,
         approvalStatus: 'DRAFT',
+        freshnessStatus: 'ACTIVE',
         createdAt: '2025-01-22T00:00:00Z',
         updatedAt: '2025-01-22T00:00:00Z',
         createdBy: 'user-1',
@@ -289,7 +289,6 @@ describe('Content Library Hooks', () => {
       await act(async () => {
         created = await result.current.create({
           orgId: 'org-1',
-          kbId: 'kb-1',
           question: 'New question',
           answer: 'New answer',
           category: 'Technical',
@@ -315,7 +314,6 @@ describe('Content Library Hooks', () => {
         await expect(
           result.current.create({
             orgId: 'org-1',
-            kbId: 'kb-1',
             question: '',
             answer: '',
             category: '',

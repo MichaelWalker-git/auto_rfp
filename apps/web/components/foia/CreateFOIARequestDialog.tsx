@@ -91,7 +91,8 @@ export const CreateFOIARequestDialog = ({
 
   const onSubmit = async (values: CreateFOIARequestFormValues) => {
     try {
-      const result = await createFOIARequest(values);
+      const parsed = CreateFOIARequestSchema.parse(values);
+      const result = await createFOIARequest(parsed);
 
       toast({
         title: 'FOIA Request Created',

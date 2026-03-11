@@ -63,12 +63,12 @@ const ensureHtmlContent = (doc: RFPDocumentContent, templateHtml?: string): RFPD
 /**
  * Build a minimal default template for document types that don't have a custom template.
  * Uses a simple {{CONTENT}} placeholder so the AI generates the full document body.
+ * NOTE: We intentionally do NOT embed the document type into the template content —
+ * the document type is metadata stored on the document record, not part of the HTML body.
  */
-const buildDefaultTemplate = (documentType: string): string => {
-  const title = documentType.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+const buildDefaultTemplate = (): string => {
   return `<!-- TEMPLATE SCAFFOLD: This template defines the document wrapper/structure. Replace [CONTENT: ...] with a complete, well-structured HTML document body including appropriate headings and paragraphs. Keep all other text and elements (dates, company name, etc.) in their original positions. -->
-<h1 style="font-size:2em;font-weight:700;margin:0 0 0.5em">${title}</h1>
-<p style="margin:0 0 1em;line-height:1.7">[CONTENT: Write the complete document content here based on the solicitation requirements and provided context.]</p>`;
+<p style="margin:0 0 1em;line-height:1.7">[CONTENT: Write the complete document content here based on the solicitation requirements and provided context. Include appropriate headings, sections, and structure.]</p>`;
 };
 
 // ─── Job Schema ───
@@ -167,7 +167,7 @@ const processJobInner = async (job: Job): Promise<void> => {
   //    - Fail: if no template exists at all
 
   // Use a default simple template if no template exists for this document type
-  const effectiveTemplate = templateHtmlScaffold || buildDefaultTemplate(documentType);
+  const effectiveTemplate = templateHtmlScaffold || buildDefaultTemplate();
   if (!templateHtmlScaffold) {
     console.warn(`No template found for documentId=${documentId}, type=${documentType} — using default {{CONTENT}} template`);
   }
@@ -386,7 +386,7 @@ const processJobInner = async (job: Job): Promise<void> => {
     }
   } catch (parseErr) {
     console.warn(`safeParseJsonFromModel failed for documentId=${documentId}: ${(parseErr as Error).message}. Wrapping raw text as HTML.`);
-    modelJson = { title: `Generated ${documentType.replace(/_/g, ' ')}`, htmlContent: rawText };
+    modelJson = { title: 'Generated Document', htmlContent: rawText };
   }
 
   // 7. Validate model output against RFPDocumentContent schema

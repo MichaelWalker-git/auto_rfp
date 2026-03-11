@@ -297,8 +297,8 @@ export function proposalToHtml(doc: RFPDocumentContent): string {
   lines.push('    .metadata { color: #6b7280; font-size: 0.9em; margin-bottom: 24px; border-bottom: 1px solid #e5e7eb; padding-bottom: 12px; }');
   lines.push('    .metadata span { display: inline-block; margin-right: 24px; }');
   // Typography — matches the Tiptap editor styles
-  lines.push('    h1 { font-size: 1.875rem; font-weight: 700; margin: 1.5rem 0 0.5rem; color: #111827; border-bottom: 3px solid #4f46e5; padding-bottom: 0.3em; }');
-  lines.push('    h2 { font-size: 1.5rem; font-weight: 600; margin: 1.25rem 0 0.5rem; color: #1f2937; border-bottom: 1px solid #e5e7eb; padding-bottom: 0.2em; }');
+  lines.push('    h1 { font-size: 1.875rem; font-weight: 700; margin: 1.5rem 0 0.5rem; color: #111827; }');
+  lines.push('    h2 { font-size: 1.5rem; font-weight: 600; margin: 1.25rem 0 0.5rem; color: #1f2937; }');
   lines.push('    h3 { font-size: 1.25rem; font-weight: 600; margin: 1rem 0 0.4rem; color: #1f2937; }');
   lines.push('    p { margin: 0 0 0.75rem; line-height: 1.75; color: #374151; }');
   lines.push('    ul { list-style: disc; margin: 0 0 0.75rem; padding-left: 1.5rem; }');

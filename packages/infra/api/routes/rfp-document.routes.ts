@@ -17,7 +17,14 @@ export function rfpDocumentDomain(args?: {
       { method: 'DELETE', path: 'delete', entry: lambdaEntry('rfp-document/delete-rfp-document.ts') },
       { method: 'POST', path: 'preview-url', entry: lambdaEntry('rfp-document/get-document-preview-url.ts') },
       { method: 'POST', path: 'download-url', entry: lambdaEntry('rfp-document/get-document-download-url.ts') },
-      { method: 'POST', path: 'export', entry: lambdaEntry('rfp-document/export-rfp-document.ts') },
+      {
+        method: 'POST',
+        path: 'export',
+        entry: lambdaEntry('rfp-document/export-rfp-document.ts'),
+        memorySize: 1536,
+        timeoutSeconds: 60,
+        nodeModules: ['@sparticuz/chromium', 'puppeteer-core', 'html-to-docx'],
+      },
       {
         method: 'POST',
         path: 'generate-document',

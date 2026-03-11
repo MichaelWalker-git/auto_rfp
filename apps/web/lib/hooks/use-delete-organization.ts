@@ -1,7 +1,10 @@
 'use client';
 
 import { apiMutate, buildApiUrl } from './api-helpers';
-import { DeleteOrganizationResponse } from '@auto-rfp/core';
+interface DeleteOrganizationResponse {
+  message: string;
+  orgId: string;
+}
 
 export function useDeleteOrganization() {
   const deleteOrganization = async (orgId: string): Promise<DeleteOrganizationResponse> => {

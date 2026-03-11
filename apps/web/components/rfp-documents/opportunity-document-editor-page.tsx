@@ -21,7 +21,8 @@ import { uploadFileToS3, usePresignDownload, usePresignUpload } from '@/lib/hook
 import { useRevertVersion, useCherryPick } from '@/lib/hooks/use-document-versions';
 import { RichTextEditor, stripPresignedUrlsFromHtml } from './rich-text-editor';
 import { RFPDocumentExportDialog } from './rfp-document-export-dialog';
-import { RequestApprovalButton } from '@/features/document-approval';
+import { RequestApprovalButton, ReviewDecisionPanel, ApprovalStatusBadge } from '@/features/document-approval';
+import { useApprovalHistory } from '@/features/document-approval';
 import { useAuth } from '@/components/AuthProvider';
 import { VersionHistoryPanel } from './version-history/VersionHistoryPanel';
 import { VersionDiffView } from './version-diff/VersionDiffView';
@@ -223,8 +224,11 @@ export const OpportunityDocumentEditorPage = ({
     prevStatusRef.current = currentStatus;
   }, [doc?.status, mutateHtml]);
 
-  // Reset when navigating to a different document
+  // Reset when navigating to a different document (skip initial mount — component is already fresh)
+  const prevDocumentIdRef = useRef(documentId);
   useEffect(() => {
+    if (prevDocumentIdRef.current === documentId) return;
+    prevDocumentIdRef.current = documentId;
     htmlInitializedRef.current = false;
     setHtmlInitialized(false);
     setHtmlContent('');
@@ -370,13 +374,19 @@ export const OpportunityDocumentEditorPage = ({
   // ── Derived state ──
 
   const { userSub } = useAuth();
+  const { activeApproval, hasPendingApproval, approvals, refresh: refreshApprovals } = useApprovalHistory(
+    orgId, projectId, opportunityId, documentId,
+  );
+  const isApproved = approvals.length > 0 && approvals[0]?.status === 'APPROVED';
+  const isReviewer = !!(activeApproval && userSub && activeApproval.reviewerId === userSub);
+
   const isGenerating = isDocumentGenerating(doc?.status);
   const isFailed = isDocumentFailed(doc?.status);
   const isReady = isDocumentReady(doc?.status);
   // Editor is ready when: document is ready (not generating/failed), HTML fetch done, and initialized.
   // Uses htmlInitialized (state) so React re-renders when initialization completes.
   const isEditorReady = isReady && !isHtmlLoading && htmlInitialized;
-  const isBusy = isMutating || isRegenerating || isGenerating || isRegenerateStarting;
+  const isBusy = isMutating || isRegenerating || isGenerating || isRegenerateStarting || isApproved;
   const backUrl = `/organizations/${orgId}/projects/${projectId}/opportunities/${opportunityId}`;
 
   // ── Render ──
@@ -440,15 +450,19 @@ export const OpportunityDocumentEditorPage = ({
 
         {/* Actions */}
         <div className="flex items-center gap-2 shrink-0">
-        {/* Request Review — only for ready (non-generating, non-failed) documents */}
-        {doc && doc.status !== 'GENERATING' && doc.status !== 'FAILED' && userSub && (
+        {/* Approval status badge */}
+        {isApproved && <ApprovalStatusBadge status="APPROVED" />}
+        {hasPendingApproval && <ApprovalStatusBadge status="PENDING" />}
+
+        {/* Request Approval button — hidden for reviewer (they see panel below) and approved docs */}
+        {doc && doc.status !== 'GENERATING' && doc.status !== 'FAILED' && userSub && !isReviewer && !isApproved && (
           <RequestApprovalButton
             orgId={orgId}
             projectId={projectId}
             opportunityId={opportunityId}
             documentId={documentId}
             documentName={doc.name}
-            disabled={isBusy}
+            disabled={isBusy || hasPendingApproval}
           />
         )}
 
@@ -526,6 +540,17 @@ export const OpportunityDocumentEditorPage = ({
         </div>{/* end actions */}
       </div>{/* end toolbar */}
 
+      {/* ── Reviewer decision panel — shown between toolbar and editor ── */}
+      {isReviewer && activeApproval && userSub && (
+        <div className="shrink-0 px-4 py-2 border-b">
+          <ReviewDecisionPanel
+            approval={activeApproval}
+            currentUserId={userSub}
+            onSuccess={() => refreshApprovals()}
+          />
+        </div>
+      )}
+
       {/* ── Editor with optional side panel ── */}
       <div className="flex flex-1 min-h-0 overflow-hidden">
         <div className="flex-1 min-h-0 overflow-hidden">
@@ -566,7 +591,7 @@ export const OpportunityDocumentEditorPage = ({
               key={editorKey}
               value={htmlContent}
               onChange={setHtmlContent}
-              disabled={isMutating}
+              disabled={isMutating || isApproved}
               className="h-full rounded-none border-0"
               minHeight="100%"
               onUploadImageToS3={handleUploadImageToS3}

@@ -73,7 +73,7 @@ export const DeadlineSchema = z.object({
   dateTimeIso: z.string().datetime({ offset: true }).optional(),
   rawText: z.string().optional(),
   timezone: z.string().optional(),
-  notes: z.string().optional(),
+  notes: z.string().nullish(), // Accept null from LLM output
 });
 
 export type Deadline = z.infer<typeof DeadlineSchema>;
@@ -180,7 +180,7 @@ export const RisksSectionSchema = z.object({
     knownIncumbent: z.boolean().default(false),
     incumbentName: z.string().optional(),
     recompete: z.boolean().default(false),
-    notes: z.string().optional(),
+    notes: z.string().nullish(),
   }),
 });
 

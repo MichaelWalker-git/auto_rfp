@@ -198,8 +198,8 @@ export function ProjectOverview({ projectId }: ProjectOverviewProps) {
     return <Alert><AlertCircle className="h-4 w-4" /><AlertTitle>Project Not Found</AlertTitle><AlertDescription>The requested project could not be found.</AlertDescription></Alert>;
   }
 
-  const createdAtFormatted = format(new Date(project.createdAt), 'MMM d, yyyy');
-  const updatedAtRelative = formatDistanceToNow(new Date(project.updatedAt), { addSuffix: true });
+  const createdAtFormatted = format(new Date(project.createdAt ?? Date.now()), 'MMM d, yyyy');
+  const updatedAtRelative = formatDistanceToNow(new Date(project.updatedAt ?? Date.now()), { addSuffix: true });
   const baseUrl = `/organizations/${project.orgId}/projects/${projectId}`;
 
   return (

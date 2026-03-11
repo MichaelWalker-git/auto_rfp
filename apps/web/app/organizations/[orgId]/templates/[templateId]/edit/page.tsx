@@ -51,9 +51,6 @@ export default function EditTemplatePage() {
   const orgId = params.orgId as string;
   const templateId = params.templateId as string;
 
-  const [name, setName] = useState('');
-  const [category, setCategory] = useState('');
-  const [content, setContent] = useState('');
   const [isImageUploading, setIsImageUploading] = useState(false);
   const [isResolvingImages, setIsResolvingImages] = useState(false);
   const contentInitializedRef = useRef(false);
@@ -65,11 +62,18 @@ export default function EditTemplatePage() {
   const { trigger: triggerPresignUpload } = usePresignUpload();
   const { trigger: triggerPresignDownload } = usePresignDownload();
 
-  // Sync metadata from template
+  // Initialize metadata from template
+  const [name, setName] = useState(template?.name ?? '');
+  const [category, setCategory] = useState(template?.category ?? '');
+  const [content, setContent] = useState('');
+  const metadataInitializedRef = useRef(!!template);
+
+  // Sync metadata when template loads for the first time
   useEffect(() => {
-    if (!template) return;
-    setName(template.name);
-    setCategory(template.category);
+    if (!template || metadataInitializedRef.current) return;
+    metadataInitializedRef.current = true;
+    setName(template.name ?? '');
+    setCategory(template.category ?? '');
   }, [template]);
 
   // Sync content and resolve s3key: placeholders
@@ -226,7 +230,7 @@ export default function EditTemplatePage() {
 
           <div className="space-y-2">
             <Label htmlFor="category">Category *</Label>
-            <Select value={category} onValueChange={setCategory} disabled={isDisabled}>
+            <Select key={`category-${category || 'empty'}`} value={category} onValueChange={setCategory} disabled={isDisabled}>
               <SelectTrigger id="category">
                 <SelectValue placeholder="Select category…" />
               </SelectTrigger>

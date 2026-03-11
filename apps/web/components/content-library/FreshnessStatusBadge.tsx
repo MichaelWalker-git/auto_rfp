@@ -12,7 +12,7 @@ import type { FreshnessStatus, StaleReason } from '@auto-rfp/core';
 
 interface FreshnessStatusBadgeProps {
   status?: FreshnessStatus | null;
-  reason?: StaleReason | null;
+  reason?: StaleReason | string | null;
   staleSince?: string | null;
   compact?: boolean;
 }

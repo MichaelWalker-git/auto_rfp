@@ -1,7 +1,11 @@
 'use client';
 
 import { useApi, buildApiUrl, ApiError } from './api-helpers';
-import { GetApiKeyResponse } from '@auto-rfp/core';
+interface GetApiKeyResponse {
+  apiKey?: string | null;
+  message?: string;
+  orgId?: string;
+}
 
 export function useGetApiKey(orgId?: string) {
   const { data, isLoading, isError, error, mutate } = useApi<GetApiKeyResponse>(

@@ -1,6 +1,6 @@
 import type { ScheduledHandler } from 'aws-lambda';
 import { SQSClient, SendMessageCommand } from '@aws-sdk/client-sqs';
-import { queryBySkPrefix } from '@/helpers/db';
+import { queryByPk } from '@/helpers/db';
 import { requireEnv } from '@/helpers/env';
 import type { NotificationPayload } from '@auto-rfp/core';
 import { withSentryLambda } from '@/sentry-lambda';
@@ -30,7 +30,7 @@ const baseHandler: ScheduledHandler = async () => {
   const now = Date.now();
 
   // Scan all deadlines — in production scope this by org or use GSI
-  const deadlines = await queryBySkPrefix<DeadlineItem>(DEADLINE_PK, '');
+  const deadlines = await queryByPk<DeadlineItem>(DEADLINE_PK);
 
   for (const deadline of deadlines) {
     const deadlineMs = new Date(deadline.deadlineAt).getTime();

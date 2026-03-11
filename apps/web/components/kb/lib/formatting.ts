@@ -1,4 +1,6 @@
-import { IndexStatus } from '@auto-rfp/core';
+import { DocumentItem } from '@auto-rfp/core';
+
+type IndexStatus = DocumentItem['indexStatus'];
 
 export function formatFileSize(bytes: number): string {
   if (bytes === 0) return '0 Bytes';

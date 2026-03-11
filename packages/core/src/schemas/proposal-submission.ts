@@ -1,5 +1,20 @@
 import { z } from 'zod';
 
+// ─── Compliance Check Category ────────────────────────────────────────────────
+
+/**
+ * Categories for compliance checks. Each check belongs to one category,
+ * allowing the UI to group and display them in organized sections.
+ */
+export const ComplianceCheckCategorySchema = z.enum([
+  'submission_readiness',   // Core readiness checks (stage, questions, answers)
+  'format_compliance',      // File type, page limits, font, margins, file naming
+  'document_completeness',  // All required documents present per RFP requirements
+  'content_validation',     // Evaluation criteria addressed, certifications, pricing format
+  'quality_checks',         // Grammar, spelling, professional polish (non-critical)
+]);
+export type ComplianceCheckCategory = z.infer<typeof ComplianceCheckCategorySchema>;
+
 // ─── Submission Status ────────────────────────────────────────────────────────
 
 export const ProposalSubmissionStatusSchema = z.enum([
@@ -30,6 +45,8 @@ export const ReadinessCheckItemSchema = z.object({
   detail:      z.string().optional(),
   /** Blocking = submission cannot proceed if false. Non-blocking = warning only. */
   blocking:    z.boolean().default(true),
+  /** Category for grouping checks in the compliance report UI. */
+  category:    ComplianceCheckCategorySchema.optional(),
 });
 export type ReadinessCheckItem = z.infer<typeof ReadinessCheckItemSchema>;
 
@@ -122,3 +139,47 @@ export const ProposalSubmissionHistoryResponseSchema = z.object({
   count: z.number(),
 });
 export type ProposalSubmissionHistoryResponse = z.infer<typeof ProposalSubmissionHistoryResponseSchema>;
+
+// ─── Compliance Category Summary ──────────────────────────────────────────────
+
+/** Summary stats for a single compliance check category. */
+export const ComplianceCategorySummarySchema = z.object({
+  category:     ComplianceCheckCategorySchema,
+  label:        z.string().min(1),
+  totalChecks:  z.number().int().nonnegative(),
+  passed:       z.number().int().nonnegative(),
+  failed:       z.number().int().nonnegative(),
+  /** True if all checks in this category passed. */
+  allPassed:    z.boolean(),
+  checks:       z.array(ReadinessCheckItemSchema),
+});
+export type ComplianceCategorySummary = z.infer<typeof ComplianceCategorySummarySchema>;
+
+// ─── Compliance Report ────────────────────────────────────────────────────────
+
+/**
+ * Full compliance report with checks grouped by category.
+ * Extends the basic readiness response with richer structure for the UI.
+ */
+export const ComplianceReportSchema = z.object({
+  /** Overall submission readiness — false if any critical check fails. */
+  ready:            z.boolean(),
+  /** Flat list of all checks (for backward compatibility with readiness endpoint). */
+  checks:           z.array(ReadinessCheckItemSchema),
+  blockingFails:    z.number().int().nonnegative(),
+  warningFails:     z.number().int().nonnegative(),
+  /** Checks grouped by category with per-category summary stats. */
+  categories:       z.array(ComplianceCategorySummarySchema),
+  /** ISO timestamp when the report was generated. */
+  generatedAt:      z.string().datetime(),
+  /** Total number of checks across all categories. */
+  totalChecks:      z.number().int().nonnegative(),
+  /** Overall pass rate as a percentage (0–100). */
+  passRate:         z.number().min(0).max(100),
+});
+export type ComplianceReport = z.infer<typeof ComplianceReportSchema>;
+
+// ─── Compliance Report API Response ───────────────────────────────────────────
+
+export const ComplianceReportResponseSchema = ComplianceReportSchema;
+export type ComplianceReportResponse = z.infer<typeof ComplianceReportResponseSchema>;

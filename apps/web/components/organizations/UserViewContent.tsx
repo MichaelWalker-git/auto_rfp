@@ -3,6 +3,7 @@
 import React, { useCallback, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { mutate as globalMutate } from 'swr';
 import {
   AlertCircle,
   ArrowLeft,
@@ -41,7 +42,7 @@ import {
   deleteUserApi,
   addUserToOrganizationApi,
   removeUserFromOrganizationApi,
-  useUsersList,
+  useUser,
   useUserKBAccess,
   grantKBAccessApi,
   revokeKBAccessApi,
@@ -86,12 +87,8 @@ export function UserViewContent({ orgId, userId }: UserViewContentProps) {
   const { toast } = useToast();
   const canEdit = usePermission('user:edit');
 
-  // Fetch user data
-  const { data: usersData, mutate: refreshUsers, isLoading } = useUsersList(orgId, { limit: 200 });
-  const user = useMemo(
-    () => usersData?.items?.find((u) => u.userId === userId),
-    [usersData, userId],
-  );
+  // Fetch user data directly using the dedicated get-user endpoint
+  const { user, mutate: refreshUser, isLoading } = useUser(orgId, userId);
 
   // Edit mode state
   const [isEditing, setIsEditing] = useState(false);
@@ -130,7 +127,10 @@ export function UserViewContent({ orgId, userId }: UserViewContentProps) {
       if (role !== user?.role) payload.role = role;
 
       await editUserApi(payload as Parameters<typeof editUserApi>[0]);
-      await refreshUsers();
+      // Refresh the single user cache
+      await refreshUser();
+      // Also invalidate the users list cache so the list stays in sync
+      await globalMutate((key: unknown) => Array.isArray(key) && key[0] === 'users' && key[1] === orgId);
       toast({ title: 'User updated', description: 'User details saved successfully.' });
       setIsEditing(false);
     } catch (err: unknown) {
@@ -139,7 +139,7 @@ export function UserViewContent({ orgId, userId }: UserViewContentProps) {
     } finally {
       setIsSaving(false);
     }
-  }, [orgId, userId, firstName, lastName, phone, role, user?.role, refreshUsers, toast]);
+  }, [orgId, userId, firstName, lastName, phone, role, user?.role, refreshUser, toast]);
 
   // ── Loading / not found states ─────────────
 
