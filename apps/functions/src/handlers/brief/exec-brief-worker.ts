@@ -592,14 +592,14 @@ async function runScoring(job: Job): Promise<void> {
       },
     });
 
-    // Auto-transition opportunity stage based on scoring decision (non-blocking)
+    // Auto-transition opportunity stage based on scoring decision (fire-and-forget)
     onBriefScoringComplete({
       orgId,
       projectId,
       oppId: opportunityId,
       decision: normalized.decision as 'GO' | 'NO_GO' | 'CONDITIONAL_GO',
       compositeScore: normalized.compositeScore,
-    }).catch(err => console.warn('onBriefScoringComplete failed (non-blocking):', (err as Error)?.message));
+    });
 
     // Google Drive Sync on GO Decision (async via SQS)
     if (normalized.decision === 'GO') {

@@ -17,6 +17,7 @@ import { auditMiddleware, setAuditContext } from '@/middleware/audit-middleware'
 import { updateOpportunity, getOpportunity } from '@/helpers/opportunity';
 import { OpportunityItemSchema } from '@auto-rfp/core';
 import { resolveUserNames } from '@/helpers/resolve-users';
+import { STAGE_TO_APN_STATUS_MAP } from '@/constants/apn';
 
 // Schema for update request - all fields optional except identifiers
 const UpdateOpportunityRequestSchema = z.object({
@@ -77,24 +78,13 @@ const baseHandler = async (event: AuthedEvent): Promise<APIGatewayProxyResultV2>
     // Sync to APN if the opportunity is in a stage that should be synced
     const apnSyncStages = ['SUBMITTED', 'WON', 'LOST', 'NO_BID', 'WITHDRAWN'];
     const currentStage = item.stage ?? 'IDENTIFIED';
-    
-    if (apnSyncStages.includes(currentStage)) {
-      const stageToApnStatusMap: Record<string, string> = {
-        'IDENTIFIED':  'PROSPECT',
-        'QUALIFYING':  'PROSPECT', 
-        'PURSUING':    'PROSPECT',
-        'SUBMITTED':   'SUBMITTED',
-        'WON':         'WON',
-        'LOST':        'LOST',
-        'NO_BID':      'LOST',
-        'WITHDRAWN':   'LOST',
-      };
 
-      const proposalStatus = stageToApnStatusMap[currentStage] ?? 'PROSPECT';
-      
-      // Non-blocking APN sync
+    if (apnSyncStages.includes(currentStage)) {
+      const proposalStatus = STAGE_TO_APN_STATUS_MAP[currentStage] ?? 'PROSPECT';
+
+      // APN sync (awaited to prevent Lambda termination before completion)
       const { syncOpportunityToApn } = await import('@/helpers/apn-db');
-      syncOpportunityToApn({
+      await syncOpportunityToApn({
         orgId,
         projectId,
         oppId,
@@ -105,7 +95,7 @@ const baseHandler = async (event: AuthedEvent): Promise<APIGatewayProxyResultV2>
         proposalStatus,
         description:       item?.description?.substring(0, 500),
         existingApnId:     item.apnOpportunityId ?? null,
-      }).catch(err => console.warn('[update-opportunity] APN sync failed (non-blocking):', (err as Error)?.message));
+      });
     }
 
     setAuditContext(event, {

@@ -175,10 +175,21 @@ export class ApiOrchestratorStack extends cdk.Stack {
     mainTable.grantReadWriteData(sharedInfraStack.commonLambdaRole);
     documentsBucket.grantReadWrite(sharedInfraStack.commonLambdaRole);
 
+    // Grant comprehensive Bedrock permissions for all foundation models
     sharedInfraStack.commonLambdaRole.addToPrincipalPolicy(
       new iam.PolicyStatement({
-        actions: ['bedrock:InvokeModel', 'bedrock:InvokeModelWithResponseStream'],
-        resources: ['*'],
+        sid: 'BedrockModelAccess',
+        actions: [
+          'bedrock:InvokeModel',
+          'bedrock:InvokeModelWithResponseStream',
+          'bedrock:GetFoundationModel',
+          'bedrock:ListFoundationModels',
+        ],
+        resources: [
+          `arn:aws:bedrock:${cdk.Aws.REGION}::foundation-model/*`,
+          `arn:aws:bedrock:us-east-1::foundation-model/*`,
+          `arn:aws:bedrock:us-west-2::foundation-model/*`,
+        ],
       }),
     );
 

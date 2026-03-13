@@ -46,6 +46,6 @@ export const syncOpportunityToApn = async (args: {
   } catch (err) {
     console.error(`[syncOpportunityToApn] Failed for oppId=${args.oppId}:`, (err as Error).message);
     console.error(`[syncOpportunityToApn] Full error:`, err);
-    throw err; // Re-throw to surface the error
+    // Intentionally do not re-throw: keep sync non-blocking for all callers
   }
 };

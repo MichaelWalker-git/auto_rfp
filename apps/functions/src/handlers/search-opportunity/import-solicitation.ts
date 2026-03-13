@@ -201,7 +201,7 @@ const importSamGov = async (
     },
   });
 
-  // Sync to AWS Partner Central
+  // Sync to AWS Partner Central (awaited for consistency; errors are logged but don't block import)
   await syncOpportunityToApn({
     orgId: data.orgId,
     projectId: data.projectId,
@@ -299,7 +299,7 @@ const importDibbs = async (
     },
   });
 
-  // Sync to AWS Partner Central
+  // Sync to AWS Partner Central (awaited for consistency; errors are logged but don't block import)
   await syncOpportunityToApn({
     orgId: data.orgId,
     projectId: data.projectId,
