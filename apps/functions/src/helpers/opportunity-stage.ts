@@ -117,6 +117,40 @@ export const transitionOpportunityStage = async (
     `(source=${source}, changedBy=${changedBy}${reason ? `, reason=${reason}` : ''})`,
   );
 
+  // Sync to AWS Partner Central when stage changes to SUBMITTED, WON, or LOST
+  const apnSyncStages: OpportunityStage[] = ['SUBMITTED', 'WON', 'LOST', 'NO_BID', 'WITHDRAWN'];
+  if (apnSyncStages.includes(toStage)) {
+    const stageToApnStatusMap: Record<OpportunityStage, string> = {
+      'IDENTIFIED':  'PROSPECT',
+      'QUALIFYING':  'PROSPECT', 
+      'PURSUING':    'PROSPECT',
+      'SUBMITTED':   'SUBMITTED',
+      'WON':         'WON',
+      'LOST':        'LOST',
+      'NO_BID':      'LOST',
+      'WITHDRAWN':   'LOST',
+    };
+
+    const proposalStatus = stageToApnStatusMap[toStage];
+    
+    // Non-blocking APN sync
+    const { syncOpportunityToApn } = await import('@/helpers/apn-db');
+    syncOpportunityToApn({
+      orgId,
+      projectId,
+      oppId,
+      customerName:      (res.Attributes?.organizationName as string | undefined) ?? 'Unknown Customer',
+      opportunityTitle:  (res.Attributes?.title as string | undefined) ?? 'Untitled Opportunity',
+      opportunityValue:  (res.Attributes?.baseAndAllOptionsValue as number | undefined) ?? 0,
+      expectedCloseDate: (res.Attributes?.responseDeadlineIso as string | undefined) ?? new Date().toISOString(),
+      proposalStatus,
+      description:       typeof res.Attributes?.description === 'string'
+        ? res.Attributes.description.substring(0, 500)
+        : undefined,
+      existingApnId:     (res.Attributes?.apnOpportunityId as string | undefined) ?? null,
+    }).catch(err => console.warn('[opportunity-stage] APN sync failed (non-blocking):', (err as Error)?.message));
+  }
+
   return res.Attributes as OpportunityItem;
 };
 
@@ -217,6 +251,14 @@ export const onProjectOutcomeSet = async (args: {
 }): Promise<void> => {
   const { outcomeStatus, changedBy, ...location } = args;
 
+  console.log(`[onProjectOutcomeSet] Called with:`, {
+    orgId: location.orgId,
+    projectId: location.projectId,
+    oppId: location.oppId,
+    outcomeStatus,
+    changedBy,
+  });
+
   const stageMap: Partial<Record<typeof outcomeStatus, OpportunityStage>> = {
     PENDING:   'SUBMITTED',
     WON:       'WON',
@@ -226,7 +268,12 @@ export const onProjectOutcomeSet = async (args: {
   };
 
   const toStage = stageMap[outcomeStatus];
-  if (!toStage) return;
+  if (!toStage) {
+    console.warn(`[onProjectOutcomeSet] No stage mapping for outcomeStatus: ${outcomeStatus}`);
+    return;
+  }
+
+  console.log(`[onProjectOutcomeSet] Transitioning opportunity ${location.oppId} to stage: ${toStage}`);
 
   try {
     await transitionOpportunityStage({
@@ -236,37 +283,14 @@ export const onProjectOutcomeSet = async (args: {
       reason: `Project outcome set to ${outcomeStatus}`,
       source: 'PROJECT_OUTCOME',
     });
+    console.log(`[onProjectOutcomeSet] Successfully transitioned opportunity ${location.oppId} to ${toStage}`);
   } catch (err) {
-    console.warn('[opportunity-stage] onProjectOutcomeSet failed (non-blocking):', (err as Error)?.message);
+    console.error(`[onProjectOutcomeSet] transitionOpportunityStage failed for oppId=${location.oppId}:`, (err as Error)?.message);
+    console.error(`[onProjectOutcomeSet] Full error:`, err);
+    throw err; // Re-throw to surface the error
   }
 
-  // Trigger APN registration non-blocking when stage transitions to SUBMITTED.
-  // Uses dynamic import to avoid pulling in @smithy/signature-v4 at module load
-  // time — that package is not available in the Lambda runtime when marked external.
-  if (outcomeStatus === 'PENDING') {
-    const { orgId, projectId, oppId } = location;
-    const opp = await getOpportunity({ orgId, projectId, oppId }).catch(() => null);
-    if (opp?.item) {
-      import('@/helpers/apn-client')
-        .then(({ triggerApnRegistration }) =>
-          triggerApnRegistration({
-            orgId,
-            projectId,
-            oppId,
-            customerName:      (opp.item.organizationName as string | undefined) ?? 'Unknown Customer',
-            opportunityValue:  (opp.item.baseAndAllOptionsValue as number | undefined) ?? 0,
-            awsServices:       ['Other'],
-            expectedCloseDate: (opp.item.responseDeadlineIso as string | undefined) ?? new Date().toISOString(),
-            proposalStatus:    'SUBMITTED',
-            description:       typeof opp.item.description === 'string'
-              ? opp.item.description.substring(0, 500)
-              : undefined,
-            registeredBy:      changedBy,
-          }),
-        )
-        .catch(err =>
-          console.warn('[APN] triggerApnRegistration failed (non-blocking):', (err as Error).message),
-        );
-    }
-  }
+  // APN sync is now handled by transitionOpportunityStage function above
+  // Removed duplicate sync logic to prevent conflicts
+  console.log(`[onProjectOutcomeSet] APN sync will be handled by transitionOpportunityStage`);
 };

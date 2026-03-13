@@ -575,24 +575,22 @@ export class ApiOrchestratorStack extends cdk.Stack {
       });
     }
 
-    // ─── APN Lambda CloudWatch Log Groups ────────────────────────────────────
-    const apnHandlers = [
-      'get-apn-credentials',
-      'save-apn-credentials',
-      'get-apn-registration',
-      'retry-apn-registration',
-      'list-apn-registrations',
-    ];
+    // Grant Lambda role access to Partner Central API (APN opportunities CRUD)
+    sharedInfraStack.commonLambdaRole.addToPrincipalPolicy(
+      new iam.PolicyStatement({
+        sid: 'PartnerCentralAccess',
+        actions: [
+          'partnercentral:CreateOpportunity',
+          'partnercentral:GetOpportunity',
+          'partnercentral:UpdateOpportunity',
+          'partnercentral:ListOpportunities',
+          'partnercentral:AssignOpportunity',
+          'partnercentral:SubmitOpportunity',
+        ],
+        resources: ['*'],
+      }),
+    );
 
-    for (const handlerName of apnHandlers) {
-      new logs.LogGroup(this, `ApnLogs-${handlerName}-${stage}`, {
-        logGroupName: `/aws/lambda/auto-rfp-apn-${handlerName}-${stage}`,
-        retention: stage === 'prod'
-          ? logs.RetentionDays.INFINITE
-          : logs.RetentionDays.TWO_WEEKS,
-        removalPolicy: cdk.RemovalPolicy.DESTROY,
-      });
-    }
 
     // ─── Re-extract Questions Lambda CloudWatch Log Group ─────────────────────
     new logs.LogGroup(this, `ReextractQuestionsLogs-${stage}`, {

@@ -8,7 +8,7 @@ import { DebriefingStatusBadge } from './DebriefingStatusBadge';
 import { RequestDebriefingDialog } from './RequestDebriefingDialog';
 import { useDebriefings } from '@/lib/hooks/use-debriefing';
 import PermissionWrapper from '@/components/permission-wrapper';
-import { Calendar, Clock, Mail, Phone, User, AlertTriangle } from 'lucide-react';
+import { Calendar, Clock, Mail, Phone, User, AlertTriangle, MessageSquare, Plus } from 'lucide-react';
 import { format, formatDistanceToNow, isPast } from 'date-fns';
 import type { DebriefingItem } from '@auto-rfp/core';
 
@@ -42,12 +42,16 @@ export function DebriefingCard({
     return (
       <Card>
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle className="text-sm font-medium">Debriefing</CardTitle>
+          <CardTitle className="text-sm font-medium flex items-center gap-2">
+            <MessageSquare className="h-4 w-4" />
+            Debriefing
+          </CardTitle>
         </CardHeader>
         <CardContent>
           <div className="space-y-3">
             <Skeleton className="h-6 w-24" />
             <Skeleton className="h-4 w-48" />
+            <Skeleton className="h-4 w-32" />
           </div>
         </CardContent>
       </Card>
@@ -63,16 +67,20 @@ export function DebriefingCard({
     <>
       <Card>
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle className="text-sm font-medium">Debriefing</CardTitle>
+          <CardTitle className="text-sm font-medium flex items-center gap-2">
+            <MessageSquare className="h-4 w-4" />
+            Debriefing
+          </CardTitle>
           {!latestDebriefing && (
             <PermissionWrapper requiredPermission="project:edit">
               <Button
-                variant="default"
+                variant="ghost"
                 size="sm"
                 onClick={() => setIsDialogOpen(true)}
-                className="h-8 text-xs"
+                className="h-8 text-xs gap-1"
               >
-                Request Debriefing
+                <Plus className="h-3.5 w-3.5" />
+                Request
               </Button>
             </PermissionWrapper>
           )}

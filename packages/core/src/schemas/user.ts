@@ -64,7 +64,6 @@ export const CONTENT_LIBRARY_PERMISSIONS = [
 
 export const APN_PERMISSIONS = [
   'apn:read',
-  'apn:configure',
   'apn:retry',
 ] as const;
 

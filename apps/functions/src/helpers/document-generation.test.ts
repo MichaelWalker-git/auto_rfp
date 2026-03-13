@@ -187,7 +187,7 @@ describe('buildMacroValues', () => {
       updatedAt: '2024-01-01T00:00:00Z',
     };
 
-    mockGetOrganizationById.mockResolvedValue(undefined);
+    mockGetOrganizationById.mockResolvedValue(null);
     mockGetProjectById.mockResolvedValue(mockProject as any);
     mockGetOpportunity.mockResolvedValue(undefined);
 

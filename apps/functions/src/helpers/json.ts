@@ -67,8 +67,9 @@ export function safeParseJsonFromModel(text: string) {
     }
   }
 
+  // If no closing brace found, assume truncation and take rest of string
   if (end === -1) {
-    throw new Error('Model response contains no JSON object');
+    end = text.length - 1;
   }
 
   let jsonSlice = text.slice(start, end + 1).trim();

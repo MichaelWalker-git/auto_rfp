@@ -146,6 +146,11 @@ export const OpportunityItemSchema = z.object({
   updatedBy:     z.string().optional(),
   createdByName: z.string().optional(),
   updatedByName: z.string().optional(),
+  // AWS Partner Central sync
+  /** APN opportunity ID returned by Partner Central API (null = not synced) */
+  apnOpportunityId: z.string().nullish(),
+  /** Last APN sync error message (null = no error) */
+  apnSyncError:     z.string().nullish(),
 });
 
 export type OpportunityItem = z.infer<typeof OpportunityItemSchema>;

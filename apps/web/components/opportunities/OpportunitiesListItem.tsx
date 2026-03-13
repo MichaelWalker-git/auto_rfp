@@ -3,7 +3,7 @@
 import React, { useCallback, useMemo, useState } from 'react';
 import { useParams } from 'next/navigation';
 import type { OpportunityItem } from '@auto-rfp/core';
-import { Building2, ChevronRight, FileText, Hash, Loader2, Pencil, Tag, Trash2 } from 'lucide-react';
+import { Building2, ChevronRight, Cloud, FileText, Hash, Loader2, Pencil, Tag, Trash2 } from 'lucide-react';
 
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -50,7 +50,6 @@ export function OpportunitiesListItem({ item, onOpen, onDeleted, onUpdated, clas
   const oppId = item.oppId ?? item.id;
   // Get projectId from URL params or fall back to item.projectId
   const projectId = (params?.projectId as string) || item.projectId;
-
   const handleDeleteClick = useCallback(() => {
     setShowDeleteConfirm(true);
     setDeleteError(null);
@@ -93,6 +92,17 @@ export function OpportunitiesListItem({ item, onOpen, onDeleted, onUpdated, clas
               ) : (
                 <Badge variant="secondary" className="shrink-0">
                   Inactive
+                </Badge>
+              )}
+              {item.apnOpportunityId && (
+                <Badge variant="default" className="shrink-0 gap-1 text-xs" title={`APN: ${item.apnOpportunityId}`}>
+                  <Cloud className="h-3 w-3" />
+                  APN
+                </Badge>
+              )}
+              {item.apnSyncError && !item.apnOpportunityId && (
+                <Badge variant="destructive" className="shrink-0 text-xs" title={item.apnSyncError}>
+                  APN ✗
                 </Badge>
               )}
             </div>

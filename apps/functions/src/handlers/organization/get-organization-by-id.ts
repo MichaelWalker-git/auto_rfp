@@ -1,7 +1,5 @@
 import { APIGatewayProxyEventV2, APIGatewayProxyResultV2, } from 'aws-lambda';
-import { GetCommand, } from '@aws-sdk/lib-dynamodb';
 import { ORG_PK } from '@/constants/organization';
-import { PK_NAME, SK_NAME } from '@/constants/common';
 import { apiResponse } from '@/helpers/api';
 import type { OrganizationItem } from '@auto-rfp/core';
 import { withSentryLambda } from '@/sentry-lambda';
@@ -12,11 +10,8 @@ import {
   requirePermission
 } from '@/middleware/rbac-middleware';
 import middy from '@middy/core';
-import { requireEnv } from '@/helpers/env';
-import { docClient } from '@/helpers/db';
+import { getItem } from '@/helpers/db';
 import { safeSplitAt } from '@/helpers/safe-string';
-
-const DB_TABLE_NAME = requireEnv('DB_TABLE_NAME');
 
 export const baseHandler = async (
   event: APIGatewayProxyEventV2,
@@ -47,20 +42,8 @@ export const baseHandler = async (
   }
 };
 
-export async function getOrganizationById(
-  orgId: string,
-): Promise<OrganizationItem | undefined> {
-  const res = await docClient.send(
-    new GetCommand({
-      TableName: DB_TABLE_NAME,
-      Key: {
-        [PK_NAME]: ORG_PK,
-        [SK_NAME]: `ORG#${orgId}`,
-      },
-    }),
-  );
-
-  return res.Item as OrganizationItem | undefined;
+export async function getOrganizationById(orgId: string,) {
+  return getItem<OrganizationItem>(ORG_PK, `ORG#${orgId}`);
 }
 
 const enrichUsersCount = (org: OrganizationItem) => {

@@ -7,7 +7,6 @@ export const ApnRegistrationStatusSchema = z.enum([
   'REGISTERED',    // Successfully registered in Partner Portal
   'FAILED',        // Registration attempt failed
   'RETRYING',      // Manual retry in progress
-  'NOT_CONFIGURED', // No APN credentials configured for this org
 ]);
 export type ApnRegistrationStatus = z.infer<typeof ApnRegistrationStatusSchema>;
 
@@ -41,7 +40,7 @@ export const ApnRegistrationItemSchema = z.object({
   opportunityValue:   z.number().nonnegative(),
   awsServices:        z.array(AwsServiceSchema).min(1),
   expectedCloseDate:  z.string().datetime(),
-  proposalStatus:     z.enum(['SUBMITTED', 'WON', 'LOST']),
+  proposalStatus:     z.enum(['PROSPECT', 'SUBMITTED', 'WON', 'LOST']),
   description:        z.string().max(2000).optional(),
 
   // Error tracking
@@ -80,26 +79,6 @@ export const RetryApnRegistrationSchema = z.object({
   registrationId: z.string().uuid(),
 });
 export type RetryApnRegistration = z.infer<typeof RetryApnRegistrationSchema>;
-
-// ─── Credentials DTO ─────────────────────────────────────────────────────────
-
-export const SaveApnCredentialsSchema = z.object({
-  orgId:          z.string().min(1),
-  partnerId:      z.string().min(1, 'AWS Partner ID is required'),
-  accessKeyId:    z.string().min(16, 'AWS Access Key ID is required'),
-  secretAccessKey: z.string().min(1, 'AWS Secret Access Key is required'),
-  /** Optional: AWS region for Partner Central API (default: us-east-1) */
-  region:         z.string().optional().default('us-east-1'),
-});
-export type SaveApnCredentials = z.infer<typeof SaveApnCredentialsSchema>;
-
-export const GetApnCredentialsResponseSchema = z.object({
-  configured: z.boolean(),
-  partnerId:  z.string().optional(),
-  region:     z.string().optional(),
-  configuredAt: z.string().datetime().optional(),
-});
-export type GetApnCredentialsResponse = z.infer<typeof GetApnCredentialsResponseSchema>;
 
 // ─── API Response Types ───────────────────────────────────────────────────────
 

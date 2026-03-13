@@ -360,7 +360,7 @@ describe('index-document Lambda - Document Deleted Mid-Pipeline (Sentry: AUTO-RF
 
   it('should return skipped result when document does not exist (AUTO-RFP-6F)', async () => {
     // Mock getItem to return null (document deleted)
-    jest.doMock('../helpers/db', () => ({
+    jest.doMock('@/helpers/db', () => ({
       docClient: {
         send: jest.fn().mockResolvedValue({ Items: [] }),
       },
@@ -388,7 +388,7 @@ describe('index-document Lambda - Document Deleted Mid-Pipeline (Sentry: AUTO-RF
 
   it('should not call indexChunkToPinecone when document is deleted', async () => {
     // Mock getItem to return null
-    jest.doMock('../helpers/db', () => ({
+    jest.doMock('@/helpers/db', () => ({
       docClient: {
         send: jest.fn().mockResolvedValue({ Items: [] }),
       },

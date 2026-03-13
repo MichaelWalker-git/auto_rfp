@@ -40,20 +40,21 @@ export type ContactRole = z.infer<typeof RoleSchema>;
  * ================
  */
 export const QuickSummarySchema = z.object({
-  title: z.string().optional(),
-  agency: z.string().optional(),
-  office: z.string().optional(),
-  solicitationNumber: z.string().optional(),
-  naics: z.string().optional(),
-  contractType: z.string().default('UNKNOWN'),
-  setAside: z.string().default('UNKNOWN'),
-  placeOfPerformance: z.string().optional(),
-  estimatedValueUsd: z.string().optional(),
-  periodOfPerformance: z.string().optional(),
+  title: z.string().nullish(),
+  agency: z.string().nullish(),
+  office: z.string().nullish(),
+  solicitationNumber: z.string().nullish(),
+  naics: z.string().nullish(),
+  contractType: z.string().nullish().default('UNKNOWN'),
+  setAside: z.string().nullish().default('UNKNOWN'),
+  placeOfPerformance: z.string().nullish(),
+  estimatedValueUsd: z.string().nullish(),
+  periodOfPerformance: z.string().nullish(),
   summary: z.preprocess(
     (v) => {
+      if (v === null || v === undefined) return '';
       if (typeof v === 'string') return v.trim();
-      if (typeof v === 'object' && v !== null) return JSON.stringify(v);
+      if (typeof v === 'object') return JSON.stringify(v);
       return String(v || '');
     },
     z.string().min(1, 'Summary must not be empty'),
@@ -68,22 +69,21 @@ export type QuickSummary = z.infer<typeof QuickSummarySchema>;
  * ==================
  */
 export const DeadlineSchema = z.object({
-  type: z.string().optional(),
-  label: z.string().optional(),
-  dateTimeIso: z.string().datetime({ offset: true }).optional(),
-  rawText: z.string().optional(),
-  timezone: z.string().optional(),
-  notes: z.string().nullish(), // Accept null from LLM output
+  type: z.string().nullish(),
+  label: z.string().nullish(),
+  dateTimeIso: z.string().datetime({ offset: true }).nullish(),
+  rawText: z.string().nullish(),
+  timezone: z.string().nullish(),
+  notes: z.string().nullish(),
 });
 
 export type Deadline = z.infer<typeof DeadlineSchema>;
 
 export const DeadlinesSectionSchema = z.object({
   deadlines: z.array(DeadlineSchema).min(1),
-  hasSubmissionDeadline: z.boolean().default(false),
-  // Accept null from model output and coerce to undefined
+  hasSubmissionDeadline: z.boolean().nullish().default(false),
   submissionDeadlineIso: z.string().datetime({ offset: true }).nullish().transform(v => v ?? undefined),
-  warnings: z.array(z.string().min(1)).default([]), // "No explicit timezone found", etc.
+  warnings: z.array(z.string()).nullish().default([]),
 });
 
 export type DeadlinesSection = z.infer<typeof DeadlinesSectionSchema>;
@@ -94,9 +94,9 @@ export type DeadlinesSection = z.infer<typeof DeadlinesSectionSchema>;
  * =====================
  */
 export const RequirementItemSchema = z.object({
-  category: z.string().optional(),
-  requirement: z.string().min(5),
-  mustHave: z.boolean().default(true),
+  category: z.string().nullish(),
+  requirement: z.string().nullish().default(''),
+  mustHave: z.boolean().nullish().default(true),
 });
 
 /**
@@ -105,33 +105,37 @@ export const RequirementItemSchema = z.object({
  * Uses passthrough + coercion so unknown documentType values don't drop the item.
  */
 export const RequiredOutputDocumentSchema = z.object({
-  documentType: z.union([RFPDocumentTypeSchema, z.string()]).transform(val => {
+  documentType: z.union([RFPDocumentTypeSchema, z.string()]).nullish().transform(val => {
+    if (!val) return 'OTHER' as const;
     const valid = RFPDocumentTypeSchema.safeParse(val);
     return valid.success ? valid.data : 'OTHER' as const;
   }),
-  name: z.string().min(1),
-  description: z.string().optional(),
-  pageLimit: z.string().optional(),
-  required: z.boolean().default(true),
+  name: z.string().nullish().default(''),
+  description: z.string().nullish(),
+  pageLimit: z.string().nullish(),
+  required: z.boolean().nullish().default(true),
 });
 
 export type RequiredOutputDocument = z.infer<typeof RequiredOutputDocumentSchema>;
 
 export const RequirementsSectionSchema = z.object({
   overview: z.preprocess(
-    (v) => (typeof v === 'object' && v !== null ? JSON.stringify(v) : v),
-    z.string().min(10),
+    (v) => {
+      if (v === null || v === undefined) return '';
+      if (typeof v === 'object') return JSON.stringify(v);
+      return v;
+    },
+    z.string(),
   ),
-  requirements: z.array(RequirementItemSchema).min(1),
-  deliverables: z.array(z.string().min(1)).default([]),
-  evaluationFactors: z.array(z.string().min(1)).default([]),
+  requirements: z.array(RequirementItemSchema).nullish().default([]),
+  deliverables: z.array(z.string()).nullish().default([]),
+  evaluationFactors: z.array(z.string()).nullish().default([]),
   submissionCompliance: z.object({
-    format: z.array(z.string().min(1)).default([]), // page limits, font size, file naming, etc.
-    requiredVolumes: z.array(z.string().min(1)).default([]), // technical/management/price
-    attachmentsAndForms: z.array(z.string().min(1)).default([]),
-    /** Structured list of required output/response documents extracted from Section L */
-    requiredDocuments: z.array(RequiredOutputDocumentSchema).default([]),
-  }),
+    format: z.array(z.string()).nullish().default([]),
+    requiredVolumes: z.array(z.string()).nullish().default([]),
+    attachmentsAndForms: z.array(z.string()).nullish().default([]),
+    requiredDocuments: z.array(RequiredOutputDocumentSchema).nullish().default([]),
+  }).nullish(),
 });
 
 export type RequirementsSection = z.infer<typeof RequirementsSectionSchema>;
@@ -142,7 +146,7 @@ export type RequirementsSection = z.infer<typeof RequirementsSectionSchema>;
  * =================
  */
 export const ContactSchema = z.object({
-  role: RoleSchema,
+  role: RoleSchema.nullish(),
   name: z.string().nullish(),
   title: z.string().nullish(),
   email: z.string().email().nullish(),
@@ -152,8 +156,8 @@ export const ContactSchema = z.object({
 });
 
 export const ContactsSectionSchema = z.object({
-  contacts: z.array(ContactSchema).optional(),
-  missingRecommendedRoles: z.array(RoleSchema).default([]),
+  contacts: z.array(ContactSchema).nullish(),
+  missingRecommendedRoles: z.array(RoleSchema).nullish().default([]),
 });
 
 export type ContactsSection = z.infer<typeof ContactsSectionSchema>;
@@ -164,24 +168,24 @@ export type ContactsSection = z.infer<typeof ContactsSectionSchema>;
  * ================
  */
 export const RiskFlagSchema = z.object({
-  severity: z.enum(['LOW', 'MEDIUM', 'HIGH', 'CRITICAL']),
-  flag: z.string().min(5),
-  whyItMatters: z.string().min(5).optional(),
-  mitigation: z.string().min(5).optional(),
-  impactsScore: z.boolean().default(false),
+  severity: z.enum(['LOW', 'MEDIUM', 'HIGH', 'CRITICAL']).nullish(),
+  flag: z.string().nullish().default(''),
+  whyItMatters: z.string().nullish(),
+  mitigation: z.string().nullish(),
+  impactsScore: z.boolean().nullish().default(false),
 });
 
 export type RiskFlag = z.infer<typeof RiskFlagSchema>;
 
 export const RisksSectionSchema = z.object({
-  risks: z.array(RiskFlagSchema).default([]),
-  redFlags: z.array(RiskFlagSchema).default([]),
+  risks: z.array(RiskFlagSchema).nullish().default([]),
+  redFlags: z.array(RiskFlagSchema).nullish().default([]),
   incumbentInfo: z.object({
-    knownIncumbent: z.boolean().default(false),
-    incumbentName: z.string().optional(),
-    recompete: z.boolean().default(false),
+    knownIncumbent: z.boolean().nullish().default(false),
+    incumbentName: z.string().nullish(),
+    recompete: z.boolean().nullish().default(false),
     notes: z.string().nullish(),
-  }),
+  }).nullish(),
 });
 
 export type RisksSection = z.infer<typeof RisksSectionSchema>;
@@ -193,33 +197,33 @@ export type RisksSection = z.infer<typeof RisksSectionSchema>;
  */
 export const ScoreCriterionSchema = z
   .object({
-    name: z.string().optional(),
-    score: z.number().int().min(1).max(5).optional(),
-    rationale: z.string().min(10).optional(),
-    gaps: z.array(z.string().min(1)).optional(),
+    name: z.string().nullish(),
+    score: z.number().int().min(1).max(5).nullish(),
+    rationale: z.string().nullish(),
+    gaps: z.array(z.string()).nullish(),
   })
   .partial();
 
 export const ScoringSectionSchema = z
   .object({
-    criteria: z.array(ScoreCriterionSchema).optional(),
-    compositeScore: z.number().optional(),
-    recommendation: RecommendationSchema.optional(),
-    confidence: z.number().int().min(0).max(100).optional(),
-    summaryJustification: z.string().min(20).optional(),
-    decision: DecisionSchema.optional(),
-    decisionRationale: z.string().min(20).optional(),
-    blockers: z.array(z.string().min(3)).optional(),
-    requiredActions: z.array(z.string().min(3)).optional(),
-    confidenceExplanation: z.string().min(20).optional(),
+    criteria: z.array(ScoreCriterionSchema).nullish(),
+    compositeScore: z.number().nullish(),
+    recommendation: RecommendationSchema.nullish(),
+    confidence: z.number().int().min(0).max(100).nullish(),
+    summaryJustification: z.string().nullish(),
+    decision: DecisionSchema.nullish(),
+    decisionRationale: z.string().nullish(),
+    blockers: z.array(z.string()).nullish(),
+    requiredActions: z.array(z.string()).nullish(),
+    confidenceExplanation: z.string().nullish(),
     confidenceDrivers: z
       .array(
         z.object({
-          factor: z.string().min(3).optional(),
-          direction: z.enum(['UP', 'DOWN']).optional(),
+          factor: z.string().nullish(),
+          direction: z.enum(['UP', 'DOWN']).nullish(),
         }),
       )
-      .optional(),
+      .nullish(),
   })
   .partial();
 
@@ -232,10 +236,10 @@ export type ScoringSection = z.infer<typeof ScoringSectionSchema>;
  */
 export const SectionWrapperSchema = <T extends z.ZodTypeAny>(dataSchema: T) =>
   z.object({
-    status: SectionStatusSchema.optional(),
-    updatedAt: z.string().datetime().optional(),
-    error: z.string().min(1).optional(),
-    data: dataSchema.optional().nullable(),
+    status: SectionStatusSchema.nullish(),
+    updatedAt: z.string().datetime().nullish(),
+    error: z.string().nullish(),
+    data: dataSchema.nullish(),
   }).passthrough();
 
 /**
@@ -245,9 +249,9 @@ export const SectionWrapperSchema = <T extends z.ZodTypeAny>(dataSchema: T) =>
  */
 export const ExecutiveBriefItemSchema = z.object({
   projectId: z.string().min(1),
-  orgId: z.string().min(1).optional(),
+  orgId: z.string().nullish(),
   opportunityId: z.string().min(1), // Required - brief is always for a specific opportunity
-  allTextKeys: z.array(z.string()).optional(),
+  allTextKeys: z.array(z.string()).nullish(),
   documentsBucket: z.string().min(1),
   status: SectionStatusSchema,
   sections: z.object({
@@ -259,18 +263,18 @@ export const ExecutiveBriefItemSchema = z.object({
     pastPerformance: SectionWrapperSchema(PastPerformanceSectionSchema),
     scoring: SectionWrapperSchema(ScoringSectionSchema),
   }),
-  compositeScore: z.number().optional(),
-  recommendation: RecommendationSchema.optional(),
-  decision: DecisionSchema.optional(),
-  confidence: z.number().int().min(0).max(100).optional(),
+  compositeScore: z.number().nullish(),
+  recommendation: RecommendationSchema.nullish(),
+  decision: DecisionSchema.nullish(),
+  confidence: z.number().int().min(0).max(100).nullish(),
 
   createdAt: z.string().datetime(),
   updatedAt: z.string().datetime(),
 
   // linear specific
-  linearTicketId: z.string().optional(),
-  linearTicketIdentifier: z.string().optional(),
-  linearTicketUrl: z.string().optional(),
+  linearTicketId: z.string().nullish(),
+  linearTicketIdentifier: z.string().nullish(),
+  linearTicketUrl: z.string().nullish(),
 }).passthrough();
 
 export type ExecutiveBriefItem = z.infer<typeof ExecutiveBriefItemSchema>;
@@ -291,8 +295,8 @@ export type InitExecutiveBriefRequest = z.infer<
 
 export const GenerateSectionRequestSchema = z.object({
   executiveBriefId: z.string().min(1),
-  topK: z.number().int().min(1).max(100).optional(),
-  force: z.boolean().optional(),
+  topK: z.number().int().min(1).max(100).nullish(),
+  force: z.boolean().nullish(),
 }).passthrough();
 
 export type GenerateSectionRequest = z.infer<typeof GenerateSectionRequestSchema>;

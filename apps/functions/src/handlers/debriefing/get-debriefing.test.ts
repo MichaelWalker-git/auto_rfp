@@ -66,22 +66,26 @@ describe('get-debriefing handler', () => {
         {
           partition_key: 'DEBRIEFING',
           sort_key: 'org-456#proj-123#debrief-1',
-          id: 'debrief-1',
+          debriefId: 'debrief-1',
           projectId: 'proj-123',
           orgId: 'org-456',
-          status: 'REQUESTED',
-          requestDate: '2025-01-15T00:00:00Z',
-          requestedBy: 'user-789',
+          requestStatus: 'REQUESTED',
+          requestDeadline: '2025-01-15T00:00:00Z',
+          createdBy: 'user-789',
+          createdAt: '2025-01-15T00:00:00Z',
+          updatedAt: '2025-01-15T00:00:00Z',
         },
         {
           partition_key: 'DEBRIEFING',
           sort_key: 'org-456#proj-123#debrief-2',
-          id: 'debrief-2',
+          debriefId: 'debrief-2',
           projectId: 'proj-123',
           orgId: 'org-456',
-          status: 'COMPLETED',
-          requestDate: '2025-01-10T00:00:00Z',
-          requestedBy: 'user-789',
+          requestStatus: 'COMPLETED',
+          requestDeadline: '2025-01-10T00:00:00Z',
+          createdBy: 'user-789',
+          createdAt: '2025-01-10T00:00:00Z',
+          updatedAt: '2025-01-10T00:00:00Z',
         },
       ];
 
@@ -90,8 +94,8 @@ describe('get-debriefing handler', () => {
       const result = await getDebriefingsForProject('org-456', 'proj-123');
 
       expect(result).toHaveLength(2);
-      expect(result[0].status).toBe('REQUESTED');
-      expect(result[1].status).toBe('COMPLETED');
+      expect(result[0].requestStatus).toBe('REQUESTED');
+      expect(result[1].requestStatus).toBe('COMPLETED');
     });
 
     it('uses correct table name from environment', async () => {

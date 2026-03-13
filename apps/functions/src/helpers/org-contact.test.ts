@@ -49,10 +49,13 @@ describe('getOrgPrimaryContact', () => {
 
 describe('upsertOrgPrimaryContact', () => {
   it('puts item and returns it', async () => {
+    // First call: getOrgPrimaryContact (no existing contact)
+    mockSend.mockResolvedValueOnce({ Item: undefined });
+    // Second call: putItem
     mockSend.mockResolvedValueOnce({});
     const dto = { name: 'Jane Smith', title: 'VP Contracts', email: 'jane@example.com' };
     const result = await upsertOrgPrimaryContact(ORG_ID, dto, 'user-1');
-    expect(mockSend).toHaveBeenCalledTimes(1);
+    expect(mockSend).toHaveBeenCalledTimes(2);
     expect(result).toMatchObject({
       name: 'Jane Smith',
       title: 'VP Contracts',
@@ -63,6 +66,9 @@ describe('upsertOrgPrimaryContact', () => {
   });
 
   it('includes optional phone and address when provided', async () => {
+    // First call: getOrgPrimaryContact (no existing contact)
+    mockSend.mockResolvedValueOnce({ Item: undefined });
+    // Second call: putItem
     mockSend.mockResolvedValueOnce({});
     const dto = { name: 'Jane', title: 'CEO', email: 'jane@co.com', phone: '555-1234', address: '123 Main St' };
     const result = await upsertOrgPrimaryContact(ORG_ID, dto, 'user-1');

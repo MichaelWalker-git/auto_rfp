@@ -5,8 +5,6 @@ import {
   ApnRegistrationItemSchema,
   CreateApnRegistrationSchema,
   RetryApnRegistrationSchema,
-  SaveApnCredentialsSchema,
-  GetApnCredentialsResponseSchema,
   ApnRegistrationResponseSchema,
   RetryApnRegistrationResponseSchema,
   ApnRegistrationsListResponseSchema,
@@ -31,7 +29,7 @@ const validRegistrationItem = {
 
 describe('ApnRegistrationStatusSchema', () => {
   it('accepts all valid statuses', () => {
-    const validStatuses = ['PENDING', 'REGISTERED', 'FAILED', 'RETRYING', 'NOT_CONFIGURED'];
+    const validStatuses = ['PENDING', 'REGISTERED', 'FAILED', 'RETRYING'];
     validStatuses.forEach((status) => {
       expect(ApnRegistrationStatusSchema.safeParse(status).success).toBe(true);
     });
@@ -40,6 +38,7 @@ describe('ApnRegistrationStatusSchema', () => {
   it('rejects invalid status', () => {
     expect(ApnRegistrationStatusSchema.safeParse('UNKNOWN').success).toBe(false);
     expect(ApnRegistrationStatusSchema.safeParse('').success).toBe(false);
+    expect(ApnRegistrationStatusSchema.safeParse('NOT_CONFIGURED').success).toBe(false);
   });
 });
 
@@ -117,7 +116,6 @@ describe('CreateApnRegistrationSchema', () => {
   });
 
   it('omits server-generated fields', () => {
-    // registrationId, status, etc. should not be required
     const dto = {
       orgId: 'org-123',
       projectId: 'proj-456',
@@ -153,75 +151,6 @@ describe('RetryApnRegistrationSchema', () => {
       registrationId: 'not-a-uuid',
     };
     expect(RetryApnRegistrationSchema.safeParse(dto).success).toBe(false);
-  });
-});
-
-describe('SaveApnCredentialsSchema', () => {
-  it('validates valid credentials', () => {
-    const dto = {
-      orgId: 'org-123',
-      partnerId: 'PARTNER001',
-      accessKeyId: 'AKIAIOSFODNN7EXAMPLE',
-      secretAccessKey: 'wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY',
-    };
-    const result = SaveApnCredentialsSchema.safeParse(dto);
-    expect(result.success).toBe(true);
-  });
-
-  it('applies default region of us-east-1', () => {
-    const dto = {
-      orgId: 'org-123',
-      partnerId: 'PARTNER001',
-      accessKeyId: 'AKIAIOSFODNN7EXAMPLE',
-      secretAccessKey: 'wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY',
-    };
-    const result = SaveApnCredentialsSchema.safeParse(dto);
-    expect(result.success).toBe(true);
-    if (result.success) {
-      expect(result.data.region).toBe('us-east-1');
-    }
-  });
-
-  it('accepts custom region', () => {
-    const dto = {
-      orgId: 'org-123',
-      partnerId: 'PARTNER001',
-      accessKeyId: 'AKIAIOSFODNN7EXAMPLE',
-      secretAccessKey: 'wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY',
-      region: 'eu-west-1',
-    };
-    const result = SaveApnCredentialsSchema.safeParse(dto);
-    expect(result.success).toBe(true);
-    if (result.success) {
-      expect(result.data.region).toBe('eu-west-1');
-    }
-  });
-
-  it('rejects short accessKeyId', () => {
-    const dto = {
-      orgId: 'org-123',
-      partnerId: 'PARTNER001',
-      accessKeyId: 'SHORT',
-      secretAccessKey: 'wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY',
-    };
-    expect(SaveApnCredentialsSchema.safeParse(dto).success).toBe(false);
-  });
-});
-
-describe('GetApnCredentialsResponseSchema', () => {
-  it('validates not-configured response', () => {
-    const result = GetApnCredentialsResponseSchema.safeParse({ configured: false });
-    expect(result.success).toBe(true);
-  });
-
-  it('validates configured response', () => {
-    const result = GetApnCredentialsResponseSchema.safeParse({
-      configured: true,
-      partnerId: 'PARTNER001',
-      region: 'us-east-1',
-      configuredAt: '2025-01-01T00:00:00Z',
-    });
-    expect(result.success).toBe(true);
   });
 });
 

@@ -31,6 +31,8 @@ packages/**/pnpm-workspace.yaml
 *.js
 !*.config.js
 !jest.setup.js
+!jest.setup.env.js
+!jest.uuid-mock.js
 !jest.config.js
 !eslint.config.js
 !next.config.js

@@ -8,7 +8,7 @@ import { ProjectOutcomeBadge } from './ProjectOutcomeBadge';
 import { SetProjectOutcomeDialog } from './SetProjectOutcomeDialog';
 import { useProjectOutcome } from '@/lib/hooks/use-project-outcome';
 import PermissionWrapper from '@/components/permission-wrapper';
-import { Settings2, DollarSign, Calendar, Award, AlertTriangle } from 'lucide-react';
+import { Settings2, Banknote, Calendar, Award, AlertTriangle, Target } from 'lucide-react';
 import { formatDistanceToNow, format } from 'date-fns';
 import type { ProjectOutcome } from '@auto-rfp/core';
 
@@ -43,6 +43,7 @@ export function ProjectOutcomeCard({
           <div className="space-y-3">
             <Skeleton className="h-6 w-24" />
             <Skeleton className="h-4 w-48" />
+            <Skeleton className="h-4 w-32" />
           </div>
         </CardContent>
       </Card>
@@ -53,7 +54,10 @@ export function ProjectOutcomeCard({
     <>
       <Card>
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle className="text-sm font-medium">Project Outcome</CardTitle>
+          <CardTitle className="text-sm font-medium flex items-center gap-2">
+            <Target className="h-4 w-4" />
+            Project Outcome
+          </CardTitle>
           <PermissionWrapper requiredPermission="project:edit">
             <Button
               variant="ghost"
@@ -70,8 +74,8 @@ export function ProjectOutcomeCard({
         <CardContent>
           {outcome ? (
             <div className="space-y-4">
-              {/* Status Badge */}
-              <div className="flex items-center gap-3">
+              {/* Status Badge and Date */}
+              <div className="flex items-center justify-between">
                 <ProjectOutcomeBadge status={outcome.status} size="lg" />
                 {outcome.statusDate && (
                   <span className="text-xs text-muted-foreground">
@@ -82,12 +86,15 @@ export function ProjectOutcomeCard({
 
               {/* Win Data */}
               {outcome.status === 'WON' && outcome.winData && (
-                <div className="grid gap-2 pt-2 border-t">
+                <div className="space-y-2 pt-2 border-t">
                   {outcome.winData.contractValue && (
                     <div className="flex items-center gap-2 text-sm">
-                      <DollarSign className="h-4 w-4 text-green-600" />
+                      <Banknote className="h-4 w-4 text-emerald-600" />
                       <span className="font-medium">
-                        ${outcome.winData.contractValue.toLocaleString()}
+                        {outcome.winData.contractValue.toLocaleString('en-US', {
+                          style: 'currency',
+                          currency: 'USD',
+                        })}
                       </span>
                     </div>
                   )}
@@ -104,16 +111,19 @@ export function ProjectOutcomeCard({
                     </div>
                   )}
                   {outcome.winData.keyFactors && (
-                    <p className="text-xs text-muted-foreground mt-2 leading-relaxed">
-                      {outcome.winData.keyFactors}
-                    </p>
+                    <div className="pt-2 border-t">
+                      <p className="text-xs font-medium mb-1">Key Success Factors:</p>
+                      <p className="text-xs text-muted-foreground leading-relaxed">
+                        {outcome.winData.keyFactors}
+                      </p>
+                    </div>
                   )}
                 </div>
               )}
 
               {/* Loss Data */}
               {outcome.status === 'LOST' && outcome.lossData && (
-                <div className="grid gap-2 pt-2 border-t">
+                <div className="space-y-2 pt-2 border-t">
                   <div className="flex items-center gap-2 text-sm">
                     <AlertTriangle className="h-4 w-4 text-destructive" />
                     <span className="font-medium">
@@ -121,14 +131,18 @@ export function ProjectOutcomeCard({
                     </span>
                   </div>
                   {outcome.lossData.winningContractor && (
-                    <p className="text-xs text-muted-foreground">
-                      Won by: {outcome.lossData.winningContractor}
-                    </p>
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                      <Award className="h-4 w-4" />
+                      <span>Won by: {outcome.lossData.winningContractor}</span>
+                    </div>
                   )}
                   {outcome.lossData.lossReasonDetails && (
-                    <p className="text-xs text-muted-foreground mt-1 leading-relaxed">
-                      {outcome.lossData.lossReasonDetails}
-                    </p>
+                    <div className="pt-2 border-t">
+                      <p className="text-xs font-medium mb-1">Details:</p>
+                      <p className="text-xs text-muted-foreground leading-relaxed">
+                        {outcome.lossData.lossReasonDetails}
+                      </p>
+                    </div>
                   )}
                 </div>
               )}
@@ -144,6 +158,9 @@ export function ProjectOutcomeCard({
             <div className="text-center py-4">
               <p className="text-sm text-muted-foreground mb-3">
                 No outcome recorded yet
+              </p>
+              <p className="text-xs text-muted-foreground mb-3">
+                Set the project outcome to track win/loss status and sync with AWS Partner Central.
               </p>
               <PermissionWrapper requiredPermission="project:edit">
                 <Button
@@ -172,7 +189,7 @@ export function ProjectOutcomeCard({
   );
 }
 
-function formatLossReason(reason: string): string {
+const formatLossReason = (reason: string): string => {
   const labels: Record<string, string> = {
     PRICE_TOO_HIGH: 'Price Too High',
     TECHNICAL_SCORE: 'Technical Score',
@@ -185,13 +202,13 @@ function formatLossReason(reason: string): string {
     UNKNOWN: 'Unknown',
   };
   return labels[reason] || reason;
-}
+};
 
-function formatStatusSource(source: string): string {
+const formatStatusSource = (source: string): string => {
   const labels: Record<string, string> = {
     MANUAL: 'Manual Entry',
     SAM_GOV_SYNC: 'SAM.gov Sync',
     FOIA_RESPONSE: 'FOIA Response',
   };
   return labels[source] || source;
-}
+};

@@ -74,6 +74,40 @@ const baseHandler = async (event: AuthedEvent): Promise<APIGatewayProxyResultV2>
       userContext: { userId, userName },
     });
 
+    // Sync to APN if the opportunity is in a stage that should be synced
+    const apnSyncStages = ['SUBMITTED', 'WON', 'LOST', 'NO_BID', 'WITHDRAWN'];
+    const currentStage = item.stage ?? 'IDENTIFIED';
+    
+    if (apnSyncStages.includes(currentStage)) {
+      const stageToApnStatusMap: Record<string, string> = {
+        'IDENTIFIED':  'PROSPECT',
+        'QUALIFYING':  'PROSPECT', 
+        'PURSUING':    'PROSPECT',
+        'SUBMITTED':   'SUBMITTED',
+        'WON':         'WON',
+        'LOST':        'LOST',
+        'NO_BID':      'LOST',
+        'WITHDRAWN':   'LOST',
+      };
+
+      const proposalStatus = stageToApnStatusMap[currentStage] ?? 'PROSPECT';
+      
+      // Non-blocking APN sync
+      const { syncOpportunityToApn } = await import('@/helpers/apn-db');
+      syncOpportunityToApn({
+        orgId,
+        projectId,
+        oppId,
+        customerName:      item.organizationName ?? item.title ?? 'Unknown Customer',
+        opportunityTitle:  item.title ?? 'Untitled Opportunity',
+        opportunityValue:  item.baseAndAllOptionsValue ?? 0,
+        expectedCloseDate: item.responseDeadlineIso ?? new Date().toISOString(),
+        proposalStatus,
+        description:       item?.description?.substring(0, 500),
+        existingApnId:     item.apnOpportunityId ?? null,
+      }).catch(err => console.warn('[update-opportunity] APN sync failed (non-blocking):', (err as Error)?.message));
+    }
+
     setAuditContext(event, {
       action: 'CONFIG_CHANGED',
       resource: 'config',

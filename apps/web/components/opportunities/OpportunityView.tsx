@@ -24,7 +24,6 @@ import { FOIARequestCard } from '@/components/foia/FOIARequestCard';
 import { OpportunityContextPanel } from './opportunity-context-panel';
 import { useCurrentOrganization } from '@/context/organization-context';
 import { saveSelectedOpportunity } from '@/lib/utils/opportunity-selection';
-import { ApnRegistrationCard } from '@/features/apn';
 import {
   SubmitProposalButton,
   SubmissionHistoryCard,
@@ -107,9 +106,6 @@ const OpportunityContent = ({ className }: { className?: string }) => {
 
       {/* Opportunity Header — Hero Section */}
       <OpportunityHeader />
-
-      {/* APN Registration Status */}
-      <ApnRegistrationCard orgId={orgId} projectId={projectId} oppId={oppId} />
 
       {/* ── Quick Actions ──────────────────────────────────────────────── */}
       <section className="space-y-3">

@@ -555,7 +555,7 @@ async function runScoring(job: Job): Promise<void> {
       maxToolRounds: 2,
     });
 
-    const computedComposite = weightedCompositeScore(data?.criteria ?? []);
+    const computedComposite = weightedCompositeScore((data?.criteria ?? []) as Array<{ name?: string; score?: number }>);
 
     const normalized = {
       ...data,

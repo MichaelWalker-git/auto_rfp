@@ -273,7 +273,7 @@ const buildDeadlines = (brief: ExecutiveBriefItem): (Paragraph | Table)[] => {
     out.push(dataTable(['Deadline', 'Date/Time', 'Timezone', 'Notes'],
       (d.deadlines ?? []).map((dl) => [safe(dl.label ?? dl.type), fmtIso(dl.dateTimeIso ?? null), dl.timezone ?? '—', dl.notes ? clip(dl.notes, 100) : '—'])));
   }
-  if ((d.warnings ?? []).length) { out.push(blank(), h3('Warnings'), ...bullets(d.warnings)); }
+  if ((d.warnings ?? []).length) { out.push(blank(), h3('Warnings'), ...bullets(d.warnings ?? [])); }
   return out;
 };
 
@@ -286,9 +286,10 @@ const buildRequirements = (brief: ExecutiveBriefItem): (Paragraph | Table)[] => 
   out.push(blank(), h2('Key Requirements'));
   const reqs = (d.requirements ?? []).slice(0, 15);
   reqs.forEach((r, i) => {
-    const tag = r.mustHave ? '✓ MUST-HAVE' : '○ Nice-to-have';
+    const mustHave = r.mustHave ?? false;
+    const tag = mustHave ? '✓ MUST-HAVE' : '○ Nice-to-have';
     const cat = r.category ? ` [${r.category}]` : '';
-    out.push(bullet(`${i + 1}. ${tag}${cat} — ${clip(r.requirement, 300)}`, 0, { color: r.mustHave ? C.dark : C.muted, bold: r.mustHave }));
+    out.push(bullet(`${i + 1}. ${tag}${cat} — ${clip(r.requirement ?? '', 300)}`, 0, { color: mustHave ? C.dark : C.muted, bold: mustHave }));
   });
   if ((d.evaluationFactors ?? []).length) { out.push(blank(), h2('Evaluation Factors'), ...bullets(d.evaluationFactors?.slice(0, 12) ?? [])); }
   if ((d.deliverables ?? []).length) { out.push(blank(), h2('Deliverables'), ...bullets(d.deliverables?.slice(0, 12) ?? [])); }
