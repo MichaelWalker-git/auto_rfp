@@ -106,12 +106,17 @@ describe('DebriefingCard', () => {
   });
 
   describe('loading state', () => {
-    it('shows skeleton when loading', () => {
+    it('renders loading skeleton with consistent structure', () => {
       mockUseDebriefingsReturn.isLoading = true;
 
-      const { container } = render(<DebriefingCard {...defaultProps} />);
-      const skeleton = container.querySelector('.animate-pulse');
-      expect(skeleton).toBeInTheDocument();
+      render(<DebriefingCard {...defaultProps} />);
+
+      // Check header with icon
+      expect(screen.getByText('Debriefing')).toBeInTheDocument();
+      
+      // Check skeleton loading state (should have 3 skeletons now)
+      const skeletons = document.querySelectorAll('[data-slot="skeleton"]');
+      expect(skeletons).toHaveLength(3);
     });
   });
 

@@ -39,12 +39,12 @@ describe('update-debriefing handler', () => {
   const existingDebriefing = {
     partition_key: 'DEBRIEFING',
     sort_key: 'org-456#proj-123#debrief-1',
-    id: 'debrief-1',
+    debriefId: 'debrief-1',
     projectId: 'proj-123',
     orgId: 'org-456',
-    status: 'REQUESTED' as const,
-    requestDate: '2025-01-15T00:00:00Z',
-    requestedBy: 'user-789',
+    requestStatus: 'REQUESTED' as const,
+    requestDeadline: '2025-01-15T00:00:00Z',
+    createdBy: 'user-789',
     createdAt: '2025-01-15T00:00:00Z',
     updatedAt: '2025-01-15T00:00:00Z',
   };
@@ -53,7 +53,7 @@ describe('update-debriefing handler', () => {
     it('updates status to SCHEDULED', async () => {
       const updatedItem = {
         ...existingDebriefing,
-        status: 'SCHEDULED',
+        requestStatus: 'SCHEDULED',
         scheduledDate: '2025-02-01T14:00:00Z',
         updatedAt: '2025-01-20T00:00:00Z',
       };
@@ -64,23 +64,23 @@ describe('update-debriefing handler', () => {
         debriefingId: 'debrief-1',
         projectId: 'proj-123',
         orgId: 'org-456',
-        status: 'SCHEDULED',
+        requestStatus: 'SCHEDULED',
         scheduledDate: '2025-02-01T14:00:00Z',
       };
 
       const result = await updateDebriefing(dto, existingDebriefing);
 
-      expect(result.status).toBe('SCHEDULED');
+      expect(result.requestStatus).toBe('SCHEDULED');
       expect(result.scheduledDate).toBe('2025-02-01T14:00:00Z');
     });
 
     it('updates status to COMPLETED with findings', async () => {
       const updatedItem = {
         ...existingDebriefing,
-        status: 'COMPLETED',
+        requestStatus: 'COMPLETED',
         completedDate: '2025-02-01T15:00:00Z',
-        findings: 'We lost due to pricing',
-        lessonsLearned: ['Be more competitive on price'],
+        notes: 'We lost due to pricing',
+        keyTakeaways: 'Be more competitive on price',
       };
 
       mockSend.mockResolvedValue({ Attributes: updatedItem });
@@ -89,16 +89,15 @@ describe('update-debriefing handler', () => {
         debriefingId: 'debrief-1',
         projectId: 'proj-123',
         orgId: 'org-456',
-        status: 'COMPLETED',
+        requestStatus: 'COMPLETED',
         completedDate: '2025-02-01T15:00:00Z',
-        findings: 'We lost due to pricing',
-        lessonsLearned: ['Be more competitive on price'],
+        notes: 'We lost due to pricing',
       };
 
       const result = await updateDebriefing(dto, existingDebriefing);
 
-      expect(result.status).toBe('COMPLETED');
-      expect(result.findings).toBe('We lost due to pricing');
+      expect(result.requestStatus).toBe('COMPLETED');
+      expect(result.notes).toBe('We lost due to pricing');
     });
 
     it('updates attendees list', async () => {
@@ -121,19 +120,10 @@ describe('update-debriefing handler', () => {
       expect(result.attendees).toEqual(['John Smith', 'Jane Doe']);
     });
 
-    it('updates action items', async () => {
-      const actionItems = [
-        {
-          description: 'Review pricing strategy',
-          assignee: 'John Smith',
-          dueDate: '2025-02-15T00:00:00Z',
-          completed: false,
-        },
-      ];
-
+    it('updates notes', async () => {
       const updatedItem = {
         ...existingDebriefing,
-        actionItems,
+        notes: 'Review pricing strategy',
       };
 
       mockSend.mockResolvedValue({ Attributes: updatedItem });
@@ -142,19 +132,18 @@ describe('update-debriefing handler', () => {
         debriefingId: 'debrief-1',
         projectId: 'proj-123',
         orgId: 'org-456',
-        actionItems,
+        notes: 'Review pricing strategy',
       };
 
       const result = await updateDebriefing(dto, existingDebriefing);
 
-      expect(result.actionItems).toHaveLength(1);
-      expect(result.actionItems?.[0].description).toBe('Review pricing strategy');
+      expect(result.notes).toBe('Review pricing strategy');
     });
 
     it('sets status to DECLINED', async () => {
       const updatedItem = {
         ...existingDebriefing,
-        status: 'DECLINED',
+        requestStatus: 'DECLINED',
         notes: 'Agency declined to provide debriefing',
       };
 
@@ -164,13 +153,13 @@ describe('update-debriefing handler', () => {
         debriefingId: 'debrief-1',
         projectId: 'proj-123',
         orgId: 'org-456',
-        status: 'DECLINED',
+        requestStatus: 'DECLINED',
         notes: 'Agency declined to provide debriefing',
       };
 
       const result = await updateDebriefing(dto, existingDebriefing);
 
-      expect(result.status).toBe('DECLINED');
+      expect(result.requestStatus).toBe('DECLINED');
     });
 
     it('uses correct table name and keys', async () => {

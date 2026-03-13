@@ -136,10 +136,9 @@ export const baseHandler = async (
 
     await putExecutiveBrief(brief);
 
-    // Auto-transition opportunity: IDENTIFIED → QUALIFYING (non-blocking)
+    // Auto-transition opportunity: IDENTIFIED → QUALIFYING (fire-and-forget, returns immediately)
     if (orgId && opportunityId) {
-      onBriefGenerationStarted({ orgId, projectId, oppId: opportunityId })
-        .catch(err => console.warn('onBriefGenerationStarted failed (non-blocking):', (err as Error)?.message));
+      onBriefGenerationStarted({ orgId, projectId, oppId: opportunityId });
     }
 
     const effectiveSk = isRegeneration ? (existingBrief as any)[SK_NAME] : sk;

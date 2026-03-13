@@ -7,7 +7,11 @@
   "scripts": {
     "build": "tsc",
     "watch": "tsc -w",
-    "clean": "rm -rf dist .turbo node_modules/.cache"
+    "clean": "rm -rf dist .turbo node_modules/.cache",
+    "test": "jest",
+    "test:serial": "jest --runInBand",
+    "test:watch": "jest --watch --maxWorkers=2",
+    "test:coverage": "jest --coverage --maxWorkers=2"
   },
   "dependencies": {
     "@auto-rfp/core": "workspace:*",
@@ -16,6 +20,7 @@
     "@aws-sdk/client-cognito-identity-provider": "^3.982.0",
     "@aws-sdk/client-dynamodb": "^3.982.0",
     "@aws-sdk/client-lambda": "^3.982.0",
+    "@aws-sdk/client-partnercentral-selling": "^3.1007.0",
     "@aws-sdk/client-s3": "^3.982.0",
     "@aws-sdk/client-secrets-manager": "^3.982.0",
     "@aws-sdk/client-ses": "^3.993.0",
@@ -30,8 +35,6 @@
     "@middy/core": "^7.0.2",
     "@pinecone-database/pinecone": "^6.1.4",
     "@sentry/serverless": "^7.120.4",
-    "@smithy/protocol-http": "^5.3.8",
-    "@smithy/signature-v4": "^5.3.8",
     "@sparticuz/chromium": "^143.0.4",
     "@types/html-to-docx": "^1.8.0",
     "aws-jwt-verify": "^5.1.1",

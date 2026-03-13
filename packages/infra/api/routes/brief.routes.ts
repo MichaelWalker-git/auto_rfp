@@ -16,6 +16,7 @@ export function briefDomain(args: {
         path: 'init-executive-brief',
         entry: lambdaEntry('brief/init-executive-brief.ts'),
         extraEnv: { EXEC_BRIEF_QUEUE_URL: execBriefQueueUrl },
+        timeoutSeconds: 30,
       },
       {
         method: 'POST',

@@ -36,7 +36,6 @@ import {
   ShieldCheck,
   Target,
   Users,
-  Cloud,
 } from 'lucide-react';
 
 import Link from 'next/link';
@@ -130,7 +129,6 @@ function AppSidebar() {
           { title: 'Templates',       url: `/org/${orgId}/templates`,      icon: LayoutTemplate },
           { title: 'Org Members',     url: `/org/${orgId}/team`,           icon: Users },
           ...(canViewAudit ? [{ title: 'Audit Trail', url: `/org/${orgId}/audit`, icon: ShieldCheck }] : []),
-          { title: 'AWS Partner Network', url: `/org/${orgId}/apn`,        icon: Cloud },
           { title: 'Settings',        url: `/org/${orgId}/settings`,       icon: Settings },
         ]
         : [],

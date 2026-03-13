@@ -57,14 +57,14 @@ const makeEvent = (queryStringParameters: Record<string, string> = {}): AuthedEv
     queryStringParameters,
     headers: { 'x-org-id': queryStringParameters['orgId'] },
     requestContext: { http: { sourceIp: '127.0.0.1' } },
-    auth: { userId: 'user-123', claims: {}, orgId: queryStringParameters['orgId'] },
+    auth: { userId: '77777777-7777-4777-8777-777777777777', claims: {}, orgId: queryStringParameters['orgId'] },
   } as unknown as AuthedEvent);
 
 const mockDocument = {
-  documentId: 'doc-123',
-  projectId: 'proj-123',
-  opportunityId: 'opp-123',
-  orgId: 'org-123',
+  documentId: '44444444-4444-4444-8444-444444444444',
+  projectId: '22222222-2222-4222-8222-222222222222',
+  opportunityId: '33333333-3333-4333-8333-333333333333',
+  orgId: '11111111-1111-4111-8111-111111111111',
   title: 'Test Document',
   documentType: 'TECHNICAL_PROPOSAL',
   deletedAt: undefined,
@@ -72,15 +72,15 @@ const mockDocument = {
 
 const mockVersion1 = {
   versionId: 'ver-1',
-  documentId: 'doc-123',
-  projectId: 'proj-123',
-  opportunityId: 'opp-123',
-  orgId: 'org-123',
+  documentId: '44444444-4444-4444-8444-444444444444',
+  projectId: '22222222-2222-4222-8222-222222222222',
+  opportunityId: '33333333-3333-4333-8333-333333333333',
+  orgId: '11111111-1111-4111-8111-111111111111',
   versionNumber: 1,
   htmlContentKey: 'org-123/proj-123/opp-123/rfp-documents/doc-123/versions/v1.html',
   title: 'Test Document',
   documentType: 'TECHNICAL_PROPOSAL',
-  createdBy: 'user-123',
+  createdBy: '77777777-7777-4777-8777-777777777777',
   createdAt: '2025-01-01T00:00:00.000Z',
 };
 
@@ -110,10 +110,10 @@ describe('compare-versions handler', () => {
     it('returns 400 when fromVersion is missing', async () => {
       const result = await baseHandler(
         makeEvent({
-          orgId: 'org-123',
-          projectId: 'proj-123',
-          opportunityId: 'opp-123',
-          documentId: 'doc-123',
+          orgId: '11111111-1111-4111-8111-111111111111',
+          projectId: '22222222-2222-4222-8222-222222222222',
+          opportunityId: '33333333-3333-4333-8333-333333333333',
+          documentId: '44444444-4444-4444-8444-444444444444',
           toVersion: '2',
         }),
       );
@@ -123,10 +123,10 @@ describe('compare-versions handler', () => {
     it('returns 400 when toVersion is missing', async () => {
       const result = await baseHandler(
         makeEvent({
-          orgId: 'org-123',
-          projectId: 'proj-123',
-          opportunityId: 'opp-123',
-          documentId: 'doc-123',
+          orgId: '11111111-1111-4111-8111-111111111111',
+          projectId: '22222222-2222-4222-8222-222222222222',
+          opportunityId: '33333333-3333-4333-8333-333333333333',
+          documentId: '44444444-4444-4444-8444-444444444444',
           fromVersion: '1',
         }),
       );
@@ -136,10 +136,10 @@ describe('compare-versions handler', () => {
     it('returns 400 when version is not a number', async () => {
       const result = await baseHandler(
         makeEvent({
-          orgId: 'org-123',
-          projectId: 'proj-123',
-          opportunityId: 'opp-123',
-          documentId: 'doc-123',
+          orgId: '11111111-1111-4111-8111-111111111111',
+          projectId: '22222222-2222-4222-8222-222222222222',
+          opportunityId: '33333333-3333-4333-8333-333333333333',
+          documentId: '44444444-4444-4444-8444-444444444444',
           fromVersion: 'abc',
           toVersion: '2',
         }),
@@ -154,10 +154,10 @@ describe('compare-versions handler', () => {
 
       const result = await baseHandler(
         makeEvent({
-          orgId: 'org-123',
-          projectId: 'proj-123',
-          opportunityId: 'opp-123',
-          documentId: 'doc-123',
+          orgId: '11111111-1111-4111-8111-111111111111',
+          projectId: '22222222-2222-4222-8222-222222222222',
+          opportunityId: '33333333-3333-4333-8333-333333333333',
+          documentId: '44444444-4444-4444-8444-444444444444',
           fromVersion: '1',
           toVersion: '2',
         }),
@@ -174,10 +174,10 @@ describe('compare-versions handler', () => {
 
       const result = await baseHandler(
         makeEvent({
-          orgId: 'org-123',
-          projectId: 'proj-123',
-          opportunityId: 'opp-123',
-          documentId: 'doc-123',
+          orgId: '11111111-1111-4111-8111-111111111111',
+          projectId: '22222222-2222-4222-8222-222222222222',
+          opportunityId: '33333333-3333-4333-8333-333333333333',
+          documentId: '44444444-4444-4444-8444-444444444444',
           fromVersion: '1',
           toVersion: '2',
         }),
@@ -197,10 +197,10 @@ describe('compare-versions handler', () => {
 
       const result = await baseHandler(
         makeEvent({
-          orgId: 'org-123',
-          projectId: 'proj-123',
-          opportunityId: 'opp-123',
-          documentId: 'doc-123',
+          orgId: '11111111-1111-4111-8111-111111111111',
+          projectId: '22222222-2222-4222-8222-222222222222',
+          opportunityId: '33333333-3333-4333-8333-333333333333',
+          documentId: '44444444-4444-4444-8444-444444444444',
           fromVersion: '1',
           toVersion: '2',
         }),
@@ -220,10 +220,10 @@ describe('compare-versions handler', () => {
 
       const result = await baseHandler(
         makeEvent({
-          orgId: 'org-123',
-          projectId: 'proj-123',
-          opportunityId: 'opp-123',
-          documentId: 'doc-123',
+          orgId: '11111111-1111-4111-8111-111111111111',
+          projectId: '22222222-2222-4222-8222-222222222222',
+          opportunityId: '33333333-3333-4333-8333-333333333333',
+          documentId: '44444444-4444-4444-8444-444444444444',
           fromVersion: '1',
           toVersion: '2',
         }),
@@ -249,10 +249,10 @@ describe('compare-versions handler', () => {
 
       const result = await baseHandler(
         makeEvent({
-          orgId: 'org-123',
-          projectId: 'proj-123',
-          opportunityId: 'opp-123',
-          documentId: 'doc-123',
+          orgId: '11111111-1111-4111-8111-111111111111',
+          projectId: '22222222-2222-4222-8222-222222222222',
+          opportunityId: '33333333-3333-4333-8333-333333333333',
+          documentId: '44444444-4444-4444-8444-444444444444',
           fromVersion: '1',
           toVersion: '2',
         }),
@@ -273,10 +273,10 @@ describe('compare-versions handler', () => {
       await expect(
         baseHandler(
           makeEvent({
-            orgId: 'org-123',
-            projectId: 'proj-123',
-            opportunityId: 'opp-123',
-            documentId: 'doc-123',
+            orgId: '11111111-1111-4111-8111-111111111111',
+            projectId: '22222222-2222-4222-8222-222222222222',
+            opportunityId: '33333333-3333-4333-8333-333333333333',
+            documentId: '44444444-4444-4444-8444-444444444444',
             fromVersion: '1',
             toVersion: '2',
           }),
@@ -293,10 +293,10 @@ describe('compare-versions handler', () => {
       await expect(
         baseHandler(
           makeEvent({
-            orgId: 'org-123',
-            projectId: 'proj-123',
-            opportunityId: 'opp-123',
-            documentId: 'doc-123',
+            orgId: '11111111-1111-4111-8111-111111111111',
+            projectId: '22222222-2222-4222-8222-222222222222',
+            opportunityId: '33333333-3333-4333-8333-333333333333',
+            documentId: '44444444-4444-4444-8444-444444444444',
             fromVersion: '1',
             toVersion: '2',
           }),
