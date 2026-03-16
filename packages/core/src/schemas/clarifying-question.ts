@@ -149,3 +149,27 @@ export const GenerateClarifyingQuestionsResponseSchema = z.object({
 });
 
 export type GenerateClarifyingQuestionsResponse = z.infer<typeof GenerateClarifyingQuestionsResponseSchema>;
+
+// ─── Export Options ───
+
+/**
+ * Options for generating a clarifying questions document
+ */
+export const ClarifyingQuestionsExportOptionsSchema = z.object({
+  /** Statuses to exclude from the export (default: ['DISMISSED']) */
+  excludeStatuses: z.array(ClarifyingQuestionStatusSchema).optional().default(['DISMISSED']),
+  /** Statuses to include (alternative to exclude — if provided, only these are included) */
+  includeStatuses: z.array(ClarifyingQuestionStatusSchema).optional(),
+  /** Sort order for questions */
+  sortBy: z.enum(['priority', 'category', 'createdAt', 'status']).optional().default('priority'),
+  /** Sort direction */
+  sortOrder: z.enum(['asc', 'desc']).optional().default('desc'),
+  /** Group questions by category in the output */
+  groupByCategory: z.boolean().optional().default(true),
+  /** Include rationale for each question */
+  includeRationale: z.boolean().optional().default(true),
+  /** Include RFP reference snippets */
+  includeReferences: z.boolean().optional().default(true),
+});
+
+export type ClarifyingQuestionsExportOptions = z.infer<typeof ClarifyingQuestionsExportOptionsSchema>;

@@ -82,6 +82,7 @@ export const RFP_DOCUMENT_TYPES = {
   CONTRACT: 'Contract',
   AMENDMENT: 'Amendment',
   CORRESPONDENCE: 'Correspondence',
+  CLARIFYING_QUESTIONS: 'Clarifying Questions',
   OTHER: 'Other',
 } as const;
 
@@ -111,6 +112,7 @@ export const RFP_DOCUMENT_TYPE_DESCRIPTIONS: Record<keyof typeof RFP_DOCUMENT_TY
   CONTRACT: 'Executed contract document.',
   AMENDMENT: 'Contract or solicitation amendment.',
   CORRESPONDENCE: 'General correspondence related to the opportunity.',
+  CLARIFYING_QUESTIONS: 'Questions to submit during the Q&A period. Generated from AI-identified ambiguities in the solicitation, filtered by status, and formatted for submission to the contracting officer.',
   OTHER: 'Miscellaneous document not covered by other categories.',
 };
 
@@ -139,6 +141,7 @@ export const RFPDocumentTypeSchema = z.enum([
   'CONTRACT',
   'AMENDMENT',
   'CORRESPONDENCE',
+  'CLARIFYING_QUESTIONS',
   'OTHER',
 ]);
 

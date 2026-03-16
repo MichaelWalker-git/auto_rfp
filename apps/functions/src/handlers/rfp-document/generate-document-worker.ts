@@ -80,6 +80,8 @@ const JobSchema = z.object({
   documentType: RFPDocumentTypeSchema,
   templateId: z.string().optional(),
   documentId: z.string().min(1),
+  /** Optional export options for CLARIFYING_QUESTIONS document type */
+  options: z.record(z.unknown()).optional(),
 });
 
 type Job = z.infer<typeof JobSchema>;
@@ -114,7 +116,21 @@ const processJob = async (job: Job): Promise<void> => {
 };
 
 const processJobInner = async (job: Job): Promise<void> => {
-  const { orgId, projectId, opportunityId, documentType, templateId, documentId } = job;
+  const { orgId, projectId, opportunityId, documentType, templateId, documentId, options } = job;
+
+  // ─── CLARIFYING_QUESTIONS: No AI — format existing data ───
+  if (documentType === 'CLARIFYING_QUESTIONS') {
+    const { generateClarifyingQuestionsDocument } = await import('@/helpers/clarifying-questions-document');
+    await generateClarifyingQuestionsDocument({
+      orgId,
+      projectId,
+      opportunityId,
+      documentId,
+      templateId,
+      options: options as Parameters<typeof generateClarifyingQuestionsDocument>[0]['options'],
+    });
+    return;
+  }
 
   // 1. Load Q&A pairs — required to generate any document
   const qaPairs = await loadQaPairs(projectId);

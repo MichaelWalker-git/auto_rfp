@@ -42,6 +42,7 @@ const CATEGORIES = [
   { value: 'MANAGEMENT_PROPOSAL', label: 'Management Proposal' },
   { value: 'PRICE_VOLUME', label: 'Price Volume' },
   { value: 'QUALITY_MANAGEMENT', label: 'Quality Management Plan' },
+  { value: 'CLARIFYING_QUESTIONS', label: 'Clarifying Questions' },
   { value: 'CUSTOM', label: 'Custom' },
 ];
 

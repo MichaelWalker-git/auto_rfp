@@ -223,15 +223,31 @@ export const OpportunityDocumentEditorPage = ({
     // When generation completes (status transitions away from GENERATING),
     // invalidate the HTML cache so the editor picks up the newly generated content
     // Note: currentStatus can be null (ready) or 'FAILED', both mean generation is done
-    if (prevStatusRef.current === 'GENERATING' && currentStatus !== 'GENERATING') {
-      console.log('[OpportunityDocEditor] Generation completed, refetching HTML', { currentStatus });
+    const generationJustCompleted = prevStatusRef.current === 'GENERATING' && currentStatus !== 'GENERATING';
+    
+    // Also handle fast-generating documents (like CLARIFYING_QUESTIONS) where the status
+    // transitions so quickly that we never see GENERATING state. If we triggered regeneration
+    // and the document is now ready, refresh the content.
+    const fastGenerationCompleted = isRegenerateStarting && isDocumentReady(currentStatus);
+    
+    if (generationJustCompleted || fastGenerationCompleted) {
+      console.log('[OpportunityDocEditor] Generation completed, refetching HTML', { 
+        currentStatus, 
+        generationJustCompleted,
+        fastGenerationCompleted,
+      });
+      setIsRegenerateStarting(false);
       htmlInitializedRef.current = false;
       setHtmlInitialized(false);
-      mutateHtml();
+      // Force SWR to refetch from server (not cache) and increment editor key
+      mutateHtml(undefined, { revalidate: true }).then(() => {
+        // Force editor remount after HTML is fetched
+        setEditorKey((k) => k + 1);
+      });
     }
 
     prevStatusRef.current = currentStatus;
-  }, [doc?.status, mutateHtml]);
+  }, [doc?.status, mutateHtml, isRegenerateStarting]);
 
   // Reset when navigating to a different document (skip initial mount — component is already fresh)
   const prevDocumentIdRef = useRef(documentId);

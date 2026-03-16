@@ -12,6 +12,8 @@ export interface DocumentGenerationMessage {
   documentType: string;
   templateId?: string;
   documentId: string;
+  /** Optional export options for CLARIFYING_QUESTIONS document type */
+  options?: Record<string, unknown>;
 }
 
 /**
