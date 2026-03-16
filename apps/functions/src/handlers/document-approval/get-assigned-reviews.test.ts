@@ -7,6 +7,11 @@ jest.mock('@middy/core', () => {
   return { __esModule: true, default: middy };
 });
 
+// Mock Sentry
+jest.mock('@/sentry-lambda', () => ({
+  withSentryLambda: (handler: unknown) => handler,
+}));
+
 // Mock AWS SDK
 const mockSend = jest.fn();
 jest.mock('@aws-sdk/client-dynamodb', () => ({
@@ -30,6 +35,7 @@ import * as userHelpers from '@/helpers/user';
 import * as rfpDocumentHelpers from '@/helpers/rfp-document';
 import * as projectHelpers from '@/helpers/project';
 import type { AuthedEvent } from '@/middleware/rbac-middleware';
+import type { APIGatewayProxyStructuredResultV2 } from 'aws-lambda';
 import type { UniversalApprovalItem, DocumentApprovalItem } from '@auto-rfp/core';
 
 // Mock helper functions
@@ -38,10 +44,21 @@ jest.mock('@/helpers/user');
 jest.mock('@/helpers/rfp-document');
 jest.mock('@/helpers/project');
 
+// Mock RBAC middleware
+jest.mock('@/middleware/rbac-middleware', () => ({
+  authContextMiddleware: () => ({ before: jest.fn() }),
+  orgMembershipMiddleware: () => ({ before: jest.fn() }),
+  httpErrorMiddleware: () => ({ onError: jest.fn() }),
+}));
+
 const mockQueryBySkPrefix = dbHelpers.queryBySkPrefix as jest.MockedFunction<typeof dbHelpers.queryBySkPrefix>;
 const mockGetUserByOrgAndId = userHelpers.getUserByOrgAndId as jest.MockedFunction<typeof userHelpers.getUserByOrgAndId>;
 const mockGetRFPDocument = rfpDocumentHelpers.getRFPDocument as jest.MockedFunction<typeof rfpDocumentHelpers.getRFPDocument>;
 const mockGetProjectById = projectHelpers.getProjectById as jest.MockedFunction<typeof projectHelpers.getProjectById>;
+
+// Helper to invoke the middy-wrapped handler
+const invokeHandler = async (event: AuthedEvent): Promise<APIGatewayProxyStructuredResultV2> =>
+  (handler as unknown as { handler: (e: AuthedEvent) => Promise<APIGatewayProxyStructuredResultV2> }).handler(event);
 
 const createMockEvent = (overrides: Partial<AuthedEvent> = {}): AuthedEvent => ({
   version: '2.0',
@@ -137,6 +154,8 @@ const mockProject = {
   orgId: 'org-123',
   createdAt: '2023-01-01T00:00:00Z',
   updatedAt: '2023-01-01T00:00:00Z',
+  partition_key: 'PROJECT',
+  sort_key: 'org-123#proj-456',
 };
 
 const mockDocument = {
@@ -163,23 +182,23 @@ beforeEach(() => {
     return Promise.resolve([]);
   });
   
-  mockGetUserByOrgAndId.mockResolvedValue(mockUser);
-  mockGetProjectById.mockResolvedValue(mockProject);
-  mockGetRFPDocument.mockResolvedValue(mockDocument);
+  mockGetUserByOrgAndId.mockResolvedValue(mockUser as never);
+  mockGetProjectById.mockResolvedValue(mockProject as never);
+  mockGetRFPDocument.mockResolvedValue(mockDocument as never);
 });
 
 describe('get-assigned-reviews handler', () => {
   it('should populate user display names for universal approvals', async () => {
     const event = createMockEvent();
-    const response = await handler.handler(event, {} as any);
+    const response = await invokeHandler(event);
     
     expect(response.statusCode).toBe(200);
     
-    const body = JSON.parse(response.body!);
+    const body = JSON.parse(response.body as string);
     expect(body.reviews).toHaveLength(2); // One universal + one legacy
     
     // Check that user display name was populated for universal approval
-    const universalReview = body.reviews.find((r: any) => r.approvalId === 'approval-123');
+    const universalReview = body.reviews.find((r: Record<string, unknown>) => r.approvalId === 'approval-123');
     expect(universalReview).toBeDefined();
     expect(universalReview.requestedByName).toBe('John Doe');
     expect(mockGetUserByOrgAndId).toHaveBeenCalledWith('org-123', 'user-requester-123');
@@ -187,14 +206,14 @@ describe('get-assigned-reviews handler', () => {
 
   it('should populate user display names for legacy approvals', async () => {
     const event = createMockEvent();
-    const response = await handler.handler(event, {} as any);
+    const response = await invokeHandler(event);
     
     expect(response.statusCode).toBe(200);
     
-    const body = JSON.parse(response.body!);
+    const body = JSON.parse(response.body as string);
     
     // Check that user display name was populated for legacy approval
-    const legacyReview = body.reviews.find((r: any) => r.approvalId === 'approval-456');
+    const legacyReview = body.reviews.find((r: Record<string, unknown>) => r.approvalId === 'approval-456');
     expect(legacyReview).toBeDefined();
     expect(legacyReview.requestedByName).toBe('John Doe');
     expect(mockGetUserByOrgAndId).toHaveBeenCalledWith('org-123', 'user-requester-456');
@@ -204,11 +223,11 @@ describe('get-assigned-reviews handler', () => {
     mockGetUserByOrgAndId.mockRejectedValue(new Error('User not found'));
     
     const event = createMockEvent();
-    const response = await handler.handler(event, {} as any);
+    const response = await invokeHandler(event);
     
     expect(response.statusCode).toBe(200);
     
-    const body = JSON.parse(response.body!);
+    const body = JSON.parse(response.body as string);
     const review = body.reviews[0];
     
     // Should still return the approval even if user lookup fails
@@ -231,11 +250,11 @@ describe('get-assigned-reviews handler', () => {
     });
     
     const event = createMockEvent();
-    const response = await handler.handler(event, {} as any);
+    const response = await invokeHandler(event);
     
     expect(response.statusCode).toBe(200);
     
-    const body = JSON.parse(response.body!);
+    const body = JSON.parse(response.body as string);
     const review = body.reviews[0];
     
     expect(review.requestedByName).toBe('Jane Smith');
@@ -258,11 +277,11 @@ describe('get-assigned-reviews handler', () => {
     });
     
     const event = createMockEvent();
-    const response = await handler.handler(event, {} as any);
+    const response = await invokeHandler(event);
     
     expect(response.statusCode).toBe(200);
     
-    const body = JSON.parse(response.body!);
+    const body = JSON.parse(response.body as string);
     const review = body.reviews[0];
     
     expect(review.requestedByName).toBe('John Doe');
@@ -278,14 +297,14 @@ describe('get-assigned-reviews handler', () => {
       lastName: 'Doe',
     };
     
-    mockGetUserByOrgAndId.mockResolvedValue(userWithoutDisplayName);
+    mockGetUserByOrgAndId.mockResolvedValue(userWithoutDisplayName as never);
     
     const event = createMockEvent();
-    const response = await handler.handler(event, {} as any);
+    const response = await invokeHandler(event);
     
     expect(response.statusCode).toBe(200);
     
-    const body = JSON.parse(response.body!);
+    const body = JSON.parse(response.body as string);
     const review = body.reviews[0];
     
     expect(review.requestedByName).toBe('John Doe'); // firstName + lastName
@@ -300,14 +319,14 @@ describe('get-assigned-reviews handler', () => {
       email: 'john.doe@example.com',
     };
     
-    mockGetUserByOrgAndId.mockResolvedValue(userWithOnlyEmail);
+    mockGetUserByOrgAndId.mockResolvedValue(userWithOnlyEmail as never);
     
     const event = createMockEvent();
-    const response = await handler.handler(event, {} as any);
+    const response = await invokeHandler(event);
     
     expect(response.statusCode).toBe(200);
     
-    const body = JSON.parse(response.body!);
+    const body = JSON.parse(response.body as string);
     const review = body.reviews[0];
     
     expect(review.requestedByName).toBe('john.doe'); // email prefix
@@ -316,23 +335,24 @@ describe('get-assigned-reviews handler', () => {
   it('should return 400 when orgId is missing', async () => {
     const event = createMockEvent({
       queryStringParameters: { userId: 'user-456' },
-      auth: { ...createMockEvent().auth!, orgId: undefined },
+      auth: { ...createMockEvent().auth!, orgId: undefined as unknown as string },
     });
     
-    const response = await handler.handler(event, {} as any);
+    const response = await invokeHandler(event);
     
     expect(response.statusCode).toBe(400);
-    expect(JSON.parse(response.body!).message).toBe('orgId is required');
+    expect(JSON.parse(response.body as string).message).toBe('orgId is required');
   });
 
-  it('should return 400 when userId is missing', async () => {
+  it('should return 400 when userId is missing from both query and auth', async () => {
     const event = createMockEvent({
       queryStringParameters: { orgId: 'org-123' },
-      auth: { ...createMockEvent().auth!, userId: undefined },
+      auth: { ...createMockEvent().auth!, userId: undefined as unknown as string },
     });
     
-    const response = await handler.handler(event, {} as any);
+    const response = await invokeHandler(event);
     
-    expect(response.statusCode).toBe(200); // Should use auth userId as fallback
+    expect(response.statusCode).toBe(400);
+    expect(JSON.parse(response.body as string).message).toBe('userId is required');
   });
 });
