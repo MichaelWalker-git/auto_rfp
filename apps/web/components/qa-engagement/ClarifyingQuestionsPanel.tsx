@@ -30,8 +30,11 @@ import {
   AlertCircle,
   FileText,
   Loader2,
+  FileDown,
 } from 'lucide-react';
 import type { ClarifyingQuestionItem, ClarifyingQuestionStatus } from '@auto-rfp/core';
+import { ExportQuestionsDialog } from './ExportQuestionsDialog';
+import { useExportClarifyingQuestions } from '@/lib/hooks/use-export-clarifying-questions';
 
 const STATUS_COLORS: Record<ClarifyingQuestionStatus, string> = {
   SUGGESTED: 'bg-blue-100 text-blue-800',
@@ -59,6 +62,8 @@ const PRIORITY_ICONS: Record<string, React.ReactNode> = {
 
 export function ClarifyingQuestionsPanel() {
   const {
+    orgId,
+    projectId,
     opportunityId,
     questions,
     questionsLoading,
@@ -74,6 +79,9 @@ export function ClarifyingQuestionsPanel() {
   const [generateError, setGenerateError] = useState<string | null>(null);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [statusFilter, setStatusFilter] = useState<string>('ALL');
+  const [exportDialogOpen, setExportDialogOpen] = useState(false);
+
+  const { exportQuestions, isExporting } = useExportClarifyingQuestions();
 
   // Reset local state when opportunity changes
   useEffect(() => {
@@ -158,14 +166,39 @@ export function ClarifyingQuestionsPanel() {
             </CardDescription>
           </div>
           <div className="flex gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={refreshQuestions}
-              disabled={isGenerating}
-            >
-              <RefreshCw className="h-4 w-4" />
-            </Button>
+            {questions.length > 0 && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setExportDialogOpen(true)}
+                    disabled={isExporting}
+                  >
+                    <FileDown className="h-4 w-4 mr-2" />
+                    Export
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="top" className="max-w-xs text-center">
+                  Create a document from your clarifying questions that you can edit and export to PDF or DOCX.
+                </TooltipContent>
+              </Tooltip>
+            )}
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={refreshQuestions}
+                  disabled={isGenerating}
+                >
+                  <RefreshCw className="h-4 w-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="top">
+                Refresh
+              </TooltipContent>
+            </Tooltip>
             <Tooltip>
               <TooltipTrigger asChild>
                 <span>
@@ -185,17 +218,19 @@ export function ClarifyingQuestionsPanel() {
                   </Button>
                 </span>
               </TooltipTrigger>
-              {!canGenerate && (
-                <TooltipContent side="bottom" className="max-w-xs">
-                  {isCheckingDocuments
+              <TooltipContent side="top" className="max-w-xs text-center">
+                {!canGenerate
+                  ? isCheckingDocuments
                     ? 'Checking document status...'
                     : hasNoDocuments
                     ? 'Upload solicitation documents first'
                     : isDocumentsProcessing
                     ? 'Documents are still processing. Please wait...'
-                    : 'Documents must be fully processed before generating questions'}
-                </TooltipContent>
-              )}
+                    : 'Documents must be fully processed before generating questions'
+                  : questions.length === 0
+                  ? 'Use AI to analyze your RFP documents and generate strategic clarifying questions for the Q&A period'
+                  : 'Generate additional clarifying questions'}
+              </TooltipContent>
             </Tooltip>
           </div>
         </div>
@@ -285,6 +320,18 @@ export function ClarifyingQuestionsPanel() {
           </div>
         )}
       </CardContent>
+
+      {/* Export Dialog */}
+      <ExportQuestionsDialog
+        open={exportDialogOpen}
+        onOpenChange={setExportDialogOpen}
+        orgId={orgId}
+        projectId={projectId}
+        opportunityId={opportunityId}
+        questionCount={questions.length}
+        onExport={exportQuestions}
+        isExporting={isExporting}
+      />
     </Card>
   );
 }

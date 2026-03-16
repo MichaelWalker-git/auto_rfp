@@ -33,6 +33,8 @@ const InputSchema = z.object({
   templateId: z.string().optional(),
   /** If provided, regenerate content into this existing document instead of creating a new one */
   documentId: z.string().optional(),
+  /** Optional export options for CLARIFYING_QUESTIONS document type */
+  options: z.record(z.unknown()).optional(),
 });
 
 // ─── Helpers ───
@@ -54,7 +56,7 @@ export const baseHandler = async (
       return apiResponse(400, { message: 'Validation error', errors: error.format() });
     }
 
-    const { projectId, opportunityId, documentType, templateId, documentId: existingDocumentId } = data;
+    const { projectId, opportunityId, documentType, templateId, documentId: existingDocumentId, options } = data;
 
     // 2. Load project & extract orgId
     const project = await getProjectById(projectId);
@@ -123,6 +125,7 @@ export const baseHandler = async (
       documentType,
       templateId,
       documentId,
+      options,
     });
 
     // 4. Return 202 Accepted

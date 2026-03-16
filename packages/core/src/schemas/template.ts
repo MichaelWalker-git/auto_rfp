@@ -23,6 +23,7 @@ export const TEMPLATE_CATEGORIES = [
   'MANAGEMENT_PROPOSAL',
   'PRICE_VOLUME',
   'QUALITY_MANAGEMENT',
+  'CLARIFYING_QUESTIONS',
   'CUSTOM',
 ] as const;
 
@@ -338,5 +339,6 @@ export const TEMPLATE_CATEGORY_LABELS: Record<TemplateCategory, string> = {
   MANAGEMENT_PROPOSAL: 'Management Proposal',
   PRICE_VOLUME: 'Price Volume',
   QUALITY_MANAGEMENT: 'Quality Management Plan',
+  CLARIFYING_QUESTIONS: 'Clarifying Questions',
   CUSTOM: 'Custom',
 };
