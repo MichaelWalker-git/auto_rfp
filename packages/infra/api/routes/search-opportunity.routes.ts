@@ -17,7 +17,7 @@ export const searchOpportunityDomain = (): DomainRoutes => ({
 
     // ── Import ────────────────────────────────────────────────────────────
     /** Import a solicitation (source: 'SAM_GOV'|'DIBBS' in body) */
-    { method: 'POST', path: 'import-solicitation', entry: lambdaEntry('search-opportunity/import-solicitation.ts'), timeoutSeconds: 60 },
+    { method: 'POST', path: 'import-solicitation', entry: lambdaEntry('search-opportunity/import-solicitation.ts'), timeoutSeconds: 90, nodeModules: ['@aws-sdk/client-partnercentral-selling'] },
 
     // ── API Keys ──────────────────────────────────────────────────────────
     /** Set API key (source: 'SAM_GOV'|'DIBBS' in body) */

@@ -24,6 +24,7 @@ import { auditMiddleware, setAuditContext } from '@/middleware/audit-middleware'
 import { getApiKey } from '@/helpers/api-key-storage';
 import { uploadToS3 } from '@/helpers/s3';
 import { createOpportunity } from '@/helpers/opportunity';
+import { syncOpportunityToApn } from '@/helpers/apn-db';
 import { createQuestionFile } from '@/helpers/questionFile';
 import { startPipeline } from '@/helpers/solicitation';
 import { sendNotification, buildNotification } from '@/helpers/send-notification';
@@ -200,6 +201,18 @@ const importSamGov = async (
     },
   });
 
+  // Sync to AWS Partner Central (awaited for consistency; errors are logged but don't block import)
+  await syncOpportunityToApn({
+    orgId: data.orgId,
+    projectId: data.projectId,
+    oppId,
+    customerName:      item.organizationName ?? item.title ?? 'Unknown Customer',
+    opportunityValue:  item.baseAndAllOptionsValue ?? 0,
+    expectedCloseDate: item.responseDeadlineIso ?? new Date().toISOString(),
+    proposalStatus:    'PROSPECT',
+    description:       typeof item.description === 'string' ? item.description.substring(0, 500) : undefined,
+  });
+
   const files = await importAttachments({
     orgId: data.orgId,
     projectId: data.projectId,
@@ -284,6 +297,18 @@ const importDibbs = async (
       active: true,
       baseAndAllOptionsValue: typeof oppRaw?.baseAndAllOptionsValue === 'number' ? oppRaw.baseAndAllOptionsValue : null,
     },
+  });
+
+  // Sync to AWS Partner Central (awaited for consistency; errors are logged but don't block import)
+  await syncOpportunityToApn({
+    orgId: data.orgId,
+    projectId: data.projectId,
+    oppId,
+    customerName:      item.organizationName ?? item.title ?? 'Unknown Customer',
+    opportunityValue:  item.baseAndAllOptionsValue ?? 0,
+    expectedCloseDate: item.responseDeadlineIso ?? new Date().toISOString(),
+    proposalStatus:    'PROSPECT',
+    description:       typeof item.description === 'string' ? item.description.substring(0, 500) : undefined,
   });
 
   const files = await importAttachments({

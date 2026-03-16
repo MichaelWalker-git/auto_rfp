@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
-import { ArrowLeft, FileDown, FileText, History, Loader2, RefreshCw, Save } from 'lucide-react';
+import { ArrowLeft, FileDown, FileText, History, Loader2, RefreshCw, Save, ClipboardCheck, XCircle, AlertTriangle, ChevronRight, ChevronLeft } from 'lucide-react';
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -21,8 +21,9 @@ import { uploadFileToS3, usePresignDownload, usePresignUpload } from '@/lib/hook
 import { useRevertVersion, useCherryPick } from '@/lib/hooks/use-document-versions';
 import { RichTextEditor, stripPresignedUrlsFromHtml } from './rich-text-editor';
 import { RFPDocumentExportDialog } from './rfp-document-export-dialog';
-import { RequestApprovalButton, ReviewDecisionPanel, ApprovalStatusBadge } from '@/features/document-approval';
+import { RequestApprovalButton, ApprovalStatusBadge, ResubmitForReviewButton } from '@/features/document-approval';
 import { useApprovalHistory } from '@/features/document-approval';
+import { ReviewSidebarPanel } from '@/features/document-approval/components/ReviewSidebarPanel';
 import { useAuth } from '@/components/AuthProvider';
 import { VersionHistoryPanel } from './version-history/VersionHistoryPanel';
 import { VersionDiffView } from './version-diff/VersionDiffView';
@@ -71,7 +72,7 @@ export const OpportunityDocumentEditorPage = ({
   const [editorKey, setEditorKey] = useState(0);
 
   // ── Version history state ──
-  const [showVersionHistory, setShowVersionHistory] = useState(false);
+  const [showVersionHistory, setShowVersionHistory] = useState(true); // Show history by default
   const [showDiffView, setShowDiffView] = useState(false);
   const [diffVersions, setDiffVersions] = useState<{ from: number; to: number } | null>(null);
   const [revertVersion, setRevertVersion] = useState<RFPDocumentVersion | null>(null);
@@ -80,6 +81,14 @@ export const OpportunityDocumentEditorPage = ({
     sourceVersion: number;
     selectedCount: number;
   } | null>(null);
+
+  // ── Review sidebar state ──
+  const [showReviewSidebar, setShowReviewSidebar] = useState(false);
+  
+  // ── Sidebar width state ──
+  const [sidebarWidth, setSidebarWidth] = useState(400); // Default wider width
+  const [isResizing, setIsResizing] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
   // ── Data fetching ──
 
@@ -214,15 +223,31 @@ export const OpportunityDocumentEditorPage = ({
     // When generation completes (status transitions away from GENERATING),
     // invalidate the HTML cache so the editor picks up the newly generated content
     // Note: currentStatus can be null (ready) or 'FAILED', both mean generation is done
-    if (prevStatusRef.current === 'GENERATING' && currentStatus !== 'GENERATING') {
-      console.log('[OpportunityDocEditor] Generation completed, refetching HTML', { currentStatus });
+    const generationJustCompleted = prevStatusRef.current === 'GENERATING' && currentStatus !== 'GENERATING';
+    
+    // Also handle fast-generating documents (like CLARIFYING_QUESTIONS) where the status
+    // transitions so quickly that we never see GENERATING state. If we triggered regeneration
+    // and the document is now ready, refresh the content.
+    const fastGenerationCompleted = isRegenerateStarting && isDocumentReady(currentStatus);
+    
+    if (generationJustCompleted || fastGenerationCompleted) {
+      console.log('[OpportunityDocEditor] Generation completed, refetching HTML', { 
+        currentStatus, 
+        generationJustCompleted,
+        fastGenerationCompleted,
+      });
+      setIsRegenerateStarting(false);
       htmlInitializedRef.current = false;
       setHtmlInitialized(false);
-      mutateHtml();
+      // Force SWR to refetch from server (not cache) and increment editor key
+      mutateHtml(undefined, { revalidate: true }).then(() => {
+        // Force editor remount after HTML is fetched
+        setEditorKey((k) => k + 1);
+      });
     }
 
     prevStatusRef.current = currentStatus;
-  }, [doc?.status, mutateHtml]);
+  }, [doc?.status, mutateHtml, isRegenerateStarting]);
 
   // Reset when navigating to a different document (skip initial mount — component is already fresh)
   const prevDocumentIdRef = useRef(documentId);
@@ -379,6 +404,14 @@ export const OpportunityDocumentEditorPage = ({
   );
   const isApproved = approvals.length > 0 && approvals[0]?.status === 'APPROVED';
   const isReviewer = !!(activeApproval && userSub && activeApproval.reviewerId === userSub);
+  
+  // Check if document was recently rejected by current user
+  const wasRecentlyRejected = approvals.length > 0 && 
+    approvals[0]?.status === 'REJECTED' && 
+    approvals[0]?.requestedBy === userSub;
+    
+  // Get the most recent rejected approval for the current user
+  const rejectedApproval = wasRecentlyRejected ? approvals[0] : null;
 
   const isGenerating = isDocumentGenerating(doc?.status);
   const isFailed = isDocumentFailed(doc?.status);
@@ -386,8 +419,55 @@ export const OpportunityDocumentEditorPage = ({
   // Editor is ready when: document is ready (not generating/failed), HTML fetch done, and initialized.
   // Uses htmlInitialized (state) so React re-renders when initialization completes.
   const isEditorReady = isReady && !isHtmlLoading && htmlInitialized;
-  const isBusy = isMutating || isRegenerating || isGenerating || isRegenerateStarting || isApproved;
+  const isBusy = isMutating || isRegenerating || isGenerating || isRegenerateStarting;
+  const isEditingDisabled = isBusy || isApproved;
   const backUrl = `/organizations/${orgId}/projects/${projectId}/opportunities/${opportunityId}`;
+
+  // Auto-switch to review tab when there are pending actions
+  useEffect(() => {
+    if ((hasPendingApproval && isReviewer) || wasRecentlyRejected) {
+      setShowReviewSidebar(true);
+      setShowVersionHistory(false);
+    }
+  }, [hasPendingApproval, isReviewer, wasRecentlyRejected]);
+
+  // ── Sidebar resize handlers ──
+  const handleMouseDown = useCallback((e: React.MouseEvent) => {
+    setIsResizing(true);
+    e.preventDefault();
+  }, []);
+
+  const handleMouseMove = useCallback((e: MouseEvent) => {
+    if (!isResizing) return;
+    
+    const newWidth = window.innerWidth - e.clientX;
+    const minWidth = 300;
+    const maxWidth = 600;
+    
+    if (newWidth >= minWidth && newWidth <= maxWidth) {
+      setSidebarWidth(newWidth);
+    }
+  }, [isResizing]);
+
+  const handleMouseUp = useCallback(() => {
+    setIsResizing(false);
+  }, []);
+
+  useEffect(() => {
+    if (isResizing) {
+      document.addEventListener('mousemove', handleMouseMove);
+      document.addEventListener('mouseup', handleMouseUp);
+      document.body.style.cursor = 'ew-resize';
+      document.body.style.userSelect = 'none';
+      
+      return () => {
+        document.removeEventListener('mousemove', handleMouseMove);
+        document.removeEventListener('mouseup', handleMouseUp);
+        document.body.style.cursor = '';
+        document.body.style.userSelect = '';
+      };
+    }
+  }, [isResizing, handleMouseMove, handleMouseUp]);
 
   // ── Render ──
 
@@ -454,8 +534,8 @@ export const OpportunityDocumentEditorPage = ({
         {isApproved && <ApprovalStatusBadge status="APPROVED" />}
         {hasPendingApproval && <ApprovalStatusBadge status="PENDING" />}
 
-        {/* Request Approval button — hidden for reviewer (they see panel below) and approved docs */}
-        {doc && doc.status !== 'GENERATING' && doc.status !== 'FAILED' && userSub && !isReviewer && !isApproved && (
+        {/* Request Approval button — hidden for reviewer, approved docs, and recently rejected docs */}
+        {doc && doc.status !== 'GENERATING' && doc.status !== 'FAILED' && userSub && !isReviewer && !isApproved && !wasRecentlyRejected && (
           <RequestApprovalButton
             orgId={orgId}
             projectId={projectId}
@@ -463,19 +543,14 @@ export const OpportunityDocumentEditorPage = ({
             documentId={documentId}
             documentName={doc.name}
             disabled={isBusy || hasPendingApproval}
+            onSuccess={() => {
+              refreshApprovals(); // Reload approval history
+              // Auto-switch to review tab to show the new pending approval
+              setShowReviewSidebar(true);
+              setShowVersionHistory(false);
+            }}
           />
         )}
-
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => setShowVersionHistory(!showVersionHistory)}
-          disabled={isGenerating}
-          title="Version history"
-        >
-          <History className="h-4 w-4 mr-2" />
-          History
-        </Button>
 
         <Button
           variant="outline"
@@ -492,8 +567,8 @@ export const OpportunityDocumentEditorPage = ({
           variant="outline"
           size="sm"
           onClick={handleRegenerate}
-          disabled={isBusy}
-          title={isGenerating ? 'Document is currently generating' : 'Regenerate document with AI'}
+          disabled={isEditingDisabled}
+          title={isApproved ? 'Cannot regenerate an approved document' : isGenerating ? 'Document is currently generating' : 'Regenerate document with AI'}
         >
           {isRegenerateStarting || isRegenerating ? (
             <>
@@ -516,9 +591,11 @@ export const OpportunityDocumentEditorPage = ({
         <Button
           size="sm"
           onClick={handleSaveContent}
-          disabled={isBusy || isHtmlLoading || isImageUploading}
+          disabled={isEditingDisabled || isHtmlLoading || isImageUploading}
           title={
-            isImageUploading
+            isApproved
+              ? 'Cannot edit an approved document'
+              : isImageUploading
               ? 'Please wait for image upload to complete'
               : isGenerating
               ? 'Cannot save while document is generating'
@@ -540,19 +617,9 @@ export const OpportunityDocumentEditorPage = ({
         </div>{/* end actions */}
       </div>{/* end toolbar */}
 
-      {/* ── Reviewer decision panel — shown between toolbar and editor ── */}
-      {isReviewer && activeApproval && userSub && (
-        <div className="shrink-0 px-4 py-2 border-b">
-          <ReviewDecisionPanel
-            approval={activeApproval}
-            currentUserId={userSub}
-            onSuccess={() => refreshApprovals()}
-          />
-        </div>
-      )}
-
-      {/* ── Editor with optional side panel ── */}
+      {/* ── Editor with permanent right sidebar ── */}
       <div className="flex flex-1 min-h-0 overflow-hidden">
+        {/* Main editor area */}
         <div className="flex-1 min-h-0 overflow-hidden">
           {(isGenerating || isRegenerateStarting) ? (
             <div className="flex flex-col items-center justify-center h-full gap-4 text-muted-foreground">
@@ -601,17 +668,161 @@ export const OpportunityDocumentEditorPage = ({
           )}
         </div>
 
-        {/* ── Version History Side Panel ── */}
-        <VersionHistoryPanel
-          projectId={projectId}
-          opportunityId={opportunityId}
-          documentId={documentId}
-          orgId={orgId}
-          isOpen={showVersionHistory}
-          onClose={() => setShowVersionHistory(false)}
-          onCompare={handleCompareVersions}
-          onRevert={(version) => setRevertVersion(version)}
-        />
+        {/* ── Resize Handle (only when not collapsed) ── */}
+        {!sidebarCollapsed && (
+          <div
+            className="w-0.5 bg-border/50 hover:bg-indigo-300 cursor-ew-resize flex-shrink-0 transition-colors"
+            onMouseDown={handleMouseDown}
+            title="Drag to resize sidebar"
+          />
+        )}
+
+        {/* ── Resizable Right Sidebar ── */}
+        <div 
+          className="border-l-[0.5px] border-border/50 bg-background flex flex-col transition-all duration-200"
+          style={{ width: sidebarCollapsed ? '48px' : `${sidebarWidth}px` }}
+        >
+          {!sidebarCollapsed && (
+            <>
+              {/* Header with segmented control and collapse button */}
+              <div className="flex items-center justify-between p-4 border-b-[0.5px] border-border/50">
+                {/* iOS-style segmented control */}
+                <div className="flex bg-muted/50 rounded-lg p-1 gap-1">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => {
+                      setShowVersionHistory(true);
+                      setShowReviewSidebar(false);
+                    }}
+                    className={`px-3 py-1.5 rounded-md text-xs font-medium transition-all ${
+                      showVersionHistory && !showReviewSidebar
+                        ? "bg-background text-foreground shadow-sm"
+                        : "text-muted-foreground hover:text-foreground"
+                    }`}
+                  >
+                    <History className="h-3.5 w-3.5 mr-1.5" />
+                    History
+                  </Button>
+                  
+                  {approvals.length > 0 && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => {
+                        setShowReviewSidebar(true);
+                        setShowVersionHistory(false);
+                      }}
+                      className={`px-3 py-1.5 rounded-md text-xs font-medium transition-all relative ${
+                        showReviewSidebar
+                          ? "bg-background text-foreground shadow-sm"
+                          : hasPendingApproval && isReviewer
+                          ? "text-amber-700 hover:text-amber-800"
+                          : wasRecentlyRejected
+                          ? "text-red-700 hover:text-red-800"
+                          : "text-muted-foreground hover:text-foreground"
+                      }`}
+                    >
+                      <ClipboardCheck className="h-3.5 w-3.5 mr-1.5" />
+                      Review
+                      {(hasPendingApproval && isReviewer) || wasRecentlyRejected ? (
+                        <div className="absolute -top-1 -right-1 h-2 w-2 bg-red-500 rounded-full animate-pulse" />
+                      ) : null}
+                    </Button>
+                  )}
+                </div>
+                
+                {/* Collapse button */}
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setSidebarCollapsed(true)}
+                  className="h-8 w-8 p-0 hover:bg-muted"
+                  title="Collapse sidebar"
+                >
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+              </div>
+
+              {/* Sidebar content */}
+              <div className="flex-1 overflow-hidden">
+                {showVersionHistory && (
+                  <VersionHistoryPanel
+                    projectId={projectId}
+                    opportunityId={opportunityId}
+                    documentId={documentId}
+                    orgId={orgId}
+                    isOpen={true}
+                    onClose={() => {}} // No close button needed in permanent sidebar
+                    onCompare={handleCompareVersions}
+                    onRevert={(version) => setRevertVersion(version)}
+                  />
+                )}
+                
+                {showReviewSidebar && userSub && (
+                  <ReviewSidebarPanel
+                    approval={activeApproval}
+                    approvals={approvals}
+                    currentUserId={userSub}
+                    isOpen={true}
+                    onClose={() => {}} // No close button needed in permanent sidebar
+                    onSuccess={() => {
+                      refreshApprovals();
+                      // Stay on review tab after success
+                    }}
+                  />
+                )}
+                
+                {!showVersionHistory && !showReviewSidebar && (
+                  <div className="flex items-center justify-center h-full text-muted-foreground">
+                    <p className="text-sm">Select a tab to view content</p>
+                  </div>
+                )}
+              </div>
+            </>
+          )}
+
+          {/* Collapsed sidebar content */}
+          {sidebarCollapsed && (
+            <div className="flex flex-col items-center gap-2 p-2">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  setSidebarCollapsed(false);
+                  setShowVersionHistory(true);
+                  setShowReviewSidebar(false);
+                }}
+                className="h-8 w-8 p-0"
+                title="History"
+              >
+                <History className="h-4 w-4" />
+              </Button>
+              
+              {(approvals.length > 0 || hasPendingApproval || wasRecentlyRejected) && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => {
+                    setSidebarCollapsed(false);
+                    setShowReviewSidebar(true);
+                    setShowVersionHistory(false);
+                  }}
+                  className={`h-8 w-8 p-0 ${
+                    hasPendingApproval && isReviewer
+                      ? "bg-amber-50 text-amber-700 hover:bg-amber-100"
+                      : wasRecentlyRejected
+                      ? "text-red-700 hover:bg-red-50"
+                      : ""
+                  }`}
+                  title="Review"
+                >
+                  <ClipboardCheck className="h-4 w-4" />
+                </Button>
+              )}
+            </div>
+          )}
+        </div>
       </div>
 
       {/* ── Export dialog ── */}

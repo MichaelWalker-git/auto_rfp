@@ -162,13 +162,13 @@ describe('QuickSummarySchema', () => {
       summary: 'Valid summary text.',
     };
 
-    // null should be accepted by .optional() — Zod treats null differently
-    // but with passthrough the schema should not fail on the summary
-    const { success } = QuickSummarySchema.safeParse(input);
-    // title/agency are z.string().optional() — null is NOT valid for optional string
-    // This is expected to fail, which is why we have sanitizeSummaryResponse
-    // to convert nulls to undefined before parsing
-    expect(success).toBe(false);
+    // The schema uses .nullish() which accepts null, undefined, and the actual type
+    // So this should succeed, not fail
+    const { success, data } = QuickSummarySchema.safeParse(input);
+    expect(success).toBe(true);
+    expect(data?.title).toBe(null);
+    expect(data?.agency).toBe(null);
+    expect(data?.summary).toBe('Valid summary text.');
   });
 
   it('rejects boolean false as summary (coerced to empty string)', () => {

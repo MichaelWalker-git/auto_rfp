@@ -3,7 +3,7 @@ import middy from '@middy/core';
 import { v4 as uuidv4 } from 'uuid';
 import { apiResponse, getOrgId, getUserId } from '@/helpers/api';
 import { withSentryLambda } from '@/sentry-lambda';
-import { getApprovalRecord, updateApprovalStatus } from '@/helpers/document-approval';
+import { getApprovalRecord, updateApprovalStatus, createApprovalRecord } from '@/helpers/document-approval';
 import { getRFPDocument } from '@/helpers/rfp-document';
 import { getUserByOrgAndId } from '@/helpers/user';
 import { sendNotification, buildNotification } from '@/helpers/send-notification';
@@ -54,14 +54,24 @@ const baseHandler = async (event: AuthedEvent): Promise<APIGatewayProxyResultV2>
   const doc = await getRFPDocument(data.projectId, data.opportunityId, data.documentId);
   if (!doc || doc['deletedAt']) return apiResponse(404, { message: 'Document not found' });
 
-  // ── Reset approval to PENDING ──
-  const updated = await updateApprovalStatus(
-    orgId, data.projectId, data.opportunityId, data.documentId, data.approvalId,
+  // ── Load requester info for proper display name ──
+  const requester = await getUserByOrgAndId(orgId, userId).catch(() => null);
+  const requestedByName = requester?.displayName ?? requester?.firstName ?? requester?.email ?? userId;
+
+  // ── Create new approval record to preserve history ──
+  const newApproval = await createApprovalRecord(
     {
-      status: 'PENDING',
-      reviewedAt: undefined,
-      reviewNote: undefined,
+      orgId,
+      projectId: data.projectId,
+      opportunityId: data.opportunityId,
+      documentId: data.documentId,
+      reviewerId: approval.reviewerId,
     },
+    userId,
+    requestedByName,
+    approval.reviewerName,
+    approval.reviewerEmail,
+    (doc['name'] as string | undefined) ?? (doc['title'] as string | undefined),
   );
 
   // ── Reassign Linear ticket back to reviewer (non-blocking) ──
@@ -95,7 +105,7 @@ const baseHandler = async (event: AuthedEvent): Promise<APIGatewayProxyResultV2>
       {
         orgId,
         projectId: data.projectId,
-        entityId: data.documentId,
+        entityId: `${data.opportunityId}:${data.documentId}`,
         recipientUserIds: [approval.reviewerId],
         recipientEmails: reviewer?.email ? [reviewer.email] : [],
         actorDisplayName: userName,
@@ -136,7 +146,7 @@ const baseHandler = async (event: AuthedEvent): Promise<APIGatewayProxyResultV2>
     orgId,
   });
 
-  return apiResponse(200, { ok: true, approval: updated });
+  return apiResponse(200, { ok: true, approval: newApproval });
 };
 
 export const handler = withSentryLambda(

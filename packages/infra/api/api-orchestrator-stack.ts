@@ -175,10 +175,21 @@ export class ApiOrchestratorStack extends cdk.Stack {
     mainTable.grantReadWriteData(sharedInfraStack.commonLambdaRole);
     documentsBucket.grantReadWrite(sharedInfraStack.commonLambdaRole);
 
+    // Grant comprehensive Bedrock permissions for all foundation models
     sharedInfraStack.commonLambdaRole.addToPrincipalPolicy(
       new iam.PolicyStatement({
-        actions: ['bedrock:InvokeModel', 'bedrock:InvokeModelWithResponseStream'],
-        resources: ['*'],
+        sid: 'BedrockModelAccess',
+        actions: [
+          'bedrock:InvokeModel',
+          'bedrock:InvokeModelWithResponseStream',
+          'bedrock:GetFoundationModel',
+          'bedrock:ListFoundationModels',
+        ],
+        resources: [
+          `arn:aws:bedrock:${cdk.Aws.REGION}::foundation-model/*`,
+          `arn:aws:bedrock:us-east-1::foundation-model/*`,
+          `arn:aws:bedrock:us-west-2::foundation-model/*`,
+        ],
       }),
     );
 
@@ -575,24 +586,22 @@ export class ApiOrchestratorStack extends cdk.Stack {
       });
     }
 
-    // ─── APN Lambda CloudWatch Log Groups ────────────────────────────────────
-    const apnHandlers = [
-      'get-apn-credentials',
-      'save-apn-credentials',
-      'get-apn-registration',
-      'retry-apn-registration',
-      'list-apn-registrations',
-    ];
+    // Grant Lambda role access to Partner Central API (APN opportunities CRUD)
+    sharedInfraStack.commonLambdaRole.addToPrincipalPolicy(
+      new iam.PolicyStatement({
+        sid: 'PartnerCentralAccess',
+        actions: [
+          'partnercentral:CreateOpportunity',
+          'partnercentral:GetOpportunity',
+          'partnercentral:UpdateOpportunity',
+          'partnercentral:ListOpportunities',
+          'partnercentral:AssignOpportunity',
+          'partnercentral:SubmitOpportunity',
+        ],
+        resources: ['*'],
+      }),
+    );
 
-    for (const handlerName of apnHandlers) {
-      new logs.LogGroup(this, `ApnLogs-${handlerName}-${stage}`, {
-        logGroupName: `/aws/lambda/auto-rfp-apn-${handlerName}-${stage}`,
-        retention: stage === 'prod'
-          ? logs.RetentionDays.INFINITE
-          : logs.RetentionDays.TWO_WEEKS,
-        removalPolicy: cdk.RemovalPolicy.DESTROY,
-      });
-    }
 
     // ─── Re-extract Questions Lambda CloudWatch Log Group ─────────────────────
     new logs.LogGroup(this, `ReextractQuestionsLogs-${stage}`, {

@@ -11,7 +11,7 @@ import { useFOIARequests } from '@/lib/hooks/use-foia-requests';
 import PermissionWrapper from '@/components/permission-wrapper';
 import type { FOIADocumentType, FOIARequestItem } from '@auto-rfp/core';
 import { FOIA_DOCUMENT_DESCRIPTIONS } from '@auto-rfp/core';
-import { AlertTriangle, Building, ChevronDown, ChevronUp, Clock, FileText, Mail, } from 'lucide-react';
+import { AlertTriangle, Building, ChevronDown, ChevronUp, Clock, FileText, Mail, Scale, Plus } from 'lucide-react';
 import { format, formatDistanceToNow, isPast } from 'date-fns';
 
 interface FOIARequestCardProps {
@@ -56,12 +56,16 @@ export function FOIARequestCard({
     return (
       <Card>
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle className="text-sm font-medium">FOIA Requests</CardTitle>
+          <CardTitle className="text-sm font-medium flex items-center gap-2">
+            <Scale className="h-4 w-4" />
+            FOIA Requests
+          </CardTitle>
         </CardHeader>
         <CardContent>
           <div className="space-y-3">
             <Skeleton className="h-6 w-24"/>
             <Skeleton className="h-4 w-48"/>
+            <Skeleton className="h-4 w-32"/>
           </div>
         </CardContent>
       </Card>
@@ -78,15 +82,19 @@ export function FOIARequestCard({
     <>
       <Card>
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle className="text-sm font-medium">FOIA Requests</CardTitle>
+          <CardTitle className="text-sm font-medium flex items-center gap-2">
+            <Scale className="h-4 w-4" />
+            FOIA Requests
+          </CardTitle>
           <PermissionWrapper requiredPermission="project:edit">
             <Button
-              variant="default"
+              variant="ghost"
               size="sm"
               onClick={() => setIsDialogOpen(true)}
-              className="h-8 text-xs"
+              className="h-8 text-xs gap-1"
             >
-              New FOIA Request
+              <Plus className="h-3.5 w-3.5" />
+              New Request
             </Button>
           </PermissionWrapper>
         </CardHeader>

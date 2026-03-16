@@ -6,5 +6,5 @@ interface ProjectPageProps {
 
 export default async function ProjectPage({ params }: ProjectPageProps) {
   const { orgId, projectId } = await params;
-  redirect(`/organizations/${orgId}/projects/${projectId}/dashboard`);
+  redirect(`/organizations/${orgId}/projects/${projectId}/opportunities`);
 }

@@ -1,9 +1,19 @@
 export const APN_REGISTRATION_PK = 'APN_REGISTRATION' as const;
-export const APN_SECRET_PREFIX    = 'apn' as const;
 
-/** Metadata record that stores non-secret credential info (partnerId, region, configuredAt) */
-export const APN_CREDENTIALS_PK  = 'APN_CREDENTIALS' as const;
+/** AWS Partner Central Selling API catalog — always 'AWS' */
+export const APN_CATALOG = 'AWS' as const;
 
-/** AWS Partner Central API base URL */
-export const APN_PARTNER_CENTRAL_BASE_URL =
-  'https://partnercentral.awspartner.com/api/v1';
+/**
+ * Maps internal opportunity stages to AWS Partner Central proposal statuses.
+ * Used across create, update, and stage transition flows.
+ */
+export const STAGE_TO_APN_STATUS_MAP: Record<string, string> = {
+  IDENTIFIED:  'PROSPECT',
+  QUALIFYING:  'PROSPECT',
+  PURSUING:    'PROSPECT',
+  SUBMITTED:   'SUBMITTED',
+  WON:         'WON',
+  LOST:        'LOST',
+  NO_BID:      'LOST',
+  WITHDRAWN:   'LOST',
+} as const;

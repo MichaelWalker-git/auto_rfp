@@ -194,6 +194,7 @@ function ContextSkeleton() {
  */
 export function OpportunityContextPanel() {
   const { projectId, oppId: opportunityId, orgId } = useOppCtx();
+  const [isCollapsed, setIsCollapsed] = useState(true); // Collapsed by default
 
   const {
     suggestedItems,
@@ -263,7 +264,7 @@ export function OpportunityContextPanel() {
 
   return (
     <Card>
-      <CardHeader className="pb-3">
+      <CardHeader className="pb-2">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <CardTitle className="text-base">Generation Context</CardTitle>
@@ -273,16 +274,33 @@ export function OpportunityContextPanel() {
               </Badge>
             )}
           </div>
-          <Button
-            variant="outline"
-            size="sm"
-            disabled={isRefreshing || isLoading}
-            onClick={handleRefresh}
-            title="Reload"
-          >
-            <RefreshCw className={cn('h-4 w-4 mr-2', isRefreshing && 'animate-spin')} />
-            Reload
-          </Button>
+          <div className="flex items-center gap-2">
+            {!isCollapsed && (
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={isRefreshing || isLoading}
+                onClick={handleRefresh}
+                title="Reload"
+              >
+                <RefreshCw className={cn('h-4 w-4 mr-2', isRefreshing && 'animate-spin')} />
+                Reload
+              </Button>
+            )}
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-6 w-6 p-0"
+              onClick={() => setIsCollapsed(!isCollapsed)}
+              title={isCollapsed ? "Expand" : "Collapse"}
+            >
+              {isCollapsed ? (
+                <ChevronDown className="h-4 w-4" />
+              ) : (
+                <ChevronUp className="h-4 w-4" />
+              )}
+            </Button>
+          </div>
         </div>
         <p className="text-xs text-slate-500 mt-0.5">
           Relevant document folder, past performance, and content library items used when generating
@@ -295,7 +313,8 @@ export function OpportunityContextPanel() {
         )}
       </CardHeader>
 
-      <CardContent className="space-y-4">
+      {!isCollapsed && (
+        <CardContent className="space-y-4">
         {isLoading ? (
           <ContextSkeleton />
         ) : totalItems === 0 ? (
@@ -388,7 +407,8 @@ export function OpportunityContextPanel() {
             )}
           </>
         )}
-      </CardContent>
+        </CardContent>
+      )}
     </Card>
   );
 }

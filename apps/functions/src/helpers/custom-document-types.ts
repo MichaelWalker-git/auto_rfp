@@ -115,7 +115,7 @@ export const syncRequiredDocumentsToCustomTypes = async (
     if (doc.documentType === 'OTHER') return false;
     if (isBuiltInType(doc.documentType)) return false;
     // Only save if it has a meaningful name different from the slug
-    return doc.name?.trim().length > 0;
+    return (doc.name?.trim().length ?? 0) > 0;
   });
 
   if (!newTypes.length) {
@@ -127,7 +127,7 @@ export const syncRequiredDocumentsToCustomTypes = async (
 
   await Promise.all(
     newTypes.map(doc =>
-      saveCustomDocumentType(orgId, doc.name, doc.description, true).catch(err =>
+      saveCustomDocumentType(orgId, doc.name ?? '', doc.description, true).catch(err =>
         console.warn(`Failed to save custom doc type "${doc.name}":`, (err as Error)?.message),
       ),
     ),

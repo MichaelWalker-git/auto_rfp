@@ -12,3 +12,10 @@ export { ResubmitForReviewButton } from './components/ResubmitForReviewButton';
 export { BulkReviewPanel } from './components/BulkReviewPanel';
 export { useResubmitForReview } from './hooks/useResubmitForReview';
 export { useBulkReview } from './hooks/useBulkReview';
+
+// Enhanced UI exports
+export { ApprovalOverviewCard } from './components/enhanced/ApprovalOverviewCard';
+export { ApprovalActionCard } from './components/enhanced/ApprovalActionCard';
+export { ApprovalMobileView } from './components/enhanced/ApprovalMobileView';
+export { ReviewSidebarPanel } from './components/ReviewSidebarPanel';
+export { useEnhancedApprovalHistory } from './hooks/enhanced/useEnhancedApprovalHistory';

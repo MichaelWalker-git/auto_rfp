@@ -5,43 +5,39 @@
  * the old N+1 pattern which caused Lambda timeouts.
  */
 
-import { jest, describe, it, expect, beforeEach } from '@jest/globals';
+// ── Mocks (must be before imports) ─────────────────────────────────────
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const mockSend = jest.fn<(...args: any[]) => any>();
-
-// ── Mocks (ESM-compatible) ─────────────────────────────────────────────
-
-jest.unstable_mockModule('@middy/core', () => ({
-  __esModule: true,
-  default: (handler: unknown) => ({
+jest.mock('@middy/core', () => {
+  const middy = (handler: unknown) => ({
     use: jest.fn().mockReturnThis(),
     handler,
-  }),
-}));
+  });
+  return { __esModule: true, default: middy };
+});
 
-jest.unstable_mockModule('@aws-sdk/client-dynamodb', () => ({
+const mockSend = jest.fn();
+jest.mock('@aws-sdk/client-dynamodb', () => ({
   DynamoDBClient: jest.fn(() => ({})),
 }));
 
-jest.unstable_mockModule('@aws-sdk/lib-dynamodb', () => ({
+jest.mock('@aws-sdk/lib-dynamodb', () => ({
   DynamoDBDocumentClient: {
     from: jest.fn(() => ({ send: mockSend })),
   },
-  QueryCommand: jest.fn((params: unknown) => ({ type: 'Query', params })),
-  PutCommand: jest.fn((params: unknown) => ({ type: 'Put', params })),
-  GetCommand: jest.fn((params: unknown) => ({ type: 'Get', params })),
-  DeleteCommand: jest.fn((params: unknown) => ({ type: 'Delete', params })),
-  UpdateCommand: jest.fn((params: unknown) => ({ type: 'Update', params })),
-  ScanCommand: jest.fn((params: unknown) => ({ type: 'Scan', params })),
-  BatchWriteCommand: jest.fn((params: unknown) => ({ type: 'BatchWrite', params })),
+  QueryCommand: jest.fn((params) => ({ type: 'Query', params })),
+  PutCommand: jest.fn((params) => ({ type: 'Put', params })),
+  GetCommand: jest.fn((params) => ({ type: 'Get', params })),
+  DeleteCommand: jest.fn((params) => ({ type: 'Delete', params })),
+  UpdateCommand: jest.fn((params) => ({ type: 'Update', params })),
+  ScanCommand: jest.fn((params) => ({ type: 'Scan', params })),
+  BatchWriteCommand: jest.fn((params) => ({ type: 'BatchWrite', params })),
 }));
 
-jest.unstable_mockModule('@/sentry-lambda', () => ({
+jest.mock('@/sentry-lambda', () => ({
   withSentryLambda: (h: unknown) => h,
 }));
 
-jest.unstable_mockModule('@/middleware/rbac-middleware', () => ({
+jest.mock('@/middleware/rbac-middleware', () => ({
   authContextMiddleware: () => ({ before: jest.fn() }),
   httpErrorMiddleware: () => ({ onError: jest.fn() }),
   orgMembershipMiddleware: () => ({ before: jest.fn() }),
@@ -53,7 +49,7 @@ process.env.REGION = 'us-east-1';
 
 // ── Import after mocks ─────────────────────────────────────────────────
 
-const { baseHandler } = await import('./get-questions');
+import { baseHandler } from './get-questions';
 import type { APIGatewayProxyEventV2 } from 'aws-lambda';
 
 // ── Helpers ─────────────────────────────────────────────────────────────

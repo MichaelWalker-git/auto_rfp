@@ -70,7 +70,7 @@ const makeEvent = (body: Record<string, unknown> = {}, query: Record<string, str
     headers: { 'x-org-id': (body['orgId'] ?? query['orgId']) as string, 'user-agent': 'test' },
     requestContext: { http: { sourceIp: '127.0.0.1' } },
     auth: {
-      userId: 'user-123',
+      userId: '77777777-7777-4777-8777-777777777777',
       userName: 'Test User',
       claims: {},
       orgId: (body['orgId'] ?? query['orgId']) as string,
@@ -78,10 +78,10 @@ const makeEvent = (body: Record<string, unknown> = {}, query: Record<string, str
   } as unknown as AuthedEvent);
 
 const mockDocument = {
-  documentId: 'doc-123',
-  projectId: 'proj-123',
-  opportunityId: 'opp-123',
-  orgId: 'org-123',
+  documentId: '44444444-4444-4444-8444-444444444444',
+  projectId: '22222222-2222-4222-8222-222222222222',
+  opportunityId: '33333333-3333-4333-8333-333333333333',
+  orgId: '11111111-1111-4111-8111-111111111111',
   title: 'Test Document',
   documentType: 'TECHNICAL_PROPOSAL',
   deletedAt: undefined,
@@ -90,15 +90,15 @@ const mockDocument = {
 
 const mockVersion1 = {
   versionId: 'ver-1',
-  documentId: 'doc-123',
-  projectId: 'proj-123',
-  opportunityId: 'opp-123',
-  orgId: 'org-123',
+  documentId: '44444444-4444-4444-8444-444444444444',
+  projectId: '22222222-2222-4222-8222-222222222222',
+  opportunityId: '33333333-3333-4333-8333-333333333333',
+  orgId: '11111111-1111-4111-8111-111111111111',
   versionNumber: 1,
   htmlContentKey: 'org-123/proj-123/opp-123/rfp-documents/doc-123/versions/v1.html',
   title: 'Test Document',
   documentType: 'TECHNICAL_PROPOSAL',
-  createdBy: 'user-123',
+  createdBy: '77777777-7777-4777-8777-777777777777',
   createdAt: '2025-01-01T00:00:00.000Z',
 };
 
@@ -118,10 +118,10 @@ describe('cherry-pick-version handler', () => {
 
     it('returns 401 when user is not authenticated', async () => {
       const event = makeEvent({
-        orgId: 'org-123',
-        projectId: 'proj-123',
-        opportunityId: 'opp-123',
-        documentId: 'doc-123',
+        orgId: '11111111-1111-4111-8111-111111111111',
+        projectId: '22222222-2222-4222-8222-222222222222',
+        opportunityId: '33333333-3333-4333-8333-333333333333',
+        documentId: '44444444-4444-4444-8444-444444444444',
         sourceVersion: 1,
         mergedHtml: '<p>Merged content</p>',
       });
@@ -142,10 +142,10 @@ describe('cherry-pick-version handler', () => {
     it('returns 400 when sourceVersion is missing', async () => {
       const result = await baseHandler(
         makeEvent({
-          orgId: 'org-123',
-          projectId: 'proj-123',
-          opportunityId: 'opp-123',
-          documentId: 'doc-123',
+          orgId: '11111111-1111-4111-8111-111111111111',
+          projectId: '22222222-2222-4222-8222-222222222222',
+          opportunityId: '33333333-3333-4333-8333-333333333333',
+          documentId: '44444444-4444-4444-8444-444444444444',
           mergedHtml: '<p>Merged content</p>',
         }),
       );
@@ -155,10 +155,10 @@ describe('cherry-pick-version handler', () => {
     it('returns 400 when mergedHtml is missing', async () => {
       const result = await baseHandler(
         makeEvent({
-          orgId: 'org-123',
-          projectId: 'proj-123',
-          opportunityId: 'opp-123',
-          documentId: 'doc-123',
+          orgId: '11111111-1111-4111-8111-111111111111',
+          projectId: '22222222-2222-4222-8222-222222222222',
+          opportunityId: '33333333-3333-4333-8333-333333333333',
+          documentId: '44444444-4444-4444-8444-444444444444',
           sourceVersion: 1,
         }),
       );
@@ -168,10 +168,10 @@ describe('cherry-pick-version handler', () => {
     it('returns 400 when sourceVersion is not a positive integer', async () => {
       const result = await baseHandler(
         makeEvent({
-          orgId: 'org-123',
-          projectId: 'proj-123',
-          opportunityId: 'opp-123',
-          documentId: 'doc-123',
+          orgId: '11111111-1111-4111-8111-111111111111',
+          projectId: '22222222-2222-4222-8222-222222222222',
+          opportunityId: '33333333-3333-4333-8333-333333333333',
+          documentId: '44444444-4444-4444-8444-444444444444',
           sourceVersion: 0,
           mergedHtml: '<p>Merged content</p>',
         }),
@@ -186,10 +186,10 @@ describe('cherry-pick-version handler', () => {
 
       const result = await baseHandler(
         makeEvent({
-          orgId: 'org-123',
-          projectId: 'proj-123',
-          opportunityId: 'opp-123',
-          documentId: 'doc-123',
+          orgId: '11111111-1111-4111-8111-111111111111',
+          projectId: '22222222-2222-4222-8222-222222222222',
+          opportunityId: '33333333-3333-4333-8333-333333333333',
+          documentId: '44444444-4444-4444-8444-444444444444',
           sourceVersion: 1,
           mergedHtml: '<p>Merged content</p>',
         }),
@@ -206,10 +206,10 @@ describe('cherry-pick-version handler', () => {
 
       const result = await baseHandler(
         makeEvent({
-          orgId: 'org-123',
-          projectId: 'proj-123',
-          opportunityId: 'opp-123',
-          documentId: 'doc-123',
+          orgId: '11111111-1111-4111-8111-111111111111',
+          projectId: '22222222-2222-4222-8222-222222222222',
+          opportunityId: '33333333-3333-4333-8333-333333333333',
+          documentId: '44444444-4444-4444-8444-444444444444',
           sourceVersion: 1,
           mergedHtml: '<p>Merged content</p>',
         }),
@@ -231,10 +231,10 @@ describe('cherry-pick-version handler', () => {
 
       const result = await baseHandler(
         makeEvent({
-          orgId: 'org-123',
-          projectId: 'proj-123',
-          opportunityId: 'opp-123',
-          documentId: 'doc-123',
+          orgId: '11111111-1111-4111-8111-111111111111',
+          projectId: '22222222-2222-4222-8222-222222222222',
+          opportunityId: '33333333-3333-4333-8333-333333333333',
+          documentId: '44444444-4444-4444-8444-444444444444',
           sourceVersion: 1,
           mergedHtml: '<p>Cherry-picked merged content</p>',
           changeNote: 'Cherry-picked changes from version 1',
@@ -255,10 +255,10 @@ describe('cherry-pick-version handler', () => {
 
       const result = await baseHandler(
         makeEvent({
-          orgId: 'org-123',
-          projectId: 'proj-123',
-          opportunityId: 'opp-123',
-          documentId: 'doc-123',
+          orgId: '11111111-1111-4111-8111-111111111111',
+          projectId: '22222222-2222-4222-8222-222222222222',
+          opportunityId: '33333333-3333-4333-8333-333333333333',
+          documentId: '44444444-4444-4444-8444-444444444444',
           sourceVersion: 1,
           mergedHtml: '<p>Cherry-picked content</p>',
         }),
@@ -276,10 +276,10 @@ describe('cherry-pick-version handler', () => {
 
       await baseHandler(
         makeEvent({
-          orgId: 'org-123',
-          projectId: 'proj-123',
-          opportunityId: 'opp-123',
-          documentId: 'doc-123',
+          orgId: '11111111-1111-4111-8111-111111111111',
+          projectId: '22222222-2222-4222-8222-222222222222',
+          opportunityId: '33333333-3333-4333-8333-333333333333',
+          documentId: '44444444-4444-4444-8444-444444444444',
           sourceVersion: 1,
           mergedHtml: '<p>Cherry-picked content</p>',
         }),
@@ -292,7 +292,12 @@ describe('cherry-pick-version handler', () => {
         expect.objectContaining({
           action: 'DOCUMENT_VERSION_CHERRYPICKED',
           resource: 'document_version',
-          resourceId: 'doc-123',
+          resourceId: expect.any(String), // versionId is generated by uuid.v4()
+          changes: expect.objectContaining({
+            after: expect.objectContaining({
+              documentId: '44444444-4444-4444-8444-444444444444',
+            }),
+          }),
         }),
         expect.any(String),
       );
@@ -306,10 +311,10 @@ describe('cherry-pick-version handler', () => {
       await expect(
         baseHandler(
           makeEvent({
-            orgId: 'org-123',
-            projectId: 'proj-123',
-            opportunityId: 'opp-123',
-            documentId: 'doc-123',
+            orgId: '11111111-1111-4111-8111-111111111111',
+            projectId: '22222222-2222-4222-8222-222222222222',
+            opportunityId: '33333333-3333-4333-8333-333333333333',
+            documentId: '44444444-4444-4444-8444-444444444444',
             sourceVersion: 1,
             mergedHtml: '<p>Content</p>',
           }),

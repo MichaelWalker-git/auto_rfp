@@ -1,292 +1,331 @@
-import { SignatureV4 } from '@smithy/signature-v4';
-import { Sha256 } from '@aws-crypto/sha256-js';
-import { HttpRequest } from '@smithy/protocol-http';
-import { v4 as uuidv4 } from 'uuid';
-import { getItem } from '@/helpers/db';
-import { nowIso } from '@/helpers/date';
-import { writeAuditLog } from '@/helpers/audit-log';
-import { getHmacSecret } from '@/helpers/secret';
-import { APN_REGISTRATION_PK, APN_PARTNER_CENTRAL_BASE_URL } from '@/constants/apn';
-import type { ApnRegistrationItem, AwsService } from '@auto-rfp/core';
 import {
-  buildApnRegistrationSk,
-  createApnRegistration,
-  updateApnRegistration,
-  getApnCredentialsMeta,
-  getApnSecretKeys,
-} from '@/helpers/apn-db';
+  PartnerCentralSellingClient,
+  CreateOpportunityCommand,
+  UpdateOpportunityCommand,
+  GetOpportunityCommand,
+  SubmitOpportunityCommand,
+  Stage,
+  MarketingSource,
+} from '@aws-sdk/client-partnercentral-selling';
+import { UpdateCommand } from '@aws-sdk/lib-dynamodb';
+import { docClient } from '@/helpers/db';
+import { requireEnv } from '@/helpers/env';
+import { APN_CATALOG } from '@/constants/apn';
+import { PK_NAME, SK_NAME } from '@/constants/common';
+import { OPPORTUNITY_PK } from '@/constants/opportunity';
+import { buildOpportunitySk } from '@/helpers/opportunity';
 
-// ─── Partner Central API Client ───────────────────────────────────────────────
+const DB_TABLE_NAME = requireEnv('DB_TABLE_NAME');
 
-interface ApnOpportunityPayload {
-  partnerId:         string;
-  customerName:      string;
-  opportunityValue:  number;
-  awsServices:       string[];
-  expectedCloseDate: string;
-  proposalStatus:    string;
-  description?:      string;
-  externalId:        string; // our registrationId — idempotency key
-}
+// ─── Partner Central Selling SDK Client ───────────────────────────────────────
 
-interface ApnOpportunityResponse {
-  opportunityId:  string;
-  opportunityUrl: string;
-}
+const getClient = (): PartnerCentralSellingClient => {
+  const region = process.env['PARTNER_CENTRAL_REGION'] ?? 'us-east-1';
+  console.log(`[APN] Creating PartnerCentralSellingClient with region: ${region}`);
 
-const callPartnerCentralApi = async (
-  orgId: string,
-  payload: ApnOpportunityPayload,
-): Promise<ApnOpportunityResponse> => {
-  const meta = await getApnCredentialsMeta(orgId);
-  if (!meta.configured || !meta.partnerId) {
-    throw new Error('APN credentials not configured for this organization');
-  }
-
-  const keys = await getApnSecretKeys(orgId);
-  if (!keys) {
-    throw new Error('APN secret keys not found in Secrets Manager');
-  }
-
-  const region = meta.region ?? 'us-east-1';
-  const url = new URL(`${APN_PARTNER_CENTRAL_BASE_URL}/opportunities`);
-
-  const body = JSON.stringify(payload);
-
-  const request = new HttpRequest({
-    method: 'POST',
-    hostname: url.hostname,
-    path: url.pathname,
-    headers: {
-      'Content-Type': 'application/json',
-      host: url.hostname,
-    },
-    body,
-  });
-
-  const signer = new SignatureV4({
-    credentials: {
-      accessKeyId: keys.accessKeyId,
-      secretAccessKey: keys.secretAccessKey,
-    },
+  return new PartnerCentralSellingClient({
     region,
-    service: 'partnercentral',
-    sha256: Sha256,
+    requestHandler: {
+      requestTimeout: 60000, // 60 second timeout (increased from 30s)
+      connectionTimeout: 15000, // 15 second connection timeout (increased from 10s)
+    }
   });
-
-  const signed = await signer.sign(request);
-
-  const response = await fetch(`${url.origin}${url.pathname}`, {
-    method: 'POST',
-    headers: signed.headers as Record<string, string>,
-    body,
-  });
-
-  if (!response.ok) {
-    const errorText = await response.text();
-    throw new Error(
-      `Partner Central API error ${response.status}: ${errorText}`,
-    );
-  }
-
-  return response.json() as Promise<ApnOpportunityResponse>;
 };
 
-// ─── Core Registration Logic ──────────────────────────────────────────────────
+const stageMap: Record<string, (typeof Stage)[keyof typeof Stage]> = {
+  PROSPECT:  Stage.PROSPECT,
+  SUBMITTED: Stage.QUALIFIED,
+  WON:       Stage.COMMITTED,
+  LOST:      Stage.CLOSED_LOST,
+};
 
-export interface TriggerApnRegistrationArgs {
+// ─── Update opportunity's APN fields in DynamoDB ──────────────────────────────
+
+const setApnFields = async (
+  orgId: string,
+  projectId: string,
+  oppId: string,
+  apnOpportunityId: string | null,
+  apnSyncError: string | null,
+): Promise<void> => {
+  await docClient.send(new UpdateCommand({
+    TableName: DB_TABLE_NAME,
+    Key: {
+      [PK_NAME]: OPPORTUNITY_PK,
+      [SK_NAME]: buildOpportunitySk(orgId, projectId, oppId),
+    },
+    UpdateExpression: 'SET #apnId = :apnId, #apnErr = :apnErr',
+    ExpressionAttributeNames: {
+      '#apnId': 'apnOpportunityId',
+      '#apnErr': 'apnSyncError',
+    },
+    ExpressionAttributeValues: {
+      ':apnId': apnOpportunityId,
+      ':apnErr': apnSyncError,
+    },
+  }));
+};
+
+// ─── Partner Central API Operations ───────────────────────────────────────────
+
+export interface SyncToApnArgs {
   orgId:             string;
   projectId:         string;
   oppId:             string;
   customerName:      string;
+  opportunityTitle?: string;
   opportunityValue:  number;
-  awsServices:       AwsService[];
   expectedCloseDate: string;
-  proposalStatus:    'SUBMITTED' | 'WON' | 'LOST';
+  proposalStatus:    string;
   description?:      string;
-  registeredBy:      string;
+  /** Existing APN opportunity ID — if set, updates instead of creating */
+  existingApnId?:    string | null;
 }
 
 /**
- * Registers an opportunity in the AWS Partner Portal.
- * Creates a registration record, calls the Partner Central API,
- * and updates the record with the result.
- *
- * Designed to be called non-blocking from onProjectOutcomeSet().
+ * Sync an opportunity to AWS Partner Central.
+ * Simplified approach with better error handling and timeout management.
  */
-export const triggerApnRegistration = async (
-  args: TriggerApnRegistrationArgs,
-): Promise<void> => {
+export const syncToPartnerCentral = async (args: SyncToApnArgs): Promise<void> => {
   const {
-    orgId, projectId, oppId, customerName, opportunityValue,
-    awsServices, expectedCloseDate, proposalStatus, description, registeredBy,
+    orgId, projectId, oppId, customerName, opportunityTitle,
+    opportunityValue, expectedCloseDate, proposalStatus, description, existingApnId,
   } = args;
 
-  // Check credentials first — if not configured, skip silently
-  const meta = await getApnCredentialsMeta(orgId);
-  if (!meta.configured) {
-    console.info(`[APN] No credentials configured for org ${orgId} — skipping registration`);
-    return;
+  console.log(`[APN] Starting sync for oppId=${oppId}, proposalStatus=${proposalStatus}, existingApnId=${existingApnId}`);
+
+  // Map proposal status to APN stage
+  const stage = stageMap[proposalStatus] ?? Stage.PROSPECT;
+  console.log(`[APN] Mapped '${proposalStatus}' to stage '${stage}'`);
+
+  // Prepare LifeCycle with conditional closedLostReason
+  const lifecycle: any = {
+    Stage: stage,
+    TargetCloseDate: expectedCloseDate.split('T')[0],
+  };
+
+  // Add closedLostReason when stage is CLOSED_LOST
+  if (stage === Stage.CLOSED_LOST) {
+    lifecycle.ClosedLostReason = 'Customer Deficiency';
   }
 
-  if (!meta.partnerId) {
-    throw new Error('APN credentials metadata is missing partnerId');
-  }
-
-  // Create the registration record in PENDING state
-  const registration = await createApnRegistration({
-    orgId,
-    projectId,
-    oppId,
-    customerName,
-    opportunityValue,
-    awsServices,
-    expectedCloseDate,
-    proposalStatus,
-    description,
-    registeredBy,
-  });
-
-  const { registrationId } = registration;
-
-  // Non-blocking audit log for registration start
-  writeAuditLog(
-    {
-      logId:          uuidv4(),
-      timestamp:      nowIso(),
-      userId:         registeredBy,
-      userName:       registeredBy,
-      organizationId: orgId,
-      action:         'APN_REGISTRATION_STARTED',
-      resource:       'apn_registration',
-      resourceId:     registrationId,
-      changes: {
-        after: { customerName, opportunityValue, proposalStatus, oppId },
+  // Prepare API payload
+  const payload = {
+    Catalog: APN_CATALOG,
+    Customer: {
+      Account: {
+        CompanyName: customerName,
+        Industry: 'Government' as const,
+        WebsiteUrl: 'https://unknown.gov',
+        Address: { CountryCode: 'US' as const },
       },
-      ipAddress: '0.0.0.0',
-      userAgent: 'system',
-      result:    'success',
     },
-    await getHmacSecret(),
-  ).catch(err =>
-    console.warn('[APN] Audit log failed (non-blocking):', (err as Error).message),
-  );
+    Project: {
+      Title: opportunityTitle || customerName,
+      CustomerUseCase: 'Business Applications & Contact Center' as const,
+      DeliveryModels: ['SaaS or PaaS' as const],
+      ExpectedCustomerSpend: [{
+        Amount: String(Math.max(opportunityValue, 1)),
+        CurrencyCode: 'USD' as const,
+        Frequency: 'Monthly' as const,
+        TargetCompany: 'AWS',
+      }],
+    },
+    LifeCycle: lifecycle,
+    Marketing: {
+      Source: MarketingSource.MARKETING_ACTIVITY,
+    },
+  };
+
+  const client = getClient();
+  let apnId: string;
 
   try {
-    // Call Partner Central API
-    const result = await callPartnerCentralApi(orgId, {
-      partnerId:        meta.partnerId,
-      customerName,
-      opportunityValue,
-      awsServices,
-      expectedCloseDate,
-      proposalStatus,
-      description,
-      externalId:       registrationId,
-    });
+    if (existingApnId) {
+      // UPDATE existing opportunity
+      console.log(`[APN] Updating opportunity ${existingApnId} to stage ${stage}`);
 
-    // Update registration as REGISTERED
-    await updateApnRegistration(orgId, projectId, oppId, registrationId, {
-      status:            'REGISTERED',
-      apnOpportunityId:  result.opportunityId,
-      apnOpportunityUrl: result.opportunityUrl,
-      lastAttemptAt:     nowIso(),
-    });
+      // Step 1: Fetch latest opportunity to get RevisionId
+      console.log(`[APN] Fetching latest opportunity to get RevisionId...`);
+      const getCommand = new GetOpportunityCommand({
+        Catalog: APN_CATALOG,
+        Identifier: existingApnId,
+      });
 
-    console.info(`[APN] Successfully registered opportunity ${oppId} → APN ID: ${result.opportunityId}`);
-  } catch (err) {
-    const errorMessage = err instanceof Error ? err.message : 'Unknown error';
-    console.error(`[APN] Registration failed for opportunity ${oppId}:`, errorMessage);
+      const getResponse = await client.send(getCommand);
+      console.log(`[APN] GetOpportunity response keys:`, Object.keys(getResponse));
 
-    // Update registration as FAILED
-    await updateApnRegistration(orgId, projectId, oppId, registrationId, {
-      status:        'FAILED',
-      lastError:     errorMessage.substring(0, 500),
-      lastAttemptAt: nowIso(),
-    });
-  }
-};
+      // Try multiple potential locations for RevisionId in the response
+      const currentRevisionId = (getResponse as any).RevisionId
+        || (getResponse as any).Opportunity?.RevisionId
+        || (getResponse as any).LastModifiedDate; // Fallback to LastModifiedDate as some APIs use this
 
-export interface RetryApnRegistrationArgs {
-  orgId:          string;
-  projectId:      string;
-  oppId:          string;
-  registrationId: string;
-  retriedBy:      string;
-}
+      const lifecycleStage = (getResponse as any).LifeCycle?.Stage
+        || (getResponse as any).Opportunity?.LifeCycle?.Stage;
 
-/**
- * Retries a failed APN registration.
- * Updates the existing record's status to RETRYING, then attempts the API call.
- */
-export const retryApnRegistration = async (
-  args: RetryApnRegistrationArgs,
-): Promise<ApnRegistrationItem> => {
-  const { orgId, projectId, oppId, registrationId, retriedBy } = args;
+      if (!currentRevisionId) {
+        console.error(`[APN] GetOpportunity response missing RevisionId. Available keys:`, Object.keys(getResponse));
+        console.error(`[APN] Full response structure:`, JSON.stringify(getResponse, null, 2));
 
-  const existing = await getItem<ApnRegistrationItem>(
-    APN_REGISTRATION_PK,
-    buildApnRegistrationSk(orgId, projectId, oppId, registrationId),
-  );
+        // If opportunity doesn't exist or can't be retrieved, skip update
+        console.warn(`[APN] Cannot update opportunity ${existingApnId} - skipping APN sync`);
+        return; // Exit early instead of throwing
+      }
 
-  if (!existing) {
-    throw new Error(`Registration ${registrationId} not found`);
-  }
+      console.log(`[APN] Current RevisionId: ${currentRevisionId}, LifeCycle.Stage: ${lifecycleStage}`);
 
-  if (existing.status === 'REGISTERED') {
-    throw new Error('Registration already succeeded — no retry needed');
-  }
+      // Step 2: Check opportunity status (Pending Submission means it's locked for review)
+      const opportunityStatus = (getResponse as any).OpportunityStatus;
+      console.log(`[APN] Current OpportunityStatus: ${opportunityStatus}`);
 
-  const meta = await getApnCredentialsMeta(orgId);
-  if (!meta.configured || !meta.partnerId) {
-    throw new Error('APN credentials not configured — configure credentials before retrying');
-  }
+      if (opportunityStatus === 'Pending Submission') {
+        console.warn(`[APN] Opportunity ${existingApnId} is pending submission review - cannot update until reviewed`);
+        // Don't throw - this is a transient state, just skip the update
+        return;
+      }
 
-  // Mark as RETRYING
-  await updateApnRegistration(orgId, projectId, oppId, registrationId, {
-    status:        'RETRYING',
-    lastAttemptAt: nowIso(),
-    retryCount:    (existing.retryCount ?? 0) + 1,
-    registeredBy:  retriedBy,
-  });
+      // Step 3: Validate opportunity is still editable
+      const closedStages = ['CLOSED_LOST', 'CLOSED_INCOMPLETE'];
+      if (closedStages.includes(lifecycleStage)) {
+        console.warn(`[APN] Opportunity ${existingApnId} is in non-editable state: ${lifecycleStage}`);
+        throw new Error(`Cannot update opportunity in ${lifecycleStage} state`);
+      }
 
-  try {
-    const result = await callPartnerCentralApi(orgId, {
-      partnerId:         meta.partnerId,
-      customerName:      existing.customerName,
-      opportunityValue:  existing.opportunityValue,
-      awsServices:       existing.awsServices,
-      expectedCloseDate: existing.expectedCloseDate,
-      proposalStatus:    existing.proposalStatus,
-      description:       existing.description,
-      externalId:        registrationId,
-    });
+      // Step 4: Send update with RevisionId
+      const updatePayload = {
+        Catalog: APN_CATALOG,
+        Identifier: existingApnId,
+        RevisionId: currentRevisionId,
+        LastModifiedDate: (getResponse as any).LastModifiedDate ?? new Date(),
+        Customer: payload.Customer,
+        Project: payload.Project,
+        LifeCycle: payload.LifeCycle,
+        Marketing: payload.Marketing,
+      };
 
-    await updateApnRegistration(orgId, projectId, oppId, registrationId, {
-      status:            'REGISTERED',
-      apnOpportunityId:  result.opportunityId,
-      apnOpportunityUrl: result.opportunityUrl,
-      lastError:         undefined,
-    });
+      console.log(`[APN] Sending UpdateOpportunityCommand with RevisionId ${currentRevisionId}...`);
+      console.log(`[APN] Update payload:`, JSON.stringify(updatePayload, null, 2));
 
-    const updated = await getItem<ApnRegistrationItem>(
-      APN_REGISTRATION_PK,
-      buildApnRegistrationSk(orgId, projectId, oppId, registrationId),
-    );
+      try {
+        const response = await client.send(new UpdateOpportunityCommand(updatePayload));
 
-    if (!updated) {
-      throw new Error(`Registration ${registrationId} not found after update`);
+        console.log(`[APN] Update successful:`, response);
+        apnId = existingApnId;
+
+        // If updating to SUBMITTED status (QUALIFIED in APN), submit for review
+        if (proposalStatus === 'SUBMITTED' && stage === Stage.QUALIFIED) {
+          try {
+            console.log(`[APN] Opportunity updated to SUBMITTED - submitting for review`);
+            await client.send(new SubmitOpportunityCommand({
+              Catalog: APN_CATALOG,
+              Identifier: apnId,
+              InvolvementType: 'For Visibility Only',
+            }));
+            console.log(`[APN] Submit for review successful`);
+          } catch (submitErr) {
+            console.warn(`[APN] Submit failed (non-blocking):`, (submitErr as Error).message);
+          }
+        }
+
+      } catch (updateErr) {
+        // Step 5: Handle specific error cases
+        // ACTION_NOT_PERMITTED: Opportunity is in a locked state (e.g., Pending Submission)
+        if (updateErr instanceof Error && updateErr.message?.includes('ACTION_NOT_PERMITTED')) {
+          console.warn(`[APN] Update not permitted (opportunity may be pending submission):`, updateErr.message);
+          // Don't save error to DB - this is a transient state
+          return;
+        }
+
+        // Step 6: Handle revision conflict with retry
+        if (updateErr instanceof Error && updateErr.name === 'RevisionConflictException') {
+          console.warn(`[APN] RevisionConflictException - refetching and retrying once...`);
+
+          const retryGetResponse = await client.send(getCommand);
+          const latestRevisionId = (retryGetResponse as any).RevisionId
+            || (retryGetResponse as any).Opportunity?.RevisionId
+            || (retryGetResponse as any).LastModifiedDate;
+
+          const latestLastModifiedDate = (retryGetResponse as any).LastModifiedDate
+            || (retryGetResponse as any).Opportunity?.LastModifiedDate;
+
+          if (!latestRevisionId) {
+            console.error(`[APN] Retry failed - missing RevisionId. Response keys:`, Object.keys(retryGetResponse));
+            console.warn(`[APN] Cannot update opportunity ${existingApnId} on retry - skipping APN sync`);
+            return; // Exit early instead of throwing
+          }
+
+          console.log(`[APN] Retry with latest RevisionId: ${latestRevisionId}`);
+          updatePayload.RevisionId = latestRevisionId;
+          updatePayload.LastModifiedDate = latestLastModifiedDate ?? new Date();
+
+          const retryResponse = await client.send(new UpdateOpportunityCommand(updatePayload));
+
+          console.log(`[APN] Retry successful:`, retryResponse);
+          apnId = existingApnId;
+
+          // If updating to SUBMITTED status (QUALIFIED in APN), submit for review
+          if (proposalStatus === 'SUBMITTED' && stage === Stage.QUALIFIED) {
+            try {
+              console.log(`[APN] Opportunity updated to SUBMITTED - submitting for review (retry path)`);
+              await client.send(new SubmitOpportunityCommand({
+                Catalog: APN_CATALOG,
+                Identifier: apnId,
+                InvolvementType: 'For Visibility Only',
+              }));
+              console.log(`[APN] Submit for review successful (retry path)`);
+            } catch (submitErr) {
+              console.warn(`[APN] Submit failed (non-blocking):`, (submitErr as Error).message);
+            }
+          }
+        } else {
+          throw updateErr;
+        }
+      }
+    } else {
+      // CREATE new opportunity
+      console.log(`[APN] Creating new opportunity with stage ${stage}`);
+      
+      const createCommand = new CreateOpportunityCommand({
+        ...payload,
+        ClientToken: `${orgId}-${oppId}`,
+      });
+
+      console.log(`[APN] Sending CreateOpportunityCommand...`);
+      const response = await client.send(createCommand);
+
+      apnId = response.Id ?? '';
+      console.log(`[APN] Create successful, APN ID: ${apnId}`);
+
+      // Submit for review
+      if (apnId) {
+        try {
+          console.log(`[APN] Submitting opportunity ${apnId} for review`);
+          await client.send(new SubmitOpportunityCommand({
+            Catalog: APN_CATALOG,
+            Identifier: apnId,
+            InvolvementType: 'For Visibility Only',
+          }));
+          console.log(`[APN] Submit successful`);
+        } catch (submitErr) {
+          console.warn(`[APN] Submit failed (non-blocking):`, (submitErr as Error).message);
+        }
+      }
     }
 
-    return updated;
-  } catch (err) {
-    const errorMessage = err instanceof Error ? err.message : 'Unknown error';
+    // Save success to DynamoDB
+    console.log(`[APN] Saving success to DynamoDB: apnId=${apnId}`);
+    await setApnFields(orgId, projectId, oppId, apnId, null);
+    console.log(`[APN] Sync completed successfully for oppId=${oppId}`);
 
-    await updateApnRegistration(orgId, projectId, oppId, registrationId, {
-      status:    'FAILED',
-      lastError: errorMessage.substring(0, 500),
-    });
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    console.error(`[APN] Sync failed for oppId=${oppId}:`, errorMessage);
+    console.error(`[APN] Error details:`, error);
 
-    throw err;
+    // Save error to DynamoDB
+    await setApnFields(orgId, projectId, oppId, existingApnId ?? null, errorMessage.substring(0, 500));
+    
+    // Don't throw - make it non-blocking
+    console.warn(`[APN] Sync failed but continuing (non-blocking): ${errorMessage}`);
   }
 };

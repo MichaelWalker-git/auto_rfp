@@ -347,13 +347,23 @@ const ResizableImage = Node.create({
 
 /**
  * Replace presigned/display URLs with `s3key:KEY` placeholders before saving.
+ * Also strips inline base64 data URIs to prevent them from being stored
+ * (they bloat storage and can cause malformed URL issues on reload).
  */
 export const stripPresignedUrlsFromHtml = (html: string): string => {
   if (!html) return html;
-  return html.replace(/<img([^>]*?)data-s3-key="([^"]+)"([^>]*?)>/g, (_, before, key, after) => {
+
+  // 1. Replace S3-backed images with s3key: placeholders
+  let result = html.replace(/<img([^>]*?)data-s3-key="([^"]+)"([^>]*?)>/g, (_, before, key, after) => {
     const withoutSrc = (before + after).replace(/\s*src="[^"]*"/, '');
     return `<img${withoutSrc} data-s3-key="${key}" src="s3key:${key}">`;
   });
+
+  // 2. Fix double-quoted src attributes that can cause data: URIs to be fetched as HTTP
+  //    e.g. src=""data:image/png;base64,..." → src="data:image/png;base64,..."
+  result = result.replace(/src=""+([^"]*)""+/g, 'src="$1"');
+
+  return result;
 };
 
 // ─── Upload error dialog ──────────────────────────────────────────────────────

@@ -83,17 +83,86 @@ export const NotificationCenter = ({ orgId, onClose }: NotificationCenterProps) 
                 <p className="text-sm">No notifications yet</p>
               </div>
             ) : (
-              <div className="divide-y divide-slate-100">
-                {notifications.map((n) => (
-                  <NotificationItem
-                    key={n.notificationId}
-                    notification={n}
-                    orgId={orgId}
-                    onArchive={() => archive.trigger({ orgId, notificationId: n.notificationId })}
-                    onRead={(id) => markRead.trigger({ orgId, notificationIds: [id] })}
-                    onClose={onClose}
-                  />
-                ))}
+              <div>
+                {(() => {
+                  // Sort all notifications by date (newest first)
+                  const sortedNotifications = [...notifications].sort((a, b) => 
+                    new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+                  );
+                  
+                  // Separate recent approval notifications (last 24 hours) from others
+                  const now = new Date();
+                  const recentApprovalNotifications = sortedNotifications.filter(n => {
+                    const isApprovalRelated = ['APPROVAL_REQUESTED', 'APPROVAL_APPROVED', 'APPROVAL_REJECTED'].includes(n.type);
+                    if (!isApprovalRelated) return false;
+                    
+                    const notificationTime = new Date(n.createdAt);
+                    const hoursDiff = (now.getTime() - notificationTime.getTime()) / (1000 * 60 * 60);
+                    return hoursDiff <= 24;
+                  });
+                  
+                  const otherNotifications = sortedNotifications.filter(n => {
+                    const isApprovalRelated = ['APPROVAL_REQUESTED', 'APPROVAL_APPROVED', 'APPROVAL_REJECTED'].includes(n.type);
+                    if (!isApprovalRelated) return true;
+                    
+                    const notificationTime = new Date(n.createdAt);
+                    const hoursDiff = (now.getTime() - notificationTime.getTime()) / (1000 * 60 * 60);
+                    return hoursDiff > 24;
+                  });
+
+                  return (
+                    <>
+                      {/* Recent approval notifications at the top */}
+                      {recentApprovalNotifications.length > 0 && (
+                        <div>
+                          <div className="px-4 py-2 bg-amber-50 border-b">
+                            <h4 className="text-xs font-semibold text-amber-800 uppercase tracking-wide">
+                              Recent Review Requests
+                            </h4>
+                          </div>
+                          <div className="divide-y divide-slate-100">
+                            {recentApprovalNotifications.map((n) => (
+                              <div key={n.notificationId} className="bg-amber-50/30">
+                                <NotificationItem
+                                  notification={n}
+                                  orgId={orgId}
+                                  onArchive={() => archive.trigger({ orgId, notificationId: n.notificationId })}
+                                  onRead={(id) => markRead.trigger({ orgId, notificationIds: [id] })}
+                                  onClose={onClose}
+                                />
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                      
+                      {/* Other notifications */}
+                      {otherNotifications.length > 0 && (
+                        <div>
+                          {recentApprovalNotifications.length > 0 && (
+                            <div className="px-4 py-2 bg-slate-50 border-b">
+                              <h4 className="text-xs font-semibold text-slate-600 uppercase tracking-wide">
+                                Other Notifications
+                              </h4>
+                            </div>
+                          )}
+                          <div className="divide-y divide-slate-100">
+                            {otherNotifications.map((n) => (
+                              <NotificationItem
+                                key={n.notificationId}
+                                notification={n}
+                                orgId={orgId}
+                                onArchive={() => archive.trigger({ orgId, notificationId: n.notificationId })}
+                                onRead={(id) => markRead.trigger({ orgId, notificationIds: [id] })}
+                                onClose={onClose}
+                              />
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </>
+                  );
+                })()}
               </div>
             )}
           </ScrollArea>

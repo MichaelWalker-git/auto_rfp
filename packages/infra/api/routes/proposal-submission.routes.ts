@@ -6,7 +6,7 @@ export const proposalSubmissionDomain = (): DomainRoutes => ({
   routes: [
     { method: 'GET',  path: 'readiness',  entry: lambdaEntry('proposal-submission/get-submission-readiness.ts') },
     { method: 'GET',  path: 'compliance', entry: lambdaEntry('proposal-submission/check-compliance.ts') },
-    { method: 'POST', path: 'submit',     entry: lambdaEntry('proposal-submission/submit-proposal.ts') },
+    { method: 'POST', path: 'submit',     entry: lambdaEntry('proposal-submission/submit-proposal.ts'), nodeModules: ['@aws-sdk/client-partnercentral-selling'] },
     { method: 'GET',  path: 'history',    entry: lambdaEntry('proposal-submission/get-submission-history.ts') },
     { method: 'POST', path: 'withdraw',   entry: lambdaEntry('proposal-submission/withdraw-submission.ts') },
   ],

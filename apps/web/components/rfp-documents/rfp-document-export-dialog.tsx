@@ -58,17 +58,49 @@ const FORMAT_DESCRIPTIONS: Record<ExportFormat, string> = {
 };
 
 /**
- * Trigger a file download from a URL.
+ * Trigger a file download from a URL or open in new tab for PDFs.
+ *
+ * For PDFs we pre-open a blank tab *before* the async export call so the
+ * browser treats it as a user-initiated popup (avoids popup-blocker).
+ * After the export resolves we navigate that tab to the presigned URL.
+ * If the tab was blocked anyway, we fall back to an `<a>` download link.
  */
-const downloadFromUrl = (url: string, fileName: string) => {
-  const link = document.createElement('a');
-  link.href = url;
-  link.download = fileName;
-  link.target = '_blank';
-  link.rel = 'noopener noreferrer';
-  document.body.appendChild(link);
-  link.click();
-  document.body.removeChild(link);
+const downloadFromUrl = (
+  url: string,
+  fileName: string,
+  format: ExportFormat,
+  preOpenedTab: Window | null = null,
+) => {
+  if (format === 'pdf') {
+    // If we already pre-opened a tab, navigate it to the PDF URL
+    if (preOpenedTab && !preOpenedTab.closed) {
+      preOpenedTab.location.href = url;
+    } else {
+      // Fallback: try window.open (may be blocked) then anchor download
+      const tab = window.open(url, '_blank');
+      if (!tab || tab.closed) {
+        // Popup was blocked — fall back to anchor download
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = fileName;
+        link.target = '_blank';
+        link.rel = 'noopener noreferrer';
+        link.style.display = 'none';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+      }
+    }
+  } else {
+    // For other formats, trigger download via anchor
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = fileName;
+    link.style.display = 'none';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  }
 };
 
 export const RFPDocumentExportDialog = ({ open, onOpenChange, document: doc, orgId }: Props) => {
@@ -82,6 +114,26 @@ export const RFPDocumentExportDialog = ({ open, onOpenChange, document: doc, org
 
   const handleExport = async () => {
     if (!doc) return;
+
+    // For PDFs, pre-open a blank tab *synchronously* inside the click handler
+    // so the browser treats it as a user-initiated popup and doesn't block it.
+    // We'll navigate this tab to the presigned URL once the export completes.
+    let pdfTab: Window | null = null;
+    if (selectedFormat === 'pdf') {
+      pdfTab = window.open('about:blank', '_blank');
+      // Show a loading message in the pre-opened tab
+      if (pdfTab) {
+        pdfTab.document.title = 'Generating PDF…';
+        pdfTab.document.body.innerHTML = `
+          <div style="display:flex;align-items:center;justify-content:center;height:100vh;font-family:system-ui,sans-serif;color:#555;">
+            <div style="text-align:center;">
+              <p style="font-size:1.25rem;margin-bottom:0.5rem;">Generating PDF…</p>
+              <p style="font-size:0.875rem;color:#999;">This may take a few seconds.</p>
+            </div>
+          </div>
+        `;
+      }
+    }
 
     try {
       setIsLoading(true);
@@ -98,12 +150,14 @@ export const RFPDocumentExportDialog = ({ open, onOpenChange, document: doc, org
       });
 
       if (!result?.success || !result?.export?.url) {
+        // Close the pre-opened tab if the export failed
+        if (pdfTab && !pdfTab.closed) pdfTab.close();
         throw new Error('Export failed — no download URL returned.');
       }
 
       // Download the exported file from the presigned S3 URL
       const fileName = result.export.fileName || `${doc.title || doc.name || 'document'}.${selectedFormat}`;
-      downloadFromUrl(result.export.url, fileName);
+      downloadFromUrl(result.export.url, fileName, selectedFormat, pdfTab);
 
       toast({
         title: 'Export successful',
@@ -112,6 +166,9 @@ export const RFPDocumentExportDialog = ({ open, onOpenChange, document: doc, org
 
       onOpenChange(false);
     } catch (error) {
+      // Close the pre-opened tab on error
+      if (pdfTab && !pdfTab.closed) pdfTab.close();
+
       console.error('Export error:', error);
       toast({
         title: 'Export failed',

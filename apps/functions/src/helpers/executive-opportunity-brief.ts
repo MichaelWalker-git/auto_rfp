@@ -170,12 +170,90 @@ export function extractFirstJsonObject(text: string): string {
     }
   }
 
-  // Fix AUTO-RFP-5D: Better error message for truncated responses
-  const truncatedPreview = candidate.length > 300 ? candidate.slice(-300) : candidate;
-  throw new Error(
-    `No complete JSON found in model output. Response may be truncated. ` +
-    `Depth at end: ${depth}, in string: ${inString}. End of response: ...${truncatedPreview}`
+  // ── Attempt JSON repair for truncated responses ──
+  // If we reached the end without closing all brackets, try to repair the JSON
+  // by closing open strings and brackets.
+  console.warn(
+    `[extractFirstJsonObject] Attempting JSON repair for truncated response. ` +
+    `Depth at end: ${depth}, in string: ${inString}, length: ${candidate.length}`,
   );
+
+  let repaired = candidate.slice(start);
+
+  // Close any open string
+  if (inString) {
+    repaired += '"';
+  }
+
+  // Remove any trailing partial key-value (e.g., `"notes": "The RFP ref...`)
+  // by trimming back to the last complete value
+  const lastCompleteComma = repaired.lastIndexOf(',');
+  const lastCompleteColon = repaired.lastIndexOf(':');
+
+  if (lastCompleteComma > lastCompleteColon) {
+    // Trailing comma after a complete value — trim the incomplete entry after it
+    repaired = repaired.slice(0, lastCompleteComma);
+  } else if (inString && lastCompleteComma > 0) {
+    // We were in a string value — trim back to the last comma before it
+    repaired = repaired.slice(0, lastCompleteComma);
+  }
+
+  // Re-count depth after trimming
+  let repairedDepth = 0;
+  let repairedInString = false;
+  let repairedEscape = false;
+  for (let i = 0; i < repaired.length; i++) {
+    const ch = repaired[i];
+    if (repairedEscape) { repairedEscape = false; continue; }
+    if (ch === '\\' && repairedInString) { repairedEscape = true; continue; }
+    if (ch === '"') { repairedInString = !repairedInString; continue; }
+    if (!repairedInString) {
+      if (ch === '{' || ch === '[') repairedDepth++;
+      if (ch === '}' || ch === ']') repairedDepth--;
+    }
+  }
+
+  // Close remaining open brackets/braces (in reverse order of opening)
+  // We need to track what was opened to close them correctly
+  const openStack: string[] = [];
+  let stackInString = false;
+  let stackEscape = false;
+  for (let i = 0; i < repaired.length; i++) {
+    const ch = repaired[i];
+    if (stackEscape) { stackEscape = false; continue; }
+    if (ch === '\\' && stackInString) { stackEscape = true; continue; }
+    if (ch === '"') { stackInString = !stackInString; continue; }
+    if (!stackInString) {
+      if (ch === '{') openStack.push('}');
+      else if (ch === '[') openStack.push(']');
+      else if (ch === '}' || ch === ']') openStack.pop();
+    }
+  }
+
+  // Close open brackets in reverse order
+  while (openStack.length > 0) {
+    repaired += openStack.pop();
+  }
+
+  // Remove trailing commas before closing brackets
+  repaired = repaired.replace(/,(\s*[}\]])/g, '$1');
+
+  try {
+    JSON.parse(repaired);
+    console.warn(
+      `[extractFirstJsonObject] JSON repair succeeded. Original: ${candidate.length} chars, repaired: ${repaired.length} chars`,
+    );
+    return repaired;
+  } catch (repairErr) {
+    // Repair failed — throw the original error with context
+    const truncatedPreview = candidate.length > 300 ? candidate.slice(-300) : candidate;
+    throw new Error(
+      `No complete JSON found in model output. Response may be truncated. ` +
+      `Depth at end: ${depth}, in string: ${inString}. ` +
+      `JSON repair also failed: ${(repairErr as Error)?.message}. ` +
+      `End of response: ...${truncatedPreview}`
+    );
+  }
 }
 
 export function safeJsonParse<T>(text: string, schema: SchemaLike<T>): T {
@@ -744,9 +822,11 @@ export async function invokeClaudeJson<S extends SchemaLike<any>>(args: {
     'application/json'
   );
   let jsonText = new TextDecoder('utf-8').decode(responseBody);
+  let stopReason: string | undefined;
 
   try {
     const json = JSON.parse(jsonText);
+    stopReason = json?.stop_reason;
     const contentText =
       json?.content?.map((c: any) => c?.text).filter(Boolean).join('\n') ??
       json?.output_text ??
@@ -757,6 +837,58 @@ export async function invokeClaudeJson<S extends SchemaLike<any>>(args: {
     }
   } catch {
     // keep rawOutput
+  }
+
+  // If response was truncated due to max_tokens, retry with doubled limit
+  if (stopReason === 'max_tokens') {
+    const retryMaxTokens = maxTokens * 2;
+    console.warn(
+      `[invokeClaudeJson] Response truncated (stop_reason=max_tokens, ${jsonText.length} chars). ` +
+      `Retrying with max_tokens=${retryMaxTokens} (was ${maxTokens})`,
+    );
+
+    const retryBody = {
+      anthropic_version: 'bedrock-2023-05-31',
+      max_tokens: retryMaxTokens,
+      temperature,
+      system,
+      messages: [{ role: 'user', content: [{ type: 'text', text: user }] }],
+    };
+
+    const retryResponseBody = await invokeModel(
+      modelId,
+      JSON.stringify(retryBody),
+      'application/json',
+      'application/json'
+    );
+    let retryJsonText = new TextDecoder('utf-8').decode(retryResponseBody);
+
+    try {
+      const retryJson = JSON.parse(retryJsonText);
+      const retryContentText =
+        retryJson?.content?.map((c: any) => c?.text).filter(Boolean).join('\n') ??
+        retryJson?.output_text ??
+        retryJson?.completion ??
+        null;
+      if (retryContentText) {
+        retryJsonText = retryContentText;
+      }
+
+      if (retryJson?.stop_reason === 'max_tokens') {
+        console.warn(`[invokeClaudeJson] Retry also truncated (${retryJsonText.length} chars). Will attempt JSON repair.`);
+      } else {
+        console.log(`[invokeClaudeJson] Retry succeeded (${retryJsonText.length} chars)`);
+      }
+    } catch {
+      // keep raw
+    }
+
+    try {
+      return safeJsonParse(retryJsonText, outputSchema);
+    } catch (retryErr) {
+      console.error('[invokeClaudeJson] Retry raw output:', retryJsonText);
+      throw retryErr;
+    }
   }
 
   try {

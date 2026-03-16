@@ -161,14 +161,22 @@ export async function setProjectOutcome(
 
   await docClient.send(cmd);
 
-  // Auto-transition opportunity stage based on outcome (non-blocking)
-  onProjectOutcomeSet({
-    orgId,
-    projectId,
-    oppId: opportunityId,
-    outcomeStatus: status,
-    changedBy: userId,
-  }).catch(err => console.warn('onProjectOutcomeSet failed (non-blocking):', (err as Error)?.message));
+  // Auto-transition opportunity stage based on outcome (with detailed logging)
+  console.log(`[set-outcome] Triggering onProjectOutcomeSet for oppId=${opportunityId}, status=${status}`);
+  
+  try {
+    await onProjectOutcomeSet({
+      orgId,
+      projectId,
+      oppId: opportunityId,
+      outcomeStatus: status,
+      changedBy: userId,
+    });
+    console.log(`[set-outcome] Successfully triggered onProjectOutcomeSet for oppId=${opportunityId}`);
+  } catch (err) {
+    console.error(`[set-outcome] onProjectOutcomeSet failed for oppId=${opportunityId}:`, (err as Error)?.message);
+    console.error(`[set-outcome] Full error:`, err);
+  }
 
   return outcomeItem;
 }

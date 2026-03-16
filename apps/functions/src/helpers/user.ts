@@ -121,16 +121,19 @@ export async function addExistingUserToOrg(
     lastName: norm((dto as any).lastName),
     displayName: norm((dto as any).displayName),
     phone: normalizePhone((dto as any).phone),
+    position: norm((dto as any).position),
     firstNameLower: norm((dto as any).firstName)?.toLowerCase(),
     lastNameLower: norm((dto as any).lastName)?.toLowerCase(),
     displayNameLower: norm((dto as any).displayName)?.toLowerCase(),
     phoneLower: normalizePhone((dto as any).phone)?.toLowerCase(),
+    positionLower: norm((dto as any).position)?.toLowerCase(),
     searchText: buildSearchText([
       emailLower,
       norm((dto as any).firstName),
       norm((dto as any).lastName),
       norm((dto as any).displayName),
       normalizePhone((dto as any).phone),
+      norm((dto as any).position),
     ]),
     role: dto.role || 'VIEWER',
     status: dto.status ?? 'ACTIVE',
@@ -170,15 +173,17 @@ export async function createUser(
   const lastName = norm((dto as any).lastName);
   const displayName = norm((dto as any).displayName);
   const phone = norm((dto as any).phone);
+  const position = norm((dto as any).position);
 
   const firstNameLower = firstName?.toLowerCase();
   const lastNameLower = lastName?.toLowerCase();
   const displayNameLower = displayName?.toLowerCase();
+  const positionLower = position?.toLowerCase();
 
   const phoneNorm = normalizePhone(phone);
   const phoneLower = phoneNorm?.toLowerCase();
 
-  const searchText = buildSearchText([emailLower, firstName, lastName, displayName, phoneNorm]);
+  const searchText = buildSearchText([emailLower, firstName, lastName, displayName, phoneNorm, position]);
 
   // 1) Cognito — create user and get the Cognito sub (UUID)
   // Note: We pass the fallback userId to custom attributes initially.
@@ -218,6 +223,7 @@ export async function createUser(
     lastName,
     displayName,
     phone,
+    position,
 
     // search helpers (no indexes)
     emailLower,
@@ -225,6 +231,7 @@ export async function createUser(
     lastNameLower,
     displayNameLower,
     phoneLower,
+    positionLower,
     searchText,
 
     role: dto.role,

@@ -44,6 +44,8 @@ import { useOpportunityContext } from './opportunity-context';
 import { formatDateTime } from './opportunity-helpers';
 import Link from 'next/link';
 import { useCurrentOrganization } from '@/context/organization-context';
+import { useApprovalHistory } from '@/features/document-approval';
+import { ApprovalStatusBadge } from '@/features/document-approval';
 
 function documentTypeChip(type: string) {
   const typeMap: Record<string, { cls: string }> = {
@@ -69,6 +71,34 @@ function formatFileSize(bytes: number): string {
   const sizes = ['B', 'KB', 'MB', 'GB'];
   const i = Math.floor(Math.log(bytes) / Math.log(k));
   return `${parseFloat((bytes / Math.pow(k, i)).toFixed(1))} ${sizes[i]}`;
+}
+
+// Component to show approval status for a document
+function DocumentApprovalStatus({ doc, orgId, projectId }: { doc: RFPDocumentItem; orgId: string; projectId: string }) {
+  const { activeApproval, hasPendingApproval, approvals } = useApprovalHistory(
+    orgId, projectId, doc.opportunityId, doc.documentId,
+  );
+  
+  const isApproved = approvals.length > 0 && approvals[0]?.status === 'APPROVED';
+  const isRejected = approvals.length > 0 && approvals[0]?.status === 'REJECTED';
+  
+  if (isApproved) {
+    return <ApprovalStatusBadge status="APPROVED" />;
+  }
+  
+  if (hasPendingApproval) {
+    return <ApprovalStatusBadge status="PENDING" />;
+  }
+  
+  if (isRejected) {
+    return (
+      <Badge variant="outline" className="text-xs border-red-300 text-red-700 bg-red-50">
+        Rejected
+      </Badge>
+    );
+  }
+  
+  return null;
 }
 
 export function OpportunityRFPDocuments() {
@@ -295,13 +325,27 @@ export function OpportunityRFPDocuments() {
                 const isDeleting = deletingId === doc.documentId;
                 const isDownloading = downloadingId === doc.documentId;
 
+                const canEdit = doc.content && doc.status !== 'GENERATING' && navOrgId;
+                const canConvert = !doc.content && doc.fileKey && (doc.mimeType?.includes('word') || doc.mimeType?.includes('text') || doc.mimeType?.includes('pdf') || doc.fileKey?.endsWith('.docx') || doc.fileKey?.endsWith('.pdf') || doc.fileKey?.endsWith('.txt') || doc.fileKey?.endsWith('.md'));
+                
+                const CardWrapper = canEdit ? Link : 'div';
+                const cardProps = canEdit ? {
+                  href: `/organizations/${navOrgId}/projects/${projectId}/opportunities/${oppId}/rfp-documents/${doc.documentId}/edit`,
+                  className: cn(
+                    'rounded-xl border bg-background p-3 block hover:bg-muted/50 transition-colors cursor-pointer',
+                    (isDeleting || isDownloading) && 'opacity-80',
+                  )
+                } : {
+                  className: cn(
+                    'rounded-xl border bg-background p-3',
+                    (isDeleting || isDownloading) && 'opacity-80',
+                  )
+                };
+
                 return (
-                  <div
+                  <CardWrapper
                     key={doc.documentId}
-                    className={cn(
-                      'rounded-xl border bg-background p-3',
-                      (isDeleting || isDownloading) && 'opacity-80',
-                    )}
+                    {...cardProps}
                   >
                     <div className="flex items-start gap-3">
                       <div className="h-10 w-10 rounded-lg bg-muted flex items-center justify-center shrink-0">
@@ -316,6 +360,11 @@ export function OpportunityRFPDocuments() {
                           <Badge variant="outline" className={cn('text-xs border', typeChip.cls)}>
                             {RFP_DOCUMENT_TYPES[doc.documentType] ?? doc.documentType}
                           </Badge>
+                          <DocumentApprovalStatus 
+                            doc={doc} 
+                            orgId={orgId} 
+                            projectId={projectId} 
+                          />
                         </div>
 
                         <div className="mt-1 flex flex-wrap gap-x-3 text-xs text-muted-foreground">
@@ -328,15 +377,8 @@ export function OpportunityRFPDocuments() {
                         </div>
                       </div>
 
-                      <div className="flex items-center gap-1 shrink-0">
-                        {doc.content && doc.status !== 'GENERATING' && navOrgId && (
-                          <Button size="sm" variant="ghost" className="h-8 w-8 p-0" asChild title="Edit document">
-                            <Link href={`/organizations/${navOrgId}/projects/${projectId}/opportunities/${oppId}/rfp-documents/${doc.documentId}/edit`}>
-                              <Pencil className="h-4 w-4" />
-                            </Link>
-                          </Button>
-                        )}
-                        {!doc.content && doc.fileKey && (doc.mimeType?.includes('word') || doc.mimeType?.includes('text') || doc.mimeType?.includes('pdf') || doc.fileKey?.endsWith('.docx') || doc.fileKey?.endsWith('.pdf') || doc.fileKey?.endsWith('.txt') || doc.fileKey?.endsWith('.md')) && (
+                      <div className="flex items-center gap-1 shrink-0" onClick={(e) => e.stopPropagation()}>
+                        {canConvert && (
                           <Button size="sm" variant="ghost" className="h-8 w-8 p-0" disabled={convertingId === doc.documentId} onClick={() => handleConvertAndEdit(doc)} title="Convert & Edit">
                             {convertingId === doc.documentId ? <Loader2 className="h-4 w-4 animate-spin" /> : <Pencil className="h-4 w-4" />}
                           </Button>
@@ -379,7 +421,7 @@ export function OpportunityRFPDocuments() {
                         </DropdownMenu>
                       </div>
                     </div>
-                  </div>
+                  </CardWrapper>
                 );
               })}
             </div>

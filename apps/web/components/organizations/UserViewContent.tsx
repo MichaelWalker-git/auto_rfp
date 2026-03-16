@@ -7,6 +7,7 @@ import { mutate as globalMutate } from 'swr';
 import {
   AlertCircle,
   ArrowLeft,
+  Briefcase,
   Building2,
   Calendar,
   Check,
@@ -17,6 +18,7 @@ import {
   Pencil,
   Phone,
   Plus,
+  Send,
   Shield,
   Trash2,
   User,
@@ -46,6 +48,7 @@ import {
   useUserKBAccess,
   grantKBAccessApi,
   revokeKBAccessApi,
+  resendTempPasswordApi,
 } from '@/lib/hooks/use-user';
 import { useOrganizations } from '@/lib/hooks/use-api';
 import { useKnowledgeBases } from '@/lib/hooks/use-knowledgebase';
@@ -95,6 +98,7 @@ export function UserViewContent({ orgId, userId }: UserViewContentProps) {
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
   const [phone, setPhone] = useState('');
+  const [position, setPosition] = useState('');
   const [role, setRole] = useState<UserRole>('MEMBER' as UserRole);
   const [isSaving, setIsSaving] = useState(false);
 
@@ -104,6 +108,7 @@ export function UserViewContent({ orgId, userId }: UserViewContentProps) {
     setFirstName(user.firstName ?? '');
     setLastName(user.lastName ?? '');
     setPhone(user.phone ?? '');
+    setPosition(user.position ?? '');
     setRole(user.role as UserRole);
   }, [user]);
 
@@ -124,6 +129,7 @@ export function UserViewContent({ orgId, userId }: UserViewContentProps) {
       if (firstName.trim()) payload.firstName = firstName.trim();
       if (lastName.trim()) payload.lastName = lastName.trim();
       if (phone.trim()) payload.phone = phone.trim();
+      if (position.trim()) payload.position = position.trim();
       if (role !== user?.role) payload.role = role;
 
       await editUserApi(payload as Parameters<typeof editUserApi>[0]);
@@ -139,7 +145,7 @@ export function UserViewContent({ orgId, userId }: UserViewContentProps) {
     } finally {
       setIsSaving(false);
     }
-  }, [orgId, userId, firstName, lastName, phone, role, user?.role, refreshUser, toast]);
+  }, [orgId, userId, firstName, lastName, phone, position, role, user?.role, refreshUser, toast]);
 
   // ── Loading / not found states ─────────────
 
@@ -346,6 +352,16 @@ export function UserViewContent({ orgId, userId }: UserViewContentProps) {
               </div>
 
               <div className="grid gap-2">
+                <Label htmlFor="position">Position</Label>
+                <Input
+                  id="position"
+                  placeholder="Software Engineer"
+                  value={position}
+                  onChange={(e) => setPosition(e.target.value)}
+                />
+              </div>
+
+              <div className="grid gap-2">
                 <Label>Role</Label>
                 <Select value={role} onValueChange={(v) => setRole(v as UserRole)}>
                   <SelectTrigger className="w-full sm:w-[200px]">
@@ -368,6 +384,7 @@ export function UserViewContent({ orgId, userId }: UserViewContentProps) {
               <DetailField icon={<User className="h-4 w-4" />} label="First Name" value={user.firstName ?? '—'} />
               <DetailField icon={<User className="h-4 w-4" />} label="Last Name" value={user.lastName ?? '—'} />
               <DetailField icon={<Phone className="h-4 w-4" />} label="Phone" value={user.phone ?? '—'} />
+              <DetailField icon={<Briefcase className="h-4 w-4" />} label="Position" value={user.position ?? '—'} />
               <DetailField
                 icon={<Shield className="h-4 w-4" />}
                 label="Role"
@@ -386,6 +403,13 @@ export function UserViewContent({ orgId, userId }: UserViewContentProps) {
           )}
         </CardContent>
       </Card>
+
+      {/* ─── Resend Password Section (only for invited users) ─── */}
+      {user.status === 'INVITED' && (
+        <PermissionWrapper requiredPermission="user:edit">
+          <ResendPasswordSection userId={userId} orgId={orgId} email={user.email} />
+        </PermissionWrapper>
+      )}
 
       {/* ─── Organization Access ─── */}
       <PermissionWrapper requiredPermission="user:edit">
@@ -721,5 +745,77 @@ function DangerZoneSection({
         confirmLabel="Remove"
       />
     </>
+  );
+}
+
+// ────────────────────────────────────────────
+// Resend Password Section
+// ────────────────────────────────────────────
+
+function ResendPasswordSection({
+  userId,
+  orgId,
+  email,
+}: {
+  userId: string;
+  orgId: string;
+  email: string;
+}) {
+  const { toast } = useToast();
+  const [isResending, setIsResending] = useState(false);
+
+  const handleResendPassword = useCallback(async () => {
+    setIsResending(true);
+    try {
+      await resendTempPasswordApi({ orgId, userId });
+      toast({
+        title: 'Password resent',
+        description: `A new temporary password has been sent to ${email}.`,
+      });
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Failed to resend password';
+      toast({ title: 'Error', description: message, variant: 'destructive' });
+    } finally {
+      setIsResending(false);
+    }
+  }, [orgId, userId, email, toast]);
+
+  return (
+    <Card className="border-amber-200 bg-amber-50/50">
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2 text-amber-800">
+          <Send className="h-5 w-5" />
+          Resend Temporary Password
+        </CardTitle>
+        <CardDescription>
+          This user has been invited but hasn&apos;t activated their account yet. You can resend their temporary password.
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        <Alert>
+          <Mail className="h-4 w-4" />
+          <AlertTitle>Pending Invitation</AlertTitle>
+          <AlertDescription>
+            {email} was invited to join this organization but hasn&apos;t completed their account setup. 
+            Resending the temporary password will send a new invitation email with login instructions.
+          </AlertDescription>
+        </Alert>
+      </CardContent>
+      <CardFooter>
+        <Button onClick={handleResendPassword} disabled={isResending} className="bg-amber-600 hover:bg-amber-700">
+          {isResending ? (
+            <>
+              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              Resending...
+            </>
+          ) : (
+            <>
+              <Send className="h-4 w-4 mr-2" />
+              Resend Password
+            </>
+          )}
+        </Button>
+      </CardFooter>
+    </Card>
   );
 }

@@ -449,7 +449,7 @@ async function runRisks(job: Job): Promise<void> {
       toolExecutor: (toolName, toolInput, toolUseId) =>
         executeBriefTool({ toolName, toolInput, toolUseId, orgId, projectId, opportunityId, executiveBriefId }),
       outputSchema: RisksSectionSchema,
-      maxTokens: 4000,
+      maxTokens: 8000,
       temperature: 0.2,
       maxToolRounds: 2,
     });
@@ -555,7 +555,7 @@ async function runScoring(job: Job): Promise<void> {
       maxToolRounds: 2,
     });
 
-    const computedComposite = weightedCompositeScore(data?.criteria ?? []);
+    const computedComposite = weightedCompositeScore((data?.criteria ?? []) as Array<{ name?: string; score?: number }>);
 
     const normalized = {
       ...data,
@@ -592,14 +592,14 @@ async function runScoring(job: Job): Promise<void> {
       },
     });
 
-    // Auto-transition opportunity stage based on scoring decision (non-blocking)
+    // Auto-transition opportunity stage based on scoring decision (fire-and-forget)
     onBriefScoringComplete({
       orgId,
       projectId,
       oppId: opportunityId,
       decision: normalized.decision as 'GO' | 'NO_GO' | 'CONDITIONAL_GO',
       compositeScore: normalized.compositeScore,
-    }).catch(err => console.warn('onBriefScoringComplete failed (non-blocking):', (err as Error)?.message));
+    });
 
     // Google Drive Sync on GO Decision (async via SQS)
     if (normalized.decision === 'GO') {

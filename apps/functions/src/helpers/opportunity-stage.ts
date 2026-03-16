@@ -20,6 +20,7 @@ import { requireEnv } from '@/helpers/env';
 import { nowIso } from '@/helpers/date';
 import { PK_NAME, SK_NAME } from '@/constants/common';
 import { OPPORTUNITY_PK } from '@/constants/opportunity';
+import { STAGE_TO_APN_STATUS_MAP } from '@/constants/apn';
 import { buildOpportunitySk, getOpportunity } from '@/helpers/opportunity';
 import type {
   OpportunityItem,
@@ -117,6 +118,29 @@ export const transitionOpportunityStage = async (
     `(source=${source}, changedBy=${changedBy}${reason ? `, reason=${reason}` : ''})`,
   );
 
+  // Sync to AWS Partner Central when stage changes to SUBMITTED, WON, or LOST
+  const apnSyncStages: OpportunityStage[] = ['SUBMITTED', 'WON', 'LOST', 'NO_BID', 'WITHDRAWN'];
+  if (apnSyncStages.includes(toStage)) {
+    const proposalStatus = STAGE_TO_APN_STATUS_MAP[toStage];
+
+    // APN sync (awaited to prevent Lambda termination before completion)
+    const { syncOpportunityToApn } = await import('@/helpers/apn-db');
+    await syncOpportunityToApn({
+      orgId,
+      projectId,
+      oppId,
+      customerName:      (res.Attributes?.organizationName as string | undefined) ?? 'Unknown Customer',
+      opportunityTitle:  (res.Attributes?.title as string | undefined) ?? 'Untitled Opportunity',
+      opportunityValue:  (res.Attributes?.baseAndAllOptionsValue as number | undefined) ?? 0,
+      expectedCloseDate: (res.Attributes?.responseDeadlineIso as string | undefined) ?? new Date().toISOString(),
+      proposalStatus,
+      description:       typeof res.Attributes?.description === 'string'
+        ? res.Attributes.description.substring(0, 500)
+        : undefined,
+      existingApnId:     (res.Attributes?.apnOpportunityId as string | undefined) ?? null,
+    });
+  }
+
   return res.Attributes as OpportunityItem;
 };
 
@@ -125,30 +149,34 @@ export const transitionOpportunityStage = async (
 /**
  * Called when executive brief generation starts for an opportunity.
  * Transitions IDENTIFIED → QUALIFYING (no-op if already past IDENTIFIED).
+ * This is a true fire-and-forget operation that returns immediately.
  */
-export const onBriefGenerationStarted = async (args: {
+export const onBriefGenerationStarted = (args: {
   orgId: string;
   projectId: string;
   oppId: string;
-}): Promise<void> => {
-  try {
-    const existing = await getOpportunity(args);
-    if (!existing) return;
+}): void => {
+  // Fire-and-forget: start async work but don't return a Promise
+  (async () => {
+    try {
+      const existing = await getOpportunity(args);
+      if (!existing) return;
 
-    const currentStage = (existing.item.stage as OpportunityStage) ?? 'IDENTIFIED';
-    if (currentStage !== 'IDENTIFIED') return; // Already past this stage
+      const currentStage = (existing.item.stage as OpportunityStage) ?? 'IDENTIFIED';
+      if (currentStage !== 'IDENTIFIED') return; // Already past this stage
 
-    await transitionOpportunityStage({
-      ...args,
-      toStage: 'QUALIFYING',
-      changedBy: 'system',
-      reason: 'Executive brief generation started',
-      source: 'BRIEF_SCORING',
-    });
-  } catch (err) {
-    // Non-blocking — brief generation should not fail due to stage transition errors
-    console.warn('[opportunity-stage] onBriefGenerationStarted failed (non-blocking):', (err as Error)?.message);
-  }
+      await transitionOpportunityStage({
+        ...args,
+        toStage: 'QUALIFYING',
+        changedBy: 'system',
+        reason: 'Executive brief generation started',
+        source: 'BRIEF_SCORING',
+      });
+    } catch (err) {
+      // Non-blocking — brief generation should not fail due to stage transition errors
+      console.warn('[opportunity-stage] onBriefGenerationStarted failed (non-blocking):', (err as Error)?.message);
+    }
+  })();
 };
 
 /**
@@ -157,46 +185,50 @@ export const onBriefGenerationStarted = async (args: {
  *   GO           → PURSUING
  *   NO_GO        → NO_BID
  *   CONDITIONAL_GO → QUALIFYING (stays, needs manual decision)
+ * This is a true fire-and-forget operation that returns immediately.
  */
-export const onBriefScoringComplete = async (args: {
+export const onBriefScoringComplete = (args: {
   orgId: string;
   projectId: string;
   oppId: string;
   decision: 'GO' | 'NO_GO' | 'CONDITIONAL_GO';
   compositeScore?: number;
-}): Promise<void> => {
+}): void => {
   const { decision, compositeScore, ...location } = args;
 
-  try {
-    const existing = await getOpportunity(location);
-    if (!existing) return;
+  // Fire-and-forget: start async work but don't return a Promise
+  (async () => {
+    try {
+      const existing = await getOpportunity(location);
+      if (!existing) return;
 
-    const currentStage = (existing.item.stage as OpportunityStage) ?? 'IDENTIFIED';
+      const currentStage = (existing.item.stage as OpportunityStage) ?? 'IDENTIFIED';
 
-    // Only auto-transition from QUALIFYING or IDENTIFIED
-    if (!['IDENTIFIED', 'QUALIFYING'].includes(currentStage)) return;
+      // Only auto-transition from QUALIFYING or IDENTIFIED
+      if (!['IDENTIFIED', 'QUALIFYING'].includes(currentStage)) return;
 
-    if (decision === 'GO') {
-      await transitionOpportunityStage({
-        ...location,
-        toStage: 'PURSUING',
-        changedBy: 'system',
-        reason: `Brief scoring: GO decision${compositeScore !== undefined ? ` (score: ${compositeScore}/5)` : ''}`,
-        source: 'BRIEF_SCORING',
-      });
-    } else if (decision === 'NO_GO') {
-      await transitionOpportunityStage({
-        ...location,
-        toStage: 'NO_BID',
-        changedBy: 'system',
-        reason: `Brief scoring: NO_GO decision${compositeScore !== undefined ? ` (score: ${compositeScore}/5)` : ''}`,
-        source: 'BRIEF_SCORING',
-      });
+      if (decision === 'GO') {
+        await transitionOpportunityStage({
+          ...location,
+          toStage: 'PURSUING',
+          changedBy: 'system',
+          reason: `Brief scoring: GO decision${compositeScore !== undefined ? ` (score: ${compositeScore}/5)` : ''}`,
+          source: 'BRIEF_SCORING',
+        });
+      } else if (decision === 'NO_GO') {
+        await transitionOpportunityStage({
+          ...location,
+          toStage: 'NO_BID',
+          changedBy: 'system',
+          reason: `Brief scoring: NO_GO decision${compositeScore !== undefined ? ` (score: ${compositeScore}/5)` : ''}`,
+          source: 'BRIEF_SCORING',
+        });
+      }
+      // CONDITIONAL_GO: stay in QUALIFYING, requires manual decision
+    } catch (err) {
+      console.warn('[opportunity-stage] onBriefScoringComplete failed (non-blocking):', (err as Error)?.message);
     }
-    // CONDITIONAL_GO: stay in QUALIFYING, requires manual decision
-  } catch (err) {
-    console.warn('[opportunity-stage] onBriefScoringComplete failed (non-blocking):', (err as Error)?.message);
-  }
+  })();
 };
 
 /**
@@ -217,6 +249,14 @@ export const onProjectOutcomeSet = async (args: {
 }): Promise<void> => {
   const { outcomeStatus, changedBy, ...location } = args;
 
+  console.log(`[onProjectOutcomeSet] Called with:`, {
+    orgId: location.orgId,
+    projectId: location.projectId,
+    oppId: location.oppId,
+    outcomeStatus,
+    changedBy,
+  });
+
   const stageMap: Partial<Record<typeof outcomeStatus, OpportunityStage>> = {
     PENDING:   'SUBMITTED',
     WON:       'WON',
@@ -226,7 +266,12 @@ export const onProjectOutcomeSet = async (args: {
   };
 
   const toStage = stageMap[outcomeStatus];
-  if (!toStage) return;
+  if (!toStage) {
+    console.warn(`[onProjectOutcomeSet] No stage mapping for outcomeStatus: ${outcomeStatus}`);
+    return;
+  }
+
+  console.log(`[onProjectOutcomeSet] Transitioning opportunity ${location.oppId} to stage: ${toStage}`);
 
   try {
     await transitionOpportunityStage({
@@ -236,37 +281,14 @@ export const onProjectOutcomeSet = async (args: {
       reason: `Project outcome set to ${outcomeStatus}`,
       source: 'PROJECT_OUTCOME',
     });
+    console.log(`[onProjectOutcomeSet] Successfully transitioned opportunity ${location.oppId} to ${toStage}`);
   } catch (err) {
-    console.warn('[opportunity-stage] onProjectOutcomeSet failed (non-blocking):', (err as Error)?.message);
+    console.error(`[onProjectOutcomeSet] transitionOpportunityStage failed for oppId=${location.oppId}:`, (err as Error)?.message);
+    console.error(`[onProjectOutcomeSet] Full error:`, err);
+    // Preserve fire-and-forget behavior: log the error but do not propagate it to callers
   }
 
-  // Trigger APN registration non-blocking when stage transitions to SUBMITTED.
-  // Uses dynamic import to avoid pulling in @smithy/signature-v4 at module load
-  // time — that package is not available in the Lambda runtime when marked external.
-  if (outcomeStatus === 'PENDING') {
-    const { orgId, projectId, oppId } = location;
-    const opp = await getOpportunity({ orgId, projectId, oppId }).catch(() => null);
-    if (opp?.item) {
-      import('@/helpers/apn-client')
-        .then(({ triggerApnRegistration }) =>
-          triggerApnRegistration({
-            orgId,
-            projectId,
-            oppId,
-            customerName:      (opp.item.organizationName as string | undefined) ?? 'Unknown Customer',
-            opportunityValue:  (opp.item.baseAndAllOptionsValue as number | undefined) ?? 0,
-            awsServices:       ['Other'],
-            expectedCloseDate: (opp.item.responseDeadlineIso as string | undefined) ?? new Date().toISOString(),
-            proposalStatus:    'SUBMITTED',
-            description:       typeof opp.item.description === 'string'
-              ? opp.item.description.substring(0, 500)
-              : undefined,
-            registeredBy:      changedBy,
-          }),
-        )
-        .catch(err =>
-          console.warn('[APN] triggerApnRegistration failed (non-blocking):', (err as Error).message),
-        );
-    }
-  }
+  // APN sync is handled inside transitionOpportunityStage in a non-blocking .catch() chain
+  // Only stage transition errors are logged above; APN failures don't surface here
+  console.log(`[onProjectOutcomeSet] APN sync is triggered inside transitionOpportunityStage (non-blocking)`);
 };
