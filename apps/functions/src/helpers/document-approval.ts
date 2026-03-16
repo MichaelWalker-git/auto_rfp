@@ -195,3 +195,22 @@ export const cancelPendingApprovals = async (
     ),
   );
 };
+
+/**
+ * Get approval history in the standard format for existing handlers
+ */
+export const getApprovalHistory = async (
+  orgId: string,
+  projectId: string,
+  opportunityId: string,
+  documentId: string,
+): Promise<{ items: DocumentApprovalItem[]; count: number; activeApproval: DocumentApprovalItem | null }> => {
+  const items = await listApprovalsByDocument(orgId, projectId, opportunityId, documentId);
+  const activeApproval = items.find(item => item.status === 'PENDING') || null;
+  
+  return {
+    items,
+    count: items.length,
+    activeApproval,
+  };
+};

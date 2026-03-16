@@ -74,7 +74,11 @@ export const RequestApprovalButton = ({
       });
       setShowDialog(false);
       setReviewerId('');
-      onSuccess?.();
+      
+      // Force a small delay to ensure backend has processed the request
+      setTimeout(() => {
+        onSuccess?.();
+      }, 500);
     } else {
       toast({
         title: 'Request Failed',
@@ -92,9 +96,10 @@ export const RequestApprovalButton = ({
         className="gap-2"
         disabled={disabled || isLoading}
         onClick={() => setShowDialog(true)}
+        title={disabled ? "Approval already requested" : "Request approval for this document"}
       >
         <ClipboardCheck className="h-4 w-4" />
-        Request Approval
+        {disabled ? 'Approval Requested' : 'Request Approval'}
       </Button>
 
       <Dialog

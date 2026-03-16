@@ -32,6 +32,7 @@ function toTeamMember(u: UserListItem): TeamMember {
     lastName: u.lastName,
     displayName: u.displayName,
     phone: u.phone,
+    position: u.position,
     role: u.role,
     status: u.status,
     joinedAt: u.createdAt,

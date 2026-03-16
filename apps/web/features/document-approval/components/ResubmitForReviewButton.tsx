@@ -11,7 +11,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { RefreshCw, Loader2 } from 'lucide-react';
+import { RefreshCw, Loader2, XCircle } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
 import { useResubmitForReview } from '../hooks/useResubmitForReview';
 import type { DocumentApprovalItem } from '@auto-rfp/core';
@@ -66,19 +66,19 @@ export const ResubmitForReviewButton = ({
   return (
     <>
       <Button
-        variant="outline"
+        variant="default"
         size="sm"
         onClick={() => setShowDialog(true)}
-        className="gap-2"
+        className="gap-2 bg-emerald-600 hover:bg-emerald-700 text-white"
       >
-        <RefreshCw className="h-3.5 w-3.5" />
+        <RefreshCw className="h-4 w-4" />
         Re-Submit for Review
       </Button>
 
       <Dialog open={showDialog} onOpenChange={setShowDialog}>
-        <DialogContent className="sm:max-w-[440px]">
+        <DialogContent className="sm:max-w-[480px]">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
+            <DialogTitle className="flex items-center gap-2 text-emerald-700">
               <RefreshCw className="h-5 w-5" />
               Re-Submit for Review
             </DialogTitle>
@@ -88,39 +88,59 @@ export const ResubmitForReviewButton = ({
                 {approval.documentName ?? 'this document'}
               </span>{' '}
               to {approval.reviewerName ?? 'the reviewer'} for another review.
-              {approval.reviewNote && (
-                <span className="block mt-2 text-amber-700 bg-amber-50 p-2 rounded text-xs">
-                  <strong>Previous rejection reason:</strong> {approval.reviewNote}
-                </span>
-              )}
             </DialogDescription>
           </DialogHeader>
 
-          <div className="space-y-1.5">
-            <Label>
+          {/* Previous rejection reason */}
+          {approval.reviewNote && (
+            <div className="bg-red-50 border border-red-200 rounded-lg p-3">
+              <div className="flex items-center gap-2 mb-2">
+                <XCircle className="h-4 w-4 text-red-600" />
+                <span className="text-sm font-semibold text-red-800">Previous Rejection Reason</span>
+              </div>
+              <p className="text-sm text-red-700">{approval.reviewNote}</p>
+            </div>
+          )}
+
+          <div className="space-y-2">
+            <Label htmlFor="revision-note">
               Revision Note
               <span className="text-muted-foreground font-normal ml-1">(optional)</span>
             </Label>
             <Textarea
+              id="revision-note"
               value={revisionNote}
               onChange={(e) => setRevisionNote(e.target.value)}
               placeholder="Describe what you changed to address the reviewer's feedback…"
               rows={3}
               disabled={isLoading}
+              className="resize-none"
             />
+            <p className="text-xs text-muted-foreground">
+              This note will help the reviewer understand what changes you made.
+            </p>
           </div>
 
-          <DialogFooter>
+          <DialogFooter className="gap-2">
             <Button variant="outline" onClick={() => setShowDialog(false)} disabled={isLoading}>
               Cancel
             </Button>
-            <Button onClick={handleResubmit} disabled={isLoading} className="gap-2">
+            <Button 
+              onClick={handleResubmit} 
+              disabled={isLoading} 
+              className="gap-2 bg-emerald-600 hover:bg-emerald-700"
+            >
               {isLoading ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Re-Submitting…
+                </>
               ) : (
-                <RefreshCw className="h-4 w-4" />
+                <>
+                  <RefreshCw className="h-4 w-4" />
+                  Re-Submit for Review
+                </>
               )}
-              Re-Submit
             </Button>
           </DialogFooter>
         </DialogContent>

@@ -22,7 +22,7 @@ export const EditUserRoleRequestSchema = z.object({
 
 export type EditUserRoleRequest = z.infer<typeof EditUserRoleRequestSchema>;
 
-/** Full edit-user DTO – admin can update name, phone, role, status */
+/** Full edit-user DTO – admin can update name, phone, position, role, status */
 export const EditUserRequestSchema = z.object({
   orgId: z.string().min(1),
   userId: z.string().min(1),
@@ -30,6 +30,7 @@ export const EditUserRequestSchema = z.object({
   lastName: z.string().trim().max(100).optional(),
   displayName: z.string().trim().max(200).optional(),
   phone: z.string().min(5).max(32).regex(/^[+0-9()\-.\s]+$/).optional(),
+  position: z.string().trim().min(1).max(100).optional(),
   role: UserRoleSchema.optional(),
   status: UserStatusSchema.optional(),
 });
@@ -151,6 +152,13 @@ const phoneSchema = z
   .regex(/^[+0-9()\-.\s]+$/)
   .optional();
 
+const positionSchema = z
+  .string()
+  .trim()
+  .min(1)
+  .max(100)
+  .optional();
+
 const nonEmptyTrimmed = z
   .string()
   .trim()
@@ -212,6 +220,7 @@ export const CreateUserDTOSchema = z.object({
   lastName: nonEmptyTrimmed.max(100).optional(),
   displayName: nonEmptyTrimmed.max(200).optional(),
   phone: phoneSchema,
+  position: z.string().trim().min(1).max(100).optional(),
   role: UserRoleSchema.default('VIEWER'),
   status: UserStatusSchema.optional(),
   authSubject: z.string().min(1).max(200).optional(),
@@ -227,6 +236,7 @@ export const UpdateUserDTOSchema = z.object({
   lastName: nonEmptyTrimmed.max(100).optional(),
   displayName: nonEmptyTrimmed.max(200).optional(),
   phone: phoneSchema.optional(),
+  position: z.string().trim().min(1).max(100).optional(),
 
   role: UserRoleSchema.optional(),
 
@@ -275,6 +285,7 @@ export const UserListItemSchema = z.object({
   lastName: z.string().optional(),
   displayName: z.string().optional(),
   phone: z.string().optional(),
+  position: z.string().optional(),
   role: UserRoleSchema,
   status: z.string(),
   cognitoUsername: z.string().optional(),
@@ -297,6 +308,7 @@ export const EditProfileDTOSchema = z.object({
   lastName: nonEmptyTrimmed.max(100).optional(),
   displayName: nonEmptyTrimmed.max(200).optional(),
   phone: phoneSchema,
+  position: z.string().trim().min(1).max(100).optional(),
 });
 export type EditProfileDTO = z.infer<typeof EditProfileDTOSchema>;
 
@@ -310,6 +322,7 @@ export const CreateUserResponseSchema = z.object({
   lastName: z.string().optional(),
   displayName: z.string().optional(),
   phone: z.string().optional(),
+  position: z.string().optional(),
   role: UserRoleSchema,
   status: z.string(),
   cognitoUsername: z.string().optional(),
@@ -347,3 +360,20 @@ export const DeleteUserResponseSchema = z.object({
   cognitoUsername: z.string().nullable(),
 });
 export type DeleteUserResponse = z.infer<typeof DeleteUserResponseSchema>;
+
+/* ── Resend Temporary Password ──────────── */
+
+export const ResendTempPasswordRequestSchema = z.object({
+  orgId: idSchema,
+  userId: idSchema,
+});
+export type ResendTempPasswordRequest = z.infer<typeof ResendTempPasswordRequestSchema>;
+
+export const ResendTempPasswordResponseSchema = z.object({
+  ok: z.literal(true),
+  orgId: z.string(),
+  userId: z.string(),
+  email: z.string().email(),
+  message: z.string(),
+});
+export type ResendTempPasswordResponse = z.infer<typeof ResendTempPasswordResponseSchema>;

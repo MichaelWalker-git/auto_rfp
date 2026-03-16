@@ -9,6 +9,19 @@ import { ApprovalStatusBadge } from './ApprovalStatusBadge';
 import { ReviewDecisionPanel } from './ReviewDecisionPanel';
 import { ResubmitForReviewButton } from './ResubmitForReviewButton';
 
+/**
+ * Helper to resolve a human-readable display name.
+ * Returns the stored name only when it looks like a real name (not a raw UUID/ID).
+ */
+const resolveDisplayName = (
+  name: string | undefined,
+  fallback = 'Unknown',
+): string => {
+  if (!name) return fallback;
+  if (name.length > 50 || /^[0-9a-f]{8}-/.test(name)) return fallback;
+  return name;
+};
+
 interface ApprovalHistoryCardProps {
   orgId: string;
   projectId: string;
@@ -80,7 +93,7 @@ export const ApprovalHistoryCard = ({
           </CardHeader>
           <CardContent className="space-y-2">
             <p className="text-xs text-muted-foreground">
-              <span className="font-medium">{latestRejected.reviewerName ?? 'The reviewer'}</span> rejected this document
+              <span className="font-medium">{resolveDisplayName(latestRejected.reviewerName, 'The reviewer')}</span> rejected this document
               {latestRejected.reviewedAt && (
                 <> on {format(new Date(latestRejected.reviewedAt), 'MMM d, yyyy HH:mm')}</>
               )}
@@ -121,7 +134,7 @@ export const ApprovalHistoryCard = ({
                   <div className="flex items-center gap-2 flex-wrap">
                     <ApprovalStatusBadge status={approval.status} />
                     <span className="text-xs text-muted-foreground">
-                      Requested by {approval.requestedByName ?? approval.requestedBy}
+                      Requested by {resolveDisplayName(approval.requestedByName, 'a team member')}
                     </span>
                     <span className="text-xs text-muted-foreground">
                       {format(new Date(approval.requestedAt), 'MMM d, yyyy HH:mm')}
@@ -129,7 +142,7 @@ export const ApprovalHistoryCard = ({
                   </div>
 
                   <p className="text-xs text-muted-foreground">
-                    Reviewer: <span className="font-medium">{approval.reviewerName ?? approval.reviewerEmail ?? approval.reviewerId}</span>
+                    Reviewer: <span className="font-medium">{resolveDisplayName(approval.reviewerName, approval.reviewerEmail ?? 'Unknown')}</span>
                   </p>
 
                   {approval.reviewedAt && (

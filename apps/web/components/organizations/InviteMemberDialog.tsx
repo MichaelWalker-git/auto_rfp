@@ -40,6 +40,7 @@ export function InviteMemberDialog({ orgId, onMemberAdded }: InviteMemberDialogP
   const [email, setEmail] = useState('');
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
+  const [position, setPosition] = useState('');
   const [role, setRole] = useState<UserRole>('VIEWER');
   const [busy, setBusy] = useState(false);
 
@@ -47,6 +48,7 @@ export function InviteMemberDialog({ orgId, onMemberAdded }: InviteMemberDialogP
     setEmail('');
     setFirstName('');
     setLastName('');
+    setPosition('');
     setRole('VIEWER');
   };
 
@@ -59,6 +61,7 @@ export function InviteMemberDialog({ orgId, onMemberAdded }: InviteMemberDialogP
         email: email.trim(),
         firstName: firstName.trim() || undefined,
         lastName: lastName.trim() || undefined,
+        position: position.trim() || undefined,
         role,
       });
 
@@ -73,6 +76,7 @@ export function InviteMemberDialog({ orgId, onMemberAdded }: InviteMemberDialogP
         email: res.email,
         firstName: res.firstName,
         lastName: res.lastName,
+        position: res.position,
         role: res.role,
         joinedAt: res.createdAt,
       };
@@ -90,7 +94,7 @@ export function InviteMemberDialog({ orgId, onMemberAdded }: InviteMemberDialogP
     } finally {
       setBusy(false);
     }
-  }, [orgId, email, firstName, lastName, role, onMemberAdded, toast]);
+  }, [orgId, email, firstName, lastName, position, role, onMemberAdded, toast]);
 
   return (
     <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (!v) resetForm(); }}>
@@ -135,6 +139,15 @@ export function InviteMemberDialog({ orgId, onMemberAdded }: InviteMemberDialogP
                 onChange={(e) => setLastName(e.target.value)}
               />
             </div>
+          </div>
+          <div className="grid gap-2">
+            <Label htmlFor="inv-position">Position</Label>
+            <Input
+              id="inv-position"
+              placeholder="Software Engineer"
+              value={position}
+              onChange={(e) => setPosition(e.target.value)}
+            />
           </div>
           <div className="grid gap-2">
             <Label>Role</Label>

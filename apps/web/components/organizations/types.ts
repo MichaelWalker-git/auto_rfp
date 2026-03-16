@@ -8,6 +8,7 @@ export interface TeamMember {
   lastName?: string;
   displayName?: string;
   phone?: string;
+  position?: string;
   role: UserRole | string;
   status?: string;
   joinedAt: string;

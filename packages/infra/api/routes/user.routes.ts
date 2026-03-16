@@ -8,6 +8,7 @@ export function userDomain(): DomainRoutes {
     { method: 'GET', path: 'get-users', entry: lambdaEntry('user/get-users.ts') },
     { method: 'PATCH', path: 'edit-user', entry: lambdaEntry('user/edit-user.ts') },
     { method: 'DELETE', path: 'delete-user', entry: lambdaEntry('user/delete-user.ts') },
+    { method: 'POST', path: 'resend-temp-password', entry: lambdaEntry('user/resend-temp-password.ts') },
     { method: 'GET', path: 'get-my-organizations', entry: lambdaEntry('user/get-my-organizations.ts') },
     { method: 'POST', path: 'add-to-organization', entry: lambdaEntry('user/add-to-organization.ts') },
     { method: 'POST', path: 'remove-from-organization', entry: lambdaEntry('user/remove-from-organization.ts') },

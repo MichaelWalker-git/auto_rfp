@@ -14,6 +14,9 @@ import { invokeModel } from '@/helpers/bedrock-http-client';
 import { safeJsonParse, type SchemaLike } from '@/helpers/executive-opportunity-brief';
 import type { ToolDefinition, ToolResult } from '@/types/tool';
 
+/** Token multiplier for retry when response is truncated due to max_tokens */
+const TRUNCATION_RETRY_TOKEN_MULTIPLIER = 2;
+
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 export interface InvokeClaudeWithToolsArgs<T> {
@@ -117,6 +120,47 @@ export const invokeClaudeWithTools = async <T>(
 
     const stopReason = parsed.stop_reason ?? 'end_turn';
     const content: ContentBlock[] = parsed.content ?? [];
+
+    // Detect truncation due to max_tokens and retry with higher limit
+    if (stopReason === 'max_tokens' && !isLastRound) {
+      const partialText = extractText(content);
+      const newMaxTokens = maxTokens * TRUNCATION_RETRY_TOKEN_MULTIPLIER;
+      console.warn(
+        `[bedrock-tool-loop] Response truncated (stop_reason=max_tokens, ${partialText.length} chars). ` +
+        `Retrying with max_tokens=${newMaxTokens} (was ${maxTokens})`,
+      );
+
+      // Add the partial response and ask Claude to continue
+      messages.push({ role: 'assistant', content });
+      messages.push({
+        role: 'user',
+        content: [{ type: 'text', text: 'Your previous response was truncated. Please generate the complete JSON response. Output ONLY the full JSON object, no explanatory text.' }],
+      });
+
+      const retryBody: Record<string, unknown> = {
+        anthropic_version: 'bedrock-2023-05-31',
+        system: [{ type: 'text', text: system }],
+        messages,
+        max_tokens: newMaxTokens,
+        temperature,
+      };
+
+      const retryResponse = await invokeModel(modelId, JSON.stringify(retryBody));
+      const retryParsed = JSON.parse(new TextDecoder('utf-8').decode(retryResponse)) as {
+        stop_reason?: string;
+        content?: ContentBlock[];
+      };
+
+      rawText = extractText(retryParsed.content ?? []);
+
+      if (retryParsed.stop_reason === 'max_tokens') {
+        console.warn(`[bedrock-tool-loop] Retry also truncated (${rawText.length} chars). Will attempt JSON repair.`);
+      } else {
+        console.log(`[bedrock-tool-loop] Retry succeeded (${rawText.length} chars)`);
+      }
+
+      break;
+    }
 
     // If Claude wants to use tools and we still have rounds left, execute them
     if (stopReason === 'tool_use' && !isLastRound) {

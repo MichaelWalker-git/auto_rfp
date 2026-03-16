@@ -13,6 +13,8 @@ import type {
   EditUserResponse,
   DeleteUserInput,
   DeleteUserResponse,
+  ResendTempPasswordRequest,
+  ResendTempPasswordResponse,
 } from '@auto-rfp/core';
 
 // Legacy response type alias (extends CreateUserResponse with cognito info)
@@ -101,6 +103,10 @@ export async function deleteUserApi(input: DeleteUserInput): Promise<DeleteUserR
     buildApiUrl('user/delete-user', { orgId: input.orgId, userId: input.userId }),
     'DELETE',
   );
+}
+
+export async function resendTempPasswordApi(input: ResendTempPasswordRequest): Promise<ResendTempPasswordResponse> {
+  return apiMutate<ResendTempPasswordResponse>(buildApiUrl('user/resend-temp-password'), 'POST', input);
 }
 
 // ─── Multi-Org Management API Functions ───

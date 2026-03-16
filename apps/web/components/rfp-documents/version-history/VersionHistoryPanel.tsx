@@ -50,20 +50,9 @@ export const VersionHistoryPanel = ({
   };
 
   return (
-    <div className="w-80 border-l bg-background flex flex-col h-full">
-      {/* Header */}
-      <div className="flex items-center justify-between p-4 border-b">
-        <div className="flex items-center gap-2">
-          <History className="h-5 w-5" />
-          <h3 className="font-semibold">Version History</h3>
-        </div>
-        <Button variant="ghost" size="icon" onClick={onClose}>
-          <X className="h-4 w-4" />
-        </Button>
-      </div>
-
+    <div className="flex flex-col h-full bg-background">
       {/* Content */}
-      <ScrollArea className="flex-1 p-4 min-h-0 [&>div>div]:!block">
+      <ScrollArea className="flex-1 p-6 min-h-0 [&>div>div]:!block">
         {isLoading ? (
           <div className="space-y-3">
             {[1, 2, 3, 4].map((i) => (

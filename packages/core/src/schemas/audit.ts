@@ -12,6 +12,7 @@ export const AuditActionSchema = z.enum([
   'USER_DELETED',
   'USER_ROLE_CHANGED',
   'USER_INVITED',
+  'USER_TEMP_PASSWORD_RESENT',
   // Document actions
   'DOCUMENT_UPLOADED',
   'DOCUMENT_DELETED',
@@ -122,6 +123,12 @@ export const AuditResourceSchema = z.enum([
   'system',
   'ai_tool',
   'apn_registration',
+  // Universal approval entity types
+  'brief',
+  'submission',
+  'content_library',
+  'foia_request',
+  'debriefing_request',
 ]);
 export type AuditResource = z.infer<typeof AuditResourceSchema>;
 
