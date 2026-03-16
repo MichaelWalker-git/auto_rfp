@@ -1,12 +1,14 @@
 import React from 'react';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
-import { toast } from '@/components/ui/use-toast';
 import { resendTempPasswordApi } from '@/lib/hooks/use-user';
+
+// Stable mock toast function shared across all useToast() calls
+const mockToast = jest.fn();
 
 // Mock the toast hook
 jest.mock('@/components/ui/use-toast', () => ({
   useToast: () => ({
-    toast: jest.fn(),
+    toast: mockToast,
   }),
 }));
 
@@ -47,7 +49,7 @@ const ResendPasswordSection = ({
   return (
     <div data-testid="resend-password-section">
       <h2>Resend Temporary Password</h2>
-      <p>This user has been invited but hasn't activated their account yet.</p>
+      <p>This user has been invited but hasn&apos;t activated their account yet.</p>
       <button
         onClick={handleResendPassword}
         disabled={isResending}
@@ -60,7 +62,6 @@ const ResendPasswordSection = ({
 };
 
 const mockResendTempPasswordApi = resendTempPasswordApi as jest.MockedFunction<typeof resendTempPasswordApi>;
-const mockToast = toast as jest.MockedFunction<typeof toast>;
 
 describe('ResendPasswordSection', () => {
   beforeEach(() => {
