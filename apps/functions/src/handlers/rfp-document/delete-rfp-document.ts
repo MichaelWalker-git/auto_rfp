@@ -11,6 +11,9 @@ import { auditMiddleware, setAuditContext } from '@/middleware/audit-middleware'
 import { withSentryLambda } from '@/sentry-lambda';
 import { getRFPDocument, softDeleteRFPDocument } from '@/helpers/rfp-document';
 import { deleteS3ObjectsFromKeys } from '@/helpers/s3';
+import { listApprovalsByDocument } from '@/helpers/document-approval';
+import { deleteItem } from '@/helpers/db';
+import { DOCUMENT_APPROVAL_PK } from '@/constants/document-approval';
 import { apiResponse, getOrgId, getUserId } from '@/helpers/api';
 import { requireEnv } from '@/helpers/env';
 
@@ -40,6 +43,19 @@ export const baseHandler = async (
     }
     if (existing.orgId !== orgId) {
       return apiResponse(403, { message: 'Access denied' });
+    }
+
+    // ── Clean up all approval records for this document ──
+    try {
+      const approvals = await listApprovalsByDocument(orgId, projectId, opportunityId, documentId);
+      await Promise.all(
+        approvals.map(approval => 
+          deleteItem(DOCUMENT_APPROVAL_PK, `${orgId}#${projectId}#${opportunityId}#${documentId}#${approval.approvalId}`)
+        )
+      );
+      console.log(`Cleaned up ${approvals.length} approval records for documentId=${documentId}`);
+    } catch (err) {
+      console.warn(`Failed to clean up approval records for documentId=${documentId}:`, err);
     }
 
     // ── Soft-delete the DynamoDB record ──

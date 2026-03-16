@@ -24,6 +24,7 @@ import {
   BookOpen,
   Briefcase,
   CalendarClock,
+  ClipboardCheck,
   FileText,
   FolderOpen,
   HelpCircle,
@@ -114,22 +115,23 @@ function AppSidebar() {
   const orgId = route.orgId ?? currentOrganization?.id ?? null;
   const projectId = route.projectId ?? currentProject?.id ?? null;
 
-  // Use short URL aliases: /org/:orgId/... and /org/:orgId/prs/:projectId/...
+  // Use full URLs to match the actual routes
   const orgNav: NavItem[] = useMemo(
     () =>
       orgId
         ? [
-          { title: 'Dashboard',       url: `/org/${orgId}/dashboard`,      icon: BarChart2 },
-          { title: 'Projects',        url: `/org/${orgId}/projects`,       icon: FolderOpen },
-          { title: 'Org Documents',     url: `/org/${orgId}/knowledge-base`,   icon: BookOpen },
-          { title: 'Q&A Library',       url: `/org/${orgId}/content-library`,  icon: FileText },
-          { title: 'Past Performance',  url: `/org/${orgId}/past-performance`, icon: Briefcase },
-          { title: 'Stale Report',      url: `/org/${orgId}/stale-report`,     icon: ShieldAlert },
-          { title: 'Deadlines',         url: `/org/${orgId}/deadlines`,        icon: CalendarClock },
-          { title: 'Templates',       url: `/org/${orgId}/templates`,      icon: LayoutTemplate },
-          { title: 'Org Members',     url: `/org/${orgId}/team`,           icon: Users },
-          ...(canViewAudit ? [{ title: 'Audit Trail', url: `/org/${orgId}/audit`, icon: ShieldCheck }] : []),
-          { title: 'Settings',        url: `/org/${orgId}/settings`,       icon: Settings },
+          { title: 'Dashboard',       url: `/organizations/${orgId}/dashboard`,      icon: BarChart2 },
+          { title: 'Projects',        url: `/organizations/${orgId}/projects`,       icon: FolderOpen },
+          { title: 'Org Documents',     url: `/organizations/${orgId}/knowledge-base`,   icon: BookOpen },
+          { title: 'Q&A Library',       url: `/organizations/${orgId}/content-library`,  icon: FileText },
+          { title: 'Past Performance',  url: `/organizations/${orgId}/past-performance`, icon: Briefcase },
+          { title: 'Stale Report',      url: `/organizations/${orgId}/stale-report`,     icon: ShieldAlert },
+          { title: 'Deadlines',         url: `/organizations/${orgId}/deadlines`,        icon: CalendarClock },
+          { title: 'Templates',       url: `/organizations/${orgId}/templates`,      icon: LayoutTemplate },
+          { title: 'My Reviews',      url: `/organizations/${orgId}/reviews`,        icon: ClipboardCheck },
+          { title: 'Org Members',     url: `/organizations/${orgId}/team`,           icon: Users },
+          ...(canViewAudit ? [{ title: 'Audit Trail', url: `/organizations/${orgId}/audit`, icon: ShieldCheck }] : []),
+          { title: 'Settings',        url: `/organizations/${orgId}/settings`,       icon: Settings },
         ]
         : [],
     [orgId, canViewAudit]
@@ -139,13 +141,13 @@ function AppSidebar() {
     () =>
       orgId && projectId
         ? [
-          { title: 'Dashboard',             url: `/org/${orgId}/prs/${projectId}/dashboard`,            icon: Home },
-          { title: 'Search Opportunities',  url: `/org/${orgId}/prs/${projectId}/search-opportunities`, icon: Search },
-          { title: 'Opportunities',         url: `/org/${orgId}/prs/${projectId}/opportunities`,        icon: Briefcase },
-          { title: 'Executive Briefs',       url: `/org/${orgId}/prs/${projectId}/brief`,                icon: Target },
-          { title: 'Q&A Engagement Tools', url: `/org/${orgId}/prs/${projectId}/qa-engagement`, icon: MessageSquare },
-          { title: 'Questions',             url: `/org/${orgId}/prs/${projectId}/questions`,            icon: MessageSquare },
-          { title: 'Settings',              url: `/org/${orgId}/prs/${projectId}/settings`,             icon: Settings },
+          { title: 'Dashboard',             url: `/organizations/${orgId}/projects/${projectId}/dashboard`,            icon: Home },
+          { title: 'Search Opportunities',  url: `/organizations/${orgId}/projects/${projectId}/search-opportunities`, icon: Search },
+          { title: 'Opportunities',         url: `/organizations/${orgId}/projects/${projectId}/opportunities`,        icon: Briefcase },
+          { title: 'Executive Briefs',       url: `/organizations/${orgId}/projects/${projectId}/brief`,                icon: Target },
+          { title: 'Q&A Engagement Tools', url: `/organizations/${orgId}/projects/${projectId}/qa-engagement`, icon: MessageSquare },
+          { title: 'Questions',             url: `/organizations/${orgId}/projects/${projectId}/questions`,            icon: MessageSquare },
+          { title: 'Settings',              url: `/organizations/${orgId}/projects/${projectId}/settings`,             icon: Settings },
         ]
         : [],
     [orgId, projectId]
@@ -153,7 +155,42 @@ function AppSidebar() {
 
   const items = route.isProjectRoute ? projectNav : route.isOrgRoute ? orgNav : [];
 
-  const isItemActive = (url: string) => pathname === url || pathname.startsWith(`${url}/`);
+  const isItemActive = (url: string) => {
+    // Handle exact matches
+    if (pathname === url) return true;
+    
+    // Handle sub-routes
+    if (pathname.startsWith(`${url}/`)) return true;
+    
+    // Handle URL alias mapping for better matching
+    // Convert full URLs to short aliases for comparison
+    const normalizeUrl = (path: string) => {
+      return path
+        .replace(/\/organizations\//g, '/org/')
+        .replace(/\/projects\//g, '/prs/');
+    };
+    
+    const normalizedPathname = normalizeUrl(pathname);
+    const normalizedUrl = normalizeUrl(url);
+    
+    // Check normalized URLs
+    if (normalizedPathname === normalizedUrl || normalizedPathname.startsWith(`${normalizedUrl}/`)) {
+      return true;
+    }
+    
+    // Special handling for projects list page
+    // If we're on /organizations/[orgId]/projects and checking /org/[orgId]/projects
+    if (pathname.match(/^\/organizations\/[^/]+\/projects\/?$/) && url.match(/^\/org\/[^/]+\/projects$/)) {
+      return true;
+    }
+    
+    // Handle reverse case: if we're on /org/[orgId]/projects and checking /organizations/[orgId]/projects
+    if (pathname.match(/^\/org\/[^/]+\/projects\/?$/) && url.match(/^\/organizations\/[^/]+\/projects$/)) {
+      return true;
+    }
+    
+    return false;
+  };
 
   return (
     <Sidebar variant="inset" collapsible="icon" className="border-r h-full">

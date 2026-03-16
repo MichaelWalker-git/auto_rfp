@@ -19,12 +19,36 @@ export async function streamToString(stream: any): Promise<string> {
 }
 
 export async function loadTextFromS3(bucket: string, key: string): Promise<string> {
-  try {
-    const res = await s3.send(new GetObjectCommand({ Bucket: bucket, Key: key }));
-    return streamToString(res.Body);
-  } catch (err) {
-    return '';
+  const maxRetries = 3;
+  const retryDelay = 1000; // 1 second
+
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      const res = await s3.send(new GetObjectCommand({ Bucket: bucket, Key: key }));
+      const content = await streamToString(res.Body);
+      
+      // If content is empty, it might be a timing issue - retry
+      if (!content && attempt < maxRetries) {
+        console.warn(`loadTextFromS3: Empty content on attempt ${attempt} for key ${key}, retrying...`);
+        await new Promise(resolve => setTimeout(resolve, retryDelay * attempt));
+        continue;
+      }
+      
+      return content;
+    } catch (err: any) {
+      console.warn(`loadTextFromS3: Attempt ${attempt} failed for key ${key}:`, err.message);
+      
+      // If it's the last attempt, throw the error instead of returning empty string
+      if (attempt === maxRetries) {
+        throw new Error(`Failed to load content from S3 after ${maxRetries} attempts: ${err.message}`);
+      }
+      
+      // Wait before retrying
+      await new Promise(resolve => setTimeout(resolve, retryDelay * attempt));
+    }
   }
+  
+  return '';
 }
 
 export async function uploadToS3(bucket: string, key: string, body: Buffer | string, contentType?: string) {

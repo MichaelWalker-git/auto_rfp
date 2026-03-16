@@ -80,6 +80,10 @@ export const baseHandler = async (
     if (dto.phone !== undefined) {
       names['#ph'] = 'phone'; values[':ph'] = dto.phone; setParts.push('#ph = :ph');
     }
+    if (dto.position !== undefined) {
+      names['#pos'] = 'position'; values[':pos'] = dto.position; setParts.push('#pos = :pos');
+      names['#posl'] = 'positionLower'; values[':posl'] = dto.position.toLowerCase(); setParts.push('#posl = :posl');
+    }
     if (dto.role !== undefined) {
       names['#rl'] = 'role'; values[':rl'] = dto.role; setParts.push('#rl = :rl');
     }
@@ -92,8 +96,9 @@ export const baseHandler = async (
     const ln = dto.lastName ?? userItem.lastName ?? '';
     const dn = dto.displayName ?? userItem.displayName ?? '';
     const ph = dto.phone ?? userItem.phone ?? '';
+    const pos = dto.position ?? userItem.position ?? '';
     const em = userItem.email ?? '';
-    const searchParts = [em, fn, ln, dn, ph].map((s) => String(s).trim().toLowerCase()).filter(Boolean);
+    const searchParts = [em, fn, ln, dn, ph, pos].map((s) => String(s).trim().toLowerCase()).filter(Boolean);
     names['#srt'] = 'searchText'; values[':srt'] = [...new Set(searchParts)].join(' '); setParts.push('#srt = :srt');
 
     const updateRes = await docClient.send(new UpdateCommand({
@@ -144,6 +149,7 @@ export const baseHandler = async (
         lastName: updated.lastName ?? '',
         displayName: updated.displayName ?? '',
         phone: updated.phone ?? '',
+        position: updated.position ?? '',
         role: updated.role,
         status: updated.status,
         createdAt: updated.createdAt,

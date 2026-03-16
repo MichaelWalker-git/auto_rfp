@@ -159,14 +159,22 @@ export const baseHandler = async (
     const s3Key = buildExportS3Key(orgId, projectId, opportunityId, documentId, title, format);
 
     // Load HTML from S3 with S3 image keys resolved to presigned URLs
-    const resolvedHtml = await loadDocumentHtmlForExport(doc as Record<string, unknown>);
-    const rawHtml = resolvedHtml
-      || (doc.content as Record<string, unknown>)?.content as string
-      || '';
+    let resolvedHtml: string;
+    try {
+      resolvedHtml = await loadDocumentHtmlForExport(doc as Record<string, unknown>);
+    } catch (err) {
+      console.error('Failed to load document HTML for export:', err);
+      return apiResponse(500, {
+        message: 'Failed to load document content for export. Please try again.',
+        error: err instanceof Error ? err.message : 'Unknown error',
+      });
+    }
+
+    const rawHtml = resolvedHtml || '';
 
     if (!rawHtml) {
       return apiResponse(400, {
-        message: 'This document does not have content for export.',
+        message: 'This document does not have content for export. Please ensure the document has been saved with content.',
       });
     }
 

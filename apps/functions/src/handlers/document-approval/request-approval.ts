@@ -34,7 +34,6 @@ const baseHandler = async (event: AuthedEvent): Promise<APIGatewayProxyResultV2>
   if (!success) return apiResponse(400, { message: 'Invalid request body', issues: error.issues });
 
   const requestedBy = getUserId(event) ?? 'system';
-  const requestedByName = (event.auth?.claims?.['cognito:username'] as string | undefined) ?? requestedBy;
 
   // ── Guard: cannot request approval from yourself ──
   if (data.reviewerId === requestedBy) {
@@ -46,9 +45,15 @@ const baseHandler = async (event: AuthedEvent): Promise<APIGatewayProxyResultV2>
   if (!doc || doc['deletedAt']) return apiResponse(404, { message: 'Document not found' });
   if (doc['orgId'] !== orgId) return apiResponse(403, { message: 'Access denied' });
 
-  // ── Load reviewer ──
-  const reviewer = await getUserByOrgAndId(orgId, data.reviewerId);
+  // ── Load requester and reviewer ──
+  const [requester, reviewer] = await Promise.all([
+    getUserByOrgAndId(orgId, requestedBy).catch(() => null),
+    getUserByOrgAndId(orgId, data.reviewerId),
+  ]);
+  
   if (!reviewer) return apiResponse(404, { message: 'Reviewer not found in this organization' });
+  
+  const requestedByName = requester?.displayName ?? requester?.firstName ?? requester?.email ?? requestedBy;
 
   // ── Cancel any existing PENDING approvals for this document ──
   await cancelPendingApprovals(orgId, data.projectId, data.opportunityId, data.documentId);

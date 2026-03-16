@@ -3,6 +3,7 @@ import {
   AdminDeleteUserCommand,
   AdminGetUserCommand,
   AdminUpdateUserAttributesCommand,
+  AdminInitiateAuthCommand,
   CognitoIdentityProviderClient,
 } from '@aws-sdk/client-cognito-identity-provider';
 import { UserRole } from '@auto-rfp/core';
@@ -144,4 +145,68 @@ export async function adminUpdateUserAttributes(
       UserAttributes: input.attributes,
     }),
   );
+}
+
+/**
+ * Resend temporary password to a user by triggering a new password challenge.
+ * This will send a new temporary password email to the user.
+ */
+export async function adminResendTempPassword(
+  cognito: CognitoIdentityProviderClient,
+  input: { userPoolId: string; username: string },
+): Promise<void> {
+  try {
+    // First, we need to recreate the user to trigger a new temporary password
+    // Get the current user details
+    const existingUser = await adminGetUser(cognito, input);
+    if (!existingUser) {
+      throw new Error('User not found');
+    }
+
+    // Get user attributes to recreate with same data
+    const userDetails = await cognito.send(
+      new AdminGetUserCommand({
+        UserPoolId: input.userPoolId,
+        Username: input.username,
+      }),
+    );
+
+    const email = userDetails.UserAttributes?.find(a => a.Name === 'email')?.Value;
+    const firstName = userDetails.UserAttributes?.find(a => a.Name === 'given_name')?.Value;
+    const lastName = userDetails.UserAttributes?.find(a => a.Name === 'family_name')?.Value;
+    const phone = userDetails.UserAttributes?.find(a => a.Name === 'phone_number')?.Value;
+    const emailVerified = userDetails.UserAttributes?.find(a => a.Name === 'email_verified')?.Value === 'true';
+    const orgId = userDetails.UserAttributes?.find(a => a.Name === 'custom:orgId')?.Value;
+    const userId = userDetails.UserAttributes?.find(a => a.Name === 'custom:userId')?.Value;
+    const role = userDetails.UserAttributes?.find(a => a.Name === 'custom:role')?.Value;
+
+    if (!email) {
+      throw new Error('User email not found');
+    }
+
+    // Delete the existing user
+    await adminDeleteUser(cognito, input);
+
+    // Recreate the user with the same attributes but send invite this time
+    await cognito.send(
+      new AdminCreateUserCommand({
+        UserPoolId: input.userPoolId,
+        Username: input.username,
+        MessageAction: undefined, // This will send the invite email
+        UserAttributes: [
+          { Name: 'email', Value: email },
+          ...(emailVerified ? [{ Name: 'email_verified', Value: 'true' }] : []),
+          ...(firstName ? [{ Name: 'given_name', Value: firstName }] : []),
+          ...(lastName ? [{ Name: 'family_name', Value: lastName }] : []),
+          ...(phone ? [{ Name: 'phone_number', Value: phone }] : []),
+          ...(orgId ? [{ Name: 'custom:orgId', Value: orgId }] : []),
+          ...(userId ? [{ Name: 'custom:userId', Value: userId }] : []),
+          ...(role ? [{ Name: 'custom:role', Value: role }] : []),
+        ],
+      }),
+    );
+  } catch (e: any) {
+    console.error('Error resending temporary password:', e);
+    throw e;
+  }
 }
