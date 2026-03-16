@@ -11,10 +11,10 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  unit-tests:
-    name: Run All Unit Tests
+  # ── Shared setup: install deps + build core ──────────────────────────────────
+  setup:
+    name: Install & Build Core
     runs-on: ubuntu-latest
-
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -31,8 +31,7 @@ jobs:
 
       - name: Get pnpm store directory
         shell: bash
-        run: |
-          echo "STORE_PATH=$(pnpm store path --silent)" >> $GITHUB_ENV
+        run: echo "STORE_PATH=$(pnpm store path --silent)" >> $GITHUB_ENV
 
       - name: Setup pnpm cache
         uses: actions/cache@v4
@@ -49,18 +48,202 @@ jobs:
         working-directory: packages/core
         run: pnpm build
 
-      - name: Run all tests
+      - name: Cache workspace
+        uses: actions/cache/save@v4
+        with:
+          path: |
+            node_modules
+            apps/*/node_modules
+            packages/*/node_modules
+            packages/core/dist
+          key: ${{ runner.os }}-workspace-${{ github.sha }}
+
+  # ── Parallel test jobs ───────────────────────────────────────────────────────
+  test-core:
+    name: Core Tests
+    runs-on: ubuntu-latest
+    needs: setup
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v3
+        with:
+          version: 10
+
+      - name: Restore workspace
+        uses: actions/cache/restore@v4
+        with:
+          path: |
+            node_modules
+            apps/*/node_modules
+            packages/*/node_modules
+            packages/core/dist
+          key: ${{ runner.os }}-workspace-${{ github.sha }}
+
+      - name: Run core tests
+        working-directory: packages/core
         run: pnpm test
 
-      - name: Run lint (web)
+  test-functions:
+    name: Functions Tests
+    runs-on: ubuntu-latest
+    needs: setup
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v3
+        with:
+          version: 10
+
+      - name: Restore workspace
+        uses: actions/cache/restore@v4
+        with:
+          path: |
+            node_modules
+            apps/*/node_modules
+            packages/*/node_modules
+            packages/core/dist
+          key: ${{ runner.os }}-workspace-${{ github.sha }}
+
+      - name: Run functions tests
+        working-directory: apps/functions
+        run: pnpm test
+
+  test-web:
+    name: Web UI Tests
+    runs-on: ubuntu-latest
+    needs: setup
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v3
+        with:
+          version: 10
+
+      - name: Restore workspace
+        uses: actions/cache/restore@v4
+        with:
+          path: |
+            node_modules
+            apps/*/node_modules
+            packages/*/node_modules
+            packages/core/dist
+          key: ${{ runner.os }}-workspace-${{ github.sha }}
+
+      - name: Cache Jest transforms
+        uses: actions/cache@v4
+        with:
+          path: apps/web/node_modules/.cache/jest
+          key: ${{ runner.os }}-jest-web-${{ hashFiles('apps/web/**/*.ts', 'apps/web/**/*.tsx') }}
+          restore-keys: |
+            ${{ runner.os }}-jest-web-
+
+      - name: Run web tests
+        working-directory: apps/web
+        run: pnpm test
+        env:
+          CI: true
+
+  test-infra:
+    name: Infrastructure Tests
+    runs-on: ubuntu-latest
+    needs: setup
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v3
+        with:
+          version: 10
+
+      - name: Restore workspace
+        uses: actions/cache/restore@v4
+        with:
+          path: |
+            node_modules
+            apps/*/node_modules
+            packages/*/node_modules
+            packages/core/dist
+          key: ${{ runner.os }}-workspace-${{ github.sha }}
+
+      - name: Run infra tests
+        working-directory: packages/infra
+        run: pnpm test -- --passWithNoTests
+
+  lint-web:
+    name: Lint Web
+    runs-on: ubuntu-latest
+    needs: setup
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v3
+        with:
+          version: 10
+
+      - name: Restore workspace
+        uses: actions/cache/restore@v4
+        with:
+          path: |
+            node_modules
+            apps/*/node_modules
+            packages/*/node_modules
+            packages/core/dist
+          key: ${{ runner.os }}-workspace-${{ github.sha }}
+
+      - name: Run lint
         working-directory: apps/web
         run: pnpm lint
 
+  # ── Summary ──────────────────────────────────────────────────────────────────
+  test-summary:
+    name: Test Summary
+    runs-on: ubuntu-latest
+    needs: [test-core, test-functions, test-web, test-infra, lint-web]
+    if: always()
+    steps:
       - name: Test Summary
-        if: always()
         run: |
           echo "## Unit Test Results" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "✅ Core package tests completed" >> $GITHUB_STEP_SUMMARY
-          echo "✅ Web app tests completed" >> $GITHUB_STEP_SUMMARY
-          echo "✅ Infrastructure tests completed" >> $GITHUB_STEP_SUMMARY
+          echo "| Job | Status |" >> $GITHUB_STEP_SUMMARY
+          echo "|-----|--------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Core Tests | ${{ needs.test-core.result == 'success' && '✅ Passed' || '❌ Failed' }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Functions Tests | ${{ needs.test-functions.result == 'success' && '✅ Passed' || '❌ Failed' }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Web UI Tests | ${{ needs.test-web.result == 'success' && '✅ Passed' || '❌ Failed' }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Infra Tests | ${{ needs.test-infra.result == 'success' && '✅ Passed' || '❌ Failed' }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Lint | ${{ needs.lint-web.result == 'success' && '✅ Passed' || '❌ Failed' }} |" >> $GITHUB_STEP_SUMMARY
