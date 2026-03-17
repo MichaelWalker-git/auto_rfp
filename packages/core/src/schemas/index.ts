@@ -26,6 +26,7 @@ export * from './rfp-document';
 export * from './clustering';
 export * from './collaboration';
 export * from './opportunity-context';
+export * from './pricing';
 export * from './notification';
 export * from './audit';
 export * from './clarifying-question';

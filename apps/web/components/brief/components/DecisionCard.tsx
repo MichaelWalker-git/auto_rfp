@@ -14,6 +14,15 @@ import {
 } from '@/lib/hooks/use-executive-brief';
 import { RequiredDocumentsPanel } from './RequiredDocumentsPanel';
 
+const getDecisionText = (decision: string) => {
+  switch (decision) {
+    case 'GO': return 'Go';
+    case 'NO_GO': return 'No Go';
+    case 'CONDITIONAL_GO': return 'Review Required';
+    default: return decision;
+  }
+};
+
 function ConfidenceBadge({ confidence }: { confidence?: number }) {
   const pct = Math.round(confidence ?? 0);
   const variant = pct >= 80 ? 'default' : pct >= 60 ? 'secondary' : 'outline';
@@ -172,7 +181,7 @@ export function DecisionCard({
               className="text-lg px-6 py-2"
               title="Final GO / NO-GO recommendation."
             >
-              {decisionBadge || '—'}
+              {decisionBadge ? getDecisionText(decisionBadge) : '—'}
             </Badge>
 
             <div className="flex items-center gap-2">

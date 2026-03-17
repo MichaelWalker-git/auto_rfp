@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { PastPerformanceSectionSchema } from './past-performance';
+import { PricingSectionSchema } from './pricing';
 import { RFPDocumentTypeSchema } from './rfp-document';
 
 /**
@@ -260,6 +261,7 @@ export const ExecutiveBriefItemSchema = z.object({
     requirements: SectionWrapperSchema(RequirementsSectionSchema),
     contacts: SectionWrapperSchema(ContactsSectionSchema),
     risks: SectionWrapperSchema(RisksSectionSchema),
+    pricing: SectionWrapperSchema(PricingSectionSchema),
     pastPerformance: SectionWrapperSchema(PastPerformanceSectionSchema),
     scoring: SectionWrapperSchema(ScoringSectionSchema),
   }),

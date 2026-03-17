@@ -1,3 +1,5 @@
+const isCI = process.env.CI === 'true';
+
 /** @type {import('jest').Config} */
 export default {
   preset: 'ts-jest/presets/default-esm',
@@ -17,6 +19,11 @@ export default {
       {
         useESM: true,
         tsconfig: './tsconfig.test.json',
+        // Skip type-checking during transform — major speedup (2-5x faster)
+        // Type safety is enforced by `tsc --noEmit` in CI separately
+        isolatedModules: true,
+        // Use AST-based transformation (faster than program-based)
+        diagnostics: false,
       },
     ],
   },
@@ -26,11 +33,20 @@ export default {
   transformIgnorePatterns: [
     'node_modules/(?!(@auto-rfp)/)',
   ],
-  // Performance optimizations to prevent system overload
-  maxWorkers: '50%', // Use only 50% of available CPU cores
-  testTimeout: 10000, // 10 second timeout per test
-  workerIdleMemoryLimit: '512MB', // Kill workers using too much memory
-  bail: 0, // Don't bail on first test failure (set to 1 to stop after first failure)
+
+  // ── Performance optimizations ──────────────────────────────────────────────
+  // Use 75% of CPUs locally for faster feedback, 50% in CI to avoid OOM on 2-core runners
+  maxWorkers: isCI ? '50%' : '75%',
+  testTimeout: 10000,
+  workerIdleMemoryLimit: '512MB',
+
+  // Cache transformed files between runs for faster subsequent executions
+  cache: true,
+  cacheDirectory: '<rootDir>/node_modules/.cache/jest',
+
+  // Don't bail on first failure
+  bail: 0,
+
   // Coverage collection can be memory-intensive - disable by default
   collectCoverage: false,
 };
