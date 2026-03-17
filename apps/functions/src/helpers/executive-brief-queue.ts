@@ -20,6 +20,7 @@ export type BriefSection =
   | 'requirements'
   | 'contacts'
   | 'risks'
+  | 'pricing'
   | 'scoring';
 
 export const ExecutiveBriefJobRequestSchema = z.object({

@@ -5,6 +5,7 @@ import {
   ContactsSectionSchema,
   DeadlinesSectionSchema,
   type ExecutiveBriefItem,
+  PricingSectionSchema,
   QuickSummarySchema,
   RequirementsSectionSchema,
   RisksSectionSchema,
@@ -47,12 +48,14 @@ import { loadTextFromS3 } from '@/helpers/s3';
 import { storeDeadlinesSeparately } from '@/helpers/deadlines';
 import { invokeClaudeWithTools } from '@/helpers/bedrock-tool-loop';
 import { BRIEF_TOOLS, executeBriefTool } from '@/helpers/brief-tools';
+import { PRICING_TOOLS, executePricingTool } from '@/helpers/pricing-tools';
+import { usePricingSystemPrompt, usePricingUserPrompt } from '@/constants/pricing-prompts';
 import { onBriefScoringComplete } from '@/helpers/opportunity-stage';
 
 const JobSchema = z.object({
   orgId: z.string().min(1),
   executiveBriefId: z.string().min(1),
-  section: z.enum(['summary', 'deadlines', 'requirements', 'contacts', 'risks', 'scoring']),
+  section: z.enum(['summary', 'deadlines', 'requirements', 'contacts', 'risks', 'pricing', 'scoring']),
   topK: z.number().int().min(1).max(100).optional(),
   inputHash: z.string().min(1),
   retryCount: z.number().int().min(0).optional().default(0),
@@ -482,6 +485,62 @@ async function runRisks(job: Job): Promise<void> {
   }
 }
 
+async function runPricing(job: Job): Promise<void> {
+  const { orgId, executiveBriefId, inputHash: inputHashFromJob } = job;
+
+  try {
+    const brief: ExecutiveBriefItem = await getExecutiveBrief(executiveBriefId);
+    const projectId = brief.projectId;
+    const opportunityId = brief.opportunityId as string;
+
+    const inputHash =
+      inputHashFromJob ||
+      buildSectionInputHash({
+        executiveBriefId,
+        section: 'pricing',
+        opportunityId,
+        allTextKeys: brief.allTextKeys,
+      });
+
+    await markSectionInProgress({ executiveBriefId, section: 'pricing', inputHash });
+
+    const { solicitationText: rawText } = await loadSolicitationForBrief(brief);
+    const solicitationText = truncateText(rawText, MAX_SOLICITATION_CHARS);
+    const kbPrimer = await loadKbPrimer(orgId, solicitationText, 3);
+
+    // Get requirements section for context
+    const requirementsData = (brief.sections as Record<string, { data?: unknown }>)?.requirements?.data;
+
+    const data = await invokeClaudeWithTools({
+      modelId: BEDROCK_MODEL_ID,
+      system: await usePricingSystemPrompt(orgId),
+      user: await usePricingUserPrompt(
+        orgId,
+        solicitationText,
+        requirementsData ? JSON.stringify(requirementsData) : '',
+        kbPrimer,
+      ),
+      tools: [...BRIEF_TOOLS, ...PRICING_TOOLS],
+      toolExecutor: (toolName, toolInput, toolUseId) =>
+        executePricingTool({ toolName, toolInput, toolUseId, orgId, projectId, opportunityId, executiveBriefId }),
+      outputSchema: PricingSectionSchema,
+      maxTokens: 6000,
+      temperature: 0.2,
+      maxToolRounds: 3,
+    });
+
+    await markSectionComplete({
+      executiveBriefId,
+      section: 'pricing',
+      data,
+      topLevelPatch: { status: 'IN_PROGRESS' },
+    });
+  } catch (err) {
+    await markSectionFailed({ executiveBriefId, section: 'pricing', error: err });
+    throw err;
+  }
+}
+
 async function runScoring(job: Job): Promise<void> {
   const { orgId, executiveBriefId, inputHash: inputHashFromJob } = job;
 
@@ -637,6 +696,7 @@ const sectionHandlers: Record<Section, (job: Job) => Promise<void>> = {
   requirements: runRequirements,
   contacts: runContacts,
   risks: runRisks,
+  pricing: runPricing,
   scoring: runScoring,
 };
 

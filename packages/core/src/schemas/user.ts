@@ -68,6 +68,10 @@ export const APN_PERMISSIONS = [
   'apn:retry',
 ] as const;
 
+export const PRICING_PERMISSIONS = [
+  'pricing:create', 'pricing:read', 'pricing:edit', 'pricing:delete', 'pricing:calculate'
+] as const;
+
 export const ALL_PERMISSIONS = [
   ...USER_PERMISSIONS,
   ...ORG_PERMISSIONS,
@@ -76,6 +80,7 @@ export const ALL_PERMISSIONS = [
   ...PROMPT_PERMISSIONS,
   ...CONTENT_LIBRARY_PERMISSIONS,
   ...APN_PERMISSIONS,
+  ...PRICING_PERMISSIONS,
   'kb:upload', 'kb:read', 'kb:create', 'kb:edit', 'kb:delete',
   'project:create', 'project:edit', 'project:read', 'project:delete',
   'question:read', 'question:create', 'question:edit', 'question:delete',
@@ -104,6 +109,7 @@ export type Permission = (typeof ALL_PERMISSIONS)[number];
 export const VIEWER_PERMISSIONS = [
   'question:read', 'org:read', 'kb:read', 'proposal:read', 'project:read', 'document:read', 'user:read', 'answer:read', 'opportunity:read',
   'template:read',
+  'pricing:read',
 ] as const;
 
 export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
@@ -127,9 +133,11 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     'notification:read',
     'apn:read',
     'apn:retry',
+    'pricing:create', 'pricing:read', 'pricing:edit', 'pricing:calculate',
   ],
   BILLING: [
     'question:read', 'org:read', 'kb:read', 'proposal:read', 'project:read',
+    'pricing:read', 'pricing:calculate',
   ],
   MEMBER: []
 };

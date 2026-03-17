@@ -847,6 +847,8 @@ export const buildSectionsState = (briefItem: ExecutiveBriefItem | null | undefi
     contacts: s.contacts?.status,
     requirements: s.requirements?.status,
     risks: s.risks?.status,
+    pricing: s.pricing?.status,
+    pastPerformance: s.pastPerformance?.status,
     scoring: s.scoring?.status,
   } as const;
 };
