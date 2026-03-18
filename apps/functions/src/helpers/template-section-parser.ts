@@ -5,21 +5,62 @@
  * a section outline that can be used for section-by-section document generation.
  * It also preserves the original HTML content between headings so the AI can
  * maintain template boilerplate, images, and resolved macro values.
+ *
+ * Enhanced to support:
+ * - Robust section boundary detection (h2-based splitting)
+ * - Section-level template content preservation (images, boilerplate, macros)
+ * - Content placeholder detection for simple templates
  */
 
 import type { DocumentSection } from './document-section-generator';
 
+// ─── Text Extraction Helpers ──────────────────────────────────────────────────
+
 /**
- * Parse template HTML to extract sections based on heading structure.
+ * Strip HTML tags, unresolved macros, and placeholder text from a string.
+ * Returns clean text suitable for use as a section title or description.
+ */
+const cleanHeadingText = (raw: string): string =>
+  raw
+    .replace(/<[^>]+>/g, '')           // Remove HTML tags
+    .replace(/\{\{[A-Z0-9_]+\}\}/g, '') // Remove unresolved {{MACRO}} placeholders
+    .replace(/\[[^\]]+\]/g, '')         // Remove [placeholder] text
+    .replace(/&nbsp;/g, ' ')           // Replace &nbsp; with space
+    .replace(/&amp;/g, '&')           // Decode &amp;
+    .replace(/\s+/g, ' ')             // Collapse whitespace
+    .trim();
+
+/**
+ * Extract all <h3> headings from a block of HTML content.
+ * Returns them as a concatenated description string.
+ */
+const extractH3Descriptions = (html: string): string | undefined => {
+  const h3Matches = [...html.matchAll(/<h3[^>]*>([\s\S]*?)<\/h3>/gi)];
+  if (!h3Matches.length) return undefined;
+
+  const descriptions = h3Matches
+    .map(m => cleanHeadingText(m[1] ?? ''))
+    .filter(Boolean);
+
+  return descriptions.length > 0 ? descriptions.join('. ') : undefined;
+};
+
+// ─── Main Parser ──────────────────────────────────────────────────────────────
+
+/**
+ * Parse template HTML to extract sections based on <h2> heading structure.
  *
  * Strategy:
- * - Extract all <h2> and <h3> headings from the template
- * - Each <h2> becomes a major section
- * - <h3> following an <h2> becomes guidance/description for that section
- * - Content between headings is preserved as `templateContent` for each section
- * - Ignore <h1> (document title) and headings beyond <h3>
+ * 1. Find all <h2> positions in the template
+ * 2. Split the template at each <h2> boundary
+ * 3. For each section:
+ *    - Extract the <h2> text as the section title
+ *    - Extract any <h3> headings as description/guidance
+ *    - Preserve the full HTML content between this <h2> and the next as `templateContent`
+ * 4. Content before the first <h2> is the preamble (not a section)
+ * 5. Content after the last section may include a postamble
  *
- * Returns null if no sections found (simple wrapper template).
+ * Returns null if no <h2> sections found (simple wrapper template).
  *
  * @param templateHtml - Raw HTML template with {{MACRO}} placeholders resolved
  * @returns Array of sections or null if no structured sections found
@@ -27,75 +68,53 @@ import type { DocumentSection } from './document-section-generator';
 export const parseTemplateSections = (templateHtml: string): DocumentSection[] | null => {
   if (!templateHtml?.trim()) return null;
 
-  // Extract all heading tags with their text content and positions
-  // Match: <h2>Title</h2>, <h2 class="...">Title</h2>, <h3>Subtitle</h3>
-  const headingMatches = [
-    ...templateHtml.matchAll(/<h([23])[^>]*>(.*?)<\/h\1>/gi),
-  ];
+  // Find all <h2> tag positions
+  const h2Positions: Array<{ index: number; fullMatch: string; innerHtml: string }> = [];
+  const h2Regex = /<h2[^>]*>([\s\S]*?)<\/h2>/gi;
+  let match: RegExpExecArray | null;
 
-  if (headingMatches.length === 0) {
-    // No headings found — this is a simple wrapper template
+  while ((match = h2Regex.exec(templateHtml)) !== null) {
+    h2Positions.push({
+      index: match.index,
+      fullMatch: match[0],
+      innerHtml: match[1] ?? '',
+    });
+  }
+
+  if (h2Positions.length === 0) {
+    // No <h2> headings found — this is a simple wrapper template
     return null;
   }
 
   const sections: DocumentSection[] = [];
-  let currentSection: DocumentSection | null = null;
-  let currentSectionEndIndex = -1;
 
-  for (const match of headingMatches) {
-    const level = match[1]; // '2' or '3'
-    const rawText = match[2] ?? '';
-    const matchStartIndex = match.index ?? 0;
+  for (let i = 0; i < h2Positions.length; i++) {
+    const current = h2Positions[i]!;
+    const next = h2Positions[i + 1];
 
-    // Strip HTML tags and macros from the heading text
-    const text = rawText
-      .replace(/<[^>]+>/g, '') // Remove HTML tags
-      .replace(/\{\{[A-Z0-9_]+\}\}/g, '') // Remove unresolved macros
-      .replace(/\[[^\]]+\]/g, '') // Remove [placeholder] text
-      .trim();
+    // Extract section title from <h2> content
+    const title = cleanHeadingText(current.innerHtml);
+    if (!title) continue; // Skip empty headings
 
-    if (!text) continue; // Skip empty headings
+    // Determine the content boundary for this section:
+    // From end of <h2> tag to start of next <h2> tag (or end of document)
+    const sectionContentStart = current.index + current.fullMatch.length;
+    const sectionContentEnd = next ? next.index : templateHtml.length;
+    const sectionContent = templateHtml.substring(sectionContentStart, sectionContentEnd).trim();
 
-    if (level === '2') {
-      // Before starting a new section, capture the content of the previous section
-      if (currentSection && currentSectionEndIndex >= 0) {
-        const contentBetween = templateHtml.substring(currentSectionEndIndex, matchStartIndex).trim();
-        if (contentBetween) {
-          currentSection.templateContent = contentBetween;
-        }
-      }
+    // Extract <h3> headings from section content as description
+    const description = extractH3Descriptions(sectionContent);
 
-      // H2 = new major section — push previous section
-      if (currentSection) {
-        sections.push(currentSection);
-      }
+    // Build the section object
+    const section: DocumentSection = {
+      title,
+      ...(description && { description }),
+      // Preserve the full section content (between h2 boundaries) including
+      // boilerplate, images, resolved macros, and placeholder markers
+      ...(sectionContent && { templateContent: sectionContent }),
+    };
 
-      // Track where this heading ends (after the closing tag)
-      const fullMatchLength = match[0]?.length ?? 0;
-      currentSectionEndIndex = matchStartIndex + fullMatchLength;
-
-      currentSection = { title: text };
-    } else if (level === '3' && currentSection) {
-      // H3 = description/guidance for current section
-      if (!currentSection.description) {
-        currentSection.description = text;
-      } else {
-        // Multiple H3s — concatenate
-        currentSection.description += `. ${text}`;
-      }
-      // Update end index to after this h3
-      const fullMatchLength = match[0]?.length ?? 0;
-      currentSectionEndIndex = matchStartIndex + fullMatchLength;
-    }
-  }
-
-  // Capture content for the last section (from last heading to end of template)
-  if (currentSection && currentSectionEndIndex >= 0) {
-    const remainingContent = templateHtml.substring(currentSectionEndIndex).trim();
-    if (remainingContent) {
-      currentSection.templateContent = remainingContent;
-    }
-    sections.push(currentSection);
+    sections.push(section);
   }
 
   return sections.length > 0 ? sections : null;
@@ -104,141 +123,34 @@ export const parseTemplateSections = (templateHtml: string): DocumentSection[] |
 /**
  * Determine if a template has meaningful structure (sections) or is just a wrapper.
  *
- * A template has structure if it contains <h2> or <h3> headings.
+ * A template has structure if it contains <h2> headings.
  * A template is a simple wrapper if it only contains {{CONTENT}} placeholders.
  *
  * @param templateHtml - Raw HTML template
- * @returns true if template has structured sections (h2/h3 headings)
+ * @returns true if template has structured sections (h2 headings)
  */
 export const templateHasStructure = (templateHtml: string): boolean => {
   if (!templateHtml?.trim()) return false;
-  return /<h[23][^>]*>/i.test(templateHtml);
-};
-
-// ─── Template Preamble / Postamble Extraction ─────────────────────────────────
-
-/**
- * Extract the "preamble" from a template — everything before the first <h2> tag.
- *
- * This typically includes:
- * - HTML comments (scaffold markers)
- * - Company logo / header images
- * - Document title (<h1>)
- * - Introductory text, dates, solicitation numbers
- * - Any boilerplate before the first major section
- *
- * @param templateHtml - Preprocessed template HTML (macros already resolved)
- * @returns The preamble HTML string, or empty string if no <h2> found
- */
-export const extractTemplatePreamble = (templateHtml: string): string => {
-  if (!templateHtml?.trim()) return '';
-
-  const firstH2Match = templateHtml.match(/<h2[\s>]/i);
-  if (!firstH2Match?.index) return '';
-
-  return templateHtml.substring(0, firstH2Match.index).trim();
-};
-
-/**
- * Extract the "postamble" from a template — everything after the last section's content.
- *
- * Strategy:
- * 1. Find all <h2> positions
- * 2. The last section starts at the last <h2>
- * 3. The postamble is content after the last section that doesn't belong to any section
- *
- * In practice, we look for content after the last section's placeholder/content block.
- * If the template ends with section content, the postamble is empty.
- *
- * @param templateHtml - Preprocessed template HTML (macros already resolved)
- * @returns The postamble HTML string, or empty string if none found
- */
-export const extractTemplatePostamble = (templateHtml: string): string => {
-  if (!templateHtml?.trim()) return '';
-
-  // Find all h2 positions
-  const h2Matches = [...templateHtml.matchAll(/<h2[^>]*>.*?<\/h2>/gi)];
-  if (h2Matches.length === 0) return '';
-
-  const lastH2 = h2Matches[h2Matches.length - 1]!;
-  const lastH2End = (lastH2.index ?? 0) + lastH2[0].length;
-
-  // Look for content after the last section that appears to be a footer/closing
-  // We consider the postamble to be any content after the last section that:
-  // - Comes after a significant gap (empty lines, <hr>, etc.)
-  // - Contains footer-like elements (copyright, contact info, page numbers)
-  // - Is NOT a [CONTENT: ...] placeholder or section body text
-
-  const afterLastH2 = templateHtml.substring(lastH2End);
-
-  // Find the next h2 (shouldn't exist since this is the last one, but safety check)
-  const nextH2 = afterLastH2.match(/<h2[\s>]/i);
-  if (nextH2) return ''; // There's another h2 — no postamble
-
-  // Look for a clear boundary: <hr>, <!-- FOOTER -->, or similar markers
-  const footerMarkers = [
-    /<!--\s*FOOTER\s*-->/i,
-    /<!--\s*END\s+(?:OF\s+)?(?:CONTENT|SECTIONS|DOCUMENT)\s*-->/i,
-    /<hr\s*\/?>/i,
-    /<footer[\s>]/i,
-  ];
-
-  for (const marker of footerMarkers) {
-    const match = afterLastH2.match(marker);
-    if (match?.index !== undefined) {
-      return afterLastH2.substring(match.index).trim();
-    }
-  }
-
-  // No explicit footer marker found — no postamble
-  return '';
+  return /<h2[^>]*>/i.test(templateHtml);
 };
 
 // ─── Template Content Injection ───────────────────────────────────────────────
 
 /**
- * Inject AI-generated section HTML fragments back into the original template structure.
+ * Inject AI-generated section HTML fragments into a single document.
  *
- * This is the key function that ensures generated documents preserve the template's
- * header, footer, images, boilerplate, and styling while replacing only the section
- * content with AI-generated text.
+ * Simply joins the generated section fragments with double newlines.
+ * Each fragment is a complete HTML snippet starting with an <h2> heading.
  *
- * Strategy:
- * 1. Extract the template preamble (header, logo, title, intro before first <h2>)
- * 2. Extract the template postamble (footer, closing after last section)
- * 3. Reconstruct: preamble + generated sections + postamble
- *
- * @param templateHtml - The preprocessed template HTML (macros resolved, images preserved)
+ * @param _templateHtml - Unused (kept for API compatibility)
  * @param sectionHtmlFragments - Array of generated HTML fragments, each starting with <h2>
- * @returns Complete document HTML with template structure preserved
+ * @returns Complete document HTML from joined section fragments
  */
 export const injectSectionsIntoTemplate = (
-  templateHtml: string,
+  _templateHtml: string,
   sectionHtmlFragments: string[],
 ): string => {
-  if (!templateHtml?.trim() || !sectionHtmlFragments.length) {
-    return sectionHtmlFragments.join('\n\n');
-  }
-
-  const preamble = extractTemplatePreamble(templateHtml);
-  const postamble = extractTemplatePostamble(templateHtml);
-
-  const parts: string[] = [];
-
-  // Add preamble (header, logo, title, intro)
-  if (preamble) {
-    parts.push(preamble);
-  }
-
-  // Add all generated section fragments
-  parts.push(...sectionHtmlFragments);
-
-  // Add postamble (footer, closing)
-  if (postamble) {
-    parts.push(postamble);
-  }
-
-  return parts.join('\n\n');
+  return sectionHtmlFragments.join('\n\n');
 };
 
 /**

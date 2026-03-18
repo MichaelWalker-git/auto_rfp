@@ -20,6 +20,7 @@ import {
 import { uploadFileToS3, usePresignDownload, usePresignUpload } from '@/lib/hooks/use-presign';
 import { useRevertVersion, useCherryPick } from '@/lib/hooks/use-document-versions';
 import { RichTextEditor, stripPresignedUrlsFromHtml } from './rich-text-editor';
+import { sanitizeGeneratedHtml } from './rfp-document-utils';
 import { RFPDocumentExportDialog } from './rfp-document-export-dialog';
 import { RequestApprovalButton, ApprovalStatusBadge, ResubmitForReviewButton } from '@/features/document-approval';
 import { useApprovalHistory } from '@/features/document-approval';
@@ -68,6 +69,8 @@ export const OpportunityDocumentEditorPage = ({
   const htmlInitializedRef = useRef(false);
   // Manual state to track regeneration start (independent of SWR mutation state)
   const [isRegenerateStarting, setIsRegenerateStarting] = useState(false);
+  // Ref version for synchronous reads during render (avoids 1-frame delay from setState)
+  const isRegenerateStartingRef = useRef(false);
   // Counter to force editor remount when content is programmatically replaced
   const [editorKey, setEditorKey] = useState(0);
 
@@ -99,9 +102,10 @@ export const OpportunityDocumentEditorPage = ({
     orgId,
   );
 
-  // Only fetch HTML once doc is loaded (key is null until then).
-  // The hook always returns html as a string ('' when not yet loaded).
-  const htmlFetchEnabled = !!doc;
+  // Only fetch HTML when doc is loaded AND not generating/regenerating.
+  // During generation, the HTML endpoint returns 202/404 — no point fetching.
+  // Content will be fetched once generation completes (status transitions away from GENERATING).
+  const htmlFetchEnabled = !!doc && !isDocumentGenerating(doc?.status) && !isRegenerateStarting;
   const {
     html: serverHtml,
     isLoading: isHtmlLoading,
@@ -173,6 +177,9 @@ export const OpportunityDocumentEditorPage = ({
 
   useEffect(() => {
     if (!doc) return;
+    // Don't initialize during generation — the "Generating…" overlay handles this state.
+    // Content will be initialized after generation completes and HTML is fetched.
+    if (isDocumentGenerating(doc.status) || isRegenerateStarting) return;
     // Wait for loading to complete OR error to occur
     if (isHtmlLoading && !isHtmlError) return;
     if (htmlInitializedRef.current) return;
@@ -185,7 +192,7 @@ export const OpportunityDocumentEditorPage = ({
 
     htmlInitializedRef.current = true;
     setHtmlInitialized(true);
-    setHtmlContent(serverHtml || '');
+    setHtmlContent(sanitizeGeneratedHtml(serverHtml || ''));
 
     // Show error toast if HTML fetch failed
     if (isHtmlError) {
@@ -195,7 +202,7 @@ export const OpportunityDocumentEditorPage = ({
         variant: 'default',
       });
     }
-  }, [doc, isHtmlLoading, isHtmlError, serverHtml, toast]);
+  }, [doc, isHtmlLoading, isHtmlError, serverHtml, toast, isRegenerateStarting]);
 
   // Manual polling while waiting for regeneration to start
   useEffect(() => {
@@ -217,6 +224,7 @@ export const OpportunityDocumentEditorPage = ({
     // When status becomes GENERATING, clear the regenerate starting flag
     if (currentStatus === 'GENERATING' && prevStatusRef.current !== 'GENERATING') {
       console.log('[OpportunityDocEditor] Status became GENERATING, stopping manual polling');
+      isRegenerateStartingRef.current = false;
       setIsRegenerateStarting(false);
     }
 
@@ -244,10 +252,12 @@ export const OpportunityDocumentEditorPage = ({
         // Force editor remount after HTML is fetched
         setEditorKey((k) => k + 1);
       });
+      // Refresh version history — generation creates a new version snapshot
+      invalidateVersionsCache();
     }
 
     prevStatusRef.current = currentStatus;
-  }, [doc?.status, mutateHtml, isRegenerateStarting]);
+  }, [doc?.status, mutateHtml, isRegenerateStarting, invalidateVersionsCache]);
 
   // Reset when navigating to a different document (skip initial mount — component is already fresh)
   const prevDocumentIdRef = useRef(documentId);
@@ -263,7 +273,12 @@ export const OpportunityDocumentEditorPage = ({
 
   const handleRegenerate = useCallback(async () => {
     if (!doc) return;
+    // Set regeneration flag FIRST — ref updates synchronously so any render
+    // triggered by subsequent state changes will see isInGeneration=true immediately.
+    isRegenerateStartingRef.current = true;
     setIsRegenerateStarting(true);
+    htmlInitializedRef.current = false;
+    setHtmlInitialized(false);
     try {
       await triggerGenerate({
         projectId,
@@ -275,14 +290,18 @@ export const OpportunityDocumentEditorPage = ({
       // Force polling hook to refetch document status immediately
       mutateDoc();
       // Don't reset isRegenerateStarting here - let it stay true until status becomes GENERATING
-      // Don't reset HTML state here - let the status change effect handle it when generation completes
     } catch (err) {
       toast({
         title: 'Regeneration failed',
         description: err instanceof Error ? err.message : 'Could not start regeneration.',
         variant: 'destructive',
       });
-      setIsRegenerateStarting(false); // Only reset on error
+      // Reset on error — htmlFetchEnabled will become true again (isRegenerateStarting=false),
+      // which triggers the prevHtmlFetchEnabled effect to re-initialize from SWR cache.
+      isRegenerateStartingRef.current = false;
+      setIsRegenerateStarting(false);
+      htmlInitializedRef.current = false;
+      setHtmlInitialized(false);
     }
   }, [doc, projectId, opportunityId, documentId, triggerGenerate, mutateDoc, toast]);
 
@@ -416,10 +435,18 @@ export const OpportunityDocumentEditorPage = ({
   const isGenerating = isDocumentGenerating(doc?.status);
   const isFailed = isDocumentFailed(doc?.status);
   const isReady = isDocumentReady(doc?.status);
+  // Treat the document as "in generation" if either the backend status says so
+  // OR we've locally triggered regeneration (covers the gap before backend confirms).
+  // Also keep showing generation state while htmlInitialized is false after generation
+  // was recently active (prevents blank flash during state transitions).
+  // Use BOTH state and ref for isRegenerateStarting — ref is synchronous (no 1-frame delay),
+  // state triggers re-renders. Together they ensure no gap where isInGeneration is false.
+  const isInGeneration = isGenerating || isRegenerateStarting || isRegenerateStartingRef.current || isRegenerating
+    || (!htmlInitialized && !isFailed && prevStatusRef.current === 'GENERATING');
   // Editor is ready when: document is ready (not generating/failed), HTML fetch done, and initialized.
   // Uses htmlInitialized (state) so React re-renders when initialization completes.
-  const isEditorReady = isReady && !isHtmlLoading && htmlInitialized;
-  const isBusy = isMutating || isRegenerating || isGenerating || isRegenerateStarting;
+  const isEditorReady = isReady && !isInGeneration && !isHtmlLoading && htmlInitialized;
+  const isBusy = isMutating || isInGeneration;
   const isEditingDisabled = isBusy || isApproved;
   const backUrl = `/organizations/${orgId}/projects/${projectId}/opportunities/${opportunityId}`;
 
@@ -621,14 +648,15 @@ export const OpportunityDocumentEditorPage = ({
       <div className="flex flex-1 min-h-0 overflow-hidden">
         {/* Main editor area */}
         <div className="flex-1 min-h-0 overflow-hidden">
-          {(isGenerating || isRegenerateStarting) ? (
-            <div className="flex flex-col items-center justify-center h-full gap-4 text-muted-foreground">
+          {/* Priority 1: Generation state — checked first, always wins */}
+          {isInGeneration ? (
+            <div className="flex flex-col items-center justify-center h-full gap-4 text-muted-foreground bg-background">
               <Loader2 className="h-10 w-10 animate-spin text-indigo-500" />
               <p className="text-sm font-medium">Generating document content…</p>
               <p className="text-xs">This may take up to a minute.</p>
             </div>
           ) : isFailed ? (
-            <div className="flex flex-col items-center justify-center h-full gap-4">
+            <div className="flex flex-col items-center justify-center h-full gap-4 bg-background">
               <div className="rounded-full bg-red-50 p-3">
                 <FileText className="h-10 w-10 text-red-500" />
               </div>
@@ -648,12 +676,7 @@ export const OpportunityDocumentEditorPage = ({
                 </Button>
               </div>
             </div>
-          ) : !isEditorReady ? (
-            <div className="flex flex-col items-center justify-center h-full gap-3 text-muted-foreground">
-              <Loader2 className="h-8 w-8 animate-spin" />
-              <p className="text-sm">Loading content…</p>
-            </div>
-          ) : (
+          ) : isEditorReady ? (
             <RichTextEditor
               key={editorKey}
               value={htmlContent}
@@ -665,6 +688,11 @@ export const OpportunityDocumentEditorPage = ({
               onGetDownloadUrl={handleGetDownloadUrl}
               onUploadingChange={setIsImageUploading}
             />
+          ) : (
+            <div className="flex flex-col items-center justify-center h-full gap-3 text-muted-foreground bg-background">
+              <Loader2 className="h-8 w-8 animate-spin" />
+              <p className="text-sm">Loading content…</p>
+            </div>
           )}
         </div>
 

@@ -70,7 +70,7 @@ export const ScoringGrid = ({ scoring }: { scoring: ScoringSection | undefined |
   const criteriaList = scoring.criteria ?? [];
   const compositeScore = scoring.compositeScore ?? 0;
   const confidence = scoring.confidence ?? 0;
-  const decision = decisionConfig(scoring.decision);
+  const decision = decisionConfig(scoring.decision ?? undefined);
   const DecisionIcon = decision.icon;
 
   const getCriterion = (key: string) => criteriaList.find((c) => c.name === key);

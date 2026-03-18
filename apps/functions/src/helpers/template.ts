@@ -2,7 +2,7 @@ import { GetCommand, PutCommand, QueryCommand, UpdateCommand } from '@aws-sdk/li
 import { docClient } from './db';
 import { requireEnv } from './env';
 import { PK_NAME, SK_NAME } from '../constants/common';
-import { createTemplateSK, TEMPLATE_PK, type TemplateItem, type TemplateSection, } from '@auto-rfp/core';
+import { createTemplateSK, TEMPLATE_PK, type TemplateItem } from '@auto-rfp/core';
 import { loadTextFromS3, uploadToS3 } from './s3';
 
 const TABLE_NAME = requireEnv('DB_TABLE_NAME');
@@ -142,37 +142,6 @@ export const updateTemplateFields = async (
 };
 
 // ================================
-// S3 Version Operations
-// ================================
-
-export const saveTemplateVersion = async (
-  orgId: string,
-  templateId: string,
-  version: number,
-  content: { sections: TemplateSection[]; macros: unknown[]; styling?: unknown },
-): Promise<string> => {
-  const s3Key = buildTemplateS3Key(orgId, templateId, version);
-  await uploadToS3(
-    DOCUMENTS_BUCKET,
-    s3Key,
-    JSON.stringify(content),
-    'application/json',
-  );
-  return s3Key;
-};
-
-export const loadTemplateVersion = async (
-  orgId: string,
-  templateId: string,
-  version: number,
-): Promise<{ sections: TemplateSection[]; macros: unknown[]; styling?: unknown } | null> => {
-  const s3Key = buildTemplateS3Key(orgId, templateId, version);
-  const text = await loadTextFromS3(DOCUMENTS_BUCKET, s3Key);
-  if (!text) return null;
-  return JSON.parse(text);
-};
-
-// ================================
 // HTML Content S3 Helpers
 // ================================
 
@@ -200,6 +169,39 @@ export const uploadTemplateHtml = async (
  */
 export const loadTemplateHtml = async (htmlContentKey: string): Promise<string> =>
   loadTextFromS3(DOCUMENTS_BUCKET, htmlContentKey);
+
+// ================================
+// Template Selection
+// ================================
+
+/**
+ * Find the best template for a given org and document category.
+ * Prefers PUBLISHED over DRAFT, then most recently updated.
+ * Returns null if no matching template is found.
+ */
+export const findBestTemplate = async (
+  orgId: string,
+  category: string,
+): Promise<TemplateItem | null> => {
+  const { items: allItems } = await listTemplatesByOrg(orgId, {
+    category,
+    excludeArchived: true,
+    limit: 50,
+  });
+
+  if (allItems.length === 0) return null;
+
+  // Sort: PUBLISHED first, then by updatedAt descending (most recent first)
+  const sorted = [...allItems].sort((a, b) => {
+    if (a.status === 'PUBLISHED' && b.status !== 'PUBLISHED') return -1;
+    if (b.status === 'PUBLISHED' && a.status !== 'PUBLISHED') return 1;
+    return new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime();
+  });
+
+  const best = sorted[0]!;
+  console.log(`Auto-selected template for ${category}: "${best.name}" (${best.status}, updated: ${best.updatedAt})`);
+  return best;
+};
 
 // ================================
 // Macro Engine

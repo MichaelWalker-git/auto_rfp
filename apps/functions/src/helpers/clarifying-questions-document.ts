@@ -13,7 +13,7 @@ import {
   updateDocumentStatus,
   buildMacroValues,
 } from '@/helpers/document-generation';
-import { getTemplate, listTemplatesByOrg, loadTemplateHtml, replaceMacros } from '@/helpers/template';
+import { getTemplate, findBestTemplate, loadTemplateHtml, replaceMacros } from '@/helpers/template';
 
 // ─── Constants ───
 
@@ -203,47 +203,20 @@ const resolveTemplateHtmlRaw = async (
   documentType: string,
   templateId?: string,
 ): Promise<string | null> => {
-  let template = null;
+  const template = templateId
+    ? await getTemplate(orgId, templateId)
+    : await findBestTemplate(orgId, documentType);
 
-  if (templateId) {
-    template = await getTemplate(orgId, templateId);
-  } else {
-    try {
-      const { items: allItems } = await listTemplatesByOrg(orgId, {
-        category: documentType,
-        excludeArchived: true,
-        limit: 50,
-      });
+  if (!template?.htmlContentKey) return null;
 
-      if (allItems.length === 0) return null;
-
-      // Sort: PUBLISHED first, then by updatedAt descending
-      const sorted = [...allItems].sort((a, b) => {
-        if (a.status === 'PUBLISHED' && b.status !== 'PUBLISHED') return -1;
-        if (b.status === 'PUBLISHED' && a.status !== 'PUBLISHED') return 1;
-        return new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime();
-      });
-
-      template = sorted[0];
-      console.log(`Auto-selected template for ${documentType}: "${template.name}" (${template.status})`);
-    } catch {
-      return null;
+  try {
+    const html = await loadTemplateHtml(template.htmlContentKey);
+    if (html?.trim()) {
+      console.log(`Loaded raw template HTML from S3: ${template.htmlContentKey} (${html.length} chars)`);
+      return html;
     }
-  }
-
-  if (!template) return null;
-
-  // Load raw HTML without AI preprocessing
-  if (template.htmlContentKey) {
-    try {
-      const html = await loadTemplateHtml(template.htmlContentKey);
-      if (html?.trim()) {
-        console.log(`Loaded raw template HTML from S3: ${template.htmlContentKey} (${html.length} chars)`);
-        return html;
-      }
-    } catch (err) {
-      console.warn('Failed to load template HTML from S3:', err);
-    }
+  } catch (err) {
+    console.warn('Failed to load template HTML from S3:', err);
   }
 
   return null;

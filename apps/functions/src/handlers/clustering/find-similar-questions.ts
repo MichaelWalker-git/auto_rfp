@@ -12,7 +12,7 @@ import {
 import { auditMiddleware, setAuditContext } from '@/middleware/audit-middleware';
 import { apiResponse, getOrgId } from '@/helpers/api';
 import { SIMILAR_THRESHOLD, MAX_SIMILAR_QUESTIONS } from '@/constants/clustering';
-import { getOrganizationById } from '@/handlers/organization/get-organization-by-id';
+import { getOrganizationById } from '@/helpers/org';
 import {
   getQuestionById,
   findSimilarInPinecone,

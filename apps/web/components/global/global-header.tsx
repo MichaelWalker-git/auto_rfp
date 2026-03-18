@@ -171,7 +171,7 @@ function useBreadcrumbs(
         } else if (prevSegment === 'opportunities') {
           bc.push({ label: opportunityTitle || 'Opportunity', href: currentPath, isActive: isLast });
         } else if (prevSegment === 'knowledge-base') {
-          bc.push({ label: kbName || 'Knowledge Base', href: currentPath, isActive: isLast });
+          bc.push({ label: kbName || 'Document Folder', href: currentPath, isActive: isLast });
         } else if (prevSegment === 'team') {
           bc.push({ label: userName || 'Team Member', href: currentPath, isActive: isLast });
         }

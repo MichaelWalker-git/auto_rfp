@@ -55,6 +55,16 @@ function sanitizeJsonString(jsonStr: string): string {
   // Remove control characters except \n, \r, \t
   let sanitized = jsonStr.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F]/g, '');
 
+  // Fix missing commas between properties: "value"\n  "nextKey" → "value",\n  "nextKey"
+  // This handles the common LLM error where a comma is omitted between JSON properties
+  sanitized = sanitized.replace(/("(?:[^"\\]|\\.)*")\s*\n(\s*")/g, '$1,\n$2');
+
+  // Fix missing commas after values before next property: true/false/null/number followed by "key"
+  sanitized = sanitized.replace(/(true|false|null|\d+(?:\.\d+)?)\s*\n(\s*")/g, '$1,\n$2');
+
+  // Fix missing commas after ] or } before next property
+  sanitized = sanitized.replace(/([}\]])\s*\n(\s*")/g, '$1,\n$2');
+
   // Fix trailing commas: ,} or ,]
   sanitized = sanitized.replace(/,(\s*[}\]])/g, '$1');
 

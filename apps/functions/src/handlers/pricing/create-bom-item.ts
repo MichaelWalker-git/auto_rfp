@@ -1,10 +1,10 @@
-import type { APIGatewayProxyEventV2, APIGatewayProxyResultV2 } from 'aws-lambda';
+import type { APIGatewayProxyResultV2 } from 'aws-lambda';
 import middy from '@middy/core';
 import { v4 as uuidv4 } from 'uuid';
-import { CreateLaborRateSchema, type CreateLaborRate, type LaborRate } from '@auto-rfp/core';
+import { CreateBOMItemSchema, type CreateBOMItem, type BOMItem } from '@auto-rfp/core';
 import { apiResponse } from '@/helpers/api';
 import { nowIso } from '@/helpers/date';
-import { createLaborRate, calculateFullyLoadedRate } from '@/helpers/pricing';
+import { createBOMItem } from '@/helpers/pricing';
 import { withSentryLambda } from '@/sentry-lambda';
 import {
   authContextMiddleware,
@@ -17,41 +17,36 @@ import {
 export const baseHandler = async (event: AuthedEvent): Promise<APIGatewayProxyResultV2> => {
   try {
     const rawBody = JSON.parse(event.body || '{}');
-    const { success, data, error } = CreateLaborRateSchema.safeParse(rawBody);
+    const { success, data, error } = CreateBOMItemSchema.safeParse(rawBody);
 
     if (!success) {
       return apiResponse(400, { message: 'Invalid payload', issues: error.issues });
     }
 
-    const dto: CreateLaborRate = data;
+    const dto: CreateBOMItem = data;
     const userId = event.auth?.userId || 'unknown';
     const now = nowIso();
 
-    // Calculate fully loaded rate
-    const fullyLoadedRate = calculateFullyLoadedRate(dto.baseRate, dto.overhead, dto.ga, dto.profit);
-
-    const laborRate: LaborRate = {
+    const bomItem: BOMItem = {
       ...dto,
-      laborRateId: uuidv4(),
-      fullyLoadedRate,
+      bomItemId: uuidv4(),
       createdAt: now,
       updatedAt: now,
       createdBy: userId,
       updatedBy: userId,
     };
 
-    const result = await createLaborRate(laborRate);
+    const result = await createBOMItem(bomItem);
 
-    return apiResponse(201, { laborRate: result });
+    return apiResponse(201, { bomItem: result });
   } catch (err: unknown) {
-    // Handle duplicate position (DynamoDB conditional check failure)
     if (err instanceof Error && (err.name === 'ConditionalCheckFailedException' || err.message === 'The conditional request failed')) {
       return apiResponse(400, {
-        message: `A labor rate for this position already exists. Use a unique position name or update the existing rate.`,
+        message: 'A BOM item with this name and category already exists.',
       });
     }
 
-    console.error('Error in createLaborRate handler:', err);
+    console.error('Error in createBOMItem handler:', err);
     return apiResponse(500, {
       message: 'Internal server error',
       error: err instanceof Error ? err.message : 'Unknown error',
@@ -64,5 +59,5 @@ export const handler = withSentryLambda(
     .use(authContextMiddleware())
     .use(orgMembershipMiddleware())
     .use(requirePermission('pricing:create'))
-    .use(httpErrorMiddleware())
+    .use(httpErrorMiddleware()),
 );

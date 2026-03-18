@@ -2,7 +2,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { queryBySkPrefix } from '@/helpers/db';
 import { updateRFPDocumentMetadata, uploadRFPDocumentHtml, getRFPDocument } from '@/helpers/rfp-document';
 import { loadAllSolicitationTexts } from '@/helpers/executive-opportunity-brief';
-import { getTemplate, listTemplatesByOrg, loadTemplateHtml, replaceMacros } from '@/helpers/template';
+import { getTemplate, findBestTemplate, loadTemplateHtml, replaceMacros } from '@/helpers/template';
 import { MAX_SOLICITATION_CHARS } from '@/constants/document-generation';
 import { QUESTION_PK } from '@/constants/question';
 import {
@@ -10,54 +10,14 @@ import {
   getLatestVersionNumber,
   saveVersionHtml,
 } from '@/helpers/rfp-document-version';
-import type { RFPDocumentContent, TemplateSection } from '@auto-rfp/core';
+import type { RFPDocumentContent } from '@auto-rfp/core';
 import type { BedrockResponse, QaPair } from '@/types/document-generation';
 import { getProjectById } from '@/helpers/project';
-import { getOrganizationById } from '@/handlers/organization/get-organization-by-id';
+import { getOrganizationById } from '@/helpers/org';
 import { getOpportunity } from '@/helpers/opportunity';
 import { getExecutiveBriefByProjectId } from '@/helpers/executive-opportunity-brief';
 
 export type { QaPair };
-
-// ─── Template HTML builder ────────────────────────────────────────────────────
-
-/**
- * Converts template sections to an HTML scaffold that the AI model fills in.
- * Each section becomes an <h2> with its description as a comment, and
- * placeholder content markers so the model knows what to replace.
- */
-export const buildTemplateHtmlScaffold = (sections: TemplateSection[]): string => {
-  if (!sections.length) return '';
-
-  const parts: string[] = [
-    `<!-- TEMPLATE SCAFFOLD: Fill in all [CONTENT] placeholders with real content -->`,
-  ];
-
-  for (const section of sections.sort((a, b) => a.order - b.order)) {
-    parts.push(
-      `<h2 style="font-size:1.4em;font-weight:700;margin:1.5em 0 0.5em">${section.title}</h2>`,
-    );
-
-    if (section.description) {
-      parts.push(
-        `<!-- Section guidance: ${section.description} -->`,
-      );
-    }
-
-    // If the section has pre-authored content (e.g. boilerplate), include it
-    if (section.content?.trim()) {
-      parts.push(section.content.trim());
-    } else {
-      parts.push(
-        `<p style="margin:0 0 1em;line-height:1.7">[CONTENT: Write 3-5 paragraphs for "${section.title}" based on the solicitation and Q&A context]</p>`,
-      );
-    }
-
-    // Sections no longer have subsections — content is stored directly in section.content
-  }
-
-  return parts.join('\n');
-};
 
 // ─── Bedrock response parsing ───
 
@@ -71,89 +31,60 @@ export const extractBedrockText = (outer: BedrockResponse): string => {
 
 // ─── Q&A pairs ───
 
-export async function loadQaPairs(projectId: string): Promise<QaPair[]> {
-  // New SK: {projectId}#{opportunityId}#{questionId} — query by projectId prefix to get all
-  const items = await queryBySkPrefix<QaPair & { question?: string; answer?: string }>(
-    QUESTION_PK,
-    `${projectId}#`,
-  );
-  return items.map(({ question = '', answer = '' }) => ({ question, answer }));
-}
+export const loadQaPairs = async (projectId: string, oppId: string): Promise<QaPair[]> => {
+  const items = await queryBySkPrefix<QaPair>(QUESTION_PK, `${projectId}#${oppId}`);
+  return items.map(({ question, answer }) => ({ question, answer }));
+};
 
 // ─── Solicitation text ───
 
-export async function loadSolicitation(projectId: string, opportunityId: string): Promise<string> {
+export const loadSolicitation = async (projectId: string, opportunityId: string): Promise<string> => {
   try {
     return await loadAllSolicitationTexts(projectId, opportunityId, MAX_SOLICITATION_CHARS);
   } catch (err) {
     console.warn('Failed to load solicitation texts:', (err as Error)?.message);
     return '';
   }
-}
+};
 
-// ─── Template scaffold preprocessing ───
+// ─── Macro Values ─────────────────────────────────────────────────────────────
 
 /**
- * Macro labels for display in the AI scaffold (DEPRECATED - only used as fallback).
- * These replace {{MACRO}} placeholders so the AI understands what value to use.
- * @deprecated Use buildMacroValues to get real data instead of placeholder labels.
+ * Format an ISO date string to a human-readable US date format.
+ * Returns the original string if parsing fails.
  */
-const MACRO_LABELS: Record<string, string> = {
-  // Organization variables
-  COMPANY_NAME:              '[Your Company Name]',
-  ORGANIZATION_DESCRIPTION:  '[Organization Description]',
+const formatDateSafe = (isoDate: string): string => {
+  try {
+    return new Date(isoDate).toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+    });
+  } catch {
+    return isoDate;
+  }
+};
 
-  // Project variables
-  PROJECT_TITLE:             '[Project Title]',
-  PROJECT_DESCRIPTION:       '[Project Description]',
-  PROPOSAL_TITLE:            '[Proposal Title]',
+/**
+ * Format a number as US currency (no decimals).
+ */
+const formatCurrency = (value: number): string =>
+  new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency: 'USD',
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0,
+  }).format(value);
 
-  // Opportunity variables
-  OPPORTUNITY_ID:            '[Opportunity ID]',
-  OPPORTUNITY_TITLE:         '[Opportunity Title]',
-  SOLICITATION_NUMBER:       '[Solicitation Number]',
-  NOTICE_ID:                 '[Notice ID]',
-
-  // Agency/Customer information
-  AGENCY_NAME:               '[Agency/Customer Name]',
-  ISSUING_OFFICE:            '[Issuing Office]',
-
-  // Dates
-  TODAY:                     '[Current Date]',
-  CURRENT_YEAR:              '[Current Year]',
-  CURRENT_MONTH:             '[Current Month]',
-  CURRENT_DAY:               '[Current Day]',
-  POSTED_DATE:               '[Posted Date]',
-  RESPONSE_DEADLINE:         '[Response Deadline]',
-  SUBMISSION_DATE:           '[Submission Date]',
-
-  // Compliance & Classification
-  NAICS_CODE:                '[NAICS Code]',
-  PSC_CODE:                  '[PSC Code]',
-  SET_ASIDE:                 '[Set-Aside Type]',
-  OPPORTUNITY_TYPE:          '[Opportunity Type]',
-
-  // Financial
-  ESTIMATED_VALUE:           '[Estimated Contract Value]',
-  BASE_AND_OPTIONS_VALUE:    '[Base and All Options Value]',
-
-  // Project contact info
-  PROJECT_POC_NAME:          '[Primary POC Name]',
-  PROJECT_POC_EMAIL:         '[Primary POC Email]',
-  PROJECT_POC_PHONE:         '[Primary POC Phone]',
-  PROJECT_POC_TITLE:         '[Primary POC Title]',
-
-  // Solicitation organization
-  SOLICITATION_ORG_NAME:     '[Solicitation Organization Name]',
-  SOLICITATION_ORG_OFFICE:   '[Solicitation Office]',
-  SOLICITATION_ORG_LOCATION: '[Solicitation Location]',
-
-  // Brief contacts
-  CONTRACTING_OFFICER:       '[Contracting Officer]',
-  TECHNICAL_POC:             '[Technical Point of Contact]',
-
-  // Content placeholder
-  CONTENT:                   '[CONTENT: Write detailed, substantive content here based on the solicitation requirements and provided context. Minimum 3-5 paragraphs.]',
+/**
+ * Format a contact object as "Name (email)" string.
+ */
+const formatContact = (contact?: { name?: string | null; email?: string | null }): string => {
+  if (!contact) return '';
+  const parts: string[] = [];
+  if (contact.name) parts.push(contact.name);
+  if (contact.email) parts.push(`(${contact.email})`);
+  return parts.join(' ');
 };
 
 /**
@@ -174,16 +105,14 @@ export const buildMacroValues = async (params: {
     opportunityId ? getOpportunity({ orgId, projectId, oppId: opportunityId }).then(result => result?.item) : Promise.resolve(undefined),
   ]);
 
-  // Build macro values from loaded data
   const today = new Date();
   const macroValues: Record<string, string> = {
     // Date macros
-    TODAY: today.toISOString().split('T')[0], // YYYY-MM-DD format
+    TODAY: today.toISOString().split('T')[0],
     CURRENT_YEAR: String(today.getFullYear()),
     CURRENT_MONTH: today.toLocaleDateString('en-US', { month: 'long' }),
     CURRENT_DAY: String(today.getDate()),
-    // CONTENT macro: replaced with a visible placeholder so the AI knows where to insert generated content.
-    // An empty string would make the placeholder invisible and the AI would ignore the template structure.
+    // CONTENT macro: visible placeholder so the AI knows where to insert generated content.
     CONTENT: '[CONTENT: Write the complete document content here based on the solicitation requirements and provided context. Preserve all surrounding template elements (images, dates, company name, etc.) exactly as they appear.]',
   };
 
@@ -208,7 +137,6 @@ export const buildMacroValues = async (params: {
 
   // Opportunity macros
   if (opportunity) {
-    // IDs and Numbers
     macroValues.OPPORTUNITY_ID = opportunity.id || '';
     macroValues.NOTICE_ID = opportunity.noticeId || '';
     macroValues.SOLICITATION_NUMBER = opportunity.solicitationNumber || '';
@@ -218,33 +146,13 @@ export const buildMacroValues = async (params: {
     macroValues.AGENCY_NAME = opportunity.organizationName || '';
     macroValues.ISSUING_OFFICE = opportunity.organizationName || '';
 
-    // Dates - format ISO dates to readable format
+    // Dates
     if (opportunity.postedDateIso) {
-      try {
-        const postedDate = new Date(opportunity.postedDateIso);
-        macroValues.POSTED_DATE = postedDate.toLocaleDateString('en-US', {
-          year: 'numeric',
-          month: 'long',
-          day: 'numeric',
-        });
-      } catch {
-        macroValues.POSTED_DATE = opportunity.postedDateIso;
-      }
+      macroValues.POSTED_DATE = formatDateSafe(opportunity.postedDateIso);
     }
-
     if (opportunity.responseDeadlineIso) {
-      try {
-        const deadlineDate = new Date(opportunity.responseDeadlineIso);
-        macroValues.RESPONSE_DEADLINE = deadlineDate.toLocaleDateString('en-US', {
-          year: 'numeric',
-          month: 'long',
-          day: 'numeric',
-        });
-        macroValues.SUBMISSION_DATE = macroValues.RESPONSE_DEADLINE; // Alias for backward compatibility
-      } catch {
-        macroValues.RESPONSE_DEADLINE = opportunity.responseDeadlineIso;
-        macroValues.SUBMISSION_DATE = opportunity.responseDeadlineIso;
-      }
+      macroValues.RESPONSE_DEADLINE = formatDateSafe(opportunity.responseDeadlineIso);
+      macroValues.SUBMISSION_DATE = macroValues.RESPONSE_DEADLINE;
     }
 
     // Classification codes
@@ -258,22 +166,14 @@ export const buildMacroValues = async (params: {
     // Financial information
     if (opportunity.baseAndAllOptionsValue) {
       const value = opportunity.baseAndAllOptionsValue;
-      // Format as currency if it's a number
-      if (typeof value === 'number' && value > 0) {
-        macroValues.ESTIMATED_VALUE = new Intl.NumberFormat('en-US', {
-          style: 'currency',
-          currency: 'USD',
-          minimumFractionDigits: 0,
-          maximumFractionDigits: 0,
-        }).format(value);
-        macroValues.BASE_AND_OPTIONS_VALUE = macroValues.ESTIMATED_VALUE;
-      } else {
-        macroValues.ESTIMATED_VALUE = String(value);
-        macroValues.BASE_AND_OPTIONS_VALUE = String(value);
-      }
+      const formatted = typeof value === 'number' && value > 0
+        ? formatCurrency(value)
+        : String(value);
+      macroValues.ESTIMATED_VALUE = formatted;
+      macroValues.BASE_AND_OPTIONS_VALUE = formatted;
     }
 
-    // Solicitation organization macros (from opportunity data)
+    // Solicitation organization macros
     macroValues.SOLICITATION_ORG_NAME = opportunity.organizationName || '';
     macroValues.SOLICITATION_ORG_OFFICE = opportunity.organizationName || '';
   }
@@ -283,7 +183,7 @@ export const buildMacroValues = async (params: {
     try {
       const brief = await getExecutiveBriefByProjectId(projectId, opportunityId);
 
-      // Extract solicitation org details from brief summary (more detailed than opportunity)
+      // Extract solicitation org details from brief summary
       const summaryData = brief?.sections?.summary?.data;
       if (summaryData) {
         if (summaryData.office) {
@@ -292,7 +192,6 @@ export const buildMacroValues = async (params: {
         if (summaryData.placeOfPerformance) {
           macroValues.SOLICITATION_ORG_LOCATION = summaryData.placeOfPerformance;
         }
-        // Use brief agency name if available and opportunity didn't provide one
         if (summaryData.agency && !macroValues.SOLICITATION_ORG_NAME) {
           macroValues.SOLICITATION_ORG_NAME = summaryData.agency;
         }
@@ -301,20 +200,8 @@ export const buildMacroValues = async (params: {
       // Extract contacts from brief
       const contacts = brief?.sections?.contacts?.data?.contacts;
       if (contacts?.length) {
-        const formatContact = (contact?: { name?: string | null; email?: string | null }) => {
-          if (!contact) return '';
-          const parts: string[] = [];
-          if (contact.name) parts.push(contact.name);
-          if (contact.email) parts.push(`(${contact.email})`);
-          return parts.join(' ');
-        };
-
-        const contractingOfficer = contacts.find(
-          (c) => c.role === 'CONTRACTING_OFFICER',
-        );
-        const technicalPoc = contacts.find(
-          (c) => c.role === 'TECHNICAL_POC',
-        );
+        const contractingOfficer = contacts.find((c) => c.role === 'CONTRACTING_OFFICER');
+        const technicalPoc = contacts.find((c) => c.role === 'TECHNICAL_POC');
 
         macroValues.CONTRACTING_OFFICER = formatContact(contractingOfficer);
         macroValues.TECHNICAL_POC = formatContact(technicalPoc);
@@ -327,11 +214,14 @@ export const buildMacroValues = async (params: {
   return macroValues;
 };
 
+// ─── Template scaffold preprocessing ──────────────────────────────────────────
+
 /**
  * Prepare a template's HTML for use as an AI scaffold:
- * 1. Replace {{MACRO}} placeholders with real values from macroValues (or descriptive labels as fallback)
- * 2. Strip broken s3key: image src attributes (replace with placeholder)
- * 3. Add a scaffold header comment
+ * 1. Replace {{MACRO}} placeholders with real values from macroValues
+ * 2. Replace any remaining unresolved macros with generic labels
+ * 3. Preserve s3key: image tags with marker comments
+ * 4. Add a scaffold header comment
  *
  * @param html - The raw template HTML with {{MACRO}} placeholders
  * @param macroValues - Real values to replace macros with (e.g., {COMPANY_NAME: "Acme Corp"})
@@ -344,154 +234,86 @@ export const prepareTemplateScaffoldForAI = (
 
   let scaffold = html;
 
-  // Replace {{MACRO}} placeholders with real values if provided, otherwise use descriptive labels
+  // Replace {{MACRO}} placeholders with real values, then fall back to generic labels
   if (macroValues && Object.keys(macroValues).length > 0) {
-    // Use replaceMacros from template.ts to replace with real values
     scaffold = replaceMacros(scaffold, macroValues, { removeUnresolved: false });
-
-    // For any remaining unresolved macros (not in macroValues), replace with descriptive labels
-    scaffold = scaffold.replace(/\{\{([A-Z0-9_]+)\}\}/g, (_match, key) => {
-      return MACRO_LABELS[key] ?? `[${key.replace(/_/g, ' ')}]`;
-    });
-  } else {
-    // Fallback to placeholder labels (old behavior)
-    scaffold = scaffold.replace(/\{\{([A-Z0-9_]+)\}\}/g, (_match, key) => {
-      return MACRO_LABELS[key] ?? `[${key.replace(/_/g, ' ')}]`;
-    });
   }
 
-  // Preserve image tags — do NOT strip them.
-  // Images use s3key: protocol or data-s3-key attributes that are resolved
-  // to presigned URLs at display time by the frontend.
-  // Add a marker comment so the AI knows to keep them untouched.
+  // Replace any remaining unresolved macros with generic human-readable labels
+  // e.g. {{AGENCY_NAME}} → [Agency Name]
+  scaffold = scaffold.replace(/\{\{([A-Z0-9_]+)\}\}/g, (_match, key: string) =>
+    `[${key.toLowerCase().replace(/_/g, ' ').replace(/\b\w/g, (c: string) => c.toUpperCase())}]`,
+  );
+
+  // Preserve image tags — add a marker comment so the AI knows to keep them untouched
   scaffold = scaffold.replace(
     /(<img[^>]*?(?:src="s3key:[^"]*"|data-s3-key="[^"]*")[^>]*?>)/gi,
     '<!-- PRESERVE THIS IMAGE TAG EXACTLY AS-IS -->$1',
   );
 
-  // Determine if the template has meaningful structure (headings) or is just a content placeholder
+  // Add scaffold header based on template structure
   const hasHeadings = /<h[1-6]/i.test(scaffold);
 
   if (hasHeadings) {
-    // Structured template — AI must preserve all headings and fill in content
     return `<!-- TEMPLATE SCAFFOLD: You MUST follow this exact structure. Keep ALL <h1>, <h2>, <h3> headings exactly as written. Fill in all [CONTENT] and [placeholder] markers with real, detailed content. Do NOT add extra sections or headings not in this template. -->\n${scaffold}`;
-  } else {
-    // Simple content placeholder template — AI should generate full content and wrap it in the template structure
-    return `<!-- TEMPLATE SCAFFOLD: This template defines the document wrapper/structure. Replace [CONTENT: ...] with a complete, well-structured HTML document body including appropriate headings and paragraphs. Keep all other text and elements (dates, company name, etc.) in their original positions. -->\n${scaffold}`;
   }
+
+  return `<!-- TEMPLATE SCAFFOLD: This template defines the document wrapper/structure. Replace [CONTENT: ...] with a complete, well-structured HTML document body including appropriate headings and paragraphs. Keep all other text and elements (dates, company name, etc.) in their original positions. -->\n${scaffold}`;
 };
 
-// ─── Template HTML resolution ───
+// ─── Template HTML resolution ─────────────────────────────────────────────────
 
 /**
  * Resolve the HTML scaffold for a template with real macro values.
  * Loads the template's HTML content from S3 via htmlContentKey.
- * Falls back to building a scaffold from sections for legacy templates.
- * Returns null if no template is found or has no content.
+ * Returns null if no template is found or has no HTML content.
  *
  * @param orgId - Organization ID
  * @param documentType - Document type (e.g., 'COVER_LETTER', 'EXECUTIVE_SUMMARY')
  * @param templateId - Optional template ID. If not provided, auto-selects the best template.
  * @param macroValues - Optional macro values to replace {{MACRO}} placeholders with real data
  */
-export async function resolveTemplateHtml(
+export const resolveTemplateHtml = async (
   orgId: string,
   documentType: string,
   templateId?: string,
   macroValues?: Record<string, string>,
-): Promise<string | null> {
-  let template = null;
-
-  if (templateId) {
-    template = await getTemplate(orgId, templateId);
-  } else {
-    try {
-      // Load all non-archived templates for this category (up to 50)
-      // and pick the most recently updated one, preferring PUBLISHED over DRAFT
-      const { items: allItems } = await listTemplatesByOrg(orgId, {
-        category: documentType,
-        excludeArchived: true,
-        limit: 50,
-      });
-
-      if (allItems.length === 0) {
-        return null;
-      }
-
-      // Sort: PUBLISHED first, then by updatedAt descending (most recent first)
-      const sorted = [...allItems].sort((a, b) => {
-        // PUBLISHED templates take priority over DRAFT
-        if (a.status === 'PUBLISHED' && b.status !== 'PUBLISHED') return -1;
-        if (b.status === 'PUBLISHED' && a.status !== 'PUBLISHED') return 1;
-        // Within same status, most recently updated first
-        return new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime();
-      });
-
-      template = sorted[0];
-      console.log(`Auto-selected template for ${documentType}: "${template.name}" (${template.status}, updated: ${template.updatedAt})`);
-    } catch {
-      return null;
-    }
-  }
+): Promise<string | null> => {
+  const template = templateId
+    ? await getTemplate(orgId, templateId)
+    : await findBestTemplate(orgId, documentType);
 
   if (!template) return null;
 
-  // New pattern: HTML content stored in S3 via htmlContentKey
-  if (template.htmlContentKey) {
-    try {
-      const html = await loadTemplateHtml(template.htmlContentKey);
-      if (html?.trim()) {
-        console.log(`Loaded template HTML from S3: ${template.htmlContentKey} (${html.length} chars)`);
-        // Preprocess the HTML for AI consumption: resolve macros with real values, strip broken images
-        const scaffoldForAI = prepareTemplateScaffoldForAI(html, macroValues);
-        console.log(`Template preprocessed for AI: ${scaffoldForAI.length} chars`);
-        return scaffoldForAI;
-      }
-    } catch (err) {
-      console.warn('Failed to load template HTML from S3, falling back to sections:', err);
-    }
-  }
-
-  // Legacy fallback: build scaffold from sections
-  if (template.sections?.length) {
-    return buildTemplateHtmlScaffold(template.sections as TemplateSection[]);
-  }
-
-  return null;
-}
-
-/**
- * @deprecated Use resolveTemplateHtml instead.
- * Kept for backward compatibility — returns sections array.
- */
-export async function resolveTemplateSections(
-  orgId: string,
-  documentType: string,
-  templateId?: string,
-): Promise<unknown[] | null> {
-  if (templateId) {
-    const t = await getTemplate(orgId, templateId);
-    return t?.sections ?? null;
-  }
-  try {
-    const { items } = await listTemplatesByOrg(orgId, {
-      category: documentType,
-      status: 'PUBLISHED',
-      limit: 1,
-    });
-    return items?.[0]?.sections ?? null;
-  } catch {
+  if (!template.htmlContentKey) {
+    console.warn(`Template "${template.name}" has no htmlContentKey — cannot load HTML content`);
     return null;
   }
-}
 
-// ─── Document status update ───
+  try {
+    const html = await loadTemplateHtml(template.htmlContentKey);
+    if (!html?.trim()) {
+      console.warn(`Template HTML from S3 is empty: ${template.htmlContentKey}`);
+      return null;
+    }
+
+    console.log(`Loaded template HTML from S3: ${template.htmlContentKey} (${html.length} chars)`);
+    const scaffoldForAI = prepareTemplateScaffoldForAI(html, macroValues);
+    console.log(`Template preprocessed for AI: ${scaffoldForAI.length} chars`);
+    return scaffoldForAI;
+  } catch (err) {
+    console.error('Failed to load template HTML from S3:', err);
+    return null;
+  }
+};
+
+// ─── Document status update ──────────────────────────────────────────────────
 // When status is COMPLETE and content is provided:
 //   1. Upload the HTML body to S3 and store only the key in DynamoDB (htmlContentKey).
 //   2. Store metadata (title, customerName, outlineSummary, opportunityId) in DynamoDB content field
 //      WITHOUT the large `content` (html) string — that lives in S3.
 
-export async function updateDocumentStatus(
+export const updateDocumentStatus = async (
   projectId: string,
   opportunityId: string,
   documentId: string,
@@ -499,7 +321,7 @@ export async function updateDocumentStatus(
   content?: RFPDocumentContent,
   generationError?: string,
   orgId?: string,
-): Promise<void> {
+): Promise<void> => {
   let htmlContentKey: string | undefined;
 
   // Upload HTML to S3 when we have content and an orgId to build the key
@@ -515,7 +337,6 @@ export async function updateDocumentStatus(
       console.log(`HTML content uploaded to S3: ${htmlContentKey}`);
     } catch (err) {
       console.error('Failed to upload HTML to S3:', err);
-      // Mark document as failed if S3 upload fails
       await updateRFPDocumentMetadata({
         projectId,
         opportunityId,
@@ -530,7 +351,30 @@ export async function updateDocumentStatus(
     }
   }
 
-  // Build the content object stored in DynamoDB — metadata only, no HTML (HTML lives in S3)
+  // Safety net: if status is COMPLETE but we couldn't upload HTML to S3,
+  // mark as FAILED to avoid leaving the document in an inconsistent state
+  // (COMPLETE status but no htmlContentKey → "missing S3 key" error on read).
+  if (status === 'COMPLETE' && !htmlContentKey) {
+    const reason = !content?.content
+      ? 'Document generation produced empty HTML content'
+      : !orgId
+        ? 'Cannot upload HTML to S3: orgId is missing'
+        : 'HTML content upload to S3 was skipped unexpectedly';
+    console.error(`[updateDocumentStatus] Marking document as FAILED: ${reason} (documentId=${documentId})`);
+    await updateRFPDocumentMetadata({
+      projectId,
+      opportunityId,
+      documentId,
+      updates: {
+        status: 'FAILED',
+        generationError: reason,
+      },
+      updatedBy: 'system',
+    });
+    return;
+  }
+
+  // Build the content object stored in DynamoDB — metadata only, no HTML
   const dbContent = content
     ? {
         title: content.title,
@@ -557,17 +401,15 @@ export async function updateDocumentStatus(
     updatedBy: 'system',
   });
 
-  // ── Create version snapshot when document generation completes successfully ──
+  // Create version snapshot when document generation completes successfully
   if (status === 'COMPLETE' && content?.content && orgId) {
     try {
-      // Get existing document for metadata (document type)
       const existingDoc = await getRFPDocument(projectId, opportunityId, documentId);
-      
+
       const latestVersionNum = await getLatestVersionNumber(projectId, opportunityId, documentId);
       const newVersionNumber = latestVersionNum + 1;
       const htmlContentStr = content.content;
 
-      // Save HTML to version-specific S3 location
       const versionHtmlKey = await saveVersionHtml(
         orgId,
         projectId,
@@ -577,7 +419,6 @@ export async function updateDocumentStatus(
         htmlContentStr,
       );
 
-      // Create version metadata record in DynamoDB
       const versionId = uuidv4();
       await createVersion({
         versionId,
@@ -595,10 +436,8 @@ export async function updateDocumentStatus(
       });
 
       console.log(`Created version ${newVersionNumber} for document ${documentId} (AI generation)`);
-
     } catch (versionErr) {
-      // Log but don't fail the update if version creation fails
       console.error('Failed to create version snapshot after AI generation:', versionErr);
     }
   }
-}
+};

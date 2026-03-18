@@ -575,6 +575,33 @@ async function runScoring(job: Job): Promise<void> {
     }
 
     const pastPerformanceData = sections?.pastPerformance?.data;
+    const pricingData = sections?.pricing?.data;
+
+    // Also try to load actual cost estimate data from the pricing module
+    let pricingContext = pricingData ? JSON.stringify(pricingData) : undefined;
+    if (!pricingContext) {
+      try {
+        const { getCostEstimateByOpportunity, analyzePricingForBid } = await import('@/helpers/pricing');
+        const estimate = await getCostEstimateByOpportunity(orgId, projectId, opportunityId);
+        if (estimate) {
+          const bidAnalysis = analyzePricingForBid(estimate);
+          pricingContext = JSON.stringify({
+            source: 'pricing_module',
+            totalPrice: estimate.totalPrice,
+            strategy: estimate.strategy,
+            margin: estimate.margin,
+            competitivePosition: bidAnalysis.competitivePosition,
+            priceConfidence: bidAnalysis.priceConfidence,
+            marginAdequacy: bidAnalysis.marginAdequacy,
+            pricingRisks: bidAnalysis.pricingRisks,
+            competitiveAdvantages: bidAnalysis.competitiveAdvantages,
+            scoringImpact: bidAnalysis.scoringImpact,
+          });
+        }
+      } catch (pricingErr) {
+        console.warn('Failed to load pricing module data for scoring (non-blocking):', (pricingErr as Error)?.message);
+      }
+    }
 
     const inputHash =
       inputHashFromJob ||
@@ -604,6 +631,7 @@ async function runScoring(job: Job): Promise<void> {
         JSON.stringify(risksData),
         pastPerformanceData ? JSON.stringify(pastPerformanceData) : undefined,
         kbPrimer,
+        pricingContext,
       ),
       tools: BRIEF_TOOLS,
       toolExecutor: (toolName, toolInput, toolUseId) =>

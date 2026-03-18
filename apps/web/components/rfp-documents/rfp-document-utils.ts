@@ -1,3 +1,25 @@
+/**
+ * Strip leftover AI scaffold comments from HTML before rendering in the editor.
+ * These comments (e.g. `<!-- TEMPLATE SCAFFOLD: ... -->`) can be left behind by
+ * the generation pipeline. Unclosed comments cause the browser/editor to treat
+ * all subsequent content as invisible comment nodes.
+ */
+export const sanitizeGeneratedHtml = (html: string): string => {
+  if (!html) return html;
+  return html
+    // Closed scaffold comments (properly terminated with -->)
+    .replace(/<!--\s*TEMPLATE SCAFFOLD:[\s\S]*?-->\s*/gi, '')
+    .replace(/<!--\s*PRESERVE THIS IMAGE TAG EXACTLY AS-IS\s*-->\s*/gi, '')
+    .replace(/<!--\s*Section guidance:[\s\S]*?-->\s*/gi, '')
+    // Unclosed comments: strip from <!-- marker to the next block-level tag
+    .replace(/<!--\s*TEMPLATE SCAFFOLD:[^<]*(?:<(?![hH][1-6]|[pP][ >]|[dD][iI][vV]|[uU][lL]|[oO][lL]|[tT][aA][bB])[^<]*)*/g, '')
+    .replace(/<!--\s*Section guidance:[^<]*(?:<(?![hH][1-6]|[pP][ >]|[dD][iI][vV]|[uU][lL]|[oO][lL]|[tT][aA][bB])[^<]*)*/g, '')
+    // Strip leading/trailing non-HTML artifacts (commas, whitespace, JSON remnants)
+    .replace(/^[\s,;]+/, '')
+    .replace(/[\s,;]+$/, '')
+    .trim();
+};
+
 export function formatDate(dateString?: string): string {
   if (!dateString) return '—';
   const d = new Date(dateString);

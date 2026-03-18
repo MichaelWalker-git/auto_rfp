@@ -79,15 +79,54 @@ export const baseHandler = async (
 
     // HTML content must be stored in S3
     if (!doc.htmlContentKey || typeof doc.htmlContentKey !== 'string') {
-      return apiResponse(404, { message: 'HTML content not available (missing S3 key)' });
+      // Check if the document is still generating
+      if (doc.status === 'GENERATING') {
+        return apiResponse(202, { message: 'Document is still being generated' });
+      }
+      // Check if the document generation failed
+      if (doc.status === 'FAILED') {
+        return apiResponse(422, {
+          message: 'Document generation failed',
+          generationError: doc.generationError ?? 'Unknown error',
+        });
+      }
+      // Fallback: check for legacy inline HTML content in DynamoDB
+      const legacyHtml = typeof doc.content === 'object' && doc.content !== null
+        ? (doc.content as Record<string, unknown>).content
+        : undefined;
+      if (typeof legacyHtml === 'string' && legacyHtml.trim()) {
+        console.warn(`Document ${documentId} has legacy inline HTML content (no S3 key). Serving from DynamoDB.`);
+        const html = await resolveS3KeysInHtml(legacyHtml);
+        return apiResponse(200, { ok: true, html, htmlContentKey: null, documentId });
+      }
+      return apiResponse(404, {
+        message: 'HTML content not available (missing S3 key)',
+        status: doc.status ?? 'UNKNOWN',
+      });
     }
 
     const htmlContentKey = doc.htmlContentKey as string;
     const rawHtml = await loadRFPDocumentHtml(htmlContentKey);
 
+    // Strip any leftover scaffold/generation comments that shouldn't be in the final HTML.
+    // Strategy: strip all HTML comments that contain known scaffold markers.
+    // For unclosed comments, strip everything from <!-- to the next block-level HTML tag.
+    const sanitizedHtml = rawHtml
+      // Closed comments (properly terminated with -->)
+      .replace(/<!--\s*TEMPLATE SCAFFOLD:[\s\S]*?-->\s*/gi, '')
+      .replace(/<!--\s*PRESERVE THIS IMAGE TAG EXACTLY AS-IS\s*-->\s*/gi, '')
+      .replace(/<!--\s*Section guidance:[\s\S]*?-->\s*/gi, '')
+      // Unclosed comments: strip from <!-- marker to the next block-level tag (<h1>-<h6>, <p>, <div>, <ul>, <ol>, <table>)
+      .replace(/<!--\s*TEMPLATE SCAFFOLD:[^<]*(?:<(?![hH][1-6]|[pP][ >]|[dD][iI][vV]|[uU][lL]|[oO][lL]|[tT][aA][bB])[^<]*)*/g, '')
+      .replace(/<!--\s*Section guidance:[^<]*(?:<(?![hH][1-6]|[pP][ >]|[dD][iI][vV]|[uU][lL]|[oO][lL]|[tT][aA][bB])[^<]*)*/g, '')
+      // Strip leading/trailing non-HTML artifacts (commas, semicolons, whitespace, JSON remnants)
+      .replace(/^[\s,;]+/, '')
+      .replace(/[\s,;]+$/, '')
+      .trim();
+
     // Always return 200 — even if empty, so the editor can render (empty doc is valid)
     // Replace s3key: placeholders with presigned URLs server-side
-    const html = await resolveS3KeysInHtml(rawHtml);
+    const html = await resolveS3KeysInHtml(sanitizedHtml);
 
     return apiResponse(200, {
       ok: true,

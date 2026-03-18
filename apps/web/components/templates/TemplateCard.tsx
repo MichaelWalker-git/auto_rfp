@@ -61,18 +61,18 @@ export function TemplateCard({
   };
 
   return (
-    <Card className="group hover:shadow-md transition-shadow">
-      <CardHeader className="pb-3">
-        <div className="flex items-start justify-between">
-          <div className="flex-1 min-w-0">
-            <CardTitle className="text-base truncate">{template.name}</CardTitle>
+    <Card className="group overflow-hidden hover:shadow-md transition-shadow">
+      <CardHeader className="pb-3 overflow-hidden">
+        <div className="flex items-start justify-between gap-2 min-w-0 w-full">
+          <div className="min-w-0 flex-1">
+            <CardTitle className="text-base truncate" title={template.name}>{template.name}</CardTitle>
             <CardDescription className="mt-1 line-clamp-2 text-xs">
               {template.description || 'No description'}
             </CardDescription>
           </div>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0">
+              <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0 ml-auto">
                 <MoreHorizontal className="h-4 w-4" />
               </Button>
             </DropdownMenuTrigger>
