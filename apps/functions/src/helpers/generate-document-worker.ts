@@ -171,8 +171,8 @@ export const generateWithTemplateSections = async (args: {
 
   // 1. Parse template into sections
   const templateSections = parseTemplateSections(templateHtml);
-  if (!templateSections || templateSections.length <= 1) {
-    console.log(`[template-gen] Template has ${templateSections?.length ?? 0} sections — not enough for section-by-section generation`);
+  if (!templateSections || templateSections.length === 0) {
+    console.log(`[template-gen] Template has no sections — falling back to single-shot generation`);
     return null; // Fall through to single-shot
   }
 
