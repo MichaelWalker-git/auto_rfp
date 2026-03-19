@@ -1,20 +1,16 @@
 'use client';
 
-import React, { useState } from 'react';
+import React from 'react';
 import Link from 'next/link';
-import { AlertCircle, Check, ClipboardCheck, Loader2, Pencil, Target, Trash2, X } from 'lucide-react';
+import { AlertCircle, Check, Loader2, Pencil, Target, Trash2, X } from 'lucide-react';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
+// Request Review feature imports (re-add when feature is implemented):
+// import { useState } from 'react';
+// import { ClipboardCheck } from 'lucide-react';
+// import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { useOpportunityContext } from './opportunity-context';
 import { useCurrentOrganization } from '@/context/organization-context';
 import {
@@ -140,7 +136,7 @@ export const OpportunityHeader = () => {
                     Executive Brief
                   </Link>
                 </Button>
-                {/* Hide Request Review button untill feature is implemented */}
+                {/* Hide Request Review button until feature is implemented */}
                 {/* <Button variant="outline" size="sm" onClick={() => setShowRequestReview(true)}>
                   <ClipboardCheck className="h-4 w-4 mr-2" />
                   Request Review

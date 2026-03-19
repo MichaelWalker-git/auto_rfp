@@ -9,7 +9,6 @@ import {
   FileText,
   Trophy,
   ShieldCheck,
-  ChevronDown,
   Paperclip,
   FileEdit,
 } from 'lucide-react';

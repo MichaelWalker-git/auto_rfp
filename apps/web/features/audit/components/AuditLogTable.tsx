@@ -34,7 +34,6 @@ export const AuditLogTable = ({ orgId }: AuditLogTableProps) => {
 
   // Calculate pagination info
   const currentPage = currentPageIndex + 1;
-  const totalPages = count > 0 ? Math.ceil(count / PAGE_SIZE) : 1;
   const hasNextPage = !!nextToken;
   const hasPrevPage = currentPageIndex > 0;
 

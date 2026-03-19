@@ -261,7 +261,7 @@ export const OpportunityItemCard = ({
         </div>
 
         {/* Classification badges + favorite star */}
-        <div className="flex items-start gap-1" onClick={e => e.stopPropagation()}>
+        <div className="flex items-start gap-1">
           <div className="flex flex-wrap gap-1 flex-1">
             {item.naicsCode && (
               <Badge variant="outline" className="text-xs h-4 px-1 text-muted-foreground">

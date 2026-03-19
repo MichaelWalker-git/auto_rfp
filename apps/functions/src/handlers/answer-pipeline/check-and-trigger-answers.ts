@@ -259,7 +259,7 @@ export const baseHandler = async (
   // Write ANSWER_PIPELINE_STARTED audit log (non-blocking per rules)
   if (orgId) {
     getHmacSecret().then(hmacSecret => {
-      writeAuditLog(
+      return writeAuditLog(
         {
           logId: uuidv4(),
           timestamp: nowIso(),

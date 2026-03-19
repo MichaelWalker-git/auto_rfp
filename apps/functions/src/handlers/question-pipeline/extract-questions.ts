@@ -356,7 +356,7 @@ export const baseHandler = async (
   getQuestionFileItem(projectId, opportunityId, questionFileId).then(qf => {
     const orgId = (qf?.orgId as string) || 'unknown';
     return getHmacSecret().then(hmacSecret => {
-      writeAuditLog(
+      return writeAuditLog(
         {
           logId: uuidv4(),
           timestamp: nowIso(),

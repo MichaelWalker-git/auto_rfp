@@ -19,7 +19,7 @@ import { usePathname, useRouter } from 'next/navigation';
 
 import { useOpportunitiesList } from '@/lib/hooks/use-opportunities';
 import { useFavoriteOpportunities } from '@/lib/hooks/use-favorite-opportunities';
-import { useGridView, getGridClasses, type GridColumns } from '@/lib/hooks/use-grid-view';
+import { useGridView, getGridClasses } from '@/lib/hooks/use-grid-view';
 import { useCurrentOrganization } from '@/context/organization-context';
 import { OpportunityItemCard } from '@/components/opportunities/opportunity-item-card';
 import { cn } from '@/lib/utils';
