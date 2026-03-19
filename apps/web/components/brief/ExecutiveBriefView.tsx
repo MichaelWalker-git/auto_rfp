@@ -1050,8 +1050,9 @@ export function ExecutiveBriefView({ projectId, initialOpportunityId }: Executiv
                 isBusy={isSectionBusy('deadlines')}
                 skeletonRows={6}
               >
-                <DeadlinesDashboard 
-                  projectId={projectId} 
+                <DeadlinesDashboard
+                  projectId={projectId}
+                  opportunityId={selectedOpportunityId || undefined}
                   orgId={project.orgId} 
                   key={briefItem?.updatedAt || 'no-brief'}
                 />

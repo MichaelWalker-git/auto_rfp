@@ -26,7 +26,7 @@ export const NotificationCenter = ({ orgId, onClose }: NotificationCenterProps) 
         <div className="flex items-center gap-2">
           <h3 className="font-semibold text-sm">Notifications</h3>
           {unreadCount > 0 && (
-            <span className="text-xs bg-indigo-100 text-indigo-700 font-medium px-1.5 py-0.5 rounded-full">
+            <span className="text-xs bg-primary/10 text-primary font-medium px-1.5 py-0.5 rounded-full">
               {unreadCount}
             </span>
           )}
@@ -36,7 +36,7 @@ export const NotificationCenter = ({ orgId, onClose }: NotificationCenterProps) 
             <Button
               variant="ghost"
               size="sm"
-              className="text-xs text-indigo-500 h-7 px-2"
+              className="text-xs text-primary h-7 px-2"
               onClick={() => markAllRead.trigger({ orgId })}
             >
               Mark all read
@@ -45,7 +45,7 @@ export const NotificationCenter = ({ orgId, onClose }: NotificationCenterProps) 
           <Button
             variant="ghost"
             size="icon"
-            className={`h-7 w-7 ${showPrefs ? 'text-indigo-500 bg-indigo-50' : 'text-slate-400'}`}
+            className={`h-7 w-7 ${showPrefs ? 'text-primary bg-primary/10' : 'text-muted-foreground'}`}
             onClick={() => setShowPrefs((v) => !v)}
             title="Notification settings"
           >
@@ -78,7 +78,7 @@ export const NotificationCenter = ({ orgId, onClose }: NotificationCenterProps) 
                 ))}
               </div>
             ) : notifications.length === 0 ? (
-              <div className="flex flex-col items-center justify-center h-32 gap-2 text-slate-400">
+              <div className="flex flex-col items-center justify-center h-32 gap-2 text-muted-foreground">
                 <span className="text-2xl">🔔</span>
                 <p className="text-sm">No notifications yet</p>
               </div>
@@ -115,14 +115,14 @@ export const NotificationCenter = ({ orgId, onClose }: NotificationCenterProps) 
                       {/* Recent approval notifications at the top */}
                       {recentApprovalNotifications.length > 0 && (
                         <div>
-                          <div className="px-4 py-2 bg-amber-50 border-b">
-                            <h4 className="text-xs font-semibold text-amber-800 uppercase tracking-wide">
+                          <div className="px-4 py-2 bg-accent border-b">
+                            <h4 className="text-xs font-semibold text-accent-foreground uppercase tracking-wide">
                               Recent Review Requests
                             </h4>
                           </div>
-                          <div className="divide-y divide-slate-100">
+                          <div className="divide-y divide-border">
                             {recentApprovalNotifications.map((n) => (
-                              <div key={n.notificationId} className="bg-amber-50/30">
+                              <div key={n.notificationId} className="bg-accent/30">
                                 <NotificationItem
                                   notification={n}
                                   orgId={orgId}
@@ -140,13 +140,13 @@ export const NotificationCenter = ({ orgId, onClose }: NotificationCenterProps) 
                       {otherNotifications.length > 0 && (
                         <div>
                           {recentApprovalNotifications.length > 0 && (
-                            <div className="px-4 py-2 bg-slate-50 border-b">
-                              <h4 className="text-xs font-semibold text-slate-600 uppercase tracking-wide">
+                            <div className="px-4 py-2 bg-muted border-b">
+                              <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
                                 Other Notifications
                               </h4>
                             </div>
                           )}
-                          <div className="divide-y divide-slate-100">
+                          <div className="divide-y divide-border">
                             {otherNotifications.map((n) => (
                               <NotificationItem
                                 key={n.notificationId}
@@ -175,7 +175,7 @@ export const NotificationCenter = ({ orgId, onClose }: NotificationCenterProps) 
                 <Button
                   variant="ghost"
                   size="sm"
-                  className="text-xs text-slate-500 h-7"
+                  className="text-xs text-muted-foreground h-7"
                   onClick={() => setShowPrefs(true)}
                 >
                   <Settings className="h-3 w-3 mr-1" />

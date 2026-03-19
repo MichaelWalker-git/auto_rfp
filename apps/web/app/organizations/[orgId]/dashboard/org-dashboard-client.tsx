@@ -26,6 +26,8 @@ import type { MonthlyAnalytics } from '@auto-rfp/core';
 import { DateRangeFilter, exportToCsv, exportToPdf } from '@/features/dashboard';
 import { cn } from '@/lib/utils';
 
+import './recharts-dark-mode.css';
+
 // ─── Helpers ───
 
 const fmt$ = (v: number) => {
@@ -43,7 +45,10 @@ const TT = {
   fontSize: 12, borderRadius: 8,
   border: '1px solid hsl(var(--border))',
   background: 'hsl(var(--background))',
+  color: 'hsl(var(--foreground))',
 };
+
+const LEGEND_STYLE = { fontSize: 11, paddingTop: 8, color: 'hsl(var(--foreground))' };
 
 const PIE_COLORS = ['#10b981', '#ef4444', '#94a3b8', '#6366f1'];
 
@@ -233,7 +238,7 @@ export const OrgDashboardClient = ({ orgId }: Props) => {
                     <XAxis dataKey="month" tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }} axisLine={false} tickLine={false} />
                     <YAxis tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }} axisLine={false} tickLine={false} allowDecimals={false} />
                     <Tooltip contentStyle={TT} cursor={{ fill: 'hsl(var(--muted))', opacity: 0.5 }} />
-                    <Legend wrapperStyle={{ fontSize: 11, paddingTop: 8 }} />
+                    <Legend wrapperStyle={LEGEND_STYLE} />
                     <Bar dataKey="Won" fill="#10b981" radius={[4, 4, 0, 0]} />
                     <Bar dataKey="Lost" fill="#ef4444" radius={[4, 4, 0, 0]} />
                     <Bar dataKey="No Bid" fill="#94a3b8" radius={[4, 4, 0, 0]} />
@@ -289,7 +294,7 @@ export const OrgDashboardClient = ({ orgId }: Props) => {
                     <XAxis dataKey="month" tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }} axisLine={false} tickLine={false} />
                     <YAxis tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }} axisLine={false} tickLine={false} tickFormatter={fmt$} width={52} />
                     <Tooltip formatter={(v: number) => fmt$(v)} contentStyle={TT} />
-                    <Legend wrapperStyle={{ fontSize: 11, paddingTop: 8 }} />
+                    <Legend wrapperStyle={LEGEND_STYLE} />
                     <Line type="monotone" dataKey="Pipeline" stroke="#6366f1" strokeWidth={2.5} dot={{ r: 3 }} activeDot={{ r: 5 }} />
                     <Line type="monotone" dataKey="Won Value" stroke="#10b981" strokeWidth={2.5} dot={{ r: 3 }} activeDot={{ r: 5 }} />
                   </LineChart>

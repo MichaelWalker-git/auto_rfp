@@ -142,6 +142,8 @@ export const OpportunityItemSchema = z.object({
   stageHistory:        z.array(OpportunityStageTransitionSchema).optional(),
   baseAndAllOptionsValue: z.number().nonnegative().nullable(),
   // Audit fields
+  createdAt:     z.string().datetime().optional(),
+  updatedAt:     z.string().datetime().optional(),
   createdBy:     z.string().optional(),
   updatedBy:     z.string().optional(),
   createdByName: z.string().optional(),

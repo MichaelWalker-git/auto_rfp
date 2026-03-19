@@ -2,7 +2,13 @@ import { lambdaEntry } from './route-helper';
 
 import type { DomainRoutes } from './types';
 
-export function clarifyingQuestionDomain(): DomainRoutes {
+/**
+ * Clarifying question routes.
+ * The generate endpoint now triggers async processing via SQS.
+ *
+ * @param clarifyingQuestionQueueUrl - URL of the SQS queue for async question generation
+ */
+export function clarifyingQuestionDomain(clarifyingQuestionQueueUrl: string): DomainRoutes {
   return {
     basePath: 'clarifying-question',
     routes: [
@@ -15,10 +21,12 @@ export function clarifyingQuestionDomain(): DomainRoutes {
         method: 'POST',
         path: 'generate',
         entry: lambdaEntry('clarifying-question/generate-clarifying-questions.ts'),
-        // API Gateway REST API has a hard limit of 29 seconds for integration timeout
-        // Lambda timeout is set slightly higher to ensure Lambda doesn't timeout before API Gateway
-        timeoutSeconds: 29,
-        memorySize: 1024,
+        // Now async — just enqueues work, returns immediately
+        timeoutSeconds: 10,
+        memorySize: 256,
+        extraEnv: {
+          CLARIFYING_QUESTION_QUEUE_URL: clarifyingQuestionQueueUrl,
+        },
       },
       {
         method: 'PUT',

@@ -17,33 +17,34 @@ interface NotificationItemProps {
 }
 
 // ─── Type icon + colour mapping ───────────────────────────────────────────────
+// Uses dark-mode compatible colors: light backgrounds adapt for dark mode visibility
 
 const TYPE_CONFIG: Record<NotificationType, { icon: React.ElementType; color: string; bg: string }> = {
-  MENTION:              { icon: AtSign,       color: 'text-indigo-600', bg: 'bg-indigo-100' },
-  ASSIGNMENT:           { icon: UserCheck,    color: 'text-blue-600',   bg: 'bg-blue-100' },
-  REVIEW_ASSIGNED:      { icon: UserCheck,    color: 'text-blue-600',   bg: 'bg-blue-100' },
-  RFP_UPLOADED:         { icon: FileText,     color: 'text-slate-600',  bg: 'bg-slate-100' },
-  QUESTIONS_EXTRACTED:  { icon: FileCheck,    color: 'text-violet-600', bg: 'bg-violet-100' },
-  ANSWERS_GENERATED:    { icon: CheckCircle,  color: 'text-emerald-600',bg: 'bg-emerald-100' },
-  PROPOSAL_SUBMITTED:   { icon: FileText,     color: 'text-blue-600',   bg: 'bg-blue-100' },
-  WIN_RECORDED:         { icon: Trophy,       color: 'text-amber-600',  bg: 'bg-amber-100' },
-  LOSS_RECORDED:        { icon: XCircle,      color: 'text-red-500',    bg: 'bg-red-100' },
-  DEADLINE_7_DAYS:      { icon: Clock,        color: 'text-orange-500', bg: 'bg-orange-100' },
-  DEADLINE_3_DAYS:      { icon: Clock,        color: 'text-orange-600', bg: 'bg-orange-100' },
-  DEADLINE_1_DAY:       { icon: AlertCircle,  color: 'text-red-500',    bg: 'bg-red-100' },
-  DEADLINE_6_HOURS:     { icon: AlertCircle,  color: 'text-red-600',    bg: 'bg-red-100' },
-  SOLICITATION_IMPORTED:{ icon: Download,     color: 'text-emerald-600',bg: 'bg-emerald-100' },
-  PROCESSING_COMPLETE:  { icon: CheckCircle,  color: 'text-emerald-600',bg: 'bg-emerald-100' },
-  PROCESSING_ERROR:     { icon: AlertCircle,  color: 'text-red-500',    bg: 'bg-red-100' },
-  EXPORT_READY:         { icon: FileText,     color: 'text-blue-600',   bg: 'bg-blue-100' },
-  STALE_CONTENT_WARNING:  { icon: AlertTriangle, color: 'text-amber-600', bg: 'bg-amber-100' },
-  STALE_CONTENT_DETECTED: { icon: AlertTriangle, color: 'text-orange-600', bg: 'bg-orange-100' },
-  DOCUMENT_APPROVAL_REQUESTED: { icon: ClipboardCheck, color: 'text-indigo-600', bg: 'bg-indigo-100' },
-  DOCUMENT_APPROVED:    { icon: CheckCircle,  color: 'text-emerald-600', bg: 'bg-emerald-100' },
-  DOCUMENT_REJECTED:    { icon: XCircle,      color: 'text-red-500',    bg: 'bg-red-100' },
+  MENTION:              { icon: AtSign,       color: 'text-indigo-600 dark:text-indigo-400', bg: 'bg-indigo-100 dark:bg-indigo-900/50' },
+  ASSIGNMENT:           { icon: UserCheck,    color: 'text-blue-600 dark:text-blue-400',   bg: 'bg-blue-100 dark:bg-blue-900/50' },
+  REVIEW_ASSIGNED:      { icon: UserCheck,    color: 'text-blue-600 dark:text-blue-400',   bg: 'bg-blue-100 dark:bg-blue-900/50' },
+  RFP_UPLOADED:         { icon: FileText,     color: 'text-muted-foreground',  bg: 'bg-muted' },
+  QUESTIONS_EXTRACTED:  { icon: FileCheck,    color: 'text-violet-600 dark:text-violet-400', bg: 'bg-violet-100 dark:bg-violet-900/50' },
+  ANSWERS_GENERATED:    { icon: CheckCircle,  color: 'text-emerald-600 dark:text-emerald-400', bg: 'bg-emerald-100 dark:bg-emerald-900/50' },
+  PROPOSAL_SUBMITTED:   { icon: FileText,     color: 'text-blue-600 dark:text-blue-400',   bg: 'bg-blue-100 dark:bg-blue-900/50' },
+  WIN_RECORDED:         { icon: Trophy,       color: 'text-amber-600 dark:text-amber-400',  bg: 'bg-amber-100 dark:bg-amber-900/50' },
+  LOSS_RECORDED:        { icon: XCircle,      color: 'text-red-500 dark:text-red-400',    bg: 'bg-red-100 dark:bg-red-900/50' },
+  DEADLINE_7_DAYS:      { icon: Clock,        color: 'text-orange-500 dark:text-orange-400', bg: 'bg-orange-100 dark:bg-orange-900/50' },
+  DEADLINE_3_DAYS:      { icon: Clock,        color: 'text-orange-600 dark:text-orange-400', bg: 'bg-orange-100 dark:bg-orange-900/50' },
+  DEADLINE_1_DAY:       { icon: AlertCircle,  color: 'text-red-500 dark:text-red-400',    bg: 'bg-red-100 dark:bg-red-900/50' },
+  DEADLINE_6_HOURS:     { icon: AlertCircle,  color: 'text-red-600 dark:text-red-400',    bg: 'bg-red-100 dark:bg-red-900/50' },
+  SOLICITATION_IMPORTED:{ icon: Download,     color: 'text-emerald-600 dark:text-emerald-400', bg: 'bg-emerald-100 dark:bg-emerald-900/50' },
+  PROCESSING_COMPLETE:  { icon: CheckCircle,  color: 'text-emerald-600 dark:text-emerald-400', bg: 'bg-emerald-100 dark:bg-emerald-900/50' },
+  PROCESSING_ERROR:     { icon: AlertCircle,  color: 'text-red-500 dark:text-red-400',    bg: 'bg-red-100 dark:bg-red-900/50' },
+  EXPORT_READY:         { icon: FileText,     color: 'text-blue-600 dark:text-blue-400',   bg: 'bg-blue-100 dark:bg-blue-900/50' },
+  STALE_CONTENT_WARNING:  { icon: AlertTriangle, color: 'text-amber-600 dark:text-amber-400', bg: 'bg-amber-100 dark:bg-amber-900/50' },
+  STALE_CONTENT_DETECTED: { icon: AlertTriangle, color: 'text-orange-600 dark:text-orange-400', bg: 'bg-orange-100 dark:bg-orange-900/50' },
+  DOCUMENT_APPROVAL_REQUESTED: { icon: ClipboardCheck, color: 'text-indigo-600 dark:text-indigo-400', bg: 'bg-indigo-100 dark:bg-indigo-900/50' },
+  DOCUMENT_APPROVED:    { icon: CheckCircle,  color: 'text-emerald-600 dark:text-emerald-400', bg: 'bg-emerald-100 dark:bg-emerald-900/50' },
+  DOCUMENT_REJECTED:    { icon: XCircle,      color: 'text-red-500 dark:text-red-400',    bg: 'bg-red-100 dark:bg-red-900/50' },
 };
 
-const DEFAULT_CONFIG = { icon: Bell, color: 'text-slate-500', bg: 'bg-slate-100' };
+const DEFAULT_CONFIG = { icon: Bell, color: 'text-muted-foreground', bg: 'bg-muted' };
 
 // ─── Link builder ─────────────────────────────────────────────────────────────
 
@@ -124,8 +125,8 @@ export const NotificationItem = ({ notification, orgId, onArchive, onRead, onClo
   return (
     <div
       className={cn(
-        'flex gap-3 px-4 py-3 hover:bg-slate-50 transition-colors group',
-        !read && 'bg-indigo-50/40',
+        'flex gap-3 px-4 py-3 hover:bg-accent transition-colors group',
+        !read && 'bg-primary/5',
         link ? 'cursor-pointer' : 'cursor-default',
       )}
       onClick={handleClick}
@@ -139,15 +140,15 @@ export const NotificationItem = ({ notification, orgId, onArchive, onRead, onClo
       {/* Content */}
       <div className="flex-1 min-w-0">
         <div className="flex items-start justify-between gap-2">
-          <p className={cn('text-sm leading-snug', !read ? 'font-semibold text-slate-900' : 'text-slate-700')}>
+          <p className={cn('text-sm leading-snug', !read ? 'font-semibold text-foreground' : 'text-foreground/80')}>
             {title}
           </p>
           {!read && (
-            <span className="flex-shrink-0 mt-1.5 h-2 w-2 rounded-full bg-indigo-500" />
+            <span className="flex-shrink-0 mt-1.5 h-2 w-2 rounded-full bg-primary" />
           )}
         </div>
-        <p className="text-xs text-slate-500 mt-0.5 line-clamp-2">{message}</p>
-        <p className="text-xs text-slate-400 mt-1">
+        <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">{message}</p>
+        <p className="text-xs text-muted-foreground/70 mt-1">
           {formatDistanceToNow(new Date(createdAt), { addSuffix: true })}
         </p>
       </div>
@@ -156,7 +157,7 @@ export const NotificationItem = ({ notification, orgId, onArchive, onRead, onClo
       <Button
         variant="ghost"
         size="icon"
-        className="h-6 w-6 flex-shrink-0 text-slate-300 hover:text-slate-600 opacity-0 group-hover:opacity-100 transition-opacity mt-0.5"
+        className="h-6 w-6 flex-shrink-0 text-muted-foreground/50 hover:text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity mt-0.5"
         onClick={(e) => { e.stopPropagation(); onArchive(); }}
       >
         <X className="h-3 w-3" />

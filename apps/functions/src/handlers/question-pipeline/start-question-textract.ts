@@ -9,6 +9,7 @@ import {
   AccessDeniedException,
 } from '@aws-sdk/client-textract';
 import { GetCommand } from '@aws-sdk/lib-dynamodb';
+import { v4 as uuidv4 } from 'uuid';
 import { PK_NAME, SK_NAME } from '@/constants/common';
 import { QUESTION_FILE_PK } from '@/constants/question-file';
 import { withSentryLambda } from '@/sentry-lambda';
@@ -16,6 +17,9 @@ import { requireEnv } from '@/helpers/env';
 import { docClient } from '@/helpers/db';
 import { buildQuestionFileSK, updateQuestionFile, checkQuestionFileCancelled } from '@/helpers/questionFile';
 import { SFNClient, SendTaskSuccessCommand, SendTaskFailureCommand } from '@aws-sdk/client-sfn';
+import { writeAuditLog } from '@/helpers/audit-log';
+import { getHmacSecret } from '@/helpers/secret';
+import { nowIso } from '@/helpers/date';
 
 const textract = new TextractClient({});
 
@@ -179,6 +183,36 @@ export const baseHandler = async (event: StartTextractEvent) => {
     }));
     return { ok: true, cancelled: true, deleted: true };
   }
+
+  // Write QUESTION_PIPELINE_STARTED audit log (non-blocking per rules)
+  const orgId = (item.orgId as string) || 'unknown';
+  getHmacSecret().then(hmacSecret => {
+    writeAuditLog(
+      {
+        logId: uuidv4(),
+        timestamp: nowIso(),
+        userId: 'system',
+        userName: 'system',
+        organizationId: orgId,
+        action: 'QUESTION_PIPELINE_STARTED',
+        resource: 'question_file',
+        resourceId: questionFileId,
+        changes: {
+          after: {
+            questionFileId,
+            projectId,
+            opportunityId,
+            fileKey,
+            jobId,
+          },
+        },
+        ipAddress: '0.0.0.0',
+        userAgent: 'system',
+        result: 'success',
+      },
+      hmacSecret,
+    );
+  }).catch(err => console.warn('Failed to write QUESTION_PIPELINE_STARTED audit log:', (err as Error)?.message));
 
   return { jobId } as StartTextractResp;
 };

@@ -80,6 +80,7 @@ export function ClarifyingQuestionsPanel() {
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [statusFilter, setStatusFilter] = useState<string>('ALL');
   const [exportDialogOpen, setExportDialogOpen] = useState(false);
+  const [questionsCountBeforeGenerate, setQuestionsCountBeforeGenerate] = useState<number | null>(null);
 
   const { exportQuestions, isExporting } = useExportClarifyingQuestions();
 
@@ -89,7 +90,37 @@ export function ClarifyingQuestionsPanel() {
     setGenerateError(null);
     setExpandedId(null);
     setStatusFilter('ALL');
+    setQuestionsCountBeforeGenerate(null);
   }, [opportunityId]);
+
+  // Poll for new questions when generation is in progress
+  useEffect(() => {
+    if (!isGenerating) return;
+
+    // Check if new questions appeared (generation complete)
+    if (questionsCountBeforeGenerate !== null && questions.length > questionsCountBeforeGenerate) {
+      setIsGenerating(false);
+      setQuestionsCountBeforeGenerate(null);
+      return;
+    }
+
+    // Poll every 3 seconds while generating
+    const pollInterval = setInterval(() => {
+      refreshQuestions();
+    }, 3000);
+
+    // Timeout after 3 minutes
+    const timeout = setTimeout(() => {
+      setIsGenerating(false);
+      setQuestionsCountBeforeGenerate(null);
+      setGenerateError('Generation timed out. Please try again.');
+    }, 180000);
+
+    return () => {
+      clearInterval(pollInterval);
+      clearTimeout(timeout);
+    };
+  }, [isGenerating, questions.length, questionsCountBeforeGenerate, refreshQuestions]);
 
   // Determine if generation is allowed based on document state
   // When still loading documents, we don't know yet - treat as "checking"
@@ -114,9 +145,11 @@ export function ClarifyingQuestionsPanel() {
 
   const handleGenerate = async (force = false) => {
     setGenerateError(null);
+    setQuestionsCountBeforeGenerate(questions.length);
     setIsGenerating(true);
     try {
       await generateQuestions(force);
+      // Don't set isGenerating to false here - the polling effect will detect when questions appear
     } catch (err) {
       // Handle backend validation errors with user-friendly message
       const rawMessage = err instanceof Error ? err.message : 'Failed to generate questions';
@@ -127,8 +160,9 @@ export function ClarifyingQuestionsPanel() {
       } else {
         setGenerateError(errorMsg);
       }
-    } finally {
+      // Only stop generating on error
       setIsGenerating(false);
+      setQuestionsCountBeforeGenerate(null);
     }
   };
 
@@ -275,7 +309,17 @@ export function ClarifyingQuestionsPanel() {
         {filteredQuestions.length === 0 ? (
           <div className="text-center py-8 text-muted-foreground">
             {questions.length === 0 ? (
-              isCheckingDocuments ? (
+              isGenerating ? (
+                <>
+                  <Sparkles className="h-12 w-12 mx-auto mb-4 text-indigo-500 animate-pulse" />
+                  <p className="font-medium text-indigo-600">Generating clarifying questions...</p>
+                  <p className="text-sm mt-1">AI is analyzing your solicitation documents. This may take up to 2 minutes.</p>
+                  <div className="flex items-center justify-center gap-2 mt-3">
+                    <Loader2 className="h-4 w-4 animate-spin text-indigo-500" />
+                    <span className="text-xs text-muted-foreground">Please wait...</span>
+                  </div>
+                </>
+              ) : isCheckingDocuments ? (
                 <>
                   <Loader2 className="h-12 w-12 mx-auto mb-4 opacity-30 animate-spin" />
                   <p className="font-medium">Checking documents...</p>
