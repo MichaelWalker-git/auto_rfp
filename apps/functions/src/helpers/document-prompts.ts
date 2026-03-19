@@ -676,29 +676,45 @@ HTML CONTENT REQUIREMENTS (TEMPLATE MODE)
 ═══════════════════════════════════════
 The "htmlContent" field MUST be a complete, well-structured HTML document body (no <html>/<head>/<body> tags — just the inner content).
 
-CRITICAL — TEMPLATE STYLING RULES:
-- You MUST use the EXACT same inline styles that appear in the template scaffold below.
-- Do NOT add any styles, borders, colors, or decorations that are NOT already in the template.
-- Do NOT add border-bottom, border-left, or any colored borders to headings unless the template already has them.
-- Do NOT add colored callout boxes or divs with background colors unless the template already has them.
-- If the template uses plain headings without borders, your output must also use plain headings without borders.
-- Copy the style="..." attributes from the template's elements exactly.
+🚨 CRITICAL — TEMPLATE PRESERVATION RULES (MANDATORY) 🚨
 
-IMAGE PRESERVATION:
-- Any <img> tags in the template (especially those with src="s3key:..." or data-s3-key="...") MUST be preserved EXACTLY as-is in your output.
-- Do NOT modify, remove, or replace any image tags from the template.
-- Place them in the same position relative to the surrounding content.
+IMAGE PRESERVATION (HIGHEST PRIORITY):
+- Any <img> tags marked with "<!-- PRESERVE THIS IMAGE TAG EXACTLY AS-IS -->" MUST be copied EXACTLY as-is in your output
+- Do NOT modify, remove, or replace any image tags from the template
+- Do NOT change src attributes, alt text, or any other image attributes
+- Place images in the same position relative to surrounding content
+- If you see src="s3key:..." or data-s3-key="..." attributes, these are critical company assets — preserve them exactly
+
+STYLE PRESERVATION (HIGHEST PRIORITY):
+- Any <style> blocks marked with "<!-- PRESERVE THIS STYLE BLOCK EXACTLY AS-IS -->" MUST be copied EXACTLY as-is
+- Any <link> tags marked with "<!-- PRESERVE THIS STYLE LINK EXACTLY AS-IS -->" MUST be copied EXACTLY as-is
+- Elements marked with "<!-- PRESERVE STYLING -->" must have their style, class, and id attributes copied exactly
+- You MUST use the EXACT same inline styles that appear in the template scaffold
+- Do NOT add any styles, borders, colors, or decorations that are NOT already in the template
+- Do NOT add border-bottom, border-left, or any colored borders to headings unless the template already has them
+- Do NOT add colored callout boxes or divs with background colors unless the template already has them
+- If the template uses plain headings without borders, your output must also use plain headings without borders
+- Copy the style="..." attributes from the template's elements character-for-character
+
+TEMPLATE STRUCTURE PRESERVATION:
+- Keep ALL headings (<h1>, <h2>, <h3>) exactly as written in the template
+- Preserve the exact order and hierarchy of sections
+- Do NOT add extra sections or headings not in the template
+- Do NOT remove any sections from the template
 
 VALUE PRESERVATION:
-- Any text that has already been filled in (company names, dates, solicitation numbers, etc.) is real data — keep it exactly as written.
-- Only replace text that is clearly a placeholder: [CONTENT: ...], [placeholder], [Your ...], or similar bracketed markers.
+- Any text that has already been filled in (company names, dates, solicitation numbers, etc.) is real data — keep it exactly as written
+- Only replace text that is clearly a placeholder: [CONTENT: ...], [placeholder], [Your ...], or similar bracketed markers
+- Preserve all macro-resolved values (dates, company names, contact info) exactly as they appear
 
-GENERAL HTML RULES:
-- Use <strong> for bold key terms, <em> for italics
-- Generate COMPLETE, DETAILED content — not placeholders
+CONTENT GENERATION RULES:
+- Generate COMPLETE, DETAILED content for all placeholder areas — not generic placeholders
 - Each major section should have 3-6 paragraphs of substantive content
+- Use <strong> for bold key terms, <em> for italics
 - The HTML must be valid and renderable in a browser
-- Do NOT include \`\`\`html fences or any text outside the JSON object`;
+- Do NOT include \`\`\`html fences or any text outside the JSON object
+
+⚠️ FAILURE TO PRESERVE MARKED ELEMENTS WILL RESULT IN DOCUMENT REJECTION ⚠️`;
 
 /**
  * Build a system prompt for document generation with document type and optional template structure.
@@ -1031,18 +1047,32 @@ export const buildSectionSystemPrompt = (
   // so it can observe and replicate the exact inline styles from the template HTML.
   const stylingSection = `
 ═══════════════════════════════════════
-⚠️ MANDATORY TEMPLATE STYLING — FOLLOW EXACTLY ⚠️
+🚨 MANDATORY TEMPLATE PRESERVATION — FOLLOW EXACTLY 🚨
 ═══════════════════════════════════════
 The template section content will be provided in the user prompt. You MUST:
+
+IMAGE PRESERVATION (HIGHEST PRIORITY):
+- Any <img> tags marked with "<!-- PRESERVE THIS IMAGE TAG EXACTLY AS-IS -->" MUST be copied EXACTLY as-is
+- Do NOT modify, remove, or replace any image tags from the template
+- Do NOT change src attributes, alt text, or any other image attributes
+- If you see src="s3key:..." or data-s3-key="..." attributes, these are critical company assets — preserve them exactly
+
+STYLE PRESERVATION (HIGHEST PRIORITY):
+- Any <style> blocks marked with "<!-- PRESERVE THIS STYLE BLOCK EXACTLY AS-IS -->" MUST be copied EXACTLY as-is
+- Any <link> tags marked with "<!-- PRESERVE THIS STYLE LINK EXACTLY AS-IS -->" MUST be copied EXACTLY as-is
+- Elements marked with "<!-- PRESERVE STYLING -->" must have their style, class, and id attributes copied exactly
 - Use the EXACT same inline styles you see in the template content — copy style="..." attributes character-for-character
 - Do NOT invent your own styles, borders, colors, backgrounds, or decorations
 - If the template uses plain headings without borders → your output must also use plain headings without borders
 - If the template has no background colors on elements → do NOT add background colors
-- PRESERVE all <img> tags exactly as-is (especially src="s3key:..." or data-s3-key="...")
+
+CONTENT PRESERVATION:
 - PRESERVE all pre-filled values (company names, dates, solicitation numbers) — these are real data
 - ONLY replace text that is clearly a placeholder: [CONTENT: ...], [placeholder], [Your ...]
 - Do NOT add <div> wrappers, callout boxes, or decorative elements not in the template
-- Use <strong> for bold and <em> for italics — no other emphasis styles`;
+- Use <strong> for bold and <em> for italics — no other emphasis styles
+
+⚠️ FAILURE TO PRESERVE MARKED ELEMENTS WILL RESULT IN SECTION REJECTION ⚠️`;
 
   return `You are a senior proposal writer and capture manager with 20+ years of experience winning US federal government contracts. You specialize in writing compliant, compelling, and customer-focused proposals that score highly against evaluation criteria.
 

@@ -13,17 +13,27 @@ describe('parseTemplateSections', () => {
     expect(parseTemplateSections('   ')).toBeNull();
   });
 
-  it('returns null for template without h2 headings', () => {
+  it('returns null for template without any headings', () => {
     const html = `
-      <h1>Document Title</h1>
       <p>Some content here</p>
       <p>[CONTENT: Write content here]</p>
     `;
     expect(parseTemplateSections(html)).toBeNull();
   });
 
-  it('parses a template with multiple h2 sections', () => {
+  it('returns null for template with only h1 heading (no h2 sections)', () => {
     const html = `
+      <h1>Document Title</h1>
+      <p>Some content here</p>
+    `;
+    // h1 is the document title, not a section boundary — should fall through to single-shot
+    const sections = parseTemplateSections(html);
+    expect(sections).toBeNull();
+  });
+
+  it('parses a template with h1 + h2 headings, h1 is part of preamble', () => {
+    const html = `
+      <p>Some intro content</p>
       <h1>Technical Proposal</h1>
       <p>Introduction text</p>
       <h2>Executive Summary</h2>
@@ -36,13 +46,18 @@ describe('parseTemplateSections', () => {
 
     const sections = parseTemplateSections(html);
     expect(sections).not.toBeNull();
-    expect(sections).toHaveLength(3);
-    expect(sections![0]!.title).toBe('Executive Summary');
-    expect(sections![1]!.title).toBe('Technical Approach');
-    expect(sections![2]!.title).toBe('Management Plan');
+    // Pre-<h2> content (intro + h1 + intro text) as "Introduction" + 3 h2 sections = 4 sections
+    expect(sections).toHaveLength(4);
+    expect(sections![0]!.title).toBe('Introduction');
+    // The Introduction section should contain the h1 title and intro text
+    expect(sections![0]!.templateContent).toContain('Technical Proposal');
+    expect(sections![0]!.templateContent).toContain('Introduction text');
+    expect(sections![1]!.title).toBe('Executive Summary');
+    expect(sections![2]!.title).toBe('Technical Approach');
+    expect(sections![3]!.title).toBe('Management Plan');
   });
 
-  it('extracts h3 headings as descriptions', () => {
+  it('keeps h3 headings within their parent h2 section (not split points)', () => {
     const html = `
       <h2>Risk Management</h2>
       <h3>Risk Identification Process</h3>
@@ -55,11 +70,13 @@ describe('parseTemplateSections', () => {
 
     const sections = parseTemplateSections(html);
     expect(sections).not.toBeNull();
+    // Only h2 headings are split points: 2 sections
     expect(sections).toHaveLength(2);
     expect(sections![0]!.title).toBe('Risk Management');
-    expect(sections![0]!.description).toBe('Risk Identification Process. Mitigation Strategies');
+    // h3 headings are included in the parent h2 section's templateContent
+    expect(sections![0]!.templateContent).toContain('Risk Identification Process');
+    expect(sections![0]!.templateContent).toContain('Mitigation Strategies');
     expect(sections![1]!.title).toBe('Quality Assurance');
-    expect(sections![1]!.description).toBeUndefined();
   });
 
   it('preserves template content between sections', () => {
@@ -121,9 +138,24 @@ describe('parseTemplateSections', () => {
     expect(sections![1]!.title).toBe('Section with text');
   });
 
-  it('handles single h2 section', () => {
+  it('handles h1 followed by single h2 section (h1 is in preamble)', () => {
     const html = `
       <h1>Title</h1>
+      <h2>Only Section</h2>
+      <p>Content</p>
+    `;
+
+    const sections = parseTemplateSections(html);
+    expect(sections).not.toBeNull();
+    // h1 is part of the preamble "Introduction" section, h2 is the only real section
+    expect(sections).toHaveLength(2);
+    expect(sections![0]!.title).toBe('Introduction');
+    expect(sections![0]!.templateContent).toContain('Title');
+    expect(sections![1]!.title).toBe('Only Section');
+  });
+
+  it('handles single h2 section without h1', () => {
+    const html = `
       <h2>Only Section</h2>
       <p>Content</p>
     `;
@@ -166,20 +198,19 @@ describe('injectSectionsIntoTemplate', () => {
     expect(result).toContain('Section 2');
   });
 
-  it('joins section fragments with double newlines', () => {
+  it('joins all section fragments together', () => {
     const template = `<h1>Document Title</h1>
-<p>Intro text</p>
 <h2>Section A</h2>
-<p>[CONTENT: placeholder]</p>
-<h2>Section B</h2>
 <p>[CONTENT: placeholder]</p>`;
 
     const fragments = [
+      '<p>Intro with <img src="s3key:logo.png" /></p>',
       '<h2>Section A</h2><p>Generated content A</p>',
       '<h2>Section B</h2><p>Generated content B</p>',
     ];
 
     const result = injectSectionsIntoTemplate(template, fragments);
+    expect(result).toContain('s3key:logo.png');
     expect(result).toContain('Generated content A');
     expect(result).toContain('Generated content B');
     expect(result).toBe(fragments.join('\n\n'));

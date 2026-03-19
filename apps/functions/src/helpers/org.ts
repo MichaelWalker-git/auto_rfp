@@ -19,7 +19,7 @@ export const getOrganizationById = async (orgId: string): Promise<OrganizationIt
 export async function createOrganization(orgData: CreateOrganizationDTO): Promise<OrganizationItem> {
   const orgId = uuidv4();
 
-  const organizationItem = await createItem<OrganizationItem>(
+  return await createItem<OrganizationItem>(
     ORG_PK,
     `ORG#${orgId}`,
     {
@@ -27,8 +27,6 @@ export async function createOrganization(orgData: CreateOrganizationDTO): Promis
       id: orgId,
     } as any
   );
-
-  return organizationItem;
 }
 
 export async function listAllOrgIds(): Promise<string[]> {

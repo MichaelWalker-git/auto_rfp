@@ -57,8 +57,6 @@ const baseHandler = async (
       category: source.category ?? 'CUSTOM',
       description: source.description ?? '',
       sections: [],
-      macros: source.macros ?? [],
-      styling: source.styling ?? undefined,
       htmlContentKey,
       tags: source.tags ?? [],
       isDefault: false,

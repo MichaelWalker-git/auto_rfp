@@ -1,33 +1,12 @@
-import { GetCommand, PutCommand, QueryCommand, UpdateCommand } from '@aws-sdk/lib-dynamodb';
-import { docClient } from './db';
+import { PutCommand, QueryCommand, UpdateCommand } from '@aws-sdk/lib-dynamodb';
+import { docClient, getItem } from './db';
 import { requireEnv } from './env';
-import { PK_NAME, SK_NAME } from '../constants/common';
+import { PK_NAME, SK_NAME } from '@/constants/common';
 import { createTemplateSK, TEMPLATE_PK, type TemplateItem } from '@auto-rfp/core';
 import { loadTextFromS3, uploadToS3 } from './s3';
 
 const TABLE_NAME = requireEnv('DB_TABLE_NAME');
 const DOCUMENTS_BUCKET = requireEnv('DOCUMENTS_BUCKET');
-
-// ================================
-// S3 Key Builders
-// ================================
-
-export const buildTemplateS3Key = (
-  orgId: string,
-  templateId: string,
-  version: number,
-): string =>
-  `templates/${orgId}/${templateId}/v${version}/content.json`;
-
-export const buildGlobalTemplateS3Key = (
-  templateId: string,
-  version: number,
-): string =>
-  `templates/global/${templateId}/v${version}/content.json`;
-
-// ================================
-// DynamoDB Operations
-// ================================
 
 export const putTemplate = async (item: TemplateItem): Promise<void> => {
   await docClient.send(new PutCommand({
@@ -40,19 +19,8 @@ export const putTemplate = async (item: TemplateItem): Promise<void> => {
   }));
 };
 
-export const getTemplate = async (
-  orgId: string,
-  templateId: string,
-): Promise<TemplateItem | null> => {
-  const res = await docClient.send(new GetCommand({
-    TableName: TABLE_NAME,
-    Key: {
-      [PK_NAME]: TEMPLATE_PK,
-      [SK_NAME]: createTemplateSK(orgId, templateId),
-    },
-  }));
-  return (res.Item as TemplateItem) ?? null;
-};
+export const getTemplate = async (orgId: string, templateId: string,) =>
+  getItem<TemplateItem>(TEMPLATE_PK, createTemplateSK(orgId, templateId));
 
 export const listTemplatesByOrg = async (
   orgId: string,
@@ -140,10 +108,6 @@ export const updateTemplateFields = async (
     ExpressionAttributeValues: exprAttrValues,
   }));
 };
-
-// ================================
-// HTML Content S3 Helpers
-// ================================
 
 /**
  * Build the S3 key for a template's HTML content.

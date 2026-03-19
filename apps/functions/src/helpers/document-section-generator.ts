@@ -161,6 +161,30 @@ ${section.templateContent}`
       ? 'This is the FINAL section — include a professional closing statement at the end.'
       : `This is section ${sectionIndex + 1} of ${totalSections}.`;
 
+  // For the "Introduction" section (pre-heading content), don't require an <h2> heading
+  const isIntroSection = section.title === 'Introduction' && !section.description;
+  const outputRules = isIntroSection
+    ? `IMPORTANT OUTPUT RULES:
+- Return ONLY the HTML for this introductory section
+- PRESERVE all existing content from the template (images, logos, company info, dates, styled elements)
+- ONLY replace text that is clearly a placeholder: [CONTENT: ...], [placeholder], [Your ...], or similar bracketed markers
+- Do NOT add <h1> or <h2> headings — this section has no heading
+- Do NOT repeat content from other sections
+- Do NOT include any text outside the HTML
+- Use the EXACT same inline styles from the template — do NOT add borders, colors, or decorations not in the template
+- Preserve all <img> tags from the template exactly as-is (especially src="s3key:..." tags)
+- Replace all \\n with actual newlines in the HTML output`
+    : `IMPORTANT OUTPUT RULES:
+- Return ONLY the HTML for this section, starting with <h2>${section.title}</h2>
+- Do NOT include the document title (<h1>)
+- Do NOT repeat content from other sections
+- Do NOT include any text outside the HTML
+- Use the same inline styles as the template — do NOT add borders or decorations not in the template
+- Preserve all <img> tags from the template exactly as-is
+- Replace all \\n with actual newlines in the HTML output
+- Generate COMPLETE, DETAILED content — minimum 3-5 paragraphs per section
+- Use tools (search_past_performance, search_knowledge_base, get_qa_answers, etc.) to gather specific data for this section`;
+
   return `${initialUserPrompt}${continuityHint}
 
 ---
@@ -171,16 +195,7 @@ ${section.description ? `Focus on: ${section.description}.` : ''}
 ${section.guidance ? `Additional guidance: ${section.guidance}` : ''}
 ${templateContentHint}
 
-IMPORTANT OUTPUT RULES:
-- Return ONLY the HTML for this section, starting with <h2>${section.title}</h2>
-- Do NOT include the document title (<h1>)
-- Do NOT repeat content from other sections
-- Do NOT include any text outside the HTML
-- Use the same inline styles as the template — do NOT add borders or decorations not in the template
-- Preserve all <img> tags from the template exactly as-is
-- Replace all \\n with actual newlines in the HTML output
-- Generate COMPLETE, DETAILED content — minimum 3-5 paragraphs per section
-- Use tools (search_past_performance, search_knowledge_base, get_qa_answers, etc.) to gather specific data for this section`;
+${outputRules}`;
 };
 
 // ─── Single Section Generator ─────────────────────────────────────────────────
@@ -335,6 +350,80 @@ export const generateDocumentSectionBySectionHtml = async (
     const section = sections[i]!;
     const sectionStart = Date.now();
 
+    // Check if this section has placeholders that need AI-generated content
+    const hasPlaceholders = section.templateContent
+      ? /\[CONTENT:|\[placeholder\]|\[Your /i.test(section.templateContent)
+      : false;
+
+    // For sections with template content but NO placeholders to fill,
+    // use the template content directly — no AI generation needed.
+    // This preserves images, styles, and boilerplate exactly as-is.
+    if (section.templateContent && !hasPlaceholders) {
+      console.log(`[section-gen] Section "${section.title}": using template content directly (no placeholders to fill)`);
+      htmlFragments.push(section.templateContent);
+      completedSectionTitles.push(section.title);
+      results.push({
+        sectionIndex: i,
+        title: section.title,
+        html: section.templateContent,
+        toolRoundsUsed: 0,
+        durationMs: 0,
+      });
+      continue;
+    }
+
+    // Special handling for Introduction section: if it has images or styles,
+    // be extra careful to preserve them even if there are placeholders
+    const isIntroSection = section.title === 'Introduction';
+    const hasImages = section.templateContent ? /<img[^>]*>/i.test(section.templateContent) : false;
+    const hasStyles = section.templateContent ? /<style[^>]*>|style="/i.test(section.templateContent) : false;
+    
+    if (isIntroSection && (hasImages || hasStyles) && hasPlaceholders) {
+      console.log(`[section-gen] Introduction section has images/styles and placeholders - using enhanced preservation`);
+      
+      // For Introduction sections with critical template elements, try to minimize AI processing
+      // by only replacing obvious placeholders and preserving everything else
+      if (section.templateContent) {
+        let preservedContent = section.templateContent;
+        
+        // Only replace very obvious placeholders, leave everything else untouched
+        const obviousPlaceholders = [
+          /\[CONTENT:\s*[^\]]*\]/gi,
+          /\[placeholder\]/gi,
+          /\[Your\s+[^\]]*\]/gi
+        ];
+        
+        let hasObviousPlaceholders = false;
+        for (const regex of obviousPlaceholders) {
+          if (regex.test(preservedContent)) {
+            hasObviousPlaceholders = true;
+            break;
+          }
+        }
+        
+        // If only obvious placeholders, do minimal replacement to preserve images/styles
+        if (hasObviousPlaceholders) {
+          // Replace obvious placeholders with minimal content to avoid AI processing
+          preservedContent = preservedContent
+            .replace(/\[CONTENT:\s*[^\]]*\]/gi, '')
+            .replace(/\[placeholder\]/gi, '')
+            .replace(/\[Your\s+[^\]]*\]/gi, '');
+          
+          console.log(`[section-gen] Introduction section: preserved template content with minimal placeholder removal`);
+          htmlFragments.push(preservedContent);
+          completedSectionTitles.push(section.title);
+          results.push({
+            sectionIndex: i,
+            title: section.title,
+            html: preservedContent,
+            toolRoundsUsed: 0,
+            durationMs: 0,
+          });
+          continue;
+        }
+      }
+    }
+
     // Build section-specific prompt
     const sectionPrompt = buildSectionPrompt(
       initialUserPrompt,
@@ -361,12 +450,77 @@ export const generateDocumentSectionBySectionHtml = async (
       const durationMs = Date.now() - sectionStart;
 
       if (rawHtml.trim()) {
-        // Strip any JSON wrapper if model accidentally returned JSON
-        const htmlMatch = rawHtml.match(/<h[1-6][\s\S]*$/i);
+        // Strip any JSON wrapper if model accidentally returned JSON.
+        const hasLeadingNonHtml = /^[^<]*\{/.test(rawHtml.trim());
+        const htmlMatch = hasLeadingNonHtml ? rawHtml.match(/<[a-z][\s\S]*$/i) : null;
         // Replace literal \n escape sequences with real newlines
-        const cleanHtml = (htmlMatch ? htmlMatch[0] : rawHtml)
+        let cleanHtml = (htmlMatch ? htmlMatch[0] : rawHtml)
           .replace(/\\n/g, '\n')
           .replace(/\\t/g, '\t');
+
+        // If the section has template content, use the template as the base
+        // and inject AI content into it. This preserves all images, styles,
+        // boilerplate, and footer content from the template.
+        if (section.templateContent) {
+          let injected = section.templateContent;
+          
+          if (hasPlaceholders && /\[CONTENT:\s*[^\]]*\]/i.test(injected)) {
+            // Template has [CONTENT:] placeholders — replace them with AI content
+            injected = injected.replace(/\[CONTENT:\s*[^\]]*\]/gi, cleanHtml);
+            console.log(`[section-gen] Injected AI content into template placeholders for "${section.title}" (${injected.length} chars)`);
+            cleanHtml = injected;
+          } else {
+            // No placeholders — use the template's heading (with styles) + AI body content
+            // Extract the heading from the template (preserves styling like <span style="color:...">)
+            const templateHeadingMatch = section.templateContent.match(/(<h[1-6][^>]*>[\s\S]*?<\/h[1-6]>)/i);
+            const templateHeading = templateHeadingMatch ? templateHeadingMatch[1] : null;
+            
+            // Extract the AI body (everything after the first heading)
+            const aiHeadingEnd = cleanHtml.match(/<\/h[1-6]>/i);
+            const aiBody = aiHeadingEnd?.index !== undefined
+              ? cleanHtml.substring(aiHeadingEnd.index + aiHeadingEnd[0].length)
+              : cleanHtml;
+            
+            // Extract template "tail" — all non-placeholder content from the template section
+            // that should be preserved after the AI-generated body.
+            // This includes images, signature blocks, styled paragraphs, etc.
+            const templateAfterHeading = templateHeadingMatch
+              ? section.templateContent.substring(templateHeadingMatch.index! + templateHeadingMatch[0].length)
+              : section.templateContent;
+            
+            // The template section body contains placeholder text + tail content.
+            // We need to extract the tail (everything that's NOT a placeholder).
+            // Strategy: remove all placeholder markers and their wrapping <p> tags,
+            // then whatever remains is the tail content to preserve.
+            let sectionFooter = templateAfterHeading
+              .replace(/<p[^>]*>\s*\[CONTENT:[^\]]*\]\s*<\/p>/gi, '')
+              .replace(/<p[^>]*>\s*\[placeholder\]\s*<\/p>/gi, '')
+              .replace(/<p[^>]*>\s*\[Your[^\]]*\]\s*<\/p>/gi, '')
+              .replace(/\[CONTENT:[^\]]*\]/gi, '')
+              .replace(/\[placeholder\]/gi, '')
+              .replace(/\[Your[^\]]*\]/gi, '')
+              .trim();
+            
+            // Only use as footer if there's meaningful content left
+            if (sectionFooter && sectionFooter.replace(/<[^>]*>/g, '').trim().length > 0) {
+              console.log(`[section-gen] Found section tail for "${section.title}": ${sectionFooter.length} chars`);
+            } else {
+              sectionFooter = '';
+            }
+            
+            // Assemble: template heading + AI body + section footer
+            if (templateHeading) {
+              cleanHtml = templateHeading + aiBody;
+              if (sectionFooter) {
+                cleanHtml += '\n' + sectionFooter;
+              }
+              console.log(`[section-gen] Used template heading (with styles) for "${section.title}"`);
+            } else if (sectionFooter) {
+              cleanHtml += '\n' + sectionFooter;
+              console.log(`[section-gen] Appended section footer for "${section.title}"`);
+            }
+          }
+        }
 
         htmlFragments.push(cleanHtml);
         completedSectionTitles.push(section.title);
@@ -380,13 +534,23 @@ export const generateDocumentSectionBySectionHtml = async (
         });
 
         console.log(`[section-gen] Section "${section.title}": ${cleanHtml.length} chars, ${toolRoundsUsed} tool rounds, ${durationMs}ms`);
+      } else if (section.templateContent) {
+        // AI returned empty — fall back to template content
+        console.warn(`[section-gen] Section "${section.title}": empty AI response, using template content as fallback`);
+        htmlFragments.push(section.templateContent);
+        completedSectionTitles.push(section.title);
       } else {
         console.warn(`[section-gen] Section "${section.title}": empty response, skipping`);
       }
     } catch (err) {
       const durationMs = Date.now() - sectionStart;
       console.error(`[section-gen] Section "${section.title}" failed after ${durationMs}ms:`, (err as Error)?.message);
-      // Continue with remaining sections — don't fail the entire document for one section
+      // Fall back to template content if available
+      if (section.templateContent) {
+        console.warn(`[section-gen] Using template content as fallback for "${section.title}"`);
+        htmlFragments.push(section.templateContent);
+        completedSectionTitles.push(section.title);
+      }
     }
   }
 

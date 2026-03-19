@@ -110,18 +110,17 @@ export const baseHandler = async (
 
     // Strip any leftover scaffold/generation comments that shouldn't be in the final HTML.
     // Strategy: strip all HTML comments that contain known scaffold markers.
-    // For unclosed comments, strip everything from <!-- to the next block-level HTML tag.
+    // Handle both closed comments (with -->) and unclosed comments (without -->).
+    // Unclosed comments are especially dangerous — browsers treat everything after them as invisible.
     const sanitizedHtml = rawHtml
       // Closed comments (properly terminated with -->)
       .replace(/<!--\s*TEMPLATE SCAFFOLD:[\s\S]*?-->\s*/gi, '')
       .replace(/<!--\s*PRESERVE THIS IMAGE TAG EXACTLY AS-IS\s*-->\s*/gi, '')
       .replace(/<!--\s*Section guidance:[\s\S]*?-->\s*/gi, '')
-      // Unclosed comments: strip from <!-- marker to the next block-level tag (<h1>-<h6>, <p>, <div>, <ul>, <ol>, <table>)
-      .replace(/<!--\s*TEMPLATE SCAFFOLD:[^<]*(?:<(?![hH][1-6]|[pP][ >]|[dD][iI][vV]|[uU][lL]|[oO][lL]|[tT][aA][bB])[^<]*)*/g, '')
-      .replace(/<!--\s*Section guidance:[^<]*(?:<(?![hH][1-6]|[pP][ >]|[dD][iI][vV]|[uU][lL]|[oO][lL]|[tT][aA][bB])[^<]*)*/g, '')
-      // Strip leading/trailing non-HTML artifacts (commas, semicolons, whitespace, JSON remnants)
-      .replace(/^[\s,;]+/, '')
-      .replace(/[\s,;]+$/, '')
+      // Unclosed scaffold comments (no --> terminator) — strip from <!-- to end of line
+      .replace(/<!--\s*TEMPLATE SCAFFOLD:[^\n]*\n?/gi, '')
+      .replace(/<!--\s*PRESERVE THIS IMAGE TAG[^\n]*\n?/gi, '')
+      .replace(/<!--\s*Section guidance:[^\n]*\n?/gi, '')
       .trim();
 
     // Always return 200 — even if empty, so the editor can render (empty doc is valid)

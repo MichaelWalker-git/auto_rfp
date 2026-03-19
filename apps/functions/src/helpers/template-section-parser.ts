@@ -1,13 +1,17 @@
 /**
  * Parse template HTML to extract section structure for AI generation.
  *
- * This helper extracts headings (<h2>, <h3>) from template HTML to create
+ * This helper extracts <h2> headings from template HTML to create
  * a section outline that can be used for section-by-section document generation.
  * It also preserves the original HTML content between headings so the AI can
  * maintain template boilerplate, images, and resolved macro values.
  *
+ * IMPORTANT: Only <h2> headings are used as section boundaries.
+ * - <h1> is the document title and is included in the preamble ("Introduction" section)
+ * - <h3> headings are subsections within <h2> sections (not split points)
+ *
  * Enhanced to support:
- * - Robust section boundary detection (h2-based splitting)
+ * - Robust section boundary detection (h2-only splitting)
  * - Section-level template content preservation (images, boilerplate, macros)
  * - Content placeholder detection for simple templates
  */
@@ -68,48 +72,59 @@ const extractH3Descriptions = (html: string): string | undefined => {
 export const parseTemplateSections = (templateHtml: string): DocumentSection[] | null => {
   if (!templateHtml?.trim()) return null;
 
-  // Find all <h2> tag positions
-  const h2Positions: Array<{ index: number; fullMatch: string; innerHtml: string }> = [];
-  const h2Regex = /<h2[^>]*>([\s\S]*?)<\/h2>/gi;
+  // Find all <h2> heading positions — these are the section boundaries.
+  // <h1> is the document title (part of the preamble, not a section).
+  // <h3> headings are subsections within <h2> sections (not split points).
+  const headingPositions: Array<{ index: number; fullMatch: string; innerHtml: string; level: number }> = [];
+  const headingRegex = /<(h2)[^>]*>([\s\S]*?)<\/\1>/gi;
   let match: RegExpExecArray | null;
 
-  while ((match = h2Regex.exec(templateHtml)) !== null) {
-    h2Positions.push({
+  while ((match = headingRegex.exec(templateHtml)) !== null) {
+    headingPositions.push({
       index: match.index,
       fullMatch: match[0],
-      innerHtml: match[1] ?? '',
+      innerHtml: match[2] ?? '',
+      level: parseInt(match[1]![1]!, 10),
     });
   }
 
-  if (h2Positions.length === 0) {
-    // No <h2> headings found — this is a simple wrapper template
+  if (headingPositions.length === 0) {
+    // No headings found — this is a simple wrapper template
     return null;
   }
 
   const sections: DocumentSection[] = [];
 
-  for (let i = 0; i < h2Positions.length; i++) {
-    const current = h2Positions[i]!;
-    const next = h2Positions[i + 1];
+  // If there's content before the first heading, treat it as a section
+  const firstHeadingIndex = headingPositions[0]!.index;
+  if (firstHeadingIndex > 0) {
+    const beforeContent = templateHtml.substring(0, firstHeadingIndex).trim();
+    if (beforeContent) {
+      sections.push({
+        title: 'Introduction',
+        templateContent: beforeContent,
+      });
+    }
+  }
 
-    // Extract section title from <h2> content
+  for (let i = 0; i < headingPositions.length; i++) {
+    const current = headingPositions[i]!;
+    const next = headingPositions[i + 1];
+
+    // Extract section title from heading content
     const title = cleanHeadingText(current.innerHtml);
     if (!title) continue; // Skip empty headings
 
     // Determine the content boundary for this section:
-    // From end of <h2> tag to start of next <h2> tag (or end of document)
-    const sectionContentStart = current.index + current.fullMatch.length;
-    const sectionContentEnd = next ? next.index : templateHtml.length;
-    const sectionContent = templateHtml.substring(sectionContentStart, sectionContentEnd).trim();
-
-    // Extract <h3> headings from section content as description
-    const description = extractH3Descriptions(sectionContent);
+    // Include the heading tag itself + content until the next heading (or end of document)
+    const sectionStart = current.index;
+    const sectionEnd = next ? next.index : templateHtml.length;
+    const sectionContent = templateHtml.substring(sectionStart, sectionEnd).trim();
 
     // Build the section object
     const section: DocumentSection = {
       title,
-      ...(description && { description }),
-      // Preserve the full section content (between h2 boundaries) including
+      // Preserve the full section content INCLUDING the heading tag,
       // boilerplate, images, resolved macros, and placeholder markers
       ...(sectionContent && { templateContent: sectionContent }),
     };
@@ -137,19 +152,36 @@ export const templateHasStructure = (templateHtml: string): boolean => {
 // ─── Template Content Injection ───────────────────────────────────────────────
 
 /**
- * Inject AI-generated section HTML fragments into a single document.
+ * Inject AI-generated section HTML fragments back into the original template.
  *
- * Simply joins the generated section fragments with double newlines.
- * Each fragment is a complete HTML snippet starting with an <h2> heading.
+ * The fragments array is produced by generateDocumentSectionBySectionHtml() and
+ * corresponds 1:1 with the sections returned by parseTemplateSections():
+ *   - fragments[0] = Introduction section (content before first <h2>) — if present
+ *   - fragments[1..N] = Each <h2> section in order
  *
- * @param _templateHtml - Unused (kept for API compatibility)
- * @param sectionHtmlFragments - Array of generated HTML fragments, each starting with <h2>
- * @returns Complete document HTML from joined section fragments
+ * Each fragment already contains the complete section HTML with all template
+ * elements preserved (images, styles, boilerplate). The section generator handles
+ * placeholder replacement and template content injection within each fragment.
+ *
+ * We simply join the fragments in document order. No re-parsing of the template
+ * is needed because the section generator already preserves template structure.
+ *
+ * @param _templateHtml - The preprocessed template HTML (unused — kept for API compatibility)
+ * @param sectionHtmlFragments - Array of generated HTML fragments in document order
+ * @returns Complete document HTML with all sections joined
  */
 export const injectSectionsIntoTemplate = (
   _templateHtml: string,
   sectionHtmlFragments: string[],
 ): string => {
+  if (!sectionHtmlFragments?.length) {
+    return '';
+  }
+
+  // Simply join all generated section fragments in order.
+  // parseTemplateSections includes pre-<h2> content as an "Introduction" section
+  // (which covers the <h1> title, logos, images, styles, etc.) and splits on <h2> boundaries.
+  // The section generator preserves all template elements within each fragment.
   return sectionHtmlFragments.join('\n\n');
 };
 

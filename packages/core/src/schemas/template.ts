@@ -57,37 +57,6 @@ export const MacroDefinitionSchema = z.object({
 
 export type MacroDefinition = z.infer<typeof MacroDefinitionSchema>;
 
-export const TemplateSectionSchema = z.object({
-  id: z.string().uuid(),
-  title: z.string().min(1).max(500),
-  content: z.string().max(100000),
-  order: z.number().int().min(0),
-  pageLimit: z.number().int().min(1).optional(),
-  required: z.boolean().default(true),
-  description: z.string().max(1000).optional(),
-});
-
-export type TemplateSection = z.infer<typeof TemplateSectionSchema>;
-
-export const StylingConfigSchema = z.object({
-  fontFamily: z.string().max(200).optional(),
-  fontSize: z.number().min(8).max(72).optional(),
-  lineSpacing: z.number().min(1).max(3).optional(),
-  margins: z.object({
-    top: z.number().min(0).max(5).optional(),
-    bottom: z.number().min(0).max(5).optional(),
-    left: z.number().min(0).max(5).optional(),
-    right: z.number().min(0).max(5).optional(),
-  }).optional(),
-  headerText: z.string().max(500).optional(),
-  footerText: z.string().max(500).optional(),
-  logoUrl: z.string().url().optional(),
-  primaryColor: z.string().regex(/^#[0-9a-fA-F]{6}$/).optional(),
-  secondaryColor: z.string().regex(/^#[0-9a-fA-F]{6}$/).optional(),
-});
-
-export type StylingConfig = z.infer<typeof StylingConfigSchema>;
-
 export const TemplateVersionMetaSchema = z.object({
   version: z.number().int().min(1),
   createdAt: z.string().datetime(),
@@ -109,17 +78,6 @@ export const TemplateItemSchema = z.object({
   name: z.string().min(1).max(500),
   category: TemplateCategorySchema,
   description: z.string().max(2000).optional(),
-
-  // Template content (current version)
-  // sections is kept for backward compat but content is stored in S3 via htmlContentKey
-  sections: z.array(TemplateSectionSchema).default([]),
-  macros: z.array(MacroDefinitionSchema).default([]),
-  styling: StylingConfigSchema.optional(),
-  /**
-   * S3 key for the HTML content of the template.
-   * When present, the full HTML lives in S3 and this field is the key.
-   * Replaces the sections[].content pattern for simpler storage.
-   */
   htmlContentKey: z.string().nullable().optional(),
 
   // Metadata
@@ -169,7 +127,6 @@ export const CreateTemplateDTOSchema = z.object({
   /** Raw HTML content — stored in S3, key saved as htmlContentKey */
   htmlContent: z.string().max(10_000_000).optional(),
   macros: z.array(MacroDefinitionSchema).optional(),
-  styling: StylingConfigSchema.optional(),
   tags: z.array(z.string().max(50)).max(20).optional(),
   agencyId: z.string().max(200).optional(),
   agencyName: z.string().max(500).optional(),
@@ -184,7 +141,6 @@ export const UpdateTemplateDTOSchema = z.object({
   /** Raw HTML content — stored in S3, key saved as htmlContentKey */
   htmlContent: z.string().max(10_000_000).optional(),
   macros: z.array(MacroDefinitionSchema).optional(),
-  styling: StylingConfigSchema.optional(),
   tags: z.array(z.string().max(50)).max(20).optional(),
   changeNotes: z.string().max(1000).optional(),
   agencyId: z.string().max(200).optional(),
@@ -219,7 +175,6 @@ export const ImportTemplateDTOSchema = z.object({
     /** Raw HTML content — stored in S3, key saved as htmlContentKey */
     htmlContent: z.string().max(10_000_000).optional(),
     macros: z.array(MacroDefinitionSchema).optional(),
-    styling: StylingConfigSchema.optional(),
     tags: z.array(z.string().max(50)).max(20).optional(),
   }),
 });

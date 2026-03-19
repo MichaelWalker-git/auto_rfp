@@ -37,8 +37,6 @@ const baseHandler = async (
       category: template.category,
       description: template.description,
       htmlContent,
-      macros: template.macros.filter(m => m.type === 'CUSTOM'),
-      styling: template.styling,
       tags: template.tags,
       exportedAt: new Date().toISOString(),
       sourceTemplateId: template.id,

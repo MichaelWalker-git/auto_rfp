@@ -221,7 +221,8 @@ export const buildMacroValues = async (params: {
  * 1. Replace {{MACRO}} placeholders with real values from macroValues
  * 2. Replace any remaining unresolved macros with generic labels
  * 3. Preserve s3key: image tags with marker comments
- * 4. Add a scaffold header comment
+ * 4. Preserve CSS styles and styling attributes
+ * 5. Add a scaffold header comment with strong preservation instructions
  *
  * @param html - The raw template HTML with {{MACRO}} placeholders
  * @param macroValues - Real values to replace macros with (e.g., {COMPANY_NAME: "Acme Corp"})
@@ -251,14 +252,45 @@ export const prepareTemplateScaffoldForAI = (
     '<!-- PRESERVE THIS IMAGE TAG EXACTLY AS-IS -->$1',
   );
 
-  // Add scaffold header based on template structure
+  // Preserve CSS style blocks and link tags
+  scaffold = scaffold.replace(
+    /(<style[^>]*>[\s\S]*?<\/style>)/gi,
+    '<!-- PRESERVE THIS STYLE BLOCK EXACTLY AS-IS -->$1',
+  );
+
+  scaffold = scaffold.replace(
+    /(<link[^>]*?(?:rel="stylesheet"|type="text\/css")[^>]*?>)/gi,
+    '<!-- PRESERVE THIS STYLE LINK EXACTLY AS-IS -->$1',
+  );
+
+  // Add scaffold header based on template structure with stronger preservation instructions
   const hasHeadings = /<h[1-6]/i.test(scaffold);
+  const hasImages = /<!-- PRESERVE THIS IMAGE TAG/.test(scaffold);
+  const hasStyles = /<!-- PRESERVE THIS STYLE/.test(scaffold);
+
+  let instructions = 'You MUST follow this exact structure. ';
+  
+  if (hasHeadings) {
+    instructions += 'Keep ALL <h1>, <h2>, <h3> headings exactly as written. ';
+  }
+  
+  if (hasImages) {
+    instructions += 'PRESERVE ALL IMAGE TAGS marked with preservation comments - copy them EXACTLY including all attributes. ';
+  }
+  
+  if (hasStyles) {
+    instructions += 'PRESERVE ALL STYLE BLOCKS and CSS styling marked with preservation comments - copy them EXACTLY. ';
+  }
+  
+  instructions += 'Fill in all [CONTENT] and [placeholder] markers with real, detailed content. ';
+  instructions += 'Do NOT add extra sections or headings not in this template. ';
+  instructions += 'CRITICAL: Any element marked with "PRESERVE" comments must be copied exactly as-is.';
 
   if (hasHeadings) {
-    return `<!-- TEMPLATE SCAFFOLD: You MUST follow this exact structure. Keep ALL <h1>, <h2>, <h3> headings exactly as written. Fill in all [CONTENT] and [placeholder] markers with real, detailed content. Do NOT add extra sections or headings not in this template. -->\n${scaffold}`;
+    return `<!-- TEMPLATE SCAFFOLD: ${instructions} -->\n${scaffold}`;
   }
 
-  return `<!-- TEMPLATE SCAFFOLD: This template defines the document wrapper/structure. Replace [CONTENT: ...] with a complete, well-structured HTML document body including appropriate headings and paragraphs. Keep all other text and elements (dates, company name, etc.) in their original positions. -->\n${scaffold}`;
+  return `<!-- TEMPLATE SCAFFOLD: This template defines the document wrapper/structure. Replace [CONTENT: ...] with a complete, well-structured HTML document body including appropriate headings and paragraphs. Keep all other text and elements (dates, company name, images, styles) in their original positions. PRESERVE ALL marked elements exactly as-is. -->\n${scaffold}`;
 };
 
 // ─── Template HTML resolution ─────────────────────────────────────────────────
@@ -327,6 +359,7 @@ export const updateDocumentStatus = async (
   // Upload HTML to S3 when we have content and an orgId to build the key
   if (status === 'COMPLETE' && content?.content && orgId) {
     try {
+      console.log(`[updateDocumentStatus] Uploading HTML to S3: ${content.content.length} chars`);
       htmlContentKey = await uploadRFPDocumentHtml({
         orgId,
         projectId,
