@@ -7,9 +7,9 @@ import { Button } from '@/components/ui/button';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
 import { AuditActionSchema, AuditResourceSchema } from '@auto-rfp/core';
+import { useUsersList } from '@/lib/hooks/use-user';
 import type { AuditLogFilters as AuditLogFiltersType } from '../hooks/useAuditLogs';
 
 interface AuditLogFiltersProps {
@@ -25,12 +25,16 @@ export const AuditLogFilters = ({ orgId, onFilter }: AuditLogFiltersProps) => {
   const [fromDate, setFromDate] = useState<Date | undefined>();
   const [toDate, setToDate] = useState<Date | undefined>();
 
+  // Fetch organization users for the User filter dropdown
+  const { data: usersData } = useUsersList(orgId, { limit: 200 });
+  const users = usersData?.items ?? [];
+
   const toFilterValue = (v: string) => (v === 'all' ? undefined : v || undefined);
 
   const handleFilter = () => {
     onFilter({
       orgId,
-      userId: userId || undefined,
+      userId: toFilterValue(userId),
       action: toFilterValue(action),
       resource: toFilterValue(resource),
       result: toFilterValue(result) as 'success' | 'failure' | undefined,
@@ -51,13 +55,22 @@ export const AuditLogFilters = ({ orgId, onFilter }: AuditLogFiltersProps) => {
 
   return (
     <div className="flex flex-wrap gap-3 items-end">
-      {/* User ID */}
-      <Input
-        placeholder="User ID"
-        value={userId}
-        onChange={(e) => setUserId(e.target.value)}
-        className="w-48"
-      />
+      {/* User */}
+      <Select value={userId} onValueChange={setUserId}>
+        <SelectTrigger className="w-52">
+          <SelectValue placeholder="User" />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="all">All users</SelectItem>
+          {users.map((user) => (
+            <SelectItem key={user.userId} value={user.userId}>
+              {user.firstName && user.lastName
+                ? `${user.firstName} ${user.lastName}`
+                : user.email}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
 
       {/* Action */}
       <Select value={action} onValueChange={setAction}>

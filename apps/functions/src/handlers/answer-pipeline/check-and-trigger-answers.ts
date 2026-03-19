@@ -1,6 +1,7 @@
 import { Context } from 'aws-lambda';
 import { QueryCommand } from '@aws-sdk/lib-dynamodb';
 import { SFNClient, StartExecutionCommand, ListExecutionsCommand } from '@aws-sdk/client-sfn';
+import { v4 as uuidv4 } from 'uuid';
 import { withSentryLambda } from '@/sentry-lambda';
 import { requireEnv } from '@/helpers/env';
 import { docClient } from '@/helpers/db';
@@ -9,6 +10,9 @@ import { QUESTION_FILE_PK } from '@/constants/question-file';
 import { getProjectById } from '@/helpers/project';
 import { sendNotification, buildNotification } from '@/helpers/send-notification';
 import { getOrgMembers } from '@/helpers/user';
+import { writeAuditLog } from '@/helpers/audit-log';
+import { getHmacSecret } from '@/helpers/secret';
+import { nowIso } from '@/helpers/date';
 
 const DB_TABLE_NAME = requireEnv('DB_TABLE_NAME');
 const ANSWER_GENERATION_STATE_MACHINE_ARN = process.env.ANSWER_GENERATION_STATE_MACHINE_ARN || '';
@@ -251,6 +255,37 @@ export const baseHandler = async (
       }),
     })
   );
+
+  // Write ANSWER_PIPELINE_STARTED audit log (non-blocking per rules)
+  if (orgId) {
+    getHmacSecret().then(hmacSecret => {
+      writeAuditLog(
+        {
+          logId: uuidv4(),
+          timestamp: nowIso(),
+          userId: 'system',
+          userName: 'system',
+          organizationId: orgId,
+          action: 'ANSWER_PIPELINE_STARTED' as const,
+          resource: 'pipeline',
+          resourceId: opportunityId,
+          changes: {
+            after: {
+              opportunityId,
+              projectId,
+              totalFilesProcessed: processedFiles.length,
+              executionArn: startResult.executionArn,
+              triggeredBy: 'check-and-trigger-answers',
+            },
+          },
+          ipAddress: '0.0.0.0',
+          userAgent: 'system',
+          result: 'success',
+        },
+        hmacSecret,
+      );
+    }).catch(err => console.warn('Failed to write ANSWER_PIPELINE_STARTED audit log:', (err as Error)?.message));
+  }
 
   // Send ONE QUESTIONS_EXTRACTED notification per project (fires when all files are done)
   if (orgId) {

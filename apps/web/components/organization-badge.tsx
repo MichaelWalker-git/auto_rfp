@@ -75,10 +75,10 @@ export function OrganizationBadge() {
       <SidebarMenu>
         <SidebarMenuItem>
           <SidebarMenuButton size={open ? 'lg' : 'sm'} className="h-14 animate-pulse">
-            <div className="flex size-8 items-center justify-center rounded-md bg-gray-200" />
+            <div className="flex size-8 items-center justify-center rounded-md bg-muted" />
             <div className="flex-1 space-y-1">
-              <div className="h-4 w-28 rounded bg-gray-200" />
-              <div className="h-3 w-20 rounded bg-gray-200" />
+              <div className="h-4 w-28 rounded bg-muted" />
+              <div className="h-3 w-20 rounded bg-muted" />
             </div>
           </SidebarMenuButton>
         </SidebarMenuItem>
@@ -93,11 +93,11 @@ export function OrganizationBadge() {
         <SidebarMenuItem>
           <SidebarMenuButton
             size={open ? 'lg' : 'sm'}
-            className="group-data-[collapsible=icon]:!p-0 flex h-14 w-full items-center justify-between rounded-md border bg-white py-4 shadow-none"
+            className="group-data-[collapsible=icon]:!p-0 flex h-14 w-full items-center justify-between rounded-md border bg-card py-4 shadow-none"
             tooltip="Organization"
             disabled
           >
-            <div className="flex size-8 items-center justify-center rounded-md bg-gray-400 text-white text-sm font-medium">
+            <div className="flex size-8 items-center justify-center rounded-md bg-muted-foreground text-background text-sm font-medium">
               ?
             </div>
 
@@ -120,10 +120,10 @@ export function OrganizationBadge() {
             <DropdownMenuTrigger asChild>
               <SidebarMenuButton
                 size={open ? 'lg' : 'sm'}
-                className="group-data-[collapsible=icon]:!p-0 flex h-14 w-full items-center justify-between rounded-md border bg-white py-4 shadow-none hover:bg-gray-50 focus:outline-none group-data-[collapsible=icon]:mt-4 group-data-[collapsible=icon]:h-auto"
+                className="group-data-[collapsible=icon]:!p-0 flex h-14 w-full items-center justify-between rounded-md border bg-card py-4 shadow-none hover:bg-accent focus:outline-none group-data-[collapsible=icon]:mt-4 group-data-[collapsible=icon]:h-auto"
                 tooltip="Project"
               >
-                <div className="flex size-8 items-center justify-center rounded-md bg-purple-600 text-white text-sm font-medium overflow-hidden">
+                <div className="flex size-8 items-center justify-center rounded-md bg-primary text-primary-foreground text-sm font-medium overflow-hidden">
                   {iconUrl ? (
                     <img src={iconUrl} alt={orgLabel} className="size-8 object-cover" />
                   ) : (
@@ -143,7 +143,7 @@ export function OrganizationBadge() {
             </DropdownMenuTrigger>
 
             <DropdownMenuContent
-              className="flex w-[260px] flex-col rounded-md border border-gray-200 p-0 shadow-md"
+              className="flex w-[260px] flex-col rounded-md border p-0 shadow-md"
               side={isMobile ? 'bottom' : 'right'}
               sideOffset={10}
             >

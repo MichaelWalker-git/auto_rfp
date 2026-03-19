@@ -9,6 +9,9 @@ import {
   FileText,
   Trophy,
   ShieldCheck,
+  ChevronDown,
+  Paperclip,
+  FileEdit,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -62,6 +65,50 @@ const SectionDivider = ({ icon, title, muted = false }: SectionDividerProps) => 
     <div className="h-px flex-1 bg-border" />
   </div>
 );
+
+// ─── Section Navigation ───────────────────────────────────────────────────────
+
+interface SectionNavItem {
+  id: string;
+  label: string;
+  icon: React.ReactNode;
+}
+
+const SECTION_NAV_ITEMS: SectionNavItem[] = [
+  { id: 'solicitation-documents', label: 'Solicitations', icon: <Paperclip className="h-3.5 w-3.5" /> },
+  { id: 'rfp-documents', label: 'RFP Documents', icon: <FileEdit className="h-3.5 w-3.5" /> },
+  { id: 'submission-compliance', label: 'Submission', icon: <ShieldCheck className="h-3.5 w-3.5" /> },
+  { id: 'post-award', label: 'Post-Award', icon: <Trophy className="h-3.5 w-3.5" /> },
+];
+
+const SectionNavigation = () => {
+  const handleScrollTo = (id: string) => {
+    const element = document.getElementById(id);
+    if (element) {
+      element.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  };
+
+  return (
+    <div className="flex flex-wrap items-center gap-3 py-2">
+      <span className="flex items-center gap-1 font-semibold">
+        Jump to:
+      </span>
+      {SECTION_NAV_ITEMS.map((item) => (
+        <Button
+          key={item.id}
+          variant="outline"
+          size="sm"
+          className="h-7 gap-2 px-2.5"
+          onClick={() => handleScrollTo(item.id)}
+        >
+          {item.icon}
+          {item.label}
+        </Button>
+      ))}
+    </div>
+  );
+};
 
 // ─── Main Content ─────────────────────────────────────────────────────────────
 
@@ -139,6 +186,8 @@ const OpportunityContent = ({ className }: { className?: string }) => {
             />
           )}
         </div>
+        {/* Section Navigation Buttons */}
+        <SectionNavigation />
       </section>
 
       {/* ── Documents ──────────────────────────────────────────────────── */}
@@ -148,8 +197,12 @@ const OpportunityContent = ({ className }: { className?: string }) => {
           title="Documents"
         />
         <div className="space-y-4">
-          <OpportunitySolicitationDocuments />
-          <OpportunityRFPDocuments />
+          <div id="solicitation-documents" className="scroll-mt-4">
+            <OpportunitySolicitationDocuments />
+          </div>
+          <div id="rfp-documents" className="scroll-mt-4">
+            <OpportunityRFPDocuments />
+          </div>
         </div>
       </section>
 
@@ -159,7 +212,7 @@ const OpportunityContent = ({ className }: { className?: string }) => {
       </section>
 
       {/* ── Submission & Compliance ────────────────────────────────────── */}
-      <section className="space-y-4">
+      <section id="submission-compliance" className="space-y-4 scroll-mt-4">
         <SectionDivider
           icon={<ShieldCheck className="h-4 w-4" />}
           title="Submission & Compliance"
@@ -178,7 +231,7 @@ const OpportunityContent = ({ className }: { className?: string }) => {
       </section>
 
       {/* ── Post-Award ─────────────────────────────────────────────────── */}
-      <section className="space-y-3">
+      <section id="post-award" className="space-y-3 scroll-mt-4">
         <SectionDivider
           icon={<Trophy className="h-4 w-4" />}
           title="Post-Award"

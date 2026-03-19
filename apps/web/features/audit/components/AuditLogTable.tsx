@@ -1,12 +1,12 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import {
   Table,
   TableBody,
-  TableCell,
   TableHead,
   TableHeader,
   TableRow,
@@ -22,10 +22,52 @@ interface AuditLogTableProps {
 }
 
 const COLUMNS = ['Timestamp', 'User', 'Action', 'Resource', 'Resource ID', 'Result', 'IP Address', ''];
+const PAGE_SIZE = 50;
 
 export const AuditLogTable = ({ orgId }: AuditLogTableProps) => {
-  const [filters, setFilters] = useState<Filters>({ orgId });
+  const [filters, setFilters] = useState<Filters>({ orgId, limit: PAGE_SIZE });
+  // Track pagination history: array of tokens (undefined for first page)
+  const [tokenHistory, setTokenHistory] = useState<(string | undefined)[]>([undefined]);
+  const [currentPageIndex, setCurrentPageIndex] = useState(0);
+  
   const { logs, count, nextToken, isLoading } = useAuditLogs(filters);
+
+  // Calculate pagination info
+  const currentPage = currentPageIndex + 1;
+  const totalPages = count > 0 ? Math.ceil(count / PAGE_SIZE) : 1;
+  const hasNextPage = !!nextToken;
+  const hasPrevPage = currentPageIndex > 0;
+
+  // Handle filter changes - reset pagination
+  const handleFilter = useCallback((newFilters: Filters) => {
+    setFilters({ ...newFilters, limit: PAGE_SIZE, nextToken: undefined });
+    setTokenHistory([undefined]);
+    setCurrentPageIndex(0);
+  }, []);
+
+  // Navigate to next page
+  const goToNextPage = useCallback(() => {
+    if (!nextToken) return;
+    
+    // Add the next token to history if we're moving forward
+    const newHistory = [...tokenHistory];
+    if (currentPageIndex === tokenHistory.length - 1) {
+      newHistory.push(nextToken);
+    }
+    setTokenHistory(newHistory);
+    setCurrentPageIndex(currentPageIndex + 1);
+    setFilters((f) => ({ ...f, nextToken }));
+  }, [nextToken, tokenHistory, currentPageIndex]);
+
+  // Navigate to previous page
+  const goToPrevPage = useCallback(() => {
+    if (currentPageIndex === 0) return;
+    
+    const prevIndex = currentPageIndex - 1;
+    const prevToken = tokenHistory[prevIndex];
+    setCurrentPageIndex(prevIndex);
+    setFilters((f) => ({ ...f, nextToken: prevToken }));
+  }, [currentPageIndex, tokenHistory]);
 
   return (
     <Card>
@@ -36,7 +78,7 @@ export const AuditLogTable = ({ orgId }: AuditLogTableProps) => {
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
-        <AuditLogFilters orgId={orgId} onFilter={setFilters} />
+        <AuditLogFilters orgId={orgId} onFilter={handleFilter} />
 
         {isLoading ? (
           <AuditLogTableSkeleton />
@@ -46,7 +88,6 @@ export const AuditLogTable = ({ orgId }: AuditLogTableProps) => {
           </div>
         ) : (
           <>
-            <p className="text-xs text-muted-foreground">{count} entries</p>
             <div className="rounded-md border overflow-hidden">
               <Table>
                 <TableHeader>
@@ -66,17 +107,35 @@ export const AuditLogTable = ({ orgId }: AuditLogTableProps) => {
               </Table>
             </div>
 
-            {nextToken && (
-              <div className="flex justify-center pt-2">
+            {/* Pagination Controls */}
+            <div className="flex items-center justify-between pt-2">
+              <p className="text-xs text-muted-foreground">
+                {count} total entries
+              </p>
+              <div className="flex items-center gap-2">
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => setFilters((f) => ({ ...f, nextToken }))}
+                  onClick={goToPrevPage}
+                  disabled={!hasPrevPage || isLoading}
                 >
-                  Load more
+                  <ChevronLeft className="h-4 w-4 mr-1" />
+                  Previous
+                </Button>
+                <span className="text-sm text-muted-foreground px-2">
+                  Page {currentPage}
+                </span>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={goToNextPage}
+                  disabled={!hasNextPage || isLoading}
+                >
+                  Next
+                  <ChevronRight className="h-4 w-4 ml-1" />
                 </Button>
               </div>
-            )}
+            </div>
           </>
         )}
       </CardContent>

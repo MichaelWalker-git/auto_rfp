@@ -15,6 +15,7 @@ export class StorageStack extends cdk.Stack {
   public readonly googleDriveSyncQueue: sqs.Queue;
   public readonly documentGenerationQueue: sqs.Queue;
   public readonly notificationQueue: sqs.Queue;
+  public readonly clarifyingQuestionQueue: sqs.Queue;
 
   constructor(scope: Construct, id: string, props: StorageStackProps) {
     super(scope, id, props);
@@ -134,6 +135,22 @@ export class StorageStack extends cdk.Stack {
           retentionPeriod: cdk.Duration.days(14),
         }),
         maxReceiveCount: 3,
+      },
+    });
+
+    // Create SQS queue for async clarifying question generation (Bedrock calls)
+    this.clarifyingQuestionQueue = new sqs.Queue(this, 'ClarifyingQuestionQueue', {
+      queueName: `auto-rfp-clarifying-question-${stage}`,
+      visibilityTimeout: cdk.Duration.seconds(180), // 3 minutes for Bedrock calls
+      retentionPeriod: cdk.Duration.days(14),
+      encryption: sqs.QueueEncryption.SQS_MANAGED,
+      deadLetterQueue: {
+        queue: new sqs.Queue(this, 'ClarifyingQuestionDLQ', {
+          queueName: `auto-rfp-clarifying-question-dlq-${stage}`,
+          retentionPeriod: cdk.Duration.days(14),
+          encryption: sqs.QueueEncryption.SQS_MANAGED,
+        }),
+        maxReceiveCount: 2,
       },
     });
 

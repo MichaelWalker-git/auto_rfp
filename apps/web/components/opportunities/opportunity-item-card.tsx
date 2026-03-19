@@ -3,7 +3,7 @@
 import React, { useCallback, useState } from 'react';
 import { useParams } from 'next/navigation';
 import type { OpportunityItem } from '@auto-rfp/core';
-import { Building2, FileText, Hash, Loader2, Pencil, Tag, Trash2, UserCircle2 } from 'lucide-react';
+import { Building2, FileText, Hash, Loader2, Pencil, Star, Tag, Trash2, UserCircle2 } from 'lucide-react';
 import DOMPurify from 'dompurify';
 import { authFetcher } from '@/lib/auth/auth-fetcher';
 import { env } from '@/lib/env';
@@ -135,6 +135,10 @@ export interface OpportunityItemCardProps {
   showIds?: boolean;
   showDeleteButton?: boolean;
   showEditButton?: boolean;
+  /** Whether this opportunity is favorited */
+  isFavorite?: boolean;
+  /** Callback to toggle favorite status */
+  onToggleFavorite?: (oppId: string) => void;
 }
 
 function MetaRow({
@@ -168,6 +172,8 @@ export const OpportunityItemCard = ({
   showIds = true,
   showDeleteButton = true,
   showEditButton = true,
+  isFavorite = false,
+  onToggleFavorite,
 }: OpportunityItemCardProps) => {
   const { currentOrganization } = useCurrentOrganization();
   const params = useParams();
@@ -254,23 +260,45 @@ export const OpportunityItemCard = ({
           )}
         </div>
 
-        {/* Classification badges */}
-        <div className="flex flex-wrap gap-1">
-          {item.naicsCode && (
-            <Badge variant="outline" className="text-xs h-4 px-1 text-muted-foreground">
-              <Tag className="h-2.5 w-2.5 mr-0.5" />
-              {item.naicsCode}
-            </Badge>
-          )}
-          {item.setAside && (
-            <Badge variant="outline" className="text-xs h-4 px-1">
-              {item.setAside}
-            </Badge>
-          )}
-          {item.type && item.type !== item.setAside && (
-            <Badge variant="outline" className="text-xs h-4 px-1">
-              {item.type}
-            </Badge>
+        {/* Classification badges + favorite star */}
+        <div className="flex items-start gap-1" onClick={e => e.stopPropagation()}>
+          <div className="flex flex-wrap gap-1 flex-1">
+            {item.naicsCode && (
+              <Badge variant="outline" className="text-xs h-4 px-1 text-muted-foreground">
+                <Tag className="h-2.5 w-2.5 mr-0.5" />
+                {item.naicsCode}
+              </Badge>
+            )}
+            {item.setAside && (
+              <Badge variant="outline" className="text-xs h-4 px-1">
+                {item.setAside}
+              </Badge>
+            )}
+            {item.type && item.type !== item.setAside && (
+              <Badge variant="outline" className="text-xs h-4 px-1">
+                {item.type}
+              </Badge>
+            )}
+          </div>
+          {onToggleFavorite && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                onToggleFavorite(oppId);
+              }}
+              aria-label={isFavorite ? 'Remove from favorites' : 'Add to favorites'}
+              title={isFavorite ? 'Remove from favorites' : 'Add to favorites'}
+              className="shrink-0 p-0.5 rounded hover:bg-accent transition-colors"
+            >
+              <Star
+                className={cn(
+                  'h-4 w-4 transition-colors',
+                  isFavorite
+                    ? 'fill-amber-400 text-amber-400'
+                    : 'text-muted-foreground hover:text-amber-400'
+                )}
+              />
+            </button>
           )}
         </div>
       </CardContent>
