@@ -68,14 +68,7 @@ const baseHandler = async (
       }
     }
 
-    const customMacroDefaults = template.macros
-      .filter(m => m.type === 'CUSTOM' && m.defaultValue)
-      .reduce<Record<string, string>>((acc, m) => {
-        acc[m.key] = m.defaultValue!;
-        return acc;
-      }, {});
-
-    const allMacros = { ...SAMPLE_MACRO_VALUES, ...customMacroDefaults };
+    const allMacros = { ...SAMPLE_MACRO_VALUES };
 
     const previewHtml = replaceMacros(htmlContent, allMacros);
 
@@ -87,7 +80,6 @@ const baseHandler = async (
         : null,
       htmlContent: previewHtml,
       macrosUsed: allMacros,
-      styling: template.styling,
     });
   } catch (err) {
     console.error('Error previewing template:', err);

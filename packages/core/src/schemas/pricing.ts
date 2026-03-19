@@ -37,6 +37,13 @@ export const CreateLaborRateSchema = LaborRateSchema.omit({
 
 export type CreateLaborRate = z.infer<typeof CreateLaborRateSchema>;
 
+export const UpdateLaborRateSchema = CreateLaborRateSchema.partial().extend({
+  laborRateId: z.string().uuid(),
+  orgId: z.string().uuid(),
+});
+
+export type UpdateLaborRate = z.infer<typeof UpdateLaborRateSchema>;
+
 /**
  * ================
  * BOM ITEMS
@@ -80,6 +87,13 @@ export const CreateBOMItemSchema = BOMItemSchema.omit({
 
 export type CreateBOMItem = z.infer<typeof CreateBOMItemSchema>;
 
+export const UpdateBOMItemSchema = CreateBOMItemSchema.partial().extend({
+  bomItemId: z.string().uuid(),
+  orgId: z.string().uuid(),
+});
+
+export type UpdateBOMItem = z.infer<typeof UpdateBOMItemSchema>;
+
 /**
  * ================
  * STAFFING PLAN
@@ -108,6 +122,29 @@ export const StaffingPlanSchema = z.object({
 });
 
 export type StaffingPlan = z.infer<typeof StaffingPlanSchema>;
+
+export const CreateStaffingPlanSchema = z.object({
+  orgId: z.string().uuid(),
+  projectId: z.string().uuid(),
+  opportunityId: z.string().uuid(),
+  name: z.string().min(1).max(200),
+  laborItems: z.array(z.object({
+    position: z.string().min(1).max(100),
+    hours: z.number().positive(),
+    phase: z.string().max(100).optional(),
+  })).min(1),
+});
+
+export type CreateStaffingPlan = z.infer<typeof CreateStaffingPlanSchema>;
+
+export const UpdateStaffingPlanSchema = CreateStaffingPlanSchema.partial().extend({
+  staffingPlanId: z.string().uuid(),
+  orgId: z.string().uuid(),
+});
+
+export type UpdateStaffingPlan = z.infer<typeof UpdateStaffingPlanSchema>;
+
+export type StaffingPlanItem = z.infer<typeof StaffingPlanItemSchema>;
 
 /**
  * ================
@@ -223,3 +260,89 @@ export const GeneratePriceVolumeRequestSchema = z.object({
 });
 
 export type GeneratePriceVolumeRequest = z.infer<typeof GeneratePriceVolumeRequestSchema>;
+
+export type EstimateItem = z.infer<typeof EstimateItemSchema>;
+export type PricingStrategy = z.infer<typeof PricingStrategySchema>;
+export type BOMItemType = z.infer<typeof BOMItemTypeSchema>;
+
+/**
+ * ================
+ * BID/NO-BID PRICING INTEGRATION
+ * ================
+ */
+export const PricingBidAnalysisSchema = z.object({
+  estimateId: z.string().uuid(),
+  orgId: z.string().uuid(),
+  projectId: z.string().uuid(),
+  opportunityId: z.string().uuid(),
+
+  // Pricing summary
+  totalPrice: z.number().nonnegative(),
+  strategy: PricingStrategySchema,
+  competitivePosition: z.enum(['LOW', 'COMPETITIVE', 'HIGH']),
+
+  // Bid/No-Bid factors
+  priceToWinEstimate: z.number().nonnegative().optional(),
+  priceConfidence: z.number().int().min(0).max(100),
+  marginAdequacy: z.enum(['ADEQUATE', 'MARGINAL', 'INSUFFICIENT']),
+
+  // Risk factors
+  pricingRisks: z.array(z.string()),
+  competitiveAdvantages: z.array(z.string()),
+  recommendedActions: z.array(z.string()),
+
+  // Scoring impact
+  scoringImpact: z.object({
+    pricingPositionScore: z.number().min(1).max(5),
+    justification: z.string().max(500),
+  }),
+});
+
+export type PricingBidAnalysis = z.infer<typeof PricingBidAnalysisSchema>;
+
+/**
+ * ================
+ * API RESPONSE TYPES
+ * ================
+ */
+export interface LaborRatesResponse {
+  laborRates: LaborRate[];
+}
+
+export interface LaborRateResponse {
+  laborRate: LaborRate;
+}
+
+export interface BOMItemsResponse {
+  bomItems: BOMItem[];
+}
+
+export interface BOMItemResponse {
+  bomItem: BOMItem;
+}
+
+export interface StaffingPlansResponse {
+  staffingPlans: StaffingPlan[];
+}
+
+export interface StaffingPlanResponse {
+  staffingPlan: StaffingPlan;
+}
+
+export interface CostEstimateResponse {
+  estimate: CostEstimate;
+}
+
+export interface CostEstimatesResponse {
+  estimates: CostEstimate[];
+}
+
+export interface PricingBidAnalysisResponse {
+  analysis: PricingBidAnalysis;
+}
+
+export interface ExportPricingResponse {
+  downloadUrl: string;
+  format: string;
+  expiresAt: string;
+}

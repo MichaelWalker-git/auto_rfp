@@ -23,6 +23,7 @@ export type Decision = z.infer<typeof DecisionSchema>;
 
 export const RoleSchema = z.enum([
   'CONTRACTING_OFFICER',
+  'CONTRACTING_OFFICER_REPRESENTATIVE',
   'CONTRACT_SPECIALIST',
   'TECHNICAL_POC',
   'PROGRAM_MANAGER',

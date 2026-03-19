@@ -44,6 +44,13 @@ export const baseHandler = async (event: AuthedEvent): Promise<APIGatewayProxyRe
 
     return apiResponse(201, { laborRate: result });
   } catch (err: unknown) {
+    // Handle duplicate position (DynamoDB conditional check failure)
+    if (err instanceof Error && (err.name === 'ConditionalCheckFailedException' || err.message === 'The conditional request failed')) {
+      return apiResponse(400, {
+        message: `A labor rate for this position already exists. Use a unique position name or update the existing rate.`,
+      });
+    }
+
     console.error('Error in createLaborRate handler:', err);
     return apiResponse(500, {
       message: 'Internal server error',

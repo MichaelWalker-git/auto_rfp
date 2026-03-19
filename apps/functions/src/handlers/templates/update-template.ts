@@ -50,7 +50,6 @@ const baseHandler = async (
       ...(data.agencyId !== undefined && { agencyId: data.agencyId }),
       ...(data.agencyName !== undefined && { agencyName: data.agencyName }),
       ...(data.macros !== undefined && { macros: data.macros }),
-      ...(data.styling !== undefined && { styling: data.styling }),
       htmlContentKey,
       sections: [],
       updatedAt: now,

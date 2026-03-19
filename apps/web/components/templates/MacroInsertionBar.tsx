@@ -17,12 +17,6 @@ const MACRO_GROUPS = [
         tooltip: "Today's date in YYYY-MM-DD format (e.g., 2024-03-15)",
         special: false,
       },
-      {
-        key: 'CONTENT',
-        label: '{{CONTENT}}',
-        tooltip: 'AI will generate content here based on the solicitation requirements and your knowledge base. This is where the main document content goes.',
-        special: true,
-      },
     ],
   },
   {

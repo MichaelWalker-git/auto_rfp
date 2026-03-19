@@ -51,9 +51,9 @@ export const baseHandler = async (
       });
     }
 
-    // Normalize prefix to "prefix/" or "".
+    // Normalize prefix to "prefix/" or "". Also collapse any double slashes.
     const safePrefix = prefix
-      ? prefix.replace(/^\/+/, '').replace(/\/+$/, '') + '/'
+      ? prefix.replace(/^\/+/, '').replace(/\/+$/, '').replace(/\/+/g, '/') + '/'
       : '';
 
     if (operation === 'upload') {

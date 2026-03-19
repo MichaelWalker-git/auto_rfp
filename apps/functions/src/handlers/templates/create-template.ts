@@ -46,7 +46,6 @@ const baseHandler = async (
       description: data.description,
       sections: [],
       macros: allMacros,
-      styling: data.styling,
       htmlContentKey,
       tags: data.tags ?? [],
       isDefault: false,

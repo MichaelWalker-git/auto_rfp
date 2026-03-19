@@ -256,7 +256,15 @@ export async function uploadRFPDocumentHtml(args: {
   html: string;
 }): Promise<string> {
   const key = buildRFPDocumentHtmlKey(args);
-  await uploadToS3(DOCUMENTS_BUCKET, key, args.html, 'text/html; charset=utf-8');
+  const htmlContent = args.html;
+  if (!htmlContent || !htmlContent.trim()) {
+    throw new Error(`Cannot upload empty HTML content to S3 (key: ${key}, length: ${htmlContent?.length ?? 0})`);
+  }
+  console.log(`[uploadRFPDocumentHtml] Uploading ${htmlContent.length} chars to bucket=${DOCUMENTS_BUCKET}, key=${key}`);
+  // Convert to Buffer to ensure proper encoding — string Body can sometimes be empty in S3
+  const bodyBuffer = Buffer.from(htmlContent, 'utf-8');
+  console.log(`[uploadRFPDocumentHtml] Buffer size: ${bodyBuffer.length} bytes`);
+  await uploadToS3(DOCUMENTS_BUCKET, key, bodyBuffer, 'text/html; charset=utf-8');
   return key;
 }
 

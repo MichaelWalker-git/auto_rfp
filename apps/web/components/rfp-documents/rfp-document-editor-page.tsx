@@ -17,6 +17,7 @@ import {
   useRFPDocumentPolling,
 } from '@/lib/hooks/use-rfp-documents';
 import { RichTextEditor, stripPresignedUrlsFromHtml } from './rich-text-editor';
+import { sanitizeGeneratedHtml } from './rfp-document-utils';
 import { usePresignUpload, usePresignDownload, uploadFileToS3 } from '@/lib/hooks/use-presign';
 
 // ─── Props ────────────────────────────────────────────────────────────────────
@@ -133,7 +134,7 @@ export const RFPDocumentEditorPage = ({
     });
 
     htmlInitializedRef.current = true;
-    setHtmlContent(initialHtml || '');
+    setHtmlContent(sanitizeGeneratedHtml(initialHtml || ''));
 
     // Show error toast if HTML fetch failed
     if (isHtmlError) {

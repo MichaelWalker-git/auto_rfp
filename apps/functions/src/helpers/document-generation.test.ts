@@ -23,7 +23,7 @@ jest.mock('@/middleware/audit-middleware', () => ({
   setAuditContext: jest.fn(),
 }));
 jest.mock('./project');
-jest.mock('@/handlers/organization/get-organization-by-id');
+jest.mock('./org');
 jest.mock('./opportunity');
 jest.mock('./rfp-document');
 jest.mock('./rfp-document-version');
@@ -50,7 +50,7 @@ process.env.REGION = 'us-east-1';
 
 import { buildMacroValues, prepareTemplateScaffoldForAI } from './document-generation';
 import { getProjectById } from './project';
-import { getOrganizationById } from '@/handlers/organization/get-organization-by-id';
+import { getOrganizationById } from './org';
 import { getOpportunity } from './opportunity';
 import { getExecutiveBriefByProjectId } from './executive-opportunity-brief';
 
@@ -538,7 +538,7 @@ describe('prepareTemplateScaffoldForAI', () => {
     const result = prepareTemplateScaffoldForAI(template, macroValues);
 
     expect(result).toContain('Federal Contract XYZ');
-    expect(result).toContain('[Agency/Customer Name]'); // Fallback label
+    expect(result).toContain('[Agency Name]'); // Generic fallback label
     expect(result).not.toContain('{{AGENCY_NAME}}');
   });
 
@@ -551,7 +551,7 @@ describe('prepareTemplateScaffoldForAI', () => {
     const result = prepareTemplateScaffoldForAI(template);
 
     expect(result).toContain('[Project Title]');
-    expect(result).toContain('[Your Company Name]');
+    expect(result).toContain('[Company Name]');
     expect(result).not.toContain('{{PROJECT_TITLE}}');
   });
 

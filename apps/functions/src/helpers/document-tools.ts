@@ -141,9 +141,40 @@ export const DOCUMENT_TOOLS = [
           type: 'array',
           items: {
             type: 'string',
-            enum: ['summary', 'requirements', 'risks', 'contacts', 'deadlines', 'scoring'],
+            enum: ['summary', 'requirements', 'risks', 'contacts', 'deadlines', 'pricing', 'scoring'],
           },
           description: 'Which brief sections to retrieve. Omit to get all completed sections.',
+        },
+      },
+      required: [],
+    },
+  },
+  {
+    name: 'get_pricing_data',
+    description:
+      'Retrieve pricing data from the pricing module for this opportunity. ' +
+      'Returns labor rates, cost estimates, staffing plans, and bid analysis. ' +
+      'Use this when generating Cost Proposal, Price Volume, or any document ' +
+      'that needs actual pricing figures, labor rate tables, or cost breakdowns. ' +
+      'Also useful for Executive Summary sections that reference pricing strategy.',
+    input_schema: {
+      type: 'object' as const,
+      properties: {
+        includeLabor: {
+          type: 'boolean',
+          description: 'Include labor rate table. Default: true.',
+        },
+        includeEstimates: {
+          type: 'boolean',
+          description: 'Include cost estimates. Default: true.',
+        },
+        includeStaffingPlans: {
+          type: 'boolean',
+          description: 'Include staffing plans. Default: true.',
+        },
+        includeBidAnalysis: {
+          type: 'boolean',
+          description: 'Include bid/no-bid pricing analysis. Default: true.',
         },
       },
       required: [],
@@ -327,6 +358,121 @@ const executeGetOrganizationContext = async (
   }
 };
 
+// ─── Pricing Data Fetcher ─────────────────────────────────────────────────────
+
+const fetchPricingData = async (
+  orgId: string,
+  projectId: string,
+  opportunityId: string,
+  includeLabor: boolean,
+  includeEstimates: boolean,
+  includeStaffingPlans: boolean,
+  includeBidAnalysis: boolean,
+): Promise<string> => {
+  try {
+    const {
+      getLaborRatesByOrg,
+      getCostEstimatesByOpportunity,
+      getStaffingPlansByOpportunity,
+      analyzePricingForBid,
+    } = await import('./pricing');
+
+    const parts: string[] = [];
+
+    // Labor Rates
+    if (includeLabor) {
+      const laborRates = await getLaborRatesByOrg(orgId);
+      const activeRates = laborRates.filter(r => r.isActive);
+      if (activeRates.length > 0) {
+        const rateLines = activeRates.map(r =>
+          `  ${r.position}: Base $${r.baseRate.toFixed(2)}/hr → Fully Loaded $${r.fullyLoadedRate.toFixed(2)}/hr ` +
+          `(OH: ${r.overhead}%, G&A: ${r.ga}%, Profit: ${r.profit}%)` +
+          (r.rateJustification ? ` [${r.rateJustification}]` : ''),
+        );
+        parts.push(`=== LABOR RATE TABLE (${activeRates.length} active rates) ===\n${rateLines.join('\n')}`);
+      }
+    }
+
+    // Cost Estimates
+    if (includeEstimates) {
+      const estimates = await getCostEstimatesByOpportunity(orgId, projectId, opportunityId);
+      if (estimates.length > 0) {
+        for (const est of estimates) {
+          const estLines = [
+            `Estimate: ${est.name}`,
+            `Strategy: ${est.strategy}`,
+            `Total Direct Cost: $${est.totalDirectCost.toLocaleString()}`,
+            `Total Indirect Cost: $${est.totalIndirectCost.toLocaleString()}`,
+            `Total Cost: $${est.totalCost.toLocaleString()}`,
+            `Margin: ${est.margin}%`,
+            `Total Price: $${est.totalPrice.toLocaleString()}`,
+          ];
+          if (est.competitivePosition) estLines.push(`Competitive Position: ${est.competitivePosition}`);
+
+          if (est.laborCosts.length > 0) {
+            estLines.push(`\nLabor Costs (${est.laborCosts.length} items):`);
+            est.laborCosts.forEach(lc => estLines.push(`  ${lc.name}: ${lc.quantity} hrs × $${lc.unitCost.toFixed(2)} = $${lc.totalCost.toLocaleString()}`));
+          }
+          if (est.materialCosts.length > 0) {
+            estLines.push(`\nMaterial Costs (${est.materialCosts.length} items):`);
+            est.materialCosts.forEach(mc => estLines.push(`  ${mc.name}: ${mc.quantity} × $${mc.unitCost.toFixed(2)} = $${mc.totalCost.toLocaleString()}`));
+          }
+
+          parts.push(`=== COST ESTIMATE ===\n${estLines.join('\n')}`);
+
+          // Bid Analysis
+          if (includeBidAnalysis) {
+            const analysis = analyzePricingForBid(est);
+            const analysisLines = [
+              `Competitive Position: ${analysis.competitivePosition}`,
+              `Price Confidence: ${analysis.priceConfidence}%`,
+              `Margin Adequacy: ${analysis.marginAdequacy}`,
+              `Scoring Impact: ${analysis.scoringImpact.pricingPositionScore}/5 — ${analysis.scoringImpact.justification}`,
+            ];
+            if (analysis.competitiveAdvantages.length > 0) {
+              analysisLines.push(`Competitive Advantages: ${analysis.competitiveAdvantages.join('; ')}`);
+            }
+            if (analysis.pricingRisks.length > 0) {
+              analysisLines.push(`Pricing Risks: ${analysis.pricingRisks.join('; ')}`);
+            }
+            if (analysis.recommendedActions.length > 0) {
+              analysisLines.push(`Recommended Actions: ${analysis.recommendedActions.join('; ')}`);
+            }
+            parts.push(`=== BID/NO-BID PRICING ANALYSIS ===\n${analysisLines.join('\n')}`);
+          }
+        }
+      }
+    }
+
+    // Staffing Plans
+    if (includeStaffingPlans) {
+      const plans = await getStaffingPlansByOpportunity(orgId, projectId, opportunityId);
+      if (plans.length > 0) {
+        for (const plan of plans) {
+          const planLines = [
+            `Plan: ${plan.name}`,
+            `Total Labor Cost: $${plan.totalLaborCost.toLocaleString()}`,
+            `Positions:`,
+          ];
+          plan.laborItems.forEach(item => {
+            planLines.push(`  ${item.position}: ${item.hours} hrs × $${item.rate.toFixed(2)}/hr = $${item.totalCost.toLocaleString()}${item.phase ? ` (${item.phase})` : ''}`);
+          });
+          parts.push(`=== STAFFING PLAN ===\n${planLines.join('\n')}`);
+        }
+      }
+    }
+
+    if (parts.length === 0) {
+      return '';
+    }
+
+    return parts.join('\n\n');
+  } catch (err) {
+    console.warn('fetchPricingData error:', (err as Error)?.message);
+    return '';
+  }
+};
+
 // ─── Tool dispatcher ──────────────────────────────────────────────────────────
 
 export const executeDocumentTool = async (args: {
@@ -397,6 +543,19 @@ export const executeDocumentTool = async (args: {
       case 'get_deadlines':
         content = await fetchDeadlineInfo(projectId, opportunityId);
         if (!content) content = 'No deadline information available for this opportunity.';
+        break;
+
+      case 'get_pricing_data':
+        content = await fetchPricingData(
+          orgId,
+          projectId,
+          opportunityId,
+          toolInput.includeLabor !== false,
+          toolInput.includeEstimates !== false,
+          toolInput.includeStaffingPlans !== false,
+          toolInput.includeBidAnalysis !== false,
+        );
+        if (!content) content = 'No pricing data available. Create labor rates and cost estimates in the Pricing module first.';
         break;
 
       default:

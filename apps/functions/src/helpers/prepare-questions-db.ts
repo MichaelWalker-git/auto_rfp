@@ -8,7 +8,7 @@ import { docClient } from '@/helpers/db';
 import { PK_NAME, SK_NAME } from '@/constants/common';
 import { QUESTION_PK } from '@/constants/question';
 import { CLUSTER_THRESHOLD } from '@/constants/clustering';
-import { getOrganizationById } from '@/handlers/organization/get-organization-by-id';
+import { getOrganizationById } from '@/helpers/org';
 import type { QuestionForAnswerGeneration, FetchedQuestions } from '@/handlers/answer-pipeline/types';
 
 const DB_TABLE_NAME = requireEnv('DB_TABLE_NAME');

@@ -729,22 +729,6 @@ export const checkQuality = async (args: {
   const { activeDocs } = args;
   const checks: ReadinessCheckItem[] = [];
 
-  // ── Check: Documents have descriptions ──
-  const docsWithoutDescription = activeDocs.filter(
-    (d) => !d['description'] || (d['description'] as string).trim() === '',
-  );
-  checks.push({
-    id: 'document_descriptions',
-    label: 'Documents have descriptions',
-    description: 'Adding descriptions helps team members understand each document\'s purpose.',
-    passed: docsWithoutDescription.length === 0,
-    detail: docsWithoutDescription.length === 0
-      ? 'All documents have descriptions'
-      : `${docsWithoutDescription.length} document(s) missing descriptions`,
-    blocking: false,
-    category: 'quality_checks',
-  });
-
   // ── Check: Consistent document naming ──
   const docNames = activeDocs.map((d) => (d['name'] as string | undefined) ?? '');
   const hasInconsistentCasing = docNames.some((n) => n === n.toLowerCase()) &&

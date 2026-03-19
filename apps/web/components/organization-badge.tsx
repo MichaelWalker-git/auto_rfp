@@ -125,7 +125,18 @@ export function OrganizationBadge() {
               >
                 <div className="flex size-8 items-center justify-center rounded-md bg-primary text-primary-foreground text-sm font-medium overflow-hidden">
                   {iconUrl ? (
-                    <img src={iconUrl} alt={orgLabel} className="size-8 object-cover" />
+                    <img
+                      src={iconUrl}
+                      alt={orgLabel}
+                      className="size-8 object-cover"
+                      onError={(e) => {
+                        // Presigned URL expired — clear cache and hide broken image
+                        if (iconKey) {
+                          try { localStorage.removeItem(`auto-rfp:icon-cache:${iconKey}`); } catch {}
+                        }
+                        (e.target as HTMLImageElement).style.display = 'none';
+                      }}
+                    />
                   ) : (
                     orgInitials
                   )}

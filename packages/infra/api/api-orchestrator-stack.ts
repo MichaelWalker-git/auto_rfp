@@ -53,7 +53,7 @@ import { engagementLogDomain } from './routes/engagement-log.routes';
 import { apnDomain } from './routes/apn.routes';
 import { proposalSubmissionDomain } from './routes/proposal-submission.routes';
 import { documentApprovalDomain } from './routes/document-approval.routes';
-// import { pricingDomain } from './routes/pricing.routes'; // TODO: Re-enable when additional pricing management handlers are needed
+import { pricingDomain } from './routes/pricing.routes';
 
 export interface ApiOrchestratorStackProps extends cdk.StackProps {
   stage: string;
@@ -473,7 +473,7 @@ export class ApiOrchestratorStack extends cdk.Stack {
       apnDomain(),
       proposalSubmissionDomain(),
       documentApprovalDomain(),
-      // pricingDomain(), // TODO: Re-enable when additional pricing management handlers are needed
+      pricingDomain(),
     ];
 
     // Compute a hash of all route definitions so the deployment logical ID changes
