@@ -5,6 +5,80 @@
  * preserved during the document generation process.
  */
 
+// Mock dependencies BEFORE imports
+jest.mock('@middy/core', () => {
+  const middy = (handler: unknown) => ({
+    use: jest.fn().mockReturnThis(),
+    handler,
+  });
+  return { __esModule: true, default: middy };
+});
+jest.mock('@/sentry-lambda', () => ({
+  withSentryLambda: jest.fn((handler: unknown) => handler),
+}));
+jest.mock('@/middleware/rbac-middleware', () => ({
+  authContextMiddleware: jest.fn(() => ({ before: jest.fn() })),
+  httpErrorMiddleware: jest.fn(() => ({ onError: jest.fn() })),
+  orgMembershipMiddleware: jest.fn(() => ({ before: jest.fn() })),
+  requirePermission: jest.fn(() => ({ before: jest.fn() })),
+}));
+jest.mock('@/middleware/audit-middleware', () => ({
+  auditMiddleware: jest.fn(() => ({ after: jest.fn() })),
+  setAuditContext: jest.fn(),
+}));
+jest.mock('@/helpers/json', () => ({
+  safeParseJsonFromModel: jest.fn(),
+}));
+jest.mock('@/helpers/document-context', () => ({
+  gatherAllContext: jest.fn(),
+}));
+jest.mock('@/helpers/document-prompts', () => ({
+  buildSystemPromptForDocumentType: jest.fn(),
+  buildSectionSystemPrompt: jest.fn(),
+  buildUserPromptForDocumentType: jest.fn(),
+}));
+jest.mock('@/helpers/document-generation', () => ({
+  extractBedrockText: jest.fn(),
+  loadQaPairs: jest.fn(),
+  loadSolicitation: jest.fn(),
+  resolveTemplateHtml: jest.fn(),
+  buildMacroValues: jest.fn(),
+  prepareTemplateScaffoldForAI: jest.requireActual('@/helpers/document-generation').prepareTemplateScaffoldForAI,
+}));
+jest.mock('@/helpers/template', () => ({
+  getTemplate: jest.fn(),
+  findBestTemplate: jest.fn(),
+  loadTemplateHtml: jest.fn(),
+  replaceMacros: jest.fn((text: string, macros: Record<string, string>) => {
+    let result = text;
+    Object.entries(macros).forEach(([key, value]) => {
+      result = result.replace(new RegExp(`\\{\\{${key}\\}\\}`, 'g'), value);
+    });
+    return result;
+  }),
+}));
+jest.mock('@/helpers/rfp-document', () => ({
+  uploadRFPDocumentHtml: jest.fn(),
+  updateRFPDocumentMetadata: jest.fn(),
+  getRFPDocument: jest.fn(),
+}));
+jest.mock('@/helpers/rfp-document-version', () => ({
+  createVersion: jest.fn(),
+  getLatestVersionNumber: jest.fn(),
+  saveVersionHtml: jest.fn(),
+}));
+jest.mock('@/helpers/document-tools', () => ({
+  DOCUMENT_TOOLS: [],
+  executeDocumentTool: jest.fn(),
+}));
+jest.mock('@/helpers/bedrock-http-client', () => ({
+  invokeModel: jest.fn(),
+}));
+jest.mock('@/helpers/document-section-generator', () => ({
+  generateDocumentSectionBySectionHtml: jest.fn(),
+  buildDocumentTitleHtml: jest.fn(),
+}));
+
 // Mock environment variables to avoid dependency issues
 process.env.STAGE = 'test';
 process.env.DB_TABLE_NAME = 'test-table';
@@ -15,45 +89,7 @@ import {
   injectContentIntoSimpleTemplate 
 } from './template-section-parser';
 import { prepareTemplateScaffoldForAI } from './document-generation';
-
-// Test the cleanGeneratedHtml function directly without importing the full worker
-const cleanGeneratedHtml = (html: string): string => {
-  if (!html?.trim()) return html;
-
-  // Count preserved elements before cleaning for validation
-  const imageCount = (html.match(/<!-- PRESERVE THIS IMAGE TAG EXACTLY AS-IS -->/gi) || []).length;
-  const styleBlockCount = (html.match(/<!-- PRESERVE THIS STYLE BLOCK EXACTLY AS-IS -->/gi) || []).length;
-  const styleLinkCount = (html.match(/<!-- PRESERVE THIS STYLE LINK EXACTLY AS-IS -->/gi) || []).length;
-
-  // Count actual preserved elements (images with s3key, style blocks, etc.)
-  const actualImages = (html.match(/<img[^>]*?(?:src="s3key:[^"]*"|data-s3-key="[^"]*")[^>]*?>/gi) || []).length;
-  const actualStyleBlocks = (html.match(/<style[^>]*>[\s\S]*?<\/style>/gi) || []).length;
-  const actualStyleLinks = (html.match(/<link[^>]*?(?:rel="stylesheet"|type="text\/css")[^>]*?>/gi) || []).length;
-
-  // Log validation results
-  if (imageCount > 0 && actualImages < imageCount) {
-    console.warn(`WARNING: ${imageCount - actualImages} images were lost during generation`);
-  }
-  if (styleBlockCount > 0 && actualStyleBlocks < styleBlockCount) {
-    console.warn(`WARNING: ${styleBlockCount - actualStyleBlocks} style blocks were lost during generation`);
-  }
-  if (styleLinkCount > 0 && actualStyleLinks < styleLinkCount) {
-    console.warn(`WARNING: ${styleLinkCount - actualStyleLinks} style links were lost during generation`);
-  }
-
-  return html
-    .replace(/<!--\s*TEMPLATE SCAFFOLD:[\s\S]*?-->\s*/gi, '')
-    .replace(/<!--\s*PRESERVE THIS IMAGE TAG EXACTLY AS-IS\s*-->\s*/gi, '')
-    .replace(/<!--\s*PRESERVE THIS STYLE BLOCK EXACTLY AS-IS\s*-->\s*/gi, '')
-    .replace(/<!--\s*PRESERVE THIS STYLE LINK EXACTLY AS-IS\s*-->\s*/gi, '')
-    .replace(/<!--\s*PRESERVE STYLING\s*-->\s*/gi, '')
-    .replace(/<!--\s*Section guidance:[\s\S]*?-->\s*/gi, '')
-    .replace(/<!--\s*TEMPLATE SCAFFOLD:[^\n]*\n?/gi, '')
-    .replace(/<!--\s*PRESERVE THIS IMAGE TAG[^\n]*\n?/gi, '')
-    .replace(/<!--\s*PRESERVE THIS STYLE[^\n]*\n?/gi, '')
-    .replace(/<!--\s*PRESERVE STYLING[^\n]*\n?/gi, '')
-    .replace(/<!--\s*Section guidance:[^\n]*\n?/gi, '');
-};
+import { cleanGeneratedHtml, stripTemplateImagesFromContent } from './generate-document-worker';
 
 describe('Template Preservation', () => {
   describe('prepareTemplateScaffoldForAI', () => {
@@ -298,6 +334,143 @@ describe('Template Preservation', () => {
     it('should handle empty or null input gracefully', () => {
       expect(cleanGeneratedHtml('')).toBe('');
       expect(cleanGeneratedHtml('   ')).toBe('   ');
+    });
+
+    it('should strip [CONTENT: ...] wrappers and keep inner content', () => {
+      const html = `
+        <h2>Program Management Approach</h2>
+        <p>[CONTENT: Horus Technologies will leverage a hybrid program management approach that combines the structure and rigor of PMBOK with Agile methodologies.]</p>
+      `;
+
+      const result = cleanGeneratedHtml(html);
+
+      expect(result).toContain('Horus Technologies will leverage a hybrid program management approach');
+      expect(result).not.toContain('[CONTENT:');
+      expect(result).not.toContain(']</p>');
+      // The closing ] should be removed, leaving just the content
+      expect(result).toContain('Agile methodologies.</p>');
+    });
+
+    it('should strip multiple [CONTENT: ...] wrappers in the same document', () => {
+      const html = `
+        <p>[CONTENT: First section content here.]</p>
+        <p>[CONTENT: Second section content here.]</p>
+      `;
+
+      const result = cleanGeneratedHtml(html);
+
+      expect(result).toContain('First section content here.');
+      expect(result).toContain('Second section content here.');
+      expect(result).not.toContain('[CONTENT:');
+    });
+
+    it('should strip leaked scaffold instruction text', () => {
+      const html = `
+        <p>Sincerely,</p>
+        <p>John Smith</p>
+         with a complete, well-structured HTML document body including appropriate headings and paragraphs. Keep all other text and elements (dates, company name, images, styles) in their original positions. PRESERVE ALL marked elements exactly as-is. -->
+      `;
+
+      const result = cleanGeneratedHtml(html);
+
+      expect(result).toContain('Sincerely,');
+      expect(result).toContain('John Smith');
+      expect(result).not.toContain('well-structured HTML document body');
+      expect(result).not.toContain('PRESERVE ALL marked elements');
+      expect(result).not.toContain('-->');
+    });
+
+    it('should strip trailing --> from partial scaffold comments', () => {
+      const html = `<p>Content here</p> -->`;
+
+      const result = cleanGeneratedHtml(html);
+
+      expect(result).toContain('Content here');
+      expect(result).not.toContain('-->');
+    });
+
+    it('should strip "Replace [CONTENT:...]" instruction text', () => {
+      const html = `<p>Good content.</p> Replace [CONTENT: ...] with actual document text. <p>More content.</p>`;
+
+      const result = cleanGeneratedHtml(html);
+
+      expect(result).toContain('Good content.');
+      expect(result).toContain('More content.');
+      expect(result).not.toContain('Replace [CONTENT');
+    });
+  });
+
+  describe('stripTemplateImagesFromContent', () => {
+    it('should strip template images from AI output', () => {
+      const template = `
+        <img src="s3key:org-123/logo.png" alt="Logo" />
+        <p>[CONTENT: Write content here]</p>
+      `;
+      // AI output includes the image (because it was told to preserve it)
+      const aiOutput = `
+        <img src="s3key:org-123/logo.png" alt="Logo" />
+        <h2>Generated Section</h2>
+        <p>AI generated content</p>
+      `;
+
+      const result = stripTemplateImagesFromContent(aiOutput, template);
+
+      // Image should be stripped from AI output (template already has it)
+      expect(result).not.toContain('s3key:org-123/logo.png');
+      // Content preserved
+      expect(result).toContain('Generated Section');
+      expect(result).toContain('AI generated content');
+    });
+
+    it('should keep images that are NOT in the template', () => {
+      const template = `
+        <img src="s3key:org-123/logo.png" alt="Logo" />
+        <p>[CONTENT: Write content here]</p>
+      `;
+      const aiOutput = `
+        <img src="s3key:org-123/logo.png" alt="Logo" />
+        <img src="s3key:org-123/diagram.png" alt="Diagram" />
+        <p>Content</p>
+      `;
+
+      const result = stripTemplateImagesFromContent(aiOutput, template);
+
+      // Template image stripped
+      expect(result).not.toContain('logo.png');
+      // Non-template image kept
+      expect(result).toContain('diagram.png');
+    });
+
+    it('should handle empty inputs gracefully', () => {
+      expect(stripTemplateImagesFromContent('', '<img src="x" />')).toBe('');
+      expect(stripTemplateImagesFromContent('<p>Content</p>', '')).toBe('<p>Content</p>');
+    });
+
+    it('should not modify content when template has no images', () => {
+      const template = '<p>[CONTENT: Write here]</p>';
+      const aiOutput = '<h2>Section</h2><p>Content</p>';
+      const result = stripTemplateImagesFromContent(aiOutput, template);
+      expect(result).toBe(aiOutput);
+    });
+
+    it('should handle multiple template images', () => {
+      const template = `
+        <img src="s3key:org-123/logo.png" alt="Logo" />
+        <img src="s3key:org-123/banner.png" alt="Banner" />
+        <p>[CONTENT: Write content here]</p>
+      `;
+      const aiOutput = `
+        <img src="s3key:org-123/logo.png" alt="Logo" />
+        <img src="s3key:org-123/banner.png" alt="Banner" />
+        <h2>Section</h2>
+        <p>Content</p>
+      `;
+
+      const result = stripTemplateImagesFromContent(aiOutput, template);
+
+      expect(result).not.toContain('logo.png');
+      expect(result).not.toContain('banner.png');
+      expect(result).toContain('Content');
     });
   });
 });

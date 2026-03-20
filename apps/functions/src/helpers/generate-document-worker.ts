@@ -38,7 +38,7 @@ import {
 import { v4 as uuidv4 } from 'uuid';
 import { getRFPDocument } from '@/helpers/rfp-document';
 import { BEDROCK_MODEL_ID, MAX_TOKENS, TEMPERATURE } from '@/constants/document-generation';
-import { RFPDocumentContentSchema, RFPDocumentTypeSchema, type RFPDocumentContent } from '@auto-rfp/core';
+import { RFPDocumentContentSchema, RFPDocumentTypeSchema, RFP_DOCUMENT_TYPES, type RFPDocumentContent } from '@auto-rfp/core';
 import { DOCUMENT_TOOLS, executeDocumentTool } from '@/helpers/document-tools';
 import { invokeModel } from '@/helpers/bedrock-http-client';
 import {
@@ -110,8 +110,16 @@ export const buildDefaultTemplate = (): string =>
 <p style="margin:0 0 1em;line-height:1.7">[CONTENT: Write the complete document content here based on the solicitation requirements and provided context. Include appropriate headings, sections, and structure.]</p>`;
 
 /**
+ * Get the human-readable label for a document type.
+ * Uses the RFP_DOCUMENT_TYPES map for known types, falls back to title-casing the enum value.
+ */
+export const getDocumentTypeLabel = (documentType: string): string =>
+  RFP_DOCUMENT_TYPES[documentType as keyof typeof RFP_DOCUMENT_TYPES]
+  ?? documentType.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+
+/**
  * Extract a clean document title from template HTML.
- * Falls back to formatting the document type as a title.
+ * Falls back to the human-readable document type label from RFP_DOCUMENT_TYPES.
  */
 export const extractDocumentTitle = (templateHtml: string, documentType: string): string => {
   const titleMatch = templateHtml.match(/<h1[^>]*>(.*?)<\/h1>/i);
@@ -126,13 +134,13 @@ export const extractDocumentTitle = (templateHtml: string, documentType: string)
     if (cleaned) return cleaned;
   }
 
-  return documentType.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+  return getDocumentTypeLabel(documentType);
 };
 
 /**
  * Clean generated HTML: strip scaffold comments while preserving template elements.
  * IMPORTANT: Only strips well-formed (closed) HTML comments to avoid eating template content.
- * Does NOT strip [CONTENT: ...] placeholders — those are handled during template injection.
+ * Strips [CONTENT: ...] wrappers — extracts the inner content and removes the markers.
  * Does NOT replace \\n or \\t — those are JSON escape artifacts that should be handled
  * during JSON parsing, not in HTML post-processing.
  * 
@@ -174,7 +182,7 @@ export const cleanGeneratedHtml = (html: string): string => {
     }
   }
 
-  const cleaned = html
+  let cleaned = html
     // Strip well-formed scaffold comments (properly terminated with -->)
     .replace(/<!--\s*TEMPLATE SCAFFOLD:[\s\S]*?-->\s*/gi, '')
     .replace(/<!--\s*PRESERVE THIS IMAGE TAG EXACTLY AS-IS\s*-->\s*/gi, '')
@@ -190,7 +198,59 @@ export const cleanGeneratedHtml = (html: string): string => {
     .replace(/<!--\s*PRESERVE STYLING[^\n]*\n?/gi, '')
     .replace(/<!--\s*Section guidance:[^\n]*\n?/gi, '');
 
+  // Strip [CONTENT: ...] wrappers — the AI sometimes wraps generated text inside
+  // the placeholder markers instead of replacing them. Extract the inner content.
+  // Handles multi-line content inside the markers.
+  cleaned = cleaned.replace(/\[CONTENT:\s*([\s\S]*?)\]/gi, '$1');
+
+  // Strip leaked scaffold instruction text that the AI reproduced without HTML comment markers.
+  // These are fragments from the TEMPLATE SCAFFOLD comment that leak into the output.
+  cleaned = cleaned.replace(/\s*with a complete,?\s*well-structured HTML document body[^.>]*\.\s*(?:Keep all other text and elements[^.>]*\.\s*)?(?:PRESERVE ALL marked elements[^.>]*\.\s*)?(?:-->\s*)?/gi, '');
+  cleaned = cleaned.replace(/\s*Replace \[CONTENT:[^\]]*\][^.>]*\.\s*/gi, '');
+  cleaned = cleaned.replace(/\s*PRESERVE ALL marked elements exactly as-is\.?\s*(?:-->\s*)?/gi, '');
+  // Strip any trailing --> that was part of a scaffold comment the AI partially reproduced
+  cleaned = cleaned.replace(/\s*-->\s*$/g, '');
+
   return cleaned;
+};
+
+/**
+ * Strip images from HTML that already exist in a template.
+ * Used before injecting AI output into a template with [CONTENT: ...] placeholder —
+ * the template already has images outside the placeholder, so the AI's copies
+ * of those images must be removed to prevent duplication.
+ *
+ * @param html - The AI-generated HTML that may contain template images
+ * @param templateHtml - The template HTML containing the authoritative images
+ * @returns The HTML with template images removed
+ */
+export const stripTemplateImagesFromContent = (html: string, templateHtml: string): string => {
+  if (!html?.trim() || !templateHtml?.trim()) return html;
+
+  // Extract all image src values from the template
+  const templateImageSrcs = [...templateHtml.matchAll(/<img[^>]*src="([^"]*)"[^>]*>/gi)]
+    .map(m => m[1]!)
+    .filter(Boolean);
+
+  if (templateImageSrcs.length === 0) return html;
+
+  let result = html;
+  let removedCount = 0;
+
+  for (const src of templateImageSrcs) {
+    const escapedSrc = src.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    // Remove <img> tags (and optional preceding preservation comments) that match template images
+    const imgPattern = new RegExp(`\\s*(?:<!--[^>]*-->\\s*)?<img[^>]*src="${escapedSrc}"[^>]*>\\s*`, 'gi');
+    const before = result;
+    result = result.replace(imgPattern, '');
+    if (result !== before) removedCount++;
+  }
+
+  if (removedCount > 0) {
+    console.log(`[stripTemplateImagesFromContent] Stripped ${removedCount} template image(s) from AI output before injection`);
+  }
+
+  return result;
 };
 
 // ─── Template-Based Section Generation ────────────────────────────────────────
@@ -430,7 +490,7 @@ export const generateSingleShot = async (args: {
     }
   } catch (parseErr) {
     console.warn(`[single-shot] safeParseJsonFromModel failed: ${(parseErr as Error).message}. Wrapping raw text as HTML.`);
-    modelJson = { title: 'Generated Document', htmlContent: rawText };
+    modelJson = { title: getDocumentTypeLabel(documentType), htmlContent: rawText };
   }
 
   // Validate model output against RFPDocumentContent schema
@@ -456,7 +516,13 @@ export const generateSingleShot = async (args: {
     const templateHasContentPlaceholder = /\[CONTENT:\s*[^\]]*\]/i.test(templateHtml);
     if (templateHasContentPlaceholder) {
       console.log('[single-shot] Real template with [CONTENT: ...] placeholder — injecting AI content into template');
-      const injected = injectContentIntoSimpleTemplate(templateHtml, finalHtml);
+      // Strip template images from AI output BEFORE injection.
+      // The AI is told to "preserve images", so it includes them in its output.
+      // But the template already has those images OUTSIDE the [CONTENT: ...] placeholder.
+      // Injecting the AI output (with images) into the template (which also has images)
+      // would cause duplication. Remove the AI's copies — the template's are authoritative.
+      const cleanedAiContent = stripTemplateImagesFromContent(finalHtml, templateHtml);
+      const injected = injectContentIntoSimpleTemplate(templateHtml, cleanedAiContent);
       if (injected) {
         finalHtml = injected;
         console.log(`[single-shot] Injected content into template (${finalHtml.length} chars)`);
@@ -599,7 +665,6 @@ export const processJobInner = async (job: Job): Promise<void> => {
   }
 
   let finalDocument: RFPDocumentContent | null = null;
-
   // Strategy 1: Section-by-section generation (template with headings AND placeholders)
   if (templateHtmlScaffold) {
     const sectionSystemPrompt = buildSectionSystemPrompt(documentType);
@@ -647,7 +712,21 @@ export const processJobInner = async (job: Job): Promise<void> => {
   // as a wrapper to guarantee all template elements (images, styles, structure)
   // are preserved exactly as-is. The AI-generated content is injected into the
   // template structure.
-  if (finalDocument?.content && originalTemplateHtml) {
+  //
+  // SKIP this step when the single-shot path already injected content into a
+  // [CONTENT: ...] template. That injection already preserves the full template
+  // structure (images, styles, boilerplate). Re-assembling here would duplicate
+  // images by prepending the template header again.
+  const originalTemplateHasContentPlaceholder = originalTemplateHtml
+    ? /\{\{CONTENT\}\}|\[CONTENT:/i.test(originalTemplateHtml)
+    : false;
+  // Also check the scaffold version (which has [CONTENT: ...] after macro resolution)
+  const scaffoldHasContentPlaceholder = templateHtmlScaffold
+    ? /\[CONTENT:/i.test(templateHtmlScaffold)
+    : false;
+  const skipAssembly = originalTemplateHasContentPlaceholder || scaffoldHasContentPlaceholder;
+
+  if (finalDocument?.content && originalTemplateHtml && !skipAssembly) {
     const aiContent = cleanGeneratedHtml(finalDocument.content);
     
     // Find the first heading of ANY level (h1-h6) in the original template
@@ -739,6 +818,53 @@ export const processJobInner = async (job: Job): Promise<void> => {
       }
     }
     
+    // DEDUPLICATE: Remove images from footer that already appear in the header.
+    // Templates often have a company logo at the top; the footer detection may
+    // grab template sections that also contain the same image, causing it to
+    // appear at both the beginning and end of the document.
+    if (templateFooter && templateHeader) {
+      const headerImageSrcs = [...templateHeader.matchAll(/<img[^>]*src="([^"]*)"[^>]*>/gi)]
+        .map(m => m[1]!);
+      
+      if (headerImageSrcs.length > 0) {
+        let deduplicatedFooter = templateFooter;
+        for (const src of headerImageSrcs) {
+          // Escape special regex characters in the src
+          const escapedSrc = src.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+          // Remove <img> tags from footer that have the same src as a header image
+          const imgPattern = new RegExp(`\\s*(?:<!--[^>]*-->\\s*)?<img[^>]*src="${escapedSrc}"[^>]*>\\s*`, 'gi');
+          deduplicatedFooter = deduplicatedFooter.replace(imgPattern, '');
+        }
+        
+        if (deduplicatedFooter !== templateFooter) {
+          const removedCount = (templateFooter.match(/<img[^>]*>/gi) || []).length - (deduplicatedFooter.match(/<img[^>]*>/gi) || []).length;
+          console.log(`[worker] Deduplicated ${removedCount} image(s) from footer that already appear in header`);
+          templateFooter = deduplicatedFooter;
+        }
+      }
+    }
+    
+    // Also deduplicate images in the AI body that already appear in the header
+    if (templateHeader) {
+      const headerImageSrcs = [...templateHeader.matchAll(/<img[^>]*src="([^"]*)"[^>]*>/gi)]
+        .map(m => m[1]!);
+      
+      if (headerImageSrcs.length > 0) {
+        let deduplicatedBody = aiBody;
+        for (const src of headerImageSrcs) {
+          const escapedSrc = src.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+          const imgPattern = new RegExp(`\\s*(?:<!--[^>]*-->\\s*)?<img[^>]*src="${escapedSrc}"[^>]*>\\s*`, 'gi');
+          deduplicatedBody = deduplicatedBody.replace(imgPattern, '');
+        }
+        
+        if (deduplicatedBody !== aiBody) {
+          const removedCount = (aiBody.match(/<img[^>]*>/gi) || []).length - (deduplicatedBody.match(/<img[^>]*>/gi) || []).length;
+          console.log(`[worker] Deduplicated ${removedCount} image(s) from AI body that already appear in header`);
+          aiBody = deduplicatedBody;
+        }
+      }
+    }
+    
     // ASSEMBLE: template header + AI body + template footer
     let assembled = '';
     if (templateHeader) {
@@ -746,7 +872,13 @@ export const processJobInner = async (job: Job): Promise<void> => {
     }
     assembled += aiBody;
     if (templateFooter) {
-      assembled += '\n\n' + templateFooter;
+      // Only append footer if it still has meaningful content after deduplication
+      const footerText = templateFooter.replace(/<[^>]*>/g, '').trim();
+      if (footerText) {
+        assembled += '\n\n' + templateFooter;
+      } else {
+        console.log(`[worker] Skipping empty footer after deduplication`);
+      }
     }
     
     console.log(`[worker] Final assembly: header(${templateHeader.length}) + body(${aiBody.length}) + footer(${templateFooter.length}) = ${assembled.length} chars`);
@@ -869,8 +1001,8 @@ export const processJobInner = async (job: Job): Promise<void> => {
     updates: {
       status: 'COMPLETE',
       content: dbContent,
-      title: finalDocument.title || 'Generated Document',
-      name: finalDocument.title || 'Generated Document',
+      title: finalDocument.title || getDocumentTypeLabel(documentType),
+      name: finalDocument.title || getDocumentTypeLabel(documentType),
       htmlContentKey,
     },
     updatedBy: 'system',
@@ -898,7 +1030,7 @@ export const processJobInner = async (job: Job): Promise<void> => {
       orgId,
       versionNumber: newVersionNumber,
       htmlContentKey: versionHtmlKey,
-      title: finalDocument.title ?? existingDoc?.title ?? existingDoc?.name ?? 'Generated Document',
+      title: finalDocument.title ?? existingDoc?.title ?? existingDoc?.name ?? getDocumentTypeLabel(documentType),
       documentType: existingDoc?.documentType ?? documentType,
       wordCount: htmlContent.split(/\s+/).length,
       changeNote: newVersionNumber === 1 ? 'Initial AI generation' : 'AI regeneration',

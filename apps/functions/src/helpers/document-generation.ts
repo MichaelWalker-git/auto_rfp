@@ -10,7 +10,7 @@ import {
   getLatestVersionNumber,
   saveVersionHtml,
 } from '@/helpers/rfp-document-version';
-import type { RFPDocumentContent } from '@auto-rfp/core';
+import { RFP_DOCUMENT_TYPES, type RFPDocumentContent } from '@auto-rfp/core';
 import type { BedrockResponse, QaPair } from '@/types/document-generation';
 import { getProjectById } from '@/helpers/project';
 import { getOrganizationById } from '@/helpers/org';

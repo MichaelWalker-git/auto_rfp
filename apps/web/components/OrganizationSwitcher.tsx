@@ -118,12 +118,14 @@ export function OrganizationSwitcher() {
         </DropdownMenuTrigger>
 
         <DropdownMenuContent align="end" className="w-[280px]">
-          <DropdownMenuLabel className="flex items-center justify-between">
-            <span>Organization</span>
-            {isOrgLocked && <span className="text-xs text-muted-foreground">Locked</span>}
-          </DropdownMenuLabel>
-
-          <DropdownMenuSeparator />
+          {isOrgLocked && (
+            <>
+              <DropdownMenuLabel>
+                <span className="text-xs text-muted-foreground">Locked</span>
+              </DropdownMenuLabel>
+              <DropdownMenuSeparator />
+            </>
+          )}
 
           {organizations.map((org) => {
             const active = org.id === currentOrganization?.id;

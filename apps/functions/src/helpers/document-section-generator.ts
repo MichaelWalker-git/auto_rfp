@@ -454,9 +454,12 @@ export const generateDocumentSectionBySectionHtml = async (
         const hasLeadingNonHtml = /^[^<]*\{/.test(rawHtml.trim());
         const htmlMatch = hasLeadingNonHtml ? rawHtml.match(/<[a-z][\s\S]*$/i) : null;
         // Replace literal \n escape sequences with real newlines
+        // Also strip [CONTENT: ...] wrappers — the AI sometimes wraps generated text
+        // inside the placeholder markers instead of replacing them.
         let cleanHtml = (htmlMatch ? htmlMatch[0] : rawHtml)
           .replace(/\\n/g, '\n')
-          .replace(/\\t/g, '\t');
+          .replace(/\\t/g, '\t')
+          .replace(/\[CONTENT:\s*([\s\S]*?)\]/gi, '$1');
 
         // If the section has template content, use the template as the base
         // and inject AI content into it. This preserves all images, styles,
