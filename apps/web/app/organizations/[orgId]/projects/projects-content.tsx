@@ -76,7 +76,7 @@ function ProjectsList({ orgId }: { orgId: string }) {
   const [pendingDeleteProject, setPendingDeleteProject] = useState<Project | null>(null);
 
   const router = useRouter();
-  const { currentOrganization } = useCurrentOrganization();
+  const { currentOrganization, loading: orgLoading } = useCurrentOrganization();
   const { data: projects, mutate: refetchProjects } = useProjects(orgId);
   const { isFavorite } = useFavoriteProjects();
 
@@ -133,6 +133,9 @@ function ProjectsList({ orgId }: { orgId: string }) {
   // ── Early return ───────────────────────────
 
   if (!currentOrganization) {
+    if (orgLoading) {
+      return <ProjectsListSkeleton />;
+    }
     return (
       <div className="flex flex-col items-center justify-center h-full">
         <h1 className="text-2xl font-bold">Organization not found</h1>

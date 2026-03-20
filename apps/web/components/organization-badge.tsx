@@ -158,31 +158,33 @@ export function OrganizationBadge() {
               side={isMobile ? 'bottom' : 'right'}
               sideOffset={10}
             >
-              <DropdownMenuLabel className="flex flex-col">
-                <span className="text-xs text-muted-foreground">Organization</span>
-                <span className="truncate">{currentOrganization?.name ?? '—'}</span>
+              <DropdownMenuLabel className="truncate">
+                {currentOrganization?.name ?? '—'} Projects
               </DropdownMenuLabel>
 
               <DropdownMenuSeparator />
 
-              <DropdownMenuLabel>Projects</DropdownMenuLabel>
-
               <div className="max-h-[280px] overflow-y-auto p-2 pt-0">
-                {projects.map((p) => {
-                  const active = p.id === currentProject?.id;
-                  return (
-                    <DropdownMenuItem
-                      key={p.id}
-                      onSelect={() => setCurrentProject(p)}
-                      className={`cursor-pointer ${active ? 'bg-accent font-medium' : ''}`}
-                    >
-                      <span className="truncate">{p.name}</span>
-                    </DropdownMenuItem>
-                  );
-                })}
-
-                {projects.length === 0 && (
+                {projectsLoading ? (
+                  <div className="flex items-center gap-2 px-2 py-3 text-sm text-muted-foreground">
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Loading projects…
+                  </div>
+                ) : projects.length === 0 ? (
                   <div className="px-2 py-2 text-sm text-muted-foreground">No projects yet</div>
+                ) : (
+                  projects.map((p) => {
+                    const active = p.id === currentProject?.id;
+                    return (
+                      <DropdownMenuItem
+                        key={p.id}
+                        onSelect={() => setCurrentProject(p)}
+                        className={`cursor-pointer ${active ? 'bg-accent font-medium' : ''}`}
+                      >
+                        <span className="truncate">{p.name}</span>
+                      </DropdownMenuItem>
+                    );
+                  })
                 )}
               </div>
 

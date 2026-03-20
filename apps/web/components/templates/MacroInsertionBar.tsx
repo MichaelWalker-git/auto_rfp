@@ -1,182 +1,163 @@
 'use client';
 
-import { MacroButton } from './MacroButton';
+import { useState } from 'react';
+import { ChevronDown, ChevronRight, Copy } from 'lucide-react';
+import { cn } from '@/lib/utils';
 
 interface MacroInsertionBarProps {
   onInsert: (key: string) => void;
   disabled?: boolean;
+  hideTitle?: boolean;
 }
 
-const MACRO_GROUPS = [
+interface MacroItem {
+  key: string;
+  label: string;
+  description: string;
+}
+
+interface MacroGroup {
+  title: string;
+  items: MacroItem[];
+  defaultOpen?: boolean;
+}
+
+const MACRO_GROUPS: MacroGroup[] = [
   {
-    label: 'General:',
-    macros: [
-      {
-        key: 'TODAY',
-        label: '{{TODAY}}',
-        tooltip: "Today's date in YYYY-MM-DD format (e.g., 2024-03-15)",
-        special: false,
-      },
+    title: 'General',
+    defaultOpen: true,
+    items: [
+      { key: 'TODAY', label: 'Today', description: "Today's date (YYYY-MM-DD)" },
+      { key: 'COMPANY_NAME', label: 'Company Name', description: 'Your organization name' },
+      { key: 'CONTENT', label: 'Content Area', description: 'AI-generated content placeholder' },
     ],
   },
   {
-    label: 'Company:',
-    macros: [
-      {
-        key: 'COMPANY_NAME',
-        label: '{{COMPANY_NAME}}',
-        tooltip: 'Your organization name from settings (e.g., "Acme Corporation")',
-        special: false,
-      },
+    title: 'Project',
+    defaultOpen: true,
+    items: [
+      { key: 'PROJECT_TITLE', label: 'Project Title', description: 'Project name' },
+      { key: 'PROPOSAL_TITLE', label: 'Proposal Title', description: 'Alias for project name' },
+      { key: 'PROJECT_POC_NAME', label: 'POC Name', description: 'Primary contact name' },
+      { key: 'PROJECT_POC_EMAIL', label: 'POC Email', description: 'Primary contact email' },
+      { key: 'PROJECT_POC_PHONE', label: 'POC Phone', description: 'Primary contact phone' },
+      { key: 'PROJECT_POC_TITLE', label: 'POC Title', description: 'Primary contact role' },
     ],
   },
   {
-    label: 'Project:',
-    macros: [
-      {
-        key: 'PROJECT_TITLE',
-        label: '{{PROJECT_TITLE}}',
-        tooltip: 'Project name (e.g., "DoD Cloud Migration Project")',
-        special: false,
-      },
-      {
-        key: 'PROPOSAL_TITLE',
-        label: '{{PROPOSAL_TITLE}}',
-        tooltip: 'Same as project title — used as an alias for proposal documents',
-        special: false,
-      },
-      {
-        key: 'PROJECT_POC_NAME',
-        label: '{{PROJECT_POC_NAME}}',
-        tooltip: 'Primary point of contact name (from Project Settings)',
-        special: false,
-      },
-      {
-        key: 'PROJECT_POC_EMAIL',
-        label: '{{PROJECT_POC_EMAIL}}',
-        tooltip: 'Primary POC email (from Project Settings)',
-        special: false,
-      },
-      {
-        key: 'PROJECT_POC_PHONE',
-        label: '{{PROJECT_POC_PHONE}}',
-        tooltip: 'Primary POC phone (from Project Settings)',
-        special: false,
-      },
-      {
-        key: 'PROJECT_POC_TITLE',
-        label: '{{PROJECT_POC_TITLE}}',
-        tooltip: 'Primary POC title/role (from Project Settings)',
-        special: false,
-      },
+    title: 'Opportunity',
+    defaultOpen: false,
+    items: [
+      { key: 'OPPORTUNITY_TITLE', label: 'Opportunity Title', description: 'Official title' },
+      { key: 'SOLICITATION_NUMBER', label: 'Solicitation #', description: 'e.g., FA8201-24-R-0001' },
+      { key: 'RESPONSE_DEADLINE', label: 'Deadline', description: 'Submission deadline date' },
+      { key: 'AGENCY_NAME', label: 'Agency', description: 'Government agency name' },
+      { key: 'NAICS_CODE', label: 'NAICS Code', description: 'Classification code' },
+      { key: 'SET_ASIDE', label: 'Set-Aside', description: 'Set-aside category' },
+      { key: 'ESTIMATED_VALUE', label: 'Est. Value', description: 'Contract estimated value' },
     ],
   },
   {
-    label: 'Opportunity:',
-    macros: [
-      {
-        key: 'OPPORTUNITY_TITLE',
-        label: '{{OPPORTUNITY_TITLE}}',
-        tooltip: 'Official opportunity title (e.g., "Enterprise Cloud Services")',
-        special: false,
-      },
-      {
-        key: 'SOLICITATION_NUMBER',
-        label: '{{SOLICITATION_NUMBER}}',
-        tooltip: 'Official solicitation number (e.g., "FA8201-24-R-0001")',
-        special: false,
-      },
-      {
-        key: 'OPPORTUNITY_ID',
-        label: '{{OPPORTUNITY_ID}}',
-        tooltip: 'Unique opportunity ID (e.g., "140D6424R00004")',
-        special: false,
-      },
-      {
-        key: 'RESPONSE_DEADLINE',
-        label: '{{RESPONSE_DEADLINE}}',
-        tooltip: 'Proposal submission deadline (e.g., "March 30, 2024")',
-        special: false,
-      },
-      {
-        key: 'AGENCY_NAME',
-        label: '{{AGENCY_NAME}}',
-        tooltip: 'Government agency name (e.g., "GSA")',
-        special: false,
-      },
-      {
-        key: 'NAICS_CODE',
-        label: '{{NAICS_CODE}}',
-        tooltip: 'NAICS classification code (e.g., "541512")',
-        special: false,
-      },
-      {
-        key: 'SET_ASIDE',
-        label: '{{SET_ASIDE}}',
-        tooltip: 'Set-aside category (e.g., "Total Small Business Set-Aside")',
-        special: false,
-      },
-      {
-        key: 'SOLICITATION_ORG_NAME',
-        label: '{{SOLICITATION_ORG_NAME}}',
-        tooltip: 'Solicitation organization/agency name',
-        special: false,
-      },
-      {
-        key: 'SOLICITATION_ORG_OFFICE',
-        label: '{{SOLICITATION_ORG_OFFICE}}',
-        tooltip: 'Specific office or department (from Executive Brief)',
-        special: false,
-      },
-      {
-        key: 'SOLICITATION_ORG_LOCATION',
-        label: '{{SOLICITATION_ORG_LOCATION}}',
-        tooltip: 'Place of performance/location (from Executive Brief)',
-        special: false,
-      },
+    title: 'Solicitation Org',
+    defaultOpen: false,
+    items: [
+      { key: 'SOLICITATION_ORG_NAME', label: 'Org Name', description: 'Solicitation org/agency' },
+      { key: 'SOLICITATION_ORG_OFFICE', label: 'Office', description: 'Specific office/dept' },
+      { key: 'SOLICITATION_ORG_LOCATION', label: 'Location', description: 'Place of performance' },
     ],
   },
   {
-    label: 'Contacts:',
-    macros: [
-      {
-        key: 'CONTRACTING_OFFICER',
-        label: '{{CONTRACTING_OFFICER}}',
-        tooltip: 'Contracting officer name and email (from Executive Brief)',
-        special: false,
-      },
-      {
-        key: 'TECHNICAL_POC',
-        label: '{{TECHNICAL_POC}}',
-        tooltip: 'Technical point of contact name and email (from Executive Brief)',
-        special: false,
-      },
+    title: 'Contacts',
+    defaultOpen: false,
+    items: [
+      { key: 'CONTRACTING_OFFICER', label: 'CO', description: 'Contracting officer info' },
+      { key: 'TECHNICAL_POC', label: 'Tech POC', description: 'Technical POC info' },
     ],
   },
 ];
 
-export const MacroInsertionBar = ({ onInsert, disabled }: MacroInsertionBarProps) => {
+const MacroGroupSection = ({
+  group,
+  onInsert,
+  disabled,
+}: {
+  group: MacroGroup;
+  onInsert: (key: string) => void;
+  disabled?: boolean;
+}) => {
+  const [isOpen, setIsOpen] = useState(group.defaultOpen ?? false);
+  const [justInserted, setJustInserted] = useState<string | null>(null);
+
+  const handleInsert = (key: string) => {
+    onInsert(key);
+    setJustInserted(key);
+    setTimeout(() => setJustInserted(null), 1000);
+  };
+
   return (
-    <div className="space-y-2 mb-3">
-      <div className="text-xs font-medium text-muted-foreground">Insert Variables:</div>
+    <div className="border border-border rounded-lg overflow-hidden">
+      <button
+        type="button"
+        onClick={() => setIsOpen(!isOpen)}
+        className="w-full flex items-center justify-between px-3 py-2 text-xs font-semibold text-foreground hover:bg-muted/50 transition-colors"
+      >
+        <span>{group.title}</span>
+        {isOpen ? (
+          <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
+        ) : (
+          <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />
+        )}
+      </button>
+      {isOpen && (
+        <div className="border-t border-border">
+          {group.items.map((item) => (
+            <button
+              key={item.key}
+              type="button"
+              onClick={() => handleInsert(item.key)}
+              disabled={disabled}
+              className={cn(
+                'w-full flex items-center gap-2 px-3 py-1.5 text-left transition-colors',
+                'hover:bg-primary/5 disabled:opacity-50 disabled:cursor-not-allowed',
+                justInserted === item.key && 'bg-emerald-50 dark:bg-emerald-950/30',
+              )}
+            >
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-1.5">
+                  <span className="text-xs font-medium text-foreground truncate">
+                    {item.label}
+                  </span>
+                  {justInserted === item.key && (
+                    <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-medium">
+                      Inserted!
+                    </span>
+                  )}
+                </div>
+                <div className="text-[10px] text-muted-foreground truncate">
+                  {item.description}
+                </div>
+              </div>
+              <Copy className="h-3 w-3 text-muted-foreground shrink-0" />
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};
+
+export const MacroInsertionBar = ({ onInsert, disabled, hideTitle }: MacroInsertionBarProps) => {
+  return (
+    <div className="space-y-2">
+      {!hideTitle && <div className="text-sm font-semibold text-foreground">Insert Variables</div>}
       <div className="space-y-1.5">
         {MACRO_GROUPS.map((group) => (
-          <div key={group.label} className="flex items-start gap-2">
-            <span className="text-xs text-muted-foreground w-24 pt-0.5 shrink-0">{group.label}</span>
-            <div className="flex flex-wrap gap-1.5">
-              {group.macros.map((macro) => (
-                <MacroButton
-                  key={macro.key}
-                  macroKey={macro.key}
-                  label={macro.label}
-                  tooltip={macro.tooltip}
-                  onClick={onInsert}
-                  disabled={disabled}
-                  special={macro.special}
-                />
-              ))}
-            </div>
-          </div>
+          <MacroGroupSection
+            key={group.title}
+            group={group}
+            onInsert={onInsert}
+            disabled={disabled}
+          />
         ))}
       </div>
     </div>

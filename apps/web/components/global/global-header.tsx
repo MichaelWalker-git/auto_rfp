@@ -15,6 +15,15 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import {
+  Breadcrumb,
+  BreadcrumbEllipsis,
+  BreadcrumbItem as BreadcrumbItemUI,
+  BreadcrumbLink,
+  BreadcrumbList,
+  BreadcrumbPage,
+  BreadcrumbSeparator,
+} from '@/components/ui/breadcrumb';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Building2, ChevronRight, HelpCircle, LogOut, Pencil } from 'lucide-react';
 import { NotificationBell } from '@/features/notifications';
@@ -210,42 +219,142 @@ function HeaderSkeleton() {
   );
 }
 
+/**
+ * Responsive breadcrumb navigation using shadcn/ui Breadcrumb components.
+ *
+ * When there are more than 2 items, middle items are always collapsed into
+ * a dropdown menu accessible via an ellipsis button. This keeps the breadcrumb
+ * compact on all screen sizes.
+ *
+ * Layout:
+ * - ≤ 2 items: show all items inline
+ * - > 2 items: [first] / [...] / [last] (middle items in dropdown)
+ */
+const ITEMS_BEFORE_COLLAPSE = 1; // Show first N items before ellipsis
+const ITEMS_AFTER_COLLAPSE = 1;  // Show last N items after ellipsis
+
 function BreadcrumbNav({ items, showLeadingChevron }: { items: BreadcrumbItem[]; showLeadingChevron: boolean }) {
   if (items.length === 0) return null;
 
+  const shouldCollapse = items.length > ITEMS_BEFORE_COLLAPSE + ITEMS_AFTER_COLLAPSE;
+  const visibleBefore = items.slice(0, ITEMS_BEFORE_COLLAPSE);
+  const collapsedItems = shouldCollapse
+    ? items.slice(ITEMS_BEFORE_COLLAPSE, items.length - ITEMS_AFTER_COLLAPSE)
+    : [];
+  const visibleAfter = shouldCollapse
+    ? items.slice(items.length - ITEMS_AFTER_COLLAPSE)
+    : items.slice(ITEMS_BEFORE_COLLAPSE);
+
+  const renderCrumb = (crumb: BreadcrumbItem, index: number) => {
+    const displayLabel = truncateText(crumb.label);
+    const isTruncated = displayLabel !== crumb.label;
+
+    if (crumb.isActive && !crumb.href) {
+      return (
+        <BreadcrumbPage
+          title={isTruncated ? crumb.label : undefined}
+          className="flex items-center gap-1.5 max-w-[180px] sm:max-w-none"
+        >
+          {crumb.icon}
+          <span className="truncate">{displayLabel}</span>
+        </BreadcrumbPage>
+      );
+    }
+
+    return (
+      <BreadcrumbLink asChild>
+        <Link
+          href={crumb.href ?? '#'}
+          title={isTruncated ? crumb.label : undefined}
+          className="flex items-center gap-1.5 max-w-[180px] sm:max-w-none"
+        >
+          {crumb.icon}
+          <span className="truncate">{displayLabel}</span>
+        </Link>
+      </BreadcrumbLink>
+    );
+  };
+
   return (
-    <nav className="flex items-center gap-1 text-sm">
-      {showLeadingChevron && <ChevronRight className="h-4 w-4 text-muted-foreground"/>}
-      {items.map((crumb, index) => {
-        const displayLabel = truncateText(crumb.label);
-        const isTruncated = displayLabel !== crumb.label;
-        
-        return (
-          <React.Fragment key={`${crumb.label}-${index}`}>
-            {crumb.href ? (
-              <Link
-                href={crumb.href}
-                title={isTruncated ? crumb.label : undefined}
-                className={`flex items-center gap-1.5 px-2 py-1 rounded-md hover:bg-muted transition-colors ${
-                  crumb.isActive ? 'text-foreground font-medium' : 'text-muted-foreground hover:text-foreground'
-                }`}
-              >
-                {crumb.icon}
-                {displayLabel}
-              </Link>
-            ) : (
-              <span
-                title={isTruncated ? crumb.label : undefined}
-                className={`flex items-center gap-1.5 px-2 py-1 ${crumb.isActive ? 'text-foreground font-medium' : 'text-muted-foreground'}`}>
-                {crumb.icon}
-                {displayLabel}
-              </span>
-            )}
-            {index < items.length - 1 && <ChevronRight className="h-3 w-3 text-muted-foreground"/>}
-          </React.Fragment>
-        );
-      })}
-    </nav>
+    <div className="flex items-center gap-1">
+      {showLeadingChevron && <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />}
+      <Breadcrumb>
+        <BreadcrumbList className="flex-nowrap">
+          {/* Always-visible first items */}
+          {visibleBefore.map((crumb, i) => (
+            <React.Fragment key={`before-${crumb.label}-${i}`}>
+              <BreadcrumbItemUI className="hidden sm:inline-flex">
+                {renderCrumb(crumb, i)}
+              </BreadcrumbItemUI>
+              {/* On mobile, show only the icon for the first item (org) */}
+              <BreadcrumbItemUI className="inline-flex sm:hidden">
+                {crumb.icon ? (
+                  crumb.href ? (
+                    <BreadcrumbLink asChild>
+                      <Link href={crumb.href} title={crumb.label}>
+                        {crumb.icon}
+                      </Link>
+                    </BreadcrumbLink>
+                  ) : (
+                    <BreadcrumbPage title={crumb.label}>
+                      {crumb.icon}
+                    </BreadcrumbPage>
+                  )
+                ) : (
+                  renderCrumb(crumb, i)
+                )}
+              </BreadcrumbItemUI>
+              {(visibleAfter.length > 0 || collapsedItems.length > 0) && (
+                <BreadcrumbSeparator />
+              )}
+            </React.Fragment>
+          ))}
+
+          {/* Collapsed middle items — always shown as ellipsis dropdown */}
+          {collapsedItems.length > 0 && (
+            <>
+              <BreadcrumbItemUI>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <button className="flex items-center justify-center" aria-label="Show more breadcrumbs">
+                      <BreadcrumbEllipsis className="size-4" />
+                    </button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="start">
+                    {collapsedItems.map((crumb, i) => (
+                      <DropdownMenuItem key={`collapsed-${crumb.label}-${i}`} asChild>
+                        {crumb.href ? (
+                          <Link href={crumb.href} className="flex items-center gap-2">
+                            {crumb.icon}
+                            {crumb.label}
+                          </Link>
+                        ) : (
+                          <span className="flex items-center gap-2">
+                            {crumb.icon}
+                            {crumb.label}
+                          </span>
+                        )}
+                      </DropdownMenuItem>
+                    ))}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </BreadcrumbItemUI>
+              <BreadcrumbSeparator />
+            </>
+          )}
+
+          {/* Always-visible last items */}
+          {visibleAfter.map((crumb, i) => (
+            <React.Fragment key={`after-${crumb.label}-${i}`}>
+              <BreadcrumbItemUI>
+                {renderCrumb(crumb, items.length - ITEMS_AFTER_COLLAPSE + i)}
+              </BreadcrumbItemUI>
+              {i < visibleAfter.length - 1 && <BreadcrumbSeparator />}
+            </React.Fragment>
+          ))}
+        </BreadcrumbList>
+      </Breadcrumb>
+    </div>
   );
 }
 

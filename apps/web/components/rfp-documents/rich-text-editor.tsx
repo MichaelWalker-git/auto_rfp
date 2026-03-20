@@ -1036,6 +1036,10 @@ export const RichTextEditor = ({
 
   const initializedRef = useRef(false);
 
+  // Ref for the image upload handler — allows editorProps callbacks
+  // (defined at useEditor init time) to access the latest handler.
+  const imageUploadRef = useRef<((file: File) => Promise<void>) | null>(null);
+
   const editor = useEditor({
     immediatelyRender: false,
     editable: !disabled,
@@ -1064,6 +1068,38 @@ export const RichTextEditor = ({
       TableHeader,
       TableCell,
     ],
+    editorProps: {
+      // Intercept pasted images and upload them to S3 instead of inserting base64
+      handlePaste: (_view, event) => {
+        const items = event.clipboardData?.items;
+        if (!items) return false;
+
+        for (const item of Array.from(items)) {
+          if (item.type.startsWith('image/')) {
+            const file = item.getAsFile();
+            if (file && imageUploadRef.current) {
+              event.preventDefault();
+              imageUploadRef.current(file);
+              return true;
+            }
+          }
+        }
+        return false;
+      },
+      // Intercept dropped images and upload them to S3
+      handleDrop: (_view, event) => {
+        const files = event.dataTransfer?.files;
+        if (!files?.length) return false;
+
+        const imageFile = Array.from(files).find((f) => f.type.startsWith('image/'));
+        if (imageFile && imageUploadRef.current) {
+          event.preventDefault();
+          imageUploadRef.current(imageFile);
+          return true;
+        }
+        return false;
+      },
+    },
     content: value || '',
     onUpdate: ({ editor: e }) => {
       const html = e.getHTML();
@@ -1100,6 +1136,7 @@ export const RichTextEditor = ({
   }, [editor, disabled]);
 
   // ── Image upload ──
+  // Keep the ref in sync so paste/drop handlers can access the latest function
   const handleImageUpload = useCallback(async (file: File) => {
     if (!onUploadImageToS3 || !editor) return;
     setIsUploadingImage(true);
@@ -1130,6 +1167,11 @@ export const RichTextEditor = ({
       onUploadingChange?.(false);
     }
   }, [onUploadImageToS3, onGetDownloadUrl, onUploadingChange, editor]);
+
+  // Keep the ref in sync so editorProps paste/drop handlers always use the latest upload function
+  useEffect(() => {
+    imageUploadRef.current = handleImageUpload;
+  }, [handleImageUpload]);
 
   const handleFileChange = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
