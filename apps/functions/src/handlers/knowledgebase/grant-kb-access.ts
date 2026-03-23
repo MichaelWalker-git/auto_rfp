@@ -1,6 +1,6 @@
 import { apiResponse, getOrgId, getUserId } from '@/helpers/api';
 import { GrantKBAccessRequestSchema } from '@auto-rfp/core';
-import { grantKBAccess, canManageKBAccess, hasKBAccess } from '@/helpers/user-kb';
+import { grantKBAccess, getUserKBAccessRecord } from '@/helpers/user-kb';
 import { withSentryLambda } from '@/sentry-lambda';
 import {
   authContextMiddleware,
@@ -29,14 +29,14 @@ export const baseHandler = async (event: AuthedEvent) => {
 
     const { userId, kbId, accessLevel } = parsed.data;
 
+    // Single DynamoDB GetItem to fetch admin user's access record
+    const adminAccess = await getUserKBAccessRecord(adminUserId, kbId);
+    const isOrgAdmin = event.rbac?.role === 'ADMIN';
+
     // Check if user can manage KB access:
     // 1. Has 'admin' accessLevel on this KB (KB owner), OR
     // 2. Has access to this KB AND is org ADMIN role
-    const hasKBAdminAccess = await canManageKBAccess(adminUserId, kbId);
-    const isOrgAdmin = event.rbac?.role === 'ADMIN';
-    const hasAccessToKB = await hasKBAccess(adminUserId, kbId);
-
-    const canManage = hasKBAdminAccess || (hasAccessToKB && isOrgAdmin);
+    const canManage = adminAccess.isKBAdmin || (adminAccess.hasAccess && isOrgAdmin);
 
     if (!canManage) {
       return apiResponse(403, { message: 'You do not have permission to manage access to this knowledge base' });

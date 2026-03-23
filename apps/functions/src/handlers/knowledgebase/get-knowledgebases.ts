@@ -1,4 +1,4 @@
-import { APIGatewayProxyEventV2, APIGatewayProxyResultV2 } from 'aws-lambda';
+import { APIGatewayProxyResultV2 } from 'aws-lambda';
 import { apiResponse, getOrgId, getUserId } from '@/helpers/api';
 import { listKnowledgeBasesForOrg } from '@/helpers/kb';
 import { withSentryLambda } from '@/sentry-lambda';
@@ -7,11 +7,12 @@ import {
   httpErrorMiddleware,
   orgMembershipMiddleware,
   requirePermission,
+  type AuthedEvent,
 } from '@/middleware/rbac-middleware';
 import middy from '@middy/core';
 
 export const baseHandler = async (
-  event: APIGatewayProxyEventV2,
+  event: AuthedEvent,
 ): Promise<APIGatewayProxyResultV2> => {
   try {
     const tokenOrgId = getOrgId(event);
@@ -23,7 +24,10 @@ export const baseHandler = async (
     }
 
     const userId = getUserId(event);
-    const knowledgeBases = await listKnowledgeBasesForOrg(orgId, userId);
+    const isOrgAdmin = event.rbac?.role === 'ADMIN';
+    
+    // Org admins see all KBs; non-admins see only KBs they have access to
+    const knowledgeBases = await listKnowledgeBasesForOrg(orgId, isOrgAdmin ? null : userId);
 
     return apiResponse(200, knowledgeBases);
   } catch (err) {

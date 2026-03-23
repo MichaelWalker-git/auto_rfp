@@ -25,8 +25,11 @@ export function KBAccessControl({ kbId, orgId }: KBAccessControlProps) {
   const { data: accessData } = useKBAccessUsers(kbId, orgId);
   const { canManage: canManageKBAccess, isLoading: isLoadingAccess } = useCanManageKBAccess(kbId, orgId);
 
-  // Filter users list - always exclude self from the dropdown
-  const allUsers = (usersData?.items ?? []).filter((u) => u.userId !== userSub);
+  // Full users list (for displaying granted users)
+  const fullUsersList = usersData?.items ?? [];
+  
+  // Filtered users list - exclude self from the dropdown (can't grant access to yourself)
+  const allUsers = fullUsersList.filter((u) => u.userId !== userSub);
 
   // Set of userIds who already have KB access
   const grantedUserIds = useMemo(() => {
@@ -143,7 +146,7 @@ export function KBAccessControl({ kbId, orgId }: KBAccessControlProps) {
     return (
       <Card>
         <CardHeader>
-          You can't manage access for this knowlenge base
+          Loading, please wait
         </CardHeader>
       </Card>
     );
@@ -259,8 +262,8 @@ export function KBAccessControl({ kbId, orgId }: KBAccessControlProps) {
             </Button>
           </div>
 
-          {/* Currently Granted Users */}
-          <GrantedUsersList kbId={kbId} orgId={orgId} allUsers={allUsers} onRevoke={handleRevokeAccess} />
+          {/* Currently Granted Users - use full list so current user is displayed properly */}
+          <GrantedUsersList kbId={kbId} orgId={orgId} allUsers={fullUsersList} onRevoke={handleRevokeAccess} />
 
           {isLoadingUsers && (
             <div className="flex items-center justify-center py-4">
