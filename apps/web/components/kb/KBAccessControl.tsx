@@ -1,18 +1,16 @@
 'use client';
 
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
-import { Loader2, Shield, Info, UserPlus, X } from 'lucide-react';
-import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Loader2, Shield, UserPlus, X } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
 import { grantKBAccessApi, revokeKBAccessApi, useUsersList, useKBAccessUsers } from '@/lib/hooks/use-user';
-import { mutate as globalMutate } from 'swr';
 import { invalidateKBAccessCaches } from '@/lib/helpers/kb-access-cache';
 import { useAuth } from '@/components/AuthProvider';
-import PermissionWrapper from '@/components/permission-wrapper';
+import { useCanManageKBAccess } from './hooks/useCanManageKBAccess';
 
 interface KBAccessControlProps {
   kbId: string;
@@ -25,7 +23,13 @@ export function KBAccessControl({ kbId, orgId }: KBAccessControlProps) {
 
   const { data: usersData, isLoading: isLoadingUsers } = useUsersList(orgId, { limit: 200 });
   const { data: accessData } = useKBAccessUsers(kbId, orgId);
-  const allUsers = (usersData?.items ?? []).filter((u) => u.userId !== userSub);
+  const { canManage: canManageKBAccess, isLoading: isLoadingAccess } = useCanManageKBAccess(kbId, orgId);
+
+  // Full users list (for displaying granted users)
+  const fullUsersList = usersData?.items ?? [];
+  
+  // Filtered users list - exclude self from the dropdown (can't grant access to yourself)
+  const allUsers = fullUsersList.filter((u) => u.userId !== userSub);
 
   // Set of userIds who already have KB access
   const grantedUserIds = useMemo(() => {
@@ -40,21 +44,42 @@ export function KBAccessControl({ kbId, orgId }: KBAccessControlProps) {
   const [selectedUsers, setSelectedUsers] = useState<Map<string, { name: string; email: string }>>(new Map());
   const [isGranting, setIsGranting] = useState(false);
   const [showDropdown, setShowDropdown] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setShowDropdown(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   // Filter users by search query, excluding already selected
+  // Show all available users when dropdown is open (no search required)
   const filteredUsers = useMemo(() => {
-    if (!searchQuery.trim()) return [];
+    const availableUsers = allUsers.filter(
+      (u) => !selectedUsers.has(u.userId) && !grantedUserIds.has(u.userId)
+    );
+
+    // If no search query, return all available users (limited)
+    if (!searchQuery.trim()) {
+      return availableUsers.slice(0, 10);
+    }
+
+    // Filter by search query
     const q = searchQuery.toLowerCase();
-    return allUsers
-      .filter((u) => !selectedUsers.has(u.userId) && !grantedUserIds.has(u.userId))
+    return availableUsers
       .filter((u) =>
         u.email?.toLowerCase().includes(q) ||
         u.firstName?.toLowerCase().includes(q) ||
         u.lastName?.toLowerCase().includes(q) ||
         u.displayName?.toLowerCase().includes(q)
       )
-      .slice(0, 8);
-  }, [searchQuery, allUsers, selectedUsers]);
+      .slice(0, 10);
+  }, [searchQuery, allUsers, selectedUsers, grantedUserIds]);
 
   const addUser = useCallback((userId: string, name: string, email: string) => {
     setSelectedUsers((prev) => {
@@ -116,18 +141,38 @@ export function KBAccessControl({ kbId, orgId }: KBAccessControlProps) {
     }
   }, [kbId, toast]);
 
-  return (
-    <PermissionWrapper requiredPermission="kb:edit">
+  // Don't render if still loading or user cannot manage KB access
+  if (isLoadingAccess) {
+    return (
       <Card>
         <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Shield className="h-5 w-5" />
-            Access Control
-          </CardTitle>
-          <CardDescription>
-            Search and add team members who should have access to this knowledge base.
-          </CardDescription>
+          Loading, please wait
         </CardHeader>
+      </Card>
+    );
+  }
+
+  if (!canManageKBAccess) {
+    return (
+      <Card>
+        <CardHeader>
+          You can't manage access for this knowlenge base
+        </CardHeader>
+      </Card>
+    );
+  }
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <Shield className="h-5 w-5" />
+          Access Control
+        </CardTitle>
+        <CardDescription>
+          Search and add team members who should have access to this knowledge base.
+        </CardDescription>
+      </CardHeader>
         <CardContent className="space-y-4">
           {/* Selected users tags */}
           {selectedUsers.size > 0 && (
@@ -150,7 +195,7 @@ export function KBAccessControl({ kbId, orgId }: KBAccessControlProps) {
 
           {/* Search + Grant button */}
           <div className="flex gap-2">
-            <div className="relative flex-1">
+            <div className="relative flex-1" ref={dropdownRef}>
               <Input
                 placeholder="Search by name or email..."
                 value={searchQuery}
@@ -163,27 +208,43 @@ export function KBAccessControl({ kbId, orgId }: KBAccessControlProps) {
               />
 
               {/* Search dropdown */}
-              {showDropdown && filteredUsers.length > 0 && (
+              {showDropdown && (
                 <div className="absolute top-full left-0 right-0 z-50 mt-1 rounded-md border bg-popover shadow-md max-h-[200px] overflow-y-auto">
-                  {filteredUsers.map((user) => {
-                    const displayName = user.displayName
-                      || [user.firstName, user.lastName].filter(Boolean).join(' ')
-                      || user.email;
-                    return (
-                      <button
-                        key={user.userId}
-                        type="button"
-                        className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm hover:bg-muted transition-colors"
-                        onClick={() => addUser(user.userId, displayName, user.email)}
-                      >
-                        <div className="flex-1 min-w-0">
-                          <p className="font-medium truncate">{displayName}</p>
-                          <p className="text-xs text-muted-foreground truncate">{user.email}</p>
-                        </div>
-                        <Badge variant="outline" className="text-xs shrink-0">{user.role}</Badge>
-                      </button>
-                    );
-                  })}
+                  {filteredUsers.length > 0 ? (
+                    <>
+                      {filteredUsers.map((user) => {
+                        const displayName = user.displayName
+                          || [user.firstName, user.lastName].filter(Boolean).join(' ')
+                          || user.email;
+                        return (
+                          <button
+                            key={user.userId}
+                            type="button"
+                            className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm hover:bg-muted transition-colors"
+                            onClick={() => addUser(user.userId, displayName, user.email)}
+                          >
+                            <div className="flex-1 min-w-0">
+                              <p className="font-medium truncate">{displayName}</p>
+                              <p className="text-xs text-muted-foreground truncate">{user.email}</p>
+                            </div>
+                            <Badge variant="outline" className="text-xs shrink-0">{user.role}</Badge>
+                          </button>
+                        );
+                      })}
+                      {/* Show hint if more users available */}
+                      {allUsers.filter((u) => !selectedUsers.has(u.userId) && !grantedUserIds.has(u.userId)).length > 10 && (
+                        <p className="text-xs text-muted-foreground text-center py-2 border-t">
+                          Type to search more users...
+                        </p>
+                      )}
+                    </>
+                  ) : (
+                    <p className="text-sm text-muted-foreground text-center py-3">
+                      {searchQuery.trim()
+                        ? 'No users found matching your search'
+                        : 'No available users to add'}
+                    </p>
+                  )}
                 </div>
               )}
             </div>
@@ -201,8 +262,8 @@ export function KBAccessControl({ kbId, orgId }: KBAccessControlProps) {
             </Button>
           </div>
 
-          {/* Currently Granted Users */}
-          <GrantedUsersList kbId={kbId} orgId={orgId} allUsers={allUsers} onRevoke={handleRevokeAccess} />
+          {/* Currently Granted Users - use full list so current user is displayed properly */}
+          <GrantedUsersList kbId={kbId} orgId={orgId} allUsers={fullUsersList} onRevoke={handleRevokeAccess} />
 
           {isLoadingUsers && (
             <div className="flex items-center justify-center py-4">
@@ -210,8 +271,7 @@ export function KBAccessControl({ kbId, orgId }: KBAccessControlProps) {
             </div>
           )}
         </CardContent>
-      </Card>
-    </PermissionWrapper>
+    </Card>
   );
 }
 

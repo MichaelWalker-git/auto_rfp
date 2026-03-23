@@ -13,6 +13,12 @@ export const AuditActionSchema = z.enum([
   'USER_ROLE_CHANGED',
   'USER_INVITED',
   'USER_TEMP_PASSWORD_RESENT',
+  // Knowledge Base actions
+  'KB_CREATED',
+  'KB_UPDATED',
+  'KB_DELETED',
+  'KB_ACCESS_GRANTED',
+  'KB_ACCESS_REVOKED',
   // Document actions
   'DOCUMENT_UPLOADED',
   'DOCUMENT_DELETED',

@@ -124,6 +124,7 @@ export const baseHandler = async (
         requirements: buildEmptySection(),
         contacts: buildEmptySection(),
         risks: buildEmptySection(),
+        pricing: buildEmptySection(),
         pastPerformance: buildEmptySection(),
         scoring: buildEmptySection(),
       },

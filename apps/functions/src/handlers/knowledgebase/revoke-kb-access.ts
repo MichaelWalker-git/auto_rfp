@@ -1,21 +1,26 @@
-import { APIGatewayProxyEventV2 } from 'aws-lambda';
 import { apiResponse, getOrgId, getUserId } from '@/helpers/api';
 import { RevokeKBAccessRequestSchema } from '@auto-rfp/core';
-import { revokeKBAccess } from '@/helpers/user-kb';
+import { revokeKBAccess, getUserKBAccessRecord } from '@/helpers/user-kb';
 import { withSentryLambda } from '@/sentry-lambda';
 import {
   authContextMiddleware,
   httpErrorMiddleware,
   orgMembershipMiddleware,
   requirePermission,
+  type AuthedEvent,
 } from '@/middleware/rbac-middleware';
 import { auditMiddleware, setAuditContext } from '@/middleware/audit-middleware';
 import middy from '@middy/core';
 
-export const baseHandler = async (event: APIGatewayProxyEventV2) => {
+export const baseHandler = async (event: AuthedEvent) => {
   try {
     const orgId = getOrgId(event);
     if (!orgId) return apiResponse(400, { message: 'Org Id is required' });
+
+    const adminUserId = getUserId(event);
+    if (!adminUserId) {
+      return apiResponse(401, { message: 'Unauthorized' });
+    }
 
     const parsed = RevokeKBAccessRequestSchema.safeParse(JSON.parse(event.body || ''));
     if (!parsed.success) {
@@ -24,19 +29,26 @@ export const baseHandler = async (event: APIGatewayProxyEventV2) => {
 
     const { userId, kbId } = parsed.data;
 
-    // Prevent self-modification
-    const adminUserId = getUserId(event);
-    if (adminUserId && userId === adminUserId) {
-      return apiResponse(400, { message: 'You cannot modify your own KB access permissions' });
+    // Single DynamoDB GetItem to fetch admin user's access record
+    const adminAccess = await getUserKBAccessRecord(adminUserId, kbId);
+    const isOrgAdmin = event.rbac?.role === 'ADMIN';
+
+    // Check if user can manage KB access:
+    // 1. Has 'admin' accessLevel on this KB (KB owner), OR
+    // 2. Has access to this KB AND is org ADMIN role
+    const canManage = adminAccess.isKBAdmin || (adminAccess.hasAccess && isOrgAdmin);
+
+    if (!canManage) {
+      return apiResponse(403, { message: 'You do not have permission to manage access to this knowledge base' });
     }
 
     await revokeKBAccess(userId, kbId);
 
     
     setAuditContext(event, {
-      action: 'ORG_MEMBER_REMOVED',
+      action: 'KB_ACCESS_REVOKED',
       resource: 'knowledge_base',
-      resourceId: event.pathParameters?.kbId ?? event.queryStringParameters?.kbId ?? 'unknown',
+      resourceId: kbId,
     });
 
     return apiResponse(200, { message: 'KB access revoked', userId, kbId });
