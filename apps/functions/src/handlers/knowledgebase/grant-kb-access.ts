@@ -1,23 +1,27 @@
-import { APIGatewayProxyEventV2 } from 'aws-lambda';
 import { apiResponse, getOrgId, getUserId } from '@/helpers/api';
 import { GrantKBAccessRequestSchema } from '@auto-rfp/core';
-import { grantKBAccess } from '@/helpers/user-kb';
+import { grantKBAccess, canManageKBAccess, hasKBAccess } from '@/helpers/user-kb';
 import { withSentryLambda } from '@/sentry-lambda';
 import {
   authContextMiddleware,
   httpErrorMiddleware,
   orgMembershipMiddleware,
   requirePermission,
+  type AuthedEvent,
 } from '@/middleware/rbac-middleware';
 import { auditMiddleware, setAuditContext } from '@/middleware/audit-middleware';
 import middy from '@middy/core';
 
-export const baseHandler = async (event: APIGatewayProxyEventV2) => {
+export const baseHandler = async (event: AuthedEvent) => {
   try {
     const orgId = getOrgId(event);
     if (!orgId) return apiResponse(400, { message: 'Org Id is required' });
 
     const adminUserId = getUserId(event);
+    if (!adminUserId) {
+      return apiResponse(401, { message: 'Unauthorized' });
+    }
+
     const parsed = GrantKBAccessRequestSchema.safeParse(JSON.parse(event.body || ''));
     if (!parsed.success) {
       return apiResponse(400, { message: 'Validation failed', errors: parsed.error.issues });
@@ -25,15 +29,23 @@ export const baseHandler = async (event: APIGatewayProxyEventV2) => {
 
     const { userId, kbId, accessLevel } = parsed.data;
 
-    // Prevent self-modification
-    if (adminUserId && userId === adminUserId) {
-      return apiResponse(400, { message: 'You cannot modify your own KB access permissions' });
+    // Check if user can manage KB access:
+    // 1. Has 'admin' accessLevel on this KB (KB owner), OR
+    // 2. Has access to this KB AND is org ADMIN role
+    const hasKBAdminAccess = await canManageKBAccess(adminUserId, kbId);
+    const isOrgAdmin = event.rbac?.role === 'ADMIN';
+    const hasAccessToKB = await hasKBAccess(adminUserId, kbId);
+
+    const canManage = hasKBAdminAccess || (hasAccessToKB && isOrgAdmin);
+
+    if (!canManage) {
+      return apiResponse(403, { message: 'You do not have permission to manage access to this knowledge base' });
     }
 
-    const access = await grantKBAccess(orgId, userId, kbId, accessLevel, adminUserId ?? undefined);
+    const access = await grantKBAccess(orgId, userId, kbId, accessLevel, adminUserId);
 
     setAuditContext(event as Parameters<typeof setAuditContext>[0], {
-      action: 'ORG_MEMBER_ADDED',
+      action: 'KB_ACCESS_GRANTED',
       resource: 'knowledge_base',
       resourceId: kbId,
     });

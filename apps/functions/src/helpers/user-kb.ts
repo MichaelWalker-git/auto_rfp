@@ -75,6 +75,24 @@ export async function hasKBAccess(userId: string, kbId: string): Promise<boolean
 }
 
 /**
+ * Get a user's access level on a specific KB.
+ * Returns the accessLevel ('read', 'write', 'admin') or null if no access record.
+ */
+export async function getKBAccessLevel(userId: string, kbId: string): Promise<string | null> {
+  const records = await getUserKBAccessRecords(userId);
+  const record = records.find((r) => r.kbId === kbId);
+  return record?.accessLevel ?? null;
+}
+
+/**
+ * Check if user can manage KB access (has 'admin' accessLevel on this KB).
+ */
+export async function canManageKBAccess(userId: string, kbId: string): Promise<boolean> {
+  const accessLevel = await getKBAccessLevel(userId, kbId);
+  return accessLevel === 'admin';
+}
+
+/**
  * Get all USER_KB access records for a user.
  */
 export async function getUserKBAccessRecords(userId: string): Promise<UserKBAccess[]> {

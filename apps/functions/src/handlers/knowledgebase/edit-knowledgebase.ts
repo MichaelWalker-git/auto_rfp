@@ -61,9 +61,9 @@ export const baseHandler = async (
 
     
     setAuditContext(event, {
-      action: 'ORG_SETTINGS_CHANGED',
+      action: 'KB_UPDATED',
       resource: 'knowledge_base',
-      resourceId: event.pathParameters?.kbId ?? event.queryStringParameters?.kbId ?? 'unknown',
+      resourceId: kbId,
     });
 
     return apiResponse(200, updatedKb);
