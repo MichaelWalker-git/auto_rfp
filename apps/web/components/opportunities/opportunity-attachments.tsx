@@ -29,6 +29,7 @@ import {
 } from '@/app/organizations/[orgId]/projects/[projectId]/questions/components/question-extraction-dialog';
 import { useOpportunityContext } from './opportunity-context';
 import { formatDateTime, getStatusChip, pickDisplayName, guessDownloadName } from './opportunity-helpers';
+import { formatFileSize } from '@/lib/format-file-size';
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -83,6 +84,7 @@ interface AttachmentRow {
   errorMessage: string | undefined;
   googleDriveUrl: string | undefined;
   googleDriveFileId: string | undefined;
+  fileSize: number | undefined;
 }
 
 export function OpportunitySolicitationDocuments() {
@@ -117,6 +119,7 @@ export function OpportunitySolicitationDocuments() {
       errorMessage: qf?.errorMessage,
       googleDriveUrl: qf?.googleDriveUrl,
       googleDriveFileId: qf?.googleDriveFileId,
+      fileSize: qf?.fileSize,
     })),
     [qItems],
   );
@@ -367,6 +370,9 @@ export function OpportunitySolicitationDocuments() {
                           )}
                         </div>
                         <div className="mt-1 text-xs text-muted-foreground">
+                          {formatFileSize(f.fileSize) && (
+                            <>{formatFileSize(f.fileSize)} · </>
+                          )}
                           {formatDateTime(f.createdAt)}
                           {f.updatedAt && f.updatedAt !== f.createdAt ? ` • Updated: ${formatDateTime(f.updatedAt)}` : ''}
                         </div>

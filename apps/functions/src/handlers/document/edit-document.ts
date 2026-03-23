@@ -20,7 +20,7 @@ import { auditMiddleware, setAuditContext } from '@/middleware/audit-middleware'
 import middy from '@middy/core';
 import { requireEnv } from '@/helpers/env';
 import { nowIso } from '@/helpers/date';
-import { buildDocumentSK } from '@/helpers/document';
+import { buildDocumentSK } from '@/helpers/document-keys';
 
 const DB_TABLE_NAME = requireEnv('DB_TABLE_NAME');
 
