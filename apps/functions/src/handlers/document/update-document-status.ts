@@ -6,7 +6,7 @@ import { withSentryLambda } from '@/sentry-lambda';
 import { apiResponse } from '@/helpers/api';
 import { requireEnv } from '@/helpers/env';
 import { docClient } from '@/helpers/db';
-import { buildDocumentSK } from '@/helpers/document';
+import { buildDocumentSK } from '@/helpers/document-keys';
 import { nowIso } from '@/helpers/date';
 
 const DB_TABLE_NAME = requireEnv('DB_TABLE_NAME');

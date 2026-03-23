@@ -20,6 +20,7 @@ interface UseDocumentUploadProps {
     name: string;
     fileKey: string;
     textFileKey: string;
+    fileSize?: number;
   }) => Promise<{ id: string }>;
   startPipeline: (data: {
     orgId: string;
@@ -89,6 +90,7 @@ export function useDocumentUpload({
           name: fileName,
           fileKey,
           textFileKey: `${fileKey}.txt`,
+          fileSize: item.file.size,
         });
 
         updateQueueItem(item.id, { documentId: docResp.id, progress: 75 });

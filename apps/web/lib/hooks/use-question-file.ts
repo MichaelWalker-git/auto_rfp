@@ -86,6 +86,7 @@ export interface CreateQuestionFileArgs {
   originalFileName?: string;
   mimeType?: string;
   sourceDocumentId?: string;
+  fileSize?: number;
 }
 
 export function useCreateQuestionFile(projectId: string, orgId?: string) {
@@ -102,6 +103,7 @@ export function useCreateQuestionFile(projectId: string, orgId?: string) {
           originalFileName: arg.originalFileName,
           mimeType: arg.mimeType,
           sourceDocumentId: arg.sourceDocumentId,
+          ...(arg.fileSize !== undefined ? { fileSize: arg.fileSize } : {}),
         }),
       });
 

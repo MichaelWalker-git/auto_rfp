@@ -15,7 +15,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/components/ui/use-toast';
-import { BookOpen, Plus } from 'lucide-react';
+import { BookOpen, Loader2, Plus } from 'lucide-react';
 import {
   useCreateKnowledgeBase,
   useDeleteKnowledgeBase,
@@ -49,7 +49,7 @@ export function KnowledgeBaseContent({}: KnowledgeBaseContentProps) {
   const { data: knowledgeBases, isLoading, mutate: mutateKb } = useKnowledgeBases(orgId);
   const { trigger: editKb } = useEditKnowledgeBase();
   const { trigger: deleteKb } = useDeleteKnowledgeBase();
-  const { trigger: createKb } = useCreateKnowledgeBase(orgId);
+  const { trigger: createKb, isMutating: isCreating } = useCreateKnowledgeBase(orgId);
 
   const [kbForm, setKbForm] = useState<Partial<KnowledgeBase>>({
     name: '',
@@ -164,6 +164,7 @@ export function KnowledgeBaseContent({}: KnowledgeBaseContentProps) {
         <Dialog
           open={isCreateKBOpen}
           onOpenChange={(open) => {
+            if (isCreating) return; // prevent closing while creating
             setIsCreateKBOpen(open);
             if (!open) resetForm();
           }}
@@ -208,10 +209,19 @@ export function KnowledgeBaseContent({}: KnowledgeBaseContentProps) {
               </div>
 
               <div className="flex justify-end gap-2">
-                <Button type="button" variant="outline" onClick={() => setIsCreateKBOpen(false)}>
+                <Button type="button" variant="outline" onClick={() => setIsCreateKBOpen(false)} disabled={isCreating}>
                   Cancel
                 </Button>
-                <Button type="submit">Create</Button>
+                <Button type="submit" disabled={isCreating}>
+                  {isCreating ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Creating…
+                    </>
+                  ) : (
+                    'Create'
+                  )}
+                </Button>
               </div>
             </form>
           </DialogContent>

@@ -9,7 +9,7 @@ import { requireEnv } from '@/helpers/env';
 import { docClient } from '@/helpers/db';
 import { nowIso } from '@/helpers/date';
 import { DOCUMENT_PK } from '@/constants/document';
-import { buildDocumentSK } from '@/helpers/document';
+import { buildDocumentSK } from '@/helpers/document-keys';
 
 const REGION = requireEnv('REGION', 'us-east-1');
 const DOCUMENTS_BUCKET = requireEnv('DOCUMENTS_BUCKET');

@@ -89,7 +89,7 @@ export const createQuestionFile = async (
   request: CreateQuestionFileRequest,
 ): Promise<QuestionFileItem & DBItem> => {
   const questionFileId = uuidv4();
-  const { orgId, oppId, projectId, fileKey, originalFileName, mimeType, sourceDocumentId } = request;
+  const { orgId, oppId, projectId, fileKey, originalFileName, mimeType, sourceDocumentId, fileSize } = request;
   const sk = buildQuestionFileSK(projectId, oppId, questionFileId);
 
   const item = await createItem<QuestionFileItem>(QUESTION_FILE_PK, sk, {
@@ -103,6 +103,7 @@ export const createQuestionFile = async (
     originalFileName: originalFileName ?? null,
     mimeType,
     sourceDocumentId: sourceDocumentId ?? null,
+    ...(fileSize !== undefined ? { fileSize } : {}),
   } as any);
 
   return item as QuestionFileItem & DBItem;

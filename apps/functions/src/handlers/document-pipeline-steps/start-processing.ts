@@ -6,7 +6,7 @@ import { DOCUMENT_PK } from '@/constants/document';
 import { withSentryLambda } from '@/sentry-lambda';
 import { requireEnv } from '@/helpers/env';
 import { docClient, getItem } from '@/helpers/db';
-import { buildDocumentSK } from '@/helpers/document';
+import { buildDocumentSK } from '@/helpers/document-keys';
 import { DocumentItem } from '@auto-rfp/core';
 import { nowIso } from '@/helpers/date';
 
