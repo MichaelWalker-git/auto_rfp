@@ -1,8 +1,10 @@
-import { APIGatewayProxyEventV2, APIGatewayProxyResultV2 } from 'aws-lambda';
+import { APIGatewayProxyResultV2 } from 'aws-lambda';
 import { GetObjectCommand, S3Client } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { apiResponse, getUserId } from '@/helpers/api';
-import { getDocument } from './get-document';
+import { buildDocumentSK } from '@/helpers/document-keys';
+import { getItem } from '@/helpers/db';
+import { DOCUMENT_PK } from '@/constants/document';
 import { withSentryLambda } from '@/sentry-lambda';
 import {
   authContextMiddleware,
@@ -14,6 +16,7 @@ import {
 import { auditMiddleware, setAuditContext } from '@/middleware/audit-middleware';
 import middy from '@middy/core';
 import { requireEnv } from '@/helpers/env';
+import type { DocumentItem } from '@auto-rfp/core';
 
 const DOCUMENTS_BUCKET = requireEnv('DOCUMENTS_BUCKET');
 const REGION = requireEnv('REGION', 'us-east-1');
@@ -45,8 +48,9 @@ export const baseHandler = async (
       return apiResponse(401, { message: 'Authentication required' });
     }
 
-    // Fetch the document to check ownership
-    const document = await getDocument(kbId, documentId);
+    // Fetch the document to check ownership (lightweight DB query — no Pinecone import)
+    const sk = buildDocumentSK(kbId, documentId);
+    const document = await getItem<DocumentItem>(DOCUMENT_PK, sk);
 
     if (!document) {
       return apiResponse(404, { message: 'Document not found' });
@@ -70,15 +74,14 @@ export const baseHandler = async (
       Key: document.fileKey,
     });
 
-    const url = await getSignedUrl(s3Client as any, getObjectCmd, {
+    const url = await getSignedUrl(s3Client as Parameters<typeof getSignedUrl>[0], getObjectCmd, {
       expiresIn: URL_EXPIRATION_SECONDS,
     });
 
-    
     setAuditContext(event, {
       action: 'DOCUMENT_VIEWED',
       resource: 'document',
-      resourceId: event.pathParameters?.id ?? event.queryStringParameters?.id ?? 'unknown',
+      resourceId: documentId,
     });
 
     return apiResponse(200, {

@@ -336,6 +336,7 @@ export function QuestionFileUploadDialog({
         originalFileName: item.file.name,
         fileKey: presigned.key,
         mimeType: item.file.type,
+        fileSize: item.file.size,
       });
 
       const qfId = (created as any).questionFileId as string;

@@ -11,6 +11,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
+import { cn } from '@/lib/utils';
 
 // ────────────────────────────────────────────
 // Types
@@ -83,14 +84,17 @@ export function ConfirmDeleteDialog({
           <AlertDialogDescription>{resolvedDescription}</AlertDialogDescription>
         </AlertDialogHeader>
 
-        <AlertDialogFooter>
-          <AlertDialogCancel disabled={isDeleting} onClick={handleCancel}>
+        <AlertDialogFooter className="grid grid-cols-2 gap-2 sm:flex sm:flex-row sm:justify-end">
+          <AlertDialogCancel disabled={isDeleting} onClick={handleCancel} className="mt-0 sm:w-[120px]">
             {cancelLabel}
           </AlertDialogCancel>
           <AlertDialogAction
             onClick={handleConfirm}
             disabled={isDeleting}
-            className={isDestructive ? 'bg-destructive text-destructive-foreground hover:bg-destructive/90' : undefined}
+            className={cn(
+              'sm:w-[120px]',
+              isDestructive && 'bg-destructive text-destructive-foreground hover:bg-destructive/90',
+            )}
           >
             {isDeleting ? 'Deleting...' : confirmLabel}
           </AlertDialogAction>

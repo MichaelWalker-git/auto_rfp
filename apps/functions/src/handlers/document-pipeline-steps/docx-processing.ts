@@ -9,7 +9,7 @@ import { requireEnv } from '@/helpers/env';
 import { getItem, updateItem } from '@/helpers/db';
 import { nowIso } from '@/helpers/date';
 import { DocumentItem } from '@auto-rfp/core';
-import { buildDocumentSK } from '@/helpers/document';
+import { buildDocumentSK } from '@/helpers/document-keys';
 
 // Resolved lazily so tests can set process.env before module-level code runs
 const getRegion = () => requireEnv('REGION');

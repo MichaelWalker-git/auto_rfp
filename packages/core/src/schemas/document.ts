@@ -15,7 +15,9 @@ export const DocumentItemSchema = z.object({
   createdAt: z.string(),
   updatedAt: z.string(),
   createdBy: z.string().optional(),   // user who created the document
-  
+
+  fileSize: z.number().int().min(0).optional(),  // file size in bytes
+
   // Freshness tracking fields
   freshnessStatus: z.enum(['ACTIVE', 'WARNING', 'STALE', 'ARCHIVED']).optional(),
   staleReason: z.string().optional(),
@@ -29,7 +31,8 @@ export const CreateDocumentDTOSchema = z.object({
   knowledgeBaseId: z.string(),
   name: z.string(),
   fileKey: z.string(),
-  textFileKey: z.string()
+  textFileKey: z.string(),
+  fileSize: z.number().int().min(0).optional(),  // file size in bytes
 });
 
 export type CreateDocumentDTO = z.infer<typeof CreateDocumentDTOSchema>;

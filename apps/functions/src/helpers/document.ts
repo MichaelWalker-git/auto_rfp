@@ -1,35 +1,25 @@
 import { DeleteObjectCommand, S3Client } from '@aws-sdk/client-s3';
 import { v4 as uuidv4 } from 'uuid';
-import { DOCUMENT_PK } from '../constants/document';
+import { DOCUMENT_PK } from '@/constants/document';
 
-// -------------------------------------------------------------
-// Core logic:
-// 1) Load Dynamo record (to obtain S3 keys)
-// 2) Delete Dynamo row
-// 3) Delete S3 objects last (strict or best-effort)
-// Note: Pinecone deletion is handled separately in delete-document.ts
-// -------------------------------------------------------------
 import { CreateDocumentDTO, DeleteDocumentDTO, DocumentItem } from '@auto-rfp/core';
 import { requireEnv } from './env';
 import { createItem, deleteItem, getItem, queryByPkAndSkContains } from './db';
 import { deleteFromPinecone } from './pinecone';
+import { buildDocumentSK } from 'helpers/document-keys';
 
 const DOCUMENTS_BUCKET = requireEnv('DOCUMENTS_BUCKET');
 
 const s3Client = new S3Client({});
-
-export const buildDocumentSK = (kbId: string, docId: string) => {
-  return `KB#${kbId}#DOC#${docId}`
-}
 
 export async function createDocument(
   dto: CreateDocumentDTO,
   userId: string = 'system',
 ): Promise<DocumentItem> {
   const docId = uuidv4();
-  const { knowledgeBaseId, name, fileKey, textFileKey } = dto;
+  const { knowledgeBaseId, name, fileKey, textFileKey, fileSize } = dto;
 
-  const documentItem = await createItem<DocumentItem>(
+  return await createItem<DocumentItem>(
     DOCUMENT_PK,
     buildDocumentSK(knowledgeBaseId, docId),
     {
@@ -39,14 +29,15 @@ export async function createDocument(
       fileKey,
       textFileKey,
       indexStatus: 'pending',
+      createdBy: userId,
+      updatedBy: userId,
+      ...(fileSize !== undefined ? { fileSize } : {}),
     } as any
   );
-
-  return documentItem;
 }
 
 export async function deleteDocument(dto: DeleteDocumentDTO): Promise<void> {
-  const sk = buildDocumentSK(dto.knowledgeBaseId, dto.id)
+  const sk = buildDocumentSK(dto.knowledgeBaseId, dto.id);
 
   // 1) Load DB record so we know the file keys
   const item = await getItem<DocumentItem>(DOCUMENT_PK, sk);

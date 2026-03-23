@@ -17,6 +17,7 @@ import { CancelPipelineButton } from '../cancel-pipeline-button';
 import { useToast } from '@/components/ui/use-toast';
 import { useConfirmDialog } from '@/components/ui/confirm-dialog';
 import { AlertCircle, Download, FileText, FolderOpen, Loader2, Trash2 } from 'lucide-react';
+import { formatFileSize } from '@/lib/format-file-size';
 
 interface ProjectDocumentsProps {
   projectId: string;
@@ -66,6 +67,7 @@ export function ProjectDocuments({ projectId }: ProjectDocumentsProps) {
       textFileKey: qf?.textFileKey as string | undefined,
       oppId: qf?.oppId as string | undefined,
       projectId: qf?.projectId as string | undefined,
+      fileSize: qf?.fileSize as number | undefined,
     }));
   }, [items]);
 
@@ -195,6 +197,9 @@ export function ProjectDocuments({ projectId }: ProjectDocumentsProps) {
                           <Badge variant="outline" className={cn('text-xs border', st.cls)}>{st.label}</Badge>
                         </div>
                         <div className="mt-1 text-xs text-muted-foreground">
+                          {formatFileSize(f.fileSize) && (
+                            <>{formatFileSize(f.fileSize)} · </>
+                          )}
                           Uploaded: {formatDate(f.createdAt)}
                           {f.updatedAt ? ` • Updated: ${formatDate(f.updatedAt)}` : ''}
                         </div>

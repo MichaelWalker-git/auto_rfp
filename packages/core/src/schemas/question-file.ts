@@ -65,6 +65,7 @@ export const QuestionFileItemSchema = z
     errorMessage: z.string().min(1).optional(),
     pages: z.number().int().min(0).optional(),
     extractedQuestionsCount: z.number().int().min(0).optional(),
+    fileSize: z.number().int().min(0).optional(),  // file size in bytes
     jobId: z.string().optional(),
     totalQuestions: z.number().int().min(0).default(0).optional(),
     taskToken: z.string().optional(),
@@ -90,6 +91,7 @@ export const CreateQuestionFileRequestSchema = z.object({
   fileKey: z.string().min(1),
   mimeType: z.string().min(1),
   sourceDocumentId: z.string().optional(),
+  fileSize: z.number().int().min(0).optional(),  // file size in bytes
 });
 
 export type CreateQuestionFileRequest = z.infer<typeof CreateQuestionFileRequestSchema>;

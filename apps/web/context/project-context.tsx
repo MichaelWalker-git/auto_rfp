@@ -45,10 +45,17 @@ function safeSetLocalStorage(key: string, value: string | null) {
   }
 }
 
+/** Known sub-routes under /projects/ that are NOT project IDs */
+const PROJECT_ROUTE_SEGMENTS = new Set(['create', 'components']);
+
 function extractProjectIdFromPath(pathname: string | null): string | null {
   if (!pathname) return null;
   const m = pathname.match(/\/organizations\/[^/]+\/projects\/([^/]+)(\/|$)/);
-  return m?.[1] ?? null;
+  if (!m) return null;
+  const segment = m[1];
+  // Skip known route segments that aren't project IDs
+  if (PROJECT_ROUTE_SEGMENTS.has(segment)) return null;
+  return segment;
 }
 
 export function ProjectProvider({ children }: { children: ReactNode }) {

@@ -9,6 +9,7 @@ import { DeleteButton } from '@/components/ui/delete-button';
 import PermissionWrapper from '@/components/permission-wrapper';
 import { FreshnessStatusBadge } from '@/components/content-library/FreshnessStatusBadge';
 import { getStatusVariant, getStatusLabel } from '../lib/formatting';
+import { formatFileSize } from '@/lib/format-file-size';
 
 interface DocumentCardProps {
   doc: DocumentItem;
@@ -63,6 +64,9 @@ export function DocumentCard({
           </div>
 
           <p className="text-xs text-muted-foreground">
+            {formatFileSize(doc.fileSize) && (
+              <span>{formatFileSize(doc.fileSize)} · </span>
+            )}
             Uploaded{' '}
             {new Date(doc.createdAt).toLocaleDateString('en-US', {
               year: 'numeric',

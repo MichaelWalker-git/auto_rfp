@@ -6,7 +6,7 @@ import { DOCUMENT_PK } from '@/constants/document';
 import { withSentryLambda } from '@/sentry-lambda';
 import { requireEnv } from '@/helpers/env';
 import { docClient } from '@/helpers/db';
-import { buildDocumentSK } from '@/helpers/document';
+import { buildDocumentSK } from '@/helpers/document-keys';
 import { getFileFromS3, uploadToS3 } from '@/helpers/s3';
 import { nowIso } from '@/helpers/date';
 

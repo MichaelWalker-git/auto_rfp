@@ -3,7 +3,7 @@ import { withSentryLambda } from '@/sentry-lambda';
 import { docClient } from '@/helpers/db';
 import { PK_NAME, SK_NAME } from '@/constants/common';
 import { DOCUMENT_PK } from '@/constants/document';
-import { buildDocumentSK } from '@/helpers/document';
+import { buildDocumentSK } from '@/helpers/document-keys';
 import { nowIso } from '@/helpers/date';
 import { requireEnv } from '@/helpers/env';
 import { UpdateCommand } from '@aws-sdk/lib-dynamodb';

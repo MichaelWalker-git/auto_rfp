@@ -10,7 +10,7 @@ import { streamToString } from '@/helpers/s3';
 import { requireEnv } from '@/helpers/env';
 import { docClient, getItem } from '@/helpers/db';
 import { DocumentItem } from '@auto-rfp/core';
-import { buildDocumentSK } from '@/helpers/document';
+import { buildDocumentSK } from '@/helpers/document-keys';
 
 
 const REGION = requireEnv('REGION', 'us-east-1');
