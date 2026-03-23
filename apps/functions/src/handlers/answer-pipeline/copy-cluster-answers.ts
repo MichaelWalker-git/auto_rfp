@@ -1,5 +1,6 @@
 import { Context } from 'aws-lambda';
 import { QueryCommand } from '@aws-sdk/lib-dynamodb';
+import { v4 as uuidv4 } from 'uuid';
 import { withSentryLambda } from '@/sentry-lambda';
 import { requireEnv } from '@/helpers/env';
 import { docClient } from '@/helpers/db';
@@ -10,6 +11,9 @@ import { QUESTION_CLUSTER_PK } from '@/constants/clustering';
 import { sendNotification, buildNotification } from '@/helpers/send-notification';
 import { getOrgMembers } from '@/helpers/user';
 import { getProjectById } from '@/helpers/project';
+import { writeAuditLog } from '@/helpers/audit-log';
+import { getHmacSecret } from '@/helpers/secret';
+import { nowIso } from '@/helpers/date';
 
 const DB_TABLE_NAME = requireEnv('DB_TABLE_NAME');
 
@@ -134,10 +138,41 @@ export const baseHandler = async (
 
   console.log(`Copy complete: ${totalClusters} clusters, ${copiedAnswers} answers copied, ${skippedNoMasterAnswer} skipped (no master answer), ${errors} errors`);
 
-  // Notify org members that answer generation is complete
+  // Notify org members that answer generation is complete and write audit log
   getProjectById(projectId)
     .then(async (project) => {
       if (!project?.orgId) return;
+
+      // Write ANSWER_PIPELINE_COMPLETED audit log (non-blocking per rules)
+      const hmacSecret = await getHmacSecret();
+      writeAuditLog(
+        {
+          logId: uuidv4(),
+          timestamp: nowIso(),
+          userId: 'system',
+          userName: 'system',
+          organizationId: project.orgId,
+          action: 'ANSWER_PIPELINE_COMPLETED',
+          resource: 'pipeline',
+          resourceId: projectId,
+          changes: {
+            after: {
+              projectId,
+              totalClusters,
+              copiedAnswers,
+              skippedNoMasterAnswer,
+              errors,
+              result: errors > 0 ? 'partial' : 'success',
+            },
+          },
+          ipAddress: '0.0.0.0',
+          userAgent: 'system',
+          result: errors > 0 ? 'failure' : 'success',
+        },
+        hmacSecret,
+      ).catch(err => console.warn('Failed to write ANSWER_PIPELINE_COMPLETED audit log:', (err as Error)?.message));
+
+      // Send notification
       const members = await getOrgMembers(project.orgId);
       if (members.length === 0) return;
       return sendNotification(

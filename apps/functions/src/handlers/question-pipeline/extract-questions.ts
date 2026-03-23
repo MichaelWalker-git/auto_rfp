@@ -10,9 +10,11 @@ import { nowIso } from '@/helpers/date';
 import { loadTextFromS3 } from '@/helpers/s3';
 import { v4 as uuidv4 } from 'uuid';
 import { invokeModel } from '@/helpers/bedrock-http-client';
-import { updateQuestionFile, checkQuestionFileCancelled } from '@/helpers/questionFile';
+import { updateQuestionFile, checkQuestionFileCancelled, getQuestionFileItem } from '@/helpers/questionFile';
 import { GroupedSection } from '@auto-rfp/core';
 import { buildQuestionSK, isConditionalCheckFailed, normalizeQuestionText, sha256Hex } from '@/helpers/question';
+import { writeAuditLog } from '@/helpers/audit-log';
+import { getHmacSecret } from '@/helpers/secret';
 
 // Resolved lazily so tests can set process.env before module-level code runs
 const getBedrockModelId = () => requireEnv('BEDROCK_MODEL_ID');
@@ -349,6 +351,38 @@ export const baseHandler = async (
     status: 'PROCESSED',
     totalQuestions,
   });
+
+  // Write QUESTION_PIPELINE_COMPLETED audit log (non-blocking per rules)
+  getQuestionFileItem(projectId, opportunityId, questionFileId).then(qf => {
+    const orgId = (qf?.orgId as string) || 'unknown';
+    return getHmacSecret().then(hmacSecret => {
+      return writeAuditLog(
+        {
+          logId: uuidv4(),
+          timestamp: nowIso(),
+          userId: 'system',
+          userName: 'system',
+          organizationId: orgId,
+          action: 'QUESTION_PIPELINE_COMPLETED' as const,
+          resource: 'question_file',
+          resourceId: questionFileId,
+          changes: {
+            after: {
+              questionFileId,
+              projectId,
+              opportunityId,
+              questionsExtracted: totalQuestions,
+              sectionsCount: mergedSections.length,
+            },
+          },
+          ipAddress: '0.0.0.0',
+          userAgent: 'system',
+          result: 'success',
+        },
+        hmacSecret,
+      );
+    });
+  }).catch(err => console.warn('Failed to write QUESTION_PIPELINE_COMPLETED audit log:', (err as Error)?.message));
 
   return { count: totalQuestions, cancelled: false };
 };

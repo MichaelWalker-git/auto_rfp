@@ -1,0 +1,27 @@
+/* ─── Recharts Dark Mode Overrides ─── */
+/* Fix chart labels that use inline fill attribute */
+
+.dark .recharts-cartesian-axis-tick text,
+.dark .recharts-legend-item-text,
+.dark .recharts-label {
+  fill: oklch(0.7155 0 0) !important; /* muted-foreground in dark mode */
+}
+
+.dark .recharts-tooltip-wrapper .recharts-default-tooltip {
+  background-color: oklch(0.2686 0 0) !important; /* card in dark mode */
+  border-color: oklch(0.3715 0 0) !important; /* border in dark mode */
+  color: oklch(0.9219 0 0) !important; /* foreground in dark mode */
+}
+
+.dark .recharts-default-tooltip .recharts-tooltip-label {
+  color: oklch(0.9219 0 0) !important;
+}
+
+.dark .recharts-default-tooltip .recharts-tooltip-item {
+  color: oklch(0.9219 0 0) !important;
+}
+
+/* Pie chart labels */
+.dark .recharts-pie-label-text {
+  fill: oklch(0.9219 0 0) !important;
+}

@@ -4,6 +4,7 @@ import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { CheckCircle2, Shield } from 'lucide-react';
+import { EmptyState } from './EmptyState';
 
 export function RisksCard({ risks }: { risks: any }) {
   if (!risks) return null;
@@ -53,10 +54,11 @@ export function RisksCard({ risks }: { risks: any }) {
             ))}
           </div>
         ) : (
-          <div className="border rounded-lg p-6 text-center">
-            <CheckCircle2 className="h-6 w-6 mx-auto mb-2"/>
-            <p className="text-sm text-muted-foreground">No major red flags identified</p>
-          </div>
+          <EmptyState 
+            icon={CheckCircle2}
+            title="No major red flags identified"
+            description="This opportunity appears to have minimal risk factors"
+          />
         )}
 
         {risks?.incumbentInfo && (

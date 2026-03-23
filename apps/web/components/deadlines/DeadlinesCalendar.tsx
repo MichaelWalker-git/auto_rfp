@@ -19,6 +19,7 @@ import { useCurrentOrganization } from '@/context/organization-context';
 import ExportDeadlinesButton from './ExportDeadlinesButton';
 
 import 'react-big-calendar/lib/css/react-big-calendar.css';
+import './calendar-dark-mode.css';
 
 // Setup date-fns localizer for react-big-calendar
 const locales = {

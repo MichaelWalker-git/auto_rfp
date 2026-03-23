@@ -442,9 +442,9 @@ const buildRequirements = (brief: ExecutiveBriefItem): (Paragraph | Table)[] => 
     reqs.forEach((r, idx) => {
       const must = r.mustHave ? '✓ MUST-HAVE' : '○ Nice-to-have';
       const cat = r.category ? ` [${r.category}]` : '';
-      out.push(bulletItem(`${idx + 1}. ${must}${cat} — ${clamp(r.requirement, 300)}`, 0, {
+      out.push(bulletItem(`${idx + 1}. ${must}${cat} — ${clamp(r.requirement ?? '', 300)}`, 0, {
         color: r.mustHave ? COLORS.dark : COLORS.muted,
-        bold: r.mustHave,
+        bold: r.mustHave ?? undefined,
       }));
     });
     if ((data.requirements ?? []).length > reqs.length) {
@@ -455,13 +455,13 @@ const buildRequirements = (brief: ExecutiveBriefItem): (Paragraph | Table)[] => 
   // Evaluation factors
   if ((data.evaluationFactors ?? []).length) {
     out.push(blank(), heading('Evaluation Factors', 2));
-    out.push(...bulletList(data.evaluationFactors?.slice(0, 12)));
+    out.push(...bulletList(data.evaluationFactors?.slice(0, 12) ?? []));
   }
 
   // Deliverables
   if ((data.deliverables ?? []).length) {
     out.push(blank(), heading('Deliverables', 2));
-    out.push(...bulletList(data.deliverables?.slice(0, 12)));
+    out.push(...bulletList(data.deliverables?.slice(0, 12) ?? []));
   }
 
   // Submission compliance
@@ -469,13 +469,13 @@ const buildRequirements = (brief: ExecutiveBriefItem): (Paragraph | Table)[] => 
   if (sc) {
     out.push(blank(), heading('Submission Compliance', 2));
     if ((sc.format ?? []).length) {
-      out.push(heading('Format Requirements', 3), ...bulletList(sc.format?.slice(0, 10)));
+      out.push(heading('Format Requirements', 3), ...bulletList(sc.format?.slice(0, 10) ?? []));
     }
     if ((sc.requiredVolumes ?? []).length) {
-      out.push(heading('Required Volumes', 3), ...bulletList(sc.requiredVolumes?.slice(0, 10)));
+      out.push(heading('Required Volumes', 3), ...bulletList(sc.requiredVolumes?.slice(0, 10) ?? []));
     }
     if ((sc.attachmentsAndForms ?? []).length) {
-      out.push(heading('Attachments & Forms', 3), ...bulletList(sc.attachmentsAndForms?.slice(0, 10)));
+      out.push(heading('Attachments & Forms', 3), ...bulletList(sc.attachmentsAndForms?.slice(0, 10) ?? []));
     }
   }
 
@@ -656,7 +656,7 @@ const buildScoring = (brief: ExecutiveBriefItem): (Paragraph | Table)[] => {
                   children: [new TextRun({
                     text: cell,
                     size: FONT_SIZE.meta,
-                    color: colIdx === 1 ? scoreColor(c.score) : COLORS.body,
+                    color: colIdx === 1 ? scoreColor(c.score ?? undefined) : COLORS.body,
                     bold: colIdx === 1,
                     font: FONTS.body,
                   })],
@@ -847,6 +847,8 @@ export const buildSectionsState = (briefItem: ExecutiveBriefItem | null | undefi
     contacts: s.contacts?.status,
     requirements: s.requirements?.status,
     risks: s.risks?.status,
+    pricing: s.pricing?.status,
+    pastPerformance: s.pastPerformance?.status,
     scoring: s.scoring?.status,
   } as const;
 };

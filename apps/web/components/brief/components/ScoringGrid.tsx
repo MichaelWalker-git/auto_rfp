@@ -54,13 +54,13 @@ const scoreBarBg = (score: number) => {
 const decisionConfig = (decision?: string) => {
   switch (decision) {
     case 'GO':
-      return { label: 'GO', color: 'bg-green-600 text-white', icon: CheckCircle2, description: 'Pursue this opportunity aggressively' };
+      return { label: 'Go', color: 'bg-green-600 text-white', icon: CheckCircle2, description: 'Pursue this opportunity aggressively' };
     case 'CONDITIONAL_GO':
-      return { label: 'CONDITIONAL GO', color: 'bg-yellow-500 text-white', icon: AlertTriangle, description: 'Proceed with conditions — resolve blockers first' };
+      return { label: 'Review Required', color: 'bg-yellow-500 text-white', icon: AlertTriangle, description: 'Proceed with conditions — resolve blockers first' };
     case 'NO_GO':
-      return { label: 'NO GO', color: 'bg-red-600 text-white', icon: XCircle, description: 'Do not pursue this opportunity' };
+      return { label: 'No Go', color: 'bg-red-600 text-white', icon: XCircle, description: 'Do not pursue this opportunity' };
     default:
-      return { label: 'PENDING', color: 'bg-muted text-muted-foreground', icon: Target, description: 'Scoring not yet complete' };
+      return { label: 'Pending', color: 'bg-muted text-muted-foreground', icon: Target, description: 'Scoring not yet complete' };
   }
 };
 
@@ -70,7 +70,7 @@ export const ScoringGrid = ({ scoring }: { scoring: ScoringSection | undefined |
   const criteriaList = scoring.criteria ?? [];
   const compositeScore = scoring.compositeScore ?? 0;
   const confidence = scoring.confidence ?? 0;
-  const decision = decisionConfig(scoring.decision);
+  const decision = decisionConfig(scoring.decision ?? undefined);
   const DecisionIcon = decision.icon;
 
   const getCriterion = (key: string) => criteriaList.find((c) => c.name === key);

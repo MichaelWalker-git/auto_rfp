@@ -77,7 +77,7 @@ export const baseHandler = async (
         projectId,
         opportunityId: effectiveOpportunityId,
         documentId,
-        updates: { status: 'GENERATING', content: null, htmlContentKey: undefined },
+        updates: { status: 'GENERATING', content: null, generationError: '' },
         updatedBy: userId ?? 'system',
       });
     } else {

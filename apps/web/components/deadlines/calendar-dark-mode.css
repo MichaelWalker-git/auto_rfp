@@ -1,0 +1,189 @@
+/* ─── React Big Calendar Dark Mode Overrides ─── */
+/* These styles override react-big-calendar defaults for dark mode */
+
+.dark .rbc-calendar {
+  color: hsl(var(--foreground));
+}
+
+/* Toolbar buttons (Month, Week, Day, Agenda, Today, Back, Next) */
+.dark .rbc-toolbar button {
+  color: hsl(var(--foreground));
+  background-color: hsl(var(--card));
+  border-color: hsl(var(--border));
+}
+
+.dark .rbc-toolbar button:hover,
+.dark .rbc-toolbar button:focus {
+  background-color: hsl(var(--accent));
+  color: hsl(var(--accent-foreground));
+}
+
+.dark .rbc-toolbar button.rbc-active {
+  background-color: hsl(var(--primary));
+  color: hsl(var(--primary-foreground));
+}
+
+.dark .rbc-toolbar button.rbc-active:hover {
+  background-color: hsl(var(--primary));
+  color: hsl(var(--primary-foreground));
+}
+
+/* Current date label in toolbar */
+.dark .rbc-toolbar-label {
+  color: hsl(var(--foreground));
+}
+
+/* Month view - day cells */
+.dark .rbc-month-view {
+  background-color: hsl(var(--card));
+  border-color: hsl(var(--border));
+}
+
+.dark .rbc-month-row {
+  border-color: hsl(var(--border));
+}
+
+.dark .rbc-day-bg {
+  background-color: hsl(var(--card));
+}
+
+.dark .rbc-day-bg + .rbc-day-bg {
+  border-color: hsl(var(--border));
+}
+
+.dark .rbc-off-range-bg {
+  background-color: hsl(var(--muted));
+}
+
+/* Day header (column headers: Sun, Mon, etc.) */
+.dark .rbc-header {
+  background-color: hsl(var(--muted));
+  color: hsl(var(--foreground));
+  border-color: hsl(var(--border));
+}
+
+.dark .rbc-header + .rbc-header {
+  border-color: hsl(var(--border));
+}
+
+/* Date cells - number styling */
+.dark .rbc-date-cell {
+  color: hsl(var(--foreground));
+}
+
+.dark .rbc-date-cell.rbc-off-range {
+  color: hsl(var(--muted-foreground));
+}
+
+/* Today's date highlight - light mode */
+.rbc-today {
+  background-color: rgba(99, 102, 241, 0.1) !important;
+}
+
+/* Today's date highlight - dark mode (more contrast) */
+.dark .rbc-today {
+  background-color: rgba(99, 102, 241, 0.25) !important;
+}
+
+/* Make today's date cell number more visible in both modes */
+.rbc-date-cell.rbc-now > a,
+.rbc-date-cell.rbc-now {
+  color: hsl(var(--primary)) !important;
+  font-weight: 600 !important;
+}
+
+/* Week/Day view */
+.dark .rbc-time-view {
+  background-color: hsl(var(--card));
+  border-color: hsl(var(--border));
+}
+
+.dark .rbc-time-header {
+  background-color: hsl(var(--muted));
+  border-color: hsl(var(--border));
+}
+
+.dark .rbc-time-header-content {
+  border-color: hsl(var(--border));
+}
+
+.dark .rbc-time-content {
+  border-color: hsl(var(--border));
+}
+
+.dark .rbc-time-content > * + * > * {
+  border-color: hsl(var(--border));
+}
+
+.dark .rbc-timeslot-group {
+  border-color: hsl(var(--border));
+}
+
+.dark .rbc-time-gutter .rbc-timeslot-group {
+  border-color: hsl(var(--border));
+}
+
+.dark .rbc-time-slot {
+  border-color: hsl(var(--border));
+}
+
+.dark .rbc-label {
+  color: hsl(var(--muted-foreground));
+}
+
+.dark .rbc-day-slot .rbc-time-slot {
+  border-color: hsl(var(--border));
+}
+
+/* Current time indicator */
+.dark .rbc-current-time-indicator {
+  background-color: hsl(var(--primary));
+}
+
+/* Agenda view */
+.dark .rbc-agenda-view table.rbc-agenda-table {
+  border-color: hsl(var(--border));
+}
+
+.dark .rbc-agenda-view table.rbc-agenda-table thead > tr > th {
+  background-color: hsl(var(--muted));
+  color: hsl(var(--foreground));
+  border-color: hsl(var(--border));
+}
+
+.dark .rbc-agenda-view table.rbc-agenda-table tbody > tr > td {
+  color: hsl(var(--foreground));
+  border-color: hsl(var(--border));
+}
+
+.dark .rbc-agenda-view table.rbc-agenda-table tbody > tr > td + td {
+  border-color: hsl(var(--border));
+}
+
+.dark .rbc-agenda-date-cell,
+.dark .rbc-agenda-time-cell,
+.dark .rbc-agenda-event-cell {
+  color: hsl(var(--foreground));
+}
+
+/* Events popup on click */
+.dark .rbc-overlay {
+  background-color: hsl(var(--popover));
+  border-color: hsl(var(--border));
+}
+
+.dark .rbc-overlay-header {
+  background-color: hsl(var(--muted));
+  color: hsl(var(--foreground));
+  border-color: hsl(var(--border));
+}
+
+/* Show more link in month view */
+.dark .rbc-show-more {
+  color: hsl(var(--primary));
+  background-color: transparent;
+}
+
+.dark .rbc-show-more:hover {
+  color: hsl(var(--primary));
+}

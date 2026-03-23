@@ -41,6 +41,8 @@ const baseHandler = async (
       ? await uploadTemplateHtml(orgId, templateId, data.htmlContent)
       : existing.htmlContentKey;
 
+    const newVersion = (existing.currentVersion ?? 0) + 1;
+
     const updated = {
       ...existing,
       ...(data.name !== undefined && { name: data.name }),
@@ -50,8 +52,8 @@ const baseHandler = async (
       ...(data.agencyId !== undefined && { agencyId: data.agencyId }),
       ...(data.agencyName !== undefined && { agencyName: data.agencyName }),
       ...(data.macros !== undefined && { macros: data.macros }),
-      ...(data.styling !== undefined && { styling: data.styling }),
       htmlContentKey,
+      currentVersion: newVersion,
       sections: [],
       updatedAt: now,
       updatedBy: userId,

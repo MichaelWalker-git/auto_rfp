@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { PastPerformanceSectionSchema } from './past-performance';
+import { PricingSectionSchema } from './pricing';
 import { RFPDocumentTypeSchema } from './rfp-document';
 
 /**
@@ -22,6 +23,7 @@ export type Decision = z.infer<typeof DecisionSchema>;
 
 export const RoleSchema = z.enum([
   'CONTRACTING_OFFICER',
+  'CONTRACTING_OFFICER_REPRESENTATIVE',
   'CONTRACT_SPECIALIST',
   'TECHNICAL_POC',
   'PROGRAM_MANAGER',
@@ -260,6 +262,7 @@ export const ExecutiveBriefItemSchema = z.object({
     requirements: SectionWrapperSchema(RequirementsSectionSchema),
     contacts: SectionWrapperSchema(ContactsSectionSchema),
     risks: SectionWrapperSchema(RisksSectionSchema),
+    pricing: SectionWrapperSchema(PricingSectionSchema),
     pastPerformance: SectionWrapperSchema(PastPerformanceSectionSchema),
     scoring: SectionWrapperSchema(ScoringSectionSchema),
   }),

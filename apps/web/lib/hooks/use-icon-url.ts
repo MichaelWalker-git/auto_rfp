@@ -5,7 +5,7 @@ import { env } from '@/lib/env';
 import { authFetcher } from '@/lib/auth/auth-fetcher';
 
 const CACHE_PREFIX = 'auto-rfp:icon-cache:';
-const CACHE_TTL_MS = 50 * 60 * 1000; // 50 minutes (presigned URLs expire in 60 min)
+const CACHE_TTL_MS = 12 * 60 * 1000; // 12 minutes (presigned URLs expire in 15 min / 900s)
 
 interface CachedIcon {
   url: string;

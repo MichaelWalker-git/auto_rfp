@@ -42,9 +42,9 @@ jest.mock('@/helpers/clustering', () => ({
   enrichSimilarMatches: mockEnrichSimilarMatches,
 }));
 
-// Mock organization handler
+// Mock organization helper
 const mockGetOrganizationById = jest.fn();
-jest.mock('@/handlers/organization/get-organization-by-id', () => ({
+jest.mock('@/helpers/org', () => ({
   getOrganizationById: mockGetOrganizationById,
 }));
 

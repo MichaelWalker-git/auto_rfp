@@ -1,224 +1,293 @@
 'use client';
 
-import React, { use, useEffect, useState } from 'react';
+import React, { use, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, Save } from 'lucide-react';
+import Link from 'next/link';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { useSWRConfig } from 'swr';
+import { ArrowLeft, FolderOpen, Save } from 'lucide-react';
+import { UpdateProjectSchema } from '@auto-rfp/core';
+import type { z } from 'zod';
+
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import { Separator } from '@/components/ui/separator';
+import { Skeleton } from '@/components/ui/skeleton';
+import {
+  Form,
+  FormControl,
+  FormDescription,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from '@/components/ui/form';
 import { useToast } from '@/components/ui/use-toast';
+import { Spinner } from '@/components/ui/spinner';
 import { useUpdateProject } from '@/lib/hooks/use-update-project';
 import { useProject } from '@/lib/hooks/use-api';
-import { Spinner } from '@/components/ui/spinner';
-import { Skeleton } from '@/components/ui/skeleton';
+
+// ─── Types ───
+
+type EditProjectFormValues = z.input<typeof UpdateProjectSchema>;
 
 interface EditProjectPageProps {
   params: Promise<{ orgId: string; projectId: string }>;
 }
 
+// ─── Loading Skeleton (matches page layout) ───
+
+export const EditProjectSkeleton = () => (
+  <div className="container max-w-3xl mx-auto py-6 px-4">
+    {/* Header skeleton */}
+    <div className="mb-6">
+      <div className="flex items-center gap-3">
+        <Skeleton className="h-9 w-9 rounded-lg" />
+        <Skeleton className="h-10 w-10 rounded-lg" />
+        <div className="flex-1 space-y-1.5">
+          <Skeleton className="h-7 w-40" />
+          <Skeleton className="h-4 w-56" />
+        </div>
+      </div>
+    </div>
+
+    {/* Card skeleton */}
+    <Card>
+      <CardHeader>
+        <Skeleton className="h-6 w-32" />
+        <Skeleton className="h-4 w-64 mt-1" />
+      </CardHeader>
+      <CardContent className="space-y-6">
+        {/* Name field */}
+        <div className="space-y-2">
+          <Skeleton className="h-4 w-28" />
+          <Skeleton className="h-10 w-full" />
+          <Skeleton className="h-3.5 w-72" />
+        </div>
+        {/* Description field */}
+        <div className="space-y-2">
+          <Skeleton className="h-4 w-24" />
+          <Skeleton className="h-[104px] w-full" />
+          <Skeleton className="h-3.5 w-80" />
+        </div>
+      </CardContent>
+    </Card>
+
+    {/* Actions skeleton */}
+    <Separator className="mt-6" />
+    <div className="flex items-center justify-between mt-6">
+      <Skeleton className="h-10 w-20" />
+      <Skeleton className="h-10 w-32" />
+    </div>
+  </div>
+);
+
+// ─── Not Found State ───
+
+const ProjectNotFound = ({ backUrl }: { backUrl: string }) => (
+  <div className="container max-w-3xl mx-auto py-16 px-4">
+    <div className="text-center">
+      <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-muted">
+        <FolderOpen className="h-6 w-6 text-muted-foreground" />
+      </div>
+      <h2 className="text-xl font-semibold mb-2">Project not found</h2>
+      <p className="text-muted-foreground mb-6">
+        The project you&apos;re looking for doesn&apos;t exist or you don&apos;t have access to it.
+      </p>
+      <Button asChild>
+        <Link href={backUrl}>Back to Projects</Link>
+      </Button>
+    </div>
+  </div>
+);
+
+// ─── Page ───
+
 export default function EditProjectPage({ params }: EditProjectPageProps) {
   const { orgId, projectId } = use(params);
-  const [name, setName] = useState('');
-  const [description, setDescription] = useState('');
-  const [isSubmitting, setIsSubmitting] = useState(false);
   const { toast } = useToast();
   const router = useRouter();
+  const { mutate } = useSWRConfig();
   const { updateProject } = useUpdateProject();
   const { data: project, isLoading } = useProject(projectId);
+
+  const form = useForm<EditProjectFormValues>({
+    resolver: zodResolver(UpdateProjectSchema),
+    defaultValues: {
+      name: '',
+      description: '',
+    },
+  });
+
+  const { formState: { isSubmitting, isDirty } } = form;
 
   // Populate form when project data loads
   useEffect(() => {
     if (project) {
-      setName(project.name);
-      setDescription(project.description || '');
-    }
-  }, [project]);
-
-  const handleCancel = () => {
-    router.push(`/organizations/${orgId}/projects`);
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-
-    if (!name.trim()) {
-      toast({
-        title: 'Error',
-        description: 'Project name is required',
-        variant: 'destructive',
+      form.reset({
+        name: project.name,
+        description: project.description ?? '',
       });
-      return;
     }
+  }, [project, form]);
 
+  const projectsUrl = `/organizations/${orgId}/projects`;
+
+  const onSubmit = async (data: EditProjectFormValues) => {
     try {
-      setIsSubmitting(true);
-
       const response = await updateProject({
         orgId,
         projectId,
-        name,
-        description,
+        name: data.name ?? '',
+        description: data.description,
       });
 
       if (response.id) {
-        toast({
-          title: 'Success',
-          description: `Project "${response.name}" has been updated`,
-        });
+        // Invalidate project caches so lists and detail views reflect the update
+        await Promise.all([
+          mutate((key: unknown) =>
+            Array.isArray(key) && key[0] === 'project' && key[1] === projectId,
+          ),
+          mutate((key: unknown) =>
+            Array.isArray(key) && key[0] === 'project/projects',
+          ),
+        ]);
 
-        router.push(`/organizations/${orgId}/projects`);
+        toast({
+          title: 'Project updated',
+          description: `"${response.name}" has been saved successfully.`,
+        });
+        router.push(projectsUrl);
       } else {
         throw new Error('Failed to update project');
       }
     } catch (error) {
       toast({
         title: 'Error',
-        description: error instanceof Error ? error.message : 'Failed to update project',
+        description: error instanceof Error ? error.message : 'Failed to update project. Please try again.',
         variant: 'destructive',
       });
-    } finally {
-      setIsSubmitting(false);
     }
   };
 
   if (isLoading) {
-    return (
-      <div className="min-h-screen bg-muted/30">
-        <div className="sticky top-0 z-10 bg-background border-b">
-          <div className="container max-w-3xl py-4">
-            <div className="flex items-center gap-3">
-              <Skeleton className="h-10 w-10 rounded-md" />
-              <div>
-                <Skeleton className="h-8 w-48 mb-1" />
-                <Skeleton className="h-4 w-64" />
-              </div>
-            </div>
-          </div>
-        </div>
-        <div className="container max-w-3xl py-8">
-          <Card>
-            <CardHeader>
-              <Skeleton className="h-6 w-32 mb-2" />
-              <Skeleton className="h-4 w-64" />
-            </CardHeader>
-            <CardContent className="space-y-6">
-              <div className="space-y-2">
-                <Skeleton className="h-4 w-24 mb-2" />
-                <Skeleton className="h-10 w-full" />
-              </div>
-              <div className="space-y-2">
-                <Skeleton className="h-4 w-24 mb-2" />
-                <Skeleton className="h-24 w-full" />
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-      </div>
-    );
+    return <EditProjectSkeleton />;
   }
 
   if (!project) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center">
-          <h2 className="text-2xl font-bold mb-2">Project not found</h2>
-          <p className="text-muted-foreground mb-4">
-            The project you&apos;re looking for doesn&apos;t exist or you don&apos;t have access to it.
-          </p>
-          <Button onClick={handleCancel}>Back to Projects</Button>
-        </div>
-      </div>
-    );
+    return <ProjectNotFound backUrl={projectsUrl} />;
   }
 
   return (
-    <div className="min-h-screen bg-muted/30">
+    <div className="container max-w-3xl mx-auto py-6 px-4">
       {/* Header */}
-      <div className="sticky top-0 z-10 bg-background border-b">
-        <div className="container max-w-3xl py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <Button variant="ghost" size="icon" onClick={handleCancel}>
-                <ArrowLeft className="h-5 w-5" />
-              </Button>
-              <div>
-                <h1 className="text-2xl font-bold">Edit Project</h1>
-                <p className="text-sm text-muted-foreground">
-                  Update your project information
-                </p>
-              </div>
-            </div>
-
-            <div className="flex items-center gap-2">
-              <Button variant="outline" onClick={handleCancel} disabled={isSubmitting}>
-                Cancel
-              </Button>
-              <Button onClick={handleSubmit} disabled={isSubmitting || !name.trim()}>
-                {isSubmitting ? (
-                  <>
-                    <Spinner className="h-4 w-4 mr-2" />
-                    Updating...
-                  </>
-                ) : (
-                  <>
-                    <Save className="h-4 w-4 mr-2" />
-                    Save Changes
-                  </>
-                )}
-              </Button>
-            </div>
+      <div className="mb-6">
+        <div className="flex items-center gap-3">
+          <Link
+            href={projectsUrl}
+            className="p-2 hover:bg-muted rounded-lg transition-colors"
+            title="Back to Projects"
+          >
+            <ArrowLeft className="h-5 w-5" />
+          </Link>
+          <div className="p-2 bg-primary/10 rounded-lg">
+            <FolderOpen className="h-6 w-6 text-primary" />
           </div>
+          <div className="flex-1">
+            <h1 className="text-2xl font-bold">Edit Project</h1>
+            <p className="text-muted-foreground">
+              Update details for <span className="font-medium text-foreground">{project.name}</span>
+            </p>
+          </div>
+          {isDirty && (
+            <span className="text-sm text-amber-600 bg-amber-50 dark:bg-amber-950/30 px-2.5 py-1 rounded-md">
+              Unsaved changes
+            </span>
+          )}
         </div>
       </div>
 
-      {/* Content */}
-      <div className="container max-w-3xl py-8">
-        <Card>
-          <CardHeader>
-            <CardTitle>Project Details</CardTitle>
-            <CardDescription>
-              Update the basic information for your project
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <form onSubmit={handleSubmit} className="space-y-6">
-              <div className="space-y-2">
-                <Label htmlFor="name">
-                  Project Name <span className="text-destructive">*</span>
-                </Label>
-                <Input
-                  id="name"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  placeholder="My Project"
-                  required
-                  autoFocus
-                />
-                <p className="text-sm text-muted-foreground">
-                  Choose a descriptive name for your project
-                </p>
-              </div>
+      <Form {...form}>
+        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+          {/* Project Details Card */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Project Details</CardTitle>
+              <CardDescription>
+                Update the basic information for your project
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <FormField
+                control={form.control}
+                name="name"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Project Name *</FormLabel>
+                    <FormControl>
+                      <Input
+                        placeholder="e.g., Cloud Migration RFP Response"
+                        autoFocus
+                        {...field}
+                      />
+                    </FormControl>
+                    <FormDescription>
+                      Choose a descriptive name that identifies this project
+                    </FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
 
-              <div className="space-y-2">
-                <Label htmlFor="description">Description</Label>
-                <Textarea
-                  id="description"
-                  value={description}
-                  onChange={(e) => setDescription(e.target.value)}
-                  placeholder="Brief description of your project"
-                  rows={4}
-                  className="resize-none"
-                />
-                <p className="text-sm text-muted-foreground">
-                  Optional: Provide additional context about the project
-                </p>
-              </div>
-            </form>
-          </CardContent>
-        </Card>
-      </div>
+              <FormField
+                control={form.control}
+                name="description"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Description</FormLabel>
+                    <FormControl>
+                      <Textarea
+                        placeholder="Brief description of the project scope, objectives, and target agency..."
+                        rows={4}
+                        className="resize-none"
+                        {...field}
+                      />
+                    </FormControl>
+                    <FormDescription>
+                      Provide context about the project to help your team understand its purpose
+                    </FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </CardContent>
+          </Card>
+
+          {/* Actions */}
+          <Separator />
+          <div className="flex items-center justify-between">
+            <Button type="button" variant="outline" asChild>
+              <Link href={projectsUrl}>Cancel</Link>
+            </Button>
+            <Button type="submit" disabled={isSubmitting || !isDirty}>
+              {isSubmitting ? (
+                <>
+                  <Spinner className="h-4 w-4 mr-2" />
+                  Saving...
+                </>
+              ) : (
+                <>
+                  <Save className="h-4 w-4 mr-2" />
+                  Save Changes
+                </>
+              )}
+            </Button>
+          </div>
+        </form>
+      </Form>
     </div>
   );
 }

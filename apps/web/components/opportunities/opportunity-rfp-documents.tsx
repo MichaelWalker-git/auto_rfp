@@ -40,6 +40,7 @@ import { RFPDocumentPreviewDialog } from '@/components/rfp-documents/rfp-documen
 import { RFPDocumentExportDialog } from '@/components/rfp-documents/rfp-document-export-dialog';
 import { GoogleDriveSyncButton } from '@/components/rfp-documents/google-drive-sync-button';
 import { GenerateDocumentDialog } from '@/components/rfp-documents/generate-document-dialog';
+import { getDocumentTypeStyle } from '@/components/rfp-documents/rfp-document-utils';
 import { useOpportunityContext } from './opportunity-context';
 import { formatDateTime } from './opportunity-helpers';
 import Link from 'next/link';
@@ -47,23 +48,6 @@ import { useCurrentOrganization } from '@/context/organization-context';
 import { useApprovalHistory } from '@/features/document-approval';
 import { ApprovalStatusBadge } from '@/features/document-approval';
 
-function documentTypeChip(type: string) {
-  const typeMap: Record<string, { cls: string }> = {
-    TECHNICAL_PROPOSAL: { cls: 'bg-sky-50 text-sky-700 border-sky-200' },
-    EXECUTIVE_BRIEF: { cls: 'bg-purple-50 text-purple-700 border-purple-200' },
-    COST_PROPOSAL: { cls: 'bg-green-50 text-green-700 border-green-200' },
-    PAST_PERFORMANCE: { cls: 'bg-amber-50 text-amber-700 border-amber-200' },
-    MANAGEMENT_APPROACH: { cls: 'bg-indigo-50 text-indigo-700 border-indigo-200' },
-    COMPLIANCE_MATRIX: { cls: 'bg-teal-50 text-teal-700 border-teal-200' },
-    TEAMING_AGREEMENT: { cls: 'bg-orange-50 text-orange-700 border-orange-200' },
-    NDA: { cls: 'bg-red-50 text-red-700 border-red-200' },
-    CONTRACT: { cls: 'bg-emerald-50 text-emerald-700 border-emerald-200' },
-    AMENDMENT: { cls: 'bg-yellow-50 text-yellow-700 border-yellow-200' },
-    CORRESPONDENCE: { cls: 'bg-slate-50 text-slate-700 border-slate-200' },
-    OTHER: { cls: 'bg-gray-50 text-gray-700 border-gray-200' },
-  };
-  return typeMap[type] ?? typeMap.OTHER;
-}
 
 function formatFileSize(bytes: number): string {
   if (!bytes) return '';
@@ -287,7 +271,7 @@ export function OpportunityRFPDocuments() {
                 All ({documents.length})
               </Button>
               {Array.from(availableTypes.entries()).map(([type, count]) => {
-                const chip = documentTypeChip(type);
+                const chip = getDocumentTypeStyle(type);
                 const isSelected = selectedType === type;
                 return (
                   <Button
@@ -321,107 +305,109 @@ export function OpportunityRFPDocuments() {
                   </p>
                 </div>
               ) : filteredDocuments.map((doc) => {
-                const typeChip = documentTypeChip(doc.documentType);
+                const typeChip = getDocumentTypeStyle(doc.documentType);
                 const isDeleting = deletingId === doc.documentId;
                 const isDownloading = downloadingId === doc.documentId;
 
                 const canEdit = doc.content && doc.status !== 'GENERATING' && navOrgId;
                 const canConvert = !doc.content && doc.fileKey && (doc.mimeType?.includes('word') || doc.mimeType?.includes('text') || doc.mimeType?.includes('pdf') || doc.fileKey?.endsWith('.docx') || doc.fileKey?.endsWith('.pdf') || doc.fileKey?.endsWith('.txt') || doc.fileKey?.endsWith('.md'));
                 
-                const CardWrapper = canEdit ? Link : 'div';
-                const cardProps = canEdit ? {
-                  href: `/organizations/${navOrgId}/projects/${projectId}/opportunities/${oppId}/rfp-documents/${doc.documentId}/edit`,
-                  className: cn(
-                    'rounded-xl border bg-background p-3 block hover:bg-muted/50 transition-colors cursor-pointer',
-                    (isDeleting || isDownloading) && 'opacity-80',
-                  )
-                } : {
-                  className: cn(
-                    'rounded-xl border bg-background p-3',
-                    (isDeleting || isDownloading) && 'opacity-80',
-                  )
-                };
+                const cardClassName = cn(
+                  'rounded-xl border bg-background p-3',
+                  canEdit && 'block hover:bg-muted/50 transition-colors cursor-pointer',
+                  (isDeleting || isDownloading) && 'opacity-80',
+                );
 
-                return (
-                  <CardWrapper
-                    key={doc.documentId}
-                    {...cardProps}
-                  >
-                    <div className="flex items-start gap-3">
-                      <div className="h-10 w-10 rounded-lg bg-muted flex items-center justify-center shrink-0">
-                        <FileText className="h-5 w-5 text-muted-foreground" />
-                      </div>
+                const cardContent = (
+                  <div className="flex items-start gap-3">
+                    <div className="h-10 w-10 rounded-lg bg-muted flex items-center justify-center shrink-0">
+                      <FileText className="h-5 w-5 text-muted-foreground" />
+                    </div>
 
-                      <div className="min-w-0 flex-1">
-                        <div className="flex flex-wrap items-center gap-2">
-                          <p className="font-medium truncate text-sm" title={doc.name}>
-                            {doc.name}
-                          </p>
-                          <Badge variant="outline" className={cn('text-xs border', typeChip.cls)}>
-                            {RFP_DOCUMENT_TYPES[doc.documentType] ?? doc.documentType}
-                          </Badge>
-                          <DocumentApprovalStatus 
-                            doc={doc} 
-                            orgId={orgId} 
-                            projectId={projectId} 
-                          />
-                        </div>
-
-                        <div className="mt-1 flex flex-wrap gap-x-3 text-xs text-muted-foreground">
-                          {doc.fileSizeBytes > 0 && <span>{formatFileSize(doc.fileSizeBytes)}</span>}
-                          <span>{formatDateTime(doc.createdAt)}</span>
-                          {doc.createdByName && <span>by {doc.createdByName}</span>}
-                          {doc.updatedBy && doc.updatedBy !== doc.createdBy && doc.updatedByName && (
-                            <span>• edited by {doc.updatedByName}</span>
-                          )}
-                        </div>
-                      </div>
-
-                      <div className="flex items-center gap-1 shrink-0" onClick={(e) => e.stopPropagation()}>
-                        {canConvert && (
-                          <Button size="sm" variant="ghost" className="h-8 w-8 p-0" disabled={convertingId === doc.documentId} onClick={() => handleConvertAndEdit(doc)} title="Convert & Edit">
-                            {convertingId === doc.documentId ? <Loader2 className="h-4 w-4 animate-spin" /> : <Pencil className="h-4 w-4" />}
-                          </Button>
-                        )}
-                        <GoogleDriveSyncButton
-                          document={doc}
-                          orgId={orgId}
-                          onSyncComplete={() => mutate()}
+                    <div className="min-w-0 flex-1">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <p className="font-medium truncate text-sm" title={doc.name}>
+                          {doc.name}
+                        </p>
+                        <Badge variant="outline" className={cn('text-xs border', typeChip.cls)}>
+                          {RFP_DOCUMENT_TYPES[doc.documentType] ?? doc.documentType}
+                        </Badge>
+                        <DocumentApprovalStatus 
+                          doc={doc} 
+                          orgId={orgId} 
+                          projectId={projectId} 
                         />
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button size="sm" variant="ghost" className="h-8 w-8 p-0">
-                              <MoreHorizontal className="h-4 w-4" />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
-                            {doc.content && navOrgId && (
-                              <DropdownMenuItem asChild>
-                                <Link href={`/organizations/${navOrgId}/projects/${projectId}/opportunities/${oppId}/rfp-documents/${doc.documentId}/edit`} className="flex items-center">
-                                  <Pencil className="h-4 w-4 mr-2" /> Edit Content
-                                </Link>
-                              </DropdownMenuItem>
-                            )}
-                            {!doc.content && doc.fileKey && (
-                              <DropdownMenuItem disabled={convertingId === doc.documentId} onClick={() => handleConvertAndEdit(doc)}>
-                                <Pencil className="h-4 w-4 mr-2" /> Convert & Edit
-                              </DropdownMenuItem>
-                            )}
-                            {doc.content && (
-                              <DropdownMenuItem onClick={() => setExportDoc(doc)}>
-                                <FileDown className="h-4 w-4 mr-2" /> Export
-                              </DropdownMenuItem>
-                            )}
-                            <DropdownMenuSeparator />
-                            <DropdownMenuItem className="text-red-600" disabled={isDeleting} onClick={() => handleDelete(doc)}>
-                              {isDeleting ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Trash2 className="h-4 w-4 mr-2" />}
-                              Delete
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
+                      </div>
+
+                      <div className="mt-1 flex flex-wrap gap-x-3 text-xs text-muted-foreground">
+                        {doc.fileSizeBytes > 0 && <span>{formatFileSize(doc.fileSizeBytes)}</span>}
+                        <span>{formatDateTime(doc.createdAt)}</span>
+                        {doc.createdByName && <span>by {doc.createdByName}</span>}
+                        {doc.updatedBy && doc.updatedBy !== doc.createdBy && doc.updatedByName && (
+                          <span>• edited by {doc.updatedByName}</span>
+                        )}
                       </div>
                     </div>
-                  </CardWrapper>
+
+                    <div className="flex items-center gap-1 shrink-0" onClick={(e) => e.stopPropagation()}>
+                      {canConvert && (
+                        <Button size="sm" variant="ghost" className="h-8 w-8 p-0" disabled={convertingId === doc.documentId} onClick={() => handleConvertAndEdit(doc)} title="Convert & Edit">
+                          {convertingId === doc.documentId ? <Loader2 className="h-4 w-4 animate-spin" /> : <Pencil className="h-4 w-4" />}
+                        </Button>
+                      )}
+                      <GoogleDriveSyncButton
+                        document={doc}
+                        orgId={orgId}
+                        onSyncComplete={() => mutate()}
+                      />
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button size="sm" variant="ghost" className="h-8 w-8 p-0">
+                            <MoreHorizontal className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          {doc.content && navOrgId && (
+                            <DropdownMenuItem asChild>
+                              <Link href={`/organizations/${navOrgId}/projects/${projectId}/opportunities/${oppId}/rfp-documents/${doc.documentId}/edit`} className="flex items-center">
+                                <Pencil className="h-4 w-4 mr-2" /> Edit Content
+                              </Link>
+                            </DropdownMenuItem>
+                          )}
+                          {!doc.content && doc.fileKey && (
+                            <DropdownMenuItem disabled={convertingId === doc.documentId} onClick={() => handleConvertAndEdit(doc)}>
+                              <Pencil className="h-4 w-4 mr-2" /> Convert & Edit
+                            </DropdownMenuItem>
+                          )}
+                          {doc.content && (
+                            <DropdownMenuItem onClick={() => setExportDoc(doc)}>
+                              <FileDown className="h-4 w-4 mr-2" /> Export
+                            </DropdownMenuItem>
+                          )}
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem className="text-red-600" disabled={isDeleting} onClick={() => handleDelete(doc)}>
+                            {isDeleting ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Trash2 className="h-4 w-4 mr-2" />}
+                            Delete
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </div>
+                  </div>
+                );
+
+                // Use explicit conditional rendering to avoid TypeScript error with dynamic component
+                return canEdit ? (
+                  <Link
+                    key={doc.documentId}
+                    href={`/organizations/${navOrgId}/projects/${projectId}/opportunities/${oppId}/rfp-documents/${doc.documentId}/edit`}
+                    className={cardClassName}
+                  >
+                    {cardContent}
+                  </Link>
+                ) : (
+                  <div key={doc.documentId} className={cardClassName}>
+                    {cardContent}
+                  </div>
                 );
               })}
             </div>

@@ -29,14 +29,6 @@ export const MacroDocumentation = () => {
                 </Badge>
                 <span className="text-xs text-gray-600">Current date (YYYY-MM-DD format)</span>
               </div>
-              <div className="flex items-start gap-2">
-                <Badge variant="outline" className="font-mono text-xs shrink-0 bg-emerald-50 border-emerald-200 text-emerald-700">
-                  {'{{CONTENT}}'}
-                </Badge>
-                <span className="text-xs text-gray-600">
-                  <strong className="text-gray-900">Special:</strong> AI will generate content here based on the solicitation and your knowledge base
-                </span>
-              </div>
             </div>
           </div>
 

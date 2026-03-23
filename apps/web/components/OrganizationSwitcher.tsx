@@ -22,59 +22,7 @@ import { useToast } from '@/components/ui/use-toast';
 
 import { useCurrentOrganization } from '@/context/organization-context';
 import { useCreateOrganization } from '@/lib/hooks/use-create-organization';
-import { authFetcher } from '@/lib/auth/auth-fetcher';
-import { env } from '@/lib/env';
-
-/**
- * Load icon presigned URL using the same approach as SettingsContent:
- * 1. Fetch org detail to get iconKey
- * 2. Use presigned URL endpoint to get download URL
- */
-function useOrgIcon(orgId: string | undefined | null): string | null {
-  const [iconUrl, setIconUrl] = React.useState<string | null>(null);
-  const lastOrgIdRef = React.useRef<string | null>(null);
-
-  React.useEffect(() => {
-    if (!orgId) {
-      setIconUrl(null);
-      lastOrgIdRef.current = null;
-      return;
-    }
-
-    if (lastOrgIdRef.current === orgId && iconUrl) return;
-    lastOrgIdRef.current = orgId;
-
-    let cancelled = false;
-
-    (async () => {
-      try {
-        const orgRes = await authFetcher(
-          `${env.BASE_API_URL}/organization/get-organization/${encodeURIComponent(orgId)}`,
-        );
-        if (!orgRes.ok || cancelled) return;
-        const orgData = await orgRes.json();
-        const iconKey = orgData?.iconKey;
-        if (!iconKey || cancelled) return;
-
-        const presignRes = await authFetcher(`${env.BASE_API_URL}/presigned/presigned-url`, {
-          method: 'POST',
-          body: JSON.stringify({ operation: 'download', key: iconKey }),
-        });
-        if (!presignRes.ok || cancelled) return;
-        const presignData = await presignRes.json();
-        if (presignData?.url && !cancelled) {
-          setIconUrl(presignData.url);
-        }
-      } catch {
-        // Silently fail - icon is optional
-      }
-    })();
-
-    return () => { cancelled = true; };
-  }, [orgId]);
-
-  return iconUrl;
-}
+import { useIconUrl } from '@/lib/hooks/use-icon-url';
 
 export function OrganizationSwitcher() {
   const { toast } = useToast();
@@ -92,7 +40,8 @@ export function OrganizationSwitcher() {
 
   const label = currentOrganization?.name ?? (loading ? 'Loading…' : 'Select organization');
 
-  const currentIconUrl = useOrgIcon(currentOrganization?.id);
+  const iconKey = currentOrganization?.iconKey || (currentOrganization as Record<string, unknown>)?.iconUrl as string | undefined;
+  const currentIconUrl = useIconUrl(iconKey);
 
   const [createOpen, setCreateOpen] = React.useState(false);
   const [isCreating, setIsCreating] = React.useState(false);
@@ -169,12 +118,14 @@ export function OrganizationSwitcher() {
         </DropdownMenuTrigger>
 
         <DropdownMenuContent align="end" className="w-[280px]">
-          <DropdownMenuLabel className="flex items-center justify-between">
-            <span>Organization</span>
-            {isOrgLocked && <span className="text-xs text-muted-foreground">Locked</span>}
-          </DropdownMenuLabel>
-
-          <DropdownMenuSeparator />
+          {isOrgLocked && (
+            <>
+              <DropdownMenuLabel>
+                <span className="text-xs text-muted-foreground">Locked</span>
+              </DropdownMenuLabel>
+              <DropdownMenuSeparator />
+            </>
+          )}
 
           {organizations.map((org) => {
             const active = org.id === currentOrganization?.id;

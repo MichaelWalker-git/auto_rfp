@@ -1,4 +1,4 @@
-import { createItem, docClient } from './db';
+import { createItem, docClient, getItem } from './db';
 import { PK_NAME, SK_NAME } from '../constants/common';
 import { ORG_PK } from '../constants/organization';
 import { QueryCommand } from '@aws-sdk/lib-dynamodb';
@@ -9,10 +9,17 @@ import { CreateOrganizationDTO, OrganizationItem } from '@auto-rfp/core';
 
 const DB_TABLE_NAME = requireEnv('DB_TABLE_NAME');
 
+/**
+ * Get an organization by its ID.
+ * Returns null if not found.
+ */
+export const getOrganizationById = async (orgId: string): Promise<OrganizationItem | null> =>
+  getItem<OrganizationItem>(ORG_PK, `ORG#${orgId}`);
+
 export async function createOrganization(orgData: CreateOrganizationDTO): Promise<OrganizationItem> {
   const orgId = uuidv4();
 
-  const organizationItem = await createItem<OrganizationItem>(
+  return await createItem<OrganizationItem>(
     ORG_PK,
     `ORG#${orgId}`,
     {
@@ -20,8 +27,6 @@ export async function createOrganization(orgData: CreateOrganizationDTO): Promis
       id: orgId,
     } as any
   );
-
-  return organizationItem;
 }
 
 export async function listAllOrgIds(): Promise<string[]> {

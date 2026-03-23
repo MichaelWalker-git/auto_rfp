@@ -17,6 +17,7 @@
 8. **[08-cicd.md](08-cicd.md)** — CI/CD workflows and deployment strategies
 9. **[09-testing.md](09-testing.md)** — Testing rules and conventions
 10. **[10-audit-trail.md](10-audit-trail.md)** — Audit trail requirements for every new feature
+11. **[11-dark-mode.md](11-dark-mode.md)** — Dark mode best practices and design tokens
 
 ---
 

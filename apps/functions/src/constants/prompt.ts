@@ -770,6 +770,16 @@ export const SCORING_USER_PROMPT = [
   '',
   'RISKS: {{RISKS}}',
   '',
+  'PRICING ANALYSIS (from pricing module — use this to score PRICING_POSITION):',
+  '{{PRICING}}',
+  '',
+  'PRICING_POSITION SCORING GUIDANCE WHEN PRICING DATA IS AVAILABLE:',
+  '- If competitivePosition is "LOW" and priceConfidence >= 70: score 4-5',
+  '- If competitivePosition is "COMPETITIVE" and priceConfidence >= 60: score 3-4',
+  '- If competitivePosition is "HIGH" or priceConfidence < 50: score 1-2',
+  '- Factor in pricingRisks and competitiveAdvantages from the pricing analysis',
+  '- If no pricing data is available, estimate based on solicitation requirements and KB context',
+  '',
   'PAST PERFORMANCE ANALYSIS (matched projects from company database):',
   '{{PAST_PERFORMANCE}}',
   '',
@@ -792,7 +802,8 @@ export const useScoringUserPrompt = async (
   contacts?: string,
   risks?: string,
   pastPerformance?: string,
-  kbText?: string
+  kbText?: string,
+  pricing?: string,
 ) => {
   const prompt = await getScoringUserPrompt(orgId);
   return prompt
@@ -801,6 +812,7 @@ export const useScoringUserPrompt = async (
     .replace('{{REQUIREMENTS}}', requirements || 'None')
     .replace('{{CONTACTS}}', contacts || 'None')
     .replace('{{RISKS}}', risks || 'None')
+    .replace('{{PRICING}}', pricing || 'None - no pricing analysis available. Score PRICING_POSITION based on solicitation requirements and KB context.')
     .replace('{{PAST_PERFORMANCE}}', pastPerformance || 'None - no past performance analysis available')
     .replace('{{KB_TEXT}}', kbText || 'None')
     .replace('{{SOLICITATION}}', solicitation || 'None');

@@ -4,10 +4,10 @@ import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Users } from 'lucide-react';
+import { EmptyState } from './EmptyState';
 
 export function ContactsCard({ contacts }: { contacts: any }) {
   const list = contacts?.contacts ?? [];
-  if (!list.length) return null;
 
   return (
     <Card className="border-2">
@@ -18,14 +18,15 @@ export function ContactsCard({ contacts }: { contacts: any }) {
         </div>
       </CardHeader>
 
-      <CardContent className="space-y-4">
+      <CardContent className="space-y-6">
         <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Contact Directory ({list.length})</p>
         
         {list.length === 0 ? (
-          <div className="border rounded-lg p-6 text-center">
-            <Users className="h-6 w-6 mx-auto mb-2 text-muted-foreground" />
-            <p className="text-sm text-muted-foreground">No contacts found</p>
-          </div>
+          <EmptyState 
+            icon={Users}
+            title="No contacts found"
+            description="Contact information will appear here when available"
+          />
         ) : (
           <div className="space-y-3">
             {list.map((c: any, idx: number) => (

@@ -497,12 +497,51 @@ export async function gatherAllContext(args: {
     `budgets=${JSON.stringify(budgets)}`,
   );
 
-  const [execBrief, kb, pastPerf, contentLib, orgContact] = await Promise.all([
+  // Load pricing data for cost/price documents
+  const loadPricingContext = async (): Promise<string> => {
+    try {
+      const { getLaborRatesByOrg, getCostEstimatesByOpportunity, getStaffingPlansByOpportunity } = await import('./pricing');
+      const parts: string[] = [];
+
+      const laborRates = await getLaborRatesByOrg(orgId);
+      const activeRates = laborRates.filter(r => r.isActive);
+      if (activeRates.length > 0) {
+        const rateLines = activeRates.map(r =>
+          `  ${r.position}: $${r.fullyLoadedRate.toFixed(2)}/hr (Base: $${r.baseRate.toFixed(2)}, OH: ${r.overhead}%, G&A: ${r.ga}%, Profit: ${r.profit}%)`
+        );
+        parts.push(`LABOR RATES:\n${rateLines.join('\n')}`);
+      }
+
+      if (opportunityId) {
+        const estimates = await getCostEstimatesByOpportunity(orgId, projectId, opportunityId);
+        if (estimates.length > 0) {
+          const est = estimates[0]!;
+          parts.push(`COST ESTIMATE: ${est.name}\n  Strategy: ${est.strategy}\n  Total Price: $${est.totalPrice.toLocaleString()}\n  Margin: ${est.margin}%`);
+        }
+
+        const plans = await getStaffingPlansByOpportunity(orgId, projectId, opportunityId);
+        if (plans.length > 0) {
+          const plan = plans[0]!;
+          const planLines = plan.laborItems.map(item =>
+            `  ${item.position}: ${item.hours} hrs × $${item.rate.toFixed(2)}/hr = $${item.totalCost.toLocaleString()}`
+          );
+          parts.push(`STAFFING PLAN: ${plan.name}\n${planLines.join('\n')}\n  Total: $${plan.totalLaborCost.toLocaleString()}`);
+        }
+      }
+
+      return parts.length > 0 ? parts.join('\n\n') : '';
+    } catch {
+      return '';
+    }
+  };
+
+  const [execBrief, kb, pastPerf, contentLib, orgContact, pricingContext] = await Promise.all([
     loadExecutiveBriefContext(projectId, opportunityId, budgets.execBrief),
     loadKnowledgeBaseContext(orgId, solicitation, budgets.kb),
     loadPastPerformanceContext(orgId, solicitation, budgets.pastPerf),
     loadContentLibraryContext(orgId, solicitation, budgets.contentLib),
     getOrgPrimaryContact(orgId).catch(() => null),
+    loadPricingContext(),
   ]);
 
   // Build org contact block — always include when available (small, high-value)
@@ -551,6 +590,11 @@ export async function gatherAllContext(args: {
       'CONTENT LIBRARY',
       'Pre-approved messaging snippets. Use for consistent, vetted language.',
       contentLib,
+    ],
+    [
+      'PRICING DATA',
+      'Labor rates, cost estimates, and staffing plans from the pricing module. Use actual figures for Cost Proposal and Price Volume documents.',
+      pricingContext,
     ],
   ];
 

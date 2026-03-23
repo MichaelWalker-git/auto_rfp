@@ -50,6 +50,12 @@ export function briefDomain(args: {
       },
       {
         method: 'POST',
+        path: 'generate-pricing',
+        entry: lambdaEntry('brief/generate-pricing.ts'),
+        extraEnv: { EXEC_BRIEF_QUEUE_URL: execBriefQueueUrl },
+      },
+      {
+        method: 'POST',
         path: 'generate-executive-brief-scoring',
         entry: lambdaEntry('brief/generate-scoring.ts'),
         extraEnv: { EXEC_BRIEF_QUEUE_URL: execBriefQueueUrl },

@@ -10,7 +10,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { Label } from '@/components/ui/label';
 
-import { AlertTriangle, Briefcase, CalendarClock, CheckCircle2, Clock, Download, ExternalLink, FileText, ListChecks, Loader2, RefreshCw, Shield, Target, Users, XCircle } from 'lucide-react';
+import { AlertTriangle, Briefcase, CalendarClock, CheckCircle2, Clock, DollarSign, Download, ExternalLink, FileText, ListChecks, Loader2, RefreshCw, Shield, Target, Users, XCircle } from 'lucide-react';
 import Link from 'next/link';
 import { Skeleton } from '@/components/ui/skeleton';
 
@@ -29,6 +29,7 @@ import {
   useInitExecutiveBrief,
   useHandleLinearTicket,
 } from '@/lib/hooks/use-executive-brief';
+import { useGenerateExecutiveBriefPricing } from '@/lib/hooks/use-pricing';
 
 import type { SectionKey, SectionStatus } from './types';
 import { SECTION_ORDER } from './types';
@@ -42,6 +43,7 @@ import { ContactsCard } from './components/ContactsCard';
 import { RisksCard } from './components/RisksCard';
 import { PastPerformanceCard } from './components/PastPerformanceCard';
 import { GapAnalysisCard } from './components/GapAnalysisCard';
+import { PricingCard } from './components/PricingCard';
 import { OpportunitySelector } from './components/OpportunitySelector';
 import { useCurrentOrganization } from '@/context/organization-context';
 import { useProjectOutcome } from '@/lib/hooks/use-project-outcome';
@@ -59,6 +61,8 @@ function sectionIcon(section: SectionKey) {
       return <ListChecks className="h-4 w-4"/>;
     case 'risks':
       return <Shield className="h-4 w-4"/>;
+    case 'pricing':
+      return <DollarSign className="h-4 w-4"/>;
     case 'pastPerformance':
       return <Briefcase className="h-4 w-4"/>;
     case 'scoring':
@@ -78,6 +82,8 @@ function sectionTitle(section: SectionKey) {
       return 'Requirements';
     case 'risks':
       return 'Risks';
+    case 'pricing':
+      return 'Pricing';
     case 'pastPerformance':
       return 'Past Performance';
     case 'scoring':
@@ -99,6 +105,7 @@ const TABS = [
   { id: 'requirements', label: 'Requirements', icon: ListChecks, section: 'requirements' as SectionKey },
   { id: 'contacts', label: 'Contacts', icon: Users, section: 'contacts' as SectionKey },
   { id: 'risks', label: 'Risks', icon: Shield, section: 'risks' as SectionKey },
+  { id: 'pricing', label: 'Pricing', icon: DollarSign, section: 'pricing' as SectionKey },
   { id: 'pastPerformance', label: 'Past Performance', icon: Briefcase, section: 'pastPerformance' as SectionKey },
   { id: 'scoring', label: 'Scoring', icon: Target, section: 'scoring' as SectionKey },
 ] as const;
@@ -220,6 +227,7 @@ export function ExecutiveBriefView({ projectId, initialOpportunityId }: Executiv
   const genContacts = useGenerateExecutiveBriefContacts(currentOrganization?.id);
   const genRequirements = useGenerateExecutiveBriefRequirements(currentOrganization?.id);
   const genRisks = useGenerateExecutiveBriefRisks(currentOrganization?.id);
+  const genPricing = useGenerateExecutiveBriefPricing(currentOrganization?.id);
   const genPastPerformance = useGenerateExecutiveBriefPastPerformance(currentOrganization?.id);
   const genScoring = useGenerateExecutiveBriefScoring(currentOrganization?.id);
   const getBriefByProject = useGetExecutiveBriefByProject(currentOrganization?.id);
@@ -240,7 +248,7 @@ export function ExecutiveBriefView({ projectId, initialOpportunityId }: Executiv
   const pollingRef = useRef<NodeJS.Timeout | null>(null);
 
   const sectionsState = useMemo(() => buildSectionsState(briefItem), [briefItem]);
-  const totalSections = 6;
+  const totalSections = 8; // summary, deadlines, contacts, requirements, risks, pricing, pastPerformance, scoring
 
   const { completed: completedSections, percent: progressPercent, inProgress: inProgressSections } = useMemo(
     () => calcProgress(sectionsState as any, totalSections),
@@ -506,6 +514,9 @@ export function ExecutiveBriefView({ projectId, initialOpportunityId }: Executiv
       case 'risks':
         resp = await genRisks.trigger({ executiveBriefId });
         break;
+      case 'pricing':
+        resp = await genPricing.trigger({ executiveBriefId });
+        break;
       case 'pastPerformance':
         resp = await genPastPerformance.trigger({ executiveBriefId });
         break;
@@ -710,6 +721,7 @@ export function ExecutiveBriefView({ projectId, initialOpportunityId }: Executiv
   const requirements = briefItem?.sections?.requirements?.data;
   const contacts = briefItem?.sections?.contacts?.data;
   const risks = briefItem?.sections?.risks?.data;
+  const pricing = briefItem?.sections?.pricing?.data;
   const pastPerformance = (briefItem?.sections as any)?.pastPerformance?.data;
 
   return (
@@ -957,7 +969,7 @@ export function ExecutiveBriefView({ projectId, initialOpportunityId }: Executiv
           )}
 
           <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as TabId)} className="w-full">
-            <TabsList className="w-full h-auto p-1 flex flex-wrap gap-1">
+            <TabsList className="w-full h-auto p-1 grid grid-cols-4 md:flex md:flex-wrap gap-1">
               {TABS.map((tab) => {
                 const status = getSectionStatus(tab.id);
                 const Icon = tab.icon;
@@ -965,22 +977,25 @@ export function ExecutiveBriefView({ projectId, initialOpportunityId }: Executiv
                   <TabsTrigger 
                     key={tab.id} 
                     value={tab.id}
-                    className="group flex items-center gap-1.5 py-2 px-2 text-sm data-[state=active]:bg-background transition-all duration-200 hover:px-3"
+                    className="group flex flex-col md:flex-row items-center gap-1 md:gap-1.5 py-2 px-2 text-xs md:text-sm data-[state=active]:bg-background transition-all duration-200 hover:px-3 min-h-[3rem] md:min-h-0"
                     title={tab.label}
+                    aria-label={`${tab.label} tab${status ? ` - ${status}` : ''}`}
                   >
-                    <Icon className="h-4 w-4 flex-shrink-0"/>
-                    <span className="max-w-0 overflow-hidden whitespace-nowrap group-hover:max-w-[120px] group-data-[state=active]:max-w-[120px] transition-all duration-200">
+                    <div className="flex items-center gap-1">
+                      <Icon className="h-4 w-4 flex-shrink-0"/>
+                      {status === 'complete' && (
+                        <CheckCircle2 className="h-3 w-3 text-green-600 flex-shrink-0" aria-label="Complete"/>
+                      )}
+                      {status === 'in-progress' && (
+                        <Loader2 className="h-3 w-3 animate-spin text-blue-600 flex-shrink-0" aria-label="In progress"/>
+                      )}
+                      {status === 'failed' && (
+                        <XCircle className="h-3 w-3 text-red-600 flex-shrink-0" aria-label="Failed"/>
+                      )}
+                    </div>
+                    <span className="block md:max-w-0 md:overflow-hidden md:whitespace-nowrap md:group-hover:max-w-[120px] md:group-data-[state=active]:max-w-[120px] md:transition-all md:duration-200 text-center md:text-left">
                       {tab.label}
                     </span>
-                    {status === 'complete' && (
-                      <CheckCircle2 className="h-3 w-3 text-green-600 flex-shrink-0"/>
-                    )}
-                    {status === 'in-progress' && (
-                      <Loader2 className="h-3 w-3 animate-spin text-blue-600 flex-shrink-0"/>
-                    )}
-                    {status === 'failed' && (
-                      <XCircle className="h-3 w-3 text-red-600 flex-shrink-0"/>
-                    )}
                   </TabsTrigger>
                 );
               })}
@@ -1035,8 +1050,9 @@ export function ExecutiveBriefView({ projectId, initialOpportunityId }: Executiv
                 isBusy={isSectionBusy('deadlines')}
                 skeletonRows={6}
               >
-                <DeadlinesDashboard 
-                  projectId={projectId} 
+                <DeadlinesDashboard
+                  projectId={projectId}
+                  opportunityId={selectedOpportunityId || undefined}
                   orgId={project.orgId} 
                   key={briefItem?.updatedAt || 'no-brief'}
                 />
@@ -1103,6 +1119,27 @@ export function ExecutiveBriefView({ projectId, initialOpportunityId }: Executiv
                 skeletonRows={5}
               >
                 <RisksCard risks={risks}/>
+              </SectionContent>
+            </TabsContent>
+
+            {/* Pricing Tab */}
+            <TabsContent value="pricing" className="space-y-6 mt-6">
+              <div className="flex justify-end">
+                <SectionGenerateButton
+                  section="pricing"
+                  status={briefItem?.sections?.pricing?.status}
+                  isBusy={isSectionBusy('pricing')}
+                  onGenerate={() => runOneSection('pricing')}
+                />
+              </div>
+              <SectionContent
+                section="pricing"
+                status={briefItem?.sections?.pricing?.status}
+                error={getSectionError('pricing')}
+                isBusy={isSectionBusy('pricing')}
+                skeletonRows={6}
+              >
+                <PricingCard pricing={pricing}/>
               </SectionContent>
             </TabsContent>
 

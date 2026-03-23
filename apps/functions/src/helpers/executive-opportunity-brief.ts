@@ -27,6 +27,7 @@ export type BriefSectionName =
   | 'requirements'
   | 'contacts'
   | 'risks'
+  | 'pricing'
   | 'pastPerformance'
   | 'scoring';
 
@@ -53,13 +54,23 @@ export function truncateText(text: string, maxChars: number) {
 function sanitizeJsonString(jsonStr: string): string {
   // Remove control characters except \n, \r, \t
   let sanitized = jsonStr.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F]/g, '');
-  
+
+  // Fix missing commas between properties: "value"\n  "nextKey" → "value",\n  "nextKey"
+  // This handles the common LLM error where a comma is omitted between JSON properties
+  sanitized = sanitized.replace(/("(?:[^"\\]|\\.)*")\s*\n(\s*")/g, '$1,\n$2');
+
+  // Fix missing commas after values before next property: true/false/null/number followed by "key"
+  sanitized = sanitized.replace(/(true|false|null|\d+(?:\.\d+)?)\s*\n(\s*")/g, '$1,\n$2');
+
+  // Fix missing commas after ] or } before next property
+  sanitized = sanitized.replace(/([}\]])\s*\n(\s*")/g, '$1,\n$2');
+
   // Fix trailing commas: ,} or ,]
   sanitized = sanitized.replace(/,(\s*[}\]])/g, '$1');
-  
+
   // Fix double commas
   sanitized = sanitized.replace(/,(\s*),/g, ',');
-  
+
   return sanitized;
 }
 
@@ -95,10 +106,10 @@ export function extractFirstJsonObject(text: string): string {
   // Find first { or [ to support both objects and arrays
   const objectStart = candidate.indexOf('{');
   const arrayStart = candidate.indexOf('[');
-  
+
   // Determine which comes first (or if neither exists)
   let start: number;
-  
+
   if (objectStart === -1 && arrayStart === -1) {
     const preview = candidate.length > 200 ? candidate.slice(0, 200) + '...' : candidate;
     throw new Error(`No JSON start "{" or "[" found in model output. Received: ${preview}`);
@@ -139,7 +150,7 @@ export function extractFirstJsonObject(text: string): string {
       if (ch === '}' || ch === ']') depth--;
       if (depth === 0) {
         const jsonStr = candidate.slice(start, i + 1);
-        
+
         // Try parsing the extracted JSON
         try {
           JSON.parse(jsonStr);
@@ -204,9 +215,18 @@ export function extractFirstJsonObject(text: string): string {
   let repairedEscape = false;
   for (let i = 0; i < repaired.length; i++) {
     const ch = repaired[i];
-    if (repairedEscape) { repairedEscape = false; continue; }
-    if (ch === '\\' && repairedInString) { repairedEscape = true; continue; }
-    if (ch === '"') { repairedInString = !repairedInString; continue; }
+    if (repairedEscape) {
+      repairedEscape = false;
+      continue;
+    }
+    if (ch === '\\' && repairedInString) {
+      repairedEscape = true;
+      continue;
+    }
+    if (ch === '"') {
+      repairedInString = !repairedInString;
+      continue;
+    }
     if (!repairedInString) {
       if (ch === '{' || ch === '[') repairedDepth++;
       if (ch === '}' || ch === ']') repairedDepth--;
@@ -220,9 +240,18 @@ export function extractFirstJsonObject(text: string): string {
   let stackEscape = false;
   for (let i = 0; i < repaired.length; i++) {
     const ch = repaired[i];
-    if (stackEscape) { stackEscape = false; continue; }
-    if (ch === '\\' && stackInString) { stackEscape = true; continue; }
-    if (ch === '"') { stackInString = !stackInString; continue; }
+    if (stackEscape) {
+      stackEscape = false;
+      continue;
+    }
+    if (ch === '\\' && stackInString) {
+      stackEscape = true;
+      continue;
+    }
+    if (ch === '"') {
+      stackInString = !stackInString;
+      continue;
+    }
     if (!stackInString) {
       if (ch === '{') openStack.push('}');
       else if (ch === '[') openStack.push(']');
@@ -317,7 +346,7 @@ export async function loadAllQuestionFiles(projectId: string, opportunityId: str
   const items: any[] = [];
   let ExclusiveStartKey: Record<string, any> | undefined;
 
-  const skPrefix = `${projectId}#${opportunityId}#`
+  const skPrefix = `${projectId}#${opportunityId}#`;
 
   do {
     const res = await docClient.send(
@@ -899,7 +928,10 @@ export async function invokeClaudeJson<S extends SchemaLike<any>>(args: {
   }
 }
 
-export async function loadSolicitationForBrief(brief: ExecutiveBriefItem): Promise<{ solicitationText: string; textKeys: string[] }> {
+export async function loadSolicitationForBrief(brief: ExecutiveBriefItem): Promise<{
+  solicitationText: string;
+  textKeys: string[]
+}> {
   const bucket = brief.documentsBucket || DOCUMENTS_BUCKET;
 
   // ── Step 1: Dynamically fetch ALL current processed question files for this opportunity ──

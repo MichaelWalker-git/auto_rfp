@@ -79,8 +79,9 @@ export const useOrganizationIcon = (orgId: string): UseOrganizationIconResult =>
       // Upload file to S3
       await uploadFileToS3(presign.url, presign.method, file);
 
-      // Store the S3 key for saving to the org record
-      setIconS3Key(presign.key);
+      // Store the S3 key for saving to the org record (normalize double slashes)
+      const normalizedKey = (presign.key as string).replace(/\/\//g, '/');
+      setIconS3Key(normalizedKey);
 
       // Get a presigned download URL for immediate display
       try {

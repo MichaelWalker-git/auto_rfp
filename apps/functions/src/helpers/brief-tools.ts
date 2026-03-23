@@ -13,19 +13,17 @@
  *  - get_deadlines                  → deadline information for the opportunity
  */
 
-import { searchPastProjects, getPastProject } from './past-performance';
-import { queryCompanyKnowledgeBase } from './executive-opportunity-brief';
+import { getPastProject, searchPastProjects } from './past-performance';
+import { getExecutiveBrief, queryCompanyKnowledgeBase, truncateText } from './executive-opportunity-brief';
 import { loadTextFromS3 } from './s3';
 import { requireEnv } from './env';
-import { truncateText } from './executive-opportunity-brief';
-import { getExecutiveBrief } from './executive-opportunity-brief';
 import {
+  fetchContentLibraryMatches,
+  fetchDeadlineInfo,
   fetchOrganizationDetails,
   fetchOrgPrimaryContact,
   fetchProjectDetails,
   fetchTeamMembers,
-  fetchContentLibraryMatches,
-  fetchDeadlineInfo,
   logToolUsage,
 } from './db-tool-helpers';
 import type { ToolResult } from '@/types/tool';

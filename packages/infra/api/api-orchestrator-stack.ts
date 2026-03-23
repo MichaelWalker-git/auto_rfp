@@ -53,6 +53,7 @@ import { engagementLogDomain } from './routes/engagement-log.routes';
 import { apnDomain } from './routes/apn.routes';
 import { proposalSubmissionDomain } from './routes/proposal-submission.routes';
 import { documentApprovalDomain } from './routes/document-approval.routes';
+import { pricingDomain } from './routes/pricing.routes';
 
 export interface ApiOrchestratorStackProps extends cdk.StackProps {
   stage: string;
@@ -62,6 +63,7 @@ export interface ApiOrchestratorStackProps extends cdk.StackProps {
   execBriefQueue?: sqs.IQueue;
   googleDriveSyncQueue?: sqs.IQueue;
   documentGenerationQueue?: sqs.IQueue;
+  clarifyingQuestionQueue?: sqs.IQueue;
   notificationQueueName?: string;
   auditLogQueueName?: string;
   documentPipelineStateMachineArn: string;
@@ -358,6 +360,45 @@ export class ApiOrchestratorStack extends cdk.Stack {
       googleDriveSyncQueue.grantConsumeMessages(googleDriveSyncWorker);
     }
 
+    // Clarifying Question worker — processes async clarifying question generation (Bedrock calls)
+    const clarifyingQuestionQueue = props.clarifyingQuestionQueue;
+    const clarifyingQuestionQueueUrl = clarifyingQuestionQueue?.queueUrl || '';
+    if (clarifyingQuestionQueue) {
+      clarifyingQuestionQueue.grantSendMessages(sharedInfraStack.commonLambdaRole);
+
+      const clarifyingQuestionWorker = new lambdaNodejs.NodejsFunction(this, `ClarifyingQuestionWorker-${stage}`, {
+        functionName: `auto-rfp-clarifying-question-worker-${stage}`,
+        entry: path.join(__dirname, '../../../apps/functions/src/handlers/clarifying-question/clarifying-question-worker.ts'),
+        handler: 'handler',
+        runtime: lambda.Runtime.NODEJS_20_X,
+        timeout: cdk.Duration.minutes(3), // Match SQS visibility timeout
+        memorySize: 1024,
+        role: sharedInfraStack.commonLambdaRole,
+        environment: { ...commonEnv },
+        bundling: {
+          minify: true,
+          sourceMap: true,
+          externalModules: ['@aws-sdk/*'],
+        },
+      });
+
+      clarifyingQuestionWorker.addEventSource(
+        new lambdaEventSources.SqsEventSource(clarifyingQuestionQueue, {
+          batchSize: 1,
+          reportBatchItemFailures: true,
+        }),
+      );
+
+      clarifyingQuestionQueue.grantConsumeMessages(clarifyingQuestionWorker);
+
+      // Add log group for the worker
+      new logs.LogGroup(this, `ClarifyingQuestionWorkerLogs-${stage}`, {
+        logGroupName: `/aws/lambda/auto-rfp-clarifying-question-worker-${stage}`,
+        retention: stage === 'prod' ? logs.RetentionDays.INFINITE : logs.RetentionDays.TWO_WEEKS,
+        removalPolicy: cdk.RemovalPolicy.DESTROY,
+      });
+    }
+
     // Document Generation worker — processes async Bedrock document generation
     const docGenQueueUrl = documentGenerationQueue?.queueUrl || '';
     if (documentGenerationQueue) {
@@ -427,11 +468,12 @@ export class ApiOrchestratorStack extends cdk.Stack {
       notificationDomain(),
       auditDomain(),
       analyticsDomain(),
-      clarifyingQuestionDomain(),
+      clarifyingQuestionDomain(clarifyingQuestionQueueUrl),
       engagementLogDomain(),
       apnDomain(),
       proposalSubmissionDomain(),
       documentApprovalDomain(),
+      pricingDomain(),
     ];
 
     // Compute a hash of all route definitions so the deployment logical ID changes
@@ -490,6 +532,7 @@ export class ApiOrchestratorStack extends cdk.Stack {
       'ApnRoutes',
       'ProposalSubmissionRoutes',
       'DocumentApprovalRoutes',
+      'PricingRoutes',
     ];
 
     const routeNestedStacks: ApiDomainRoutesStack[] = [];
