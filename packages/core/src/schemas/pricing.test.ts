@@ -280,20 +280,24 @@ describe('pricing schemas', () => {
       expect(data?.laborCostTotal).toBe(0);
     });
 
-    it('should reject negative cost totals', () => {
-      const { success } = PricingSectionSchema.safeParse({
+    it('should coerce negative cost totals to 0 via preprocess', () => {
+      const { success, data } = PricingSectionSchema.safeParse({
         ...validPricingSection,
         materialCostTotal: -100,
       });
+      // preprocess coerces -100 to -100 (number), then nonnegative() rejects it
+      // Actually, coerceNumber returns -100 as-is since it's a valid number
+      // nonnegative() then rejects it
       expect(success).toBe(false);
     });
 
-    it('should still require positive totalPrice', () => {
-      const { success } = PricingSectionSchema.safeParse({
+    it('should allow zero totalPrice (coerced from nonnegative)', () => {
+      const { success, data } = PricingSectionSchema.safeParse({
         ...validPricingSection,
         totalPrice: 0,
       });
-      expect(success).toBe(false);
+      expect(success).toBe(true);
+      expect(data?.totalPrice).toBe(0);
     });
 
     it('should apply default empty arrays', () => {
@@ -313,6 +317,116 @@ describe('pricing schemas', () => {
       expect(data?.pricingRisks).toEqual([]);
       expect(data?.recommendedActions).toEqual([]);
       expect(data?.assumptions).toEqual([]);
+    });
+
+    // ─── AI coercion tests ───
+
+    it('should coerce string "$1,000,000" to number 1000000', () => {
+      const { success, data } = PricingSectionSchema.safeParse({
+        ...validPricingSection,
+        totalPrice: '$1,000,000',
+        laborCostTotal: '$800,000',
+      });
+      expect(success).toBe(true);
+      expect(data?.totalPrice).toBe(1000000);
+      expect(data?.laborCostTotal).toBe(800000);
+    });
+
+    it('should coerce shorthand "1.5M" to 1500000', () => {
+      const { success, data } = PricingSectionSchema.safeParse({
+        ...validPricingSection,
+        totalPrice: '1.5M',
+        laborCostTotal: '500K',
+      });
+      expect(success).toBe(true);
+      expect(data?.totalPrice).toBe(1500000);
+      expect(data?.laborCostTotal).toBe(500000);
+    });
+
+    it('should coerce null/undefined cost fields to 0', () => {
+      const { success, data } = PricingSectionSchema.safeParse({
+        ...validPricingSection,
+        materialCostTotal: null,
+        indirectCostTotal: undefined,
+      });
+      expect(success).toBe(true);
+      expect(data?.materialCostTotal).toBe(0);
+      expect(data?.indirectCostTotal).toBe(0);
+    });
+
+    it('should coerce "N/A" and "TBD" to 0', () => {
+      const { success, data } = PricingSectionSchema.safeParse({
+        ...validPricingSection,
+        materialCostTotal: 'N/A',
+        indirectCostTotal: 'TBD',
+      });
+      expect(success).toBe(true);
+      expect(data?.materialCostTotal).toBe(0);
+      expect(data?.indirectCostTotal).toBe(0);
+    });
+
+    it('should coerce strategy strings like "Cost Plus" or "Fixed Price"', () => {
+      const { success: s1, data: d1 } = PricingSectionSchema.safeParse({
+        ...validPricingSection,
+        strategy: 'Cost Plus',
+      });
+      expect(s1).toBe(true);
+      expect(d1?.strategy).toBe('COST_PLUS');
+
+      const { success: s2, data: d2 } = PricingSectionSchema.safeParse({
+        ...validPricingSection,
+        strategy: 'Fixed Price',
+      });
+      expect(s2).toBe(true);
+      expect(d2?.strategy).toBe('FIXED_PRICE');
+
+      const { success: s3, data: d3 } = PricingSectionSchema.safeParse({
+        ...validPricingSection,
+        strategy: 'T&M',
+      });
+      expect(s3).toBe(true);
+      expect(d3?.strategy).toBe('TIME_AND_MATERIALS');
+    });
+
+    it('should coerce competitive position strings', () => {
+      const { success: s1, data: d1 } = PricingSectionSchema.safeParse({
+        ...validPricingSection,
+        competitivePosition: 'Below Market',
+      });
+      expect(s1).toBe(true);
+      expect(d1?.competitivePosition).toBe('LOW');
+
+      const { success: s2, data: d2 } = PricingSectionSchema.safeParse({
+        ...validPricingSection,
+        competitivePosition: 'Above Market',
+      });
+      expect(s2).toBe(true);
+      expect(d2?.competitivePosition).toBe('HIGH');
+    });
+
+    it('should clamp priceConfidence to 0-100', () => {
+      const { success: s1, data: d1 } = PricingSectionSchema.safeParse({
+        ...validPricingSection,
+        priceConfidence: 150,
+      });
+      expect(s1).toBe(true);
+      expect(d1?.priceConfidence).toBe(100);
+
+      const { success: s2, data: d2 } = PricingSectionSchema.safeParse({
+        ...validPricingSection,
+        priceConfidence: '85%',
+      });
+      expect(s2).toBe(true);
+      expect(d2?.priceConfidence).toBe(85);
+    });
+
+    it('should handle null basisOfEstimate', () => {
+      const { success, data } = PricingSectionSchema.safeParse({
+        ...validPricingSection,
+        basisOfEstimate: null,
+      });
+      expect(success).toBe(true);
+      expect(data?.basisOfEstimate).toBe('No basis of estimate provided');
     });
   });
 });

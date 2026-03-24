@@ -78,9 +78,7 @@ export const RequiredDocumentsPanel = ({
   const handleGenerateAll = async () => {
     setIsGeneratingAll(true);
     const pending = requiredDocuments.filter((d) => !existingByType.has(d.documentType));
-    for (const doc of pending) {
-      await handleGenerate(doc);
-    }
+    await Promise.all(pending.map((doc) => handleGenerate(doc)));
     setIsGeneratingAll(false);
   };
 
