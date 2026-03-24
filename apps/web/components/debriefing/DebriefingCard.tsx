@@ -8,23 +8,40 @@ import { DebriefingStatusBadge } from './DebriefingStatusBadge';
 import { RequestDebriefingDialog } from './RequestDebriefingDialog';
 import { useDebriefings } from '@/lib/hooks/use-debriefing';
 import PermissionWrapper from '@/components/permission-wrapper';
-import { Calendar, Clock, Mail, Phone, User, AlertTriangle, MessageSquare, Plus } from 'lucide-react';
+import {
+  Calendar,
+  Clock,
+  User,
+  AlertTriangle,
+  MessageSquare,
+  Plus,
+  FileText,
+  Building2,
+  Mail,
+} from 'lucide-react';
 import { format, formatDistanceToNow, isPast } from 'date-fns';
 import type { DebriefingItem } from '@auto-rfp/core';
 
 interface DebriefingCardProps {
   projectId: string;
   orgId: string;
+  opportunityId: string;
   projectOutcomeStatus?: string;
+  /** Pre-populate dialog from opportunity data */
+  solicitationNumber?: string;
+  contractTitle?: string;
   onDebriefingChange?: (debriefing: DebriefingItem) => void;
 }
 
-export function DebriefingCard({
+export const DebriefingCard = ({
   projectId,
   orgId,
+  opportunityId,
   projectOutcomeStatus,
+  solicitationNumber,
+  contractTitle,
   onDebriefingChange,
-}: DebriefingCardProps) {
+}: DebriefingCardProps) => {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const { debriefings, isLoading, refetch } = useDebriefings(orgId, projectId);
 
@@ -103,6 +120,46 @@ export function DebriefingCard({
                 )}
               </div>
 
+              {/* Solicitation / Contract summary */}
+              {(latestDebriefing.solicitationNumber || latestDebriefing.contractNumber) && (
+                <div className="grid gap-1.5 pt-2 border-t text-xs text-muted-foreground">
+                  {latestDebriefing.solicitationNumber && (
+                    <div className="flex items-center gap-2">
+                      <FileText className="h-3.5 w-3.5 shrink-0" />
+                      <span>Solicitation: {latestDebriefing.solicitationNumber}</span>
+                    </div>
+                  )}
+                  {latestDebriefing.contractNumber && (
+                    <div className="flex items-center gap-2">
+                      <FileText className="h-3.5 w-3.5 shrink-0" />
+                      <span>Contract: {latestDebriefing.contractNumber}</span>
+                    </div>
+                  )}
+                  {latestDebriefing.awardedOrganization && (
+                    <div className="flex items-center gap-2">
+                      <Building2 className="h-3.5 w-3.5 shrink-0" />
+                      <span>Awarded to: {latestDebriefing.awardedOrganization}</span>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Contracting officer */}
+              {latestDebriefing.contractingOfficerName && (
+                <div className="grid gap-1.5 pt-2 border-t text-xs text-muted-foreground">
+                  <div className="flex items-center gap-2">
+                    <User className="h-3.5 w-3.5 shrink-0" />
+                    <span>CO: {latestDebriefing.contractingOfficerName}</span>
+                  </div>
+                  {latestDebriefing.contractingOfficerEmail && (
+                    <div className="flex items-center gap-2">
+                      <Mail className="h-3.5 w-3.5 shrink-0" />
+                      <span>{latestDebriefing.contractingOfficerEmail}</span>
+                    </div>
+                  )}
+                </div>
+              )}
+
               {/* Attendees info */}
               {latestDebriefing.attendees && latestDebriefing.attendees.length > 0 && (
                 <div className="grid gap-2 pt-2 border-t text-sm">
@@ -143,7 +200,7 @@ export function DebriefingCard({
                 <div className="pt-2 border-t">
                   <p className="text-xs font-medium mb-1">Strengths:</p>
                   <ul className="text-xs text-muted-foreground list-disc list-inside">
-                    {latestDebriefing.strengthsIdentified.map((strength, idx) => (
+                    {latestDebriefing.strengthsIdentified.map((strength: string, idx: number) => (
                       <li key={idx}>{strength}</li>
                     ))}
                   </ul>
@@ -182,8 +239,11 @@ export function DebriefingCard({
         onOpenChange={setIsDialogOpen}
         projectId={projectId}
         orgId={orgId}
+        opportunityId={opportunityId}
+        solicitationNumber={solicitationNumber}
+        contractTitle={contractTitle}
         onSuccess={handleDebriefingSuccess}
       />
     </>
   );
-}
+};

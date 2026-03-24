@@ -17,6 +17,7 @@ import { format, formatDistanceToNow, isPast } from 'date-fns';
 interface FOIARequestCardProps {
   projectId: string;
   orgId: string;
+  opportunityId: string;
   projectOutcomeStatus?: string;
   agencyName?: string;
   solicitationNumber?: string;
@@ -26,6 +27,7 @@ interface FOIARequestCardProps {
 export function FOIARequestCard({
                                   projectId,
                                   orgId,
+                                  opportunityId,
                                   projectOutcomeStatus,
                                   agencyName,
                                   solicitationNumber,
@@ -266,6 +268,7 @@ export function FOIARequestCard({
         onOpenChange={setIsDialogOpen}
         projectId={projectId}
         orgId={orgId}
+        opportunityId={opportunityId}
         agencyName={agencyName}
         solicitationNumber={solicitationNumber}
         onSuccess={handleFOIASuccess}

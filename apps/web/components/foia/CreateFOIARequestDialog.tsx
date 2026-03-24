@@ -34,6 +34,7 @@ interface CreateFOIARequestDialogProps {
   onOpenChange: (open: boolean) => void;
   projectId: string;
   orgId: string;
+  opportunityId: string;
   agencyName?: string;
   solicitationNumber?: string;
   onSuccess?: (foiaRequest: FOIARequestItem) => void;
@@ -44,6 +45,7 @@ export const CreateFOIARequestDialog = ({
   onOpenChange,
   projectId,
   orgId,
+  opportunityId,
   agencyName: initialAgencyName = '',
   solicitationNumber: initialSolicitationNumber = '',
   onSuccess,
@@ -66,12 +68,11 @@ export const CreateFOIARequestDialog = ({
     defaultValues: {
       projectId,
       orgId,
+      opportunityId,
       agencyName: initialAgencyName,
       solicitationNumber: initialSolicitationNumber,
       requestedDocuments: [],
-      requesterCategory: 'OTHER',
-      feeLimit: 50,
-      requestFeeWaiver: false,
+      feeLimit: 0,
     },
   });
 
@@ -103,12 +104,11 @@ export const CreateFOIARequestDialog = ({
       reset({
         projectId,
         orgId,
+        opportunityId,
         agencyName: initialAgencyName,
         solicitationNumber: initialSolicitationNumber,
         requestedDocuments: [],
-        requesterCategory: 'OTHER',
-        feeLimit: 50,
-        requestFeeWaiver: false,
+        feeLimit: 0,
         requesterName: primaryContact?.name ?? '',
         requesterEmail: primaryContact?.email ?? '',
         requesterPhone: primaryContact?.phone ?? '',
@@ -175,6 +175,29 @@ export const CreateFOIARequestDialog = ({
               </div>
             </div>
 
+            {/* Company Information */}
+            <div className="space-y-4">
+              <h4 className="text-sm font-medium">Company Information</h4>
+              <div className="grid gap-3">
+                <div className="grid gap-2">
+                  <Label htmlFor="companyName">Company Name</Label>
+                  <Input
+                    id="companyName"
+                    placeholder="e.g., Acme Corp"
+                    {...register('companyName')}
+                  />
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="samUEI">SAM UEI</Label>
+                  <Input
+                    id="samUEI"
+                    placeholder="e.g., ABC123DEF456"
+                    {...register('samUEI')}
+                  />
+                </div>
+              </div>
+            </div>
+
             {/* Contract Information */}
             <div className="space-y-4">
               <h4 className="text-sm font-medium">Contract Information</h4>
@@ -191,11 +214,35 @@ export const CreateFOIARequestDialog = ({
                   )}
                 </div>
                 <div className="grid gap-2">
+                  <Label htmlFor="contractTitle">Contract Title</Label>
+                  <Input
+                    id="contractTitle"
+                    placeholder="e.g., IT Services Support"
+                    {...register('contractTitle')}
+                  />
+                </div>
+                <div className="grid gap-2">
                   <Label htmlFor="contractNumber">Contract Number (if known)</Label>
                   <Input
                     id="contractNumber"
                     placeholder="e.g., W911NF-21-C-0001"
                     {...register('contractNumber')}
+                  />
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="awardeeName">Awardee Name</Label>
+                  <Input
+                    id="awardeeName"
+                    placeholder="e.g., Winning Contractor LLC"
+                    {...register('awardeeName')}
+                  />
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="awardDate">Award Date</Label>
+                  <Input
+                    id="awardDate"
+                    placeholder="e.g., January 15, 2026"
+                    {...register('awardDate')}
                   />
                 </div>
               </div>

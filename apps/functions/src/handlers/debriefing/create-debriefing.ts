@@ -5,7 +5,6 @@ import { v4 as uuidv4 } from 'uuid';
 
 import {
   calculateDebriefingDeadline,
-  type CreateDebriefingRequest,
   CreateDebriefingRequestSchema,
 } from '@auto-rfp/core';
 import { PK_NAME, SK_NAME } from '@/constants/common';
@@ -22,6 +21,7 @@ import { auditMiddleware, setAuditContext } from '@/middleware/audit-middleware'
 import { requireEnv } from '@/helpers/env';
 import { docClient } from '@/helpers/db';
 import type { DBDebriefingItem } from '@/types/project-outcome';
+import type { CreateDebriefingRequest } from '@auto-rfp/core';
 
 const DB_TABLE_NAME = requireEnv('DB_TABLE_NAME');
 
@@ -38,10 +38,10 @@ export const baseHandler = async (
 
   try {
     const rawBody = JSON.parse(event.body);
-    const validationResult = CreateDebriefingRequestSchema.safeParse(rawBody);
+    const { success, data: dto, error } = CreateDebriefingRequestSchema.safeParse(rawBody);
 
-    if (!validationResult.success) {
-      const errorDetails = validationResult.error.issues.map((issue) => ({
+    if (!success) {
+      const errorDetails = error.issues.map((issue) => ({
         path: issue.path.join('.'),
         message: issue.message,
       }));
@@ -52,11 +52,10 @@ export const baseHandler = async (
       });
     }
 
-    const dto: CreateDebriefingRequest = validationResult.data;
     const userId = event.authContext?.userId || 'unknown';
 
-    // Verify project has a LOST outcome
-    const outcomeExists = await checkLostOutcome(dto.orgId, dto.projectId);
+    // Verify the specific opportunity has a LOST outcome
+    const outcomeExists = await checkLostOutcome(dto.orgId, dto.projectId, dto.opportunityId);
     if (!outcomeExists) {
       return apiResponse(400, {
         message: 'Debriefing can only be requested for projects with LOST outcome',
@@ -65,7 +64,7 @@ export const baseHandler = async (
 
     const debriefing = await createDebriefing(dto, userId);
 
-    
+
     setAuditContext(event, {
       action: 'CONFIG_CHANGED',
       resource: 'config',
@@ -87,29 +86,47 @@ export const baseHandler = async (
   }
 };
 
-async function checkLostOutcome(orgId: string, projectId: string): Promise<boolean> {
+const checkLostOutcome = async (orgId: string, projectId: string, opportunityId: string): Promise<boolean> => {
   const cmd = new GetCommand({
     TableName: DB_TABLE_NAME,
     Key: {
       [PK_NAME]: PROJECT_OUTCOME_PK,
-      [SK_NAME]: `${orgId}#${projectId}`,
+      [SK_NAME]: `${orgId}#${projectId}#${opportunityId}`,
     },
   });
 
   const result = await docClient.send(cmd);
   return result.Item?.status === 'LOST';
-}
+};
 
-export async function createDebriefing(
+export const createDebriefing = async (
   dto: CreateDebriefingRequest,
   userId: string
-): Promise<DBDebriefingItem> {
-  const { projectId, orgId, requestDeadline } = dto;
+): Promise<DBDebriefingItem> => {
+  const {
+    projectId,
+    orgId,
+    solicitationNumber,
+    contractNumber,
+    contractTitle,
+    awardedOrganization,
+    awardNotificationDate,
+    contractingOfficerName,
+    contractingOfficerEmail,
+    contractingOfficerAddress,
+    requesterName,
+    requesterTitle,
+    requesterEmail,
+    requesterAddress,
+    companyName,
+    attachedQuestions,
+  } = dto;
+
   const now = new Date().toISOString();
   const debriefId = uuidv4();
 
-  // Calculate deadline (3 business days from now) or use provided deadline
-  const deadlineDate = requestDeadline ? new Date(requestDeadline) : calculateDebriefingDeadline(new Date());
+  // Calculate deadline (3 business days from now)
+  const deadlineDate = calculateDebriefingDeadline(new Date());
   const deadline = deadlineDate.toISOString();
 
   // Create sort key: orgId#projectId#debriefingId
@@ -123,6 +140,20 @@ export async function createDebriefing(
     orgId,
     requestStatus: 'REQUESTED',
     requestDeadline: deadline,
+    solicitationNumber,
+    contractNumber,
+    contractTitle,
+    awardedOrganization,
+    awardNotificationDate,
+    contractingOfficerName,
+    contractingOfficerEmail,
+    contractingOfficerAddress,
+    requesterName,
+    requesterTitle,
+    requesterEmail,
+    requesterAddress,
+    companyName,
+    attachedQuestions,
     createdAt: now,
     updatedAt: now,
     createdBy: userId,
@@ -136,7 +167,7 @@ export async function createDebriefing(
   await docClient.send(cmd);
 
   return debriefingItem;
-}
+};
 
 export const handler = withSentryLambda(
   middy(baseHandler)

@@ -1,5 +1,5 @@
 import { APIGatewayProxyEventV2, APIGatewayProxyResultV2 } from 'aws-lambda';
-import { PutCommand, GetCommand } from '@aws-sdk/lib-dynamodb';
+import { GetCommand, PutCommand } from '@aws-sdk/lib-dynamodb';
 import middy from '@middy/core';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -38,10 +38,10 @@ export const baseHandler = async (
 
   try {
     const rawBody = JSON.parse(event.body);
-    const validationResult = CreateFOIARequestSchema.safeParse(rawBody);
+    const { success, data: dto, error } = CreateFOIARequestSchema.safeParse(rawBody);
 
-    if (!validationResult.success) {
-      const errorDetails = validationResult.error.issues.map((issue) => ({
+    if (!success) {
+      const errorDetails = error.issues.map((issue) => ({
         path: issue.path.join('.'),
         message: issue.message,
       }));
@@ -51,12 +51,10 @@ export const baseHandler = async (
         errors: errorDetails,
       });
     }
-
-    const dto: CreateFOIARequest = validationResult.data;
     const userId = event.authContext?.userId || 'unknown';
 
-    // Verify project has a LOST outcome
-    const outcomeExists = await checkLostOutcome(dto.orgId, dto.projectId);
+    // Verify the specific opportunity has a LOST outcome
+    const outcomeExists = await checkLostOutcome(dto.orgId, dto.projectId, dto.opportunityId);
     if (!outcomeExists) {
       return apiResponse(400, {
         message: 'FOIA request can only be created for projects with LOST outcome',
@@ -87,12 +85,12 @@ export const baseHandler = async (
   }
 };
 
-async function checkLostOutcome(orgId: string, projectId: string): Promise<boolean> {
+async function checkLostOutcome(orgId: string, projectId: string, opportunityId: string): Promise<boolean> {
   const cmd = new GetCommand({
     TableName: DB_TABLE_NAME,
     Key: {
       [PK_NAME]: PROJECT_OUTCOME_PK,
-      [SK_NAME]: `${orgId}#${projectId}`,
+      [SK_NAME]: `${orgId}#${projectId}#${opportunityId}`,
     },
   });
 
@@ -112,16 +110,18 @@ export async function createFOIARequest(
     agencyFOIAAddress,
     solicitationNumber,
     contractNumber,
+    contractTitle,
     requestedDocuments,
     customDocumentRequests,
     requesterName,
     requesterEmail,
     requesterPhone,
     requesterAddress,
-    requesterCategory,
+    companyName,
+    samUEI,
+    awardeeName,
+    awardDate,
     feeLimit,
-    requestFeeWaiver,
-    feeWaiverJustification,
     notes,
   } = dto;
 
@@ -148,15 +148,16 @@ export async function createFOIARequest(
     agencyFOIAEmail,
     agencyFOIAAddress,
     agencyAbbreviation: agencyName,
-    contractTitle: solicitationNumber,
+    contractTitle: contractTitle || solicitationNumber,
     contractNumber,
     solicitationNumber,
     requestedDocuments,
     customDocumentRequests,
-    requesterCategory: requesterCategory || 'OTHER',
-    feeLimit: feeLimit ?? 50,
-    requestFeeWaiver: requestFeeWaiver ?? false,
-    feeWaiverJustification,
+    feeLimit: feeLimit ?? 0,
+    companyName,
+    samUEI,
+    awardeeName,
+    awardDate,
     requesterName,
     requesterEmail,
     requesterPhone,

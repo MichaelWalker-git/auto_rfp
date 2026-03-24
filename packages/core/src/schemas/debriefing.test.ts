@@ -8,7 +8,9 @@ import {
   UpdateDebriefingRequestSchema,
   GenerateDebriefingLetterRequestSchema,
   calculateDebriefingDeadline,
+  generateDebriefingEmailSubject,
   type DebriefingStatus,
+  type CreateDebriefingRequest,
 } from './debriefing';
 
 describe('DebriefingStatusSchema', () => {
@@ -65,6 +67,19 @@ describe('DebriefingItemSchema', () => {
     requestDeadline: '2025-01-20T17:00:00Z',
     requestSentDate: '2025-01-18T09:00:00Z',
     requestMethod: 'EMAIL',
+    solicitationNumber: 'W911NF-21-R-0001',
+    contractNumber: 'W911NF-21-C-0001',
+    contractTitle: 'IT Services Contract',
+    awardedOrganization: 'WinnerCo LLC',
+    awardNotificationDate: 'January 15, 2025',
+    contractingOfficerName: 'Jane Officer',
+    contractingOfficerEmail: 'jane@agency.gov',
+    contractingOfficerAddress: '1400 Defense Pentagon, Washington DC 20301',
+    requesterName: 'John Smith',
+    requesterTitle: 'Contracts Manager',
+    requesterEmail: 'john@company.com',
+    requesterAddress: '123 Business Ave, Arlington VA 22201',
+    companyName: 'Acme Corp',
     scheduledDate: '2025-01-25T14:00:00Z',
     locationType: 'VIRTUAL',
     location: 'Microsoft Teams',
@@ -113,7 +128,7 @@ describe('DebriefingItemSchema', () => {
     expect(result.success).toBe(false);
   });
 
-  it('allows minimal debriefing', () => {
+  it('allows minimal debriefing (backward compat — no new fields)', () => {
     const minimal = {
       debriefId: '550e8400-e29b-41d4-a716-446655440000',
       projectId: 'proj-123',
@@ -128,55 +143,132 @@ describe('DebriefingItemSchema', () => {
     const result = DebriefingItemSchema.safeParse(minimal);
     expect(result.success).toBe(true);
   });
+
+  it('validates contractingOfficerEmail as email when present', () => {
+    const invalid = { ...validDebriefing, contractingOfficerEmail: 'not-an-email' };
+    const result = DebriefingItemSchema.safeParse(invalid);
+    expect(result.success).toBe(false);
+  });
+
+  it('validates requesterEmail as email when present', () => {
+    const invalid = { ...validDebriefing, requesterEmail: 'not-an-email' };
+    const result = DebriefingItemSchema.safeParse(invalid);
+    expect(result.success).toBe(false);
+  });
 });
 
 describe('CreateDebriefingRequestSchema', () => {
-  it('validates valid create request', () => {
-    const request = {
-      projectId: 'proj-123',
-      orgId: 'org-456',
-      requestDeadline: '2025-01-20T17:00:00Z',
-    };
+  const validRequest = {
+    projectId: 'proj-123',
+    orgId: 'org-456',
+    opportunityId: 'opp-789',
+    solicitationNumber: 'W911NF-21-R-0001',
+    contractNumber: 'W911NF-21-C-0001',
+    contractTitle: 'IT Services Contract',
+    awardedOrganization: 'WinnerCo LLC',
+    awardNotificationDate: 'January 15, 2025',
+    contractingOfficerName: 'Jane Officer',
+    contractingOfficerEmail: 'jane@agency.gov',
+    contractingOfficerAddress: '1400 Defense Pentagon, Washington DC 20301',
+    requesterName: 'John Smith',
+    requesterTitle: 'Contracts Manager',
+    requesterEmail: 'john@company.com',
+    requesterAddress: '123 Business Ave, Arlington VA 22201',
+    companyName: 'Acme Corp',
+  };
 
-    const result = CreateDebriefingRequestSchema.safeParse(request);
+  it('validates valid create request with all required fields', () => {
+    const result = CreateDebriefingRequestSchema.safeParse(validRequest);
     expect(result.success).toBe(true);
   });
 
-  it('allows missing requestDeadline', () => {
-    const request = {
-      projectId: 'proj-123',
-      orgId: 'org-456',
-    };
-
-    const result = CreateDebriefingRequestSchema.safeParse(request);
+  it('accepts optional attachedQuestions', () => {
+    const withQuestions = { ...validRequest, attachedQuestions: 'Why was our technical score lower?' };
+    const result = CreateDebriefingRequestSchema.safeParse(withQuestions);
     expect(result.success).toBe(true);
   });
 
   it('requires projectId', () => {
-    const request = {
-      orgId: 'org-456',
-    };
-
-    const result = CreateDebriefingRequestSchema.safeParse(request);
+    const { projectId, ...without } = validRequest;
+    const result = CreateDebriefingRequestSchema.safeParse(without);
     expect(result.success).toBe(false);
   });
 
   it('requires orgId', () => {
-    const request = {
-      projectId: 'proj-123',
-    };
+    const { orgId, ...without } = validRequest;
+    const result = CreateDebriefingRequestSchema.safeParse(without);
+    expect(result.success).toBe(false);
+  });
 
-    const result = CreateDebriefingRequestSchema.safeParse(request);
+  it('requires opportunityId', () => {
+    const { opportunityId, ...without } = validRequest;
+    const result = CreateDebriefingRequestSchema.safeParse(without);
+    expect(result.success).toBe(false);
+  });
+
+  it('requires solicitationNumber', () => {
+    const { solicitationNumber, ...without } = validRequest;
+    const result = CreateDebriefingRequestSchema.safeParse(without);
+    expect(result.success).toBe(false);
+  });
+
+  it('requires contractNumber', () => {
+    const { contractNumber, ...without } = validRequest;
+    const result = CreateDebriefingRequestSchema.safeParse(without);
+    expect(result.success).toBe(false);
+  });
+
+  it('requires contractTitle', () => {
+    const { contractTitle, ...without } = validRequest;
+    const result = CreateDebriefingRequestSchema.safeParse(without);
+    expect(result.success).toBe(false);
+  });
+
+  it('requires awardedOrganization', () => {
+    const { awardedOrganization, ...without } = validRequest;
+    const result = CreateDebriefingRequestSchema.safeParse(without);
+    expect(result.success).toBe(false);
+  });
+
+  it('requires contractingOfficerName', () => {
+    const { contractingOfficerName, ...without } = validRequest;
+    const result = CreateDebriefingRequestSchema.safeParse(without);
+    expect(result.success).toBe(false);
+  });
+
+  it('requires contractingOfficerEmail to be valid email', () => {
+    const invalid = { ...validRequest, contractingOfficerEmail: 'not-an-email' };
+    const result = CreateDebriefingRequestSchema.safeParse(invalid);
+    expect(result.success).toBe(false);
+  });
+
+  it('requires requesterName', () => {
+    const { requesterName, ...without } = validRequest;
+    const result = CreateDebriefingRequestSchema.safeParse(without);
+    expect(result.success).toBe(false);
+  });
+
+  it('requires requesterEmail to be valid email', () => {
+    const invalid = { ...validRequest, requesterEmail: 'not-an-email' };
+    const result = CreateDebriefingRequestSchema.safeParse(invalid);
+    expect(result.success).toBe(false);
+  });
+
+  it('requires companyName', () => {
+    const { companyName, ...without } = validRequest;
+    const result = CreateDebriefingRequestSchema.safeParse(without);
+    expect(result.success).toBe(false);
+  });
+
+  it('rejects empty solicitationNumber', () => {
+    const invalid = { ...validRequest, solicitationNumber: '' };
+    const result = CreateDebriefingRequestSchema.safeParse(invalid);
     expect(result.success).toBe(false);
   });
 
   it('rejects empty projectId', () => {
-    const request = {
-      projectId: '',
-      orgId: 'org-456',
-    };
-
-    const result = CreateDebriefingRequestSchema.safeParse(request);
+    const invalid = { ...validRequest, projectId: '' };
+    const result = CreateDebriefingRequestSchema.safeParse(invalid);
     expect(result.success).toBe(false);
   });
 });
@@ -197,6 +289,18 @@ describe('UpdateDebriefingRequestSchema', () => {
       scheduledDate: '2025-01-25T14:00:00Z',
       locationType: 'VIRTUAL',
       meetingLink: 'https://zoom.us/j/123456',
+    };
+
+    const result = UpdateDebriefingRequestSchema.safeParse(update);
+    expect(result.success).toBe(true);
+  });
+
+  it('validates update with new debriefing fields', () => {
+    const update = {
+      solicitationNumber: 'W911NF-21-R-0001',
+      contractingOfficerName: 'Jane Officer',
+      requesterName: 'John Smith',
+      companyName: 'Acme Corp',
     };
 
     const result = UpdateDebriefingRequestSchema.safeParse(update);
@@ -240,15 +344,43 @@ describe('GenerateDebriefingLetterRequestSchema', () => {
     const request = {
       projectId: 'proj-123',
       orgId: 'org-456',
+      debriefingId: 'debrief-1',
     };
 
     const result = GenerateDebriefingLetterRequestSchema.safeParse(request);
     expect(result.success).toBe(true);
   });
 
-  it('requires both projectId and orgId', () => {
-    expect(GenerateDebriefingLetterRequestSchema.safeParse({ projectId: 'proj-123' }).success).toBe(false);
-    expect(GenerateDebriefingLetterRequestSchema.safeParse({ orgId: 'org-456' }).success).toBe(false);
+  it('requires projectId, orgId, and debriefingId', () => {
+    expect(GenerateDebriefingLetterRequestSchema.safeParse({ projectId: 'proj-123', orgId: 'org-456' }).success).toBe(false);
+    expect(GenerateDebriefingLetterRequestSchema.safeParse({ projectId: 'proj-123', debriefingId: 'db-1' }).success).toBe(false);
+    expect(GenerateDebriefingLetterRequestSchema.safeParse({ orgId: 'org-456', debriefingId: 'db-1' }).success).toBe(false);
+  });
+});
+
+describe('generateDebriefingEmailSubject', () => {
+  it('generates correct email subject line', () => {
+    const data: CreateDebriefingRequest = {
+      projectId: 'proj-123',
+      orgId: 'org-456',
+      opportunityId: 'opp-789',
+      solicitationNumber: 'W911NF-21-R-0001',
+      contractNumber: 'W911NF-21-C-0001',
+      contractTitle: 'IT Services',
+      awardedOrganization: 'WinnerCo',
+      awardNotificationDate: 'January 15, 2025',
+        contractingOfficerName: 'Jane Officer',
+      contractingOfficerEmail: 'jane@agency.gov',
+      contractingOfficerAddress: '123 Main St',
+      requesterName: 'John Smith',
+      requesterTitle: 'Manager',
+      requesterEmail: 'john@company.com',
+      requesterAddress: '456 Oak Ave',
+      companyName: 'Acme Corp',
+    };
+
+    const subject = generateDebriefingEmailSubject(data);
+    expect(subject).toBe('POST-AWARD DEBRIEFING REQUEST — Solicitation No. W911NF-21-R-0001 | Contract No. W911NF-21-C-0001');
   });
 });
 
@@ -268,7 +400,7 @@ describe('calculateDebriefingDeadline', () => {
     const notification = new Date('2025-01-30T10:00:00Z');
     const deadline = calculateDebriefingDeadline(notification);
 
-    // Should be Wednesday February 5, 2025 (skips Sat/Sun)
+    // Should be Tuesday February 4, 2025 (Fri, skip Sat/Sun, Mon)
     expect(deadline.getDate()).toBe(4);
     expect(deadline.getMonth()).toBe(1); // February
   });

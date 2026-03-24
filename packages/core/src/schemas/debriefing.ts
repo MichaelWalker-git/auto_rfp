@@ -42,6 +42,28 @@ export const DebriefingItemSchema = z.object({
   requestSentDate: z.string().datetime({ offset: true }).optional(),
   requestMethod: DebriefingRequestMethodSchema.optional(),
 
+  // Solicitation / contract details (optional for backward compat with existing records)
+  solicitationNumber: z.string().optional(),
+  contractNumber: z.string().optional(),
+  contractTitle: z.string().optional(),
+  awardedOrganization: z.string().optional(),
+  awardNotificationDate: z.string().optional(),
+
+  // Contracting officer (optional for backward compat)
+  contractingOfficerName: z.string().optional(),
+  contractingOfficerEmail: z.string().email().optional(),
+  contractingOfficerAddress: z.string().optional(),
+
+  // Requester information (optional for backward compat)
+  requesterName: z.string().optional(),
+  requesterTitle: z.string().optional(),
+  requesterEmail: z.string().email().optional(),
+  requesterAddress: z.string().optional(),
+  companyName: z.string().optional(),
+
+  // Optional attached questions
+  attachedQuestions: z.string().optional(),
+
   // Scheduling
   scheduledDate: z.string().datetime({ offset: true }).optional(),
   locationType: DebriefingLocationTypeSchema.optional(),
@@ -70,10 +92,38 @@ export type DebriefingItem = z.infer<typeof DebriefingItemSchema>;
 export const CreateDebriefingRequestSchema = z.object({
   projectId: z.string().min(1, 'Project ID is required'),
   orgId: z.string().min(1, 'Organization ID is required'),
-  requestDeadline: z.string().datetime({ offset: true }).optional(),
+  opportunityId: z.string().min(1, 'Opportunity ID is required'),
+
+  // Solicitation / contract details
+  solicitationNumber: z.string().min(1, 'Solicitation number is required'),
+  contractNumber: z.string().min(1, 'Contract number is required'),
+  contractTitle: z.string().min(1, 'Contract title is required'),
+  awardedOrganization: z.string().min(1, 'Awarded organization is required'),
+  awardNotificationDate: z.string().min(1, 'Award notification date is required'),
+
+  // Contracting officer
+  contractingOfficerName: z.string().min(1, 'Contracting officer name is required'),
+  contractingOfficerEmail: z.string().email('Valid contracting officer email is required'),
+  contractingOfficerAddress: z.string().min(1, 'Contracting officer address is required'),
+
+  // Requester information
+  requesterName: z.string().min(1, 'Requester name is required'),
+  requesterTitle: z.string().min(1, 'Requester title is required'),
+  requesterEmail: z.string().email('Valid requester email is required'),
+  requesterAddress: z.string().min(1, 'Requester address is required'),
+  companyName: z.string().min(1, 'Company name is required'),
+
+  // Optional attached questions
+  attachedQuestions: z.string().optional(),
 });
 
 export type CreateDebriefingRequest = z.infer<typeof CreateDebriefingRequestSchema>;
+
+/**
+ * Auto-generated email subject — not a schema field, derived at send time
+ */
+export const generateDebriefingEmailSubject = (data: CreateDebriefingRequest): string =>
+  `POST-AWARD DEBRIEFING REQUEST — Solicitation No. ${data.solicitationNumber} | Contract No. ${data.contractNumber}`;
 
 /**
  * Update Debriefing Request DTO
@@ -86,6 +136,29 @@ export const UpdateDebriefingRequestSchema = z.object({
   requestStatus: DebriefingStatusSchema.optional(),
   requestSentDate: z.string().datetime({ offset: true }).optional(),
   requestMethod: DebriefingRequestMethodSchema.optional(),
+
+  // Solicitation / contract details
+  solicitationNumber: z.string().optional(),
+  contractNumber: z.string().optional(),
+  contractTitle: z.string().optional(),
+  awardedOrganization: z.string().optional(),
+  awardNotificationDate: z.string().optional(),
+
+  // Contracting officer
+  contractingOfficerName: z.string().optional(),
+  contractingOfficerEmail: z.string().email().optional(),
+  contractingOfficerAddress: z.string().optional(),
+
+  // Requester information
+  requesterName: z.string().optional(),
+  requesterTitle: z.string().optional(),
+  requesterEmail: z.string().email().optional(),
+  requesterAddress: z.string().optional(),
+  companyName: z.string().optional(),
+
+  // Optional attached questions
+  attachedQuestions: z.string().optional(),
+
   scheduledDate: z.string().datetime({ offset: true }).optional(),
   completedDate: z.string().datetime({ offset: true }).optional(),
   locationType: DebriefingLocationTypeSchema.optional(),
@@ -124,6 +197,7 @@ export type GetDebriefingResponse = z.infer<typeof GetDebriefingResponseSchema>;
 export const GenerateDebriefingLetterRequestSchema = z.object({
   projectId: z.string().min(1, 'Project ID is required'),
   orgId: z.string().min(1, 'Organization ID is required'),
+  debriefingId: z.string().min(1, 'Debriefing ID is required'),
 });
 
 export type GenerateDebriefingLetterRequest = z.infer<typeof GenerateDebriefingLetterRequestSchema>;
@@ -141,7 +215,7 @@ export type GenerateDebriefingLetterResponse = z.infer<typeof GenerateDebriefing
 /**
  * Calculate debriefing request deadline (3 business days from notification)
  */
-export function calculateDebriefingDeadline(notificationDate: Date): Date {
+export const calculateDebriefingDeadline = (notificationDate: Date): Date => {
   const deadline = new Date(notificationDate);
   let businessDays = 0;
 
@@ -155,4 +229,4 @@ export function calculateDebriefingDeadline(notificationDate: Date): Date {
   }
 
   return deadline;
-}
+};

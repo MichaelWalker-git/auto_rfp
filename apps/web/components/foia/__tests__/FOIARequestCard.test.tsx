@@ -36,6 +36,7 @@ describe('FOIARequestCard', () => {
   const defaultProps = {
     projectId: 'proj-123',
     orgId: 'org-456',
+    opportunityId: 'opp-789',
     projectOutcomeStatus: 'LOST',
     agencyName: 'Test Agency',
     solicitationNumber: 'SOL-123',

@@ -33,6 +33,7 @@ describe('FOIADocumentTypeSchema', () => {
       'CONSENSUS_WORKSHEETS',
       'RESPONSIBILITY_DETERMINATION',
       'CORRESPONDENCE',
+      'SOLICITATION_RECORDS',
     ];
 
     validTypes.forEach((type) => {
@@ -233,14 +234,13 @@ describe('CreateFOIARequestSchema', () => {
     const request = {
       projectId: 'proj-123',
       orgId: 'org-456',
+      opportunityId: 'opp-789',
       agencyName: 'Department of Defense',
       solicitationNumber: 'SOL-2025-001',
       requesterName: 'John Doe',
       requesterEmail: 'john@example.com',
       requestedDocuments: ['SSEB_REPORT', 'SSDD'],
-      requesterCategory: 'COMMERCIAL',
       feeLimit: 100,
-      requestFeeWaiver: false,
     };
 
     const result = CreateFOIARequestSchema.safeParse(request);
@@ -251,6 +251,7 @@ describe('CreateFOIARequestSchema', () => {
     const request = {
       projectId: 'proj-123',
       orgId: 'org-456',
+      opportunityId: 'opp-789',
       requestedDocuments: [],
     };
 
@@ -258,10 +259,11 @@ describe('CreateFOIARequestSchema', () => {
     expect(result.success).toBe(false);
   });
 
-  it('applies default values', () => {
+  it('applies default feeLimit of 0', () => {
     const request = {
       projectId: 'proj-123',
       orgId: 'org-456',
+      opportunityId: 'opp-789',
       agencyName: 'Department of Defense',
       solicitationNumber: 'SOL-2025-001',
       requesterName: 'John Doe',
@@ -272,9 +274,7 @@ describe('CreateFOIARequestSchema', () => {
     const result = CreateFOIARequestSchema.safeParse(request);
     expect(result.success).toBe(true);
     if (result.success) {
-      expect(result.data.requesterCategory).toBe('OTHER');
-      expect(result.data.feeLimit).toBe(50);
-      expect(result.data.requestFeeWaiver).toBe(false);
+      expect(result.data.feeLimit).toBe(0);
     }
   });
 
@@ -282,6 +282,7 @@ describe('CreateFOIARequestSchema', () => {
     const request = {
       projectId: 'proj-123',
       orgId: 'org-456',
+      opportunityId: 'opp-789',
       agencyName: 'Department of Defense',
       solicitationNumber: 'SOL-2025-001',
       requesterName: 'John Doe',
@@ -292,6 +293,34 @@ describe('CreateFOIARequestSchema', () => {
 
     const result = CreateFOIARequestSchema.safeParse(request);
     expect(result.success).toBe(true);
+  });
+
+  it('accepts new company and awardee fields', () => {
+    const request = {
+      projectId: 'proj-123',
+      orgId: 'org-456',
+      opportunityId: 'opp-789',
+      agencyName: 'Department of Defense',
+      solicitationNumber: 'SOL-2025-001',
+      requesterName: 'John Doe',
+      requesterEmail: 'john@example.com',
+      requestedDocuments: ['SSEB_REPORT'],
+      companyName: 'Acme Corp',
+      samUEI: 'ABC123DEF456',
+      awardeeName: 'Winning LLC',
+      awardDate: 'January 15, 2026',
+      contractTitle: 'IT Services',
+    };
+
+    const result = CreateFOIARequestSchema.safeParse(request);
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.companyName).toBe('Acme Corp');
+      expect(result.data.samUEI).toBe('ABC123DEF456');
+      expect(result.data.awardeeName).toBe('Winning LLC');
+      expect(result.data.awardDate).toBe('January 15, 2026');
+      expect(result.data.contractTitle).toBe('IT Services');
+    }
   });
 });
 
@@ -450,12 +479,13 @@ describe('FOIA_DOCUMENT_DESCRIPTIONS', () => {
       'CONSENSUS_WORKSHEETS',
       'RESPONSIBILITY_DETERMINATION',
       'CORRESPONDENCE',
+      'SOLICITATION_RECORDS',
     ];
 
     allTypes.forEach((type) => {
       expect(FOIA_DOCUMENT_DESCRIPTIONS[type]).toBeDefined();
       expect(typeof FOIA_DOCUMENT_DESCRIPTIONS[type]).toBe('string');
-      expect(FOIA_DOCUMENT_DESCRIPTIONS[type].length).toBeGreaterThan(20);
+      expect(FOIA_DOCUMENT_DESCRIPTIONS[type].length).toBeGreaterThan(10);
     });
   });
 });

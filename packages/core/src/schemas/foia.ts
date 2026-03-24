@@ -16,6 +16,7 @@ export const FOIADocumentTypeSchema = z.enum([
   'RESPONSIBILITY_DETERMINATION',
   'CORRESPONDENCE',
   'AWARD_NOTICE',
+  'SOLICITATION_RECORDS',
   'OTHER',
 ]);
 
@@ -30,19 +31,20 @@ export const FOIA_DOCUMENT_TYPES = FOIADocumentTypeSchema.options;
  * Human-readable descriptions for FOIA document types
  */
 export const FOIA_DOCUMENT_DESCRIPTIONS: Record<FOIADocumentType, string> = {
-  SSEB_REPORT: 'The complete Source Selection Evaluation Board (SSEB) report, including all technical and cost/price evaluations',
-  SSDD: 'The Source Selection Decision Document (SSDD)',
+  SSEB_REPORT: 'Source Selection Evaluation Board (SSEB) report',
+  SSDD: 'Source Selection Decision Document (SSDD)',
   TECHNICAL_EVAL: 'Technical evaluation reports and findings',
-  PRICE_ANALYSIS: 'Price/cost analysis documentation for all offerors',
-  PAST_PERFORMANCE_EVAL: 'Past performance evaluation reports for all offerors',
-  WINNING_PROPOSAL_TECH: "The winning contractor's technical proposal (with proprietary information redacted as required)",
+  PRICE_ANALYSIS: 'Price/cost analysis documentation',
+  PAST_PERFORMANCE_EVAL: 'Past performance evaluation reports',
+  WINNING_PROPOSAL_TECH: "Winning contractor's technical proposal (redacted as appropriate)",
   CONSENSUS_WORKSHEETS: 'Consensus evaluation worksheets and scoring documents',
-  RESPONSIBILITY_DETERMINATION: 'The determination of contractor responsibility',
-  CORRESPONDENCE: 'All correspondence between the contracting officer and the winning contractor during the evaluation period',
-  PROPOSAL_ABSTRACT: 'Proposal Abstract or Executive Summary',
-  DEBRIEFING_NOTES: 'Debriefing Notes or Documentation',
-  AWARD_NOTICE: 'Award Notice and Supporting Documentation',
-  OTHER: 'Other Relevant Documentation',
+  RESPONSIBILITY_DETERMINATION: 'Determination of contractor responsibility',
+  CORRESPONDENCE: 'Correspondence between the contracting officer and the winning contractor during the evaluation period',
+  PROPOSAL_ABSTRACT: 'Proposal abstract or executive summary',
+  DEBRIEFING_NOTES: 'Debriefing notes or documentation',
+  AWARD_NOTICE: 'Award notice and supporting documentation',
+  SOLICITATION_RECORDS: 'Solicitation records including amendments and pre-solicitation documents',
+  OTHER: 'Other relevant documentation',
 };
 
 /**
@@ -181,10 +183,16 @@ export const FOIARequestItemSchema = z.object({
   contractNumber: z.string().optional(),
   requestedDocuments: z.array(FOIADocumentTypeSchema).min(1),
   customDocumentRequests: z.array(z.string().min(1)).optional(),
-  requesterCategory: RequesterCategorySchema,
+  requesterCategory: RequesterCategorySchema.optional(),
   feeLimit: z.number().nonnegative(),
-  requestFeeWaiver: z.boolean(),
+  requestFeeWaiver: z.boolean().optional(),
   feeWaiverJustification: z.string().optional(),
+
+  // Company / awardee information (simplified letter fields)
+  companyName: z.string().optional(),
+  samUEI: z.string().optional(),
+  awardeeName: z.string().optional(),
+  awardDate: z.string().optional(),
 
   // Requester information
   requesterName: z.string().min(1),
@@ -239,11 +247,13 @@ export type FOIARequestItem = z.infer<typeof FOIARequestItemSchema>;
 export const CreateFOIARequestSchema = z.object({
   projectId: z.string().min(1, 'Project ID is required'),
   orgId: z.string().min(1, 'Organization ID is required'),
+  opportunityId: z.string().min(1, 'Opportunity ID is required'),
   agencyName: z.string().min(1, 'Agency name is required'),
   agencyFOIAEmail: z.union([z.string().email(), z.literal('')]).optional(),
   agencyFOIAAddress: z.string().optional(),
   solicitationNumber: z.string().min(1, 'Solicitation number is required'),
   contractNumber: z.string().optional(),
+  contractTitle: z.string().optional(),
   requestedDocuments: z.array(FOIADocumentTypeSchema).min(1, 'At least one document type is required'),
   requesterName: z.string().min(1, 'Requester name is required'),
   requesterEmail: z.string().email('Valid email is required'),
@@ -251,10 +261,11 @@ export const CreateFOIARequestSchema = z.object({
   requesterAddress: z.string().optional(),
   notes: z.string().optional(),
   customDocumentRequests: z.array(z.string().min(1)).optional(),
-  requesterCategory: RequesterCategorySchema.default('OTHER'),
-  feeLimit: z.number().nonnegative().default(50),
-  requestFeeWaiver: z.boolean().default(false),
-  feeWaiverJustification: z.string().optional(),
+  companyName: z.string().optional(),
+  samUEI: z.string().optional(),
+  awardeeName: z.string().optional(),
+  awardDate: z.string().optional(),
+  feeLimit: z.number().nonnegative().default(0),
 });
 
 export type CreateFOIARequest = z.infer<typeof CreateFOIARequestSchema>;

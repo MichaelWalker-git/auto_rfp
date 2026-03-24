@@ -124,7 +124,7 @@ const SectionNavigation = () => {
  * 6. Post-Award — outcome, debriefing, FOIA
  */
 const OpportunityContent = ({ className }: { className?: string }) => {
-  const { projectId, oppId, orgId } = useOpportunityContext();
+  const { projectId, oppId, orgId, opportunity } = useOpportunityContext();
   const { currentOrganization } = useCurrentOrganization();
   const navOrgId = currentOrganization?.id;
 
@@ -238,8 +238,15 @@ const OpportunityContent = ({ className }: { className?: string }) => {
         />
         <div className="space-y-4">
           <ProjectOutcomeCard projectId={projectId} orgId={orgId} opportunityId={oppId} />
-          <DebriefingCard projectId={projectId} orgId={orgId} projectOutcomeStatus="LOST" />
-          <FOIARequestCard projectId={projectId} orgId={orgId} projectOutcomeStatus="LOST" />
+          <DebriefingCard
+            projectId={projectId}
+            orgId={orgId}
+            opportunityId={oppId}
+            projectOutcomeStatus="LOST"
+            solicitationNumber={opportunity?.solicitationNumber ?? undefined}
+            contractTitle={opportunity?.title ?? undefined}
+          />
+          <FOIARequestCard projectId={projectId} orgId={orgId} opportunityId={oppId} projectOutcomeStatus="LOST" />
         </div>
       </section>
     </div>

@@ -113,6 +113,7 @@ describe('CreateFOIARequestDialog', () => {
     onOpenChange: jest.fn(),
     projectId: 'proj-123',
     orgId: 'org-456',
+    opportunityId: 'opp-789',
   };
 
   const mockFOIARequest = {

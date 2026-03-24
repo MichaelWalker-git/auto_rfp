@@ -77,6 +77,7 @@ describe('DebriefingCard', () => {
   const defaultProps = {
     projectId: 'proj-123',
     orgId: 'org-456',
+    opportunityId: 'opp-789',
     projectOutcomeStatus: 'LOST',
   };
 
@@ -155,6 +156,40 @@ describe('DebriefingCard', () => {
       const header = screen.getByText('Debriefing').closest('div');
       const headerButton = header?.querySelector('button');
       expect(headerButton).toBeNull();
+    });
+  });
+
+  describe('with solicitation/contract details', () => {
+    beforeEach(() => {
+      mockUseDebriefingsReturn.debriefings = [{
+        ...mockDebriefing,
+        solicitationNumber: 'W911NF-21-R-0001',
+        contractNumber: 'W911NF-21-C-0001',
+        awardedOrganization: 'Winning Contractor LLC',
+        contractingOfficerName: 'Jane Doe',
+        contractingOfficerEmail: 'jane.doe@agency.gov',
+      }];
+    });
+
+    it('shows solicitation number', () => {
+      render(<DebriefingCard {...defaultProps} />);
+      expect(screen.getByText(/Solicitation: W911NF-21-R-0001/)).toBeInTheDocument();
+    });
+
+    it('shows contract number', () => {
+      render(<DebriefingCard {...defaultProps} />);
+      expect(screen.getByText(/Contract: W911NF-21-C-0001/)).toBeInTheDocument();
+    });
+
+    it('shows awarded organization', () => {
+      render(<DebriefingCard {...defaultProps} />);
+      expect(screen.getByText(/Awarded to: Winning Contractor LLC/)).toBeInTheDocument();
+    });
+
+    it('shows contracting officer info', () => {
+      render(<DebriefingCard {...defaultProps} />);
+      expect(screen.getByText(/CO: Jane Doe/)).toBeInTheDocument();
+      expect(screen.getByText('jane.doe@agency.gov')).toBeInTheDocument();
     });
   });
 
