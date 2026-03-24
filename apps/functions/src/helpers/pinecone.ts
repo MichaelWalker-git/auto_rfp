@@ -1,38 +1,26 @@
 import { Pinecone } from '@pinecone-database/pinecone';
 import { requireEnv } from './env';
-import { PK_NAME, SK_NAME } from '../constants/common';
+import { PK_NAME, SK_NAME } from '@/constants/common';
 import { DocumentItem } from '@auto-rfp/core';
 import { getEmbedding } from './embeddings';
 import { nowIso } from './date';
-import { DocumentDBItem } from '../types/document';
+import { DocumentDBItem } from '@/types/document';
+
+import type { PineconeHit } from '@/types/pinecone';
 
 const PINECONE_API_KEY = requireEnv('PINECONE_API_KEY');
 const PINECONE_INDEX = requireEnv('PINECONE_INDEX');
 const DOCUMENTS_BUCKET = requireEnv('DOCUMENTS_BUCKET');
 let pineconeClient: Pinecone | null = null;
 
-export function getPineconeClient(): Pinecone {
+export const getPineconeClient = (): Pinecone => {
   if (!pineconeClient) {
     pineconeClient = new Pinecone({
       apiKey: PINECONE_API_KEY,
     });
   }
   return pineconeClient;
-}
-
-export interface PineconeHit {
-  id?: string;
-  score?: number;
-  source?: {
-    [PK_NAME]: string;
-    [SK_NAME]: string;
-    externalId?: string;
-    documentId?: string;
-    chunkKey?: string;
-    chunkIndex?: number;
-    [key: string]: any;
-  };
-}
+};
 
 /**
  * Semantic search using Pinecone
@@ -67,8 +55,8 @@ export async function semanticSearchChunks(
     return (results.matches || []).map(match => ({
       id: match.id,
       score: match.score,
-      source: match.metadata as any, 
-    }));;
+      source: match.metadata as any,
+    }));
   } catch (err) {
     console.error('Pinecone search error:', err);
     throw new Error(
@@ -138,7 +126,7 @@ export async function deleteFromPinecone(orgId: string, sk: string): Promise<voi
       topK: 10000, // get as many as possible
       includeMetadata: true,
       filter: {
-        [SK_NAME]: { $eq:  sk},
+        [SK_NAME]: { $eq: sk },
       },
     });
 

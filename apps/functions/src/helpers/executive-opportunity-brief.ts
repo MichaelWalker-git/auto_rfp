@@ -1,18 +1,18 @@
 import crypto from 'crypto';
 import { PutCommand, QueryCommand, UpdateCommand, } from '@aws-sdk/lib-dynamodb';
 
-import { PK_NAME, SK_NAME } from '../constants/common';
-import { QUESTION_FILE_PK } from '../constants/question-file';
-import { EXEC_BRIEF_PK } from '../constants/exec-brief';
+import { PK_NAME, SK_NAME } from '@/constants/common';
+import { QUESTION_FILE_PK } from '@/constants/question-file';
+import { EXEC_BRIEF_PK } from '@/constants/exec-brief';
 
 import { type ExecutiveBriefItem, QuestionFileItem, SectionStatus, } from '@auto-rfp/core';
 import { requireEnv } from './env';
 import { docClient, getItem } from './db';
 import { nowIso } from './date';
 import { loadTextFromS3 } from './s3';
-import { getEmbedding, semanticSearchChunks } from './embeddings';
 import { invokeModel } from './bedrock-http-client';
-import { PineconeHit } from './pinecone';
+import type { PineconeHit } from '@/types/pinecone';
+import { getEmbedding, semanticSearchChunks } from 'helpers/embeddings';
 
 const DB_TABLE_NAME = requireEnv('DB_TABLE_NAME');
 const DOCUMENTS_BUCKET = requireEnv('DOCUMENTS_BUCKET');

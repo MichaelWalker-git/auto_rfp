@@ -29,7 +29,7 @@ import { getEmbedding, semanticSearchContentLibrary } from '@/helpers/embeddings
 import { searchPastProjects, listPastProjects } from '@/helpers/past-performance';
 import { loadTextFromS3 } from '@/helpers/s3';
 import { requireEnv } from '@/helpers/env';
-import type { PineconeHit } from '@/helpers/pinecone';
+import type { PineconeHit } from '@/types/pinecone';
 import {
   authContextMiddleware,
   httpErrorMiddleware,
