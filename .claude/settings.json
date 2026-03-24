@@ -26,7 +26,10 @@
       "Bash(git check-ignore:*)",
       "Bash(grep -E \"\\\\.test\\\\.ts$|jest\\\\.config\\\\.js$|package\\\\.json$\")",
       "Bash(grep -E \"\\\\.test\\\\.ts$|jest\\\\.config\\\\.js$|package\\\\.json$|\\\\.md$\")",
-      "Bash(grep -E \"\\\\.test\\\\.ts$\")"
+      "Bash(grep -E \"\\\\.test\\\\.ts$\")",
+      "Bash(npx jest:*)",
+      "Bash(npx vitest:*)",
+      "Bash(pnpm tsc:*)"
     ]
   }
 }

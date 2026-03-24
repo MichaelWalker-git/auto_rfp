@@ -5,7 +5,6 @@ import { v4 as uuidv4 } from 'uuid';
 
 import {
   CreateFOIARequestSchema,
-  calculateFOIADeadline,
   type CreateFOIARequest,
 } from '@auto-rfp/core';
 import { PK_NAME, SK_NAME } from '@/constants/common';
@@ -102,79 +101,37 @@ export async function createFOIARequest(
   dto: CreateFOIARequest,
   userId: string
 ): Promise<DBFOIARequestItem> {
-  const {
-    projectId,
-    orgId,
-    agencyName,
-    agencyFOIAEmail,
-    agencyFOIAAddress,
-    solicitationNumber,
-    contractNumber,
-    contractTitle,
-    requestedDocuments,
-    customDocumentRequests,
-    requesterName,
-    requesterEmail,
-    requesterPhone,
-    requesterAddress,
-    companyName,
-    samUEI,
-    awardeeName,
-    awardDate,
-    feeLimit,
-    notes,
-  } = dto;
-
   const now = new Date().toISOString();
   const foiaId = uuidv4();
 
-  // Calculate deadline (20 business days from submission)
-  const deadlineDate = calculateFOIADeadline(new Date());
-  const responseDeadline = deadlineDate.toISOString();
-
-  // Create sort key: orgId#projectId#foiaId
-  const sortKey = `${orgId}#${projectId}#${foiaId}`;
+  // Create sort key: orgId#projectId#opportunityId#foiaId
+  const sortKey = `${dto.orgId}#${dto.projectId}#${dto.opportunityId}#${foiaId}`;
 
   const foiaItem: DBFOIARequestItem = {
     [PK_NAME]: FOIA_REQUEST_PK,
     [SK_NAME]: sortKey,
     foiaId,
     id: foiaId,
-    projectId,
-    orgId,
-    status: 'DRAFT',
-    agencyId: agencyName,
-    agencyName,
-    agencyFOIAEmail,
-    agencyFOIAAddress,
-    agencyAbbreviation: agencyName,
-    contractTitle: contractTitle || solicitationNumber,
-    contractNumber,
-    solicitationNumber,
-    requestedDocuments,
-    customDocumentRequests,
-    feeLimit: feeLimit ?? 0,
-    companyName,
-    samUEI,
-    awardeeName,
-    awardDate,
-    requesterName,
-    requesterEmail,
-    requesterPhone,
-    requesterAddress,
-    statusHistory: [
-      {
-        status: 'DRAFT',
-        changedAt: now,
-        changedBy: userId,
-      },
-    ],
-    responseDeadline,
-    autoSubmitAttempted: false,
-    generatedLetterS3Key: '',
-    generatedLetterVersion: 0,
+    projectId: dto.projectId,
+    orgId: dto.orgId,
+    opportunityId: dto.opportunityId,
+    agencyName: dto.agencyName,
+    agencyFOIAEmail: dto.agencyFOIAEmail,
+    agencyFOIAAddress: dto.agencyFOIAAddress,
+    solicitationNumber: dto.solicitationNumber,
+    contractTitle: dto.contractTitle,
+    requestedDocuments: dto.requestedDocuments,
+    customDocumentRequests: dto.customDocumentRequests ?? [],
+    feeLimit: dto.feeLimit ?? 0,
+    companyName: dto.companyName,
+    awardeeName: dto.awardeeName,
+    awardDate: dto.awardDate,
+    requesterName: dto.requesterName,
+    requesterTitle: dto.requesterTitle,
+    requesterEmail: dto.requesterEmail,
+    requesterPhone: dto.requesterPhone,
+    requesterAddress: dto.requesterAddress,
     requestedBy: userId,
-    notes,
     createdAt: now,
     updatedAt: now,
     createdBy: userId,

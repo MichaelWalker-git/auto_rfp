@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -11,54 +11,66 @@ import {
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
-import { useGenerateFOIALetter } from '@/lib/hooks/use-foia-requests';
+import { useGenerateDebriefingLetter } from '@/lib/hooks/use-debriefing';
 import { useToast } from '@/components/ui/use-toast';
 import { Copy, Download, Mail } from 'lucide-react';
-import type { FOIARequestItem } from '@auto-rfp/core';
+import type { DebriefingItem } from '@auto-rfp/core';
 
-interface FOIALetterPreviewProps {
+interface DebriefingLetterPreviewProps {
   isOpen: boolean;
   onOpenChange: (open: boolean) => void;
-  foiaRequest: FOIARequestItem;
+  debriefing: DebriefingItem;
   orgId: string;
   projectId: string;
   opportunityId: string;
 }
 
-export function FOIALetterPreview({
+export const DebriefingLetterPreview = ({
   isOpen,
   onOpenChange,
-  foiaRequest,
+  debriefing,
   orgId,
   projectId,
   opportunityId,
-}: FOIALetterPreviewProps) {
+}: DebriefingLetterPreviewProps) => {
   const [letter, setLetter] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
-  const { generateFOIALetter } = useGenerateFOIALetter();
+  const { generateDebriefingLetter } = useGenerateDebriefingLetter();
   const { toast } = useToast();
+  const hasFetchedRef = useRef<string | null>(null);
 
   useEffect(() => {
-    if (isOpen && foiaRequest) {
-      loadLetter();
+    if (!isOpen || !debriefing) {
+      hasFetchedRef.current = null;
+      return;
     }
-  }, [isOpen, foiaRequest.id]);
 
-  const loadLetter = async () => {
-    setIsLoading(true);
-    try {
-      const generatedLetter = await generateFOIALetter(orgId, projectId, opportunityId, foiaRequest.id);
-      setLetter(generatedLetter);
-    } catch (error) {
-      toast({
-        title: 'Error',
-        description: error instanceof Error ? error.message : 'Failed to generate letter',
-        variant: 'destructive',
-      });
-    } finally {
-      setIsLoading(false);
-    }
-  };
+    const fetchKey = `${orgId}#${projectId}#${opportunityId}#${debriefing.debriefId}`;
+    if (hasFetchedRef.current === fetchKey) return;
+    hasFetchedRef.current = fetchKey;
+
+    let cancelled = false;
+    const loadLetter = async () => {
+      setIsLoading(true);
+      try {
+        const generatedLetter = await generateDebriefingLetter(orgId, projectId, opportunityId, debriefing.debriefId);
+        if (!cancelled) setLetter(generatedLetter);
+      } catch (error: unknown) {
+        if (!cancelled) {
+          toast({
+            title: 'Error',
+            description: error instanceof Error ? error.message : 'Failed to generate letter',
+            variant: 'destructive',
+          });
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    };
+
+    loadLetter();
+    return () => { cancelled = true; };
+  }, [isOpen, debriefing, orgId, projectId, opportunityId, generateDebriefingLetter, toast]);
 
   const handleCopy = async () => {
     if (!letter) return;
@@ -69,7 +81,7 @@ export function FOIALetterPreview({
         title: 'Copied',
         description: 'Letter copied to clipboard',
       });
-    } catch (error) {
+    } catch {
       toast({
         title: 'Error',
         description: 'Failed to copy letter',
@@ -85,7 +97,7 @@ export function FOIALetterPreview({
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `FOIA_Request_${foiaRequest.solicitationNumber}_${new Date().toISOString().split('T')[0]}.txt`;
+    a.download = `Debriefing_Request_${debriefing.solicitationNumber ?? 'unknown'}_${new Date().toISOString().split('T')[0]}.txt`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
@@ -98,22 +110,22 @@ export function FOIALetterPreview({
   };
 
   const handleEmailDraft = () => {
-    if (!letter || !foiaRequest.agencyFOIAEmail) return;
+    if (!letter || !debriefing.contractingOfficerEmail) return;
 
     const subject = encodeURIComponent(
-      `FOIA Request - Solicitation ${foiaRequest.solicitationNumber}`
+      `POST-AWARD DEBRIEFING REQUEST — Solicitation No. ${debriefing.solicitationNumber ?? ''}, ${debriefing.contractTitle ?? ''}`
     );
     const body = encodeURIComponent(letter);
-    window.open(`mailto:${foiaRequest.agencyFOIAEmail}?subject=${subject}&body=${body}`);
+    window.open(`mailto:${debriefing.contractingOfficerEmail}?subject=${subject}&body=${body}`);
   };
 
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[700px] max-h-[90vh]">
         <DialogHeader>
-          <DialogTitle>FOIA Request Letter</DialogTitle>
+          <DialogTitle>Debriefing Request Letter</DialogTitle>
           <DialogDescription>
-            Review the generated FOIA letter before sending to {foiaRequest.agencyName}.
+            Review the generated debriefing request letter{debriefing.contractingOfficerName ? ` for ${debriefing.contractingOfficerName}` : ''}.
           </DialogDescription>
         </DialogHeader>
 
@@ -169,7 +181,7 @@ export function FOIALetterPreview({
             >
               Close
             </Button>
-            {foiaRequest.agencyFOIAEmail && (
+            {debriefing.contractingOfficerEmail && (
               <Button
                 type="button"
                 onClick={handleEmailDraft}
@@ -184,4 +196,4 @@ export function FOIALetterPreview({
       </DialogContent>
     </Dialog>
   );
-}
+};

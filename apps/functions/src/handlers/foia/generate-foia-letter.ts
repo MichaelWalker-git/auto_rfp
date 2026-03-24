@@ -22,9 +22,54 @@ import type { OrgPrimaryContactItem } from '@auto-rfp/core';
 
 const DB_TABLE_NAME = requireEnv('DB_TABLE_NAME');
 
+/**
+ * Formats a date string into a human-readable format for letters.
+ * Handles both ISO dates ("2026-01-15") and already-formatted strings ("January 15, 2026").
+ */
+const formatDateForLetter = (dateStr: string): string => {
+  const parsed = new Date(dateStr);
+  if (isNaN(parsed.getTime())) return dateStr;
+  // Offset UTC parse so the date doesn't shift due to timezone
+  const utc = new Date(parsed.getUTCFullYear(), parsed.getUTCMonth(), parsed.getUTCDate());
+  return utc.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+};
+
+/** Fields on the FOIA request record that must be populated to generate a letter. */
+const REQUIRED_LETTER_FIELDS = [
+  'agencyName',
+  'agencyFOIAEmail',
+  'agencyFOIAAddress',
+  'solicitationNumber',
+  'contractTitle',
+  'awardDate',
+  'companyName',
+  'requesterName',
+  'requesterTitle',
+  'requesterEmail',
+  'requesterPhone',
+  'requesterAddress',
+] as const;
+
+export const validateLetterFields = (
+  request: DBFOIARequestItem,
+): string[] => {
+  const missing: string[] = [];
+  for (const field of REQUIRED_LETTER_FIELDS) {
+    if (!request[field]) {
+      missing.push(field);
+    }
+  }
+  // requestedDocuments must have at least one entry
+  if (!request.requestedDocuments || request.requestedDocuments.length === 0) {
+    missing.push('requestedDocuments');
+  }
+  return missing;
+};
+
 const GenerateFOIALetterRequestSchema = z.object({
   orgId: z.string().min(1, 'orgId is required'),
   projectId: z.string().min(1, 'projectId is required'),
+  opportunityId: z.string().min(1, 'opportunityId is required'),
   foiaRequestId: z.string().min(1, 'foiaRequestId is required'),
 });
 
@@ -39,10 +84,10 @@ export const baseHandler = async (
       return apiResponse(400, { message: 'Invalid payload', issues: error.issues });
     }
 
-    const { orgId, projectId, foiaRequestId } = data;
+    const { orgId, projectId, opportunityId, foiaRequestId } = data;
 
     const [foiaRequest, primaryContact] = await Promise.all([
-      getFOIARequest(orgId, projectId, foiaRequestId),
+      getFOIARequest(orgId, projectId, opportunityId, foiaRequestId),
       getOrgPrimaryContact(orgId).catch(() => null),
     ]);
 
@@ -53,6 +98,14 @@ export const baseHandler = async (
     // Enrich the FOIA request with primary contact data as fallback
     // for any missing requester fields
     const enrichedRequest = enrichWithPrimaryContact(foiaRequest, primaryContact);
+
+    const missingFields = validateLetterFields(enrichedRequest);
+    if (missingFields.length > 0) {
+      return apiResponse(400, {
+        message: 'FOIA request is missing required fields for letter generation',
+        missingFields,
+      });
+    }
 
     const letter = generateFOIALetter(enrichedRequest);
 
@@ -81,17 +134,18 @@ const enrichWithPrimaryContact = (
     ...request,
     requesterName: request.requesterName || contact.name,
     requesterEmail: request.requesterEmail || contact.email,
-    requesterPhone: request.requesterPhone || contact.phone || undefined,
-    requesterAddress: request.requesterAddress || contact.address || undefined,
+    requesterPhone: request.requesterPhone || contact.phone || request.requesterPhone,
+    requesterAddress: request.requesterAddress || contact.address || request.requesterAddress,
   };
 };
 
 async function getFOIARequest(
   orgId: string,
   projectId: string,
+  opportunityId: string,
   foiaRequestId: string
 ): Promise<DBFOIARequestItem | null> {
-  const sortKey = `${orgId}#${projectId}#${foiaRequestId}`;
+  const sortKey = `${orgId}#${projectId}#${opportunityId}#${foiaRequestId}`;
 
   const cmd = new GetCommand({
     TableName: DB_TABLE_NAME,
@@ -129,22 +183,12 @@ export const generateFOIALetter = (request: DBFOIARequestItem): string => {
     ? `${numberedDocuments}\n${customDocuments}`
     : numberedDocuments;
 
-  // Build the "pertains to" line with optional award date
-  const awardDateClause = request.awardDate
-    ? `, awarded on or around ${request.awardDate}`
-    : '';
-  const titleClause = request.contractTitle
-    ? `, titled ${request.contractTitle}`
-    : '';
-  const pertainsLine = `This request pertains to Solicitation No. ${request.solicitationNumber}${titleClause}${awardDateClause}.`;
+  // Build the "pertains to" line
+  const pertainsLine = `This request pertains to Solicitation No. ${request.solicitationNumber}, titled ${request.contractTitle}, awarded on or about ${formatDateForLetter(request.awardDate)}.`;
 
   // Build the company/offeror paragraph
-  const companyClause = request.companyName
-    ? `My company, ${request.companyName}${request.samUEI ? ` (SAM UEI: ${request.samUEI})` : ''}, submitted a proposal`
-    : 'I submitted a proposal';
-  const awardeeClause = request.awardeeName
-    ? ` The contract was awarded to ${request.awardeeName}.`
-    : '';
+  const companyClause = `My company, ${request.companyName}, submitted a proposal`;
+  const awardeeClause = request.awardeeName ? ` The contract was awarded to ${request.awardeeName}.` : '';
 
   // Fee limit line (only if > $0)
   const feeLine = request.feeLimit > 0
@@ -155,8 +199,8 @@ export const generateFOIALetter = (request: DBFOIARequestItem): string => {
 
 FOIA Requester Service Center
 ${request.agencyName}
-${request.agencyFOIAAddress || '[Agency FOIA Office Address]'}
-${request.agencyFOIAEmail ? `Email: ${request.agencyFOIAEmail}` : ''}
+${request.agencyFOIAAddress}
+Email: ${request.agencyFOIAEmail}
 
 Dear FOIA Officer,
 
@@ -170,13 +214,16 @@ I request that a copy of the following documents be provided to me:
 
 ${allDocuments}
 ${feeLine}
-I am also including an email address for electronic delivery of responsive records: ${request.requesterEmail}
+I request that responsive records be provided in electronic format (PDF preferred) via email to ${request.requesterEmail}.
 
 Sincerely,
 
 ${request.requesterName}
-${request.requesterAddress || '[Address]'}
-Email: ${request.requesterEmail}${request.requesterPhone ? `\nPhone: ${request.requesterPhone}` : ''}`;
+${request.requesterTitle}
+${request.companyName}
+${request.requesterAddress}
+Email: ${request.requesterEmail}
+Phone: ${request.requesterPhone}`;
 };
 
 export const handler = withSentryLambda(

@@ -17,7 +17,6 @@ export const FOIADocumentTypeSchema = z.enum([
   'CORRESPONDENCE',
   'AWARD_NOTICE',
   'SOLICITATION_RECORDS',
-  'OTHER',
 ]);
 
 export type FOIADocumentType = z.infer<typeof FOIADocumentTypeSchema>;
@@ -40,28 +39,11 @@ export const FOIA_DOCUMENT_DESCRIPTIONS: Record<FOIADocumentType, string> = {
   CONSENSUS_WORKSHEETS: 'Consensus evaluation worksheets and scoring documents',
   RESPONSIBILITY_DETERMINATION: 'Determination of contractor responsibility',
   CORRESPONDENCE: 'Correspondence between the contracting officer and the winning contractor during the evaluation period',
-  PROPOSAL_ABSTRACT: 'Proposal abstract or executive summary',
-  DEBRIEFING_NOTES: 'Debriefing notes or documentation',
+  PROPOSAL_ABSTRACT: 'Proposal abstract or executive summary of winning proposal',
+  DEBRIEFING_NOTES: 'Debriefing notes or documentation for winning proposal',
   AWARD_NOTICE: 'Award notice and supporting documentation',
   SOLICITATION_RECORDS: 'Solicitation records including amendments and pre-solicitation documents',
-  OTHER: 'Other relevant documentation',
 };
-
-/**
- * FOIA Request Status
- */
-export const FOIAStatusSchema = z.enum([
-  'DRAFT',
-  'READY_TO_SUBMIT',
-  'SUBMITTED',
-  'ACKNOWLEDGED',
-  'IN_PROCESSING',
-  'RESPONSE_RECEIVED',
-  'APPEAL_FILED',
-  'CLOSED',
-]);
-
-export type FOIAStatus = z.infer<typeof FOIAStatusSchema>;
 
 /**
  * FOIA Requester Category
@@ -76,32 +58,6 @@ export const RequesterCategorySchema = z.enum([
 export type RequesterCategory = z.infer<typeof RequesterCategorySchema>;
 
 /**
- * FOIA Submission Method
- */
-export const FOIASubmissionMethodSchema = z.enum([
-  'AUTO_EMAIL',
-  'MANUAL_EMAIL',
-  'WEB_PORTAL',
-  'MAIL',
-  'FAX',
-]);
-
-export type FOIASubmissionMethod = z.infer<typeof FOIASubmissionMethodSchema>;
-
-/**
- * FOIA Response Status
- */
-export const FOIAResponseStatusSchema = z.enum([
-  'FULL_GRANT',
-  'PARTIAL_GRANT',
-  'DENIAL',
-  'NO_RECORDS',
-  'REFERRED',
-]);
-
-export type FOIAResponseStatus = z.infer<typeof FOIAResponseStatusSchema>;
-
-/**
  * FOIA Address
  */
 export const FOIAAddressSchema = z.object({
@@ -113,30 +69,6 @@ export const FOIAAddressSchema = z.object({
 });
 
 export type FOIAAddress = z.infer<typeof FOIAAddressSchema>;
-
-/**
- * S3 Document Reference
- */
-export const S3ReferenceSchema = z.object({
-  bucket: z.string().min(1),
-  key: z.string().min(1),
-  filename: z.string().min(1),
-  uploadedAt: z.string().datetime({ offset: true }),
-});
-
-export type S3Reference = z.infer<typeof S3ReferenceSchema>;
-
-/**
- * FOIA Status Change History Entry
- */
-export const FOIAStatusChangeSchema = z.object({
-  status: FOIAStatusSchema,
-  changedAt: z.string().datetime({ offset: true }),
-  changedBy: z.string().min(1),
-  notes: z.string().optional(),
-});
-
-export type FOIAStatusChange = z.infer<typeof FOIAStatusChangeSchema>;
 
 /**
  * FOIA Agency Info (from FOIA.gov API)
@@ -163,77 +95,34 @@ export const FOIARequestItemSchema = z.object({
   id: z.string().min(1),
   projectId: z.string().min(1),
   orgId: z.string().min(1),
-
-  // Status
-  status: FOIAStatusSchema,
+  opportunityId: z.string().min(1),
 
   // Agency information
-  agencyId: z.string().min(1),
   agencyName: z.string().min(1),
-  agencyFOIAEmail: z.string().email().optional(),
-  agencyFOIAAddress: z.string().optional(),
-  agencyAbbreviation: z.string().min(1),
-  foiaOfficeEmail: z.string().email().optional(),
-  foiaOfficeAddress: FOIAAddressSchema.optional(),
-  portalUrl: z.string().url().optional(),
+  agencyFOIAEmail: z.string().email(),
+  agencyFOIAAddress: z.string().min(1),
 
   // Request details
   solicitationNumber: z.string().min(1),
   contractTitle: z.string().min(1),
-  contractNumber: z.string().optional(),
   requestedDocuments: z.array(FOIADocumentTypeSchema).min(1),
-  customDocumentRequests: z.array(z.string().min(1)).optional(),
-  requesterCategory: RequesterCategorySchema.optional(),
-  feeLimit: z.number().nonnegative(),
-  requestFeeWaiver: z.boolean().optional(),
-  feeWaiverJustification: z.string().optional(),
+  customDocumentRequests: z.array(z.string().min(1)).default([]),
+  feeLimit: z.number().nonnegative().default(0),
 
-  // Company / awardee information (simplified letter fields)
-  companyName: z.string().optional(),
-  samUEI: z.string().optional(),
+  // Company / awardee information
+  companyName: z.string().min(1),
   awardeeName: z.string().optional(),
-  awardDate: z.string().optional(),
+  awardDate: z.string().min(1),
 
   // Requester information
   requesterName: z.string().min(1),
+  requesterTitle: z.string().min(1),
   requesterEmail: z.string().email(),
-  requesterPhone: z.string().optional(),
-  requesterAddress: z.string().optional(),
-  // Status tracking
-  statusHistory: z.array(FOIAStatusChangeSchema),
-  // Tracking
-  expectedResponseDate: z.string().datetime({ offset: true }).optional(),
-  submittedDate: z.string().datetime({ offset: true }).optional(),
-  responseDate: z.string().datetime({ offset: true }).optional(),
-  responseNotes: z.string().optional(),
-  receivedDocuments: z.array(FOIADocumentTypeSchema).optional(),
-  // Dates and deadlines
-  submittedAt: z.string().datetime({ offset: true }).optional(),
-  responseDeadline: z.string().datetime({ offset: true }).optional(),
-  extensionDeadline: z.string().datetime({ offset: true }).optional(),
-  responseReceivedAt: z.string().datetime({ offset: true }).optional(),
-
-  // Submission details
-  submissionMethod: FOIASubmissionMethodSchema.optional(),
-  autoSubmitAttempted: z.boolean(),
-  autoSubmitSuccess: z.boolean().optional(),
-  autoSubmitError: z.string().optional(),
-  trackingNumber: z.string().optional(),
-  appealDeadline: z.string().datetime({ offset: true }).optional(),
-  appealDate: z.string().datetime({ offset: true }).optional(),
-
-  // Response
-  responseStatus: FOIAResponseStatusSchema.optional(),
-  responseDocuments: z.array(S3ReferenceSchema).optional(),
-  exemptionsCited: z.array(z.string().min(1)).optional(),
-
-  // Generated letter
-  generatedLetterS3Key: z.string().min(1),
-  generatedLetterVersion: z.number().int().positive(),
+  requesterPhone: z.string().min(1),
+  requesterAddress: z.string().min(1),
 
   // Metadata
   requestedBy: z.string().min(1),
-  notes: z.string().optional(),
   createdAt: z.string().datetime({ offset: true }),
   updatedAt: z.string().datetime({ offset: true }),
   createdBy: z.string().min(1),
@@ -249,88 +138,27 @@ export const CreateFOIARequestSchema = z.object({
   orgId: z.string().min(1, 'Organization ID is required'),
   opportunityId: z.string().min(1, 'Opportunity ID is required'),
   agencyName: z.string().min(1, 'Agency name is required'),
-  agencyFOIAEmail: z.union([z.string().email(), z.literal('')]).optional(),
-  agencyFOIAAddress: z.string().optional(),
+  agencyFOIAEmail: z.string().email('Valid agency FOIA email is required'),
+  agencyFOIAAddress: z.string().min(1, 'Agency FOIA address is required'),
   solicitationNumber: z.string().min(1, 'Solicitation number is required'),
-  contractNumber: z.string().optional(),
-  contractTitle: z.string().optional(),
+  contractTitle: z.string().min(1, 'Contract title is required'),
   requestedDocuments: z.array(FOIADocumentTypeSchema).min(1, 'At least one document type is required'),
   requesterName: z.string().min(1, 'Requester name is required'),
+  requesterTitle: z.string().min(1, 'Requester title is required'),
   requesterEmail: z.string().email('Valid email is required'),
-  requesterPhone: z.string().optional(),
-  requesterAddress: z.string().optional(),
-  notes: z.string().optional(),
-  customDocumentRequests: z.array(z.string().min(1)).optional(),
-  companyName: z.string().optional(),
-  samUEI: z.string().optional(),
-  awardeeName: z.string().optional(),
-  awardDate: z.string().optional(),
+  requesterPhone: z.string().min(1, 'Requester phone is required'),
+  requesterAddress: z.string().min(1, 'Requester address is required'),
+  customDocumentRequests: z.array(z.string().min(1)).default([]),
+  companyName: z.string().min(1, 'Company name is required'),
+  awardeeName: z.preprocess(
+    (val) => (val === '' ? undefined : val),
+    z.string().optional(),
+  ),
+  awardDate: z.string().min(1, 'Award date is required'),
   feeLimit: z.number().nonnegative().default(0),
 });
 
 export type CreateFOIARequest = z.infer<typeof CreateFOIARequestSchema>;
-
-/**
- * Update FOIA Request DTO
- */
-export const UpdateFOIARequestSchema = z.object({
-  orgId: z.string().min(1, 'Organization ID is required'),
-  projectId: z.string().min(1, 'Project ID is required'),
-  foiaRequestId: z.string().min(1, 'FOIA Request ID is required'),
-  status: FOIAStatusSchema.optional(),
-  submittedDate: z.string().datetime({ offset: true }).optional(),
-  responseDate: z.string().datetime({ offset: true }).optional(),
-  responseNotes: z.string().optional(),
-  receivedDocuments: z.array(FOIADocumentTypeSchema).optional(),
-  trackingNumber: z.string().optional(),
-  appealDeadline: z.string().datetime({ offset: true }).optional(),
-  appealDate: z.string().datetime({ offset: true }).optional(),
-  notes: z.string().optional(),
-});
-
-export type UpdateFOIARequest = z.infer<typeof UpdateFOIARequestSchema>;
-
-/**
- * Update FOIA Status DTO (legacy - use UpdateFOIARequestSchema instead)
- */
-export const UpdateFOIAStatusSchema = z.object({
-  status: FOIAStatusSchema,
-  trackingNumber: z.string().optional(),
-  notes: z.string().optional(),
-});
-
-export type UpdateFOIAStatus = z.infer<typeof UpdateFOIAStatusSchema>;
-
-/**
- * Submit FOIA Request DTO
- */
-export const SubmitFOIARequestSchema = z.object({
-  method: z.enum(['AUTO_EMAIL', 'MANUAL']),
-});
-
-export type SubmitFOIARequest = z.infer<typeof SubmitFOIARequestSchema>;
-
-/**
- * Submit FOIA Response
- */
-export const SubmitFOIAResponseSchema = z.object({
-  success: z.boolean(),
-  autoSubmitted: z.boolean().optional(),
-  downloadUrl: z.string().url().optional(),
-  error: z.string().optional(),
-});
-
-export type SubmitFOIAResponse = z.infer<typeof SubmitFOIAResponseSchema>;
-
-/**
- * Generate FOIA Appeal Request DTO
- */
-export const GenerateFOIAAppealSchema = z.object({
-  foiaId: z.string().uuid(),
-  appealReason: z.string().min(10, 'Appeal reason must be at least 10 characters'),
-});
-
-export type GenerateFOIAAppeal = z.infer<typeof GenerateFOIAAppealSchema>;
 
 /**
  * Get FOIA Requests Query (by project)
@@ -343,50 +171,32 @@ export const GetFOIARequestsQuerySchema = z.object({
 export type GetFOIARequestsQuery = z.infer<typeof GetFOIARequestsQuerySchema>;
 
 /**
- * List FOIA Requests Query (with pagination)
+ * Update FOIA Request DTO — all fields optional except identifiers
  */
-export const ListFOIARequestsQuerySchema = z.object({
-  orgId: z.string().min(1),
-  status: FOIAStatusSchema.optional(),
-  limit: z.number().int().positive().max(100).default(20),
-  nextToken: z.string().optional(),
+export const UpdateFOIARequestSchema = z.object({
+  // Required identifiers
+  orgId: z.string().min(1, 'Organization ID is required'),
+  projectId: z.string().min(1, 'Project ID is required'),
+  opportunityId: z.string().min(1, 'Opportunity ID is required'),
+  foiaRequestId: z.string().min(1, 'FOIA Request ID is required'),
+
+  // Updatable fields (all optional)
+  agencyName: z.string().min(1).optional(),
+  agencyFOIAEmail: z.string().email().optional(),
+  agencyFOIAAddress: z.string().min(1).optional(),
+  solicitationNumber: z.string().min(1).optional(),
+  contractTitle: z.string().min(1).optional(),
+  requestedDocuments: z.array(FOIADocumentTypeSchema).min(1).optional(),
+  requesterName: z.string().min(1).optional(),
+  requesterTitle: z.string().min(1).optional(),
+  requesterEmail: z.string().email().optional(),
+  requesterPhone: z.string().min(1).optional(),
+  requesterAddress: z.string().min(1).optional(),
+  customDocumentRequests: z.array(z.string().min(1)).optional(),
+  companyName: z.string().min(1).optional(),
+  awardeeName: z.string().optional(),
+  awardDate: z.string().min(1).optional(),
+  feeLimit: z.number().nonnegative().optional(),
 });
 
-export type ListFOIARequestsQuery = z.infer<typeof ListFOIARequestsQuerySchema>;
-
-/**
- * Calculate FOIA response deadline (20 business days from submission)
- */
-export function calculateFOIADeadline(submissionDate: Date): Date {
-  const deadline = new Date(submissionDate);
-  let businessDays = 0;
-
-  while (businessDays < 20) {
-    deadline.setDate(deadline.getDate() + 1);
-    const dayOfWeek = deadline.getDay();
-    // Skip weekends (0 = Sunday, 6 = Saturday)
-    if (dayOfWeek !== 0 && dayOfWeek !== 6) {
-      businessDays++;
-    }
-  }
-
-  return deadline;
-}
-
-/**
- * Calculate FOIA extension deadline (additional 10 business days)
- */
-export function calculateFOIAExtensionDeadline(originalDeadline: Date): Date {
-  const deadline = new Date(originalDeadline);
-  let businessDays = 0;
-
-  while (businessDays < 10) {
-    deadline.setDate(deadline.getDate() + 1);
-    const dayOfWeek = deadline.getDay();
-    if (dayOfWeek !== 0 && dayOfWeek !== 6) {
-      businessDays++;
-    }
-  }
-
-  return deadline;
-}
+export type UpdateFOIARequest = z.infer<typeof UpdateFOIARequestSchema>;

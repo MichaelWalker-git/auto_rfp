@@ -14,7 +14,7 @@ import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/components/ui/use-toast';
-import { useCreateDebriefing } from '@/lib/hooks/use-debriefing';
+import { useCreateDebriefing, useUpdateDebriefing } from '@/lib/hooks/use-debriefing';
 import { CreateDebriefingRequestSchema } from '@auto-rfp/core';
 import type { DebriefingItem } from '@auto-rfp/core';
 import { z } from 'zod';
@@ -31,6 +31,8 @@ interface RequestDebriefingDialogProps {
   solicitationNumber?: string;
   contractTitle?: string;
   onSuccess?: (debriefing: DebriefingItem) => void;
+  /** When provided, dialog operates in edit mode */
+  existingDebriefing?: DebriefingItem;
 }
 
 export const RequestDebriefingDialog = ({
@@ -42,9 +44,12 @@ export const RequestDebriefingDialog = ({
   solicitationNumber: initialSolicitationNumber = '',
   contractTitle: initialContractTitle = '',
   onSuccess,
+  existingDebriefing,
 }: RequestDebriefingDialogProps) => {
   const { toast } = useToast();
   const { createDebriefing } = useCreateDebriefing();
+  const { updateDebriefing } = useUpdateDebriefing();
+  const isEditMode = !!existingDebriefing;
 
   const {
     register,
@@ -57,58 +62,83 @@ export const RequestDebriefingDialog = ({
       projectId,
       orgId,
       opportunityId,
-      solicitationNumber: initialSolicitationNumber,
-      contractTitle: initialContractTitle,
-      contractNumber: '',
-      awardedOrganization: '',
-      awardNotificationDate: '',
-      contractingOfficerName: '',
-      contractingOfficerEmail: '',
-      contractingOfficerAddress: '',
-      requesterName: '',
-      requesterTitle: '',
-      requesterEmail: '',
-      requesterAddress: '',
-      companyName: '',
+      solicitationNumber: existingDebriefing?.solicitationNumber ?? initialSolicitationNumber,
+      contractTitle: existingDebriefing?.contractTitle ?? initialContractTitle,
+
+      awardedOrganization: existingDebriefing?.awardedOrganization ?? '',
+      awardNotificationDate: existingDebriefing?.awardNotificationDate ?? '',
+      contractingOfficerEmail: existingDebriefing?.contractingOfficerEmail ?? '',
+      requesterName: existingDebriefing?.requesterName ?? '',
+      requesterTitle: existingDebriefing?.requesterTitle ?? '',
+      requesterEmail: existingDebriefing?.requesterEmail ?? '',
+      requesterPhone: existingDebriefing?.requesterPhone ?? '',
+      requesterAddress: existingDebriefing?.requesterAddress ?? '',
+      companyName: existingDebriefing?.companyName ?? '',
     },
   });
 
   const onSubmit = async (values: CreateDebriefingFormValues) => {
     try {
       const parsed = CreateDebriefingRequestSchema.parse(values);
-      const result = await createDebriefing(parsed);
 
-      toast({
-        title: 'Debriefing Requested',
-        description: 'Your debriefing request has been submitted.',
-      });
+      let result: DebriefingItem;
+      if (isEditMode) {
+        result = await updateDebriefing({
+          orgId: parsed.orgId,
+          projectId: parsed.projectId,
+          opportunityId: parsed.opportunityId,
+          debriefingId: existingDebriefing.debriefId,
+          solicitationNumber: parsed.solicitationNumber,
+          contractTitle: parsed.contractTitle,
+          awardedOrganization: parsed.awardedOrganization,
+          awardNotificationDate: parsed.awardNotificationDate,
+          contractingOfficerEmail: parsed.contractingOfficerEmail,
+          requesterName: parsed.requesterName,
+          requesterTitle: parsed.requesterTitle,
+          requesterEmail: parsed.requesterEmail,
+          requesterPhone: parsed.requesterPhone,
+          requesterAddress: parsed.requesterAddress,
+          companyName: parsed.companyName,
+        });
 
-      // Reset form — restore defaults for next use
-      reset({
-        projectId,
-        orgId,
-        opportunityId,
-        solicitationNumber: initialSolicitationNumber,
-        contractTitle: initialContractTitle,
-        contractNumber: '',
-        awardedOrganization: '',
-        awardNotificationDate: '',
-        contractingOfficerName: '',
-        contractingOfficerEmail: '',
-        contractingOfficerAddress: '',
-        requesterName: '',
-        requesterTitle: '',
-        requesterEmail: '',
-        requesterAddress: '',
-        companyName: '',
-      });
+        toast({
+          title: 'Debriefing Updated',
+          description: 'Your debriefing request has been updated.',
+        });
+      } else {
+        result = await createDebriefing(parsed);
+
+        toast({
+          title: 'Debriefing Requested',
+          description: 'Your debriefing request has been saved.',
+        });
+
+        // Reset form for next use
+        reset({
+          projectId,
+          orgId,
+          opportunityId,
+          solicitationNumber: initialSolicitationNumber,
+          contractTitle: initialContractTitle,
+
+          awardedOrganization: '',
+          awardNotificationDate: '',
+          contractingOfficerEmail: '',
+          requesterName: '',
+          requesterTitle: '',
+          requesterEmail: '',
+          requesterPhone: '',
+          requesterAddress: '',
+          companyName: '',
+        });
+      }
 
       onOpenChange(false);
       onSuccess?.(result);
     } catch (error) {
       toast({
         title: 'Error',
-        description: error instanceof Error ? error.message : 'Failed to create debriefing request',
+        description: error instanceof Error ? error.message : `Failed to ${isEditMode ? 'update' : 'create'} debriefing request`,
         variant: 'destructive',
       });
     }
@@ -117,11 +147,13 @@ export const RequestDebriefingDialog = ({
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
-        <form onSubmit={handleSubmit(onSubmit)}>
+        <form onSubmit={handleSubmit(onSubmit)} autoComplete="off" data-1p-ignore>
           <DialogHeader>
-            <DialogTitle>Request Post-Award Debriefing</DialogTitle>
+            <DialogTitle>{isEditMode ? 'Edit Debriefing Request' : 'Request Post-Award Debriefing'}</DialogTitle>
             <DialogDescription>
-              Submit a request for a post-award debriefing to learn why your proposal was not selected (per FAR 15.506).
+              {isEditMode
+                ? 'Update the details of your debriefing request.'
+                : 'Submit a request for a post-award debriefing to learn why your proposal was not selected (per FAR 15.506).'}
             </DialogDescription>
           </DialogHeader>
 
@@ -135,6 +167,7 @@ export const RequestDebriefingDialog = ({
                   <Input
                     id="solicitationNumber"
                     placeholder="e.g., W911NF-21-R-0001"
+                    data-1p-ignore
                     {...register('solicitationNumber')}
                   />
                   {errors.solicitationNumber && (
@@ -142,21 +175,11 @@ export const RequestDebriefingDialog = ({
                   )}
                 </div>
                 <div className="grid gap-2">
-                  <Label htmlFor="contractNumber">Contract Number *</Label>
-                  <Input
-                    id="contractNumber"
-                    placeholder="e.g., W911NF-21-C-0001"
-                    {...register('contractNumber')}
-                  />
-                  {errors.contractNumber && (
-                    <p className="text-xs text-destructive">{errors.contractNumber.message}</p>
-                  )}
-                </div>
-                <div className="grid gap-2">
                   <Label htmlFor="contractTitle">Contract Title *</Label>
                   <Input
                     id="contractTitle"
                     placeholder="e.g., IT Services Support"
+                    data-1p-ignore
                     {...register('contractTitle')}
                   />
                   {errors.contractTitle && (
@@ -164,10 +187,11 @@ export const RequestDebriefingDialog = ({
                   )}
                 </div>
                 <div className="grid gap-2">
-                  <Label htmlFor="awardedOrganization">Awarded Organization *</Label>
+                  <Label htmlFor="awardedOrganization">Awarded Organization</Label>
                   <Input
                     id="awardedOrganization"
-                    placeholder="e.g., Winning Contractor LLC"
+                    placeholder="e.g., Winning Contractor LLC (if known)"
+                    data-1p-ignore
                     {...register('awardedOrganization')}
                   />
                   {errors.awardedOrganization && (
@@ -179,51 +203,24 @@ export const RequestDebriefingDialog = ({
                   <Input
                     id="awardNotificationDate"
                     type="date"
+                    data-1p-ignore
                     {...register('awardNotificationDate')}
                   />
                   {errors.awardNotificationDate && (
                     <p className="text-xs text-destructive">{errors.awardNotificationDate.message}</p>
                   )}
                 </div>
-              </div>
-            </div>
-
-            {/* Contracting Officer */}
-            <div className="space-y-4">
-              <h4 className="text-sm font-medium">Contracting Officer</h4>
-              <div className="grid gap-3">
                 <div className="grid gap-2">
-                  <Label htmlFor="contractingOfficerName">Name *</Label>
-                  <Input
-                    id="contractingOfficerName"
-                    placeholder="Jane Doe"
-                    {...register('contractingOfficerName')}
-                  />
-                  {errors.contractingOfficerName && (
-                    <p className="text-xs text-destructive">{errors.contractingOfficerName.message}</p>
-                  )}
-                </div>
-                <div className="grid gap-2">
-                  <Label htmlFor="contractingOfficerEmail">Email *</Label>
+                  <Label htmlFor="contractingOfficerEmail">Contracting Officer Email *</Label>
                   <Input
                     id="contractingOfficerEmail"
                     type="email"
                     placeholder="jane.doe@agency.gov"
+                    data-1p-ignore
                     {...register('contractingOfficerEmail')}
                   />
                   {errors.contractingOfficerEmail && (
                     <p className="text-xs text-destructive">{errors.contractingOfficerEmail.message}</p>
-                  )}
-                </div>
-                <div className="grid gap-2">
-                  <Label htmlFor="contractingOfficerAddress">Mailing Address *</Label>
-                  <Input
-                    id="contractingOfficerAddress"
-                    placeholder="123 Agency Blvd, Washington DC 20001"
-                    {...register('contractingOfficerAddress')}
-                  />
-                  {errors.contractingOfficerAddress && (
-                    <p className="text-xs text-destructive">{errors.contractingOfficerAddress.message}</p>
                   )}
                 </div>
               </div>
@@ -239,6 +236,7 @@ export const RequestDebriefingDialog = ({
                     <Input
                       id="requesterName"
                       placeholder="John Smith"
+                      data-1p-ignore
                       {...register('requesterName')}
                     />
                     {errors.requesterName && (
@@ -250,6 +248,7 @@ export const RequestDebriefingDialog = ({
                     <Input
                       id="requesterTitle"
                       placeholder="Contracts Manager"
+                      data-1p-ignore
                       {...register('requesterTitle')}
                     />
                     {errors.requesterTitle && (
@@ -263,6 +262,7 @@ export const RequestDebriefingDialog = ({
                     id="requesterEmail"
                     type="email"
                     placeholder="john@company.com"
+                    data-1p-ignore
                     {...register('requesterEmail')}
                   />
                   {errors.requesterEmail && (
@@ -270,10 +270,24 @@ export const RequestDebriefingDialog = ({
                   )}
                 </div>
                 <div className="grid gap-2">
+                  <Label htmlFor="requesterPhone">Phone *</Label>
+                  <Input
+                    id="requesterPhone"
+                    type="tel"
+                    placeholder="(555) 123-4567"
+                    data-1p-ignore
+                    {...register('requesterPhone')}
+                  />
+                  {errors.requesterPhone && (
+                    <p className="text-xs text-destructive">{errors.requesterPhone.message}</p>
+                  )}
+                </div>
+                <div className="grid gap-2">
                   <Label htmlFor="requesterAddress">Mailing Address *</Label>
                   <Input
                     id="requesterAddress"
                     placeholder="123 Business Ave, Suite 100, City, ST 12345"
+                    data-1p-ignore
                     {...register('requesterAddress')}
                   />
                   {errors.requesterAddress && (
@@ -285,6 +299,7 @@ export const RequestDebriefingDialog = ({
                   <Input
                     id="companyName"
                     placeholder="e.g., Acme Corp"
+                    data-1p-ignore
                     {...register('companyName')}
                   />
                   {errors.companyName && (
@@ -293,7 +308,6 @@ export const RequestDebriefingDialog = ({
                 </div>
               </div>
             </div>
-
 
           </div>
 
@@ -307,7 +321,9 @@ export const RequestDebriefingDialog = ({
               Cancel
             </Button>
             <Button type="submit" disabled={isSubmitting}>
-              {isSubmitting ? 'Submitting...' : 'Request Debriefing'}
+              {isSubmitting
+                ? (isEditMode ? 'Saving...' : 'Submitting...')
+                : (isEditMode ? 'Save Changes' : 'Request Debriefing')}
             </Button>
           </DialogFooter>
         </form>

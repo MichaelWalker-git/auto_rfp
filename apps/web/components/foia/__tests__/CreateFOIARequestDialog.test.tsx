@@ -34,9 +34,14 @@ jest.mock('@auto-rfp/core', () => {
 const mockCreateFOIARequest = jest.fn();
 const mockToast = jest.fn();
 
+const mockUpdateFOIARequest = jest.fn();
+
 jest.mock('@/lib/hooks/use-foia-requests', () => ({
   useCreateFOIARequest: () => ({
     createFOIARequest: mockCreateFOIARequest,
+  }),
+  useUpdateFOIARequest: () => ({
+    updateFOIARequest: mockUpdateFOIARequest,
   }),
 }));
 
@@ -96,9 +101,17 @@ jest.mock('@/components/ui/checkbox', () => ({
 // Helper to fill form fields and submit — uses userEvent for proper DOM + react-hook-form interaction
 const fillAndSubmitForm = async (user: ReturnType<typeof userEvent.setup>) => {
   await user.type(screen.getByLabelText(/agency name/i), 'Department of Defense');
+  await user.type(screen.getByLabelText(/foia office email/i), 'foia@dod.gov');
+  await user.type(screen.getByLabelText(/foia office address/i), '1400 Defense Pentagon, Washington DC 20301');
   await user.type(screen.getByLabelText(/solicitation number/i), 'W911NF-21-R-0001');
+  await user.type(screen.getByLabelText(/contract title/i), 'IT Services Contract');
+  await user.type(screen.getByLabelText(/award date/i), 'January 15, 2026');
   await user.type(screen.getByLabelText(/^name \*/i), 'John Doe');
+  await user.type(screen.getByLabelText(/^title \*/i), 'Contracts Manager');
   await user.type(screen.getByLabelText(/^email \*/i), 'john@company.com');
+  await user.type(screen.getByLabelText(/^phone \*/i), '555-123-4567');
+  await user.type(screen.getByLabelText(/mailing address/i), '123 Business Ave, Arlington VA 22201');
+  await user.type(screen.getByLabelText(/company name/i), 'Acme Corp');
 
   // Select a document
   await user.click(screen.getByTestId('checkbox-SSEB_REPORT'));
@@ -116,29 +129,32 @@ describe('CreateFOIARequestDialog', () => {
     opportunityId: 'opp-789',
   };
 
-  const mockFOIARequest = {
+  const mockFOIARequest: FOIARequestItem = {
     id: 'foia-1',
     foiaId: 'foia-1',
     projectId: 'proj-123',
     orgId: 'org-456',
-    status: 'DRAFT',
+    opportunityId: 'opp-789',
     agencyName: 'Department of Defense',
-    agencyId: 'agency-1',
-    agencyAbbreviation: 'DoD',
+    agencyFOIAEmail: 'foia@dod.gov',
+    agencyFOIAAddress: '1400 Defense Pentagon, Washington DC 20301',
     solicitationNumber: 'W911NF-21-R-0001',
+    contractTitle: 'IT Services Contract',
     requestedDocuments: ['SSEB_REPORT'],
+    customDocumentRequests: [],
+    feeLimit: 50,
+    companyName: 'Acme Corp',
+    awardDate: 'January 15, 2026',
     requesterName: 'John Doe',
+    requesterTitle: 'Contracts Manager',
     requesterEmail: 'john@company.com',
-    requesterCategory: 'OTHER',
+    requesterPhone: '555-123-4567',
+    requesterAddress: '123 Business Ave, Arlington VA 22201',
     requestedBy: 'user-789',
     createdBy: 'user-789',
-    feeLimit: 50,
-    requestFeeWaiver: false,
-    submissionMethod: 'MANUAL',
-    letterFormat: 'STANDARD',
-    createdAt: '2025-01-15T00:00:00Z',
-    updatedAt: '2025-01-15T00:00:00Z',
-  } as unknown as FOIARequestItem;
+    createdAt: '2025-01-15T00:00:00+00:00',
+    updatedAt: '2025-01-15T00:00:00+00:00',
+  };
 
   beforeEach(() => {
     jest.clearAllMocks();
@@ -221,9 +237,17 @@ describe('CreateFOIARequestDialog', () => {
       const input = screen.getByLabelText(/agency name/i) as HTMLInputElement;
       expect(input).toBeInTheDocument();
       // Fill remaining required fields and submit to verify the default value is used
+      await user.type(screen.getByLabelText(/foia office email/i), 'foia@dod.gov');
+      await user.type(screen.getByLabelText(/foia office address/i), '1400 Defense Pentagon');
       await user.type(screen.getByLabelText(/solicitation number/i), 'W911NF-21-R-0001');
+      await user.type(screen.getByLabelText(/contract title/i), 'IT Services');
+      await user.type(screen.getByLabelText(/award date/i), 'January 15, 2026');
       await user.type(screen.getByLabelText(/^name \*/i), 'John Doe');
+      await user.type(screen.getByLabelText(/^title \*/i), 'Contracts Manager');
       await user.type(screen.getByLabelText(/^email \*/i), 'john@company.com');
+      await user.type(screen.getByLabelText(/^phone \*/i), '555-123-4567');
+      await user.type(screen.getByLabelText(/mailing address/i), '123 Business Ave');
+      await user.type(screen.getByLabelText(/company name/i), 'Acme Corp');
       await user.click(screen.getByTestId('checkbox-SSEB_REPORT'));
       await user.click(screen.getByRole('button', { name: /create foia request/i }));
 
@@ -246,8 +270,16 @@ describe('CreateFOIARequestDialog', () => {
       expect(input).toBeInTheDocument();
       // Fill remaining required fields and submit to verify the default value is used
       await user.type(screen.getByLabelText(/agency name/i), 'Department of Defense');
+      await user.type(screen.getByLabelText(/foia office email/i), 'foia@dod.gov');
+      await user.type(screen.getByLabelText(/foia office address/i), '1400 Defense Pentagon');
+      await user.type(screen.getByLabelText(/contract title/i), 'IT Services');
+      await user.type(screen.getByLabelText(/award date/i), 'January 15, 2026');
       await user.type(screen.getByLabelText(/^name \*/i), 'John Doe');
+      await user.type(screen.getByLabelText(/^title \*/i), 'Contracts Manager');
       await user.type(screen.getByLabelText(/^email \*/i), 'john@company.com');
+      await user.type(screen.getByLabelText(/^phone \*/i), '555-123-4567');
+      await user.type(screen.getByLabelText(/mailing address/i), '123 Business Ave');
+      await user.type(screen.getByLabelText(/company name/i), 'Acme Corp');
       await user.click(screen.getByTestId('checkbox-SSEB_REPORT'));
       await user.click(screen.getByRole('button', { name: /create foia request/i }));
 

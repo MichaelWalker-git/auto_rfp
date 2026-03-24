@@ -4,25 +4,23 @@ import { FOIARequestCard } from '../FOIARequestCard';
 import { useFOIARequests } from '@/lib/hooks/use-foia-requests';
 import type { FOIARequestItem } from '@auto-rfp/core';
 
+const mockGenerateFOIALetter = jest.fn().mockResolvedValue('Dear FOIA Officer...');
+
 // Mock the hooks and components
 jest.mock('@/lib/hooks/use-foia-requests', () => ({
   useFOIARequests: jest.fn(),
+  useGenerateFOIALetter: () => ({
+    generateFOIALetter: mockGenerateFOIALetter,
+  }),
 }));
-jest.mock('../FOIAStatusBadge', () => ({
-  FOIAStatusBadge: ({ status }: { status: string }) => (
-    <div data-testid="foia-status-badge" data-status={status}>
-      {status}
-    </div>
-  ),
+jest.mock('@/components/ui/use-toast', () => ({
+  useToast: () => ({
+    toast: jest.fn(),
+  }),
 }));
 jest.mock('../CreateFOIARequestDialog', () => ({
   CreateFOIARequestDialog: ({ isOpen }: { isOpen: boolean }) => (
     isOpen ? <div data-testid="create-foia-dialog">Dialog Open</div> : null
-  ),
-}));
-jest.mock('../FOIALetterPreview', () => ({
-  FOIALetterPreview: ({ isOpen }: { isOpen: boolean }) => (
-    isOpen ? <div data-testid="foia-letter-preview">Letter Preview</div> : null
   ),
 }));
 jest.mock('@/components/permission-wrapper', () => ({
@@ -40,14 +38,16 @@ describe('FOIARequestCard', () => {
     projectOutcomeStatus: 'LOST',
     agencyName: 'Test Agency',
     solicitationNumber: 'SOL-123',
+    contractTitle: 'IT Services Support',
   };
 
   beforeEach(() => {
     jest.clearAllMocks();
-    // Set default mock return value
     mockUseFOIARequests.mockReturnValue({
       foiaRequests: [],
       isLoading: false,
+      isError: false,
+      error: undefined,
       refetch: jest.fn(),
     });
   });
@@ -61,62 +61,36 @@ describe('FOIARequestCard', () => {
     });
 
     it('renders when project outcome is LOST', () => {
-      mockUseFOIARequests.mockReturnValue({
-        foiaRequests: [],
-        isLoading: false,
-        refetch: jest.fn(),
-      });
-
       render(<FOIARequestCard {...defaultProps} />);
-      expect(screen.getByText('FOIA Requests')).toBeInTheDocument();
+      expect(screen.getByText('FOIA Request')).toBeInTheDocument();
     });
   });
 
   describe('loading state', () => {
-    it('renders loading skeleton with consistent structure', () => {
+    it('renders loading skeleton', () => {
       mockUseFOIARequests.mockReturnValue({
         foiaRequests: [],
         isLoading: true,
+        isError: false,
+        error: undefined,
         refetch: jest.fn(),
       });
 
       render(<FOIARequestCard {...defaultProps} />);
-
-      // Check header with icon
-      expect(screen.getByText('FOIA Requests')).toBeInTheDocument();
-      
-      // Check skeleton loading state (should have 3 skeletons now)
-      const skeletons = document.querySelectorAll('[data-slot="skeleton"]');
-      expect(skeletons).toHaveLength(3);
+      expect(screen.getByText('FOIA Request')).toBeInTheDocument();
     });
   });
 
   describe('empty state', () => {
-    it('renders empty state with consistent messaging and button', () => {
-      mockUseFOIARequests.mockReturnValue({
-        foiaRequests: [],
-        isLoading: false,
-        refetch: jest.fn(),
-      });
-
+    it('renders empty state with messaging and button', () => {
       render(<FOIARequestCard {...defaultProps} />);
 
-      // Check consistent empty state messaging
-      expect(screen.getByText('No FOIA requests yet')).toBeInTheDocument();
+      expect(screen.getByText('No FOIA request yet')).toBeInTheDocument();
       expect(screen.getByText(/Submit a Freedom of Information Act request/)).toBeInTheDocument();
-      
-      // Check consistent button styling
-      const button = screen.getByRole('button', { name: 'Create FOIA Request' });
-      expect(button).toHaveClass('border'); // The button has border class instead of outline
+      expect(screen.getByRole('button', { name: 'Create FOIA Request' })).toBeInTheDocument();
     });
 
     it('opens dialog when Create FOIA Request button is clicked', () => {
-      mockUseFOIARequests.mockReturnValue({
-        foiaRequests: [],
-        isLoading: false,
-        refetch: jest.fn(),
-      });
-
       render(<FOIARequestCard {...defaultProps} />);
 
       const button = screen.getByRole('button', { name: 'Create FOIA Request' });
@@ -127,145 +101,101 @@ describe('FOIARequestCard', () => {
   });
 
   describe('with FOIA request data', () => {
-    it('renders FOIA request with consistent structure', () => {
+    it('renders FOIA request with agency info, documents, and Draft Letter button', () => {
       const foiaRequest: FOIARequestItem = {
         id: 'foia-123',
+        foiaId: 'foia-123',
         projectId: 'proj-123',
         orgId: 'org-456',
-        status: 'SUBMITTED',
+        opportunityId: 'opp-789',
         agencyName: 'Test Agency',
         agencyFOIAEmail: 'foia@agency.gov',
-        requestedDocuments: ['EVALUATION_CRITERIA', 'WINNING_PROPOSAL'],
-        responseDeadline: '2024-02-01T00:00:00Z',
-        trackingNumber: 'TRACK-123',
-        responseNotes: 'Request submitted successfully',
-        createdAt: '2024-01-15T10:00:00Z',
-        updatedAt: '2024-01-15T10:00:00Z',
-      } as FOIARequestItem;
+        agencyFOIAAddress: '123 Agency Blvd, Washington DC 20001',
+        solicitationNumber: 'SOL-123',
+        contractTitle: 'IT Services',
+        requestedDocuments: ['SSEB_REPORT', 'TECHNICAL_EVAL'],
+        customDocumentRequests: [],
+        feeLimit: 0,
+        companyName: 'Acme Corp',
+        awardDate: 'January 15, 2026',
+        requesterName: 'John Doe',
+        requesterTitle: 'Contracts Manager',
+        requesterEmail: 'john@company.com',
+        requesterPhone: '555-123-4567',
+        requesterAddress: '123 Business Ave, Arlington VA 22201',
+        requestedBy: 'user-789',
+        createdAt: '2024-01-15T10:00:00+00:00',
+        updatedAt: '2024-01-15T10:00:00+00:00',
+        createdBy: 'user-789',
+      };
 
       mockUseFOIARequests.mockReturnValue({
         foiaRequests: [foiaRequest],
         isLoading: false,
+        isError: false,
+        error: undefined,
         refetch: jest.fn(),
       });
 
       render(<FOIARequestCard {...defaultProps} />);
 
-      // Check header with icon and New Request button
-      expect(screen.getByText('FOIA Requests')).toBeInTheDocument();
-      expect(screen.getByRole('button', { name: /New Request/ })).toBeInTheDocument();
-
-      // Check status badge
-      const badge = screen.getByTestId('foia-status-badge');
-      expect(badge).toHaveAttribute('data-status', 'SUBMITTED');
-
-      // Check agency info
+      expect(screen.getByText('FOIA Request')).toBeInTheDocument();
       expect(screen.getByText('Test Agency')).toBeInTheDocument();
-
-      // Check tracking number
-      expect(screen.getByText('Tracking: TRACK-123')).toBeInTheDocument();
-
-      // Check requested documents
       expect(screen.getByText('Requested Documents:')).toBeInTheDocument();
-
-      // Check response notes
-      expect(screen.getByText('Response Notes:')).toBeInTheDocument();
-      expect(screen.getByText('Request submitted successfully')).toBeInTheDocument();
-
-      // Check action buttons
-      expect(screen.getByRole('button', { name: 'View Letter' })).toBeInTheDocument();
-      expect(screen.getByRole('link', { name: /Email Agency/ })).toBeInTheDocument();
-
-      // Check creation date
+      expect(screen.getByRole('button', { name: /Draft Letter/ })).toBeInTheDocument();
       expect(screen.getByText(/Created.*ago/)).toBeInTheDocument();
     });
 
-    it('shows deadline warning for overdue requests', () => {
-      const overdueRequest: FOIARequestItem = {
-        id: 'foia-123',
-        projectId: 'proj-123',
-        orgId: 'org-456',
-        status: 'SUBMITTED',
-        agencyName: 'Test Agency',
-        requestedDocuments: ['EVALUATION_CRITERIA'],
-        responseDeadline: '2020-01-01T00:00:00Z', // Past date
-        createdAt: '2024-01-15T10:00:00Z',
-        updatedAt: '2024-01-15T10:00:00Z',
-      } as FOIARequestItem;
-
-      mockUseFOIARequests.mockReturnValue({
-        foiaRequests: [overdueRequest],
-        isLoading: false,
-        refetch: jest.fn(),
-      });
-
-      render(<FOIARequestCard {...defaultProps} />);
-
-      // Check that deadline shows as overdue with warning styling
-      const deadlineElement = screen.getByText(/Due: Jan 1, 2020/);
-      expect(deadlineElement.closest('div')).toHaveClass('text-destructive');
-    });
-
-    it('handles multiple requests with expand/collapse', () => {
-      const requests: FOIARequestItem[] = [
-        {
-          id: 'foia-1',
-          status: 'SUBMITTED',
-          agencyName: 'Agency 1',
-          requestedDocuments: ['EVALUATION_CRITERIA'],
-          createdAt: '2024-01-15T10:00:00Z',
-        },
-        {
-          id: 'foia-2',
-          status: 'COMPLETED',
-          agencyName: 'Agency 2',
-          requestedDocuments: ['WINNING_PROPOSAL'],
-          createdAt: '2024-01-10T10:00:00Z',
-        },
-      ] as FOIARequestItem[];
-
-      mockUseFOIARequests.mockReturnValue({
-        foiaRequests: requests,
-        isLoading: false,
-        refetch: jest.fn(),
-      });
-
-      render(<FOIARequestCard {...defaultProps} />);
-
-      // Check expand button
-      const expandButton = screen.getByRole('button', { name: /Show 1 more request/ });
-      expect(expandButton).toBeInTheDocument();
-
-      // Click to expand
-      fireEvent.click(expandButton);
-
-      // Check that additional request is shown
-      expect(screen.getByText(/Hide 1 more request/)).toBeInTheDocument();
-    });
   });
 
   describe('interactions', () => {
-    it('opens letter preview when View Letter is clicked', () => {
+    it('calls generateFOIALetter when Draft Letter is clicked', () => {
       const foiaRequest: FOIARequestItem = {
         id: 'foia-123',
-        status: 'SUBMITTED',
+        foiaId: 'foia-123',
+        projectId: 'proj-123',
+        orgId: 'org-456',
+        opportunityId: 'opp-789',
         agencyName: 'Test Agency',
-        requestedDocuments: ['EVALUATION_CRITERIA'],
-        createdAt: '2024-01-15T10:00:00Z',
-      } as FOIARequestItem;
+        agencyFOIAEmail: 'foia@agency.gov',
+        agencyFOIAAddress: '123 Agency Blvd, Washington DC 20001',
+        solicitationNumber: 'SOL-123',
+        contractTitle: 'IT Services',
+        requestedDocuments: ['SSEB_REPORT'],
+        customDocumentRequests: [],
+        feeLimit: 0,
+        companyName: 'Acme Corp',
+        awardDate: 'January 15, 2026',
+        requesterName: 'John',
+        requesterTitle: 'Contracts Manager',
+        requesterEmail: 'john@test.com',
+        requesterPhone: '555-123-4567',
+        requesterAddress: '123 Business Ave, Arlington VA 22201',
+        requestedBy: 'user-789',
+        createdAt: '2024-01-15T10:00:00+00:00',
+        updatedAt: '2024-01-15T10:00:00+00:00',
+        createdBy: 'user-789',
+      };
 
       mockUseFOIARequests.mockReturnValue({
         foiaRequests: [foiaRequest],
         isLoading: false,
+        isError: false,
+        error: undefined,
         refetch: jest.fn(),
       });
 
       render(<FOIARequestCard {...defaultProps} />);
 
-      const viewButton = screen.getByRole('button', { name: 'View Letter' });
-      fireEvent.click(viewButton);
+      const draftButton = screen.getByRole('button', { name: /Draft Letter/ });
+      fireEvent.click(draftButton);
 
-      expect(screen.getByTestId('foia-letter-preview')).toBeInTheDocument();
+      expect(mockGenerateFOIALetter).toHaveBeenCalledWith(
+        'org-456',
+        'proj-123',
+        'opp-789',
+        'foia-123'
+      );
     });
   });
 });

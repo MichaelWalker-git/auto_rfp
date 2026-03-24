@@ -19,19 +19,27 @@ import type { DBDebriefingItem } from '@/types/project-outcome';
 
 const DB_TABLE_NAME = requireEnv('DB_TABLE_NAME');
 
+/**
+ * Formats a date string into a human-readable format for letters.
+ * Handles both ISO dates ("2026-01-15") and already-formatted strings ("January 15, 2026").
+ */
+const formatDateForLetter = (dateStr: string): string => {
+  const parsed = new Date(dateStr);
+  if (isNaN(parsed.getTime())) return dateStr;
+  const utc = new Date(parsed.getUTCFullYear(), parsed.getUTCMonth(), parsed.getUTCDate());
+  return utc.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+};
+
 /** Fields on the debriefing record that must be populated to generate a letter. */
 const REQUIRED_LETTER_FIELDS = [
   'solicitationNumber',
-  'contractNumber',
   'contractTitle',
-  'awardedOrganization',
   'awardNotificationDate',
-  'contractingOfficerName',
   'contractingOfficerEmail',
-  'contractingOfficerAddress',
   'requesterName',
   'requesterTitle',
   'requesterEmail',
+  'requesterPhone',
   'requesterAddress',
   'companyName',
 ] as const;
@@ -59,9 +67,9 @@ export const baseHandler = async (
       return apiResponse(400, { message: 'Invalid payload', issues: error.issues });
     }
 
-    const { orgId, projectId, debriefingId } = data;
+    const { orgId, projectId, opportunityId, debriefingId } = data;
 
-    const debriefing = await getDebriefing(orgId, projectId, debriefingId);
+    const debriefing = await getDebriefing(orgId, projectId, opportunityId, debriefingId);
 
     if (!debriefing) {
       return apiResponse(404, { message: 'Debriefing request not found' });
@@ -91,9 +99,10 @@ export const baseHandler = async (
 const getDebriefing = async (
   orgId: string,
   projectId: string,
+  opportunityId: string,
   debriefingId: string
 ): Promise<DBDebriefingItem | null> => {
-  const sortKey = `${orgId}#${projectId}#${debriefingId}`;
+  const sortKey = `${orgId}#${projectId}#${opportunityId}#${debriefingId}`;
 
   const cmd = new GetCommand({
     TableName: DB_TABLE_NAME,
@@ -110,27 +119,15 @@ const getDebriefing = async (
 /**
  * Generates a formal post-award debriefing request letter using FAR 15.506 language.
  * All required fields are guaranteed to be present (validated before calling this function).
- * Only `attachedQuestions` is optional.
  */
 export const generateDebriefingLetter = (debriefing: DBDebriefingItem): string => {
-  const today = new Date().toLocaleDateString('en-US', {
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric',
-  });
+  const salutation = debriefing.contractingOfficerName
+    ? `Dear ${debriefing.contractingOfficerName},`
+    : 'Dear Contracting Officer,';
 
-  return `${today}
+  return `${salutation}
 
-${debriefing.contractingOfficerName}
-${debriefing.contractingOfficerAddress}
-Email: ${debriefing.contractingOfficerEmail}
-
-Re: Post-Award Debriefing Request — Solicitation No. ${debriefing.solicitationNumber}, ${debriefing.contractTitle}
-Contract No. ${debriefing.contractNumber}
-
-Dear ${debriefing.contractingOfficerName},
-
-Pursuant to FAR 15.506, I am writing on behalf of ${debriefing.companyName} to formally request a post-award debriefing regarding the above-referenced solicitation. We received notification of the award on ${debriefing.awardNotificationDate}. It is my understanding that the contract was awarded to ${debriefing.awardedOrganization}.
+Pursuant to FAR 15.506, I am writing on behalf of ${debriefing.companyName} to formally request a post-award debriefing regarding Solicitation No. ${debriefing.solicitationNumber}, ${debriefing.contractTitle}. We received notification of the award on ${formatDateForLetter(debriefing.awardNotificationDate)}.${debriefing.awardedOrganization ? ` It is my understanding that the contract was awarded to ${debriefing.awardedOrganization}.` : ''}
 
 ${debriefing.companyName} submitted a proposal in response to this solicitation and was not selected for award. Under FAR 15.506(a), an unsuccessful offeror may request a debriefing by submitting a written request within three (3) days after receipt of notification of contract award.
 
@@ -140,7 +137,7 @@ We respectfully request that the debriefing address the following areas, as outl
    2. The overall evaluated cost or price and technical rating of our proposal and the awardee's proposal
    3. The overall ranking of all offerors, when any ranking was developed during the source selection
    4. A summary of the rationale for award
-   5. Reasonable responses to relevant questions about whether source selection procedures contained in the solicitation, applicable regulations, and other applicable authorities were followed
+   5. Whether the source selection procedures in the solicitation and applicable regulations were followed
 
 We respectfully request that the debriefing be provided in written format pursuant to FAR 15.506(b).
 
@@ -152,7 +149,8 @@ ${debriefing.requesterName}
 ${debriefing.requesterTitle}
 ${debriefing.companyName}
 ${debriefing.requesterAddress}
-Email: ${debriefing.requesterEmail}`;
+Email: ${debriefing.requesterEmail}
+Phone: ${debriefing.requesterPhone}`;
 };
 
 export const handler = withSentryLambda(

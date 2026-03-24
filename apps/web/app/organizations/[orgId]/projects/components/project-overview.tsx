@@ -14,7 +14,6 @@ import {
   Calendar,
   CheckCircle2,
   Clock,
-  FileSearch,
   FileText,
   FolderOpen,
   HelpCircle,
@@ -25,7 +24,6 @@ import { format, formatDistanceToNow } from 'date-fns';
 import { useProject, useQuestions } from '@/lib/hooks/use-api';
 import { useProjectOutcomes } from '@/lib/hooks/use-project-outcome';
 import { useGetExecutiveBriefByProject } from '@/lib/hooks/use-executive-brief';
-import { useFOIARequests } from '@/lib/hooks/use-foia-requests';
 import {
   NoRfpDocumentAvailable,
   useQuestions as useQuestionsProvider,
@@ -50,7 +48,6 @@ export function ProjectOverview({ projectId }: ProjectOverviewProps) {
   // Fetch all outcomes across opportunities
   const { outcomes, isError: outcomesError, isLoading: outcomesLoading } = useProjectOutcomes(orgId || null, projectId);
   const getBriefByProject = useGetExecutiveBriefByProject();
-  const { foiaRequests } = useFOIARequests(orgId, projectId);
 
   const [briefs, setBriefs] = useState<any[]>([]);
 
@@ -389,32 +386,6 @@ export function ProjectOverview({ projectId }: ProjectOverviewProps) {
           </CardContent>
         </Card>
 
-        {/* FOIA Requests */}
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">FOIA Requests</CardTitle>
-            <FileSearch className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{foiaRequests?.length ?? 0}</div>
-            <p className="text-xs text-muted-foreground">
-              {foiaRequests?.length ? 'competitive intelligence requests' : 'no requests yet'}
-            </p>
-            {foiaRequests && foiaRequests.length > 0 && (
-              <div className="flex gap-1 mt-3">
-                {['SUBMITTED', 'RECEIVED', 'PENDING'].map(status => {
-                  const count = foiaRequests.filter((r: any) => r.status === status).length;
-                  if (!count) return null;
-                  return (
-                    <Badge key={status} variant="outline" className="text-xs">
-                      {count} {status.charAt(0) + status.slice(1).toLowerCase()}
-                    </Badge>
-                  );
-                })}
-              </div>
-            )}
-          </CardContent>
-        </Card>
 
         {/* Solicitation Documents */}
         <Card>

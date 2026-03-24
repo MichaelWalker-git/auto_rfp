@@ -4,7 +4,6 @@ import middy from '@middy/core';
 import { v4 as uuidv4 } from 'uuid';
 
 import {
-  calculateDebriefingDeadline,
   CreateDebriefingRequestSchema,
 } from '@auto-rfp/core';
 import { PK_NAME, SK_NAME } from '@/constants/common';
@@ -106,31 +105,27 @@ export const createDebriefing = async (
   const {
     projectId,
     orgId,
+    opportunityId,
     solicitationNumber,
-    contractNumber,
+
     contractTitle,
     awardedOrganization,
     awardNotificationDate,
     contractingOfficerName,
     contractingOfficerEmail,
-    contractingOfficerAddress,
     requesterName,
     requesterTitle,
     requesterEmail,
+    requesterPhone,
     requesterAddress,
     companyName,
-    attachedQuestions,
   } = dto;
 
   const now = new Date().toISOString();
   const debriefId = uuidv4();
 
-  // Calculate deadline (3 business days from now)
-  const deadlineDate = calculateDebriefingDeadline(new Date());
-  const deadline = deadlineDate.toISOString();
-
-  // Create sort key: orgId#projectId#debriefingId
-  const sortKey = `${orgId}#${projectId}#${debriefId}`;
+  // Create sort key: orgId#projectId#opportunityId#debriefingId
+  const sortKey = `${orgId}#${projectId}#${opportunityId}#${debriefId}`;
 
   const debriefingItem: DBDebriefingItem = {
     [PK_NAME]: DEBRIEFING_PK,
@@ -138,22 +133,20 @@ export const createDebriefing = async (
     debriefId,
     projectId,
     orgId,
-    requestStatus: 'REQUESTED',
-    requestDeadline: deadline,
+    opportunityId,
     solicitationNumber,
-    contractNumber,
+
     contractTitle,
     awardedOrganization,
     awardNotificationDate,
     contractingOfficerName,
     contractingOfficerEmail,
-    contractingOfficerAddress,
     requesterName,
     requesterTitle,
     requesterEmail,
+    requesterPhone,
     requesterAddress,
     companyName,
-    attachedQuestions,
     createdAt: now,
     updatedAt: now,
     createdBy: userId,

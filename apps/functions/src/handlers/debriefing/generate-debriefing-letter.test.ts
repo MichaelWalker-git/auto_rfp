@@ -22,6 +22,11 @@ jest.mock('@aws-sdk/lib-dynamodb', () => ({
   GetCommand: jest.fn((params) => ({ type: 'Get', params })),
 }));
 
+// Mock sentry
+jest.mock('@/sentry-lambda', () => ({
+  withSentryLambda: jest.fn((handler: unknown) => handler),
+}));
+
 // Set required environment variables
 process.env.DB_TABLE_NAME = 'test-table';
 process.env.REGION = 'us-east-1';
@@ -32,23 +37,21 @@ import type { APIGatewayProxyEventV2 } from 'aws-lambda';
 
 const mockDebriefing: DBDebriefingItem = {
   partition_key: 'DEBRIEFING',
-  sort_key: 'org-456#proj-123#debrief-1',
+  sort_key: 'org-456#proj-123#opp-789#debrief-1',
   debriefId: 'debrief-1',
   projectId: 'proj-123',
   orgId: 'org-456',
-  requestStatus: 'REQUESTED',
-  requestDeadline: '2025-01-20T00:00:00.000Z',
+  opportunityId: 'opp-789',
   solicitationNumber: 'W911NF-21-R-0001',
-  contractNumber: 'W911NF-21-C-0001',
   contractTitle: 'IT Services Contract',
   awardedOrganization: 'WinnerCo LLC',
   awardNotificationDate: 'January 15, 2025',
   contractingOfficerName: 'Jane Officer',
   contractingOfficerEmail: 'jane@agency.gov',
-  contractingOfficerAddress: '1400 Defense Pentagon, Washington DC 20301',
   requesterName: 'John Smith',
   requesterTitle: 'Contracts Manager',
   requesterEmail: 'john@company.com',
+  requesterPhone: '555-123-4567',
   requesterAddress: '123 Business Ave, Arlington VA 22201',
   companyName: 'Acme Corp',
   createdAt: '2025-01-15T00:00:00Z',
@@ -70,26 +73,53 @@ describe('generate-debriefing-letter handler', () => {
     });
 
     it('returns missing field names when fields are absent', () => {
-      const incomplete: DBDebriefingItem = {
+      const incomplete = {
         ...mockDebriefing,
-        contractingOfficerName: undefined,
         requesterName: undefined,
         companyName: undefined,
-      };
+      } as unknown as DBDebriefingItem;
 
       const missing = validateLetterFields(incomplete);
 
-      expect(missing).toContain('contractingOfficerName');
       expect(missing).toContain('requesterName');
       expect(missing).toContain('companyName');
-      expect(missing).toHaveLength(3);
+      expect(missing).toHaveLength(2);
+    });
+
+    it('detects all 10 required fields when all are missing', () => {
+      // Use a partial object cast to simulate a legacy DB record missing fields
+      const bareMinimum = {
+        partition_key: 'DEBRIEFING',
+        sort_key: 'org-456#proj-123#opp-789#debrief-bare',
+        debriefId: 'debrief-bare',
+        projectId: 'proj-123',
+        orgId: 'org-456',
+        opportunityId: 'opp-789',
+        createdAt: '2025-01-15T00:00:00Z',
+        updatedAt: '2025-01-15T00:00:00Z',
+        createdBy: 'user-789',
+      } as unknown as DBDebriefingItem;
+
+      const missing = validateLetterFields(bareMinimum);
+
+      expect(missing).toContain('solicitationNumber');
+      expect(missing).toContain('contractTitle');
+      expect(missing).toContain('awardNotificationDate');
+      expect(missing).toContain('contractingOfficerEmail');
+      expect(missing).toContain('requesterName');
+      expect(missing).toContain('requesterTitle');
+      expect(missing).toContain('requesterEmail');
+      expect(missing).toContain('requesterPhone');
+      expect(missing).toContain('requesterAddress');
+      expect(missing).toContain('companyName');
+      expect(missing).toHaveLength(10);
     });
 
     it('detects empty strings as missing', () => {
-      const emptyFields: DBDebriefingItem = {
+      const emptyFields = {
         ...mockDebriefing,
-        requesterEmail: '' as unknown as string,
-      };
+        requesterEmail: '',
+      } as unknown as DBDebriefingItem;
 
       const missing = validateLetterFields(emptyFields);
 
@@ -98,28 +128,30 @@ describe('generate-debriefing-letter handler', () => {
   });
 
   describe('generateDebriefingLetter', () => {
-    it('includes the date in the letter', () => {
+    it('uses officer name in salutation when provided', () => {
       const letter = generateDebriefingLetter(mockDebriefing);
 
-      expect(letter).toMatch(/\w+ \d{1,2}, \d{4}/);
+      expect(letter).toMatch(/^Dear Jane Officer,/);
     });
 
-    it('includes contracting officer information', () => {
-      const letter = generateDebriefingLetter(mockDebriefing);
+    it('uses generic salutation when officer name is missing', () => {
+      const withoutName = {
+        ...mockDebriefing,
+        contractingOfficerName: undefined,
+      } as unknown as DBDebriefingItem;
 
-      expect(letter).toContain('Jane Officer');
-      expect(letter).toContain('1400 Defense Pentagon, Washington DC 20301');
-      expect(letter).toContain('jane@agency.gov');
+      const letter = generateDebriefingLetter(withoutName);
+
+      expect(letter).toMatch(/^Dear Contracting Officer,/);
     });
 
-    it('includes solicitation and contract numbers', () => {
+    it('includes solicitation number in body', () => {
       const letter = generateDebriefingLetter(mockDebriefing);
 
       expect(letter).toContain('Solicitation No. W911NF-21-R-0001');
-      expect(letter).toContain('Contract No. W911NF-21-C-0001');
     });
 
-    it('includes contract title in subject line', () => {
+    it('includes contract title in body', () => {
       const letter = generateDebriefingLetter(mockDebriefing);
 
       expect(letter).toContain('IT Services Contract');
@@ -149,6 +181,18 @@ describe('generate-debriefing-letter handler', () => {
       expect(letter).toContain('notification of the award on January 15, 2025');
     });
 
+    it('formats ISO date strings into human-readable format', () => {
+      const isoDateDebriefing = {
+        ...mockDebriefing,
+        awardNotificationDate: '2025-03-22',
+      };
+
+      const letter = generateDebriefingLetter(isoDateDebriefing);
+
+      expect(letter).toContain('notification of the award on March 22, 2025');
+      expect(letter).not.toContain('2025-03-22');
+    });
+
     it('lists the five standard FAR debriefing topics', () => {
       const letter = generateDebriefingLetter(mockDebriefing);
 
@@ -165,8 +209,9 @@ describe('generate-debriefing-letter handler', () => {
       expect(letter).toContain('John Smith');
       expect(letter).toContain('Contracts Manager');
       expect(letter).toContain('Acme Corp');
-      expect(letter).toContain('john@company.com');
       expect(letter).toContain('123 Business Ave, Arlington VA 22201');
+      expect(letter).toContain('john@company.com');
+      expect(letter).toContain('555-123-4567');
     });
 
     it('ends with Sincerely closing', () => {
@@ -202,6 +247,7 @@ describe('generate-debriefing-letter handler', () => {
       const result = await baseHandler(makeEvent({
         orgId: 'org-456',
         projectId: 'proj-123',
+        opportunityId: 'opp-789',
         debriefingId: 'nonexistent',
       }));
       const parsed = JSON.parse(result.body as string);
@@ -211,26 +257,26 @@ describe('generate-debriefing-letter handler', () => {
     });
 
     it('returns 400 when debriefing is missing required letter fields', async () => {
-      const incompleteDebriefing: DBDebriefingItem = {
+      // Simulate a legacy DB record with missing fields
+      const incompleteDebriefing = {
         partition_key: 'DEBRIEFING',
-        sort_key: 'org-456#proj-123#debrief-2',
+        sort_key: 'org-456#proj-123#opp-789#debrief-2',
         debriefId: 'debrief-2',
         projectId: 'proj-123',
         orgId: 'org-456',
-        requestStatus: 'REQUESTED',
-        requestDeadline: '2025-01-20T00:00:00.000Z',
+        opportunityId: 'opp-789',
         solicitationNumber: 'GS-00F-0001',
-        contractNumber: 'GS-00F-C-0001',
         createdAt: '2025-01-15T00:00:00Z',
         updatedAt: '2025-01-15T00:00:00Z',
         createdBy: 'user-789',
-      };
+      } as unknown as DBDebriefingItem;
 
       mockSend.mockResolvedValueOnce({ Item: incompleteDebriefing });
 
       const result = await baseHandler(makeEvent({
         orgId: 'org-456',
         projectId: 'proj-123',
+        opportunityId: 'opp-789',
         debriefingId: 'debrief-2',
       }));
       const parsed = JSON.parse(result.body as string);
@@ -238,7 +284,6 @@ describe('generate-debriefing-letter handler', () => {
       expect(result.statusCode).toBe(400);
       expect(parsed.message).toContain('missing required fields');
       expect(parsed.missingFields).toContain('contractTitle');
-      expect(parsed.missingFields).toContain('contractingOfficerName');
       expect(parsed.missingFields).toContain('requesterName');
       expect(parsed.missingFields).toContain('companyName');
     });
@@ -249,6 +294,7 @@ describe('generate-debriefing-letter handler', () => {
       const result = await baseHandler(makeEvent({
         orgId: 'org-456',
         projectId: 'proj-123',
+        opportunityId: 'opp-789',
         debriefingId: 'debrief-1',
       }));
       const parsed = JSON.parse(result.body as string);
@@ -264,6 +310,7 @@ describe('generate-debriefing-letter handler', () => {
       await baseHandler(makeEvent({
         orgId: 'org-456',
         projectId: 'proj-123',
+        opportunityId: 'opp-789',
         debriefingId: 'debrief-1',
       }));
 
@@ -271,7 +318,7 @@ describe('generate-debriefing-letter handler', () => {
       expect(getCall.type).toBe('Get');
       expect(getCall.params.TableName).toBe('test-table');
       expect(getCall.params.Key.partition_key).toBe('DEBRIEFING');
-      expect(getCall.params.Key.sort_key).toBe('org-456#proj-123#debrief-1');
+      expect(getCall.params.Key.sort_key).toBe('org-456#proj-123#opp-789#debrief-1');
     });
   });
 });

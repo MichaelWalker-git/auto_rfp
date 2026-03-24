@@ -3,19 +3,29 @@ import { DebriefingCard } from '../DebriefingCard';
 import type { DebriefingItem } from '@auto-rfp/core';
 
 // Mock the hooks
-const mockDebriefing = {
+const mockDebriefing: DebriefingItem = {
   debriefId: 'debrief-1',
   projectId: 'proj-123',
   orgId: 'org-456',
-  requestStatus: 'REQUESTED' as const,
-  createdAt: '2025-01-15T00:00:00Z',
-  requestDeadline: '2025-01-20T00:00:00Z',
+  opportunityId: 'opp-789',
+  solicitationNumber: 'W911NF-21-R-0001',
+  contractTitle: 'IT Services Contract',
+  awardNotificationDate: '2025-01-10',
+  contractingOfficerName: 'Jane Doe',
+  contractingOfficerEmail: 'jane.doe@agency.gov',
+  requesterName: 'John Smith',
+  requesterTitle: 'Contracts Manager',
+  requesterEmail: 'john@company.com',
+  requesterPhone: '555-123-4567',
+  requesterAddress: '123 Business Ave, Arlington VA 22201',
+  companyName: 'Acme Corp',
+  createdAt: '2025-01-15T00:00:00+00:00',
   createdBy: 'user-789',
-  updatedAt: '2025-01-15T00:00:00Z',
-  attendees: ['John Smith'],
+  updatedAt: '2025-01-15T00:00:00+00:00',
 };
 
 const mockRefetch = jest.fn();
+const mockGenerateDebriefingLetter = jest.fn().mockResolvedValue('Dear Sir/Madam...');
 let mockUseDebriefingsReturn = {
   debriefings: [] as DebriefingItem[],
   isLoading: false,
@@ -28,6 +38,12 @@ jest.mock('@/lib/hooks/use-debriefing', () => ({
   useDebriefings: () => mockUseDebriefingsReturn,
   useCreateDebriefing: () => ({
     createDebriefing: jest.fn().mockResolvedValue(mockDebriefing),
+  }),
+  useUpdateDebriefing: () => ({
+    updateDebriefing: jest.fn().mockResolvedValue(mockDebriefing),
+  }),
+  useGenerateDebriefingLetter: () => ({
+    generateDebriefingLetter: mockGenerateDebriefingLetter,
   }),
 }));
 
@@ -45,6 +61,28 @@ jest.mock('@/components/permission-wrapper', () => {
     PermissionWrapper,
   };
 });
+
+// Mock org hooks used by RequestDebriefingDialog
+jest.mock('@/lib/hooks/use-org-contact', () => ({
+  useOrgPrimaryContact: () => ({
+    data: {
+      contact: {
+        name: 'Jane Smith',
+        email: 'jane@acme.com',
+        title: 'Contracts Manager',
+        address: '123 Business Ave',
+      },
+    },
+  }),
+}));
+
+jest.mock('@/context/organization-context', () => ({
+  useCurrentOrganization: () => ({
+    currentOrganization: { id: 'org-456', name: 'Acme Corp' },
+    organizations: [],
+    setCurrentOrganization: jest.fn(),
+  }),
+}));
 
 // Mock RequestDebriefingDialog to avoid deep dependency issues
 jest.mock('../RequestDebriefingDialog', () => ({
@@ -107,17 +145,11 @@ describe('DebriefingCard', () => {
   });
 
   describe('loading state', () => {
-    it('renders loading skeleton with consistent structure', () => {
+    it('renders loading skeleton', () => {
       mockUseDebriefingsReturn.isLoading = true;
 
       render(<DebriefingCard {...defaultProps} />);
-
-      // Check header with icon
       expect(screen.getByText('Debriefing')).toBeInTheDocument();
-      
-      // Check skeleton loading state (should have 3 skeletons now)
-      const skeletons = document.querySelectorAll('[data-slot="skeleton"]');
-      expect(skeletons).toHaveLength(3);
     });
   });
 
@@ -129,7 +161,6 @@ describe('DebriefingCard', () => {
 
     it('shows Request Debriefing buttons', () => {
       render(<DebriefingCard {...defaultProps} />);
-      // There are two buttons - one in header, one in content
       const buttons = screen.getAllByRole('button', { name: /request debriefing/i });
       expect(buttons.length).toBeGreaterThan(0);
     });
@@ -140,19 +171,18 @@ describe('DebriefingCard', () => {
       mockUseDebriefingsReturn.debriefings = [mockDebriefing];
     });
 
-    it('shows debriefing status badge', () => {
+    it('shows Draft Letter button', () => {
       render(<DebriefingCard {...defaultProps} />);
-      expect(screen.getByText('Requested')).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /Draft Letter/ })).toBeInTheDocument();
     });
 
-    it('shows attendees', () => {
+    it('shows created date', () => {
       render(<DebriefingCard {...defaultProps} />);
-      expect(screen.getByText('John Smith')).toBeInTheDocument();
+      expect(screen.getByText(/Created.*ago/)).toBeInTheDocument();
     });
 
-    it('does not show Request Debriefing button in header when debriefing exists', () => {
+    it('does not show Request button in header when debriefing exists', () => {
       render(<DebriefingCard {...defaultProps} />);
-      // There should be no button in header (only the status badge)
       const header = screen.getByText('Debriefing').closest('div');
       const headerButton = header?.querySelector('button');
       expect(headerButton).toBeNull();
@@ -164,7 +194,6 @@ describe('DebriefingCard', () => {
       mockUseDebriefingsReturn.debriefings = [{
         ...mockDebriefing,
         solicitationNumber: 'W911NF-21-R-0001',
-        contractNumber: 'W911NF-21-C-0001',
         awardedOrganization: 'Winning Contractor LLC',
         contractingOfficerName: 'Jane Doe',
         contractingOfficerEmail: 'jane.doe@agency.gov',
@@ -176,49 +205,33 @@ describe('DebriefingCard', () => {
       expect(screen.getByText(/Solicitation: W911NF-21-R-0001/)).toBeInTheDocument();
     });
 
-    it('shows contract number', () => {
-      render(<DebriefingCard {...defaultProps} />);
-      expect(screen.getByText(/Contract: W911NF-21-C-0001/)).toBeInTheDocument();
-    });
-
     it('shows awarded organization', () => {
       render(<DebriefingCard {...defaultProps} />);
-      expect(screen.getByText(/Awarded to: Winning Contractor LLC/)).toBeInTheDocument();
+      expect(screen.getByText(/Awardee: Winning Contractor LLC/)).toBeInTheDocument();
     });
 
     it('shows contracting officer info', () => {
       render(<DebriefingCard {...defaultProps} />);
-      expect(screen.getByText(/CO: Jane Doe/)).toBeInTheDocument();
+      expect(screen.getByText('Jane Doe')).toBeInTheDocument();
       expect(screen.getByText('jane.doe@agency.gov')).toBeInTheDocument();
     });
   });
 
-  describe('completed debriefing', () => {
-    beforeEach(() => {
-      const completedDebriefing = {
-        debriefId: 'debrief-1',
-        projectId: 'proj-123',
-        orgId: 'org-456',
-        requestStatus: 'COMPLETED' as const,
-        createdAt: '2025-01-15T00:00:00Z',
-        requestDeadline: '2025-01-20T00:00:00Z',
-        createdBy: 'user-789',
-        updatedAt: '2025-01-15T00:00:00Z',
-        attendees: ['John Smith'],
-        keyTakeaways: 'Price was the determining factor',
-      };
-      mockUseDebriefingsReturn.debriefings = [completedDebriefing];
-    });
+  describe('draft letter interaction', () => {
+    it('calls generateDebriefingLetter when Draft Letter is clicked', () => {
+      mockUseDebriefingsReturn.debriefings = [mockDebriefing];
 
-    it('shows Completed badge', () => {
       render(<DebriefingCard {...defaultProps} />);
-      expect(screen.getByText('Completed')).toBeInTheDocument();
-    });
 
-    it('shows key takeaways summary', () => {
-      render(<DebriefingCard {...defaultProps} />);
-      expect(screen.getByText('Key Takeaways:')).toBeInTheDocument();
-      expect(screen.getByText('Price was the determining factor')).toBeInTheDocument();
+      const draftButton = screen.getByRole('button', { name: /Draft Letter/ });
+      fireEvent.click(draftButton);
+
+      expect(mockGenerateDebriefingLetter).toHaveBeenCalledWith(
+        'org-456',
+        'proj-123',
+        'opp-789',
+        'debrief-1'
+      );
     });
   });
 
@@ -226,7 +239,6 @@ describe('DebriefingCard', () => {
     it('opens dialog when Request Debriefing button is clicked', () => {
       render(<DebriefingCard {...defaultProps} />);
 
-      // Click the first Request Debriefing button
       const buttons = screen.getAllByRole('button', { name: /request debriefing/i });
       fireEvent.click(buttons[0]);
 

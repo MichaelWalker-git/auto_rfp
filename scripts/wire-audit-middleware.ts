@@ -238,13 +238,6 @@ const handlers: HandlerConfig[] = [
     resourceIdExpr: "'debriefing'",
     successReturnPattern: 'return apiResponse(201,',
   },
-  {
-    file: 'debriefing/update-debriefing.ts',
-    action: 'CONFIG_CHANGED',
-    resource: 'config',
-    resourceIdExpr: "event.pathParameters?.debriefingId ?? 'unknown'",
-    successReturnPattern: 'return apiResponse(200,',
-  },
   // foia
   {
     file: 'foia/create-foia-request.ts',
@@ -252,13 +245,6 @@ const handlers: HandlerConfig[] = [
     resource: 'config',
     resourceIdExpr: "'foia-request'",
     successReturnPattern: 'return apiResponse(201,',
-  },
-  {
-    file: 'foia/update-foia-request.ts',
-    action: 'CONFIG_CHANGED',
-    resource: 'config',
-    resourceIdExpr: "event.pathParameters?.requestId ?? 'unknown'",
-    successReturnPattern: 'return apiResponse(200,',
   },
   // pastperf
   {

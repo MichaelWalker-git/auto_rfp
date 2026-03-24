@@ -82,13 +82,6 @@ jest.mock('@/lib/hooks/use-executive-brief', () => ({
   })),
 }));
 
-jest.mock('@/lib/hooks/use-foia-requests', () => ({
-  useFOIARequests: jest.fn(() => ({
-    foiaRequests: [],
-    isLoading: false,
-    error: null,
-  })),
-}));
 
 jest.mock('@/app/organizations/[orgId]/projects/[projectId]/questions/components', () => ({
   useQuestions: jest.fn(() => ({
