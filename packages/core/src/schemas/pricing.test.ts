@@ -230,4 +230,89 @@ describe('pricing schemas', () => {
       expect(data?.format).toBe('PDF');
     });
   });
+
+  describe('PricingSectionSchema', () => {
+    const validPricingSection = {
+      strategy: 'COST_PLUS',
+      totalPrice: 1000000,
+      competitivePosition: 'COMPETITIVE',
+      priceConfidence: 75,
+      laborCostTotal: 800000,
+      materialCostTotal: 100000,
+      indirectCostTotal: 50000,
+      profitMargin: 10,
+      competitiveAdvantages: ['Strong technical team'],
+      pricingRisks: ['Tight margins'],
+      recommendedActions: ['Review labor mix'],
+      basisOfEstimate: 'Based on historical data and labor rate analysis',
+      assumptions: ['Standard overhead rates apply'],
+    };
+
+    it('should validate a valid pricing section', () => {
+      const { success } = PricingSectionSchema.safeParse(validPricingSection);
+      expect(success).toBe(true);
+    });
+
+    it('should allow zero materialCostTotal for labor-only contracts', () => {
+      const { success, data } = PricingSectionSchema.safeParse({
+        ...validPricingSection,
+        materialCostTotal: 0,
+      });
+      expect(success).toBe(true);
+      expect(data?.materialCostTotal).toBe(0);
+    });
+
+    it('should allow zero indirectCostTotal when indirect costs are in loaded rates', () => {
+      const { success, data } = PricingSectionSchema.safeParse({
+        ...validPricingSection,
+        indirectCostTotal: 0,
+      });
+      expect(success).toBe(true);
+      expect(data?.indirectCostTotal).toBe(0);
+    });
+
+    it('should allow zero laborCostTotal', () => {
+      const { success, data } = PricingSectionSchema.safeParse({
+        ...validPricingSection,
+        laborCostTotal: 0,
+      });
+      expect(success).toBe(true);
+      expect(data?.laborCostTotal).toBe(0);
+    });
+
+    it('should reject negative cost totals', () => {
+      const { success } = PricingSectionSchema.safeParse({
+        ...validPricingSection,
+        materialCostTotal: -100,
+      });
+      expect(success).toBe(false);
+    });
+
+    it('should still require positive totalPrice', () => {
+      const { success } = PricingSectionSchema.safeParse({
+        ...validPricingSection,
+        totalPrice: 0,
+      });
+      expect(success).toBe(false);
+    });
+
+    it('should apply default empty arrays', () => {
+      const { success, data } = PricingSectionSchema.safeParse({
+        strategy: 'FIXED_PRICE',
+        totalPrice: 500000,
+        competitivePosition: 'LOW',
+        priceConfidence: 60,
+        laborCostTotal: 400000,
+        materialCostTotal: 0,
+        indirectCostTotal: 0,
+        profitMargin: 15,
+        basisOfEstimate: 'Market analysis',
+      });
+      expect(success).toBe(true);
+      expect(data?.competitiveAdvantages).toEqual([]);
+      expect(data?.pricingRisks).toEqual([]);
+      expect(data?.recommendedActions).toEqual([]);
+      expect(data?.assumptions).toEqual([]);
+    });
+  });
 });

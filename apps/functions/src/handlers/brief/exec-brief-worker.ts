@@ -508,8 +508,20 @@ async function runPricing(job: Job): Promise<void> {
     const solicitationText = truncateText(rawText, MAX_SOLICITATION_CHARS);
     const kbPrimer = await loadKbPrimer(orgId, solicitationText, 3);
 
-    // Get requirements section for context
-    const requirementsData = (brief.sections as Record<string, { data?: unknown }>)?.requirements?.data;
+    // Get requirements and summary sections for context
+    const briefSections = brief.sections as Record<string, { data?: Record<string, unknown> }>;
+    const requirementsData = briefSections?.requirements?.data;
+    const summaryData = briefSections?.summary?.data;
+
+    // Extract key pricing anchors from summary (estimatedValueUsd, contractType, naics, periodOfPerformance)
+    const pricingAnchors = summaryData ? {
+      estimatedValueUsd: summaryData.estimatedValueUsd,
+      contractType: summaryData.contractType,
+      naics: summaryData.naics,
+      periodOfPerformance: summaryData.periodOfPerformance,
+      agency: summaryData.agency,
+      setAside: summaryData.setAside,
+    } : undefined;
 
     const data = await invokeClaudeWithTools({
       modelId: BEDROCK_MODEL_ID,
@@ -519,6 +531,7 @@ async function runPricing(job: Job): Promise<void> {
         solicitationText,
         requirementsData ? JSON.stringify(requirementsData) : '',
         kbPrimer,
+        pricingAnchors ? JSON.stringify(pricingAnchors) : '',
       ),
       tools: [...BRIEF_TOOLS, ...PRICING_TOOLS],
       toolExecutor: (toolName, toolInput, toolUseId) =>
@@ -526,7 +539,7 @@ async function runPricing(job: Job): Promise<void> {
       outputSchema: PricingSectionSchema,
       maxTokens: 6000,
       temperature: 0.2,
-      maxToolRounds: 3,
+      maxToolRounds: 5,
     });
 
     await markSectionComplete({

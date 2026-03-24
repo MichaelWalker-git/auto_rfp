@@ -214,9 +214,9 @@ export const PricingSectionSchema = z.object({
   priceConfidence: z.number().int().min(0).max(100),
   
   // Summary breakdown
-  laborCostTotal: z.number().positive(),
-  materialCostTotal: z.number().positive(),
-  indirectCostTotal: z.number().positive(),
+  laborCostTotal: z.number().nonnegative(),
+  materialCostTotal: z.number().nonnegative(),
+  indirectCostTotal: z.number().nonnegative(),
   profitMargin: z.number().min(0).max(100),
   
   // Key insights for Bid/No-Bid
