@@ -26,11 +26,11 @@ interface CriterionDef {
 }
 
 const CRITERIA_DEFS: CriterionDef[] = [
-  { key: 'PAST_PERFORMANCE_RELEVANCE', label: 'Past Performance', icon: Briefcase, weight: 0.25 },
+  { key: 'PAST_PERFORMANCE_RELEVANCE', label: 'Past Performance', icon: Briefcase, weight: 0.30 },
   { key: 'STRATEGIC_ALIGNMENT', label: 'Strategic Fit', icon: Target, weight: 0.25 },
   { key: 'TECHNICAL_FIT', label: 'Technical Fit', icon: TrendingUp, weight: 0.20 },
   { key: 'PRICING_POSITION', label: 'Pricing', icon: DollarSign, weight: 0.15 },
-  { key: 'INCUMBENT_RISK', label: 'Incumbent Risk', icon: Shield, weight: 0.15 },
+  { key: 'INCUMBENT_RISK', label: 'Incumbent Risk', icon: Shield, weight: 0.10 },
 ];
 
 const scoreColor = (score: number) => {

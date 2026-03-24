@@ -67,10 +67,10 @@ type Section = Job['section'];
 /** Weighted scoring criteria – must match the prompt instructions */
 const SCORING_WEIGHTS: Record<string, number> = {
   TECHNICAL_FIT: 0.20,
-  PAST_PERFORMANCE_RELEVANCE: 0.25,
+  PAST_PERFORMANCE_RELEVANCE: 0.30,
   PRICING_POSITION: 0.15,
   STRATEGIC_ALIGNMENT: 0.25,
-  INCUMBENT_RISK: 0.15,
+  INCUMBENT_RISK: 0.10,
 };
 
 const BEDROCK_MODEL_ID = requireEnv('BEDROCK_MODEL_ID');

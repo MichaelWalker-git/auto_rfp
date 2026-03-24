@@ -633,10 +633,10 @@ export const SCORING_SYSTEM_PROMPT = [
   '',
   'SCORING FRAMEWORK (5 Dimensions with Weights):',
   '1. TECHNICAL_FIT (20% weight): Can we do the work? Alignment with our capabilities.',
-  '2. PAST_PERFORMANCE_RELEVANCE (25% weight): Do we have relevant past performance? This is often 30-40% of evaluation score.',
+  '2. PAST_PERFORMANCE_RELEVANCE (30% weight): Do we have relevant past performance? This is often 30-40% of evaluation score.',
   '3. PRICING_POSITION (15% weight): Can we price competitively while maintaining margin?',
   '4. STRATEGIC_ALIGNMENT (25% weight): Does this opportunity align with our strategic goals and build our portfolio?',
-  '5. INCUMBENT_RISK (15% weight): What is the incumbent advantage? Is this a recompete?',
+  '5. INCUMBENT_RISK (10% weight): What is the incumbent advantage? Is this a recompete?',
   '',
   'SCORING RULES:',
   '- You MUST output exactly 5 criteria entries with names: TECHNICAL_FIT, PAST_PERFORMANCE_RELEVANCE, PRICING_POSITION, STRATEGIC_ALIGNMENT, INCUMBENT_RISK.',
@@ -647,12 +647,11 @@ export const SCORING_SYSTEM_PROMPT = [
   '  2 = Marginal / significant concerns',
   '  1 = Poor fit / critical gaps',
   '- rationale must be at least 20 characters.',
-  '- compositeScore = (TECHNICAL_FIT*0.20 + PAST_PERFORMANCE_RELEVANCE*0.25 + PRICING_POSITION*0.15 + STRATEGIC_ALIGNMENT*0.25 + INCUMBENT_RISK*0.15)',
+  '- compositeScore = (TECHNICAL_FIT*0.20 + PAST_PERFORMANCE_RELEVANCE*0.30 + PRICING_POSITION*0.15 + STRATEGIC_ALIGNMENT*0.25 + INCUMBENT_RISK*0.10)',
   '- decision rules:',
   '  - compositeScore >= 4.0 → GO (pursue aggressively)',
-  '  - 3.0-3.99 → GO or CONDITIONAL_GO (manageable with actions)',
-  '  - 2.0-2.99 → CONDITIONAL_GO (significant concerns, list blockers)',
-  '  - <2.0 → NO_GO (major issues)',
+  '  - 3.0-3.99 → CONDITIONAL_GO (manageable with actions, list blockers)',
+  '  - <3.0 → NO_GO (major issues)',
   '- If scoring < 3.0, decision should be CONDITIONAL_GO or NO_GO with blockers listed.',
   '- requiredActions should list mandatory steps before bidding.',
   '',
@@ -664,9 +663,44 @@ export const SCORING_SYSTEM_PROMPT = [
   '- 1: No relevant past performance, or poor ratings, critical gaps in required areas',
   '- Consider: technical similarity, domain similarity, scale similarity, recency, and performance ratings',
   '',
-  'NON-HALLUCINATION RULE:',
-  '- Do not invent facts. Base scoring ONLY on the provided extracted sections, solicitation text, and KB excerpts.',
-  '- If information is missing, note it in gaps[] and reduce confidence.',
+  '═══════════════════════════════════════════════════════════════════════════════',
+  'CRITICAL ANTI-HALLUCINATION RULES (MUST FOLLOW - ZERO TOLERANCE):',
+  '═══════════════════════════════════════════════════════════════════════════════',
+  '',
+  '1. PAST PERFORMANCE SCORING - MANDATORY RULES:',
+  '   - If PAST_PERFORMANCE section is "None", empty, or shows 0 matched projects:',
+  '     → PAST_PERFORMANCE_RELEVANCE score MUST be 1',
+  '     → rationale MUST state "No past performance data available" or "No relevant past projects found"',
+  '     → Do NOT assume, infer, or hallucinate any past performance exists',
+  '   - NEVER say "limited past performance" when there is NONE - say "no past performance"',
+  '   - NEVER claim experience with project types not explicitly listed in the past performance data',
+  '',
+  '2. TECHNICAL FIT SCORING - MANDATORY RULES:',
+  '   - If the company\'s KB capabilities do NOT match the solicitation\'s industry/domain:',
+  '     → TECHNICAL_FIT score MUST be 1 or 2',
+  '     → rationale MUST clearly state the industry/capability mismatch',
+  '   - If KB shows software/IT company and solicitation is for physical services (plumbing, HVAC, construction, etc.):',
+  '     → TECHNICAL_FIT MUST be 1',
+  '   - Do NOT assume transferable skills exist unless explicitly documented',
+  '',
+  '3. INDUSTRY MISMATCH DETECTION:',
+  '   - Compare the solicitation NAICS code against the company\'s documented capabilities',
+  '   - If solicitation is for a completely different industry (e.g., water pumps vs software):',
+  '     → TECHNICAL_FIT = 1',
+  '     → PAST_PERFORMANCE_RELEVANCE = 1',
+  '     → STRATEGIC_ALIGNMENT = 1 or 2 (unless strategic expansion is documented)',
+  '     → decision should be NO_GO unless there\'s a documented strategic reason to pursue',
+  '',
+  '4. NEVER HALLUCINATE:',
+  '   - Do NOT invent, assume, or infer capabilities that are not in the KB',
+  '   - Do NOT claim experience with technologies, industries, or project types not documented',
+  '   - Do NOT use phrases like "we have experience with similar projects" unless specific projects are listed',
+  '   - When data is missing, acknowledge it explicitly in the rationale',
+  '',
+  '5. CONFIDENCE PENALTY FOR MISSING DATA:',
+  '   - If PAST_PERFORMANCE is "None": reduce confidence by at least 20 points',
+  '   - If KB shows industry mismatch: reduce confidence by at least 15 points',
+  '   - Maximum confidence when key data is missing: 60',
 ].join('\n');
 
 export const getScoringSystemPrompt = async (orgId: string) => {
@@ -680,6 +714,11 @@ export const useScoringSystemPrompt = async (orgId: string) => {
 
 export const SCORING_USER_PROMPT = [
   'TASK: Produce Bid/No-Bid scoring and final recommendation for an Executive Opportunity Brief.',
+  '',
+  '═══════════════════════════════════════════════════════════════════════════════',
+  'CRITICAL DATA STATUS FLAGS (READ THESE FIRST):',
+  '═══════════════════════════════════════════════════════════════════════════════',
+  '{{DATA_STATUS_FLAGS}}',
   '',
   'Return JSON ONLY. First char "{" last char "}".',
   '',
@@ -793,6 +832,94 @@ export const getScoringUserPrompt = async (orgId: string) => {
   return prompt || SCORING_USER_PROMPT;
 };
 
+/**
+ * Generate explicit data status flags for the scoring prompt.
+ * These flags give Claude clear, unambiguous signals about what data is available,
+ * preventing hallucination when data is missing.
+ */
+const generateDataStatusFlags = (args: {
+  pastPerformance?: string;
+  kbText?: string;
+  pricing?: string;
+  summary?: string;
+}): string => {
+  const flags: string[] = [];
+  
+  // Past Performance Status - CRITICAL for scoring
+  const hasPastPerf = args.pastPerformance && 
+    args.pastPerformance !== 'None' && 
+    args.pastPerformance !== 'None - no past performance analysis available' &&
+    !args.pastPerformance.includes('0 matched projects') &&
+    !args.pastPerformance.includes('"topMatches":[]') &&
+    !args.pastPerformance.includes('"topMatches": []');
+  
+  if (!hasPastPerf) {
+    flags.push('⚠️ PAST_PERFORMANCE_STATUS: NO_DATA');
+    flags.push('   → The company has ZERO past performance projects in the database for this opportunity.');
+    flags.push('   → MANDATORY: PAST_PERFORMANCE_RELEVANCE score MUST be 1.');
+    flags.push('   → MANDATORY: rationale MUST state "No past performance data available".');
+    flags.push('   → Do NOT say "limited" - say "no" past performance.');
+  } else {
+    flags.push('✓ PAST_PERFORMANCE_STATUS: DATA_AVAILABLE');
+    flags.push('   → Past performance data is provided below. Score based on actual matches.');
+  }
+  
+  flags.push('');
+  
+  // KB/Capabilities Status
+  const hasKb = args.kbText && args.kbText !== 'None' && args.kbText.trim().length > 50;
+  
+  if (!hasKb) {
+    flags.push('⚠️ COMPANY_KB_STATUS: NO_DATA');
+    flags.push('   → No company capabilities data available.');
+    flags.push('   → Cannot assess TECHNICAL_FIT accurately - default to score 2 or lower.');
+    flags.push('   → Do NOT assume any capabilities exist.');
+  } else {
+    flags.push('✓ COMPANY_KB_STATUS: DATA_AVAILABLE');
+    flags.push('   → Company capabilities data is provided below.');
+    flags.push('   → IMPORTANT: If KB shows the company is in a DIFFERENT INDUSTRY than the solicitation,');
+    flags.push('     TECHNICAL_FIT and PAST_PERFORMANCE_RELEVANCE MUST both be 1.');
+  }
+  
+  flags.push('');
+  
+  // Pricing Status
+  const hasPricing = args.pricing && 
+    args.pricing !== 'None' && 
+    !args.pricing.includes('no pricing analysis available');
+  
+  if (!hasPricing) {
+    flags.push('⚠️ PRICING_STATUS: NO_DATA');
+    flags.push('   → No pricing analysis available.');
+    flags.push('   → Score PRICING_POSITION based on general solicitation context (default to 3).');
+  } else {
+    flags.push('✓ PRICING_STATUS: DATA_AVAILABLE');
+    flags.push('   → Pricing analysis is provided below. Use it to score PRICING_POSITION.');
+  }
+  
+  flags.push('');
+  flags.push('═══════════════════════════════════════════════════════════════════════════════');
+  flags.push('MANDATORY SCORING RULES BASED ON FLAGS ABOVE:');
+  flags.push('═══════════════════════════════════════════════════════════════════════════════');
+  
+  if (!hasPastPerf) {
+    flags.push('• PAST_PERFORMANCE_RELEVANCE = 1 (NO EXCEPTIONS - no data means score of 1)');
+  }
+  
+  if (!hasKb) {
+    flags.push('• TECHNICAL_FIT ≤ 2 (cannot verify capabilities without KB data)');
+  }
+  
+  if (!hasPastPerf && !hasKb) {
+    flags.push('• decision should be NO_GO or CONDITIONAL_GO (insufficient data to pursue)');
+    flags.push('• confidence ≤ 50 (major data gaps)');
+  } else if (!hasPastPerf) {
+    flags.push('• confidence ≤ 60 (missing critical past performance data)');
+  }
+  
+  return flags.join('\n');
+};
+
 export const useScoringUserPrompt = async (
   orgId: string,
   solicitation?: string,
@@ -806,7 +933,17 @@ export const useScoringUserPrompt = async (
   pricing?: string,
 ) => {
   const prompt = await getScoringUserPrompt(orgId);
+  
+  // Generate explicit data status flags to prevent hallucination
+  const dataStatusFlags = generateDataStatusFlags({
+    pastPerformance,
+    kbText,
+    pricing,
+    summary,
+  });
+  
   return prompt
+    .replace('{{DATA_STATUS_FLAGS}}', dataStatusFlags)
     .replace('{{SUMMARY}}', summary || 'None')
     .replace('{{DEADLINES}}', deadlines || 'None')
     .replace('{{REQUIREMENTS}}', requirements || 'None')

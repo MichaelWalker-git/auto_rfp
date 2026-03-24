@@ -75,9 +75,9 @@ export const baseHandler = async (
 
     
     setAuditContext(event, {
-      action: 'CONFIG_CHANGED',
-      resource: 'config',
-      resourceId: 'unknown',
+      action: 'PIPELINE_STARTED',
+      resource: 'document',
+      resourceId: documentId,
     });
 
     return apiResponse(202, {
