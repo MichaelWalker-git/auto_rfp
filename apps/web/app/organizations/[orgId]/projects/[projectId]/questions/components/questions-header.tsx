@@ -2,7 +2,7 @@
 
 import { Button } from '@/components/ui/button';
 import { Spinner } from '@/components/ui/spinner';
-import { Download, Save, RefreshCw, ChevronRight } from 'lucide-react';
+import { Download, CheckCheck, RefreshCw } from 'lucide-react';
 import PermissionWrapper from '@/components/permission-wrapper';
 import { PageHeader } from '@/components/layout/page-header';
 import { PageSearch } from '@/components/layout/page-search';
@@ -12,10 +12,10 @@ import { useQuestions } from './questions-provider';
 interface QuestionsHeaderProps {
   searchQuery: string;
   onSearchChange: (query: string) => void;
-  onSaveAll: () => void;
+  onApproveAll: () => void;
   onExport: () => void;
-  unsavedCount: number;
-  isSaving: boolean;
+  approvableCount: number;
+  isApproving: boolean;
   projectId: string;
   orgId: string;
   onReload: () => void;
@@ -24,10 +24,10 @@ interface QuestionsHeaderProps {
 export function QuestionsHeader({
   searchQuery,
   onSearchChange,
-  onSaveAll,
+  onApproveAll,
   onExport,
-  unsavedCount,
-  isSaving,
+  approvableCount,
+  isApproving,
   projectId,
   orgId,
   onReload,
@@ -43,8 +43,8 @@ export function QuestionsHeader({
       <PageHeader
         title={questionText ? '' : 'RFP Questions'}
         description={
-          !questionText && unsavedCount > 0
-            ? `${unsavedCount} question${unsavedCount > 1 ? 's' : ''} with unsaved changes`
+          !questionText && approvableCount > 0
+            ? `${approvableCount} answer${approvableCount > 1 ? 's' : ''} pending approval`
             : undefined
         }
         className={questionText ? 'mb-2' : undefined}
@@ -63,29 +63,29 @@ export function QuestionsHeader({
               variant="ghost"
               size="icon"
               onClick={onReload}
-              disabled={isSaving}
+              disabled={isApproving}
               aria-label="Reload questions"
               title="Reload questions"
             >
-              {isSaving ? <Spinner className="h-4 w-4" /> : <RefreshCw className="h-4 w-4" />}
+              {isApproving ? <Spinner className="h-4 w-4" /> : <RefreshCw className="h-4 w-4" />}
             </Button>
             <PermissionWrapper requiredPermission="answer:edit">
               <Button
                 variant="outline"
                 size="sm"
                 className="gap-1"
-                onClick={onSaveAll}
-                disabled={unsavedCount === 0 || isSaving}
+                onClick={onApproveAll}
+                disabled={approvableCount === 0 || isApproving}
               >
-                {isSaving ? (
+                {isApproving ? (
                   <>
                     <Spinner className="h-4 w-4" />
-                    Saving...
+                    Approving...
                   </>
                 ) : (
                   <>
-                    <Save className="h-4 w-4" />
-                    Save All
+                    <CheckCheck className="h-4 w-4" />
+                    Approve All
                   </>
                 )}
               </Button>

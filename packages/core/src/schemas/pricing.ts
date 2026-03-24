@@ -205,29 +205,109 @@ export type CostEstimate = z.infer<typeof CostEstimateSchema>;
  * ================
  * PRICING SECTION (for Executive Brief)
  * ================
+ *
+ * Uses z.preprocess on numeric fields because the AI may return strings
+ * ("$1,000,000"), formatted numbers ("1,000,000"), null, or other non-numeric
+ * values. The preprocessor strips formatting and coerces to a number,
+ * defaulting to 0 when the value is unparseable.
  */
+
+/** Coerce any AI output to a non-negative number. Handles "$1,000,000", "1.5M", null, undefined, etc. */
+const coerceNumber = (v: unknown): number => {
+  if (typeof v === 'number' && !Number.isNaN(v)) return v;
+  if (v === null || v === undefined) return 0;
+  if (typeof v === 'string') {
+    // Strip currency symbols, commas, whitespace
+    const cleaned = v.replace(/[$€£¥,\s]/g, '').trim();
+    if (!cleaned || cleaned === 'N/A' || cleaned === 'n/a' || cleaned === 'TBD' || cleaned === '-') return 0;
+    // Handle shorthand: 1.5M, 500K, 2B
+    const shorthand = cleaned.match(/^([+-]?\d+(?:\.\d+)?)\s*([KkMmBb])?$/);
+    if (shorthand) {
+      const num = parseFloat(shorthand[1]);
+      const suffix = (shorthand[2] ?? '').toUpperCase();
+      const multiplier = suffix === 'K' ? 1_000 : suffix === 'M' ? 1_000_000 : suffix === 'B' ? 1_000_000_000 : 1;
+      const result = num * multiplier;
+      return Number.isNaN(result) ? 0 : result;
+    }
+    const parsed = parseFloat(cleaned);
+    return Number.isNaN(parsed) ? 0 : parsed;
+  }
+  return 0;
+};
+
+/** Coerce to number, then clamp to [0, max]. */
+const coerceClampedNumber = (max: number) => (v: unknown): number => {
+  const n = coerceNumber(v);
+  return Math.max(0, Math.min(max, Math.round(n)));
+};
+
 export const PricingSectionSchema = z.object({
   estimateId: z.string().uuid().optional(),
-  strategy: PricingStrategySchema,
-  totalPrice: z.number().positive(),
-  competitivePosition: z.enum(['LOW', 'COMPETITIVE', 'HIGH']),
-  priceConfidence: z.number().int().min(0).max(100),
-  
-  // Summary breakdown
-  laborCostTotal: z.number().positive(),
-  materialCostTotal: z.number().positive(),
-  indirectCostTotal: z.number().positive(),
-  profitMargin: z.number().min(0).max(100),
-  
-  // Key insights for Bid/No-Bid
-  competitiveAdvantages: z.array(z.string()).default([]),
-  pricingRisks: z.array(z.string()).default([]),
-  recommendedActions: z.array(z.string()).default([]),
-  
+  strategy: z.preprocess(
+    (v) => {
+      if (typeof v === 'string') {
+        const upper = v.toUpperCase().replace(/[\s-]+/g, '_');
+        const valid = ['COST_PLUS', 'FIXED_PRICE', 'TIME_AND_MATERIALS', 'COMPETITIVE_ANALYSIS'];
+        if (valid.includes(upper)) return upper;
+        // Fuzzy match common AI outputs
+        if (upper.includes('COST') && upper.includes('PLUS')) return 'COST_PLUS';
+        if (upper.includes('FIXED')) return 'FIXED_PRICE';
+        if (upper.includes('TIME') || upper.includes('T&M') || upper.includes('T_M')) return 'TIME_AND_MATERIALS';
+        return 'COMPETITIVE_ANALYSIS'; // Default fallback
+      }
+      return v ?? 'COMPETITIVE_ANALYSIS';
+    },
+    PricingStrategySchema,
+  ),
+  totalPrice: z.preprocess(coerceNumber, z.number().nonnegative()),
+  competitivePosition: z.preprocess(
+    (v) => {
+      if (typeof v === 'string') {
+        const upper = v.toUpperCase().trim();
+        if (upper.includes('LOW') || upper.includes('BELOW')) return 'LOW';
+        if (upper.includes('HIGH') || upper.includes('ABOVE')) return 'HIGH';
+        return 'COMPETITIVE';
+      }
+      return v ?? 'COMPETITIVE';
+    },
+    z.enum(['LOW', 'COMPETITIVE', 'HIGH']),
+  ),
+  priceConfidence: z.preprocess(coerceClampedNumber(100), z.number().int().min(0).max(100)),
+
+  // Summary breakdown — all coerced to nonnegative numbers (AI may return 0, null, strings, etc.)
+  laborCostTotal: z.preprocess(coerceNumber, z.number().nonnegative()),
+  materialCostTotal: z.preprocess(coerceNumber, z.number().nonnegative()),
+  indirectCostTotal: z.preprocess(coerceNumber, z.number().nonnegative()),
+  profitMargin: z.preprocess(coerceClampedNumber(100), z.number().min(0).max(100)),
+
+  // Key insights for Bid/No-Bid — AI may return null, undefined, or non-array values
+  competitiveAdvantages: z.preprocess(
+    (v) => (Array.isArray(v) ? v.filter((i): i is string => typeof i === 'string') : []),
+    z.array(z.string()).default([]),
+  ),
+  pricingRisks: z.preprocess(
+    (v) => (Array.isArray(v) ? v.filter((i): i is string => typeof i === 'string') : []),
+    z.array(z.string()).default([]),
+  ),
+  recommendedActions: z.preprocess(
+    (v) => (Array.isArray(v) ? v.filter((i): i is string => typeof i === 'string') : []),
+    z.array(z.string()).default([]),
+  ),
+
   // Basis of estimate summary
-  basisOfEstimate: z.string().max(2000),
-  assumptions: z.array(z.string()).default([]),
-});
+  basisOfEstimate: z.preprocess(
+    (v) => {
+      if (v === null || v === undefined) return 'No basis of estimate provided';
+      if (typeof v === 'object') return JSON.stringify(v);
+      return String(v).slice(0, 2000);
+    },
+    z.string().max(2000),
+  ),
+  assumptions: z.preprocess(
+    (v) => (Array.isArray(v) ? v.filter((i): i is string => typeof i === 'string') : []),
+    z.array(z.string()).default([]),
+  ),
+}).passthrough(); // Allow extra fields from AI without failing validation
 
 export type PricingSection = z.infer<typeof PricingSectionSchema>;
 

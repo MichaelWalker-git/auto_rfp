@@ -67,10 +67,10 @@ type Section = Job['section'];
 /** Weighted scoring criteria – must match the prompt instructions */
 const SCORING_WEIGHTS: Record<string, number> = {
   TECHNICAL_FIT: 0.20,
-  PAST_PERFORMANCE_RELEVANCE: 0.25,
+  PAST_PERFORMANCE_RELEVANCE: 0.30,
   PRICING_POSITION: 0.15,
   STRATEGIC_ALIGNMENT: 0.25,
-  INCUMBENT_RISK: 0.15,
+  INCUMBENT_RISK: 0.10,
 };
 
 const BEDROCK_MODEL_ID = requireEnv('BEDROCK_MODEL_ID');
@@ -508,8 +508,20 @@ async function runPricing(job: Job): Promise<void> {
     const solicitationText = truncateText(rawText, MAX_SOLICITATION_CHARS);
     const kbPrimer = await loadKbPrimer(orgId, solicitationText, 3);
 
-    // Get requirements section for context
-    const requirementsData = (brief.sections as Record<string, { data?: unknown }>)?.requirements?.data;
+    // Get requirements and summary sections for context
+    const briefSections = brief.sections as Record<string, { data?: Record<string, unknown> }>;
+    const requirementsData = briefSections?.requirements?.data;
+    const summaryData = briefSections?.summary?.data;
+
+    // Extract key pricing anchors from summary (estimatedValueUsd, contractType, naics, periodOfPerformance)
+    const pricingAnchors = summaryData ? {
+      estimatedValueUsd: summaryData.estimatedValueUsd,
+      contractType: summaryData.contractType,
+      naics: summaryData.naics,
+      periodOfPerformance: summaryData.periodOfPerformance,
+      agency: summaryData.agency,
+      setAside: summaryData.setAside,
+    } : undefined;
 
     const data = await invokeClaudeWithTools({
       modelId: BEDROCK_MODEL_ID,
@@ -519,6 +531,7 @@ async function runPricing(job: Job): Promise<void> {
         solicitationText,
         requirementsData ? JSON.stringify(requirementsData) : '',
         kbPrimer,
+        pricingAnchors ? JSON.stringify(pricingAnchors) : '',
       ),
       tools: [...BRIEF_TOOLS, ...PRICING_TOOLS],
       toolExecutor: (toolName, toolInput, toolUseId) =>
@@ -526,7 +539,7 @@ async function runPricing(job: Job): Promise<void> {
       outputSchema: PricingSectionSchema,
       maxTokens: 6000,
       temperature: 0.2,
-      maxToolRounds: 3,
+      maxToolRounds: 5,
     });
 
     await markSectionComplete({

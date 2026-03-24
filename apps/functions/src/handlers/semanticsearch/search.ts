@@ -8,7 +8,7 @@ import { authContextMiddleware, httpErrorMiddleware, orgMembershipMiddleware } f
 
 import { getEmbedding, semanticSearchChunks, semanticSearchContentLibrary, semanticSearchPastPerformance } from '@/helpers/embeddings';
 import { loadTextFromS3 } from '@/helpers/s3';
-import { PineconeHit } from '@/helpers/pinecone';
+import type { PineconeHit } from '@/types/pinecone';
 import { getItem } from '@/helpers/db';
 import { CONTENT_LIBRARY_PK, ContentLibraryItem } from '@auto-rfp/core';
 import { SK_NAME } from '@/constants/common';

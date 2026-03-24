@@ -57,9 +57,9 @@ export const baseHandler = async (
 
     
     setAuditContext(event, {
-      action: 'ORG_SETTINGS_CHANGED',
+      action: 'KB_CREATED',
       resource: 'knowledge_base',
-      resourceId: 'knowledgebase',
+      resourceId: created.id,
     });
 
     return apiResponse(201, created);

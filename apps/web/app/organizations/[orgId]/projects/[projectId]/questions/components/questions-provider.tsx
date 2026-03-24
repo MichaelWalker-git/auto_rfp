@@ -1,6 +1,6 @@
 'use client';
 
-import React, { createContext, ReactNode, useCallback, useContext, useEffect, useRef, useState } from 'react';
+import React, { createContext, ReactNode, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from '@/components/ui/use-toast';
 import {
   AnswerSource,
@@ -87,7 +87,9 @@ interface QuestionsContextType {
   handleAnswerChange: (questionId: string, value: string) => void;
   handleGenerateAnswer: (orgId: string, questionId: string) => Promise<void>;
   handleSaveAnswer: (questionId: string) => Promise<void>;
-  saveAllAnswers: () => Promise<void>;
+  approveAllAnswers: () => Promise<void>;
+  approvingAll: boolean;
+  approvableCount: number;
   handleExportAnswers: () => void;
   handleSourceClick: (source: AnswerSource) => void;
   handleIndexToggle: (indexId: string) => void;
@@ -160,6 +162,7 @@ export function QuestionsProvider({ children, projectId, opportunityId }: Questi
   const [removingQuestions, setRemovingQuestions] = useState<Set<string>>(new Set());
   const [approvingQuestions, setApprovingQuestions] = useState<Set<string>>(new Set());
   const [unapprovingQuestions, setUnapprovingQuestions] = useState<Set<string>>(new Set());
+  const [approvingAll, setApprovingAll] = useState(false);
 
   const { data: project, isLoading: isProjectLoading } = useProject(projectId);
   const { data: questionsData, isLoading: isQuestionsLoading, mutate: mutateQuestions } = useLoadQuestions(projectId);
@@ -961,6 +964,117 @@ export function QuestionsProvider({ children, projectId, opportunityId }: Questi
     }
   };
 
+  // Compute the number of answers that can be approved (have text, not already APPROVED)
+  const approvableQuestionIds = useMemo(() => {
+    if (!questions) return [];
+    const allQuestions = questions.sections.flatMap((s) => s.questions);
+    return allQuestions
+      .filter((q) => {
+        const answerData = answers[q.id];
+        const hasText = answerData?.text && answerData.text.trim().length > 0;
+        const isAlreadyApproved = answerData?.status === 'APPROVED';
+        return hasText && !isAlreadyApproved;
+      })
+      .map((q) => q.id);
+  }, [questions, answers]);
+
+  const approvableCount = approvableQuestionIds.length;
+
+  // Approve all answers — approves every answer that has text and is not already APPROVED
+  const approveAllAnswers = async () => {
+    if (!projectId || approvableQuestionIds.length === 0) return;
+
+    setApprovingAll(true);
+    const toApproveIds = [...approvableQuestionIds];
+    setApprovingQuestions(new Set(toApproveIds));
+
+    let successCount = 0;
+    let failCount = 0;
+
+    try {
+      await Promise.all(
+        toApproveIds.map(async (questionId) => {
+          const answerData = answers[questionId];
+          if (!answerData?.text?.trim()) return;
+
+          const question = questions?.sections
+            ?.flatMap((s) => s.questions)
+            ?.find((q) => q.id === questionId);
+          if (!question) return;
+
+          try {
+            const response = await approveAnswer({
+              questionId,
+              projectId,
+              opportunityId: question.opportunityId,
+              questionFileId: question.questionFileId,
+              text: answerData.text,
+              sources: answerData.sources || [],
+              status: 'APPROVED',
+              ...(answerData.confidence !== undefined && { confidence: answerData.confidence }),
+              ...(answerData.confidenceBreakdown && { confidenceBreakdown: answerData.confidenceBreakdown }),
+              ...(answerData.confidenceBand && { confidenceBand: answerData.confidenceBand }),
+            } as SaveAnswerDTO);
+
+            if (response?.id) {
+              setAnswers((prev) => ({
+                ...prev,
+                [questionId]: {
+                  ...prev[questionId],
+                  text: response.text ?? prev[questionId]?.text ?? '',
+                  status: 'APPROVED',
+                  approvedBy: response.approvedBy,
+                  approvedByName: response.approvedByName,
+                  approvedAt: response.approvedAt,
+                  updatedBy: response.updatedBy,
+                  updatedByName: response.updatedByName,
+                  updatedAt: response.updatedAt,
+                },
+              }));
+              setUnsavedQuestions((prev) => {
+                const next = new Set(prev);
+                next.delete(questionId);
+                return next;
+              });
+              successCount++;
+            } else {
+              failCount++;
+            }
+          } catch {
+            failCount++;
+          }
+        }),
+      );
+
+      if (successCount > 0) {
+        setLastSaved(new Date().toISOString());
+      }
+
+      if (failCount === 0) {
+        toast({
+          title: 'All Answers Approved',
+          description: `Successfully approved ${successCount} answer${successCount > 1 ? 's' : ''}.`,
+        });
+      } else {
+        toast({
+          title: 'Partial Approval',
+          description: `Approved ${successCount}, failed ${failCount}. Please retry the failed ones.`,
+          variant: 'destructive',
+        });
+      }
+    } catch (error) {
+      console.error('Error approving all answers:', error);
+      toast({
+        title: 'Approve All Error',
+        description: 'Failed to approve answers. Please try again.',
+        variant: 'destructive',
+      });
+    } finally {
+      setApprovingQuestions(new Set());
+      setApprovingAll(false);
+    }
+  };
+
   const value: QuestionsContextType = {
     // UI state
     showAIPanel,
@@ -1005,7 +1119,9 @@ export function QuestionsProvider({ children, projectId, opportunityId }: Questi
     handleAnswerChange,
     handleGenerateAnswer,
     handleSaveAnswer,
-    saveAllAnswers,
+    approveAllAnswers,
+    approvingAll,
+    approvableCount,
     handleExportAnswers,
     handleSourceClick,
     handleIndexToggle,

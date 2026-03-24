@@ -123,12 +123,12 @@ export function OrganizationBadge() {
                 className="group-data-[collapsible=icon]:!p-0 flex h-14 w-full items-center justify-between rounded-md border bg-card py-4 shadow-none hover:bg-accent focus:outline-none group-data-[collapsible=icon]:mt-4 group-data-[collapsible=icon]:h-auto"
                 tooltip="Project"
               >
-                <div className="flex size-8 items-center justify-center rounded-md bg-primary text-primary-foreground text-sm font-medium overflow-hidden">
+                <div className="flex size-8 items-center justify-center rounded-md text-sm font-medium overflow-hidden">
                   {iconUrl ? (
                     <img
                       src={iconUrl}
                       alt={orgLabel}
-                      className="size-8 object-cover"
+                      className="size-8 object-contain"
                       onError={(e) => {
                         // Presigned URL expired — clear cache and hide broken image
                         if (iconKey) {

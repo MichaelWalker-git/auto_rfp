@@ -20,6 +20,7 @@ import {
   useStartDocumentPipeline,
 } from '@/lib/hooks/use-document';
 import { useAuth } from '@/components/AuthProvider';
+import { useCanManageKBAccess } from './hooks/useCanManageKBAccess';
 import { DocumentItem } from '@auto-rfp/core';
 
 import { useDocumentUpload } from './hooks/useDocumentUpload';
@@ -36,6 +37,7 @@ export default function KnowledgeBaseItemComponent() {
   const { trigger: deleteDocument, isMutating: isDeleting } = useDeleteDocument();
   const { trigger: downloadDocument, isMutating: isDownloading, error: downloadError } = useDownloadDocument();
   const { userSub } = useAuth();
+  const { canManage: canManageKBAccess } = useCanManageKBAccess(kbId, orgId);
 
   const [showUpload, setShowUpload] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
@@ -149,16 +151,14 @@ export default function KnowledgeBaseItemComponent() {
               onChange={setSearchQuery}
               placeholder="Search documents..."
             />
-            <PermissionWrapper requiredPermission="kb:edit">
-              {orgId && kbId && (
-                <Button variant="outline" asChild>
-                  <Link href={`/organizations/${orgId}/knowledge-base/${kbId}/access`}>
-                    <Shield className="h-4 w-4 mr-2" />
-                    Access Control
-                  </Link>
-                </Button>
-              )}
-            </PermissionWrapper>
+            {canManageKBAccess && orgId && kbId && (
+              <Button variant="outline" asChild>
+                <Link href={`/organizations/${orgId}/knowledge-base/${kbId}/access`}>
+                  <Shield className="h-4 w-4 mr-2" />
+                  Access Control
+                </Link>
+              </Button>
+            )}
             <PermissionWrapper requiredPermission="kb:upload">
               <Button onClick={() => setShowUpload(true)}>
                 <PlusCircle className="h-4 w-4 mr-2" />
