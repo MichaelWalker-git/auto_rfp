@@ -6,6 +6,84 @@ import { requireEnv } from './env';
 import { invokeClaudeJson } from './executive-opportunity-brief';
 import { ToolDefinition } from '@/types/tool';
 
+// ─── Fuzzy Position Matching ──────────────────────────────────────────────────
+
+/**
+ * Normalize a position name for fuzzy matching:
+ * - lowercase
+ * - remove common filler words (sr, jr, lead, etc.)
+ * - collapse whitespace
+ * - extract meaningful keywords
+ */
+const normalizePosition = (position: string): string[] => {
+  const lower = position.toLowerCase().trim();
+  // Remove common prefixes/suffixes and noise words
+  const cleaned = lower
+    .replace(/[^a-z0-9\s]/g, ' ')
+    .replace(/\b(sr|jr|senior|junior|lead|principal|staff|chief|associate|i{1,3}|iv|v|level\s*\d+)\b/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+  return cleaned.split(' ').filter(w => w.length > 1);
+};
+
+/**
+ * Calculate similarity score between two position names (0-1).
+ * Uses keyword overlap (Jaccard similarity) with seniority bonus.
+ */
+const positionSimilarity = (requested: string, available: string): number => {
+  const reqWords = new Set(normalizePosition(requested));
+  const availWords = new Set(normalizePosition(available));
+
+  if (reqWords.size === 0 || availWords.size === 0) return 0;
+
+  // Jaccard similarity on keywords
+  let intersection = 0;
+  for (const w of reqWords) {
+    if (availWords.has(w)) intersection++;
+  }
+  const union = new Set([...reqWords, ...availWords]).size;
+  const jaccard = intersection / union;
+
+  // Seniority match bonus
+  const seniorityWords = ['senior', 'junior', 'lead', 'principal', 'staff', 'chief', 'associate', 'sr', 'jr'];
+  const reqSeniority = requested.toLowerCase().split(/\s+/).filter(w => seniorityWords.includes(w));
+  const availSeniority = available.toLowerCase().split(/\s+/).filter(w => seniorityWords.includes(w));
+  const seniorityMatch = reqSeniority.length > 0 && availSeniority.length > 0 &&
+    reqSeniority.some(s => availSeniority.includes(s)) ? 0.1 : 0;
+
+  return Math.min(1, jaccard + seniorityMatch);
+};
+
+/**
+ * Find the best matching position from available rates.
+ * Returns the match with score, or null if no good match found.
+ */
+const findBestPositionMatch = (
+  requestedPosition: string,
+  availablePositions: string[],
+): { position: string; score: number } | null => {
+  if (availablePositions.length === 0) return null;
+
+  // First try exact match (case-insensitive)
+  const exactMatch = availablePositions.find(
+    p => p.toLowerCase().trim() === requestedPosition.toLowerCase().trim(),
+  );
+  if (exactMatch) return { position: exactMatch, score: 1.0 };
+
+  // Then try fuzzy matching
+  let bestMatch: { position: string; score: number } | null = null;
+  for (const available of availablePositions) {
+    const score = positionSimilarity(requestedPosition, available);
+    if (score > (bestMatch?.score ?? 0)) {
+      bestMatch = { position: available, score };
+    }
+  }
+
+  // Only return matches above threshold (0.3 = at least some keyword overlap)
+  if (bestMatch && bestMatch.score >= 0.3) return bestMatch;
+  return null;
+};
+
 const DOCUMENTS_BUCKET = requireEnv('DOCUMENTS_BUCKET');
 const BEDROCK_MODEL_ID = requireEnv('BEDROCK_MODEL_ID');
 
@@ -496,18 +574,41 @@ export const executePricingTool = async (params: {
       case 'calculate_labor_cost': {
         const laborItems = toolInput.laborItems as Array<{ position: string; hours: number; phase?: string }>;
         const rates = await getLaborRatesByOrg(orgId);
-        const rateMap = new Map(rates.map(r => [r.position, r.fullyLoadedRate]));
+        const activeRates = rates.filter(r => r.isActive);
+        const rateMap = new Map(activeRates.map(r => [r.position, r.fullyLoadedRate]));
+        const availablePositions = activeRates.map(r => r.position);
         
         const calculations = laborItems.map(item => {
-          const rate = rateMap.get(item.position) || 0;
+          // Try exact match first
+          let rate = rateMap.get(item.position);
+          let matchedPosition = item.position;
+          let matchType: 'exact' | 'fuzzy' | 'none' = rate !== undefined ? 'exact' : 'none';
+          let matchScore = rate !== undefined ? 1.0 : 0;
+
+          // If no exact match, try fuzzy matching
+          if (rate === undefined) {
+            const fuzzyMatch = findBestPositionMatch(item.position, availablePositions);
+            if (fuzzyMatch) {
+              rate = rateMap.get(fuzzyMatch.position) ?? 0;
+              matchedPosition = fuzzyMatch.position;
+              matchType = 'fuzzy';
+              matchScore = fuzzyMatch.score;
+            } else {
+              rate = 0;
+            }
+          }
+
           const totalCost = item.hours * rate;
           return {
-            position: item.position,
+            requestedPosition: item.position,
+            matchedPosition,
+            matchType,
+            matchScore: Math.round(matchScore * 100) / 100,
             hours: item.hours,
             rate,
             totalCost,
             phase: item.phase,
-            found: rateMap.has(item.position),
+            found: matchType !== 'none',
           };
         });
         
@@ -517,6 +618,9 @@ export const executePricingTool = async (params: {
           acc[phase] = (acc[phase] || 0) + calc.totalCost;
           return acc;
         }, {} as Record<string, number>);
+
+        const unmatchedPositions = calculations.filter(c => !c.found);
+        const fuzzyMatches = calculations.filter(c => c.matchType === 'fuzzy');
         
         return {
           tool_use_id: toolUseId,
@@ -525,7 +629,16 @@ export const executePricingTool = async (params: {
             calculations,
             totalLaborCost,
             costByPhase: byPhase,
-            missingRates: calculations.filter(c => !c.found).map(c => c.position),
+            missingRates: unmatchedPositions.map(c => c.requestedPosition),
+            fuzzyMatches: fuzzyMatches.map(c => ({
+              requested: c.requestedPosition,
+              matched: c.matchedPosition,
+              score: c.matchScore,
+            })),
+            availablePositions,
+            hint: unmatchedPositions.length > 0
+              ? `${unmatchedPositions.length} position(s) could not be matched. Available positions: ${availablePositions.join(', ')}. Try using exact position names from get_labor_rates.`
+              : undefined,
           }),
         };
       }
