@@ -25,7 +25,7 @@ export const getPineconeClient = (): Pinecone => {
 /**
  * Semantic search using Pinecone
  */
-export async function semanticSearchChunks(
+export async function pineconeSearch(
   orgId: string,
   embedding: number[],
   k: number,

@@ -1,7 +1,7 @@
 import { requireEnv } from './env';
 import { invokeModel } from './bedrock-http-client';
 import type { PineconeHit } from '@/types/pinecone';
-import { semanticSearchChunks as pineconeSearch } from './pinecone';
+import { pineconeSearch } from './pinecone';
 
 // Titan Text Embeddings V2 supports up to 8192 tokens.
 // Titan's tokenizer averages ~1.3–1.5 chars/token for English technical text
