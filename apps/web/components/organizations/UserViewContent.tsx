@@ -695,6 +695,8 @@ function DangerZoneSection({
   const handleDelete = useCallback(async () => {
     try {
       await deleteUserApi({ orgId, userId });
+      // Invalidate the users list cache so the team page reflects the deletion
+      await globalMutate((key: unknown) => Array.isArray(key) && key[0] === 'users' && key[1] === orgId);
       toast({
         title: 'User removed',
         description: `${email} has been removed from the organization.`,
@@ -798,7 +800,7 @@ function ResendPasswordSection({
           <AlertDescription>
             <p>
               This will reset {email}&apos;s password to the default temporary password <code className="bg-muted px-1.5 py-0.5 rounded text-xs font-mono">{DEFAULT_TEMP_PASSWORD}</code> and
-              require them to change it on their next login. Use this if the user has lost their credentials or needs a fresh start.
+              resend the invitation email with login instructions. The user will need to set a new password on their next login.
             </p>
           </AlertDescription>
         </Alert>

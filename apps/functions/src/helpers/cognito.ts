@@ -182,16 +182,38 @@ export const adminResendTempPassword = async (
   cognito: CognitoIdentityProviderClient,
   input: { userPoolId: string; username: string },
 ): Promise<void> => {
-  // Verify user exists
-  const existingUser = await adminGetUser(cognito, input);
-  if (!existingUser) {
+  // Verify user exists and get their status
+  const userDetails = await cognito.send(
+    new AdminGetUserCommand({
+      UserPoolId: input.userPoolId,
+      Username: input.username,
+    }),
+  ).catch((e: { name?: string }) => {
+    if (e?.name === 'UserNotFoundException') return null;
+    throw e;
+  });
+
+  if (!userDetails) {
     throw new Error('User not found');
   }
 
-  // 1. Re-send the Cognito invitation email.
-  // AdminCreateUser with MessageAction: 'RESEND' re-sends the invite to an existing user
-  // without creating a new user. This triggers the userInvitation email template.
-  // NOTE: This also generates a new random temp password internally.
+  const userStatus = userDetails.UserStatus;
+
+  // For CONFIRMED users (already set their own password), first reset to default
+  // temporary password. This puts them back into FORCE_CHANGE_PASSWORD state,
+  // which then allows the RESEND to work.
+  if (userStatus === 'CONFIRMED') {
+    await adminSetUserPassword(cognito, {
+      userPoolId: input.userPoolId,
+      username: input.username,
+      password: DEFAULT_TEMP_PASSWORD,
+      permanent: false, // Moves user to FORCE_CHANGE_PASSWORD state
+    });
+  }
+
+  // Now RESEND the invitation email. At this point the user is in
+  // FORCE_CHANGE_PASSWORD state (either originally or after the reset above).
+  // NOTE: RESEND generates a new random temp password internally.
   await cognito.send(
     new AdminCreateUserCommand({
       UserPoolId: input.userPoolId,
@@ -201,10 +223,7 @@ export const adminResendTempPassword = async (
     }),
   );
 
-  // 2. AFTER the RESEND, override the random password with our known default.
-  // This must come AFTER AdminCreateUser RESEND because RESEND generates a new
-  // random temp password that would override anything we set before it.
-  // Permanent: false keeps the user in FORCE_CHANGE_PASSWORD state.
+  // Override the random password from RESEND with our known default.
   await adminSetUserPassword(cognito, {
     userPoolId: input.userPoolId,
     username: input.username,
