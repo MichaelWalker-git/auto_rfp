@@ -5,9 +5,8 @@ import type { DomainRoutes } from './types';
 export function briefDomain(args: {
   execBriefQueueUrl: string;
   googleDriveSyncQueueUrl: string;
-  pineconeApiKey: string;
 }): DomainRoutes {
-  const { execBriefQueueUrl, googleDriveSyncQueueUrl, pineconeApiKey } = args;
+  const { execBriefQueueUrl, googleDriveSyncQueueUrl } = args;
 
   return {
     basePath: 'brief',
@@ -16,7 +15,7 @@ export function briefDomain(args: {
         method: 'POST',
         path: 'init-executive-brief',
         entry: lambdaEntry('brief/init-executive-brief.ts'),
-        extraEnv: { EXEC_BRIEF_QUEUE_URL: execBriefQueueUrl, PINECONE_API_KEY: pineconeApiKey },
+        extraEnv: { EXEC_BRIEF_QUEUE_URL: execBriefQueueUrl },
         timeoutSeconds: 30,
       },
       {

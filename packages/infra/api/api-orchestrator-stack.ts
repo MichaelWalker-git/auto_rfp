@@ -440,7 +440,7 @@ export class ApiOrchestratorStack extends cdk.Stack {
     const allDomains: DomainRoutes[] = [
       organizationDomain(),
       answerDomain(),
-      briefDomain({ execBriefQueueUrl: execBriefQueue?.queueUrl || '', googleDriveSyncQueueUrl: gdSyncQueueUrl, pineconeApiKey }),
+      briefDomain({ execBriefQueueUrl: execBriefQueue?.queueUrl || '', googleDriveSyncQueueUrl: gdSyncQueueUrl }),
       presignedDomain(),
       knowledgebaseDomain(),
       documentDomain(),

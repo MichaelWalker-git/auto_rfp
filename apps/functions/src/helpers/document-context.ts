@@ -5,7 +5,8 @@ import {
 } from './executive-opportunity-brief';
 import { loadTextFromS3 } from './s3';
 import { searchPastProjects, listPastProjects } from './past-performance';
-import { getEmbedding, semanticSearchContentLibrary } from './embeddings';
+import { getEmbedding } from './embeddings';
+import { semanticSearchContentLibrary } from './semantic-search';
 import { getOrgPrimaryContact } from './org-contact';
 import { requireEnv } from './env';
 

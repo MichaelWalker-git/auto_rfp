@@ -41,6 +41,9 @@ jest.mock('@/helpers/executive-opportunity-brief', () => ({
 
 jest.mock('@/helpers/embeddings', () => ({
   getEmbedding: jest.fn(),
+}));
+
+jest.mock('@/helpers/semantic-search', () => ({
   semanticSearchContentLibrary: jest.fn(),
 }));
 
