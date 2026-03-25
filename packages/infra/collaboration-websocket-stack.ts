@@ -187,7 +187,7 @@ export class CollaborationWebSocketStack extends cdk.Stack {
       role: lambdaRole,
       environment: {
         ...commonEnv,
-        NOTIFICATION_FROM_EMAIL: 'noreply@auto-rfp.com',
+        NOTIFICATION_FROM_EMAIL: commonEnv['SES_FROM_EMAIL'] ?? 'noreply@horustech.dev',
         NOTIFICATION_QUEUE_URL: notificationQueueUrl,
       },
       bundling,
