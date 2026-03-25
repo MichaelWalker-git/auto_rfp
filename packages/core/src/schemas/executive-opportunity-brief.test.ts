@@ -1,5 +1,13 @@
 import { describe, it, expect } from 'vitest';
-import { QuickSummarySchema } from './executive-opportunity-brief';
+import {
+  QuickSummarySchema,
+  normalizeRole,
+  isKnownRole,
+  KNOWN_ROLES,
+  RoleSchema,
+  ContactSchema,
+  ContactsSectionSchema,
+} from './executive-opportunity-brief';
 
 describe('QuickSummarySchema', () => {
   // ── Happy path ──
@@ -178,5 +186,191 @@ describe('QuickSummarySchema', () => {
     // which fails the min(1) check — this is correct behavior
     const { success } = QuickSummarySchema.safeParse(input);
     expect(success).toBe(false);
+  });
+});
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// RoleSchema and Contact Normalization Tests
+// ═══════════════════════════════════════════════════════════════════════════════
+
+describe('normalizeRole', () => {
+  it('should return known roles unchanged', () => {
+    expect(normalizeRole('CONTRACTING_OFFICER')).toBe('CONTRACTING_OFFICER');
+    expect(normalizeRole('TECHNICAL_POC')).toBe('TECHNICAL_POC');
+    expect(normalizeRole('PROGRAM_MANAGER')).toBe('PROGRAM_MANAGER');
+  });
+
+  it('should normalize common abbreviations', () => {
+    expect(normalizeRole('CO')).toBe('CONTRACTING_OFFICER');
+    expect(normalizeRole('COR')).toBe('CONTRACTING_OFFICER_REPRESENTATIVE');
+    expect(normalizeRole('PM')).toBe('PROGRAM_MANAGER');
+    expect(normalizeRole('CS')).toBe('CONTRACT_SPECIALIST');
+  });
+
+  it('should normalize spaced variations to known roles', () => {
+    expect(normalizeRole('Contracting Officer')).toBe('CONTRACTING_OFFICER');
+    expect(normalizeRole('CONTRACTING OFFICER REPRESENTATIVE')).toBe('CONTRACTING_OFFICER_REPRESENTATIVE');
+    expect(normalizeRole('Technical POC')).toBe('TECHNICAL_POC');
+  });
+
+  it('should handle case-insensitive matching', () => {
+    expect(normalizeRole('contracting_officer')).toBe('CONTRACTING_OFFICER');
+    expect(normalizeRole('Program_Manager')).toBe('PROGRAM_MANAGER');
+  });
+
+  it('should return unknown roles unchanged', () => {
+    expect(normalizeRole('Quality Assurance Lead')).toBe('Quality Assurance Lead');
+    expect(normalizeRole('Security Officer')).toBe('Security Officer');
+    expect(normalizeRole('IT Director')).toBe('IT Director');
+    expect(normalizeRole('CUSTOM_ROLE_NAME')).toBe('CUSTOM_ROLE_NAME');
+  });
+
+  it('should handle edge cases', () => {
+    expect(normalizeRole('')).toBe('');
+    expect(normalizeRole(null)).toBe('');
+    expect(normalizeRole(undefined)).toBe('');
+    expect(normalizeRole('  CONTRACTING_OFFICER  ')).toBe('CONTRACTING_OFFICER');
+  });
+});
+
+describe('isKnownRole', () => {
+  it('should return true for known roles', () => {
+    expect(isKnownRole('CONTRACTING_OFFICER')).toBe(true);
+    expect(isKnownRole('TECHNICAL_POC')).toBe(true);
+    expect(isKnownRole('OTHER')).toBe(true);
+  });
+
+  it('should return false for unknown roles', () => {
+    expect(isKnownRole('Quality Assurance Lead')).toBe(false);
+    expect(isKnownRole('CUSTOM_ROLE')).toBe(false);
+    expect(isKnownRole('')).toBe(false);
+  });
+});
+
+describe('KNOWN_ROLES', () => {
+  it('should contain expected roles', () => {
+    expect(KNOWN_ROLES).toContain('CONTRACTING_OFFICER');
+    expect(KNOWN_ROLES).toContain('CONTRACTING_OFFICER_REPRESENTATIVE');
+    expect(KNOWN_ROLES).toContain('CONTRACT_SPECIALIST');
+    expect(KNOWN_ROLES).toContain('TECHNICAL_POC');
+    expect(KNOWN_ROLES).toContain('PROGRAM_MANAGER');
+    expect(KNOWN_ROLES).toContain('SMALL_BUSINESS_SPECIALIST');
+    expect(KNOWN_ROLES).toContain('OTHER');
+  });
+
+  it('should have exactly 10 roles', () => {
+    expect(KNOWN_ROLES.length).toBe(10);
+  });
+});
+
+describe('RoleSchema', () => {
+  it('should parse known roles without error', () => {
+    const { success, data } = RoleSchema.safeParse('CONTRACTING_OFFICER');
+    expect(success).toBe(true);
+    expect(data).toBe('CONTRACTING_OFFICER');
+  });
+
+  it('should normalize abbreviations during parsing', () => {
+    const { success, data } = RoleSchema.safeParse('CO');
+    expect(success).toBe(true);
+    expect(data).toBe('CONTRACTING_OFFICER');
+  });
+
+  it('should accept unknown roles without error', () => {
+    const { success, data } = RoleSchema.safeParse('Quality Assurance Lead');
+    expect(success).toBe(true);
+    expect(data).toBe('Quality Assurance Lead');
+  });
+
+  it('should accept any string role', () => {
+    const { success, data } = RoleSchema.safeParse('SOME_CUSTOM_ROLE_FROM_SOLICITATION');
+    expect(success).toBe(true);
+    expect(data).toBe('SOME_CUSTOM_ROLE_FROM_SOLICITATION');
+  });
+});
+
+describe('ContactSchema', () => {
+  it('should parse contact with known role', () => {
+    const contact = {
+      role: 'CONTRACTING_OFFICER',
+      name: 'John Doe',
+      email: 'john@example.gov',
+    };
+    const { success, data } = ContactSchema.safeParse(contact);
+    expect(success).toBe(true);
+    expect(data?.role).toBe('CONTRACTING_OFFICER');
+  });
+
+  it('should parse contact with unknown role (no validation error)', () => {
+    const contact = {
+      role: 'Quality Assurance Lead',
+      name: 'Jane Smith',
+      email: 'jane@example.gov',
+    };
+    const { success, data } = ContactSchema.safeParse(contact);
+    expect(success).toBe(true);
+    expect(data?.role).toBe('Quality Assurance Lead');
+  });
+
+  it('should parse contact with abbreviation and normalize it', () => {
+    const contact = {
+      role: 'COR',
+      name: 'Bob Johnson',
+      email: 'bob@example.gov',
+    };
+    const { success, data } = ContactSchema.safeParse(contact);
+    expect(success).toBe(true);
+    expect(data?.role).toBe('CONTRACTING_OFFICER_REPRESENTATIVE');
+  });
+});
+
+describe('ContactsSectionSchema', () => {
+  it('should parse contacts section with mixed known and unknown roles', () => {
+    const section = {
+      contacts: [
+        { role: 'CONTRACTING_OFFICER', name: 'John Doe', email: 'john@example.gov' },
+        { role: 'Quality Assurance Lead', name: 'Jane Smith', email: 'jane@example.gov' },
+        { role: 'Security Officer', name: 'Bob Johnson', email: 'bob@example.gov' },
+      ],
+      missingRecommendedRoles: ['TECHNICAL_POC', 'PROGRAM_MANAGER'],
+    };
+    const { success, data, error } = ContactsSectionSchema.safeParse(section);
+
+    if (!success) {
+      console.error('Validation errors:', JSON.stringify(error.issues, null, 2));
+    }
+
+    expect(success).toBe(true);
+    expect(data?.contacts?.length).toBe(3);
+    expect(data?.contacts?.[0]?.role).toBe('CONTRACTING_OFFICER');
+    expect(data?.contacts?.[1]?.role).toBe('Quality Assurance Lead'); // Unknown role preserved
+    expect(data?.contacts?.[2]?.role).toBe('Security Officer'); // Unknown role preserved
+  });
+
+  it('should not fail when AI returns CONTRACTING_OFFICER_REPRESENTATIVE role', () => {
+    // This is the actual error case from production - AI returns role that was previously
+    // in enum but now we want to ensure it still works
+    const section = {
+      contacts: [
+        { role: 'CONTRACTING_OFFICER_REPRESENTATIVE', name: 'Test User', email: 'test@example.gov' },
+      ],
+      missingRecommendedRoles: [],
+    };
+    const { success, error } = ContactsSectionSchema.safeParse(section);
+
+    if (!success) {
+      console.error('Validation errors:', JSON.stringify(error.issues, null, 2));
+    }
+
+    expect(success).toBe(true);
+  });
+
+  it('should handle empty contacts array', () => {
+    const section = {
+      contacts: [],
+      missingRecommendedRoles: ['CONTRACTING_OFFICER', 'TECHNICAL_POC'],
+    };
+    const { success } = ContactsSectionSchema.safeParse(section);
+    expect(success).toBe(true);
   });
 });

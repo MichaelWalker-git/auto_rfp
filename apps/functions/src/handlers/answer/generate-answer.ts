@@ -4,7 +4,8 @@ import { v4 as uuidv4 } from 'uuid';
 import { invokeModel } from '@/helpers/bedrock-http-client';
 import { apiResponse } from '@/helpers/api';
 import { PK_NAME, SK_NAME } from '@/constants/common';
-import { getEmbedding, semanticSearchContentLibrary } from '@/helpers/embeddings';
+import { getEmbedding } from '@/helpers/embeddings';
+import { semanticSearchContentLibrary } from '@/helpers/semantic-search';
 
 import { withSentryLambda } from '@/sentry-lambda';
 import {

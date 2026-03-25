@@ -4,6 +4,7 @@ import {
   AdminGetUserCommand,
   AdminUpdateUserAttributesCommand,
   AdminInitiateAuthCommand,
+  AdminSetUserPasswordCommand,
   CognitoIdentityProviderClient,
 } from '@aws-sdk/client-cognito-identity-provider';
 import { UserRole } from '@auto-rfp/core';
@@ -148,65 +149,85 @@ export async function adminUpdateUserAttributes(
 }
 
 /**
- * Resend temporary password to a user by triggering a new password challenge.
- * This will send a new temporary password email to the user.
+ * Set a user's password via AdminSetUserPasswordCommand.
+ * If `permanent` is false (default), the user will be in FORCE_CHANGE_PASSWORD state
+ * and must change the password on first login.
  */
-export async function adminResendTempPassword(
+export const adminSetUserPassword = async (
+  cognito: CognitoIdentityProviderClient,
+  input: { userPoolId: string; username: string; password: string; permanent?: boolean },
+): Promise<void> => {
+  await cognito.send(
+    new AdminSetUserPasswordCommand({
+      UserPoolId: input.userPoolId,
+      Username: input.username,
+      Password: input.password,
+      Permanent: input.permanent ?? false,
+    }),
+  );
+};
+
+/** The default temporary password assigned to all new users. Configurable via DEFAULT_TEMP_PASSWORD env var. */
+export const DEFAULT_TEMP_PASSWORD = process.env.DEFAULT_TEMP_PASSWORD || 'Welcome1!';
+
+/**
+ * Resend invitation to a user by:
+ * 1. Resetting their password to the known default temporary password
+ * 2. Re-sending the Cognito invite email via AdminCreateUser with MessageAction: RESEND
+ *
+ * This is much safer than the old approach of deleting and recreating the user,
+ * which could lose the Cognito sub and break DynamoDB references.
+ */
+export const adminResendTempPassword = async (
   cognito: CognitoIdentityProviderClient,
   input: { userPoolId: string; username: string },
-): Promise<void> {
-  try {
-    // First, we need to recreate the user to trigger a new temporary password
-    // Get the current user details
-    const existingUser = await adminGetUser(cognito, input);
-    if (!existingUser) {
-      throw new Error('User not found');
-    }
-
-    // Get user attributes to recreate with same data
-    const userDetails = await cognito.send(
-      new AdminGetUserCommand({
-        UserPoolId: input.userPoolId,
-        Username: input.username,
-      }),
-    );
-
-    const email = userDetails.UserAttributes?.find(a => a.Name === 'email')?.Value;
-    const firstName = userDetails.UserAttributes?.find(a => a.Name === 'given_name')?.Value;
-    const lastName = userDetails.UserAttributes?.find(a => a.Name === 'family_name')?.Value;
-    const phone = userDetails.UserAttributes?.find(a => a.Name === 'phone_number')?.Value;
-    const emailVerified = userDetails.UserAttributes?.find(a => a.Name === 'email_verified')?.Value === 'true';
-    const orgId = userDetails.UserAttributes?.find(a => a.Name === 'custom:orgId')?.Value;
-    const userId = userDetails.UserAttributes?.find(a => a.Name === 'custom:userId')?.Value;
-    const role = userDetails.UserAttributes?.find(a => a.Name === 'custom:role')?.Value;
-
-    if (!email) {
-      throw new Error('User email not found');
-    }
-
-    // Delete the existing user
-    await adminDeleteUser(cognito, input);
-
-    // Recreate the user with the same attributes but send invite this time
-    await cognito.send(
-      new AdminCreateUserCommand({
-        UserPoolId: input.userPoolId,
-        Username: input.username,
-        MessageAction: undefined, // This will send the invite email
-        UserAttributes: [
-          { Name: 'email', Value: email },
-          ...(emailVerified ? [{ Name: 'email_verified', Value: 'true' }] : []),
-          ...(firstName ? [{ Name: 'given_name', Value: firstName }] : []),
-          ...(lastName ? [{ Name: 'family_name', Value: lastName }] : []),
-          ...(phone ? [{ Name: 'phone_number', Value: phone }] : []),
-          ...(orgId ? [{ Name: 'custom:orgId', Value: orgId }] : []),
-          ...(userId ? [{ Name: 'custom:userId', Value: userId }] : []),
-          ...(role ? [{ Name: 'custom:role', Value: role }] : []),
-        ],
-      }),
-    );
-  } catch (e: any) {
-    console.error('Error resending temporary password:', e);
+): Promise<void> => {
+  // Verify user exists and get their status
+  const userDetails = await cognito.send(
+    new AdminGetUserCommand({
+      UserPoolId: input.userPoolId,
+      Username: input.username,
+    }),
+  ).catch((e: { name?: string }) => {
+    if (e?.name === 'UserNotFoundException') return null;
     throw e;
+  });
+
+  if (!userDetails) {
+    throw new Error('User not found');
   }
-}
+
+  const userStatus = userDetails.UserStatus;
+
+  // For CONFIRMED users (already set their own password), first reset to default
+  // temporary password. This puts them back into FORCE_CHANGE_PASSWORD state,
+  // which then allows the RESEND to work.
+  if (userStatus === 'CONFIRMED') {
+    await adminSetUserPassword(cognito, {
+      userPoolId: input.userPoolId,
+      username: input.username,
+      password: DEFAULT_TEMP_PASSWORD,
+      permanent: false, // Moves user to FORCE_CHANGE_PASSWORD state
+    });
+  }
+
+  // Now RESEND the invitation email. At this point the user is in
+  // FORCE_CHANGE_PASSWORD state (either originally or after the reset above).
+  // NOTE: RESEND generates a new random temp password internally.
+  await cognito.send(
+    new AdminCreateUserCommand({
+      UserPoolId: input.userPoolId,
+      Username: input.username,
+      MessageAction: 'RESEND',
+      DesiredDeliveryMediums: ['EMAIL'],
+    }),
+  );
+
+  // Override the random password from RESEND with our known default.
+  await adminSetUserPassword(cognito, {
+    userPoolId: input.userPoolId,
+    username: input.username,
+    password: DEFAULT_TEMP_PASSWORD,
+    permanent: false,
+  });
+};

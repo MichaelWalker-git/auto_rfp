@@ -12,7 +12,8 @@ import { nowIso } from './date';
 import { loadTextFromS3 } from './s3';
 import { invokeModel } from './bedrock-http-client';
 import type { PineconeHit } from '@/types/pinecone';
-import { getEmbedding, semanticSearchChunks } from 'helpers/embeddings';
+import { getEmbedding } from 'helpers/embeddings';
+import { semanticSearchChunks } from 'helpers/semantic-search';
 
 const DB_TABLE_NAME = requireEnv('DB_TABLE_NAME');
 const DOCUMENTS_BUCKET = requireEnv('DOCUMENTS_BUCKET');

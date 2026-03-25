@@ -144,6 +144,7 @@ export class ApiOrchestratorStack extends cdk.Stack {
       NODE_ENV: 'production',
       DB_TABLE_NAME: mainTable.tableName,
       COGNITO_USER_POOL_ID: userPool.userPoolId,
+      DEFAULT_TEMP_PASSWORD: process.env.DEFAULT_TEMP_PASSWORD || 'Welcome1!',
       REGION: 'us-east-1',
       BEDROCK_REGION: 'us-east-1',
       BEDROCK_EMBEDDING_MODEL_ID: 'amazon.titan-embed-text-v2:0',

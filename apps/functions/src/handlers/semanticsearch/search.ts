@@ -6,7 +6,8 @@ import { withSentryLambda } from '@/sentry-lambda';
 import { requireEnv } from '@/helpers/env';
 import { authContextMiddleware, httpErrorMiddleware, orgMembershipMiddleware } from '@/middleware/rbac-middleware';
 
-import { getEmbedding, semanticSearchChunks, semanticSearchContentLibrary, semanticSearchPastPerformance } from '@/helpers/embeddings';
+import { getEmbedding } from '@/helpers/embeddings';
+import { semanticSearchChunks, semanticSearchContentLibrary, semanticSearchPastPerformance } from '@/helpers/semantic-search';
 import { loadTextFromS3 } from '@/helpers/s3';
 import type { PineconeHit } from '@/types/pinecone';
 import { getItem } from '@/helpers/db';

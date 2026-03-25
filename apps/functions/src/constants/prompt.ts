@@ -1,5 +1,5 @@
 import { readSystemPrompt, readUserPrompt } from '@/helpers/prompt';
-import { RequirementsSectionSchema, RoleSchema } from '@auto-rfp/core';
+import { RequirementsSectionSchema, KNOWN_ROLES } from '@auto-rfp/core';
 
 export const SYSTEM_PROMPT_PK = 'SYSTEM_PROMPT';
 export const USER_PROMPT_PK = 'USER_PROMPT';
@@ -304,16 +304,22 @@ export const CONTACTS_USER_PROMPT = [
   '',
   'OUTPUT JSON MUST match this schema:',
   '- contacts: array of { role, name?, title?, email?, phone?, organization?, notes? }',
-  '- missingRecommendedRoles: array of role enums that were not found',
+  '- missingRecommendedRoles: array of role strings that were not found',
   '',
   'Do NOT include an "evidence" field in contact objects.',
   '',
-  'Allowed roles enum values:',
-  JSON.stringify(RoleSchema.options, null, 2),
+  'PREFERRED role values (use these when possible for consistency):',
+  JSON.stringify(KNOWN_ROLES, null, 2),
+  '',
+  'IMPORTANT: If the role in the solicitation does not match any of the above values,',
+  'you may use the exact role text from the document (e.g., "Quality Assurance Lead", "Security Officer").',
+  'This ensures no contacts are lost due to non-standard role names.',
   '',
   'RULES:',
   '- If no email/phone is present, still include the contact name/title/role if available.',
   '- Do not invent names, emails, or phone numbers.',
+  '- Use preferred role values when the role clearly matches one of them.',
+  '- Use the exact role text from the document when it does not match any preferred value.',
   '',
   'SOLICITATION TEXT:',
   '{{SOLICITATION}}',
