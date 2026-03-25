@@ -239,6 +239,7 @@ export function ExecutiveBriefView({ projectId, initialOpportunityId }: Executiv
   const [localBusySections, setLocalBusySections] = useState<Set<SectionKey>>(() => new Set());
   const [isPastPerfRegenerating, setIsPastPerfRegenerating] = useState(false);
   const [isFetchingBrief, setIsFetchingBrief] = useState(false);
+  const [isGeneratingBrief, setIsGeneratingBrief] = useState(false);
   const [activeTab, setActiveTab] = useState<TabId>('overview');
   const [selectedOpportunityId, setSelectedOpportunityId] = useState<string | null>(initialOpportunityId ?? null);
   const [selectedOpportunity, setSelectedOpportunity] = useState<OpportunityItem | null>(null);
@@ -534,9 +535,11 @@ export function ExecutiveBriefView({ projectId, initialOpportunityId }: Executiv
   }
 
   async function generateBrief(onlyMissing: boolean) {
+    if (isGeneratingBrief) return;
+    setIsGeneratingBrief(true);
     setRegenError(null);
     linearTicketAttemptedRef.current = false;
-    if (!project) return;
+    if (!project) { setIsGeneratingBrief(false); return; }
     if (briefItem) setPreviousBrief(briefItem);
 
     let sectionsToRun: SectionKey[] = [];
@@ -564,6 +567,7 @@ export function ExecutiveBriefView({ projectId, initialOpportunityId }: Executiv
       const shouldRunScoring = sectionsToRun.includes('scoring');
 
       markBusy(sectionsToRun);
+      setIsGeneratingBrief(false);
       startPollingBrief();
 
       // Phase 1: Run all sections except scoring in parallel
@@ -615,6 +619,7 @@ export function ExecutiveBriefView({ projectId, initialOpportunityId }: Executiv
       setRegenError(e?.message ?? 'Unknown error');
       // Clear busy sections on error so buttons aren't stuck disabled
       setLocalBusySections(new Set());
+      setIsGeneratingBrief(false);
       stopPollingBrief();
     }
   }
@@ -854,8 +859,8 @@ export function ExecutiveBriefView({ projectId, initialOpportunityId }: Executiv
               <p className="text-sm text-muted-foreground mb-4">
                 No executive brief yet for this opportunity. Generate all sections to analyze it.
               </p>
-              <Button onClick={() => generateBrief(false)} disabled={anySectionInProgress}>
-                {anySectionInProgress ? (
+              <Button onClick={() => generateBrief(false)} disabled={anySectionInProgress || isFetchingBrief || isGeneratingBrief}>
+                {anySectionInProgress || isGeneratingBrief ? (
                   <>
                     <Loader2 className="h-4 w-4 mr-2 animate-spin"/>
                     Generating...
@@ -905,9 +910,9 @@ export function ExecutiveBriefView({ projectId, initialOpportunityId }: Executiv
                 variant="outline" 
                 size="sm" 
                 onClick={() => generateBrief(true)} 
-                disabled={anySectionInProgress}
+                disabled={anySectionInProgress || isGeneratingBrief}
               >
-                {anySectionInProgress ? (
+                {anySectionInProgress || isGeneratingBrief ? (
                   <>
                     <Loader2 className="h-4 w-4 mr-2 animate-spin"/>
                     Generating...
@@ -923,9 +928,9 @@ export function ExecutiveBriefView({ projectId, initialOpportunityId }: Executiv
                 variant="default" 
                 size="sm" 
                 onClick={() => generateBrief(false)} 
-                disabled={anySectionInProgress}
+                disabled={anySectionInProgress || isGeneratingBrief}
               >
-                {anySectionInProgress ? (
+                {anySectionInProgress || isGeneratingBrief ? (
                   <>
                     <Loader2 className="h-4 w-4 mr-2 animate-spin"/>
                     Generating...

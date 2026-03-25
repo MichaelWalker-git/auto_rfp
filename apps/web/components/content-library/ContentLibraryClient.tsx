@@ -1,13 +1,13 @@
 'use client';
 
-import { useCallback, useState, useTransition } from 'react';
+import { useCallback, useMemo, useState, useTransition } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useToast } from '@/components/ui/use-toast';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
-import { FileText, Plus, Tag } from 'lucide-react';
+import { CheckCheck, FileText, Plus, Tag } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 
 import { PageHeader } from '@/components/layout/page-header';
@@ -19,10 +19,12 @@ import { EditContentDialog } from './EditContentDialog';
 import { ContentDetailDialog } from './ContentDetailDialog';
 import { DeleteContentDialog } from './DeleteContentDialog';
 import { useContentLibraryContext } from './ContentLibraryProvider';
+import { Spinner } from '@/components/ui/spinner';
 import {
   ApprovalStatus,
   ContentLibraryItem,
   useApproveContentLibraryItem,
+  useBulkApproveContentLibrary,
   useDeprecateContentLibraryItem,
 } from '@/lib/hooks/use-content-library';
 
@@ -90,8 +92,17 @@ export function ContentLibraryClient({ orgId, kbId }: ContentLibraryClientProps)
   const { categories, items, total, isLoading, mutate } = useContentLibraryContext();
   const { approve } = useApproveContentLibraryItem(orgId, kbId);
   const { deprecate } = useDeprecateContentLibraryItem(orgId, kbId);
+  const { bulkApprove } = useBulkApproveContentLibrary(orgId, kbId);
+  const [isApprovingAll, setIsApprovingAll] = useState(false);
 
   const hasMore = offset + ITEMS_PER_PAGE < total;
+
+  // Compute approvable items (DRAFT, not archived)
+  const approvableItems = useMemo(
+    () => items.filter((item) => item.approvalStatus === 'DRAFT' && !item.isArchived),
+    [items],
+  );
+  const approvableCount = approvableItems.length;
 
   const handleSearchChange = useCallback((query: string) => {
     updateUrlParams({ search: query || null, page: '1' });
@@ -125,6 +136,39 @@ export function ContentLibraryClient({ orgId, kbId }: ContentLibraryClientProps)
     startTransition(async () => { await mutate(); });
   }, [mutate]);
 
+  const handleApproveAll = useCallback(async () => {
+    if (approvableCount === 0) return;
+    setIsApprovingAll(true);
+    try {
+      const itemIds = approvableItems.map((item) => item.id);
+      const result = await bulkApprove(itemIds);
+      const succeeded = result.results.filter((r) => r.success).length;
+      const failed = result.results.filter((r) => !r.success).length;
+
+      if (failed === 0) {
+        toast({
+          title: 'All Items Approved',
+          description: `Successfully approved ${succeeded} Q&A item${succeeded > 1 ? 's' : ''}.`,
+        });
+      } else {
+        toast({
+          title: 'Partial Approval',
+          description: `Approved ${succeeded}, failed ${failed}. Please retry the failed ones.`,
+          variant: 'destructive',
+        });
+      }
+      await mutate();
+    } catch (e) {
+      toast({
+        title: 'Approve All Error',
+        description: e instanceof Error ? e.message : 'Failed to approve items. Please try again.',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsApprovingAll(false);
+    }
+  }, [approvableCount, approvableItems, bulkApprove, mutate, toast]);
+
   // Transition from view → edit without flash
   const handleEditFromView = useCallback(() => {
     setDialog(prev => ({ mode: 'edit', item: prev.item }));
@@ -144,8 +188,27 @@ export function ContentLibraryClient({ orgId, kbId }: ContentLibraryClientProps)
               placeholder="Search questions..."
               widthClass="w-64"
             />
-            <Button onClick={() => openDialog('create')}>
-              <Plus className="h-4 w-4 mr-2" />
+            <Button
+              variant="outline"
+              size="sm"
+              className="gap-1"
+              onClick={handleApproveAll}
+              disabled={approvableCount === 0 || isApprovingAll}
+            >
+              {isApprovingAll ? (
+                <>
+                  <Spinner className="h-4 w-4" />
+                  Approving...
+                </>
+              ) : (
+                <>
+                  <CheckCheck className="h-4 w-4" />
+                  Approve All{approvableCount > 0 ? ` (${approvableCount})` : ''}
+                </>
+              )}
+            </Button>
+            <Button size="sm" className="gap-1" onClick={() => openDialog('create')}>
+              <Plus className="h-4 w-4" />
               Add Q&amp;A
             </Button>
           </>
