@@ -251,6 +251,13 @@ export const BulkReviewDTOSchema = z.object({
 
 export type BulkReviewDTO = z.infer<typeof BulkReviewDTOSchema>;
 
+// Bulk approve content library items
+export const BulkApproveDTOSchema = z.object({
+  itemIds: z.array(z.string().uuid()).min(1).max(200),
+});
+
+export type BulkApproveDTO = z.infer<typeof BulkApproveDTOSchema>;
+
 // Freshness thresholds (in days)
 export const FRESHNESS_WARNING_DAYS = 120;
 export const FRESHNESS_STALE_DAYS = 180;

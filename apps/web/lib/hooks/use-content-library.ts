@@ -178,6 +178,15 @@ export function useDeprecateContentLibraryItem(orgId: string, kbId?: string) {
   return { deprecate };
 }
 
+export function useBulkApproveContentLibrary(orgId: string, kbId?: string) {
+  const bulkApprove = async (itemIds: string[]) => {
+    const url = buildApiUrl('content-library/bulk-approve', { orgId, ...(kbId ? { kbId } : {}) });
+    return apiMutate<{ message: string; results: Array<{ itemId: string; success: boolean; error?: string }> }>(url, 'POST', { itemIds });
+  };
+
+  return { bulkApprove };
+}
+
 export function useTrackContentLibraryUsage() {
   const trackUsage = async (orgId: string, itemId: string, projectId: string) => {
     const url = buildApiUrl(`content-library/track-usage/${itemId}`, { orgId });
