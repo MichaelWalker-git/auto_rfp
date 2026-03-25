@@ -404,12 +404,10 @@ export function UserViewContent({ orgId, userId }: UserViewContentProps) {
         </CardContent>
       </Card>
 
-      {/* ─── Resend Password Section (only for invited users) ─── */}
-      {user.status === 'INVITED' && (
-        <PermissionWrapper requiredPermission="user:edit">
-          <ResendPasswordSection userId={userId} orgId={orgId} email={user.email} />
-        </PermissionWrapper>
-      )}
+      {/* ─── Resend Invitation Section ─── */}
+      <PermissionWrapper requiredPermission="user:edit">
+        <ResendPasswordSection userId={userId} orgId={orgId} email={user.email} />
+      </PermissionWrapper>
 
       {/* ─── Organization Access ─── */}
       <PermissionWrapper requiredPermission="user:edit">
@@ -752,6 +750,8 @@ function DangerZoneSection({
 // Resend Password Section
 // ────────────────────────────────────────────
 
+const DEFAULT_TEMP_PASSWORD = process.env.NEXT_PUBLIC_DEFAULT_TEMP_PASSWORD || 'Welcome1!';
+
 function ResendPasswordSection({
   userId,
   orgId,
@@ -769,11 +769,11 @@ function ResendPasswordSection({
     try {
       await resendTempPasswordApi({ orgId, userId });
       toast({
-        title: 'Password resent',
-        description: `A new temporary password has been sent to ${email}.`,
+        title: 'Invitation resent',
+        description: `Login credentials have been reset and resent to ${email}.`,
       });
     } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : 'Failed to resend password';
+      const message = err instanceof Error ? err.message : 'Failed to resend invitation';
       toast({ title: 'Error', description: message, variant: 'destructive' });
     } finally {
       setIsResending(false);
@@ -781,37 +781,39 @@ function ResendPasswordSection({
   }, [orgId, userId, email, toast]);
 
   return (
-    <Card className="border-amber-200 bg-amber-50/50">
+    <Card className="border-amber-200 dark:border-amber-800/50 bg-amber-50/50 dark:bg-amber-950/20">
       <CardHeader>
-        <CardTitle className="flex items-center gap-2 text-amber-800">
+        <CardTitle className="flex items-center gap-2 text-amber-800 dark:text-amber-400">
           <Send className="h-5 w-5" />
-          Resend Temporary Password
+          Resend Invitation
         </CardTitle>
         <CardDescription>
-          This user has been invited but hasn&apos;t activated their account yet. You can resend their temporary password.
+          Reset the user&apos;s password to the default temporary password and resend login instructions.
         </CardDescription>
       </CardHeader>
       <CardContent>
         <Alert>
           <Mail className="h-4 w-4" />
-          <AlertTitle>Pending Invitation</AlertTitle>
+          <AlertTitle>Re-invite User</AlertTitle>
           <AlertDescription>
-            {email} was invited to join this organization but hasn&apos;t completed their account setup. 
-            Resending the temporary password will send a new invitation email with login instructions.
+            <p>
+              This will reset {email}&apos;s password to the default temporary password <code className="bg-muted px-1.5 py-0.5 rounded text-xs font-mono">{DEFAULT_TEMP_PASSWORD}</code> and
+              require them to change it on their next login. Use this if the user has lost their credentials or needs a fresh start.
+            </p>
           </AlertDescription>
         </Alert>
       </CardContent>
       <CardFooter>
-        <Button onClick={handleResendPassword} disabled={isResending} className="bg-amber-600 hover:bg-amber-700">
+        <Button onClick={handleResendPassword} disabled={isResending} className="bg-amber-600 hover:bg-amber-700 dark:bg-amber-700 dark:hover:bg-amber-600">
           {isResending ? (
             <>
               <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-              Resending...
+              Resending…
             </>
           ) : (
             <>
               <Send className="h-4 w-4 mr-2" />
-              Resend Password
+              Resend Invitation
             </>
           )}
         </Button>

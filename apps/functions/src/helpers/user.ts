@@ -5,7 +5,7 @@ import { PK_NAME, SK_NAME } from '../constants/common';
 import { USER_PK } from '../constants/user';
 
 import type { CreateUserDTO } from '@auto-rfp/core';
-import { adminCreateUser, adminDeleteUser } from './cognito';
+import { adminCreateUser, adminDeleteUser, adminSetUserPassword, DEFAULT_TEMP_PASSWORD } from './cognito';
 import { safeTrim, safeLowerCase } from './safe-string';
 import { createItem, getItem, docClient } from './db';
 import { requireEnv } from './env';
@@ -206,6 +206,15 @@ export async function createUser(
 
   // Use Cognito sub as the userId for DynamoDB (ensures token sub === DynamoDB userId)
   const effectiveUserId = cognitoSub || userId;
+
+  // 1b) Set the known default temporary password (forces change on first login).
+  // This replaces Cognito's random temp password with a simple, memorable one.
+  await adminSetUserPassword(cognito, {
+    userPoolId,
+    username: cognitoUsername,
+    password: DEFAULT_TEMP_PASSWORD,
+    permanent: false, // FORCE_CHANGE_PASSWORD — user must change on first login
+  });
 
   // 2) Dynamo (rollback cognito on failure)
   const item = {
