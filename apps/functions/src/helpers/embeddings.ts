@@ -1,7 +1,5 @@
 import { requireEnv } from './env';
 import { invokeModel } from './bedrock-http-client';
-import type { PineconeHit } from '@/types/pinecone';
-import { semanticSearchChunks as pineconeSearch } from './pinecone';
 
 // Titan Text Embeddings V2 supports up to 8192 tokens.
 // Titan's tokenizer averages ~1.3–1.5 chars/token for English technical text
@@ -46,18 +44,6 @@ export async function getEmbedding(text: string): Promise<number[]> {
   }
 
   return vector;
-}
-
-export async function semanticSearchChunks(orgId: string, embedding: number[], k: number, kbIds?: string[]): Promise<PineconeHit[]> {
-  return pineconeSearch(orgId, embedding, k, 'chunk', kbIds);
-}
-
-export async function semanticSearchContentLibrary(orgId: string, embedding: number[], k: number, kbIds?: string[]): Promise<PineconeHit[]> {
-  return pineconeSearch(orgId, embedding, k, 'content_library', kbIds);
-}
-
-export async function semanticSearchPastPerformance(orgId: string, embedding: number[], k: number): Promise<PineconeHit[]> {
-  return pineconeSearch(orgId, embedding, k, 'past_project');
 }
 
 function truncateForTitan(text: string, maxChars = TITAN_V2_SAFE_CHARS): string {

@@ -12,7 +12,8 @@
  *  - get_solicitation_text    → load the original solicitation/RFP document text
  */
 
-import { getEmbedding, semanticSearchChunks, semanticSearchPastPerformance } from '@/helpers/embeddings';
+import { getEmbedding } from '@/helpers/embeddings';
+import { semanticSearchChunks, semanticSearchPastPerformance } from '@/helpers/semantic-search';
 import { loadTextFromS3 } from '@/helpers/s3';
 import { requireEnv } from '@/helpers/env';
 import { truncateText, loadAllSolicitationTexts } from '@/helpers/executive-opportunity-brief';

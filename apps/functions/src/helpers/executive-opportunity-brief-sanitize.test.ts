@@ -31,6 +31,9 @@ jest.mock('./s3', () => ({
 
 jest.mock('./embeddings', () => ({
   getEmbedding: jest.fn(),
+}));
+
+jest.mock('./semantic-search', () => ({
   semanticSearchChunks: jest.fn(),
 }));
 
