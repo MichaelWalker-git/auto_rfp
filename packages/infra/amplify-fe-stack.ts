@@ -92,6 +92,7 @@ export class AmplifyFeStack extends cdk.Stack {
         NEXT_PUBLIC_BASE_API_URL: baseApiUrl.replace(/\/$/, ''),
         NEXT_PUBLIC_SENTRY_DSN: sentryDNS,
         NEXT_PUBLIC_SENTRY_ENVIRONMENT: stage,
+        NEXT_PUBLIC_DEFAULT_TEMP_PASSWORD: process.env.DEFAULT_TEMP_PASSWORD || 'Welcome1!',
 
         // Sentry build-time vars for source map uploads
         // SENTRY_AUTH_TOKEN is required by @sentry/nextjs withSentryConfig to upload source maps
