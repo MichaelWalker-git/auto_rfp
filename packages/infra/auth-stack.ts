@@ -54,6 +54,7 @@ export class AuthStack extends cdk.Stack {
         requireUppercase: true,
         requireDigits: true,
         requireSymbols: true,
+        tempPasswordValidity: cdk.Duration.days(365),
       },
 
       userInvitation: {
@@ -85,6 +86,15 @@ export class AuthStack extends cdk.Stack {
 
       removalPolicy: cdk.RemovalPolicy.DESTROY,
     });
+
+    // Configure Cognito to use SES for email sending (removes 50/day limit).
+    // Domain horustech.dev is verified via DKIM in SES, allowing any @horustech.dev sender.
+    const cfnUserPool = this.userPool.node.defaultChild as cognito.CfnUserPool;
+    cfnUserPool.emailConfiguration = {
+      emailSendingAccount: 'DEVELOPER',
+      sourceArn: `arn:aws:ses:us-east-1:${cdk.Aws.ACCOUNT_ID}:identity/horustech.dev`,
+      from: 'Auto RFP <noreply@horustech.dev>',
+    };
 
     this.userPoolClient = new cognito.UserPoolClient(this, 'UserPoolClient', {
       userPool: this.userPool,

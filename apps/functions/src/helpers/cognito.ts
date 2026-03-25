@@ -197,23 +197,29 @@ export const adminResendTempPassword = async (
     throw new Error('User not found');
   }
 
-  const userStatus = userDetails.UserStatus;
+  // Step 1: Set a PERMANENT password first.
+  // This moves the user to CONFIRMED state and clears any expired temp password.
+  // This is necessary because:
+  // - CONFIRMED users can't use RESEND directly
+  // - Users with expired temp passwords are stuck and can't be RESEND'd either
+  await adminSetUserPassword(cognito, {
+    userPoolId: input.userPoolId,
+    username: input.username,
+    password: DEFAULT_TEMP_PASSWORD,
+    permanent: true, // Moves to CONFIRMED, clears expiry
+  });
 
-  // For CONFIRMED users (already set their own password), first reset to default
-  // temporary password. This puts them back into FORCE_CHANGE_PASSWORD state,
-  // which then allows the RESEND to work.
-  if (userStatus === 'CONFIRMED') {
-    await adminSetUserPassword(cognito, {
-      userPoolId: input.userPoolId,
-      username: input.username,
-      password: DEFAULT_TEMP_PASSWORD,
-      permanent: false, // Moves user to FORCE_CHANGE_PASSWORD state
-    });
-  }
+  // Step 2: Set the SAME password as TEMPORARY.
+  // This moves the user back to FORCE_CHANGE_PASSWORD with a fresh expiry timer.
+  await adminSetUserPassword(cognito, {
+    userPoolId: input.userPoolId,
+    username: input.username,
+    password: DEFAULT_TEMP_PASSWORD,
+    permanent: false, // Moves to FORCE_CHANGE_PASSWORD with fresh expiry
+  });
 
-  // Now RESEND the invitation email. At this point the user is in
-  // FORCE_CHANGE_PASSWORD state (either originally or after the reset above).
-  // NOTE: RESEND generates a new random temp password internally.
+  // Step 3: RESEND the invitation email.
+  // Now the user is in FORCE_CHANGE_PASSWORD with a valid (non-expired) temp password.
   await cognito.send(
     new AdminCreateUserCommand({
       UserPoolId: input.userPoolId,
@@ -223,7 +229,7 @@ export const adminResendTempPassword = async (
     }),
   );
 
-  // Override the random password from RESEND with our known default.
+  // Step 4: Override the random password from RESEND with our known default.
   await adminSetUserPassword(cognito, {
     userPoolId: input.userPoolId,
     username: input.username,
