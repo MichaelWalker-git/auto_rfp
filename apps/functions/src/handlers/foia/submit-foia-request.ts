@@ -27,8 +27,8 @@ const DOCUMENTS_BUCKET = requireEnv('DOCUMENTS_BUCKET');
 
 const ses = new SESClient({});
 
-// SES verified sender — must be a verified identity in SES
-const SES_FROM_ADDRESS = process.env['SES_FROM_ADDRESS'] ?? 'noreply@auto-rfp.com';
+// SES verified sender — must be a verified identity in SES (horustech.dev domain)
+const SES_FROM_ADDRESS = process.env['SES_FROM_EMAIL'] ?? 'noreply@horustech.dev';
 
 const SubmitFOIARequestSchema = z.object({
   orgId: z.string().min(1, 'orgId is required'),
