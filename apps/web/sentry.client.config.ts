@@ -99,8 +99,8 @@ if (typeof window !== 'undefined') {
     const observer = new MutationObserver(() => {
       if (injectStyle()) observer.disconnect();
     });
-    observer.observe(document.body, { childList: true, subtree: true });
-    // Safety: stop observing after 10s
+    const target = document.body || document.documentElement;
+    observer.observe(target, { childList: true, subtree: true });    // Safety: stop observing after 10s
     setTimeout(() => observer.disconnect(), 10000);
   }
 }

@@ -7,7 +7,7 @@
  * This is a synchronous endpoint (no SQS queue) since it edits a single section,
  * not a full document. Timeout is set to 60s in the route definition.
  */
-import type { APIGatewayProxyEventV2, APIGatewayProxyResultV2 } from 'aws-lambda';
+import type { APIGatewayProxyResultV2 } from 'aws-lambda';
 import middy from '@middy/core';
 import { z } from 'zod';
 
@@ -15,20 +15,20 @@ import { apiResponse, getOrgId, getUserId } from '@/helpers/api';
 import { withSentryLambda } from '@/sentry-lambda';
 import {
   authContextMiddleware,
+  type AuthedEvent,
   httpErrorMiddleware,
   orgMembershipMiddleware,
   requirePermission,
-  type AuthedEvent,
 } from '@/middleware/rbac-middleware';
 import { auditMiddleware, setAuditContext } from '@/middleware/audit-middleware';
 import { getRFPDocument } from '@/helpers/rfp-document';
 import { DOCUMENT_TOOLS, executeDocumentTool } from '@/helpers/document-tools';
 import { invokeModel } from '@/helpers/bedrock-http-client';
+import type { QaPair } from '@/helpers/document-generation';
 import { loadQaPairs, loadSolicitation } from '@/helpers/document-generation';
 import { gatherAllContext } from '@/helpers/document-context';
 import { BEDROCK_MODEL_ID, TEMPERATURE } from '@/constants/document-generation';
 import { saveChatMessages } from '@/helpers/ai-chat';
-import type { QaPair } from '@/helpers/document-generation';
 
 // ─── Input Schema ───
 
@@ -175,17 +175,18 @@ export const baseHandler = async (
     });
 
     // 3. Load context in parallel (lightweight — for section editing we don't need full context)
-    const [qaPairs, solicitation, enrichedContext] = await Promise.all([
+    const [qaPairs, solicitation] = await Promise.all([
       loadQaPairs(projectId, opportunityId).catch(() => [] as QaPair[]),
       loadSolicitation(projectId, opportunityId).catch(() => ''),
-      gatherAllContext({
-        projectId,
-        orgId,
-        opportunityId,
-        solicitation: '',
-        documentType: doc.documentType ?? 'TECHNICAL_PROPOSAL',
-      }).catch(() => ''),
     ]);
+
+    const enrichedContext = await gatherAllContext({
+      projectId,
+      orgId,
+      opportunityId,
+      solicitation,
+      documentType: doc.documentType ?? 'TECHNICAL_PROPOSAL',
+    }).catch(() => '');
 
     // 4. Build prompts
     const systemPrompt = buildSectionEditSystemPrompt(sectionTitle);

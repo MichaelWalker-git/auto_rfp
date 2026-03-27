@@ -7,9 +7,8 @@
  * Query pattern: all messages for a document via SK prefix.
  */
 import { v4 as uuidv4 } from 'uuid';
-import { putItem, queryBySkPrefix, deleteAllBySkPrefix } from '@/helpers/db';
+import { deleteAllBySkPrefix, putItem, queryBySkPrefix } from '@/helpers/db';
 import { AI_CHAT_MESSAGE_PK } from '@/constants/ai-chat';
-import { PK_NAME, SK_NAME } from '@/constants/common';
 import { nowIso } from '@/helpers/date';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -35,7 +34,7 @@ export interface AIChatMessageItem {
   /** User ID who sent the message */
   userId?: string;
   timestamp: string;
-  createdAt: string;
+  createdAt?: string;
 }
 
 // ─── SK Builder ───────────────────────────────────────────────────────────────
