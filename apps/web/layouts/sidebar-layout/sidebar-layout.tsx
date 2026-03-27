@@ -9,14 +9,11 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
-  SidebarMenuSub,
-  SidebarMenuSubButton,
-  SidebarMenuSubItem,
   SidebarProvider,
   SidebarRail,
   SidebarSeparator,
 } from '@/components/ui/sidebar';
-import { TooltipProvider } from '@/components/ui/tooltip';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { UserSection } from '@/components/user-section';
 
 import {
@@ -82,14 +79,14 @@ function getRouteIds(pathname: string): RouteInfo {
 
 function NavigationMenu({ items, isActive }: { items: NavItem[]; isActive: (url: string) => boolean }) {
   return (
-    <SidebarMenuSub>
+    <>
       {items.map((item) => {
         const active = isActive(item.url);
         return (
-          <SidebarMenuSubItem key={item.title}>
-            <SidebarMenuSubButton asChild isActive={active}>
+          <SidebarMenuItem key={item.title}>
+            <SidebarMenuButton asChild isActive={active} tooltip={item.title}>
               <Link href={item.url} aria-current={active ? 'page' : undefined}>
-                <item.icon className="size-4" aria-hidden="true"/>
+                <item.icon className="size-4 shrink-0" aria-hidden="true"/>
                 <span>{item.title}</span>
                 {item.badge && (
                   <span className="ml-auto text-xs bg-primary/10 text-primary px-1.5 py-0.5 rounded">
@@ -97,11 +94,11 @@ function NavigationMenu({ items, isActive }: { items: NavItem[]; isActive: (url:
                   </span>
                 )}
               </Link>
-            </SidebarMenuSubButton>
-          </SidebarMenuSubItem>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
         );
       })}
-    </SidebarMenuSub>
+    </>
   );
 }
 
@@ -201,7 +198,7 @@ function AppSidebar() {
       </SidebarHeader>
 
       <SidebarContent className="overflow-y-auto">
-        <SidebarMenu>
+        <SidebarMenu className="px-2">
           <NavigationMenu items={items} isActive={isItemActive}/>
           <SidebarSeparator className="my-2"/>
         </SidebarMenu>

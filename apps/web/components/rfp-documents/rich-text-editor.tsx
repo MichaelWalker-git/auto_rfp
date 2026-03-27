@@ -1121,8 +1121,59 @@ export const RichTextEditor = ({
         editor.commands.setContent(value, { emitUpdate: false });
         setUpdateTrigger((prev) => prev + 1);
       }
+
+      // Resolve s3key: image references to presigned URLs after content is set.
+      // Images stored as src="s3key:KEY" need to be resolved to actual presigned
+      // URLs so they display correctly in the editor.
+      if (onGetDownloadUrl) {
+        const resolveS3Images = async () => {
+          const { state } = editor;
+          const updates: Array<{ pos: number; key: string }> = [];
+
+          state.doc.descendants((node, pos) => {
+            if (node.type.name === 'image') {
+              const s3key = node.attrs['s3key'] || node.attrs['data-s3-key'];
+              const src = node.attrs.src ?? '';
+              if (s3key && (src.startsWith('s3key:') || !src.startsWith('http'))) {
+                updates.push({ pos, key: s3key });
+              }
+            }
+          });
+
+          if (updates.length === 0) return;
+
+          // Resolve all presigned URLs in parallel
+          const resolved = await Promise.all(
+            updates.map(async ({ pos, key }) => {
+              try {
+                const url = await onGetDownloadUrl(key);
+                return { pos, key, url };
+              } catch {
+                console.warn(`Failed to resolve presigned URL for s3key: ${key}`);
+                return null;
+              }
+            }),
+          );
+
+          // Apply resolved URLs to the editor (in reverse order to preserve positions)
+          const validUpdates = resolved.filter((r): r is NonNullable<typeof r> => r !== null);
+          if (validUpdates.length === 0) return;
+
+          // Use a transaction to update all image src attributes at once
+          const { tr } = editor.state;
+          for (const { pos, url } of validUpdates.reverse()) {
+            const node = tr.doc.nodeAt(pos);
+            if (node && node.type.name === 'image') {
+              tr.setNodeMarkup(pos, undefined, { ...node.attrs, src: url });
+            }
+          }
+          editor.view.dispatch(tr);
+        };
+
+        resolveS3Images();
+      }
     }
-  }, [editor, value]);
+  }, [editor, value, onGetDownloadUrl]);
 
   useEffect(() => {
     if (!value) {

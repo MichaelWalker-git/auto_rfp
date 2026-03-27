@@ -108,6 +108,10 @@ export const AuditActionSchema = z.enum([
   'QUESTION_FILE_REEXTRACT_ALL',
   // Solicitation import
   'SOLICITATION_IMPORTED',
+  // AI section editing (chat-based)
+  'DOCUMENT_SECTION_EDIT_STARTED',
+  'DOCUMENT_SECTION_EDIT_COMPLETED',
+  'DOCUMENT_SECTION_EDIT_FAILED',
 ]);
 export type AuditAction = z.infer<typeof AuditActionSchema>;
 
