@@ -489,6 +489,110 @@ export function useSaveCustomDocumentType(orgId: string | null) {
   );
 }
 
+// ─── Edit Section (AI Chat) ───
+
+const EditSectionRequestSchema = z.object({
+  projectId: z.string().min(1),
+  opportunityId: z.string().min(1),
+  documentId: z.string().min(1),
+  sectionTitle: z.string().min(1),
+  currentSectionHtml: z.string(),
+  instruction: z.string().min(1).max(2000),
+  fullDocumentContext: z.string().optional(),
+});
+
+export type EditSectionRequest = z.infer<typeof EditSectionRequestSchema>;
+
+const EditSectionResponseSchema = z.object({
+  ok: z.boolean(),
+  sectionTitle: z.string(),
+  updatedHtml: z.string(),
+  toolRoundsUsed: z.number(),
+});
+
+export type EditSectionResponse = z.infer<typeof EditSectionResponseSchema>;
+
+/**
+ * AI-powered section editing. Sends a section's HTML and user instructions
+ * to the AI, which returns updated section HTML.
+ */
+export function useEditSection(orgId?: string) {
+  return useSWRMutation<EditSectionResponse, Error, string, EditSectionRequest>(
+    `${BASE}/edit-section${orgId ? `?orgId=${orgId}` : ''}`,
+    (url, { arg }) => postJson<EditSectionResponse>(url, arg),
+  );
+}
+
+// ─── Chat Messages (Persisted History) ───
+
+const ChatMessageSchema = z.object({
+  messageId: z.string(),
+  documentId: z.string(),
+  projectId: z.string(),
+  opportunityId: z.string(),
+  orgId: z.string(),
+  role: z.enum(['user', 'assistant']),
+  content: z.string(),
+  sectionTitle: z.string(),
+  applied: z.boolean().optional(),
+  error: z.string().optional(),
+  toolRoundsUsed: z.number().optional(),
+  userId: z.string().optional(),
+  timestamp: z.string(),
+  createdAt: z.string().optional(),
+});
+
+export type ChatMessage = z.infer<typeof ChatMessageSchema>;
+
+const ChatMessagesResponseSchema = z.object({
+  ok: z.boolean(),
+  items: z.array(ChatMessageSchema),
+  count: z.number(),
+});
+
+type ChatMessagesResponse = z.infer<typeof ChatMessagesResponseSchema>;
+
+/**
+ * Fetch persisted AI chat messages for a document.
+ * Returns messages ordered by timestamp ascending (oldest first).
+ */
+export function useChatMessages(
+  projectId: string | null,
+  opportunityId: string | null,
+  documentId: string | null,
+  orgId: string | null,
+) {
+  const params = new URLSearchParams();
+  if (projectId) params.set('projectId', projectId);
+  if (opportunityId) params.set('opportunityId', opportunityId);
+  if (documentId) params.set('documentId', documentId);
+  if (orgId) params.set('orgId', orgId);
+
+  const key =
+    projectId && opportunityId && documentId && orgId
+      ? `${BASE}/chat-messages?${params.toString()}`
+      : null;
+
+  const { data, error, isLoading, mutate } = useSWR<ChatMessagesResponse>(
+    key,
+    async (url: string) => {
+      const res = await authFetcher(url);
+      if (!res.ok) throw new Error('Failed to fetch chat messages');
+      return res.json();
+    },
+    { revalidateOnFocus: false },
+  );
+
+  return {
+    messages: data?.items ?? [],
+    count: data?.count ?? 0,
+    isLoading,
+    isError: !!error,
+    error,
+    mutate,
+  };
+}
+
 /** Upload file to S3 using presigned URL */
 export async function uploadFileToPresignedUrl(
   uploadUrl: string,

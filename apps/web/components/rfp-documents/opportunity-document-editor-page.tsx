@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
-import { ArrowLeft, FileDown, FileText, History, Loader2, RefreshCw, Save, ClipboardCheck, XCircle, AlertTriangle, ChevronRight, ChevronLeft } from 'lucide-react';
+import { ArrowLeft, Bot, FileDown, FileText, History, Loader2, RefreshCw, Save, ClipboardCheck, XCircle, AlertTriangle, ChevronRight, ChevronLeft } from 'lucide-react';
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -30,6 +30,7 @@ import { VersionHistoryPanel } from './version-history/VersionHistoryPanel';
 import { VersionDiffView } from './version-diff/VersionDiffView';
 import { RevertConfirmDialog } from './dialogs/RevertConfirmDialog';
 import { CherryPickConfirmDialog } from './dialogs/CherryPickConfirmDialog';
+import { AIChatPanel } from './ai-chat';
 import type { RFPDocumentVersion } from '@auto-rfp/core';
 
 // ─── Props ────────────────────────────────────────────────────────────────────
@@ -73,9 +74,11 @@ export const OpportunityDocumentEditorPage = ({
   const isRegenerateStartingRef = useRef(false);
   // Counter to force editor remount when content is programmatically replaced
   const [editorKey, setEditorKey] = useState(0);
+  // Pending auto-save HTML from AI chat edits (saved after editor remounts)
+  const pendingAutoSaveRef = useRef<string | null>(null);
 
   // ── Version history state ──
-  const [showVersionHistory, setShowVersionHistory] = useState(true); // Show history by default
+  const [showVersionHistory, setShowVersionHistory] = useState(false);
   const [showDiffView, setShowDiffView] = useState(false);
   const [diffVersions, setDiffVersions] = useState<{ from: number; to: number } | null>(null);
   const [revertVersion, setRevertVersion] = useState<RFPDocumentVersion | null>(null);
@@ -87,6 +90,9 @@ export const OpportunityDocumentEditorPage = ({
 
   // ── Review sidebar state ──
   const [showReviewSidebar, setShowReviewSidebar] = useState(false);
+  
+  // ── AI Chat sidebar state ──
+  const [showAIChat, setShowAIChat] = useState(true); // Show AI Chat by default
   
   // ── Sidebar width state ──
   const [sidebarWidth, setSidebarWidth] = useState(400); // Default wider width
@@ -330,6 +336,43 @@ export const OpportunityDocumentEditorPage = ({
       });
     }
   }, [doc, projectId, opportunityId, documentId, htmlContent, updateDocument, mutateHtml, invalidateVersionsCache, toast]);
+
+  // ── Auto-save after AI chat edits ──
+  // When pendingAutoSaveRef is set, save the document automatically.
+  // Uses editorKey as trigger since it changes when the editor remounts after AI edit.
+  useEffect(() => {
+    if (!pendingAutoSaveRef.current || !doc) return;
+    const htmlToSave = pendingAutoSaveRef.current;
+    pendingAutoSaveRef.current = null;
+
+    // Delay slightly to let the editor remount first
+    const timer = setTimeout(async () => {
+      try {
+        await updateDocument({
+          projectId,
+          opportunityId,
+          documentId,
+          content: {
+            title: doc.name,
+            content: htmlToSave,
+          },
+        } as Parameters<typeof updateDocument>[0]);
+        htmlInitializedRef.current = true;
+        await mutateHtml();
+        invalidateVersionsCache();
+        toast({ title: 'Auto-saved', description: 'AI changes have been saved automatically.' });
+      } catch (err) {
+        console.warn('Auto-save after AI edit failed:', err);
+        toast({
+          title: 'Auto-save failed',
+          description: 'AI changes were applied but could not be saved. Please save manually.',
+          variant: 'destructive',
+        });
+      }
+    }, 1000);
+
+    return () => clearTimeout(timer);
+  }, [editorKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Version history handlers ──
   const handleCompareVersions = useCallback((fromVersion: number, toVersion: number) => {
@@ -707,8 +750,8 @@ export const OpportunityDocumentEditorPage = ({
 
         {/* ── Resizable Right Sidebar ── */}
         <div 
-          className="border-l-[0.5px] border-border/50 bg-background flex flex-col transition-all duration-200"
-          style={{ width: sidebarCollapsed ? '48px' : `${sidebarWidth}px` }}
+          className={`bg-background flex flex-col shrink-0 transition-[width] duration-200 ${sidebarCollapsed ? '' : 'border-l-[0.5px] border-border/50'}`}
+          style={{ width: sidebarCollapsed ? '48px' : `${sidebarWidth}px`, minWidth: sidebarCollapsed ? '48px' : undefined, overflow: sidebarCollapsed ? 'visible' : 'hidden' }}
         >
           {!sidebarCollapsed && (
             <>
@@ -720,11 +763,30 @@ export const OpportunityDocumentEditorPage = ({
                     variant="ghost"
                     size="sm"
                     onClick={() => {
-                      setShowVersionHistory(true);
+                      setShowAIChat(true);
+                      setShowVersionHistory(false);
                       setShowReviewSidebar(false);
                     }}
                     className={`px-3 py-1.5 rounded-md text-xs font-medium transition-all ${
-                      showVersionHistory && !showReviewSidebar
+                      showAIChat
+                        ? "bg-background text-foreground shadow-sm"
+                        : "text-muted-foreground hover:text-foreground"
+                    }`}
+                  >
+                    <Bot className="h-3.5 w-3.5 mr-1.5" />
+                    AI Chat
+                  </Button>
+
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => {
+                      setShowVersionHistory(true);
+                      setShowReviewSidebar(false);
+                      setShowAIChat(false);
+                    }}
+                    className={`px-3 py-1.5 rounded-md text-xs font-medium transition-all ${
+                      showVersionHistory && !showReviewSidebar && !showAIChat
                         ? "bg-background text-foreground shadow-sm"
                         : "text-muted-foreground hover:text-foreground"
                     }`}
@@ -740,6 +802,7 @@ export const OpportunityDocumentEditorPage = ({
                       onClick={() => {
                         setShowReviewSidebar(true);
                         setShowVersionHistory(false);
+                        setShowAIChat(false);
                       }}
                       className={`px-3 py-1.5 rounded-md text-xs font-medium transition-all relative ${
                         showReviewSidebar
@@ -774,7 +837,71 @@ export const OpportunityDocumentEditorPage = ({
 
               {/* Sidebar content */}
               <div className="flex-1 overflow-hidden">
-                {showVersionHistory && (
+                {showAIChat && (
+                  <AIChatPanel
+                    orgId={orgId}
+                    projectId={projectId}
+                    opportunityId={opportunityId}
+                    documentId={documentId}
+                    htmlContent={htmlContent}
+                    onApplyEdit={(newHtml, sectionTitle) => {
+                      // Convert presigned S3 URLs back to s3key: format before remounting.
+                      // The editor's htmlContent contains temporary presigned URLs for images.
+                      // When we remount the editor, it needs s3key: references so it can
+                      // re-resolve them to fresh presigned URLs via onGetDownloadUrl.
+                      const cleanedHtml = stripPresignedUrlsFromHtml(newHtml);
+                      setHtmlContent(cleanedHtml);
+                      // Force editor remount to pick up the new content.
+                      // TipTap only reads `value` on mount — subsequent changes require remount.
+                      setEditorKey((k) => k + 1);
+
+                      // Schedule auto-save with the cleaned HTML
+                      pendingAutoSaveRef.current = cleanedHtml;
+
+                      // Scroll to the updated section after the editor remounts
+                      if (sectionTitle) {
+                        setTimeout(() => {
+                          // The editor content is inside a nested scroll container
+                          // Find the ProseMirror element and its scrollable parent
+                          const proseMirror = document.querySelector('.tiptap-document-editor .ProseMirror');
+                          if (!proseMirror) return;
+                          // Find the heading that matches the section title within ProseMirror
+                          const headings = proseMirror.querySelectorAll('h1, h2, h3');
+                          for (const heading of Array.from(headings)) {
+                            if (heading.textContent?.trim() === sectionTitle) {
+                              // Find the scrollable container (overflow-y-auto parent)
+                              let scrollContainer = heading.parentElement;
+                              while (scrollContainer && scrollContainer !== document.body) {
+                                const style = window.getComputedStyle(scrollContainer);
+                                if (style.overflowY === 'auto' || style.overflowY === 'scroll') break;
+                                scrollContainer = scrollContainer.parentElement;
+                              }
+                              if (scrollContainer) {
+                                const headingRect = heading.getBoundingClientRect();
+                                const containerRect = scrollContainer.getBoundingClientRect();
+                                const scrollOffset = headingRect.top - containerRect.top + scrollContainer.scrollTop - 20;
+                                scrollContainer.scrollTo({ top: scrollOffset, behavior: 'smooth' });
+                              }
+                              // Brief highlight effect
+                              (heading as HTMLElement).style.outline = '2px solid var(--primary)';
+                              (heading as HTMLElement).style.outlineOffset = '4px';
+                              (heading as HTMLElement).style.borderRadius = '4px';
+                              setTimeout(() => {
+                                (heading as HTMLElement).style.outline = '';
+                                (heading as HTMLElement).style.outlineOffset = '';
+                                (heading as HTMLElement).style.borderRadius = '';
+                              }, 2000);
+                              break;
+                            }
+                          }
+                        }, 800); // Wait for editor to remount, render, and resolve images
+                      }
+                    }}
+                    disabled={isEditingDisabled || !isEditorReady}
+                  />
+                )}
+
+                {showVersionHistory && !showAIChat && (
                   <VersionHistoryPanel
                     projectId={projectId}
                     opportunityId={opportunityId}
@@ -787,7 +914,7 @@ export const OpportunityDocumentEditorPage = ({
                   />
                 )}
                 
-                {showReviewSidebar && userSub && (
+                {showReviewSidebar && !showAIChat && userSub && (
                   <ReviewSidebarPanel
                     approval={activeApproval}
                     approvals={approvals}
@@ -801,7 +928,7 @@ export const OpportunityDocumentEditorPage = ({
                   />
                 )}
                 
-                {!showVersionHistory && !showReviewSidebar && (
+                {!showVersionHistory && !showReviewSidebar && !showAIChat && (
                   <div className="flex items-center justify-center h-full text-muted-foreground">
                     <p className="text-sm">Select a tab to view content</p>
                   </div>
@@ -812,16 +939,43 @@ export const OpportunityDocumentEditorPage = ({
 
           {/* Collapsed sidebar content */}
           {sidebarCollapsed && (
-            <div className="flex flex-col items-center gap-2 p-2">
+            <div className="flex flex-col items-center gap-1.5 py-3 w-full border-l border-border/50">
+              {/* Expand button */}
               <Button
-                variant="ghost"
-                size="sm"
+                variant="outline"
+                size="icon"
+                onClick={() => setSidebarCollapsed(false)}
+                className="h-8 w-8 mb-2"
+                title="Expand sidebar"
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </Button>
+
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={() => {
+                  setSidebarCollapsed(false);
+                  setShowAIChat(true);
+                  setShowVersionHistory(false);
+                  setShowReviewSidebar(false);
+                }}
+                className="h-8 w-8"
+                title="AI Chat"
+              >
+                <Bot className="h-4 w-4" />
+              </Button>
+
+              <Button
+                variant="outline"
+                size="icon"
                 onClick={() => {
                   setSidebarCollapsed(false);
                   setShowVersionHistory(true);
                   setShowReviewSidebar(false);
+                  setShowAIChat(false);
                 }}
-                className="h-8 w-8 p-0"
+                className="h-8 w-8"
                 title="History"
               >
                 <History className="h-4 w-4" />
@@ -829,18 +983,19 @@ export const OpportunityDocumentEditorPage = ({
               
               {(approvals.length > 0 || hasPendingApproval || wasRecentlyRejected) && (
                 <Button
-                  variant="ghost"
-                  size="sm"
+                  variant="outline"
+                  size="icon"
                   onClick={() => {
                     setSidebarCollapsed(false);
                     setShowReviewSidebar(true);
                     setShowVersionHistory(false);
+                    setShowAIChat(false);
                   }}
-                  className={`h-8 w-8 p-0 ${
+                  className={`h-8 w-8 ${
                     hasPendingApproval && isReviewer
-                      ? "bg-amber-50 text-amber-700 hover:bg-amber-100"
+                      ? "border-amber-500/50 text-amber-700 dark:text-amber-400"
                       : wasRecentlyRejected
-                      ? "text-red-700 hover:bg-red-50"
+                      ? "border-red-500/50 text-red-700 dark:text-red-400"
                       : ""
                   }`}
                   title="Review"
