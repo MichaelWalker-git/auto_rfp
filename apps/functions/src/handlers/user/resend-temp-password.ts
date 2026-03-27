@@ -1,27 +1,22 @@
-import type { APIGatewayProxyEventV2, APIGatewayProxyResultV2 } from 'aws-lambda';
+import type { APIGatewayProxyResultV2 } from 'aws-lambda';
 import { CognitoIdentityProviderClient } from '@aws-sdk/client-cognito-identity-provider';
-import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
-import { DynamoDBDocumentClient } from '@aws-sdk/lib-dynamodb';
 import middy from '@middy/core';
 import { ResendTempPasswordRequestSchema } from '@auto-rfp/core';
 
 import { apiResponse } from '@/helpers/api';
-import { adminResendTempPassword, adminGetUser } from '@/helpers/cognito';
+import { adminGetUser, adminResendTempPassword } from '@/helpers/cognito';
 import { getUserByOrgAndId } from '@/helpers/user';
 import { requireEnv } from '@/helpers/env';
 import { withSentryLambda } from '@/sentry-lambda';
 import {
   authContextMiddleware,
+  type AuthedEvent,
   httpErrorMiddleware,
   orgMembershipMiddleware,
   requirePermission,
-  type AuthedEvent,
 } from '@/middleware/rbac-middleware';
 import { auditMiddleware, setAuditContext } from '@/middleware/audit-middleware';
 
-const ddb = DynamoDBDocumentClient.from(new DynamoDBClient({}), {
-  marshallOptions: { removeUndefinedValues: true },
-});
 const cognito = new CognitoIdentityProviderClient({});
 
 const USER_POOL_ID = requireEnv('COGNITO_USER_POOL_ID');
@@ -29,7 +24,7 @@ const USER_POOL_ID = requireEnv('COGNITO_USER_POOL_ID');
 export const baseHandler = async (event: AuthedEvent): Promise<APIGatewayProxyResultV2> => {
   const raw = JSON.parse(event?.body || '');
   const { success, data, error: errors } = ResendTempPasswordRequestSchema.safeParse(raw);
-  
+
   if (!success) {
     return apiResponse(400, { message: 'Invalid payload', issues: errors.issues });
   }
@@ -64,12 +59,12 @@ export const baseHandler = async (event: AuthedEvent): Promise<APIGatewayProxyRe
       action: 'USER_TEMP_PASSWORD_RESENT',
       resource: 'user',
       resourceId: userId,
-      changes: { 
-        after: { 
+      changes: {
+        after: {
           email: user.email,
           orgId,
           userId,
-        } 
+        }
       },
     });
 
@@ -82,7 +77,7 @@ export const baseHandler = async (event: AuthedEvent): Promise<APIGatewayProxyRe
     });
   } catch (err: any) {
     console.error('resend-temp-password error:', err);
-    
+
     if (err?.message === 'User not found') {
       return apiResponse(404, { message: 'User not found in authentication system' });
     }

@@ -6,9 +6,10 @@ import { withSentryLambda } from '@/sentry-lambda';
 import { requireEnv } from '@/helpers/env';
 import { authContextMiddleware, httpErrorMiddleware, orgMembershipMiddleware } from '@/middleware/rbac-middleware';
 
-import { getEmbedding, semanticSearchChunks, semanticSearchContentLibrary, semanticSearchPastPerformance } from '@/helpers/embeddings';
+import { getEmbedding } from '@/helpers/embeddings';
+import { semanticSearchChunks, semanticSearchContentLibrary, semanticSearchPastPerformance } from '@/helpers/semantic-search';
 import { loadTextFromS3 } from '@/helpers/s3';
-import { PineconeHit } from '@/helpers/pinecone';
+import type { PineconeHit } from '@/types/pinecone';
 import { getItem } from '@/helpers/db';
 import { CONTENT_LIBRARY_PK, ContentLibraryItem } from '@auto-rfp/core';
 import { SK_NAME } from '@/constants/common';

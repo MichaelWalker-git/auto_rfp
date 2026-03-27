@@ -4,9 +4,10 @@ import { v4 as uuidv4 } from 'uuid';
 import { invokeModel } from '@/helpers/bedrock-http-client';
 import { apiResponse } from '@/helpers/api';
 import { PK_NAME, SK_NAME } from '@/constants/common';
-import { getEmbedding, semanticSearchContentLibrary } from '@/helpers/embeddings';
+import { getEmbedding } from '@/helpers/embeddings';
+import { semanticSearchContentLibrary } from '@/helpers/semantic-search';
 
-import { withSentryLambda } from '@/sentry-lambda';
+import { withSentryLambda, Sentry } from '@/sentry-lambda';
 import {
   authContextMiddleware,
   httpErrorMiddleware,
@@ -211,7 +212,11 @@ Return ONLY valid JSON: {"answer": "<complete submission-ready answer>", "confid
     // NOTE: The "stop using tools" instruction is now appended to the tool_result
     // user message in the previous iteration to avoid consecutive user roles.
 
-    const responseBody = await invokeModel(BEDROCK_MODEL_ID, JSON.stringify(requestBody));
+    // Wrap each LLM round in a Sentry span
+    const responseBody = await Sentry.startSpan(
+      { name: `llm-round-${toolRounds}`, op: 'ai.completion' },
+      () => invokeModel(BEDROCK_MODEL_ID, JSON.stringify(requestBody)),
+    );
     const parsed = JSON.parse(new TextDecoder('utf-8').decode(responseBody)) as {
       stop_reason?: string;
       content?: Array<{ type: string; id?: string; name?: string; input?: unknown; text?: string }>;
@@ -226,19 +231,23 @@ Return ONLY valid JSON: {"answer": "<complete submission-ready answer>", "confid
 
       messages.push({ role: 'assistant', content });
 
-      const toolResults = await Promise.all(
-        toolUseBlocks.map(block => {
-          toolsUsed.push(block.name ?? '');
-          return executeAnswerTool({
-            toolName: block.name ?? '',
-            toolInput: (block.input ?? {}) as Record<string, unknown>,
-            toolUseId: block.id ?? '',
-            orgId,
-            questionId,
-            projectId,
-            opportunityId,
-          });
-        }),
+      // Wrap tool execution in Sentry span
+      const toolResults = await Sentry.startSpan(
+        { name: `tool-execution-round-${toolRounds + 1}`, op: 'ai.tool' },
+        () => Promise.all(
+          toolUseBlocks.map(block => {
+            toolsUsed.push(block.name ?? '');
+            return executeAnswerTool({
+              toolName: block.name ?? '',
+              toolInput: (block.input ?? {}) as Record<string, unknown>,
+              toolUseId: block.id ?? '',
+              orgId,
+              questionId,
+              projectId,
+              opportunityId,
+            });
+          }),
+        ),
       );
 
       const toolResultContent: Array<unknown> = toolResults.map(r => ({
@@ -340,14 +349,22 @@ export const generateAnswerForQuestion = async (
     throw new Error('No question text available');
   }
 
-  const questionEmbedding = await getEmbedding(question);
+  // Wrap embedding call in Sentry span for observability
+  const questionEmbedding = await Sentry.startSpan(
+    { name: 'question-embedding', op: 'ai.embeddings' },
+    () => getEmbedding(question),
+  );
 
   // ── Step 1: Content library check ──────────────────────────────────────────
   console.log(`[answer] Checking content library for: "${question.substring(0, 80)}..."`);
-  const clMatch = await checkContentLibrary(orgId, question, questionEmbedding).catch(err => {
-    console.warn('[answer] Content library check failed, falling through:', (err as Error)?.message);
-    return null;
-  });
+  // Wrap content library check in Sentry span (includes semantic search + LLM eval)
+  const clMatch = await Sentry.startSpan(
+    { name: 'content-library-check', op: 'ai.pipeline' },
+    () => checkContentLibrary(orgId, question, questionEmbedding).catch(err => {
+      console.warn('[answer] Content library check failed, falling through:', (err as Error)?.message);
+      return null;
+    }),
+  );
 
   if (clMatch) {
     console.log(`[answer] ✅ Content library match found (score: ${clMatch.score.toFixed(3)})`);
@@ -395,13 +412,17 @@ export const generateAnswerForQuestion = async (
 
   const systemPrompt = await getAnswerSystemPrompt(orgId);
 
-  const { answer, found, toolsUsed } = await generateAnswerWithTools(
-    question,
-    orgId,
-    questionId,
-    systemPrompt,
-    projectId,
-    opportunityId,
+  // Wrap tool-based generation in Sentry span (includes all LLM rounds and tool calls)
+  const { answer, found, toolsUsed } = await Sentry.startSpan(
+    { name: 'tool-based-generation', op: 'ai.pipeline' },
+    () => generateAnswerWithTools(
+      question,
+      orgId,
+      questionId,
+      systemPrompt,
+      projectId,
+      opportunityId,
+    ),
   );
 
   console.log(`[answer] Tool-based generation complete. found=${found}, tools=[${toolsUsed.join(', ')}]`);

@@ -17,5 +17,6 @@ export function contentlibraryDomain(): DomainRoutes {
     { method: 'GET', path: 'stale-report', entry: lambdaEntry('content-library/get-stale-report.ts') },
     { method: 'POST', path: 'reactivate/{id}', entry: lambdaEntry('content-library/reactivate-item.ts') },
     { method: 'POST', path: 'bulk-review', entry: lambdaEntry('content-library/bulk-review.ts') },
+    { method: 'POST', path: 'bulk-approve', entry: lambdaEntry('content-library/bulk-approve.ts') },
   ]};
 }

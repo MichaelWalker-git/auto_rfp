@@ -21,7 +21,11 @@ export type Recommendation = z.infer<typeof RecommendationSchema>;
 export const DecisionSchema = z.enum(['GO', 'CONDITIONAL_GO', 'NO_GO']);
 export type Decision = z.infer<typeof DecisionSchema>;
 
-export const RoleSchema = z.enum([
+/**
+ * Known/preferred role values for contact extraction.
+ * AI is instructed to use these when possible, but unknown roles are also accepted.
+ */
+export const KNOWN_ROLES = [
   'CONTRACTING_OFFICER',
   'CONTRACTING_OFFICER_REPRESENTATIVE',
   'CONTRACT_SPECIALIST',
@@ -32,9 +36,114 @@ export const RoleSchema = z.enum([
   'SUBCONTRACTING_POC',
   'GENERAL_INQUIRY',
   'OTHER',
-]);
+] as const;
 
-export type ContactRole = z.infer<typeof RoleSchema>;
+export type KnownRole = (typeof KNOWN_ROLES)[number];
+
+/**
+ * Normalization map for common role variations.
+ * Maps common abbreviations and variations to canonical known role values.
+ */
+export const ROLE_NORMALIZATION_MAP: Record<string, KnownRole> = {
+  // Contracting Officer variations
+  'CO': 'CONTRACTING_OFFICER',
+  'KO': 'CONTRACTING_OFFICER', // Some agencies use KO
+  'CONTRACTING OFFICER': 'CONTRACTING_OFFICER',
+  
+  // Contracting Officer Representative variations
+  'COR': 'CONTRACTING_OFFICER_REPRESENTATIVE',
+  'COTR': 'CONTRACTING_OFFICER_REPRESENTATIVE',
+  'CONTRACTING_OFFICER_TECH_REP': 'CONTRACTING_OFFICER_REPRESENTATIVE',
+  'CONTRACTING OFFICER REPRESENTATIVE': 'CONTRACTING_OFFICER_REPRESENTATIVE',
+  'CONTRACTING OFFICER TECHNICAL REPRESENTATIVE': 'CONTRACTING_OFFICER_REPRESENTATIVE',
+  
+  // Contract Specialist variations
+  'CS': 'CONTRACT_SPECIALIST',
+  'CONTRACT SPECIALIST': 'CONTRACT_SPECIALIST',
+  
+  // Technical POC variations
+  'TECH_POC': 'TECHNICAL_POC',
+  'TECHNICAL POC': 'TECHNICAL_POC',
+  'TECHNICAL POINT OF CONTACT': 'TECHNICAL_POC',
+  
+  // Program Manager variations
+  'PM': 'PROGRAM_MANAGER',
+  'PROGRAM MANAGER': 'PROGRAM_MANAGER',
+  'PROJECT MANAGER': 'PROGRAM_MANAGER',
+  
+  // Small Business Specialist variations
+  'SBS': 'SMALL_BUSINESS_SPECIALIST',
+  'SMALL BUSINESS SPECIALIST': 'SMALL_BUSINESS_SPECIALIST',
+  'SMALL_BUSINESS_REP': 'SMALL_BUSINESS_SPECIALIST',
+  'SMALL BUSINESS REPRESENTATIVE': 'SMALL_BUSINESS_SPECIALIST',
+  
+  // Procurement POC variations
+  'PROCUREMENT POC': 'PROCUREMENT_POC',
+  'PROCUREMENT POINT OF CONTACT': 'PROCUREMENT_POC',
+  
+  // Subcontracting POC variations
+  'SUBCONTRACTING POC': 'SUBCONTRACTING_POC',
+  'SUBCONTRACTING POINT OF CONTACT': 'SUBCONTRACTING_POC',
+  
+  // General Inquiry variations
+  'GENERAL INQUIRY': 'GENERAL_INQUIRY',
+  'GENERAL QUESTIONS': 'GENERAL_INQUIRY',
+  'QUESTIONS': 'GENERAL_INQUIRY',
+};
+
+/**
+ * Normalizes a role string to a known role value if possible.
+ * Returns the original string if no normalization is found.
+ */
+export const normalizeRole = (role: unknown): string => {
+  if (typeof role !== 'string') return String(role ?? '');
+  
+  // Normalize: uppercase and replace spaces/hyphens with underscores
+  const normalized = role.toUpperCase().trim().replace(/[\s-]+/g, '_');
+  
+  // Check if already a known role
+  if (KNOWN_ROLES.includes(normalized as KnownRole)) {
+    return normalized;
+  }
+  
+  // Check normalization map (try both normalized and original uppercase)
+  if (ROLE_NORMALIZATION_MAP[normalized]) {
+    return ROLE_NORMALIZATION_MAP[normalized];
+  }
+  
+  const upperOriginal = role.toUpperCase().trim();
+  if (ROLE_NORMALIZATION_MAP[upperOriginal]) {
+    return ROLE_NORMALIZATION_MAP[upperOriginal];
+  }
+  
+  // Return original string for unknown roles (no validation failure)
+  return role;
+};
+
+/**
+ * Flexible role schema that:
+ * 1. Normalizes known role variations to canonical values
+ * 2. Accepts any string for unknown roles (no validation failure)
+ * 
+ * This allows AI to return exact role text from solicitations when it doesn't
+ * match a known role, preventing validation errors during brief generation.
+ */
+export const RoleSchema = z.preprocess(
+  normalizeRole,
+  z.string()
+);
+
+/**
+ * Type for contact roles - can be a known role or any string for unknown roles.
+ */
+export type ContactRole = KnownRole | string;
+
+/**
+ * Type guard to check if a role is a known role.
+ */
+export const isKnownRole = (role: string): role is KnownRole => {
+  return KNOWN_ROLES.includes(role as KnownRole);
+};
 
 /**
  * ================

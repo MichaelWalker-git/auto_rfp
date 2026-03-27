@@ -55,14 +55,14 @@ function QuestionsSectionInner({
     isLoading,
     error,
     questions,
-    unsavedQuestions,
-    savingQuestions,
     searchQuery,
     setSearchQuery,
     selectedSource,
     isSourceModalOpen,
     setIsSourceModalOpen,
-    saveAllAnswers,
+    approveAllAnswers,
+    approvingAll,
+    approvableCount,
     handleExportAnswers,
     selectedIndexes,
     availableIndexes,
@@ -113,7 +113,6 @@ function QuestionsSectionInner({
   }, [filteredQuestions]);
 
   const hasQuestions = filteredCounts.all > 0;
-  const isSaving = savingQuestions.size > 0;
 
   // ── Opportunity Selector (only shown when not hidden) ──
   const opportunitySelectorEl = hideOpportunitySelector ? null : (
@@ -193,11 +192,11 @@ function QuestionsSectionInner({
       <QuestionsHeader
         searchQuery={searchQuery}
         onSearchChange={setSearchQuery}
-        onSaveAll={saveAllAnswers}
+        onApproveAll={approveAllAnswers}
         onExport={handleExportAnswers}
         onReload={refreshQuestions}
-        unsavedCount={unsavedQuestions.size}
-        isSaving={isSaving}
+        approvableCount={approvableCount}
+        isApproving={approvingAll}
         projectId={projectId}
         orgId={orgId}
       />

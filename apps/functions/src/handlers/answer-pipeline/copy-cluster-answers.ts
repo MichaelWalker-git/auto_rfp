@@ -84,10 +84,17 @@ export const baseHandler = async (
         // Get master's answer — opportunityId + fileId stored on cluster item
         const clusterOpportunityId = (cluster.opportunityId as string | undefined) ?? '';
         const clusterFileId = (cluster.questionFileId as string | undefined) ?? '';
+        
+        // Skip clusters without questionFileId (legacy clusters that have already been processed)
+        if (!clusterFileId) {
+          console.log(`Cluster ${cluster.clusterId} missing questionFileId (legacy cluster), skipping`);
+          continue;
+        }
+        
         const masterAnswer = await getAnswerForQuestion(projectId, clusterOpportunityId, clusterFileId, masterQuestionId);
         
         if (!masterAnswer || !masterAnswer.text) {
-          console.log(`Master ${masterQuestionId} has no answer, skipping cluster ${cluster.clusterId}`);
+          console.log(`Master ${masterQuestionId} has no answer (opp=${clusterOpportunityId}, file=${clusterFileId}), skipping cluster ${cluster.clusterId}`);
           skippedNoMasterAnswer++;
           continue;
         }

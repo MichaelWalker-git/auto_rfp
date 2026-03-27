@@ -52,7 +52,38 @@ export const usePricingUserPrompt = async (
   solicitationText: string,
   requirementsContext: string,
   kbContext: string,
+  pricingAnchorsContext?: string,
 ): Promise<string> => {
+  // Parse pricing anchors if available
+  let anchorsSection = '';
+  if (pricingAnchorsContext) {
+    try {
+      const anchors = JSON.parse(pricingAnchorsContext);
+      const parts: string[] = [];
+      if (anchors.estimatedValueUsd) parts.push(`Government Estimated Value: ${anchors.estimatedValueUsd}`);
+      if (anchors.contractType) parts.push(`Contract Type: ${anchors.contractType}`);
+      if (anchors.naics) parts.push(`NAICS Code: ${anchors.naics}`);
+      if (anchors.periodOfPerformance) parts.push(`Period of Performance: ${anchors.periodOfPerformance}`);
+      if (anchors.agency) parts.push(`Agency: ${anchors.agency}`);
+      if (anchors.setAside) parts.push(`Set-Aside: ${anchors.setAside}`);
+      if (parts.length > 0) {
+        anchorsSection = [
+          '',
+          'OPPORTUNITY PRICING ANCHORS (from summary analysis):',
+          ...parts,
+          '',
+          'CRITICAL: Use the Government Estimated Value above as the PRIMARY anchor for your pricing estimate.',
+          'Your totalPrice MUST be calibrated relative to this value. Do NOT ignore it.',
+          'If the government estimate is $5M, your price should be in the millions range.',
+          'If the government estimate is $500K, your price should be in the hundreds of thousands range.',
+          'If no government estimate is available, derive the estimate from labor requirements and period of performance.',
+        ].join('\n');
+      }
+    } catch {
+      // Ignore parse errors
+    }
+  }
+
   return [
     'TASK: Analyze this government solicitation to develop a pricing strategy and cost estimate.',
     '',
@@ -63,8 +94,8 @@ export const usePricingUserPrompt = async (
     '  "competitivePosition": "LOW|COMPETITIVE|HIGH",',
     '  "priceConfidence": 85,',
     '  "laborCostTotal": 800000,',
-    '  "materialCostTotal": 100000,',
-    '  "indirectCostTotal": 50000,',
+    '  "materialCostTotal": 0,',
+    '  "indirectCostTotal": 0,',
     '  "profitMargin": 10,',
     '  "competitiveAdvantages": ["advantage1", "advantage2"],',
     '  "pricingRisks": ["risk1", "risk2"],',
@@ -78,17 +109,23 @@ export const usePricingUserPrompt = async (
     '- All property names must be double-quoted',
     '- No trailing commas before closing braces or brackets',
     '- Use only valid JSON data types (string, number, boolean, array, object)',
+    '- materialCostTotal and indirectCostTotal can be 0 if not applicable',
     '',
     'ANALYSIS STEPS:',
-    '1. Use extract_contract_value tool to get government estimated value',
-    '2. Use extract_labor_requirements tool to identify staffing needs',
-    '3. Use get_labor_rates tool to understand your organization\'s current rates',
-    '4. Use calculate_labor_cost tool to estimate total labor costs',
-    '5. Use extract_material_requirements tool for hardware/software needs',
-    '6. Use get_bom_items tool to price materials and equipment',
-    '7. Use search_historical_pricing tool for competitive intelligence',
-    '8. Use analyze_competitive_position tool to assess win probability',
-    '9. Determine appropriate pricing strategy based on contract type and competition',
+    '1. FIRST review the Opportunity Pricing Anchors below — use the government estimated value as your baseline',
+    '2. Use get_labor_rates tool to understand your organization\'s current rates',
+    '3. Use calculate_labor_cost tool to estimate total labor costs (use EXACT position names from get_labor_rates results)',
+    '4. Use get_bom_items tool to price materials and equipment',
+    '5. Use search_historical_pricing tool for competitive intelligence',
+    '6. Use analyze_competitive_position tool to assess win probability',
+    '7. Determine appropriate pricing strategy based on contract type and competition',
+    '',
+    'IMPORTANT LABOR COST CALCULATION:',
+    '- When calling calculate_labor_cost, you MUST use the EXACT position names returned by get_labor_rates.',
+    '- Do NOT use position names from the solicitation — map them to the closest matching org position.',
+    '- Example: If solicitation says "Senior Software Developer" and org has "Senior Engineer", use "Senior Engineer".',
+    '- If no close match exists, note it as an assumption and estimate using the closest available rate.',
+    anchorsSection,
     '',
     'REQUIREMENTS CONTEXT:',
     requirementsContext || '[No requirements context available]',

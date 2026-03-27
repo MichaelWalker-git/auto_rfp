@@ -84,10 +84,16 @@ const feURL = `https://${branch}.${amplifyDomain}`;
 
 console.log(`=🌐 Frontend URL pattern: ${feURL}`);
 
+// Portal URL for invitation emails. Set PORTAL_URL env var to override.
+// Defaults to rfp.horustech.dev for all environments since the Amplify domain
+// is not known at Auth stack creation time (Auth is created before Amplify).
+const portalUrl = process.env.PORTAL_URL || 'https://rfp.horustech.dev';
+
 const auth = new AuthStack(app, `AutoRfp-Auth-${stage}`, {
   env,
   stage: stage,
   domainPrefixBase: 'auto-rfp',
+  portalUrl,
   callbackUrls: [
     'http://localhost:3000',
     `https://${branch}.d*.amplifyapp.com`,

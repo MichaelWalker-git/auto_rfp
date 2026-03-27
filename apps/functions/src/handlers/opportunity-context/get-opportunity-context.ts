@@ -25,11 +25,12 @@ import {
   loadAllSolicitationTexts,
   queryCompanyKnowledgeBase,
 } from '@/helpers/executive-opportunity-brief';
-import { getEmbedding, semanticSearchContentLibrary } from '@/helpers/embeddings';
+import { getEmbedding } from '@/helpers/embeddings';
+import { semanticSearchContentLibrary } from '@/helpers/semantic-search';
 import { searchPastProjects, listPastProjects } from '@/helpers/past-performance';
 import { loadTextFromS3 } from '@/helpers/s3';
 import { requireEnv } from '@/helpers/env';
-import type { PineconeHit } from '@/helpers/pinecone';
+import type { PineconeHit } from '@/types/pinecone';
 import {
   authContextMiddleware,
   httpErrorMiddleware,

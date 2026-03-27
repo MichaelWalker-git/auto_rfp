@@ -144,6 +144,7 @@ export class ApiOrchestratorStack extends cdk.Stack {
       NODE_ENV: 'production',
       DB_TABLE_NAME: mainTable.tableName,
       COGNITO_USER_POOL_ID: userPool.userPoolId,
+      DEFAULT_TEMP_PASSWORD: process.env.DEFAULT_TEMP_PASSWORD || 'Welcome1!',
       REGION: 'us-east-1',
       BEDROCK_REGION: 'us-east-1',
       BEDROCK_EMBEDDING_MODEL_ID: 'amazon.titan-embed-text-v2:0',
@@ -156,6 +157,8 @@ export class ApiOrchestratorStack extends cdk.Stack {
       PINECONE_INDEX: 'documents',
       SAM_OPPS_BASE_URL: 'https://api.sam.gov',
       DIBBS_BASE_URL: 'https://www.dibbs.bsm.dla.mil',
+      // Verified SES sender identity — horustech.dev domain must be verified in SES
+      SES_FROM_EMAIL: 'noreply@horustech.dev',
       // Construct the notification queue URL from the queue name — no cross-stack token reference
       ...(notificationQueueName ? {
         NOTIFICATION_QUEUE_URL: `https://sqs.${cdk.Aws.REGION}.amazonaws.com/${cdk.Aws.ACCOUNT_ID}/${notificationQueueName}`,
