@@ -22,12 +22,12 @@ jest.mock('@/helpers/executive-opportunity-brief', () => ({
 
 process.env.DB_TABLE_NAME = 'test-table';
 process.env.REGION = 'us-east-1';
-process.env.BEDROCK_MODEL_ID = 'anthropic.claude-3-sonnet-20240229-v1:0';
+process.env.BEDROCK_MODEL_ID = 'anthropic.claude-opus-4-6-v1';
 
 import { invokeClaudeWithTools } from './bedrock-tool-loop';
 import type { ToolResult } from '@/types/tool';
 
-const MODEL_ID = 'anthropic.claude-3-sonnet-20240229-v1:0';
+const MODEL_ID = 'anthropic.claude-opus-4-6-v1';
 
 const SIMPLE_SCHEMA = {
   parse: (v: unknown) => v as { title: string },
