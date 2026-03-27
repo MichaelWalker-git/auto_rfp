@@ -63,6 +63,44 @@ Sentry.init({
       // Position the widget
       triggerLabel: 'Report a Bug',
       triggerAriaLabel: 'Report a Bug',
+      // Transparent button background, visible text and border
+      themeLight: {
+        submitBackground: '#6366f1',
+        submitBackgroundHover: '#4f46e5',
+        triggerBackground: 'transparent',
+        triggerBorder: 'rgba(0, 0, 0, 0.15)',
+        triggerColor: 'rgba(0, 0, 0, 0.6)',
+      },
+      themeDark: {
+        submitBackground: '#6366f1',
+        submitBackgroundHover: '#4f46e5',
+        triggerBackground: 'transparent',
+        triggerBorder: 'rgba(255, 255, 255, 0.15)',
+        triggerColor: 'rgba(255, 255, 255, 0.6)',
+      },
     }),
   ],
 });
+
+// Inject transparent background into Sentry feedback widget's shadow DOM
+// The widget renders inside shadow DOM, so external CSS can't reach it
+if (typeof window !== 'undefined') {
+  const injectStyle = () => {
+    const el = document.getElementById('sentry-feedback');
+    if (!el?.shadowRoot) return false;
+    const style = document.createElement('style');
+    style.textContent = `.widget__actor { background: transparent !important; box-shadow: none !important; }`;
+    el.shadowRoot.appendChild(style);
+    return true;
+  };
+
+  // Try immediately, then retry with observer if widget hasn't mounted yet
+  if (!injectStyle()) {
+    const observer = new MutationObserver(() => {
+      if (injectStyle()) observer.disconnect();
+    });
+    observer.observe(document.body, { childList: true, subtree: true });
+    // Safety: stop observing after 10s
+    setTimeout(() => observer.disconnect(), 10000);
+  }
+}

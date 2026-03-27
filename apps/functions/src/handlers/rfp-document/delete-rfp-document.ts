@@ -16,6 +16,7 @@ import { deleteItem } from '@/helpers/db';
 import { DOCUMENT_APPROVAL_PK } from '@/constants/document-approval';
 import { apiResponse, getOrgId, getUserId } from '@/helpers/api';
 import { requireEnv } from '@/helpers/env';
+import { deleteAllChatMessages } from '@/helpers/ai-chat';
 
 const DOCUMENTS_BUCKET = requireEnv('DOCUMENTS_BUCKET');
 
@@ -56,6 +57,14 @@ export const baseHandler = async (
       console.log(`Cleaned up ${approvals.length} approval records for documentId=${documentId}`);
     } catch (err) {
       console.warn(`Failed to clean up approval records for documentId=${documentId}:`, err);
+    }
+
+    // ── Clean up all AI chat messages for this document ──
+    try {
+      const chatCleanup = await deleteAllChatMessages(orgId, projectId, opportunityId, documentId);
+      console.log(`Cleaned up ${chatCleanup.deleted} AI chat messages for documentId=${documentId}`);
+    } catch (err) {
+      console.warn(`Failed to clean up AI chat messages for documentId=${documentId}:`, err);
     }
 
     // ── Soft-delete the DynamoDB record ──
