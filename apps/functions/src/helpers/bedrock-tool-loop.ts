@@ -204,14 +204,14 @@ export const invokeClaudeWithTools = async <T>(
       messages.push({ role: 'assistant', content });
       messages.push({
         role: 'user',
-        content: [{ type: 'text', text: 'Now generate the complete JSON response based on all the information gathered.' }],
+        content: [{ type: 'text', text: 'IMPORTANT: Stop using tools. You have gathered enough information. Now output ONLY the complete JSON response — no explanatory text, no markdown fences, no reasoning. Start your response with { and end with }.' }],
       });
 
       const finalBody = {
         anthropic_version: 'bedrock-2023-05-31',
         system: [{ type: 'text', text: system }],
         messages,
-        max_tokens: maxTokens,
+        max_tokens: Math.max(maxTokens, 8000),
         temperature,
         // No tools — force text output
       };
@@ -221,6 +221,34 @@ export const invokeClaudeWithTools = async <T>(
         content?: ContentBlock[];
       };
       rawText = extractText(finalParsed.content ?? []);
+    }
+
+    // If we got text but it has no JSON, ask again for JSON-only output
+    if (rawText && !rawText.includes('{') && !rawText.includes('[')) {
+      console.warn('[bedrock-tool-loop] Response contains text but no JSON — requesting JSON-only output');
+      messages.push({ role: 'assistant', content: [{ type: 'text', text: rawText }] });
+      messages.push({
+        role: 'user',
+        content: [{ type: 'text', text: 'Your response must be a JSON object. Output ONLY valid JSON — no prose, no explanation, no markdown. Start with { and end with }.' }],
+      });
+
+      const jsonRetryBody = {
+        anthropic_version: 'bedrock-2023-05-31',
+        system: [{ type: 'text', text: system }],
+        messages,
+        max_tokens: Math.max(maxTokens, 8000),
+        temperature: 0.1,
+      };
+
+      const jsonRetryResponse = await invokeModel(modelId, JSON.stringify(jsonRetryBody));
+      const jsonRetryParsed = JSON.parse(new TextDecoder('utf-8').decode(jsonRetryResponse)) as {
+        content?: ContentBlock[];
+      };
+      const retryText = extractText(jsonRetryParsed.content ?? []);
+      if (retryText && (retryText.includes('{') || retryText.includes('['))) {
+        rawText = retryText;
+        console.log(`[bedrock-tool-loop] JSON retry succeeded (${rawText.length} chars)`);
+      }
     }
 
     console.log(`[bedrock-tool-loop] Complete after ${toolRounds} tool round(s), ${rawText.length} chars`);
