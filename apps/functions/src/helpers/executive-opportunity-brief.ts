@@ -837,19 +837,22 @@ export async function invokeClaudeJson<S extends SchemaLike<any>>(args: {
     temperature = 0.2,
   } = args;
 
+  const jsonSystemSuffix = '\n\nIMPORTANT: Your response MUST be a single valid JSON object. Do NOT output any prose, reasoning, or markdown fences. Start your response with { and end with }.';
+  const jsonUserSuffix = '\n\nRespond with ONLY a JSON object. Start with { and end with }. No markdown fences, no explanatory text.';
+
   const body = {
     anthropic_version: 'bedrock-2023-05-31',
     max_tokens: maxTokens,
     temperature,
-    system,
-    messages: [{ role: 'user', content: [{ type: 'text', text: user }] }],
+    system: system + jsonSystemSuffix,
+    messages: [
+      { role: 'user', content: [{ type: 'text', text: user + jsonUserSuffix }] },
+    ],
   };
 
   const responseBody = await invokeModel(
     modelId,
     JSON.stringify(body),
-    'application/json',
-    'application/json'
   );
   let jsonText = new TextDecoder('utf-8').decode(responseBody);
   let stopReason: string | undefined;
@@ -881,15 +884,15 @@ export async function invokeClaudeJson<S extends SchemaLike<any>>(args: {
       anthropic_version: 'bedrock-2023-05-31',
       max_tokens: retryMaxTokens,
       temperature,
-      system,
-      messages: [{ role: 'user', content: [{ type: 'text', text: user }] }],
+      system: system + jsonSystemSuffix,
+      messages: [
+        { role: 'user', content: [{ type: 'text', text: user + jsonUserSuffix }] },
+      ],
     };
 
     const retryResponseBody = await invokeModel(
       modelId,
       JSON.stringify(retryBody),
-      'application/json',
-      'application/json'
     );
     let retryJsonText = new TextDecoder('utf-8').decode(retryResponseBody);
 
@@ -924,8 +927,45 @@ export async function invokeClaudeJson<S extends SchemaLike<any>>(args: {
   try {
     return safeJsonParse(jsonText, outputSchema);
   } catch (e) {
-    console.error('Claude raw output:', jsonText);
-    throw e;
+    // If the model returned prose instead of JSON, retry with a forceful JSON-only prompt
+    console.warn('[invokeClaudeJson] First attempt failed, retrying with JSON enforcement:', (e as Error)?.message);
+
+    const jsonRetryBody = {
+      anthropic_version: 'bedrock-2023-05-31',
+      max_tokens: maxTokens,
+      temperature: 0.1,
+      system: system + '\n\nCRITICAL: You MUST respond with ONLY a valid JSON object. No prose, no reasoning, no markdown fences. Start with { and end with }.',
+      messages: [
+        { role: 'user', content: [{ type: 'text', text: user + '\n\nRespond with ONLY a JSON object. Start with { and end with }. No markdown fences, no explanatory text.' }] },
+      ],
+    };
+
+    const retryResponseBody = await invokeModel(modelId, JSON.stringify(jsonRetryBody));
+    let retryJsonText = new TextDecoder('utf-8').decode(retryResponseBody);
+
+    try {
+      const retryJson = JSON.parse(retryJsonText);
+      const retryContentText =
+        retryJson?.content?.map((c: any) => c?.text).filter(Boolean).join('\n') ??
+        retryJson?.output_text ??
+        retryJson?.completion ??
+        null;
+      if (retryContentText) {
+        retryJsonText = retryContentText;
+      }
+    } catch {
+      // keep raw
+    }
+
+    try {
+      const result = safeJsonParse(retryJsonText, outputSchema);
+      console.log('[invokeClaudeJson] JSON enforcement retry succeeded');
+      return result;
+    } catch (retryErr) {
+      console.error('[invokeClaudeJson] JSON enforcement retry also failed. Original output:', jsonText);
+      console.error('[invokeClaudeJson] Retry output:', retryJsonText);
+      throw retryErr;
+    }
   }
 }
 

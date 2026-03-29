@@ -123,7 +123,7 @@ When in doubt, return {"match": false, "index": -1}. It is better to generate a 
   };
 
   try {
-    const response = await invokeModel(BEDROCK_MODEL_ID, JSON.stringify(evalPayload), 'application/json', 'application/json');
+    const response = await invokeModel(BEDROCK_MODEL_ID, JSON.stringify(evalPayload));
     const raw = new TextDecoder('utf-8').decode(response);
     const outer = JSON.parse(raw);
     const text = outer?.content?.[0]?.text || '';

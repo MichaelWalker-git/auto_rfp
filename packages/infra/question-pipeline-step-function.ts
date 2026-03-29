@@ -164,7 +164,7 @@ export class QuestionExtractionPipelineStack extends Stack {
       timeout: Duration.minutes(5),
       environment: {
         ...commonLambdaEnv,
-        BEDROCK_MODEL_ID: 'anthropic.claude-3-haiku-20240307-v1:0',
+        BEDROCK_MODEL_ID: 'us.anthropic.claude-opus-4-6-v1',
         BEDROCK_REGION: 'us-east-1',
       },
     });
@@ -198,7 +198,7 @@ export class QuestionExtractionPipelineStack extends Stack {
         timeout: Duration.minutes(2),
         environment: {
           ...commonLambdaEnv,
-          BEDROCK_MODEL_ID: 'anthropic.claude-3-haiku-20240307-v1:0',
+          BEDROCK_MODEL_ID: 'us.anthropic.claude-opus-4-6-v1',
           BEDROCK_REGION: 'us-east-1',
         }
       },

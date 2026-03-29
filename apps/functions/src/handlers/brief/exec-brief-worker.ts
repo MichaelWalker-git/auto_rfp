@@ -340,9 +340,9 @@ async function runRequirements(job: Job): Promise<void> {
       toolExecutor: (toolName, toolInput, toolUseId) =>
         executeBriefTool({ toolName, toolInput, toolUseId, orgId, projectId, opportunityId, executiveBriefId }),
       outputSchema: RequirementsSectionSchema,
-      maxTokens: 5000,
+      maxTokens: 8000,
       temperature: 0.2,
-      maxToolRounds: 2,
+      maxToolRounds: 3,
     });
 
     await markSectionComplete({
@@ -537,7 +537,7 @@ async function runPricing(job: Job): Promise<void> {
       toolExecutor: (toolName, toolInput, toolUseId) =>
         executePricingTool({ toolName, toolInput, toolUseId, orgId, projectId, opportunityId, executiveBriefId }),
       outputSchema: PricingSectionSchema,
-      maxTokens: 6000,
+      maxTokens: 8000,
       temperature: 0.2,
       maxToolRounds: 5,
     });
