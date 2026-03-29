@@ -89,6 +89,8 @@ export const invokeClaudeWithTools = async <T>(
     maxToolRounds = 3,
   } = args;
 
+  const JSON_ENFORCEMENT = '\n\nIMPORTANT: Your final output MUST be a single valid JSON object. Do NOT output any prose, reasoning, or markdown fences. Start your response with { and end with }.';
+
   const messages: Message[] = [
     { role: 'user', content: [{ type: 'text', text: user }] },
   ];
@@ -101,7 +103,7 @@ export const invokeClaudeWithTools = async <T>(
 
     const requestBody: Record<string, unknown> = {
       anthropic_version: 'bedrock-2023-05-31',
-      system: [{ type: 'text', text: system }],
+      system: [{ type: 'text', text: system + JSON_ENFORCEMENT }],
       messages,
       max_tokens: maxTokens,
       temperature,
@@ -198,29 +200,55 @@ export const invokeClaudeWithTools = async <T>(
     // Extract final text response
     rawText = extractText(content);
 
-    // If still no text on last round (Claude only returned tool_use), send a final prompt
-    if (!rawText && stopReason === 'tool_use' && isLastRound) {
-      console.warn('[bedrock-tool-loop] Last round still returned tool_use — sending final generation request');
-      messages.push({ role: 'assistant', content });
-      messages.push({
-        role: 'user',
-        content: [{ type: 'text', text: 'IMPORTANT: Stop using tools. You have gathered enough information. Now output ONLY the complete JSON response — no explanatory text, no markdown fences, no reasoning. Start your response with { and end with }.' }],
-      });
+    // If no text (model returned tool_use or empty response), force a final JSON-only generation
+    if (!rawText) {
+      const reason = stopReason === 'tool_use' ? 'tool_use on last round' : `empty response (stop_reason=${stopReason})`;
+      console.warn(`[bedrock-tool-loop] No text content: ${reason} — sending final generation request`);
 
-      const finalBody = {
-        anthropic_version: 'bedrock-2023-05-31',
-        system: [{ type: 'text', text: system }],
-        messages,
-        max_tokens: Math.max(maxTokens, 8000),
-        temperature,
-        // No tools — force text output
-      };
+      // Only add content to conversation if there are blocks
+      if (content.length > 0) {
+        messages.push({ role: 'assistant', content });
+        messages.push({
+          role: 'user',
+          content: [{ type: 'text', text: 'IMPORTANT: Stop using tools. You have gathered enough information. Now output ONLY the complete JSON response — no explanatory text, no markdown fences, no reasoning. Start your response with { and end with }.' }],
+        });
+      }
 
-      const finalResponse = await invokeModel(modelId, JSON.stringify(finalBody));
-      const finalParsed = JSON.parse(new TextDecoder('utf-8').decode(finalResponse)) as {
-        content?: ContentBlock[];
-      };
-      rawText = extractText(finalParsed.content ?? []);
+      // Try up to 2 final attempts without tools
+      for (let attempt = 1; attempt <= 2; attempt++) {
+        const finalBody = {
+          anthropic_version: 'bedrock-2023-05-31',
+          system: [{ type: 'text', text: system + JSON_ENFORCEMENT }],
+          messages: [...messages],
+          max_tokens: Math.max(maxTokens, 8000) * attempt,
+          temperature: 0.1,
+          // No tools — force text output
+        };
+
+        const finalResponse = await invokeModel(modelId, JSON.stringify(finalBody));
+        const finalParsed = JSON.parse(new TextDecoder('utf-8').decode(finalResponse)) as {
+          stop_reason?: string;
+          content?: ContentBlock[];
+        };
+        rawText = extractText(finalParsed.content ?? []);
+
+        if (rawText && rawText.includes('{')) {
+          console.log(`[bedrock-tool-loop] Final generation attempt ${attempt} succeeded (${rawText.length} chars)`);
+          break;
+        }
+
+        console.warn(`[bedrock-tool-loop] Final generation attempt ${attempt} produced no JSON (${rawText.length} chars)`);
+
+        // Add the non-JSON response and ask again more forcefully
+        if (rawText && attempt < 2) {
+          messages.push({ role: 'assistant', content: [{ type: 'text', text: rawText }] });
+          messages.push({
+            role: 'user',
+            content: [{ type: 'text', text: 'That was not valid JSON. You MUST respond with ONLY a JSON object. No text before or after. Start with { and end with }. Do not include markdown code fences.' }],
+          });
+          rawText = '';
+        }
+      }
     }
 
     // If we got text but it has no JSON, ask again for JSON-only output
@@ -234,8 +262,8 @@ export const invokeClaudeWithTools = async <T>(
 
       const jsonRetryBody = {
         anthropic_version: 'bedrock-2023-05-31',
-        system: [{ type: 'text', text: system }],
-        messages,
+        system: [{ type: 'text', text: system + JSON_ENFORCEMENT }],
+        messages: [...messages],
         max_tokens: Math.max(maxTokens, 8000),
         temperature: 0.1,
       };

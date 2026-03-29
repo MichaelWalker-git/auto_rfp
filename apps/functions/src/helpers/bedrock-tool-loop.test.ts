@@ -107,6 +107,7 @@ describe('invokeClaudeWithTools', () => {
       stop_reason: 'tool_use',
       content: [{ type: 'tool_use', id: 'tool-1', name: 'search_knowledge_base', input: {} }],
     };
+    // Final response — model outputs complete JSON (no assistant prefill)
     const finalResponse = {
       stop_reason: 'end_turn',
       content: [{ type: 'text', text: '{"title":"Forced Final"}' }],
@@ -118,7 +119,7 @@ describe('invokeClaudeWithTools', () => {
       .mockResolvedValueOnce(encodeResponse(toolUseResponse))
       .mockResolvedValueOnce(encodeResponse(toolUseResponse))
       .mockResolvedValueOnce(encodeResponse(toolUseResponse)) // last round still tool_use
-      .mockResolvedValueOnce(encodeResponse(finalResponse));  // forced final
+      .mockResolvedValueOnce(encodeResponse(finalResponse));  // forced final with prefill
 
     const result = await invokeClaudeWithTools({
       modelId: MODEL_ID,
@@ -148,6 +149,59 @@ describe('invokeClaudeWithTools', () => {
         maxToolRounds: 0,
       }),
     ).rejects.toThrow('[bedrock-tool-loop] Model returned no text content after all rounds');
+  });
+
+  it('retries with JSON-only prompt when model returns prose instead of JSON', async () => {
+    // First call: model returns prose text (no JSON)
+    const proseResponse = {
+      stop_reason: 'end_turn',
+      content: [{ type: 'text', text: 'Let me refine my analysis with a more accurate estimate based on the enterprise pricing model.' }],
+    };
+    // Retry: after being told to output JSON only, model returns non-JSON again
+    const proseRetry = {
+      stop_reason: 'end_turn',
+      content: [{ type: 'text', text: 'Based on my analysis, here are the findings for the pricing section.' }],
+    };
+    // Final retry: model returns valid JSON
+    const jsonResponse = {
+      stop_reason: 'end_turn',
+      content: [{ type: 'text', text: '{"title":"Pricing Analysis"}' }],
+    };
+
+    mockInvokeModel
+      .mockResolvedValueOnce(encodeResponse(proseResponse))  // initial: prose
+      .mockResolvedValueOnce(encodeResponse(jsonResponse));   // JSON-only retry succeeds
+
+    const result = await invokeClaudeWithTools({
+      modelId: MODEL_ID,
+      system: 'You are a pricing analyst.',
+      user: 'Analyze pricing.',
+      tools: [],
+      toolExecutor: mockToolExecutor,
+      outputSchema: SIMPLE_SCHEMA,
+      maxToolRounds: 0,
+    });
+
+    expect(result).toEqual({ title: 'Pricing Analysis' });
+    // Should have called invokeModel twice: once for initial, once for JSON retry
+    expect(mockInvokeModel).toHaveBeenCalledTimes(2);
+  });
+
+  it('includes JSON enforcement in system prompt', async () => {
+    const responseBody = { stop_reason: 'end_turn', content: [{ type: 'text', text: '{"title":"Test"}' }] };
+    mockInvokeModel.mockResolvedValueOnce(encodeResponse(responseBody));
+
+    await invokeClaudeWithTools({
+      modelId: MODEL_ID,
+      system: 'You are a helpful assistant.',
+      user: 'Generate output.',
+      tools: [],
+      toolExecutor: mockToolExecutor,
+      outputSchema: SIMPLE_SCHEMA,
+    });
+
+    const callArgs = JSON.parse(mockInvokeModel.mock.calls[0][1]);
+    expect(callArgs.system[0].text).toContain('MUST be a single valid JSON object');
   });
 
   it('executes multiple tool calls in parallel within a single round', async () => {
