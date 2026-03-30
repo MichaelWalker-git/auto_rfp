@@ -180,6 +180,9 @@ function SectionContent({ section, status, error, isBusy, children, skeletonRows
               {error || 'An unknown error occurred while generating this section.'}
             </AlertDescription>
           </Alert>
+          <p className="mt-3 text-sm text-muted-foreground">
+            Click &ldquo;Generate {sectionTitle(section)}&rdquo; above to retry.
+          </p>
         </CardContent>
       </Card>
     );

@@ -41,6 +41,7 @@ import { BEDROCK_MODEL_ID, MAX_TOKENS, TEMPERATURE } from '@/constants/document-
 import { RFPDocumentContentSchema, RFPDocumentTypeSchema, RFP_DOCUMENT_TYPES, type RFPDocumentContent } from '@auto-rfp/core';
 import { DOCUMENT_TOOLS, executeDocumentTool } from '@/helpers/document-tools';
 import { invokeModel } from '@/helpers/bedrock-http-client';
+import { buildTextOnlyMessages } from '@/helpers/bedrock-tool-loop';
 import {
   generateDocumentSectionBySectionHtml,
   buildDocumentTitleHtml,
@@ -200,8 +201,27 @@ export const cleanGeneratedHtml = (html: string): string => {
 
   // Strip [CONTENT: ...] wrappers — the AI sometimes wraps generated text inside
   // the placeholder markers instead of replacing them. Extract the inner content.
+  // BUT: if the inner content is the original placeholder instruction (not AI-generated),
+  // strip it entirely instead of preserving the instruction text.
   // Handles multi-line content inside the markers.
-  cleaned = cleaned.replace(/\[CONTENT:\s*([\s\S]*?)\]/gi, '$1');
+  cleaned = cleaned.replace(/\[CONTENT:\s*([\s\S]*?)\]/gi, (_match: string, inner: string) => {
+    const trimmed = inner.trim();
+    // Detect original placeholder instruction text — strip entirely
+    if (
+      trimmed.startsWith('Write the complete document content here') ||
+      trimmed.startsWith('Include appropriate headings') ||
+      /^Preserve all surrounding template elements/i.test(trimmed)
+    ) {
+      return '';
+    }
+    return trimmed;
+  });
+
+  // Strip any leaked placeholder instruction text that appears without [CONTENT: ...] wrapper
+  // (e.g., when the AI echoes back the instruction or after partial cleanup)
+  cleaned = cleaned.replace(/Write the complete document content here based on the solicitation requirements and provided context\.[^<]*/gi, '');
+  cleaned = cleaned.replace(/Include appropriate headings,?\s*sections,?\s*and structure\.\s*/gi, '');
+  cleaned = cleaned.replace(/Preserve all surrounding template elements \([^)]*\) exactly as they appear\.\s*/gi, '');
 
   // Strip leaked scaffold instruction text that the AI reproduced without HTML comment markers.
   // These are fragments from the TEMPLATE SCAFFOLD comment that leak into the output.
@@ -368,6 +388,8 @@ export const generateSingleShot = async (args: {
   const baseMaxTokens = TABLE_HEAVY_TYPES.has(documentType) ? Math.max(MAX_TOKENS, 16000) : MAX_TOKENS;
   const effectiveMaxTokens = enrichedKbTextLength > 1000 ? Math.max(baseMaxTokens, 8000) : baseMaxTokens;
 
+  const JSON_ENFORCEMENT = '\n\nIMPORTANT: Your final output MUST be a single valid JSON object with "title" and "htmlContent" fields. Do NOT output any prose, reasoning, or markdown fences. Start your response with { and end with }.';
+
   const messages: Array<{ role: string; content: unknown }> = [
     { role: 'user', content: [{ type: 'text', text: userPrompt }] },
   ];
@@ -380,13 +402,19 @@ export const generateSingleShot = async (args: {
 
     const requestBody: Record<string, unknown> = {
       anthropic_version: 'bedrock-2023-05-31',
-      system: [{ type: 'text', text: systemPrompt }],
-      messages,
+      system: [{ type: 'text', text: systemPrompt + (isLastRound ? JSON_ENFORCEMENT : '') }],
       max_tokens: effectiveMaxTokens,
       temperature: TEMPERATURE,
     };
 
-    if (!isLastRound) {
+    if (isLastRound) {
+      // Last round: omit tools to force text/JSON output.
+      // Must clean messages to convert tool_use/tool_result blocks to text summaries,
+      // because Bedrock rejects tool blocks when no tools are in the request.
+      requestBody.messages = buildTextOnlyMessages(messages);
+      console.log('[single-shot] Last round: omitting tools, using text-only messages to force JSON output');
+    } else {
+      requestBody.messages = messages;
       requestBody.tools = DOCUMENT_TOOLS;
     }
 
@@ -441,26 +469,49 @@ export const generateSingleShot = async (args: {
       rawText = extractBedrockText(parsed);
     }
 
-    // If last round still returned tool_use, force a final generation request
-    if (!rawText && stopReason === 'tool_use' && isLastRound) {
-      console.warn('[single-shot] Last round still returned tool_use — sending final generation request without tools');
+    // If last round still returned tool_use (or no text), force a final generation request
+    if (!rawText && (stopReason === 'tool_use' || stopReason === 'end_turn') && isLastRound) {
+      console.warn(`[single-shot] Last round produced no text (stop_reason=${stopReason}) — sending final generation request without tools`);
       messages.push({ role: 'assistant', content });
       messages.push({
         role: 'user',
-        content: [{ type: 'text', text: 'Now generate the complete document JSON based on all the information gathered.' }],
+        content: [{ type: 'text', text: 'IMPORTANT: Stop using tools. You have gathered enough information. Now output ONLY the complete JSON response with "title" and "htmlContent" fields — no explanatory text, no markdown fences. Start your response with { and end with }.' }],
       });
-      const finalBody = {
+
+      // Clean messages to remove tool blocks before sending without tools
+      const cleanMessages = buildTextOnlyMessages(messages);
+      const finalBody: Record<string, unknown> = {
         anthropic_version: 'bedrock-2023-05-31',
-        system: [{ type: 'text', text: systemPrompt }],
-        messages,
+        system: [{ type: 'text', text: systemPrompt + JSON_ENFORCEMENT }],
+        messages: cleanMessages,
         max_tokens: effectiveMaxTokens,
-        temperature: TEMPERATURE,
+        temperature: 0.1,
       };
+      // Intentionally NO tools — forces text-only response
+
       const finalResponse = await invokeModel(BEDROCK_MODEL_ID, JSON.stringify(finalBody));
       const finalParsed = JSON.parse(new TextDecoder('utf-8').decode(finalResponse));
       const finalContent: Array<{ type: string; text?: string }> = finalParsed.content ?? [];
       rawText = finalContent.filter(c => c.type === 'text').map(c => c.text ?? '').join('\n').trim()
         || extractBedrockText(finalParsed);
+
+      if (!rawText) {
+        console.warn('[single-shot] Final generation attempt also returned no text — trying one more time');
+        const retryBody: Record<string, unknown> = {
+          anthropic_version: 'bedrock-2023-05-31',
+          system: [{ type: 'text', text: systemPrompt + JSON_ENFORCEMENT }],
+          messages: [
+            { role: 'user', content: [{ type: 'text', text: userPrompt + '\n\nGenerate the complete document now. Respond with ONLY a JSON object containing "title" (string) and "htmlContent" (string with full HTML).' }] },
+          ],
+          max_tokens: effectiveMaxTokens,
+          temperature: 0.1,
+        };
+        const retryResponse = await invokeModel(BEDROCK_MODEL_ID, JSON.stringify(retryBody));
+        const retryParsed = JSON.parse(new TextDecoder('utf-8').decode(retryResponse));
+        const retryContent: Array<{ type: string; text?: string }> = retryParsed.content ?? [];
+        rawText = retryContent.filter(c => c.type === 'text').map(c => c.text ?? '').join('\n').trim()
+          || extractBedrockText(retryParsed);
+      }
     }
 
     console.log(`[single-shot] Generation complete after ${toolRounds} tool round(s), ${rawText.length} chars`);

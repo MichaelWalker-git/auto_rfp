@@ -389,6 +389,44 @@ describe('Template Preservation', () => {
       expect(result).not.toContain('-->');
     });
 
+    it('should strip original placeholder instruction text entirely instead of preserving it', () => {
+      const html = `
+        <h1>Technical Proposal</h1>
+        <p>[CONTENT: Write the complete document content here based on the solicitation requirements and provided context. Preserve all surrounding template elements (images, dates, company name, etc.) exactly as they appear.]</p>
+      `;
+
+      const result = cleanGeneratedHtml(html);
+
+      expect(result).toContain('Technical Proposal');
+      expect(result).not.toContain('Write the complete document content here');
+      expect(result).not.toContain('solicitation requirements');
+      expect(result).not.toContain('Preserve all surrounding template elements');
+      expect(result).not.toContain('[CONTENT:');
+    });
+
+    it('should strip default template placeholder instruction text', () => {
+      const html = `
+        <p>[CONTENT: Write the complete document content here based on the solicitation requirements and provided context. Include appropriate headings, sections, and structure.]</p>
+      `;
+
+      const result = cleanGeneratedHtml(html);
+
+      expect(result).not.toContain('Write the complete document content here');
+      expect(result).not.toContain('Include appropriate headings');
+    });
+
+    it('should strip leaked placeholder instruction text without [CONTENT:] wrapper', () => {
+      const html = `
+        <h1>Technical Proposal</h1>
+        <p>Write the complete document content here based on the solicitation requirements and provided context. Preserve all surrounding template elements (images, dates, company name, etc.) exactly as they appear.</p>
+      `;
+
+      const result = cleanGeneratedHtml(html);
+
+      expect(result).toContain('Technical Proposal');
+      expect(result).not.toContain('Write the complete document content here');
+    });
+
     it('should strip "Replace [CONTENT:...]" instruction text', () => {
       const html = `<p>Good content.</p> Replace [CONTENT: ...] with actual document text. <p>More content.</p>`;
 

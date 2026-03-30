@@ -10,12 +10,41 @@
  * Used by both generate-document-worker.ts and exec-brief-worker.ts.
  */
 
+import { z } from 'zod';
+import { zodToJsonSchema } from 'zod-to-json-schema';
 import { invokeModel } from '@/helpers/bedrock-http-client';
 import { safeJsonParse, type SchemaLike } from '@/helpers/executive-opportunity-brief';
 import type { ToolDefinition, ToolResult } from '@/types/tool';
 
 /** Token multiplier for retry when response is truncated due to max_tokens */
 const TRUNCATION_RETRY_TOKEN_MULTIPLIER = 2;
+
+/** Name of the synthetic tool used to force structured JSON output via tool_choice */
+const STRUCTURED_OUTPUT_TOOL_NAME = 'structured_output';
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
+/**
+ * Convert a Zod schema to JSON Schema for use as a tool's input_schema.
+ * Returns null if the schema is not a Zod schema (e.g. a plain { parse } wrapper).
+ */
+const toJsonSchema = (schema: SchemaLike<unknown>): Record<string, unknown> | null => {
+  // Check if it's a Zod schema by looking for the _def property
+  if (schema && typeof schema === 'object' && '_def' in schema) {
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const jsonSchema = zodToJsonSchema(schema as any, {
+        target: 'openApi3',
+        $refStrategy: 'none',
+      });
+      return jsonSchema as Record<string, unknown>;
+    } catch (err) {
+      console.warn('[toJsonSchema] Failed to convert Zod schema:', (err as Error)?.message);
+      return null;
+    }
+  }
+  return null;
+};
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -34,13 +63,19 @@ export interface InvokeClaudeWithToolsArgs<T> {
     toolUseId: string,
   ) => Promise<ToolResult>;
   outputSchema: SchemaLike<T>;
+  /**
+   * Explicit JSON Schema override for the structured_output tool.
+   * Use when outputSchema is a custom wrapper (e.g. SanitizedQuickSummarySchema)
+   * and you want to provide the JSON Schema from the underlying Zod schema.
+   */
+  outputJsonSchema?: Record<string, unknown>;
   maxTokens?: number;
   temperature?: number;
   /** Maximum number of tool-use rounds before forcing a final text response. Default: 3 */
   maxToolRounds?: number;
 }
 
-type ContentBlock = {
+export type ContentBlock = {
   type: string;
   id?: string;
   name?: string;
@@ -48,27 +83,64 @@ type ContentBlock = {
   text?: string;
 };
 
-type Message = {
+export type Message = {
   role: string;
   content: unknown;
 };
 
 /**
- * Build a clean message list that strips tool_use and tool_result blocks,
- * keeping only text content. This forces the model to respond with text
- * when tools are not provided in the request.
+ * Build a clean message list that converts tool_use and tool_result blocks
+ * to text summaries, preserving the context gathered via tools.
+ *
+ * Previous approach stripped tool messages entirely, losing all context the
+ * model gathered via tools.  Now we convert them to text so the model can
+ * use the gathered data to produce its final JSON output.
  */
-const buildTextOnlyMessages = (messages: Message[]): Message[] =>
-  messages
-    .map((msg) => {
-      if (!Array.isArray(msg.content)) return msg;
-      const textBlocks = (msg.content as ContentBlock[]).filter(
-        (b) => b.type === 'text',
-      );
-      if (textBlocks.length === 0) return null;
-      return { ...msg, content: textBlocks };
-    })
-    .filter((msg): msg is Message => msg !== null);
+export const buildTextOnlyMessages = (messages: Message[]): Message[] => {
+  const result: Message[] = [];
+
+  for (const msg of messages) {
+    if (!Array.isArray(msg.content)) {
+      result.push(msg);
+      continue;
+    }
+
+    const blocks = msg.content as ContentBlock[];
+    const textBlocks = blocks.filter((b) => b.type === 'text');
+    const toolUseBlocks = blocks.filter((b) => b.type === 'tool_use');
+    const toolResultBlocks = blocks.filter((b) => b.type === 'tool_result');
+
+    // Preserve existing text blocks
+    const newBlocks = textBlocks.map((b) => ({ type: 'text' as const, text: b.text ?? '' }));
+
+    // Convert tool_use blocks to text summaries (assistant messages)
+    if (msg.role === 'assistant' && toolUseBlocks.length > 0) {
+      const summary = toolUseBlocks
+        .map((b) => `[Called tool: ${b.name ?? 'unknown'}]`)
+        .join('\n');
+      newBlocks.push({ type: 'text' as const, text: summary });
+    }
+
+    // Convert tool_result blocks to text summaries (user messages)
+    if (msg.role === 'user' && toolResultBlocks.length > 0) {
+      const summaries = toolResultBlocks.map((b) => {
+        const content = typeof (b as Record<string, unknown>).content === 'string'
+          ? (b as Record<string, unknown>).content as string
+          : JSON.stringify((b as Record<string, unknown>).content ?? '');
+        // Truncate long tool results to avoid blowing up context
+        const truncated = content.length > 2000 ? content.slice(0, 2000) + '...[truncated]' : content;
+        return `[Tool result: ${truncated}]`;
+      });
+      newBlocks.push({ type: 'text' as const, text: summaries.join('\n') });
+    }
+
+    if (newBlocks.length > 0) {
+      result.push({ ...msg, content: newBlocks });
+    }
+  }
+
+  return result;
+};
 
 // ─── Helper ───────────────────────────────────────────────────────────────────
 
@@ -101,12 +173,24 @@ export const invokeClaudeWithTools = async <T>(
     tools,
     toolExecutor,
     outputSchema,
+    outputJsonSchema: explicitJsonSchema,
     maxTokens = 8000,
     temperature = 0.2,
     maxToolRounds = 3,
   } = args;
 
   const JSON_ENFORCEMENT = '\n\nIMPORTANT: Your final output MUST be a single valid JSON object. Do NOT output any prose, reasoning, or markdown fences. Start your response with { and end with }.';
+
+  // Resolve the JSON Schema for the structured_output tool.
+  // Priority: explicit override > auto-convert from Zod > null (fallback to text extraction)
+  const resolvedJsonSchema = explicitJsonSchema ?? toJsonSchema(outputSchema);
+
+  if (resolvedJsonSchema) {
+    const propCount = Object.keys((resolvedJsonSchema.properties ?? {}) as Record<string, unknown>).length;
+    console.log(`[bedrock-tool-loop] Resolved JSON Schema for structured_output (${propCount} properties)`);
+  } else {
+    console.warn('[bedrock-tool-loop] No JSON Schema available — will use text extraction on final round');
+  }
 
   const messages: Message[] = [
     { role: 'user', content: [{ type: 'text', text: user }] },
@@ -126,8 +210,32 @@ export const invokeClaudeWithTools = async <T>(
       temperature,
     };
 
-    // Always include tools so the API can handle tool_use/tool_result in history
-    if (tools.length > 0) {
+    // On the final round, if we have a JSON Schema, use tool_choice to force structured output.
+    // If no JSON Schema, omit tools entirely to force text-only output (prevents Opus 4.6 tool loop).
+    if (isLastRound && resolvedJsonSchema) {
+      const structuredOutputTool: ToolDefinition = {
+        name: STRUCTURED_OUTPUT_TOOL_NAME,
+        description: 'Output the final structured JSON response matching the required schema.',
+        input_schema: {
+          type: 'object',
+          properties: (resolvedJsonSchema.properties ?? {}) as Record<string, unknown>,
+          required: (resolvedJsonSchema.required ?? []) as readonly string[],
+        },
+      };
+
+      // Only include structured_output tool — omit regular tools to prevent the model
+      // from attempting to call them when tool_choice forces structured_output
+      requestBody.tools = [structuredOutputTool];
+      requestBody.tool_choice = { type: 'tool', name: STRUCTURED_OUTPUT_TOOL_NAME };
+    } else if (isLastRound) {
+      // Last round without a JSON Schema: omit all tools to force text-only response.
+      // Including tools here would let Opus 4.6 keep calling them indefinitely.
+      // Must also clean messages to remove tool_use/tool_result blocks (API rejects
+      // tool blocks when no tools are in the request).
+      console.warn('[bedrock-tool-loop] Last round without resolvedJsonSchema — omitting tools to force text output');
+      requestBody.messages = buildTextOnlyMessages(messages);
+    } else if (tools.length > 0) {
+      // Non-final rounds: include tools so the model can gather data
       requestBody.tools = tools;
     }
 
@@ -139,6 +247,21 @@ export const invokeClaudeWithTools = async <T>(
 
     const stopReason = parsed.stop_reason ?? 'end_turn';
     const content: ContentBlock[] = parsed.content ?? [];
+
+    // ── Handle structured_output tool_choice response on the final round ──
+    if (isLastRound && resolvedJsonSchema) {
+      const structuredBlock = content.find(
+        (c) => c.type === 'tool_use' && c.name === STRUCTURED_OUTPUT_TOOL_NAME,
+      );
+
+      if (structuredBlock?.input) {
+        console.log(`[bedrock-tool-loop] structured_output tool_choice succeeded after ${toolRounds} tool round(s)`);
+        return outputSchema.parse(structuredBlock.input);
+      }
+
+      // tool_choice forced but no structured_output block found — fall through to text extraction
+      console.warn('[bedrock-tool-loop] tool_choice forced but no structured_output block in response — falling back to text extraction');
+    }
 
     // Detect truncation due to max_tokens and retry with higher limit
     if (stopReason === 'max_tokens' && !isLastRound) {
