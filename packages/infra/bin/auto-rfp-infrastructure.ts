@@ -46,13 +46,7 @@ const network = new NetworkStack(app, `AutoRfp-Network-${stage}`, {
 });
 
 const sentryDNS = 'https://5fa3951f41c357ba09d0ae50f52bbd2a@o4510347578114048.ingest.us.sentry.io/4510510176141312';
-const pineconeApiKey = process.env.PINECONE_API_KEY || '';
-
-if (!pineconeApiKey) {
-  console.warn('⚠️  WARNING: PINECONE_API_KEY environment variable is not set. Some stacks may fail to deploy.');
-  console.warn('   Set it with: export PINECONE_API_KEY=your-api-key');
-}
-
+const pineconeApiKey = cdk.SecretValue.secretsManager(`auto-rfp/pinecone-api-key`).unsafeUnwrap();
 const githubToken = cdk.SecretValue.secretsManager('auto-rfp/github-token');
 
 // Sentry auth token for source map uploads — optional, widget works without it.
