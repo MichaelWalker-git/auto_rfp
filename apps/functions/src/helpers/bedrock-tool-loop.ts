@@ -89,12 +89,15 @@ export type Message = {
 };
 
 /**
- * Build a clean message list that converts tool_use and tool_result blocks
- * to text summaries, preserving the context gathered via tools.
+ * Build a clean message list that strips tool_use blocks and converts
+ * tool_result blocks to tagged text, preserving retrieved data as context.
  *
- * Previous approach stripped tool messages entirely, losing all context the
- * model gathered via tools.  Now we convert them to text so the model can
- * use the gathered data to produce its final JSON output.
+ * Assistant tool_use blocks are dropped entirely — converting them to
+ * "[Called tool: ...]" summaries caused Opus 4.6 to echo the markers
+ * verbatim instead of generating real content.
+ *
+ * Tool results (user messages) are wrapped in <retrieved-data> tags so
+ * the model treats them as factual context for its final response.
  */
 export const buildTextOnlyMessages = (messages: Message[]): Message[] => {
   const result: Message[] = [];
@@ -107,29 +110,24 @@ export const buildTextOnlyMessages = (messages: Message[]): Message[] => {
 
     const blocks = msg.content as ContentBlock[];
     const textBlocks = blocks.filter((b) => b.type === 'text');
-    const toolUseBlocks = blocks.filter((b) => b.type === 'tool_use');
     const toolResultBlocks = blocks.filter((b) => b.type === 'tool_result');
 
     // Preserve existing text blocks
     const newBlocks = textBlocks.map((b) => ({ type: 'text' as const, text: b.text ?? '' }));
 
-    // Convert tool_use blocks to text summaries (assistant messages)
-    if (msg.role === 'assistant' && toolUseBlocks.length > 0) {
-      const summary = toolUseBlocks
-        .map((b) => `[Called tool: ${b.name ?? 'unknown'}]`)
-        .join('\n');
-      newBlocks.push({ type: 'text' as const, text: summary });
-    }
+    // Skip assistant tool_use blocks entirely — including "[Called tool: ...]"
+    // summaries causes Opus 4.6 to echo them back instead of generating real content.
+    // The tool *results* (in the following user message) carry all the useful data.
 
-    // Convert tool_result blocks to text summaries (user messages)
+    // Convert tool_result blocks to clearly-labelled data context (user messages)
     if (msg.role === 'user' && toolResultBlocks.length > 0) {
       const summaries = toolResultBlocks.map((b) => {
         const content = typeof (b as Record<string, unknown>).content === 'string'
           ? (b as Record<string, unknown>).content as string
           : JSON.stringify((b as Record<string, unknown>).content ?? '');
         // Truncate long tool results to avoid blowing up context
-        const truncated = content.length > 2000 ? content.slice(0, 2000) + '...[truncated]' : content;
-        return `[Tool result: ${truncated}]`;
+        const truncated = content.length > 4000 ? content.slice(0, 4000) + '...[truncated]' : content;
+        return `<retrieved-data>\n${truncated}\n</retrieved-data>`;
       });
       newBlocks.push({ type: 'text' as const, text: summaries.join('\n') });
     }
