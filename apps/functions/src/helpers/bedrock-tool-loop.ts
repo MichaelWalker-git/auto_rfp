@@ -53,6 +53,23 @@ type Message = {
   content: unknown;
 };
 
+/**
+ * Build a clean message list that strips tool_use and tool_result blocks,
+ * keeping only text content. This forces the model to respond with text
+ * when tools are not provided in the request.
+ */
+const buildTextOnlyMessages = (messages: Message[]): Message[] =>
+  messages
+    .map((msg) => {
+      if (!Array.isArray(msg.content)) return msg;
+      const textBlocks = (msg.content as ContentBlock[]).filter(
+        (b) => b.type === 'text',
+      );
+      if (textBlocks.length === 0) return null;
+      return { ...msg, content: textBlocks };
+    })
+    .filter((msg): msg is Message => msg !== null);
+
 // ─── Helper ───────────────────────────────────────────────────────────────────
 
 /**
@@ -109,8 +126,8 @@ export const invokeClaudeWithTools = async <T>(
       temperature,
     };
 
-    // Offer tools only in non-final rounds; on the last round force text output
-    if (!isLastRound && tools.length > 0) {
+    // Always include tools so the API can handle tool_use/tool_result in history
+    if (tools.length > 0) {
       requestBody.tools = tools;
     }
 
@@ -146,6 +163,9 @@ export const invokeClaudeWithTools = async <T>(
         max_tokens: newMaxTokens,
         temperature,
       };
+      if (tools.length > 0) {
+        retryBody.tools = tools;
+      }
 
       const retryResponse = await invokeModel(modelId, JSON.stringify(retryBody));
       const retryParsed = JSON.parse(new TextDecoder('utf-8').decode(retryResponse)) as {
@@ -214,16 +234,18 @@ export const invokeClaudeWithTools = async <T>(
         });
       }
 
-      // Try up to 2 final attempts without tools
+      // Try up to 2 final attempts — WITHOUT tools so the model cannot
+      // choose tool_use and is forced to produce text output.
       for (let attempt = 1; attempt <= 2; attempt++) {
-        const finalBody = {
+        const cleanMessages = buildTextOnlyMessages(messages);
+        const finalBody: Record<string, unknown> = {
           anthropic_version: 'bedrock-2023-05-31',
           system: [{ type: 'text', text: system + JSON_ENFORCEMENT }],
-          messages: [...messages],
+          messages: cleanMessages,
           max_tokens: Math.max(maxTokens, 8000) * attempt,
           temperature: 0.1,
-          // No tools — force text output
         };
+        // Intentionally NO tools — forces text-only response
 
         const finalResponse = await invokeModel(modelId, JSON.stringify(finalBody));
         const finalParsed = JSON.parse(new TextDecoder('utf-8').decode(finalResponse)) as {
@@ -260,13 +282,15 @@ export const invokeClaudeWithTools = async <T>(
         content: [{ type: 'text', text: 'Your response must be a JSON object. Output ONLY valid JSON — no prose, no explanation, no markdown. Start with { and end with }.' }],
       });
 
-      const jsonRetryBody = {
+      const cleanMessages = buildTextOnlyMessages(messages);
+      const jsonRetryBody: Record<string, unknown> = {
         anthropic_version: 'bedrock-2023-05-31',
         system: [{ type: 'text', text: system + JSON_ENFORCEMENT }],
-        messages: [...messages],
+        messages: cleanMessages,
         max_tokens: Math.max(maxTokens, 8000),
         temperature: 0.1,
       };
+      // Intentionally NO tools — forces text-only response
 
       const jsonRetryResponse = await invokeModel(modelId, JSON.stringify(jsonRetryBody));
       const jsonRetryParsed = JSON.parse(new TextDecoder('utf-8').decode(jsonRetryResponse)) as {
