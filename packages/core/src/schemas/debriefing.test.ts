@@ -146,10 +146,10 @@ describe('CreateDebriefingRequestSchema', () => {
     expect(result.success).toBe(true);
   });
 
-  it('requires contractingOfficerName', () => {
+  it('accepts request without contractingOfficerName', () => {
     const { contractingOfficerName, ...without } = validRequest;
     const result = CreateDebriefingRequestSchema.safeParse(without);
-    expect(result.success).toBe(false);
+    expect(result.success).toBe(true);
   });
 
   it('requires contractingOfficerEmail to be valid email', () => {

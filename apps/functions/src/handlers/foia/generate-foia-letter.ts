@@ -190,10 +190,10 @@ export const generateFOIALetter = (request: DBFOIARequestItem): string => {
   const companyClause = `My company, ${request.companyName}, submitted a proposal`;
   const awardeeClause = request.awardeeName ? ` The contract was awarded to ${request.awardeeName}.` : '';
 
-  // Fee limit line (only if > $0)
+  // Fee limit line — always included
   const feeLine = request.feeLimit > 0
     ? `\nI am willing to pay up to $${request.feeLimit.toFixed(2)} in fees associated with this request. Please contact me before incurring any costs in excess of this amount.\n`
-    : '';
+    : '\nI request a fee waiver for this request. If a fee waiver is not granted, please contact me before incurring any costs.\n';
 
   return `${today}
 

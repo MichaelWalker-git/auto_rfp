@@ -123,7 +123,7 @@ describe('generate-foia-letter handler', () => {
       expect(letter).toContain('willing to pay up to');
     });
 
-    it('omits fee line when feeLimit is 0', () => {
+    it('includes fee waiver line when feeLimit is 0', () => {
       const zeroFeeRequest: DBFOIARequestItem = {
         ...mockRequest,
         feeLimit: 0,
@@ -132,6 +132,8 @@ describe('generate-foia-letter handler', () => {
       const letter = generateFOIALetter(zeroFeeRequest);
 
       expect(letter).not.toContain('willing to pay');
+      expect(letter).toContain('I request a fee waiver for this request');
+      expect(letter).toContain('please contact me before incurring any costs');
     });
 
     it('includes requester contact information', () => {
