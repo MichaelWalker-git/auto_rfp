@@ -103,16 +103,25 @@ const persistCluster = async (
   clusterId: string,
   cluster: ClusterData,
 ): Promise<void> => {
-  // Calculate similarities for non-master members
+  // Calculate similarities for non-master members (include opportunityId/questionFileId for answer lookups)
   const nonMasterMembersWithSim = cluster.members.map((m) => ({
     questionId: m.q.questionId,
     questionText: m.q.questionText,
     similarity: cosineSimilarity(cluster.master.embedding!, m.q.embedding!),
     hasAnswer: false,
+    opportunityId: m.q.opportunityId ?? '',
+    questionFileId: m.q.questionFileId ?? '',
   }));
 
   const members = [
-    { questionId: cluster.master.questionId, questionText: cluster.master.questionText, similarity: 1.0, hasAnswer: false },
+    {
+      questionId: cluster.master.questionId,
+      questionText: cluster.master.questionText,
+      similarity: 1.0,
+      hasAnswer: false,
+      opportunityId: cluster.master.opportunityId ?? '',
+      questionFileId: cluster.master.questionFileId ?? '',
+    },
     ...nonMasterMembersWithSim,
   ];
 
@@ -137,6 +146,9 @@ const persistCluster = async (
   };
   if (cluster.master.opportunityId) {
     clusterItem.opportunityId = cluster.master.opportunityId;
+  }
+  if (cluster.master.questionFileId) {
+    clusterItem.questionFileId = cluster.master.questionFileId;
   }
 
   await docClient.send(

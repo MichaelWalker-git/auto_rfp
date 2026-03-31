@@ -1,0 +1,1 @@
+export const AI_CHAT_MESSAGE_PK = 'AI_CHAT_MESSAGE';

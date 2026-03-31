@@ -59,12 +59,12 @@ export function EngagementMetricsCard() {
 
   // Get deadline badge color - use isPast for most reliable expired detection
   const getDeadlineBadgeColor = (isPast: boolean, level: string) => {
-    if (isPast) return 'bg-gray-100 text-gray-600 border-gray-300';
+    if (isPast) return 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 border-gray-300 dark:border-gray-600';
     switch (level) {
-      case 'expired': return 'bg-gray-100 text-gray-600 border-gray-300';
-      case 'urgent': return 'bg-red-100 text-red-800 border-red-200';
-      case 'warning': return 'bg-orange-100 text-orange-800 border-orange-200';
-      default: return 'bg-green-100 text-green-800 border-green-200';
+      case 'expired': return 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 border-gray-300 dark:border-gray-600';
+      case 'urgent': return 'bg-red-100 dark:bg-red-950/50 text-red-800 dark:text-red-300 border-red-200 dark:border-red-800';
+      case 'warning': return 'bg-orange-100 dark:bg-orange-950/50 text-orange-800 dark:text-orange-300 border-orange-200 dark:border-orange-800';
+      default: return 'bg-green-100 dark:bg-green-950/50 text-green-800 dark:text-green-300 border-green-200 dark:border-green-800';
     }
   };
 
@@ -73,10 +73,10 @@ export function EngagementMetricsCard() {
       {/* Question Submission Deadline Banner */}
       {!deadlinesLoading && questionDeadline && (
         <Card className={`mb-4 border-2 ${
-          questionDeadline.isPast ? 'border-gray-300 bg-gray-50' :
-          questionDeadline.warningLevel === 'urgent' ? 'border-red-300 bg-red-50' :
-          questionDeadline.warningLevel === 'warning' ? 'border-orange-300 bg-orange-50' :
-          'border-green-300 bg-green-50'
+          questionDeadline.isPast ? 'border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-800/50' :
+          questionDeadline.warningLevel === 'urgent' ? 'border-red-300 dark:border-red-800 bg-red-50 dark:bg-red-950/50' :
+          questionDeadline.warningLevel === 'warning' ? 'border-orange-300 dark:border-orange-800 bg-orange-50 dark:bg-orange-950/50' :
+          'border-green-300 dark:border-green-800 bg-green-50 dark:bg-green-950/50'
         }`}>
           <CardContent className="py-4">
             <div className="flex items-center justify-between">
@@ -99,7 +99,9 @@ export function EngagementMetricsCard() {
               </div>
               <div className={`px-3 py-1.5 rounded-full text-sm font-medium border ${getDeadlineBadgeColor(questionDeadline.isPast, questionDeadline.warningLevel)}`}>
                 {questionDeadline.isPast 
-                  ? `${Math.abs(questionDeadline.daysLeft)} days ago`
+                  ? Math.abs(questionDeadline.daysLeft) === 1
+                    ? '1 day ago'
+                    : `${Math.abs(questionDeadline.daysLeft)} days ago`
                   : questionDeadline.daysLeft === 0 
                     ? 'Due today!'
                     : questionDeadline.daysLeft === 1

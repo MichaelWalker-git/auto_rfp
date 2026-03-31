@@ -965,9 +965,12 @@ export function QuestionsProvider({ children, projectId, opportunityId }: Questi
   };
 
   // Compute the number of answers that can be approved (have text, not already APPROVED)
+  // Filtered by opportunityId to only show count for current opportunity
   const approvableQuestionIds = useMemo(() => {
     if (!questions) return [];
-    const allQuestions = questions.sections.flatMap((s) => s.questions);
+    let allQuestions = questions.sections.flatMap((s) => s.questions);
+    // Apply opportunity filter so count is scoped to current opportunity
+    allQuestions = filterByOpportunity(allQuestions);
     return allQuestions
       .filter((q) => {
         const answerData = answers[q.id];
@@ -976,7 +979,8 @@ export function QuestionsProvider({ children, projectId, opportunityId }: Questi
         return hasText && !isAlreadyApproved;
       })
       .map((q) => q.id);
-  }, [questions, answers]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [questions, answers, opportunityId]);
 
   const approvableCount = approvableQuestionIds.length;
 

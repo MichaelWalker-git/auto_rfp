@@ -27,6 +27,14 @@ export function rfpDocumentDomain(args?: {
       },
       {
         method: 'POST',
+        path: 'export-all',
+        entry: lambdaEntry('rfp-document/export-all-rfp-documents.ts'),
+        memorySize: 2048,
+        timeoutSeconds: 120,
+        nodeModules: ['@sparticuz/chromium', 'puppeteer-core', 'html-to-docx', 'jszip'],
+      },
+      {
+        method: 'POST',
         path: 'generate-document',
         entry: lambdaEntry('rfp-document/generate-document.ts'),
         extraEnv: { DOCUMENT_GENERATION_QUEUE_URL: docGenQueueUrl },
@@ -42,6 +50,9 @@ export function rfpDocumentDomain(args?: {
       { method: 'GET', path: 'compare', entry: lambdaEntry('rfp-document/compare-versions.ts') },
       { method: 'POST', path: 'revert', entry: lambdaEntry('rfp-document/revert-version.ts') },
       { method: 'POST', path: 'cherry-pick', entry: lambdaEntry('rfp-document/cherry-pick-version.ts') },
+      // AI-powered section editing (chat interface)
+      { method: 'POST', path: 'edit-section', entry: lambdaEntry('rfp-document/edit-section.ts'), timeoutSeconds: 90, memorySize: 256 },
+      { method: 'GET', path: 'chat-messages', entry: lambdaEntry('rfp-document/get-chat-messages.ts') },
     ],
   };
 }
