@@ -116,7 +116,8 @@ const exportDocumentToFormat = async (
 ): Promise<Buffer | null> => {
   try {
     const processed = preprocessHtml(html);
-    // Expand TOC for formats that render HTML visually (PDF, HTML)
+    // Expand TOC only for formats that render HTML visually (PDF, HTML, PPTX).
+    // DOCX handles TOC natively; txt/md should not contain TOC markup.
     const withToc = expandTableOfContents(processed);
 
     switch (format) {
@@ -138,9 +139,9 @@ const exportDocumentToFormat = async (
       case 'html':
         return Buffer.from(buildExportHtml(withToc, { title, pageSize }), 'utf-8');
       case 'txt':
-        return Buffer.from(htmlToPlainText(withToc), 'utf-8');
+        return Buffer.from(htmlToPlainText(processed), 'utf-8');
       case 'md':
-        return Buffer.from(htmlToMarkdown(withToc), 'utf-8');
+        return Buffer.from(htmlToMarkdown(processed), 'utf-8');
       default:
         return null;
     }

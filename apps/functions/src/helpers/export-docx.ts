@@ -25,7 +25,7 @@ import {
   convertInchesToTwip,
 } from 'docx';
 import type { BuildExportHtmlOptions } from './export-html-builder';
-import { extractHeadingsFromHtml, extractTocTitle } from './export';
+import { extractHeadingsFromHtml, extractTocTitle, findTocPlaceholderInHtml } from './export';
 
 export interface HtmlToDocxOptions extends BuildExportHtmlOptions {
   /** Document creator metadata */
@@ -560,31 +560,6 @@ const HEADING_MAP: Record<string, typeof HeadingLevel[keyof typeof HeadingLevel]
   h6: HeadingLevel.HEADING_6,
 };
 
-/**
- * Robust TOC placeholder regex — matches the full TOC div including any inner content.
- * Handles all TipTap output variations:
- *  - `<div data-table-of-contents="true"></div>` (empty)
- *  - `<div data-table-of-contents="true" class="table-of-contents"></div>` (with class)
- *  - `<div class="table-of-contents" data-table-of-contents="true">…</div>` (with inner content)
- *
- * Uses a greedy approach to find the matching closing </div> by counting nesting depth,
- * which is more reliable than the non-greedy regex in the block parser.
- */
-const DOCX_TOC_PLACEHOLDER_RE = /<div[^>]*data-table-of-contents="true"[^>]*>(?:[\s\S]*?<\/div>|<\/div>|\s*\/>)/i;
-const DOCX_TOC_OPENING_TAG_RE = /<div[^>]*data-table-of-contents="true"[^>]*>(?:<\/div>)?/i;
-
-/**
- * Find the TOC placeholder in HTML and return its position and full match.
- * Uses the same robust regex patterns as expandTableOfContents in export.ts.
- */
-const findTocPlaceholder = (html: string): { index: number; length: number } | null => {
-  if (!html || !html.includes('data-table-of-contents')) return null;
-
-  const match = html.match(DOCX_TOC_PLACEHOLDER_RE) ?? html.match(DOCX_TOC_OPENING_TAG_RE);
-  if (!match || match.index === undefined) return null;
-
-  return { index: match.index, length: match[0].length };
-};
 
 /**
  * Parse an HTML fragment (without TOC placeholder) into docx elements.
@@ -888,7 +863,7 @@ const parseHtmlToDocxChildren = async (html: string): Promise<DocxChild[]> => {
   // ── Phase 1: Detect TOC placeholder before block parsing ──
   // This uses the same robust regex as expandTableOfContents (PDF path),
   // ensuring consistent TOC detection across all export formats.
-  const tocPos = findTocPlaceholder(html);
+  const tocPos = findTocPlaceholderInHtml(html);
 
   if (tocPos) {
     const htmlBeforeToc = html.slice(0, tocPos.index);

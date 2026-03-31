@@ -37,20 +37,52 @@ const escapeHtmlForToc = (text: string): string =>
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;');
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#x27;');
 
 /**
- * Regex that matches the full TOC placeholder div, including any inner content.
- * Handles:
- *  - `<div data-table-of-contents="true"></div>`  (empty, from TipTap)
- *  - `<div data-table-of-contents="true" class="table-of-contents"></div>` (with class)
- *  - `<div class="table-of-contents" data-table-of-contents="true">…</div>` (with inner content from older saves)
- *  - Self-closing or whitespace variations
+ * Find the TOC placeholder `<div data-table-of-contents="true">…</div>` in HTML,
+ * correctly handling nested `<div>` elements by counting nesting depth.
+ *
+ * Returns the start index and full length of the matched placeholder, or null.
  */
-const TOC_PLACEHOLDER_RE = /<div[^>]*data-table-of-contents="true"[^>]*>(?:[\s\S]*?<\/div>|<\/div>|\s*\/>)/i;
+export const findTocPlaceholderInHtml = (html: string): { index: number; length: number } | null => {
+  if (!html) return null;
 
-/** Fallback: match just the opening tag if the full match fails. */
-const TOC_OPENING_TAG_RE = /<div[^>]*data-table-of-contents="true"[^>]*>(?:<\/div>)?/i;
+  const openTagRe = /<div[^>]*data-table-of-contents="true"[^>]*>/i;
+  const openMatch = openTagRe.exec(html);
+  if (!openMatch || openMatch.index === undefined) return null;
+
+  const startIdx = openMatch.index;
+  const afterOpenTag = startIdx + openMatch[0].length;
+
+  // Self-closing or immediately closed: <div …></div> or <div … />
+  if (openMatch[0].endsWith('/>')) return { index: startIdx, length: openMatch[0].length };
+  if (html.slice(afterOpenTag).startsWith('</div>')) {
+    return { index: startIdx, length: afterOpenTag + 6 - startIdx };
+  }
+
+  // Walk forward counting nested <div> depth to find the matching </div>
+  let depth = 1;
+  const divTagRe = /<\/?div[\s>]/gi;
+  divTagRe.lastIndex = afterOpenTag;
+  let m: RegExpExecArray | null;
+  while ((m = divTagRe.exec(html)) !== null) {
+    if (m[0].startsWith('</')) {
+      depth--;
+      if (depth === 0) {
+        // Find the full closing tag end
+        const closeEnd = html.indexOf('>', m.index) + 1;
+        return { index: startIdx, length: closeEnd - startIdx };
+      }
+    } else {
+      depth++;
+    }
+  }
+
+  // No matching close — fall back to just the opening tag
+  return { index: startIdx, length: openMatch[0].length };
+};
 
 export interface TocHeading {
   level: number;
@@ -207,15 +239,15 @@ export const extractHeadingsFromHtml = (html: string): TocHeading[] => {
 export const expandTableOfContents = (html: string): string => {
   if (!html || !html.includes('data-table-of-contents')) return html;
 
-  // Find the TOC placeholder — try the full match first, then fall back to opening tag only
-  const tocPlaceholderMatch = html.match(TOC_PLACEHOLDER_RE) ?? html.match(TOC_OPENING_TAG_RE);
+  // Find the TOC placeholder using nesting-aware matcher (handles nested divs)
+  const tocPos = findTocPlaceholderInHtml(html);
 
-  if (!tocPlaceholderMatch || tocPlaceholderMatch.index === undefined) {
+  if (!tocPos) {
     return html;
   }
 
-  const beforeToc = html.slice(0, tocPlaceholderMatch.index);
-  const afterTocStart = tocPlaceholderMatch.index + tocPlaceholderMatch[0].length;
+  const beforeToc = html.slice(0, tocPos.index);
+  const afterTocStart = tocPos.index + tocPos.length;
   let afterToc = html.slice(afterTocStart);
 
   // ── Single-pass: extract headings from AFTER the TOC and assign IDs ──

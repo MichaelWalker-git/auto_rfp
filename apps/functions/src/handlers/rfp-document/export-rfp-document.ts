@@ -230,15 +230,15 @@ export const baseHandler = async (
         break;
       }
 
-      // ── TXT: Strip HTML tags ──
+      // ── TXT: Strip HTML tags (use preprocessed HTML without TOC expansion) ──
       case 'txt': {
-        exportBuffer = htmlToPlainText(html);
+        exportBuffer = htmlToPlainText(preprocessedHtml);
         break;
       }
 
-      // ── MD: Convert HTML to Markdown ──
+      // ── MD: Convert HTML to Markdown (use preprocessed HTML without TOC expansion) ──
       case 'md': {
-        exportBuffer = htmlToMarkdown(html);
+        exportBuffer = htmlToMarkdown(preprocessedHtml);
         break;
       }
 

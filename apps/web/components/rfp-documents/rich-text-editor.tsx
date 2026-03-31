@@ -169,11 +169,18 @@ const TableOfContentsView = ({ editor, selected }: NodeViewProps) => {
     // Initial extraction
     updateHeadings();
 
-    // Listen for document changes to keep TOC in sync
-    editor.on('update', updateHeadings);
+    // Debounce editor updates to avoid traversing the doc tree on every keystroke
+    let debounceTimer: ReturnType<typeof setTimeout>;
+    const debouncedUpdate = () => {
+      clearTimeout(debounceTimer);
+      debounceTimer = setTimeout(updateHeadings, 300);
+    };
+
+    editor.on('update', debouncedUpdate);
 
     return () => {
-      editor.off('update', updateHeadings);
+      clearTimeout(debounceTimer);
+      editor.off('update', debouncedUpdate);
     };
   }, [editor]);
 
