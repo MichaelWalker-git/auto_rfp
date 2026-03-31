@@ -23,7 +23,7 @@ const statusConfig: Record<
 };
 
 export function DebriefingStatusBadge({ status, className }: DebriefingStatusBadgeProps) {
-  const config = statusConfig[status];
+  const config = statusConfig[status] ?? statusConfig.NOT_REQUESTED;
   const Icon = config.icon;
 
   return (
