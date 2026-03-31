@@ -1,6 +1,6 @@
 'use client';
 
-import useSWR from 'swr';
+import useSWR, { useSWRConfig } from 'swr';
 import useSWRMutation from 'swr/mutation';
 
 import { env } from '@/lib/env';
@@ -210,6 +210,8 @@ export type CreateOpportunityResponse = {
 };
 
 export function useCreateOpportunity() {
+  const { mutate: globalMutate } = useSWRConfig();
+
   return useSWRMutation<CreateOpportunityResponse, ErrorShape, string, OpportunityItem>(
     `${BASE_URL}/create-opportunity`,
     async (url: string, { arg }: { arg: OpportunityItem }) => {
@@ -227,7 +229,14 @@ export function useCreateOpportunity() {
         body: JSON.stringify(parsed.data),
       });
 
-      return readAuthJson<CreateOpportunityResponse>(res, 'Failed to create opportunity');
+      const result = await readAuthJson<CreateOpportunityResponse>(res, 'Failed to create opportunity');
+
+      // Invalidate the opportunities list cache so the new opportunity appears immediately
+      await globalMutate(
+        (key: unknown) => typeof key === 'string' && key.includes('/opportunity/get-opportunities'),
+      );
+
+      return result;
     },
   );
 }
