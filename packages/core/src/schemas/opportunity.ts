@@ -153,6 +153,15 @@ export const OpportunityItemSchema = z.object({
   apnOpportunityId: z.string().nullish(),
   /** Last APN sync error message (null = no error) */
   apnSyncError:     z.string().nullish(),
+  // Assignment fields
+  /** User ID of the person assigned to work on this opportunity */
+  assigneeId:       z.string().nullish(),
+  /** Display name of the assignee (stored at assignment time) */
+  assigneeName:     z.string().nullish(),
+  /** User ID of the person who made the assignment */
+  assignedByUserId: z.string().nullish(),
+  /** Display name of the person who made the assignment */
+  assignedByName:   z.string().nullish(),
 });
 
 export type OpportunityItem = z.infer<typeof OpportunityItemSchema>;
@@ -185,3 +194,19 @@ export const OpportunityQuerySchema = z.object({
 });
 
 export type OpportunityQuery = z.infer<typeof OpportunityQuerySchema>;
+
+// ─── Opportunity Assignment ───────────────────────────────────────────────────
+
+/**
+ * Schema for assigning an opportunity to a user.
+ * The assignee must have access to the project.
+ */
+export const AssignOpportunityDTOSchema = z.object({
+  orgId:      z.string().min(1),
+  projectId:  z.string().min(1),
+  oppId:      z.string().min(1),
+  /** User ID to assign. Pass null to unassign. */
+  assigneeId: z.string().min(1).nullable(),
+});
+
+export type AssignOpportunityDTO = z.infer<typeof AssignOpportunityDTOSchema>;

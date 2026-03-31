@@ -17,11 +17,12 @@ export function useCreateProject() {
   const createProject = async (payload: CreateProjectPayload): Promise<ProjectItem> => {
     const project = await apiMutate<ProjectItem>(buildApiUrl('projects/create'), 'POST', payload);
     breadcrumbs.projectCreated(project.id, project.name);
-
-    // Invalidate the project list cache so the new project appears immediately
-    await mutate(
-      (key: unknown) => Array.isArray(key) && key[0] === 'project/projects',
-    );
+    
+    // Revalidate project-related caches so the new project shows up immediately
+    await Promise.all([
+      mutate((key: unknown) => Array.isArray(key) && key[0] === 'project/projects'),
+      mutate(['my-project-access', payload.orgId]),
+    ]);
 
     return project;
   };

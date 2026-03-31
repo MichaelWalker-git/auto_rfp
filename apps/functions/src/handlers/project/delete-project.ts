@@ -4,6 +4,7 @@ import middy from '@middy/core';
 import { apiResponse, getOrgId } from '@/helpers/api';
 import { deleteProjectAndRelatedEntities } from '@/helpers/project-cleanup';
 import { deleteAllLinksForProject } from '@/helpers/project-kb';
+import { deleteAllProjectAccessForProject } from '@/helpers/user-project';
 import { withSentryLambda } from '@/sentry-lambda';
 import {
   authContextMiddleware,
@@ -40,6 +41,17 @@ export const baseHandler = async (
       console.warn('Failed to cascade delete PROJECT_KB links:', (cascadeErr as Error)?.message);
     }
 
+    // Cascade: clean up any USER_PROJECT access records for this project
+    let deletedAccessRecords = 0;
+    try {
+      deletedAccessRecords = await deleteAllProjectAccessForProject(projectId);
+      if (deletedAccessRecords > 0) {
+        console.log(`Cascade deleted ${deletedAccessRecords} USER_PROJECT access records for projectId=${projectId}`);
+      }
+    } catch (cascadeErr) {
+      console.warn('Failed to cascade delete USER_PROJECT access records:', (cascadeErr as Error)?.message);
+    }
+
     setAuditContext(event, {
       action: 'PROJECT_DELETED',
       resource: 'project',
@@ -51,7 +63,7 @@ export const baseHandler = async (
       message: 'Project deleted successfully',
       orgId,
       projectId,
-      cleanup: { ...cleanup, deletedKBLinks },
+      cleanup: { ...cleanup, deletedKBLinks, deletedAccessRecords },
     });
   } catch (err: any) {
     console.error('Error in deleteProject handler:', err);

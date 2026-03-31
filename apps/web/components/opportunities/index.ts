@@ -3,4 +3,5 @@ export { OpportunityProvider, useOpportunityContext } from './opportunity-contex
 export { OpportunityHeader } from './opportunity-header';
 export { OpportunitySolicitationDocuments } from './opportunity-attachments';
 export { OpportunityRFPDocuments } from './opportunity-rfp-documents';
+export { AssigneeSelector } from './AssigneeSelector';
 export { formatDateTime, pickDisplayName, getStatusChip } from './opportunity-helpers';

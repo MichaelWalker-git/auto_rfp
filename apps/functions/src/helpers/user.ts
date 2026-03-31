@@ -273,3 +273,44 @@ export async function createUser(
 
   return { userId: effectiveUserId, cognitoUsername, item };
 }
+
+/**
+ * List all users with ADMIN role in an organization.
+ * Used for bulk-granting project access to all admins.
+ */
+export const listOrgAdmins = async (
+  orgId: string,
+): Promise<Array<{ userId: string; email: string }>> => {
+  const admins: Array<{ userId: string; email: string }> = [];
+  let ExclusiveStartKey: Record<string, unknown> | undefined;
+
+  do {
+    const res = await docClient.send(
+      new QueryCommand({
+        TableName: DB_TABLE_NAME,
+        KeyConditionExpression: '#pk = :pk AND begins_with(#sk, :skPrefix)',
+        FilterExpression: '#role = :adminRole',
+        ExpressionAttributeNames: {
+          '#pk': PK_NAME,
+          '#sk': SK_NAME,
+          '#role': 'role',
+        },
+        ExpressionAttributeValues: {
+          ':pk': USER_PK,
+          ':skPrefix': userSk(orgId, ''),
+          ':adminRole': 'ADMIN',
+        },
+        ProjectionExpression: 'userId, email',
+        ExclusiveStartKey,
+      }),
+    );
+    for (const item of res.Items ?? []) {
+      if (item['userId'] && item['email']) {
+        admins.push({ userId: item['userId'] as string, email: item['email'] as string });
+      }
+    }
+    ExclusiveStartKey = res.LastEvaluatedKey as Record<string, unknown> | undefined;
+  } while (ExclusiveStartKey);
+
+  return admins;
+};

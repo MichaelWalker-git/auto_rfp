@@ -32,6 +32,8 @@ export const NotificationTypeSchema = z.enum([
   'DOCUMENT_APPROVAL_REQUESTED',
   'DOCUMENT_APPROVED',
   'DOCUMENT_REJECTED',
+  // Opportunity assignment
+  'OPPORTUNITY_ASSIGNED',
 ]);
 export type NotificationType = z.infer<typeof NotificationTypeSchema>;
 
