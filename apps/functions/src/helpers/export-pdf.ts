@@ -46,14 +46,14 @@ const countPdfPages = (pdfBuffer: Buffer): number => {
  * - Explicit page breaks → headings after breaks get correct page numbers
  * - Natural page overflow → positions map correctly to pages
  */
-const buildPageNumberScript = (totalPages: number): string => `
+const buildPageNumberScript = (totalPages: number, pageContentHeightPx: number): string => `
 (function() {
   var pageSpans = document.querySelectorAll('[data-toc-page]');
   if (!pageSpans.length) return;
 
   var totalPageCount = ${totalPages};
-  var totalHeight = document.body.scrollHeight;
-  if (totalHeight <= 0 || totalPageCount <= 0) return;
+  var pageHeight = ${pageContentHeightPx};
+  if (pageHeight <= 0 || totalPageCount <= 0) return;
 
   // ── Helper: get absolute top position of an element ──
   function getAbsoluteTop(el) {
@@ -74,58 +74,32 @@ const buildPageNumberScript = (totalPages: number): string => `
   }
   breakPositions.sort(function(a, b) { return a - b; });
 
-  // ── Calculate effective height per page ──
-  // The scrollHeight is the total continuous DOM height. When Puppeteer paginates,
-  // it divides this into pages. Page breaks create "dead space" — the gap between
-  // the break position and the next natural page boundary.
-  //
-  // Without page breaks: heightPerPage = scrollHeight / pageCount
-  // With page breaks: we need to account for the dead space they create
-  //
-  // Total rendered height = scrollHeight + totalDeadSpace
-  // heightPerPage = totalRenderedHeight / pageCount
-
-  // First, calculate base height per page (without break adjustments)
-  var baseHeightPerPage = totalHeight / totalPageCount;
-
-  // Calculate dead space from each page break
-  // Dead space = distance from break position to the next page boundary
-  var totalDeadSpace = 0;
-  for (var b = 0; b < breakPositions.length; b++) {
-    var breakPos = breakPositions[b];
-    // Which page would this break naturally fall on?
-    var pageAtBreak = Math.floor(breakPos / baseHeightPerPage);
-    // Where does the next page start?
-    var nextPageStart = (pageAtBreak + 1) * baseHeightPerPage;
-    // Dead space is the gap between break and next page
-    var deadSpace = nextPageStart - breakPos;
-    if (deadSpace > 0 && deadSpace < baseHeightPerPage) {
-      totalDeadSpace += deadSpace;
-    }
-  }
-
-  // Recalculate with dead space factored in
-  var effectiveHeight = totalHeight + totalDeadSpace;
-  var heightPerPage = effectiveHeight / Math.max(totalPageCount, 1);
-
-  // ── Helper: calculate page number for a given DOM position ──
+  // ── Calculate page number for a DOM position ──
+  // Walk through the content tracking cumulative position.
+  // Page breaks force advancement to the next page boundary.
   function getPageForPosition(domTop) {
-    // Add cumulative dead space from page breaks before this position
-    var adjustedTop = domTop;
+    var page = 1;
+    var pageBottom = pageHeight; // bottom edge of current page
+
+    // Account for page breaks: each break advances to next page
     for (var b = 0; b < breakPositions.length; b++) {
-      if (breakPositions[b] < domTop) {
-        var pageAtBreak = Math.floor(breakPositions[b] / baseHeightPerPage);
-        var nextPageStart = (pageAtBreak + 1) * baseHeightPerPage;
-        var deadSpace = nextPageStart - breakPositions[b];
-        if (deadSpace > 0 && deadSpace < baseHeightPerPage) {
-          adjustedTop += deadSpace;
-        }
+      var bp = breakPositions[b];
+      if (bp >= domTop) break; // break is after our target
+      // If break is within current page, advance page
+      if (bp < pageBottom) {
+        // Content before the break fits on current page — break forces new page
+        page++;
+        pageBottom = bp + pageHeight; // next page starts after the break
       }
     }
 
-    // Calculate page number (1-indexed)
-    var pageNumber = Math.floor(adjustedTop / heightPerPage) + 1;
-    return Math.max(1, Math.min(pageNumber, totalPageCount));
+    // For remaining content (no more breaks), calculate based on distance
+    if (domTop > pageBottom - pageHeight) {
+      var overflow = domTop - (pageBottom - pageHeight);
+      page += Math.floor(overflow / pageHeight);
+    }
+
+    return Math.max(1, Math.min(page, totalPageCount));
   }
 
   // ── Assign page numbers to each TOC entry ──
@@ -197,8 +171,12 @@ export const htmlToPdfBuffer = async (
       });
       const totalPages = countPdfPages(Buffer.from(tempPdf));
 
+      // Calculate the content area height per page in CSS pixels (96 dpi).
+      // Letter: 11in - 2in margins = 9in = 864px; A4: 297mm - 50.8mm margins ≈ 246.2mm ≈ 932px
+      const pageContentHeightPx = pageSize === 'a4' ? 932 : 864;
+
       // Calculate real page numbers using DOM positions and inject them
-      const script = buildPageNumberScript(totalPages);
+      const script = buildPageNumberScript(totalPages, pageContentHeightPx);
       await page.evaluate(script);
 
       // Pass 2: Generate final PDF with real page numbers filled in

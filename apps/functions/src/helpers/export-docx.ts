@@ -25,7 +25,7 @@ import {
   convertInchesToTwip,
 } from 'docx';
 import type { BuildExportHtmlOptions } from './export-html-builder';
-import { extractHeadingsFromHtml, extractTocTitle, findTocPlaceholderInHtml } from './export';
+import { extractHeadingsFromHtml, extractTocTitle, estimateHeadingPages, findTocPlaceholderInHtml } from './export';
 
 export interface HtmlToDocxOptions extends BuildExportHtmlOptions {
   /** Document creator metadata */
@@ -522,20 +522,33 @@ const buildManualDocxToc = (htmlBeforeToc: string, htmlAfterToc: string): Paragr
     }));
   }
 
-  // TOC entries for each heading — no page numbers (DOCX can't calculate
-  // accurate page numbers without rendering; PDF uses Puppeteer for this)
+  // Estimate page numbers using the heuristic estimator.
+  // Not pixel-perfect, but provides a reasonable approximation for DOCX.
+  const pageNumbers = estimateHeadingPages(htmlAfterToc, 2); // content starts after TOC ~page 2
+
+  // Right-aligned tab stop at the page margin for page numbers (with dot leader)
+  const PAGE_NUM_TAB_POS = 9360; // 6.5 inches in twips (letter width 8.5 - 2in margins)
+
   for (let i = 0; i < headings.length; i++) {
     const h = headings[i];
     const indent = (h.level - minLevel) * 360; // 0.25" per level
     const isTopLevel = h.level === minLevel;
     const styleName = isTopLevel ? 'TOC1' : h.level <= minLevel + 1 ? 'TOC2' : `TOC${Math.min(h.level, 5)}`;
+    const pageNum = pageNumbers[i] ?? 2;
 
     elements.push(new Paragraph({
       style: styleName,
       spacing: { before: isTopLevel ? 100 : 40, after: isTopLevel ? 40 : 40, line: 276 },
       indent: indent > 0 ? { left: indent } : undefined,
+      tabStops: [{
+        type: 'right' as const,
+        position: PAGE_NUM_TAB_POS - (indent > 0 ? indent : 0),
+        leader: 'dot' as const,
+      }],
       children: [
         new TextRun({ text: h.text, size: FONT_SIZES.body, color: COLORS.body, font: FONT_FAMILY }),
+        new TextRun({ text: '\t', font: FONT_FAMILY, size: FONT_SIZES.body }),
+        new TextRun({ text: String(pageNum), size: FONT_SIZES.body, color: COLORS.body, font: FONT_FAMILY }),
       ],
     }));
   }
