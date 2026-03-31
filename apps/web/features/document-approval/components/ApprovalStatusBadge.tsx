@@ -40,7 +40,7 @@ const STATUS_CONFIG: Record<
 };
 
 export const ApprovalStatusBadge = ({ status, className }: ApprovalStatusBadgeProps) => {
-  const config = STATUS_CONFIG[status];
+  const config = STATUS_CONFIG[status] ?? STATUS_CONFIG.PENDING;
   const Icon = config.icon;
 
   return (

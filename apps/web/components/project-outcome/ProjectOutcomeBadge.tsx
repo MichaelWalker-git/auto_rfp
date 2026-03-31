@@ -30,7 +30,7 @@ export function ProjectOutcomeBadge({
   showIcon = true,
   className,
 }: ProjectOutcomeBadgeProps) {
-  const config = status ? statusConfig[status] : statusConfig.PENDING;
+  const config = (status && statusConfig[status]) ?? statusConfig.PENDING;
   const Icon = config.icon;
 
   const sizeClasses = {
