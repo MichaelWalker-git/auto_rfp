@@ -2,7 +2,7 @@
 
 import React, { useState, useMemo } from 'react';
 import type { OpportunityItem as OpportunityItemType } from '@auto-rfp/core';
-import { Loader2, Search, ArrowUpDown, LayoutGrid, Columns2, Square } from 'lucide-react';
+import { Loader2, Search, ArrowUpDown, LayoutGrid, Columns2, Square, User } from 'lucide-react';
 
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
@@ -21,6 +21,7 @@ import { useOpportunitiesList } from '@/lib/hooks/use-opportunities';
 import { useFavoriteOpportunities } from '@/lib/hooks/use-favorite-opportunities';
 import { useGridView, getGridClasses } from '@/lib/hooks/use-grid-view';
 import { useCurrentOrganization } from '@/context/organization-context';
+import { useAuth } from '@/components/AuthProvider';
 import { OpportunityItemCard } from '@/components/opportunities/opportunity-item-card';
 import { cn } from '@/lib/utils';
 
@@ -46,12 +47,14 @@ export function OpportunitiesList({ projectId, limit = 25, className }: Props) {
   const router = useRouter();
   const pathname = usePathname();
   const { currentOrganization } = useCurrentOrganization();
+  const { userSub } = useAuth();
   const { isFavorite, toggleFavorite } = useFavoriteOpportunities();
   const { columns, setColumns } = useGridView();
 
-  // Search and sort state
+  // Search, sort, and filter state
   const [searchQuery, setSearchQuery] = useState('');
   const [sortOption, setSortOption] = useState<SortOption>('dateImported-desc');
+  const [showOnlyMine, setShowOnlyMine] = useState(false);
 
   const { items, isLoading, error, refresh, loadMore, canLoadMore, nextToken } = useOpportunitiesList({
     orgId: currentOrganization?.id || null,
@@ -64,6 +67,14 @@ export function OpportunitiesList({ projectId, limit = 25, className }: Props) {
   // Filter and sort items (favorites first, then by sort option)
   const filteredAndSortedItems = useMemo(() => {
     let result = [...items];
+
+    // Filter by "assigned to me"
+    if (showOnlyMine && userSub) {
+      result = result.filter((it) => {
+        const assigneeId = (it as Record<string, unknown>)['assigneeId'] as string | undefined;
+        return assigneeId === userSub;
+      });
+    }
 
     // Filter by search query
     if (searchQuery.trim()) {
@@ -138,7 +149,7 @@ export function OpportunitiesList({ projectId, limit = 25, className }: Props) {
     });
 
     return result;
-  }, [items, searchQuery, sortOption, isFavorite]);
+  }, [items, searchQuery, sortOption, isFavorite, showOnlyMine, userSub]);
 
   const handleOpen = (it: OpportunityItemType) => {
     const id = it.oppId ?? it.id;
@@ -160,6 +171,18 @@ export function OpportunitiesList({ projectId, limit = 25, className }: Props) {
           />
         </div>
         <div className="flex gap-2">
+          {/* My Opportunities filter */}
+          <Button
+            variant={showOnlyMine ? 'default' : 'outline'}
+            size="sm"
+            onClick={() => setShowOnlyMine(!showOnlyMine)}
+            className="h-9 gap-1.5"
+            title={showOnlyMine ? 'Show all opportunities' : 'Show only my opportunities'}
+          >
+            <User className="h-4 w-4" />
+            <span className="hidden sm:inline">My Opportunities</span>
+          </Button>
+
           <Select value={sortOption} onValueChange={(value) => setSortOption(value as SortOption)}>
             <SelectTrigger className="w-full sm:w-[220px]">
               <ArrowUpDown className="h-4 w-4 mr-2" />

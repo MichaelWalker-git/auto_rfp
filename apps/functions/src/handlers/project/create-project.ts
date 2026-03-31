@@ -4,6 +4,7 @@ import middy from '@middy/core';
 
 import { apiResponse } from '@/helpers/api';
 import { createProject } from '@/helpers/project';
+import { assignProjectAccess } from '@/helpers/user-project';
 import { withSentryLambda } from '@/sentry-lambda';
 import {
   authContextMiddleware,
@@ -38,7 +39,12 @@ export const baseHandler = async (
       });
     }
 
-    const project = await createProject(data);
+    const project = await createProject(data, event.auth?.userId);
+
+    // Auto-assign creator to project for explicit access control
+    if (event.auth?.userId) {
+      await assignProjectAccess(data.orgId, event.auth.userId, project.id, event.auth.userId);
+    }
 
     setAuditContext(event, {
       action: 'PROJECT_CREATED',
