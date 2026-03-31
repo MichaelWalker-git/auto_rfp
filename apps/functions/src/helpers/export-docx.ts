@@ -25,6 +25,7 @@ import {
   convertInchesToTwip,
 } from 'docx';
 import type { BuildExportHtmlOptions } from './export-html-builder';
+import { extractHeadingsFromHtml, extractTocTitle } from './export';
 
 export interface HtmlToDocxOptions extends BuildExportHtmlOptions {
   /** Document creator metadata */
@@ -296,7 +297,7 @@ const parseInlineHtml = (html: string): TextRun[] => {
       if (decoded.trim() || decoded.includes(' ')) {
         runs.push(new TextRun({
           text: decoded,
-          bold: style.bold || undefined,
+          bold: style.bold,
           italics: style.italic || undefined,
           underline: style.underline ? {} : undefined,
           strike: style.strike || undefined,
@@ -475,6 +476,79 @@ const parseTable = (tableHtml: string): Table | null => {
   });
 };
 
+// ─── Table of Contents ────────────────────────────────────────────────────────
+
+/** Twips helper: 1pt = 20 twips */
+const TW = (pt: number) => pt * 20;
+
+/**
+ * Build a manual Table of Contents as plain styled paragraphs.
+ *
+ * Uses regular Paragraph elements (not Word field codes) so the TOC renders
+ * correctly in ALL document viewers — Microsoft Word, Apple Pages, Google Docs,
+ * LibreOffice, and preview apps. No "form components" or field update prompts.
+ *
+ * Each TOC entry is a paragraph with:
+ * - Heading text (left-aligned)
+ * - Dot leader tab stop
+ * - Estimated page number (right-aligned)
+ *
+ * Page numbers are estimated using the shared `estimateHeadingPages` heuristic.
+ * While not pixel-perfect, they provide a reasonable approximation.
+ */
+const buildManualDocxToc = (htmlBeforeToc: string, htmlAfterToc: string): Paragraph[] => {
+  const headings = extractHeadingsFromHtml(htmlAfterToc);
+  const elements: Paragraph[] = [];
+
+  if (headings.length === 0) {
+    elements.push(new Paragraph({
+      spacing: { before: TW(4), after: TW(4) },
+      children: [new TextRun({ text: 'No headings found.', italics: true, size: FONT_SIZES.body, color: COLORS.muted, font: FONT_FAMILY })],
+    }));
+    return elements;
+  }
+
+  const minLevel = Math.min(...headings.map((h) => h.level));
+
+  // TOC self-entry: the user's heading title before the TOC placeholder
+  const tocTitle = extractTocTitle(htmlBeforeToc);
+  if (tocTitle) {
+    elements.push(new Paragraph({
+      style: 'TOC1',
+      spacing: { before: 120, after: 60, line: 276 },
+      children: [
+        new TextRun({ text: tocTitle, size: FONT_SIZES.body, color: COLORS.body, font: FONT_FAMILY }),
+      ],
+    }));
+  }
+
+  // TOC entries for each heading — no page numbers (DOCX can't calculate
+  // accurate page numbers without rendering; PDF uses Puppeteer for this)
+  for (let i = 0; i < headings.length; i++) {
+    const h = headings[i];
+    const indent = (h.level - minLevel) * 360; // 0.25" per level
+    const isTopLevel = h.level === minLevel;
+    const styleName = isTopLevel ? 'TOC1' : h.level <= minLevel + 1 ? 'TOC2' : `TOC${Math.min(h.level, 5)}`;
+
+    elements.push(new Paragraph({
+      style: styleName,
+      spacing: { before: isTopLevel ? 100 : 40, after: isTopLevel ? 40 : 40, line: 276 },
+      indent: indent > 0 ? { left: indent } : undefined,
+      children: [
+        new TextRun({ text: h.text, size: FONT_SIZES.body, color: COLORS.body, font: FONT_FAMILY }),
+      ],
+    }));
+  }
+
+  // Spacing after TOC
+  elements.push(new Paragraph({
+    children: [new TextRun({ text: '', font: FONT_FAMILY, size: FONT_SIZES.body })],
+    spacing: { after: 200 },
+  }));
+
+  return elements;
+};
+
 // ─── Block-Level HTML Parser ──────────────────────────────────────────────────
 
 const HEADING_MAP: Record<string, typeof HeadingLevel[keyof typeof HeadingLevel]> = {
@@ -487,29 +561,41 @@ const HEADING_MAP: Record<string, typeof HeadingLevel[keyof typeof HeadingLevel]
 };
 
 /**
- * Parse the full HTML body into an array of docx elements.
- * Async because image fetching requires network calls.
+ * Robust TOC placeholder regex — matches the full TOC div including any inner content.
+ * Handles all TipTap output variations:
+ *  - `<div data-table-of-contents="true"></div>` (empty)
+ *  - `<div data-table-of-contents="true" class="table-of-contents"></div>` (with class)
+ *  - `<div class="table-of-contents" data-table-of-contents="true">…</div>` (with inner content)
+ *
+ * Uses a greedy approach to find the matching closing </div> by counting nesting depth,
+ * which is more reliable than the non-greedy regex in the block parser.
  */
-const parseHtmlToDocxChildren = async (html: string): Promise<DocxChild[]> => {
+const DOCX_TOC_PLACEHOLDER_RE = /<div[^>]*data-table-of-contents="true"[^>]*>(?:[\s\S]*?<\/div>|<\/div>|\s*\/>)/i;
+const DOCX_TOC_OPENING_TAG_RE = /<div[^>]*data-table-of-contents="true"[^>]*>(?:<\/div>)?/i;
+
+/**
+ * Find the TOC placeholder in HTML and return its position and full match.
+ * Uses the same robust regex patterns as expandTableOfContents in export.ts.
+ */
+const findTocPlaceholder = (html: string): { index: number; length: number } | null => {
+  if (!html || !html.includes('data-table-of-contents')) return null;
+
+  const match = html.match(DOCX_TOC_PLACEHOLDER_RE) ?? html.match(DOCX_TOC_OPENING_TAG_RE);
+  if (!match || match.index === undefined) return null;
+
+  return { index: match.index, length: match[0].length };
+};
+
+/**
+ * Parse an HTML fragment (without TOC placeholder) into docx elements.
+ * This is the core block-level parser extracted so it can be called on
+ * HTML segments before and after the TOC.
+ */
+const parseHtmlBlocksToDocx = async (
+  html: string,
+  imageCache: Map<string, Paragraph | null>,
+): Promise<DocxChild[]> => {
   const children: DocxChild[] = [];
-
-  // Collect all image URLs for parallel pre-fetching
-  const imgTagRe = /<img[^>]*>/gi;
-  const imgTags: string[] = [];
-  let imgMatch: RegExpExecArray | null;
-  while ((imgMatch = imgTagRe.exec(html)) !== null) {
-    imgTags.push(imgMatch[0]);
-  }
-
-  // Pre-fetch all images in parallel for performance
-  const imageCache = new Map<string, Paragraph | null>();
-  if (imgTags.length > 0) {
-    const fetchPromises = imgTags.map(async (tag) => {
-      const result = await parseImgToParagraph(tag);
-      imageCache.set(tag, result);
-    });
-    await Promise.all(fetchPromises);
-  }
 
   // Tokenize into top-level blocks. Order matters — standalone images, tables and lists first (greedy),
   // then individual block tags.
@@ -729,6 +815,12 @@ const parseHtmlToDocxChildren = async (html: string): Promise<DocxChild[]> => {
         children.push(new Paragraph({ children: [new PageBreak()] }));
         continue;
       }
+
+      // Skip any leftover TOC div fragments (already handled at the top level)
+      if (match[0]?.includes('data-table-of-contents') || match[0]?.includes('table-of-contents')) {
+        continue;
+      }
+
       const text = stripHtml(blockInner);
       if (text) {
         children.push(new Paragraph({
@@ -758,6 +850,73 @@ const parseHtmlToDocxChildren = async (html: string): Promise<DocxChild[]> => {
       }));
     }
   }
+
+  return children;
+};
+
+/**
+ * Parse the full HTML body into an array of docx elements.
+ * Async because image fetching requires network calls.
+ *
+ * Uses a two-phase approach for reliable TOC handling:
+ * 1. Pre-detect the TOC placeholder using a dedicated regex (same as PDF export)
+ * 2. Split HTML at the TOC position and parse each segment separately
+ * 3. Build the TOC entries between the before/after segments
+ *
+ * This avoids the fragility of detecting the TOC inside the generic block regex,
+ * which can fail with nested divs, wrapper elements, or expanded TOC content.
+ */
+const parseHtmlToDocxChildren = async (html: string): Promise<DocxChild[]> => {
+  // Collect all image URLs for parallel pre-fetching
+  const imgTagRe = /<img[^>]*>/gi;
+  const imgTags: string[] = [];
+  let imgMatch: RegExpExecArray | null;
+  while ((imgMatch = imgTagRe.exec(html)) !== null) {
+    imgTags.push(imgMatch[0]);
+  }
+
+  // Pre-fetch all images in parallel for performance
+  const imageCache = new Map<string, Paragraph | null>();
+  if (imgTags.length > 0) {
+    const fetchPromises = imgTags.map(async (tag) => {
+      const result = await parseImgToParagraph(tag);
+      imageCache.set(tag, result);
+    });
+    await Promise.all(fetchPromises);
+  }
+
+  // ── Phase 1: Detect TOC placeholder before block parsing ──
+  // This uses the same robust regex as expandTableOfContents (PDF path),
+  // ensuring consistent TOC detection across all export formats.
+  const tocPos = findTocPlaceholder(html);
+
+  if (tocPos) {
+    const htmlBeforeToc = html.slice(0, tocPos.index);
+    const htmlAfterToc = html.slice(tocPos.index + tocPos.length);
+
+    // Parse content before the TOC
+    const beforeChildren = await parseHtmlBlocksToDocx(htmlBeforeToc, imageCache);
+
+    // Build manual TOC from headings in the content after the TOC
+    const tocChildren = buildManualDocxToc(htmlBeforeToc, htmlAfterToc);
+
+    // Parse content after the TOC
+    const afterChildren = await parseHtmlBlocksToDocx(htmlAfterToc, imageCache);
+
+    const allChildren = [...beforeChildren, ...tocChildren, ...afterChildren];
+
+    // If nothing was parsed, add an empty paragraph
+    if (!allChildren.length) {
+      allChildren.push(new Paragraph({
+        children: [new TextRun({ text: '', font: FONT_FAMILY, size: FONT_SIZES.body })],
+      }));
+    }
+
+    return allChildren;
+  }
+
+  // ── Phase 2: No TOC — parse the full HTML as a single block ──
+  const children = await parseHtmlBlocksToDocx(html, imageCache);
 
   // If nothing was parsed, add an empty paragraph
   if (!children.length) {
@@ -890,6 +1049,66 @@ export const htmlToDocxBuffer = async (
           },
         },
       },
+      paragraphStyles: [
+        // US-standard TOC styles: Times New Roman or Calibri, 12pt for level 1,
+        // 11pt for sub-levels, right-aligned tab stop with dot leader for page numbers,
+        // indentation increases by 0.25" per level (360 twips).
+        {
+          id: 'TOC1',
+          name: 'TOC 1',
+          basedOn: 'Normal',
+          next: 'Normal',
+          run: { font: FONT_FAMILY, size: FONT_SIZES.body, color: COLORS.body },
+          paragraph: {
+            spacing: { before: 120, after: 60, line: 276 },
+            indent: { left: 0 },
+          },
+        },
+        {
+          id: 'TOC2',
+          name: 'TOC 2',
+          basedOn: 'Normal',
+          next: 'Normal',
+          run: { font: FONT_FAMILY, size: FONT_SIZES.body, color: COLORS.body },
+          paragraph: {
+            spacing: { before: 40, after: 40, line: 276 },
+            indent: { left: 360 }, // 0.25 inch
+          },
+        },
+        {
+          id: 'TOC3',
+          name: 'TOC 3',
+          basedOn: 'Normal',
+          next: 'Normal',
+          run: { font: FONT_FAMILY, size: FONT_SIZES.body, color: COLORS.muted },
+          paragraph: {
+            spacing: { before: 20, after: 20, line: 276 },
+            indent: { left: 720 }, // 0.5 inch
+          },
+        },
+        {
+          id: 'TOC4',
+          name: 'TOC 4',
+          basedOn: 'Normal',
+          next: 'Normal',
+          run: { font: FONT_FAMILY, size: FONT_SIZES.small, color: COLORS.muted },
+          paragraph: {
+            spacing: { before: 20, after: 20, line: 276 },
+            indent: { left: 1080 }, // 0.75 inch
+          },
+        },
+        {
+          id: 'TOC5',
+          name: 'TOC 5',
+          basedOn: 'Normal',
+          next: 'Normal',
+          run: { font: FONT_FAMILY, size: FONT_SIZES.small, color: COLORS.muted },
+          paragraph: {
+            spacing: { before: 20, after: 20, line: 276 },
+            indent: { left: 1440 }, // 1.0 inch
+          },
+        },
+      ],
     },
     numbering: {
       config: [

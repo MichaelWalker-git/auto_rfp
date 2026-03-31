@@ -20,6 +20,7 @@ import {
   FILE_EXTENSIONS,
   sanitizeFileName,
   loadDocumentHtmlForExport,
+  expandTableOfContents,
 } from '@/helpers/export';
 import { htmlToPdfBuffer } from '@/helpers/export-pdf';
 import { htmlToDocxBuffer } from '@/helpers/export-docx';
@@ -99,6 +100,12 @@ const htmlToMarkdown = (rawHtml: string): string =>
 
 /**
  * Export a single document to a specific format, returning the buffer.
+ *
+ * TOC handling per format:
+ * - PDF/HTML: expandTableOfContents renders the TOC as styled HTML with page numbers
+ * - DOCX: raw preprocessed HTML is passed — the DOCX exporter detects the TOC
+ *   placeholder and builds native Word TOC paragraphs with dot leaders
+ * - Other formats: TOC placeholder is stripped during HTML-to-text conversion
  */
 const exportDocumentToFormat = async (
   html: string,
@@ -109,15 +116,19 @@ const exportDocumentToFormat = async (
 ): Promise<Buffer | null> => {
   try {
     const processed = preprocessHtml(html);
+    // Expand TOC for formats that render HTML visually (PDF, HTML)
+    const withToc = expandTableOfContents(processed);
 
     switch (format) {
       case 'pdf':
-        return await htmlToPdfBuffer(processed, { title, pageSize });
+        return await htmlToPdfBuffer(withToc, { title, pageSize });
       case 'docx':
+        // Pass preprocessed HTML WITHOUT TOC expansion — the DOCX exporter
+        // detects the TOC placeholder and creates native Word TOC entries
         return await htmlToDocxBuffer(processed, { title, pageSize });
       case 'pptx': {
         const contentObj = doc?.content as Record<string, unknown> | null;
-        return await htmlToPptxBuffer(processed, {
+        return await htmlToPptxBuffer(withToc, {
           title,
           customerName: contentObj?.customerName as string | null ?? null,
           opportunityId: contentObj?.opportunityId as string | null ?? null,
@@ -125,11 +136,11 @@ const exportDocumentToFormat = async (
         });
       }
       case 'html':
-        return Buffer.from(buildExportHtml(processed, { title, pageSize }), 'utf-8');
+        return Buffer.from(buildExportHtml(withToc, { title, pageSize }), 'utf-8');
       case 'txt':
-        return Buffer.from(htmlToPlainText(processed), 'utf-8');
+        return Buffer.from(htmlToPlainText(withToc), 'utf-8');
       case 'md':
-        return Buffer.from(htmlToMarkdown(processed), 'utf-8');
+        return Buffer.from(htmlToMarkdown(withToc), 'utf-8');
       default:
         return null;
     }

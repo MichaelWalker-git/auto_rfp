@@ -20,7 +20,7 @@ import {
   Link as LinkIcon, Image as ImageIcon, Table as TableIcon,
   Heading1, Heading2, Heading3, Quote, Code, Minus,
   Undo, Redo, Loader2, Highlighter, Palette, SeparatorHorizontal,
-  FileText,
+  FileText, ListTree,
 } from 'lucide-react';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
@@ -110,6 +110,160 @@ const PageBreak = Node.create({
 
   addNodeView() {
     return ReactNodeViewRenderer(PageBreakView);
+  },
+});
+
+// ─── TableOfContents TipTap Extension ────────────────────────────────────────
+
+interface TocHeading {
+  level: number;
+  text: string;
+  id: string;
+}
+
+/**
+ * Extracts heading nodes from the editor document that appear AFTER the
+ * first tableOfContents node. Headings before the TOC are ignored so the
+ * TOC only lists content that follows it (e.g. a document title before the
+ * TOC should not appear in the TOC itself).
+ */
+const extractHeadings = (editor: Editor): TocHeading[] => {
+  const headings: TocHeading[] = [];
+  const { doc } = editor.state;
+
+  let foundToc = false;
+
+  doc.descendants((node, _pos) => {
+    if (node.type.name === 'tableOfContents') {
+      foundToc = true;
+      return false; // skip children of the TOC node itself
+    }
+
+    if (foundToc && node.type.name === 'heading') {
+      const level = node.attrs.level as number;
+      const text = node.textContent;
+      if (text.trim()) {
+        const id = `heading-${text.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '')}`;
+        headings.push({ level, text, id });
+      }
+    }
+  });
+
+  return headings;
+};
+
+/**
+ * React NodeView for the Table of Contents block.
+ * Scans the editor document for headings and renders a live, auto-updating TOC.
+ */
+const TableOfContentsView = ({ editor, selected }: NodeViewProps) => {
+  const [headings, setHeadings] = useState<TocHeading[]>([]);
+
+  useEffect(() => {
+    if (!editor) return;
+
+    const updateHeadings = () => {
+      setHeadings(extractHeadings(editor));
+    };
+
+    // Initial extraction
+    updateHeadings();
+
+    // Listen for document changes to keep TOC in sync
+    editor.on('update', updateHeadings);
+
+    return () => {
+      editor.off('update', updateHeadings);
+    };
+  }, [editor]);
+
+  const minLevel = headings.length > 0 ? Math.min(...headings.map((h) => h.level)) : 1;
+
+  return (
+    <NodeViewWrapper contentEditable={false}>
+      <div
+        className={cn(
+          'toc-node relative my-6 select-none',
+          selected && 'ring-2 ring-indigo-400 ring-offset-2 rounded',
+        )}
+      >
+        {/* TOC Container */}
+        <div className="border border-gray-200 rounded-lg bg-gray-50/50 px-6 py-5">
+          {/* Header */}
+          <div className="flex items-center gap-2 mb-4 pb-3 border-b border-gray-200">
+            <ListTree className="h-4 w-4 text-indigo-500" />
+            <span className="text-sm font-semibold text-gray-700 uppercase tracking-wide">
+              Table of Contents
+            </span>
+          </div>
+
+          {/* TOC Entries */}
+          {headings.length === 0 ? (
+            <p className="text-xs text-gray-400 italic">
+              No headings found. Add headings (H1, H2, H3) to your document to populate the table of contents.
+            </p>
+          ) : (
+            <nav className="space-y-1">
+              {headings.map((heading, index) => {
+                const indent = (heading.level - minLevel) * 20;
+                return (
+                  <div
+                    key={`${heading.id}-${index}`}
+                    className="flex items-baseline gap-2 group"
+                    style={{ paddingLeft: `${indent}px` }}
+                  >
+                    <span
+                      className={cn(
+                        'text-gray-600 hover:text-indigo-600 transition-colors cursor-default',
+                        heading.level === 1 && 'text-sm font-semibold',
+                        heading.level === 2 && 'text-sm font-medium',
+                        heading.level === 3 && 'text-xs font-normal text-gray-500',
+                        heading.level >= 4 && 'text-xs font-normal text-gray-400',
+                      )}
+                    >
+                      {heading.text}
+                    </span>
+                    <span className="flex-1 border-b border-dotted border-gray-300 min-w-[20px] translate-y-[-3px]" />
+                    <span className="text-[10px] text-gray-400 font-mono tabular-nums opacity-0 group-hover:opacity-100 transition-opacity">
+                      H{heading.level}
+                    </span>
+                  </div>
+                );
+              })}
+            </nav>
+          )}
+        </div>
+
+        {/* Label badge */}
+        <div className="absolute -top-2.5 left-4">
+          <span className="text-[9px] font-medium text-indigo-500 uppercase tracking-widest px-2 py-0.5 bg-white border border-indigo-200 rounded-full">
+            Auto-generated TOC
+          </span>
+        </div>
+      </div>
+    </NodeViewWrapper>
+  );
+};
+
+const TableOfContents = Node.create({
+  name: 'tableOfContents',
+  group: 'block',
+  atom: true,
+  selectable: true,
+  draggable: true,
+
+  parseHTML() {
+    return [
+      { tag: 'div[data-table-of-contents]' },
+    ];
+  },
+
+  renderHTML() {
+    return ['div', { 'data-table-of-contents': 'true', class: 'table-of-contents' }];
+  },
+
+  addNodeView() {
+    return ReactNodeViewRenderer(TableOfContentsView);
   },
 });
 
@@ -730,6 +884,10 @@ const Toolbar = ({ editor, disabled, onImageClick, pageSize, onPageSizeChange }:
     editor.chain().focus().insertContent({ type: 'pageBreak' }).run();
   };
 
+  const insertTableOfContents = () => {
+    editor.chain().focus().insertContent({ type: 'tableOfContents' }).run();
+  };
+
   return (
     <>
       <div className="flex flex-wrap items-center gap-0.5 px-3 py-2 bg-white border-b border-slate-200 sticky top-0 z-10">
@@ -960,6 +1118,16 @@ const Toolbar = ({ editor, disabled, onImageClick, pageSize, onPageSizeChange }:
         >
           <SeparatorHorizontal className="h-3.5 w-3.5" />
         </ToolbarButton>
+
+        {/* Table of Contents */}
+        <ToolbarButton
+          onClick={insertTableOfContents}
+          active={editor.isActive('tableOfContents')}
+          disabled={disabled}
+          title="Insert table of contents"
+        >
+          <ListTree className="h-3.5 w-3.5" />
+        </ToolbarButton>
       </div>
 
       <LinkDialog
@@ -1063,6 +1231,7 @@ export const RichTextEditor = ({
       }),
       ResizableImage,
       PageBreak,
+      TableOfContents,
       Table.configure({ resizable: true }),
       TableRow,
       TableHeader,
@@ -1406,6 +1575,11 @@ export const RichTextEditor = ({
         }
         /* Page break node styling */
         .tiptap-document-editor .ProseMirror .page-break-node {
+          user-select: none;
+          cursor: default;
+        }
+        /* Table of Contents node styling */
+        .tiptap-document-editor .ProseMirror .toc-node {
           user-select: none;
           cursor: default;
         }

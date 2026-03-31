@@ -14,6 +14,7 @@ import {
   FILE_EXTENSIONS,
   sanitizeFileName,
   loadDocumentHtmlForExport,
+  expandTableOfContents,
 } from '@/helpers/export';
 import { buildExportHtml } from '@/helpers/export-html-builder';
 import { htmlToPdfBuffer } from '@/helpers/export-pdf';
@@ -183,11 +184,16 @@ export const baseHandler = async (
     // non-breaking space so they occupy a full line height in all exports.
     // Also strip inline border-bottom styles from headings (legacy content
     // may have these baked in from older AI prompts/templates).
-    const html = rawHtml
+    const preprocessedHtml = rawHtml
       .replace(/<p><br\s*\/?><\/p>/gi, '<p>&nbsp;</p>')
       .replace(/<p>\s*<\/p>/gi, '<p>&nbsp;</p>')
       .replace(/(<h[1-6][^>]*style="[^"]*?)border-bottom:[^;"]*;?\s*/gi, '$1')
       .replace(/(<h[1-6][^>]*style="[^"]*?)padding-bottom:[^;"]*;?\s*/gi, '$1');
+
+    // Expand Table of Contents placeholders into rendered TOC HTML.
+    // This is used for PDF/HTML exports where we need a visual TOC with
+    // page numbers and dot leaders. DOCX uses native Word TOC instead.
+    const html = expandTableOfContents(preprocessedHtml);
 
     let exportBuffer: Buffer | string;
 
@@ -199,8 +205,10 @@ export const baseHandler = async (
       }
 
       // ── DOCX: native docx library converts HTML to proper Word OOXML ──
+      // Pass the preprocessed HTML WITHOUT TOC expansion — the DOCX exporter
+      // detects the TOC placeholder and creates a native Word TOC field instead.
       case 'docx': {
-        exportBuffer = await htmlToDocxBuffer(html, { title, pageSize });
+        exportBuffer = await htmlToDocxBuffer(preprocessedHtml, { title, pageSize });
         break;
       }
 

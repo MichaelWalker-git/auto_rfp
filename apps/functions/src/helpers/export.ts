@@ -9,6 +9,306 @@ const REGION = requireEnv('REGION', 'us-east-1');
 const PRESIGN_EXPIRES_IN = Number(process.env.PRESIGN_EXPIRES_IN || 3600);
 const s3ExportClient = new S3Client({ region: REGION });
 
+// ─── Table of Contents expansion ──────────────────────────────────────────────
+
+/** Decode common HTML entities to plain text for TOC display. */
+const decodeHtmlEntities = (text: string): string =>
+  text
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&#0?39;/g, "'")
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&mdash;/g, '—')
+    .replace(/&ndash;/g, '–')
+    .replace(/&hellip;/g, '…')
+    .replace(/&rsquo;/g, '\u2019')
+    .replace(/&lsquo;/g, '\u2018')
+    .replace(/&rdquo;/g, '\u201D')
+    .replace(/&ldquo;/g, '\u201C');
+
+/** Strip all HTML tags and decode entities to get clean heading text. */
+const extractPlainText = (html: string): string =>
+  decodeHtmlEntities(html.replace(/<[^>]+>/g, '')).trim();
+
+const escapeHtmlForToc = (text: string): string =>
+  text
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+
+/**
+ * Regex that matches the full TOC placeholder div, including any inner content.
+ * Handles:
+ *  - `<div data-table-of-contents="true"></div>`  (empty, from TipTap)
+ *  - `<div data-table-of-contents="true" class="table-of-contents"></div>` (with class)
+ *  - `<div class="table-of-contents" data-table-of-contents="true">…</div>` (with inner content from older saves)
+ *  - Self-closing or whitespace variations
+ */
+const TOC_PLACEHOLDER_RE = /<div[^>]*data-table-of-contents="true"[^>]*>(?:[\s\S]*?<\/div>|<\/div>|\s*\/>)/i;
+
+/** Fallback: match just the opening tag if the full match fails. */
+const TOC_OPENING_TAG_RE = /<div[^>]*data-table-of-contents="true"[^>]*>(?:<\/div>)?/i;
+
+export interface TocHeading {
+  level: number;
+  text: string;
+  id: string;
+}
+
+/**
+ * Extract the user's TOC title from the heading immediately before the TOC placeholder.
+ * Users typically place a heading like "Table of Contents" before the TOC block.
+ * Returns the heading text, or empty string if no heading is found.
+ */
+export const extractTocTitle = (htmlBeforeToc: string): string => {
+  const match = htmlBeforeToc.match(/<h([1-6])[^>]*>([\s\S]*?)<\/h\1>\s*$/i);
+  return match ? extractPlainText(match[2]) : '';
+};
+
+/**
+ * Estimate page numbers for headings in an HTML document.
+ *
+ * Uses a cumulative content tracking approach:
+ * - Walks through the HTML sequentially, accumulating "content units"
+ * - Plain text characters contribute to content volume (~charsPerPage per page)
+ * - Explicit page breaks (`data-page-break`) force a new page, wasting remaining space
+ * - Images add significant content volume (~1/3 page equivalent)
+ * - Headings add extra vertical space (~100 chars equivalent)
+ *
+ * This produces more accurate page estimates than the previous fraction-based
+ * approach because it properly handles page breaks (which waste remaining space
+ * on the current page) and tracks content flow sequentially.
+ *
+ * Returns an array of estimated page numbers (1-indexed) for each heading.
+ */
+export const estimateHeadingPages = (html: string, startPage = 1, charsPerPage = 3000): number[] => {
+  if (!html) return [];
+
+  // ── Tokenize the HTML into sequential content blocks ──
+  // We walk through the HTML tracking cumulative content volume and page breaks.
+  const blockRe = /(<div[^>]*(?:data-page-break|page-break-node)[^>]*>[\s\S]*?<\/div>)|(<img[^>]*>)|(<h([1-6])[^>]*>[\s\S]*?<\/h\4>)|(<(?:p|li|blockquote|td|th|pre)[^>]*>[\s\S]*?<\/(?:p|li|blockquote|td|th|pre)>)/gi;
+
+  // First, find heading positions in the original HTML for result mapping
+  const headingPositions: number[] = [];
+  const headingPosRegex = /<h[1-6][^>]*>/gi;
+  let posMatch: RegExpExecArray | null;
+  while ((posMatch = headingPosRegex.exec(html)) !== null) {
+    headingPositions.push(posMatch.index);
+  }
+
+  if (headingPositions.length === 0) return [];
+
+  // ── Walk through HTML sequentially, tracking content volume ──
+  let cumulativeChars = 0;
+  let currentPage = startPage;
+  const pageForPosition = new Map<number, number>(); // htmlPosition → pageNumber
+
+  // Helper to strip HTML and count content characters
+  const countContentChars = (htmlFragment: string): number => {
+    const plain = htmlFragment
+      .replace(/<[^>]+>/g, ' ')
+      .replace(/&nbsp;/g, ' ')
+      .replace(/&amp;/g, '&')
+      .replace(/&lt;/g, '<')
+      .replace(/&gt;/g, '>')
+      .replace(/&quot;/g, '"')
+      .replace(/\s+/g, ' ')
+      .trim();
+    return plain.length;
+  };
+
+  // Track which heading index we're looking for next
+  let nextHeadingIdx = 0;
+
+  let match: RegExpExecArray | null;
+  while ((match = blockRe.exec(html)) !== null) {
+    const pageBreakDiv = match[1];
+    const imgTag = match[2];
+    const headingTag = match[3];
+
+    // Record page number for any headings we've passed
+    while (nextHeadingIdx < headingPositions.length && headingPositions[nextHeadingIdx] <= match.index) {
+      pageForPosition.set(headingPositions[nextHeadingIdx], currentPage);
+      nextHeadingIdx++;
+    }
+
+    if (pageBreakDiv) {
+      // Explicit page break: advance to next page, wasting remaining space
+      currentPage++;
+      cumulativeChars = 0; // Reset content counter for new page
+      continue;
+    }
+
+    if (imgTag) {
+      // Images take ~1/3 page of vertical space
+      cumulativeChars += Math.round(charsPerPage * 0.33);
+    } else if (headingTag) {
+      // Headings take extra vertical space (~100 chars equivalent for spacing)
+      const textChars = countContentChars(headingTag);
+      cumulativeChars += textChars + 100;
+    } else {
+      // Regular content block (paragraph, list item, etc.)
+      const textChars = countContentChars(match[0]);
+      cumulativeChars += textChars;
+    }
+
+    // Check if we've exceeded the current page's capacity
+    while (cumulativeChars >= charsPerPage) {
+      cumulativeChars -= charsPerPage;
+      currentPage++;
+    }
+  }
+
+  // Record page numbers for any remaining headings after the last block
+  while (nextHeadingIdx < headingPositions.length) {
+    pageForPosition.set(headingPositions[nextHeadingIdx], currentPage);
+    nextHeadingIdx++;
+  }
+
+  // Build result array in heading order
+  return headingPositions.map((pos) => pageForPosition.get(pos) ?? startPage);
+};
+
+/**
+ * Extract headings from an HTML string. Returns an array of heading objects
+ * with consistent IDs that can be used for both TOC entries and heading anchors.
+ */
+export const extractHeadingsFromHtml = (html: string): TocHeading[] => {
+  const headingRegex = /<h([1-6])([^>]*)>([\s\S]*?)<\/h\1>/gi;
+  const headings: TocHeading[] = [];
+  let match: RegExpExecArray | null;
+  let counter = 0;
+
+  while ((match = headingRegex.exec(html)) !== null) {
+    const level = parseInt(match[1], 10);
+    const text = extractPlainText(match[3]);
+    if (text) {
+      counter++;
+      headings.push({ level, text, id: `toc-heading-${counter}` });
+    }
+  }
+
+  return headings;
+};
+
+/**
+ * Expand `<div data-table-of-contents="true">` placeholders in HTML into
+ * a fully rendered Table of Contents by scanning the document for headings.
+ *
+ * This is used during export so the TOC (which is rendered dynamically in the
+ * editor via a React NodeView) gets baked into the static HTML for PDF/DOCX/HTML.
+ *
+ * The function uses a single-pass heading extraction to ensure TOC entry IDs
+ * and heading anchor IDs are always in sync — preventing broken links.
+ */
+export const expandTableOfContents = (html: string): string => {
+  if (!html || !html.includes('data-table-of-contents')) return html;
+
+  // Find the TOC placeholder — try the full match first, then fall back to opening tag only
+  const tocPlaceholderMatch = html.match(TOC_PLACEHOLDER_RE) ?? html.match(TOC_OPENING_TAG_RE);
+
+  if (!tocPlaceholderMatch || tocPlaceholderMatch.index === undefined) {
+    return html;
+  }
+
+  const beforeToc = html.slice(0, tocPlaceholderMatch.index);
+  const afterTocStart = tocPlaceholderMatch.index + tocPlaceholderMatch[0].length;
+  let afterToc = html.slice(afterTocStart);
+
+  // ── Single-pass: extract headings from AFTER the TOC and assign IDs ──
+  // This ensures the heading list and the injected IDs use the exact same counter,
+  // eliminating any possibility of ID mismatch.
+  const headings: TocHeading[] = [];
+  let idCounter = 0;
+
+  afterToc = afterToc.replace(
+    /<h([1-6])([^>]*)>([\s\S]*?)<\/h\1>/gi,
+    (fullMatch, lvl, attrs, inner) => {
+      const text = extractPlainText(inner);
+      if (!text) return fullMatch;
+
+      idCounter++;
+      const id = `toc-heading-${idCounter}`;
+      headings.push({ level: parseInt(lvl, 10), text, id });
+
+      // Add id attribute only if the heading doesn't already have one
+      if (/\bid\s*=/.test(attrs)) return fullMatch;
+      return `<h${lvl}${attrs} id="${id}">${inner}</h${lvl}>`;
+    },
+  );
+
+  // ── Extract the user's TOC title from the heading immediately before the TOC ──
+  // Users typically place a heading like "Table of Contents" before the TOC block.
+  // We use that heading text as the TOC self-entry title instead of a hardcoded string.
+  const tocTitleMatch = beforeToc.match(/<h([1-6])[^>]*>([\s\S]*?)<\/h\1>\s*$/i);
+  const tocTitle = tocTitleMatch ? extractPlainText(tocTitleMatch[2]) : '';
+
+  // ── Build the TOC HTML ──
+  const minLevel = headings.length > 0 ? Math.min(...headings.map((h) => h.level)) : 1;
+
+  let tocHtml: string;
+  if (headings.length === 0) {
+    tocHtml =
+      '<div class="table-of-contents" data-table-of-contents="true">' +
+      '<p style="color:#9ca3af;font-style:italic;font-size:12px;">No headings found.</p>' +
+      '</div>';
+  } else {
+    // Estimate which page the TOC itself starts on by measuring content before it.
+    // The TOC occupies ~1 page worth of space, and content after it starts on the next page.
+    const tocStartPage = Math.max(1, estimateHeadingPages(
+      beforeToc + '<h1>TOC</h1>', 1,
+    )[0] ?? 1);
+
+    // Content headings start after the TOC page(s).
+    // Estimate TOC takes ~1 page, so content starts on tocStartPage + 1.
+    const contentStartPage = tocStartPage + 1;
+
+    // Estimate page numbers using the shared estimator that accounts for
+    // page breaks, images, headings, and plain text content volume.
+    const pageNumbers = estimateHeadingPages(afterToc, contentStartPage);
+
+    // Build TOC entry helper
+    const tocEntry = (text: string, id: string, level: number, pageNum: number) => {
+      const indent = (level - minLevel) * 16;
+      const fontSize = level <= minLevel ? '12px' : level <= minLevel + 1 ? '11px' : '10px';
+      const fontWeight = level <= minLevel ? '600' : level <= minLevel + 1 ? '500' : '400';
+      const color = level <= minLevel ? '#111827' : level <= minLevel + 1 ? '#374151' : '#6b7280';
+
+      return (
+        `<div class="toc-entry toc-level-${level}" style="padding-left:${indent}px;margin:0;display:flex;align-items:baseline;line-height:1.9;">` +
+        `<a href="#${id}" style="font-size:${fontSize};font-weight:${fontWeight};color:${color};text-decoration:none;white-space:nowrap;">${escapeHtmlForToc(text)}</a>` +
+        `<span style="flex:1;border-bottom:1px dotted #d1d5db;min-width:20px;margin:0 6px 3px;"></span>` +
+        `<span class="toc-page" data-toc-page="${id}" style="font-size:${fontSize};color:${color};white-space:nowrap;min-width:12px;text-align:right;">${pageNum}</span>` +
+        `</div>`
+      );
+    };
+
+    // TOC self-entry: use the user's heading title if found, otherwise use the TOC title
+    // Only include the self-entry if the user has a title heading before the TOC
+    const tocSelfEntry = tocTitle
+      ? tocEntry(tocTitle, 'toc-self', minLevel, tocStartPage)
+      : '';
+
+    const contentEntries = headings
+      .map((h, i) => {
+        const pageNum = pageNumbers[i] ?? contentStartPage;
+        return tocEntry(h.text, h.id, h.level, pageNum);
+      })
+      .join('\n');
+
+    tocHtml =
+      `<div class="table-of-contents" id="toc-self" data-table-of-contents="true" style="padding:12px 0;margin:16px 0;page-break-inside:avoid;">` +
+      `<nav>${tocSelfEntry}\n${contentEntries}</nav>` +
+      `</div>`;
+  }
+
+  // Reassemble: before + TOC + after (with IDs injected)
+  return beforeToc + tocHtml + afterToc;
+};
+
 // ─── S3 image resolver ────────────────────────────────────────────────────────
 
 /**
