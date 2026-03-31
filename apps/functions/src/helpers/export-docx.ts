@@ -16,6 +16,7 @@ import {
   Packer,
   PageBreak,
   Paragraph,
+  Tab,
   ShadingType,
   Table,
   TableCell,
@@ -547,7 +548,7 @@ const buildManualDocxToc = (htmlBeforeToc: string, htmlAfterToc: string): Paragr
       }],
       children: [
         new TextRun({ text: h.text, size: FONT_SIZES.body, color: COLORS.body, font: FONT_FAMILY }),
-        new TextRun({ text: '\t', font: FONT_FAMILY, size: FONT_SIZES.body }),
+        new TextRun({ children: [new Tab()], font: FONT_FAMILY, size: FONT_SIZES.body }),
         new TextRun({ text: String(pageNum), size: FONT_SIZES.body, color: COLORS.body, font: FONT_FAMILY }),
       ],
     }));
@@ -657,9 +658,20 @@ const parseHtmlBlocksToDocx = async (
     if (HEADING_MAP[blockTag]) {
       const text = stripHtml(blockInner);
       if (text) {
+        // Extract text-align from inline style if present
+        const fullTag = match[4] ?? '';
+        const alignMatch = fullTag.match(/text-align:\s*(center|right|justify)/i);
+        const alignment = alignMatch
+          ? alignMatch[1] === 'center' ? AlignmentType.CENTER
+            : alignMatch[1] === 'right' ? AlignmentType.RIGHT
+            : alignMatch[1] === 'justify' ? AlignmentType.JUSTIFIED
+            : undefined
+          : undefined;
+
         children.push(new Paragraph({
           text,
           heading: HEADING_MAP[blockTag],
+          alignment,
           spacing: {
             before: blockTag === 'h1' ? 360 : blockTag === 'h2' ? 300 : 240,
             after: 120,
@@ -701,8 +713,19 @@ const parseHtmlBlocksToDocx = async (
 
       const runs = parseInlineHtml(blockInner);
       if (runs.length) {
+        // Extract text-align from inline style if present
+        const pTag = match[4] ?? '';
+        const pAlignMatch = pTag.match(/text-align:\s*(center|right|justify)/i);
+        const pAlignment = pAlignMatch
+          ? pAlignMatch[1] === 'center' ? AlignmentType.CENTER
+            : pAlignMatch[1] === 'right' ? AlignmentType.RIGHT
+            : pAlignMatch[1] === 'justify' ? AlignmentType.JUSTIFIED
+            : undefined
+          : undefined;
+
         children.push(new Paragraph({
           children: runs,
+          alignment: pAlignment,
           spacing: { after: 160 },
         }));
       }
