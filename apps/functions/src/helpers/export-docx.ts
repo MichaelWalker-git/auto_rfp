@@ -511,25 +511,36 @@ const buildManualDocxToc = (htmlBeforeToc: string, htmlAfterToc: string): Paragr
 
   const minLevel = Math.min(...headings.map((h) => h.level));
 
-  // Estimate page numbers using the heuristic estimator.
-  // Not pixel-perfect, but provides a reasonable approximation for DOCX.
-  const pageNumbers = estimateHeadingPages(htmlAfterToc, 2); // content starts after TOC ~page 2
+  // Estimate page numbers: first find what page the TOC starts on,
+  // then estimate heading pages starting after the TOC.
+  const tocStartPage = Math.max(1, estimateHeadingPages(
+    htmlBeforeToc + '<h1>X</h1>', 1,
+  )[0] ?? 1);
+  const contentStartPage = tocStartPage + 1; // TOC occupies ~1 page
+  const pageNumbers = estimateHeadingPages(htmlAfterToc, contentStartPage);
 
-  // Right-aligned tab stop at the page margin for page numbers (with dot leader)
-  const PAGE_NUM_TAB_POS = 9360; // 6.5 inches in twips (letter width 8.5 - 2in margins)
+  // Helper to build a single TOC entry paragraph.
+  // Uses a right-aligned tab with dot leader for the "Heading ....... Page" pattern.
+  // Tab position is at 6.5" (9360 twips) = letter page width minus 1" margins each side.
+  const TAB_POS = 9360;
 
-  // Helper to build a single TOC entry paragraph with dot leader and page number
-  const tocEntryParagraph = (text: string, pageNum: number, indent: number, isTopLevel: boolean): Paragraph =>
+  const tocEntryParagraph = (text: string, pageNum: number, indent: number, bold: boolean): Paragraph =>
     new Paragraph({
-      spacing: { before: isTopLevel ? 100 : 40, after: isTopLevel ? 40 : 40, line: 276 },
+      spacing: { before: bold ? 100 : 40, after: bold ? 40 : 20, line: 276 },
       indent: indent > 0 ? { left: indent } : undefined,
       tabStops: [{
         type: 'right' as const,
-        position: PAGE_NUM_TAB_POS - indent,
+        position: TAB_POS - indent,
         leader: 'dot' as const,
       }],
       children: [
-        new TextRun({ text, size: FONT_SIZES.body, color: COLORS.body, font: FONT_FAMILY }),
+        new TextRun({
+          text,
+          bold: bold || undefined,
+          size: FONT_SIZES.body,
+          color: COLORS.body,
+          font: FONT_FAMILY,
+        }),
         new TextRun({ children: [new Tab()], font: FONT_FAMILY, size: FONT_SIZES.body }),
         new TextRun({ text: String(pageNum), size: FONT_SIZES.body, color: COLORS.body, font: FONT_FAMILY }),
       ],
@@ -538,14 +549,14 @@ const buildManualDocxToc = (htmlBeforeToc: string, htmlAfterToc: string): Paragr
   // TOC self-entry: the user's heading title before the TOC placeholder
   const tocTitle = extractTocTitle(htmlBeforeToc);
   if (tocTitle) {
-    elements.push(tocEntryParagraph(tocTitle, 1, 0, true));
+    elements.push(tocEntryParagraph(tocTitle, tocStartPage, 0, true));
   }
 
   for (let i = 0; i < headings.length; i++) {
     const h = headings[i];
     const indent = (h.level - minLevel) * 360; // 0.25" per level
     const isTopLevel = h.level === minLevel;
-    const pageNum = pageNumbers[i] ?? 2;
+    const pageNum = pageNumbers[i] ?? contentStartPage;
     elements.push(tocEntryParagraph(h.text, pageNum, indent, isTopLevel));
   }
 
