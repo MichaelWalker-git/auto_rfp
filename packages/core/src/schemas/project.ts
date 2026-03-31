@@ -26,6 +26,7 @@ export type ProjectItem = CreateProjectDTO & {
   id: string;
   createdAt?: string;
   updatedAt?: string;
+  createdBy?: string;
 };
 
 export const UpdateProjectSchema = z.object({

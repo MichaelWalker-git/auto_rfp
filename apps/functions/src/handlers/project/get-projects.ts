@@ -1,7 +1,7 @@
-import { APIGatewayProxyEventV2, APIGatewayProxyResultV2, } from 'aws-lambda';
+import { APIGatewayProxyResultV2, } from 'aws-lambda';
 import { QueryCommand, } from '@aws-sdk/lib-dynamodb';
 import { PK_NAME, SK_NAME } from '@/constants/common';
-import { apiResponse, getOrgId } from '@/helpers/api';
+import { apiResponse, getOrgId, getUserId } from '@/helpers/api';
 import { PROJECT_PK } from '@/constants/organization';
 import { withSentryLambda } from '@/sentry-lambda';
 import { requireEnv } from '@/helpers/env';
@@ -9,23 +9,46 @@ import {
   authContextMiddleware,
   httpErrorMiddleware,
   orgMembershipMiddleware,
-  requirePermission
+  requirePermission,
+  type AuthedEvent,
 } from '@/middleware/rbac-middleware';
 import middy from '@middy/core';
 import { docClient } from '@/helpers/db';
+import { getAccessibleProjectIds } from '@/helpers/user-project';
 
 const DB_TABLE_NAME = requireEnv('DB_TABLE_NAME');
 
-export const baseHandler = async (event: APIGatewayProxyEventV2): Promise<APIGatewayProxyResultV2> => {
+export const baseHandler = async (event: AuthedEvent): Promise<APIGatewayProxyResultV2> => {
   const orgId = getOrgId(event);
+  const userId = getUserId(event);
 
   if (!orgId) {
     return apiResponse(400, { message: 'orgId is required' });
   }
 
   try {
-    const list = await listProjects(orgId);
-    return apiResponse(200, list);
+    // Get all projects for the org
+    const allProjects = await listProjects(orgId);
+
+    // Get user's explicit project assignments
+    const assignedProjectIds = userId ? await getAccessibleProjectIds(userId) : [];
+    const assignedSet = new Set(assignedProjectIds);
+
+    // Filter projects with the following rules:
+    // 1. LEGACY projects (no createdBy) → always visible to all org members
+    // 2. NEW projects (with createdBy) → visible ONLY if user has explicit assignment
+    //    (creator is auto-assigned on project creation, so createdBy check is not needed)
+    const visibleProjects = allProjects.filter((project) => {
+      // Legacy project (created before assignment feature) - always visible
+      if (!project.createdBy) {
+        return true;
+      }
+
+      // New project - check explicit assignment only
+      return assignedSet.has(project.id);
+    });
+
+    return apiResponse(200, visibleProjects);
   } catch (err) {
     console.error('Error in projects handler:', err);
     return apiResponse(500, {

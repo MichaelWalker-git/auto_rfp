@@ -3,7 +3,9 @@
 import { use } from 'react';
 import { ProjectContactSettings } from '@/components/projects/ProjectContactSettings';
 import { ProjectKBSettings } from '@/components/projects/ProjectKBSettings';
+import { ProjectAccessManager } from '@/components/projects/ProjectAccessManager';
 import { useCurrentOrganization } from '@/context/organization-context';
+import { useProjectContext } from '@/context/project-context';
 
 interface ProjectSettingsPageProps {
   params: Promise<{ orgId: string; projectId: string }>;
@@ -12,6 +14,7 @@ interface ProjectSettingsPageProps {
 export default function ProjectSettingsPage({ params }: ProjectSettingsPageProps) {
   const { orgId, projectId } = use(params);
   const { currentOrganization } = useCurrentOrganization();
+  const { currentProject } = useProjectContext();
   const resolvedOrgId = orgId ?? currentOrganization?.id ?? '';
 
   return (
@@ -25,6 +28,11 @@ export default function ProjectSettingsPage({ params }: ProjectSettingsPageProps
 
       {resolvedOrgId && (
         <>
+          <ProjectAccessManager
+            orgId={resolvedOrgId}
+            projectId={projectId}
+            projectCreatorId={currentProject?.createdBy}
+          />
           <ProjectContactSettings projectId={projectId} orgId={resolvedOrgId} />
           <ProjectKBSettings projectId={projectId} orgId={resolvedOrgId} />
         </>

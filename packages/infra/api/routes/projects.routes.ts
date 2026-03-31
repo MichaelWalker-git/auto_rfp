@@ -17,6 +17,13 @@ export function projectsDomain(): DomainRoutes {
       { method: 'GET', path: 'get-project-kbs', entry: lambdaEntry('project/get-project-kbs.ts') },
       { method: 'POST', path: 'link-kb', entry: lambdaEntry('project/link-kb.ts') },
       { method: 'DELETE', path: 'unlink-kb', entry: lambdaEntry('project/unlink-kb.ts') },
+
+      // Project ↔ User access management
+      { method: 'POST', path: 'access/assign', entry: lambdaEntry('project/assign-project-access.ts') },
+      { method: 'POST', path: 'access/revoke', entry: lambdaEntry('project/revoke-project-access.ts') },
+      { method: 'POST', path: 'access/grant-admins', entry: lambdaEntry('project/grant-admin-access.ts') },
+      { method: 'GET', path: 'access/users', entry: lambdaEntry('project/get-project-access-users.ts') },
+      { method: 'GET', path: 'access/my-projects', entry: lambdaEntry('project/get-user-project-access.ts') },
     ],
   };
 }
