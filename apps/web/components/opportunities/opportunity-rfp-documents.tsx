@@ -2,6 +2,7 @@
 
 import React, { useCallback, useMemo, useState } from 'react';
 import {
+  Download,
   FileDown,
   FileText,
   FolderOpen,
@@ -38,6 +39,7 @@ import {
 import { RFPDocumentUploadDialog } from '@/components/rfp-documents/rfp-document-upload-dialog';
 import { RFPDocumentPreviewDialog } from '@/components/rfp-documents/rfp-document-preview-dialog';
 import { RFPDocumentExportDialog } from '@/components/rfp-documents/rfp-document-export-dialog';
+import { ExportAllDialog } from '@/components/rfp-documents/export-all-dialog';
 import { GoogleDriveSyncButton } from '@/components/rfp-documents/google-drive-sync-button';
 import { GenerateDocumentDialog } from '@/components/rfp-documents/generate-document-dialog';
 import { getDocumentTypeStyle } from '@/components/rfp-documents/rfp-document-utils';
@@ -98,6 +100,7 @@ export function OpportunityRFPDocuments() {
 
   const [selectedType, setSelectedType] = useState<string>('ALL');
   const [uploadDialogOpen, setUploadDialogOpen] = useState(false);
+  const [exportAllDialogOpen, setExportAllDialogOpen] = useState(false);
   const [previewDoc, setPreviewDoc] = useState<RFPDocumentItem | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [exportDoc, setExportDoc] = useState<RFPDocumentItem | null>(null);
@@ -106,6 +109,17 @@ export function OpportunityRFPDocuments() {
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
   const [previewLoading, setPreviewLoading] = useState(false);
   const { confirm, ConfirmDialog } = useConfirmDialog();
+
+  // Determine if there are exportable documents (those with content, not generating)
+  const hasExportableDocuments = useMemo(
+    () =>
+      documents.some(
+        (doc) =>
+          doc.status !== 'GENERATING' &&
+          (doc.htmlContentKey || doc.content),
+      ),
+    [documents],
+  );
 
   const handlePreview = useCallback(async (doc: RFPDocumentItem) => {
     try {
@@ -235,6 +249,22 @@ export function OpportunityRFPDocuments() {
             </CardDescription>
           </div>
           <div className="flex items-center gap-2">
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => setExportAllDialogOpen(true)}
+              disabled={!hasExportableDocuments || documents.length === 0}
+              title={
+                documents.length === 0
+                  ? 'No documents to export'
+                  : !hasExportableDocuments
+                    ? 'No documents with generated content to export'
+                    : 'Export all documents as a ZIP bundle'
+              }
+            >
+              <Download className="h-4 w-4 mr-2" />
+              Export All
+            </Button>
             <Button
               size="sm"
               variant="outline"
@@ -435,6 +465,14 @@ export function OpportunityRFPDocuments() {
         onOpenChange={(open) => { if (!open) setExportDoc(null); }}
         document={exportDoc}
         orgId={orgId}
+      />
+      <ExportAllDialog
+        open={exportAllDialogOpen}
+        onOpenChange={setExportAllDialogOpen}
+        projectId={projectId}
+        orgId={orgId}
+        opportunityId={oppId}
+        documentCount={documents.filter((d) => d.status !== 'GENERATING' && (d.htmlContentKey || d.content)).length}
       />
       <ConfirmDialog />
     </>

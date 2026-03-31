@@ -23,6 +23,7 @@ export const AuditActionSchema = z.enum([
   'DOCUMENT_UPLOADED',
   'DOCUMENT_DELETED',
   'DOCUMENT_EXPORTED',
+  'DOCUMENTS_BULK_EXPORTED',
   'DOCUMENT_VIEWED',
   'DOCUMENT_UPDATED',
   // Document version actions
