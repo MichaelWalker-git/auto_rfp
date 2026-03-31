@@ -165,7 +165,7 @@ export function QuestionsProvider({ children, projectId, opportunityId }: Questi
   const [approvingAll, setApprovingAll] = useState(false);
 
   const { data: project, isLoading: isProjectLoading } = useProject(projectId);
-  const { data: questionsData, isLoading: isQuestionsLoading, mutate: mutateQuestions } = useLoadQuestions(projectId);
+  const { data: questionsData, isLoading: isQuestionsLoading, mutate: mutateQuestions } = useLoadQuestions(projectId, opportunityId);
   const { items: questionFiles, isLoading: isQuestionFilesLoading } = useQuestionFiles(projectId);
   const { trigger: saveAnswer } = useSaveAnswer(projectId);
   const { trigger: approveAnswer } = useApproveAnswer(projectId);
