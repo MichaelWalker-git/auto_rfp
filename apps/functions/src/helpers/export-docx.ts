@@ -519,20 +519,23 @@ const buildManualDocxToc = (htmlBeforeToc: string, htmlAfterToc: string): Paragr
   const contentStartPage = tocStartPage + 1; // TOC occupies ~1 page
   const pageNumbers = estimateHeadingPages(htmlAfterToc, contentStartPage);
 
-  // Helper to build a single TOC entry paragraph.
-  // Uses a right-aligned tab with dot leader for the "Heading ....... Page" pattern.
-  // Tab position is at 6.5" (9360 twips) = letter page width minus 1" margins each side.
-  const TAB_POS = 9360;
+  // Build TOC entry with visible dot leaders using actual characters.
+  // Word's leader="dot" tab stops only render in MS Word — Apple Pages,
+  // Google Docs, and LibreOffice ignore them. Using real dot characters
+  // ensures universal compatibility across all DOCX viewers.
+  const MAX_LINE_CHARS = 70; // approximate chars that fit on one line
 
-  const tocEntryParagraph = (text: string, pageNum: number, indent: number, bold: boolean): Paragraph =>
-    new Paragraph({
+  const tocEntryParagraph = (text: string, pageNum: number, indentLevel: number, bold: boolean): Paragraph => {
+    const indent = indentLevel * 360; // 0.25" per level in twips
+    const pageStr = String(pageNum);
+    // Fewer chars available at deeper indent levels
+    const availableChars = MAX_LINE_CHARS - (indentLevel * 3);
+    const dotsNeeded = Math.max(3, availableChars - text.length - pageStr.length - 2);
+    const dots = ' ' + '.'.repeat(dotsNeeded) + ' ';
+
+    return new Paragraph({
       spacing: { before: bold ? 100 : 40, after: bold ? 40 : 20, line: 276 },
       indent: indent > 0 ? { left: indent } : undefined,
-      tabStops: [{
-        type: 'right' as const,
-        position: TAB_POS - indent,
-        leader: 'dot' as const,
-      }],
       children: [
         new TextRun({
           text,
@@ -541,23 +544,17 @@ const buildManualDocxToc = (htmlBeforeToc: string, htmlAfterToc: string): Paragr
           color: COLORS.body,
           font: FONT_FAMILY,
         }),
-        new TextRun({ children: [new Tab()], font: FONT_FAMILY, size: FONT_SIZES.body }),
-        new TextRun({ text: String(pageNum), size: FONT_SIZES.body, color: COLORS.body, font: FONT_FAMILY }),
+        new TextRun({ text: dots, size: FONT_SIZES.body, color: COLORS.muted, font: FONT_FAMILY }),
+        new TextRun({ text: pageStr, size: FONT_SIZES.body, color: COLORS.body, font: FONT_FAMILY }),
       ],
     });
-
-  // TOC self-entry: the user's heading title before the TOC placeholder
-  const tocTitle = extractTocTitle(htmlBeforeToc);
-  if (tocTitle) {
-    elements.push(tocEntryParagraph(tocTitle, tocStartPage, 0, true));
-  }
+  };
 
   for (let i = 0; i < headings.length; i++) {
     const h = headings[i];
-    const indent = (h.level - minLevel) * 360; // 0.25" per level
     const isTopLevel = h.level === minLevel;
     const pageNum = pageNumbers[i] ?? contentStartPage;
-    elements.push(tocEntryParagraph(h.text, pageNum, indent, isTopLevel));
+    elements.push(tocEntryParagraph(h.text, pageNum, h.level - minLevel, isTopLevel));
   }
 
   // Spacing after TOC
