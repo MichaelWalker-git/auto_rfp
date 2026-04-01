@@ -1,11 +1,12 @@
 import type { APIGatewayProxyResultV2 } from 'aws-lambda';
 import middy from '@middy/core';
-import { z } from 'zod';
 
 import { withSentryLambda } from '@/sentry-lambda';
 import { apiResponse, getOrgId, getUserId } from '@/helpers/api';
 import { getOpportunity, updateOpportunity } from '@/helpers/opportunity';
-import { getUserProjectAccessRecord, getProjectAccessUsers } from '@/helpers/user-project';
+import { AssignOpportunityDTOSchema } from '@auto-rfp/core';
+import { getUserProjectAccessRecord } from '@/helpers/user-project';
+import { getProjectById } from '@/helpers/project';
 import { getUserByOrgAndId } from '@/helpers/user';
 import { sendNotification, buildNotification } from '@/helpers/send-notification';
 import { resolveUserNames } from '@/helpers/resolve-users';
@@ -18,14 +19,6 @@ import {
 } from '@/middleware/rbac-middleware';
 import { auditMiddleware, setAuditContext } from '@/middleware/audit-middleware';
 
-// Local schema until core package is rebuilt
-const AssignOpportunityBodySchema = z.object({
-  orgId:      z.string().min(1),
-  projectId:  z.string().min(1),
-  oppId:      z.string().min(1),
-  assigneeId: z.string().min(1).nullable(),
-});
-
 /**
  * Assign (or unassign) an opportunity to a user.
  * POST /opportunity/assign
@@ -37,7 +30,7 @@ const AssignOpportunityBodySchema = z.object({
  */
 export const baseHandler = async (event: AuthedEvent): Promise<APIGatewayProxyResultV2> => {
   const raw = JSON.parse(event.body ?? '{}') as unknown;
-  const { success, data, error } = AssignOpportunityBodySchema.safeParse(raw);
+  const { success, data, error } = AssignOpportunityDTOSchema.safeParse(raw);
   if (!success) {
     return apiResponse(400, { message: 'Invalid payload', issues: error.issues });
   }
@@ -63,10 +56,10 @@ export const baseHandler = async (event: AuthedEvent): Promise<APIGatewayProxyRe
   let assigneeEmail: string | null = null;
 
   if (assigneeId) {
-    // Check if this is a legacy project (no explicit access records)
-    // For legacy projects, all org users have implicit access
-    const projectAccessUsers = await getProjectAccessUsers(projectId);
-    const isLegacyProject = projectAccessUsers.length === 0;
+    // Check if this is a legacy project (no createdBy field)
+    // Legacy projects don't have explicit access records - all org users have implicit access
+    const project = await getProjectById(projectId);
+    const isLegacyProject = !project?.createdBy;
 
     if (!isLegacyProject) {
       // For projects with explicit access, verify assignee has access

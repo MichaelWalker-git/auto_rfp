@@ -152,7 +152,7 @@ const OpportunityContent = ({ className }: { className?: string }) => {
           </Link>
         </Button>
         
-        {orgId && (
+        {orgId && projectId && oppId && (
           <AssigneeSelector
             orgId={orgId}
             projectId={projectId}

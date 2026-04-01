@@ -1,5 +1,6 @@
 import { apiResponse, getOrgId } from '@/helpers/api';
 import { getProjectAccessUsers } from '@/helpers/user-project';
+import { getProjectById } from '@/helpers/project';
 import { withSentryLambda } from '@/sentry-lambda';
 import {
   authContextMiddleware,
@@ -20,6 +21,15 @@ export const baseHandler = async (event: APIGatewayProxyEventV2): Promise<APIGat
   }
 
   try {
+    // Verify project exists and belongs to the requesting org
+    const project = await getProjectById(projectId);
+    if (!project) {
+      return apiResponse(404, { message: 'Project not found' });
+    }
+    if (project.orgId !== orgId) {
+      return apiResponse(403, { message: 'Access denied to this project' });
+    }
+
     const users = await getProjectAccessUsers(projectId);
     return apiResponse(200, { users, projectId });
   } catch (err) {
@@ -33,7 +43,7 @@ export const baseHandler = async (event: APIGatewayProxyEventV2): Promise<APIGat
     });
     return apiResponse(500, { 
       message: 'Failed to get project access users',
-      errorType: error.name,
+
     });
   }
 };
