@@ -52,10 +52,13 @@ export const baseHandler = async (event: AuthedEvent): Promise<APIGatewayProxyRe
   const { orgId, projectId, oppId, force } = data;
 
   // Fetch the opportunity
-  const opportunity = await getOpportunity({ orgId, projectId, oppId });
-  if (!opportunity) {
+  const result = await getOpportunity({ orgId, projectId, oppId });
+  if (!result) {
     return apiResponse(404, { message: 'Opportunity not found' });
   }
+
+  // Merge orgId/projectId/oppId into the item (they live in the SK, not as top-level fields)
+  const opportunity = { ...result.item, orgId, projectId, oppId };
 
   // Idempotency check: reject if already emitted (unless force=true)
   const existingEmit = (opportunity as Record<string, unknown>).eventBridgeEmittedAt;
@@ -80,9 +83,10 @@ export const baseHandler = async (event: AuthedEvent): Promise<APIGatewayProxyRe
       fileSize: qf.fileSize,
     }));
 
-  // Build the event payload
+  // Build the event payload — strip DynamoDB internal keys
+  const { partition_key: _pk, sort_key: _sk, ...cleanOpportunity } = opportunity as Record<string, unknown>;
   const eventDetail = {
-    opportunity,
+    opportunity: cleanOpportunity,
     attachments,
     metadata: {
       emittedAt: nowIso(),
