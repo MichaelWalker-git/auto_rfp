@@ -16,7 +16,6 @@ import {
   OpportunityDescription,
   useOpportunityHeaderActions,
 } from './opportunity-header/';
-import { AssigneeSelector } from './AssigneeSelector';
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
@@ -132,18 +131,6 @@ export const OpportunityHeader = () => {
                     Executive Brief
                   </Link>
                 </Button>
-                {projectId && oppId && (
-                  <AssigneeSelector
-                    orgId={orgId}
-                    projectId={projectId}
-                    oppId={oppId}
-                    currentAssigneeId={(opportunity as Record<string, unknown>)['assigneeId'] as string | undefined}
-                    currentAssigneeName={(opportunity as Record<string, unknown>)['assigneeName'] as string | undefined}
-                    onAssigned={refetch}
-                    showLabel
-                    size="sm"
-                  />
-                )}
                 <Button variant="outline" size="sm" onClick={() => setIsEditing(true)}>
                   <Pencil className="h-4 w-4 mr-2" />
                   Edit

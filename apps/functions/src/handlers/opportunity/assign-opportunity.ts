@@ -5,7 +5,7 @@ import { z } from 'zod';
 import { withSentryLambda } from '@/sentry-lambda';
 import { apiResponse, getOrgId, getUserId } from '@/helpers/api';
 import { getOpportunity, updateOpportunity } from '@/helpers/opportunity';
-import { getUserProjectAccessRecord } from '@/helpers/user-project';
+import { getUserProjectAccessRecord, getProjectAccessUsers } from '@/helpers/user-project';
 import { getUserByOrgAndId } from '@/helpers/user';
 import { sendNotification, buildNotification } from '@/helpers/send-notification';
 import { resolveUserNames } from '@/helpers/resolve-users';
@@ -63,12 +63,21 @@ export const baseHandler = async (event: AuthedEvent): Promise<APIGatewayProxyRe
   let assigneeEmail: string | null = null;
 
   if (assigneeId) {
-    const accessRecord = await getUserProjectAccessRecord(assigneeId, projectId);
-    if (!accessRecord.hasAccess) {
-      return apiResponse(400, {
-        message: 'Assignee does not have access to this project',
-      });
+    // Check if this is a legacy project (no explicit access records)
+    // For legacy projects, all org users have implicit access
+    const projectAccessUsers = await getProjectAccessUsers(projectId);
+    const isLegacyProject = projectAccessUsers.length === 0;
+
+    if (!isLegacyProject) {
+      // For projects with explicit access, verify assignee has access
+      const accessRecord = await getUserProjectAccessRecord(assigneeId, projectId);
+      if (!accessRecord.hasAccess) {
+        return apiResponse(400, {
+          message: 'Assignee does not have access to this project',
+        });
+      }
     }
+    // For legacy projects, skip access check - all org users are valid assignees
 
     // Get assignee details for notification and storage
     const assigneeUser = await getUserByOrgAndId(orgId, assigneeId);
