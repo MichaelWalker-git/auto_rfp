@@ -1,19 +1,24 @@
 'use client';
 
-import React, { use } from 'react';
+import React, { use, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { ArrowLeft, FolderPlus, Rocket, User, Mail, Phone, Briefcase } from 'lucide-react';
+import { ArrowLeft, FolderPlus, Rocket, User, Mail, Phone, Briefcase, Users, Info, X } from 'lucide-react';
 import { CreateProjectSchema } from '@auto-rfp/core';
 import type { z } from 'zod';
+import type { UserListItem } from '@auto-rfp/core';
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Separator } from '@/components/ui/separator';
+import { Badge } from '@/components/ui/badge';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Skeleton } from '@/components/ui/skeleton';
 import {
   Form,
   FormControl,
@@ -26,6 +31,9 @@ import {
 import { useToast } from '@/components/ui/use-toast';
 import { Spinner } from '@/components/ui/spinner';
 import { useCreateProject } from '@/lib/hooks/use-create-project';
+import { useUsersList } from '@/lib/hooks/use-user';
+import { useAssignProjectAccess } from '@/lib/hooks/use-project-access';
+import { useAuth } from '@/components/AuthProvider';
 
 // ─── Types ───
 
@@ -42,6 +50,18 @@ export default function CreateProjectPage({ params }: CreateProjectPageProps) {
   const { toast } = useToast();
   const router = useRouter();
   const { createProject } = useCreateProject();
+  const { assign } = useAssignProjectAccess();
+  const { userSub: currentUserId } = useAuth();
+
+  // Fetch org users for team selection
+  const { data: usersListResponse, isLoading: loadingUsers } = useUsersList(orgId, { limit: 200 });
+  const orgUsers: UserListItem[] = usersListResponse?.items ?? [];
+  
+  // Filter out current user from selection (they get access automatically as creator)
+  const selectableUsers = orgUsers.filter((u) => u.userId !== currentUserId);
+  
+  // Track selected users to grant access
+  const [selectedUserIds, setSelectedUserIds] = useState<Set<string>>(new Set());
 
   const projectsUrl = `/organizations/${orgId}/projects`;
 
@@ -74,9 +94,31 @@ export default function CreateProjectPage({ params }: CreateProjectPageProps) {
       });
 
       if (response.id) {
+        // Grant access to selected team members (in parallel, non-blocking for navigation)
+        if (selectedUserIds.size > 0) {
+          const assignPromises = Array.from(selectedUserIds).map((userId) =>
+            assign({ orgId, userId, projectId: response.id }).catch((err) => {
+              console.warn(`Failed to assign user ${userId} to project:`, err);
+              return null; // Don't fail the whole operation
+            }),
+          );
+          // Fire and forget - don't block navigation
+          Promise.all(assignPromises).then((results) => {
+            const successCount = results.filter(Boolean).length;
+            if (successCount > 0 && successCount < selectedUserIds.size) {
+              toast({
+                title: 'Partial Success',
+                description: `Project created. ${successCount} of ${selectedUserIds.size} team members were added.`,
+              });
+            }
+          });
+        }
+
         toast({
           title: 'Project created',
-          description: `"${response.name}" is ready. Let's get started!`,
+          description: selectedUserIds.size > 0
+            ? `"${response.name}" is ready. Adding ${selectedUserIds.size} team member(s)...`
+            : `"${response.name}" is ready. Let's get started!`,
         });
         router.push(`/organizations/${orgId}/projects/${response.id}/dashboard`);
       } else {
@@ -168,6 +210,119 @@ export default function CreateProjectPage({ params }: CreateProjectPageProps) {
                   </FormItem>
                 )}
               />
+            </CardContent>
+          </Card>
+
+          {/* Team Access Card */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Users className="h-5 w-5 text-muted-foreground" />
+                Team Access
+              </CardTitle>
+              <CardDescription>
+                Choose who can access this project
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {/* Info Alert */}
+              <Alert className="bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800">
+                <Info className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+                <AlertDescription className="text-blue-700 dark:text-blue-300">
+                  This project will only be visible to you by default. You can add team members now or later from project settings.
+                </AlertDescription>
+              </Alert>
+
+              {/* Selected Users Display */}
+              {selectedUserIds.size > 0 && (
+                <div className="space-y-2">
+                  <div className="text-sm font-medium">
+                    Team members to add ({selectedUserIds.size}):
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    {Array.from(selectedUserIds).map((userId) => {
+                      const user = orgUsers.find((u) => u.userId === userId);
+                      if (!user) return null;
+                      return (
+                        <Badge
+                          key={userId}
+                          variant="secondary"
+                          className="flex items-center gap-1 pr-1"
+                        >
+                          {user.displayName || user.email}
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const next = new Set(selectedUserIds);
+                              next.delete(userId);
+                              setSelectedUserIds(next);
+                            }}
+                            className="ml-1 rounded-full p-0.5 hover:bg-muted-foreground/20"
+                            aria-label={`Remove ${user.displayName || user.email}`}
+                          >
+                            <X className="h-3 w-3" />
+                          </button>
+                        </Badge>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* User Selection */}
+              <div className="space-y-2">
+                <div className="text-sm font-medium">Add team members (optional):</div>
+                {loadingUsers ? (
+                  <div className="space-y-2">
+                    <Skeleton className="h-8 w-full" />
+                    <Skeleton className="h-8 w-full" />
+                  </div>
+                ) : selectableUsers.length === 0 ? (
+                  <p className="text-sm text-muted-foreground py-2">
+                    No other users in this organization yet.
+                  </p>
+                ) : (
+                  <div className="max-h-48 overflow-y-auto border rounded-lg divide-y">
+                    {selectableUsers.map((user) => {
+                      const isSelected = selectedUserIds.has(user.userId);
+                      return (
+                        <label
+                          key={user.userId}
+                          className="flex items-center gap-3 p-3 hover:bg-accent/50 cursor-pointer"
+                        >
+                          <Checkbox
+                            checked={isSelected}
+                            onCheckedChange={(checked) => {
+                              const next = new Set(selectedUserIds);
+                              if (checked) {
+                                next.add(user.userId);
+                              } else {
+                                next.delete(user.userId);
+                              }
+                              setSelectedUserIds(next);
+                            }}
+                          />
+                          <div className="flex-1 min-w-0">
+                            <div className="font-medium text-sm truncate">
+                              {user.displayName || user.email}
+                              {user.role === 'ADMIN' && (
+                                <Badge variant="outline" className="ml-2 text-xs">
+                                  Admin
+                                </Badge>
+                              )}
+                            </div>
+                            {user.displayName && (
+                              <div className="text-xs text-muted-foreground truncate">
+                                {user.email}
+                              </div>
+                            )}
+                          </div>
+                        </label>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
             </CardContent>
           </Card>
 
