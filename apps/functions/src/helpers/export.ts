@@ -288,11 +288,9 @@ export const expandTableOfContents = (html: string): string => {
       '<p style="color:#9ca3af;font-style:italic;font-size:12px;">No headings found.</p>' +
       '</div>';
   } else {
-    // Estimate which page the TOC itself starts on by measuring content before it.
-    // The TOC occupies ~1 page worth of space, and content after it starts on the next page.
-    const tocStartPage = Math.max(1, estimateHeadingPages(
-      beforeToc + '<h1>TOC</h1>', 1,
-    )[0] ?? 1);
+    // Estimate which page the TOC starts on by measuring content volume before it.
+    const beforeTocText = beforeToc.replace(/<[^>]+>/g, '').replace(/&nbsp;/g, ' ').replace(/\s+/g, ' ').trim();
+    const tocStartPage = Math.max(1, Math.floor(beforeTocText.length / 3000) + 1);
 
     // Content headings start after the TOC page(s).
     // Estimate TOC takes ~1 page, so content starts on tocStartPage + 1.
