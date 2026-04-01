@@ -17,7 +17,6 @@ import {
   PageBreak,
   Paragraph,
   ShadingType,
-  Tab,
   Table,
   TableCell,
   TableRow,
@@ -742,44 +741,47 @@ const parseHtmlBlocksToDocx = async (
         continue;
       }
 
-      // ── TOC div: parse each toc-entry into a paragraph ──
-      // Uses right-aligned tab for page number alignment + character dots
-      // for universal viewer compatibility (Apple Pages ignores tab leaders).
-      if (match[0]?.includes('data-table-of-contents') || match[0]?.includes('toc-entry')) {
-        const RIGHT_TAB = 9360; // 6.5" in twips
-
-        const entryRe = /<div[^>]*class="[^"]*toc-entry[^"]*"[^>]*style="[^"]*padding-left:\s*(\d+)px[^"]*"[^>]*>[\s\S]*?<a[^>]*>([^<]*)<\/a>[\s\S]*?<span[^>]*class="toc-page"[^>]*>(\d+)<\/span>[\s\S]*?<\/div>/gi;
+      // ── TOC div: extract entries via data attributes and build DOCX paragraphs ──
+      // Each toc-entry has data-toc-text, data-toc-level, data-toc-pagenum attributes
+      // set by expandTableOfContents — same data that produces the correct PDF TOC.
+      if (match[0]?.includes('data-table-of-contents') || match[0]?.includes('data-toc-text')) {
+        const entryRe = /data-toc-text="([^"]*)"[^>]*data-toc-level="(\d+)"[^>]*data-toc-pagenum="(\d+)"/gi;
         let entry: RegExpExecArray | null;
-        while ((entry = entryRe.exec(match[0])) !== null) {
-          const indentPx = parseInt(entry[1], 10) || 0;
-          const headingText = entry[2].replace(/&#x27;/g, "'").replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"');
-          const pageNum = entry[3];
-          const indentTwips = Math.round(indentPx * 15);
-          const isTopLevel = indentPx === 0;
+        const tocMinLevel = { value: 9 }; // track min level for indent calc
 
-          // Character dots for Apple Pages compatibility
-          const indentChars = Math.round(indentPx / 5);
-          const dotsCount = Math.max(3, 85 - headingText.length - pageNum.length - indentChars);
+        // First pass: find min level
+        const entries: { text: string; level: number; pageNum: string }[] = [];
+        while ((entry = entryRe.exec(match[0])) !== null) {
+          const text = entry[1].replace(/&#x27;/g, "'").replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"');
+          const level = parseInt(entry[2], 10);
+          if (level < tocMinLevel.value) tocMinLevel.value = level;
+          entries.push({ text, level, pageNum: entry[3] });
+        }
+
+        for (const e of entries) {
+          const indentLevel = e.level - tocMinLevel.value;
+          const indentTwips = indentLevel * 360; // 0.25" per level
+          const isTopLevel = indentLevel === 0;
+
+          // Character dots fill the space between text and page number.
+          // Using real characters ensures visibility in Apple Pages, Google Docs, etc.
+          const indentChars = indentLevel * 4;
+          const dotsCount = Math.max(3, 90 - e.text.length - e.pageNum.length - indentChars);
           const dots = ' ' + '.'.repeat(dotsCount) + ' ';
 
           children.push(new Paragraph({
             spacing: { before: isTopLevel ? 80 : 20, after: 20, line: 276 },
             indent: indentTwips > 0 ? { left: indentTwips } : undefined,
-            tabStops: [{
-              type: 'right' as const,
-              position: RIGHT_TAB - indentTwips,
-            }],
             children: [
               new TextRun({
-                text: headingText,
+                text: e.text,
                 bold: isTopLevel || undefined,
                 size: FONT_SIZES.body,
                 color: COLORS.body,
                 font: FONT_FAMILY,
               }),
-              new TextRun({ text: dots, size: FONT_SIZES.body, color: COLORS.muted, font: FONT_FAMILY }),
-              new TextRun({ children: [new Tab()], font: FONT_FAMILY, size: FONT_SIZES.body }),
-              new TextRun({ text: pageNum, size: FONT_SIZES.body, color: COLORS.body, font: FONT_FAMILY }),
+              new TextRun({ text: dots, size: FONT_SIZES.small, color: COLORS.muted, font: FONT_FAMILY }),
+              new TextRun({ text: e.pageNum, size: FONT_SIZES.body, color: COLORS.body, font: FONT_FAMILY }),
             ],
           }));
         }

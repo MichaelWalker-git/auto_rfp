@@ -304,7 +304,7 @@ export const expandTableOfContents = (html: string): string => {
       const color = level <= minLevel ? '#111827' : level <= minLevel + 1 ? '#374151' : '#6b7280';
 
       return (
-        `<div class="toc-entry toc-level-${level}" style="padding-left:${indent}px;margin:0;display:flex;align-items:baseline;line-height:1.9;">` +
+        `<div class="toc-entry toc-level-${level}" data-toc-text="${escapeHtmlForToc(text)}" data-toc-level="${level}" data-toc-pagenum="${pageNum}" style="padding-left:${indent}px;margin:0;display:flex;align-items:baseline;line-height:1.9;">` +
         `<a href="#${id}" style="font-size:${fontSize};font-weight:${fontWeight};color:${color};text-decoration:none;white-space:nowrap;">${escapeHtmlForToc(text)}</a>` +
         `<span style="flex:1;border-bottom:1px dotted #d1d5db;min-width:20px;margin:0 6px 3px;"></span>` +
         `<span class="toc-page" data-toc-page="${id}" style="font-size:${fontSize};color:${color};white-space:nowrap;min-width:12px;text-align:right;">${pageNum}</span>` +
