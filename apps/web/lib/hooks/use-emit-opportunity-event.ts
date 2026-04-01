@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { apiMutate } from '@/lib/api';
+import { apiMutate, buildApiUrl } from '@/lib/hooks/api-helpers';
 
 interface EmitResult {
   message: string;
@@ -17,11 +17,9 @@ export const useEmitOpportunityEvent = () => {
     setIsEmitting(true);
     setEmitError(null);
     try {
-      const res = await apiMutate('/opportunity/emit-event', {
-        method: 'POST',
-        body: { orgId, projectId, oppId, force },
-      });
-      return res as EmitResult;
+      const url = buildApiUrl('/opportunity/emit-event');
+      const res = await apiMutate<EmitResult>(url, 'POST', { orgId, projectId, oppId, force });
+      return res;
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Failed to emit event';
       setEmitError(msg);
