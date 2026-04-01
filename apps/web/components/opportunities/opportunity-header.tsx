@@ -155,8 +155,7 @@ export const OpportunityHeader = () => {
                     size="sm"
                   />
                 )}
-                {isGoDecision && (
-                  <Button
+                <Button
                     variant={isAlreadyEmitted ? 'ghost' : 'outline'}
                     size="sm"
                     onClick={handleEmitEvent}
@@ -165,8 +164,7 @@ export const OpportunityHeader = () => {
                   >
                     {isEmitting ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Send className="h-4 w-4 mr-2" />}
                     {isAlreadyEmitted ? 'Event Sent' : 'Send Event'}
-                  </Button>
-                )}
+                </Button>
                 <Button variant="outline" size="sm" onClick={() => setIsEditing(true)}>
                   <Pencil className="h-4 w-4 mr-2" />
                   Edit
