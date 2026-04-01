@@ -17,6 +17,7 @@ import {
   PageBreak,
   Paragraph,
   ShadingType,
+  Tab,
   Table,
   TableCell,
   TableRow,
@@ -758,21 +759,29 @@ const parseHtmlBlocksToDocx = async (
           entries.push({ text, level, pageNum: entry[3] });
         }
 
+        // Right tab at 6.5" (9360 twips) = right margin for letter page
+        const RIGHT_TAB = 9360;
+
         for (const e of entries) {
           const indentLevel = e.level - tocMinLevel.value;
           const indentTwips = indentLevel * 360; // 0.25" per level
           const isTopLevel = indentLevel === 0;
 
-          // Character dots fill the space between text and page number.
-          // Using real characters ensures visibility in Apple Pages, Google Docs, etc.
-          const indentChars = indentLevel * 4;
-          const dotsCount = Math.max(3, 90 - e.text.length - e.pageNum.length - indentChars);
+          // Layout: "Heading text" [dots in monospace] [TAB→right] "page#"
+          // Dots use Courier New (monospace) so each dot is equal width,
+          // filling the gap uniformly. Tab pushes page number to right margin.
+          const dotsCount = Math.max(3, 50 - Math.floor(e.text.length * 0.6) - indentLevel * 2);
           const dots = ' ' + '.'.repeat(dotsCount) + ' ';
 
           children.push(new Paragraph({
             spacing: { before: isTopLevel ? 80 : 20, after: 20, line: 276 },
             indent: indentTwips > 0 ? { left: indentTwips } : undefined,
+            tabStops: [{
+              type: 'right' as const,
+              position: RIGHT_TAB - indentTwips,
+            }],
             children: [
+              // Left: heading text
               new TextRun({
                 text: e.text,
                 bold: isTopLevel || undefined,
@@ -780,7 +789,11 @@ const parseHtmlBlocksToDocx = async (
                 color: COLORS.body,
                 font: FONT_FAMILY,
               }),
-              new TextRun({ text: dots, size: FONT_SIZES.small, color: COLORS.muted, font: FONT_FAMILY }),
+              // Middle: dot leader (monospace for uniform spacing)
+              new TextRun({ text: dots, size: 16, color: COLORS.muted, font: 'Courier New' }),
+              // Right-align tab: pushes page number to right margin
+              new TextRun({ children: [new Tab()], size: FONT_SIZES.body }),
+              // Right: page number
               new TextRun({ text: e.pageNum, size: FONT_SIZES.body, color: COLORS.body, font: FONT_FAMILY }),
             ],
           }));
