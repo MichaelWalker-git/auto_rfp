@@ -160,10 +160,10 @@ export const OpportunityHeader = () => {
                     size="sm"
                     onClick={handleEmitEvent}
                     disabled={isEmitting}
-                    title={isAlreadyEmitted ? `Emitted at ${(opportunity as Record<string, unknown>).eventBridgeEmittedAt}` : 'Send opportunity data to EventBridge'}
+                    title="Trigger POC development pipeline"
                   >
                     {isEmitting ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Send className="h-4 w-4 mr-2" />}
-                    {isAlreadyEmitted ? 'Event Sent' : 'Send Event'}
+                    Develop POC
                 </Button>
                 <Button variant="outline" size="sm" onClick={() => setIsEditing(true)}>
                   <Pencil className="h-4 w-4 mr-2" />
