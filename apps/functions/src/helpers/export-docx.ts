@@ -742,10 +742,11 @@ const parseHtmlBlocksToDocx = async (
         continue;
       }
 
-      // ── TOC div: parse each toc-entry into a paragraph with right-aligned page number ──
+      // ── TOC div: parse each toc-entry into a paragraph ──
+      // Uses right-aligned tab for page number alignment + character dots
+      // for universal viewer compatibility (Apple Pages ignores tab leaders).
       if (match[0]?.includes('data-table-of-contents') || match[0]?.includes('toc-entry')) {
-        // Right margin tab position: 6.5" = 9360 twips (letter: 8.5" - 2×1" margins)
-        const RIGHT_TAB = 9360;
+        const RIGHT_TAB = 9360; // 6.5" in twips
 
         const entryRe = /<div[^>]*class="[^"]*toc-entry[^"]*"[^>]*style="[^"]*padding-left:\s*(\d+)px[^"]*"[^>]*>[\s\S]*?<a[^>]*>([^<]*)<\/a>[\s\S]*?<span[^>]*class="toc-page"[^>]*>(\d+)<\/span>[\s\S]*?<\/div>/gi;
         let entry: RegExpExecArray | null;
@@ -753,8 +754,13 @@ const parseHtmlBlocksToDocx = async (
           const indentPx = parseInt(entry[1], 10) || 0;
           const headingText = entry[2].replace(/&#x27;/g, "'").replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"');
           const pageNum = entry[3];
-          const indentTwips = Math.round(indentPx * 15); // ~15 twips per px
+          const indentTwips = Math.round(indentPx * 15);
           const isTopLevel = indentPx === 0;
+
+          // Character dots for Apple Pages compatibility
+          const indentChars = Math.round(indentPx / 5);
+          const dotsCount = Math.max(3, 65 - headingText.length - pageNum.length - indentChars);
+          const dots = ' ' + '.'.repeat(dotsCount) + ' ';
 
           children.push(new Paragraph({
             spacing: { before: isTopLevel ? 80 : 20, after: 20, line: 276 },
@@ -762,7 +768,6 @@ const parseHtmlBlocksToDocx = async (
             tabStops: [{
               type: 'right' as const,
               position: RIGHT_TAB - indentTwips,
-              leader: 'dot' as const,
             }],
             children: [
               new TextRun({
@@ -772,6 +777,7 @@ const parseHtmlBlocksToDocx = async (
                 color: COLORS.body,
                 font: FONT_FAMILY,
               }),
+              new TextRun({ text: dots, size: FONT_SIZES.body, color: COLORS.muted, font: FONT_FAMILY }),
               new TextRun({ children: [new Tab()], font: FONT_FAMILY, size: FONT_SIZES.body }),
               new TextRun({ text: pageNum, size: FONT_SIZES.body, color: COLORS.body, font: FONT_FAMILY }),
             ],

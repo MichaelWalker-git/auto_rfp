@@ -283,8 +283,8 @@ export const expandTableOfContents = (html: string): string => {
       '</div>';
   } else {
     // Estimate which page the TOC starts on by measuring content before it.
-    // Count explicit page breaks (each forces a new page) plus content volume.
-    const pageBreakCount = (beforeToc.match(/data-page-break|page-break-node|break-after:\s*page|page-break-after:\s*always/gi) ?? []).length;
+    // Count explicit page break divs (data-page-break attribute) plus content volume.
+    const pageBreakCount = (beforeToc.match(/data-page-break="true"/gi) ?? []).length;
     const beforeTocText = beforeToc.replace(/<[^>]+>/g, '').replace(/&nbsp;/g, ' ').replace(/\s+/g, ' ').trim();
     const contentPages = Math.ceil(Math.max(beforeTocText.length, 1) / 3000);
     const tocStartPage = Math.max(1, pageBreakCount + contentPages);
