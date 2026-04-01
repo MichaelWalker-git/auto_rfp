@@ -205,10 +205,8 @@ export const baseHandler = async (
       }
 
       // ── DOCX: native docx library converts HTML to proper Word OOXML ──
-      // Pass the preprocessed HTML WITHOUT TOC expansion — the DOCX exporter
-      // detects the TOC placeholder and creates a native Word TOC field instead.
       case 'docx': {
-        exportBuffer = await htmlToDocxBuffer(preprocessedHtml, { title, pageSize });
+        exportBuffer = await htmlToDocxBuffer(html, { title, pageSize });
         break;
       }
 

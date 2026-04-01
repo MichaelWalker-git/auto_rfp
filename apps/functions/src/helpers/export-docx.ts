@@ -16,7 +16,6 @@ import {
   Packer,
   PageBreak,
   Paragraph,
-  Tab,
   ShadingType,
   Table,
   TableCell,
@@ -26,7 +25,8 @@ import {
   convertInchesToTwip,
 } from 'docx';
 import type { BuildExportHtmlOptions } from './export-html-builder';
-import { extractHeadingsFromHtml, extractTocTitle, estimateHeadingPages, findTocPlaceholderInHtml } from './export';
+// Note: extractHeadingsFromHtml, extractTocTitle, estimateHeadingPages, findTocPlaceholderInHtml
+// are no longer needed — DOCX now receives pre-expanded TOC HTML (same as PDF/HTML path).
 
 export interface HtmlToDocxOptions extends BuildExportHtmlOptions {
   /** Document creator metadata */
@@ -477,95 +477,6 @@ const parseTable = (tableHtml: string): Table | null => {
   });
 };
 
-// ─── Table of Contents ────────────────────────────────────────────────────────
-
-/** Twips helper: 1pt = 20 twips */
-const TW = (pt: number) => pt * 20;
-
-/**
- * Build a manual Table of Contents as plain styled paragraphs.
- *
- * Uses regular Paragraph elements (not Word field codes) so the TOC renders
- * correctly in ALL document viewers — Microsoft Word, Apple Pages, Google Docs,
- * LibreOffice, and preview apps. No "form components" or field update prompts.
- *
- * Each TOC entry is a paragraph with:
- * - Heading text (left-aligned)
- * - Dot leader tab stop
- * - Estimated page number (right-aligned)
- *
- * Page numbers are estimated using the shared `estimateHeadingPages` heuristic.
- * While not pixel-perfect, they provide a reasonable approximation.
- */
-const buildManualDocxToc = (htmlBeforeToc: string, htmlAfterToc: string): Paragraph[] => {
-  const headings = extractHeadingsFromHtml(htmlAfterToc);
-  const elements: Paragraph[] = [];
-
-  if (headings.length === 0) {
-    elements.push(new Paragraph({
-      spacing: { before: TW(4), after: TW(4) },
-      children: [new TextRun({ text: 'No headings found.', italics: true, size: FONT_SIZES.body, color: COLORS.muted, font: FONT_FAMILY })],
-    }));
-    return elements;
-  }
-
-  const minLevel = Math.min(...headings.map((h) => h.level));
-
-  // Estimate page numbers: first find what page the TOC starts on,
-  // then estimate heading pages starting after the TOC.
-  const tocStartPage = Math.max(1, estimateHeadingPages(
-    htmlBeforeToc + '<h1>X</h1>', 1,
-  )[0] ?? 1);
-  const contentStartPage = tocStartPage + 1; // TOC occupies ~1 page
-  const pageNumbers = estimateHeadingPages(htmlAfterToc, contentStartPage);
-
-  // Build TOC entry with visible dot leaders using actual characters.
-  // Word's leader="dot" tab stops only render in MS Word — Apple Pages,
-  // Google Docs, and LibreOffice ignore them. Using real dot characters
-  // ensures universal compatibility across all DOCX viewers.
-  const MAX_LINE_CHARS = 70; // approximate chars that fit on one line
-
-  const tocEntryParagraph = (text: string, pageNum: number, indentLevel: number, bold: boolean): Paragraph => {
-    const indent = indentLevel * 360; // 0.25" per level in twips
-    const pageStr = String(pageNum);
-    // Fewer chars available at deeper indent levels
-    const availableChars = MAX_LINE_CHARS - (indentLevel * 3);
-    const dotsNeeded = Math.max(3, availableChars - text.length - pageStr.length - 2);
-    const dots = ' ' + '.'.repeat(dotsNeeded) + ' ';
-
-    return new Paragraph({
-      spacing: { before: bold ? 100 : 40, after: bold ? 40 : 20, line: 276 },
-      indent: indent > 0 ? { left: indent } : undefined,
-      children: [
-        new TextRun({
-          text,
-          bold: bold || undefined,
-          size: FONT_SIZES.body,
-          color: COLORS.body,
-          font: FONT_FAMILY,
-        }),
-        new TextRun({ text: dots, size: FONT_SIZES.body, color: COLORS.muted, font: FONT_FAMILY }),
-        new TextRun({ text: pageStr, size: FONT_SIZES.body, color: COLORS.body, font: FONT_FAMILY }),
-      ],
-    });
-  };
-
-  for (let i = 0; i < headings.length; i++) {
-    const h = headings[i];
-    const isTopLevel = h.level === minLevel;
-    const pageNum = pageNumbers[i] ?? contentStartPage;
-    elements.push(tocEntryParagraph(h.text, pageNum, h.level - minLevel, isTopLevel));
-  }
-
-  // Spacing after TOC
-  elements.push(new Paragraph({
-    children: [new TextRun({ text: '', font: FONT_FAMILY, size: FONT_SIZES.body })],
-    spacing: { after: 200 },
-  }));
-
-  return elements;
-};
-
 // ─── Block-Level HTML Parser ──────────────────────────────────────────────────
 
 const HEADING_MAP: Record<string, typeof HeadingLevel[keyof typeof HeadingLevel]> = {
@@ -872,13 +783,9 @@ const parseHtmlBlocksToDocx = async (
  * Parse the full HTML body into an array of docx elements.
  * Async because image fetching requires network calls.
  *
- * Uses a two-phase approach for reliable TOC handling:
- * 1. Pre-detect the TOC placeholder using a dedicated regex (same as PDF export)
- * 2. Split HTML at the TOC position and parse each segment separately
- * 3. Build the TOC entries between the before/after segments
- *
- * This avoids the fragility of detecting the TOC inside the generic block regex,
- * which can fail with nested divs, wrapper elements, or expanded TOC content.
+ * The HTML is expected to have TOC placeholders already expanded by
+ * `expandTableOfContents` (same as PDF/HTML) so the TOC renders as
+ * styled divs that the block parser handles like any other content.
  */
 const parseHtmlToDocxChildren = async (html: string): Promise<DocxChild[]> => {
   // Collect all image URLs for parallel pre-fetching
@@ -899,37 +806,6 @@ const parseHtmlToDocxChildren = async (html: string): Promise<DocxChild[]> => {
     await Promise.all(fetchPromises);
   }
 
-  // ── Phase 1: Detect TOC placeholder before block parsing ──
-  // This uses the same robust regex as expandTableOfContents (PDF path),
-  // ensuring consistent TOC detection across all export formats.
-  const tocPos = findTocPlaceholderInHtml(html);
-
-  if (tocPos) {
-    const htmlBeforeToc = html.slice(0, tocPos.index);
-    const htmlAfterToc = html.slice(tocPos.index + tocPos.length);
-
-    // Parse content before the TOC
-    const beforeChildren = await parseHtmlBlocksToDocx(htmlBeforeToc, imageCache);
-
-    // Build manual TOC from headings in the content after the TOC
-    const tocChildren = buildManualDocxToc(htmlBeforeToc, htmlAfterToc);
-
-    // Parse content after the TOC
-    const afterChildren = await parseHtmlBlocksToDocx(htmlAfterToc, imageCache);
-
-    const allChildren = [...beforeChildren, ...tocChildren, ...afterChildren];
-
-    // If nothing was parsed, add an empty paragraph
-    if (!allChildren.length) {
-      allChildren.push(new Paragraph({
-        children: [new TextRun({ text: '', font: FONT_FAMILY, size: FONT_SIZES.body })],
-      }));
-    }
-
-    return allChildren;
-  }
-
-  // ── Phase 2: No TOC — parse the full HTML as a single block ──
   const children = await parseHtmlBlocksToDocx(html, imageCache);
 
   // If nothing was parsed, add an empty paragraph

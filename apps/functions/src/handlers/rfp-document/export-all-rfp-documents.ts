@@ -124,9 +124,7 @@ const exportDocumentToFormat = async (
       case 'pdf':
         return await htmlToPdfBuffer(withToc, { title, pageSize });
       case 'docx':
-        // Pass preprocessed HTML WITHOUT TOC expansion — the DOCX exporter
-        // detects the TOC placeholder and creates native Word TOC entries
-        return await htmlToDocxBuffer(processed, { title, pageSize });
+        return await htmlToDocxBuffer(withToc, { title, pageSize });
       case 'pptx': {
         const contentObj = doc?.content as Record<string, unknown> | null;
         return await htmlToPptxBuffer(withToc, {
