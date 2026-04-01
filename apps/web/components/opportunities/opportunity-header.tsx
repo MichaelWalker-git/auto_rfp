@@ -57,7 +57,7 @@ export const OpportunityHeader = () => {
 
   const handleEmitEvent = async () => {
     if (!orgId || !projectId || !oppId) return;
-    const result = await emitEvent(orgId, projectId, oppId);
+    const result = await emitEvent(orgId, projectId, oppId, true);
     if (result) refetch();
   };
 
@@ -159,7 +159,7 @@ export const OpportunityHeader = () => {
                     variant={isAlreadyEmitted ? 'ghost' : 'outline'}
                     size="sm"
                     onClick={handleEmitEvent}
-                    disabled={isEmitting || isAlreadyEmitted}
+                    disabled={isEmitting}
                     title={isAlreadyEmitted ? `Emitted at ${(opportunity as Record<string, unknown>).eventBridgeEmittedAt}` : 'Send opportunity data to EventBridge'}
                   >
                     {isEmitting ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Send className="h-4 w-4 mr-2" />}
