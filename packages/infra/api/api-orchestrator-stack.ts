@@ -285,6 +285,15 @@ export class ApiOrchestratorStack extends cdk.Stack {
       );
     }
 
+    // Grant EventBridge PutEvents permission for opportunity event emission
+    sharedInfraStack.commonLambdaRole.addToPrincipalPolicy(
+      new iam.PolicyStatement({
+        sid: 'EventBridgePutEvents',
+        actions: ['events:PutEvents'],
+        resources: ['*'],
+      }),
+    );
+
     // Grant SES send permission for FOIA auto-submit via email
     sharedInfraStack.commonLambdaRole.addToPrincipalPolicy(
       new iam.PolicyStatement({

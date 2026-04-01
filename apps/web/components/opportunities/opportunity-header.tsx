@@ -2,7 +2,7 @@
 
 import React from 'react';
 import Link from 'next/link';
-import { AlertCircle, Check, Loader2, Pencil, Target, Trash2, X } from 'lucide-react';
+import { AlertCircle, Check, Loader2, Pencil, Send, Target, Trash2, X } from 'lucide-react';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -16,6 +16,8 @@ import {
   OpportunityDescription,
   useOpportunityHeaderActions,
 } from './opportunity-header/';
+import { AssigneeSelector } from './AssigneeSelector';
+import { useEmitOpportunityEvent } from '@/lib/hooks/use-emit-opportunity-event';
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
@@ -48,6 +50,16 @@ export const OpportunityHeader = () => {
     backUrl,
     onSuccess: refetch,
   });
+
+  const { emitEvent, isEmitting, emitError, setEmitError } = useEmitOpportunityEvent();
+  const isAlreadyEmitted = !!(opportunity as Record<string, unknown>)?.eventBridgeEmittedAt;
+  const isGoDecision = opportunity?.stage === 'PURSUING' || opportunity?.stage === 'SUBMITTED' || opportunity?.stage === 'WON';
+
+  const handleEmitEvent = async () => {
+    if (!orgId || !projectId || !oppId) return;
+    const result = await emitEvent(orgId, projectId, oppId);
+    if (result) refetch();
+  };
 
   // Show loading skeleton until orgId and opportunity are both loaded
   // This prevents showing errors when orgId is undefined
@@ -131,6 +143,30 @@ export const OpportunityHeader = () => {
                     Executive Brief
                   </Link>
                 </Button>
+                {projectId && oppId && (
+                  <AssigneeSelector
+                    orgId={orgId}
+                    projectId={projectId}
+                    oppId={oppId}
+                    currentAssigneeId={(opportunity as Record<string, unknown>)['assigneeId'] as string | undefined}
+                    currentAssigneeName={(opportunity as Record<string, unknown>)['assigneeName'] as string | undefined}
+                    onAssigned={refetch}
+                    showLabel
+                    size="sm"
+                  />
+                )}
+                {isGoDecision && (
+                  <Button
+                    variant={isAlreadyEmitted ? 'ghost' : 'outline'}
+                    size="sm"
+                    onClick={handleEmitEvent}
+                    disabled={isEmitting || isAlreadyEmitted}
+                    title={isAlreadyEmitted ? `Emitted at ${(opportunity as Record<string, unknown>).eventBridgeEmittedAt}` : 'Send opportunity data to EventBridge'}
+                  >
+                    {isEmitting ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Send className="h-4 w-4 mr-2" />}
+                    {isAlreadyEmitted ? 'Event Sent' : 'Send Event'}
+                  </Button>
+                )}
                 <Button variant="outline" size="sm" onClick={() => setIsEditing(true)}>
                   <Pencil className="h-4 w-4 mr-2" />
                   Edit

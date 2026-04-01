@@ -12,5 +12,7 @@ export function opportunityDomain(): DomainRoutes {
     { method: 'PATCH', path: 'stage', entry: lambdaEntry('opportunity/update-opportunity-stage.ts'), nodeModules: ['@aws-sdk/client-partnercentral-selling'], timeoutSeconds: 90 },
     // Assignment
     { method: 'POST', path: 'assign', entry: lambdaEntry('opportunity/assign-opportunity.ts') },
+    // EventBridge event emission
+    { method: 'POST', path: 'emit-event', entry: lambdaEntry('opportunity/emit-opportunity-event.ts'), nodeModules: ['@aws-sdk/client-eventbridge'] },
   ]};
 }
