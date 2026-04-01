@@ -285,12 +285,20 @@ export class ApiOrchestratorStack extends cdk.Stack {
       );
     }
 
-    // Grant EventBridge PutEvents permission for opportunity event emission
+    // EventBridge bus for opportunity events (GO decision → POC generation)
+    const opportunityEventBus = new events.EventBus(this, `OpportunityEventBus-${stage}`, {
+      eventBusName: `auto-rfp-opportunity-events-${stage.toLowerCase()}`,
+    });
+
+    // Add bus name to all Lambda env vars
+    commonEnv.OPPORTUNITY_EVENT_BUS_NAME = opportunityEventBus.eventBusName;
+
+    // Grant EventBridge PutEvents permission scoped to the bus
     sharedInfraStack.commonLambdaRole.addToPrincipalPolicy(
       new iam.PolicyStatement({
         sid: 'EventBridgePutEvents',
         actions: ['events:PutEvents'],
-        resources: ['*'],
+        resources: [opportunityEventBus.eventBusArn],
       }),
     );
 
