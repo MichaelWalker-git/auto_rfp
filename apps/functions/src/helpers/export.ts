@@ -289,9 +289,8 @@ export const expandTableOfContents = (html: string): string => {
     const contentPages = Math.ceil(Math.max(beforeTocText.length, 1) / 3000);
     const tocStartPage = Math.max(1, pageBreakCount + contentPages);
 
-    // Content headings start after the TOC page(s).
-    // Estimate TOC takes ~1 page, so content starts on tocStartPage + 1.
-    const contentStartPage = tocStartPage + 1;
+    // Content headings start on the same page as the TOC (it doesn't force a page break).
+    const contentStartPage = tocStartPage;
 
     // Estimate page numbers using the shared estimator that accounts for
     // page breaks, images, headings, and plain text content volume.

@@ -759,7 +759,7 @@ const parseHtmlBlocksToDocx = async (
 
           // Character dots for Apple Pages compatibility
           const indentChars = Math.round(indentPx / 5);
-          const dotsCount = Math.max(3, 65 - headingText.length - pageNum.length - indentChars);
+          const dotsCount = Math.max(3, 85 - headingText.length - pageNum.length - indentChars);
           const dots = ' ' + '.'.repeat(dotsCount) + ' ';
 
           children.push(new Paragraph({
