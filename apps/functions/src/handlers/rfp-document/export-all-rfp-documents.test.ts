@@ -65,6 +65,7 @@ jest.mock('@/helpers/export', () => ({
     (name || 'proposal').replace(/[^\w\s-]/g, '').replace(/\s+/g, '_').slice(0, 160),
   ),
   loadDocumentHtmlForExport: (...args: unknown[]) => mockLoadDocumentHtmlForExport(...args),
+  expandTableOfContents: jest.fn((html: string) => html),
   FILE_EXTENSIONS: {
     pdf: '.pdf',
     docx: '.docx',
