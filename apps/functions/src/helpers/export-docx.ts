@@ -501,14 +501,73 @@ const parseHtmlBlocksToDocx = async (
 ): Promise<DocxChild[]> => {
   const children: DocxChild[] = [];
 
+  // ── Pre-process: extract TOC block before block regex (nested divs break non-greedy match) ──
+  const tocOpenRe = /<div[^>]*data-table-of-contents="true"[^>]*>/i;
+  const tocOpenMatch = tocOpenRe.exec(html);
+  let tocFullHtml = '';
+  let processedHtml = html;
+
+  if (tocOpenMatch && tocOpenMatch.index !== undefined) {
+    // Walk forward counting div depth to find matching </div>
+    const start = tocOpenMatch.index;
+    let depth = 1;
+    const divRe = /<\/?div[\s>]/gi;
+    divRe.lastIndex = start + tocOpenMatch[0].length;
+    let dm: RegExpExecArray | null;
+    let end = html.length;
+    while ((dm = divRe.exec(html)) !== null) {
+      if (dm[0].startsWith('</')) { depth--; if (depth === 0) { end = html.indexOf('>', dm.index) + 1; break; } }
+      else { depth++; }
+    }
+    tocFullHtml = html.slice(start, end);
+    // Replace TOC block with a marker the block regex won't choke on
+    processedHtml = html.slice(0, start) + '<!-- TOC_PLACEHOLDER -->' + html.slice(end);
+  }
+
   // Tokenize into top-level blocks. Order matters — standalone images, tables and lists first (greedy),
   // then individual block tags.
   const blockRe =
     /(<img[^>]*\/?>)|(<table[\s\S]*?<\/table>)|(<(?:ul|ol)[^>]*>[\s\S]*?<\/(?:ul|ol)>)|(<(h[1-6]|p|blockquote|hr|div|pre)[^>]*>([\s\S]*?)<\/\5>)|(<hr\s*\/?>)|(<div[^>]*data-page-break[^>]*>[\s\S]*?<\/div>)/gi;
 
   let match: RegExpExecArray | null;
+  let tocInjected = false;
+  const tocMarkerPos = processedHtml.indexOf('<!-- TOC_PLACEHOLDER -->');
 
-  while ((match = blockRe.exec(html)) !== null) {
+  while ((match = blockRe.exec(processedHtml)) !== null) {
+    // ── Inject TOC entries at the placeholder position ──
+    if (tocFullHtml && tocMarkerPos >= 0 && match.index >= tocMarkerPos && !tocInjected) {
+      tocInjected = true;
+      // Parse TOC entries from the full TOC HTML via data attributes
+      const entryRe = /data-toc-text="([^"]*)"[^>]*data-toc-level="(\d+)"[^>]*data-toc-pagenum="(\d+)"/gi;
+      let tocEntry: RegExpExecArray | null;
+      let tocMin = 9;
+      const tocEntries: { text: string; level: number; pageNum: string }[] = [];
+      while ((tocEntry = entryRe.exec(tocFullHtml)) !== null) {
+        const text = tocEntry[1].replace(/&#x27;/g, "'").replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"');
+        const level = parseInt(tocEntry[2], 10);
+        if (level < tocMin) tocMin = level;
+        tocEntries.push({ text, level, pageNum: tocEntry[3] });
+      }
+      const RIGHT_TAB = 9360;
+      for (const te of tocEntries) {
+        const indent = (te.level - tocMin) * 360;
+        const isTop = te.level === tocMin;
+        const dotCount = Math.max(3, 50 - Math.floor(te.text.length * 0.6) - (te.level - tocMin) * 2);
+        const dots = ' ' + '.'.repeat(dotCount) + ' ';
+        children.push(new Paragraph({
+          spacing: { before: isTop ? 80 : 20, after: 20, line: 276 },
+          indent: indent > 0 ? { left: indent } : undefined,
+          tabStops: [{ type: 'right' as const, position: RIGHT_TAB - indent }],
+          children: [
+            new TextRun({ text: te.text, bold: isTop || undefined, size: FONT_SIZES.body, color: COLORS.body, font: FONT_FAMILY }),
+            new TextRun({ text: dots, size: 16, color: COLORS.muted, font: 'Courier New' }),
+            new TextRun({ children: [new Tab()], size: FONT_SIZES.body }),
+            new TextRun({ text: te.pageNum, size: FONT_SIZES.body, color: COLORS.body, font: FONT_FAMILY }),
+          ],
+        }));
+      }
+    }
+
     const standaloneImg = match[1];
     const tableHtml = match[2];
     const listHtml = match[3];
@@ -742,62 +801,8 @@ const parseHtmlBlocksToDocx = async (
         continue;
       }
 
-      // ── TOC div: extract entries via data attributes and build DOCX paragraphs ──
-      // Each toc-entry has data-toc-text, data-toc-level, data-toc-pagenum attributes
-      // set by expandTableOfContents — same data that produces the correct PDF TOC.
-      if (match[0]?.includes('data-table-of-contents') || match[0]?.includes('data-toc-text')) {
-        const entryRe = /data-toc-text="([^"]*)"[^>]*data-toc-level="(\d+)"[^>]*data-toc-pagenum="(\d+)"/gi;
-        let entry: RegExpExecArray | null;
-        const tocMinLevel = { value: 9 }; // track min level for indent calc
-
-        // First pass: find min level
-        const entries: { text: string; level: number; pageNum: string }[] = [];
-        while ((entry = entryRe.exec(match[0])) !== null) {
-          const text = entry[1].replace(/&#x27;/g, "'").replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"');
-          const level = parseInt(entry[2], 10);
-          if (level < tocMinLevel.value) tocMinLevel.value = level;
-          entries.push({ text, level, pageNum: entry[3] });
-        }
-
-        // Right tab at 6.5" (9360 twips) = right margin for letter page
-        const RIGHT_TAB = 9360;
-
-        for (const e of entries) {
-          const indentLevel = e.level - tocMinLevel.value;
-          const indentTwips = indentLevel * 360; // 0.25" per level
-          const isTopLevel = indentLevel === 0;
-
-          // Layout: "Heading text" [dots in monospace] [TAB→right] "page#"
-          // Dots use Courier New (monospace) so each dot is equal width,
-          // filling the gap uniformly. Tab pushes page number to right margin.
-          const dotsCount = Math.max(3, 50 - Math.floor(e.text.length * 0.6) - indentLevel * 2);
-          const dots = ' ' + '.'.repeat(dotsCount) + ' ';
-
-          children.push(new Paragraph({
-            spacing: { before: isTopLevel ? 80 : 20, after: 20, line: 276 },
-            indent: indentTwips > 0 ? { left: indentTwips } : undefined,
-            tabStops: [{
-              type: 'right' as const,
-              position: RIGHT_TAB - indentTwips,
-            }],
-            children: [
-              // Left: heading text
-              new TextRun({
-                text: e.text,
-                bold: isTopLevel || undefined,
-                size: FONT_SIZES.body,
-                color: COLORS.body,
-                font: FONT_FAMILY,
-              }),
-              // Middle: dot leader (monospace for uniform spacing)
-              new TextRun({ text: dots, size: 16, color: COLORS.muted, font: 'Courier New' }),
-              // Right-align tab: pushes page number to right margin
-              new TextRun({ children: [new Tab()], size: FONT_SIZES.body }),
-              // Right: page number
-              new TextRun({ text: e.pageNum, size: FONT_SIZES.body, color: COLORS.body, font: FONT_FAMILY }),
-            ],
-          }));
-        }
+      // TOC fragments already handled by pre-processor above — skip any remnants
+      if (match[0]?.includes('data-toc-text') || match[0]?.includes('toc-entry')) {
         continue;
       }
 
