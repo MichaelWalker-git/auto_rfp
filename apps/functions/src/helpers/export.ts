@@ -282,9 +282,12 @@ export const expandTableOfContents = (html: string): string => {
       '<p style="color:#9ca3af;font-style:italic;font-size:12px;">No headings found.</p>' +
       '</div>';
   } else {
-    // Estimate which page the TOC starts on by measuring content volume before it.
+    // Estimate which page the TOC starts on by measuring content before it.
+    // Count explicit page breaks (each forces a new page) plus content volume.
+    const pageBreakCount = (beforeToc.match(/data-page-break|page-break-node|break-after:\s*page|page-break-after:\s*always/gi) ?? []).length;
     const beforeTocText = beforeToc.replace(/<[^>]+>/g, '').replace(/&nbsp;/g, ' ').replace(/\s+/g, ' ').trim();
-    const tocStartPage = Math.max(1, Math.floor(beforeTocText.length / 3000) + 1);
+    const contentPages = Math.ceil(Math.max(beforeTocText.length, 1) / 3000);
+    const tocStartPage = Math.max(1, pageBreakCount + contentPages);
 
     // Content headings start after the TOC page(s).
     // Estimate TOC takes ~1 page, so content starts on tocStartPage + 1.

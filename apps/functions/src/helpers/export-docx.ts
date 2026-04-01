@@ -17,6 +17,7 @@ import {
   PageBreak,
   Paragraph,
   ShadingType,
+  Tab,
   Table,
   TableCell,
   TableRow,
@@ -741,8 +742,11 @@ const parseHtmlBlocksToDocx = async (
         continue;
       }
 
-      // ── TOC div: parse each toc-entry into a paragraph with dots ──
+      // ── TOC div: parse each toc-entry into a paragraph with right-aligned page number ──
       if (match[0]?.includes('data-table-of-contents') || match[0]?.includes('toc-entry')) {
+        // Right margin tab position: 6.5" = 9360 twips (letter: 8.5" - 2×1" margins)
+        const RIGHT_TAB = 9360;
+
         const entryRe = /<div[^>]*class="[^"]*toc-entry[^"]*"[^>]*style="[^"]*padding-left:\s*(\d+)px[^"]*"[^>]*>[\s\S]*?<a[^>]*>([^<]*)<\/a>[\s\S]*?<span[^>]*class="toc-page"[^>]*>(\d+)<\/span>[\s\S]*?<\/div>/gi;
         let entry: RegExpExecArray | null;
         while ((entry = entryRe.exec(match[0])) !== null) {
@@ -751,12 +755,15 @@ const parseHtmlBlocksToDocx = async (
           const pageNum = entry[3];
           const indentTwips = Math.round(indentPx * 15); // ~15 twips per px
           const isTopLevel = indentPx === 0;
-          const dotsCount = Math.max(3, 60 - headingText.length - pageNum.length);
-          const dots = ' ' + '.'.repeat(dotsCount) + ' ';
 
           children.push(new Paragraph({
             spacing: { before: isTopLevel ? 80 : 20, after: 20, line: 276 },
             indent: indentTwips > 0 ? { left: indentTwips } : undefined,
+            tabStops: [{
+              type: 'right' as const,
+              position: RIGHT_TAB - indentTwips,
+              leader: 'dot' as const,
+            }],
             children: [
               new TextRun({
                 text: headingText,
@@ -765,7 +772,7 @@ const parseHtmlBlocksToDocx = async (
                 color: COLORS.body,
                 font: FONT_FAMILY,
               }),
-              new TextRun({ text: dots, size: FONT_SIZES.body, color: COLORS.muted, font: FONT_FAMILY }),
+              new TextRun({ children: [new Tab()], font: FONT_FAMILY, size: FONT_SIZES.body }),
               new TextRun({ text: pageNum, size: FONT_SIZES.body, color: COLORS.body, font: FONT_FAMILY }),
             ],
           }));
