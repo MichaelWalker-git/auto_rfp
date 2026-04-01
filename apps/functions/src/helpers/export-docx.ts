@@ -741,8 +741,35 @@ const parseHtmlBlocksToDocx = async (
         continue;
       }
 
-      // Skip any leftover TOC div fragments (already handled at the top level)
-      if (match[0]?.includes('data-table-of-contents') || match[0]?.includes('table-of-contents')) {
+      // ── TOC div: parse each toc-entry into a paragraph with dots ──
+      if (match[0]?.includes('data-table-of-contents') || match[0]?.includes('toc-entry')) {
+        const entryRe = /<div[^>]*class="[^"]*toc-entry[^"]*"[^>]*style="[^"]*padding-left:\s*(\d+)px[^"]*"[^>]*>[\s\S]*?<a[^>]*>([^<]*)<\/a>[\s\S]*?<span[^>]*class="toc-page"[^>]*>(\d+)<\/span>[\s\S]*?<\/div>/gi;
+        let entry: RegExpExecArray | null;
+        while ((entry = entryRe.exec(match[0])) !== null) {
+          const indentPx = parseInt(entry[1], 10) || 0;
+          const headingText = entry[2].replace(/&#x27;/g, "'").replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"');
+          const pageNum = entry[3];
+          const indentTwips = Math.round(indentPx * 15); // ~15 twips per px
+          const isTopLevel = indentPx === 0;
+          const dotsCount = Math.max(3, 60 - headingText.length - pageNum.length);
+          const dots = ' ' + '.'.repeat(dotsCount) + ' ';
+
+          children.push(new Paragraph({
+            spacing: { before: isTopLevel ? 80 : 20, after: 20, line: 276 },
+            indent: indentTwips > 0 ? { left: indentTwips } : undefined,
+            children: [
+              new TextRun({
+                text: headingText,
+                bold: isTopLevel || undefined,
+                size: FONT_SIZES.body,
+                color: COLORS.body,
+                font: FONT_FAMILY,
+              }),
+              new TextRun({ text: dots, size: FONT_SIZES.body, color: COLORS.muted, font: FONT_FAMILY }),
+              new TextRun({ text: pageNum, size: FONT_SIZES.body, color: COLORS.body, font: FONT_FAMILY }),
+            ],
+          }));
+        }
         continue;
       }
 

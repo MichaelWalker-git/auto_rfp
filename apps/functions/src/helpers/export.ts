@@ -272,12 +272,6 @@ export const expandTableOfContents = (html: string): string => {
     },
   );
 
-  // ── Extract the user's TOC title from the heading immediately before the TOC ──
-  // Users typically place a heading like "Table of Contents" before the TOC block.
-  // We use that heading text as the TOC self-entry title instead of a hardcoded string.
-  const tocTitleMatch = beforeToc.match(/<h([1-6])[^>]*>([\s\S]*?)<\/h\1>\s*$/i);
-  const tocTitle = tocTitleMatch ? extractPlainText(tocTitleMatch[2]) : '';
-
   // ── Build the TOC HTML ──
   const minLevel = headings.length > 0 ? Math.min(...headings.map((h) => h.level)) : 1;
 
@@ -316,8 +310,9 @@ export const expandTableOfContents = (html: string): string => {
       );
     };
 
-    // TOC self-entry: use the user's heading title if found, otherwise use the TOC title
-    // Only include the self-entry if the user has a title heading before the TOC
+    // TOC self-entry: include the user's TOC title heading as the first entry
+    const tocTitleMatch = beforeToc.match(/<h([1-6])[^>]*>([\s\S]*?)<\/h\1>\s*$/i);
+    const tocTitle = tocTitleMatch ? extractPlainText(tocTitleMatch[2]) : '';
     const tocSelfEntry = tocTitle
       ? tocEntry(tocTitle, 'toc-self', minLevel, tocStartPage)
       : '';
