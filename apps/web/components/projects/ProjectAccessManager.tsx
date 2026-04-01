@@ -237,6 +237,7 @@ export const ProjectAccessManager = ({ orgId, projectId, projectCreatorId }: Pro
                           className="h-8 w-8 text-destructive hover:text-destructive"
                           onClick={() => handleRevoke(access.userId, user?.displayName || user?.email || 'User')}
                           disabled={revokingUserId === access.userId}
+                          aria-label={`Remove ${user?.displayName || user?.email || 'user'} from project`}
                         >
                           <Trash2 className="h-4 w-4" />
                         </Button>
