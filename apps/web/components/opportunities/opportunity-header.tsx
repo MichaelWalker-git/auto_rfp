@@ -2,7 +2,7 @@
 
 import React from 'react';
 import Link from 'next/link';
-import { AlertCircle, Check, Loader2, Pencil, Send, Target, Trash2, X } from 'lucide-react';
+import { AlertCircle, Check, ExternalLink, Loader2, Pencil, Send, Target, Trash2, X } from 'lucide-react';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -53,6 +53,7 @@ export const OpportunityHeader = () => {
 
   const { emitEvent, isEmitting, emitError, setEmitError } = useEmitOpportunityEvent();
   const isAlreadyEmitted = !!(opportunity as Record<string, unknown>)?.eventBridgeEmittedAt;
+  const pocUrl = (opportunity as Record<string, unknown>)?.pocUrl as string | undefined;
   const isGoDecision = opportunity?.stage === 'PURSUING' || opportunity?.stage === 'SUBMITTED' || opportunity?.stage === 'WON';
 
   const handleEmitEvent = async () => {
@@ -156,16 +157,30 @@ export const OpportunityHeader = () => {
                   />
                 )}
                 {currentOrganization?.enablePOCGeneration && (
-                  <Button
-                    variant={isAlreadyEmitted ? 'ghost' : 'outline'}
-                    size="sm"
-                    onClick={handleEmitEvent}
-                    disabled={isEmitting}
-                    title="Trigger POC development pipeline"
-                  >
-                    {isEmitting ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Send className="h-4 w-4 mr-2" />}
-                    Develop POC
-                  </Button>
+                  pocUrl ? (
+                    <Button variant="outline" size="sm" asChild>
+                      <a href={pocUrl} target="_blank" rel="noopener noreferrer">
+                        <ExternalLink className="h-4 w-4 mr-2" />
+                        View POC
+                      </a>
+                    </Button>
+                  ) : isAlreadyEmitted && !isEmitting ? (
+                    <Button variant="ghost" size="sm" disabled title="POC pipeline is running">
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      POC Generating…
+                    </Button>
+                  ) : (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={handleEmitEvent}
+                      disabled={isEmitting}
+                      title="Trigger POC development pipeline"
+                    >
+                      {isEmitting ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Send className="h-4 w-4 mr-2" />}
+                      Develop POC
+                    </Button>
+                  )
                 )}
                 <Button variant="outline" size="sm" onClick={() => setIsEditing(true)}>
                   <Pencil className="h-4 w-4 mr-2" />

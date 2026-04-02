@@ -302,6 +302,34 @@ export class ApiOrchestratorStack extends cdk.Stack {
       }),
     );
 
+    // --- POC completion listener: EventBridge → Lambda → update opportunity with pocUrl ---
+    const onPocCompleteFn = new lambdaNodejs.NodejsFunction(this, `OnPocComplete-${stage}`, {
+      functionName: `auto-rfp-on-poc-complete-${stage}`,
+      entry: path.join(__dirname, '../../../apps/functions/src/handlers/opportunity/on-poc-complete.ts'),
+      handler: 'handler',
+      runtime: lambda.Runtime.NODEJS_20_X,
+      timeout: cdk.Duration.seconds(30),
+      memorySize: 128,
+      role: sharedInfraStack.commonLambdaRole,
+      environment: commonEnv,
+      bundling: { minify: true, sourceMap: true },
+    });
+
+    new logs.LogGroup(this, `OnPocCompleteLogGroup-${stage}`, {
+      logGroupName: `/aws/lambda/${onPocCompleteFn.functionName}`,
+      retention: stage === 'prod' ? logs.RetentionDays.INFINITE : logs.RetentionDays.TWO_WEEKS,
+      removalPolicy: cdk.RemovalPolicy.DESTROY,
+    });
+
+    const pocCompleteRule = new events.Rule(this, `POCDeploymentCompleteRule-${stage}`, {
+      eventBus: opportunityEventBus,
+      eventPattern: {
+        source: ['development-platform.poc'],
+        detailType: ['POCDeploymentComplete'],
+      },
+    });
+    pocCompleteRule.addTarget(new eventsTargets.LambdaFunction(onPocCompleteFn));
+
     // Grant SES send permission for FOIA auto-submit via email
     sharedInfraStack.commonLambdaRole.addToPrincipalPolicy(
       new iam.PolicyStatement({
