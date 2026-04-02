@@ -286,9 +286,9 @@ export class ApiOrchestratorStack extends cdk.Stack {
     }
 
     // EventBridge bus for opportunity events (GO decision → POC generation)
-    const opportunityEventBus = new events.EventBus(this, `OpportunityEventBus-${stage}`, {
-      eventBusName: `auto-rfp-opportunity-events-${stage.toLowerCase()}`,
-    });
+    // Bus is created by DevelopmentPlatform stack — reuse it here
+    const opportunityEventBusName = `auto-rfp-opportunity-events-${stage.toLowerCase()}`;
+    const opportunityEventBus = events.EventBus.fromEventBusName(this, `OpportunityEventBus-${stage}`, opportunityEventBusName);
 
     // Add bus name to all Lambda env vars
     commonEnv.OPPORTUNITY_EVENT_BUS_NAME = opportunityEventBus.eventBusName;
