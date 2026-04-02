@@ -23,6 +23,7 @@ export const AuditActionSchema = z.enum([
   'DOCUMENT_UPLOADED',
   'DOCUMENT_DELETED',
   'DOCUMENT_EXPORTED',
+  'DOCUMENTS_BULK_EXPORTED',
   'DOCUMENT_VIEWED',
   'DOCUMENT_UPDATED',
   // Document version actions
@@ -47,6 +48,9 @@ export const AuditActionSchema = z.enum([
   'PROJECT_CREATED',
   'PROJECT_UPDATED',
   'PROJECT_DELETED',
+  'PROJECT_ACCESS_GRANTED',
+  'PROJECT_ACCESS_REVOKED',
+  'PROJECT_ACCESS_GRANTED_TO_ADMINS',
   // Organization actions
   'ORG_SETTINGS_CHANGED',
   'ORG_MEMBER_ADDED',
@@ -112,6 +116,9 @@ export const AuditActionSchema = z.enum([
   'DOCUMENT_SECTION_EDIT_STARTED',
   'DOCUMENT_SECTION_EDIT_COMPLETED',
   'DOCUMENT_SECTION_EDIT_FAILED',
+  // Opportunity assignment
+  'OPPORTUNITY_ASSIGNED',
+  'OPPORTUNITY_UNASSIGNED',
 ]);
 export type AuditAction = z.infer<typeof AuditActionSchema>;
 

@@ -25,6 +25,7 @@ import { useDeleteOpportunity } from '@/lib/hooks/use-opportunities';
 import { useCurrentOrganization } from '@/context/organization-context';
 import { EditOpportunityDialog } from './edit-opportunity-dialog';
 import { OpportunityStageBadge } from './opportunity-stage-badge';
+import { AssigneeSelector } from './AssigneeSelector';
 import type { OpportunityStage } from '@auto-rfp/core';
 
 // ─── Description section — auto-fetches if description is a URL ──────────────
@@ -259,6 +260,22 @@ export const OpportunityItemCard = ({
             </span>
           )}
         </div>
+
+        {/* Assignee row */}
+        {currentOrganization?.id && projectId && oppId && (
+          <div className="flex items-center justify-between text-xs border-t pt-1.5 mt-1">
+            <span className="text-muted-foreground">Assigned to:</span>
+            <AssigneeSelector
+              orgId={currentOrganization.id}
+              projectId={projectId}
+              oppId={oppId}
+              currentAssigneeId={(item as Record<string, unknown>)['assigneeId'] as string | undefined}
+              currentAssigneeName={(item as Record<string, unknown>)['assigneeName'] as string | undefined}
+              onAssigned={() => onUpdated?.(item)}
+              size="sm"
+            />
+          </div>
+        )}
 
         {/* Classification badges + favorite star */}
         <div className="flex items-start gap-1">

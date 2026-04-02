@@ -28,19 +28,27 @@ export const baseHandler = async (
       return apiResponse(400, { message: 'Missing projectId' });
     }
 
+    const opportunityId = event.queryStringParameters?.opportunityId;
+
     // Run both queries in parallel — 2 DB queries total instead of N+1
-    const [flatQuestions, answersMap] = await Promise.all([
-      loadQuestions(projectId),
+    const [flatQuestions, allAnswers] = await Promise.all([
+      loadQuestions(projectId, opportunityId),
       loadAnswers(projectId),
     ]);
+
+    // When filtering by opportunityId, only include answers for the returned questions.
+    // Answers don't have opportunityId — the link is through questionId.
+    const answersMap = opportunityId
+      ? filterAnswersByQuestions(allAnswers, flatQuestions)
+      : allAnswers;
 
     const sections = groupQuestions(flatQuestions, answersMap);
 
     console.log('[get-questions] Response data:', {
       sectionsCount: sections.length,
       answersCount: Object.keys(answersMap).length,
-      answerKeys: Object.keys(answersMap).slice(0, 5),
-      sampleAnswer: Object.values(answersMap)[0],
+      opportunityId: opportunityId ?? 'all',
+      totalQuestions: flatQuestions.length,
     });
 
     return apiResponse(200, { sections, answers: answersMap });
@@ -54,26 +62,39 @@ export const baseHandler = async (
 };
 
 /**
- * Load all questions for a project in a single query.
+ * Load questions for a project, optionally filtered by opportunityId.
+ * When opportunityId is provided, a FilterExpression reduces the result set
+ * to only questions belonging to that opportunity — preventing 6MB payload overflows.
  */
-const loadQuestions = async (projectId: string): Promise<QuestionItem[]> => {
+const loadQuestions = async (projectId: string, opportunityId?: string): Promise<QuestionItem[]> => {
   const items: QuestionItem[] = [];
   let lastKey: Record<string, unknown> | undefined;
   const prefix = `${projectId}#`;
+
+  const expressionNames: Record<string, string> = {
+    '#pk': PK_NAME,
+    '#sk': SK_NAME,
+  };
+  const expressionValues: Record<string, string> = {
+    ':pk': QUESTION_PK,
+    ':prefix': prefix,
+  };
+
+  let filterExpression: string | undefined;
+  if (opportunityId) {
+    filterExpression = '#oppId = :oppId';
+    expressionNames['#oppId'] = 'opportunityId';
+    expressionValues[':oppId'] = opportunityId;
+  }
 
   do {
     const res = await docClient.send(
       new QueryCommand({
         TableName: DB_TABLE_NAME,
         KeyConditionExpression: '#pk = :pk AND begins_with(#sk, :prefix)',
-        ExpressionAttributeNames: {
-          '#pk': PK_NAME,
-          '#sk': SK_NAME,
-        },
-        ExpressionAttributeValues: {
-          ':pk': QUESTION_PK,
-          ':prefix': prefix,
-        },
+        ExpressionAttributeNames: expressionNames,
+        ExpressionAttributeValues: expressionValues,
+        FilterExpression: filterExpression,
         ExclusiveStartKey: lastKey,
       }),
     );
@@ -86,6 +107,24 @@ const loadQuestions = async (projectId: string): Promise<QuestionItem[]> => {
 };
 
 /**
+ * Filter answers map to only include answers for the given questions.
+ * Answers don't store opportunityId — they link to questions via questionId.
+ */
+const filterAnswersByQuestions = (
+  allAnswers: Record<string, AnswerItem>,
+  questions: QuestionItem[],
+): Record<string, AnswerItem> => {
+  const questionIds = new Set(questions.map((q: QuestionItem) => q.questionId));
+  const filtered: Record<string, AnswerItem> = {};
+  for (const [qId, answer] of Object.entries(allAnswers)) {
+    if (questionIds.has(qId)) {
+      filtered[qId] = answer;
+    }
+  }
+  return filtered;
+};
+
+/**
  * Load all answers for a project in a single query, grouped by questionId (latest wins).
  * Source textContent is stripped to reduce payload size.
  */
@@ -93,8 +132,6 @@ const loadAnswers = async (projectId: string): Promise<Record<string, AnswerItem
   const grouped: Record<string, AnswerItem> = {};
   let lastKey: Record<string, unknown> | undefined;
   const prefix = `${projectId}#`;
-
-  console.log('[loadAnswers] Querying answers with PK:', ANSWER_PK, 'SK prefix:', prefix);
 
   do {
     const res = await docClient.send(
@@ -112,11 +149,6 @@ const loadAnswers = async (projectId: string): Promise<Record<string, AnswerItem
         ExclusiveStartKey: lastKey,
       }),
     );
-
-    console.log('[loadAnswers] Query returned', res.Items?.length ?? 0, 'items');
-    if (res.Items && res.Items.length > 0) {
-      console.log('[loadAnswers] Sample item:', res.Items[0]);
-    }
 
     if (res.Items) {
       for (const item of res.Items as AnswerItem[]) {
@@ -140,7 +172,6 @@ const loadAnswers = async (projectId: string): Promise<Record<string, AnswerItem
     lastKey = res.LastEvaluatedKey as Record<string, unknown> | undefined;
   } while (lastKey);
 
-  console.log('[loadAnswers] Grouped answers:', Object.keys(grouped).length, 'unique questions');
   return grouped;
 };
 

@@ -8,6 +8,7 @@ export * from './kb';
 export * from './project';
 export * from './project-kb';
 export * from './user-kb';
+export * from './user-project';
 export * from './opportunity'
 export * from './search-opportunity';
 export * from './prompt'

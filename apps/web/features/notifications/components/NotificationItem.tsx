@@ -23,6 +23,7 @@ const TYPE_CONFIG: Record<NotificationType, { icon: React.ElementType; color: st
   MENTION:              { icon: AtSign,       color: 'text-indigo-600 dark:text-indigo-400', bg: 'bg-indigo-100 dark:bg-indigo-900/50' },
   ASSIGNMENT:           { icon: UserCheck,    color: 'text-blue-600 dark:text-blue-400',   bg: 'bg-blue-100 dark:bg-blue-900/50' },
   REVIEW_ASSIGNED:      { icon: UserCheck,    color: 'text-blue-600 dark:text-blue-400',   bg: 'bg-blue-100 dark:bg-blue-900/50' },
+  OPPORTUNITY_ASSIGNED: { icon: UserCheck,    color: 'text-blue-600 dark:text-blue-400',   bg: 'bg-blue-100 dark:bg-blue-900/50' },
   RFP_UPLOADED:         { icon: FileText,     color: 'text-muted-foreground',  bg: 'bg-muted' },
   QUESTIONS_EXTRACTED:  { icon: FileCheck,    color: 'text-violet-600 dark:text-violet-400', bg: 'bg-violet-100 dark:bg-violet-900/50' },
   ANSWERS_GENERATED:    { icon: CheckCircle,  color: 'text-emerald-600 dark:text-emerald-400', bg: 'bg-emerald-100 dark:bg-emerald-900/50' },
@@ -86,6 +87,9 @@ const buildNotificationLink = (
       return `${base}/documents`;
     case 'SOLICITATION_IMPORTED':
       return entityId ? `${base}/opportunities` : `${base}/search-opportunities`;
+    case 'OPPORTUNITY_ASSIGNED':
+      // entityId is the opportunity ID (oppId)
+      return entityId ? `${base}/opportunities/${entityId}` : `${base}/opportunities`;
     case 'DEADLINE_7_DAYS':
     case 'DEADLINE_3_DAYS':
     case 'DEADLINE_1_DAY':

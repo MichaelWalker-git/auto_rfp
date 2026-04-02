@@ -10,7 +10,7 @@ import { CreateProjectDTO, ProjectItem } from '@auto-rfp/core';
 
 const DB_TABLE_NAME = requireEnv('DB_TABLE_NAME');
 
-export async function createProject(dto: CreateProjectDTO): Promise<ProjectItem> {
+export async function createProject(dto: CreateProjectDTO, createdBy?: string): Promise<ProjectItem> {
   const { orgId, name, description } = dto;
   const projectId = uuidv4();
   const sortKey = `${orgId}#${projectId}`;
@@ -23,6 +23,7 @@ export async function createProject(dto: CreateProjectDTO): Promise<ProjectItem>
       orgId,
       name,
       description,
+      createdBy,
     }
   );
 }

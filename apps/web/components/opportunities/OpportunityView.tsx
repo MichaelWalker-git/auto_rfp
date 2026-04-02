@@ -17,6 +17,7 @@ import { Button } from '@/components/ui/button';
 
 import { OpportunityProvider, useOpportunityContext } from './opportunity-context';
 import { OpportunityHeader } from './opportunity-header';
+import { AssigneeSelector } from './AssigneeSelector';
 import { OpportunitySolicitationDocuments } from './opportunity-attachments';
 import { OpportunityRFPDocuments } from './opportunity-rfp-documents';
 import { OpportunityActionCard } from './opportunity-action-card';
@@ -125,7 +126,7 @@ const SectionNavigation = () => {
  * 6. Post-Award — outcome, debriefing, FOIA
  */
 const OpportunityContent = ({ className }: { className?: string }) => {
-  const { projectId, oppId, orgId, opportunity } = useOpportunityContext();
+  const { projectId, oppId, orgId, opportunity, refetch } = useOpportunityContext();
   const { currentOrganization } = useCurrentOrganization();
   const navOrgId = currentOrganization?.id;
   const { outcome } = useProjectOutcome(orgId, projectId, oppId);
@@ -144,13 +145,28 @@ const OpportunityContent = ({ className }: { className?: string }) => {
 
   return (
     <div className={cn('space-y-6', className)}>
-      {/* Back Navigation */}
-      <Button variant="ghost" size="sm" asChild className="gap-2 -ml-2">
-        <Link href={backUrl}>
-          <ArrowLeft className="h-4 w-4" />
-          Back to Opportunities
-        </Link>
-      </Button>
+      {/* Back Navigation + Assignee Selector */}
+      <div className="flex items-center justify-between">
+        <Button variant="ghost" size="sm" asChild className="gap-2 -ml-2">
+          <Link href={backUrl}>
+            <ArrowLeft className="h-4 w-4" />
+            Back to Opportunities
+          </Link>
+        </Button>
+        
+        {orgId && projectId && oppId && (
+          <AssigneeSelector
+            orgId={orgId}
+            projectId={projectId}
+            oppId={oppId}
+            currentAssigneeId={(opportunity as Record<string, unknown> | null)?.['assigneeId'] as string | undefined}
+            currentAssigneeName={(opportunity as Record<string, unknown> | null)?.['assigneeName'] as string | undefined}
+            onAssigned={refetch}
+            showLabel
+            size="sm"
+          />
+        )}
+      </div>
 
       {/* Opportunity Header — Hero Section */}
       <OpportunityHeader />

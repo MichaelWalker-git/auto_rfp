@@ -395,6 +395,57 @@ export function useExportRFPDocument(orgId?: string) {
   );
 }
 
+// ─── Export All Documents ───
+
+const ExportAllRFPDocumentsRequestSchema = z.object({
+  projectId: z.string().min(1),
+  opportunityId: z.string().optional(),
+  formats: z.array(z.enum(['docx', 'pdf', 'pptx', 'html', 'txt', 'md'])).optional(),
+  options: z.object({
+    pageSize: z.enum(['letter', 'a4']).optional(),
+  }).optional(),
+});
+
+export type ExportAllRFPDocumentsRequest = z.infer<typeof ExportAllRFPDocumentsRequestSchema>;
+
+const ExportedDocInfoSchema = z.object({
+  documentId: z.string(),
+  title: z.string(),
+  formats: z.array(z.string()),
+  skipped: z.boolean(),
+  skipReason: z.string().optional(),
+});
+
+const ExportAllRFPDocumentsResponseSchema = z.object({
+  success: z.boolean(),
+  export: z.object({
+    url: z.string(),
+    fileName: z.string(),
+    bucket: z.string(),
+    key: z.string(),
+    expiresIn: z.number(),
+    contentType: z.string(),
+    sizeBytes: z.number(),
+  }),
+  summary: z.object({
+    totalDocuments: z.number(),
+    exportedDocuments: z.number(),
+    skippedDocuments: z.number(),
+    formats: z.array(z.string()),
+  }),
+  documents: z.array(ExportedDocInfoSchema),
+});
+
+export type ExportAllRFPDocumentsResponse = z.infer<typeof ExportAllRFPDocumentsResponseSchema>;
+
+/** Export all RFP documents as a ZIP bundle (DOCX + PDF for each) */
+export function useExportAllRFPDocuments(orgId?: string) {
+  return useSWRMutation<ExportAllRFPDocumentsResponse, Error, string, ExportAllRFPDocumentsRequest>(
+    `${BASE}/export-all${orgId ? `?orgId=${orgId}` : ''}`,
+    (url, { arg }) => postJson<ExportAllRFPDocumentsResponse>(url, arg),
+  );
+}
+
 // ─── HTML Content ───
 
 const HtmlContentResponseSchema = z.object({

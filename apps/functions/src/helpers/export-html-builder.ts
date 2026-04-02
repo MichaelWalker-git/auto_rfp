@@ -170,6 +170,22 @@ export const buildExportHtml = (bodyHtml: string, options: BuildExportHtmlOption
       break-after: page;
       page-break-after: always;
     }
+    /* ── Table of Contents ── */
+    .table-of-contents {
+      padding: 12px 0;
+      margin: 16px 0;
+      page-break-inside: avoid;
+    }
+    .table-of-contents a {
+      text-decoration: none;
+      color: inherit;
+    }
+    .table-of-contents a:hover {
+      text-decoration: underline;
+    }
+    .table-of-contents .toc-entry {
+      margin: 2px 0;
+    }
     /* ── Print overrides ── */
     @media print {
       body {

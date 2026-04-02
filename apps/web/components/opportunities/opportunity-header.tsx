@@ -7,10 +7,6 @@ import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-// Request Review feature imports (re-add when feature is implemented):
-// import { useState } from 'react';
-// import { ClipboardCheck } from 'lucide-react';
-// import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { useOpportunityContext } from './opportunity-context';
 import { useCurrentOrganization } from '@/context/organization-context';
 import {
@@ -27,7 +23,6 @@ export const OpportunityHeader = () => {
   const { projectId, oppId, opportunity, isLoading, error, refetch } = useOpportunityContext();
   const { currentOrganization } = useCurrentOrganization();
   const orgId = currentOrganization?.id;
-  // const [showRequestReview, setShowRequestReview] = useState(false);
 
   const backUrl = orgId ? `/organizations/${orgId}/projects/${projectId}/opportunities` : '#';
   const briefUrl = orgId ? `/organizations/${orgId}/projects/${projectId}/brief?opportunityId=${oppId}` : '#';
@@ -136,11 +131,6 @@ export const OpportunityHeader = () => {
                     Executive Brief
                   </Link>
                 </Button>
-                {/* Hide Request Review button until feature is implemented */}
-                {/* <Button variant="outline" size="sm" onClick={() => setShowRequestReview(true)}>
-                  <ClipboardCheck className="h-4 w-4 mr-2" />
-                  Request Review
-                </Button> */}
                 <Button variant="outline" size="sm" onClick={() => setIsEditing(true)}>
                   <Pencil className="h-4 w-4 mr-2" />
                   Edit
