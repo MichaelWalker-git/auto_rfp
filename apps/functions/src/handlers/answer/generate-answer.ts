@@ -157,7 +157,7 @@ const generateAnswerWithTools = async (
   systemPrompt: string,
   projectId?: string,
   opportunityId?: string,
-): Promise<{ answer: string; found: boolean; toolsUsed: string[] }> => {
+): Promise<{ answer: string; found: boolean; toolsUsed: string[]; llmConfidence: number }> => {
   const MAX_TOOL_ROUNDS = 3;
   const toolsUsed: string[] = [];
 
@@ -306,22 +306,28 @@ Return ONLY valid JSON: {"answer": "<complete submission-ready answer>", "confid
   }
 
   if (!rawText.trim()) {
-    return { answer: '', found: false, toolsUsed };
+    return { answer: '', found: false, toolsUsed, llmConfidence: 0 };
   }
 
   try {
-    const parsed = safeParseJsonFromModel(rawText) as Partial<QAItem> & { found?: boolean };
+    const parsed = safeParseJsonFromModel(rawText) as Partial<QAItem> & { found?: boolean; confidence?: number };
     // Defensive: ensure answer is always a string
     const answerValue = parsed.answer;
     const answerStr = typeof answerValue === 'string' ? answerValue : String(answerValue ?? '');
+    const found = parsed.found ?? !!(answerStr?.trim());
+    // Use the LLM's self-reported confidence (0-1), falling back to a conservative default
+    const llmConfidence = typeof parsed.confidence === 'number' && parsed.confidence >= 0 && parsed.confidence <= 1
+      ? parsed.confidence
+      : found ? 0.7 : 0.3;
     return {
       answer: answerStr || '',
-      found: parsed.found ?? !!(answerStr?.trim()),
+      found,
       toolsUsed,
+      llmConfidence,
     };
   } catch {
     // Model returned plain text instead of JSON — use it as the answer
-    return { answer: rawText, found: true, toolsUsed };
+    return { answer: rawText, found: true, toolsUsed, llmConfidence: 0.7 };
   }
 };
 
@@ -413,7 +419,7 @@ export const generateAnswerForQuestion = async (
   const systemPrompt = await getAnswerSystemPrompt(orgId);
 
   // Wrap tool-based generation in Sentry span (includes all LLM rounds and tool calls)
-  const { answer, found, toolsUsed } = await Sentry.startSpan(
+  const { answer, found, toolsUsed, llmConfidence } = await Sentry.startSpan(
     { name: 'tool-based-generation', op: 'ai.pipeline' },
     () => generateAnswerWithTools(
       question,
@@ -425,16 +431,20 @@ export const generateAnswerForQuestion = async (
     ),
   );
 
-  console.log(`[answer] Tool-based generation complete. found=${found}, tools=[${toolsUsed.join(', ')}]`);
+  console.log(`[answer] Tool-based generation complete. found=${found}, llmConfidence=${llmConfidence}, tools=[${toolsUsed.join(', ')}]`);
 
   const confidence = calculateConfidenceScore({
-    llmConfidence: found ? 0.7 : 0.3,
+    llmConfidence,
     found,
     questionText: question,
     answerText: answer,
     sources: [],
     fromContentLibrary: false,
-    similarityScores: [],
+    // Use LLM confidence as a proxy for similarity scores in tool-based generation.
+    // Tool-based answers don't do direct embedding search, but the LLM's confidence
+    // reflects how relevant the retrieved context was. Without this, the contextRelevance
+    // factor (40% weight) collapses to near-zero, dragging all scores below 50%.
+    similarityScores: [llmConfidence],
   });
 
   await saveAnswer({
