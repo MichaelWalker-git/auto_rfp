@@ -155,7 +155,8 @@ export const OpportunityHeader = () => {
                     size="sm"
                   />
                 )}
-                <Button
+                {currentOrganization?.enablePOCGeneration && (
+                  <Button
                     variant={isAlreadyEmitted ? 'ghost' : 'outline'}
                     size="sm"
                     onClick={handleEmitEvent}
@@ -164,7 +165,8 @@ export const OpportunityHeader = () => {
                   >
                     {isEmitting ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Send className="h-4 w-4 mr-2" />}
                     Develop POC
-                </Button>
+                  </Button>
+                )}
                 <Button variant="outline" size="sm" onClick={() => setIsEditing(true)}>
                   <Pencil className="h-4 w-4 mr-2" />
                   Edit

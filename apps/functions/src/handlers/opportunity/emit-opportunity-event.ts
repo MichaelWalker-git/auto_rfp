@@ -19,6 +19,7 @@ import middy from '@middy/core';
 import { apiResponse } from '@/helpers/api';
 import { requireEnv } from '@/helpers/env';
 import { getOpportunity, updateOpportunity } from '@/helpers/opportunity';
+import { getOrganizationById } from '@/helpers/org';
 import { listQuestionFilesByOpportunity } from '@/helpers/questionFile';
 import { nowIso } from '@/helpers/date';
 import { withSentryLambda } from '@/sentry-lambda';
@@ -50,6 +51,12 @@ export const baseHandler = async (event: AuthedEvent): Promise<APIGatewayProxyRe
   if (!success) return apiResponse(400, { message: 'Invalid payload', issues: error.issues });
 
   const { orgId, projectId, oppId, force } = data;
+
+  // Check org-level feature flag
+  const org = await getOrganizationById(orgId);
+  if (!org?.enablePOCGeneration) {
+    return apiResponse(403, { message: 'POC generation is not enabled for this organization' });
+  }
 
   // Fetch the opportunity
   const result = await getOpportunity({ orgId, projectId, oppId });
