@@ -16,7 +16,6 @@ import {
   OpportunityDescription,
   useOpportunityHeaderActions,
 } from './opportunity-header/';
-import { AssigneeSelector } from './AssigneeSelector';
 import { useEmitOpportunityEvent } from '@/lib/hooks/use-emit-opportunity-event';
 
 // ─── Component ────────────────────────────────────────────────────────────────
@@ -144,18 +143,6 @@ export const OpportunityHeader = () => {
                     Executive Brief
                   </Link>
                 </Button>
-                {projectId && oppId && (
-                  <AssigneeSelector
-                    orgId={orgId}
-                    projectId={projectId}
-                    oppId={oppId}
-                    currentAssigneeId={(opportunity as Record<string, unknown>)['assigneeId'] as string | undefined}
-                    currentAssigneeName={(opportunity as Record<string, unknown>)['assigneeName'] as string | undefined}
-                    onAssigned={refetch}
-                    showLabel
-                    size="sm"
-                  />
-                )}
                 {currentOrganization?.enablePOCGeneration && (
                   pocUrl ? (
                     <Button variant="outline" size="sm" asChild>
