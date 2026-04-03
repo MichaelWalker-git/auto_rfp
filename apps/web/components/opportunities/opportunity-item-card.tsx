@@ -3,7 +3,7 @@
 import React, { useCallback, useState } from 'react';
 import { useParams } from 'next/navigation';
 import type { OpportunityItem } from '@auto-rfp/core';
-import { Building2, FileText, Hash, Loader2, Pencil, Star, Tag, Trash2, UserCircle2 } from 'lucide-react';
+import { Building2, FileText, Hash, Loader2, Pencil, Star, Tag, Trash2, User, UserPlus } from 'lucide-react';
 import DOMPurify from 'dompurify';
 import { authFetcher } from '@/lib/auth/auth-fetcher';
 import { env } from '@/lib/env';
@@ -12,6 +12,11 @@ import { cn } from '@/lib/utils';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover';
 import {
   Dialog,
   DialogContent,
@@ -22,10 +27,14 @@ import {
 } from '@/components/ui/dialog';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useDeleteOpportunity } from '@/lib/hooks/use-opportunities';
+import { useAssignOpportunity } from '@/lib/hooks/use-opportunity-assignment';
+import { useProjectAccessUsers } from '@/lib/hooks/use-project-access';
+import { useUsersList } from '@/lib/hooks/use-user';
+import { useAuth } from '@/components/AuthProvider';
 import { useCurrentOrganization } from '@/context/organization-context';
 import { EditOpportunityDialog } from './edit-opportunity-dialog';
 import { OpportunityStageBadge } from './opportunity-stage-badge';
-import { AssigneeSelector } from './AssigneeSelector';
+
 import type { OpportunityStage } from '@auto-rfp/core';
 
 // ─── Description section — auto-fetches if description is a URL ──────────────
@@ -162,6 +171,124 @@ function MetaRow({
   );
 }
 
+// ─── Compact assignee chip with popover for quick reassignment ────────────────
+
+const AssigneeChip = ({
+  orgId,
+  projectId,
+  oppId,
+  assigneeId,
+  assigneeName,
+  onAssigned,
+}: {
+  orgId?: string;
+  projectId?: string;
+  oppId?: string;
+  assigneeId?: string;
+  assigneeName?: string;
+  onAssigned?: () => void;
+}) => {
+  const [open, setOpen] = useState(false);
+  const { assign, isAssigning } = useAssignOpportunity();
+  const { userSub } = useAuth();
+  const { users: accessUsers } = useProjectAccessUsers(orgId ?? '', projectId ?? '');
+  const { data: usersListResponse } = useUsersList(orgId ?? '', { limit: 200 });
+  const orgUsers = usersListResponse?.items ?? [];
+
+  const assignableUsers = accessUsers.length > 0
+    ? accessUsers.map(access => {
+        const details = orgUsers.find(u => u.userId === access.userId);
+        return {
+          userId: access.userId,
+          displayName: details?.displayName || [details?.firstName, details?.lastName].filter(Boolean).join(' ') || details?.email || access.userId,
+        };
+      })
+    : orgUsers.map(user => ({
+        userId: user.userId,
+        displayName: user.displayName || [user.firstName, user.lastName].filter(Boolean).join(' ') || user.email || user.userId,
+      }));
+
+  const handleAssign = async (userId: string | null) => {
+    if (!orgId || !projectId || !oppId) return;
+    try {
+      await assign({ orgId, projectId, oppId, assigneeId: userId });
+      onAssigned?.();
+    } catch { /* handled by hook */ }
+    setOpen(false);
+  };
+
+  if (!orgId || !projectId || !oppId) return null;
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <button
+          className={cn(
+            'shrink-0 inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs transition-colors',
+            assigneeName
+              ? 'bg-primary/10 text-primary hover:bg-primary/20'
+              : 'bg-muted text-muted-foreground hover:bg-accent',
+          )}
+          title={assigneeName ? `Assigned to ${assigneeName}` : 'Assign someone'}
+        >
+          {isAssigning ? (
+            <Loader2 className="h-3 w-3 animate-spin" />
+          ) : assigneeName ? (
+            <>
+              <User className="h-3 w-3" />
+              <span className="max-w-[80px] truncate">{assigneeName}</span>
+            </>
+          ) : (
+            <UserPlus className="h-3 w-3" />
+          )}
+        </button>
+      </PopoverTrigger>
+      <PopoverContent className="w-48 p-1" align="end">
+        <div className="flex flex-col">
+          {userSub && assigneeId !== userSub && (
+            <button
+              className="flex items-center gap-2 rounded px-2 py-1.5 text-xs font-medium text-primary hover:bg-primary/10 transition-colors"
+              onClick={() => handleAssign(userSub)}
+            >
+              <User className="h-3 w-3" />
+              Assign to me
+            </button>
+          )}
+          {assigneeId && (
+            <button
+              className="flex items-center gap-2 rounded px-2 py-1.5 text-xs text-muted-foreground hover:bg-accent transition-colors"
+              onClick={() => handleAssign(null)}
+            >
+              <UserPlus className="h-3 w-3" />
+              Unassign
+            </button>
+          )}
+          {assignableUsers.length > 0 && (
+            <div className="border-t mt-1 pt-1 max-h-[160px] overflow-y-auto">
+              {assignableUsers.map(user => (
+                <button
+                  key={user.userId}
+                  className={cn(
+                    'flex items-center gap-2 rounded px-2 py-1.5 text-xs w-full text-left hover:bg-accent transition-colors',
+                    user.userId === assigneeId && 'bg-accent font-medium',
+                  )}
+                  onClick={() => handleAssign(user.userId)}
+                >
+                  <User className="h-3 w-3 shrink-0" />
+                  <span className="truncate">{user.displayName}</span>
+                  {user.userId === userSub && (
+                    <span className="text-muted-foreground ml-auto">(you)</span>
+                  )}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      </PopoverContent>
+    </Popover>
+  );
+};
+
 export const OpportunityItemCard = ({
   item,
   onOpen,
@@ -261,25 +388,9 @@ export const OpportunityItemCard = ({
           )}
         </div>
 
-        {/* Assignee row */}
-        {currentOrganization?.id && projectId && oppId && (
-          <div className="flex items-center justify-between text-xs border-t pt-1.5 mt-1">
-            <span className="text-muted-foreground">Assigned to:</span>
-            <AssigneeSelector
-              orgId={currentOrganization.id}
-              projectId={projectId}
-              oppId={oppId}
-              currentAssigneeId={(item as Record<string, unknown>)['assigneeId'] as string | undefined}
-              currentAssigneeName={(item as Record<string, unknown>)['assigneeName'] as string | undefined}
-              onAssigned={() => onUpdated?.(item)}
-              size="sm"
-            />
-          </div>
-        )}
-
-        {/* Classification badges + favorite star */}
-        <div className="flex items-start gap-1">
-          <div className="flex flex-wrap gap-1 flex-1">
+        {/* Footer: badges + assignee + favorite */}
+        <div className="flex items-center gap-1.5 border-t pt-1.5 mt-auto" onClick={e => e.stopPropagation()}>
+          <div className="flex flex-wrap gap-1 flex-1 min-w-0">
             {item.naicsCode && (
               <Badge variant="outline" className="text-xs h-4 px-1 text-muted-foreground">
                 <Tag className="h-2.5 w-2.5 mr-0.5" />
@@ -297,12 +408,17 @@ export const OpportunityItemCard = ({
               </Badge>
             )}
           </div>
+          <AssigneeChip
+            orgId={currentOrganization?.id}
+            projectId={projectId}
+            oppId={oppId}
+            assigneeId={item.assigneeId ?? undefined}
+            assigneeName={item.assigneeName ?? undefined}
+            onAssigned={() => onUpdated?.(item)}
+          />
           {onToggleFavorite && (
             <button
-              onClick={(e) => {
-                e.stopPropagation();
-                onToggleFavorite(oppId);
-              }}
+              onClick={() => onToggleFavorite(oppId)}
               aria-label={isFavorite ? 'Remove from favorites' : 'Add to favorites'}
               title={isFavorite ? 'Remove from favorites' : 'Add to favorites'}
               className="shrink-0 p-0.5 rounded hover:bg-accent transition-colors"

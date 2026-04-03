@@ -13,6 +13,7 @@ interface Organization {
   slug?: string;
   description?: string;
   iconKey?: string;
+  enablePOCGeneration?: boolean;
 }
 
 interface OrganizationContextType {

@@ -62,7 +62,7 @@ export function QuestionsFilter({
       </CardHeader>
       <CardContent>
         <div className="space-y-2">
-          {questions.map((question) => (
+          {questions.filter((q, i, arr) => arr.findIndex((a) => a.id === q.id) === i).map((question) => (
             <button
               key={question.id}
               className={cn(
