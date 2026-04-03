@@ -286,49 +286,49 @@ export class ApiOrchestratorStack extends cdk.Stack {
     }
 
     // EventBridge bus for opportunity events (GO decision → POC generation)
-    // Bus is created by DevelopmentPlatform stack — reuse it here
+    // Bus is created by DevelopmentPlatform stack — only available in Dev
     const opportunityEventBusName = `auto-rfp-opportunity-events-${stage.toLowerCase()}`;
-    const opportunityEventBus = events.EventBus.fromEventBusName(this, `OpportunityEventBus-${stage}`, opportunityEventBusName);
+    if (stage === 'Dev') {
+      const opportunityEventBus = events.EventBus.fromEventBusName(this, `OpportunityEventBus-${stage}`, opportunityEventBusName);
 
-    // Add bus name to all Lambda env vars
-    commonEnv.OPPORTUNITY_EVENT_BUS_NAME = opportunityEventBus.eventBusName;
+      commonEnv.OPPORTUNITY_EVENT_BUS_NAME = opportunityEventBus.eventBusName;
 
-    // Grant EventBridge PutEvents permission scoped to the bus
-    sharedInfraStack.commonLambdaRole.addToPrincipalPolicy(
-      new iam.PolicyStatement({
-        sid: 'EventBridgePutEvents',
-        actions: ['events:PutEvents'],
-        resources: [opportunityEventBus.eventBusArn],
-      }),
-    );
+      sharedInfraStack.commonLambdaRole.addToPrincipalPolicy(
+        new iam.PolicyStatement({
+          sid: 'EventBridgePutEvents',
+          actions: ['events:PutEvents'],
+          resources: [opportunityEventBus.eventBusArn],
+        }),
+      );
 
-    // --- POC completion listener: EventBridge → Lambda → update opportunity with pocUrl ---
-    const onPocCompleteFn = new lambdaNodejs.NodejsFunction(this, `OnPocComplete-${stage}`, {
-      functionName: `auto-rfp-on-poc-complete-${stage}`,
-      entry: path.join(__dirname, '../../../apps/functions/src/handlers/opportunity/on-poc-complete.ts'),
-      handler: 'handler',
-      runtime: lambda.Runtime.NODEJS_20_X,
-      timeout: cdk.Duration.seconds(30),
-      memorySize: 128,
-      role: sharedInfraStack.commonLambdaRole,
-      environment: commonEnv,
-      bundling: { minify: true, sourceMap: true },
-    });
+      // POC completion listener: EventBridge → Lambda → update opportunity with pocUrl
+      const onPocCompleteFn = new lambdaNodejs.NodejsFunction(this, `OnPocComplete-${stage}`, {
+        functionName: `auto-rfp-on-poc-complete-${stage}`,
+        entry: path.join(__dirname, '../../../apps/functions/src/handlers/opportunity/on-poc-complete.ts'),
+        handler: 'handler',
+        runtime: lambda.Runtime.NODEJS_20_X,
+        timeout: cdk.Duration.seconds(30),
+        memorySize: 128,
+        role: sharedInfraStack.commonLambdaRole,
+        environment: commonEnv,
+        bundling: { minify: true, sourceMap: true },
+      });
 
-    new logs.LogGroup(this, `OnPocCompleteLogGroup-${stage}`, {
-      logGroupName: `/aws/lambda/${onPocCompleteFn.functionName}`,
-      retention: stage === 'prod' ? logs.RetentionDays.INFINITE : logs.RetentionDays.TWO_WEEKS,
-      removalPolicy: cdk.RemovalPolicy.DESTROY,
-    });
+      new logs.LogGroup(this, `OnPocCompleteLogGroup-${stage}`, {
+        logGroupName: `/aws/lambda/${onPocCompleteFn.functionName}`,
+        retention: logs.RetentionDays.TWO_WEEKS,
+        removalPolicy: cdk.RemovalPolicy.DESTROY,
+      });
 
-    const pocCompleteRule = new events.Rule(this, `POCDeploymentCompleteRule-${stage}`, {
-      eventBus: opportunityEventBus,
-      eventPattern: {
-        source: ['development-platform.poc'],
-        detailType: ['POCDeploymentComplete'],
-      },
-    });
-    pocCompleteRule.addTarget(new eventsTargets.LambdaFunction(onPocCompleteFn));
+      const pocCompleteRule = new events.Rule(this, `POCDeploymentCompleteRule-${stage}`, {
+        eventBus: opportunityEventBus,
+        eventPattern: {
+          source: ['development-platform.poc'],
+          detailType: ['POCDeploymentComplete'],
+        },
+      });
+      pocCompleteRule.addTarget(new eventsTargets.LambdaFunction(onPocCompleteFn));
+    }
 
     // Grant SES send permission for FOIA auto-submit via email
     sharedInfraStack.commonLambdaRole.addToPrincipalPolicy(
