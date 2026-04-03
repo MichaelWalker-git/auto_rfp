@@ -2,7 +2,7 @@
 
 import React from 'react';
 import Link from 'next/link';
-import { AlertCircle, Check, Loader2, Pencil, Target, Trash2, X } from 'lucide-react';
+import { AlertCircle, Check, ExternalLink, Loader2, Pencil, Send, Target, Trash2, X } from 'lucide-react';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -16,6 +16,7 @@ import {
   OpportunityDescription,
   useOpportunityHeaderActions,
 } from './opportunity-header/';
+import { useEmitOpportunityEvent } from '@/lib/hooks/use-emit-opportunity-event';
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
@@ -48,6 +49,16 @@ export const OpportunityHeader = () => {
     backUrl,
     onSuccess: refetch,
   });
+
+  const { emitEvent, isEmitting } = useEmitOpportunityEvent();
+  const isAlreadyEmitted = !!opportunity?.eventBridgeEmittedAt;
+  const pocUrl = opportunity?.pocUrl;
+
+  const handleEmitEvent = async () => {
+    if (!orgId || !projectId || !oppId) return;
+    const result = await emitEvent(orgId, projectId, oppId);
+    if (result) refetch();
+  };
 
   // Show loading skeleton until orgId and opportunity are both loaded
   // This prevents showing errors when orgId is undefined
@@ -131,6 +142,26 @@ export const OpportunityHeader = () => {
                     Executive Brief
                   </Link>
                 </Button>
+                {currentOrganization?.enablePOCGeneration && (
+                  pocUrl ? (
+                    <Button variant="outline" size="sm" asChild>
+                      <a href={pocUrl} target="_blank" rel="noopener noreferrer">
+                        <ExternalLink className="h-4 w-4 mr-2" />
+                        View POC
+                      </a>
+                    </Button>
+                  ) : (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={handleEmitEvent}
+                      disabled={isEmitting || isAlreadyEmitted}
+                    >
+                      {(isEmitting || isAlreadyEmitted) ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Send className="h-4 w-4 mr-2" />}
+                      Develop POC
+                    </Button>
+                  )
+                )}
                 <Button variant="outline" size="sm" onClick={() => setIsEditing(true)}>
                   <Pencil className="h-4 w-4 mr-2" />
                   Edit

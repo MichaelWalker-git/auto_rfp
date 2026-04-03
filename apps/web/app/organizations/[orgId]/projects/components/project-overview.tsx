@@ -21,7 +21,7 @@ import {
   Target,
 } from 'lucide-react';
 import { format, formatDistanceToNow } from 'date-fns';
-import { useProject, useQuestions } from '@/lib/hooks/use-api';
+import { useProject, useQuestionsCount } from '@/lib/hooks/use-api';
 import { useProjectOutcomes } from '@/lib/hooks/use-project-outcome';
 import { useGetExecutiveBriefByProject } from '@/lib/hooks/use-executive-brief';
 import {
@@ -41,7 +41,7 @@ interface ProjectOverviewProps {
 export function ProjectOverview({ projectId }: ProjectOverviewProps) {
   const { questionFiles, isLoading: isQL, error: err } = useQuestionsProvider();
   const { data: project, isLoading: projectLoading, error: projectError } = useProject(projectId);
-  const { data: questions, isLoading: questionsLoading, error: questionsError } = useQuestions(projectId);
+  const { data: questionsCounts } = useQuestionsCount(projectId);
   const { currentOrganization } = useCurrentOrganization();
   const orgId = project?.orgId ?? currentOrganization?.id ?? '';
 
@@ -92,17 +92,10 @@ export function ProjectOverview({ projectId }: ProjectOverviewProps) {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [projectId, opportunities?.length]);
 
-  const isLoading = questionsLoading || projectLoading;
+  const isLoading = isQL || projectLoading;
 
-  // Calculate project metrics
-  const totalQuestions = questions?.sections?.reduce(
-    (total: number, section: any) => total + (section.questions?.length ?? 0), 0,
-  ) ?? 0;
-
-  const answeredQuestions = questions?.sections?.reduce(
-    (total: number, section: any) => total + (section.questions?.filter((q: any) => q.answer)?.length ?? 0), 0,
-  ) ?? 0;
-
+  const totalQuestions = questionsCounts?.totalQuestions ?? 0;
+  const answeredQuestions = questionsCounts?.totalAnswers ?? 0;
   const completionPercentage = totalQuestions > 0 ? Math.round((answeredQuestions / totalQuestions) * 100) : 0;
 
   // Brief statistics across all opportunities
@@ -398,7 +391,7 @@ export function ProjectOverview({ projectId }: ProjectOverviewProps) {
             <p className="text-xs text-muted-foreground">uploaded for extraction</p>
             <div className="flex items-center justify-between mt-5">
               <Badge variant="outline" className="text-xs">
-                {questions?.sections?.length ?? 0} sections extracted
+                {questionFiles?.length ?? 0} files extracted
               </Badge>
             </div>
           </CardContent>

@@ -32,10 +32,7 @@ auto_rfp/
 # Install all dependencies (automatically installs all workspace packages)
 pnpm install
 
-# Build the core package (required before running web app)
-pnpm --filter @auto-rfp/core build
-
-# Or build all packages
+# Build all packages (core must build first)
 pnpm build
 ```
 
@@ -114,7 +111,7 @@ pnpm --filter @auto-rfp/web test:e2e
 
 - **@auto-rfp/web** - Next.js 15+ frontend with App Router
 - **@auto-rfp/functions** - AWS Lambda function handlers
-- **@auto-rfp/core** - Shared Zod schemas and TypeScript types (source-only, no build required)
+- **@auto-rfp/core** - Shared Zod schemas and TypeScript types (built with tsup)
 - **@auto-rfp/infra** - AWS CDK infrastructure definitions
 
 ## 🔧 Common Commands
@@ -122,7 +119,7 @@ pnpm --filter @auto-rfp/web test:e2e
 ```bash
 # Development
 pnpm install         # Install all dependencies
-pnpm dev             # Run web app (no build needed!)
+pnpm dev             # Run web app
 pnpm test            # Run all tests
 pnpm lint            # Lint all packages
 
@@ -134,13 +131,13 @@ pnpm deploy:test:api # Deploy only API to Test (fast)
 pnpm cdk             # Run CDK commands
 ```
 
-## ⚡ Performance Optimizations
+## ⚡ Build Order
 
-- **@auto-rfp/core uses TypeScript source files directly** - No build step required
-- **Instant schema changes** - Edit Zod schemas and use immediately
-- **Faster development** - No waiting for builds
-- **Faster Amplify deployments** - One less build step
-- **Works everywhere** - Next.js, Lambda bundling, and CDK all handle TypeScript natively
+`packages/core` must be built first — both `apps/web` and `apps/functions` depend on it:
+
+```bash
+cd packages/core && pnpm build   # Always rebuild after changing schemas
+```
 
 ## 📚 Documentation
 

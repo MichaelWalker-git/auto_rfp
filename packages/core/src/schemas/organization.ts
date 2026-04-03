@@ -79,6 +79,8 @@ export const OrganizationItemSchema = CreateOrganizationSchema.extend({
   autoApprovalThreshold: z.number().min(0).max(1).optional(),
   /** Org slug (short identifier) */
   slug: z.string().optional(),
+  /** Whether POC generation via EventBridge is enabled for this org */
+  enablePOCGeneration: z.boolean().optional(),
 });
 
 /**
