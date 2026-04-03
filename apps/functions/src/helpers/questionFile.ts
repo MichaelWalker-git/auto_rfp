@@ -191,6 +191,20 @@ const deleteS3ObjectBestEffort = async (
 };
 
 /**
+ * Delete all questions extracted from a specific question file.
+ * Wraps the internal queryQuestionKeysByFile + batchDeleteDynamoItems pattern
+ * for use by pipeline cancellation/failure cleanup.
+ */
+export const deleteQuestionsForFile = async (
+  projectId: string,
+  oppId: string,
+  questionFileId: string,
+): Promise<number> => {
+  const questionKeys = await queryQuestionKeysByFile(projectId, oppId, questionFileId);
+  return batchDeleteDynamoItems(questionKeys);
+};
+
+/**
  * Query all question keys for a given projectId + oppId + questionFileId
  * using begins_with on the SK: {projectId}#{oppId}#{questionFileId}#
  */

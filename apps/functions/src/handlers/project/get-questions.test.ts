@@ -44,6 +44,12 @@ jest.mock('@/middleware/rbac-middleware', () => ({
   requirePermission: () => ({ before: jest.fn() }),
 }));
 
+// Mock questionFile helper — loadQuestions now calls listQuestionFilesByOpportunity to filter orphans
+const mockListQuestionFilesByOpportunity = jest.fn();
+jest.mock('@/helpers/questionFile', () => ({
+  listQuestionFilesByOpportunity: (...args: unknown[]) => mockListQuestionFilesByOpportunity(...args),
+}));
+
 process.env.DB_TABLE_NAME = 'test-table';
 process.env.REGION = 'us-east-1';
 
@@ -81,6 +87,11 @@ describe('get-questions handler', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockSend.mockReset();
+    // Default: return file-1 as PROCESSED (used by most tests).
+    // Questions without questionFileId pass through the filter automatically.
+    mockListQuestionFilesByOpportunity.mockResolvedValue({
+      items: [{ questionFileId: 'file-1', status: 'PROCESSED' }],
+    });
   });
 
   // ── Validation ──────────────────────────────────────────────────────
@@ -454,6 +465,11 @@ describe('get-questions handler', () => {
     // but filtered to a single opportunity (~115 questions).
     const questionCount = 3100;
     const targetOpportunity = 'opp-0';
+
+    // Mock all file IDs used in this test as PROCESSED
+    mockListQuestionFilesByOpportunity.mockResolvedValueOnce({
+      items: Array.from({ length: 87 }, (_, i) => ({ questionFileId: `file-${i}`, status: 'PROCESSED' })),
+    });
     const answerText = 'Our team has extensive experience implementing compliance controls. '.repeat(8);
 
     // DynamoDB FilterExpression runs server-side, so loadQuestions only returns

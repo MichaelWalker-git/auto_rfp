@@ -87,10 +87,13 @@ export function useProject(projectId: string | null, includeAll = false) {
   );
 }
 
-export function useQuestionsCount(projectId: string | null) {
+export function useQuestionsCount(projectId: string | null, opportunityId?: string | null) {
+  const params: Record<string, string | undefined> = {
+    opportunityId: opportunityId ?? undefined,
+  };
   return useApi<{ totalQuestions: number; totalAnswers: number }>(
-    projectId ? ['questions-count', projectId] : null,
-    projectId ? buildApiUrl(`projects/questions-count/${projectId}`) : null,
+    projectId ? ['questions-count', projectId, opportunityId] : null,
+    projectId ? buildApiUrl(`projects/questions-count/${projectId}`, params) : null,
   );
 }
 

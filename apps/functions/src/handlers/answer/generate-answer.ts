@@ -157,9 +157,10 @@ const generateAnswerWithTools = async (
   systemPrompt: string,
   projectId?: string,
   opportunityId?: string,
-): Promise<{ answer: string; found: boolean; toolsUsed: string[] }> => {
+): Promise<{ answer: string; found: boolean; toolsUsed: string[]; llmConfidence: number; similarityScores: number[] }> => {
   const MAX_TOOL_ROUNDS = 3;
   const toolsUsed: string[] = [];
+  const allSimilarityScores: number[] = [];
 
   const userPrompt = `You are writing a winning RFP response on behalf of our company. The evaluator will score this answer to decide whether to award us the contract. Quality and specificity are critical.
 
@@ -250,6 +251,11 @@ Return ONLY valid JSON: {"answer": "<complete submission-ready answer>", "confid
         ),
       );
 
+      // Accumulate real similarity scores from vector search tools
+      toolResults.forEach(r => {
+        if (r.similarityScores?.length) allSimilarityScores.push(...r.similarityScores);
+      });
+
       const toolResultContent: Array<unknown> = toolResults.map(r => ({
         type: 'tool_result',
         tool_use_id: r.tool_use_id,
@@ -306,22 +312,33 @@ Return ONLY valid JSON: {"answer": "<complete submission-ready answer>", "confid
   }
 
   if (!rawText.trim()) {
-    return { answer: '', found: false, toolsUsed };
+    return { answer: '', found: false, toolsUsed, llmConfidence: 0, similarityScores: allSimilarityScores };
   }
 
   try {
-    const parsed = safeParseJsonFromModel(rawText) as Partial<QAItem> & { found?: boolean };
+    const parsed = safeParseJsonFromModel(rawText) as Partial<QAItem> & { found?: boolean; confidence?: number };
     // Defensive: ensure answer is always a string
     const answerValue = parsed.answer;
     const answerStr = typeof answerValue === 'string' ? answerValue : String(answerValue ?? '');
+    const found = parsed.found ?? !!(answerStr?.trim());
+    // Use the LLM's self-reported confidence (0-1), falling back to a conservative default
+    const isValidConfidence = typeof parsed.confidence === 'number' && parsed.confidence >= 0 && parsed.confidence <= 1;
+    if (!isValidConfidence) {
+      console.warn(`[answer] LLM confidence missing or invalid (got: ${JSON.stringify(parsed.confidence)}), using fallback: ${found ? 0.7 : 0.3}`);
+    }
+    const fallback = found ? 0.7 : 0.3;
+    const llmConfidence = isValidConfidence ? (parsed.confidence as number) : fallback;
     return {
       answer: answerStr || '',
-      found: parsed.found ?? !!(answerStr?.trim()),
+      found,
       toolsUsed,
+      llmConfidence,
+      similarityScores: allSimilarityScores,
     };
   } catch {
     // Model returned plain text instead of JSON — use it as the answer
-    return { answer: rawText, found: true, toolsUsed };
+    console.warn('[answer] Model returned plain text instead of JSON — using fallback confidence 0.7');
+    return { answer: rawText, found: true, toolsUsed, llmConfidence: 0.7, similarityScores: allSimilarityScores };
   }
 };
 
@@ -413,7 +430,7 @@ export const generateAnswerForQuestion = async (
   const systemPrompt = await getAnswerSystemPrompt(orgId);
 
   // Wrap tool-based generation in Sentry span (includes all LLM rounds and tool calls)
-  const { answer, found, toolsUsed } = await Sentry.startSpan(
+  const { answer, found, toolsUsed, llmConfidence, similarityScores } = await Sentry.startSpan(
     { name: 'tool-based-generation', op: 'ai.pipeline' },
     () => generateAnswerWithTools(
       question,
@@ -425,16 +442,16 @@ export const generateAnswerForQuestion = async (
     ),
   );
 
-  console.log(`[answer] Tool-based generation complete. found=${found}, tools=[${toolsUsed.join(', ')}]`);
+  console.log(`[answer] Tool-based generation complete. found=${found}, llmConfidence=${llmConfidence}, similarityScores=${similarityScores.length}, tools=[${toolsUsed.join(', ')}]`);
 
   const confidence = calculateConfidenceScore({
-    llmConfidence: found ? 0.7 : 0.3,
+    llmConfidence,
     found,
     questionText: question,
     answerText: answer,
     sources: [],
     fromContentLibrary: false,
-    similarityScores: [],
+    similarityScores,
   });
 
   await saveAnswer({

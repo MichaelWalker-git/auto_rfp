@@ -43,24 +43,21 @@ export interface ConfidenceScoreResult {
  * Based on embedding similarity scores and LLM confidence.
  */
 function calculateContextRelevance(input: ConfidenceScoreInput): number {
-  const { similarityScores, llmConfidence, found } = input;
+  const { similarityScores, found } = input;
 
-  if (!found && similarityScores.length === 0) return 20;
+  // No vector search was performed — return neutral default.
+  // This happens when Claude only calls non-vector tools (e.g. get_organization_context).
+  if (similarityScores.length === 0) return found ? 50 : 20;
 
   // Average similarity of top hits (Pinecone scores are 0-1)
   const avgSimilarity =
-    similarityScores.length > 0
-      ? similarityScores.reduce((sum, s) => sum + s, 0) / similarityScores.length
-      : 0;
+    similarityScores.reduce((sum, s) => sum + s, 0) / similarityScores.length;
 
-  // Top hit similarity matters more
-  const topSimilarity = similarityScores[0] || 0;
+  // Best hit similarity matters more (scores arrive in tool-call order, not sorted)
+  const topSimilarity = Math.max(...similarityScores);
 
-  // Weighted blend: 50% top hit, 30% average, 20% LLM confidence
-  const raw =
-    topSimilarity * 0.50 +
-    avgSimilarity * 0.30 +
-    llmConfidence * 0.20;
+  // Purely embedding-based: 60% best hit, 40% average
+  const raw = topSimilarity * 0.60 + avgSimilarity * 0.40;
 
   // Scale to 0-100
   return Math.round(Math.min(100, Math.max(0, raw * 100)));

@@ -136,15 +136,17 @@ const executeKbSearch = async (
   orgId: string,
   query: string,
   limit = 5,
-): Promise<string> => {
+): Promise<{ content: string; similarityScores: number[] }> => {
   const topK = Math.min(Math.max(limit, 1), 10);
   try {
     const embedding = await getEmbedding(query);
     const hits = await semanticSearchChunks(orgId, embedding, topK * 2);
-    if (!hits.length) return 'No knowledge base content found for that query.';
+    if (!hits.length) return { content: 'No knowledge base content found for that query.', similarityScores: [] };
 
     const relevant = hits.filter(h => (h.score ?? 0) >= 0.35).slice(0, topK);
-    if (!relevant.length) return 'No sufficiently relevant knowledge base content found.';
+    if (!relevant.length) return { content: 'No sufficiently relevant knowledge base content found.', similarityScores: [] };
+
+    const similarityScores = relevant.map(h => h.score ?? 0);
 
     const chunks = await Promise.all(
       relevant.map(async (h, i) => {
@@ -168,12 +170,15 @@ const executeKbSearch = async (
     );
 
     const valid = chunks.filter((c): c is string => c !== null);
-    if (!valid.length) return 'Could not load knowledge base content.';
+    if (!valid.length) return { content: 'Could not load knowledge base content.', similarityScores: [] };
 
-    return `Found ${valid.length} relevant KB excerpt(s):\n\n${valid.join('\n\n---\n\n')}`;
+    return {
+      content: `Found ${valid.length} relevant KB excerpt(s):\n\n${valid.join('\n\n---\n\n')}`,
+      similarityScores,
+    };
   } catch (err) {
     console.warn('search_knowledge_base (answer) error:', (err as Error)?.message);
-    return `Error searching knowledge base: ${(err as Error)?.message}`;
+    return { content: `Error searching knowledge base: ${(err as Error)?.message}`, similarityScores: [] };
   }
 };
 
@@ -181,15 +186,17 @@ const executePastPerfSearch = async (
   orgId: string,
   keywords: string,
   limit = 3,
-): Promise<string> => {
+): Promise<{ content: string; similarityScores: number[] }> => {
   const topK = Math.min(Math.max(limit, 1), 5);
   try {
     const embedding = await getEmbedding(keywords);
     const hits = await semanticSearchPastPerformance(orgId, embedding, topK * 2);
-    if (!hits.length) return 'No past performance projects found matching those keywords.';
+    if (!hits.length) return { content: 'No past performance projects found matching those keywords.', similarityScores: [] };
 
     const relevant = hits.filter(h => (h.score ?? 0) >= 0.35).slice(0, topK);
-    if (!relevant.length) return 'No sufficiently relevant past performance found.';
+    if (!relevant.length) return { content: 'No sufficiently relevant past performance found.', similarityScores: [] };
+
+    const similarityScores = relevant.map(h => h.score ?? 0);
 
     const formatted = relevant.map((h, i) => {
       const m = h.source as Record<string, unknown>;
@@ -209,10 +216,13 @@ const executePastPerfSearch = async (
       return lines.join('\n');
     });
 
-    return `Found ${formatted.length} relevant past performance project(s):\n\n${formatted.join('\n\n---\n\n')}`;
+    return {
+      content: `Found ${formatted.length} relevant past performance project(s):\n\n${formatted.join('\n\n---\n\n')}`,
+      similarityScores,
+    };
   } catch (err) {
     console.warn('search_past_performance (answer) error:', (err as Error)?.message);
-    return `Error searching past performance: ${(err as Error)?.message}`;
+    return { content: `Error searching past performance: ${(err as Error)?.message}`, similarityScores: [] };
   }
 };
 
@@ -231,35 +241,44 @@ export const executeAnswerTool = async (args: {
 
   const start = Date.now();
   let content: string;
+  let similarityScores: number[] | undefined;
   let result: 'success' | 'failure' = 'success';
   let errorMessage: string | undefined;
 
   try {
     switch (toolName) {
-      case 'search_knowledge_base':
-        content = await executeKbSearch(
+      case 'search_knowledge_base': {
+        const kbResult = await executeKbSearch(
           orgId,
           String(toolInput.query ?? ''),
           typeof toolInput.limit === 'number' ? toolInput.limit : 5,
         );
+        content = kbResult.content;
+        similarityScores = kbResult.similarityScores;
         break;
+      }
 
-      case 'search_past_performance':
-        content = await executePastPerfSearch(
+      case 'search_past_performance': {
+        const ppResult = await executePastPerfSearch(
           orgId,
           String(toolInput.keywords ?? ''),
           typeof toolInput.limit === 'number' ? toolInput.limit : 3,
         );
+        content = ppResult.content;
+        similarityScores = ppResult.similarityScores;
         break;
+      }
 
-      case 'get_content_library':
-        content = await fetchContentLibraryMatches(
+      case 'get_content_library': {
+        const clResult = await fetchContentLibraryMatches(
           orgId,
           String(toolInput.query ?? ''),
           typeof toolInput.limit === 'number' ? toolInput.limit : 3,
         );
-        if (!content) content = 'No content library matches found for that query.';
+        content = clResult.content || 'No content library matches found for that query.';
+        similarityScores = clResult.similarityScores;
         break;
+      }
 
       case 'get_organization_context': {
         const [orgDetails, primaryContact] = await Promise.all([
@@ -314,5 +333,9 @@ export const executeAnswerTool = async (args: {
     errorMessage,
   }).catch(err => console.warn('Failed to write answer tool audit log:', (err as Error)?.message));
 
-  return { tool_use_id: toolUseId, content };
+  return {
+    tool_use_id: toolUseId,
+    content,
+    ...(similarityScores?.length ? { similarityScores } : {}),
+  };
 };

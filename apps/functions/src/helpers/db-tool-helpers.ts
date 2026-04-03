@@ -329,17 +329,19 @@ export const fetchContentLibraryMatches = async (
   orgId: string,
   query: string,
   limit = 5,
-): Promise<string> => {
+): Promise<{ content: string; similarityScores: number[] }> => {
   try {
-    if (!query.trim()) return '';
+    if (!query.trim()) return { content: '', similarityScores: [] };
 
     const embedding = await getEmbedding(query);
     const hits = await semanticSearchContentLibrary(orgId, embedding, limit * 2);
-    if (!hits.length) return '';
+    if (!hits.length) return { content: '', similarityScores: [] };
 
     const MIN_SCORE = 0.40;
     const relevant = hits.filter(h => (h.score ?? 0) >= MIN_SCORE).slice(0, limit);
-    if (!relevant.length) return '';
+    if (!relevant.length) return { content: '', similarityScores: [] };
+
+    const similarityScores = relevant.map(h => h.score ?? 0);
 
     // Load matched items from DynamoDB using PK/SK from Pinecone metadata
     const { getItem: getDbItem } = await import('@/helpers/db');
@@ -358,12 +360,15 @@ export const fetchContentLibraryMatches = async (
       );
     }
 
-    if (!items.length) return '';
+    if (!items.length) return { content: '', similarityScores: [] };
 
-    return `=== CONTENT LIBRARY MATCHES ===\n${items.join('\n\n---\n\n')}`;
+    return {
+      content: `=== CONTENT LIBRARY MATCHES ===\n${items.join('\n\n---\n\n')}`,
+      similarityScores,
+    };
   } catch (err) {
     console.warn('fetchContentLibraryMatches error:', (err as Error)?.message);
-    return '';
+    return { content: '', similarityScores: [] };
   }
 };
 

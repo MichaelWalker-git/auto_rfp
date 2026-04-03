@@ -1,7 +1,7 @@
 import { Context } from 'aws-lambda';
 import { withSentryLambda } from '@/sentry-lambda';
 import { requireEnv } from '@/helpers/env';
-import { updateQuestionFile, checkQuestionFileCancelled } from '@/helpers/questionFile';
+import { updateQuestionFile, checkQuestionFileCancelled, deleteQuestionsForFile } from '@/helpers/questionFile';
 import { getTextractText } from '@/helpers/textract';
 import { uploadToS3 } from '@/helpers/s3';
 
@@ -63,6 +63,7 @@ export const baseHandler = async (event: Event, _ctx: Context): Promise<Resp> =>
 
   if (status !== 'SUCCEEDED') {
     await updateQuestionFile(validProjectId, validOpportunityId, validQuestionFileId, { status: 'FAILED' });
+    await deleteQuestionsForFile(validProjectId, validOpportunityId, validQuestionFileId);
     throw new Error(`Textract job failed: status=${status}`);
   }
 
