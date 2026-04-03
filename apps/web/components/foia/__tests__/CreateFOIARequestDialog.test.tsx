@@ -105,7 +105,7 @@ const fillAndSubmitForm = async (user: ReturnType<typeof userEvent.setup>) => {
   await user.type(screen.getByLabelText(/foia office address/i), '1400 Defense Pentagon, Washington DC 20301');
   await user.type(screen.getByLabelText(/solicitation number/i), 'W911NF-21-R-0001');
   await user.type(screen.getByLabelText(/contract title/i), 'IT Services Contract');
-  await user.type(screen.getByLabelText(/award date/i), '2026-01-15');
+  fireEvent.change(screen.getByLabelText(/award date/i), { target: { value: '2026-01-15' } });
   await user.type(screen.getByLabelText(/^name \*/i), 'John Doe');
   await user.type(screen.getByLabelText(/^title \*/i), 'Contracts Manager');
   await user.type(screen.getByLabelText(/^email \*/i), 'john@company.com');
@@ -246,7 +246,7 @@ describe('CreateFOIARequestDialog', () => {
       await user.type(screen.getByLabelText(/foia office address/i), '1400 Defense Pentagon');
       await user.type(screen.getByLabelText(/solicitation number/i), 'W911NF-21-R-0001');
       await user.type(screen.getByLabelText(/contract title/i), 'IT Services');
-      await user.type(screen.getByLabelText(/award date/i), '2026-01-15');
+      fireEvent.change(screen.getByLabelText(/award date/i), { target: { value: '2026-01-15' } });
       await user.type(screen.getByLabelText(/^name \*/i), 'John Doe');
       await user.type(screen.getByLabelText(/^title \*/i), 'Contracts Manager');
       await user.type(screen.getByLabelText(/^email \*/i), 'john@company.com');
@@ -278,7 +278,7 @@ describe('CreateFOIARequestDialog', () => {
       await user.type(screen.getByLabelText(/foia office email/i), 'foia@dod.gov');
       await user.type(screen.getByLabelText(/foia office address/i), '1400 Defense Pentagon');
       await user.type(screen.getByLabelText(/contract title/i), 'IT Services');
-      await user.type(screen.getByLabelText(/award date/i), '2026-01-15');
+      fireEvent.change(screen.getByLabelText(/award date/i), { target: { value: '2026-01-15' } });
       await user.type(screen.getByLabelText(/^name \*/i), 'John Doe');
       await user.type(screen.getByLabelText(/^title \*/i), 'Contracts Manager');
       await user.type(screen.getByLabelText(/^email \*/i), 'john@company.com');
