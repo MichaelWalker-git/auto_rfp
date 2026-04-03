@@ -412,8 +412,8 @@ export const OpportunityItemCard = ({
             orgId={currentOrganization?.id}
             projectId={projectId}
             oppId={oppId}
-            assigneeId={(item as Record<string, unknown>)['assigneeId'] as string | undefined}
-            assigneeName={(item as Record<string, unknown>)['assigneeName'] as string | undefined}
+            assigneeId={item.assigneeId ?? undefined}
+            assigneeName={item.assigneeName ?? undefined}
             onAssigned={() => onUpdated?.(item)}
           />
           {onToggleFavorite && (

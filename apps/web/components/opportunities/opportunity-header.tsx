@@ -51,13 +51,13 @@ export const OpportunityHeader = () => {
   });
 
   const { emitEvent, isEmitting, emitError, setEmitError } = useEmitOpportunityEvent();
-  const isAlreadyEmitted = !!(opportunity as Record<string, unknown>)?.eventBridgeEmittedAt;
-  const pocUrl = (opportunity as Record<string, unknown>)?.pocUrl as string | undefined;
+  const isAlreadyEmitted = !!opportunity?.eventBridgeEmittedAt;
+  const pocUrl = opportunity?.pocUrl;
   const isGoDecision = opportunity?.stage === 'PURSUING' || opportunity?.stage === 'SUBMITTED' || opportunity?.stage === 'WON';
 
   const handleEmitEvent = async () => {
     if (!orgId || !projectId || !oppId) return;
-    const result = await emitEvent(orgId, projectId, oppId, true);
+    const result = await emitEvent(orgId, projectId, oppId);
     if (result) refetch();
   };
 
