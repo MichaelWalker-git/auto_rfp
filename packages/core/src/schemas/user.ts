@@ -123,8 +123,8 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
   ],
   EDITOR: [
     ...VIEWER_PERMISSIONS,
-    'question:create', 'org:create', 'kb:create', 'proposal:create', 'project:create', 'document:create', 'user:create', 'answer:create',
-    'question:edit', 'org:edit', 'kb:edit', 'proposal:edit', 'project:edit', 'document:edit', 'user:edit', 'answer:edit',
+    'question:create', 'org:create', 'kb:create', 'proposal:create', 'project:create', 'document:create', 'user:create', 'answer:create', 'opportunity:create',
+    'question:edit', 'org:edit', 'kb:edit', 'proposal:edit', 'project:edit', 'document:edit', 'user:edit', 'answer:edit', 'opportunity:edit',
     'template:create', 'template:update', 'template:publish', 'template:apply',
     'collaboration:presence',
     'collaboration:comment',
