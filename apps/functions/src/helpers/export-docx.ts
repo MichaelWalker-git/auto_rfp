@@ -17,6 +17,7 @@ import {
   PageBreak,
   Paragraph,
   ShadingType,
+  Tab,
   Table,
   TableCell,
   TableRow,
@@ -25,6 +26,8 @@ import {
   convertInchesToTwip,
 } from 'docx';
 import type { BuildExportHtmlOptions } from './export-html-builder';
+// Note: extractHeadingsFromHtml, extractTocTitle, estimateHeadingPages, findTocPlaceholderInHtml
+// are no longer needed — DOCX now receives pre-expanded TOC HTML (same as PDF/HTML path).
 
 export interface HtmlToDocxOptions extends BuildExportHtmlOptions {
   /** Document creator metadata */
@@ -296,7 +299,7 @@ const parseInlineHtml = (html: string): TextRun[] => {
       if (decoded.trim() || decoded.includes(' ')) {
         runs.push(new TextRun({
           text: decoded,
-          bold: style.bold || undefined,
+          bold: style.bold,
           italics: style.italic || undefined,
           underline: style.underline ? {} : undefined,
           strike: style.strike || undefined,
@@ -486,29 +489,39 @@ const HEADING_MAP: Record<string, typeof HeadingLevel[keyof typeof HeadingLevel]
   h6: HeadingLevel.HEADING_6,
 };
 
+
 /**
- * Parse the full HTML body into an array of docx elements.
- * Async because image fetching requires network calls.
+ * Parse an HTML fragment (without TOC placeholder) into docx elements.
+ * This is the core block-level parser extracted so it can be called on
+ * HTML segments before and after the TOC.
  */
-const parseHtmlToDocxChildren = async (html: string): Promise<DocxChild[]> => {
+const parseHtmlBlocksToDocx = async (
+  html: string,
+  imageCache: Map<string, Paragraph | null>,
+): Promise<DocxChild[]> => {
   const children: DocxChild[] = [];
 
-  // Collect all image URLs for parallel pre-fetching
-  const imgTagRe = /<img[^>]*>/gi;
-  const imgTags: string[] = [];
-  let imgMatch: RegExpExecArray | null;
-  while ((imgMatch = imgTagRe.exec(html)) !== null) {
-    imgTags.push(imgMatch[0]);
-  }
+  // ── Pre-process: extract TOC block before block regex (nested divs break non-greedy match) ──
+  const tocOpenRe = /<div[^>]*data-table-of-contents="true"[^>]*>/i;
+  const tocOpenMatch = tocOpenRe.exec(html);
+  let tocFullHtml = '';
+  let processedHtml = html;
 
-  // Pre-fetch all images in parallel for performance
-  const imageCache = new Map<string, Paragraph | null>();
-  if (imgTags.length > 0) {
-    const fetchPromises = imgTags.map(async (tag) => {
-      const result = await parseImgToParagraph(tag);
-      imageCache.set(tag, result);
-    });
-    await Promise.all(fetchPromises);
+  if (tocOpenMatch && tocOpenMatch.index !== undefined) {
+    // Walk forward counting div depth to find matching </div>
+    const start = tocOpenMatch.index;
+    let depth = 1;
+    const divRe = /<\/?div[\s>]/gi;
+    divRe.lastIndex = start + tocOpenMatch[0].length;
+    let dm: RegExpExecArray | null;
+    let end = html.length;
+    while ((dm = divRe.exec(html)) !== null) {
+      if (dm[0].startsWith('</')) { depth--; if (depth === 0) { end = html.indexOf('>', dm.index) + 1; break; } }
+      else { depth++; }
+    }
+    tocFullHtml = html.slice(start, end);
+    // Replace TOC block with a marker the block regex won't choke on
+    processedHtml = html.slice(0, start) + '<!-- TOC_PLACEHOLDER -->' + html.slice(end);
   }
 
   // Tokenize into top-level blocks. Order matters — standalone images, tables and lists first (greedy),
@@ -517,8 +530,44 @@ const parseHtmlToDocxChildren = async (html: string): Promise<DocxChild[]> => {
     /(<img[^>]*\/?>)|(<table[\s\S]*?<\/table>)|(<(?:ul|ol)[^>]*>[\s\S]*?<\/(?:ul|ol)>)|(<(h[1-6]|p|blockquote|hr|div|pre)[^>]*>([\s\S]*?)<\/\5>)|(<hr\s*\/?>)|(<div[^>]*data-page-break[^>]*>[\s\S]*?<\/div>)/gi;
 
   let match: RegExpExecArray | null;
+  let tocInjected = false;
+  const tocMarkerPos = processedHtml.indexOf('<!-- TOC_PLACEHOLDER -->');
 
-  while ((match = blockRe.exec(html)) !== null) {
+  while ((match = blockRe.exec(processedHtml)) !== null) {
+    // ── Inject TOC entries at the placeholder position ──
+    if (tocFullHtml && tocMarkerPos >= 0 && match.index >= tocMarkerPos && !tocInjected) {
+      tocInjected = true;
+      // Parse TOC entries from the full TOC HTML via data attributes
+      const entryRe = /data-toc-text="([^"]*)"[^>]*data-toc-level="(\d+)"[^>]*data-toc-pagenum="(\d+)"/gi;
+      let tocEntry: RegExpExecArray | null;
+      let tocMin = 9;
+      const tocEntries: { text: string; level: number; pageNum: string }[] = [];
+      while ((tocEntry = entryRe.exec(tocFullHtml)) !== null) {
+        const text = tocEntry[1].replace(/&#x27;/g, "'").replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"');
+        const level = parseInt(tocEntry[2], 10);
+        if (level < tocMin) tocMin = level;
+        tocEntries.push({ text, level, pageNum: tocEntry[3] });
+      }
+      const RIGHT_TAB = 9360;
+      for (const te of tocEntries) {
+        const indent = (te.level - tocMin) * 360;
+        const isTop = te.level === tocMin;
+        const dotCount = Math.max(3, 50 - Math.floor(te.text.length * 0.6) - (te.level - tocMin) * 2);
+        const dots = ' ' + '.'.repeat(dotCount) + ' ';
+        children.push(new Paragraph({
+          spacing: { before: isTop ? 80 : 20, after: 20, line: 276 },
+          indent: indent > 0 ? { left: indent } : undefined,
+          tabStops: [{ type: 'right' as const, position: RIGHT_TAB - indent }],
+          children: [
+            new TextRun({ text: te.text, bold: isTop || undefined, size: FONT_SIZES.body, color: COLORS.body, font: FONT_FAMILY }),
+            new TextRun({ text: dots, size: 16, color: COLORS.muted, font: 'Courier New' }),
+            new TextRun({ children: [new Tab()], size: FONT_SIZES.body }),
+            new TextRun({ text: te.pageNum, size: FONT_SIZES.body, color: COLORS.body, font: FONT_FAMILY }),
+          ],
+        }));
+      }
+    }
+
     const standaloneImg = match[1];
     const tableHtml = match[2];
     const listHtml = match[3];
@@ -583,9 +632,20 @@ const parseHtmlToDocxChildren = async (html: string): Promise<DocxChild[]> => {
     if (HEADING_MAP[blockTag]) {
       const text = stripHtml(blockInner);
       if (text) {
+        // Extract text-align from inline style if present
+        const fullTag = match[4] ?? '';
+        const alignMatch = fullTag.match(/text-align:\s*(center|right|justify)/i);
+        const alignment = alignMatch
+          ? alignMatch[1] === 'center' ? AlignmentType.CENTER
+            : alignMatch[1] === 'right' ? AlignmentType.RIGHT
+            : alignMatch[1] === 'justify' ? AlignmentType.JUSTIFIED
+            : undefined
+          : undefined;
+
         children.push(new Paragraph({
           text,
           heading: HEADING_MAP[blockTag],
+          alignment,
           spacing: {
             before: blockTag === 'h1' ? 360 : blockTag === 'h2' ? 300 : 240,
             after: 120,
@@ -627,8 +687,19 @@ const parseHtmlToDocxChildren = async (html: string): Promise<DocxChild[]> => {
 
       const runs = parseInlineHtml(blockInner);
       if (runs.length) {
+        // Extract text-align from inline style if present
+        const pTag = match[4] ?? '';
+        const pAlignMatch = pTag.match(/text-align:\s*(center|right|justify)/i);
+        const pAlignment = pAlignMatch
+          ? pAlignMatch[1] === 'center' ? AlignmentType.CENTER
+            : pAlignMatch[1] === 'right' ? AlignmentType.RIGHT
+            : pAlignMatch[1] === 'justify' ? AlignmentType.JUSTIFIED
+            : undefined
+          : undefined;
+
         children.push(new Paragraph({
           children: runs,
+          alignment: pAlignment,
           spacing: { after: 160 },
         }));
       }
@@ -729,6 +800,12 @@ const parseHtmlToDocxChildren = async (html: string): Promise<DocxChild[]> => {
         children.push(new Paragraph({ children: [new PageBreak()] }));
         continue;
       }
+
+      // TOC fragments already handled by pre-processor above — skip any remnants
+      if (match[0]?.includes('data-toc-text') || match[0]?.includes('toc-entry')) {
+        continue;
+      }
+
       const text = stripHtml(blockInner);
       if (text) {
         children.push(new Paragraph({
@@ -758,6 +835,38 @@ const parseHtmlToDocxChildren = async (html: string): Promise<DocxChild[]> => {
       }));
     }
   }
+
+  return children;
+};
+
+/**
+ * Parse the full HTML body into an array of docx elements.
+ * Async because image fetching requires network calls.
+ *
+ * The HTML is expected to have TOC placeholders already expanded by
+ * `expandTableOfContents` (same as PDF/HTML) so the TOC renders as
+ * styled divs that the block parser handles like any other content.
+ */
+const parseHtmlToDocxChildren = async (html: string): Promise<DocxChild[]> => {
+  // Collect all image URLs for parallel pre-fetching
+  const imgTagRe = /<img[^>]*>/gi;
+  const imgTags: string[] = [];
+  let imgMatch: RegExpExecArray | null;
+  while ((imgMatch = imgTagRe.exec(html)) !== null) {
+    imgTags.push(imgMatch[0]);
+  }
+
+  // Pre-fetch all images in parallel for performance
+  const imageCache = new Map<string, Paragraph | null>();
+  if (imgTags.length > 0) {
+    const fetchPromises = imgTags.map(async (tag) => {
+      const result = await parseImgToParagraph(tag);
+      imageCache.set(tag, result);
+    });
+    await Promise.all(fetchPromises);
+  }
+
+  const children = await parseHtmlBlocksToDocx(html, imageCache);
 
   // If nothing was parsed, add an empty paragraph
   if (!children.length) {
@@ -890,6 +999,66 @@ export const htmlToDocxBuffer = async (
           },
         },
       },
+      paragraphStyles: [
+        // US-standard TOC styles: Times New Roman or Calibri, 12pt for level 1,
+        // 11pt for sub-levels, right-aligned tab stop with dot leader for page numbers,
+        // indentation increases by 0.25" per level (360 twips).
+        {
+          id: 'TOC1',
+          name: 'TOC 1',
+          basedOn: 'Normal',
+          next: 'Normal',
+          run: { font: FONT_FAMILY, size: FONT_SIZES.body, color: COLORS.body },
+          paragraph: {
+            spacing: { before: 120, after: 60, line: 276 },
+            indent: { left: 0 },
+          },
+        },
+        {
+          id: 'TOC2',
+          name: 'TOC 2',
+          basedOn: 'Normal',
+          next: 'Normal',
+          run: { font: FONT_FAMILY, size: FONT_SIZES.body, color: COLORS.body },
+          paragraph: {
+            spacing: { before: 40, after: 40, line: 276 },
+            indent: { left: 360 }, // 0.25 inch
+          },
+        },
+        {
+          id: 'TOC3',
+          name: 'TOC 3',
+          basedOn: 'Normal',
+          next: 'Normal',
+          run: { font: FONT_FAMILY, size: FONT_SIZES.body, color: COLORS.muted },
+          paragraph: {
+            spacing: { before: 20, after: 20, line: 276 },
+            indent: { left: 720 }, // 0.5 inch
+          },
+        },
+        {
+          id: 'TOC4',
+          name: 'TOC 4',
+          basedOn: 'Normal',
+          next: 'Normal',
+          run: { font: FONT_FAMILY, size: FONT_SIZES.small, color: COLORS.muted },
+          paragraph: {
+            spacing: { before: 20, after: 20, line: 276 },
+            indent: { left: 1080 }, // 0.75 inch
+          },
+        },
+        {
+          id: 'TOC5',
+          name: 'TOC 5',
+          basedOn: 'Normal',
+          next: 'Normal',
+          run: { font: FONT_FAMILY, size: FONT_SIZES.small, color: COLORS.muted },
+          paragraph: {
+            spacing: { before: 20, after: 20, line: 276 },
+            indent: { left: 1440 }, // 1.0 inch
+          },
+        },
+      ],
     },
     numbering: {
       config: [

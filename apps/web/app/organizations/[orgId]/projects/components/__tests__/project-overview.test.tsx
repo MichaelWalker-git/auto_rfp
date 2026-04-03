@@ -50,8 +50,8 @@ jest.mock('@/lib/hooks/use-api', () => ({
     isLoading: false,
     error: null,
   })),
-  useQuestions: jest.fn(() => ({
-    data: mockQuestions,
+  useQuestionsCount: jest.fn(() => ({
+    data: { totalQuestions: 2, totalAnswers: 1 },
     isLoading: false,
     error: null,
   })),

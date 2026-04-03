@@ -60,13 +60,17 @@ interface LambdaResponse {
   headers?: Record<string, string>;
 }
 
-const makeEvent = (projectId?: string): APIGatewayProxyEventV2 =>
+const makeEvent = (projectId?: string, queryParams?: Record<string, string>): APIGatewayProxyEventV2 =>
   ({
     pathParameters: projectId ? { projectId } : {},
-    queryStringParameters: {},
+    queryStringParameters: queryParams ?? {},
     headers: {},
     body: null,
   }) as unknown as APIGatewayProxyEventV2;
+
+/** Shorthand: makeEvent with opportunityId included (most tests need it) */
+const makeEventWithOpp = (projectId: string, opportunityId = 'opp-1', extra?: Record<string, string>) =>
+  makeEvent(projectId, { opportunityId, ...extra });
 
 const parseBody = (result: LambdaResponse) =>
   JSON.parse(result.body);
@@ -136,7 +140,7 @@ describe('get-questions handler', () => {
       LastEvaluatedKey: undefined,
     });
 
-    const result = await baseHandler(makeEvent('proj-1')) as LambdaResponse;
+    const result = await baseHandler(makeEventWithOpp('proj-1')) as LambdaResponse;
 
     expect(result.statusCode).toBe(200);
 
@@ -196,7 +200,7 @@ describe('get-questions handler', () => {
       LastEvaluatedKey: undefined,
     });
 
-    const result = await baseHandler(makeEvent('proj-1')) as LambdaResponse;
+    const result = await baseHandler(makeEventWithOpp('proj-1')) as LambdaResponse;
     const body = parseBody(result);
 
     expect(result.statusCode).toBe(200);
@@ -220,7 +224,7 @@ describe('get-questions handler', () => {
       LastEvaluatedKey: undefined,
     });
 
-    const result = await baseHandler(makeEvent('proj-empty')) as LambdaResponse;
+    const result = await baseHandler(makeEventWithOpp('proj-empty')) as LambdaResponse;
     const body = parseBody(result);
 
     expect(result.statusCode).toBe(200);
@@ -250,7 +254,7 @@ describe('get-questions handler', () => {
       LastEvaluatedKey: undefined,
     });
 
-    await baseHandler(makeEvent('proj-1')) as LambdaResponse;
+    await baseHandler(makeEventWithOpp('proj-1')) as LambdaResponse;
 
     // Critical regression check: exactly 2 queries, not N+1
     expect(mockSend).toHaveBeenCalledTimes(2);
@@ -283,7 +287,7 @@ describe('get-questions handler', () => {
         LastEvaluatedKey: undefined,
       });
 
-    const result = await baseHandler(makeEvent('proj-1')) as LambdaResponse;
+    const result = await baseHandler(makeEventWithOpp('proj-1')) as LambdaResponse;
     const body = parseBody(result);
 
     expect(result.statusCode).toBe(200);
@@ -326,7 +330,7 @@ describe('get-questions handler', () => {
       LastEvaluatedKey: undefined,
     });
 
-    const result = await baseHandler(makeEvent('proj-1')) as LambdaResponse;
+    const result = await baseHandler(makeEventWithOpp('proj-1')) as LambdaResponse;
     const body = parseBody(result);
 
     expect(body.answers['q-1'].text).toBe('New answer');
@@ -364,7 +368,7 @@ describe('get-questions handler', () => {
       LastEvaluatedKey: undefined,
     });
 
-    const result = await baseHandler(makeEvent('proj-1')) as LambdaResponse;
+    const result = await baseHandler(makeEventWithOpp('proj-1')) as LambdaResponse;
     const body = parseBody(result);
 
     const source = body.answers['q-1'].sources[0];
@@ -375,12 +379,159 @@ describe('get-questions handler', () => {
     expect(source.textContent).toBeUndefined();
   });
 
+  // ── OpportunityId filter ───────────────────────────────────────────
+
+  it('should filter questions by opportunityId when provided', async () => {
+    // loadQuestions — returns only opp-1 questions (FilterExpression applied by DynamoDB)
+    mockSend.mockResolvedValueOnce({
+      Items: [
+        { questionId: 'q-1', question: 'Q1', sectionId: 's1', sectionTitle: 'S1', opportunityId: 'opp-1' },
+        { questionId: 'q-2', question: 'Q2', sectionId: 's1', sectionTitle: 'S1', opportunityId: 'opp-1' },
+      ],
+      LastEvaluatedKey: undefined,
+    });
+
+    // loadAnswers — returns ALL answers for the project (no filter at DB level)
+    mockSend.mockResolvedValueOnce({
+      Items: [
+        { questionId: 'q-1', text: 'A1', sources: [], createdAt: '2026-01-01T00:00:00Z' },
+        { questionId: 'q-2', text: 'A2', sources: [], createdAt: '2026-01-01T00:00:00Z' },
+        { questionId: 'q-other', text: 'Other opp answer', sources: [], createdAt: '2026-01-01T00:00:00Z' },
+      ],
+      LastEvaluatedKey: undefined,
+    });
+
+    const result = await baseHandler(makeEvent('proj-1', { opportunityId: 'opp-1' })) as LambdaResponse;
+    const body = parseBody(result);
+
+    expect(result.statusCode).toBe(200);
+    // Only 2 questions for opp-1
+    const allQuestions = body.sections.flatMap((s: { questions: unknown[] }) => s.questions);
+    expect(allQuestions).toHaveLength(2);
+    // Answers map only contains answers for the filtered questions, not q-other
+    expect(body.answers['q-1']).toBeDefined();
+    expect(body.answers['q-2']).toBeDefined();
+    expect(body.answers['q-other']).toBeUndefined();
+  });
+
+  it('should pass FilterExpression to DynamoDB when opportunityId is provided', async () => {
+    const { QueryCommand } = jest.requireMock('@aws-sdk/lib-dynamodb');
+
+    mockSend.mockResolvedValueOnce({ Items: [], LastEvaluatedKey: undefined });
+    mockSend.mockResolvedValueOnce({ Items: [], LastEvaluatedKey: undefined });
+
+    await baseHandler(makeEvent('proj-1', { opportunityId: 'opp-123' })) as LambdaResponse;
+
+    // First call is loadQuestions — should include FilterExpression
+    const questionsQuery = QueryCommand.mock.calls[0][0];
+    expect(questionsQuery.FilterExpression).toBe('#oppId = :oppId');
+    expect(questionsQuery.ExpressionAttributeNames['#oppId']).toBe('opportunityId');
+    expect(questionsQuery.ExpressionAttributeValues[':oppId']).toBe('opp-123');
+  });
+
+  it('should return 400 when opportunityId is not provided', async () => {
+    const result = await baseHandler(makeEvent('proj-1')) as LambdaResponse;
+
+    expect(result.statusCode).toBe(400);
+    expect(parseBody(result).message).toBe('opportunityId query parameter is required');
+    expect(mockSend).not.toHaveBeenCalled();
+  });
+
+  // ── Payload size limit ─────────────────────────────────────────────
+
+  it('should return 400 when loading all questions without opportunityId (prevents 6MB overflow)', async () => {
+    // Previously this would load all 3100 questions and exceed the 6MB Lambda limit.
+    // Now it returns 400 immediately without hitting DynamoDB.
+    const result = await baseHandler(makeEvent('proj-large')) as LambdaResponse;
+
+    expect(result.statusCode).toBe(400);
+    expect(parseBody(result).message).toBe('opportunityId query parameter is required');
+    expect(mockSend).not.toHaveBeenCalled();
+  });
+
+  it('should stay under 6MB when filtering by opportunityId on a large project', async () => {
+    // Same large dataset as above (3100 questions across 27 opportunities),
+    // but filtered to a single opportunity (~115 questions).
+    const questionCount = 3100;
+    const targetOpportunity = 'opp-0';
+    const answerText = 'Our team has extensive experience implementing compliance controls. '.repeat(8);
+
+    // DynamoDB FilterExpression runs server-side, so loadQuestions only returns
+    // questions matching the opportunityId. Simulate that here.
+    const allQuestions = Array.from({ length: questionCount }, (_: unknown, i: number) => ({
+      questionId: `q-${i}`,
+      question: `Question ${i}: ${'Describe your approach to compliance with the prohibitions outlined in the contract. '.repeat(3)}`,
+      sectionId: `sec-${i % 10}`,
+      sectionTitle: `Section ${i % 10}`,
+      sectionDescription: `Description for section ${i % 10}`,
+      opportunityId: `opp-${i % 27}`,
+      questionFileId: `file-${i % 87}`,
+    }));
+    const filteredQuestions = allQuestions.filter((q) => q.opportunityId === targetOpportunity);
+
+    // All answers for the project (loadAnswers doesn't filter by opportunity)
+    const allAnswers = Array.from({ length: questionCount }, (_: unknown, i: number) => ({
+      questionId: `q-${i}`,
+      text: answerText,
+      confidence: 0.85,
+      confidenceBand: 'HIGH',
+      status: 'approved',
+      updatedBy: 'user-123',
+      updatedByName: 'John Smith',
+      approvedBy: 'user-456',
+      approvedByName: 'Jane Doe',
+      approvedAt: '2026-03-15T00:00:00Z',
+      sources: [
+        { documentId: `doc-${i}`, documentTitle: `RFP Document ${i}`, chunkIndex: 0, score: 0.95, textContent: 'Stripped' },
+        { documentId: `doc-${i}-2`, documentTitle: `Past Performance Report ${i}`, chunkIndex: 1, score: 0.87, textContent: 'Stripped' },
+        { documentId: `doc-${i}-3`, documentTitle: `Technical Volume ${i}`, chunkIndex: 2, score: 0.79, textContent: 'Stripped' },
+      ],
+      createdAt: '2026-03-01T00:00:00Z',
+      updatedAt: '2026-03-15T00:00:00Z',
+    }));
+
+    // loadQuestions — only the filtered questions (DynamoDB applies FilterExpression)
+    mockSend.mockResolvedValueOnce({
+      Items: filteredQuestions,
+      LastEvaluatedKey: undefined,
+    });
+
+    // loadAnswers — all answers for the project
+    mockSend.mockResolvedValueOnce({
+      Items: allAnswers,
+      LastEvaluatedKey: undefined,
+    });
+
+    const result = await baseHandler(makeEvent('proj-large', { opportunityId: targetOpportunity })) as LambdaResponse;
+
+    expect(result.statusCode).toBe(200);
+
+    const body = parseBody(result);
+    const returnedQuestions = body.sections.flatMap((s: { questions: unknown[] }) => s.questions);
+    const returnedAnswerCount = Object.keys(body.answers).length;
+
+    const bodySize = Buffer.byteLength(result.body, 'utf8');
+    const lambdaResponseLimit = 6_291_556;
+
+    console.log(`[payload-fix-test] Filtered questions: ${returnedQuestions.length} (from ${questionCount} total)`);
+    console.log(`[payload-fix-test] Filtered answers: ${returnedAnswerCount} (from ${questionCount} total)`);
+    console.log(`[payload-fix-test] Response body size: ${(bodySize / 1024 / 1024).toFixed(2)} MB (${bodySize.toLocaleString()} bytes)`);
+    console.log(`[payload-fix-test] Lambda limit: ${(lambdaResponseLimit / 1024 / 1024).toFixed(2)} MB`);
+
+    // Only ~115 questions for one opportunity out of 27
+    expect(returnedQuestions.length).toBeLessThan(200);
+    // Answers are filtered to only those matching the returned questions
+    expect(returnedAnswerCount).toBe(returnedQuestions.length);
+    // Response is well under the 6MB limit
+    expect(bodySize).toBeLessThan(lambdaResponseLimit);
+  });
+
   // ── Error handling ──────────────────────────────────────────────────
 
   it('should return 500 when DynamoDB query fails', async () => {
     mockSend.mockRejectedValueOnce(new Error('DynamoDB connection timeout'));
 
-    const result = await baseHandler(makeEvent('proj-1')) as LambdaResponse;
+    const result = await baseHandler(makeEventWithOpp('proj-1')) as LambdaResponse;
 
     expect(result.statusCode).toBe(500);
     expect(parseBody(result).message).toBe('Internal error');

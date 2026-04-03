@@ -119,6 +119,7 @@ export const AuditActionSchema = z.enum([
   // Opportunity assignment
   'OPPORTUNITY_ASSIGNED',
   'OPPORTUNITY_UNASSIGNED',
+  'OPPORTUNITY_EVENT_EMITTED',
 ]);
 export type AuditAction = z.infer<typeof AuditActionSchema>;
 

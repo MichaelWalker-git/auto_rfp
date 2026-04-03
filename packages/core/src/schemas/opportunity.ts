@@ -162,6 +162,12 @@ export const OpportunityItemSchema = z.object({
   assignedByUserId: z.string().nullish(),
   /** Display name of the person who made the assignment */
   assignedByName:   z.string().nullish(),
+  /** ISO datetime when the opportunity was emitted to EventBridge (idempotency marker) */
+  eventBridgeEmittedAt: z.string().datetime().nullish(),
+  /** URL of the deployed POC site (set by DevelopmentPlatform callback) */
+  pocUrl: z.string().url().nullish(),
+  /** ISO datetime when the POC was deployed */
+  pocDeployedAt: z.string().datetime().nullish(),
 });
 
 export type OpportunityItem = z.infer<typeof OpportunityItemSchema>;

@@ -1,42 +1,21 @@
+# Web UI Conventions
 
-    You are an expert in Bootstrap and modern web application development.
+> UI component and styling rules for AutoRFP frontend.
 
-    Key Principles
-    - Write clear, concise, and technical responses with precise Bootstrap examples.
-    - Utilize Bootstrap's components and utilities to streamline development and ensure responsiveness.
-    - Prioritize maintainability and readability; adhere to clean coding practices throughout your HTML and CSS.
-    - Use descriptive class names and structure to promote clarity and collaboration among developers.
+---
 
-    Bootstrap Usage
-    - Leverage Bootstrap's grid system for responsive layouts; use container, row, and column classes to structure content.
-    - Utilize Bootstrap components (e.g., buttons, modals, alerts) to enhance user experience without extensive custom CSS.
-    - Apply Bootstrap's utility classes for quick styling adjustments, such as spacing, typography, and visibility.
-    - Ensure all components are accessible; use ARIA attributes and semantic HTML where applicable.
+## Component Library
 
-    Error Handling and Validation
-    - Implement form validation using Bootstrap's built-in styles and classes to enhance user feedback.
-    - Use Bootstrap's alert component to display error messages clearly and informatively.
-    - Structure forms with appropriate labels, placeholders, and error messages for a better user experience.
+- Use **Shadcn UI** components from `@/components/ui/` — never raw HTML `<button>`, `<input>`, `<select>`, etc.
+- To swap the underlying library, only change `components/ui/` implementations.
 
-    Dependencies
-    - Bootstrap (latest version, CSS and JS)
-    - Any JavaScript framework (like jQuery, if required) for interactive components.
+## Styling
 
-    Bootstrap-Specific Guidelines
-    - Customize Bootstrap's Sass variables and mixins to create a unique theme without overriding default styles.
-    - Utilize Bootstrap's responsive utilities to control visibility and layout on different screen sizes.
-    - Keep custom styles to a minimum; use Bootstrap's classes wherever possible for consistency.
-    - Use the Bootstrap documentation to understand component behavior and customization options.
+- **Tailwind CSS v4** only — no raw CSS files, no CSS modules.
+- Custom theme tokens defined in `globals.css` via `@theme` directive.
+- Indigo (`indigo-500`) as primary color, Slate for neutrals, Emerald for success.
 
-    Performance Optimization
-    - Minimize file sizes by including only the necessary Bootstrap components in your build process.
-    - Use a CDN for Bootstrap resources to improve load times and leverage caching.
-    - Optimize images and other assets to enhance overall performance, especially for mobile users.
+## Accessibility
 
-    Key Conventions
-    1. Follow Bootstrap's naming conventions and class structures to ensure consistency across your project.
-    2. Prioritize responsiveness and accessibility in every stage of development.
-    3. Maintain a clear and organized file structure to enhance maintainability and collaboration.
-
-    Refer to the Bootstrap documentation for best practices and detailed examples of usage patterns.
-    
+- Use ARIA attributes and semantic HTML where applicable.
+- Ensure all interactive elements are keyboard-navigable.

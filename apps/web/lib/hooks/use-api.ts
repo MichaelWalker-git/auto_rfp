@@ -87,7 +87,14 @@ export function useProject(projectId: string | null, includeAll = false) {
   );
 }
 
-export function useQuestions(projectId: string | null, includeAll = false, options?: { refreshInterval?: number }) {
+export function useQuestionsCount(projectId: string | null) {
+  return useApi<{ totalQuestions: number; totalAnswers: number }>(
+    projectId ? ['questions-count', projectId] : null,
+    projectId ? buildApiUrl(`projects/questions-count/${projectId}`) : null,
+  );
+}
+
+export function useQuestions(projectId: string | null, opportunityId?: string | null, includeAll = false, options?: { refreshInterval?: number }) {
   const config: SWRConfiguration = {
     revalidateIfStale: true,
     dedupingInterval: 5_000,
@@ -95,9 +102,16 @@ export function useQuestions(projectId: string | null, includeAll = false, optio
     refreshInterval: options?.refreshInterval,
   };
 
+  const params: Record<string, string | undefined> = {
+    include: includeAll ? 'all' : undefined,
+    opportunityId: opportunityId ?? undefined,
+  };
+
+  const shouldFetch = !!projectId && !!opportunityId;
+
   return useApi<QuestionsWithAnswersResponse>(
-    projectId ? ['questions', projectId, includeAll] : null,
-    projectId ? buildApiUrl(`projects/questions/${projectId}`, { include: includeAll ? 'all' : undefined }) : null,
+    shouldFetch ? ['questions', projectId, opportunityId, includeAll] : null,
+    shouldFetch ? buildApiUrl(`projects/questions/${projectId}`, params) : null,
     config,
   );
 }
