@@ -16,4 +16,5 @@ export interface ToolDefinition {
 export interface ToolResult {
   tool_use_id: string;
   content: string;
+  similarityScores?: number[];
 }
