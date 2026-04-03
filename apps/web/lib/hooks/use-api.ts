@@ -100,9 +100,11 @@ export function useQuestions(projectId: string | null, opportunityId?: string | 
     opportunityId: opportunityId ?? undefined,
   };
 
+  const shouldFetch = !!projectId && !!opportunityId;
+
   return useApi<QuestionsWithAnswersResponse>(
-    projectId ? ['questions', projectId, opportunityId, includeAll] : null,
-    projectId ? buildApiUrl(`projects/questions/${projectId}`, params) : null,
+    shouldFetch ? ['questions', projectId, opportunityId, includeAll] : null,
+    shouldFetch ? buildApiUrl(`projects/questions/${projectId}`, params) : null,
     config,
   );
 }
