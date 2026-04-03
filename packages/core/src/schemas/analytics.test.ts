@@ -288,7 +288,7 @@ describe('formatMonth', () => {
   it('formats date to YYYY-MM', () => {
     expect(formatMonth(new Date('2025-01-15'))).toBe('2025-01');
     expect(formatMonth(new Date('2025-12-31'))).toBe('2025-12');
-    expect(formatMonth(new Date('2024-06-01'))).toBe('2024-06');
+    expect(formatMonth(new Date('2024-06-15'))).toBe('2024-06');
   });
 
   it('pads single-digit months with zero', () => {

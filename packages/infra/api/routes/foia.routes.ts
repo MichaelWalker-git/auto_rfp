@@ -17,19 +17,14 @@ export function foiaDomain(): DomainRoutes {
         entry: lambdaEntry('foia/get-foia-requests.ts'),
       },
       {
-        method: 'PATCH',
-        path: 'update-foia-request',
-        entry: lambdaEntry('foia/update-foia-request.ts'),
-      },
-      {
         method: 'POST',
         path: 'generate-foia-letter',
         entry: lambdaEntry('foia/generate-foia-letter.ts'),
       },
       {
-        method: 'POST',
-        path: 'submit-foia-request',
-        entry: lambdaEntry('foia/submit-foia-request.ts'),
+        method: 'PATCH',
+        path: 'update-foia-request',
+        entry: lambdaEntry('foia/update-foia-request.ts'),
       },
     ],
   };

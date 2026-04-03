@@ -26,6 +26,7 @@ import { DebriefingCard } from '@/components/debriefing';
 import { FOIARequestCard } from '@/components/foia/FOIARequestCard';
 import { OpportunityContextPanel } from './opportunity-context-panel';
 import { useCurrentOrganization } from '@/context/organization-context';
+import { useProjectOutcome } from '@/lib/hooks/use-project-outcome';
 import { saveSelectedOpportunity } from '@/lib/utils/opportunity-selection';
 import {
   SubmitProposalButton,
@@ -128,6 +129,7 @@ const OpportunityContent = ({ className }: { className?: string }) => {
   const { projectId, oppId, orgId, opportunity, refetch } = useOpportunityContext();
   const { currentOrganization } = useCurrentOrganization();
   const navOrgId = currentOrganization?.id;
+  const { outcome } = useProjectOutcome(orgId, projectId, oppId);
 
   // Save oppId to session storage so other pages (Questions, Brief, etc.)
   // use this opportunity by default when navigating from this page
@@ -254,8 +256,23 @@ const OpportunityContent = ({ className }: { className?: string }) => {
         />
         <div className="space-y-4">
           <ProjectOutcomeCard projectId={projectId} orgId={orgId} opportunityId={oppId} />
-          <DebriefingCard projectId={projectId} orgId={orgId} projectOutcomeStatus="LOST" />
-          <FOIARequestCard projectId={projectId} orgId={orgId} projectOutcomeStatus="LOST" />
+          <DebriefingCard
+            projectId={projectId}
+            orgId={orgId}
+            opportunityId={oppId}
+            projectOutcomeStatus={outcome?.status}
+            solicitationNumber={opportunity?.solicitationNumber ?? undefined}
+            contractTitle={opportunity?.title ?? undefined}
+          />
+          <FOIARequestCard
+            projectId={projectId}
+            orgId={orgId}
+            opportunityId={oppId}
+            projectOutcomeStatus={outcome?.status}
+            agencyName={opportunity?.organizationName ?? undefined}
+            solicitationNumber={opportunity?.solicitationNumber ?? undefined}
+            contractTitle={opportunity?.title ?? undefined}
+          />
         </div>
       </section>
     </div>

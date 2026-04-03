@@ -1,5 +1,6 @@
 'use client';
 
+import { useCallback } from 'react';
 import useSWR from 'swr';
 import { env } from '@/lib/env';
 import { authFetcher } from '@/lib/auth/auth-fetcher';
@@ -18,17 +19,18 @@ interface UseDebriefingResult {
   refetch: () => void;
 }
 
-export function useDebriefings(
+export const useDebriefings = (
   orgId: string | null,
   projectId: string | null,
+  opportunityId: string | null,
   options: UseDebriefingOptions = {}
-): UseDebriefingResult {
-  const shouldFetch = !!orgId && !!projectId;
+): UseDebriefingResult => {
+  const shouldFetch = !!orgId && !!projectId && !!opportunityId;
   const baseUrl = env.BASE_API_URL.replace(/\/$/, '');
 
   const { data, error, isLoading, mutate } = useSWR<{ debriefings: DebriefingItem[] }>(
     shouldFetch
-      ? `${baseUrl}/debriefing/get-debriefing?orgId=${orgId}&projectId=${projectId}`
+      ? `${baseUrl}/debriefing/get-debriefing?orgId=${orgId}&projectId=${projectId}&opportunityId=${opportunityId}`
       : null,
     async (url: string) => {
       const res = await authFetcher(url);
@@ -52,9 +54,9 @@ export function useDebriefings(
     error,
     refetch: () => mutate(),
   };
-}
+};
 
-export function useCreateDebriefing() {
+export const useCreateDebriefing = () => {
   const createDebriefing = async (payload: CreateDebriefingRequest): Promise<DebriefingItem> => {
     const baseUrl = env.BASE_API_URL.replace(/\/$/, '');
     const url = `${baseUrl}/debriefing/create-debriefing`;
@@ -74,22 +76,21 @@ export function useCreateDebriefing() {
   };
 
   return { createDebriefing };
-}
+};
 
-export function useUpdateDebriefing() {
+export const useUpdateDebriefing = () => {
   const updateDebriefing = async (payload: UpdateDebriefingRequest): Promise<DebriefingItem> => {
     const baseUrl = env.BASE_API_URL.replace(/\/$/, '');
-    const { orgId, projectId, debriefingId, ...updateFields } = payload;
-    const url = `${baseUrl}/debriefing/update-debriefing?orgId=${orgId}&projectId=${projectId}&debriefingId=${debriefingId}`;
+    const url = `${baseUrl}/debriefing/update-debriefing`;
 
     const res = await authFetcher(url, {
       method: 'PATCH',
-      body: JSON.stringify(updateFields),
+      body: JSON.stringify(payload),
     });
 
     if (!res.ok) {
-      const errBody = await res.text().catch(() => '');
-      throw new Error(`Failed to update debriefing: ${res.status}. ${errBody}`);
+      const body = await res.text().catch(() => '');
+      throw new Error(`Failed to update debriefing: ${res.status}. ${body}`);
     }
 
     const data = await res.json();
@@ -97,4 +98,61 @@ export function useUpdateDebriefing() {
   };
 
   return { updateDebriefing };
-}
+};
+
+export const useGenerateDebriefingLetter = () => {
+  const generateDebriefingLetter = useCallback(async (
+    orgId: string,
+    projectId: string,
+    opportunityId: string,
+    debriefingId: string
+  ): Promise<string> => {
+    const baseUrl = env.BASE_API_URL.replace(/\/$/, '');
+    const url = `${baseUrl}/debriefing/generate-debriefing-letter`;
+
+    const res = await authFetcher(url, {
+      method: 'POST',
+      body: JSON.stringify({
+        orgId,
+        projectId,
+        opportunityId,
+        debriefingId,
+      }),
+    });
+
+    if (!res.ok) {
+      const body = await res.json().catch(() => null);
+
+      if (body?.missingFields && Array.isArray(body.missingFields)) {
+        const fieldLabels: Record<string, string> = {
+          requesterName: 'Name',
+          requesterTitle: 'Title',
+          requesterEmail: 'Email',
+          requesterPhone: 'Phone',
+          requesterAddress: 'Address',
+          companyName: 'Company Name',
+          solicitationNumber: 'Solicitation Number',
+          contractTitle: 'Contract Title',
+          awardNotificationDate: 'Award Notification Date',
+          contractingOfficerName: 'Contracting Officer Name',
+          contractingOfficerEmail: 'Contracting Officer Email',
+        };
+        const labels = body.missingFields.map(
+          (f: string) => fieldLabels[f] ?? f,
+        );
+        throw new Error(
+          `Please edit the debriefing and fill in: ${labels.join(', ')}`,
+        );
+      }
+
+      throw new Error(
+        body?.message ?? `Failed to generate debriefing letter (${res.status})`,
+      );
+    }
+
+    const data = await res.json();
+    return data.letter as string;
+  }, []);
+
+  return { generateDebriefingLetter };
+};

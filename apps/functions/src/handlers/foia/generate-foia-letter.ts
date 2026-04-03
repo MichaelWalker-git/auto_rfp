@@ -3,7 +3,7 @@ import { GetCommand } from '@aws-sdk/lib-dynamodb';
 import middy from '@middy/core';
 import { z } from 'zod';
 
-import { FOIA_DOCUMENT_DESCRIPTIONS, type FOIADocumentType, type RequesterCategory } from '@auto-rfp/core';
+import { FOIA_DOCUMENT_DESCRIPTIONS, type FOIADocumentType } from '@auto-rfp/core';
 import { PK_NAME, SK_NAME } from '@/constants/common';
 import { FOIA_REQUEST_PK } from '@/constants/organization';
 import { apiResponse } from '@/helpers/api';
@@ -22,9 +22,54 @@ import type { OrgPrimaryContactItem } from '@auto-rfp/core';
 
 const DB_TABLE_NAME = requireEnv('DB_TABLE_NAME');
 
+/**
+ * Formats a date string into a human-readable format for letters.
+ * Handles both ISO dates ("2026-01-15") and already-formatted strings ("January 15, 2026").
+ */
+const formatDateForLetter = (dateStr: string): string => {
+  const parsed = new Date(dateStr);
+  if (isNaN(parsed.getTime())) return dateStr;
+  // Offset UTC parse so the date doesn't shift due to timezone
+  const utc = new Date(parsed.getUTCFullYear(), parsed.getUTCMonth(), parsed.getUTCDate());
+  return utc.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+};
+
+/** Fields on the FOIA request record that must be populated to generate a letter. */
+const REQUIRED_LETTER_FIELDS = [
+  'agencyName',
+  'agencyFOIAEmail',
+  'agencyFOIAAddress',
+  'solicitationNumber',
+  'contractTitle',
+  'awardDate',
+  'companyName',
+  'requesterName',
+  'requesterTitle',
+  'requesterEmail',
+  'requesterPhone',
+  'requesterAddress',
+] as const;
+
+export const validateLetterFields = (
+  request: DBFOIARequestItem,
+): string[] => {
+  const missing: string[] = [];
+  for (const field of REQUIRED_LETTER_FIELDS) {
+    if (!request[field]) {
+      missing.push(field);
+    }
+  }
+  // requestedDocuments must have at least one entry
+  if (!request.requestedDocuments || request.requestedDocuments.length === 0) {
+    missing.push('requestedDocuments');
+  }
+  return missing;
+};
+
 const GenerateFOIALetterRequestSchema = z.object({
   orgId: z.string().min(1, 'orgId is required'),
   projectId: z.string().min(1, 'projectId is required'),
+  opportunityId: z.string().min(1, 'opportunityId is required'),
   foiaRequestId: z.string().min(1, 'foiaRequestId is required'),
 });
 
@@ -39,10 +84,10 @@ export const baseHandler = async (
       return apiResponse(400, { message: 'Invalid payload', issues: error.issues });
     }
 
-    const { orgId, projectId, foiaRequestId } = data;
+    const { orgId, projectId, opportunityId, foiaRequestId } = data;
 
     const [foiaRequest, primaryContact] = await Promise.all([
-      getFOIARequest(orgId, projectId, foiaRequestId),
+      getFOIARequest(orgId, projectId, opportunityId, foiaRequestId),
       getOrgPrimaryContact(orgId).catch(() => null),
     ]);
 
@@ -53,6 +98,14 @@ export const baseHandler = async (
     // Enrich the FOIA request with primary contact data as fallback
     // for any missing requester fields
     const enrichedRequest = enrichWithPrimaryContact(foiaRequest, primaryContact);
+
+    const missingFields = validateLetterFields(enrichedRequest);
+    if (missingFields.length > 0) {
+      return apiResponse(400, {
+        message: 'FOIA request is missing required fields for letter generation',
+        missingFields,
+      });
+    }
 
     const letter = generateFOIALetter(enrichedRequest);
 
@@ -81,17 +134,18 @@ const enrichWithPrimaryContact = (
     ...request,
     requesterName: request.requesterName || contact.name,
     requesterEmail: request.requesterEmail || contact.email,
-    requesterPhone: request.requesterPhone || contact.phone || undefined,
-    requesterAddress: request.requesterAddress || contact.address || undefined,
+    requesterPhone: request.requesterPhone || contact.phone || request.requesterPhone,
+    requesterAddress: request.requesterAddress || contact.address || request.requesterAddress,
   };
 };
 
 async function getFOIARequest(
   orgId: string,
   projectId: string,
+  opportunityId: string,
   foiaRequestId: string
 ): Promise<DBFOIARequestItem | null> {
-  const sortKey = `${orgId}#${projectId}#${foiaRequestId}`;
+  const sortKey = `${orgId}#${projectId}#${opportunityId}#${foiaRequestId}`;
 
   const cmd = new GetCommand({
     TableName: DB_TABLE_NAME,
@@ -106,25 +160,7 @@ async function getFOIARequest(
 }
 
 /**
- * Fee category descriptions per FOIA fee schedule (5 U.S.C. § 552(a)(4)(A)(ii))
- */
-const FEE_CATEGORY_DESCRIPTIONS: Record<RequesterCategory, string> = {
-  COMMERCIAL: 'a commercial use requester. I understand that as a commercial use requester, I may be charged reasonable search, review, and duplication fees',
-  EDUCATIONAL: 'an educational institution requester. I am affiliated with an educational institution and this request is made for scholarly purposes, not for commercial use. Under the FOIA fee provisions, I am entitled to receive the first 100 pages of duplication at no charge and should not be charged search fees',
-  NEWS_MEDIA: 'a representative of the news media. This request is made for news-gathering purposes and not for commercial use. Under the FOIA fee provisions, I am entitled to receive the first 100 pages of duplication at no charge and should not be charged search fees',
-  OTHER: 'an "all other" requester under the FOIA fee categories. I understand that I am entitled to two hours of search time and the first 100 pages of duplication at no charge',
-};
-
-/**
- * Generates a properly formatted FOIA request letter following federal best practices.
- *
- * References:
- * - 5 U.S.C. § 552 (Freedom of Information Act)
- * - 5 U.S.C. § 552(a)(3)(A) — obligation to make records available
- * - 5 U.S.C. § 552(a)(4)(A) — fee schedule and fee waivers
- * - 5 U.S.C. § 552(a)(6)(A) — 20 business day response requirement
- * - 5 U.S.C. § 552(b) — exemptions (referenced for segregability)
- * - DOJ Office of Information Policy guidance
+ * Generates a simplified, practitioner-oriented FOIA request letter.
  */
 export const generateFOIALetter = (request: DBFOIARequestItem): string => {
   const today = new Date().toLocaleDateString('en-US', {
@@ -147,95 +183,47 @@ export const generateFOIALetter = (request: DBFOIARequestItem): string => {
     ? `${numberedDocuments}\n${customDocuments}`
     : numberedDocuments;
 
-  const feeCategory = FEE_CATEGORY_DESCRIPTIONS[request.requesterCategory] ?? FEE_CATEGORY_DESCRIPTIONS.OTHER;
+  // Build the "pertains to" line
+  const pertainsLine = `This request pertains to Solicitation No. ${request.solicitationNumber}, titled ${request.contractTitle}, awarded on or about ${formatDateForLetter(request.awardDate)}.`;
 
-  const feeWaiverSection = request.requestFeeWaiver
-    ? `
-FEE WAIVER REQUEST
+  // Build the company/offeror paragraph
+  const companyClause = `My company, ${request.companyName}, submitted a proposal`;
+  const awardeeClause = request.awardeeName ? ` The contract was awarded to ${request.awardeeName}.` : '';
 
-Pursuant to 5 U.S.C. § 552(a)(4)(A)(iii), I request a waiver of all fees associated with this request. Disclosure of the requested information is in the public interest because it is likely to contribute significantly to public understanding of the operations or activities of the government and is not primarily in the commercial interest of the requester.${request.feeWaiverJustification ? `\n\nSpecifically: ${request.feeWaiverJustification}` : ''}
-
-In the event that my fee waiver request is denied, I am willing to pay fees up to $${request.feeLimit.toFixed(2)}. Please contact me before incurring any costs in excess of this amount.
-`
-    : `
-FEES
-
-For purposes of the fee assessment, I am ${feeCategory}. I am willing to pay fees up to $${request.feeLimit.toFixed(2)} for the processing of this request. Please contact me before incurring any costs in excess of this amount.
-`;
-
-  const contractRef = request.contractNumber
-    ? `Contract Number: ${request.contractNumber}\n`
-    : '';
-
-  const phoneRef = request.requesterPhone
-    ? `Phone: ${request.requesterPhone}\n`
-    : '';
+  // Fee limit line — always included
+  const feeLine = request.feeLimit > 0
+    ? `\nI am willing to pay up to $${request.feeLimit.toFixed(2)} in fees associated with this request. Please contact me before incurring any costs in excess of this amount.\n`
+    : '\nI request a fee waiver for this request. If a fee waiver is not granted, please contact me before incurring any costs.\n';
 
   return `${today}
 
-VIA ${request.agencyFOIAEmail ? 'EMAIL' : 'MAIL'}
-
-FOIA/PA Officer
+FOIA Requester Service Center
 ${request.agencyName}
-${request.agencyFOIAAddress || '[Agency FOIA Office Address]'}
-${request.agencyFOIAEmail ? `Email: ${request.agencyFOIAEmail}` : ''}
+${request.agencyFOIAAddress}
+Email: ${request.agencyFOIAEmail}
 
-    Re: Freedom of Information Act Request
-        Solicitation Number: ${request.solicitationNumber}
-        ${contractRef}Agency: ${request.agencyName}
+Dear FOIA Officer,
 
-Dear FOIA Officer:
+This is a request under the Freedom of Information Act (5 U.S.C. Section 552).
 
-This is a request under the Freedom of Information Act (FOIA), 5 U.S.C. § 552, as amended. Pursuant to 5 U.S.C. § 552(a)(3)(A), I respectfully request access to and copies of the following records related to the above-referenced procurement:
+${pertainsLine}
 
-RECORDS REQUESTED
+I am submitting this request on behalf of an unsuccessful offeror on the above-referenced solicitation. ${companyClause} in response to this solicitation and was not selected for award.${awardeeClause}
 
-I request all records, documents, memoranda, evaluations, correspondence, and other materials related to Solicitation Number ${request.solicitationNumber}${request.contractNumber ? ` (Contract Number: ${request.contractNumber})` : ''}, including but not limited to:
+I request that a copy of the following documents be provided to me:
 
 ${allDocuments}
+${feeLine}
+I request that responsive records be provided in electronic format (PDF preferred) via email to ${request.requesterEmail}.
 
-To assist your office in locating responsive records, please note that this request pertains specifically to the source selection and evaluation process for the above-referenced solicitation issued by ${request.agencyName}.
-
-DESCRIPTION OF REQUESTER AND PURPOSE
-
-I am submitting this request on behalf of an unsuccessful offeror on the above-referenced solicitation. The purpose of this request is to understand the evaluation criteria, scoring methodology, and basis for the award decision in order to improve future proposal submissions and to ensure the integrity of the competitive procurement process.
-${feeWaiverSection}
-FORMAT OF RECORDS
-
-Pursuant to the Electronic Freedom of Information Act Amendments of 1996, I request that responsive records be provided in electronic format (PDF preferred) via email to ${request.requesterEmail}. If electronic delivery is not possible, please provide paper copies to the address below.
-
-SEGREGABILITY
-
-If any responsive records or portions thereof are determined to be exempt from disclosure under any of the nine FOIA exemptions (5 U.S.C. § 552(b)(1)-(9)), I request that your office:
-
-   1. Release all reasonably segregable, non-exempt portions of each responsive record, as required by 5 U.S.C. § 552(b);
-   2. Provide a detailed Vaughn index identifying each record or portion withheld, the specific exemption(s) claimed, and a particularized explanation of how each exemption applies to the withheld material;
-   3. Note whether any deleted information is disputed or whether the deletion was made at the request of another agency.
-
-RESPONSE DEADLINE
-
-As you are aware, the FOIA requires that you respond to this request within twenty (20) business days of receipt, pursuant to 5 U.S.C. § 552(a)(6)(A)(i). If you anticipate that processing this request will take longer than the statutory period, please notify me promptly so that we may discuss narrowing the scope of the request or other accommodations.
-
-APPEAL RIGHTS
-
-I understand that if this request is denied in whole or in part, I have the right to appeal that decision to the head of the agency (or designee) within 90 days of the date of the denial, pursuant to 5 U.S.C. § 552(a)(6)(A)(i). I also understand that I may seek judicial review under 5 U.S.C. § 552(a)(4)(B) and that I may contact the Office of Government Information Services (OGIS) at the National Archives and Records Administration for mediation services.
-
-CONTACT INFORMATION
-
-If you have any questions regarding this request, require clarification, or need to discuss fee arrangements, please contact me at the information below:
-
-   ${request.requesterName}
-   ${request.requesterAddress || '[Address]'}
-   Email: ${request.requesterEmail}
-   ${phoneRef}
-Thank you for your prompt attention to this request. I look forward to receiving your determination within the statutory timeframe.
-
-Respectfully submitted,
-
+Sincerely,
 
 ${request.requesterName}
-${request.requesterEmail}${request.requesterPhone ? `\n${request.requesterPhone}` : ''}
-Date: ${today}`;
+${request.requesterTitle}
+${request.companyName}
+${request.requesterAddress}
+Email: ${request.requesterEmail}
+Phone: ${request.requesterPhone}`;
 };
 
 export const handler = withSentryLambda(

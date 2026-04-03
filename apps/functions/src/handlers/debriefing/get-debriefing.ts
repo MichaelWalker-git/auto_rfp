@@ -22,15 +22,15 @@ export const baseHandler = async (
   event: APIGatewayProxyEventV2
 ): Promise<APIGatewayProxyResultV2> => {
   try {
-    const { orgId, projectId } = event.queryStringParameters || {};
+    const { orgId, projectId, opportunityId } = event.queryStringParameters || {};
 
-    if (!orgId || !projectId) {
+    if (!orgId || !projectId || !opportunityId) {
       return apiResponse(400, {
-        message: 'Missing required query parameters: orgId and projectId',
+        message: 'Missing required query parameters: orgId, projectId, and opportunityId',
       });
     }
 
-    const debriefings = await getDebriefingsForProject(orgId, projectId);
+    const debriefings = await getDebriefingsForProject(orgId, projectId, opportunityId);
 
     return apiResponse(200, { debriefings });
   } catch (err: unknown) {
@@ -43,13 +43,12 @@ export const baseHandler = async (
   }
 };
 
-export async function getDebriefingsForProject(
+export const getDebriefingsForProject = async (
   orgId: string,
-  projectId: string
-): Promise<DBDebriefingItem[]> {
-  // Query all debriefings for this org/project
-  // Sort key prefix: orgId#projectId#
-  const sortKeyPrefix = `${orgId}#${projectId}#`;
+  projectId: string,
+  opportunityId: string
+): Promise<DBDebriefingItem[]> => {
+  const sortKeyPrefix = `${orgId}#${projectId}#${opportunityId}#`;
 
   const cmd = new QueryCommand({
     TableName: DB_TABLE_NAME,
@@ -64,7 +63,7 @@ export async function getDebriefingsForProject(
   const result = await docClient.send(cmd);
 
   return (result.Items || []) as DBDebriefingItem[];
-}
+};
 
 export const handler = withSentryLambda(
   middy(baseHandler)

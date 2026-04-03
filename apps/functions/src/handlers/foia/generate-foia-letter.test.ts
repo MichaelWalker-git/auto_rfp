@@ -22,44 +22,52 @@ jest.mock('@aws-sdk/lib-dynamodb', () => ({
   GetCommand: jest.fn((params) => ({ type: 'Get', params })),
 }));
 
+// Mock org-contact helper
+const mockGetOrgPrimaryContact = jest.fn();
+jest.mock('@/helpers/org-contact', () => ({
+  getOrgPrimaryContact: (...args: unknown[]) => mockGetOrgPrimaryContact(...args),
+}));
+
+// Mock sentry
+jest.mock('@/sentry-lambda', () => ({
+  withSentryLambda: jest.fn((handler: unknown) => handler),
+}));
+
 // Set required environment variables
 process.env.DB_TABLE_NAME = 'test-table';
 process.env.REGION = 'us-east-1';
 
-import { generateFOIALetter } from './generate-foia-letter';
+import { generateFOIALetter, baseHandler, validateLetterFields } from './generate-foia-letter';
 import type { DBFOIARequestItem } from '@/types/project-outcome';
+import type { APIGatewayProxyEventV2 } from 'aws-lambda';
 
 describe('generate-foia-letter handler', () => {
   describe('generateFOIALetter', () => {
     const mockRequest: DBFOIARequestItem = {
       partition_key: 'FOIA_REQUEST',
-      sort_key: 'org-456#proj-123#foia-1',
+      sort_key: 'org-456#proj-123#opp-789#foia-1',
       foiaId: 'foiaId-1',
       id: 'foia-1',
       projectId: 'proj-123',
       orgId: 'org-456',
-      status: 'DRAFT',
-      agencyId: 'agency-1',
+      opportunityId: 'opp-789',
       agencyName: 'Department of Defense',
-      agencyAbbreviation: 'DoD',
       agencyFOIAEmail: 'foia@dod.gov',
       agencyFOIAAddress: '1400 Defense Pentagon, Washington DC 20301',
       solicitationNumber: 'W911NF-21-R-0001',
       contractTitle: 'IT Services Contract',
-      contractNumber: 'W911NF-21-C-0001',
       requestedDocuments: ['SSEB_REPORT', 'TECHNICAL_EVAL', 'PRICE_ANALYSIS'],
-      requesterCategory: 'OTHER',
+      customDocumentRequests: [],
       feeLimit: 100,
-      requestFeeWaiver: false,
+      companyName: 'Acme Corp',
+      awardeeName: 'WinnerCo LLC',
+      awardDate: 'January 15, 2026',
       requesterName: 'John Smith',
+      requesterTitle: 'Contracts Manager',
       requesterEmail: 'john.smith@company.com',
       requesterPhone: '555-123-4567',
       requesterAddress: '123 Business Ave, Suite 100, Arlington VA 22201',
       requestedBy: 'user-789',
-      statusHistory: [],
-      autoSubmitAttempted: false,
-      generatedLetterS3Key: 's3://bucket/letter-1',
-      generatedLetterVersion: 1,
       createdAt: '2025-01-15T00:00:00Z',
       updatedAt: '2025-01-15T00:00:00Z',
       createdBy: 'user-789',
@@ -68,149 +76,111 @@ describe('generate-foia-letter handler', () => {
     it('generates letter with correct agency info', () => {
       const letter = generateFOIALetter(mockRequest);
 
+      expect(letter).toContain('FOIA Requester Service Center');
       expect(letter).toContain('Department of Defense');
       expect(letter).toContain('1400 Defense Pentagon, Washington DC 20301');
       expect(letter).toContain('foia@dod.gov');
     });
 
-    it('includes requester information in contact section', () => {
+    it('includes FOIA statutory reference', () => {
       const letter = generateFOIALetter(mockRequest);
 
-      expect(letter).toContain('John Smith');
-      expect(letter).toContain('john.smith@company.com');
-      expect(letter).toContain('555-123-4567');
-      expect(letter).toContain('123 Business Ave, Suite 100, Arlington VA 22201');
+      expect(letter).toContain('Freedom of Information Act (5 U.S.C. Section 552)');
     });
 
-    it('includes solicitation and contract numbers', () => {
+    it('includes solicitation number, title, and award date', () => {
       const letter = generateFOIALetter(mockRequest);
 
-      expect(letter).toContain('W911NF-21-R-0001');
-      expect(letter).toContain('W911NF-21-C-0001');
+      expect(letter).toContain('Solicitation No. W911NF-21-R-0001');
+      expect(letter).toContain('titled IT Services Contract');
+      expect(letter).toContain('awarded on or about January 15, 2026');
+    });
+
+    it('includes company name', () => {
+      const letter = generateFOIALetter(mockRequest);
+
+      expect(letter).toContain('My company, Acme Corp, submitted a proposal');
+    });
+
+    it('includes awardee name', () => {
+      const letter = generateFOIALetter(mockRequest);
+
+      expect(letter).toContain('The contract was awarded to WinnerCo LLC.');
     });
 
     it('lists requested documents with numbered descriptions', () => {
       const letter = generateFOIALetter(mockRequest);
 
-      expect(letter).toContain('1. The complete Source Selection Evaluation Board (SSEB) report');
+      expect(letter).toContain('1. Source Selection Evaluation Board (SSEB) report');
       expect(letter).toContain('2. Technical evaluation reports and findings');
-      expect(letter).toContain('3. Price/cost analysis documentation for all offerors');
+      expect(letter).toContain('3. Price/cost analysis documentation');
     });
 
-    it('includes proper FOIA statutory citations', () => {
+    it('includes fee limit line when feeLimit > 0', () => {
       const letter = generateFOIALetter(mockRequest);
 
-      expect(letter).toContain('5 U.S.C. § 552');
-      expect(letter).toContain('5 U.S.C. § 552(a)(3)(A)');
-      expect(letter).toContain('5 U.S.C. § 552(a)(6)(A)(i)');
-    });
-
-    it('includes segregability clause with Vaughn index request', () => {
-      const letter = generateFOIALetter(mockRequest);
-
-      expect(letter).toContain('SEGREGABILITY');
-      expect(letter).toContain('reasonably segregable');
-      expect(letter).toContain('Vaughn index');
-      expect(letter).toContain('5 U.S.C. § 552(b)(1)-(9)');
-    });
-
-    it('includes appeal rights section with OGIS reference', () => {
-      const letter = generateFOIALetter(mockRequest);
-
-      expect(letter).toContain('APPEAL RIGHTS');
-      expect(letter).toContain('90 days');
-      expect(letter).toContain('5 U.S.C. § 552(a)(4)(B)');
-      expect(letter).toContain('Office of Government Information Services (OGIS)');
-    });
-
-    it('includes electronic format request per E-FOIA', () => {
-      const letter = generateFOIALetter(mockRequest);
-
-      expect(letter).toContain('FORMAT OF RECORDS');
-      expect(letter).toContain('Electronic Freedom of Information Act Amendments of 1996');
-      expect(letter).toContain('electronic format (PDF preferred)');
-    });
-
-    it('includes 20 business day response deadline', () => {
-      const letter = generateFOIALetter(mockRequest);
-
-      expect(letter).toContain('twenty (20) business days');
-      expect(letter).toContain('RESPONSE DEADLINE');
-    });
-
-    it('includes fee category for "OTHER" requester', () => {
-      const letter = generateFOIALetter(mockRequest);
-
-      expect(letter).toContain('FEES');
-      expect(letter).toContain('"all other" requester');
-      expect(letter).toContain('two hours of search time');
-      expect(letter).toContain('100 pages of duplication at no charge');
       expect(letter).toContain('$100.00');
+      expect(letter).toContain('willing to pay up to');
     });
 
-    it('includes fee category for COMMERCIAL requester', () => {
-      const commercialRequest: DBFOIARequestItem = {
+    it('includes fee waiver line when feeLimit is 0', () => {
+      const zeroFeeRequest: DBFOIARequestItem = {
         ...mockRequest,
-        requesterCategory: 'COMMERCIAL',
+        feeLimit: 0,
       };
 
-      const letter = generateFOIALetter(commercialRequest);
+      const letter = generateFOIALetter(zeroFeeRequest);
 
-      expect(letter).toContain('commercial use requester');
-      expect(letter).toContain('search, review, and duplication fees');
+      expect(letter).not.toContain('willing to pay');
+      expect(letter).toContain('I request a fee waiver for this request');
+      expect(letter).toContain('please contact me before incurring any costs');
     });
 
-    it('includes fee category for EDUCATIONAL requester', () => {
-      const eduRequest: DBFOIARequestItem = {
-        ...mockRequest,
-        requesterCategory: 'EDUCATIONAL',
-      };
+    it('includes requester contact information', () => {
+      const letter = generateFOIALetter(mockRequest);
 
-      const letter = generateFOIALetter(eduRequest);
-
-      expect(letter).toContain('educational institution requester');
-      expect(letter).toContain('scholarly purposes');
-      expect(letter).toContain('should not be charged search fees');
+      expect(letter).toContain('John Smith');
+      expect(letter).toContain('Contracts Manager');
+      expect(letter).toContain('Acme Corp');
+      expect(letter).toContain('john.smith@company.com');
+      expect(letter).toContain('555-123-4567');
+      expect(letter).toContain('123 Business Ave, Suite 100, Arlington VA 22201');
     });
 
-    it('includes fee category for NEWS_MEDIA requester', () => {
-      const mediaRequest: DBFOIARequestItem = {
-        ...mockRequest,
-        requesterCategory: 'NEWS_MEDIA',
-      };
+    it('includes solicitation and title in pertains line', () => {
+      const letter = generateFOIALetter(mockRequest);
 
-      const letter = generateFOIALetter(mediaRequest);
-
-      expect(letter).toContain('representative of the news media');
-      expect(letter).toContain('news-gathering purposes');
+      expect(letter).toContain('Solicitation No. W911NF-21-R-0001');
+      expect(letter).toContain('titled IT Services Contract');
     });
 
-    it('includes fee waiver section when requested', () => {
-      const feeWaiverRequest: DBFOIARequestItem = {
-        ...mockRequest,
-        requestFeeWaiver: true,
-        feeWaiverJustification: 'Non-profit research for public benefit',
-      };
+    it('requests PDF delivery format via email', () => {
+      const letter = generateFOIALetter(mockRequest);
 
-      const letter = generateFOIALetter(feeWaiverRequest);
-
-      expect(letter).toContain('FEE WAIVER REQUEST');
-      expect(letter).toContain('5 U.S.C. § 552(a)(4)(A)(iii)');
-      expect(letter).toContain('public interest');
-      expect(letter).toContain('Non-profit research for public benefit');
-      expect(letter).toContain('$100.00');
+      expect(letter).toContain('responsive records be provided in electronic format (PDF preferred) via email to john.smith@company.com.');
     });
 
-    it('includes fee waiver without justification', () => {
-      const feeWaiverRequest: DBFOIARequestItem = {
-        ...mockRequest,
-        requestFeeWaiver: true,
-      };
+    it('ends with Sincerely closing', () => {
+      const letter = generateFOIALetter(mockRequest);
 
-      const letter = generateFOIALetter(feeWaiverRequest);
+      expect(letter).toContain('Sincerely,');
+    });
 
-      expect(letter).toContain('FEE WAIVER REQUEST');
-      expect(letter).not.toContain('Specifically:');
+    it('does NOT include old legal sections', () => {
+      const letter = generateFOIALetter(mockRequest);
+
+      expect(letter).not.toContain('SEGREGABILITY');
+      expect(letter).not.toContain('APPEAL RIGHTS');
+      expect(letter).not.toContain('FORMAT OF RECORDS');
+      expect(letter).not.toContain('RESPONSE DEADLINE');
+      expect(letter).not.toContain('Vaughn index');
+      expect(letter).not.toContain('FEE WAIVER REQUEST');
+    });
+
+    it('describes requester as unsuccessful offeror', () => {
+      const letter = generateFOIALetter(mockRequest);
+
+      expect(letter).toContain('unsuccessful offeror');
     });
 
     it('includes custom document requests', () => {
@@ -228,94 +198,10 @@ describe('generate-foia-letter handler', () => {
       expect(letter).toContain('5. Meeting minutes from the evaluation board sessions');
     });
 
-    it('indicates VIA EMAIL when agency email is present', () => {
+    it('includes company name in company clause', () => {
       const letter = generateFOIALetter(mockRequest);
 
-      expect(letter).toContain('VIA EMAIL');
-    });
-
-    it('indicates VIA MAIL when no agency email', () => {
-      const mailRequest: DBFOIARequestItem = {
-        ...mockRequest,
-        agencyFOIAEmail: undefined,
-      };
-
-      const letter = generateFOIALetter(mailRequest);
-
-      expect(letter).toContain('VIA MAIL');
-    });
-
-    it('includes description of requester as unsuccessful offeror', () => {
-      const letter = generateFOIALetter(mockRequest);
-
-      expect(letter).toContain('DESCRIPTION OF REQUESTER AND PURPOSE');
-      expect(letter).toContain('unsuccessful offeror');
-      expect(letter).toContain('evaluation criteria');
-      expect(letter).toContain('scoring methodology');
-    });
-
-    it('works without optional fields', () => {
-      const minimalRequest: DBFOIARequestItem = {
-        partition_key: 'FOIA_REQUEST',
-        sort_key: 'org-456#proj-123#foia-2',
-        id: 'foia-2',
-        projectId: 'proj-123',
-        orgId: 'org-456',
-        foiaId: 'foiaId-2',
-        status: 'DRAFT',
-        agencyId: 'agency-1',
-        agencyName: 'GSA',
-        agencyAbbreviation: 'GSA',
-        solicitationNumber: 'GS-00F-0001',
-        contractTitle: 'IT Services',
-        requestedDocuments: ['SSDD'],
-        requesterCategory: 'OTHER',
-        feeLimit: 50,
-        requestFeeWaiver: false,
-        requesterName: 'Jane Doe',
-        requesterEmail: 'jane@example.com',
-        requestedBy: 'user-789',
-        statusHistory: [],
-        autoSubmitAttempted: false,
-        generatedLetterS3Key: 's3-key',
-        generatedLetterVersion: 1,
-        createdAt: '2025-01-15T00:00:00Z',
-        updatedAt: '2025-01-15T00:00:00Z',
-        createdBy: 'user-789',
-      };
-
-      const letter = generateFOIALetter(minimalRequest);
-
-      expect(letter).toContain('GSA');
-      expect(letter).toContain('Jane Doe');
-      expect(letter).toContain('jane@example.com');
-      expect(letter).toContain('Source Selection Decision Document');
-      expect(letter).toContain('[Agency FOIA Office Address]');
-      expect(letter).toContain('[Address]');
-      expect(letter).toContain('$50.00');
-    });
-
-    it('includes all document types when requested', () => {
-      const fullRequest: DBFOIARequestItem = {
-        ...mockRequest,
-        requestedDocuments: [
-          'SSEB_REPORT',
-          'SSDD',
-          'TECHNICAL_EVAL',
-          'PRICE_ANALYSIS',
-          'PAST_PERFORMANCE_EVAL',
-          'DEBRIEFING_NOTES',
-        ],
-      };
-
-      const letter = generateFOIALetter(fullRequest);
-
-      expect(letter).toContain('1. The complete Source Selection Evaluation Board (SSEB) report');
-      expect(letter).toContain('2. The Source Selection Decision Document (SSDD)');
-      expect(letter).toContain('3. Technical evaluation reports and findings');
-      expect(letter).toContain('4. Price/cost analysis documentation for all offerors');
-      expect(letter).toContain('5. Past performance evaluation reports for all offerors');
-      expect(letter).toContain('6. Debriefing Notes or Documentation');
+      expect(letter).toContain('My company, Acme Corp, submitted a proposal');
     });
 
     it('includes date in the letter', () => {
@@ -323,13 +209,295 @@ describe('generate-foia-letter handler', () => {
 
       // Should contain a date string (month name, day, year)
       expect(letter).toMatch(/\w+ \d{1,2}, \d{4}/);
-      expect(letter).toContain('Date:');
     });
 
-    it('ends with respectfully submitted closing', () => {
+    it('includes award date in pertains line', () => {
       const letter = generateFOIALetter(mockRequest);
 
-      expect(letter).toContain('Respectfully submitted,');
+      expect(letter).toContain('awarded on or about January 15, 2026');
+    });
+
+    it('formats ISO date strings into human-readable format', () => {
+      const isoDateRequest: DBFOIARequestItem = {
+        ...mockRequest,
+        awardDate: '2026-03-22',
+      };
+
+      const letter = generateFOIALetter(isoDateRequest);
+
+      expect(letter).toContain('awarded on or about March 22, 2026');
+      expect(letter).not.toContain('2026-03-22');
+    });
+
+    it('includes awardee name', () => {
+      const letter = generateFOIALetter(mockRequest);
+
+      expect(letter).toContain('The contract was awarded to WinnerCo LLC.');
+    });
+  });
+
+  describe('validateLetterFields', () => {
+    const completeRequest: DBFOIARequestItem = {
+      partition_key: 'FOIA_REQUEST',
+      sort_key: 'org-456#proj-123#opp-789#foia-1',
+      foiaId: 'foiaId-1',
+      id: 'foia-1',
+      projectId: 'proj-123',
+      orgId: 'org-456',
+      opportunityId: 'opp-789',
+      agencyName: 'Department of Defense',
+      agencyFOIAEmail: 'foia@dod.gov',
+      agencyFOIAAddress: '1400 Defense Pentagon, Washington DC 20301',
+      solicitationNumber: 'W911NF-21-R-0001',
+      contractTitle: 'IT Services Contract',
+      requestedDocuments: ['SSEB_REPORT'],
+      customDocumentRequests: [],
+      feeLimit: 0,
+      companyName: 'Acme Corp',
+      awardDate: 'January 15, 2026',
+      requesterName: 'John Smith',
+      requesterTitle: 'Contracts Manager',
+      requesterEmail: 'john@company.com',
+      requesterPhone: '555-123-4567',
+      requesterAddress: '123 Business Ave, Arlington VA 22201',
+      requestedBy: 'user-789',
+      createdAt: '2025-01-15T00:00:00Z',
+      updatedAt: '2025-01-15T00:00:00Z',
+      createdBy: 'user-789',
+    };
+
+    it('returns empty array when all required fields are present', () => {
+      expect(validateLetterFields(completeRequest)).toEqual([]);
+    });
+
+    it('detects missing requesterTitle', () => {
+      const missing = validateLetterFields({ ...completeRequest, requesterTitle: '' });
+      expect(missing).toContain('requesterTitle');
+    });
+
+    it('detects missing requesterPhone', () => {
+      const missing = validateLetterFields({ ...completeRequest, requesterPhone: '' });
+      expect(missing).toContain('requesterPhone');
+    });
+
+    it('detects empty requestedDocuments', () => {
+      const missing = validateLetterFields({ ...completeRequest, requestedDocuments: [] });
+      expect(missing).toContain('requestedDocuments');
+    });
+
+    it('detects multiple missing fields', () => {
+      const missing = validateLetterFields({
+        ...completeRequest,
+        agencyName: '',
+        requesterName: '',
+        companyName: '',
+      });
+      expect(missing).toContain('agencyName');
+      expect(missing).toContain('requesterName');
+      expect(missing).toContain('companyName');
+      expect(missing).toHaveLength(3);
+    });
+  });
+
+  describe('baseHandler', () => {
+    const mockRequest: DBFOIARequestItem = {
+      partition_key: 'FOIA_REQUEST',
+      sort_key: 'org-456#proj-123#opp-789#foia-1',
+      foiaId: 'foiaId-1',
+      id: 'foia-1',
+      projectId: 'proj-123',
+      orgId: 'org-456',
+      opportunityId: 'opp-789',
+      agencyName: 'Department of Defense',
+      agencyFOIAEmail: 'foia@dod.gov',
+      agencyFOIAAddress: '1400 Defense Pentagon, Washington DC 20301',
+      solicitationNumber: 'W911NF-21-R-0001',
+      contractTitle: 'IT Services Contract',
+      requestedDocuments: ['SSEB_REPORT'],
+      customDocumentRequests: [],
+      feeLimit: 0,
+      companyName: 'Acme Corp',
+      awardDate: 'January 15, 2026',
+      requesterName: 'John Smith',
+      requesterTitle: 'Contracts Manager',
+      requesterEmail: 'john@company.com',
+      requesterPhone: '555-123-4567',
+      requesterAddress: '123 Business Ave, Arlington VA 22201',
+      requestedBy: 'user-789',
+      createdAt: '2025-01-15T00:00:00Z',
+      updatedAt: '2025-01-15T00:00:00Z',
+      createdBy: 'user-789',
+    };
+
+    beforeEach(() => {
+      mockSend.mockReset();
+      mockGetOrgPrimaryContact.mockReset();
+    });
+
+    const makeEvent = (body: Record<string, unknown>): APIGatewayProxyEventV2 =>
+      ({
+        body: JSON.stringify(body),
+      }) as unknown as APIGatewayProxyEventV2;
+
+    it('returns 400 for invalid payload', async () => {
+      const result = await baseHandler(makeEvent({}));
+      const parsed = JSON.parse(result.body as string);
+
+      expect(result.statusCode).toBe(400);
+      expect(parsed.message).toBe('Invalid payload');
+    });
+
+    it('returns 404 when FOIA request is not found', async () => {
+      mockSend.mockResolvedValueOnce({ Item: undefined });
+      mockGetOrgPrimaryContact.mockResolvedValue(null);
+
+      const result = await baseHandler(makeEvent({
+        orgId: 'org-456',
+        projectId: 'proj-123',
+        opportunityId: 'opp-789',
+        foiaRequestId: 'nonexistent',
+      }));
+      const parsed = JSON.parse(result.body as string);
+
+      expect(result.statusCode).toBe(404);
+      expect(parsed.message).toBe('FOIA request not found');
+    });
+
+    it('returns 200 with generated letter on success', async () => {
+      mockSend.mockResolvedValueOnce({ Item: mockRequest });
+      mockGetOrgPrimaryContact.mockResolvedValue(null);
+
+      const result = await baseHandler(makeEvent({
+        orgId: 'org-456',
+        projectId: 'proj-123',
+        opportunityId: 'opp-789',
+        foiaRequestId: 'foia-1',
+      }));
+      const parsed = JSON.parse(result.body as string);
+
+      expect(result.statusCode).toBe(200);
+      expect(parsed.letter).toContain('Freedom of Information Act');
+      expect(parsed.letter).toContain('Acme Corp');
+    });
+
+    it('uses correct DynamoDB key for the GetCommand', async () => {
+      mockSend.mockResolvedValueOnce({ Item: mockRequest });
+      mockGetOrgPrimaryContact.mockResolvedValue(null);
+
+      await baseHandler(makeEvent({
+        orgId: 'org-456',
+        projectId: 'proj-123',
+        opportunityId: 'opp-789',
+        foiaRequestId: 'foia-1',
+      }));
+
+      const getCall = mockSend.mock.calls[0][0];
+      expect(getCall.type).toBe('Get');
+      expect(getCall.params.Key.partition_key).toBe('FOIA_REQUEST');
+      expect(getCall.params.Key.sort_key).toBe('org-456#proj-123#opp-789#foia-1');
+    });
+
+    it('enriches missing requester fields from primary contact', async () => {
+      const requestMissingContact: DBFOIARequestItem = {
+        ...mockRequest,
+        requesterName: '',
+        requesterEmail: '',
+        requesterPhone: undefined,
+        requesterAddress: undefined,
+      };
+
+      mockSend.mockResolvedValueOnce({ Item: requestMissingContact });
+      mockGetOrgPrimaryContact.mockResolvedValue({
+        name: 'Org Contact',
+        email: 'contact@org.com',
+        phone: '555-999-0000',
+        address: '456 Corp Blvd, DC 20001',
+      });
+
+      const result = await baseHandler(makeEvent({
+        orgId: 'org-456',
+        projectId: 'proj-123',
+        opportunityId: 'opp-789',
+        foiaRequestId: 'foia-1',
+      }));
+      const parsed = JSON.parse(result.body as string);
+
+      expect(result.statusCode).toBe(200);
+      expect(parsed.letter).toContain('Org Contact');
+      expect(parsed.letter).toContain('contact@org.com');
+      expect(parsed.letter).toContain('555-999-0000');
+      expect(parsed.letter).toContain('456 Corp Blvd, DC 20001');
+    });
+
+    it('does not overwrite existing requester fields with primary contact', async () => {
+      const requestWithAllContactFields: DBFOIARequestItem = {
+        ...mockRequest,
+        requesterPhone: '555-123-4567',
+        requesterAddress: '123 Existing Ave, Arlington VA 22201',
+      };
+
+      mockSend.mockResolvedValueOnce({ Item: requestWithAllContactFields });
+      mockGetOrgPrimaryContact.mockResolvedValue({
+        name: 'Should Not Appear',
+        email: 'shouldnot@org.com',
+        phone: '555-000-0000',
+        address: 'Should Not Appear Address',
+      });
+
+      const result = await baseHandler(makeEvent({
+        orgId: 'org-456',
+        projectId: 'proj-123',
+        opportunityId: 'opp-789',
+        foiaRequestId: 'foia-1',
+      }));
+      const parsed = JSON.parse(result.body as string);
+
+      expect(result.statusCode).toBe(200);
+      expect(parsed.letter).toContain('John Smith');
+      expect(parsed.letter).toContain('john@company.com');
+      expect(parsed.letter).toContain('555-123-4567');
+      expect(parsed.letter).toContain('123 Existing Ave, Arlington VA 22201');
+      expect(parsed.letter).not.toContain('Should Not Appear');
+    });
+
+    it('returns 400 when required letter fields are missing', async () => {
+      const incompleteFOIA: DBFOIARequestItem = {
+        ...mockRequest,
+        requesterTitle: '',
+        requesterPhone: '',
+      };
+
+      mockSend.mockResolvedValueOnce({ Item: incompleteFOIA });
+      mockGetOrgPrimaryContact.mockResolvedValue(null);
+
+      const result = await baseHandler(makeEvent({
+        orgId: 'org-456',
+        projectId: 'proj-123',
+        opportunityId: 'opp-789',
+        foiaRequestId: 'foia-1',
+      }));
+      const parsed = JSON.parse(result.body as string);
+
+      expect(result.statusCode).toBe(400);
+      expect(parsed.message).toContain('missing required fields');
+      expect(parsed.missingFields).toContain('requesterTitle');
+      expect(parsed.missingFields).toContain('requesterPhone');
+    });
+
+    it('handles primary contact fetch failure gracefully', async () => {
+      mockSend.mockResolvedValueOnce({ Item: mockRequest });
+      mockGetOrgPrimaryContact.mockRejectedValue(new Error('Contact service down'));
+
+      const result = await baseHandler(makeEvent({
+        orgId: 'org-456',
+        projectId: 'proj-123',
+        opportunityId: 'opp-789',
+        foiaRequestId: 'foia-1',
+      }));
+      const parsed = JSON.parse(result.body as string);
+
+      expect(result.statusCode).toBe(200);
+      expect(parsed.letter).toContain('John Smith');
     });
   });
 });
