@@ -451,9 +451,7 @@ export const generateAnswerForQuestion = async (
     answerText: answer,
     sources: [],
     fromContentLibrary: false,
-    // Use real Pinecone cosine similarity scores from vector search tools when available.
-    // Falls back to LLM confidence as a proxy only when no vector search tools were called.
-    similarityScores: similarityScores.length > 0 ? similarityScores : [llmConfidence],
+    similarityScores,
   });
 
   await saveAnswer({
