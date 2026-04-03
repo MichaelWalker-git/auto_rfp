@@ -50,10 +50,9 @@ export const OpportunityHeader = () => {
     onSuccess: refetch,
   });
 
-  const { emitEvent, isEmitting, emitError, setEmitError } = useEmitOpportunityEvent();
+  const { emitEvent, isEmitting } = useEmitOpportunityEvent();
   const isAlreadyEmitted = !!opportunity?.eventBridgeEmittedAt;
   const pocUrl = opportunity?.pocUrl;
-  const isGoDecision = opportunity?.stage === 'PURSUING' || opportunity?.stage === 'SUBMITTED' || opportunity?.stage === 'WON';
 
   const handleEmitEvent = async () => {
     if (!orgId || !projectId || !oppId) return;
@@ -151,20 +150,14 @@ export const OpportunityHeader = () => {
                         View POC
                       </a>
                     </Button>
-                  ) : isAlreadyEmitted && !isEmitting ? (
-                    <Button variant="ghost" size="sm" disabled title="POC pipeline is running">
-                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                      POC Generating…
-                    </Button>
                   ) : (
                     <Button
                       variant="outline"
                       size="sm"
                       onClick={handleEmitEvent}
-                      disabled={isEmitting}
-                      title="Trigger POC development pipeline"
+                      disabled={isEmitting || isAlreadyEmitted}
                     >
-                      {isEmitting ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Send className="h-4 w-4 mr-2" />}
+                      {(isEmitting || isAlreadyEmitted) ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Send className="h-4 w-4 mr-2" />}
                       Develop POC
                     </Button>
                   )
