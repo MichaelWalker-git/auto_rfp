@@ -29,6 +29,9 @@ export const baseHandler = async (
     }
 
     const opportunityId = event.queryStringParameters?.opportunityId;
+    if (!opportunityId) {
+      return apiResponse(400, { message: 'opportunityId query parameter is required' });
+    }
 
     // Run both queries in parallel — 2 DB queries total instead of N+1
     const [flatQuestions, allAnswers] = await Promise.all([
