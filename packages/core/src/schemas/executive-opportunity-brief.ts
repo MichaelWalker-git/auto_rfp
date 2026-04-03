@@ -191,7 +191,7 @@ export const DeadlineSchema = z.object({
 export type Deadline = z.infer<typeof DeadlineSchema>;
 
 export const DeadlinesSectionSchema = z.object({
-  deadlines: z.array(DeadlineSchema).min(1),
+  deadlines: z.array(DeadlineSchema),
   hasSubmissionDeadline: z.boolean().nullish().default(false),
   submissionDeadlineIso: z.string().datetime({ offset: true }).nullish().transform(v => v ?? undefined),
   warnings: z.array(z.string()).nullish().default([]),

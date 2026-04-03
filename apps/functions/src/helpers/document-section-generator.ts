@@ -24,6 +24,7 @@
 
 import { invokeModel } from '@/helpers/bedrock-http-client';
 import { DOCUMENT_TOOLS, executeDocumentTool } from '@/helpers/document-tools';
+import { buildTextOnlyMessages } from '@/helpers/bedrock-tool-loop';
 import type { QaPair } from '@/types/document-generation';
 import type { ToolResult } from '@/types/tool';
 
@@ -246,13 +247,18 @@ const generateSingleSection = async (args: {
     const requestBody: Record<string, unknown> = {
       anthropic_version: 'bedrock-2023-05-31',
       system: [{ type: 'text', text: systemPrompt }],
-      messages,
       max_tokens: maxTokensPerSection,
       temperature,
     };
 
-    // Provide tools on all rounds except the last (force text output on last round)
-    if (!isLastRound) {
+    if (isLastRound) {
+      // Last round: omit tools to force text output.
+      // Must clean messages to convert tool_use/tool_result blocks to text summaries,
+      // because Bedrock rejects tool blocks when no tools are in the request.
+      requestBody.messages = buildTextOnlyMessages(messages);
+      console.log(`[section-gen] Section "${section.title}": last round — omitting tools, using text-only messages`);
+    } else {
+      requestBody.messages = messages;
       requestBody.tools = DOCUMENT_TOOLS;
     }
 
@@ -277,21 +283,25 @@ const generateSingleSection = async (args: {
     // Extract text response
     sectionHtml = extractText(content);
 
-    // If last round still returned tool_use, force a final text response
-    if (!sectionHtml && stopReason === 'tool_use' && isLastRound) {
+    // If last round still returned tool_use or no text, force a final text response
+    if (!sectionHtml && isLastRound) {
+      console.warn(`[section-gen] Section "${section.title}": last round produced no text (stop_reason=${stopReason}) — forcing final generation`);
       messages.push({ role: 'assistant', content });
       messages.push({
         role: 'user',
-        content: [{ type: 'text', text: `Now write the HTML for the "${section.title}" section based on all the information gathered. Return ONLY HTML starting with <h2>${section.title}</h2>.` }],
+        content: [{ type: 'text', text: `IMPORTANT: Stop using tools. You have gathered enough information. Now write the HTML for the "${section.title}" section based on all the information gathered. Return ONLY HTML starting with <h2>${section.title}</h2>. No explanatory text, no tool calls.` }],
       });
 
-      const finalBody = {
+      // Clean messages to remove tool blocks before sending without tools
+      const cleanMessages = buildTextOnlyMessages(messages);
+      const finalBody: Record<string, unknown> = {
         anthropic_version: 'bedrock-2023-05-31',
         system: [{ type: 'text', text: systemPrompt }],
-        messages,
+        messages: cleanMessages,
         max_tokens: maxTokensPerSection,
         temperature,
       };
+      // Intentionally NO tools — forces text-only response
 
       const finalResponse = await invokeModel(modelId, JSON.stringify(finalBody));
       const finalParsed = JSON.parse(new TextDecoder('utf-8').decode(finalResponse)) as { content?: ContentBlock[] };
@@ -538,9 +548,12 @@ export const generateDocumentSectionBySectionHtml = async (
 
         console.log(`[section-gen] Section "${section.title}": ${cleanHtml.length} chars, ${toolRoundsUsed} tool rounds, ${durationMs}ms`);
       } else if (section.templateContent) {
-        // AI returned empty — fall back to template content
+        // AI returned empty — fall back to template content with placeholder markers stripped
         console.warn(`[section-gen] Section "${section.title}": empty AI response, using template content as fallback`);
-        htmlFragments.push(section.templateContent);
+        const fallbackContent = section.templateContent
+          .replace(/<p[^>]*>\s*\[CONTENT:[^\]]*\]\s*<\/p>/gi, '')
+          .replace(/\[CONTENT:[^\]]*\]/gi, '');
+        htmlFragments.push(fallbackContent);
         completedSectionTitles.push(section.title);
       } else {
         console.warn(`[section-gen] Section "${section.title}": empty response, skipping`);
@@ -551,7 +564,10 @@ export const generateDocumentSectionBySectionHtml = async (
       // Fall back to template content if available
       if (section.templateContent) {
         console.warn(`[section-gen] Using template content as fallback for "${section.title}"`);
-        htmlFragments.push(section.templateContent);
+        const fallbackContent = section.templateContent
+          .replace(/<p[^>]*>\s*\[CONTENT:[^\]]*\]\s*<\/p>/gi, '')
+          .replace(/\[CONTENT:[^\]]*\]/gi, '');
+        htmlFragments.push(fallbackContent);
         completedSectionTitles.push(section.title);
       }
     }

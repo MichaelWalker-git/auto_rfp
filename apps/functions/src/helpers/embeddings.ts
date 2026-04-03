@@ -17,8 +17,6 @@ export async function getEmbedding(text: string): Promise<number[]> {
   const responseBody = await invokeModel(
     BEDROCK_EMBEDDING_MODEL_ID,
     JSON.stringify(body),
-    'application/json',
-    'application/json'
   );
 
   const responseString = new TextDecoder('utf-8').decode(responseBody);

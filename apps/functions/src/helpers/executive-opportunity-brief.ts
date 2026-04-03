@@ -1,4 +1,6 @@
 import crypto from 'crypto';
+import { z } from 'zod';
+import { zodToJsonSchema } from 'zod-to-json-schema';
 import { PutCommand, QueryCommand, UpdateCommand, } from '@aws-sdk/lib-dynamodb';
 
 import { PK_NAME, SK_NAME } from '@/constants/common';
@@ -820,6 +822,30 @@ export async function queryCompanyKnowledgeBase(orgId: string, solicitationText:
 // -------------------------
 // Claude / Bedrock helpers
 // -------------------------
+
+/** Name of the synthetic tool used to force structured JSON output via tool_choice */
+const STRUCTURED_OUTPUT_TOOL_NAME = 'structured_output';
+
+/**
+ * Convert a Zod schema to JSON Schema for use as a tool's input_schema.
+ * Returns null if the schema is not a Zod schema.
+ */
+const toJsonSchemaForInvoke = (schema: SchemaLike<unknown>): Record<string, unknown> | null => {
+  if (schema && typeof schema === 'object' && '_def' in schema) {
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      return zodToJsonSchema(schema as any, {
+        target: 'openApi3',
+        $refStrategy: 'none',
+      }) as Record<string, unknown>;
+    } catch (err) {
+      console.warn('[toJsonSchemaForInvoke] Failed to convert Zod schema:', (err as Error)?.message);
+      return null;
+    }
+  }
+  return null;
+};
+
 export async function invokeClaudeJson<S extends SchemaLike<any>>(args: {
   modelId: string;
   system: string;
@@ -837,19 +863,71 @@ export async function invokeClaudeJson<S extends SchemaLike<any>>(args: {
     temperature = 0.2,
   } = args;
 
+  // ── Try tool_choice path first if we can derive a JSON Schema ──
+  const jsonSchema = toJsonSchemaForInvoke(outputSchema);
+
+  if (jsonSchema) {
+    try {
+      const structuredOutputTool = {
+        name: STRUCTURED_OUTPUT_TOOL_NAME,
+        description: 'Output the final structured JSON response matching the required schema.',
+        input_schema: {
+          type: 'object' as const,
+          properties: (jsonSchema.properties ?? {}) as Record<string, unknown>,
+          required: (jsonSchema.required ?? []) as readonly string[],
+        },
+      };
+
+      const toolChoiceBody = {
+        anthropic_version: 'bedrock-2023-05-31',
+        max_tokens: maxTokens,
+        temperature,
+        system,
+        messages: [
+          { role: 'user', content: [{ type: 'text', text: user }] },
+        ],
+        tools: [structuredOutputTool],
+        tool_choice: { type: 'tool', name: STRUCTURED_OUTPUT_TOOL_NAME },
+      };
+
+      const responseBody = await invokeModel(modelId, JSON.stringify(toolChoiceBody));
+      const parsed = JSON.parse(new TextDecoder('utf-8').decode(responseBody)) as {
+        stop_reason?: string;
+        content?: Array<{ type: string; name?: string; input?: unknown; text?: string }>;
+      };
+
+      const structuredBlock = (parsed.content ?? []).find(
+        (c) => c.type === 'tool_use' && c.name === STRUCTURED_OUTPUT_TOOL_NAME,
+      );
+
+      if (structuredBlock?.input) {
+        console.log('[invokeClaudeJson] tool_choice structured_output succeeded');
+        return outputSchema.parse(structuredBlock.input) as ReturnType<S['parse']>;
+      }
+
+      console.warn('[invokeClaudeJson] tool_choice returned no structured_output block — falling back to text extraction');
+    } catch (toolChoiceErr) {
+      console.warn('[invokeClaudeJson] tool_choice attempt failed, falling back to text extraction:', (toolChoiceErr as Error)?.message);
+    }
+  }
+
+  // ── Fallback: text extraction path (original logic) ──
+  const jsonSystemSuffix = '\n\nIMPORTANT: Your response MUST be a single valid JSON object. Do NOT output any prose, reasoning, or markdown fences. Start your response with { and end with }.';
+  const jsonUserSuffix = '\n\nRespond with ONLY a JSON object. Start with { and end with }. No markdown fences, no explanatory text.';
+
   const body = {
     anthropic_version: 'bedrock-2023-05-31',
     max_tokens: maxTokens,
     temperature,
-    system,
-    messages: [{ role: 'user', content: [{ type: 'text', text: user }] }],
+    system: system + jsonSystemSuffix,
+    messages: [
+      { role: 'user', content: [{ type: 'text', text: user + jsonUserSuffix }] },
+    ],
   };
 
   const responseBody = await invokeModel(
     modelId,
     JSON.stringify(body),
-    'application/json',
-    'application/json'
   );
   let jsonText = new TextDecoder('utf-8').decode(responseBody);
   let stopReason: string | undefined;
@@ -858,7 +936,7 @@ export async function invokeClaudeJson<S extends SchemaLike<any>>(args: {
     const json = JSON.parse(jsonText);
     stopReason = json?.stop_reason;
     const contentText =
-      json?.content?.map((c: any) => c?.text).filter(Boolean).join('\n') ??
+      json?.content?.map((c: { text?: string }) => c?.text).filter(Boolean).join('\n') ??
       json?.output_text ??
       json?.completion ??
       null;
@@ -881,22 +959,22 @@ export async function invokeClaudeJson<S extends SchemaLike<any>>(args: {
       anthropic_version: 'bedrock-2023-05-31',
       max_tokens: retryMaxTokens,
       temperature,
-      system,
-      messages: [{ role: 'user', content: [{ type: 'text', text: user }] }],
+      system: system + jsonSystemSuffix,
+      messages: [
+        { role: 'user', content: [{ type: 'text', text: user + jsonUserSuffix }] },
+      ],
     };
 
     const retryResponseBody = await invokeModel(
       modelId,
       JSON.stringify(retryBody),
-      'application/json',
-      'application/json'
     );
     let retryJsonText = new TextDecoder('utf-8').decode(retryResponseBody);
 
     try {
       const retryJson = JSON.parse(retryJsonText);
       const retryContentText =
-        retryJson?.content?.map((c: any) => c?.text).filter(Boolean).join('\n') ??
+        retryJson?.content?.map((c: { text?: string }) => c?.text).filter(Boolean).join('\n') ??
         retryJson?.output_text ??
         retryJson?.completion ??
         null;
@@ -924,8 +1002,45 @@ export async function invokeClaudeJson<S extends SchemaLike<any>>(args: {
   try {
     return safeJsonParse(jsonText, outputSchema);
   } catch (e) {
-    console.error('Claude raw output:', jsonText);
-    throw e;
+    // If the model returned prose instead of JSON, retry with a forceful JSON-only prompt
+    console.warn('[invokeClaudeJson] First attempt failed, retrying with JSON enforcement:', (e as Error)?.message);
+
+    const jsonRetryBody = {
+      anthropic_version: 'bedrock-2023-05-31',
+      max_tokens: maxTokens,
+      temperature: 0.1,
+      system: system + '\n\nCRITICAL: You MUST respond with ONLY a valid JSON object. No prose, no reasoning, no markdown fences. Start with { and end with }.',
+      messages: [
+        { role: 'user', content: [{ type: 'text', text: user + '\n\nRespond with ONLY a JSON object. Start with { and end with }. No markdown fences, no explanatory text.' }] },
+      ],
+    };
+
+    const retryResponseBody = await invokeModel(modelId, JSON.stringify(jsonRetryBody));
+    let retryJsonText = new TextDecoder('utf-8').decode(retryResponseBody);
+
+    try {
+      const retryJson = JSON.parse(retryJsonText);
+      const retryContentText =
+        retryJson?.content?.map((c: { text?: string }) => c?.text).filter(Boolean).join('\n') ??
+        retryJson?.output_text ??
+        retryJson?.completion ??
+        null;
+      if (retryContentText) {
+        retryJsonText = retryContentText;
+      }
+    } catch {
+      // keep raw
+    }
+
+    try {
+      const result = safeJsonParse(retryJsonText, outputSchema);
+      console.log('[invokeClaudeJson] JSON enforcement retry succeeded');
+      return result;
+    } catch (retryErr) {
+      console.error('[invokeClaudeJson] JSON enforcement retry also failed. Original output:', jsonText);
+      console.error('[invokeClaudeJson] Retry output:', retryJsonText);
+      throw retryErr;
+    }
   }
 }
 

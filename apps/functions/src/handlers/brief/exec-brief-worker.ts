@@ -1,5 +1,6 @@
 import type { SQSBatchResponse, SQSEvent } from 'aws-lambda';
 import { z, ZodError } from 'zod';
+import { zodToJsonSchema } from 'zod-to-json-schema';
 import { Sentry, withSentryLambda } from '@/sentry-lambda';
 import {
   ContactsSectionSchema,
@@ -110,6 +111,17 @@ const loadKbPrimer = async (
 // ─── Summary Schema with Sanitization ─────────────────────────────────────────
 
 /**
+ * Pre-computed JSON Schema from QuickSummarySchema for use with tool_choice.
+ * SanitizedQuickSummarySchema is a plain wrapper (not a Zod schema), so we
+ * derive the JSON Schema from the underlying Zod schema and pass it explicitly.
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const QuickSummaryJsonSchema = zodToJsonSchema(QuickSummarySchema as any, {
+  target: 'openApi3',
+  $refStrategy: 'none',
+}) as Record<string, unknown>;
+
+/**
  * Wraps QuickSummarySchema with pre-sanitization so that `invokeClaudeWithTools`
  * (which calls `schema.parse()` internally) automatically sanitizes the raw
  * Bedrock response before Zod validation.
@@ -164,7 +176,7 @@ async function runSummary(job: Job): Promise<void> {
     let data: unknown;
 
     try {
-      // Primary attempt: use sanitized schema wrapper
+      // Primary attempt: use sanitized schema wrapper with explicit JSON Schema for tool_choice
       data = await invokeClaudeWithTools({
         modelId: BEDROCK_MODEL_ID,
         system: await getSummarySystemPrompt(orgId),
@@ -178,6 +190,7 @@ async function runSummary(job: Job): Promise<void> {
         toolExecutor: (toolName, toolInput, toolUseId) =>
           executeBriefTool({ toolName, toolInput, toolUseId, orgId, projectId, opportunityId, executiveBriefId }),
         outputSchema: SanitizedQuickSummarySchema,
+        outputJsonSchema: QuickSummaryJsonSchema,
         maxTokens: 1200,
         temperature: 0.2,
         maxToolRounds: 2,
@@ -219,6 +232,7 @@ async function runSummary(job: Job): Promise<void> {
           toolExecutor: (toolName, toolInput, toolUseId) =>
             executeBriefTool({ toolName, toolInput, toolUseId, orgId, projectId, opportunityId, executiveBriefId }),
           outputSchema: MinimalSummarySchema,
+          outputJsonSchema: QuickSummaryJsonSchema,
           maxTokens: 1200,
           temperature: 0.1,
           maxToolRounds: 1,
@@ -340,9 +354,9 @@ async function runRequirements(job: Job): Promise<void> {
       toolExecutor: (toolName, toolInput, toolUseId) =>
         executeBriefTool({ toolName, toolInput, toolUseId, orgId, projectId, opportunityId, executiveBriefId }),
       outputSchema: RequirementsSectionSchema,
-      maxTokens: 5000,
+      maxTokens: 8000,
       temperature: 0.2,
-      maxToolRounds: 2,
+      maxToolRounds: 3,
     });
 
     await markSectionComplete({
@@ -537,9 +551,9 @@ async function runPricing(job: Job): Promise<void> {
       toolExecutor: (toolName, toolInput, toolUseId) =>
         executePricingTool({ toolName, toolInput, toolUseId, orgId, projectId, opportunityId, executiveBriefId }),
       outputSchema: PricingSectionSchema,
-      maxTokens: 6000,
+      maxTokens: 8000,
       temperature: 0.2,
-      maxToolRounds: 5,
+      maxToolRounds: 2,
     });
 
     await markSectionComplete({
