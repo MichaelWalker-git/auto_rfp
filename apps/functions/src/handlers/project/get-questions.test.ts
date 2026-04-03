@@ -68,6 +68,10 @@ const makeEvent = (projectId?: string, queryParams?: Record<string, string>): AP
     body: null,
   }) as unknown as APIGatewayProxyEventV2;
 
+/** Shorthand: makeEvent with opportunityId included (most tests need it) */
+const makeEventWithOpp = (projectId: string, opportunityId = 'opp-1', extra?: Record<string, string>) =>
+  makeEvent(projectId, { opportunityId, ...extra });
+
 const parseBody = (result: LambdaResponse) =>
   JSON.parse(result.body);
 
@@ -136,7 +140,7 @@ describe('get-questions handler', () => {
       LastEvaluatedKey: undefined,
     });
 
-    const result = await baseHandler(makeEvent('proj-1')) as LambdaResponse;
+    const result = await baseHandler(makeEventWithOpp('proj-1')) as LambdaResponse;
 
     expect(result.statusCode).toBe(200);
 
@@ -196,7 +200,7 @@ describe('get-questions handler', () => {
       LastEvaluatedKey: undefined,
     });
 
-    const result = await baseHandler(makeEvent('proj-1')) as LambdaResponse;
+    const result = await baseHandler(makeEventWithOpp('proj-1')) as LambdaResponse;
     const body = parseBody(result);
 
     expect(result.statusCode).toBe(200);
@@ -220,7 +224,7 @@ describe('get-questions handler', () => {
       LastEvaluatedKey: undefined,
     });
 
-    const result = await baseHandler(makeEvent('proj-empty')) as LambdaResponse;
+    const result = await baseHandler(makeEventWithOpp('proj-empty')) as LambdaResponse;
     const body = parseBody(result);
 
     expect(result.statusCode).toBe(200);
@@ -250,7 +254,7 @@ describe('get-questions handler', () => {
       LastEvaluatedKey: undefined,
     });
 
-    await baseHandler(makeEvent('proj-1')) as LambdaResponse;
+    await baseHandler(makeEventWithOpp('proj-1')) as LambdaResponse;
 
     // Critical regression check: exactly 2 queries, not N+1
     expect(mockSend).toHaveBeenCalledTimes(2);
@@ -283,7 +287,7 @@ describe('get-questions handler', () => {
         LastEvaluatedKey: undefined,
       });
 
-    const result = await baseHandler(makeEvent('proj-1')) as LambdaResponse;
+    const result = await baseHandler(makeEventWithOpp('proj-1')) as LambdaResponse;
     const body = parseBody(result);
 
     expect(result.statusCode).toBe(200);
@@ -326,7 +330,7 @@ describe('get-questions handler', () => {
       LastEvaluatedKey: undefined,
     });
 
-    const result = await baseHandler(makeEvent('proj-1')) as LambdaResponse;
+    const result = await baseHandler(makeEventWithOpp('proj-1')) as LambdaResponse;
     const body = parseBody(result);
 
     expect(body.answers['q-1'].text).toBe('New answer');
@@ -364,7 +368,7 @@ describe('get-questions handler', () => {
       LastEvaluatedKey: undefined,
     });
 
-    const result = await baseHandler(makeEvent('proj-1')) as LambdaResponse;
+    const result = await baseHandler(makeEventWithOpp('proj-1')) as LambdaResponse;
     const body = parseBody(result);
 
     const source = body.answers['q-1'].sources[0];
@@ -425,89 +429,24 @@ describe('get-questions handler', () => {
     expect(questionsQuery.ExpressionAttributeValues[':oppId']).toBe('opp-123');
   });
 
-  it('should NOT apply FilterExpression when opportunityId is not provided', async () => {
-    const { QueryCommand } = jest.requireMock('@aws-sdk/lib-dynamodb');
+  it('should return 400 when opportunityId is not provided', async () => {
+    const result = await baseHandler(makeEvent('proj-1')) as LambdaResponse;
 
-    mockSend.mockResolvedValueOnce({ Items: [], LastEvaluatedKey: undefined });
-    mockSend.mockResolvedValueOnce({ Items: [], LastEvaluatedKey: undefined });
-
-    await baseHandler(makeEvent('proj-1')) as LambdaResponse;
-
-    // First call is loadQuestions — should NOT include FilterExpression
-    const questionsQuery = QueryCommand.mock.calls[0][0];
-    expect(questionsQuery.FilterExpression).toBeUndefined();
+    expect(result.statusCode).toBe(400);
+    expect(parseBody(result).message).toBe('opportunityId query parameter is required');
+    expect(mockSend).not.toHaveBeenCalled();
   });
 
   // ── Payload size limit ─────────────────────────────────────────────
 
-  it('should exceed 6MB Lambda response limit with ~2500 questions and answers', async () => {
-    // Generate enough questions + answers to exceed the 6MB Lambda response limit.
-    // In production, project 1f90fec9 has 2,457 questions + 1,870 answers → 502.
-    // Real-world data: project 1f90fec9 in Test has 2,457 questions + 1,870 answers.
-    // Each answer averages ~500 chars of text + sources metadata.
-    // The answers map duplicates answer data alongside sections → pushes past 6MB.
-    const questionCount = 3100;
-    const answerText = 'Our team has extensive experience implementing compliance controls. '.repeat(8); // ~536 chars, realistic length
-
-    const questions = Array.from({ length: questionCount }, (_: unknown, i: number) => ({
-      questionId: `q-${i}`,
-      question: `Question ${i}: ${'Describe your approach to compliance with the prohibitions outlined in the contract. '.repeat(3)}`,
-      sectionId: `sec-${i % 10}`,
-      sectionTitle: `Section ${i % 10}`,
-      sectionDescription: `Description for section ${i % 10}`,
-      opportunityId: `opp-${i % 27}`,
-      questionFileId: `file-${i % 87}`,
-    }));
-
-    const answers = Array.from({ length: questionCount }, (_: unknown, i: number) => ({
-      questionId: `q-${i}`,
-      text: answerText,
-      confidence: 0.85,
-      confidenceBand: 'HIGH',
-      status: 'approved',
-      updatedBy: 'user-123',
-      updatedByName: 'John Smith',
-      approvedBy: 'user-456',
-      approvedByName: 'Jane Doe',
-      approvedAt: '2026-03-15T00:00:00Z',
-      sources: [
-        { documentId: `doc-${i}`, documentTitle: `RFP Document ${i}`, chunkIndex: 0, score: 0.95, textContent: 'Long source text that will be stripped from the response' },
-        { documentId: `doc-${i}-2`, documentTitle: `Past Performance Report ${i}`, chunkIndex: 1, score: 0.87, textContent: 'Another source chunk to be stripped' },
-        { documentId: `doc-${i}-3`, documentTitle: `Technical Volume ${i}`, chunkIndex: 2, score: 0.79, textContent: 'Third source reference' },
-      ],
-      createdAt: '2026-03-01T00:00:00Z',
-      updatedAt: '2026-03-15T00:00:00Z',
-    }));
-
-    // loadQuestions
-    mockSend.mockResolvedValueOnce({
-      Items: questions,
-      LastEvaluatedKey: undefined,
-    });
-
-    // loadAnswers
-    mockSend.mockResolvedValueOnce({
-      Items: answers,
-      LastEvaluatedKey: undefined,
-    });
-
+  it('should return 400 when loading all questions without opportunityId (prevents 6MB overflow)', async () => {
+    // Previously this would load all 3100 questions and exceed the 6MB Lambda limit.
+    // Now it returns 400 immediately without hitting DynamoDB.
     const result = await baseHandler(makeEvent('proj-large')) as LambdaResponse;
 
-    // The handler returns 200 because it doesn't know about the Lambda size limit.
-    // The 6MB limit is enforced by the Lambda runtime AFTER the handler returns.
-    // This test proves the response body exceeds the limit.
-    expect(result.statusCode).toBe(200);
-
-    const bodySize = Buffer.byteLength(result.body, 'utf8');
-    const lambdaResponseLimit = 6_291_556; // 6MB Lambda response payload limit
-
-    console.log(`[payload-size-test] Response body size: ${(bodySize / 1024 / 1024).toFixed(2)} MB (${bodySize.toLocaleString()} bytes)`);
-    console.log(`[payload-size-test] Lambda limit: ${(lambdaResponseLimit / 1024 / 1024).toFixed(2)} MB`);
-    console.log(`[payload-size-test] Over limit by: ${((bodySize - lambdaResponseLimit) / 1024 / 1024).toFixed(2)} MB`);
-
-    // This assertion documents the bug: the response exceeds the 6MB limit,
-    // which causes API Gateway to return 502 InternalServerErrorException.
-    expect(bodySize).toBeGreaterThan(lambdaResponseLimit);
+    expect(result.statusCode).toBe(400);
+    expect(parseBody(result).message).toBe('opportunityId query parameter is required');
+    expect(mockSend).not.toHaveBeenCalled();
   });
 
   it('should stay under 6MB when filtering by opportunityId on a large project', async () => {
@@ -592,7 +531,7 @@ describe('get-questions handler', () => {
   it('should return 500 when DynamoDB query fails', async () => {
     mockSend.mockRejectedValueOnce(new Error('DynamoDB connection timeout'));
 
-    const result = await baseHandler(makeEvent('proj-1')) as LambdaResponse;
+    const result = await baseHandler(makeEventWithOpp('proj-1')) as LambdaResponse;
 
     expect(result.statusCode).toBe(500);
     expect(parseBody(result).message).toBe('Internal error');
