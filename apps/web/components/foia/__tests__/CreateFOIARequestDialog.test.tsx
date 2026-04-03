@@ -105,13 +105,18 @@ const fillAndSubmitForm = async (user: ReturnType<typeof userEvent.setup>) => {
   await user.type(screen.getByLabelText(/foia office address/i), '1400 Defense Pentagon, Washington DC 20301');
   await user.type(screen.getByLabelText(/solicitation number/i), 'W911NF-21-R-0001');
   await user.type(screen.getByLabelText(/contract title/i), 'IT Services Contract');
-  await user.type(screen.getByLabelText(/award date/i), 'January 15, 2026');
+  await user.type(screen.getByLabelText(/award date/i), '2026-01-15');
   await user.type(screen.getByLabelText(/^name \*/i), 'John Doe');
   await user.type(screen.getByLabelText(/^title \*/i), 'Contracts Manager');
   await user.type(screen.getByLabelText(/^email \*/i), 'john@company.com');
   await user.type(screen.getByLabelText(/^phone \*/i), '555-123-4567');
   await user.type(screen.getByLabelText(/mailing address/i), '123 Business Ave, Arlington VA 22201');
   await user.type(screen.getByLabelText(/company name/i), 'Acme Corp');
+
+  // Set fee limit explicitly (valueAsNumber can produce NaN in jsdom if not set)
+  const feeLimitInput = screen.getByLabelText(/fee limit/i);
+  await user.clear(feeLimitInput);
+  await user.type(feeLimitInput, '50');
 
   // Select a document
   await user.click(screen.getByTestId('checkbox-SSEB_REPORT'));
@@ -144,7 +149,7 @@ describe('CreateFOIARequestDialog', () => {
     customDocumentRequests: [],
     feeLimit: 50,
     companyName: 'Acme Corp',
-    awardDate: 'January 15, 2026',
+    awardDate: '2026-01-15',
     requesterName: 'John Doe',
     requesterTitle: 'Contracts Manager',
     requesterEmail: 'john@company.com',
@@ -241,7 +246,7 @@ describe('CreateFOIARequestDialog', () => {
       await user.type(screen.getByLabelText(/foia office address/i), '1400 Defense Pentagon');
       await user.type(screen.getByLabelText(/solicitation number/i), 'W911NF-21-R-0001');
       await user.type(screen.getByLabelText(/contract title/i), 'IT Services');
-      await user.type(screen.getByLabelText(/award date/i), 'January 15, 2026');
+      await user.type(screen.getByLabelText(/award date/i), '2026-01-15');
       await user.type(screen.getByLabelText(/^name \*/i), 'John Doe');
       await user.type(screen.getByLabelText(/^title \*/i), 'Contracts Manager');
       await user.type(screen.getByLabelText(/^email \*/i), 'john@company.com');
@@ -273,7 +278,7 @@ describe('CreateFOIARequestDialog', () => {
       await user.type(screen.getByLabelText(/foia office email/i), 'foia@dod.gov');
       await user.type(screen.getByLabelText(/foia office address/i), '1400 Defense Pentagon');
       await user.type(screen.getByLabelText(/contract title/i), 'IT Services');
-      await user.type(screen.getByLabelText(/award date/i), 'January 15, 2026');
+      await user.type(screen.getByLabelText(/award date/i), '2026-01-15');
       await user.type(screen.getByLabelText(/^name \*/i), 'John Doe');
       await user.type(screen.getByLabelText(/^title \*/i), 'Contracts Manager');
       await user.type(screen.getByLabelText(/^email \*/i), 'john@company.com');

@@ -155,7 +155,10 @@ export const CreateFOIARequestSchema = z.object({
     z.string().optional(),
   ),
   awardDate: z.string().min(1, 'Award date is required'),
-  feeLimit: z.number().nonnegative().default(0),
+  feeLimit: z.preprocess(
+    (val) => (typeof val === 'number' && isNaN(val) ? undefined : val),
+    z.number().nonnegative().default(0),
+  ),
 });
 
 export type CreateFOIARequest = z.infer<typeof CreateFOIARequestSchema>;
