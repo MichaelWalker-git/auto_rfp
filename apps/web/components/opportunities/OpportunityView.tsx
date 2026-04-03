@@ -157,8 +157,8 @@ const OpportunityContent = ({ className }: { className?: string }) => {
             orgId={orgId}
             projectId={projectId}
             oppId={oppId}
-            currentAssigneeId={(opportunity as Record<string, unknown> | null)?.['assigneeId'] as string | undefined}
-            currentAssigneeName={(opportunity as Record<string, unknown> | null)?.['assigneeName'] as string | undefined}
+            currentAssigneeId={opportunity?.assigneeId ?? undefined}
+            currentAssigneeName={opportunity?.assigneeName ?? undefined}
             onAssigned={refetch}
             showLabel
             size="sm"

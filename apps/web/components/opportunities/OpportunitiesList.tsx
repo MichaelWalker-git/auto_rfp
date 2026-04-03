@@ -71,7 +71,7 @@ export function OpportunitiesList({ projectId, limit = 25, className }: Props) {
     // Filter by "assigned to me"
     if (showOnlyMine && userSub) {
       result = result.filter((it) => {
-        const assigneeId = (it as Record<string, unknown>)['assigneeId'] as string | undefined;
+        const assigneeId = it.assigneeId ?? undefined;
         return assigneeId === userSub;
       });
     }
