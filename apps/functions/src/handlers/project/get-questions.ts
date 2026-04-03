@@ -39,18 +39,14 @@ export const baseHandler = async (
       loadAnswers(projectId),
     ]);
 
-    // When filtering by opportunityId, only include answers for the returned questions.
-    // Answers don't have opportunityId — the link is through questionId.
-    const answersMap = opportunityId
-      ? filterAnswersByQuestions(allAnswers, flatQuestions)
-      : allAnswers;
-
+    // Only include answers for the returned questions (answers don't store opportunityId)
+    const answersMap = filterAnswersByQuestions(allAnswers, flatQuestions);
     const sections = groupQuestions(flatQuestions, answersMap);
 
     console.log('[get-questions] Response data:', {
       sectionsCount: sections.length,
       answersCount: Object.keys(answersMap).length,
-      opportunityId: opportunityId ?? 'all',
+      opportunityId,
       totalQuestions: flatQuestions.length,
     });
 
@@ -65,39 +61,29 @@ export const baseHandler = async (
 };
 
 /**
- * Load questions for a project, optionally filtered by opportunityId.
- * When opportunityId is provided, a FilterExpression reduces the result set
- * to only questions belonging to that opportunity — preventing 6MB payload overflows.
+ * Load questions for a project filtered by opportunityId.
  */
-const loadQuestions = async (projectId: string, opportunityId?: string): Promise<QuestionItem[]> => {
+const loadQuestions = async (projectId: string, opportunityId: string): Promise<QuestionItem[]> => {
   const items: QuestionItem[] = [];
   let lastKey: Record<string, unknown> | undefined;
   const prefix = `${projectId}#`;
-
-  const expressionNames: Record<string, string> = {
-    '#pk': PK_NAME,
-    '#sk': SK_NAME,
-  };
-  const expressionValues: Record<string, string> = {
-    ':pk': QUESTION_PK,
-    ':prefix': prefix,
-  };
-
-  let filterExpression: string | undefined;
-  if (opportunityId) {
-    filterExpression = '#oppId = :oppId';
-    expressionNames['#oppId'] = 'opportunityId';
-    expressionValues[':oppId'] = opportunityId;
-  }
 
   do {
     const res = await docClient.send(
       new QueryCommand({
         TableName: DB_TABLE_NAME,
         KeyConditionExpression: '#pk = :pk AND begins_with(#sk, :prefix)',
-        ExpressionAttributeNames: expressionNames,
-        ExpressionAttributeValues: expressionValues,
-        FilterExpression: filterExpression,
+        FilterExpression: '#oppId = :oppId',
+        ExpressionAttributeNames: {
+          '#pk': PK_NAME,
+          '#sk': SK_NAME,
+          '#oppId': 'opportunityId',
+        },
+        ExpressionAttributeValues: {
+          ':pk': QUESTION_PK,
+          ':prefix': prefix,
+          ':oppId': opportunityId,
+        },
         ExclusiveStartKey: lastKey,
       }),
     );
