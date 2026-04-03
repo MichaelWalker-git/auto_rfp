@@ -22,7 +22,7 @@ import {
   Target,
 } from 'lucide-react';
 import { format, formatDistanceToNow } from 'date-fns';
-import { useProject } from '@/lib/hooks/use-api';
+import { useProject, useQuestionsCount } from '@/lib/hooks/use-api';
 import { useProjectOutcomes } from '@/lib/hooks/use-project-outcome';
 import { useGetExecutiveBriefByProject } from '@/lib/hooks/use-executive-brief';
 import { useFOIARequests } from '@/lib/hooks/use-foia-requests';
@@ -43,7 +43,7 @@ interface ProjectOverviewProps {
 export function ProjectOverview({ projectId }: ProjectOverviewProps) {
   const { questionFiles, isLoading: isQL, error: err } = useQuestionsProvider();
   const { data: project, isLoading: projectLoading, error: projectError } = useProject(projectId);
-  // Question counts derived from question files (avoids loading all questions which exceeds 6MB)
+  const { data: questionsCounts } = useQuestionsCount(projectId);
   const { currentOrganization } = useCurrentOrganization();
   const orgId = project?.orgId ?? currentOrganization?.id ?? '';
 
@@ -97,13 +97,9 @@ export function ProjectOverview({ projectId }: ProjectOverviewProps) {
 
   const isLoading = isQL || projectLoading;
 
-  // Derive question counts from question files metadata
-  const totalQuestions = questionFiles?.reduce(
-    (total: number, qf: any) => total + (qf.questionCount ?? 0), 0,
-  ) ?? 0;
-
-  const answeredQuestions = 0;
-  const completionPercentage: number = 0;
+  const totalQuestions = questionsCounts?.totalQuestions ?? 0;
+  const answeredQuestions = questionsCounts?.totalAnswers ?? 0;
+  const completionPercentage = totalQuestions > 0 ? Math.round((answeredQuestions / totalQuestions) * 100) : 0;
 
   // Brief statistics across all opportunities
   const briefStats = useMemo(() => {

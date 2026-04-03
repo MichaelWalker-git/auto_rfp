@@ -87,6 +87,13 @@ export function useProject(projectId: string | null, includeAll = false) {
   );
 }
 
+export function useQuestionsCount(projectId: string | null) {
+  return useApi<{ totalQuestions: number; totalAnswers: number }>(
+    projectId ? ['questions-count', projectId] : null,
+    projectId ? buildApiUrl(`projects/questions-count/${projectId}`) : null,
+  );
+}
+
 export function useQuestions(projectId: string | null, opportunityId?: string | null, includeAll = false, options?: { refreshInterval?: number }) {
   const config: SWRConfiguration = {
     revalidateIfStale: true,
