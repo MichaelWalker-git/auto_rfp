@@ -8,6 +8,7 @@ import { ANSWER_PK } from '@/constants/answer';
 import { withSentryLambda } from '@/sentry-lambda';
 import { requireEnv } from '@/helpers/env';
 import { docClient } from '@/helpers/db';
+import { listQuestionFilesByOpportunity } from '@/helpers/questionFile';
 import {
   authContextMiddleware,
   httpErrorMiddleware,
@@ -62,6 +63,8 @@ export const baseHandler = async (
 
 /**
  * Load questions for a project filtered by opportunityId.
+ * Excludes questions from non-PROCESSED question files (orphans from
+ * cancelled/failed pipelines).
  */
 const loadQuestions = async (projectId: string, opportunityId: string): Promise<QuestionItem[]> => {
   const items: QuestionItem[] = [];
@@ -92,7 +95,18 @@ const loadQuestions = async (projectId: string, opportunityId: string): Promise<
     lastKey = res.LastEvaluatedKey as Record<string, unknown> | undefined;
   } while (lastKey);
 
-  return items;
+  // Filter out questions from non-PROCESSED files (orphans from cancelled/failed pipelines)
+  const { items: questionFiles } = await listQuestionFilesByOpportunity({ projectId, oppId: opportunityId });
+  const processedFileIds = new Set(
+    (questionFiles as Array<{ questionFileId: string; status: string }>)
+      .filter((qf) => qf.status === 'PROCESSED')
+      .map((qf) => qf.questionFileId),
+  );
+
+  return items.filter((q) => {
+    if (!q.questionFileId || q.questionFileId === 'manual') return true;
+    return processedFileIds.has(q.questionFileId);
+  });
 };
 
 /**

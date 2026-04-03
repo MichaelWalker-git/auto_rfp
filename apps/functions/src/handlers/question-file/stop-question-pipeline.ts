@@ -14,7 +14,7 @@ import {
   type AuthedEvent,
 } from '@/middleware/rbac-middleware';
 import { auditMiddleware, setAuditContext } from '@/middleware/audit-middleware';
-import { getQuestionFileItem, updateQuestionFile } from '@/helpers/questionFile';
+import { getQuestionFileItem, updateQuestionFile, deleteQuestionsForFile } from '@/helpers/questionFile';
 
 const sfnClient = new SFNClient({});
 
@@ -40,8 +40,9 @@ export const baseHandler = async (event: AuthedEvent): Promise<APIGatewayProxyRe
   const executionArn = qf.executionArn as string | undefined;
 
   if (!executionArn) {
-    // No active execution — just mark as cancelled
+    // No active execution — mark as cancelled and clean up any partial questions
     await updateQuestionFile(projectId, opportunityId, questionFileId, { status: 'CANCELLED' });
+    await deleteQuestionsForFile(projectId, opportunityId, questionFileId);
 
     setAuditContext(event, {
       action: 'PIPELINE_FAILED',
@@ -73,12 +74,14 @@ export const baseHandler = async (event: AuthedEvent): Promise<APIGatewayProxyRe
     // If execution already finished, still mark as cancelled
     if (name === 'ExecutionDoesNotExist' || message.includes('does not exist')) {
       await updateQuestionFile(projectId, opportunityId, questionFileId, { status: 'CANCELLED' });
+      await deleteQuestionsForFile(projectId, opportunityId, questionFileId);
       return apiResponse(200, { ok: true, message: 'Pipeline cancelled (execution already completed or not found)' });
     }
     throw err; // let httpErrorMiddleware handle unexpected errors
   }
 
   await updateQuestionFile(projectId, opportunityId, questionFileId, { status: 'CANCELLED' });
+  await deleteQuestionsForFile(projectId, opportunityId, questionFileId);
 
   setAuditContext(event, {
     action: 'PIPELINE_FAILED',
