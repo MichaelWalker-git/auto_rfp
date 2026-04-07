@@ -418,6 +418,7 @@ export function QuestionsProvider({ children, projectId, opportunityId }: Questi
     if (!questions) return;
 
     const title = opportunityName || 'Questions';
+    const fileName = title.replace(/\s+/g, '_');
     const rows: string[][] = [['Section', 'Question', 'Answer']];
 
     questions.sections.forEach((section: any) => {
@@ -438,7 +439,7 @@ export function QuestionsProvider({ children, projectId, opportunityId }: Questi
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.setAttribute('href', url);
-    link.setAttribute('download', `${title}_questions.csv`);
+    link.setAttribute('download', `${fileName}_questions.csv`);
     link.style.visibility = 'hidden';
     document.body.appendChild(link);
     link.click();
@@ -449,6 +450,7 @@ export function QuestionsProvider({ children, projectId, opportunityId }: Questi
     if (!questions) return;
 
     const title = opportunityName || 'Questions';
+    const fileName = title.replace(/\s+/g, '_');
 
     try {
       const docx = await import('docx');
@@ -505,7 +507,7 @@ export function QuestionsProvider({ children, projectId, opportunityId }: Questi
       });
 
       const buffer = await Packer.toBlob(doc);
-      saveAs(buffer, `${title}_questions.docx`);
+      saveAs(buffer, `${fileName}_questions.docx`);
     } catch (err) {
       console.error('DOCX export failed:', err);
       toast({ title: 'Export failed', description: 'Could not generate the DOCX file. Please try again.', variant: 'destructive' });
