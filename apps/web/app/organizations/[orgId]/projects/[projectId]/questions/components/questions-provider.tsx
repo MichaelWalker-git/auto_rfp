@@ -417,13 +417,50 @@ export function QuestionsProvider({ children, projectId, opportunityId }: Questi
   const handleExportAnswers = (opportunityName?: string) => {
     if (!questions) return;
 
+    // Helper to extract answer text from potentially JSON-formatted answers
+    const extractAnswerText = (rawText: string | undefined): string => {
+      if (!rawText) return '';
+      
+      const trimmed = rawText.trim();
+      
+      // Check if the text looks like JSON (starts with { or [)
+      if (trimmed.startsWith('{') || trimmed.startsWith('[')) {
+        try {
+          const parsed = JSON.parse(trimmed);
+          // Handle object with 'answer' property
+          if (parsed && typeof parsed.answer === 'string') {
+            return parsed.answer;
+          }
+          // Handle array of objects with 'answer' property
+          if (Array.isArray(parsed) && parsed[0]?.answer) {
+            return parsed.map((item: { answer?: string }) => item.answer || '').join('\n');
+          }
+          // If parsed but no 'answer' property, return original text
+          return rawText;
+        } catch {
+          // JSON parsing failed - try regex extraction as fallback
+          // This handles malformed JSON (e.g., missing commas)
+          const answerMatch = trimmed.match(/"answer"\s*:\s*"((?:[^"\\]|\\.)*)"/);
+          if (answerMatch?.[1]) {
+            // Unescape the captured string
+            return answerMatch[1].replace(/\\"/g, '"').replace(/\\n/g, '\n').replace(/\\\\/g, '\\');
+          }
+          // No answer field found, return original
+          return rawText;
+        }
+      }
+      
+      return rawText;
+    };
+
     const title = opportunityName || 'Questions';
     const fileName = title.replace(/\s+/g, '_');
     const rows: string[][] = [['Section', 'Question', 'Answer']];
 
     questions.sections.forEach((section: any) => {
       section.questions.forEach((question: any) => {
-        rows.push([section.title, question.question, answers[question.id]?.text || '']);
+        const answerText = extractAnswerText(answers[question.id]?.text);
+        rows.push([section.title, question.question, answerText]);
       });
     });
 

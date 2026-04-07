@@ -112,7 +112,8 @@ All domain types are Zod schemas in `src/schemas/`. Types are always inferred vi
 
 ## Git Workflow
 
-- **develop** — Main development branch. PRs target here. Deploys to staging.
+- **develop** — Main development branch. PRs target here. Deploys to dev.
+- **main** — Test environment. Promoted from `develop`.
 - **production** — Customer-facing. Updated only via Release workflow.
 - Create feature branches from `develop`, open PRs to `develop`.
 
@@ -132,6 +133,13 @@ Detailed rules are in `.claude/rules/`. The most critical ones:
 - **Tests are co-located** with source files (e.g., `create-foo.ts` → `create-foo.test.ts`).
 - **Test the exported business function directly**, not the middy-wrapped handler.
 - **Mock middy and AWS SDK before imports** in test files.
+
+## Next.js 15 Specifics
+
+- Always use async versions of runtime APIs: `await cookies()`, `await headers()`, `await draftMode()`.
+- Handle async params in layouts/pages: `const params = await props.params`.
+- Use `useActionState` instead of deprecated `useFormState`.
+- URL state management via `nuqs`.
 
 ## Lessons Learned
 
