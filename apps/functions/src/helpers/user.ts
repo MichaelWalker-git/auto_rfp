@@ -1,4 +1,4 @@
-import { DynamoDBDocumentClient, PutCommand, QueryCommand } from '@aws-sdk/lib-dynamodb';
+import { DeleteCommand, DynamoDBDocumentClient, PutCommand, QueryCommand, ScanCommand } from '@aws-sdk/lib-dynamodb';
 import { CognitoIdentityProviderClient } from '@aws-sdk/client-cognito-identity-provider';
 
 import { PK_NAME, SK_NAME } from '../constants/common';
@@ -313,4 +313,87 @@ export const listOrgAdmins = async (
   } while (ExclusiveStartKey);
 
   return admins;
+};
+
+/**
+ * Sync userId across all orgs for a given email.
+ *
+ * When a Cognito user is recreated (new sub) or an existing user is found,
+ * any DynamoDB USER records in other orgs with a stale userId need to be
+ * updated to match the current Cognito sub. Otherwise, the byUserId GSI
+ * won't find them and get-my-organizations will miss those orgs.
+ *
+ * This is a delete + put (not update) because the sort_key contains the userId.
+ */
+export const syncUserIdAcrossOrgs = async (
+  email: string,
+  correctUserId: string,
+): Promise<{ updated: number; orgs: string[] }> => {
+  const emailLower = safeLowerCase(safeTrim(email));
+
+  // Find all USER records with this email that have a DIFFERENT userId
+  const staleRecords: Record<string, unknown>[] = [];
+  let ExclusiveStartKey: Record<string, unknown> | undefined;
+
+  do {
+    const res = await docClient.send(
+      new ScanCommand({
+        TableName: DB_TABLE_NAME,
+        FilterExpression: '#pk = :pk AND emailLower = :email AND userId <> :correctId',
+        ExpressionAttributeNames: { '#pk': PK_NAME },
+        ExpressionAttributeValues: {
+          ':pk': USER_PK,
+          ':email': emailLower,
+          ':correctId': correctUserId,
+        },
+        ExclusiveStartKey,
+      }),
+    );
+    staleRecords.push(...(res.Items ?? []));
+    ExclusiveStartKey = res.LastEvaluatedKey;
+  } while (ExclusiveStartKey);
+
+  if (staleRecords.length === 0) {
+    return { updated: 0, orgs: [] };
+  }
+
+  const updatedOrgs: string[] = [];
+
+  for (const record of staleRecords) {
+    const orgId = record['orgId'] as string;
+    const oldSk = record[SK_NAME] as string;
+    const newSk = userSk(orgId, correctUserId);
+
+    try {
+      // Delete the old record (with stale userId in sort_key)
+      await docClient.send(
+        new DeleteCommand({
+          TableName: DB_TABLE_NAME,
+          Key: { [PK_NAME]: USER_PK, [SK_NAME]: oldSk },
+        }),
+      );
+
+      // Create the new record with the correct userId and sort_key
+      const { [PK_NAME]: _pk, [SK_NAME]: _sk, ...rest } = record;
+      await docClient.send(
+        new PutCommand({
+          TableName: DB_TABLE_NAME,
+          Item: {
+            ...rest,
+            [PK_NAME]: USER_PK,
+            [SK_NAME]: newSk,
+            userId: correctUserId,
+            updatedAt: new Date().toISOString(),
+          },
+        }),
+      );
+
+      updatedOrgs.push(orgId);
+      console.log(`[syncUserIdAcrossOrgs] Updated ${emailLower} in org ${orgId}: ${record['userId']} → ${correctUserId}`);
+    } catch (err) {
+      console.error(`[syncUserIdAcrossOrgs] Failed to update ${emailLower} in org ${orgId}:`, err);
+    }
+  }
+
+  return { updated: updatedOrgs.length, orgs: updatedOrgs };
 };

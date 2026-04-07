@@ -1,7 +1,7 @@
 import { DeleteCommand, GetCommand, PutCommand, QueryCommand } from '@aws-sdk/lib-dynamodb';
 import { PK_NAME, SK_NAME } from '../constants/common';
 import { USER_PROJECT_PK, buildUserProjectSK, UserProjectAccess } from '@auto-rfp/core';
-import { docClient } from './db';
+import { createItem, docClient } from './db';
 import { requireEnv } from './env';
 import { nowIso } from './date';
 
@@ -67,14 +67,7 @@ export const assignProjectAccess = async (
     assignedBy,
   };
 
-  await docClient.send(
-    new PutCommand({
-      TableName: DB_TABLE_NAME,
-      Item: item,
-    }),
-  );
-
-  return item;
+  return createItem<UserProjectAccess>(USER_PROJECT_PK, sk, item)
 };
 
 /**
