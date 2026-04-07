@@ -23,7 +23,8 @@ import {
 import { auditMiddleware, setAuditContext } from '@/middleware/audit-middleware';
 import { getApiKey } from '@/helpers/api-key-storage';
 import { uploadToS3 } from '@/helpers/s3';
-import { createOpportunity } from '@/helpers/opportunity';
+import { createOpportunity, findOpportunityBySourceId } from '@/helpers/opportunity';
+import { getProjectById } from '@/helpers/project';
 import { syncOpportunityToApn } from '@/helpers/apn-db';
 import { createQuestionFile } from '@/helpers/questionFile';
 import { startPipeline } from '@/helpers/solicitation';
@@ -65,6 +66,7 @@ const ImportRequestSchema = z.discriminatedUnion('source', [
     postedFrom:       z.string().min(1),
     postedTo:         z.string().min(1),
     sourceDocumentId: z.string().optional(),
+    force:            z.boolean().optional(),
   }),
   z.object({
     source:             z.literal('DIBBS'),
@@ -72,6 +74,7 @@ const ImportRequestSchema = z.discriminatedUnion('source', [
     projectId:          z.string().min(1),
     solicitationNumber: z.string().min(1),
     sourceDocumentId:   z.string().optional(),
+    force:              z.boolean().optional(),
   }),
 ]);
 
@@ -164,6 +167,25 @@ const importSamGov = async (
 ): Promise<APIGatewayProxyResultV2> => {
   const apiKey = await getApiKey(data.orgId, SAM_GOV_SECRET_PREFIX);
   if (!apiKey) return apiResponse(404, { message: 'SAM.gov API key not configured for this organization' });
+
+  if (!data.force) {
+    const existing = await findOpportunityBySourceId({ orgId: data.orgId, noticeId: data.noticeId });
+    if (existing) {
+      const project = existing.projectId ? await getProjectById(existing.projectId) : null;
+      return apiResponse(409, {
+        message: 'This solicitation has already been imported for your organization.',
+        existing: {
+          oppId: existing.oppId,
+          projectId: existing.projectId,
+          projectName: project?.name ?? null,
+          title: existing.title,
+          noticeId: existing.noticeId,
+          importedBy: existing.createdByName ?? null,
+          importedAt: existing.createdAt,
+        },
+      });
+    }
+  }
 
   const samCfg = { samApiOrigin: SAM_API_ORIGIN, httpsAgent };
   const oppRaw = await fetchOpportunityViaSearch(samCfg, {
@@ -270,6 +292,25 @@ const importDibbs = async (
 ): Promise<APIGatewayProxyResultV2> => {
   const apiKey = await getApiKey(data.orgId, DIBBS_SECRET_PREFIX);
   if (!apiKey) return apiResponse(404, { message: 'DIBBS API key not configured for this organization' });
+
+  if (!data.force) {
+    const existing = await findOpportunityBySourceId({ orgId: data.orgId, solicitationNumber: data.solicitationNumber });
+    if (existing) {
+      const project = existing.projectId ? await getProjectById(existing.projectId) : null;
+      return apiResponse(409, {
+        message: 'This solicitation has already been imported for your organization.',
+        existing: {
+          oppId: existing.oppId,
+          projectId: existing.projectId,
+          projectName: project?.name ?? null,
+          title: existing.title,
+          solicitationNumber: existing.solicitationNumber,
+          importedBy: existing.createdByName ?? null,
+          importedAt: existing.createdAt,
+        },
+      });
+    }
+  }
 
   const cfg: DibbsSearchConfig = { baseUrl: DIBBS_BASE_URL, apiKey, httpsAgent };
   const oppRaw = await fetchDibbsSolicitation(cfg, data.solicitationNumber);

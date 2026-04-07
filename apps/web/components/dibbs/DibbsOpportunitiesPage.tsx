@@ -17,6 +17,8 @@ import type { SearchDibbsOpportunitiesRequest } from '@auto-rfp/core';
 import { useProjectContext } from '@/context/project-context';
 import { authFetcher } from '@/lib/auth/auth-fetcher';
 import { env } from '@/lib/env';
+import type { DuplicateInfo } from '@/lib/hooks/use-import-solicitation';
+import { DuplicateSolicitationDialog } from '@/components/samgov/duplicate-solicitation-dialog';
 
 interface Props {
   orgId: string;
@@ -29,6 +31,9 @@ export default function DibbsOpportunitiesPage({ orgId }: Props) {
   const { projects } = useProjectContext();
   const [importingId, setImportingId] = useState<string | null>(null);
   const [hasApiKey, setHasApiKey] = useState<boolean | null>(null);
+  const [duplicateInfo, setDuplicateInfo] = useState<DuplicateInfo | null>(null);
+  const [duplicateDialogOpen, setDuplicateDialogOpen] = useState(false);
+  const [pendingSolicitationNumber, setPendingSolicitationNumber] = useState<string | null>(null);
 
   useEffect(() => {
     const checkApiKey = async () => {
@@ -60,7 +65,7 @@ export default function DibbsOpportunitiesPage({ orgId }: Props) {
     }
   };
 
-  const handleImport = async (solicitationNumber: string) => {
+  const handleImport = async (solicitationNumber: string, force?: boolean) => {
     const defaultProject = projects?.[0];
     if (!defaultProject) {
       toast({
@@ -77,7 +82,16 @@ export default function DibbsOpportunitiesPage({ orgId }: Props) {
         orgId,
         projectId: defaultProject.id,
         solicitationNumber,
+        ...(force ? { force: true } : {}),
       });
+
+      if (result?.duplicate) {
+        setDuplicateInfo(result.duplicate);
+        setPendingSolicitationNumber(solicitationNumber);
+        setDuplicateDialogOpen(true);
+        return;
+      }
+
       toast({
         title: 'Import started',
         description: `Imported ${result?.imported ?? 0} attachment(s). Pipeline execution started.`,
@@ -91,6 +105,12 @@ export default function DibbsOpportunitiesPage({ orgId }: Props) {
     } finally {
       setImportingId(null);
     }
+  };
+
+  const handleForceImport = async () => {
+    setDuplicateDialogOpen(false);
+    if (!pendingSolicitationNumber) return;
+    await handleImport(pendingSolicitationNumber, true);
   };
 
   return (
@@ -153,6 +173,13 @@ export default function DibbsOpportunitiesPage({ orgId }: Props) {
           importingId={importingId}
         />
       </ListingPageLayout>
+
+      <DuplicateSolicitationDialog
+        open={duplicateDialogOpen}
+        onOpenChange={setDuplicateDialogOpen}
+        duplicate={duplicateInfo}
+        onConfirm={handleForceImport}
+      />
     </div>
   );
 }

@@ -19,37 +19,63 @@ export type ImportSolicitationResponse = {
   }>;
   message?: string;
   error?: string;
+  /** Present when status is 409 — solicitation already imported */
+  duplicate?: DuplicateInfo;
+};
+
+export type DuplicateInfo = {
+  oppId: string;
+  projectId: string;
+  projectName?: string | null;
+  title: string;
+  noticeId?: string;
+  solicitationNumber?: string;
+  importedBy?: string | null;
+  importedAt?: string;
+};
+
+export type ImportSolicitationError = Error & {
+  status?: number;
+  duplicate?: DuplicateInfo;
 };
 
 export function useImportSolicitation() {
   return useSWRMutation<
     ImportSolicitationResponse,
-    any,
+    Error,
     string,
     ImportSolicitationRequest
-  >(`${env.BASE_API_URL}/search-opportunities/samgov/import-solicitation`, async (url, { arg }) => {
+  >(`${env.BASE_API_URL}/search-opportunities/import-solicitation`, async (url, { arg }) => {
     const res = await authFetcher(url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(arg),
+      body: JSON.stringify({ ...arg, source: 'SAM_GOV' }),
     });
 
-    if (!res.ok) {
-      const message = await res.text().catch(() => '');
-      const error = new Error(message || 'Failed to import solicitation') as Error & {
-        status?: number;
-      };
-      (error as any).status = res.status;
-      throw error;
+    const raw = await res.text().catch(() => '');
+    let parsed: Record<string, unknown> | undefined;
+    try { parsed = JSON.parse(raw); } catch { /* ignore */ }
+
+    // Return duplicate info as a successful response so caller can show dialog
+    if (res.status === 409 && parsed?.existing) {
+      return {
+        ok: false,
+        noticeId: '',
+        projectId: '',
+        imported: 0,
+        duplicate: parsed.existing as DuplicateInfo,
+        message: (parsed.message as string) ?? 'Already imported',
+      } as ImportSolicitationResponse;
     }
 
-    const raw = await res.text().catch(() => '');
+    if (!res.ok) {
+      throw new Error(
+        (parsed?.message as string) || raw || 'Failed to import solicitation',
+      );
+    }
+
     if (!raw) throw new Error('Empty response from import-solicitation');
 
-    try {
-      return JSON.parse(raw) as ImportSolicitationResponse;
-    } catch {
-      throw new Error('Invalid JSON response from import-solicitation');
-    }
+    return (parsed ?? JSON.parse(raw)) as ImportSolicitationResponse;
   });
 }
