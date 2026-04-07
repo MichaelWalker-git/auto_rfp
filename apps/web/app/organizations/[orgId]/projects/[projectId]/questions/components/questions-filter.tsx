@@ -68,7 +68,7 @@ export function QuestionsFilter({
               className={cn(
                 "flex w-full text-left items-start p-2 rounded-md text-sm hover:bg-muted",
                 unsavedQuestions.has(question.id) && "bg-amber-50",
-                selectedQuestion === question.id && "bg-muted"
+                selectedQuestion === question.id && "border-2"
               )}
               onClick={() => onSelectQuestion(question.id)}
             >

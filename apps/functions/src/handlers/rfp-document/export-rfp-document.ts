@@ -136,12 +136,20 @@ export const baseHandler = async (
       });
     }
 
-    const orgId = getOrgId(event) || 'DEFAULT';
+    const orgId = getOrgId(event);
+    if (!orgId) {
+      return apiResponse(400, { message: 'orgId is required' });
+    }
 
     // Retrieve the RFP document
     const doc = await getRFPDocument(projectId, opportunityId, documentId);
     if (!doc || doc.deletedAt) {
       return apiResponse(404, { message: 'Document not found' });
+    }
+
+    // Validate org access
+    if (doc.orgId !== orgId) {
+      return apiResponse(403, { message: 'Access denied' });
     }
 
     // Require either htmlContentKey or structured content

@@ -272,6 +272,7 @@ export function OpportunitiesList({ projectId, limit = 25, className }: Props) {
                 showDescription={false}
                 isFavorite={isFavorite(oppId)}
                 onToggleFavorite={toggleFavorite}
+                gridColumns={columns}
               />
             );
           })}

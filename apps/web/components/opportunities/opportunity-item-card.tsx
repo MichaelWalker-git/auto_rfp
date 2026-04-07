@@ -149,6 +149,8 @@ export interface OpportunityItemCardProps {
   isFavorite?: boolean;
   /** Callback to toggle favorite status */
   onToggleFavorite?: (oppId: string) => void;
+  /** Grid columns (for compact layout in 4-column view) */
+  gridColumns?: 1 | 2 | 4;
 }
 
 function MetaRow({
@@ -302,6 +304,7 @@ export const OpportunityItemCard = ({
   showEditButton = true,
   isFavorite = false,
   onToggleFavorite,
+  gridColumns = 4,
 }: OpportunityItemCardProps) => {
   const { currentOrganization } = useCurrentOrganization();
   const params = useParams();
@@ -388,51 +391,60 @@ export const OpportunityItemCard = ({
           )}
         </div>
 
-        {/* Footer: badges + assignee + favorite */}
-        <div className="flex items-center gap-1.5 border-t pt-1.5 mt-auto" onClick={e => e.stopPropagation()}>
-          <div className="flex flex-wrap gap-1 flex-1 min-w-0">
-            {item.naicsCode && (
-              <Badge variant="outline" className="text-xs h-4 px-1 text-muted-foreground">
-                <Tag className="h-2.5 w-2.5 mr-0.5" />
-                {item.naicsCode}
-              </Badge>
-            )}
-            {item.setAside && (
-              <Badge variant="outline" className="text-xs h-4 px-1">
-                {item.setAside}
-              </Badge>
-            )}
-            {item.type && item.type !== item.setAside && (
-              <Badge variant="outline" className="text-xs h-4 px-1">
-                {item.type}
-              </Badge>
+        {/* Footer: stacked layout for 4-col view, inline for wider views */}
+        <div className={cn(
+          'border-t pt-1.5 mt-auto',
+          gridColumns === 4 ? 'flex flex-col gap-1.5' : 'flex items-center gap-1.5'
+        )} onClick={e => e.stopPropagation()}>
+          {/* Badges */}
+          {(item.naicsCode || item.setAside || (item.type && item.type !== item.setAside)) && (
+            <div className="flex flex-wrap gap-1 flex-1 min-w-0">
+              {item.naicsCode && (
+                <Badge variant="outline" className="text-xs h-4 px-1 text-muted-foreground">
+                  <Tag className="h-2.5 w-2.5 mr-0.5" />
+                  {item.naicsCode}
+                </Badge>
+              )}
+              {item.setAside && (
+                <Badge variant="outline" className="text-xs h-4 px-1">
+                  {item.setAside}
+                </Badge>
+              )}
+              {item.type && item.type !== item.setAside && (
+                <Badge variant="outline" className="text-xs h-4 px-1">
+                  {item.type}
+                </Badge>
+              )}
+            </div>
+          )}
+          {/* Assignee + favorite */}
+          <div className="flex items-center gap-1.5 shrink-0">
+            <AssigneeChip
+              orgId={currentOrganization?.id}
+              projectId={projectId}
+              oppId={oppId}
+              assigneeId={item.assigneeId ?? undefined}
+              assigneeName={item.assigneeName ?? undefined}
+              onAssigned={() => onUpdated?.(item)}
+            />
+            {onToggleFavorite && (
+              <button
+                onClick={() => onToggleFavorite(oppId)}
+                aria-label={isFavorite ? 'Remove from favorites' : 'Add to favorites'}
+                title={isFavorite ? 'Remove from favorites' : 'Add to favorites'}
+                className="shrink-0 p-0.5 rounded hover:bg-accent transition-colors"
+              >
+                <Star
+                  className={cn(
+                    'h-4 w-4 transition-colors',
+                    isFavorite
+                      ? 'fill-amber-400 text-amber-400'
+                      : 'text-muted-foreground hover:text-amber-400'
+                  )}
+                />
+              </button>
             )}
           </div>
-          <AssigneeChip
-            orgId={currentOrganization?.id}
-            projectId={projectId}
-            oppId={oppId}
-            assigneeId={item.assigneeId ?? undefined}
-            assigneeName={item.assigneeName ?? undefined}
-            onAssigned={() => onUpdated?.(item)}
-          />
-          {onToggleFavorite && (
-            <button
-              onClick={() => onToggleFavorite(oppId)}
-              aria-label={isFavorite ? 'Remove from favorites' : 'Add to favorites'}
-              title={isFavorite ? 'Remove from favorites' : 'Add to favorites'}
-              className="shrink-0 p-0.5 rounded hover:bg-accent transition-colors"
-            >
-              <Star
-                className={cn(
-                  'h-4 w-4 transition-colors',
-                  isFavorite
-                    ? 'fill-amber-400 text-amber-400'
-                    : 'text-muted-foreground hover:text-amber-400'
-                )}
-              />
-            </button>
-          )}
         </div>
       </CardContent>
 

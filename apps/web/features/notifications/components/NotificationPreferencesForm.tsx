@@ -104,7 +104,7 @@ export const NotificationPreferencesForm = ({ orgId }: NotificationPreferencesFo
     <div className="space-y-6">
       {/* ── Channels ── */}
       <div>
-        <h3 className="text-sm font-semibold text-slate-700 mb-3">Notification Channels</h3>
+        <h3 className="text-sm font-semibold text-foreground mb-3">Notification Channels</h3>
         <div className="space-y-3">
           {CHANNELS.map(({ key, label, description }) => (
             <div key={key} className="flex items-center justify-between gap-4">
@@ -112,7 +112,7 @@ export const NotificationPreferencesForm = ({ orgId }: NotificationPreferencesFo
                 <Label htmlFor={`channel-${key}`} className="text-sm font-medium cursor-pointer">
                   {label}
                 </Label>
-                <p className="text-xs text-slate-500 mt-0.5">{description}</p>
+                <p className="text-xs text-muted-foreground mt-0.5">{description}</p>
               </div>
               <Switch
                 id={`channel-${key}`}
@@ -129,14 +129,14 @@ export const NotificationPreferencesForm = ({ orgId }: NotificationPreferencesFo
 
       {/* ── Per-type overrides ── */}
       <div>
-        <h3 className="text-sm font-semibold text-slate-700 mb-1">Notification Types</h3>
-        <p className="text-xs text-slate-500 mb-3">
+        <h3 className="text-sm font-semibold text-foreground mb-1">Notification Types</h3>
+        <p className="text-xs text-muted-foreground mb-3">
           Choose which events you want to be notified about.
         </p>
         <div className="space-y-5">
           {NOTIFICATION_TYPE_GROUPS.map(({ group, types }) => (
             <div key={group}>
-              <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-2">{group}</p>
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">{group}</p>
               <div className="space-y-2">
                 {types.map(({ type, label }) => (
                   <div key={type} className="flex items-center justify-between">
