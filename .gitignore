@@ -41,3 +41,6 @@ packages/**/pnpm-workspace.yaml
 !tailwind.config.js
 !lighthouserc.js
 /apps/web/tsconfig.tsbuildinfo
+
+# Utility scripts (run locally, not deployed)
+/scripts/
