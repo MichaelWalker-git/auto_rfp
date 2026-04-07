@@ -17,6 +17,11 @@ export function debriefingDomain(): DomainRoutes {
         entry: lambdaEntry('debriefing/get-debriefing.ts'),
       },
       {
+        method: 'POST',
+        path: 'generate-debriefing-letter',
+        entry: lambdaEntry('debriefing/generate-debriefing-letter.ts'),
+      },
+      {
         method: 'PATCH',
         path: 'update-debriefing',
         entry: lambdaEntry('debriefing/update-debriefing.ts'),

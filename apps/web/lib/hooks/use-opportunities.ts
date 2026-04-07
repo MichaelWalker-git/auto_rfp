@@ -156,7 +156,7 @@ export function useOpportunitiesList(args: OpportunityQuery) {
   const projectId = args?.projectId;
   const limit = args?.limit ?? 25;
 
-  const key = projectId ? buildListUrl({ orgId, projectId, limit }) : null;
+  const key = orgId && projectId ? buildListUrl({ orgId, projectId, limit }) : null;
 
   const { data, error, isLoading, mutate } = useSWR<ListOpportunitiesResponse>(
     key,

@@ -90,7 +90,8 @@ interface QuestionsContextType {
   approveAllAnswers: () => Promise<void>;
   approvingAll: boolean;
   approvableCount: number;
-  handleExportAnswers: () => void;
+  handleExportAnswers: (opportunityName?: string) => void;
+  handleExportDocx: (opportunityName?: string) => void;
   handleSourceClick: (source: AnswerSource) => void;
   handleIndexToggle: (indexId: string) => void;
   handleSelectAllIndexes: () => void;
@@ -174,10 +175,6 @@ export function QuestionsProvider({ children, projectId, opportunityId }: Questi
   // Extract questions (sections) and server answers from the combined response
   const questions = questionsData ? { sections: questionsData.sections } : undefined;
   const serverAnswers = questionsData?.answers;
-
-  console.log('[QuestionsProvider] questionsData:', questionsData);
-  console.log('[QuestionsProvider] questions:', questions);
-  console.log('[QuestionsProvider] serverAnswers (from questionsData):', serverAnswers);
 
   // Ref to track unsaved questions for autosave (avoids stale closure)
   const unsavedQuestionsRef = useRef<Set<string>>(new Set());
@@ -417,10 +414,12 @@ export function QuestionsProvider({ children, projectId, opportunityId }: Questi
     }
   };
 
-  const handleExportAnswers = () => {
+  const handleExportAnswers = (opportunityName?: string) => {
     if (!questions) return;
 
-    const rows: any[] = [['Section', 'Question', 'Answer']];
+    const title = opportunityName || 'Questions';
+    const fileName = title.replace(/\s+/g, '_');
+    const rows: string[][] = [['Section', 'Question', 'Answer']];
 
     questions.sections.forEach((section: any) => {
       section.questions.forEach((question: any) => {
@@ -431,7 +430,7 @@ export function QuestionsProvider({ children, projectId, opportunityId }: Questi
     const csvContent = rows
       .map((row) =>
         row
-          .map((cell: any) => (typeof cell === 'string' ? `"${cell.replace(/"/g, '""')}"` : cell))
+          .map((cell) => `"${cell.replace(/"/g, '""')}"`)
           .join(','),
       )
       .join('\n');
@@ -440,11 +439,79 @@ export function QuestionsProvider({ children, projectId, opportunityId }: Questi
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.setAttribute('href', url);
-    link.setAttribute('download', `Question Answers.csv`);
+    link.setAttribute('download', `${fileName}_questions.csv`);
     link.style.visibility = 'hidden';
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+  };
+
+  const handleExportDocx = async (opportunityName?: string) => {
+    if (!questions) return;
+
+    const title = opportunityName || 'Questions';
+    const fileName = title.replace(/\s+/g, '_');
+
+    try {
+      const docx = await import('docx');
+      const { saveAs } = await import('file-saver');
+      const { Document, Packer, Paragraph, TextRun, HeadingLevel, AlignmentType } = docx;
+
+      const children: InstanceType<typeof Paragraph>[] = [];
+
+      // Title — opportunity name
+      children.push(
+        new Paragraph({
+          heading: HeadingLevel.TITLE,
+          alignment: AlignmentType.CENTER,
+          spacing: { after: 400 },
+          children: [new TextRun({ text: title, bold: true, size: 32 })],
+        }),
+      );
+
+      questions.sections.forEach((section: any) => {
+        // Section heading
+        children.push(
+          new Paragraph({
+            heading: HeadingLevel.HEADING_1,
+            spacing: { before: 400, after: 200 },
+            children: [new TextRun({ text: section.title, bold: true })],
+          }),
+        );
+
+        section.questions.forEach((question: any) => {
+          const answerText = answers[question.id]?.text || '';
+
+          // Question
+          children.push(
+            new Paragraph({
+              spacing: { before: 240, after: 120 },
+              children: [new TextRun({ text: question.question, bold: true })],
+            }),
+          );
+
+          // Answer (with blank line spacing after)
+          children.push(
+            new Paragraph({
+              spacing: { after: 240 },
+              children: [
+                new TextRun({ text: answerText || '(No answer)', italics: !answerText, color: answerText ? '333333' : '999999' }),
+              ],
+            }),
+          );
+        });
+      });
+
+      const doc = new Document({
+        sections: [{ children }],
+      });
+
+      const buffer = await Packer.toBlob(doc);
+      saveAs(buffer, `${fileName}_questions.docx`);
+    } catch (err) {
+      console.error('DOCX export failed:', err);
+      toast({ title: 'Export failed', description: 'Could not generate the DOCX file. Please try again.', variant: 'destructive' });
+    }
   };
 
   const getSelectedQuestionData = useCallback(() => {
@@ -739,10 +806,6 @@ export function QuestionsProvider({ children, projectId, opportunityId }: Questi
   // Merge server metadata (status, updatedByName, approvedByName, etc.)
   // while preserving local text edits for unsaved questions.
   useEffect(() => {
-    console.log('[QuestionsProvider] serverAnswers:', serverAnswers);
-    console.log('[QuestionsProvider] serverAnswers type:', typeof serverAnswers);
-    console.log('[QuestionsProvider] serverAnswers keys:', serverAnswers ? Object.keys(serverAnswers) : 'none');
-
     if (!serverAnswers) return;
     setAnswers((prev) => {
       const next: Record<string, AnswerData> = {};
@@ -759,7 +822,6 @@ export function QuestionsProvider({ children, projectId, opportunityId }: Questi
       for (const [qId, localAnswer] of Object.entries(prev)) {
         if (!next[qId]) next[qId] = localAnswer;
       }
-      console.log('[QuestionsProvider] Setting answers state:', Object.keys(next).length, 'answers');
       return next;
     });
   }, [serverAnswers]);
@@ -1127,6 +1189,7 @@ export function QuestionsProvider({ children, projectId, opportunityId }: Questi
     approvingAll,
     approvableCount,
     handleExportAnswers,
+    handleExportDocx,
     handleSourceClick,
     handleIndexToggle,
     handleSelectAllIndexes,

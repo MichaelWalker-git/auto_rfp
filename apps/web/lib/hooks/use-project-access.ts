@@ -157,11 +157,10 @@ export const useGrantAdminAccess = () => {
 
 export const canManageProjectAccess = (
   _users: UserProjectAccess[],
-  _userId: string,
-  _projectCreatorId: string | undefined,
+  userId: string,
+  projectCreatorId: string | undefined,
   isOrgAdmin: boolean,
 ): boolean => {
-  // Only org admins can manage project access
-  // (Backend requires admin permission for assign/revoke endpoints)
-  return isOrgAdmin;
+  // Org admins or the project creator can manage project access
+  return isOrgAdmin || userId === projectCreatorId;
 };

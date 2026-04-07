@@ -4,47 +4,81 @@ import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
-import { FOIAStatusBadge } from './FOIAStatusBadge';
 import { CreateFOIARequestDialog } from './CreateFOIARequestDialog';
-import { FOIALetterPreview } from './FOIALetterPreview';
-import { useFOIARequests } from '@/lib/hooks/use-foia-requests';
+import { useFOIARequests, useGenerateFOIALetter } from '@/lib/hooks/use-foia-requests';
+import { useToast } from '@/components/ui/use-toast';
 import PermissionWrapper from '@/components/permission-wrapper';
 import type { FOIADocumentType, FOIARequestItem } from '@auto-rfp/core';
 import { FOIA_DOCUMENT_DESCRIPTIONS } from '@auto-rfp/core';
-import { AlertTriangle, Building, ChevronDown, ChevronUp, Clock, FileText, Mail, Scale, Plus } from 'lucide-react';
-import { format, formatDistanceToNow, isPast } from 'date-fns';
+import {
+  Building2,
+  Scale,
+  Mail,
+  Loader2,
+  Pencil,
+  FileText,
+  Briefcase,
+  Calendar,
+  User,
+  Phone,
+  MapPin,
+  DollarSign,
+} from 'lucide-react';
+import { formatDistanceToNow } from 'date-fns';
 
 interface FOIARequestCardProps {
   projectId: string;
   orgId: string;
+  opportunityId: string;
   projectOutcomeStatus?: string;
   agencyName?: string;
   solicitationNumber?: string;
+  contractTitle?: string;
   onFOIAChange?: (foiaRequest: FOIARequestItem) => void;
 }
 
-export function FOIARequestCard({
-                                  projectId,
-                                  orgId,
-                                  projectOutcomeStatus,
-                                  agencyName,
-                                  solicitationNumber,
-                                  onFOIAChange,
-                                }: FOIARequestCardProps) {
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [isLetterPreviewOpen, setIsLetterPreviewOpen] = useState(false);
-  const [selectedRequest, setSelectedRequest] = useState<FOIARequestItem | null>(null);
-  const [isExpanded, setIsExpanded] = useState(false);
-  const { foiaRequests, isLoading, refetch } = useFOIARequests(orgId, projectId);
+export const FOIARequestCard = ({
+  projectId,
+  orgId,
+  opportunityId,
+  projectOutcomeStatus,
+  agencyName,
+  solicitationNumber,
+  contractTitle,
+  onFOIAChange,
+}: FOIARequestCardProps) => {
+  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [isDrafting, setIsDrafting] = useState(false);
+  const { foiaRequests, isLoading, refetch } = useFOIARequests(orgId, projectId, opportunityId);
+  const { generateFOIALetter } = useGenerateFOIALetter();
+  const { toast } = useToast();
 
-  const handleFOIASuccess = (newFoiaRequest: FOIARequestItem) => {
+  const handleSuccess = (foiaRequest: FOIARequestItem) => {
     refetch();
-    onFOIAChange?.(newFoiaRequest);
+    onFOIAChange?.(foiaRequest);
   };
 
-  const handleViewLetter = (request: FOIARequestItem) => {
-    setSelectedRequest(request);
-    setIsLetterPreviewOpen(true);
+  const handleDraftLetter = async (request: FOIARequestItem) => {
+    setIsDrafting(true);
+    try {
+      const letter = await generateFOIALetter(orgId, projectId, opportunityId, request.id);
+
+      const subject = encodeURIComponent(
+        `FOIA Request — Solicitation No. ${request.solicitationNumber ?? ''}, ${request.contractTitle ?? ''}`
+      );
+      const body = encodeURIComponent(letter);
+      const to = request.agencyFOIAEmail ?? '';
+      window.open(`mailto:${to}?subject=${subject}&body=${body}`);
+    } catch (error) {
+      toast({
+        title: 'Error',
+        description: error instanceof Error ? error.message : 'Failed to generate letter',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsDrafting(false);
+    }
   };
 
   // Only show for LOST projects
@@ -58,7 +92,7 @@ export function FOIARequestCard({
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
           <CardTitle className="text-sm font-medium flex items-center gap-2">
             <Scale className="h-4 w-4" />
-            FOIA Requests
+            FOIA Request
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -72,11 +106,7 @@ export function FOIARequestCard({
     );
   }
 
-  const latestRequest = foiaRequests[0];
-  const hasMultiple = foiaRequests.length > 1;
-  const isDeadlinePast = latestRequest?.responseDeadline
-    ? isPast(new Date(latestRequest.responseDeadline))
-    : false;
+  const existingRequest = foiaRequests[0];
 
   return (
     <>
@@ -84,165 +114,155 @@ export function FOIARequestCard({
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
           <CardTitle className="text-sm font-medium flex items-center gap-2">
             <Scale className="h-4 w-4" />
-            FOIA Requests
+            FOIA Request
           </CardTitle>
-          <PermissionWrapper requiredPermission="project:edit">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setIsDialogOpen(true)}
-              className="h-8 text-xs gap-1"
-            >
-              <Plus className="h-3.5 w-3.5" />
-              New Request
-            </Button>
-          </PermissionWrapper>
         </CardHeader>
 
         <CardContent>
-          {latestRequest ? (
+          {existingRequest ? (
             <div className="space-y-4">
-              {/* Status and deadline */}
-              <div className="flex items-center justify-between">
-                <FOIAStatusBadge status={latestRequest.status}/>
-                {latestRequest.responseDeadline && latestRequest.status === 'SUBMITTED' && (
-                  <div
-                    className={`flex items-center gap-1.5 text-xs ${isDeadlinePast ? 'text-destructive' : 'text-muted-foreground'}`}>
-                    {isDeadlinePast && <AlertTriangle className="h-3 w-3"/>}
-                    <Clock className="h-3 w-3"/>
-                    <span>
-                      Due: {format(new Date(latestRequest.responseDeadline), 'MMM d, yyyy')}
-                    </span>
+              {/* Agency info */}
+              <div className="grid gap-1.5 text-xs text-muted-foreground">
+                <div className="flex items-center gap-2">
+                  <Building2 className="h-3.5 w-3.5 shrink-0"/>
+                  <span>{existingRequest.agencyName}</span>
+                </div>
+                {existingRequest.agencyFOIAEmail && (
+                  <div className="flex items-center gap-2">
+                    <Mail className="h-3.5 w-3.5 shrink-0"/>
+                    <span>{existingRequest.agencyFOIAEmail}</span>
+                  </div>
+                )}
+                {existingRequest.agencyFOIAAddress && (
+                  <div className="flex items-center gap-2">
+                    <MapPin className="h-3.5 w-3.5 shrink-0"/>
+                    <span>{existingRequest.agencyFOIAAddress}</span>
                   </div>
                 )}
               </div>
 
-              {/* Agency info */}
-              <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                <Building className="h-4 w-4"/>
-                <span>{latestRequest.agencyName}</span>
+              {/* Contract details */}
+              <div className="grid gap-1.5 pt-2 border-t text-xs text-muted-foreground">
+                {existingRequest.solicitationNumber && (
+                  <div className="flex items-center gap-2">
+                    <FileText className="h-3.5 w-3.5 shrink-0"/>
+                    <span>Solicitation: {existingRequest.solicitationNumber}</span>
+                  </div>
+                )}
+                {existingRequest.contractTitle && (
+                  <div className="flex items-center gap-2">
+                    <Briefcase className="h-3.5 w-3.5 shrink-0"/>
+                    <span>Contract: {existingRequest.contractTitle}</span>
+                  </div>
+                )}
+                {existingRequest.awardeeName && (
+                  <div className="flex items-center gap-2">
+                    <Building2 className="h-3.5 w-3.5 shrink-0"/>
+                    <span>Awardee: {existingRequest.awardeeName}</span>
+                  </div>
+                )}
+                {existingRequest.awardDate && (
+                  <div className="flex items-center gap-2">
+                    <Calendar className="h-3.5 w-3.5 shrink-0"/>
+                    <span>Award Date: {existingRequest.awardDate}</span>
+                  </div>
+                )}
               </div>
-
-              {/* Tracking number if available */}
-              {latestRequest.trackingNumber && (
-                <div className="flex items-center gap-2 text-sm">
-                  <FileText className="h-4 w-4 text-muted-foreground"/>
-                  <span>Tracking: {latestRequest.trackingNumber}</span>
-                </div>
-              )}
 
               {/* Requested documents */}
               <div className="pt-2 border-t">
                 <p className="text-xs font-medium mb-2">Requested Documents:</p>
                 <ul className="text-xs text-muted-foreground space-y-1">
-                  {latestRequest.requestedDocuments.slice(0, 3).map((doc: FOIADocumentType) => (
+                  {existingRequest.requestedDocuments.map((doc: FOIADocumentType) => (
                     <li key={doc}>• {FOIA_DOCUMENT_DESCRIPTIONS[doc]}</li>
                   ))}
-                  {latestRequest.requestedDocuments.length > 3 && (
-                    <li className="text-primary">
-                      +{latestRequest.requestedDocuments.length - 3} more
-                    </li>
-                  )}
                 </ul>
+                {existingRequest.customDocumentRequests && existingRequest.customDocumentRequests.length > 0 && (
+                  <ul className="text-xs text-muted-foreground space-y-1 mt-1">
+                    {existingRequest.customDocumentRequests.map((custom: string, idx: number) => (
+                      <li key={idx}>• {custom}</li>
+                    ))}
+                  </ul>
+                )}
               </div>
 
-              {/* Response notes if available */}
-              {latestRequest.responseNotes && (
-                <div className="pt-2 border-t">
-                  <p className="text-xs font-medium mb-1">Response Notes:</p>
-                  <p className="text-xs text-muted-foreground line-clamp-2">
-                    {latestRequest.responseNotes}
-                  </p>
+              {/* Fee limit */}
+              {existingRequest.feeLimit > 0 && (
+                <div className="flex items-center gap-2 pt-2 border-t text-xs text-muted-foreground">
+                  <DollarSign className="h-3.5 w-3.5 shrink-0"/>
+                  <span>Fee Limit: ${existingRequest.feeLimit.toFixed(2)}</span>
                 </div>
               )}
 
+              {/* Requester information */}
+              <div className="grid gap-1.5 pt-2 border-t text-xs text-muted-foreground">
+                <p className="text-xs font-medium text-foreground">Requester</p>
+                <div className="flex items-center gap-2">
+                  <User className="h-3.5 w-3.5 shrink-0"/>
+                  <span>{existingRequest.requesterName}{existingRequest.requesterTitle ? `, ${existingRequest.requesterTitle}` : ''}</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Mail className="h-3.5 w-3.5 shrink-0"/>
+                  <span>{existingRequest.requesterEmail}</span>
+                </div>
+                {existingRequest.requesterPhone && (
+                  <div className="flex items-center gap-2">
+                    <Phone className="h-3.5 w-3.5 shrink-0"/>
+                    <span>{existingRequest.requesterPhone}</span>
+                  </div>
+                )}
+                {existingRequest.requesterAddress && (
+                  <div className="flex items-center gap-2">
+                    <MapPin className="h-3.5 w-3.5 shrink-0"/>
+                    <span>{existingRequest.requesterAddress}</span>
+                  </div>
+                )}
+                {existingRequest.companyName && (
+                  <div className="flex items-center gap-2">
+                    <Building2 className="h-3.5 w-3.5 shrink-0"/>
+                    <span>{existingRequest.companyName}</span>
+                  </div>
+                )}
+              </div>
+
               {/* Action buttons */}
               <div className="flex gap-2 pt-2 border-t">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => handleViewLetter(latestRequest)}
-                  className="text-xs"
-                >
-                  View Letter
-                </Button>
-                {latestRequest.agencyFOIAEmail && (
+                <PermissionWrapper requiredPermission="project:edit">
                   <Button
                     variant="outline"
                     size="sm"
-                    asChild
+                    onClick={() => setIsEditDialogOpen(true)}
                     className="text-xs"
                   >
-                    <a href={`mailto:${latestRequest.agencyFOIAEmail}`}>
-                      <Mail className="h-3 w-3 mr-1"/>
-                      Email Agency
-                    </a>
+                    <Pencil className="h-3.5 w-3.5 mr-1" />
+                    Edit
                   </Button>
-                )}
+                </PermissionWrapper>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handleDraftLetter(existingRequest)}
+                  disabled={isDrafting}
+                  className="text-xs"
+                >
+                  {isDrafting ? (
+                    <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" />
+                  ) : (
+                    <Mail className="h-3.5 w-3.5 mr-1" />
+                  )}
+                  Draft Letter
+                </Button>
               </div>
 
               {/* Created date */}
               <p className="text-xs text-muted-foreground pt-2 border-t">
-                Created {formatDistanceToNow(new Date(latestRequest.createdAt), { addSuffix: true })}
+                Created {formatDistanceToNow(new Date(existingRequest.createdAt), { addSuffix: true })}
               </p>
-
-              {/* Multiple requests toggle */}
-              {hasMultiple && (
-                <div className="pt-2 border-t">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => setIsExpanded(!isExpanded)}
-                    className="w-full text-xs"
-                  >
-                    {isExpanded ? (
-                      <>
-                        <ChevronUp className="h-3 w-3 mr-1"/>
-                        Hide {foiaRequests.length - 1} more request(s)
-                      </>
-                    ) : (
-                      <>
-                        <ChevronDown className="h-3 w-3 mr-1"/>
-                        Show {foiaRequests.length - 1} more request(s)
-                      </>
-                    )}
-                  </Button>
-
-                  {isExpanded && (
-                    <div className="mt-3 space-y-3">
-                      {foiaRequests.slice(1).map((request) => (
-                        <div
-                          key={request.id}
-                          className="p-3 bg-muted/50 rounded-md space-y-2"
-                        >
-                          <div className="flex items-center justify-between">
-                            <FOIAStatusBadge status={request.status}/>
-                            <span className="text-xs text-muted-foreground">
-                              {format(new Date(request.createdAt), 'MMM d, yyyy')}
-                            </span>
-                          </div>
-                          <p className="text-xs text-muted-foreground">
-                            {request.requestedDocuments.length} document(s) requested
-                          </p>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => handleViewLetter(request)}
-                            className="text-xs"
-                          >
-                            View Letter
-                          </Button>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              )}
             </div>
           ) : (
             <div className="text-center py-4">
               <p className="text-sm text-muted-foreground mb-3">
-                No FOIA requests yet
+                No FOIA request yet
               </p>
               <p className="text-xs text-muted-foreground mb-3">
                 Submit a Freedom of Information Act request to obtain evaluation documents.
@@ -251,7 +271,7 @@ export function FOIARequestCard({
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => setIsDialogOpen(true)}
+                  onClick={() => setIsCreateDialogOpen(true)}
                 >
                   Create FOIA Request
                 </Button>
@@ -262,24 +282,32 @@ export function FOIARequestCard({
       </Card>
 
       <CreateFOIARequestDialog
-        isOpen={isDialogOpen}
-        onOpenChange={setIsDialogOpen}
+        isOpen={isCreateDialogOpen}
+        onOpenChange={setIsCreateDialogOpen}
         projectId={projectId}
         orgId={orgId}
+        opportunityId={opportunityId}
         agencyName={agencyName}
         solicitationNumber={solicitationNumber}
-        onSuccess={handleFOIASuccess}
+        contractTitle={contractTitle}
+        onSuccess={handleSuccess}
       />
 
-      {selectedRequest && (
-        <FOIALetterPreview
-          isOpen={isLetterPreviewOpen}
-          onOpenChange={setIsLetterPreviewOpen}
-          foiaRequest={selectedRequest}
-          orgId={orgId}
+      {existingRequest && (
+        <CreateFOIARequestDialog
+          key={existingRequest.foiaId}
+          isOpen={isEditDialogOpen}
+          onOpenChange={setIsEditDialogOpen}
           projectId={projectId}
+          orgId={orgId}
+          opportunityId={opportunityId}
+          agencyName={agencyName}
+          solicitationNumber={solicitationNumber}
+          contractTitle={contractTitle}
+          existingRequest={existingRequest}
+          onSuccess={handleSuccess}
         />
       )}
     </>
   );
-}
+};

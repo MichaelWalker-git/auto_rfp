@@ -21,13 +21,16 @@ interface UseFOIARequestsResult {
 export function useFOIARequests(
   orgId: string | null,
   projectId: string | null,
+  opportunityId: string | null,
   options: UseFOIARequestsOptions = {}
 ): UseFOIARequestsResult {
-  const shouldFetch = !!orgId && !!projectId;
+  const shouldFetch = !!orgId && !!projectId && !!opportunityId;
+
+  const baseUrl = env.BASE_API_URL.replace(/\/$/, '');
 
   const { data, error, isLoading, mutate } = useSWR<{ foiaRequests: FOIARequestItem[] }>(
     shouldFetch
-      ? `${env.BASE_API_URL}/foia/get-foia-requests?orgId=${orgId}&projectId=${projectId}`
+      ? `${baseUrl}/foia/get-foia-requests?orgId=${orgId}&projectId=${projectId}&opportunityId=${opportunityId}`
       : null,
     async (url: string) => {
       const res = await authFetcher(url);
@@ -55,7 +58,8 @@ export function useFOIARequests(
 
 export function useCreateFOIARequest() {
   const createFOIARequest = async (payload: CreateFOIARequest): Promise<FOIARequestItem> => {
-    const url = `${env.BASE_API_URL}/foia/create-foia-request`;
+    const baseUrl = env.BASE_API_URL.replace(/\/$/, '');
+    const url = `${baseUrl}/foia/create-foia-request`;
 
     const res = await authFetcher(url, {
       method: 'POST',
@@ -76,7 +80,8 @@ export function useCreateFOIARequest() {
 
 export function useUpdateFOIARequest() {
   const updateFOIARequest = async (payload: UpdateFOIARequest): Promise<FOIARequestItem> => {
-    const url = `${env.BASE_API_URL}/foia/update-foia-request`;
+    const baseUrl = env.BASE_API_URL.replace(/\/$/, '');
+    const url = `${baseUrl}/foia/update-foia-request`;
 
     const res = await authFetcher(url, {
       method: 'PATCH',
@@ -95,49 +100,22 @@ export function useUpdateFOIARequest() {
   return { updateFOIARequest };
 }
 
-export function useSubmitFOIARequest() {
-  const submitFOIARequest = async (
-    orgId: string,
-    projectId: string,
-    foiaRequestId: string,
-    method: 'AUTO_EMAIL' | 'MANUAL',
-  ): Promise<{ foiaRequest: FOIARequestItem; autoSubmitted: boolean; error?: string }> => {
-    const url = `${env.BASE_API_URL}/foia/submit-foia-request`;
-
-    const res = await authFetcher(url, {
-      method: 'POST',
-      body: JSON.stringify({ orgId, projectId, foiaRequestId, method }),
-    });
-
-    if (!res.ok) {
-      const body = await res.text().catch(() => '');
-      throw new Error(`Failed to submit FOIA request: ${res.status}. ${body}`);
-    }
-
-    const data = await res.json();
-    return {
-      foiaRequest: data.foiaRequest as FOIARequestItem,
-      autoSubmitted: data.autoSubmitted as boolean,
-      error: data.error as string | undefined,
-    };
-  };
-
-  return { submitFOIARequest };
-}
-
 export function useGenerateFOIALetter() {
   const generateFOIALetter = async (
     orgId: string,
     projectId: string,
+    opportunityId: string,
     foiaRequestId: string
   ): Promise<string> => {
-    const url = `${env.BASE_API_URL}/foia/generate-foia-letter`;
+    const baseUrl = env.BASE_API_URL.replace(/\/$/, '');
+    const url = `${baseUrl}/foia/generate-foia-letter`;
 
     const res = await authFetcher(url, {
       method: 'POST',
       body: JSON.stringify({
         orgId,
         projectId,
+        opportunityId,
         foiaRequestId,
       }),
     });

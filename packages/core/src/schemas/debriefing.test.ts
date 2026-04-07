@@ -1,84 +1,31 @@
 import { describe, it, expect } from 'vitest';
 import {
-  DebriefingStatusSchema,
-  DebriefingRequestMethodSchema,
-  DebriefingLocationTypeSchema,
   DebriefingItemSchema,
   CreateDebriefingRequestSchema,
   UpdateDebriefingRequestSchema,
   GenerateDebriefingLetterRequestSchema,
-  calculateDebriefingDeadline,
-  type DebriefingStatus,
+  generateDebriefingEmailSubject,
+  type CreateDebriefingRequest,
 } from './debriefing';
-
-describe('DebriefingStatusSchema', () => {
-  it('accepts all valid statuses', () => {
-    const validStatuses: DebriefingStatus[] = [
-      'NOT_REQUESTED',
-      'REQUESTED',
-      'SCHEDULED',
-      'COMPLETED',
-      'DECLINED',
-    ];
-
-    validStatuses.forEach((status) => {
-      expect(DebriefingStatusSchema.safeParse(status).success).toBe(true);
-    });
-  });
-
-  it('rejects invalid statuses', () => {
-    expect(DebriefingStatusSchema.safeParse('PENDING').success).toBe(false);
-    expect(DebriefingStatusSchema.safeParse('').success).toBe(false);
-  });
-});
-
-describe('DebriefingRequestMethodSchema', () => {
-  it('accepts valid methods', () => {
-    expect(DebriefingRequestMethodSchema.safeParse('EMAIL').success).toBe(true);
-    expect(DebriefingRequestMethodSchema.safeParse('PHONE').success).toBe(true);
-    expect(DebriefingRequestMethodSchema.safeParse('PORTAL').success).toBe(true);
-  });
-
-  it('rejects invalid methods', () => {
-    expect(DebriefingRequestMethodSchema.safeParse('FAX').success).toBe(false);
-  });
-});
-
-describe('DebriefingLocationTypeSchema', () => {
-  it('accepts valid location types', () => {
-    expect(DebriefingLocationTypeSchema.safeParse('VIRTUAL').success).toBe(true);
-    expect(DebriefingLocationTypeSchema.safeParse('IN_PERSON').success).toBe(true);
-    expect(DebriefingLocationTypeSchema.safeParse('PHONE').success).toBe(true);
-  });
-
-  it('rejects invalid location types', () => {
-    expect(DebriefingLocationTypeSchema.safeParse('HYBRID').success).toBe(false);
-  });
-});
 
 describe('DebriefingItemSchema', () => {
   const validDebriefing = {
     debriefId: '550e8400-e29b-41d4-a716-446655440000',
     projectId: 'proj-123',
     orgId: 'org-456',
-    requestStatus: 'SCHEDULED',
-    requestDeadline: '2025-01-20T17:00:00Z',
-    requestSentDate: '2025-01-18T09:00:00Z',
-    requestMethod: 'EMAIL',
-    scheduledDate: '2025-01-25T14:00:00Z',
-    locationType: 'VIRTUAL',
-    location: 'Microsoft Teams',
-    meetingLink: 'https://teams.microsoft.com/l/meetup-join/123',
-    attendees: ['John Smith', 'Jane Doe'],
-    notes: 'Prepare questions about technical scoring',
-    strengthsIdentified: ['Strong past performance', 'Competitive pricing'],
-    weaknessesIdentified: ['Limited experience with similar scale'],
-    evaluationScores: {
-      technical: 85,
-      price: 90,
-      pastPerformance: 80,
-    },
-    keyTakeaways: 'Need to improve technical approach for future bids',
+    opportunityId: 'opp-789',
+    solicitationNumber: 'W911NF-21-R-0001',
+    contractTitle: 'IT Services Contract',
+    awardedOrganization: 'WinnerCo LLC',
+    awardNotificationDate: 'January 15, 2025',
+    contractingOfficerName: 'Jane Officer',
+    contractingOfficerEmail: 'jane@agency.gov',
+    requesterName: 'John Smith',
+    requesterTitle: 'Contracts Manager',
+    requesterEmail: 'john@company.com',
+    requesterPhone: '555-123-4567',
+    requesterAddress: '123 Business Ave, Arlington VA 22201',
+    companyName: 'Acme Corp',
     createdAt: '2025-01-17T10:00:00Z',
     updatedAt: '2025-01-18T15:00:00Z',
     createdBy: 'user-789',
@@ -107,130 +54,208 @@ describe('DebriefingItemSchema', () => {
     expect(result.success).toBe(false);
   });
 
-  it('validates meetingLink as URL', () => {
-    const invalidLink = { ...validDebriefing, meetingLink: 'not-a-url' };
-    const result = DebriefingItemSchema.safeParse(invalidLink);
+  it('requires opportunityId', () => {
+    const { opportunityId, ...withoutOpportunityId } = validDebriefing;
+    const result = DebriefingItemSchema.safeParse(withoutOpportunityId);
     expect(result.success).toBe(false);
   });
 
-  it('allows minimal debriefing', () => {
-    const minimal = {
-      debriefId: '550e8400-e29b-41d4-a716-446655440000',
-      projectId: 'proj-123',
-      orgId: 'org-456',
-      requestStatus: 'NOT_REQUESTED',
-      requestDeadline: '2025-01-20T17:00:00Z',
-      createdAt: '2025-01-17T10:00:00Z',
-      updatedAt: '2025-01-17T10:00:00Z',
-      createdBy: 'user-789',
-    };
+  it('requires solicitationNumber', () => {
+    const { solicitationNumber, ...without } = validDebriefing;
+    const result = DebriefingItemSchema.safeParse(without);
+    expect(result.success).toBe(false);
+  });
 
-    const result = DebriefingItemSchema.safeParse(minimal);
-    expect(result.success).toBe(true);
+  it('requires companyName', () => {
+    const { companyName, ...without } = validDebriefing;
+    const result = DebriefingItemSchema.safeParse(without);
+    expect(result.success).toBe(false);
+  });
+
+  it('validates contractingOfficerEmail as email when present', () => {
+    const invalid = { ...validDebriefing, contractingOfficerEmail: 'not-an-email' };
+    const result = DebriefingItemSchema.safeParse(invalid);
+    expect(result.success).toBe(false);
+  });
+
+  it('validates requesterEmail as email when present', () => {
+    const invalid = { ...validDebriefing, requesterEmail: 'not-an-email' };
+    const result = DebriefingItemSchema.safeParse(invalid);
+    expect(result.success).toBe(false);
   });
 });
 
 describe('CreateDebriefingRequestSchema', () => {
-  it('validates valid create request', () => {
-    const request = {
-      projectId: 'proj-123',
-      orgId: 'org-456',
-      requestDeadline: '2025-01-20T17:00:00Z',
-    };
+  const validRequest = {
+    projectId: 'proj-123',
+    orgId: 'org-456',
+    opportunityId: 'opp-789',
+    solicitationNumber: 'W911NF-21-R-0001',
 
-    const result = CreateDebriefingRequestSchema.safeParse(request);
-    expect(result.success).toBe(true);
-  });
+    contractTitle: 'IT Services Contract',
+    awardedOrganization: 'WinnerCo LLC',
+    awardNotificationDate: 'January 15, 2025',
+    contractingOfficerName: 'Jane Officer',
+    contractingOfficerEmail: 'jane@agency.gov',
+    requesterName: 'John Smith',
+    requesterTitle: 'Contracts Manager',
+    requesterEmail: 'john@company.com',
+    requesterPhone: '555-123-4567',
+    requesterAddress: '123 Business Ave, Arlington VA 22201',
+    companyName: 'Acme Corp',
+  };
 
-  it('allows missing requestDeadline', () => {
-    const request = {
-      projectId: 'proj-123',
-      orgId: 'org-456',
-    };
-
-    const result = CreateDebriefingRequestSchema.safeParse(request);
+  it('validates valid create request with all required fields', () => {
+    const result = CreateDebriefingRequestSchema.safeParse(validRequest);
     expect(result.success).toBe(true);
   });
 
   it('requires projectId', () => {
-    const request = {
-      orgId: 'org-456',
-    };
-
-    const result = CreateDebriefingRequestSchema.safeParse(request);
+    const { projectId, ...without } = validRequest;
+    const result = CreateDebriefingRequestSchema.safeParse(without);
     expect(result.success).toBe(false);
   });
 
   it('requires orgId', () => {
-    const request = {
-      projectId: 'proj-123',
-    };
+    const { orgId, ...without } = validRequest;
+    const result = CreateDebriefingRequestSchema.safeParse(without);
+    expect(result.success).toBe(false);
+  });
 
-    const result = CreateDebriefingRequestSchema.safeParse(request);
+  it('requires opportunityId', () => {
+    const { opportunityId, ...without } = validRequest;
+    const result = CreateDebriefingRequestSchema.safeParse(without);
+    expect(result.success).toBe(false);
+  });
+
+  it('requires solicitationNumber', () => {
+    const { solicitationNumber, ...without } = validRequest;
+    const result = CreateDebriefingRequestSchema.safeParse(without);
+    expect(result.success).toBe(false);
+  });
+
+  it('requires contractTitle', () => {
+    const { contractTitle, ...without } = validRequest;
+    const result = CreateDebriefingRequestSchema.safeParse(without);
+    expect(result.success).toBe(false);
+  });
+
+  it('accepts request without awardedOrganization', () => {
+    const { awardedOrganization, ...without } = validRequest;
+    const result = CreateDebriefingRequestSchema.safeParse(without);
+    expect(result.success).toBe(true);
+  });
+
+  it('accepts request without contractingOfficerName', () => {
+    const { contractingOfficerName, ...without } = validRequest;
+    const result = CreateDebriefingRequestSchema.safeParse(without);
+    expect(result.success).toBe(true);
+  });
+
+  it('requires contractingOfficerEmail to be valid email', () => {
+    const invalid = { ...validRequest, contractingOfficerEmail: 'not-an-email' };
+    const result = CreateDebriefingRequestSchema.safeParse(invalid);
+    expect(result.success).toBe(false);
+  });
+
+  it('requires requesterName', () => {
+    const { requesterName, ...without } = validRequest;
+    const result = CreateDebriefingRequestSchema.safeParse(without);
+    expect(result.success).toBe(false);
+  });
+
+  it('requires requesterEmail to be valid email', () => {
+    const invalid = { ...validRequest, requesterEmail: 'not-an-email' };
+    const result = CreateDebriefingRequestSchema.safeParse(invalid);
+    expect(result.success).toBe(false);
+  });
+
+  it('requires companyName', () => {
+    const { companyName, ...without } = validRequest;
+    const result = CreateDebriefingRequestSchema.safeParse(without);
+    expect(result.success).toBe(false);
+  });
+
+  it('rejects empty solicitationNumber', () => {
+    const invalid = { ...validRequest, solicitationNumber: '' };
+    const result = CreateDebriefingRequestSchema.safeParse(invalid);
     expect(result.success).toBe(false);
   });
 
   it('rejects empty projectId', () => {
-    const request = {
-      projectId: '',
-      orgId: 'org-456',
-    };
-
-    const result = CreateDebriefingRequestSchema.safeParse(request);
+    const invalid = { ...validRequest, projectId: '' };
+    const result = CreateDebriefingRequestSchema.safeParse(invalid);
     expect(result.success).toBe(false);
   });
 });
 
 describe('UpdateDebriefingRequestSchema', () => {
-  it('validates partial update with status only', () => {
-    const update = {
-      requestStatus: 'REQUESTED',
-    };
+  const validIdentifiers = {
+    orgId: 'org-456',
+    projectId: 'proj-123',
+    opportunityId: 'opp-789',
+    debriefingId: 'debrief-001',
+  };
 
-    const result = UpdateDebriefingRequestSchema.safeParse(update);
+  it('validates with only identifiers (no updatable fields)', () => {
+    const result = UpdateDebriefingRequestSchema.safeParse(validIdentifiers);
     expect(result.success).toBe(true);
   });
 
-  it('validates partial update with scheduling info', () => {
-    const update = {
-      requestStatus: 'SCHEDULED',
-      scheduledDate: '2025-01-25T14:00:00Z',
-      locationType: 'VIRTUAL',
-      meetingLink: 'https://zoom.us/j/123456',
-    };
+  it('requires orgId', () => {
+    const { orgId, ...without } = validIdentifiers;
+    const result = UpdateDebriefingRequestSchema.safeParse(without);
+    expect(result.success).toBe(false);
+  });
 
-    const result = UpdateDebriefingRequestSchema.safeParse(update);
+  it('requires projectId', () => {
+    const { projectId, ...without } = validIdentifiers;
+    const result = UpdateDebriefingRequestSchema.safeParse(without);
+    expect(result.success).toBe(false);
+  });
+
+  it('requires opportunityId', () => {
+    const { opportunityId, ...without } = validIdentifiers;
+    const result = UpdateDebriefingRequestSchema.safeParse(without);
+    expect(result.success).toBe(false);
+  });
+
+  it('requires debriefingId', () => {
+    const { debriefingId, ...without } = validIdentifiers;
+    const result = UpdateDebriefingRequestSchema.safeParse(without);
+    expect(result.success).toBe(false);
+  });
+
+  it('rejects empty identifier strings', () => {
+    expect(UpdateDebriefingRequestSchema.safeParse({ ...validIdentifiers, orgId: '' }).success).toBe(false);
+    expect(UpdateDebriefingRequestSchema.safeParse({ ...validIdentifiers, projectId: '' }).success).toBe(false);
+    expect(UpdateDebriefingRequestSchema.safeParse({ ...validIdentifiers, opportunityId: '' }).success).toBe(false);
+    expect(UpdateDebriefingRequestSchema.safeParse({ ...validIdentifiers, debriefingId: '' }).success).toBe(false);
+  });
+
+  it('accepts optional updatable fields', () => {
+    const result = UpdateDebriefingRequestSchema.safeParse({
+      ...validIdentifiers,
+      contractTitle: 'Updated Title',
+      requesterName: 'Jane Updated',
+      companyName: 'New Corp',
+    });
     expect(result.success).toBe(true);
   });
 
-  it('validates update with notes and outcomes', () => {
-    const update = {
-      requestStatus: 'COMPLETED',
-      notes: 'Very informative debriefing',
-      strengthsIdentified: ['Technical approach', 'Team qualifications'],
-      weaknessesIdentified: ['Pricing was slightly high'],
-      evaluationScores: {
-        technical: 88,
-        price: 75,
-      },
-      keyTakeaways: 'Focus on more competitive pricing',
-    };
-
-    const result = UpdateDebriefingRequestSchema.safeParse(update);
-    expect(result.success).toBe(true);
+  it('validates contractingOfficerEmail format when provided', () => {
+    const result = UpdateDebriefingRequestSchema.safeParse({
+      ...validIdentifiers,
+      contractingOfficerEmail: 'not-an-email',
+    });
+    expect(result.success).toBe(false);
   });
 
-  it('allows empty object (no updates)', () => {
-    const result = UpdateDebriefingRequestSchema.safeParse({});
-    expect(result.success).toBe(true);
-  });
-
-  it('validates meetingLink must be valid URL', () => {
-    const update = {
-      meetingLink: 'invalid-url',
-    };
-
-    const result = UpdateDebriefingRequestSchema.safeParse(update);
+  it('validates requesterEmail format when provided', () => {
+    const result = UpdateDebriefingRequestSchema.safeParse({
+      ...validIdentifiers,
+      requesterEmail: 'not-an-email',
+    });
     expect(result.success).toBe(false);
   });
 });
@@ -240,56 +265,44 @@ describe('GenerateDebriefingLetterRequestSchema', () => {
     const request = {
       projectId: 'proj-123',
       orgId: 'org-456',
+      opportunityId: 'opp-789',
+      debriefingId: 'debrief-1',
     };
 
     const result = GenerateDebriefingLetterRequestSchema.safeParse(request);
     expect(result.success).toBe(true);
   });
 
-  it('requires both projectId and orgId', () => {
-    expect(GenerateDebriefingLetterRequestSchema.safeParse({ projectId: 'proj-123' }).success).toBe(false);
-    expect(GenerateDebriefingLetterRequestSchema.safeParse({ orgId: 'org-456' }).success).toBe(false);
+  it('requires all four identifiers', () => {
+    expect(GenerateDebriefingLetterRequestSchema.safeParse({ projectId: 'proj-123', orgId: 'org-456', opportunityId: 'opp-789' }).success).toBe(false);
+    expect(GenerateDebriefingLetterRequestSchema.safeParse({ projectId: 'proj-123', orgId: 'org-456', debriefingId: 'db-1' }).success).toBe(false);
+    expect(GenerateDebriefingLetterRequestSchema.safeParse({ projectId: 'proj-123', opportunityId: 'opp-789', debriefingId: 'db-1' }).success).toBe(false);
+    expect(GenerateDebriefingLetterRequestSchema.safeParse({ orgId: 'org-456', opportunityId: 'opp-789', debriefingId: 'db-1' }).success).toBe(false);
   });
 });
 
-describe('calculateDebriefingDeadline', () => {
-  it('calculates 3 business days from Monday', () => {
-    // Monday January 27, 2025
-    const notification = new Date('2025-01-27T10:00:00Z');
-    const deadline = calculateDebriefingDeadline(notification);
+describe('generateDebriefingEmailSubject', () => {
+  it('generates correct email subject line', () => {
+    const data: CreateDebriefingRequest = {
+      projectId: 'proj-123',
+      orgId: 'org-456',
+      opportunityId: 'opp-789',
+      solicitationNumber: 'W911NF-21-R-0001',
 
-    // Should be Thursday January 30, 2025
-    expect(deadline.getDate()).toBe(30);
-    expect(deadline.getMonth()).toBe(0); // January
-  });
+      contractTitle: 'IT Services',
+      awardedOrganization: 'WinnerCo',
+      awardNotificationDate: 'January 15, 2025',
+      contractingOfficerName: 'Jane Officer',
+      contractingOfficerEmail: 'jane@agency.gov',
+      requesterName: 'John Smith',
+      requesterTitle: 'Manager',
+      requesterEmail: 'john@company.com',
+      requesterPhone: '555-123-4567',
+      requesterAddress: '456 Oak Ave',
+      companyName: 'Acme Corp',
+    };
 
-  it('skips weekends when calculating', () => {
-    // Thursday January 30, 2025
-    const notification = new Date('2025-01-30T10:00:00Z');
-    const deadline = calculateDebriefingDeadline(notification);
-
-    // Should be Wednesday February 5, 2025 (skips Sat/Sun)
-    expect(deadline.getDate()).toBe(4);
-    expect(deadline.getMonth()).toBe(1); // February
-  });
-
-  it('handles Friday notification', () => {
-    // Friday January 31, 2025
-    const notification = new Date('2025-01-31T10:00:00Z');
-    const deadline = calculateDebriefingDeadline(notification);
-
-    // Should be Wednesday February 5, 2025 (Mon, Tue, Wed)
-    expect(deadline.getDate()).toBe(5);
-    expect(deadline.getMonth()).toBe(1); // February
-  });
-
-  it('handles notification on weekend', () => {
-    // Saturday February 1, 2025
-    const notification = new Date('2025-02-01T10:00:00Z');
-    const deadline = calculateDebriefingDeadline(notification);
-
-    // Should be Wednesday February 5, 2025 (Mon, Tue, Wed)
-    expect(deadline.getDate()).toBe(5);
-    expect(deadline.getMonth()).toBe(1); // February
+    const subject = generateDebriefingEmailSubject(data);
+    expect(subject).toBe('POST-AWARD DEBRIEFING REQUEST — Solicitation No. W911NF-21-R-0001, IT Services');
   });
 });

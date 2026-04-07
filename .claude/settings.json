@@ -1,6 +1,9 @@
 {
   "permissions": {
     "allow": [
+      "Read",
+      "Glob",
+      "Grep",
       "Bash(tee /tmp/deploy-dev.log)",
       "Bash(aws logs tail /aws/lambda/AutoRfp-Dev-AnswerGen-PrepareQuestions --since 10m --format short)",
       "Bash(aws lambda get-function --function-name AutoRfp-Dev-AnswerGen-PrepareQuestions --query \"Configuration.[LastModified,CodeSize,Handler]\" --output table)",
@@ -23,7 +26,10 @@
       "Bash(git check-ignore:*)",
       "Bash(grep -E \"\\\\.test\\\\.ts$|jest\\\\.config\\\\.js$|package\\\\.json$\")",
       "Bash(grep -E \"\\\\.test\\\\.ts$|jest\\\\.config\\\\.js$|package\\\\.json$|\\\\.md$\")",
-      "Bash(grep -E \"\\\\.test\\\\.ts$\")"
+      "Bash(grep -E \"\\\\.test\\\\.ts$\")",
+      "Bash(npx jest:*)",
+      "Bash(npx vitest:*)",
+      "Bash(pnpm tsc:*)"
     ]
   }
 }

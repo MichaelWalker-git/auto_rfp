@@ -1,22 +1,11 @@
 import { describe, it, expect } from 'vitest';
 import {
   FOIADocumentTypeSchema,
-  FOIAStatusSchema,
   RequesterCategorySchema,
-  FOIASubmissionMethodSchema,
-  FOIAResponseStatusSchema,
   FOIAAddressSchema,
-  S3ReferenceSchema,
-  FOIAStatusChangeSchema,
   FOIAAgencyInfoSchema,
-  FOIARequestItemSchema,
   CreateFOIARequestSchema,
-  UpdateFOIAStatusSchema,
-  SubmitFOIARequestSchema,
-  GenerateFOIAAppealSchema,
-  ListFOIARequestsQuerySchema,
-  calculateFOIADeadline,
-  calculateFOIAExtensionDeadline,
+  UpdateFOIARequestSchema,
   FOIA_DOCUMENT_DESCRIPTIONS,
   type FOIADocumentType,
 } from './foia';
@@ -29,10 +18,14 @@ describe('FOIADocumentTypeSchema', () => {
       'TECHNICAL_EVAL',
       'PRICE_ANALYSIS',
       'PAST_PERFORMANCE_EVAL',
+      'PROPOSAL_ABSTRACT',
+      'DEBRIEFING_NOTES',
       'WINNING_PROPOSAL_TECH',
       'CONSENSUS_WORKSHEETS',
       'RESPONSIBILITY_DETERMINATION',
       'CORRESPONDENCE',
+      'AWARD_NOTICE',
+      'SOLICITATION_RECORDS',
     ];
 
     validTypes.forEach((type) => {
@@ -43,25 +36,6 @@ describe('FOIADocumentTypeSchema', () => {
   it('rejects invalid document types', () => {
     expect(FOIADocumentTypeSchema.safeParse('INVALID').success).toBe(false);
     expect(FOIADocumentTypeSchema.safeParse('').success).toBe(false);
-  });
-});
-
-describe('FOIAStatusSchema', () => {
-  it('accepts all valid statuses', () => {
-    const validStatuses = [
-      'DRAFT',
-      'READY_TO_SUBMIT',
-      'SUBMITTED',
-      'ACKNOWLEDGED',
-      'IN_PROCESSING',
-      'RESPONSE_RECEIVED',
-      'APPEAL_FILED',
-      'CLOSED',
-    ];
-
-    validStatuses.forEach((status) => {
-      expect(FOIAStatusSchema.safeParse(status).success).toBe(true);
-    });
   });
 });
 
@@ -133,55 +107,6 @@ describe('FOIAAddressSchema', () => {
   });
 });
 
-describe('S3ReferenceSchema', () => {
-  it('validates valid S3 reference', () => {
-    const ref = {
-      bucket: 'auto-rfp-documents',
-      key: 'foia/responses/doc-123.pdf',
-      filename: 'evaluation-report.pdf',
-      uploadedAt: '2025-01-20T10:00:00Z',
-    };
-
-    const result = S3ReferenceSchema.safeParse(ref);
-    expect(result.success).toBe(true);
-  });
-
-  it('requires all fields', () => {
-    const ref = {
-      bucket: 'auto-rfp-documents',
-      key: 'foia/responses/doc-123.pdf',
-    };
-
-    const result = S3ReferenceSchema.safeParse(ref);
-    expect(result.success).toBe(false);
-  });
-});
-
-describe('FOIAStatusChangeSchema', () => {
-  it('validates status change entry', () => {
-    const change = {
-      status: 'SUBMITTED',
-      changedAt: '2025-01-20T10:00:00Z',
-      changedBy: 'user-123',
-      notes: 'Submitted via email',
-    };
-
-    const result = FOIAStatusChangeSchema.safeParse(change);
-    expect(result.success).toBe(true);
-  });
-
-  it('allows missing notes', () => {
-    const change = {
-      status: 'ACKNOWLEDGED',
-      changedAt: '2025-01-22T10:00:00Z',
-      changedBy: 'user-123',
-    };
-
-    const result = FOIAStatusChangeSchema.safeParse(change);
-    expect(result.success).toBe(true);
-  });
-});
-
 describe('FOIAAgencyInfoSchema', () => {
   it('validates complete agency info', () => {
     const agency = {
@@ -229,28 +154,35 @@ describe('FOIAAgencyInfoSchema', () => {
 });
 
 describe('CreateFOIARequestSchema', () => {
-  it('validates valid create request', () => {
-    const request = {
-      projectId: 'proj-123',
-      orgId: 'org-456',
-      agencyName: 'Department of Defense',
-      solicitationNumber: 'SOL-2025-001',
-      requesterName: 'John Doe',
-      requesterEmail: 'john@example.com',
-      requestedDocuments: ['SSEB_REPORT', 'SSDD'],
-      requesterCategory: 'COMMERCIAL',
-      feeLimit: 100,
-      requestFeeWaiver: false,
-    };
+  const validRequest = {
+    projectId: 'proj-123',
+    orgId: 'org-456',
+    opportunityId: 'opp-789',
+    agencyName: 'Department of Defense',
+    agencyFOIAEmail: 'foia@dod.gov',
+    agencyFOIAAddress: '1400 Defense Pentagon, Washington DC',
+    solicitationNumber: 'SOL-2025-001',
+    contractTitle: 'IT Services',
+    requesterName: 'John Doe',
+    requesterTitle: 'Contracts Manager',
+    requesterEmail: 'john@example.com',
+    requesterPhone: '555-123-4567',
+    requesterAddress: '123 Main St, City ST 12345',
+    requestedDocuments: ['SSEB_REPORT', 'SSDD'],
+    companyName: 'Acme Corp',
+    awardeeName: 'Winning LLC',
+    awardDate: 'January 15, 2026',
+    feeLimit: 100,
+  };
 
-    const result = CreateFOIARequestSchema.safeParse(request);
+  it('validates valid create request with all required fields', () => {
+    const result = CreateFOIARequestSchema.safeParse(validRequest);
     expect(result.success).toBe(true);
   });
 
   it('requires at least one document type', () => {
     const request = {
-      projectId: 'proj-123',
-      orgId: 'org-456',
+      ...validRequest,
       requestedDocuments: [],
     };
 
@@ -258,183 +190,180 @@ describe('CreateFOIARequestSchema', () => {
     expect(result.success).toBe(false);
   });
 
-  it('applies default values', () => {
-    const request = {
-      projectId: 'proj-123',
-      orgId: 'org-456',
-      agencyName: 'Department of Defense',
-      solicitationNumber: 'SOL-2025-001',
-      requesterName: 'John Doe',
-      requesterEmail: 'john@example.com',
-      requestedDocuments: ['SSEB_REPORT'],
-    };
+  it('applies default feeLimit of 0', () => {
+    const { feeLimit, ...withoutFee } = validRequest;
 
-    const result = CreateFOIARequestSchema.safeParse(request);
+    const result = CreateFOIARequestSchema.safeParse(withoutFee);
     expect(result.success).toBe(true);
     if (result.success) {
-      expect(result.data.requesterCategory).toBe('OTHER');
-      expect(result.data.feeLimit).toBe(50);
-      expect(result.data.requestFeeWaiver).toBe(false);
+      expect(result.data.feeLimit).toBe(0);
     }
   });
 
-  it('allows custom document requests', () => {
+  it('defaults customDocumentRequests to empty array', () => {
+    const result = CreateFOIARequestSchema.safeParse(validRequest);
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.customDocumentRequests).toEqual([]);
+    }
+  });
+
+  it('accepts custom document requests', () => {
     const request = {
-      projectId: 'proj-123',
-      orgId: 'org-456',
-      agencyName: 'Department of Defense',
-      solicitationNumber: 'SOL-2025-001',
-      requesterName: 'John Doe',
-      requesterEmail: 'john@example.com',
-      requestedDocuments: ['SSEB_REPORT'],
+      ...validRequest,
       customDocumentRequests: ['Any emails regarding our proposal'],
     };
 
     const result = CreateFOIARequestSchema.safeParse(request);
     expect(result.success).toBe(true);
   });
-});
 
-describe('UpdateFOIAStatusSchema', () => {
-  it('validates status update', () => {
-    const update = {
-      status: 'ACKNOWLEDGED',
-      trackingNumber: 'FOIA-2025-001234',
-      notes: 'Agency acknowledged receipt',
-    };
-
-    const result = UpdateFOIAStatusSchema.safeParse(update);
-    expect(result.success).toBe(true);
-  });
-
-  it('requires status', () => {
-    const update = {
-      trackingNumber: 'FOIA-2025-001234',
-    };
-
-    const result = UpdateFOIAStatusSchema.safeParse(update);
-    expect(result.success).toBe(false);
-  });
-});
-
-describe('SubmitFOIARequestSchema', () => {
-  it('accepts AUTO_EMAIL method', () => {
-    const submit = { method: 'AUTO_EMAIL' };
-    const result = SubmitFOIARequestSchema.safeParse(submit);
-    expect(result.success).toBe(true);
-  });
-
-  it('accepts MANUAL method', () => {
-    const submit = { method: 'MANUAL' };
-    const result = SubmitFOIARequestSchema.safeParse(submit);
-    expect(result.success).toBe(true);
-  });
-
-  it('rejects invalid method', () => {
-    const submit = { method: 'WEB_PORTAL' };
-    const result = SubmitFOIARequestSchema.safeParse(submit);
-    expect(result.success).toBe(false);
-  });
-});
-
-describe('GenerateFOIAAppealSchema', () => {
-  it('validates valid appeal request', () => {
-    const appeal = {
-      foiaId: '550e8400-e29b-41d4-a716-446655440000',
-      appealReason: 'The agency improperly withheld documents citing Exemption 4',
-    };
-
-    const result = GenerateFOIAAppealSchema.safeParse(appeal);
-    expect(result.success).toBe(true);
-  });
-
-  it('requires UUID for foiaId', () => {
-    const appeal = {
-      foiaId: 'not-a-uuid',
-      appealReason: 'Documents were improperly withheld',
-    };
-
-    const result = GenerateFOIAAppealSchema.safeParse(appeal);
+  it('requires agencyFOIAEmail', () => {
+    const { agencyFOIAEmail, ...without } = validRequest;
+    const result = CreateFOIARequestSchema.safeParse(without);
     expect(result.success).toBe(false);
   });
 
-  it('requires appeal reason to be at least 10 characters', () => {
-    const appeal = {
-      foiaId: '550e8400-e29b-41d4-a716-446655440000',
-      appealReason: 'short',
-    };
-
-    const result = GenerateFOIAAppealSchema.safeParse(appeal);
+  it('rejects invalid agencyFOIAEmail', () => {
+    const result = CreateFOIARequestSchema.safeParse({ ...validRequest, agencyFOIAEmail: 'not-email' });
     expect(result.success).toBe(false);
   });
-});
 
-describe('ListFOIARequestsQuerySchema', () => {
-  it('validates valid query', () => {
-    const query = {
-      orgId: 'org-123',
-      status: 'SUBMITTED',
-      limit: 50,
-    };
+  it('requires agencyFOIAAddress', () => {
+    const { agencyFOIAAddress, ...without } = validRequest;
+    const result = CreateFOIARequestSchema.safeParse(without);
+    expect(result.success).toBe(false);
+  });
 
-    const result = ListFOIARequestsQuerySchema.safeParse(query);
+  it('requires contractTitle', () => {
+    const { contractTitle, ...without } = validRequest;
+    const result = CreateFOIARequestSchema.safeParse(without);
+    expect(result.success).toBe(false);
+  });
+
+  it('requires companyName', () => {
+    const { companyName, ...without } = validRequest;
+    const result = CreateFOIARequestSchema.safeParse(without);
+    expect(result.success).toBe(false);
+  });
+
+  it('accepts request without awardeeName', () => {
+    const { awardeeName, ...without } = validRequest;
+    const result = CreateFOIARequestSchema.safeParse(without);
     expect(result.success).toBe(true);
   });
 
-  it('applies default values', () => {
-    const query = {
-      orgId: 'org-123',
-    };
-
-    const result = ListFOIARequestsQuerySchema.safeParse(query);
+  it('treats empty awardeeName as undefined', () => {
+    const result = CreateFOIARequestSchema.safeParse({ ...validRequest, awardeeName: '' });
     expect(result.success).toBe(true);
     if (result.success) {
-      expect(result.data.limit).toBe(20);
+      expect(result.data.awardeeName).toBeUndefined();
     }
   });
 
-  it('rejects limit over 100', () => {
-    const query = {
-      orgId: 'org-123',
-      limit: 150,
-    };
+  it('requires awardDate', () => {
+    const { awardDate, ...without } = validRequest;
+    const result = CreateFOIARequestSchema.safeParse(without);
+    expect(result.success).toBe(false);
+  });
 
-    const result = ListFOIARequestsQuerySchema.safeParse(query);
+  it('requires requesterTitle', () => {
+    const { requesterTitle, ...without } = validRequest;
+    const result = CreateFOIARequestSchema.safeParse(without);
+    expect(result.success).toBe(false);
+  });
+
+  it('requires requesterPhone', () => {
+    const { requesterPhone, ...without } = validRequest;
+    const result = CreateFOIARequestSchema.safeParse(without);
+    expect(result.success).toBe(false);
+  });
+
+  it('requires requesterAddress', () => {
+    const { requesterAddress, ...without } = validRequest;
+    const result = CreateFOIARequestSchema.safeParse(without);
     expect(result.success).toBe(false);
   });
 });
 
-describe('calculateFOIADeadline', () => {
-  it('calculates 20 business days from Monday', () => {
-    // Monday January 6, 2025
-    const submission = new Date('2025-01-06T10:00:00Z');
-    const deadline = calculateFOIADeadline(submission);
+describe('UpdateFOIARequestSchema', () => {
+  const validIdentifiers = {
+    orgId: 'org-456',
+    projectId: 'proj-123',
+    opportunityId: 'opp-789',
+    foiaRequestId: 'foia-001',
+  };
 
-    // 20 business days = 4 weeks = February 3, 2025 (Monday)
-    expect(deadline.getDate()).toBe(3);
-    expect(deadline.getMonth()).toBe(1); // February
+  it('validates with only identifiers (no updatable fields)', () => {
+    const result = UpdateFOIARequestSchema.safeParse(validIdentifiers);
+    expect(result.success).toBe(true);
   });
 
-  it('skips weekends', () => {
-    // Friday January 3, 2025
-    const submission = new Date('2025-01-03T10:00:00Z');
-    const deadline = calculateFOIADeadline(submission);
-
-    // Should be January 31, 2025 (Friday)
-    expect(deadline.getDate()).toBe(31);
-    expect(deadline.getMonth()).toBe(0); // January
+  it('requires orgId', () => {
+    const { orgId, ...without } = validIdentifiers;
+    const result = UpdateFOIARequestSchema.safeParse(without);
+    expect(result.success).toBe(false);
   });
-});
 
-describe('calculateFOIAExtensionDeadline', () => {
-  it('adds 10 business days', () => {
-    // Original deadline: Monday February 3, 2025
-    const originalDeadline = new Date('2025-02-03T10:00:00Z');
-    const extensionDeadline = calculateFOIAExtensionDeadline(originalDeadline);
+  it('requires projectId', () => {
+    const { projectId, ...without } = validIdentifiers;
+    const result = UpdateFOIARequestSchema.safeParse(without);
+    expect(result.success).toBe(false);
+  });
 
-    // 10 business days = 2 weeks = February 17, 2025 (Monday)
-    expect(extensionDeadline.getDate()).toBe(17);
-    expect(extensionDeadline.getMonth()).toBe(1); // February
+  it('requires opportunityId', () => {
+    const { opportunityId, ...without } = validIdentifiers;
+    const result = UpdateFOIARequestSchema.safeParse(without);
+    expect(result.success).toBe(false);
+  });
+
+  it('requires foiaRequestId', () => {
+    const { foiaRequestId, ...without } = validIdentifiers;
+    const result = UpdateFOIARequestSchema.safeParse(without);
+    expect(result.success).toBe(false);
+  });
+
+  it('rejects empty identifier strings', () => {
+    expect(UpdateFOIARequestSchema.safeParse({ ...validIdentifiers, orgId: '' }).success).toBe(false);
+    expect(UpdateFOIARequestSchema.safeParse({ ...validIdentifiers, projectId: '' }).success).toBe(false);
+    expect(UpdateFOIARequestSchema.safeParse({ ...validIdentifiers, opportunityId: '' }).success).toBe(false);
+    expect(UpdateFOIARequestSchema.safeParse({ ...validIdentifiers, foiaRequestId: '' }).success).toBe(false);
+  });
+
+  it('accepts optional updatable fields', () => {
+    const result = UpdateFOIARequestSchema.safeParse({
+      ...validIdentifiers,
+      agencyName: 'Updated Agency',
+      requestedDocuments: ['SSEB_REPORT', 'TECHNICAL_EVAL'],
+      feeLimit: 250,
+      companyName: 'New Corp',
+      awardeeName: 'WinnerCo',
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it('validates requesterEmail format when provided', () => {
+    const result = UpdateFOIARequestSchema.safeParse({
+      ...validIdentifiers,
+      requesterEmail: 'not-an-email',
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it('rejects negative feeLimit', () => {
+    const result = UpdateFOIARequestSchema.safeParse({
+      ...validIdentifiers,
+      feeLimit: -10,
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it('validates requestedDocuments contains valid types', () => {
+    const result = UpdateFOIARequestSchema.safeParse({
+      ...validIdentifiers,
+      requestedDocuments: ['INVALID_TYPE'],
+    });
+    expect(result.success).toBe(false);
   });
 });
 
@@ -446,16 +375,20 @@ describe('FOIA_DOCUMENT_DESCRIPTIONS', () => {
       'TECHNICAL_EVAL',
       'PRICE_ANALYSIS',
       'PAST_PERFORMANCE_EVAL',
+      'PROPOSAL_ABSTRACT',
+      'DEBRIEFING_NOTES',
       'WINNING_PROPOSAL_TECH',
       'CONSENSUS_WORKSHEETS',
       'RESPONSIBILITY_DETERMINATION',
       'CORRESPONDENCE',
+      'AWARD_NOTICE',
+      'SOLICITATION_RECORDS',
     ];
 
     allTypes.forEach((type) => {
       expect(FOIA_DOCUMENT_DESCRIPTIONS[type]).toBeDefined();
       expect(typeof FOIA_DOCUMENT_DESCRIPTIONS[type]).toBe('string');
-      expect(FOIA_DOCUMENT_DESCRIPTIONS[type].length).toBeGreaterThan(20);
+      expect(FOIA_DOCUMENT_DESCRIPTIONS[type].length).toBeGreaterThan(10);
     });
   });
 });

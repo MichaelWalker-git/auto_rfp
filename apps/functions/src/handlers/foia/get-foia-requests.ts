@@ -22,15 +22,15 @@ export const baseHandler = async (
   event: APIGatewayProxyEventV2
 ): Promise<APIGatewayProxyResultV2> => {
   try {
-    const { orgId, projectId } = event.queryStringParameters || {};
+    const { orgId, projectId, opportunityId } = event.queryStringParameters || {};
 
-    if (!orgId || !projectId) {
+    if (!orgId || !projectId || !opportunityId) {
       return apiResponse(400, {
-        message: 'Missing required query parameters: orgId and projectId',
+        message: 'Missing required query parameters: orgId, projectId, and opportunityId',
       });
     }
 
-    const foiaRequests = await getFOIARequestsForProject(orgId, projectId);
+    const foiaRequests = await getFOIARequestsForProject(orgId, projectId, opportunityId);
 
     return apiResponse(200, { foiaRequests });
   } catch (err: unknown) {
@@ -45,10 +45,10 @@ export const baseHandler = async (
 
 export async function getFOIARequestsForProject(
   orgId: string,
-  projectId: string
+  projectId: string,
+  opportunityId: string
 ): Promise<DBFOIARequestItem[]> {
-  // Query all FOIA requests for this org/project
-  const sortKeyPrefix = `${orgId}#${projectId}#`;
+  const sortKeyPrefix = `${orgId}#${projectId}#${opportunityId}#`;
 
   const cmd = new QueryCommand({
     TableName: DB_TABLE_NAME,

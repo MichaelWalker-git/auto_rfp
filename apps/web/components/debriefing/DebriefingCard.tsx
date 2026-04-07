@@ -4,33 +4,78 @@ import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
-import { DebriefingStatusBadge } from './DebriefingStatusBadge';
 import { RequestDebriefingDialog } from './RequestDebriefingDialog';
-import { useDebriefings } from '@/lib/hooks/use-debriefing';
+import { useDebriefings, useGenerateDebriefingLetter } from '@/lib/hooks/use-debriefing';
+import { useToast } from '@/components/ui/use-toast';
 import PermissionWrapper from '@/components/permission-wrapper';
-import { Calendar, Clock, Mail, Phone, User, AlertTriangle, MessageSquare, Plus } from 'lucide-react';
-import { format, formatDistanceToNow, isPast } from 'date-fns';
+import {
+  User,
+  MessageSquare,
+  FileText,
+  Building2,
+  Mail,
+  Loader2,
+  Pencil,
+  Calendar,
+  Briefcase,
+  MapPin,
+  Phone,
+} from 'lucide-react';
+import { formatDistanceToNow } from 'date-fns';
 import type { DebriefingItem } from '@auto-rfp/core';
 
 interface DebriefingCardProps {
   projectId: string;
   orgId: string;
+  opportunityId: string;
   projectOutcomeStatus?: string;
+  /** Pre-populate dialog from opportunity data */
+  solicitationNumber?: string;
+  contractTitle?: string;
   onDebriefingChange?: (debriefing: DebriefingItem) => void;
 }
 
-export function DebriefingCard({
+export const DebriefingCard = ({
   projectId,
   orgId,
+  opportunityId,
   projectOutcomeStatus,
+  solicitationNumber,
+  contractTitle,
   onDebriefingChange,
-}: DebriefingCardProps) {
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const { debriefings, isLoading, refetch } = useDebriefings(orgId, projectId);
+}: DebriefingCardProps) => {
+  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [isDrafting, setIsDrafting] = useState(false);
+  const { debriefings, isLoading, refetch } = useDebriefings(orgId, projectId, opportunityId);
+  const { generateDebriefingLetter } = useGenerateDebriefingLetter();
+  const { toast } = useToast();
 
-  const handleDebriefingSuccess = (newDebriefing: DebriefingItem) => {
+  const handleSuccess = (debriefing: DebriefingItem) => {
     refetch();
-    onDebriefingChange?.(newDebriefing);
+    onDebriefingChange?.(debriefing);
+  };
+
+  const handleDraftLetter = async (debriefing: DebriefingItem) => {
+    setIsDrafting(true);
+    try {
+      const letter = await generateDebriefingLetter(orgId, projectId, opportunityId, debriefing.debriefId);
+
+      const subject = encodeURIComponent(
+        `POST-AWARD DEBRIEFING REQUEST — Solicitation No. ${debriefing.solicitationNumber ?? ''}, ${debriefing.contractTitle ?? ''}`
+      );
+      const body = encodeURIComponent(letter);
+      const to = debriefing.contractingOfficerEmail ?? '';
+      window.open(`mailto:${to}?subject=${subject}&body=${body}`);
+    } catch (error) {
+      toast({
+        title: 'Error',
+        description: error instanceof Error ? error.message : 'Failed to generate letter',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsDrafting(false);
+    }
   };
 
   // Only show for LOST projects
@@ -59,9 +104,6 @@ export function DebriefingCard({
   }
 
   const latestDebriefing = debriefings[0];
-  const isDeadlinePast = latestDebriefing?.requestDeadline
-    ? isPast(new Date(latestDebriefing.requestDeadline))
-    : false;
 
   return (
     <>
@@ -71,88 +113,119 @@ export function DebriefingCard({
             <MessageSquare className="h-4 w-4" />
             Debriefing
           </CardTitle>
-          {!latestDebriefing && (
-            <PermissionWrapper requiredPermission="project:edit">
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setIsDialogOpen(true)}
-                className="h-8 text-xs gap-1"
-              >
-                <Plus className="h-3.5 w-3.5" />
-                Request
-              </Button>
-            </PermissionWrapper>
-          )}
         </CardHeader>
 
         <CardContent>
           {latestDebriefing ? (
             <div className="space-y-4">
-              {/* Status and deadline */}
-              <div className="flex items-center justify-between">
-                <DebriefingStatusBadge status={latestDebriefing.requestStatus} />
-                {latestDebriefing.requestDeadline && latestDebriefing.requestStatus === 'REQUESTED' && (
-                  <div className={`flex items-center gap-1.5 text-xs ${isDeadlinePast ? 'text-destructive' : 'text-muted-foreground'}`}>
-                    {isDeadlinePast && <AlertTriangle className="h-3 w-3" />}
-                    <Clock className="h-3 w-3" />
-                    <span>
-                      Deadline: {format(new Date(latestDebriefing.requestDeadline), 'MMM d, yyyy')}
-                    </span>
+              {/* Contracting officer */}
+              {latestDebriefing.contractingOfficerName && (
+                <div className="grid gap-1.5 text-xs text-muted-foreground">
+                  <p className="text-xs font-medium text-foreground">Contracting Officer</p>
+                  <div className="flex items-center gap-2">
+                    <User className="h-3.5 w-3.5 shrink-0" />
+                    <span>{latestDebriefing.contractingOfficerName}</span>
+                  </div>
+                  {latestDebriefing.contractingOfficerEmail && (
+                    <div className="flex items-center gap-2">
+                      <Mail className="h-3.5 w-3.5 shrink-0" />
+                      <span>{latestDebriefing.contractingOfficerEmail}</span>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Contract details */}
+              <div className="grid gap-1.5 pt-2 border-t text-xs text-muted-foreground">
+                {latestDebriefing.solicitationNumber && (
+                  <div className="flex items-center gap-2">
+                    <FileText className="h-3.5 w-3.5 shrink-0" />
+                    <span>Solicitation: {latestDebriefing.solicitationNumber}</span>
+                  </div>
+                )}
+                {latestDebriefing.contractTitle && (
+                  <div className="flex items-center gap-2">
+                    <Briefcase className="h-3.5 w-3.5 shrink-0" />
+                    <span>Contract: {latestDebriefing.contractTitle}</span>
+                  </div>
+                )}
+                {latestDebriefing.awardedOrganization && (
+                  <div className="flex items-center gap-2">
+                    <Building2 className="h-3.5 w-3.5 shrink-0" />
+                    <span>Awardee: {latestDebriefing.awardedOrganization}</span>
+                  </div>
+                )}
+                {latestDebriefing.awardNotificationDate && (
+                  <div className="flex items-center gap-2">
+                    <Calendar className="h-3.5 w-3.5 shrink-0" />
+                    <span>Award Date: {latestDebriefing.awardNotificationDate}</span>
                   </div>
                 )}
               </div>
 
-              {/* Attendees info */}
-              {latestDebriefing.attendees && latestDebriefing.attendees.length > 0 && (
-                <div className="grid gap-2 pt-2 border-t text-sm">
-                  <div className="flex items-center gap-2 text-muted-foreground">
-                    <User className="h-4 w-4" />
-                    <span>{latestDebriefing.attendees.join(', ')}</span>
+              {/* Requester information */}
+              <div className="grid gap-1.5 pt-2 border-t text-xs text-muted-foreground">
+                <p className="text-xs font-medium text-foreground">Requester</p>
+                <div className="flex items-center gap-2">
+                  <User className="h-3.5 w-3.5 shrink-0" />
+                  <span>{latestDebriefing.requesterName}{latestDebriefing.requesterTitle ? `, ${latestDebriefing.requesterTitle}` : ''}</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Mail className="h-3.5 w-3.5 shrink-0" />
+                  <span>{latestDebriefing.requesterEmail}</span>
+                </div>
+                {latestDebriefing.requesterPhone && (
+                  <div className="flex items-center gap-2">
+                    <Phone className="h-3.5 w-3.5 shrink-0" />
+                    <span>{latestDebriefing.requesterPhone}</span>
                   </div>
-                </div>
-              )}
-
-              {/* Scheduled date and location */}
-              {latestDebriefing.scheduledDate && (
-                <div className="flex items-center gap-2 text-sm pt-2 border-t">
-                  <Calendar className="h-4 w-4 text-primary" />
-                  <div>
-                    <span>
-                      Scheduled: {format(new Date(latestDebriefing.scheduledDate), 'MMM d, yyyy h:mm a')}
-                    </span>
-                    {latestDebriefing.locationType && (
-                      <span className="text-xs text-muted-foreground ml-2">({latestDebriefing.locationType})</span>
-                    )}
+                )}
+                {latestDebriefing.requesterAddress && (
+                  <div className="flex items-center gap-2">
+                    <MapPin className="h-3.5 w-3.5 shrink-0" />
+                    <span>{latestDebriefing.requesterAddress}</span>
                   </div>
-                </div>
-              )}
+                )}
+                {latestDebriefing.companyName && (
+                  <div className="flex items-center gap-2">
+                    <Building2 className="h-3.5 w-3.5 shrink-0" />
+                    <span>{latestDebriefing.companyName}</span>
+                  </div>
+                )}
+              </div>
 
-              {/* Key takeaways summary (if completed) */}
-              {latestDebriefing.requestStatus === 'COMPLETED' && latestDebriefing.keyTakeaways && (
-                <div className="pt-2 border-t">
-                  <p className="text-xs font-medium mb-1">Key Takeaways:</p>
-                  <p className="text-xs text-muted-foreground line-clamp-3">
-                    {latestDebriefing.keyTakeaways}
-                  </p>
-                </div>
-              )}
-
-              {/* Strengths identified */}
-              {latestDebriefing.requestStatus === 'COMPLETED' && latestDebriefing.strengthsIdentified && latestDebriefing.strengthsIdentified.length > 0 && (
-                <div className="pt-2 border-t">
-                  <p className="text-xs font-medium mb-1">Strengths:</p>
-                  <ul className="text-xs text-muted-foreground list-disc list-inside">
-                    {latestDebriefing.strengthsIdentified.map((strength, idx) => (
-                      <li key={idx}>{strength}</li>
-                    ))}
-                  </ul>
-                </div>
-              )}
+              {/* Action buttons */}
+              <div className="flex gap-2 pt-2 border-t">
+                <PermissionWrapper requiredPermission="project:edit">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setIsEditDialogOpen(true)}
+                    className="text-xs"
+                  >
+                    <Pencil className="h-3.5 w-3.5 mr-1" />
+                    Edit
+                  </Button>
+                </PermissionWrapper>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handleDraftLetter(latestDebriefing)}
+                  disabled={isDrafting}
+                  className="text-xs"
+                >
+                  {isDrafting ? (
+                    <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" />
+                  ) : (
+                    <Mail className="h-3.5 w-3.5 mr-1" />
+                  )}
+                  Draft Letter
+                </Button>
+              </div>
 
               {/* Request creation date */}
               <p className="text-xs text-muted-foreground pt-2 border-t">
-                Requested {formatDistanceToNow(new Date(latestDebriefing.createdAt), { addSuffix: true })}
+                Created {formatDistanceToNow(new Date(latestDebriefing.createdAt), { addSuffix: true })}
               </p>
             </div>
           ) : (
@@ -167,7 +240,7 @@ export function DebriefingCard({
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => setIsDialogOpen(true)}
+                  onClick={() => setIsCreateDialogOpen(true)}
                 >
                   Request Debriefing
                 </Button>
@@ -178,12 +251,30 @@ export function DebriefingCard({
       </Card>
 
       <RequestDebriefingDialog
-        isOpen={isDialogOpen}
-        onOpenChange={setIsDialogOpen}
+        isOpen={isCreateDialogOpen}
+        onOpenChange={setIsCreateDialogOpen}
         projectId={projectId}
         orgId={orgId}
-        onSuccess={handleDebriefingSuccess}
+        opportunityId={opportunityId}
+        solicitationNumber={solicitationNumber}
+        contractTitle={contractTitle}
+        onSuccess={handleSuccess}
       />
+
+      {latestDebriefing && (
+        <RequestDebriefingDialog
+          key={latestDebriefing.debriefId}
+          isOpen={isEditDialogOpen}
+          onOpenChange={setIsEditDialogOpen}
+          projectId={projectId}
+          orgId={orgId}
+          opportunityId={opportunityId}
+          solicitationNumber={solicitationNumber}
+          contractTitle={contractTitle}
+          existingDebriefing={latestDebriefing}
+          onSuccess={handleSuccess}
+        />
+      )}
     </>
   );
-}
+};

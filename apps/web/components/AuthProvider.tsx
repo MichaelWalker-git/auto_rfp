@@ -82,7 +82,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }
 
         const payload = idToken.payload as Record<string, unknown>;
-        const nextRole = parseString(payload['custom:role']) as UserRole | null;
+        const rawRole = parseString(payload['custom:role']);
+        const nextRole = rawRole ? (rawRole.toUpperCase() as UserRole) : null;
 
         const userSubValue = parseString(payload['sub']);
         const emailValue = parseString(payload['email']);

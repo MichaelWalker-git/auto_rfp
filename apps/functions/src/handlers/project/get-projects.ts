@@ -34,6 +34,9 @@ export const baseHandler = async (event: AuthedEvent): Promise<APIGatewayProxyRe
     const assignedProjectIds = userId ? await getAccessibleProjectIds(userId) : [];
     const assignedSet = new Set(assignedProjectIds);
 
+    console.log('[get-projects] userId:', userId, 'orgId:', orgId);
+    console.log('[get-projects] allProjects:', allProjects.length, 'assignedProjectIds:', assignedProjectIds.length, assignedProjectIds);
+
     // Filter projects with the following rules:
     // 1. LEGACY projects (no createdBy) → always visible to all org members
     // 2. NEW projects (with createdBy) → visible ONLY if user has explicit assignment
@@ -44,9 +47,14 @@ export const baseHandler = async (event: AuthedEvent): Promise<APIGatewayProxyRe
         return true;
       }
 
-      // New project - check explicit assignment only
-      return assignedSet.has(project.id);
+      const hasAccess = assignedSet.has(project.id);
+      if (!hasAccess) {
+        console.log('[get-projects] FILTERED OUT project:', project.id, project.name, 'createdBy:', project.createdBy);
+      }
+      return hasAccess;
     });
+
+    console.log('[get-projects] visibleProjects:', visibleProjects.length);
 
     return apiResponse(200, visibleProjects);
   } catch (err) {
