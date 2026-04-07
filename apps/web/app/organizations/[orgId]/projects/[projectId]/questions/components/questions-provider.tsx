@@ -176,10 +176,6 @@ export function QuestionsProvider({ children, projectId, opportunityId }: Questi
   const questions = questionsData ? { sections: questionsData.sections } : undefined;
   const serverAnswers = questionsData?.answers;
 
-  console.log('[QuestionsProvider] questionsData:', questionsData);
-  console.log('[QuestionsProvider] questions:', questions);
-  console.log('[QuestionsProvider] serverAnswers (from questionsData):', serverAnswers);
-
   // Ref to track unsaved questions for autosave (avoids stale closure)
   const unsavedQuestionsRef = useRef<Set<string>>(new Set());
   const answersRef = useRef<Record<string, AnswerData>>({});
@@ -800,10 +796,6 @@ export function QuestionsProvider({ children, projectId, opportunityId }: Questi
   // Merge server metadata (status, updatedByName, approvedByName, etc.)
   // while preserving local text edits for unsaved questions.
   useEffect(() => {
-    console.log('[QuestionsProvider] serverAnswers:', serverAnswers);
-    console.log('[QuestionsProvider] serverAnswers type:', typeof serverAnswers);
-    console.log('[QuestionsProvider] serverAnswers keys:', serverAnswers ? Object.keys(serverAnswers) : 'none');
-
     if (!serverAnswers) return;
     setAnswers((prev) => {
       const next: Record<string, AnswerData> = {};
@@ -820,7 +812,6 @@ export function QuestionsProvider({ children, projectId, opportunityId }: Questi
       for (const [qId, localAnswer] of Object.entries(prev)) {
         if (!next[qId]) next[qId] = localAnswer;
       }
-      console.log('[QuestionsProvider] Setting answers state:', Object.keys(next).length, 'answers');
       return next;
     });
   }, [serverAnswers]);
