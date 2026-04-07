@@ -16,6 +16,7 @@ import { QuestionsErrorState, QuestionsLoadingState } from './questions-states';
 import { IndexSelector } from './index-selector';
 import { OpportunitySelector, OTHER_LEGACY_OPPORTUNITY_ID } from '@/components/brief/components/OpportunitySelector';
 import { getSelectedOpportunity, saveSelectedOpportunity } from '@/lib/utils/opportunity-selection';
+import { useOpportunity } from '@/lib/hooks/use-opportunities';
 import type { OpportunityItem } from '@auto-rfp/core';
 
 // ────────────────────────────────────────────
@@ -73,6 +74,16 @@ function QuestionsSectionInner({
     refreshQuestions,
     getCounts,
   } = useQuestions();
+
+  // Fetch opportunity data directly so export always has the title,
+  // even when the selector hasn't populated selectedOpportunity yet
+  const isRealOpportunity = selectedOpportunityId && selectedOpportunityId !== OTHER_LEGACY_OPPORTUNITY_ID;
+  const { data: fetchedOpportunity } = useOpportunity(
+    isRealOpportunity ? projectId : null,
+    isRealOpportunity ? selectedOpportunityId : null,
+    isRealOpportunity ? orgId : undefined,
+  );
+  const opportunityName = selectedOpportunity?.title ?? fetchedOpportunity?.title;
 
   // ── Derived state ──────────────────────────
 
@@ -194,8 +205,8 @@ function QuestionsSectionInner({
         searchQuery={searchQuery}
         onSearchChange={setSearchQuery}
         onApproveAll={approveAllAnswers}
-        onExportCsv={() => handleExportAnswers(selectedOpportunity?.title)}
-        onExportDocx={() => handleExportDocx(selectedOpportunity?.title)}
+        onExportCsv={() => handleExportAnswers(opportunityName)}
+        onExportDocx={() => handleExportDocx(opportunityName)}
         onReload={refreshQuestions}
         approvableCount={approvableCount}
         isApproving={approvingAll}
