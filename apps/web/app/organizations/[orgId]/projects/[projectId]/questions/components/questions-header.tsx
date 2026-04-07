@@ -2,7 +2,13 @@
 
 import { Button } from '@/components/ui/button';
 import { Spinner } from '@/components/ui/spinner';
-import { Download, CheckCheck, RefreshCw } from 'lucide-react';
+import { Download, CheckCheck, RefreshCw, FileSpreadsheet, FileText } from 'lucide-react';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import PermissionWrapper from '@/components/permission-wrapper';
 import { PageHeader } from '@/components/layout/page-header';
 import { PageSearch } from '@/components/layout/page-search';
@@ -13,7 +19,8 @@ interface QuestionsHeaderProps {
   searchQuery: string;
   onSearchChange: (query: string) => void;
   onApproveAll: () => void;
-  onExport: () => void;
+  onExportCsv: () => void;
+  onExportDocx: () => void;
   approvableCount: number;
   isApproving: boolean;
   projectId: string;
@@ -25,7 +32,8 @@ export function QuestionsHeader({
   searchQuery,
   onSearchChange,
   onApproveAll,
-  onExport,
+  onExportCsv,
+  onExportDocx,
   approvableCount,
   isApproving,
   projectId,
@@ -90,10 +98,24 @@ export function QuestionsHeader({
                 )}
               </Button>
             </PermissionWrapper>
-            <Button variant="outline" size="sm" className="gap-1" onClick={onExport}>
-              <Download className="h-4 w-4" />
-              Export
-            </Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="sm" className="gap-1">
+                  <Download className="h-4 w-4" />
+                  Export
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={onExportCsv} className="gap-2">
+                  <FileSpreadsheet className="h-4 w-4" />
+                  Export as CSV
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={onExportDocx} className="gap-2">
+                  <FileText className="h-4 w-4" />
+                  Export as DOCX
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </>
         }
       />

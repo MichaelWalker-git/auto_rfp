@@ -64,6 +64,7 @@ function QuestionsSectionInner({
     approvingAll,
     approvableCount,
     handleExportAnswers,
+    handleExportDocx,
     selectedIndexes,
     availableIndexes,
     organizationConnected,
@@ -193,7 +194,8 @@ function QuestionsSectionInner({
         searchQuery={searchQuery}
         onSearchChange={setSearchQuery}
         onApproveAll={approveAllAnswers}
-        onExport={handleExportAnswers}
+        onExportCsv={handleExportAnswers}
+        onExportDocx={handleExportDocx}
         onReload={refreshQuestions}
         approvableCount={approvableCount}
         isApproving={approvingAll}
