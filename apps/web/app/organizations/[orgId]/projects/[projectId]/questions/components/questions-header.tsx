@@ -106,11 +106,11 @@ export function QuestionsHeader({
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
-                <DropdownMenuItem onClick={onExportCsv} className="gap-2">
+                <DropdownMenuItem onSelect={onExportCsv} className="gap-2">
                   <FileSpreadsheet className="h-4 w-4" />
                   Export as CSV
                 </DropdownMenuItem>
-                <DropdownMenuItem onClick={onExportDocx} className="gap-2">
+                <DropdownMenuItem onSelect={onExportDocx} className="gap-2">
                   <FileText className="h-4 w-4" />
                   Export as DOCX
                 </DropdownMenuItem>

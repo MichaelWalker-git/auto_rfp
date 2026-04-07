@@ -447,61 +447,66 @@ export function QuestionsProvider({ children, projectId, opportunityId }: Questi
   const handleExportDocx = async () => {
     if (!questions) return;
 
-    const docx = await import('docx');
-    const { saveAs } = await import('file-saver');
-    const { Document, Packer, Paragraph, TextRun, HeadingLevel, AlignmentType } = docx;
+    try {
+      const docx = await import('docx');
+      const { saveAs } = await import('file-saver');
+      const { Document, Packer, Paragraph, TextRun, HeadingLevel, AlignmentType } = docx;
 
-    const children: InstanceType<typeof Paragraph>[] = [];
+      const children: InstanceType<typeof Paragraph>[] = [];
 
-    children.push(
-      new Paragraph({
-        heading: HeadingLevel.TITLE,
-        alignment: AlignmentType.CENTER,
-        children: [new TextRun({ text: 'Question Answers', bold: true, size: 32 })],
-      }),
-      new Paragraph({ text: '' }),
-    );
-
-    questions.sections.forEach((section: any) => {
       children.push(
         new Paragraph({
-          heading: HeadingLevel.HEADING_1,
-          spacing: { before: 300, after: 100 },
-          children: [new TextRun({ text: section.title, bold: true })],
+          heading: HeadingLevel.TITLE,
+          alignment: AlignmentType.CENTER,
+          children: [new TextRun({ text: 'Question Answers', bold: true, size: 32 })],
         }),
+        new Paragraph({ text: '' }),
       );
 
-      section.questions.forEach((question: any) => {
-        const answerText = answers[question.id]?.text || '';
-
+      questions.sections.forEach((section: any) => {
         children.push(
           new Paragraph({
-            spacing: { before: 200, after: 60 },
-            children: [
-              new TextRun({ text: 'Q: ', bold: true }),
-              new TextRun({ text: question.question }),
-            ],
+            heading: HeadingLevel.HEADING_1,
+            spacing: { before: 300, after: 100 },
+            children: [new TextRun({ text: section.title, bold: true })],
           }),
         );
 
-        children.push(
-          new Paragraph({
-            spacing: { after: 120 },
-            children: [
-              new TextRun({ text: 'A: ', bold: true, color: '444444' }),
-              new TextRun({ text: answerText || '(No answer)', italics: !answerText, color: answerText ? '444444' : '999999' }),
-            ],
-          }),
-        );
+        section.questions.forEach((question: any) => {
+          const answerText = answers[question.id]?.text || '';
+
+          children.push(
+            new Paragraph({
+              spacing: { before: 200, after: 60 },
+              children: [
+                new TextRun({ text: 'Q: ', bold: true }),
+                new TextRun({ text: question.question }),
+              ],
+            }),
+          );
+
+          children.push(
+            new Paragraph({
+              spacing: { after: 120 },
+              children: [
+                new TextRun({ text: 'A: ', bold: true, color: '444444' }),
+                new TextRun({ text: answerText || '(No answer)', italics: !answerText, color: answerText ? '444444' : '999999' }),
+              ],
+            }),
+          );
+        });
       });
-    });
 
-    const doc = new Document({
-      sections: [{ children }],
-    });
+      const doc = new Document({
+        sections: [{ children }],
+      });
 
-    const buffer = await Packer.toBlob(doc);
-    saveAs(buffer, 'Question Answers.docx');
+      const buffer = await Packer.toBlob(doc);
+      saveAs(buffer, 'Question Answers.docx');
+    } catch (err) {
+      console.error('DOCX export failed:', err);
+      toast({ title: 'Export failed', description: 'Could not generate the DOCX file. Please try again.', variant: 'destructive' });
+    }
   };
 
   const getSelectedQuestionData = useCallback(() => {
