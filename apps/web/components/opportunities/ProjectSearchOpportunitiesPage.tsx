@@ -15,6 +15,8 @@ import { useSearchOpportunities } from '@/lib/hooks/use-search-opportunities';
 import { authFetcher } from '@/lib/auth/auth-fetcher';
 import { env } from '@/lib/env';
 import type { SearchOpportunityCriteria } from '@/lib/hooks/use-search-opportunities';
+import type { DuplicateInfo } from '@/lib/hooks/use-import-solicitation';
+import { DuplicateSolicitationDialog } from '@/components/samgov/duplicate-solicitation-dialog';
 
 interface Props {
   orgId: string;
@@ -26,12 +28,45 @@ export default function ProjectSearchOpportunitiesPage({ orgId, projectId }: Pro
   const { result, isLoading, isLoadingMore, hasMore, search, loadMore } = useSearchOpportunities(orgId);
   const [importingId, setImportingId] = useState<string | null>(null);
   const [hasSearched, setHasSearched] = useState(false);
+  const [duplicateInfo, setDuplicateInfo] = useState<DuplicateInfo | null>(null);
+  const [duplicateDialogOpen, setDuplicateDialogOpen] = useState(false);
+  const [pendingImportBody, setPendingImportBody] = useState<Record<string, unknown> | null>(null);
 
   const savedSearchesUrl = `/organizations/${orgId}/projects/${projectId}/search-opportunities/saved-searches`;
 
   const handleSearch = async (criteria: SearchOpportunityCriteria) => {
     setHasSearched(true);
     await search(criteria);
+  };
+
+  const doImportRequest = async (body: Record<string, unknown>) => {
+    const res = await authFetcher(
+      `${env.BASE_API_URL}/search-opportunities/import-solicitation`,
+      { method: 'POST', body: JSON.stringify(body) },
+    );
+
+    if (res.status === 409) {
+      const json = await res.json().catch(() => null) as { existing?: DuplicateInfo } | null;
+      if (json?.existing) {
+        setDuplicateInfo(json.existing);
+        setPendingImportBody(body);
+        setDuplicateDialogOpen(true);
+        return;
+      }
+    }
+
+    if (!res.ok) {
+      const text = await res.text().catch(() => 'Import failed');
+      let message = 'Import failed';
+      try { message = (JSON.parse(text) as { message?: string }).message ?? message; } catch { message = text; }
+      throw new Error(message);
+    }
+
+    const data = await res.json() as { imported?: number };
+    toast({
+      title: 'Import started',
+      description: `${data.imported ?? 0} attachment(s) queued for processing.`,
+    });
   };
 
   const handleImport = async (id: string) => {
@@ -58,16 +93,7 @@ export default function ProjectSearchOpportunitiesPage({ orgId, projectId }: Pro
             solicitationNumber: opp.solicitationNumber ?? id,
           };
 
-      const res = await authFetcher(
-        `${env.BASE_API_URL}/search-opportunities/import-solicitation`,
-        { method: 'POST', body: JSON.stringify(body) },
-      );
-      if (!res.ok) throw new Error(await res.text().catch(() => 'Import failed'));
-      const data = await res.json() as { imported?: number };
-      toast({
-        title: 'Import started',
-        description: `${data.imported ?? 0} attachment(s) queued for processing.`,
-      });
+      await doImportRequest(body);
     } catch (e: unknown) {
       toast({
         title: 'Import failed',
@@ -76,6 +102,20 @@ export default function ProjectSearchOpportunitiesPage({ orgId, projectId }: Pro
       });
     } finally {
       setImportingId(null);
+    }
+  };
+
+  const handleForceImport = async () => {
+    setDuplicateDialogOpen(false);
+    if (!pendingImportBody) return;
+    try {
+      await doImportRequest({ ...pendingImportBody, force: true });
+    } catch (e: unknown) {
+      toast({
+        title: 'Import failed',
+        description: e instanceof Error ? e.message : String(e),
+        variant: 'destructive',
+      });
     }
   };
 
@@ -191,6 +231,13 @@ export default function ProjectSearchOpportunitiesPage({ orgId, projectId }: Pro
           </p>
         </div>
       )}
+
+      <DuplicateSolicitationDialog
+        open={duplicateDialogOpen}
+        onOpenChange={setDuplicateDialogOpen}
+        duplicate={duplicateInfo}
+        onConfirm={handleForceImport}
+      />
     </div>
   );
 }

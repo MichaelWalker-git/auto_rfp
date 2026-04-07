@@ -20,8 +20,9 @@ import {
 import { SamGovFilters, type SamGovFiltersState } from './samgov-filters';
 import { SamGovOpportunityList } from './samgov-opportunity-list';
 
-import { useImportSolicitation } from '@/lib/hooks/use-import-solicitation';
+import { useImportSolicitation, type DuplicateInfo } from '@/lib/hooks/use-import-solicitation';
 import { ImportSolicitationDialog } from '@/components/samgov/import-solicitation-dialog';
+import { DuplicateSolicitationDialog } from '@/components/samgov/duplicate-solicitation-dialog';
 import { useProjectContext } from '@/context/project-context';
 import { ListingPageLayout } from '@/components/layout/ListingPageLayout';
 import { authFetcher } from '@/lib/auth/auth-fetcher';
@@ -174,31 +175,42 @@ export default function SamGovOpportunitySearchPage({ orgId }: Props) {
   const [pendingOpp, setPendingOpp] = useState<SamOpportunitySlim | null>(null);
   const { trigger: importSolicitation, isMutating: isImporting } = useImportSolicitation();
 
+  // Duplicate confirmation state
+  const [duplicateInfo, setDuplicateInfo] = useState<DuplicateInfo | null>(null);
+  const [duplicateDialogOpen, setDuplicateDialogOpen] = useState(false);
+  const [pendingImportArgs, setPendingImportArgs] = useState<{ orgId: string; projectId: string; noticeId: string } | null>(null);
+
   const onImportSolicitation = (opportunity: SamOpportunitySlim) => {
     setPendingOpp(opportunity);
     setDialogOpen(true);
   };
 
-  const doImport = async (args: { orgId: string; projectId: string; noticeId: string }) => {
-    try {
-      const res = await importSolicitation({
-        ...args,
-        postedFrom: isoToMMDDYYYY(filters.postedFrom),
-        postedTo: isoToMMDDYYYY(filters.postedTo),
-      });
+  const doImport = async (args: { orgId: string; projectId: string; noticeId: string }, force?: boolean) => {
+    const res = await importSolicitation({
+      ...args,
+      postedFrom: isoToMMDDYYYY(filters.postedFrom),
+      postedTo: isoToMMDDYYYY(filters.postedTo),
+      ...(force ? { force: true } : {}),
+    });
 
-      toast({
-        title: 'Import started',
-        description: `Imported ${res.imported} attachment(s). Pipeline execution(s) started.`,
-      });
-    } catch (e: any) {
-      toast({
-        title: 'Import failed',
-        description: e?.message ?? String(e),
-        variant: 'destructive',
-      });
-      throw e;
+    if (res.duplicate) {
+      setDuplicateInfo(res.duplicate);
+      setPendingImportArgs(args);
+      setDuplicateDialogOpen(true);
+      return;
     }
+
+    toast({
+      title: 'Import started',
+      description: `Imported ${res.imported} attachment(s). Pipeline execution(s) started.`,
+    });
+  };
+
+  const handleForceImport = async () => {
+    setDuplicateDialogOpen(false);
+    if (!pendingImportArgs) return;
+    await doImport(pendingImportArgs, true);
+    setDialogOpen(false);
   };
 
 
@@ -294,6 +306,13 @@ export default function SamGovOpportunitySearchPage({ orgId }: Props) {
         projects={projects}
         isImporting={isImporting}
         onImport={doImport}
+      />
+
+      <DuplicateSolicitationDialog
+        open={duplicateDialogOpen}
+        onOpenChange={setDuplicateDialogOpen}
+        duplicate={duplicateInfo}
+        onConfirm={handleForceImport}
       />
     </>
   );

@@ -192,6 +192,38 @@ export const updateOpportunity = async (args: {
 };
 
 /**
+ * FIND by source identifier (noticeId or solicitationNumber) across all projects in an org.
+ * Used for duplicate detection during import.
+ */
+export const findOpportunityBySourceId = async (args: {
+  orgId: string;
+  noticeId?: string | null;
+  solicitationNumber?: string | null;
+}): Promise<OpportunityDBItem | undefined> => {
+  if (!args.noticeId && !args.solicitationNumber) return undefined;
+
+  const res = await docClient.send(
+    new QueryCommand({
+      TableName: DOCUMENTS_TABLE,
+      KeyConditionExpression: `#pk = :pk AND begins_with(#sk, :skPrefix)`,
+      ExpressionAttributeNames: {
+        '#pk': PK_NAME,
+        '#sk': SK_NAME,
+        ...(args.noticeId ? { '#noticeId': 'noticeId' } : { '#solNum': 'solicitationNumber' }),
+      },
+      ExpressionAttributeValues: {
+        ':pk': OPPORTUNITY_PK,
+        ':skPrefix': `${args.orgId}#`,
+        ...(args.noticeId ? { ':nid': args.noticeId } : { ':sn': args.solicitationNumber }),
+      },
+      FilterExpression: args.noticeId ? '#noticeId = :nid' : '#solNum = :sn',
+    }),
+  );
+
+  return (res.Items?.[0] as OpportunityDBItem) ?? undefined;
+};
+
+/**
  * DELETE
  */
 export const deleteOpportunity = async (args: { orgId: string; projectId: string; oppId: string }) => {
