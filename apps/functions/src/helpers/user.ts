@@ -1,4 +1,4 @@
-import { DeleteCommand, DynamoDBDocumentClient, PutCommand, QueryCommand, ScanCommand } from '@aws-sdk/lib-dynamodb';
+import { DeleteCommand, DynamoDBDocumentClient, GetCommand, PutCommand, QueryCommand } from '@aws-sdk/lib-dynamodb';
 import { CognitoIdentityProviderClient } from '@aws-sdk/client-cognito-identity-provider';
 
 import { PK_NAME, SK_NAME } from '../constants/common';
@@ -315,15 +315,52 @@ export const listOrgAdmins = async (
   return admins;
 };
 
+const EMAIL_LOOKUP_PK = 'EMAIL_LOOKUP';
+const GSI_BY_USER_ID = 'byUserId';
+
+/**
+ * Upsert an EMAIL_LOOKUP item that maps emailLower → current userId.
+ * Used by syncUserIdAcrossOrgs to avoid full-table scans.
+ */
+const upsertEmailLookup = async (emailLower: string, userId: string): Promise<void> => {
+  await docClient.send(
+    new PutCommand({
+      TableName: DB_TABLE_NAME,
+      Item: {
+        [PK_NAME]: EMAIL_LOOKUP_PK,
+        [SK_NAME]: emailLower,
+        userId,
+        updatedAt: new Date().toISOString(),
+      },
+    }),
+  );
+};
+
+/**
+ * Get the previously stored userId for an email.
+ * Returns null if no lookup item exists (first-time user).
+ */
+const getEmailLookup = async (emailLower: string): Promise<string | null> => {
+  const res = await docClient.send(
+    new GetCommand({
+      TableName: DB_TABLE_NAME,
+      Key: { [PK_NAME]: EMAIL_LOOKUP_PK, [SK_NAME]: emailLower },
+      ProjectionExpression: 'userId',
+    }),
+  );
+  return (res.Item?.userId as string) ?? null;
+};
+
 /**
  * Sync userId across all orgs for a given email.
  *
- * When a Cognito user is recreated (new sub) or an existing user is found,
- * any DynamoDB USER records in other orgs with a stale userId need to be
- * updated to match the current Cognito sub. Otherwise, the byUserId GSI
- * won't find them and get-my-organizations will miss those orgs.
+ * Uses an EMAIL_LOOKUP item to track the last-known userId for each email.
+ * When the Cognito sub changes (user deleted + recreated), this detects the
+ * mismatch and queries the byUserId GSI for the OLD userId to find stale
+ * records — no full-table scan needed.
  *
- * This is a delete + put (not update) because the sort_key contains the userId.
+ * Cost: 1 GetItem (lookup) + 1 PutItem (upsert lookup). Only when a mismatch
+ * is detected: 1 GSI Query (old userId) + N delete/put pairs for stale records.
  */
 export const syncUserIdAcrossOrgs = async (
   email: string,
@@ -331,21 +368,31 @@ export const syncUserIdAcrossOrgs = async (
 ): Promise<{ updated: number; orgs: string[] }> => {
   const emailLower = safeLowerCase(safeTrim(email));
 
-  // Find all USER records with this email that have a DIFFERENT userId
+  // 1. Check the lookup item for the previously known userId
+  const previousUserId = await getEmailLookup(emailLower);
+
+  // 2. Always upsert the lookup to keep it current
+  await upsertEmailLookup(emailLower, correctUserId);
+
+  // 3. If no previous record or same userId, nothing to sync
+  if (!previousUserId || previousUserId === correctUserId) {
+    return { updated: 0, orgs: [] };
+  }
+
+  // 4. userId changed — query the GSI for USER records with the OLD userId
+  console.log(`[syncUserIdAcrossOrgs] userId changed for ${emailLower}: ${previousUserId} → ${correctUserId}`);
+
   const staleRecords: Record<string, unknown>[] = [];
   let ExclusiveStartKey: Record<string, unknown> | undefined;
 
   do {
     const res = await docClient.send(
-      new ScanCommand({
+      new QueryCommand({
         TableName: DB_TABLE_NAME,
-        FilterExpression: '#pk = :pk AND emailLower = :email AND userId <> :correctId',
-        ExpressionAttributeNames: { '#pk': PK_NAME },
-        ExpressionAttributeValues: {
-          ':pk': USER_PK,
-          ':email': emailLower,
-          ':correctId': correctUserId,
-        },
+        IndexName: GSI_BY_USER_ID,
+        KeyConditionExpression: '#userId = :userId AND #pk = :pk',
+        ExpressionAttributeNames: { '#userId': 'userId', '#pk': PK_NAME },
+        ExpressionAttributeValues: { ':userId': previousUserId, ':pk': USER_PK },
         ExclusiveStartKey,
       }),
     );
@@ -357,6 +404,7 @@ export const syncUserIdAcrossOrgs = async (
     return { updated: 0, orgs: [] };
   }
 
+  // 5. Re-create each stale record with the correct userId + sort_key
   const updatedOrgs: string[] = [];
 
   for (const record of staleRecords) {
@@ -365,7 +413,7 @@ export const syncUserIdAcrossOrgs = async (
     const newSk = userSk(orgId, correctUserId);
 
     try {
-      // Delete the old record (with stale userId in sort_key)
+      // Delete the old record (stale userId in sort_key)
       await docClient.send(
         new DeleteCommand({
           TableName: DB_TABLE_NAME,
@@ -373,7 +421,7 @@ export const syncUserIdAcrossOrgs = async (
         }),
       );
 
-      // Create the new record with the correct userId and sort_key
+      // Create new record with correct userId + sort_key
       const { [PK_NAME]: _pk, [SK_NAME]: _sk, ...rest } = record;
       await docClient.send(
         new PutCommand({
@@ -389,7 +437,7 @@ export const syncUserIdAcrossOrgs = async (
       );
 
       updatedOrgs.push(orgId);
-      console.log(`[syncUserIdAcrossOrgs] Updated ${emailLower} in org ${orgId}: ${record['userId']} → ${correctUserId}`);
+      console.log(`[syncUserIdAcrossOrgs] Updated ${emailLower} in org ${orgId}: ${previousUserId} → ${correctUserId}`);
     } catch (err) {
       console.error(`[syncUserIdAcrossOrgs] Failed to update ${emailLower} in org ${orgId}:`, err);
     }
