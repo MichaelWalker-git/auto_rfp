@@ -1,7 +1,7 @@
-import { DeleteCommand, GetCommand, PutCommand, QueryCommand } from '@aws-sdk/lib-dynamodb';
+import { DeleteCommand, GetCommand, QueryCommand } from '@aws-sdk/lib-dynamodb';
 import { PK_NAME, SK_NAME } from '../constants/common';
 import { USER_PROJECT_PK, buildUserProjectSK, UserProjectAccess } from '@auto-rfp/core';
-import { createItem, docClient } from './db';
+import { docClient, putItem } from './db';
 import { requireEnv } from './env';
 import { nowIso } from './date';
 
@@ -57,17 +57,14 @@ export const assignProjectAccess = async (
   const sk = buildUserProjectSK(userId, projectId);
   const now = nowIso();
 
-  const item: UserProjectAccess & Record<string, unknown> = {
-    [PK_NAME]: USER_PROJECT_PK,
-    [SK_NAME]: sk,
+  // Use putItem (upsert) so re-assignments are idempotent — no ConditionalCheckFailed
+  return putItem<UserProjectAccess>(USER_PROJECT_PK, sk, {
     userId,
     projectId,
     orgId,
     assignedAt: now,
     assignedBy,
-  };
-
-  return createItem<UserProjectAccess>(USER_PROJECT_PK, sk, item)
+  });
 };
 
 /**

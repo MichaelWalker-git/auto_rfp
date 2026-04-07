@@ -56,13 +56,6 @@ export const baseHandler = async (event: AuthedEvent): Promise<APIGatewayProxyRe
       },
     );
 
-    // Sync userId across all orgs in case Cognito user was recreated with a new sub
-    try {
-      await syncUserIdAcrossOrgs(dto.email, item.userId);
-    } catch (syncErr) {
-      console.error('syncUserIdAcrossOrgs failed (non-blocking):', syncErr);
-    }
-
     setAuditContext(event, {
       action: 'USER_CREATED',
       resource: 'user',
