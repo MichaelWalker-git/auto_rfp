@@ -1,4 +1,4 @@
-import { DynamoDBDocumentClient, PutCommand, QueryCommand } from '@aws-sdk/lib-dynamodb';
+import { DynamoDBDocumentClient, GetCommand, PutCommand, QueryCommand, TransactWriteCommand } from '@aws-sdk/lib-dynamodb';
 import { CognitoIdentityProviderClient } from '@aws-sdk/client-cognito-identity-provider';
 
 import { PK_NAME, SK_NAME } from '../constants/common';
@@ -313,4 +313,160 @@ export const listOrgAdmins = async (
   } while (ExclusiveStartKey);
 
   return admins;
+};
+
+const EMAIL_LOOKUP_PK = 'EMAIL_LOOKUP';
+const GSI_BY_USER_ID = 'byUserId';
+
+/**
+ * Upsert an EMAIL_LOOKUP item that maps emailLower → current userId.
+ * Used by syncUserIdAcrossOrgs to avoid full-table scans.
+ */
+const upsertEmailLookup = async (emailLower: string, userId: string): Promise<void> => {
+  await docClient.send(
+    new PutCommand({
+      TableName: DB_TABLE_NAME,
+      Item: {
+        [PK_NAME]: EMAIL_LOOKUP_PK,
+        [SK_NAME]: emailLower,
+        userId,
+        updatedAt: new Date().toISOString(),
+      },
+    }),
+  );
+};
+
+/**
+ * Get the previously stored userId for an email.
+ * Returns null if no lookup item exists (first-time user).
+ */
+const getEmailLookup = async (emailLower: string): Promise<string | null> => {
+  const res = await docClient.send(
+    new GetCommand({
+      TableName: DB_TABLE_NAME,
+      Key: { [PK_NAME]: EMAIL_LOOKUP_PK, [SK_NAME]: emailLower },
+      ProjectionExpression: 'userId',
+    }),
+  );
+  return (res.Item?.userId as string) ?? null;
+};
+
+/**
+ * Sync userId across all orgs for a given email.
+ *
+ * Uses an EMAIL_LOOKUP item to track the last-known userId for each email.
+ * When the Cognito sub changes (user deleted + recreated), this detects the
+ * mismatch and queries the byUserId GSI for the OLD userId to find stale
+ * records — no full-table scan needed.
+ *
+ * Each stale record migration uses TransactWriteItems (atomic delete + put)
+ * so a record is never lost if one operation fails.
+ *
+ * Cost on happy path (no mismatch): 1 GetItem. Only when mismatch detected:
+ * 1 PutItem (lookup) + 1 GSI Query (old userId) + N TransactWrite pairs.
+ */
+export const syncUserIdAcrossOrgs = async (
+  email: string,
+  correctUserId: string,
+): Promise<{ updated: number; orgs: string[] }> => {
+  const emailLower = safeLowerCase(safeTrim(email));
+
+  // 1. Check the lookup item for the previously known userId
+  const previousUserId = await getEmailLookup(emailLower);
+
+  // 2. If no previous record or same userId, nothing to sync
+  if (!previousUserId || previousUserId === correctUserId) {
+    // Only write the lookup if it's missing (avoid unnecessary PutItem on happy path)
+    if (!previousUserId) {
+      await upsertEmailLookup(emailLower, correctUserId);
+    }
+    return { updated: 0, orgs: [] };
+  }
+
+  // 3. userId changed — update the lookup first
+  await upsertEmailLookup(emailLower, correctUserId);
+
+  console.log(`[syncUserIdAcrossOrgs] userId changed for ${emailLower}: ${previousUserId} → ${correctUserId}`);
+
+  // 4. Query the GSI for USER records with the OLD userId
+  const staleRecords: Record<string, unknown>[] = [];
+  let ExclusiveStartKey: Record<string, unknown> | undefined;
+
+  do {
+    const res = await docClient.send(
+      new QueryCommand({
+        TableName: DB_TABLE_NAME,
+        IndexName: GSI_BY_USER_ID,
+        KeyConditionExpression: '#userId = :userId AND #pk = :pk',
+        ExpressionAttributeNames: { '#userId': 'userId', '#pk': PK_NAME },
+        ExpressionAttributeValues: { ':userId': previousUserId, ':pk': USER_PK },
+        ExclusiveStartKey,
+      }),
+    );
+    staleRecords.push(...(res.Items ?? []));
+    ExclusiveStartKey = res.LastEvaluatedKey;
+  } while (ExclusiveStartKey);
+
+  if (staleRecords.length === 0) {
+    return { updated: 0, orgs: [] };
+  }
+
+  // 5. Atomically migrate each stale record (delete old + put new in a transaction)
+  const updatedOrgs: string[] = [];
+
+  for (const record of staleRecords) {
+    const orgId = record['orgId'] as string;
+    const oldSk = record[SK_NAME] as string;
+    const newSk = userSk(orgId, correctUserId);
+
+    // Skip if a record with the new SK already exists (don't overwrite a correct record)
+    if (oldSk === newSk) continue;
+
+    const { [PK_NAME]: _pk, [SK_NAME]: _sk, ...rest } = record;
+
+    try {
+      await docClient.send(
+        new TransactWriteCommand({
+          TransactItems: [
+            {
+              Delete: {
+                TableName: DB_TABLE_NAME,
+                Key: { [PK_NAME]: USER_PK, [SK_NAME]: oldSk },
+                ConditionExpression: 'attribute_exists(#pk)',
+                ExpressionAttributeNames: { '#pk': PK_NAME },
+              },
+            },
+            {
+              Put: {
+                TableName: DB_TABLE_NAME,
+                Item: {
+                  ...rest,
+                  [PK_NAME]: USER_PK,
+                  [SK_NAME]: newSk,
+                  userId: correctUserId,
+                  updatedAt: new Date().toISOString(),
+                },
+                // Don't overwrite if a correct record already exists at this SK
+                ConditionExpression: 'attribute_not_exists(#pk)',
+                ExpressionAttributeNames: { '#pk': PK_NAME },
+              },
+            },
+          ],
+        }),
+      );
+
+      updatedOrgs.push(orgId);
+      console.log(`[syncUserIdAcrossOrgs] Migrated ${emailLower} in org ${orgId}: ${previousUserId} → ${correctUserId}`);
+    } catch (err: unknown) {
+      const errName = (err as { name?: string })?.name;
+      if (errName === 'TransactionCanceledException') {
+        // Either old record already gone or new record already exists — both are fine
+        console.log(`[syncUserIdAcrossOrgs] Skipped ${emailLower} in org ${orgId} (already migrated or conflict)`);
+      } else {
+        console.error(`[syncUserIdAcrossOrgs] Failed to migrate ${emailLower} in org ${orgId}:`, err);
+      }
+    }
+  }
+
+  return { updated: updatedOrgs.length, orgs: updatedOrgs };
 };

@@ -1,6 +1,6 @@
 import { apiResponse, getOrgId, getUserId } from '@/helpers/api';
 import { GrantAdminAccessRequestSchema } from '@auto-rfp/core';
-import { grantProjectAccessToAllAdmins, getUserProjectAccessRecord } from '@/helpers/user-project';
+import { grantProjectAccessToAllAdmins } from '@/helpers/user-project';
 import { getProjectById } from '@/helpers/project';
 import { listOrgAdmins } from '@/helpers/user';
 import { withSentryLambda } from '@/sentry-lambda';
@@ -37,11 +37,12 @@ export const baseHandler = async (event: AuthedEvent) => {
       return apiResponse(404, { message: 'Project not found' });
     }
 
-    // Check if admin user can manage project access
+    // Check if admin user can manage project access:
+    // 1. Is project creator, OR
+    // 2. Is org ADMIN role (admins can manage any project in their org)
     const isProjectCreator = project.createdBy === adminUserId;
-    const adminAccess = await getUserProjectAccessRecord(adminUserId, projectId);
     const isOrgAdmin = event.rbac?.role === 'ADMIN';
-    const canManage = isProjectCreator || (adminAccess.hasAccess && isOrgAdmin);
+    const canManage = isProjectCreator || isOrgAdmin;
 
     if (!canManage) {
       return apiResponse(403, { message: 'You do not have permission to manage access to this project' });

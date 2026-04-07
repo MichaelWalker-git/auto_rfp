@@ -1,6 +1,6 @@
 import { apiResponse, getOrgId, getUserId } from '@/helpers/api';
 import { AssignProjectRequestSchema } from '@auto-rfp/core';
-import { assignProjectAccess, getUserProjectAccessRecord } from '@/helpers/user-project';
+import { assignProjectAccess } from '@/helpers/user-project';
 import { getProjectById } from '@/helpers/project';
 import { withSentryLambda } from '@/sentry-lambda';
 import {
@@ -38,11 +38,10 @@ export const baseHandler = async (event: AuthedEvent) => {
 
     // Check if admin user can manage project access:
     // 1. Is project creator, OR
-    // 2. Has explicit access + is org ADMIN role
+    // 2. Is org ADMIN role (admins can manage any project in their org)
     const isProjectCreator = project.createdBy === adminUserId;
-    const adminAccess = await getUserProjectAccessRecord(adminUserId, projectId);
     const isOrgAdmin = event.rbac?.role === 'ADMIN';
-    const canManage = isProjectCreator || (adminAccess.hasAccess && isOrgAdmin);
+    const canManage = isProjectCreator || isOrgAdmin;
 
     if (!canManage) {
       return apiResponse(403, { message: 'You do not have permission to manage access to this project' });
