@@ -194,8 +194,8 @@ function QuestionsSectionInner({
         searchQuery={searchQuery}
         onSearchChange={setSearchQuery}
         onApproveAll={approveAllAnswers}
-        onExportCsv={handleExportAnswers}
-        onExportDocx={handleExportDocx}
+        onExportCsv={() => handleExportAnswers(selectedOpportunity?.title)}
+        onExportDocx={() => handleExportDocx(selectedOpportunity?.title)}
         onReload={refreshQuestions}
         approvableCount={approvableCount}
         isApproving={approvingAll}

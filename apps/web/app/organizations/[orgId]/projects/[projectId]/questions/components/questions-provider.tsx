@@ -90,8 +90,8 @@ interface QuestionsContextType {
   approveAllAnswers: () => Promise<void>;
   approvingAll: boolean;
   approvableCount: number;
-  handleExportAnswers: () => void;
-  handleExportDocx: () => void;
+  handleExportAnswers: (opportunityName?: string) => void;
+  handleExportDocx: (opportunityName?: string) => void;
   handleSourceClick: (source: AnswerSource) => void;
   handleIndexToggle: (indexId: string) => void;
   handleSelectAllIndexes: () => void;
@@ -414,10 +414,11 @@ export function QuestionsProvider({ children, projectId, opportunityId }: Questi
     }
   };
 
-  const handleExportAnswers = () => {
+  const handleExportAnswers = (opportunityName?: string) => {
     if (!questions) return;
 
-    const rows: any[] = [['Section', 'Question', 'Answer']];
+    const title = opportunityName || 'Questions';
+    const rows: string[][] = [['Section', 'Question', 'Answer']];
 
     questions.sections.forEach((section: any) => {
       section.questions.forEach((question: any) => {
@@ -428,7 +429,7 @@ export function QuestionsProvider({ children, projectId, opportunityId }: Questi
     const csvContent = rows
       .map((row) =>
         row
-          .map((cell: any) => (typeof cell === 'string' ? `"${cell.replace(/"/g, '""')}"` : cell))
+          .map((cell) => `"${cell.replace(/"/g, '""')}"`)
           .join(','),
       )
       .join('\n');
@@ -437,15 +438,17 @@ export function QuestionsProvider({ children, projectId, opportunityId }: Questi
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.setAttribute('href', url);
-    link.setAttribute('download', `Question Answers.csv`);
+    link.setAttribute('download', `${title}_questions.csv`);
     link.style.visibility = 'hidden';
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
   };
 
-  const handleExportDocx = async () => {
+  const handleExportDocx = async (opportunityName?: string) => {
     if (!questions) return;
+
+    const title = opportunityName || 'Questions';
 
     try {
       const docx = await import('docx');
@@ -454,20 +457,22 @@ export function QuestionsProvider({ children, projectId, opportunityId }: Questi
 
       const children: InstanceType<typeof Paragraph>[] = [];
 
+      // Title — opportunity name
       children.push(
         new Paragraph({
           heading: HeadingLevel.TITLE,
           alignment: AlignmentType.CENTER,
-          children: [new TextRun({ text: 'Question Answers', bold: true, size: 32 })],
+          spacing: { after: 400 },
+          children: [new TextRun({ text: title, bold: true, size: 32 })],
         }),
-        new Paragraph({ text: '' }),
       );
 
       questions.sections.forEach((section: any) => {
+        // Section heading
         children.push(
           new Paragraph({
             heading: HeadingLevel.HEADING_1,
-            spacing: { before: 300, after: 100 },
+            spacing: { before: 400, after: 200 },
             children: [new TextRun({ text: section.title, bold: true })],
           }),
         );
@@ -475,22 +480,20 @@ export function QuestionsProvider({ children, projectId, opportunityId }: Questi
         section.questions.forEach((question: any) => {
           const answerText = answers[question.id]?.text || '';
 
+          // Question
           children.push(
             new Paragraph({
-              spacing: { before: 200, after: 60 },
-              children: [
-                new TextRun({ text: 'Q: ', bold: true }),
-                new TextRun({ text: question.question }),
-              ],
+              spacing: { before: 240, after: 120 },
+              children: [new TextRun({ text: question.question, bold: true })],
             }),
           );
 
+          // Answer (with blank line spacing after)
           children.push(
             new Paragraph({
-              spacing: { after: 120 },
+              spacing: { after: 240 },
               children: [
-                new TextRun({ text: 'A: ', bold: true, color: '444444' }),
-                new TextRun({ text: answerText || '(No answer)', italics: !answerText, color: answerText ? '444444' : '999999' }),
+                new TextRun({ text: answerText || '(No answer)', italics: !answerText, color: answerText ? '333333' : '999999' }),
               ],
             }),
           );
@@ -502,7 +505,7 @@ export function QuestionsProvider({ children, projectId, opportunityId }: Questi
       });
 
       const buffer = await Packer.toBlob(doc);
-      saveAs(buffer, 'Question Answers.docx');
+      saveAs(buffer, `${title}_questions.docx`);
     } catch (err) {
       console.error('DOCX export failed:', err);
       toast({ title: 'Export failed', description: 'Could not generate the DOCX file. Please try again.', variant: 'destructive' });
