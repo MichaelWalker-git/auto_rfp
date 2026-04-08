@@ -149,6 +149,7 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     'question:create',
     'answer:create',
     'document:create',
+    'proposal:create',
   ]
 };
 
