@@ -112,8 +112,10 @@ export const checkSubmissionReadiness = async (args: {
   oppId: string;
   deadlineIso?: string | null;
   currentStage?: string | null;
+  ignoredCheckIds?: string[];
 }): Promise<SubmissionReadinessResponse> => {
-  const { orgId, projectId, oppId, deadlineIso, currentStage } = args;
+  const { orgId, projectId, oppId, deadlineIso, currentStage, ignoredCheckIds } = args;
+  const ignoredSet = new Set(ignoredCheckIds ?? []);
   const checks: ReadinessCheckItem[] = [];
 
   // ── BLOCKING 1: Opportunity must be in PURSUING stage ──
@@ -293,8 +295,8 @@ export const checkSubmissionReadiness = async (args: {
     blocking: false,
   });
 
-  const blockingFails = checks.filter((c) => c.blocking && !c.passed).length;
-  const warningFails = checks.filter((c) => !c.blocking && !c.passed).length;
+  const blockingFails = checks.filter((c) => c.blocking && !c.passed && !ignoredSet.has(c.id)).length;
+  const warningFails = checks.filter((c) => !c.blocking && !c.passed && !ignoredSet.has(c.id)).length;
 
   return { ready: blockingFails === 0, checks, blockingFails, warningFails };
 };
