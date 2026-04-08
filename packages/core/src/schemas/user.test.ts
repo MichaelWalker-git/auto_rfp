@@ -234,8 +234,17 @@ describe('ROLE_PERMISSIONS', () => {
     expect(ROLE_PERMISSIONS.EDITOR).toContain('question:edit');
   });
 
-  it('should give MEMBER no permissions', () => {
-    expect(ROLE_PERMISSIONS.MEMBER).toHaveLength(0);
+  it('should give MEMBER basic read + create permissions', () => {
+    expect(ROLE_PERMISSIONS.MEMBER.length).toBeGreaterThan(0);
+    // MEMBER gets all VIEWER permissions plus selected create permissions
+    expect(ROLE_PERMISSIONS.MEMBER).toContain('question:read');
+    expect(ROLE_PERMISSIONS.MEMBER).toContain('project:read');
+    expect(ROLE_PERMISSIONS.MEMBER).toContain('project:create');
+    expect(ROLE_PERMISSIONS.MEMBER).toContain('proposal:create');
+    // MEMBER should not have edit or delete permissions
+    expect(ROLE_PERMISSIONS.MEMBER).not.toContain('project:edit');
+    expect(ROLE_PERMISSIONS.MEMBER).not.toContain('project:delete');
+    expect(ROLE_PERMISSIONS.MEMBER).not.toContain('user:edit');
   });
 
   it('should give BILLING limited read permissions', () => {

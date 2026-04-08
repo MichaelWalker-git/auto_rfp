@@ -44,6 +44,8 @@ const GENERATABLE_TYPES_CONFIG: { key: string; label: string }[] = [
   { key: 'MANAGEMENT_PROPOSAL',           label: RFP_DOCUMENT_TYPES.MANAGEMENT_PROPOSAL },
   { key: 'PRICE_VOLUME',                  label: RFP_DOCUMENT_TYPES.PRICE_VOLUME },
   { key: 'QUALITY_MANAGEMENT',            label: RFP_DOCUMENT_TYPES.QUALITY_MANAGEMENT },
+  { key: 'CLARIFYING_QUESTIONS',          label: RFP_DOCUMENT_TYPES.CLARIFYING_QUESTIONS },
+  { key: 'QUESTIONS_AND_ANSWERS',         label: RFP_DOCUMENT_TYPES.QUESTIONS_AND_ANSWERS },
 ];
 
 interface GenerateDocumentDialogProps {

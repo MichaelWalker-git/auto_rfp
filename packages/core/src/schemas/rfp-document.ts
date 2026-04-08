@@ -83,6 +83,7 @@ export const RFP_DOCUMENT_TYPES = {
   AMENDMENT: 'Amendment',
   CORRESPONDENCE: 'Correspondence',
   CLARIFYING_QUESTIONS: 'Clarifying Questions',
+  QUESTIONS_AND_ANSWERS: 'Questions & Answers',
   OTHER: 'Other',
 } as const;
 
@@ -113,6 +114,7 @@ export const RFP_DOCUMENT_TYPE_DESCRIPTIONS: Record<keyof typeof RFP_DOCUMENT_TY
   AMENDMENT: 'Contract or solicitation amendment.',
   CORRESPONDENCE: 'General correspondence related to the opportunity.',
   CLARIFYING_QUESTIONS: 'Questions to submit during the Q&A period. Generated from AI-identified ambiguities in the solicitation, filtered by status, and formatted for submission to the contracting officer.',
+  QUESTIONS_AND_ANSWERS: 'Extracted questions from solicitation documents with AI-generated answers. Organized by section with question-answer pairs formatted for review and export.',
   OTHER: 'Miscellaneous document not covered by other categories.',
 };
 
@@ -142,6 +144,7 @@ const RFP_DOCUMENT_TYPE_ENUM = [
   'AMENDMENT',
   'CORRESPONDENCE',
   'CLARIFYING_QUESTIONS',
+  'QUESTIONS_AND_ANSWERS',
   'OTHER',
 ] as const;
 

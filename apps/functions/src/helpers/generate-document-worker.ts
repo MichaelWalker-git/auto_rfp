@@ -590,6 +590,13 @@ export const processJobInner = async (job: Job): Promise<void> => {
     return;
   }
 
+  // ─── QUESTIONS_AND_ANSWERS: No AI — format existing Q&A data ───
+  if (documentType === 'QUESTIONS_AND_ANSWERS') {
+    const { generateQaDocument } = await import('@/helpers/qa-questions-document');
+    await generateQaDocument({ orgId, projectId, opportunityId, documentId, templateId });
+    return;
+  }
+
   // ─── Step 1: Load Q&A pairs ───
   const qaPairs = await loadQaPairs(projectId, opportunityId);
 
