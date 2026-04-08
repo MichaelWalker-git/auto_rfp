@@ -20,6 +20,7 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useComplianceReport } from '../hooks/useComplianceReport';
+import { useIgnoredChecks } from '../hooks/useIgnoredChecks';
 import PermissionWrapper from '@/components/permission-wrapper';
 import type { ComplianceCategorySummary, ComplianceCheckCategory, ReadinessCheckItem } from '@auto-rfp/core';
 
@@ -28,38 +29,6 @@ interface ComplianceReportProps {
   projectId: string;
   oppId: string;
 }
-
-// ─── Ignored Checks (localStorage per opportunity) ───────────────────────────
-
-const IGNORED_KEY_PREFIX = 'autorfp:ignoredChecks:';
-
-const useIgnoredChecks = (oppId: string) => {
-  const storageKey = `${IGNORED_KEY_PREFIX}${oppId}`;
-
-  const [ignoredIds, setIgnoredIds] = useState<Set<string>>(() => {
-    try {
-      const raw = localStorage.getItem(storageKey);
-      return raw ? new Set(JSON.parse(raw) as string[]) : new Set();
-    } catch {
-      return new Set();
-    }
-  });
-
-  const toggleIgnore = useCallback((checkId: string) => {
-    setIgnoredIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(checkId)) {
-        next.delete(checkId);
-      } else {
-        next.add(checkId);
-      }
-      try { localStorage.setItem(storageKey, JSON.stringify([...next])); } catch { /* ignore */ }
-      return next;
-    });
-  }, [storageKey]);
-
-  return { ignoredIds, toggleIgnore };
-};
 
 // ─── Category Icons ───────────────────────────────────────────────────────────
 
@@ -176,8 +145,13 @@ const CategorySection = ({
 }) => {
   const [isExpanded, setIsExpanded] = useState(!category.allPassed);
   const icon = CATEGORY_ICONS[category.category];
+
+  // Recompute counters excluding ignored checks
+  const effectiveFailed = category.checks.filter((c) => !c.passed && !ignoredIds.has(c.id)).length;
+  const effectivePassed = category.totalChecks - effectiveFailed;
+  const effectiveAllPassed = effectiveFailed === 0;
   const progressPercent = category.totalChecks > 0
-    ? Math.round((category.passed / category.totalChecks) * 100)
+    ? Math.round((effectivePassed / category.totalChecks) * 100)
     : 100;
 
   return (
@@ -190,7 +164,7 @@ const CategorySection = ({
         <span className="text-muted-foreground shrink-0">
           {isExpanded ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
         </span>
-        <span className={cn('shrink-0', category.allPassed ? 'text-emerald-500' : 'text-muted-foreground')}>
+        <span className={cn('shrink-0', effectiveAllPassed ? 'text-emerald-500' : 'text-muted-foreground')}>
           {icon}
         </span>
         <span className="text-sm font-medium flex-1 text-left">{category.label}</span>
@@ -199,13 +173,13 @@ const CategorySection = ({
           className="h-1.5 w-16 shrink-0"
         />
         <span className="text-xs text-muted-foreground tabular-nums shrink-0">
-          {category.passed}/{category.totalChecks}
+          {effectivePassed}/{category.totalChecks}
         </span>
-        {category.allPassed ? (
+        {effectiveAllPassed ? (
           <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500 shrink-0" />
         ) : (
           <Badge variant="outline" className="text-[10px] border-amber-300 text-amber-700 px-1.5 py-0 shrink-0">
-            {category.failed}
+            {effectiveFailed}
           </Badge>
         )}
       </button>

@@ -30,6 +30,7 @@ import { Send, Loader2, AlertTriangle } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
 import { useSubmitProposal } from '../hooks/useSubmitProposal';
 import { useSubmissionReadiness } from '../hooks/useSubmissionReadiness';
+import { useIgnoredChecks } from '../hooks/useIgnoredChecks';
 
 interface SubmitProposalButtonProps {
   orgId: string;
@@ -51,8 +52,14 @@ const SUBMISSION_METHODS = [
 export const SubmitProposalButton = ({ orgId, projectId, oppId, onSuccess }: SubmitProposalButtonProps) => {
   const [showDialog, setShowDialog] = useState(false);
   const { submit, isLoading } = useSubmitProposal();
-  const { isReady, blockingFails, warningFails, isLoading: isCheckingReadiness } = useSubmissionReadiness(orgId, projectId, oppId);
+  const { checks, blockingFails: rawBlockingFails, warningFails: rawWarningFails, isLoading: isCheckingReadiness } = useSubmissionReadiness(orgId, projectId, oppId);
+  const { ignoredIds } = useIgnoredChecks(oppId);
   const { toast } = useToast();
+
+  // Recompute blocking/warning excluding ignored checks
+  const blockingFails = checks.filter((c) => !c.passed && c.blocking && !ignoredIds.has(c.id)).length;
+  const warningFails = checks.filter((c) => !c.passed && !c.blocking && !ignoredIds.has(c.id)).length;
+  const isReady = blockingFails === 0;
 
   const { register, handleSubmit, setValue, reset, formState: { errors } } = useForm<FormValues>({
     resolver: zodResolver(SubmitProposalSchema),
