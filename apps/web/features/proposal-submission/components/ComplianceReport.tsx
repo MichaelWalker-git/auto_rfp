@@ -16,7 +16,6 @@ import {
   Sparkles,
   ChevronDown,
   ChevronRight,
-  RefreshCw,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useComplianceReport } from '../hooks/useComplianceReport';
@@ -130,7 +129,6 @@ const CategorySection = ({ category }: { category: ComplianceCategorySummary }) 
 // ─── Main Component ───────────────────────────────────────────────────────────
 
 export const ComplianceReport = ({ orgId, projectId, oppId }: ComplianceReportProps) => {
-  const [isRefreshing, setIsRefreshing] = useState(false);
   const {
     report,
     isReady,
@@ -140,17 +138,7 @@ export const ComplianceReport = ({ orgId, projectId, oppId }: ComplianceReportPr
     totalChecks,
     passRate,
     isLoading,
-    refresh,
   } = useComplianceReport(orgId, projectId, oppId);
-
-  const handleReload = async () => {
-    setIsRefreshing(true);
-    try {
-      await refresh();
-    } finally {
-      setIsRefreshing(false);
-    }
-  };
 
   if (isLoading) {
     return (
@@ -180,15 +168,6 @@ export const ComplianceReport = ({ orgId, projectId, oppId }: ComplianceReportPr
           </span>
         </CardTitle>
         <div className="flex items-center gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => void handleReload()}
-            disabled={isRefreshing}
-          >
-            <RefreshCw className={cn('h-4 w-4 mr-2', isRefreshing && 'animate-spin')} />
-            Reload
-          </Button>
           <Badge variant={isReady ? 'default' : blockingFails > 0 ? 'destructive' : 'outline'}>
             {isReady
               ? 'Ready'
