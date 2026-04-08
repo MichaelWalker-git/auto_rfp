@@ -446,6 +446,34 @@ export function useExportAllRFPDocuments(orgId?: string) {
   );
 }
 
+// ─── Export Merged ───
+
+export type ExportMergedRequest = {
+  projectId: string;
+  opportunityId: string;
+  documentIds: string[];
+  format: 'docx' | 'pdf';
+  options?: {
+    pageSize?: 'letter' | 'a4';
+    pageBreakBetween?: boolean;
+  };
+};
+
+export type ExportMergedResponse = {
+  success: boolean;
+  fileName: string;
+  url: string;
+  documentCount: number;
+  format: string;
+};
+
+export function useExportMergedRFPDocuments(orgId?: string) {
+  return useSWRMutation<ExportMergedResponse, Error, string, ExportMergedRequest>(
+    `${BASE}/export-merged${orgId ? `?orgId=${orgId}` : ''}`,
+    (url, { arg }) => postJson<ExportMergedResponse>(url, arg),
+  );
+}
+
 // ─── HTML Content ───
 
 const HtmlContentResponseSchema = z.object({

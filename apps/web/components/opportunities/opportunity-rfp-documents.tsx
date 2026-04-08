@@ -500,7 +500,7 @@ export function OpportunityRFPDocuments() {
         projectId={projectId}
         orgId={orgId}
         opportunityId={oppId}
-        documentCount={documents.filter((d) => d.status !== 'GENERATING' && (d.htmlContentKey || d.content)).length}
+        documents={documents}
       />
       <ConfirmDialog />
     </>
