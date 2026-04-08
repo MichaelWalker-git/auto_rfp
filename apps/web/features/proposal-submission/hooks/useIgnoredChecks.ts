@@ -31,10 +31,11 @@ export const useIgnoredChecks = (oppId: string) => {
         buildApiUrl('opportunity/update-opportunity', { orgId }),
         'PUT',
         {
-          orgId,
           projectId,
           oppId,
-          ignoredComplianceCheckIds: updatedIds,
+          patch: {
+            ignoredComplianceCheckIds: updatedIds,
+          },
         },
       );
       refetch();
