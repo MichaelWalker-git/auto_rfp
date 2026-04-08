@@ -92,20 +92,18 @@ const SectionNavigation = () => {
   };
 
   return (
-    <div className="flex flex-wrap items-center gap-3 py-2">
-      <span className="flex items-center gap-1 font-semibold">
-        Jump to:
-      </span>
+    <div className="flex flex-wrap items-center gap-2 py-2">
+      <span className="text-xs font-medium text-muted-foreground mr-1">Jump to:</span>
       {SECTION_NAV_ITEMS.map((item) => (
         <Button
           key={item.id}
           variant="outline"
           size="sm"
-          className="h-7 gap-2 px-2.5"
+          className="h-7 gap-1.5 px-2 text-xs"
           onClick={() => handleScrollTo(item.id)}
         >
           {item.icon}
-          {item.label}
+          <span className="hidden sm:inline">{item.label}</span>
         </Button>
       ))}
     </div>
@@ -227,7 +225,7 @@ const OpportunityContent = ({ className }: { className?: string }) => {
   return (
     <div className={cn('space-y-6', className)}>
       {/* Back Navigation + Assignee Selector */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-2">
         <Button variant="ghost" size="sm" asChild className="gap-2 -ml-2">
           <Link href={backUrl}>
             <ArrowLeft className="h-4 w-4" />
