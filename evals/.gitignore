@@ -1,0 +1,4 @@
+.env
+retrieve.mjs
+results/
+node_modules/
