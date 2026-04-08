@@ -157,33 +157,55 @@ const generateAnswerWithTools = async (
   systemPrompt: string,
   projectId?: string,
   opportunityId?: string,
-): Promise<{ answer: string; found: boolean; toolsUsed: string[]; llmConfidence: number; similarityScores: number[] }> => {
+): Promise<{ answer: string; found: boolean; toolsUsed: string[]; llmConfidence: number; similarityScores: number[]; sources: AnswerSource[]; sourceCreatedDates: string[] }> => {
   const MAX_TOOL_ROUNDS = 3;
   const toolsUsed: string[] = [];
   const allSimilarityScores: number[] = [];
+  const allSources: AnswerSource[] = [];
+  const allSourceCreatedDates: string[] = [];
 
-  const userPrompt = `You are writing a winning RFP response on behalf of our company. The evaluator will score this answer to decide whether to award us the contract. Quality and specificity are critical.
+  const userPrompt = `QUESTION FROM THE RFP: ${question}
 
-QUESTION FROM THE RFP: ${question}
-
-RESEARCH STRATEGY — use tools to gather the strongest possible evidence:
+RESEARCH STRATEGY — use tools to gather evidence:
 1. search_knowledge_base — find our company capabilities, processes, and technical expertise relevant to this question
 2. search_past_performance — find specific contract examples, metrics, and results that demonstrate our track record (critical for scoring)
 3. get_organization_context — get our certifications, clearances, team size, and company details to cite in the answer
 4. get_content_library — find pre-approved language for compliance, certifications, or standard responses
 5. get_solicitation_text — check the RFP for specific requirements, evaluation criteria, or context that this question references
 
-WRITING INSTRUCTIONS:
-- Write as "we" / "our team" — this is our company's official response to the evaluator
-- Lead with our strongest capability or most relevant experience
-- Include specific evidence: project names, contract values, team sizes, SLA metrics, years of experience
-- Address every part of the question — missing sub-questions loses evaluation points
-- Be confident and direct — avoid hedging language like "we believe" or "we think"
-- Keep the answer 150-400 words depending on complexity
+DECISION PROCESS — follow these steps in order:
 
-Return ONLY valid JSON: {"answer": "<complete submission-ready answer>", "confidence": <0.0-1.0>, "found": <true|false>}
-- found: true if you found relevant company-specific information to support the answer
-- found: false if you had to rely on general best practices (still provide a professional answer)`;
+Step 1: Use the tools above to gather company-specific information relevant to this question.
+
+Step 2: Check if the tool results contain ANY company-specific information relevant to this question.
+- "No knowledge base content found" = NO information
+- "No past performance projects found" = NO information
+- Excerpts about unrelated topics = NO relevant information
+- If NO relevant company-specific information exists, STOP and return: {"answer": "", "confidence": 0.0, "found": false}
+
+Step 3: If relevant information exists, identify every specific fact you can cite:
+- Extract exact project names, contract details, metrics, certifications, and team details FROM the tool results
+- Do NOT add any facts from your own knowledge — only what is written in the tool results
+- Do NOT calculate, multiply, add, or derive any new numbers. Only cite numbers exactly as they appear in the tool results.
+
+Step 4: Write the answer using ONLY the facts identified in Step 3.
+- Write as "we" / "our team" — this is our company's official response to the evaluator
+- Every sentence must be supportable by a specific excerpt from the tool results
+- Lead with our strongest capability or most relevant experience
+- Address every part of the question — missing sub-questions loses evaluation points
+- If the tool results only partially answer the question, only answer the parts you have evidence for — do not fill gaps with generic content
+- Be confident and direct — avoid hedging language like "we believe" or "we think"
+- Keep the answer under 250 words. Brevity with evidence beats length without it.
+
+BANNED PHRASES — do NOT use any of these (they signal generic filler, not evidence):
+"best practices", "industry standard", "industry-standard", "industry best", "cutting-edge", "state-of-the-art", "world-class", "best-in-class", "typically", "generally", "we believe", "we think"
+Instead of "industry standard", say what the specific standard IS (e.g., "NIST 800-88" or "NAID AAA").
+
+REMINDER: If the tool results have low similarity scores (below 0.5) or the excerpts are about a different topic than the question, treat that as NO relevant information and return the empty answer JSON.
+
+Return ONLY valid JSON: {"answer": "<answer text>", "confidence": <0.0-1.0>, "found": <true|false>}
+- found: true if you found relevant company-specific information in the tool results
+- found: false if tools returned no company-specific information. MUST return: {"answer": "", "confidence": 0.0, "found": false}`;
 
   const messages: Array<{ role: string; content: unknown }> = [
     { role: 'user', content: [{ type: 'text', text: userPrompt }] },
@@ -251,9 +273,18 @@ Return ONLY valid JSON: {"answer": "<complete submission-ready answer>", "confid
         ),
       );
 
-      // Accumulate real similarity scores from vector search tools
+      // Accumulate real similarity scores, sources, and dates from vector search tools
       toolResults.forEach(r => {
         if (r.similarityScores?.length) allSimilarityScores.push(...r.similarityScores);
+        if (r.sources?.length) allSources.push(...r.sources.map(s => ({
+          id: s.id,
+          documentId: s.documentId,
+          chunkKey: s.chunkKey,
+          fileName: s.fileName,
+          relevance: s.relevance ?? null,
+          textContent: s.textContent ?? null,
+        })));
+        if (r.sourceCreatedDates?.length) allSourceCreatedDates.push(...r.sourceCreatedDates);
       });
 
       const toolResultContent: Array<unknown> = toolResults.map(r => ({
@@ -312,7 +343,7 @@ Return ONLY valid JSON: {"answer": "<complete submission-ready answer>", "confid
   }
 
   if (!rawText.trim()) {
-    return { answer: '', found: false, toolsUsed, llmConfidence: 0, similarityScores: allSimilarityScores };
+    return { answer: '', found: false, toolsUsed, llmConfidence: 0, similarityScores: allSimilarityScores, sources: allSources, sourceCreatedDates: allSourceCreatedDates };
   }
 
   try {
@@ -334,11 +365,26 @@ Return ONLY valid JSON: {"answer": "<complete submission-ready answer>", "confid
       toolsUsed,
       llmConfidence,
       similarityScores: allSimilarityScores,
+      sources: allSources,
+      sourceCreatedDates: allSourceCreatedDates,
     };
   } catch {
-    // Model returned plain text instead of JSON — use it as the answer
+    // safeParseJsonFromModel failed — try basic JSON.parse as fallback
+    // to extract the answer field instead of saving raw JSON as the answer text
+    console.warn('[answer] safeParseJsonFromModel failed, attempting basic JSON.parse fallback');
+    try {
+      const fallbackParsed = JSON.parse(rawText) as Record<string, unknown>;
+      if (typeof fallbackParsed.answer === 'string') {
+        const fbFound = fallbackParsed.found === true;
+        const fbConf = typeof fallbackParsed.confidence === 'number' ? fallbackParsed.confidence : (fbFound ? 0.7 : 0.3);
+        return { answer: fallbackParsed.answer, found: fbFound, toolsUsed, llmConfidence: fbConf, similarityScores: allSimilarityScores, sources: allSources, sourceCreatedDates: allSourceCreatedDates };
+      }
+    } catch {
+      // not valid JSON at all
+    }
+    // Truly plain text — use it as the answer
     console.warn('[answer] Model returned plain text instead of JSON — using fallback confidence 0.7');
-    return { answer: rawText, found: true, toolsUsed, llmConfidence: 0.7, similarityScores: allSimilarityScores };
+    return { answer: rawText, found: true, toolsUsed, llmConfidence: 0.7, similarityScores: allSimilarityScores, sources: allSources, sourceCreatedDates: allSourceCreatedDates };
   }
 };
 
@@ -386,12 +432,20 @@ export const generateAnswerForQuestion = async (
   if (clMatch) {
     console.log(`[answer] ✅ Content library match found (score: ${clMatch.score.toFixed(3)})`);
 
+    // Build source attribution for the content library match
+    const clSources: AnswerSource[] = [{
+      id: clMatch.item.id,
+      fileName: 'Content Library',
+      relevance: clMatch.score,
+      textContent: `Q: ${clMatch.item.question}\nA: ${clMatch.item.answer}`,
+    }];
+
     const confidence = calculateConfidenceScore({
       llmConfidence: clMatch.score,
       found: true,
       questionText: question,
       answerText: clMatch.item.answer,
-      sources: [],
+      sources: clSources,
       fromContentLibrary: true,
       similarityScores: [clMatch.score],
       sourceCreatedDates: clMatch.item.updatedAt ? [clMatch.item.updatedAt] : undefined,
@@ -406,7 +460,7 @@ export const generateAnswerForQuestion = async (
       confidence: confidence.overall / 100,
       confidenceBreakdown: confidence.breakdown,
       confidenceBand: confidence.band,
-      sources: [],
+      sources: clSources,
     });
 
     // Track content library usage (non-blocking)
@@ -419,7 +473,7 @@ export const generateAnswerForQuestion = async (
       confidenceBreakdown: confidence.breakdown,
       confidenceBand: confidence.band,
       found: true,
-      sources: [],
+      sources: clSources,
       fromContentLibrary: true,
     };
   }
@@ -430,7 +484,7 @@ export const generateAnswerForQuestion = async (
   const systemPrompt = await getAnswerSystemPrompt(orgId);
 
   // Wrap tool-based generation in Sentry span (includes all LLM rounds and tool calls)
-  const { answer, found, toolsUsed, llmConfidence, similarityScores } = await Sentry.startSpan(
+  const { answer, found, toolsUsed, llmConfidence, similarityScores, sources, sourceCreatedDates } = await Sentry.startSpan(
     { name: 'tool-based-generation', op: 'ai.pipeline' },
     () => generateAnswerWithTools(
       question,
@@ -442,16 +496,43 @@ export const generateAnswerForQuestion = async (
     ),
   );
 
-  console.log(`[answer] Tool-based generation complete. found=${found}, llmConfidence=${llmConfidence}, similarityScores=${similarityScores.length}, tools=[${toolsUsed.join(', ')}]`);
+  console.log(`[answer] Tool-based generation complete. found=${found}, llmConfidence=${llmConfidence}, similarityScores=${similarityScores.length}, sources=${sources.length}, tools=[${toolsUsed.join(', ')}]`);
+
+  // When found=false and answer is empty, skip the scorer and save with 0 confidence
+  if (!found && !answer.trim()) {
+    await saveAnswer({
+      questionId,
+      projectId,
+      opportunityId,
+      questionFileId,
+      text: '',
+      confidence: 0,
+      confidenceBreakdown: { contextRelevance: 0, sourceRecency: 0, answerCoverage: 0, sourceAuthority: 0, consistency: 0 },
+      confidenceBand: 'low',
+      sources: [],
+    });
+
+    return {
+      questionId,
+      answer: '',
+      confidence: 0,
+      confidenceBreakdown: { contextRelevance: 0, sourceRecency: 0, answerCoverage: 0, sourceAuthority: 0, consistency: 0 },
+      confidenceBand: 'low',
+      found: false,
+      sources: [],
+      fromContentLibrary: false,
+    };
+  }
 
   const confidence = calculateConfidenceScore({
     llmConfidence,
     found,
     questionText: question,
     answerText: answer,
-    sources: [],
+    sources,
     fromContentLibrary: false,
     similarityScores,
+    sourceCreatedDates,
   });
 
   await saveAnswer({
@@ -463,7 +544,7 @@ export const generateAnswerForQuestion = async (
     confidence: confidence.overall / 100,
     confidenceBreakdown: confidence.breakdown,
     confidenceBand: confidence.band,
-    sources: [],
+    sources,
   });
 
   return {
@@ -473,7 +554,7 @@ export const generateAnswerForQuestion = async (
     confidenceBreakdown: confidence.breakdown,
     confidenceBand: confidence.band,
     found,
-    sources: [],
+    sources,
     fromContentLibrary: false,
   };
 };

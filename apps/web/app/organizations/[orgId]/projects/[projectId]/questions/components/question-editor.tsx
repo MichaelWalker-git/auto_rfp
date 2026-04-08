@@ -257,11 +257,20 @@ export function QuestionEditor({
                   {answer.sources!.map((source) => (
                     <span
                       key={source.id}
-                      className="inline-block px-2 py-1 bg-slate-100 border border-slate-200 rounded text-xs text-slate-600 hover:bg-slate-200 transition-colors cursor-pointer"
-                      title={source.fileName}
+                      className="inline-flex items-center gap-1.5 px-2 py-1 bg-slate-100 border border-slate-200 rounded text-xs text-slate-600 hover:bg-slate-200 transition-colors cursor-pointer"
+                      title={source.fileName ?? source.id}
                       onClick={() => onSourceClick(source)}
                     >
-                      {source.fileName}
+                      {source.fileName || source.id}
+                      {source.relevance !== null && source.relevance !== undefined && (
+                        <span className={`inline-flex items-center rounded px-1 py-0.5 text-[10px] font-medium ${
+                          source.relevance >= 0.7 ? 'bg-emerald-50 text-emerald-700'
+                          : source.relevance >= 0.5 ? 'bg-amber-50 text-amber-700'
+                          : 'bg-red-50 text-red-700'
+                        }`}>
+                          {Math.round(source.relevance * 100)}%
+                        </span>
+                      )}
                     </span>
                   ))}
                 </div>

@@ -3,7 +3,10 @@
 import { useState } from "react"
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog"
 import { ScrollArea } from "@/components/ui/scroll-area"
+import { Button } from "@/components/ui/button"
+import { ExternalLink } from "lucide-react"
 import { AnswerSource } from "@auto-rfp/core"
+import { useDownloadDocument } from "@/lib/hooks/use-document"
 
 interface SourceDetailsDialogProps {
   isOpen: boolean;
@@ -13,6 +16,21 @@ interface SourceDetailsDialogProps {
 
 export function SourceDetailsDialog({ isOpen, onClose, source }: SourceDetailsDialogProps) {
   const [isTextTabActive, setIsTextTabActive] = useState(true);
+  const { trigger: downloadDocument, isMutating: isDownloading } = useDownloadDocument();
+
+  const canViewDocument = source?.documentId && source?.kbId;
+
+  const handleViewDocument = async () => {
+    if (!source?.documentId || !source?.kbId) return;
+    try {
+      const result = await downloadDocument({ documentId: source.documentId, kbId: source.kbId });
+      if (result?.url) {
+        window.open(result.url, '_blank');
+      }
+    } catch (err) {
+      console.error('Failed to get document URL:', err);
+    }
+  };
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
@@ -21,7 +39,7 @@ export function SourceDetailsDialog({ isOpen, onClose, source }: SourceDetailsDi
           <DialogTitle className="text-xl font-semibold">Source Information</DialogTitle>
         </div>
         <div className="text-sm text-gray-500 mb-4">Details about this source document</div>
-        
+
         {source && (
           <div>
             {/* Tab Navigation */}
@@ -39,7 +57,7 @@ export function SourceDetailsDialog({ isOpen, onClose, source }: SourceDetailsDi
                 Metadata
               </button>
             </div>
-            
+
             {/* Text Content Tab */}
             {isTextTabActive ? (
               <div>
@@ -49,7 +67,7 @@ export function SourceDetailsDialog({ isOpen, onClose, source }: SourceDetailsDi
                     {source.fileName} {source.pageNumber ? `- Page ${source.pageNumber}` : ''}
                   </div>
                 </div>
-                
+
                 {source.textContent ? (
                   <ScrollArea className="h-72 w-full border rounded-md">
                     <div className="whitespace-pre-wrap font-mono text-sm p-4">
@@ -69,31 +87,44 @@ export function SourceDetailsDialog({ isOpen, onClose, source }: SourceDetailsDi
                   <span className="text-sm font-medium text-gray-500">File Name</span>
                   <span className="font-medium">{source.fileName}</span>
                 </div>
-                
+
                 {source.pageNumber && (
                   <div className="flex flex-col space-y-1">
                     <span className="text-sm font-medium text-gray-500">Page Number</span>
                     <span>{source.pageNumber}</span>
                   </div>
                 )}
-                
+
                 {source.relevance !== null && source.relevance !== undefined && (
                   <div className="flex flex-col space-y-1">
                     <span className="text-sm font-medium text-gray-500">Relevance</span>
                     <div className="w-full bg-gray-200 rounded-full h-2.5">
-                      <div 
-                        className="bg-blue-600 h-2.5 rounded-full" 
-                        style={{ width: `${source.relevance}%` }}
+                      <div
+                        className="bg-blue-600 h-2.5 rounded-full"
+                        style={{ width: `${Math.round(source.relevance * 100)}%` }}
                       ></div>
                     </div>
-                    <span className="text-xs text-gray-500">{source.relevance}% match</span>
+                    <span className="text-xs text-gray-500">{Math.round(source.relevance * 100)}% match</span>
                   </div>
                 )}
-                
+
                 <div className="border-t pt-4">
-                  <p className="text-sm text-gray-500 mb-2">
-                    This source was used to generate the answer. You can view the full document in your project files.
-                  </p>
+                  {canViewDocument ? (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="gap-2"
+                      onClick={handleViewDocument}
+                      disabled={isDownloading}
+                    >
+                      <ExternalLink className="h-4 w-4" />
+                      {isDownloading ? 'Opening...' : 'View Source Document'}
+                    </Button>
+                  ) : (
+                    <p className="text-sm text-gray-500">
+                      This source was used to generate the answer.
+                    </p>
+                  )}
                 </div>
               </div>
             )}

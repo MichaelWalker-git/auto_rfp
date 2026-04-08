@@ -7,7 +7,7 @@ import { KNOWLEDGE_BASE_PK } from '@/constants/organization';
 import { apiResponse, getOrgId } from '@/helpers/api';
 import { deleteItem, docClient } from '@/helpers/db';
 import { deleteAllLinksForKB } from '@/helpers/project-kb';
-import { deleteAllDocumentsInKB } from '@/helpers/kb';
+import { deleteAllDocumentsInKB, deleteAllContentLibraryInKB } from '@/helpers/kb';
 import { requireEnv } from '@/helpers/env';
 import { withSentryLambda } from '@/sentry-lambda';
 import {
@@ -41,7 +41,7 @@ export const baseHandler = async (
     // Cascade 1: Delete all documents in this KB
     let deletedDocuments = 0;
     try {
-      deletedDocuments = await deleteAllDocumentsInKB(kbId);
+      deletedDocuments = await deleteAllDocumentsInKB(orgId, kbId);
       if (deletedDocuments > 0) {
         console.log(`Cascade deleted ${deletedDocuments} documents for kbId=${kbId}`);
       }
@@ -50,7 +50,18 @@ export const baseHandler = async (
       console.warn('Failed to cascade delete documents:', (cascadeErr as Error)?.message);
     }
 
-    // Cascade 2: Clean up any PROJECT_KB links referencing this KB
+    // Cascade 2: Delete all content library items in this KB (+ Pinecone vectors)
+    let deletedContentLibrary = 0;
+    try {
+      deletedContentLibrary = await deleteAllContentLibraryInKB(orgId, kbId);
+      if (deletedContentLibrary > 0) {
+        console.log(`Cascade deleted ${deletedContentLibrary} content library items for kbId=${kbId}`);
+      }
+    } catch (cascadeErr) {
+      console.warn('Failed to cascade delete content library items:', (cascadeErr as Error)?.message);
+    }
+
+    // Cascade 3: Clean up any PROJECT_KB links referencing this KB
     let deletedLinks = 0;
     try {
       deletedLinks = await deleteAllLinksForKB(kbId);
@@ -75,6 +86,7 @@ export const baseHandler = async (
       kbId,
       cascadeDeleted: {
         documents: deletedDocuments,
+        contentLibraryItems: deletedContentLibrary,
         projectLinks: deletedLinks,
       },
     });

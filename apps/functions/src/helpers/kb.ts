@@ -1,14 +1,18 @@
 import { QueryCommand } from '@aws-sdk/lib-dynamodb';
+import { DeleteObjectCommand, S3Client } from '@aws-sdk/client-s3';
 import { v4 as uuidv4 } from 'uuid';
 
 import { PK_NAME, SK_NAME } from '../constants/common';
 import { KNOWLEDGE_BASE_PK } from '../constants/organization';
 import { DOCUMENT_PK } from '../constants/document';
-import { CreateKnowledgeBase, KnowledgeBase, KnowledgeBaseItem, CONTENT_LIBRARY_PK } from '@auto-rfp/core';
+import { CreateKnowledgeBase, KnowledgeBase, KnowledgeBaseItem, CONTENT_LIBRARY_PK, DocumentItem, parseContentLibrarySK } from '@auto-rfp/core';
 import { requireEnv } from './env';
 import { batchDeleteItems, createItem, DBItem, docClient } from './db';
 import { safeSplitAt } from './safe-string';
 import { getAccessibleKBIds } from './user-kb';
+import { deleteFromPinecone, deleteVectorById } from './pinecone';
+
+const s3Client = new S3Client({});
 
 const DB_TABLE_NAME = requireEnv('DB_TABLE_NAME');
 
@@ -131,15 +135,16 @@ async function getDocumentCountForKB(knowledgeBaseId: string): Promise<number> {
 // ─── Delete Helpers ───
 
 /**
- * Delete all documents in a knowledge base
- * Returns the number of documents deleted
+ * Delete all documents in a knowledge base, including Pinecone vectors and S3 files.
+ * Returns the number of documents deleted.
  */
-export async function deleteAllDocumentsInKB(kbId: string): Promise<number> {
+export async function deleteAllDocumentsInKB(orgId: string, kbId: string): Promise<number> {
   const skPrefix = `KB#${kbId}#DOC#`;
-  
-  // Query all documents in this KB
-  const documents: DBItem[] = [];
-  let ExclusiveStartKey: Record<string, any> | undefined;
+  const bucketName = requireEnv('DOCUMENTS_BUCKET');
+
+  // Query all documents in this KB (fetch full items for S3 key cleanup)
+  const documents: (DocumentItem & DBItem)[] = [];
+  let ExclusiveStartKey: Record<string, unknown> | undefined;
 
   do {
     const res = await docClient.send(
@@ -154,13 +159,12 @@ export async function deleteAllDocumentsInKB(kbId: string): Promise<number> {
           ':pk': DOCUMENT_PK,
           ':skPrefix': skPrefix,
         },
-        ProjectionExpression: '#pk, #sk',
         ExclusiveStartKey,
       }),
     );
 
     if (res.Items?.length) {
-      documents.push(...(res.Items as DBItem[]));
+      documents.push(...(res.Items as (DocumentItem & DBItem)[]));
     }
 
     ExclusiveStartKey = res.LastEvaluatedKey;
@@ -170,15 +174,113 @@ export async function deleteAllDocumentsInKB(kbId: string): Promise<number> {
     return 0;
   }
 
-  // Delete documents using the batch delete helper
+  // Clean up Pinecone vectors and S3 files for each document
+  await Promise.all(
+    documents.map(async (doc) => {
+      const sk = doc[SK_NAME] as string;
+
+      // Delete vectors from Pinecone
+      try {
+        await deleteFromPinecone(orgId, sk);
+      } catch (err) {
+        console.warn(`Failed to delete Pinecone vectors for SK=${sk}:`, (err as Error)?.message);
+      }
+
+      // Delete S3 files
+      const s3Deletes: Promise<unknown>[] = [];
+      if (doc.fileKey) {
+        s3Deletes.push(
+          s3Client.send(new DeleteObjectCommand({ Bucket: bucketName, Key: doc.fileKey })),
+        );
+      }
+      if (doc.textFileKey) {
+        s3Deletes.push(
+          s3Client.send(new DeleteObjectCommand({ Bucket: bucketName, Key: doc.textFileKey })),
+        );
+      }
+      if (s3Deletes.length > 0) {
+        await Promise.all(s3Deletes).catch((err) => {
+          console.warn(`Failed to delete S3 files for SK=${sk}:`, (err as Error)?.message);
+        });
+      }
+    }),
+  );
+
+  // Delete DynamoDB records
   const keysToDelete = documents.map(doc => ({
     pk: doc[PK_NAME],
     sk: doc[SK_NAME],
   }));
 
   const { deleted } = await batchDeleteItems(keysToDelete);
-  
-  console.log(`Deleted ${deleted} documents from KB ${kbId}`);
+
+  console.log(`Deleted ${deleted} documents (+ Pinecone vectors + S3 files) from KB ${kbId}`);
+  return deleted;
+}
+
+/**
+ * Delete all content library items in a knowledge base, including Pinecone vectors.
+ * Uses the legacy SK format: {orgId}#{kbId}#{itemId}
+ * Returns the number of items deleted.
+ */
+export async function deleteAllContentLibraryInKB(orgId: string, kbId: string): Promise<number> {
+  const skPrefix = `${orgId}#${kbId}#`;
+
+  const items: DBItem[] = [];
+  let ExclusiveStartKey: Record<string, unknown> | undefined;
+
+  do {
+    const res = await docClient.send(
+      new QueryCommand({
+        TableName: DB_TABLE_NAME,
+        KeyConditionExpression: '#pk = :pk AND begins_with(#sk, :skPrefix)',
+        ExpressionAttributeNames: {
+          '#pk': PK_NAME,
+          '#sk': SK_NAME,
+        },
+        ExpressionAttributeValues: {
+          ':pk': CONTENT_LIBRARY_PK,
+          ':skPrefix': skPrefix,
+        },
+        ExclusiveStartKey,
+      }),
+    );
+
+    if (res.Items?.length) {
+      items.push(...(res.Items as DBItem[]));
+    }
+
+    ExclusiveStartKey = res.LastEvaluatedKey;
+  } while (ExclusiveStartKey);
+
+  if (items.length === 0) {
+    return 0;
+  }
+
+  // Delete Pinecone vectors for each content library item
+  await Promise.all(
+    items.map(async (item) => {
+      const sk = item[SK_NAME] as string;
+      const parsed = parseContentLibrarySK(sk);
+      if (parsed) {
+        try {
+          await deleteVectorById(orgId, parsed.itemId);
+        } catch (err) {
+          console.warn(`Failed to delete Pinecone vector for content library item SK=${sk}:`, (err as Error)?.message);
+        }
+      }
+    }),
+  );
+
+  // Delete DynamoDB records
+  const keysToDelete = items.map(item => ({
+    pk: item[PK_NAME],
+    sk: item[SK_NAME],
+  }));
+
+  const { deleted } = await batchDeleteItems(keysToDelete);
+
+  console.log(`Deleted ${deleted} content library items (+ Pinecone vectors) from KB ${kbId}`);
   return deleted;
 }
 

@@ -105,7 +105,7 @@ function calculateSourceRecency(input: ConfidenceScoreInput): number {
  * Uses heuristics: question complexity vs answer length, multi-part detection.
  */
 function calculateAnswerCoverage(input: ConfidenceScoreInput): number {
-  const { questionText, answerText, found } = input;
+  const { questionText, answerText } = input;
 
   // Defensive: coerce answerText to string if it's not already
   const answerStr = typeof answerText === 'string' ? answerText : String(answerText ?? '');
@@ -130,9 +130,6 @@ function calculateAnswerCoverage(input: ConfidenceScoreInput): number {
     else if (answerLength >= expectedMinLength * 0.5) score += 15;
     else score -= 10;
   }
-
-  // If the LLM said it found the answer in context, boost coverage
-  if (found) score += 15;
 
   // Check if answer contains hedging language (indicates incomplete coverage)
   const hedgingPatterns = [

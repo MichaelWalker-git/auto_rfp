@@ -44,6 +44,7 @@ export const AnswerSourceSchema = z.object({
   fileName: z.string().optional(),
   pageNumber: z.union([z.string(), z.number()]).optional(),
   documentId: z.string().optional(),
+  kbId: z.string().optional(),
   chunkKey: z.string().optional(),
   relevance: z.number().min(0).max(1).nullable().optional(),
   textContent: z.string().nullable().optional(),
