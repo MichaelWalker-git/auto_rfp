@@ -43,6 +43,9 @@ import { ExportAllDialog } from '@/components/rfp-documents/export-all-dialog';
 import { GoogleDriveSyncButton } from '@/components/rfp-documents/google-drive-sync-button';
 import { GenerateDocumentDialog } from '@/components/rfp-documents/generate-document-dialog';
 import { getDocumentTypeStyle } from '@/components/rfp-documents/rfp-document-utils';
+import { RequiredDocumentsPanel } from '@/components/brief/components/RequiredDocumentsPanel';
+import { useGetExecutiveBriefByProject } from '@/lib/hooks/use-executive-brief';
+import type { RequiredOutputDocument } from '@auto-rfp/core';
 import { useOpportunityContext } from './opportunity-context';
 import { formatDateTime } from './opportunity-helpers';
 import Link from 'next/link';
@@ -92,6 +95,21 @@ export function OpportunityRFPDocuments() {
   const { currentOrganization } = useCurrentOrganization();
   const navOrgId = currentOrganization?.id ?? orgId;
   const { documents, isLoading, mutate } = useRFPDocuments(projectId, orgId, oppId);
+  const { trigger: fetchBrief, data: briefData } = useGetExecutiveBriefByProject(orgId);
+
+  // Fetch brief on mount to get required documents
+  React.useEffect(() => {
+    if (projectId && oppId) {
+      fetchBrief({ projectId, opportunityId: oppId }).catch(() => { /* brief may not exist yet */ });
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [projectId, oppId]);
+
+  const briefSections = (briefData?.brief as Record<string, unknown> | undefined)?.sections as Record<string, unknown> | undefined;
+  const requirementsSection = briefSections?.requirements as Record<string, unknown> | undefined;
+  const requirementsData = requirementsSection?.data as Record<string, unknown> | undefined;
+  const submissionCompliance = requirementsData?.submissionCompliance as Record<string, unknown> | undefined;
+  const requiredDocuments = (submissionCompliance?.requiredDocuments ?? []) as RequiredOutputDocument[];
   const { trigger: deleteDocument } = useDeleteRFPDocument(orgId);
   const { trigger: getPreviewUrl } = useDocumentPreviewUrl(orgId);
   const { trigger: getDownloadUrl } = useDocumentDownloadUrl(orgId);
@@ -360,7 +378,7 @@ export function OpportunityRFPDocuments() {
                           {doc.name}
                         </p>
                         <Badge variant="outline" className={cn('text-xs border', typeChip.cls)}>
-                          {RFP_DOCUMENT_TYPES[doc.documentType] ?? doc.documentType}
+                          {RFP_DOCUMENT_TYPES[doc.documentType as keyof typeof RFP_DOCUMENT_TYPES] ?? doc.documentType}
                         </Badge>
                         <DocumentApprovalStatus 
                           doc={doc} 
@@ -444,6 +462,16 @@ export function OpportunityRFPDocuments() {
           )}
         </CardContent>
       </Card>
+
+      {/* Required Documents from Executive Brief */}
+      {requiredDocuments.length > 0 && (
+        <RequiredDocumentsPanel
+          projectId={projectId}
+          opportunityId={oppId}
+          requiredDocuments={requiredDocuments}
+          onGenerated={() => mutate()}
+        />
+      )}
 
       {/* Dialogs */}
       <RFPDocumentUploadDialog
