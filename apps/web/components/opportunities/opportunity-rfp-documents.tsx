@@ -43,8 +43,8 @@ import { ExportAllDialog } from '@/components/rfp-documents/export-all-dialog';
 import { GoogleDriveSyncButton } from '@/components/rfp-documents/google-drive-sync-button';
 import { GenerateDocumentDialog } from '@/components/rfp-documents/generate-document-dialog';
 import { getDocumentTypeStyle } from '@/components/rfp-documents/rfp-document-utils';
-import { RequiredDocumentsPanel } from '@/components/brief/components/RequiredDocumentsPanel';
 import { useGetExecutiveBriefByProject } from '@/lib/hooks/use-executive-brief';
+import { useGenerateRFPDocument } from '@/lib/hooks/use-rfp-documents';
 import type { RequiredOutputDocument } from '@auto-rfp/core';
 import { useOpportunityContext } from './opportunity-context';
 import { formatDateTime } from './opportunity-helpers';
@@ -114,7 +114,9 @@ export function OpportunityRFPDocuments() {
   const { trigger: getPreviewUrl } = useDocumentPreviewUrl(orgId);
   const { trigger: getDownloadUrl } = useDocumentDownloadUrl(orgId);
   const { trigger: convertToContent } = useConvertToContent(orgId);
+  const { trigger: generateDocument } = useGenerateRFPDocument(orgId);
   const { toast } = useToast();
+  const [isGeneratingRequired, setIsGeneratingRequired] = useState(false);
 
   const [selectedType, setSelectedType] = useState<string>('ALL');
   const [uploadDialogOpen, setUploadDialogOpen] = useState(false);
@@ -138,6 +140,31 @@ export function OpportunityRFPDocuments() {
       ),
     [documents],
   );
+
+  // Required docs from brief that haven't been generated yet
+  const existingDocTypes = useMemo(() => new Set(documents.map((d) => d.documentType)), [documents]);
+  const pendingRequiredDocs = useMemo(
+    () => requiredDocuments.filter((d) => !existingDocTypes.has(d.documentType)),
+    [requiredDocuments, existingDocTypes],
+  );
+
+  const handleGenerateRequired = useCallback(async () => {
+    if (isGeneratingRequired || pendingRequiredDocs.length === 0) return;
+    setIsGeneratingRequired(true);
+    try {
+      await Promise.all(
+        pendingRequiredDocs.map((doc) =>
+          generateDocument({ projectId, opportunityId: oppId, documentType: doc.documentType }),
+        ),
+      );
+      await mutate();
+      toast({ title: 'Generation started', description: `${pendingRequiredDocs.length} required documents queued.` });
+    } catch (err) {
+      toast({ title: 'Generation failed', description: err instanceof Error ? err.message : 'Failed', variant: 'destructive' });
+    } finally {
+      setIsGeneratingRequired(false);
+    }
+  }, [isGeneratingRequired, pendingRequiredDocs, generateDocument, projectId, oppId, mutate, toast]);
 
   const handlePreview = useCallback(async (doc: RFPDocumentItem) => {
     try {
@@ -293,6 +320,21 @@ export function OpportunityRFPDocuments() {
               <RefreshCw className={cn('h-4 w-4 mr-2', isLoading && 'animate-spin')} />
               Reload
             </Button>
+            {pendingRequiredDocs.length > 0 && (
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={handleGenerateRequired}
+                disabled={isGeneratingRequired}
+              >
+                {isGeneratingRequired ? (
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                ) : (
+                  <FileText className="h-4 w-4 mr-2" />
+                )}
+                {isGeneratingRequired ? 'Generating…' : `Generate Required (${pendingRequiredDocs.length})`}
+              </Button>
+            )}
             <GenerateDocumentDialog
               projectId={projectId}
               opportunityId={oppId}
@@ -462,16 +504,6 @@ export function OpportunityRFPDocuments() {
           )}
         </CardContent>
       </Card>
-
-      {/* Required Documents from Executive Brief */}
-      {requiredDocuments.length > 0 && (
-        <RequiredDocumentsPanel
-          projectId={projectId}
-          opportunityId={oppId}
-          requiredDocuments={requiredDocuments}
-          onGenerated={() => mutate()}
-        />
-      )}
 
       {/* Dialogs */}
       <RFPDocumentUploadDialog
