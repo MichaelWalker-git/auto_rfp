@@ -48,6 +48,36 @@ export function useProjectOutcome(
   };
 }
 
+/**
+ * Remove an outcome for an opportunity, reverting its stage to SUBMITTED.
+ */
+export const useRemoveProjectOutcome = () => {
+  const removeOutcome = async (args: {
+    orgId: string;
+    projectId: string;
+    opportunityId: string;
+  }) => {
+    const params = new URLSearchParams({
+      orgId: args.orgId,
+      projectId: args.projectId,
+      opportunityId: args.opportunityId,
+    });
+
+    const res = await authFetcher(`${baseUrl}/remove-outcome?${params.toString()}`, {
+      method: 'DELETE',
+    });
+
+    if (!res.ok) {
+      const body = await res.text().catch(() => '');
+      throw new Error(body || 'Failed to remove outcome');
+    }
+
+    return res.json();
+  };
+
+  return { removeOutcome };
+};
+
 interface OutcomeStats {
   won: number;
   lost: number;

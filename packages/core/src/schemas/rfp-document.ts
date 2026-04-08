@@ -116,7 +116,7 @@ export const RFP_DOCUMENT_TYPE_DESCRIPTIONS: Record<keyof typeof RFP_DOCUMENT_TY
   OTHER: 'Miscellaneous document not covered by other categories.',
 };
 
-export const RFPDocumentTypeSchema = z.enum([
+const RFP_DOCUMENT_TYPE_ENUM = [
   // Core proposal sections
   'COVER_LETTER',
   'EXECUTIVE_SUMMARY',
@@ -143,7 +143,12 @@ export const RFPDocumentTypeSchema = z.enum([
   'CORRESPONDENCE',
   'CLARIFYING_QUESTIONS',
   'OTHER',
-]);
+] as const;
+
+/** Accepts built-in document types or custom UPPER_SNAKE_CASE slugs */
+export const RFPDocumentTypeSchema = z.enum(RFP_DOCUMENT_TYPE_ENUM).or(
+  z.string().min(1).max(100).regex(/^[A-Z][A-Z0-9_]*$/, 'Must be UPPER_SNAKE_CASE'),
+);
 
 export type RFPDocumentType = z.infer<typeof RFPDocumentTypeSchema>;
 

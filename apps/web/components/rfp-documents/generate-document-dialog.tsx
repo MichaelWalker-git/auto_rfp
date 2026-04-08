@@ -164,7 +164,7 @@ export const GenerateDocumentDialog = ({
                     <>
                       <SelectSeparator />
                       <SelectGroup>
-                        <SelectLabel className="text-xs text-muted-foreground">AI-Discovered</SelectLabel>
+                        <SelectLabel className="text-xs text-muted-foreground">Custom</SelectLabel>
                         {customTypes.map(ct => (
                           <SelectItem key={ct.slug} value={ct.slug} className="text-xs">
                             {ct.name}
