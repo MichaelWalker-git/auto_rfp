@@ -91,7 +91,7 @@ function DocumentApprovalStatus({ doc, orgId, projectId }: { doc: RFPDocumentIte
 }
 
 export function OpportunityRFPDocuments() {
-  const { projectId, oppId, orgId } = useOpportunityContext();
+  const { projectId, oppId, orgId, opportunity } = useOpportunityContext();
   const { currentOrganization } = useCurrentOrganization();
   const navOrgId = currentOrganization?.id ?? orgId;
   const { documents, isLoading, mutate } = useRFPDocuments(projectId, orgId, oppId);
@@ -310,16 +310,6 @@ export function OpportunityRFPDocuments() {
               <Download className="h-4 w-4 mr-2" />
               Export All
             </Button>
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => mutate()}
-              disabled={isLoading}
-              title="Reload"
-            >
-              <RefreshCw className={cn('h-4 w-4 mr-2', isLoading && 'animate-spin')} />
-              Reload
-            </Button>
             {pendingRequiredDocs.length > 0 && (
               <Button
                 size="sm"
@@ -532,6 +522,7 @@ export function OpportunityRFPDocuments() {
         projectId={projectId}
         orgId={orgId}
         opportunityId={oppId}
+        opportunityTitle={opportunity?.title ?? undefined}
         documents={documents}
       />
       <ConfirmDialog />

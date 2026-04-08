@@ -278,16 +278,6 @@ export function OpportunitySolicitationDocuments() {
             </CardDescription>
           </div>
           <div className="flex items-center gap-2">
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => refetchFiles()}
-              disabled={isLoadingFiles}
-              title="Reload"
-            >
-              <RefreshCw className={cn('h-4 w-4 mr-2', isLoadingFiles && 'animate-spin')} />
-              Reload
-            </Button>
             {rows.length > 0 && (
               <Button
                 size="sm"

@@ -18,6 +18,7 @@ import {
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
 import {
   Dialog,
   DialogContent,
@@ -70,6 +71,7 @@ interface ExportAllDialogProps {
   projectId: string;
   orgId: string;
   opportunityId?: string;
+  opportunityTitle?: string;
   documents: RFPDocumentItem[];
 }
 
@@ -79,6 +81,7 @@ export const ExportAllDialog = ({
   projectId,
   orgId,
   opportunityId,
+  opportunityTitle,
   documents,
 }: ExportAllDialogProps) => {
   const { toast } = useToast();
@@ -102,12 +105,15 @@ export const ExportAllDialog = ({
   const [docOrder, setDocOrder] = useState<string[]>(() => exportableDocs.map((d) => d.documentId));
   const [mergeFormat, setMergeFormat] = useState<'docx' | 'pdf'>('docx');
   const [pageBreakBetween, setPageBreakBetween] = useState(true);
+  const defaultFileName = opportunityTitle ? `${opportunityTitle} Proposal` : 'Merged Proposal';
+  const [mergedFileName, setMergedFileName] = useState(defaultFileName);
 
   // Reset state when dialog opens
   React.useEffect(() => {
     if (open) {
       setStep('mode');
       setIsLoading(false);
+      setMergedFileName(defaultFileName);
       const ids = exportableDocs.map((d) => d.documentId);
       setSelectedDocIds(ids);
       setDocOrder(ids);
@@ -197,6 +203,7 @@ export const ExportAllDialog = ({
         opportunityId: opportunityId || '',
         documentIds: orderedSelectedDocs,
         format: mergeFormat,
+        fileName: mergedFileName.trim() || undefined,
         options: { pageSize, pageBreakBetween },
       });
 
@@ -320,6 +327,17 @@ export const ExportAllDialog = ({
           {/* Step 2b: Merged — document selection & ordering */}
           {step === 'configure' && mode === 'merged' && (
             <div className="space-y-5">
+              <div className="space-y-2">
+                <Label htmlFor="merged-filename">File Name</Label>
+                <Input
+                  id="merged-filename"
+                  value={mergedFileName}
+                  onChange={(e) => setMergedFileName(e.target.value)}
+                  placeholder="e.g., Merged Proposal"
+                  disabled={isLoading}
+                />
+              </div>
+
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
                   <Label>Select & Order Documents</Label>

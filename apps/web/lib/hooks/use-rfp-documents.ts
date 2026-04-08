@@ -453,6 +453,7 @@ export type ExportMergedRequest = {
   opportunityId: string;
   documentIds: string[];
   format: 'docx' | 'pdf';
+  fileName?: string;
   options?: {
     pageSize?: 'letter' | 'a4';
     pageBreakBetween?: boolean;

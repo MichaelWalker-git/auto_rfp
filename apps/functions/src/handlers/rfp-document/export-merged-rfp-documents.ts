@@ -33,6 +33,7 @@ const RequestSchema = z.object({
   opportunityId: z.string().min(1),
   documentIds: z.array(z.string().min(1)).min(1),
   format: z.enum(['docx', 'pdf']),
+  fileName: z.string().max(200).optional(),
   options: z.object({
     pageSize: z.enum(['letter', 'a4']).default('letter'),
     pageBreakBetween: z.boolean().default(true),
@@ -105,9 +106,11 @@ const baseHandler = async (
     const withToc = expandTableOfContents(mergedHtml);
 
     // Convert to requested format
-    const mergedTitle = titles.length <= 3
-      ? titles.join(' + ')
-      : `${titles[0]} + ${titles.length - 1} more`;
+    const mergedTitle = data.fileName?.trim() || (
+      titles.length <= 3
+        ? titles.join(' + ')
+        : `${titles[0]} + ${titles.length - 1} more`
+    );
 
     let buffer: Buffer;
     if (data.format === 'docx') {
