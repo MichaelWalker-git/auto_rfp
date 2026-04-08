@@ -485,6 +485,7 @@ export class ApiOrchestratorStack extends cdk.Stack {
 
     // 3. Collect all domain route definitions for hashing and nested stack creation
     // This ensures the deployment is recreated whenever any route definition changes
+    //
     const allDomains: DomainRoutes[] = [
       organizationDomain(),
       answerDomain(),

@@ -57,14 +57,14 @@ export const useRemoveProjectOutcome = () => {
     projectId: string;
     opportunityId: string;
   }) => {
-    const params = new URLSearchParams({
-      orgId: args.orgId,
-      projectId: args.projectId,
-      opportunityId: args.opportunityId,
-    });
-
-    const res = await authFetcher(`${baseUrl}/remove-outcome?${params.toString()}`, {
-      method: 'DELETE',
+    const res = await authFetcher(`${baseUrl}/set-outcome`, {
+      method: 'POST',
+      body: JSON.stringify({
+        orgId: args.orgId,
+        projectId: args.projectId,
+        opportunityId: args.opportunityId,
+        status: 'REMOVE',
+      }),
     });
 
     if (!res.ok) {

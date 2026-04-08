@@ -4,8 +4,6 @@ import * as nodejs from 'aws-cdk-lib/aws-lambda-nodejs';
 import * as apigateway from 'aws-cdk-lib/aws-apigateway';
 import * as iam from 'aws-cdk-lib/aws-iam';
 import * as logs from 'aws-cdk-lib/aws-logs';
-import * as fs from 'fs';
-import * as path from 'path';
 import { Construct } from 'constructs';
 import type { DomainRoutes } from './routes/types';
 
@@ -29,57 +27,21 @@ const CORS_OPTIONS = {
     'Authorization',
     'X-Api-Key',
     'X-Amz-Security-Token',
-    'X-Org-Id',
   ],
   allowCredentials: true,
 };
 
-const HANDLERS_DIR = path.resolve(__dirname, '../../../apps/functions/src/handlers');
-
 /**
- * Generate a router entry file for a domain that statically imports all handlers
- * and creates a router dispatch table.
- */
-const generateRouterEntry = (domain: DomainRoutes): string => {
-  const imports: string[] = [];
-  const routeEntries: string[] = [];
-
-  for (let i = 0; i < domain.routes.length; i++) {
-    const route = domain.routes[i]!;
-    const alias = `h${i}`;
-
-    // Convert absolute entry path to relative import from the _routers dir
-    const handlerRelativePath = path.relative(
-      path.join(HANDLERS_DIR, '_routers'),
-      route.entry,
-    ).replace(/\.ts$/, '');
-
-    imports.push(`import { handler as ${alias} } from '${handlerRelativePath}';`);
-    routeEntries.push(`  { method: '${route.method}', path: '${route.path}', handler: ${alias} },`);
-  }
-
-  return `// Auto-generated domain router for '${domain.basePath}'
-// DO NOT EDIT — regenerated during CDK synth
-import { createRouter } from '../../router';
-${imports.join('\n')}
-
-export const handler = createRouter([
-${routeEntries.join('\n')}
-]);
-`;
-};
-
-/**
- * Creates a single Lambda function + proxy route for an entire domain.
- *
- * Instead of one Lambda per endpoint, all routes in a domain are served by
- * a single Lambda with an internal router. API Gateway uses {proxy+} to
- * forward all requests under the domain base path.
- *
- * This reduces API Gateway resources from ~5 per route to ~2 per domain,
- * avoiding the 300 resource limit.
+ * Creates Lambda functions and API Gateway routes for a specific domain
+ * This is a NestedStack to manage CloudFormation resource limits
+ * 
+ * CORS preflight OPTIONS methods are added to all resources since
+ * defaultCorsPreflightOptions doesn't work with resources created via fromResourceAttributes()
  */
 export class ApiDomainRoutesStack extends cdk.NestedStack {
+  // Track resources that already have CORS configured to avoid duplicates
+  private corsConfiguredResources = new Set<string>();
+
   constructor(scope: Construct, id: string, props: ApiDomainRoutesStackProps) {
     super(scope, id, props);
 
@@ -95,98 +57,119 @@ export class ApiDomainRoutesStack extends cdk.NestedStack {
     // Create domain base resource
     let domainResource: apigateway.IResource = rootResource;
     for (const pathSegment of domain.basePath.split('/').filter(s => s)) {
+      // Try to get existing resource or create new one
       const existingResource = domainResource.getResource(pathSegment);
       if (existingResource) {
         domainResource = existingResource;
       } else {
-        domainResource = (domainResource as apigateway.Resource).addResource(pathSegment);
+        const newResource = (domainResource as apigateway.Resource).addResource(pathSegment);
+        // Add CORS preflight to the new resource
+        this.addCorsPreflight(newResource);
+        domainResource = newResource;
       }
     }
 
-    // Generate router entry file
-    const routerCode = generateRouterEntry(domain);
-    const routerDir = path.join(HANDLERS_DIR, '_routers');
-    if (!fs.existsSync(routerDir)) fs.mkdirSync(routerDir, { recursive: true });
-
-    const routerFileName = `${domain.basePath.replace(/\//g, '-')}-router.ts`;
-    const routerFilePath = path.join(routerDir, routerFileName);
-    fs.writeFileSync(routerFilePath, routerCode);
-
-    // Compute max timeout and memory across all routes
-    const maxTimeout = domain.routes.reduce((max, r) => Math.max(max, r.timeoutSeconds ?? 30), 30);
-    const maxMemory = domain.routes.reduce((max, r) => Math.max(max, r.memorySize ?? 512), 512);
-
-    // Collect all nodeModules needed by any route in the domain
-    const allNodeModules = new Set<string>();
+    // Create Lambda function and routes for each endpoint in the domain
     for (const route of domain.routes) {
-      if (route.nodeModules) {
-        for (const mod of route.nodeModules) allNodeModules.add(mod);
+      // Create a unique construct ID for this route.
+      // Include the HTTP method so that two routes with the same path but
+      // different methods (e.g. PUT /override and DELETE /override) don't
+      // collide on the same CloudFormation logical ID / log group name.
+      const functionId = `${route.method.toLowerCase()}-${domain.basePath}-${route.path}-handler`;
+      
+      // Create log group with retention policy
+      const logGroup = new logs.LogGroup(this, `${functionId}-logs`, {
+        retention: logs.RetentionDays.ONE_MONTH,
+        removalPolicy: cdk.RemovalPolicy.DESTROY,
+      });
+
+      // Create Lambda function for this route
+      const lambdaFunction = new nodejs.NodejsFunction(this, functionId, {
+        runtime: lambda.Runtime.NODEJS_24_X,
+        entry: route.entry,
+        handler: 'handler',
+        timeout: cdk.Duration.seconds(route.timeoutSeconds ?? 30),
+        memorySize: route.memorySize ?? 512,
+        role: lambdaRole,
+        environment: {
+          ...commonEnv,
+          ...route.extraEnv,
+          COGNITO_USER_POOL_ID: userPoolId,
+        },
+        logGroup,
+        bundling: {
+          externalModules: [
+            '@aws-sdk/*',
+            '@smithy/*',
+            '@aws-crypto/*',
+            '@aws-sdk/client-s3',
+            '@aws-sdk/client-secrets-manager',
+            '@aws-sdk/s3-request-presigner',
+            '@aws-sdk/client-rds-data',
+          ],
+          ...(route.nodeModules?.length ? { nodeModules: route.nodeModules } : {}),
+          minify: true,
+          sourceMap: false,
+          target: 'es2022',
+          format: nodejs.OutputFormat.CJS,
+          mainFields: ['module', 'main'],
+        },
+      });
+
+      // Navigate/create nested resource path for the route
+      let resourcePath: apigateway.IResource = domainResource;
+      const pathSegments = route.path.split('/').filter(s => s);
+
+      for (const segment of pathSegments) {
+        const existingResource = resourcePath.getResource(segment);
+        if (existingResource) {
+          resourcePath = existingResource;
+        } else {
+          const newResource = (resourcePath as apigateway.Resource).addResource(segment);
+          // Add CORS preflight to the new resource
+          this.addCorsPreflight(newResource);
+          resourcePath = newResource;
+        }
       }
+
+      // Create API Gateway method and integration
+      const integration = new apigateway.LambdaIntegration(lambdaFunction);
+
+      // Add method with Cognito authorization if authorizer is provided
+      // OPTIONS methods should never require authorization for CORS preflight
+      // Routes with auth: 'NONE' skip authorization (for public endpoints like calendar subscription)
+      const methodOptions: apigateway.MethodOptions =
+        route.method === 'OPTIONS' || route.auth === 'NONE'
+          ? {
+            authorizationType: apigateway.AuthorizationType.NONE,
+          }
+          : authorizer
+            ? {
+              authorizationType: apigateway.AuthorizationType.COGNITO,
+              authorizer: authorizer,
+            }
+            : {
+              authorizationType: apigateway.AuthorizationType.NONE,
+            };
+
+      (resourcePath as apigateway.Resource).addMethod(route.method, integration, methodOptions);
     }
+  }
 
-    // Collect all extra env vars
-    const allExtraEnv: Record<string, string> = {};
-    for (const route of domain.routes) {
-      if (route.extraEnv) Object.assign(allExtraEnv, route.extraEnv);
+  /**
+   * Add CORS preflight OPTIONS method to a resource if not already configured
+   */
+  private addCorsPreflight(resource: apigateway.Resource): void {
+    const resourcePath = resource.path;
+    
+    // Skip if already configured
+    if (this.corsConfiguredResources.has(resourcePath)) {
+      return;
     }
-
-    const functionId = `${domain.basePath.replace(/\//g, '-')}-router`;
-
-    // Create log group
-    const logGroup = new logs.LogGroup(this, `${functionId}-logs`, {
-      retention: logs.RetentionDays.ONE_MONTH,
-      removalPolicy: cdk.RemovalPolicy.DESTROY,
-    });
-
-    // Create single Lambda for the entire domain
-    const lambdaFunction = new nodejs.NodejsFunction(this, functionId, {
-      runtime: lambda.Runtime.NODEJS_24_X,
-      entry: routerFilePath,
-      handler: 'handler',
-      timeout: cdk.Duration.seconds(maxTimeout),
-      memorySize: maxMemory,
-      role: lambdaRole,
-      environment: {
-        ...commonEnv,
-        ...allExtraEnv,
-        COGNITO_USER_POOL_ID: userPoolId,
-      },
-      logGroup,
-      bundling: {
-        externalModules: [
-          '@aws-sdk/*',
-          '@smithy/*',
-          '@aws-crypto/*',
-          '@aws-sdk/client-s3',
-          '@aws-sdk/client-secrets-manager',
-          '@aws-sdk/s3-request-presigner',
-          '@aws-sdk/client-rds-data',
-        ],
-        ...(allNodeModules.size > 0 ? { nodeModules: [...allNodeModules] } : {}),
-        minify: true,
-        sourceMap: false,
-        target: 'es2022',
-        format: nodejs.OutputFormat.CJS,
-        mainFields: ['module', 'main'],
-      },
-    });
-
-    const integration = new apigateway.LambdaIntegration(lambdaFunction);
-
-    const methodOptions: apigateway.MethodOptions = authorizer
-      ? { authorizationType: apigateway.AuthorizationType.COGNITO, authorizer }
-      : { authorizationType: apigateway.AuthorizationType.NONE };
-
-    // Add {proxy+} resource under the domain base path
-    (domainResource as apigateway.Resource).addProxy({
-      defaultIntegration: integration,
-      defaultMethodOptions: methodOptions,
-      anyMethod: true,
-      defaultCorsPreflightOptions: CORS_OPTIONS,
-    });
-
-    // Also add method on the base path itself (for routes with empty path)
-    (domainResource as apigateway.Resource).addMethod('ANY', integration, methodOptions);
-    (domainResource as apigateway.Resource).addCorsPreflight(CORS_OPTIONS);
+    
+    this.corsConfiguredResources.add(resourcePath);
+    
+    // Add CORS preflight using the built-in method
+    resource.addCorsPreflight(CORS_OPTIONS);
   }
 }

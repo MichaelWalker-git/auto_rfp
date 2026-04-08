@@ -47,16 +47,26 @@ const preprocessHtml = (rawHtml: string): string =>
     .replace(/(<h[1-6][^>]*style="[^"]*?)border-bottom:[^;"]*;?\s*/gi, '$1')
     .replace(/(<h[1-6][^>]*style="[^"]*?)padding-bottom:[^;"]*;?\s*/gi, '$1');
 
-const baseHandler = async (
+/**
+ * Exported function for use when called from export-all handler via mode: 'merged'.
+ * Accepts already-parsed body.
+ */
+export const exportMergedDocuments = async (
   event: AuthedEvent,
+  rawBody: Record<string, unknown>,
+): Promise<APIGatewayProxyResultV2> => {
+  const { success, data, error } = RequestSchema.safeParse(rawBody);
+  if (!success) return apiResponse(400, { message: 'Validation error', issues: error.issues });
+  return doExportMerged(event, data);
+};
+
+type RequestData = z.infer<typeof RequestSchema>;
+
+const doExportMerged = async (
+  event: AuthedEvent,
+  data: RequestData,
 ): Promise<APIGatewayProxyResultV2> => {
   try {
-    if (!event.body) return apiResponse(400, { message: 'Request body is required' });
-
-    const raw = JSON.parse(event.body);
-    const { success, data, error } = RequestSchema.safeParse(raw);
-    if (!success) return apiResponse(400, { message: 'Validation error', issues: error.issues });
-
     const orgId = getOrgId(event) || 'DEFAULT';
     const pageSize = data.options?.pageSize ?? 'letter';
     const pageBreakBetween = data.options?.pageBreakBetween ?? true;
@@ -164,8 +174,16 @@ const baseHandler = async (
   }
 };
 
+const standaloneHandler = async (event: AuthedEvent): Promise<APIGatewayProxyResultV2> => {
+  if (!event.body) return apiResponse(400, { message: 'Request body is required' });
+  const raw = JSON.parse(event.body);
+  const { success, data, error } = RequestSchema.safeParse(raw);
+  if (!success) return apiResponse(400, { message: 'Validation error', issues: error.issues });
+  return doExportMerged(event, data);
+};
+
 export const handler = withSentryLambda(
-  middy(baseHandler)
+  middy(standaloneHandler)
     .use(authContextMiddleware())
     .use(orgMembershipMiddleware())
     .use(requirePermission('proposal:create'))

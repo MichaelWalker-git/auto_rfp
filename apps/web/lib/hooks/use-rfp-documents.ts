@@ -470,8 +470,8 @@ export type ExportMergedResponse = {
 
 export function useExportMergedRFPDocuments(orgId?: string) {
   return useSWRMutation<ExportMergedResponse, Error, string, ExportMergedRequest>(
-    `${BASE}/export-merged${orgId ? `?orgId=${orgId}` : ''}`,
-    (url, { arg }) => postJson<ExportMergedResponse>(url, arg),
+    `${BASE}/export-all${orgId ? `?orgId=${orgId}` : ''}`,
+    (url, { arg }) => postJson<ExportMergedResponse>(url, { ...arg, mode: 'merged' }),
   );
 }
 

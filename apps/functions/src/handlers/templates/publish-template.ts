@@ -27,6 +27,26 @@ const baseHandler = async (
 
     const existing = await getTemplate(orgId, templateId);
     if (!existing) return apiResponse(404, { error: 'Template not found' });
+
+    const action = event.queryStringParameters?.action ?? 'publish';
+
+    // Unpublish: PUBLISHED → DRAFT
+    if (action === 'unpublish') {
+      if (existing.isArchived) return apiResponse(410, { error: 'Template is archived' });
+      if (existing.status !== 'PUBLISHED') return apiResponse(409, { error: 'Template is not published' });
+
+      await updateTemplateFields(orgId, templateId, {
+        status: 'DRAFT',
+        publishedAt: null,
+        publishedBy: null,
+        updatedAt: now,
+      });
+
+      setAuditContext(event, { action: 'CONFIG_CHANGED', resource: 'template', resourceId: templateId });
+      return apiResponse(200, { message: 'Template unpublished', templateId, status: 'DRAFT' });
+    }
+
+    // Default: Publish
     if (existing.isArchived) return apiResponse(410, { error: 'Template is archived' });
 
     await updateTemplateFields(orgId, templateId, {
@@ -36,19 +56,8 @@ const baseHandler = async (
       updatedAt: now,
     });
 
-    
-    setAuditContext(event, {
-      action: 'CONFIG_CHANGED',
-      resource: 'template',
-      resourceId: event.pathParameters?.templateId ?? event.queryStringParameters?.templateId ?? 'unknown',
-    });
-
-    return apiResponse(200, {
-      message: 'Template published',
-      templateId,
-      status: 'PUBLISHED',
-      publishedAt: now,
-    });
+    setAuditContext(event, { action: 'CONFIG_CHANGED', resource: 'template', resourceId: templateId });
+    return apiResponse(200, { message: 'Template published', templateId, status: 'PUBLISHED', publishedAt: now });
   } catch (err) {
     console.error('Error publishing template:', err);
     return apiResponse(500, {

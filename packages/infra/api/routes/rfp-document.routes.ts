@@ -35,14 +35,6 @@ export function rfpDocumentDomain(args?: {
       },
       {
         method: 'POST',
-        path: 'export-merged',
-        entry: lambdaEntry('rfp-document/export-merged-rfp-documents.ts'),
-        memorySize: 2048,
-        timeoutSeconds: 120,
-        nodeModules: ['@sparticuz/chromium', 'puppeteer-core', 'html-to-docx'],
-      },
-      {
-        method: 'POST',
         path: 'generate-document',
         entry: lambdaEntry('rfp-document/generate-document.ts'),
         extraEnv: { DOCUMENT_GENERATION_QUEUE_URL: docGenQueueUrl },

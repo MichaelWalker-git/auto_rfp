@@ -191,7 +191,7 @@ export function usePublishTemplate(orgId: string) {
 export function useUnpublishTemplate(orgId: string) {
   const unpublish = async (templateId: string) => {
     const res = await authFetcher(
-      `${API_BASE}/unpublish/${templateId}?orgId=${orgId}`,
+      `${API_BASE}/publish/${templateId}?orgId=${orgId}&action=unpublish`,
       { method: 'POST' },
     );
     if (!res.ok) throw new Error('Failed to unpublish template');
@@ -203,8 +203,8 @@ export function useUnpublishTemplate(orgId: string) {
 export function useUnarchiveTemplate(orgId: string) {
   const unarchive = async (templateId: string) => {
     const res = await authFetcher(
-      `${API_BASE}/unarchive/${templateId}?orgId=${orgId}`,
-      { method: 'POST' },
+      `${API_BASE}/delete/${templateId}?orgId=${orgId}&action=unarchive`,
+      { method: 'DELETE' },
     );
     if (!res.ok) throw new Error('Failed to restore template');
     return res.json();
@@ -215,7 +215,7 @@ export function useUnarchiveTemplate(orgId: string) {
 export function usePermanentlyDeleteTemplate(orgId: string) {
   const permanentlyDelete = async (templateId: string) => {
     const res = await authFetcher(
-      `${API_BASE}/permanently-delete/${templateId}?orgId=${orgId}`,
+      `${API_BASE}/delete/${templateId}?orgId=${orgId}&action=permanently-delete`,
       { method: 'DELETE' },
     );
     if (!res.ok) throw new Error('Failed to permanently delete template');
