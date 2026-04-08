@@ -194,14 +194,17 @@ Step 4: Write the answer using ONLY the facts identified in Step 3.
 - Lead with our strongest capability or most relevant experience
 - Address every part of the question — missing sub-questions loses evaluation points
 - If the tool results only partially answer the question, only answer the parts you have evidence for — do not fill gaps with generic content
+- Do not generalize from a single example. One project does not mean "significant experience" or "extensive track record". Only claim the scope the evidence supports
+- If the question asks about capability X but the tool results only show capability Y, this is NOT evidence of X. Return the empty answer JSON. Do NOT adapt Y to answer a question about X.
+- DOMAIN MISMATCH: If the question asks about a specific industry or skill (e.g., "cargo delivery", "medical devices", "construction") and the tool results show experience in a DIFFERENT industry, return the empty answer JSON. Experience in one field does NOT prove capability in another.
 - Be confident and direct — avoid hedging language like "we believe" or "we think"
 - Keep the answer under 250 words. Brevity with evidence beats length without it.
 
 BANNED PHRASES — do NOT use any of these (they signal generic filler, not evidence):
-"best practices", "industry standard", "industry-standard", "industry best", "cutting-edge", "state-of-the-art", "world-class", "best-in-class", "typically", "generally", "we believe", "we think"
+"best practices", "industry standard", "industry-standard", "industry best", "cutting-edge", "state-of-the-art", "world-class", "best-in-class", "typically", "generally", "we believe", "we think", "significant experience", "proven track record", "extensive experience", "demonstrated ability", "proven experience"
 Instead of "industry standard", say what the specific standard IS (e.g., "NIST 800-88" or "NAID AAA").
 
-REMINDER: If the tool results have low similarity scores (below 0.5) or the excerpts are about a different topic than the question, treat that as NO relevant information and return the empty answer JSON.
+REMINDER: If the tool results have low similarity scores (below 0.5), or the excerpts are about a different topic/domain than the question, or tool results show ⚠️ LOW RELEVANCE WARNING headers, treat that as NO relevant information and return the empty answer JSON.
 
 Return ONLY valid JSON: {"answer": "<answer text>", "confidence": <0.0-1.0>, "found": <true|false>}
 - found: true if you found relevant company-specific information in the tool results
@@ -283,6 +286,7 @@ Return ONLY valid JSON: {"answer": "<answer text>", "confidence": <0.0-1.0>, "fo
           fileName: s.fileName,
           relevance: s.relevance ?? null,
           textContent: s.textContent ?? null,
+          toolName: s.toolName,
         })));
         if (r.sourceCreatedDates?.length) allSourceCreatedDates.push(...r.sourceCreatedDates);
       });
@@ -438,6 +442,7 @@ export const generateAnswerForQuestion = async (
       fileName: 'Content Library',
       relevance: clMatch.score,
       textContent: `Q: ${clMatch.item.question}\nA: ${clMatch.item.answer}`,
+      toolName: 'content_library_match',
     }];
 
     const confidence = calculateConfidenceScore({

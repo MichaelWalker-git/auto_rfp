@@ -8,6 +8,20 @@ import { ExternalLink } from "lucide-react"
 import { AnswerSource } from "@auto-rfp/core"
 import { useDownloadDocument } from "@/lib/hooks/use-document"
 
+const TOOL_DISPLAY_NAMES: Record<string, string> = {
+  search_knowledge_base: 'Knowledge Base',
+  search_past_performance: 'Past Performance',
+  get_content_library: 'Content Library',
+  content_library_match: 'Content Library (Direct Match)',
+  get_organization_context: 'Organization Profile',
+  get_solicitation_text: 'Solicitation/RFP',
+};
+
+export const getToolDisplayName = (toolName?: string): string | undefined => {
+  if (!toolName) return undefined;
+  return TOOL_DISPLAY_NAMES[toolName] ?? toolName;
+};
+
 interface SourceDetailsDialogProps {
   isOpen: boolean;
   onClose: () => void;
@@ -83,6 +97,15 @@ export function SourceDetailsDialog({ isOpen, onClose, source }: SourceDetailsDi
             ) : (
               /* Metadata Tab */
               <div className="space-y-4">
+                {source.toolName && (
+                  <div className="flex flex-col space-y-1">
+                    <span className="text-sm font-medium text-gray-500">Source Tool</span>
+                    <span className="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium bg-indigo-50 text-indigo-700 border border-indigo-200">
+                      {getToolDisplayName(source.toolName)}
+                    </span>
+                  </div>
+                )}
+
                 <div className="flex flex-col space-y-1">
                   <span className="text-sm font-medium text-gray-500">File Name</span>
                   <span className="font-medium">{source.fileName}</span>

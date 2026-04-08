@@ -21,6 +21,7 @@ export interface ToolResultSource {
   fileName?: string;
   relevance?: number;
   textContent?: string;
+  toolName?: string;
 }
 
 export interface ToolResult {

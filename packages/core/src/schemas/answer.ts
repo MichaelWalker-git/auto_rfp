@@ -48,6 +48,7 @@ export const AnswerSourceSchema = z.object({
   chunkKey: z.string().optional(),
   relevance: z.number().min(0).max(1).nullable().optional(),
   textContent: z.string().nullable().optional(),
+  toolName: z.string().optional(),
 });
 
 export type AnswerSource = z.infer<typeof AnswerSourceSchema>;

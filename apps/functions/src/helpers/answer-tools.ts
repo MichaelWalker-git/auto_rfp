@@ -157,8 +157,8 @@ const executeKbSearch = async (
     const hits = await semanticSearchChunks(orgId, embedding, topK * 2);
     if (!hits.length) return emptySearchResult('No knowledge base content found for that query.');
 
-    const relevant = hits.filter(h => (h.score ?? 0) >= 0.35).slice(0, topK);
-    if (!relevant.length) return emptySearchResult('No sufficiently relevant knowledge base content found.');
+    const relevant = hits.filter(h => (h.score ?? 0) >= 0.50).slice(0, topK);
+    if (!relevant.length) return emptySearchResult('No sufficiently relevant knowledge base content found (all scores below 0.50).');
 
     const similarityScores = relevant.map(h => h.score ?? 0);
     const sources: ToolResultSource[] = [];
@@ -209,8 +209,15 @@ const executeKbSearch = async (
     const valid = chunks.filter((c): c is string => c !== null);
     if (!valid.length) return emptySearchResult('Could not load knowledge base content.');
 
+    // Add warning when all scores are below 0.65 — signals weak/tangential matches
+    const maxKbScore = Math.max(...similarityScores);
+    const avgKbScore = similarityScores.reduce((a, b) => a + b, 0) / similarityScores.length;
+    const lowScoreWarning = maxKbScore < 0.65
+      ? `⚠️ LOW RELEVANCE WARNING: All similarity scores are below 0.65 (avg: ${avgKbScore.toFixed(2)}, max: ${maxKbScore.toFixed(2)}). These excerpts may be about a DIFFERENT topic than the question. If so, treat this as NO relevant information and return the empty answer JSON.\n\n`
+      : '';
+
     return {
-      content: `Found ${valid.length} relevant KB excerpt(s):\n\n${valid.join('\n\n---\n\n')}`,
+      content: `${lowScoreWarning}Found ${valid.length} relevant KB excerpt(s):\n\n${valid.join('\n\n---\n\n')}`,
       similarityScores,
       sources,
       sourceCreatedDates,
@@ -232,8 +239,8 @@ const executePastPerfSearch = async (
     const hits = await semanticSearchPastPerformance(orgId, embedding, topK * 2);
     if (!hits.length) return emptySearchResult('No past performance projects found matching those keywords.');
 
-    const relevant = hits.filter(h => (h.score ?? 0) >= 0.35).slice(0, topK);
-    if (!relevant.length) return emptySearchResult('No sufficiently relevant past performance found.');
+    const relevant = hits.filter(h => (h.score ?? 0) >= 0.50).slice(0, topK);
+    if (!relevant.length) return emptySearchResult('No sufficiently relevant past performance found (all scores below 0.50).');
 
     const similarityScores = relevant.map(h => h.score ?? 0);
     const sources: ToolResultSource[] = [];
@@ -270,8 +277,15 @@ const executePastPerfSearch = async (
       return formattedText;
     });
 
+    // Add warning when all scores are below 0.65
+    const maxPpScore = Math.max(...similarityScores);
+    const avgPpScore = similarityScores.reduce((a, b) => a + b, 0) / similarityScores.length;
+    const lowPpWarning = maxPpScore < 0.65
+      ? `⚠️ LOW RELEVANCE WARNING: All similarity scores are below 0.65 (avg: ${avgPpScore.toFixed(2)}, max: ${maxPpScore.toFixed(2)}). These projects may be in a DIFFERENT domain than the question asks about. Experience in domain X does NOT prove capability in domain Y. If the projects are not directly relevant, treat this as NO relevant information and return the empty answer JSON.\n\n`
+      : '';
+
     return {
-      content: `Found ${formatted.length} relevant past performance project(s):\n\n${formatted.join('\n\n---\n\n')}`,
+      content: `${lowPpWarning}Found ${formatted.length} relevant past performance project(s):\n\n${formatted.join('\n\n---\n\n')}`,
       similarityScores,
       sources,
       sourceCreatedDates,
@@ -339,6 +353,14 @@ export const executeAnswerTool = async (args: {
         );
         content = clResult.content || 'No content library matches found for that query.';
         similarityScores = clResult.similarityScores;
+        if (clResult.sources.length) {
+          sources = clResult.sources.map(s => ({
+            id: s.id,
+            fileName: s.fileName,
+            relevance: s.relevance,
+            textContent: s.textContent,
+          }));
+        }
         break;
       }
 
@@ -349,6 +371,13 @@ export const executeAnswerTool = async (args: {
         ]);
         const parts = [orgDetails, primaryContact].filter(Boolean);
         content = parts.length ? parts.join('\n\n') : 'No organization context available.';
+        if (content && content !== 'No organization context available.') {
+          sources = [{
+            id: `org-${orgId}`,
+            fileName: 'Organization Profile',
+            textContent: truncateText(content, 600),
+          }];
+        }
         break;
       }
 
@@ -365,6 +394,11 @@ export const executeAnswerTool = async (args: {
           content = 'No solicitation documents found for this project. The solicitation may not have been uploaded yet.';
         } else {
           content = `Solicitation document text (${solText.length} chars):\n\n${solText}`;
+          sources = [{
+            id: `solicitation-${projectId}`,
+            fileName: 'Solicitation/RFP Documents',
+            textContent: truncateText(solText, 600),
+          }];
         }
         break;
       }
@@ -394,6 +428,11 @@ export const executeAnswerTool = async (args: {
     result,
     errorMessage,
   }).catch(err => console.warn('Failed to write answer tool audit log:', (err as Error)?.message));
+
+  // Tag every source with the tool that produced it
+  if (sources?.length) {
+    sources = sources.map(s => ({ ...s, toolName }));
+  }
 
   return {
     tool_use_id: toolUseId,

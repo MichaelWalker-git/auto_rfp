@@ -350,7 +350,7 @@ describe('get-questions handler', () => {
 
   // ── Source content stripping ────────────────────────────────────────
 
-  it('should strip textContent from answer sources to reduce payload', async () => {
+  it('should preserve textContent in answer sources for frontend display', async () => {
     // loadQuestions
     mockSend.mockResolvedValueOnce({
       Items: [
@@ -369,7 +369,7 @@ describe('get-questions handler', () => {
             {
               documentId: 'doc-1',
               documentTitle: 'RFP Document',
-              textContent: 'This is a very long text content that should be stripped...',
+              textContent: 'This is the source chunk text used to generate the answer.',
               score: 0.95,
             },
           ],
@@ -386,8 +386,8 @@ describe('get-questions handler', () => {
     expect(source.documentId).toBe('doc-1');
     expect(source.documentTitle).toBe('RFP Document');
     expect(source.score).toBe(0.95);
-    // textContent should be stripped
-    expect(source.textContent).toBeUndefined();
+    // textContent is preserved so the frontend SourceDetailsDialog can display it
+    expect(source.textContent).toBe('This is the source chunk text used to generate the answer.');
   });
 
   // ── OpportunityId filter ───────────────────────────────────────────

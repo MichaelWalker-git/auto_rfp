@@ -16,7 +16,7 @@ import {
   requirePermission
 } from '@/middleware/rbac-middleware';
 import middy from '@middy/core';
-import { AnswerItem, AnswerSource, GroupedSection, QuestionItem } from '@auto-rfp/core';
+import { AnswerItem, GroupedSection, QuestionItem } from '@auto-rfp/core';
 
 const DB_TABLE_NAME = requireEnv('DB_TABLE_NAME');
 
@@ -180,17 +180,11 @@ const loadAnswers = async (projectId: string): Promise<Record<string, AnswerItem
 
 /**
  * Strip textContent from sources to reduce payload size.
+ * NOTE: Disabled — textContent is already truncated to ~600 chars at generation
+ * time, so the payload increase is modest (~3-6KB per answer), and the frontend
+ * needs it to display source details in the SourceDetailsDialog.
  */
-const stripSourceContent = (answer: AnswerItem): AnswerItem => {
-  if (!answer.sources || answer.sources.length === 0) return answer;
-  return {
-    ...answer,
-    sources: answer.sources.map((source: AnswerSource) => {
-      const { textContent: _, ...rest } = source;
-      return rest;
-    }),
-  };
-};
+const stripSourceContent = (answer: AnswerItem): AnswerItem => answer;
 
 /**
  * Group flat questions into sections, attaching inline answer text from the pre-fetched map.

@@ -11,6 +11,7 @@ import { AnswerSource, ConfidenceBreakdown, ConfidenceBand, type CommentEntityTy
 import PermissionWrapper from '@/components/permission-wrapper';
 import { ConfidenceScoreDisplay } from '@/components/confidence/confidence-score-display';
 import { SimilarQuestionsPanel } from './similar-questions-panel';
+import { getToolDisplayName } from './source-details-dialog';
 import { EditingIndicator, CollaborationPanel, FloatingPanel } from '@/features/collaboration';
 import { useComments } from '@/features/collaboration/hooks/useComments';
 
@@ -261,6 +262,11 @@ export function QuestionEditor({
                       title={source.fileName ?? source.id}
                       onClick={() => onSourceClick(source)}
                     >
+                      {source.toolName && (
+                        <span className="inline-flex items-center rounded px-1 py-0.5 text-[10px] font-medium bg-indigo-50 text-indigo-700">
+                          {getToolDisplayName(source.toolName)}
+                        </span>
+                      )}
                       {source.fileName || source.id}
                       {source.relevance !== null && source.relevance !== undefined && (
                         <span className={`inline-flex items-center rounded px-1 py-0.5 text-[10px] font-medium ${
