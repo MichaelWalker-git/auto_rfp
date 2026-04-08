@@ -105,41 +105,59 @@ const CheckRow = ({
         )}
       </div>
       {isIgnored ? (
-        <PermissionWrapper requiredPermission="org:edit">
-          <Button
-            variant="ghost"
-            size="sm"
-            className="h-6 text-[10px] px-1.5 text-muted-foreground"
+        <PermissionWrapper
+          requiredPermission="org:edit"
+          fallback={
+            <Badge variant="outline" className="text-[10px] px-1.5 py-0 border-muted text-muted-foreground shrink-0">
+              Ignored
+            </Badge>
+          }
+        >
+          <button
+            type="button"
+            className="group/badge shrink-0"
             onClick={() => onToggleIgnore(check.id)}
           >
-            Restore
-          </Button>
+            <Badge variant="outline" className="text-[10px] px-1.5 py-0 border-muted text-muted-foreground group-hover/badge:border-emerald-300 group-hover/badge:text-emerald-700 group-hover/badge:bg-emerald-50 transition-colors cursor-pointer">
+              <span className="group-hover/badge:hidden">Ignored</span>
+              <span className="hidden group-hover/badge:inline">Restore</span>
+            </Badge>
+          </button>
         </PermissionWrapper>
       ) : !check.passed ? (
-        <div className="flex items-center gap-1.5 shrink-0">
-          <Badge
-            variant="outline"
-            className={cn(
-              'text-[10px] px-1.5 py-0',
-              check.blocking
-                ? 'border-destructive/30 text-destructive'
-                : 'border-amber-300 text-amber-700',
-            )}
-          >
-            {check.blocking ? 'Blocking' : 'Warning'}
-          </Badge>
-          <PermissionWrapper requiredPermission="org:edit">
-            <Button
-              variant="ghost"
-              size="sm"
-              className="h-6 text-[10px] px-1.5 text-muted-foreground hover:text-foreground"
-              onClick={() => onToggleIgnore(check.id)}
-              title="Ignore this check"
+        <PermissionWrapper
+          requiredPermission="org:edit"
+          fallback={
+            <Badge
+              variant="outline"
+              className={cn(
+                'text-[10px] px-1.5 py-0 shrink-0',
+                check.blocking ? 'border-destructive/30 text-destructive' : 'border-amber-300 text-amber-700',
+              )}
             >
-              Ignore
-            </Button>
-          </PermissionWrapper>
-        </div>
+              {check.blocking ? 'Blocking' : 'Warning'}
+            </Badge>
+          }
+        >
+          <button
+            type="button"
+            className="group/badge shrink-0"
+            onClick={() => onToggleIgnore(check.id)}
+          >
+            <Badge
+              variant="outline"
+              className={cn(
+                'text-[10px] px-1.5 py-0 transition-colors cursor-pointer',
+                check.blocking
+                  ? 'border-destructive/30 text-destructive group-hover/badge:border-muted group-hover/badge:text-muted-foreground group-hover/badge:bg-muted/50'
+                  : 'border-amber-300 text-amber-700 group-hover/badge:border-muted group-hover/badge:text-muted-foreground group-hover/badge:bg-muted/50',
+              )}
+            >
+              <span className="group-hover/badge:hidden">{check.blocking ? 'Blocking' : 'Warning'}</span>
+              <span className="hidden group-hover/badge:inline">Ignore</span>
+            </Badge>
+          </button>
+        </PermissionWrapper>
       ) : null}
     </div>
   );
