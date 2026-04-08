@@ -1,7 +1,8 @@
 'use client';
 
-import React, { useEffect } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
+import { useSWRConfig } from 'swr';
 import {
   ArrowLeft,
   MessageSquare,
@@ -125,10 +126,90 @@ const SectionNavigation = () => {
  * 5. Submission — compliance report, submit button, history
  * 6. Post-Award — outcome, debriefing, FOIA
  */
+// ─── Smart Polling ────────────────────────────────────────────────────────
+
+const PENDING_STATUSES = new Set([
+  'GENERATING', 'PROCESSING', 'TEXTRACT_RUNNING', 'TEXT_READY', 'UPLOADED',
+]);
+
+const FAST_INTERVAL = 5_000;
+const SLOW_INTERVAL = 30_000;
+const MAX_UNCHANGED_RELOADS = 3;
+
+/**
+ * Smart polling hook for the opportunity view.
+ * - 5s interval if any document/file is in a pending state
+ * - 30s interval if everything is complete
+ * - Stops polling after 3 consecutive unchanged reloads
+ */
+const useSmartPolling = (orgId: string, projectId: string, oppId: string) => {
+  const { mutate: globalMutate } = useSWRConfig();
+  const unchangedCountRef = useRef(0);
+  const lastSnapshotRef = useRef('');
+  const [isPolling, setIsPolling] = useState(true);
+
+  const revalidateAll = useCallback(() => {
+    globalMutate(
+      (key: unknown) =>
+        typeof key === 'string' &&
+        (key.includes('/rfp-document/') || key.includes('/questionfile/') || key.includes('/opportunity/')),
+    );
+  }, [globalMutate]);
+
+  useEffect(() => {
+    if (!isPolling || !orgId || !projectId || !oppId) return;
+
+    let timeoutId: ReturnType<typeof setTimeout>;
+
+    const poll = () => {
+      revalidateAll();
+
+      // Check DOM for status indicators to determine interval
+      const statusElements = document.querySelectorAll('[data-doc-status]');
+      const statuses = Array.from(statusElements).map((el) => el.getAttribute('data-doc-status') ?? '');
+      const hasPending = statuses.some((s) => PENDING_STATUSES.has(s.toUpperCase()));
+
+      // Build snapshot for change detection
+      const snapshot = statuses.sort().join(',');
+      if (snapshot === lastSnapshotRef.current) {
+        unchangedCountRef.current += 1;
+      } else {
+        unchangedCountRef.current = 0;
+        lastSnapshotRef.current = snapshot;
+      }
+
+      // Stop polling after MAX_UNCHANGED_RELOADS with no changes (only when stable)
+      if (!hasPending && unchangedCountRef.current >= MAX_UNCHANGED_RELOADS) {
+        setIsPolling(false);
+        return;
+      }
+
+      const interval = hasPending ? FAST_INTERVAL : SLOW_INTERVAL;
+      timeoutId = setTimeout(poll, interval);
+    };
+
+    timeoutId = setTimeout(poll, FAST_INTERVAL);
+    return () => clearTimeout(timeoutId);
+  }, [isPolling, orgId, projectId, oppId, revalidateAll]);
+
+  const resumePolling = useCallback(() => {
+    unchangedCountRef.current = 0;
+    lastSnapshotRef.current = '';
+    setIsPolling(true);
+  }, []);
+
+  return { isPolling, resumePolling };
+};
+
+// ─── Main Content Component ──────────────────────────────────────────────
+
 const OpportunityContent = ({ className }: { className?: string }) => {
   const { projectId, oppId, orgId, opportunity, refetch } = useOpportunityContext();
   const { currentOrganization } = useCurrentOrganization();
   const navOrgId = currentOrganization?.id;
+
+  // Smart auto-reload: 5s if pending items, 30s if stable, stops after 3 unchanged
+  useSmartPolling(orgId, projectId, oppId);
   const { outcome } = useProjectOutcome(orgId, projectId, oppId);
 
   // Save oppId to session storage so other pages (Questions, Brief, etc.)

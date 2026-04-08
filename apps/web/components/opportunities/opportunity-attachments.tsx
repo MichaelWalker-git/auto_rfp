@@ -345,7 +345,7 @@ export function OpportunitySolicitationDocuments() {
                 const isFailed = f.status === 'FAILED' || f.status === 'TEXT_EXTRACTION_FAILED';
                 return (
                   <div key={f.questionFileId ?? f.name} className={cn('rounded-xl border bg-background p-3', (isDeleting || isDownloading) && 'opacity-80')}>
-                    <div className="flex items-start gap-3">
+                    <div className="flex items-start gap-3" data-doc-status={f.status ?? 'COMPLETE'}>
                       <div className="h-10 w-10 rounded-lg bg-muted flex items-center justify-center shrink-0">
                         <FileText className="h-5 w-5 text-muted-foreground" />
                       </div>
