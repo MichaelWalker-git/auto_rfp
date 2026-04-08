@@ -7,7 +7,7 @@ import middy from '@middy/core';
 import { CreateUserDTOSchema } from '@auto-rfp/core';
 
 import { apiResponse } from '@/helpers/api';
-import { createUser, addExistingUserToOrg } from '@/helpers/user';
+import { createUser, addExistingUserToOrg, syncUserIdAcrossOrgs } from '@/helpers/user';
 import { adminGetUser } from '@/helpers/cognito';
 import { requireEnv } from '@/helpers/env';
 import { withSentryLambda } from '@/sentry-lambda';
@@ -103,6 +103,13 @@ export const baseHandler = async (event: AuthedEvent): Promise<APIGatewayProxyRe
         );
 
         console.log(`Added existing Cognito user ${emailLower} (sub: ${existingUser.sub}) to org ${dto.orgId}`);
+
+        // Sync userId across all orgs to fix any stale records from previous Cognito deletions
+        try {
+          await syncUserIdAcrossOrgs(dto.email, existingUser.sub);
+        } catch (syncErr) {
+          console.error('syncUserIdAcrossOrgs failed (non-blocking):', syncErr);
+        }
 
         return apiResponse(201, {
           orgId: item.orgId,

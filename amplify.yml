@@ -34,5 +34,5 @@ applications:
         paths:
           # Next.js incremental build cache
           - apps/web/.next/cache/**/*
-          # pnpm content-addressable store — speeds up installs
-          - /root/.local/share/pnpm/store/**/*
+          # pnpm store — must use relative path (Amplify rejects absolute paths)
+          - node_modules/.pnpm/**/*

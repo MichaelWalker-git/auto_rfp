@@ -195,6 +195,7 @@ export const ImportSolicitationRequestSchema = z.object({
   postedFrom:       z.string().optional(),
   postedTo:         z.string().optional(),
   sourceDocumentId: z.string().optional(),
+  force:            z.boolean().optional(),
 });
 
 export type ImportSolicitationRequest = z.infer<typeof ImportSolicitationRequestSchema>;
@@ -318,6 +319,7 @@ export const ImportDibbsSolicitationRequestSchema = z.object({
   projectId:          z.string().min(1),
   solicitationNumber: z.string().min(1),
   sourceDocumentId:   z.string().optional(),
+  force:              z.boolean().optional(),
 });
 
 export type ImportDibbsSolicitationRequest = z.infer<typeof ImportDibbsSolicitationRequestSchema>;
