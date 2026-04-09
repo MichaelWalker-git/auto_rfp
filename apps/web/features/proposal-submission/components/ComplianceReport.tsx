@@ -21,6 +21,7 @@ import {
 import { cn } from '@/lib/utils';
 import { useComplianceReport } from '../hooks/useComplianceReport';
 import { useIgnoredChecks } from '../hooks/useIgnoredChecks';
+import { useOpportunityContext } from '@/components/opportunities/opportunity-context';
 import PermissionWrapper from '@/components/permission-wrapper';
 import type { ComplianceCategorySummary, ComplianceCheckCategory, ReadinessCheckItem } from '@auto-rfp/core';
 
@@ -202,13 +203,14 @@ const CategorySection = ({
 // ─── Main Component ───────────────────────────────────────────────────────────
 
 export const ComplianceReport = ({ orgId, projectId, oppId }: ComplianceReportProps) => {
+  const { opportunity, refetch } = useOpportunityContext();
   const {
     report,
     categories,
     totalChecks,
     isLoading,
   } = useComplianceReport(orgId, projectId, oppId);
-  const { ignoredIds, toggleIgnore } = useIgnoredChecks(oppId);
+  const { ignoredIds, toggleIgnore } = useIgnoredChecks({ orgId, projectId, oppId, opportunity, refetch });
 
   // Recompute stats excluding ignored checks
   const effectiveBlockingFails = categories.reduce(

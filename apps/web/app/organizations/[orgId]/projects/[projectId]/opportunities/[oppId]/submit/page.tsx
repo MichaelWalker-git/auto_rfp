@@ -63,10 +63,16 @@ export default function SubmitProposalPage() {
   const oppId = params.oppId as string;
 
   // Data hooks
-  const { data: opportunity, isLoading: isLoadingOpp } = useOpportunity(projectId, oppId, orgId);
+  const { data: opportunity, isLoading: isLoadingOpp, refetch: refetchOpp } = useOpportunity(projectId, oppId, orgId);
   const { documents, isLoading: isLoadingDocs } = useRFPDocuments(projectId, orgId, oppId);
   const { categories, totalChecks, isLoading: isLoadingCompliance } = useComplianceReport(orgId, projectId, oppId);
-  const { ignoredIds } = useIgnoredChecks(oppId);
+  const { ignoredIds } = useIgnoredChecks({
+    orgId,
+    projectId,
+    oppId,
+    opportunity: opportunity as Record<string, unknown> | null,
+    refetch: refetchOpp,
+  });
   const { submit, isLoading: isSubmitting } = useSubmitProposal();
 
   // Form state
