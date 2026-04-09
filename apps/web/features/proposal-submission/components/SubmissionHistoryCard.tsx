@@ -78,7 +78,7 @@ export const SubmissionHistoryCard = ({ orgId, projectId, oppId }: SubmissionHis
                         {format(new Date(sub.submittedAt), 'MMM d, yyyy HH:mm')}
                       </span>
                     )}
-                    {sub.submittedByName && (
+                    {sub.submittedByName && !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(sub.submittedByName) && (
                       <span className="text-xs text-muted-foreground">
                         by {sub.submittedByName}
                       </span>

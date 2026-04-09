@@ -171,12 +171,23 @@ export default function SubmitProposalPage() {
       forceSubmit: false,
     };
 
-    const result = await submit(dto);
+    const result = await submit(dto) as (Record<string, unknown>) | null;
     if (result) {
       toast({ title: 'Proposal Submitted', description: 'Submission recorded successfully.' });
 
       // Invalidate opportunity cache so stage update is reflected
       globalMutate((key: unknown) => typeof key === 'string' && key.includes('/opportunity/'));
+
+      // Download .eml file if available (for EMAIL method)
+      const emlUrl = (result.emailDraft as Record<string, unknown> | undefined)?.emlUrl as string | undefined;
+      if (emlUrl && submissionMethod === 'EMAIL') {
+        const link = document.createElement('a');
+        link.href = emlUrl;
+        link.download = 'proposal-submission.eml';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+      }
 
       router.push(`/organizations/${orgId}/projects/${projectId}/opportunities/${oppId}`);
     } else {
@@ -408,11 +419,14 @@ export default function SubmitProposalPage() {
                   onClick={() => window.open(`mailto:?subject=${encodeURIComponent(emailSubject)}&body=${encodeURIComponent(emailBody)}`, '_blank')}
                 >
                   <Mail className="h-3.5 w-3.5 mr-1" />
-                  Open in Email Client
+                  Quick Draft
                 </Button>
               </div>
             </div>
-            <CardDescription>Pre-filled email template. Attach the documents below before sending.</CardDescription>
+            <CardDescription>
+              On submit, a .eml file with all documents attached will be downloaded.
+              Open it in your email client — documents are pre-attached, just hit Send.
+            </CardDescription>
           </CardHeader>
           <CardContent className="space-y-3">
             <div className="space-y-1">
@@ -424,18 +438,15 @@ export default function SubmitProposalPage() {
               <Textarea value={emailBody} readOnly rows={8} className="text-sm font-mono bg-muted/30" />
             </div>
             {selectedDocs.length > 0 && (
-              <div className="space-y-2">
+              <div className="space-y-1">
                 <Label className="text-xs text-muted-foreground">
-                  Documents to Attach ({selectedDocs.length})
+                  Attachments ({selectedDocs.length}) — embedded in .eml
                 </Label>
-                <p className="text-xs text-amber-600">
-                  Download these files and attach them to your email before sending.
-                </p>
-                <div className="space-y-1">
+                <div className="text-xs text-muted-foreground space-y-0.5">
                   {selectedDocs.map((d) => (
-                    <div key={d.documentId} className="flex items-center gap-2 text-sm rounded-lg border p-2">
-                      <Download className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-                      <span className="flex-1 truncate">{d.name}</span>
+                    <div key={d.documentId} className="flex items-center gap-1.5">
+                      <Download className="h-3 w-3" />
+                      {d.name}
                     </div>
                   ))}
                 </div>

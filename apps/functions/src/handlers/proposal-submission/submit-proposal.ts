@@ -152,14 +152,26 @@ const baseHandler = async (event: AuthedEvent): Promise<APIGatewayProxyResultV2>
     orgId: data.orgId,
   });
 
-  // ── 8. Generate email draft with document download URLs ──
+  // ── 8. Generate .eml file with embedded attachments ──
   const oppTitle = (opp.item?.title as string | undefined) ?? 'Proposal';
   const solNumber = (opp.item?.solicitationNumber as string | undefined) ?? '';
   const orgName = (opp.item?.organizationName as string | undefined) ?? '';
 
-  // Generate presigned download URLs for submitted documents
-  const attachments: Array<{ name: string; url: string; documentId: string }> = [];
+  const emailSubject = `Proposal Submission${solNumber ? ` — ${solNumber}` : ''}: ${oppTitle}`;
+  const emailBodyText = [
+    `Dear ${orgName ? orgName + ' ' : ''}Contracting Officer,`,
+    '',
+    `Please find attached our proposal in response to${solNumber ? ` Solicitation ${solNumber}` : ' the referenced solicitation'}${oppTitle ? ` — "${oppTitle}"` : ''}.`,
+    '',
+    'Please confirm receipt at your earliest convenience.',
+    '',
+    'Best regards,',
+    userName,
+  ].join('\r\n');
+
+  let emlUrl: string | null = null;
   try {
+    // Load submitted document files from S3
     const { items: allDocs } = await listRFPDocumentsByProject({
       projectId: data.projectId,
       opportunityId: data.oppId,
@@ -168,49 +180,85 @@ const baseHandler = async (event: AuthedEvent): Promise<APIGatewayProxyResultV2>
       (d) => documentIds.includes(d['documentId'] as string) && d['fileKey'],
     );
 
-    await Promise.all(
-      submittedDocs.map(async (doc) => {
-        try {
-          const url = await getSignedUrl(
-            s3Client as unknown as Parameters<typeof getSignedUrl>[0],
-            new GetObjectCommand({
-              Bucket: DOCUMENTS_BUCKET,
-              Key: doc['fileKey'] as string,
-              ResponseContentDisposition: `attachment; filename="${doc['name'] as string}"`,
-            }),
-            { expiresIn: 86400 }, // 24h for email links
-          );
-          attachments.push({
-            name: doc['name'] as string,
-            url,
-            documentId: doc['documentId'] as string,
-          });
-        } catch { /* skip docs without S3 files */ }
-      }),
+    const boundary = `----=_Part_${Date.now()}_${Math.random().toString(36).slice(2)}`;
+
+    // Build MIME parts
+    const mimeParts: string[] = [];
+
+    // Text body part
+    mimeParts.push(
+      `--${boundary}`,
+      'Content-Type: text/plain; charset=UTF-8',
+      'Content-Transfer-Encoding: 7bit',
+      '',
+      emailBodyText,
+    );
+
+    // Attachment parts — download from S3 and embed as base64
+    for (const doc of submittedDocs) {
+      try {
+        const s3Res = await s3Client.send(new GetObjectCommand({
+          Bucket: DOCUMENTS_BUCKET,
+          Key: doc['fileKey'] as string,
+        }));
+        const bodyBytes = await s3Res.Body?.transformToByteArray();
+        if (!bodyBytes) continue;
+
+        const base64 = Buffer.from(bodyBytes).toString('base64');
+        const fileName = (doc['name'] as string) ?? 'document';
+        const mimeType = (doc['mimeType'] as string) ?? 'application/octet-stream';
+
+        mimeParts.push(
+          `--${boundary}`,
+          `Content-Type: ${mimeType}; name="${fileName}"`,
+          'Content-Transfer-Encoding: base64',
+          `Content-Disposition: attachment; filename="${fileName}"`,
+          '',
+          // Split base64 into 76-char lines per RFC 2045
+          ...base64.match(/.{1,76}/g) ?? [base64],
+        );
+      } catch (err) {
+        console.warn(`[submit-proposal] Failed to attach ${doc['name']}:`, (err as Error).message);
+      }
+    }
+
+    mimeParts.push(`--${boundary}--`);
+
+    // Build full .eml content
+    const emlContent = [
+      `Subject: ${emailSubject}`,
+      `MIME-Version: 1.0`,
+      `Content-Type: multipart/mixed; boundary="${boundary}"`,
+      `X-Unsent: 1`,
+      '',
+      ...mimeParts,
+    ].join('\r\n');
+
+    // Upload .eml to S3
+    const emlKey = `${data.orgId}/${data.projectId}/${data.oppId}/submissions/${submission.submissionId}.eml`;
+    const { PutObjectCommand: PutCmd } = await import('@aws-sdk/client-s3');
+    await s3Client.send(new PutCmd({
+      Bucket: DOCUMENTS_BUCKET,
+      Key: emlKey,
+      Body: emlContent,
+      ContentType: 'message/rfc822',
+      ContentDisposition: `attachment; filename="proposal-submission.eml"`,
+    }));
+
+    emlUrl = await getSignedUrl(
+      s3Client as unknown as Parameters<typeof getSignedUrl>[0],
+      new GetObjectCommand({ Bucket: DOCUMENTS_BUCKET, Key: emlKey }),
+      { expiresIn: 86400 },
     );
   } catch (err) {
-    console.warn('[submit-proposal] Failed to generate attachment URLs:', (err as Error).message);
+    console.warn('[submit-proposal] Failed to generate .eml:', (err as Error).message);
   }
 
-  const emailDraft = {
-    subject: `Proposal Submission${solNumber ? ` — ${solNumber}` : ''}: ${oppTitle}`,
-    body: [
-      `Dear ${orgName ? orgName + ' ' : ''}Contracting Officer,`,
-      '',
-      `Please find attached our proposal in response to${solNumber ? ` Solicitation ${solNumber}` : ' the referenced solicitation'}${oppTitle ? ` — "${oppTitle}"` : ''}.`,
-      '',
-      `This submission includes ${attachments.length} document(s):`,
-      ...attachments.map((a, i) => `  ${i + 1}. ${a.name}`),
-      '',
-      'Please confirm receipt at your earliest convenience.',
-      '',
-      'Best regards,',
-      userName,
-    ].join('\n'),
-    attachments,
-  };
-
-  return apiResponse(200, { ok: true, submission, emailDraft });
+  return apiResponse(200, {
+    ok: true,
+    submission,
+    emailDraft: { subject: emailSubject, body: emailBodyText, emlUrl },
+  });
 };
 
 export const handler = withSentryLambda(
