@@ -139,7 +139,18 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     'question:read', 'org:read', 'kb:read', 'proposal:read', 'project:read',
     'pricing:read', 'pricing:calculate',
   ],
-  MEMBER: []
+  MEMBER: [
+    ...VIEWER_PERMISSIONS,
+    'collaboration:presence',
+    'collaboration:activity',
+    'notification:read',
+    'project:create',
+    'opportunity:create',
+    'question:create',
+    'answer:create',
+    'document:create',
+    'proposal:create',
+  ]
 };
 
 /**

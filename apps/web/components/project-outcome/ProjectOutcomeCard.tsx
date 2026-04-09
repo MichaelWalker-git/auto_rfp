@@ -6,9 +6,20 @@ import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ProjectOutcomeBadge } from './ProjectOutcomeBadge';
 import { SetProjectOutcomeDialog } from './SetProjectOutcomeDialog';
-import { useProjectOutcome } from '@/lib/hooks/use-project-outcome';
+import { useProjectOutcome, useRemoveProjectOutcome } from '@/lib/hooks/use-project-outcome';
 import PermissionWrapper from '@/components/permission-wrapper';
-import { Settings2, Banknote, Calendar, Award, AlertTriangle, Target } from 'lucide-react';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import { useToast } from '@/components/ui/use-toast';
+import { Settings2, Banknote, Calendar, Award, AlertTriangle, Target, RotateCcw } from 'lucide-react';
 import { formatDistanceToNow, format } from 'date-fns';
 import type { ProjectOutcome } from '@auto-rfp/core';
 
@@ -26,11 +37,26 @@ export function ProjectOutcomeCard({
   onOutcomeChange,
 }: ProjectOutcomeCardProps) {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [isRemoveDialogOpen, setIsRemoveDialogOpen] = useState(false);
   const { outcome, isLoading, refetch } = useProjectOutcome(orgId, projectId, opportunityId);
+  const { removeOutcome } = useRemoveProjectOutcome();
+  const { toast } = useToast();
 
   const handleOutcomeSuccess = (newOutcome: ProjectOutcome) => {
     refetch();
     onOutcomeChange?.(newOutcome);
+  };
+
+  const handleRemoveOutcome = async () => {
+    if (!opportunityId) return;
+    try {
+      await removeOutcome({ orgId, projectId, opportunityId });
+      refetch();
+      setIsRemoveDialogOpen(false);
+      toast({ title: 'Outcome removed', description: 'Opportunity reverted to Submitted stage.' });
+    } catch {
+      toast({ title: 'Failed to remove outcome', variant: 'destructive' });
+    }
   };
 
   if (isLoading) {
@@ -59,15 +85,28 @@ export function ProjectOutcomeCard({
             Project Outcome
           </CardTitle>
           <PermissionWrapper requiredPermission="project:edit">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setIsDialogOpen(true)}
-              className="h-8 text-xs gap-1"
-            >
-              <Settings2 className="h-3.5 w-3.5" />
-              {outcome ? 'Update' : 'Set Outcome'}
-            </Button>
+            <div className="flex items-center gap-1">
+              {outcome && opportunityId && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setIsRemoveDialogOpen(true)}
+                  className="h-8 text-xs gap-1 text-muted-foreground"
+                >
+                  <RotateCcw className="h-3.5 w-3.5" />
+                  Remove
+                </Button>
+              )}
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setIsDialogOpen(true)}
+                className="h-8 text-xs gap-1"
+              >
+                <Settings2 className="h-3.5 w-3.5" />
+                {outcome ? 'Update' : 'Set Outcome'}
+              </Button>
+            </div>
           </PermissionWrapper>
         </CardHeader>
 
@@ -185,6 +224,22 @@ export function ProjectOutcomeCard({
         currentOutcome={outcome}
         onSuccess={handleOutcomeSuccess}
       />
+
+      <AlertDialog open={isRemoveDialogOpen} onOpenChange={setIsRemoveDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Remove Outcome</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will remove the current outcome and revert the opportunity stage to Submitted.
+              You can set a new outcome later.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleRemoveOutcome}>Remove Outcome</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
 }

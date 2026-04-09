@@ -27,16 +27,16 @@ export const OpportunityHeaderView = ({
 }: OpportunityHeaderViewProps) => {
   return (
     <>
-      <CardTitle className="flex items-center gap-2 truncate">
-        <FolderOpen className="h-5 w-5" />
-        {opportunity.title}
+      <CardTitle className="flex items-start gap-2">
+        <FolderOpen className="h-5 w-5 shrink-0 mt-0.5" />
+        <span className="break-words">{opportunity.title}</span>
       </CardTitle>
-      <CardDescription className="truncate">
+      <CardDescription className="break-words">
         {opportunity.organizationName ?? '—'}
       </CardDescription>
 
       {/* Badges */}
-      <div className="mt-3 flex flex-wrap gap-2 items-center">
+      <div className="mt-3 flex flex-wrap gap-1.5 items-center overflow-hidden">
         <OpportunityStageBadge
           stage={(opportunity.stage as OpportunityStage | undefined) ?? 'IDENTIFIED'}
           orgId={orgId}
@@ -62,7 +62,7 @@ export const OpportunityHeaderView = ({
       </div>
 
       {/* Dates */}
-      <div className="mt-2 flex flex-wrap items-center gap-4 text-xs text-muted-foreground">
+      <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
         <span className="inline-flex items-center gap-1">
           <CalendarClock className="h-3.5 w-3.5" />
           Posted: {formatDateTime(opportunity.postedDateIso)}

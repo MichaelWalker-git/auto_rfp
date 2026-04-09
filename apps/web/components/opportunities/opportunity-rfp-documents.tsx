@@ -43,6 +43,9 @@ import { ExportAllDialog } from '@/components/rfp-documents/export-all-dialog';
 import { GoogleDriveSyncButton } from '@/components/rfp-documents/google-drive-sync-button';
 import { GenerateDocumentDialog } from '@/components/rfp-documents/generate-document-dialog';
 import { getDocumentTypeStyle } from '@/components/rfp-documents/rfp-document-utils';
+import { useGetExecutiveBriefByProject } from '@/lib/hooks/use-executive-brief';
+import { useGenerateRFPDocument } from '@/lib/hooks/use-rfp-documents';
+import type { RequiredOutputDocument } from '@auto-rfp/core';
 import { useOpportunityContext } from './opportunity-context';
 import { formatDateTime } from './opportunity-helpers';
 import Link from 'next/link';
@@ -88,15 +91,32 @@ function DocumentApprovalStatus({ doc, orgId, projectId }: { doc: RFPDocumentIte
 }
 
 export function OpportunityRFPDocuments() {
-  const { projectId, oppId, orgId } = useOpportunityContext();
+  const { projectId, oppId, orgId, opportunity } = useOpportunityContext();
   const { currentOrganization } = useCurrentOrganization();
   const navOrgId = currentOrganization?.id ?? orgId;
   const { documents, isLoading, mutate } = useRFPDocuments(projectId, orgId, oppId);
+  const { trigger: fetchBrief, data: briefData } = useGetExecutiveBriefByProject(orgId);
+
+  // Fetch brief on mount to get required documents
+  React.useEffect(() => {
+    if (projectId && oppId) {
+      fetchBrief({ projectId, opportunityId: oppId }).catch(() => { /* brief may not exist yet */ });
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [projectId, oppId]);
+
+  const briefSections = (briefData?.brief as Record<string, unknown> | undefined)?.sections as Record<string, unknown> | undefined;
+  const requirementsSection = briefSections?.requirements as Record<string, unknown> | undefined;
+  const requirementsData = requirementsSection?.data as Record<string, unknown> | undefined;
+  const submissionCompliance = requirementsData?.submissionCompliance as Record<string, unknown> | undefined;
+  const requiredDocuments = (submissionCompliance?.requiredDocuments ?? []) as RequiredOutputDocument[];
   const { trigger: deleteDocument } = useDeleteRFPDocument(orgId);
   const { trigger: getPreviewUrl } = useDocumentPreviewUrl(orgId);
   const { trigger: getDownloadUrl } = useDocumentDownloadUrl(orgId);
   const { trigger: convertToContent } = useConvertToContent(orgId);
+  const { trigger: generateDocument } = useGenerateRFPDocument(orgId);
   const { toast } = useToast();
+  const [isGeneratingRequired, setIsGeneratingRequired] = useState(false);
 
   const [selectedType, setSelectedType] = useState<string>('ALL');
   const [uploadDialogOpen, setUploadDialogOpen] = useState(false);
@@ -120,6 +140,31 @@ export function OpportunityRFPDocuments() {
       ),
     [documents],
   );
+
+  // Required docs from brief that haven't been generated yet
+  const existingDocTypes = useMemo(() => new Set(documents.map((d) => d.documentType)), [documents]);
+  const pendingRequiredDocs = useMemo(
+    () => requiredDocuments.filter((d) => !existingDocTypes.has(d.documentType)),
+    [requiredDocuments, existingDocTypes],
+  );
+
+  const handleGenerateRequired = useCallback(async () => {
+    if (isGeneratingRequired || pendingRequiredDocs.length === 0) return;
+    setIsGeneratingRequired(true);
+    try {
+      await Promise.all(
+        pendingRequiredDocs.map((doc) =>
+          generateDocument({ projectId, opportunityId: oppId, documentType: doc.documentType }),
+        ),
+      );
+      await mutate();
+      toast({ title: 'Generation started', description: `${pendingRequiredDocs.length} required documents queued.` });
+    } catch (err) {
+      toast({ title: 'Generation failed', description: err instanceof Error ? err.message : 'Failed', variant: 'destructive' });
+    } finally {
+      setIsGeneratingRequired(false);
+    }
+  }, [isGeneratingRequired, pendingRequiredDocs, generateDocument, projectId, oppId, mutate, toast]);
 
   const handlePreview = useCallback(async (doc: RFPDocumentItem) => {
     try {
@@ -241,50 +286,57 @@ export function OpportunityRFPDocuments() {
   return (
     <>
       <Card>
-        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <div>
-            <CardTitle className="text-sm font-medium">RFP Documents</CardTitle>
-            <CardDescription className="mt-1">
-              {documents.length} {documents.length === 1 ? 'document' : 'documents'} for this opportunity
-            </CardDescription>
-          </div>
-          <div className="flex items-center gap-2">
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => setExportAllDialogOpen(true)}
-              disabled={!hasExportableDocuments || documents.length === 0}
-              title={
-                documents.length === 0
-                  ? 'No documents to export'
-                  : !hasExportableDocuments
-                    ? 'No documents with generated content to export'
-                    : 'Export all documents as a ZIP bundle'
-              }
-            >
-              <Download className="h-4 w-4 mr-2" />
-              Export All
-            </Button>
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => mutate()}
-              disabled={isLoading}
-              title="Reload"
-            >
-              <RefreshCw className={cn('h-4 w-4 mr-2', isLoading && 'animate-spin')} />
-              Reload
-            </Button>
-            <GenerateDocumentDialog
-              projectId={projectId}
-              opportunityId={oppId}
-              orgId={orgId}
-              onSuccess={() => mutate()}
-            />
-            <Button size="sm" onClick={() => setUploadDialogOpen(true)}>
-              <Upload className="h-4 w-4 mr-2" />
-              Upload
-            </Button>
+        <CardHeader className="pb-2">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+            <div className="min-w-0">
+              <CardTitle className="text-sm font-medium">RFP Documents</CardTitle>
+              <CardDescription className="mt-1">
+                {documents.length} {documents.length === 1 ? 'document' : 'documents'} for this opportunity
+              </CardDescription>
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => setExportAllDialogOpen(true)}
+                disabled={!hasExportableDocuments || documents.length === 0}
+                title={
+                  documents.length === 0
+                    ? 'No documents to export'
+                    : !hasExportableDocuments
+                      ? 'No documents with generated content to export'
+                      : 'Export all documents as a ZIP bundle'
+                }
+              >
+                <Download className="h-4 w-4 mr-2" />
+                Export
+              </Button>
+              {pendingRequiredDocs.length > 0 && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={handleGenerateRequired}
+                  disabled={isGeneratingRequired}
+                >
+                  {isGeneratingRequired ? (
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  ) : (
+                    <FileText className="h-4 w-4 mr-2" />
+                  )}
+                  {isGeneratingRequired ? 'Generating…' : `Required (${pendingRequiredDocs.length})`}
+                </Button>
+              )}
+              <GenerateDocumentDialog
+                projectId={projectId}
+                opportunityId={oppId}
+                orgId={orgId}
+                onSuccess={() => mutate()}
+              />
+              <Button size="sm" onClick={() => setUploadDialogOpen(true)}>
+                <Upload className="h-4 w-4 mr-2" />
+                Upload
+              </Button>
+            </div>
           </div>
         </CardHeader>
 
@@ -349,8 +401,8 @@ export function OpportunityRFPDocuments() {
                 );
 
                 const cardContent = (
-                  <div className="flex items-start gap-3">
-                    <div className="h-10 w-10 rounded-lg bg-muted flex items-center justify-center shrink-0">
+                  <div className="flex items-start gap-3" data-doc-status={doc.status ?? 'COMPLETE'}>
+                    <div className="h-10 w-10 rounded-lg bg-muted hidden sm:flex items-center justify-center shrink-0">
                       <FileText className="h-5 w-5 text-muted-foreground" />
                     </div>
 
@@ -360,7 +412,7 @@ export function OpportunityRFPDocuments() {
                           {doc.name}
                         </p>
                         <Badge variant="outline" className={cn('text-xs border', typeChip.cls)}>
-                          {RFP_DOCUMENT_TYPES[doc.documentType] ?? doc.documentType}
+                          {RFP_DOCUMENT_TYPES[doc.documentType as keyof typeof RFP_DOCUMENT_TYPES] ?? doc.documentType}
                         </Badge>
                         <DocumentApprovalStatus 
                           doc={doc} 
@@ -472,7 +524,8 @@ export function OpportunityRFPDocuments() {
         projectId={projectId}
         orgId={orgId}
         opportunityId={oppId}
-        documentCount={documents.filter((d) => d.status !== 'GENERATING' && (d.htmlContentKey || d.content)).length}
+        opportunityTitle={opportunity?.title ?? undefined}
+        documents={documents}
       />
       <ConfirmDialog />
     </>

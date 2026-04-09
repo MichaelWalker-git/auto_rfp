@@ -1,5 +1,5 @@
 'use client';
-import { useState } from 'react';
+import { useCallback, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -16,10 +16,13 @@ import {
   Sparkles,
   ChevronDown,
   ChevronRight,
-  RefreshCw,
+  EyeOff,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useComplianceReport } from '../hooks/useComplianceReport';
+import { useIgnoredChecks } from '../hooks/useIgnoredChecks';
+import { useOpportunityContext } from '@/components/opportunities/opportunity-context';
+import PermissionWrapper from '@/components/permission-wrapper';
 import type { ComplianceCategorySummary, ComplianceCheckCategory, ReadinessCheckItem } from '@auto-rfp/core';
 
 interface ComplianceReportProps {
@@ -40,20 +43,30 @@ const CATEGORY_ICONS: Record<ComplianceCheckCategory, React.ReactNode> = {
 
 // ─── Check Row ────────────────────────────────────────────────────────────────
 
-const CheckRow = ({ check }: { check: ReadinessCheckItem }) => {
-  const icon = check.passed
-    ? <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500 shrink-0 mt-0.5" />
-    : check.blocking
-      ? <XCircle className="h-3.5 w-3.5 text-destructive shrink-0 mt-0.5" />
-      : <AlertTriangle className="h-3.5 w-3.5 text-amber-500 shrink-0 mt-0.5" />;
+const CheckRow = ({
+  check,
+  isIgnored,
+  onToggleIgnore,
+}: {
+  check: ReadinessCheckItem;
+  isIgnored: boolean;
+  onToggleIgnore: (id: string) => void;
+}) => {
+  const icon = isIgnored
+    ? <EyeOff className="h-3.5 w-3.5 text-muted-foreground shrink-0 mt-0.5" />
+    : check.passed
+      ? <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500 shrink-0 mt-0.5" />
+      : check.blocking
+        ? <XCircle className="h-3.5 w-3.5 text-destructive shrink-0 mt-0.5" />
+        : <AlertTriangle className="h-3.5 w-3.5 text-amber-500 shrink-0 mt-0.5" />;
 
   return (
-    <div className="flex items-start gap-2.5 py-2 px-3">
+    <div className={cn('flex items-start gap-2.5 py-2 px-3', isIgnored && 'opacity-50')}>
       {icon}
       <div className="flex-1 min-w-0">
         <p className={cn(
           'text-xs font-medium leading-tight',
-          check.passed ? 'text-foreground' : check.blocking ? 'text-destructive' : 'text-amber-700',
+          isIgnored ? 'text-muted-foreground line-through' : check.passed ? 'text-foreground' : check.blocking ? 'text-destructive' : 'text-amber-700',
         )}>
           {check.label}
         </p>
@@ -61,30 +74,85 @@ const CheckRow = ({ check }: { check: ReadinessCheckItem }) => {
           <p className="text-xs text-muted-foreground mt-0.5">{check.detail}</p>
         )}
       </div>
-      {!check.passed && (
-        <Badge
-          variant="outline"
-          className={cn(
-            'text-[10px] shrink-0 px-1.5 py-0',
-            check.blocking
-              ? 'border-destructive/30 text-destructive'
-              : 'border-amber-300 text-amber-700',
-          )}
+      {isIgnored ? (
+        <PermissionWrapper
+          requiredPermission="org:edit"
+          fallback={
+            <Badge variant="outline" className="text-[10px] px-1.5 py-0 border-muted text-muted-foreground shrink-0">
+              Ignored
+            </Badge>
+          }
         >
-          {check.blocking ? 'Blocking' : 'Warning'}
-        </Badge>
-      )}
+          <button
+            type="button"
+            className="group/badge shrink-0"
+            onClick={() => onToggleIgnore(check.id)}
+          >
+            <Badge variant="outline" className="text-[10px] px-1.5 py-0 border-muted text-muted-foreground group-hover/badge:border-emerald-300 group-hover/badge:text-emerald-700 group-hover/badge:bg-emerald-50 transition-colors cursor-pointer">
+              <span className="group-hover/badge:hidden">Ignored</span>
+              <span className="hidden group-hover/badge:inline">Restore</span>
+            </Badge>
+          </button>
+        </PermissionWrapper>
+      ) : !check.passed ? (
+        <PermissionWrapper
+          requiredPermission="org:edit"
+          fallback={
+            <Badge
+              variant="outline"
+              className={cn(
+                'text-[10px] px-1.5 py-0 shrink-0',
+                check.blocking ? 'border-destructive/30 text-destructive' : 'border-amber-300 text-amber-700',
+              )}
+            >
+              {check.blocking ? 'Blocking' : 'Warning'}
+            </Badge>
+          }
+        >
+          <button
+            type="button"
+            className="group/badge shrink-0"
+            onClick={() => onToggleIgnore(check.id)}
+          >
+            <Badge
+              variant="outline"
+              className={cn(
+                'text-[10px] px-1.5 py-0 transition-colors cursor-pointer',
+                check.blocking
+                  ? 'border-destructive/30 text-destructive group-hover/badge:border-muted group-hover/badge:text-muted-foreground group-hover/badge:bg-muted/50'
+                  : 'border-amber-300 text-amber-700 group-hover/badge:border-muted group-hover/badge:text-muted-foreground group-hover/badge:bg-muted/50',
+              )}
+            >
+              <span className="group-hover/badge:hidden">{check.blocking ? 'Blocking' : 'Warning'}</span>
+              <span className="hidden group-hover/badge:inline">Ignore</span>
+            </Badge>
+          </button>
+        </PermissionWrapper>
+      ) : null}
     </div>
   );
 };
 
 // ─── Category Section ─────────────────────────────────────────────────────────
 
-const CategorySection = ({ category }: { category: ComplianceCategorySummary }) => {
+const CategorySection = ({
+  category,
+  ignoredIds,
+  onToggleIgnore,
+}: {
+  category: ComplianceCategorySummary;
+  ignoredIds: Set<string>;
+  onToggleIgnore: (id: string) => void;
+}) => {
   const [isExpanded, setIsExpanded] = useState(!category.allPassed);
   const icon = CATEGORY_ICONS[category.category];
+
+  // Recompute counters excluding ignored checks
+  const effectiveFailed = category.checks.filter((c) => !c.passed && !ignoredIds.has(c.id)).length;
+  const effectivePassed = category.totalChecks - effectiveFailed;
+  const effectiveAllPassed = effectiveFailed === 0;
   const progressPercent = category.totalChecks > 0
-    ? Math.round((category.passed / category.totalChecks) * 100)
+    ? Math.round((effectivePassed / category.totalChecks) * 100)
     : 100;
 
   return (
@@ -97,7 +165,7 @@ const CategorySection = ({ category }: { category: ComplianceCategorySummary }) 
         <span className="text-muted-foreground shrink-0">
           {isExpanded ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
         </span>
-        <span className={cn('shrink-0', category.allPassed ? 'text-emerald-500' : 'text-muted-foreground')}>
+        <span className={cn('shrink-0', effectiveAllPassed ? 'text-emerald-500' : 'text-muted-foreground')}>
           {icon}
         </span>
         <span className="text-sm font-medium flex-1 text-left">{category.label}</span>
@@ -106,20 +174,25 @@ const CategorySection = ({ category }: { category: ComplianceCategorySummary }) 
           className="h-1.5 w-16 shrink-0"
         />
         <span className="text-xs text-muted-foreground tabular-nums shrink-0">
-          {category.passed}/{category.totalChecks}
+          {effectivePassed}/{category.totalChecks}
         </span>
-        {category.allPassed ? (
+        {effectiveAllPassed ? (
           <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500 shrink-0" />
         ) : (
           <Badge variant="outline" className="text-[10px] border-amber-300 text-amber-700 px-1.5 py-0 shrink-0">
-            {category.failed}
+            {effectiveFailed}
           </Badge>
         )}
       </button>
       {isExpanded && (
         <div className="border-t bg-muted/10 divide-y divide-border/50">
           {category.checks.map((check) => (
-            <CheckRow key={check.id} check={check} />
+            <CheckRow
+              key={check.id}
+              check={check}
+              isIgnored={ignoredIds.has(check.id)}
+              onToggleIgnore={onToggleIgnore}
+            />
           ))}
         </div>
       )}
@@ -130,27 +203,29 @@ const CategorySection = ({ category }: { category: ComplianceCategorySummary }) 
 // ─── Main Component ───────────────────────────────────────────────────────────
 
 export const ComplianceReport = ({ orgId, projectId, oppId }: ComplianceReportProps) => {
-  const [isRefreshing, setIsRefreshing] = useState(false);
+  const { opportunity, refetch } = useOpportunityContext();
   const {
     report,
-    isReady,
     categories,
-    blockingFails,
-    warningFails,
     totalChecks,
-    passRate,
     isLoading,
-    refresh,
   } = useComplianceReport(orgId, projectId, oppId);
+  const { ignoredIds, toggleIgnore } = useIgnoredChecks({ orgId, projectId, oppId, opportunity, refetch });
 
-  const handleReload = async () => {
-    setIsRefreshing(true);
-    try {
-      await refresh();
-    } finally {
-      setIsRefreshing(false);
-    }
-  };
+  // Recompute stats excluding ignored checks
+  const effectiveBlockingFails = categories.reduce(
+    (sum, cat) => sum + cat.checks.filter((c) => !c.passed && c.blocking && !ignoredIds.has(c.id)).length,
+    0,
+  );
+  const effectiveWarningFails = categories.reduce(
+    (sum, cat) => sum + cat.checks.filter((c) => !c.passed && !c.blocking && !ignoredIds.has(c.id)).length,
+    0,
+  );
+  const ignoredCount = ignoredIds.size;
+  const effectivePassRate = totalChecks > 0
+    ? Math.round(((totalChecks - effectiveBlockingFails - effectiveWarningFails) / totalChecks) * 100)
+    : 100;
+  const effectiveReady = effectiveBlockingFails === 0;
 
   if (isLoading) {
     return (
@@ -176,32 +251,28 @@ export const ComplianceReport = ({ orgId, projectId, oppId }: ComplianceReportPr
           <ShieldCheck className="h-4 w-4" />
           Compliance Report
           <span className="text-xs font-normal text-muted-foreground">
-            {passRate}% · {totalChecks} checks
+            {effectivePassRate}% · {totalChecks} checks{ignoredCount > 0 ? ` · ${ignoredCount} ignored` : ''}
           </span>
         </CardTitle>
         <div className="flex items-center gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => void handleReload()}
-            disabled={isRefreshing}
-          >
-            <RefreshCw className={cn('h-4 w-4 mr-2', isRefreshing && 'animate-spin')} />
-            Reload
-          </Button>
-          <Badge variant={isReady ? 'default' : blockingFails > 0 ? 'destructive' : 'outline'}>
-            {isReady
+          <Badge variant={effectiveReady ? 'default' : effectiveBlockingFails > 0 ? 'destructive' : 'outline'}>
+            {effectiveReady
               ? 'Ready'
-              : blockingFails > 0
-                ? `${blockingFails} blocking`
-                : `${warningFails} warning${warningFails !== 1 ? 's' : ''}`}
+              : effectiveBlockingFails > 0
+                ? `${effectiveBlockingFails} blocking`
+                : `${effectiveWarningFails} warning${effectiveWarningFails !== 1 ? 's' : ''}`}
           </Badge>
         </div>
       </CardHeader>
       <CardContent>
         <div className="space-y-1.5">
           {categories.map((cat) => (
-            <CategorySection key={cat.category} category={cat} />
+            <CategorySection
+              key={cat.category}
+              category={cat}
+              ignoredIds={ignoredIds}
+              onToggleIgnore={toggleIgnore}
+            />
           ))}
         </div>
         {report.generatedAt && (

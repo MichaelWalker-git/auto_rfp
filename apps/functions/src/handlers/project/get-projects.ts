@@ -37,22 +37,27 @@ export const baseHandler = async (event: AuthedEvent): Promise<APIGatewayProxyRe
     console.log('[get-projects] userId:', userId, 'orgId:', orgId);
     console.log('[get-projects] allProjects:', allProjects.length, 'assignedProjectIds:', assignedProjectIds.length, assignedProjectIds);
 
-    // Filter projects with the following rules:
-    // 1. LEGACY projects (no createdBy) → always visible to all org members
-    // 2. NEW projects (with createdBy) → visible ONLY if user has explicit assignment
-    //    (creator is auto-assigned on project creation, so createdBy check is not needed)
-    const visibleProjects = allProjects.filter((project) => {
-      // Legacy project (created before assignment feature) - always visible
-      if (!project.createdBy) {
-        return true;
-      }
+    // Admins see all projects in the org — no access filtering needed
+    const isAdmin = (event as AuthedEvent).rbac?.role === 'ADMIN';
 
-      const hasAccess = assignedSet.has(project.id);
-      if (!hasAccess) {
-        console.log('[get-projects] FILTERED OUT project:', project.id, project.name, 'createdBy:', project.createdBy);
-      }
-      return hasAccess;
-    });
+    // Filter projects with the following rules:
+    // 1. ADMIN users → see all projects
+    // 2. LEGACY projects (no createdBy) → always visible to all org members
+    // 3. NEW projects (with createdBy) → visible ONLY if user has explicit assignment
+    const visibleProjects = isAdmin
+      ? allProjects
+      : allProjects.filter((project) => {
+          // Legacy project (created before assignment feature) - always visible
+          if (!project.createdBy) {
+            return true;
+          }
+
+          const hasAccess = assignedSet.has(project.id);
+          if (!hasAccess) {
+            console.log('[get-projects] FILTERED OUT project:', project.id, project.name, 'createdBy:', project.createdBy);
+          }
+          return hasAccess;
+        });
 
     console.log('[get-projects] visibleProjects:', visibleProjects.length);
 
