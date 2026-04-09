@@ -555,7 +555,7 @@ export class ApiOrchestratorStack extends cdk.Stack {
     }
 
     // 5. Create stage with auto-deploy
-    const apiStage = new apigwv2.HttpStage(this, 'ApiStage', {
+    const apiStage = new apigwv2.HttpStage(this, 'HttpApiStage', {
       httpApi: this.httpApi,
       stageName: stage,
       autoDeploy: true,
