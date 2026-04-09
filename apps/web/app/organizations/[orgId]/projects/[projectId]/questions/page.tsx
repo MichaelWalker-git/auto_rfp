@@ -14,7 +14,7 @@ export default async function QuestionsPage({ params, searchParams }: QuestionsP
   const { oppId } = await searchParams;
 
   return (
-    <Suspense fallback={<QuestionsLoadingFallback/>}>
+    <Suspense fallback={<PageLoadingSkeleton variant="list" hasDescription rowCount={5}/>}>
       <QuestionsSection orgId={orgId} projectId={projectId} initialOpportunityId={oppId}/>
       <Toaster/>
     </Suspense>

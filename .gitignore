@@ -20,7 +20,9 @@ n8n-dev-agent/data/
 localstorage/
 .next/
 **/cdk.out/
+**/cdk-diff.out/
 pnpm-lock.yaml
+promptfoo-errors.log
 
 # Prevent nested workspace configs (only root should have pnpm-workspace.yaml)
 apps/**/pnpm-workspace.yaml
