@@ -49,13 +49,13 @@ const MAX_SEARCH_QUERY_CHARS = 15_000;
 const TOTAL_CONTEXT_BUDGET = 18_000;
 
 /** Minimum relevance score (cosine similarity, 0–1) to include a KB chunk. */
-const KB_MIN_SCORE = 0.45;
+const KB_MIN_SCORE = 0.20;
 
 /** Minimum relevance score to include a past-performance project. */
-const PAST_PERF_MIN_SCORE = 0.40;
+const PAST_PERF_MIN_SCORE = 0.15;
 
 /** Minimum relevance score to include a content-library snippet. */
-const CONTENT_LIB_MIN_SCORE = 0.40;
+const CONTENT_LIB_MIN_SCORE = 0.15;
 
 // ─── Per-section char budgets (must sum to ≤ TOTAL_CONTEXT_BUDGET) ───────────
 

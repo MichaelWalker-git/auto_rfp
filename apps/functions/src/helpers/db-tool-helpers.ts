@@ -345,7 +345,7 @@ export const fetchContentLibraryMatches = async (
     const hits = await semanticSearchContentLibrary(orgId, embedding, limit * 2);
     if (!hits.length) return empty;
 
-    const MIN_SCORE = 0.40;
+    const MIN_SCORE = 0.15;
     const relevant = hits.filter(h => (h.score ?? 0) >= MIN_SCORE).slice(0, limit);
     if (!relevant.length) return empty;
 
