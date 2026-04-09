@@ -37,7 +37,13 @@ const baseHandler = async (event: AuthedEvent): Promise<APIGatewayProxyResultV2>
   if (!success) return apiResponse(400, { message: 'Invalid request body', issues: error.issues });
 
   const userId = getUserId(event) ?? 'system';
-  const userName = (event.auth?.claims?.['cognito:username'] as string | undefined) ?? userId;
+  // Resolve display name from user DB instead of Cognito username (which is a UUID)
+  let userName = userId;
+  try {
+    const { resolveUserNames } = await import('@/helpers/resolve-users');
+    const nameMap = await resolveUserNames(orgId, [userId]);
+    userName = nameMap[userId] ?? userId;
+  } catch { /* fallback to userId */ }
 
   // ── 1. Load opportunity (for deadline + title) ──
   const opp = await getOpportunity({ orgId: data.orgId, projectId: data.projectId, oppId: data.oppId });

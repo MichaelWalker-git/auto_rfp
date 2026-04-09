@@ -178,10 +178,6 @@ export default function SubmitProposalPage() {
       // Invalidate opportunity cache so stage update is reflected
       globalMutate((key: unknown) => typeof key === 'string' && key.includes('/opportunity/'));
 
-      // Open email client with draft
-      const mailto = `mailto:?subject=${encodeURIComponent(emailSubject)}&body=${encodeURIComponent(emailBody)}`;
-      window.open(mailto, '_blank');
-
       router.push(`/organizations/${orgId}/projects/${projectId}/opportunities/${oppId}`);
     } else {
       toast({ title: 'Submission Failed', description: 'Could not submit. Check compliance.', variant: 'destructive' });
@@ -326,25 +322,52 @@ export default function SubmitProposalPage() {
             </Select>
           </div>
 
-          <div className="grid sm:grid-cols-2 gap-4">
+          {/* Portal-specific fields */}
+          {submissionMethod === 'PORTAL' && (
+            <div className="grid sm:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Confirmation / Tracking Number <span className="text-muted-foreground font-normal">(optional)</span></Label>
+                <Input
+                  value={submissionReference}
+                  onChange={(e) => setSubmissionReference(e.target.value)}
+                  placeholder="e.g. SAM-2025-001234"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Portal URL <span className="text-muted-foreground font-normal">(optional)</span></Label>
+                <Input
+                  value={portalUrl}
+                  onChange={(e) => setPortalUrl(e.target.value)}
+                  placeholder="https://sam.gov/opp/..."
+                  type="url"
+                />
+              </div>
+            </div>
+          )}
+
+          {/* Email-specific: tracking number */}
+          {submissionMethod === 'EMAIL' && (
             <div className="space-y-2">
-              <Label>Confirmation / Tracking Number <span className="text-muted-foreground font-normal">(optional)</span></Label>
+              <Label>Email Thread ID / Tracking <span className="text-muted-foreground font-normal">(optional)</span></Label>
               <Input
                 value={submissionReference}
                 onChange={(e) => setSubmissionReference(e.target.value)}
-                placeholder="e.g. SAM-2025-001234"
+                placeholder="e.g. email thread ID"
               />
             </div>
+          )}
+
+          {/* Hand delivery / Other: tracking */}
+          {(submissionMethod === 'HAND_DELIVERY' || submissionMethod === 'MANUAL' || submissionMethod === 'OTHER') && (
             <div className="space-y-2">
-              <Label>Portal URL <span className="text-muted-foreground font-normal">(optional)</span></Label>
+              <Label>Reference / Tracking Number <span className="text-muted-foreground font-normal">(optional)</span></Label>
               <Input
-                value={portalUrl}
-                onChange={(e) => setPortalUrl(e.target.value)}
-                placeholder="https://sam.gov/opp/..."
-                type="url"
+                value={submissionReference}
+                onChange={(e) => setSubmissionReference(e.target.value)}
+                placeholder="e.g. receipt number"
               />
             </div>
-          </div>
+          )}
 
           <div className="space-y-2">
             <Label>Notes <span className="text-muted-foreground font-normal">(optional)</span></Label>
@@ -358,62 +381,69 @@ export default function SubmitProposalPage() {
         </CardContent>
       </Card>
 
-      {/* 4. Email Draft */}
-      <Card>
-        <CardHeader className="pb-3">
-          <div className="flex items-center justify-between">
-            <CardTitle className="text-base flex items-center gap-2">
-              <Mail className="h-4 w-4" />
-              Email Draft
-            </CardTitle>
-            <div className="flex items-center gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => {
-                  navigator.clipboard.writeText(`Subject: ${emailSubject}\n\n${emailBody}`);
-                  toast({ title: 'Copied to clipboard' });
-                }}
-              >
-                <Copy className="h-3.5 w-3.5 mr-1" />
-                Copy
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => window.open(`mailto:?subject=${encodeURIComponent(emailSubject)}&body=${encodeURIComponent(emailBody)}`, '_blank')}
-              >
-                <ExternalLink className="h-3.5 w-3.5 mr-1" />
-                Open in Email
-              </Button>
-            </div>
-          </div>
-          <CardDescription>Pre-filled email template. Copy or open in your email client.</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          <div className="space-y-1">
-            <Label className="text-xs text-muted-foreground">Subject</Label>
-            <Input value={emailSubject} readOnly className="text-sm bg-muted/30" />
-          </div>
-          <div className="space-y-1">
-            <Label className="text-xs text-muted-foreground">Body</Label>
-            <Textarea value={emailBody} readOnly rows={8} className="text-sm font-mono bg-muted/30" />
-          </div>
-          {selectedDocs.length > 0 && (
-            <div className="space-y-1">
-              <Label className="text-xs text-muted-foreground">Attachments ({selectedDocs.length})</Label>
-              <div className="text-xs text-muted-foreground space-y-0.5">
-                {selectedDocs.map((d) => (
-                  <div key={d.documentId} className="flex items-center gap-1.5">
-                    <Download className="h-3 w-3" />
-                    {d.name}
-                  </div>
-                ))}
+      {/* 4. Email Draft — only for EMAIL submission method */}
+      {submissionMethod === 'EMAIL' && (
+        <Card>
+          <CardHeader className="pb-3">
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-base flex items-center gap-2">
+                <Mail className="h-4 w-4" />
+                Email Draft
+              </CardTitle>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    navigator.clipboard.writeText(`Subject: ${emailSubject}\n\n${emailBody}`);
+                    toast({ title: 'Copied to clipboard' });
+                  }}
+                >
+                  <Copy className="h-3.5 w-3.5 mr-1" />
+                  Copy
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => window.open(`mailto:?subject=${encodeURIComponent(emailSubject)}&body=${encodeURIComponent(emailBody)}`, '_blank')}
+                >
+                  <Mail className="h-3.5 w-3.5 mr-1" />
+                  Open in Email Client
+                </Button>
               </div>
             </div>
-          )}
-        </CardContent>
-      </Card>
+            <CardDescription>Pre-filled email template. Attach the documents below before sending.</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <div className="space-y-1">
+              <Label className="text-xs text-muted-foreground">Subject</Label>
+              <Input value={emailSubject} readOnly className="text-sm bg-muted/30" />
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs text-muted-foreground">Body</Label>
+              <Textarea value={emailBody} readOnly rows={8} className="text-sm font-mono bg-muted/30" />
+            </div>
+            {selectedDocs.length > 0 && (
+              <div className="space-y-2">
+                <Label className="text-xs text-muted-foreground">
+                  Documents to Attach ({selectedDocs.length})
+                </Label>
+                <p className="text-xs text-amber-600">
+                  Download these files and attach them to your email before sending.
+                </p>
+                <div className="space-y-1">
+                  {selectedDocs.map((d) => (
+                    <div key={d.documentId} className="flex items-center gap-2 text-sm rounded-lg border p-2">
+                      <Download className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                      <span className="flex-1 truncate">{d.name}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
 
       {/* 5. Submit */}
       <Separator />
