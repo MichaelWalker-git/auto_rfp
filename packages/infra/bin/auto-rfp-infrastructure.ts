@@ -220,8 +220,6 @@ const amplifyStack = new AmplifyFeStack(app, `AmplifyFeStack-${stage}`, {
   cognitoUserPoolId: auth.userPool.userPoolId,
   cognitoUserPoolClientId: auth.userPoolClient.userPoolClientId,
   cognitoDomainUrl: auth.userPoolDomain.baseUrl(),
-  // Use api.apiUrl — after HTTP API migration, this will point to the new HTTP API URL.
-  // The cross-stack reference is maintained by CloudFormation exports.
   baseApiUrl: api.apiUrl,
   region: env.region!,
   sentryDNS,
