@@ -73,6 +73,10 @@ export const SubmitProposalButton = ({ orgId, projectId, oppId, onSuccess }: Sub
   });
 
   const onSubmit = async (values: FormValues) => {
+    // Strip empty optional strings so Zod .url() validation doesn't fail on ""
+    if (!values.portalUrl) values.portalUrl = undefined;
+    if (!values.submissionReference) values.submissionReference = undefined;
+    if (!values.submissionNotes) values.submissionNotes = undefined;
     const result = await submit(values as SubmitProposal);
     if (result) {
       toast({
@@ -135,7 +139,10 @@ export const SubmitProposalButton = ({ orgId, projectId, oppId, onSuccess }: Sub
             </Alert>
           )}
 
-          <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+          <form onSubmit={handleSubmit(onSubmit, (formErrors) => {
+            const firstError = Object.values(formErrors)[0];
+            toast({ title: 'Validation error', description: firstError?.message ?? 'Please check the form', variant: 'destructive' });
+          })} className="space-y-4">
             <input type="hidden" {...register('orgId')} />
             <input type="hidden" {...register('projectId')} />
             <input type="hidden" {...register('oppId')} />
