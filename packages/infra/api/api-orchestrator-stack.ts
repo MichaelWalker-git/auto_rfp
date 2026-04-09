@@ -554,9 +554,21 @@ export class ApiOrchestratorStack extends cdk.Stack {
     // 4. Create nested stacks per domain (Lambda + LogGroup + Route registration)
     //    Each nested stack stays under CloudFormation's 500 resource limit.
     //    Routes are HttpApi routes (no resource tree limit like REST API).
-    const domainStackNames = allDomains.map((d) =>
-      `${d.basePath.replace(/[^a-zA-Z0-9]/g, '')}Routes`,
-    );
+    // IMPORTANT: Use the EXACT same logical IDs as the old REST API nested stacks
+    // so CloudFormation updates them in-place rather than delete+recreate (which
+    // would fail due to cross-stack export dependencies).
+    const domainStackNames = [
+      'OrganizationRoutes', 'AnswerRoutes', 'BriefRoutes', 'PresignedRoutes',
+      'KnowledgebaseRoutes', 'DocumentRoutes', 'QuestionfileRoutes', 'UserRoutes',
+      'QuestionRoutes', 'SemanticRoutes', 'DeadlinesRoutes', 'OpportunityRoutes',
+      'ContentLibraryRoutes', 'ProjectOutcomeRoutes', 'FoiaRoutes', 'DebriefingRoutes',
+      'PastPerfRoutes', 'ProjectsRoutes', 'PromptRoutes', 'SearchOpportunityRoutes',
+      'RfpDocumentRoutes', 'TemplateRoutes', 'LinearRoutes', 'GoogleRoutes',
+      'ClusteringRoutes', 'CollaborationRoutes', 'OpportunityContextRoutes',
+      'NotificationRoutes', 'AuditRoutes', 'AnalyticsRoutes', 'ClarifyingQuestionRoutes',
+      'EngagementLogRoutes', 'ApnRoutes', 'ProposalSubmissionRoutes',
+      'DocumentApprovalRoutes', 'PricingRoutes',
+    ];
 
     for (let i = 0; i < allDomains.length; i++) {
       new ApiDomainLambdaStack(this, domainStackNames[i]!, {
