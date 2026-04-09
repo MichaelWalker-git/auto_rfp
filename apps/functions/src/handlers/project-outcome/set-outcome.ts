@@ -37,6 +37,28 @@ export const baseHandler = async (
 
   try {
     const rawBody = JSON.parse(event.body);
+
+    // Handle REMOVE action — delete outcome and revert stage
+    if (rawBody?.status === 'REMOVE') {
+      const { orgId, projectId, opportunityId } = rawBody;
+      if (!orgId || !projectId || !opportunityId) {
+        return apiResponse(400, { message: 'orgId, projectId, and opportunityId are required' });
+      }
+      const sortKey = `${orgId}#${projectId}#${opportunityId}`;
+      const { DeleteCommand: DelCmd } = await import('@aws-sdk/lib-dynamodb');
+      await docClient.send(new DelCmd({
+        TableName: DB_TABLE_NAME,
+        Key: { [PK_NAME]: PROJECT_OUTCOME_PK, [SK_NAME]: sortKey },
+      }));
+      const userId = event.authContext?.userId || 'unknown';
+      try {
+        await onProjectOutcomeSet({ orgId, projectId, oppId: opportunityId, outcomeStatus: 'PENDING', changedBy: userId });
+      } catch (err) {
+        console.warn('[set-outcome] Failed to revert stage:', (err as Error)?.message);
+      }
+      return apiResponse(200, { message: 'Outcome removed', projectId, opportunityId });
+    }
+
     const validationResult = SetProjectOutcomeRequestSchema.safeParse(rawBody);
 
     if (!validationResult.success) {

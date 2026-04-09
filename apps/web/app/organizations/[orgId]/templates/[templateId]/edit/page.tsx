@@ -3,27 +3,26 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useSWRConfig } from 'swr';
-import { Loader2, Save, ArrowLeft, FileText, Check } from 'lucide-react';
+import { Loader2, Save, ArrowLeft, FileText, Check, ChevronsUpDown, Plus } from 'lucide-react';
 import Link from 'next/link';
 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList, CommandSeparator } from '@/components/ui/command';
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
+import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/components/ui/use-toast';
+import { cn } from '@/lib/utils';
 import { RichTextEditor, stripPresignedUrlsFromHtml } from '@/components/rfp-documents/rich-text-editor';
 import { useUpdateTemplate, useTemplate } from '@/lib/hooks/use-templates';
+import { useCustomDocumentTypes, useSaveCustomDocumentType } from '@/lib/hooks/use-rfp-documents';
 import { usePresignUpload, usePresignDownload, uploadFileToS3 } from '@/lib/hooks/use-presign';
 import type { Editor } from '@tiptap/react';
 import { MacroInsertionBar } from '@/components/templates/MacroInsertionBar';
 
-const CATEGORIES = [
+const BUILT_IN_CATEGORIES = [
   { value: 'COVER_LETTER', label: 'Cover Letter' },
   { value: 'EXECUTIVE_SUMMARY', label: 'Executive Summary' },
   { value: 'UNDERSTANDING_OF_REQUIREMENTS', label: 'Understanding of Requirements' },
@@ -53,6 +52,10 @@ export default function EditTemplatePage() {
   const [isImageUploading, setIsImageUploading] = useState(false);
   const [isResolvingImages, setIsResolvingImages] = useState(false);
   const [lastSavedAt, setLastSavedAt] = useState<Date | null>(null);
+  const [categoryOpen, setCategoryOpen] = useState(false);
+  const [createTypeOpen, setCreateTypeOpen] = useState(false);
+  const [newTypeName, setNewTypeName] = useState('');
+  const [newTypeDescription, setNewTypeDescription] = useState('');
   const contentInitializedRef = useRef(false);
   const editorRef = useRef<Editor | null>(null);
   const isSavingRef = useRef(false);
@@ -63,6 +66,32 @@ export default function EditTemplatePage() {
   const { update, isUpdating } = useUpdateTemplate(orgId, templateId);
   const { trigger: triggerPresignUpload } = usePresignUpload();
   const { trigger: triggerPresignDownload } = usePresignDownload();
+  const { customTypes, mutate: mutateCustomTypes } = useCustomDocumentTypes(orgId);
+  const { trigger: saveCustomType } = useSaveCustomDocumentType(orgId);
+
+  // Merge built-in + custom categories
+  const builtInValues = new Set(BUILT_IN_CATEGORIES.map((c) => c.value));
+  const allCategories = [
+    ...BUILT_IN_CATEGORIES,
+    ...customTypes
+      .filter((ct) => !builtInValues.has(ct.slug))
+      .map((ct) => ({ value: ct.slug, label: ct.name })),
+  ];
+
+  const handleCreateType = async () => {
+    if (!newTypeName.trim()) return;
+    try {
+      const result = await saveCustomType({ name: newTypeName.trim(), description: newTypeDescription.trim() || null });
+      await mutateCustomTypes();
+      setCategory(result.item.slug);
+      setCreateTypeOpen(false);
+      setNewTypeName('');
+      setNewTypeDescription('');
+      toast({ title: 'Document type created' });
+    } catch {
+      toast({ title: 'Failed to create document type', variant: 'destructive' });
+    }
+  };
 
   const [name, setName] = useState(template?.name ?? '');
   const [category, setCategory] = useState(template?.category ?? '');
@@ -320,17 +349,58 @@ export default function EditTemplatePage() {
             </div>
 
             <div className="w-64 space-y-2">
-              <Label htmlFor="category">Category *</Label>
-              <Select key={`category-${category || 'empty'}`} value={category} onValueChange={setCategory} disabled={isDisabled}>
-                <SelectTrigger id="category">
-                  <SelectValue placeholder="Select category…" />
-                </SelectTrigger>
-                <SelectContent>
-                  {CATEGORIES.map((c) => (
-                    <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Label>Category *</Label>
+              <Popover open={categoryOpen} onOpenChange={setCategoryOpen}>
+                <PopoverTrigger asChild>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    role="combobox"
+                    aria-expanded={categoryOpen}
+                    disabled={isDisabled}
+                    className={cn('w-full justify-between', !category && 'text-muted-foreground')}
+                  >
+                    <span className="truncate">
+                      {allCategories.find((c) => c.value === category)?.label || 'Select category…'}
+                    </span>
+                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
+                  <Command>
+                    <CommandInput placeholder="Search categories…" />
+                    <CommandList>
+                      <CommandEmpty>No categories found.</CommandEmpty>
+                      <CommandGroup>
+                        {allCategories.map((c) => (
+                          <CommandItem
+                            key={c.value}
+                            value={c.label}
+                            onSelect={() => {
+                              setCategory(c.value);
+                              setCategoryOpen(false);
+                            }}
+                          >
+                            <Check className={cn('mr-2 h-4 w-4', category === c.value ? 'opacity-100' : 'opacity-0')} />
+                            {c.label}
+                          </CommandItem>
+                        ))}
+                      </CommandGroup>
+                      <CommandSeparator />
+                      <CommandItem
+                        onSelect={() => {
+                          setCategoryOpen(false);
+                          setCreateTypeOpen(true);
+                        }}
+                        className="cursor-pointer"
+                      >
+                        <Plus className="mr-2 h-4 w-4" />
+                        Create new document type
+                      </CommandItem>
+                    </CommandList>
+                  </Command>
+                </PopoverContent>
+              </Popover>
             </div>
 
             <Button
@@ -395,6 +465,43 @@ export default function EditTemplatePage() {
       <div className="lg:hidden mt-6">
         <MacroInsertionBar onInsert={insertMacro} disabled={isDisabled} />
       </div>
+
+      {/* Create Document Type Dialog */}
+      <Dialog open={createTypeOpen} onOpenChange={setCreateTypeOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Create Document Type</DialogTitle>
+            <DialogDescription>
+              Add a custom document type for your organization. The description helps the AI generate better content.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="space-y-2">
+              <Label htmlFor="typeName">Name *</Label>
+              <Input
+                id="typeName"
+                value={newTypeName}
+                onChange={(e) => setNewTypeName(e.target.value)}
+                placeholder="e.g., NDA, Oral Presentation, References"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="typeDescription">Description</Label>
+              <Textarea
+                id="typeDescription"
+                value={newTypeDescription}
+                onChange={(e) => setNewTypeDescription(e.target.value)}
+                placeholder="Describe what this document type is for. This helps the AI generate better content."
+                rows={3}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setCreateTypeOpen(false)}>Cancel</Button>
+            <Button onClick={handleCreateType} disabled={!newTypeName.trim()}>Create</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

@@ -58,11 +58,11 @@ export const SubmissionHistoryCard = ({ orgId, projectId, oppId }: SubmissionHis
       </CardHeader>
       <CardContent>
         <div className="space-y-3">
-          {submissions.map((sub) => {
+          {submissions.map((sub, idx) => {
             const cfg = STATUS_CONFIG[sub.status];
             return (
               <div
-                key={sub.submissionId}
+                key={sub.submissionId ?? `sub-${idx}`}
                 className="flex items-start gap-3 p-3 rounded-lg border bg-muted/20"
               >
                 <div className="flex-1 min-w-0 space-y-1">
@@ -73,10 +73,12 @@ export const SubmissionHistoryCard = ({ orgId, projectId, oppId }: SubmissionHis
                     <span className="text-xs text-muted-foreground">
                       {METHOD_LABELS[sub.submissionMethod]}
                     </span>
-                    <span className="text-xs text-muted-foreground">
-                      {format(new Date(sub.submittedAt), 'MMM d, yyyy HH:mm')}
-                    </span>
-                    {sub.submittedByName && (
+                    {sub.submittedAt && (
+                      <span className="text-xs text-muted-foreground">
+                        {format(new Date(sub.submittedAt), 'MMM d, yyyy HH:mm')}
+                      </span>
+                    )}
+                    {sub.submittedByName && !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(sub.submittedByName) && (
                       <span className="text-xs text-muted-foreground">
                         by {sub.submittedByName}
                       </span>

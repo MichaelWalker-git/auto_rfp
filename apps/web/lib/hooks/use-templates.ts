@@ -65,6 +65,7 @@ export function useTemplates(params: {
   status?: string;
   limit?: number;
   offset?: number;
+  excludeArchived?: string;
 } | null) {
   const entries: Array<[string, string]> = [];
   if (params) {
@@ -73,6 +74,7 @@ export function useTemplates(params: {
     if (params.status) entries.push(['status', params.status]);
     if (params.limit) entries.push(['limit', String(params.limit)]);
     if (params.offset) entries.push(['offset', String(params.offset)]);
+    if (params.excludeArchived) entries.push(['excludeArchived', params.excludeArchived]);
   }
   const qs = params ? new URLSearchParams(entries).toString() : null;
 
@@ -184,6 +186,42 @@ export function usePublishTemplate(orgId: string) {
     return res.json();
   };
   return { publish };
+}
+
+export function useUnpublishTemplate(orgId: string) {
+  const unpublish = async (templateId: string) => {
+    const res = await authFetcher(
+      `${API_BASE}/publish/${templateId}?orgId=${orgId}&action=unpublish`,
+      { method: 'POST' },
+    );
+    if (!res.ok) throw new Error('Failed to unpublish template');
+    return res.json();
+  };
+  return { unpublish };
+}
+
+export function useUnarchiveTemplate(orgId: string) {
+  const unarchive = async (templateId: string) => {
+    const res = await authFetcher(
+      `${API_BASE}/delete/${templateId}?orgId=${orgId}&action=unarchive`,
+      { method: 'DELETE' },
+    );
+    if (!res.ok) throw new Error('Failed to restore template');
+    return res.json();
+  };
+  return { unarchive };
+}
+
+export function usePermanentlyDeleteTemplate(orgId: string) {
+  const permanentlyDelete = async (templateId: string) => {
+    const res = await authFetcher(
+      `${API_BASE}/delete/${templateId}?orgId=${orgId}&action=permanently-delete`,
+      { method: 'DELETE' },
+    );
+    if (!res.ok) throw new Error('Failed to permanently delete template');
+    return res.json();
+  };
+  return { permanentlyDelete };
 }
 
 export function useTemplateCategories(orgId: string | null) {

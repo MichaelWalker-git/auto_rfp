@@ -6,17 +6,19 @@ import * as dynamodb from 'aws-cdk-lib/aws-dynamodb';
 import * as s3 from 'aws-cdk-lib/aws-s3';
 import * as sqs from 'aws-cdk-lib/aws-sqs';
 import * as apigateway from 'aws-cdk-lib/aws-apigateway';
+import * as apigwv2 from 'aws-cdk-lib/aws-apigatewayv2';
+// apigwv2Integrations used in nested stacks only
+import * as apigwv2Authorizers from 'aws-cdk-lib/aws-apigatewayv2-authorizers';
 import * as lambda from 'aws-cdk-lib/aws-lambda';
 import * as lambdaNodejs from 'aws-cdk-lib/aws-lambda-nodejs';
 import * as lambdaEventSources from 'aws-cdk-lib/aws-lambda-event-sources';
 import * as path from 'path';
-import * as crypto from 'crypto';
 import * as events from 'aws-cdk-lib/aws-events';
 import * as eventsTargets from 'aws-cdk-lib/aws-events-targets';
 import * as logs from 'aws-cdk-lib/aws-logs';
 
 import { ApiSharedInfraStack } from './api-shared-infra-stack';
-import { ApiDomainRoutesStack } from './api-domain-resource-stack';
+import { ApiDomainLambdaStack } from './api-domain-lambda-stack';
 import type { DomainRoutes } from './routes/types';
 import { foiaDomain } from './routes/foia.routes';
 import { debriefingDomain } from './routes/debriefing.routes';
@@ -58,6 +60,7 @@ import { pricingDomain } from './routes/pricing.routes';
 export interface ApiOrchestratorStackProps extends cdk.StackProps {
   stage: string;
   userPool: cognito.IUserPool;
+  userPoolClientId: string;
   mainTable: dynamodb.ITable;
   documentsBucket: s3.IBucket;
   execBriefQueue?: sqs.IQueue;
@@ -82,11 +85,14 @@ export interface ApiOrchestratorStackProps extends cdk.StackProps {
  * The API is created in the parent stack to avoid cyclic dependencies.
  */
 export class ApiOrchestratorStack extends cdk.Stack {
+  public readonly commonLambdaRoleArn: string;
+  public readonly httpApi: apigwv2.HttpApi;
+  public readonly apiUrl: string;
+
+  // Keep legacy fields for backward compatibility during migration
   public readonly restApiId: string;
   public readonly rootResourceId: string;
-  public readonly commonLambdaRoleArn: string;
-  public readonly api: apigateway.RestApi;
-  public readonly apiUrl: string;
+  public readonly api: apigateway.RestApi | undefined;
 
   constructor(scope: Construct, id: string, props: ApiOrchestratorStackProps) {
     super(scope, id, props);
@@ -94,6 +100,7 @@ export class ApiOrchestratorStack extends cdk.Stack {
     const {
       stage,
       userPool,
+      userPoolClientId,
       mainTable,
       documentsBucket,
       execBriefQueue,
@@ -107,34 +114,55 @@ export class ApiOrchestratorStack extends cdk.Stack {
       pineconeApiKey,
     } = props;
 
-    // 1. Create API Gateway REST API directly in this stack
-    // Disable automatic deployment to avoid circular dependencies with nested stacks
+    // ── Keep old REST API alive temporarily to preserve CloudFormation exports ──
+    // AmplifyFeStack imports the old ApiStage export. Once it updates to use
+    // the new HTTP API URL, remove this block and deploy again.
+    // TODO: Remove after AmplifyFeStack migration
     this.api = new apigateway.RestApi(this, 'AutoRfpApi', {
-      restApiName: `AutoRFP API (${stage})`,
-      deploy: false, // We'll create deployment manually after all routes are added
-      cloudWatchRole: true,
-      defaultCorsPreflightOptions: {
-        allowOrigins: apigateway.Cors.ALL_ORIGINS,
-        allowMethods: apigateway.Cors.ALL_METHODS,
-        allowHeaders: [
-          'Content-Type',
-          'X-Amz-Date',
-          'Authorization',
-          'X-Api-Key',
-          'X-Amz-Security-Token',
-        ],
-        allowCredentials: true,
-      },
+      restApiName: `AutoRFP API Legacy (${stage})`,
+      deploy: false,
     });
-
+    // Add a dummy method so CloudFormation doesn't reject the empty API
+    this.api.root.addMethod('GET', new apigateway.MockIntegration({
+      integrationResponses: [{ statusCode: '200' }],
+      requestTemplates: { 'application/json': '{"statusCode": 200}' },
+    }), { methodResponses: [{ statusCode: '200' }] });
+    const legacyDeployment = new apigateway.Deployment(this, 'ApiDeployment', { api: this.api });
+    new apigateway.Stage(this, 'ApiStage', { deployment: legacyDeployment, stageName: `${stage}legacy` });
     this.restApiId = this.api.restApiId;
     this.rootResourceId = this.api.restApiRootResourceId;
 
-    // Create Cognito authorizer
-    const authorizer = new apigateway.CognitoUserPoolsAuthorizer(this, 'CognitoAuthorizer', {
-      cognitoUserPools: [userPool],
-      authorizerName: `${stage}-cognito-authorizer`,
+    // 1. Create HTTP API (v2) — no resource limit, cheaper, lower latency
+    this.httpApi = new apigwv2.HttpApi(this, 'AutoRfpHttpApi', {
+      apiName: `AutoRFP API (${stage})`,
+      corsPreflight: {
+        allowOrigins: ['*'],
+        allowMethods: [apigwv2.CorsHttpMethod.ANY],
+        allowHeaders: [
+          'Content-Type',
+          'Authorization',
+          'X-Amz-Date',
+          'X-Api-Key',
+          'X-Amz-Security-Token',
+          'X-Org-Id',
+        ],
+        allowCredentials: false, // Cannot be true with allowOrigins: ['*']
+        maxAge: cdk.Duration.hours(1),
+      },
+      createDefaultStage: false,
     });
+
+    // apiUrl points to the NEW HTTP API (not the legacy REST API)
+
+    // JWT authorizer using Cognito User Pool
+    const region = cdk.Aws.REGION;
+    const jwtAuthorizer = new apigwv2Authorizers.HttpJwtAuthorizer(
+      'CognitoJwtAuthorizer',
+      `https://cognito-idp.${region}.amazonaws.com/${userPool.userPoolId}`,
+      {
+        jwtAudience: [userPoolClientId],
+      },
+    );
 
     // 2. Create shared infrastructure (Lambda role + common env)
     const commonEnv: Record<string, string> = {
@@ -483,8 +511,7 @@ export class ApiOrchestratorStack extends cdk.Stack {
       documentGenerationQueue.grantConsumeMessages(docGenWorker);
     }
 
-    // 3. Collect all domain route definitions for hashing and nested stack creation
-    // This ensures the deployment is recreated whenever any route definition changes
+    // 3. Collect all domain route definitions
     const allDomains: DomainRoutes[] = [
       organizationDomain(),
       answerDomain(),
@@ -524,112 +551,44 @@ export class ApiOrchestratorStack extends cdk.Stack {
       pricingDomain(),
     ];
 
-    // Compute a hash of all route definitions so the deployment logical ID changes
-    // whenever routes are added, removed, or modified
-    const routeFingerprint = crypto
-      .createHash('sha256')
-      .update(
-        JSON.stringify(
-          allDomains.map((d) => ({
-            basePath: d.basePath,
-            routes: d.routes.map((r) => ({
-              method: r.method,
-              path: r.path,
-              entry: r.entry,
-              auth: r.auth,
-            })),
-          })),
-        ),
-      )
-      .digest('hex')
-      .substring(0, 16);
-
+    // 4. Create nested stacks per domain (Lambda + LogGroup + Route registration)
+    //    Each nested stack stays under CloudFormation's 500 resource limit.
+    //    Routes are HttpApi routes (no resource tree limit like REST API).
+    // IMPORTANT: Use the EXACT same logical IDs as the old REST API nested stacks
+    // so CloudFormation updates them in-place rather than delete+recreate (which
+    // would fail due to cross-stack export dependencies).
     const domainStackNames = [
-      'OrganizationRoutes',
-      'AnswerRoutes',
-      'BriefRoutes',
-      'PresignedRoutes',
-      'KnowledgebaseRoutes',
-      'DocumentRoutes',
-      'QuestionfileRoutes',
-      'UserRoutes',
-      'QuestionRoutes',
-      'SemanticRoutes',
-      'DeadlinesRoutes',
-      'OpportunityRoutes',
-      'ContentLibraryRoutes',
-      'ProjectOutcomeRoutes',
-      'FoiaRoutes',
-      'DebriefingRoutes',
-      'PastPerfRoutes',
-      'ProjectsRoutes',
-      'PromptRoutes',
-      'SearchOpportunityRoutes',
-      'RfpDocumentRoutes',
-      'TemplateRoutes',
-      'LinearRoutes',
-      'GoogleRoutes',
-      'ClusteringRoutes',
-      'CollaborationRoutes',
-      'OpportunityContextRoutes',
-      'NotificationRoutes',
-      'AuditRoutes',
-      'AnalyticsRoutes',
-      'ClarifyingQuestionRoutes',
-      'EngagementLogRoutes',
-      'ApnRoutes',
-      'ProposalSubmissionRoutes',
-      'DocumentApprovalRoutes',
-      'PricingRoutes',
+      'OrganizationRoutes', 'AnswerRoutes', 'BriefRoutes', 'PresignedRoutes',
+      'KnowledgebaseRoutes', 'DocumentRoutes', 'QuestionfileRoutes', 'UserRoutes',
+      'QuestionRoutes', 'SemanticRoutes', 'DeadlinesRoutes', 'OpportunityRoutes',
+      'ContentLibraryRoutes', 'ProjectOutcomeRoutes', 'FoiaRoutes', 'DebriefingRoutes',
+      'PastPerfRoutes', 'ProjectsRoutes', 'PromptRoutes', 'SearchOpportunityRoutes',
+      'RfpDocumentRoutes', 'TemplateRoutes', 'LinearRoutes', 'GoogleRoutes',
+      'ClusteringRoutes', 'CollaborationRoutes', 'OpportunityContextRoutes',
+      'NotificationRoutes', 'AuditRoutes', 'AnalyticsRoutes', 'ClarifyingQuestionRoutes',
+      'EngagementLogRoutes', 'ApnRoutes', 'ProposalSubmissionRoutes',
+      'DocumentApprovalRoutes', 'PricingRoutes',
     ];
 
-    const routeNestedStacks: ApiDomainRoutesStack[] = [];
-
     for (let i = 0; i < allDomains.length; i++) {
-      const stackName = domainStackNames[i]!;
-      const domain = allDomains[i]!;
-      const stack = new ApiDomainRoutesStack(this, stackName, {
-        api: this.api,
-        rootResourceId: this.rootResourceId,
+      new ApiDomainLambdaStack(this, domainStackNames[i]!, {
+        httpApi: this.httpApi,
         userPoolId: userPool.userPoolId,
         lambdaRole: sharedInfraStack.commonLambdaRole,
         commonEnv: sharedInfraStack.commonEnv,
-        domain,
-        authorizer,
+        domain: allDomains[i]!,
+        authorizer: jwtAuthorizer,
       });
-      routeNestedStacks.push(stack);
     }
 
-    // 4. Create deployment manually AFTER all routes are added
-    // This avoids circular dependencies between nested stacks and the deployment
-    const deployment = new apigateway.Deployment(this, 'ApiDeployment', {
-      api: this.api,
-      description: `Deployment for ${stage} [${routeFingerprint}]`,
-      retainDeployments: true, // Keep old deployments to avoid issues during updates
-    });
-
-    // Force a new deployment whenever route definitions change.
-    // Without this, CloudFormation reuses the existing Deployment resource
-    // and the stage never picks up new/changed endpoints.
-    deployment.addToLogicalId(routeFingerprint);
-
-    // Create the stage
-    const apiStage = new apigateway.Stage(this, 'ApiStage', {
-      deployment,
+    // 5. Create stage with auto-deploy
+    const apiStage = new apigwv2.HttpStage(this, 'HttpApiStage', {
+      httpApi: this.httpApi,
       stageName: stage,
-      metricsEnabled: true,
-      loggingLevel: apigateway.MethodLoggingLevel.INFO,
-      dataTraceEnabled: true,
+      autoDeploy: true,
     });
 
-    // Set the API URL
-    this.apiUrl = apiStage.urlForPath('/');
-
-    // IMPORTANT: The deployment must depend on ALL nested stacks
-    // This ensures all routes are created before the deployment
-    for (const nestedStack of routeNestedStacks) {
-      deployment.node.addDependency(nestedStack);
-    }
+    this.apiUrl = apiStage.url ?? '';
 
     // ─── DIBBS run-saved-search scheduler ────────────────────────────────────
     const dibbsRunSavedSearchFn = new lambdaNodejs.NodejsFunction(this, `DibbsRunSavedSearch-${stage}`, {
@@ -737,7 +696,14 @@ export class ApiOrchestratorStack extends cdk.Stack {
     });
 
     new cdk.CfnOutput(this, 'ApiBaseUrl', {
-      value: apiStage.urlForPath('/'),
+      value: this.apiUrl,
+    });
+
+    // Write API URL to SSM so AmplifyFeStack can read it without cross-stack exports
+    new cdk.aws_ssm.StringParameter(this, 'ApiUrlParam', {
+      parameterName: `/auto-rfp/${stage}/api-url`,
+      stringValue: this.apiUrl,
+      description: 'HTTP API v2 base URL',
     });
   }
 }

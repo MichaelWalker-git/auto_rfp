@@ -16,7 +16,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { MoreHorizontal, Copy, Pencil, Send, Trash2, FileText, Clock } from 'lucide-react';
+import { MoreHorizontal, Copy, Pencil, Send, Trash2, FileText, Clock, ArrowDownToLine, ArchiveRestore } from 'lucide-react';
 import type { TemplateItem } from '@/lib/hooks/use-templates';
 
 const CATEGORY_LABELS: Record<string, string> = {
@@ -29,6 +29,10 @@ const CATEGORY_LABELS: Record<string, string> = {
   CUSTOM: 'Custom',
 };
 
+/** Title-case a slug: "ORAL_PRESENTATION_PLAN" → "Oral Presentation Plan" */
+const slugToLabel = (slug: string): string =>
+  CATEGORY_LABELS[slug] ?? slug.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase()).replace(/\B\w+/g, (w) => w.toLowerCase());
+
 const statusVariant = (status: string) => {
   if (status === 'PUBLISHED') return 'default';
   if (status === 'ARCHIVED') return 'destructive';
@@ -39,8 +43,11 @@ interface TemplateCardProps {
   template: TemplateItem;
   onEdit: (template: TemplateItem) => void;
   onPublish: (templateId: string) => void;
+  onUnpublish: (templateId: string) => void;
   onClone: (template: TemplateItem) => void;
   onDelete: (template: TemplateItem) => void;
+  onUnarchive: (template: TemplateItem) => void;
+  onPermanentlyDelete: (template: TemplateItem) => void;
   orgId: string;
 }
 
@@ -48,8 +55,11 @@ export function TemplateCard({
   template,
   onEdit,
   onPublish,
+  onUnpublish,
   onClone,
   onDelete,
+  onUnarchive,
+  onPermanentlyDelete,
 }: TemplateCardProps) {
   const timeAgo = (dateStr: string) => {
     const diff = Date.now() - new Date(dateStr).getTime();
@@ -59,6 +69,8 @@ export function TemplateCard({
     if (days < 30) return `${days}d ago`;
     return `${Math.floor(days / 30)}mo ago`;
   };
+
+  const isArchived = template.isArchived;
 
   return (
     <Card className="group overflow-hidden hover:shadow-md transition-shadow">
@@ -77,28 +89,53 @@ export function TemplateCard({
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
-              <DropdownMenuItem onClick={() => onEdit(template)}>
-                <Pencil className="h-4 w-4 mr-2" />
-                Edit
-              </DropdownMenuItem>
-              {template.status === 'DRAFT' && (
-                <DropdownMenuItem onClick={() => onPublish(template.id)}>
-                  <Send className="h-4 w-4 mr-2" />
-                  Publish
-                </DropdownMenuItem>
+              {isArchived ? (
+                <>
+                  <DropdownMenuItem onClick={() => onUnarchive(template)}>
+                    <ArchiveRestore className="h-4 w-4 mr-2" />
+                    Restore
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem
+                    onClick={() => onPermanentlyDelete(template)}
+                    className="text-destructive"
+                  >
+                    <Trash2 className="h-4 w-4 mr-2" />
+                    Delete Forever
+                  </DropdownMenuItem>
+                </>
+              ) : (
+                <>
+                  <DropdownMenuItem onClick={() => onEdit(template)}>
+                    <Pencil className="h-4 w-4 mr-2" />
+                    Edit
+                  </DropdownMenuItem>
+                  {template.status === 'DRAFT' && (
+                    <DropdownMenuItem onClick={() => onPublish(template.id)}>
+                      <Send className="h-4 w-4 mr-2" />
+                      Publish
+                    </DropdownMenuItem>
+                  )}
+                  {template.status === 'PUBLISHED' && (
+                    <DropdownMenuItem onClick={() => onUnpublish(template.id)}>
+                      <ArrowDownToLine className="h-4 w-4 mr-2" />
+                      Unpublish
+                    </DropdownMenuItem>
+                  )}
+                  <DropdownMenuItem onClick={() => onClone(template)}>
+                    <Copy className="h-4 w-4 mr-2" />
+                    Clone
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem
+                    onClick={() => onDelete(template)}
+                    className="text-destructive"
+                  >
+                    <Trash2 className="h-4 w-4 mr-2" />
+                    Archive
+                  </DropdownMenuItem>
+                </>
               )}
-              <DropdownMenuItem onClick={() => onClone(template)}>
-                <Copy className="h-4 w-4 mr-2" />
-                Clone
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem
-                onClick={() => onDelete(template)}
-                className="text-destructive"
-              >
-                <Trash2 className="h-4 w-4 mr-2" />
-                Archive
-              </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
@@ -109,7 +146,7 @@ export function TemplateCard({
             {template.status}
           </Badge>
           <Badge variant="outline" className="text-xs">
-            {CATEGORY_LABELS[template.category] ?? template.category}
+            {slugToLabel(template.category)}
           </Badge>
           {template.agencyName && (
             <Badge variant="outline" className="text-xs">

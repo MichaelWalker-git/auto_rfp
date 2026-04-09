@@ -9,6 +9,7 @@ import {
   orgMembershipMiddleware,
 } from '@/middleware/rbac-middleware';
 import { listTemplatesByOrg } from '@/helpers/template';
+import { listCustomDocumentTypes } from '@/helpers/custom-document-types';
 
 const baseHandler = async (
   event: APIGatewayProxyEventV2,
@@ -17,22 +18,34 @@ const baseHandler = async (
     const orgId = getOrgId(event);
     if (!orgId) return apiResponse(400, { error: 'Missing orgId' });
 
-    const { items } = await listTemplatesByOrg(orgId, {
-      excludeArchived: true,
-      limit: 1000,
-      offset: 0,
-    });
+    const [{ items }, customTypes] = await Promise.all([
+      listTemplatesByOrg(orgId, { excludeArchived: true, limit: 1000, offset: 0 }),
+      listCustomDocumentTypes(orgId),
+    ]);
 
     const countMap = items.reduce<Record<string, number>>((acc, item) => {
       acc[item.category] = (acc[item.category] ?? 0) + 1;
       return acc;
     }, {});
 
+    // Built-in categories
     const categories = Object.entries(TEMPLATE_CATEGORY_LABELS).map(([name, label]) => ({
       name: name as TemplateCategory,
       label,
       count: countMap[name] ?? 0,
     }));
+
+    // Append org-specific custom types (skip any that overlap with built-in)
+    const builtInNames = new Set(Object.keys(TEMPLATE_CATEGORY_LABELS));
+    for (const ct of customTypes) {
+      if (!builtInNames.has(ct.slug)) {
+        categories.push({
+          name: ct.slug as TemplateCategory,
+          label: ct.name,
+          count: countMap[ct.slug] ?? 0,
+        });
+      }
+    }
 
     return apiResponse(200, { categories });
   } catch (err) {
