@@ -114,6 +114,24 @@ export class ApiOrchestratorStack extends cdk.Stack {
       pineconeApiKey,
     } = props;
 
+    // ── Keep old REST API alive temporarily to preserve CloudFormation exports ──
+    // AmplifyFeStack imports the old ApiStage export. Once it updates to use
+    // the new HTTP API URL, remove this block and deploy again.
+    // TODO: Remove after AmplifyFeStack migration
+    this.api = new apigateway.RestApi(this, 'AutoRfpApi', {
+      restApiName: `AutoRFP API Legacy (${stage})`,
+      deploy: false,
+    });
+    // Add a dummy method so CloudFormation doesn't reject the empty API
+    this.api.root.addMethod('GET', new apigateway.MockIntegration({
+      integrationResponses: [{ statusCode: '200' }],
+      requestTemplates: { 'application/json': '{"statusCode": 200}' },
+    }), { methodResponses: [{ statusCode: '200' }] });
+    const legacyDeployment = new apigateway.Deployment(this, 'ApiDeployment', { api: this.api });
+    new apigateway.Stage(this, 'ApiStage', { deployment: legacyDeployment, stageName: `${stage}legacy` });
+    this.restApiId = this.api.restApiId;
+    this.rootResourceId = this.api.restApiRootResourceId;
+
     // 1. Create HTTP API (v2) — no resource limit, cheaper, lower latency
     this.httpApi = new apigwv2.HttpApi(this, 'AutoRfpHttpApi', {
       apiName: `AutoRFP API (${stage})`,
@@ -134,10 +152,7 @@ export class ApiOrchestratorStack extends cdk.Stack {
       createDefaultStage: false,
     });
 
-    // Legacy fields — set to empty to satisfy any external references
-    this.restApiId = this.httpApi.httpApiId;
-    this.rootResourceId = '';
-    this.api = undefined;
+    // apiUrl points to the NEW HTTP API (not the legacy REST API)
 
     // JWT authorizer using Cognito User Pool
     const region = cdk.Aws.REGION;
