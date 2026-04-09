@@ -54,6 +54,8 @@ function QuestionsSectionInner({
 }: QuestionsSectionInnerProps) {
   const {
     isLoading,
+    isQuestionsLoading,
+    isAnswersLoading,
     error,
     questions,
     searchQuery,
@@ -180,7 +182,7 @@ function QuestionsSectionInner({
     return (
       <div className="container mx-auto p-12 space-y-6">
         {opportunitySelectorEl}
-        <QuestionsLoadingState />
+        <QuestionsLoadingState isQuestionsLoading={isQuestionsLoading} isAnswersLoading={isAnswersLoading} />
       </div>
     );
   }
