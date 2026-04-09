@@ -1,10 +1,12 @@
 import type { APIGatewayProxyResultV2 } from 'aws-lambda';
 import middy from '@middy/core';
 import { v4 as uuidv4 } from 'uuid';
+import { GetObjectCommand, S3Client } from '@aws-sdk/client-s3';
+import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { apiResponse, getOrgId, getUserId } from '@/helpers/api';
 import { withSentryLambda } from '@/sentry-lambda';
 import { checkSubmissionReadiness, createSubmissionRecord } from '@/helpers/proposal-submission';
-import { listRFPDocumentsByProject } from '@/helpers/rfp-document';
+import { listRFPDocumentsByProject, getRFPDocument } from '@/helpers/rfp-document';
 import { getOpportunity } from '@/helpers/opportunity';
 import { onProjectOutcomeSet } from '@/helpers/opportunity-stage';
 import { getOrgMembers } from '@/helpers/user';
@@ -12,7 +14,11 @@ import { sendNotification, buildNotification } from '@/helpers/send-notification
 import { writeAuditLog } from '@/helpers/audit-log';
 import { getHmacSecret } from '@/helpers/secret';
 import { nowIso } from '@/helpers/date';
+import { requireEnv } from '@/helpers/env';
 import { SubmitProposalSchema } from '@auto-rfp/core';
+
+const DOCUMENTS_BUCKET = requireEnv('DOCUMENTS_BUCKET');
+const s3Client = new S3Client({});
 import {
   authContextMiddleware,
   httpErrorMiddleware,
@@ -140,7 +146,65 @@ const baseHandler = async (event: AuthedEvent): Promise<APIGatewayProxyResultV2>
     orgId: data.orgId,
   });
 
-  return apiResponse(200, { ok: true, submission });
+  // ── 8. Generate email draft with document download URLs ──
+  const oppTitle = (opp.item?.title as string | undefined) ?? 'Proposal';
+  const solNumber = (opp.item?.solicitationNumber as string | undefined) ?? '';
+  const orgName = (opp.item?.organizationName as string | undefined) ?? '';
+
+  // Generate presigned download URLs for submitted documents
+  const attachments: Array<{ name: string; url: string; documentId: string }> = [];
+  try {
+    const { items: allDocs } = await listRFPDocumentsByProject({
+      projectId: data.projectId,
+      opportunityId: data.oppId,
+    });
+    const submittedDocs = allDocs.filter(
+      (d) => documentIds.includes(d['documentId'] as string) && d['fileKey'],
+    );
+
+    await Promise.all(
+      submittedDocs.map(async (doc) => {
+        try {
+          const url = await getSignedUrl(
+            s3Client as unknown as Parameters<typeof getSignedUrl>[0],
+            new GetObjectCommand({
+              Bucket: DOCUMENTS_BUCKET,
+              Key: doc['fileKey'] as string,
+              ResponseContentDisposition: `attachment; filename="${doc['name'] as string}"`,
+            }),
+            { expiresIn: 86400 }, // 24h for email links
+          );
+          attachments.push({
+            name: doc['name'] as string,
+            url,
+            documentId: doc['documentId'] as string,
+          });
+        } catch { /* skip docs without S3 files */ }
+      }),
+    );
+  } catch (err) {
+    console.warn('[submit-proposal] Failed to generate attachment URLs:', (err as Error).message);
+  }
+
+  const emailDraft = {
+    subject: `Proposal Submission${solNumber ? ` — ${solNumber}` : ''}: ${oppTitle}`,
+    body: [
+      `Dear ${orgName ? orgName + ' ' : ''}Contracting Officer,`,
+      '',
+      `Please find attached our proposal in response to${solNumber ? ` Solicitation ${solNumber}` : ' the referenced solicitation'}${oppTitle ? ` — "${oppTitle}"` : ''}.`,
+      '',
+      `This submission includes ${attachments.length} document(s):`,
+      ...attachments.map((a, i) => `  ${i + 1}. ${a.name}`),
+      '',
+      'Please confirm receipt at your earliest convenience.',
+      '',
+      'Best regards,',
+      userName,
+    ].join('\n'),
+    attachments,
+  };
+
+  return apiResponse(200, { ok: true, submission, emailDraft });
 };
 
 export const handler = withSentryLambda(

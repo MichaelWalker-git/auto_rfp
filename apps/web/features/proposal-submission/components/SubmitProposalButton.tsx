@@ -26,7 +26,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Send, Loader2, AlertTriangle } from 'lucide-react';
+import { Send, Loader2, AlertTriangle, Copy, Mail, Download, ExternalLink } from 'lucide-react';
+import { Separator } from '@/components/ui/separator';
 import { useToast } from '@/components/ui/use-toast';
 import { useSubmitProposal } from '../hooks/useSubmitProposal';
 import { useSubmissionReadiness } from '../hooks/useSubmissionReadiness';
@@ -49,8 +50,15 @@ const SUBMISSION_METHODS = [
   { value: 'OTHER',         label: 'Other' },
 ] as const;
 
+type EmailDraft = {
+  subject: string;
+  body: string;
+  attachments: Array<{ name: string; url: string; documentId: string }>;
+};
+
 export const SubmitProposalButton = ({ orgId, projectId, oppId, onSuccess }: SubmitProposalButtonProps) => {
   const [showDialog, setShowDialog] = useState(false);
+  const [emailDraft, setEmailDraft] = useState<EmailDraft | null>(null);
   const { submit, isLoading } = useSubmitProposal();
   const { checks, blockingFails: rawBlockingFails, warningFails: rawWarningFails, isLoading: isCheckingReadiness } = useSubmissionReadiness(orgId, projectId, oppId);
   const { ignoredIds } = useIgnoredChecks(oppId);
@@ -77,7 +85,7 @@ export const SubmitProposalButton = ({ orgId, projectId, oppId, onSuccess }: Sub
     if (!values.portalUrl) values.portalUrl = undefined;
     if (!values.submissionReference) values.submissionReference = undefined;
     if (!values.submissionNotes) values.submissionNotes = undefined;
-    const result = await submit(values as SubmitProposal);
+    const result = await submit(values as SubmitProposal) as (Record<string, unknown>) | null;
     if (result) {
       toast({
         title: '📤 Proposal Submitted',
@@ -85,6 +93,10 @@ export const SubmitProposalButton = ({ orgId, projectId, oppId, onSuccess }: Sub
       });
       reset();
       setShowDialog(false);
+      // Show email draft if available
+      if (result.emailDraft) {
+        setEmailDraft(result.emailDraft as EmailDraft);
+      }
       onSuccess?.();
     } else {
       toast({
@@ -228,6 +240,98 @@ export const SubmitProposalButton = ({ orgId, projectId, oppId, onSuccess }: Sub
               </Button>
             </DialogFooter>
           </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Email Draft Dialog — shown after successful submission */}
+      <Dialog open={!!emailDraft} onOpenChange={(open) => { if (!open) setEmailDraft(null); }}>
+        <DialogContent className="sm:max-w-[600px] max-h-[80vh] overflow-hidden flex flex-col">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Mail className="h-5 w-5" />
+              Submission Email Draft
+            </DialogTitle>
+            <DialogDescription>
+              Copy this email and attach the documents to send to the contracting officer.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="flex-1 overflow-y-auto space-y-4 py-2">
+            {/* Subject */}
+            <div className="space-y-1">
+              <Label className="text-xs text-muted-foreground">Subject</Label>
+              <div className="flex items-center gap-2">
+                <Input value={emailDraft?.subject ?? ''} readOnly className="text-sm" />
+                <Button
+                  variant="outline"
+                  size="icon"
+                  className="shrink-0 h-9 w-9"
+                  onClick={() => {
+                    navigator.clipboard.writeText(emailDraft?.subject ?? '');
+                    toast({ title: 'Subject copied' });
+                  }}
+                >
+                  <Copy className="h-3.5 w-3.5" />
+                </Button>
+              </div>
+            </div>
+
+            {/* Body */}
+            <div className="space-y-1">
+              <Label className="text-xs text-muted-foreground">Email Body</Label>
+              <Textarea value={emailDraft?.body ?? ''} readOnly rows={10} className="text-sm font-mono" />
+            </div>
+
+            {/* Attachments */}
+            {emailDraft?.attachments && emailDraft.attachments.length > 0 && (
+              <div className="space-y-2">
+                <Label className="text-xs text-muted-foreground">
+                  Attachments ({emailDraft.attachments.length})
+                </Label>
+                <div className="space-y-1">
+                  {emailDraft.attachments.map((att) => (
+                    <a
+                      key={att.documentId}
+                      href={att.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center gap-2 rounded-lg border p-2 hover:bg-muted/50 transition-colors text-sm"
+                    >
+                      <Download className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                      <span className="flex-1 truncate">{att.name}</span>
+                      <ExternalLink className="h-3 w-3 text-muted-foreground shrink-0" />
+                    </a>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+
+          <Separator />
+          <DialogFooter className="gap-2 sm:gap-2">
+            <Button
+              variant="outline"
+              onClick={() => {
+                const text = `Subject: ${emailDraft?.subject ?? ''}\n\n${emailDraft?.body ?? ''}`;
+                navigator.clipboard.writeText(text);
+                toast({ title: 'Email copied to clipboard' });
+              }}
+              className="gap-2"
+            >
+              <Copy className="h-4 w-4" />
+              Copy All
+            </Button>
+            <Button
+              onClick={() => {
+                const mailto = `mailto:?subject=${encodeURIComponent(emailDraft?.subject ?? '')}&body=${encodeURIComponent(emailDraft?.body ?? '')}`;
+                window.open(mailto, '_blank');
+              }}
+              className="gap-2"
+            >
+              <Mail className="h-4 w-4" />
+              Open in Email Client
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </>
