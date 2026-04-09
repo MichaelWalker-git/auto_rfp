@@ -138,6 +138,7 @@ const api = new ApiOrchestratorStack(app, `ApiOrchestrator-${stage}`, {
   env,
   stage,
   userPool: auth.userPool,
+  userPoolClientId: auth.userPoolClient.userPoolClientId,
   mainTable: db.tableName,
   documentsBucket: storage.documentsBucket,
   execBriefQueue: storage.execBriefQueue,
