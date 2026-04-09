@@ -31,7 +31,7 @@ import { DBItem, getItem } from '@/helpers/db';
 import { safeParseJsonFromModel } from '@/helpers/json';
 import { calculateConfidenceScore, ConfidenceScoreResult } from '@/helpers/confidence-score';
 import { trackContentLibraryUsage } from '@/helpers/usage-tracking';
-import { getAnswerSystemPrompt } from '@/constants/prompt';
+import { getAnswerSystemPrompt, useAnswerUserPrompt } from '@/constants/prompt';
 import { ANSWER_TOOLS, executeAnswerTool } from '@/helpers/answer-tools';
 
 const BEDROCK_MODEL_ID = requireEnv('BEDROCK_MODEL_ID');
@@ -155,6 +155,7 @@ const generateAnswerWithTools = async (
   orgId: string,
   questionId: string,
   systemPrompt: string,
+  userPrompt: string,
   projectId?: string,
   opportunityId?: string,
 ): Promise<{ answer: string; found: boolean; toolsUsed: string[]; llmConfidence: number; similarityScores: number[]; sources: AnswerSource[]; sourceCreatedDates: string[] }> => {
@@ -163,55 +164,6 @@ const generateAnswerWithTools = async (
   const allSimilarityScores: number[] = [];
   const allSources: AnswerSource[] = [];
   const allSourceCreatedDates: string[] = [];
-
-  const userPrompt = `QUESTION FROM THE RFP: ${question}
-
-RESEARCH STRATEGY — use tools to gather evidence:
-1. search_knowledge_base — find our company capabilities, processes, and technical expertise relevant to this question
-2. search_past_performance — find specific contract examples, metrics, and results that demonstrate our track record (critical for scoring)
-3. get_organization_context — get our certifications, clearances, team size, and company details to cite in the answer
-4. get_content_library — find pre-approved language for compliance, certifications, or standard responses
-5. get_solicitation_text — check the RFP for specific requirements, evaluation criteria, or context that this question references
-
-DECISION PROCESS — follow these steps in order:
-
-Step 1: Use the tools above to gather company-specific information relevant to this question.
-
-Step 2: Check if the tool results contain ANY company-specific information relevant to this question.
-- "No knowledge base content found" = NO information
-- "No past performance projects found" = NO information
-- Excerpts about unrelated topics = NO relevant information
-- If NO relevant company-specific information exists, STOP and return: {"answer": "", "confidence": 0.0, "found": false}
-
-Step 3: EVIDENCE INVENTORY — before writing anything, list every citable fact from the tool results that is relevant to this question. For each fact, note its source tag (e.g., KB-1, PP-2, CL-1, ORG).
-- Extract exact project names, contract details, metrics, certifications, and team details FROM the tool results
-- Do NOT add any facts from your own knowledge — only what is written in the tool results
-- Do NOT calculate, multiply, add, or derive any new numbers. Only cite numbers exactly as they appear in the tool results.
-- If this inventory is empty, STOP and return: {"answer": "", "confidence": 0.0, "found": false}
-
-Step 4: Write the answer using ONLY the facts from your Step 3 inventory.
-- Write as "we" / "our team" — this is our company's official response to the evaluator
-- Every factual sentence MUST include an inline citation [KB-N], [PP-N], [CL-N], or [ORG] referencing the tool result excerpt
-- If you find yourself writing a sentence that does not map to an inventory item, delete it immediately
-- Lead with our strongest capability or most relevant experience
-- Address every part of the question — but ONLY the parts you have evidence for. Missing sub-questions loses fewer points than fabricating answers to them.
-- If the tool results only PARTIALLY answer the question, answer ONLY the parts you have evidence for. Explicitly state which parts you cannot address: "Our available records do not include [specific gap]."
-- Do not generalize from a single example. One project does not mean "significant experience" or "extensive track record". Only claim the scope the evidence supports
-- Describe what was DONE (past tense), not general capabilities (present tense). "We implemented X on project Y" not "We implement X"
-- If the question asks about capability X but the tool results only show capability Y, this is NOT evidence of X. Return the empty answer JSON. Do NOT adapt Y to answer a question about X.
-- DOMAIN MISMATCH: If the question asks about a specific industry or skill (e.g., "cargo delivery", "medical devices", "construction") and the tool results show experience in a DIFFERENT industry, return the empty answer JSON. Experience in one field does NOT prove capability in another.
-- Be confident and direct — avoid hedging language like "we believe" or "we think"
-- Keep the answer under 250 words. Brevity with evidence beats length without it.
-
-BANNED PHRASES — do NOT use any of these (they signal generic filler, not evidence):
-"best practices", "industry standard", "industry-standard", "industry best", "cutting-edge", "state-of-the-art", "world-class", "best-in-class", "typically", "generally", "we believe", "we think", "significant experience", "proven track record", "extensive experience", "demonstrated ability", "proven experience", "expertise in", "proficient with", "comprehensive approach", "robust methodology"
-Instead of "industry standard", say what the specific standard IS (e.g., "NIST 800-88" or "NAID AAA").
-
-REMINDER: If the tool results have low similarity scores (below 0.5), or the excerpts are about a different topic/domain than the question, or tool results show ⚠️ LOW RELEVANCE WARNING headers, treat that as NO relevant information and return the empty answer JSON.
-
-Return ONLY valid JSON: {"answer": "<answer text with inline citations>", "confidence": <0.0-1.0>, "found": <true|false>}
-- found: true if you found relevant company-specific information in the tool results
-- found: false if tools returned no company-specific information. MUST return: {"answer": "", "confidence": 0.0, "found": false}`;
 
   const messages: Array<{ role: string; content: unknown }> = [
     { role: 'user', content: [{ type: 'text', text: userPrompt }] },
@@ -233,7 +185,7 @@ Return ONLY valid JSON: {"answer": "<answer text with inline citations>", "confi
       system: systemPrompt,
       messages,
       max_tokens: 4096,
-      temperature: 0,
+      temperature: 0.2,
       // Include tools on every round that has tool history, or when we still allow tool use
       ...((hasToolBlocks || !isLastRound) ? { tools: ANSWER_TOOLS } : {}),
     };
@@ -337,7 +289,7 @@ Return ONLY valid JSON: {"answer": "<answer text with inline citations>", "confi
         system: systemPrompt,
         messages,
         max_tokens: 4096,
-        temperature: 0,
+        temperature: 0.2,
         // Must include tools when conversation has tool_use/tool_result blocks
         tools: ANSWER_TOOLS,
       }));
@@ -489,7 +441,10 @@ export const generateAnswerForQuestion = async (
   // ── Step 2: Tool-based AI generation ───────────────────────────────────────
   console.log(`[answer] No CL match — using tool-based generation for: "${question.substring(0, 80)}..."`);
 
-  const systemPrompt = await getAnswerSystemPrompt(orgId);
+  const [systemPrompt, userPrompt] = await Promise.all([
+    getAnswerSystemPrompt(orgId),
+    useAnswerUserPrompt(orgId, question),
+  ]);
 
   // Wrap tool-based generation in Sentry span (includes all LLM rounds and tool calls)
   const { answer, found, toolsUsed, llmConfidence, similarityScores, sources, sourceCreatedDates } = await Sentry.startSpan(
@@ -499,6 +454,7 @@ export const generateAnswerForQuestion = async (
       orgId,
       questionId,
       systemPrompt,
+      userPrompt,
       projectId,
       opportunityId,
     ),

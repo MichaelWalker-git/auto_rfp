@@ -23,7 +23,6 @@ localstorage/
 **/cdk-diff.out/
 pnpm-lock.yaml
 promptfoo-errors.log
-evals/**/results/
 packages/infra/resource-mapping.json
 
 # Prevent nested workspace configs (only root should have pnpm-workspace.yaml)

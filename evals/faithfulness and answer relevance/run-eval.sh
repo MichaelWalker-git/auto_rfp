@@ -28,7 +28,7 @@ cd "$SCRIPT_DIR"
 
 ESBUILD_OPTS="--bundle --platform=node --format=esm --external:@pinecone-database/pinecone --external:@aws-sdk/*"
 
-for provider in generate generate-develop generate-production generate-v4; do
+for provider in generate generate-develop generate-production generate-v4 generate-v5; do
   echo "    Building ${provider}.mjs..."
   npx esbuild "${provider}.ts" $ESBUILD_OPTS --outfile="${provider}.mjs"
 done
@@ -44,6 +44,7 @@ cp "$SCRIPT_DIR/generate.mjs" "$EVAL_DIR/generate.mjs"
 cp "$SCRIPT_DIR/generate-develop.mjs" "$EVAL_DIR/generate-develop.mjs"
 cp "$SCRIPT_DIR/generate-production.mjs" "$EVAL_DIR/generate-production.mjs"
 cp "$SCRIPT_DIR/generate-v4.mjs" "$EVAL_DIR/generate-v4.mjs"
+cp "$SCRIPT_DIR/generate-v5.mjs" "$EVAL_DIR/generate-v5.mjs"
 cp "$EVALS_DIR/.env" "$EVAL_DIR/.env" 2>/dev/null || true
 
 # Install dependencies if node_modules missing
@@ -67,7 +68,7 @@ PKGJSON
 fi
 
 # Run eval
-echo "==> Running faithfulness eval (4 providers)..."
+echo "==> Running faithfulness eval (5 providers)..."
 cd "$EVAL_DIR"
 AWS_PROFILE=AdministratorAccess-039885961427 \
   npx promptfoo eval \

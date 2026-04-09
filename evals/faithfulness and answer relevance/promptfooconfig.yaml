@@ -12,6 +12,8 @@ providers:
     label: "eval_v3"
   - id: file://generate-v4.mjs
     label: "eval_v4"
+  - id: file://generate-v5.mjs
+    label: "eval_v5"
 
 defaultTest:
   options:
