@@ -7,7 +7,7 @@ import * as s3 from 'aws-cdk-lib/aws-s3';
 import * as sqs from 'aws-cdk-lib/aws-sqs';
 import * as apigateway from 'aws-cdk-lib/aws-apigateway';
 import * as apigwv2 from 'aws-cdk-lib/aws-apigatewayv2';
-import * as apigwv2Integrations from 'aws-cdk-lib/aws-apigatewayv2-integrations';
+// apigwv2Integrations used in nested stacks only
 import * as apigwv2Authorizers from 'aws-cdk-lib/aws-apigatewayv2-authorizers';
 import * as lambda from 'aws-cdk-lib/aws-lambda';
 import * as lambdaNodejs from 'aws-cdk-lib/aws-lambda-nodejs';
@@ -18,6 +18,7 @@ import * as eventsTargets from 'aws-cdk-lib/aws-events-targets';
 import * as logs from 'aws-cdk-lib/aws-logs';
 
 import { ApiSharedInfraStack } from './api-shared-infra-stack';
+import { ApiDomainLambdaStack } from './api-domain-lambda-stack';
 import type { DomainRoutes } from './routes/types';
 import { foiaDomain } from './routes/foia.routes';
 import { debriefingDomain } from './routes/debriefing.routes';
@@ -535,75 +536,22 @@ export class ApiOrchestratorStack extends cdk.Stack {
       pricingDomain(),
     ];
 
-    // 4. Register all routes as flat HTTP API routes (no nested stacks, no resource limit)
-    const HTTP_METHODS: Record<string, apigwv2.HttpMethod> = {
-      GET: apigwv2.HttpMethod.GET,
-      POST: apigwv2.HttpMethod.POST,
-      PUT: apigwv2.HttpMethod.PUT,
-      PATCH: apigwv2.HttpMethod.PATCH,
-      DELETE: apigwv2.HttpMethod.DELETE,
-      OPTIONS: apigwv2.HttpMethod.OPTIONS,
-      ANY: apigwv2.HttpMethod.ANY,
-    };
+    // 4. Create nested stacks per domain (Lambda + LogGroup + Route registration)
+    //    Each nested stack stays under CloudFormation's 500 resource limit.
+    //    Routes are HttpApi routes (no resource tree limit like REST API).
+    const domainStackNames = allDomains.map((d) =>
+      `${d.basePath.replace(/[^a-zA-Z0-9]/g, '')}Routes`,
+    );
 
-    for (const domain of allDomains) {
-      for (const route of domain.routes) {
-        const functionId = `${route.method.toLowerCase()}-${domain.basePath}-${route.path}-handler`
-          .replace(/[^a-zA-Z0-9-]/g, '-')
-          .replace(/-+/g, '-');
-
-        const logGroup = new logs.LogGroup(this, `${functionId}-logs`, {
-          retention: logs.RetentionDays.ONE_MONTH,
-          removalPolicy: cdk.RemovalPolicy.DESTROY,
-        });
-
-        const lambdaFunction = new lambdaNodejs.NodejsFunction(this, functionId, {
-          runtime: lambda.Runtime.NODEJS_24_X,
-          entry: route.entry,
-          handler: 'handler',
-          timeout: cdk.Duration.seconds(route.timeoutSeconds ?? 30),
-          memorySize: route.memorySize ?? 512,
-          role: sharedInfraStack.commonLambdaRole,
-          environment: {
-            ...sharedInfraStack.commonEnv,
-            ...route.extraEnv,
-            COGNITO_USER_POOL_ID: userPool.userPoolId,
-          },
-          logGroup,
-          bundling: {
-            externalModules: [
-              '@aws-sdk/*',
-              '@smithy/*',
-              '@aws-crypto/*',
-              '@aws-sdk/client-s3',
-              '@aws-sdk/client-secrets-manager',
-              '@aws-sdk/s3-request-presigner',
-              '@aws-sdk/client-rds-data',
-            ],
-            ...(route.nodeModules?.length ? { nodeModules: route.nodeModules } : {}),
-            minify: true,
-            sourceMap: false,
-            target: 'es2022',
-            format: lambdaNodejs.OutputFormat.CJS,
-            mainFields: ['module', 'main'],
-          },
-        });
-
-        const integration = new apigwv2Integrations.HttpLambdaIntegration(
-          `${functionId}-int`,
-          lambdaFunction,
-        );
-
-        const routePath = `/${domain.basePath}/${route.path}`.replace(/\/+/g, '/');
-        const httpMethod = HTTP_METHODS[route.method] ?? apigwv2.HttpMethod.ANY;
-
-        this.httpApi.addRoutes({
-          path: routePath,
-          methods: [httpMethod],
-          integration,
-          authorizer: route.auth === 'NONE' ? new apigwv2.HttpNoneAuthorizer() : jwtAuthorizer,
-        });
-      }
+    for (let i = 0; i < allDomains.length; i++) {
+      new ApiDomainLambdaStack(this, domainStackNames[i]!, {
+        httpApi: this.httpApi,
+        userPoolId: userPool.userPoolId,
+        lambdaRole: sharedInfraStack.commonLambdaRole,
+        commonEnv: sharedInfraStack.commonEnv,
+        domain: allDomains[i]!,
+        authorizer: jwtAuthorizer,
+      });
     }
 
     // 5. Create stage with auto-deploy
