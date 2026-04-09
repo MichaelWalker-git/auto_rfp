@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
+import { useSWRConfig } from 'swr';
 import Link from 'next/link';
 import {
   ArrowLeft,
@@ -56,6 +57,7 @@ export default function SubmitProposalPage() {
   const params = useParams();
   const router = useRouter();
   const { toast } = useToast();
+  const { mutate: globalMutate } = useSWRConfig();
   const { currentOrganization } = useCurrentOrganization();
 
   const orgId = (params.orgId as string) || currentOrganization?.id || '';
@@ -172,6 +174,14 @@ export default function SubmitProposalPage() {
     const result = await submit(dto);
     if (result) {
       toast({ title: 'Proposal Submitted', description: 'Submission recorded successfully.' });
+
+      // Invalidate opportunity cache so stage update is reflected
+      globalMutate((key: unknown) => typeof key === 'string' && key.includes('/opportunity/'));
+
+      // Open email client with draft
+      const mailto = `mailto:?subject=${encodeURIComponent(emailSubject)}&body=${encodeURIComponent(emailBody)}`;
+      window.open(mailto, '_blank');
+
       router.push(`/organizations/${orgId}/projects/${projectId}/opportunities/${oppId}`);
     } else {
       toast({ title: 'Submission Failed', description: 'Could not submit. Check compliance.', variant: 'destructive' });

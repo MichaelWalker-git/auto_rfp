@@ -343,7 +343,7 @@ export const getSubmissionHistory = async (
     PROPOSAL_SUBMISSION_PK,
     buildSubmissionSkPrefix(orgId, projectId, oppId),
   );
-  return items.sort((a, b) => b.submittedAt.localeCompare(a.submittedAt));
+  return items.sort((a, b) => (b.submittedAt ?? '').localeCompare(a.submittedAt ?? ''));
 };
 
 export const withdrawSubmissionRecord = async (
