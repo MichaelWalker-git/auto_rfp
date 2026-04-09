@@ -177,7 +177,7 @@ const baseHandler = async (event: AuthedEvent): Promise<APIGatewayProxyResultV2>
       opportunityId: data.oppId,
     });
     const submittedDocs = allDocs.filter(
-      (d) => documentIds.includes(d['documentId'] as string) && d['fileKey'],
+      (d) => documentIds.includes(d['documentId'] as string) && (d['fileKey'] || d['htmlContentKey']),
     );
 
     const boundary = `----=_Part_${Date.now()}_${Math.random().toString(36).slice(2)}`;
@@ -197,16 +197,26 @@ const baseHandler = async (event: AuthedEvent): Promise<APIGatewayProxyResultV2>
     // Attachment parts — download from S3 and embed as base64
     for (const doc of submittedDocs) {
       try {
+        const s3Key = (doc['fileKey'] as string | undefined) || (doc['htmlContentKey'] as string | undefined);
+        if (!s3Key) continue;
+
         const s3Res = await s3Client.send(new GetObjectCommand({
           Bucket: DOCUMENTS_BUCKET,
-          Key: doc['fileKey'] as string,
+          Key: s3Key,
         }));
         const bodyBytes = await s3Res.Body?.transformToByteArray();
         if (!bodyBytes) continue;
 
+        let fileName = (doc['name'] as string) ?? 'document';
+        let mimeType = (doc['mimeType'] as string) ?? 'application/octet-stream';
+
+        // For HTML content keys, attach as .html
+        if (!doc['fileKey'] && doc['htmlContentKey']) {
+          if (!fileName.endsWith('.html')) fileName = `${fileName}.html`;
+          mimeType = 'text/html';
+        }
+
         const base64 = Buffer.from(bodyBytes).toString('base64');
-        const fileName = (doc['name'] as string) ?? 'document';
-        const mimeType = (doc['mimeType'] as string) ?? 'application/octet-stream';
 
         mimeParts.push(
           `--${boundary}`,
