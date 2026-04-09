@@ -698,5 +698,12 @@ export class ApiOrchestratorStack extends cdk.Stack {
     new cdk.CfnOutput(this, 'ApiBaseUrl', {
       value: this.apiUrl,
     });
+
+    // Write API URL to SSM so AmplifyFeStack can read it without cross-stack exports
+    new cdk.aws_ssm.StringParameter(this, 'ApiUrlParam', {
+      parameterName: `/auto-rfp/${stage}/api-url`,
+      stringValue: this.apiUrl,
+      description: 'HTTP API v2 base URL',
+    });
   }
 }
