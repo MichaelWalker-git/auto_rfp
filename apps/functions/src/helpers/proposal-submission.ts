@@ -817,11 +817,13 @@ export const generateComplianceReport = async (args: {
   oppId: string;
   deadlineIso?: string | null;
   currentStage?: string | null;
+  ignoredCheckIds?: string[];
 }): Promise<ComplianceReport> => {
-  const { orgId, projectId, oppId, deadlineIso, currentStage } = args;
+  const { orgId, projectId, oppId, deadlineIso, currentStage, ignoredCheckIds } = args;
+  const ignoredSet = new Set(ignoredCheckIds ?? []);
 
   // ── 1. Run existing readiness checks (tagged as submission_readiness) ──
-  const readiness = await checkSubmissionReadiness({ orgId, projectId, oppId, deadlineIso, currentStage });
+  const readiness = await checkSubmissionReadiness({ orgId, projectId, oppId, deadlineIso, currentStage, ignoredCheckIds });
   const readinessChecks: ReadinessCheckItem[] = readiness.checks.map((c) => ({
     ...c,
     category: 'submission_readiness' as const,
@@ -858,25 +860,25 @@ export const generateComplianceReport = async (args: {
   // ── 6. Build category summaries ──
   const categories: ComplianceCategorySummary[] = CATEGORY_ORDER.map((cat) => {
     const catChecks = allChecks.filter((c) => (c.category ?? 'submission_readiness') === cat);
-    const passedCount = catChecks.filter((c) => c.passed).length;
-    const failedCount = catChecks.length - passedCount;
+    const effectiveFailedCount = catChecks.filter((c) => !c.passed && !ignoredSet.has(c.id)).length;
+    const effectivePassedCount = catChecks.length - effectiveFailedCount;
     return {
       category: cat,
       label: CATEGORY_LABELS[cat],
       totalChecks: catChecks.length,
-      passed: passedCount,
-      failed: failedCount,
-      allPassed: failedCount === 0,
+      passed: effectivePassedCount,
+      failed: effectiveFailedCount,
+      allPassed: effectiveFailedCount === 0,
       checks: catChecks,
     };
   }).filter((cat) => cat.totalChecks > 0); // Only include categories with checks
 
-  // ── 7. Compute summary stats ──
-  const blockingFails = allChecks.filter((c) => c.blocking && !c.passed).length;
-  const warningFails = allChecks.filter((c) => !c.blocking && !c.passed).length;
+  // ── 7. Compute summary stats (excluding ignored checks) ──
+  const blockingFails = allChecks.filter((c) => c.blocking && !c.passed && !ignoredSet.has(c.id)).length;
+  const warningFails = allChecks.filter((c) => !c.blocking && !c.passed && !ignoredSet.has(c.id)).length;
   const totalChecks = allChecks.length;
-  const totalPassed = allChecks.filter((c) => c.passed).length;
-  const passRate = totalChecks > 0 ? Math.round((totalPassed / totalChecks) * 100) : 100;
+  const effectivePassed = allChecks.filter((c) => c.passed || ignoredSet.has(c.id)).length;
+  const passRate = totalChecks > 0 ? Math.round((effectivePassed / totalChecks) * 100) : 100;
 
   return {
     ready: blockingFails === 0,

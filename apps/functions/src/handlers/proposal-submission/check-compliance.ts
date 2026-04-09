@@ -21,8 +21,9 @@ const baseHandler = async (event: AuthedEvent): Promise<APIGatewayProxyResultV2>
   const opp = await getOpportunity({ orgId, projectId, oppId });
   const deadlineIso = (opp?.item?.responseDeadlineIso as string | undefined) ?? null;
   const currentStage = (opp?.item?.stage as string | undefined) ?? null;
+  const ignoredCheckIds = (opp?.item?.ignoredComplianceCheckIds as string[] | undefined) ?? [];
 
-  const report = await generateComplianceReport({ orgId, projectId, oppId, deadlineIso, currentStage });
+  const report = await generateComplianceReport({ orgId, projectId, oppId, deadlineIso, currentStage, ignoredCheckIds });
   return apiResponse(200, report);
 };
 

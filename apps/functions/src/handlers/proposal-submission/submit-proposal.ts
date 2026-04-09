@@ -38,6 +38,7 @@ const baseHandler = async (event: AuthedEvent): Promise<APIGatewayProxyResultV2>
   if (!opp) return apiResponse(404, { message: 'Opportunity not found' });
   const deadlineIso = (opp.item?.responseDeadlineIso as string | undefined) ?? null;
   const currentStage = (opp.item?.stage as string | undefined) ?? null;
+  const ignoredCheckIds = (opp.item?.ignoredComplianceCheckIds as string[] | undefined) ?? [];
 
   // ── 2. Server-side readiness re-validation ──
   const readiness = await checkSubmissionReadiness({
@@ -46,6 +47,7 @@ const baseHandler = async (event: AuthedEvent): Promise<APIGatewayProxyResultV2>
     oppId: data.oppId,
     deadlineIso,
     currentStage,
+    ignoredCheckIds,
   });
   if (!readiness.ready && !data.forceSubmit) {
     return apiResponse(422, {
