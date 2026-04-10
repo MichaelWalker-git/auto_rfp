@@ -2,7 +2,7 @@ import { z } from 'zod';
 import type { QuestionItem, AnswerItem } from '@auto-rfp/core';
 import { getItem, queryBySkPrefix, type DBItem } from '@/helpers/db';
 import { getEmbedding } from '@/helpers/embeddings';
-import { getPineconeClient } from '@/helpers/pinecone';
+import { initPineconeClient } from '@/helpers/pinecone';
 import { requireEnv } from '@/helpers/env';
 import { PK_NAME, SK_NAME } from '@/constants/common';
 import { QUESTION_PK } from '@/constants/question';
@@ -121,7 +121,7 @@ export const findSimilarInPinecone = async (
   threshold: number,
   limit: number,
 ): Promise<SimilarMatch[]> => {
-  const client = getPineconeClient();
+  const client = await initPineconeClient();
   const index = client.Index(getPineconeIndex());
 
   const embedding = await getEmbedding(questionText);

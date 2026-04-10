@@ -12,7 +12,6 @@ import {
   useHandleLinearTicket,
   useGetExecutiveBriefByProject,
 } from '@/lib/hooks/use-executive-brief';
-import { RequiredDocumentsPanel } from './RequiredDocumentsPanel';
 
 const getDecisionText = (decision: string) => {
   switch (decision) {
@@ -59,7 +58,6 @@ export function DecisionCard({
   briefItem,
   previousBrief,
   onBriefUpdate,
-  requirements,
 }: {
   projectName: string;
   projectId: string;
@@ -68,7 +66,6 @@ export function DecisionCard({
   briefItem: any;
   previousBrief: any;
   onBriefUpdate?: (brief: any) => void;
-  requirements?: any;
 }) {
   const updateDecision = useUpdateDecision(orgId);
   const handleLinearTicket = useHandleLinearTicket(orgId);
@@ -141,51 +138,49 @@ export function DecisionCard({
   }
 
   return (
-    <Card className="border-2">
-      <CardHeader className="space-y-3">
-        <div className="flex flex-wrap justify-between gap-6">
-          <div className="flex-1 space-y-3">
-            <CardTitle className="text-2xl">{summary?.title || 'Untitled opportunity'}</CardTitle>
+    <Card>
+      <CardHeader className="pb-3 space-y-2">
+        <div className="flex flex-wrap justify-between gap-4">
+          <div className="flex-1 space-y-1.5">
+            <CardTitle className="text-base">{summary?.title || 'Untitled opportunity'}</CardTitle>
 
-            <div className="flex flex-wrap gap-3 text-sm text-muted-foreground">
+            <div className="flex flex-wrap gap-2 text-xs text-muted-foreground">
               {summary?.agency && <span>{summary.agency}</span>}
               {summary?.naics && <span>• NAICS {summary.naics}</span>}
               {summary?.contractType && <span>• {summary.contractType}</span>}
             </div>
 
             {summary?.estimatedValueUsd && (
-              <div className="text-lg font-semibold text-foreground">
+              <div className="text-sm font-semibold text-foreground">
                 {summary.estimatedValueUsd}
               </div>
             )}
 
-            <div className="flex gap-2 flex-wrap">
+            <div className="flex gap-1.5 flex-wrap">
               {summary?.setAside && summary.setAside !== 'UNKNOWN' && (
-                <Badge variant="outline" title="Set-aside category for eligibility.">
+                <Badge variant="outline" className="text-xs" title="Set-aside category for eligibility.">
                   {summary.setAside}
                 </Badge>
               )}
               {summary?.placeOfPerformance && (
-                <Badge variant="outline" title="Where the work will be performed.">
+                <Badge variant="outline" className="text-xs" title="Where the work will be performed.">
                   {summary.placeOfPerformance}
                 </Badge>
               )}
             </div>
           </div>
 
-          <div className="flex flex-col items-end gap-3">
-            <div className="text-xs uppercase text-muted-foreground tracking-wide">Decision</div>
-
+          <div className="flex flex-col items-end gap-2">
             <Badge
               variant={recommendationVariant(decisionBadge)}
-              className="text-lg px-6 py-2"
+              className="text-sm px-4 py-1"
               title="Final GO / NO-GO recommendation."
             >
               {decisionBadge ? getDecisionText(decisionBadge) : '—'}
             </Badge>
 
-            <div className="flex items-center gap-2">
-              <Badge variant="outline" className="text-base px-4 py-1" title="Composite score across criteria (1–5).">
+            <div className="flex items-center gap-1.5">
+              <Badge variant="outline" className="text-xs px-2 py-0.5" title="Composite score across criteria (1–5).">
                 {typeof compositeScore === 'number' ? compositeScore.toFixed(1) : '—'}/5
               </Badge>
 
@@ -251,22 +246,6 @@ export function DecisionCard({
         <div className="hidden">{projectName}</div>
       </CardHeader>
 
-      {/* Required documents panel — shown when decision is GO or CONDITIONAL_GO */}
-      {(decisionBadge === 'GO' || decisionBadge === 'CONDITIONAL_GO') &&
-        briefItem?.opportunityId &&
-        requirements?.submissionCompliance?.requiredDocuments?.length > 0 && (
-          <CardContent className="pt-0">
-            <RequiredDocumentsPanel
-              projectId={projectId}
-              opportunityId={briefItem.opportunityId}
-              requiredDocuments={requirements.submissionCompliance.requiredDocuments}
-            />
-          </CardContent>
-        )}
-
-      {!(decisionBadge === 'GO' || decisionBadge === 'CONDITIONAL_GO') && (
-        <CardContent className="hidden" />
-      )}
     </Card>
   );
 }

@@ -10,7 +10,7 @@ export function ContactsCard({ contacts }: { contacts: any }) {
   const list = contacts?.contacts ?? [];
 
   return (
-    <Card className="border-2">
+    <Card>
       <CardHeader className="pb-3">
         <div className="flex items-center gap-2">
           <Users className="h-5 w-5" />
@@ -18,7 +18,7 @@ export function ContactsCard({ contacts }: { contacts: any }) {
         </div>
       </CardHeader>
 
-      <CardContent className="space-y-6">
+      <CardContent className="space-y-3">
         <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Contact Directory ({list.length})</p>
         
         {list.length === 0 ? (

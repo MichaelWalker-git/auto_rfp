@@ -27,11 +27,14 @@ const DB_TABLE_NAME = requireEnv('DB_TABLE_NAME');
  * Handles both ISO dates ("2026-01-15") and already-formatted strings ("January 15, 2026").
  */
 const formatDateForLetter = (dateStr: string): string => {
-  const parsed = new Date(dateStr);
-  if (isNaN(parsed.getTime())) return dateStr;
-  // Offset UTC parse so the date doesn't shift due to timezone
-  const utc = new Date(parsed.getUTCFullYear(), parsed.getUTCMonth(), parsed.getUTCDate());
-  return utc.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+  // If it's an ISO date (YYYY-MM-DD), parse with explicit UTC to avoid timezone shift
+  const isoMatch = dateStr.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (isoMatch) {
+    const utc = new Date(Date.UTC(+isoMatch[1], +isoMatch[2] - 1, +isoMatch[3]));
+    return utc.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric', timeZone: 'UTC' });
+  }
+  // Already human-readable (e.g. "January 15, 2026") — return as-is
+  return dateStr;
 };
 
 /** Fields on the FOIA request record that must be populated to generate a letter. */

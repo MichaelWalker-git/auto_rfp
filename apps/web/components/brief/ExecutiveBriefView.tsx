@@ -47,6 +47,7 @@ import { PricingCard } from './components/PricingCard';
 import { OpportunitySelector } from './components/OpportunitySelector';
 import { useCurrentOrganization } from '@/context/organization-context';
 import { useProjectOutcome } from '@/lib/hooks/use-project-outcome';
+import { useQuestionFiles } from '@/lib/hooks/use-question-file';
 import type { OpportunityItem } from '@auto-rfp/core';
 
 function sectionIcon(section: SectionKey) {
@@ -123,13 +124,19 @@ interface SectionGenerateButtonProps {
 
 function SectionGenerateButton({ section, status, isBusy, onGenerate, label }: SectionGenerateButtonProps) {
   const isComplete = status === 'COMPLETE';
-  const isInProgress = isInProgressStatus(status) || isBusy;
-  
+  // Only show in-progress if the server status confirms it — FAILED overrides local busy
+  const isFailed = status === 'FAILED';
+  const isInProgress = !isFailed && (isInProgressStatus(status) || isBusy);
+
+  // Hide the button when section has been successfully generated
+  if (isComplete) return null;
+
   return (
     <Button
       variant="outline"
       size="sm"
       onClick={onGenerate}
+      disabled={isInProgress}
     >
       {isInProgress ? (
         <>
@@ -139,7 +146,7 @@ function SectionGenerateButton({ section, status, isBusy, onGenerate, label }: S
       ) : (
         <>
           <RefreshCw className="h-4 w-4 mr-2"/>
-          {isComplete ? `Regenerate ${label || sectionTitle(section)}` : `Generate ${label || sectionTitle(section)}`}
+          {isFailed ? 'Retry' : 'Generate'} {label || sectionTitle(section)}
         </>
       )}
     </Button>
@@ -164,46 +171,28 @@ function SectionContent({ section, status, error, isBusy, children, skeletonRows
   // Show error if failed (check this FIRST, before in-progress)
   if (isFailed) {
     return (
-      <Card className="border-red-200 bg-red-50/50 dark:border-red-900 dark:bg-red-950/20">
-        <CardHeader>
-          <div className="flex items-center gap-2">
-            <XCircle className="h-5 w-5 text-red-600"/>
-            <CardTitle className="text-lg text-red-700 dark:text-red-400">
-              {sectionTitle(section)} Generation Failed
-            </CardTitle>
-          </div>
-        </CardHeader>
-        <CardContent>
-          <Alert variant="destructive">
-            <AlertTriangle className="h-4 w-4"/>
-            <AlertDescription className="whitespace-pre-wrap">
-              {error || 'An unknown error occurred while generating this section.'}
-            </AlertDescription>
-          </Alert>
-        </CardContent>
-      </Card>
+      <Alert variant="destructive">
+        <AlertTriangle className="h-4 w-4"/>
+        <AlertDescription>
+          <span className="font-medium">{sectionTitle(section)} failed</span>
+          {error && <span className="block mt-1 text-xs whitespace-pre-wrap">{error}</span>}
+        </AlertDescription>
+      </Alert>
     );
   }
 
   // Show skeleton while in progress
   if (isInProgress) {
     return (
-      <Card>
-        <CardHeader>
-          <div className="flex items-center gap-2">
-            <Loader2 className="h-5 w-5 animate-spin text-blue-600"/>
-            <CardTitle className="text-lg">Generating {sectionTitle(section)}...</CardTitle>
-          </div>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          {[...Array(skeletonRows)].map((_, i) => (
-            <div key={i} className="space-y-2">
-              <Skeleton className="h-4 w-full"/>
-              <Skeleton className="h-4 w-3/4"/>
-            </div>
-          ))}
-        </CardContent>
-      </Card>
+      <div className="space-y-3">
+        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+          <Loader2 className="h-4 w-4 animate-spin text-blue-600"/>
+          Generating {sectionTitle(section)}...
+        </div>
+        {[...Array(skeletonRows)].map((_, i) => (
+          <Skeleton key={i} className="h-3 w-full"/>
+        ))}
+      </div>
     );
   }
 
@@ -214,9 +203,24 @@ function SectionContent({ section, status, error, isBusy, children, skeletonRows
 interface ExecutiveBriefViewProps {
   projectId: string;
   initialOpportunityId?: string;
+  /** When provided, locks the brief to this opportunity and hides the opportunity selector. */
+  opportunityId?: string;
+  /** Section title — defaults to "Executive Brief" */
+  title?: string;
+  /** Header icon — defaults to Briefcase */
+  headerIcon?: React.ReactNode;
+  /** Label for the empty-state generate button — defaults to "Generate All Sections" */
+  generateLabel?: string;
 }
 
-export function ExecutiveBriefView({ projectId, initialOpportunityId }: ExecutiveBriefViewProps) {
+export function ExecutiveBriefView({
+  projectId,
+  initialOpportunityId,
+  opportunityId: fixedOpportunityId,
+  title: sectionTitle = 'Executive Brief',
+  headerIcon,
+  generateLabel = 'Generate All Sections',
+}: ExecutiveBriefViewProps) {
   const router = useRouter();
   const { data: project, isLoading, isError, mutate: refetchProject } = useProject(projectId);
   const { currentOrganization } = useCurrentOrganization();
@@ -240,19 +244,32 @@ export function ExecutiveBriefView({ projectId, initialOpportunityId }: Executiv
   const [isPastPerfRegenerating, setIsPastPerfRegenerating] = useState(false);
   const [isFetchingBrief, setIsFetchingBrief] = useState(false);
   const [isGeneratingBrief, setIsGeneratingBrief] = useState(false);
-  const [activeTab, setActiveTab] = useState<TabId>('overview');
-  const [selectedOpportunityId, setSelectedOpportunityId] = useState<string | null>(initialOpportunityId ?? null);
+  const [activeTab, setActiveTab] = useState<TabId | undefined>(fixedOpportunityId ? undefined : 'overview');
+  const [selectedOpportunityId, setSelectedOpportunityId] = useState<string | null>(fixedOpportunityId ?? initialOpportunityId ?? null);
   const [selectedOpportunity, setSelectedOpportunity] = useState<OpportunityItem | null>(null);
   const localBusySectionsRef = useRef<Set<SectionKey>>(new Set());
   const linearTicketAttemptedRef = useRef(false);
 
   const pollingRef = useRef<NodeJS.Timeout | null>(null);
+  const autoGenerateTriggeredRef = useRef(false);
+  const [briefFetchDone, setBriefFetchDone] = useState(false);
+
+  // Track solicitation file status for auto-generation
+  const { items: questionFiles } = useQuestionFiles(
+    fixedOpportunityId ? projectId : null,
+    { oppId: fixedOpportunityId ?? undefined, refreshInterval: 10_000 },
+  );
 
   const sectionsState = useMemo(() => buildSectionsState(briefItem), [briefItem]);
   const totalSections = 8; // summary, deadlines, contacts, requirements, risks, pricing, pastPerformance, scoring
 
   const { completed: completedSections, percent: progressPercent, inProgress: inProgressSections } = useMemo(
     () => calcProgress(sectionsState as any, totalSections),
+    [sectionsState],
+  );
+
+  const hasFailedSection = useMemo(
+    () => sectionsState ? Object.values(sectionsState).some((s) => s === 'FAILED') : false,
     [sectionsState],
   );
 
@@ -281,10 +298,20 @@ export function ExecutiveBriefView({ projectId, initialOpportunityId }: Executiv
   }, [briefItem, localBusySections]);
 
   const anySectionInProgress = useMemo(() => {
-    if (localBusySections.size) return true;
     const sections = briefItem?.sections as Record<string, any> | undefined;
-    if (!sections) return false;
-    return SECTION_ORDER.some((k) => isInProgressStatus(sections?.[k]?.status));
+    // Check actual server-side status first
+    const serverInProgress = sections
+      ? SECTION_ORDER.some((k) => isInProgressStatus(sections?.[k]?.status))
+      : false;
+    if (serverInProgress) return true;
+    // Only trust local busy state if the server hasn't reported a terminal status for those sections
+    if (localBusySections.size && sections) {
+      return Array.from(localBusySections).some((k) => {
+        const st = sections?.[k]?.status as string | undefined;
+        return st !== 'COMPLETE' && st !== 'FAILED';
+      });
+    }
+    return localBusySections.size > 0 && !sections;
   }, [briefItem, localBusySections]);
 
   // Get section status for tab badges
@@ -454,12 +481,13 @@ export function ExecutiveBriefView({ projectId, initialOpportunityId }: Executiv
     }
 
     setIsFetchingBrief(true);
+    setBriefFetchDone(false);
     (async () => {
       try {
         // Fetch brief for the selected opportunity
-        const resp = await getBriefByProject.trigger({ 
-          projectId, 
-          opportunityId: selectedOpportunityId 
+        const resp = await getBriefByProject.trigger({
+          projectId,
+          opportunityId: selectedOpportunityId
         });
         if (resp?.ok && resp?.brief) setBriefItem(resp.brief);
       } catch (err: any) {
@@ -469,6 +497,7 @@ export function ExecutiveBriefView({ projectId, initialOpportunityId }: Executiv
         setBriefItem(null);
       } finally {
         setIsFetchingBrief(false);
+        setBriefFetchDone(true);
       }
     })();
 
@@ -624,6 +653,25 @@ export function ExecutiveBriefView({ projectId, initialOpportunityId }: Executiv
     }
   }
 
+  // Auto-generate brief when all solicitation docs are processed and no brief exists
+  useEffect(() => {
+    if (!fixedOpportunityId) return;
+    // Wait for the initial brief fetch to complete
+    if (!briefFetchDone || isFetchingBrief) return;
+    // Don't auto-generate if brief already exists or generation is in progress
+    if (briefItem || isGeneratingBrief) return;
+    if (autoGenerateTriggeredRef.current) return;
+    if (questionFiles.length === 0) return;
+
+    const allProcessed = questionFiles.every(
+      (f: Record<string, unknown>) => f.status === 'PROCESSED',
+    );
+    if (!allProcessed) return;
+
+    autoGenerateTriggeredRef.current = true;
+    generateBrief(false);
+  }, [fixedOpportunityId, briefFetchDone, briefItem, isFetchingBrief, isGeneratingBrief, questionFiles]);
+
   async function runOneSection(section: SectionKey) {
     setRegenError(null);
     try {
@@ -667,7 +715,7 @@ export function ExecutiveBriefView({ projectId, initialOpportunityId }: Executiv
         </div>
 
         {/* Content skeleton */}
-        <div className="space-y-6 mt-6">
+        <div className="space-y-3 mt-3">
           {/* Decision card skeleton */}
           <Card>
             <CardHeader>
@@ -731,33 +779,35 @@ export function ExecutiveBriefView({ projectId, initialOpportunityId }: Executiv
 
   return (
     <div className="space-y-6">
-      {/* Opportunity Selector - Compact inline version */}
-      <div className="flex items-center gap-3 flex-wrap">
-        <Label className="text-sm font-medium whitespace-nowrap">Opportunity:</Label>
-        <div className="flex-1 max-w-md">
-          <OpportunitySelector
-            projectId={projectId}
-            orgId={currentOrganization?.id ?? null}
-            selectedOpportunityId={selectedOpportunityId}
-            onSelect={handleOpportunitySelect}
-            disabled={anySectionInProgress}
-          />
-        </div>
-        {selectedOpportunity && (
-          <div className="flex flex-wrap items-center gap-1.5">
-            {selectedOpportunity.solicitationNumber && (
-              <Badge variant="secondary" className="text-xs">
-                {selectedOpportunity.solicitationNumber}
-              </Badge>
-            )}
-            {selectedOpportunity.naicsCode && (
-              <Badge variant="outline" className="text-xs">
-                NAICS: {selectedOpportunity.naicsCode}
-              </Badge>
-            )}
+      {/* Opportunity Selector - hidden when opportunityId is fixed */}
+      {!fixedOpportunityId && (
+        <div className="flex items-center gap-3 flex-wrap">
+          <Label className="text-sm font-medium whitespace-nowrap">Opportunity:</Label>
+          <div className="flex-1 max-w-md">
+            <OpportunitySelector
+              projectId={projectId}
+              orgId={currentOrganization?.id ?? null}
+              selectedOpportunityId={selectedOpportunityId}
+              onSelect={handleOpportunitySelect}
+              disabled={anySectionInProgress}
+            />
           </div>
-        )}
-      </div>
+          {selectedOpportunity && (
+            <div className="flex flex-wrap items-center gap-1.5">
+              {selectedOpportunity.solicitationNumber && (
+                <Badge variant="secondary" className="text-xs">
+                  {selectedOpportunity.solicitationNumber}
+                </Badge>
+              )}
+              {selectedOpportunity.naicsCode && (
+                <Badge variant="outline" className="text-xs">
+                  NAICS: {selectedOpportunity.naicsCode}
+                </Badge>
+              )}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Show message if no opportunity selected */}
       {!selectedOpportunityId ? (
@@ -792,7 +842,7 @@ export function ExecutiveBriefView({ projectId, initialOpportunityId }: Executiv
           </div>
 
           {/* Content skeleton */}
-          <div className="space-y-6 mt-6">
+          <div className="space-y-3 mt-3">
             <Card>
               <CardHeader>
                 <Skeleton className="h-6 w-48"/>
@@ -854,10 +904,13 @@ export function ExecutiveBriefView({ projectId, initialOpportunityId }: Executiv
           )}
           
           <Card>
-            <CardContent className="py-12 text-center">
-              <FileText className="h-12 w-12 mx-auto text-muted-foreground mb-4"/>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium">{sectionTitle}</CardTitle>
+            </CardHeader>
+            <CardContent className="py-8 text-center">
+              <Briefcase className="h-10 w-10 mx-auto text-muted-foreground mb-3"/>
               <p className="text-sm text-muted-foreground mb-4">
-                No executive brief yet for this opportunity. Generate all sections to analyze it.
+                Generate a brief with scoring, risks, requirements, and more.
               </p>
               <Button onClick={() => generateBrief(false)} disabled={anySectionInProgress || isFetchingBrief || isGeneratingBrief}>
                 {anySectionInProgress || isGeneratingBrief ? (
@@ -868,7 +921,7 @@ export function ExecutiveBriefView({ projectId, initialOpportunityId }: Executiv
                 ) : (
                   <>
                     <RefreshCw className="h-4 w-4 mr-2"/>
-                    Generate All Sections
+                    {generateLabel}
                   </>
                 )}
               </Button>
@@ -877,128 +930,116 @@ export function ExecutiveBriefView({ projectId, initialOpportunityId }: Executiv
         </div>
       ) : (
         <>
-          {/* Header with Generate All button */}
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <h2 className="text-lg font-semibold">Executive Brief</h2>
-              <Badge variant={completedSections === totalSections ? 'default' : 'secondary'}>
-                {completedSections}/{totalSections} sections
-              </Badge>
-              {progressText && (
-                <span className="text-sm text-muted-foreground">{progressText}</span>
-              )}
-            </div>
-            <div className="flex items-center gap-2">
-              {selectedOpportunityId && currentOrganization?.id && (
-                <Button variant="outline" size="sm" asChild>
-                  <Link href={`/organizations/${currentOrganization.id}/projects/${projectId}/opportunities/${selectedOpportunityId}`}>
-                    <ExternalLink className="h-4 w-4 mr-1.5" />
-                    Opportunity
-                  </Link>
-                </Button>
-              )}
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => exportBriefAsDocx(project.name, briefItem)}
-                className="gap-2"
-              >
-                <Download className="h-4 w-4"/>
-                Export DOCX
-              </Button>
-              <Button 
-                variant="outline" 
-                size="sm" 
-                onClick={() => generateBrief(true)} 
-                disabled={anySectionInProgress || isGeneratingBrief}
-              >
-                {anySectionInProgress || isGeneratingBrief ? (
-                  <>
-                    <Loader2 className="h-4 w-4 mr-2 animate-spin"/>
-                    Generating...
-                  </>
-                ) : (
-                  <>
-                    <RefreshCw className="h-4 w-4 mr-2"/>
-                    Generate Missing
-                  </>
-                )}
-              </Button>
-              <Button 
-                variant="default" 
-                size="sm" 
-                onClick={() => generateBrief(false)} 
-                disabled={anySectionInProgress || isGeneratingBrief}
-              >
-                {anySectionInProgress || isGeneratingBrief ? (
-                  <>
-                    <Loader2 className="h-4 w-4 mr-2 animate-spin"/>
-                    Generating...
-                  </>
-                ) : (
-                  <>
-                    <RefreshCw className="h-4 w-4 mr-2"/>
-                    Regenerate All
-                  </>
-                )}
-              </Button>
-            </div>
-          </div>
+          <Card>
+            <CardHeader className="pb-2">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                <div className="min-w-0">
+                  <CardTitle className="text-sm font-medium">{sectionTitle}</CardTitle>
+                  {completedSections < totalSections && progressText && (
+                    <p className="text-xs text-muted-foreground mt-1">{progressText}</p>
+                  )}
+                </div>
+                <div className="flex flex-wrap items-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => exportBriefAsDocx(project.name, briefItem)}
+                    disabled={completedSections < totalSections}
+                    title={hasFailedSection ? 'Fix failed sections before exporting' : completedSections < totalSections ? 'All sections must complete before exporting' : 'Export as DOCX'}
+                  >
+                    <Download className="h-4 w-4 mr-2" />
+                    Export
+                  </Button>
+                  {!fixedOpportunityId && selectedOpportunityId && currentOrganization?.id && (
+                    <Button variant="outline" size="sm" asChild>
+                      <Link href={`/organizations/${currentOrganization.id}/projects/${projectId}/opportunities/${selectedOpportunityId}`}>
+                        <ExternalLink className="h-4 w-4 mr-2" />
+                        Opportunity
+                      </Link>
+                    </Button>
+                  )}
+                  {anySectionInProgress || isGeneratingBrief ? (
+                    <Button variant="outline" size="sm" disabled>
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin"/>
+                      Generating...
+                    </Button>
+                  ) : completedSections < totalSections ? (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => generateBrief(true)}
+                    >
+                      <RefreshCw className="h-4 w-4 mr-2"/>
+                      {completedSections === 0 ? 'Generate All' : 'Generate Missing'}
+                    </Button>
+                  ) : (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => generateBrief(false)}
+                    >
+                      <RefreshCw className="h-4 w-4 mr-2"/>
+                      Regenerate All
+                    </Button>
+                  )}
+                </div>
+              </div>
+            </CardHeader>
 
-          {regenError && (
-            <Alert variant={regenError.includes('No processed question files') ? 'default' : 'destructive'}>
-              {regenError.includes('No processed question files') ? (
-                <Clock className="h-4 w-4"/>
-              ) : (
-                <AlertTriangle className="h-4 w-4"/>
+            <CardContent className="pt-0">
+              {regenError && (
+                <Alert variant={regenError.includes('No processed question files') ? 'default' : 'destructive'} className="mb-4">
+                  {regenError.includes('No processed question files') ? (
+                    <Clock className="h-4 w-4"/>
+                  ) : (
+                    <AlertTriangle className="h-4 w-4"/>
+                  )}
+                  <AlertDescription>
+                    {regenError.includes('ExecutiveBrief not found')
+                      ? 'Unable to generate brief. Please try clicking "Generate All Sections" to initialize the executive brief first.'
+                      : regenError.includes('No processed question files')
+                      ? (
+                        <div className="space-y-2">
+                          <p className="font-medium">Documents are still being processed</p>
+                          <p className="text-sm">
+                            Uploaded solicitation files need to complete text extraction before the executive brief can be generated.
+                            This typically takes 1-3 minutes depending on document size.
+                          </p>
+                          <p className="text-sm text-muted-foreground">
+                            Please wait for processing to complete, then try generating again.
+                          </p>
+                        </div>
+                      )
+                      : regenError}
+                  </AlertDescription>
+                </Alert>
               )}
-              <AlertDescription>
-                {regenError.includes('ExecutiveBrief not found') 
-                  ? 'Unable to generate brief. Please try clicking "Generate All Sections" to initialize the executive brief first.'
-                  : regenError.includes('No processed question files')
-                  ? (
-                    <div className="space-y-2">
-                      <p className="font-medium">Documents are still being processed</p>
-                      <p className="text-sm">
-                        Uploaded solicitation files need to complete text extraction before the executive brief can be generated. 
-                        This typically takes 1-3 minutes depending on document size.
-                      </p>
-                      <p className="text-sm text-muted-foreground">
-                        Please wait for processing to complete, then try generating again.
-                      </p>
-                    </div>
-                  )
-                  : regenError}
-              </AlertDescription>
-            </Alert>
-          )}
 
-          <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as TabId)} className="w-full">
-            <TabsList className="w-full h-auto p-1 grid grid-cols-4 md:flex md:flex-wrap gap-1">
+              <Tabs value={activeTab ?? ''} className="w-full">
+            <TabsList className="w-full h-auto p-1 flex flex-wrap gap-1">
               {TABS.map((tab) => {
                 const status = getSectionStatus(tab.id);
                 const Icon = tab.icon;
                 return (
-                  <TabsTrigger 
-                    key={tab.id} 
+                  <TabsTrigger
+                    key={tab.id}
                     value={tab.id}
-                    className="group flex flex-col md:flex-row items-center gap-1 md:gap-1.5 py-2 px-2 text-xs md:text-sm data-[state=active]:bg-background transition-all duration-200 hover:px-3 min-h-[3rem] md:min-h-0"
+                    className="group flex items-center gap-1.5 py-1.5 px-2 text-xs data-[state=active]:bg-background transition-all duration-200"
                     title={tab.label}
                     aria-label={`${tab.label} tab${status ? ` - ${status}` : ''}`}
+                    onClick={() => setActiveTab((prev) => prev === tab.id ? undefined : tab.id)}
                   >
-                    <div className="flex items-center gap-1">
-                      <Icon className="h-4 w-4 flex-shrink-0"/>
-                      {status === 'complete' && (
-                        <CheckCircle2 className="h-3 w-3 text-green-600 flex-shrink-0" aria-label="Complete"/>
-                      )}
-                      {status === 'in-progress' && (
-                        <Loader2 className="h-3 w-3 animate-spin text-blue-600 flex-shrink-0" aria-label="In progress"/>
-                      )}
-                      {status === 'failed' && (
-                        <XCircle className="h-3 w-3 text-red-600 flex-shrink-0" aria-label="Failed"/>
-                      )}
-                    </div>
-                    <span className="block md:max-w-0 md:overflow-hidden md:whitespace-nowrap md:group-hover:max-w-[120px] md:group-data-[state=active]:max-w-[120px] md:transition-all md:duration-200 text-center md:text-left">
+                    <Icon className="h-4 w-4 shrink-0"/>
+                    {status === 'complete' && (
+                      <CheckCircle2 className="h-3 w-3 text-green-600 shrink-0" aria-label="Complete"/>
+                    )}
+                    {status === 'in-progress' && (
+                      <Loader2 className="h-3 w-3 animate-spin text-blue-600 shrink-0" aria-label="In progress"/>
+                    )}
+                    {status === 'failed' && (
+                      <XCircle className="h-3 w-3 text-red-600 shrink-0" aria-label="Failed"/>
+                    )}
+                    <span className="max-w-0 overflow-hidden whitespace-nowrap group-hover:max-w-[100px] group-data-[state=active]:max-w-[100px] transition-all duration-200">
                       {tab.label}
                     </span>
                   </TabsTrigger>
@@ -1007,7 +1048,7 @@ export function ExecutiveBriefView({ projectId, initialOpportunityId }: Executiv
             </TabsList>
 
             {/* Overview Tab */}
-            <TabsContent value="overview" className="space-y-6 mt-6">
+            <TabsContent value="overview" className="space-y-3 mt-3">
               <div className="flex justify-end">
                 <SectionGenerateButton
                   section="summary"
@@ -1024,7 +1065,7 @@ export function ExecutiveBriefView({ projectId, initialOpportunityId }: Executiv
                 isBusy={isSectionBusy('summary')}
                 skeletonRows={5}
               >
-                <DecisionCard 
+                <DecisionCard
                   projectName={project.name}
                   projectId={projectId}
                   orgId={currentOrganization?.id}
@@ -1032,14 +1073,13 @@ export function ExecutiveBriefView({ projectId, initialOpportunityId }: Executiv
                   briefItem={briefItem}
                   previousBrief={previousBrief}
                   onBriefUpdate={(brief) => setBriefItem(brief)}
-                  requirements={requirements}
                 />
                 <ExecutiveCloseOutCard scoring={scoring}/>
               </SectionContent>
             </TabsContent>
 
             {/* Deadlines Tab */}
-            <TabsContent value="deadlines" className="space-y-6 mt-6">
+            <TabsContent value="deadlines" className="space-y-3 mt-3">
               <div className="flex justify-end">
                 <SectionGenerateButton
                   section="deadlines"
@@ -1065,7 +1105,7 @@ export function ExecutiveBriefView({ projectId, initialOpportunityId }: Executiv
             </TabsContent>
 
             {/* Requirements Tab */}
-            <TabsContent value="requirements" className="space-y-6 mt-6">
+            <TabsContent value="requirements" className="space-y-3 mt-3">
               <div className="flex justify-end">
                 <SectionGenerateButton
                   section="requirements"
@@ -1086,7 +1126,7 @@ export function ExecutiveBriefView({ projectId, initialOpportunityId }: Executiv
             </TabsContent>
 
             {/* Contacts Tab */}
-            <TabsContent value="contacts" className="space-y-6 mt-6">
+            <TabsContent value="contacts" className="space-y-3 mt-3">
               <div className="flex justify-end">
                 <SectionGenerateButton
                   section="contacts"
@@ -1107,7 +1147,7 @@ export function ExecutiveBriefView({ projectId, initialOpportunityId }: Executiv
             </TabsContent>
 
             {/* Risks Tab */}
-            <TabsContent value="risks" className="space-y-6 mt-6">
+            <TabsContent value="risks" className="space-y-3 mt-3">
               <div className="flex justify-end">
                 <SectionGenerateButton
                   section="risks"
@@ -1128,7 +1168,7 @@ export function ExecutiveBriefView({ projectId, initialOpportunityId }: Executiv
             </TabsContent>
 
             {/* Pricing Tab */}
-            <TabsContent value="pricing" className="space-y-6 mt-6">
+            <TabsContent value="pricing" className="space-y-3 mt-3">
               <div className="flex justify-end">
                 <SectionGenerateButton
                   section="pricing"
@@ -1149,7 +1189,31 @@ export function ExecutiveBriefView({ projectId, initialOpportunityId }: Executiv
             </TabsContent>
 
             {/* Past Performance Tab */}
-            <TabsContent value="pastPerformance" className="space-y-6 mt-6">
+            <TabsContent value="pastPerformance" className="space-y-3 mt-3">
+              <div className="flex justify-end">
+                <SectionGenerateButton
+                  section="pastPerformance"
+                  status={briefItem?.sections?.pastPerformance?.status}
+                  isBusy={isSectionBusy('pastPerformance') || isPastPerfRegenerating}
+                  onGenerate={async () => {
+                    setIsPastPerfRegenerating(true);
+                    try {
+                      const executiveBriefId = await ensureBriefId();
+                      await genPastPerformance.trigger({ executiveBriefId, force: true });
+                      const latest = await getBriefByProject.trigger({
+                        projectId,
+                        opportunityId: selectedOpportunityId || undefined,
+                      });
+                      if (latest?.ok && latest?.brief) setBriefItem(latest.brief);
+                    } catch (e: unknown) {
+                      setRegenError((e as Error)?.message ?? 'Failed to regenerate past performance');
+                    } finally {
+                      setIsPastPerfRegenerating(false);
+                    }
+                  }}
+                  label="Past Performance"
+                />
+              </div>
               <SectionContent
                 section="pastPerformance"
                 status={briefItem?.sections?.pastPerformance?.status}
@@ -1182,7 +1246,7 @@ export function ExecutiveBriefView({ projectId, initialOpportunityId }: Executiv
             </TabsContent>
 
             {/* Scoring Tab */}
-            <TabsContent value="scoring" className="space-y-6 mt-6">
+            <TabsContent value="scoring" className="space-y-3 mt-3">
               <div className="flex justify-end">
                 <SectionGenerateButton
                   section="scoring"
@@ -1202,7 +1266,9 @@ export function ExecutiveBriefView({ projectId, initialOpportunityId }: Executiv
               </SectionContent>
             </TabsContent>
 
-          </Tabs>
+              </Tabs>
+            </CardContent>
+          </Card>
         </>
       )}
     </div>
