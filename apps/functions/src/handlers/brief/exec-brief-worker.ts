@@ -180,28 +180,21 @@ async function runSummary(job: Job): Promise<void> {
 
     const { solicitationText: rawText } = await loadSolicitationWithOpportunity(brief, orgId);
     const solicitationText = truncateText(rawText, MAX_SOLICITATION_CHARS);
-    const kbPrimer = await loadKbPrimer(orgId, solicitationText, 3);
 
     let data: unknown;
 
     try {
-      // Primary attempt: use sanitized schema wrapper
-      data = await invokeClaudeWithTools({
+      // Summary is pure extraction from solicitation — no KB or tools needed
+      data = await invokeClaudeJson({
         modelId: BEDROCK_MODEL_ID,
         system: await getSummarySystemPrompt(orgId),
         user: await useSummaryUserPrompt(
           orgId,
           solicitationText,
-          kbPrimer,
-          JSON.stringify(QuickSummarySchema.shape, null, 2),
         ),
-        tools: BRIEF_TOOLS,
-        toolExecutor: (toolName, toolInput, toolUseId) =>
-          executeBriefTool({ toolName, toolInput, toolUseId, orgId, projectId, opportunityId, executiveBriefId }),
         outputSchema: SanitizedQuickSummarySchema,
         maxTokens: 1200,
         temperature: 0.2,
-        maxToolRounds: 2,
       });
     } catch (primaryErr) {
       // ── Comprehensive error logging for ZodError ──
@@ -227,22 +220,16 @@ async function runSummary(job: Job): Promise<void> {
       // ── Fallback: retry with minimal schema ──
       console.warn('[SUMMARY] Retrying with minimal fallback schema...');
       try {
-        const fallbackData = await invokeClaudeWithTools({
+        const fallbackData = await invokeClaudeJson({
           modelId: BEDROCK_MODEL_ID,
           system: await getSummarySystemPrompt(orgId),
           user: await useSummaryUserPrompt(
             orgId,
             solicitationText,
-            kbPrimer,
-            JSON.stringify(QuickSummarySchema.shape, null, 2),
           ),
-          tools: BRIEF_TOOLS,
-          toolExecutor: (toolName, toolInput, toolUseId) =>
-            executeBriefTool({ toolName, toolInput, toolUseId, orgId, projectId, opportunityId, executiveBriefId }),
           outputSchema: MinimalSummarySchema,
           maxTokens: 1200,
           temperature: 0.1,
-          maxToolRounds: 1,
         });
 
         console.warn('[SUMMARY] Fallback schema succeeded — missing optional fields will use defaults');

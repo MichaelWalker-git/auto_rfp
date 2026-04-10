@@ -250,9 +250,6 @@ export const SUMMARY_USER_PROMPT = [
   '- Do NOT include an "evidence" field.',
   '- Keep summary concise and focused on opportunity scope, not boilerplate.',
   '',
-  'COMPANY CONTEXT (knowledge base; may be empty):',
-  '{{KB_TEXT}}',
-  '',
   'SOLICITATION TEXT:',
   '{{SOLICITATION}}',
 ].join('\n');
@@ -270,13 +267,9 @@ export const getSummaryUserPrompt = async (orgId: string) => {
 export const useSummaryUserPrompt = async (
   orgId: string,
   solicitation: string,
-  kbText: string,
-  summarySchema: string
 ) => {
   const prompt = await getSummaryUserPrompt(orgId);
   return prompt
-    .replace('{{SUMMARY_SCHEMA}}', summarySchema ?? 'None')
-    .replace('{{KB_TEXT}}', kbText ?? 'None')
     .replace('{{SOLICITATION}}', solicitation ?? 'None');
 };
 
