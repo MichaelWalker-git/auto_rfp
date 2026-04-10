@@ -12,7 +12,7 @@ import { RecordMetadata } from '@pinecone-database/pinecone';
 import { v4 as uuidv4 } from 'uuid';
 import { docClient } from '@/helpers/db';
 import { getEmbedding } from '@/helpers/embeddings';
-import { getPineconeClient } from '@/helpers/pinecone';
+import { initPineconeClient } from '@/helpers/pinecone';
 import { cosineSimilarity } from '@/helpers/cosine-similarity';
 import { requireEnv } from '@/helpers/env';
 import { nowIso } from '@/helpers/date';
@@ -27,7 +27,7 @@ import type {
 } from '@/handlers/answer-pipeline/types';
 
 const DB_TABLE_NAME = requireEnv('DB_TABLE_NAME');
-const PINECONE_INDEX = requireEnv('PINECONE_INDEX');
+const getPineconeIndexName = () => requireEnv('PINECONE_INDEX');
 
 const EMBED_BATCH_SIZE = 10;
 
@@ -41,8 +41,8 @@ export const embedQuestions = async (
   orgId: string,
   questions: QuestionForAnswerGeneration[],
 ): Promise<QuestionWithEmbedding[]> => {
-  const client = getPineconeClient();
-  const index = client.Index(PINECONE_INDEX);
+  const client = await initPineconeClient();
+  const index = client.Index(getPineconeIndexName());
 
   const embeddedQuestions: QuestionWithEmbedding[] = [];
 
@@ -313,8 +313,8 @@ export const matchNewQuestionsToExistingClusters = async (
   existingMasters: QuestionForAnswerGeneration[],
   clusterThreshold: number,
 ): Promise<MatchToExistingClustersResult> => {
-  const client = getPineconeClient();
-  const index = client.Index(PINECONE_INDEX);
+  const client = await initPineconeClient();
+  const index = client.Index(getPineconeIndexName());
 
   const matched: QuestionForAnswerGeneration[] = [];
   const orphans: QuestionWithEmbedding[] = [];

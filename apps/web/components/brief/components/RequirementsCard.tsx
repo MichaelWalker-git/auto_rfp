@@ -11,7 +11,7 @@ export function RequirementsCard({ requirements }: { requirements: any }) {
   if (!requirements) return null;
 
   return (
-    <Card className="border-2">
+    <Card>
       <CardHeader className="pb-3">
         <div className="flex items-center gap-2">
           <FileText className="h-5 w-5" />
@@ -19,7 +19,7 @@ export function RequirementsCard({ requirements }: { requirements: any }) {
         </div>
       </CardHeader>
 
-      <CardContent className="space-y-6">
+      <CardContent className="space-y-3">
         {requirements?.overview && (
           <div className="border-l-4 pl-4 py-2">
             <p className="text-sm leading-relaxed">{requirements.overview}</p>

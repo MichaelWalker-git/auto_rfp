@@ -4,7 +4,7 @@ import { docClient } from './db';
 import { requireEnv } from './env';
 import { nowIso } from './date';
 import { getEmbedding } from './embeddings';
-import { getPineconeClient } from './pinecone';
+import { initPineconeClient } from './pinecone';
 import { PK_NAME, SK_NAME } from '@/constants/common';
 import {
   type PastProject,
@@ -22,7 +22,6 @@ import {
 } from '@auto-rfp/core';
 
 const DB_TABLE_NAME = requireEnv('DB_TABLE_NAME');
-const PINECONE_INDEX = requireEnv('PINECONE_INDEX');
 
 // ================================
 // CRUD Operations
@@ -254,8 +253,8 @@ export async function indexPastProjectToPinecone(
   orgId: string,
   project: PastProject
 ): Promise<string> {
-  const client = getPineconeClient();
-  const index = client.Index(PINECONE_INDEX);
+  const client = await initPineconeClient();
+  const index = client.Index(requireEnv('PINECONE_INDEX'));
 
   // Create rich text for embedding
   const textForEmbedding = [
@@ -304,8 +303,8 @@ export async function deletePastProjectFromPinecone(
   orgId: string,
   projectId: string
 ): Promise<void> {
-  const client = getPineconeClient();
-  const index = client.Index(PINECONE_INDEX);
+  const client = await initPineconeClient();
+  const index = client.Index(requireEnv('PINECONE_INDEX'));
   const id = `past_project#${projectId}`;
 
   try {
@@ -321,26 +320,31 @@ export async function searchPastProjects(
   queryText: string,
   topK: number = 5
 ): Promise<Array<{ projectId: string; score: number; metadata: any }>> {
-  const client = getPineconeClient();
-  const index = client.Index(PINECONE_INDEX);
+  try {
+    const client = await initPineconeClient();
+  const index = client.Index(requireEnv('PINECONE_INDEX'));
 
-  const embedding = await getEmbedding(queryText);
+    const embedding = await getEmbedding(queryText);
 
-  const results = await index.namespace(orgId).query({
-    vector: embedding,
-    topK,
-    includeMetadata: true,
-    includeValues: false,
-    filter: {
-      type: { $eq: 'past_project' },
-    },
-  });
+    const results = await index.namespace(orgId).query({
+      vector: embedding,
+      topK,
+      includeMetadata: true,
+      includeValues: false,
+      filter: {
+        type: { $eq: 'past_project' },
+      },
+    });
 
-  return (results.matches || []).map((match) => ({
-    projectId: (match.metadata as any)?.projectId || '',
-    score: match.score || 0,
-    metadata: match.metadata,
-  }));
+    return (results.matches || []).map((match) => ({
+      projectId: (match.metadata as any)?.projectId || '',
+      score: match.score || 0,
+      metadata: match.metadata,
+    }));
+  } catch (err) {
+    console.warn('searchPastProjects failed (non-fatal):', (err as Error)?.message);
+    return [];
+  }
 }
 
 // ================================

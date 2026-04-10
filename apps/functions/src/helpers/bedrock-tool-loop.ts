@@ -86,8 +86,11 @@ export const invokeClaudeWithTools = async <T>(
     outputSchema,
     maxTokens = 8000,
     temperature = 0.2,
-    maxToolRounds = 3,
+    maxToolRounds = 5,
   } = args;
+
+  // Allow up to 2 extra rounds beyond maxToolRounds if the model keeps requesting tools
+  const absoluteMax = maxToolRounds + 2;
 
   const messages: Message[] = [
     { role: 'user', content: [{ type: 'text', text: user }] },
@@ -96,8 +99,8 @@ export const invokeClaudeWithTools = async <T>(
   let rawText = '';
   let toolRounds = 0;
 
-  while (toolRounds <= maxToolRounds) {
-    const isLastRound = toolRounds >= maxToolRounds;
+  while (toolRounds <= absoluteMax) {
+    const isLastRound = toolRounds >= absoluteMax;
 
     const requestBody: Record<string, unknown> = {
       anthropic_version: 'bedrock-2023-05-31',
@@ -107,8 +110,9 @@ export const invokeClaudeWithTools = async <T>(
       temperature,
     };
 
-    // Offer tools only in non-final rounds; on the last round force text output
-    if (!isLastRound && tools.length > 0) {
+    // Offer tools up to maxToolRounds; after that, force text-only output
+    const offerTools = toolRounds < maxToolRounds && tools.length > 0;
+    if (offerTools) {
       requestBody.tools = tools;
     }
 
@@ -163,7 +167,7 @@ export const invokeClaudeWithTools = async <T>(
     }
 
     // If Claude wants to use tools and we still have rounds left, execute them
-    if (stopReason === 'tool_use' && !isLastRound) {
+    if (stopReason === 'tool_use' && offerTools) {
       const toolUseBlocks = content.filter(c => c.type === 'tool_use');
       console.log(`[bedrock-tool-loop] Round ${toolRounds + 1}: ${toolUseBlocks.length} tool call(s)`);
 
@@ -198,29 +202,19 @@ export const invokeClaudeWithTools = async <T>(
     // Extract final text response
     rawText = extractText(content);
 
-    // If still no text on last round (Claude only returned tool_use), send a final prompt
-    if (!rawText && stopReason === 'tool_use' && isLastRound) {
-      console.warn('[bedrock-tool-loop] Last round still returned tool_use — sending final generation request');
+    // No text extracted — prompt the model to produce JSON
+    if (!rawText && !isLastRound) {
+      const reason = stopReason === 'tool_use'
+        ? 'model returned tool_use without tools offered'
+        : `model returned empty text (stop_reason=${stopReason})`;
+      console.warn(`[bedrock-tool-loop] Round ${toolRounds}: ${reason} — prompting for JSON`);
       messages.push({ role: 'assistant', content });
       messages.push({
         role: 'user',
-        content: [{ type: 'text', text: 'Now generate the complete JSON response based on all the information gathered.' }],
+        content: [{ type: 'text', text: 'Generate the complete JSON response now based on all information gathered. Output ONLY the raw JSON object, no explanation or markdown.' }],
       });
-
-      const finalBody = {
-        anthropic_version: 'bedrock-2023-05-31',
-        system: [{ type: 'text', text: system }],
-        messages,
-        max_tokens: maxTokens,
-        temperature,
-        // No tools — force text output
-      };
-
-      const finalResponse = await invokeModel(modelId, JSON.stringify(finalBody));
-      const finalParsed = JSON.parse(new TextDecoder('utf-8').decode(finalResponse)) as {
-        content?: ContentBlock[];
-      };
-      rawText = extractText(finalParsed.content ?? []);
+      toolRounds++;
+      continue;
     }
 
     console.log(`[bedrock-tool-loop] Complete after ${toolRounds} tool round(s), ${rawText.length} chars`);
@@ -231,5 +225,43 @@ export const invokeClaudeWithTools = async <T>(
     throw new Error('[bedrock-tool-loop] Model returned no text content after all rounds');
   }
 
-  return safeJsonParse(rawText, outputSchema);
+  // If the model returned text that doesn't contain JSON, retry with a fresh context
+  try {
+    return safeJsonParse(rawText, outputSchema);
+  } catch (parseErr) {
+    console.warn('[bedrock-tool-loop] Initial parse failed, retrying with fresh JSON-only prompt:', (parseErr as Error)?.message);
+    console.warn('[bedrock-tool-loop] Raw text preview:', rawText.slice(0, 300));
+
+    // Fresh conversation — avoid polluted context from tool-use rounds
+    const retryMessages: Message[] = [{
+      role: 'user',
+      content: [{
+        type: 'text',
+        text: `Here is a response that needs to be formatted as valid JSON:\n\n${rawText}\n\nConvert the above into a valid JSON object. Output ONLY the raw JSON, no explanation.`,
+      }],
+    }];
+
+    const retryBody = {
+      anthropic_version: 'bedrock-2023-05-31',
+      system: [{ type: 'text', text: 'You are a JSON formatter. Output only valid JSON objects. No markdown, no explanation.' }],
+      messages: retryMessages,
+      max_tokens: maxTokens,
+      temperature: 0,
+    };
+
+    const retryResponse = await invokeModel(modelId, JSON.stringify(retryBody));
+    const retryParsed = JSON.parse(new TextDecoder('utf-8').decode(retryResponse)) as {
+      content?: ContentBlock[];
+    };
+    const retryText = extractText(retryParsed.content ?? []);
+
+    if (!retryText.trim()) {
+      throw new Error(
+        `[bedrock-tool-loop] Model failed to produce JSON output. ` +
+        `Original response: ${rawText.slice(0, 200)}...`,
+      );
+    }
+
+    return safeJsonParse(retryText, outputSchema);
+  }
 };

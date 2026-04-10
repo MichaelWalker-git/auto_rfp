@@ -813,8 +813,13 @@ export function computeOverallStatus(
 }
 
 export async function queryCompanyKnowledgeBase(orgId: string, solicitationText: string, topK: number): Promise<PineconeHit[]> {
-  const embeddings = await getEmbedding(solicitationText);
-  return await semanticSearchChunks(orgId, embeddings, topK);
+  try {
+    const embeddings = await getEmbedding(solicitationText);
+    return await semanticSearchChunks(orgId, embeddings, topK);
+  } catch (err) {
+    console.warn('queryCompanyKnowledgeBase failed (non-fatal):', (err as Error)?.message);
+    return [];
+  }
 }
 
 // -------------------------
@@ -929,7 +934,39 @@ export async function invokeClaudeJson<S extends SchemaLike<any>>(args: {
   }
 }
 
-export async function loadSolicitationForBrief(brief: ExecutiveBriefItem): Promise<{
+/**
+ * Build a concise text block from an opportunity entity for AI context.
+ * Only includes non-empty fields that provide useful context beyond what's in the solicitation docs.
+ */
+const buildOpportunityContext = (opportunity: Record<string, unknown>): string => {
+  const fields: string[] = [];
+  const add = (label: string, value: unknown) => {
+    if (value && typeof value === 'string' && value.trim()) fields.push(`${label}: ${value.trim()}`);
+    if (typeof value === 'number' && value > 0) fields.push(`${label}: ${value}`);
+  };
+
+  add('Title', opportunity.title);
+  add('Description', opportunity.description);
+  add('Solicitation Number', opportunity.solicitationNumber);
+  add('Notice ID', opportunity.noticeId);
+  add('Agency', opportunity.organizationName);
+  add('Type', opportunity.type);
+  add('Set-Aside', opportunity.setAside);
+  add('NAICS Code', opportunity.naicsCode);
+  add('PSC Code', opportunity.pscCode);
+  add('Response Deadline', opportunity.responseDeadlineIso);
+  add('Posted Date', opportunity.postedDateIso);
+  add('Place of Performance', opportunity.placeOfPerformance);
+  add('Estimated Value', opportunity.baseAndAllOptionsValue);
+
+  if (fields.length === 0) return '';
+  return `=== OPPORTUNITY METADATA ===\n${fields.join('\n')}\n`;
+};
+
+export async function loadSolicitationForBrief(
+  brief: ExecutiveBriefItem,
+  options?: { opportunity?: Record<string, unknown> | null },
+): Promise<{
   solicitationText: string;
   textKeys: string[]
 }> {
@@ -1008,7 +1045,13 @@ export async function loadSolicitationForBrief(brief: ExecutiveBriefItem): Promi
     );
   }
 
-  console.log(`loadSolicitationForBrief: loaded ${successfulResults.length} document(s), ${solicitationText.length} total chars`);
+  // Prepend opportunity metadata if available
+  const oppContext = options?.opportunity ? buildOpportunityContext(options.opportunity) : '';
+  if (oppContext) {
+    solicitationText = `${oppContext}\n${solicitationText}`;
+  }
+
+  console.log(`loadSolicitationForBrief: loaded ${successfulResults.length} document(s), ${solicitationText.length} total chars${oppContext ? ' (with opportunity metadata)' : ''}`);
 
   return { solicitationText, textKeys: successfulResults.map(r => r.textKey) };
 }

@@ -24,10 +24,12 @@ const DB_TABLE_NAME = requireEnv('DB_TABLE_NAME');
  * Handles both ISO dates ("2026-01-15") and already-formatted strings ("January 15, 2026").
  */
 const formatDateForLetter = (dateStr: string): string => {
-  const parsed = new Date(dateStr);
-  if (isNaN(parsed.getTime())) return dateStr;
-  const utc = new Date(parsed.getUTCFullYear(), parsed.getUTCMonth(), parsed.getUTCDate());
-  return utc.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+  const isoMatch = dateStr.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (isoMatch) {
+    const utc = new Date(Date.UTC(+isoMatch[1], +isoMatch[2] - 1, +isoMatch[3]));
+    return utc.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric', timeZone: 'UTC' });
+  }
+  return dateStr;
 };
 
 /** Fields on the debriefing record that must be populated to generate a letter. */
