@@ -1,5 +1,4 @@
 import { SSMClient, GetParameterCommand } from '@aws-sdk/client-ssm';
-import { BedrockRuntimeClient, InvokeModelCommand } from '@aws-sdk/client-bedrock-runtime';
 import https from 'https';
 import { requireEnv } from './env';
 
@@ -8,7 +7,6 @@ const BEDROCK_REGION = requireEnv('BEDROCK_REGION', 'us-east-1');
 
 // Cache for API key to avoid repeated SSM calls in warm Lambda containers
 let cachedApiKey: string | null = null;
-let sdkClient: BedrockRuntimeClient | null = null;
 
 /**
  * Get the Bedrock API key from SSM Parameter Store with caching
@@ -37,16 +35,6 @@ async function getApiKey(): Promise<string | null> {
   }
 
   return null;
-}
-
-/**
- * Get or create SDK client for fallback
- */
-function getSdkClient(): BedrockRuntimeClient {
-  if (!sdkClient) {
-    sdkClient = new BedrockRuntimeClient({ region: BEDROCK_REGION });
-  }
-  return sdkClient;
 }
 
 /**
@@ -117,42 +105,14 @@ export async function invokeModel(
   // Try to get API key
   const apiKey = await getApiKey();
 
-  if (apiKey) {
-    // Use HTTP request with Bearer token
-    try {
-      console.log(`Invoking Bedrock model ${modelId} with API key authentication`);
-      return await invokeModelWithHttp(modelId, body, apiKey);
-    } catch (error) {
-      console.error('Failed to invoke model with API key, falling back to SDK:', error);
-      // Fall through to SDK fallback
-    }
+  if (!apiKey) {
+    throw new Error(
+      `Bedrock API key not found in SSM (${SSM_PARAM_NAME}). ` +
+      `Bedrock must be called via HTTP client with API key — SDK fallback is not allowed.`,
+    );
   }
 
-  // Fallback to SDK
-  console.log(`Invoking Bedrock model ${modelId} with SDK authentication`);
-  const client = getSdkClient();
-  const command = new InvokeModelCommand({
-    modelId,
-    contentType,
-    accept,
-    body: Buffer.from(body),
-  });
-
-  const response = await client.send(command);
-  
-  if (!response.body) {
-    throw new Error('Empty response body from Bedrock');
-  }
-
-  return response.body;
+  console.log(`Invoking Bedrock model ${modelId} with API key authentication`);
+  return await invokeModelWithHttp(modelId, body, apiKey);
 }
 
-/**
- * Create a Bedrock client that uses API key authentication
- * This maintains API compatibility with existing code
- */
-export function createBedrockClient(): BedrockRuntimeClient {
-  // Return the SDK client for backward compatibility
-  // The invokeModel function will handle API key logic
-  return getSdkClient();
-}

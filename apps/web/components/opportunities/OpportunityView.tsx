@@ -21,6 +21,8 @@ import { OpportunityHeader } from './opportunity-header';
 import { AssigneeSelector } from './AssigneeSelector';
 import { OpportunitySolicitationDocuments } from './opportunity-attachments';
 import { OpportunityRFPDocuments } from './opportunity-rfp-documents';
+import { ExecutiveBriefView } from '@/components/brief/ExecutiveBriefView';
+import { QuestionsProvider } from '@/app/organizations/[orgId]/projects/[projectId]/questions/components';
 import { OpportunityActionCard } from './opportunity-action-card';
 import { ProjectOutcomeCard } from '@/components/project-outcome/ProjectOutcomeCard';
 import { DebriefingCard } from '@/components/debriefing';
@@ -77,6 +79,7 @@ interface SectionNavItem {
 }
 
 const SECTION_NAV_ITEMS: SectionNavItem[] = [
+  { id: 'executive-brief', label: 'Analysis', icon: <HelpCircle className="h-3.5 w-3.5" /> },
   { id: 'solicitation-documents', label: 'Solicitations', icon: <Paperclip className="h-3.5 w-3.5" /> },
   { id: 'rfp-documents', label: 'RFP Documents', icon: <FileEdit className="h-3.5 w-3.5" /> },
   { id: 'submission-compliance', label: 'Submission', icon: <ShieldCheck className="h-3.5 w-3.5" /> },
@@ -247,63 +250,36 @@ const OpportunityContent = ({ className }: { className?: string }) => {
         )}
       </div>
 
-      {/* Opportunity Header — Hero Section */}
+      {/* Opportunity Header */}
       <OpportunityHeader />
 
-      {/* ── Quick Actions ──────────────────────────────────────────────── */}
-      <section className="space-y-3">
-        <SectionDivider
-          icon={<HelpCircle className="h-4 w-4" />}
-          title="Quick Actions"
-        />
-        <div className="grid gap-3 md:grid-cols-2">
-          {navOrgId && (
-            <OpportunityActionCard
-              icon={HelpCircle}
-              iconColor="text-blue-600"
-              iconBgGradient="from-blue-50 to-blue-100"
-              title="Questions & Answers"
-              description="View and answer RFP questions for this opportunity"
-              buttonText="View Questions"
-              href={`/organizations/${navOrgId}/projects/${projectId}/opportunities/${oppId}/questions`}
-              variant="compact"
-            />
-          )}
-          {navOrgId && (
-            <OpportunityActionCard
-              icon={MessageSquare}
-              iconColor="text-indigo-600"
-              iconBgGradient="from-indigo-50 to-indigo-100"
-              title="Q&A Period Engagement"
-              description="Build relationships with contracting officers through clarifying questions"
-              buttonText="Manage Engagement"
-              href={`/organizations/${navOrgId}/projects/${projectId}/opportunities/${oppId}/qa-engagement`}
-              variant="compact"
-            />
-          )}
-        </div>
-        {/* Section Navigation Buttons */}
-        <SectionNavigation />
+      {/* Section Navigation */}
+      <SectionNavigation />
+
+      {/* ── Opportunity Analysis ─────────────────────────────────────── */}
+      <section id="executive-brief" className="scroll-mt-4">
+        <QuestionsProvider projectId={projectId} opportunityId={oppId}>
+          <ExecutiveBriefView
+            projectId={projectId}
+            opportunityId={oppId}
+            title="Opportunity Analysis"
+            generateLabel="Analyze Opportunity"
+          />
+        </QuestionsProvider>
       </section>
 
-      {/* ── Documents ──────────────────────────────────────────────────── */}
-      <section className="space-y-3">
-        <SectionDivider
-          icon={<FileText className="h-4 w-4" />}
-          title="Documents"
-        />
-        <div className="space-y-4">
-          <div id="solicitation-documents" className="scroll-mt-4">
-            <OpportunitySolicitationDocuments />
-          </div>
-          <div id="rfp-documents" className="scroll-mt-4">
-            <OpportunityRFPDocuments />
-          </div>
-        </div>
+      {/* ── Solicitation Documents ────────────────────────────────────── */}
+      <section id="solicitation-documents" className="scroll-mt-4">
+        <OpportunitySolicitationDocuments />
+      </section>
+
+      {/* ── RFP Documents ─────────────────────────────────────────────── */}
+      <section id="rfp-documents" className="scroll-mt-4">
+        <OpportunityRFPDocuments />
       </section>
 
       {/* ── Context & Knowledge Base ───────────────────────────────────── */}
-      <section className="space-y-3">
+      <section className="scroll-mt-4">
         <OpportunityContextPanel />
       </section>
 
@@ -327,32 +303,30 @@ const OpportunityContent = ({ className }: { className?: string }) => {
       </section>
 
       {/* ── Post-Award ─────────────────────────────────────────────────── */}
-      <section id="post-award" className="space-y-3 scroll-mt-4">
+      <section id="post-award" className="space-y-4 scroll-mt-4">
         <SectionDivider
           icon={<Trophy className="h-4 w-4" />}
           title="Post-Award"
           muted
         />
-        <div className="space-y-4">
-          <ProjectOutcomeCard projectId={projectId} orgId={orgId} opportunityId={oppId} />
-          <DebriefingCard
-            projectId={projectId}
-            orgId={orgId}
-            opportunityId={oppId}
-            projectOutcomeStatus={outcome?.status}
-            solicitationNumber={opportunity?.solicitationNumber ?? undefined}
-            contractTitle={opportunity?.title ?? undefined}
-          />
-          <FOIARequestCard
-            projectId={projectId}
-            orgId={orgId}
-            opportunityId={oppId}
-            projectOutcomeStatus={outcome?.status}
-            agencyName={opportunity?.organizationName ?? undefined}
-            solicitationNumber={opportunity?.solicitationNumber ?? undefined}
-            contractTitle={opportunity?.title ?? undefined}
-          />
-        </div>
+        <ProjectOutcomeCard projectId={projectId} orgId={orgId} opportunityId={oppId} />
+        <DebriefingCard
+          projectId={projectId}
+          orgId={orgId}
+          opportunityId={oppId}
+          projectOutcomeStatus={outcome?.status}
+          solicitationNumber={opportunity?.solicitationNumber ?? undefined}
+          contractTitle={opportunity?.title ?? undefined}
+        />
+        <FOIARequestCard
+          projectId={projectId}
+          orgId={orgId}
+          opportunityId={oppId}
+          projectOutcomeStatus={outcome?.status}
+          agencyName={opportunity?.organizationName ?? undefined}
+          solicitationNumber={opportunity?.solicitationNumber ?? undefined}
+          contractTitle={opportunity?.title ?? undefined}
+        />
       </section>
     </div>
   );

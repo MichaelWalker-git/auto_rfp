@@ -43,9 +43,6 @@ import { ExportAllDialog } from '@/components/rfp-documents/export-all-dialog';
 import { GoogleDriveSyncButton } from '@/components/rfp-documents/google-drive-sync-button';
 import { GenerateDocumentDialog } from '@/components/rfp-documents/generate-document-dialog';
 import { getDocumentTypeStyle } from '@/components/rfp-documents/rfp-document-utils';
-import { useGetExecutiveBriefByProject } from '@/lib/hooks/use-executive-brief';
-import { useGenerateRFPDocument } from '@/lib/hooks/use-rfp-documents';
-import type { RequiredOutputDocument } from '@auto-rfp/core';
 import { useOpportunityContext } from './opportunity-context';
 import { formatDateTime } from './opportunity-helpers';
 import Link from 'next/link';
@@ -95,28 +92,11 @@ export function OpportunityRFPDocuments() {
   const { currentOrganization } = useCurrentOrganization();
   const navOrgId = currentOrganization?.id ?? orgId;
   const { documents, isLoading, mutate } = useRFPDocuments(projectId, orgId, oppId);
-  const { trigger: fetchBrief, data: briefData } = useGetExecutiveBriefByProject(orgId);
-
-  // Fetch brief on mount to get required documents
-  React.useEffect(() => {
-    if (projectId && oppId) {
-      fetchBrief({ projectId, opportunityId: oppId }).catch(() => { /* brief may not exist yet */ });
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [projectId, oppId]);
-
-  const briefSections = (briefData?.brief as Record<string, unknown> | undefined)?.sections as Record<string, unknown> | undefined;
-  const requirementsSection = briefSections?.requirements as Record<string, unknown> | undefined;
-  const requirementsData = requirementsSection?.data as Record<string, unknown> | undefined;
-  const submissionCompliance = requirementsData?.submissionCompliance as Record<string, unknown> | undefined;
-  const requiredDocuments = (submissionCompliance?.requiredDocuments ?? []) as RequiredOutputDocument[];
   const { trigger: deleteDocument } = useDeleteRFPDocument(orgId);
   const { trigger: getPreviewUrl } = useDocumentPreviewUrl(orgId);
   const { trigger: getDownloadUrl } = useDocumentDownloadUrl(orgId);
   const { trigger: convertToContent } = useConvertToContent(orgId);
-  const { trigger: generateDocument } = useGenerateRFPDocument(orgId);
   const { toast } = useToast();
-  const [isGeneratingRequired, setIsGeneratingRequired] = useState(false);
 
   const [selectedType, setSelectedType] = useState<string>('ALL');
   const [uploadDialogOpen, setUploadDialogOpen] = useState(false);
@@ -140,31 +120,6 @@ export function OpportunityRFPDocuments() {
       ),
     [documents],
   );
-
-  // Required docs from brief that haven't been generated yet
-  const existingDocTypes = useMemo(() => new Set(documents.map((d) => d.documentType)), [documents]);
-  const pendingRequiredDocs = useMemo(
-    () => requiredDocuments.filter((d) => !existingDocTypes.has(d.documentType)),
-    [requiredDocuments, existingDocTypes],
-  );
-
-  const handleGenerateRequired = useCallback(async () => {
-    if (isGeneratingRequired || pendingRequiredDocs.length === 0) return;
-    setIsGeneratingRequired(true);
-    try {
-      await Promise.all(
-        pendingRequiredDocs.map((doc) =>
-          generateDocument({ projectId, opportunityId: oppId, documentType: doc.documentType }),
-        ),
-      );
-      await mutate();
-      toast({ title: 'Generation started', description: `${pendingRequiredDocs.length} required documents queued.` });
-    } catch (err) {
-      toast({ title: 'Generation failed', description: err instanceof Error ? err.message : 'Failed', variant: 'destructive' });
-    } finally {
-      setIsGeneratingRequired(false);
-    }
-  }, [isGeneratingRequired, pendingRequiredDocs, generateDocument, projectId, oppId, mutate, toast]);
 
   const handlePreview = useCallback(async (doc: RFPDocumentItem) => {
     try {
@@ -311,21 +266,6 @@ export function OpportunityRFPDocuments() {
                 <Download className="h-4 w-4 mr-2" />
                 Export
               </Button>
-              {pendingRequiredDocs.length > 0 && (
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={handleGenerateRequired}
-                  disabled={isGeneratingRequired}
-                >
-                  {isGeneratingRequired ? (
-                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  ) : (
-                    <FileText className="h-4 w-4 mr-2" />
-                  )}
-                  {isGeneratingRequired ? 'Generating…' : `Required (${pendingRequiredDocs.length})`}
-                </Button>
-              )}
               <GenerateDocumentDialog
                 projectId={projectId}
                 opportunityId={oppId}

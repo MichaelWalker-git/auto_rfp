@@ -1,4 +1,5 @@
 import { Pinecone } from '@pinecone-database/pinecone';
+import { GetSecretValueCommand, SecretsManagerClient } from '@aws-sdk/client-secrets-manager';
 import { requireEnv } from './env';
 import { PK_NAME, SK_NAME } from '@/constants/common';
 import { DocumentItem } from '@auto-rfp/core';
@@ -8,18 +9,60 @@ import { DocumentDBItem } from '@/types/document';
 
 import type { PineconeHit } from '@/types/pinecone';
 
-const PINECONE_API_KEY = requireEnv('PINECONE_API_KEY');
-const PINECONE_INDEX = requireEnv('PINECONE_INDEX');
-const DOCUMENTS_BUCKET = requireEnv('DOCUMENTS_BUCKET');
+// Lazy initialization — env vars are read on first use, not at import time.
+// This prevents Lambdas that don't need Pinecone from crashing on missing env vars.
 let pineconeClient: Pinecone | null = null;
+let pineconeInitPromise: Promise<Pinecone> | null = null;
 
+/**
+ * Resolve an env var, handling unresolved CloudFormation secret references
+ * (e.g. from hotswap deploys where {{resolve:...}} is not processed).
+ */
+const resolveEnv = async (name: string): Promise<string> => {
+  const raw = requireEnv(name);
+  if (!raw.startsWith('{{resolve:secretsmanager:')) return raw;
+
+  // Parse secret ID from: {{resolve:secretsmanager:SECRET_ID:SecretString:::}}
+  const match = raw.match(/\{\{resolve:secretsmanager:([^:}]+)/);
+  if (!match) throw new Error(`Cannot parse secret reference for ${name}: ${raw}`);
+
+  console.warn(`[pinecone] Resolving unresolved secret reference for ${name} at runtime`);
+  const sm = new SecretsManagerClient({});
+  const result = await sm.send(new GetSecretValueCommand({ SecretId: match[1] }));
+  const value = result.SecretString;
+  if (!value) throw new Error(`Secret ${match[1]} has no string value`);
+
+  // Cache in process.env so subsequent calls don't hit Secrets Manager again
+  process.env[name] = value;
+  return value;
+};
+
+export const initPineconeClient = async (): Promise<Pinecone> => {
+  if (pineconeClient) return pineconeClient;
+  if (pineconeInitPromise) return pineconeInitPromise;
+
+  pineconeInitPromise = (async () => {
+    const apiKey = await resolveEnv('PINECONE_API_KEY');
+    pineconeClient = new Pinecone({ apiKey });
+    return pineconeClient;
+  })();
+
+  return pineconeInitPromise;
+};
+
+/** @deprecated Use initPineconeClient() for async initialization. Kept for sync callers. */
 export const getPineconeClient = (): Pinecone => {
   if (!pineconeClient) {
-    pineconeClient = new Pinecone({
-      apiKey: PINECONE_API_KEY,
-    });
+    const apiKey = requireEnv('PINECONE_API_KEY');
+    pineconeClient = new Pinecone({ apiKey });
   }
   return pineconeClient;
+};
+
+const getPineconeIndex = async () => {
+  const client = await initPineconeClient();
+  const indexName = await resolveEnv('PINECONE_INDEX');
+  return client.Index(indexName);
 };
 
 /**
@@ -32,18 +75,16 @@ export async function pineconeSearch(
   type: string = 'chunk',
   kbIds?: string[],
 ): Promise<PineconeHit[]> {
-  const client = getPineconeClient();
-  const index = client.Index(PINECONE_INDEX);
-
-  // Build filter — always filter by type, optionally by kbId
-  const filter: Record<string, any> = {
-    type: { $eq: type },
-  };
-  if (kbIds?.length) {
-    filter.kbId = { $in: kbIds };
-  }
-
   try {
+    const index = await getPineconeIndex();
+
+    const filter: Record<string, unknown> = {
+      type: { $eq: type },
+    };
+    if (kbIds?.length) {
+      filter.kbId = { $in: kbIds };
+    }
+
     const results = await index.namespace(orgId).query({
       vector: embedding,
       topK: k,
@@ -55,7 +96,7 @@ export async function pineconeSearch(
     return (results.matches || []).map(match => ({
       id: match.id,
       score: match.score,
-      source: match.metadata as any,
+      source: match.metadata as PineconeHit['source'],
     }));
   } catch (err) {
     console.error('Pinecone search error:', err);
@@ -74,13 +115,12 @@ export async function indexChunkToPinecone(
   chunkKey: string,
   text: string
 ): Promise<string> {
-  const client = getPineconeClient();
-  const index = client.Index(PINECONE_INDEX);
+  const index = await getPineconeIndex();
+  const bucket = requireEnv('DOCUMENTS_BUCKET');
   const docDBItem = document as DocumentDBItem;
   const id = `${docDBItem[SK_NAME]}#${chunkKey}`;
   const embedding = await getEmbedding(text);
 
-  // Extract kbId from the document's sort key (format: "KB#{kbId}#DOC#{docId}")
   const skParts = String(docDBItem[SK_NAME]).split('#');
   const kbId = skParts.length >= 2 ? skParts[1] : '';
 
@@ -96,7 +136,7 @@ export async function indexChunkToPinecone(
           [SK_NAME]: docDBItem[SK_NAME],
           kbId,
           chunkKey,
-          bucket: DOCUMENTS_BUCKET,
+          bucket,
           createdAt: nowIso(),
         },
       },
@@ -116,14 +156,12 @@ export async function indexChunkToPinecone(
  * Delete document chunks from Pinecone by documentId
  */
 export async function deleteFromPinecone(orgId: string, sk: string): Promise<void> {
-  const client = getPineconeClient();
-  const index = client.Index(PINECONE_INDEX);
+  const index = await getPineconeIndex();
 
   try {
-    // Find all vectors with matching documentId
     const results = await index.namespace(orgId).query({
-      vector: new Array(1024).fill(0), // dummy vector for query structure (must match index dimension)
-      topK: 10000, // get as many as possible
+      vector: new Array(1024).fill(0),
+      topK: 10000,
       includeMetadata: true,
       filter: {
         [SK_NAME]: { $eq: sk },
@@ -137,7 +175,6 @@ export async function deleteFromPinecone(orgId: string, sk: string): Promise<voi
       return;
     }
 
-    // Delete in batches to avoid hitting limits
     const batchSize = 100;
     for (let i = 0; i < idsToDelete.length; i += batchSize) {
       const batch = idsToDelete.slice(i, i + batchSize);
@@ -157,8 +194,7 @@ export async function deleteFromPinecone(orgId: string, sk: string): Promise<voi
  * Delete a specific vector by ID
  */
 export async function deleteVectorById(orgId: string, vectorId: string): Promise<void> {
-  const client = getPineconeClient();
-  const index = client.Index(PINECONE_INDEX);
+  const index = await getPineconeIndex();
 
   try {
     await index.namespace(orgId).deleteOne(vectorId);

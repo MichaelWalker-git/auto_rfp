@@ -69,6 +69,11 @@
 - Services receive validated, typed data — they never parse raw events.
 - Services interact with DynamoDB, Cognito, and other AWS services.
 
+## 🤖 Bedrock / AI Integration
+
+- **Bedrock MUST only be called via HTTP client** (API Gateway or direct HTTPS), never via the AWS SDK directly from Lambda handlers or helpers.
+- All AI model invocations go through the HTTP-based Bedrock integration layer — never import `@aws-sdk/client-bedrock-runtime` directly.
+
 ---
 
 ## 👤 User Management
