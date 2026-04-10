@@ -963,27 +963,24 @@ export function ExecutiveBriefView({
                       <Loader2 className="h-4 w-4 mr-2 animate-spin"/>
                       Generating...
                     </Button>
+                  ) : completedSections < totalSections ? (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => generateBrief(true)}
+                    >
+                      <RefreshCw className="h-4 w-4 mr-2"/>
+                      {completedSections === 0 ? 'Generate All' : 'Generate Missing'}
+                    </Button>
                   ) : (
-                    <>
-                      {completedSections < totalSections && (
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => generateBrief(true)}
-                        >
-                          <RefreshCw className="h-4 w-4 mr-2"/>
-                          Generate Missing
-                        </Button>
-                      )}
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => generateBrief(false)}
-                      >
-                        <RefreshCw className="h-4 w-4 mr-2"/>
-                        Regenerate All
-                      </Button>
-                    </>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => generateBrief(false)}
+                    >
+                      <RefreshCw className="h-4 w-4 mr-2"/>
+                      Regenerate All
+                    </Button>
                   )}
                 </div>
               </div>
