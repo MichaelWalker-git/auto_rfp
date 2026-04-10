@@ -944,8 +944,8 @@ export function ExecutiveBriefView({
                     variant="outline"
                     size="sm"
                     onClick={() => exportBriefAsDocx(project.name, briefItem)}
-                    disabled={hasFailedSection}
-                    title={hasFailedSection ? 'Fix failed sections before exporting' : 'Export as DOCX'}
+                    disabled={completedSections < totalSections}
+                    title={hasFailedSection ? 'Fix failed sections before exporting' : completedSections < totalSections ? 'All sections must complete before exporting' : 'Export as DOCX'}
                   >
                     <Download className="h-4 w-4 mr-2" />
                     Export

@@ -225,24 +225,28 @@ export const invokeClaudeWithTools = async <T>(
     throw new Error('[bedrock-tool-loop] Model returned no text content after all rounds');
   }
 
-  // If the model returned text that doesn't contain JSON, retry with a strict JSON-only prompt
+  // If the model returned text that doesn't contain JSON, retry with a fresh context
   try {
     return safeJsonParse(rawText, outputSchema);
   } catch (parseErr) {
-    console.warn('[bedrock-tool-loop] Initial parse failed, retrying with strict JSON prompt:', (parseErr as Error)?.message);
+    console.warn('[bedrock-tool-loop] Initial parse failed, retrying with fresh JSON-only prompt:', (parseErr as Error)?.message);
+    console.warn('[bedrock-tool-loop] Raw text preview:', rawText.slice(0, 300));
 
-    messages.push({ role: 'assistant', content: [{ type: 'text', text: rawText }] });
-    messages.push({
+    // Fresh conversation — avoid polluted context from tool-use rounds
+    const retryMessages: Message[] = [{
       role: 'user',
-      content: [{ type: 'text', text: 'Your response must be ONLY a valid JSON object. No explanation, no markdown, no commentary — just the raw JSON. Output the complete JSON now:' }],
-    });
+      content: [{
+        type: 'text',
+        text: `Here is a response that needs to be formatted as valid JSON:\n\n${rawText}\n\nConvert the above into a valid JSON object. Output ONLY the raw JSON, no explanation.`,
+      }],
+    }];
 
     const retryBody = {
       anthropic_version: 'bedrock-2023-05-31',
-      system: [{ type: 'text', text: system }],
-      messages,
+      system: [{ type: 'text', text: 'You are a JSON formatter. Output only valid JSON objects. No markdown, no explanation.' }],
+      messages: retryMessages,
       max_tokens: maxTokens,
-      temperature: Math.max(temperature - 0.1, 0),
+      temperature: 0,
     };
 
     const retryResponse = await invokeModel(modelId, JSON.stringify(retryBody));
@@ -252,7 +256,10 @@ export const invokeClaudeWithTools = async <T>(
     const retryText = extractText(retryParsed.content ?? []);
 
     if (!retryText.trim()) {
-      throw new Error('[bedrock-tool-loop] Retry also returned no text content');
+      throw new Error(
+        `[bedrock-tool-loop] Model failed to produce JSON output. ` +
+        `Original response: ${rawText.slice(0, 200)}...`,
+      );
     }
 
     return safeJsonParse(retryText, outputSchema);
