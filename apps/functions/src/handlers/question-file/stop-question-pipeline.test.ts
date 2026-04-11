@@ -77,6 +77,8 @@ describe('stop-question-pipeline', () => {
     mockSfnSend.mockResolvedValueOnce({});
     // updateQuestionFile (set to CANCELLED)
     mockSend.mockResolvedValueOnce({});
+    // queryAllBySkPrefix inside deleteQuestionsForFile (no questions to delete)
+    mockSend.mockResolvedValueOnce({ Items: [] });
 
     const event = makeEvent({ projectId: 'proj-1', opportunityId: 'opp-1', questionFileId: 'qf-1' });
     const response = await baseHandler(event);
@@ -100,6 +102,8 @@ describe('stop-question-pipeline', () => {
     });
     // updateQuestionFile (set to CANCELLED)
     mockSend.mockResolvedValueOnce({});
+    // queryAllBySkPrefix inside deleteQuestionsForFile (no questions to delete)
+    mockSend.mockResolvedValueOnce({ Items: [] });
 
     const event = makeEvent({ projectId: 'proj-1', opportunityId: 'opp-1', questionFileId: 'qf-1' });
     const response = await baseHandler(event);
@@ -127,6 +131,8 @@ describe('stop-question-pipeline', () => {
     mockSfnSend.mockRejectedValueOnce(sfnError);
     // updateQuestionFile (set to CANCELLED)
     mockSend.mockResolvedValueOnce({});
+    // queryAllBySkPrefix inside deleteQuestionsForFile (no questions to delete)
+    mockSend.mockResolvedValueOnce({ Items: [] });
 
     const event = makeEvent({ projectId: 'proj-1', opportunityId: 'opp-1', questionFileId: 'qf-1' });
     const response = await baseHandler(event);

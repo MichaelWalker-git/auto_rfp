@@ -176,7 +176,7 @@ export class ApiOrchestratorStack extends cdk.Stack {
       REGION: 'us-east-1',
       BEDROCK_REGION: 'us-east-1',
       BEDROCK_EMBEDDING_MODEL_ID: 'amazon.titan-embed-text-v2:0',
-      BEDROCK_MODEL_ID: 'anthropic.claude-3-haiku-20240307-v1:0',
+      BEDROCK_MODEL_ID: 'us.anthropic.claude-opus-4-6-v1',
       STATE_MACHINE_ARN: documentPipelineStateMachineArn,
       QUESTION_PIPELINE_STATE_MACHINE_ARN: questionPipelineStateMachineArn,
       SENTRY_DSN: sentryDNS,

@@ -2,15 +2,58 @@
 
 import React from "react"
 import { AlertCircle } from "lucide-react"
-import { Spinner } from "@/components/ui/spinner"
+import { Skeleton } from "@/components/ui/skeleton"
 
-export function QuestionsLoadingState() {
+interface QuestionsLoadingStateProps {
+  isQuestionsLoading?: boolean;
+  isAnswersLoading?: boolean;
+}
+
+export function QuestionsLoadingState({ isQuestionsLoading = true, isAnswersLoading = true }: QuestionsLoadingStateProps) {
   return (
-    <div className="flex items-center justify-center h-[400px]">
-      <div className="text-center">
-        <Spinner size="lg" className="mb-4" />
-        <p>Loading questions...</p>
+    <div className="space-y-6">
+      {/* Header skeleton — filter tabs + actions */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <Skeleton className="h-9 w-24" />
+          <Skeleton className="h-9 w-24" />
+          <Skeleton className="h-9 w-24" />
+        </div>
+        <div className="flex items-center gap-2">
+          <Skeleton className="h-9 w-64" />
+          <Skeleton className="h-9 w-28" />
+          <Skeleton className="h-9 w-32" />
+        </div>
       </div>
+
+      {/* Questions list skeleton */}
+      {Array.from({ length: 6 }).map((_, i) => (
+        <div key={i} className="rounded-lg border bg-card p-6 space-y-4">
+          {/* Question text */}
+          <div className="space-y-2">
+            <Skeleton className="h-5 w-4/5" />
+            <Skeleton className="h-4 w-1/2" />
+          </div>
+
+          {/* Answer area */}
+          {(isAnswersLoading || isQuestionsLoading) && (
+            <div className="space-y-2 pt-2">
+              <Skeleton className="h-4 w-full" />
+              <Skeleton className="h-4 w-full" />
+              <Skeleton className="h-4 w-3/4" />
+            </div>
+          )}
+
+          {/* Footer — status badge + actions */}
+          <div className="flex items-center justify-between pt-2">
+            <Skeleton className="h-6 w-20 rounded-full" />
+            <div className="flex items-center gap-2">
+              <Skeleton className="h-8 w-24" />
+              <Skeleton className="h-8 w-20" />
+            </div>
+          </div>
+        </div>
+      ))}
     </div>
   );
 }
@@ -33,15 +76,15 @@ export function QuestionsSkeletonLoader() {
   return (
     <div className="space-y-6 p-12">
       <div className="flex items-center justify-between">
-        <div className="h-8 w-36 bg-muted animate-pulse rounded"></div>
+        <Skeleton className="h-8 w-36" />
         <div className="flex items-center gap-2">
-          <div className="h-9 w-64 bg-muted animate-pulse rounded"></div>
-          <div className="h-9 w-24 bg-muted animate-pulse rounded"></div>
-          <div className="h-9 w-32 bg-muted animate-pulse rounded"></div>
+          <Skeleton className="h-9 w-64" />
+          <Skeleton className="h-9 w-24" />
+          <Skeleton className="h-9 w-32" />
         </div>
       </div>
-      <div className="h-12 bg-muted animate-pulse rounded"></div>
-      <div className="h-[500px] bg-muted animate-pulse rounded"></div>
+      <Skeleton className="h-12 w-full" />
+      <Skeleton className="h-[500px] w-full" />
     </div>
   );
 } 

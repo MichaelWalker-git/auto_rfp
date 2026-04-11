@@ -18,5 +18,6 @@ export function contentlibraryDomain(): DomainRoutes {
     { method: 'POST', path: 'reactivate/{id}', entry: lambdaEntry('content-library/reactivate-item.ts') },
     { method: 'POST', path: 'bulk-review', entry: lambdaEntry('content-library/bulk-review.ts') },
     { method: 'POST', path: 'bulk-approve', entry: lambdaEntry('content-library/bulk-approve.ts') },
+    { method: 'POST', path: 'seed-common-questions', entry: lambdaEntry('content-library/seed-common-questions.ts') },
   ]};
 }

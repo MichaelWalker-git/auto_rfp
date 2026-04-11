@@ -325,21 +325,32 @@ export const fetchDeadlineInfo = async (
  * Search content library for pre-approved content snippets matching a query.
  * Uses semantic search (embeddings) for relevance matching.
  */
+export interface ContentLibraryMatchSource {
+  id: string;
+  fileName?: string;
+  relevance?: number;
+  textContent?: string;
+}
+
 export const fetchContentLibraryMatches = async (
   orgId: string,
   query: string,
   limit = 5,
-): Promise<string> => {
+): Promise<{ content: string; similarityScores: number[]; sources: ContentLibraryMatchSource[] }> => {
+  const empty = { content: '', similarityScores: [] as number[], sources: [] as ContentLibraryMatchSource[] };
   try {
-    if (!query.trim()) return '';
+    if (!query.trim()) return empty;
 
     const embedding = await getEmbedding(query);
     const hits = await semanticSearchContentLibrary(orgId, embedding, limit * 2);
-    if (!hits.length) return '';
+    if (!hits.length) return empty;
 
-    const MIN_SCORE = 0.40;
+    const MIN_SCORE = 0.15;
     const relevant = hits.filter(h => (h.score ?? 0) >= MIN_SCORE).slice(0, limit);
-    if (!relevant.length) return '';
+    if (!relevant.length) return empty;
+
+    const similarityScores = relevant.map(h => h.score ?? 0);
+    const sources: ContentLibraryMatchSource[] = [];
 
     // Load matched items from DynamoDB using PK/SK from Pinecone metadata
     const { getItem: getDbItem } = await import('@/helpers/db');
@@ -356,14 +367,25 @@ export const fetchContentLibraryMatches = async (
       items.push(
         `[Score: ${hit.score?.toFixed(2)}]\nQ: ${item.question}\nA: ${truncateText(item.answer, 400)}`,
       );
+
+      sources.push({
+        id: item.id ?? sk,
+        fileName: 'Content Library',
+        relevance: hit.score ?? undefined,
+        textContent: `Q: ${item.question}\nA: ${truncateText(item.answer, 600)}`,
+      });
     }
 
-    if (!items.length) return '';
+    if (!items.length) return empty;
 
-    return `=== CONTENT LIBRARY MATCHES ===\n${items.join('\n\n---\n\n')}`;
+    return {
+      content: `=== CONTENT LIBRARY MATCHES ===\n${items.join('\n\n---\n\n')}`,
+      similarityScores,
+      sources,
+    };
   } catch (err) {
     console.warn('fetchContentLibraryMatches error:', (err as Error)?.message);
-    return '';
+    return empty;
   }
 };
 

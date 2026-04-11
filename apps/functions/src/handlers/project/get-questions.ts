@@ -8,6 +8,7 @@ import { ANSWER_PK } from '@/constants/answer';
 import { withSentryLambda } from '@/sentry-lambda';
 import { requireEnv } from '@/helpers/env';
 import { docClient } from '@/helpers/db';
+import { listQuestionFilesByOpportunity } from '@/helpers/questionFile';
 import {
   authContextMiddleware,
   httpErrorMiddleware,
@@ -15,7 +16,7 @@ import {
   requirePermission
 } from '@/middleware/rbac-middleware';
 import middy from '@middy/core';
-import { AnswerItem, AnswerSource, GroupedSection, QuestionItem } from '@auto-rfp/core';
+import { AnswerItem, GroupedSection, QuestionItem } from '@auto-rfp/core';
 
 const DB_TABLE_NAME = requireEnv('DB_TABLE_NAME');
 
@@ -62,6 +63,8 @@ export const baseHandler = async (
 
 /**
  * Load questions for a project filtered by opportunityId.
+ * Excludes questions from non-PROCESSED question files (orphans from
+ * cancelled/failed pipelines).
  */
 const loadQuestions = async (projectId: string, opportunityId: string): Promise<QuestionItem[]> => {
   const items: QuestionItem[] = [];
@@ -92,7 +95,18 @@ const loadQuestions = async (projectId: string, opportunityId: string): Promise<
     lastKey = res.LastEvaluatedKey as Record<string, unknown> | undefined;
   } while (lastKey);
 
-  return items;
+  // Filter out questions from non-PROCESSED files (orphans from cancelled/failed pipelines)
+  const { items: questionFiles } = await listQuestionFilesByOpportunity({ projectId, oppId: opportunityId });
+  const processedFileIds = new Set(
+    (questionFiles as Array<{ questionFileId: string; status: string }>)
+      .filter((qf) => qf.status === 'PROCESSED')
+      .map((qf) => qf.questionFileId),
+  );
+
+  return items.filter((q) => {
+    if (!q.questionFileId || q.questionFileId === 'manual') return true;
+    return processedFileIds.has(q.questionFileId);
+  });
 };
 
 /**
@@ -166,17 +180,11 @@ const loadAnswers = async (projectId: string): Promise<Record<string, AnswerItem
 
 /**
  * Strip textContent from sources to reduce payload size.
+ * NOTE: Disabled — textContent is already truncated to ~600 chars at generation
+ * time, so the payload increase is modest (~3-6KB per answer), and the frontend
+ * needs it to display source details in the SourceDetailsDialog.
  */
-const stripSourceContent = (answer: AnswerItem): AnswerItem => {
-  if (!answer.sources || answer.sources.length === 0) return answer;
-  return {
-    ...answer,
-    sources: answer.sources.map((source: AnswerSource) => {
-      const { textContent: _, ...rest } = source;
-      return rest;
-    }),
-  };
-};
+const stripSourceContent = (answer: AnswerItem): AnswerItem => answer;
 
 /**
  * Group flat questions into sections, attaching inline answer text from the pre-fetched map.

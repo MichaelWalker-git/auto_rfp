@@ -18,7 +18,7 @@ import {
   type AuthedEvent,
 } from '@/middleware/rbac-middleware';
 
-const BEDROCK_MODEL_ID = requireEnv('BEDROCK_MODEL_ID', 'anthropic.claude-3-haiku-20240307-v1:0');
+const BEDROCK_MODEL_ID = requireEnv('BEDROCK_MODEL_ID', 'us.anthropic.claude-opus-4-6-v1');
 const MAX_SOLICITATION_CHARS = Number(requireEnv('BRIEF_MAX_SOLICITATION_CHARS', '45000'));
 
 const GapAnalysisRequestSchema = z.object({

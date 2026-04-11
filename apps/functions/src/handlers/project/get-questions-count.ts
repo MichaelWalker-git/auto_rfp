@@ -32,7 +32,8 @@ export const baseHandler = async (
     return apiResponse(400, { message: 'Missing projectId' });
   }
 
-  const prefix = `${projectId}#`;
+  const opportunityId = event.queryStringParameters?.opportunityId;
+  const prefix = opportunityId ? `${projectId}#${opportunityId}#` : `${projectId}#`;
 
   const [totalQuestions, totalAnswers] = await Promise.all([
     countItems(QUESTION_PK, prefix),
