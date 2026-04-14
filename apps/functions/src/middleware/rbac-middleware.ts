@@ -1,6 +1,6 @@
 import type { MiddlewareObj } from '@middy/core';
 import type { APIGatewayProxyEventV2, APIGatewayProxyResultV2 } from 'aws-lambda';
-import { ALL_PERMISSIONS, Permission, ROLE_PERMISSIONS, UserRole } from '@auto-rfp/core';
+import { ALL_PERMISSIONS, Permission, ROLE_PERMISSIONS, UserRole, UserRoleSchema } from '@auto-rfp/core';
 
 class HttpError extends Error {
   constructor(public statusCode: number, message: string) {
@@ -45,9 +45,8 @@ function getClaims(event: APIGatewayProxyEventV2): Claims | null {
 
 function toRole(value: unknown): UserRole | null {
   if (typeof value !== 'string') return null;
-  const r = value.trim().toUpperCase();
-  if (r === 'ADMIN' || r === 'EDITOR' || r === 'VIEWER' || r === 'BILLING') return r as UserRole;
-  return null;
+  const { success, data } = UserRoleSchema.safeParse(value.trim().toUpperCase());
+  return success ? data : null;
 }
 
 export function authContextMiddleware(): MiddlewareObj<AuthedEvent, APIGatewayProxyResultV2> {
