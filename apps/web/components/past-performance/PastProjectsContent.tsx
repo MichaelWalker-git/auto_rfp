@@ -21,6 +21,7 @@ import { useToast } from '@/components/ui/use-toast';
 import { ListingPageLayout } from '@/components/layout/ListingPageLayout';
 import Link from 'next/link';
 import type { PastProject } from '@auto-rfp/core';
+import PermissionWrapper, { usePermission } from '@/components/permission-wrapper';
 
 interface PastProjectsContentProps {
   orgId: string;
@@ -30,6 +31,8 @@ export function PastProjectsContent({ orgId }: PastProjectsContentProps) {
   const { projects, isLoading, isError, mutate } = useListPastProjects(orgId);
   const deleteProject = useDeletePastProject();
   const { toast } = useToast();
+  const canEditPP = usePermission('project:edit');
+  const canDeletePP = usePermission('project:delete');
   
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [projectToDelete, setProjectToDelete] = useState<PastProject | null>(null);
@@ -155,21 +158,27 @@ export function PastProjectsContent({ orgId }: PastProjectsContentProps) {
           )}
         </div>
 
-        <div className="flex items-center gap-2 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
-          <Button variant="ghost" size="sm" asChild title="Edit project">
-            <Link href={`/organizations/${orgId}/past-performance/${project.projectId}/edit`}>
-              <Edit className="h-4 w-4"/>
-            </Link>
-          </Button>
-          <Button 
-            variant="ghost" 
-            size="sm" 
-            onClick={(e) => handleDeleteClick(e, project)} 
-            title="Archive project"
-          >
-            <Trash2 className="h-4 w-4 text-muted-foreground hover:text-destructive"/>
-          </Button>
-        </div>
+        {(canEditPP || canDeletePP) && (
+          <div className="flex items-center gap-2 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
+            {canEditPP && (
+              <Button variant="ghost" size="sm" asChild title="Edit project">
+                <Link href={`/organizations/${orgId}/past-performance/${project.projectId}/edit`}>
+                  <Edit className="h-4 w-4"/>
+                </Link>
+              </Button>
+            )}
+            {canDeletePP && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={(e) => handleDeleteClick(e, project)}
+                title="Archive project"
+              >
+                <Trash2 className="h-4 w-4 text-muted-foreground hover:text-destructive"/>
+              </Button>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );
@@ -181,12 +190,14 @@ export function PastProjectsContent({ orgId }: PastProjectsContentProps) {
       <p className="text-muted-foreground mt-1">
         Add your completed projects to enable past performance matching for RFPs.
       </p>
-      <Button asChild className="mt-4">
-        <Link href={`/organizations/${orgId}/past-performance/new`}>
-          <Plus className="h-4 w-4 mr-2"/>
-          Add Your First Project
-        </Link>
-      </Button>
+      <PermissionWrapper requiredPermission="project:create">
+        <Button asChild className="mt-4">
+          <Link href={`/organizations/${orgId}/past-performance/new`}>
+            <Plus className="h-4 w-4 mr-2"/>
+            Add Your First Project
+          </Link>
+        </Button>
+      </PermissionWrapper>
     </div>
   );
 
@@ -210,12 +221,14 @@ export function PastProjectsContent({ orgId }: PastProjectsContentProps) {
         title="Past Performance"
         description={statsDescription || 'Manage your organization\'s past performance projects for RFP matching'}
         headerActions={
-          <Button asChild>
-            <Link href={`/organizations/${orgId}/past-performance/new`}>
-              <Plus className="h-4 w-4 mr-2"/>
-              Add Past Project
-            </Link>
-          </Button>
+          <PermissionWrapper requiredPermission="project:create">
+            <Button asChild>
+              <Link href={`/organizations/${orgId}/past-performance/new`}>
+                <Plus className="h-4 w-4 mr-2"/>
+                Add Past Project
+              </Link>
+            </Button>
+          </PermissionWrapper>
         }
         isLoading={isLoading}
         isEmpty={projects.length === 0}

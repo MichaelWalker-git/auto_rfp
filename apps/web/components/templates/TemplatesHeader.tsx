@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Plus } from 'lucide-react';
 import { PageHeader } from '@/components/layout/page-header';
 import { PageSearch } from '@/components/layout/page-search';
+import PermissionWrapper from '@/components/permission-wrapper';
 
 interface TemplatesHeaderProps {
   total: number;
@@ -30,10 +31,12 @@ export function TemplatesHeader({
             placeholder="Search templates..."
             widthClass="w-64"
           />
-          <Button onClick={onCreateClick}>
-            <Plus className="h-4 w-4 mr-2" />
-            New Template
-          </Button>
+          <PermissionWrapper requiredPermission="template:create">
+            <Button onClick={onCreateClick}>
+              <Plus className="h-4 w-4 mr-2" />
+              New Template
+            </Button>
+          </PermissionWrapper>
         </>
       }
     />
