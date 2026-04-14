@@ -17,6 +17,7 @@ import { Plus, Trash2, DollarSign, CalendarIcon } from 'lucide-react';
 import { mutate } from 'swr';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
+import { usePermission } from '@/components/permission-wrapper';
 
 interface LaborRateManagerProps {
   orgId: string;
@@ -40,6 +41,8 @@ export const LaborRateManager = ({ orgId }: LaborRateManagerProps) => {
   const { trigger: deleteRate } = useDeleteLaborRate(orgId);
   const [showForm, setShowForm] = useState(false);
   const { toast } = useToast();
+  const canCreate = usePermission('pricing:create');
+  const canDelete = usePermission('pricing:delete');
 
   const laborRates = data?.laborRates ?? [];
 
@@ -102,10 +105,12 @@ export const LaborRateManager = ({ orgId }: LaborRateManagerProps) => {
             Define hourly rates with overhead, G&A, and profit margins for each position.
           </p>
         </div>
-        <Button onClick={() => setShowForm(!showForm)} size="sm">
-          <Plus className="h-4 w-4 mr-1" />
-          Add Rate
-        </Button>
+        {canCreate && (
+          <Button onClick={() => setShowForm(!showForm)} size="sm">
+            <Plus className="h-4 w-4 mr-1" />
+            Add Rate
+          </Button>
+        )}
       </div>
 
       {showForm && (
@@ -232,15 +237,17 @@ export const LaborRateManager = ({ orgId }: LaborRateManagerProps) => {
                       {rate.isActive ? 'Active' : 'Inactive'}
                     </Badge>
                   </td>
-                  <td className="p-3 text-right">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => handleDelete(rate.laborRateId)}
-                    >
-                      <Trash2 className="h-4 w-4 text-red-500" />
-                    </Button>
-                  </td>
+                  {canDelete && (
+                    <td className="p-3 text-right">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleDelete(rate.laborRateId)}
+                      >
+                        <Trash2 className="h-4 w-4 text-red-500" />
+                      </Button>
+                    </td>
+                  )}
                 </tr>
               ))}
             </tbody>
