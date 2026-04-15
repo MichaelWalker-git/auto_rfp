@@ -281,6 +281,7 @@ export class ApiOrchestratorStack extends cdk.Stack {
           'secretsmanager:PutSecretValue',
           'secretsmanager:DeleteSecret',
           'secretsmanager:CreateSecret',
+          'secretsmanager:RestoreSecret',
         ],
         resources: [`arn:aws:secretsmanager:${cdk.Aws.REGION}:${cdk.Aws.ACCOUNT_ID}:secret:*-api-key-*`],
       }),
