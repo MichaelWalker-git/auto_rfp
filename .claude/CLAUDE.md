@@ -91,6 +91,10 @@ Key directories:
 
 DynamoDB uses single-table design. All operations go through `src/helpers/db.ts` (`createItem`, `getItem`, `queryBySkPrefix`, etc.). PK constants are in `src/constants/`. SK strings are built via helper functions — never manually.
 
+Middy middleware stack order: `authContextMiddleware → orgMembershipMiddleware → requirePermission → httpErrorMiddleware`. All REST handlers wrapped with `withSentryLambda`.
+
+**Bedrock/AI**: Must only be called via HTTP (API Gateway or HTTPS) — never import `@aws-sdk/client-bedrock-runtime` directly.
+
 ### Frontend (apps/web)
 
 Next.js App Router with Feature-Sliced Design:
