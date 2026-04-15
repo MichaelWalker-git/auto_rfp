@@ -18,6 +18,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { MoreHorizontal, Copy, Pencil, Send, Trash2, FileText, Clock, ArrowDownToLine, ArchiveRestore } from 'lucide-react';
 import type { TemplateItem } from '@/lib/hooks/use-templates';
+import { usePermission } from '@/components/permission-wrapper';
 
 const CATEGORY_LABELS: Record<string, string> = {
   TECHNICAL_PROPOSAL: 'Technical',
@@ -71,6 +72,11 @@ export function TemplateCard({
   };
 
   const isArchived = template.isArchived;
+  const canUpdate = usePermission('template:update');
+  const canPublish = usePermission('template:publish');
+  const canCreate = usePermission('template:create');
+  const canDelete = usePermission('template:delete');
+  const hasAnyAction = canUpdate || canPublish || canCreate || canDelete;
 
   return (
     <Card className="group overflow-hidden hover:shadow-md transition-shadow">
@@ -82,62 +88,78 @@ export function TemplateCard({
               {template.description || 'No description'}
             </CardDescription>
           </div>
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0 ml-auto">
-                <MoreHorizontal className="h-4 w-4" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              {isArchived ? (
-                <>
-                  <DropdownMenuItem onClick={() => onUnarchive(template)}>
-                    <ArchiveRestore className="h-4 w-4 mr-2" />
-                    Restore
-                  </DropdownMenuItem>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem
-                    onClick={() => onPermanentlyDelete(template)}
-                    className="text-destructive"
-                  >
-                    <Trash2 className="h-4 w-4 mr-2" />
-                    Delete Forever
-                  </DropdownMenuItem>
-                </>
-              ) : (
-                <>
-                  <DropdownMenuItem onClick={() => onEdit(template)}>
-                    <Pencil className="h-4 w-4 mr-2" />
-                    Edit
-                  </DropdownMenuItem>
-                  {template.status === 'DRAFT' && (
-                    <DropdownMenuItem onClick={() => onPublish(template.id)}>
-                      <Send className="h-4 w-4 mr-2" />
-                      Publish
-                    </DropdownMenuItem>
-                  )}
-                  {template.status === 'PUBLISHED' && (
-                    <DropdownMenuItem onClick={() => onUnpublish(template.id)}>
-                      <ArrowDownToLine className="h-4 w-4 mr-2" />
-                      Unpublish
-                    </DropdownMenuItem>
-                  )}
-                  <DropdownMenuItem onClick={() => onClone(template)}>
-                    <Copy className="h-4 w-4 mr-2" />
-                    Clone
-                  </DropdownMenuItem>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem
-                    onClick={() => onDelete(template)}
-                    className="text-destructive"
-                  >
-                    <Trash2 className="h-4 w-4 mr-2" />
-                    Archive
-                  </DropdownMenuItem>
-                </>
-              )}
-            </DropdownMenuContent>
-          </DropdownMenu>
+          {hasAnyAction && (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0 ml-auto">
+                  <MoreHorizontal className="h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                {isArchived ? (
+                  <>
+                    {canUpdate && (
+                      <DropdownMenuItem onClick={() => onUnarchive(template)}>
+                        <ArchiveRestore className="h-4 w-4 mr-2" />
+                        Restore
+                      </DropdownMenuItem>
+                    )}
+                    {canDelete && (
+                      <>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem
+                          onClick={() => onPermanentlyDelete(template)}
+                          className="text-destructive"
+                        >
+                          <Trash2 className="h-4 w-4 mr-2" />
+                          Delete Forever
+                        </DropdownMenuItem>
+                      </>
+                    )}
+                  </>
+                ) : (
+                  <>
+                    {canUpdate && (
+                      <DropdownMenuItem onClick={() => onEdit(template)}>
+                        <Pencil className="h-4 w-4 mr-2" />
+                        Edit
+                      </DropdownMenuItem>
+                    )}
+                    {canPublish && template.status === 'DRAFT' && (
+                      <DropdownMenuItem onClick={() => onPublish(template.id)}>
+                        <Send className="h-4 w-4 mr-2" />
+                        Publish
+                      </DropdownMenuItem>
+                    )}
+                    {canPublish && template.status === 'PUBLISHED' && (
+                      <DropdownMenuItem onClick={() => onUnpublish(template.id)}>
+                        <ArrowDownToLine className="h-4 w-4 mr-2" />
+                        Unpublish
+                      </DropdownMenuItem>
+                    )}
+                    {canCreate && (
+                      <DropdownMenuItem onClick={() => onClone(template)}>
+                        <Copy className="h-4 w-4 mr-2" />
+                        Clone
+                      </DropdownMenuItem>
+                    )}
+                    {canDelete && (
+                      <>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem
+                          onClick={() => onDelete(template)}
+                          className="text-destructive"
+                        >
+                          <Trash2 className="h-4 w-4 mr-2" />
+                          Archive
+                        </DropdownMenuItem>
+                      </>
+                    )}
+                  </>
+                )}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )}
         </div>
       </CardHeader>
       <CardContent className="pt-0">

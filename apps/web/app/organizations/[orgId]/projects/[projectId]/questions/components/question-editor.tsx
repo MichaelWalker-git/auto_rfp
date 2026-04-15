@@ -11,6 +11,7 @@ import { AnswerSource, ConfidenceBreakdown, ConfidenceBand, type CommentEntityTy
 import PermissionWrapper from '@/components/permission-wrapper';
 import { ConfidenceScoreDisplay } from '@/components/confidence/confidence-score-display';
 import { SimilarQuestionsPanel } from './similar-questions-panel';
+import { getToolDisplayName } from './source-details-dialog';
 import { EditingIndicator, CollaborationPanel, FloatingPanel } from '@/features/collaboration';
 import { useComments } from '@/features/collaboration/hooks/useComments';
 
@@ -257,11 +258,25 @@ export function QuestionEditor({
                   {answer.sources!.map((source) => (
                     <span
                       key={source.id}
-                      className="inline-block px-2 py-1 bg-slate-100 border border-slate-200 rounded text-xs text-slate-600 hover:bg-slate-200 transition-colors cursor-pointer"
-                      title={source.fileName}
+                      className="inline-flex items-center gap-1.5 px-2 py-1 bg-slate-100 border border-slate-200 rounded text-xs text-slate-600 hover:bg-slate-200 transition-colors cursor-pointer"
+                      title={source.fileName ?? source.id}
                       onClick={() => onSourceClick(source)}
                     >
-                      {source.fileName}
+                      {source.toolName && (
+                        <span className="inline-flex items-center rounded px-1 py-0.5 text-[10px] font-medium bg-indigo-50 text-indigo-700">
+                          {getToolDisplayName(source.toolName)}
+                        </span>
+                      )}
+                      {source.fileName || source.id}
+                      {source.relevance !== null && source.relevance !== undefined && (
+                        <span className={`inline-flex items-center rounded px-1 py-0.5 text-[10px] font-medium ${
+                          source.relevance >= 0.7 ? 'bg-emerald-50 text-emerald-700'
+                          : source.relevance >= 0.5 ? 'bg-amber-50 text-amber-700'
+                          : 'bg-red-50 text-red-700'
+                        }`}>
+                          {Math.round(source.relevance * 100)}%
+                        </span>
+                      )}
                     </span>
                   ))}
                 </div>

@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { CheckCircle, ChevronDown, ChevronRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
@@ -59,14 +59,27 @@ export function QuestionNavigator({
     }
   }, [selectedQuestionId, sections]);
 
+  // Track which section IDs we've already initialized so we don't reset
+  // user expand/collapse choices when the parent re-renders with a new array reference.
+  const initializedSectionIds = useRef<Set<string>>(new Set());
+
   useEffect(() => {
-    if (sections.length > 0) {
-      const initialState: Record<string, boolean> = {};
-      sections.forEach((section, index) => {
-        // Expand the first two sections by default
-        initialState[section.id] = index < 10;
-      });
-      setExpandedSections(initialState);
+    if (sections.length === 0) return;
+
+    const newSections: Record<string, boolean> = {};
+    let hasNew = false;
+
+    sections.forEach((section, index) => {
+      if (!initializedSectionIds.current.has(section.id)) {
+        // First time seeing this section — expand the first 10 by default
+        newSections[section.id] = index < 10;
+        initializedSectionIds.current.add(section.id);
+        hasNew = true;
+      }
+    });
+
+    if (hasNew) {
+      setExpandedSections(prev => ({ ...prev, ...newSections }));
     }
   }, [sections]);
 

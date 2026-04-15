@@ -25,6 +25,7 @@ import { useToast } from '@/components/ui/use-toast';
 import { UserRoleSchema, type UserRole } from '@auto-rfp/core';
 import { createUserApi } from '@/lib/hooks/use-user';
 import type { TeamMember } from './types';
+import { RoleInfoPopover } from './RoleInfoPopover';
 
 const ROLE_OPTIONS = UserRoleSchema.options;
 
@@ -150,7 +151,10 @@ export function InviteMemberDialog({ orgId, onMemberAdded }: InviteMemberDialogP
             />
           </div>
           <div className="grid gap-2">
-            <Label>Role</Label>
+            <div className="flex items-center gap-1">
+              <Label>Role</Label>
+              <RoleInfoPopover />
+            </div>
             <Select value={role} onValueChange={(v) => setRole(v as UserRole)}>
               <SelectTrigger>
                 <SelectValue />

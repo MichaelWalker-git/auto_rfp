@@ -58,6 +58,8 @@ interface QuestionsContextType {
 
   // Data state
   isLoading: boolean;
+  isQuestionsLoading: boolean;
+  isAnswersLoading: boolean;
   error: string | null;
   questions?: { sections: GroupedSection[] };
   questionFiles: QuestionFileItem[] | null;
@@ -185,6 +187,8 @@ export function QuestionsProvider({ children, projectId, opportunityId }: Questi
   const orgId = project?.orgId ?? null;
   const { data: knowledgeBases, isLoading: isKnowledgeBasesLoading } = useKnowledgeBases(orgId);
 
+  // Questions and answers come from the same API call, so they share the same loading state
+  const isAnswersLoading = isQuestionsLoading;
   const isLoading = isProjectLoading || isQuestionsLoading;
 
   // Sync knowledge bases to available indexes state
@@ -257,6 +261,15 @@ export function QuestionsProvider({ children, projectId, opportunityId }: Questi
     }
 
     setIsGenerating((prev) => ({ ...prev, [questionId]: true }));
+
+    const questionLabel = question.questionNumber
+      ? `Question ${question.questionNumber}`
+      : question.text?.slice(0, 50) + (question.text?.length > 50 ? '…' : '');
+
+    toast({
+      title: 'Generating Answer',
+      description: `Generating answer for ${questionLabel}. This may take a moment…`,
+    });
 
     try {
       const { answer, confidence, confidenceBreakdown, confidenceBand, found, sources } = await generateAnswer({
@@ -1193,6 +1206,8 @@ export function QuestionsProvider({ children, projectId, opportunityId }: Questi
 
     // Data state
     isLoading,
+    isQuestionsLoading,
+    isAnswersLoading,
     error,
     questions,
     questionFiles: questionFiles ?? null,

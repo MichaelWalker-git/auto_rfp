@@ -31,7 +31,7 @@ import { DBItem, getItem } from '@/helpers/db';
 import { safeParseJsonFromModel } from '@/helpers/json';
 import { calculateConfidenceScore, ConfidenceScoreResult } from '@/helpers/confidence-score';
 import { trackContentLibraryUsage } from '@/helpers/usage-tracking';
-import { getAnswerSystemPrompt } from '@/constants/prompt';
+import { getAnswerSystemPrompt, useAnswerUserPrompt } from '@/constants/prompt';
 import { ANSWER_TOOLS, executeAnswerTool } from '@/helpers/answer-tools';
 
 const BEDROCK_MODEL_ID = requireEnv('BEDROCK_MODEL_ID');
@@ -61,7 +61,7 @@ export interface GenerateAnswerResult {
 
 // Minimum cosine similarity score to even consider a content library match.
 // Below this threshold, the question is too different to be a direct match.
-const CL_MIN_SIMILARITY_THRESHOLD = 0.82;
+const CL_MIN_SIMILARITY_THRESHOLD = 0.50;
 
 /**
  * Check if the content library has a direct answer for the question.
@@ -155,34 +155,15 @@ const generateAnswerWithTools = async (
   orgId: string,
   questionId: string,
   systemPrompt: string,
+  userPrompt: string,
   projectId?: string,
   opportunityId?: string,
-): Promise<{ answer: string; found: boolean; toolsUsed: string[] }> => {
+): Promise<{ answer: string; found: boolean; toolsUsed: string[]; llmConfidence: number; similarityScores: number[]; sources: AnswerSource[]; sourceCreatedDates: string[] }> => {
   const MAX_TOOL_ROUNDS = 3;
   const toolsUsed: string[] = [];
-
-  const userPrompt = `You are writing a winning RFP response on behalf of our company. The evaluator will score this answer to decide whether to award us the contract. Quality and specificity are critical.
-
-QUESTION FROM THE RFP: ${question}
-
-RESEARCH STRATEGY — use tools to gather the strongest possible evidence:
-1. search_knowledge_base — find our company capabilities, processes, and technical expertise relevant to this question
-2. search_past_performance — find specific contract examples, metrics, and results that demonstrate our track record (critical for scoring)
-3. get_organization_context — get our certifications, clearances, team size, and company details to cite in the answer
-4. get_content_library — find pre-approved language for compliance, certifications, or standard responses
-5. get_solicitation_text — check the RFP for specific requirements, evaluation criteria, or context that this question references
-
-WRITING INSTRUCTIONS:
-- Write as "we" / "our team" — this is our company's official response to the evaluator
-- Lead with our strongest capability or most relevant experience
-- Include specific evidence: project names, contract values, team sizes, SLA metrics, years of experience
-- Address every part of the question — missing sub-questions loses evaluation points
-- Be confident and direct — avoid hedging language like "we believe" or "we think"
-- Keep the answer 150-400 words depending on complexity
-
-Return ONLY valid JSON: {"answer": "<complete submission-ready answer>", "confidence": <0.0-1.0>, "found": <true|false>}
-- found: true if you found relevant company-specific information to support the answer
-- found: false if you had to rely on general best practices (still provide a professional answer)`;
+  const allSimilarityScores: number[] = [];
+  const allSources: AnswerSource[] = [];
+  const allSourceCreatedDates: string[] = [];
 
   const messages: Array<{ role: string; content: unknown }> = [
     { role: 'user', content: [{ type: 'text', text: userPrompt }] },
@@ -250,6 +231,21 @@ Return ONLY valid JSON: {"answer": "<complete submission-ready answer>", "confid
         ),
       );
 
+      // Accumulate real similarity scores, sources, and dates from vector search tools
+      toolResults.forEach(r => {
+        if (r.similarityScores?.length) allSimilarityScores.push(...r.similarityScores);
+        if (r.sources?.length) allSources.push(...r.sources.map(s => ({
+          id: s.id,
+          documentId: s.documentId,
+          chunkKey: s.chunkKey,
+          fileName: s.fileName,
+          relevance: s.relevance ?? null,
+          textContent: s.textContent ?? null,
+          toolName: s.toolName,
+        })));
+        if (r.sourceCreatedDates?.length) allSourceCreatedDates.push(...r.sourceCreatedDates);
+      });
+
       const toolResultContent: Array<unknown> = toolResults.map(r => ({
         type: 'tool_result',
         tool_use_id: r.tool_use_id,
@@ -306,22 +302,48 @@ Return ONLY valid JSON: {"answer": "<complete submission-ready answer>", "confid
   }
 
   if (!rawText.trim()) {
-    return { answer: '', found: false, toolsUsed };
+    return { answer: '', found: false, toolsUsed, llmConfidence: 0, similarityScores: allSimilarityScores, sources: allSources, sourceCreatedDates: allSourceCreatedDates };
   }
 
   try {
-    const parsed = safeParseJsonFromModel(rawText) as Partial<QAItem> & { found?: boolean };
+    const parsed = safeParseJsonFromModel(rawText) as Partial<QAItem> & { found?: boolean; confidence?: number };
     // Defensive: ensure answer is always a string
     const answerValue = parsed.answer;
     const answerStr = typeof answerValue === 'string' ? answerValue : String(answerValue ?? '');
+    const found = parsed.found ?? !!(answerStr?.trim());
+    // Use the LLM's self-reported confidence (0-1), falling back to a conservative default
+    const isValidConfidence = typeof parsed.confidence === 'number' && parsed.confidence >= 0 && parsed.confidence <= 1;
+    if (!isValidConfidence) {
+      console.warn(`[answer] LLM confidence missing or invalid (got: ${JSON.stringify(parsed.confidence)}), using fallback: ${found ? 0.7 : 0.3}`);
+    }
+    const fallback = found ? 0.7 : 0.3;
+    const llmConfidence = isValidConfidence ? (parsed.confidence as number) : fallback;
     return {
       answer: answerStr || '',
-      found: parsed.found ?? !!(answerStr?.trim()),
+      found,
       toolsUsed,
+      llmConfidence,
+      similarityScores: allSimilarityScores,
+      sources: allSources,
+      sourceCreatedDates: allSourceCreatedDates,
     };
   } catch {
-    // Model returned plain text instead of JSON — use it as the answer
-    return { answer: rawText, found: true, toolsUsed };
+    // safeParseJsonFromModel failed — try basic JSON.parse as fallback
+    // to extract the answer field instead of saving raw JSON as the answer text
+    console.warn('[answer] safeParseJsonFromModel failed, attempting basic JSON.parse fallback');
+    try {
+      const fallbackParsed = JSON.parse(rawText) as Record<string, unknown>;
+      if (typeof fallbackParsed.answer === 'string') {
+        const fbFound = fallbackParsed.found === true;
+        const fbConf = typeof fallbackParsed.confidence === 'number' ? fallbackParsed.confidence : (fbFound ? 0.7 : 0.3);
+        return { answer: fallbackParsed.answer, found: fbFound, toolsUsed, llmConfidence: fbConf, similarityScores: allSimilarityScores, sources: allSources, sourceCreatedDates: allSourceCreatedDates };
+      }
+    } catch {
+      // not valid JSON at all
+    }
+    // Truly plain text — use it as the answer
+    console.warn('[answer] Model returned plain text instead of JSON — using fallback confidence 0.7');
+    return { answer: rawText, found: true, toolsUsed, llmConfidence: 0.7, similarityScores: allSimilarityScores, sources: allSources, sourceCreatedDates: allSourceCreatedDates };
   }
 };
 
@@ -369,12 +391,21 @@ export const generateAnswerForQuestion = async (
   if (clMatch) {
     console.log(`[answer] ✅ Content library match found (score: ${clMatch.score.toFixed(3)})`);
 
+    // Build source attribution for the content library match
+    const clSources: AnswerSource[] = [{
+      id: clMatch.item.id,
+      fileName: 'Content Library',
+      relevance: clMatch.score,
+      textContent: `Q: ${clMatch.item.question}\nA: ${clMatch.item.answer}`,
+      toolName: 'content_library_match',
+    }];
+
     const confidence = calculateConfidenceScore({
       llmConfidence: clMatch.score,
       found: true,
       questionText: question,
       answerText: clMatch.item.answer,
-      sources: [],
+      sources: clSources,
       fromContentLibrary: true,
       similarityScores: [clMatch.score],
       sourceCreatedDates: clMatch.item.updatedAt ? [clMatch.item.updatedAt] : undefined,
@@ -389,7 +420,7 @@ export const generateAnswerForQuestion = async (
       confidence: confidence.overall / 100,
       confidenceBreakdown: confidence.breakdown,
       confidenceBand: confidence.band,
-      sources: [],
+      sources: clSources,
     });
 
     // Track content library usage (non-blocking)
@@ -402,7 +433,7 @@ export const generateAnswerForQuestion = async (
       confidenceBreakdown: confidence.breakdown,
       confidenceBand: confidence.band,
       found: true,
-      sources: [],
+      sources: clSources,
       fromContentLibrary: true,
     };
   }
@@ -410,31 +441,71 @@ export const generateAnswerForQuestion = async (
   // ── Step 2: Tool-based AI generation ───────────────────────────────────────
   console.log(`[answer] No CL match — using tool-based generation for: "${question.substring(0, 80)}..."`);
 
-  const systemPrompt = await getAnswerSystemPrompt(orgId);
+  const [systemPrompt, userPrompt] = await Promise.all([
+    getAnswerSystemPrompt(orgId),
+    useAnswerUserPrompt(orgId, question),
+  ]);
 
   // Wrap tool-based generation in Sentry span (includes all LLM rounds and tool calls)
-  const { answer, found, toolsUsed } = await Sentry.startSpan(
+  const { answer, found, toolsUsed, llmConfidence, similarityScores, sources, sourceCreatedDates } = await Sentry.startSpan(
     { name: 'tool-based-generation', op: 'ai.pipeline' },
     () => generateAnswerWithTools(
       question,
       orgId,
       questionId,
       systemPrompt,
+      userPrompt,
       projectId,
       opportunityId,
     ),
   );
 
-  console.log(`[answer] Tool-based generation complete. found=${found}, tools=[${toolsUsed.join(', ')}]`);
+  console.log(`[answer] Tool-based generation complete. found=${found}, llmConfidence=${llmConfidence}, similarityScores=${similarityScores.length}, sources=${sources.length}, tools=[${toolsUsed.join(', ')}]`);
+
+  // Filter out org context sources unless the answer actually cites [ORG]
+  const filteredSources = answer.includes('[ORG]')
+    ? sources
+    : sources.filter(s => s.toolName !== 'get_organization_context');
+
+  if (filteredSources.length < sources.length) {
+    console.log(`[answer] Filtered out ${sources.length - filteredSources.length} org context source(s) — answer does not cite [ORG]`);
+  }
+
+  // When found=false and answer is empty, skip the scorer and save with 0 confidence
+  if (!found && !answer.trim()) {
+    await saveAnswer({
+      questionId,
+      projectId,
+      opportunityId,
+      questionFileId,
+      text: '',
+      confidence: 0,
+      confidenceBreakdown: { contextRelevance: 0, sourceRecency: 0, answerCoverage: 0, sourceAuthority: 0, consistency: 0 },
+      confidenceBand: 'low',
+      sources: [],
+    });
+
+    return {
+      questionId,
+      answer: '',
+      confidence: 0,
+      confidenceBreakdown: { contextRelevance: 0, sourceRecency: 0, answerCoverage: 0, sourceAuthority: 0, consistency: 0 },
+      confidenceBand: 'low',
+      found: false,
+      sources: [],
+      fromContentLibrary: false,
+    };
+  }
 
   const confidence = calculateConfidenceScore({
-    llmConfidence: found ? 0.7 : 0.3,
+    llmConfidence,
     found,
     questionText: question,
     answerText: answer,
-    sources: [],
+    sources: filteredSources,
     fromContentLibrary: false,
-    similarityScores: [],
+    similarityScores,
+    sourceCreatedDates,
   });
 
   await saveAnswer({
@@ -446,7 +517,7 @@ export const generateAnswerForQuestion = async (
     confidence: confidence.overall / 100,
     confidenceBreakdown: confidence.breakdown,
     confidenceBand: confidence.band,
-    sources: [],
+    sources: filteredSources,
   });
 
   return {
@@ -456,7 +527,7 @@ export const generateAnswerForQuestion = async (
     confidenceBreakdown: confidence.breakdown,
     confidenceBand: confidence.band,
     found,
-    sources: [],
+    sources: filteredSources,
     fromContentLibrary: false,
   };
 };

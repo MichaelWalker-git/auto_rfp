@@ -56,12 +56,8 @@ export const baseHandler = async (
       return apiResponse(404, { message: 'Document not found' });
     }
 
-    // Ownership check: only the uploader can download
-    if (document.createdBy && document.createdBy !== userId) {
-      return apiResponse(403, {
-        message: 'Access denied. You can only download documents you uploaded.',
-      });
-    }
+    // Access is controlled by RBAC middleware (document:read + org membership).
+    // No per-user ownership check — any org member with the right permission can view source docs.
 
     // Verify the document has a file key
     if (!document.fileKey) {

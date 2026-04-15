@@ -4,6 +4,7 @@ import { createItem, putItem, queryBySkPrefix, docClient } from '@/helpers/db';
 import { requireEnv } from '@/helpers/env';
 import { nowIso } from '@/helpers/date';
 import { listRFPDocumentsByProject } from '@/helpers/rfp-document';
+import { listQuestionFilesByOpportunity } from '@/helpers/questionFile';
 import { PROPOSAL_SUBMISSION_PK } from '@/constants/proposal-submission';
 import { QUESTION_PK } from '@/constants/question';
 import { ANSWER_PK } from '@/constants/answer';
@@ -39,7 +40,9 @@ export const buildSubmissionSkPrefix = (
 
 // ─── Internal helpers ─────────────────────────────────────────────────────────
 
-/** Load all questions for a project+opportunity using the new SK prefix */
+/** Load all questions for a project+opportunity using the new SK prefix,
+ *  filtering out questions from non-PROCESSED question files (orphans from
+ *  cancelled/failed pipelines). */
 const listQuestionsForOpportunity = async (
   projectId: string,
   oppId: string,
@@ -60,7 +63,21 @@ const listQuestionsForOpportunity = async (
       },
     }),
   );
-  return (res.Items ?? []) as Array<{ questionId: string }>;
+  const allQuestions = (res.Items ?? []) as Array<{ questionId: string; questionFileId?: string }>;
+
+  // Build set of PROCESSED file IDs to filter out orphaned questions
+  const { items: questionFiles } = await listQuestionFilesByOpportunity({ projectId, oppId });
+  const processedFileIds = new Set(
+    (questionFiles as Array<{ questionFileId: string; status: string }>)
+      .filter((qf) => qf.status === 'PROCESSED')
+      .map((qf) => qf.questionFileId),
+  );
+
+  return allQuestions.filter((q) => {
+    // Keep manually-added questions (no file) and questions from PROCESSED files
+    if (!q.questionFileId || q.questionFileId === 'manual') return true;
+    return processedFileIds.has(q.questionFileId);
+  });
 };
 
 /** Load all answers for a project+opportunity using the new SK prefix */

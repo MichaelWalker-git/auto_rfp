@@ -314,14 +314,15 @@ export const executeBriefTool = async (args: {
         content = await executeGetOrganizationContext(orgId, projectId);
         break;
 
-      case 'get_content_library':
-        content = await fetchContentLibraryMatches(
+      case 'get_content_library': {
+        const clResult = await fetchContentLibraryMatches(
           orgId,
           String(toolInput.query ?? ''),
           typeof toolInput.limit === 'number' ? toolInput.limit : 3,
         );
-        if (!content) content = 'No content library matches found for that query.';
+        content = clResult.content || 'No content library matches found for that query.';
         break;
+      }
 
       case 'get_completed_brief_sections':
         content = await executeGetCompletedBriefSections(
