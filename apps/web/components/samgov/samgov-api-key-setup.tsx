@@ -95,11 +95,11 @@ export function SamGovApiKeySetup({ orgId, open, onOpenChange, onSuccess }: SamG
     setIsLoading(true);
     try {
       const response = await authFetcher(
-        `${env.BASE_API_URL}/search-opportunities/api-key?orgId=${encodeURIComponent(orgId)}`,
+        `${env.BASE_API_URL}/search-opportunities/api-key`,
         {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ apiKey: apiKey.trim() }),
+          body: JSON.stringify({ source: 'SAM_GOV', orgId, apiKey: apiKey.trim() }),
         }
       );
 

@@ -1,9 +1,11 @@
-import { 
-  SecretsManagerClient, 
-  GetSecretValueCommand, 
-  PutSecretValueCommand, 
+import {
+  SecretsManagerClient,
+  GetSecretValueCommand,
+  PutSecretValueCommand,
   CreateSecretCommand,
-  ResourceNotFoundException 
+  RestoreSecretCommand,
+  ResourceNotFoundException,
+  InvalidRequestException,
 } from '@aws-sdk/client-secrets-manager';
 
 const secretsClient = new SecretsManagerClient({});
@@ -27,9 +29,22 @@ export async function storeApiKey(orgId: string, prefix: string, apiKey: string)
       })
     );
     console.log(`Successfully updated API key for orgId: ${orgId}`);
-  } catch (error: any) {
-    // If the secret doesn't exist, create it
-    if (error instanceof ResourceNotFoundException || error.name === 'ResourceNotFoundException') {
+  } catch (error: unknown) {
+    const isNotFound = error instanceof ResourceNotFoundException || (error as { name?: string }).name === 'ResourceNotFoundException';
+    const isMarkedForDeletion = error instanceof InvalidRequestException || (error as { name?: string }).name === 'InvalidRequestException';
+
+    if (isMarkedForDeletion) {
+      // Secret was scheduled for deletion — restore it, then update
+      await secretsClient.send(new RestoreSecretCommand({ SecretId: secretName }));
+      await secretsClient.send(
+        new PutSecretValueCommand({
+          SecretId: secretName,
+          SecretString: apiKey,
+        })
+      );
+      console.log(`Restored and updated API key for orgId: ${orgId}`);
+    } else if (isNotFound) {
+      // Secret doesn't exist — create it
       try {
         await secretsClient.send(
           new CreateSecretCommand({
@@ -44,7 +59,6 @@ export async function storeApiKey(orgId: string, prefix: string, apiKey: string)
         throw createError;
       }
     } else {
-      // For any other error, log and rethrow
       console.error('Failed to store API key for orgId:', orgId, error);
       throw error;
     }
@@ -67,13 +81,15 @@ export async function getApiKey(orgId: string, prefix: string): Promise<string |
     );
 
     return response.SecretString || null;
-  } catch (error: any) {
-    // If the secret doesn't exist, return null instead of throwing
-    if (error instanceof ResourceNotFoundException || error.name === 'ResourceNotFoundException') {
-      console.log(`API key secret not found for orgId: ${orgId}`);
+  } catch (error: unknown) {
+    const isNotFound = error instanceof ResourceNotFoundException || (error as { name?: string }).name === 'ResourceNotFoundException';
+    const isMarkedForDeletion = error instanceof InvalidRequestException || (error as { name?: string }).name === 'InvalidRequestException';
+
+    if (isNotFound || isMarkedForDeletion) {
+      console.log(`API key secret not available for orgId: ${orgId} (${isMarkedForDeletion ? 'pending deletion' : 'not found'})`);
       return null;
     }
-    
+
     console.error('Failed to retrieve API key for orgId:', orgId, error);
     throw error;
   }
