@@ -1,7 +1,8 @@
 'use client';
 
-import React, { useEffect } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
+import { useSWRConfig } from 'swr';
 import {
   ArrowLeft,
   MessageSquare,
@@ -20,6 +21,8 @@ import { OpportunityHeader } from './opportunity-header';
 import { AssigneeSelector } from './AssigneeSelector';
 import { OpportunitySolicitationDocuments } from './opportunity-attachments';
 import { OpportunityRFPDocuments } from './opportunity-rfp-documents';
+import { ExecutiveBriefView } from '@/components/brief/ExecutiveBriefView';
+import { QuestionsProvider } from '@/app/organizations/[orgId]/projects/[projectId]/questions/components';
 import { OpportunityActionCard } from './opportunity-action-card';
 import { ProjectOutcomeCard } from '@/components/project-outcome/ProjectOutcomeCard';
 import { DebriefingCard } from '@/components/debriefing';
@@ -76,6 +79,7 @@ interface SectionNavItem {
 }
 
 const SECTION_NAV_ITEMS: SectionNavItem[] = [
+  { id: 'executive-brief', label: 'Analysis', icon: <HelpCircle className="h-3.5 w-3.5" /> },
   { id: 'solicitation-documents', label: 'Solicitations', icon: <Paperclip className="h-3.5 w-3.5" /> },
   { id: 'rfp-documents', label: 'RFP Documents', icon: <FileEdit className="h-3.5 w-3.5" /> },
   { id: 'submission-compliance', label: 'Submission', icon: <ShieldCheck className="h-3.5 w-3.5" /> },
@@ -91,20 +95,18 @@ const SectionNavigation = () => {
   };
 
   return (
-    <div className="flex flex-wrap items-center gap-3 py-2">
-      <span className="flex items-center gap-1 font-semibold">
-        Jump to:
-      </span>
+    <div className="flex flex-wrap items-center gap-2 py-2">
+      <span className="text-xs font-medium text-muted-foreground mr-1">Jump to:</span>
       {SECTION_NAV_ITEMS.map((item) => (
         <Button
           key={item.id}
           variant="outline"
           size="sm"
-          className="h-7 gap-2 px-2.5"
+          className="h-7 gap-1.5 px-2 text-xs"
           onClick={() => handleScrollTo(item.id)}
         >
           {item.icon}
-          {item.label}
+          <span className="hidden sm:inline">{item.label}</span>
         </Button>
       ))}
     </div>
@@ -125,10 +127,90 @@ const SectionNavigation = () => {
  * 5. Submission — compliance report, submit button, history
  * 6. Post-Award — outcome, debriefing, FOIA
  */
+// ─── Smart Polling ────────────────────────────────────────────────────────
+
+const PENDING_STATUSES = new Set([
+  'GENERATING', 'PROCESSING', 'TEXTRACT_RUNNING', 'TEXT_READY', 'UPLOADED',
+]);
+
+const FAST_INTERVAL = 5_000;
+const SLOW_INTERVAL = 30_000;
+const MAX_UNCHANGED_RELOADS = 3;
+
+/**
+ * Smart polling hook for the opportunity view.
+ * - 5s interval if any document/file is in a pending state
+ * - 30s interval if everything is complete
+ * - Stops polling after 3 consecutive unchanged reloads
+ */
+const useSmartPolling = (orgId: string, projectId: string, oppId: string) => {
+  const { mutate: globalMutate } = useSWRConfig();
+  const unchangedCountRef = useRef(0);
+  const lastSnapshotRef = useRef('');
+  const [isPolling, setIsPolling] = useState(true);
+
+  const revalidateAll = useCallback(() => {
+    globalMutate(
+      (key: unknown) =>
+        typeof key === 'string' &&
+        (key.includes('/rfp-document/') || key.includes('/questionfile/') || key.includes('/opportunity/')),
+    );
+  }, [globalMutate]);
+
+  useEffect(() => {
+    if (!isPolling || !orgId || !projectId || !oppId) return;
+
+    let timeoutId: ReturnType<typeof setTimeout>;
+
+    const poll = () => {
+      revalidateAll();
+
+      // Check DOM for status indicators to determine interval
+      const statusElements = document.querySelectorAll('[data-doc-status]');
+      const statuses = Array.from(statusElements).map((el) => el.getAttribute('data-doc-status') ?? '');
+      const hasPending = statuses.some((s) => PENDING_STATUSES.has(s.toUpperCase()));
+
+      // Build snapshot for change detection
+      const snapshot = statuses.sort().join(',');
+      if (snapshot === lastSnapshotRef.current) {
+        unchangedCountRef.current += 1;
+      } else {
+        unchangedCountRef.current = 0;
+        lastSnapshotRef.current = snapshot;
+      }
+
+      // Stop polling after MAX_UNCHANGED_RELOADS with no changes (only when stable)
+      if (!hasPending && unchangedCountRef.current >= MAX_UNCHANGED_RELOADS) {
+        setIsPolling(false);
+        return;
+      }
+
+      const interval = hasPending ? FAST_INTERVAL : SLOW_INTERVAL;
+      timeoutId = setTimeout(poll, interval);
+    };
+
+    timeoutId = setTimeout(poll, FAST_INTERVAL);
+    return () => clearTimeout(timeoutId);
+  }, [isPolling, orgId, projectId, oppId, revalidateAll]);
+
+  const resumePolling = useCallback(() => {
+    unchangedCountRef.current = 0;
+    lastSnapshotRef.current = '';
+    setIsPolling(true);
+  }, []);
+
+  return { isPolling, resumePolling };
+};
+
+// ─── Main Content Component ──────────────────────────────────────────────
+
 const OpportunityContent = ({ className }: { className?: string }) => {
   const { projectId, oppId, orgId, opportunity, refetch } = useOpportunityContext();
   const { currentOrganization } = useCurrentOrganization();
   const navOrgId = currentOrganization?.id;
+
+  // Smart auto-reload: 5s if pending items, 30s if stable, stops after 3 unchanged
+  useSmartPolling(orgId, projectId, oppId);
   const { outcome } = useProjectOutcome(orgId, projectId, oppId);
 
   // Save oppId to session storage so other pages (Questions, Brief, etc.)
@@ -146,7 +228,7 @@ const OpportunityContent = ({ className }: { className?: string }) => {
   return (
     <div className={cn('space-y-6', className)}>
       {/* Back Navigation + Assignee Selector */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-2">
         <Button variant="ghost" size="sm" asChild className="gap-2 -ml-2">
           <Link href={backUrl}>
             <ArrowLeft className="h-4 w-4" />
@@ -168,63 +250,36 @@ const OpportunityContent = ({ className }: { className?: string }) => {
         )}
       </div>
 
-      {/* Opportunity Header — Hero Section */}
+      {/* Opportunity Header */}
       <OpportunityHeader />
 
-      {/* ── Quick Actions ──────────────────────────────────────────────── */}
-      <section className="space-y-3">
-        <SectionDivider
-          icon={<HelpCircle className="h-4 w-4" />}
-          title="Quick Actions"
-        />
-        <div className="grid gap-3 md:grid-cols-2">
-          {navOrgId && (
-            <OpportunityActionCard
-              icon={HelpCircle}
-              iconColor="text-blue-600"
-              iconBgGradient="from-blue-50 to-blue-100"
-              title="Questions & Answers"
-              description="View and answer RFP questions for this opportunity"
-              buttonText="View Questions"
-              href={`/organizations/${navOrgId}/projects/${projectId}/opportunities/${oppId}/questions`}
-              variant="compact"
-            />
-          )}
-          {navOrgId && (
-            <OpportunityActionCard
-              icon={MessageSquare}
-              iconColor="text-indigo-600"
-              iconBgGradient="from-indigo-50 to-indigo-100"
-              title="Q&A Period Engagement"
-              description="Build relationships with contracting officers through clarifying questions"
-              buttonText="Manage Engagement"
-              href={`/organizations/${navOrgId}/projects/${projectId}/opportunities/${oppId}/qa-engagement`}
-              variant="compact"
-            />
-          )}
-        </div>
-        {/* Section Navigation Buttons */}
-        <SectionNavigation />
+      {/* Section Navigation */}
+      <SectionNavigation />
+
+      {/* ── Opportunity Analysis ─────────────────────────────────────── */}
+      <section id="executive-brief" className="scroll-mt-4">
+        <QuestionsProvider projectId={projectId} opportunityId={oppId}>
+          <ExecutiveBriefView
+            projectId={projectId}
+            opportunityId={oppId}
+            title="Opportunity Analysis"
+            generateLabel="Analyze Opportunity"
+          />
+        </QuestionsProvider>
       </section>
 
-      {/* ── Documents ──────────────────────────────────────────────────── */}
-      <section className="space-y-3">
-        <SectionDivider
-          icon={<FileText className="h-4 w-4" />}
-          title="Documents"
-        />
-        <div className="space-y-4">
-          <div id="solicitation-documents" className="scroll-mt-4">
-            <OpportunitySolicitationDocuments />
-          </div>
-          <div id="rfp-documents" className="scroll-mt-4">
-            <OpportunityRFPDocuments />
-          </div>
-        </div>
+      {/* ── Solicitation Documents ────────────────────────────────────── */}
+      <section id="solicitation-documents" className="scroll-mt-4">
+        <OpportunitySolicitationDocuments />
+      </section>
+
+      {/* ── RFP Documents ─────────────────────────────────────────────── */}
+      <section id="rfp-documents" className="scroll-mt-4">
+        <OpportunityRFPDocuments />
       </section>
 
       {/* ── Context & Knowledge Base ───────────────────────────────────── */}
-      <section className="space-y-3">
+      <section className="scroll-mt-4">
         <OpportunityContextPanel />
       </section>
 
@@ -248,32 +303,30 @@ const OpportunityContent = ({ className }: { className?: string }) => {
       </section>
 
       {/* ── Post-Award ─────────────────────────────────────────────────── */}
-      <section id="post-award" className="space-y-3 scroll-mt-4">
+      <section id="post-award" className="space-y-4 scroll-mt-4">
         <SectionDivider
           icon={<Trophy className="h-4 w-4" />}
           title="Post-Award"
           muted
         />
-        <div className="space-y-4">
-          <ProjectOutcomeCard projectId={projectId} orgId={orgId} opportunityId={oppId} />
-          <DebriefingCard
-            projectId={projectId}
-            orgId={orgId}
-            opportunityId={oppId}
-            projectOutcomeStatus={outcome?.status}
-            solicitationNumber={opportunity?.solicitationNumber ?? undefined}
-            contractTitle={opportunity?.title ?? undefined}
-          />
-          <FOIARequestCard
-            projectId={projectId}
-            orgId={orgId}
-            opportunityId={oppId}
-            projectOutcomeStatus={outcome?.status}
-            agencyName={opportunity?.organizationName ?? undefined}
-            solicitationNumber={opportunity?.solicitationNumber ?? undefined}
-            contractTitle={opportunity?.title ?? undefined}
-          />
-        </div>
+        <ProjectOutcomeCard projectId={projectId} orgId={orgId} opportunityId={oppId} />
+        <DebriefingCard
+          projectId={projectId}
+          orgId={orgId}
+          opportunityId={oppId}
+          projectOutcomeStatus={outcome?.status}
+          solicitationNumber={opportunity?.solicitationNumber ?? undefined}
+          contractTitle={opportunity?.title ?? undefined}
+        />
+        <FOIARequestCard
+          projectId={projectId}
+          orgId={orgId}
+          opportunityId={oppId}
+          projectOutcomeStatus={outcome?.status}
+          agencyName={opportunity?.organizationName ?? undefined}
+          solicitationNumber={opportunity?.solicitationNumber ?? undefined}
+          contractTitle={opportunity?.title ?? undefined}
+        />
       </section>
     </div>
   );

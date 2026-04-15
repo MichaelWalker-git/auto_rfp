@@ -29,6 +29,12 @@ jest.mock('@/helpers/rfp-document', () => ({
   listRFPDocumentsByProject: (...args: unknown[]) => mockListRFPDocumentsByProject(...args),
 }));
 
+// Mock questionFile helper (imported by proposal-submission for file status filtering)
+const mockListQuestionFilesByOpportunity = jest.fn();
+jest.mock('@/helpers/questionFile', () => ({
+  listQuestionFilesByOpportunity: (...args: unknown[]) => mockListQuestionFilesByOpportunity(...args),
+}));
+
 // Set required environment variables
 process.env['DB_TABLE_NAME'] = 'test-table';
 process.env['REGION'] = 'us-east-1';
@@ -249,6 +255,7 @@ describe('checkSubmissionReadiness', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockSend.mockReset();
+    mockListQuestionFilesByOpportunity.mockReset();
   });
 
   const makeReadinessArgs = (overrides: Partial<Parameters<typeof checkSubmissionReadiness>[0]> = {}) => ({
@@ -261,13 +268,16 @@ describe('checkSubmissionReadiness', () => {
   });
 
   const mockQuestionsAndAnswers = (
-    questions: Array<{ questionId: string }>,
+    questions: Array<{ questionId: string; questionFileId?: string }>,
     answers: Array<{ questionId: string; text: string; status: string }>,
     docs: unknown[] = [],
     existingSubmissions: unknown[] = [],
+    questionFiles: Array<{ questionFileId: string; status: string }> = [],
   ) => {
     // 1. listQuestionsForOpportunity (QueryCommand via docClient)
     mockSend.mockResolvedValueOnce({ Items: questions });
+    // 1b. listQuestionFilesByOpportunity — mocked at module level (called inside listQuestionsForOpportunity)
+    mockListQuestionFilesByOpportunity.mockResolvedValueOnce({ items: questionFiles });
     // 2. listAnswersForOpportunity (QueryCommand via docClient)
     if (questions.length > 0) {
       mockSend.mockResolvedValueOnce({ Items: answers });

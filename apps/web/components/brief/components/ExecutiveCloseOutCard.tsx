@@ -13,7 +13,7 @@ export function ExecutiveCloseOutCard({ scoring }: { scoring: any }) {
   const confidenceDrivers = scoring?.confidenceDrivers ?? [];
 
   return (
-    <Card className="border-2">
+    <Card>
       <CardHeader>
         <div className="flex items-center gap-2">
           <AlertTriangle className="h-5 w-5"/>
@@ -21,7 +21,7 @@ export function ExecutiveCloseOutCard({ scoring }: { scoring: any }) {
         </div>
       </CardHeader>
 
-      <CardContent className="space-y-5">
+      <CardContent className="space-y-3">
         {scoring?.decisionRationale && (
           <div className="border-l-4 pl-4 py-2">
             <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">Decision Rationale</p>

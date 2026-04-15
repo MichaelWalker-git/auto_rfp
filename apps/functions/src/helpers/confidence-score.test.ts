@@ -170,4 +170,43 @@ describe('calculateConfidenceScore', () => {
     }));
     expect(result.breakdown.contextRelevance).toBe(20);
   });
+
+  it('found=true does not give a bonus to answerCoverage compared to found=false (same answer)', () => {
+    const withFound = calculateConfidenceScore(makeInput({
+      found: true,
+      answerText: 'The deadline is March 15, 2026 at 5:00 PM EST.',
+    }));
+    const withoutFound = calculateConfidenceScore(makeInput({
+      found: false,
+      answerText: 'The deadline is March 15, 2026 at 5:00 PM EST.',
+    }));
+    expect(withFound.breakdown.answerCoverage).toBe(withoutFound.breakdown.answerCoverage);
+  });
+
+  it('real sources produce higher sourceAuthority than empty sources', () => {
+    const withSources = calculateConfidenceScore(makeInput({
+      sources: [
+        { id: '1', documentId: 'doc-1', fileName: 'rfp.pdf', chunkKey: 'chunk-1', relevance: 0.85 },
+        { id: '2', documentId: 'doc-2', fileName: 'sow.pdf', chunkKey: 'chunk-2', relevance: 0.78 },
+        { id: '3', documentId: 'doc-3', fileName: 'perf.pdf', chunkKey: 'chunk-3', relevance: 0.72 },
+      ],
+    }));
+    const withoutSources = calculateConfidenceScore(makeInput({
+      sources: [],
+      found: true,
+    }));
+    expect(withSources.breakdown.sourceAuthority).toBeGreaterThan(withoutSources.breakdown.sourceAuthority);
+  });
+
+  it('real sourceCreatedDates produce different recency than the default 60', () => {
+    const now = new Date();
+    const withDates = calculateConfidenceScore(makeInput({
+      sourceCreatedDates: [now.toISOString()],
+    }));
+    const withoutDates = calculateConfidenceScore(makeInput({
+      sourceCreatedDates: undefined,
+    }));
+    // Recent dates should score higher than the default 60
+    expect(withDates.breakdown.sourceRecency).toBeGreaterThan(withoutDates.breakdown.sourceRecency);
+  });
 });

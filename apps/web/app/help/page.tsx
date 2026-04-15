@@ -212,6 +212,91 @@ export default function HelpPage() {
 
         <Separator className="my-8" />
 
+        {/* Roles & Permissions */}
+        <section className="mb-12">
+          <h2 className="text-2xl font-semibold mb-6">Roles & Permissions</h2>
+          <p className="text-muted-foreground mb-6">
+            Each user is assigned a role that controls what they can do in the platform.
+            Admins can see this information when assigning roles by clicking the info icon next to the Role selector.
+          </p>
+
+          <div className="space-y-4 mb-8">
+            {[
+              { role: 'Admin', desc: 'Full access to all features and settings. Can manage users, organization settings, prompts, audit logs, and delete any resource.' },
+              { role: 'Editor', desc: 'Create, edit, and manage content across the platform. Can manage templates, knowledge bases, pricing, users, and collaborate on proposals. Cannot delete users or access audit logs.' },
+              { role: 'Member', desc: 'Create content and collaborate with limited management access. Can create projects, opportunities, proposals, documents, and answers. Cannot edit or delete other users\' content or manage settings.' },
+              { role: 'Viewer', desc: 'Read-only access to all content. Can view projects, proposals, documents, knowledge bases, and answers. Cannot create, edit, or delete anything.' },
+              { role: 'Billing (Owner)', desc: 'Access to pricing and financial data only. Can view pricing, calculate costs, and view projects and proposals. Cannot manage content or users.' },
+            ].map(({ role, desc }) => (
+              <Card key={role}>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-base flex items-center gap-2">
+                    <Shield className="h-4 w-4 text-primary" />
+                    {role}
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-sm text-muted-foreground">{desc}</p>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-lg">Permission Summary</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b">
+                      <th className="text-left py-2 pr-4 font-medium">Capability</th>
+                      <th className="text-center py-2 px-2 font-medium">Admin</th>
+                      <th className="text-center py-2 px-2 font-medium">Editor</th>
+                      <th className="text-center py-2 px-2 font-medium">Member</th>
+                      <th className="text-center py-2 px-2 font-medium">Viewer</th>
+                      <th className="text-center py-2 px-2 font-medium">Billing</th>
+                    </tr>
+                  </thead>
+                  <tbody className="text-muted-foreground">
+                    {[
+                      { cap: 'View projects & proposals', perms: [true, true, true, true, true] },
+                      { cap: 'Create projects & opportunities', perms: [true, true, true, false, false] },
+                      { cap: 'Edit projects & proposals', perms: [true, true, false, false, false] },
+                      { cap: 'Delete resources', perms: [true, false, false, false, false] },
+                      { cap: 'Manage knowledge bases', perms: [true, true, false, false, false] },
+                      { cap: 'Manage templates', perms: [true, true, false, false, false] },
+                      { cap: 'Manage users', perms: [true, true, false, false, false] },
+                      { cap: 'Comment & assign tasks', perms: [true, true, false, false, false] },
+                      { cap: 'Create & edit pricing', perms: [true, true, false, false, false] },
+                      { cap: 'View pricing & calculate', perms: [true, true, false, false, true] },
+                      { cap: 'Manage organization settings', perms: [true, false, false, false, false] },
+                      { cap: 'View audit logs', perms: [true, false, false, false, false] },
+                      { cap: 'Manage prompts', perms: [true, false, false, false, false] },
+                    ].map(({ cap, perms }) => (
+                      <tr key={cap} className="border-b last:border-0">
+                        <td className="py-2 pr-4">{cap}</td>
+                        {perms.map((has, i) => (
+                          <td key={i} className="text-center py-2 px-2">
+                            {has ? (
+                              <CheckCircle className="h-4 w-4 text-green-500 mx-auto" />
+                            ) : (
+                              <span className="text-muted-foreground/30">—</span>
+                            )}
+                          </td>
+                        ))}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </CardContent>
+          </Card>
+        </section>
+
+        <Separator className="my-8" />
+
         {/* Admin Features */}
         <section className="mb-12">
           <h2 className="text-2xl font-semibold mb-6">Admin Features</h2>
@@ -227,7 +312,7 @@ export default function HelpPage() {
                 <p><strong>Invite users:</strong> Invite team members by email to collaborate on proposals.</p>
                 <p><strong>Multiple organizations:</strong> Users can belong to multiple organizations with different roles.</p>
                 <p><strong>Document folder access control:</strong> Grant or revoke access to specific document folders per user.</p>
-                <p><strong>Roles:</strong> Admin, Editor, Viewer, Billing — each with different permissions.</p>
+                <p><strong>Roles:</strong> Admin, Editor, Member, Viewer, Billing — each with different permissions. See the Roles & Permissions section above for details.</p>
               </CardContent>
             </Card>
 

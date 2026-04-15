@@ -4,6 +4,7 @@ import React from 'react';
 import { OpportunitiesList } from '@/components/opportunities/OpportunitiesList';
 import { ListingPageLayout } from '@/components/layout/ListingPageLayout';
 import { CreateOpportunityDialog } from '@/components/opportunities/create-opportunity-dialog';
+import PermissionWrapper from '@/components/permission-wrapper';
 
 interface OpportunitiesPageContentProps {
   projectId: string;
@@ -17,9 +18,11 @@ export function OpportunitiesPageContent({ projectId, orgId }: OpportunitiesPage
         title="Opportunities"
         description="Stored opportunities for this project."
         headerActions={
-          <CreateOpportunityDialog
-            projectId={projectId}
-          />
+          <PermissionWrapper requiredPermission="opportunity:create">
+            <CreateOpportunityDialog
+              projectId={projectId}
+            />
+          </PermissionWrapper>
         }
       >
         <OpportunitiesList projectId={projectId} />

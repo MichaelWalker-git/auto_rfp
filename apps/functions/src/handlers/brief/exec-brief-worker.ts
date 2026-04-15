@@ -43,12 +43,12 @@ import { syncRequiredDocumentsToCustomTypes } from '@/helpers/custom-document-ty
 import type { RequiredOutputDocument } from '@auto-rfp/core';
 import { enqueueGoogleDriveSync } from '@/helpers/google-drive-queue';
 import { getProjectById } from '@/helpers/project';
+import { getOpportunity } from '@/helpers/opportunity';
 import { requireEnv } from '@/helpers/env';
 import { loadTextFromS3 } from '@/helpers/s3';
 import { storeDeadlinesSeparately } from '@/helpers/deadlines';
 import { invokeClaudeWithTools } from '@/helpers/bedrock-tool-loop';
 import { BRIEF_TOOLS, executeBriefTool } from '@/helpers/brief-tools';
-import { PRICING_TOOLS, executePricingTool } from '@/helpers/pricing-tools';
 import { usePricingSystemPrompt, usePricingUserPrompt } from '@/constants/pricing-prompts';
 import { onBriefScoringComplete } from '@/helpers/opportunity-stage';
 
@@ -76,6 +76,27 @@ const SCORING_WEIGHTS: Record<string, number> = {
 const BEDROCK_MODEL_ID = requireEnv('BEDROCK_MODEL_ID');
 const MAX_SOLICITATION_CHARS = Number(requireEnv('BRIEF_MAX_SOLICITATION_CHARS', '45000'));
 const DOCUMENTS_BUCKET = requireEnv('DOCUMENTS_BUCKET');
+
+/**
+ * Load solicitation text with opportunity metadata prepended for richer AI context.
+ */
+const loadSolicitationWithOpportunity = async (
+  brief: ExecutiveBriefItem,
+  orgId: string,
+): Promise<{ solicitationText: string; textKeys: string[] }> => {
+  let opportunity: Record<string, unknown> | null = null;
+  try {
+    const projectId = brief.projectId;
+    const opportunityId = brief.opportunityId as string;
+    if (opportunityId && opportunityId !== 'default') {
+      const result = await getOpportunity({ orgId, projectId, oppId: opportunityId });
+      opportunity = (result?.item as Record<string, unknown>) ?? null;
+    }
+  } catch (err) {
+    console.warn('Failed to load opportunity for brief context:', (err as Error)?.message);
+  }
+  return loadSolicitationForBrief(brief, { opportunity });
+};
 
 // ─── KB Primer ────────────────────────────────────────────────────────────────
 
@@ -157,7 +178,7 @@ async function runSummary(job: Job): Promise<void> {
 
     await markSectionInProgress({ executiveBriefId, section: 'summary', inputHash });
 
-    const { solicitationText: rawText } = await loadSolicitationForBrief(brief);
+    const { solicitationText: rawText } = await loadSolicitationWithOpportunity(brief, orgId);
     const solicitationText = truncateText(rawText, MAX_SOLICITATION_CHARS);
     const kbPrimer = await loadKbPrimer(orgId, solicitationText, 3);
 
@@ -274,7 +295,7 @@ async function runDeadlines(job: Job): Promise<void> {
 
     await markSectionInProgress({ executiveBriefId, section: 'deadlines', inputHash });
 
-    const { solicitationText: rawText } = await loadSolicitationForBrief(brief);
+    const { solicitationText: rawText } = await loadSolicitationWithOpportunity(brief, orgId);
     const solicitationText = truncateText(rawText, MAX_SOLICITATION_CHARS);
 
     // Deadlines: pure extraction from solicitation — no tools needed
@@ -328,7 +349,7 @@ async function runRequirements(job: Job): Promise<void> {
 
     await markSectionInProgress({ executiveBriefId, section: 'requirements', inputHash });
 
-    const { solicitationText: rawText } = await loadSolicitationForBrief(brief);
+    const { solicitationText: rawText } = await loadSolicitationWithOpportunity(brief, orgId);
     const solicitationText = truncateText(rawText, MAX_SOLICITATION_CHARS);
     const kbPrimer = await loadKbPrimer(orgId, solicitationText, 3);
 
@@ -386,7 +407,7 @@ async function runContacts(job: Job): Promise<void> {
 
     await markSectionInProgress({ executiveBriefId, section: 'contacts', inputHash });
 
-    const { solicitationText: rawText } = await loadSolicitationForBrief(brief);
+    const { solicitationText: rawText } = await loadSolicitationWithOpportunity(brief, orgId);
     const solicitationText = truncateText(rawText, MAX_SOLICITATION_CHARS);
 
     // Contacts: pure extraction from solicitation — no tools needed
@@ -440,7 +461,7 @@ async function runRisks(job: Job): Promise<void> {
 
     await markSectionInProgress({ executiveBriefId, section: 'risks', inputHash });
 
-    const { solicitationText: rawText } = await loadSolicitationForBrief(brief);
+    const { solicitationText: rawText } = await loadSolicitationWithOpportunity(brief, orgId);
     const solicitationText = truncateText(rawText, MAX_SOLICITATION_CHARS);
     const kbPrimer = await loadKbPrimer(orgId, solicitationText, 2);
 
@@ -504,7 +525,7 @@ async function runPricing(job: Job): Promise<void> {
 
     await markSectionInProgress({ executiveBriefId, section: 'pricing', inputHash });
 
-    const { solicitationText: rawText } = await loadSolicitationForBrief(brief);
+    const { solicitationText: rawText } = await loadSolicitationWithOpportunity(brief, orgId);
     const solicitationText = truncateText(rawText, MAX_SOLICITATION_CHARS);
     const kbPrimer = await loadKbPrimer(orgId, solicitationText, 3);
 
@@ -523,23 +544,51 @@ async function runPricing(job: Job): Promise<void> {
       setAside: summaryData.setAside,
     } : undefined;
 
+    // Pre-fetch labor rates and BOM items so the model has data without needing tool calls.
+    // This avoids nested Bedrock calls from pricing-extraction tools, which are slow and error-prone.
+    let laborRatesContext = '';
+    let bomContext = '';
+    try {
+      const { getLaborRatesByOrg, getBOMItemsByOrg } = await import('@/helpers/pricing');
+      const [rates, bomItems] = await Promise.all([
+        getLaborRatesByOrg(orgId).catch(() => []),
+        getBOMItemsByOrg(orgId).catch(() => []),
+      ]);
+      if (rates.length) {
+        laborRatesContext = '\n\nORGANIZATION LABOR RATES:\n' + rates
+          .filter((r: { isActive?: boolean }) => r.isActive !== false)
+          .map((r: { position: string; fullyLoadedRate?: number; baseRate?: number }) =>
+            `- ${r.position}: $${r.fullyLoadedRate ?? r.baseRate ?? 0}/hr`)
+          .join('\n');
+      }
+      if (bomItems.length) {
+        bomContext = '\n\nORGANIZATION BOM ITEMS:\n' + bomItems
+          .slice(0, 20)
+          .map((b: { name: string; category: string; unitCost: number; unit: string }) =>
+            `- ${b.name} (${b.category}): $${b.unitCost}/${b.unit}`)
+          .join('\n');
+      }
+    } catch (err) {
+      console.warn('Failed to pre-fetch pricing data:', (err as Error)?.message);
+    }
+
     const data = await invokeClaudeWithTools({
       modelId: BEDROCK_MODEL_ID,
       system: await usePricingSystemPrompt(orgId),
       user: await usePricingUserPrompt(
         orgId,
-        solicitationText,
+        solicitationText + laborRatesContext + bomContext,
         requirementsData ? JSON.stringify(requirementsData) : '',
         kbPrimer,
         pricingAnchors ? JSON.stringify(pricingAnchors) : '',
       ),
-      tools: [...BRIEF_TOOLS, ...PRICING_TOOLS],
+      tools: BRIEF_TOOLS,
       toolExecutor: (toolName, toolInput, toolUseId) =>
-        executePricingTool({ toolName, toolInput, toolUseId, orgId, projectId, opportunityId, executiveBriefId }),
+        executeBriefTool({ toolName, toolInput, toolUseId, orgId, projectId, opportunityId, executiveBriefId }),
       outputSchema: PricingSectionSchema,
       maxTokens: 6000,
       temperature: 0.2,
-      maxToolRounds: 5,
+      maxToolRounds: 2,
     });
 
     await markSectionComplete({
@@ -627,7 +676,7 @@ async function runScoring(job: Job): Promise<void> {
 
     await markSectionInProgress({ executiveBriefId, section: 'scoring', inputHash });
 
-    const { solicitationText: rawText } = await loadSolicitationForBrief(brief);
+    const { solicitationText: rawText } = await loadSolicitationWithOpportunity(brief, orgId);
     const solicitationText = truncateText(rawText, MAX_SOLICITATION_CHARS);
     const kbPrimer = await loadKbPrimer(orgId, solicitationText, 3);
 

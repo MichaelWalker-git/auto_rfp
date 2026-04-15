@@ -262,59 +262,70 @@ export function OpportunityContextPanel() {
 
   // ─── Render ──────────────────────────────────────────────────────────────────
 
+  const pinnedCount = pinnedItems.length;
+  const excludedCount = excludedItems.length;
+  const suggestedCount = suggestedItems.length;
+
   return (
     <Card>
-      <CardHeader className="pb-2">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <CardTitle className="text-base">Generation Context</CardTitle>
-            {!isLoading && totalItems > 0 && (
-              <Badge variant="secondary" className="text-xs">
-                {totalItems} item{totalItems !== 1 ? 's' : ''}
-              </Badge>
-            )}
-          </div>
-          <div className="flex items-center gap-2">
-            {!isCollapsed && (
-              <Button
-                variant="outline"
-                size="sm"
-                disabled={isRefreshing || isLoading}
-                onClick={handleRefresh}
-                title="Reload"
-              >
-                <RefreshCw className={cn('h-4 w-4 mr-2', isRefreshing && 'animate-spin')} />
-                Reload
-              </Button>
-            )}
-            <Button
-              variant="ghost"
-              size="sm"
-              className="h-6 w-6 p-0"
-              onClick={() => setIsCollapsed(!isCollapsed)}
-              title={isCollapsed ? "Expand" : "Collapse"}
-            >
-              {isCollapsed ? (
-                <ChevronDown className="h-4 w-4" />
-              ) : (
-                <ChevronUp className="h-4 w-4" />
+      {/* Clickable header — always visible */}
+      <button
+        type="button"
+        onClick={() => setIsCollapsed(!isCollapsed)}
+        className="w-full text-left"
+      >
+        <CardHeader className="pb-2">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <BookOpen className="h-4 w-4 text-muted-foreground" />
+              <CardTitle className="text-sm font-medium">Generation Context</CardTitle>
+              {!isLoading && totalItems > 0 && (
+                <div className="flex items-center gap-1.5">
+                  <Badge variant="secondary" className="text-xs">{totalItems}</Badge>
+                  {pinnedCount > 0 && (
+                    <Badge variant="outline" className="text-xs border-indigo-200 text-indigo-600">
+                      {pinnedCount} pinned
+                    </Badge>
+                  )}
+                  {excludedCount > 0 && (
+                    <Badge variant="outline" className="text-xs text-muted-foreground">
+                      {excludedCount} excluded
+                    </Badge>
+                  )}
+                </div>
               )}
+            </div>
+            <ChevronDown className={cn(
+              'h-4 w-4 text-muted-foreground transition-transform duration-200',
+              !isCollapsed && 'rotate-180',
+            )} />
+          </div>
+          {isCollapsed && lastRefreshedAt && (
+            <p className="text-xs text-muted-foreground mt-1">
+              Last updated {new Date(lastRefreshedAt).toLocaleDateString()}
+            </p>
+          )}
+        </CardHeader>
+      </button>
+
+      {/* Expanded content */}
+      {!isCollapsed && (
+        <CardContent className="space-y-4 pt-0">
+          <div className="flex items-center justify-between">
+            <p className="text-xs text-muted-foreground">
+              Pin items to always include, or exclude to remove from generation.
+            </p>
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={isRefreshing || isLoading}
+              onClick={(e) => { e.stopPropagation(); handleRefresh(); }}
+              className="shrink-0"
+            >
+              <RefreshCw className={cn('h-3.5 w-3.5 mr-1.5', isRefreshing && 'animate-spin')} />
+              Refresh
             </Button>
           </div>
-        </div>
-        <p className="text-xs text-slate-500 mt-0.5">
-          Relevant document folder, past performance, and content library items used when generating
-          documents. Pin items to always include them, or exclude items to remove them.
-        </p>
-        {lastRefreshedAt && (
-          <p className="text-xs text-slate-400">
-            Last reloaded: {new Date(lastRefreshedAt).toLocaleString()}
-          </p>
-        )}
-      </CardHeader>
-
-      {!isCollapsed && (
-        <CardContent className="space-y-4">
         {isLoading ? (
           <ContextSkeleton />
         ) : totalItems === 0 ? (

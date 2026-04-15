@@ -9,9 +9,13 @@ interface TemplateLibraryProps {
   isLoading: boolean;
   onEdit: (template: TemplateItem) => void;
   onPublish: (templateId: string) => void;
+  onUnpublish: (templateId: string) => void;
   onClone: (template: TemplateItem) => void;
   onDelete: (template: TemplateItem) => void;
+  onUnarchive: (template: TemplateItem) => void;
+  onPermanentlyDelete: (template: TemplateItem) => void;
   orgId: string;
+  emptyMessage?: string;
 }
 
 export function TemplateLibrary({
@@ -19,9 +23,13 @@ export function TemplateLibrary({
   isLoading,
   onEdit,
   onPublish,
+  onUnpublish,
   onClone,
   onDelete,
+  onUnarchive,
+  onPermanentlyDelete,
   orgId,
+  emptyMessage,
 }: TemplateLibraryProps) {
   if (isLoading) {
     return (
@@ -36,10 +44,12 @@ export function TemplateLibrary({
   if (items.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-12 text-center">
-        <p className="text-muted-foreground text-lg">No templates found</p>
-        <p className="text-muted-foreground text-sm mt-1">
-          Create your first template to get started
-        </p>
+        <p className="text-muted-foreground text-lg">{emptyMessage ?? 'No templates found'}</p>
+        {!emptyMessage && (
+          <p className="text-muted-foreground text-sm mt-1">
+            Create your first template to get started
+          </p>
+        )}
       </div>
     );
   }
@@ -52,8 +62,11 @@ export function TemplateLibrary({
           template={template}
           onEdit={onEdit}
           onPublish={onPublish}
+          onUnpublish={onUnpublish}
           onClone={onClone}
           onDelete={onDelete}
+          onUnarchive={onUnarchive}
+          onPermanentlyDelete={onPermanentlyDelete}
           orgId={orgId}
         />
       ))}

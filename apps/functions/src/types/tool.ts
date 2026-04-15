@@ -13,7 +13,21 @@ export interface ToolDefinition {
   };
 }
 
+export interface ToolResultSource {
+  id: string;
+  documentId?: string;
+  kbId?: string;
+  chunkKey?: string;
+  fileName?: string;
+  relevance?: number;
+  textContent?: string;
+  toolName?: string;
+}
+
 export interface ToolResult {
   tool_use_id: string;
   content: string;
+  similarityScores?: number[];
+  sources?: ToolResultSource[];
+  sourceCreatedDates?: string[];
 }

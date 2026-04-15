@@ -27,7 +27,10 @@ export const TEMPLATE_CATEGORIES = [
   'CUSTOM',
 ] as const;
 
-export const TemplateCategorySchema = z.enum(TEMPLATE_CATEGORIES);
+/** Accepts built-in categories or custom UPPER_SNAKE_CASE slugs (e.g. NDA, ORAL_PRESENTATION) */
+export const TemplateCategorySchema = z.enum(TEMPLATE_CATEGORIES).or(
+  z.string().min(1).max(100).regex(/^[A-Z][A-Z0-9_]*$/, 'Must be UPPER_SNAKE_CASE'),
+);
 export type TemplateCategory = z.infer<typeof TemplateCategorySchema>;
 
 export const TEMPLATE_STATUSES = ['DRAFT', 'PUBLISHED', 'ARCHIVED'] as const;

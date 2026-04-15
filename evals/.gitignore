@@ -1,0 +1,5 @@
+.env
+node_modules/
+
+# Build artifacts (compiled from .ts by run-eval.sh)
+*.mjs

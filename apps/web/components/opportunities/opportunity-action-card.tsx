@@ -65,36 +65,33 @@ export const OpportunityActionCard = ({
 }: OpportunityActionCardProps) => {
   if (variant === 'compact') {
     return (
-      <Card className="group hover:shadow-md transition-shadow">
-        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <div className="flex items-center gap-3 min-w-0 flex-1">
-            <div className={cn(
-              'h-10 w-10 rounded-lg flex items-center justify-center shrink-0',
-              'bg-gradient-to-br',
-              iconBgGradient
-            )}>
-              <Icon className={cn('h-5 w-5', iconColor)} />
-            </div>
-            <div className="min-w-0 flex-1">
-              <div className="flex items-center gap-2">
-                <CardTitle className="text-base font-semibold truncate">{title}</CardTitle>
-                {badge && (
-                  <Badge variant={badge.variant ?? 'default'} className="text-xs">
-                    {badge.text}
-                  </Badge>
-                )}
+      <Link href={href} className="block">
+        <Card className="group hover:shadow-md transition-shadow h-full">
+          <CardHeader className="pb-2">
+            <div className="flex items-center gap-3">
+              <div className={cn(
+                'h-10 w-10 rounded-lg flex items-center justify-center shrink-0',
+                'bg-gradient-to-br',
+                iconBgGradient
+              )}>
+                <Icon className={cn('h-5 w-5', iconColor)} />
               </div>
-              <CardDescription className="text-sm line-clamp-1">{description}</CardDescription>
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-2">
+                  <CardTitle className="text-sm font-semibold">{title}</CardTitle>
+                  {badge && (
+                    <Badge variant={badge.variant ?? 'default'} className="text-xs">
+                      {badge.text}
+                    </Badge>
+                  )}
+                </div>
+                <CardDescription className="text-xs line-clamp-1">{description}</CardDescription>
+              </div>
+              <ArrowRight className="h-4 w-4 text-muted-foreground shrink-0 group-hover:translate-x-0.5 transition-transform" />
             </div>
-          </div>
-          <Button asChild size="sm" className="shrink-0">
-            <Link href={href}>
-              <Icon className="h-4 w-4 mr-2" />
-              {buttonText}
-            </Link>
-          </Button>
-        </CardHeader>
-      </Card>
+          </CardHeader>
+        </Card>
+      </Link>
     );
   }
 

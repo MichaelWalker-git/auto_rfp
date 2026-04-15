@@ -1,6 +1,7 @@
 packages:
   - apps/*
   - packages/*
+  - evals
 ignoredBuiltDependencies:
   - '@sentry/cli'
   - aws-sdk

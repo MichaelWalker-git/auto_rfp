@@ -168,6 +168,8 @@ export const OpportunityItemSchema = z.object({
   pocUrl: z.string().url().nullish(),
   /** ISO datetime when the POC was deployed */
   pocDeployedAt: z.string().datetime().nullish(),
+  /** Compliance check IDs that admins have marked as ignored */
+  ignoredComplianceCheckIds: z.array(z.string()).optional(),
 });
 
 export type OpportunityItem = z.infer<typeof OpportunityItemSchema>;

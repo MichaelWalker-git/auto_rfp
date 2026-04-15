@@ -1,12 +1,12 @@
 import { requireEnv } from './env';
-import { getPineconeClient } from './pinecone';
+import { initPineconeClient } from './pinecone';
 import { nowIso } from './date';
 import { ContentLibraryItem } from '@auto-rfp/core';
 import { getEmbedding } from './embeddings';
 import { PK_NAME, SK_NAME } from '../constants/common';
 import { DBItem } from './db';
 
-const PINECONE_INDEX = requireEnv('PINECONE_INDEX');
+const getPineconeIndexName = () => requireEnv('PINECONE_INDEX');
 
 /**
  * Index a content library item in Pinecone.
@@ -18,8 +18,8 @@ export const indexContentLibrary = async (
   orgId: string,
   library: ContentLibraryItem & DBItem,
 ): Promise<string> => {
-  const client = getPineconeClient();
-  const index = client.Index(PINECONE_INDEX);
+  const client = await initPineconeClient();
+  const index = client.Index(getPineconeIndexName());
   const id = library.id;
 
   // Embed only the question for semantic search matching

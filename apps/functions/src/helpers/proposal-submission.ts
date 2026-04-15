@@ -4,6 +4,7 @@ import { createItem, putItem, queryBySkPrefix, docClient } from '@/helpers/db';
 import { requireEnv } from '@/helpers/env';
 import { nowIso } from '@/helpers/date';
 import { listRFPDocumentsByProject } from '@/helpers/rfp-document';
+import { listQuestionFilesByOpportunity } from '@/helpers/questionFile';
 import { PROPOSAL_SUBMISSION_PK } from '@/constants/proposal-submission';
 import { QUESTION_PK } from '@/constants/question';
 import { ANSWER_PK } from '@/constants/answer';
@@ -39,7 +40,9 @@ export const buildSubmissionSkPrefix = (
 
 // ─── Internal helpers ─────────────────────────────────────────────────────────
 
-/** Load all questions for a project+opportunity using the new SK prefix */
+/** Load all questions for a project+opportunity using the new SK prefix,
+ *  filtering out questions from non-PROCESSED question files (orphans from
+ *  cancelled/failed pipelines). */
 const listQuestionsForOpportunity = async (
   projectId: string,
   oppId: string,
@@ -60,7 +63,21 @@ const listQuestionsForOpportunity = async (
       },
     }),
   );
-  return (res.Items ?? []) as Array<{ questionId: string }>;
+  const allQuestions = (res.Items ?? []) as Array<{ questionId: string; questionFileId?: string }>;
+
+  // Build set of PROCESSED file IDs to filter out orphaned questions
+  const { items: questionFiles } = await listQuestionFilesByOpportunity({ projectId, oppId });
+  const processedFileIds = new Set(
+    (questionFiles as Array<{ questionFileId: string; status: string }>)
+      .filter((qf) => qf.status === 'PROCESSED')
+      .map((qf) => qf.questionFileId),
+  );
+
+  return allQuestions.filter((q) => {
+    // Keep manually-added questions (no file) and questions from PROCESSED files
+    if (!q.questionFileId || q.questionFileId === 'manual') return true;
+    return processedFileIds.has(q.questionFileId);
+  });
 };
 
 /** Load all answers for a project+opportunity using the new SK prefix */
@@ -112,8 +129,10 @@ export const checkSubmissionReadiness = async (args: {
   oppId: string;
   deadlineIso?: string | null;
   currentStage?: string | null;
+  ignoredCheckIds?: string[];
 }): Promise<SubmissionReadinessResponse> => {
-  const { orgId, projectId, oppId, deadlineIso, currentStage } = args;
+  const { orgId, projectId, oppId, deadlineIso, currentStage, ignoredCheckIds } = args;
+  const ignoredSet = new Set(ignoredCheckIds ?? []);
   const checks: ReadinessCheckItem[] = [];
 
   // ── BLOCKING 1: Opportunity must be in PURSUING stage ──
@@ -293,8 +312,8 @@ export const checkSubmissionReadiness = async (args: {
     blocking: false,
   });
 
-  const blockingFails = checks.filter((c) => c.blocking && !c.passed).length;
-  const warningFails = checks.filter((c) => !c.blocking && !c.passed).length;
+  const blockingFails = checks.filter((c) => c.blocking && !c.passed && !ignoredSet.has(c.id)).length;
+  const warningFails = checks.filter((c) => !c.blocking && !c.passed && !ignoredSet.has(c.id)).length;
 
   return { ready: blockingFails === 0, checks, blockingFails, warningFails };
 };
@@ -341,7 +360,7 @@ export const getSubmissionHistory = async (
     PROPOSAL_SUBMISSION_PK,
     buildSubmissionSkPrefix(orgId, projectId, oppId),
   );
-  return items.sort((a, b) => b.submittedAt.localeCompare(a.submittedAt));
+  return items.sort((a, b) => (b.submittedAt ?? '').localeCompare(a.submittedAt ?? ''));
 };
 
 export const withdrawSubmissionRecord = async (
@@ -815,11 +834,13 @@ export const generateComplianceReport = async (args: {
   oppId: string;
   deadlineIso?: string | null;
   currentStage?: string | null;
+  ignoredCheckIds?: string[];
 }): Promise<ComplianceReport> => {
-  const { orgId, projectId, oppId, deadlineIso, currentStage } = args;
+  const { orgId, projectId, oppId, deadlineIso, currentStage, ignoredCheckIds } = args;
+  const ignoredSet = new Set(ignoredCheckIds ?? []);
 
   // ── 1. Run existing readiness checks (tagged as submission_readiness) ──
-  const readiness = await checkSubmissionReadiness({ orgId, projectId, oppId, deadlineIso, currentStage });
+  const readiness = await checkSubmissionReadiness({ orgId, projectId, oppId, deadlineIso, currentStage, ignoredCheckIds });
   const readinessChecks: ReadinessCheckItem[] = readiness.checks.map((c) => ({
     ...c,
     category: 'submission_readiness' as const,
@@ -856,25 +877,25 @@ export const generateComplianceReport = async (args: {
   // ── 6. Build category summaries ──
   const categories: ComplianceCategorySummary[] = CATEGORY_ORDER.map((cat) => {
     const catChecks = allChecks.filter((c) => (c.category ?? 'submission_readiness') === cat);
-    const passedCount = catChecks.filter((c) => c.passed).length;
-    const failedCount = catChecks.length - passedCount;
+    const effectiveFailedCount = catChecks.filter((c) => !c.passed && !ignoredSet.has(c.id)).length;
+    const effectivePassedCount = catChecks.length - effectiveFailedCount;
     return {
       category: cat,
       label: CATEGORY_LABELS[cat],
       totalChecks: catChecks.length,
-      passed: passedCount,
-      failed: failedCount,
-      allPassed: failedCount === 0,
+      passed: effectivePassedCount,
+      failed: effectiveFailedCount,
+      allPassed: effectiveFailedCount === 0,
       checks: catChecks,
     };
   }).filter((cat) => cat.totalChecks > 0); // Only include categories with checks
 
-  // ── 7. Compute summary stats ──
-  const blockingFails = allChecks.filter((c) => c.blocking && !c.passed).length;
-  const warningFails = allChecks.filter((c) => !c.blocking && !c.passed).length;
+  // ── 7. Compute summary stats (excluding ignored checks) ──
+  const blockingFails = allChecks.filter((c) => c.blocking && !c.passed && !ignoredSet.has(c.id)).length;
+  const warningFails = allChecks.filter((c) => !c.blocking && !c.passed && !ignoredSet.has(c.id)).length;
   const totalChecks = allChecks.length;
-  const totalPassed = allChecks.filter((c) => c.passed).length;
-  const passRate = totalChecks > 0 ? Math.round((totalPassed / totalChecks) * 100) : 100;
+  const effectivePassed = allChecks.filter((c) => c.passed || ignoredSet.has(c.id)).length;
+  const passRate = totalChecks > 0 ? Math.round((effectivePassed / totalChecks) * 100) : 100;
 
   return {
     ready: blockingFails === 0,

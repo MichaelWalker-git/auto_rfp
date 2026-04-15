@@ -167,7 +167,19 @@ export const baseHandler = async (
       return apiResponse(400, { message: 'Request body is required' });
     }
 
-    const body: ExportAllRequest = JSON.parse(event.body);
+    const body = JSON.parse(event.body) as ExportAllRequest & {
+      mode?: 'merged';
+      documentIds?: string[];
+      format?: string;
+      fileName?: string;
+    };
+
+    // Delegate to merged export handler if mode is 'merged'
+    if (body.mode === 'merged') {
+      const { exportMergedDocuments } = await import('./export-merged-rfp-documents');
+      return exportMergedDocuments(event, body as unknown as Record<string, unknown>);
+    }
+
     const { projectId, opportunityId, formats: requestedFormats, options: exportOptions } = body;
 
     if (!projectId) {

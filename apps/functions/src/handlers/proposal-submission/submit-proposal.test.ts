@@ -88,6 +88,20 @@ jest.mock('@/helpers/secret', () => ({
   getHmacSecret: () => mockGetHmacSecret(),
 }));
 
+jest.mock('@/helpers/resolve-users', () => ({
+  resolveUserNames: jest.fn().mockResolvedValue({ 'user-123': 'john.doe' }),
+}));
+
+jest.mock('@aws-sdk/client-s3', () => ({
+  S3Client: jest.fn(() => ({ send: jest.fn().mockResolvedValue({}) })),
+  GetObjectCommand: jest.fn(),
+  PutObjectCommand: jest.fn(),
+}));
+
+jest.mock('@aws-sdk/s3-request-presigner', () => ({
+  getSignedUrl: jest.fn().mockResolvedValue('https://s3.example.com/signed-url'),
+}));
+
 // Set required environment variables
 process.env['DB_TABLE_NAME'] = 'test-table';
 process.env['REGION'] = 'us-east-1';
@@ -305,8 +319,8 @@ describe('submit-proposal handler', () => {
         ['specific-doc-1'],
         expect.anything(),
       );
-      // Should not call listRFPDocumentsByProject when documentIds are provided
-      expect(mockListRFPDocumentsByProject).not.toHaveBeenCalled();
+      // listRFPDocumentsByProject is still called for email draft attachment URLs
+      // but the submission record should use the provided documentIds, not the list result
     });
 
     it('triggers onProjectOutcomeSet with PENDING status (non-blocking)', async () => {

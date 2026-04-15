@@ -83,6 +83,7 @@ export const RFP_DOCUMENT_TYPES = {
   AMENDMENT: 'Amendment',
   CORRESPONDENCE: 'Correspondence',
   CLARIFYING_QUESTIONS: 'Clarifying Questions',
+  QUESTIONS_AND_ANSWERS: 'Questions & Answers',
   OTHER: 'Other',
 } as const;
 
@@ -113,10 +114,11 @@ export const RFP_DOCUMENT_TYPE_DESCRIPTIONS: Record<keyof typeof RFP_DOCUMENT_TY
   AMENDMENT: 'Contract or solicitation amendment.',
   CORRESPONDENCE: 'General correspondence related to the opportunity.',
   CLARIFYING_QUESTIONS: 'Questions to submit during the Q&A period. Generated from AI-identified ambiguities in the solicitation, filtered by status, and formatted for submission to the contracting officer.',
+  QUESTIONS_AND_ANSWERS: 'Extracted questions from solicitation documents with AI-generated answers. Organized by section with question-answer pairs formatted for review and export.',
   OTHER: 'Miscellaneous document not covered by other categories.',
 };
 
-export const RFPDocumentTypeSchema = z.enum([
+const RFP_DOCUMENT_TYPE_ENUM = [
   // Core proposal sections
   'COVER_LETTER',
   'EXECUTIVE_SUMMARY',
@@ -142,8 +144,14 @@ export const RFPDocumentTypeSchema = z.enum([
   'AMENDMENT',
   'CORRESPONDENCE',
   'CLARIFYING_QUESTIONS',
+  'QUESTIONS_AND_ANSWERS',
   'OTHER',
-]);
+] as const;
+
+/** Accepts built-in document types or custom UPPER_SNAKE_CASE slugs */
+export const RFPDocumentTypeSchema = z.enum(RFP_DOCUMENT_TYPE_ENUM).or(
+  z.string().min(1).max(100).regex(/^[A-Z][A-Z0-9_]*$/, 'Must be UPPER_SNAKE_CASE'),
+);
 
 export type RFPDocumentType = z.infer<typeof RFPDocumentTypeSchema>;
 

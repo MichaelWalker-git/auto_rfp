@@ -88,7 +88,7 @@ function DocumentApprovalStatus({ doc, orgId, projectId }: { doc: RFPDocumentIte
 }
 
 export function OpportunityRFPDocuments() {
-  const { projectId, oppId, orgId } = useOpportunityContext();
+  const { projectId, oppId, orgId, opportunity } = useOpportunityContext();
   const { currentOrganization } = useCurrentOrganization();
   const navOrgId = currentOrganization?.id ?? orgId;
   const { documents, isLoading, mutate } = useRFPDocuments(projectId, orgId, oppId);
@@ -241,50 +241,42 @@ export function OpportunityRFPDocuments() {
   return (
     <>
       <Card>
-        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <div>
-            <CardTitle className="text-sm font-medium">RFP Documents</CardTitle>
-            <CardDescription className="mt-1">
-              {documents.length} {documents.length === 1 ? 'document' : 'documents'} for this opportunity
-            </CardDescription>
-          </div>
-          <div className="flex items-center gap-2">
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => setExportAllDialogOpen(true)}
-              disabled={!hasExportableDocuments || documents.length === 0}
-              title={
-                documents.length === 0
-                  ? 'No documents to export'
-                  : !hasExportableDocuments
-                    ? 'No documents with generated content to export'
-                    : 'Export all documents as a ZIP bundle'
-              }
-            >
-              <Download className="h-4 w-4 mr-2" />
-              Export All
-            </Button>
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => mutate()}
-              disabled={isLoading}
-              title="Reload"
-            >
-              <RefreshCw className={cn('h-4 w-4 mr-2', isLoading && 'animate-spin')} />
-              Reload
-            </Button>
-            <GenerateDocumentDialog
-              projectId={projectId}
-              opportunityId={oppId}
-              orgId={orgId}
-              onSuccess={() => mutate()}
-            />
-            <Button size="sm" onClick={() => setUploadDialogOpen(true)}>
-              <Upload className="h-4 w-4 mr-2" />
-              Upload
-            </Button>
+        <CardHeader className="pb-2">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+            <div className="min-w-0">
+              <CardTitle className="text-sm font-medium">RFP Documents</CardTitle>
+              <CardDescription className="mt-1">
+                {documents.length} {documents.length === 1 ? 'document' : 'documents'} for this opportunity
+              </CardDescription>
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => setExportAllDialogOpen(true)}
+                disabled={!hasExportableDocuments || documents.length === 0}
+                title={
+                  documents.length === 0
+                    ? 'No documents to export'
+                    : !hasExportableDocuments
+                      ? 'No documents with generated content to export'
+                      : 'Export all documents as a ZIP bundle'
+                }
+              >
+                <Download className="h-4 w-4 mr-2" />
+                Export
+              </Button>
+              <GenerateDocumentDialog
+                projectId={projectId}
+                opportunityId={oppId}
+                orgId={orgId}
+                onSuccess={() => mutate()}
+              />
+              <Button size="sm" onClick={() => setUploadDialogOpen(true)}>
+                <Upload className="h-4 w-4 mr-2" />
+                Upload
+              </Button>
+            </div>
           </div>
         </CardHeader>
 
@@ -349,8 +341,8 @@ export function OpportunityRFPDocuments() {
                 );
 
                 const cardContent = (
-                  <div className="flex items-start gap-3">
-                    <div className="h-10 w-10 rounded-lg bg-muted flex items-center justify-center shrink-0">
+                  <div className="flex items-start gap-3" data-doc-status={doc.status ?? 'COMPLETE'}>
+                    <div className="h-10 w-10 rounded-lg bg-muted hidden sm:flex items-center justify-center shrink-0">
                       <FileText className="h-5 w-5 text-muted-foreground" />
                     </div>
 
@@ -360,7 +352,7 @@ export function OpportunityRFPDocuments() {
                           {doc.name}
                         </p>
                         <Badge variant="outline" className={cn('text-xs border', typeChip.cls)}>
-                          {RFP_DOCUMENT_TYPES[doc.documentType] ?? doc.documentType}
+                          {RFP_DOCUMENT_TYPES[doc.documentType as keyof typeof RFP_DOCUMENT_TYPES] ?? doc.documentType}
                         </Badge>
                         <DocumentApprovalStatus 
                           doc={doc} 
@@ -472,7 +464,8 @@ export function OpportunityRFPDocuments() {
         projectId={projectId}
         orgId={orgId}
         opportunityId={oppId}
-        documentCount={documents.filter((d) => d.status !== 'GENERATING' && (d.htmlContentKey || d.content)).length}
+        opportunityTitle={opportunity?.title ?? undefined}
+        documents={documents}
       />
       <ConfirmDialog />
     </>

@@ -5,9 +5,10 @@ import { useAuth } from '@/components/AuthProvider';
 type Props = {
   requiredPermission: Permission;
   children: React.ReactNode;
+  fallback?: React.ReactNode;
 }
 
-const PermissionWrapper = ({ requiredPermission, children }: Props) => {
+const PermissionWrapper = ({ requiredPermission, children, fallback }: Props) => {
   const { orgId, permissions } = useAuth();
 
   if (!orgId || permissions && permissions.includes(requiredPermission)) {
@@ -18,7 +19,7 @@ const PermissionWrapper = ({ requiredPermission, children }: Props) => {
     );
   }
 
-  return (<></>);
+  return <>{fallback ?? null}</>;
 };
 
 export function usePermission(requiredPermission: Permission): boolean {

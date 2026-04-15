@@ -113,6 +113,11 @@ const fillAndSubmitForm = async (user: ReturnType<typeof userEvent.setup>) => {
   await user.type(screen.getByLabelText(/mailing address/i), '123 Business Ave, Arlington VA 22201');
   await user.type(screen.getByLabelText(/company name/i), 'Acme Corp');
 
+  // Set fee limit explicitly (valueAsNumber can produce NaN in jsdom if not set)
+  const feeLimitInput = screen.getByLabelText(/fee limit/i);
+  await user.clear(feeLimitInput);
+  await user.type(feeLimitInput, '50');
+
   // Select a document
   await user.click(screen.getByTestId('checkbox-SSEB_REPORT'));
 

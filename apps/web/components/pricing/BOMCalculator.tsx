@@ -12,6 +12,7 @@ import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Plus, Trash2, Package } from 'lucide-react';
 import { mutate } from 'swr';
+import { usePermission } from '@/components/permission-wrapper';
 
 const BOM_CATEGORIES = BOMItemTypeSchema.options;
 
@@ -43,6 +44,8 @@ export const BOMCalculator = ({ orgId }: BOMCalculatorProps) => {
   const { trigger: createItem, isMutating: isCreating } = useCreateBOMItem(orgId);
   const { trigger: deleteItem } = useDeleteBOMItem(orgId);
   const [showForm, setShowForm] = useState(false);
+  const canCreate = usePermission('pricing:create');
+  const canDelete = usePermission('pricing:delete');
 
   const bomItems = data?.bomItems ?? [];
 
@@ -102,10 +105,12 @@ export const BOMCalculator = ({ orgId }: BOMCalculatorProps) => {
             Track hardware, software, materials, and other direct costs.
           </p>
         </div>
-        <Button onClick={() => setShowForm(!showForm)} size="sm">
-          <Plus className="h-4 w-4 mr-1" />
-          Add Item
-        </Button>
+        {canCreate && (
+          <Button onClick={() => setShowForm(!showForm)} size="sm">
+            <Plus className="h-4 w-4 mr-1" />
+            Add Item
+          </Button>
+        )}
       </div>
 
       {/* Category Filter */}
@@ -216,11 +221,13 @@ export const BOMCalculator = ({ orgId }: BOMCalculatorProps) => {
                     <td className="p-3 text-right font-semibold">${item.unitCost.toFixed(2)}</td>
                     <td className="p-3">{item.unit}</td>
                     <td className="p-3 text-muted-foreground">{item.vendor || '—'}</td>
-                    <td className="p-3 text-right">
-                      <Button variant="ghost" size="sm" onClick={() => handleDelete(item.bomItemId)}>
-                        <Trash2 className="h-4 w-4 text-red-500" />
-                      </Button>
-                    </td>
+                    {canDelete && (
+                      <td className="p-3 text-right">
+                        <Button variant="ghost" size="sm" onClick={() => handleDelete(item.bomItemId)}>
+                          <Trash2 className="h-4 w-4 text-red-500" />
+                        </Button>
+                      </td>
+                    )}
                   </tr>
                 ))}
               </tbody>

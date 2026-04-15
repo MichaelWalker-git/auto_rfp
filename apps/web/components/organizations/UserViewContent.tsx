@@ -55,6 +55,7 @@ import { useKnowledgeBases } from '@/lib/hooks/use-knowledgebase';
 import { invalidateKBAccessCaches } from '@/lib/helpers/kb-access-cache';
 import { UserRoleSchema, type UserRole, type KnowledgeBase } from '@auto-rfp/core';
 import { formatDate } from '@/components/brief/helpers';
+import { RoleInfoPopover } from './RoleInfoPopover';
 
 // ────────────────────────────────────────────
 // Types & Constants
@@ -362,7 +363,10 @@ export function UserViewContent({ orgId, userId }: UserViewContentProps) {
               </div>
 
               <div className="grid gap-2">
-                <Label>Role</Label>
+                <div className="flex items-center gap-1">
+                  <Label>Role</Label>
+                  <RoleInfoPopover />
+                </div>
                 <Select value={role} onValueChange={(v) => setRole(v as UserRole)}>
                   <SelectTrigger className="w-full sm:w-[200px]">
                     <SelectValue />

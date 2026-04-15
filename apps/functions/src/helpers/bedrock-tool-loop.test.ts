@@ -101,8 +101,7 @@ describe('invokeClaudeWithTools', () => {
     expect(mockToolExecutor).toHaveBeenCalledWith('search_knowledge_base', { query: 'certifications' }, 'tool-1');
   });
 
-  it('forces final generation after maxToolRounds', async () => {
-    // All rounds return tool_use
+  it('forces text output after maxToolRounds and returns JSON', async () => {
     const toolUseResponse = {
       stop_reason: 'tool_use',
       content: [{ type: 'tool_use', id: 'tool-1', name: 'search_knowledge_base', input: {} }],
@@ -112,29 +111,35 @@ describe('invokeClaudeWithTools', () => {
       content: [{ type: 'text', text: '{"title":"Forced Final"}' }],
     };
 
-    // 3 tool rounds + 1 final forced call
+    // maxToolRounds=2, absoluteMax=4
+    // Round 0: tools offered → tool_use → execute tool
+    // Round 1: tools offered → tool_use → execute tool
+    // Round 2: no tools → tool_use → prompt for JSON
+    // Round 3: no tools → returns final text
     mockInvokeModel
       .mockResolvedValueOnce(encodeResponse(toolUseResponse))
       .mockResolvedValueOnce(encodeResponse(toolUseResponse))
       .mockResolvedValueOnce(encodeResponse(toolUseResponse))
-      .mockResolvedValueOnce(encodeResponse(toolUseResponse)) // last round still tool_use
-      .mockResolvedValueOnce(encodeResponse(finalResponse));  // forced final
+      .mockResolvedValueOnce(encodeResponse(finalResponse));
 
     const result = await invokeClaudeWithTools({
       modelId: MODEL_ID,
       system: 'System',
       user: 'User',
-      tools: [{ name: 'search_knowledge_base', description: 'Search', input_schema: { type: 'object', properties: {}, required: [] } }],
+      tools: [{ name: 'search_knowledge_base', description: 'Search', input_schema: { type: 'object' as const, properties: {}, required: [] } }],
       toolExecutor: mockToolExecutor,
       outputSchema: SIMPLE_SCHEMA,
-      maxToolRounds: 3,
+      maxToolRounds: 2,
     });
 
     expect(result).toEqual({ title: 'Forced Final' });
+    // Only 2 tool executions (rounds 0 and 1)
+    expect(mockToolExecutor).toHaveBeenCalledTimes(2);
   });
 
   it('throws when model returns no text after all rounds', async () => {
     const emptyResponse = { stop_reason: 'end_turn', content: [] };
+    // absoluteMax = 0 + 2 = 2, so up to 3 iterations + 1 JSON retry
     mockInvokeModel.mockResolvedValue(encodeResponse(emptyResponse));
 
     await expect(
@@ -147,10 +152,15 @@ describe('invokeClaudeWithTools', () => {
         outputSchema: SIMPLE_SCHEMA,
         maxToolRounds: 0,
       }),
-    ).rejects.toThrow('[bedrock-tool-loop] Model returned no text content after all rounds');
+    ).rejects.toThrow('Model returned no text content after all rounds');
   });
 
   it('executes multiple tool calls in parallel within a single round', async () => {
+    const MOCK_TOOLS = [
+      { name: 'search_knowledge_base', description: 'Search KB', input_schema: { type: 'object' as const, properties: {}, required: [] } },
+      { name: 'search_past_performance', description: 'Search PP', input_schema: { type: 'object' as const, properties: {}, required: [] } },
+    ];
+
     const toolUseResponse = {
       stop_reason: 'tool_use',
       content: [
@@ -171,7 +181,7 @@ describe('invokeClaudeWithTools', () => {
       modelId: MODEL_ID,
       system: 'System',
       user: 'User',
-      tools: [],
+      tools: MOCK_TOOLS,
       toolExecutor: mockToolExecutor,
       outputSchema: SIMPLE_SCHEMA,
     });

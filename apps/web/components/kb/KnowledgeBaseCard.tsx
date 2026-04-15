@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { formatDate } from '@/components/brief/helpers';
 import { KnowledgeBase } from '@auto-rfp/core';
 import { Edit2, Trash2 } from 'lucide-react';
+import { usePermission } from '@/components/permission-wrapper';
 
 type Props = {
   kb: KnowledgeBase;
@@ -16,6 +17,8 @@ type Props = {
 };
 
 const KnowledgeBaseCard = ({ kb, onOpen, onEdit, onDelete }: Props) => {
+  const canEdit = usePermission('kb:edit');
+  const canDelete = usePermission('kb:delete');
   const countLabel = `${kb?._count?.documents ?? 0} documents`;
 
   const handleEdit = (e: React.MouseEvent) => {
@@ -49,7 +52,7 @@ const KnowledgeBaseCard = ({ kb, onOpen, onEdit, onDelete }: Props) => {
           </CardTitle>
 
           {/* Actions — right side, hover only */}
-          {(onEdit || onDelete) && (
+          {((onEdit && canEdit) || (onDelete && canDelete)) && (
             <div
               className="
           flex items-center gap-1 shrink-0 ml-auto
@@ -59,7 +62,7 @@ const KnowledgeBaseCard = ({ kb, onOpen, onEdit, onDelete }: Props) => {
         "
               onClick={(e) => e.stopPropagation()}
             >
-              {onEdit && (
+              {onEdit && canEdit && (
                 <Button
                   variant="ghost"
                   size="icon"
@@ -71,7 +74,7 @@ const KnowledgeBaseCard = ({ kb, onOpen, onEdit, onDelete }: Props) => {
                 </Button>
               )}
 
-              {onDelete && (
+              {onDelete && canDelete && (
                 <Button
                   variant="ghost"
                   size="icon"

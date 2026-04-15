@@ -49,14 +49,14 @@ const getStrategyText = (strategy: string) => {
 export const PricingCard = ({ pricing }: PricingCardProps) => {
   if (!pricing) {
     return (
-      <Card className="border-2">
+      <Card>
         <CardHeader className="pb-3">
           <div className="flex items-center gap-2">
             <DollarSign className="h-5 w-5" />
             <CardTitle>Pricing Analysis</CardTitle>
           </div>
         </CardHeader>
-        <CardContent className="space-y-6">
+        <CardContent className="space-y-3">
           <div className="border rounded-lg p-6 text-center">
             <Calculator className="h-6 w-6 mx-auto mb-2 text-muted-foreground" />
             <p className="text-sm text-muted-foreground">
@@ -69,14 +69,14 @@ export const PricingCard = ({ pricing }: PricingCardProps) => {
   }
 
   return (
-    <Card className="border-2">
+    <Card>
       <CardHeader className="pb-3">
         <div className="flex items-center gap-2">
           <DollarSign className="h-5 w-5" />
           <CardTitle>Pricing Analysis</CardTitle>
         </div>
       </CardHeader>
-      <CardContent className="space-y-6">
+      <CardContent className="space-y-3">
         {/* Price Summary */}
         <div className="grid grid-cols-2 gap-4">
           <div>

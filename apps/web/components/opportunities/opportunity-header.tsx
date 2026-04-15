@@ -95,89 +95,80 @@ export const OpportunityHeader = () => {
   return (
     <>
       <Card>
-        <CardHeader className="flex flex-row items-start justify-between gap-4">
-          <div className="min-w-0 flex-1">
-            {isEditing ? (
-              <OpportunityHeaderEdit
-                opportunity={opportunity}
-                onSubmit={handleUpdate}
-                submitError={submitError}
-                onClearError={() => setSubmitError(null)}
-              />
-            ) : (
-              <OpportunityHeaderView
-                opportunity={opportunity}
-                orgId={orgId}
-                projectId={projectId}
-                oppId={oppId}
-                onStageChanged={refetch}
-              />
-            )}
-          </div>
+        <CardHeader className="pb-3">
+          <div className="flex items-start justify-between gap-4">
+            {/* Info — takes remaining space */}
+            <div className="min-w-0 flex-1">
+              {isEditing ? (
+                <OpportunityHeaderEdit
+                  opportunity={opportunity}
+                  onSubmit={handleUpdate}
+                  submitError={submitError}
+                  onClearError={() => setSubmitError(null)}
+                />
+              ) : (
+                <OpportunityHeaderView
+                  opportunity={opportunity}
+                  orgId={orgId}
+                  projectId={projectId}
+                  oppId={oppId}
+                  onStageChanged={refetch}
+                />
+              )}
+            </div>
 
-          {/* Action buttons */}
-          <div className="shrink-0 flex items-center gap-2">
-            {isEditing ? (
-              <>
-                <Button type="submit" form="opp-edit-form" size="sm" disabled={isUpdating}>
-                  {isUpdating ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Check className="h-4 w-4 mr-2" />}
-                  Save
-                </Button>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setIsEditing(false)}
-                  disabled={isUpdating}
-                >
-                  <X className="h-4 w-4 mr-2" />
-                  Cancel
-                </Button>
-              </>
-            ) : (
-              <>
-                <Button variant="outline" size="sm" asChild>
-                  <Link href={briefUrl}>
-                    <Target className="h-4 w-4 mr-2" />
-                    Executive Brief
-                  </Link>
-                </Button>
-                {currentOrganization?.enablePOCGeneration && (
-                  pocUrl ? (
-                    <Button variant="outline" size="sm" asChild>
-                      <a href={pocUrl} target="_blank" rel="noopener noreferrer">
-                        <ExternalLink className="h-4 w-4 mr-2" />
-                        View POC
-                      </a>
-                    </Button>
-                  ) : (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={handleEmitEvent}
-                      disabled={isEmitting || isAlreadyEmitted}
-                    >
-                      {(isEmitting || isAlreadyEmitted) ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Send className="h-4 w-4 mr-2" />}
-                      Develop POC
-                    </Button>
-                  )
-                )}
-                <Button variant="outline" size="sm" onClick={() => setIsEditing(true)}>
-                  <Pencil className="h-4 w-4 mr-2" />
-                  Edit
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setShowDeleteConfirm(true)}
-                  disabled={isDeleting}
-                  className="text-destructive hover:text-destructive hover:bg-destructive/10"
-                >
-                  {isDeleting ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Trash2 className="h-4 w-4 mr-2" />}
-                  Delete
-                </Button>
-              </>
-            )}
+            {/* Action buttons — pinned to right of title */}
+            <div className="flex flex-wrap items-center gap-1.5 shrink-0">
+              {isEditing ? (
+                <>
+                  <Button type="submit" form="opp-edit-form" size="sm" disabled={isUpdating}>
+                    {isUpdating ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <Check className="h-4 w-4 mr-1" />}
+                    Save
+                  </Button>
+                  <Button type="button" variant="outline" size="sm" onClick={() => setIsEditing(false)} disabled={isUpdating}>
+                    <X className="h-4 w-4 mr-1" />
+                    Cancel
+                  </Button>
+                </>
+              ) : (
+                <>
+                  <Button variant="outline" size="sm" asChild>
+                    <Link href={briefUrl}>
+                      <Target className="h-4 w-4 sm:mr-1" />
+                      <span className="hidden sm:inline">Brief</span>
+                    </Link>
+                  </Button>
+                  {currentOrganization?.enablePOCGeneration && (
+                    pocUrl ? (
+                      <Button variant="outline" size="sm" asChild>
+                        <a href={pocUrl} target="_blank" rel="noopener noreferrer">
+                          <ExternalLink className="h-4 w-4 sm:mr-1" />
+                          <span className="hidden sm:inline">POC</span>
+                        </a>
+                      </Button>
+                    ) : (
+                      <Button variant="outline" size="sm" onClick={handleEmitEvent} disabled={isEmitting || isAlreadyEmitted}>
+                        {(isEmitting || isAlreadyEmitted) ? <Loader2 className="h-4 w-4 sm:mr-1 animate-spin" /> : <Send className="h-4 w-4 sm:mr-1" />}
+                        <span className="hidden sm:inline">POC</span>
+                      </Button>
+                    )
+                  )}
+                  <Button variant="outline" size="sm" onClick={() => setIsEditing(true)}>
+                    <Pencil className="h-4 w-4 sm:mr-1" />
+                    <span className="hidden sm:inline">Edit</span>
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setShowDeleteConfirm(true)}
+                    disabled={isDeleting}
+                    className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                  >
+                    {isDeleting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+                  </Button>
+                </>
+              )}
+            </div>
           </div>
         </CardHeader>
 
