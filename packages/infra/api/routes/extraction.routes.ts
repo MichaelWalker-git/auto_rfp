@@ -2,10 +2,22 @@ import { lambdaEntry } from './route-helper';
 import type { DomainRoutes } from './types';
 
 export interface ExtractionDomainConfig {
+  /** Required: SQS queue URL for extraction job processing */
   extractionQueueUrl: string;
 }
 
-export function extractionDomain(config?: ExtractionDomainConfig): DomainRoutes {
+/**
+ * Extraction domain routes.
+ * Requires extractionQueueUrl to be configured - throws during synth if missing.
+ */
+export function extractionDomain(config: ExtractionDomainConfig): DomainRoutes {
+  if (!config.extractionQueueUrl) {
+    throw new Error(
+      'extractionDomain requires extractionQueueUrl to be configured. ' +
+      'Ensure the extraction SQS queue is created before registering this domain.'
+    );
+  }
+
   return {
     basePath: 'extraction',
     routes: [
@@ -16,7 +28,7 @@ export function extractionDomain(config?: ExtractionDomainConfig): DomainRoutes 
         entry: lambdaEntry('extraction/start-extraction-job.ts'),
         timeoutSeconds: 30,
         extraEnv: {
-          EXTRACTION_QUEUE_URL: config?.extractionQueueUrl || '',
+          EXTRACTION_QUEUE_URL: config.extractionQueueUrl,
         },
       },
       // Get extraction job status

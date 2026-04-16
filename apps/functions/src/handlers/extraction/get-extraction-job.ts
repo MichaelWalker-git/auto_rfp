@@ -6,6 +6,8 @@ import { apiResponse } from '@/helpers/api';
 import {
   authContextMiddleware,
   httpErrorMiddleware,
+  orgMembershipMiddleware,
+  requirePermission,
   type AuthedEvent,
 } from '@/middleware/rbac-middleware';
 
@@ -28,5 +30,7 @@ const baseHandler = async (event: AuthedEvent): Promise<APIGatewayProxyResultV2>
 export const handler = withSentryLambda(
   middy(baseHandler)
     .use(authContextMiddleware())
+    .use(orgMembershipMiddleware())
+    .use(requirePermission('kb:read'))
     .use(httpErrorMiddleware()),
 );

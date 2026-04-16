@@ -10,6 +10,7 @@ import { Check, X, AlertTriangle, FileText, ChevronDown, ChevronUp, Edit, Extern
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { BOMItemTypeSchema, type PastProjectDraft, type LaborRateDraft, type BOMItemDraft } from '@auto-rfp/core';
 import { useConfirmDraft, useDiscardDraft } from '@/lib/hooks/use-extraction';
 import { usePresignDownload } from '@/lib/hooks/use-presign';
@@ -417,12 +418,14 @@ interface BOMItemEditDialogProps {
 }
 
 const BOMItemEditDialog = ({ draft, open, onOpenChange, onSubmit, isSubmitting }: BOMItemEditDialogProps) => {
+  const [category, setCategory] = useState(draft.category);
+
   const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const fd = new FormData(e.currentTarget);
     onSubmit({
       name: fd.get('name') as string,
-      category: fd.get('category') as string,
+      category,
       unitCost: parseFloat(fd.get('unitCost') as string),
       unit: fd.get('unit') as string,
       vendor: fd.get('vendor') as string,
@@ -445,15 +448,16 @@ const BOMItemEditDialog = ({ draft, open, onOpenChange, onSubmit, isSubmitting }
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="text-sm font-medium">Category</label>
-              <select 
-                name="category" 
-                defaultValue={draft.category} 
-                className="w-full rounded-md border px-3 py-2 text-sm bg-background"
-              >
-                {BOM_CATEGORIES.map((cat) => (
-                  <option key={cat} value={cat}>{categoryLabels[cat]}</option>
-                ))}
-              </select>
+              <Select value={category} onValueChange={setCategory}>
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Select category" />
+                </SelectTrigger>
+                <SelectContent>
+                  {BOM_CATEGORIES.map((cat) => (
+                    <SelectItem key={cat} value={cat}>{categoryLabels[cat]}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
             <div>
               <label className="text-sm font-medium">Unit Cost ($)</label>

@@ -206,7 +206,6 @@ export const extractPastPerformanceFromDocument = async (
     return [];
   }
   console.log(`Loaded document text: ${docText.length} characters`);
-  console.log(`Document text preview: ${docText.slice(0, 500)}`);
 
   // 2. Call Bedrock to extract past performance
   const textContent = await callBedrockForExtraction(
@@ -217,8 +216,6 @@ export const extractPastPerformanceFromDocument = async (
     console.warn('No text content in Bedrock response');
     return [];
   }
-
-  console.log('AI raw response (first 1000 chars):', textContent.slice(0, 1000));
   
   const extractedProjects = parseJsonFromResponse(textContent);
   if (!extractedProjects) {
@@ -351,7 +348,6 @@ export const extractLaborRatesFromDocument = async (
     return [];
   }
   console.log(`Loaded document text: ${docText.length} characters`);
-  console.log(`Document text preview: ${docText.slice(0, 500)}`);
 
   // 2. Call Bedrock to extract labor rates
   const textContent = await callBedrockForExtraction(
@@ -362,8 +358,6 @@ export const extractLaborRatesFromDocument = async (
     console.warn('No text content in Bedrock response');
     return [];
   }
-
-  console.log('AI raw response (first 1000 chars):', textContent.slice(0, 1000));
   
   const extractedRates = parseJsonFromResponse(textContent);
   if (!extractedRates) {
@@ -484,8 +478,6 @@ export const extractBOMItemsFromDocument = async (
     console.warn('No text content in Bedrock response');
     return [];
   }
-
-  console.log('AI raw response (first 1000 chars):', textContent.slice(0, 1000));
   
   const extractedItems = parseJsonFromResponse(textContent);
   if (!extractedItems) {

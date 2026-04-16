@@ -7,6 +7,8 @@ import { apiResponse } from '@/helpers/api';
 import {
   authContextMiddleware,
   httpErrorMiddleware,
+  orgMembershipMiddleware,
+  requirePermission,
   type AuthedEvent,
 } from '@/middleware/rbac-middleware';
 import { auditMiddleware, setAuditContext } from '@/middleware/audit-middleware';
@@ -15,6 +17,11 @@ import { requireEnv } from '@/helpers/env';
 
 const sqsClient = new SQSClient({ region: requireEnv('REGION', 'us-east-1') });
 const EXTRACTION_QUEUE_URL = process.env.EXTRACTION_QUEUE_URL;
+
+// Validate at module load - fail fast if misconfigured
+if (!EXTRACTION_QUEUE_URL) {
+  console.error('EXTRACTION_QUEUE_URL environment variable is not set');
+}
 
 const baseHandler = async (event: AuthedEvent): Promise<APIGatewayProxyResultV2> => {
   try {
@@ -29,21 +36,44 @@ const baseHandler = async (event: AuthedEvent): Promise<APIGatewayProxyResultV2>
       });
     }
 
+    // Validate that all S3 keys belong to the requesting organization
+    // This prevents cross-tenant data access via S3 key manipulation
+    if (data.sourceFiles && data.sourceFiles.length > 0) {
+      const orgPrefix = `extraction/${data.orgId}/`;
+      const invalidKeys = data.sourceFiles
+        .map((f) => f.s3Key)
+        .filter((key) => !key.startsWith(orgPrefix));
+      
+      if (invalidKeys.length > 0) {
+        return apiResponse(403, {
+          ok: false,
+          error: 'Access denied: source files must belong to your organization',
+          details: { invalidKeys },
+        });
+      }
+    }
+
+    // Fail early if queue URL is not configured
+    if (!EXTRACTION_QUEUE_URL) {
+      return apiResponse(503, {
+        ok: false,
+        error: 'Extraction service is not configured. Please contact support.',
+      });
+    }
+
     const userId = event.auth?.userId || 'system';
     const job = await createExtractionJobRecord(data, userId);
 
     // Queue the job for async processing
-    if (EXTRACTION_QUEUE_URL) {
-      await sqsClient.send(
-        new SendMessageCommand({
-          QueueUrl: EXTRACTION_QUEUE_URL,
-          MessageBody: JSON.stringify({
-            jobId: job.jobId,
-            orgId: job.orgId,
-          }),
+    await sqsClient.send(
+      new SendMessageCommand({
+        QueueUrl: EXTRACTION_QUEUE_URL,
+        MessageBody: JSON.stringify({
+          jobId: job.jobId,
+          orgId: job.orgId,
         }),
-      );
-    }
+      }),
+    );
 
     setAuditContext(event, {
       action: 'EXTRACTION_JOB_STARTED',
@@ -65,6 +95,8 @@ const baseHandler = async (event: AuthedEvent): Promise<APIGatewayProxyResultV2>
 export const handler = withSentryLambda(
   middy(baseHandler)
     .use(authContextMiddleware())
+    .use(orgMembershipMiddleware())
+    .use(requirePermission('kb:create'))
     .use(auditMiddleware())
     .use(httpErrorMiddleware()),
 );

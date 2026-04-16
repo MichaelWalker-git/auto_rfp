@@ -315,7 +315,7 @@ export const BOMItemDraftSchema = z.object({
     sourceDocumentName: z.string().optional(),
     extractionJobId: z.string().uuid().optional(),
     extractedAt: z.string().datetime(),
-    extractedBy: z.string(),
+    extractedBy: z.string().uuid(),
   }).optional(),
   
   fieldConfidence: z.object({
