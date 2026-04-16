@@ -89,7 +89,7 @@ describe('start-extraction-job handler', () => {
           sourceType: 'DIRECT_UPLOAD',
           targetType: 'PAST_PERFORMANCE',
           sourceFiles: [
-            { fileName: 'test.pdf', s3Key: 'extraction-sources/test.pdf', fileSize: 1024 },
+            { fileName: 'test.pdf', s3Key: 'extraction/550e8400-e29b-41d4-a716-446655440000/test.pdf', fileSize: 1024 },
           ],
         }),
       });
@@ -114,7 +114,7 @@ describe('start-extraction-job handler', () => {
           sourceType: 'DIRECT_UPLOAD',
           targetType: 'LABOR_RATE',
           sourceFiles: [
-            { fileName: 'rates.xlsx', s3Key: 'extraction-sources/rates.xlsx', fileSize: 2048 },
+            { fileName: 'rates.xlsx', s3Key: 'extraction/550e8400-e29b-41d4-a716-446655440000/rates.xlsx', fileSize: 2048 },
           ],
         }),
       });
