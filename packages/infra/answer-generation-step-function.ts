@@ -36,6 +36,7 @@ export class AnswerGenerationPipelineStack extends Stack {
     const prefix = `AutoRfp-${stage}-AnswerGen`;
 
     const sfLogGroup = new logs.LogGroup(this, `${prefix}-LogGroup`, {
+      logGroupName: `/aws/stepfunctions/${prefix}-Pipeline`,
       retention: logs.RetentionDays.ONE_WEEK,
       removalPolicy: RemovalPolicy.DESTROY,
     });

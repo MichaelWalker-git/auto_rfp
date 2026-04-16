@@ -43,6 +43,7 @@ export class DocumentPipelineStack extends Stack {
     const namePrefix = `AutoRfp-${stage}`;
 
     const logGroup = new logs.LogGroup(this, `${namePrefix}-LogGroup`, {
+      logGroupName: `/aws/lambda/${namePrefix}-DocumentPipeline`,
       retention: logs.RetentionDays.ONE_WEEK,
       removalPolicy: RemovalPolicy.DESTROY,
     });
@@ -283,7 +284,9 @@ export class DocumentPipelineStack extends Stack {
       this,
       'DocumentPipelineStateMachineLogs',
       {
+        logGroupName: `/aws/stepfunctions/${namePrefix}-DocumentPipeline`,
         retention: logs.RetentionDays.ONE_WEEK,
+        removalPolicy: RemovalPolicy.DESTROY,
       },
     );
 

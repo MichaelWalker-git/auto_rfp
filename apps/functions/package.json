@@ -44,7 +44,7 @@
     "html-to-docx": "^1.8.0",
     "jszip": "^3.10.1",
     "mammoth": "^1.11.0",
-    "pdf-parse": "^2.4.5",
+    "pdf-parse": "^1.1.1",
     "pptxgenjs": "^4.0.1",
     "puppeteer-core": "^24.39.0",
     "uuid": "^13.0.0",
