@@ -142,6 +142,7 @@ export const baseHandler = async (
       agency: 'organizationName',
       naics: 'naicsCode',
       psc: 'pscCode',
+      dueDateIso: 'responseDeadlineIso',
     };
 
     const mapped: Record<string, unknown> = {};

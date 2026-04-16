@@ -5,22 +5,17 @@ import { RFPDocumentTypeSchema } from './rfp-document';
 
 /**
  * Lenient ISO datetime schema for LLM-generated dates.
- * Accepts valid ISO-8601 strings and passes them through.
- * Invalid values (e.g. bare offsets like "-7:00") are coerced to null
- * so they don't blow up Zod validation.
+ * Keeps strict ISO-8601 with offset validation via Zod, but coerces
+ * invalid LLM output (e.g. bare offsets like "-7:00") to null
+ * instead of throwing a ZodError.
  */
-const lenientDateTimeIso = z
-  .string()
-  .nullish()
-  .transform((v) => {
-    if (!v) return null;
-    // Quick structural check: must contain at least a date portion (YYYY-MM-DD)
-    if (!/^\d{4}-\d{2}-\d{2}/.test(v)) return null;
-    // Attempt to parse — reject anything Date can't handle
-    const d = new Date(v);
-    if (Number.isNaN(d.getTime())) return null;
-    return v;
-  });
+const strictDateTimeIso = z.string().datetime({ offset: true });
+
+const lenientDateTimeIso = z.preprocess((v) => {
+  if (v == null || v === '') return null;
+  if (typeof v !== 'string') return v;
+  return strictDateTimeIso.safeParse(v).success ? v : null;
+}, strictDateTimeIso.nullish());
 
 /**
  * Common enums
