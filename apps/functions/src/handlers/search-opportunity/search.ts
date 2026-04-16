@@ -82,7 +82,9 @@ export const baseHandler = async (event: APIGatewayProxyEventV2): Promise<APIGat
   if (includeSam) {
     try {
       const apiKey = await getApiKey(orgId, SAM_GOV_SECRET_PREFIX);
-      if (apiKey) {
+      if (!apiKey) {
+        errors['SAM_GOV'] = 'SAM.gov API key is not configured for this organization. Add it in Settings → Integrations to search SAM.gov opportunities.';
+      } else {
         const resp = await searchSamOpportunities(
           { baseUrl: SAM_BASE_URL, apiKey, httpsAgent },
           {
@@ -109,7 +111,9 @@ export const baseHandler = async (event: APIGatewayProxyEventV2): Promise<APIGat
   if (includeDibbs) {
     try {
       const apiKey = await getApiKey(orgId, DIBBS_SECRET_PREFIX);
-      if (apiKey) {
+      if (!apiKey) {
+        errors['DIBBS'] = 'DIBBS API key is not configured for this organization. Add it in Settings → Integrations to search DIBBS opportunities.';
+      } else {
         const resp = await searchDibbsOpportunities(
           { baseUrl: DIBBS_BASE_URL, apiKey, httpsAgent },
           {
