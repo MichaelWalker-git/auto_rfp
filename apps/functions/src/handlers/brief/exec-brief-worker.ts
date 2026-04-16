@@ -338,19 +338,14 @@ async function runRequirements(job: Job): Promise<void> {
 
     const { solicitationText: rawText } = await loadSolicitationWithOpportunity(brief, orgId);
     const solicitationText = truncateText(rawText, MAX_SOLICITATION_CHARS);
-    const kbPrimer = await loadKbPrimer(orgId, solicitationText, 3);
 
-    const data = await invokeClaudeWithTools({
+    const data = await invokeClaudeJson({
       modelId: BEDROCK_MODEL_ID,
       system: await useRequirementsSystemPrompt(orgId),
-      user: await useRequirementsUserPrompt(orgId, solicitationText, kbPrimer),
-      tools: BRIEF_TOOLS,
-      toolExecutor: (toolName, toolInput, toolUseId) =>
-        executeBriefTool({ toolName, toolInput, toolUseId, orgId, projectId, opportunityId, executiveBriefId }),
+      user: await useRequirementsUserPrompt(orgId, solicitationText),
       outputSchema: RequirementsSectionSchema,
       maxTokens: 5000,
       temperature: 0.2,
-      maxToolRounds: 2,
     });
 
     await markSectionComplete({

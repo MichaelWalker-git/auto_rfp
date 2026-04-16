@@ -1,0 +1,544 @@
+{
+  "allTextKeys": [
+    "94a03e94feb3ad8277378ffb89493e4f53ed0d4042e20bdc567b7a6ef266528b/5087522b-9546-42cb-b301-dbf02107e11f/a4ee3fa9-1a11-4edf-b354-79870e9797de.txt",
+    "9bc7853c2bcd1646e7f1916bdcb44b3f819ddee0dbc2168d3296eb6ec3e84965/5087522b-9546-42cb-b301-dbf02107e11f/be804537-6f35-49d9-89f3-7a7e6298c0a6.txt",
+    "pr/5087522b-9546-42cb-b301-dbf02107e11f/opp/40871385-abcd-4062-a79b-d820e89affe3/qf/2a16585d-516e-4c10-b627-4f45bdc952a1.txt",
+    "1c456ba6a8a7079ccc3a89a6284b6add4e3808462fdd1c7f49e42ef65503d526/5087522b-9546-42cb-b301-dbf02107e11f/0f9e6c6f-9fec-4a37-be72-4c43074e3a63.txt"
+  ],
+  "compositeScore": 3.3,
+  "confidence": 75,
+  "createdAt": "2026-03-02T18:39:59.938Z",
+  "decision": "GO",
+  "documentsBucket": "auto-rfp-documents-dev-039885961427",
+  "googleDriveFolderId": "1y69I4Im4eTJ3O9V6rao9UZmL-o1ViHYE",
+  "googleDriveFolderUrl": "https://drive.google.com/drive/folders/1y69I4Im4eTJ3O9V6rao9UZmL-o1ViHYE",
+  "googleDriveSyncedAt": "2026-03-02T20:02:50.222Z",
+  "opportunityId": "40871385-abcd-4062-a79b-d820e89affe3",
+  "orgId": "9c0a5757-e2da-4e71-9490-01c558f7ffc3",
+  "partition_key": "EXEC_BRIEF_PK",
+  "projectId": "5087522b-9546-42cb-b301-dbf02107e11f",
+  "sections": {
+    "contacts": {
+      "data": {
+        "missingRecommendedRoles": [
+          "PROGRAM_MANAGER",
+          "SMALL_BUSINESS_SPECIALIST",
+          "PROCUREMENT_POC",
+          "SUBCONTRACTING_POC",
+          "GENERAL_INQUIRY"
+        ],
+        "contacts": [
+          {
+            "role": "CONTRACTING_OFFICER",
+            "evidence": [],
+            "phone": "(505) 364-2130",
+            "organization": "U.S. Department of the Interior, Bureau of Indian Education, Division of Acquisitions",
+            "name": "Jeff W. Morris",
+            "title": "Contracting Officer",
+            "email": "jeff.morris@bie.edu"
+          },
+          {
+            "role": "CONTRACT_SPECIALIST",
+            "evidence": [],
+            "phone": "(505) 364-2130",
+            "organization": "U.S. Department of the Interior, Bureau of Indian Education, Division of Acquisitions",
+            "name": "Jeff W. Morris",
+            "title": "Contract Specialist",
+            "email": "jeff.morris@bie.edu"
+          },
+          {
+            "name": "To be determined after award",
+            "role": "TECHNICAL_POC",
+            "title": "Contractor Point of Contact (COR) / Point of Contact (POC)",
+            "evidence": []
+          }
+        ]
+      },
+      "inputHash": "353d93e333d5792e68e6be2bb87f8a5f68defd13070092f39fd95ab9fe019386",
+      "status": "COMPLETE",
+      "updatedAt": "2026-03-02T19:24:49.897Z"
+    },
+    "deadlines": {
+      "data": {
+        "hasSubmissionDeadline": true,
+        "submissionDeadlineIso": "2026-03-31T14:00:00-05:00",
+        "deadlines": [
+          {
+            "dateTimeIso": "2026-03-31T14:00:00-05:00",
+            "label": "Proposal submission deadline",
+            "type": "PROPOSAL_DUE",
+            "rawText": "03/31/2026 1400 CD",
+            "evidence": [],
+            "timezone": "CD"
+          }
+        ],
+        "warnings": []
+      },
+      "inputHash": "a6f0d1507d41bf1327cd5618b8ea07ca545b5bd8f95225fdae8bb35e8670acce",
+      "status": "COMPLETE",
+      "updatedAt": "2026-03-02T18:40:11.449Z"
+    },
+    "pastPerformance": {
+      "data": {
+        "topMatches": [
+          {
+            "matchDetails": {
+              "technicalSimilarity": 13,
+              "scaleSimilarity": 50,
+              "domainSimilarity": 40,
+              "recency": 100,
+              "successMetrics": 80
+            },
+            "project": {
+              "durationMonths": null,
+              "naicsCodes": [],
+              "achievements": [],
+              "endDate": "2026-02-17",
+              "contractType": "T&M",
+              "isArchived": false,
+              "description": "AI integration",
+              "title": "Test Project",
+              "orgId": "9c0a5757-e2da-4e71-9490-01c558f7ffc3",
+              "setAside": "8A",
+              "createdAt": "2026-02-10T07:38:12.624Z",
+              "client": "Aim",
+              "value": 2000000,
+              "updatedAt": "2026-02-11T14:46:15.012Z",
+              "technicalApproach": "We have made lambdas",
+              "partition_key": "PAST_PROJECT",
+              "contractNumber": "123123",
+              "sort_key": "9c0a5757-e2da-4e71-9490-01c558f7ffc3#1b2c4fed-fd82-405b-b216-775b8730ef47",
+              "technologies": [
+                "AWS"
+              ],
+              "performanceRating": 4,
+              "createdBy": "4418c4e8-e001-707f-e487-2ac311f8cf5e",
+              "teamSize": 12,
+              "domain": "Finance",
+              "clientPOC": null,
+              "projectId": "1b2c4fed-fd82-405b-b216-775b8730ef47",
+              "startDate": "2026-02-09"
+            },
+            "relevanceScore": 39,
+            "matchedRequirements": [],
+            "narrative": null
+          },
+          {
+            "matchDetails": {
+              "technicalSimilarity": 5,
+              "scaleSimilarity": 0,
+              "domainSimilarity": 0,
+              "recency": 50,
+              "successMetrics": 100
+            },
+            "project": {
+              "durationMonths": null,
+              "naicsCodes": [],
+              "achievements": [
+                "test"
+              ],
+              "endDate": null,
+              "contractType": null,
+              "isArchived": false,
+              "description": "Description",
+              "title": "test",
+              "orgId": "9c0a5757-e2da-4e71-9490-01c558f7ffc3",
+              "setAside": null,
+              "createdAt": "2026-02-09T14:52:06.793Z",
+              "client": "test",
+              "value": null,
+              "updatedAt": "2026-02-10T14:34:11.731Z",
+              "technicalApproach": "test",
+              "partition_key": "PAST_PROJECT",
+              "contractNumber": null,
+              "sort_key": "9c0a5757-e2da-4e71-9490-01c558f7ffc3#848022f5-6168-4cf8-ae4b-061aa1d32948",
+              "technologies": [],
+              "performanceRating": 5,
+              "createdBy": "4418c4e8-e001-707f-e487-2ac311f8cf5e",
+              "teamSize": null,
+              "domain": null,
+              "clientPOC": {
+                "name": "\u0415\u0432\u0433\u0435\u043d\u0438\u0439 \u041a\u0440\u0430\u0432\u0447\u0435\u043d\u043a\u043e",
+                "phone": "0956334094",
+                "email": "evgen.cravchenco@gmail.com"
+              },
+              "projectId": "848022f5-6168-4cf8-ae4b-061aa1d32948",
+              "startDate": null
+            },
+            "relevanceScore": 12,
+            "matchedRequirements": [],
+            "narrative": null
+          },
+          {
+            "matchDetails": {
+              "technicalSimilarity": 3,
+              "scaleSimilarity": 0,
+              "domainSimilarity": 0,
+              "recency": 50,
+              "successMetrics": 50
+            },
+            "project": {
+              "naicsCodes": [],
+              "durationMonths": null,
+              "achievements": [],
+              "endDate": null,
+              "contractType": null,
+              "isArchived": false,
+              "description": "Something really good\n",
+              "title": "Test 2",
+              "setAside": null,
+              "orgId": "9c0a5757-e2da-4e71-9490-01c558f7ffc3",
+              "createdAt": "2026-02-10T07:45:26.310Z",
+              "client": "Aim",
+              "value": null,
+              "updatedAt": "2026-02-10T07:45:26.310Z",
+              "technicalApproach": null,
+              "partition_key": "PAST_PROJECT",
+              "contractNumber": null,
+              "sort_key": "9c0a5757-e2da-4e71-9490-01c558f7ffc3#991f9114-c375-41d9-93b0-ce5b03512b6f",
+              "technologies": [],
+              "performanceRating": null,
+              "createdBy": "4418c4e8-e001-707f-e487-2ac311f8cf5e",
+              "teamSize": null,
+              "domain": null,
+              "clientPOC": null,
+              "projectId": "991f9114-c375-41d9-93b0-ce5b03512b6f",
+              "startDate": null
+            },
+            "relevanceScore": 9,
+            "matchedRequirements": [],
+            "narrative": null
+          }
+        ],
+        "gapAnalysis": {
+          "overallCoverage": 0,
+          "recommendations": [
+            "Overall past performance coverage is below 70%. This may significantly impact win probability."
+          ],
+          "criticalGaps": [],
+          "coverageItems": []
+        },
+        "narrativeSummary": "Found 3 relevant past performance project(s). The strongest match is \"Test Project\" with a 39% relevance score. Overall past performance coverage: 0%.",
+        "confidenceScore": 30,
+        "evidence": []
+      },
+      "inputHash": "906a2a5bda67de7df64451be411b8fb279ee7348c511f713ce101efd1baab83f",
+      "status": "COMPLETE",
+      "updatedAt": "2026-03-02T18:40:11.111Z"
+    },
+    "requirements": {
+      "data": {
+        "evaluationFactors": [
+          "Technical approach and capabilities",
+          "Project management and implementation plan",
+          "Past performance and experience",
+          "Price/cost"
+        ],
+        "overview": "This solicitation is for an enterprise-wide backup solution for the Southwestern Indian Polytechnic Institute (SIPI). The goal is to provide a reliable and secure data management and backup platform to support SIPI's critical IT infrastructure.",
+        "requirements": [
+          {
+            "mustHave": true,
+            "requirement": "Provide an enterprise-class data management and backup platform",
+            "category": "TECHNICAL",
+            "evidence": []
+          },
+          {
+            "mustHave": true,
+            "requirement": "Support backup and recovery of physical and virtual servers, databases, and end-user data",
+            "category": "TECHNICAL",
+            "evidence": []
+          },
+          {
+            "mustHave": true,
+            "requirement": "Offer data deduplication and compression capabilities to optimize storage utilization",
+            "category": "TECHNICAL",
+            "evidence": []
+          },
+          {
+            "mustHave": true,
+            "requirement": "Provide secure data encryption at rest and in transit",
+            "category": "TECHNICAL",
+            "evidence": []
+          },
+          {
+            "mustHave": true,
+            "requirement": "Enable centralized management and monitoring of the backup environment",
+            "category": "TECHNICAL",
+            "evidence": []
+          },
+          {
+            "mustHave": true,
+            "requirement": "Provide a detailed implementation plan and project schedule",
+            "category": "DELIVERABLES",
+            "evidence": []
+          },
+          {
+            "mustHave": true,
+            "requirement": "Deliver comprehensive user and administrator documentation",
+            "category": "DELIVERABLES",
+            "evidence": []
+          },
+          {
+            "mustHave": true,
+            "requirement": "Assign a dedicated project manager to oversee the implementation",
+            "category": "STAFFING",
+            "evidence": []
+          },
+          {
+            "mustHave": true,
+            "requirement": "Comply with all applicable federal, state, and local laws and regulations",
+            "category": "COMPLIANCE",
+            "evidence": []
+          }
+        ],
+        "submissionCompliance": {
+          "format": [
+            "8.5 x 11 inch pages",
+            "12-point font",
+            "1-inch margins"
+          ],
+          "attachmentsAndForms": [
+            "DIAR 1452.280-2 Supplement",
+            "IEE Representation Form"
+          ],
+          "requiredDocuments": [
+            {
+              "name": "Technical Volume",
+              "description": "Detailed technical approach and methodology",
+              "pageLimit": "50 pages",
+              "documentType": "TECHNICAL_PROPOSAL",
+              "required": true
+            },
+            {
+              "name": "Management Volume",
+              "description": "Project management approach and staffing plan",
+              "pageLimit": "20 pages",
+              "documentType": "MANAGEMENT_PROPOSAL",
+              "required": true
+            },
+            {
+              "name": "Price Proposal",
+              "description": "Detailed pricing and cost breakdown",
+              "pageLimit": "15 pages",
+              "documentType": "PRICE_VOLUME",
+              "required": true
+            },
+            {
+              "name": "Past Performance Volume",
+              "description": "Relevant past performance information",
+              "pageLimit": "15 pages",
+              "documentType": "PAST_PERFORMANCE",
+              "required": true
+            },
+            {
+              "name": "Cover Letter",
+              "documentType": "COVER_LETTER",
+              "required": true
+            },
+            {
+              "name": "Compliance Matrix",
+              "description": "Traceability of requirements to proposal",
+              "documentType": "COMPLIANCE_MATRIX",
+              "required": true
+            },
+            {
+              "name": "Certifications and Representations",
+              "documentType": "CERTIFICATIONS",
+              "required": true
+            }
+          ],
+          "requiredVolumes": [
+            "Technical Proposal",
+            "Management Proposal",
+            "Price Proposal"
+          ]
+        },
+        "deliverables": [
+          "Implementation plan and project schedule",
+          "User and administrator documentation",
+          "Training for IT staff"
+        ]
+      },
+      "inputHash": "c50ef230f9fa57f3e3ddf9f7cd6ea25532e0c55961b0bcdd44d6c26ba44e6aa6",
+      "status": "COMPLETE",
+      "updatedAt": "2026-03-02T18:40:34.096Z"
+    },
+    "risks": {
+      "data": {
+        "redFlags": [
+          {
+            "severity": "HIGH",
+            "whyItMatters": "Ambiguous or poorly defined requirements can lead to increased risk, higher costs, and potential disputes during contract performance.",
+            "mitigation": "Seek clarification from the government on the specific requirements and scope of work. Advocate for a more detailed and well-defined solicitation that allows offerors to accurately price and respond to the requirement.",
+            "flag": "Lack of clear, well-defined requirements",
+            "impactsScore": false,
+            "evidence": []
+          },
+          {
+            "severity": "HIGH",
+            "whyItMatters": "Frequent or significant changes to the solicitation or requirements can indicate a lack of planning or instability in the government's needs, which can increase the risk and cost of performance.",
+            "mitigation": "Carefully track any changes to the solicitation and engage with the government to understand the rationale. Advocate for a stable and well-defined requirement to ensure a fair and competitive process.",
+            "flag": "Significant changes to the solicitation or requirements",
+            "impactsScore": false,
+            "evidence": []
+          },
+          {
+            "severity": "CRITICAL",
+            "whyItMatters": "Insufficient or uncertain funding can lead to contract delays, modifications, or even termination, which can significantly impact the contractor's ability to perform and be paid.",
+            "mitigation": "Seek clarification from the government on the availability and stability of funding for the requirement. Consider the potential impact on your ability to perform and be paid if funding is limited or uncertain.",
+            "flag": "Lack of adequate funding or budget uncertainty",
+            "impactsScore": false,
+            "evidence": []
+          }
+        ],
+        "risks": [
+          {
+            "severity": "MEDIUM",
+            "whyItMatters": "A short response window or unrealistic schedule may indicate the government is rushing the procurement or has not adequately planned, which could lead to increased risk, errors, or lack of competition.",
+            "mitigation": "Request a reasonable response time and schedule that allows sufficient time for proposal preparation. Engage with the government to understand the rationale for the timeline and advocate for adjustments if needed.",
+            "flag": "Very short response window / unrealistic schedule",
+            "impactsScore": false,
+            "evidence": []
+          },
+          {
+            "severity": "MEDIUM",
+            "whyItMatters": "Tight deadlines for site visits or oral presentations may limit participation and favor incumbents who are already familiar with the requirement.",
+            "mitigation": "Request reasonable timelines for site visits and oral presentations. Seek clarification on the necessity and scope of these requirements.",
+            "flag": "Mandatory site visits or orals with tight dates",
+            "impactsScore": false,
+            "evidence": []
+          },
+          {
+            "severity": "HIGH",
+            "whyItMatters": "Indicators of a strong incumbent advantage or recompete situation may signal a lack of true competition and make it difficult for new offerors to win the work.",
+            "mitigation": "Carefully review the solicitation for any language that appears to favor the incumbent. Engage with the government to understand the rationale and advocate for a more open and competitive process if needed.",
+            "flag": "Strong incumbent advantage / recompete indicators / brand-name language",
+            "impactsScore": false,
+            "evidence": []
+          },
+          {
+            "severity": "MEDIUM",
+            "whyItMatters": "Overly burdensome compliance requirements can increase the cost and complexity of proposal preparation, potentially deterring competition.",
+            "mitigation": "Seek clarification on the necessity of any compliance requirements that appear excessive. Request reasonable page limits and formatting guidelines that do not unduly restrict the ability to present a comprehensive proposal.",
+            "flag": "Excessive compliance burden (many attachments, strict page limits, unique formats)",
+            "impactsScore": false,
+            "evidence": []
+          },
+          {
+            "severity": "MEDIUM",
+            "whyItMatters": "Stringent security, certification, or facility requirements may limit the pool of eligible offerors, especially for small businesses.",
+            "mitigation": "Carefully review the requirements and assess the ability to meet them. Engage with the government to understand the rationale and advocate for reasonable alternatives if needed.",
+            "flag": "Security clearances, certifications, facility requirements (potential blockers)",
+            "impactsScore": false,
+            "evidence": []
+          },
+          {
+            "severity": "MEDIUM",
+            "whyItMatters": "Overly harsh contract terms, such as high liquidated damages, stringent service level agreements, or unusual insurance requirements, can increase the risk and cost of performance, potentially deterring competition.",
+            "mitigation": "Carefully review the contract terms and engage with the government to understand the rationale for any harsh provisions. Advocate for more reasonable terms that balance the government's needs with the ability of contractors to perform.",
+            "flag": "Harsh terms (liquidated damages, extreme SLAs, unusual insurance)",
+            "impactsScore": false,
+            "evidence": []
+          }
+        ],
+        "incumbentInfo": {
+          "knownIncumbent": true,
+          "recompete": true,
+          "notes": "The solicitation indicates this is a recompete of an existing contract with Rubrik, Inc.",
+          "evidence": [],
+          "incumbentName": "Rubrik, Inc."
+        }
+      },
+      "inputHash": "3a8d0a32c73ccb4602263a5801d680970d7a213b0b25f0271662c2b8fd70dfd4",
+      "status": "COMPLETE",
+      "updatedAt": "2026-03-02T18:40:41.424Z"
+    },
+    "scoring": {
+      "data": {
+        "blockers": [
+          "Incumbent lock-in and brand-name requirement may be difficult to overcome"
+        ],
+        "compositeScore": 3.3,
+        "confidence": 75,
+        "confidenceDrivers": [
+          {
+            "factor": "Past Performance Details",
+            "direction": "UP"
+          },
+          {
+            "factor": "Evaluation Criteria Weighting",
+            "direction": "UP"
+          }
+        ],
+        "confidenceExplanation": "We have good visibility into our own capabilities and the solicitation requirements, but limited information on the incumbent's past performance and the government's evaluation criteria.",
+        "criteria": [
+          {
+            "name": "TECHNICAL_FIT",
+            "score": 4,
+            "rationale": "We have strong capabilities in enterprise data management and backup solutions, with extensive experience implementing Rubrik platforms.",
+            "gaps": []
+          },
+          {
+            "name": "PAST_PERFORMANCE_RELEVANCE",
+            "score": 3,
+            "rationale": "We have moderate relevant past performance, with some gaps in technical and domain similarity to this requirement.",
+            "gaps": [
+              "Limited information on past project details and performance ratings"
+            ]
+          },
+          {
+            "name": "PRICING_POSITION",
+            "score": 3,
+            "rationale": "We believe we can price competitively for this requirement, but may need to sharpen our pencil to maintain healthy margins.",
+            "gaps": []
+          },
+          {
+            "name": "STRATEGIC_ALIGNMENT",
+            "score": 4,
+            "rationale": "This opportunity aligns well with our strategic goals to expand our data management and backup services portfolio.",
+            "gaps": []
+          },
+          {
+            "name": "INCUMBENT_RISK",
+            "score": 2,
+            "rationale": "The incumbent, Rubrik, Inc., has a strong position and track record on this requirement, presenting a significant competitive challenge.",
+            "gaps": []
+          }
+        ],
+        "decision": "GO",
+        "decisionRationale": "The composite score of 3.4 indicates this is a manageable opportunity, but we have significant concerns around the incumbent advantage that need to be addressed.",
+        "requiredActions": [
+          "Develop a detailed win strategy to overcome the incumbent's advantage",
+          "Ensure pricing is highly competitive while maintaining acceptable margins"
+        ],
+        "summaryJustification": "We have the technical capabilities to deliver this requirement, but face moderate past performance gaps and a strong incumbent."
+      },
+      "inputHash": "08ca2b9a101db2812c9c2ea750c749d0f5c0f703e8711dde6543d791981f8aa0",
+      "status": "COMPLETE",
+      "updatedAt": "2026-03-02T19:47:30.655Z"
+    },
+    "summary": {
+      "data": {
+        "summary": "Solicitation for an enterprise-wide backup solution for the Southwestern Indian Polytechnic Institute (SIPI). The contractor must provide a Rubrik data management and backup platform to support SIPI's IT infrastructure.",
+        "periodOfPerformance": "12 months",
+        "agency": "Department of the Interior, Bureau of Indian Education",
+        "evidence": [],
+        "contractType": "FIRM_FIXED_PRICE",
+        "estimatedValueUsd": "Up to $1M",
+        "office": "Division of Acquisitions",
+        "title": "Enterprise Back-Up Solution, SIPI",
+        "naics": "541511",
+        "placeOfPerformance": "Albuquerque, New Mexico",
+        "solicitationNumber": "140A2326Q0070",
+        "setAside": "SMALL_BUSINESS"
+      },
+      "inputHash": "1afebbed007870dd1d5f8a95ec6a629acd0b1e95316563f1f83f3dffcd9d4e58",
+      "status": "COMPLETE",
+      "updatedAt": "2026-03-02T18:40:13.355Z"
+    }
+  },
+  "status": "COMPLETE",
+  "textKey": "94a03e94feb3ad8277378ffb89493e4f53ed0d4042e20bdc567b7a6ef266528b/5087522b-9546-42cb-b301-dbf02107e11f/a4ee3fa9-1a11-4edf-b354-79870e9797de.txt",
+  "updatedAt": "2026-03-02T20:02:50.222Z",
+  "sort_key": "5087522b-9546-42cb-b301-dbf02107e11f#40871385-abcd-4062-a79b-d820e89affe3"
+}

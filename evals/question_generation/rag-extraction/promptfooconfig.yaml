@@ -1,0 +1,797 @@
+description: "Context Relevance Evaluation — RAG Retrieval Quality"
+
+prompts:
+  - "{{ query }}"
+
+providers:
+  - file://retrieve.mjs
+
+defaultTest:
+  options:
+    provider: "bedrock:us.anthropic.claude-sonnet-4-20250514-v1:0"
+
+outputPath: ./results/latest.json
+
+tests:
+  # =========================================================================
+  # TECHNICAL APPROACH
+  # =========================================================================
+
+  - vars:
+      query: "Describe your proposed technical approach to meeting the requirements outlined in the solicitation."
+    assert:
+      - type: llm-rubric
+        value: "The retrieved context should contain information about the organization's AWS technical capabilities, specific AWS services used, and a description of their solution architecture or approach to building cloud-native applications."
+      - type: llm-rubric
+        value: |
+          Score based on how many of these information categories are covered in the retrieved context:
+          1. Specific AWS services or technical tools
+          2. Solution architecture or design approach
+          3. Past project demonstrating the technical approach in action
+          4. Organizational technical qualifications or partner status
+          Score 1.0 if all 4 present, 0.75 if 3, 0.5 if 2, 0.25 if 1, 0.0 if none.
+        threshold: 0.75
+      - type: llm-rubric
+        value: "All retrieved content should relate to technical capabilities, AWS services, or solution architecture. Penalize if the context contains tax documents, certification application forms, business license filings, net worth statements, or unrelated business paperwork. Score 1.0 if all content is relevant, 0.5 if roughly half, 0.0 if mostly noise."
+        threshold: 0.7
+
+  - vars:
+      query: "How will your solution ensure 99.9% system uptime during the period of performance?"
+    assert:
+      - type: llm-rubric
+        value: "The retrieved context should contain information about high availability architecture, uptime metrics, failover capabilities, monitoring tools, or disaster recovery procedures."
+      - type: llm-rubric
+        value: |
+          Score based on how many of these information categories are covered in the retrieved context:
+          1. Uptime metrics or SLA data
+          2. Failover or redundancy mechanisms
+          3. Monitoring and observability tools
+          4. Disaster recovery procedures
+          Score 1.0 if all 4 present, 0.75 if 3, 0.5 if 2, 0.25 if 1, 0.0 if none.
+        threshold: 0.75
+      - type: llm-rubric
+        value: "All retrieved content should relate to system availability, reliability, monitoring, or disaster recovery. Penalize if the context contains tax documents, certification application forms, business license filings, net worth statements, or unrelated business paperwork. Score 1.0 if all content is relevant, 0.5 if roughly half, 0.0 if mostly noise."
+        threshold: 0.7
+
+  - vars:
+      query: "What tools and technologies will you use to deliver the data migration services?"
+    assert:
+      - type: llm-rubric
+        value: "The retrieved context should contain information about migration methodologies, pre-migration assessment processes, migration tools, or quantified migration experience."
+      - type: llm-rubric
+        value: |
+          Score based on how many of these information categories are covered in the retrieved context:
+          1. Migration methodology or phased approach
+          2. Pre-migration assessment or planning process
+          3. Quantified migration experience or track record
+          4. Specific migration tools or services
+          Score 1.0 if all 4 present, 0.75 if 3, 0.5 if 2, 0.25 if 1, 0.0 if none.
+        threshold: 0.75
+      - type: llm-rubric
+        value: "All retrieved content should relate to data migration, cloud migration, or system modernization. Penalize if the context contains tax documents, certification application forms, business license filings, net worth statements, or unrelated business paperwork. Score 1.0 if all content is relevant, 0.5 if roughly half, 0.0 if mostly noise."
+        threshold: 0.7
+
+  - vars:
+      query: "Describe how your solution will integrate with the agency's existing infrastructure and legacy systems."
+    assert:
+      - type: llm-rubric
+        value: "The retrieved context should contain information about API integration approaches, legacy system connectivity, middleware or integration services, or past experience integrating with existing enterprise systems."
+      - type: llm-rubric
+        value: |
+          Score based on how many of these information categories are covered in the retrieved context:
+          1. API or integration approach
+          2. Legacy system connectivity or hybrid methods
+          3. Integration services or middleware
+          4. Past project example demonstrating integration
+          Score 1.0 if all 4 present, 0.75 if 3, 0.5 if 2, 0.25 if 1, 0.0 if none.
+        threshold: 0.75
+      - type: llm-rubric
+        value: "All retrieved content should relate to system integration, APIs, or legacy system connectivity. Penalize if the context contains tax documents, certification application forms, business license filings, net worth statements, or unrelated business paperwork. Score 1.0 if all content is relevant, 0.5 if roughly half, 0.0 if mostly noise."
+        threshold: 0.7
+
+  # =========================================================================
+  # MANAGEMENT
+  # =========================================================================
+
+  - vars:
+      query: "Describe your project management methodology and how you will ensure on-time delivery of all milestones."
+    assert:
+      - type: llm-rubric
+        value: "The retrieved context should contain information about project management roles, agile or phased delivery methodologies, staffing plans, or project governance structures."
+      - type: llm-rubric
+        value: |
+          Score based on how many of these information categories are covered in the retrieved context:
+          1. Project management roles or titles
+          2. Delivery methodology (agile, phased, iterative)
+          3. Staffing plan or team structure
+          4. Governance or oversight procedures
+          Score 1.0 if all 4 present, 0.75 if 3, 0.5 if 2, 0.25 if 1, 0.0 if none.
+        threshold: 0.75
+      - type: llm-rubric
+        value: "All retrieved content should relate to project management, delivery methodology, or team governance. Penalize if the context contains tax documents, certification application forms, business license filings, net worth statements, or unrelated business paperwork. Score 1.0 if all content is relevant, 0.5 if roughly half, 0.0 if mostly noise."
+        threshold: 0.7
+
+  - vars:
+      query: "Provide an organizational chart showing key personnel and their roles on this contract."
+    assert:
+      - type: llm-rubric
+        value: "The retrieved context should contain a list of labor categories, roles, or job titles with associated responsibilities or experience requirements that would support building an organizational chart."
+      - type: llm-rubric
+        value: |
+          Score based on how many of these role categories are covered in the retrieved context:
+          1. Technical roles (architect, engineer, developer)
+          2. Management roles (project executive, program manager)
+          3. Design roles (UI/UX designer)
+          4. Support roles (QA, business analyst, technical writer)
+          5. Experience requirements or qualifications per role
+          Score 1.0 if all 5 present, 0.8 if 4, 0.6 if 3, 0.4 if 2, 0.2 if 1, 0.0 if none.
+        threshold: 0.75
+      - type: llm-rubric
+        value: "All retrieved content should relate to roles, staffing, labor categories, or personnel qualifications. Penalize if the context contains tax documents, certification application forms, business license filings, net worth statements, or unrelated business paperwork. Score 1.0 if all content is relevant, 0.5 if roughly half, 0.0 if mostly noise."
+        threshold: 0.7
+
+  - vars:
+      query: "How will you handle knowledge transfer during the transition-in period?"
+    assert:
+      - type: llm-rubric
+        value: "The retrieved context should contain information about transition planning, onboarding procedures, training materials, knowledge transfer activities, or cutover strategies."
+      - type: llm-rubric
+        value: |
+          Score based on how many of these information categories are covered in the retrieved context:
+          1. Transition or cutover planning
+          2. Onboarding or training procedures
+          3. Knowledge transfer activities or documentation
+          4. Assessment or discovery process
+          Score 1.0 if all 4 present, 0.75 if 3, 0.5 if 2, 0.25 if 1, 0.0 if none.
+        threshold: 0.75
+      - type: llm-rubric
+        value: "All retrieved content should relate to transition planning, onboarding, training, or knowledge transfer. Penalize if the context contains tax documents, certification application forms, business license filings, net worth statements, or unrelated business paperwork. Score 1.0 if all content is relevant, 0.5 if roughly half, 0.0 if mostly noise."
+        threshold: 0.7
+
+  - vars:
+      query: "Describe your approach to risk identification and mitigation throughout the contract lifecycle."
+    assert:
+      - type: llm-rubric
+        value: "The retrieved context should contain information about risk mitigation strategies, quality assurance processes, human-in-the-loop validation, monitoring, or ongoing support that reduces project risk."
+      - type: llm-rubric
+        value: |
+          Score based on how many of these information categories are covered in the retrieved context:
+          1. Quality assurance or validation mechanisms
+          2. Monitoring and alerting capabilities
+          3. Disaster recovery or continuity planning
+          4. Continuous improvement or feedback loops
+          Score 1.0 if all 4 present, 0.75 if 3, 0.5 if 2, 0.25 if 1, 0.0 if none.
+        threshold: 0.75
+      - type: llm-rubric
+        value: "All retrieved content should relate to risk management, quality assurance, monitoring, or support. Penalize if the context contains tax documents, certification application forms, business license filings, net worth statements, or unrelated business paperwork. Score 1.0 if all content is relevant, 0.5 if roughly half, 0.0 if mostly noise."
+        threshold: 0.7
+
+  # =========================================================================
+  # PAST PERFORMANCE
+  # =========================================================================
+
+  - vars:
+      query: "Provide three examples of contracts of similar size and scope performed within the last five years."
+    assert:
+      - type: llm-rubric
+        value: "The retrieved context should contain at least two specific past project examples with client names, contract values, project descriptions, and measurable outcomes."
+      - type: llm-rubric
+        value: |
+          Score based on how many distinct past project examples appear in the retrieved context. Each project should include a client name and some detail:
+          1. First distinct client project
+          2. Second distinct client project
+          3. Third distinct client project
+          4. Contract values or dollar amounts
+          5. Measurable outcomes or results
+          Score 1.0 if all 5 present, 0.8 if 4, 0.6 if 3, 0.4 if 2, 0.2 if 1, 0.0 if none.
+        threshold: 0.6
+      - type: llm-rubric
+        value: "All retrieved content should relate to past project experience, case studies, or contract references. Penalize if the context contains tax documents, certification application forms, business license filings, net worth statements, or unrelated business paperwork. Score 1.0 if all content is relevant, 0.5 if roughly half, 0.0 if mostly noise."
+        threshold: 0.7
+
+  - vars:
+      query: "Describe a situation where your team encountered a significant technical challenge on a similar engagement and how you resolved it."
+    assert:
+      - type: llm-rubric
+        value: "The retrieved context should describe a specific technical challenge encountered on a project, the approach taken to resolve it, and the measurable results achieved."
+      - type: llm-rubric
+        value: |
+          Score based on how many of these information categories are covered in the retrieved context:
+          1. Specific client or project name
+          2. Description of the technical challenge
+          3. Technical approach or solution used to resolve it
+          4. Quantified results or improvement metrics
+          Score 1.0 if all 4 present, 0.75 if 3, 0.5 if 2, 0.25 if 1, 0.0 if none.
+        threshold: 0.75
+      - type: llm-rubric
+        value: "All retrieved content should relate to past project challenges, technical problem solving, or implementation results. Penalize if the context contains tax documents, certification application forms, business license filings, net worth statements, or unrelated business paperwork. Score 1.0 if all content is relevant, 0.5 if roughly half, 0.0 if mostly noise."
+        threshold: 0.7
+
+  - vars:
+      query: "What is your experience supporting federal civilian agencies with cloud migration projects?"
+    assert:
+      - type: llm-rubric
+        value: "The retrieved context should contain information about cloud migration experience, government or public sector project history, and AWS partnership status or specializations."
+      - type: llm-rubric
+        value: |
+          Score based on how many of these information categories are covered in the retrieved context:
+          1. Quantified migration experience or track record
+          2. Government or public sector references
+          3. AWS partner status or specializations
+          4. Specific migration methodology or approach
+          Score 1.0 if all 4 present, 0.75 if 3, 0.5 if 2, 0.25 if 1, 0.0 if none.
+        threshold: 0.75
+      - type: llm-rubric
+        value: "All retrieved content should relate to cloud migration, government experience, or AWS partnership. Penalize if the context contains tax documents, certification application forms, business license filings, net worth statements, or unrelated business paperwork. Score 1.0 if all content is relevant, 0.5 if roughly half, 0.0 if mostly noise."
+        threshold: 0.7
+
+  # =========================================================================
+  # PRICING
+  # =========================================================================
+
+  - vars:
+      query: "Describe your pricing methodology and how your proposed costs represent best value to the Government."
+    assert:
+      - type: llm-rubric
+        value: "The retrieved context should contain labor rate information, pricing tables, or cost methodology details including hourly rates and role descriptions."
+      - type: llm-rubric
+        value: |
+          Score based on how many of these information categories are covered in the retrieved context:
+          1. Hourly rates with dollar amounts
+          2. Multiple labor categories listed
+          3. Experience requirements per role
+          4. Structured rate table or pricing format
+          Score 1.0 if all 4 present, 0.75 if 3, 0.5 if 2, 0.25 if 1, 0.0 if none.
+        threshold: 0.75
+      - type: llm-rubric
+        value: "All retrieved content should relate to pricing, labor rates, or cost methodology. Penalize if the context contains tax documents, certification application forms, business license filings, net worth statements, or unrelated business paperwork. Score 1.0 if all content is relevant, 0.5 if roughly half, 0.0 if mostly noise."
+        threshold: 0.7
+
+  - vars:
+      query: "Provide your proposed labor categories and fully burdened hourly rates."
+    assert:
+      - type: llm-rubric
+        value: "The retrieved context should contain a structured list of labor categories with corresponding hourly rates and minimum experience requirements."
+      - type: llm-rubric
+        value: |
+          Score based on how many distinct labor categories with rates appear in the retrieved context:
+          1. Executive or management-level role with rate
+          2. Architect or senior technical role with rate
+          3. Mid-level developer role with rate
+          4. DevOps or infrastructure role with rate
+          5. Design or QA role with rate
+          6. Support role (BA, technical writer) with rate
+          Score 1.0 if 5+ present, 0.8 if 4, 0.6 if 3, 0.4 if 2, 0.2 if 1, 0.0 if none.
+        threshold: 0.75
+      - type: llm-rubric
+        value: "All retrieved content should relate to labor categories, hourly rates, or staffing costs. Penalize if the context contains tax documents, certification application forms, business license filings, net worth statements, or unrelated business paperwork. Score 1.0 if all content is relevant, 0.5 if roughly half, 0.0 if mostly noise."
+        threshold: 0.7
+
+  # =========================================================================
+  # SECURITY
+  # =========================================================================
+
+  - vars:
+      query: "Describe how your team will comply with security requirements and maintain secure operations throughout the period of performance."
+    assert:
+      - type: llm-rubric
+        value: "The retrieved context should contain information about specific security services, encryption mechanisms, network isolation, access controls, or security personnel qualifications."
+      - type: llm-rubric
+        value: |
+          Score based on how many of these information categories are covered in the retrieved context:
+          1. Encryption services or key management
+          2. Network security or isolation mechanisms
+          3. Credential or secrets management
+          4. Security personnel qualifications or roles
+          Score 1.0 if all 4 present, 0.75 if 3, 0.5 if 2, 0.25 if 1, 0.0 if none.
+        threshold: 0.75
+      - type: llm-rubric
+        value: "All retrieved content should relate to security architecture, encryption, access controls, or security personnel. Penalize if the context contains tax documents, certification application forms, business license filings, net worth statements, or unrelated business paperwork. Score 1.0 if all content is relevant, 0.5 if roughly half, 0.0 if mostly noise."
+        threshold: 0.7
+
+  - vars:
+      query: "How will your organization handle sensitive data and ensure compliance with federal security standards?"
+    assert:
+      - type: llm-rubric
+        value: "The retrieved context should contain information about data encryption at rest and in transit, key management, certificate management, or compliance with security frameworks."
+      - type: llm-rubric
+        value: |
+          Score based on how many of these information categories are covered in the retrieved context:
+          1. Encryption at rest capabilities
+          2. Encryption in transit capabilities
+          3. Access control or identity management
+          4. Compliance auditing or audit trail capabilities
+          Score 1.0 if all 4 present, 0.75 if 3, 0.5 if 2, 0.25 if 1, 0.0 if none.
+        threshold: 0.75
+      - type: llm-rubric
+        value: "All retrieved content should relate to data protection, encryption, compliance, or security standards. Penalize if the context contains tax documents, certification application forms, business license filings, net worth statements, or unrelated business paperwork. Score 1.0 if all content is relevant, 0.5 if roughly half, 0.0 if mostly noise."
+        threshold: 0.7
+
+  - vars:
+      query: "Confirm that all proposed key personnel hold the required qualifications and certifications."
+    assert:
+      - type: llm-rubric
+        value: "The retrieved context should contain information about team certifications, including specific AWS certification names, number of certified professionals, or individual credential details."
+      - type: llm-rubric
+        value: |
+          Score based on how many of these information categories are covered in the retrieved context:
+          1. Team-level certification count or summary
+          2. Named individual AWS certifications
+          3. AWS specializations or competency designations
+          4. Individual personnel names with qualifications
+          Score 1.0 if all 4 present, 0.75 if 3, 0.5 if 2, 0.25 if 1, 0.0 if none.
+        threshold: 0.75
+      - type: llm-rubric
+        value: "All retrieved content should relate to personnel qualifications, certifications, or professional credentials. Penalize if the context contains tax documents, certification application forms, business license filings, net worth statements, or unrelated business paperwork. Score 1.0 if all content is relevant, 0.5 if roughly half, 0.0 if mostly noise."
+        threshold: 0.7
+
+  # =========================================================================
+  # QUALIFICATIONS
+  # =========================================================================
+
+  - vars:
+      query: "What certifications does your organization currently hold?"
+    assert:
+      - type: llm-rubric
+        value: "The retrieved context should contain a list of organizational certifications, partner status, competency designations, or small business certifications held by the company or its personnel."
+      - type: llm-rubric
+        value: |
+          Score based on how many of these certification categories are covered in the retrieved context:
+          1. AWS partner status or tier
+          2. AWS specializations or competency designations
+          3. Small business or diversity certifications
+          4. Individual personnel certifications
+          5. AWS service delivery program qualifications
+          Score 1.0 if all 5 present, 0.8 if 4, 0.6 if 3, 0.4 if 2, 0.2 if 1, 0.0 if none.
+        threshold: 0.75
+      - type: llm-rubric
+        value: "All retrieved content should relate to organizational or personnel certifications, partner programs, or qualification designations. Penalize if the context contains tax documents, business license filings, net worth statements, or unrelated business paperwork. Score 1.0 if all content is relevant, 0.5 if roughly half, 0.0 if mostly noise."
+        threshold: 0.7
+
+  - vars:
+      query: "Describe your team's experience with cloud environments and AWS services."
+    assert:
+      - type: llm-rubric
+        value: "The retrieved context should contain information about the breadth and depth of AWS service experience, number of implementations, specific AWS services used, and partner program qualifications."
+      - type: llm-rubric
+        value: |
+          Score based on how many of these information categories are covered in the retrieved context:
+          1. Quantified AWS experience (number of implementations)
+          2. AI/ML AWS services experience
+          3. Infrastructure AWS services experience
+          4. Partner status and program qualifications
+          5. Personnel with hands-on AWS project experience
+          Score 1.0 if all 5 present, 0.8 if 4, 0.6 if 3, 0.4 if 2, 0.2 if 1, 0.0 if none.
+        threshold: 0.75
+      - type: llm-rubric
+        value: "All retrieved content should relate to AWS services, cloud experience, or technical capabilities. Penalize if the context contains tax documents, certification application forms, business license filings, net worth statements, or unrelated business paperwork. Score 1.0 if all content is relevant, 0.5 if roughly half, 0.0 if mostly noise."
+        threshold: 0.7
+
+  # =========================================================================
+  # OTHER
+  # =========================================================================
+
+  - vars:
+      query: "How will your organization support the agency's small business subcontracting goals?"
+    assert:
+      - type: llm-rubric
+        value: "The retrieved context should contain information about small business certifications, set-aside eligibility, bid preferences, or the organization's small business status."
+      - type: llm-rubric
+        value: |
+          Score based on how many of these information categories are covered in the retrieved context:
+          1. Small business certification type and status
+          2. Certifying agency or program
+          3. Bid preference or set-aside eligibility details
+          4. How to leverage the certification in proposals
+          Score 1.0 if all 4 present, 0.75 if 3, 0.5 if 2, 0.25 if 1, 0.0 if none.
+        threshold: 0.75
+      - type: llm-rubric
+        value: "All retrieved content should relate to small business status, certifications, set-aside eligibility, or subcontracting goals. Tax documents and unrelated business filings are not relevant unless they directly demonstrate small business status. Score 1.0 if all content is relevant, 0.5 if roughly half, 0.0 if mostly noise."
+        threshold: 0.7
+
+  - vars:
+      query: "Describe your approach to ensuring Section 508 accessibility compliance for all deliverables."
+    assert:
+      - type: llm-rubric
+        value: "The retrieved context should contain information about accessibility expertise, WCAG compliance, accessibility auditing capabilities, or dedicated accessibility personnel."
+      - type: llm-rubric
+        value: |
+          Score based on how many of these information categories are covered in the retrieved context:
+          1. Accessibility specialist role or dedicated expertise
+          2. Accessibility standards referenced (WCAG, Section 508)
+          3. Auditing or remediation capabilities
+          4. Personnel with accessibility or enterprise design experience
+          Score 1.0 if all 4 present, 0.75 if 3, 0.5 if 2, 0.25 if 1, 0.0 if none.
+        threshold: 0.75
+      - type: llm-rubric
+        value: "All retrieved content should relate to accessibility, WCAG compliance, inclusive design, or Section 508. Penalize if the context contains tax documents, certification application forms, business license filings, net worth statements, or unrelated business paperwork. Score 1.0 if all content is relevant, 0.5 if roughly half, 0.0 if mostly noise."
+        threshold: 0.7
+
+  # =========================================================================
+  # CASE STUDY RETRIEVAL TESTS
+  # =========================================================================
+
+  - vars:
+      query: "Describe a past project involving document processing and compliance verification."
+    assert:
+      - type: llm-rubric
+        value: "The retrieved context should describe a specific past project involving automated document processing and compliance verification, including the client name, technical approach, and quantified results."
+      - type: llm-rubric
+        value: |
+          Score based on how many of these information categories are covered in the retrieved context:
+          1. Specific client name
+          2. Technical approach with named services or tools
+          3. Accuracy or performance metrics
+          4. Cost savings or efficiency improvements
+          5. Description of the compliance or verification workflow
+          Score 1.0 if all 5 present, 0.8 if 4, 0.6 if 3, 0.4 if 2, 0.2 if 1, 0.0 if none.
+        threshold: 0.75
+      - type: llm-rubric
+        value: "All retrieved content should relate to document processing, compliance verification, or case study details. Penalize if the context contains tax documents, certification application forms, business license filings, net worth statements, or unrelated business paperwork. Score 1.0 if all content is relevant, 0.5 if roughly half, 0.0 if mostly noise."
+        threshold: 0.7
+
+  - vars:
+      query: "Describe your experience modernizing loan processing or financial services platforms."
+    assert:
+      - type: llm-rubric
+        value: "The retrieved context should describe a specific financial services modernization project, including the client, technical solution, and measurable business outcomes like cost savings or uptime improvements."
+      - type: llm-rubric
+        value: |
+          Score based on how many of these information categories are covered in the retrieved context:
+          1. Financial services client name
+          2. Modernization or platform migration context
+          3. Technical solution with named services
+          4. Uptime, scalability, or reliability metrics
+          5. Cost savings or processing time improvements
+          Score 1.0 if all 5 present, 0.8 if 4, 0.6 if 3, 0.4 if 2, 0.2 if 1, 0.0 if none.
+        threshold: 0.75
+      - type: llm-rubric
+        value: "All retrieved content should relate to financial services, loan processing, or platform modernization. Penalize if the context contains tax documents, certification application forms, business license filings, net worth statements, or unrelated business paperwork. Score 1.0 if all content is relevant, 0.5 if roughly half, 0.0 if mostly noise."
+        threshold: 0.7
+
+  - vars:
+      query: "Describe your experience building automated document classification and routing systems."
+    assert:
+      - type: llm-rubric
+        value: "The retrieved context should describe a specific project involving automated document classification, intelligent routing, and machine learning, including the client, scale of the deployment, and accuracy metrics."
+      - type: llm-rubric
+        value: |
+          Score based on how many of these information categories are covered in the retrieved context:
+          1. Client name for the classification project
+          2. Document classification and routing workflow description
+          3. AI/ML services or techniques used
+          4. Scale of deployment (number of departments, document volume)
+          5. Accuracy or efficiency metrics
+          Score 1.0 if all 5 present, 0.8 if 4, 0.6 if 3, 0.4 if 2, 0.2 if 1, 0.0 if none.
+        threshold: 0.75
+      - type: llm-rubric
+        value: "All retrieved content should relate to document classification, intelligent routing, or AI/ML automation. Penalize if the context contains tax documents, certification application forms, business license filings, net worth statements, or unrelated business paperwork. Score 1.0 if all content is relevant, 0.5 if roughly half, 0.0 if mostly noise."
+        threshold: 0.7
+
+  - vars:
+      query: "Describe your experience with educational data processing or transcript management."
+    assert:
+      - type: llm-rubric
+        value: "The retrieved context should describe a specific education sector project involving document processing, transcript evaluation, or credential verification, including the client, scale, and outcomes."
+      - type: llm-rubric
+        value: |
+          Score based on how many of these information categories are covered in the retrieved context:
+          1. Education sector client name
+          2. Transcript or academic document processing context
+          3. Scale of the platform (institutions served, document volume)
+          4. Technical services or tools used
+          5. Outcomes (cost savings, accuracy, processing time)
+          Score 1.0 if all 5 present, 0.8 if 4, 0.6 if 3, 0.4 if 2, 0.2 if 1, 0.0 if none.
+        threshold: 0.75
+      - type: llm-rubric
+        value: "All retrieved content should relate to education technology, transcript processing, or credential verification. Penalize if the context contains tax documents, certification application forms, business license filings, net worth statements, or unrelated business paperwork. Score 1.0 if all content is relevant, 0.5 if roughly half, 0.0 if mostly noise."
+        threshold: 0.7
+
+  # =========================================================================
+  # KEY PERSONNEL / RESUME RETRIEVAL TESTS
+  # =========================================================================
+
+  - vars:
+      query: "Describe the qualifications of your key personnel responsible for infrastructure, deployment, and system reliability."
+    assert:
+      - type: llm-rubric
+        value: "The retrieved context should contain a resume or personnel profile for a DevOps or infrastructure engineer, including their name, specific tools expertise (Terraform, Docker, CI/CD), AWS experience, and relevant project history."
+      - type: llm-rubric
+        value: |
+          Score based on how many of these information categories are covered in the retrieved context:
+          1. Named individual with DevOps or infrastructure role
+          2. Infrastructure as code tools experience
+          3. Container and orchestration experience
+          4. CI/CD pipeline experience
+          5. Cloud services experience
+          6. Relevant project descriptions
+          Score 1.0 if 5+ present, 0.8 if 4, 0.6 if 3, 0.4 if 2, 0.2 if 1, 0.0 if none.
+        threshold: 0.75
+      - type: llm-rubric
+        value: "All retrieved content should relate to DevOps, infrastructure, deployment, or system reliability personnel and their qualifications. Penalize if the context contains tax documents, certification application forms, business license filings, net worth statements, or unrelated business paperwork. Score 1.0 if all content is relevant, 0.5 if roughly half, 0.0 if mostly noise."
+        threshold: 0.7
+
+  - vars:
+      query: "Describe the qualifications of your key personnel responsible for user interface development and web application delivery."
+    assert:
+      - type: llm-rubric
+        value: "The retrieved context should contain a resume or personnel profile for a front-end developer, including their name, JavaScript framework experience, and relevant web application project history."
+      - type: llm-rubric
+        value: |
+          Score based on how many of these information categories are covered in the retrieved context:
+          1. Named individual with front-end development role
+          2. Core web technologies (HTML, CSS, JavaScript, TypeScript)
+          3. Frontend framework experience (React, Vue, etc.)
+          4. Cloud or deployment experience
+          5. Relevant project descriptions
+          Score 1.0 if all 5 present, 0.8 if 4, 0.6 if 3, 0.4 if 2, 0.2 if 1, 0.0 if none.
+        threshold: 0.75
+      - type: llm-rubric
+        value: "All retrieved content should relate to front-end development, web applications, or UI engineering personnel and their qualifications. Penalize if the context contains tax documents, certification application forms, business license filings, net worth statements, or unrelated business paperwork. Score 1.0 if all content is relevant, 0.5 if roughly half, 0.0 if mostly noise."
+        threshold: 0.7
+
+  - vars:
+      query: "Describe the qualifications of your key personnel responsible for backend development and cloud-native application architecture."
+    assert:
+      - type: llm-rubric
+        value: "The retrieved context should contain a resume or personnel profile for a backend or full-stack developer, including their name, serverless architecture experience, AWS services expertise, and relevant project history."
+      - type: llm-rubric
+        value: |
+          Score based on how many of these information categories are covered in the retrieved context:
+          1. Named individual with backend or full-stack role
+          2. Serverless or cloud-native architecture experience
+          3. Database experience
+          4. AI/ML or document processing integration experience
+          5. Relevant project descriptions
+          Score 1.0 if all 5 present, 0.8 if 4, 0.6 if 3, 0.4 if 2, 0.2 if 1, 0.0 if none.
+        threshold: 0.75
+      - type: llm-rubric
+        value: "All retrieved content should relate to backend development, cloud architecture, or full-stack engineering personnel and their qualifications. Penalize if the context contains tax documents, certification application forms, business license filings, net worth statements, or unrelated business paperwork. Score 1.0 if all content is relevant, 0.5 if roughly half, 0.0 if mostly noise."
+        threshold: 0.7
+
+  - vars:
+      query: "Identify key personnel who hold current AWS certifications and describe their relevant project experience."
+    assert:
+      - type: llm-rubric
+        value: "The retrieved context should contain personnel information that includes specific AWS certification names and relevant project experience demonstrating application of those certified skills."
+      - type: llm-rubric
+        value: |
+          Score based on how many of these information categories are covered in the retrieved context:
+          1. Named individual with AWS certifications
+          2. Specific certification names
+          3. Project experience applying certified skills
+          4. Technical skills aligned with certification scope
+          Score 1.0 if all 4 present, 0.75 if 3, 0.5 if 2, 0.25 if 1, 0.0 if none.
+        threshold: 0.75
+      - type: llm-rubric
+        value: "All retrieved content should relate to AWS certifications, certified personnel, or demonstration of certified skills. Penalize if the context contains tax documents, certification application forms, business license filings, net worth statements, or unrelated business paperwork. Score 1.0 if all content is relevant, 0.5 if roughly half, 0.0 if mostly noise."
+        threshold: 0.7
+
+  - vars:
+      query: "Describe your team's experience developing full-stack web applications with modern frameworks and cloud services."
+    assert:
+      - type: llm-rubric
+        value: "The retrieved context should contain personnel profiles or project descriptions demonstrating full-stack development experience with modern JavaScript frameworks and AWS cloud services."
+      - type: llm-rubric
+        value: |
+          Score based on how many of these information categories are covered in the retrieved context:
+          1. Named full-stack developer(s)
+          2. Modern frontend framework experience
+          3. Cloud backend services experience
+          4. Specific project examples with tech stacks
+          Score 1.0 if all 4 present, 0.75 if 3, 0.5 if 2, 0.25 if 1, 0.0 if none.
+        threshold: 0.75
+      - type: llm-rubric
+        value: "All retrieved content should relate to full-stack development, web application projects, or developer qualifications. Penalize if the context contains tax documents, certification application forms, business license filings, net worth statements, or unrelated business paperwork. Score 1.0 if all content is relevant, 0.5 if roughly half, 0.0 if mostly noise."
+        threshold: 0.7
+
+  - vars:
+      query: "Describe the qualifications of your key personnel responsible for user experience design and usability."
+    assert:
+      - type: llm-rubric
+        value: "The retrieved context should contain a resume or personnel profile for a UX/UI designer, including their name, design tool proficiency, user research experience, and measurable design outcomes."
+      - type: llm-rubric
+        value: |
+          Score based on how many of these information categories are covered in the retrieved context:
+          1. Named individual with UX/UI design role
+          2. Design tool proficiency
+          3. User research methods experience
+          4. Measurable design outcomes or impact metrics
+          5. Professional experience at specific companies
+          Score 1.0 if all 5 present, 0.8 if 4, 0.6 if 3, 0.4 if 2, 0.2 if 1, 0.0 if none.
+        threshold: 0.75
+      - type: llm-rubric
+        value: "All retrieved content should relate to UX/UI design, usability, user research, or design personnel qualifications. Penalize if the context contains tax documents, certification application forms, business license filings, net worth statements, or unrelated business paperwork. Score 1.0 if all content is relevant, 0.5 if roughly half, 0.0 if mostly noise."
+        threshold: 0.7
+
+  - vars:
+      query: "Describe your team's experience designing and prototyping user-facing products across multiple industries."
+    assert:
+      - type: llm-rubric
+        value: "The retrieved context should contain a resume or personnel profile for a product designer with cross-industry experience, including specific industries served, prototyping skills, and design system development."
+      - type: llm-rubric
+        value: |
+          Score based on how many of these information categories are covered in the retrieved context:
+          1. Named individual with product design role
+          2. Multiple industries mentioned
+          3. Prototyping or wireframing skills
+          4. Design system development experience
+          5. Specific company or project experience
+          Score 1.0 if all 5 present, 0.8 if 4, 0.6 if 3, 0.4 if 2, 0.2 if 1, 0.0 if none.
+        threshold: 0.75
+      - type: llm-rubric
+        value: "All retrieved content should relate to product design, prototyping, cross-industry design experience, or design personnel qualifications. Penalize if the context contains tax documents, certification application forms, business license filings, net worth statements, or unrelated business paperwork. Score 1.0 if all content is relevant, 0.5 if roughly half, 0.0 if mostly noise."
+        threshold: 0.7
+
+  - vars:
+      query: "Describe your team's approach to accessibility compliance and design system governance for government-facing applications."
+    assert:
+      - type: llm-rubric
+        value: "The retrieved context should contain personnel profiles or capabilities demonstrating experience with accessibility reviews, enterprise design systems, and government or complex application design."
+      - type: llm-rubric
+        value: |
+          Score based on how many of these information categories are covered in the retrieved context:
+          1. Named individual with enterprise or accessibility design experience
+          2. Accessibility review or compliance experience
+          3. Enterprise or complex application design experience
+          4. Design system or governance experience
+          5. Accessibility specialist role or WCAG expertise
+          Score 1.0 if all 5 present, 0.8 if 4, 0.6 if 3, 0.4 if 2, 0.2 if 1, 0.0 if none.
+        threshold: 0.75
+      - type: llm-rubric
+        value: "All retrieved content should relate to accessibility, enterprise design, design systems, or government application design. Penalize if the context contains tax documents, certification application forms, business license filings, net worth statements, or unrelated business paperwork. Score 1.0 if all content is relevant, 0.5 if roughly half, 0.0 if mostly noise."
+        threshold: 0.7
+
+  - vars:
+      query: "Describe your team's relevant experience delivering technology solutions for the education sector."
+    assert:
+      - type: llm-rubric
+        value: "The retrieved context should contain personnel experience or project descriptions related to education technology, academic data processing, or institutional platform development."
+      - type: llm-rubric
+        value: |
+          Score based on how many of these information categories are covered in the retrieved context:
+          1. Education sector project or case study
+          2. Named personnel who worked on education projects
+          3. Academic document processing or transcript details
+          4. Education-specific outcomes or scale metrics
+          Score 1.0 if all 4 present, 0.75 if 3, 0.5 if 2, 0.25 if 1, 0.0 if none.
+        threshold: 0.75
+      - type: llm-rubric
+        value: "All retrieved content should relate to education technology, academic data processing, or education sector experience. Penalize if the context contains tax documents, certification application forms, business license filings, net worth statements, or unrelated business paperwork. Score 1.0 if all content is relevant, 0.5 if roughly half, 0.0 if mostly noise."
+        threshold: 0.7
+
+  - vars:
+      query: "Describe your team's hands-on experience building intelligent document processing and extraction pipelines."
+    assert:
+      - type: llm-rubric
+        value: "The retrieved context should contain personnel experience or project descriptions demonstrating hands-on development of document extraction, text processing, or AI-powered document analysis pipelines using AWS services."
+      - type: llm-rubric
+        value: |
+          Score based on how many of these information categories are covered in the retrieved context:
+          1. Named personnel with document processing experience
+          2. Text extraction tools or services
+          3. AI/ML integration for document analysis
+          4. Search or classification capabilities
+          5. Specific project descriptions
+          Score 1.0 if all 5 present, 0.8 if 4, 0.6 if 3, 0.4 if 2, 0.2 if 1, 0.0 if none.
+        threshold: 0.75
+      - type: llm-rubric
+        value: "All retrieved content should relate to document processing, text extraction, AI-powered analysis, or document intelligence. Penalize if the context contains tax documents, certification application forms, business license filings, net worth statements, or unrelated business paperwork. Score 1.0 if all content is relevant, 0.5 if roughly half, 0.0 if mostly noise."
+        threshold: 0.7
+
+  - vars:
+      query: "Describe your team's experience implementing infrastructure as code and managing cloud environments at scale."
+    assert:
+      - type: llm-rubric
+        value: "The retrieved context should contain personnel experience or project descriptions demonstrating infrastructure as code implementation using tools like Terraform or CloudFormation, container orchestration, and cloud environment management."
+      - type: llm-rubric
+        value: |
+          Score based on how many of these information categories are covered in the retrieved context:
+          1. Named personnel with IaC experience
+          2. IaC tools (Terraform, CloudFormation, CDK)
+          3. Container orchestration (Docker, Kubernetes, ECS)
+          4. Cloud database or storage management
+          5. Monitoring and observability tools
+          Score 1.0 if all 5 present, 0.8 if 4, 0.6 if 3, 0.4 if 2, 0.2 if 1, 0.0 if none.
+        threshold: 0.75
+      - type: llm-rubric
+        value: "All retrieved content should relate to infrastructure as code, cloud environment management, or DevOps engineering. Penalize if the context contains tax documents, certification application forms, business license filings, net worth statements, or unrelated business paperwork. Score 1.0 if all content is relevant, 0.5 if roughly half, 0.0 if mostly noise."
+        threshold: 0.7
+
+  # =========================================================================
+  # CROSS-CUTTING TESTS
+  # =========================================================================
+
+  - vars:
+      query: "Provide a company overview including legal name and leadership."
+    assert:
+      - type: llm-rubric
+        value: "The retrieved context should contain the company's legal name, leadership or CEO name, location, and a description of the business."
+      - type: llm-rubric
+        value: |
+          Score based on how many of these information categories are covered in the retrieved context:
+          1. Legal business name
+          2. CEO or leadership name
+          3. Business location
+          4. Business description or service offerings
+          Score 1.0 if all 4 present, 0.75 if 3, 0.5 if 2, 0.25 if 1, 0.0 if none.
+        threshold: 0.75
+      - type: llm-rubric
+        value: "All retrieved content should relate to company identity, leadership, location, or business description. Business registration documents and corporate filings ARE relevant for this query. Penalize only if the context contains completely unrelated content like technical case studies or personnel resumes. Score 1.0 if all content is relevant, 0.5 if roughly half, 0.0 if mostly noise."
+        threshold: 0.7
+
+  - vars:
+      query: "Describe your artificial intelligence and machine learning capabilities."
+    assert:
+      - type: llm-rubric
+        value: "The retrieved context should contain information about specific AI/ML services used, ML competency certifications, and concrete examples of AI/ML implementations with measurable outcomes."
+      - type: llm-rubric
+        value: |
+          Score based on how many of these information categories are covered in the retrieved context:
+          1. Specific AI/ML services or tools
+          2. ML competency or certification
+          3. AI/ML project example with results
+          4. NLP or document intelligence capabilities
+          5. Personnel with AI/ML experience
+          Score 1.0 if all 5 present, 0.8 if 4, 0.6 if 3, 0.4 if 2, 0.2 if 1, 0.0 if none.
+        threshold: 0.75
+      - type: llm-rubric
+        value: "All retrieved content should relate to AI/ML capabilities, services, projects, or personnel. Penalize if the context contains tax documents, certification application forms, business license filings, net worth statements, or unrelated business paperwork. Score 1.0 if all content is relevant, 0.5 if roughly half, 0.0 if mostly noise."
+        threshold: 0.7
+
+  - vars:
+      query: "Describe your approach to post-deployment support and ongoing managed services."
+    assert:
+      - type: llm-rubric
+        value: "The retrieved context should contain information about post-deployment support offerings, including managed services scope, monitoring, security patching, compliance auditing, or SLA commitments."
+      - type: llm-rubric
+        value: |
+          Score based on how many of these information categories are covered in the retrieved context:
+          1. Managed services offering (24/7 or defined scope)
+          2. Monitoring or threat detection capabilities
+          3. Performance optimization or tuning
+          4. Compliance auditing or reporting
+          5. Security patching or maintenance
+          Score 1.0 if all 5 present, 0.8 if 4, 0.6 if 3, 0.4 if 2, 0.2 if 1, 0.0 if none.
+        threshold: 0.75
+      - type: llm-rubric
+        value: "All retrieved content should relate to post-deployment support, managed services, monitoring, or ongoing maintenance. Penalize if the context contains tax documents, certification application forms, business license filings, net worth statements, or unrelated business paperwork. Score 1.0 if all content is relevant, 0.5 if roughly half, 0.0 if mostly noise."
+        threshold: 0.7
+
+  - vars:
+      query: "Describe your DevOps practices and continuous integration/deployment approach."
+    assert:
+      - type: llm-rubric
+        value: "The retrieved context should contain information about CI/CD pipelines, infrastructure as code practices, containerization, observability tools, and DevOps personnel qualifications."
+      - type: llm-rubric
+        value: |
+          Score based on how many of these information categories are covered in the retrieved context:
+          1. CI/CD tools or pipeline descriptions
+          2. Infrastructure as code tools
+          3. Containerization or orchestration
+          4. Observability or monitoring tools
+          5. DevOps personnel or role qualifications
+          Score 1.0 if all 5 present, 0.8 if 4, 0.6 if 3, 0.4 if 2, 0.2 if 1, 0.0 if none.
+        threshold: 0.75
+      - type: llm-rubric
+        value: "All retrieved content should relate to DevOps, CI/CD, infrastructure automation, or monitoring. Penalize if the context contains tax documents, certification application forms, business license filings, net worth statements, or unrelated business paperwork. Score 1.0 if all content is relevant, 0.5 if roughly half, 0.0 if mostly noise."
+        threshold: 0.7
+
+  - vars:
+      query: "Provide references with contact information for past engagements."
+    assert:
+      - type: llm-rubric
+        value: "The retrieved context should contain specific reference contact information including names, organizations, email addresses, phone numbers, and project names for past engagements."
+      - type: llm-rubric
+        value: |
+          Score based on how many distinct references with contact details appear in the retrieved context:
+          1. First reference with name and contact info
+          2. Second reference with name and contact info
+          3. Third reference with name and contact info
+          4. Project names associated with references
+          5. Contract values or completion dates
+          Score 1.0 if all 5 present, 0.8 if 4, 0.6 if 3, 0.4 if 2, 0.2 if 1, 0.0 if none.
+        threshold: 0.75
+      - type: llm-rubric
+        value: "All retrieved content should relate to client references, contact information, or past engagement details. Penalize if the context contains tax documents, certification application forms, business license filings, net worth statements, or unrelated business paperwork. Score 1.0 if all content is relevant, 0.5 if roughly half, 0.0 if mostly noise."
+        threshold: 0.7

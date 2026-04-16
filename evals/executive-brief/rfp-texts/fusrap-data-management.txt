@@ -1,0 +1,385 @@
+Scope for Data Management Services. Majority work to be performed under
+Environmental Consulting Services North American Industry Classification System
+(NAICS) Code #518210 - Data Processing, Hosting, and Related Services
+PWS - BASE IDIQ
+DESCRIPTION/SPECIFICATIONS/SCOPE OF WORK STATEMENTS:
+1.0
+General:
+The purpose of this contract is to provide a full range of data processing,
+hosting, management and related services to the U.S. Army Corps of Engineers in support of
+ongoing environmental remediation and restoration of the former DuPont Chambers Works
+Formerly Utilized Sites Remedial Action Program (FUSRAP) site. The site was originally
+owned and operated by DuPont, but is now owned and operated by the Chemours Company
+(Chemours). USACE is addressing radiological contamination at the site from past uranium
+refinement, scrap recycling and research performed for the Office of Scientific Research and
+Development (OSRD), Manhattan Engineer District (MED) and Atomic Energy Commission
+(AEC) in the early years of the nation's atomic energy program. USACE is issuing this Scope of
+Work (SOW) under the requirements of the Comprehensive Environmental Response,
+Compensation, and Liability Act (CERCLA) of 1980, as amended, 42 United States Code
+(U.S.C.) § 9601 et seq. and the NCP, 40 CFR § 300.
+This contract aims mainly to provide USACE with data management services to support near-
+term management of data in active use, and prepare for long-term data management to meet
+USACE FUSRAP Head Quarters (HQ) and Department of Energy (DOE) program requirements
+for future data transfer to the DOE when active work is complete. Work includes: develop site-
+specific data management plan, implement the FUSRAP Records Management Guide
+(December, 2025), implement the draft FUSRAP Environmental Data Management System
+(FEDMS) Data Management Plan (November, 2024), host database for storage and use of site
+data, host database for storage and use of large datasets including but not limited to
+photogrammetry, Light Detection and Ranging (LiDAR), historical aerial photography,
+Geographic Information System (GIS) data, etc., Also, the contractor shall be required to digitize
+historical FUSRAP data stored on microfilm and host database for the digitized data, and
+provide complex, AI enhanced searches of this very large database. The Contractor shall also
+achieve and ensure compliance with Cybersecurity Maturity Model Certification (CMMC) Level
+1 standards for all site-specific databases, segregate and store CUI data, complete QC of all data
+management efforts, organize and host training for USACE and USACE contractor database
+users, collect data including but not limited to aerial survey using Remotely Pilot Aircraft
+System (RPAS) and develop required safety plans (Quality Assurance Project Plans (QAPP)
+including Uniform Federal Policy QAPP and Work Plans, and Safety and Occupational Health
+(SOH) Plan including an Accident Prevention Plan (APP) and current Activity Hazard Analyses
+(AHAs)), and 2D and 3D data visualization. Achieving compliance with CMMC Level 2
+standards may be required for some task orders.
+The Contractor shall also be expected to furnish all materials, plant, labor, equipment, supplies,
+personnel, and all other services required to perform the data processing, hosting, and related
+services outlined in this performance work statement and as specifically identified in the
+individual task orders. The services required by this contract will be provided for the U.S. Army
+Corps of Engineers, Philadelphia District. The geographic area encompassed by this contract
+includes work within the former DuPont Chambers Works FUSRAP site located in Salem
+County, New Jersey, with small portions of the site extending into Newcastle County, Delaware..
+2.0
+Scope of Work: The timeframe and specific procedures for each item of work will be
+described on an individual task order basis.
+2.1 Capability Requirements: The Contractor's staffing must include experienced
+professionals qualified in the following areas of expertise:
+Computer Operator
+Computer Systems Analyst
+System Support Specialist
+Surveying
+LiDAR data collection
+RPAS drone operation
+Drafting/GIS/CAD
+Technical Writing
+Clerical and Administrative
+Analytical testing and data review using Automated Data Review (ADR)
+(latest version) and Environmental Data Management System (EDMS)
+(latest version)
+2.2 Additional Capability Requirements. The Contractor or subcontractor(s) staffing must
+include professionals experienced in the following areas of expertise.
+Health & Safety
+Industrial Hygiene
+Environmental Science
+Radiological screening
+Waste Management
+2.3 Data Management. The Contractor shall be capable of providing innovative technologies,
+as well as traditional methods of data collection and management. Examples of some of
+the data management work that may be required are listed below:
+Data storage - shall include, but not be limited to, hosting databases to store environmental
+data, metadata, survey data, aerial photography, GIS data, designs and reports, meeting
+minutes and admin documents.
+Data digitization - shall include scanning/processing physical records to create a digital
+record.
+Data management and documentation - shall include documenting the location of and
+transfer of historical/active-use site data. Shall include specifying standards for use of,
+naming of, versioning of, storage of, transfer of, and general management of all historical,
+current, and future data generated at or used at the site.
+Data collection, Drone LiDAR - shall include collection and processing of aerial survey
+data, to include Light Detection and Ranging (LiDAR) point cloud data, using a Remotely
+Piloted Aircraft System (RPAS). Drone flights shall be conducted by Federal Aviation
+Administration (FAA)-certified RPAS pilot and a trained visual observer.
+Data Visualization - shall include development of 3-Dimensional (3D) models and map
+generation supporting data visualization, this may include development of Digital Elevation
+Models (DEMs) from collected LiDAR data.
+2.4 Support Activities. The Contractor shall be capable of performing activities supporting
+data management. Examples of some of the support activities that may be required are
+listed below:
+Quality Control - A qualified professional, or staff approved by the Government shall
+oversee data management tasks. This staff shall be responsible for: supervise implementation
+of FUSRAP Records Management guidance, supervise implementation of FUSRAP FEDMS
+guidance, supervise implementation of the data management plan (developed under this
+contract), supervise implementation of CMMC compliance measures.
+Stakeholder Coordination - To include coordination with other federal agencies accessing the
+data or involved in FUSRAP data management (USASE Headquarters (HQ), Department of
+Energy (EOC), USACE legal, USACE EMCX, USACE federal labs, etc.), coordination with
+USACE contractors and their subcontractors accessing/generating data, coordination with site
+owners (currently DuPont Chemours).
+Development of 3-Dimensional (3D) models and map generation supporting data
+visualization, this may include development of Digital Elevation Models (DEMs) from
+collected LiDAR data.
+Preparation of/updates to Quality Assurance Project Plans (QAPP), including Uniform
+Federal Policy QAPP and Work Plans.
+Preparation of/updates to Health and Safety Plans - A Safety and Occupational Health (SOH)
+Plan including an Accident Prevention Plan (APP) and current Activity Hazard Analyses
+(AHAs) shall be prepared for, and reviewed by, USACE prior to mobilization.
+Cost estimating activities.
+Reporting.
+3.0
+Administrative Requirements:
+3.1 Cybersecurity Maturity Model Compliance (CMMC): The Contractor shall prioritize
+cybersecurity, ensuring compliance with stringent DoD data security requirements and
+achieving CMMC Level 1 standards, completing and submitting the Final Level 1 (Self)
+Assessment. The Contractor shall comply with all CMMC requirements pertaining to
+Federal Contract Information (FCI) and must meet the 15 security requirements set by
+the Federal Acquisition Regulation (FAR) clause 52.204-21. Achieving CMMC Level 2
+standards may be required for some task orders.
+3.2 Progress Reports and Payment Requests: A progress report (ENG 93) shall be submitted
+electronically and hardcopy to the Philadelphia District Technical Manager (a specific
+Technical Manager shall be assigned for each task order) once each month, unless
+otherwise directed by the Task Order, during each task order period. The report shall
+describe the work completed during the reporting period and give the project status on a
+percentage basis of the total amount of work completed. A payment request shall also be
+submitted to the Philadelphia District once each month. The percent claimed for payment
+shall coincide with the progress report. Unless otherwise noted, the progress report and
+payment request should be electronically distributed to the attention of the designated
+Contracting Officers Representative (COR) and Technical Project Manager.
+Mailing Address:
+Philadelphia District Corps of Engineers
+ATTN: TBD
+CENAP-DPI
+1650 Arch St.
+Philadelphia, PA 19103
+3.3 Project Documentation:
+Meeting Minutes. The Contractor shall provide a record of all meetings, telephone
+conferences, and other discussions or verbal directives, in which the Contractor or a
+representative of the Contractor participated. The records shall be dated and submitted
+to the COR within 3 business days of the meeting unless otherwise stated in the task
+order. At a minimum these records shall identify the participating personnel, subjects
+discussed; conclusions reached, and assigned actions.
+Project Records. The Contractor shall assemble and index all records obtained or
+developed by the Contractor in the performance of each task order. At the completion of
+the work on the task order, unless otherwise stated in the Task Order, the Contractor
+shall submit via electronic and physical means all the original records, including the
+index into secure boxes for transport to a location as directed by the Contracting Officers
+Representative (COR). The Contractor shall retain a copy of all project deliverables and
+the project record index for the duration of the contract then coordinate transferal with
+the USACE. The Contractor shall not retain any other records or copies of records except
+with permission of the Contracting Officer.
+Confidentiality. All documents and information developed or obtained by the Contractor
+shall be considered privileged information of the United States. The Contractor shall not
+release or allow access to this information outside of the Government officials as
+designated by the Contracting Officer, its own officers, employees, agents or
+subcontractors who need the information for the performance of the work. All requests
+for the release of information shall be referred by the Contractor to the USACE Project
+Manager (PM). The PM shall coordinate the request with the appropriate officials for
+reply. The obligation to maintain the confidentiality of information extends beyond the
+completion of the contract and individual task orders, until released by the Contracting
+Officer or as determined by a United States court of competent jurisdiction. See Clause
+at DFARS 252.204-7000, DISCLOSURE OF INFORMATION, Section I.
+3.4 Contract Deliverables: The Contractor shall submit all deliverables in draft and final
+format as required within the specific instructions of each task order, including the
+format, number of copies, and distribution. At a minimum, all final copies of documents
+shall include one copy in PDF format pdf). Currently the Philadelphia District
+standards for software are consistent with the most current versions of MS Office, MS
+Windows 11, AutoCAD® and ArcGIS Pro. These products are to be considered the
+default software of choice unless otherwise specified within individual task order scopes
+of work, as determined by individual customer requirements or as the District
+incorporates updated versions of its software. Specifically:
+CADD Files: When required and requested in a task order, all CADD files (survey and
+topographic data, remedial action design drawings, contaminant migration maps and
+models, etc.) shall be digitized into PDF format (*.pdf) files. CADD files shall also meet
+any upgrade to all Corps of Engineers systems throughout the duration of the contract.
+GIS Files: When required and requested in a task order, all GIS files (survey and
+topographic data, remedial action data collected, contaminant migration maps generated,
+etc.) shall be submitted compatible with Environmental Systems Research Institute
+(ESRI) shapefiles or personal geodatabases format (or other format if directed in the
+individual task order). GIS files shall also meet any upgrade to all Corps of Engineers
+systems throughout the duration of the contract. All GIS data shall be collected using the
+local State Plane coordinate system using the North American Datum of 1983 and the
+North American Vertical Datum of 1988. All files shall be collected using linear units of
+US Survey feet for both the horizontal and vertical.
+Electronic Files: All final reports and documents, including laboratory analysis data,
+shall be submitted in MS Word and/or MS Excel or other approved format.
+The Contractor shall consult ER 11 10 -1-263 concerning chemical testing data quality
+management.
+All laboratory electronic data deliverables shall comply with the USACE Automated
+Data Review (ADR) specifications/ Stage Electronic Data Deliverables (SEDD) and
+Environmental Data Management System (EDMS).
+All analytical electronic data shall be reviewed using the most current
+ADR software and uploaded to the USACE EDMS.
+All reports shall be provided in Microsoft® Word software (latest edition).
+All raw chemical or engineering data shall be provided in a spreadsheet format
+utilizing Microsoft® Excel software (latest edition).
+All final reports, including tables, figures, and drawings, shall be provided in Adobe®
+Acrobat® PDF format.
+Spatial information or metadata shall be compliant with the Federal Geographic
+Data Committee standards. Additional guidelines are available in EM-1110-1-
+2909, Geospatial Data and Systems.
+A requisite level of QC shall be provided to ensure that all initial documents and
+submittals provided to the USACE satisfy the requirements of each individual
+Task Order. The Contractor Quality Control program shall include procedures to
+ensure that all submittals satisfy the requirements of the SOW and Task Order
+prior to submitting to USACE. All work plans, data packages and reports will be
+reviewed by USACE and comments provided, where appropriate, using a
+comment-response form. The Contractor shall respond to the review comments
+using the comment-response form and revise the affected document using tracked
+changes. After all responses are accepted by USACE and appropriate changes are
+made to the document, the project stakeholders will be given an opportunity to
+review and comment on the revised documents.
+4.0
+Task Orders:
+As the needs of the Corps of Engineers are defined, the Contracting Officer will notify
+the Contractor of a need through the issuance of a Request for Proposal (RFP) Letter. A
+Scope of Work attached to the RFP Letter will provide the Contractor with a description
+of the services to be provided for the prospective task order. A copy of the wage
+determination will also be furnished from the area where the work will be performed. The
+Contractor shall then prepare their proposal for accomplishing the task by preparing and
+submitting sufficient documentation (including identifying all subcontractors and
+associated costs) to assure that the Contractor has provided sufficient planning to
+accomplish the required task. The proposal provided by the Contractor shall provide a
+detailed breakdown of the costs, which includes level of effort (by labor category listed in
+the Schedule, Section B), including identifying all subcontractors and associated cost,
+and any required travel or special equipment or supplies.
+In cases where the Contractor intends to hire a discipline to perform work and the rate has
+not been established under Schedule B of the contract, the rate will be negotiated. The
+type of discipline required will determine the type of overhead to be applied. It is
+recommended that this rate be negotiated before hiring of the discipline takes place.
+Hiring before a rate has been negotiated shall not justify fair and reasonable cost.
+The proposal shall be used to establish the Contractor's capability to perform the work
+and as a basis for negotiating the cost of the work. The time required for receipt of the
+Contractor's proposal shall be identified in each RFP Letter. Upon receipt of the
+Contractor's proposal the Corps of Engineers will review the proposal documents for
+adequacy and completeness. The Corps of Engineers will then negotiate with the
+Contractor the proposed effort, the fixed-price cost for performing the work, and the time
+period for performing the work
+In addition to the unit prices specified in the Schedule, Section B, out-of-town travel
+expenses which have been negotiated as part of the task order will be reimbursed. Cost
+for lodging, meals, and incidental expenses shall be in accordance with per diem rates
+for travel set forth in the Government's Joint Travel Regulations.
+Other Direct Costs of equipment and special supplies (ODCs), when required for special
+tasks, will also be reimbursed under this contract. The requirement and cost for
+equipment usage and special supplies will be negotiated on a case-by-case basis and
+must be approved as part of each task order. Note: Specialized equipment and supplies
+are those above and beyond what is normally encountered for performance of a task.
+Work will only be ordered through the issuance of individual task orders. All task orders
+issued will be for the services specified therein, and will be in accordance with the fixed
+rates. The cost of work that is not covered by the fixed rates in this contract will be
+negotiated on an individual task order basis.
+The Contracting Officer's Representative (COR) for each task order will be responsible
+for the administration of task orders placed hereunder. The Contracting Officer
+Representative does not have authority to modify any provision of this contract. Any
+request for deviation from the terms of this contract or any task orders issued hereunder
+must be submitted to the Contracting Officer for contractual action. The COR's name and
+contact information for each task order shall be provided to the Contractor at Task Order
+award.
+The Contractor shall notify the Contracting Officer's Representative upon completion of
+each individual task order. The Contractor shall give advance notice of the date the work
+will be fully completed and ready for final inspection.
+A DD Form 1155 will be issued for each task order. Each task order will include:
+(a)
+Date of task order; contract number; task order number; task order price or
+performance data; accounting and appropriation data; and any other
+pertinent information. Delivery or performance shall be specified in each
+task order issued hereunder.
+(b)
+The specific Scope of Work related to the work covered by the task
+order and any other special technical requirements, instructions, or
+clearances.
+5.0
+Technical Requirements:
+5.1 Permits, Certifications, Licenses and Site Access: The Contractor shall comply with all
+Federal, State and local laws, regulations and ordinances relating to the performance of
+this work. The Contractor shall determine what, if any, permits are required to perform
+this work. The Contractor shall procure all required permits, certifications and licenses
+required by Federal, State, and local law for the execution of this work.
+Access to survey locations shall be obtained by the Government. The site and work
+area is within the Chemours facility and is fenced in. The Contractor may stage
+needed equipment and supplies at a designated location within this area. While it is
+likely that Contractor equipment and supplies stored at the site shall be secure, site
+security cannot be guaranteed by USACE. Contractor personnel are responsible for
+security of their machines, equipment, supplies, etc.
+Note: in order to gain access to work at the Chemours site, Contractor and
+subcontractor personnel shall be required to take safety training at Chemours.
+USACE will coordinate the training with Chemours.
+5.2 Safety and Health: This subsection describes, in general terms, the minimum Contractor
+safety, health, and emergency response requirements associated with this contract. The
+Contractor shall have an ongoing Safety and Health Program meeting the requirements
+of the OSHA standard, 29 CFR 1910.20,29 CFR 1910.21, and 29 CFR 1910. 120. In
+addition, the Contractor shall prepare, implement, and enforce a site-specific Accident
+Prevention Plan (APP). The Contractor shall ensure that the subcontractors, suppliers,
+and support personnel follow all safety and health provisions.
+Safety and Health Program: The Corps of Engineers reserves the right to review the
+Contractor's corporate "Safety and Health Program." The Contractor shall incorporate
+any additions or revisions required by the Contracting Officer.
+Site Safety and Health Plan: The Contractor shall prepare a written Site Safety and
+Health Plan (SSHP)/Accident Prevention Plan (APP) that complies with the specific task
+order. Acceptance of the Contractor's SSHP is required prior to start of field activities.
+The Corps of Engineers reserves the right to visit and/or inspect site work at any time
+and reserves the right to require the Contractor to make changes in his SSHP and
+operations as necessary to assure the safety and health of all persons on or near the site.
+Regulations: The Contractor's Safety and Health Program shall comply with and
+reflect the following applicable regulations and publications:
+(a)
+OSHA Standards, 29 CFR 1910 and 29 CFR 1926.
+(b)
+U.S. Army Corps of Engineers Safety and Health Requirements Manual,
+EM 385-1-1 (2014 or most current).
+(c)
+U.S. Army Corps of Engineers regulation "Safety and Occupational
+Health Document Requirements for Hazardous, Toxic, and Radioactive
+Waste (HTRW) and Ordnance and Explosive Waste (OEW) Activities,"
+current date.
+(d)
+NIOSH/OSHNUSCG/EPA Document, "Occupational Safety and Health
+Guidance Manual for Hazardous Waste Site Activities," October 1985
+(DHHS Publication No. 85-115).
+(e)
+Federal Acquisition Regulation (FAR) Clause "Accident Prevention" (52.236-13).
+(f)
+Other relevant Federal, State, and local regulations.
+Responsibility: The overall responsibility for the development, implementation, and
+continued enforcement of the Contractor's Safety and Health Program and Site Safety
+and Health Plan/Accident prevention Plans lies with the Contractor.
+(a)
+The Contractor shall utilize the services of an experienced Certified Safety
+and Health Professional; ex. Certified Industrial Hygienist (CIH), Certified
+Safety Professional (CSP) or Certified Health Physicist, depending on the
+nature of the hazards anticipated, to implement and oversee the Safety and
+Health program and to develop, implement, and sign all Site Safety and
+Health Plans (SSHP), in accordance with ER-385-1-92, Appendix B. Any
+changes to the established Safety and Health Program or SSHPs shall be at
+the direction and approval of the Certified Safety and Health Professional.
+The CIH/CSP/CHP shall not necessarily be required to be on site during site
+activities, but shall be readily available for consultation when required.
+(b)
+All those involved in site investigations shall be required to have fulfilled the 29
+CFR 1910.120 OSHA 40-hour basic health and safety training of the job's health
+and safety plan, including medical monitoring and current 8-hour annual
+refresher. Supervisors and those tasked with safety and health responsibilities
+must have completed the 8-hour supervisor's course.
+(c)
+All site field workers are required to have Rad II training.
+(d)
+The Contractor is responsible for furnishing all necessary worker safety
+protection equipment and training. CPR training, first aid training, respirator
+training, and respirator fit testing must be documented by the Contractor.
+5.3 Laboratory Support Services: Field testing capability, and field laboratory capability,
+shall be used either in combination or individually depending on the circumstances of
+the task.
+Field testing capability shall include, as a minimum, the standards, equipment, and
+knowledge to use photo ionizing detectors, combustible gas/oxygen meters, ionizing
+radiation meters, and pH and conductivity meters.
+Analysis capabilities shall be identified in each individual task order. More than one
+laboratory may be identified to cover the range of analyses required. All levels of data
+quality shall be specified by the Contractor and approved by the U.S. Army Corps of
+Engineers.
+Analytical methods used shall be Environmental Protection Agency (EPA) standard
+methods, unless technically impractical. The U.S. Army Corps of Engineers shall
+approve the labs and analytical methods used under each task order.
+5.4 Utility Clearances: Prior to the start of intrusive work, the Contractor shall call New
+Jersey One Call at 1-800-272-1000 to arrange utility mark-outs at the site as required by
+law. The Contractor shall provide USACE a written record of the findings from this
+call. To the extent practicable, the Contractor shall review available maps showing
+utility locations.
+The Contractor shall also arrange to have a commercial utility locator service clear the area
+around each boring location prior to drilling by scanning a 10-foot diameter circle with the
+boring location at its center. The Contractor shall ensure that utility and any metal
+obstructions are documented down to approximately 15 feet below ground surface. Utilities
+and other identified subsurface features in these areas shall be marked with paint on the
+ground surface as well as stakes/pin flags. Mark outs shall include both Ground Penetrating
+Radar and a resistivity survey.
+The Contractor shall mark out of the boring locations at the site with stakes, paint, pin flags,
+etc. These markings shall last through the completion of the soil boring program in order to
+ensure that no intrusive work is done in areas not previously cleared of utilities and other
+features.
+6.0
+Period of Performance:
+This Contract is to have a Period of Performance (PoP) not to exceed Five (5) years from the
+date of award.

@@ -1,0 +1,1213 @@
+{
+  "allTextKeys": [
+    "9b8f8de22b0167729744d906ae984a0c8522ce2dcb829b6334d636c22ef9185a/810f5a23-42e4-4355-a2b4-f9ae2cb8e563/ab320ec4-59f7-4050-8fcc-85c8d2af9a96.txt",
+    "91217845430bc5fd8566f47ae3f20606e4a29732fcbeaef9054ec359fc5e420e/810f5a23-42e4-4355-a2b4-f9ae2cb8e563/d9922708-35df-4068-bfdb-6ecafe6a72cf.txt"
+  ],
+  "compositeScore": 1.8,
+  "confidence": 75,
+  "createdAt": "2026-04-14T22:51:38.411Z",
+  "decision": "NO_GO",
+  "documentsBucket": "auto-rfp-documents-dev-039885961427",
+  "opportunityId": "cac315e1-4ffc-4692-ada0-a51ddaf87ab6",
+  "orgId": "9c0a5757-e2da-4e71-9490-01c558f7ffc3",
+  "partition_key": "EXEC_BRIEF_PK",
+  "projectId": "810f5a23-42e4-4355-a2b4-f9ae2cb8e563",
+  "sections": {
+    "contacts": {
+      "data": {
+        "missingRecommendedRoles": [
+          "CONTRACTING_OFFICER",
+          "CONTRACTING_OFFICER_REPRESENTATIVE",
+          "TECHNICAL_POC",
+          "PROGRAM_MANAGER",
+          "SMALL_BUSINESS_SPECIALIST",
+          "PROCUREMENT_POC",
+          "SUBCONTRACTING_POC",
+          "GENERAL_INQUIRY"
+        ],
+        "contacts": [
+          {
+            "name": "Renee Jones-Chuang",
+            "role": "CONTRACT_SPECIALIST",
+            "notes": "Submissions should be sent to this contact with subject line 'ACQ-OMAS-2026-ORC-0014_Sources'",
+            "email": "renee.jones-chuang@hhs.gov",
+            "organization": "HHS Office of Mission Acquisition Solutions (OMAS)"
+          }
+        ]
+      },
+      "inputHash": "e2bd61ca7b56fbd0152e359cbe3ba73311771dbb21a3626bd3adbc9475afa68f",
+      "status": "COMPLETE",
+      "updatedAt": "2026-04-14T22:52:02.983Z"
+    },
+    "deadlines": {
+      "data": {
+        "hasSubmissionDeadline": true,
+        "submissionDeadlineIso": "2026-04-20T18:00:00Z",
+        "deadlines": [
+          {
+            "dateTimeIso": "2026-04-20T18:00:00Z",
+            "label": "Sources Sought Response Deadline",
+            "notes": "Deadline for submitting responses to the Sources Sought notice to renee.jones-chuang@hhs.gov",
+            "type": "PROPOSAL_DUE",
+            "rawText": "Response Deadline: 2026-04-20T18:00:00.000Z",
+            "timezone": "UTC"
+          }
+        ],
+        "warnings": [
+          "This is a Sources Sought notice, not a solicitation. The response deadline is for market research submissions, not contract proposals."
+        ]
+      },
+      "inputHash": "e6fc84a5c0737202eb402d7abb7ce997da11d56a47f9c2a207cae99ee80dc84e",
+      "status": "COMPLETE",
+      "updatedAt": "2026-04-14T22:51:53.905Z"
+    },
+    "pastPerformance": {
+      "data": {
+        "topMatches": [
+          {
+            "matchDetails": {
+              "technicalSimilarity": 27,
+              "scaleSimilarity": 70,
+              "domainSimilarity": 20,
+              "recency": 90,
+              "successMetrics": 100
+            },
+            "project": {
+              "durationMonths": 14,
+              "naicsCodes": [
+                "541512",
+                "541511",
+                "611710"
+              ],
+              "achievements": [
+                "Reduced document processing time by 80%, from 8-12 hours to 1.5-2 hours",
+                "Improved data extraction accuracy to 95%, virtually eliminating manual rework",
+                "Platform processes documents from over 500 institutions simultaneously without latency",
+                "Delivered over $800,000 in annual labor cost savings",
+                "Achieved 180% ROI within 14 months of launch",
+                "User satisfaction scores increased by over 40%",
+                "Ensured SLA compliance even during peak academic seasons"
+              ],
+              "reactivatedAt": null,
+              "endDate": "2024-05-31",
+              "contractType": "Fixed Price",
+              "isArchived": false,
+              "description": "Designed and implemented a serverless enterprise architecture using over 20 AWS services that enabled DegreeData to automate academic document processing, credential verification, and transcript evaluation. The platform transformed document-heavy workflows into a scalable, automated, and intelligent system serving over 2,500 colleges, universities, and professional organizations globally.",
+              "title": "Enterprise Educational Data Platform",
+              "staleReason": null,
+              "orgId": "9c0a5757-e2da-4e71-9490-01c558f7ffc3",
+              "setAside": "",
+              "createdAt": "2026-04-07T21:35:58.083Z",
+              "client": "DegreeData",
+              "value": 800000,
+              "updatedAt": "2026-04-11T00:57:26.182Z",
+              "technicalApproach": "Built serverless compute layer with AWS Lambda and AWS Fargate orchestrated through Step Functions for sequential and parallel workflows. Integrated Amazon Textract for structured data extraction from scanned transcripts and forms with over 95% accuracy including handwritten notes. AWS Comprehend provided NLP to classify and extract academic attributes (course titles, grades, GPAs). Amazon Bedrock powered a custom document parser and RAG model to convert unstructured data into JSON for RDS ingestion. Amazon OpenSearch enabled real-time search across millions of academic records. Amazon QuickSight provided dynamic dashboards for processing queues, data quality metrics, and SLA monitoring. Data layer used RDS MySQL for transactional data, DynamoDB for semi-structured records and metadata, S3 for document storage, and ElastiCache for institutional templates. Security via WAF, Shield, Certificate Manager, KMS, Secrets Manager. API Gateway and AppSync for real-time client access. EventBridge and SQS/SNS for async microservice communication. CI/CD with CloudFormation, CodePipeline, CodeBuild, CodeDeploy.",
+              "partition_key": "PAST_PROJECT",
+              "reactivatedBy": null,
+              "contractNumber": "",
+              "sort_key": "9c0a5757-e2da-4e71-9490-01c558f7ffc3#711ebe84-f02e-48ea-9a95-b5e481c12f95",
+              "staleSince": null,
+              "usageCount": 21,
+              "technologies": [
+                "AWS Lambda",
+                "AWS Fargate",
+                "AWS Step Functions",
+                "Amazon Textract",
+                "Amazon Comprehend",
+                "Amazon Bedrock",
+                "Amazon OpenSearch",
+                "Amazon QuickSight",
+                "Amazon RDS MySQL",
+                "Amazon DynamoDB",
+                "Amazon S3",
+                "Amazon ElastiCache",
+                "Amazon API Gateway",
+                "AWS AppSync",
+                "Amazon EventBridge",
+                "Amazon SQS",
+                "Amazon SNS",
+                "AWS WAF",
+                "AWS Shield",
+                "AWS KMS",
+                "AWS Secrets Manager",
+                "AWS CloudFormation",
+                "AWS CodePipeline",
+                "AWS CodeBuild",
+                "AWS CodeDeploy",
+                "Amazon CloudWatch",
+                "AWS X-Ray",
+                "AWS Certificate Manager"
+              ],
+              "performanceRating": 5,
+              "lastFreshnessCheck": null,
+              "createdBy": "system-import",
+              "lastUsedAt": "2026-04-11T00:57:26.182Z",
+              "teamSize": 16,
+              "domain": "Education / EdTech",
+              "clientPOC": {
+                "name": "",
+                "title": "",
+                "phone": "",
+                "email": "",
+                "organization": "DegreeData"
+              },
+              "freshnessStatus": "fresh",
+              "projectId": "711ebe84-f02e-48ea-9a95-b5e481c12f95",
+              "usedInBriefIds": [
+                "6fbf749f-7173-489c-be0a-564f97ebf8b0#1caae84e-d059-499e-a672-6250187f41fc",
+                "6fbf749f-7173-489c-be0a-564f97ebf8b0#1caae84e-d059-499e-a672-6250187f41fc",
+                "6fbf749f-7173-489c-be0a-564f97ebf8b0#1caae84e-d059-499e-a672-6250187f41fc",
+                "6fbf749f-7173-489c-be0a-564f97ebf8b0#1caae84e-d059-499e-a672-6250187f41fc",
+                "6fbf749f-7173-489c-be0a-564f97ebf8b0#1caae84e-d059-499e-a672-6250187f41fc",
+                "6fbf749f-7173-489c-be0a-564f97ebf8b0#1caae84e-d059-499e-a672-6250187f41fc",
+                "6fbf749f-7173-489c-be0a-564f97ebf8b0#272d3064-2c02-4e8a-8bdc-0c4cfb9d0bce",
+                "810f5a23-42e4-4355-a2b4-f9ae2cb8e563#f5f0a50d-a591-4e00-94de-11a58f518242",
+                "810f5a23-42e4-4355-a2b4-f9ae2cb8e563#a8b67b32-76e3-4d24-97c1-c8a68d670afe",
+                "810f5a23-42e4-4355-a2b4-f9ae2cb8e563#88531e17-2daf-4a4e-920e-103d7c2818b4",
+                "810f5a23-42e4-4355-a2b4-f9ae2cb8e563#88531e17-2daf-4a4e-920e-103d7c2818b4",
+                "810f5a23-42e4-4355-a2b4-f9ae2cb8e563#c0971acb-8948-4992-96c8-181ebfc4785b",
+                "810f5a23-42e4-4355-a2b4-f9ae2cb8e563#a6337196-4a67-44bc-8217-557cb6d7de31",
+                "810f5a23-42e4-4355-a2b4-f9ae2cb8e563#7813d937-b137-42e7-8f23-daf1d516e8a4",
+                "810f5a23-42e4-4355-a2b4-f9ae2cb8e563#7d46e81e-94f5-4adc-8d37-2ae0eb6cadf5",
+                "810f5a23-42e4-4355-a2b4-f9ae2cb8e563#dc9e5d6a-d832-452c-bcc8-43709148bd05",
+                "810f5a23-42e4-4355-a2b4-f9ae2cb8e563#9eecf69b-183e-4ef0-b1d2-a0222df5a250",
+                "810f5a23-42e4-4355-a2b4-f9ae2cb8e563#9eecf69b-183e-4ef0-b1d2-a0222df5a250",
+                "810f5a23-42e4-4355-a2b4-f9ae2cb8e563#5d602fa1-2abd-48cb-a212-dcdcb7c29038",
+                "810f5a23-42e4-4355-a2b4-f9ae2cb8e563#c41c7043-1550-4cb0-8a7f-517adf26ebb8",
+                "810f5a23-42e4-4355-a2b4-f9ae2cb8e563#58f9b35f-8639-4f47-b2e7-489f24db1479"
+              ],
+              "startDate": "2023-03-01"
+            },
+            "relevanceScore": 44,
+            "matchedRequirements": [],
+            "narrative": null
+          },
+          {
+            "matchDetails": {
+              "technicalSimilarity": 25,
+              "scaleSimilarity": 75,
+              "domainSimilarity": 20,
+              "recency": 90,
+              "successMetrics": 100
+            },
+            "project": {
+              "durationMonths": 18,
+              "naicsCodes": [
+                "541512",
+                "541511",
+                "518210"
+              ],
+              "achievements": [
+                "Reduced loan processing time by 65%, from 5-7 business days to 1.5-2 days",
+                "Achieved 92% accuracy in handwriting recognition",
+                "Reduced document resubmission by 78%",
+                "Delivered 40% operational cost savings ($2.1M annually)",
+                "Achieved 99.9% uptime with 10x improved scalability",
+                "Increased customer satisfaction scores by 35%",
+                "Reduced regulatory review preparation time by 60%",
+                "25% increase in loan origination capacity without additional headcount"
+              ],
+              "reactivatedAt": null,
+              "endDate": "2024-06-30",
+              "contractType": "Fixed Price",
+              "isArchived": false,
+              "description": "Architected and implemented a comprehensive serverless loan processing platform that transformed BMO's document-heavy workflow into an intelligent, automated system. The solution leveraged AWS Lambda, Step Functions, Textract, Comprehend, and Amazon Bedrock to process commercial loan applications, reducing processing time by 65% and achieving 92% accuracy on handwritten content extraction.",
+              "title": "Enterprise Loan Processing Platform",
+              "staleReason": null,
+              "orgId": "9c0a5757-e2da-4e71-9490-01c558f7ffc3",
+              "setAside": "",
+              "createdAt": "2026-04-07T21:30:21.833Z",
+              "client": "Bank of Montreal (BMO)",
+              "value": 2100000,
+              "updatedAt": "2026-04-11T00:57:26.143Z",
+              "technicalApproach": "Built event-driven serverless architecture using AWS Lambda as core compute engine with Step Functions for workflow orchestration. Implemented Amazon Textract for document intelligence extracting text, tables, and form data from loan applications and financial statements. Used Amazon Comprehend for NLP analysis of unstructured text and Amazon Bedrock for intelligent document classification. Data layer used Amazon RDS PostgreSQL for transactional data with DynamoDB for document metadata and real-time tracking. Security implemented via VPC, WAF, Shield, KMS, and Secrets Manager.",
+              "partition_key": "PAST_PROJECT",
+              "reactivatedBy": null,
+              "contractNumber": "",
+              "sort_key": "9c0a5757-e2da-4e71-9490-01c558f7ffc3#878a16e4-e465-4641-8b9c-79b7a5f56570",
+              "staleSince": null,
+              "usageCount": 4,
+              "technologies": [
+                "AWS Lambda",
+                "AWS Step Functions",
+                "Amazon Textract",
+                "Amazon Comprehend",
+                "Amazon Bedrock",
+                "Amazon RDS PostgreSQL",
+                "Amazon DynamoDB",
+                "Amazon S3",
+                "Amazon ElastiCache",
+                "Amazon API Gateway",
+                "Amazon CloudFront",
+                "AWS VPC",
+                "AWS WAF",
+                "AWS Shield",
+                "AWS KMS",
+                "AWS Secrets Manager",
+                "AWS CloudTrail",
+                "AWS X-Ray",
+                "AWS CodePipeline",
+                "AWS CloudWatch"
+              ],
+              "performanceRating": 5,
+              "lastFreshnessCheck": null,
+              "createdBy": "system-import",
+              "lastUsedAt": "2026-04-11T00:57:26.143Z",
+              "teamSize": 16,
+              "domain": "Financial Services",
+              "clientPOC": {
+                "name": "",
+                "title": "",
+                "phone": "",
+                "email": "",
+                "organization": "Bank of Montreal"
+              },
+              "freshnessStatus": "fresh",
+              "projectId": "878a16e4-e465-4641-8b9c-79b7a5f56570",
+              "usedInBriefIds": [
+                "6fbf749f-7173-489c-be0a-564f97ebf8b0#272d3064-2c02-4e8a-8bdc-0c4cfb9d0bce",
+                "810f5a23-42e4-4355-a2b4-f9ae2cb8e563#af66e184-587e-4bad-968d-55fe90ad5a78",
+                "810f5a23-42e4-4355-a2b4-f9ae2cb8e563#c41c7043-1550-4cb0-8a7f-517adf26ebb8",
+                "810f5a23-42e4-4355-a2b4-f9ae2cb8e563#58f9b35f-8639-4f47-b2e7-489f24db1479"
+              ],
+              "startDate": "2023-01-01"
+            },
+            "relevanceScore": 44,
+            "matchedRequirements": [],
+            "narrative": null
+          },
+          {
+            "matchDetails": {
+              "technicalSimilarity": 27,
+              "scaleSimilarity": 75,
+              "domainSimilarity": 20,
+              "recency": 50,
+              "successMetrics": 100
+            },
+            "project": {
+              "durationMonths": 12,
+              "naicsCodes": [
+                "541512",
+                "541511",
+                "522220"
+              ],
+              "achievements": [
+                "60% reduction in document routing time",
+                "98.6% classification accuracy through iterative AI tuning with human-in-the-loop feedback",
+                "40% reduction in manual headcount for mailroom and intake departments",
+                "Improved SLA compliance across all 12 document-handling departments",
+                "Automatic scaling during peak processing periods with robust error handling",
+                "40% more documents processed with same operational overhead",
+                "Project completed ahead of schedule and within scope"
+              ],
+              "reactivatedAt": null,
+              "endDate": "2022-11-30",
+              "contractType": "Fixed Price",
+              "isArchived": false,
+              "description": "Developed an AI-powered automation platform for Ford Credit to manage the classification and routing of high volumes of scanned physical correspondence across 12 departments. The solution leveraged AWS machine learning services to completely automate document classification and routing, reducing routing time by 60% and achieving 98.6% classification accuracy through iterative human-in-the-loop feedback mechanisms.",
+              "title": "AI-Powered Document Classification & Routing System",
+              "staleReason": null,
+              "orgId": "9c0a5757-e2da-4e71-9490-01c558f7ffc3",
+              "setAside": "",
+              "createdAt": "2026-04-07T21:35:58.083Z",
+              "client": "Ford Credit (via Ricoh-USA)",
+              "value": 2645000,
+              "updatedAt": "2026-04-11T00:57:26.190Z",
+              "technicalApproach": "Built intelligent document routing system using Amazon Textract as primary document analysis engine for extracting text and structured data from scanned letters, forms, and documents regardless of format, quality, or handwriting variations. Amazon Comprehend provided NLP to understand document context, sentiment, and intent for classification. Amazon A2I (Augmented AI) enabled human-in-the-loop validation for complex or ambiguous documents with feedback mechanisms for continuous model improvement. AWS Lambda and Step Functions handled orchestration and processing logic. Amazon S3 for secure document storage with encryption, DynamoDB for real-time metadata tracking, MySQL/RDS for logging, auditing, and metrics. Documents classified into categories (payment inquiries, loan modifications, insurance claims, complaints, service requests) and automatically routed to departmental queues. Full-cycle AI project including data preprocessing, model training/refinement, deployment, and integration with existing case management systems via RESTful APIs.",
+              "partition_key": "PAST_PROJECT",
+              "reactivatedBy": null,
+              "contractNumber": "",
+              "sort_key": "9c0a5757-e2da-4e71-9490-01c558f7ffc3#1ecdd4f9-2b90-4de8-ba32-6c007e68fda4",
+              "staleSince": null,
+              "usageCount": 10,
+              "technologies": [
+                "Amazon Textract",
+                "Amazon Comprehend",
+                "Amazon A2I (Augmented AI)",
+                "AWS Lambda",
+                "AWS Step Functions",
+                "Amazon S3",
+                "Amazon DynamoDB",
+                "Amazon RDS MySQL",
+                "Amazon CloudWatch",
+                "AWS X-Ray"
+              ],
+              "performanceRating": 5,
+              "lastFreshnessCheck": null,
+              "createdBy": "system-import",
+              "lastUsedAt": "2026-04-11T00:57:26.190Z",
+              "teamSize": 10,
+              "domain": "Financial Services / Automotive Finance",
+              "clientPOC": {
+                "name": "Ashok Shenoy",
+                "title": "Delivery Lead - Document Management Solutions",
+                "phone": "",
+                "email": "",
+                "organization": "Ricoh"
+              },
+              "freshnessStatus": "fresh",
+              "projectId": "1ecdd4f9-2b90-4de8-ba32-6c007e68fda4",
+              "usedInBriefIds": [
+                "6fbf749f-7173-489c-be0a-564f97ebf8b0#272d3064-2c02-4e8a-8bdc-0c4cfb9d0bce",
+                "810f5a23-42e4-4355-a2b4-f9ae2cb8e563#ecba4f49-646d-42c6-b45a-b2831008dfe3",
+                "810f5a23-42e4-4355-a2b4-f9ae2cb8e563#c0971acb-8948-4992-96c8-181ebfc4785b",
+                "810f5a23-42e4-4355-a2b4-f9ae2cb8e563#a6337196-4a67-44bc-8217-557cb6d7de31",
+                "810f5a23-42e4-4355-a2b4-f9ae2cb8e563#af66e184-587e-4bad-968d-55fe90ad5a78",
+                "810f5a23-42e4-4355-a2b4-f9ae2cb8e563#7813d937-b137-42e7-8f23-daf1d516e8a4",
+                "d1787e4e-170b-4250-8b30-1fa86cf32c97#b5c1e614-adef-4e4f-ad9f-81ed70e80e11",
+                "810f5a23-42e4-4355-a2b4-f9ae2cb8e563#dc9e5d6a-d832-452c-bcc8-43709148bd05",
+                "810f5a23-42e4-4355-a2b4-f9ae2cb8e563#5d602fa1-2abd-48cb-a212-dcdcb7c29038",
+                "810f5a23-42e4-4355-a2b4-f9ae2cb8e563#58f9b35f-8639-4f47-b2e7-489f24db1479"
+              ],
+              "startDate": "2021-10-01"
+            },
+            "relevanceScore": 41,
+            "matchedRequirements": [],
+            "narrative": null
+          },
+          {
+            "matchDetails": {
+              "technicalSimilarity": 26,
+              "scaleSimilarity": 0,
+              "domainSimilarity": 46,
+              "recency": 50,
+              "successMetrics": 50
+            },
+            "project": {
+              "durationMonths": null,
+              "naicsCodes": [
+                "541511",
+                "541990"
+              ],
+              "achievements": [
+                "Automated lead capture and enrichment pipeline",
+                "CRM integration with ServiceNow for seamless funnel tracking",
+                "Enhanced lead quality through external API enrichment"
+              ],
+              "reactivatedAt": null,
+              "endDate": null,
+              "contractType": null,
+              "isArchived": false,
+              "description": "Integrated lead capture and analysis with external services for enhanced sales funnel tracking. The platform connects a React frontend with a Python backend, external enrichment APIs, and CRM integration.",
+              "title": "Lead Capture & Analysis Integration Platform",
+              "staleReason": null,
+              "orgId": "9c0a5757-e2da-4e71-9490-01c558f7ffc3",
+              "setAside": null,
+              "createdAt": "2026-04-08T04:23:37.325Z",
+              "client": "Lodestone Cybersecurity",
+              "value": null,
+              "updatedAt": "2026-04-10T23:22:04.676Z",
+              "technicalApproach": "Built a React frontend with Python backend. Integrated Hunter.io API for lead enrichment and email verification. Connected with ServiceNow for CRM and ticket management integration.",
+              "partition_key": "PAST_PROJECT",
+              "reactivatedBy": null,
+              "contractNumber": null,
+              "sort_key": "9c0a5757-e2da-4e71-9490-01c558f7ffc3#eb1ef28e-25d0-40e6-9fe9-068c5e83d165",
+              "staleSince": null,
+              "usageCount": 7,
+              "technologies": [
+                "React",
+                "Python",
+                "Hunter.io API",
+                "ServiceNow",
+                "AWS Lambda"
+              ],
+              "performanceRating": null,
+              "lastFreshnessCheck": null,
+              "createdBy": "bulk-import-script",
+              "lastUsedAt": "2026-04-10T23:22:04.676Z",
+              "teamSize": null,
+              "domain": "Cybersecurity",
+              "clientPOC": null,
+              "freshnessStatus": "ACTIVE",
+              "projectId": "eb1ef28e-25d0-40e6-9fe9-068c5e83d165",
+              "usedInBriefIds": [
+                "810f5a23-42e4-4355-a2b4-f9ae2cb8e563#88531e17-2daf-4a4e-920e-103d7c2818b4",
+                "810f5a23-42e4-4355-a2b4-f9ae2cb8e563#88531e17-2daf-4a4e-920e-103d7c2818b4",
+                "810f5a23-42e4-4355-a2b4-f9ae2cb8e563#af66e184-587e-4bad-968d-55fe90ad5a78",
+                "810f5a23-42e4-4355-a2b4-f9ae2cb8e563#7d46e81e-94f5-4adc-8d37-2ae0eb6cadf5",
+                "810f5a23-42e4-4355-a2b4-f9ae2cb8e563#9eecf69b-183e-4ef0-b1d2-a0222df5a250",
+                "810f5a23-42e4-4355-a2b4-f9ae2cb8e563#9eecf69b-183e-4ef0-b1d2-a0222df5a250",
+                "810f5a23-42e4-4355-a2b4-f9ae2cb8e563#5d602fa1-2abd-48cb-a212-dcdcb7c29038"
+              ],
+              "startDate": null
+            },
+            "relevanceScore": 29,
+            "matchedRequirements": [],
+            "narrative": null
+          },
+          {
+            "matchDetails": {
+              "technicalSimilarity": 32,
+              "scaleSimilarity": 0,
+              "domainSimilarity": 20,
+              "recency": 50,
+              "successMetrics": 50
+            },
+            "project": {
+              "durationMonths": null,
+              "naicsCodes": [
+                "541511",
+                "561311"
+              ],
+              "achievements": [
+                "Cost-effective job platform for SMB market",
+                "Streamlined CI/CD with GitLab and Amplify",
+                "Serverless architecture reduced operational costs"
+              ],
+              "reactivatedAt": null,
+              "endDate": null,
+              "contractType": null,
+              "isArchived": false,
+              "description": "Built an Amplify-hosted job platform with streamlined deployments and cost savings for small and medium businesses. The platform provides job listing, application management, and employer dashboards.",
+              "title": "Amplify-Hosted Job Platform",
+              "staleReason": null,
+              "orgId": "9c0a5757-e2da-4e71-9490-01c558f7ffc3",
+              "setAside": null,
+              "createdAt": "2026-04-08T04:23:36.328Z",
+              "client": "WorkTorch (QuickHire)",
+              "value": null,
+              "updatedAt": "2026-04-10T22:21:15.984Z",
+              "technicalApproach": "Developed with GitLab CI/CD integrated with AWS Amplify for automated deployments. Built a serverless backend with S3 and CloudFront for static asset hosting and global content delivery.",
+              "partition_key": "PAST_PROJECT",
+              "reactivatedBy": null,
+              "contractNumber": null,
+              "sort_key": "9c0a5757-e2da-4e71-9490-01c558f7ffc3#df9d7487-2e75-4fa7-945f-2f623677b6ee",
+              "staleSince": null,
+              "usageCount": 11,
+              "technologies": [
+                "GitLab CI/CD",
+                "AWS Amplify",
+                "Amazon S3",
+                "Amazon CloudFront",
+                "React"
+              ],
+              "performanceRating": null,
+              "lastFreshnessCheck": null,
+              "createdBy": "bulk-import-script",
+              "lastUsedAt": "2026-04-10T22:21:15.984Z",
+              "teamSize": null,
+              "domain": "HR Tech / SMB",
+              "clientPOC": null,
+              "freshnessStatus": "ACTIVE",
+              "projectId": "df9d7487-2e75-4fa7-945f-2f623677b6ee",
+              "usedInBriefIds": [
+                "6fbf749f-7173-489c-be0a-564f97ebf8b0#1caae84e-d059-499e-a672-6250187f41fc",
+                "6fbf749f-7173-489c-be0a-564f97ebf8b0#1caae84e-d059-499e-a672-6250187f41fc",
+                "6fbf749f-7173-489c-be0a-564f97ebf8b0#1caae84e-d059-499e-a672-6250187f41fc",
+                "6fbf749f-7173-489c-be0a-564f97ebf8b0#1caae84e-d059-499e-a672-6250187f41fc",
+                "6fbf749f-7173-489c-be0a-564f97ebf8b0#1caae84e-d059-499e-a672-6250187f41fc",
+                "6fbf749f-7173-489c-be0a-564f97ebf8b0#1caae84e-d059-499e-a672-6250187f41fc",
+                "810f5a23-42e4-4355-a2b4-f9ae2cb8e563#f5f0a50d-a591-4e00-94de-11a58f518242",
+                "810f5a23-42e4-4355-a2b4-f9ae2cb8e563#a8b67b32-76e3-4d24-97c1-c8a68d670afe",
+                "810f5a23-42e4-4355-a2b4-f9ae2cb8e563#88531e17-2daf-4a4e-920e-103d7c2818b4",
+                "810f5a23-42e4-4355-a2b4-f9ae2cb8e563#88531e17-2daf-4a4e-920e-103d7c2818b4",
+                "810f5a23-42e4-4355-a2b4-f9ae2cb8e563#e516d137-e19a-4320-a0b8-ccfa29a165de"
+              ],
+              "startDate": null
+            },
+            "relevanceScore": 25,
+            "matchedRequirements": [],
+            "narrative": null
+          }
+        ],
+        "gapAnalysis": {
+          "overallCoverage": 0,
+          "recommendations": [
+            "Overall past performance coverage is below 70%. This may significantly impact win probability."
+          ],
+          "criticalGaps": [],
+          "coverageItems": []
+        },
+        "narrativeSummary": "Found 5 relevant past performance project(s). The strongest match is \"Enterprise Educational Data Platform\" with a 44% relevance score. Overall past performance coverage: 0%.",
+        "confidenceScore": 30,
+        "evidence": []
+      },
+      "inputHash": "776cb3d5396dc674efbda91ee6be6dc58c40233f30074f938841693cf5ae7d1f",
+      "status": "COMPLETE",
+      "updatedAt": "2026-04-14T22:51:50.979Z"
+    },
+    "pricing": {
+      "data": {
+        "competitiveAdvantages": [
+          "AWS Advanced Consulting Partner with 16 AWS-certified professionals and $7.5M+ in completed AWS engagements",
+          "Demonstrated FedRAMP and GovCloud expertise with documented shared responsibility model and security architecture",
+          "Proven AI/ML and LLM deployment capabilities including Amazon Bedrock, Textract, and Comprehend in production environments",
+          "Existing knowledge base of compliance documentation generation, ATO support, and federal security standards (NIST 800-53, FISMA, HIPAA)",
+          "DGS California Small Business (Micro) certification demonstrating small business commitment",
+          "Bottom-up fully burdened labor rates with no hidden surcharges and AWS pass-through at cost",
+          "Past performance in enterprise-scale serverless architecture with 20+ AWS services per engagement and 99.9% uptime track record"
+        ],
+        "totalPrice": 4875000,
+        "indirectCostTotal": 375000,
+        "basisOfEstimate": "Bottom-up estimate constructed from the Draft SOW's 3-phase, 8-month core implementation plus optional 4-month post-transition support period. Labor estimated across 8 key roles: Cloud Solutions Architect (1 FTE, 12 months, ~1920 hrs at ~$250/hr), Security/Compliance Lead (1 FTE, 12 months, ~1920 hrs at ~$230/hr), DevSecOps Engineer (2 FTEs, 10 months, ~3200 hrs at ~$200/hr), AI/ML Engineer for LLM deployment (1 FTE, 8 months, ~1280 hrs at ~$220/hr), Data Engineer for ETL pipelines (1 FTE, 6 months, ~960 hrs at ~$190/hr), Compliance Analyst (1 FTE, 8 months, ~1280 hrs at ~$170/hr), Training Specialist (1 FTE, 3 months, ~480 hrs at ~$160/hr), and Program Manager (1 FTE, 12 months, ~1920 hrs at ~$210/hr). Total labor hours estimated at approximately 12,960 across all roles yielding ~$3.65M in labor. Material costs of $485,000 include estimated AWS GovCloud infrastructure (GPU instances, storage, networking) at ~$300K, LLM licensing and tooling at ~$100K, and Splunk/Palo Alto/Voltage integration licensing at ~$85K. Indirect costs of $375,000 cover overhead, G&A, and facilities. Profit margin of 10% applied. No government estimate was available as this is a Sources Sought notice; estimate is benchmarked against comparable federal CCoE and FedRAMP implementation contracts in the $3M-$7M range for similar scope and duration. Organization-provided labor rates ($171-$179/hr) were used as a floor but adjusted upward to reflect the specialized FedRAMP High, Zero Trust, and AI/ML expertise required by this SOW.",
+        "materialCostTotal": 485000,
+        "assumptions": [
+          "This is a Sources Sought notice \u2014 no contract will be awarded from this notice; pricing is a rough order of magnitude for planning purposes only",
+          "Period of performance is 1 base year: 8 months core implementation plus 4 months optional post-transition support",
+          "All work performed remotely as stated in the SOW; no travel costs included",
+          "AWS GovCloud infrastructure costs are estimated as pass-through at approximately $25K/month including GPU-enabled instances for LLM hosting",
+          "Team size of approximately 8-10 FTEs across the performance period with varying levels of effort per phase",
+          "Public Trust clearances are obtainable for all proposed personnel within project timeline",
+          "Subcontractor support will be needed for Palo Alto Cortex, Splunk Enterprise Security, and Voltage SecureData integration \u2014 estimated at 15-20% of total labor",
+          "LLM licensing costs assume open-source or government-licensed models deployed in secure containers rather than commercial SaaS AI services",
+          "The eventual solicitation may be set aside under the Buy Indian Act, which could require teaming with an IEE prime \u2014 this would alter the pricing structure and margin allocation",
+          "Organization labor rates were adjusted upward from provided rates to reflect market rates for FedRAMP High and Zero Trust specialized expertise required by this SOW",
+          "No existing GSA Schedule or SEWP vehicle is assumed; acquisition vehicle costs not included",
+          "Contract type assumed to be T&M or hybrid based on the CLIN structure with optional T&M CLIN 005 for Resident Architect support"
+        ],
+        "competitivePosition": "COMPETITIVE",
+        "laborCostTotal": 3650000,
+        "profitMargin": 10,
+        "pricingRisks": [
+          "Buy Indian Act set-aside: IHS strongly prefers Indian Economic Enterprises (IEE) and Indian Small Business Economic Enterprises (ISBEE) \u2014 Horus Technology does not appear to qualify as IEE/ISBEE, which may disqualify the firm entirely if the acquisition is set aside",
+          "No government estimated value provided \u2014 this is a Sources Sought notice, not a solicitation, making price benchmarking highly uncertain",
+          "Contract type is unknown; pricing strategy may need to shift significantly between FFP, T&M, or cost-plus depending on eventual solicitation structure",
+          "Scope is extremely broad: cloud landing zone, FedRAMP High ATO, Zero Trust, LLM deployment, SIEM/SOAR integration, ETL pipelines, compliance dashboards, and full training \u2014 risk of underestimating effort",
+          "Requirement for Palo Alto Cortex XSIAM/XSOAR, Splunk Enterprise Security, and Voltage SecureData integration may require specialized subcontractor support outside current team capabilities",
+          "Public Trust clearance requirement for all personnel may limit available staffing pool and increase labor costs",
+          "GPU-enabled container environments for enclave-hosted LLMs carry significant and unpredictable cloud infrastructure costs",
+          "Organization labor rates provided (Software Engineer $171.40/hr, Manufacturing Engineer $178.89/hr) are below typical federal cloud/security architect rates of $200-$300/hr, potentially compressing margins on senior roles",
+          "Post-Quantum Cryptography (PQC) readiness and Agentic AI capabilities are emerging requirements with limited market precedent for pricing"
+        ],
+        "recommendedActions": [
+          "CRITICAL: Assess Buy Indian Act eligibility \u2014 if Horus Technology cannot qualify as IEE/ISBEE, consider teaming arrangement with a qualified Indian Economic Enterprise as prime contractor",
+          "Submit a capabilities response to this Sources Sought to establish presence and gain intelligence for the eventual solicitation",
+          "Identify and engage subcontractors for Palo Alto Cortex XSIAM/XSOAR, Splunk Enterprise Security, and Voltage SecureData integration expertise",
+          "Develop a detailed staffing plan mapping SOW roles (Cloud Architect, Security Engineer, DevSecOps, LLM/AI Engineer, Compliance Analyst, Training Lead) to internal and subcontractor resources",
+          "Obtain refined fully burdened rates for federal cloud security work \u2014 current org rates appear to reflect commercial/general IT rates rather than specialized FedRAMP/ZTA rates",
+          "Estimate AWS GovCloud infrastructure costs separately as pass-through using AWS pricing calculator for EC2 GPU instances, S3, VPC, PrivateLink, and other required services",
+          "Monitor SAM.gov for the eventual solicitation release and prepare a compliant proposal shell aligned with the 5 CLIN structure",
+          "Pursue GSA Schedule or NASA SEWP contract vehicle if not already held, as the solicitation specifically asks about existing governmentwide vehicles",
+          "Engage with IHS stakeholders or attend any industry day events to refine understanding of scope, budget, and evaluation criteria"
+        ],
+        "strategy": "TIME_AND_MATERIALS",
+        "priceConfidence": 35
+      },
+      "inputHash": "7d632ceb0c5c030b1ecc23ed56b423bb97c3593d38104c222cb5e7b856af4835",
+      "status": "COMPLETE",
+      "updatedAt": "2026-04-14T22:52:56.617Z"
+    },
+    "requirements": {
+      "data": {
+        "evaluationFactors": [
+          "Timeliness of deliverables (\u00b110 business days tolerance)",
+          "Accuracy and usability of ATO documentation",
+          "Compliance of enclave with security benchmarks",
+          "Training satisfaction scores (\u226590% competency pass rate)",
+          "Risk dashboards maintained with \u226424hr lag from telemetry source",
+          "Indian Economic Enterprise (IEE) or Indian Small Business Economic Enterprise (ISBEE) status under Buy Indian Act preference"
+        ],
+        "overview": "The Indian Health Service (IHS), through HHS/OMAS, is conducting market research via a Sources Sought notice to identify prospective sources\u2014particularly Indian Small Business Economic Enterprises (ISBEE) and Indian Economic Enterprises (IEE)\u2014capable of providing cloud hosting, provisioning, and management services to establish a Secure Cloud Center of Excellence (CCoE). The requirement centers on a FedRAMP High-authorized IaaS/PaaS cloud platform (GovCloud) with at least 170 compliant services, supporting federal healthcare operations with multi-region U.S.-only deployment, tribal data sovereignty, Zero Trust Architecture, AI/LLM enablement, compliance automation, and integration with existing IHS security tools (Palo Alto Cortex XSIAM/XSOAR, Splunk Enterprise Security, Voltage SecureData). This is NOT a solicitation; responses inform acquisition strategy and potential set-aside determinations under the Buy Indian Act.",
+        "requirements": [
+          {
+            "category": "TECHNICAL",
+            "mustHave": true,
+            "requirement": "Provide FedRAMP High-authorized IaaS cloud platform with minimum 170 compliant services"
+          },
+          {
+            "category": "TECHNICAL",
+            "mustHave": true,
+            "requirement": "All physical infrastructure (compute, storage, networking) must be located within CONUS"
+          },
+          {
+            "category": "TECHNICAL",
+            "mustHave": true,
+            "requirement": "Design and deploy Cloud Landing Zone with multi-account governance using Control Tower, Service Catalog, and Organizations"
+          },
+          {
+            "category": "TECHNICAL",
+            "mustHave": true,
+            "requirement": "Provision secure enclaves for development, staging, and production workloads with CIS-hardened configurations"
+          },
+          {
+            "category": "TECHNICAL",
+            "mustHave": true,
+            "requirement": "Implement Identity and Access Management aligned with Zero Trust principles per CISA ZTMM"
+          },
+          {
+            "category": "TECHNICAL",
+            "mustHave": true,
+            "requirement": "Integrate with Palo Alto Cortex XSIAM and Cortex XSOAR for Security Operations Center"
+          },
+          {
+            "category": "TECHNICAL",
+            "mustHave": true,
+            "requirement": "Integrate with Splunk Enterprise Security for SIEM workflows"
+          },
+          {
+            "category": "TECHNICAL",
+            "mustHave": true,
+            "requirement": "Integrate with Voltage SecureData for Zero Trust Architecture Data Pillar implementation"
+          },
+          {
+            "category": "TECHNICAL",
+            "mustHave": true,
+            "requirement": "Provide Agentic AI capabilities to enable 60-70% reduction in manual effort"
+          },
+          {
+            "category": "TECHNICAL",
+            "mustHave": true,
+            "requirement": "Deploy GPU-enabled container environments for enclave-hosted LLMs supporting documentation generation and compliance analytics"
+          },
+          {
+            "category": "TECHNICAL",
+            "mustHave": true,
+            "requirement": "Build ETL pipelines for ingesting and transforming log/event data with PHI/PII masking per HIPAA and FISMA"
+          },
+          {
+            "category": "TECHNICAL",
+            "mustHave": true,
+            "requirement": "Automate ATO lifecycle management including POA&M tracking, patch validation, and compliance reporting"
+          },
+          {
+            "category": "TECHNICAL",
+            "mustHave": true,
+            "requirement": "Deploy real-time compliance dashboards for executive reporting on ATO progress, vulnerabilities, and audit readiness"
+          },
+          {
+            "category": "TECHNICAL",
+            "mustHave": true,
+            "requirement": "Implement microsegmentation, encrypted remote access, and continuous validation per Zero Trust Architecture"
+          },
+          {
+            "category": "TECHNICAL",
+            "mustHave": true,
+            "requirement": "Provide centralized log aggregation, threat detection via SIEM, EDR, and vulnerability management"
+          },
+          {
+            "category": "TECHNICAL",
+            "mustHave": true,
+            "requirement": "Implement encrypted storage with NIST 800-60 aligned tagging, classification, and retention policies"
+          },
+          {
+            "category": "TECHNICAL",
+            "mustHave": true,
+            "requirement": "Support multi-region deployment with U.S.-only operations maintaining tribal data sovereignty"
+          },
+          {
+            "category": "TECHNICAL",
+            "mustHave": true,
+            "requirement": "Deploy AI-assisted document generation for SSP, SAR, RAR, POA&M with no data egress from enclave"
+          },
+          {
+            "category": "TECHNICAL",
+            "mustHave": false,
+            "requirement": "Integrate with ServiceNow or equivalent ticketing system for security incident workflows"
+          },
+          {
+            "category": "SECURITY",
+            "mustHave": true,
+            "requirement": "Comply with FedRAMP High Baseline throughout all deployed systems"
+          },
+          {
+            "category": "SECURITY",
+            "mustHave": true,
+            "requirement": "Comply with NIST 800-53 Rev 5 security controls"
+          },
+          {
+            "category": "SECURITY",
+            "mustHave": true,
+            "requirement": "Align with Executive Order 14028 and OMB M-22-09, M-24-04 directives"
+          },
+          {
+            "category": "SECURITY",
+            "mustHave": true,
+            "requirement": "Implement CISA Zero Trust Maturity Model (ZTMM) across all ZTA pillars"
+          },
+          {
+            "category": "SECURITY",
+            "mustHave": true,
+            "requirement": "Ensure Post Quantum Computing (PQC) readiness and mandate enablement"
+          },
+          {
+            "category": "SECURITY",
+            "mustHave": true,
+            "requirement": "All data must remain in GovCloud (US) including LLM operations\u2014no data egress"
+          },
+          {
+            "category": "SECURITY",
+            "mustHave": true,
+            "requirement": "All personnel accessing tribal health data must be U.S. persons subject to federal oversight and background investigation"
+          },
+          {
+            "category": "SECURITY",
+            "mustHave": true,
+            "requirement": "Public Trust background clearance required for all contractor personnel"
+          },
+          {
+            "category": "SECURITY",
+            "mustHave": true,
+            "requirement": "NDAs required for all contractor personnel accessing sensitive IHS data"
+          },
+          {
+            "category": "SECURITY",
+            "mustHave": true,
+            "requirement": "Maintain risk dashboards with \u226424hr lag from telemetry source"
+          },
+          {
+            "category": "COMPLIANCE",
+            "mustHave": true,
+            "requirement": "Comply with HIPAA and FISMA for PHI/PII data handling"
+          },
+          {
+            "category": "COMPLIANCE",
+            "mustHave": true,
+            "requirement": "Achieve continuous compliance monitoring and FedRAMP alignment across all systems"
+          },
+          {
+            "category": "COMPLIANCE",
+            "mustHave": true,
+            "requirement": "Provide weekly status updates, risk registers, and action items"
+          },
+          {
+            "category": "COMPLIANCE",
+            "mustHave": true,
+            "requirement": "Provide monthly executive dashboards and cost transparency reports"
+          },
+          {
+            "category": "COMPLIANCE",
+            "mustHave": true,
+            "requirement": "Provide quarterly performance and compliance reviews with stakeholders"
+          },
+          {
+            "category": "COMPLIANCE",
+            "mustHave": true,
+            "requirement": "Deliver all ATO documentation (SSP, SAP, SAR, POA&M) for formal submission"
+          },
+          {
+            "category": "COMPLIANCE",
+            "mustHave": false,
+            "requirement": "If claiming ISBEE or IEE status, submit completed IHS IEE Representation Form"
+          },
+          {
+            "category": "COMPLIANCE",
+            "mustHave": true,
+            "requirement": "Must be registered with System for Award Management (SAM)"
+          },
+          {
+            "category": "DELIVERABLES",
+            "mustHave": true,
+            "requirement": "Complete all core implementation phases within one-year Base Period of Performance"
+          },
+          {
+            "category": "DELIVERABLES",
+            "mustHave": true,
+            "requirement": "Deliver Cloud Landing Zone Architecture and Configuration Artifacts"
+          },
+          {
+            "category": "DELIVERABLES",
+            "mustHave": true,
+            "requirement": "Deliver validated automation playbooks for ATO, POA&M, Patch, and IR workflows"
+          },
+          {
+            "category": "DELIVERABLES",
+            "mustHave": true,
+            "requirement": "Deliver role-based training curriculum for ISSOs, DevSecOps, Security Analysts, System Owners, and Auditors"
+          },
+          {
+            "category": "DELIVERABLES",
+            "mustHave": true,
+            "requirement": "Deliver SOPs for enclave management, ETL, compliance automation, and LLM use"
+          },
+          {
+            "category": "DELIVERABLES",
+            "mustHave": true,
+            "requirement": "Deliver knowledge transfer package with architecture, workflows, and configuration artifacts"
+          },
+          {
+            "category": "DELIVERABLES",
+            "mustHave": true,
+            "requirement": "Deliver operational readiness checklist and transition acceptance memo"
+          },
+          {
+            "category": "STAFFING",
+            "mustHave": true,
+            "requirement": "Provide Key Personnel with demonstrated experience supporting U.S. public sector cloud security, automation, and compliance modernization"
+          },
+          {
+            "category": "STAFFING",
+            "mustHave": true,
+            "requirement": "All Key Personnel must be cleared to Public Trust level or higher and remain assigned throughout performance period"
+          },
+          {
+            "category": "STAFFING",
+            "mustHave": true,
+            "requirement": "Provide role-specific interfaces and toolkits for ISSOs, POA&M Analysts, Auditors, and System Owners"
+          },
+          {
+            "category": "OTHER",
+            "mustHave": true,
+            "requirement": "All work performed remotely unless otherwise directed by Contracting Officer using IHS-approved virtual collaboration platforms"
+          },
+          {
+            "category": "OTHER",
+            "mustHave": false,
+            "requirement": "Preference given to Indian Economic Enterprises (IEE) under Buy Indian Act 25 U.S.C. 47"
+          },
+          {
+            "category": "OTHER",
+            "mustHave": true,
+            "requirement": "NAICS code 541519 - Other Computer Related Services applies to this acquisition"
+          },
+          {
+            "category": "OTHER",
+            "mustHave": true,
+            "requirement": "Implement cost accountability framework via chargeback model supported by Cloud Budgets and Cost Explorer"
+          }
+        ],
+        "submissionCompliance": {
+          "format": [
+            "Email submission to renee.jones-chuang@hhs.gov",
+            "Subject line must be: ACQ-OMAS-2026-ORC-0014_Sources",
+            "Responses must be sufficiently detailed to demonstrate qualifications",
+            "Do not include sensitive or proprietary information",
+            "Telephone inquiries will not be accepted"
+          ],
+          "attachmentsAndForms": [
+            "IHS Buy Indian Act Indian Economic Enterprise (IEE) Representation Form (if applicable)"
+          ],
+          "requiredDocuments": [
+            {
+              "name": "Company Profile",
+              "description": "Must include UEI, company name and address, primary POC information, business size and type of ownership, socio-economic status (8(a), WOSB/EDWOSB, SDVOSB, HUBZone), and identification of Native American ownership if applicable",
+              "documentType": "OTHER",
+              "required": true
+            },
+            {
+              "name": "Capability Statement",
+              "description": "Brief statement of company capability relating to the described government requirement, including current and past performance history for same or similar requirements",
+              "documentType": "OTHER",
+              "required": true
+            },
+            {
+              "name": "Government Contract Vehicle Information",
+              "description": "Information on existing governmentwide contract vehicles including GSA, NASA SEWP, and HHS GWACs available for ordering",
+              "documentType": "OTHER",
+              "required": true
+            },
+            {
+              "name": "IHS IEE Representation Form",
+              "description": "Completed Indian Economic Enterprise Representation Form if claiming ISBEE or IEE status under Buy Indian Act",
+              "documentType": "CERTIFICATIONS",
+              "required": false
+            },
+            {
+              "name": "Non-Binding Pricing Information (Optional)",
+              "description": "Optional submission of commercial price lists, GWAC pricing, informal quotes, or rough order of magnitude estimates",
+              "documentType": "PRICE_VOLUME",
+              "required": false
+            }
+          ],
+          "requiredVolumes": [
+            "Company Profile",
+            "Capability Statement",
+            "Government Contract Vehicle Information",
+            "IEE Representation Form (if claiming IEE/ISBEE status)"
+          ]
+        },
+        "deliverables": [
+          "Cloud Landing Zone Architecture and Configuration Artifacts",
+          "IAM and VPC Security Configuration Documentation",
+          "Hardened ETL Server Deployment Package and Logging Setup",
+          "Baseline Data Classification and Masking Policy",
+          "Initial LLM Hosting Blueprint with Secure Container Deployment",
+          "Draft ATO Documents: SSP, SAP, RAR, Continuous Monitoring Strategy",
+          "Cloud Governance and Risk Register (Initial Baseline)",
+          "Validated Automation Playbooks for ATO, POA&M, Patch, and IR workflows",
+          "Deployed Compliance Dashboards with Export/Reporting Capabilities",
+          "Integrated SIEM/EDR/Vulnerability Dashboard and Alerting Interfaces",
+          "Enclave-Based LLM Toolkits: Prompt Libraries, Summary Engines, Audit RFI Generator",
+          "Peer-Reviewed Codebase and QA Documentation for Security Automations",
+          "Completed ATO Package: SSP, SAP, SAR, POA&M Workbook",
+          "UAT Report, Change Logs, and Final QA Sign-off",
+          "Training Curriculum by Role (ISSOs, DevSecOps, Security Analysts, etc.)",
+          "Admin Manuals, Reference Guides, and Recorded Training Sessions",
+          "SOPs for Enclave Management, ETL, Compliance Automation, and LLM Use",
+          "Knowledge Transfer Package with Architecture, Workflows, and Configuration Artifacts",
+          "Operational Readiness Checklist and Transition Acceptance Memo",
+          "Final Compliance Snapshot Report (ZTMM, NIST 800-53, FedRAMP metrics)",
+          "Post-Implementation Sustainability and Improvement Plan",
+          "Weekly Status Updates and Risk Registers",
+          "Monthly Executive Dashboards and Cost Transparency Reports",
+          "Quarterly Performance and Compliance Reviews"
+        ]
+      },
+      "inputHash": "9fd99d2ff93e5f8d4ca87edd03a57785d41927cc47dfd36c2a96e02e381b6290",
+      "status": "COMPLETE",
+      "updatedAt": "2026-04-14T22:53:04.256Z"
+    },
+    "risks": {
+      "data": {
+        "redFlags": [
+          {
+            "severity": "CRITICAL",
+            "whyItMatters": "The entire purpose of this sources sought is to determine availability of ISBEE and IEE firms. If sufficient IEE/ISBEE firms respond, the solicitation will almost certainly be set aside under the Buy Indian Act, making non-IEE firms ineligible as prime contractors. This is the single most significant go/no-go factor.",
+            "mitigation": "If HORUSTECH is not an IEE/ISBEE, the only viable path is as a subcontractor to a qualified IEE/ISBEE prime. Identify and begin outreach to potential IEE/ISBEE teaming partners immediately.",
+            "flag": "Buy Indian Act set-aside likely excludes non-IEE firms from prime competition",
+            "impactsScore": true
+          },
+          {
+            "severity": "HIGH",
+            "whyItMatters": "The level of AWS-specific detail (Control Tower, Organizations, Service Catalog, EC2, S3, Glacier IR, Deep Archive, PrivateLink, CloudTrail, GuardDuty, Config, Security Hub, Cost Explorer) suggests the requirement may have been developed with a specific vendor or solution in mind. This could indicate an incumbent or preferred vendor advantage.",
+            "mitigation": "In the sources sought response, note the AWS-specific language and request clarification on whether alternative FedRAMP High platforms would be considered. This positions HORUSTECH as engaged while flagging potential competition concerns.",
+            "flag": "SOW is written around AWS GovCloud with no 'or equivalent' language \u2014 potential wired specification",
+            "impactsScore": true
+          },
+          {
+            "severity": "HIGH",
+            "whyItMatters": "The convergence of these specialized requirements suggests the government may already have a specific vendor or very small pool in mind. Firms without existing IHS or tribal health IT experience may face a steep disadvantage even if technically capable.",
+            "mitigation": "Assess honestly whether HORUSTECH can credibly demonstrate experience across all requirement areas. If gaps exist in more than two major areas, consider a no-bid or subcontractor role.",
+            "flag": "Combination of niche requirements (FedRAMP High + tribal data sovereignty + specific security tools + LLM in secure enclaves) narrows competitive field significantly",
+            "impactsScore": true
+          },
+          {
+            "severity": "MEDIUM",
+            "whyItMatters": "Knowledge base and past performance searches returned no relevant federal healthcare, IHS, or tribal health IT engagements. Without demonstrable past performance in this domain, HORUSTECH would face a significant evaluation disadvantage if this becomes a competitive solicitation.",
+            "mitigation": "Identify any adjacent past performance (federal cloud deployments, FedRAMP work, healthcare IT) that could be positioned as relevant. Consider teaming with a firm that has direct IHS or tribal health past performance.",
+            "flag": "No past performance found for HORUSTECH in federal healthcare or IHS environments",
+            "impactsScore": true
+          }
+        ],
+        "risks": [
+          {
+            "severity": "CRITICAL",
+            "whyItMatters": "This acquisition is governed by the Buy Indian Act (25 U.S.C. 47), which gives preference to Indian Economic Enterprises (IEE) and Indian Small Business Economic Enterprises (ISBEE). If HORUSTECH does not qualify as an IEE or ISBEE \u2014 meaning 51% or more Indian ownership by a member of a federally recognized tribe \u2014 the company may be ineligible to compete if the solicitation is set aside under Buy Indian authority.",
+            "mitigation": "Immediately determine whether HORUSTECH meets IEE/ISBEE ownership criteria. If not, explore teaming arrangements with a qualified IEE/ISBEE prime contractor where HORUSTECH serves as a subcontractor providing technical cloud expertise.",
+            "flag": "Buy Indian Act IEE/ISBEE eligibility requirement",
+            "impactsScore": true
+          },
+          {
+            "severity": "HIGH",
+            "whyItMatters": "The SOW repeatedly references AWS-specific services (EC2, S3, VPC, PrivateLink, CloudTrail, GuardDuty, Control Tower, Organizations, Security Hub, Cost Explorer, Glacier) without using 'or equivalent' language. This strongly implies the solution must be built on AWS GovCloud, narrowing the competitive field to firms with deep AWS GovCloud expertise and potentially favoring an incumbent or pre-positioned vendor.",
+            "mitigation": "If pursuing, ensure team has demonstrated AWS GovCloud FedRAMP High implementation experience. Consider raising the brand-name concern during the sources sought response to request clarification or broaden requirements.",
+            "flag": "Brand-name-like requirements favor a single CSP (AWS GovCloud)",
+            "impactsScore": true
+          },
+          {
+            "severity": "HIGH",
+            "whyItMatters": "Requiring a FedRAMP High-authorized IaaS platform with at least 170 compliant services is an extremely high bar that effectively limits the solution to AWS GovCloud or possibly Azure Government. The contractor must demonstrate the ability to architect and deploy within such a platform, including maintaining continuous FedRAMP compliance.",
+            "mitigation": "Validate that HORUSTECH has prior experience deploying and managing workloads in FedRAMP High environments. Document relevant AWS GovCloud certifications and past engagements in the sources sought response.",
+            "flag": "FedRAMP High authorization with minimum 170 compliant services",
+            "impactsScore": true
+          },
+          {
+            "severity": "HIGH",
+            "whyItMatters": "The SOW mandates integration with IHS's existing SOC tooling stack. Lack of demonstrated experience with these specific platforms could disqualify or significantly disadvantage a bidder. These are specialized enterprise security products requiring certified expertise.",
+            "mitigation": "Assess internal team capabilities with Palo Alto Cortex, Splunk ES, and Voltage SecureData. If gaps exist, identify and pre-position subcontractors or teaming partners with certified expertise in these tools before the solicitation drops.",
+            "flag": "Mandatory integration with specific security tools (Palo Alto Cortex XSIAM/XSOAR, Splunk Enterprise Security, Voltage SecureData)",
+            "impactsScore": true
+          },
+          {
+            "severity": "HIGH",
+            "whyItMatters": "The SOW requires secure enclave deployment by Month 2, draft ATO package by Month 3, LLM integration and automation engines by Months 4-5, UAT and final ATO by Month 6, training by Month 7, and operational readiness by Month 8. This is an extremely compressed schedule for a complex FedRAMP High cloud environment with AI/LLM capabilities, Zero Trust implementation, and full ATO documentation.",
+            "mitigation": "Develop a detailed staffing and resource plan demonstrating ability to execute in parallel across phases. Pre-build reusable templates and accelerators for ATO documentation, landing zone deployment, and compliance automation to compress timelines.",
+            "flag": "Aggressive 8-month implementation timeline for full CCoE delivery",
+            "impactsScore": true
+          },
+          {
+            "severity": "HIGH",
+            "whyItMatters": "Deploying fine-tuned large language models in FedRAMP High secure enclaves with GPU-enabled containers is a cutting-edge requirement. Few firms have demonstrated this capability in a federal healthcare context with PHI/PII data handling requirements. This is a significant technical differentiator.",
+            "mitigation": "Document any prior experience with secure LLM deployment in government environments. If capability is limited, identify AI/ML subcontractors with FedRAMP-compliant LLM deployment experience and begin partnership discussions immediately.",
+            "flag": "Enclave-hosted LLM/AI deployment with GPU-accelerated containers in isolated VPCs",
+            "impactsScore": true
+          },
+          {
+            "severity": "MEDIUM",
+            "whyItMatters": "All contractor personnel accessing IHS data must hold Public Trust background clearance. Processing times can delay project start if staff are not already cleared, potentially impacting the aggressive milestone schedule.",
+            "mitigation": "Identify and propose personnel who already hold active Public Trust or higher clearances. Begin preliminary background investigation paperwork for any unclearable staff as early as possible.",
+            "flag": "Public Trust clearance required for all contractor personnel",
+            "impactsScore": false
+          },
+          {
+            "severity": "MEDIUM",
+            "whyItMatters": "All personnel with access to tribal health data must be U.S. persons subject to federal oversight. All infrastructure must be CONUS-only. This restricts staffing options and eliminates any offshore or non-U.S. person resources from the project.",
+            "mitigation": "Verify citizenship and U.S. person status of all proposed team members. Ensure no offshore development or support resources are included in the staffing plan.",
+            "flag": "Tribal data sovereignty and U.S.-person-only access requirements",
+            "impactsScore": false
+          },
+          {
+            "severity": "MEDIUM",
+            "whyItMatters": "The SOW requires dozens of formal deliverables including full ATO packages (SSP, SAP, SAR, RAR, POA&M), architecture artifacts, automation playbooks, LLM toolkits, training curricula, SOPs, admin manuals, and governance plans. The documentation overhead is substantial and must be completed within the compressed timeline.",
+            "mitigation": "Leverage existing document templates and compliance accelerators. Assign dedicated technical writers and compliance documentation specialists to the project team from day one.",
+            "flag": "Extensive deliverable and documentation burden across all phases",
+            "impactsScore": false
+          },
+          {
+            "severity": "MEDIUM",
+            "whyItMatters": "The SOW references PQC Mandate Enablement as a compliance requirement. This is an emerging area with limited mature tooling, and demonstrating PQC readiness in a FedRAMP High environment adds complexity and potential risk.",
+            "mitigation": "Research current NIST PQC standards and AWS GovCloud PQC capabilities. Include a PQC readiness roadmap in the technical approach rather than full implementation if standards are still evolving.",
+            "flag": "Post Quantum Computing (PQC) readiness requirement",
+            "impactsScore": false
+          },
+          {
+            "severity": "MEDIUM",
+            "whyItMatters": "Performance metrics include \u226424-hour dashboard lag from telemetry sources, \u226590% training competency pass rates, \u00b110 business day deliverable timeliness, and weekly/monthly/quarterly reporting cadences. Failure to meet these could result in negative CPARs or contract performance issues.",
+            "mitigation": "Build monitoring and reporting automation into the solution from the outset. Establish internal quality gates that are tighter than contractual requirements to provide margin.",
+            "flag": "Strict performance metrics with tight SLAs",
+            "impactsScore": false
+          },
+          {
+            "severity": "LOW",
+            "whyItMatters": "Posted April 10, 2026 with responses due April 20, 2026 \u2014 only 10 days to prepare a capability statement, compile past performance, and complete the IEE Representation Form. Short windows can result in incomplete or rushed submissions.",
+            "mitigation": "Begin drafting the sources sought response immediately. Assign a dedicated team member to compile company profile, capability statement, contract vehicle information, and IEE form (if applicable) in parallel.",
+            "flag": "Sources sought response window is only 10 calendar days",
+            "impactsScore": false
+          },
+          {
+            "severity": "LOW",
+            "whyItMatters": "The sources sought requests information on existing contract vehicles (GSA, NASA SEWP, HHS GWACs). If the eventual solicitation is issued through one of these vehicles, firms without an applicable vehicle would be unable to compete.",
+            "mitigation": "Identify whether HORUSTECH holds any applicable GWAC or GSA Schedule contracts. If not, explore teaming with a prime that holds NASA SEWP or relevant GSA IT Schedule access.",
+            "flag": "Potential requirement for existing GWAC or GSA Schedule vehicle",
+            "impactsScore": false
+          }
+        ],
+        "incumbentInfo": {
+          "knownIncumbent": false,
+          "recompete": false,
+          "notes": "This appears to be a new requirement to establish a Cloud Center of Excellence, not a recompete of an existing contract. However, the highly AWS-specific language in the SOW and the mandated integration with existing IHS security tools (Palo Alto Cortex XSIAM/XSOAR, Splunk ES, Voltage SecureData) suggest that IHS may already have a cloud environment or vendor relationship in place that this effort would build upon. The specificity of the technical requirements indicates potential pre-existing vendor influence in requirements development. GAO Report GAO-21-20 is referenced as a driver, suggesting this initiative responds to audit findings about IHS cloud governance deficiencies.",
+          "incumbentName": null
+        }
+      },
+      "inputHash": "9ae803529d90f38216e48e63c90341f0e7601ba09a5d3123de7af6d1e09d3485",
+      "status": "COMPLETE",
+      "updatedAt": "2026-04-14T22:53:27.127Z"
+    },
+    "scoring": {
+      "data": {
+        "confidenceExplanation": "Confidence is 75% \u2014 the analysis is well-supported by detailed solicitation requirements, company KB data, past performance records, and pricing analysis. The data clearly shows fundamental misalignment. Confidence is not higher because IEE/ISBEE ownership status is not definitively confirmed (could be IEE-owned but undocumented), and the eventual solicitation terms may differ from this sources sought.",
+        "requiredActions": [
+          "Determine definitively whether HORUSTECH meets IEE/ISBEE ownership criteria (51%+ Indian ownership by member of federally recognized tribe) \u2014 if not, do not pursue as prime",
+          "If pursuing as subcontractor: identify and engage qualified IEE/ISBEE prime contractors with federal healthcare and FedRAMP experience immediately given 10-day response window",
+          "Submit a sources sought response only if teaming with a qualified IEE prime \u2014 position HORUSTECH as AWS architecture subcontractor",
+          "Begin building federal past performance through smaller federal cloud contracts before pursuing opportunities of this scale and complexity",
+          "Obtain GSA Schedule or other federal contract vehicle as prerequisite for future federal opportunities"
+        ],
+        "decision": "NO_GO",
+        "criteria": [
+          {
+            "name": "TECHNICAL_FIT",
+            "score": 2,
+            "rationale": "HORUSTECH has strong AWS expertise (Advanced Consulting Partner, 16 AWS-certified professionals, 20+ AWS services per engagement) and demonstrated AI/ML capabilities (Bedrock, Textract, Comprehend). However, critical gaps exist: no documented experience with FedRAMP High authorization processes, no ATO lifecycle management experience, no Zero Trust Architecture implementation, no experience with required security tools (Palo Alto Cortex XSIAM/XSOAR, Splunk Enterprise Security, Voltage SecureData), no federal healthcare or HIPAA compliance work, no GovCloud-specific deployments documented, no experience with GPU-enabled LLM deployment in secure enclaves, and no demonstrated compliance automation or SIEM/SOAR integration capabilities. The company's AWS experience is commercial-sector focused, not federal security/compliance focused.",
+            "gaps": [
+              "No FedRAMP High authorization or ATO lifecycle management experience",
+              "No experience with Palo Alto Cortex XSIAM/XSOAR, Splunk Enterprise Security, or Voltage SecureData",
+              "No Zero Trust Architecture implementation experience documented",
+              "No federal healthcare, HIPAA, or tribal data sovereignty experience",
+              "No AWS GovCloud deployment experience documented",
+              "No GPU-enabled secure enclave LLM deployment experience",
+              "No SIEM/SOAR integration or compliance automation experience",
+              "No experience with NIST 800-53 Rev 5 controls implementation"
+            ]
+          },
+          {
+            "name": "PAST_PERFORMANCE_RELEVANCE",
+            "score": 1,
+            "rationale": "No relevant past performance for this requirement. The top matched project (Enterprise Educational Data Platform) scored only 44% relevance with 27% technical similarity and 20% domain similarity. All past projects are commercial-sector work (education, financial services, HR tech) with zero federal government, healthcare, FedRAMP, ATO, Zero Trust, or security operations experience. Overall past performance coverage is 0% per the analysis. No matched requirements were identified across any of the 5 projects. The company has no federal contract past performance whatsoever, which would be a critical evaluation weakness.",
+            "gaps": [
+              "Zero federal government contract past performance",
+              "No healthcare or tribal health IT past performance",
+              "No FedRAMP, ATO, or federal compliance past performance",
+              "No cloud security operations or SIEM/SOAR integration past performance",
+              "No Zero Trust Architecture implementation past performance",
+              "0% overall past performance coverage score"
+            ]
+          },
+          {
+            "name": "PRICING_POSITION",
+            "score": 2,
+            "rationale": "While the $4.875M estimate falls within the $3M-$7M benchmark range for comparable CCoE implementations, pricing confidence is extremely low at 35%. Key pricing risks include: unknown contract type, no government estimate available, organization labor rates ($171-$179/hr) are below market for FedRAMP/ZTA specialists ($200-$300/hr) suggesting potential margin compression or need for significant rate adjustments, 15-20% subcontractor dependency for critical security tool integrations, unpredictable GPU infrastructure costs, and the Buy Indian Act set-aside could fundamentally alter pricing structure if teaming is required. The competitive position is undermined by the need for extensive subcontracting in core requirement areas.",
+            "gaps": [
+              "Price confidence only 35% - highly uncertain estimate",
+              "Labor rates below market for specialized FedRAMP/ZTA expertise",
+              "15-20% subcontractor dependency for core security tool integrations",
+              "Unknown contract type creates pricing strategy uncertainty",
+              "Teaming with IEE prime would significantly alter margin structure"
+            ]
+          },
+          {
+            "name": "STRATEGIC_ALIGNMENT",
+            "score": 2,
+            "rationale": "While entering the federal healthcare cloud security market could be strategically valuable for a growing AWS consulting firm, this opportunity presents fundamental eligibility barriers. HORUSTECH does not appear to qualify as an IEE/ISBEE under the Buy Indian Act, which is the primary purpose of this sources sought. The company has no existing federal contract vehicles (GSA, SEWP, HHS GWACs), no federal past performance to build upon, and the technical requirements are far outside current demonstrated capabilities. Pursuing this as a prime contractor is not viable; pursuing as a subcontractor to an IEE prime could provide some strategic value but would require significant investment in capabilities the company does not currently possess.",
+            "gaps": [
+              "Not an Indian Economic Enterprise - likely ineligible as prime",
+              "No existing federal contract vehicles (GSA, SEWP, GWACs)",
+              "No federal market presence or past performance foundation",
+              "Massive capability gap between current commercial AWS work and federal security requirements"
+            ]
+          },
+          {
+            "name": "INCUMBENT_RISK",
+            "score": 3,
+            "rationale": "This appears to be a new requirement (not a recompete) to establish a Cloud Center of Excellence, which is favorable. However, the highly AWS-specific SOW language and mandated integration with existing IHS security tools (Palo Alto Cortex, Splunk, Voltage) suggest pre-existing vendor relationships or influence in requirements development. The extremely niche combination of requirements (FedRAMP High + tribal data sovereignty + specific security tools + LLM in secure enclaves + Buy Indian Act) narrows the competitive field significantly and may favor a pre-positioned vendor. No named incumbent, but the specificity suggests insider knowledge.",
+            "gaps": [
+              "SOW specificity suggests potential vendor influence in requirements development",
+              "Existing IHS security tool stack implies pre-existing vendor relationships",
+              "Buy Indian Act preference further narrows competitive field"
+            ]
+          }
+        ],
+        "summaryJustification": "HORUSTECH faces critical barriers to competing for this IHS Cloud Center of Excellence opportunity. The most fundamental issue is Buy Indian Act eligibility \u2014 the company does not appear to qualify as an IEE/ISBEE, which is the explicit purpose of this sources sought and will likely determine the set-aside. Beyond eligibility, the company has zero federal government past performance (0% coverage), no FedRAMP/ATO/Zero Trust experience, no healthcare or tribal health IT experience, and no experience with the mandated security tools (Palo Alto Cortex, Splunk ES, Voltage SecureData). While HORUSTECH has legitimate AWS and AI/ML capabilities, these are commercial-sector focused and do not translate to the highly specialized federal security and compliance requirements of this SOW.",
+        "confidence": 75,
+        "blockers": [
+          "CRITICAL: HORUSTECH does not appear to qualify as an Indian Economic Enterprise (IEE/ISBEE) under the Buy Indian Act \u2014 if set aside, the company is ineligible as prime contractor",
+          "CRITICAL: Zero federal government past performance \u2014 no federal contracts, no FedRAMP work, no ATO experience, no healthcare IT contracts",
+          "CRITICAL: No experience with mandated security tools \u2014 Palo Alto Cortex XSIAM/XSOAR, Splunk Enterprise Security, Voltage SecureData",
+          "No existing federal contract vehicles (GSA Schedule, NASA SEWP, HHS GWACs) which the sources sought specifically asks about",
+          "No demonstrated FedRAMP High, Zero Trust Architecture, or federal compliance automation capabilities"
+        ],
+        "decisionRationale": "NO_GO recommendation driven by three critical factors: (1) Buy Indian Act IEE/ISBEE eligibility \u2014 HORUSTECH does not appear to qualify, making prime contractor competition likely impossible if set aside; (2) Zero relevant federal past performance \u2014 with 0% coverage and no federal contracts of any kind, the company would score critically low on what is typically 30-40% of evaluation criteria; (3) Massive technical capability gaps in FedRAMP, ATO, Zero Trust, SIEM/SOAR, and federal healthcare compliance that cannot be bridged through subcontracting alone. The composite score of 1.85 reflects fundamental misalignment across all evaluation dimensions. The only viable path would be as a subcontractor to a qualified IEE prime, but even then, the company's value-add is limited to general AWS architecture rather than the specialized federal security capabilities required.",
+        "compositeScore": 1.8,
+        "confidenceDrivers": [
+          {
+            "factor": "Detailed SOW and requirements clearly define scope \u2014 easy to assess fit",
+            "direction": "UP"
+          },
+          {
+            "factor": "Company KB and past performance data available for comparison",
+            "direction": "UP"
+          },
+          {
+            "factor": "Zero past performance matches with 0% coverage is unambiguous",
+            "direction": "UP"
+          },
+          {
+            "factor": "Buy Indian Act IEE/ISBEE status not definitively confirmed for HORUSTECH",
+            "direction": "DOWN"
+          },
+          {
+            "factor": "This is a sources sought, not a solicitation \u2014 final requirements may change",
+            "direction": "DOWN"
+          },
+          {
+            "factor": "Pricing confidence very low at 35% due to unknown contract type and no government estimate",
+            "direction": "DOWN"
+          }
+        ]
+      },
+      "inputHash": "1f2a075ebe02f5d71c863214b36e4ef4562b7a38d082ea4a12d77848a0b60673",
+      "status": "COMPLETE",
+      "updatedAt": "2026-04-14T22:54:47.458Z"
+    },
+    "summary": {
+      "data": {
+        "summary": "The Indian Health Service (IHS) is conducting market research via a Buy Indian Act sources sought notice to identify prospective vendors capable of establishing a Secure Cloud Center of Excellence (CCoE) on a FedRAMP High-authorized IaaS platform. The requirement encompasses cloud landing zone design, secure enclave provisioning, compliance automation, AI/LLM-enabled documentation generation, Zero Trust Architecture implementation, and SIEM/SOAR integration to centralize and modernize IHS cloud operations for federal healthcare. This sources sought is specifically intended to determine the availability of Indian Small Business Economic Enterprises (ISBEE) and Indian Economic Enterprises (IEE) before a potential solicitation is issued.",
+        "periodOfPerformance": "Base year (8-month core implementation + optional months 9-12 post-transition support)",
+        "agency": "Department of Health and Human Services (HHS)",
+        "contractType": "UNKNOWN",
+        "office": "Office of Mission Acquisition Solutions (OMAS) - Strategic Buying Center - Information Technology",
+        "title": "Sources Sought: Cloud Hosting, Provisioning, and Management for Indian Health Service (IHS)",
+        "naics": "541519",
+        "placeOfPerformance": "Remote; all data within AWS GovCloud (US) CONUS only",
+        "solicitationNumber": "ACQ-OMAS-2026-ORC-0014_Sources",
+        "setAside": "UNKNOWN"
+      },
+      "inputHash": "849d10cb12446a76da0be80cc7d97c362f1a47b6ed985d6b6574dd05729ec1a5",
+      "status": "COMPLETE",
+      "updatedAt": "2026-04-14T22:52:06.303Z"
+    }
+  },
+  "status": "COMPLETE",
+  "textKey": "9b8f8de22b0167729744d906ae984a0c8522ce2dcb829b6334d636c22ef9185a/810f5a23-42e4-4355-a2b4-f9ae2cb8e563/ab320ec4-59f7-4050-8fcc-85c8d2af9a96.txt",
+  "updatedAt": "2026-04-14T22:54:47.458Z",
+  "sort_key": "810f5a23-42e4-4355-a2b4-f9ae2cb8e563#cac315e1-4ffc-4692-ada0-a51ddaf87ab6"
+}

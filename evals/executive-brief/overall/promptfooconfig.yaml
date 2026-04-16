@@ -1,0 +1,435 @@
+description: Executive Brief — Overall Quality Rubric (8-Section + Cross-Cutting)
+
+# ─────────────────────────────────────────────────────────────────────────────
+# This eval assesses the COMPLETE executive brief output across all 8 sections
+# using a structured quality rubric (Excellent / Good / Fair / Needs Improvement).
+#
+# Input: Full solicitation text + Complete executive brief JSON
+# Output: Grader LLM evaluation (the brief itself is passed as vars.brief)
+#
+# To test against a real brief, export the DynamoDB item as JSON and place it
+# in test-cases/<name>.json, then reference it as vars.brief.
+# ─────────────────────────────────────────────────────────────────────────────
+
+prompts:
+  # The prompt passes both the brief JSON AND the source solicitation text as output.
+  # This allows llm-rubric graders to cross-reference the brief against the source.
+  - label: Brief Passthrough
+    raw: |
+      === EXECUTIVE BRIEF JSON ===
+      {{brief}}
+
+      === SOURCE SOLICITATION TEXT ===
+      {{solicitation}}
+
+providers:
+  # Echo provider returns the prompt text as-is (no LLM call).
+  # This makes output = the brief JSON, which the rubric graders then evaluate.
+  - id: echo
+    label: passthrough
+
+defaultTest:
+  options:
+    provider: bedrock:us.anthropic.claude-sonnet-4-20250514-v1:0
+  assert:
+    # ══════════════════════════════════════════════════════════════════════════
+    # STRUCTURAL CHECKS (pass/fail)
+    # All 8 sections present, statuses correct, no null data on COMPLETE sections
+    # ══════════════════════════════════════════════════════════════════════════
+    - type: javascript
+      metric: AllSectionsPresent
+      value: |
+        const jsonStr = output.substring(output.indexOf('{'), output.lastIndexOf('}', output.indexOf('=== SOURCE SOLICITATION TEXT ===')) + 1); const brief = JSON.parse(jsonStr);
+        const s = brief.sections || {};
+        const required = ['summary', 'deadlines', 'requirements', 'contacts', 'risks', 'pricing', 'pastPerformance', 'scoring'];
+        return required.every(k => s[k] !== undefined);
+
+    - type: javascript
+      metric: CompleteSectionsHaveData
+      value: |
+        const jsonStr = output.substring(output.indexOf('{'), output.lastIndexOf('}', output.indexOf('=== SOURCE SOLICITATION TEXT ===')) + 1); const brief = JSON.parse(jsonStr);
+        const s = brief.sections || {};
+        const completeSections = Object.entries(s).filter(([_, v]) => v.status === 'COMPLETE');
+        return completeSections.length > 0 && completeSections.every(([_, v]) => v.data !== null && v.data !== undefined);
+
+    - type: javascript
+      metric: OverallStatusConsistency
+      value: |
+        const jsonStr = output.substring(output.indexOf('{'), output.lastIndexOf('}', output.indexOf('=== SOURCE SOLICITATION TEXT ===')) + 1); const brief = JSON.parse(jsonStr);
+        const s = brief.sections || {};
+        const statuses = Object.values(s).map(v => v.status);
+        const allComplete = statuses.every(st => st === 'COMPLETE');
+        const anyFailed = statuses.some(st => st === 'FAILED');
+        const anyInProgress = statuses.some(st => st === 'IN_PROGRESS');
+        if (allComplete) return brief.status === 'COMPLETE';
+        if (anyFailed) return brief.status === 'FAILED';
+        if (anyInProgress) return brief.status === 'IN_PROGRESS';
+        return true;
+
+    - type: javascript
+      metric: CompositeScorePresent
+      value: |
+        const jsonStr = output.substring(output.indexOf('{'), output.lastIndexOf('}', output.indexOf('=== SOURCE SOLICITATION TEXT ===')) + 1); const brief = JSON.parse(jsonStr);
+        return typeof brief.compositeScore === 'number' && brief.compositeScore >= 0 && brief.compositeScore <= 5;
+
+    - type: javascript
+      metric: DecisionPresent
+      value: |
+        const jsonStr = output.substring(output.indexOf('{'), output.lastIndexOf('}', output.indexOf('=== SOURCE SOLICITATION TEXT ===')) + 1); const brief = JSON.parse(jsonStr);
+        return ['GO', 'CONDITIONAL_GO', 'NO_GO'].includes(brief.decision);
+
+    - type: javascript
+      metric: ConfidencePresent
+      value: |
+        const jsonStr = output.substring(output.indexOf('{'), output.lastIndexOf('}', output.indexOf('=== SOURCE SOLICITATION TEXT ===')) + 1); const brief = JSON.parse(jsonStr);
+        return typeof brief.confidence === 'number' && brief.confidence >= 0 && brief.confidence <= 100;
+
+    # ══════════════════════════════════════════════════════════════════════════
+    # PER-SECTION QUALITY RUBRICS (LLM-graded)
+    # ══════════════════════════════════════════════════════════════════════════
+    - type: llm-rubric
+      metric: SummaryQuality
+      threshold: 0.6
+      weight: 5
+      value: |
+        Evaluate the SUMMARY section of this executive brief against the source solicitation.
+
+        EXPECTED DATA KEYS: title, agency, office, solicitationNumber, naics, contractType,
+        setAside, placeOfPerformance, estimatedValueUsd, periodOfPerformance, summary
+
+        SCORING RUBRIC (score on a 1–10 scale):
+
+        **Excellent (9–10):**
+        All required fields present and 100% accurate vs. the solicitation. The 2–3 sentence
+        overview is crisp, strategic, and highlights win-probability drivers (not just a restatement
+        of the title). Fields not in the solicitation are correctly omitted (not filled with UNKNOWN).
+
+        **Good (7–8):**
+        All fields present; overview is clear but slightly wordy or misses one nuance. Minor issues
+        like a slightly imprecise office name or a verbose summary that buries the key point.
+
+        **Fair (5–6):**
+        Most fields present; overview is generic or misses key context (e.g., doesn't mention
+        set-aside status or contract type). One or two fields may have minor inaccuracies.
+
+        **Needs Improvement (3–4):**
+        Multiple fields missing or inaccurate. Overview is too long, irrelevant, or describes a
+        different procurement than what's in the solicitation. estimatedValueUsd fabricated when
+        not in source.
+
+        CHECK SPECIFICALLY:
+        1. Does the title match the official solicitation title?
+        2. Is the agency/office correct?
+        3. Is the solicitationNumber an exact match (not paraphrased)?
+        4. Is contractType accurate (FIXED_PRICE, COST_PLUS, T&M, INDEFINITE_DELIVERY)?
+        5. Is setAside correct (NONE for full & open, or the specific set-aside category)?
+        6. Is NAICS accurate or correctly omitted if not in the document?
+        7. Is estimatedValueUsd from the solicitation or correctly omitted?
+        8. Is the summary text strategic and concise (not just restating the title)?
+
+    - type: llm-rubric
+      metric: DeadlinesQuality
+      threshold: 0.6
+      weight: 5
+      value: |
+        Evaluate the DEADLINES section of this executive brief against the source solicitation.
+
+        EXPECTED DATA KEYS: deadlines (array), hasSubmissionDeadline, submissionDeadlineIso, warnings
+
+        Each deadline should have: type, label, dateTimeIso, rawText, timezone, notes
+
+        SCORING RUBRIC (score on a 1–10 scale):
+
+        **Excellent (9–10):**
+        Every deadline captured with correct ISO-8601 format + timezone. Clear warnings flagged
+        for tight turnarounds. hasSubmissionDeadline correctly reflects whether this is an RFP
+        with a proposal due date vs. a sources sought / RFI. No omissions, no fabricated dates.
+
+        **Good (7–8):**
+        All major deadlines captured; warnings present but one minor detail missing.
+
+        **Fair (5–6):**
+        Some deadlines or warnings missing. Format partially inconsistent.
+
+        **Needs Improvement (3–4):**
+        Multiple deadlines omitted or incorrect dates extracted. No warnings. Fabricated dates.
+
+    - type: llm-rubric
+      metric: RequirementsQuality
+      threshold: 0.6
+      weight: 5
+      value: |
+        Evaluate the REQUIREMENTS section of this executive brief against the source solicitation.
+
+        EXPECTED DATA KEYS: overview, requirements (array with category/mustHave flags),
+        deliverables, evaluationFactors, submissionCompliance (requiredDocuments, volumes, pageLimits)
+
+        SCORING RUBRIC (score on a 1–10 scale):
+
+        **Excellent (9–10):**
+        Requirements logically categorized. Evaluation factors captured with weighting.
+        Submission compliance checklist is complete. Must-haves correctly flagged.
+
+        **Good (7–8):**
+        Good categorization and coverage. Minor gaps in evaluation factors or deliverables.
+
+        **Fair (5–6):**
+        Basic requirements list but lacks categorization or evaluation factor weighting.
+
+        **Needs Improvement (3–4):**
+        Requirements jumbled. Missing submission compliance. Evaluation factors fabricated.
+
+    - type: llm-rubric
+      metric: ContactsQuality
+      threshold: 0.6
+      weight: 3
+      value: |
+        Evaluate the CONTACTS section of this executive brief against the source solicitation.
+
+        EXPECTED DATA KEYS: contacts (array with name, title, phone, email, role),
+        missingRecommendedRoles (array)
+
+        SCORING RUBRIC (score on a 1–10 scale):
+
+        **Excellent (9–10):**
+        Complete directory with all contacts from the solicitation. Roles correctly classified.
+        Missing recommended roles explicitly called out. No fabricated contact details.
+
+        **Good (7–8):**
+        Directory complete. One or two fields missing. Missing roles noted.
+
+        **Fair (5–6):**
+        Directory present but incomplete. Role classification partially correct.
+
+        **Needs Improvement (3–4):**
+        Major contacts missing. Fabricated details. No missing-role analysis.
+
+    - type: llm-rubric
+      metric: RisksQuality
+      threshold: 0.6
+      weight: 5
+      value: |
+        Evaluate the RISKS section of this executive brief against the source solicitation.
+
+        EXPECTED DATA KEYS: risks (array with severity, mitigation, impactsScore),
+        redFlags (array with severity, mitigation, impactsScore), incumbentInfo
+
+        SCORING RUBRIC (score on a 1–10 scale):
+
+        **Excellent (9–10):**
+        Risks prioritized by severity with calibrated ratings. Red flags distinguished from
+        manageable risks. Incumbent intelligence included. Mitigations specific and actionable.
+        All risks traceable to solicitation language.
+
+        **Good (7–8):**
+        Solid risk list. Incumbent info present but light. Mitigations reasonable.
+
+        **Fair (5–6):**
+        Basic risks listed. Limited severity differentiation. Generic mitigations.
+
+        **Needs Improvement (3–4):**
+        Risks vague or generic. No incumbent info. Phantom risks invented.
+
+    - type: llm-rubric
+      metric: PricingQuality
+      threshold: 0.6
+      weight: 5
+      value: |
+        Evaluate the PRICING section of this executive brief against the source solicitation.
+
+        SCORING RUBRIC (score on a 1–10 scale):
+
+        **Excellent (9–10):**
+        Detailed, data-driven analysis. Strategy aligned with contract type. Assumptions stated.
+        Pricing risks identified. Basis of estimate transparent.
+
+        **Good (7–8):**
+        Good analysis of key pricing elements. Minor gaps.
+
+        **Fair (5–6):**
+        Basic pricing summary. Limited competitive analysis. Assumptions vague.
+
+        **Needs Improvement (3–4):**
+        Pricing superficial. Fabricated dollar amounts. No basis of estimate.
+
+    - type: llm-rubric
+      metric: PastPerformanceQuality
+      threshold: 0.6
+      weight: 5
+      value: |
+        Evaluate the PAST PERFORMANCE section of this executive brief.
+
+        NOTE: Past performance matches the company's project history against the solicitation
+        requirements. Evaluate the QUALITY OF THE MATCHING AND ANALYSIS.
+
+        SCORING RUBRIC (score on a 1–10 scale):
+
+        **Excellent (9–10):**
+        Top matches are specific and relevant. Gap analysis identifies concrete weaknesses with
+        actionable recommendations. Confidence score justified by match quality.
+
+        **Good (7–8):**
+        Relevant matches found. Gap analysis identifies main gaps. Confidence directionally correct.
+
+        **Fair (5–6):**
+        Matches generic or tangentially related. Gap analysis vague. Confidence misaligned.
+
+        **Needs Improvement (3–4):**
+        No relevant matches. Gap analysis empty. Confidence arbitrary. Coverage inflated.
+
+    - type: llm-rubric
+      metric: ScoringQuality
+      threshold: 0.6
+      weight: 5
+      value: |
+        Evaluate the SCORING section of this executive brief against the other sections' data.
+
+        The 5 weighted scoring criteria:
+        - TECHNICAL_FIT (20%), PAST_PERFORMANCE_RELEVANCE (30%), PRICING_POSITION (15%),
+          STRATEGIC_ALIGNMENT (25%), INCUMBENT_RISK (10%)
+
+        SCORING RUBRIC (score on a 1–10 scale):
+
+        **Excellent (9–10):**
+        All 5 criteria scored with transparent rationale. Composite score calculated correctly.
+        Clear decision with specific blockers and next actions. Confidence justified.
+
+        **Good (7–8):**
+        Criteria scored well. Decision logical. One rationale could be stronger.
+
+        **Fair (5–6):**
+        Criteria present but weighting or rationale is weak. Some scores don't match section data.
+
+        **Needs Improvement (3–4):**
+        Missing criteria. Scores disconnected from data. No blockers despite NO_GO.
+
+    # ══════════════════════════════════════════════════════════════════════════
+    # CROSS-CUTTING RUBRICS
+    # ══════════════════════════════════════════════════════════════════════════
+    - type: llm-rubric
+      metric: CrossSectionConsistency
+      threshold: 0.6
+      weight: 5
+      value: |
+        Check whether the 8 sections of this executive brief are internally consistent.
+
+        Check for these cross-section agreement points:
+        1. Summary ↔ Requirements: description matches overview?
+        2. Summary ↔ Pricing: contract type matches pricing strategy?
+        3. Requirements ↔ Risks: risk flags grounded in actual requirements?
+        4. Risks ↔ Scoring: HIGH/CRITICAL risks reflected in scoring?
+        5. Pricing ↔ Scoring: competitive position aligns with PRICING_POSITION?
+        6. PastPerformance ↔ Scoring: confidenceScore aligns with PP criterion?
+
+        Score 9-10 = coherent story. 5-6 = 1-2 inconsistencies. 1-2 = sections contradict.
+
+    - type: llm-rubric
+      metric: OverallFaithfulness
+      threshold: 0.8
+      weight: 5
+      value: |
+        Check whether the entire executive brief is faithful to the source solicitation.
+
+        Review ALL sections for hallucinated content:
+        - Summary: title, agency, sol#, contract type, NAICS, set-aside traceable?
+        - Deadlines: all dates present in source? No invented deadlines?
+        - Requirements: actually in the solicitation?
+        - Contacts: named contacts actually in document? No invented names/emails/phones?
+        - Risks: based on real solicitation language?
+        - Pricing: strategy based on what solicitation specifies?
+
+        Score 9-10 = every fact traceable. 3-4 = multiple fabricated facts. 1-2 = pervasive hallucination.
+
+    - type: llm-rubric
+      metric: Actionability
+      threshold: 0.6
+      weight: 5
+      value: |
+        Does this brief provide enough information for a go/no-go bid decision?
+
+        Must answer: (1) What is being procured? (2) When are deadlines? (3) What do we need
+        to win? (4) Who are decision-makers? (5) What are risks? (6) Can we price competitively?
+        (7) Do we have relevant past performance? (8) Should we bid?
+
+        Score 9-10 = all 8 answered. 5-6 = 5-6 answered. 1-2 = mostly empty.
+
+tests:
+  # ─── Test Case 1: GO Decision — COMET Program (DoD/DIA) ───
+  - description: "DoD COMET (DIA) — GO decision, score 3.9"
+    vars:
+      solicitation: file://../ground-truth/dod-healthcare-portal.txt
+      brief: file://test-cases/software-development-services-for-healthcare-porta.json
+    assert:
+      - type: javascript
+        metric: HighScoreForGO
+        value: |
+          const jsonStr = output.substring(output.indexOf('{'), output.lastIndexOf('}', output.indexOf('=== SOURCE SOLICITATION TEXT ===')) + 1); const brief = JSON.parse(jsonStr);
+          return brief.compositeScore >= 3.0 && brief.decision === 'GO';
+
+      - type: javascript
+        metric: AllSectionsComplete
+        value: |
+          const jsonStr = output.substring(output.indexOf('{'), output.lastIndexOf('}', output.indexOf('=== SOURCE SOLICITATION TEXT ===')) + 1); const brief = JSON.parse(jsonStr);
+          const s = brief.sections || {};
+          const all = ['summary', 'deadlines', 'requirements', 'contacts', 'risks', 'pricing', 'pastPerformance', 'scoring'];
+          return all.filter(k => s[k]?.status === 'COMPLETE').length === 8;
+
+  # ─── Test Case 2: CONDITIONAL_GO — AI Benefits System (Sacramento) ───
+  - description: "Sacramento AI Benefits — CONDITIONAL_GO decision, score 3.6"
+    vars:
+      solicitation: file://../ground-truth/sacramento-ai-benefits.txt
+      brief: file://test-cases/al-powered-benefits-eligibility-automation-system.json
+    assert:
+      - type: javascript
+        metric: ConditionalDecisionHasBlockers
+        value: |
+          const jsonStr = output.substring(output.indexOf('{'), output.lastIndexOf('}', output.indexOf('=== SOURCE SOLICITATION TEXT ===')) + 1); const brief = JSON.parse(jsonStr);
+          const scoring = brief.sections?.scoring?.data || {};
+          if (brief.decision === 'CONDITIONAL_GO') {
+            return (scoring.blockers || []).length > 0 || (scoring.requiredActions || []).length > 0;
+          }
+          return true;
+
+  # ─── Test Case 3: GO — Enterprise Back-Up Solution (BIE) ───
+  - description: "BIE Enterprise Back-Up — GO decision, score 3.3"
+    vars:
+      solicitation: file://../ground-truth/bie-enterprise-backup.txt
+      brief: file://test-cases/enterprise-back-up-solution-sipi.json
+    assert:
+      - type: javascript
+        metric: GoDecisionReasonable
+        value: |
+          const jsonStr = output.substring(output.indexOf('{'), output.lastIndexOf('}', output.indexOf('=== SOURCE SOLICITATION TEXT ===')) + 1); const brief = JSON.parse(jsonStr);
+          return brief.compositeScore >= 2.5 && ['GO', 'CONDITIONAL_GO'].includes(brief.decision);
+
+  # ─── Test Case 4: NO_GO — Cloud Hosting Sources Sought (HHS/IHS) ───
+  - description: "IHS Cloud Hosting Sources Sought — NO_GO decision, score 1.8"
+    vars:
+      solicitation: file://../ground-truth/ihs-cloud-hosting.txt
+      brief: file://test-cases/sources-sought-cloud-hosting-provisioning-and-m.json
+    assert:
+      - type: javascript
+        metric: LowScoreForNoGo
+        value: |
+          const jsonStr = output.substring(output.indexOf('{'), output.lastIndexOf('}', output.indexOf('=== SOURCE SOLICITATION TEXT ===')) + 1); const brief = JSON.parse(jsonStr);
+          return brief.compositeScore < 3.0 && brief.decision === 'NO_GO';
+
+  # ─── Test Case 5: NO_GO — Document Destruction (VA) ───
+  - description: "VA Document Destruction — NO_GO decision, lowest score 1.1"
+    vars:
+      solicitation: file://../ground-truth/va-document-destruction.txt
+      brief: file://test-cases/document-destruction---nfsg-vhs.json
+    assert:
+      - type: javascript
+        metric: LowestScoreNoGo
+        value: |
+          const jsonStr = output.substring(output.indexOf('{'), output.lastIndexOf('}', output.indexOf('=== SOURCE SOLICITATION TEXT ===')) + 1); const brief = JSON.parse(jsonStr);
+          return brief.compositeScore < 2.0 && brief.decision === 'NO_GO';
+
+      # Low-relevance opportunity should show weak past performance
+      - type: javascript
+        metric: WeakPastPerformanceForIrrelevantOpp
+        value: |
+          const jsonStr = output.substring(output.indexOf('{'), output.lastIndexOf('}', output.indexOf('=== SOURCE SOLICITATION TEXT ===')) + 1); const brief = JSON.parse(jsonStr);
+          const pp = brief.sections?.pastPerformance?.data || {};
+          return pp.confidenceScore <= 50 || pp.gapAnalysis?.overallCoverage <= 30;

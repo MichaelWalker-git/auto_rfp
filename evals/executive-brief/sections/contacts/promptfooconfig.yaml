@@ -1,0 +1,359 @@
+description: Executive Brief — Contacts Extraction Eval
+
+prompts:
+  - label: Current Production Prompt
+    id: file://../../prompts/contacts-chat.json
+
+providers:
+  - id: bedrock:us.anthropic.claude-sonnet-4-20250514-v1:0
+    label: claude-sonnet
+    config:
+      region: us-east-1
+      max_tokens: 1400
+      temperature: 0.1
+
+defaultTest:
+  options:
+    provider: bedrock:us.anthropic.claude-sonnet-4-20250514-v1:0
+    transform: output.replace(/^```json\s*/i, '').replace(/\s*```$/i, '')
+  assert:
+    - type: is-json
+      metric: ValidJSON
+
+    - type: javascript
+      metric: SchemaCompliance
+      value: |
+        const obj = JSON.parse(output);
+        const hasContacts = Array.isArray(obj.contacts);
+        const hasMissing = Array.isArray(obj.missingRecommendedRoles);
+        return hasContacts && hasMissing;
+
+    - type: javascript
+      metric: ContactItemsValid
+      value: |
+        const obj = JSON.parse(output);
+        return obj.contacts.every(c => typeof c.role === 'string' && c.role.length > 0);
+
+    - type: javascript
+      metric: NoEvidenceFields
+      value: |
+        const obj = JSON.parse(output);
+        return !obj.contacts.some(c => c.evidence !== undefined);
+
+    - type: javascript
+      metric: RoleEnumValid
+      value: |
+        const obj = JSON.parse(output);
+        const allowed = ['CONTRACTING_OFFICER','CONTRACTING_OFFICER_REPRESENTATIVE','CONTRACT_SPECIALIST','TECHNICAL_POC','PROGRAM_MANAGER','SMALL_BUSINESS_SPECIALIST','PROCUREMENT_POC','SUBCONTRACTING_POC','GENERAL_INQUIRY','OTHER'];
+        return obj.contacts.every(c => allowed.includes(c.role));
+
+tests:
+  # ─── Test Case 1: DC Courts Legal Case Management ───
+  - description: "DC Courts — Legal Case & Document Management System (DCSC-26-RFP-60)"
+    vars:
+      solicitation: file://../../rfp-texts/dc-courts-legal-case-mgmt.txt
+    assert:
+      - type: javascript
+        metric: ContactCountMin
+        value: |
+          const obj = JSON.parse(output);
+          return obj.contacts.length >= 3;
+
+      - type: javascript
+        metric: HasDarleneReynolds
+        value: |
+          const obj = JSON.parse(output);
+          return obj.contacts.some(c =>
+            (c.name || '').toLowerCase().includes('darlene') &&
+            (c.name || '').toLowerCase().includes('reynolds')
+          );
+
+      - type: javascript
+        metric: HasGraceAlao
+        value: |
+          const obj = JSON.parse(output);
+          return obj.contacts.some(c =>
+            (c.name || '').toLowerCase().includes('grace') &&
+            (c.name || '').toLowerCase().includes('alao')
+          );
+
+      - type: javascript
+        metric: HasGraceAlaoEmail
+        value: |
+          const obj = JSON.parse(output);
+          return obj.contacts.some(c =>
+            (c.email || '').toLowerCase().includes('grace.alao@dccsystem.gov')
+          );
+
+      - type: javascript
+        metric: HasSherriEvansHarris
+        value: |
+          const obj = JSON.parse(output);
+          return obj.contacts.some(c =>
+            (c.name || '').toLowerCase().includes('sherri') &&
+            (c.name || '').toLowerCase().includes('harris')
+          );
+
+      - type: javascript
+        metric: HasSherriPhone
+        value: |
+          const obj = JSON.parse(output);
+          return obj.contacts.some(c =>
+            (c.phone || '').includes('202') && (c.phone || '').includes('879') && (c.phone || '').includes('1627')
+          );
+
+      - type: javascript
+        metric: HasMissingRoles
+        value: |
+          const obj = JSON.parse(output);
+          return obj.missingRecommendedRoles.length >= 2;
+
+      # LLM-graded rubrics
+      - type: llm-rubric
+        metric: FieldExtractionAccuracy
+        threshold: 0.6
+        weight: 5
+        value: |
+          You are evaluating an AI's extraction of contact information from a government RFP.
+
+          GOLD STANDARD for DCSC-26-RFP-60:
+          - Grace Alao: Senior Contract Specialist, grace.alao@dccsystem.gov, District of Columbia Courts
+          - Sherri Evans Harris: General Counsel / COTR, officegeneralcounsel@dccsystem.gov, 202-879-1627, District of Columbia Courts
+          - Darlene D. Reynolds: Contracting Officer / Procurement and Contracts Branch Manager, 510 4th Street NW, Washington DC 20001 (Section G.7, no email or phone listed)
+          - missingRecommendedRoles should include several roles (TECHNICAL_POC, PROGRAM_MANAGER, etc.)
+
+          Score 5 = all 3 contacts extracted with correct details. Score 3 = one contact missing or incorrect. Score 1 = mostly wrong.
+
+      - type: llm-rubric
+        metric: HallucinationDetection
+        threshold: 0.8
+        weight: 5
+        value: |
+          Check for fabricated contact information in DCSC-26-RFP-60 extraction.
+
+          REAL CONTACTS (from the solicitation):
+          - Grace Alao, Senior Contract Specialist, grace.alao@dccsystem.gov
+          - Sherri Evans Harris, General Counsel / COTR, officegeneralcounsel@dccsystem.gov, 202-879-1627
+          - Darlene D. Reynolds, Procurement and Contracts Branch Manager / Contracting Officer, 510 4th Street NW, Washington DC 20001 (Section G.7, no email/phone listed)
+          - IPP helpdesk: IPPCustomerSupport@fiscal.treasury.gov, (866) 973-3131 (payment system, optional)
+
+          WHAT COUNTS AS A HALLUCINATION:
+          - Names not found anywhere in the solicitation
+          - Fabricated email addresses or phone numbers
+
+          WHAT IS NOT A HALLUCINATION:
+          - Classifying Grace Alao as CONTRACT_SPECIALIST
+          - Classifying Sherri Evans Harris as CONTRACTING_OFFICER_REPRESENTATIVE
+          - Including the IPP helpdesk as an OTHER contact
+          - Noting the CO is unnamed
+
+          Score 5 = all contacts grounded in source. Score 3 = one questionable detail. Score 1 = fabricated contacts.
+
+      - type: llm-rubric
+        metric: OmissionDiscipline
+        threshold: 0.8
+        weight: 5
+        value: |
+          For DCSC-26-RFP-60, check that the model:
+          - Extracted all 3 named contacts (Grace Alao, Sherri Evans Harris, Darlene D. Reynolds)
+          - Included email addresses for Grace Alao and Sherri Evans Harris
+          - Included Sherri Evans Harris's phone number (202-879-1627)
+          - Flagged missing roles in missingRecommendedRoles (TECHNICAL_POC, PROGRAM_MANAGER, etc.)
+          - Did NOT omit any contact that has a name in the document
+
+          Score 5 = all contacts captured with complete details. Score 3 = missing one contact or key detail. Score 1 = major omissions.
+
+  # ─── Test Case 2: DOT Airline Analysis & Scheduling ───
+  - description: "DOT — Airline Analysis and Scheduling Solution (693JK426R600002)"
+    vars:
+      solicitation: file://../../rfp-texts/airline-analysis-scheduling.txt
+    assert:
+      - type: javascript
+        metric: ContactCountMin
+        value: |
+          const obj = JSON.parse(output);
+          return obj.contacts.length >= 2;
+
+      - type: javascript
+        metric: HasMelindaRiddick
+        value: |
+          const obj = JSON.parse(output);
+          return obj.contacts.some(c =>
+            (c.name || '').toLowerCase().includes('melinda') &&
+            (c.name || '').toLowerCase().includes('riddick')
+          );
+
+      - type: javascript
+        metric: HasMelindaEmail
+        value: |
+          const obj = JSON.parse(output);
+          return obj.contacts.some(c =>
+            (c.email || '').toLowerCase().includes('melinda.riddick@dot.gov')
+          );
+
+      - type: javascript
+        metric: HasRobinGolden
+        value: |
+          const obj = JSON.parse(output);
+          return obj.contacts.some(c =>
+            (c.name || '').toLowerCase().includes('robin') &&
+            (c.name || '').toLowerCase().includes('golden')
+          );
+
+      - type: javascript
+        metric: HasContractingOfficerRole
+        value: |
+          const obj = JSON.parse(output);
+          return obj.contacts.some(c => c.role === 'CONTRACTING_OFFICER');
+
+      - type: javascript
+        metric: HasMissingRoles
+        value: |
+          const obj = JSON.parse(output);
+          return obj.missingRecommendedRoles.length >= 2;
+
+      # LLM-graded rubrics
+      - type: llm-rubric
+        metric: FieldExtractionAccuracy
+        threshold: 0.6
+        weight: 5
+        value: |
+          You are evaluating an AI's extraction of contact information from a government RFP.
+
+          GOLD STANDARD for 693JK426R600002:
+          - Melinda Riddick: Contracting Officer, Melinda.Riddick@dot.gov, Office of the Senior Procurement Executive
+          - Robin Golden: Contracting Officer, Robin.Golden@dot.gov, Office of the Senior Procurement Executive
+          - Omarr Lee: eInvoicing POC, Omarr.Lee@dot.gov, (202) 366-0475, DOT/OST
+          - COR is listed as TBD (post-award)
+          - Contract Specialist is listed as TBD (post-award)
+          - missingRecommendedRoles should include COR, TECHNICAL_POC, PROGRAM_MANAGER, etc.
+
+          Score 5 = all 3 named contacts extracted. Score 3 = 1-2 contacts missing. Score 1 = mostly wrong.
+
+      - type: llm-rubric
+        metric: HallucinationDetection
+        threshold: 0.8
+        weight: 5
+        value: |
+          Check for fabricated contact information in 693JK426R600002 extraction.
+
+          REAL CONTACTS:
+          - Melinda Riddick, Contracting Officer, Melinda.Riddick@dot.gov
+          - Robin Golden, Contracting Officer, Robin.Golden@dot.gov
+          - Omarr Lee, eInvoicing POC, Omarr.Lee@dot.gov, (202) 366-0475
+          - COR: TBD (post-award, Section 15.2)
+          - Contract Specialist: TBD (post-award, Section 15.1)
+
+          WHAT COUNTS AS A HALLUCINATION:
+          - Naming the COR or Contract Specialist (they are TBD)
+          - Fabricated email addresses or phone numbers
+          - Names not in the solicitation
+
+          WHAT IS NOT A HALLUCINATION:
+          - Both Melinda Riddick and Robin Golden as CONTRACTING_OFFICER
+          - Omarr Lee as OTHER or PROCUREMENT_POC
+          - Noting COR and Contract Specialist as TBD in notes
+
+          Score 5 = all contacts grounded. Score 3 = one fabricated detail. Score 1 = fabricated contacts.
+
+      - type: llm-rubric
+        metric: OmissionDiscipline
+        threshold: 0.6
+        weight: 5
+        value: |
+          For 693JK426R600002, check that the model:
+          - Extracted Melinda Riddick with her email
+          - Extracted Robin Golden with her email
+          - Extracted at least 2 of the 3 named contacts
+          - Flagged COR and other roles as missing in missingRecommendedRoles
+
+          Score 5 = all 3 contacts captured. Score 3 = 2 contacts captured. Score 1 = major omissions.
+
+  # ─── Test Case 3: FUSRAP Data Management Services (PWS) ───
+  - description: "USACE — FUSRAP Data Management Services (PWS — minimal contacts)"
+    vars:
+      solicitation: file://../../rfp-texts/fusrap-data-management.txt
+    assert:
+      # PWS has no named contacts — all roles are TBD/generic
+      - type: javascript
+        metric: ContactsMinimalOrEmpty
+        value: |
+          const obj = JSON.parse(output);
+          return obj.contacts.length <= 5;
+
+      - type: javascript
+        metric: NoFabricatedNames
+        value: |
+          const obj = JSON.parse(output);
+          return obj.contacts.every(c => !c.name || c.name === '' || c.name.toUpperCase() === 'TBD');
+
+      - type: javascript
+        metric: NoFabricatedEmails
+        value: |
+          const obj = JSON.parse(output);
+          return obj.contacts.every(c => !c.email || c.email === '');
+
+      - type: javascript
+        metric: HasManyMissingRoles
+        value: |
+          const obj = JSON.parse(output);
+          return obj.missingRecommendedRoles.length >= 5;
+
+      # LLM-graded rubrics
+      - type: llm-rubric
+        metric: FieldExtractionAccuracy
+        threshold: 0.6
+        weight: 5
+        value: |
+          You are evaluating an AI's extraction of contacts from a government PWS (Performance Work Statement).
+
+          GOLD STANDARD for FUSRAP Data Management Services PWS:
+          - This is a PWS with NO named contacts. All roles (CO, COR, Technical Manager) are referenced generically without names, emails, or phone numbers.
+          - The COR's contact info is explicitly deferred to individual task order awards.
+          - The mailing address references "Philadelphia District Corps of Engineers, ATTN: TBD"
+          - contacts array should be empty or contain only unnamed role references
+          - missingRecommendedRoles should list most/all recommended roles
+
+          Score 5 = correctly identifies no named contacts, extensive missing roles.
+          Score 3 = includes some unnamed role entries with organization info.
+          Score 1 = fabricates named contacts or contact details.
+
+      - type: llm-rubric
+        metric: HallucinationDetection
+        threshold: 0.8
+        weight: 5
+        value: |
+          Check for fabricated contact information in the FUSRAP PWS extraction.
+
+          THIS IS A PWS WITH NO NAMED CONTACTS. Any specific name, email address, or phone number
+          for a contracting officer, COR, or program manager would be a hallucination.
+
+          The only phone number in the document is 1-800-272-1000 (New Jersey One Call for utility
+          clearances) — this is NOT an RFP contact.
+
+          WHAT COUNTS AS A HALLUCINATION:
+          - Any named individual (no names appear in this PWS)
+          - Any email address (none in this PWS)
+          - Any phone number attributed to an RFP contact
+          - Specific contact details for the CO, COR, or Technical Manager
+
+          WHAT IS NOT A HALLUCINATION:
+          - Generic role entries without names (e.g., "COR — TBD, assigned per task order")
+          - Organization references (USACE Philadelphia District)
+          - The mailing address (1650 Arch St, Philadelphia PA 19103)
+
+          Score 5 = no fabricated contact details. Score 3 = one questionable entry. Score 1 = fabricated names/emails.
+
+      - type: llm-rubric
+        metric: OmissionDiscipline
+        threshold: 0.8
+        weight: 5
+        value: |
+          For the FUSRAP PWS, the key test is that the model:
+          - Does NOT fabricate contact names, emails, or phone numbers
+          - Reports most recommended roles as missing in missingRecommendedRoles
+          - Correctly handles the absence of named contacts (empty or TBD-only contacts array)
+
+          Score 5 = correctly empty contacts, comprehensive missing roles list.
+          Score 3 = some unnecessary entries but no fabricated data.
+          Score 1 = fabricated contact details or missing the missingRecommendedRoles.

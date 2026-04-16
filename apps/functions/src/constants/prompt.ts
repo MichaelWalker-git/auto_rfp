@@ -443,9 +443,6 @@ export const REQUIREMENTS_USER_PROMPT = [
   '- requiredDocuments should be empty [] if the solicitation does not specify required response volumes/documents.',
   '- Do NOT invent required documents — only include what is explicitly stated in the solicitation.',
   '',
-  'COMPANY CONTEXT (KB excerpts; may be empty):',
-  '{{KB_TEXT}}',
-  '',
   'SOLICITATION TEXT:',
   '{{SOLICITATION}}',
 ].join('\n');
@@ -460,12 +457,11 @@ export const getRequirementsUserPrompt = async (orgId: string) => {
   return prompt || REQUIREMENTS_USER_PROMPT;
 };
 
-export const useRequirementsUserPrompt = async (orgId: string, solicitation?: string, kbText?: string) => {
+export const useRequirementsUserPrompt = async (orgId: string, solicitation?: string) => {
   const prompt = await getRequirementsUserPrompt(orgId);
   const schemaStr = JSON.stringify(RequirementsSectionSchema.shape, null, 2);
   return prompt && prompt
     .replace('{{REQUIREMENTS_SCHEMA}}', schemaStr)
-    .replace('{{KB_TEXT}}', kbText ?? 'None')
     .replace('{{SOLICITATION}}', solicitation ?? 'None');
 };
 

@@ -1,0 +1,448 @@
+description: Executive Brief — Summary Extraction Eval
+
+prompts:
+  - label: Current Production Prompt
+    id: file://../../prompts/summary-chat.json
+
+providers:
+  - id: bedrock:us.anthropic.claude-sonnet-4-20250514-v1:0
+    label: claude-sonnet
+    config:
+      region: us-east-1
+      max_tokens: 1200
+      temperature: 0.2
+
+defaultTest:
+  options:
+    provider: bedrock:us.anthropic.claude-sonnet-4-20250514-v1:0
+  assert:
+    # Shared assertions — applied to every test case
+    - type: is-json
+      metric: ValidJSON
+
+    - type: javascript
+      metric: SchemaCompliance
+      value: |
+        const obj = JSON.parse(output);
+        const requiredKeys = ['summary'];
+        const allowedKeys = [
+          'title', 'agency', 'office', 'solicitationNumber', 'naics',
+          'contractType', 'setAside', 'placeOfPerformance',
+          'estimatedValueUsd', 'periodOfPerformance', 'summary'
+        ];
+        const hasRequired = requiredKeys.every(k => obj[k] && obj[k].length > 0);
+        const extraKeys = Object.keys(obj).filter(k => !allowedKeys.includes(k));
+        return hasRequired && extraKeys.length === 0;
+
+tests:
+  # ─── Test Case 1: DC Courts Legal Case Management ───
+  - description: "DC Courts — Legal Case & Document Management System (DCSC-26-RFP-60)"
+    vars:
+      solicitation: file://../../rfp-texts/dc-courts-legal-case-mgmt.txt
+    assert:
+      # Exact field checks
+      - type: javascript
+        metric: TitleMatch
+        value: |
+          const obj = JSON.parse(output);
+          const title = (obj.title || '').toLowerCase();
+          return title.includes('legal case') && title.includes('document management');
+
+      - type: javascript
+        metric: AgencyMatch
+        value: |
+          const obj = JSON.parse(output);
+          const agency = (obj.agency || '').toLowerCase();
+          return agency.includes('district of columbia courts') || agency.includes('dc courts');
+
+      - type: javascript
+        metric: SolicitationNumberMatch
+        value: |
+          const obj = JSON.parse(output);
+          return obj.solicitationNumber === 'DCSC-26-RFP-60';
+
+      - type: javascript
+        metric: ContractTypeMatch
+        value: |
+          const obj = JSON.parse(output);
+          const ct = (obj.contractType || '').toUpperCase();
+          return ct.includes('FIXED') || ct.includes('FFP');
+
+      - type: javascript
+        metric: SetAsideMatch
+        value: |
+          const obj = JSON.parse(output);
+          if (obj.setAside === undefined || obj.setAside === null) return true;
+          const sa = obj.setAside.toUpperCase();
+          return sa === 'NONE' || sa.includes('OPEN') || sa.includes('UNRESTRICTED');
+
+      - type: javascript
+        metric: NAICSHandledCorrectly
+        value: |
+          const obj = JSON.parse(output);
+          const naics = (obj.naics || '').toUpperCase();
+          return obj.naics === undefined || obj.naics === null || naics === '' || naics === 'NOT_FOUND' || naics.includes('NOT');
+
+      - type: javascript
+        metric: EstimatedValueCorrectlyOmitted
+        value: |
+          const obj = JSON.parse(output);
+          return obj.estimatedValueUsd === undefined || obj.estimatedValueUsd === null || obj.estimatedValueUsd === '';
+
+      - type: javascript
+        metric: PeriodOfPerformanceMatch
+        value: |
+          const obj = JSON.parse(output);
+          const pop = (obj.periodOfPerformance || '').toLowerCase();
+          return pop.includes('base year') || (pop.includes('12') && pop.includes('option'));
+
+      - type: javascript
+        metric: PlaceOfPerformanceMatch
+        value: |
+          const obj = JSON.parse(output);
+          const pop = (obj.placeOfPerformance || '').toLowerCase();
+          return pop.includes('washington') || pop.includes('d.c') || pop.includes('dc');
+
+      # LLM-graded rubrics
+      - type: llm-rubric
+        metric: FieldExtractionAccuracy
+        threshold: 0.6
+        weight: 5
+        value: |
+          You are evaluating an AI's extraction of structured fields from a government RFP.
+
+          GOLD STANDARD (expected correct output):
+          - title: "Legal Case and Document Management System"
+          - agency: "District of Columbia Courts"
+          - office: "Administrative Services Division, Procurement and Contracts Branch"
+          - solicitationNumber: "DCSC-26-RFP-60"
+          - naics: "NOT_FOUND" (not in solicitation)
+          - contractType: "FIXED_PRICE" (firm-fixed price)
+          - setAside: "NONE" (open market/unrestricted)
+          - placeOfPerformance: "Washington, D.C."
+          - estimatedValueUsd: should be OMITTED (not stated)
+          - periodOfPerformance: "Base year + 4 option years"
+          - summary: Should mention COTS legal case/document management system for OGC, cloud-hosted, document migration (~1.2 TB, ~390,000 files), AI-driven workflow, eDiscovery, FedRAMP, NIST 800-53, Section 508, Microsoft Entra ID MFA/SSO
+
+          Compare the AI output against this gold standard.
+          Score 5 = matches gold on all fields, 4 = 1-2 minor differences,
+          3 = some incorrect/missing fields, 2 = multiple errors, 1 = mostly wrong.
+
+      - type: llm-rubric
+        metric: HallucinationDetection
+        threshold: 0.8
+        weight: 5
+        value: |
+          You are checking whether the AI output contains hallucinated information.
+          A hallucination is any value that does NOT match or is not directly derivable
+          from the gold standard facts below.
+
+          GOLD STANDARD (expected values from this solicitation):
+          - title: "Legal Case and Document Management System"
+          - agency: "District of Columbia Courts"
+          - office: "Administrative Services Division, Procurement and Contracts Branch"
+          - solicitationNumber: "DCSC-26-RFP-60"
+          - naics: "NOT_FOUND" (not in solicitation — this is the correct value, not a hallucination)
+          - contractType: "FIXED_PRICE" (firm-fixed price)
+          - setAside: "NONE" (open market/unrestricted)
+          - placeOfPerformance: "Washington, D.C."
+          - estimatedValueUsd: MUST BE OMITTED (not stated)
+          - periodOfPerformance: "Base year + 4 option years"
+
+          WHAT COUNTS AS A HALLUCINATION:
+          - A value that is completely fabricated and does NOT appear anywhere in the source solicitation.
+          - Filling in a field marked "MUST BE OMITTED" (e.g., inventing a dollar amount).
+          - Inventing a real NAICS code number (the correct value is "NOT_FOUND").
+
+          WHAT IS NOT A HALLUCINATION:
+          - Values that match the gold standard or are reasonable paraphrases.
+          - Additional true details from the source document in the summary.
+          - Minor wording differences that preserve meaning (e.g., "D.C." vs "Washington, D.C.").
+          - Title or summary wording that describes the same scope using different words.
+
+          Score 5 = all values grounded in source, no fabricated data.
+          Score 3 = one field contains a questionable value.
+          Score 1 = one or more clearly fabricated/invented values.
+
+      - type: llm-rubric
+        metric: OmissionDiscipline
+        threshold: 0.8
+        weight: 5
+        value: |
+          For this specific solicitation (DCSC-26-RFP-60), the following fields should be handled:
+          - naics: should be "NOT_FOUND" (no NAICS code in solicitation)
+          - estimatedValueUsd: should be OMITTED (no dollar value stated)
+
+          Check whether the AI correctly handled these fields.
+          Also check that present fields are not filled with "UNKNOWN", "N/A", or null
+          when the actual value exists in the solicitation.
+
+          Score 5 = correct omissions and no unnecessary UNKNOWN values
+          Score 3 = some fields incorrectly included or marked UNKNOWN
+          Score 1 = hallucinated values for fields that should be omitted
+
+  # ─── Test Case 2: DOT Airline Analysis & Scheduling ───
+  - description: "DOT — Airline Analysis and Scheduling Solution (693JK426R600002)"
+    vars:
+      solicitation: file://../../rfp-texts/airline-analysis-scheduling.txt
+    assert:
+      # Exact field checks
+      - type: javascript
+        metric: TitleMatch
+        value: |
+          const obj = JSON.parse(output);
+          const title = (obj.title || '').toLowerCase();
+          return title.includes('airline') && title.includes('scheduling');
+
+      - type: javascript
+        metric: AgencyMatch
+        value: |
+          const obj = JSON.parse(output);
+          const agency = (obj.agency || '').toLowerCase();
+          return agency.includes('department of transportation') || agency.includes('dot');
+
+      - type: javascript
+        metric: SolicitationNumberMatch
+        value: |
+          const obj = JSON.parse(output);
+          return obj.solicitationNumber === '693JK426R600002';
+
+      - type: javascript
+        metric: NAICSMatch
+        value: |
+          const obj = JSON.parse(output);
+          return (obj.naics || '').includes('541511');
+
+      - type: javascript
+        metric: ContractTypeMatch
+        value: |
+          const obj = JSON.parse(output);
+          const ct = (obj.contractType || '').toUpperCase();
+          return ct.includes('FIXED') || ct.includes('FFP');
+
+      - type: javascript
+        metric: SetAsideMatch
+        value: |
+          const obj = JSON.parse(output);
+          const sa = (obj.setAside || '').toUpperCase();
+          return sa === 'NONE' || sa.includes('OPEN') || sa.includes('FULL');
+
+      - type: javascript
+        metric: EstimatedValueCorrectlyOmitted
+        value: |
+          const obj = JSON.parse(output);
+          return obj.estimatedValueUsd === undefined || obj.estimatedValueUsd === null || obj.estimatedValueUsd === '';
+
+      - type: javascript
+        metric: PeriodOfPerformanceMatch
+        value: |
+          const obj = JSON.parse(output);
+          const pop = (obj.periodOfPerformance || '').toLowerCase();
+          return pop.includes('base') && pop.includes('option');
+
+      - type: javascript
+        metric: PlaceOfPerformanceMatch
+        value: |
+          const obj = JSON.parse(output);
+          const pop = (obj.placeOfPerformance || '').toLowerCase();
+          return pop.includes('washington') || pop.includes('d.c') || pop.includes('dc');
+
+      # LLM-graded rubrics
+      - type: llm-rubric
+        metric: FieldExtractionAccuracy
+        threshold: 0.6
+        weight: 5
+        value: |
+          You are evaluating an AI's extraction of structured fields from a government RFP.
+
+          GOLD STANDARD (expected correct output):
+          - title: "Airline Analysis and Scheduling Solution via a Web-based Application"
+          - agency: "U.S. Department of Transportation"
+          - office: "Office of Aviation Analysis"
+          - solicitationNumber: "693JK426R600002"
+          - naics: "541511"
+          - contractType: "FIXED_PRICE" (Firm Fixed Price)
+          - setAside: "NONE" (Full and Open Competition)
+          - placeOfPerformance: "Washington, DC"
+          - estimatedValueUsd: should be OMITTED (not stated)
+          - periodOfPerformance: "Base year + 4 option years"
+          - summary: Should mention airline analysis/scheduling web app for DOT/OAA, FFP, base+4 options, full and open competition
+
+          Compare the AI output against this gold standard.
+          Score 5 = matches gold on all fields, 4 = 1-2 minor differences,
+          3 = some incorrect/missing fields, 2 = multiple errors, 1 = mostly wrong.
+
+      - type: llm-rubric
+        metric: HallucinationDetection
+        threshold: 0.8
+        weight: 5
+        value: |
+          You are checking whether the AI output contains hallucinated information.
+          A hallucination is any value that does NOT match or is not directly derivable
+          from the gold standard facts below.
+
+          GOLD STANDARD (expected values from this solicitation):
+          - title: "Airline Analysis and Scheduling Solution via a Web-based Application"
+          - agency: "U.S. Department of Transportation"
+          - office: "Office of Aviation Analysis"
+          - solicitationNumber: "693JK426R600002"
+          - naics: "541511"
+          - contractType: "FIXED_PRICE" (Firm Fixed Price)
+          - setAside: "NONE" (Full and Open Competition)
+          - placeOfPerformance: "Washington, DC"
+          - estimatedValueUsd: MUST BE OMITTED (not stated)
+          - periodOfPerformance: "Base year + 4 option years"
+
+          WHAT COUNTS AS A HALLUCINATION:
+          - A value that is completely fabricated and does NOT appear anywhere in the source solicitation.
+          - Filling in a field marked "MUST BE OMITTED" (e.g., inventing a dollar amount).
+
+          WHAT IS NOT A HALLUCINATION:
+          - Values that match the gold standard or are reasonable paraphrases.
+          - Additional true details from the source document.
+          - Minor wording differences that preserve meaning (e.g., "Office of Aviation Analysis (OAA)" vs "Office of Aviation Analysis").
+          - Title or summary wording that describes the same scope using different words. Title accuracy is evaluated separately; this rubric only checks for fabricated data.
+
+          Score 5 = all values grounded in source, no fabricated data.
+          Score 3 = one field contains a questionable value.
+          Score 1 = one or more clearly fabricated/invented values.
+
+      - type: llm-rubric
+        metric: OmissionDiscipline
+        threshold: 0.8
+        weight: 5
+        value: |
+          For this specific solicitation (693JK426R600002), the following fields should be OMITTED:
+          - estimatedValueUsd (no dollar value stated)
+
+          The following fields SHOULD be present:
+          - naics: 541511 (explicitly stated)
+          - contractType: FIXED_PRICE (explicitly stated as FFP)
+          - setAside: NONE (Full and Open Competition)
+
+          Check that present fields are extracted and absent fields are omitted.
+
+          Score 5 = correct omissions and all present fields extracted
+          Score 3 = some fields incorrectly included/omitted
+          Score 1 = hallucinated values or major omissions
+
+  # ─── Test Case 3: FUSRAP Data Management Services ───
+  - description: "USACE — FUSRAP Data Management Services"
+    vars:
+      solicitation: file://../../rfp-texts/fusrap-data-management.txt
+    assert:
+      - type: javascript
+        metric: TitleMatch
+        value: |
+          const obj = JSON.parse(output);
+          const title = (obj.title || '').toLowerCase();
+          return title.includes('fusrap') || (title.includes('data management') && title.includes('service'));
+
+      - type: javascript
+        metric: AgencyMatch
+        value: |
+          const obj = JSON.parse(output);
+          const agency = (obj.agency || '').toLowerCase();
+          return agency.includes('army corps') || agency.includes('usace');
+
+      - type: javascript
+        metric: NAICSMatch
+        value: |
+          const obj = JSON.parse(output);
+          return (obj.naics || '').includes('518210');
+
+      - type: javascript
+        metric: ContractTypeMatch
+        value: |
+          const obj = JSON.parse(output);
+          const ct = (obj.contractType || '').toUpperCase();
+          return ct.includes('INDEFINITE') || ct.includes('IDIQ') || ct.includes('TASK_ORDER');
+
+      - type: javascript
+        metric: SolicitationNumberCorrectlyOmitted
+        value: |
+          const obj = JSON.parse(output);
+          return obj.solicitationNumber === undefined || obj.solicitationNumber === null || obj.solicitationNumber === '';
+
+      - type: javascript
+        metric: EstimatedValueCorrectlyOmitted
+        value: |
+          const obj = JSON.parse(output);
+          return obj.estimatedValueUsd === undefined || obj.estimatedValueUsd === null || obj.estimatedValueUsd === '';
+
+      - type: javascript
+        metric: PeriodOfPerformanceMatch
+        value: |
+          const obj = JSON.parse(output);
+          const pop = (obj.periodOfPerformance || '').toLowerCase();
+          return pop.includes('5') || pop.includes('five');
+
+      - type: javascript
+        metric: PlaceOfPerformanceMatch
+        value: |
+          const obj = JSON.parse(output);
+          const pop = (obj.placeOfPerformance || '').toLowerCase();
+          return pop.includes('new jersey') || pop.includes('salem') || pop.includes('nj');
+
+      - type: llm-rubric
+        metric: FieldExtractionAccuracy
+        threshold: 0.6
+        weight: 5
+        value: |
+          You are evaluating an AI's extraction from a government PWS/SOW (not a full solicitation).
+
+          GOLD STANDARD:
+          - title: "FUSRAP Data Management Services"
+          - agency: "U.S. Army Corps of Engineers"
+          - office: "Philadelphia District"
+          - solicitationNumber: should be OMITTED (this is a PWS, no solicitation number)
+          - naics: "518210"
+          - contractType: "INDEFINITE_DELIVERY" (IDIQ)
+          - setAside: should be OMITTED (not mentioned)
+          - placeOfPerformance: "Salem County, New Jersey"
+          - estimatedValueUsd: should be OMITTED
+          - periodOfPerformance: "5 years from date of award"
+          - summary: Should mention USACE, FUSRAP, data management/hosting, environmental remediation, DuPont Chambers Works, IDIQ
+
+          Score 5 = matches gold on all fields, 4 = 1-2 minor differences,
+          3 = some incorrect/missing, 2 = multiple errors, 1 = mostly wrong.
+
+      - type: llm-rubric
+        metric: HallucinationDetection
+        threshold: 0.8
+        weight: 5
+        value: |
+          You are checking whether the AI output contains hallucinated information.
+          A hallucination is any value that does NOT match or is not directly derivable
+          from the gold standard facts below.
+
+          GOLD STANDARD (expected values from this PWS):
+          - title: "FUSRAP Data Management Services"
+          - agency: "U.S. Army Corps of Engineers"
+          - office: "Philadelphia District"
+          - solicitationNumber: MUST BE OMITTED (this is a PWS, not a numbered solicitation)
+          - naics: "518210"
+          - contractType: "INDEFINITE_DELIVERY" (IDIQ)
+          - setAside: MUST BE OMITTED (not mentioned)
+          - placeOfPerformance: "Salem County, New Jersey" (the PWS also mentions small portions in Newcastle County, Delaware — including this is NOT a hallucination)
+          - estimatedValueUsd: MUST BE OMITTED (not stated)
+          - periodOfPerformance: "5 years from date of award"
+
+          WHAT COUNTS AS A HALLUCINATION:
+          - A value that is completely fabricated and does NOT appear anywhere in the source PWS.
+          - Filling in a field marked "MUST BE OMITTED" (e.g., inventing a solicitation number or dollar amount).
+
+          WHAT IS NOT A HALLUCINATION:
+          - Values that match the gold standard or are reasonable paraphrases.
+          - Additional true details from the source document (e.g., mentioning Newcastle County, DE alongside Salem County, NJ is correct — the PWS states the site extends into both).
+          - Minor wording differences that preserve meaning.
+          - A title that describes the same scope of work using different words (e.g., "Data Management Services for Environmental Remediation" is a valid paraphrase of "FUSRAP Data Management Services" — both describe the same PWS). Title accuracy is evaluated separately; this rubric only checks for fabricated data.
+          - The summary field containing details from the PWS (e.g., DuPont Chambers Works, environmental remediation, CMMC, aerial surveying) — these are real details from the document, not hallucinations.
+
+          Score 5 = all values grounded in source, no fabricated data.
+          Score 3 = one field contains a questionable value.
+          Score 1 = one or more clearly fabricated/invented values.
+
+  # NOTE: Test case 4 (USAF Sources Sought — edge-case-minimal-notice.txt) was removed
+  # because the source RFP text file was deleted from rfp-texts/. Re-add when a replacement
+  # Sources Sought document is available to test omission discipline on minimal notices.

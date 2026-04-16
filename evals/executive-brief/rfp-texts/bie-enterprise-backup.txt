@@ -1,0 +1,1970 @@
+Indian Affairs Indian Economic Enterprise Representation Form
+Solicitation/Sources Sought/RFI Number:
+Solicitation 140A2326Q070
+Project Title:
+Enterprise Back-Up Solution, Haskell
+Date of Form Submission:
+In accordance with 25 U.S.C. 47 of the Buy Indian Act, the signature in the Offeror Section below constitutes
+self-certification that the Offeror meets the definition of an "Indian Economic Enterprise (IEE)" as defined in
+Department of the Interior Acquisition Regulation (DIAR) Part 1480 titled, "Acquisitions Under the Buy
+Indian Act."
+The enterprise must meet the requirements of (i) through (iii) throughout the following time periods:
+(1) At the time an offer is made in response to a written solicitation;
+(2) At the time of contract award; and,
+(3) During the full term of the contract.
+Contracting Officers may require additional information or documentation of eligibility at any time in the
+acquisition life-cycle, including pre-award/proposal evaluation.
+Any false or misleading information submitted by an enterprise when submitting an offer in consideration
+for an award set aside under the Buy Indian Act is a violation of the law punishable under 18 U.S.C. 1001.
+False claims submitted as part of contract performance are subject to the penalties enumerated in 31 U.S.C.
+3729 to 3731 and 18 U.S.C. 287.
+OFFEROR REPRESENTATION
+By filling out the information below, the Offeror represents that it does meet the definition of an "Indian
+Economic Enterprise" as defined in DIAR Part 1480.
+Name of Federally Recognized Tribal Entity:
+Name of the 51% (or greater) Owner of the IEE Firm:
+Legal Business Name:
+Certifying Signature:
+Unique Entity ID (UEI):
+Printed Name:
+SOLICITATION/CONTRACT/ORDER FOR COMMERCIAL PRODUCTS AND COMMERCIAL SERVICES
+1. REQUISITION NUMBER
+PAGE 1 OF 36
+NOTE: OFFEROR TO COMPLETE BLOCKS 12, 17, 23, 24, AND 30.
+0044036849
+2. CONTRACT NUMBER
+3.AWARD/EFFECTIVE
+4. ORDER NUMBER
+5. SOLICITATION NUMBER
+6. SOLICITATION ISSUE
+DATE
+140A2326Q0070
+DATE
+02/26/2026
+a. NAME
+b. TELEPHONE NUMBER (No collect
+8. OFFER DUE DATE/
+7. FOR SOLICITATION
+calls)
+LOCAL TIME
+INFORMATION CALL:
+Jeff Morris
+03/31/2026 1400 CD
+5053642130
+9. ISSUED BY
+CODE
+A23
+10. THIS ACQUISITION IS
+UNRESTRICTED OR
+SET ASIDE: 100.00 FOR:
+Indian Education Acquisition Office
+SMALL BUSINESS
+WOMEN-OWNED SMALL
+NORTH AMERICAN
+1011 Indian School Rd.
+HUBZONE SMALL
+BUSINESS (WOSB)
+INDUSTRY CLASSIFICATION
+Suite 352A
+BUSINESS
+ECONOMICALLY
+STANDARD (NAICS):
+Albuquerque NM 87104
+SERVICE-DISABLED
+DISADVANTAGED
+541511
+VETERAN-OWNED
+WOMEN-OWNED SMALL
+SIZE STANDARD:
+SMALL BUSINESS
+BUSINESS (EDWOSB)
+(SDVOSB)
+8(A)
+$34
+11. DELIVERY FOR FREE ON
+12. DISCOUNT TERMS
+13a. THIS CONTRACT IS A
+13b. RATING
+BOARD (FOB) DESTINATION
+RATED ORDER UNDER
+14. METHOD OF SOLICITATION
+REQUEST
+UNLESS BLOCK IS MARKED
+THE DEFENSE PRIORITIES
+REQUEST
+INVITATION
+FOR
+AND ALLOCATIONS
+X
+FOR QUOTE
+FOR BID
+PROPOSAL
+SEE SCHEDULE
+SYSTEM - DPAS (15 CFR 700)
+(RFQ)
+(IFB)
+(RFP)
+15. DELIVER TO
+CODE
+0011284633
+16. ADMINISTERED BY
+CODE
+A23
+See Schedule
+See Schedule
+17a. CONTRACTOR/ CODE
+FACILITY
+18a. PAYMENT WILL BE MADE BY
+CODE
+OFFEROR
+CODE
+TELEPHONE NUMBER
+17b. CHECK IF REMITTANCE IS DIFFERENT AND PUT SUCH ADDRESS IN
+18b. SUBMIT INVOICES TO ADDRESS SHOWN IN BLOCK 18a UNLESS BLOCK
+OFFER
+BELOW IS CHECKED
+SEE ADDENDUM
+19.
+20.
+21.
+22.
+23.
+24.
+ITEM NO.
+SCHEDULE OF SUPPLIES/SERVICES
+QUANTITY
+UNIT
+UNIT PRICE
+AMOUNT
+ADMINISTERED BY:
+Indian Education Acquisition Office
+1011 Indian School Rd.
+Suite 352A
+Albuquerque NM 87104 US
+DELIVER TO:
+Continued
+(Use Reverse and/or Attach Additional Sheets as Necessary)
+25. ACCOUNTING AND APPROPRIATION DATA
+26. TOTAL AWARD AMOUNT (For Government Use Only)
+27a. SOLICITATION INCORPORATES BY REFERENCE (FEDERAL ACQUISITION REGULATION) FAR 52.212-1, 52.212-4. ADDENDA
+ARE
+ARE NOT ATTACHED
+FAR 52.212-3 AND 52.212-5 ARE ATTACHED.
+27b. CONTRACT/PURCHASE ORDER INCORPORATES BY REFERENCE FAR 52.212-4. FAR 52.212-5 IS ATTACHED. ADDENDA
+ARE
+ARE NOT ATTACHED
+28. CONTRACTOR IS REQUIRED TO SIGN THIS DOCUMENT AND RETURN
+29. AWARD OF CONTRACT: REFERENCE
+OFFER
+COPIES TO ISSUING OFFICE. CONTRACTOR AGREES TO FURNISH
+AND DELIVER ALL ITEMS SET FORTH OR OTHERWISE IDENTIFIED ABOVE AND
+DATED.
+YOUR OFFER ON SOLICITATION
+ON ANY ADDITIONAL SHEETS SUBJECT TO THE TERMS AND CONDITIONS
+(BLOCK 5), INCLUDING ANY ADDITIONS OR CHANGES WHICH ARE
+SPECIFIED
+SET FORTH HEREIN, IS ACCEPTED AS TO ITEMS:
+30a. SIGNATURE OF OFFEROR/CONTRACTOR
+31a. UNITED STATES OF AMERICA (SIGNATURE OF CONTRACTING OFFICER)
+30b. NAME AND TITLE OF SIGNER (Type or print)
+30c. DATE SIGNED
+31b. NAME OF CONTRACTING OFFICER (Type or print)
+31c. DATE SIGNED
+Jeff Morris
+AUTHORIZED FOR LOCAL REPRODUCTION
+STANDARD FORM 1449 (REV. 11/2021)
+PREVIOUS EDITION IS NOT USABLE
+Prescribed by GSA FAR (48 CFR) 53.212
+PAGE 2 OF 36
+19.
+20.
+21.
+22.
+23.
+24.
+ITEM NO.
+SCHEDULE OF SUPPLIES/SERVICES
+QUANTITY
+UNIT
+UNIT PRICE
+AMOUNT
+BIE HASKELL INDIAN NATIONS UNIV
+155 Indian Avenue
+LAWRENCE KS 66046 US
+Haskell Indian Nations University (HINU) with
+an enterprise-wide backup solution.
+This solicitation is set-aside 100% for Indian
+Small Business Economic Enterprises (ISBEEs).
+00010
+Rubrik Data Mgmt and Backup Platform. All work
+will be in accordance with the Statement of
+Work (SOW).
+Product/Service Code: DE10
+Product/Service Description: IT AND TELECOM -
+END
+USER AS A SERVICE: HELP DESK; TIER 1-2,
+WORKSPACE, PRINT, PRODUCTIVITY TOOLS
+Period of Performance: 04/13/2026 to
+04/12/2027
+32a. QUANTITY IN COLUMN 21 HAS BEEN
+RECEIVED
+INSPECTED
+ACCEPTED, AND CONFORMS TO THE CONTRACT, EXCEPT AS NOTED:
+32b. SIGNATURE OF AUTHORIZED GOVERNMENT
+32c. DATE
+32d. PRINTED NAME AND TITLE OF AUTHORIZED GOVERNMENT
+REPRESENTATIVE
+REPRESENTATIVE
+32e. MAILING ADDRESS OF AUTHORIZED GOVERNMENT REPRESENTATIVE
+32f. TELEPHONE NUMBER OF AUTHORIZED GOVERNMENT REPRESENTATIVE
+32g. EMAIL OF AUTHORIZED GOVERNMENT REPRESENTATIVE
+33. SHIP NUMBER
+34. VOUCHER NUMBER
+35. AMOUNT VERIFIED
+36. PAYMENT
+37. CHECK NUMBER
+CORRECT FOR
+PARTIAL
+FINAL
+COMPLETE
+PARTIAL
+FINAL
+STOCK RECORD (S/R)
+40. PAID BY
+38. S/R ACCOUNT NUMBER 39. S/R VOUCHER NUMBER
+42a. RECEIVED BY (Print)
+41a. I CERTIFY THIS ACCOUNT IS CORRECT AND PROPER FOR PAYMENT
+41b. SIGNATURE AND TITLE OF CERTIFYING OFFICER
+41c. DATE
+42b. RECEIVED AT (Location)
+42c. DATE RECEIVED (MM/DD/YYYY)
+42d. TOTAL CONTAINERS
+STANDARD FORM 1449 (REV. 11/2021) BACK
+RFQ #140A2326Q0070
+Project Title: Enterprise Back-Up Solution, SIPI
+Page 3 of 36
+* This solicitation is set-aside 100% for Indian Small Business Economic Enterprises (ISBEEs). As such, ensure
+DIAR Provision 1452.280-4 is completed and returned with your proposal (located on page 36 of this solicitation);
+as well as Attachments 2 and 3. *
+SECTION B - CONTINUATION
+This is a combined synopsis/solicitation for commercial items prepared in accordance with the format in FAR Subpart
+12.6, as supplemented with additional information included in this notice. This announcement constitutes the only
+solicitation; quotes are being requested. This is a request for quote in accordance with FAR Part 12, Commercial Items
+and FAR Part 13, Simplified Acquisition Procedures. The solicitation document and incorporated provisions and clauses
+are those in effect through Federal Acquisition Circular (FAC) 2025-06, with an effective date of 1 October 2025.
+Set Aside: Indian Small Business Economic Enterprise (ISBEE)
+NAICS: 541511 - Custom Computer Programming
+Small Business Size Standard: $34M
+Place of Performance:
+Southwestern Indian Polytechnic Institute (SIPI)
+9169 Coors Blvd NW
+Albuquerque, New Mexico 87120
+1. CONTRACT TYPE
+The Department of the Interior (DOI), Bureau of Indian Education (BIE), Division of Acquisitions
+anticipates awarding a single Firm Fixed Price type purchase order for an Enterprise Back-Up Solution
+for Southwestern Indian Polytechnic Institute (SIPI).
+2. Period of Performance (PoP) (estimated):
+13 April 2026 - 12 April 2027
+3. PRICING SUMMARY
+In accordance with FAR 52.212-4(k) Taxes, the contract price shall include all applicable Federal, State,
+and local taxes and duties.
+4. POINTS OF CONTACT (POC)
+Contracting Officer (CO)
+Contract Specialist (CS)
+Jeff W. Morris
+Jeff W. Morris
+U.S. Department of the Interior
+U.S. Department of the Interior
+Bureau of Indian Education
+Bureau of Indian Education
+Division of Acquisitions
+Division of Acquisitions
+1011 Indian School Rd NW
+1011 Indian School Rd NW
+Albuquerque, NM 87104
+Albuquerque, NM 87104
+Phone: (505) 364-2130
+Phone: (505) 364-2130
+Email: jeff.morris@bie.edu
+Email: jeff.morris@bie.edu
+Contracting Officer Representative
+Contractor Point of Contact
+(COR) / Point of Contact (POC)
+To be added after award.
+To be determined after award.
+RFQ #140A2326Q0070
+Project Title: Enterprise Back-Up Solution, SIPI
+Page 4 of 36
+SECTION C - CONTRACT CLAUSES
+1. FEDERAL ACQUISITION REGULATION (FAR) CLAUSES
+52.252-2 Clauses Incorporated by Reference (Feb 1998)
+This contract incorporates one or more clauses by reference, with the same force and effect as if they
+were given in full text. Upon request, the Contracting Officer will make their full text available. Also, the
+full text of a clause may be accessed electronically at this address: www.acquisition.gov.
+(End of clause)
+CLAUSES INCORPORATED BY REFERENCE
+CLAUSE
+Title
+Date
+52.204-9
+Personal Identity Verification of Contractor Personnel
+Jan 2011
+52.204-13
+System for Award Management Maintenance
+Oct 2018
+52.204-18
+Commercial and Government Entity Code Maintenance
+Aug 2020
+52.204-19
+Incorporation by Reference of Representations and Certifications
+Dec 2014
+52.212-4
+Contract Terms and Conditions - Commercial Products and Commercial
+Nov 2023
+Services
+52.226-7
+Drug-Free Workplace
+May 2024
+52.232-40
+Providing Accelerated Payments to Small Business Subcontractors
+Mar 2023
+52.249-1
+Termination for Convenience of the Government (Fixed-Price)(Short Form)
+Apr 1984
+Clauses Incorporated by Full Text
+52.212-5 CONTRACT TERMS AND CONDITIONS REQUIRED To IMPLEMENT STATUTES OR EXECUTIVE ORDERS-
+COMMERCIAL PRODUCTS AND COMMERCIAL SERVICES (OCT 2025)
+(a) The Contractor shall comply with the following Federal Acquisition Regulation (FAR) clauses, which are
+incorporated in this contract by reference, to implement provisions of law or Executive orders applicable
+to acquisitions of commercial products and commercial services:
+(1) 52.203-19, Prohibition on Requiring Certain Internal Confidentiality Agreements or Statements (JAN
+2017) (section 743 of Division E, Title VII, of the Consolidated and Further Continuing Appropriations Act, 2015 (Pub.
+L. 113-235) and its successor provisions in subsequent appropriations acts (and as extended in continuing resolutions)).
+(2) 52.204-23, Prohibition on Contracting for Hardware, Software, and Services Developed or Provided by
+Kaspersky Lab Covered Entities (DEC 2023) (Section 1634 of Pub. L. 115-91).
+(3) 52.204-25, Prohibition on Contracting for Certain Telecommunications and Video Surveillance Services or
+Equipment. (Nov 2021) (Section 889(a)(1)(A) of Pub. L. 115-232).
+(4) 52.209-10, Prohibition on Contracting with Inverted Domestic Corporations (Nov 2015).
+(5) 52.232-40, Providing Accelerated Payments to Small Business Subcontractors (MAR 2023) (31 U.S.C.
+3903 and 10 U.S.C. 3801).
+(6) 52.233-3, Protest After Award (AUG 1996) (31 U.S.C. 3553).
+RFQ #140A2326Q0070
+Project Title: Enterprise Back-Up Solution, SIPI
+Page 5 of 36
+(7) 52.233-4, Applicable Law for Breach of Contract Claim (OCT 2004) (Public Laws 108-77 and 108-78 (
+19 U.S.C. 3805 note)).
+(b) The Contractor shall comply with the FAR clauses in this paragraph (b) that the Contracting Officer has indicated
+as being incorporated in this contract by reference to implement provisions of law or Executive orders applicable
+to acquisitions of commercial products and commercial services:
+(1) 52.203-6, Restrictions on Subcontractor Sales to the Government (JUN 2020), with Alternate I (Nov
+2021) (41 U.S.C. 4704 and 10 U.S.C. 4655).
+(2) 52.203-13, Contractor Code of Business Ethics and Conduct (Nov 2021) (41 U.S.C. 3509)).
+-
+(3) 52.203-15, Whistleblower Protections under the American Recovery and Reinvestment Act of 2009 (JUN
+2010) (Section 1553 of Pub. L. 111-5).
+X (4) 52.203-17, Contractor Employee Whistleblower Rights (Nov 2023) (41 U.S.C. 4712).
+X (5) 52.204-10, Reporting Executive Compensation and First-Tier Subcontract Awards (JUN 2020) (Pub. L.
+109-282) ( 31 U.S.C. 6101 note).
+(6) [Reserved].
+-
+(7) 52.204-14, Service Contract Reporting Requirements (OCT 2016) (Pub. L. 111-117, section 743 of Div. C).
+-
+(8) 52.204-15, Service Contract Reporting Requirements for Indefinite-Delivery Contracts (OCT 2016) (Pub.
+L. 111-117, section 743 of Div. C).
+X (9) 52.204-27, Prohibition on a ByteDance Covered Application (JUN 2023) (Section 102 of Division R of
+Pub. L. 117-328).
+(10) 52.204-28, Federal Acquisition Supply Chain Security Act Orders-Federal Supply Schedules,
+-
+Governmentwide Acquisition Contracts, and Multi-Agency Contracts. (DEC 2023) (Pub. L. 115-390, title II).
+X (11) (i) 52.204-30, Federal Acquisition Supply Chain Security Act Orders-Prohibition. (DEC 2023) (Pub.
+L. 115-390, title II).
+(ii) Alternate I (DEC 2023) of 52.204-30.
+-
+X (12) 52.209-6, Protecting the Government's Interest When Subcontracting With Contractors Debarred,
+Suspended, Proposed for Debarment, or Voluntarily Excluded. (JAN 2025) 31 U.S.C. 6101 note).
+(13) 52.209-9, Updates of Publicly Available Information Regarding Responsibility Matters (OCT
+2018) (41 U.S.C. 2313).
+(14) [Reserved].
+-
+(15) 52.219-3, Notice of HUBZone Set-Aside or Sole-Source Award (OCT 2022) ( 15 U.S.C. 657a).
+-
+(16) 52.219-4, Notice of Price Evaluation Preference for HUBZone Small Business Concerns (OCT 2022) (if
+-
+the offeror elects to waive the preference, it shall so indicate in its offer) (15 U.S.C. 657a).
+(17) [Reserved]
+-
+RFQ #140A2326Q0070
+Project Title: Enterprise Back-Up Solution, SIPI
+Page 6 of 36
+(18) (i) 52.219-6, Notice of Total Small Business Set-Aside (Nov 2020) (15 U.S.C. 644).
+(ii) Alternate I (MAR 2020) of 52.219-6.
+-
+(19) (i) 52.219-7, Notice of Partial Small Business Set-Aside (Nov 2020) (15 U.S.C. 644).
+(ii) Alternate I (MAR 2020) of 52.219-7.
+(20) 52.219-8, Utilization of Small Business Concerns (JAN 2025)( 15 U.S.C. 637(d)(2) and (3)).
+-
+(21) (i) 52.219-9, Small Business Subcontracting Plan (JAN 2025) ( 15 U.S.C. 637(d)(4)).
+(ii) Alternate I (Nov 2016) of 52.219-9.
+(iii) Alternate II (Nov 2016) of 52.219-9.
+-
+(iv) Alternate III (JUN 2020) of 52.219-9.
+(v) Alternate IV (JAN 2025) of 52.219-9.
+(22) (i) 52.219-13, Notice of Set-Aside of Orders (MAR 2020) (15 U.S.C. 644(r)).
+(ii) Alternate I (MAR 2020) of 52.219-13.
+(23) 52.219-14, Limitations on Subcontracting (OCT 2022) (15 U.S.C. 657s).
+(24) 52.219-16, Liquidated Damages-Subcontracting Plan (SEP 2021) (15 U.S.C. 637(d)(4)(F)(i)).
+(25) 52.219-27, Notice of Set-Aside for, or Sole-Source Award to, Service-Disabled Veteran-Owned Small
+Business (SDVOSB) Concerns Eligible Under the SDVOSB Program (FEB 2024) (15 U.S.C. 657f).
+X (26) (i) 52.219-28, Postaward Small Business Program Rerepresentation (JAN 2025) (15 U.S.C. 632(a)(2)).
+(ii) Alternate I (MAR 2020) of 52.219-28.
+(27) 52.219-29, Notice of Set-Aside for, or Sole-Source Award to, Economically Disadvantaged Women-
+Owned Small Business Concerns (OCT 2022) (15 U.S.C. 637(m)).
+(28) 52.219-30, Notice of Set-Aside for, or Sole-Source Award to, Women-Owned Small Business Concerns
+Eligible Under the Women-Owned Small Business Program (OCT 2022) (15 U.S.C. 637(m)).
+(29) 52.219-32, Orders Issued Directly Under Small Business Reserves (MAR 2020) (15 U.S.C. 644(r)).
+(30) 52.219-33, Nonmanufacturer Rule (SEP 2021) ( 15 U.S.C. 637(a)(17)).
+X (31) 52.222-3, Convict Labor (JUN 2003) (E.O. 11755).
+(32) 52.222-19, Child Labor-Cooperation with Authorities and Remedies (JAN 2025)( E.O. 13126).
+(33) 52.222-21, Prohibition of Segregated Facilities (APR 2015).
+(34) (i) 52.222-26, Equal Opportunity (SEP 2016) (E.O. 11246).
+-
+RFQ #140A2326Q0070
+Project Title: Enterprise Back-Up Solution, SIPI
+Page 7 of 36
+(ii) Alternate I (FEB 1999) of 52.222-26.
+-
+(35) (i) 52.222-35, Equal Opportunity for Veterans (JUN 2020) ( 38 U.S.C. 4212).
+-
+(ii) Alternate I (JUL 2014) of 52.222-35.
+-
+X (36) (i) 52.222-36, Equal Opportunity for Workers with Disabilities (JUN 2020) 29 U.S.C. 793).
+(ii) Alternate I (JUL 2014) of 52.222-36.
+-
+(37) 52.222-37, Employment Reports on Veterans (JUN 2020) ( 38 U.S.C. 4212).
+-
+(38) 52.222-40, Notification of Employee Rights Under the National Labor Relations Act (DEC 2010) (E.O.
+13496).
+X (39) (i) 52.222-50, Combating Trafficking in Persons (OCT 2025) (22 U.S.C. chapter 78 and E.O. 13627).
+(ii) Alternate I (MAR 2015) of 52.222-50 (22 U.S.C. chapter 78 and E.O. 13627).
+-
+(40) 52.222-54, Employment Eligibility Verification (JAN 2025) Executive Order 12989).
+(41) (i) 52.223-9, Estimate of Percentage of Recovered Material Content for EPA-Designated Items
+(May 2008) ( 42 U.S.C. 6962(c)(3)(A)(ii)).
+(ii) Alternate I (MAY 2008) of 52.223-9 (42 U.S.C. 6962(i)(2)(C)).
+-
+(42) 52.223-11, Ozone-Depleting Substances and High Global Warming Potential
+Hydrofluorocarbons (MAY 2024) ( 42 U.S.C. 7671, et seq.).
+(43) 52.223-12, Maintenance, Service, Repair, or Disposal of Refrigeration Equipment and Air
+Conditioners (MAY 2024) 42 U.S.C. 7671, et seq.).
+(44) 52.223-20, Aerosols (MAY 2024) (42 U.S.C. 7671, et seq.).
+-
+(45) 52.223-21, Foams (MAY 2024) 42 U.S.C. 7671, et seq.).
+(46) 52.223-23, Sustainable Products and Services (MAY 2024) (E.O. 14057, 7 U.S.C. 8102, 42 U.S.C.
+6962, 42 U.S.C. 8259b, and 42 U.S.C. 76711).
+(47) (i) 52.224-3 Privacy Training (JAN 2017) ( 5 U.S.C. 552 a).
+(ii) Alternate I (JAN 2017) of 52.224-3.
+-
+(48) (i) 52.225-1, Buy American-Supplies (OCT 2022) (41 U.S.C. chapter 83).
+(ii) Alternate I (OCT 2022) of 52.225-1.
+-
+X (49) (i) 52.225-3, Buy American-Free Trade Agreements-Israeli Trade Act (NOV 2023) 19 U.S.C. 3301
+note, 19 U.S.C. 2112 note, 19 U.S.C. 3805 note, 19 U.S.C. 4001 note, 19 U.S.C. chapter 29 (sections 4501-4732), Public
+Law 103-182, 108-77, 108-78, 108-286, 108-302, 109-53, 109-169, 109-283, 110-138, 112-41, 112-42, and 112-43.
+(ii) Alternate I [Reserved].
+-
+RFQ #140A2326Q0070
+Project Title: Enterprise Back-Up Solution, SIPI
+Page 8 of 36
+X (iii) Alternate II (JAN 2025) of 52.225-3.
+(iv) Alternate III (FEB 2024) of 52.225-3.
+-
+(v) Alternate IV (Oct 2022) of 52.225-3.
+-
+(50) 52.225-5, Trade Agreements (NOV 2023) ( 19 U.S.C. 2501, et seq., 19 U.S.C. 3301 note).
+-
+X (51) 52.225-13, Restrictions on Certain Foreign Purchases (FEB 2021) (E.O.'s, proclamations, and statutes
+administered by the Office of Foreign Assets Control of the Department of the Treasury).
+(52) 52.225-26, Contractors Performing Private Security Functions Outside the United States (Oct 2016)
+(Section 862, as amended, of the National Defense Authorization Act for Fiscal Year 2008; 10 U.S.C. Subtitle A, Part V,
+Subpart G Note).
+(53) 52.226-4, Notice of Disaster or Emergency Area Set-Aside (Nov 2007) (42 U.S.C. 5150).
+-
+(54) 52.226-5, Restrictions on Subcontracting Outside Disaster or Emergency Area (Nov
+2007) (42 U.S.C. 5150).
+X (55) 52.226-8, Encouraging Contractor Policies to Ban Text Messaging While Driving (MAY 2024) (E.O.
+13513).
+(56) 52.229-12, Tax on Certain Foreign Procurements (FEB 2021).
+-
+(57) 52.232-29, Terms for Financing of Purchases of Commercial Products and Commercial Services (Nov
+2021) (41 U.S.C. 4505, 10 U.S.C. 3805).
+(58) 52.232-30, Installment Payments for Commercial Products and Commercial Services (Nov
+2021) (41 U.S.C. 4505, 10 U.S.C. 3805).
+X (59) 52.232-33, Payment by Electronic Funds Transfer-System for Award
+Management (OCT2018) 31 U.S.C. 3332).
+(60) 52.232-34, Payment by Electronic Funds Transfer-Other than System for Award Management (Jul 2013)
+(31 U.S.C. 3332).
+(61) 52.232-36, Payment by Third Party (MAY 2014) (31 U.S.C. 3332).
+-
+(62) 52.239-1, Privacy or Security Safeguards (AUG 1996) (5 U.S.C. 552a).
+X (63) 52.240-1, Prohibition on Unmanned Aircraft Systems Manufactured or Assembled by American
+Security Drone Act-Covered Foreign Entities (Nov 2024) (Sections 1821-1826, Pub. L. 118-31, 41 U.S.C. 3901 note
+prec.).
+(64) 52.242-5, Payments to Small Business Subcontractors (JAN 2017) (15 U.S.C. 637(d)(13)).
+I
+(65) (i) 52.247-64, Preference for Privately Owned U.S.-Flag Commercial Vessels (Nov 2021) ( 46 U.S.C.
+55305 and 10 U.S.C. 2631).
+(ii) Alternate I (APR 2003) of 52.247-64.
+RFQ #140A2326Q0070
+Project Title: Enterprise Back-Up Solution, SIPI
+Page 9 of 36
+(iii) Alternate II (Nov 2021) of 52.247-64.
+-
+(c) The Contractor shall comply with the FAR clauses in this paragraph (c), applicable to commercial services, that
+the Contracting Officer has indicated as being incorporated in this contract by reference to implement provisions of law or
+Executive orders applicable to acquisitions of commercial products and commercial services:
+(1) 52.222-41, Service Contract Labor Standards (AUG 2018) (41 U.S.C. chapter67).
+(2) 52.222-42, Statement of Equivalent Rates for Federal Hires (MAY 2014) (29 U.S.C. 206 and
+41 U.S.C. chapter 67).
+(3) 52.222-43, Fair Labor Standards Act and Service Contract Labor Standards-Price Adjustment (Multiple
+Year and Option Contracts) (AUG 2018) (29 U.S.C. 206 and 41 U.S.C. chapter 67).
+(4) 52.222-44, Fair Labor Standards Act and Service Contract Labor Standards-Price Adjustment (May 2014)
+( 29U.S.C.206 and 41 U.S.C. chapter 67).
+(5) 52.222-51, Exemption from Application of the Service Contract Labor Standards to Contracts for
+Maintenance, Calibration, or Repair of Certain Equipment-Requirements (May 2014) (41 U.S.C. chapter 67).
+(6) 52.222-53, Exemption from Application of the Service Contract Labor Standards to Contracts for Certain
+Services-Requirements (MAY 2014) (41 U.S.C. chapter 67).
+(7) 52.222-55, Minimum Wages for Contractor Workers Under Executive Order 14026 (JAN 2022).
+(8) 52.222-62, Paid Sick Leave Under Executive Order 13706 (JAN 2022) (E.O. 13706).
+-
+(9) 52.226-6, Promoting Excess Food Donation to Nonprofit Organizations (Jun 2020) (42 U.S.C. 1792).
+(10) 52.247-69, Reporting Requirement for U.S.-Flag Air Carriers Regarding Training to Prevent Human
+Trafficking (JAN 2025) 49 U.S.C. 40118(g)).
+(d) Comptroller General Examination of Record. The Contractor shall comply with the provisions of this paragraph
+(d) if this contract was awarded using other than sealed bid, is in excess of the simplified acquisition threshold, as defined
+in FAR 2.101, on the date of award of this contract, and does not contain the clause at 52.215-2, Audit and Records-
+Negotiation.
+(1) The Comptroller General of the United States, or an authorized representative of the Comptroller
+General, shall have access to and right to examine any of the Contractor's directly pertinent records involving transactions
+related to this contract.
+(2) The Contractor shall make available at its offices at all reasonable times the records, materials, and other
+evidence for examination, audit, or reproduction, until 3 years after final payment under this contract or for any shorter
+period specified in FAR subpart 4.7, Contractor Records Retention, of the other clauses of this contract. If this contract is
+completely or partially terminated, the records relating to the work terminated shall be made available for 3 years after
+any resulting final termination settlement. Records relating to appeals under the disputes clause or to litigation or the
+settlement of claims arising under or relating to this contract shall be made available until such appeals, litigation,
+or claims are finally resolved.
+(3) As used in this clause, records include books, documents, accounting procedures and practices, and other data,
+regardless of type and regardless of form. This does not require the Contractor to create or maintain any record that the
+Contractor does not maintain in the ordinary course of business or pursuant to a provision of law.
+RFQ #140A2326Q0070
+Project Title: Enterprise Back-Up Solution, SIPI
+Page 10 of 36
+(e)
+(1) Notwithstanding the requirements of the clauses in paragraphs (a), (b), (c), and (d) of this clause, the
+Contractor is not required to flow down any FAR clause, other than those in this paragraph (e)(1), in a subcontract
+for commercial products or commercial services. Unless otherwise indicated below, the extent of the flow down shall be
+as required by the clause-
+(i) 52.203-13, Contractor Code of Business Ethics and Conduct (Nov 2021) (41 U.S.C. 3509).
+(ii) 52.203-17, Contractor Employee Whistleblower Rights (Nov 2023) 41 U.S.C. 4712).
+(iii) 52.203-19, Prohibition on Requiring Certain Internal Confidentiality Agreements or Statements (Jan
+2017) (section 743 of Division E, Title VII, of the Consolidated and Further Continuing Appropriations Act, 2015 (Pub.
+L. 113-235) and its successor provisions in subsequent appropriations acts (and as extended in continuing resolutions)).
+(iv) 52.204-23, Prohibition on Contracting for Hardware, Software, and Services Developed or Provided by
+Kaspersky Lab Covered Entities (DEC 2023) (Section 1634 of Pub. L. 115-91).
+(v) 52.204-25, Prohibition on Contracting for Certain Telecommunications and Video Surveillance Services
+or Equipment. (Nov 2021) (Section 889(a)(1)(A) of Pub. L. 115-232).
+(vi) 52.204-27, Prohibition on a ByteDance Covered Application (JUN 2023) (Section 102 of Division R of
+Pub. L. 117-328).
+(vii)
+(A) 52.204-30, Federal Acquisition Supply Chain Security Act Orders-Prohibition. (DEC 2023) (Pub.
+L. 115-390, title II).
+(B) Alternate I (DEC 2023) of 52.204-30.
+(viii) 52.219-8, Utilization of Small Business Concerns (JAN 2025) 15 U.S.C. 637(d)(2) and (3)), in all
+subcontracts that offer further subcontracting opportunities. If the subcontract (except subcontracts to small business
+concerns) exceeds the applicable threshold specified in FAR 19.702(a) on the date of subcontract award, the
+subcontractor must include 52.219-8 in lower tier subcontracts that offer subcontracting opportunities.
+(ix) 52.222-21, Prohibition of Segregated Facilities (APR 2015).
+(x) 52.222-26, Equal Opportunity (SEP 2016) (E.O. 11246).
+(xi) 52.222-35, Equal Opportunity for Veterans (JUN 2020) (38 U.S.C. 4212).
+(xii) 52.222-36, Equal Opportunity for Workers with Disabilities (JUN 2020) (29 U.S.C. 793).
+(xiii) 52.222-37, Employment Reports on Veterans (JUN 2020) (38 U.S.C. 4212).
+(xiv) 52.222-40, Notification of Employee Rights Under the National Labor Relations Act (DEC 2010) (E.O.
+13496). Flow down required in accordance with paragraph (f) of FAR clause 52.222-40.
+(xv) 52.222-41, Service Contract Labor Standards (AUG 2018) (41 U.S.C. chapter 67).
+(xvi)
+RFQ #140A2326Q0070
+Project Title: Enterprise Back-Up Solution, SIPI
+Page 11 of 36
+(A) 52.222-50, Combating Trafficking in Persons (OCT 2025) (22 U.S.C. chapter 78 and E.O. 13627).
+(B) Alternate I (MAR 2015) of 52.222-50 (22 U.S.C. chapter 78 and E.O. 13627).
+(xvii) 52.222-51, Exemption from Application of the Service Contract Labor Standards to Contracts for
+Maintenance, Calibration, or Repair of Certain Equipment-Requirements (May 2014) (41 U.S.C. chapter 67).
+(xviii) 52.222-53, Exemption from Application of the Service Contract Labor Standards to Contracts for
+Certain Services-Requirements (MAY 2014) (41 U.S.C. chapter 67).
+(xix) 52.222-54, Employment Eligibility Verification (JAN 2025) (E.O. 12989).
+(xx) 52.222-55, Minimum Wages for Contractor Workers Under Executive Order 14026 (JAN 2022).
+(xxi) 52.222-62, Paid Sick Leave Under Executive Order 13706 (JAN 2022) (E.O. 13706).
+(xxii)
+(A) 52.224-3, Privacy Training (Jan 2017) U.S.C. 552a).
+(B) Alternate I (JAN 2017) of 52.224-3.
+(xxiii) 52.225-26, Contractors Performing Private Security Functions Outside the United States (OCT
+2016) (Section 862, as amended, of the National Defense Authorization Act for Fiscal Year 2008; 10 U.S.C. Subtitle A,
+Part V, Subpart G Note).
+(xxiv) 52.226-6, Promoting Excess Food Donation to Nonprofit Organizations (JUN 2020) (42 U.S.C. 1792).
+Flow down required in accordance with paragraph (e) of FAR clause 52.226-6.
+(xxv) 52.232-40, Providing Accelerated Payments to Small Business Subcontractors (Mar 2023) ( 31 U.S.C.
+3903 and 10 U.S.C. 3801). Flow down required in accordance with paragraph (c) of 52.232-40.
+(xxvi) 52.240-1, Prohibition on Unmanned Aircraft Systems Manufactured or Assembled by American
+Security Drone Act-Covered Foreign Entities (Nov 2024) (Sections 1821-1826, Pub. L. 118-31, 41 U.S.C. 3901 note
+prec.).
+(xxvii) 52.247-64, Preference for Privately Owned U.S.-Flag Commercial Vessels (Nov 2021) (46 U.S.C.
+55305 and 10 U.S.C. 2631). Flow down required in accordance with paragraph (d) of FAR clause 52.247-64.
+(2) While not required, the Contractor may include in its subcontracts for commercial products and commercial
+services a minimal number of additional clauses necessary to satisfy its contractual obligations.
+(End of clause)
+52.217-8 Option to Extend Services (NOV 1999)
+The Government may require continued performance of any services within the limits and at the rates
+specified in the contract. These rates may be adjusted only as a result of revisions to prevailing labor rates
+provided by the Secretary of Labor. The option provision may be exercised more than once, but the total
+extension of performance hereunder shall not exceed 6 months. The Contracting Officer may exercise
+the option by written notice to the Contractor within 10 calendar days of contract expiration.
+RFQ #140A2326Q0070
+Project Title: Enterprise Back-Up Solution, SIPI
+Page 12 of 36
+(End of clause)
+Department of the Interior Acquisition Regulation (DIAR) Clauses
+1452.280-3 Indian Economic Enterprise Subcontracting Limitations (FEB 2021)
+(a) Definitions as used in this clause.
+(1) Concern means any business entity with a place of business located in the United States or its
+outlying areas and that makes a significant contribution to the U.S. economy through payment of taxes
+and/or use of American products, materials and/or labor, etc. It includes but is not limited to an
+individual, partnership, corporation, joint venture, association, or cooperative. For the purpose of making
+affiliation findings (see FAR 19.101), it includes any business entity, whether or not it is organized for
+profit or located in the United States or its outlying areas.
+(2) Subcontract means any agreement (other than one involving an employer-employee
+relationship) entered into by a government prime contractor or subcontractor calling for supplies and/or
+services required for performance of the contract, contract modification, or subcontract.
+(3) Subcontractor means a concern to which a contractor subcontracts any work under the
+contract. It includes subcontractors at any tier who perform work on the contract.
+(b) Required Percentages of work by the concern. The contractor must comply with FAR 52.219-14
+Limitations on Subcontracting clause in allocating what percentage of work to subcontract. The contractor
+shall not subcontract work exceeding the subcontract limitations in FAR 52.219-14 to a concern other
+than a responsible Indian Economic Enterprise.
+(c) Any work that an IEE subcontractor does not perform with its own employees shall be considered
+subcontracted work for the purpose of calculating percentages of subcontract work in accordance with
+FAR 52.219-14 Limitations on Subcontracting.
+(d) Cooperation. The contractor must:
+(1) Carry out the requirements of this clause to the fullest extent; and
+(2) Cooperate in any study or survey that the CO, Indian Affairs, or its agents may conduct to
+verify the contractor's compliance with this clause.
+(e) Incorporation in Subcontracts. The contractor must incorporate the substance of this clause, including
+this paragraph (e), in all subcontracts for supplies, general services, A-E services, and construction
+awarded under this contract.
+(End Clause)
+2. CUSTOM CLAUSES
+Electronic Invoicing and Payment Requirements - Invoice Processing Platform (IPP) (April 2013)
+Payment requests must be submitted electronically through the U.S. Department of the Treasury's Internet
+Payment Platform System (IPP).
+"Payment request" means any request for contract financing payment or invoice payment by the Contractor. To
+constitute a proper invoice, the payment request must comply with the requirements identified in the applicable
+Prompt Payment clause included in the contract. The IPP website address is: https://www.ipp.gov. Under this
+contract, the following documents are required to be submitted as an attachment to the IPP invoice:
+Under this contract, the following documents are required to be submitted as an attachment to the IPP invoice
+RFQ #140A2326Q0070
+Project Title: Enterprise Back-Up Solution, SIPI
+Page 13 of 36
+a. Upload contractor's itemized invoices as attachments into IPP.
+b. The Contractor shall submit an itemized invoice(s) in pdf format to the Contracting Officer and the
+Contracting Officer's Representative (COR) or AQM_COR.
+c. Invoice approval: Written Progress Report to validate the work was performed or goods were received,
+completed, and accepted by the Contracting Officer's Representative (COR) or AQM_COR.
+The Contractor must use the IPP website to register access and use IPP for submitting requests for payment. The
+Contractor Government Business Point of Contact (as listed in SAM) will receive enrollment instructions via
+email from the Federal Reserve Bank of Boston (FRBB) within 3 - 5 business days of the contract award date.
+Contractor assistance with enrollment can be obtained by contacting the IPP Production Helpdesk via email
+ippgroup@bos.frb.org or phone (866) 973-3131.
+If the Contractor is unable to comply with the requirement to use IPP for submitting invoices for payment, the
+Contractor must submit a waiver request in writing to the Contracting Officer with its proposal or quotation.
+(End of Clause)
+Background Investigation (April 1, 2020)
+In accordance with 25 U.S.C. § 3201 et seq. (Pub. L. 101-630), the Indian Child Protection and
+Family Violence Prevention Act; 34 U.C.C. § 20351, et seq. (Pub. L. 101-647), the Crime Control Act of
+1990, as amended; and 441 Departmental Manual, Personnel Security and Suitability Requirements, all
+positions with duties and responsibilities involving regular contact with or control over Indian children
+are subject to a background investigation and determination of suitability for employment. Accordingly,
+all such positions require a favorable background screening by the Bureau of Indian Education (BIE),
+Personnel Security and Suitability Program and a favorable background investigation by the Defense
+Counterintelligence Service Agency (DCSA).
+The documentation required to initiate a background investigation shall be completed for any
+Contractor employee that will be onsite during the contract's performance or have access to Personally
+Identifiable Information (PII). The complete submittal of the background investigation paperwork to the
+BIA/BIE will be accomplished within 14 days after contract award for service contracts or, for
+construction contracts, before a Notice to Proceed (NTP) is issued by the Contracting Officer. Pending the
+successful completion of a background investigation by the BIA/BIE and/or DCSA, the Contractor who
+has been granted a favorable screening (applicant and suitability) determination must, at all times, remain
+within sight and under the supervision of a government employee (or other person designated by the
+Contracting Officer Representative (COR), who has successfully completed the background investigation.
+If an unfavorable screening (applicant and suitability) determination is made, an employee shall
+not be allowed onsite. If the Contractor's employees are found onsite, without the proper authorization,
+the employee will face legal liability and the Contractor may have their contract terminated for default.
+Additionally, the individual and/or the company who proposed to employ this individual may be
+determined to be non-responsible if an unfavorable screening (applicant and suitability) determination is
+made and may be deemed ineligible for contract award. If an unfavorable final background investigation
+determination is made, the contract may be terminated and the employee in question shall not be
+authorized to provide service to the BIA/BIE if the services involve contact with or regular control over
+Indian children.
+RFQ #140A2326Q0070
+Project Title: Enterprise Back-Up Solution, SIPI
+Page 14 of 36
+It is solely the COR's responsibility to initiate background checks for all Contractors and their
+employees in the BIE BEARCUBS system, which includes but is not limited to appropriate investigative
+forms and/or inquiries about their previous investigation; and obtain a screening (applicant and
+suitability) determination, and subsequent final background investigation.
+The Contracting Officer will consult with the COR when questions arise as to whether or not the
+scope of work of a contract requires background investigations for contractor personnel. If the
+Contracting Officer or COR believes the scope of work performed by contract personnel should not
+require a background investigation, the Personnel Security Officer will be contacted for concurrence and
+has the final authority to determine if background investigation(s) are required.
+(End of Clause)
+REPORTING MATTERS INVOLVING FRAUD, MISMANAGEMENT, WASTE AND ABUSE
+Anyone who becomes aware of the existence or apparent existence of fraud, waste, and abuse in DOI funded
+programs is encouraged to report such matters to the DOI Inspector General's Office in writing or on the
+Inspector General's Hotline. The toll free number is 1-800-424-5081. All telephone calls will be handled
+confidentially. One may also fill out an online form at http://www.doi.gov/oig/index.cfm. Additionally, the IG
+may be contacted through its mailing address:
+U.S. Department of the Interior
+Office of Inspector General
+1849 C Street NW - Mail Stop 4428
+Washington, D.C. 20240
+(End of Clause)
+SECTION D - DOCUMENTS, EXHIBITS, AND ATTACHMENTS
+Attachment Number
+Title
+Date
+Pages
+1
+PWS, Rubrik Data
+N/A
+5
+Management Solution, HINU
+2
+DIAR 1452.280-2 Supplement
+N/A
+1
+3
+IEE Representation Form
+N/A
+1
+SECTION E - SOLICITATION PROVISIONS
+1. FEDERAL ACQUISITION REGULATION (FAR) PROVISIONS
+52.252-1 Solicitation Provisions Incorporated by Reference (Feb 1998)
+This solicitation incorporates one or more solicitation provisions by reference, with the same force and
+effect as if they were given in full text. Upon request, the Contracting Officer will make their full text
+available. The offeror is cautioned that the listed provisions may include blocks that must be completed
+by the offeror and submitted with its quotation or offer. In lieu of submitting the full text of those
+provisions, the offeror may identify the provision by paragraph identifier and provide the appropriate
+information with its quotation or offer. Also, the full text of a solicitation provision may be accessed
+electronically at this address: www.acquisition.gov.
+(End of Provision)
+RFQ #140A2326Q0070
+Project Title: Enterprise Back-Up Solution, SIPI
+Page 15 of 36
+PROVISIONS INCORPORATED BY REFERENCE
+Provision
+Title
+Date
+52.204-7
+System for Award Management
+Nov 2024
+52.204-16
+Commercial and Government Entity Code Reporting
+Aug 2020
+52.204-29
+Federal Acquisition Supply Chain Security Act Orders - Representation and
+Dec 2023
+Disclosures
+52.225-25
+Prohibition on Contracting with Entities Engaging in Certain Activities or
+Jun 2020
+Transactions Relating to Iran - Representation and Certifications
+52.204-24 Representation Regarding Certain Telecommunications and Video Surveillance Services
+or Equipment (Nov 2021)
+The Offeror shall not complete the representation at paragraph (d)(1) of this provision if the Offeror has
+represented that it "does not provide covered telecommunications equipment or services as a part of its
+offered products or services to the Government in the performance of any contract, subcontract, or other
+contractual instrument" in paragraph (c)(1) in the provision at 52.204-26, Covered Telecommunications
+Equipment or Services-Representation, or in paragraph (v)(2)(i) of the provision at 52.212-
+3, Offeror Representations and Certifications-Commercial Products or Commercial Services.
+The Offeror shall not complete the representation in paragraph (d)(2) of this provision if the Offeror has
+represented that it "does not use covered telecommunications equipment or services, or any equipment,
+system, or service that uses covered telecommunications equipment or services" in paragraph (c)(2) of the
+provision at 52.204-26, or in paragraph (v)(2)(ii) of the provision at 52.212-3.
+(a) Definitions. As used in this provision-
+Backhaul, covered telecommunications equipment or services, critical technology, interconnection
+arrangements, reasonable inquiry, roaming, and substantial or essential component have the meanings
+provided in the clause 52.204-25, Prohibition on Contracting for Certain Telecommunications and Video
+Surveillance Services or Equipment.
+(b) Prohibition.
+(1) Section 889(a)(1)(A) of the John S. McCain National Defense Authorization Act for Fiscal Year 2019
+(Pub. L. 115-232) prohibits the head of an executive agency on or after August 13, 2019, from procuring
+or obtaining, or extending or renewing a contract to procure or obtain, any equipment, system, or service
+that uses covered telecommunications equipment or services as a substantial or essential component of
+any system, or as critical technology as part of any system. Nothing in the prohibition shall be construed
+to-
+(i) Prohibit the head of an executive agency from procuring with an entity to provide a service that
+connects to the facilities of a third-party, such as backhaul, roaming, or interconnection arrangements; or
+(ii) Cover telecommunications equipment that cannot route or redirect user data traffic or cannot permit
+visibility into any user data or packets that such equipment transmits or otherwise handles.
+(2) Section 889(a)(1)(B) of the John S. McCain National Defense Authorization Act for Fiscal Year 2019
+(Pub. L. 115-232) prohibits the head of an executive agency on or after August 13, 2020, from entering
+into a contract or extending or renewing a contract with an entity that uses any equipment, system, or
+service that uses covered telecommunications equipment or services as a substantial or
+essential component of any system, or as critical technology as part of any system. This prohibition
+applies to the use of covered telecommunications equipment or services, regardless of whether that use is
+in performance of work under a federal contract. Nothing in the prohibition shall be construed to-
+RFQ #140A2326Q0070
+Project Title: Enterprise Back-Up Solution, SIPI
+Page 16 of 36
+(i) Prohibit the head of an executive agency from procuring with an entity to provide a service that
+connects to the facilities of a third-party, such as backhaul, roaming, or interconnection arrangements; or
+(ii) Cover telecommunications equipment that cannot route or redirect user data traffic or cannot permit
+visibility into any user data or packets that such equipment transmits or otherwise handles.
+(c) Procedures. The Offeror shall review the list of excluded parties in the System for Award
+Management (SAM) (https://www.sam.gov) for entities excluded from receiving federal awards for
+"covered telecommunications equipment or services".
+(d) Representation. The Offeror represents that-
+(1) It
+will,
+will not provide covered telecommunications equipment or services to the Government in
+the performance of any contract, subcontract or other contractual instrument resulting from
+this solicitation. The Offeror shall provide the additional disclosure information required at paragraph
+(e)(1) of this section if the Offeror responds "will" in paragraph (d)(1) of this section; and
+(2) After conducting a reasonable inquiry, for purposes of this representation, the Offeror represents
+that-
+It
+does,
+does not use covered telecommunications equipment or services, or use any equipment,
+system, or service that uses covered telecommunications equipment or services. The Offeror shall provide
+the additional disclosure information required at paragraph (e)(2) of this section if the Offeror responds
+"does" in paragraph (d)(2) of this section.
+(e) Disclosures.
+(1) Disclosure for the representation in paragraph (d)(1) of this provision. If the Offeror has responded
+"will" in the representation in paragraph (d)(1) of this provision, the Offeror shall provide the following
+information as part of the offer:
+(i) For covered equipment-
+(A) The entity that produced the covered telecommunications equipment (include entity name, unique
+entity identifier, CAGE code, and whether the entity was the original equipment manufacturer (OEM) or
+a distributor, if known);
+(B) A description of all covered telecommunications equipment offered (include brand; model number,
+such as OEM number, manufacturer part number, or wholesaler number; and item description, as
+applicable); and
+(C) Explanation of the proposed use of covered telecommunications equipment and any factors relevant
+to determining if such use would be permissible under the prohibition in paragraph (b)(1) of this
+provision.
+(ii) For covered services-
+(A) If the service is related to item maintenance: A description of all covered telecommunications
+services offered (include on the item being maintained: Brand; model number, such as OEM number,
+manufacturer part number, or wholesaler number; and item description, as applicable); or
+(B) If not associated with maintenance, the Product Service Code (PSC) of the service being provided;
+and explanation of the proposed use of covered telecommunications services and any factors relevant to
+determining if such use would be permissible under the prohibition in paragraph (b)(1) of this provision.
+(2) Disclosure for the representation in paragraph (d)(2) of this provision. If the Offeror has responded
+"does" in the representation in paragraph (d)(2) of this provision, the Offeror shall provide the following
+information as part of the offer:
+(i) For covered equipment-
+(A) The entity that produced the covered telecommunications equipment (include entity name, unique
+entity identifier, CAGE code, and whether the entity was the OEM or a distributor, if known);
+RFQ #140A2326Q0070
+Project Title: Enterprise Back-Up Solution, SIPI
+Page 17 of 36
+(B) A description of all covered telecommunications equipment offered (include brand; model number,
+such as OEM number, manufacturer part number, or wholesaler number; and item description, as
+applicable); and
+(C) Explanation of the proposed use of covered telecommunications equipment and any factors relevant
+to determining if such use would be permissible under the prohibition in paragraph (b)(2) of this
+provision.
+(ii) For covered services-
+(A) If the service is related to item maintenance: A description of all covered telecommunications
+services offered (include on the item being maintained: Brand; model number, such as OEM number,
+manufacturer part number, or wholesaler number; and item description, as applicable); or
+(B) If not associated with maintenance, the PSC of the service being provided; and explanation of the
+proposed use of covered telecommunications services and any factors relevant to determining if such use
+would be permissible under the prohibition in paragraph (b)(2) of this provision.
+(End of Provision)
+52.204-26 Covered Telecommunications Equipment or Services-Representation (Oct 2020)
+(a) Definitions. As used in this provision, "covered telecommunications equipment or services" and
+"reasonable inquiry" have the meaning provided in the clause 52.204-25, Prohibition on Contracting for
+Certain Telecommunications and Video Surveillance Services or Equipment.
+(b) Procedures. The Offeror shall review the list of excluded parties in the System for Award
+Management (SAM) https://www.sam.gov) for entities excluded from receiving federal awards for
+"covered telecommunications equipment or services".
+(c) (1) Representation. The Offeror represents that it
+does,
+does not provide covered
+telecommunications equipment or services as a part of its offered products or services to the Government
+in the performance of any contract, subcontract, or other contractual instrument.
+(2) After conducting a reasonable inquiry for purposes of this representation, the offeror represents that
+it
+does, does not use covered telecommunications equipment or services, or any equipment, system,
+or service that uses covered telecommunications equipment or services.
+(End of Provision)
+52.212-1 Instructions to Offerors - Commercial Products and Commercial Services (Sep 2023)
+Addenda - Format
+1)
+Quote Format
+The non-price quote shall include the following information:
+Technical Aspects of solution proposed (if other than Rubrik),
+Past Performance will be evaluated (if available)
+Attachments 2 and 3 of this solicitation.
+2)
+Pricing: Provide a firm-fixed price. The pricing shall be inclusive for complete and useable
+items and quotes must contain all associated costs in accordance with FAR 52.212-4(k), such
+as any taxes, delivery or freight charges.
+3)
+Quote Due Date: All quotes in response to this opportunity are due no later than 2:00 p.m.
+Central Standard time on Tuesday, 31 March 2026. Quotes will only be accepted via
+RFQ #140A2326Q0070
+Project Title: Enterprise Back-Up Solution, SIPI
+Page 18 of 36
+electronic mail and must be emailed to the Contract Specialist at jeff.morris@bie.edu by the
+closing date.
+(End of Provision)
+52.212-2 -- Evaluation - Commercial Products and Commercial Services (SEP 2023)
+Addenda - Evaluation
+The Government will award a firm fixed price purchase order (PO) resulting from this solicitation to
+the responsible quoter whose quote, conforming to the solicitation, will be most advantageous to the
+Government, price and other factors considered. The following factors shall be used to evaluate quotes:
+a. Technical Aspects of solution proposed - The contractor's quote will be evaluated based on the
+technical aspects of their proposed solution.
+b. Past Performance - Will be evaluated.
+c. Attachments 2 and 3 will be evaluated for ISBEE compliance (on a yes or no basis).
+d. Price - Price will be evaluated for price reasonableness.
+All evaluation factors other than cost or price, when combined, are equal to cost/price. Contractors will
+be evaluated on their experience, past performance, and price, as outlined above.
+Best Value-Trade Offs: The Government reserves the right to make an award to other than the low priced
+offeror if another superior technical submission, or a submission indicating a reduced performance risk,
+warrants paying a premium. The Government reserves the right to award no order at all, depending on the
+quality of the quotes, the availability of funding and the continued existence of the requirement.
+(End of Provision)
+52.212-2 Offeror Representations and Certifications-Commercial Products and Commercial
+Services (Oct 2025)
+The Offeror shall complete only paragraph (b) of this provision if the Offeror has completed the annual representations
+and certification electronically in the System for Award Management (SAM) accessed through https://www.sam.gov. If
+the Offeror has not completed the annual representations and certifications electronically, the Offeror shall complete only
+paragraphs (c) through (v) of this provision.
+(a) Definitions. As used in this provision-
+Covered telecommunications equipment or services has the meaning provided in the clause 52.204-25, Prohibition on
+Contracting for Certain Telecommunications and Video Surveillance Services or Equipment.
+Economically disadvantaged women-owned small business (EDWOSB) concern means a small business concern that
+is at least 51 percent directly and unconditionally owned by, and the management and daily business operations of which
+are controlled by, one or more women who are citizens of the United States and who are economically disadvantaged in
+accordance with 13 CFR part 127, and the concern is certified by SBA or an approved third-party certifier in accordance
+with 13 CFR 127.300. It automatically qualifies as a women-owned small business eligible under the WOSB Program.
+Forced or indentured child labor means all work or service-
+RFQ #140A2326Q0070
+Project Title: Enterprise Back-Up Solution, SIPI
+Page 19 of 36
+(1) Exacted from any person under the age of 18 under the menace of any penalty for its nonperformance and for
+which the worker does not offer himself voluntarily; or
+(2) Performed by any person under the age of 18 pursuant to a contract the enforcement of which can be
+accomplished by process or penalties.
+Highest-level owner means the entity that owns or controls an immediate owner of the offeror, or that owns or
+controls one or more entities that control an immediate owner of the offeror. No entity owns or exercises control of the
+highest level owner.
+Immediate owner means an entity, other than the offeror, that has direct control of the offeror. Indicators of control
+include, but are not limited to, one or more of the following: ownership or interlocking management, identity of interests
+among family members, shared facilities and equipment, and the common use of employees.
+Inverted domestic corporation, means a foreign incorporated entity that meets the definition of an inverted domestic
+corporation under 6 U.S.C. 395(b), applied in accordance with the rules and definitions of 6 U.S.C. 395(c).
+Manufactured end product means any end product in product and service codes (PSCs) 1000-9999, except-
+(1) PSC 5510, Lumber and Related Basic Wood Materials;
+(2) Product or Service Group (PSG) 87, Agricultural Supplies;
+(3) PSG 88, Live Animals;
+(4) PSG 89, Subsistence;
+(5) PSC 9410, Crude Grades of Plant Materials;
+(6) PSC 9430, Miscellaneous Crude Animal Products, Inedible;
+(7) PSC 9440, Miscellaneous Crude Agricultural and Forestry Products;
+(8) PSC 9610, Ores;
+(9) PSC 9620, Minerals, Natural and Synthetic; and
+(10) PSC 9630, Additive Metal Materials.
+Place of manufacture means the place where an end product is assembled out of components, or otherwise made or
+processed from raw materials into the finished product that is to be provided to the Government. If a product is
+disassembled and reassembled, the place of reassembly is not the place of manufacture.
+Predecessor means an entity that is replaced by a successor and includes any predecessors of the predecessor.
+Reasonable inquiry has the meaning provided in the clause 52.204-25, Prohibition on Contracting for Certain
+Telecommunications and Video Surveillance Services or Equipment.
+Restricted business operations means business operations in Sudan that include power production activities, mineral
+extraction activities, oil-related activities, or the production of military equipment, as those terms are defined in the Sudan
+Accountability and Divestment Act of 2007 (Pub. L. 110-174). Restricted business operations do not include business
+operations that the person (as that term is defined in Section 2 of the Sudan Accountability and Divestment Act of 2007)
+conducting the business can demonstrate-
+(1) Are conducted under contract directly and exclusively with the regional government of southern Sudan;
+(2) Are conducted pursuant to specific authorization from the Office of Foreign Assets Control in the Department
+of the Treasury, or are expressly exempted under Federal law from the requirement to be conducted under such
+authorization;
+RFQ #140A2326Q0070
+Project Title: Enterprise Back-Up Solution, SIPI
+Page 20 of 36
+(3) Consist of providing goods or services to marginalized populations of Sudan;
+(4) Consist of providing goods or services to an internationally recognized peacekeeping force or humanitarian
+organization;
+(5) Consist of providing goods or services that are used only to promote health or education; or
+(6) Have been voluntarily suspended. "Sensitive technology"-
+Sensitive technology-
+(1) Means hardware, software, telecommunications equipment, or any other technology that is to be used
+specifically-
+(i) To restrict the free flow of unbiased information in Iran; or
+(ii) To disrupt, monitor, or otherwise restrict speech of the people of Iran; and
+(2) Does not include information or informational materials the export of which the President does not have the
+authority to regulate or prohibit pursuant to section 203(b)(3) of the International Emergency Economic Powers Act ( 50
+U.S.C. 1702(b)(3)).
+Service-disabled veteran-owned small business (SDVOSB) concern means a small business concern-
+(1) (i) Not less than 51 percent of which is owned and controlled by one or more service-disabled veterans or, in
+the case of any publicly owned business, not less than 51 percent of the stock of which is owned by one or more service-
+disabled veterans; and
+(ii) The management and daily business operations of which are controlled by one or more service-disabled
+veterans or, in the case of a service-disabled veteran with permanent and severe disability, the spouse or permanent
+caregiver of such veteran; or
+(2) A small business concern eligible under the SDVOSB Program in accordance with 13 CFR part 128 (see
+subpart 19.14).
+(3) Service-disabled veteran, as used in this definition, means a veteran as defined in 38 U.S.C. 101(2), with a
+disability that is service connected, as defined in 38 U.S.C. 101(16), and who is registered in the Beneficiary Identification
+and Records Locator Subsystem, or successor system that is maintained by the Department of Veterans Affairs' Veterans
+Benefits Administration, as a service-disabled veteran.
+Service-disabled veteran-owned small business (SDVOSB) concern eligible under the SDVOSB Program means an
+SDVOSB concern that-
+(1) Effective January 1, 2024, is designated in the System for Award Management (SAM) as certified by the
+Small Business Administration (SBA) in accordance with 13 CFR 128.300; or
+(2) Has represented that it is an SDVOSB concern in SAM and submitted a complete application for certification
+to SBA on or before December 31, 2023.
+Service-disabled veteran-owned small business (SDVOSB) Program means a program that authorizes contracting
+officers to limit competition, including award on a sole-source basis, to SDVOSB concerns eligible under the SDVOSB
+Program.
+RFQ #140A2326Q0070
+Project Title: Enterprise Back-Up Solution, SIPI
+Page 21 of 36
+Small business concern-
+(1) Means a concern, including its affiliates, that is independently owned and operated, not dominant in its field of
+operation, and qualified as a small business under the criteria in 13 CFR part 121 and size standards in this solicitation.
+(2) Affiliates, as used in this definition, means business concerns, one of whom directly or indirectly controls or
+has the power to control the others, or a third party or parties control or have the power to control the others. In
+determining whether affiliation exists, consideration is given to all appropriate factors including common ownership,
+common management, and contractual relationships. SBA determines affiliation based on the factors set forth at 13 CFR
+121.103.
+Small disadvantaged business concern, consistent with 13 CFR 124.1001, means a small business concern under the
+size standard applicable to the acquisition, that-
+(1) Is at least 51 percent unconditionally and directly owned (as defined at 13 CFR 124.105) by-
+(i) One or more socially disadvantaged (as defined at13 CFR 124.103) and economically disadvantaged (as
+defined at 13 CFR 124.104) individuals who are citizens of the United States; and
+(ii) Each individual claiming economic disadvantage has a net worth not exceeding the threshold at 13 CFR
+124.104(c)(2) after taking into account the applicable exclusions set forth at 13 CFR124.104(c)(2); and
+(2) The management and daily business operations of which are controlled (as defined at 13.CFR 124.106) by
+individuals, who meet the criteria in paragraphs (1)(i) and (ii) of this definition.
+Subsidiary means an entity in which more than 50 percent of the entity is owned-
+(1) Directly by a parent corporation; or
+(2) Through another subsidiary of a parent corporation
+Successor means an entity that has replaced a predecessor by acquiring the assets and carrying out the affairs of the
+predecessor under a new name (often through acquisition or merger). The term "successor" does not include new
+offices/divisions of the same company or a company that only changes its name. The extent of the responsibility of the
+successor for the liabilities of the predecessor may vary, depending on State law and specific circumstances.
+Veteran-owned small business concern means a small business concern-
+(1) Not less than 51 percent of which is owned and controlled by one or more veterans (as defined at 38 U.S.C.
+101(2)) or, in the case of any publicly owned business, not less than 51 percent of the stock of which is owned by one or
+more veterans; and
+(2) The management and daily business operations of which are controlled by one or more veterans.
+Women-owned business concern means a concern which is at least 51 percent owned by one or more women; or in the
+case of any publicly owned business, at least 51 percent of its stock is owned by one or more women; and whose
+management and daily business operations are controlled by one or more women
+Women-owned small business concern means a small business concern-
+RFQ #140A2326Q0070
+Project Title: Enterprise Back-Up Solution, SIPI
+Page 22 of 36
+(1) That is at least 51 percent owned by one or more women; or, in the case of any publicly owned business, at
+least5 percent of the stock of which is owned by one or more women; and
+(2) Whose management and daily business operations are controlled by one or more women.
+Women-owned small business (WOSB) concern eligible under the WOSB Program (in accordance with 13 CFR part
+127), means a small business concern that is at least 51 percent directly and unconditionally owned by, and the
+management and daily business operations of which are controlled by, one or more women who are citizens of the United
+States, and the concern is certified by SBA or an approved third-party certifier in accordance with 13 CFR 127.300.
+(b) (1) Annual Representations and Certifications. Any changes provided by the Offeror in paragraph (b)(2) of this
+provision do not automatically change the representations and certifications in SAM.
+(2) The offeror has completed the annual representations and certifications electronically in SAM accessed
+through http://www.sam.gov. After reviewing SAM information, the Offeror verifies by submission of this offer that the
+representations and certifications currently posted electronically at FAR 52.212-3, Offeror Representations and
+Certifications-Commercial Products and Commercial Services, have been entered or updated in the last 12 months, are
+current, accurate, complete, and applicable to this solicitation (including the business size standard(s) applicable to the
+NAICS code(s) referenced for this solicitation), at the time this offer is submitted and are incorporated in this offer by
+reference (see FAR 4.1201), except for paragraphs
+[Offeror to identify the applicable paragraphs at (c) through (v) of this provision that the offeror has completed
+for the purposes of this solicitation only, if any.
+These amended representation(s) and/or certification(s) are also incorporated in this offer and are current,
+accurate, and complete as of the date of this offer.
+Any changes provided by the offeror are applicable to this solicitation only, and do not result in an update to the
+representations and certifications posted electronically on SAM.]
+(c) Offerors must complete the following representations when the resulting contract is for supplies to be delivered or
+services to be performed in the United States or its outlying areas, or when the contracting officer has applied part 19 in
+accordance with 19.000(b)(1)(ii). Check all that apply.
+(1) Small business concern. The offeror represents as part of its offer that-
+(i) It
+is,
+is not a small business concern; or
+(ii) It
+is,
+is not a small business joint venture that complies with the requirements of 13 CFR
+121.103(h) and 13 CFR 125.8(a) and (b). [ The offeror shall enter the name and unique entity identifier of each party to
+the joint venture:
+.........................
+(2) Veteran-owned small business concern. [Complete only if the offeror represented itself as a small business
+concern in paragraph (c)(1) of this provision.] The offeror represents as part of its offer that it
+is,
+is not a veteran-
+owned small business concern.
+(3) SDVOSB concern. [Complete only if the offeror represented itself as a veteran-owned small business concern
+in paragraph (c)(2) of this provision. The offeror represents that it
+is,
+is not an SDVOSB concern.
+(4) SDVOSB concern joint venture eligible under the SDVOSB Program. The offeror represents that it
+is,
+is
+not an SDVOSB joint venture eligible under the SDVOSB Program that complies with the requirements of 13 CFR
+RFQ #140A2326Q0070
+Project Title: Enterprise Back-Up Solution, SIPI
+Page 23 of 36
+128.402. [Complete only if the offeror represented itself as an SDVOSB concern in paragraph (c)(3) of this provision.]
+[The offeror shall enter the name and unique entity identifier of each party to the joint venture:
+-
+(5) Small disadvantaged business concern. [Complete only if the offeror represented itself as a small business
+concern in paragraph (c)(1) of this provision.] The offeror represents that it
+is,
+is not a small disadvantaged business
+concern as defined in 13 CFR 124.1001.
+(6) Women-owned small business concern. [Complete only if the offeror represented itself as a small business
+concern in paragraph (c)(1) of this provision.] The offeror represents that it
+is,
+is not a women-owned small business
+concern.
+(7) WOSB joint venture eligible under the WOSB Program. The offeror represents that it
+is,
+is not a joint
+venture that complies with the requirements of 13 CFR 127.506(a) through (c). [ The offeror shall enter the name and
+unique entity identifier of each party to the joint venture:
+-
+(8) Economically disadvantaged women-owned small business (EDWOSB) joint venture. The offeror represents
+that it
+is,
+is not a joint venture that complies with the requirements of 13 CFR 127.506(a) through (c). [The offeror
+shall enter the name and unique entity identifier of each party to the joint venture:
+-
+Note to paragraphs (c)(9) and (10): Complete paragraphs (c)(9) and (10) only if this solicitation is expected to
+exceed the simplified acquisition threshold.
+(9) Women-owned business concern (other than small business concern). [Complete only if the offeror is a
+women-owned business concern and did not represent itself as a small business concern in paragraph (c)(1) of this
+provision.] The offeror represents that it
+is a women-owned business concern.
+(10) Tie bid priority for labor surplus area concerns. If this is an invitation for bid, small business offerors may
+identify the labor surplus areas in which costs to be incurred on account of manufacturing or production (by offeror or
+first-tier subcontractors) amount to more than 50 percent of the contract price:
+(11) HUBZone small business concern. [Complete only if the offeror represented itself as a small business
+concern in paragraph (c)(1) of this provision.] The offeror represents, as part of its offer, that-
+(i) It
+is,
+is not a HUBZone small business concern listed, on the date of this representation, as having been
+certified by SBA as a HUBZone small business concern in the Dynamic Small Business Search and SAM, and will
+attempt to maintain an employment rate of HUBZone residents of 35 percent of its employees during performance of a
+HUBZone contract (see 13 CFR 126.200(e)(1)); and
+(ii) It
+is,
+is not a HUBZone joint venture that complies with the requirements of 13 CFR
+126.616(a) through (c). [The offeror shall enter the name and unique entity identifier of each party to the joint
+venture:
+.] Each HUBZone small business concern participating in the HUBZone joint venture shall provide
+representation of its HUBZone status.
+(d) Representations required to implement provisions of Executive Order 11246-
+(1) Previous contracts and compliance. The offeror represents that-
+(i) It
+has,
+has not participated in a previous contract or subcontract subject to the Equal Opportunity
+clause of this solicitation; and
+(ii) It
+has,
+has not filed all required compliance reports.
+RFQ #140A2326Q0070
+Project Title: Enterprise Back-Up Solution, SIPI
+Page 24 of 36
+(2) Affirmative Action Compliance. The offeror represents that-
+(i) It
+has developed and has on file,
+has not developed and does not have on file, at each establishment,
+affirmative action programs required by rules and regulations of the Secretary of Labor (41 CFR parts 60-1 and 60-2), or
+(ii) It
+has not previously had contracts subject to the written affirmative action programs requirement of the
+rules and regulations of the Secretary of Labor.
+(e) Certification Regarding Payments to Influence Federal Transactions (31 http://uscode.house.gov/ U.S.C. 1352).
+(Applies only if the contract is expected to exceed $200,000.) By submission of its offer, the offeror certifies to the best of
+its knowledge and belief that no Federal appropriated funds have been paid or will be paid to any person for influencing or
+attempting to influence an officer or employee of any agency, a Member of Congress, an officer or employee of Congress
+or an employee of a Member of Congress on his or her behalf in connection with the award of any resultant contract. If
+any registrants under the Lobbying Disclosure Act of 1995 have made a lobbying contact on behalf of the offeror with
+respect to this contract, the offeror shall complete and submit, with its offer, OMB Standard Form LLL, Disclosure of
+Lobbying Activities, to provide the name of the registrants. The offeror need not report regularly employed officers or
+employees of the offeror to whom payments of reasonable compensation were made.
+(f) Buy American Certificate. (Applies only if the clause at Federal Acquisition Regulation (FAR) 52.225-1, Buy
+American-Supplies, is included in this solicitation.)
+(1) (i) The Offeror certifies that each end product, except those listed in paragraph (f)(2) of this provision, is a
+domestic end product and that each domestic end product listed in paragraph (f)(3) of this provision contains a critical
+component.
+(ii) The Offeror shall list as foreign end products those end products manufactured in the United States that do
+not qualify as domestic end products. For those foreign end products that do not consist wholly or predominantly of iron
+or steel or a combination of both, the Offeror shall also indicate whether these foreign end products exceed 55 percent
+domestic content, except for those that are COTS items. If the percentage of the domestic content is unknown, select "no".
+(iii) The Offeror shall separately list the line item numbers of domestic end products that contain a critical
+component (see FAR 25.105).
+(iv) The terms "commercially available off-the-shelf (COTS) item," "critical component," "domestic end
+product," "end product," "foreign end product," and "United States" are defined in the clause of this solicitation entitled
+"Buy American-Supplies."
+(2) Foreign End Products:
+Line Item No.
+Country of Origin
+Exceeds 55% domestic content (yes/no)
+[List as necessary]
+RFQ #140A2326Q0070
+Project Title: Enterprise Back-Up Solution, SIPI
+Page 25 of 36
+(3) Domestic end products containing a critical component:
+Line Item No.
+[List as necessary]
+(4) The Government will evaluate offers in accordance with the policies and procedures of FAR part 25.
+(g) (1) Buy American-Free Trade Agreements-Israeli Trade Act Certificate. (Applies only if the clause at
+FAR 52.225-3, Buy American-Free Trade Agreements-Israeli Trade Act, is included in this solicitation.)
+(i) (A) The Offeror certifies that each end product, except those listed in paragraph (g)(1)(ii) or (iii) of this
+provision, is a domestic end product and that each domestic end product listed in paragraph (g)(1)(iv) of this provision
+contains a critical component.
+(B) The terms "Bahraini, Moroccan, Omani, Panamanian, or Peruvian end product," "commercially
+available off-the-shelf (COTS) item," "critical component," "domestic end product," "end product," "foreign end product,"
+"Free Trade Agreement country," "Free Trade Agreement country end product," "Israeli end product," and "United States"
+are defined in the clause of this solicitation entitled "Buy American-Free Trade Agreements-Israeli Trade Act."
+(ii) The Offeror certifies that the following supplies are Free Trade Agreement country end products (other
+than Bahraini, Moroccan, Omani, Panamanian, or Peruvian end products) or Israeli end products as defined in the clause
+of this solicitation entitled "Buy American-Free Trade Agreements-Israeli Trade Act."
+Free Trade Agreement Country End Products (Other than Bahraini, Moroccan, Omani, Panamanian, or
+Peruvian End Products) or Israeli End Products:
+Country of Origin
+Line Item No.
+[List as necessary]
+(iii) The Offeror shall list those supplies that are foreign end products (other than those listed in paragraph
+(g)(1)(ii) of this provision) as defined in the clause of this solicitation entitled "Buy American-Free Trade Agreements-
+Israeli Trade Act." The Offeror shall list as other foreign end products those end products manufactured in the United
+States that do not qualify as domestic end products. For those foreign end products that do not consist wholly or
+predominantly of iron or steel or a combination of both, the Offeror shall also indicate whether these foreign end products
+exceed 55 percent domestic content, except for those that are COTS items. If the percentage of the domestic content is
+unknown, select "no".
+Other Foreign End Products:
+RFQ #140A2326Q0070
+Project Title: Enterprise Back-Up Solution, SIPI
+Page 26 of 36
+Country of Origin
+Exceeds 55% domestic content (yes/no)
+Line Item No.
+[List as necessary]
+(iv) The Offeror shall list the line item numbers of domestic end products that contain a critical component
+(see FAR 25.105).
+Line Item No.
+[List as necessary]
+(v) The Government will evaluate offers in accordance with the policies and procedures of FAR part 25.
+(2) Buy American-Free Trade Agreements-Israeli Trade Act Certificate, Alternate II. If Alternate II to the clause
+at FAR 52.225-3 is included in this solicitation, substitute the following paragraph (g)(1)(ii) for paragraph (g)(1)(ii) of the
+basic provision:
+(g)(1)(ii) The offeror certifies that the following supplies are Israeli end products as defined in the clause of this
+solicitation entitled "Buy American-Free Trade Agreements-Israeli Trade Act":
+Israeli End Products:
+Line Item No.
+[List as necessary]
+(3) Buy American-Free Trade Agreements-Israeli Trade Act Certificate, Alternate III. If Alternate III to the clause
+at 52.225-3 is included in this solicitation, substitute the following paragraphs (g)(1)(i)(B) and (g)(1)(ii) for paragraphs
+(g)(1)(i)(B) and (g)(1)(ii) of the basic provision:
+RFQ #140A2326Q0070
+Project Title: Enterprise Back-Up Solution, SIPI
+Page 27 of 36
+(g)(1)(i)(B) The terms "Korean end product", "commercially available off-the-shelf (COTS) item," "critical
+component," "domestic end product," "end product," "foreign end product," "Free Trade Agreement country," "Free
+Trade Agreement country end product," "Israeli end product," and "United States" are defined in the clause of this
+solicitation entitled "Buy American-Free Trade Agreements-Israeli Trade Act."
+(g)(1)(ii) The Offeror certifies that the following supplies are Korean end products or Israeli end products as
+defined in the clause of this solicitation entitled "Buy American-Free Trade Agreements-Israeli Trade Act":
+Korean End Products or Israeli End Products:
+Country of Origin
+Line Item No.
+[List as necessary]
+(4) Trade Agreements Certificate. (Applies only if the clause at FAR 52.225-5, Trade Agreements, is included in
+this solicitation.)
+(i) The offeror certifies that each end product, except those listed in paragraph (g)(4)(ii) of this provision, is a
+U.S.-made or designated country end product, as defined in the clause of this solicitation entitled "Trade Agreements."
+(ii) The offeror shall list as other end products those end products that are not U.S.-made or designated
+country end products.
+Other End Products:
+Country of Origin
+Line Item No.
+[List as necessary]
+RFQ #140A2326Q0070
+Project Title: Enterprise Back-Up Solution, SIPI
+Page 28 of 36
+(iii) The Government will evaluate offers in accordance with the policies and procedures of FAR part 25. For
+line items covered by the WTO GPA, the Government will evaluate offers of U.S.-made or designated country end
+products without regard to the restrictions of the Buy American statute. The Government will consider for award only
+offers of U.S.-made or designated country end products unless the Contracting Officer determines that there are no offers
+for such products or that the offers for such products are insufficient to fulfill the requirements of the solicitation.
+(h) Certification Regarding Responsibility Matters (Executive Order 12689). (Applies only if the contract value is
+expected to exceed the simplified acquisition threshold.) The offeror certifies, to the best of its knowledge and belief, that
+the offeror and/or any of its principals-
+(1)
+Are,
+are not presently debarred, suspended, proposed for debarment, or declared ineligible for the award
+of contracts by any Federal agency;
+(2)
+Have,
+have not, within a three-year period preceding this offer, been convicted of or had a civil judgment
+rendered against them for: commission of fraud or a criminal offense in connection with obtaining, attempting to obtain,
+or performing a Federal, state or local government contract or subcontract; violation of Federal or state antitrust statutes
+relating to the submission of offers; or commission of embezzlement, theft, forgery, bribery, falsification or destruction of
+records, making false statements, tax evasion, violating Federal criminal tax laws, or receiving stolen property;
+(3)
+Are,
+are not presently indicted for, or otherwise criminally or civilly charged by a Government entity with,
+commission of any of these offenses enumerated in paragraph (h)(2) of this clause; and
+(4)
+Have,
+have not, within a three-year period preceding this offer, been notified of any delinquent Federal
+taxes in an amount that exceeds the threshold at 9.104-5(a)(2) for which the liability remains unsatisfied.
+(i) Taxes are considered delinquent if both of the following criteria apply:
+(A) The tax liability is finally determined. The liability is finally determined if it has been assessed. A
+liability is not finally determined if there is a pending administrative or judicial challenge. In the case of a judicial
+challenge to the liability, the liability is not finally determined until all judicial appeal rights have been exhausted.
+(B) The taxpayer is delinquent in making payment. A taxpayer is delinquent if the taxpayer has failed to
+pay the tax liability when full payment was due and required. A taxpayer is not delinquent in cases where enforced
+collection action is precluded.
+(ii) Examples.
+(A) The taxpayer has received a statutory notice of deficiency, under I.R.C. §6212, which entitles the
+taxpayer to seek Tax Court review of a proposed tax deficiency. This is not a delinquent tax because it is not a final tax
+liability. Should the taxpayer seek Tax Court review, this will not be a final tax liability until the taxpayer has exercised
+all judicial appeal rights.
+(B) The IRS has filed a notice of Federal tax lien with respect to an assessed tax liability, and the taxpayer
+has been issued a notice under I.R.C. §6320 entitling the taxpayer to request a hearing with the IRS Office of Appeals
+contesting the lien filing, and to further appeal to the Tax Court if the IRS determines to sustain the lien filing. In the
+course of the hearing, the taxpayer is entitled to contest the underlying tax liability because the taxpayer has had no prior
+opportunity to contest the liability. This is not a delinquent tax because it is not a final tax liability. Should the taxpayer
+seek tax court review, this will not be a final tax liability until the taxpayer has exercised all judicial appeal rights.
+(C) The taxpayer has entered into an installment agreement pursuant to I.R.C. §6159. The taxpayer is
+making timely payments and is in full compliance with the agreement terms. The taxpayer is not delinquent because the
+taxpayer is not currently required to make full payment.
+RFQ #140A2326Q0070
+Project Title: Enterprise Back-Up Solution, SIPI
+Page 29 of 36
+(D) The taxpayer has filed for bankruptcy protection. The taxpayer is not delinquent because enforced
+collection action is stayed under 11 U.S.C. §362 (the Bankruptcy Code).
+(i) Certification Regarding Knowledge of Child Labor for Listed End Products (Executive Order 13126). [The
+Contracting Officer must list in paragraph (i)(1) any end products being acquired under this solicitation that are included
+in the List of Products Requiring Contractor Certification as to Forced or Indentured Child Labor, unless excluded
+at 22.1503(b).]
+(1) Listed end products.
+Listed End Product
+Listed Countries of Origin
+(2) Certification. [If the Contracting Officer has identified end products and countries of origin in paragraph
+(i)(1) of this provision, then the offeror must certify to either (i)(2)(i) or (i)(2)(ii) by checking the appropriate block.]
+(i) The offeror will not supply any end product listed in paragraph (i)(1) of this provision that was mined,
+produced, or manufactured in the corresponding country as listed for that product.
+(ii) The offeror may supply an end product listed in paragraph (i)(1) of this provision that was mined,
+produced, or manufactured in the corresponding country as listed for that product. The offeror certifies that it has made a
+good faith effort to determine whether forced or indentured child labor was used to mine, produce, or manufacture any
+such end product furnished under this contract. On the basis of those efforts, the offeror certifies that it is not aware of
+any such use of child labor.
+(j) Place of manufacture. (Does not apply unless the solicitation is predominantly for the acquisition of manufactured
+end products.) For statistical purposes only, the offeror shall indicate whether the place of manufacture of the end
+products it expects to provide in response to this solicitation is predominantly-
+(1)
+In the United States (Check this box if the total anticipated price of offered end products manufactured in
+the United States exceeds the total anticipated price of offered end products manufactured outside the United States); or
+(2)
+Outside the United States.
+(k) Certificates regarding exemptions from the application of the Service Contract Labor Standards (Certification by
+the offeror as to its compliance with respect to the contract also constitutes its certification as to compliance by its
+subcontractor if it subcontracts out the exempt services.) [The contracting officer is to check a box to indicate if
+paragraph (k)(1) or (k)(2) applies.]
+(1) Maintenance, calibration, or repair of certain equipment as described in FAR 22.1003-4(c)(1). The
+offeror
+does
+does not certify that-
+(i) The items of equipment to be serviced under this contract are used regularly for other than Governmental
+purposes and are sold or traded by the offeror (or subcontractor in the case of an exempt subcontract) in substantial
+quantities to the general public in the course of normal business operations;
+RFQ #140A2326Q0070
+Project Title: Enterprise Back-Up Solution, SIPI
+Page 30 of 36
+(ii) The services will be furnished at prices which are, or are based on, established catalog or market prices
+(see FAR 22.1003-4(c)(2)(ii)) for the maintenance, calibration, or repair of such equipment; and
+(iii) The compensation (wage and fringe benefits) plan for all service employees performing work under the
+contract will be the same as that used for these employees and equivalent employees servicing the same equipment of
+commercial customers.
+(2) Certain services as described in FAR 22.1003-4(d)(1). The offeror
+does
+does not certify that-
+(i) The services under the contract are offered and sold regularly to non-Governmental customers, and are
+provided by the offeror (or subcontractor in the case of an exempt subcontract) to the general public in substantial
+quantities in the course of normal business operations;
+(ii) The contract services will be furnished at prices that are, or are based on, established catalog or market
+prices (see FAR 22.1003-4(d)(2)(iii));
+(iii) Each service employee who will perform the services under the contract will spend only a small portion
+of his or her time (a monthly average of less than 20 percent of the available hours on an annualized basis, or less than 20
+percent of available hours during the contract period if the contract period is less than a month) servicing the Government
+contract; and
+(iv) The compensation (wage and fringe benefits) plan for all service employees performing work under the
+contract is the same as that used for these employees and equivalent employees servicing commercial customers.
+(3) If paragraph (k)(1) or (k)(2) of this clause applies-
+(i) If the offeror does not certify to the conditions in paragraph (k)(1) or (k)(2) and the Contracting Officer did
+not attach a Service Contract Labor Standards wage determination to the solicitation, the offeror shall notify the
+Contracting Officer as soon as possible; and
+(ii) The Contracting Officer may not make an award to the offeror if the offeror fails to execute the
+certification in paragraph (k)(1) or (k)(2) of this clause or to contact the Contracting Officer as required in paragraph
+(k)(3)(i) of this clause.
+(1) Taxpayer Identification Number (TIN) 26 U.S.C. 6109, 31 U.S.C. 7701). (Not applicable if the offeror is required
+to provide this information to the SAM to be eligible for award.)
+(1) All offerors must submit the information required in paragraphs (1)(3) through (1)(5) of this provision to
+comply with debt collection requirements of 31 U.S.C. 7701(c) and 3325(d), reporting requirements of 26 U.S.C. 6041,
+6041A, and 6050M, and implementing regulations issued by the Internal Revenue Service (IRS).
+(2) The TIN may be used by the Government to collect and report on any delinquent amounts arising out of the
+offeror's relationship with the Government (31 U.S.C. 7701(c)(3)). If the resulting contract is subject to the payment
+reporting requirements described in FAR 4.904, the TIN provided hereunder may be matched with IRS records to verify
+the accuracy of the offeror's TIN.
+(3) Taxpayer Identification Number (TIN).
+TIN:
+TIN has been applied for.
+RFQ #140A2326Q0070
+Project Title: Enterprise Back-Up Solution, SIPI
+Page 31 of 36
+TIN is not required because:
+Offeror is a nonresident alien, foreign corporation, or foreign partnership that does not have income
+effectively connected with the conduct of a trade or business in the United States and does not have an office or place of
+business or a fiscal paying agent in the United States;
+Offeror is an agency or instrumentality of a foreign government;
+Offeror is an agency or instrumentality of the Federal Government.
+(4) Type of organization.
+Sole proprietorship;
+Partnership;
+Corporate entity (not tax-exempt);
+Corporate entity (tax-exempt);
+Government entity (Federal, State, or local);
+Foreign government;
+International organization per 26 CFR1.6049-4;
+Other
+.
+(5) Common parent.
+Offeror is not owned or controlled by a common parent;
+Name and TIN of common parent:
+Name
+.
+TIN
+.
+(m) Restricted business operations in Sudan. By submission of its offer, the offeror certifies that the offeror does not
+conduct any restricted business operations in Sudan.
+(n) Prohibition on Contracting with Inverted Domestic Corporations.
+(1) Government agencies are not permitted to use appropriated (or otherwise made available) funds for contracts
+with either an inverted domestic corporation, or a subsidiary of an inverted domestic corporation, unless the exception
+at 9.108-2(b) applies or the requirement is waived in accordance with the procedures at 9.108-4.
+(2) Representation. The Offeror represents that-
+(i) It
+is,
+is not an inverted domestic corporation; and
+(ii) It
+is,
+is not a subsidiary of an inverted domestic corporation.
+(o) Prohibition on contracting with entities engaging in certain activities or transactions relating to Iran.
+(1) The offeror shall e-mail questions concerning sensitive technology to the Department of State
+at CISADA106@state.gov.
+RFQ #140A2326Q0070
+Project Title: Enterprise Back-Up Solution, SIPI
+Page 32 of 36
+(2) Representation and Certifications. Unless a waiver is granted or an exception applies as provided in paragraph
+(o)(3) of this provision, by submission of its offer, the offeror-
+(i) Represents, to the best of its knowledge and belief, that the offeror does not export any sensitive
+technology to the government of Iran or any entities or individuals owned or controlled by, or acting on behalf or at the
+direction of, the government of Iran;
+(ii) Certifies that the offeror, or any person owned or controlled by the offeror, does not engage in any
+activities for which sanctions may be imposed under section 5 of the Iran Sanctions Act; and
+(iii) Certifies that the offeror, and any person owned or controlled by the offeror, does not knowingly engage
+in any transaction that exceeds the threshold at FAR 25.703-2(a)(2) with Iran's Revolutionary Guard Corps or any of its
+officials, agents, or affiliates, the property and interests in property of which are blocked pursuant to the International
+Emergency Economic Powers Act (et seq.) (see OFAC's Specially Designated Nationals and Blocked Persons List
+at https://www.treasury.gov/resource-center/sanctions/SDN-List/Pages/default.aspx)
+(3) The representation and certification requirements of paragraph (o)(2) of this provision do not apply if-
+(i) This solicitation includes a trade agreements certification (e.g., 52.212-3(g) or a comparable agency
+provision); and
+(ii) The offeror has certified that all the offered products to be supplied are designated country end products.
+(p) Ownership or Control of Offeror. (Applies in all solicitations when there is a requirement to be registered in SAM
+or a requirement to have a unique entity identifier in the solicitation).
+(1) The Offeror represents that it
+has or
+does not have an immediate owner. If the Offeror has more than one
+immediate owner (such as a joint venture), then the Offeror shall respond to paragraph (2) and if applicable, paragraph (3)
+of this provision for each participant in the joint venture.
+(2) If the Offeror indicates "has" in paragraph (p)(1) of this provision, enter the following information:
+Immediate owner CAGE code:
+.
+Immediate owner legal name:
+.
+(Do not use a "doing business as" name)
+Is the immediate owner owned or controlled by another entity:
+Yes or
+No.
+(3) If the Offeror indicates "yes" in paragraph (p)(2) of this provision, indicating that the immediate owner is
+owned or controlled by another entity, then enter the following information:
+Highest-level owner CAGE code:
+Highest-level owner legal name:
+.
+(Do not use a "doing business as" name)
+(q) Representation by Corporations Regarding Delinquent Tax Liability or a Felony Conviction under any Federal
+Law.
+RFQ #140A2326Q0070
+Project Title: Enterprise Back-Up Solution, SIPI
+Page 33 of 36
+(1) As required by sections 744 and 745 of Division E of the Consolidated and Further Continuing Appropriations
+Act, 2015 (Pub. L. 113-235), and similar provisions, if contained in subsequent appropriations acts, The Government will
+not enter into a contract with any corporation that-
+(i) Has any unpaid Federal tax liability that has been assessed, for which all judicial and administrative
+remedies have been exhausted or have lapsed, and that is not being paid in a timely manner pursuant to an agreement with
+the authority responsible for collecting the tax liability, where the awarding agency is aware of the unpaid tax liability,
+unless an agency has considered suspension or debarment of the corporation and made a determination that suspension or
+debarment is not necessary to protect the interests of the Government; or
+(ii) Was convicted of a felony criminal violation under any Federal law within the preceding 24 months,
+where the awarding agency is aware of the conviction, unless an agency has considered suspension or debarment of the
+corporation and made a determination that this action is not necessary to protect the interests of the Government.
+(2) The Offeror represents that-
+(i) It is
+is not
+a corporation that has any unpaid Federal tax liability that has been assessed, for which all
+judicial and administrative remedies have been exhausted or have lapsed, and that is not being paid in a timely manner
+pursuant to an agreement with the authority responsible for collecting the tax liability; and
+(ii) It is
+is not
+a corporation that was convicted of a felony criminal violation under a Federal law within
+the preceding 24 months.
+(r) Predecessor of Offeror. (Applies in all solicitations that include the provision at 52.204-16, Commercial and
+Government Entity Code Reporting.)
+(1) The Offeror represents that it
+is or
+is not a successor to a predecessor that held a Federal contract or grant
+within the last three years.
+(2) If the Offeror has indicated "is" in paragraph (r)(1) of this provision, enter the following information for all
+predecessors that held a Federal contract or grant within the last three years (if more than one predecessor, list in reverse
+chronological order):
+Predecessor CAGE code: (or mark "Unknown").
+Predecessor legal name:
+.
+(Do not use a "doing business as" name).
+(s) [Reserved].
+(t) Public Disclosure of Greenhouse Gas Emissions and Reduction Goals. Applies in all solicitations that require
+offerors to register in SAM ( (12.301(d)(1)).
+(1) This representation shall be completed if the Offeror received $7.5 million or more in contract awards in the
+prior Federal fiscal year. The representation is optional if the Offeror received less than $7.5 million in Federal contract
+awards in the prior Federal fiscal year.
+(2) Representation. [Offeror to check applicable block(s) in paragraph (t)(2)(i) and (ii)].
+(i) The Offeror (itself or through its immediate owner or highest-level owner)
+does,
+does not publicly
+disclose greenhouse gas emissions, i.e., makes available on a publicly accessible website the results of a greenhouse gas
+inventory, performed in accordance with an accounting standard with publicly available and consistently applied criteria,
+such as the Greenhouse Gas Protocol Corporate Standard.
+RFQ #140A2326Q0070
+Project Title: Enterprise Back-Up Solution, SIPI
+Page 34 of 36
+(ii) The Offeror (itself or through its immediate owner or highest-level owner)
+does,
+does not publicly
+disclose a quantitative greenhouse gas emissions reduction goal, i.e., make available on a publicly accessible website a
+target to reduce absolute emissions or emissions intensity by a specific quantity or percentage.
+(iii) A publicly accessible website includes the Offeror's own website or a recognized, third-party greenhouse
+gas emissions reporting program.
+(3) If the Offeror checked "does" in paragraphs (t)(2)(i) or (t)(2)(ii) of this provision, respectively, the Offeror
+shall provide the publicly accessible website(s) where greenhouse gas emissions and/or reduction goals are
+reported:
+(u) (1) In accordance with section 743 of Division E, Title VII, of the Consolidated and Further Continuing
+Appropriations Act, 2015 (Pub. L. 113-235) and its successor provisions in subsequent appropriations acts (and as
+extended in continuing resolutions), Government agencies are not permitted to use appropriated (or otherwise made
+available) funds for contracts with an entity that requires employees or subcontractors of such entity seeking to report
+waste, fraud, or abuse to sign internal confidentiality agreements or statements prohibiting or otherwise restricting such
+employees or subcontractors from lawfully reporting such waste, fraud, or abuse to a designated investigative or law
+enforcement representative of a Federal department or agency authorized to receive such information.
+(2) The prohibition in paragraph (u)(1) of this provision does not contravene requirements applicable to Standard
+Form 312 (Classified Information Nondisclosure Agreement), Form 4414 (Sensitive Compartmented Information
+Nondisclosure Agreement), or any other form issued by a Federal department or agency governing the nondisclosure of
+classified information.
+(3) Representation. By submission of its offer, the Offeror represents that it will not require its employees or
+subcontractors to sign or comply with internal confidentiality agreements or statements prohibiting or otherwise
+restricting such employees or subcontractors from lawfully reporting waste, fraud, or abuse related to the performance of a
+Government contract to a designated investigative or law enforcement representative of a Federal department or agency
+authorized to receive such information (e.g., agency Office of the Inspector General).
+(v) Covered Telecommunications Equipment or Services-Representation. Section 889(a)(1)(A) and section 889
+(a)(1)(B) of Public Law 115-232.
+(1) The Offeror shall review the list of excluded parties in the System for Award Management (SAM)
+(https://www.sam.gov) for entities excluded from receiving federal awards for "covered telecommunications equipment
+or services".
+(2) The Offeror represents that-
+(i) It
+does,
+does not provide covered telecommunications equipment or services as a part of its offered
+products or services to the Government in the performance of any contract, subcontract, or other contractual instrument.
+(ii) After conducting a reasonable inquiry for purposes of this representation, that it
+does,
+does not use
+covered telecommunications equipment or services, or any equipment, system, or service that uses covered
+telecommunications equipment or services.
+(End of Provision)
+2. DEPARTMENT OF THE INTERIOR ACQUISITION REGULATION (DIAR) PROVISIONS
+1452.215-71 Use and Disclosure of Proposal Information - Department of the Interior (APR 1984)
+RFQ #140A2326Q0070
+Project Title: Enterprise Back-Up Solution, SIPI
+Page 35 of 36
+(a) Definitions. For the purposes of this provision and the Freedom of Information Act (5 U.S.C. 552), the
+following terms shall have the meaning set forth below:
+(1) "Trade Secret" means an unpatented, secret, commercially valuable plan, appliance, formula, or
+process, which is used for making, preparing, compounding, treating, or processing articles or materials which are
+trade commodities.
+(2) "Confidential commercial or financial information" means any business information (other than trade
+secrets) which is exempt from the mandatory disclosure requirement of the Freedom of Information Act, 5 U.S.C.
+552. Exemptions from mandatory disclosure which may be applicable to business information contained in
+proposals include exemption (4), which covers "commercial and financial information obtained from a person and
+privileged or confidential," and exemption (9), which covers "geological and geophysical information, including
+maps, concerning wells."
+(b) If the offeror, or its subcontractor(s), believes that the proposal contains trade secrets or confidential
+commercial or financial information exempt from disclosure under the Freedom of Information Act, (5 U.S.C.
+552), the cover page of each copy of the proposal shall be marked with the following legend:
+"The information specifically identified on pages
+of this proposal constitutes trade secrets or confidential
+commercial and financial information which the offeror believes to be exempt from disclosure under the Freedom
+of Information Act. The offeror requests that this information not be disclosed to the public, except as may be
+required by law. The offeror also requests that this information not be used in whole or part by the government for
+any purpose other than to evaluate the proposal, except that if a contract is awarded to the offeror as a result of or
+in connection with the submission of the proposal, the Government shall have the right to use the information to
+the extent provided in the contract."
+(c) The offeror shall also specifically identify trade secret information and confidential commercial and financial
+information on the pages of the proposal on which it appears and shall mark each such page with the following
+legend:
+"This page contains trade secrets or confidential commercial and financial information which the offeror
+believes to be exempt from disclosure under the Freedom of Information Act and which is subject to the legend
+contained on the cover page of this proposal."
+(d) Information in a proposal identified by an offeror as trade secret information or confidential commercial and
+financial information shall be used by the Government only for the purpose of evaluating the proposal, except that
+(i) if a contract is awarded to the offeror as a result of or in connection with submission of the proposal, the
+Government shall have the right to use the information as provided in the contract, and (ii) if the same
+information is obtained from another source without restriction it may be used without restriction.
+(e) If a request under the Freedom of Information Act seeks access to information in a proposal identified as trade
+secret information or confidential commercial and financial information, full consideration will be given to the
+offeror's view that the information constitutes trade secrets or confidential commercial or financial information.
+The offeror will also be promptly notified of the request and given an opportunity to provide additional evidence
+and argument in support of its position, unless it is administratively unfeasible to do so. If it is determined that
+information claimed by the offeror to be trade secret information or confidential commercial or financial
+information is not exempt from disclosure under the Freedom of Information Act, the offeror will be notified of
+this determination prior to disclosure of the information.
+(f) The Government assumes no liability for the disclosure or use of information contained in a proposal if not
+marked in accordance with paragraphs (b) and (c) of this provision. If a request under the Freedom of Information
+Act is made for information in a proposal not marked in accordance with paragraphs (b) and (c) of this provision,
+the offeror concerned shall be promptly notified of the request and given an opportunity to provide its position to
+the Government. However, failure of an offeror to mark information contained in a proposal as trade secret
+information or confidential commercial or financial information will be treated by the Government as evidence
+that the information is not exempt from disclosure under the Freedom of Information Act, absent a showing that
+the failure to mark was due to unusual or extenuating circumstances, such as a showing that the offeror had
+intended to mark, but that markings were omitted from the offeror's proposal due to clerical error.
+(End of Provision)
+RFQ #140A2326Q0070
+Project Title: Enterprise Back-Up Solution, SIPI
+Page 36 of 36
+1452.280-4 Indian Economic Enterprise Representation (FEB 2021)
+(a) The offeror represents as part of its offer that it [ ] does [ ] does not meet the definition of Indian
+Economic Enterprise (IEE) as defined in DIAR 1480.201 and that it intends to meet the definition of an IEE
+throughout the performance of the contract. The offeror must notify the contracting officer immediately in writing
+if there is any ownership change affecting compliance with this representation.
+(b) Any false or misleading information submitted by an enterprise when submitting an offer in consideration
+for an award set aside under the Buy Indian Act is a violation of the law punishable under 18 U.S.C. 1001. False
+claims submitted as part of contract performance are subject to the penalties enumerated in 31 U.S.C. 3729 to
+3731 and 18 U.S.C. 287.
+(End of provision)
+Solicitation# 140A2326Q0070 
+
+
+
+All proposals have a required submission and written assurance that need to be included with the offer. You may use the form below in lieu of a separate response in your offer.
+
+
+
+
+
+Supplement to DIAR 1452.280-2 Notice of Indian Economic Enterprise set-aside:
+
+
+
+(c) Required Submissions. In response to this solicitation, an offeror must also provide the following:
+
+(1) A description of the required percentage of the work/costs to be provided by the offeror over the contract term as required by section 1452.280-3, Subcontracting Limitations clause.  
+
+
+
+  Our company will not require any subcontracting.
+
+  Our company will require subcontracting, but the firm is a responsible IEEs. 
+
+  Supplies & Services: Our company will use a subcontractor that is not an IEE as follows: 
+
+
+
+[Example: 30% of services will be subcontracted to a non-IEE contractor and 70% of services will be performed by our company]; and
+
+
+
+Note: 48 CFR 1452.280–3 restricts the ability of IEEs from subcontracting a percentage of the work to firms other than IEEs (the subcontracting limitation for supplies and services is 50%, but for construction it is allowed up to 75% for special trade contractors and 85% for general construction which is consistent with FAR clause 52.219–14 Limitation on Subcontracting). 
+
+
+
+(2) Qualifications of the key personnel (if any) that will be assigned to the contract.
+
+
+
+ Contracting Officer (CO): Check if it has been determined that Key Personnel is not required.
+
+
+
+If the box above was not checked, the offeror must list Key Personnel-
+
+	
+
+Key Personnel (Name, Title): ______N/A_________________________________________________ 
+
+
+
+Key Personnel (Name, Title): ______N/A_________________________________________________
+
+
+
+(d) Required Assurance. The offeror must provide written assurance to the CO that the offeror is and will remain in compliance with the requirements of this clause. It must do this before the CO awards the Buy Indian contract and upon successful and timely completion of the contract, but before the CO accepts the work or product.
+
+
+
+Written Assurance: This is written assurance to the Contracting Officer that our company is and will remain in compliance with the requirements of this clause. 
+
+
+
+
+
+	______________________________________
+
+	Offeror’s Signature 		Date
+
+
+
+Note: Written assurance is required before the CO awards the Buy Indian contract and upon successful and timely completion of the contract, but before the CO accepts the work or product.
+
+
+
+(e) Non-responsiveness. Failure to provide the information required by paragraphs (c) and (d) of this clause may cause the CO to find an offer non-responsive and reject it.
+
+
+Haskell Indian Nations University - Rubrik Data Management Solution
+Statement of Work (SOW)
+OVERVIEW
+Haskell Indian Nations University (HINU) seeks to enhance its data management and
+security infrastructure by implementing Rubrik's comprehensive data backup and recovery
+solution. HINU manages sensitive student, faculty, staff, and administrative data within
+Haskell's Microsoft tenant and across the university's KanREN network that requires robust
+protection and rapid recovery capabilities. This initiative aligns with Haskell's mission to
+provide a secure, innovative, and supportive learning environment for its students, faculty,
+and staff. Rubrik's solution will ensure data integrity, security, and availability, safeguarding
+HINU's information assets from data loss, cyberattacks, and operational disruptions,
+thereby strengthening student success, faculty research, and administrative efficiency, in
+support of Haskell's educational and administrative functions.
+OBJECTIVE
+Haskell Indian Nations University seeks to contract for the successful deployment of
+Rubrik's data management solution to:
+Enhance data security and integrity across the university;
+Provide reliable, efficient and scalable data backup solution and recovery;
+Support the university's mission by ensuring continuous access to critical data;
+Minimize data loss risks and downtime in case of cyber threats or operational
+disruptions;
+Streamline and automate backup management to increase IT efficiency and reduce
+operational risks;
+Align with HINU's strategic goals of maintaining a secure, innovative and resilient IT
+infrastructure that supports the university's educational mission.
+SCOPE
+Rubrik's Data Management Solution's successful implementation will result in the
+activation of Rubrik's Premium Support which will provide Haskell with direct and
+immediate access to an experienced team of support engineers to help HINU minimize
+operational costs and ensure services in the university's mission-critical data management
+environment are running optimally. Contractor will create collaboration with Haskell IT to
+identify and address technical challenges, improve operational efficiency, and maximize
+HINU's investment in Rubrik. Premium support includes these benefits:
+Telephone and web support: Rubrik's support professionals will be available by
+telephone or web interface on a 24x7 basis. Haskell IT will have access to web-
+based knowledge and self-help customer support tools that can help minimize
+operational disruption;
+Product updates and fixes: To ensure Haskell's IT environment is equipped with the
+latest Rubrik features and functionality, Rubrik support engineers will keep Haskell's
+IT team apprised of latest software updates and new releases. Any critical product
+fixes will also be handled, allowing Haskell IT to maintain a consistent, high level of
+productivity;
+Advanced hardware replacement: For any hardware failures, Rubrik will ship an
+advanced replacement to arrive at Haskell the next business day. Request must be
+submitted before 3pm local time to receive next business day service.
+TASKS
+Contractor will ensure successful installation of Rubrik's Data Management Solution
+services and product enablement including topics such as daily administration, SLA
+creation, object protection, data recovery options, and cloud archiving. These professional
+services solutions will help Haskell IT understand, adopt, leverage, and maintain new
+approaches to managing data protection. The following tasks will be undertaken to achieve
+the project objectives:
+1. Assessment and Planning: Conduct a comprehensive assessment of HINU's
+current data infrastructure and develop a detailed implementation plan.
+2. Installation and Configuration: Install and configure Rubrik's data management
+solution, ensuring seamless integration with existing systems.
+3. Data Migration: Migrate existing data to the new system with minimal disruption to
+university operations.
+4. Testing and Validation: Perform rigorous testing to validate the system's
+performance, security, and reliability.
+5. Training and Support: Provide training sessions for IT staff, faculty, and other
+stakeholders to ensure effective use of the new system.
+6. Monitoring and Maintenance: Establish ongoing monitoring and maintenance
+protocols to ensure the system's optimal performance.
+DELIVERABLES
+The project will deliver the following:
+Implementation Plan: A detailed plan outlining the steps for deploying Rubrik's
+solution.
+Installed and Configured System: A fully operational Rubrik data management
+system integrated with HINU's existing infrastructure.
+Data Migration Report: Documentation of the data migration process and
+outcomes.
+Testing and Validation Report: Results of the system testing and validation
+procedures.
+Training Materials: Comprehensive training materials and resources for Haskell IT
+staff and end-users.
+Maintenance Plan: A plan for ongoing system monitoring and maintenance.
+Action
+Responsibility
+Deliverables
+Deployment Planning:
+Rubrik PMO,
+Implementation workbook
+Project scope and outcomes
+Rubrik Field
+complete
+definition;
+Consultant (as
+Network readiness
+needed),
+Gather site specifications
+Customer
+Gather prerequisites
+relevant teams
+Define possible limitations
+(Infrastructure,
+and constraints
+backup, etc)
+Enablement Prerequisites:
+Customer
+Facilitate creation of a Single
+Creation of Cloud Storage
+relevant teams
+Archival Target*
+Accounts (if applicable)
+(Infrastructure,
+Creation of RSA Key for
+Backup, Cloud)
+Facilitate creation of a Single
+Encryption (if applicable)
+Replication Target*
+Network Configuration
+across Rubrik Appliances (if
+applicable)
+Onsite Physical Installation and
+Rubrik Field
+Cluster is physically installed and
+Bootstrap:
+Consultant and
+bootstrapped
+Rack, stack, cable
+Customer
+Cluster Bootstrap
+Systems
+Administrator(s)
+Remote Upgrade and
+Rubrik Field
+Upgrade Rubrik Cluster (if
+Enablement of Rubrik Solution
+Consultant and
+applicable)
+Cluster Upgrade (if
+Customer
+Monitoring of Rubrik Cluster
+applicable)
+Systems
+Create and assign up to 5 SLA
+Configuration of One-Time
+Administrator(s)
+domains
+Setup items
+Configure up to 5 objects for
+Workload Integration +
+protection for:
+Enablement
+VMware/HyperV, SQL
+Rubrik Security Cloud
+Database, Windows Hosts,
+Integration
+Linux Hosts, NAS fileshares
+Configure a single Archival
+and Replication Target (if
+applicable)
+Review Rubrik native
+Reporting capabilities
+Rubrik CDM Integration with
+Rubrik Security Cloud
+Rubrik Security Overview of
+Rubrik CDM + Rubrik Security
+Cloud
+QuickStart Review
+Rubrik Field
+Up to 2 hours of Q+A, Recap
+Consultant and
+Session
+Customer
+Systems
+Administrator(s)
+Project Closeout
+Rubrik PMO,
+As-built documentation
+Rubrik Field
+Consultant
+RESPONSIBILITIES
+Haskell Indian Nations University:
+Provide access to current data infrastructure and relevant documentation
+Ensure work site is prepared for the engagement services and all environment and
+operational requirements are met
+Provide support from IT teams for all third parties as necessary
+Completion of site-prep Workbook and all requirements determined during planning
+calls
+Allocate necessary resources and personnel for project support
+Participate in training sessions and provide feedback.
+Rubrik Field Consultant:
+Physical installation of equipment to be delivered by an onsite Field Consultant
+Rubrik Deployment and Configuration to be delivered by a remote Field Consultant
+Hands-on Knowledge Transfer to be delivered by a remote Field Consultant.
+EXCLUSIONS/LIMITATIONS
+Up to 8 Rubrik appliances at a single location per installation
+Does not include scripting or automation services
+Demonstration of protection and recovery tasks per workload as described below in
+"WBS - Rubrik Enablement and Workload Integration"
+Archival and Replication do not include Advanced tasks such as Tiering,
+Consolidation, Cloud Configuration or NAT
+SQL Database Enablement does not include Log Shipping or Cluster Failover Testing
+Cluster Upgrade, One Time Setup Items, Rubrik Enablement and Workload
+Integration, Rubrik Security Cloud Integration and QuickStart Review to be delivered
+virtually.
+PLACE OF PERFORMANCE
+Place of Performance will be a virtual environment at Haskell Indian Nations University, 155
+Indian Avenue, Lawrence, KS.
+PERIOD OF PERFORMANCE
+Period of Performance will be March 2, 2026 - March 1, 2027.

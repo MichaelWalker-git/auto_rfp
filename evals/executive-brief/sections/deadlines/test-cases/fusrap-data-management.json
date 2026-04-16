@@ -1,0 +1,19 @@
+{
+  "_description": "USACE — FUSRAP Data Management Services. This is a PWS/SOW only, not a full solicitation. Contains NO deadlines — only a relative period of performance (5 years from award). Tests omission discipline.",
+  "expected": {
+    "deadlines": [],
+    "hasSubmissionDeadline": false,
+    "submissionDeadlineIso": null,
+    "warnings": ["This document is a Performance Work Statement (PWS), not a full solicitation — no submission deadlines found"]
+  },
+  "_field_sources": {
+    "deadlines": "No actionable deadlines in document. Only time reference is '5 years from date of award' which is relative and unparseable.",
+    "hasSubmissionDeadline": "No proposal due date exists — this is a PWS/SOW, not a solicitation",
+    "submissionDeadlineIso": "null — no submission deadline",
+    "warnings": "Document lacks any solicitation wrapper (SF-1449, cover letter, amendments) that would contain deadlines",
+    "_notes": [
+      "Document references publication dates of guidance documents (December 2025, November 2024, etc.) — these are NOT deadlines",
+      "Period of performance is 5 years from award date — relative, not absolute"
+    ]
+  }
+}

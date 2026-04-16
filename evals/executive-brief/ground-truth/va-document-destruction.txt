@@ -1,0 +1,73 @@
+GROUND TRUTH — Extracted from source solicitation 36C24826Q0460
+
+=== IDENTIFICATION ===
+Solicitation Number: 36C24826Q0460
+Title: Document Destruction Services (Combined Synopsis/Solicitation — Request for Offers)
+Agency: Department of Veterans Affairs
+Office: Regional Procurement Office - East, Network Contracting Office (NCO) 8
+Document Type: Combined Synopsis/Solicitation (RFO) per FAR Part 12
+
+=== CONTRACT DETAILS ===
+Contract Type: Firm-Fixed-Price (FFP)
+Set-Aside: Service-Disabled Veteran-Owned Small Business (SDVOSB) — exclusive set-aside
+  - Must be registered and verified in SBA and SAM.gov
+NAICS: NOT EXPLICITLY STATED in the first 200 lines (likely in price schedule)
+Estimated Value: NOT STATED (line items in price schedule but totals not visible in extract)
+Period of Performance: 1 year base + 4 one-year option periods = 5 years total potential
+Place of Performance: VA facilities (specific locations in price schedule — multiple NFSG/VHS sites)
+
+=== CONTACTS ===
+Contact 1: John H. Shultzaberger — Contracting Officer
+  - Email: John.Shultzaberger@va.gov
+  - Phone: 352-214-5135
+  - Organization: Department of Veterans Affairs, Network Contracting Office 8 (NCO 8)
+  - NO OTHER CONTACTS LISTED
+
+=== DEADLINES ===
+Questions Due: April 15, 2026 by 11:00 AM EST
+Offers Due: April 24, 2026 by 4:00 PM EST
+  - Submit via email to: John.Shultzaberger@va.gov
+
+=== KEY REQUIREMENTS ===
+Performance Work Statement (PWS) — Document Destruction Services:
+- Containers (Section 4.1)
+- Service Frequency (Section 4.2)
+- Destruction Method (Section 4.3)
+- Chain of Custody (Section 4.4)
+- Certificates of Destruction (COD) (Section 4.5)
+- Contractor Responsibilities (Section 5.0)
+- Performance Standards (Section 7.0)
+- Security Requirements (Section 9.0)
+- Incident Reporting (Section 10.0)
+- Quality Assurance Surveillance (Section 11.0)
+- Transition (Section 12.0)
+
+Security/Compliance:
+- VA Information and Information System Security/Privacy requirements
+- Contractors subject to same Federal laws as VA personnel
+- Logical/physical access only as necessary for contract performance
+
+=== APPLICABLE REGULATIONS ===
+- FAR Part 12 (Commercial Products and Commercial Services)
+- FAR 52.212-4, 52.212-5
+- FAR 52.217-8 (Option to Extend Services)
+- FAR 52.217-9 (Option to Extend Term)
+- VAAR 852.219-73 (VA SDVOSB set-aside)
+- VAAR 852.219-75 (Limitations on Subcontracting)
+- VAAR 852.232-72 (Electronic Invoice Submission)
+- Invoicing: Monthly, Electronic per VAAR 852.232-72
+
+=== INCUMBENT / COMPETITIVE LANDSCAPE ===
+- NO INCUMBENT MENTIONED in the solicitation
+- SDVOSB exclusive set-aside restricts competition
+- Single award intended
+
+=== KEY FACTS FOR FAITHFULNESS CHECKING ===
+- This is a physical service (document destruction), NOT an IT/software contract
+- FFP contract type explicitly stated
+- SDVOSB set-aside explicitly stated
+- Only one contact provided (John Shultzaberger)
+- 5-year total potential period (base + 4 options)
+- Payment is monthly
+- Price schedule has 258 pages (many line items for different VA facility locations)
+- No incumbent named — knownIncumbent should be false

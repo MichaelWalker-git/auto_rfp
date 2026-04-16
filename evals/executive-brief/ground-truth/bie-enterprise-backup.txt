@@ -1,0 +1,59 @@
+GROUND TRUTH — Extracted from source solicitation 140A2326Q0070
+
+=== IDENTIFICATION ===
+Solicitation Number: 140A2326Q0070
+Title: Enterprise Back-Up Solution, Haskell (per Indian Economic Enterprise form page 1)
+  - Also referenced as: "Enterprise Back-Up Solution, SIPI" on some pages (page 3, continuation sections)
+  - KEY: The solicitation references BOTH "Haskell" and "SIPI" — there are TWO DIFFERENT institutions mentioned:
+    * Haskell Indian Nations University (HINU), 155 Indian Avenue, Lawrence KS 66046
+    * Southwestern Indian Polytechnic Institute (SIPI), 9169 Coors Blvd NW, Albuquerque NM 87120
+Agency: U.S. Department of the Interior
+Office: Bureau of Indian Education (BIE), Division of Acquisitions
+Issuing Office Address: 1011 Indian School Rd, Suite 352A, Albuquerque NM 87104
+
+=== CONTRACT DETAILS ===
+Contract Type: Firm Fixed Price (purchase order)
+Set-Aside: 100% Indian Small Business Economic Enterprise (ISBEE) per Buy Indian Act (25 U.S.C. 47)
+NAICS: 541511 — Custom Computer Programming
+Size Standard: $34M
+Estimated Value: NOT STATED in the solicitation
+Period of Performance: April 13, 2026 to April 12, 2027 (1 year)
+Product/Service Code: DE10 (IT and Telecom - End User as a Service)
+
+=== CONTACTS ===
+Contact 1: Jeff W. Morris — Contracting Officer AND Contract Specialist (same person for both roles)
+  - Organization: U.S. Department of the Interior, Bureau of Indian Education, Division of Acquisitions
+  - Address: 1011 Indian School Rd NW, Albuquerque, NM 87104
+  - Phone: (505) 364-2130
+  - Email: jeff.morris@bie.edu
+
+Contact 2: COR/POC — "To be determined after award"
+Contact 3: Contractor POC — "To be added after award"
+
+=== DEADLINES ===
+Solicitation Issue Date: 02/26/2026
+Offer Due Date: 03/31/2026 at 1400 CDT (Central Daylight Time)
+
+=== KEY REQUIREMENTS ===
+- Rubrik Data Management and Backup Platform (specific product named)
+- Enterprise-wide backup solution
+- Work in accordance with Statement of Work (SOW)
+- ISBEE self-certification required (DIAR Provision 1452.280-4)
+- Buy Indian Act compliance throughout contract term
+
+=== PLACE OF PERFORMANCE ===
+The solicitation lists TWO delivery locations:
+1. Haskell Indian Nations University (HINU), 155 Indian Avenue, Lawrence KS 66046
+2. Southwestern Indian Polytechnic Institute (SIPI), 9169 Coors Blvd NW, Albuquerque NM 87120
+
+=== INCUMBENT / COMPETITIVE LANDSCAPE ===
+- NO INCUMBENT MENTIONED in the solicitation
+- Set-aside restricts competition to ISBEE-certified firms only
+- False certification is punishable under 18 U.S.C. 1001
+
+=== KEY FACTS FOR FAITHFULNESS CHECKING ===
+- The institution name varies between "Haskell" and "SIPI" within the same solicitation
+- Jeff Morris is listed as BOTH Contracting Officer AND Contract Specialist
+- COR is TBD (not yet assigned)
+- No estimated dollar value provided
+- Rubrik platform is specifically named (not vendor-neutral)

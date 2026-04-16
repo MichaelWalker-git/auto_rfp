@@ -1,0 +1,498 @@
+description: Executive Brief — Requirements Extraction Eval
+
+prompts:
+  - label: Current Production Prompt
+    id: file://../../prompts/requirements-chat.json
+
+providers:
+  - id: bedrock:us.anthropic.claude-sonnet-4-20250514-v1:0
+    label: claude-sonnet
+    config:
+      region: us-east-1
+      max_tokens: 5000
+      temperature: 0.2
+
+defaultTest:
+  options:
+    provider: bedrock:us.anthropic.claude-sonnet-4-20250514-v1:0
+  assert:
+    - type: is-json
+      metric: ValidJSON
+
+    - type: javascript
+      metric: SchemaCompliance
+      value: |
+        const obj = JSON.parse(output);
+        const hasOverview = typeof obj.overview === 'string' && obj.overview.length >= 10;
+        const hasRequirements = Array.isArray(obj.requirements) && obj.requirements.length >= 1;
+        const hasDeliverables = Array.isArray(obj.deliverables);
+        const hasEvalFactors = Array.isArray(obj.evaluationFactors);
+        const hasSC = obj.submissionCompliance && typeof obj.submissionCompliance === 'object';
+        return hasOverview && hasRequirements && hasDeliverables && hasEvalFactors && hasSC;
+
+    - type: javascript
+      metric: RequirementItemsValid
+      value: |
+        const obj = JSON.parse(output);
+        return obj.requirements.every(r =>
+          typeof r.requirement === 'string' && r.requirement.length >= 5 &&
+          typeof r.mustHave === 'boolean'
+        );
+
+    - type: javascript
+      metric: NoEvidenceFields
+      value: |
+        const obj = JSON.parse(output);
+        return !obj.requirements.some(r => r.evidence !== undefined);
+
+    - type: javascript
+      metric: RequirementCategoryValid
+      value: |
+        const obj = JSON.parse(output);
+        const allowed = ['TECHNICAL','SECURITY','COMPLIANCE','DELIVERABLES','STAFFING','OTHER'];
+        return obj.requirements.every(r => !r.category || allowed.includes(r.category));
+
+    - type: javascript
+      metric: DocumentTypeValid
+      value: |
+        const obj = JSON.parse(output);
+        const allowed = ['COVER_LETTER','EXECUTIVE_SUMMARY','UNDERSTANDING_OF_REQUIREMENTS','TECHNICAL_PROPOSAL','PROJECT_PLAN','TEAM_QUALIFICATIONS','PAST_PERFORMANCE','COST_PROPOSAL','MANAGEMENT_APPROACH','RISK_MANAGEMENT','COMPLIANCE_MATRIX','CERTIFICATIONS','APPENDICES','MANAGEMENT_PROPOSAL','PRICE_VOLUME','QUALITY_MANAGEMENT','OTHER'];
+        const docs = (obj.submissionCompliance?.requiredDocuments || []);
+        return docs.length === 0 || docs.every(d => allowed.includes(d.documentType));
+
+tests:
+  # ─── Test Case 1: DC Courts Legal Case Management ───
+  - description: "DC Courts — Legal Case & Document Management System (DCSC-26-RFP-60)"
+    vars:
+      solicitation: file://../../rfp-texts/dc-courts-legal-case-mgmt.txt
+    assert:
+      # Requirement count and content checks
+      - type: javascript
+        metric: RequirementCountMin
+        value: |
+          const obj = JSON.parse(output);
+          return obj.requirements.length >= 8;
+
+      - type: javascript
+        metric: HasCloudHostedCOTS
+        value: |
+          const obj = JSON.parse(output);
+          return obj.requirements.some(r => {
+            const t = r.requirement.toLowerCase();
+            return t.includes('cloud') && (t.includes('cots') || t.includes('commercial off'));
+          });
+
+      - type: javascript
+        metric: HasDocumentManagement
+        value: |
+          const obj = JSON.parse(output);
+          return obj.requirements.some(r => r.requirement.toLowerCase().includes('document management'));
+
+      - type: javascript
+        metric: HasCaseManagement
+        value: |
+          const obj = JSON.parse(output);
+          return obj.requirements.some(r => r.requirement.toLowerCase().includes('case management'));
+
+      - type: javascript
+        metric: HasLitigationHold
+        value: |
+          const obj = JSON.parse(output);
+          return obj.requirements.some(r => r.requirement.toLowerCase().includes('litigation hold'));
+
+      - type: javascript
+        metric: HasDataMigration
+        value: |
+          const obj = JSON.parse(output);
+          return obj.requirements.some(r => {
+            const t = r.requirement.toLowerCase();
+            return t.includes('migrat') || t.includes('1.2 tb') || t.includes('terabyte');
+          });
+
+      # Deliverables and eval factors
+      - type: javascript
+        metric: DeliverablesCountMin
+        value: |
+          const obj = JSON.parse(output);
+          return obj.deliverables.length >= 4;
+
+      - type: javascript
+        metric: EvalFactorsCount
+        value: |
+          const obj = JSON.parse(output);
+          return obj.evaluationFactors.length >= 3;
+
+      - type: javascript
+        metric: HasEvalFactorPoints
+        value: |
+          const obj = JSON.parse(output);
+          const joined = obj.evaluationFactors.join(' ');
+          return joined.includes('50') && joined.includes('25');
+
+      # Submission compliance checks
+      - type: javascript
+        metric: HasRequiredVolumes
+        value: |
+          const obj = JSON.parse(output);
+          return (obj.submissionCompliance.requiredVolumes || []).length >= 2;
+
+      - type: javascript
+        metric: HasTechProposalDoc
+        value: |
+          const obj = JSON.parse(output);
+          const docs = obj.submissionCompliance.requiredDocuments || [];
+          return docs.some(d =>
+            d.documentType === 'TECHNICAL_PROPOSAL' &&
+            (d.pageLimit || '').includes('20')
+          );
+
+      - type: javascript
+        metric: HasCostProposalDoc
+        value: |
+          const obj = JSON.parse(output);
+          const docs = obj.submissionCompliance.requiredDocuments || [];
+          return docs.some(d => d.documentType === 'COST_PROPOSAL' || d.documentType === 'PRICE_VOLUME');
+
+      - type: javascript
+        metric: HasFormatRequirements
+        value: |
+          const obj = JSON.parse(output);
+          const fmt = (obj.submissionCompliance.format || []).join(' ').toLowerCase();
+          return (fmt.includes('12') || fmt.includes('roman')) && (fmt.includes('pdf') || fmt.includes('email'));
+
+      # LLM-graded rubrics
+      - type: llm-rubric
+        metric: FieldExtractionAccuracy
+        threshold: 0.6
+        weight: 5
+        value: |
+          You are evaluating an AI's extraction of requirements from a government RFP.
+
+          GOLD STANDARD (expected correct output for DCSC-26-RFP-60):
+          - overview: Should mention COTS legal case/document management system for OGC, cloud-hosted on Azure FedRAMP Gov, document migration (~1.2 TB, ~390,000 files), AI-driven workflows
+          - requirements: At least 8 items including: cloud-hosted COTS system, document management with centralized database, case management with matter tracking, litigation hold tracking, document migration (~1.2 TB), cloud-managed services on Azure FedRAMP Gov, AI/automation objectives, compatibility with Courts' IT environment (AD, M365, DUO)
+          - deliverables: At least 4 including: software licenses/documentation, kick-off meeting, system installation/migration/implementation, post-implementation support/training, maintenance
+          - evaluationFactors: 3 factors — Technical Approach (50 pts), Experience & Qualifications (25 pts), Past Performance & Customer Service (25 pts); price evaluated separately for reasonableness
+          - submissionCompliance: 2 volumes (Technical + Price), Times New Roman 12pt, 1-inch margins, PDF via email, Technical Approach 20 pages, Cost Schedule 5 pages, Past Performance references (3-5), Attachment J.8 forms
+
+          Score 5 = matches gold on all fields. Score 3 = some incorrect/missing fields. Score 1 = mostly wrong.
+
+      - type: llm-rubric
+        metric: HallucinationDetection
+        threshold: 0.8
+        weight: 5
+        value: |
+          Check whether the AI output contains fabricated requirements data for DCSC-26-RFP-60.
+
+          WHAT COUNTS AS A HALLUCINATION:
+          - Requirements not mentioned or implied in the solicitation
+          - Fabricated evaluation criteria weights (correct: 50/25/25)
+          - Wrong page limits (correct: Tech Approach 20 pages, Cost 5 pages)
+          - Invented security certifications not in the RFP (FedRAMP is mentioned as hosting platform only)
+          - Required documents the solicitation does not specify
+
+          WHAT IS NOT A HALLUCINATION:
+          - Requirements paraphrased from the solicitation
+          - Category labels (TECHNICAL, SECURITY, etc.) applied to real requirements
+          - FedRAMP Azure Government as a hosting/security requirement (the solicitation requires the system be hosted on Microsoft Azure FedRAMP Government — this is a real requirement)
+          - Reasonable inferences from stated requirements
+          - Additional true details from the source document
+
+          Score 5 = all data grounded in source. Score 3 = one questionable item. Score 1 = multiple fabricated items.
+
+      - type: llm-rubric
+        metric: OmissionDiscipline
+        threshold: 0.8
+        weight: 5
+        value: |
+          For DCSC-26-RFP-60, check that the AI correctly captured all key fields:
+
+          MUST BE PRESENT:
+          - All 3 evaluation factors with correct point weights (50/25/25)
+          - Technical Approach 20-page limit in requiredDocuments or format
+          - At least 2 required volumes (Technical Proposal, Price Proposal)
+          - At least 3 requiredDocuments (TECHNICAL_PROPOSAL, COST_PROPOSAL, PAST_PERFORMANCE)
+          - Format rules: Times New Roman 12pt, PDF, email submission
+
+          Check that present fields contain actual extracted data, not placeholders like "UNKNOWN" or "N/A".
+
+          Score 5 = all key fields captured correctly. Score 3 = some fields missing. Score 1 = major omissions.
+
+  # ─── Test Case 2: DOT Airline Analysis & Scheduling ───
+  - description: "DOT — Airline Analysis and Scheduling Solution (693JK426R600002)"
+    vars:
+      solicitation: file://../../rfp-texts/airline-analysis-scheduling.txt
+    assert:
+      # Requirement count and content checks
+      - type: javascript
+        metric: RequirementCountMin
+        value: |
+          const obj = JSON.parse(output);
+          return obj.requirements.length >= 6;
+
+      - type: javascript
+        metric: HasGlobalData
+        value: |
+          const obj = JSON.parse(output);
+          return obj.requirements.some(r => {
+            const t = r.requirement.toLowerCase();
+            return t.includes('global') || (t.includes('origin') && t.includes('destination'));
+          });
+
+      - type: javascript
+        metric: HasScheduleData
+        value: |
+          const obj = JSON.parse(output);
+          return obj.requirements.some(r => r.requirement.toLowerCase().includes('schedule') || r.requirement.toLowerCase().includes('scheduling'));
+
+      - type: javascript
+        metric: HasWebBased
+        value: |
+          const obj = JSON.parse(output);
+          return obj.requirements.some(r => r.requirement.toLowerCase().includes('web'));
+
+      - type: javascript
+        metric: HasAIIntegration
+        value: |
+          const obj = JSON.parse(output);
+          return obj.requirements.some(r => {
+            const t = r.requirement.toLowerCase();
+            return t.includes(' ai ') || t.includes(' ai-') || t.includes('artificial intelligence');
+          });
+
+      # Deliverables and eval factors
+      - type: javascript
+        metric: DeliverablesCountMin
+        value: |
+          const obj = JSON.parse(output);
+          return obj.deliverables.length >= 2;
+
+      - type: javascript
+        metric: EvalFactorsCount
+        value: |
+          const obj = JSON.parse(output);
+          return obj.evaluationFactors.length >= 4;
+
+      - type: javascript
+        metric: HasTechCapabilityFactor
+        value: |
+          const obj = JSON.parse(output);
+          const joined = obj.evaluationFactors.join(' ').toLowerCase();
+          return joined.includes('technical');
+
+      # Submission compliance checks
+      - type: javascript
+        metric: HasRequiredVolumes
+        value: |
+          const obj = JSON.parse(output);
+          return (obj.submissionCompliance.requiredVolumes || []).length >= 2;
+
+      - type: javascript
+        metric: HasTechProposalDoc
+        value: |
+          const obj = JSON.parse(output);
+          const docs = obj.submissionCompliance.requiredDocuments || [];
+          return docs.some(d =>
+            d.documentType === 'TECHNICAL_PROPOSAL' &&
+            (d.pageLimit || '').includes('75')
+          );
+
+      - type: javascript
+        metric: HasFormatRequirements
+        value: |
+          const obj = JSON.parse(output);
+          const fmt = (obj.submissionCompliance.format || []).join(' ').toLowerCase();
+          return fmt.includes('11');
+
+      # LLM-graded rubrics
+      - type: llm-rubric
+        metric: FieldExtractionAccuracy
+        threshold: 0.6
+        weight: 5
+        value: |
+          You are evaluating an AI's extraction of requirements from a government RFP.
+
+          GOLD STANDARD (expected correct output for 693JK426R600002):
+          - overview: Should mention airline analysis/scheduling web-based application for DOT Office of Aviation Analysis, global aviation data, firm-fixed-price
+          - requirements: At least 6 items including: global OD/fare/schedule data, schedule updates minimum weekly, minimum 10 users, 24/7 access, web-based solution, AI integration with guardrails, mandatory pre-proposal demonstration, data going back to at least 2005, bulk CSV export
+          - deliverables: At least 2 including: software application and maintenance, provider travel training
+          - evaluationFactors: 4-5 factors in descending order of importance — Technical Capability/Approach/Data Frequency/Historical Comprehensiveness, Presentation/Demonstration, Web-based Application, Past Performance, Price; technical factors combined more important than price
+          - submissionCompliance: 2 volumes (Technical + Cost/Price), 11-point font minimum, 8.5x11 pages, Technical Proposal Part I 75 pages (amended from 60), Web-based Application Part III 3 pages per project, 3 past performance references within 5 years, 8+ years experience required
+
+          Score 5 = matches gold on all fields. Score 3 = some incorrect/missing. Score 1 = mostly wrong.
+
+      - type: llm-rubric
+        metric: HallucinationDetection
+        threshold: 0.8
+        weight: 5
+        value: |
+          Check whether the AI output contains fabricated requirements data for 693JK426R600002.
+
+          WHAT COUNTS AS A HALLUCINATION:
+          - Requirements not mentioned in the solicitation or its amendments
+          - Wrong page limits (correct: 75 pages for tech, amended from 60)
+          - Fabricated evaluation criteria not in the solicitation
+          - Security certifications not stated (no explicit FedRAMP requirement)
+          - Specific SLA/uptime percentages (not stated in the RFP)
+
+          WHAT IS NOT A HALLUCINATION:
+          - Requirements paraphrased from the solicitation or Q&A amendments
+          - Category labels applied to real requirements
+          - Noting that the page limit was amended
+          - NIST FIPS 200 compliance (mentioned in the solicitation)
+
+          Score 5 = all data grounded in source. Score 3 = one questionable item. Score 1 = multiple fabricated items.
+
+      - type: llm-rubric
+        metric: OmissionDiscipline
+        threshold: 0.8
+        weight: 5
+        value: |
+          For 693JK426R600002, check that key fields are captured:
+
+          MUST BE PRESENT:
+          - At least 4 evaluation factors including Technical Capability and Demonstration
+          - 75-page limit for Technical Proposal (amended, not the original 60)
+          - At least 2 required volumes
+          - AI integration requirements (added in Amendment 007)
+          - Pre-proposal demonstration requirement
+
+          SHOULD NOT fabricate FedRAMP requirements (not explicitly stated in the RFP).
+
+          Score 5 = all key fields captured. Score 3 = some missing. Score 1 = major omissions.
+
+  # ─── Test Case 3: FUSRAP Data Management Services (PWS) ───
+  - description: "USACE — FUSRAP Data Management Services (PWS — no Section L/M)"
+    vars:
+      solicitation: file://../../rfp-texts/fusrap-data-management.txt
+    assert:
+      # Requirement count and content checks
+      - type: javascript
+        metric: RequirementCountMin
+        value: |
+          const obj = JSON.parse(output);
+          return obj.requirements.length >= 5;
+
+      - type: javascript
+        metric: HasDatabaseHosting
+        value: |
+          const obj = JSON.parse(output);
+          return obj.requirements.some(r => {
+            const t = r.requirement.toLowerCase();
+            return t.includes('database') || t.includes('hosting') || t.includes('data management');
+          });
+
+      - type: javascript
+        metric: HasDigitization
+        value: |
+          const obj = JSON.parse(output);
+          return obj.requirements.some(r => r.requirement.toLowerCase().includes('digitiz'));
+
+      - type: javascript
+        metric: HasAISearch
+        value: |
+          const obj = JSON.parse(output);
+          return obj.requirements.some(r => r.requirement.toLowerCase().includes('ai'));
+
+      - type: javascript
+        metric: HasDroneRPAS
+        value: |
+          const obj = JSON.parse(output);
+          return obj.requirements.some(r => {
+            const t = r.requirement.toLowerCase();
+            return t.includes('drone') || t.includes('rpas') || t.includes('aerial') || t.includes('uas') || t.includes('lidar');
+          });
+
+      - type: javascript
+        metric: HasCMMC
+        value: |
+          const obj = JSON.parse(output);
+          return obj.requirements.some(r => r.requirement.toLowerCase().includes('cmmc'));
+
+      # Deliverables
+      - type: javascript
+        metric: DeliverablesCountMin
+        value: |
+          const obj = JSON.parse(output);
+          return obj.deliverables.length >= 3;
+
+      # Critical omission tests — PWS has no Section L/M
+      - type: javascript
+        metric: EvalFactorsEmpty
+        value: |
+          const obj = JSON.parse(output);
+          return obj.evaluationFactors.length === 0;
+
+      - type: javascript
+        metric: RequiredDocumentsEmpty
+        value: |
+          const obj = JSON.parse(output);
+          return (obj.submissionCompliance.requiredDocuments || []).length === 0;
+
+      - type: javascript
+        metric: RequiredVolumesEmpty
+        value: |
+          const obj = JSON.parse(output);
+          return (obj.submissionCompliance.requiredVolumes || []).length === 0;
+
+      # LLM-graded rubrics
+      - type: llm-rubric
+        metric: FieldExtractionAccuracy
+        threshold: 0.6
+        weight: 5
+        value: |
+          You are evaluating an AI's extraction from a government PWS (Performance Work Statement), NOT a full solicitation.
+
+          GOLD STANDARD (expected correct output for FUSRAP Data Management Services):
+          - overview: Should mention USACE, FUSRAP, data management/hosting for environmental remediation, IDIQ contract, DuPont Chambers Works site, Salem County NJ
+          - requirements: At least 5 items including: database hosting (environmental data, survey data, GIS, LiDAR), data digitization (microfilm scanning), AI-enhanced searches, drone/RPAS aerial survey with FAA-certified pilot, CMMC Level 1 compliance, CUI data segregation, site-specific data management plans
+          - deliverables: At least 3 including: monthly progress reports (ENG 93), meeting minutes (within 3 business days), project records, safety plans (QAPP, SOH Plan), CADD/GIS files
+          - evaluationFactors: MUST BE EMPTY [] — this is a PWS, not a solicitation with Section M
+          - submissionCompliance: MUST BE MOSTLY EMPTY — no required volumes, no required documents, no page limits (task orders have their own RFP Letters)
+
+          Score 5 = matches gold on all fields, especially correct empty arrays. Score 3 = some fields wrong. Score 1 = fabricated eval factors or submission requirements.
+
+      - type: llm-rubric
+        metric: HallucinationDetection
+        threshold: 0.8
+        weight: 5
+        value: |
+          Check whether the AI output contains fabricated data for the FUSRAP PWS.
+
+          THIS IS A PWS (Performance Work Statement), NOT A FULL SOLICITATION.
+          It has NO Section L (instructions) and NO Section M (evaluation criteria).
+
+          WHAT COUNTS AS A HALLUCINATION:
+          - ANY evaluation factors (the PWS does not contain evaluation criteria)
+          - ANY required proposal volumes (task orders are issued separately)
+          - ANY required documents with page limits (no submission instructions exist)
+          - Requirements not mentioned in the PWS
+          - Fabricated security certifications (correct: CMMC Level 1 mandatory, Level 2 possible)
+
+          WHAT IS NOT A HALLUCINATION:
+          - Requirements derived from PWS task descriptions and capability requirements
+          - Deliverables from the reporting/documentation sections
+          - CMMC, CUI, OSHA, EM 385-1-1 compliance items (all stated in the PWS)
+          - Category labels applied to real requirements
+
+          Score 5 = all data grounded, no fabricated submission/eval items. Score 3 = one fabricated item. Score 1 = invented eval factors or required documents.
+
+      - type: llm-rubric
+        metric: OmissionDiscipline
+        threshold: 0.8
+        weight: 5
+        value: |
+          For the FUSRAP PWS, the MOST IMPORTANT test is correct handling of absent fields.
+
+          MUST BE EMPTY:
+          - evaluationFactors: [] (no Section M exists — the model must NOT invent evaluation criteria)
+          - submissionCompliance.requiredDocuments: [] (no Section L exists)
+          - submissionCompliance.requiredVolumes: [] (no proposal structure defined at IDIQ level)
+
+          MUST BE PRESENT:
+          - Requirements covering database hosting, data digitization, CMMC, drone/aerial survey
+          - Deliverables covering monthly reports, meeting minutes, project records
+
+          Score 5 = all three arrays correctly empty AND requirements/deliverables populated.
+          Score 3 = one array incorrectly populated.
+          Score 1 = fabricated evaluation factors or required documents.

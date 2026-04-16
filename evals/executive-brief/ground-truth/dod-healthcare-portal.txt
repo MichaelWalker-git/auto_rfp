@@ -1,0 +1,57 @@
+GROUND TRUTH — Extracted from source solicitation HHM40225R0025
+
+=== IDENTIFICATION ===
+Solicitation Number: HHM40225R0025
+Title: COMET (exact program name from solicitation; NOT "Software Development Services for Healthcare Portal")
+Agency: Defense Intelligence Agency (DIA) / Missile & Space Intelligence Center
+Issuing Office: Virginia Contracting Activity (VCA), Bolling AFB, Bldg. 6000, Washington DC 20340-5100
+Administered By: Missile & Space Intelligence Center, Building 4545, Fowler Road, Redstone Arsenal AL 35898-5500
+Amendment Date: MAR 19, 2026 (original solicitation dated MAR 02, 2026)
+
+=== CONTRACT DETAILS ===
+Contract Type: IDIQ (Indefinite Delivery/Indefinite Quantity) — multiple awards to qualifying offerors
+Set-Aside: NOT SPECIFIED as set-aside in the solicitation
+NAICS: NOT EXPLICITLY STATED in the available text
+Estimated Value: NOT STATED — price is NOT an evaluation factor for IDIQ award; pricing evaluated at task order level
+Classification: UNCLASSIFIED proposals expected; TOP SECRET/SCI annex allowed if approved
+
+=== CONTACTS ===
+Contact 1: Noryem Maldonado (Contracting Officer)
+  - Email (unclassified): Noryem.Maldonado@dodiis.mil
+  - Email (classified/JWICS): Noryem.G.Maldonado@coe.ic.gov
+  - Phone: NOT PROVIDED in solicitation
+
+Contact 2: Willimenia Robinson (Contract Specialist)
+  - Email (unclassified): Willimenia.robinson@dodiis.mil
+  - Email (classified/JWICS): Willimenia.robinson2@coe.ic.gov
+  - Phone: NOT PROVIDED in solicitation
+
+=== DEADLINES ===
+Proposal Due Date: April 3, 2026 at 1700 HRS CST
+Questions Deadline: Referenced but exact date is in a table that was poorly formatted in extracted text
+
+=== KEY REQUIREMENTS ===
+- CMMC (Cybersecurity Maturity Model Certification) compliance required
+- DFARS 252.204-7021 and 252.204-7025 incorporated
+- Three-step evaluation process: Step 1 (Acceptability), Step 2, Step 3
+- Past Performance: Up to 5 examples demonstrating qualifications similar to COMET SOW requirements
+- Proposals must address services similar to COMET SOW
+- SCIF requirements referenced in SOW
+- Subcontracting plan required per FAR 52.219-9
+
+=== EVALUATION CRITERIA ===
+- Qualification-based (not comparative/competitive scoring)
+- Price NOT an evaluation factor for IDIQ award
+- Evaluation criteria in Section M
+- Technical Capability, Past Performance assessed for minimum qualification
+
+=== WHAT THIS IS NOT ===
+- This is NOT a healthcare portal solicitation
+- This is NOT for software development services
+- This is a defense intelligence IDIQ for COMET program services
+- The brief title "Software Development Services for Healthcare Portal" is COMPLETELY FABRICATED and does not match this solicitation
+
+=== INCUMBENT / COMPETITIVE LANDSCAPE ===
+- No incumbent mentioned in the solicitation
+- Multiple awards expected (qualifying offeror model)
+- Government support contractors involved in review: PRIMCORP LLC and KWAAN TECH LLC

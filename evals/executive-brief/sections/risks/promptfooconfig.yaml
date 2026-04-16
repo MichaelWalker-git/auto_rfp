@@ -1,0 +1,352 @@
+description: Executive Brief — Risks Extraction Eval
+
+# NOTE: In production, risks uses KB context and tool calling. This eval tests
+# extraction-only (solicitation text only, no KB/tools). Results may differ from
+# production where the model has access to company capability data.
+
+prompts:
+  - label: Current Production Prompt
+    id: file://../../prompts/risks-chat.json
+
+providers:
+  - id: bedrock:us.anthropic.claude-sonnet-4-20250514-v1:0
+    label: claude-sonnet
+    config:
+      region: us-east-1
+      max_tokens: 8000
+      temperature: 0.2
+
+defaultTest:
+  options:
+    provider: bedrock:us.anthropic.claude-sonnet-4-20250514-v1:0
+  assert:
+    - type: is-json
+      metric: ValidJSON
+
+    - type: javascript
+      metric: SchemaCompliance
+      value: |
+        const obj = JSON.parse(output);
+        const hasRisks = Array.isArray(obj.risks);
+        const hasRedFlags = Array.isArray(obj.redFlags);
+        const hasIncumbent = obj.incumbentInfo && typeof obj.incumbentInfo === 'object';
+        return hasRisks && hasRedFlags && hasIncumbent;
+
+    - type: javascript
+      metric: RiskItemsValid
+      value: |
+        const obj = JSON.parse(output);
+        const validSeverities = ['LOW', 'MEDIUM', 'HIGH', 'CRITICAL'];
+        const allRisks = [...obj.risks, ...obj.redFlags];
+        return allRisks.every(r =>
+          validSeverities.includes(r.severity) &&
+          typeof r.flag === 'string' && r.flag.length > 0 &&
+          typeof r.impactsScore === 'boolean'
+        );
+
+    - type: javascript
+      metric: NoEvidenceFields
+      value: |
+        const obj = JSON.parse(output);
+        const all = [...obj.risks, ...obj.redFlags];
+        return !all.some(r => r.evidence !== undefined);
+
+tests:
+  # ─── Test Case 1: DC Courts Legal Case Management ───
+  - description: "DC Courts — Legal Case & Document Management System (DCSC-26-RFP-60)"
+    vars:
+      solicitation: file://../../rfp-texts/dc-courts-legal-case-mgmt.txt
+    assert:
+      - type: javascript
+        metric: RiskCountMin
+        value: |
+          const obj = JSON.parse(output);
+          return (obj.risks.length + obj.redFlags.length) >= 3;
+
+      - type: javascript
+        metric: HasMigrationRisk
+        value: |
+          const obj = JSON.parse(output);
+          const all = [...obj.risks, ...obj.redFlags];
+          return all.some(r => r.flag.toLowerCase().includes('migrat'));
+
+      - type: javascript
+        metric: HasFedRAMPOrCloudRisk
+        value: |
+          const obj = JSON.parse(output);
+          const all = [...obj.risks, ...obj.redFlags];
+          return all.some(r => {
+            const t = r.flag.toLowerCase();
+            return t.includes('fedramp') || t.includes('cloud') || t.includes('azure');
+          });
+
+      - type: javascript
+        metric: HasTimelineRisk
+        value: |
+          const obj = JSON.parse(output);
+          const all = [...obj.risks, ...obj.redFlags];
+          return all.some(r => {
+            const t = r.flag.toLowerCase();
+            return t.includes('timeline') || t.includes('compressed') || t.includes('tight') || t.includes('deadline') || t.includes('response window') || t.includes('short') || t.includes('25 calendar');
+          });
+
+      - type: javascript
+        metric: IncumbentInfoCorrect
+        value: |
+          const obj = JSON.parse(output);
+          return obj.incumbentInfo.knownIncumbent === false;
+
+      # LLM-graded rubrics
+      - type: llm-rubric
+        metric: FieldExtractionAccuracy
+        threshold: 0.6
+        weight: 5
+        value: |
+          You are evaluating an AI's risk extraction from a government RFP.
+
+          GOLD STANDARD for DCSC-26-RFP-60 (DC Courts Legal Case Management):
+          - Key risks should include: compressed response timeline (~25 calendar days), FedRAMP cloud/Azure Gov requirement, document migration complexity (~1.2TB), security clearance requirements, extensive insurance requirements, on-site support requirements in DC
+          - incumbentInfo: knownIncumbent=false, recompete=false (no incumbent mentioned, new COTS procurement)
+          - Red flags may include: unlimited liability clause, compressed timeline + complex COTS requirements
+
+          Score 5 = captures major risks accurately. Score 3 = misses 1-2 key risks. Score 1 = mostly wrong.
+
+      - type: llm-rubric
+        metric: HallucinationDetection
+        threshold: 0.8
+        weight: 5
+        value: |
+          Check for fabricated risk information in DCSC-26-RFP-60 extraction.
+
+          WHAT COUNTS AS A HALLUCINATION:
+          - Risks with no basis in the solicitation text
+          - Fabricated incumbent names (no incumbent is mentioned)
+          - Claiming this is a recompete (it is not)
+          - Specific compliance requirements not in the source
+
+          WHAT IS NOT A HALLUCINATION:
+          - Timeline risk derived from issue date (March 30) and due date (April 24)
+          - FedRAMP/Azure risk derived from the IT environment requirements
+          - Migration risk derived from the data migration scope
+          - Insurance/liability risk derived from Section H requirements
+          - Standard government contracting risk patterns applied to real solicitation details
+
+          Score 5 = all risks grounded in source. Score 3 = one phantom risk. Score 1 = multiple fabricated risks.
+
+      - type: llm-rubric
+        metric: OmissionDiscipline
+        threshold: 0.6
+        weight: 5
+        value: |
+          For DCSC-26-RFP-60, check that the model identified the most critical risks:
+          - Document migration (~1.2TB, ~390,000 files) should be flagged
+          - FedRAMP/Azure Gov cloud requirement should be flagged
+          - Compressed timeline should be flagged
+          - incumbentInfo should correctly show no known incumbent
+
+          Score 5 = all major risks captured. Score 3 = one major risk missing. Score 1 = multiple key risks omitted.
+
+  # ─── Test Case 2: DOT Airline Analysis & Scheduling ───
+  - description: "DOT — Airline Analysis and Scheduling Solution (693JK426R600002)"
+    vars:
+      solicitation: file://../../rfp-texts/airline-analysis-scheduling.txt
+    assert:
+      - type: javascript
+        metric: RiskCountMin
+        value: |
+          const obj = JSON.parse(output);
+          return (obj.risks.length + obj.redFlags.length) >= 3;
+
+      - type: javascript
+        metric: HasIncumbentRisk
+        value: |
+          const obj = JSON.parse(output);
+          const all = [...obj.risks, ...obj.redFlags];
+          return all.some(r => {
+            const t = r.flag.toLowerCase();
+            return t.includes('incumbent') || t.includes('recompete') || t.includes('sabre');
+          });
+
+      - type: javascript
+        metric: HasDemoRequirement
+        value: |
+          const obj = JSON.parse(output);
+          const all = [...obj.risks, ...obj.redFlags];
+          return all.some(r => r.flag.toLowerCase().includes('demonstrat'));
+
+      - type: javascript
+        metric: HasNicheDataRisk
+        value: |
+          const obj = JSON.parse(output);
+          const all = [...obj.risks, ...obj.redFlags];
+          return all.some(r => {
+            const t = r.flag.toLowerCase();
+            return t.includes('niche') || t.includes('specialized') || t.includes('aviation') || t.includes('data requirement') || t.includes('few vendor') || t.includes('limited') || t.includes('barrier');
+          });
+
+      - type: javascript
+        metric: IncumbentInfoCorrect
+        value: |
+          const obj = JSON.parse(output);
+          return obj.incumbentInfo.knownIncumbent === true && obj.incumbentInfo.recompete === true;
+
+      - type: javascript
+        metric: IncumbentNameSabre
+        value: |
+          const obj = JSON.parse(output);
+          return (obj.incumbentInfo.incumbentName || '').toLowerCase().includes('sabre');
+
+      - type: javascript
+        metric: HasHighOrCriticalRisk
+        value: |
+          const obj = JSON.parse(output);
+          const all = [...obj.risks, ...obj.redFlags];
+          return all.some(r => r.severity === 'HIGH' || r.severity === 'CRITICAL');
+
+      # LLM-graded rubrics
+      - type: llm-rubric
+        metric: FieldExtractionAccuracy
+        threshold: 0.6
+        weight: 5
+        value: |
+          You are evaluating an AI's risk extraction from a government RFP.
+
+          GOLD STANDARD for 693JK426R600002 (DOT Airline Analysis):
+          - Key risks: strong incumbent advantage (Sabre, recompete), mandatory pre-proposal demonstration with tight deadline, niche/specialized aviation data requirements limiting competition, compressed timeline from demo to proposal to award
+          - incumbentInfo: knownIncumbent=true, incumbentName="Sabre", recompete=true, prior contract 693JK421C600002
+          - Red flags: recompete favoring incumbent, unchanged SOW, niche data requirements
+          - HIGH/CRITICAL severity expected for incumbent advantage risk
+
+          Score 5 = captures incumbent risk + demo + niche data risks. Score 3 = misses 1-2 key risks. Score 1 = mostly wrong.
+
+      - type: llm-rubric
+        metric: HallucinationDetection
+        threshold: 0.8
+        weight: 5
+        value: |
+          Check for fabricated risk information in 693JK426R600002 extraction.
+
+          WHAT COUNTS AS A HALLUCINATION:
+          - Risks not derivable from the solicitation or its amendments
+          - Wrong incumbent name (correct: Sabre)
+          - Fabricated contract values or specific financial risks not stated
+          - Security/compliance risks not mentioned in the solicitation
+
+          WHAT IS NOT A HALLUCINATION:
+          - Sabre as incumbent (explicitly mentioned in Q&A section)
+          - Recompete status (stated in the solicitation)
+          - Demo requirement risk (mandatory pre-proposal demonstration)
+          - Niche data risk (very few vendors can provide global aviation OD/schedule/fleet data)
+          - Timeline compression derived from stated dates
+          - NIST FIPS 200 compliance (mentioned in the solicitation)
+
+          Score 5 = all risks grounded. Score 3 = one phantom risk. Score 1 = multiple fabricated risks.
+
+      - type: llm-rubric
+        metric: OmissionDiscipline
+        threshold: 0.6
+        weight: 5
+        value: |
+          For 693JK426R600002, the MOST IMPORTANT extraction is incumbent info:
+          - Must identify Sabre as the incumbent
+          - Must flag this as a recompete
+          - Must identify the incumbent advantage as a significant risk
+          - Must flag the mandatory pre-proposal demonstration
+          - Must flag the niche/specialized data requirements
+
+          Score 5 = all key items captured. Score 3 = incumbent identified but missing other risks. Score 1 = missed incumbent entirely.
+
+  # ─── Test Case 3: FUSRAP Data Management Services (PWS) ───
+  - description: "USACE — FUSRAP Data Management Services (PWS)"
+    vars:
+      solicitation: file://../../rfp-texts/fusrap-data-management.txt
+    assert:
+      - type: javascript
+        metric: RiskCountMin
+        value: |
+          const obj = JSON.parse(output);
+          return (obj.risks.length + obj.redFlags.length) >= 3;
+
+      - type: javascript
+        metric: HasCMMCRisk
+        value: |
+          const obj = JSON.parse(output);
+          const all = [...obj.risks, ...obj.redFlags];
+          return all.some(r => r.flag.toLowerCase().includes('cmmc'));
+
+      - type: javascript
+        metric: HasRadiologicalOrSafetyRisk
+        value: |
+          const obj = JSON.parse(output);
+          const all = [...obj.risks, ...obj.redFlags];
+          return all.some(r => {
+            const t = r.flag.toLowerCase();
+            return t.includes('radiolog') || t.includes('hazard') || t.includes('hazwoper') || t.includes('safety') || t.includes('contaminat');
+          });
+
+      - type: javascript
+        metric: HasStaffingRisk
+        value: |
+          const obj = JSON.parse(output);
+          const all = [...obj.risks, ...obj.redFlags];
+          return all.some(r => {
+            const t = r.flag.toLowerCase();
+            return t.includes('staff') || t.includes('personnel') || t.includes('specialized') || t.includes('cross-disciplin') || t.includes('expertise');
+          });
+
+      - type: javascript
+        metric: IncumbentInfoCorrect
+        value: |
+          const obj = JSON.parse(output);
+          return obj.incumbentInfo.knownIncumbent === false;
+
+      # LLM-graded rubrics
+      - type: llm-rubric
+        metric: FieldExtractionAccuracy
+        threshold: 0.6
+        weight: 5
+        value: |
+          You are evaluating an AI's risk extraction from a government PWS.
+
+          GOLD STANDARD for FUSRAP Data Management Services:
+          - Key risks: CMMC Level 1 mandatory (Level 2 possible), radiological/hazardous site work (Rad II training, HAZWOPER), broad/specialized staffing requirements (IT + environmental + radiological + FAA drone pilot), IDIQ structure with undefined task order scope, CUI data handling, site access constraints at Chemours facility
+          - incumbentInfo: knownIncumbent=false, recompete=false (no incumbent mentioned in PWS)
+          - Red flags: high barrier to entry (CMMC + radiological + HAZWOPER + FAA pilot + environmental expertise)
+
+          Score 5 = captures CMMC + safety + staffing risks. Score 3 = misses 1-2 key risks. Score 1 = mostly wrong.
+
+      - type: llm-rubric
+        metric: HallucinationDetection
+        threshold: 0.8
+        weight: 5
+        value: |
+          Check for fabricated risk information in the FUSRAP PWS extraction.
+
+          WHAT COUNTS AS A HALLUCINATION:
+          - Fabricated incumbent names or claiming this is a recompete
+          - Risks not derivable from the PWS text
+          - FedRAMP requirements (not mentioned — CMMC is the framework here)
+          - Specific financial risks not stated in the PWS
+
+          WHAT IS NOT A HALLUCINATION:
+          - CMMC Level 1/2 compliance risks (stated in the PWS)
+          - Radiological/safety risks (FUSRAP site with uranium contamination history)
+          - Staffing breadth risk (IT + environmental + radiological + drone capabilities)
+          - IDIQ uncertainty (undefined task order volumes)
+          - CUI data handling requirements (stated in PWS)
+          - Site access constraints at Chemours facility
+
+          Score 5 = all risks grounded in PWS text. Score 3 = one phantom risk. Score 1 = multiple fabricated risks.
+
+      - type: llm-rubric
+        metric: OmissionDiscipline
+        threshold: 0.6
+        weight: 5
+        value: |
+          For the FUSRAP PWS, check that key risks are not missed:
+          - CMMC compliance requirement (mandatory Level 1, possible Level 2)
+          - Radiological/hazardous site work risks
+          - Broad staffing requirements spanning multiple disciplines
+          - incumbentInfo correctly shows no known incumbent
+
+          Score 5 = all major risks captured. Score 3 = one major risk missing. Score 1 = multiple key risks omitted.
