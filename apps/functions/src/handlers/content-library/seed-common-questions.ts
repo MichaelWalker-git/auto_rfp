@@ -55,14 +55,12 @@ const baseHandler = async (event: AuthedEvent): Promise<APIGatewayProxyResultV2>
     const now = nowIso();
 
     // Fetch existing content library items for this org to deduplicate
-    const existingItems = await queryBySkPrefix(
+    const existingItems = await queryBySkPrefix<{ question?: string }>(
       CONTENT_LIBRARY_PK,
       `${orgId}#`,
     );
     const existingQuestions = new Set(
-      existingItems.map((item: Record<string, unknown>) =>
-        (item.question as string)?.toLowerCase().trim(),
-      ),
+      existingItems.map((item) => item.question?.toLowerCase().trim()),
     );
 
     // Filter questions by priority

@@ -1,7 +1,7 @@
 'use client';
 
-import React from 'react';
-import { useParams, useRouter } from 'next/navigation';
+import React, { useEffect, useState } from 'react';
+import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -26,15 +26,24 @@ import {
   FormMessage,
 } from '@/components/ui/form';
 import { Separator } from '@/components/ui/separator';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Badge } from '@/components/ui/badge';
+import { Skeleton } from '@/components/ui/skeleton';
 import { 
   ArrowLeft,
   Loader2, 
   Briefcase,
-  Save
+  Save,
+  FileText,
+  Sparkles,
+  ExternalLink,
 } from 'lucide-react';
 import { useCreatePastProject } from '@/lib/hooks/use-past-performance';
+import { useConfirmDraft, useDrafts } from '@/lib/hooks/use-extraction';
+import { usePresignDownload } from '@/lib/hooks/use-presign';
 import { useToast } from '@/components/ui/use-toast';
 import Link from 'next/link';
+import type { PastProjectDraft } from '@auto-rfp/core';
 
 const PastProjectFormSchema = z.object({
   title: z.string().min(1, 'Title is required'),
@@ -63,9 +72,42 @@ type PastProjectFormData = z.infer<typeof PastProjectFormSchema>;
 export default function NewPastProjectPage() {
   const params = useParams();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const orgId = params.orgId as string;
+  const draftId = searchParams.get('draftId');
+  
   const createProject = useCreatePastProject();
+  const { confirmDraft } = useConfirmDraft();
+  const { drafts, isLoading: isDraftsLoading } = useDrafts<'PAST_PERFORMANCE'>(draftId ? orgId : undefined, { status: 'DRAFT', draftType: 'PAST_PERFORMANCE' });
   const { toast } = useToast();
+
+  const { trigger: presignDownload } = usePresignDownload();
+
+  // Find the draft if draftId is provided
+  const draft = draftId ? drafts.find(d => d.projectId === draftId) : undefined;
+  const isDraftMode = Boolean(draftId);
+  const [isFormReady, setIsFormReady] = useState(!isDraftMode);
+  const [isViewingSource, setIsViewingSource] = useState(false);
+
+  const handleViewSource = async () => {
+    const sourceKey = draft?.extractionSource?.sourceDocumentKey;
+    if (!sourceKey || isViewingSource) return;
+    
+    setIsViewingSource(true);
+    try {
+      const presign = await presignDownload({ key: sourceKey });
+      // Open in new tab - browsers will display PDFs inline, download docx
+      window.open(presign.url, '_blank', 'noopener,noreferrer');
+    } catch (err) {
+      toast({
+        title: 'Could not open document',
+        description: err instanceof Error ? err.message : 'Failed to get document URL.',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsViewingSource(false);
+    }
+  };
 
   const form = useForm<PastProjectFormData>({
     resolver: zodResolver(PastProjectFormSchema),
@@ -92,52 +134,129 @@ export default function NewPastProjectPage() {
     },
   });
 
+  // Pre-fill form when draft is loaded
+  useEffect(() => {
+    if (draft && isDraftMode) {
+      form.reset({
+        title: draft.title || '',
+        client: draft.client || '',
+        description: draft.description || '',
+        contractNumber: draft.contractNumber || '',
+        startDate: draft.startDate || '',
+        endDate: draft.endDate || '',
+        value: draft.value ?? undefined,
+        technicalApproach: draft.technicalApproach || '',
+        achievements: draft.achievements?.join('\n') || '',
+        performanceRating: draft.performanceRating ?? undefined,
+        domain: draft.domain || '',
+        technologies: draft.technologies?.join(', ') || '',
+        naicsCodes: draft.naicsCodes?.join(', ') || '',
+        contractType: draft.contractType || '',
+        setAside: draft.setAside || '',
+        teamSize: draft.teamSize ?? undefined,
+        clientPOCName: draft.clientPOC?.name || '',
+        clientPOCEmail: draft.clientPOC?.email || '',
+        clientPOCPhone: draft.clientPOC?.phone || '',
+      });
+      setIsFormReady(true);
+    }
+  }, [draft, isDraftMode, form]);
+
   const { formState: { isSubmitting } } = form;
+
+  const buildPayloadFromForm = (data: PastProjectFormData) => ({
+    title: data.title,
+    client: data.client,
+    description: data.description,
+    contractNumber: data.contractNumber || undefined,
+    startDate: data.startDate || undefined,
+    endDate: data.endDate || undefined,
+    value: data.value || undefined,
+    technicalApproach: data.technicalApproach || undefined,
+    achievements: data.achievements ? data.achievements.split('\n').filter(Boolean) : [],
+    performanceRating: data.performanceRating || undefined,
+    domain: data.domain || undefined,
+    technologies: data.technologies ? data.technologies.split(',').map(t => t.trim()).filter(Boolean) : [],
+    naicsCodes: data.naicsCodes ? data.naicsCodes.split(',').map(n => n.trim()).filter(Boolean) : [],
+    contractType: data.contractType || undefined,
+    setAside: data.setAside || undefined,
+    teamSize: data.teamSize || undefined,
+    clientPOC: data.clientPOCName ? {
+      name: data.clientPOCName,
+      email: data.clientPOCEmail || undefined,
+      phone: data.clientPOCPhone || undefined,
+    } : undefined,
+  });
 
   const onSubmit = async (data: PastProjectFormData) => {
     try {
-      const payload = {
-        orgId,
-        title: data.title,
-        client: data.client,
-        description: data.description,
-        contractNumber: data.contractNumber || undefined,
-        startDate: data.startDate || undefined,
-        endDate: data.endDate || undefined,
-        value: data.value || undefined,
-        technicalApproach: data.technicalApproach || undefined,
-        achievements: data.achievements ? data.achievements.split('\n').filter(Boolean) : [],
-        performanceRating: data.performanceRating || undefined,
-        domain: data.domain || undefined,
-        technologies: data.technologies ? data.technologies.split(',').map(t => t.trim()).filter(Boolean) : [],
-        naicsCodes: data.naicsCodes ? data.naicsCodes.split(',').map(n => n.trim()).filter(Boolean) : [],
-        contractType: data.contractType || undefined,
-        setAside: data.setAside || undefined,
-        teamSize: data.teamSize || undefined,
-        clientPOC: data.clientPOCName ? {
-          name: data.clientPOCName,
-          email: data.clientPOCEmail || undefined,
-          phone: data.clientPOCPhone || undefined,
-        } : undefined,
-      };
+      const payload = buildPayloadFromForm(data);
 
-      await createProject.trigger(payload);
-      
-      toast({
-        title: 'Project Created',
-        description: `"${data.title}" has been added to your past performance database.`,
-      });
+      if (isDraftMode && draftId) {
+        // Confirm draft with updates
+        await confirmDraft({ orgId, draftId, updates: payload });
+        toast({
+          title: 'Draft Confirmed',
+          description: `"${data.title}" has been added to your past performance database.`,
+        });
+      } else {
+        // Create new project
+        await createProject.trigger({ orgId, ...payload });
+        toast({
+          title: 'Project Created',
+          description: `"${data.title}" has been added to your past performance database.`,
+        });
+      }
       
       router.push(`/organizations/${orgId}/past-performance`);
     } catch (error) {
-      console.error('Failed to create past project:', error);
+      console.error('Failed to save past project:', error);
       toast({
         title: 'Error',
-        description: 'Failed to create project. Please try again.',
+        description: `Failed to ${isDraftMode ? 'confirm draft' : 'create project'}. Please try again.`,
         variant: 'destructive',
       });
     }
   };
+
+  // Show loading state while fetching draft
+  if (isDraftMode && (isDraftsLoading || !isFormReady)) {
+    return (
+      <div className="container max-w-4xl mx-auto py-6 px-4">
+        <div className="mb-6">
+          <div className="flex items-center gap-3">
+            <Skeleton className="h-10 w-10 rounded-lg" />
+            <Skeleton className="h-10 w-10 rounded-lg" />
+            <div className="space-y-2">
+              <Skeleton className="h-6 w-64" />
+              <Skeleton className="h-4 w-48" />
+            </div>
+          </div>
+        </div>
+        <div className="space-y-6">
+          <Card><CardContent className="py-8"><Skeleton className="h-32 w-full" /></CardContent></Card>
+          <Card><CardContent className="py-8"><Skeleton className="h-32 w-full" /></CardContent></Card>
+          <Card><CardContent className="py-8"><Skeleton className="h-32 w-full" /></CardContent></Card>
+        </div>
+      </div>
+    );
+  }
+
+  // Show error if draft not found
+  if (isDraftMode && !draft && !isDraftsLoading) {
+    return (
+      <div className="container max-w-4xl mx-auto py-6 px-4">
+        <Alert variant="destructive">
+          <AlertDescription>
+            Draft not found. It may have expired or been deleted.{' '}
+            <Link href={`/organizations/${orgId}/past-performance`} className="underline">
+              Return to Past Performance
+            </Link>
+          </AlertDescription>
+        </Alert>
+      </div>
+    );
+  }
 
   return (
     <div className="container max-w-4xl mx-auto py-6 px-4">
@@ -152,15 +271,63 @@ export default function NewPastProjectPage() {
             <ArrowLeft className="h-5 w-5" />
           </Link>
           <div className="p-2 bg-primary/10 rounded-lg">
-            <Briefcase className="h-6 w-6 text-primary" />
+            {isDraftMode ? (
+              <Sparkles className="h-6 w-6 text-primary" />
+            ) : (
+              <Briefcase className="h-6 w-6 text-primary" />
+            )}
           </div>
-          <div>
-            <h1 className="text-2xl font-bold">Add Past Performance Project</h1>
+          <div className="flex-1">
+            <div className="flex items-center gap-2">
+              <h1 className="text-2xl font-bold">
+                {isDraftMode ? 'Review & Confirm Extracted Data' : 'Add Past Performance Project'}
+              </h1>
+              {isDraftMode && (
+                <Badge variant="secondary" className="flex items-center gap-1">
+                  <FileText className="h-3 w-3" />
+                  From Document
+                </Badge>
+              )}
+            </div>
             <p className="text-muted-foreground">
-              Add a completed project to your database for RFP matching
+              {isDraftMode 
+                ? 'Review the AI-extracted data, make any corrections, then confirm to add to your database'
+                : 'Add a completed project to your database for RFP matching'}
             </p>
           </div>
         </div>
+        
+        {/* Draft source info */}
+        {isDraftMode && draft?.extractionSource && (
+          <Alert className="mt-4">
+            <FileText className="h-4 w-4" />
+            <AlertDescription className="flex items-center gap-2 flex-wrap">
+              <strong>Source:</strong>
+              {draft.extractionSource.sourceDocumentKey ? (
+                <button
+                  type="button"
+                  onClick={handleViewSource}
+                  disabled={isViewingSource}
+                  className="text-primary hover:underline font-medium inline-flex items-center gap-1 disabled:opacity-50"
+                  title="Click to view source document (PDFs open in browser, other files download)"
+                >
+                  {isViewingSource ? (
+                    <Loader2 className="h-3 w-3 animate-spin" />
+                  ) : null}
+                  {draft.extractionSource.sourceDocumentName || 'View source document'}
+                  <ExternalLink className="h-3 w-3" />
+                </button>
+              ) : (
+                <span>{draft.extractionSource.sourceDocumentName || 'Unknown document'}</span>
+              )}
+              {draft.fieldConfidence?.overall && (
+                <span className="ml-2 text-muted-foreground">
+                  • <strong>Confidence:</strong> {draft.fieldConfidence.overall}%
+                </span>
+              )}
+            </AlertDescription>
+          </Alert>
+        )}
       </div>
 
       <Form {...form}>
@@ -549,12 +716,16 @@ export default function NewPastProjectPage() {
               {isSubmitting ? (
                 <>
                   <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  Creating...
+                  {isDraftMode ? 'Confirming...' : 'Creating...'}
                 </>
               ) : (
                 <>
-                  <Save className="h-4 w-4 mr-2" />
-                  Create Project
+                  {isDraftMode ? (
+                    <Sparkles className="h-4 w-4 mr-2" />
+                  ) : (
+                    <Save className="h-4 w-4 mr-2" />
+                  )}
+                  {isDraftMode ? 'Confirm & Add to Library' : 'Create Project'}
                 </>
               )}
             </Button>
