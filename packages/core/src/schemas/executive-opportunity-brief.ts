@@ -4,6 +4,25 @@ import { PricingSectionSchema } from './pricing';
 import { RFPDocumentTypeSchema } from './rfp-document';
 
 /**
+ * Lenient ISO datetime schema for LLM-generated dates.
+ * Accepts valid ISO-8601 strings and passes them through.
+ * Invalid values (e.g. bare offsets like "-7:00") are coerced to null
+ * so they don't blow up Zod validation.
+ */
+const lenientDateTimeIso = z
+  .string()
+  .nullish()
+  .transform((v) => {
+    if (!v) return null;
+    // Quick structural check: must contain at least a date portion (YYYY-MM-DD)
+    if (!/^\d{4}-\d{2}-\d{2}/.test(v)) return null;
+    // Attempt to parse — reject anything Date can't handle
+    const d = new Date(v);
+    if (Number.isNaN(d.getTime())) return null;
+    return v;
+  });
+
+/**
  * Common enums
  */
 export const SectionStatusSchema = z.enum([
@@ -182,7 +201,7 @@ export type QuickSummary = z.infer<typeof QuickSummarySchema>;
 export const DeadlineSchema = z.object({
   type: z.string().nullish(),
   label: z.string().nullish(),
-  dateTimeIso: z.string().datetime({ offset: true }).nullish(),
+  dateTimeIso: lenientDateTimeIso,
   rawText: z.string().nullish(),
   timezone: z.string().nullish(),
   notes: z.string().nullish(),
@@ -193,7 +212,7 @@ export type Deadline = z.infer<typeof DeadlineSchema>;
 export const DeadlinesSectionSchema = z.object({
   deadlines: z.array(DeadlineSchema),
   hasSubmissionDeadline: z.boolean().nullish().default(false),
-  submissionDeadlineIso: z.string().datetime({ offset: true }).nullish().transform(v => v ?? undefined),
+  submissionDeadlineIso: lenientDateTimeIso.transform(v => v ?? undefined),
   warnings: z.array(z.string()).nullish().default([]),
 });
 
