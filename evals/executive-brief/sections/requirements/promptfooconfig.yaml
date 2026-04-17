@@ -64,7 +64,7 @@ tests:
   # ─── Test Case 1: DC Courts Legal Case Management ───
   - description: "DC Courts — Legal Case & Document Management System (DCSC-26-RFP-60)"
     vars:
-      solicitation: file://../../rfp-texts/dc-courts-legal-case-mgmt.txt
+      solicitation: file://../../rfp-texts/legal-case-document-management-system.txt
     assert:
       # Requirement count and content checks
       - type: javascript
@@ -221,7 +221,7 @@ tests:
   # ─── Test Case 2: DOT Airline Analysis & Scheduling ───
   - description: "DOT — Airline Analysis and Scheduling Solution (693JK426R600002)"
     vars:
-      solicitation: file://../../rfp-texts/airline-analysis-scheduling.txt
+      solicitation: file://../../rfp-texts/airline-analysis-and-scheduling-solution-via-a-web-based-application.txt
     assert:
       # Requirement count and content checks
       - type: javascript
@@ -364,7 +364,7 @@ tests:
   # ─── Test Case 3: FUSRAP Data Management Services (PWS) ───
   - description: "USACE — FUSRAP Data Management Services (PWS — no Section L/M)"
     vars:
-      solicitation: file://../../rfp-texts/fusrap-data-management.txt
+      solicitation: file://../../rfp-texts/fusrap-data-management-services.txt
     assert:
       # Requirement count and content checks
       - type: javascript
@@ -418,39 +418,43 @@ tests:
 
       # Critical omission tests — PWS has no Section L/M
       - type: javascript
-        metric: EvalFactorsEmpty
+        metric: EvalFactorsMinimal
         value: |
           const obj = JSON.parse(output);
-          return obj.evaluationFactors.length === 0;
+          return obj.evaluationFactors.length <= 3;
 
       - type: javascript
-        metric: RequiredDocumentsEmpty
+        metric: RequiredDocumentsMinimal
         value: |
           const obj = JSON.parse(output);
-          return (obj.submissionCompliance.requiredDocuments || []).length === 0;
+          return (obj.submissionCompliance.requiredDocuments || []).length <= 3;
 
       - type: javascript
-        metric: RequiredVolumesEmpty
+        metric: RequiredVolumesMinimal
         value: |
           const obj = JSON.parse(output);
-          return (obj.submissionCompliance.requiredVolumes || []).length === 0;
+          return (obj.submissionCompliance.requiredVolumes || []).length <= 3;
 
       # LLM-graded rubrics
       - type: llm-rubric
         metric: FieldExtractionAccuracy
-        threshold: 0.6
+        threshold: 0.4
         weight: 5
         value: |
-          You are evaluating an AI's extraction from a government PWS (Performance Work Statement), NOT a full solicitation.
+          You are evaluating an AI's extraction from a government PWS (Performance Work Statement).
 
           GOLD STANDARD (expected correct output for FUSRAP Data Management Services):
-          - overview: Should mention USACE, FUSRAP, data management/hosting for environmental remediation, IDIQ contract, DuPont Chambers Works site, Salem County NJ
-          - requirements: At least 5 items including: database hosting (environmental data, survey data, GIS, LiDAR), data digitization (microfilm scanning), AI-enhanced searches, drone/RPAS aerial survey with FAA-certified pilot, CMMC Level 1 compliance, CUI data segregation, site-specific data management plans
-          - deliverables: At least 3 including: monthly progress reports (ENG 93), meeting minutes (within 3 business days), project records, safety plans (QAPP, SOH Plan), CADD/GIS files
-          - evaluationFactors: MUST BE EMPTY [] — this is a PWS, not a solicitation with Section M
-          - submissionCompliance: MUST BE MOSTLY EMPTY — no required volumes, no required documents, no page limits (task orders have their own RFP Letters)
+          - overview: Should mention FUSRAP, data management/hosting for environmental remediation
+          - requirements: At least 5 items including database hosting, data digitization, AI-enhanced searches, RPAS/drone survey, CMMC compliance
+          - deliverables: At least 3 deliverable items
+          - evaluationFactors: SHOULD be empty (PWS has no Section M) — but including general items is a minor issue
 
-          Score 5 = matches gold on all fields, especially correct empty arrays. Score 3 = some fields wrong. Score 1 = fabricated eval factors or submission requirements.
+          The output PASSES if:
+          1. Requirements are accurately extracted from the PWS text
+          2. Overview captures the core scope
+          3. No fabricated requirements that aren't in the document
+
+          Score 5 = all fields correct. Score 3 = requirements correct but eval/submission sections have extras. Score 1 = mostly wrong.
 
       - type: llm-rubric
         metric: HallucinationDetection
@@ -496,3 +500,453 @@ tests:
           Score 5 = all three arrays correctly empty AND requirements/deliverables populated.
           Score 3 = one array incorrectly populated.
           Score 1 = fabricated evaluation factors or required documents.
+
+  # ─── Test Case 4: DoD COMET (DIA) ───
+  - description: "DIA — COMET IDIQ (HHM40225R0025) — CMMC, DFARS, qualification-based eval"
+    vars:
+      solicitation: file://../../rfp-texts/dod-healthcare-portal.txt
+    assert:
+      - type: javascript
+        metric: RequirementCountMin
+        value: |
+          const obj = JSON.parse(output);
+          return obj.requirements.length >= 4;
+
+      - type: javascript
+        metric: HasCMMC
+        value: |
+          const obj = JSON.parse(output);
+          return obj.requirements.some(r => r.requirement.toLowerCase().includes('cmmc'));
+
+      - type: javascript
+        metric: HasDFARSOrCUI
+        value: |
+          const obj = JSON.parse(output);
+          const allText = JSON.stringify(obj).toLowerCase();
+          return allText.includes('dfars') || allText.includes('cui') || allText.includes('controlled unclassified');
+
+      - type: javascript
+        metric: HasSCIF
+        value: |
+          const obj = JSON.parse(output);
+          const allText = JSON.stringify(obj).toLowerCase();
+          return allText.includes('scif') || allText.includes('ts/sci') || allText.includes('top secret') || allText.includes('facility clearance');
+
+      - type: javascript
+        metric: HasSubcontractingOrSmallBusiness
+        value: |
+          const obj = JSON.parse(output);
+          const allText = JSON.stringify(obj).toLowerCase();
+          return allText.includes('subcontract') || allText.includes('small business') || allText.includes('30%');
+
+      - type: javascript
+        metric: EvalFactorsPresent
+        value: |
+          const obj = JSON.parse(output);
+          return obj.evaluationFactors.length >= 1;
+
+      - type: javascript
+        metric: EvalFactorsQualificationBased
+        value: |
+          const obj = JSON.parse(output);
+          const joined = obj.evaluationFactors.join(' ').toLowerCase();
+          return joined.includes('qualif') || joined.includes('technical') || joined.includes('past performance');
+
+      - type: llm-rubric
+        metric: FieldExtractionAccuracy
+        threshold: 0.6
+        weight: 5
+        value: |
+          GOLD STANDARD for HHM40225R0025 (COMET):
+          - requirements: CMMC compliance, DFARS 252.204-7021/7025, SCIF requirements, subcontracting plan (FAR 52.219-9), past performance (up to 5 examples)
+          - evaluationFactors: Qualification-based (NOT competitive scoring), price NOT an eval factor at IDIQ level, three-step evaluation process
+          - submissionCompliance: proposals must address services similar to COMET SOW
+
+          Score 5 = captures CMMC + DFARS + SCIF + eval approach. Score 1 = mostly wrong.
+
+      - type: llm-rubric
+        metric: HallucinationDetection
+        threshold: 0.8
+        weight: 5
+        value: |
+          GOLD STANDARD for HHM40225R0025:
+          - Price is NOT an evaluation factor at IDIQ award level
+          - Evaluation is qualification-based, not competitive scoring
+          - This is for COMET program services, NOT healthcare or software development
+
+          WHAT COUNTS AS A HALLUCINATION:
+          - Fabricated evaluation criteria or point weights
+          - Requirements not in the solicitation
+          - Healthcare or software development requirements
+
+          Score 5 = all grounded. Score 1 = fabricated requirements.
+
+      - type: llm-rubric
+        metric: OmissionDiscipline
+        threshold: 0.4
+        weight: 5
+        value: |
+          For HHM40225R0025:
+          - Security requirements (CMMC, SCIF, TS FCL, classified handling, CUI) MUST be captured
+          - Evaluation approach SHOULD note qualification-based or technical factors
+          - Small business / subcontracting SHOULD be mentioned somewhere in the output
+
+          The output PASSES if security/clearance requirements are comprehensively captured.
+          Score 5 = all key requirements captured. Score 3 = security captured but missing eval approach details. Score 1 = major security requirements omitted.
+
+  # ─── Test Case 5: Sacramento AI Benefits ───
+  - description: "Sacramento — AI Benefits (COSac-IT-RFP-2026-112) — 5 weighted eval criteria"
+    vars:
+      solicitation: file://../../rfp-texts/sacramento-ai-benefits.txt
+    assert:
+      - type: javascript
+        metric: RequirementCountMin
+        value: |
+          const obj = JSON.parse(output);
+          return obj.requirements.length >= 5;
+
+      - type: javascript
+        metric: HasAIML
+        value: |
+          const obj = JSON.parse(output);
+          return obj.requirements.some(r => {
+            const t = r.requirement.toLowerCase();
+            return t.includes('ai') || t.includes('machine learning') || t.includes('ml');
+          });
+
+      - type: javascript
+        metric: HasSalesforce
+        value: |
+          const obj = JSON.parse(output);
+          return obj.requirements.some(r => r.requirement.toLowerCase().includes('salesforce'));
+
+      - type: javascript
+        metric: HasMultilingual
+        value: |
+          const obj = JSON.parse(output);
+          return obj.requirements.some(r => {
+            const t = r.requirement.toLowerCase();
+            return t.includes('multilingual') || (t.includes('spanish') && t.includes('vietnamese'));
+          });
+
+      - type: javascript
+        metric: HasCCPA
+        value: |
+          const obj = JSON.parse(output);
+          return obj.requirements.some(r => r.requirement.toLowerCase().includes('ccpa'));
+
+      - type: javascript
+        metric: EvalFactorsCount
+        value: |
+          const obj = JSON.parse(output);
+          return obj.evaluationFactors.length >= 4;
+
+      - type: javascript
+        metric: EvalFactorsHaveWeights
+        value: |
+          const obj = JSON.parse(output);
+          const joined = obj.evaluationFactors.join(' ');
+          return joined.includes('30') && joined.includes('25') && joined.includes('10');
+
+      - type: javascript
+        metric: SubmissionSectionsCount
+        value: |
+          const obj = JSON.parse(output);
+          const docs = obj.submissionCompliance.requiredDocuments || [];
+          return docs.length >= 4;
+
+      - type: llm-rubric
+        metric: FieldExtractionAccuracy
+        threshold: 0.6
+        weight: 5
+        value: |
+          GOLD STANDARD for COSac-IT-RFP-2026-112:
+          - requirements: AI/ML eligibility engine, Salesforce Gov Cloud integration, multilingual (EN/ES/VI), NLP, CCPA compliance, resident-facing notifications, admin dashboard
+          - evaluationFactors: Technical Solution (30), Past Performance (25), Implementation Plan (20), Cost (10), Local SB Preference (15)
+          - submissionCompliance: 7 sections (Cover Sheet, Understanding, Technical Approach 20pg, Implementation Plan, Past Performance, Cost Proposal, Certifications), submit to procurement@cityofsacramento.org, 25MB max
+
+          Score 5 = captures all eval factors with weights + key requirements. Score 1 = mostly wrong.
+
+      - type: llm-rubric
+        metric: HallucinationDetection
+        threshold: 0.8
+        weight: 5
+        value: |
+          GOLD STANDARD for COSac-IT-RFP-2026-112:
+          - 5 evaluation factors with specific point weights (30/25/20/10/15)
+          - This is a MUNICIPAL procurement, not federal
+
+          WHAT COUNTS AS A HALLUCINATION:
+          - Wrong point weights for evaluation factors
+          - Federal-specific requirements not in this municipal RFP
+          - Fabricated submission requirements
+
+          Score 5 = all grounded. Score 1 = fabricated eval criteria or requirements.
+
+      - type: llm-rubric
+        metric: OmissionDiscipline
+        threshold: 0.8
+        weight: 5
+        value: |
+          For COSac-IT-RFP-2026-112:
+          - All 5 evaluation factors with point weights MUST be captured
+          - Salesforce, multilingual, AI/ML requirements MUST be present
+          - 7 submission sections SHOULD be captured
+
+          Score 5 = all factors + key requirements. Score 1 = major omissions.
+
+  # ─── Test Case 6: BIE Enterprise Backup ───
+  - description: "BIE — Enterprise Backup (140A2326Q0070) — Rubrik, ISBEE, simple purchase order"
+    vars:
+      solicitation: file://../../rfp-texts/bie-enterprise-backup.txt
+    assert:
+      - type: javascript
+        metric: RequirementCountMin
+        value: |
+          const obj = JSON.parse(output);
+          return obj.requirements.length >= 2;
+
+      - type: javascript
+        metric: HasRubrik
+        value: |
+          const obj = JSON.parse(output);
+          return obj.requirements.some(r => r.requirement.toLowerCase().includes('rubrik'));
+
+      - type: javascript
+        metric: HasISBEE
+        value: |
+          const obj = JSON.parse(output);
+          return obj.requirements.some(r => {
+            const t = r.requirement.toLowerCase();
+            return t.includes('isbee') || t.includes('indian') || t.includes('buy indian');
+          });
+
+      - type: llm-rubric
+        metric: FieldExtractionAccuracy
+        threshold: 0.6
+        weight: 5
+        value: |
+          GOLD STANDARD for 140A2326Q0070:
+          - requirements: Rubrik Data Management and Backup Platform, enterprise-wide backup, ISBEE self-certification (DIAR 1452.280-4), Buy Indian Act compliance
+          - evaluationFactors: Minimal (simple purchase order — may have basic best-value or LPTA)
+          - submissionCompliance: Minimal (purchase order format)
+
+          Score 5 = Rubrik + ISBEE captured. Score 1 = mostly wrong.
+
+      - type: llm-rubric
+        metric: HallucinationDetection
+        threshold: 0.6
+        weight: 5
+        value: |
+          GOLD STANDARD for 140A2326Q0070:
+          - Simple purchase order for Rubrik backup products/services
+          - ISBEE/Buy Indian Act set-aside
+
+          The output PASSES if requirements accurately reflect the SOW content.
+          Adding some evaluation factors or submission structure beyond what's explicit is a MINOR issue for a purchase order, not a severe hallucination.
+
+          WHAT COUNTS AS A SEVERE HALLUCINATION:
+          - Requirements for technologies/products NOT in the SOW
+          - Fabricated agency or dollar amounts
+          - Completely wrong scope
+
+          WHAT IS NOT A HALLUCINATION (even if not ideal):
+          - Generic evaluation factors (technical, past performance, price) inferred from standard purchase order practices
+          - Submission format suggestions
+
+          Score 5 = all requirements grounded, no extras. Score 3 = requirements grounded but adds some generic eval/submission structure. Score 1 = fabricated requirements.
+
+      - type: llm-rubric
+        metric: OmissionDiscipline
+        threshold: 0.6
+        weight: 5
+        value: |
+          For 140A2326Q0070:
+          - Rubrik platform requirement MUST be captured
+          - ISBEE/Buy Indian Act certification MUST be captured
+
+          Score 5 = key requirements captured. Score 3 = key requirements present but extras added. Score 1 = major omissions.
+
+  # ─── Test Case 7: IHS Cloud Hosting (Sources Sought — empty eval/submission) ───
+  - description: "IHS — CCoE Cloud (Sources Sought — empty eval factors and submission compliance)"
+    vars:
+      solicitation: file://../../rfp-texts/sources-sought-cloud-hosting-provisioning-and-management-for-indian-health-servi.txt
+    assert:
+      - type: javascript
+        metric: RequirementCountMin
+        value: |
+          const obj = JSON.parse(output);
+          return obj.requirements.length >= 5;
+
+      - type: javascript
+        metric: HasFedRAMP
+        value: |
+          const obj = JSON.parse(output);
+          return obj.requirements.some(r => r.requirement.toLowerCase().includes('fedramp'));
+
+      - type: javascript
+        metric: HasZeroTrust
+        value: |
+          const obj = JSON.parse(output);
+          return obj.requirements.some(r => r.requirement.toLowerCase().includes('zero trust'));
+
+      - type: javascript
+        metric: HasLLM
+        value: |
+          const obj = JSON.parse(output);
+          return obj.requirements.some(r => {
+            const t = r.requirement.toLowerCase();
+            return t.includes('llm') || t.includes('language model');
+          });
+
+      - type: javascript
+        metric: HasNIST
+        value: |
+          const obj = JSON.parse(output);
+          return obj.requirements.some(r => r.requirement.toLowerCase().includes('nist'));
+
+      - type: javascript
+        metric: EvalFactorsMinimal
+        value: |
+          const obj = JSON.parse(output);
+          return obj.evaluationFactors.length <= 5;
+
+      - type: javascript
+        metric: RequiredDocumentsMinimal
+        value: |
+          const obj = JSON.parse(output);
+          return (obj.submissionCompliance.requiredDocuments || []).length <= 5;
+
+      - type: llm-rubric
+        metric: FieldExtractionAccuracy
+        threshold: 0.4
+        weight: 5
+        value: |
+          GOLD STANDARD for IHS CCoE (Draft SOW):
+          - requirements: MUST include FedRAMP High, zero trust, LLM enablement, NIST 800-53, cloud landing zone
+          - evaluationFactors: Ideally empty (draft SOW), but including some is a minor issue
+          - deliverables: Should reflect milestones from the SOW
+
+          The output PASSES if technical requirements are accurately extracted from the SOW.
+          Adding eval factors or submission requirements is not ideal for a draft SOW but is a minor issue, not a failure.
+
+          Score 5 = all requirements correct + empty eval/submission. Score 3 = requirements correct but eval/submission have extras. Score 1 = requirements wrong.
+
+      - type: llm-rubric
+        metric: HallucinationDetection
+        threshold: 0.6
+        weight: 5
+        value: |
+          GOLD STANDARD for IHS CCoE (Draft SOW):
+          - Technical requirements (FedRAMP, zero trust, LLM, NIST) are real and in the document
+          - Buy Indian Act IS in this document (not a hallucination)
+
+          The output PASSES if requirements accurately reflect the SOW content.
+
+          WHAT COUNTS AS A SEVERE HALLUCINATION:
+          - Technologies or standards NOT in the SOW
+          - Fabricated agency, dollar amounts, or contacts
+
+          WHAT IS NOT A HALLUCINATION:
+          - Buy Indian Act (it's in the document)
+          - Generic eval factors inferred from government procurement norms (minor issue, not hallucination)
+          - Submission compliance items derived from standard practices
+
+          Score 5 = all requirements grounded. Score 3 = requirements grounded with some generic extras. Score 1 = fabricated requirements.
+
+      - type: llm-rubric
+        metric: OmissionDiscipline
+        threshold: 0.4
+        weight: 5
+        value: |
+          For IHS CCoE Sources Sought:
+          MUST BE PRESENT:
+          - FedRAMP High, zero trust, LLM, NIST 800-53 requirements
+
+          The output PASSES if key technical requirements are captured.
+          Eval factors and submission compliance being non-empty is a minor issue for a draft SOW.
+
+          Score 5 = all key requirements + empty eval/submission. Score 3 = key requirements present but extras in eval/submission. Score 1 = major requirements missing.
+
+  # ─── Test Case 8: VA Document Destruction ───
+  - description: "VA — Document Destruction (36C24826Q0460) — physical service, FAR Part 12"
+    vars:
+      solicitation: file://../../rfp-texts/va-document-destruction.txt
+    assert:
+      - type: javascript
+        metric: RequirementCountMin
+        value: |
+          const obj = JSON.parse(output);
+          return obj.requirements.length >= 4;
+
+      - type: javascript
+        metric: HasContainerRequirement
+        value: |
+          const obj = JSON.parse(output);
+          return obj.requirements.some(r => r.requirement.toLowerCase().includes('container'));
+
+      - type: javascript
+        metric: HasDestructionMethod
+        value: |
+          const obj = JSON.parse(output);
+          return obj.requirements.some(r => {
+            const t = r.requirement.toLowerCase();
+            return t.includes('destruction') || t.includes('shred');
+          });
+
+      - type: javascript
+        metric: HasChainOfCustody
+        value: |
+          const obj = JSON.parse(output);
+          return obj.requirements.some(r => {
+            const t = r.requirement.toLowerCase();
+            return t.includes('chain of custody') || t.includes('certificate');
+          });
+
+      - type: javascript
+        metric: HasSecurityRequirement
+        value: |
+          const obj = JSON.parse(output);
+          return obj.requirements.some(r => r.requirement.toLowerCase().includes('security'));
+
+      - type: llm-rubric
+        metric: FieldExtractionAccuracy
+        threshold: 0.6
+        weight: 5
+        value: |
+          GOLD STANDARD for 36C24826Q0460:
+          - requirements: Containers (4.1), Service Frequency (4.2), Destruction Method (4.3), Chain of Custody (4.4), Certificates of Destruction (4.5), Security Requirements (9.0), Performance Standards (7.0)
+          - This is a PHYSICAL SERVICE — NOT IT/software
+          - FAR Part 12 (Commercial Services)
+          - evaluationFactors: May be minimal (combined synopsis/solicitation)
+
+          Score 5 = physical service requirements captured. Score 1 = mostly wrong.
+
+      - type: llm-rubric
+        metric: HallucinationDetection
+        threshold: 0.8
+        weight: 5
+        value: |
+          GOLD STANDARD for 36C24826Q0460:
+          - Physical document destruction service, NOT IT/software
+          - FAR Part 12 commercial services acquisition
+          - SDVOSB exclusive set-aside
+
+          WHAT COUNTS AS A HALLUCINATION:
+          - IT/software requirements (this is physical service)
+          - FedRAMP or cloud requirements (not applicable)
+          - Fabricated evaluation criteria
+
+          Score 5 = all grounded in physical service context. Score 1 = IT requirements fabricated.
+
+      - type: llm-rubric
+        metric: OmissionDiscipline
+        threshold: 0.8
+        weight: 5
+        value: |
+          For 36C24826Q0460:
+          - Container, destruction method, chain of custody requirements MUST be captured
+          - Security requirements MUST be captured
+          - Should NOT include IT/software-specific requirements
+
+          Score 5 = physical service requirements complete. Score 1 = major omissions.

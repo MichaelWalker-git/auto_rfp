@@ -37,6 +37,7 @@ import {
   markSectionInProgress,
   queryCompanyKnowledgeBase,
   sanitizeSummaryResponse,
+  smartTruncate,
   truncateText,
 } from '@/helpers/executive-opportunity-brief';
 import { syncRequiredDocumentsToCustomTypes } from '@/helpers/custom-document-types';
@@ -74,7 +75,8 @@ const SCORING_WEIGHTS: Record<string, number> = {
 };
 
 const BEDROCK_MODEL_ID = requireEnv('BEDROCK_MODEL_ID');
-const MAX_SOLICITATION_CHARS = Number(requireEnv('BRIEF_MAX_SOLICITATION_CHARS', '45000'));
+const MAX_SOLICITATION_CHARS = Number(requireEnv('BRIEF_MAX_SOLICITATION_CHARS', '150000'));
+const MAX_SOLICITATION_CHARS_REQUIREMENTS = Number(requireEnv('BRIEF_MAX_SOLICITATION_CHARS_REQUIREMENTS', '200000'));
 const DOCUMENTS_BUCKET = requireEnv('DOCUMENTS_BUCKET');
 
 /**
@@ -235,8 +237,8 @@ async function runSummary(job: Job): Promise<void> {
         console.warn('[SUMMARY] Fallback schema succeeded — missing optional fields will use defaults');
         data = {
           ...fallbackData,
-          contractType: (fallbackData as Record<string, unknown>).contractType ?? 'UNKNOWN',
-          setAside: (fallbackData as Record<string, unknown>).setAside ?? 'UNKNOWN',
+          contractType: (fallbackData as Record<string, unknown>).contractType ?? undefined,
+          setAside: (fallbackData as Record<string, unknown>).setAside ?? undefined,
         };
       } catch (fallbackErr) {
         console.error('[SUMMARY] Fallback also failed:', (fallbackErr as Error)?.message);
@@ -283,7 +285,8 @@ async function runDeadlines(job: Job): Promise<void> {
     await markSectionInProgress({ executiveBriefId, section: 'deadlines', inputHash });
 
     const { solicitationText: rawText } = await loadSolicitationWithOpportunity(brief, orgId);
-    const solicitationText = truncateText(rawText, MAX_SOLICITATION_CHARS);
+    // Use smart truncation: amendment deadlines often appear near the end of large RFPs
+    const solicitationText = smartTruncate(rawText, MAX_SOLICITATION_CHARS);
 
     // Deadlines: pure extraction from solicitation — no tools needed
     const data = await invokeClaudeJson({
@@ -337,7 +340,8 @@ async function runRequirements(job: Job): Promise<void> {
     await markSectionInProgress({ executiveBriefId, section: 'requirements', inputHash });
 
     const { solicitationText: rawText } = await loadSolicitationWithOpportunity(brief, orgId);
-    const solicitationText = truncateText(rawText, MAX_SOLICITATION_CHARS);
+    // Use smart truncation: preserves head (SOW/CLINs) + tail (Section L/M eval criteria)
+    const solicitationText = smartTruncate(rawText, MAX_SOLICITATION_CHARS_REQUIREMENTS);
 
     const data = await invokeClaudeJson({
       modelId: BEDROCK_MODEL_ID,

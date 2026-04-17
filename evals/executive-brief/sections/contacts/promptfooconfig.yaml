@@ -51,7 +51,7 @@ tests:
   # ─── Test Case 1: DC Courts Legal Case Management ───
   - description: "DC Courts — Legal Case & Document Management System (DCSC-26-RFP-60)"
     vars:
-      solicitation: file://../../rfp-texts/dc-courts-legal-case-mgmt.txt
+      solicitation: file://../../rfp-texts/legal-case-document-management-system.txt
     assert:
       - type: javascript
         metric: ContactCountMin
@@ -135,6 +135,8 @@ tests:
           - Grace Alao, Senior Contract Specialist, grace.alao@dccsystem.gov
           - Sherri Evans Harris, General Counsel / COTR, officegeneralcounsel@dccsystem.gov, 202-879-1627
           - Darlene D. Reynolds, Procurement and Contracts Branch Manager / Contracting Officer, 510 4th Street NW, Washington DC 20001 (Section G.7, no email/phone listed)
+          - Anne B. Wicks, Executive Officer, District of Columbia Courts (mentioned in document)
+          - Louis W. Parker, Administrative Officer, District of Columbia Courts (mentioned in document)
           - IPP helpdesk: IPPCustomerSupport@fiscal.treasury.gov, (866) 973-3131 (payment system, optional)
 
           WHAT COUNTS AS A HALLUCINATION:
@@ -144,6 +146,7 @@ tests:
           WHAT IS NOT A HALLUCINATION:
           - Classifying Grace Alao as CONTRACT_SPECIALIST
           - Classifying Sherri Evans Harris as CONTRACTING_OFFICER_REPRESENTATIVE
+          - Including Anne B. Wicks or Louis W. Parker as OTHER contacts (they appear in the document)
           - Including the IPP helpdesk as an OTHER contact
           - Noting the CO is unnamed
 
@@ -166,7 +169,7 @@ tests:
   # ─── Test Case 2: DOT Airline Analysis & Scheduling ───
   - description: "DOT — Airline Analysis and Scheduling Solution (693JK426R600002)"
     vars:
-      solicitation: file://../../rfp-texts/airline-analysis-scheduling.txt
+      solicitation: file://../../rfp-texts/airline-analysis-and-scheduling-solution-via-a-web-based-application.txt
     assert:
       - type: javascript
         metric: ContactCountMin
@@ -272,7 +275,7 @@ tests:
   # ─── Test Case 3: FUSRAP Data Management Services (PWS) ───
   - description: "USACE — FUSRAP Data Management Services (PWS — minimal contacts)"
     vars:
-      solicitation: file://../../rfp-texts/fusrap-data-management.txt
+      solicitation: file://../../rfp-texts/fusrap-data-management-services.txt
     assert:
       # PWS has no named contacts — all roles are TBD/generic
       - type: javascript
@@ -357,3 +360,384 @@ tests:
           Score 5 = correctly empty contacts, comprehensive missing roles list.
           Score 3 = some unnecessary entries but no fabricated data.
           Score 1 = fabricated contact details or missing the missingRecommendedRoles.
+
+  # ─── Test Case 4: DoD COMET (DIA) ───
+  - description: "DIA — COMET IDIQ (HHM40225R0025) — two named contacts"
+    vars:
+      solicitation: file://../../rfp-texts/dod-healthcare-portal.txt
+    assert:
+      - type: javascript
+        metric: ContactCountMin
+        value: |
+          const obj = JSON.parse(output);
+          return obj.contacts.length >= 2;
+
+      - type: javascript
+        metric: HasNoryemMaldonado
+        value: |
+          const obj = JSON.parse(output);
+          return obj.contacts.some(c =>
+            (c.name || '').toLowerCase().includes('noryem') &&
+            (c.name || '').toLowerCase().includes('maldonado')
+          );
+
+      - type: javascript
+        metric: HasNoryemEmail
+        value: |
+          const obj = JSON.parse(output);
+          return obj.contacts.some(c =>
+            (c.email || '').toLowerCase().includes('noryem.maldonado@dodiis.mil')
+          );
+
+      - type: javascript
+        metric: HasWillimeniaRobinson
+        value: |
+          const obj = JSON.parse(output);
+          return obj.contacts.some(c =>
+            (c.name || '').toLowerCase().includes('willimenia') &&
+            (c.name || '').toLowerCase().includes('robinson')
+          );
+
+      - type: javascript
+        metric: HasWillimeniaEmail
+        value: |
+          const obj = JSON.parse(output);
+          return obj.contacts.some(c =>
+            (c.email || '').toLowerCase().includes('willimenia.robinson@dodiis.mil')
+          );
+
+      - type: javascript
+        metric: HasContractingOfficerRole
+        value: |
+          const obj = JSON.parse(output);
+          return obj.contacts.some(c => c.role === 'CONTRACTING_OFFICER');
+
+      - type: javascript
+        metric: HasContractSpecialistRole
+        value: |
+          const obj = JSON.parse(output);
+          return obj.contacts.some(c => c.role === 'CONTRACT_SPECIALIST');
+
+      - type: llm-rubric
+        metric: FieldExtractionAccuracy
+        threshold: 0.6
+        weight: 5
+        value: |
+          GOLD STANDARD for HHM40225R0025:
+          - Noryem Maldonado: Contracting Officer, Noryem.Maldonado@dodiis.mil (unclass), Noryem.G.Maldonado@coe.ic.gov (JWICS)
+          - Willimenia Robinson: Contract Specialist, Willimenia.robinson@dodiis.mil (unclass), Willimenia.robinson2@coe.ic.gov (JWICS)
+          - No phone numbers provided for either contact
+
+          Score 5 = both contacts with correct details. Score 1 = mostly wrong.
+
+      - type: llm-rubric
+        metric: HallucinationDetection
+        threshold: 0.8
+        weight: 5
+        value: |
+          REAL CONTACTS for HHM40225R0025:
+          - Noryem Maldonado (CO): Noryem.Maldonado@dodiis.mil (unclass), Noryem.G.Maldonado@coe.ic.gov (JWICS classified)
+          - Willimenia Robinson (CS): Willimenia.robinson@dodiis.mil (unclass), Willimenia.robinson2@coe.ic.gov (JWICS classified)
+
+          WHAT COUNTS AS A HALLUCINATION:
+          - Names not in the solicitation
+          - Fabricated phone numbers (none provided)
+          - Email addresses that don't appear in the document
+
+          WHAT IS NOT A HALLUCINATION:
+          - Both @dodiis.mil and @coe.ic.gov email addresses (both appear in the solicitation)
+          - Listing each person twice for unclass/classified channels
+          - MISSILE & SPACE INTELLIGENCE CENTER organization (appears in document)
+
+          Score 5 = all grounded. Score 1 = fabricated contacts.
+
+      - type: llm-rubric
+        metric: OmissionDiscipline
+        threshold: 0.8
+        weight: 5
+        value: |
+          For HHM40225R0025:
+          - Both Noryem Maldonado and Willimenia Robinson MUST be extracted
+          - Email addresses MUST be included for both
+          - Phone numbers should NOT be fabricated (none provided)
+
+          Score 5 = both contacts with emails. Score 1 = major omissions.
+
+  # ─── Test Case 5: Sacramento AI Benefits ───
+  - description: "Sacramento — AI Benefits (COSac-IT-RFP-2026-112) — single contact, no Acme hallucination"
+    vars:
+      solicitation: file://../../rfp-texts/sacramento-ai-benefits.txt
+    assert:
+      - type: javascript
+        metric: HasDavidTran
+        value: |
+          const obj = JSON.parse(output);
+          return obj.contacts.some(c =>
+            (c.name || '').toLowerCase().includes('david') &&
+            (c.name || '').toLowerCase().includes('tran')
+          );
+
+      - type: javascript
+        metric: HasDavidTranEmail
+        value: |
+          const obj = JSON.parse(output);
+          return obj.contacts.some(c =>
+            (c.email || '').toLowerCase().includes('dtran@cityofsacramento.org')
+          );
+
+      - type: javascript
+        metric: NoAcmeSolutionsHallucination
+        value: |
+          const obj = JSON.parse(output);
+          const allText = JSON.stringify(obj).toLowerCase();
+          return !allText.includes('acme');
+
+      - type: javascript
+        metric: HasMissingRoles
+        value: |
+          const obj = JSON.parse(output);
+          return obj.missingRecommendedRoles.length >= 3;
+
+      - type: llm-rubric
+        metric: FieldExtractionAccuracy
+        threshold: 0.6
+        weight: 5
+        value: |
+          GOLD STANDARD for COSac-IT-RFP-2026-112:
+          - David Tran: Procurement Officer, dtran@cityofsacramento.org
+          - NO other contacts listed
+          - missingRecommendedRoles should be extensive
+
+          Score 5 = David Tran extracted correctly. Score 1 = wrong contacts.
+
+      - type: llm-rubric
+        metric: HallucinationDetection
+        threshold: 0.8
+        weight: 5
+        value: |
+          REAL CONTACTS for COSac-IT-RFP-2026-112:
+          - David Tran, Procurement Officer, dtran@cityofsacramento.org
+          - NO OTHER CONTACTS in the solicitation
+
+          WHAT COUNTS AS A HALLUCINATION:
+          - "Acme Solutions" (completely fabricated — NOT in the solicitation)
+          - Any names other than David Tran
+          - Fabricated phone numbers
+
+          Score 5 = only David Tran, no fabricated contacts. Score 1 = fabricated contacts.
+
+      - type: llm-rubric
+        metric: OmissionDiscipline
+        threshold: 0.8
+        weight: 5
+        value: |
+          For COSac-IT-RFP-2026-112:
+          - David Tran MUST be extracted with email
+          - Should NOT fabricate additional contacts
+          - missingRecommendedRoles should list most roles
+
+          Score 5 = correct single contact + missing roles. Score 1 = fabricated contacts.
+
+  # ─── Test Case 6: BIE Enterprise Backup ───
+  - description: "BIE — Enterprise Backup (140A2326Q0070) — Jeff Morris dual role"
+    vars:
+      solicitation: file://../../rfp-texts/bie-enterprise-backup.txt
+    assert:
+      - type: javascript
+        metric: HasJeffMorris
+        value: |
+          const obj = JSON.parse(output);
+          return obj.contacts.some(c =>
+            (c.name || '').toLowerCase().includes('jeff') &&
+            (c.name || '').toLowerCase().includes('morris')
+          );
+
+      - type: javascript
+        metric: HasJeffMorrisEmail
+        value: |
+          const obj = JSON.parse(output);
+          return obj.contacts.some(c =>
+            (c.email || '').toLowerCase().includes('jeff.morris@bie.edu')
+          );
+
+      - type: javascript
+        metric: HasJeffMorrisPhone
+        value: |
+          const obj = JSON.parse(output);
+          return obj.contacts.some(c =>
+            (c.phone || '').includes('505') && (c.phone || '').includes('364') && (c.phone || '').includes('2130')
+          );
+
+      - type: llm-rubric
+        metric: FieldExtractionAccuracy
+        threshold: 0.6
+        weight: 5
+        value: |
+          GOLD STANDARD for 140A2326Q0070:
+          - Jeff W. Morris: CO AND Contract Specialist (dual role), jeff.morris@bie.edu, (505) 364-2130
+          - COR: "To be determined after award"
+          - Contractor POC: "To be added after award"
+
+          Score 5 = Jeff Morris with all details. Score 1 = wrong or missing.
+
+      - type: llm-rubric
+        metric: HallucinationDetection
+        threshold: 0.8
+        weight: 5
+        value: |
+          REAL CONTACTS for 140A2326Q0070:
+          - Jeff W. Morris, jeff.morris@bie.edu, (505) 364-2130
+          - COR and Contractor POC are TBD
+
+          WHAT COUNTS AS A HALLUCINATION:
+          - Naming the COR (it's TBD)
+          - Fabricated contacts or details
+          - Naming Rubrik as a contact (it's the product)
+
+          Score 5 = all grounded. Score 1 = fabricated contacts.
+
+      - type: llm-rubric
+        metric: OmissionDiscipline
+        threshold: 0.8
+        weight: 5
+        value: |
+          For 140A2326Q0070:
+          - Jeff Morris MUST be extracted with email and phone
+          - COR should be noted as TBD, not fabricated
+
+          Score 5 = complete Jeff Morris entry. Score 1 = missing key details.
+
+  # ─── Test Case 7: IHS Cloud Hosting (Sources Sought — NO contacts) ───
+  - description: "IHS — CCoE Cloud (Sources Sought — zero contacts, critical empty-state test)"
+    vars:
+      solicitation: file://../../rfp-texts/sources-sought-cloud-hosting-provisioning-and-management-for-indian-health-servi.txt
+    assert:
+      - type: javascript
+        metric: ContactsEmpty
+        value: |
+          const obj = JSON.parse(output);
+          return obj.contacts.length === 0;
+
+      - type: javascript
+        metric: NoReneeJonesChuangHallucination
+        value: |
+          const obj = JSON.parse(output);
+          const allText = JSON.stringify(obj).toLowerCase();
+          return !allText.includes('renee') && !allText.includes('jones-chuang');
+
+      - type: javascript
+        metric: HasManyMissingRoles
+        value: |
+          const obj = JSON.parse(output);
+          return obj.missingRecommendedRoles.length >= 5;
+
+      - type: llm-rubric
+        metric: FieldExtractionAccuracy
+        threshold: 0.6
+        weight: 5
+        value: |
+          GOLD STANDARD for IHS CCoE (Draft SOW):
+          - NO named contacts in the document
+          - CO and COR referenced generically only
+          - contacts array MUST be empty
+          - missingRecommendedRoles should list most/all roles
+
+          Score 5 = empty contacts + extensive missing roles. Score 1 = fabricated contacts.
+
+      - type: llm-rubric
+        metric: HallucinationDetection
+        threshold: 0.8
+        weight: 5
+        value: |
+          This is a DRAFT SOW with NO NAMED CONTACTS.
+
+          WHAT COUNTS AS A HALLUCINATION:
+          - ANY named individual (none appear in this document)
+          - "Renee Jones-Chuang" (completely fabricated)
+          - ANY email address or phone number
+
+          Score 5 = no fabricated contacts. Score 1 = fabricated names/emails.
+
+      - type: llm-rubric
+        metric: OmissionDiscipline
+        threshold: 0.8
+        weight: 5
+        value: |
+          For IHS CCoE Sources Sought:
+          - contacts array MUST be empty (no named contacts exist)
+          - missingRecommendedRoles MUST be extensive
+          - Do NOT fabricate contacts to fill empty state
+
+          Score 5 = correct empty state. Score 1 = fabricated contacts.
+
+  # ─── Test Case 8: VA Document Destruction ───
+  - description: "VA — Document Destruction (36C24826Q0460) — single contact"
+    vars:
+      solicitation: file://../../rfp-texts/va-document-destruction.txt
+    assert:
+      - type: javascript
+        metric: HasJohnShultzaberger
+        value: |
+          const obj = JSON.parse(output);
+          return obj.contacts.some(c =>
+            (c.name || '').toLowerCase().includes('shultzaberger')
+          );
+
+      - type: javascript
+        metric: HasJohnShultzabergerEmail
+        value: |
+          const obj = JSON.parse(output);
+          return obj.contacts.some(c =>
+            (c.email || '').toLowerCase().includes('john.shultzaberger@va.gov')
+          );
+
+      - type: javascript
+        metric: HasJohnShultzabergerPhone
+        value: |
+          const obj = JSON.parse(output);
+          return obj.contacts.some(c =>
+            (c.phone || '').includes('352') && (c.phone || '').includes('214') && (c.phone || '').includes('5135')
+          );
+
+      - type: javascript
+        metric: HasContractingOfficerRole
+        value: |
+          const obj = JSON.parse(output);
+          return obj.contacts.some(c => c.role === 'CONTRACTING_OFFICER');
+
+      - type: llm-rubric
+        metric: FieldExtractionAccuracy
+        threshold: 0.6
+        weight: 5
+        value: |
+          GOLD STANDARD for 36C24826Q0460:
+          - John H. Shultzaberger: Contracting Officer, John.Shultzaberger@va.gov, 352-214-5135
+          - NO other contacts listed
+
+          Score 5 = Shultzaberger with all details. Score 1 = wrong or missing.
+
+      - type: llm-rubric
+        metric: HallucinationDetection
+        threshold: 0.8
+        weight: 5
+        value: |
+          REAL CONTACTS for 36C24826Q0460:
+          - John H. Shultzaberger, John.Shultzaberger@va.gov, 352-214-5135
+          - NO other contacts
+
+          WHAT COUNTS AS A HALLUCINATION:
+          - Names not in the solicitation
+          - Fabricated additional contacts
+
+          Score 5 = only Shultzaberger. Score 1 = fabricated contacts.
+
+      - type: llm-rubric
+        metric: OmissionDiscipline
+        threshold: 0.8
+        weight: 5
+        value: |
+          For 36C24826Q0460:
+          - John Shultzaberger MUST be extracted with email and phone
+          - Should NOT fabricate additional contacts
+
+          Score 5 = complete single contact. Score 1 = missing key details.

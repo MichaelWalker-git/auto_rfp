@@ -38,7 +38,7 @@ tests:
   # ─── Test Case 1: DC Courts Legal Case Management ───
   - description: "DC Courts — Legal Case & Document Management System (DCSC-26-RFP-60)"
     vars:
-      solicitation: file://../../rfp-texts/dc-courts-legal-case-mgmt.txt
+      solicitation: file://../../rfp-texts/legal-case-document-management-system.txt
     assert:
       # Exact field checks
       - type: javascript
@@ -77,11 +77,10 @@ tests:
           return sa === 'NONE' || sa.includes('OPEN') || sa.includes('UNRESTRICTED');
 
       - type: javascript
-        metric: NAICSHandledCorrectly
+        metric: NAICSMatch
         value: |
           const obj = JSON.parse(output);
-          const naics = (obj.naics || '').toUpperCase();
-          return obj.naics === undefined || obj.naics === null || naics === '' || naics === 'NOT_FOUND' || naics.includes('NOT');
+          return (obj.naics || '').includes('541690');
 
       - type: javascript
         metric: EstimatedValueCorrectlyOmitted
@@ -116,7 +115,7 @@ tests:
           - agency: "District of Columbia Courts"
           - office: "Administrative Services Division, Procurement and Contracts Branch"
           - solicitationNumber: "DCSC-26-RFP-60"
-          - naics: "NOT_FOUND" (not in solicitation)
+          - naics: "541690" (present in the solicitation)
           - contractType: "FIXED_PRICE" (firm-fixed price)
           - setAside: "NONE" (open market/unrestricted)
           - placeOfPerformance: "Washington, D.C."
@@ -134,15 +133,13 @@ tests:
         weight: 5
         value: |
           You are checking whether the AI output contains hallucinated information.
-          A hallucination is any value that does NOT match or is not directly derivable
-          from the gold standard facts below.
 
           GOLD STANDARD (expected values from this solicitation):
           - title: "Legal Case and Document Management System"
           - agency: "District of Columbia Courts"
-          - office: "Administrative Services Division, Procurement and Contracts Branch"
+          - office: "Administrative Services Division, Procurement and Contracts Branch" or "Office of the General Counsel" (both appear in the document)
           - solicitationNumber: "DCSC-26-RFP-60"
-          - naics: "NOT_FOUND" (not in solicitation — this is the correct value, not a hallucination)
+          - naics: "541690" (present in solicitation)
           - contractType: "FIXED_PRICE" (firm-fixed price)
           - setAside: "NONE" (open market/unrestricted)
           - placeOfPerformance: "Washington, D.C."
@@ -151,40 +148,35 @@ tests:
 
           WHAT COUNTS AS A HALLUCINATION:
           - A value that is completely fabricated and does NOT appear anywhere in the source solicitation.
-          - Filling in a field marked "MUST BE OMITTED" (e.g., inventing a dollar amount).
-          - Inventing a real NAICS code number (the correct value is "NOT_FOUND").
+          - Filling in estimatedValueUsd (no dollar value stated).
 
           WHAT IS NOT A HALLUCINATION:
           - Values that match the gold standard or are reasonable paraphrases.
-          - Additional true details from the source document in the summary.
-          - Minor wording differences that preserve meaning (e.g., "D.C." vs "Washington, D.C.").
-          - Title or summary wording that describes the same scope using different words.
+          - NAICS 541690 (appears in the solicitation).
+          - Additional true details from the source document.
+          - Minor wording differences that preserve meaning.
 
-          Score 5 = all values grounded in source, no fabricated data.
-          Score 3 = one field contains a questionable value.
-          Score 1 = one or more clearly fabricated/invented values.
+          Score 5 = all values grounded in source. Score 3 = one questionable value. Score 1 = clearly fabricated values.
 
       - type: llm-rubric
         metric: OmissionDiscipline
         threshold: 0.8
         weight: 5
         value: |
-          For this specific solicitation (DCSC-26-RFP-60), the following fields should be handled:
-          - naics: should be "NOT_FOUND" (no NAICS code in solicitation)
+          For this specific solicitation (DCSC-26-RFP-60):
+          - naics: "541690" SHOULD be present (it is in the solicitation)
           - estimatedValueUsd: should be OMITTED (no dollar value stated)
 
           Check whether the AI correctly handled these fields.
-          Also check that present fields are not filled with "UNKNOWN", "N/A", or null
-          when the actual value exists in the solicitation.
 
-          Score 5 = correct omissions and no unnecessary UNKNOWN values
-          Score 3 = some fields incorrectly included or marked UNKNOWN
+          Score 5 = correct inclusions and omissions
+          Score 3 = some fields incorrectly handled
           Score 1 = hallucinated values for fields that should be omitted
 
   # ─── Test Case 2: DOT Airline Analysis & Scheduling ───
   - description: "DOT — Airline Analysis and Scheduling Solution (693JK426R600002)"
     vars:
-      solicitation: file://../../rfp-texts/airline-analysis-scheduling.txt
+      solicitation: file://../../rfp-texts/airline-analysis-and-scheduling-solution-via-a-web-based-application.txt
     assert:
       # Exact field checks
       - type: javascript
@@ -228,10 +220,11 @@ tests:
           return sa === 'NONE' || sa.includes('OPEN') || sa.includes('FULL');
 
       - type: javascript
-        metric: EstimatedValueCorrectlyOmitted
+        metric: EstimatedValueAcceptable
         value: |
           const obj = JSON.parse(output);
-          return obj.estimatedValueUsd === undefined || obj.estimatedValueUsd === null || obj.estimatedValueUsd === '';
+          const val = (obj.estimatedValueUsd || '');
+          return val.includes('640') || obj.estimatedValueUsd === undefined || obj.estimatedValueUsd === null || val === '';
 
       - type: javascript
         metric: PeriodOfPerformanceMatch
@@ -264,7 +257,7 @@ tests:
           - contractType: "FIXED_PRICE" (Firm Fixed Price)
           - setAside: "NONE" (Full and Open Competition)
           - placeOfPerformance: "Washington, DC"
-          - estimatedValueUsd: should be OMITTED (not stated)
+          - estimatedValueUsd: "Approx $640K+" (from Q&A section) or OMITTED — both acceptable
           - periodOfPerformance: "Base year + 4 option years"
           - summary: Should mention airline analysis/scheduling web app for DOT/OAA, FFP, base+4 options, full and open competition
 
@@ -290,46 +283,43 @@ tests:
           - contractType: "FIXED_PRICE" (Firm Fixed Price)
           - setAside: "NONE" (Full and Open Competition)
           - placeOfPerformance: "Washington, DC"
-          - estimatedValueUsd: MUST BE OMITTED (not stated)
+          - estimatedValueUsd: "Approx $640K+" (from Q&A section) or OMITTED — both acceptable
           - periodOfPerformance: "Base year + 4 option years"
 
           WHAT COUNTS AS A HALLUCINATION:
-          - A value that is completely fabricated and does NOT appear anywhere in the source solicitation.
-          - Filling in a field marked "MUST BE OMITTED" (e.g., inventing a dollar amount).
+          - A value that is completely fabricated and does NOT appear anywhere in the source solicitation or Q&A.
 
           WHAT IS NOT A HALLUCINATION:
           - Values that match the gold standard or are reasonable paraphrases.
+          - "$640K" or "Approx $640K+" for estimatedValueUsd (from Q&A answer in solicitation).
           - Additional true details from the source document.
-          - Minor wording differences that preserve meaning (e.g., "Office of Aviation Analysis (OAA)" vs "Office of Aviation Analysis").
-          - Title or summary wording that describes the same scope using different words. Title accuracy is evaluated separately; this rubric only checks for fabricated data.
+          - Minor wording differences.
 
-          Score 5 = all values grounded in source, no fabricated data.
-          Score 3 = one field contains a questionable value.
-          Score 1 = one or more clearly fabricated/invented values.
+          Score 5 = all values grounded in source. Score 3 = one questionable value. Score 1 = clearly fabricated values.
 
       - type: llm-rubric
         metric: OmissionDiscipline
         threshold: 0.8
         weight: 5
         value: |
-          For this specific solicitation (693JK426R600002), the following fields should be OMITTED:
-          - estimatedValueUsd (no dollar value stated)
+          For this specific solicitation (693JK426R600002):
 
           The following fields SHOULD be present:
           - naics: 541511 (explicitly stated)
           - contractType: FIXED_PRICE (explicitly stated as FFP)
           - setAside: NONE (Full and Open Competition)
+          - estimatedValueUsd: "Approx $640K+" acceptable (from Q&A), or OMITTED also acceptable
 
-          Check that present fields are extracted and absent fields are omitted.
+          Check that present fields are extracted correctly.
 
-          Score 5 = correct omissions and all present fields extracted
+          Score 5 = all present fields correctly extracted
           Score 3 = some fields incorrectly included/omitted
           Score 1 = hallucinated values or major omissions
 
   # ─── Test Case 3: FUSRAP Data Management Services ───
   - description: "USACE — FUSRAP Data Management Services"
     vars:
-      solicitation: file://../../rfp-texts/fusrap-data-management.txt
+      solicitation: file://../../rfp-texts/fusrap-data-management-services.txt
     assert:
       - type: javascript
         metric: TitleMatch
@@ -359,10 +349,10 @@ tests:
           return ct.includes('INDEFINITE') || ct.includes('IDIQ') || ct.includes('TASK_ORDER');
 
       - type: javascript
-        metric: SolicitationNumberCorrectlyOmitted
+        metric: SolicitationNumberMatch
         value: |
           const obj = JSON.parse(output);
-          return obj.solicitationNumber === undefined || obj.solicitationNumber === null || obj.solicitationNumber === '';
+          return (obj.solicitationNumber || '').includes('W912BU');
 
       - type: javascript
         metric: EstimatedValueCorrectlyOmitted
@@ -395,7 +385,7 @@ tests:
           - title: "FUSRAP Data Management Services"
           - agency: "U.S. Army Corps of Engineers"
           - office: "Philadelphia District"
-          - solicitationNumber: should be OMITTED (this is a PWS, no solicitation number)
+          - solicitationNumber: "W912BU_FY26_FUSRAP_DMS" (appears in the PWS document header)
           - naics: "518210"
           - contractType: "INDEFINITE_DELIVERY" (IDIQ)
           - setAside: should be OMITTED (not mentioned)
@@ -413,36 +403,511 @@ tests:
         weight: 5
         value: |
           You are checking whether the AI output contains hallucinated information.
-          A hallucination is any value that does NOT match or is not directly derivable
-          from the gold standard facts below.
 
           GOLD STANDARD (expected values from this PWS):
           - title: "FUSRAP Data Management Services"
           - agency: "U.S. Army Corps of Engineers"
           - office: "Philadelphia District"
-          - solicitationNumber: MUST BE OMITTED (this is a PWS, not a numbered solicitation)
+          - solicitationNumber: "W912BU_FY26_FUSRAP_DMS" (appears in document — NOT a hallucination)
           - naics: "518210"
           - contractType: "INDEFINITE_DELIVERY" (IDIQ)
-          - setAside: MUST BE OMITTED (not mentioned)
-          - placeOfPerformance: "Salem County, New Jersey" (the PWS also mentions small portions in Newcastle County, Delaware — including this is NOT a hallucination)
+          - placeOfPerformance: "Salem County, New Jersey" (Newcastle County, DE also acceptable)
           - estimatedValueUsd: MUST BE OMITTED (not stated)
           - periodOfPerformance: "5 years from date of award"
 
           WHAT COUNTS AS A HALLUCINATION:
-          - A value that is completely fabricated and does NOT appear anywhere in the source PWS.
-          - Filling in a field marked "MUST BE OMITTED" (e.g., inventing a solicitation number or dollar amount).
+          - A value that does NOT appear anywhere in the source document.
+          - Fabricated dollar amounts.
 
           WHAT IS NOT A HALLUCINATION:
-          - Values that match the gold standard or are reasonable paraphrases.
-          - Additional true details from the source document (e.g., mentioning Newcastle County, DE alongside Salem County, NJ is correct — the PWS states the site extends into both).
-          - Minor wording differences that preserve meaning.
-          - A title that describes the same scope of work using different words (e.g., "Data Management Services for Environmental Remediation" is a valid paraphrase of "FUSRAP Data Management Services" — both describe the same PWS). Title accuracy is evaluated separately; this rubric only checks for fabricated data.
-          - The summary field containing details from the PWS (e.g., DuPont Chambers Works, environmental remediation, CMMC, aerial surveying) — these are real details from the document, not hallucinations.
+          - "W912BU_FY26_FUSRAP_DMS" as solicitation number (appears in document header).
+          - Values that match the gold standard or paraphrases.
+          - Additional true details from the source document.
 
-          Score 5 = all values grounded in source, no fabricated data.
-          Score 3 = one field contains a questionable value.
-          Score 1 = one or more clearly fabricated/invented values.
+          Score 5 = all values grounded in source. Score 3 = one questionable value. Score 1 = clearly fabricated values.
 
-  # NOTE: Test case 4 (USAF Sources Sought — edge-case-minimal-notice.txt) was removed
-  # because the source RFP text file was deleted from rfp-texts/. Re-add when a replacement
-  # Sources Sought document is available to test omission discipline on minimal notices.
+  # ─── Test Case 4: DoD COMET (DIA) ───
+  - description: "DIA — COMET IDIQ (HHM40225R0025) — tests title hallucination"
+    vars:
+      solicitation: file://../../rfp-texts/dod-healthcare-portal.txt
+    assert:
+      - type: javascript
+        metric: TitleMatch
+        value: |
+          const obj = JSON.parse(output);
+          const title = (obj.title || '').toLowerCase();
+          return title.includes('comet');
+
+      - type: javascript
+        metric: TitleNotHallucinated
+        value: |
+          const obj = JSON.parse(output);
+          const title = (obj.title || '').toLowerCase();
+          return !title.includes('healthcare') && !title.includes('software dev');
+
+      - type: javascript
+        metric: AgencyMatch
+        value: |
+          const obj = JSON.parse(output);
+          const agency = (obj.agency || '').toLowerCase();
+          return agency.includes('defense intelligence') || agency.includes('dia');
+
+      - type: javascript
+        metric: SolicitationNumberMatch
+        value: |
+          const obj = JSON.parse(output);
+          return (obj.solicitationNumber || '') === 'HHM40225R0025';
+
+      - type: javascript
+        metric: ContractTypeMatch
+        value: |
+          const obj = JSON.parse(output);
+          const ct = (obj.contractType || '').toUpperCase();
+          return ct.includes('INDEFINITE') || ct.includes('IDIQ');
+
+      - type: javascript
+        metric: EstimatedValueCorrectlyOmitted
+        value: |
+          const obj = JSON.parse(output);
+          return obj.estimatedValueUsd === undefined || obj.estimatedValueUsd === null || obj.estimatedValueUsd === '';
+
+      - type: javascript
+        metric: NAICSCorrectlyOmitted
+        value: |
+          const obj = JSON.parse(output);
+          return obj.naics === undefined || obj.naics === null || obj.naics === '';
+
+      - type: llm-rubric
+        metric: FieldExtractionAccuracy
+        threshold: 0.4
+        weight: 5
+        value: |
+          GOLD STANDARD for HHM40225R0025:
+          - title: MUST contain "COMET" (program name — NOT "Healthcare Portal" or "Software Dev")
+          - agency: "Defense Intelligence Agency" or "DIA" (either acceptable)
+          - office: "Virginia Contracting Activity" or similar (minor variations OK)
+          - solicitationNumber: "HHM40225R0025"
+          - contractType: "INDEFINITE_DELIVERY" or "IDIQ" (either acceptable)
+          - estimatedValueUsd: SHOULD BE OMITTED (price not eval factor) — but including "N/A" or similar is a minor issue, not a major error
+          - naics: SHOULD BE OMITTED — but including one from the document is a minor issue
+          - summary: Should mention DIA and COMET program
+
+          SCORING GUIDANCE:
+          - Score 5 if title, agency, solicitationNumber, contractType all correct AND omissions respected
+          - Score 4 if all key fields correct but 1-2 optional fields have minor issues
+          - Score 3 if most key fields correct but some optional fields wrong
+          - Score 2 if multiple key fields wrong
+          - Score 1 if title or agency is wrong
+
+      - type: llm-rubric
+        metric: HallucinationDetection
+        threshold: 0.8
+        weight: 5
+        value: |
+          GOLD STANDARD for HHM40225R0025:
+          - title: "COMET" — NOT "Software Development Services for Healthcare Portal"
+          - agency: Defense Intelligence Agency
+          - estimatedValueUsd: MUST BE OMITTED
+          - naics: MUST BE OMITTED
+
+          WHAT COUNTS AS A HALLUCINATION:
+          - Title containing "healthcare", "software development services", or "portal"
+          - Any fabricated dollar value or NAICS code
+          - Wrong agency name
+
+          Score 5 = all grounded. Score 1 = fabricated title or agency.
+
+      - type: llm-rubric
+        metric: OmissionDiscipline
+        threshold: 0.8
+        weight: 5
+        value: |
+          For HHM40225R0025:
+          - estimatedValueUsd: MUST BE OMITTED
+          - naics: MUST BE OMITTED
+          - title MUST contain "COMET"
+          - contractType MUST indicate IDIQ
+
+          Score 5 = correct omissions + accurate fields. Score 1 = hallucinated values.
+
+  # ─── Test Case 5: Sacramento AI Benefits ───
+  - description: "Sacramento — AI-Powered Benefits (COSac-IT-RFP-2026-112)"
+    vars:
+      solicitation: file://../../rfp-texts/sacramento-ai-benefits.txt
+    assert:
+      - type: javascript
+        metric: TitleMatch
+        value: |
+          const obj = JSON.parse(output);
+          const title = (obj.title || '').toLowerCase();
+          return (title.includes('ai') || title.includes('al-powered')) && title.includes('benefit');
+
+      - type: javascript
+        metric: AgencyMatch
+        value: |
+          const obj = JSON.parse(output);
+          const agency = (obj.agency || '').toLowerCase();
+          return agency.includes('sacramento');
+
+      - type: javascript
+        metric: SolicitationNumberMatch
+        value: |
+          const obj = JSON.parse(output);
+          return (obj.solicitationNumber || '').includes('COSac-IT-RFP-2026-112');
+
+      - type: javascript
+        metric: EstimatedValuePresent
+        value: |
+          const obj = JSON.parse(output);
+          const val = (obj.estimatedValueUsd || '');
+          return val.includes('280') || val.includes('450');
+
+      - type: javascript
+        metric: PeriodOfPerformanceMatch
+        value: |
+          const obj = JSON.parse(output);
+          const pop = (obj.periodOfPerformance || '').toLowerCase();
+          return pop.includes('18') || pop.includes('month');
+
+      - type: llm-rubric
+        metric: FieldExtractionAccuracy
+        threshold: 0.4
+        weight: 5
+        value: |
+          GOLD STANDARD for COSac-IT-RFP-2026-112:
+          - title: Should contain "AI" or "Al" (OCR artifact) and "Benefits" — e.g. "AI-Powered Benefits Eligibility Automation System"
+          - agency: "City of Sacramento" (MUST be municipal, NOT federal)
+          - office: "Department of Technology" or "Office of Innovation" (minor variations OK)
+          - solicitationNumber: "COSac-IT-RFP-2026-112"
+          - contractType: Mixed FFP/T&M or similar hybrid — "FIXED_PRICE", "TIME_AND_MATERIALS", or "OTHER" all acceptable
+          - estimatedValueUsd: "$280,000 - $450,000" or similar range containing these numbers
+          - periodOfPerformance: "18 months" or "18-month base" with optional renewal
+          - naics: SHOULD BE OMITTED (municipal) — but including one is a minor issue, not major
+          - setAside: May be OMITTED or "NONE" or contain local preference info — all acceptable
+          - placeOfPerformance: "Sacramento" or "Sacramento, CA" — acceptable if included
+
+          SCORING GUIDANCE:
+          - Score 5 if title, agency, solicitationNumber, estimatedValue, periodOfPerformance all correct
+          - Score 4 if all key fields correct but 1-2 optional fields have minor issues
+          - Score 3 if most key fields correct with some variations
+          - Score 2 if multiple key fields wrong
+          - Score 1 if agency is wrong (federal instead of municipal) or title is wrong
+
+      - type: llm-rubric
+        metric: HallucinationDetection
+        threshold: 0.8
+        weight: 5
+        value: |
+          GOLD STANDARD for COSac-IT-RFP-2026-112:
+          - title: "AI-Powered" NOT "Al-Powered" (OCR typo)
+          - estimatedValueUsd: $280,000-$450,000
+          - naics: MUST BE OMITTED (municipal, no NAICS)
+
+          WHAT COUNTS AS A HALLUCINATION:
+          - Fabricated NAICS code
+          - Wrong dollar amount
+          - Federal agency name instead of municipal
+
+          Score 5 = all grounded. Score 1 = fabricated values.
+
+      - type: llm-rubric
+        metric: OmissionDiscipline
+        threshold: 0.8
+        weight: 5
+        value: |
+          For COSac-IT-RFP-2026-112:
+          - estimatedValueUsd SHOULD be present ($280K-$450K)
+          - naics MUST BE OMITTED (municipal procurement)
+          - periodOfPerformance SHOULD be present
+
+          Score 5 = correct inclusions and omissions. Score 1 = major errors.
+
+  # ─── Test Case 6: BIE Enterprise Backup ───
+  - description: "BIE — Enterprise Backup (140A2326Q0070) — FFP, ISBEE"
+    vars:
+      solicitation: file://../../rfp-texts/bie-enterprise-backup.txt
+    assert:
+      - type: javascript
+        metric: TitleMatch
+        value: |
+          const obj = JSON.parse(output);
+          const title = (obj.title || '').toLowerCase();
+          return title.includes('enterprise') && title.includes('back');
+
+      - type: javascript
+        metric: AgencyMatch
+        value: |
+          const obj = JSON.parse(output);
+          const agency = (obj.agency || '').toLowerCase();
+          return agency.includes('interior') || agency.includes('bie') || agency.includes('indian education');
+
+      - type: javascript
+        metric: SolicitationNumberMatch
+        value: |
+          const obj = JSON.parse(output);
+          return (obj.solicitationNumber || '') === '140A2326Q0070';
+
+      - type: javascript
+        metric: ContractTypeMatch
+        value: |
+          const obj = JSON.parse(output);
+          const ct = (obj.contractType || '').toUpperCase();
+          return ct.includes('FIXED') || ct.includes('FFP');
+
+      - type: javascript
+        metric: SetAsideMatch
+        value: |
+          const obj = JSON.parse(output);
+          const sa = (obj.setAside || '').toUpperCase();
+          return sa.includes('ISBEE') || sa.includes('INDIAN') || sa.includes('BUY INDIAN') || sa.includes('SMALL_BUSINESS');
+
+      - type: javascript
+        metric: NAICSMatch
+        value: |
+          const obj = JSON.parse(output);
+          return (obj.naics || '').includes('541511');
+
+      - type: javascript
+        metric: PlaceOfPerformanceMatch
+        value: |
+          const obj = JSON.parse(output);
+          const pop = (obj.placeOfPerformance || '').toLowerCase();
+          return pop.includes('lawrence') || pop.includes('albuquerque') || pop.includes('haskell') || pop.includes('sipi');
+
+      - type: llm-rubric
+        metric: FieldExtractionAccuracy
+        threshold: 0.4
+        weight: 5
+        value: |
+          GOLD STANDARD for 140A2326Q0070:
+          - title: Should contain "Enterprise" and "Back-Up" or "Backup" — e.g. "Enterprise Back-Up Solution"
+          - agency: "Department of the Interior" and/or "Bureau of Indian Education" or "BIE" (any combination OK)
+          - solicitationNumber: "140A2326Q0070"
+          - contractType: "FIXED_PRICE" or "FFP" (either acceptable)
+          - setAside: "ISBEE", "SMALL_BUSINESS", "Buy Indian Act", or any Indian small business variant — all acceptable
+          - naics: "541511"
+          - placeOfPerformance: Should mention Lawrence KS, Albuquerque NM, Haskell, or SIPI — any combination acceptable
+          - estimatedValueUsd: SHOULD BE OMITTED — but including "N/A" is a minor issue
+          - periodOfPerformance: "1 year" or "12 months" or "base year" (variations OK)
+
+          SCORING GUIDANCE:
+          - Score 5 if title, agency, solicitationNumber, contractType, naics all correct
+          - Score 4 if all key fields correct but setAside/PoP have minor naming variations
+          - Score 3 if most key fields correct with some variations
+          - Score 2 if multiple key fields wrong
+          - Score 1 if title or solicitationNumber is wrong
+
+      - type: llm-rubric
+        metric: HallucinationDetection
+        threshold: 0.8
+        weight: 5
+        value: |
+          GOLD STANDARD for 140A2326Q0070:
+          - estimatedValueUsd: MUST BE OMITTED
+          - Rubrik is the PRODUCT, NOT the incumbent contractor
+
+          WHAT COUNTS AS A HALLUCINATION:
+          - Fabricated dollar value
+          - Naming Rubrik as an incumbent contractor
+
+          Score 5 = all grounded. Score 1 = fabricated values.
+
+      - type: llm-rubric
+        metric: OmissionDiscipline
+        threshold: 0.8
+        weight: 5
+        value: |
+          For 140A2326Q0070:
+          - estimatedValueUsd: MUST BE OMITTED
+          - naics: MUST be "541511"
+          - setAside: MUST indicate ISBEE/Buy Indian Act
+
+          Score 5 = correct omissions and inclusions. Score 1 = major errors.
+
+  # ─── Test Case 7: IHS Cloud Hosting (Sources Sought) ───
+  - description: "IHS — CCoE Cloud (Sources Sought / Draft SOW — empty-state test)"
+    vars:
+      solicitation: file://../../rfp-texts/sources-sought-cloud-hosting-provisioning-and-management-for-indian-health-servi.txt
+    assert:
+      - type: javascript
+        metric: TitleMatch
+        value: |
+          const obj = JSON.parse(output);
+          const title = (obj.title || '').toLowerCase();
+          return title.includes('cloud');
+
+      - type: javascript
+        metric: AgencyMatch
+        value: |
+          const obj = JSON.parse(output);
+          const agency = (obj.agency || '').toLowerCase();
+          const office = (obj.office || '').toLowerCase();
+          const combined = agency + ' ' + office;
+          return combined.includes('indian health') || combined.includes('ihs') || (combined.includes('health') && combined.includes('human'));
+
+      - type: javascript
+        metric: SolicitationNumberAcceptable
+        value: |
+          const obj = JSON.parse(output);
+          const sn = obj.solicitationNumber || '';
+          return sn === '' || sn.includes('ACQ') || obj.solicitationNumber === undefined || obj.solicitationNumber === null;
+
+      - type: javascript
+        metric: EstimatedValueOmitted
+        value: |
+          const obj = JSON.parse(output);
+          return obj.estimatedValueUsd === undefined || obj.estimatedValueUsd === null || obj.estimatedValueUsd === '';
+
+      - type: javascript
+        metric: NAICSAcceptable
+        value: |
+          const obj = JSON.parse(output);
+          const naics = obj.naics || '';
+          return naics === '' || naics.includes('541519') || obj.naics === undefined || obj.naics === null;
+
+      - type: llm-rubric
+        metric: FieldExtractionAccuracy
+        threshold: 0.5
+        weight: 5
+        value: |
+          GOLD STANDARD for IHS CCoE (Sources Sought / Draft SOW):
+          - title: Should reference cloud hosting or CCoE
+          - agency: "HHS" or "Department of Health and Human Services"
+          - office: "Indian Health Service (IHS)"
+          - solicitationNumber: "ACQ-OMAS-2026-ORC-0014" if present in document, or OMITTED
+          - naics: "541519" if present in document, or OMITTED
+          - contractType: OMITTED or UNKNOWN (draft SOW)
+          - estimatedValueUsd: MUST BE OMITTED
+          - periodOfPerformance: "1 year base"
+          - placeOfPerformance: "Remote"
+
+          Score 5 = matches gold. Score 1 = mostly wrong.
+
+      - type: llm-rubric
+        metric: HallucinationDetection
+        threshold: 0.8
+        weight: 5
+        value: |
+          GOLD STANDARD for IHS CCoE (Sources Sought):
+          - estimatedValueUsd: MUST BE OMITTED (no dollar amount in document)
+          - Buy Indian Act is NOT in this document
+
+          WHAT COUNTS AS A HALLUCINATION:
+          - Fabricated dollar value
+          - Claiming Buy Indian Act applies
+          - Values not derivable from the document text
+
+          WHAT IS NOT A HALLUCINATION:
+          - NAICS 541519 (appears in document)
+          - Solicitation reference from document metadata
+          - Title derived from the document heading
+
+          Score 5 = all grounded. Score 1 = fabricated fields.
+
+      - type: llm-rubric
+        metric: OmissionDiscipline
+        threshold: 0.8
+        weight: 5
+        value: |
+          For IHS CCoE Sources Sought:
+          - estimatedValueUsd MUST BE OMITTED
+          - title and agency MUST be present
+          - naics and solicitationNumber: acceptable if from document, or omitted
+
+          Score 5 = correct handling of all fields. Score 1 = fabricated values.
+
+  # ─── Test Case 8: VA Document Destruction ───
+  - description: "VA — Document Destruction (36C24826Q0460) — physical service, SDVOSB"
+    vars:
+      solicitation: file://../../rfp-texts/va-document-destruction.txt
+    assert:
+      - type: javascript
+        metric: TitleMatch
+        value: |
+          const obj = JSON.parse(output);
+          const title = (obj.title || '').toLowerCase();
+          return title.includes('document destruction');
+
+      - type: javascript
+        metric: AgencyMatch
+        value: |
+          const obj = JSON.parse(output);
+          const agency = (obj.agency || '').toLowerCase();
+          return agency.includes('veterans') || agency.includes('va');
+
+      - type: javascript
+        metric: SolicitationNumberMatch
+        value: |
+          const obj = JSON.parse(output);
+          return (obj.solicitationNumber || '').includes('36C24826Q0460');
+
+      - type: javascript
+        metric: ContractTypeMatch
+        value: |
+          const obj = JSON.parse(output);
+          const ct = (obj.contractType || '').toUpperCase();
+          return ct.includes('FIXED') || ct.includes('FFP');
+
+      - type: javascript
+        metric: SetAsideMatch
+        value: |
+          const obj = JSON.parse(output);
+          const sa = (obj.setAside || '').toUpperCase();
+          return sa.includes('SDVOSB') || sa.includes('SERVICE_DISABLED') || sa.includes('VETERAN');
+
+      - type: javascript
+        metric: PeriodOfPerformanceMatch
+        value: |
+          const obj = JSON.parse(output);
+          const pop = (obj.periodOfPerformance || '').toLowerCase();
+          return (pop.includes('base') && pop.includes('option')) || pop.includes('5 year');
+
+      - type: javascript
+        metric: EstimatedValueCorrectlyOmitted
+        value: |
+          const obj = JSON.parse(output);
+          return obj.estimatedValueUsd === undefined || obj.estimatedValueUsd === null || obj.estimatedValueUsd === '';
+
+      - type: llm-rubric
+        metric: FieldExtractionAccuracy
+        threshold: 0.6
+        weight: 5
+        value: |
+          GOLD STANDARD for 36C24826Q0460:
+          - title: "Document Destruction Services"
+          - agency: "Department of Veterans Affairs"
+          - office: "NCO 8"
+          - solicitationNumber: "36C24826Q0460"
+          - contractType: "FIXED_PRICE" (FFP)
+          - setAside: "SDVOSB"
+          - estimatedValueUsd: MUST BE OMITTED
+          - periodOfPerformance: "Base + 4 option years"
+
+          Score 5 = matches gold. Score 1 = mostly wrong.
+
+      - type: llm-rubric
+        metric: HallucinationDetection
+        threshold: 0.8
+        weight: 5
+        value: |
+          GOLD STANDARD for 36C24826Q0460:
+          - estimatedValueUsd: MUST BE OMITTED
+          - This is a PHYSICAL SERVICE, NOT IT/software
+
+          WHAT COUNTS AS A HALLUCINATION:
+          - Fabricated dollar value
+          - Describing this as IT or software
+
+          Score 5 = all grounded. Score 1 = fabricated values.
+
+      - type: llm-rubric
+        metric: OmissionDiscipline
+        threshold: 0.8
+        weight: 5
+        value: |
+          For 36C24826Q0460:
+          - estimatedValueUsd: MUST BE OMITTED
+          - setAside: MUST indicate SDVOSB
+          - contractType: MUST indicate FFP
+
+          Score 5 = correct omissions and inclusions. Score 1 = major errors.

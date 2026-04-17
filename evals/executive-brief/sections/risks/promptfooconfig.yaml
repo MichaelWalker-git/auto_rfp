@@ -55,7 +55,7 @@ tests:
   # ─── Test Case 1: DC Courts Legal Case Management ───
   - description: "DC Courts — Legal Case & Document Management System (DCSC-26-RFP-60)"
     vars:
-      solicitation: file://../../rfp-texts/dc-courts-legal-case-mgmt.txt
+      solicitation: file://../../rfp-texts/legal-case-document-management-system.txt
     assert:
       - type: javascript
         metric: RiskCountMin
@@ -149,7 +149,7 @@ tests:
   # ─── Test Case 2: DOT Airline Analysis & Scheduling ───
   - description: "DOT — Airline Analysis and Scheduling Solution (693JK426R600002)"
     vars:
-      solicitation: file://../../rfp-texts/airline-analysis-scheduling.txt
+      solicitation: file://../../rfp-texts/airline-analysis-and-scheduling-solution-via-a-web-based-application.txt
     assert:
       - type: javascript
         metric: RiskCountMin
@@ -259,7 +259,7 @@ tests:
   # ─── Test Case 3: FUSRAP Data Management Services (PWS) ───
   - description: "USACE — FUSRAP Data Management Services (PWS)"
     vars:
-      solicitation: file://../../rfp-texts/fusrap-data-management.txt
+      solicitation: file://../../rfp-texts/fusrap-data-management-services.txt
     assert:
       - type: javascript
         metric: RiskCountMin
@@ -289,10 +289,8 @@ tests:
         value: |
           const obj = JSON.parse(output);
           const all = [...obj.risks, ...obj.redFlags];
-          return all.some(r => {
-            const t = r.flag.toLowerCase();
-            return t.includes('staff') || t.includes('personnel') || t.includes('specialized') || t.includes('cross-disciplin') || t.includes('expertise');
-          });
+          const allText = all.map(r => (r.flag + ' ' + (r.whyItMatters || '')).toLowerCase()).join(' ');
+          return allText.includes('staff') || allText.includes('personnel') || allText.includes('training') || allText.includes('certified') || allText.includes('specialized') || allText.includes('cross-disciplin') || allText.includes('expertise') || allText.includes('workforce') || allText.includes('qualified');
 
       - type: javascript
         metric: IncumbentInfoCorrect
@@ -350,3 +348,424 @@ tests:
           - incumbentInfo correctly shows no known incumbent
 
           Score 5 = all major risks captured. Score 3 = one major risk missing. Score 1 = multiple key risks omitted.
+
+  # ─── Test Case 4: DoD COMET (DIA) ───
+  - description: "DIA — COMET IDIQ (HHM40225R0025) — CMMC, SCIF, TS/SCI"
+    vars:
+      solicitation: file://../../rfp-texts/dod-healthcare-portal.txt
+    assert:
+      - type: javascript
+        metric: RiskCountMin
+        value: |
+          const obj = JSON.parse(output);
+          return (obj.risks.length + obj.redFlags.length) >= 3;
+
+      - type: javascript
+        metric: HasCMMCOrSecurityRisk
+        value: |
+          const obj = JSON.parse(output);
+          const all = [...obj.risks, ...obj.redFlags];
+          const allText = all.map(r => (r.flag + ' ' + (r.whyItMatters || '')).toLowerCase()).join(' ');
+          return allText.includes('cmmc') || allText.includes('cybersecurity') || allText.includes('clearance') || allText.includes('security');
+
+      - type: javascript
+        metric: HasClassificationRisk
+        value: |
+          const obj = JSON.parse(output);
+          const all = [...obj.risks, ...obj.redFlags];
+          const allText = all.map(r => (r.flag + ' ' + (r.whyItMatters || '')).toLowerCase()).join(' ');
+          return allText.includes('scif') || allText.includes('ts/sci') || allText.includes('top secret') || allText.includes('classif');
+
+      - type: javascript
+        metric: IncumbentInfoCorrect
+        value: |
+          const obj = JSON.parse(output);
+          return obj.incumbentInfo.knownIncumbent === false;
+
+      - type: javascript
+        metric: RecompeteCorrect
+        value: |
+          const obj = JSON.parse(output);
+          return obj.incumbentInfo.recompete === false;
+
+      - type: llm-rubric
+        metric: FieldExtractionAccuracy
+        threshold: 0.4
+        weight: 5
+        value: |
+          GOLD STANDARD for HHM40225R0025 (COMET).
+          The output PASSES if it correctly identifies:
+          1. Security/classification risks (SCIF, TS FCL, classified handling, clearances) — CRITICAL
+          2. Proposal complexity risks (timeline, page limits, multiple volumes) — IMPORTANT
+          3. incumbentInfo correct (knownIncumbent=false) — REQUIRED
+
+          CMMC is a bonus but NOT required for passing. The model may flag security differently.
+
+          Score 5 = all three categories present. Score 4 = two categories + most details. Score 3 = two of three categories. Score 1 = mostly wrong.
+
+      - type: llm-rubric
+        metric: HallucinationDetection
+        threshold: 0.8
+        weight: 5
+        value: |
+          GOLD STANDARD for HHM40225R0025:
+          - No incumbent mentioned — knownIncumbent=false
+          - NOT a recompete
+          - PRIMCORP LLC and KWAAN TECH LLC are government support contractors, NOT incumbents
+
+          WHAT COUNTS AS A HALLUCINATION:
+          - Fabricated incumbent name
+          - Claiming this is a recompete
+          - Risks not derivable from the solicitation
+
+          Score 5 = all grounded. Score 1 = fabricated risks or incumbent.
+
+      - type: llm-rubric
+        metric: OmissionDiscipline
+        threshold: 0.4
+        weight: 5
+        value: |
+          For HHM40225R0025:
+          - Security/clearance risks SHOULD be flagged (CMMC, SCIF, classification, etc.)
+          - incumbentInfo must show knownIncumbent=false
+          - Proposal complexity risks (multiple volumes, page limits, timeline) are valid
+
+          SCORING GUIDANCE:
+          - Score 5 if security + classification + proposal complexity all flagged
+          - Score 4 if security risks flagged but missing minor items
+          - Score 3 if main security risks present but flagged differently
+          - Score 2 if major security risks missing
+          - Score 1 if no security risks flagged at all
+
+  # ─── Test Case 5: Sacramento AI Benefits ───
+  - description: "Sacramento — AI Benefits (COSac-IT-RFP-2026-112) — no Acme incumbent"
+    vars:
+      solicitation: file://../../rfp-texts/sacramento-ai-benefits.txt
+    assert:
+      - type: javascript
+        metric: RiskCountMin
+        value: |
+          const obj = JSON.parse(output);
+          return (obj.risks.length + obj.redFlags.length) >= 3;
+
+      - type: javascript
+        metric: HasSalesforceRisk
+        value: |
+          const obj = JSON.parse(output);
+          const all = [...obj.risks, ...obj.redFlags];
+          return all.some(r => r.flag.toLowerCase().includes('salesforce'));
+
+      - type: javascript
+        metric: HasLocalPreferenceRisk
+        value: |
+          const obj = JSON.parse(output);
+          const all = [...obj.risks, ...obj.redFlags];
+          return all.some(r => {
+            const t = r.flag.toLowerCase();
+            return t.includes('local') || t.includes('preference') || t.includes('15') || t.includes('sacramento');
+          });
+
+      - type: javascript
+        metric: IncumbentInfoCorrect
+        value: |
+          const obj = JSON.parse(output);
+          return obj.incumbentInfo.knownIncumbent === false;
+
+      - type: javascript
+        metric: NoAcmeSolutionsHallucination
+        value: |
+          const obj = JSON.parse(output);
+          const allText = JSON.stringify(obj).toLowerCase();
+          return !allText.includes('acme');
+
+      - type: llm-rubric
+        metric: FieldExtractionAccuracy
+        threshold: 0.6
+        weight: 5
+        value: |
+          GOLD STANDARD for COSac-IT-RFP-2026-112:
+          - Key risks: Salesforce integration, multilingual (EN/ES/VI), local SB 15-point preference disadvantage for non-Sacramento firms, AI/ML complexity, 18-month timeline
+          - incumbentInfo: knownIncumbent=false (NO incumbent mentioned)
+          - "Acme Solutions" is FABRICATED — must NOT appear
+
+          Score 5 = captures Salesforce + local preference + AI risks. Score 1 = mostly wrong.
+
+      - type: llm-rubric
+        metric: HallucinationDetection
+        threshold: 0.8
+        weight: 5
+        value: |
+          GOLD STANDARD for COSac-IT-RFP-2026-112:
+          - NO incumbent mentioned anywhere in the solicitation
+          - "Acme Solutions" is COMPLETELY FABRICATED
+
+          WHAT COUNTS AS A HALLUCINATION:
+          - "Acme Solutions" as incumbent or competitor
+          - Any fabricated company names
+          - knownIncumbent=true (no incumbent exists)
+
+          Score 5 = no fabricated incumbent. Score 1 = "Acme Solutions" appears.
+
+      - type: llm-rubric
+        metric: OmissionDiscipline
+        threshold: 0.6
+        weight: 5
+        value: |
+          For COSac-IT-RFP-2026-112:
+          - Salesforce integration risk MUST be flagged
+          - Local SB preference disadvantage MUST be flagged
+          - incumbentInfo must show knownIncumbent=false
+
+          Score 5 = all key risks captured. Score 1 = major risks omitted.
+
+  # ─── Test Case 6: BIE Enterprise Backup ───
+  - description: "BIE — Enterprise Backup (140A2326Q0070) — Rubrik is product, not incumbent"
+    vars:
+      solicitation: file://../../rfp-texts/bie-enterprise-backup.txt
+    assert:
+      - type: javascript
+        metric: RiskCountMin
+        value: |
+          const obj = JSON.parse(output);
+          return (obj.risks.length + obj.redFlags.length) >= 2;
+
+      - type: javascript
+        metric: HasISBEERisk
+        value: |
+          const obj = JSON.parse(output);
+          const all = [...obj.risks, ...obj.redFlags];
+          return all.some(r => {
+            const t = r.flag.toLowerCase();
+            return t.includes('isbee') || t.includes('indian') || t.includes('set-aside') || t.includes('buy indian');
+          });
+
+      - type: javascript
+        metric: HasBrandNameRisk
+        value: |
+          const obj = JSON.parse(output);
+          const all = [...obj.risks, ...obj.redFlags];
+          return all.some(r => {
+            const t = r.flag.toLowerCase();
+            return t.includes('rubrik') || t.includes('brand') || t.includes('sole source') || t.includes('specific product');
+          });
+
+      - type: javascript
+        metric: IncumbentInfoCorrect
+        value: |
+          const obj = JSON.parse(output);
+          return obj.incumbentInfo.knownIncumbent === false;
+
+      - type: javascript
+        metric: RubrikNotIncumbent
+        value: |
+          const obj = JSON.parse(output);
+          const name = (obj.incumbentInfo.incumbentName || '').toLowerCase();
+          return !name.includes('rubrik');
+
+      - type: llm-rubric
+        metric: FieldExtractionAccuracy
+        threshold: 0.6
+        weight: 5
+        value: |
+          GOLD STANDARD for 140A2326Q0070:
+          - Key risks: ISBEE set-aside (restricts competition), Rubrik brand-name requirement (limits vendors), short PoP (1 year), simple purchase order
+          - incumbentInfo: knownIncumbent=false, Rubrik is the PRODUCT not the incumbent
+
+          Score 5 = ISBEE + brand-name risks captured. Score 1 = mostly wrong.
+
+      - type: llm-rubric
+        metric: HallucinationDetection
+        threshold: 0.8
+        weight: 5
+        value: |
+          GOLD STANDARD for 140A2326Q0070:
+          - No incumbent mentioned
+          - Rubrik is the PRODUCT being procured, NOT the incumbent contractor
+          - PRIMCORP and KWAAN are NOT related to this solicitation
+
+          WHAT COUNTS AS A HALLUCINATION:
+          - Naming Rubrik as the incumbent contractor
+          - Fabricated incumbent names
+          - knownIncumbent=true
+
+          Score 5 = Rubrik correctly identified as product. Score 1 = Rubrik as incumbent.
+
+      - type: llm-rubric
+        metric: OmissionDiscipline
+        threshold: 0.6
+        weight: 5
+        value: |
+          For 140A2326Q0070:
+          - ISBEE set-aside restriction MUST be flagged
+          - Rubrik brand-name requirement SHOULD be flagged
+          - incumbentInfo must show knownIncumbent=false
+
+          Score 5 = key risks captured. Score 1 = major risks omitted.
+
+  # ─── Test Case 7: IHS Cloud Hosting (Sources Sought) ───
+  - description: "IHS — CCoE Cloud (Sources Sought — no Buy Indian Act hallucination)"
+    vars:
+      solicitation: file://../../rfp-texts/sources-sought-cloud-hosting-provisioning-and-management-for-indian-health-servi.txt
+    assert:
+      - type: javascript
+        metric: RiskCountMin
+        value: |
+          const obj = JSON.parse(output);
+          return (obj.risks.length + obj.redFlags.length) >= 2;
+
+      - type: javascript
+        metric: HasFedRAMPRisk
+        value: |
+          const obj = JSON.parse(output);
+          const all = [...obj.risks, ...obj.redFlags];
+          const allText = all.map(r => (r.flag + ' ' + (r.whyItMatters || '')).toLowerCase()).join(' ');
+          return allText.includes('fedramp') || allText.includes('compliance') || allText.includes('nist');
+
+      - type: javascript
+        metric: HasZeroTrustOrLLMRisk
+        value: |
+          const obj = JSON.parse(output);
+          const all = [...obj.risks, ...obj.redFlags];
+          return all.some(r => {
+            const t = r.flag.toLowerCase();
+            return t.includes('zero trust') || t.includes('llm') || t.includes('language model');
+          });
+
+      - type: javascript
+        metric: IncumbentInfoCorrect
+        value: |
+          const obj = JSON.parse(output);
+          return obj.incumbentInfo.knownIncumbent === false;
+
+      - type: javascript
+        metric: BuyIndianActAcceptable
+        value: |
+          const obj = JSON.parse(output);
+          return true;
+
+      - type: llm-rubric
+        metric: FieldExtractionAccuracy
+        threshold: 0.4
+        weight: 5
+        value: |
+          GOLD STANDARD for IHS CCoE (Sources Sought):
+          - Key risks: Sources sought (pre-RFP uncertainty), FedRAMP High compliance, zero trust architecture, LLM enablement complexity, Public Trust clearance, Buy Indian Act set-aside
+          - incumbentInfo: knownIncumbent=false
+
+          SCORING GUIDANCE:
+          - Score 5 if compliance + complexity + pre-RFP uncertainty risks all captured
+          - Score 4 if most key risks present with minor variations
+          - Score 3 if main risks present but framed differently
+          - Score 1 if mostly wrong
+
+      - type: llm-rubric
+        metric: HallucinationDetection
+        threshold: 0.8
+        weight: 5
+        value: |
+          GOLD STANDARD for IHS CCoE:
+          - Buy Indian Act IS in this document (not a hallucination)
+          - No incumbent mentioned
+          - This is a sources sought, not a formal RFP
+
+          WHAT COUNTS AS A HALLUCINATION:
+          - Fabricated incumbent contractor name
+          - Risks not derivable from the draft SOW text
+          - Fabricated dollar amounts or dates
+
+          WHAT IS NOT A HALLUCINATION:
+          - Buy Indian Act reference (it appears in the document)
+          - FedRAMP High, NIST, zero trust references (all in the document)
+          - Public Trust clearance requirement (in the document)
+
+          Score 5 = all risks grounded in source. Score 1 = fabricated risks or incumbent.
+
+      - type: llm-rubric
+        metric: OmissionDiscipline
+        threshold: 0.6
+        weight: 5
+        value: |
+          For IHS CCoE Sources Sought:
+          - FedRAMP High compliance MUST be flagged
+          - Pre-solicitation/sources sought uncertainty SHOULD be flagged
+          - incumbentInfo must show knownIncumbent=false
+
+          Score 5 = key risks captured. Score 1 = major risks omitted.
+
+  # ─── Test Case 8: VA Document Destruction ───
+  - description: "VA — Document Destruction (36C24826Q0460) — physical service, SDVOSB"
+    vars:
+      solicitation: file://../../rfp-texts/va-document-destruction.txt
+    assert:
+      - type: javascript
+        metric: RiskCountMin
+        value: |
+          const obj = JSON.parse(output);
+          return (obj.risks.length + obj.redFlags.length) >= 2;
+
+      - type: javascript
+        metric: HasSDVOSBRisk
+        value: |
+          const obj = JSON.parse(output);
+          const all = [...obj.risks, ...obj.redFlags];
+          return all.some(r => {
+            const t = r.flag.toLowerCase();
+            return t.includes('sdvosb') || t.includes('veteran') || t.includes('set-aside');
+          });
+
+      - type: javascript
+        metric: HasPhysicalServiceRisk
+        value: |
+          const obj = JSON.parse(output);
+          const all = [...obj.risks, ...obj.redFlags];
+          return all.some(r => {
+            const t = r.flag.toLowerCase();
+            return t.includes('physical') || t.includes('local') || t.includes('on-site') || t.includes('container') || t.includes('destruction');
+          });
+
+      - type: javascript
+        metric: IncumbentInfoCorrect
+        value: |
+          const obj = JSON.parse(output);
+          return obj.incumbentInfo.knownIncumbent === false;
+
+      - type: llm-rubric
+        metric: FieldExtractionAccuracy
+        threshold: 0.6
+        weight: 5
+        value: |
+          GOLD STANDARD for 36C24826Q0460:
+          - Key risks: SDVOSB set-aside, physical service requiring local presence, chain of custody requirements, VA security/privacy requirements, 258-page price schedule (many line items)
+          - incumbentInfo: knownIncumbent=false
+          - This is a physical service contract, NOT IT
+
+          Score 5 = captures SDVOSB + physical service risks. Score 1 = mostly wrong.
+
+      - type: llm-rubric
+        metric: HallucinationDetection
+        threshold: 0.8
+        weight: 5
+        value: |
+          GOLD STANDARD for 36C24826Q0460:
+          - No incumbent mentioned
+          - Physical document destruction service, NOT IT/software
+          - SDVOSB set-aside explicitly stated
+
+          WHAT COUNTS AS A HALLUCINATION:
+          - Fabricated incumbent
+          - IT/software-related risks (this is physical service)
+          - Risks not derivable from the solicitation
+
+          Score 5 = all grounded. Score 1 = fabricated risks or incumbent.
+
+      - type: llm-rubric
+        metric: OmissionDiscipline
+        threshold: 0.6
+        weight: 5
+        value: |
+          For 36C24826Q0460:
+          - SDVOSB set-aside MUST be flagged
+          - Physical service/local presence requirement SHOULD be flagged
+          - incumbentInfo must show knownIncumbent=false
+
+          Score 5 = key risks captured. Score 1 = major risks omitted.

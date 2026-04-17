@@ -382,7 +382,8 @@ export class ApiOrchestratorStack extends cdk.Stack {
         role: sharedInfraStack.commonLambdaRole,
         environment: {
           ...commonEnv,
-          BRIEF_MAX_SOLICITATION_CHARS: '45000',
+          BRIEF_MAX_SOLICITATION_CHARS: '150000',
+          BRIEF_MAX_SOLICITATION_CHARS_REQUIREMENTS: '200000',
           BRIEF_KB_TOPK: '20',
           COST_SAVING: 'true',
           GOOGLE_DRIVE_SYNC_QUEUE_URL: googleDriveSyncQueue?.queueUrl || '',
