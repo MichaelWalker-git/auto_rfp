@@ -1,0 +1,142 @@
+description: Ivan3 — Executive Brief Overall Eval (6 RFPs, 2026-04-17)
+
+prompts:
+  - label: Brief Passthrough
+    raw: |
+      === EXECUTIVE BRIEF JSON ===
+      {{brief}}
+
+      === SOURCE SOLICITATION TEXT ===
+      {{solicitation}}
+
+providers:
+  - id: echo
+    label: passthrough
+
+defaultTest:
+  options:
+    provider: bedrock:us.anthropic.claude-sonnet-4-20250514-v1:0
+  assert:
+    - type: javascript
+      metric: AllSectionsPresent
+      value: |
+        const jsonStr = output.substring(output.indexOf('{'), output.lastIndexOf('}', output.indexOf('=== SOURCE SOLICITATION TEXT ===')) + 1); const brief = JSON.parse(jsonStr);
+        const s = brief.sections || {};
+        const required = ['summary', 'deadlines', 'requirements', 'contacts', 'risks', 'pricing', 'scoring'];
+        return required.every(k => s[k] !== undefined);
+
+    - type: javascript
+      metric: CompleteSectionsHaveData
+      value: |
+        const jsonStr = output.substring(output.indexOf('{'), output.lastIndexOf('}', output.indexOf('=== SOURCE SOLICITATION TEXT ===')) + 1); const brief = JSON.parse(jsonStr);
+        const s = brief.sections || {};
+        const completeSections = Object.entries(s).filter(([_, v]) => v.status === 'COMPLETE');
+        return completeSections.length > 0 && completeSections.every(([_, v]) => v.data !== null && v.data !== undefined);
+
+    - type: llm-rubric
+      metric: SummaryQuality
+      threshold: 0.6
+      weight: 5
+      value: |
+        Evaluate the SUMMARY section of this executive brief against the source solicitation.
+        EXPECTED DATA KEYS: title, agency, office, solicitationNumber, naics, contractType, setAside, placeOfPerformance, estimatedValueUsd, periodOfPerformance, summary
+        SCORING (1-10): 9-10=all fields accurate & concise, 7-8=minor gaps, 5-6=some inaccuracies, 3-4=multiple errors or fabricated values.
+
+    - type: llm-rubric
+      metric: DeadlinesQuality
+      threshold: 0.6
+      weight: 5
+      value: |
+        Evaluate the DEADLINES section of this executive brief against the source solicitation.
+        EXPECTED: deadlines array with ISO-8601 dates, hasSubmissionDeadline, warnings.
+        SCORING (1-10): 9-10=all dates correct + warnings, 7-8=minor gaps, 5-6=some missing, 3-4=wrong dates or fabricated.
+
+    - type: llm-rubric
+      metric: RequirementsQuality
+      threshold: 0.6
+      weight: 5
+      value: |
+        Evaluate the REQUIREMENTS section against the source solicitation.
+        EXPECTED: requirements array with categories, deliverables, evaluationFactors, submissionCompliance.
+        SCORING (1-10): 9-10=complete + categorized, 7-8=good coverage minor gaps, 5-6=basic list no structure, 3-4=jumbled or fabricated.
+
+    - type: llm-rubric
+      metric: ContactsQuality
+      threshold: 0.6
+      weight: 3
+      value: |
+        Evaluate the CONTACTS section against the source solicitation.
+        EXPECTED: contacts array with name/title/email/phone, missingRecommendedRoles.
+        SCORING (1-10): 9-10=complete directory no fabrication, 7-8=minor gaps, 5-6=incomplete, 3-4=fabricated details.
+
+    - type: llm-rubric
+      metric: RisksQuality
+      threshold: 0.6
+      weight: 5
+      value: |
+        Evaluate the RISKS section against the source solicitation.
+        EXPECTED: risks and redFlags arrays with severity/mitigation, incumbentInfo.
+        SCORING (1-10): 9-10=prioritized risks all traceable to solicitation, 7-8=solid list, 5-6=generic, 3-4=invented risks.
+
+    - type: llm-rubric
+      metric: PricingQuality
+      threshold: 0.6
+      weight: 5
+      value: |
+        Evaluate the PRICING section against the source solicitation.
+        SCORING (1-10): 9-10=data-driven strategy + assumptions stated, 7-8=good analysis minor gaps, 5-6=basic summary, 3-4=fabricated amounts.
+
+    - type: llm-rubric
+      metric: ScoringQuality
+      threshold: 0.6
+      weight: 5
+      value: |
+        Evaluate the SCORING section (5 criteria: TECHNICAL_FIT 20%, PAST_PERFORMANCE_RELEVANCE 30%, PRICING_POSITION 15%, STRATEGIC_ALIGNMENT 25%, INCUMBENT_RISK 10%).
+        SCORING (1-10): 9-10=all criteria scored with rationale + correct composite, 7-8=mostly good, 5-6=weak rationale, 3-4=disconnected scores.
+
+    - type: llm-rubric
+      metric: OverallFaithfulness
+      threshold: 0.8
+      weight: 5
+      value: |
+        Check the entire brief for hallucinated content not traceable to the source solicitation.
+        SCORING (1-10): 9-10=every fact traceable, 5-6=1-2 questionable values, 1-2=pervasive fabrication.
+
+    - type: llm-rubric
+      metric: Actionability
+      threshold: 0.6
+      weight: 5
+      value: |
+        Does this brief answer: (1) What is being procured? (2) When are deadlines? (3) What do we need to win? (4) Who are decision-makers? (5) What are the risks? (6) Can we price competitively? (7) Should we bid?
+        SCORING (1-10): 9-10=all 7 answered clearly, 5-6=5-6 answered, 1-2=mostly empty.
+
+tests:
+  - description: "VA Central CA — Patient Ceiling Lifts (36C26126Q0587)"
+    vars:
+      brief: file:///tmp/ivan3-eval/brief-exports/6515-va-ceiling-lifts.json
+      solicitation: file:///Users/ivanstadnik/Desktop/auto_rfp/evals/executive-brief/rfp-texts/6515-va-central-california-health-care-system-patient-ceiling-lifts.txt
+
+  - description: "DOT — Airline Analysis & Scheduling (693JK426R600002)"
+    vars:
+      brief: file:///tmp/ivan3-eval/brief-exports/airline-analysis.json
+      solicitation: file:///Users/ivanstadnik/Desktop/auto_rfp/evals/executive-brief/rfp-texts/airline-analysis-and-scheduling-solution-via-a-web-based-application.txt
+
+  - description: "IES — Cloud Hosting, System Admin & Website Support (AP4050)"
+    vars:
+      brief: file:///tmp/ivan3-eval/brief-exports/cloud-hosting-ies.json
+      solicitation: file:///Users/ivanstadnik/Desktop/auto_rfp/evals/executive-brief/rfp-texts/cloud-hosting-system-administration-and-website-support-and-development-for-the-.txt
+
+  - description: "VA — DA01 Revenue Operations Workflow (DA01)"
+    vars:
+      brief: file:///tmp/ivan3-eval/brief-exports/da01-revenue-ops.json
+      solicitation: file:///Users/ivanstadnik/Desktop/auto_rfp/evals/executive-brief/rfp-texts/da01-revenue-operations-workflow-payer-compliance-and-technical-process-optimiza.txt
+
+  - description: "Document Management Services"
+    vars:
+      brief: file:///tmp/ivan3-eval/brief-exports/document-management.json
+      solicitation: file:///Users/ivanstadnik/Desktop/auto_rfp/evals/executive-brief/rfp-texts/document-management-services.txt
+
+  - description: "EFD Software Upgrade and Cloud Modernization"
+    vars:
+      brief: file:///tmp/ivan3-eval/brief-exports/efd-software.json
+      solicitation: file:///Users/ivanstadnik/Desktop/auto_rfp/evals/executive-brief/rfp-texts/efd-software-upgrade-and-cloud-modernization.txt

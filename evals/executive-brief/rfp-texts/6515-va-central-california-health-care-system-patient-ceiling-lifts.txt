@@ -1,0 +1,563 @@
+# 6515--VA Central California Health Care System  PATIENT CEILING LIFTS
+
+Solicitation: 36C26126Q0587
+Type: Presolicitation
+NAICS: 339113
+Opp ID: 9534a4db-b8cc-4538-8702-5f2615c6c62d
+
+
+
+===== SOURCE FILE 1: 4b4ee383-61dc-4b7a-8933-646c0f37d206.txt =====
+
+
+
+SUBJECT*
+
+VA Central California Health Care System PATIENT CEILING LIFTS  
+
+
+
+GENERAL INFORMATION
+
+CONTRACTING OFFICE’S ZIP CODE*
+
+95652-2613
+
+SOLICITATION NUMBER*
+
+36C26126Q0587
+
+RESPONSE DATE/TIME/ZONE
+
+04-14-2026 12:00 PACIFIC TIME, LOS ANGELES, USA
+
+ARCHIVE
+
+60 DAYS AFTER THE RESPONSE DATE
+
+SET-ASIDE
+
+
+
+PRODUCT SERVICE CODE*
+
+6515
+
+NAICS CODE*
+
+339113
+
+PLACE OF PERFORMANCE
+
+Department of Veterans Affairs
+
+
+
+VA Sierra Pacific Network (VISN 21)
+
+
+
+VA Central California Health Care System (VACCHCS)
+
+
+
+2615 E. Clinton Ave
+
+
+
+Fresno CA
+
+POSTAL CODE
+
+93703
+
+COUNTRY
+
+USA
+
+
+
+CONTACT INFORMATION
+
+CONTRACTING OFFICE ADDRESS
+
+Department of Veterans Affairs 
+
+ 
+
+Network Contracting Office (NCO) 21 
+
+
+
+ 
+
+POINT OF CONTACT*
+
+
+
+Contracting Officer 
+
+Mohammed Hussain
+
+Mohammed.Hussain2@va.gov
+
+N/A
+
+N/A
+
+N/A
+
+
+
+ADDITIONAL INFORMATION
+
+AGENCY’S URL
+
+https://www.va.gov/
+
+URL DESCRIPTION
+
+VA website
+
+AGENCY CONTACT’S EMAIL ADDRESS
+
+Mohammed.Hussain2@va.gov
+
+EMAIL DESCRIPTION
+
+E-mail
+
+
+
+DESCRIPTION
+
+Department of Veterans Affairs (VA) Network Contracting Office (NCO 21) intends to award a sole source firm fixed price contract to ARJO INC  for 110 new Arjo ceiling lifts with installation on existing Arjo ceiling lift tracks to be used modify existing Arjo turntables for the Fresno VA Medical Center and Community Living Center. The procurement is on behalf of the Department of Veterans Affairs, Veterans Health Administration, Regional Procurement Office West (RPOW), Network Contracting Office (NCO) 21, on behalf of VA Central California Health Care System (VACCHCS).
+
+
+
+The specific items required are as follows:
+
+
+
+
+
+ITEM INFORMATION
+
+ITEM NUMBER
+
+DESCRIPTION OF SUPPLIES/SERVICES
+
+QUANTITY
+
+UNIT
+
+UNIT PRICE
+
+AMOUNT
+
+0001
+
+
+
+87.00
+
+EA
+
+__________________
+
+__________________
+
+
+
+MS2, 2 Function, ECS Gate, Regular HC, IC, MB LOCAL STOCK NUMBER: MS235-01-01
+
+
+
+0002
+
+
+
+87.00
+
+EA
+
+__________________
+
+__________________
+
+
+
+Government: MS2, 2pt (loop) IC spreader bar with Quick Release LOCAL STOCK NUMBER: 700-19465
+
+
+
+0003
+
+
+
+48.00
+
+EA
+
+__________________
+
+__________________
+
+
+
+KWIKTRAK 90, 3M LOCAL STOCK NUMBER: 200.12810
+
+
+
+0004
+
+
+
+24.00
+
+EA
+
+__________________
+
+__________________
+
+
+
+KWIKTRAK 140MM X 4.5M LOCAL STOCK NUMBER: 200.12870
+
+
+
+0005
+
+
+
+23.00
+
+EA
+
+__________________
+
+__________________
+
+
+
+KWIKTRAK Gate System LOCAL STOCK NUMBER: 700-11502
+
+
+
+0006
+
+
+
+23.00
+
+EA
+
+__________________
+
+__________________
+
+
+
+KWIKTRAK 90MM x 4M LOCAL STOCK NUMBER: 200.12815
+
+
+
+0007
+
+
+
+1.00
+
+EA
+
+__________________
+
+__________________
+
+
+
+Ceiling Lift Hardware Kit Fees LOCAL STOCK NUMBER: ZSMCLHRDWAREKIT
+
+
+
+0008
+
+
+
+1.00
+
+EA
+
+__________________
+
+__________________
+
+
+
+Ceiling Lift Installation Fees LOCAL STOCK NUMBER: ZSMCLINSTALLATION
+
+
+
+0009
+
+
+
+7.00
+
+EA
+
+__________________
+
+__________________
+
+
+
+MS2, 2 function, ECS Gate, Regular HC, IC, MB LOCAL STOCK NUMBER: MS235-01-01
+
+
+
+0010
+
+
+
+4.00
+
+EA
+
+__________________
+
+__________________
+
+
+
+Maxi Sky 1000 - with ECS, no spreader bar LOCAL STOCK NUMBER: LF21409
+
+
+
+0011
+
+
+
+7.00
+
+EA
+
+__________________
+
+__________________
+
+
+
+MS2, 2 function, ECS, Regular HC, IC, MB LOCAL STOCK NUMBER: MS205-01-01
+
+
+
+0012
+
+
+
+14.00
+
+EA
+
+__________________
+
+__________________
+
+
+
+Government: MS2, 2pt (loop) IC spreader bar with Quick Release LOCAL STOCK NUMBER: 700-19465
+
+
+
+0013
+
+
+
+4.00
+
+EA
+
+__________________
+
+__________________
+
+
+
+Maxi Sky 1000, 2pt (loop) spreader bar - 454KG LOCAL STOCK NUMBER: 700-05401-BOX
+
+
+
+0014
+
+
+
+1.00
+
+EA
+
+__________________
+
+__________________
+
+
+
+Ceiling Lift Hardware Kit Fees LOCAL STOCK NUMBER: ZSMCLHRDWAREKIT
+
+
+
+0015
+
+
+
+1.00
+
+EA
+
+__________________
+
+__________________
+
+
+
+Ceiling Lift Installation Fee LOCAL STOCK NUMBER: ZSMCLINSTALLATION
+
+
+
+0016
+
+
+
+1.00
+
+EA
+
+__________________
+
+__________________
+
+
+
+Ceiling Lift Installation Fee LOCAL STOCK NUMBER: ZSMCLINSTALLATION
+
+
+
+
+
+
+
+
+
+
+
+GRAND TOTAL
+
+__________________
+
+
+
+
+
+
+
+VA’s Gray Market Items terms and conditions apply pursuant to VAAR 852.212-71 Gray Market Items and VAAR 852.212-72 Gray Market and Counterfeit Items.  As a result, vendor shall be an OEM, authorized dealer, authorized distributor or authorized reseller for the items identified to be eligible for participation with this acquisition.  Vendor must be able to provide the documentation that demonstrates such aforementioned authority.
+
+
+
+The solicitation for this action will be posted to beta.sam.gov/GSA eBuy, and all responsible sources may submit a capability statement, proposal, or quotation, which shall be considered by the agency.  After consideration, the Government will determine whether to proceed with the sole source acquisition.  Please keep in mind that patient care and choice in the decision is the highest priority to the VA. The solicitation will be posted in May.
+
+
+
+Please respond to Mohammed.Hussain2@va.gov  no later than Thursday, April 14,2026, at 12:00 pm Pacific Standard Time.  With your response, please provide evidence showing compliance with the aforementioned Gray Market clauses.  Failure to provide the required information may result in a determination that your company is not 
+
+a viable source. 
+
+
+
+
+
+Salient Characteristics is also attached
+
+
+
+
+
+
+
+                                                (End of Notice)
+
+
+
+
+
+Salient Characteristics – Ceiling Lift
+
+
+
+Minimum load capacity of 600 lbs. for non-bariatric patient rooms and 1,000 lbs. for bariatric patient rooms.
+
+Handheld remote control to raise/lower patients and move motor along the track.
+
+For motors with a maximum load capacity of 600 pounds, they must have minimum lifting speed of:
+
+1.5 inches per second for a minimum of 440 pounds being lifted
+
+1.3 inches per second for a minimum of 600 pounds being lifted
+
+For motors with a maximum load capacity of 1,000 pounds, they must have minimum lifting speed of:
+
+1.4 inches per second for a minimum of 500 pounds being lifted
+
+1.2 inches per second for a minimum of 1,000 pounds being lifted
+
+Minimum strap length of 98.4 inches to lift a patient up off the ground for motors with maximum load capacity of 600 pounds.
+
+Minimum strap length of 90.6 inches to lift a patient up off the ground for motors with maximum load capacity of 1,000 pounds.
+
+Operates at maximum of 61 dBA.
+
+For motors with a maximum load capacity of 600 pounds, they must have a minimum useful service life of 10-years or 20,000 cycles where a cycle is based on transferring a 600-pound load being raised a minimum of 24 inches, a lateral displacement, and a minimum 24-inch descending action.
+
+For motors with a maximum load capacity of 1,000 pounds, they must have a minimum useful service life of 7-years or 10,000 cycles.
+
+Non-porous components – lifting strap, emergency cord, and spreader bar to enhance infection control properties to be resistant against dirt/contaminants and be easy to clean/disinfect.
+
+LCD interface to provide instant and clear feedback on the lift:
+
+Must indicate battery life, over duty cycle, maintenance required notification, and overweight notifications
+
+Strap with quick release attachment that allows for frontline staff to easily change out spreader bar and use scale without any tools.
+
+Spreader bars with quick release attachment that is compatible with quick release on strap.
+
+Contractor must have all of the following spreader bar options available to meet individual patient needs:
+
+clip style
+
+loop style
+
+2-point and 4-point
+
+powered positioning via remote control
+
+minimum width 24  inches
+
+maximum width 28 inches
+
+non-powered positioning
+
+minimum width 22  inches
+
+Scale with minimum weight capacity of 600 pounds and maximum weight capacity of 1,000 pounds.
+
+Scale that has quick release attachment that is compatible with quick release strap and quick release spreader bar.
+
+Option for powered positioning system.
+
+Emergency braking and lowering system.
+
+Ceiling lift has IP24 protection rating on the lift and IP7 on the handheld remote control, or better.
+
+
+

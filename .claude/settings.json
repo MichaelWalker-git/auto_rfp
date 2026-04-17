@@ -2,6 +2,8 @@
   "permissions": {
     "allow": [
       "Read",
+      "Edit",
+      "Write",
       "Glob",
       "Grep",
       "Bash(tee /tmp/deploy-dev.log)",
@@ -29,7 +31,16 @@
       "Bash(grep -E \"\\\\.test\\\\.ts$\")",
       "Bash(npx jest:*)",
       "Bash(npx vitest:*)",
-      "Bash(pnpm tsc:*)"
+      "Bash(pnpm tsc:*)",
+      "Bash(mkdir *)",
+      "Bash(cd *)",
+      "Bash(npx promptfoo *)",
+      "Bash(cp *)",
+      "Bash(ls *)",
+      "Bash(cat *)",
+      "Bash(git diff *)",
+      "Bash(git log *)",
+      "Bash(git status *)"
     ]
   }
 }

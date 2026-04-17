@@ -1,0 +1,107 @@
+# EFD Software Upgrade and cloud Modernization
+
+Solicitation: HQ042326FE025
+Type: Justification
+NAICS: 541519
+Opp ID: c41c7043-1550-4cb0-8a7f-517adf26ebb8
+
+
+
+===== SOURCE FILE 1: fe30884e-e77e-4f67-9eab-6c25cd2bd4e5.txt =====
+
+Source Selection Information - FAR 2.101 & 3.104.
+Reset Form
+DEFENSE FINANCE AND ACCOUNTING SERVICE
+Contract Services Directorate
+DFAS
+3990 E. Broad Street
+Bldg. 21
+Columbus, OH 43213-1152
+NOTE: To ensure form populates correctly, enter Estimated Value below under 3. prior to completing any other entries.
+FAR 8.4 - Limited Sources Justification
+SOLE SOURCE
+Purchase Request #(s)
+HQ0896621743
+CONTRACTING ACTIVITY: DFAS Contract Services Directorate
+1. REQUIRING ACTIVITY:
+2. DESCRIPTION OF THE ACTION BEING APPROVED: Solicit a Sole Source requirement and award a Contract/Order.
+3. DESCRIPTION OF SUPPLIES/SERVICES: This justification covers the acquisition of the following article(s):
+The objective of this requirement is to migrate the Enterprise Funds Distribution (EFD) system to a DoD approved Enterprise
+Commercial Cloud provider. In order to achieve this objective, DFAS requires professional Information Technology services toward
+upgrading to the current Momentum Financials software, and then integrating the updated software to the EFD system.
+The Required Delivery Date/PoP is:
+Estimated Value (include options): $
+Option(s)
+YES
+4. STATUTORY AUTHORITY PERMITTING OTHER THAN FULL AND OPEN COMPETITION:
+FAR 8.405-6(b) Items peculiar to one manufacturer. An item peculiar to one manufacturer can be a particular brand name, product, or a feature of a product, peculiar
+to one manufacturer. A brand name item, whether available on one or more schedule contracts, is an item peculiar to one manufacturer.
+5. IS THIS JUSTIFICATION FOR A FOLLOW-ON TO AN ORDER OR BPA FOR THE SAME SUPPLY OR SERVICES PREVIOUSLY
+NO
+ISSUED BASED ON A LIMITING SOURCES JUSTIFICATION CITING THE AUTHORITY AT FAR 8.405-6(a)(1)(i)(B) OR (C)?
+6. RATIONALE JUSTIFYING USE OF CITED STATUTORY AUTHORITY
+The purpose of this Justification is to obtain approval to proceed with a limited source acquisition for services based on items peculiar to
+one manufacturer.
+The Momentum Financials software suite is the foundational software platform of the Enterprise Funds Distribution (EFD) system. DFAS
+requires professional Information Technology services toward upgrading to the current Momentum Financials software, integrating the
+updated software to the EFD system, and then migrating the EFD system to a DoD approved Enterprise Commercial Cloud provider. This
+requirement is brand name to Momentum Financials. The Momentum Financials is a proprietary software solution which is owned by
+CGI Federal (CGI). Since the needs of DFAS require changes to the the Momentum codebase, only a vendor who can alter the
+Momentum codebase will suffice to meet this requirement. CGI does not allow other vendors to alter the Momentum software. Only
+CGI has this ability.
+DFAS intends to sole source this requirement to CGI under its GSA Federal Supply Schedule utilizing FAR 8.4 procedures.
+7. DESCRIPTION OF EFFORTS MADE TO SOLICIT OFFERS FROM AS MANY OFFERORS AS PRACTICABLE:
+Other details in box #8
+Version 2.0 MAR 2024
+Page 1 of 3
+Source Selection Information - - FAR 2.101 & 3.104.
+Reset Form
+8. A SHORT DESCRIPTION OF RESULTS OF RFI/BETA.SAM.GOV POSTING, OR MARKET RESEARCH CONDUCTED OR A STATEMENT
+OF THE REASON NONE OF THE ABOVE ACTIONS WERE CONDUCTED.
+The DFAS EFD Program Manager (PM) performed market research by establishing the following facts:
+- The Momentum Financials software suite is the foundational software platform of the EFD system.
+- The Momentum Financials is a proprietary software solution which is owned by CGI.
+- CGI Federal does not allow other vendors to alter the Momentum software.
+DFAS requires professional Information Technology services toward upgrading to the current Momentum Financials software,
+integrating the updated software to the EFD system, and then migrating the EFD system to a DoD approved Enterprise Commercial
+Cloud provider. Since the needs of DFAS require changes to the the Momentum codebase, only CGI can satisfy this requirement.
+9. LIST OF THE SOURCES THAT EXPRESSED A WRITTEN INTEREST IN THE ACQUISITION.
+CGI Federal
+10. ANY OTHER FACTS SUPPORTING THE USE OF OTHER THAN FULL AND OPEN COMPETITION:
+N/A
+11. A STATEMENT OF THE ACTIONS, IF ANY, THE AGENCY MAY TAKE TO REMOVE OR OVERCOME ANY BARRIERS TO
+COMPETITION BEFORE ANY SUBSEQUENT ACQUISITION FOR THE SUPPLIES OR SERVICES REQUIRED.
+Since this is a one-time requirement, no actions will be taken.
+Version 2.0 MAR 2024
+Page 2 of 3
+Source Selection Information - FAR 2.101 & 3.104.
+Reset Form
+12. DETERMINATION OF FAIR AND REASONABLE COST: The contracting officer will determine that the anticipated cost to the
+Government of the service/supplies covered by this justification will be fair and reasonable.
+13. TECHNICAL/REQUIREMENTS REPRESENTATIVE CERTIFICATION:
+I hereby certify that this justification is made in good faith, that the supporting data and information are accurate and complete to the best of
+my knowledge and belief, and that I would not be making this request if it were feasible to fully compete this requirement. I further certify that
+this request is not the result of lack of advanced planning or a desire to expend funds while those funds are still available.
+Technical Reviewer
+Name:
+Signature
+Requiring Activity/Program Management Office Certification:
+Name:
+Title:
+Signature
+14. CONTRACTING OFFICER'S CERTIFICATION: I hereby certify that this justification is made in good faith, that the supporting data and
+information are accurate and complete to the best of my knowledge.
+Title: Contracting Officer
+Name:
+Org. Code
+ZPKAC
+Signature
+15. LEGAL SUFFICIENCY REVIEW:
+Name:
+Signature
+00'
+16. COMPETITION ADVOCATE REVIEW AND CONCURRENCE: (>$750,000)
+Name:
+Signature
+Version 2.0 MAR 2024
+Page 3 of 3

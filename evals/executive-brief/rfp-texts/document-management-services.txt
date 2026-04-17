@@ -1,0 +1,192 @@
+# Document Management Services
+
+Solicitation: JA-2026-04-1292
+Type: Justification
+NAICS: 518210
+Opp ID: ecba4f49-646d-42c6-b45a-b2831008dfe3
+
+
+
+===== SOURCE FILE 1: 0dab5b6f-8c7c-48d5-af1b-88ab4482faf8.txt =====
+
+Appendix D Exception to Fair Opportunity
+FAR 16.505
+Exception to Fair Opportunity
+SECTION I: Introduction
+The Transportation Security Administration (TSA), Enrollment Services & Vetting Programs (ESVP), and Contracting and
+Procurement (C&P) propose to issue a task order (TO) that restricts the number of sources provided a fair opportunity to be
+considered in accordance with Federal Acquisition Regulation (FAR) 16.507-6(b)(2), FAR Class Deviation 26-04, Rev. 1 for
+FAR Part 16.
+The procurement request number is PR267503A002, and the Contracting and Procurement's tracking number is JA-2026-04-
+1292.
+Per FAR 16.507, this acquisition is conducted under a multiple award contract.
+SECTION II: Description of Action Being Approved
+The TSA intends to award a Firm Fixed Price (FFP) interim TO to ILM Corporation of Virginia, Inc. (ILM) under their
+General Services Administration's (GSA), Federal Supply Schedule (FSS), Multiple Award Schedule (MAS), Office
+Management, Contract Number: 47QSMA19D08P3 to continue the contracted support for Document Management Services
+(DMS). The DMS service provides vetting and credentialing services in support of the Security Threat Assessments (STA).
+The ESVP mission is to conduct STAs to identify potential threats to the nation's transportation system and critical
+infrastructure. The STA includes biometric and biographic based Criminal History Records Checks (CHRC), checks against
+intelligence-related databases, and legal status checks.
+The ESVP office manages the DMS; the DMS is a functionality within the Vetting and Credentialing System (VCS) and
+Technology Infrastructure Modernization (TIM) system that enables ESVP to maintain an electronic file of all
+correspondence related to an applicants' case file.
+(a) Contractor Name: ILM Corporation of Virginia, Inc. (ILM)
+(b) Type of action: FFP TO
+(c) Estimated Amount: $3,281,226.14 as outlined below.
+Description
+Base Period (12 Months)
+Option 1 (6 Month)
+Option 2 (6 months)
+Total (2 Years)
+Total
+$3,281,226.14
+(d) Estimated Period of Performance (PoP): 2-Year PoP (03/01/2026-02/28/2028) consisting of a 12-
+month base period and two (2) six (6)-month option periods as follows;
+Base Period: (12-months) 01 March 2026 - 28 February 2027
+*Option 1 Period: (6-months) 01 March 2027 - 31 August 2027
+*Option 2 Period: (6-months) 01 September 2027 - 28 February 2028
+*The option periods may be exercised if the Authority to Operate (ATO) process for the new system experiences
+any further delays.
+This interim TO will be awarded to ILM located at 1551 Jefferson Davis HWY Suite 200, Fredericksburg, VA 22401. ILM
+is a HUBZONE small business, currently performing these services successfully under TO 70T02024F753N003. This
+proposed new TO will allow the current DMS service to continue operating and to allow for the transition to the new
+Page 1 of 4
+contractor. TSA awarded the competitive Document Management Information System and Services (DMISS) Blanket
+Purchase Agreement (BPA) 70T02024A7503N001 to DOMA Technologies, LLC (DOMA) on 01 December 2023. The new
+vendor, DOMA, is currently in the ATO documentation phase.
+DHS/TSA has implemented
+across the department which has resulted in changes to the
+ATO process over the last 12-24 months. Therefore, ATO approval may take up to 24 months.
+under the DOMA BPA Order 170T02024F7503N002
+before ATO work
+could begin. The was another
+delay due to onboarding delays and granting TSA program office roles such as the
+Information System Security Officer (ISSO) and waiting for TSA-IT to assign a dedicated resource for the DOMA ATO
+process. Per internal conversations with TSA IT ATO approval for DOMA will not be granted until late November of 2026.
+Therefore, in accordance with FAR 16.507-6(b), only one awardee is capable of providing the services required as it is not
+feasible to compete an interim contract while the new vendor obtains ATO.
+SECTION III: Description of Supplies or Services
+The requirement is to provide document correspondence and mailing services in support of the ESVP mission. Specifically,
+the services rendered include receiving incoming documents from applicants (that are responding to questions from TSA or
+appealing a TSA determination concerning their application), converting documents to electronic format, uploading
+electronic documents to the corresponding case file in the VCS or TIM systems and preparing outgoing correspondence for
+mailing for the several TSA Program populations. The DMS supports various programs and populations such as the
+following;
+Hazardous Material Endorsement Program;
+Transportation Worker Identification Credential Program;
+Aviation Workers Program and General Aviation;
+DCA Access Standard Security Program;
+Full All Cargo population;
+Indirect Air Carrier population;
+Certified Cargo Screening Program population; and
+TSA PreV@population.
+The total estimated procurement value is $3,281,226.14 for a 12-month base and two 6-month option periods.
+SECTION IV: Identification of the Exception to Fair Opportunity Rationale
+FAR 16.507-6(b)(1) The agency need for the supplies or services is so urgent that providing a fair opportunity
+would result in unacceptable delays.
+FAR 16.507-6(b)(2) Only one awardee is capable of providing the supplies or services required at the level of
+quality required because the supplies or services ordered are unique or highly specialized. * Note: if using "brand
+name", clearly explain why brand name or equal is not a viable solution.
+FAR 16.507-6(b)(3) The order must be issued on a sole-source basis in the interest of economy and efficiency
+because it is a logical follow-on to an order already issued under the contract, provided that all awardees were given a
+fair opportunity to be considered for the original order
+FAR 16.507-6(b)(4) It is necessary to place an order to satisfy a minimum guarantee
+FAR 16.706(b)(5) For orders exceeding the simplified acquisition threshold, a statute expressly authorizes that the
+purchase can be made from a specified source. Original Order Number:
+SECTION V: Description of Fair Opportunity Exception Rationale
+The DMS is a solution that enables ESVP systems to maintain an electronic file of all correspondence and documents related
+to an applicants' enrollment, vetting and case management, such as an applicant's TWIC Credentialing. The DMS transmits
+the applicants' documents, correspondence and other required applicant data, such as images of identity documents sent either
+Page 2 of 4
+by the applicant to the DMS for transmission to the appropriate TSA system or documents and correspondence sent from the
+appropriate TSA system to the DMS for transmission to the TSA applicant based on the program according to TSA interface
+specifications.
+Both the VCS and the TIM systems interface with the DMS system. The VCS is the system of record for the Aviation
+Workers Program (AVW), Certified Cargo Screening Program (CCSP), DCA Access Standard Security Program (DASSP),
+Full All Cargo (FAC) Aircraft Operator, General Aviation (GA), the Indirect Air Carrier (IAC), and the HME Threat
+Assessment Program (HTAP). The TIM system is the system of record for the TWIC Program and the TSA
+PreV®Application Program.
+Without this interim contract a break in service would occur with national security implications as this would directly affect
+movement of people and commerce. Moreover, this element of the STA is in place to manage and monitor potential threats,
+local or national by vetting and providing credentials through the adjudication process to those qualified workers who
+transports goods and people across the nation.
+If the DMS is inoperable, then the transportation workers and TSA will be unable to receive any correspondence and
+documents related to each applicants' enrollment, vetting and case management status. The adjudication process completes a
+security threat assessment and provides the outcome for the applicant. Failure to communicate the STA outcome would result
+in transportation workers being unable to forward in the adjudication process. Examples of vetted and cleared TSA programs
+and populations include TSA PreV® and TWIC Moreover, without adjudication the transportation worker will not be able
+to transport goods, work at the airports or airlines, work at the ports, as well as not be able to work at designated critical
+infrastructure locations. Lack of enrollment, vetting, and proper credentialing directly affects the TSA mission in safeguarding
+the nation's transportation system ensuring freedom of movement of people and commerce.
+TSA awarded the new competitive DMISS BPA, but DOMA cannot deliver any documents until they have obtained ATO
+from TSA. The first BPA Order under the competitive DMISS BPA has only obligated funding for the ATO and not
+processing documents. This interim TO is necessary to continue the DMS support until DOMA is granted an ATO. Therefore,
+ILM is the only company with vetted employees with significant experience performing the DMS requirements.
+SECTION VI: Contracting Officer's Determination that the Order Represents the Best Value
+The Contracting Officer will ensure that the resulting order represents the best value by comparing the ILM quote to the
+independent government cost estimate, reviewing historical pricing, and comparing their proposed labor rates against their
+competitively awarded GSA Multiple Award Schedule (MAS) labor rates in order to determine the price to be fair and
+reasonable.
+SECTION VII: Market Research Description
+Market research was conducted for this specific interim sole source action and ILM is the only resource capable of providing
+the services without a disruption of services.
+SECTION VIII: Other Facts Supporting the Fair Opportunity Exception Justification
+Seeking an alternate vendor would require TSA to conduct a suitability review of the vendor's employees and complete on-
+boarding requirements. The vetting process, on average, takes 60-90 days. In addition, the contractor will be required to get
+special systems access, which is provided through contractor support.
+SECTION IX: Actions Taken to Remove Barriers to Competition
+This TO is needed to bridge the gap between the end of the current ILM TO 70T02024F7503N003 and ATO approval to
+DOMA under the DMISS BPA. As the DMISS BPA 70T02024A7503N001 was competed under GSA eBuy as a small
+business set-aside and awarded 01 December 2023 there are no barriers to competing this action.
+SECTION X: Contracting Officer Certification
+I certify that this information is accurate and complete to the best of my knowledge and belief.
+Kyra Froemke
+KYRA J FROEMKE
+Digitally signed by KYRA J FROEMKE
+Date: 2026.01.30 15:32:13 -05'00'
+Name (Printed)
+Signature
+Date
+Page 3 of 4
+SECTION XI: Technical or Requirements Personnel Certification
+I certify that this requirement meets the Government's minimum need and that the supporting data, which forms a basis for
+this justification, is complete and accurate.
+Name (Printed)
+Signature
+Date
+SECTION XII: Concurrence and Approval
+The required levels of concurrence and approval of this Limited Sourced Justification depend on the estimated total value of
+the procurement. Concurrence and approval must be obtained for that level and each previous level.
+Estimated Procurement Value:
+$2,000 and greater for Construction
+$2,500 and greater for Services
+$10,000 and greater for Supplies
+Concurrence:
+Program Manager:
+Name (Printed)
+Signature
+Date
+Acquisition Official Approval:
+Contracting Officer:
+Digitally signed by KYRA J
+KYRA J FROEMKE
+FROEMKE
+Kyra Froemke
+Date: 2026.01.30 15:32:48 -05'00'
+Name (Printed)
+Signature
+Date
+Estimated Procurement Value: Greater than $250,000
+Acquisition Official Approval:
+Division Director:
+Name (Printed)
+Signature
+Date
+Estimated Procurement Value: Greater than $750,000
+Acquisition Official Approval:
+TSA Competition Advocate:
+Name (Printed)
+Signature
+Date
+Page 4 of 4

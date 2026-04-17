@@ -1,0 +1,312 @@
+# Support for XNAT instance for FMRIF
+
+Solicitation: PCA-NIMH-02429
+Type: Combined Synopsis/Solicitation
+NAICS: 541512
+Opp ID: 88531e17-2daf-4a4e-920e-103d7c2818b4
+
+
+
+===== SOURCE FILE 1: a1fbe409-90f3-42be-ac47-b7e54f98d3a2.txt =====
+
+COMBINED SYNOPSIS / SOLICITATION-COMPETITIVE
+Title: Support for XNAT instance for FMRIF
+1. This is a combined synopsis/solicitation for commercial items prepared in accordance with
+the format in Federal Acquisition Regulation (FAR) Subpart 12.6 as supplemented with
+additional information included in this notice. This announcement constitutes the only
+solicitation; quotes are being requested and a separate written solicitation will not be
+issued.
+2. The solicitation number is PCA-NIMH-02429 and the solicitation is issued as request for
+quotation (RFQ).
+This acquisition is for a commercial item or service and is conducted under the authority of
+the FAR Part 13 -Simplified Acquisition Procedures; and FAR Part 12-Acquisition of
+Commercial Items and is not expected to exceed the simplified acquisition threshold. A
+fixed-price type of purchase order is contemplated for this requirement.
+The Functional MRI Facility (FMRIF) in the National Institute of Mental Health (NIMH) is
+seeking support for its data and workflow management platform, XNAT, which currently
+aggregates data from multiple MRI scanners in the NMR Center (where FMRIF's and other
+IC's scanners are located), provides access to these data to the users of these scanners,
+and also serves as platforms for managing, sharing, and processing these data. See
+Attachment 1 - Purchase Description or Statement of Work, for additional details.
+3. The solicitation document and incorporated provisions and clauses are those in effect
+through Federal Acquisition Circular 2025-05, dated 08-07-2025.
+4. The North American Industry Classification System (NAICS) Code for this procurement is
+541512 - Computer Systems Design Services and the small business size standard $34
+million or less.
+5. Line Items: Through this procurement NIMH anticipates a single award, firm fixed price
+purchase order for support for its data and workflow management platform (Lowest Price
+Technically Acceptable) as described in Attachment 1 - Purchase Description or
+Statement of Work.
+Below is a table that contains the line item numbers and description of the brand name or
+equal requirement for the anticipated award.
+Line No.
+Description
+1
+Support of FMRIF's XNAT platform
+2
+Data Transfer
+6. Project Requirements: Independently and not as an agent of the Government, the
+Contractor shall furnish all the necessary services, qualified personnel, material, equipment,
+Page 1 of 4
+and facilities, not otherwise provided by the Government as needed to provide the required
+equipment as described in the Purchase Description.
+Please see Attachment 1 - Purchase Description for the complete description and details of
+the requirement.
+7. Anticipated period of performance is one (1) 12-month base period from date of award, with
+four (4) 12-month option periods, for a potential total of five (5) years. Additional details are
+identified in Attachment #1 - Purchase Description or Statement of Work
+8. The provision at FAR clause 52.212-1, Instructions to Offerors - Commercial Items, applies
+to this acquisition.
+9. The provision at FAR clause 52.212-2, Evaluation - Commercial Items, applies to this
+acquisition. The following is provided as an addendum to clause 52.212-2:
+The award resulting from this solicitation will be made to the responsible Offeror whose
+quote is most advantageous to the Government, price and other factors considered. The
+following factors shall be used to evaluate quotations: Lowest Price Technical Acceptable
+(LPTA)
+Evaluations will be based on the demonstrated capabilities of the prospective Offeror in
+relation to the needs of the project. The merits of each quote will be evaluated carefully.
+Each quote must document the feasibility of successful implementation of the requirements
+of this solicitation. The Offeror must submit information sufficient to evaluate its quotes
+based on the detailed factors listed below.
+a. Technical Evaluation Criteria
+As part of the Technical Quote, the Offeror shall include the following:
+1. Technical Capability and Functionality
+NIMH shall evaluate the offeror's technical approach for overall capability and functionality in
+relation to the General Requirement, Salient Characteristics, Quantity and Deliverables as
+described in the Statement of Work.
+2. Contract Management and Customer Support
+NIMH shall evaluate the offeror's ability to provide a high level of customer service,
+particularly in the area of initial responsiveness and resolution of device and service
+problems. Specifically, the Government will evaluate the Offeror's capability based on its
+description of any applicable warranty, customer support process.
+3. Past Performance
+The Offeror should provide past performance information. Past performance information
+should cover a minimum of 1 year in relevant services and deliveries of comparable
+systems. The Offeror should provide at least one reference for any project identified under
+the experience factor that has a performance period within the past three years. For each
+reference, the offeror should provide: (1) Organization/contracting partner's name; (2) Point
+of contact's (POC) name and contact information: Current phone numbers. Valid email
+addresses; (3) Description that precisely explains: General scope of the contract. Specific
+requirements of the contract.
+Page 2 of 4
+Offerors may be evaluated based on information obtained from references provided by the
+offeror, other relevant past performance information obtained from other sources known to
+the Government, and any information supplied by the offeror concerning problems
+encountered on the identified contracts and corrective action taken. Furthermore, the
+Government will assess the relative risks associated with each offeror. Performance risks
+are those associated with an offeror's likelihood of success in performing the acquisition
+requirements as indicated by that offeror's record of past performance. The assessment of
+performance risk is not intended to be the product of a mechanical or mathematical analysis
+of an offeror's performance on a list of contracts but rather the product of subjective
+judgment by the Government after it considers all available and relevant information.
+b. Price Evaluation
+Offerors price quote will be evaluated for reasonableness. For a price to be reasonable, it
+must represent a price to the government that a prudent person would pay when
+consideration is given to prices in the market. Normally, price reasonableness is established
+through adequate price competition, but may also be determined through cost and price
+analysis techniques. Price evaluation will not be conducted on any Offeror determined to be
+technically unacceptable.
+10. The Offeror is to include a completed copy of the provision at FAR clause 52.212-3, Offeror
+Representations and Certifications-Commercial Items, with its offer.
+11. The FAR clause at 52.212-4, Contract Terms and Conditions - Commercial Items, applies to
+this acquisition.
+12. The FAR clause at 52.212-5, Contract Terms and Conditions Required to Implement
+Statutes or Executive Orders-Commercial Items, applies to this acquisition and is
+supplemented by Attachment 2 - 52.212-5 Addendum.
+13. The following additional contract requirement(s) or terms and conditions as determined by
+the Contracting Officer are necessary for this acquisition and consistent with customary
+commercial practices. FAR 52.212-4 Contract Terms and Conditions - Commercial Items
+(October 2018) is included in this solicitation by reference. Additional contract requirement(s)
+or terms and conditions determined by the Contracting Officer to be necessary for this
+acquisition are supplemented by the following attachments:
+Attachment 1 - Purchase Description
+Attachment 2 - 52.212-5 Contract Terms and Conditions Required to Implement Statutes
+or Executive Orders-Commercial Items
+Attachment 3 - Invoice Instructions
+14. This is not a rated order under the Defense Priorities and Allocations System (DPAS). The
+resultant purchase order will provide that HHS reserves the right to exercise priorities and
+allocations authority with respect to this contract, to include rating this order in accordance
+with 45 CFR Part 101, Subpart A-Health Resources Priorities and Allocations System.
+15. The response to the combined synopsis/solicitation is due no later than April 20, 2026 at
+1:00 P.M. Eastern Daylight Time (EDT). Offers submitted after the deadline may not be
+considered. The response should be submitted in a searchable electronic format to the
+Contract Specialist, Nicholas Capobianco at nicholas.capobianco@nih.gov. Electronic
+Page 3 of 4
+submittals must include the combined synopsis/solicitation PCA-NIMH-02429 and the Title
+in the Subject Line.
+In addition, the Unique Entity Identifier (UEI) number, the Taxpayer Identification Number
+(TIN), and the certification of business size must be included in the response. All offerors
+must have an active registration in the System for Award Management (SAM)
+www.sam.gov.
+The Offeror must submit with their quote the following information:
+technical quote in accordance with this combined synopsis/solicitation in a searchable
+PDF format;
+Price quote in an Excel format;
+the Unique Entity Identifier (UEI) number; and
+Verification of System for Award Management (SAM) Registration www.sam.gov.
+Technical quotes shall be submitted in accordance with the Project Requirements
+identified in Section 6 of this combined synopsis/solicitation.
+The Offeror should submit a separate business quotes in searchable PDF format.
+In its business quote, the Offeror shall add the total price for the basic requirements.
+Any quote, modification, or revision that is received at the designated Government office
+after the exact date and time specified for receipt of quotations is "late" and may not be
+considered. Quotes received "late" may not be evaluated or considered for award and may
+be returned to the Offeror.
+If an emergency or unanticipated event interrupts normal Government processes so that
+quotes cannot be received at the Government office designated for receipt of quotes by the
+exact time specified in the solicitation, and urgent Government requirements preclude
+amendment of the solicitation closing date, the time specified for receipt of quotes will be
+deemed to be extended to the same time of day specified in the solicitation on the first work
+day on which normal Government processes resume.
+The Government reserves the right to award without discussions if the Contracting Officer
+determines that the initial prices are fair and reasonable and that discussions are not
+necessary.
+16. Questions and requests for clarification should be submitted electronically to the Contract
+Specialist, Nicholas Capobianco at nicholas.capobianco@nih.gov on or before 1:00 pm
+April 13, 2026. Any questions or request for clarification must include the combined
+synopsis/solicitation PCA-NIMH-02429 and the Title in the Subject Line.
+Page 4 of 4
+
+
+===== SOURCE FILE 2: ae8b2299-a10e-4651-b2bf-66cceec9732a.txt =====
+
+STATEMENT OF WORK (SERVICES)
+(SOW)
+GENERAL INFORMATION
+Title of Project:
+Support for XNAT instance for FMRIF.
+Statement of Need and Purpose:
+The Functional MRI Facility (FMRIF) in the National Institute of Mental Health (NIMH) is seeking support
+for its data and workflow management platform, XNAT, which currently aggregates data from multiple MRI
+scanners in the NMR Center (where FMRIF's and other IC's scanners are located), provides access to
+these data to the users of these scanners, and also serves as platforms for managing, sharing, and
+processing these data.
+Background Information and Objective:
+Since its inception, FMRIF has operated a series of web-based platforms that serve to both aggregate
+image data from the MRI scanners owned and operated by the FMRIF, and to share these data out to its
+users, so they could securely retrieve their data using a web browser, or other web-based tools. The first
+such service used by FMRIF was a commercial PACS system from Intelerad. However, as both the number
+of scans conducted on FMRIF scanners rose, along with the volume of Functional MRI data generated,
+FMRIF encountered significant performance issues that could not be resolved by the vendor of that system.
+FMRIF then investigated multiple options to replace the Intelerad system, exploring both commercial and
+open source software (including, but not limited to, dcm4chee, XNAT, COINS, and NiDB). In all cases,
+there were either significant deficiencies, and / or lack of flexibility, that precluded use of any of these
+packages by FMRIF. Ultimately, a custom database and web application was created in-house, by a
+FMRIF-employed programmer, and that platform served FMRIF for almost a decade. However, in 2020,
+because of a loss of staff and expertise with FMRIF's in-house data management systems, FMRIF sought
+a commercial option, with support, to replace its in-house data management solution. That contract
+(75N95020P00651) was awarded to Radiologics to help FMRIF deploy, migrate data to, and support a
+single instance of XNAT. This was successfully rolled out to FMRIF's and other Facilities' users, and now
+FMRIF seeks an agreement to continue supporting its XNAT instance for its data warehousing,
+management, and processing needs.
+Period of Performance:
+Support for 1 year is required, starting on ASAP in FY26, with 4 additional option years of support also
+being requested.
+SCOPE OF WORK
+General Requirements:
+Independently and not as an agent of the Government, the Contractor shall furnish all the necessary
+services, qualified personnel, material, equipment, and facilities, not otherwise provided by the Government
+as needed to perform the Statement of Work below:
+Version 11-30-2016-1
+FAR Part 11-Describing Agency Needs
+Page 1 of 4
+Specific Requirements:
+Support of FMRIF's XNAT platform includes:
+Updating XNAT software on supported instances to provide new capabilities, and address any
+emergent performance and security issues.
+Updating integration with institutional authentication system (LDAP and Active Directory) to
+facilitate user authentication and system access.
+Maintaining and updating interfaces with multiple MR scanner vendors to allow automatic capture
+and aggregation both raw (k-space) and DICOM data generated by these vendors' platforms.
+Supporting transport of acquired and computed DICOM data between (i.e. send to and receive
+from) the platform and commercial PACS systems, and MR scanners
+Continue to provide training and training materials for FMRIF staff and users to administer and use
+the system.
+Continue to develop and provide tools for version tracking and maintaining provenance of data and
+analysis pipelines.
+Support scaling of compute and storage needs as the number of scanners, aggregated studies,
+and data processing compute loads increase.
+Develop and support interfaces for visualizing and analyzing data, including, but not limited to,
+derivation of basic quality assurance metrics.
+Continue supporting tools and / or interfaces for metadata search and management.
+Supporting and developing tools to leverage OCI-compliant containers for data processing,
+including, but not limited to, containers providing tools such as AFNI, FreeSurfer, and FSL.
+Support interfacing with large-scale batch processing system such as slurm and PBS on local HPC
+and commercial cloud compute resources.
+Support exporting image and study data into BIDS (Brain Imaging Data Structure) compliant data
+sets.
+Support providing automated and customizable data anonymization / de-identification for exported
+datasets.
+Support open REST-based APIs to all services and data, and support for external language SDKs
+(e.g. MATLAB, Python, and R).
+Provide mechanisms and interfaces for validation of data uploads into the system, and detection
+and logging of errors or omissions with such uploads.
+Support command line integration access to API to facilitate scripting, data import and export, job
+scheduling and status, and building analysis pipelines.
+Provide guaranteed response times to customer queries about issues, acknowledging of receipt of
+report of issues within 24 hours, with a 4 week window to resolving any issues raised.
+Develop and provide options to consolidate data storted by XNAT on disk into fewer objects,
+allowing backup of XNAT to tape, and providing a more streamlined path for XNAT sites to migrate
+their instnaces to cloud services.
+Keeping software deployed at, developed for, NIH open source, and available to the wider research
+community.
+Provide at least 3 references who can attest to ability and experience supporting XNAT instances.
+Version 11-30-2016-1
+FAR Part 11-Describing Agency Needs
+Page 2 of 4
+LEVEL OF EFFORT:
+The contractor is expected to employ staff familiar with DICOM communication protocols, understand
+various computer network communication protocols and security standards, and also familiar with medical
+imaging data processing requirements. Staff should be intimately familiar with the XNAT application, its
+operation, and should have extensive experience developing software and features that work both within,
+and interact with, the XNAT application.
+GOVERNMENT RESPONSIBILITIES:
+The government will supply all information necessary for contractor to complete their efforts. The
+government will also provide either physical or virtual computer systems on which the software platform will
+be deployed. Under a Memorandum of Understanding (MOU) between the contractor and government, the
+government will also provide remote access to vendor to system(s) on which the platform is deployed, to
+facilitate trouble-shooting, and performance and feature enhancements.
+DELIVERY OR DELIVERABLES:
+The contractor must deploy the scientific imaging data management system to a FMRIF-operated physical
+or virtual computers, and demonstrate how its operations meets and conforms to the above-listed "Specific
+Requirements." The contractor must also help maintain the performance of the system, as well its
+adherence to all security policies and requirements.
+REPORTING REQUIREMENTS:
+The contractor should report general performance metrics of the platform (relative compute load, and
+storage usage). The contractor should also report when systems are accessed, and for what purposes
+was access made. The contractor should also notify when system patches and updates become available,
+to enhance performance of the platform, as well as satisfy security and policy requirements.
+OTHER CONSIDERATIONS:
+Travel:
+No travel costs are anticipated to execute tis contract. Any and all travel costs are expected to be covered
+by the costs of this contract.
+Key Personnel:
+The relevant key personnel have been specified under the "Level of Effort" section.
+Information System Security Plan:
+This statement of work requires the contractor to (1) develop, (2) have the ability to access, and (3) maintain
+a federal information system. All work on this platform, and access to the machines on it will be under a
+Memorandum of Understanding between the contract and NIH's Center for Information Technology.
+Contractor will maintain systems to provide best performance, and also maintain compliance with current
+NIH policies and requirements.
+Data Rights:
+Any data generated by this procurement or system will belong to the Government. The Government will
+retain all rights over any generated data.
+Version 11-30-2016-1
+FAR Part 11-Describing Agency Needs
+Page 3 of 4
+Section 508-Electronic and Information Technology Standards:
+The contractor shall comply with Section 508 of the Rehabilitation Act (29 U.S.C. § 794d), as amended by
+the Workforce Investment Act of 1998 (P.L. 105-220), August 7, 1998. This system will not be accessible
+to the general public - it will only be accessible NIH employees with the relevant training.
+Publications and Publicity:
+This SOW is not expected to generate any publications.
+Confidentiality of Information:
+This SOW is not expected to utilize or generate any confidential information.
+ATTACHMENTS
+1.
+Independent Government's Cost Estimate
+2.
+Evaluation / Selection Criteria
+Version 11-30-2016-1
+FAR Part 11-Describing Agency Needs
+Page 4 of 4

@@ -1,0 +1,1504 @@
+# Cloud Hosting, System Administration, and Website Support and Development for the Institute of Education Sciences
+
+Solicitation: AP4050
+Type: Sources Sought
+NAICS: 518210
+Opp ID: a6337196-4a67-44bc-8217-557cb6d7de31
+
+
+
+===== SOURCE FILE 1: 55e6463a-87ea-491a-a562-1421277e74da.txt =====
+
+STATEMENT OF WORK
+
+
+
+Cloud Hosting, System Administration, and Website Support and Development for the Institute of Education Sciences
+
+
+
+Background
+
+The Institute of Education Sciences (IES) of the U.S. Department of Education currently maintains a virtual data center hosted in Amazon Web Services (AWS). The virtual data center consists of approximately 70 virtual servers, most of which are a version of Windows Server. The primary function of the data center is to host survey collection and dissemination websites in support of IES’ mission. This includes web servers, database servers, a vast array of websites and data driven web applications, a system management and web development environment, terminal servers housing analytical and statistical software, and other system support servers. Support for all aspects of IES’ web operations, including system administration, website administration and critical feature development, and user, staff and developer support, is provided by a team within IES which is comprised of government and contractor staff.
+
+Scope of Work
+
+The objective of this Statement of Work is to acquire the services of a Contractor to provide:
+
+Access to Amazon Web Services, Infrastructure-as-a-Service (IaaS)
+
+System operations and security support staff
+
+Website administration and development staff
+
+System, security, and analytical software
+
+
+
+Period of Performance
+
+Base Year (Task 1, 2, 3, and 4): 	Jul 26, 2026 – Jul 25, 2027
+
+Option Year 1: 			Jul 26, 2027 – Jul 25, 2028
+
+Option Year 2: 			Jul 26, 2028 – Jul 25, 2029
+
+Option Year 3: 			Jul 26, 2029 – Jul 25, 2030
+
+Option Year 4: 			Jul 26, 2030 – Jul 25, 2031
+
+Requirements
+
+Amazon Web Services (AWS)/IaaS Solution
+
+The contractor shall provide a cost-effective infrastructure hosted in AWS GovCloud-West and US-East regions that meets Federal IT security requirements and utilizes industry standards and best practices that meet or exceed the following criteria.
+
+Subtask 1.1 Transition AWS Ownership from Incumbent Contractor (Base Year Only)
+
+The contractor shall assume AWS account ownership from incumbent contractor, including gaining full control of all IES owned system resources and accounts hosted in AWS that comprise the IES Data Center. This is expected to take no longer than 4 weeks.
+
+Subtask 1.2 Provide AWS Cloud Services Responsive to Usage Demands
+
+In the base year, and in all subsequent option years, the contractor shall
+
+Provide AWS cloud services that are currently utilized in the IES Data Center, as well as providing the ability to expand AWS services as usage demands change over time.
+
+Provide access to AWS cloud services that meets or exceeds Federal Information Security Management Act (FISMA) requirements for information systems categorized as FIPS-199 defined Moderate and complies with the Federal Risk and Authorization Management Process (FedRAMP) requirements.
+
+Provide a solution that shall be physically located in the continental United States, and in a facility capable of being certified and accredited to host U.S. Government systems.
+
+Provide a robust, fault tolerant infrastructure that allows for high availability of 99.9%, and a one (1) hour recovery time after failure.
+
+Provide technical documentation required for certification and accreditation.
+
+
+
+System Operations and Security Support
+
+The Contractor shall provide system operations support staff, able to perform their work off-site. Support staff shall have experience working with systems in a federal owned data center and demonstrate an understanding through past performance of government IT mandates, regulations, and best practices. Support staff shall have demonstrated experience with and have strong understanding of privacy concerns of federal statistical agencies in respect to handling of sensitive data, including system security and storage, and limiting access to systems with sensitive data through network, system, and user policies.
+
+The Contractor shall provide separate operations and security teams, with a dedicated project manager for each team. The Operations Team shall focus on maintaining the IES websites, databases, server environment, AWS services, and daily operations. The Security Team shall focus on security related issues, such as web application, database, and system security scans, network security management, log management, and security documentation and reporting. 
+
+Subtask 2.1: Transition Software Licensing Agreements and AWS Accounts (Base Year Only)
+
+The contractor shall transition custody of all IES owned software licensing agreements and AWS accounts including all IES hosting assets from the incumbent.
+
+Subtask 2.2: Manage the IES Virtual Data Center
+
+The contractor shall:
+
+Manage all aspects of the IES virtual data center hosted in AWS GovCloud-West and US-East regions, which includes:
+
+Managing virtual private network, including VPCs, subnets, ACLs, security groups, route tables, IP address allocation, Direct Connect, and DNS. 
+
+Provisioning and maintaining virtual servers, including server resource allocation, storage, and network resources.
+
+Performing disaster recovery and incident response activities, including server backups and drive snapshots, AWS Cloud Trail monitoring, system redundancy, and monitoring the AWS FedRamp package for FISMA compliance monthly.
+
+Managing and routinely auditing security and access policies to all AWS resources, including IAM user accounts, groups, and policies, and certificate and key management.
+
+Maintaining MTIPS connectivity and internet routing to AWS network.
+
+Manage all IES servers by providing technical expertise in:
+
+Microsoft Windows Server 2016, 2019, 2022, and 2025, including configuring system to align with organization baseline security standards and other security standards such as DISA Security Technical Implementation Guides (STIG).
+
+Microsoft SQL Server, including database maintenance, backups, restores, index creation and maintenance, data migration, management of large databases, and security.
+
+Microsoft Internet Information Services (IIS), including application configuration, migration, and security.
+
+Future versions of Microsoft Windows Server, Microsoft SQL Server, and IIS.
+
+Linux server management.
+
+Drupal system management.
+
+AWS data lake, search, and serverless technology support.
+
+Manage the production and development infrastructure, restore infrastructure operational capabilities during disaster recovery efforts, and perform daily backups.
+
+Perform system maintenance, including:
+
+System patch management using Windows Server Update Services (WSUS)
+
+Software inventory monitoring for updates, patches, and vulnerabilities
+
+Trellix ePO management (anti-virus and HIPS)
+
+Log management and analysis
+
+Vulnerability scans and remediation
+
+Microsoft Active Directory management, including creating user, groups, policies
+
+Storage maintenance, including clearing up space, removing redundant data, and scaling capacity as needed.
+
+
+
+Subtask 2.3: Ensure System Security and Compliance with Federal IT Regulations
+
+The contractor shall:
+
+Implement best practices and procedures in compliance with current and future U.S. Federal Government IT mandates and regulations, such as:
+
+Federal Information Security Management Act (FISMA) of 2014
+
+Federal Information Processing Standard (FIPS) 140-3
+
+Office of Management and Budget (OMB) Circular A-130 Appendix III
+
+Homeland Security Presidential Directives (HSPD)
+
+National Institute of Standards and Technology (NIST) standards and guidance
+
+Section 508 of the Rehabilitation Act (29 U.S.C. '794 d)
+
+
+
+Track due dates for OCIO IT security data calls and supply data call responses to the IES ISSO.
+
+
+
+Perform vulnerability research, and vulnerability remediation on IES systems.
+
+
+
+Maintain FISMA compliance at the FIPS Moderate level including continuous monitoring, FISMA quarterly audits, and checking GRCT artifacts.
+
+Provide an annual review and updates of all FISMA documentation (e.g. System Security Plan, Disaster Recovery Plan, Configuration Management Plan, Business Impact Analysis, Incident Response Plan, Contingency Plan) and update documentation when new templates are released by OCIO.  Create and maintain IES system Standard Operating Procedures (SOPs).
+
+Maintain IES Data Center system information and Plan of Action and Milestones (POA&M) in the Department of Justice Governance Risk and Compliance Tool (GRCT) system.  Provide monthly updates for each open POA&M.  Research and close POA&Ms.
+
+Monitor due dates in the Governance Risk and Compliance Tool (GRCT) and track the progress of IES system updates to make sure GRCT information is current.
+
+Perform annual tests of the Disaster Recovery Plan, Contingency Plan, and Incident Response Plan. Results shall be provided to the ISSO and system owner.
+
+Help IES systems comply with OMB Memo M-21-31 “Improving the Federal Government’s Investigative and Remediation Capabilities Related to Cybersecurity Incidents”.
+
+Create, track and annually update IES system memorandums of understanding (MOUs).
+
+
+
+Subtask 2.4: Support Day-to-Day Website Management
+
+The contractor shall:
+
+
+
+Manage all IES websites, databases, and support IES web developers and staff. This includes, but not limited to, website troubleshooting, database maintenance, application and file migration, share access, and user account management.
+
+Websites
+
+~40
+
+Databases
+
+~400
+
+Users
+
+~500
+
+
+
+Manage F5 Big-IP network load balancers, including creating rules, virtual servers, VPN access and Single Sign On via Access Policy Manager, and installing SSL certificates.
+
+
+
+Support IES Digital Modernization (IESDM) project, which includes maintenance of AWS infrastructure, servers and services required for ongoing IESDM activities, building and maintaining Linux servers, and supporting Drupal services, AWS serverless services, and other software used in the IESDM.
+
+Act as technical point of contact for IES hosted systems and related issues for IES Government and contractor staff. Support hours are 7:30 AM – 5:30 PM EST. Staff may stagger their work schedule to provide adequate coverage during support hours. To minimize impact on users and program activities, it may be necessary to perform some maintenance activities outside of support hours.
+
+Subtask 2.5: Support Software and Applications Used in IES Systems
+
+The contractor shall:
+
+
+
+Provide software attestation/software bill of materials (SBOM) support for software used in IES systems to maintain compliance with OMB M-22-18 and M-23-16.   Update IES system information in the CISA Repository for Software Attestations and Artifacts.
+
+
+
+Submit Enterprise Architecture Technology Insertion (EATI) requests for new software.
+
+
+
+Support the following software and applications:	
+
+Apache SOLR
+
+ArcGIS
+
+AWS Management Console Resources (VPC, EC2, S3, Route 53, Direct Connect, Cloud Watch, Cloud Front, API Gateway, IAM, and SNS)
+
+Big Fix Inventory
+
+Big Fix Remediate
+
+Cloudberry
+
+F5 BigIP (LTM, APM, AFM)
+
+Fileup
+
+Fortify Static Code Analyzer
+
+Microsoft Active Directory
+
+Microsoft ASP, ASP.NET, .NET Core
+
+Microsoft Internet Information Services (IIS)
+
+Microsoft Office 2019
+
+Microsoft Remote Desktop 2019, 2022 Cals
+
+Microsoft Sharepoint
+
+Microsoft SQL Server
+
+Microsoft Team Foundation Server
+
+Microsoft Visio
+
+Microsoft Visual Studio
+
+Nagios Log Server
+
+PA Monitor
+
+R for Windows
+
+Redgate (SQL Compare, SQL Data Compare, SQL Backup)
+
+Redgate SQL Monitor
+
+SAS
+
+Sata/MP4
+
+Solarwinds Serv-U
+
+SPSS
+
+Stat/ Transfer
+
+SUDAAN
+
+Tenable  SC Plus
+
+Trellix ePO
+
+Trustwave DB Protect
+
+Ubuntu Linux (via AWS subscription)
+
+Webinspect
+
+Windows Server Update Services (WSUS)
+
+Winzip
+
+Drupal
+
+Additional software as necessary 
+
+
+
+
+
+Website Administration and Development
+
+The contractor shall provide website administration and development staff, able to perform their work off-site. The contractor shall provide support, administration, and improvements for IES’ dissemination and survey collection websites; ensure that the websites IES hosts comply with standards, agency and federal regulations, and industry best practices; take the lead in developing and maintaining the technical standards that ensure the quality of products disseminated on the websites; consult and advise on technical issues and standards implementation related to the websites; maintain and update website architecture as needed to ensure continued high quality services; and critical development of system features to improve workflow and provide better service to the public and other federal agencies. Legacy application web development work is in .NET, .NET core, or Classic ASP.  The modernized website is built using Drupal. The contractor shall provide all deliverables in electronic formats and provide all computer programming source files and code used in the creation of deliverables.
+
+
+
+Subtask 3.1 Ensure IES Websites are Compliant with New and Existing Standards
+
+The contractor shall:
+
+Review all new and existing web content for standards compliance, updating technical standards to align with changing industry standards, federal laws, and agency policies, providing technical support to staff and contractors, answer user submitted questions, publish new content to the website, convert print publications to web format, update and improve existing data dissemination tools, and collaborate with the Digital Modernization team to improve overall website architecture and design.
+
+
+
+Continually update IES’ web development standards with new specifications and remove obsolete standards to be current and align with industry, agency, and federal standards.
+
+
+
+Follow the IES digital design system and IES identify guidelines, including updated branding guidelines, design specification, components and templates
+
+
+
+Subtask 3.2 Provide Technical Support
+
+The contractor shall:
+
+Provide technical support to staff and contracts on all matters related to the IES websites, including providing assistance with meeting standards, developing tutorials related to web publishing, answering technical questions about website and server infrastructure and system limitations, providing web analytics support, and assisting the server operations team with application issues and technical guidance.
+
+
+
+Subtask 3.3. Manage and Support IES Members Site and Intranet
+
+The contractor shall:
+
+Update and maintain existing tools on the IES Members Site such as the request management system, web publication system, calendar and conference tools, Newsflash system, and secure file transfer system, and create new website management and workflow improvement tools as needed. 
+
+
+
+Continually monitor the request system for new submissions (~500 requests per month in the base year and first three option years; ~100 requests per month in the fourth option year), review new requests to ensure they are correctly formatted and categorized, and establish priority of each request based on time of release or severity if the request is to correct an issue on a live website
+
+
+
+Maintain the Review Tracking System (RTS) application on the IES intranet site to improve performance and to facilitate electronic publication tracking of IES publications and data products.
+
+
+
+Subtask 3.4 Support Updating and Maintenance of Content and Data on the IES Website
+
+The contractor shall:
+
+
+
+Use the IES content management system (CMS) when publishing content and must follow the CMS user guide(s) for publishing procedures and taxonomy guidance, including required CMS fields and tagging of universal taxonomy terms.
+
+
+
+Update IES’ websites with content provided by IES staff to ensure that the websites stay current with the latest information, as needed. Examples of updated content includes but is not limited to: updating and adding new conferences and trainings, updating the publication release calendar, posting new What’s New, Highlights, and Data Snapshots items to the homepage, adding and removing IES staff listings, posting Director and Commissioners’ remarks and press releases, processing publication requests, and updating site navigation and site map. The contractor shall also send “Newsflash” emails upon request, which occur on average 3-5 times a week. The Newsflash content and designated audience will be provided by IES staff.
+
+
+
+Update the content on the various survey and program area sections and create new survey and program areas sections as needed. 
+
+
+
+Maintain and update websites for IES (http://ies.ed.gov) This work includes, but is not limited to, posting new publications and content to IES websites, adding new grants/funding information, updating the grants database with detailed grants and grant program descriptions, principal investigators, and other details, and posting webinars. The Regional Educational Laboratory Program (REL) website (https://ies.ed.gov/use-work/regional-educational-laboratories-rel) has additional needs including adding new publications and projects to the REL pages and maintaining the information on the various RELs.
+
+
+
+Convert publications specifically selected by IES staff into a suitable web format. Some of the publications include, but are not limited to, Condition of Education (http://nces.ed.gov/programs/coe/), Digest of Education Statistics (http://nces.ed.gov/programs/digest/), and Projections of Education Statistics (http://nces.ed.gov/programs/projections/). This process entails creating html and image files that meet IES and NCES standards, converting tables into accessible html tables, creating navigation based off publication table of contents, and creating and optimizing graphics.
+
+
+
+Publish new content provided by NCES and other Forum participants to the Childstats.gov website, including updating and creating new HTML and image files.
+
+
+
+The contractor shall provide maintenance and critical development of features for applications which do not currently have active support contracts. Support may include:
+
+Bug fixes to identify and correct known work stoppage issues
+
+Compatibility updates due to ongoing maintenance in the environment (e.g., .Net, OS, or java updates)
+
+Remediation of vulnerability scan or compliance findings which are time sensitive
+
+Limited scope, urgent feature updates needed for operational continuity
+
+Adapting existing code to remediate identified risks where gaps in application support need to be bridged
+
+Research and document existing web applications in order to support GRCT and the generation of requirements for new support contracts when previous resources are no longer available
+
+All work must be limited in scope and duration to stay within the existing architecture and not evolve into full project development.
+
+
+
+In the monthly report, the contractor will submit a list of the most pressing applications to support, the type of support needed, estimated level of effort, and progress to date. The COR shall provide technical direction about the priority of items on the list and which applications to support in the upcoming month.
+
+
+
+Subtask 3.5. 	Update Dissemination Tools
+
+The contractor shall:
+
+Update dissemination tools to use the most recently available data and improve those search tools by adding new features requested by IES program staff.  The tools to be updated include, but are not limited to: College Navigator (http://nces.ed.gov/collegenavigator/).
+
+Support existing tools and websites and release new tools, including REL toolkits, publications, and web content. This shall include ensuring that the REL toolkits are successfully deployed, and that the websites are developed with the functionality needed. 
+
+Update and improve the ERIC dissemination website (https://eric.ed.gov) and backend data management tools. These web-based applications were developed using ASP.NET (C#), Apache SOLR, SQL Server, and AWS S3.
+
+
+
+Subtask 3.6	Ensure Compliance of Website Content with Federal Regulations
+
+The contractor shall:
+
+Review new and existing content to ensure that the products released on the IES-hosted websites, including REL products, and the websites themselves, meet federal regulations (including but not limited to Section 508 of the Rehabilitation Act (https://www.access-board.gov/ict/), industry standards and best practices, and documented IES style and technical standards. In addition to meeting standards, the contractor shall test new web applications for performance, usability, and functionality.
+
+
+
+Take existing word and PDF documents produced by IES and their contractors and develop them into 508 compliant documents or website text. This may include laying out in InDesign, formatting them to comply with IES style guides, adding alternative text, tagging for accessibility, and formatting of tables. 
+
+
+
+On a rolling basis, the COR will send the contractor a given document or set of documents and their priority. The contractor will develop an estimated level of effort in terms of labor hours. In the monthly report, the contractor shall submit a list of the content to make 508 compliant, the estimated level of effort, and progress to date. The COR shall provide technical direction about the priority of items on the list.
+
+
+
+Subtask 3.7 Coordination with IES Contractors Supporting IT and Data
+
+The contractor shall:
+
+Respond to user questions related to the websites or refer questions to appropriate IES staff members based on subject matter of the question and the area or expertise of the staff. Responses shall be provided within one business day on average.
+
+
+
+Maintain the common website framework established through the IES Digital Modernization effort in Drupal to ensure that the established standard look, menu and search elements are supported and updated as necessary improving standards compliance and performance. The contractor will coordinate with the IES Digital Modernization contractor to identify and support needed updates and critical feature improvements to the website.
+
+
+
+Plan to meet and communicate with DM-related vendors and/or work with the DM implementation vendor as directed by the COR.
+
+
+
+
+
+
+
+Software Licenses
+
+The contractor shall provide system and software licenses allowing for additional functionality in support of IES’ cloud hosted systems. The software and software licensing to be purchased for the base year and subsequent option years:
+
+Product
+
+Quantity
+
+Apache SOLR 
+
+1
+
+ArcGIS
+
+3
+
+AWS Management Console Resources (VPC, EC2, S3, Route 53, Direct Connect, Cloud Watch, Cloud Front, API Gateway, IAM, and SNS)
+
+within AWS account
+
+Big Fix Inventory
+
+1
+
+Big Fix Remediate
+
+1
+
+Cloudberry
+
+2
+
+F5 BigIP (LTM, APM, AFM)
+
+2
+
+Fileup
+
+1
+
+Fortify Static Code Analyzer
+
+1
+
+Microsoft Active Directory
+
+2
+
+Microsoft ASP, ASP.NET, .NET Core
+
+20
+
+Microsoft Internet Information Services (IIS)
+
+25
+
+Microsoft Office 2019
+
+3
+
+Microsoft Remote Desktop Cals
+
+(2016: 100 & 2022: 180)
+
+Microsoft SharePoint 
+
+1
+
+Microsoft SQL Server
+
+17
+
+Microsoft SQL Server 2014 Enterprise (2 CPU core license)
+
+2
+
+Microsoft Team Foundation Server
+
+1
+
+Microsoft Visio
+
+2
+
+Microsoft Visual Studio
+
+2
+
+Nagios Log Server
+
+2
+
+PA Monitor
+
+75
+
+R for Windows 
+
+1
+
+Redgate (SQL Compare, SQL Data Compare, SQL Backup)
+
+3
+
+SAS 9.2 
+
+1
+
+SAS modules: ETS & IML
+
+1
+
+Sata/MP4 –
+
+7
+
+Solarwinds Serv-U
+
+1
+
+SPSS Statistics base and modules + AMOS
+
+1
+
+Stat/ Transfer
+
+25
+
+SUDAAN 
+
+1
+
+Tenable  SC Plus 
+
+1
+
+Trellix ePO 
+
+1
+
+Trustwave DB Protect 
+
+1
+
+Ubuntu Linux (via AWS subscription)
+
+Per Linux server
+
+Webinspect
+
+1
+
+Windows Server Update Services (WSUS)
+
+1
+
+Winzip
+
+3
+
+Additional software as necessary
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Surge Task for Amazon Web Services (AWS)/IaaS Solution (Optional)
+
+This optional task provides IES with the ability to secure additional servers when current load exceeds the capacity of existing servers being supported via Task 1 of this PWS. All requirements, standards, and procedures set forth in Task 1 apply in full to this surge work unless otherwise specified by the COR.
+
+Subtask 5.1 Pricing 
+
+Surge support shall be priced as separate unit-priced tasks corresponding to each surge additional server need to meet load requirements. The contractor shall propose unit pricing for each task based on the full cost of acquiring an additional server. Unit pricing shall be fully loaded and reflect all labor, subcontractor costs, and overhead associated with setting up and maintaining the additional server.Surge Task for Technical Systems or Website Administration Support (Optional)
+
+This optional task provides IES with the ability to secure additional contractor support when the volume of technical systems and website administration support exceeds support provided by this contract. In the rapidly evolving cybersecurity environment, including the unpredictable deployment of automated webscraping tools and other AI-powered bots, demands on the IESDC security and operations team may periodically exceed planned capacity. At the same time, as IES consolidates website support into a centralized contract, IES anticipates that they may need to exercise this option to provide additional technical and security support for websites previously supported by other contracts.  In addition, IES is currently undergoing an agency-wide digital modernization (DM) to rebuild its digital portfolio. This includes the launch of a new ies.ed.gov website in FY2025 Q1 and the migration of existing content and data to the new website. This ongoing effort may require additional personnel effort to support migration of content into the existing CMS.  This optional task provides IES with the ability to secure additional personnel effort to support the migration of content into the CMS, as well as FTE from personnel with expertise in Drupal when the current contracted support for digital modernization ends. All requirements, standards, and procedures set forth in Tasks 2 and 3 of this PWS apply in full to surge work unless otherwise specified by the COR.
+
+6.1 Surge Triggers. IES may exercise this optional task when any of the following thresholds are exceeded in a given fiscal year:
+
+New security and system requirements are established that require additional staff expertise.
+
+Critical website technical support is required that exceeds what is provided. 
+
+Externally imposed and new deadlines (e.g., established in annual appropriations or report language) require more capacity to migrate content from existing nces.ed.gov websites to the ies.ed.gov CMS.
+
+Accelerated timelines are established for migrating content and data from existing nces.ed.gov websites to the ies.ed.gov CMS.
+
+Each threshold operates independently. IES may exercise surge support for one or more triggers simultaneously as conditions warrant.
+
+6.2 Pricing. Surge support shall be priced as separate unit-priced tasks corresponding to each surge trigger identified in 6.1. The contractor shall propose unit pricing for each task based on the full cost of performing all applicable subtasks under Task 2 through 3 for each additional unit. Unit pricing shall be fully loaded and reflect all labor, materials, subcontractor costs, and overhead associated with the additional work.
+
+6.3 Exercise of Surge Support. IES will provide the contractor with no less than 30 calendar days written notice prior to exercising surge support under this task. When operational circumstances make 30 days advance notice impracticable — including but not limited to critical cybersecurity concerns or external schedule demands outside of IES control (e.g., for a data collection tool hosted on the IESDC server but managed by another contract team) — IES may provide shorter notice with the mutual written agreement of the contractor.
+
+
+
+
+
+
+
+
+
+
+
+
+
+Schedule Deliverables
+
+Activity
+
+Deliverable
+
+Estimated Due Date
+
+Base Year
+
+Task 1
+
+Availability of Base Virtualized Hosting Environment
+
+Within two weeks from award date
+
+Task 2
+
+Support personnel assigned to support systems
+
+Within two weeks from award date
+
+Task 3
+
+Website staff assigned to support website
+
+Within two weeks from start of period of performance
+
+Task 4
+
+System license or software
+
+Within two weeks of request for license, after CAB approval
+
+Task 5
+
+Additional server secured
+
+Within two weeks of request
+
+Task 6
+
+Additional website administration contractor support secured
+
+Within 30 days of request
+
+
+
+Invoicing
+
+The contractor shall submit monthly reports on or before the 10th of each month. The monthly reports are to be submitted via electronic transmission. The monthly report shall be submitted to the COR, appointed Task Leader, and Contract Specialist.
+
+The report shall include the following:
+
+The progress on each task and activity relative to the schedule and a discussion of discrepancies;
+
+Accomplishments associated with each task and activity for the month;
+
+Problems that have been resolved or are in need of resolution;
+
+A discussion of the work to be performed during the next monthly reporting period;
+
+Brief description of the work performed by each staff member during the month;
+
+Detailed breakdown of cloud hosting spending;
+
+Funding expended by major category, including staff, travel, consultant, subcontractors, and other costs, including obligated costs of subcontractors; and
+
+Expected future technical and budgetary problems and proposed solutions to these.
+
+
+
+Confidentiality, Security, IT & Other Requirements
+
+Staffing
+
+The contractor shall provide in writing at least two (2) weeks advanced notice for replacement of staff proposed. This notice shall be provided to the Task Leader, COR and Contracting Officer (CO) and shall include justification (including proposed substitutions) in sufficient detail to permit evaluation of the impact on the program. All resumes of proposed replacement staff must be provided and approved by the COR and Task Leader before replacing any individual on this project.
+
+The work contained within this solicitation is classified as High Risk, and all proposed staff must be able to be determined suitable for 6C – High Risk – Public Trust positions.
+
+Due to U.S. Department of Education policy, only U.S citizens will be eligible for employment on contracts requiring a Moderate Risk/Public Trust, a High Risk/Public Trust, or a National Security designation.
+
+Government Furnished Equipment
+
+The Government will not supply equipment for this contract. The contractor is expected to provide all necessary equipment (laptops, workstations, PIV card readers, etc) to perform the activities detailed in this SOW.
+
+Contractor Employee Security Screening Requirements
+
+The Department has established policy on personnel security screening for all contractor and subcontractor employees and their field staff. The relevant Departmental Directive is OM:5-101.  It was last updated in July 2010 and can be found on the Department website:
+
+ http://www2.ed.gov/policy/gen/leg/foia/acsom5101.pdf 
+
+The contractor must comply with the personnel security-screening requirements in OM:5-101 throughout the life of the contract.    
+
+All contractor and subcontractor employees must undergo personnel security screening if they will be employed for thirty (30) days or more. 
+
+The type of screening and the timing of the screening will depend upon the nature of the contractor position, the type of data the contractor employee will have access to, or the type of Departmental information technology (IT) system they will access. Personnel security screenings will be commensurate with the risk and magnitude of harm the individual could cause to the Department or the public. A position risk level will be assigned to each contractor employee position, before a solicitation is released, consistent with the descriptions in Appendix I of OM:5-101. Hence, each contractor employee working on this contract must be assigned a position risk level. Depending on the risk level assigned to each person's position, a follow-up background investigation by the Office of Personnel Management (OPM) may occur.
+
+The contractor must identify one of their employees as a security liaison for this process. This Contractor Security Liaison coordinates the distribution, collection, and dissemination of various forms required in this process. They answer general questions from their employees on completing the security screening process. And, they are the first point of contact for contractor employees in using the OPM’s Internet based security screening portal called e-QIP (http://www.opm.gov/e-qip/). The contractor is also responsible for ensuring that all subcontractors follow these personnel security screening procedures.
+
+IES requires each contractor employee to have or apply for a clearance for the security level designated for the position held on a contract. 
+
+Contractor employees who have undergone appropriate personnel security screening for another Federal agency will be required to submit proof of that personnel security screening for validation. For these employees, the contractor or subcontractor must follow these required steps:
+
+The contractor must send the IES Security Representative a letter on Company letterhead that lists the full name of each employee with a pre-existing clearance, the agency that cleared the employee, the level of the clearance, and the date of the clearance. This letter must be transmitted within two (2) business days of starting work on an IES contract. 
+
+In those cases where any of the required information on level of clearance, agency that cleared the employee and date of clearance is not available, the contractor must send the IES Security Representative a letter on Company letterhead that lists the full name and Social Security Number for each employee with a pre-existing clearance. This letter must be transmitted within two (2) business days of starting work on an IES contract.  
+
+The IES Security Representative reviews the letter to ensure that the required information is provided and either returns it to the contractor for completion or releases it to the Office of Finance and Operations. The contractor must resubmit the letter to the IES Security Representative within 7 business days or the contractor employee must be removed from the contract.
+
+The IES Security Representative will notify the contractor or subcontractor if the pre-existing clearance was identified and ruled to be acceptable by the Office of Finance and Operations (OFO).
+
+Those employees whose pre-existing clearances are not verified and approved must follow the process outlined next to apply for a security clearance. 
+
+For contractor employees who have not undergone appropriate personnel security screening for another Federal agency, all contractors must comply with the Principal Office (PO) Executive Office or Computer Security Officer’s pre-processing requirements for personnel security screening and granting access privileges. No contractor employees are permitted unsupervised access to unclassified sensitive information (i.e., personally identifiable information), direct access to respondents who are minors, or Department of Education IT systems until they have submitted applicable security screening documents.  
+
+For each contractor employee in a moderate risk level position the completed security screening documents must be accepted by the COR and the IES Security Representative within 14 days of the date the contractor employee starts working on the contract. In order to meet this Departmental requirement, steps 1 through 7 must be completed within 14 days of the date the contractor employee starts working on the contract. To meet this 14 day deadline and the interim deadlines specified below, it is strongly recommended that the contractor request the account initiation three (3) weeks before the contractor employee starts contract work and encourage each contractor employee to complete all required security screening forms before starting contract work.
+
+Contractor employees in High Risk IT (6C) Level positions require preliminary personnel security screenings before they are given access to unclassified sensitive information or Department of Education IT systems (see page 7 of OM:5-101 for more details). 
+
+The security screening of contractor and subcontractor employees not holding Department of Education recognized security screening credentials must follow these required steps:
+
+The contractor must provide the COR with an electronic listing of all employees on a specific contract, with the risk level associated with the position held by each employee as specified in the contract solicitation.  The COR will review the electronic listing for completeness and approve. The listing will not be approved if it is found to be incomplete.
+
+The Department of Education participates in the OPM e-QIP system to facilitate the security screening process for contractor employees. IES will initiate an e-QIP account for each contractor employee. It is advisable to request the account initiation three (3) weeks before the contractor employee starts contract work. For the initiation of these accounts, the Contractor Security Liaison must use the COR-approved list of employees and the risk levels assigned to the employees’ positions to produce and submit the following list using the attached template:
+
+For each contractor employee provide:  Social Security Number, Full Name, Date of Birth, Place of Birth, risk level, e-Mail Address, and phone number. The Contractor Security Liaison must place the spreadsheet in a password protected file, then upload the list to the IES secure server, and send an e-mail notification of the transmission to the IES Security Representative. The IES security staff will use this list to establish the contactor employee e-QIP accounts. The COR will work with the contractor Liaison to establish access to the IES secure server at the outset of the contract. 
+
+Once IES sets up the e-QIP accounts for contract employees, the IES Security Representative will send an email to the Contractor Security Liaison stating that the employee has an active account on the e-QIP system. The COR is copied on this email notification. 
+
+The Contractor Security Liaison must notify their employees of this active account. A computer with Internet access and web browsing software is required for the contractor employee to access their e-QIP account. Each employee must log into their personal account in e-QIP, enter the requested information, finish the application process and print, sign, and date the e-QIP signature pages.
+
+Each contractor employee must submit a completed set of security screening forms to their Contractor Security Liaison as provided by the IES Security Representative, including for example:
+
+A copy of the SF85 prior to signing,
+
+After approval of the SF85, the signed and dated e-QIP signature pages,
+
+The Declaration of Federal Employment (OPM form OF-306),
+
+The Fair Credit Release Form, 
+
+The Request for Security Officer Action (RSA) Form, 
+
+The contractor employee shall complete only those items in section 1 of the form (name, date of birth, place of birth, organization, position title, duty station, social security number, and work phone number).
+
+The contractor shall complete section 5 (Project Requiring Highest ADP Level) using the assigned security clearance for each employee’s position. 
+
+Two sets of fingerprints on separate copies of form FD-258,
+
+The Contractor Security Liaison shall help arrange fingerprinting for each contractor and subcontractor employee.  Fingerprinting can usually be done at a local police station. (Electronic fingerprints are not accepted at this time.)
+
+Each contractor must ensure that the forms are complete and that all contractor employee required security screening forms are transmitted to the IES Security Representative within two (2) business days of an employee starting work on an IES contract. 
+
+The Contractor Security Liaison must collate the forms in each security screening package by employee.  Until the Contractor Security Liaison has completed ICAM training, he or she must transmit a complete set of security screening documents for each employee to the IES Security Representative via courier (e.g., Federal Express) using a tracking number with signature required.  Once ICAM training is completed, all eQIP related documents are required to be uploaded into ICAM by the Contractor Security Liaison. Once the documents have been uploaded, please submit the fingerprint cards with a copy of the RSA via secure mail (e.g. registered mail, or overnight express) to the below address:
+
+ICAM Support Team/IES Security RepresentativeU.S. Department of Education550 12th Street SW, Room 4165Washington, DC 20202
+
+IES will not accept security screening packages that are not collated by employee (i.e., all forms noted in point 3 above will be bundled by employee).  The IES Security Representative will review all security screening documents for each contractor employee for completeness, returning any incomplete security screening documents to the Contractor Security Liaison for completion. The contractor must resubmit the completed security screening documents to the to the IES Security Representative within 7 business days or the contractor employee must be removed from the contract. No contractor employees are permitted unsupervised access to unclassified sensitive information (personally identifiable information), direct access to respondents who are minors, or Department of Education IT systems until they have resubmitted applicable screening documents.
+
+The IES Security Representative reviews each package of security screening documents and electronic information submission to ensure everything required has been provided and either rejects the package, sending it back to the submitter for completion/correction or prepares it for transmittal for final IES review. In the event that an application is rejected at this stage, the contractor must resubmit the corrected forms to the IES Security Representative, or have the contractor employee correct the e-QIP submission, within two business days. The IES Security Representative must be notified as soon as the updated e-QIP submission is completed.
+
+The contractor employee application for each individual in a moderate risk level position must be submitted to the IES Security Representative within 14 days of the date the contractor employee starts working on the contract. Contractor employees in High Risk IT (6C) Level positions require preliminary personnel security screenings before they are given access to unclassified sensitive information or Department of Education IT systems. 
+
+After a package of security screening documents is transmitted for final review, IES security staff conduct a further review and either rejects the package of security screening documents, sending it back to the submitter for completion/correction or releases it to OPM.
+
+OPM then assigns an investigator to conduct the type of investigation indicated by the department (this is tied to the level of access to PII that the applicant will have).
+
+The Office of Finance and Operations will request the expansion of background investigations to obtain additional information to the extent necessary to make personnel acceptability or suitability determinations.   These determinations will be made using criteria established by the OPM for the purpose of determining suitability for employment in the Federal competitive service, as described in 5 CFR 731.202, and other OPM guidance as applicable.  The Office of Finance and Operations determines whether a contractor employee is acceptable for the position from a personnel security standpoint.
+
+When the OPM investigation is complete, the RSA form with the clearance indicated is sent to the Department of Education’s Office of Finance and Operations for processing.
+
+The Office of Finance and Operations returns the RSA form to the IES Security Representative for recordation and distribution to the COR.
+
+The IES Security Representative transmits the RSA form with clearance indicated to the Contractor Security Liaison for their records and for distribution to the Contract Project Leader.
+
+The Contract Project Leader then distributes copies of the clearance to the employee.  
+
+The Office of Finance and Operations will inform the IES Security Representative and the COR when he or she determines that a contractor employee is not acceptable to render service(s) or, if appropriate, to otherwise perform under a contract.  
+
+Each contractor will officially notify its contractor employee if he or she will no longer work on an Department of Education contract.
+
+In the event a contractor employee is deemed unacceptable for the position from a personnel security standpoint, the Office of Finance and Operations will usually provide the contractor employee with an opportunity to refute, explain, clarify, or mitigate information in question. 
+
+If, after final determination by the Office of Finance and Operations, a decision is made that the contractor employee is not acceptable to render services on a contract and access is denied, the COR will inform the Contracting Officer.  The Contracting Officer must inform the contractor (i.e. employing firm) that the contractor employee is not acceptable to render services in this particular position, or, if appropriate, to otherwise perform under the contract.  The contractor will notify the contractor employee.  A final determination cannot be appealed.
+
+At any time during the life of the contract a contractor or subcontractor employee (including any field staff) discontinues work on the contract or leaves the employment of the contractor, the contractor shall notify the IES Security Representative and COR within two days of the date that the employee is no longer working on the contract or within one business day if removed for cause. The contractor shall provide the reason why the employee is no longer working on the contract. 
+
+Each contractor is responsible for the protection of sensitive or Privacy Act-protected information from unauthorized use or misuse by its employees, subcontractors, or temporary workers, and for preventing access to others, who are not authorized and have no need to know such information.
+
+The contractor shall submit monthly information to the COR indicating which employees were billed to the contract that include the e-QIP number of the person being billed.  The COR will reject payments to employees without an e-QIP number.  For employees with pre-existing clearances from other contracts, this shall be noted on the monthly payment form.
+
+The contractor shall verify with the COR that the security screening processes have not changed by the time the contract is active.
+
+Confidentiality of Individuals and Institutions
+
+IES assures participating individuals and institutions that any data collected conforms to the IES standards for protecting the privacy of individuals as required by Section 183 of the Education Sciences Reform Act of 2002 (P.L. 107-279):
+
+“. . . all collection, maintenance, use, and wide dissemination of data by the Institute, including each office, board, committee, and Center of the Institute, shall conform with the requirements of section 552A of Title 5, United States Code [which protects the confidentiality rights of individual respondents with regard to the data collected, reported, and published under this title].” (Section 183)
+
+
+
+Under the Education Sciences Reform Act of 2002 (ESRA 2002), all individually identifiable information about students, their families, and their schools shall remain confidential. To this end, this law requires that no person may:
+
+Use any individually identifiable information furnished under the provisions of this section for any purpose other than statistical purposes for which it is supplied, except in the case of terrorism; 
+
+Make any publication whereby the data furnished by any particular person under this section can be identified; or
+
+Permit anyone other than the individuals authorized by the Commissioner to examine individual reports.
+
+
+
+Further, individually identifiable information is immune from legal process, and shall not, without the consent of the individual concerned, be admitted as evidence or used for any purpose in any action, suit, or other judicial or administrative proceeding, except in the case of terrorism.  Employees, including temporary employees, or other persons who have sworn to observe the limitations imposed by this law, who knowingly publish or communicate any individually identifiable information will be subject to fines of up to $250,000 or up to 5 years in prison, or both (Class E felony).
+
+Protection and Security of Data
+
+The confidentiality of individually identifiable information contained in project documents, data, and other information supplied by the Institute of Education Sciences, U.S. Department of Education (the Department) or information acquired in the course of performance under this contract where the information was furnished under the provisions of Section 183 of the Education Sciences Reform Act of 2002 is a material aspect of the contract and must be maintained, secured, and protected from disclosure as provided in Section 183.  The Privacy Act of 1974 (5 U.S.C. 552a) also applies.
+
+The contractor shall enforce strict procedures for assuring confidentiality.  These procedures shall apply to all phases of the project and should include but not be limited to: information used to locate study respondents, data collection in the field, coding and editing phases of data prior to machine processing, safeguarding response documents, and maintenance of any respondent follow-up information.  Contractor shall physically separate the identifying data required for any follow-up from data required for research purposes.
+
+The contractor shall be familiar with and comply with:
+
+The Privacy Act of 1974 (5 U.S.C. 552a), https://www.justice.gov/opcl/privacy-act-1974 
+
+Confidentiality Information Protection and Statistical Efficiency Act (CIPSEA) of 2002 (P.L. 107-347, Title V, Subtitle A, “Confidential Information Protection”), http://www.gpo.gov/fdsys/pkg/STATUTE-116/pdf/STATUTE-116-Pg2899.pdf 
+
+Family Educational Rights and Privacy Act (FERPA) (20 U.S.C. 1232g; 34 CFR Part 99), https://www2.ed.gov/policy/gen/guid/fpco/ferpa/index.html 
+
+The Freedom of Information Act (5 U.S.C. 552), https://www.foia.gov/ n
+
+Part C of the Education Sciences Reform Act of 2002 (P.L. 107-279), https://www.congress.gov/107/plaws/publ279/PLAW-107publ279.pdf, 
+
+Part E, Section 183 of the Education Sciences Reform Act of 2002 (P.L. 107-279), https://www2.ed.gov/policy/rschstat/leg/PL107-279.pdf, 
+
+No Child Left Behind Act (20 U.S.C. 70), https://www2.ed.gov/policy/elsec/leg/esea02/index.html, 
+
+USA Patriot Act of 2001 (P.L. 107-56), https://www.congress.gov/bill/107th-congress/house-bill/3162, 
+
+Office of Management and Budget (OMB) Federal Statistical Confidentiality Order of 1997, https://www.whitehouse.gov/sites/whitehouse.gov/files/omb/federal_register/FR1997/conf-order.pdf, 
+
+OMB Guidance of 7/12/2006 on the Reporting of Incidents Involving Personally Identifiable Information (M-06-19), http://www.whitehouse.gov/OMB/memoranda/fy2006/mo6-19.pdf,
+
+OMB Guidance of 5/22/2006 on Safeguarding Personally Identifiable Information (M- 06-15), http://www/whitehouse.gov/omb/memoranda/fy2006/m-06-15.pdf, 
+
+Federal Information Security Management Act (FISMA) of 2014 (P.L. 107-347, Title III),
+
+chrome-extension://efaidnbmnnnibpcajpcglclefindmkaj/https://www.congress.gov/113/plaws/publ283/PLAW-113publ283.pdf
+
+
+
+
+
+The contractor shall maintain the confidentiality of all documents, data, and other information supplied by IES/ED or acquired in the course of performance of this contract, except for any documents or other information specifically designated as non-confidential by IES/ED. The contractor shall take such measures as are necessary to maintain the required security and protection of confidential information (see section Data Security Plan). The contractor shall be prepared to develop compliance procedures in cooperation with the COR concurrently with the development of the study design.
+
+IT Security and Policies
+
+The contractor shall:
+
+Complete/update the appropriate level of Security Accreditation (SA) documentation per NIST Risk Management Framework guidance, security controls testing, interagency security agreements (ISAs), and risk assessments in support of government issuance of security assessment and authorization to operate (ATO) decisions
+
+Ensure that systems/products/applications have the ability to facilitate single-sign-on capabilities and required support for HSPD 12 Personal Identity Verification (PIV) enablement and integration
+
+Include the capability for network traffic that flows between externally hosted systems and networks, to/from Department systems and networks, to be routed through one of the Department’s Trusted Internet Connections (TIC) gateways as part of the solution configuration. Implement controls to ensuring all possible traffic, including mobile and cloud, goes through a TIC.  Implement connections between Department systems and networks with externally hosted systems that are in compliance with the requirements of the Trusted Internet Connections (TIC) initiative
+
+Architect contractor hosting environments to use security isolation and network segmentation principles in order to ensure that the environments are properly protected against an unauthorized access and threat from adversaries who may strive to move laterally across internal Department or contractor hosted systems and network segments.
+
+Provide an automated capability and process to scan and assess all systems and assets, and associated logs for malicious indicators of compromise (IOCs) identified by the Department regarding priority threat-actor Techniques, Tactics, and Procedures (TTPs);  the contractor is required to have the capability to scan for indicators of compromise within 24 hours of receipt of the indicators provided by the Department of Education from the Department of Homeland Security
+
+Implement and maintain capabilities and processes to support the timely detection of, reporting, and rapid response and recovery to cyber incidents in accordance with timelines and requirements specified in Federal guidance and Department cybersecurity incident reporting policy guidance
+
+In support of cybersecurity performance measure reporting, the contractor shall implement and maintain an automated software asset management/inventory and hardware asset inventory capability (e.g. scans/device discovery processes) at the enterprise-level.
+
+Implement capabilities to rapidly deploy emergency security patches and implement specific security control enhancements as directed by the Department of Homeland Security to all Federal Departments via mechanisms such as the DHS Cybersecurity Coordination, Assessment, and Response (C-CAR) action items, and DHS Binding Operational Directives (BODs).
+
+Implement capabilities and processes to patch all critical vulnerabilities identified to the Department of Education by DHS immediately or, at a minimum, within 30 days of patch release. 
+
+Ensure robust physical and cybersecurity protections are in place for all of the Department’s high value assets (HVAs). The identification of HVAs by the Department will be an ongoing activity due to the dynamic nature of cybersecurity risks.
+
+Implement remote access solutions that only use multi-factor authentication solutions and that prohibit the use of split tunneling and/or dual-connected remote hosts where the connecting device has two active connections.
+
+Implement remote access solutions that scan for malware before allowing full connections and that time out after 30 minutes (or less) of inactivity and require re-authentication to re-establish a session
+
+Implement capabilities for all incoming email traffic to pass through anti-phishing and anti-spam filtration at the outermost border mail agent or server
+
+Implement capabilities for all incoming email traffic to be analyzed using sender authentication protocols (e.g., DKIM, DMARC, VBR, SPF, iprev)
+
+Implement capabilities that ensure that incoming email traffic is analyzed using a reputation filter (to perform threat assessment of sender)
+
+Implement capabilities that ensure that incoming email traffic is analyzed for detection of clickable URLs, embedded content, and attachments; and incoming email traffic is first analyzed for suspicious or potentially nefarious attachments and opened in a sandboxed environment or detonation chamber
+
+Implement capabilities for all outbound communications traffic to be checked at the external boundaries to detect encrypted exfiltration of information (i.e. capability to decrypt/interrogate and re-encrypt)
+
+Implement effective network segmentation design and security solutions to limit potential threats from adversaries attempting lateral movement across systems on the Department’s (or contractor’s networks), and also to better protect and securely isolate the Department’s HVAs
+
+Implement and maintain Information Security Continuous Monitoring (ISCM) and Continuous Diagnostics and Mitigation (CDM) capabilities for all IT assets to be subject to an automated inventory, configuration, and vulnerability management capability, with real time reporting
+
+Implement and maintain strong authentication capabilities requiring the technical enforcement of all users being required to use a Personal Identity Verification (PIV) card to authenticate to the network, (with exceptions for a very limited set of users specifically approved by the Department)
+
+Develop and maintain (or update existing) System Security Plans (SSP) and security controls assessment (SCA) test plans for the network general support system (GSS), and infrastructure systems
+
+Provide support to creating the security assessment and authorization (or accreditation) (SA&A) packages and documentation in accordance with the Risk Management Framework guidance and processes specified by NIST and Department guidance
+
+Implement security configurations on all IT assets and systems using DISA STIGs and other industry recognized best practices or guidance
+
+Perform security configuration management to include configuring all Windows based systems with the latest United States Government Configuration Baseline (USGCB) security settings available from the NIST website
+
+Support annual or emergent security audits and security scans that may be performed by the Office of Inspector General (OIG), the General Accountability Office (GAO), or the Department of Homeland Security (DHS)
+
+The contractor shall provide availability and accessibility to the Department, to the OIG, and to any third party vendors designated by the Department to:  1) Review audit findings; 2) Determine if corrective actions were properly implemented and the associated audit findings were properly closed; 3) Support cybersecurity incident analysis and forensics activities
+
+Produce scheduled Monthly/Quarterly/Annual security performance measure reports that align to the Department’s cybersecurity performance measure reporting requirements specified by OMB for FISMA, the President’s cybersecurity Cross Agency Priority (CAP) goals and targets, and CyberScope reporting. Security performance measure reports shall use the format and template specified in the Annual CIO FISMA metrics specified by OMB and DHS.
+
+Provide for the encryption for PII, CUI, Data at Rest and data in transit,    Encryption solutions applied must be FIPS 140-2 validated.
+
+Document and track contractor personnel cyber training based on roles
+
+Develop, maintain, and publish a listing of Contractor-provided security controls, hybrid security controls, and “customer”-provided security controls, in support of systems security assessments and authorizations, and the issuance of authority to operate (ATO) decisions  by the Department
+
+Provide security audit support (e.g. A-123), including scheduled and event-driven audits
+
+Capture and provide forensic disk images to support security incident analysis, malware analysis, or other investigative requirements (such as specific requests from the OIG or law enforcement)
+
+Provide support for threat monitoring and analysis, incident response, vulnerability management, risk management, continuous monitoring and reporting and other traditional security operations center activities
+
+Provide and maintain multi-factor authentication solutions utilizing the Personal Identity Verification (PIV) card (or a Department- approved Level of Authentication -4 solution); and utilize FIPS 140-2 approved encryption for all remote access requirements
+
+Provide robust encryption capabilities to include services such as digitally signed and encrypted email, and default encryption for sensitive information held by the Department.  Solutions should be available to enable encryption of as much data at rest and data in transit as possible.
+
+Identify, perform, track, and report vulnerability and security weakness remediation and mitigation activities through the Department’s Plan of Action and Milestones process (POA&M) in accordance with Departmental information security policy
+
+Establish, maintain, and execute standard configuration management processes for all cybersecurity software and hardware
+
+Implement and maintain a Privileged Account Management Solution  to improve the identity and access management of user accounts, while also meeting Department targets to tightly control and limit the number of users with elevated privileges 
+
+Implement and maintain tightened processes for managing privileged user accounts, to include implementation of capabilities to limit functions that can be performed when using privileged accounts;  limit the duration that privileged users can be logged in;  limit the privileged functions that can be performed using remote access; prohibit Internet access when privileged users are performing systems administrations tasks; and ensure that privileged user activities are logged and regularly reviewed
+
+Document and maintain system security boundaries, system configuration details, and network diagrams, in support of security assessment and authorization to operate (ATO) processes
+
+Develop and implement processes for revising system security documentation on a scheduled and event-driven basis
+
+Provide support for maintaining system security documentation in support of FISMA reporting requirements and security compliance status in the Department’s Cyber Security Assessment and Management (GRCT) system
+
+Develop and submit system security documentation, risk assessments, security controls testing reports, and any required privacy impact analysis (PIA) to the Department in support of the Risk Management Framework processes and  ATO decisions for IT environment components
+
+Develop corrective/remediation plans of action and milestones (POAMs) and strategies to address security audit and assessment findings, and other reports of system security weaknesses or non-compliance
+
+Develop and maintain a system security architecture; the contractor’s solution shall include effective network segmentation design and solutions to limit lateral movement across systems on the Department’s networks, and also better protect the Department’s HVAs
+
+Utilize PIV or other approved Level of Assurance 4, as defined in NIST SP 800-63-2 Electronic Authentication Guidelines, compliant Identity and Access Control mechanisms for network/domain administrative enterprise access.
+
+Maintain near real-time security monitoring and intrusion detection capabilities to enable the contractor and the Department to know the security risk posture of the network at any given time;
+
+Configure all Windows based systems with the latest United States Government Configuration Baseline (USGCB) security settings available from the NIST website
+
+Utilize multi-factor authentication, including integration and compliance with HSPD-12 PIV requirements, for all remote access solutions for the Department’s sensitive information systems
+
+Provide a multi-tier disaster recovery capability that provides the infrastructure and process to meet the recovery requirements of all of its High Value Assets (HVAs), and applications (Mission-Critical, Decision Support, Other) 
+
+Provide IT Disaster Recovery Planning and Management capabilities and support
+
+Define business risk and risk assessment
+
+Develop disaster recovery strategies
+
+Develop disaster recovery plans
+
+Develop IT system contingency plans
+
+Conduct disaster recovery exercises, training and awareness
+
+Provide Disaster Recovery Operational Services, including Contractor support to the Department in the planning, preparation, implementation, and documentation of a Disaster Recovery Program that includes the capabilities described below: 
+
+The contractor, and all sub-contractors, shall comply with the Department of Education’s IT security policy requirements, and other applicable procedures and guidance. The contractor, and all sub-contractors, shall develop and implement management, operational and technical security controls to assure required levels of protection for information systems.  The contractor, and all sub-contractors, shall further comply with all applicable Federal IT security requirements including, but not limited to, the Federal Information Security Modernization Act (FISMA) of 2014, Office of Management and Budget (OMB) Circular A-130, Homeland Security Presidential Directives (HSPD), including HSPD-12, Personal Identity Verification (PIV) Enablement and Integration, and single sign-on, the most recent National Institute of Standards and Technology (NIST) special publications, standards and guidance, and the Federal Risk and Authorization Management Program (FedRAMP) requirements and guidance.
+
+These security requirements include, but are not limited to, the successful Security Assessment and Authorization (SA&A) of the system (includes commercially owned and operated systems managed by the commercial vendor and its sub-contractors, supporting Department programs, contracts, and projects); obtaining a full Authority to Operate (ATO) before being granted operational status; performance of annual self-assessments of security controls; annual Contingency Plan testing; performance of periodic vulnerability scans; updating all information system security documentation as changes occur; and other continuous monitoring activities, which may include, mapping, penetration and other intrusive scanning. Full and unfettered access for any of the Department’s third party Managed Security Services Provider (MSSP) or Cyber-operations prevention testers, or vulnerability scanners, or auditors must be granted to access all computers and networks used for this system.  Additionally, when there is a significant change to the system’s security posture, the system (Federal and commercial prime- and sub- contractors included) must have a new SA&A, with all required activities to obtain a new ATO, signed by the Authorizing Official (AO).
+
+System security controls shall be designed and implemented consistent with the current, finalized version of the NIST SP 800-53, ‘Recommended Security Controls for Federal Information Systems and Organizations.’  All NIST SP 800-53 controls must be tested / assessed no less than every 3 years, according to federal and Department policy. The risk impact level of the system will be determined via the completion of the Department's inventory form and shall meet the accurate depiction of security categorization as outlined in Federal Information Publishing Standards (FIPS) 199, ‘Standards for Security Categorization of Federal Information and Information Systems.’
+
+System security documentation shall be developed to record and support the implementation of the security controls for the system.  This documentation shall be maintained for the life of the system.  The contractor, and all sub-contractors, shall review and update the system security documentation at least annually and after significant changes to the system, to ensure the relevance and accurate depiction of the implemented system controls and to reflect changes to the system and its environment of operation.  Security documentation must be developed in accordance with the NIST 800 series and Department of Education policy and guidance.
+
+The contractor, and all sub-contractors, shall allow Department employees (or Department designated third party contractors) access to the hosting facility to conduct SA&A activities to include control reviews in accordance with the current, finalized version of the NIST SP 800-53, and the current, finalized version of the NIST SP 800-53A.  The contractor, and all sub-contractors, shall be available for interviews and demonstrations of security control compliance to support the SA process and continuous monitoring of system security.   In addition, if the system is rated as ‘Moderate’ or ‘High’ for FIPS 199 risk impact, vulnerability scanning and penetration testing shall be performed on the hosting facility and application as part of the SA&A process.   Appropriate access agreements will be reviewed and signed before any scanning or testing occurs.
+
+Identified deficiencies between required security controls within the current, finalized version of the NIST SP 800-53 and the contractor’s, and all sub-contractor’s implementation, as documented in the Risk Assessment Report, System Security Plan (SSP) and Security Assessment Report (SAR), shall be tracked for mitigation through the development of a Plan of Action and Milestones (POA&M) in accordance with Department policy. Depending on the severity of the deficiencies, the Department may require remediation before an ATO is issued.
+
+The contactor shall provide cybersecurity strategies, infrastructure hosting environments, and solutions that comply with the requirements of the Federal Information Security Modernization Act (FISMA), Department cybersecurity policy guidance, and guidance contained in the NIST Special Publications series such as NIST Special Publication 800-53 and other NIST Special Publications.   The contractor shall provide solutions that  support the Department’s efforts to implement and maintain effective protection activities such as reducing the attack surface and complexity of IT infrastructure; minimizing the use of administrative privileges; utilizing strong authentication credentials; safeguarding data at rest and in-transit; training personnel; ensuring repeatable processes and procedures; adopting innovative and modern technology; ensuring strict domain separation of critical/sensitive information and information systems;  implementing network segmentation architectures to better protect and isolate the Department’s high value assets and most sensitive information and data; and ensuring a current inventory of hardware and software components.  The contractor shall include actions and initiatives to implement the NIST Cybersecurity Framework that emphasizes and measures capabilities to “Identify, Protect, Detect, Respond, and Recover,” and ensure that all applicable Service Level Agreements (SLA)s are adhered to, complied with, and satisfied.   
+
+All awarded contracts shall ensure that:
+
+Their IT product/system is monitored during all hours of operations using entrusted detective/preventive systems;
+
+Their IT product/system has current antiviral products installed and operational;
+
+Their IT product/system is scanned on a reoccurring basis;
+
+Vulnerabilities are remediated in a timely manner on their IT product/system; and 
+
+Access/view for cyber security situational awareness on their IT product/system is made available to the Department CIRC (cyber incident response capability).
+
+All applicable Service Level Agreements (SLA)s are adhered to, complied with, and satisfied.
+
+Internet Protocol version 6 (IPv6)
+
+For IPv6, the contractor shall provide COTS solutions that are IPv6 capable.  An IPv6 capable system or product shall be capable of receiving, processing, transmitting and forwarding IPv6 packets and/or interfacing with other systems and protocols in a manner similar to that of IPv4.  Specific criteria to be deemed IPv6 capable are: 
+
+An IPv6 capable system that meets the IPv6 base requirements defined by the USGv6 Profile (http://www.antd.nist.gov/usgv6/profile.html).
+
+Systems being developed, procured or acquired shall maintain interoperability with IPv4 systems/capabilities.
+
+Systems shall implement IPv4/IPv6 dual-stack and shall also be built to determine which protocol layer to use depending on the destination host it is attempting to communicate with or establish a socket with.  If either protocol is possible, systems shall employ IPv6.
+
+The contractor shall provide IPv6 technical support for system development, implementation and management.
+
+Per OMB-M-17-12, Preparing for and Responding to a Breach of Personally Identifiable Information,   the following requirements statements should be added to all SOWs/SOOs/PWSs/BPAs/MOUs/IAAs/MOUs/ISAs that include the management of Personally Identifiable Information (PII) and / or Sensitive Personally Identifiable Information (SPII):
+
+The contractor shall cooperate with and exchange information with agency officials, as determined necessary by the agency, in order to effectively report and manage a suspected or confirmed breach. 
+
+The contractor and subcontractors (at any tier) shall properly encrypt PII in accordance with OMB Circular A-130 and other applicable policies and to comply with any agency-specific policies for protecting PII; 
+
+The contractor shall complete regular Department training for contractors and subcontractors (at any tier) on how to identify and report a breach; 
+
+The contractor and subcontractors (at any tier) shall report a suspected or confirmed breach in any medium or form, including paper, oral, and electronic, as soon as possible and without unreasonable delay, consistent with the agency's incident management policy and US-CERT notification guidelines; 
+
+The contractor and subcontractors (at any tier) shall maintain capabilities to determine what Federal information was or could have been accessed and by whom, construct a timeline of user activity, determine methods and techniques used to access Federal information, and identify the initial attack vector; 
+
+The contractor shall allow for an inspection, investigation, forensic analysis, and any other action necessary to ensure compliance with this Federal and Department PII Breach Response policies (such as OMB-M-17-12), the Department’s breach response plan, and to assist with responding to a breach; 
+
+The contractor shall identify roles and responsibilities, in accordance with Federal and Department PII Breach Response policies (such as OMB-M-17-12), and the agency's breach response plan; and, 
+
+The contractor shall be aware that a report of a breach shall not, by itself, be interpreted as evidence that the contractor or its subcontractor (at any tier) failed to provide adequate safeguards for PII. 
+
+Reporting of Data Security Breaches
+
+If there is a suspected or known breach/disclosure of PII due to lost, theft, intercepted transfer, or other, the contractor must ensure that this breach is reported to the agency as soon as the contractor has knowledge of it.  Per Office of Management and Budget Memorandum M-17-12, Federal agencies have a requirement to report breaches of PII security to the United States Computer Emergency Response Team (US-CERT).” The (PO) must notify the department within 30 minutes of discovering the incident (and the agency should not distinguish between suspected or confirmed breaches). The data security plan must be written to reflect this requirement, and the contractor must provide sufficient notification and documentation of the suspected loss, as it is understood at the time of notification to the agency for this requirement to be met.  Follow-up reports of the final status of loss events will also be prepared by the contractor within a reasonable period of time as advised by the COR.
+
+FOR E-MAIL:
+
+In accord with BOD-18-01:
+
+Email Security: Agencies must configure all internet-facing mail servers to offer STARTTLS, and all second-level agency domains to have valid SPF/DMARC records.  Additionally, agencies must ensure Secure Sockets Layer (SSL) v2 and SSLv3 are disabled on mail servers, and 3DES and RC4 ciphers are disabled on mail servers: 
+
+Within one year after issuance of this directive, issued 10-16-2017 (so, due by 10-16-2018), agencies will be required to set a DMARC policy of “reject” for all second-level domains and mail-sending hosts.
+
+In accord with OMB Memorandums M-17-06, and M-15-13, and M-08-23, M-10-23, and with Binding Operational Directive (BOD) BOD-18-01, and with the NIST SP 800-52 and with the NIST SP 800-44, all e-mail applications must have SMTP enabled. 
+
+FOR NON-PUBLIC-FACING WEBSITES:
+
+Implement capabilities for all inbound network traffic to pass through a web content filter, which provides anti-phishing, anti-malware, and blocking of malicious websites (e.g., fake software updates, fake antivirus offers, and phishing offers)
+
+In accord with OMB Memorandums M-17-06, and M-15-13, and M-08-23, M-10-23, and with Binding Operational Directive (BOD) BOD-18-01, and with the NIST SP 800-52 and with the NIST SP 800-44, all  Federal websites and web services must be accessible through a secure connection (HTTPS only, with HSTS), and e-mail applications must have SMTP enabled. The use of HTTPS is encouraged on intranets, but not explicitly required.
+
+In accord with BOD-18-01: In accord with OMB Memorandum M-08-23, in order to ensure Domain Name System   Security (DNSSEC), all federal websites must be hosted on a *.gov location.
+
+FOR PUBLIC-FACING WEBSITES:
+
+Implement controls to ensure that all publicly accessible externally hosted Department websites and web services only provide service through a secure connection, (such as the Hypertext Transfer Protocol Secure (HTTPS)).
+
+Implement controls to ensure that all publicly accessible Department websites and web services only provide service through a secure connection, (such as the Hypertext Transfer Protocol Secure (HTTPS))
+
+In accord with BOD-18-01:
+
+Web Security: Agencies must ensure all publicly accessible Federal websites and web services provide service through a secure connection (HTTPS-only, with HSTS); SSLv2 and SSLv3 are disabled on web servers, and DES and RC4 ciphers are disabled on web servers; and must provide a list to DHS of agency second-level domains that can be HSTS preloaded, for which HTTPS will be enforced for all subdomains.
+
+If an official public-facing website will be developed, modified, or maintained, then, in accord with OMB Memorandum M-17-06, each agency must use only an approved .gov or .mil domain for its official public-facing websites. The requirement to use only approved government domains does not apply in circumstances where the agency is a user or a customer of a third-party website or service that resides on a non-governmental domain.
+
+
+
+OMB-17-06 Policies and Requirements for Public Websites
+
+For requirements involving web applications, web servers, and web services, the contractor shall follow the policies, principles, standards, and guidelines on information security and privacy, in accordance with FISMA, and implement security and privacy requirements as set forth in OMB Circular A-130 and National Institute of Standards and Technology (NIST) Special Publication 800-44, Guidelines on Securing Public Web Servers.
+
+The public expects Federal Government websites to be secure and their interactions with those websites to be private.  The contractor shall comply with requirements specified in OMB Memorandum M-15-13, Policy to Require Secure Connections across Federal Websites and Web Services, that requires that all publicly accessible Federal websites and web services only provide service through a secure connection (HTTPS with HSTS).  
+
+The contractor shall use only an approved .gov or .mil domain for official public-facing websites.   The requirement to use only approved government domains does not apply in circumstances where the Department is a user or a customer of a third-party website or service that resides on a non-governmental domain.  Department use of third-party websites and applications must comply with all relevant privacy protection requirements and a careful analysis of privacy implications as specified in OMB Memorandum M-10-23, Guidance for Agency Use of Third-Party Websites.
+
+The contractor shall ensure compliance with Federal requirements to maintain public/external facing servers and services to use native IPv6.   All procurements of networked information technology shall comply with Federal Acquisition Regulation (FAR) requirements for use of the U.S. Government IPv6 Profile and Test Program for the completeness and quality of their IPv6 capabilities
+
+FOR CLOUD SOLUTIONS:
+
+Implement controls to ensure that all publicly accessible externally hosted Department websites and web services only provide service through a secure connection, (such as the Hypertext Transfer Protocol Secure (HTTPS)).
+
+Only utilize FedRAMP approved cloud solutions. FedRAMP is mandatory for federal agency cloud deployments and service models at the low and moderate risk impact levels. 
+
+If a cloud solution will be used, then an ED-issued, FedRAMP-Compliant Authorization To Operate (ATO) is a Federal and a Departmental requirement, and one must be obtained.
+
+FOR CYBEROPERATIONS, PENETRATION TESTING, VULNERABILITY SCANNING, INTRUSION DETECTION, AND INCIDENT RESPONSE FUNCTIONS:
+
+Implement scanning capabilities that assess for vulnerabilities using only Security Content Automation Protocol (SCAP) validated products
+
+Perform penetration and regular vulnerability testing and scanning of systems, IT devices, and websites.  Vulnerability scanning shall be conducted at least monthly, with reports provided to the Department.
+
+Maintain the tools and capabilities to support asset discovery, to include passive network monitoring, active network monitoring, and automated network mapping
+
+Maintain tools and capabilities to support behavior monitoring, to include NetFlow analysis and network traffic capture, which captures the Transmission Control Protocol/Internet Protocol (TCP/IP) stream, allowing for replay of activity to determine what happened during a breach or incident
+
+Maintain tools and capabilities for intrusion prevention, to include host intrusion prevention systems (HIPS) and network intrusion prevention systems (NIPS)
+
+Maintain a firewall system designed to prevent unauthorized access to or from any contractor systems and network
+
+Maintain tool and capabilities to perform Security Incident/Event Management and Analysis, to include centralized logging, log correlation, and a Security Information and Event Management (SIEM) solution that provides centralized monitoring of security incidents; network behavior analytics to provide behavior-based detection to help protect against zero-day attacks; and a quarantine/sandbox environment that will isolate and analyze live traffic and/or suspected malware  
+
+Maintain tools and capabilities to perform vulnerability and risk management and analysis to include threat intelligence threat hunt capabilities, sharing platforms,  risk management or trouble ticketing system, anti-malware and anti-phishing services 
+
+Maintain tools and capabilities to provide security situational awareness and visibility throughout the enterprise;  this includes capabilities for full packet capture that collects detailed network information at the gateway and makes capture data available to analysts;  endpoint incident response that enables searches all endpoints for Indicators of Compromise (IOCs) in a rapid fashion; and encrypted traffic inspection
+
+If working as a SOC contractor or subcontractor, will provide a Daily Morning Report, 7 days per week, that summarizes the noteworthy daily security activities.  Examples include activities such as the daily count of security incidents detected (viruses, malware, etc. . .), email traffic analysis for spam and phishing attempts, vulnerability scan results and progress in closing open weaknesses from scan results.  The contractor is encouraged to propose a world class daily security morning report format, with the most noteworthy performance measures, to include any graphic displays, and charts to enhance reporting  
+
+Provide and maintain automated means of discovering, monitoring, and protecting sensitive data to ensure  protection of data in motion, at rest, and in use 
+
+Provide and maintain an automated means of preventing unauthorized users and computing devices from accessing contractor hosted environments, including access via remote access, wired and wireless technologies
+
+Provide and maintain externally facing web application firewall capabilities providing inbound and outbound traffic filtering
+
+Provide and maintain an Out of Band network device management solution
+
+Administer, operate, maintain, configure and tune cybersecurity software and hardware
+
+Provide full government visibility of continuous monitoring tool configurations and output on a real-time basis as well as historical data/logs
+
+Maintain the capability to perform periodic penetration testing, and also support for external agency red team testing, penetration testing, cyber hygiene web site vulnerability scanning tests and vulnerability assessments that the Department may need to conduct 
+
+FOR GOVERNMENT FURNISHED EQUIPMENT (GFE):
+
+Implement capabilities to ensure that GFE endpoints are covered by an intrusion prevention system, and by an antivirus (AV) solution using file reputation services, checking files against cloud-hosted, continuously updated malware information
+
+Implement capabilities to ensure that GFE endpoints are covered by an anti-exploitation tool (e.g., Microsoft’s Enhanced Mitigation Experience Toolkit (EMET) or similar) 
+
+Implement capabilities to ensure that GFE endpoints are protected by a browser-based (e.g., Microsoft SmartScreen Filter, Microsoft Phishing Filter, etc.) or enterprise-based tool to block known phishing websites and IP addresses
+
+Managing Controlled Unclassified Information (CUI) Requirements
+
+Applicability
+
+The contractor shall be responsible for handling sensitive and/or Controlled Unclassified Information (CUI) that is collected, stored, transmitted, or destroyed for the purposes of this contract in accordance with any applicable laws, regulations and government wide Policies (LRGWP) to include EO 13556, 32 CFR 2002 Part 2, The Department of Education Directive and NIST-800-171B when approved. These requirements apply to the Contractor, its subcontractors and teaming partners, and employees (hereafter referred to collectively as “Contractor”). These requirements are applicable to all Department information and data, regardless of medium, maintained by the Contractor for the performance of this contract.
+
+Authorization to Handle CUI
+
+No person may have access to CUI unless that person has a valid need for such access in connection with the accomplishment of a lawful and authorized US Government mission. The Authorized holder is an individual, agency, organization, or group of users that is permitted to designate or handle CUI, in accordance with 32 CFR Part 2002. The authorized holder who designates the CUI must make recipients aware of the information’s CUI status in accordance with 32 CFR Part 2002. 
+
+Safeguarding
+
+The contractor shall be responsible for safeguarding any CUI that is collected for the purposes of this contract. The Contractor shall ensure that the appropriate personnel, administrative, technical, and physical safeguards are established to ensure the security and confidentiality of this information, data, audio, video, documentary material, records and/or equipment is properly protected. The Contractor shall abide by and follow all LRGWP as it pertains to safeguarding of CUI. All electronically stored CUI shall be encrypted at rest and in motion as defined in the SOW. Contractors must take reasonable precautions to guard against unauthorized disclosure of CUI. Contractors must include the following measures among the reasonable precautions:
+
+Establish controlled environments in which to protect CUI from unauthorized access or disclosure and make use of those controlled environments;
+
+Reasonably ensure that unauthorized individuals cannot access or observe CUI, or overhear conversations discussing CUI;
+
+Keep CUI under the authorized holder's direct control or protect it with at least one physical barrier, and reasonably ensure that the authorized holder or the physical barrier protects the CUI from unauthorized access or observation when outside a controlled environment; and
+
+Protect the confidentiality of CUI that The Department or authorized holders process, store, or transmit on Federal information systems in accordance with the applicable security requirements and controls established in FIPS PUB 199, FIPS PUB 200, and NIST SP 800-53, (incorporated by reference, see § 2002.2), and paragraph (g) of Section 2002.14
+
+All Contractors must safeguard CUI using one of the following types of standards:
+
+CUI Basic is the default set of standards authorized holders must apply to all CUI. 
+
+CUI Specified must be safeguarded in accordance with the requirements indicated in the NARA CUI Registry for the designated CUI Category. 
+
+Safeguarding Information systems that process, store, or transmit CUI Basic, in accordance with FIPS PUB 199 (incorporated by reference, see § 2002.2), is categorized at no less than the moderate confidentiality impact level.
+
+Contractors must also apply the appropriate security requirements and controls from FIPS PUB 200 and NIST SP 800-53 to CUI in accordance with any risk-based tailoring decisions.
+
+Physical Environments
+
+CUI must be stored or handled in controlled environments that prevent or detect unauthorized access. Controlled environment and office spaces should include storing CUI in sealed envelopes, providing electronic locks and cabinets, locked doors, overhead bins and drawers.
+
+Protecting Physical Equipment/Media that contains CUI
+
+All electronic devices, storage media – i.e. video, audio, photographic images must be protected in accordance to the regulations defined in the NARA CUI Registry and mandatory CUI 
+
+Training.
+
+Protecting CUI when shipping or mailing. 
+
+When sending CUI, authorized holders:
+
+May use the United States Postal Service or any commercial delivery service when they need to transport or deliver CUI to another entity;
+
+Should use in-transit automated tracking and accountability tools when they send CUI;
+
+May use interoffice or interagency mail systems to transport CUI; and
+
+Must mark packages that contain CUI according to marking requirements contained in this part and in guidance published by the CUI EA. See § 2002.20 for more guidance on marking requirements.
+
+Reproducing CUI 
+
+When reproducing CUI documents on equipment such as printers, copiers, scanners, or fax machines, ensure that the equipment does not retain data or the agency must otherwise sanitize it in accordance with NIST SP 800-53 (incorporated by reference, see § 2002.2).
+
+Transporting
+
+The Contractor shall not remove material from Government facilities or systems, or facilities or systems operated or maintained on the Government’s behalf, without the express written permission of the Head of the Contracting Activity. When traveling, contractors should ideally store material and equipment containing CUI in a locked vehicle, or in the trunk of a vehicle (weather conditions permitting) and out of plain sight. 
+
+Decontrolling
+
+No contractor may decontrol CUI without approval by the CO/COR through the designated owner. Once the approval has been granted, the contractor may remove CUI markings. Decontrolling does not mean that the information can be released to the public. 
+
+Destroying and Deleting CUI
+
+When destroying and deleting CUI, including in electronic form, contractors must do so in a manner that makes it unreadable, indecipherable, and irrecoverable. Contractor must comply with the process - Return of data section documented in this SOW. 
+
+Marking 
+
+All CUI documents must be protected according to LRGWP as defined in 32 CFR 2002, Part 2, ED Directive and NIST 800-171B (when published). The Contractor will adhere to the procedures for marking CUI as outlined in the NARA CUI Registry. Authorized holders of CUI will be held accountable for knowing and following the marking procedures as defined in the NARA CUI Registry.
+
+Training
+
+The Contractor shall ensure that initial mandatory Handling Sensitive Information training is completed before handling sensitive and CUI. The contractor will complete Functional CUI Training when appropriate and complete annual thereafter. The Contractor shall not allow any employee access to a system of records, or permit any employee to create, collect, use, process, store, maintain, disseminate, disclose, dispose or otherwise handle CUI, or to design, develop, maintain, or operate a system of records unless the employee has completed training, as required by this clause. The Contractor shall maintain and, upon request, provide documentation of completion of privacy training to the Contracting Officer.
+
+Retention of Authorizing Documentation
+
+The Contractor must maintain a current and complete file of all documentation authorizing handling of CUI during the period of performance of the contract, unless otherwise instructed by the Contracting Officer. Documentation will be made accessible during inspections or upon written request by the CO or the COR.
+
+Transmitting
+
+Upon completion of the contract, all CUI information, data, documentary material, records and/or equipment shall be returned to Department control or the Contractor must hold it until otherwise directed. 
+
+Self-Inspection
+
+Contractors will be required to perform an annual self-inspection to demonstrate compliance to the CUI program. Self-Inspection Program Requirements include:
+
+Evaluate adherence to the principles and requirements of the ED Directive (#)
+
+Safeguarding
+
+Security Violations
+
+Education and Training
+
+Compliance with Information Protection Requirements 
+
+The Chief Information Officer (CIO) or the Office of Inspector General (OIG), through the CO or COR, reserves the right to verify compliance with information security requirements established by this contract. Verification may include, but is not limited to, onsite or offsite inspections, audits, documentation reviews, process observation, network and IT system scanning. The Contractor will fully comply with all Department-initiated inspections as permissible by law.
+
+Information Security Incidents (ISI) 
+
+Contractors must immediately report any and all suspected security incidents, breaches, and events involving Department information to the Department’s Computer Incident Response Center (EDCIRC) and the Department’s Security Operations Center (EDSOC); EDCIRC@ED.GOV; EDSOC voice: 202-243-6550. The EDSOC is available 24 hours per day, 365 days per year. Contractors must report any and all ISI involving information technology (IT) systems and CUI immediately upon becoming aware of the ISI but no later than 60 minutes after becoming aware of the ISI, regardless of day or time; regardless of internal investigation, evaluation, or confirmation of procedures or activities; and regardless of whether the ISI is suspected, known, or determined to involve IT systems operated in support of this contract.
+
+Misuse of CUI / Incident Response and Access to Contractor Information Technology (IT) Systems 
+
+During the period of performance of the contract and throughout any contract close-out period, the Contractor must provide the Department, or its designate, with immediate access to all IT systems used by the Contractor to support the performance of the contract for the purpose of inspection and forensic analysis in the event of an ISI. The Contractor shall immediately notify the appropriate CO upon discovery of any inadvertent or unauthorized disclosures of information, data, documentary materials, records or equipment that is CUI. Disclosure of CUI is limited to authorized personnel with a lawful need-to-know. 
+
+IT Accessibility Requirements
+
+Section 508 of the Rehabilitation Act, as amended by the Workforce Investment Act of 1998 (P.L. 105-220) requires that when Federal agencies develop, procure, maintain, or use information and communication technology (ICT), it shall be accessible to people with disabilities. Federal employees and members of the public who have disabilities must have access to, and use of, information and data that is comparable to people without disabilities. Products, platforms and services delivered as part of this work statement that are ICT, or contain ICT, must conform to the Revised 508 Standards, which are located at 36 C.F.R. § 1194.1 & Apps. A, C & D, and available at https://www.access-board.gov/guidelines-and-standards/communications-and-it/about-the-ict-refresh/final-rule/text-of-the-standards-and-guidelines. 
+
+Applicable Functional Performance Criteria: All functional performance criteria apply when using an alternative design or technology that achieves substantially equivalent or greater accessibility and usability by individuals with disabilities, than would be provided by conformance to one or more of the requirements in Chapters 4-6 of the Revised 508 Standards, or when Chapters 4-6 do not address one or more functions of ICT.
+
+Applicable requirements for software features and components: All WCAG Level AA Success Criteria, 502 Interoperability with Assistive Technology, 503 Application Applicable requirements for hardware features and components: All requirements apply Applicable support services and documentation: All requirements apply. 
+
+Instructions: 1. Provide an Accessibility Conformance Report (ACR) for each commercially available Information and Communication Technology (ICT) item offered through this contract. Create the ACR using the Voluntary Product Accessibility Template Version 2.1 or later, located at https://www.itic.org/policy/accessibility/vpat. Complete each ACR in accordance with the instructions provided in the VPAT template. Each ACR must address the applicable Section 508 requirements referenced in the Work Statement. Each ACR shall state exactly how the ICT meets the applicable standards in the remarks/explanations column, or through additional narrative. All "Not Applicable" (N/A) responses must be explained in the remarks/explanations column or through additional narrative. Address each standard individually and with specificity, and clarify whether conformance is achieved throughout the entire ICT Item (for example - user functionality, administrator functionality, and reporting), or only in limited areas of the ICT Item. Provide a description of the evaluation methods used to support Section 508 conformance claims. The agency reserves the right, prior to making an award decision, to perform testing on some or all of the Offeror’s proposed ICT items to validate Section 508 conformance claims made in the ACR. 2. Describe your approach to incorporating universal design principles to ensure ICT products or services are designed to support disabled users. 3. Describe plans for features that do not fully conform to the Section 508 Standards. 4. Describe "typical" user scenarios and tasks, including individuals with disabilities, to ensure fair and accurate accessibility testing of the ICT product or service being offered. Instructions: Insert the following language into the Acceptance Criteria section of the solicitation.
+
+Acceptance Criteria: Prior to acceptance, the government reserves the right to perform testing on required ICT items to validate the offeror’s Section 508 conformance claims. If the government determines that Section 508 conformance claims provided by the offeror represent a higher level of conformance than what is actually provided to the agency, the government shall, at its option, require the offeror to remediate the item to align with the offeror’s original Section 508 conformance claims prior to acceptance.
+
+ICT Accessibility Requirements Statement per the Revised Section 508 of the Rehabilitation Act Data Services or Information Retrieval Systems Electronic Content
+
+Technical Criteria: E205.1 General -
+
+Electronic content shall comply with E205.
+
+E205.2 Public Facing -
+
+Electronic content that is public facing shall conform to the accessibility requirements specified in E205.4.
+
+602 Support Documentation -
+
+603 Support Services -
+
+302 Functional Performance Criteria -
+
+Software
+
+Technical Criteria: E207.1 General -
+
+Where components of ICT are software and transmit information or have a user interface, such components shall conform to E207 and the requirements in Chapter 5
+
+E207.2 WCAG Conformance -
+
+User interface components, as well as the content of platforms and applications, shall conform to Level A and Level AA Success Criteria and Conformance Requirements in WCAG 2.0 (incorporated by reference, see 702.10.1).
+
+E207.2.1 Word Substitution -
+
+When Applying WCAG to Non-Web Software For non-Web software, wherever the term “Web
+
+page” or “page” appears in WCAG 2.0 Level A and AA Success Criteria and Conformance Requirements, the term “software” shall be substituted for the terms “Web page” and “page”. In addition, in Success Criterion in 1.4.2, the phrase “in software” shall be substituted for the phrase “on a Web page.”
+
+E207.3 Complete Process for Non-Web Software: Where non-Web software requires multiple steps to accomplish an activity, all software related to the activity to be accomplished shall conform to WCAG 2.0 as specified in E207.2.
+
+Exceptions: E501.1 Scope: Where Web applications do not have access to platform accessibility services and do not include components that have access to platform accessibility services, they shall not be required to conform to 502 or 503 provided that they conform to Level A and Level AA Success Criteria and Conformance Requirements in WCAG 2.0 (incorporated by reference, see 702.10.1).
+
+Functional Performance Criteria:
+
+301.1 Scope - The requirements of Chapter 3 shall apply to ICT where required by 508 Chapter 2 (Scoping Requirements), 255 Chapter 2 (Scoping Requirements), and where otherwise referenced in any other chapter of the Revised 508 Standards or Revised 255 Guidelines.
+
+302.1 Without Vision - Where a visual mode of operation is provided, ICT shall provide at least one mode of operation that does not require user vision.
+
+302.2 With Limited Vision - Where a visual mode of operation is provided, ICT shall provide at least one mode of operation that enables users to make use of limited vision.
+
+302.3 Without Perception of Color - Where a visual mode of operation is provided, ICT shall provide at least one visual mode of operation that does not require user perception of color.
+
+302.4 Without Hearing - Where an audible mode of operation is provided, ICT shall provide at least one mode of operation that does not require user hearing.
+
+302.5 With Limited Hearing - Where an audible mode of operation is provided, ICT shall provide at least one mode of operation that enables users to make use of limited hearing.
+
+302.6 Without Speech - Where speech is used for input, control, or operation, ICT shall provide at least one mode of operation that does not require user speech.
+
+302.7 With Limited Manipulation - Where a manual mode of operation is provided, ICT shall provide at least one mode of operation that does not require fine motor control or simultaneous manual operations.
+
+302.8 With Limited Reach and Strength - Where a manual mode of operation is provided, ICT shall provide at least one mode of operation that is operable with limited reach and limited strength.
+
+302.9 With Limited Language, Cognitive, and Learning Abilities - ICT shall provide features making its use by individuals with limited cognitive, language, and learning abilities simpler and easier. END
+
+Records Management Obligations
+
+A. ApplicabilityThis clause applies to all Contractors whose employees create, work with, or otherwise handle Federal records, as defined in Section B, regardless of the medium in which the record exists. B. Definitions"Federal record" as defined in 44 U.S.C. § 3301, includes all recorded information, regardless of form or characteristics, made or received by a Federal agency under Federal law or in connection with the transaction of public business and preserved or appropriate for preservation by that agency or its legitimate successor as evidence of the organization, functions, policies, decisions, procedures, operations, or other activities of the United States Government or because of the informational value of data in them. The term Federal record: includes Department of Education (DoED) records. does not include personal materials. applies to records created, received, or maintained by Contractors pursuant to their DoED contract. may include deliverables and documentation associated with deliverables.C. RequirementsContractor shall comply with all applicable records management laws and regulations, as well as National Archives and Records Administration (NARA) records policies, including but not limited to the Federal Records Act (44 U.S.C. chs. 21, 29, 31, 33), NARA regulations at 36 CFR Chapter XII Subchapter B, and those policies associated with the safeguarding of records covered by the Privacy Act of 1974 (5 U.S.C. 552a). These policies include the preservation of all records, regardless of form or characteristics, mode of transmission, or state of completion. In accordance with 36 CFR 1222.32, all data created for Government use and delivered to, or falling under the legal control of, the Government are Federal records subject to the provisions of 44 U.S.C. chapters 21, 29, 31, and 33, the Freedom of Information Act (FOIA) (5 U.S.C. 552), as amended, and the Privacy Act of 1974 (5 U.S.C. 552a), as amended and must be managed and scheduled for disposition only as permitted by statute or regulation. In accordance with 36 CFR 1222.32, Contractor shall maintain all records created for Government use or created in the course of performing the contract and/or delivered to, or under the legal control of the Government and must be managed in accordance with Federal law. Electronic records and associated metadata must be accompanied by sufficient technical documentation to permit understanding and use of the records and data, which should address at minimum the following according to 36 CFR 1236.10:
+
+The following types of records management controls are needed to ensure that Federal records in electronic information systems can provide adequate and proper documentation of agency business for as long as the information is needed. Agencies must incorporate controls into the electronic information system or integrate them into a recordkeeping system that is external to the information system itself (see § 1236.20 of this part).
+
+(a) Reliability: Controls to ensure a full and accurate representation of the transactions, activities or facts to which they attest and can be depended upon in the course of subsequent transactions or activities.
+
+(b) Authenticity: Controls to protect against unauthorized addition, deletion, alteration, use, and concealment.
+
+(c) Integrity: Controls, such as audit trails, to ensure records are complete and unaltered.
+
+(d) Usability: Mechanisms to ensure records can be located, retrieved, presented, and interpreted.
+
+(e) Content: Mechanisms to preserve the information contained within the record itself that was produced by the creator of the record;
+
+(f) Context: Mechanisms to implement cross-references to related records that show the organizational, functional, and operational circumstances about the record, which will vary depending upon the business, legal, and regulatory requirements of the business activity; and
+
+(g) Structure: controls to ensure the maintenance of the physical and logical format of the records and the relationships between the data elements.DoED and its contractors are responsible for preventing the alienation or unauthorized destruction of records, including all forms of mutilation. Records may not be removed from the legal custody of DoED or destroyed except for in accordance with the provisions of the agency records schedules and with the written concurrence of the Head of the Contracting Activity. Willful and unlawful destruction, damage or alienation of Federal records is subject to the fines and penalties imposed by 18 U.S.C. 2701. In the event of any unlawful or accidental removal, defacing, alteration, or destruction of records, Contractor must report to DoED. The agency must report promptly to NARA in accordance with 36 CFR 1230.The Contractor shall immediately notify the appropriate Contracting Officer upon discovery of any inadvertent or unauthorized disclosures of information, data, documentary materials, records or equipment. Disclosure of non-public information is limited to authorized personnel with a need-to-know as described in the Statement of Work (SOW). The Contractor shall ensure that the appropriate personnel, administrative, technical, and physical safeguards are established to ensure the security and confidentiality of this information, data, documentary material, records and/or equipment is properly protected. The Contractor shall not remove material from Government facilities or systems, or facilities or systems operated or maintained on the Government's behalf, without the express written permission of the Head of the Contracting Activity. When information, data, documentary material, records and/or equipment is no longer required, it shall be returned to DoED control or the Contractor must hold it until otherwise directed. Items returned to the Government shall be hand-carried, mailed, emailed, or securely electronically transmitted to the Contracting Officer or address prescribed in the SOW. Destruction of records is EXPRESSLY PROHIBITED unless in accordance with Paragraph (4).The Contractor is required to obtain the Contracting Officer's approval prior to engaging in any contractual relationship (sub-contractor) in support of this contract requiring the disclosure of information, documentary material and/or records generated under, or relating to, contracts. The Contractor (and any sub-contractor) is required to abide by Government and DoED guidance for protecting sensitive, proprietary information, classified, and controlled unclassified information.The Contractor shall only use Government IT equipment for purposes specifically tied to or authorized by the contract and in accordance with DoED policy. The Contractor shall not create or maintain any records containing any non-public DoED information that are not specifically tied to or authorized by the contract. The Contractor shall not retain, use, sell, or disseminate copies of any deliverable that contains information covered by the Privacy Act of 1974 or that which is generally protected from public disclosure by an exemption to the Freedom of Information Act. 
+
+The DoED owns the rights to all data and records produced as part of this contract. All deliverables under the contract are the property of the U.S. Government for which DoED shall have unlimited rights to use, dispose of, or disclose such data contained therein as it determines to be in the public interest. Any Contractor rights in the data or deliverables must be identified as required by FAR 52.227-11 through FAR 52.227-20.Training. All Contractor employees assigned to this contract who create, work with or otherwise handle records are required to take DoED-provided records management training. The Contractor is responsible for confirming training has been completed according to agency policies, including initial training and any annual or refresher training.The Contractor shall incorporate the substance of this clause, its terms, and requirements including this paragraph, in all subcontracts under this SOW, and require written subcontractor acknowledgment of same.Violation by a subcontractor of any provision set forth in this clause will be attributed to the Contractor.
+
+
+
+
+===== SOURCE FILE 2: e7c498aa-0983-4e04-b925-5414f35613fe.txt =====
+
+U.S. Department of Education Institute of Education Sciences
+
+
+
+Request for Information (RFI)
+
+Cloud Hosting, System Administration, and Website Support and Development for the Institute of Education Science
+
+March 27, 2026 
+
+
+
+PLEASE NOTE: All information contained in this notice is preliminary in nature and subject to change. This notice is issued solely for information and planning purposes and does not constitute a Request for Proposals (RFP), Request for Quotations (RFQ), Invitation for Bids (IFB), or a commitment on the part of the Government to conduct a solicitation in the future. All information provided is strictly voluntary and no reimbursement will be made by the Government for any costs associated with providing a response to this notice or otherwise participating in market research activities. Further, the U.S. Department of Education offers no assurance that a solicitation will result from this notice.
+
+Overview
+
+The Institute of Education Sciences (IES) plans to award a new task order for support of its web operations by providing cloud hosting, system administration, and website administration and critical feature development, and user, staff and developer support. IES currently maintains a virtual data center hosted in Amazon Web Services (AWS). The primary function of the data center is to host survey collection and dissemination websites in support of IES’ mission. This includes web servers, database servers, a vast array of websites and data driven web applications, a system management and web development environment, terminal servers housing analytical and statistical software, and other system support servers.
+
+Description of the Requirement
+
+The contractor will be responsible for providing:
+
+•	Access to Amazon Web Services (AWS), Infrastructure-as-a-Service (IaaS)
+
+•	System administration and support staff
+
+•	Website administration and development staff
+
+•	System, security, and analytical software 
+
+IES seeks written information from vendors about their capabilities and/or past experience to manage and execute the full scope as described in the attached draft Performance Work Statement (PWS).
+
+Information Requested
+
+The Institute of Education Sciences is requesting responses to the questions below:
+
+Please provide a brief description of your organization’s prior experience in providing services related to AWS cloud hosting, systems operations support, website administration and development, and software support. Please include details on the specific tasks performed and the level of effort required.
+
+
+
+Please provide any feedback or questions you may have related to this requirement and the draft Performance Work Statement. Examples of feedback include:
+
+Unclear sections of the PWS.
+
+Additional information that an offeror would require from the Department before it could submit a proposal (e.g., necessary updates to the PWS).
+
+Concerns over the Department’s identification of contract type (Firm Fixed Price vs. Cost Reimbursement) for specific tasks/subtasks.
+
+Concerns over the timeline(s) described by the Department in the PWS.
+
+Material mistakes or typos in any of the Department’s documents.
+
+
+
+Please indicate whether the performance work statement includes sufficient details for pricing? If not, what information is missing or unclear?
+
+
+
+Please indicate whether the services and labor categories required are available on an existing ED contract or your current GSA Schedule. Include the relevant contract number and your business size status at the time of award.
+
+Submission Instructions
+
+Responses shall not exceed 8 pages. All responses are to be submitted via email to the POC listed below.
+
+
+
+Responses to the RFI are due no later than 12pm ET, April 7, 2026. Responses shall be submitted via email to the POC listed below.
+
+
+
+Contact Information
+
+Contracting Office Address
+
+400 Maryland Ave, SW Washington, DC 20202 USA
+
+
+
+Points of Contact
+
+
+
+Name
+
+Role Title
+
+E-mail
+
+
+
+Primary Point of Contact
+
+Tracey Perry
+
+Contracting Officer
+
+tracey.perry@ed.gov
+
+
+
