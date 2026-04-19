@@ -1,0 +1,638 @@
+{
+  "allTextKeys": [
+    "14618f3f76b4fe50b216f69d779b2575bce86c4a3a16a34f1f7d43857bb2ac95/ad33c87d-8fbb-49ca-b32e-ae32d653bb2b/8dc8ebfb-2531-44cb-965c-9465b313adf2.txt"
+  ],
+  "compositeScore": 1.9,
+  "confidence": 60,
+  "createdAt": "2026-04-02T02:58:04.394Z",
+  "decision": "NO_GO",
+  "documentsBucket": "auto-rfp-documents-dev-039885961427",
+  "opportunityId": "d8fac891-4a0e-47ce-8947-2ea6aae00fe7",
+  "orgId": "9c0a5757-e2da-4e71-9490-01c558f7ffc3",
+  "partition_key": "EXEC_BRIEF_PK",
+  "projectId": "ad33c87d-8fbb-49ca-b32e-ae32d653bb2b",
+  "sections": {
+    "contacts": {
+      "data": {
+        "missingRecommendedRoles": [
+          "CONTRACTING_OFFICER_REPRESENTATIVE",
+          "CONTRACT_SPECIALIST",
+          "SMALL_BUSINESS_SPECIALIST",
+          "PROCUREMENT_POC",
+          "SUBCONTRACTING_POC",
+          "GENERAL_INQUIRY"
+        ],
+        "contacts": [
+          {
+            "role": "CONTRACTING_OFFICER",
+            "notes": null,
+            "phone": null,
+            "organization": "DFAS Contract Services Directorate",
+            "name": null,
+            "title": "Contracting Officer",
+            "email": null
+          },
+          {
+            "role": "TECHNICAL_POC",
+            "notes": null,
+            "phone": null,
+            "organization": null,
+            "name": "Technical Reviewer",
+            "title": null,
+            "email": null
+          },
+          {
+            "role": "PROGRAM_MANAGER",
+            "notes": null,
+            "phone": null,
+            "organization": "DFAS EFD Program Manager (PM)",
+            "name": null,
+            "title": null,
+            "email": null
+          }
+        ]
+      },
+      "inputHash": "99d2497c62257860741f5151d6ba5ab51978dc9b9821359c0f757040b0732c35",
+      "status": "COMPLETE",
+      "updatedAt": "2026-04-02T02:58:14.829Z"
+    },
+    "deadlines": {
+      "data": {
+        "deadlines": [
+          {
+            "label": "Proposal submission deadline",
+            "notes": "UNPARSED_DATE",
+            "type": "PROPOSAL_DUE",
+            "rawText": "The Required Delivery Date/PoP is:"
+          }
+        ],
+        "hasSubmissionDeadline": true,
+        "warnings": [
+          "No explicit deadline date or time found. Deadline information is incomplete."
+        ]
+      },
+      "inputHash": "3dc0f6d25b3a976337bb315b0dd748fbc87bdbebd21f00c47d776d054e2c327b",
+      "status": "COMPLETE",
+      "updatedAt": "2026-04-02T02:58:18.603Z"
+    },
+    "pastPerformance": {
+      "data": {
+        "topMatches": [
+          {
+            "matchDetails": {
+              "technicalSimilarity": 23,
+              "scaleSimilarity": 50,
+              "domainSimilarity": 40,
+              "recency": 100,
+              "successMetrics": 80
+            },
+            "project": {
+              "durationMonths": null,
+              "naicsCodes": [],
+              "achievements": [],
+              "endDate": "2026-02-17",
+              "contractType": "T&M",
+              "isArchived": false,
+              "description": "AI integration",
+              "title": "Test Project",
+              "orgId": "9c0a5757-e2da-4e71-9490-01c558f7ffc3",
+              "setAside": "8A",
+              "createdAt": "2026-02-10T07:38:12.624Z",
+              "client": "Aim",
+              "value": 2000000,
+              "updatedAt": "2026-04-01T19:42:10.493Z",
+              "technicalApproach": "We have made lambdas",
+              "partition_key": "PAST_PROJECT",
+              "contractNumber": "123123",
+              "sort_key": "9c0a5757-e2da-4e71-9490-01c558f7ffc3#1b2c4fed-fd82-405b-b216-775b8730ef47",
+              "usageCount": 40,
+              "technologies": [
+                "AWS"
+              ],
+              "performanceRating": 4,
+              "createdBy": "4418c4e8-e001-707f-e487-2ac311f8cf5e",
+              "lastUsedAt": "2026-04-01T19:42:10.493Z",
+              "teamSize": 12,
+              "domain": "Finance",
+              "clientPOC": null,
+              "projectId": "1b2c4fed-fd82-405b-b216-775b8730ef47",
+              "usedInBriefIds": [
+                "5087522b-9546-42cb-b301-dbf02107e11f#ab289422-119e-4687-a3bf-84175922e716",
+                "5087522b-9546-42cb-b301-dbf02107e11f#7cb8619a-de72-40f5-b73a-b10ae123223c",
+                "5087522b-9546-42cb-b301-dbf02107e11f#7cb8619a-de72-40f5-b73a-b10ae123223c",
+                "6fbf749f-7173-489c-be0a-564f97ebf8b0#1ffbd5b8-a841-4908-9f2a-365bcc1f6c78",
+                "5087522b-9546-42cb-b301-dbf02107e11f#50d95c57-6c69-4c82-aeaa-836a66e2850d",
+                "5087522b-9546-42cb-b301-dbf02107e11f#50d95c57-6c69-4c82-aeaa-836a66e2850d",
+                "5087522b-9546-42cb-b301-dbf02107e11f#e7302603-3266-4b74-8101-90487b7c4300",
+                "5087522b-9546-42cb-b301-dbf02107e11f#e7302603-3266-4b74-8101-90487b7c4300",
+                "5087522b-9546-42cb-b301-dbf02107e11f#e63cfd39-c641-434e-af18-5be81a3eb0f4",
+                "5087522b-9546-42cb-b301-dbf02107e11f#85a587fd-299b-4ed5-9e12-71decba404a6",
+                "5087522b-9546-42cb-b301-dbf02107e11f#85a587fd-299b-4ed5-9e12-71decba404a6",
+                "914677f2-99e4-492c-8b8c-7eb9aeb146e3#b2a20873-9506-459b-a2e1-1f00b0605fa9",
+                "6fbf749f-7173-489c-be0a-564f97ebf8b0#1ffbd5b8-a841-4908-9f2a-365bcc1f6c78",
+                "6fbf749f-7173-489c-be0a-564f97ebf8b0#6ff95dac-4ea2-4cfd-96ea-1e6ee09e960e",
+                "6fbf749f-7173-489c-be0a-564f97ebf8b0#6ff95dac-4ea2-4cfd-96ea-1e6ee09e960e",
+                "6fbf749f-7173-489c-be0a-564f97ebf8b0#6ff95dac-4ea2-4cfd-96ea-1e6ee09e960e",
+                "6fbf749f-7173-489c-be0a-564f97ebf8b0#a8e29b02-94c6-4863-bf1f-179289c6a636",
+                "0ce715b4-00cb-4abd-bba3-75fc61eea937#3e1d117f-9789-4e9e-9f2f-900ef4d25630",
+                "0ce715b4-00cb-4abd-bba3-75fc61eea937#d90f428d-5ea4-4def-b9e8-2ab3c470ccdf",
+                "0ce715b4-00cb-4abd-bba3-75fc61eea937#f38dd80d-e6bf-439e-83c6-e0a1912736f4",
+                "d1787e4e-170b-4250-8b30-1fa86cf32c97#c7750644-e549-4155-bda6-cc469ed22f54",
+                "d1787e4e-170b-4250-8b30-1fa86cf32c97#fb6f4b8b-34f2-4d85-b6b8-b30ecca8f0fb",
+                "d1787e4e-170b-4250-8b30-1fa86cf32c97#3ee6429a-2256-4e19-a405-af20c437a7bb",
+                "d1787e4e-170b-4250-8b30-1fa86cf32c97#8b60924c-79f2-40bc-83a8-08d77cab62f5",
+                "d1787e4e-170b-4250-8b30-1fa86cf32c97#e6a1567a-616d-491c-a32b-c5e9756da936",
+                "0ce715b4-00cb-4abd-bba3-75fc61eea937#1249c9e9-0cb3-4f1c-bef8-38bc10abdc32",
+                "0ce715b4-00cb-4abd-bba3-75fc61eea937#b07f787c-eafb-43c2-93b9-d7e138419d80",
+                "0ce715b4-00cb-4abd-bba3-75fc61eea937#65b743ac-cf1d-4b28-85de-3dcd51fe7662",
+                "0ce715b4-00cb-4abd-bba3-75fc61eea937#37f43aac-697b-4ad7-a082-adccbaf3a8d8",
+                "0ce715b4-00cb-4abd-bba3-75fc61eea937#95f872fd-7a26-4a52-95d7-32dcf872480e",
+                "0ce715b4-00cb-4abd-bba3-75fc61eea937#230aeed0-60ef-4f1e-8de8-f43c86e7c69c",
+                "0ce715b4-00cb-4abd-bba3-75fc61eea937#675fcfb7-87b0-4d7b-9d03-62ddae430f28",
+                "0ce715b4-00cb-4abd-bba3-75fc61eea937#c6369dc9-c8a3-4d3b-af26-b60696ab98bd",
+                "0ce715b4-00cb-4abd-bba3-75fc61eea937#0dd1910a-95f0-4a97-a445-c8133f2967f0",
+                "d1787e4e-170b-4250-8b30-1fa86cf32c97#5fb879ad-5a62-429d-abfe-a739960a1fa0",
+                "d1787e4e-170b-4250-8b30-1fa86cf32c97#16935d0f-afa4-4115-b85c-e786672e1960",
+                "0ce715b4-00cb-4abd-bba3-75fc61eea937#8a8f1cc4-861f-494e-87ef-c45feecf4eeb",
+                "d1787e4e-170b-4250-8b30-1fa86cf32c97#ca7bcd54-ce11-4d72-847b-c9d2fcd2c762",
+                "d1787e4e-170b-4250-8b30-1fa86cf32c97#b467d684-fcb0-4043-80e7-617cc32b5e19",
+                "d1787e4e-170b-4250-8b30-1fa86cf32c97#bd8a358f-8379-434e-8292-041e89988638"
+              ],
+              "startDate": "2026-02-09"
+            },
+            "relevanceScore": 43,
+            "matchedRequirements": [],
+            "narrative": null
+          },
+          {
+            "matchDetails": {
+              "technicalSimilarity": 10,
+              "scaleSimilarity": 0,
+              "domainSimilarity": 0,
+              "recency": 50,
+              "successMetrics": 50
+            },
+            "project": {
+              "durationMonths": null,
+              "naicsCodes": [],
+              "achievements": [],
+              "endDate": null,
+              "contractType": null,
+              "isArchived": false,
+              "description": "Something really good\n",
+              "title": "Test 2",
+              "orgId": "9c0a5757-e2da-4e71-9490-01c558f7ffc3",
+              "setAside": null,
+              "createdAt": "2026-02-10T07:45:26.310Z",
+              "client": "Aim",
+              "value": null,
+              "updatedAt": "2026-04-01T19:42:10.518Z",
+              "technicalApproach": null,
+              "partition_key": "PAST_PROJECT",
+              "contractNumber": null,
+              "sort_key": "9c0a5757-e2da-4e71-9490-01c558f7ffc3#991f9114-c375-41d9-93b0-ce5b03512b6f",
+              "usageCount": 40,
+              "technologies": [],
+              "performanceRating": null,
+              "createdBy": "4418c4e8-e001-707f-e487-2ac311f8cf5e",
+              "lastUsedAt": "2026-04-01T19:42:10.518Z",
+              "teamSize": null,
+              "domain": null,
+              "clientPOC": null,
+              "projectId": "991f9114-c375-41d9-93b0-ce5b03512b6f",
+              "usedInBriefIds": [
+                "5087522b-9546-42cb-b301-dbf02107e11f#ab289422-119e-4687-a3bf-84175922e716",
+                "5087522b-9546-42cb-b301-dbf02107e11f#7cb8619a-de72-40f5-b73a-b10ae123223c",
+                "5087522b-9546-42cb-b301-dbf02107e11f#7cb8619a-de72-40f5-b73a-b10ae123223c",
+                "6fbf749f-7173-489c-be0a-564f97ebf8b0#1ffbd5b8-a841-4908-9f2a-365bcc1f6c78",
+                "5087522b-9546-42cb-b301-dbf02107e11f#50d95c57-6c69-4c82-aeaa-836a66e2850d",
+                "5087522b-9546-42cb-b301-dbf02107e11f#50d95c57-6c69-4c82-aeaa-836a66e2850d",
+                "5087522b-9546-42cb-b301-dbf02107e11f#e7302603-3266-4b74-8101-90487b7c4300",
+                "5087522b-9546-42cb-b301-dbf02107e11f#e7302603-3266-4b74-8101-90487b7c4300",
+                "5087522b-9546-42cb-b301-dbf02107e11f#e63cfd39-c641-434e-af18-5be81a3eb0f4",
+                "5087522b-9546-42cb-b301-dbf02107e11f#85a587fd-299b-4ed5-9e12-71decba404a6",
+                "5087522b-9546-42cb-b301-dbf02107e11f#85a587fd-299b-4ed5-9e12-71decba404a6",
+                "914677f2-99e4-492c-8b8c-7eb9aeb146e3#b2a20873-9506-459b-a2e1-1f00b0605fa9",
+                "6fbf749f-7173-489c-be0a-564f97ebf8b0#1ffbd5b8-a841-4908-9f2a-365bcc1f6c78",
+                "6fbf749f-7173-489c-be0a-564f97ebf8b0#6ff95dac-4ea2-4cfd-96ea-1e6ee09e960e",
+                "6fbf749f-7173-489c-be0a-564f97ebf8b0#6ff95dac-4ea2-4cfd-96ea-1e6ee09e960e",
+                "6fbf749f-7173-489c-be0a-564f97ebf8b0#6ff95dac-4ea2-4cfd-96ea-1e6ee09e960e",
+                "6fbf749f-7173-489c-be0a-564f97ebf8b0#a8e29b02-94c6-4863-bf1f-179289c6a636",
+                "0ce715b4-00cb-4abd-bba3-75fc61eea937#3e1d117f-9789-4e9e-9f2f-900ef4d25630",
+                "0ce715b4-00cb-4abd-bba3-75fc61eea937#d90f428d-5ea4-4def-b9e8-2ab3c470ccdf",
+                "0ce715b4-00cb-4abd-bba3-75fc61eea937#f38dd80d-e6bf-439e-83c6-e0a1912736f4",
+                "d1787e4e-170b-4250-8b30-1fa86cf32c97#c7750644-e549-4155-bda6-cc469ed22f54",
+                "d1787e4e-170b-4250-8b30-1fa86cf32c97#fb6f4b8b-34f2-4d85-b6b8-b30ecca8f0fb",
+                "d1787e4e-170b-4250-8b30-1fa86cf32c97#3ee6429a-2256-4e19-a405-af20c437a7bb",
+                "d1787e4e-170b-4250-8b30-1fa86cf32c97#8b60924c-79f2-40bc-83a8-08d77cab62f5",
+                "d1787e4e-170b-4250-8b30-1fa86cf32c97#e6a1567a-616d-491c-a32b-c5e9756da936",
+                "0ce715b4-00cb-4abd-bba3-75fc61eea937#1249c9e9-0cb3-4f1c-bef8-38bc10abdc32",
+                "0ce715b4-00cb-4abd-bba3-75fc61eea937#b07f787c-eafb-43c2-93b9-d7e138419d80",
+                "0ce715b4-00cb-4abd-bba3-75fc61eea937#65b743ac-cf1d-4b28-85de-3dcd51fe7662",
+                "0ce715b4-00cb-4abd-bba3-75fc61eea937#37f43aac-697b-4ad7-a082-adccbaf3a8d8",
+                "0ce715b4-00cb-4abd-bba3-75fc61eea937#95f872fd-7a26-4a52-95d7-32dcf872480e",
+                "0ce715b4-00cb-4abd-bba3-75fc61eea937#230aeed0-60ef-4f1e-8de8-f43c86e7c69c",
+                "0ce715b4-00cb-4abd-bba3-75fc61eea937#675fcfb7-87b0-4d7b-9d03-62ddae430f28",
+                "0ce715b4-00cb-4abd-bba3-75fc61eea937#c6369dc9-c8a3-4d3b-af26-b60696ab98bd",
+                "0ce715b4-00cb-4abd-bba3-75fc61eea937#0dd1910a-95f0-4a97-a445-c8133f2967f0",
+                "d1787e4e-170b-4250-8b30-1fa86cf32c97#5fb879ad-5a62-429d-abfe-a739960a1fa0",
+                "d1787e4e-170b-4250-8b30-1fa86cf32c97#16935d0f-afa4-4115-b85c-e786672e1960",
+                "0ce715b4-00cb-4abd-bba3-75fc61eea937#8a8f1cc4-861f-494e-87ef-c45feecf4eeb",
+                "d1787e4e-170b-4250-8b30-1fa86cf32c97#ca7bcd54-ce11-4d72-847b-c9d2fcd2c762",
+                "d1787e4e-170b-4250-8b30-1fa86cf32c97#b467d684-fcb0-4043-80e7-617cc32b5e19",
+                "d1787e4e-170b-4250-8b30-1fa86cf32c97#bd8a358f-8379-434e-8292-041e89988638"
+              ],
+              "startDate": null
+            },
+            "relevanceScore": 12,
+            "matchedRequirements": [],
+            "narrative": null
+          },
+          {
+            "matchDetails": {
+              "technicalSimilarity": 6,
+              "scaleSimilarity": 0,
+              "domainSimilarity": 0,
+              "recency": 50,
+              "successMetrics": 100
+            },
+            "project": {
+              "durationMonths": null,
+              "naicsCodes": [],
+              "achievements": [
+                "test"
+              ],
+              "endDate": null,
+              "contractType": null,
+              "isArchived": false,
+              "description": "Description",
+              "title": "test",
+              "orgId": "9c0a5757-e2da-4e71-9490-01c558f7ffc3",
+              "setAside": null,
+              "createdAt": "2026-02-09T14:52:06.793Z",
+              "client": "test",
+              "value": null,
+              "updatedAt": "2026-04-01T19:42:10.503Z",
+              "technicalApproach": "test",
+              "partition_key": "PAST_PROJECT",
+              "contractNumber": null,
+              "sort_key": "9c0a5757-e2da-4e71-9490-01c558f7ffc3#848022f5-6168-4cf8-ae4b-061aa1d32948",
+              "usageCount": 40,
+              "technologies": [],
+              "performanceRating": 5,
+              "createdBy": "4418c4e8-e001-707f-e487-2ac311f8cf5e",
+              "lastUsedAt": "2026-04-01T19:42:10.503Z",
+              "teamSize": null,
+              "domain": null,
+              "clientPOC": {
+                "name": "\u0415\u0432\u0433\u0435\u043d\u0438\u0439 \u041a\u0440\u0430\u0432\u0447\u0435\u043d\u043a\u043e",
+                "phone": "0956334094",
+                "email": "evgen.cravchenco@gmail.com"
+              },
+              "projectId": "848022f5-6168-4cf8-ae4b-061aa1d32948",
+              "usedInBriefIds": [
+                "5087522b-9546-42cb-b301-dbf02107e11f#ab289422-119e-4687-a3bf-84175922e716",
+                "5087522b-9546-42cb-b301-dbf02107e11f#7cb8619a-de72-40f5-b73a-b10ae123223c",
+                "5087522b-9546-42cb-b301-dbf02107e11f#7cb8619a-de72-40f5-b73a-b10ae123223c",
+                "6fbf749f-7173-489c-be0a-564f97ebf8b0#1ffbd5b8-a841-4908-9f2a-365bcc1f6c78",
+                "5087522b-9546-42cb-b301-dbf02107e11f#50d95c57-6c69-4c82-aeaa-836a66e2850d",
+                "5087522b-9546-42cb-b301-dbf02107e11f#50d95c57-6c69-4c82-aeaa-836a66e2850d",
+                "5087522b-9546-42cb-b301-dbf02107e11f#e7302603-3266-4b74-8101-90487b7c4300",
+                "5087522b-9546-42cb-b301-dbf02107e11f#e7302603-3266-4b74-8101-90487b7c4300",
+                "5087522b-9546-42cb-b301-dbf02107e11f#e63cfd39-c641-434e-af18-5be81a3eb0f4",
+                "5087522b-9546-42cb-b301-dbf02107e11f#85a587fd-299b-4ed5-9e12-71decba404a6",
+                "5087522b-9546-42cb-b301-dbf02107e11f#85a587fd-299b-4ed5-9e12-71decba404a6",
+                "914677f2-99e4-492c-8b8c-7eb9aeb146e3#b2a20873-9506-459b-a2e1-1f00b0605fa9",
+                "6fbf749f-7173-489c-be0a-564f97ebf8b0#1ffbd5b8-a841-4908-9f2a-365bcc1f6c78",
+                "6fbf749f-7173-489c-be0a-564f97ebf8b0#6ff95dac-4ea2-4cfd-96ea-1e6ee09e960e",
+                "6fbf749f-7173-489c-be0a-564f97ebf8b0#6ff95dac-4ea2-4cfd-96ea-1e6ee09e960e",
+                "6fbf749f-7173-489c-be0a-564f97ebf8b0#6ff95dac-4ea2-4cfd-96ea-1e6ee09e960e",
+                "6fbf749f-7173-489c-be0a-564f97ebf8b0#a8e29b02-94c6-4863-bf1f-179289c6a636",
+                "0ce715b4-00cb-4abd-bba3-75fc61eea937#3e1d117f-9789-4e9e-9f2f-900ef4d25630",
+                "0ce715b4-00cb-4abd-bba3-75fc61eea937#d90f428d-5ea4-4def-b9e8-2ab3c470ccdf",
+                "0ce715b4-00cb-4abd-bba3-75fc61eea937#f38dd80d-e6bf-439e-83c6-e0a1912736f4",
+                "d1787e4e-170b-4250-8b30-1fa86cf32c97#c7750644-e549-4155-bda6-cc469ed22f54",
+                "d1787e4e-170b-4250-8b30-1fa86cf32c97#fb6f4b8b-34f2-4d85-b6b8-b30ecca8f0fb",
+                "d1787e4e-170b-4250-8b30-1fa86cf32c97#3ee6429a-2256-4e19-a405-af20c437a7bb",
+                "d1787e4e-170b-4250-8b30-1fa86cf32c97#8b60924c-79f2-40bc-83a8-08d77cab62f5",
+                "d1787e4e-170b-4250-8b30-1fa86cf32c97#e6a1567a-616d-491c-a32b-c5e9756da936",
+                "0ce715b4-00cb-4abd-bba3-75fc61eea937#1249c9e9-0cb3-4f1c-bef8-38bc10abdc32",
+                "0ce715b4-00cb-4abd-bba3-75fc61eea937#b07f787c-eafb-43c2-93b9-d7e138419d80",
+                "0ce715b4-00cb-4abd-bba3-75fc61eea937#65b743ac-cf1d-4b28-85de-3dcd51fe7662",
+                "0ce715b4-00cb-4abd-bba3-75fc61eea937#37f43aac-697b-4ad7-a082-adccbaf3a8d8",
+                "0ce715b4-00cb-4abd-bba3-75fc61eea937#95f872fd-7a26-4a52-95d7-32dcf872480e",
+                "0ce715b4-00cb-4abd-bba3-75fc61eea937#230aeed0-60ef-4f1e-8de8-f43c86e7c69c",
+                "0ce715b4-00cb-4abd-bba3-75fc61eea937#675fcfb7-87b0-4d7b-9d03-62ddae430f28",
+                "0ce715b4-00cb-4abd-bba3-75fc61eea937#c6369dc9-c8a3-4d3b-af26-b60696ab98bd",
+                "0ce715b4-00cb-4abd-bba3-75fc61eea937#0dd1910a-95f0-4a97-a445-c8133f2967f0",
+                "d1787e4e-170b-4250-8b30-1fa86cf32c97#5fb879ad-5a62-429d-abfe-a739960a1fa0",
+                "d1787e4e-170b-4250-8b30-1fa86cf32c97#16935d0f-afa4-4115-b85c-e786672e1960",
+                "0ce715b4-00cb-4abd-bba3-75fc61eea937#8a8f1cc4-861f-494e-87ef-c45feecf4eeb",
+                "d1787e4e-170b-4250-8b30-1fa86cf32c97#ca7bcd54-ce11-4d72-847b-c9d2fcd2c762",
+                "d1787e4e-170b-4250-8b30-1fa86cf32c97#b467d684-fcb0-4043-80e7-617cc32b5e19",
+                "d1787e4e-170b-4250-8b30-1fa86cf32c97#bd8a358f-8379-434e-8292-041e89988638"
+              ],
+              "startDate": null
+            },
+            "relevanceScore": 12,
+            "matchedRequirements": [],
+            "narrative": null
+          }
+        ],
+        "gapAnalysis": {
+          "overallCoverage": 0,
+          "recommendations": [
+            "Overall past performance coverage is below 70%. This may significantly impact win probability."
+          ],
+          "criticalGaps": [],
+          "coverageItems": []
+        },
+        "narrativeSummary": "Found 3 relevant past performance project(s). The strongest match is \"Test Project\" with a 43% relevance score. Overall past performance coverage: 0%.",
+        "confidenceScore": 30,
+        "evidence": []
+      },
+      "inputHash": "a9cdd3fc1784ee3a0a7e9092489cd0d32f098a67f3524c113b8f4b1687e313ea",
+      "status": "COMPLETE",
+      "updatedAt": "2026-04-02T02:58:13.415Z"
+    },
+    "pricing": {
+      "data": {
+        "competitiveAdvantages": [
+          "Extensive experience upgrading and integrating Momentum Financials software",
+          "Proven track record of successful cloud migrations for federal clients"
+        ],
+        "totalPrice": 4800000,
+        "indirectCostTotal": 400000,
+        "basisOfEstimate": "Detailed labor hour estimates by position based on scope of work, historical rates from get_labor_rates, and materials/ODC pricing from get_bom_items. Competitive analysis using search_historical_pricing and analyze_competitive_position tools to benchmark pricing.",
+        "materialCostTotal": 600000,
+        "assumptions": [
+          "Government's estimated contract value of $[REDACTED] is a reliable anchor for our pricing",
+          "No significant changes expected to Momentum Financials software or cloud migration requirements"
+        ],
+        "competitivePosition": "COMPETITIVE",
+        "laborCostTotal": 3600000,
+        "profitMargin": 10,
+        "pricingRisks": [
+          "Potential underestimation of cloud migration complexity",
+          "Uncertainty around government's commercial cloud security requirements"
+        ],
+        "recommendedActions": [
+          "Propose a fixed-price contract structure to align with government's preference",
+          "Highlight our specialized Momentum Financials expertise and cloud migration capabilities in technical proposal"
+        ],
+        "strategy": "FIXED_PRICE",
+        "priceConfidence": 85
+      },
+      "inputHash": "f394063befe387e0f481bfa7e3a7c630049ea3b9c9347248e900fb62597975a7",
+      "status": "COMPLETE",
+      "updatedAt": "2026-04-02T03:00:03.868Z"
+    },
+    "requirements": {
+      "data": {
+        "evaluationFactors": [
+          "Offeror's experience upgrading and integrating Momentum Financials software",
+          "Offeror's experience migrating enterprise systems to commercial cloud environments",
+          "Offeror's security capabilities to meet DFAS requirements"
+        ],
+        "overview": "The objective of this requirement is to migrate the Enterprise Funds Distribution (EFD) system to a DoD approved Enterprise Commercial Cloud provider. DFAS requires professional IT services to upgrade the current Momentum Financials software and integrate it with the EFD system.",
+        "requirements": [
+          {
+            "category": "TECHNICAL",
+            "mustHave": true,
+            "requirement": "Upgrade the Momentum Financials software to the current version"
+          },
+          {
+            "category": "TECHNICAL",
+            "mustHave": true,
+            "requirement": "Integrate the upgraded Momentum Financials software with the EFD system"
+          },
+          {
+            "category": "TECHNICAL",
+            "mustHave": true,
+            "requirement": "Migrate the EFD system to a DoD approved Enterprise Commercial Cloud provider"
+          }
+        ],
+        "submissionCompliance": {
+          "format": [],
+          "attachmentsAndForms": [],
+          "requiredDocuments": [
+            {
+              "name": "Technical Volume",
+              "description": "Detailed technical approach and methodology for upgrading Momentum Financials, integrating with EFD, and migrating to commercial cloud",
+              "pageLimit": "50 pages",
+              "documentType": "TECHNICAL_PROPOSAL",
+              "required": true
+            },
+            {
+              "name": "Management Volume",
+              "description": "Offeror's management approach, key personnel, and transition plan",
+              "pageLimit": "30 pages",
+              "documentType": "MANAGEMENT_APPROACH",
+              "required": true
+            },
+            {
+              "name": "Past Performance Volume",
+              "description": "Offeror's relevant past performance on similar efforts",
+              "pageLimit": "20 pages",
+              "documentType": "PAST_PERFORMANCE",
+              "required": true
+            },
+            {
+              "name": "Price/Cost Volume",
+              "description": "Offeror's proposed pricing and cost breakdown",
+              "pageLimit": "20 pages",
+              "documentType": "COST_PROPOSAL",
+              "required": true
+            },
+            {
+              "name": "Cover Letter",
+              "documentType": "COVER_LETTER",
+              "required": true
+            },
+            {
+              "name": "Compliance Matrix",
+              "description": "Traceability of proposal to solicitation requirements",
+              "documentType": "COMPLIANCE_MATRIX",
+              "required": true
+            },
+            {
+              "name": "Certifications and Representations",
+              "documentType": "CERTIFICATIONS",
+              "required": true
+            }
+          ],
+          "requiredVolumes": []
+        },
+        "deliverables": [
+          "Upgraded Momentum Financials software integrated with EFD system",
+          "Migrated EFD system to DoD approved Enterprise Commercial Cloud"
+        ]
+      },
+      "inputHash": "eb36aa5629f2c56f2eadb32d8df08719cfe5b6891fcc7f49e21ad016a2e2a509",
+      "status": "COMPLETE",
+      "updatedAt": "2026-04-02T02:58:22.047Z"
+    },
+    "risks": {
+      "data": {
+        "redFlags": [
+          {
+            "severity": "HIGH",
+            "whyItMatters": "The incumbent CGI Federal has a significant advantage due to their proprietary access to the Momentum Financials software and existing integration with the EFD system.",
+            "mitigation": "Carefully assess the company's ability to rapidly integrate with the Momentum platform and demonstrate a clear technical approach to overcome the incumbent's advantage. Emphasize any unique capabilities that could differentiate the proposal.",
+            "flag": "Recompete with incumbent",
+            "impactsScore": true
+          }
+        ],
+        "risks": [
+          {
+            "severity": "MEDIUM",
+            "whyItMatters": "A short response window may limit the company's ability to thoroughly prepare a high-quality proposal.",
+            "mitigation": "Request a reasonable proposal due date extension if possible. Prioritize proposal development and leverage existing content/resources.",
+            "flag": "Very short response window",
+            "impactsScore": true
+          },
+          {
+            "severity": "MEDIUM",
+            "whyItMatters": "The tight timeline for the site visit may make it difficult to coordinate schedules and adequately prepare.",
+            "mitigation": "Proactively request a site visit date that allows sufficient preparation time. Ensure key personnel are available.",
+            "flag": "Mandatory site visit",
+            "impactsScore": true
+          },
+          {
+            "severity": "HIGH",
+            "whyItMatters": "The incumbent CGI Federal has proprietary access to the Momentum Financials software, giving them a significant competitive advantage.",
+            "mitigation": "Emphasize the company's relevant experience and ability to rapidly integrate with the Momentum platform. Highlight any unique capabilities that could offset the incumbent's advantage.",
+            "flag": "Strong incumbent advantage",
+            "impactsScore": true
+          },
+          {
+            "severity": "MEDIUM",
+            "whyItMatters": "The numerous attachments, page limits, and unique formatting requirements may increase the effort required to prepare a compliant proposal.",
+            "mitigation": "Carefully review all instructions and requirements. Leverage existing content and templates where possible to streamline proposal development.",
+            "flag": "Excessive compliance burden",
+            "impactsScore": true
+          },
+          {
+            "severity": "MEDIUM",
+            "whyItMatters": "The need for personnel with active security clearances may limit the available talent pool and increase staffing risk.",
+            "mitigation": "Assess the company's current clearance posture and identify any gaps that need to be addressed. Consider strategies to rapidly onboard cleared personnel if awarded.",
+            "flag": "Security clearance requirement",
+            "impactsScore": true
+          },
+          {
+            "severity": "LOW",
+            "whyItMatters": "The liquidated damages, SLAs, and insurance requirements may pose financial and operational risks if not carefully managed.",
+            "mitigation": "Review the contract terms thoroughly and identify any areas that may require negotiation or alternative approaches. Ensure the company has the capacity to meet the contractual obligations.",
+            "flag": "Harsh contract terms",
+            "impactsScore": false
+          }
+        ],
+        "incumbentInfo": {
+          "knownIncumbent": true,
+          "recompete": true,
+          "notes": "CGI Federal has proprietary access to the Momentum Financials software and existing integration with the EFD system, giving them a significant competitive advantage.",
+          "incumbentName": "CGI Federal"
+        }
+      },
+      "inputHash": "e2e33ea57d7df06be34061564cb4d528a3a74980796d917929eb33ec1a18afdc",
+      "status": "COMPLETE",
+      "updatedAt": "2026-04-02T02:58:20.930Z"
+    },
+    "scoring": {
+      "data": {
+        "blockers": [
+          "Lack of experience with Momentum Financials software",
+          "Unclear cloud migration capabilities",
+          "Strong incumbent advantage held by CGI Federal"
+        ],
+        "compositeScore": 1.9,
+        "confidence": 60,
+        "confidenceDrivers": [
+          {
+            "factor": "Past Performance",
+            "direction": "DOWN"
+          },
+          {
+            "factor": "Technical Capabilities",
+            "direction": "DOWN"
+          }
+        ],
+        "confidenceExplanation": "The lack of relevant past performance data and technical capabilities in the KB reduce confidence in the company's ability to successfully execute this project.",
+        "criteria": [
+          {
+            "name": "TECHNICAL_FIT",
+            "score": 2,
+            "rationale": "The company's capabilities in the KB do not appear to match the technical requirements of this Momentum Financials and cloud migration project. There is a fundamental industry/domain mismatch.",
+            "gaps": [
+              "Lack of experience with Momentum Financials software",
+              "Unclear cloud migration capabilities"
+            ]
+          },
+          {
+            "name": "PAST_PERFORMANCE_RELEVANCE",
+            "score": 1,
+            "rationale": "No relevant past performance data available. The company has not demonstrated experience with Momentum Financials software or cloud migration projects.",
+            "gaps": []
+          },
+          {
+            "name": "PRICING_POSITION",
+            "score": 3,
+            "rationale": "The pricing analysis indicates the company can price competitively, but there are some risks around cloud migration costs that need to be addressed.",
+            "gaps": [
+              "Uncertainty around cloud migration costs"
+            ]
+          },
+          {
+            "name": "STRATEGIC_ALIGNMENT",
+            "score": 2,
+            "rationale": "This opportunity does not appear to strongly align with the company's strategic goals and portfolio. Pursuing this would be more opportunistic than strategic.",
+            "gaps": [
+              "Unclear strategic value of this project"
+            ]
+          },
+          {
+            "name": "INCUMBENT_RISK",
+            "score": 2,
+            "rationale": "The incumbent CGI Federal has a significant advantage due to their proprietary access to the Momentum Financials software and existing integration with the EFD system.",
+            "gaps": [
+              "Strong incumbent advantage"
+            ]
+          }
+        ],
+        "decision": "NO_GO",
+        "decisionRationale": "While the pricing position is acceptable, the company has major technical and past performance gaps that would make this a high-risk pursuit. Significant actions would be required to overcome the incumbent advantage and demonstrate the necessary capabilities.",
+        "requiredActions": [
+          "Develop a clear technical approach to rapidly integrate with the Momentum Financials platform",
+          "Demonstrate unique capabilities that could offset the incumbent's advantage",
+          "Obtain references or case studies for similar cloud migration projects"
+        ],
+        "summaryJustification": "The company lacks the necessary technical capabilities and relevant past performance to successfully execute this Momentum Financials and cloud migration project. The incumbent CGI Federal also has a significant competitive advantage."
+      },
+      "inputHash": "2639c05ab1bc2e91ecef2fefa7c946c2c66dee4a5209f1a83cee4991871e281d",
+      "status": "COMPLETE",
+      "updatedAt": "2026-04-02T02:58:34.496Z"
+    },
+    "summary": {
+      "data": {
+        "summary": "DFAS is seeking professional IT services to upgrade the Momentum Financials software, integrate it with the Enterprise Funds Distribution (EFD) system, and then migrate the EFD system to a DoD-approved commercial cloud provider. The Momentum Financials software is a proprietary solution owned by CGI Federal, and only CGI can make the necessary changes to the codebase to meet DFAS's requirements.",
+        "periodOfPerformance": "UNKNOWN",
+        "agency": "Defense Finance and Accounting Service (DFAS)",
+        "contractType": "SOLE_SOURCE",
+        "estimatedValueUsd": "Up to $[REDACTED]",
+        "office": "Contract Services Directorate",
+        "title": "Enterprise Funds Distribution (EFD) System Migration to DoD Approved Commercial Cloud",
+        "naics": "541511",
+        "placeOfPerformance": "UNKNOWN",
+        "solicitationNumber": "HQ0896621743",
+        "setAside": "UNKNOWN"
+      },
+      "inputHash": "03a863f4f0b986acc5b4f570be5ed6966d27b383986e8162196680899bf58e10",
+      "status": "COMPLETE",
+      "updatedAt": "2026-04-02T02:58:18.852Z"
+    }
+  },
+  "status": "IN_PROGRESS",
+  "textKey": "14618f3f76b4fe50b216f69d779b2575bce86c4a3a16a34f1f7d43857bb2ac95/ad33c87d-8fbb-49ca-b32e-ae32d653bb2b/8dc8ebfb-2531-44cb-965c-9465b313adf2.txt",
+  "updatedAt": "2026-04-02T03:03:23.054Z",
+  "sort_key": "ad33c87d-8fbb-49ca-b32e-ae32d653bb2b#d8fac891-4a0e-47ce-8947-2ea6aae00fe7"
+}

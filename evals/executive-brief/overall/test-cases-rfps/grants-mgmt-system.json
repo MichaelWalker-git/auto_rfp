@@ -1,0 +1,789 @@
+{
+  "allTextKeys": [
+    "fa7ad369515e2a01a0d0d13c5f6756ed01709ee68408330a7d4bcd99c45882b7/959bd413-9679-46c1-80a8-78466a0b52ab/a3eb326f-c208-4f1b-ae70-f68e9f84cf0f.txt"
+  ],
+  "compositeScore": 1.8,
+  "confidence": 50,
+  "createdAt": "2026-02-19T16:43:35.776Z",
+  "decision": "NO_GO",
+  "documentsBucket": "auto-rfp-documents-dev-039885961427",
+  "opportunityId": "6c992081-756b-421a-8fb2-686ea6c0cc3d",
+  "orgId": "9c0a5757-e2da-4e71-9490-01c558f7ffc3",
+  "partition_key": "EXEC_BRIEF_PK",
+  "projectId": "959bd413-9679-46c1-80a8-78466a0b52ab",
+  "sections": {
+    "contacts": {
+      "data": {
+        "missingRecommendedRoles": [
+          "CONTRACT_SPECIALIST",
+          "TECHNICAL_POC",
+          "PROGRAM_MANAGER",
+          "SMALL_BUSINESS_SPECIALIST",
+          "PROCUREMENT_POC",
+          "SUBCONTRACTING_POC",
+          "GENERAL_INQUIRY"
+        ],
+        "contacts": [
+          {
+            "name": "Sandra M. Vasquez",
+            "role": "CONTRACTING_OFFICER",
+            "title": "Supervising Procurement Contracting Officer",
+            "phone": "619-236-6032",
+            "email": "SMVasquez@sandiego.gov",
+            "organization": "City of San Diego, Purchasing & Contracting Department"
+          },
+          {
+            "role": "CONTRACTING_OFFICER_REPRESENTATIVE",
+            "notes": "Department representative and Contract Administrator for the agreement, located at 1200 Third Ave, Suite 1400, San Diego, CA 92101",
+            "phone": "619-236-6320",
+            "organization": "City of San Diego, Economic Development Department",
+            "name": "Christie Marcella",
+            "title": "Contract Administrator",
+            "email": "CMarcella@sandiego.gov"
+          },
+          {
+            "role": "OTHER",
+            "notes": "Data security breach notifications and compliance documents should be sent to this office at 1010 2nd Avenue, Suite 500, San Diego, CA 92101. No individual name provided.",
+            "title": "Chief Information Security Officer",
+            "phone": "619-533-4840",
+            "email": "Cybersecurity@sandiego.gov",
+            "organization": "City of San Diego"
+          }
+        ]
+      },
+      "inputHash": "6c80c72ab481d6b87ac6a3a244d35c39491ff54b877f3c9d1d1621aa2652f31e",
+      "status": "COMPLETE",
+      "updatedAt": "2026-04-19T20:15:33.873Z"
+    },
+    "deadlines": {
+      "data": {
+        "hasSubmissionDeadline": true,
+        "submissionDeadlineIso": "2026-03-16T14:00:00-07:00",
+        "deadlines": [
+          {
+            "dateTimeIso": "2026-02-23T12:00:00-08:00",
+            "label": "Questions and Comments Due",
+            "notes": "Written questions and comments must be submitted electronically via the eBidding System",
+            "type": "QUESTIONS_DUE",
+            "rawText": "February 23, 2026 @ 12:00 p.m.",
+            "timezone": "PT"
+          },
+          {
+            "dateTimeIso": "2026-03-16T14:00:00-07:00",
+            "label": "Proposal Due Date and Time (Closing Date)",
+            "notes": "March 16, 2026 falls during Pacific Daylight Time (UTC-7). Proposals must be submitted prior to the Closing Date via PlanetBids or paper submission to P&C at 1200 Third Avenue, Suite 200, San Diego, CA 92101.",
+            "type": "PROPOSAL_DUE",
+            "rawText": "March 16, 2026 @ 2:00 p.m.",
+            "timezone": "PT"
+          }
+        ],
+        "warnings": []
+      },
+      "inputHash": "7b1a2eb2fcd2820a0f5ae4cdc2cfa5149ea7761173bd30e375f25e23c4a6a145",
+      "status": "COMPLETE",
+      "updatedAt": "2026-04-19T20:15:33.774Z"
+    },
+    "pastPerformance": {
+      "status": "IDLE",
+      "updatedAt": "2026-04-19T20:14:59.460Z"
+    },
+    "pricing": {
+      "data": {
+        "competitiveAdvantages": [
+          "California-based DGS-certified Small Business eligible for SLBE/ELBE bonus points (up to 12 additional evaluation points)",
+          "Demonstrated SaaS platform development experience with AWS serverless architecture relevant to cloud-hosted grant management",
+          "Past performance in document processing and workflow automation (DegreeData platform reduced processing time by 80%)",
+          "Experience building public-facing portals with user role management and secure access (Caregiver Portal, Job Platform)"
+        ],
+        "totalPrice": 0,
+        "indirectCostTotal": 0,
+        "basisOfEstimate": "No government estimated value is stated in this solicitation. The RFP is for a SaaS Grants Management System for the City of San Diego's Economic Development Department covering Business Districts, Community Development (HUD/CDBG/ESG/HOME), and Capacity Building programs. The contract is fixed-price for 5 years (3-year base + two 1-year options). While organization labor rates are provided (Software Engineer $171.40/hr, Manufacturing Engineer $178.89/hr), these rates are for custom development and are not directly applicable to pricing a SaaS subscription product. The solicitation requires a vendor-hosted subscription-based SaaS system, meaning pricing would primarily consist of annual subscription fees plus one-time implementation/configuration costs, training, and data migration - not hourly labor billing. Horus Technologies does not appear to have an existing grants management product, and the RFP requires demonstrated deployments at 10+ public agencies. Without a COTS product or established GMS partner, providing a meaningful price estimate is not feasible. Total price is set to $0 because the company would need to fundamentally determine its go-to-market approach (build vs. partner vs. resell) before any pricing can be developed. Price evaluation weight is only 10 out of 100 points, with a formula-based scoring method comparing to the lowest bidder.",
+        "materialCostTotal": 0,
+        "assumptions": [
+          "Horus Technologies does not currently have a production-ready grants management SaaS product",
+          "The organization would need to partner with or resell an existing GMS platform to be competitive",
+          "No government estimate was provided in the solicitation text or metadata",
+          "Organization labor rates provided are for custom software development, not SaaS subscription pricing",
+          "The 10+ public agency implementation requirement is likely a significant barrier without a partner",
+          "Pricing would need to cover: annual SaaS subscription, implementation/configuration, data migration, training, and ongoing support for 5 years",
+          "Market rates for comparable municipal GMS solutions are speculative without specific vendor quotes",
+          "The SLBE/ELBE 12-point bonus could be a significant competitive differentiator if the company qualifies through local San Diego business registration"
+        ],
+        "competitivePosition": "COMPETITIVE",
+        "laborCostTotal": 0,
+        "profitMargin": 10,
+        "pricingRisks": [
+          "No government estimated value provided - pricing anchor is absent making competitive positioning uncertain",
+          "Horus Technologies does not appear to have a pre-built grants management SaaS product - would need to build or partner, significantly increasing cost and risk",
+          "No direct past performance with HUD/CDBG/ESG/HOME federal grant programs or grants management systems specifically",
+          "RFP requires proof of prior similar work with at least 10 cities/states/public agencies - Horus may not meet this threshold",
+          "Desired go-live of July 1, 2026 (approximately 3.5 months from contract award) is extremely aggressive for a full GMS implementation",
+          "Price is only 10 of 100 base evaluation points - technical capability and past performance (35 points) dominate scoring",
+          "Fixed-price contract places all cost risk on contractor for a complex SaaS implementation with data migration and integrations (SAP, IDIS, ArcGIS, OKTA)",
+          "99.9% uptime SLA with financial penalties (service credits) creates ongoing operational risk",
+          "Training requirements are substantial: 75 internal staff, 10 system admins, 200 external nonprofit users",
+          "5-year contract term with no escalation clause unless specifically allowed - inflation risk on subscription pricing"
+        ],
+        "recommendedActions": [
+          "Assess whether Horus Technologies has or can rapidly acquire a COTS grants management SaaS product - building from scratch is likely not viable given the go-live timeline",
+          "Evaluate teaming/subcontracting with an established GMS vendor (e.g., Submittable, Fluxx, Salesforce partner) where Horus provides implementation/integration services",
+          "Verify ability to meet the mandatory requirement of 10+ public agency implementations - this is likely a disqualifier without a partner",
+          "Research competitive pricing for comparable GMS SaaS solutions (typical range for municipal grants management: $150K-$500K annually for subscription plus $200K-$600K implementation)",
+          "If pursuing, leverage SLBE/ELBE certification for up to 12 bonus points which significantly offsets the low price weight (10 points)",
+          "Submit questions by February 23, 2026 deadline to clarify Exhibit D price proposal format and whether implementation is separate from annual subscription",
+          "Consider NO-BID unless a qualified GMS partner can be secured - the technical requirements and past performance thresholds are highly specific to grants management domain expertise"
+        ],
+        "strategy": "FIXED_PRICE",
+        "priceConfidence": 20
+      },
+      "inputHash": "1ed95070a692d3465f5a20525014a68fbbb81a39d7ba4958cd5e21e936207718",
+      "status": "COMPLETE",
+      "updatedAt": "2026-04-19T20:16:26.004Z"
+    },
+    "requirements": {
+      "data": {
+        "evaluationFactors": [
+          "A. Responsiveness to the RFP (20 points maximum) - 1. Requested information included and thoroughness of response. 2. Understanding of the project and ability to deliver as exhibited in the Executive Summary. 3. Technical Aspects. 4. Risk Profile (e.g. exceptions request).",
+          "B. Staffing Plan (20 points maximum) - 1. Qualifications of personnel adequate for requirement. 2. Description of the Contractor's history, mission, location(s), date founded, size, key leadership and relevant certifications. 3. List of names and titles of key managers who will be assigned to this project. 4. Description of the company and/or key managers' experience and knowledge of local and federal regulations related to CDBG, ESG, and HOME. 5. Method of Quality Assurance, Compliance with applicable laws, Internal Control Procedures. 6. Availability/Geographical location of personnel for required tasks. 7. Customer Service/Capacity to provide timely response to City and subrecipients.",
+          "C. Contractor's Capability to provide the services and expertise and Past Performance (35 points maximum) - 1. Relevant experience of the Contractor and subcontractors in working with governmental agencies. 2. Fulfillment of City of San Diego IT requirements. 3. Specific experience with Federal reporting and ability to integrate to Federal reporting systems. 4. Other applicable pertinent experience. 5. Past/Prior Performance including timely execution of go-live. 6. Provide three (3) examples of successfully delivered SaaS/IT projects. 7. List of government contracts performed that are related to SaaS/IT within the past five (5) years. 8. Capacity/Capability to meet The City of San Diego needs in a timely manner. 9. Reference checks.",
+          "D. Price (10 points maximum) - Lowest total estimated contract price receives maximum points; others scored using formula: (1 - (contract price - lowest price) / lowest price) X maximum points.",
+          "E. Interview/Oral Presentation (15 points maximum) - 1. Usability of Software. 2. Support Model. 3. Real Time Operation including demonstration of the software meeting key requirements. 4. Thoroughness and Clarity of Presentation.",
+          "F. Participation by Small Local Business Enterprise (SLBE) or Emerging Local Business Enterprise (ELBE) Firms (up to 12 additional percentage points to final score).",
+          "Total maximum evaluation points: 100 (112 including SLBE/ELBE).",
+          "Mandatory Interview/Oral Presentation required if one or more proposals score within 10 points of the highest scoring proposal."
+        ],
+        "overview": "The City of San Diego Economic Development Department seeks a vendor-hosted, subscription-based SaaS Grants Management System (GMS) to streamline management and tracking of local and federal grants and funding programs including Business Districts, Community Development Programs (CDBG, ESG, HOME), and Capacity Building programs. The solution must support the full grant lifecycle from application intake through closeout, with public-facing portal capabilities for external grant recipients. The contract term is three years with two optional one-year extensions (five years maximum). Desired go-live date is July 1, 2026.",
+        "requirements": [
+          {
+            "category": "TECHNICAL",
+            "mustHave": true,
+            "requirement": "Provide a vendor-hosted, subscription-based SaaS grants management system; no on-premise solutions will be considered"
+          },
+          {
+            "category": "TECHNICAL",
+            "mustHave": true,
+            "requirement": "Application Intake & Management module supporting multi-stage workflows including RFQ and RFP phases with concurrent multi-user access from the same organization"
+          },
+          {
+            "category": "TECHNICAL",
+            "mustHave": true,
+            "requirement": "Support external reviewer participation in established workflows with scoring rubrics, automatic score tallying and averaging across individual reviewers"
+          },
+          {
+            "category": "TECHNICAL",
+            "mustHave": true,
+            "requirement": "Document Management functionality to retain all documents uploaded during the grant lifecycle, support uploads in pdf, jpeg, image, video, .docx, .xlsx, .pptx formats, and allow downloading in public-friendly format"
+          },
+          {
+            "category": "TECHNICAL",
+            "mustHave": true,
+            "requirement": "Financial and Billing Functions including monthly reimbursement request processing, expenditure tracking across budget categories, budget adjustments, and invoice generation with ability to interface with City's SAP/FICA system"
+          },
+          {
+            "category": "TECHNICAL",
+            "mustHave": true,
+            "requirement": "Reporting and Compliance capabilities including real-time budget-to-actual expenditures, visual analytics reports (pie charts, bar graphs, trend lines) exportable to PowerPoint, Word, and Adobe"
+          },
+          {
+            "category": "TECHNICAL",
+            "mustHave": true,
+            "requirement": "Audit log functionality that complies with Federal funding guidelines and regulations (specifically HUD), with ability for City staff and auditors to view log of changes made to a record"
+          },
+          {
+            "category": "TECHNICAL",
+            "mustHave": true,
+            "requirement": "Integration capability with ArcGIS, IDIS, SAP, and OKTA; proposers must indicate which integrations are out-of-the-box and which require customization"
+          },
+          {
+            "category": "TECHNICAL",
+            "mustHave": true,
+            "requirement": "Data migration from existing systems including Microsoft SharePoint, Seamless Docs, and Salesforce-backed programs with indexing and integration of existing content"
+          },
+          {
+            "category": "TECHNICAL",
+            "mustHave": true,
+            "requirement": "Support variety of user roles from view-only to full system access, designable at specific record type level, with in-system communication between internal and external users as part of audit trail"
+          },
+          {
+            "category": "TECHNICAL",
+            "mustHave": true,
+            "requirement": "Email notification capability throughout grant lifecycle (automated and manual) including deadline reminders and document expiration alerts"
+          },
+          {
+            "category": "TECHNICAL",
+            "mustHave": true,
+            "requirement": "Provide three system environments: development/configuration, testing/training, and production"
+          },
+          {
+            "category": "TECHNICAL",
+            "mustHave": true,
+            "requirement": "Public-facing portal where grant recipients external to the City can manage information, submit applications, execute agreements, submit payment requests, and provide outcomes data including grant closeout information"
+          },
+          {
+            "category": "TECHNICAL",
+            "mustHave": true,
+            "requirement": "Support document library where clients can download cover sheets, instructions, reference guides, contract documents, videos and other support materials, and where internal users can update documents"
+          },
+          {
+            "category": "TECHNICAL",
+            "mustHave": true,
+            "requirement": "Grant application module or template that different programs can customize for narrative questions, differing between programs and grant cycles/years"
+          },
+          {
+            "category": "TECHNICAL",
+            "mustHave": true,
+            "requirement": "Intake a variety of data formats (long text, short text, dropdown, numerical, currency, date, etc.) with ability to associate and report on data based on any configured field"
+          },
+          {
+            "category": "TECHNICAL",
+            "mustHave": true,
+            "requirement": "Complete Exhibit E - Grant Management System Requirements Matrix with scoring rubric (0-4 scale) for each requirement"
+          },
+          {
+            "category": "TECHNICAL",
+            "mustHave": true,
+            "requirement": "Complete Exhibit F - IT City Standards and Technical Alignment Questionnaire"
+          },
+          {
+            "category": "COMPLIANCE",
+            "mustHave": true,
+            "requirement": "Web Content Accessibility Guidelines (WCAG) 2.1 Level AA compliance, Voluntary Product Accessibility Template (VPAT), and Section 508 requirements for accessibility"
+          },
+          {
+            "category": "COMPLIANCE",
+            "mustHave": true,
+            "requirement": "Comply with City of San Diego Data Security Standards at all times and immediately notify City's Chief Information Security Officer of any breach"
+          },
+          {
+            "category": "COMPLIANCE",
+            "mustHave": true,
+            "requirement": "Cyber Liability Insurance with limits not less than $1,000,000 per occurrence and $2,000,000 annual aggregate"
+          },
+          {
+            "category": "COMPLIANCE",
+            "mustHave": true,
+            "requirement": "Professional Liability (Errors and Omissions) insurance with limits of at least $1,000,000 per occurrence and $2,000,000 aggregate"
+          },
+          {
+            "category": "COMPLIANCE",
+            "mustHave": true,
+            "requirement": "Understanding of HUD regulations and requirements to ensure Federal requirements are built into the SaaS solution and not customized"
+          },
+          {
+            "category": "TECHNICAL",
+            "mustHave": true,
+            "requirement": "99.9% Uptime Availability per calendar month with service credit remuneration structure for failures"
+          },
+          {
+            "category": "TECHNICAL",
+            "mustHave": true,
+            "requirement": "Remote Helpdesk Tier One and Tier Two support Monday through Friday, 8:00 a.m. to 6:00 p.m. PT, excluding federal holidays, available to both internal and external users"
+          },
+          {
+            "category": "STAFFING",
+            "mustHave": true,
+            "requirement": "Identify a single point of contact Project Manager for all contract management activities; PM name and resume must be submitted with proposal and cannot be changed without written City approval"
+          },
+          {
+            "category": "STAFFING",
+            "mustHave": true,
+            "requirement": "Provide organizational chart with all proposed personnel including supervisor level, functional responsibilities, key personnel, percentage of time dedicated to project"
+          },
+          {
+            "category": "STAFFING",
+            "mustHave": true,
+            "requirement": "Identify at minimum the Project Manager, Lead Business Analyst(s), Training Manager, and System Lead as key personnel with title, role, expertise, and location"
+          },
+          {
+            "category": "STAFFING",
+            "mustHave": true,
+            "requirement": "Provide brief resumes for key personnel assigned to the project including professional career overview, relevant project experience, educational background, and certifications"
+          },
+          {
+            "category": "STAFFING",
+            "mustHave": true,
+            "requirement": "Provide three (3) references from clients with similar scopes of work within the last five (5) years with specified contact information"
+          },
+          {
+            "category": "TECHNICAL",
+            "mustHave": true,
+            "requirement": "Demonstrate capability by providing proof of prior similar work with at least 10 cities, states, or other public agencies, with at least 2 examples from a municipality of similar size and complexity; implementations within last 5 years strongly preferred"
+          },
+          {
+            "category": "TECHNICAL",
+            "mustHave": true,
+            "requirement": "Provide three (3) examples of successfully delivered SaaS/IT projects including project name and description, scope of work and deliverables, and key technical outcomes and successes"
+          },
+          {
+            "category": "DELIVERABLES",
+            "mustHave": true,
+            "requirement": "Provide End-User Training for up to 75 staff, Functional System Administrator Training for up to 10 staff, and External-User Training for up to 200 non-profit professionals with combination of virtual and on-site training"
+          },
+          {
+            "category": "DELIVERABLES",
+            "mustHave": true,
+            "requirement": "Provide training documentation including comprehensive user guides, quick reference guides, and FAQs; include training programs, curriculum and examples of training materials in proposal"
+          },
+          {
+            "category": "DELIVERABLES",
+            "mustHave": true,
+            "requirement": "Provide detailed system and user documentation including digital, searchable technical and user manuals, and complete system implementation documentation for installation, configuration, testing, interfaces, and data conversion"
+          },
+          {
+            "category": "DELIVERABLES",
+            "mustHave": true,
+            "requirement": "Produce a configuration document as a project deliverable before the system's final configuration"
+          },
+          {
+            "category": "DELIVERABLES",
+            "mustHave": true,
+            "requirement": "Provide a testing strategy and plan including scripts as a project deliverable; City will sign off on final testing plan before executing tests"
+          },
+          {
+            "category": "DELIVERABLES",
+            "mustHave": true,
+            "requirement": "Provide project management plan and master project schedule with identified milestones and work breakdown structure using Microsoft Project or equivalent software"
+          },
+          {
+            "category": "TECHNICAL",
+            "mustHave": true,
+            "requirement": "Desired go-live date of July 1, 2026; provide project schedule with key milestones and proposed dates to meet this target"
+          },
+          {
+            "category": "TECHNICAL",
+            "mustHave": true,
+            "requirement": "Warranty the entire solution/system for the duration of the contract terms from the date the City fully accepts it"
+          },
+          {
+            "category": "TECHNICAL",
+            "mustHave": true,
+            "requirement": "Ongoing maintenance and support included in contract including upgrades, bug fixes, patches, and help desk support on general system use, configuration settings, and reporting"
+          },
+          {
+            "category": "TECHNICAL",
+            "mustHave": true,
+            "requirement": "Provide application recovery services including hosting infrastructure recovery, application recovery, and offsite data backup storage with periodic testing"
+          },
+          {
+            "category": "TECHNICAL",
+            "mustHave": true,
+            "requirement": "Licensing model must allow license transfer by City administrator, allow City to increase or decrease licensing volume, allow rollover of unused licensing, and clearly describe overage cost thresholds"
+          },
+          {
+            "category": "COMPLIANCE",
+            "mustHave": true,
+            "requirement": "Submit Contractor Standards Pledge of Compliance Form"
+          },
+          {
+            "category": "COMPLIANCE",
+            "mustHave": true,
+            "requirement": "Submit Equal Opportunity Contracting forms including Work Force Report and Contractors Certification of Pending Actions"
+          },
+          {
+            "category": "COMPLIANCE",
+            "mustHave": true,
+            "requirement": "Provide copy of all System User software license agreements to be executed by the City"
+          },
+          {
+            "category": "OTHER",
+            "mustHave": true,
+            "requirement": "Provide company overview including history, office locations, company size (software development team, implementation team, support team), financial statements, and statement of technical areas of expertise"
+          },
+          {
+            "category": "OTHER",
+            "mustHave": true,
+            "requirement": "Collaborate with Department of IT's Governance team and bring project into planning, design and change management gates"
+          },
+          {
+            "category": "OTHER",
+            "mustHave": true,
+            "requirement": "Scheduled maintenance downtime must be coordinated with and agreed upon by the City before scheduling"
+          }
+        ],
+        "submissionCompliance": {
+          "format": [
+            "One (1) original hard copy and one (1) electronic copy (e.g., thumb drive or CD), or an electronic bid via PlanetBids",
+            "Paper proposals must be in a sealed envelope with Solicitation Number and Closing Date on lower left-hand corner",
+            "Proposals should be securely bound",
+            "E-mailed and faxed proposals will not be accepted",
+            "Exhibits D, E, and F are Excel files posted in PlanetBids and must be completed in their entirety",
+            "Executive summary limited to one typewritten page",
+            "City may require original hard copies prior to contract execution if PlanetBids submission does not include authorized electronic signature page"
+          ],
+          "attachmentsAndForms": [
+            "Completed and signed Contract Signature Page (latest Addendum Contract Signature Page if addenda issued)",
+            "Contractor Standards Pledge of Compliance Form",
+            "Equal Opportunity Contracting forms including Work Force Report and Contractors Certification of Pending Actions",
+            "Exhibit D - Price Proposal (Excel format)",
+            "Exhibit E - Grant Management System Requirements Matrix (Excel format)",
+            "Exhibit F - IT City Standards & Technical Alignment Questionnaire (Excel format)",
+            "Exceptions requested by proposer with written factual or legal justification and specific proposed alternative language (if any)",
+            "Redacted version of proposal for California Public Records Act with legal basis for exemptions",
+            "System User software license agreements",
+            "Staffing plan",
+            "Qualifications submittal",
+            "Draft implementation plan",
+            "Draft implementation schedule",
+            "Draft outline documents",
+            "Project plan using Microsoft Project or equivalent",
+            "Training programs, curriculum and examples of training materials"
+          ],
+          "requiredDocuments": [
+            {
+              "name": "Executive Summary",
+              "description": "Limited to one typewritten page providing high-level description of proposer's ability to meet RFP requirements and reasons proposer believes itself best qualified",
+              "pageLimit": "1 page",
+              "documentType": "EXECUTIVE_SUMMARY",
+              "required": true
+            },
+            {
+              "name": "Tab B - Responses to Specifications",
+              "description": "Proposer's response to the RFP including technical approach, understanding of project, software performance history, and response to all Exhibit B Scope of Work requirements",
+              "documentType": "TECHNICAL_PROPOSAL",
+              "required": true
+            },
+            {
+              "name": "Tab C - Cost/Price Proposal (Exhibit D)",
+              "description": "Cost proposal in the form and format described in Exhibit D - Price Proposal; failure to provide costs in required format may result in non-responsive determination",
+              "documentType": "COST_PROPOSAL",
+              "required": true
+            },
+            {
+              "name": "Exhibit E - Grant Management System Requirements Matrix",
+              "description": "Excel file with scoring rubric (0-4 scale) for each functional requirement indicating level of support (cannot provide, third-party, customization, vendor configuration, or out-of-the-box)",
+              "documentType": "COMPLIANCE_MATRIX",
+              "required": true
+            },
+            {
+              "name": "Exhibit F - IT City Standards & Technical Alignment Questionnaire",
+              "description": "Excel file addressing City IT standards and technical alignment requirements",
+              "documentType": "OTHER",
+              "required": true
+            },
+            {
+              "name": "Staffing Plan and Qualifications Submittal",
+              "description": "Company overview, organizational chart, key personnel summary (PM, Lead Business Analyst, Training Manager, System Lead), resumes, references, and availability/geographical location of personnel",
+              "documentType": "TEAM_QUALIFICATIONS",
+              "required": true
+            },
+            {
+              "name": "Draft Implementation Plan and Schedule",
+              "description": "Project plan with milestones, work breakdown structure, deployment schedule targeting July 1, 2026 go-live, using Microsoft Project or equivalent software",
+              "documentType": "PROJECT_PLAN",
+              "required": true
+            },
+            {
+              "name": "Past Performance and References",
+              "description": "Three references from clients with similar scopes within last 5 years, proof of prior work with at least 10 public agencies, three examples of successfully delivered SaaS/IT projects, and list of government SaaS/IT contracts in past 5 years",
+              "documentType": "PAST_PERFORMANCE",
+              "required": true
+            },
+            {
+              "name": "Contractor Standards Pledge of Compliance Form",
+              "description": "Completed Contractor Standards Pledge of Compliance Form as required by City",
+              "documentType": "CERTIFICATIONS",
+              "required": true
+            },
+            {
+              "name": "Equal Opportunity Contracting Forms",
+              "description": "Work Force Report and Contractors Certification of Pending Actions",
+              "documentType": "OTHER",
+              "required": true
+            },
+            {
+              "name": "Signed Contract Signature Page",
+              "description": "Completed and signed RFP signature page with most recent addendum listed as acknowledgement of all addenda issued",
+              "documentType": "OTHER",
+              "required": true
+            },
+            {
+              "name": "Exceptions Documentation",
+              "description": "Written factual or legal justification for any exceptions to Scope of Work, Contract, or Exhibits with specific proposed alternative or amended language (if applicable)",
+              "documentType": "OTHER",
+              "required": false
+            },
+            {
+              "name": "Redacted Version of Proposal",
+              "description": "Additional redacted version containing all requested redactions of confidential/proprietary information with legal basis for CPRA exemption (if applicable)",
+              "documentType": "OTHER",
+              "required": false
+            },
+            {
+              "name": "Software License Agreements",
+              "description": "Copy of all System User software license agreements including third-party software, base system software, and custom software; must be actual documents not sample documents",
+              "documentType": "OTHER",
+              "required": true
+            },
+            {
+              "name": "Training Programs and Materials",
+              "description": "Training programs, curriculum, and examples of training materials for end-users, system administrators, and external users",
+              "documentType": "OTHER",
+              "required": true
+            }
+          ],
+          "requiredVolumes": [
+            "Tab A - Submission of Information and Forms",
+            "Tab B - Executive Summary and Responses to Specifications",
+            "Tab C - Cost/Price Proposal"
+          ]
+        },
+        "deliverables": [
+          "Fully configured and operational SaaS Grants Management System",
+          "Project management plan and master project schedule with milestones and work breakdown structure (Microsoft Project or equivalent)",
+          "Configuration document before system's final configuration",
+          "Testing strategy and plan including test scripts",
+          "Three system environments: development/configuration, testing/training, and production",
+          "End-User Training for up to 75 staff",
+          "Functional System Administrator Training for up to 10 staff",
+          "External-User Training for up to 200 non-profit professionals",
+          "Training documentation including comprehensive user guides, quick reference guides, and FAQs",
+          "Digital, searchable technical and user manuals",
+          "Complete system implementation documentation (installation, configuration, testing, interfaces, data conversion)",
+          "PDF copies of all relevant documentation with unlimited downloads of updated copies",
+          "Data migration from existing systems (SharePoint, Seamless Docs, Salesforce)",
+          "Ongoing maintenance and support including upgrades, bug fixes, and patches",
+          "Remote Helpdesk Tier One and Tier Two support services",
+          "Training survey/evaluation from instructors to trainees"
+        ]
+      },
+      "inputHash": "84e4a3c9c7e3b4e68ab3e0015a2a68aaa3477f26353ab2503d448a3fc1891d5e",
+      "status": "COMPLETE",
+      "updatedAt": "2026-04-19T20:18:36.074Z"
+    },
+    "risks": {
+      "data": {
+        "redFlags": [
+          {
+            "severity": "HIGH",
+            "whyItMatters": "The solicitation requires proof of 10+ government agency implementations and 3 references with similar scope within the last 5 years. Capability and Past Performance is the highest-weighted category at 35 points. Without relevant past performance, HORUSTECH faces a significant scoring disadvantage.",
+            "mitigation": "Evaluate whether to partner with or resell an established grants management SaaS platform (e.g., one with existing HUD/CDBG deployments). A teaming arrangement could provide the required references and implementation track record. This is a potential bid/no-bid decision factor.",
+            "flag": "No relevant past performance found for grants management systems",
+            "impactsScore": true
+          },
+          {
+            "severity": "MEDIUM",
+            "whyItMatters": "The solicitation states 'Due to sunsetting of the existing system, the desired go-live date for a new solution is July 1, 2026.' The current system is Salesforce-backed for Community Development programs. Vendors with existing Salesforce-based GMS products or established GMS platforms may have a significant advantage in meeting the aggressive timeline.",
+            "mitigation": "Assess whether HORUSTECH's proposed solution can realistically meet the July 1 go-live date. If proposing a custom-built solution, the timeline risk is substantially higher than for an established COTS/SaaS product.",
+            "flag": "Existing system sunsetting creates urgency and potential incumbent product advantage",
+            "impactsScore": true
+          }
+        ],
+        "risks": [
+          {
+            "severity": "HIGH",
+            "whyItMatters": "The solicitation states 'the desired go-live date for a new solution is July 1, 2026' (Exhibit B, Section 3.d). With proposals due March 16, 2026, and time needed for evaluation, award, and contract execution, this leaves an extremely compressed implementation window of potentially 2-3 months for a complex SaaS grants management system requiring configuration, data migration from SharePoint/Salesforce/SeamlessDocs, training for up to 285 users, and integration with SAP, OKTA, ArcGIS, and IDIS.",
+            "mitigation": "Prepare a detailed, aggressive but realistic implementation plan with phased go-live approach. Propose a minimum viable product (MVP) for July 1 with full functionality delivered in subsequent phases. Highlight any prior rapid deployment experience.",
+            "flag": "Aggressive go-live timeline of July 1, 2026",
+            "impactsScore": true
+          },
+          {
+            "severity": "HIGH",
+            "whyItMatters": "Section D.1.d.1 requires 'proof of prior similar work with at least 10 cities, states, or other public agencies' with 'at least 2 examples used by a municipality of similar size and complexity.' No past performance projects were found in HORUSTECH's records for grants management systems or similar SaaS implementations for government agencies.",
+            "mitigation": "If HORUSTECH is proposing as a reseller or implementation partner for an established GMS product, leverage the software vendor's reference base. If proposing a custom solution, this requirement may be a significant barrier to entry. Consider teaming with an established GMS provider.",
+            "flag": "Extensive past performance requirements \u2014 10+ government agency implementations required",
+            "impactsScore": true
+          },
+          {
+            "severity": "HIGH",
+            "whyItMatters": "Section C.3.3 states proposers scoring within 10 points of the highest score must 'complete their oral presentation and/or interviews within seven (7) workdays after the City's request.' The presentation includes a live software demonstration ('Real Time Operation including demonstration of the software meeting key requirements') worth 15 points. This requires having a working demo environment ready on short notice.",
+            "mitigation": "Begin preparing a demo environment and presentation materials immediately. Identify key personnel who must be available for the oral presentation window. Pre-stage the demonstration to showcase grant lifecycle workflows, reporting, and compliance features.",
+            "flag": "Mandatory oral presentation/interview within 7 workdays of City request",
+            "impactsScore": true
+          },
+          {
+            "severity": "MEDIUM",
+            "whyItMatters": "The evaluation awards up to 12 additional percentage points for Small Local Business Enterprise (SLBE) or Emerging Local Business Enterprise (ELBE) participation, bringing the maximum score from 100 to 112. HORUSTECH is headquartered in San Diego (4720 Moccasin Place, San Diego, CA 92117), which is favorable, but SLBE/ELBE certification through the City of San Diego's program is required to earn these points.",
+            "mitigation": "Verify whether HORUSTECH holds or can obtain SLBE or ELBE certification from the City of San Diego. HORUSTECH already holds CA DGS Small Business (Micro) certification, which may support the SLBE application. If not certified, identify SLBE/ELBE subcontractors to maximize bonus points.",
+            "flag": "SLBE/ELBE participation provides up to 12 bonus points (10.7% of total score)",
+            "impactsScore": true
+          },
+          {
+            "severity": "MEDIUM",
+            "whyItMatters": "Section 5.e requires migration from Microsoft SharePoint, SeamlessDocs, and Salesforce-backed programs. The solicitation states 'This includes indexing and integrating existing content into the new system and the process any requirements to customize or design the navigation structure.' Combined with the July 1 go-live target, data migration adds significant project risk.",
+            "mitigation": "Propose a structured data migration plan with clear phases, validation checkpoints, and rollback procedures. Request early access to source systems during contract negotiation. Include data migration specialists on the project team.",
+            "flag": "Complex data migration from multiple existing systems",
+            "impactsScore": true
+          },
+          {
+            "severity": "MEDIUM",
+            "whyItMatters": "Evaluation criteria B.4 requires 'experience and knowledge of local and federal regulations related to CDBG, ESG, and HOME.' Section D.1.c requires 'Understanding of HUD regulations and requirements to ensure that Federal requirements are built into the SaaS solution and not customized.' This is specialized domain expertise that will be evaluated under both Staffing (20 pts) and Capability (35 pts).",
+            "mitigation": "Identify and recruit or subcontract subject matter experts with demonstrated HUD/CDBG/ESG/HOME experience. Highlight any team members with federal grants management backgrounds in the proposal.",
+            "flag": "Specific HUD/CDBG/ESG/HOME regulatory knowledge required",
+            "impactsScore": true
+          },
+          {
+            "severity": "MEDIUM",
+            "whyItMatters": "Section 5.e.1 states the SaaS solution 'shall have the capacity to integrate with relevant City/HUD supported systems. Ideally the SaaS solution will integrate with ArcGIS, IDIS, SAP, and OKTA.' Section 5.c.5 also requires the system to 'interface with the City's SAP/FICA system.' These integrations add technical complexity and risk to the implementation timeline.",
+            "mitigation": "Clearly identify which integrations are available out-of-the-box vs. requiring customization. Propose a phased integration approach if needed. Demonstrate prior experience with SAP and OKTA integrations.",
+            "flag": "Multiple system integrations required (SAP, OKTA, ArcGIS, IDIS)",
+            "impactsScore": true
+          },
+          {
+            "severity": "MEDIUM",
+            "whyItMatters": "Exhibit B, Section G requires Cyber Liability insurance ($1M per occurrence, $2M aggregate) and Professional Liability insurance ($1M per occurrence, $2M aggregate) in addition to standard CGL, auto, and workers' comp. These are required upon Notice of Intent to Award within 10 business days.",
+            "mitigation": "Confirm current insurance coverage levels and obtain quotes for Cyber Liability and Professional Liability policies if not already in place. Factor insurance costs into the price proposal.",
+            "flag": "Additional insurance requirements \u2014 Cyber Liability and Professional Liability",
+            "impactsScore": false
+          },
+          {
+            "severity": "LOW",
+            "whyItMatters": "Price is weighted at only 10 out of 100 base points (Section C.3.6.D), meaning technical capability, staffing, and past performance dominate the evaluation. This is favorable for higher-quality solutions but means a low-cost strategy alone will not win.",
+            "mitigation": "Focus proposal effort on technical response quality, staffing plan, and past performance (75 points combined). Ensure pricing is competitive but prioritize demonstrating value and capability.",
+            "flag": "Price is only 10% of evaluation score",
+            "impactsScore": false
+          }
+        ],
+        "incumbentInfo": {
+          "knownIncumbent": false,
+          "recompete": false,
+          "notes": "The solicitation mentions current systems include Salesforce-backed programs, Microsoft SharePoint, and SeamlessDocs, but does not name a current contract holder or incumbent vendor. The solicitation does not use terms like 'recompete', 'follow-on', or 'predecessor contract.' This appears to be a new procurement for a SaaS grants management system to replace internally managed tools."
+        }
+      },
+      "inputHash": "3065dd0628665cc22b43a2d7710763fcf6229dc84fa401fbe617f1d205ae0da6",
+      "status": "COMPLETE",
+      "updatedAt": "2026-04-19T20:16:33.374Z"
+    },
+    "scoring": {
+      "data": {
+        "confidenceExplanation": "Confidence is 50 due to: no past performance data available (-20), expired deadline creating certainty of NO_GO (-10), no existing product in the required domain (-10), and pricing analysis confirming inability to formulate competitive pricing (-10). The data available is sufficient to make a definitive NO_GO recommendation with high certainty.",
+        "requiredActions": [
+          "Do not pursue this opportunity \u2014 deadline has passed",
+          "For future similar opportunities: evaluate teaming with established GMS vendors (Submittable, Fluxx, Neighborly Software) to serve as implementation/integration partner",
+          "For future similar opportunities: recruit or subcontract HUD/CDBG/ESG/HOME subject matter experts",
+          "Verify and obtain City of San Diego SLBE/ELBE certification for future local opportunities",
+          "Monitor City of San Diego PlanetBids for future IT/SaaS opportunities that align with core capabilities"
+        ],
+        "decision": "NO_GO",
+        "criteria": [
+          {
+            "name": "TECHNICAL_FIT",
+            "score": 2,
+            "rationale": "HORUSTECH has general SaaS development capabilities (AWS serverless, Node.js, TypeScript, document processing, portal development) but does not have a production-ready grants management system product. The solicitation requires a vendor-hosted SaaS GMS with highly specialized functionality: HUD/CDBG/ESG/HOME compliance, grant lifecycle management, multi-stage application workflows, financial reimbursement processing, SAP/IDIS/ArcGIS/OKTA integrations, and audit log compliance with federal regulations. KB shows experience with caregiver portals, document processing, and real estate platforms \u2014 none of which are grants management systems. The RFP mandates proof of 10+ government agency implementations, which HORUSTECH cannot demonstrate. Building a custom GMS from scratch is not viable given the July 1, 2026 go-live. Without an existing COTS GMS product or a teaming partner, technical fit is fundamentally misaligned with the domain-specific requirements.",
+            "gaps": [
+              "No existing grants management SaaS product or COTS solution to offer",
+              "No demonstrated HUD/CDBG/ESG/HOME regulatory compliance capability",
+              "No experience with IDIS federal reporting system integration",
+              "No SAP/FICA financial system integration experience documented",
+              "No ArcGIS or OKTA integration experience documented",
+              "Cannot meet mandatory requirement of 10+ government agency implementations",
+              "No grant lifecycle workflow management capability (RFQ/RFP/scoring/closeout)",
+              "No financial reimbursement processing or expenditure tracking module",
+              "No working demo environment available for mandatory oral presentation within 7 workdays",
+              "Custom build approach incompatible with aggressive July 1, 2026 go-live timeline"
+            ]
+          },
+          {
+            "name": "PAST_PERFORMANCE_RELEVANCE",
+            "score": 1,
+            "rationale": "No past performance data available. Zero matched projects found in the company database for grants management systems, municipal government SaaS implementations, HUD-funded program management, or any related government grants work. The solicitation's highest-weighted evaluation criterion (35 points) requires proof of prior similar work with at least 10 public agencies, 3 references with similar scope within 5 years, and 3 examples of successfully delivered SaaS/IT projects for government. HORUSTECH has one documented federal-adjacent project (Avue Technologies resume classification, $3.6M) which is not grants management related. This represents a critical and likely disqualifying gap.",
+            "gaps": [
+              "No grants management system implementations for any government agency",
+              "Cannot provide proof of 10+ public agency implementations as required",
+              "Cannot provide 3 references with similar scope within last 5 years",
+              "Cannot provide 3 examples of successfully delivered government SaaS/IT projects",
+              "No government contracts related to SaaS/IT within past 5 years for grants management",
+              "No HUD/CDBG/ESG/HOME program management experience"
+            ]
+          },
+          {
+            "name": "PRICING_POSITION",
+            "score": 1,
+            "rationale": "Pricing analysis confirms HORUSTECH has no existing GMS product to price, resulting in a price confidence of only 20%. Total price is $0 because the company has not determined its go-to-market approach (build vs. partner vs. resell). The pricing module explicitly states 'providing a meaningful price estimate is not feasible.' Without a COTS product, any custom-build approach would be significantly more expensive than established GMS vendors (market range $150K-$500K annually for subscription plus $200K-$600K implementation). Fixed-price contract places all cost risk on the contractor. Multiple pricing risks identified including no government estimate, 5-year term inflation risk, 99.9% uptime SLA with financial penalties, and substantial training requirements for 285 users. Price is only 10% of evaluation but HORUSTECH cannot even formulate a competitive price without a product or partner.",
+            "gaps": [
+              "No existing GMS product to base pricing on",
+              "No go-to-market approach determined (build vs. partner vs. resell)",
+              "Cannot develop competitive fixed-price proposal without established product",
+              "Fixed-price contract creates extreme cost risk for custom development",
+              "No basis for estimating implementation, data migration, or integration costs"
+            ]
+          },
+          {
+            "name": "STRATEGIC_ALIGNMENT",
+            "score": 2,
+            "rationale": "HORUSTECH is headquartered in San Diego (favorable for local preference and SLBE/ELBE bonus points up to 12%) and holds CA DGS Small Business certification. The company targets public sector contracts per KB data. However, no documented strategic plan, growth targets, or market expansion goals into grants management or municipal government SaaS were found in the KB. The opportunity is in a highly specialized domain (HUD grants management) that is far removed from HORUSTECH's documented capabilities (document processing, caregiver portals, real estate platforms). Pursuing this without a teaming partner would be a distraction from core competencies. The local presence advantage alone does not justify the significant investment required to compete.",
+            "gaps": [
+              "No documented strategic plan to enter grants management market",
+              "Domain expertise gap in HUD/federal grants management is substantial",
+              "No established GMS partner or teaming arrangement documented",
+              "Significant investment required to become competitive in this niche with uncertain ROI"
+            ]
+          },
+          {
+            "name": "INCUMBENT_RISK",
+            "score": 4,
+            "rationale": "This appears to be a new procurement, not a recompete. No incumbent vendor is named. The City currently uses internally managed tools (Salesforce-backed system, SharePoint, SeamlessDocs) rather than a dedicated GMS from an external vendor. This means there is no incumbent contractor with an established relationship advantage. However, established GMS vendors (e.g., Submittable, Fluxx, Neighborly Software, CityGrows) with existing municipal deployments will have a significant product advantage even without incumbent status. The level playing field on incumbent risk does not offset the product and past performance gaps.",
+            "gaps": [
+              "Established GMS vendors with 10+ municipal deployments will have strong product advantage despite no formal incumbent"
+            ]
+          }
+        ],
+        "summaryJustification": "CRITICAL: The proposal submission deadline of March 16, 2026 has already passed (today is April 19, 2026), making this opportunity expired. Even setting aside the expired deadline, HORUSTECH faces fundamental disqualifying barriers: (1) no existing grants management SaaS product, (2) no past performance with government GMS implementations (0 of required 10+ public agency deployments), (3) no HUD/CDBG/ESG/HOME domain expertise, (4) inability to formulate a price proposal without a product, and (5) the highest-weighted evaluation criterion (Past Performance/Capability at 35 points) cannot be addressed. The company's general SaaS development skills in AWS serverless architecture are insufficient for this domain-specific procurement requiring a production-ready, proven GMS platform.",
+        "confidence": 50,
+        "blockers": [
+          "Submission deadline has passed (March 16, 2026) \u2014 opportunity is expired and cannot be pursued",
+          "No existing grants management SaaS product to offer \u2014 cannot meet core solicitation requirement",
+          "Cannot meet mandatory requirement of 10+ public agency GMS implementations",
+          "Cannot provide 3 references with similar scope within last 5 years",
+          "No HUD/CDBG/ESG/HOME regulatory expertise on staff or documented in KB",
+          "Cannot formulate a price proposal without a product or established teaming partner",
+          "Cannot provide live software demonstration required for mandatory oral presentation (15 points)"
+        ],
+        "decisionRationale": "NO_GO decision driven by multiple critical and disqualifying factors. First, the submission deadline of March 16, 2026 has already passed \u2014 the opportunity is expired as of today (April 19, 2026). Second, HORUSTECH has no past performance in grants management systems and cannot meet the mandatory requirement of demonstrating 10+ public agency implementations. Third, the company has no existing GMS product, making it impossible to compete against established vendors with proven platforms. Fourth, no pricing can be developed without a product or partner. Fifth, the domain expertise gap in HUD/CDBG/ESG/HOME federal grants compliance is fundamental. The composite score of 1.75 reflects critical gaps across all dimensions except incumbent risk. Even with a teaming partner, the expired deadline makes this opportunity unrecoverable.",
+        "compositeScore": 1.8,
+        "confidenceDrivers": [
+          {
+            "factor": "Submission deadline expired (March 16, 2026 vs today April 19, 2026)",
+            "direction": "DOWN"
+          },
+          {
+            "factor": "Zero past performance projects matched for grants management",
+            "direction": "DOWN"
+          },
+          {
+            "factor": "No existing GMS product \u2014 fundamental product gap",
+            "direction": "DOWN"
+          },
+          {
+            "factor": "Pricing confidence rated at 20% by pricing module",
+            "direction": "DOWN"
+          },
+          {
+            "factor": "No HUD/CDBG/ESG/HOME domain expertise documented",
+            "direction": "DOWN"
+          },
+          {
+            "factor": "San Diego local presence and DGS Small Business certification",
+            "direction": "UP"
+          },
+          {
+            "factor": "No incumbent vendor \u2014 new procurement with level playing field",
+            "direction": "UP"
+          }
+        ]
+      },
+      "inputHash": "2a78e49b89fdae1ce04aa9fd57c09b9cc234fd7c74563103f0a0ee3d24abfa2f",
+      "status": "COMPLETE",
+      "updatedAt": "2026-04-19T20:21:43.836Z"
+    },
+    "summary": {
+      "data": {
+        "summary": "The City of San Diego's Economic Development Department is seeking proposals for a Software as a Service (SaaS) Grants Management System to streamline management and tracking of local and federal grants, including HUD-funded programs (CDBG, ESG, HOME) and Business Improvement Districts. The solution must support the full grant lifecycle from application intake through closeout, including a public-facing portal for external grant recipients, financial reporting, compliance with federal regulations, and integration with systems such as SAP, ArcGIS, and IDIS. The desired go-live date is July 1, 2026.",
+        "periodOfPerformance": "3-year base period with two 1-year option periods (up to 5 years total)",
+        "agency": "City of San Diego",
+        "contractType": "FIXED_PRICE",
+        "office": "Economic Development Department",
+        "title": "Request for Proposal (RFP) for Grants Management System",
+        "placeOfPerformance": "San Diego, CA",
+        "solicitationNumber": "10090460-26-S",
+        "setAside": "UNKNOWN"
+      },
+      "inputHash": "832630ea5640244b4c9ac6d04a75be4baac138a2a0b5dc0284492f310d95f744",
+      "status": "COMPLETE",
+      "updatedAt": "2026-04-19T20:15:34.190Z"
+    }
+  },
+  "status": "IDLE",
+  "textKey": "fa7ad369515e2a01a0d0d13c5f6756ed01709ee68408330a7d4bcd99c45882b7/959bd413-9679-46c1-80a8-78466a0b52ab/a3eb326f-c208-4f1b-ae70-f68e9f84cf0f.txt",
+  "updatedAt": "2026-04-19T20:21:43.836Z",
+  "sort_key": "959bd413-9679-46c1-80a8-78466a0b52ab#6c992081-756b-421a-8fb2-686ea6c0cc3d"
+}

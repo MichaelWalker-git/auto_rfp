@@ -1,0 +1,68 @@
+REQUEST FOR PROPOSALS
+Solicitation Number: VA-VISN21-2026-RFP-0234
+
+Title: Preventive Maintenance and Repair Services for HVAC Systems
+Agency: Department of Veterans Affairs
+Facility: VA Palo Alto Health Care System (VAPAHCS)
+NAICS: 238220 — Plumbing, Heating, and Air-Conditioning Contractors
+PSC: J041 — Maintenance/Repair of Refrigeration, Air Conditioning Equipment
+
+Posted: March 1, 2026
+Response Due: April 15, 2026 at 2:00 PM Pacific Time
+
+SET-ASIDE: Total Service-Disabled Veteran-Owned Small Business (SDVOSB) Set-Aside
+
+1. SCOPE OF WORK
+
+The VA Palo Alto Health Care System requires a qualified contractor to provide comprehensive preventive maintenance (PM) and repair services for approximately 450 HVAC units across three campus locations:
+
+- Main Campus: 3801 Miranda Avenue, Palo Alto, CA 94304 (287 units)
+- Menlo Park Division: 795 Willow Road, Menlo Park, CA 94025 (98 units)
+- Livermore Division: 4951 Arroyo Road, Livermore, CA 94550 (65 units)
+
+Equipment includes:
+- Chiller systems (York, Trane, Carrier — 200-500 ton capacity)
+- Air Handling Units (AHUs) including HEPA-filtered units for surgical suites
+- Variable Air Volume (VAV) boxes
+- Package units and split systems
+- Cooling towers
+- Building Automation System (BAS) interfaces — Johnson Controls Metasys
+
+2. PERIOD OF PERFORMANCE
+Base Year: October 1, 2026 — September 30, 2027
+Option Year 1: October 1, 2027 — September 30, 2028
+Option Year 2: October 1, 2028 — September 30, 2029
+Option Year 3: October 1, 2029 — September 30, 2030
+Option Year 4: October 1, 2030 — September 30, 2031
+
+3. KEY REQUIREMENTS
+- Monthly PM inspections per manufacturer specifications
+- Emergency repair response: 2-hour on-site within Palo Alto campus, 4-hour for satellite locations
+- All technicians must hold EPA Section 608 Universal Certification
+- Compliance with VA Directive 7078 (HVAC Maintenance Standards for Healthcare Facilities)
+- Background checks required for all on-site personnel (VA PIV card required)
+
+4. EVALUATION CRITERIA
+Factor 1: Technical Approach (40%)
+Factor 2: Past Performance (30%)
+Factor 3: Price (30%)
+
+Best Value Trade-Off methodology
+
+5. ESTIMATED VALUE
+Between $1.5 million and $2.5 million annually (full 5-year value: $7.5M-$12.5M)
+
+6. SUBMISSION INSTRUCTIONS
+Proposals must be submitted electronically to:
+VA eCMS Portal: https://ecms.va.gov
+Reference Solicitation VA-VISN21-2026-RFP-0234
+
+Questions Deadline: March 22, 2026
+Proposal Deadline: April 15, 2026, 2:00 PM PT
+
+CONTRACTING OFFICER:
+David Reyes
+VA Palo Alto Health Care System
+Contracting & Logistics Service (90C)
+Email: david.reyes2@va.gov
+Phone: (650) 493-5000 x65234

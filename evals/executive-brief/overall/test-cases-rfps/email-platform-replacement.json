@@ -1,0 +1,718 @@
+{
+  "allTextKeys": [
+    "7e874173e675de122005474418295fa2bfcc7c709836492bce4064f7e460a8ec/5282701b-2dcf-485e-84d3-c90ce80c469b/27f91409-938f-40c0-8942-9fe75c73fb7e.txt",
+    "36deb5aec94a44999b48decdeac1233246ac60556d8a5fe514fa0c1c43143752/5282701b-2dcf-485e-84d3-c90ce80c469b/abd2680d-a11b-4f09-a9e3-24930323dddb.txt",
+    "pr/5282701b-2dcf-485e-84d3-c90ce80c469b/opp/f87974b0-82eb-419d-bc5f-f38471eeb8e5/qf/bec3d795-9a4a-469f-b684-39af098abd46.txt",
+    "255efd5827287e5111952b70e7b19d4ad001ebd6b91039aaba53a24e82be42d9/5282701b-2dcf-485e-84d3-c90ce80c469b/e83cfbb2-b561-484f-a2c4-39b2e23fc28d.txt",
+    "193382701f125a8fcc2ef96028b0ddadcfb96ebc34e259686b285b89e050de49/5282701b-2dcf-485e-84d3-c90ce80c469b/3be69d9d-cb25-4d4f-9088-eb852ec8b3e7.txt",
+    "971f8065fe8e57737309cd670819fece7f000e489a1d8f28b8e2c69710ec92ca/5282701b-2dcf-485e-84d3-c90ce80c469b/c91260dd-faa7-4f08-9a1a-55a66300e3b8.txt"
+  ],
+  "compositeScore": 1.1,
+  "confidence": 55,
+  "createdAt": "2026-02-17T18:35:25.119Z",
+  "decision": "NO_GO",
+  "documentsBucket": "auto-rfp-documents-dev-039885961427",
+  "opportunityId": "f87974b0-82eb-419d-bc5f-f38471eeb8e5",
+  "orgId": "9c0a5757-e2da-4e71-9490-01c558f7ffc3",
+  "partition_key": "EXEC_BRIEF_PK",
+  "projectId": "5282701b-2dcf-485e-84d3-c90ce80c469b",
+  "sections": {
+    "contacts": {
+      "data": {
+        "missingRecommendedRoles": [
+          "CONTRACTING_OFFICER",
+          "CONTRACTING_OFFICER_REPRESENTATIVE",
+          "CONTRACT_SPECIALIST",
+          "TECHNICAL_POC",
+          "PROGRAM_MANAGER",
+          "SMALL_BUSINESS_SPECIALIST",
+          "SUBCONTRACTING_POC",
+          "GENERAL_INQUIRY"
+        ],
+        "contacts": [
+          {
+            "name": "Timur Kopbayev",
+            "role": "PROCUREMENT_POC",
+            "notes": "Procurement Official. Proposals submitted via Liquid Files to tkopbayev@calottery.com and ijen@calottery.com",
+            "email": "solicitations@calottery.com",
+            "organization": "California State Lottery"
+          }
+        ]
+      },
+      "inputHash": "c5ea905e6166162fffd5f513fcc1329a817c22568a901970c46e0883a1e6361a",
+      "status": "COMPLETE",
+      "updatedAt": "2026-04-19T20:15:32.128Z"
+    },
+    "deadlines": {
+      "data": {
+        "hasSubmissionDeadline": true,
+        "submissionDeadlineIso": "2026-03-02T15:00:00-08:00",
+        "deadlines": [
+          {
+            "dateTimeIso": "2026-01-08T15:00:00-08:00",
+            "label": "Last day to submit completed Intent to Bid (Attachment 3)",
+            "notes": null,
+            "type": "OTHER",
+            "rawText": "1/8/2026 @3 p.m. PT",
+            "timezone": "PT"
+          },
+          {
+            "dateTimeIso": "2026-01-08T15:00:00-08:00",
+            "label": "Last day to submit written questions using Attachment A",
+            "notes": null,
+            "type": "QUESTIONS_DUE",
+            "rawText": "1/8/2026 @3 p.m. PT",
+            "timezone": "PT"
+          },
+          {
+            "dateTimeIso": "2026-03-02T15:00:00-08:00",
+            "label": "Last day to submit Final Proposal",
+            "notes": "Originally 2/26/2026, extended to 3/2/2026 by Addendum 1",
+            "type": "PROPOSAL_DUE",
+            "rawText": "2/26/2026 3/2/2026 @3 p.m. PT",
+            "timezone": "PT"
+          },
+          {
+            "dateTimeIso": "2026-04-09T00:00:00-07:00",
+            "label": "Notification of Intent to Award",
+            "notes": "Estimated date, originally 4/7/2026, revised to 4/9/2026 by Addendum 1",
+            "type": "AWARD_ESTIMATE",
+            "rawText": "4/7/2026 4/9/2026",
+            "timezone": "PT"
+          },
+          {
+            "dateTimeIso": "2026-06-15T00:00:00-07:00",
+            "label": "Contract Start Date (Estimated)",
+            "notes": "Estimated date",
+            "type": "OTHER",
+            "rawText": "6/15/2026",
+            "timezone": "PT"
+          }
+        ],
+        "warnings": []
+      },
+      "inputHash": "bddc259f7622ec9ecb5617af65c535360d6353f6cdd152e0a9fee7761177967c",
+      "status": "COMPLETE",
+      "updatedAt": "2026-04-19T20:15:33.477Z"
+    },
+    "pastPerformance": {
+      "status": "IDLE",
+      "updatedAt": "2026-04-19T20:14:58.498Z"
+    },
+    "pricing": {
+      "data": {
+        "competitiveAdvantages": [],
+        "totalPrice": 0,
+        "indirectCostTotal": 0,
+        "basisOfEstimate": "This is a formal RFP (Best Value evaluation) for an email marketing platform replacement for the California State Lottery. NO government estimated value is provided in the solicitation. The organization's labor rates (Manufacturing Engineer $178.89/hr, QA $16.86/hr, Software Engineer $171.40/hr) are completely irrelevant because this solicitation requires an existing commercial email marketing SaaS platform \u2014 not custom software development. Horus Technology is an AWS consulting firm specializing in document automation and AI/ML, which is a fundamentally different industry than enterprise email marketing platforms. The solicitation requires proposers to have an existing email platform product capable of 10M+ contacts, 1B+ annual sends, and 200+ automated workflows, with 5+ years of operational history. Competitors for this contract would be established email marketing platforms such as Salesforce Marketing Cloud, Braze, Iterable, MessageGears, or similar. Total price is set to $0 because the company fundamentally cannot perform this work as a prime contractor. Price confidence is set to 12 (below 15) because this is a formal solicitation but the company has zero capability alignment, no relevant past performance, and no basis to estimate a competitive price for a product it does not possess.",
+        "materialCostTotal": 0,
+        "assumptions": [
+          "Horus Technology does not own or operate an email marketing platform product",
+          "The company's past performance is in AWS cloud infrastructure, document automation, and AI/ML \u2014 not email marketing SaaS",
+          "The mandatory qualifications (5+ years providing email platform services) are disqualifying for Horus Technology",
+          "Organization labor rates provided are for software engineering roles, not email platform licensing or SaaS delivery",
+          "Competitors will be established email marketing platform vendors with existing products and government references",
+          "The 5% Small Business preference (up to $50,000) would not overcome the fundamental capability gap",
+          "The evaluation weights are: Technical 70% (500 points qualifications + NTR, 200 points demonstrations) and Cost 30% (300 points) \u2014 technical disqualification would occur before cost evaluation"
+        ],
+        "competitivePosition": "HIGH",
+        "laborCostTotal": 0,
+        "profitMargin": 10,
+        "pricingRisks": [
+          "Fundamental industry mismatch: Horus Technology specializes in AWS cloud-native development, document automation, and AI/ML solutions \u2014 NOT email marketing platform services",
+          "Mandatory qualifications require 5+ years of experience providing an email service platform to organizations of similar size and scope \u2014 Horus Technology does not have this",
+          "Platform must handle 10M+ audience file, 1B+ annual email sends, and 200+ workflows \u2014 requires an established email marketing SaaS product, not custom development",
+          "Proposer must have 5+ years working with governmental entities or large public sector organizations on email platforms specifically",
+          "No government estimated value provided in the solicitation, making competitive pricing impossible to calibrate",
+          "Fixed-price contract type places all cost risk on the contractor for a platform they do not possess",
+          "Cost is weighted at 30% (300 of 1000 points) with lowest cost receiving maximum points \u2014 competing against established email platform vendors (e.g., Salesforce Marketing Cloud, Braze, Iterable) who have economies of scale",
+          "Background investigation requirements and California-specific compliance add administrative burden",
+          "Demonstrations may be required (200 points) \u2014 cannot demonstrate a product that does not exist"
+        ],
+        "recommendedActions": [
+          "NO-BID RECOMMENDED: This solicitation requires an established email marketing platform vendor with 5+ years of proven platform delivery \u2014 Horus Technology does not have a qualifying product or relevant past performance",
+          "The mandatory qualifications (PQ1-PQ15) are disqualifying \u2014 Horus Technology cannot meet the 5-year experience requirements for email platform delivery",
+          "If pursuing tangentially, consider partnering as a subcontractor to a prime email platform vendor for data migration or integration services leveraging AWS expertise",
+          "Monitor future California State Lottery IT solicitations that align with cloud infrastructure, document automation, or AI/ML capabilities",
+          "Leverage California DGS Small Business certification for future state opportunities that match core competencies"
+        ],
+        "strategy": "FIXED_PRICE",
+        "priceConfidence": 12
+      },
+      "inputHash": "4a767f14984b021a13ad70ce8a326978a5ef72678e415db8059a0815e086f781",
+      "status": "COMPLETE",
+      "updatedAt": "2026-04-19T20:16:17.149Z"
+    },
+    "requirements": {
+      "data": {
+        "evaluationFactors": [
+          "Administrative Requirements met? - Pass/Fail",
+          "Proposer MQ met? - Pass/Fail",
+          "Proposer DQ (Desirable Qualifications) - Maximum 100 points (DQ 16: 25 pts, DQ 17: 25 pts, DQ 18: 25 pts, DQ 19: 25 pts)",
+          "NTR: Understanding and Approach - Maximum 200 points",
+          "NTR: Implementation Services - Maximum 100 points",
+          "NTR: Customer Service Strategy and Platform Integrity Plan - Maximum 100 points",
+          "Cost Evaluation - 300 points",
+          "Proposer Demonstrations (Optional) - Maximum 200 points",
+          "Technical Requirements scored 70% and Cost scored 30% prior to preference programs and negotiations",
+          "Narrative Technical Response scored using Exceptional (100%), Meets (50%), Deficient (0%), Fail (Disqualified) criteria",
+          "Demonstrations evaluated on: Clarity of Presentation (20%), Adherence to Use Cases (30%), Functional Alignment (30%), Technical Capabilities (20%)",
+          "Best value determination: maximum benefits to the Lottery in areas of security, competence, experience, qualifications, performance, and price",
+          "Small Business Preference: 5% preference up to $50,000",
+          "DVBE Incentive: 1%-5% based on participation level, up to $100,000"
+        ],
+        "overview": "The California State Lottery seeks a qualified vendor to implement a replacement email marketing and campaign management platform, including implementation services, data migration, IP warming, testing, training, and ongoing customer support. The contract has a 2-year base term with up to three 1-year extensions. Success means delivering a more functional, robust, and advanced email platform that enables effective email marketing campaigns, improved player engagement, and optimized communications for millions of registered players.",
+        "requirements": [
+          {
+            "category": "TECHNICAL",
+            "mustHave": true,
+            "requirement": "Provide an email marketing and campaign management solution that is more functional, robust, and advanced than Adobe Campaign Standard"
+          },
+          {
+            "category": "TECHNICAL",
+            "mustHave": true,
+            "requirement": "Provide implementation services including hands-on keyboard support, seamless integration, data migration, IP warming, testing, and overall platform setup"
+          },
+          {
+            "category": "TECHNICAL",
+            "mustHave": true,
+            "requirement": "Support migration of large database, tables, workflows, and audience profiles from existing platform"
+          },
+          {
+            "category": "TECHNICAL",
+            "mustHave": true,
+            "requirement": "Support configuration of multiple instances of the email platform"
+          },
+          {
+            "category": "TECHNICAL",
+            "mustHave": true,
+            "requirement": "Provide dedicated implementation team (in-house or third-party) for implementation services"
+          },
+          {
+            "category": "TECHNICAL",
+            "mustHave": true,
+            "requirement": "Provide user training and support after implementation"
+          },
+          {
+            "category": "TECHNICAL",
+            "mustHave": true,
+            "requirement": "Platform must support email communications to millions of registered players including game information, news, product updates, winner news, responsible gaming tips, promotions, retailer surveys, and other communications"
+          },
+          {
+            "category": "TECHNICAL",
+            "mustHave": true,
+            "requirement": "Provide Service Level Agreements (SLAs) for platform support and issue resolution"
+          },
+          {
+            "category": "TECHNICAL",
+            "mustHave": true,
+            "requirement": "Provide dedicated account team or single point of contact for real-time support"
+          },
+          {
+            "category": "TECHNICAL",
+            "mustHave": true,
+            "requirement": "Provide platform up-time guarantees and define how outages are communicated and addressed"
+          },
+          {
+            "category": "TECHNICAL",
+            "mustHave": true,
+            "requirement": "SaaS must be available 24 hours per day, 365 days per year, excluding agreed-upon maintenance downtime"
+          },
+          {
+            "category": "TECHNICAL",
+            "mustHave": true,
+            "requirement": "SaaS monthly availability must average at least 99.9% excluding agreed-upon maintenance downtime"
+          },
+          {
+            "category": "TECHNICAL",
+            "mustHave": true,
+            "requirement": "Data must be available 24 hours per day, 365 days per year, excluding agreed-upon maintenance downtime with 99.9% monthly availability"
+          },
+          {
+            "category": "TECHNICAL",
+            "mustHave": true,
+            "requirement": "Provide advance written notice of any major upgrades or changes that will affect SaaS availability"
+          },
+          {
+            "category": "SECURITY",
+            "mustHave": true,
+            "requirement": "All sensitive and confidential electronic Lottery Data in transit or at rest must be encrypted in compliance with FIPS 140-3 Security Requirements for Cryptographic Modules"
+          },
+          {
+            "category": "SECURITY",
+            "mustHave": true,
+            "requirement": "Data handling must comply with Lottery's Encryption Policy and Information Security policies and Information Security Program Manual"
+          },
+          {
+            "category": "SECURITY",
+            "mustHave": true,
+            "requirement": "Disposal of sensitive and confidential Lottery Data must meet ISO/IEC 27001 and NIST 800-88 minimum requirements"
+          },
+          {
+            "category": "SECURITY",
+            "mustHave": true,
+            "requirement": "Provide a Security Plan within 10 days after contract execution identifying administrative, physical, and technical security controls, aligned with ISO/IEC 27001, ISO/IEC 27002, NIST SP 800-53, FIPS 199, and FIPS 140-3"
+          },
+          {
+            "category": "SECURITY",
+            "mustHave": true,
+            "requirement": "Submit updated Security Plans on an annual basis within 30 days after the anniversary of the Contract start date"
+          },
+          {
+            "category": "SECURITY",
+            "mustHave": true,
+            "requirement": "Security Plan must include Business Continuity and Disaster Recovery plan, incident response plan, intrusion detection/prevention, vulnerability management, antivirus, patching, security training, and audit logging"
+          },
+          {
+            "category": "SECURITY",
+            "mustHave": true,
+            "requirement": "Notify Lottery Contract Manager, Deputy Director of SLED, and Information Security Office within two hours after discovery of an Information Security Incident"
+          },
+          {
+            "category": "SECURITY",
+            "mustHave": true,
+            "requirement": "All Lottery Data maintained by Contractor must be physically located within the continental United States"
+          },
+          {
+            "category": "SECURITY",
+            "mustHave": true,
+            "requirement": "Remote access to Lottery Data from outside the United States is prohibited unless approved in advance in writing by the Lottery"
+          },
+          {
+            "category": "SECURITY",
+            "mustHave": true,
+            "requirement": "Maintain data backup and recovery processes for all critical Lottery Data with Recovery Time Objectives (RTO) and Recovery Point Objectives (RPO) as specified by the Lottery"
+          },
+          {
+            "category": "COMPLIANCE",
+            "mustHave": true,
+            "requirement": "Contractor and personnel must submit to background investigations including fingerprinting and inquiry to California DOJ and FBI"
+          },
+          {
+            "category": "COMPLIANCE",
+            "mustHave": true,
+            "requirement": "Proposer must not be presently debarred, suspended, proposed for debarment, or declared ineligible by any state or federal agency"
+          },
+          {
+            "category": "COMPLIANCE",
+            "mustHave": true,
+            "requirement": "Agree to Lottery Special Terms and Conditions (Exhibit C) without deviations"
+          },
+          {
+            "category": "COMPLIANCE",
+            "mustHave": true,
+            "requirement": "Agree to Information Technology Terms and Conditions (Exhibit D)"
+          },
+          {
+            "category": "COMPLIANCE",
+            "mustHave": true,
+            "requirement": "Comply with Scope of Work (Exhibit A SOW) without deviations"
+          },
+          {
+            "category": "COMPLIANCE",
+            "mustHave": true,
+            "requirement": "Immediately disclose to Lottery if Contractor intends to provide or utilize previously undisclosed Generative AI as a deliverable or to complete any portion of Contract deliverables or services"
+          },
+          {
+            "category": "COMPLIANCE",
+            "mustHave": true,
+            "requirement": "Joint proposals are not permitted; only a single primary proposer may submit"
+          },
+          {
+            "category": "COMPLIANCE",
+            "mustHave": true,
+            "requirement": "Maintain all Contract-related financial and accounting records for four years after Contract expiration and make available for Lottery audit"
+          },
+          {
+            "category": "COMPLIANCE",
+            "mustHave": true,
+            "requirement": "Upon Contract expiration or termination, all Lottery Data must be returned or destroyed beyond recovery within 90 days at Contractor's cost"
+          },
+          {
+            "category": "STAFFING",
+            "mustHave": true,
+            "requirement": "Proposer must have minimum of two (2) and maximum of four (4) contract/implementations demonstrating relevant experience within the last 10 years completed in the United States"
+          },
+          {
+            "category": "STAFFING",
+            "mustHave": true,
+            "requirement": "Proposer must meet all Mandatory Qualification (MQ) requirements as specified in Attachment 10.1 Proposer Qualifications Form"
+          },
+          {
+            "category": "STAFFING",
+            "mustHave": true,
+            "requirement": "Contractor or subcontractor personnel must not be assigned to work on the Lottery Contract if they have ever been convicted of a felony, gambling-related offense, or a crime involving dishonesty"
+          },
+          {
+            "category": "STAFFING",
+            "mustHave": true,
+            "requirement": "Designate a single point of contact for background processing"
+          },
+          {
+            "category": "DELIVERABLES",
+            "mustHave": true,
+            "requirement": "Document any assumptions about Exhibit A SOW, responsibilities, and other issues relevant to proposal submission and ability to do the work for the proposed cost"
+          },
+          {
+            "category": "OTHER",
+            "mustHave": true,
+            "requirement": "Proposer's response constitutes an irrevocable offer for 180 calendar days following the proposal due date"
+          },
+          {
+            "category": "OTHER",
+            "mustHave": true,
+            "requirement": "Rates shall be inclusive of all direct and indirect costs for all activities, labor, materials, tools, equipment, and travel"
+          },
+          {
+            "category": "OTHER",
+            "mustHave": true,
+            "requirement": "Continue to provide goods and services pursuant to the Contract until migration to a replacement contract with a new contractor is complete upon termination or expiration"
+          }
+        ],
+        "submissionCompliance": {
+          "format": [
+            "Must be in Microsoft Word 365; figures, tables, charts inserted into MS Word document (exception: Cost Sheet in MS Excel and PDF attachments)",
+            "Standard letter 8.5\" x 11\" size with fonts meeting ADA requirements (e.g., Arial 12 pt.)",
+            "Page numbers in same position throughout proposal",
+            "Each page must show: RFP R004429, Name of proposer, Volume number, Attachment Number, Page number (Page # of ##)",
+            "No cost information in any volume except Volume 3",
+            "Submit electronically through Lottery Secure File Transfer (Liquid Files) site",
+            "Each Volume must be submitted as its own separate Liquid Files submission",
+            "Subject line format: Proposer's Company name_RFP R004429_Volume X '# of ##'",
+            "Understanding and Approach narrative must not exceed 4 pages",
+            "Implementation Services narrative must not exceed 4 pages",
+            "Customer Service Strategy and Platform Integrity Plan narrative must not exceed 4 pages",
+            "Assumptions narrative must not exceed 2 pages"
+          ],
+          "attachmentsAndForms": [
+            "Attachment 1: Cover Letter on Company Letterhead",
+            "Attachment 2: Solicitation Submission Checklist",
+            "Attachment 4: Response to Administrative Requirements",
+            "Attachment 5: Proposer Certification",
+            "Attachment 6: Proposer's Preferences and Incentives",
+            "Attachment 7: Small and Microbusiness Participation (if claiming)",
+            "Attachment 8: DVBE Participation (if claiming)",
+            "Attachment 9: Responsibility Certification",
+            "Attachment 10.1: Proposer Qualifications Form",
+            "Attachment 11: Narrative Technical Response (NTR)",
+            "Attachment 12: GenAI Impact Assessment Form (if applicable)",
+            "Attachment 13: Cost Sheet"
+          ],
+          "requiredDocuments": [
+            {
+              "name": "Cover Letter",
+              "description": "Cover letter on company letterhead containing legal company name, address, statement of appropriate skills, statement of compliance with Exhibit A SOW, authorized signature with name and title, and email/phone of signer",
+              "documentType": "COVER_LETTER",
+              "required": true
+            },
+            {
+              "name": "Solicitation Submission Checklist (Attachment 2)",
+              "description": "Completed checklist confirming all required items are contained within the proposal",
+              "documentType": "COMPLIANCE_MATRIX",
+              "required": true
+            },
+            {
+              "name": "Response to Administrative Requirements (Attachment 4)",
+              "description": "Proposer indicates agreement to each Administrative Requirement by marking Yes/No",
+              "documentType": "OTHER",
+              "required": true
+            },
+            {
+              "name": "Proposer Certification (Attachment 5)",
+              "description": "Signed certification acknowledging compliance with all solicitation terms, qualifications, pricing independence, insurance/bond, and confidentiality requirements",
+              "documentType": "CERTIFICATIONS",
+              "required": true
+            },
+            {
+              "name": "Proposer's Preferences and Incentives (Attachment 6)",
+              "description": "Indicate whether claiming Small Business Preference and/or DVBE Incentive",
+              "documentType": "OTHER",
+              "required": true
+            },
+            {
+              "name": "Small and Microbusiness Participation (Attachment 7)",
+              "description": "Required if claiming Small Business Preference; includes declaration of compliance and subcontractor forms",
+              "documentType": "OTHER",
+              "required": false
+            },
+            {
+              "name": "DVBE Participation (Attachment 8)",
+              "description": "Required if claiming DVBE Incentive; includes subcontractor and DVBE proposer forms with certification copies",
+              "documentType": "OTHER",
+              "required": false
+            },
+            {
+              "name": "Responsibility Certification (Attachment 9)",
+              "description": "Signed certification that proposer and subcontractors are not presently debarred, suspended, or declared ineligible by any state or federal agency",
+              "documentType": "CERTIFICATIONS",
+              "required": true
+            },
+            {
+              "name": "Proposer Qualifications Form (Attachment 10.1)",
+              "description": "Completed form documenting minimum 2 and maximum 4 contract/implementations demonstrating relevant experience within last 10 years in the United States, with verifiable references for MQ and DQ requirements",
+              "documentType": "TEAM_QUALIFICATIONS",
+              "required": true
+            },
+            {
+              "name": "Narrative Technical Response (Attachment 11)",
+              "description": "Narrative responses covering Understanding and Approach (max 4 pages), Implementation Services (max 4 pages), Customer Service Strategy and Platform Integrity Plan (max 4 pages), and Assumptions (max 2 pages)",
+              "pageLimit": "14 pages total (4+4+4+2)",
+              "documentType": "TECHNICAL_PROPOSAL",
+              "required": true
+            },
+            {
+              "name": "GenAI Impact Assessment Form (Attachment 12)",
+              "description": "Required if applicable to proposer's solution or approach",
+              "documentType": "OTHER",
+              "required": false
+            },
+            {
+              "name": "Cost Sheet (Attachment 13)",
+              "description": "All-inclusive costs for software, implementation, maintenance, support, and training for 2 base years and 3 optional years; must be submitted as separate Volume 3 via separate Liquid Files submission",
+              "documentType": "COST_PROPOSAL",
+              "required": true
+            }
+          ],
+          "requiredVolumes": [
+            "Volume 1: Response to Administrative Requirements",
+            "Volume 2: Response to Technical Requirements",
+            "Volume 3: Response to Cost Requirements (must be separate from Volumes 1 & 2)"
+          ]
+        },
+        "deliverables": [
+          "Email marketing and campaign management platform (SaaS solution)",
+          "Implementation services including data migration, IP warming, testing, and platform setup",
+          "User training sessions and resources",
+          "Security Plan (within 10 days of contract execution, updated annually)",
+          "Business Continuity and Disaster Recovery Plan",
+          "Ongoing customer support and dedicated account team",
+          "Contractor Information - Disqualified Persons forms"
+        ]
+      },
+      "inputHash": "18e121ea5130bbdc3c4f50858bfa9b31c26175ccfbe9a6e4fca6c6ba01664be4",
+      "status": "COMPLETE",
+      "updatedAt": "2026-04-19T20:16:32.400Z"
+    },
+    "risks": {
+      "data": {
+        "redFlags": [
+          {
+            "severity": "CRITICAL",
+            "whyItMatters": "The solicitation requires minimum 5 years of experience across multiple mandatory qualifications (PQ1-PQ6, PQ12) including providing email platforms to large organizations, working with government entities, data modeling, and campaign advisory services. No relevant past performance was found for HORUSTECH in these areas. Failure to meet any mandatory qualification results in disqualification.",
+            "mitigation": "Conduct an honest bid/no-bid assessment. If HORUSTECH does not have 5+ years of direct email platform experience, consider whether teaming with an established email platform provider (as subcontractor) can satisfy the requirements, noting that the prime must demonstrate the experience.",
+            "flag": "No evidence of past performance in email marketing platform implementation or government email services",
+            "impactsScore": false
+          },
+          {
+            "severity": "HIGH",
+            "whyItMatters": "The solicitation states the Lottery currently uses Adobe Campaign Standard. Any proposer offering a competing platform must demonstrate migration capabilities, while Adobe (or its partners) would have inherent knowledge of the current data model, workflows, and integrations. The incumbent provider has institutional knowledge advantage.",
+            "mitigation": "During Q&A period (by January 8, 2026), ask detailed questions about current data architecture, workflow complexity, and integration points. Develop a thorough migration plan addressing data migration, IP warming, and workflow recreation.",
+            "flag": "Incumbent advantage \u2014 Lottery currently uses Adobe Campaign Standard",
+            "impactsScore": true
+          },
+          {
+            "severity": "HIGH",
+            "whyItMatters": "DQ17 awards 25 points for offering a dedicated, in-house implementation team (not third-party). This favors established email platform companies with their own professional services teams over resellers or smaller integrators.",
+            "mitigation": "If proposing as an integrator, ensure the platform vendor commits dedicated in-house resources. Clearly articulate in the proposal whether the implementation team is in-house to the platform provider.",
+            "flag": "Dedicated in-house implementation team is a desirable qualification worth 25 points",
+            "impactsScore": true
+          }
+        ],
+        "risks": [
+          {
+            "severity": "HIGH",
+            "whyItMatters": "PQ1 requires at least 5 years of experience providing the proposed email service platform to organizations of similar size and scope to the California State Lottery (millions of registered players, 10M+ audience file, 1B+ annual sends). This is a significant barrier to entry for firms without an established email platform product.",
+            "mitigation": "Verify that the proposed platform vendor has documented 5+ years of experience with large-scale B2C organizations. If bidding as a reseller/implementer, ensure the platform provider can supply references meeting this requirement.",
+            "flag": "Mandatory 5 years experience providing email service platform to organizations of similar size and scope",
+            "impactsScore": false
+          },
+          {
+            "severity": "HIGH",
+            "whyItMatters": "PQ2 requires at least 5 years of experience working with governmental entities or large public sector organizations. HORUSTECH must demonstrate this experience through verifiable references with end-user contacts available during the evaluation period (approximately March 6-12, 2026).",
+            "mitigation": "Identify and confirm availability of government/public sector client references well in advance. Ensure references are responsive \u2014 failure to respond after two contact attempts can result in disqualification.",
+            "flag": "Mandatory 5 years experience with governmental entities or large public sector organizations",
+            "impactsScore": false
+          },
+          {
+            "severity": "HIGH",
+            "whyItMatters": "PQ7 and PQ8 mandate the platform handle at least 10 million audience records, over 1 billion annual email sends, and over 200 workflows/triggered automations. PQ9 requires unlimited storage. These are pass/fail requirements that eliminate platforms without enterprise-scale capabilities.",
+            "mitigation": "Only propose platforms with proven enterprise-scale capacity (e.g., Salesforce Marketing Cloud, Braze, MessageGears, or similar). Obtain documentation from the platform vendor confirming these capabilities.",
+            "flag": "Platform must handle 10M+ audience file, 1B+ annual emails, and 200+ workflows",
+            "impactsScore": false
+          },
+          {
+            "severity": "MEDIUM",
+            "whyItMatters": "PQ12 requires at least 5 years of experience complying with FedRAMP, CCPA, and CAN-SPAM. FedRAMP authorization is a significant barrier \u2014 many email platforms do not hold FedRAMP authorization, which could limit platform choices.",
+            "mitigation": "Confirm the proposed platform holds FedRAMP authorization (or equivalent) and document 5+ years of compliance history. If the platform lacks FedRAMP, clarify with the Lottery during the Q&A period whether FedRAMP equivalency is acceptable.",
+            "flag": "FedRAMP, CCPA, and CAN-SPAM compliance required with 5 years experience",
+            "impactsScore": false
+          },
+          {
+            "severity": "MEDIUM",
+            "whyItMatters": "Section 3.11 requires background investigations including fingerprinting and FBI/DOJ inquiries for all staff working on the contract. Staff with criminal history may be disapproved, potentially disrupting the implementation team.",
+            "mitigation": "Pre-screen all proposed staff for potential background issues. Identify backup personnel in case any team members are disapproved by the Lottery.",
+            "flag": "Background investigations required for all contractor staff including FBI/DOJ fingerprinting",
+            "impactsScore": false
+          },
+          {
+            "severity": "MEDIUM",
+            "whyItMatters": "Section 4.3 states the Lottery may require demonstrations with only 7 calendar days notice, worth up to 200 points (20% of total). If demonstrations are conducted, failure to participate or perform well significantly impacts competitiveness.",
+            "mitigation": "Prepare demonstration materials and use-case scenarios in advance based on the SOW requirements. Ensure key technical staff are available during the demonstration window (approximately March 17-25, 2026).",
+            "flag": "Demonstrations may be required with only 7 calendar days advance notice",
+            "impactsScore": true
+          },
+          {
+            "severity": "MEDIUM",
+            "whyItMatters": "The NTR is worth 400 points (40% of total) but is limited to 14 pages total (4 pages each for Understanding & Approach, Implementation Services, and Customer Service Strategy, plus 2 pages for Assumptions). This requires highly concise yet comprehensive responses.",
+            "mitigation": "Begin drafting NTR sections early. Focus on specificity and direct alignment with evaluation criteria. Use tables and concise formatting to maximize information density within page limits.",
+            "flag": "Strict page limits on Narrative Technical Response (14 pages total, 4 pages per section)",
+            "impactsScore": true
+          },
+          {
+            "severity": "LOW",
+            "whyItMatters": "Section 2.12 prohibits joint proposals. If HORUSTECH needs to partner with a platform vendor, it must structure the relationship as prime/subcontractor rather than a joint venture.",
+            "mitigation": "Structure any partnership as a prime/subcontractor arrangement with HORUSTECH as prime, ensuring subcontractor meets the 10% threshold disclosure requirements in Section 3.3.",
+            "flag": "Joint proposals not permitted \u2014 must bid as single prime contractor",
+            "impactsScore": false
+          }
+        ],
+        "incumbentInfo": {
+          "knownIncumbent": false,
+          "recompete": false,
+          "notes": "The solicitation states the Lottery currently uses Adobe Campaign Standard as their email platform, but does not name the contractor/implementer who holds the current contract. Adobe Campaign Standard is the product, not necessarily the contracting entity. No incumbent contractor company name is explicitly identified in the solicitation text."
+        }
+      },
+      "inputHash": "1ee4a7d97fca79f8e581e22667d07f69a3d8f4cb8a5d3b72ada1359fb689896a",
+      "status": "COMPLETE",
+      "updatedAt": "2026-04-19T20:16:18.757Z"
+    },
+    "scoring": {
+      "data": {
+        "confidenceExplanation": "Confidence is 55 due to missing past performance data (mandatory reduction) but the NO_GO decision itself is extremely high confidence \u2014 the fundamental industry mismatch and expired deadline make this unambiguously non-viable regardless of any missing data.",
+        "requiredActions": [
+          "Do NOT bid on this opportunity \u2014 it is fundamentally misaligned with company capabilities and the deadline has passed",
+          "Monitor future California State Lottery IT solicitations that align with cloud infrastructure, document automation, or AI/ML capabilities",
+          "If interested in state lottery work, pursue opportunities matching AWS consulting, data engineering, or AI/ML services",
+          "Consider subcontractor role to email platform vendors for future similar opportunities where AWS/data migration expertise could add value"
+        ],
+        "decision": "NO_GO",
+        "criteria": [
+          {
+            "name": "TECHNICAL_FIT",
+            "score": 1,
+            "rationale": "Fundamental industry mismatch. Horus Technology is an AWS Advanced Consulting Partner specializing in intelligent document automation, cloud-native development, and AI/ML solutions. The solicitation requires an existing commercial email marketing and campaign management SaaS platform capable of 10M+ audience files, 1B+ annual email sends, and 200+ automated workflows. The company does not own, operate, or resell an email marketing platform product. The mandatory qualifications (PQ1-PQ15) require 5+ years of experience providing email platform services \u2014 capabilities completely absent from the company's documented portfolio.",
+            "gaps": [
+              "No email marketing platform product or SaaS offering",
+              "No experience with enterprise-scale email delivery (10M+ contacts, 1B+ sends)",
+              "No email campaign management, segmentation, or automation capabilities",
+              "Cannot meet mandatory PQ1-PQ6 and PQ12 qualifications requiring 5+ years email platform experience",
+              "No data migration experience from Adobe Campaign Standard or similar platforms",
+              "No IP warming, email deliverability, or B2C email communications expertise",
+              "No FedRAMP-authorized email platform"
+            ]
+          },
+          {
+            "name": "PAST_PERFORMANCE_RELEVANCE",
+            "score": 1,
+            "rationale": "No past performance data available. The company has zero past performance projects in email marketing platforms, campaign management, or related services. The company's documented experience is in AWS cloud infrastructure, document automation, and AI/ML \u2014 a completely different domain from enterprise email marketing SaaS delivery.",
+            "gaps": [
+              "No past performance in email marketing platform delivery",
+              "No government email services references",
+              "No B2C email communications experience",
+              "Cannot provide required 2-4 contract/implementations demonstrating relevant email platform experience within last 10 years"
+            ]
+          },
+          {
+            "name": "PRICING_POSITION",
+            "score": 1,
+            "rationale": "Pricing analysis confirms fundamental inability to compete. The company does not possess an email marketing platform product to price. Competitors will be established email platform vendors (Salesforce Marketing Cloud, Braze, Iterable, MessageGears) with economies of scale and existing product infrastructure. Price confidence is 12/100. The company's labor rates for software engineering are irrelevant since this requires a commercial SaaS product, not custom development.",
+            "gaps": [
+              "No email platform product to price",
+              "Cannot compete against established SaaS vendors with existing products",
+              "No basis to estimate competitive pricing for a product the company does not possess",
+              "Fixed-price contract places all risk on contractor for non-existent platform"
+            ]
+          },
+          {
+            "name": "STRATEGIC_ALIGNMENT",
+            "score": 1,
+            "rationale": "This opportunity is in a completely different industry (enterprise email marketing SaaS) from the company's documented strategic focus (AWS consulting, document automation, AI/ML). No documented strategic plan indicates expansion into email marketing platforms. Pursuing this would be a distraction from core competencies with zero chance of success given mandatory disqualifying requirements.",
+            "gaps": [
+              "Email marketing SaaS is outside company's documented strategic direction",
+              "No documented plan to enter email marketing platform market",
+              "Would require acquiring or building an entirely new product \u2014 not feasible within solicitation timeline",
+              "Company's AWS/AI/ML focus has no overlap with email platform delivery requirements"
+            ]
+          },
+          {
+            "name": "INCUMBENT_RISK",
+            "score": 2,
+            "rationale": "The current platform is Adobe Campaign Standard, giving Adobe or its implementation partners inherent knowledge advantage of existing data models, workflows, and integrations. While no specific incumbent contractor is named, any Adobe partner would have significant advantage. Additionally, established email platform vendors competing for this will have institutional credibility that Horus Technology completely lacks in this domain.",
+            "gaps": [
+              "Adobe Campaign Standard incumbent knowledge advantage",
+              "Established email platform vendors will have strong competitive positioning",
+              "No relationship with California State Lottery in email services"
+            ]
+          }
+        ],
+        "summaryJustification": "This is a clear NO_GO. Horus Technology is an AWS consulting firm specializing in document automation and AI/ML. The solicitation requires an established commercial email marketing SaaS platform vendor with 5+ years of proven experience at enterprise scale (10M+ contacts, 1B+ annual sends). The company does not own, operate, or resell any email marketing platform. Multiple mandatory qualifications (PQ1-PQ15) are disqualifying \u2014 the company would be eliminated at the Pass/Fail administrative review stage before any scoring occurs. Additionally, the proposal submission deadline of March 2, 2026 has already passed (today is April 19, 2026), making submission impossible.",
+        "confidence": 55,
+        "blockers": [
+          "Submission deadline has passed (March 2, 2026 \u2014 today is April 19, 2026)",
+          "Company does not own or operate an email marketing platform product \u2014 fundamental disqualifier",
+          "Cannot meet mandatory PQ1: 5+ years providing email service platform to organizations of similar size and scope",
+          "Cannot meet mandatory PQ2: 5+ years working with governmental entities on email platforms",
+          "Cannot meet mandatory PQ7/PQ8: Platform must handle 10M+ audience and 1B+ annual sends",
+          "Cannot provide required 2-4 contract/implementations demonstrating relevant email platform experience"
+        ],
+        "decisionRationale": "NO_GO decision based on: (1) Complete industry mismatch \u2014 company is an AWS/AI/ML consulting firm, not an email marketing platform vendor; (2) No past performance in email marketing or campaign management; (3) Cannot meet mandatory pass/fail qualifications (PQ1-PQ15) requiring 5+ years email platform experience, which would result in immediate disqualification; (4) Does not possess the required commercial SaaS product; (5) Submission deadline of March 2, 2026 has already passed \u2014 today is April 19, 2026. There is no viable path to compete for this opportunity.",
+        "compositeScore": 1.1,
+        "confidenceDrivers": [
+          {
+            "factor": "No past performance data available in email marketing domain",
+            "direction": "DOWN"
+          },
+          {
+            "factor": "Complete industry mismatch confirmed by KB (AWS/AI/ML vs email marketing SaaS)",
+            "direction": "DOWN"
+          },
+          {
+            "factor": "Pricing analysis explicitly confirms company cannot perform this work",
+            "direction": "DOWN"
+          },
+          {
+            "factor": "Submission deadline has passed (March 2, 2026 vs today April 19, 2026)",
+            "direction": "DOWN"
+          },
+          {
+            "factor": "Mandatory qualifications are clearly disqualifying based on documented capabilities",
+            "direction": "DOWN"
+          }
+        ]
+      },
+      "inputHash": "8a7af01100052b6b825752ba789fd75fbbedf5f682995a9d70d4378629536ec4",
+      "status": "COMPLETE",
+      "updatedAt": "2026-04-19T20:21:24.575Z"
+    },
+    "summary": {
+      "data": {
+        "summary": "The California State Lottery is seeking proposals from qualified vendors to implement a replacement email marketing and campaign management platform, replacing their current Adobe Campaign Standard system. The new platform must support an audience file of at least 10 million, handle over a billion annual email sends, and provide robust segmentation, automation, personalization, analytics, and integration capabilities. The contract includes implementation services, data migration, ongoing customer support, and training for Lottery staff.",
+        "periodOfPerformance": "2-year base term + up to 3 one-year option extensions",
+        "agency": "California State Lottery",
+        "contractType": "FIXED_PRICE",
+        "office": "Procurement Services and Support",
+        "title": "Email Platform Replacement Services",
+        "placeOfPerformance": "700 N. 10th Street, Sacramento, CA 95811",
+        "solicitationNumber": "RFP# R004429 Addendum 1",
+        "setAside": "UNKNOWN"
+      },
+      "inputHash": "c925de375af4cccf0016a8d645fb17736c4760147204537d4516cf78557291fd",
+      "status": "COMPLETE",
+      "updatedAt": "2026-04-19T20:15:30.310Z"
+    }
+  },
+  "status": "IDLE",
+  "textKey": "7e874173e675de122005474418295fa2bfcc7c709836492bce4064f7e460a8ec/5282701b-2dcf-485e-84d3-c90ce80c469b/27f91409-938f-40c0-8942-9fe75c73fb7e.txt",
+  "updatedAt": "2026-04-19T20:21:24.575Z",
+  "sort_key": "5282701b-2dcf-485e-84d3-c90ce80c469b#f87974b0-82eb-419d-bc5f-f38471eeb8e5"
+}

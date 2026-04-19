@@ -1,0 +1,605 @@
+{
+  "allTextKeys": [
+    "bd238f1672ecae465d69e05dafed8abc6aae445085b7f931b11cb0f0a0688a77/5087522b-9546-42cb-b301-dbf02107e11f/bddd67d0-84ab-4945-9b7a-9f079b039e8f.txt",
+    "041deaee9c78f4b075afcb576381b12d077a561a6fdde4478c959b32e7962743/5087522b-9546-42cb-b301-dbf02107e11f/04b9cbe8-7b3b-4c49-abae-ac990a477012.txt",
+    "14da96e6bbc1f2c154b80a5a1b5a551f2dc71e17b60b315bc6d0201283ed0a22/5087522b-9546-42cb-b301-dbf02107e11f/4616c736-ba7c-4b3b-8b6a-093212306afb.txt",
+    "f353b42b9b7b629b47dbd3b0644c1d8c299726db419e17bd3f545854a11bf69a/5087522b-9546-42cb-b301-dbf02107e11f/e1bcc4a2-e87f-44e4-9d6f-a6004cd63b0a.txt"
+  ],
+  "compositeScore": 1,
+  "confidence": 15,
+  "createdAt": "2026-02-19T21:13:58.698Z",
+  "decision": "NO_GO",
+  "documentsBucket": "auto-rfp-documents-dev-039885961427",
+  "opportunityId": "fde041f0-1288-484f-b7bd-fc238208800c",
+  "orgId": "9c0a5757-e2da-4e71-9490-01c558f7ffc3",
+  "partition_key": "EXEC_BRIEF_PK",
+  "projectId": "5087522b-9546-42cb-b301-dbf02107e11f",
+  "sections": {
+    "contacts": {
+      "data": {
+        "missingRecommendedRoles": [
+          "CONTRACTING_OFFICER_REPRESENTATIVE",
+          "TECHNICAL_POC",
+          "PROGRAM_MANAGER",
+          "SMALL_BUSINESS_SPECIALIST",
+          "PROCUREMENT_POC",
+          "SUBCONTRACTING_POC",
+          "GENERAL_INQUIRY"
+        ],
+        "contacts": [
+          {
+            "name": "Melinda Riddick",
+            "role": "CONTRACTING_OFFICER",
+            "title": "Contracting Officer",
+            "email": "Melinda.Riddick@dot.gov",
+            "organization": "U.S. Department of Transportation, Office of the Senior Procurement Executive"
+          },
+          {
+            "name": "Robin Golden",
+            "role": "CONTRACT_SPECIALIST",
+            "notes": "Listed as cc recipient for proposals and questions; also listed as Contracting Officer for protests in FAR 52.233-2 section",
+            "title": "Contracting Officer",
+            "email": "Robin.Golden@dot.gov",
+            "organization": "U.S. Department of Transportation, OST Office of Senior Procurement Executive"
+          },
+          {
+            "name": "Omarr Lee",
+            "role": "OTHER",
+            "notes": "OST Point of Contact for Delphi eInvoicing / electronic payment requests",
+            "phone": "(202) 366-0475",
+            "email": "Omarr.Lee@dot.gov",
+            "organization": "U.S. Department of Transportation, OST"
+          }
+        ]
+      },
+      "inputHash": "720f5b5375643e7f313dbb099ce8b9d99f23b1d64be47c8954c99b1cf7feb781",
+      "status": "COMPLETE",
+      "updatedAt": "2026-04-19T20:15:24.102Z"
+    },
+    "deadlines": {
+      "data": {
+        "hasSubmissionDeadline": true,
+        "submissionDeadlineIso": "2026-03-27T10:00:00-05:00",
+        "deadlines": [
+          {
+            "dateTimeIso": "2026-02-13T09:00:00-05:00",
+            "label": "Question submission deadline",
+            "notes": "Originally due February 10, 2026 at noon EST. Amendment 1 clarified the day was Tuesday Feb 10 (not Wednesday Feb 11). Amendment 2 extended deadline to 9:00 AM EST on February 13, 2026.",
+            "type": "QUESTIONS_DUE",
+            "rawText": "This Amendment extends the question submission deadline to 9:00 AM EST on February 13, 2026",
+            "timezone": "EST"
+          },
+          {
+            "dateTimeIso": "2026-03-02T12:00:00-05:00",
+            "label": "Deadline to schedule demonstration",
+            "notes": "Offerors must send an email with available times between 10am and 2:30pm EST M-F for an online presentation via MS Teams or Zoom.",
+            "type": "OTHER",
+            "rawText": "Offerors must schedule a demonstration by 12pm EST on or before March 2, 2026",
+            "timezone": "EST"
+          },
+          {
+            "dateTimeIso": "2026-03-27T10:00:00-05:00",
+            "label": "Proposal submission deadline",
+            "notes": "Amendment 3 corrected the day of week to Friday (not Thursday). Submit via email to Melinda.Riddick@dot.gov with cc to Robin.Golden@dot.gov.",
+            "type": "PROPOSAL_DUE",
+            "rawText": "Proposals are due on Friday, March 27, 2026, at 10:00AM EST",
+            "timezone": "EST"
+          }
+        ],
+        "warnings": []
+      },
+      "inputHash": "0ea49feb90f25126480e6e0b1a56f39aae368967a8237be32d91e456cd688b2c",
+      "status": "COMPLETE",
+      "updatedAt": "2026-04-19T20:15:15.614Z"
+    },
+    "pastPerformance": {
+      "status": "IDLE",
+      "updatedAt": "2026-04-19T20:14:56.199Z"
+    },
+    "pricing": {
+      "data": {
+        "competitiveAdvantages": [],
+        "totalPrice": 0,
+        "indirectCostTotal": 0,
+        "basisOfEstimate": "This pricing analysis is based on a thorough review of RFP 693JK426R600002 for the DOT Office of Aviation Analysis. No government estimated value was provided in the solicitation. The organization's labor rates (Software Engineer at $171.40/hr, Manufacturing Engineer at $178.89/hr, QA at $16.86/hr) are available but IRRELEVANT to this procurement because the solicitation is not seeking custom software development services. Instead, it seeks an existing commercial airline analysis and scheduling solution \u2014 a data product/SaaS platform \u2014 that includes comprehensive global aviation datasets (origin-destination data, fare data, schedule data, fleet databases, advanced booking data, QSI/fair share data) going back to at least 2005, with weekly schedule updates and monthly demand/fare updates, accessible via a web-based UI for 10 users. This is fundamentally a data licensing and analytics platform procurement, not a custom programming engagement. Horus Technology is an AWS cloud consulting and custom software development firm based in San Diego, CA. Its capabilities (serverless architecture, data migration, AWS infrastructure) do not include ownership of or access to proprietary global aviation market data. The company has no past performance in aviation data analytics, airline scheduling solutions, or comparable data product delivery. The totalPrice is set to $0 because the company fundamentally cannot perform this work \u2014 it lacks the core product (aviation data platform and datasets) that constitutes the primary deliverable. Price confidence is set to 15 reflecting a complete industry mismatch. This is a strong NO-BID recommendation.",
+        "materialCostTotal": 0,
+        "assumptions": [
+          "The solicitation is a formal Combined Synopsis/Solicitation (not a sources sought or draft), so pricing would normally be expected \u2014 however, the fundamental industry mismatch makes pricing meaningless for Horus Technology.",
+          "The contract is Firm Fixed Price (FFP) for a base year plus 4 option years (approximately May 2026 through April 2031), with the primary deliverable being a software application/data platform and maintenance.",
+          "Evaluation is Best Value with technical factors (Technical Capability, Demonstration, Web-based Application, Past Performance) combined being more important than price. This means even a low price cannot overcome technical deficiencies.",
+          "The mandatory pre-proposal demonstration (must be scheduled by March 2, 2026) is a hard gate \u2014 without an existing aviation analytics product, Horus Technology cannot pass this threshold requirement.",
+          "Likely competitors are established aviation data providers such as Cirium (Diio), OAG, Sabre, or similar firms that already provide these exact data products to government and commercial aviation clients.",
+          "The CLIN structure has two tasks: Task 1 (Software and Application) and Task 2 (Provider Travel-Training, only if needed). Task 1 is the core deliverable representing the vast majority of contract value.",
+          "Organization labor rates from the KB show fully burdened rates for AWS cloud professionals, but these are not applicable since the work requires aviation data product delivery, not cloud engineering labor hours.",
+          "No government estimate was provided in the solicitation text. The Resource Plan table (Section 6) has blank dollar amounts, providing no pricing anchor.",
+          "The option to extend services (FAR 52.217-8) allows up to 6 additional months beyond the 5-year period, making total potential duration 5.5 years."
+        ],
+        "competitivePosition": "HIGH",
+        "laborCostTotal": 0,
+        "profitMargin": 10,
+        "pricingRisks": [
+          "CRITICAL INDUSTRY MISMATCH: This solicitation seeks a commercial-off-the-shelf (COTS) or existing airline data analytics and scheduling solution with comprehensive global aviation datasets (OD data, fare data, schedule data, fleet databases, advanced booking data going back to 2005+). Horus Technology is an AWS cloud consulting and custom software development firm \u2014 it does not possess proprietary global aviation market data, airline scheduling databases, or fare/demand datasets required by this SOW.",
+          "This is effectively a data product/SaaS procurement disguised as custom programming services under NAICS 541511. The incumbent or likely competitors are specialized aviation data providers such as Cirium (formerly FlightGlobal/OAG), IATA, Sabre, or similar firms that own or license the underlying airline industry datasets. Horus Technology cannot compete in this space.",
+          "The solicitation requires a live demonstration of the solution before proposal submission (deadline March 2, 2026). Without an existing aviation data platform, Horus Technology cannot provide this mandatory demonstration, which is a decisional criterion for award.",
+          "The evaluation criteria heavily weight Technical Capability, Data Comprehensiveness, Historical Data availability, and Demonstration of Capabilities \u2014 all of which require an existing, mature aviation analytics product. Technical factors combined are more important than price.",
+          "FFP contract type places full cost risk on the contractor. Without an existing product, building one from scratch would be economically infeasible and would not meet the data requirements (global OD data, fare data, QSI data, fleet databases, advanced bookings from GDS sources).",
+          "Past performance requires 8 years of experience and 3 recent projects in similar work, including U.S. government technical assistance. Horus Technology's past performance is in AWS cloud development and data platform engineering, not aviation data analytics.",
+          "Price realism analysis is explicitly stated \u2014 the government will assess whether proposed costs reflect understanding of requirements and may adjust prices for evaluation purposes. A low-ball price without a credible existing product would be flagged.",
+          "The requirement for weekly schedule updates (OAG/Innovata or comparable) and monthly demand/fare file updates implies ongoing data licensing agreements with aviation industry data sources that Horus Technology does not have."
+        ],
+        "recommendedActions": [
+          "NO-BID RECOMMENDED: This solicitation requires an existing commercial aviation data analytics platform with proprietary or licensed global airline datasets. Horus Technology does not have this product or data, and building one is not feasible within the contract scope or timeline.",
+          "If strategic interest exists in the aviation analytics space, consider partnering as a technology subcontractor to an established aviation data provider (e.g., Cirium, OAG, Sabre) for future opportunities where cloud infrastructure or custom UI development is needed.",
+          "Monitor DOT OAA recompetes for opportunities where custom software development or cloud migration of existing aviation tools may be required \u2014 those would better align with Horus Technology's AWS expertise.",
+          "Do not invest bid and proposal resources on this solicitation. The mandatory demonstration requirement alone is a disqualifier without an existing product."
+        ],
+        "strategy": "FIXED_PRICE",
+        "priceConfidence": 15
+      },
+      "inputHash": "bf39bc2e1908bf732c17b9eeb9d7fdc6fe2e342f72e90bc9eaa11805d1ef909c",
+      "status": "COMPLETE",
+      "updatedAt": "2026-04-19T20:16:37.142Z"
+    },
+    "requirements": {
+      "data": {
+        "evaluationFactors": [
+          "Technical Capability/Approach/Frequency of Data Updates/Comprehensiveness of Historical Data",
+          "Presentation/Demonstration of Capabilities",
+          "Web-based application",
+          "Past Performance",
+          "Price",
+          "The technical capability factors, presentation/demonstration of capabilities, web-based application, and past performance, combined are more important than the price factor",
+          "Adjectival ratings: Outstanding, Good, Acceptable, Unacceptable, Neutral (past performance only)",
+          "Price will be evaluated for reasonableness only if the quoter receives an overall technical rating of ACCEPTABLE"
+        ],
+        "overview": "The U.S. Department of Transportation Office of Aviation Analysis (OAA) seeks a contractor to provide an Airline Analysis and Scheduling Solution via a web-based application tool. The solution must provide global airline schedule, airfare, market demand, fleet, and advanced booking data to support statutory analyses including antitrust immunity evaluations, merger assessments, carrier selection decisions, and ad-hoc aviation industry trend analyses. Award will be a Firm Fixed Price (FFP) contract with one base year and four one-year option periods under full and open competition, evaluated on a Best Value basis.",
+        "requirements": [
+          {
+            "category": "TECHNICAL",
+            "mustHave": true,
+            "requirement": "Provide global origination and destination (OD) data, fare data, service class information, fair share/QSI data, and local and flow data by route and carrier"
+          },
+          {
+            "category": "TECHNICAL",
+            "mustHave": true,
+            "requirement": "Provide global schedule data by airline: historical, current, and future schedule information for global carriers with flight level granularity including flight number, arrival and departure times, aircraft type, number of seats on aircraft on a market-by-market basis"
+          },
+          {
+            "category": "TECHNICAL",
+            "mustHave": true,
+            "requirement": "Provide current and historical fleet information per airline (fleet database) with capacity and cabin configuration, including seat capacity and cabin class by aircraft and flight"
+          },
+          {
+            "category": "TECHNICAL",
+            "mustHave": true,
+            "requirement": "Provide advanced booking data by market and airline derived from airline industry sources such as airlines, global distribution systems (GDS), or screen scraping providers"
+          },
+          {
+            "category": "TECHNICAL",
+            "mustHave": true,
+            "requirement": "Data should be available going back to at least 2005 and include attribute data for airports and air carriers"
+          },
+          {
+            "category": "TECHNICAL",
+            "mustHave": true,
+            "requirement": "Provide OAG, Innovata or comparable schedule product updates, minimum of weekly"
+          },
+          {
+            "category": "TECHNICAL",
+            "mustHave": true,
+            "requirement": "Provide regular updates as frequently as possible (monthly preferred) to the demand and fare file including updated traffic, fare, load factor, booking, and on-time performance data"
+          },
+          {
+            "category": "TECHNICAL",
+            "mustHave": true,
+            "requirement": "Provide market sizes for U.S. domestic, U.S.-foreign, and foreign-foreign markets at country, regional, and city/airport pair levels"
+          },
+          {
+            "category": "TECHNICAL",
+            "mustHave": true,
+            "requirement": "Provide fares by service class for U.S. domestic, U.S.-foreign, and foreign-foreign markets at country, regional, and city/airport pair levels where fares for all markets are similarly obtained and can be compared for competitive analysis"
+          },
+          {
+            "category": "TECHNICAL",
+            "mustHave": true,
+            "requirement": "Provide traffic shares by airline at regional, country pair, and city/airport pair levels"
+          },
+          {
+            "category": "TECHNICAL",
+            "mustHave": true,
+            "requirement": "Provide capacity/seats (aircraft type) operated in each individual market by Service Class"
+          },
+          {
+            "category": "TECHNICAL",
+            "mustHave": true,
+            "requirement": "Provide capacity and demand by Onboard Service Class offered"
+          },
+          {
+            "category": "TECHNICAL",
+            "mustHave": true,
+            "requirement": "Provide advance bookings information allowing analysts to understand how demand is taking shape across domestic and global markets"
+          },
+          {
+            "category": "TECHNICAL",
+            "mustHave": true,
+            "requirement": "Provide Fair Share/QSI information allowing analysts to understand how much share airlines should naturally earn based on schedule and capacity in all markets"
+          },
+          {
+            "category": "TECHNICAL",
+            "mustHave": true,
+            "requirement": "Solution must be web-based and accessible through a website for at least 10 users, each with dedicated usernames and passwords"
+          },
+          {
+            "category": "TECHNICAL",
+            "mustHave": true,
+            "requirement": "Provide a functionally robust user interface (UI) enabling analysts to create output by non-directional or directional, marketing carrier, operating carrier, or both, and aggregations by month, year, or quarter"
+          },
+          {
+            "category": "TECHNICAL",
+            "mustHave": true,
+            "requirement": "Users should be able to make custom reports in addition to having access to pre-defined reports for easy and efficient access to information"
+          },
+          {
+            "category": "TECHNICAL",
+            "mustHave": true,
+            "requirement": "Access to the tool, the ability to run it and query the hosted data should be on a 24/7 basis"
+          },
+          {
+            "category": "TECHNICAL",
+            "mustHave": true,
+            "requirement": "Provide Customer Support Services including an online customer support website and/or telephone number"
+          },
+          {
+            "category": "TECHNICAL",
+            "mustHave": true,
+            "requirement": "Provide three days of new user or refresher training for up to 10 users, or three days of advanced user training for up to three users, each year as needed"
+          },
+          {
+            "category": "TECHNICAL",
+            "mustHave": true,
+            "requirement": "Training shall take place in DOT offices in Washington, DC, or virtually via Zoom or Microsoft Teams with minimum 90-day notice and mutually agreed dates"
+          },
+          {
+            "category": "TECHNICAL",
+            "mustHave": true,
+            "requirement": "Offeror must provide a demonstration of the solution to DOT personnel prior to submitting a proposal; demonstration must be scheduled by 12pm EST on or before March 2, 2026"
+          },
+          {
+            "category": "STAFFING",
+            "mustHave": true,
+            "requirement": "Contractor staff shall include minimum of five (5) years experience gathering, compiling and analyzing data and software, congruent certifications held and minimum Bachelor's Degree"
+          },
+          {
+            "category": "STAFFING",
+            "mustHave": true,
+            "requirement": "Key personnel must be identified and may not be removed, replaced, or diverted without prior written consent of the Contracting Officer"
+          },
+          {
+            "category": "SECURITY",
+            "mustHave": true,
+            "requirement": "Protect privacy of individuals in accordance with the Privacy Act of 1974 (5 USC 552) and meet requirements of NIST FIPS 200, Minimum Security Requirements for Federal Information and Information Systems"
+          },
+          {
+            "category": "SECURITY",
+            "mustHave": true,
+            "requirement": "Follow requirements in DOT Information Technology and Information Assurance Policy 034, Reporting Cyber Security Incidents and Sensitive Personally Identifiable Information Exposures"
+          },
+          {
+            "category": "SECURITY",
+            "mustHave": true,
+            "requirement": "All onsite employees will sign Non-disclosure Agreement"
+          },
+          {
+            "category": "COMPLIANCE",
+            "mustHave": true,
+            "requirement": "Contractor must be registered in the System for Award Management (SAM) with current, accurate, and complete representations and certifications"
+          },
+          {
+            "category": "COMPLIANCE",
+            "mustHave": true,
+            "requirement": "Submit payment requests electronically via the Delphi eInvoicing web-portal accessed at https://einvoice.esc.gov"
+          },
+          {
+            "category": "COMPLIANCE",
+            "mustHave": true,
+            "requirement": "Proposal valid for at least 90 calendar days from date of delivery to DOT"
+          },
+          {
+            "category": "COMPLIANCE",
+            "mustHave": true,
+            "requirement": "Comply with FAR 52.204-25 Prohibition on Contracting for Certain Telecommunications and Video Surveillance Services or Equipment"
+          },
+          {
+            "category": "OTHER",
+            "mustHave": true,
+            "requirement": "Contractor representative shall be able to fluently read, write, and speak the English language"
+          }
+        ],
+        "submissionCompliance": {
+          "format": [
+            "Volume I shall be presented in 11-point font or larger",
+            "Page dimensions no greater than 8.5 inches by 11 inches",
+            "Footnotes, legends, or labels associated with tables or diagrams may be smaller than 11-point font provided fully legible",
+            "Resumes must be presented in 11-point fonts or larger",
+            "Technical and Price proposals shall be submitted in two separate volumes",
+            "Proposals due Friday, March 27, 2026, at 10:00 AM EST via email to Melinda.Riddick@dot.gov with cc to Robin.Golden@dot.gov",
+            "Reference RFP: 693JK426R600002 (Airline Analysis and Scheduling Solution Application) in the subject line"
+          ],
+          "attachmentsAndForms": [
+            "FAR 52.212-3 Offeror Representations and Certifications - Commercial Items (completed electronically in SAM or submitted with proposal)",
+            "Pricing table template per Section 1 of the RFP",
+            "Non-Disclosure Agreement (Attachment 1) - to be signed by all onsite employees",
+            "SF 1449 or statement specifying extent of agreement with all terms, conditions, and provisions",
+            "Acknowledgment of Solicitation Amendments",
+            "OMB Standard Form LLL, Disclosure of Lobbying Activities (if applicable)"
+          ],
+          "requiredDocuments": [
+            {
+              "name": "Part I: Technical Capacity/Approach/Frequency of Data Updates/Comprehensiveness of Historical Data",
+              "description": "Demonstrate approach, methods, procedures, corporate knowledge, experience, capabilities, frequency of data updates, and comprehensiveness of historical data as they relate to key SOW areas including global OD data, fare data, schedule data, fleet information, advanced booking data, and data update frequency",
+              "pageLimit": "NTE 60 pages",
+              "documentType": "TECHNICAL_PROPOSAL",
+              "required": true
+            },
+            {
+              "name": "Part II: Presentation/Demonstration of Capabilities",
+              "description": "Live demonstration of the solution to DOT personnel via MS Teams or Zoom; must be scheduled by 12pm EST on or before March 2, 2026 between 10am and 2:30pm EST M-F",
+              "pageLimit": "No page limit",
+              "documentType": "OTHER",
+              "required": true
+            },
+            {
+              "name": "Part III: Web-based Application",
+              "description": "Describe the web-based solution accessible through a website for at least 10 users with dedicated usernames and passwords",
+              "pageLimit": "3 pages for each project",
+              "documentType": "OTHER",
+              "required": true
+            },
+            {
+              "name": "Part IV: Past Performance",
+              "description": "List of 3 recent projects completed within last 5 years similar to this effort; minimum 2 by Prime and 1 by Subcontractor; must demonstrate at least 8 years of experience; include contract numbers, POCs, dollar values, period of performance, and past performance ratings",
+              "documentType": "PAST_PERFORMANCE",
+              "required": true
+            },
+            {
+              "name": "Part V: Price",
+              "description": "Pricing schedule based on pricing table template; include RFP number, project title, POC info, TIN, UEI, NAICS, PSC, and validity period of at least 90 calendar days",
+              "documentType": "COST_PROPOSAL",
+              "required": true
+            },
+            {
+              "name": "Staff Qualifications and Resumes",
+              "description": "Qualifications of staff assigned including years of experience (minimum 5 years), certifications, and minimum Bachelor's Degree; resumes excluded from 60-page technical limit",
+              "documentType": "TEAM_QUALIFICATIONS",
+              "required": true
+            },
+            {
+              "name": "Representations and Certifications (FAR 52.212-3)",
+              "description": "Completed electronically in SAM or submitted with proposal per FAR 52.212-3",
+              "documentType": "CERTIFICATIONS",
+              "required": true
+            }
+          ],
+          "requiredVolumes": [
+            "Volume I - Technical Proposal (Parts I through IV)",
+            "Volume II - Cost/Price Proposal (Part V)"
+          ]
+        },
+        "deliverables": [
+          "Software application and maintenance (Target: April 30, 2026)",
+          "Provider travel training - only if needed (Target: April 30, 2026)"
+        ]
+      },
+      "inputHash": "564f10d0d85a95a7e8488e47ce83ad2144f088cbc85794fdc0e250b6a0b8d382",
+      "status": "COMPLETE",
+      "updatedAt": "2026-04-19T20:16:24.050Z"
+    },
+    "risks": {
+      "data": {
+        "redFlags": [
+          {
+            "severity": "CRITICAL",
+            "whyItMatters": "The requirements describe a very specific existing commercial product capability set (global OD data, QSI/fair share, advanced booking data from GDS sources, fleet databases, OAG/Innovata schedule updates, data back to 2005, web-based UI for 10 users). This level of specificity strongly suggests the government is seeking to continue or replace an existing subscription to a known commercial aviation analytics platform (such as Cirium/Diio or similar). The requirement for a working demonstration before proposal submission confirms the product must already exist.",
+            "mitigation": "Unless HORUSTECH is a reseller or developer of one of the few qualifying aviation data platforms, this opportunity is likely not winnable. Consider no-bid.",
+            "flag": "Solicitation is tailored to an existing commercial aviation data product with brand-name-like specificity",
+            "impactsScore": true
+          },
+          {
+            "severity": "HIGH",
+            "whyItMatters": "The SOW describes a mature, operational capability with specific data requirements (historical data back to 2005, weekly schedule updates, monthly demand updates) that indicates an existing contract is being renewed. The requirement for a live demonstration of a working solution (not a prototype) before proposal submission confirms only vendors with an existing product can compete.",
+            "mitigation": "Research the DOT Office of Aviation Analysis's current data subscriptions through FPDS or USASpending to identify the incumbent provider and assess competitive positioning.",
+            "flag": "Strong incumbent advantage \u2014 existing product continuation likely",
+            "impactsScore": true
+          }
+        ],
+        "risks": [
+          {
+            "severity": "HIGH",
+            "whyItMatters": "Offerors must schedule a demonstration by 12pm EST on or before March 2, 2026 (only ~17 days after posting). The demonstration 'shall constitute a decisional criteria for selection of the contract award by the selection team.' Failure to demonstrate eliminates the offeror from consideration.",
+            "mitigation": "Immediately contact Melinda.Riddick@dot.gov and Robin.Golden@dot.gov to schedule a demonstration slot between 10am and 2:30pm EST M-F via MS Teams or Zoom.",
+            "flag": "Mandatory demonstration required before proposal submission with tight scheduling deadline",
+            "impactsScore": true
+          },
+          {
+            "severity": "HIGH",
+            "whyItMatters": "The SOW requires global OD data, fare data, QSI/fair share data, advanced booking data, fleet databases, and schedule data going back to at least 2005 for all global carriers. Only a handful of commercial aviation data providers (e.g., Cirium, OAG, Sabre) possess this comprehensive dataset. If HORUSTECH does not already own or resell such a product, entry is effectively blocked.",
+            "mitigation": "Assess whether HORUSTECH has an existing partnership or reseller agreement with a major aviation data provider (Cirium, OAG, Sabre, etc.). If not, this is likely a no-bid.",
+            "flag": "Niche market with very few qualifying commercial products",
+            "impactsScore": true
+          },
+          {
+            "severity": "MEDIUM",
+            "whyItMatters": "The solicitation states 'Past performance shall demonstrate at least 8 years of experience' and requires 3 recent projects completed within the last 5 years similar to this effort, with at least 2 completed by the prime. HORUSTECH has no relevant past performance found in its records.",
+            "mitigation": "If bidding, identify teaming partners or subcontractors with established aviation data delivery track records to satisfy past performance requirements. Note that a 'neutral' rating is possible if no past performance exists.",
+            "flag": "Past performance requires 8 years of experience and 3 relevant projects",
+            "impactsScore": true
+          },
+          {
+            "severity": "MEDIUM",
+            "whyItMatters": "Section 17 requires staff with 'a minimum of five (5) years' experience gathering, compiling and analyzing data and software, congruent certifications held and minimum Bachelor's Degree.' Key personnel must be reachable 24 hours a day.",
+            "mitigation": "Identify and propose qualified personnel who meet the education and experience thresholds; ensure 24/7 availability commitment is feasible.",
+            "flag": "Staff qualifications require minimum 5 years experience and Bachelor's Degree",
+            "impactsScore": true
+          },
+          {
+            "severity": "LOW",
+            "whyItMatters": "Volume I is limited to 60 pages (excluding resumes) in 11-point font or larger on 8.5x11 pages. This is a manageable but defined constraint that requires careful planning.",
+            "mitigation": "Plan proposal outline early to allocate pages across the required parts (Technical, Web-based Application, Past Performance) within the 60-page limit.",
+            "flag": "Technical proposal page limit of 60 pages with specific formatting requirements",
+            "impactsScore": false
+          }
+        ],
+        "incumbentInfo": {
+          "knownIncumbent": false,
+          "recompete": false,
+          "notes": "The solicitation does not name a current contractor. However, the highly specific requirements (global OD data, QSI, advanced bookings, fleet data, OAG/Innovata schedule updates, data back to 2005) strongly suggest this is a continuation of an existing commercial data subscription. The market for such products is extremely limited (Cirium/Diio, Sabre, OAG are primary providers). Full and open competition is stated but the product specificity creates a de facto limited competition."
+        }
+      },
+      "inputHash": "1c77b3c2dc7e03e09d6a15fbb2af5be3a0aadb967b027de28b336381ce77c995",
+      "status": "COMPLETE",
+      "updatedAt": "2026-04-19T20:16:13.535Z"
+    },
+    "scoring": {
+      "data": {
+        "confidenceExplanation": "Confidence is 15 (very low floor) because while the analysis conclusion is highly certain (clear no-bid), the underlying data supporting a positive bid decision is entirely absent. There is zero capability match, zero past performance, expired deadlines, and the pricing module independently confirmed a no-bid at 15 confidence. The low confidence score reflects the complete absence of any data that could support pursuing this opportunity.",
+        "requiredActions": [
+          "NO-BID: Do not invest any bid and proposal resources on this solicitation",
+          "If strategic interest exists in DOT or aviation analytics, monitor future opportunities where cloud infrastructure or custom software development is the primary requirement",
+          "Consider establishing reseller or technology partnerships with aviation data providers for potential future subcontracting opportunities where AWS/cloud expertise is needed"
+        ],
+        "decision": "NO_GO",
+        "criteria": [
+          {
+            "name": "TECHNICAL_FIT",
+            "score": 1,
+            "rationale": "Complete industry mismatch. Horus Technology is an AWS cloud consulting and custom software development firm based in San Diego, CA. The solicitation requires an existing commercial airline analysis and scheduling solution with proprietary global aviation datasets (OD data, fare data, QSI/fair share, advanced booking data from GDS sources, fleet databases, OAG/Innovata schedule updates, historical data back to 2005). Horus Technology does not own, develop, or resell any aviation data product. The company's KB shows capabilities in serverless architecture, data migration, and AWS infrastructure \u2014 none of which address the core requirement of providing proprietary global aviation market data. Zero of the 22 must-have technical requirements can be met by the company. The mandatory live demonstration requirement is a hard disqualifier since no product exists to demonstrate.",
+            "gaps": [
+              "No proprietary global aviation OD, fare, schedule, fleet, or advanced booking datasets",
+              "No OAG/Innovata or comparable schedule product access or licensing",
+              "No historical aviation data going back to 2005",
+              "No QSI/fair share analytics capability",
+              "No web-based airline analysis platform to demonstrate",
+              "No GDS data sourcing relationships or screen scraping aviation data providers",
+              "No aviation industry domain expertise documented in KB",
+              "Cannot fulfill mandatory pre-proposal demonstration requirement",
+              "No staff with aviation data analysis experience documented"
+            ]
+          },
+          {
+            "name": "PAST_PERFORMANCE_RELEVANCE",
+            "score": 1,
+            "rationale": "No past performance data available. The company database contains zero projects related to aviation data analytics, airline scheduling solutions, or comparable data product delivery. The solicitation requires 3 recent projects completed within the last 5 years similar to this effort, with at least 2 by the prime, and demands at least 8 years of experience. Horus Technology's only documented past performance (Avue Technologies \u2014 Resume Classification & Website Document Ingestion) is in federal HR platform integration, which has no relevance to aviation data analytics. The company cannot meet the past performance requirements.",
+            "gaps": [
+              "Zero relevant past performance projects in aviation data analytics",
+              "Cannot demonstrate 8 years of experience in similar work",
+              "Cannot provide 3 recent similar projects as required",
+              "Cannot provide 2 prime-performed projects in this domain",
+              "No subcontractor past performance in aviation data identified"
+            ]
+          },
+          {
+            "name": "PRICING_POSITION",
+            "score": 1,
+            "rationale": "Fundamental pricing impossibility. The pricing analysis confirms a complete industry mismatch with price confidence of 15 out of 100 and total price of $0. Horus Technology's labor rates (Software Engineer $171.40/hr, Manufacturing Engineer $178.89/hr) are for AWS cloud professionals and are entirely irrelevant to this procurement, which is a data licensing/SaaS platform subscription, not custom software development. The company does not possess the core product (aviation data platform and datasets) that constitutes the primary deliverable. Competitors are established aviation data providers (Cirium/Diio, OAG, Sabre) who own the underlying datasets. There is no viable pricing strategy because the company cannot deliver the required product.",
+            "gaps": [
+              "No aviation data product to price",
+              "Company labor rates irrelevant to data licensing/SaaS procurement",
+              "No data licensing agreements with aviation industry sources",
+              "Cannot compete against established aviation data providers who own the datasets",
+              "FFP contract type requires existing product \u2014 building from scratch is economically infeasible"
+            ]
+          },
+          {
+            "name": "STRATEGIC_ALIGNMENT",
+            "score": 1,
+            "rationale": "No documented strategic alignment with aviation data analytics. Horus Technology's KB and organizational context show the company is focused on AWS cloud consulting, serverless architecture, and custom software development for federal agency modernization. There is no documented strategic plan, growth target, or market expansion goal related to aviation data, airline scheduling, or Department of Transportation work. This solicitation is for a niche commercial data product in a completely different industry vertical. Pursuing this opportunity would be a distraction from the company's core competencies with zero portfolio-building value.",
+            "gaps": [
+              "No strategic plan for aviation data analytics market entry",
+              "No documented DOT relationship or transportation sector goals",
+              "Aviation data product market requires proprietary datasets that cannot be developed organically",
+              "No partnership or reseller agreements with aviation data providers"
+            ]
+          },
+          {
+            "name": "INCUMBENT_RISK",
+            "score": 1,
+            "rationale": "Extreme incumbent/market lock-in risk. Although no incumbent is named, the solicitation's highly specific requirements (global OD data, QSI, advanced bookings, fleet data, OAG/Innovata schedule updates, data back to 2005) are tailored to an existing commercial aviation data subscription. The market has only 2-3 qualifying providers (Cirium/Diio, OAG, Sabre). The mandatory pre-proposal demonstration of a working solution confirms only vendors with an existing product can compete. This is effectively a sole-source or very limited competition disguised as full and open. Horus Technology has no product to compete with.",
+            "gaps": [
+              "De facto limited competition among 2-3 established aviation data providers",
+              "Mandatory demonstration of existing working product eliminates new entrants",
+              "Brand-name-like specificity in requirements creates insurmountable barrier",
+              "No existing product or data assets to compete against incumbent providers"
+            ]
+          }
+        ],
+        "summaryJustification": "This is a clear NO_GO. Horus Technology is an AWS cloud consulting and custom software development firm with zero capabilities in aviation data analytics. The solicitation seeks an existing commercial airline analysis and scheduling solution with proprietary global aviation datasets \u2014 a product that only 2-3 companies worldwide can provide (Cirium/Diio, OAG, Sabre). The company has no aviation data product, no relevant past performance, no aviation industry expertise, no data licensing agreements, and no ability to fulfill the mandatory pre-proposal demonstration. Additionally, the proposal submission deadline of March 27, 2026 and the demonstration scheduling deadline of March 2, 2026 have both already passed as of today (April 19, 2026). Every scoring criterion received the minimum score of 1 due to fundamental industry mismatch. The pricing analysis independently confirmed this is a strong no-bid with a price confidence of only 15. Investing any bid and proposal resources on this solicitation would be wasteful.",
+        "confidence": 15,
+        "blockers": [
+          "Submission deadline has passed \u2014 proposal was due March 27, 2026 and today is April 19, 2026",
+          "Demonstration scheduling deadline has passed \u2014 was due March 2, 2026",
+          "Company does not own or have access to proprietary global aviation market datasets required by the SOW",
+          "No existing aviation data analytics product to demonstrate as required by mandatory pre-proposal demonstration",
+          "Fundamental industry mismatch \u2014 AWS cloud consulting firm vs. aviation data product/SaaS procurement",
+          "Past performance requires 8 years of experience and 3 similar projects \u2014 company has zero relevant projects",
+          "Only 2-3 companies worldwide (Cirium, OAG, Sabre) can provide the required aviation data product"
+        ],
+        "decisionRationale": "NO_GO decision based on composite score of 1.0 driven by fundamental industry mismatch across all five criteria. Horus Technology is an AWS cloud consulting firm; this solicitation requires an existing commercial aviation data analytics platform with proprietary global airline datasets that only 2-3 companies worldwide possess. The company has no aviation data product to offer (TECHNICAL_FIT=1), no relevant past performance in aviation analytics (PAST_PERFORMANCE_RELEVANCE=1), no viable pricing strategy since it lacks the core product (PRICING_POSITION=1), no strategic alignment with aviation data markets (STRATEGIC_ALIGNMENT=1), and faces insurmountable incumbent/market barriers from established data providers (INCUMBENT_RISK=1). Both the demonstration scheduling deadline (March 2, 2026) and the proposal submission deadline (March 27, 2026) have already passed. There is no teaming arrangement, partnership, or capability development path that could make this opportunity viable.",
+        "compositeScore": 1,
+        "confidenceDrivers": [
+          {
+            "factor": "Complete industry mismatch \u2014 AWS cloud firm vs. aviation data product procurement",
+            "direction": "DOWN"
+          },
+          {
+            "factor": "Zero past performance in aviation data analytics",
+            "direction": "DOWN"
+          },
+          {
+            "factor": "Both submission deadline and demonstration deadline have already passed",
+            "direction": "DOWN"
+          },
+          {
+            "factor": "Pricing analysis independently confirmed no-bid with 15 price confidence",
+            "direction": "DOWN"
+          },
+          {
+            "factor": "Mandatory pre-proposal demonstration impossible without existing product",
+            "direction": "DOWN"
+          },
+          {
+            "factor": "Only 2-3 companies worldwide can provide the required datasets",
+            "direction": "DOWN"
+          },
+          {
+            "factor": "No KB results found for aviation, airline, or data analytics capabilities",
+            "direction": "DOWN"
+          }
+        ]
+      },
+      "inputHash": "f2d43e5f1985231182b9cc6fe1bf687fb78f2f48e8826eab23ae6316add7c1db",
+      "status": "COMPLETE",
+      "updatedAt": "2026-04-19T20:21:36.094Z"
+    },
+    "summary": {
+      "data": {
+        "summary": "The U.S. Department of Transportation Office of Aviation Analysis seeks a contractor to provide a web-based airline analysis and scheduling solution that delivers global aviation market demand, airfare, schedule, fleet, and advanced booking data for up to 10 analysts. The tool is critical for statutorily required analyses including evaluating airline antitrust immunity applications, merger assessments, international route selection proceedings, and ad-hoc aviation industry trend analyses supporting decision-makers up to the Secretary of Transportation.",
+        "periodOfPerformance": "Base year + 4 option years (approximately May 1, 2026 through April 30, 2031)",
+        "agency": "Department of Transportation",
+        "contractType": "FIXED_PRICE",
+        "office": "Office of the Secretary of Transportation, Office of Aviation Analysis (OAA)",
+        "title": "Airline Analysis and Scheduling Solution via a Web-based Application",
+        "naics": "541511",
+        "placeOfPerformance": "Washington, DC",
+        "solicitationNumber": "693JK426R600002",
+        "setAside": "NONE"
+      },
+      "inputHash": "fec7e992718f4a14dee3928eaaa62e52d4e2dcbb4485b1d09cf171a33063f584",
+      "status": "COMPLETE",
+      "updatedAt": "2026-04-19T20:15:12.715Z"
+    }
+  },
+  "status": "IDLE",
+  "textKey": "bd238f1672ecae465d69e05dafed8abc6aae445085b7f931b11cb0f0a0688a77/5087522b-9546-42cb-b301-dbf02107e11f/bddd67d0-84ab-4945-9b7a-9f079b039e8f.txt",
+  "updatedAt": "2026-04-19T20:21:36.094Z",
+  "sort_key": "5087522b-9546-42cb-b301-dbf02107e11f#fde041f0-1288-484f-b7bd-fc238208800c"
+}

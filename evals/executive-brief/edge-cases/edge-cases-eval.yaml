@@ -1,0 +1,245 @@
+description: "Executive Brief — Edge Cases (4 non-standard document types)"
+
+prompts:
+  - label: Brief Passthrough
+    raw: |
+      === EXECUTIVE BRIEF JSON ===
+      {{brief}}
+
+      === SOURCE SOLICITATION TEXT ===
+      {{solicitation}}
+
+providers:
+  - id: echo
+    label: passthrough
+
+tests:
+  # ─── E1: Sources Sought (IT) ───
+  - description: "EDGE: Sources Sought — no proposal deadline, no evaluation factors"
+    vars:
+      solicitation: file://rfp-texts/sources-sought-it-services.txt
+      brief: file://test-cases/sources-sought-it-services.json
+    assert:
+      - type: javascript
+        metric: HasSubmissionDeadline_False
+        value: |
+          const m=output.indexOf('=== SOURCE');const j=m>0?output.substring(output.indexOf('{'),output.lastIndexOf('}',m)+1):output;const brief=JSON.parse(j);
+          return brief.sections?.deadlines?.data?.hasSubmissionDeadline === false;
+      - type: javascript
+        metric: NoEvaluationFactors
+        value: |
+          const m=output.indexOf('=== SOURCE');const j=m>0?output.substring(output.indexOf('{'),output.lastIndexOf('}',m)+1):output;const brief=JSON.parse(j);
+          const evalFactors = brief.sections?.requirements?.data?.evaluationFactors || [];
+          return evalFactors.length === 0;
+      - type: javascript
+        metric: Agency_IHS
+        value: |
+          const m=output.indexOf('=== SOURCE');const j=m>0?output.substring(output.indexOf('{'),output.lastIndexOf('}',m)+1):output;const brief=JSON.parse(j);
+          const agency = (brief.sections?.summary?.data?.agency || '').toLowerCase();
+          return agency.includes('indian health') || agency.includes('ihs');
+      - type: javascript
+        metric: SolNumber_Correct
+        value: |
+          const m=output.indexOf('=== SOURCE');const j=m>0?output.substring(output.indexOf('{'),output.lastIndexOf('}',m)+1):output;const brief=JSON.parse(j);
+          const sol = brief.sections?.summary?.data?.solicitationNumber || '';
+          return sol.includes('IHS-SS-2026-0088');
+      - type: javascript
+        metric: Contact_SarahWhitehorse
+        value: |
+          const m=output.indexOf('=== SOURCE');const j=m>0?output.substring(output.indexOf('{'),output.lastIndexOf('}',m)+1):output;const brief=JSON.parse(j);
+          const contacts = brief.sections?.contacts?.data?.contacts || [];
+          return contacts.some(c => (c.name || '').includes('Sarah Whitehorse'));
+      - type: javascript
+        metric: EstimatedValue_Null
+        value: |
+          const m=output.indexOf('=== SOURCE');const j=m>0?output.substring(output.indexOf('{'),output.lastIndexOf('}',m)+1):output;const brief=JSON.parse(j);
+          const val = brief.sections?.summary?.data?.estimatedValueUsd;
+          return val === null || val === undefined || val === 0 || val === '';
+      - type: javascript
+        metric: Decision_NoGo
+        value: |
+          const m=output.indexOf('=== SOURCE');const j=m>0?output.substring(output.indexOf('{'),output.lastIndexOf('}',m)+1):output;const brief=JSON.parse(j);
+          return brief.decision === 'NO_GO';
+
+  # ─── E2: Sole Source ───
+  - description: "EDGE: Sole Source — named incumbent, no competition, no deadline"
+    vars:
+      solicitation: file://rfp-texts/sole-source-software-renewal.txt
+      brief: file://test-cases/sole-source-software-renewal.json
+    assert:
+      - type: javascript
+        metric: HasSubmissionDeadline_False
+        value: |
+          const m=output.indexOf('=== SOURCE');const j=m>0?output.substring(output.indexOf('{'),output.lastIndexOf('}',m)+1):output;const brief=JSON.parse(j);
+          return brief.sections?.deadlines?.data?.hasSubmissionDeadline === false;
+      - type: javascript
+        metric: Incumbent_True
+        value: |
+          const m=output.indexOf('=== SOURCE');const j=m>0?output.substring(output.indexOf('{'),output.lastIndexOf('}',m)+1):output;const brief=JSON.parse(j);
+          const inc = brief.sections?.risks?.data?.incumbentInfo || {};
+          return inc.knownIncumbent === true;
+      - type: javascript
+        metric: Incumbent_SESSpaceSolutions
+        value: |
+          const m=output.indexOf('=== SOURCE');const j=m>0?output.substring(output.indexOf('{'),output.lastIndexOf('}',m)+1):output;const brief=JSON.parse(j);
+          const inc = brief.sections?.risks?.data?.incumbentInfo || {};
+          return (inc.incumbentName || '').toLowerCase().includes('ses');
+      - type: javascript
+        metric: Agency_NASA
+        value: |
+          const m=output.indexOf('=== SOURCE');const j=m>0?output.substring(output.indexOf('{'),output.lastIndexOf('}',m)+1):output;const brief=JSON.parse(j);
+          const agency = (brief.sections?.summary?.data?.agency || '').toLowerCase();
+          return agency.includes('nasa') || agency.includes('aeronautics');
+      - type: javascript
+        metric: Contact_PatriciaNguyen
+        value: |
+          const m=output.indexOf('=== SOURCE');const j=m>0?output.substring(output.indexOf('{'),output.lastIndexOf('}',m)+1):output;const brief=JSON.parse(j);
+          const contacts = brief.sections?.contacts?.data?.contacts || [];
+          return contacts.some(c => (c.name || '').includes('Patricia Nguyen'));
+      - type: javascript
+        metric: Decision_NoGo
+        value: |
+          const m=output.indexOf('=== SOURCE');const j=m>0?output.substring(output.indexOf('{'),output.lastIndexOf('}',m)+1):output;const brief=JSON.parse(j);
+          return brief.decision === 'NO_GO';
+      - type: javascript
+        metric: EstimatedValue_Present
+        value: |
+          const m=output.indexOf('=== SOURCE');const j=m>0?output.substring(output.indexOf('{'),output.lastIndexOf('}',m)+1):output;const brief=JSON.parse(j);
+          const val = brief.sections?.summary?.data?.estimatedValueUsd;
+          return val !== null && val !== undefined && val !== '';
+      - type: javascript
+        metric: NoDeadlines
+        value: |
+          const m=output.indexOf('=== SOURCE');const j=m>0?output.substring(output.indexOf('{'),output.lastIndexOf('}',m)+1):output;const brief=JSON.parse(j);
+          const deadlines = brief.sections?.deadlines?.data?.deadlines || [];
+          return deadlines.length === 0;
+
+  # ─── E3: Physical Service (Non-IT) ───
+  - description: "EDGE: HVAC maintenance — industry mismatch, TECHNICAL_FIT=1, NO_GO"
+    vars:
+      solicitation: file://rfp-texts/physical-service-hvac.txt
+      brief: file://test-cases/physical-service-hvac.json
+    assert:
+      - type: javascript
+        metric: NAICS_Physical
+        value: |
+          const m=output.indexOf('=== SOURCE');const j=m>0?output.substring(output.indexOf('{'),output.lastIndexOf('}',m)+1):output;const brief=JSON.parse(j);
+          const naics = String(brief.sections?.summary?.data?.naics || '');
+          return naics.includes('238220');
+      - type: javascript
+        metric: TechnicalFit_Score1
+        value: |
+          const m=output.indexOf('=== SOURCE');const j=m>0?output.substring(output.indexOf('{'),output.lastIndexOf('}',m)+1):output;const brief=JSON.parse(j);
+          const criteria = brief.sections?.scoring?.data?.criteria || [];
+          const tf = criteria.find(c => (c.name || '').includes('TECHNICAL_FIT'));
+          return tf && tf.score === 1;
+      - type: javascript
+        metric: Decision_NoGo
+        value: |
+          const m=output.indexOf('=== SOURCE');const j=m>0?output.substring(output.indexOf('{'),output.lastIndexOf('}',m)+1):output;const brief=JSON.parse(j);
+          return brief.decision === 'NO_GO';
+      - type: javascript
+        metric: SetAside_SDVOSB
+        value: |
+          const m=output.indexOf('=== SOURCE');const j=m>0?output.substring(output.indexOf('{'),output.lastIndexOf('}',m)+1):output;const brief=JSON.parse(j);
+          const sa = (brief.sections?.summary?.data?.setAside || '').toUpperCase();
+          return sa.includes('SDVOSB') || sa.includes('SERVICE-DISABLED');
+      - type: javascript
+        metric: Agency_VA
+        value: |
+          const m=output.indexOf('=== SOURCE');const j=m>0?output.substring(output.indexOf('{'),output.lastIndexOf('}',m)+1):output;const brief=JSON.parse(j);
+          const agency = (brief.sections?.summary?.data?.agency || '').toLowerCase();
+          return agency.includes('veterans affairs') || agency.includes('va ');
+      - type: javascript
+        metric: Contact_DavidReyes
+        value: |
+          const m=output.indexOf('=== SOURCE');const j=m>0?output.substring(output.indexOf('{'),output.lastIndexOf('}',m)+1):output;const brief=JSON.parse(j);
+          const contacts = brief.sections?.contacts?.data?.contacts || [];
+          return contacts.some(c => (c.name || '').includes('David Reyes'));
+      - type: javascript
+        metric: HasSubmissionDeadline_True
+        value: |
+          const m=output.indexOf('=== SOURCE');const j=m>0?output.substring(output.indexOf('{'),output.lastIndexOf('}',m)+1):output;const brief=JSON.parse(j);
+          return brief.sections?.deadlines?.data?.hasSubmissionDeadline === true;
+      - type: javascript
+        metric: SubmissionDeadline_April15
+        value: |
+          const m=output.indexOf('=== SOURCE');const j=m>0?output.substring(output.indexOf('{'),output.lastIndexOf('}',m)+1):output;const brief=JSON.parse(j);
+          const dl = brief.sections?.deadlines?.data?.submissionDeadlineIso || '';
+          return dl.includes('2026-04-15');
+      - type: javascript
+        metric: Score_Low
+        value: |
+          const m=output.indexOf('=== SOURCE');const j=m>0?output.substring(output.indexOf('{'),output.lastIndexOf('}',m)+1):output;const brief=JSON.parse(j);
+          return brief.compositeScore <= 1.5;
+
+  # ─── E4: Explicit Government Estimate ───
+  - description: "EDGE: RFP with explicit $47.5M IGE — must extract estimated value"
+    vars:
+      solicitation: file://rfp-texts/explicit-gov-estimate.txt
+      brief: file://test-cases/explicit-gov-estimate.json
+    assert:
+      - type: javascript
+        metric: EstimatedValue_47M
+        value: |
+          const m=output.indexOf('=== SOURCE');const j=m>0?output.substring(output.indexOf('{'),output.lastIndexOf('}',m)+1):output;const brief=JSON.parse(j);
+          const val = String(brief.sections?.summary?.data?.estimatedValueUsd || '');
+          return val.includes('47') && val.includes('million') || val.includes('47500000') || val.includes('47.5');
+      - type: javascript
+        metric: Agency_FBI
+        value: |
+          const m=output.indexOf('=== SOURCE');const j=m>0?output.substring(output.indexOf('{'),output.lastIndexOf('}',m)+1):output;const brief=JSON.parse(j);
+          const agency = (brief.sections?.summary?.data?.agency || '').toLowerCase();
+          return agency.includes('fbi') || agency.includes('federal bureau');
+      - type: javascript
+        metric: SolNumber_Correct
+        value: |
+          const m=output.indexOf('=== SOURCE');const j=m>0?output.substring(output.indexOf('{'),output.lastIndexOf('}',m)+1):output;const brief=JSON.parse(j);
+          const sol = brief.sections?.summary?.data?.solicitationNumber || '';
+          return sol.includes('DOJ-FBI-CJIS-2026-RFP-0089');
+      - type: javascript
+        metric: NAICS_541512
+        value: |
+          const m=output.indexOf('=== SOURCE');const j=m>0?output.substring(output.indexOf('{'),output.lastIndexOf('}',m)+1):output;const brief=JSON.parse(j);
+          const naics = String(brief.sections?.summary?.data?.naics || '');
+          return naics.includes('541512');
+      - type: javascript
+        metric: ContractType_CPFF
+        value: |
+          const m=output.indexOf('=== SOURCE');const j=m>0?output.substring(output.indexOf('{'),output.lastIndexOf('}',m)+1):output;const brief=JSON.parse(j);
+          const ct = (brief.sections?.summary?.data?.contractType || '').toUpperCase();
+          return ct.includes('CPFF') || ct.includes('COST_PLUS');
+      - type: javascript
+        metric: HasSubmissionDeadline_True
+        value: |
+          const m=output.indexOf('=== SOURCE');const j=m>0?output.substring(output.indexOf('{'),output.lastIndexOf('}',m)+1):output;const brief=JSON.parse(j);
+          return brief.sections?.deadlines?.data?.hasSubmissionDeadline === true;
+      - type: javascript
+        metric: SubmissionDeadline_May1
+        value: |
+          const m=output.indexOf('=== SOURCE');const j=m>0?output.substring(output.indexOf('{'),output.lastIndexOf('}',m)+1):output;const brief=JSON.parse(j);
+          const dl = brief.sections?.deadlines?.data?.submissionDeadlineIso || '';
+          return dl.includes('2026-05-01');
+      - type: javascript
+        metric: Contact_JamesMarshall
+        value: |
+          const m=output.indexOf('=== SOURCE');const j=m>0?output.substring(output.indexOf('{'),output.lastIndexOf('}',m)+1):output;const brief=JSON.parse(j);
+          const contacts = brief.sections?.contacts?.data?.contacts || [];
+          return contacts.some(c => (c.name || '').includes('James Marshall'));
+      - type: javascript
+        metric: Contact_AishaPatel
+        value: |
+          const m=output.indexOf('=== SOURCE');const j=m>0?output.substring(output.indexOf('{'),output.lastIndexOf('}',m)+1):output;const brief=JSON.parse(j);
+          const contacts = brief.sections?.contacts?.data?.contacts || [];
+          return contacts.some(c => (c.name || '').includes('Aisha Patel'));
+      - type: javascript
+        metric: DeadlineCount_GTE3
+        value: |
+          const m=output.indexOf('=== SOURCE');const j=m>0?output.substring(output.indexOf('{'),output.lastIndexOf('}',m)+1):output;const brief=JSON.parse(j);
+          const deadlines = brief.sections?.deadlines?.data?.deadlines || [];
+          return deadlines.length >= 3;
+      - type: javascript
+        metric: Decision_ConditionalGO
+        value: |
+          const m=output.indexOf('=== SOURCE');const j=m>0?output.substring(output.indexOf('{'),output.lastIndexOf('}',m)+1):output;const brief=JSON.parse(j);
+          return brief.decision === 'CONDITIONAL_GO' || brief.decision === 'GO';

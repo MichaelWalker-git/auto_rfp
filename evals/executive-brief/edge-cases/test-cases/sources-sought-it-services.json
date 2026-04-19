@@ -1,0 +1,140 @@
+{
+  "sort_key": "edge-case-sources-sought#001",
+  "projectId": "edge-case-sources-sought",
+  "orgId": "eval-org",
+  "status": "COMPLETE",
+  "decision": "NO_GO",
+  "compositeScore": 1.4,
+  "confidence": 40,
+  "sections": {
+    "summary": {
+      "status": "COMPLETE",
+      "data": {
+        "title": "Cloud Hosting, Provisioning, and Managed Services for IHS Health IT Systems",
+        "agency": "Indian Health Service (IHS)",
+        "office": "Office of Information Technology (OIT)",
+        "solicitationNumber": "IHS-SS-2026-0088",
+        "naics": "541519",
+        "contractType": "UNKNOWN",
+        "setAside": null,
+        "estimatedValueUsd": null,
+        "placeOfPerformance": null,
+        "periodOfPerformance": null,
+        "summary": "Sources sought notice for cloud hosting, provisioning, and managed services to support IHS health IT systems. IHS is exploring options for migrating existing on-premises health IT workloads to FedRAMP-authorized cloud environments. This is an information-gathering exercise, not a solicitation for proposals."
+      }
+    },
+    "deadlines": {
+      "status": "COMPLETE",
+      "data": {
+        "hasSubmissionDeadline": false,
+        "submissionDeadlineIso": null,
+        "deadlines": [
+          {
+            "description": "Capability statement response requested by",
+            "date": "2026-03-30",
+            "time": null,
+            "isSubmissionDeadline": false
+          }
+        ],
+        "warnings": ["This is a sources sought notice, not a solicitation. The response date is informational only."]
+      }
+    },
+    "requirements": {
+      "status": "COMPLETE",
+      "data": {
+        "overview": "IHS seeks capability statements from vendors able to provide cloud hosting (IaaS/PaaS), managed services, data migration, HIPAA/FedRAMP High compliance support, and 24/7 help desk/technical support for health IT systems.",
+        "requirements": [
+          {"description": "Cloud hosting and infrastructure provisioning (IaaS/PaaS)", "category": "TECHNICAL"},
+          {"description": "Managed services including monitoring, patching, and incident response", "category": "TECHNICAL"},
+          {"description": "Data migration services from legacy systems", "category": "TECHNICAL"},
+          {"description": "HIPAA and FedRAMP High compliance support", "category": "COMPLIANCE"},
+          {"description": "24/7 help desk and tier 2/3 technical support", "category": "SUPPORT"}
+        ],
+        "deliverables": [
+          {"description": "Capability statement (10 pages max)", "dueDate": null}
+        ],
+        "evaluationFactors": [],
+        "submissionCompliance": []
+      }
+    },
+    "contacts": {
+      "status": "COMPLETE",
+      "data": {
+        "contacts": [
+          {
+            "name": "Sarah Whitehorse",
+            "role": "IT Acquisition Specialist",
+            "email": "sarah.whitehorse@ihs.gov",
+            "phone": "(301) 443-2650"
+          }
+        ],
+        "missingRecommendedRoles": []
+      }
+    },
+    "risks": {
+      "status": "COMPLETE",
+      "data": {
+        "incumbentInfo": {
+          "knownIncumbent": false,
+          "recompete": false,
+          "incumbentName": null,
+          "notes": "This is a sources sought notice for market research purposes. No incumbent contractor is identified."
+        },
+        "risks": [
+          {"description": "Sources sought only — no guarantee a solicitation will follow", "severity": "HIGH"},
+          {"description": "HIPAA and FedRAMP High compliance requirements limit eligible vendors", "severity": "MEDIUM"}
+        ],
+        "redFlags": ["No solicitation timeline provided", "No funding identified"]
+      }
+    },
+    "pastPerformance": {
+      "status": "COMPLETE",
+      "data": {
+        "topMatches": [],
+        "narrativeSummary": "No past performance evaluation applicable — this is a sources sought notice, not a competitive procurement.",
+        "confidenceScore": 0,
+        "evidence": [],
+        "gapAnalysis": "N/A for sources sought notice."
+      }
+    },
+    "scoring": {
+      "status": "COMPLETE",
+      "data": {
+        "compositeScore": 1.4,
+        "decision": "NO_GO",
+        "confidence": 40,
+        "criteria": [
+          {"name": "TECHNICAL_FIT", "score": 3, "rationale": "Cloud hosting and managed services align with IT capabilities, though healthcare IT specialization is required."},
+          {"name": "PAST_PERFORMANCE_RELEVANCE", "score": 1, "rationale": "No relevant healthcare IT cloud migration past performance on record."},
+          {"name": "PRICING_POSITION", "score": 1, "rationale": "No pricing information available — this is a sources sought notice."},
+          {"name": "STRATEGIC_ALIGNMENT", "score": 1, "rationale": "Federal healthcare IT is not a current strategic focus area."},
+          {"name": "INCUMBENT_RISK", "score": 1, "rationale": "Unknown competitive landscape; sources sought indicates early market research phase."}
+        ],
+        "blockers": ["Sources sought only — no active procurement to bid on"],
+        "requiredActions": ["Submit capability statement if interested in potential future solicitation"],
+        "summaryJustification": "This is a sources sought notice, not an active solicitation. No proposal can be submitted at this time.",
+        "decisionRationale": "NO_GO because there is no active procurement. Recommend monitoring for a future solicitation.",
+        "confidenceExplanation": "Low confidence due to sources sought nature — acquisition strategy not yet determined.",
+        "confidenceDrivers": ["Sources sought only", "No defined timeline for solicitation"]
+      }
+    },
+    "pricing": {
+      "status": "COMPLETE",
+      "data": {
+        "strategy": "No pricing strategy applicable — this is a sources sought notice with no defined requirement scope for pricing.",
+        "totalPrice": null,
+        "laborCostTotal": null,
+        "materialCostTotal": null,
+        "indirectCostTotal": null,
+        "profitMargin": null,
+        "competitivePosition": "Unknown — no competitive procurement exists yet.",
+        "priceConfidence": "LOW",
+        "assumptions": ["Sources sought — no pricing required"],
+        "pricingRisks": [],
+        "recommendedActions": [],
+        "competitiveAdvantages": [],
+        "basisOfEstimate": "N/A"
+      }
+    }
+  }
+}

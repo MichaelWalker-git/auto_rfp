@@ -1,0 +1,47 @@
+SOLE SOURCE JUSTIFICATION AND APPROVAL (J&A)
+Notice Number: NASA-GSFC-2026-SS-0147
+
+INTENT TO AWARD SOLE SOURCE CONTRACT
+
+Agency: National Aeronautics and Space Administration (NASA)
+Center: Goddard Space Flight Center (GSFC)
+Title: Search and Rescue (SAR) Mission Control System Software Support and Maintenance Renewal
+
+1. AUTHORITY
+This sole source action is justified under FAR 6.302-1: Only One Responsible Source.
+
+2. NATURE/DESCRIPTION
+NASA GSFC requires continued software support, maintenance, and enhancement services for the Cospas-Sarsat Search and Rescue Mission Control Center (USMCC) software system. The USMCC processes distress signals from Emergency Locator Transmitters (ELTs), Emergency Position Indicating Radio Beacons (EPIRBs), and Personal Locator Beacons (PLBs), enabling the rescue of approximately 300+ people annually in the United States.
+
+3. ESTIMATED VALUE
+$4.2 million over a 3-year base period with two 1-year option periods.
+Total ceiling if all options exercised: $7.8 million.
+
+4. CONTRACTOR
+SES Space Solutions (formerly O3b Networks)
+Sterling, VA 20166
+
+5. JUSTIFICATION
+SES Space Solutions developed the original USMCC software under Contract NNG19HP01C and possesses unique institutional knowledge of the system architecture, proprietary algorithms, and operational procedures. Transitioning to a new vendor would:
+- Require 18-24 months of knowledge transfer
+- Risk mission-critical SAR operations during transition
+- Cost an estimated $3.5M in duplicative onboarding
+
+No other vendor has the requisite knowledge of the MEOLUT (Medium Earth Orbit Local User Terminal) processing algorithms or the USMCC operational software baseline.
+
+6. NAICS: 541512
+Contract Type: FFP (Firm-Fixed-Price)
+Period: Base (3 years) + 2 option years
+Set-Aside: None (sole source)
+
+7. CONTRACTING OFFICER:
+Patricia Nguyen
+NASA Goddard Space Flight Center
+Contracts Division, Code 210
+Email: patricia.m.nguyen@nasa.gov
+Phone: (301) 286-7890
+
+8. MARKET RESEARCH
+Market research was conducted in Q4 2025. No alternative sources were identified with the required technical capabilities for the USMCC platform.
+
+THIS NOTICE IS FOR INFORMATIONAL PURPOSES ONLY. No proposals are being solicited. Award is expected in April 2026.
