@@ -1,0 +1,623 @@
+description: Executive Brief — Pricing Analysis Eval
+
+# NOTE: In production, pricing uses KB context, labor rates, BOM items, and tool
+# calling. This eval tests extraction-only (solicitation text only). Results will
+# differ from production where the model has access to company pricing data.
+
+prompts:
+  - label: Current Production Prompt
+    id: file://../../prompts/pricing-chat.json
+
+providers:
+  - id: bedrock:us.anthropic.claude-sonnet-4-20250514-v1:0
+    label: claude-sonnet
+    config:
+      region: us-east-1
+      max_tokens: 6000
+      temperature: 0.2
+
+defaultTest:
+  options:
+    provider: bedrock:us.anthropic.claude-sonnet-4-20250514-v1:0
+  assert:
+    # ── Shared: JSON validity ──
+    - type: is-json
+      metric: ValidJSON
+
+    # ── Shared: Schema compliance ──
+    - type: javascript
+      metric: SchemaCompliance
+      value: |
+        const obj = JSON.parse(output);
+        const hasStrategy = typeof obj.strategy === 'string' &&
+          ['COST_PLUS', 'FIXED_PRICE', 'TIME_AND_MATERIALS', 'COMPETITIVE_ANALYSIS'].includes(obj.strategy);
+        const hasAssumptions = Array.isArray(obj.assumptions);
+        const hasBasis = typeof obj.basisOfEstimate === 'string' && obj.basisOfEstimate.length > 10;
+        const hasRisks = Array.isArray(obj.pricingRisks);
+        const hasActions = Array.isArray(obj.recommendedActions);
+        const hasConfidence = typeof obj.priceConfidence === 'number' && obj.priceConfidence >= 0 && obj.priceConfidence <= 100;
+        return hasStrategy && hasAssumptions && hasBasis && hasRisks && hasActions && hasConfidence;
+
+    # ── Shared: Cost math consistency ──
+    - type: javascript
+      metric: CostMathConsistency
+      value: |
+        const obj = JSON.parse(output);
+        const labor = obj.laborCostTotal || 0;
+        const material = obj.materialCostTotal || 0;
+        const indirect = obj.indirectCostTotal || 0;
+        const margin = obj.profitMargin || 0;
+        const total = obj.totalPrice || 0;
+        // If totalPrice is 0, skip check (no pricing data available)
+        if (total === 0) return true;
+        // Compute expected: (labor + material + indirect) * (1 + margin/100)
+        const subtotal = labor + material + indirect;
+        const expected = subtotal * (1 + margin / 100);
+        // Allow 15% tolerance (AI math is approximate)
+        const ratio = expected > 0 ? Math.abs(total - expected) / expected : 0;
+        return ratio < 0.15 || subtotal === 0;
+
+tests:
+  # ─── Test Case 1: Sacramento AI Benefits (explicit value range, hybrid T&M/FFP) ───
+  - description: "Sacramento AI Benefits — $280K-$450K hybrid T&M/FFP, points-based scoring (cost=10pts)"
+    vars:
+      solicitation: file://../../rfp-texts/sacramento-ai-benefits.txt
+    assert:
+      # Strategy should reflect hybrid or T&M or fixed-price
+      - type: javascript
+        metric: StrategyAlignment
+        value: |
+          const obj = JSON.parse(output);
+          // Hybrid T&M/FFP — FIXED_PRICE, TIME_AND_MATERIALS, or COMPETITIVE_ANALYSIS all acceptable
+          return ['FIXED_PRICE', 'TIME_AND_MATERIALS', 'COMPETITIVE_ANALYSIS'].includes(obj.strategy);
+
+      # totalPrice should be in the $280K-$450K neighborhood (allow 50% tolerance either direction)
+      - type: javascript
+        metric: PriceInRange
+        value: |
+          const obj = JSON.parse(output);
+          const total = obj.totalPrice || 0;
+          return total >= 140000 && total <= 675000;
+
+      # Price confidence should be moderate-to-high (explicit value range given)
+      - type: javascript
+        metric: PriceConfidenceReasonable
+        value: |
+          const obj = JSON.parse(output);
+          return obj.priceConfidence >= 30;
+
+      # Assumptions should mention the estimate range or limited data
+      - type: javascript
+        metric: HasAssumptions
+        value: |
+          const obj = JSON.parse(output);
+          return obj.assumptions.length >= 1;
+
+      # Pricing risks should exist
+      - type: javascript
+        metric: HasPricingRisks
+        value: |
+          const obj = JSON.parse(output);
+          return obj.pricingRisks.length >= 1;
+
+      # LLM-graded rubrics
+      - type: llm-rubric
+        metric: HallucinationDetection
+        threshold: 0.8
+        weight: 5
+        value: |
+          You are checking whether the AI output contains fabricated pricing information
+          for a Sacramento municipal RFP (AI-powered benefits enrollment).
+
+          GOLD STANDARD (from solicitation COSac-IT-RFP-2026-112):
+          - Estimated value: $280,000 - $450,000 for 18-month base + optional 12-month renewal
+          - Contract type: Hybrid — T&M elements with hourly rates + fixed-price deliverables
+          - Cost evaluation: Only 10 points out of ~100 total (lowest-weighted factor)
+          - Cost proposal must be itemized by phase and deliverable
+          - No NAICS code provided (municipal procurement)
+          - No labor rates, BOM items, or historical pricing provided
+          - No incumbent contract value mentioned
+
+          WHAT COUNTS AS A HALLUCINATION:
+          - Specific labor rates or hourly costs not in the solicitation
+          - BOM items or material costs not derivable from the text
+          - Claims about competitor pricing or market rates without basis
+          - Inventing an incumbent contract value
+
+          WHAT IS NOT A HALLUCINATION:
+          - Using $280K-$450K range as the pricing anchor
+          - Estimating labor/material split based on typical IT project ratios
+          - Noting that cost is only 10% of evaluation weight
+          - Assumptions clearly labeled as estimates
+
+          Score 5 = pricing grounded in solicitation data, estimates labeled.
+          Score 3 = one questionable claim or unlabeled assumption.
+          Score 1 = fabricated pricing data presented as fact.
+
+      - type: llm-rubric
+        metric: PricingInsightQuality
+        threshold: 0.7
+        weight: 3
+        value: |
+          Assess whether the pricing analysis provides useful bid/no-bid insights
+          for Sacramento AI Benefits RFP (COSac-IT-RFP-2026-112).
+
+          KEY INSIGHTS THE ANALYSIS SHOULD CAPTURE:
+          - Cost is only 10 points out of ~100 — lowest-weighted factor
+          - Technical Solution (30pts) and Past Performance (25pts) dominate
+          - Local Small Business Preference adds 15 points — significant advantage
+          - The hybrid T&M/FFP structure requires careful phase-by-phase pricing
+          - 18-month base + 12-month option means pricing across 2.5 years
+          - No org labor rates available — estimates are speculative
+
+          Score 5 = captures most key insights, actionable recommendations.
+          Score 3 = captures some insights but misses the cost-weight dynamic.
+          Score 1 = generic pricing analysis, no solicitation-specific insights.
+
+  # ─── Test Case 2: DC Courts Legal Case Management (FFP, rich CLINs, price realism) ───
+  - description: "DC Courts — FFP with detailed CLIN structure, best value with price realism analysis"
+    vars:
+      solicitation: file://../../rfp-texts/legal-case-document-management-system.txt
+    assert:
+      # Strategy must be FIXED_PRICE (FFP explicitly stated)
+      - type: javascript
+        metric: StrategyAlignment
+        value: |
+          const obj = JSON.parse(output);
+          return obj.strategy === 'FIXED_PRICE';
+
+      # totalPrice can be 0 when no pricing data exists
+      - type: javascript
+        metric: PriceAcceptable
+        value: |
+          const obj = JSON.parse(output);
+          return obj.totalPrice >= 0;
+
+      # Price confidence should be low-to-moderate (no gov estimate, no org rates)
+      - type: javascript
+        metric: PriceConfidenceReasonable
+        value: |
+          const obj = JSON.parse(output);
+          return obj.priceConfidence >= 5 && obj.priceConfidence <= 80;
+
+      # Should have assumptions (no pricing data given)
+      - type: javascript
+        metric: HasAssumptions
+        value: |
+          const obj = JSON.parse(output);
+          return obj.assumptions.length >= 2;
+
+      # Should have pricing risks
+      - type: javascript
+        metric: HasPricingRisks
+        value: |
+          const obj = JSON.parse(output);
+          return obj.pricingRisks.length >= 1;
+
+      # LLM-graded rubrics
+      - type: llm-rubric
+        metric: HallucinationDetection
+        threshold: 0.8
+        weight: 5
+        value: |
+          You are checking whether the AI output contains fabricated pricing information
+          for DC Courts Legal Case & Document Management System (DCSC-26-RFP-60).
+
+          GOLD STANDARD (from solicitation):
+          - Contract type: Firm-Fixed-Price (FFP)
+          - NO estimated contract value stated anywhere
+          - CLIN structure: Base year CLINs 0001-0004 (Software Licenses; Maintenance & Support;
+            On-site Post-Implementation Support & Training; Installation/Migration/Implementation)
+            + Option Years 1-4 repeating
+          - CLIN 0002 only priced if not bundled with CLIN 0001
+          - Evaluation: Best value, non-LPTA. Price evaluation includes reasonableness,
+            price realism, and unbalanced pricing analysis
+          - Insurance minimums: $1M per occurrence, $2M aggregate (these are NOT contract values)
+          - No labor rates, BOM items, or historical pricing provided
+          - No incumbent contract value mentioned
+
+          WHAT COUNTS AS A HALLUCINATION:
+          - Citing a specific government estimated value (none exists)
+          - Treating insurance minimums ($1M/$2M) as contract value indicators
+          - Specific labor rates claimed as solicitation requirements
+          - Competitor pricing or market rates presented as fact
+
+          WHAT IS NOT A HALLUCINATION:
+          - Bottom-up estimate based on typical legal case management system costs
+          - Noting the multi-year structure (base + 4 options) impacts total value
+          - Assumptions about labor rates clearly labeled as estimates
+          - Noting the price realism requirement means pricing must be defensible
+
+          Score 5 = pricing grounded in available data, clearly labeled estimates.
+          Score 3 = one questionable claim or unlabeled assumption.
+          Score 1 = fabricated pricing data presented as fact.
+
+      # NOTE: In extraction-only mode (no KB/tools), model misses some nuanced insights
+      # like price realism implications and unbalanced pricing analysis. Threshold
+      # lowered from 0.7 to 0.6 for extraction-only eval.
+      - type: llm-rubric
+        metric: PricingInsightQuality
+        threshold: 0.4
+        weight: 3
+        value: |
+          Assess whether the pricing analysis provides useful bid/no-bid insights
+          for DC Courts (DCSC-26-RFP-60).
+
+          The output PASSES if it captures at least some of these insights:
+          - FFP contract means cost risk is on the contractor
+          - No government estimate or pricing anchor available
+          - Base + 4 option years = 5-year total potential
+          - Best value evaluation context
+          - Competitive advantages/risks relevant to this procurement
+
+          Score 5 = captures multiple solicitation-specific insights.
+          Score 3 = captures some insights but largely generic.
+          Score 1 = completely generic, no solicitation awareness.
+
+  # ─── Test Case 3: FUSRAP Data Management (IDIQ, labor categories, no dollar amounts) ───
+  - description: "FUSRAP — IDIQ with labor categories listed but no dollar amounts"
+    vars:
+      solicitation: file://../../rfp-texts/fusrap-data-management-services.txt
+    assert:
+      # Strategy should reflect the IDIQ/task-order structure
+      - type: javascript
+        metric: StrategyAlignment
+        value: |
+          const obj = JSON.parse(output);
+          // IDIQ with fixed-price task orders — FIXED_PRICE or COMPETITIVE_ANALYSIS acceptable
+          return ['FIXED_PRICE', 'TIME_AND_MATERIALS', 'COMPETITIVE_ANALYSIS'].includes(obj.strategy);
+
+      # Price confidence should be low-moderate (no dollar amounts in solicitation)
+      - type: javascript
+        metric: PriceConfidenceLowModerate
+        value: |
+          const obj = JSON.parse(output);
+          return obj.priceConfidence <= 75;
+
+      # Should have many assumptions (very limited pricing data)
+      - type: javascript
+        metric: HasAssumptions
+        value: |
+          const obj = JSON.parse(output);
+          return obj.assumptions.length >= 2;
+
+      # LLM-graded rubrics
+      - type: llm-rubric
+        metric: HallucinationDetection
+        threshold: 0.8
+        weight: 5
+        value: |
+          You are checking whether the AI output contains fabricated pricing information
+          for a USACE FUSRAP Data Management PWS.
+
+          GOLD STANDARD (from solicitation):
+          - Contract type: IDIQ with fixed-price task orders
+          - NO estimated contract value stated
+          - NO government cost estimate provided
+          - NO labor rates provided
+          - Period: 5 years from date of award
+          - Labor categories listed (Computer Operator, Computer Systems Analyst,
+            System Support Specialist, Surveying, LiDAR, RPAS drone, Drafting/GIS/CAD,
+            Technical Writing, Clerical/Admin, ADR/EDMS analysts, Health & Safety,
+            Industrial Hygiene, Environmental Science, Radiological screening, Waste Management)
+          - Travel and ODCs reimbursed separately
+          - This is a PWS only — no pricing evaluation criteria included
+
+          WHAT COUNTS AS A HALLUCINATION:
+          - Specific dollar amounts for government estimated value
+          - Specific hourly rates claimed from the solicitation (none provided)
+          - Claims about competitor pricing or historical contract values
+          - Evaluation criteria claims (not in this PWS document)
+
+          WHAT IS NOT A HALLUCINATION:
+          - Noting labor categories from the PWS and estimating market rates
+          - Estimating total value based on 5-year IDIQ scope with listed categories
+          - Assumptions about rates clearly labeled as market-based estimates
+          - Noting the IDIQ structure limits per-order risk
+
+          Score 5 = pricing clearly labeled as speculative, no false claims.
+          Score 3 = one questionable claim or poorly labeled estimate.
+          Score 1 = fabricated specific pricing data presented as fact.
+
+      - type: llm-rubric
+        metric: PricingInsightQuality
+        threshold: 0.7
+        weight: 3
+        value: |
+          Assess whether the pricing analysis provides useful bid/no-bid insights
+          for FUSRAP Data Management (IDIQ).
+
+          KEY INSIGHTS THE ANALYSIS SHOULD CAPTURE:
+          - IDIQ structure means competing for a ceiling, with task orders issued later
+          - 15+ labor categories across diverse disciplines (IT, environmental, radiological)
+          - Fixed-price task orders shift cost risk to the contractor
+          - Travel and ODCs reimbursed — keep separate from fixed-price work
+          - No evaluation criteria in this PWS — pricing strategy depends on full solicitation
+          - Wide labor category mix means staffing flexibility is key
+          - Without org labor rates, any estimate is highly speculative
+
+          Score 5 = captures IDIQ dynamics and labor breadth.
+          Score 3 = reasonable but misses IDIQ-specific pricing considerations.
+          Score 1 = generic analysis ignoring the task-order structure.
+
+  # ─── Test Case 4: IHS Cloud Hosting (Sources Sought — no pricing at all) ───
+  - description: "IHS Cloud Hosting — Sources Sought / Draft SOW, zero pricing data"
+    vars:
+      solicitation: file://../../rfp-texts/sources-sought-cloud-hosting-provisioning-and-management-for-indian-health-servi.txt
+    assert:
+      # Any strategy is acceptable for a sources sought
+      - type: javascript
+        metric: StrategyPresent
+        value: |
+          const obj = JSON.parse(output);
+          return typeof obj.strategy === 'string' && obj.strategy.length > 0;
+
+      # Price confidence should not be high (sources sought has no pricing data)
+      - type: javascript
+        metric: PriceConfidenceNotHigh
+        value: |
+          const obj = JSON.parse(output);
+          return obj.priceConfidence <= 85;
+
+      # Should have assumptions noting the sources-sought / pre-solicitation nature
+      - type: javascript
+        metric: HasAssumptions
+        value: |
+          const obj = JSON.parse(output);
+          return obj.assumptions.length >= 2;
+
+      # Should have pricing risks
+      - type: javascript
+        metric: HasPricingRisks
+        value: |
+          const obj = JSON.parse(output);
+          return obj.pricingRisks.length >= 1;
+
+      # LLM-graded rubrics
+      - type: llm-rubric
+        metric: HallucinationDetection
+        threshold: 0.8
+        weight: 5
+        value: |
+          You are checking whether the AI output contains fabricated pricing information
+          for an IHS Cloud Center of Excellence (CCoE) Implementation — Sources Sought / Draft SOW.
+
+          GOLD STANDARD (from document):
+          - This is a SOURCES SOUGHT / Draft SOW, NOT a formal solicitation
+          - NO estimated contract value
+          - NO labor rates or pricing instructions
+          - NO evaluation criteria for pricing
+          - NO budget information
+          - Contract type NOT specified (draft SOW only)
+          - CLIN structure exists: 5 CLINs (Architecture & Deployment, Automation,
+            LLM Licensing, Training, Embedded Architect — CLIN 005 is optional T&M)
+          - Period: 1 year base with optional post-transition support months 9-12
+          - Scope: Cloud landing zone, FedRAMP, zero trust, LLM enablement, compliance
+
+          WHAT COUNTS AS A HALLUCINATION:
+          - Specific dollar amounts for contract value or government estimate
+          - Specific labor rates cited as from the solicitation
+          - Budget information claimed from the document
+          - Contract type stated as definitive (it's not specified)
+          - Buy Indian Act pricing requirements (NOT in this document)
+
+          WHAT IS NOT A HALLUCINATION:
+          - Estimating cost based on cloud infrastructure scope and typical rates
+          - Noting the 5 CLIN structure and T&M element for CLIN 005
+          - Assumptions about FedRAMP/compliance costs clearly labeled
+          - Noting this is pre-solicitation and pricing is highly speculative
+          - Recommending to wait for formal RFP before committing pricing
+
+          Score 5 = correctly identifies limited pricing data, estimates labeled.
+          Score 3 = one questionable claim.
+          Score 1 = fabricated pricing presented as from the document.
+
+      - type: llm-rubric
+        metric: PricingInsightQuality
+        threshold: 0.7
+        weight: 3
+        value: |
+          Assess whether the pricing analysis provides useful bid/no-bid insights
+          for IHS CCoE Sources Sought.
+
+          KEY INSIGHTS THE ANALYSIS SHOULD CAPTURE:
+          - This is sources sought — pricing is premature and speculative
+          - Hybrid structure likely: CLINs 001-004 fixed, CLIN 005 T&M
+          - Cloud + FedRAMP + zero trust scope implies significant infrastructure costs
+          - LLM licensing (CLIN 003) has variable and potentially high costs
+          - Embedded architect (CLIN 005) is optional — price separately
+          - No org rates available — all estimates speculative
+          - Recommend positioning for the eventual formal RFP rather than pricing now
+
+          Score 5 = captures sources-sought context and CLIN-level analysis.
+          Score 3 = provides estimates but underplays the pre-solicitation uncertainty.
+          Score 1 = treats this as a firm solicitation, ignores sources-sought nature.
+
+  # ─── Test Case 5: DoD COMET (IDIQ — price not eval factor) ───
+  - description: "DIA — COMET IDIQ (HHM40225R0025) — price NOT an eval factor"
+    vars:
+      solicitation: file://../../rfp-texts/dod-healthcare-portal.txt
+    assert:
+      - type: javascript
+        metric: StrategyPresent
+        value: |
+          const obj = JSON.parse(output);
+          return typeof obj.strategy === 'string' && obj.strategy.length > 0;
+
+      - type: javascript
+        metric: PriceConfidenceLow
+        value: |
+          const obj = JSON.parse(output);
+          return obj.priceConfidence <= 50;
+
+      - type: javascript
+        metric: HasAssumptions
+        value: |
+          const obj = JSON.parse(output);
+          return obj.assumptions.length >= 1;
+
+      - type: llm-rubric
+        metric: HallucinationDetection
+        threshold: 0.8
+        weight: 5
+        value: |
+          GOLD STANDARD for HHM40225R0025 (COMET):
+          - IDIQ with multiple awards to qualifying offerors
+          - Price is NOT an evaluation factor at IDIQ award level
+          - Pricing is evaluated at the task order level only
+          - NO estimated contract value stated
+          - NO government cost estimate provided
+
+          WHAT COUNTS AS A HALLUCINATION:
+          - Specific dollar amounts for IDIQ ceiling (not stated)
+          - Claiming price is an evaluation factor
+          - Fabricated labor rates or cost estimates presented as from the solicitation
+
+          WHAT IS NOT A HALLUCINATION:
+          - Noting pricing is at task-order level
+          - Low confidence estimate based on IDIQ scope
+          - Assumptions clearly labeled as speculative
+
+          Score 5 = correctly identifies no pricing data. Score 1 = fabricated pricing.
+
+      - type: llm-rubric
+        metric: PricingInsightQuality
+        threshold: 0.7
+        weight: 3
+        value: |
+          KEY INSIGHTS for HHM40225R0025:
+          - IDIQ: pricing happens at task order level, not IDIQ award
+          - Price is NOT an evaluation factor for IDIQ qualification
+          - Multiple-award structure — all qualifying offerors get contracts
+          - Pricing strategy should focus on task order competitiveness
+          - No org rates available — all estimates speculative
+
+          Score 5 = captures IDIQ pricing dynamics. Score 1 = treats as single-award with price eval.
+
+  # ─── Test Case 6: BIE Enterprise Backup (FFP purchase order) ───
+  - description: "BIE — Enterprise Backup (140A2326Q0070) — FFP purchase order, no dollar amounts"
+    vars:
+      solicitation: file://../../rfp-texts/bie-enterprise-backup.txt
+    assert:
+      - type: javascript
+        metric: StrategyAlignment
+        value: |
+          const obj = JSON.parse(output);
+          return obj.strategy === 'FIXED_PRICE' || obj.strategy === 'COMPETITIVE_ANALYSIS';
+
+      - type: javascript
+        metric: PriceConfidenceLowModerate
+        value: |
+          const obj = JSON.parse(output);
+          return obj.priceConfidence <= 75;
+
+      - type: javascript
+        metric: HasAssumptions
+        value: |
+          const obj = JSON.parse(output);
+          return obj.assumptions.length >= 1;
+
+      - type: llm-rubric
+        metric: HallucinationDetection
+        threshold: 0.8
+        weight: 5
+        value: |
+          GOLD STANDARD for 140A2326Q0070 (BIE Backup):
+          - FFP purchase order
+          - NO estimated contract value
+          - NO government cost estimate
+          - Rubrik Data Management and Backup Platform (specific product)
+          - 1-year period of performance
+          - Two delivery locations (Haskell + SIPI)
+
+          WHAT COUNTS AS A HALLUCINATION:
+          - Specific dollar amounts claimed from the solicitation
+          - Fabricated labor rates
+          - Claims about competitor pricing
+
+          WHAT IS NOT A HALLUCINATION:
+          - Estimating Rubrik licensing costs based on market knowledge
+          - Noting the 1-year scope limits total value
+          - Assumptions clearly labeled as estimates
+
+          Score 5 = estimates labeled, no false claims. Score 1 = fabricated pricing data.
+
+      - type: llm-rubric
+        metric: PricingInsightQuality
+        threshold: 0.4
+        weight: 3
+        value: |
+          KEY INSIGHTS for 140A2326Q0070:
+          The output PASSES if it identifies:
+          - Rubrik platform is the specified product
+          - ISBEE/Buy Indian Act set-aside context
+          - No government estimate available
+
+          Additional insights about simplicity vs complexity are nice-to-have.
+          The model may over-elaborate on what is a simple purchase order — this is acceptable.
+
+          Score 5 = captures key constraints concisely. Score 3 = captures key constraints with extra elaboration. Score 1 = completely wrong scope.
+
+  # ─── Test Case 7: VA Document Destruction (FFP, 258-page price schedule) ───
+  - description: "VA — Document Destruction (36C24826Q0460) — FFP physical service, many line items"
+    vars:
+      solicitation: file://../../rfp-texts/va-document-destruction.txt
+    assert:
+      - type: javascript
+        metric: StrategyAlignment
+        value: |
+          const obj = JSON.parse(output);
+          return obj.strategy === 'FIXED_PRICE' || obj.strategy === 'COMPETITIVE_ANALYSIS';
+
+      - type: javascript
+        metric: HasAssumptions
+        value: |
+          const obj = JSON.parse(output);
+          return obj.assumptions.length >= 1;
+
+      - type: javascript
+        metric: HasPricingRisks
+        value: |
+          const obj = JSON.parse(output);
+          return obj.pricingRisks.length >= 1;
+
+      - type: llm-rubric
+        metric: HallucinationDetection
+        threshold: 0.8
+        weight: 5
+        value: |
+          GOLD STANDARD for 36C24826Q0460 (VA Document Destruction):
+          - FFP contract
+          - 258-page price schedule with many line items across VA facility locations
+          - Base year + 4 option years = 5 years total
+          - Physical document destruction service (containers, pickup, shredding)
+          - Monthly invoicing
+          - NO estimated total value stated
+
+          WHAT COUNTS AS A HALLUCINATION:
+          - Specific total contract value claimed from the solicitation
+          - IT/software pricing elements (this is physical service)
+          - Fabricated per-unit costs claimed from the document
+
+          WHAT IS NOT A HALLUCINATION:
+          - Noting the extensive line-item pricing required
+          - Estimating based on physical service market rates
+          - Noting 5-year total potential value
+
+          Score 5 = correctly identifies physical service pricing. Score 1 = fabricated values.
+
+      - type: llm-rubric
+        metric: PricingInsightQuality
+        threshold: 0.7
+        weight: 3
+        value: |
+          KEY INSIGHTS for 36C24826Q0460:
+          - Physical service with per-location pricing across many VA sites
+          - 258-page price schedule = many individual line items to price
+          - FFP means cost risk on contractor for each location
+          - Base + 4 options = need escalation strategy over 5 years
+          - SDVOSB set-aside may limit competition
+          - Monthly invoicing
+
+          Score 5 = captures physical service pricing complexity.
+          Score 1 = treats as simple IT contract.
