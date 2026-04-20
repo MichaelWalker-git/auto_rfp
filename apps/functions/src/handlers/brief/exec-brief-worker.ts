@@ -196,7 +196,7 @@ async function runSummary(job: Job): Promise<void> {
         ),
         outputSchema: SanitizedQuickSummarySchema,
         maxTokens: 1200,
-        temperature: 0.2,
+        temperature: 0.1,
       });
     } catch (primaryErr) {
       // ── Comprehensive error logging for ZodError ──
@@ -235,10 +235,11 @@ async function runSummary(job: Job): Promise<void> {
         });
 
         console.warn('[SUMMARY] Fallback schema succeeded — missing optional fields will use defaults');
+        const sanitizedFallback = sanitizeSummaryResponse(fallbackData) as Record<string, unknown>;
         data = {
-          ...fallbackData,
-          contractType: (fallbackData as Record<string, unknown>).contractType ?? undefined,
-          setAside: (fallbackData as Record<string, unknown>).setAside ?? undefined,
+          ...sanitizedFallback,
+          contractType: sanitizedFallback.contractType ?? 'UNKNOWN',
+          setAside: sanitizedFallback.setAside ?? 'UNKNOWN',
         };
       } catch (fallbackErr) {
         console.error('[SUMMARY] Fallback also failed:', (fallbackErr as Error)?.message);
