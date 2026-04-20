@@ -73,29 +73,34 @@ export const baseHandler = async (
       return apiResponse(400, { message: 'projectId, opportunityId, and name are required' });
     }
 
-    const documentType = data.documentType ?? 'OTHER';
-    const isContentBased = CONTENT_BASED_DOCUMENT_TYPES.has(documentType);
+  const documentType = data.documentType ?? 'OTHER';
+  const isContentBased = CONTENT_BASED_DOCUMENT_TYPES.has(documentType);
 
-    // For content-based documents (e.g., PROPOSAL), mimeType and file upload are not required
-    if (!isContentBased) {
-      if (!data.mimeType) {
-        return apiResponse(400, { message: 'mimeType is required for file-based documents' });
-      }
-      if (!ALLOWED_MIME_TYPES.has(data.mimeType)) {
-        return apiResponse(400, { message: `Unsupported file type: ${data.mimeType}` });
-      }
-      if (data.fileSizeBytes > MAX_FILE_SIZE_BYTES) {
-        return apiResponse(400, { message: `File too large. Maximum: ${MAX_FILE_SIZE_BYTES} bytes` });
-      }
+  // Determine if this is a file upload request based on whether mimeType is provided
+  // This allows file uploads even for content-based document types (e.g., uploading a PDF for TECHNICAL_PROPOSAL)
+  const isFileUpload = !!data.mimeType && data.fileSizeBytes > 0;
+
+  // Validate file upload parameters if a file is being uploaded
+  if (isFileUpload) {
+    if (!ALLOWED_MIME_TYPES.has(data.mimeType)) {
+      return apiResponse(400, { message: `Unsupported file type: ${data.mimeType}` });
     }
+    if (data.fileSizeBytes > MAX_FILE_SIZE_BYTES) {
+      return apiResponse(400, { message: `File too large. Maximum: ${MAX_FILE_SIZE_BYTES} bytes` });
+    }
+  } else if (!isContentBased) {
+    // Non-content-based documents require a file upload
+    return apiResponse(400, { message: 'mimeType and fileSizeBytes are required for file-based documents' });
+  }
 
-    const documentId = uuidv4();
-    const now = new Date().toISOString();
+  const documentId = uuidv4();
+  const now = new Date().toISOString();
 
-    let fileKey: string | null = null;
-    let uploadUrl: string | null = null;
+  let fileKey: string | null = null;
+  let uploadUrl: string | null = null;
 
-    if (!isContentBased) {
+  // Generate presigned URL if this is a file upload
+  if (isFileUpload) {
       fileKey = buildRFPDocumentS3Key({
         orgId,
         projectId: data.projectId,
@@ -157,8 +162,8 @@ export const baseHandler = async (
       document: item,
     };
 
-    // Only include upload info for file-based documents
-    if (!isContentBased && uploadUrl && fileKey) {
+    // Include upload info when a file is being uploaded (regardless of document type)
+    if (isFileUpload && uploadUrl && fileKey) {
       response.upload = {
         url: uploadUrl,
         method: 'PUT',

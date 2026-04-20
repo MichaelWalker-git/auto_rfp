@@ -481,6 +481,7 @@ export const confirmDraftPastProject = async (
       setAside: finalDraft.setAside || undefined,
       teamSize: finalDraft.teamSize || undefined,
       durationMonths: finalDraft.durationMonths || undefined,
+      extractionSource: finalDraft.extractionSource || undefined,
     },
     userId
   );
@@ -517,6 +518,10 @@ export const confirmDraftLaborRate = async (
     expirationDate: finalDraft.expirationDate,
     isActive: true,
     rateJustification: finalDraft.rateSource,
+    extractionSource: finalDraft.extractionSource ? {
+      ...finalDraft.extractionSource,
+      sourceChunkKeys: [],
+    } : undefined,
     createdAt: now,
     updatedAt: now,
     createdBy: userId,
@@ -556,6 +561,10 @@ export const confirmDraftBOMItem = async (
     vendor: finalDraft.vendor,
     partNumber: finalDraft.partNumber,
     isActive: true,
+    extractionSource: finalDraft.extractionSource ? {
+      ...finalDraft.extractionSource,
+      sourceChunkKeys: [],
+    } : undefined,
     createdAt: now,
     updatedAt: now,
     createdBy: userId,

@@ -17,7 +17,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { useToast } from '@/components/ui/use-toast';
 import { Plus, Trash2, DollarSign, CalendarIcon, Upload, Pencil } from 'lucide-react';
 import { mutate } from 'swr';
-import { ExtractionUploadDialog } from '@/components/extraction';
+import { ExtractionUploadDialog, ExtractionSourceBadge } from '@/components/extraction';
 import { PendingDraftsSection } from './PendingDraftsSection';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
@@ -225,7 +225,12 @@ export const LaborRateManager = ({ orgId }: LaborRateManagerProps) => {
             <tbody>
               {laborRates.map((rate) => (
                 <tr key={rate.laborRateId} className="border-t hover:bg-muted/25">
-                  <td className="p-3 font-medium">{rate.position}</td>
+                  <td className="p-3 font-medium">
+                    <div className="flex items-center gap-2">
+                      {rate.position}
+                      <ExtractionSourceBadge extractionSource={rate.extractionSource} orgId={orgId} />
+                    </div>
+                  </td>
                   <td className="p-3 text-right">${rate.baseRate.toFixed(2)}</td>
                   <td className="p-3 text-right">{rate.overhead}%</td>
                   <td className="p-3 text-right">{rate.ga}%</td>
@@ -249,6 +254,11 @@ export const LaborRateManager = ({ orgId }: LaborRateManagerProps) => {
       <Dialog open={!!editingRate} onOpenChange={(open) => !open && setEditingRate(null)}>
         <DialogContent className="max-w-lg">
           <DialogHeader><DialogTitle>Edit Labor Rate</DialogTitle></DialogHeader>
+          {editingRate?.extractionSource && (
+            <div className="mb-4 p-3 bg-muted rounded-lg">
+              <ExtractionSourceBadge extractionSource={editingRate.extractionSource} orgId={orgId} compact={false} />
+            </div>
+          )}
           <form onSubmit={editForm.handleSubmit(onEditSubmit)} className="space-y-4">
             <div><label className="text-sm font-medium">Position Title</label><Input {...editForm.register('position')} /></div>
             <div className="grid grid-cols-2 gap-4">

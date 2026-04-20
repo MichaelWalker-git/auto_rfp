@@ -9,6 +9,24 @@ import { FreshnessStatusSchema, StaleReasonSchema } from './content-library';
  */
 
 // ================================
+// Extraction Source (needed before PastProjectSchema)
+// ================================
+
+export const ExtractionSourceSchema = z.object({
+  sourceType: z.enum(['DIRECT_UPLOAD', 'KB_EXTRACTION']),
+  sourceDocumentKey: z.string().optional(),
+  sourceDocumentName: z.string().optional(),
+  sourceKbId: z.string().uuid().optional(),
+  sourceDocumentId: z.string().uuid().optional(),
+  sourceChunkKeys: z.array(z.string()).optional().default([]),
+  extractionJobId: z.string().uuid().optional(),
+  extractedAt: z.string().datetime(),
+  extractedBy: z.string().uuid(),
+});
+
+export type ExtractionSource = z.infer<typeof ExtractionSourceSchema>;
+
+// ================================
 // Contact Information
 // ================================
 
@@ -70,6 +88,9 @@ export const PastProjectSchema = z.object({
   updatedAt: z.string().datetime(),
   createdBy: z.string().uuid(),
   isArchived: z.boolean().default(false),
+
+  // Extraction source (preserved when created from AI extraction)
+  extractionSource: ExtractionSourceSchema.optional().nullable(),
 });
 
 export type PastProject = z.infer<typeof PastProjectSchema>;
@@ -193,6 +214,8 @@ export const CreatePastProjectDTOSchema = z.object({
   setAside: z.string().optional(),
   teamSize: z.number().int().positive().optional(),
   durationMonths: z.number().int().positive().optional(),
+  // Optional extraction source for items created from document extraction
+  extractionSource: ExtractionSourceSchema.optional(),
 });
 
 export type CreatePastProjectDTO = z.infer<typeof CreatePastProjectDTOSchema>;
@@ -346,20 +369,6 @@ export const DraftStatusSchema = z.enum([
 ]);
 
 export type DraftStatus = z.infer<typeof DraftStatusSchema>;
-
-export const ExtractionSourceSchema = z.object({
-  sourceType: z.enum(['DIRECT_UPLOAD', 'KB_EXTRACTION']),
-  sourceDocumentKey: z.string().optional(),
-  sourceDocumentName: z.string().optional(),
-  sourceKbId: z.string().uuid().optional(),
-  sourceDocumentId: z.string().uuid().optional(),
-  sourceChunkKeys: z.array(z.string()).default([]),
-  extractionJobId: z.string().uuid().optional(),
-  extractedAt: z.string().datetime(),
-  extractedBy: z.string().uuid(),
-});
-
-export type ExtractionSource = z.infer<typeof ExtractionSourceSchema>;
 
 export const PastProjectFieldConfidenceSchema = z.object({
   title: z.number().min(0).max(100).optional(),

@@ -15,7 +15,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Plus, Trash2, Package, Upload } from 'lucide-react';
 import { mutate } from 'swr';
 import { usePermission } from '@/components/permission-wrapper';
-import { ExtractionUploadDialog } from '@/components/extraction';
+import { ExtractionUploadDialog, ExtractionSourceBadge, type AnyDraft } from '@/components/extraction';
 import { PendingDraftsSection } from './PendingDraftsSection';
 import { cn } from '@/lib/utils';
 
@@ -65,7 +65,8 @@ export const BOMCalculator = ({ orgId }: BOMCalculatorProps) => {
 
   const onSubmit = async (formData: BOMFormData) => {
     try {
-      await createItem({ ...formData, orgId, isActive: formData.isActive ?? true });
+      const validated = CreateBOMItemSchema.parse({ ...formData, orgId });
+      await createItem(validated);
       reset();
       setShowForm(false);
       mutate((key: string) => typeof key === 'string' && key.includes('/bom-items'));
@@ -141,8 +142,8 @@ export const BOMCalculator = ({ orgId }: BOMCalculatorProps) => {
               </div>
               <div>
                 <label className="text-sm font-medium">Category</label>
-                <select {...register('category')} className="w-full rounded-md border px-3 py-2 text-sm">
-                  {BOM_CATEGORIES.map((cat) => <option key={cat} value={cat}>{categoryLabels[cat]}</option>)}
+                <select {...register('category')} className="w-full rounded-md border border-input bg-background text-foreground px-3 py-2 text-sm">
+                  {BOM_CATEGORIES.map((cat) => <option key={cat} value={cat} className="bg-background text-foreground">{categoryLabels[cat]}</option>)}
                 </select>
               </div>
               <div>
@@ -199,7 +200,12 @@ export const BOMCalculator = ({ orgId }: BOMCalculatorProps) => {
               <tbody>
                 {bomItems.map((item) => (
                   <tr key={item.bomItemId} className="border-t hover:bg-muted/25">
-                    <td className="p-3 font-medium">{item.name}</td>
+                    <td className="p-3 font-medium">
+                      <div className="flex items-center gap-2">
+                        {item.name}
+                        <ExtractionSourceBadge extractionSource={item.extractionSource} orgId={orgId} />
+                      </div>
+                    </td>
                     <td className="p-3"><Badge className={categoryColors[item.category] || ''} variant="outline">{categoryLabels[item.category]}</Badge></td>
                     <td className="p-3 text-right font-semibold">${item.unitCost.toFixed(2)}</td>
                     <td className="p-3">{item.unit}</td>

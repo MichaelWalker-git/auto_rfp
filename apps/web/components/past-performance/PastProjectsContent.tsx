@@ -19,7 +19,7 @@ import {
 import { useListPastProjects, useDeletePastProject } from '@/lib/hooks/use-past-performance';
 import { useDrafts } from '@/lib/hooks/use-extraction';
 import { DeleteProjectDialog } from './DeleteProjectDialog';
-import { ExtractionUploadDialog } from '@/components/extraction';
+import { ExtractionUploadDialog, ExtractionSourceBadge } from '@/components/extraction';
 import { PendingDraftsSection } from '@/components/pricing/PendingDraftsSection';
 import { useToast } from '@/components/ui/use-toast';
 import { ListingPageLayout } from '@/components/layout/ListingPageLayout';
@@ -126,6 +126,8 @@ export function PastProjectsContent({ orgId }: PastProjectsContentProps) {
                 {project.setAside}
               </Badge>
             )}
+            {/* Show source document badge for extracted items */}
+            <ExtractionSourceBadge extractionSource={project.extractionSource} orgId={orgId} />
           </div>
 
           <div className="mt-1 flex items-center gap-2 text-xs text-muted-foreground">
