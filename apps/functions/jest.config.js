@@ -30,6 +30,7 @@ export default {
   testMatch: ['**/*.test.ts'],
   testPathIgnorePatterns: ['/node_modules/', '/dist/'],
   moduleFileExtensions: ['ts', 'js', 'json'],
+  moduleDirectories: ['node_modules', '../../node_modules'],
   transformIgnorePatterns: [
     'node_modules/(?!(@auto-rfp)/)',
   ],
