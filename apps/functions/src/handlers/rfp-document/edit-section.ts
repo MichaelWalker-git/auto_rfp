@@ -200,17 +200,32 @@ export const baseHandler = async (
     //    so we budget ~8s for context, ~18s for Bedrock, ~3s for overhead.
     //    If gatherAllContext is slow, we proceed with whatever we have — tools can fill gaps.
     const CONTEXT_TIMEOUT_MS = 8_000;
-    const withTimeout = <T,>(p: Promise<T>, fallback: T): Promise<T> =>
-      Promise.race([p, new Promise<T>((resolve) => setTimeout(() => resolve(fallback), CONTEXT_TIMEOUT_MS))]);
+    const withTimeout = <T,>(p: Promise<T>, fallback: T): Promise<T> => {
+      let timer: ReturnType<typeof setTimeout> | undefined;
+      const timeoutPromise = new Promise<T>((resolve) => {
+        timer = setTimeout(() => resolve(fallback), CONTEXT_TIMEOUT_MS);
+        timer.unref?.();
+      });
+      return Promise.race([p, timeoutPromise]).finally(() => {
+        if (timer) clearTimeout(timer);
+      });
+    };
+
+    // Load solicitation first so gatherAllContext can use it for KB/past-perf searches
+    const solicitationPromise = withTimeout(
+      loadSolicitation(projectId, opportunityId).catch(() => ''), '',
+    );
 
     const [qaPairs, solicitation, enrichedContext] = await Promise.all([
       withTimeout(loadQaPairs(projectId, opportunityId).catch(() => [] as QaPair[]), [] as QaPair[]),
-      withTimeout(loadSolicitation(projectId, opportunityId).catch(() => ''), ''),
+      solicitationPromise,
       withTimeout(
-        gatherAllContext({
-          projectId, orgId, opportunityId, solicitation: '',
-          documentType: doc.documentType ?? 'TECHNICAL_PROPOSAL',
-        }).catch(() => ''),
+        solicitationPromise.then((loadedSolicitation) =>
+          gatherAllContext({
+            projectId, orgId, opportunityId, solicitation: loadedSolicitation,
+            documentType: doc.documentType ?? 'TECHNICAL_PROPOSAL',
+          }),
+        ).catch(() => ''),
         '',
       ),
     ]);
