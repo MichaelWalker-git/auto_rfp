@@ -88,8 +88,8 @@ export const baseHandler = async (
     if (!hasFileMimeType || !data.mimeType) {
       return apiResponse(400, { message: 'mimeType is required when fileSizeBytes is provided' });
     }
-    if (!hasFileSizeBytes || typeof data.fileSizeBytes !== 'number' || data.fileSizeBytes <= 0) {
-      return apiResponse(400, { message: 'fileSizeBytes must be a positive number when mimeType is provided' });
+    if (!hasFileSizeBytes || !Number.isFinite(data.fileSizeBytes) || data.fileSizeBytes <= 0) {
+      return apiResponse(400, { message: 'fileSizeBytes must be a finite positive number when mimeType is provided' });
     }
     if (!ALLOWED_MIME_TYPES.has(data.mimeType)) {
       return apiResponse(400, { message: `Unsupported file type: ${data.mimeType}` });
