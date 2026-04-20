@@ -56,6 +56,7 @@ import { apnDomain } from './routes/apn.routes';
 import { proposalSubmissionDomain } from './routes/proposal-submission.routes';
 import { documentApprovalDomain } from './routes/document-approval.routes';
 import { pricingDomain } from './routes/pricing.routes';
+import { extractionDomain } from './routes/extraction.routes';
 
 export interface ApiOrchestratorStackProps extends cdk.StackProps {
   stage: string;
@@ -67,6 +68,7 @@ export interface ApiOrchestratorStackProps extends cdk.StackProps {
   googleDriveSyncQueue?: sqs.IQueue;
   documentGenerationQueue?: sqs.IQueue;
   clarifyingQuestionQueue?: sqs.IQueue;
+  extractionQueue?: sqs.IQueue;
   notificationQueueName?: string;
   auditLogQueueName?: string;
   documentPipelineStateMachineArn: string;
@@ -513,6 +515,48 @@ export class ApiOrchestratorStack extends cdk.Stack {
       documentGenerationQueue.grantConsumeMessages(docGenWorker);
     }
 
+    // Extraction worker — processes async past performance/pricing extraction
+    const extractionQueue = props.extractionQueue;
+    const extractionQueueUrl = extractionQueue?.queueUrl || '';
+    if (extractionQueue) {
+      extractionQueue.grantSendMessages(sharedInfraStack.commonLambdaRole);
+
+      const extractionWorker = new lambdaNodejs.NodejsFunction(this, `ExtractionWorker-${stage}`, {
+        functionName: `auto-rfp-extraction-worker-${stage}`,
+        entry: path.join(__dirname, '../../../apps/functions/src/handlers/extraction/extraction-worker.ts'),
+        handler: 'handler',
+        runtime: lambda.Runtime.NODEJS_20_X,
+        timeout: cdk.Duration.minutes(15), // Match SQS visibility timeout
+        memorySize: 1024,
+        role: sharedInfraStack.commonLambdaRole,
+        environment: {
+          ...commonEnv,
+        },
+        bundling: {
+          minify: true,
+          sourceMap: true,
+          externalModules: ['@aws-sdk/*', 'pdf-parse'],
+          nodeModules: ['pdf-parse'], // pdf-parse uses dynamic require, must be installed
+        },
+      });
+
+      extractionWorker.addEventSource(
+        new lambdaEventSources.SqsEventSource(extractionQueue, {
+          batchSize: 1,
+          reportBatchItemFailures: true,
+        }),
+      );
+
+      extractionQueue.grantConsumeMessages(extractionWorker);
+
+      // Add log group for the worker
+      new logs.LogGroup(this, `ExtractionWorkerLogs-${stage}`, {
+        logGroupName: `/aws/lambda/auto-rfp-extraction-worker-${stage}`,
+        retention: stage === 'prod' ? logs.RetentionDays.INFINITE : logs.RetentionDays.TWO_WEEKS,
+        removalPolicy: cdk.RemovalPolicy.DESTROY,
+      });
+    }
+
     // 3. Collect all domain route definitions
     const allDomains: DomainRoutes[] = [
       organizationDomain(),
@@ -551,6 +595,7 @@ export class ApiOrchestratorStack extends cdk.Stack {
       proposalSubmissionDomain(),
       documentApprovalDomain(),
       pricingDomain(),
+      extractionDomain({ extractionQueueUrl }),
     ];
 
     // 4. Create nested stacks per domain (Lambda + LogGroup + Route registration)
@@ -569,7 +614,7 @@ export class ApiOrchestratorStack extends cdk.Stack {
       'ClusteringRoutes', 'CollaborationRoutes', 'OpportunityContextRoutes',
       'NotificationRoutes', 'AuditRoutes', 'AnalyticsRoutes', 'ClarifyingQuestionRoutes',
       'EngagementLogRoutes', 'ApnRoutes', 'ProposalSubmissionRoutes',
-      'DocumentApprovalRoutes', 'PricingRoutes',
+      'DocumentApprovalRoutes', 'PricingRoutes', 'ExtractionRoutes',
     ];
 
     for (let i = 0; i < allDomains.length; i++) {

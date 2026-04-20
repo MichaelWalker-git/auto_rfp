@@ -122,7 +122,7 @@ export const baseHandler = async (
 
     const modelOut = rawText ? (safeParseJsonFromModel(String(rawText)) as Record<string, unknown>) : null;
 
-    const fields =
+    const rawFields =
       modelOut?.fields && typeof modelOut.fields === 'object'
         ? (modelOut.fields as Record<string, unknown>)
         : null;
@@ -132,8 +132,49 @@ export const baseHandler = async (
         ? (modelOut.confidence as number)
         : undefined;
 
-    if (!fields) {
+    if (!rawFields) {
       throw new Error('Bedrock did not return { fields: {...} }');
+    }
+
+    // Map LLM field names to OpportunityItem field names
+    const fieldMapping: Record<string, string> = {
+      summary: 'description',
+      agency: 'organizationName',
+      naics: 'naicsCode',
+      psc: 'pscCode',
+      dueDateIso: 'responseDeadlineIso',
+    };
+
+    const mapped: Record<string, unknown> = {};
+    for (const [k, v] of Object.entries(rawFields)) {
+      if (v === undefined || v === null || v === '') continue;
+      const targetKey = fieldMapping[k] ?? k;
+      mapped[targetKey] = v;
+    }
+
+    // Only allow known OpportunityItem fields through
+    const allowedFields = new Set([
+      'title', 'description', 'solicitationNumber', 'organizationName',
+      'postedDateIso', 'responseDeadlineIso', 'setAside', 'naicsCode',
+      'pscCode', 'placeOfPerformance', 'contractType', 'type',
+    ]);
+    const fields: Record<string, unknown> = {};
+    for (const [k, v] of Object.entries(mapped)) {
+      if (allowedFields.has(k)) fields[k] = v;
+    }
+
+    // Don't overwrite title if the opportunity already has one set by the user
+    if (opportunity?.item.title && fields.title) {
+      delete fields.title;
+    }
+
+    // Don't overwrite description if the opportunity already has one set by the user
+    if (opportunity?.item.description && fields.description) {
+      delete fields.description;
+    }
+
+    if (Object.keys(fields).length === 0) {
+      return { ok: true, opportunityId, updatedFieldCount: 0, confidence };
     }
 
     await updateOpportunity({ orgId, projectId, oppId: opportunityId, patch: fields });

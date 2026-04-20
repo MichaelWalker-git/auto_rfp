@@ -13,10 +13,14 @@ import {
   Users,
   Trash2,
   Plus,
-  Edit
+  Edit,
+  Upload
 } from 'lucide-react';
 import { useListPastProjects, useDeletePastProject } from '@/lib/hooks/use-past-performance';
+import { useDrafts } from '@/lib/hooks/use-extraction';
 import { DeleteProjectDialog } from './DeleteProjectDialog';
+import { ExtractionUploadDialog } from '@/components/extraction';
+import { PendingDraftsSection } from '@/components/pricing/PendingDraftsSection';
 import { useToast } from '@/components/ui/use-toast';
 import { ListingPageLayout } from '@/components/layout/ListingPageLayout';
 import Link from 'next/link';
@@ -29,6 +33,7 @@ interface PastProjectsContentProps {
 
 export function PastProjectsContent({ orgId }: PastProjectsContentProps) {
   const { projects, isLoading, isError, mutate } = useListPastProjects(orgId);
+  const { drafts, refresh: refreshDrafts } = useDrafts<'PAST_PERFORMANCE'>(orgId, { status: 'DRAFT', draftType: 'PAST_PERFORMANCE' });
   const deleteProject = useDeletePastProject();
   const { toast } = useToast();
   const canEditPP = usePermission('project:edit');
@@ -71,7 +76,13 @@ export function PastProjectsContent({ orgId }: PastProjectsContentProps) {
 
   const handleReload = useCallback(async () => {
     await mutate();
-  }, [mutate]);
+    await refreshDrafts();
+  }, [mutate, refreshDrafts]);
+
+  const handleDraftSuccess = () => {
+    refreshDrafts();
+    mutate();
+  };
 
   const formatDate = (date: string | null | undefined) => {
     if (!date) return 'N/A';
@@ -106,6 +117,14 @@ export function PastProjectsContent({ orgId }: PastProjectsContentProps) {
             )}
             {project.domain && (
               <Badge variant="secondary" className="text-xs">{project.domain}</Badge>
+            )}
+            {project.contractType && (
+              <Badge variant="outline" className="text-xs">{project.contractType}</Badge>
+            )}
+            {project.setAside && project.setAside !== 'NONE' && (
+              <Badge variant="outline" className="text-xs bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-400 border-blue-200 dark:border-blue-800">
+                {project.setAside}
+              </Badge>
             )}
           </div>
 
@@ -217,17 +236,43 @@ export function PastProjectsContent({ orgId }: PastProjectsContentProps) {
 
   return (
     <div className="container mx-auto p-12">
+      {/* Pending Drafts - using shared PendingDraftsSection */}
+      {drafts.length > 0 && (
+        <div className="mb-6">
+          <PendingDraftsSection
+            orgId={orgId}
+            drafts={drafts}
+            title="Pending Draft Past Performance"
+            description="Review extracted past performance data before adding to your records."
+            mutateKey="/past-projects"
+            onRefresh={handleDraftSuccess}
+          />
+        </div>
+      )}
+
       <ListingPageLayout
         title="Past Performance"
         description={statsDescription || 'Manage your organization\'s past performance projects for RFP matching'}
         headerActions={
           <PermissionWrapper requiredPermission="project:create">
-            <Button asChild>
-              <Link href={`/organizations/${orgId}/past-performance/new`}>
-                <Plus className="h-4 w-4 mr-2"/>
-                Add Past Project
-              </Link>
-            </Button>
+            <div className="flex items-center gap-2">
+              <ExtractionUploadDialog
+                orgId={orgId}
+                onExtractionComplete={handleReload}
+                trigger={
+                  <Button variant="outline">
+                    <Upload className="h-4 w-4 mr-2" />
+                    Upload Documents
+                  </Button>
+                }
+              />
+              <Button asChild>
+                <Link href={`/organizations/${orgId}/past-performance/new`}>
+                  <Plus className="h-4 w-4 mr-2"/>
+                  Add Past Project
+                </Link>
+              </Button>
+            </div>
           </PermissionWrapper>
         }
         isLoading={isLoading}

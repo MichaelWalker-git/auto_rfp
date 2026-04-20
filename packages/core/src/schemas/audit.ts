@@ -120,6 +120,13 @@ export const AuditActionSchema = z.enum([
   'OPPORTUNITY_ASSIGNED',
   'OPPORTUNITY_UNASSIGNED',
   'OPPORTUNITY_EVENT_EMITTED',
+  // Extraction (auto-populate from documents)
+  'EXTRACTION_JOB_STARTED',
+  'EXTRACTION_JOB_COMPLETED',
+  'EXTRACTION_JOB_FAILED',
+  'EXTRACTION_DRAFT_CREATED',
+  'EXTRACTION_DRAFT_CONFIRMED',
+  'EXTRACTION_DRAFT_DISCARDED',
 ]);
 export type AuditAction = z.infer<typeof AuditActionSchema>;
 
@@ -155,6 +162,12 @@ export const AuditResourceSchema = z.enum([
   'content_library',
   'foia_request',
   'debriefing_request',
+  // Extraction (auto-populate from documents)
+  'extraction_job',
+  'extraction_draft',
+  'past_project',
+  'labor_rate',
+  'bom_item',
 ]);
 export type AuditResource = z.infer<typeof AuditResourceSchema>;
 
