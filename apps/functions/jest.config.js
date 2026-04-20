@@ -12,6 +12,8 @@ export default {
     '^middleware/(.*)$': '<rootDir>/src/middleware/$1',
     // Mock uuid to avoid ESM transformation issues
     '^uuid$': '<rootDir>/jest.uuid-mock.js',
+    // Ensure @middy/core resolves in CI where hoisting may differ
+    '^@middy/core$': '<rootDir>/../../node_modules/@middy/core',
   },
   transform: {
     '^.+\\.tsx?$': [
