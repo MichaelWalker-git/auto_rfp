@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { ExtractionSourceSchema } from './past-performance';
 
 /**
  * ================
@@ -22,6 +23,8 @@ export const LaborRateSchema = z.object({
   updatedAt: z.string().datetime(),
   createdBy: z.string().uuid(),
   updatedBy: z.string().uuid(),
+  // Extraction source (preserved when created from AI extraction)
+  extractionSource: ExtractionSourceSchema.optional().nullable(),
 });
 
 export type LaborRate = z.infer<typeof LaborRateSchema>;
@@ -73,6 +76,8 @@ export const BOMItemSchema = z.object({
   updatedAt: z.string().datetime(),
   createdBy: z.string().uuid(),
   updatedBy: z.string().uuid(),
+  // Extraction source (preserved when created from AI extraction)
+  extractionSource: ExtractionSourceSchema.optional().nullable(),
 });
 
 export type BOMItem = z.infer<typeof BOMItemSchema>;

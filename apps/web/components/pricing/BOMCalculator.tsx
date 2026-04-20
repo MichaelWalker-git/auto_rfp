@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { useForm } from 'react-hook-form';
+import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { CreateBOMItemSchema, BOMItemTypeSchema } from '@auto-rfp/core';
 import { z } from 'zod';
@@ -10,12 +10,13 @@ import { useDrafts } from '@/lib/hooks/use-extraction';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Plus, Trash2, Package, Upload } from 'lucide-react';
 import { mutate } from 'swr';
 import { usePermission } from '@/components/permission-wrapper';
-import { ExtractionUploadDialog } from '@/components/extraction';
+import { ExtractionUploadDialog, ExtractionSourceBadge, type AnyDraft } from '@/components/extraction';
 import { PendingDraftsSection } from './PendingDraftsSection';
 import { cn } from '@/lib/utils';
 
@@ -58,14 +59,15 @@ export const BOMCalculator = ({ orgId }: BOMCalculatorProps) => {
 
   const bomItems = data?.bomItems ?? [];
 
-  const { register, handleSubmit, reset, formState: { errors } } = useForm<BOMFormData>({
+  const { register, handleSubmit, reset, control, formState: { errors } } = useForm<BOMFormData>({
     resolver: zodResolver(CreateBOMItemSchema),
     defaultValues: { orgId, isActive: true, category: 'HARDWARE' },
   });
 
   const onSubmit = async (formData: BOMFormData) => {
     try {
-      await createItem({ ...formData, orgId, isActive: formData.isActive ?? true });
+      const validated = CreateBOMItemSchema.parse({ ...formData, orgId });
+      await createItem(validated);
       reset();
       setShowForm(false);
       mutate((key: string) => typeof key === 'string' && key.includes('/bom-items'));
@@ -141,9 +143,22 @@ export const BOMCalculator = ({ orgId }: BOMCalculatorProps) => {
               </div>
               <div>
                 <label className="text-sm font-medium">Category</label>
-                <select {...register('category')} className="w-full rounded-md border px-3 py-2 text-sm">
-                  {BOM_CATEGORIES.map((cat) => <option key={cat} value={cat}>{categoryLabels[cat]}</option>)}
-                </select>
+                <Controller
+                  name="category"
+                  control={control}
+                  render={({ field }) => (
+                    <Select value={field.value} onValueChange={field.onChange}>
+                      <SelectTrigger className="w-full">
+                        <SelectValue placeholder="Select category" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {BOM_CATEGORIES.map((cat) => (
+                          <SelectItem key={cat} value={cat}>{categoryLabels[cat]}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  )}
+                />
               </div>
               <div>
                 <label className="text-sm font-medium">Unit Cost ($)</label>
@@ -199,7 +214,12 @@ export const BOMCalculator = ({ orgId }: BOMCalculatorProps) => {
               <tbody>
                 {bomItems.map((item) => (
                   <tr key={item.bomItemId} className="border-t hover:bg-muted/25">
-                    <td className="p-3 font-medium">{item.name}</td>
+                    <td className="p-3 font-medium">
+                      <div className="flex items-center gap-2">
+                        {item.name}
+                        <ExtractionSourceBadge extractionSource={item.extractionSource} />
+                      </div>
+                    </td>
                     <td className="p-3"><Badge className={categoryColors[item.category] || ''} variant="outline">{categoryLabels[item.category]}</Badge></td>
                     <td className="p-3 text-right font-semibold">${item.unitCost.toFixed(2)}</td>
                     <td className="p-3">{item.unit}</td>

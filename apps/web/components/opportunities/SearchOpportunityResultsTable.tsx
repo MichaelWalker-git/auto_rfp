@@ -36,6 +36,11 @@ const SOURCE_CONFIG: Record<string, { label: string; color: string; icon: React.
     color: 'bg-emerald-50 text-emerald-700 border-emerald-200',
     icon: <Shield className="h-3 w-3" />,
   },
+  HIGHER_GOV: {
+    label: 'HigherGov',
+    color: 'bg-violet-50 text-violet-700 border-violet-200',
+    icon: <FileText className="h-3 w-3" />,
+  },
   MANUAL_UPLOAD: {
     label: 'Manual',
     color: 'bg-slate-50 text-slate-600 border-slate-200',
@@ -359,7 +364,7 @@ export const SearchOpportunityResultsTable = ({
     <div className="space-y-3">
       {opportunities.map((opp, idx) => (
         <OpportunityCard
-          key={opp.id || idx}
+          key={`${opp.source}-${opp.id}-${idx}`}
           opp={opp}
           onImport={onImport}
           importingId={importingId}

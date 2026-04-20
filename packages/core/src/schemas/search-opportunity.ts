@@ -98,6 +98,10 @@ export const LoadSearchOpportunitiesRequestSchema = z.object({
   innovationTopics: z.array(z.string().min(1)).optional(),
   solicitationNumber: z.string().min(1).optional(),
 
+  // ── HigherGov-specific ─────────────────────────────────────────────────────
+  /** HigherGov source_type filter: avoid duplicating results from sources the user already searches directly. */
+  higherGovSourceType: z.enum(['sam', 'dibbs', 'sbir', 'grant', 'sled']).optional(),
+
   // ── Value range ───────────────────────────────────────────────────────────
   dollarRange: DollarRangeSchema,
 
@@ -134,7 +138,7 @@ export const SavedSearchFrequencySchema = z.enum(['HOURLY', 'DAILY', 'WEEKLY']);
 export type SavedSearchFrequency = z.infer<typeof SavedSearchFrequencySchema>;
 
 /** Which integration this saved search belongs to */
-export const SavedSearchSourceSchema = z.enum(['SAM_GOV', 'DIBBS']);
+export const SavedSearchSourceSchema = z.enum(['SAM_GOV', 'DIBBS', 'HIGHER_GOV']);
 export type SavedSearchSource = z.infer<typeof SavedSearchSourceSchema>;
 
 export const SavedSearchSchema = z.object({
@@ -430,3 +434,136 @@ export const dibbsSlimToSearchOpportunity = (o: DibbsOpportunitySlim): SearchOpp
   attachmentsCount:       o.attachmentsCount ?? 0,
   url:                    o.url ?? null,
 });
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// HIGHER_GOV
+// ═══════════════════════════════════════════════════════════════════════════════
+
+// NOTE: .passthrough() used until schemas are validated against real HigherGov API responses.
+
+export const HigherGovOpportunitySlimSchema = z.object({
+  opp_key:          z.string(),
+  title:            z.string().optional(),
+  description_text: z.string().optional(),
+  ai_summary:       z.string().optional(),
+  source_id:        z.string().optional(),
+  source_id_version: z.string().optional(),
+  source_type:      z.string().optional(),
+  captured_date:    z.string().optional(),
+  posted_date:      z.string().optional(),
+  due_date:         z.string().optional(),
+  agency: z.object({
+    name:         z.string().optional(),
+    abbreviation: z.string().optional(),
+    type:         z.string().optional(),
+  }).passthrough().optional(),
+  naics_code: z.object({
+    code:        z.string().optional(),
+    description: z.string().optional(),
+  }).passthrough().optional(),
+  psc_code: z.object({
+    code:        z.string().optional(),
+    description: z.string().optional(),
+  }).passthrough().optional(),
+  opp_type: z.object({
+    name: z.string().optional(),
+  }).passthrough().optional(),
+  primary_contact_email: z.object({
+    name:  z.string().optional(),
+    email: z.string().optional(),
+    phone: z.string().optional(),
+    title: z.string().optional(),
+  }).passthrough().optional(),
+  secondary_contact_email: z.object({
+    name:  z.string().optional(),
+    email: z.string().optional(),
+    phone: z.string().optional(),
+    title: z.string().optional(),
+  }).passthrough().optional(),
+  set_aside:          z.string().optional(),
+  val_est_low:        z.string().optional(),
+  val_est_high:       z.string().optional(),
+  pop_country:        z.string().optional(),
+  pop_state:          z.string().optional(),
+  pop_city:           z.string().optional(),
+  pop_zip:            z.string().optional(),
+  sole_source_flag:   z.boolean().optional(),
+  product_service:    z.string().optional(),
+  path:               z.string().optional(),
+  source_path:        z.string().optional(),
+  document_path:      z.string().optional(),
+  version_key:        z.string().optional(),
+}).passthrough();
+
+export type HigherGovOpportunitySlim = z.infer<typeof HigherGovOpportunitySlimSchema>;
+
+// ─── HigherGov mapper ────────────────────────────────────────────────────────
+
+const buildHigherGovUrl = (path?: string): string | null => {
+  if (!path) return null;
+  // Already a proper URL
+  if (path.startsWith('https://') || path.startsWith('http://')) return path;
+  // Malformed URL from API (e.g. "https//www.highergov.com/sl/..." — missing colon)
+  // Strip the broken prefix and extract the path portion
+  const malformed = path.match(/^https?\/\/[^/]+(\/.*)/);
+  if (malformed) return `https://www.highergov.com${malformed[1]}`;
+  // Clean relative path
+  return `https://www.highergov.com${path.startsWith('/') ? '' : '/'}${path}`;
+};
+
+/** Build a rich agency label: "USAF (Department of the Air Force)" */
+const buildAgencyLabel = (a?: HigherGovOpportunitySlim['agency']): string | null => {
+  if (!a) return null;
+  if (a.abbreviation && a.name && a.abbreviation !== a.name) return `${a.name} (${a.abbreviation})`;
+  return a.name ?? a.abbreviation ?? null;
+};
+
+/** Build place-of-performance string: "Washington, DC 20001, US" */
+const buildPoP = (o: HigherGovOpportunitySlim): string | null => {
+  const parts = [o.pop_city, o.pop_state, o.pop_zip, o.pop_country].filter(Boolean);
+  return parts.length ? parts.join(', ') : null;
+};
+
+/** Build enriched description from all available text fields */
+const buildDescription = (o: HigherGovOpportunitySlim): string | null => {
+  const sections: string[] = [];
+  if (o.ai_summary)       sections.push(o.ai_summary);
+  if (o.description_text && o.description_text !== o.ai_summary) sections.push(o.description_text);
+  if (o.product_service)  sections.push(`Product/Service: ${o.product_service}`);
+  return sections.length ? sections.join('\n\n') : null;
+};
+
+export const higherGovToSearchOpportunity = (o: HigherGovOpportunitySlim): SearchOpportunitySlim => ({
+  id:                     o.opp_key,
+  source:                 'HIGHER_GOV',
+  solicitationNumber:     null,
+  noticeId:               o.source_id ?? null,
+  title:                  o.title ?? '',
+  type:                   o.opp_type?.name ?? null,
+  postedDate:             o.posted_date ?? null,
+  closingDate:            o.due_date ?? null,
+  naicsCode:              o.naics_code?.code ?? null,
+  organizationName:       buildAgencyLabel(o.agency),
+  contractVehicle:        null,
+  setAside:               o.set_aside ?? (o.sole_source_flag ? 'Sole Source' : null),
+  technologyArea:         null,
+  description:            buildDescription(o),
+  descriptionUrl:         null,
+  active:                 true,
+  baseAndAllOptionsValue: o.val_est_high ? parseFloat(o.val_est_high) || null : null,
+  attachmentsCount:       0,
+  url:                    buildHigherGovUrl(o.path),
+});
+
+// ─── HigherGov import request ────────────────────────────────────────────────
+
+export const ImportHigherGovRequestSchema = z.object({
+  source:           z.literal('HIGHER_GOV'),
+  orgId:            z.string().min(1),
+  projectId:        z.string().min(1),
+  oppKey:           z.string().min(1),
+  sourceDocumentId: z.string().optional(),
+  force:            z.boolean().optional(),
+});
+
+export type ImportHigherGovRequest = z.infer<typeof ImportHigherGovRequestSchema>;

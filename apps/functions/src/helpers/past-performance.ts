@@ -68,6 +68,7 @@ export async function createPastProject(
     updatedAt: now,
     createdBy,
     isArchived: false,
+    extractionSource: dto.extractionSource || null,
   };
 
   const sk = createPastProjectSK(dto.orgId, projectId);

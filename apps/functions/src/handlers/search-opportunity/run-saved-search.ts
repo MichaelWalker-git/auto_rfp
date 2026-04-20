@@ -18,6 +18,7 @@ import {
   type SavedSearch,
   SavedSearchSchema,
   dibbsSlimToSearchOpportunity,
+  higherGovToSearchOpportunity,
 } from '@auto-rfp/core';
 
 import {
@@ -43,8 +44,14 @@ import { PROJECT_PK } from '@/constants/organization';
 import { uploadToS3 } from '@/helpers/s3';
 import { SAM_GOV_SECRET_PREFIX, SAVED_SEARCH_PK } from '@/constants/samgov';
 import { DIBBS_SECRET_PREFIX } from '@/constants/dibbs';
+import { HIGHERGOV_SECRET_PREFIX, HIGHERGOV_BASE_URL } from '@/constants/highergov';
+import {
+  searchHigherGovOpportunities,
+  fetchHigherGovDocuments,
+  type HigherGovConfig,
+} from '@/helpers/search-opportunity';
 import { buildQuestionFileSK, updateQuestionFile } from '@/helpers/questionFile';
-import { createOpportunity } from '@/helpers/opportunity';
+import { createOpportunity, findOpportunityBySourceId } from '@/helpers/opportunity';
 import { getApiKey } from '@/helpers/api-key-storage';
 
 const DB_TABLE_NAME = requireEnv('DB_TABLE_NAME');
@@ -461,6 +468,102 @@ async function runForOrg(args: {
             }
           } catch (e) {
             console.error(`Failed to import DIBBS solicitation ${opp.solicitationNumber}:`, e);
+          }
+        }
+      } else if (!args.dryRun && s.autoImport && !projectId) {
+        skippedAutoImport = true;
+      }
+    } else if (source === 'HIGHER_GOV') {
+      const hgApiKey = await getApiKey(args.orgId, HIGHERGOV_SECRET_PREFIX);
+      if (!hgApiKey) {
+        console.log(`No HigherGov API key for org ${args.orgId}, skipping search ${s.savedSearchId}`);
+        continue;
+      }
+
+      const postedDate = criteria.postedFrom
+        ? `${criteria.postedFrom.slice(6)}-${criteria.postedFrom.slice(0, 2)}-${criteria.postedFrom.slice(3, 5)}`
+        : undefined;
+
+      const resp = await searchHigherGovOpportunities(
+        { baseUrl: HIGHERGOV_BASE_URL, apiKey: hgApiKey, httpsAgent },
+        {
+          keywords:   criteria.keywords,
+          sourceType: criteria.higherGovSourceType,
+          postedDate,
+          ordering:   '-captured_date',
+          pageSize:   criteria.limit ?? 25,
+          pageNumber: 1,
+        },
+      );
+      found = resp.totalCount;
+
+      if (!args.dryRun && s.autoImport && projectId) {
+        const cap = Math.min(resp.results.length, 25);
+        const hgCfg: HigherGovConfig = { baseUrl: HIGHERGOV_BASE_URL, apiKey: hgApiKey, httpsAgent };
+
+        for (let i = 0; i < cap; i++) {
+          const opp = resp.results[i]!;
+          try {
+            // Cross-source dedup
+            const dup = await findOpportunityBySourceId({ orgId: args.orgId, higherGovOppKey: opp.opp_key });
+            const dupBySam = opp.source_id
+              ? await findOpportunityBySourceId({ orgId: args.orgId, noticeId: opp.source_id })
+              : undefined;
+            if (dup || dupBySam) continue;
+
+            const attachments = await fetchHigherGovDocuments(hgCfg, opp.document_path, opp.opp_key);
+            const slim = higherGovToSearchOpportunity(opp);
+
+            const { oppId } = await createOpportunity({
+              orgId: args.orgId,
+              projectId,
+              opportunity: {
+                orgId: args.orgId,
+                projectId,
+                source: 'HIGHER_GOV',
+                id: opp.opp_key,
+                title: slim.title,
+                type: slim.type,
+                postedDateIso: slim.postedDate ? new Date(slim.postedDate).toISOString() : null,
+                responseDeadlineIso: slim.closingDate ? new Date(slim.closingDate).toISOString() : null,
+                noticeId: opp.source_id ?? null,
+                solicitationNumber: null,
+                naicsCode: slim.naicsCode,
+                pscCode: opp.psc_code?.code ?? null,
+                organizationName: slim.organizationName,
+                setAside: slim.setAside,
+                description: slim.description,
+                active: true,
+                baseAndAllOptionsValue: slim.baseAndAllOptionsValue,
+                placeOfPerformance: [opp.pop_city, opp.pop_state, opp.pop_zip, opp.pop_country].filter(Boolean).join(', ') || null,
+                contactEmail: opp.primary_contact_email?.email ?? null,
+                contactName: opp.primary_contact_email?.name ?? null,
+                sourceUrl: opp.source_path ?? null,
+                higherGovOppKey: opp.opp_key,
+                higherGovAiSummary: opp.ai_summary ?? null,
+              },
+            });
+
+            for (const a of attachments) {
+              try {
+                const filename = buildAttachmentFilename(a);
+                const fileKey = buildAttachmentS3Key({
+                  orgId: args.orgId, projectId,
+                  noticeId: opp.opp_key, attachmentUrl: a.url, filename,
+                });
+                const { buf, contentType } = await httpsGetBuffer(new URL(a.url), { httpsAgent });
+                const ct = a.mimeType || contentType || guessContentType(filename);
+                await uploadToS3(DOCUMENTS_BUCKET, fileKey, buf, ct);
+                const { questionFileId } = await createQuestionFile({ projectId, fileKey, oppId, originalFileName: filename, mimeType: ct });
+                await markProcessing(projectId, questionFileId, oppId);
+                await startPipeline(projectId, questionFileId, oppId);
+                importedQuestionFiles++;
+              } catch (attachErr) {
+                console.warn(`[runner] HigherGov attachment failed ${a.url}:`, (attachErr as Error)?.message);
+              }
+            }
+          } catch (e) {
+            console.error(`Failed to import HigherGov opportunity ${opp.opp_key}:`, e);
           }
         }
       } else if (!args.dryRun && s.autoImport && !projectId) {
