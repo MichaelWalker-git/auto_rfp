@@ -70,7 +70,7 @@ fi
 # Run eval
 echo "==> Running faithfulness eval (5 providers)..."
 cd "$EVAL_DIR"
-AWS_PROFILE=AdministratorAccess-039885961427 \
+AWS_PROFILE=${AWS_PROFILE:-AdministratorAccess-039885961427} \
   npx promptfoo eval \
     --env-file .env \
     --no-cache \

@@ -58,7 +58,7 @@ fi
 TEST_COUNT=$(grep -c "^ *- vars:" "$SCRIPT_DIR/promptfooconfig.yaml" || echo "?")
 echo "==> Running RAG extraction eval ($TEST_COUNT test cases)..."
 cd "$EVAL_DIR"
-AWS_PROFILE=AdministratorAccess-039885961427 \
+AWS_PROFILE=${AWS_PROFILE:-AdministratorAccess-039885961427} \
   npx promptfoo eval \
     --env-file .env \
     --no-cache \

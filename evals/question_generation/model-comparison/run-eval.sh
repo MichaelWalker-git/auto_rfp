@@ -56,7 +56,7 @@ fi
 # Run eval
 echo "==> Running model comparison eval (3 models x 29 tests = 87 test cases)..."
 cd "$EVAL_DIR"
-AWS_PROFILE=AdministratorAccess-039885961427 \
+AWS_PROFILE=${AWS_PROFILE:-AdministratorAccess-039885961427} \
   npx promptfoo eval \
     --env-file .env \
     --no-cache \
