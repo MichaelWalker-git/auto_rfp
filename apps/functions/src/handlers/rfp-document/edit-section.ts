@@ -30,6 +30,28 @@ import { gatherAllContext } from '@/helpers/document-context';
 import { BEDROCK_MODEL_ID, TEMPERATURE } from '@/constants/document-generation';
 import { saveChatMessages } from '@/helpers/ai-chat';
 
+// ─── Retry helper for transient Bedrock errors (503 Service Unavailable) ───
+
+const invokeModelWithRetry = async (
+  modelId: string,
+  body: string,
+  maxRetries = 2,
+): Promise<Uint8Array> => {
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      return await invokeModel(modelId, body);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : '';
+      const isRetryable = msg.includes('503') || msg.includes('Service Unavailable') || msg.includes('ThrottlingException');
+      if (!isRetryable || attempt >= maxRetries) throw err;
+      const delayMs = 1000 * (attempt + 1);
+      console.warn(`[edit-section] Bedrock returned retryable error, retrying in ${delayMs}ms (attempt ${attempt + 1}/${maxRetries}): ${msg}`);
+      await new Promise(r => setTimeout(r, delayMs));
+    }
+  }
+  throw new Error('Unreachable');
+};
+
 // ─── Input Schema ───
 
 const EditSectionInputSchema = z.object({
@@ -48,9 +70,9 @@ const EditSectionInputSchema = z.object({
 
 // ─── Constants ───
 
-const MAX_TOOL_ROUNDS = 3;
+const MAX_TOOL_ROUNDS = 1;
 const MAX_TOKENS = 8000;
-const MAX_CONTEXT_CHARS = 10000;
+const MAX_CONTEXT_CHARS = 6000;
 
 // ─── Build Section Edit Prompt ───
 
@@ -174,19 +196,26 @@ export const baseHandler = async (
       resourceId: documentId,
     });
 
-    // 3. Load context in parallel (lightweight — for section editing we don't need full context)
-    const [qaPairs, solicitation] = await Promise.all([
-      loadQaPairs(projectId, opportunityId).catch(() => [] as QaPair[]),
-      loadSolicitation(projectId, opportunityId).catch(() => ''),
+    // 3. Load context with a strict 8s timeout — API Gateway has a 29s hard limit,
+    //    so we budget ~8s for context, ~18s for Bedrock, ~3s for overhead.
+    //    If gatherAllContext is slow, we proceed with whatever we have — tools can fill gaps.
+    const CONTEXT_TIMEOUT_MS = 8_000;
+    const withTimeout = <T,>(p: Promise<T>, fallback: T): Promise<T> =>
+      Promise.race([p, new Promise<T>((resolve) => setTimeout(() => resolve(fallback), CONTEXT_TIMEOUT_MS))]);
+
+    const [qaPairs, solicitation, enrichedContext] = await Promise.all([
+      withTimeout(loadQaPairs(projectId, opportunityId).catch(() => [] as QaPair[]), [] as QaPair[]),
+      withTimeout(loadSolicitation(projectId, opportunityId).catch(() => ''), ''),
+      withTimeout(
+        gatherAllContext({
+          projectId, orgId, opportunityId, solicitation: '',
+          documentType: doc.documentType ?? 'TECHNICAL_PROPOSAL',
+        }).catch(() => ''),
+        '',
+      ),
     ]);
 
-    const enrichedContext = await gatherAllContext({
-      projectId,
-      orgId,
-      opportunityId,
-      solicitation,
-      documentType: doc.documentType ?? 'TECHNICAL_PROPOSAL',
-    }).catch(() => '');
+    console.log(`[edit-section] Context loaded: solicitation=${solicitation.length} chars, enriched=${enrichedContext.length} chars, qaPairs=${qaPairs.length}`);
 
     // 4. Build prompts
     const systemPrompt = buildSectionEditSystemPrompt(sectionTitle);
@@ -224,7 +253,7 @@ export const baseHandler = async (
         requestBody.tools = DOCUMENT_TOOLS;
       }
 
-      const responseBody = await invokeModel(BEDROCK_MODEL_ID, JSON.stringify(requestBody));
+      const responseBody = await invokeModelWithRetry(BEDROCK_MODEL_ID, JSON.stringify(requestBody));
       const parsed = JSON.parse(new TextDecoder('utf-8').decode(responseBody));
 
       const stopReason: string = parsed.stop_reason ?? 'end_turn';
@@ -287,7 +316,7 @@ export const baseHandler = async (
           max_tokens: MAX_TOKENS,
           temperature: TEMPERATURE,
         };
-        const finalResponse = await invokeModel(BEDROCK_MODEL_ID, JSON.stringify(finalBody));
+        const finalResponse = await invokeModelWithRetry(BEDROCK_MODEL_ID, JSON.stringify(finalBody));
         const finalParsed = JSON.parse(new TextDecoder('utf-8').decode(finalResponse));
         const finalContent: Array<{ type: string; text?: string }> = finalParsed.content ?? [];
         resultHtml = finalContent.filter(c => c.type === 'text').map(c => c.text ?? '').join('\n').trim();
