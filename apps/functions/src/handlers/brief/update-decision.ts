@@ -11,6 +11,7 @@ import { requireEnv } from '@/helpers/env';
 import { getExecutiveBrief } from '@/helpers/executive-opportunity-brief';
 import { getProjectById } from '@/helpers/project';
 import { enqueueGoogleDriveSync } from '@/helpers/google-drive-queue';
+import { transitionOpportunityStage } from '@/helpers/opportunity-stage';
 
 const DB_TABLE_NAME = requireEnv('DB_TABLE_NAME');
 
@@ -81,14 +82,44 @@ export const baseHandler = async (
 
     console.log(`Updated brief ${executiveBriefId} decision to ${decision}`);
 
+    // Fetch brief once — used for both stage transition and Google Drive sync
+    const brief = await getExecutiveBrief(executiveBriefId);
+
+    // ─── Opportunity stage transition on decision override ───
+    // When manually overriding a decision, update the opportunity pipeline stage.
+    try {
+      const { projectId, opportunityId } = brief;
+
+      if (projectId && opportunityId && orgId) {
+        if (decision === 'GO') {
+          await transitionOpportunityStage({
+            orgId, projectId, oppId: opportunityId,
+            toStage: 'PURSUING',
+            changedBy: 'system',
+            reason: 'Manual decision override to GO',
+            source: 'MANUAL',
+          });
+        } else if (decision === 'NO_GO') {
+          await transitionOpportunityStage({
+            orgId, projectId, oppId: opportunityId,
+            toStage: 'NO_BID',
+            changedBy: 'system',
+            reason: 'Manual decision override to NO_GO',
+            source: 'MANUAL',
+          });
+        }
+      }
+    } catch (stageErr) {
+      // Non-blocking — don't fail the decision update
+      console.warn('Failed to transition opportunity stage (non-blocking):', (stageErr as Error)?.message);
+    }
+
     // ─── Google Drive Sync on GO Decision (async via SQS) ───
     // When the decision is manually set to GO (approval), enqueue Google Drive sync.
     // Processed asynchronously to avoid blocking the API response.
     if (decision === 'GO' && orgId) {
       try {
         console.log(`GO decision approved for brief ${executiveBriefId} — enqueuing Google Drive sync`);
-
-        const brief = await getExecutiveBrief(executiveBriefId);
         const summaryData = (brief.sections as any)?.summary?.data;
         const project = await getProjectById(brief.projectId);
         const projectName = (project as any)?.name || brief.projectId;

@@ -192,11 +192,11 @@ export function DecisionCard({
 
             <ConfidenceBadge confidence={confidence} />
 
-            {decisionBadge === 'CONDITIONAL_GO' && (
+            {decisionBadge && (
               <div className="flex gap-2 mt-4">
                 <Button
                   onClick={() => handleDecisionChange('GO')}
-                  disabled={isUpdating}
+                  disabled={isUpdating || decisionBadge === 'GO'}
                   variant="default"
                   size="sm"
                   className="gap-2"
@@ -209,19 +209,19 @@ export function DecisionCard({
                   ) : (
                     <>
                       <CheckCircle2 className="h-4 w-4" />
-                      Approve
+                      {decisionBadge === 'NO_GO' ? 'Override to Go' : 'Approve'}
                     </>
                   )}
                 </Button>
                 <Button
                   onClick={() => handleDecisionChange('NO_GO')}
-                  disabled={isUpdating}
+                  disabled={isUpdating || decisionBadge === 'NO_GO'}
                   variant="destructive"
                   size="sm"
                   className="gap-2"
                 >
                   <AlertTriangle className="h-4 w-4" />
-                  Reject
+                  {decisionBadge === 'GO' ? 'Override to No Go' : 'Reject'}
                 </Button>
               </div>
             )}
