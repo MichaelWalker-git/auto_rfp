@@ -98,7 +98,7 @@ const SavedSearchesPage = ({ orgId }: Props) => {
       {/* ── Page header ────────────────────────────────────────────── */}
       <PageHeader
         title="Saved Searches"
-        description="Manage your scheduled searches across SAM.gov and DIBBS."
+        description="Manage your scheduled searches across SAM.gov, DIBBS, and HigherGov."
         actions={
           <Button asChild size="sm" className="gap-1.5">
             <a href={searchBase}>

@@ -22,12 +22,15 @@ import {
 import { getApiKey } from '@/helpers/api-key-storage';
 import { SAM_GOV_SECRET_PREFIX } from '@/constants/samgov';
 import { DIBBS_SECRET_PREFIX } from '@/constants/dibbs';
+import { HIGHERGOV_SECRET_PREFIX, HIGHERGOV_BASE_URL } from '@/constants/highergov';
 import { requireEnv } from '@/helpers/env';
 import { searchSamOpportunities } from '@/helpers/search-opportunity';
 import { searchDibbsOpportunities } from '@/helpers/search-opportunity';
+import { searchHigherGovOpportunities } from '@/helpers/search-opportunity';
 import {
   samSlimToSearchOpportunity,
   dibbsSlimToSearchOpportunity,
+  higherGovToSearchOpportunity,
   type SearchOpportunitySlim,
 } from '@auto-rfp/core';
 
@@ -41,7 +44,9 @@ const MmDdYyyy = z.string().regex(/^\d{2}\/\d{2}\/\d{4}$/, 'Expected MM/dd/yyyy'
 
 const SearchRequestSchema = z.object({
   /** Which source(s) to search. Omit or use 'ALL' to search all configured sources. */
-  source:       z.enum(['SAM_GOV', 'DIBBS', 'ALL']).default('ALL'),
+  source:       z.enum(['SAM_GOV', 'DIBBS', 'HIGHER_GOV', 'ALL']).default('ALL'),
+  /** HigherGov source_type filter to avoid duplicating SAM/DIBBS results */
+  higherGovSourceType: z.enum(['sam', 'dibbs', 'sbir', 'grant', 'sled']).optional(),
   keywords:     z.string().min(1).optional(),
   naics:        z.array(z.string().min(2)).optional(),
   setAsideCode: z.string().optional(),
@@ -131,21 +136,57 @@ export const baseHandler = async (event: APIGatewayProxyEventV2): Promise<APIGat
     }
   }
 
-  // Interleave SAM.gov and DIBBS results for balanced display
-  const samResults   = results.filter((r) => r.source === 'SAM_GOV');
-  const dibbsResults = results.filter((r) => r.source === 'DIBBS');
+  // ── HigherGov ────────────────────────────────────────────────────────────
+  const includeHigherGov = data.source === 'ALL' || data.source === 'HIGHER_GOV';
+  let totalHigherGov = 0;
+
+  if (includeHigherGov) {
+    try {
+      const apiKey = await getApiKey(orgId, HIGHERGOV_SECRET_PREFIX);
+      if (apiKey) {
+        // Convert MM/dd/yyyy to YYYY-MM-DD for HigherGov posted_date param
+        const postedDate = data.postedFrom
+          ? `${data.postedFrom.slice(6)}-${data.postedFrom.slice(0, 2)}-${data.postedFrom.slice(3, 5)}`
+          : undefined;
+        const pageSize = data.limit ?? 25;
+
+        const resp = await searchHigherGovOpportunities(
+          { baseUrl: HIGHERGOV_BASE_URL, apiKey, httpsAgent },
+          {
+            keywords:   data.keywords,
+            sourceType: data.higherGovSourceType,
+            postedDate,
+            ordering:   '-captured_date',
+            pageSize,
+            pageNumber: data.offset ? Math.floor(data.offset / pageSize) + 1 : 1,
+          },
+        );
+        totalHigherGov = resp.totalCount;
+        results.push(...resp.results.map(higherGovToSearchOpportunity));
+      }
+    } catch (e) {
+      errors['HIGHER_GOV'] = e instanceof Error ? e.message : 'HigherGov search failed';
+    }
+  }
+
+  // Round-robin interleave across all sources for balanced display
+  const bySource: Record<string, SearchOpportunitySlim[]> = {};
+  for (const r of results) (bySource[r.source] ??= []).push(r);
+  const sourceArrays = Object.values(bySource);
   const merged: SearchOpportunitySlim[] = [];
-  const maxLen = Math.max(samResults.length, dibbsResults.length);
+  const maxLen = Math.max(...sourceArrays.map((a) => a.length), 0);
   for (let i = 0; i < maxLen; i++) {
-    if (i < samResults.length)   merged.push(samResults[i]!);
-    if (i < dibbsResults.length) merged.push(dibbsResults[i]!);
+    for (const arr of sourceArrays) {
+      if (i < arr.length) merged.push(arr[i]!);
+    }
   }
 
   return apiResponse(200, {
     opportunities: merged,
     totalSamGov,
     totalDibbs,
-    total: totalSamGov + totalDibbs,
+    totalHigherGov,
+    total: totalSamGov + totalDibbs + totalHigherGov,
     errors: Object.keys(errors).length ? errors : undefined,
   });
 };

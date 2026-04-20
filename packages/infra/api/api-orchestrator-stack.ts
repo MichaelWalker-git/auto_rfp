@@ -187,6 +187,7 @@ export class ApiOrchestratorStack extends cdk.Stack {
       PINECONE_INDEX: 'documents',
       SAM_OPPS_BASE_URL: 'https://api.sam.gov',
       DIBBS_BASE_URL: 'https://www.dibbs.bsm.dla.mil',
+      HIGHERGOV_BASE_URL: 'https://www.highergov.com/api-external',
       // Verified SES sender identity — horustech.dev domain must be verified in SES
       SES_FROM_EMAIL: 'noreply@horustech.dev',
       // Construct the notification queue URL from the queue name — no cross-stack token reference
