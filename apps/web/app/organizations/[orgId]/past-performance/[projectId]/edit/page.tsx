@@ -34,6 +34,7 @@ import {
 } from 'lucide-react';
 import { usePastProject, useUpdatePastProject } from '@/lib/hooks/use-past-performance';
 import { useToast } from '@/components/ui/use-toast';
+import { ExtractionSourceBadge } from '@/components/extraction';
 import Link from 'next/link';
 
 const EditProjectFormSchema = z.object({
@@ -223,6 +224,15 @@ export default function EditPastProjectPage() {
             </span>
           )}
         </div>
+        {/* Extraction source info - show full description for extracted items */}
+        {project.extractionSource && (
+          <div className="mt-4 p-3 bg-muted/50 rounded-lg border">
+            <ExtractionSourceBadge 
+              extractionSource={project.extractionSource} 
+              compact={false} 
+            />
+          </div>
+        )}
       </div>
 
       <Form {...form}>

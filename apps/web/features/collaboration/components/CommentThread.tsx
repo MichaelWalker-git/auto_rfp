@@ -150,9 +150,9 @@ export function CommentThread({
         {comments.length === 0 && (
           <div className="flex flex-col items-center justify-center h-full py-12 text-center">
             <div className="text-2xl mb-2">💬</div>
-            <p className="text-sm text-slate-400">No comments yet</p>
+            <p className="text-sm text-muted-foreground">No comments yet</p>
             {canComment && (
-              <p className="text-xs text-slate-300 mt-1">Be the first to comment</p>
+              <p className="text-xs text-muted-foreground/70 mt-1">Be the first to comment</p>
             )}
           </div>
         )}
@@ -184,7 +184,7 @@ export function CommentThread({
               <div className={`max-w-[75%] group ${isOwn ? 'items-end' : 'items-start'} flex flex-col gap-0.5`}>
                 {/* Name + time */}
                 {!isOwn && (
-                  <span className="text-[10px] text-slate-400 px-1">
+                  <span className="text-[10px] text-muted-foreground px-1">
                     {comment.displayName}
                   </span>
                 )}
@@ -193,12 +193,12 @@ export function CommentThread({
                   className={`relative px-3 py-2 rounded-2xl text-sm leading-relaxed ${
                     isOwn
                       ? 'bg-indigo-500 text-white rounded-br-sm'
-                      : 'bg-slate-100 text-slate-800 rounded-bl-sm'
+                      : 'bg-muted text-foreground rounded-bl-sm'
                   } ${comment.resolved ? 'opacity-60' : ''}`}
                 >
                   {renderContent(comment.content, orgId, isOwn, usersByName)}
                   {comment.resolved && (
-                    <span className={`ml-2 text-[10px] ${isOwn ? 'text-indigo-200' : 'text-slate-400'}`}>
+                    <span className={`ml-2 text-[10px] ${isOwn ? 'text-indigo-200' : 'text-muted-foreground'}`}>
                       ✓ resolved
                     </span>
                   )}
@@ -206,13 +206,13 @@ export function CommentThread({
 
                 {/* Timestamp + actions */}
                 <div className={`flex items-center gap-2 px-1 ${isOwn ? 'flex-row-reverse' : ''}`}>
-                  <span className="text-[10px] text-slate-300">{timeAgo(comment.createdAt)}</span>
+                  <span className="text-[10px] text-muted-foreground/70">{timeAgo(comment.createdAt)}</span>
 
                   {/* Actions — visible on hover */}
                   <div className="hidden group-hover:flex items-center gap-1">
                     {canComment && !comment.resolved && (
                       <button
-                        className="text-[10px] text-slate-400 hover:text-emerald-600 transition-colors"
+                        className="text-[10px] text-muted-foreground hover:text-emerald-600 transition-colors"
                         onClick={() => resolveComment(comment.commentId, true)}
                       >
                         Resolve
@@ -220,7 +220,7 @@ export function CommentThread({
                     )}
                     {comment.resolved && canComment && (
                       <button
-                        className="text-[10px] text-slate-400 hover:text-slate-600 transition-colors"
+                        className="text-[10px] text-muted-foreground hover:text-foreground transition-colors"
                         onClick={() => resolveComment(comment.commentId, false)}
                       >
                         Unresolve
@@ -228,7 +228,7 @@ export function CommentThread({
                     )}
                     {comment.userId === currentUserId && (
                       <button
-                        className="text-[10px] text-slate-400 hover:text-red-500 transition-colors"
+                        className="text-[10px] text-muted-foreground hover:text-red-500 transition-colors"
                         onClick={() => deleteComment(comment.commentId)}
                       >
                         Delete
@@ -247,7 +247,7 @@ export function CommentThread({
 
       {/* Input pinned at bottom */}
       {canComment && (
-        <div className="border-t border-slate-100 px-3 py-2 bg-white shrink-0">
+        <div className="border-t border-border px-3 py-2 bg-background shrink-0">
           <CommentInput
             onSubmit={handleSubmit}
             placeholder="Type a message… (@ to mention)"

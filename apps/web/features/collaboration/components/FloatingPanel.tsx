@@ -114,20 +114,20 @@ export function FloatingPanel({
 
   return (
     <div
-      className="fixed z-50 flex flex-col rounded-xl border border-slate-200 bg-white shadow-2xl overflow-hidden"
+      className="fixed z-50 flex flex-col rounded-xl border border-border bg-card shadow-2xl overflow-hidden"
       style={{ left: pos.x, top: pos.y, width: size.w, height: size.h }}
     >
       {/* Title bar — drag handle */}
       <div
-        className="flex items-center justify-between px-3 py-2 bg-slate-50 border-b border-slate-200 cursor-grab active:cursor-grabbing shrink-0 select-none"
+        className="flex items-center justify-between px-3 py-2 bg-muted border-b border-border cursor-grab active:cursor-grabbing shrink-0 select-none"
         onMouseDown={handleDragStart}
       >
         <div className="flex items-center gap-2">
-          <GripHorizontal className="h-3.5 w-3.5 text-slate-400" />
-          <span className="text-sm font-medium text-slate-700">{title}</span>
+          <GripHorizontal className="h-3.5 w-3.5 text-muted-foreground" />
+          <span className="text-sm font-medium text-foreground">{title}</span>
         </div>
         <button
-          className="h-5 w-5 flex items-center justify-center rounded text-slate-400 hover:text-slate-600 hover:bg-slate-200 transition-colors"
+          className="h-5 w-5 flex items-center justify-center rounded text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
           onClick={onClose}
           onMouseDown={(e) => e.stopPropagation()}
           title="Close"
@@ -158,7 +158,7 @@ export function FloatingPanel({
         onMouseDown={(e) => handleResizeStart(e, 'se')}
         title="Drag to resize"
       >
-        <svg viewBox="0 0 10 10" className="h-3 w-3 absolute bottom-1 right-1 text-slate-300">
+        <svg viewBox="0 0 10 10" className="h-3 w-3 absolute bottom-1 right-1 text-muted-foreground/50">
           <path d="M9 1L1 9M9 5L5 9M9 9" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
         </svg>
       </div>

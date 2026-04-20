@@ -141,14 +141,14 @@ export function CommentInput({
       {mentionQuery !== null && suggestions.length > 0 && (
         <div
           ref={dropdownRef}
-          className="absolute bottom-full left-0 right-0 mb-1 bg-white border border-slate-200 rounded-xl shadow-lg overflow-hidden z-10"
+          className="absolute bottom-full left-0 right-0 mb-1 bg-popover border border-border rounded-xl shadow-lg overflow-hidden z-10"
         >
           {suggestions.map((user, i) => (
             <button
               key={user.userId}
               type="button"
               className={`w-full flex items-center gap-2 px-3 py-2 text-left text-sm transition-colors ${
-                i === selectedIndex ? 'bg-indigo-50 text-indigo-700' : 'hover:bg-slate-50 text-slate-700'
+                i === selectedIndex ? 'bg-primary/10 text-primary' : 'hover:bg-accent text-foreground'
               }`}
               onMouseDown={(e) => {
                 e.preventDefault(); // prevent textarea blur
@@ -161,7 +161,7 @@ export function CommentInput({
               <div className="min-w-0">
                 <div className="font-medium truncate">{user.displayName || user.email}</div>
                 {user.displayName && (
-                  <div className="text-xs text-slate-400 truncate">{user.email}</div>
+                  <div className="text-xs text-muted-foreground truncate">{user.email}</div>
                 )}
               </div>
             </button>
@@ -178,7 +178,7 @@ export function CommentInput({
           placeholder={placeholder}
           disabled={disabled || isSubmitting}
           rows={1}
-          className="flex-1 resize-none rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:border-transparent transition-shadow disabled:opacity-50 disabled:cursor-not-allowed"
+          className="flex-1 resize-none rounded-xl border border-input bg-muted px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-shadow disabled:opacity-50 disabled:cursor-not-allowed"
           style={{ minHeight: '36px', maxHeight: '120px' }}
         />
         <Button
