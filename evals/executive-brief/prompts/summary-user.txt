@@ -12,7 +12,7 @@ COPY THIS JSON SKELETON AND FILL IT IN (do not add keys):
   "contractType": "string (optional)",
   "setAside": "string (optional)",
   "naics": "string (optional, numeric codes)",
-  "estimatedValueUsd": "$1,000,000",
+  "estimatedValueUsd": "(omit if not stated in solicitation)",
   "placeOfPerformance": "string (optional)",
   "periodOfPerformance": "string (optional)"
 }
