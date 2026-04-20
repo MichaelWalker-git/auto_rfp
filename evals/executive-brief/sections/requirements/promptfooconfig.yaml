@@ -953,3 +953,260 @@ tests:
           - Should NOT include IT/software-specific requirements
 
           Score 5 = physical service requirements complete. Score 1 = major omissions.
+
+  # ─── Test Case 9: MS IAM Solution (County of San Mateo) ───
+  - description: "San Mateo County — MS IAM Solution (Okta to Microsoft SSO migration, RBAC, MFA)"
+    vars:
+      solicitation: file://../../rfp-texts/ms-iam-solution.txt
+    assert:
+      - type: javascript
+        metric: RequirementCountMin
+        value: |
+          const obj = JSON.parse(output);
+          return obj.requirements.length >= 10;
+
+      - type: javascript
+        metric: HasIAMRequirement
+        value: |
+          const obj = JSON.parse(output);
+          return obj.requirements.some(r => {
+            const t = r.requirement.toLowerCase();
+            return t.includes('iam') || t.includes('identity') || t.includes('access management');
+          });
+
+      - type: javascript
+        metric: HasSSORequirement
+        value: |
+          const obj = JSON.parse(output);
+          return obj.requirements.some(r => {
+            const t = r.requirement.toLowerCase();
+            return t.includes('sso') || t.includes('single sign') || t.includes('okta') || t.includes('entra');
+          });
+
+      - type: javascript
+        metric: DeliverablesCountMin
+        value: |
+          const obj = JSON.parse(output);
+          return obj.deliverables.length >= 3;
+
+      - type: javascript
+        metric: EvalFactorsCountMin
+        value: |
+          const obj = JSON.parse(output);
+          return obj.evaluationFactors.length >= 3;
+
+      - type: llm-rubric
+        metric: FieldExtractionAccuracy
+        threshold: 0.6
+        weight: 5
+        value: |
+          GOLD STANDARD for County of San Mateo MS IAM Solution:
+          - requirements: ~60 requirements including Active Directory/Entra ID assessment, IAM automation, SSO migration (from Okta to Microsoft Entra ID), RBAC configuration, MFA implementation, conditional access policies, identity governance
+          - deliverables: ~6 deliverables including assessment report, migration plan, implementation documentation, training materials, runbooks, post-migration support
+          - evaluationFactors: ~7 factors including technical approach, experience/qualifications, project methodology, references, cost
+
+          Score 5 = captures IAM, SSO migration, RBAC, MFA and key deliverables/eval factors. Score 1 = mostly wrong or missing core IAM scope.
+
+      - type: llm-rubric
+        metric: HallucinationDetection
+        threshold: 0.8
+        weight: 5
+        value: |
+          GOLD STANDARD for County of San Mateo MS IAM Solution:
+          - This is an IAM modernization project migrating from Okta to Microsoft Entra ID
+          - County of San Mateo is the agency (local government, not federal)
+          - Scope includes Active Directory, SSO, MFA, RBAC, conditional access
+
+          WHAT COUNTS AS A HALLUCINATION:
+          - Federal-specific requirements (FedRAMP, FISMA) not mentioned in the solicitation
+          - Technologies not in the RFP (e.g., AWS IAM, Google Workspace)
+          - Fabricated compliance frameworks not referenced in the document
+          - Invented dollar amounts or timelines not in the solicitation
+
+          Score 5 = all requirements grounded in the solicitation. Score 1 = fabricated requirements or wrong technology stack.
+
+      - type: llm-rubric
+        metric: OmissionDiscipline
+        threshold: 0.6
+        weight: 5
+        value: |
+          For County of San Mateo MS IAM Solution:
+          - Active Directory/Entra ID assessment MUST be captured
+          - SSO migration (Okta to Microsoft) MUST be captured
+          - RBAC configuration MUST be captured
+          - MFA implementation SHOULD be captured (may be implicit in IAM/conditional access scope)
+          - IAM automation MUST be captured
+
+          Score 5 = all core IAM requirements captured. Score 3 = captures 4 of 5 core requirements. Score 1 = major omissions of key identity management scope.
+
+  # ─── Test Case 10: Grants Management System (City of San Diego) ───
+  - description: "San Diego — Grants Management System (SaaS, HUD/CDBG/ESG/HOME, SAP integration)"
+    vars:
+      solicitation: file://../../rfp-texts/grants-mgmt-system.txt
+    assert:
+      - type: javascript
+        metric: RequirementCountMin
+        value: |
+          const obj = JSON.parse(output);
+          return obj.requirements.length >= 8;
+
+      - type: javascript
+        metric: HasGrantsRequirement
+        value: |
+          const obj = JSON.parse(output);
+          return obj.requirements.some(r => r.requirement.toLowerCase().includes('grant'));
+
+      - type: javascript
+        metric: HasSaaSRequirement
+        value: |
+          const obj = JSON.parse(output);
+          return obj.requirements.some(r => {
+            const t = r.requirement.toLowerCase();
+            return t.includes('saas') || t.includes('cloud') || t.includes('vendor-hosted');
+          });
+
+      - type: javascript
+        metric: DeliverablesCountMin
+        value: |
+          const obj = JSON.parse(output);
+          return obj.deliverables.length >= 5;
+
+      - type: javascript
+        metric: EvalFactorsCountMin
+        value: |
+          const obj = JSON.parse(output);
+          return obj.evaluationFactors.length >= 3;
+
+      - type: llm-rubric
+        metric: FieldExtractionAccuracy
+        threshold: 0.6
+        weight: 5
+        value: |
+          GOLD STANDARD for City of San Diego Grants Management System:
+          - requirements: ~48 requirements including SaaS grants management platform, HUD/CDBG/ESG/HOME program support, application intake workflows, document management, financial/billing functions, SAP integration, reporting/dashboards, subrecipient monitoring, environmental review tracking
+          - deliverables: ~16 deliverables including system implementation, data migration, training, documentation, testing, go-live support, ongoing maintenance
+          - evaluationFactors: ~6 factors including technical approach, experience with HUD programs, implementation plan, cost, references
+
+          Score 5 = captures grants management, HUD programs, SaaS, SAP integration, and key deliverables. Score 1 = mostly wrong or missing grants/HUD scope.
+
+      - type: llm-rubric
+        metric: HallucinationDetection
+        threshold: 0.8
+        weight: 5
+        value: |
+          GOLD STANDARD for City of San Diego Grants Management System:
+          - This is a SaaS/cloud-hosted grants management system for HUD programs (CDBG, ESG, HOME)
+          - City of San Diego is the agency (municipal government)
+          - Must integrate with SAP for financial operations
+          - Scope covers full grants lifecycle: application, award, monitoring, closeout
+
+          WHAT COUNTS AS A HALLUCINATION:
+          - Federal-specific procurement requirements not in this municipal RFP
+          - Technologies or integrations not mentioned (e.g., Salesforce, Oracle)
+          - Grant programs not referenced in the solicitation
+          - Fabricated compliance frameworks or certifications not in the document
+
+          Score 5 = all requirements grounded in the solicitation. Score 1 = fabricated grant programs or wrong system scope.
+
+      - type: llm-rubric
+        metric: OmissionDiscipline
+        threshold: 0.8
+        weight: 5
+        value: |
+          For City of San Diego Grants Management System:
+          - SaaS/cloud-hosted platform MUST be captured
+          - HUD program support (CDBG/ESG/HOME) MUST be captured
+          - Application intake workflows MUST be captured
+          - SAP integration MUST be captured
+          - Financial/billing functions MUST be captured
+          - Document management MUST be captured
+
+          Score 5 = all core grants management requirements captured. Score 1 = major omissions of key functional scope.
+
+  # ─── Test Case 11: eCitation System SW (City of Banning) ───
+  - description: "Banning — eCitation System Software (mobile app, iOS, Court Export, CHP SWITRS, RMS interface)"
+    vars:
+      solicitation: file://../../rfp-texts/ecitation-system-sw.txt
+    assert:
+      - type: javascript
+        metric: RequirementCountMin
+        value: |
+          const obj = JSON.parse(output);
+          return obj.requirements.length >= 8;
+
+      - type: javascript
+        metric: HasMobileRequirement
+        value: |
+          const obj = JSON.parse(output);
+          return obj.requirements.some(r => {
+            const t = r.requirement.toLowerCase();
+            return t.includes('mobile') || t.includes('iphone') || t.includes('ios');
+          });
+
+      - type: javascript
+        metric: HasCourtExport
+        value: |
+          const obj = JSON.parse(output);
+          return obj.requirements.some(r => {
+            const t = r.requirement.toLowerCase();
+            return t.includes('court') && t.includes('export');
+          });
+
+      - type: javascript
+        metric: DeliverablesCountMin
+        value: |
+          const obj = JSON.parse(output);
+          return obj.deliverables.length >= 3;
+
+      - type: javascript
+        metric: EvalFactorsCountMin
+        value: |
+          const obj = JSON.parse(output);
+          return obj.evaluationFactors.length >= 3;
+
+      - type: llm-rubric
+        metric: FieldExtractionAccuracy
+        threshold: 0.6
+        weight: 5
+        value: |
+          GOLD STANDARD for City of Banning eCitation System:
+          - requirements: ~51 requirements including eCitation mobile application for 40 users, iOS/iPhone compatible, Court Export Module, CHP SWITRS interface, RMS (RIMS) interface, barcode scanning, signature capture, GPS location, violation code lookup, officer workflow
+          - deliverables: ~12 deliverables including software licenses, implementation, training, hardware recommendations, integration setup, ongoing support/maintenance
+          - evaluationFactors: ~6 factors including technical capability, experience with law enforcement, implementation approach, cost, references
+
+          Score 5 = captures mobile eCitation, Court Export, SWITRS, RMS interface, and iOS requirement. Score 1 = mostly wrong or missing law enforcement citation scope.
+
+      - type: llm-rubric
+        metric: HallucinationDetection
+        threshold: 0.8
+        weight: 5
+        value: |
+          GOLD STANDARD for City of Banning eCitation System:
+          - This is an electronic citation system for police department (40 users)
+          - iOS/iPhone platform required
+          - Must interface with Court Export Module, CHP SWITRS, and RMS (RIMS)
+          - City of Banning is the agency (small municipal government in California)
+
+          WHAT COUNTS AS A HALLUCINATION:
+          - Android or cross-platform requirements not specified in the solicitation
+          - Integration systems not mentioned (e.g., NIBRS, CAD systems not referenced)
+          - Federal law enforcement requirements not applicable to municipal police
+          - Fabricated compliance standards not in the document
+          - Wrong user count or department scope
+
+          Score 5 = all requirements grounded in the solicitation. Score 1 = fabricated interfaces or wrong platform requirements.
+
+      - type: llm-rubric
+        metric: OmissionDiscipline
+        threshold: 0.8
+        weight: 5
+        value: |
+          For City of Banning eCitation System:
+          - eCitation mobile application MUST be captured
+          - iOS/iPhone compatibility MUST be captured
+          - Court Export Module MUST be captured
+          - CHP SWITRS interface MUST be captured
+          - RMS (RIMS) interface MUST be captured
+          - 40 users SHOULD be captured
+
+          Score 5 = all core eCitation requirements and interfaces captured. Score 1 = major omissions of key system interfaces or platform requirements.

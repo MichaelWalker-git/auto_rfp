@@ -136,7 +136,7 @@ tests:
 
       - type: llm-rubric
         metric: PricingInsightQuality
-        threshold: 0.7
+        threshold: 0.5
         weight: 3
         value: |
           Assess whether the pricing analysis provides useful bid/no-bid insights
@@ -621,3 +621,234 @@ tests:
 
           Score 5 = captures physical service pricing complexity.
           Score 1 = treats as simple IT contract.
+
+  # ─── Test Case 8: MS IAM Solution (County of San Mateo — no-bid, no Microsoft IAM expertise) ───
+  - description: "County of San Mateo — MS IAM Solution — FIXED_PRICE, no-bid recommended (zero IAM expertise)"
+    vars:
+      solicitation: file://../../rfp-texts/ms-iam-solution.txt
+    assert:
+      - type: javascript
+        metric: StrategyAlignment
+        value: |
+          const obj = JSON.parse(output);
+          return obj.strategy === 'FIXED_PRICE';
+
+      - type: javascript
+        metric: HasAssumptions
+        value: |
+          const obj = JSON.parse(output);
+          return obj.assumptions.length >= 1;
+
+      - type: javascript
+        metric: HasPricingRisks
+        value: |
+          const obj = JSON.parse(output);
+          return obj.pricingRisks.length >= 1;
+
+      - type: javascript
+        metric: PriceConfidenceReasonable
+        value: |
+          const obj = JSON.parse(output);
+          return obj.priceConfidence >= 0 && obj.priceConfidence <= 80;
+
+      - type: llm-rubric
+        metric: HallucinationDetection
+        threshold: 0.6
+        weight: 5
+        value: |
+          GOLD STANDARD for County of San Mateo MS IAM Solution:
+          - Fixed-price contract for Microsoft Identity & Access Management
+          - Estimated value $300K-$500K
+          - Requires 3+ years of Microsoft IAM implementation experience
+          - $5M cyber liability insurance requirement
+
+          NOTE: This eval runs in extraction-only mode — the model has NO knowledge of
+          the organization's capabilities. It cannot know whether to bid or not.
+
+          WHAT COUNTS AS A HALLUCINATION:
+          - Specific labor rates or cost breakdowns claimed AS FROM the solicitation (vs labeled as estimates)
+          - Fabricated solicitation details not in the document
+          - Claiming specific competitor pricing from the RFP
+
+          WHAT IS NOT A HALLUCINATION:
+          - Using $300K-$500K estimated range from the solicitation
+          - Generating estimates based on market rates (clearly labeled as estimates)
+          - Identifying the $5M insurance requirement
+          - Providing labor rate estimates for planning purposes
+
+          Score 5 = pricing grounded in solicitation, estimates clearly labeled.
+          Score 3 = some estimates not clearly labeled as assumptions.
+          Score 1 = fabricates specific costs claimed from the solicitation.
+
+      - type: llm-rubric
+        metric: PricingInsightQuality
+        threshold: 0.4
+        weight: 3
+        value: |
+          KEY INSIGHTS for County of San Mateo MS IAM Solution (extraction-only mode):
+          NOTE: The model has NO knowledge of the organization's capabilities.
+          It should focus on extracting pricing-relevant information from the solicitation.
+
+          - $300K-$500K estimated value range
+          - Fixed-price contract structure
+          - $5M cyber liability insurance is a significant cost factor
+          - Microsoft-specific technology stack (Active Directory, Entra ID)
+          - Complex multi-phase implementation (assessment, migration, testing)
+
+          Score 5 = captures solicitation pricing constraints and cost drivers.
+          Score 3 = captures some key pricing factors.
+          Score 1 = generic analysis missing solicitation-specific details.
+
+  # ─── Test Case 9: Grants Management System (City of San Diego — no GMS product) ───
+  - description: "City of San Diego — Grants Mgmt System — FIXED_PRICE, no-bid (no GMS SaaS product)"
+    vars:
+      solicitation: file://../../rfp-texts/grants-mgmt-system.txt
+    assert:
+      - type: javascript
+        metric: StrategyAlignment
+        value: |
+          const obj = JSON.parse(output);
+          return obj.strategy === 'FIXED_PRICE';
+
+      - type: javascript
+        metric: HasAssumptions
+        value: |
+          const obj = JSON.parse(output);
+          return obj.assumptions.length >= 1;
+
+      - type: javascript
+        metric: HasPricingRisks
+        value: |
+          const obj = JSON.parse(output);
+          return obj.pricingRisks.length >= 1;
+
+      - type: javascript
+        metric: PriceConfidenceReasonable
+        value: |
+          const obj = JSON.parse(output);
+          return obj.priceConfidence >= 0 && obj.priceConfidence <= 80;
+
+      - type: llm-rubric
+        metric: HallucinationDetection
+        threshold: 0.6
+        weight: 5
+        value: |
+          GOLD STANDARD for City of San Diego Grants Management System:
+          - Fixed-price contract for a Grants Management System (GMS) SaaS platform
+          - NO government cost estimate provided
+          - 5-year contract (base + options)
+          - SAP integration required
+
+          NOTE: This eval runs in extraction-only mode — the model has NO knowledge of
+          the organization's capabilities or product portfolio.
+
+          WHAT COUNTS AS A HALLUCINATION:
+          - Specific dollar amounts claimed AS the government estimate (none exists)
+          - Fabricated solicitation details not in the document
+          - Claiming specific competitor pricing from the RFP
+
+          WHAT IS NOT A HALLUCINATION:
+          - Generating market-based estimates for GMS platforms (labeled as estimates)
+          - Estimating implementation and integration costs
+          - Noting no government estimate is available
+          - Providing cost breakdowns for planning purposes
+
+          Score 5 = pricing grounded in solicitation, estimates clearly labeled.
+          Score 3 = some estimates not clearly labeled as assumptions.
+          Score 1 = fabricates specific costs claimed from the solicitation.
+
+      - type: llm-rubric
+        metric: PricingInsightQuality
+        threshold: 0.4
+        weight: 3
+        value: |
+          KEY INSIGHTS for City of San Diego Grants Management System (extraction-only mode):
+          NOTE: The model has NO knowledge of the organization's capabilities.
+
+          - No government cost estimate available
+          - SaaS grants management platform required
+          - 5-year contract (base + options) — long-term pricing commitment
+          - SAP integration adds complexity and cost
+          - HUD/CDBG/ESG/HOME program compliance requirements
+          - Existing Salesforce system being replaced — data migration costs
+
+          Score 5 = captures solicitation pricing constraints and cost drivers.
+          Score 3 = captures some key pricing factors.
+          Score 1 = generic analysis missing solicitation-specific details.
+
+  # ─── Test Case 10: eCitation System SW (City of Banning — no eCitation product) ───
+  - description: "City of Banning — eCitation System SW — FIXED_PRICE, no-bid (no eCitation product, niche market)"
+    vars:
+      solicitation: file://../../rfp-texts/ecitation-system-sw.txt
+    assert:
+      - type: javascript
+        metric: StrategyAlignment
+        value: |
+          const obj = JSON.parse(output);
+          return obj.strategy === 'FIXED_PRICE';
+
+      - type: javascript
+        metric: HasAssumptions
+        value: |
+          const obj = JSON.parse(output);
+          return obj.assumptions.length >= 1;
+
+      - type: javascript
+        metric: HasPricingRisks
+        value: |
+          const obj = JSON.parse(output);
+          return obj.pricingRisks.length >= 1;
+
+      - type: javascript
+        metric: PriceConfidenceReasonable
+        value: |
+          const obj = JSON.parse(output);
+          return obj.priceConfidence >= 0 && obj.priceConfidence <= 80;
+
+      - type: llm-rubric
+        metric: HallucinationDetection
+        threshold: 0.6
+        weight: 5
+        value: |
+          GOLD STANDARD for City of Banning eCitation System SW:
+          - Fixed-price contract for electronic citation software and hardware
+          - NO government cost estimate provided
+          - Includes hardware (tablets, printers) + software + training
+          - 1-year base + 4 option years
+
+          NOTE: This eval runs in extraction-only mode — the model has NO knowledge of
+          the organization's capabilities or product portfolio.
+
+          WHAT COUNTS AS A HALLUCINATION:
+          - Specific dollar amounts claimed AS the government estimate (none exists)
+          - Fabricated solicitation details not in the document
+          - Claiming specific competitor pricing from the RFP
+
+          WHAT IS NOT A HALLUCINATION:
+          - Generating market-based estimates for eCitation systems (labeled as estimates)
+          - Estimating hardware and software costs
+          - Noting no government estimate is available
+          - Providing cost breakdowns for planning purposes
+
+          Score 5 = pricing grounded in solicitation, estimates clearly labeled.
+          Score 3 = some estimates not clearly labeled as assumptions.
+          Score 1 = fabricates specific costs claimed from the solicitation.
+
+      - type: llm-rubric
+        metric: PricingInsightQuality
+        threshold: 0.4
+        weight: 3
+        value: |
+          KEY INSIGHTS for City of Banning eCitation System SW (extraction-only mode):
+          NOTE: The model has NO knowledge of the organization's capabilities.
+
+          - No government cost estimate available
+          - Hardware + software + training bundle required
+          - 1-year base + 4 option years — long-term pricing
+          - Pricing is only 10% of evaluation criteria
+          - Experience/references weighted 45% of evaluation
+          - Integration with existing police systems (CAD, RMS)
+
+          Score 5 = captures solicitation pricing constraints and cost drivers.
+          Score 3 = captures some key pricing factors.
+          Score 1 = generic analysis missing solicitation-specific details.

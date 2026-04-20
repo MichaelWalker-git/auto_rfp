@@ -1,13 +1,23 @@
 {
   "allTextKeys": [
-    "14618f3f76b4fe50b216f69d779b2575bce86c4a3a16a34f1f7d43857bb2ac95/ad33c87d-8fbb-49ca-b32e-ae32d653bb2b/8dc8ebfb-2531-44cb-965c-9465b313adf2.txt"
+    "83f116b66f02bae6ec7e3384da1b2babd3b8f2ada46a1078a9d84be20b142a51/ad33c87d-8fbb-49ca-b32e-ae32d653bb2b/ae0e054b-29fd-483b-8bc4-4b7a0b82426f.txt",
+    "ef218a7d650f7dc420fcce96079f6867bdebb791909603a031f782b465962a6b/ad33c87d-8fbb-49ca-b32e-ae32d653bb2b/55703779-6029-476b-aee7-0b24c80254ea.txt",
+    "95f8c8716ebf1d65b170dc910463e04046676a5daa5291c2aac23053f932aa0b/ad33c87d-8fbb-49ca-b32e-ae32d653bb2b/20885878-94cb-49f0-a04e-cd4150f90d51.txt",
+    "e3418134243ffb4bed30c01de95a66590ed78333ab890f0bbcaac04df51cbcf9/ad33c87d-8fbb-49ca-b32e-ae32d653bb2b/80a4bc25-f1e1-42ec-9f55-1e710af7c2f9.txt",
+    "b776c58a8d0bf148a473eb86a97da16325c0dc889684719d1d1178ec4ff80939/ad33c87d-8fbb-49ca-b32e-ae32d653bb2b/d61c8043-09c5-4164-b931-540e9abef5ac.txt",
+    "ce1fbf6526e837632cea0c2f65ab69975eb88a8a2ada3af963cd6a4486fe5b9d/ad33c87d-8fbb-49ca-b32e-ae32d653bb2b/1d861d87-d8cc-4588-9849-1599afd13dbd.txt",
+    "d9fc76720606e62f1d774c72fe17b788522398c840d42a9cd8a6f35e2b9cd231/ad33c87d-8fbb-49ca-b32e-ae32d653bb2b/dbbca564-cc00-4a10-acae-71fe1a2fe2ba.txt",
+    "3e94918ca5571128e24ed63cf18db385f1b32a704a15f7c5f2d7aef9cf8d5095/ad33c87d-8fbb-49ca-b32e-ae32d653bb2b/460a1751-3681-4e0a-a457-a576b31ebc97.txt",
+    "5efb173083c8c27272e2a4f8c398311d45ca396ee1a731a2ea0654ab07a30a73/ad33c87d-8fbb-49ca-b32e-ae32d653bb2b/568daa5c-f1ad-4390-acc7-5982de126874.txt",
+    "7106b31218ce50e1f9a2314fa42c487fe06327bf9def202e24a67faf17101fac/ad33c87d-8fbb-49ca-b32e-ae32d653bb2b/515fd4d6-cf06-4469-a049-bb059faf63b9.txt",
+    "416f4b6fcca98652d045f67f8667676ef59175326966a687a601c849c7fa380a/ad33c87d-8fbb-49ca-b32e-ae32d653bb2b/7e4623a3-e28c-4f32-9f2b-e47ee98b8498.txt"
   ],
-  "compositeScore": 1.9,
-  "confidence": 60,
-  "createdAt": "2026-04-02T02:58:04.394Z",
+  "compositeScore": 1.4,
+  "confidence": 55,
+  "createdAt": "2026-04-02T20:13:28.090Z",
   "decision": "NO_GO",
   "documentsBucket": "auto-rfp-documents-dev-039885961427",
-  "opportunityId": "d8fac891-4a0e-47ce-8947-2ea6aae00fe7",
+  "opportunityId": "623408c1-1aa6-411c-abe7-dc0fa0557343",
   "orgId": "9c0a5757-e2da-4e71-9490-01c558f7ffc3",
   "partition_key": "EXEC_BRIEF_PK",
   "projectId": "ad33c87d-8fbb-49ca-b32e-ae32d653bb2b",
@@ -15,8 +25,8 @@
     "contacts": {
       "data": {
         "missingRecommendedRoles": [
-          "CONTRACTING_OFFICER_REPRESENTATIVE",
-          "CONTRACT_SPECIALIST",
+          "TECHNICAL_POC",
+          "PROGRAM_MANAGER",
           "SMALL_BUSINESS_SPECIALIST",
           "PROCUREMENT_POC",
           "SUBCONTRACTING_POC",
@@ -24,615 +34,846 @@
         ],
         "contacts": [
           {
+            "name": "Grace Alao",
+            "role": "CONTRACT_SPECIALIST",
+            "title": "Senior Contract Specialist",
+            "email": "grace.alao@dccsystem.gov",
+            "organization": "District of Columbia Courts"
+          },
+          {
+            "name": "Darlene D. Reynolds",
             "role": "CONTRACTING_OFFICER",
-            "notes": null,
-            "phone": null,
-            "organization": "DFAS Contract Services Directorate",
-            "name": null,
-            "title": "Contracting Officer",
-            "email": null
+            "notes": "510 4th Street, NW, Third Floor, Washington, D.C. 20001",
+            "title": "Procurement and Contracts Branch Manager",
+            "organization": "District of Columbia Courts, Administrative Services Division"
           },
           {
-            "role": "TECHNICAL_POC",
-            "notes": null,
-            "phone": null,
-            "organization": null,
-            "name": "Technical Reviewer",
-            "title": null,
-            "email": null
-          },
-          {
-            "role": "PROGRAM_MANAGER",
-            "notes": null,
-            "phone": null,
-            "organization": "DFAS EFD Program Manager (PM)",
-            "name": null,
-            "title": null,
-            "email": null
+            "role": "CONTRACTING_OFFICER_REPRESENTATIVE",
+            "notes": "410 E Street, NW, Suite C-620, Washington, DC 20001",
+            "phone": "202-879-1627",
+            "organization": "District of Columbia Courts",
+            "name": "Sherri Evans Harris",
+            "title": "General Counsel",
+            "email": "officegeneralcounsel@dccsystem.gov"
           }
         ]
       },
-      "inputHash": "99d2497c62257860741f5151d6ba5ab51978dc9b9821359c0f757040b0732c35",
+      "inputHash": "c732e6a15cafe2d43e5bbe3bc028981e989a6fdac11c5a20588e6bba1f06f992",
       "status": "COMPLETE",
-      "updatedAt": "2026-04-02T02:58:14.829Z"
+      "updatedAt": "2026-04-19T20:15:31.856Z"
     },
     "deadlines": {
       "data": {
+        "hasSubmissionDeadline": true,
+        "submissionDeadlineIso": "2026-04-24T11:00:00-05:00",
         "deadlines": [
           {
+            "dateTimeIso": "2026-04-13T11:00:00-05:00",
+            "label": "Deadline for solicitation questions",
+            "notes": null,
+            "type": "QUESTIONS_DUE",
+            "rawText": "QUESTIONS MUST BE SUBMITTED NO LATER THAN 11:00 A.M. EST ON APRIL 13, 2026.",
+            "timezone": "EST"
+          },
+          {
+            "dateTimeIso": "2026-04-24T11:00:00-05:00",
             "label": "Proposal submission deadline",
-            "notes": "UNPARSED_DATE",
+            "notes": "The opportunity metadata shows a response deadline of April 17, 2026, but the solicitation text in Section L.2 explicitly states April 24, 2026 at 11:00 AM EST. The Section L.2 date is used as the authoritative deadline.",
             "type": "PROPOSAL_DUE",
-            "rawText": "The Required Delivery Date/PoP is:"
+            "rawText": "PROPOSALS MUST BE SUBMITTED BY EMAIL TO GRACE ALAO, SENIOR CONTRACT SPECIALIST, AT GRACE.ALAO@DCCSYSTEM.GOV NO LATER THAN 11 A.M. EST ON FRIDAY, APRIL 24, 2026.",
+            "timezone": "EST"
           }
         ],
-        "hasSubmissionDeadline": true,
         "warnings": [
-          "No explicit deadline date or time found. Deadline information is incomplete."
+          "Opportunity metadata response deadline (2026-04-17T14:00:00Z) conflicts with the solicitation text deadline (April 24, 2026 at 11:00 AM EST). The solicitation text deadline is used as authoritative."
         ]
       },
-      "inputHash": "3dc0f6d25b3a976337bb315b0dd748fbc87bdbebd21f00c47d776d054e2c327b",
+      "inputHash": "99c66b1b2e7caed7462813e5bac16b8c8c3a2d85deab9ddfd9b3d2cd82a608a1",
       "status": "COMPLETE",
-      "updatedAt": "2026-04-02T02:58:18.603Z"
+      "updatedAt": "2026-04-19T20:15:35.352Z"
     },
     "pastPerformance": {
-      "data": {
-        "topMatches": [
-          {
-            "matchDetails": {
-              "technicalSimilarity": 23,
-              "scaleSimilarity": 50,
-              "domainSimilarity": 40,
-              "recency": 100,
-              "successMetrics": 80
-            },
-            "project": {
-              "durationMonths": null,
-              "naicsCodes": [],
-              "achievements": [],
-              "endDate": "2026-02-17",
-              "contractType": "T&M",
-              "isArchived": false,
-              "description": "AI integration",
-              "title": "Test Project",
-              "orgId": "9c0a5757-e2da-4e71-9490-01c558f7ffc3",
-              "setAside": "8A",
-              "createdAt": "2026-02-10T07:38:12.624Z",
-              "client": "Aim",
-              "value": 2000000,
-              "updatedAt": "2026-04-01T19:42:10.493Z",
-              "technicalApproach": "We have made lambdas",
-              "partition_key": "PAST_PROJECT",
-              "contractNumber": "123123",
-              "sort_key": "9c0a5757-e2da-4e71-9490-01c558f7ffc3#1b2c4fed-fd82-405b-b216-775b8730ef47",
-              "usageCount": 40,
-              "technologies": [
-                "AWS"
-              ],
-              "performanceRating": 4,
-              "createdBy": "4418c4e8-e001-707f-e487-2ac311f8cf5e",
-              "lastUsedAt": "2026-04-01T19:42:10.493Z",
-              "teamSize": 12,
-              "domain": "Finance",
-              "clientPOC": null,
-              "projectId": "1b2c4fed-fd82-405b-b216-775b8730ef47",
-              "usedInBriefIds": [
-                "5087522b-9546-42cb-b301-dbf02107e11f#ab289422-119e-4687-a3bf-84175922e716",
-                "5087522b-9546-42cb-b301-dbf02107e11f#7cb8619a-de72-40f5-b73a-b10ae123223c",
-                "5087522b-9546-42cb-b301-dbf02107e11f#7cb8619a-de72-40f5-b73a-b10ae123223c",
-                "6fbf749f-7173-489c-be0a-564f97ebf8b0#1ffbd5b8-a841-4908-9f2a-365bcc1f6c78",
-                "5087522b-9546-42cb-b301-dbf02107e11f#50d95c57-6c69-4c82-aeaa-836a66e2850d",
-                "5087522b-9546-42cb-b301-dbf02107e11f#50d95c57-6c69-4c82-aeaa-836a66e2850d",
-                "5087522b-9546-42cb-b301-dbf02107e11f#e7302603-3266-4b74-8101-90487b7c4300",
-                "5087522b-9546-42cb-b301-dbf02107e11f#e7302603-3266-4b74-8101-90487b7c4300",
-                "5087522b-9546-42cb-b301-dbf02107e11f#e63cfd39-c641-434e-af18-5be81a3eb0f4",
-                "5087522b-9546-42cb-b301-dbf02107e11f#85a587fd-299b-4ed5-9e12-71decba404a6",
-                "5087522b-9546-42cb-b301-dbf02107e11f#85a587fd-299b-4ed5-9e12-71decba404a6",
-                "914677f2-99e4-492c-8b8c-7eb9aeb146e3#b2a20873-9506-459b-a2e1-1f00b0605fa9",
-                "6fbf749f-7173-489c-be0a-564f97ebf8b0#1ffbd5b8-a841-4908-9f2a-365bcc1f6c78",
-                "6fbf749f-7173-489c-be0a-564f97ebf8b0#6ff95dac-4ea2-4cfd-96ea-1e6ee09e960e",
-                "6fbf749f-7173-489c-be0a-564f97ebf8b0#6ff95dac-4ea2-4cfd-96ea-1e6ee09e960e",
-                "6fbf749f-7173-489c-be0a-564f97ebf8b0#6ff95dac-4ea2-4cfd-96ea-1e6ee09e960e",
-                "6fbf749f-7173-489c-be0a-564f97ebf8b0#a8e29b02-94c6-4863-bf1f-179289c6a636",
-                "0ce715b4-00cb-4abd-bba3-75fc61eea937#3e1d117f-9789-4e9e-9f2f-900ef4d25630",
-                "0ce715b4-00cb-4abd-bba3-75fc61eea937#d90f428d-5ea4-4def-b9e8-2ab3c470ccdf",
-                "0ce715b4-00cb-4abd-bba3-75fc61eea937#f38dd80d-e6bf-439e-83c6-e0a1912736f4",
-                "d1787e4e-170b-4250-8b30-1fa86cf32c97#c7750644-e549-4155-bda6-cc469ed22f54",
-                "d1787e4e-170b-4250-8b30-1fa86cf32c97#fb6f4b8b-34f2-4d85-b6b8-b30ecca8f0fb",
-                "d1787e4e-170b-4250-8b30-1fa86cf32c97#3ee6429a-2256-4e19-a405-af20c437a7bb",
-                "d1787e4e-170b-4250-8b30-1fa86cf32c97#8b60924c-79f2-40bc-83a8-08d77cab62f5",
-                "d1787e4e-170b-4250-8b30-1fa86cf32c97#e6a1567a-616d-491c-a32b-c5e9756da936",
-                "0ce715b4-00cb-4abd-bba3-75fc61eea937#1249c9e9-0cb3-4f1c-bef8-38bc10abdc32",
-                "0ce715b4-00cb-4abd-bba3-75fc61eea937#b07f787c-eafb-43c2-93b9-d7e138419d80",
-                "0ce715b4-00cb-4abd-bba3-75fc61eea937#65b743ac-cf1d-4b28-85de-3dcd51fe7662",
-                "0ce715b4-00cb-4abd-bba3-75fc61eea937#37f43aac-697b-4ad7-a082-adccbaf3a8d8",
-                "0ce715b4-00cb-4abd-bba3-75fc61eea937#95f872fd-7a26-4a52-95d7-32dcf872480e",
-                "0ce715b4-00cb-4abd-bba3-75fc61eea937#230aeed0-60ef-4f1e-8de8-f43c86e7c69c",
-                "0ce715b4-00cb-4abd-bba3-75fc61eea937#675fcfb7-87b0-4d7b-9d03-62ddae430f28",
-                "0ce715b4-00cb-4abd-bba3-75fc61eea937#c6369dc9-c8a3-4d3b-af26-b60696ab98bd",
-                "0ce715b4-00cb-4abd-bba3-75fc61eea937#0dd1910a-95f0-4a97-a445-c8133f2967f0",
-                "d1787e4e-170b-4250-8b30-1fa86cf32c97#5fb879ad-5a62-429d-abfe-a739960a1fa0",
-                "d1787e4e-170b-4250-8b30-1fa86cf32c97#16935d0f-afa4-4115-b85c-e786672e1960",
-                "0ce715b4-00cb-4abd-bba3-75fc61eea937#8a8f1cc4-861f-494e-87ef-c45feecf4eeb",
-                "d1787e4e-170b-4250-8b30-1fa86cf32c97#ca7bcd54-ce11-4d72-847b-c9d2fcd2c762",
-                "d1787e4e-170b-4250-8b30-1fa86cf32c97#b467d684-fcb0-4043-80e7-617cc32b5e19",
-                "d1787e4e-170b-4250-8b30-1fa86cf32c97#bd8a358f-8379-434e-8292-041e89988638"
-              ],
-              "startDate": "2026-02-09"
-            },
-            "relevanceScore": 43,
-            "matchedRequirements": [],
-            "narrative": null
-          },
-          {
-            "matchDetails": {
-              "technicalSimilarity": 10,
-              "scaleSimilarity": 0,
-              "domainSimilarity": 0,
-              "recency": 50,
-              "successMetrics": 50
-            },
-            "project": {
-              "durationMonths": null,
-              "naicsCodes": [],
-              "achievements": [],
-              "endDate": null,
-              "contractType": null,
-              "isArchived": false,
-              "description": "Something really good\n",
-              "title": "Test 2",
-              "orgId": "9c0a5757-e2da-4e71-9490-01c558f7ffc3",
-              "setAside": null,
-              "createdAt": "2026-02-10T07:45:26.310Z",
-              "client": "Aim",
-              "value": null,
-              "updatedAt": "2026-04-01T19:42:10.518Z",
-              "technicalApproach": null,
-              "partition_key": "PAST_PROJECT",
-              "contractNumber": null,
-              "sort_key": "9c0a5757-e2da-4e71-9490-01c558f7ffc3#991f9114-c375-41d9-93b0-ce5b03512b6f",
-              "usageCount": 40,
-              "technologies": [],
-              "performanceRating": null,
-              "createdBy": "4418c4e8-e001-707f-e487-2ac311f8cf5e",
-              "lastUsedAt": "2026-04-01T19:42:10.518Z",
-              "teamSize": null,
-              "domain": null,
-              "clientPOC": null,
-              "projectId": "991f9114-c375-41d9-93b0-ce5b03512b6f",
-              "usedInBriefIds": [
-                "5087522b-9546-42cb-b301-dbf02107e11f#ab289422-119e-4687-a3bf-84175922e716",
-                "5087522b-9546-42cb-b301-dbf02107e11f#7cb8619a-de72-40f5-b73a-b10ae123223c",
-                "5087522b-9546-42cb-b301-dbf02107e11f#7cb8619a-de72-40f5-b73a-b10ae123223c",
-                "6fbf749f-7173-489c-be0a-564f97ebf8b0#1ffbd5b8-a841-4908-9f2a-365bcc1f6c78",
-                "5087522b-9546-42cb-b301-dbf02107e11f#50d95c57-6c69-4c82-aeaa-836a66e2850d",
-                "5087522b-9546-42cb-b301-dbf02107e11f#50d95c57-6c69-4c82-aeaa-836a66e2850d",
-                "5087522b-9546-42cb-b301-dbf02107e11f#e7302603-3266-4b74-8101-90487b7c4300",
-                "5087522b-9546-42cb-b301-dbf02107e11f#e7302603-3266-4b74-8101-90487b7c4300",
-                "5087522b-9546-42cb-b301-dbf02107e11f#e63cfd39-c641-434e-af18-5be81a3eb0f4",
-                "5087522b-9546-42cb-b301-dbf02107e11f#85a587fd-299b-4ed5-9e12-71decba404a6",
-                "5087522b-9546-42cb-b301-dbf02107e11f#85a587fd-299b-4ed5-9e12-71decba404a6",
-                "914677f2-99e4-492c-8b8c-7eb9aeb146e3#b2a20873-9506-459b-a2e1-1f00b0605fa9",
-                "6fbf749f-7173-489c-be0a-564f97ebf8b0#1ffbd5b8-a841-4908-9f2a-365bcc1f6c78",
-                "6fbf749f-7173-489c-be0a-564f97ebf8b0#6ff95dac-4ea2-4cfd-96ea-1e6ee09e960e",
-                "6fbf749f-7173-489c-be0a-564f97ebf8b0#6ff95dac-4ea2-4cfd-96ea-1e6ee09e960e",
-                "6fbf749f-7173-489c-be0a-564f97ebf8b0#6ff95dac-4ea2-4cfd-96ea-1e6ee09e960e",
-                "6fbf749f-7173-489c-be0a-564f97ebf8b0#a8e29b02-94c6-4863-bf1f-179289c6a636",
-                "0ce715b4-00cb-4abd-bba3-75fc61eea937#3e1d117f-9789-4e9e-9f2f-900ef4d25630",
-                "0ce715b4-00cb-4abd-bba3-75fc61eea937#d90f428d-5ea4-4def-b9e8-2ab3c470ccdf",
-                "0ce715b4-00cb-4abd-bba3-75fc61eea937#f38dd80d-e6bf-439e-83c6-e0a1912736f4",
-                "d1787e4e-170b-4250-8b30-1fa86cf32c97#c7750644-e549-4155-bda6-cc469ed22f54",
-                "d1787e4e-170b-4250-8b30-1fa86cf32c97#fb6f4b8b-34f2-4d85-b6b8-b30ecca8f0fb",
-                "d1787e4e-170b-4250-8b30-1fa86cf32c97#3ee6429a-2256-4e19-a405-af20c437a7bb",
-                "d1787e4e-170b-4250-8b30-1fa86cf32c97#8b60924c-79f2-40bc-83a8-08d77cab62f5",
-                "d1787e4e-170b-4250-8b30-1fa86cf32c97#e6a1567a-616d-491c-a32b-c5e9756da936",
-                "0ce715b4-00cb-4abd-bba3-75fc61eea937#1249c9e9-0cb3-4f1c-bef8-38bc10abdc32",
-                "0ce715b4-00cb-4abd-bba3-75fc61eea937#b07f787c-eafb-43c2-93b9-d7e138419d80",
-                "0ce715b4-00cb-4abd-bba3-75fc61eea937#65b743ac-cf1d-4b28-85de-3dcd51fe7662",
-                "0ce715b4-00cb-4abd-bba3-75fc61eea937#37f43aac-697b-4ad7-a082-adccbaf3a8d8",
-                "0ce715b4-00cb-4abd-bba3-75fc61eea937#95f872fd-7a26-4a52-95d7-32dcf872480e",
-                "0ce715b4-00cb-4abd-bba3-75fc61eea937#230aeed0-60ef-4f1e-8de8-f43c86e7c69c",
-                "0ce715b4-00cb-4abd-bba3-75fc61eea937#675fcfb7-87b0-4d7b-9d03-62ddae430f28",
-                "0ce715b4-00cb-4abd-bba3-75fc61eea937#c6369dc9-c8a3-4d3b-af26-b60696ab98bd",
-                "0ce715b4-00cb-4abd-bba3-75fc61eea937#0dd1910a-95f0-4a97-a445-c8133f2967f0",
-                "d1787e4e-170b-4250-8b30-1fa86cf32c97#5fb879ad-5a62-429d-abfe-a739960a1fa0",
-                "d1787e4e-170b-4250-8b30-1fa86cf32c97#16935d0f-afa4-4115-b85c-e786672e1960",
-                "0ce715b4-00cb-4abd-bba3-75fc61eea937#8a8f1cc4-861f-494e-87ef-c45feecf4eeb",
-                "d1787e4e-170b-4250-8b30-1fa86cf32c97#ca7bcd54-ce11-4d72-847b-c9d2fcd2c762",
-                "d1787e4e-170b-4250-8b30-1fa86cf32c97#b467d684-fcb0-4043-80e7-617cc32b5e19",
-                "d1787e4e-170b-4250-8b30-1fa86cf32c97#bd8a358f-8379-434e-8292-041e89988638"
-              ],
-              "startDate": null
-            },
-            "relevanceScore": 12,
-            "matchedRequirements": [],
-            "narrative": null
-          },
-          {
-            "matchDetails": {
-              "technicalSimilarity": 6,
-              "scaleSimilarity": 0,
-              "domainSimilarity": 0,
-              "recency": 50,
-              "successMetrics": 100
-            },
-            "project": {
-              "durationMonths": null,
-              "naicsCodes": [],
-              "achievements": [
-                "test"
-              ],
-              "endDate": null,
-              "contractType": null,
-              "isArchived": false,
-              "description": "Description",
-              "title": "test",
-              "orgId": "9c0a5757-e2da-4e71-9490-01c558f7ffc3",
-              "setAside": null,
-              "createdAt": "2026-02-09T14:52:06.793Z",
-              "client": "test",
-              "value": null,
-              "updatedAt": "2026-04-01T19:42:10.503Z",
-              "technicalApproach": "test",
-              "partition_key": "PAST_PROJECT",
-              "contractNumber": null,
-              "sort_key": "9c0a5757-e2da-4e71-9490-01c558f7ffc3#848022f5-6168-4cf8-ae4b-061aa1d32948",
-              "usageCount": 40,
-              "technologies": [],
-              "performanceRating": 5,
-              "createdBy": "4418c4e8-e001-707f-e487-2ac311f8cf5e",
-              "lastUsedAt": "2026-04-01T19:42:10.503Z",
-              "teamSize": null,
-              "domain": null,
-              "clientPOC": {
-                "name": "\u0415\u0432\u0433\u0435\u043d\u0438\u0439 \u041a\u0440\u0430\u0432\u0447\u0435\u043d\u043a\u043e",
-                "phone": "0956334094",
-                "email": "evgen.cravchenco@gmail.com"
-              },
-              "projectId": "848022f5-6168-4cf8-ae4b-061aa1d32948",
-              "usedInBriefIds": [
-                "5087522b-9546-42cb-b301-dbf02107e11f#ab289422-119e-4687-a3bf-84175922e716",
-                "5087522b-9546-42cb-b301-dbf02107e11f#7cb8619a-de72-40f5-b73a-b10ae123223c",
-                "5087522b-9546-42cb-b301-dbf02107e11f#7cb8619a-de72-40f5-b73a-b10ae123223c",
-                "6fbf749f-7173-489c-be0a-564f97ebf8b0#1ffbd5b8-a841-4908-9f2a-365bcc1f6c78",
-                "5087522b-9546-42cb-b301-dbf02107e11f#50d95c57-6c69-4c82-aeaa-836a66e2850d",
-                "5087522b-9546-42cb-b301-dbf02107e11f#50d95c57-6c69-4c82-aeaa-836a66e2850d",
-                "5087522b-9546-42cb-b301-dbf02107e11f#e7302603-3266-4b74-8101-90487b7c4300",
-                "5087522b-9546-42cb-b301-dbf02107e11f#e7302603-3266-4b74-8101-90487b7c4300",
-                "5087522b-9546-42cb-b301-dbf02107e11f#e63cfd39-c641-434e-af18-5be81a3eb0f4",
-                "5087522b-9546-42cb-b301-dbf02107e11f#85a587fd-299b-4ed5-9e12-71decba404a6",
-                "5087522b-9546-42cb-b301-dbf02107e11f#85a587fd-299b-4ed5-9e12-71decba404a6",
-                "914677f2-99e4-492c-8b8c-7eb9aeb146e3#b2a20873-9506-459b-a2e1-1f00b0605fa9",
-                "6fbf749f-7173-489c-be0a-564f97ebf8b0#1ffbd5b8-a841-4908-9f2a-365bcc1f6c78",
-                "6fbf749f-7173-489c-be0a-564f97ebf8b0#6ff95dac-4ea2-4cfd-96ea-1e6ee09e960e",
-                "6fbf749f-7173-489c-be0a-564f97ebf8b0#6ff95dac-4ea2-4cfd-96ea-1e6ee09e960e",
-                "6fbf749f-7173-489c-be0a-564f97ebf8b0#6ff95dac-4ea2-4cfd-96ea-1e6ee09e960e",
-                "6fbf749f-7173-489c-be0a-564f97ebf8b0#a8e29b02-94c6-4863-bf1f-179289c6a636",
-                "0ce715b4-00cb-4abd-bba3-75fc61eea937#3e1d117f-9789-4e9e-9f2f-900ef4d25630",
-                "0ce715b4-00cb-4abd-bba3-75fc61eea937#d90f428d-5ea4-4def-b9e8-2ab3c470ccdf",
-                "0ce715b4-00cb-4abd-bba3-75fc61eea937#f38dd80d-e6bf-439e-83c6-e0a1912736f4",
-                "d1787e4e-170b-4250-8b30-1fa86cf32c97#c7750644-e549-4155-bda6-cc469ed22f54",
-                "d1787e4e-170b-4250-8b30-1fa86cf32c97#fb6f4b8b-34f2-4d85-b6b8-b30ecca8f0fb",
-                "d1787e4e-170b-4250-8b30-1fa86cf32c97#3ee6429a-2256-4e19-a405-af20c437a7bb",
-                "d1787e4e-170b-4250-8b30-1fa86cf32c97#8b60924c-79f2-40bc-83a8-08d77cab62f5",
-                "d1787e4e-170b-4250-8b30-1fa86cf32c97#e6a1567a-616d-491c-a32b-c5e9756da936",
-                "0ce715b4-00cb-4abd-bba3-75fc61eea937#1249c9e9-0cb3-4f1c-bef8-38bc10abdc32",
-                "0ce715b4-00cb-4abd-bba3-75fc61eea937#b07f787c-eafb-43c2-93b9-d7e138419d80",
-                "0ce715b4-00cb-4abd-bba3-75fc61eea937#65b743ac-cf1d-4b28-85de-3dcd51fe7662",
-                "0ce715b4-00cb-4abd-bba3-75fc61eea937#37f43aac-697b-4ad7-a082-adccbaf3a8d8",
-                "0ce715b4-00cb-4abd-bba3-75fc61eea937#95f872fd-7a26-4a52-95d7-32dcf872480e",
-                "0ce715b4-00cb-4abd-bba3-75fc61eea937#230aeed0-60ef-4f1e-8de8-f43c86e7c69c",
-                "0ce715b4-00cb-4abd-bba3-75fc61eea937#675fcfb7-87b0-4d7b-9d03-62ddae430f28",
-                "0ce715b4-00cb-4abd-bba3-75fc61eea937#c6369dc9-c8a3-4d3b-af26-b60696ab98bd",
-                "0ce715b4-00cb-4abd-bba3-75fc61eea937#0dd1910a-95f0-4a97-a445-c8133f2967f0",
-                "d1787e4e-170b-4250-8b30-1fa86cf32c97#5fb879ad-5a62-429d-abfe-a739960a1fa0",
-                "d1787e4e-170b-4250-8b30-1fa86cf32c97#16935d0f-afa4-4115-b85c-e786672e1960",
-                "0ce715b4-00cb-4abd-bba3-75fc61eea937#8a8f1cc4-861f-494e-87ef-c45feecf4eeb",
-                "d1787e4e-170b-4250-8b30-1fa86cf32c97#ca7bcd54-ce11-4d72-847b-c9d2fcd2c762",
-                "d1787e4e-170b-4250-8b30-1fa86cf32c97#b467d684-fcb0-4043-80e7-617cc32b5e19",
-                "d1787e4e-170b-4250-8b30-1fa86cf32c97#bd8a358f-8379-434e-8292-041e89988638"
-              ],
-              "startDate": null
-            },
-            "relevanceScore": 12,
-            "matchedRequirements": [],
-            "narrative": null
-          }
-        ],
-        "gapAnalysis": {
-          "overallCoverage": 0,
-          "recommendations": [
-            "Overall past performance coverage is below 70%. This may significantly impact win probability."
-          ],
-          "criticalGaps": [],
-          "coverageItems": []
-        },
-        "narrativeSummary": "Found 3 relevant past performance project(s). The strongest match is \"Test Project\" with a 43% relevance score. Overall past performance coverage: 0%.",
-        "confidenceScore": 30,
-        "evidence": []
-      },
-      "inputHash": "a9cdd3fc1784ee3a0a7e9092489cd0d32f098a67f3524c113b8f4b1687e313ea",
-      "status": "COMPLETE",
-      "updatedAt": "2026-04-02T02:58:13.415Z"
+      "status": "IDLE",
+      "updatedAt": "2026-04-19T20:14:59.961Z"
     },
     "pricing": {
       "data": {
-        "competitiveAdvantages": [
-          "Extensive experience upgrading and integrating Momentum Financials software",
-          "Proven track record of successful cloud migrations for federal clients"
-        ],
-        "totalPrice": 4800000,
-        "indirectCostTotal": 400000,
-        "basisOfEstimate": "Detailed labor hour estimates by position based on scope of work, historical rates from get_labor_rates, and materials/ODC pricing from get_bom_items. Competitive analysis using search_historical_pricing and analyze_competitive_position tools to benchmark pricing.",
-        "materialCostTotal": 600000,
+        "competitiveAdvantages": [],
+        "totalPrice": 0,
+        "indirectCostTotal": 0,
+        "basisOfEstimate": "No pricing estimate is provided because HorusTech fundamentally cannot perform this work as a prime contractor. This solicitation (DCSC-26-RFP-60) requires a qualified vendor to provide a cloud-hosted, configurable COTS Legal Case and Document Management System with specialized legal technology features including eDiscovery, litigation hold tracking, contract management, generative AI for legal research, and law practice management. HorusTech is a small California-based technology company specializing in AWS cloud migration and software engineering \u2014 it does not develop, own, or resell a COTS legal case management platform. The organization's labor rates (Manufacturing Engineer $178.89/hr, Software Engineer $171.40/hr, QA $16.86/hr) and BOM items are not relevant to this procurement. No government estimated value was stated in the solicitation. The CLIN structure requires pricing for software licenses/warranties, maintenance/support, on-site training, and installation/migration/implementation across a base year plus 4 option years. Established legal technology vendors (iManage, NetDocuments, Clio, LegalTracker, etc.) with existing COTS products and FedRAMP-authorized cloud environments will be the competitive field. HorusTech's only tangentially relevant experience is an AWS cloud migration for Deckers Brand, which does not demonstrate legal technology or COTS product delivery capability. Price confidence is set to 10 (lowest tier) reflecting complete industry mismatch and absence of both a government estimate and a deliverable product.",
+        "materialCostTotal": 0,
         "assumptions": [
-          "Government's estimated contract value of $[REDACTED] is a reliable anchor for our pricing",
-          "No significant changes expected to Momentum Financials software or cloud migration requirements"
+          "HorusTech does not currently develop, own, license, or resell any COTS legal case and document management system",
+          "The solicitation requires delivery of a COTS product \u2014 custom software development is not within scope and would not satisfy the requirement",
+          "Established legal technology vendors with mature products will dominate the competitive field",
+          "HorusTech's California DGS Small Business (Micro) certification provides no advantage for a DC Courts procurement",
+          "Organization labor rates provided (Manufacturing Engineer, Software Engineer, QA) do not map to the labor categories needed for this legal technology COTS delivery",
+          "FedRAMP authorization is a mandatory security requirement that HorusTech does not currently hold",
+          "The 6-user scope (up to 10 in option years) with 1.2TB data migration suggests a total contract value likely in the range of $200,000-$800,000 over 5 years for established COTS vendors, but this is speculative and based on general market knowledge of legal technology SaaS pricing",
+          "No org-specific cost data supports any meaningful price estimate for this opportunity"
         ],
-        "competitivePosition": "COMPETITIVE",
-        "laborCostTotal": 3600000,
+        "competitivePosition": "HIGH",
+        "laborCostTotal": 0,
         "profitMargin": 10,
         "pricingRisks": [
-          "Potential underestimation of cloud migration complexity",
-          "Uncertainty around government's commercial cloud security requirements"
+          "CRITICAL INDUSTRY MISMATCH: This solicitation requires a commercial-off-the-shelf (COTS) Legal Case and Document Management System \u2014 HorusTech does not develop or resell such a product (e.g., iManage, NetDocuments, Clio, LegalTracker, or similar platforms)",
+          "The solicitation explicitly requires cloud-hosted COTS software with legal-specific functionality including eDiscovery, litigation hold tracking, contract management, generative AI for legal research, and law practice management \u2014 these are specialized legal technology capabilities outside HorusTech's portfolio",
+          "FedRAMP authorized Cloud Service Provider is required (Security Requirement #45), which HorusTech's infrastructure does not possess",
+          "NIST 800-53 r5/800-37 r2 security controls compliance is mandatory \u2014 significant compliance burden for a small firm without existing authorization",
+          "Firm-fixed price contract places all cost risk on the contractor, including document migration of 1.2TB across 390,000 files and 10,000 folders",
+          "No government estimate is provided, making competitive pricing calibration impossible",
+          "Background checks and security clearances required for all contractor personnel due to sensitivity of OGC records",
+          "Service Contract Act wage determination is attached, adding labor compliance complexity",
+          "Open market (unrestricted) solicitation means competition from established legal technology vendors with mature COTS products and existing government clients",
+          "On-site post-implementation support (5 consecutive days in Washington, D.C.) requires travel from San Diego, adding cost"
         ],
         "recommendedActions": [
-          "Propose a fixed-price contract structure to align with government's preference",
-          "Highlight our specialized Momentum Financials expertise and cloud migration capabilities in technical proposal"
+          "RECOMMEND NO-BID: HorusTech does not have a COTS legal case and document management product to offer \u2014 this is a fundamental disqualifier as the solicitation explicitly requires a COTS system, not custom development",
+          "If pursuing despite mismatch, HorusTech would need to partner as a subcontractor to a legal technology COTS vendor (e.g., iManage, NetDocuments, Clio, or similar) and provide cloud migration/implementation services only",
+          "Explore whether any legal COTS vendor needs a cloud migration or AWS implementation partner for this opportunity \u2014 HorusTech's AWS migration experience (Deckers Brand project) could be relevant in a subcontractor role",
+          "Monitor DC Courts solicitations for future IT infrastructure, cloud migration, or software development opportunities that align with HorusTech's core capabilities",
+          "If considering a teaming arrangement, submit questions to the Contracting Officer by April 13, 2026 deadline to clarify whether a prime/sub teaming arrangement with a COTS vendor would be acceptable"
         ],
         "strategy": "FIXED_PRICE",
-        "priceConfidence": 85
+        "priceConfidence": 10
       },
-      "inputHash": "f394063befe387e0f481bfa7e3a7c630049ea3b9c9347248e900fb62597975a7",
+      "inputHash": "b1e6dcb975824ffc57e80917076e210fb6880856a781e486953cb360365d6b27",
       "status": "COMPLETE",
-      "updatedAt": "2026-04-02T03:00:03.868Z"
+      "updatedAt": "2026-04-19T20:16:29.083Z"
     },
     "requirements": {
       "data": {
         "evaluationFactors": [
-          "Offeror's experience upgrading and integrating Momentum Financials software",
-          "Offeror's experience migrating enterprise systems to commercial cloud environments",
-          "Offeror's security capabilities to meet DFAS requirements"
+          "Technical Approach (50 points) - Assessment of extent to which proposed System and technical approach will result in high quality services and deliverables meeting OGC objectives and requirements; systems meeting all requirements with little or no customization rated more highly; includes assessment of understanding of requirements, system responsiveness, user friendliness, ease of use, and quality and thoroughness of technical information",
+          "Experience and Qualifications (25 points) - Breadth of experience with recent projects of similar scope, size, and complexity; greater consideration given to contracts most relevant to the RFP including government contracts",
+          "Past Performance and Customer Service (25 points) - Extent to which Offeror has consistently demonstrated commitment to customer satisfaction and timely delivery of high-quality products and services; focus on projects similar in scope, size, and complexity; greater consideration to most relevant contracts including government contracts; assessment of demonstrated success at problem resolution, implementation, maintenance, user support, and disaster recovery",
+          "Price - Evaluated for reasonableness, completeness, and price realism; not scored; non-price factors when combined are approximately equal to price; evaluation includes price unbalancing assessment"
         ],
-        "overview": "The objective of this requirement is to migrate the Enterprise Funds Distribution (EFD) system to a DoD approved Enterprise Commercial Cloud provider. DFAS requires professional IT services to upgrade the current Momentum Financials software and integrate it with the EFD system.",
+        "overview": "The District of Columbia Courts, Office of the General Counsel (OGC), seeks a qualified vendor to provide a cloud-hosted, configurable commercial-off-the-shelf (COTS) Legal Case and Document Management System, including software, licenses, warranties, installation, document migration (~1.2 TB/390,000 files), implementation, on-site post-implementation support and training, and ongoing maintenance and support. The contract is firm-fixed price with a base year and 4 option years. Award will be made to the responsible offeror whose offer is most advantageous considering Price, Technical Approach, Experience and Qualifications, and Past Performance and Customer Service. Non-price factors combined are approximately equal to price.",
         "requirements": [
           {
             "category": "TECHNICAL",
             "mustHave": true,
-            "requirement": "Upgrade the Momentum Financials software to the current version"
+            "requirement": "Provide a cloud-hosted, configurable COTS Legal Case and Document Management System (not a Court Case Management System)"
           },
           {
             "category": "TECHNICAL",
             "mustHave": true,
-            "requirement": "Integrate the upgraded Momentum Financials software with the EFD system"
+            "requirement": "Document management with centralized database, native document management, and searchable repository"
           },
           {
             "category": "TECHNICAL",
             "mustHave": true,
-            "requirement": "Migrate the EFD system to a DoD approved Enterprise Commercial Cloud provider"
+            "requirement": "Case management with streamlined, real-time matter intake, opening, closure, and matter type tracking"
+          },
+          {
+            "category": "TECHNICAL",
+            "mustHave": true,
+            "requirement": "Litigation hold tracking with electronic reminders and ability to confirm receipt, e-sign, and record recipient response"
+          },
+          {
+            "category": "TECHNICAL",
+            "mustHave": true,
+            "requirement": "Task and calendar management capabilities with automatic alerts for case tracking and monitoring"
+          },
+          {
+            "category": "TECHNICAL",
+            "mustHave": true,
+            "requirement": "Contract management tool including tracking and reminders of deadlines for procurements, contracts, and other agreements"
+          },
+          {
+            "category": "TECHNICAL",
+            "mustHave": true,
+            "requirement": "Generative AI capability including automated workflow, intelligent scanning, data verification, data analysis, legal research, document review, audit trails, data encryption, and GDPR compliance"
+          },
+          {
+            "category": "TECHNICAL",
+            "mustHave": true,
+            "requirement": "eDiscovery including comprehensive data source support, custodian management, data filtering and de-duplication, metadata extraction and analysis, secure storage and preservation, automated review features (redaction and applying legal holds)"
+          },
+          {
+            "category": "TECHNICAL",
+            "mustHave": true,
+            "requirement": "File sharing including securely sharing confidential legal files"
+          },
+          {
+            "category": "TECHNICAL",
+            "mustHave": true,
+            "requirement": "Robust search capability including search by document profile fields and within document text in MS Word, Excel, PDF, HTML, and other widely-used file format types"
+          },
+          {
+            "category": "TECHNICAL",
+            "mustHave": true,
+            "requirement": "Capture/import email, documents, attachments, transcripts, video or audio recordings (including voicemail) and other file types"
+          },
+          {
+            "category": "TECHNICAL",
+            "mustHave": true,
+            "requirement": "Secure, role-based access to case/document profiles and documents (edit, view only, create or save as new version, delete, etc.)"
+          },
+          {
+            "category": "TECHNICAL",
+            "mustHave": true,
+            "requirement": "Accessibility and mobility for easy access anywhere with a secured environment"
+          },
+          {
+            "category": "TECHNICAL",
+            "mustHave": true,
+            "requirement": "OCR and redaction capability"
+          },
+          {
+            "category": "TECHNICAL",
+            "mustHave": true,
+            "requirement": "Ability to generate template documents"
+          },
+          {
+            "category": "TECHNICAL",
+            "mustHave": true,
+            "requirement": "Compatible with Citrix Virtual Desktop Infrastructure (VDI)"
+          },
+          {
+            "category": "TECHNICAL",
+            "mustHave": true,
+            "requirement": "Multiple or unlimited number of document profile fields and categories, including a case notes field(s)"
+          },
+          {
+            "category": "TECHNICAL",
+            "mustHave": true,
+            "requirement": "Single sign-on"
+          },
+          {
+            "category": "TECHNICAL",
+            "mustHave": true,
+            "requirement": "Web-based solution compatible with the latest versions of Microsoft Edge, Chrome, Firefox, and Safari"
+          },
+          {
+            "category": "TECHNICAL",
+            "mustHave": true,
+            "requirement": "Real time user response rate for searching, accessing, saving, and uploading and downloading files, including large files"
+          },
+          {
+            "category": "TECHNICAL",
+            "mustHave": true,
+            "requirement": "Near real time response rate for generating reports"
+          },
+          {
+            "category": "TECHNICAL",
+            "mustHave": true,
+            "requirement": "Disaster Recovery, including immediate access to backup files and documents"
+          },
+          {
+            "category": "TECHNICAL",
+            "mustHave": true,
+            "requirement": "Section 508 compliance (29 U.S.C. \u00a7794d)"
+          },
+          {
+            "category": "TECHNICAL",
+            "mustHave": true,
+            "requirement": "Create user templates and pre-populated profiles for recurring case or file types"
+          },
+          {
+            "category": "TECHNICAL",
+            "mustHave": true,
+            "requirement": "Mobile accessibility"
+          },
+          {
+            "category": "TECHNICAL",
+            "mustHave": true,
+            "requirement": "Assign matters, tasks, and documents to one or more users"
+          },
+          {
+            "category": "TECHNICAL",
+            "mustHave": true,
+            "requirement": "Track matter history, outside counsel, clients, contact information, and similar information"
+          },
+          {
+            "category": "TECHNICAL",
+            "mustHave": true,
+            "requirement": "View and print files/documents directly from the System"
+          },
+          {
+            "category": "TECHNICAL",
+            "mustHave": true,
+            "requirement": "Open files in native application"
+          },
+          {
+            "category": "TECHNICAL",
+            "mustHave": true,
+            "requirement": "Save multiple document versions"
+          },
+          {
+            "category": "TECHNICAL",
+            "mustHave": true,
+            "requirement": "Generate, format, print and export reports, including in MS Excel and Word format"
+          },
+          {
+            "category": "TECHNICAL",
+            "mustHave": true,
+            "requirement": "Assign one or more security profiles to files such as confidential, privileged, or attorney work product, and limit user access accordingly"
+          },
+          {
+            "category": "TECHNICAL",
+            "mustHave": true,
+            "requirement": "Track document history"
+          },
+          {
+            "category": "TECHNICAL",
+            "mustHave": true,
+            "requirement": "Document version control"
+          },
+          {
+            "category": "TECHNICAL",
+            "mustHave": true,
+            "requirement": "Built-in help functions"
+          },
+          {
+            "category": "TECHNICAL",
+            "mustHave": true,
+            "requirement": "Compatibility with MS Word, MS Excel, MS Outlook (including add-in for saving emails, attachments, and contacts), MS Outlook Calendar (alerts, deadlines, reminders, link contacts, auto-launch Outlook), MS SharePoint, Adobe Acrobat Pro DC, Citrix ShareFile, and Box.com"
+          },
+          {
+            "category": "SECURITY",
+            "mustHave": true,
+            "requirement": "Security features to prevent Contractor and subcontractor staff from accessing, copying, or downloading sensitive and confidential files, documents, profiles, records, and other information"
+          },
+          {
+            "category": "SECURITY",
+            "mustHave": true,
+            "requirement": "Comply with NIST-800-53 r5/800-37 r2 security controls"
+          },
+          {
+            "category": "SECURITY",
+            "mustHave": true,
+            "requirement": "FedRAMP authorized Cloud Service Provider"
+          },
+          {
+            "category": "SECURITY",
+            "mustHave": true,
+            "requirement": "Require user authentication using single sign on with Microsoft Entra ID (formerly Azure Active Directory) or Microsoft Active Directory"
+          },
+          {
+            "category": "SECURITY",
+            "mustHave": true,
+            "requirement": "Support configuration of rules for user passwords including frequency of changes, length, character requirements, etc."
+          },
+          {
+            "category": "SECURITY",
+            "mustHave": true,
+            "requirement": "Lock user accounts after a defined number of failed password attempts"
+          },
+          {
+            "category": "SECURITY",
+            "mustHave": true,
+            "requirement": "Secure user information through password encryption"
+          },
+          {
+            "category": "SECURITY",
+            "mustHave": true,
+            "requirement": "Allow assignment of roles and permissions to users and groups of users"
+          },
+          {
+            "category": "SECURITY",
+            "mustHave": true,
+            "requirement": "Assign users and user groups permissions to access confidential data and documents"
+          },
+          {
+            "category": "SECURITY",
+            "mustHave": true,
+            "requirement": "Allow users to be assigned to multiple roles and resolve access to data accordingly"
+          },
+          {
+            "category": "SECURITY",
+            "mustHave": true,
+            "requirement": "Define permission levels for access to all system components"
+          },
+          {
+            "category": "SECURITY",
+            "mustHave": true,
+            "requirement": "Assign confidentiality to case data and documents"
+          },
+          {
+            "category": "SECURITY",
+            "mustHave": true,
+            "requirement": "Prohibit reports containing full social security numbers (SSN) from being generated without SSNs being masked"
+          },
+          {
+            "category": "SECURITY",
+            "mustHave": true,
+            "requirement": "Encrypt all data at rest and in transit"
+          },
+          {
+            "category": "SECURITY",
+            "mustHave": true,
+            "requirement": "Ensure system has MFA (Multi-Factor Authentication) enabled"
+          },
+          {
+            "category": "SECURITY",
+            "mustHave": true,
+            "requirement": "As built documentation"
+          },
+          {
+            "category": "SECURITY",
+            "mustHave": true,
+            "requirement": "All contractor personnel must obtain a security clearance as designated by the Contracting Officer in accordance with DCCS security policies"
+          },
+          {
+            "category": "SECURITY",
+            "mustHave": true,
+            "requirement": "Subcontractors located or performing service outside the United States shall not have access to Court documents and/or data"
+          },
+          {
+            "category": "TECHNICAL",
+            "mustHave": true,
+            "requirement": "Provide cloud-managed services including migration, configuration, and hosting compatible with DCCS enterprise IT environment (Microsoft Azure FedRAMP Government, Active Directory, Citrix, etc.)"
+          },
+          {
+            "category": "TECHNICAL",
+            "mustHave": true,
+            "requirement": "Provide 6 software licenses initially with ability to scale up to 10 licenses in future option years"
+          },
+          {
+            "category": "TECHNICAL",
+            "mustHave": true,
+            "requirement": "Migrate approximately 1.2 TB of data comprising approximately 390,000 files across 10,000 folders from NTFS network drive"
+          },
+          {
+            "category": "DELIVERABLES",
+            "mustHave": true,
+            "requirement": "Provide installation, document migration, and implementation services"
+          },
+          {
+            "category": "DELIVERABLES",
+            "mustHave": true,
+            "requirement": "Provide on-site post-implementation support and on-site end user training"
+          },
+          {
+            "category": "DELIVERABLES",
+            "mustHave": true,
+            "requirement": "Provide ongoing maintenance and end user support"
+          },
+          {
+            "category": "DELIVERABLES",
+            "mustHave": true,
+            "requirement": "Provide system documentation including electronic system administration manuals and application guides"
+          },
+          {
+            "category": "DELIVERABLES",
+            "mustHave": true,
+            "requirement": "Provide disaster recovery/business continuity plan including timelines for restoration and recovery"
+          },
+          {
+            "category": "DELIVERABLES",
+            "mustHave": true,
+            "requirement": "Provide training plan including approach, timeline, web-based on-demand training materials, training courses by role/user type and functional area, and step-by-step procedure manuals with solution screenshots"
+          },
+          {
+            "category": "DELIVERABLES",
+            "mustHave": true,
+            "requirement": "Provide copy of license and maintenance agreement, SLA, and/or SaaS agreement as applicable"
+          },
+          {
+            "category": "COMPLIANCE",
+            "mustHave": true,
+            "requirement": "Firm-fixed price contract with base year and 4 option years"
+          },
+          {
+            "category": "COMPLIANCE",
+            "mustHave": true,
+            "requirement": "Offeror must be registered in SAM (System for Award Management) at sam.gov"
+          },
+          {
+            "category": "COMPLIANCE",
+            "mustHave": true,
+            "requirement": "Invoices must be submitted electronically through U.S. Department of the Treasury Invoice Processing Platform (IPP)"
+          },
+          {
+            "category": "COMPLIANCE",
+            "mustHave": true,
+            "requirement": "Contractor must carry Commercial General Liability ($1M per occurrence/$2M aggregate), Automobile Liability ($1M), Workers' Compensation, and Employer's Liability ($500K) insurance"
+          },
+          {
+            "category": "COMPLIANCE",
+            "mustHave": true,
+            "requirement": "Comply with D.C. Courts General Contract Provisions (Attachment J.1)"
+          },
+          {
+            "category": "COMPLIANCE",
+            "mustHave": true,
+            "requirement": "Submit completed certifications, representations, affidavits, and disclosures required under Section J and Section K"
+          },
+          {
+            "category": "COMPLIANCE",
+            "mustHave": true,
+            "requirement": "Submit Tax Certification Affidavit (Attachment J.6) with offer"
+          },
+          {
+            "category": "COMPLIANCE",
+            "mustHave": true,
+            "requirement": "Acknowledge receipt of all solicitation amendments per Section L.6"
+          },
+          {
+            "category": "STAFFING",
+            "mustHave": true,
+            "requirement": "Provide at least 3 but no more than 5 projects/contracts of similar scope, size, and complexity delivered within the last 3 years with sufficient details including contract dates, amount, goods/services, and current contact information"
+          },
+          {
+            "category": "STAFFING",
+            "mustHave": true,
+            "requirement": "Identify other DC, federal, state, or local agencies that use the Offeror's System"
+          },
+          {
+            "category": "STAFFING",
+            "mustHave": true,
+            "requirement": "Minimize personnel changes during installation, document migration, implementation, post-implementation support, and user training"
+          },
+          {
+            "category": "OTHER",
+            "mustHave": true,
+            "requirement": "Proposals must meet the 120-day acceptance period from date of submission"
+          },
+          {
+            "category": "OTHER",
+            "mustHave": false,
+            "requirement": "Systems that meet all requirements and user needs with little or no customization will be rated more highly"
           }
         ],
         "submissionCompliance": {
-          "format": [],
-          "attachmentsAndForms": [],
+          "format": [
+            "Proposals must be submitted electronically via email to grace.alao@dccsystem.gov",
+            "Email subject line must state: PROPOSAL FOR DCSC-26-RFP-60",
+            "Proposals must be typed in Times New Roman 12-point font size with 1-inch margins",
+            "Proposals must be submitted as two separate PDF files",
+            "Mailed, hand-delivered, telephonic, or faxed proposals will not be accepted",
+            "Each volume first page must be conspicuously marked with offeror name, address, solicitation number DCSC-26-RFP-60, caption, and proposal due date/time"
+          ],
+          "attachmentsAndForms": [
+            "Attachment J.2 - Anti-Collusion Statement (executed and returned with proposal)",
+            "Attachment J.3 - Ethics in Public Contracting (signed)",
+            "Attachment J.4 - Non-Discrimination (signed)",
+            "Attachment J.5 - Certification of Eligibility (signed and notarized)",
+            "Attachment J.6 - Tax Certification Affidavit (signed and notarized)",
+            "Attachment J.7 - Certification Regarding a Drug-Free Workplace (signed)",
+            "Attachment J.8 - Past Performance Evaluation Form (one per project/contract, completed and signed by evaluator)",
+            "Section K - Representations and Certifications (completed and signed)",
+            "Solicitation Offer and Award Form (Section A.1, signed)",
+            "License and maintenance agreement, SLA, and/or SaaS agreement",
+            "Disaster recovery/business continuity plan (attached to proposal)"
+          ],
           "requiredDocuments": [
             {
-              "name": "Technical Volume",
-              "description": "Detailed technical approach and methodology for upgrading Momentum Financials, integrating with EFD, and migrating to commercial cloud",
-              "pageLimit": "50 pages",
-              "documentType": "TECHNICAL_PROPOSAL",
-              "required": true
-            },
-            {
-              "name": "Management Volume",
-              "description": "Offeror's management approach, key personnel, and transition plan",
-              "pageLimit": "30 pages",
-              "documentType": "MANAGEMENT_APPROACH",
-              "required": true
-            },
-            {
-              "name": "Past Performance Volume",
-              "description": "Offeror's relevant past performance on similar efforts",
-              "pageLimit": "20 pages",
-              "documentType": "PAST_PERFORMANCE",
-              "required": true
-            },
-            {
-              "name": "Price/Cost Volume",
-              "description": "Offeror's proposed pricing and cost breakdown",
-              "pageLimit": "20 pages",
-              "documentType": "COST_PROPOSAL",
-              "required": true
-            },
-            {
-              "name": "Cover Letter",
+              "name": "Transmittal Letter (Tab A)",
+              "description": "Letter summarizing Offeror's ability to supply requested products and services, statement of willingness to provide services subject to RFP terms, signed by legally authorized person",
               "documentType": "COVER_LETTER",
               "required": true
             },
             {
-              "name": "Compliance Matrix",
-              "description": "Traceability of proposal to solicitation requirements",
-              "documentType": "COMPLIANCE_MATRIX",
+              "name": "Technical Approach (Tab B)",
+              "description": "Clear and concise response describing understanding of RFP requirements and OGC objectives, software licenses/subscriptions, how System meets each requirement and user need in Section C, security requirements, disaster recovery plan, system documentation, and training plan",
+              "pageLimit": "20 pages",
+              "documentType": "TECHNICAL_PROPOSAL",
               "required": true
             },
             {
-              "name": "Certifications and Representations",
+              "name": "Experience and Qualifications (Tab C)",
+              "description": "Description of experience providing and implementing legal case and document management systems; list of 3-5 projects/contracts of similar scope, size, and complexity delivered within last 3 years with contract details and contact information; identification of other government agencies using the System",
+              "pageLimit": "5 pages",
+              "documentType": "TEAM_QUALIFICATIONS",
+              "required": true
+            },
+            {
+              "name": "Past Performance and Customer Service (Tab D)",
+              "description": "Past Performance Evaluation Forms (Attachment J.8) for each project/contract identified in Tab C, completed and signed by evaluators; list of any government contracts lost, terminated, or not renewed in last 5 years with circumstances and contact information",
+              "documentType": "PAST_PERFORMANCE",
+              "required": true
+            },
+            {
+              "name": "Price/Cost Schedule (Volume 2 - Tab A)",
+              "description": "Fixed prices for each CLIN and each performance period using the Price/Cost Schedule in Section B.2; must include all required costs",
+              "pageLimit": "5 pages",
+              "documentType": "PRICE_VOLUME",
+              "required": true
+            },
+            {
+              "name": "Assumptions, Conditions, and Exceptions (Volume 2 - Tab B)",
+              "description": "Disclosure of all pricing assumptions, conditions, and exceptions with rationale; if none, state so",
+              "pageLimit": "5 pages",
+              "documentType": "OTHER",
+              "required": true
+            },
+            {
+              "name": "Certifications, Representations, and Affidavits (Section J and Section K)",
+              "description": "All completed and signed certifications including Anti-Collusion Statement (J.2), Ethics in Public Contracting (J.3), Non-Discrimination (J.4), Certification of Eligibility (J.5), Tax Certification Affidavit (J.6), Drug-Free Workplace (J.7), and Section K Representations and Certifications",
               "documentType": "CERTIFICATIONS",
+              "required": true
+            },
+            {
+              "name": "Contractor Information and Disclosures (Tab A)",
+              "description": "Company information (name, address, website, DUNS, Federal ID), contact person details, company history, DC business license or certification of intent to obtain, legal action/litigation disclosures, conflict of interest statement",
+              "documentType": "OTHER",
+              "required": true
+            },
+            {
+              "name": "Disaster Recovery/Business Continuity Plan",
+              "description": "Copy of Offeror's disaster recovery/business continuity plan including timelines for restoration and recovery, attached to proposal",
+              "documentType": "APPENDICES",
+              "required": true
+            },
+            {
+              "name": "License, Maintenance, SLA, and/or SaaS Agreement",
+              "description": "Copy of Offeror's license and maintenance agreement, service level agreement, and/or SaaS agreement as applicable",
+              "documentType": "APPENDICES",
               "required": true
             }
           ],
-          "requiredVolumes": []
+          "requiredVolumes": [
+            "Volume 1 - Technical Proposal (Tabs A through D)",
+            "Volume 2 - Price Proposal (Tabs A and B)"
+          ]
         },
         "deliverables": [
-          "Upgraded Momentum Financials software integrated with EFD system",
-          "Migrated EFD system to DoD approved Enterprise Commercial Cloud"
+          "Cloud-hosted COTS Legal Case and Document Management System software and licenses",
+          "Software licenses, documentation, and warranties (CLIN 0001)",
+          "Maintenance and support services (CLIN 0002)",
+          "On-site post-implementation support and end user training (CLIN 0003)",
+          "Installation, document migration, and implementation services (CLIN 0004)",
+          "System documentation including electronic system administration manuals and application guides",
+          "Disaster recovery/business continuity plan",
+          "Training plan with web-based on-demand materials, step-by-step procedure manuals with screenshots",
+          "License and maintenance agreement, SLA, and/or SaaS agreement"
         ]
       },
-      "inputHash": "eb36aa5629f2c56f2eadb32d8df08719cfe5b6891fcc7f49e21ad016a2e2a509",
+      "inputHash": "ee8313347165b3204324101af34a96b10de6803f4507b44adc98365efc15bd6c",
       "status": "COMPLETE",
-      "updatedAt": "2026-04-02T02:58:22.047Z"
+      "updatedAt": "2026-04-19T20:16:56.642Z"
     },
     "risks": {
       "data": {
         "redFlags": [
           {
             "severity": "HIGH",
-            "whyItMatters": "The incumbent CGI Federal has a significant advantage due to their proprietary access to the Momentum Financials software and existing integration with the EFD system.",
-            "mitigation": "Carefully assess the company's ability to rapidly integrate with the Momentum platform and demonstrate a clear technical approach to overcome the incumbent's advantage. Emphasize any unique capabilities that could differentiate the proposal.",
-            "flag": "Recompete with incumbent",
+            "whyItMatters": "This solicitation explicitly requires a COTS Legal Case and Document Management System \u2014 not custom development. The Courts are buying a product with implementation services. Without an existing COTS product or a formal partnership with a legal software vendor, HORUSTECH cannot meet the fundamental requirement of the solicitation.",
+            "mitigation": "Pursue a teaming arrangement or reseller agreement with an established legal case management COTS vendor before the April 24, 2026 deadline. Without such a partnership, this should be a no-bid.",
+            "flag": "HORUSTECH lacks an identifiable COTS legal case management product",
             "impactsScore": true
+          },
+          {
+            "severity": "MEDIUM",
+            "whyItMatters": "The solicitation was posted March 30, 2026 with proposals due April 24, 2026 \u2014 a 25-day window. If HORUSTECH needs to identify, negotiate with, and formalize a partnership with a COTS legal software vendor, this timeline is challenging though not impossible.",
+            "mitigation": "Immediately begin outreach to potential COTS legal management vendors. Prioritize vendors with existing FedRAMP-authorized cloud offerings and DC Courts or government legal office experience.",
+            "flag": "25-day response window is tight for establishing a new teaming arrangement",
+            "impactsScore": true
+          },
+          {
+            "severity": "MEDIUM",
+            "whyItMatters": "Attachment J (Document 3) includes a detailed SCA wage determination (WD 2015-4281) for the DC/MD/VA area. The Contractor must ensure all service employees are paid at least the applicable SCA wage rates and fringe benefits, adding payroll compliance complexity.",
+            "mitigation": "Review applicable SCA labor categories (likely IT occupations in the 14000 series) and ensure proposed labor rates meet or exceed the wage determination minimums including the $4.54/hour health and welfare benefit.",
+            "flag": "Service Contract Act wage determination applies \u2014 adds compliance burden",
+            "impactsScore": false
           }
         ],
         "risks": [
           {
-            "severity": "MEDIUM",
-            "whyItMatters": "A short response window may limit the company's ability to thoroughly prepare a high-quality proposal.",
-            "mitigation": "Request a reasonable proposal due date extension if possible. Prioritize proposal development and leverage existing content/resources.",
-            "flag": "Very short response window",
-            "impactsScore": true
-          },
-          {
-            "severity": "MEDIUM",
-            "whyItMatters": "The tight timeline for the site visit may make it difficult to coordinate schedules and adequately prepare.",
-            "mitigation": "Proactively request a site visit date that allows sufficient preparation time. Ensure key personnel are available.",
-            "flag": "Mandatory site visit",
+            "severity": "HIGH",
+            "whyItMatters": "Section C.5, Requirement #45 explicitly requires a 'FedRAMP authorized Cloud Service Provider.' FedRAMP authorization is a significant barrier to entry \u2014 if HORUSTECH or its proposed COTS product's cloud hosting is not already FedRAMP authorized, achieving authorization is a lengthy and expensive process that cannot be completed within the proposal timeline.",
+            "mitigation": "Confirm that the proposed COTS legal case management product is hosted on a FedRAMP-authorized cloud environment (e.g., AWS GovCloud, Azure Government). Document the FedRAMP authorization status and ATO details in the proposal.",
+            "flag": "FedRAMP authorized Cloud Service Provider required",
             "impactsScore": true
           },
           {
             "severity": "HIGH",
-            "whyItMatters": "The incumbent CGI Federal has proprietary access to the Momentum Financials software, giving them a significant competitive advantage.",
-            "mitigation": "Emphasize the company's relevant experience and ability to rapidly integrate with the Momentum platform. Highlight any unique capabilities that could offset the incumbent's advantage.",
-            "flag": "Strong incumbent advantage",
+            "whyItMatters": "The solicitation requires a cloud-hosted, configurable COTS Legal Case and Document Management System with extensive legal-specific features including eDiscovery, litigation hold tracking, contract management, generative AI, and MS Outlook integration (Section C.5). HORUSTECH's knowledge base shows no evidence of a COTS legal practice management product or past performance in this domain.",
+            "mitigation": "Identify and partner with an established COTS legal case/document management vendor (e.g., NetDocuments, iManage, LegalFiles, TeamConnect) and propose as a reseller/integrator. Ensure the product meets the 58 requirements in Section C.5.",
+            "flag": "COTS legal case and document management product required \u2014 potential product gap",
             "impactsScore": true
           },
           {
             "severity": "MEDIUM",
-            "whyItMatters": "The numerous attachments, page limits, and unique formatting requirements may increase the effort required to prepare a compliant proposal.",
-            "mitigation": "Carefully review all instructions and requirements. Leverage existing content and templates where possible to streamline proposal development.",
-            "flag": "Excessive compliance burden",
+            "whyItMatters": "Section C.5, Requirement #44 mandates compliance with 'NIST-800-53 r5/800-37 r2 security controls.' This is a comprehensive federal security framework requiring documented controls, risk management, and continuous monitoring. The proposed COTS product and hosting environment must demonstrably comply.",
+            "mitigation": "Ensure the proposed COTS product vendor can provide a System Security Plan (SSP) and evidence of NIST 800-53 r5 compliance. Leverage FedRAMP authorization (which inherits NIST 800-53 controls) as evidence.",
+            "flag": "NIST 800-53 r5 and NIST 800-37 r2 security controls compliance required",
             "impactsScore": true
           },
           {
             "severity": "MEDIUM",
-            "whyItMatters": "The need for personnel with active security clearances may limit the available talent pool and increase staffing risk.",
-            "mitigation": "Assess the company's current clearance posture and identify any gaps that need to be addressed. Consider strategies to rapidly onboard cleared personnel if awarded.",
-            "flag": "Security clearance requirement",
+            "whyItMatters": "Section M (Evaluation Factors) will likely weigh past performance, and the solicitation's Past Performance Evaluation Form (Attachment J.8) requires references for similar services. No relevant HORUSTECH past performance was found for legal case management, document migration, or COTS legal software implementation for government courts.",
+            "mitigation": "Identify any adjacent past performance (document management, cloud migrations, government IT implementations). If teaming with a COTS vendor, leverage their past performance references for similar legal system deployments.",
+            "flag": "No past performance in legal case/document management systems",
+            "impactsScore": true
+          },
+          {
+            "severity": "MEDIUM",
+            "whyItMatters": "Section H.3(b) states 'all contractor personnel must obtain a security clearance as designated by the Contracting Officer in accordance with DCCS security policies and procedures' due to the sensitivity of OGC records. Background checks and clearance processing could delay project start and limit available staff.",
+            "mitigation": "Pre-identify proposed staff who can pass background checks. Coordinate early with the Courts on specific clearance requirements. Factor clearance processing time into the project schedule.",
+            "flag": "Contractor personnel security clearance requirement",
+            "impactsScore": false
+          },
+          {
+            "severity": "MEDIUM",
+            "whyItMatters": "Section C.3 describes approximately 1.2 TB of confidential, privileged, and litigation-sensitive materials across ~390,000 files in ~10,000 folders on an NTFS network drive with no legacy management system. Section C.7(e) requires document coding, duplicate identification/deletion, and development of taxonomy and records management strategy. This is a significant effort with risk of data loss or misclassification.",
+            "mitigation": "Develop a detailed migration plan with phased approach, validation checkpoints, and rollback procedures. Propose automated deduplication and classification tools. Budget adequate labor hours for document coding and taxonomy development.",
+            "flag": "Document migration of 1.2 TB / ~390,000 files with coding and deduplication",
             "impactsScore": true
           },
           {
             "severity": "LOW",
-            "whyItMatters": "The liquidated damages, SLAs, and insurance requirements may pose financial and operational risks if not carefully managed.",
-            "mitigation": "Review the contract terms thoroughly and identify any areas that may require negotiation or alternative approaches. Ensure the company has the capacity to meet the contractual obligations.",
-            "flag": "Harsh contract terms",
+            "whyItMatters": "Section C.5, Requirement #15 requires the system be 'Compatible with Citrix Virtual Desktop Infrastructure (VDI).' Not all COTS legal management products are tested or certified for Citrix VDI environments, which could cause performance or functionality issues.",
+            "mitigation": "Verify with the proposed COTS vendor that the product is certified or tested for Citrix VDI. Include Citrix compatibility testing in the implementation plan.",
+            "flag": "Citrix VDI compatibility requirement",
+            "impactsScore": false
+          },
+          {
+            "severity": "LOW",
+            "whyItMatters": "Section C.5, Requirement #6 requires 'Generative AI capability, including but not limited to automated workflow, intelligent scanning, data verification, data analysis capabilities, legal research, document review, audit trails, data encryption, and GDPR compliance.' This is an emerging capability that not all COTS legal management products fully support, especially in a FedRAMP-authorized environment.",
+            "mitigation": "Evaluate which COTS products offer built-in AI features that meet these requirements. Clarify with the Courts during the Q&A period (by April 13, 2026) what level of AI maturity is acceptable.",
+            "flag": "Generative AI capability required",
             "impactsScore": false
           }
         ],
         "incumbentInfo": {
-          "knownIncumbent": true,
-          "recompete": true,
-          "notes": "CGI Federal has proprietary access to the Momentum Financials software and existing integration with the EFD system, giving them a significant competitive advantage.",
-          "incumbentName": "CGI Federal"
+          "knownIncumbent": false,
+          "recompete": false,
+          "notes": "Section C.3 states 'There is no legacy legal or document management system.' OGC currently stores files on an NTFS network drive with no existing case or document management system. This appears to be a new requirement, not a recompete. No incumbent contractor is named anywhere in the solicitation."
         }
       },
-      "inputHash": "e2e33ea57d7df06be34061564cb4d528a3a74980796d917929eb33ec1a18afdc",
+      "inputHash": "6aa1c623fb0df3660d51390f16ca82fdc0a971416c7b8ba0cb08d0d6d940111f",
       "status": "COMPLETE",
-      "updatedAt": "2026-04-02T02:58:20.930Z"
+      "updatedAt": "2026-04-19T20:16:28.839Z"
     },
     "scoring": {
       "data": {
-        "blockers": [
-          "Lack of experience with Momentum Financials software",
-          "Unclear cloud migration capabilities",
-          "Strong incumbent advantage held by CGI Federal"
+        "confidenceExplanation": "Confidence is 55 due to missing past performance data (mandatory -20 penalty), clear industry mismatch between HorusTech's capabilities and the solicitation requirements (-15 penalty), and limited KB data on company strategic plans. However, the analysis is high-confidence in its NO_GO conclusion because the fundamental mismatch \u2014 no COTS legal product \u2014 is unambiguous and confirmed by both the KB search (no legal technology capabilities found) and the pricing analysis (price confidence 10/100, explicit NO-BID recommendation).",
+        "requiredActions": [
+          "Decline this opportunity \u2014 do not invest bid and proposal resources",
+          "Monitor DC Courts solicitations for future IT infrastructure, cloud migration, or software development opportunities that align with HorusTech's AWS cloud migration and software engineering capabilities",
+          "If interested in the legal technology market long-term, research potential teaming partnerships with established COTS legal vendors (iManage, NetDocuments, LegalFiles) where HorusTech could serve as a cloud migration/implementation subcontractor on future opportunities",
+          "Pursue FedRAMP readiness assessment if targeting future federal/DC government cloud infrastructure contracts"
         ],
-        "compositeScore": 1.9,
-        "confidence": 60,
-        "confidenceDrivers": [
-          {
-            "factor": "Past Performance",
-            "direction": "DOWN"
-          },
-          {
-            "factor": "Technical Capabilities",
-            "direction": "DOWN"
-          }
-        ],
-        "confidenceExplanation": "The lack of relevant past performance data and technical capabilities in the KB reduce confidence in the company's ability to successfully execute this project.",
+        "decision": "NO_GO",
         "criteria": [
           {
             "name": "TECHNICAL_FIT",
-            "score": 2,
-            "rationale": "The company's capabilities in the KB do not appear to match the technical requirements of this Momentum Financials and cloud migration project. There is a fundamental industry/domain mismatch.",
+            "score": 1,
+            "rationale": "Critical industry and product mismatch. This solicitation requires a COTS Legal Case and Document Management System \u2014 a commercial product with legal-specific features including eDiscovery, litigation hold tracking, contract management, generative AI for legal research, and MS Outlook integration. HorusTech is a small technology company specializing in AWS cloud migration and software engineering. The KB shows no COTS legal software product, no legal technology capabilities, no eDiscovery experience, and no document management product. HorusTech's only tangentially relevant capability is AWS cloud infrastructure and security configuration, which addresses perhaps 2-3 of the 58 technical/security requirements (cloud hosting, encryption). The solicitation explicitly states systems requiring little or no customization will be rated more highly, meaning custom development is not acceptable. HorusTech cannot meet the fundamental requirement of delivering a COTS legal case management product.",
             "gaps": [
-              "Lack of experience with Momentum Financials software",
-              "Unclear cloud migration capabilities"
+              "No COTS Legal Case and Document Management System product to offer",
+              "No legal technology capabilities (eDiscovery, litigation hold, contract management, legal research AI)",
+              "No FedRAMP-authorized cloud service provider status (HorusTech uses AWS but is not itself FedRAMP authorized as a CSP)",
+              "No NIST 800-53 r5 compliance documentation or System Security Plan",
+              "No experience with document migration of legal files at scale (1.2 TB / 390,000 files)",
+              "No Citrix VDI compatibility experience",
+              "No legal-specific generative AI capability",
+              "No MS Outlook add-in or legal application integration experience",
+              "No on-site training capability for legal case management systems",
+              "Cannot provide 3-5 projects of similar scope as required by Tab C"
             ]
           },
           {
             "name": "PAST_PERFORMANCE_RELEVANCE",
             "score": 1,
-            "rationale": "No relevant past performance data available. The company has not demonstrated experience with Momentum Financials software or cloud migration projects.",
-            "gaps": []
+            "rationale": "No past performance data available. The past performance search returned zero relevant projects. HorusTech has no documented experience delivering COTS legal case management systems, legal document management, eDiscovery solutions, or government court IT implementations. The solicitation requires 3-5 projects of similar scope, size, and complexity delivered within the last 3 years with completed Past Performance Evaluation Forms (Attachment J.8). HorusTech cannot satisfy this mandatory proposal requirement. Experience and Qualifications (25 points) and Past Performance and Customer Service (25 points) together represent 50% of the non-price evaluation \u2014 this is a fatal deficiency.",
+            "gaps": [
+              "Zero past performance projects in legal case/document management",
+              "Cannot provide the required 3-5 similar projects delivered within last 3 years",
+              "Cannot provide completed Past Performance Evaluation Forms (Attachment J.8)",
+              "No government court or legal office contract references",
+              "No COTS software implementation references of any kind"
+            ]
           },
           {
             "name": "PRICING_POSITION",
-            "score": 3,
-            "rationale": "The pricing analysis indicates the company can price competitively, but there are some risks around cloud migration costs that need to be addressed.",
+            "score": 1,
+            "rationale": "The pricing analysis explicitly recommends NO-BID due to fundamental industry mismatch. Price confidence is 10 out of 100 \u2014 the lowest tier. HorusTech does not own, develop, or resell a COTS legal case management product, so it cannot price the core deliverable (software licenses, CLIN 0001). The company's labor rates (Manufacturing Engineer $178.89/hr, Software Engineer $171.40/hr) do not map to the labor categories needed. Established legal technology vendors (iManage, NetDocuments, Clio, LegalTracker) with mature products and existing government clients will dominate the competitive field. The pricing analysis estimates the contract value at $200K-$800K over 5 years for established vendors. HorusTech has no basis to develop a competitive or realistic price proposal for this firm-fixed-price contract.",
             "gaps": [
-              "Uncertainty around cloud migration costs"
+              "No COTS product to price for software license CLINs",
+              "No basis for pricing maintenance and support SLA",
+              "Labor rates do not align with required legal technology roles",
+              "Cannot compete with established legal COTS vendors on price",
+              "Firm-fixed-price structure places all cost risk on contractor with no product to deliver"
             ]
           },
           {
             "name": "STRATEGIC_ALIGNMENT",
-            "score": 2,
-            "rationale": "This opportunity does not appear to strongly align with the company's strategic goals and portfolio. Pursuing this would be more opportunistic than strategic.",
+            "score": 1,
+            "rationale": "This opportunity does not align with HorusTech's documented capabilities or strategic direction. HorusTech is a California DGS-certified Small Business (Micro) focused on AWS cloud migration and software engineering. The solicitation requires a COTS legal technology product vendor \u2014 a completely different business model and industry. The KB contains no strategic plans indicating expansion into legal technology, COTS product resale, or DC government market entry. The California SB certification provides no advantage for a DC Courts procurement. Pursuing this opportunity would be a distraction from core capabilities and would not build a relevant portfolio. Even as a learning exercise, the 5-day turnaround remaining makes this impractical.",
             "gaps": [
-              "Unclear strategic value of this project"
+              "Legal technology is outside HorusTech's documented strategic direction",
+              "COTS product delivery model is fundamentally different from HorusTech's services model",
+              "DC Courts market is not a documented target market",
+              "California SB certification provides no competitive advantage here",
+              "No documented strategic plan to enter legal technology market"
             ]
           },
           {
             "name": "INCUMBENT_RISK",
-            "score": 2,
-            "rationale": "The incumbent CGI Federal has a significant advantage due to their proprietary access to the Momentum Financials software and existing integration with the EFD system.",
-            "gaps": [
-              "Strong incumbent advantage"
-            ]
+            "score": 5,
+            "rationale": "No incumbent exists. Section C.3 explicitly states 'There is no legacy legal or document management system.' OGC currently stores files on an NTFS network drive. This is a new requirement, not a recompete. No incumbent contractor is named in the solicitation. This is the only favorable factor \u2014 the playing field is level from an incumbent perspective. However, established legal COTS vendors with existing government clients will have significant competitive advantages even without incumbent status.",
+            "gaps": []
           }
         ],
-        "decision": "NO_GO",
-        "decisionRationale": "While the pricing position is acceptable, the company has major technical and past performance gaps that would make this a high-risk pursuit. Significant actions would be required to overcome the incumbent advantage and demonstrate the necessary capabilities.",
-        "requiredActions": [
-          "Develop a clear technical approach to rapidly integrate with the Momentum Financials platform",
-          "Demonstrate unique capabilities that could offset the incumbent's advantage",
-          "Obtain references or case studies for similar cloud migration projects"
+        "summaryJustification": "HorusTech should NOT bid on this opportunity. This solicitation requires delivery of a commercial-off-the-shelf (COTS) Legal Case and Document Management System with 58 specialized legal technology requirements including eDiscovery, litigation hold tracking, generative AI for legal research, and FedRAMP authorization. HorusTech is a small AWS cloud migration and software engineering firm with no COTS legal product, no legal technology capabilities, no relevant past performance, and no ability to price the core deliverables. The pricing analysis (confidence: 10/100) explicitly recommends NO-BID. The only favorable factor is the absence of an incumbent. The proposal deadline is April 24, 2026 \u2014 5 days away \u2014 which is insufficient time to establish a teaming arrangement with a COTS vendor even if one were willing. Established legal technology vendors will dominate this competition.",
+        "confidence": 55,
+        "blockers": [
+          "HorusTech does not own, develop, or resell a COTS Legal Case and Document Management System \u2014 the fundamental deliverable of this solicitation",
+          "Cannot provide the required 3-5 past performance projects of similar scope, size, and complexity delivered within the last 3 years",
+          "No FedRAMP authorization as a Cloud Service Provider, and no COTS product hosted on a FedRAMP-authorized environment",
+          "No NIST 800-53 r5 compliance documentation or System Security Plan",
+          "Cannot develop a credible firm-fixed-price proposal without a product to deliver",
+          "Only 5 days remain until the April 24, 2026 deadline \u2014 insufficient to establish a teaming arrangement with a COTS legal technology vendor"
         ],
-        "summaryJustification": "The company lacks the necessary technical capabilities and relevant past performance to successfully execute this Momentum Financials and cloud migration project. The incumbent CGI Federal also has a significant competitive advantage."
+        "decisionRationale": "NO_GO: HorusTech fundamentally cannot perform this work. The solicitation requires a COTS Legal Case and Document Management System \u2014 a product HorusTech does not own, develop, license, or resell. Technical fit is a 1 due to complete industry and product mismatch (AWS cloud migration firm vs. legal COTS product vendor). Past performance is a 1 with zero relevant projects and inability to meet the mandatory requirement of 3-5 similar projects. Pricing position is a 1 with price confidence at 10/100 and no product to price. Strategic alignment is a 1 as legal technology is entirely outside HorusTech's business model and documented strategic direction. The composite score of 1.45 is well below the 3.0 threshold. With only 5 days until the deadline, establishing a teaming arrangement with a legal COTS vendor is not feasible. This opportunity should be declined immediately.",
+        "compositeScore": 1.4,
+        "confidenceDrivers": [
+          {
+            "factor": "No past performance data available \u2014 zero matched projects",
+            "direction": "DOWN"
+          },
+          {
+            "factor": "Complete industry mismatch \u2014 AWS cloud migration firm vs. COTS legal technology product requirement",
+            "direction": "DOWN"
+          },
+          {
+            "factor": "Pricing analysis explicitly recommends NO-BID with price confidence of 10/100",
+            "direction": "DOWN"
+          },
+          {
+            "factor": "KB search confirms no legal technology capabilities or COTS product",
+            "direction": "DOWN"
+          },
+          {
+            "factor": "No incumbent \u2014 new requirement with level playing field",
+            "direction": "UP"
+          },
+          {
+            "factor": "Proposal deadline still 5 days away (April 24, 2026) \u2014 not expired",
+            "direction": "UP"
+          }
+        ]
       },
-      "inputHash": "2639c05ab1bc2e91ecef2fefa7c946c2c66dee4a5209f1a83cee4991871e281d",
+      "inputHash": "4a79eda31cdb3cea709978ff44e86def88fea8702f97d4e4fd487f371c677d52",
       "status": "COMPLETE",
-      "updatedAt": "2026-04-02T02:58:34.496Z"
+      "updatedAt": "2026-04-19T20:21:44.561Z"
     },
     "summary": {
       "data": {
-        "summary": "DFAS is seeking professional IT services to upgrade the Momentum Financials software, integrate it with the Enterprise Funds Distribution (EFD) system, and then migrate the EFD system to a DoD-approved commercial cloud provider. The Momentum Financials software is a proprietary solution owned by CGI Federal, and only CGI can make the necessary changes to the codebase to meet DFAS's requirements.",
-        "periodOfPerformance": "UNKNOWN",
-        "agency": "Defense Finance and Accounting Service (DFAS)",
-        "contractType": "SOLE_SOURCE",
-        "estimatedValueUsd": "Up to $[REDACTED]",
-        "office": "Contract Services Directorate",
-        "title": "Enterprise Funds Distribution (EFD) System Migration to DoD Approved Commercial Cloud",
-        "naics": "541511",
-        "placeOfPerformance": "UNKNOWN",
-        "solicitationNumber": "HQ0896621743",
-        "setAside": "UNKNOWN"
+        "summary": "The District of Columbia Courts, on behalf of the Office of the General Counsel, seeks a qualified vendor to provide a cloud-hosted, configurable COTS Legal Case and Document Management System, including software licenses, warranties, installation, document migration (~1.2 TB of confidential legal files), implementation, on-site post-implementation support and training, and ongoing maintenance and support. The system will modernize OGC operations with AI-powered workflows, eDiscovery, contract management, and robust security features including FedRAMP authorization and NIST 800-53 compliance. This is an open market procurement anticipating award of a single firm-fixed price contract for a base year plus four option years.",
+        "periodOfPerformance": "Base year + 4 option years",
+        "agency": "District of Columbia Courts",
+        "contractType": "FIXED_PRICE",
+        "office": "Administrative Services Division, Procurement and Contracts Branch",
+        "title": "Legal Case & Document Management System",
+        "naics": "541690",
+        "placeOfPerformance": "Washington, DC",
+        "solicitationNumber": "DCSC-26-RFP-60",
+        "setAside": "NONE"
       },
-      "inputHash": "03a863f4f0b986acc5b4f570be5ed6966d27b383986e8162196680899bf58e10",
+      "inputHash": "1c505db6824e79a70c45d12f64a20e2583f77650adb1cf62c1719c58d5082d32",
       "status": "COMPLETE",
-      "updatedAt": "2026-04-02T02:58:18.852Z"
+      "updatedAt": "2026-04-19T20:15:34.549Z"
     }
   },
-  "status": "IN_PROGRESS",
-  "textKey": "14618f3f76b4fe50b216f69d779b2575bce86c4a3a16a34f1f7d43857bb2ac95/ad33c87d-8fbb-49ca-b32e-ae32d653bb2b/8dc8ebfb-2531-44cb-965c-9465b313adf2.txt",
-  "updatedAt": "2026-04-02T03:03:23.054Z",
-  "sort_key": "ad33c87d-8fbb-49ca-b32e-ae32d653bb2b#d8fac891-4a0e-47ce-8947-2ea6aae00fe7"
+  "status": "IDLE",
+  "textKey": "83f116b66f02bae6ec7e3384da1b2babd3b8f2ada46a1078a9d84be20b142a51/ad33c87d-8fbb-49ca-b32e-ae32d653bb2b/ae0e054b-29fd-483b-8bc4-4b7a0b82426f.txt",
+  "updatedAt": "2026-04-19T20:21:44.561Z",
+  "sort_key": "ad33c87d-8fbb-49ca-b32e-ae32d653bb2b#623408c1-1aa6-411c-abe7-dc0fa0557343"
 }

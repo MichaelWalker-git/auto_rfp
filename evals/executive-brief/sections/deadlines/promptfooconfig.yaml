@@ -818,3 +818,285 @@ tests:
           - hasSubmissionDeadline MUST be true
 
           Score 5 = both deadlines present. Score 1 = major deadline missing.
+
+  # ─── Test Case 9: MS IAM Solution (County of San Mateo) ───
+  - description: "San Mateo — MS IAM Solution (pre-proposal conference + questions + proposal due, Pacific)"
+    vars:
+      solicitation: file://../../rfp-texts/ms-iam-solution.txt
+    assert:
+      - type: javascript
+        metric: ProposalDuePresent
+        value: |
+          const obj = JSON.parse(output);
+          const d = obj.deadlines.find(d => d.type === 'PROPOSAL_DUE');
+          return d !== undefined;
+
+      - type: javascript
+        metric: ProposalDueDateAccuracy
+        value: |
+          const obj = JSON.parse(output);
+          const d = obj.deadlines.find(d => d.type === 'PROPOSAL_DUE');
+          if (!d || !d.dateTimeIso) return false;
+          return d.dateTimeIso.startsWith('2026-03-26');
+
+      - type: javascript
+        metric: ProposalDueTimezone
+        value: |
+          const obj = JSON.parse(output);
+          const d = obj.deadlines.find(d => d.type === 'PROPOSAL_DUE');
+          if (!d) return false;
+          const tz = (d.timezone || '').toUpperCase();
+          const iso = d.dateTimeIso || '';
+          return tz.includes('PT') || tz.includes('PACIFIC') || tz.includes('PST') || tz.includes('PDT') || iso.includes('-07:00') || iso.includes('-08:00') || iso.endsWith('Z');
+
+      - type: javascript
+        metric: QuestionsDuePresent
+        value: |
+          const obj = JSON.parse(output);
+          const d = obj.deadlines.find(d => d.type === 'QUESTIONS_DUE');
+          return d !== undefined;
+
+      - type: javascript
+        metric: HasSubmissionDeadline
+        value: |
+          const obj = JSON.parse(output);
+          return obj.hasSubmissionDeadline === true;
+
+      - type: javascript
+        metric: SubmissionDeadlineIsoAccuracy
+        value: |
+          const obj = JSON.parse(output);
+          if (!obj.submissionDeadlineIso) return false;
+          return obj.submissionDeadlineIso.startsWith('2026-03-26');
+
+      - type: javascript
+        metric: DeadlineCount
+        value: |
+          const obj = JSON.parse(output);
+          return obj.deadlines.length >= 3;
+
+      # LLM-graded rubrics
+      - type: llm-rubric
+        metric: HallucinationDetection
+        threshold: 0.8
+        weight: 5
+        value: |
+          GOLD STANDARD for County of San Mateo MS IAM Solution:
+          - PRE_PROPOSAL_CONFERENCE: March 5, 2026 at 1:00 PM Pacific Time
+          - QUESTIONS_DUE: March 12, 2026 at 1:00 PM Pacific Time
+          - PROPOSAL_DUE: March 26, 2026 at 1:00 PM Pacific Time
+
+          WHAT COUNTS AS A HALLUCINATION:
+          - Fabricated deadlines not in the solicitation
+          - Wrong dates or times for the above deadlines
+          - Treating contract deliverable schedules as solicitation deadlines
+
+          WHAT IS NOT A HALLUCINATION:
+          - Minor label wording differences
+          - Including the solicitation issue date as an OTHER entry
+
+          Score 5 = all deadlines grounded in source, no fabricated dates.
+          Score 3 = one questionable deadline.
+          Score 1 = one or more clearly fabricated deadlines.
+
+      - type: llm-rubric
+        metric: OmissionDiscipline
+        threshold: 0.8
+        weight: 5
+        value: |
+          For County of San Mateo MS IAM Solution:
+
+          Deadlines that MUST be present:
+          - PROPOSAL_DUE (March 26, 2026 at 1:00 PM Pacific)
+          - QUESTIONS_DUE (March 12, 2026 at 1:00 PM Pacific)
+          - PRE_PROPOSAL_CONFERENCE (March 5, 2026 at 1:00 PM Pacific)
+
+          hasSubmissionDeadline MUST be true.
+          submissionDeadlineIso MUST start with 2026-03-26.
+
+          Score 5 = all 3 required deadlines present with correct dates
+          Score 3 = one deadline missing or wrong date
+          Score 1 = major deadline missing or multiple fabricated deadlines
+
+  # ─── Test Case 10: Grants Mgmt System (City of San Diego) ───
+  - description: "San Diego — Grants Mgmt System (questions + proposal due, Pacific)"
+    vars:
+      solicitation: file://../../rfp-texts/grants-mgmt-system.txt
+    assert:
+      - type: javascript
+        metric: ProposalDuePresent
+        value: |
+          const obj = JSON.parse(output);
+          const d = obj.deadlines.find(d => d.type === 'PROPOSAL_DUE');
+          return d !== undefined;
+
+      - type: javascript
+        metric: ProposalDueDateAccuracy
+        value: |
+          const obj = JSON.parse(output);
+          const d = obj.deadlines.find(d => d.type === 'PROPOSAL_DUE');
+          if (!d || !d.dateTimeIso) return false;
+          return d.dateTimeIso.startsWith('2026-03-16');
+
+      - type: javascript
+        metric: QuestionsDuePresent
+        value: |
+          const obj = JSON.parse(output);
+          const d = obj.deadlines.find(d => d.type === 'QUESTIONS_DUE');
+          return d !== undefined;
+
+      - type: javascript
+        metric: HasSubmissionDeadline
+        value: |
+          const obj = JSON.parse(output);
+          return obj.hasSubmissionDeadline === true;
+
+      - type: javascript
+        metric: SubmissionDeadlineIsoAccuracy
+        value: |
+          const obj = JSON.parse(output);
+          if (!obj.submissionDeadlineIso) return false;
+          return obj.submissionDeadlineIso.startsWith('2026-03-16');
+
+      # LLM-graded rubrics
+      - type: llm-rubric
+        metric: HallucinationDetection
+        threshold: 0.8
+        weight: 5
+        value: |
+          GOLD STANDARD for City of San Diego Grants Mgmt System:
+          - QUESTIONS_DUE: February 23, 2026 at 12:00 PM Pacific Time
+          - PROPOSAL_DUE: March 16, 2026 at 2:00 PM Pacific Time
+
+          WHAT COUNTS AS A HALLUCINATION:
+          - Fabricated deadlines not in the solicitation
+          - Wrong dates or times for the above deadlines
+          - Treating contract deliverable schedules as solicitation deadlines
+
+          WHAT IS NOT A HALLUCINATION:
+          - Minor label wording differences
+          - Including the solicitation issue date as an OTHER entry
+
+          Score 5 = all deadlines grounded in source, no fabricated dates.
+          Score 3 = one questionable deadline.
+          Score 1 = one or more clearly fabricated deadlines.
+
+      - type: llm-rubric
+        metric: OmissionDiscipline
+        threshold: 0.8
+        weight: 5
+        value: |
+          For City of San Diego Grants Mgmt System:
+
+          Deadlines that MUST be present:
+          - PROPOSAL_DUE (March 16, 2026 at 2:00 PM Pacific)
+          - QUESTIONS_DUE (February 23, 2026 at 12:00 PM Pacific)
+
+          hasSubmissionDeadline MUST be true.
+          submissionDeadlineIso MUST start with 2026-03-16.
+
+          Score 5 = both required deadlines present with correct dates
+          Score 3 = one deadline missing or wrong date
+          Score 1 = major deadline missing or fabricated deadlines
+
+  # ─── Test Case 11: eCitation System SW (City of Banning) ───
+  - description: "Banning — eCitation System SW (questions + proposal due + award estimate, Pacific)"
+    vars:
+      solicitation: file://../../rfp-texts/ecitation-system-sw.txt
+    assert:
+      - type: javascript
+        metric: ProposalDuePresent
+        value: |
+          const obj = JSON.parse(output);
+          const d = obj.deadlines.find(d => d.type === 'PROPOSAL_DUE');
+          return d !== undefined;
+
+      - type: javascript
+        metric: ProposalDueDateAccuracy
+        value: |
+          const obj = JSON.parse(output);
+          const d = obj.deadlines.find(d => d.type === 'PROPOSAL_DUE');
+          if (!d || !d.dateTimeIso) return false;
+          return d.dateTimeIso.startsWith('2026-02-18');
+
+      - type: javascript
+        metric: ProposalDueTimezone
+        value: |
+          const obj = JSON.parse(output);
+          const d = obj.deadlines.find(d => d.type === 'PROPOSAL_DUE');
+          if (!d) return false;
+          const tz = (d.timezone || '').toUpperCase();
+          const iso = d.dateTimeIso || '';
+          return tz.includes('PT') || tz.includes('PACIFIC') || tz.includes('PST') || tz.includes('PDT') || iso.includes('-08:00') || iso.endsWith('Z');
+
+      - type: javascript
+        metric: QuestionsDuePresent
+        value: |
+          const obj = JSON.parse(output);
+          const d = obj.deadlines.find(d => d.type === 'QUESTIONS_DUE');
+          return d !== undefined;
+
+      - type: javascript
+        metric: HasSubmissionDeadline
+        value: |
+          const obj = JSON.parse(output);
+          return obj.hasSubmissionDeadline === true;
+
+      - type: javascript
+        metric: SubmissionDeadlineIsoAccuracy
+        value: |
+          const obj = JSON.parse(output);
+          if (!obj.submissionDeadlineIso) return false;
+          return obj.submissionDeadlineIso.startsWith('2026-02-18');
+
+      - type: javascript
+        metric: DeadlineCount
+        value: |
+          const obj = JSON.parse(output);
+          return obj.deadlines.length >= 2;
+
+      # LLM-graded rubrics
+      - type: llm-rubric
+        metric: HallucinationDetection
+        threshold: 0.8
+        weight: 5
+        value: |
+          GOLD STANDARD for City of Banning eCitation System SW:
+          - QUESTIONS_DUE: January 29, 2026 at 4:00 PM Pacific Time
+          - PROPOSAL_DUE: February 18, 2026 at 4:00 PM Pacific Time
+          - AWARD_ESTIMATE: March 31, 2026
+
+          WHAT COUNTS AS A HALLUCINATION:
+          - Fabricated deadlines not in the solicitation
+          - Wrong dates or times for the above deadlines
+          - Treating contract deliverable schedules as solicitation deadlines
+
+          WHAT IS NOT A HALLUCINATION:
+          - Minor label wording differences
+          - Including the solicitation issue date as an OTHER entry
+          - Omitting the AWARD_ESTIMATE if not clearly stated
+
+          Score 5 = all deadlines grounded in source, no fabricated dates.
+          Score 3 = one questionable deadline.
+          Score 1 = one or more clearly fabricated deadlines.
+
+      - type: llm-rubric
+        metric: OmissionDiscipline
+        threshold: 0.8
+        weight: 5
+        value: |
+          For City of Banning eCitation System SW:
+
+          Deadlines that MUST be present:
+          - PROPOSAL_DUE (February 18, 2026 at 4:00 PM Pacific)
+          - QUESTIONS_DUE (January 29, 2026 at 4:00 PM Pacific)
+
+          OPTIONAL but acceptable:
+          - AWARD_ESTIMATE (March 31, 2026)
+
+          hasSubmissionDeadline MUST be true.
+          submissionDeadlineIso MUST start with 2026-02-18.
+
+          Score 5 = both required deadlines present with correct dates
+          Score 3 = one deadline missing or wrong date
+          Score 1 = major deadline missing or fabricated deadlines

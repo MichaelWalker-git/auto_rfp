@@ -305,7 +305,7 @@ tests:
       return brief.compositeScore >= 1.0 && brief.compositeScore <= 2.0;
 
       '
-- description: Legal Case & Document Management System (DFAS, score 1.9, NO_GO)
+- description: Legal Case & Document Management System (DC Courts, score 1.4, NO_GO)
   vars:
     solicitation: file://../rfp-texts/legal-case-document-management-system.txt
     brief: file://test-cases-rfps/legal-case-document-management-system.json
@@ -316,7 +316,7 @@ tests:
 
       const agency = (brief.sections?.summary?.data?.agency || '''').toLowerCase();
 
-      return agency.includes(''dfas'') || agency.includes(''defense finance'');
+      return agency.includes(''district of columbia'') || agency.includes(''dc courts'');
 
       '
   - type: javascript
@@ -325,7 +325,7 @@ tests:
 
       const sol = brief.sections?.summary?.data?.solicitationNumber || '''';
 
-      return sol.includes(''HQ0896621743'');
+      return sol.includes(''DCSC-26-RFP-60'');
 
       '
   - type: javascript
@@ -334,16 +334,16 @@ tests:
 
       const naics = String(brief.sections?.summary?.data?.naics || '''');
 
-      return naics.includes(''541511'');
+      return naics.includes(''541690'');
 
       '
   - type: javascript
-    metric: ContractType_SoleSource
+    metric: ContractType_FixedPrice
     value: 'const m=output.indexOf(''=== SOURCE'');const j=m>0?output.substring(output.indexOf(''{''),output.lastIndexOf(''}'',m)+1):output;const brief=JSON.parse(j);
 
       const ct = brief.sections?.summary?.data?.contractType || '''';
 
-      return ct === ''SOLE_SOURCE'' || ct.toLowerCase().includes(''sole'');
+      return ct.includes(''FIXED'') || ct.toLowerCase().includes(''fixed'');
 
       '
   - type: javascript
@@ -354,21 +354,39 @@ tests:
 
       '
   - type: javascript
-    metric: Incumbent_True
+    metric: SubmissionDeadline_Correct
     value: 'const m=output.indexOf(''=== SOURCE'');const j=m>0?output.substring(output.indexOf(''{''),output.lastIndexOf(''}'',m)+1):output;const brief=JSON.parse(j);
 
-      const inc = brief.sections?.risks?.data?.incumbentInfo || {};
+      const dl = brief.sections?.deadlines?.data?.submissionDeadlineIso || '''';
 
-      return inc.knownIncumbent === true;
+      return dl.includes(''2026-04-24'');
 
       '
   - type: javascript
-    metric: Incumbent_CGIFederal
+    metric: Contact_GraceAlao
+    value: 'const m=output.indexOf(''=== SOURCE'');const j=m>0?output.substring(output.indexOf(''{''),output.lastIndexOf(''}'',m)+1):output;const brief=JSON.parse(j);
+
+      const contacts = brief.sections?.contacts?.data?.contacts || [];
+
+      return contacts.some(c => (c.name || '''').includes(''Grace Alao''));
+
+      '
+  - type: javascript
+    metric: Contact_Email_Correct
+    value: 'const m=output.indexOf(''=== SOURCE'');const j=m>0?output.substring(output.indexOf(''{''),output.lastIndexOf(''}'',m)+1):output;const brief=JSON.parse(j);
+
+      const contacts = brief.sections?.contacts?.data?.contacts || [];
+
+      return contacts.some(c => (c.email || '''').includes(''grace.alao@dccsystem.gov''));
+
+      '
+  - type: javascript
+    metric: Incumbent_False
     value: 'const m=output.indexOf(''=== SOURCE'');const j=m>0?output.substring(output.indexOf(''{''),output.lastIndexOf(''}'',m)+1):output;const brief=JSON.parse(j);
 
       const inc = brief.sections?.risks?.data?.incumbentInfo || {};
 
-      return (inc.incumbentName || '''').toLowerCase().includes(''cgi'');
+      return inc.knownIncumbent === false;
 
       '
   - type: javascript
@@ -382,7 +400,7 @@ tests:
     metric: Score_InRange
     value: 'const m=output.indexOf(''=== SOURCE'');const j=m>0?output.substring(output.indexOf(''{''),output.lastIndexOf(''}'',m)+1):output;const brief=JSON.parse(j);
 
-      return brief.compositeScore >= 1.0 && brief.compositeScore <= 2.5;
+      return brief.compositeScore >= 1.0 && brief.compositeScore <= 2.0;
 
       '
 - description: Data Management and BI Platform (SBCUSD, score 1.0, NO_GO)

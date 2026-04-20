@@ -741,3 +741,264 @@ tests:
           - Should NOT fabricate additional contacts
 
           Score 5 = complete single contact. Score 1 = missing key details.
+
+  # ─── Test Case 9: MS IAM Solution (County of San Mateo) ───
+  - description: "San Mateo — MS IAM Solution — Jason Li and Michael Wentworth"
+    vars:
+      solicitation: file://../../rfp-texts/ms-iam-solution.txt
+    assert:
+      - type: javascript
+        metric: HasJasonLi
+        value: |
+          const obj = JSON.parse(output);
+          return obj.contacts.some(c =>
+            (c.name || '').toLowerCase().includes('jason li')
+          );
+
+      - type: javascript
+        metric: HasJasonLiEmail
+        value: |
+          const obj = JSON.parse(output);
+          return obj.contacts.some(c =>
+            (c.email || '').toLowerCase().includes('tsd_solicitations@smcgov.org')
+          );
+
+      - type: javascript
+        metric: ContactCountMin
+        value: |
+          const obj = JSON.parse(output);
+          return obj.contacts.length >= 1;
+
+      # LLM-graded rubrics
+      - type: llm-rubric
+        metric: FieldExtractionAccuracy
+        threshold: 0.6
+        weight: 5
+        value: |
+          You are evaluating an AI's extraction of contact information from a government RFP.
+
+          GOLD STANDARD for County of San Mateo MS IAM Solution:
+          PRIMARY CONTACT (must be extracted):
+          - Jason Li: PROCUREMENT_POC, email TSD_Solicitations@smcgov.org, organization County of San Mateo
+
+          SECONDARY CONTACT (in contract template appendix — extraction is a bonus, not required):
+          - Michael Wentworth: CONTRACTING_OFFICER, phone 650-363-4548, email ISD_Procurement@smcgov.org
+
+          IMPORTANT: Michael Wentworth appears in a standard contract template appendix, not in the
+          main body of the solicitation. It is acceptable to omit him. Jason Li is the primary contact.
+
+          Score 5 = Jason Li extracted with email, Wentworth also extracted.
+          Score 4 = Jason Li extracted with email, Wentworth omitted (acceptable).
+          Score 3 = Jason Li extracted but missing email.
+          Score 1 = Jason Li missing entirely or fabricated contacts.
+
+      - type: llm-rubric
+        metric: HallucinationDetection
+        threshold: 0.8
+        weight: 5
+        value: |
+          Check for fabricated contact information in County of San Mateo MS IAM Solution extraction.
+
+          REAL CONTACTS (from the solicitation):
+          - Jason Li: primary procurement contact, TSD_Solicitations@smcgov.org
+          - Michael Wentworth: in contract template appendix, ISD_Procurement@smcgov.org, 650-363-4548
+          - Protest Officer: TSD_Protest_Officer@smcgov.org (role-based, no individual name)
+
+          WHAT COUNTS AS A HALLUCINATION:
+          - Names not found anywhere in the solicitation
+          - Fabricated email addresses or phone numbers
+
+          WHAT IS NOT A HALLUCINATION:
+          - Jason Li with TSD_Solicitations@smcgov.org
+          - Protest Officer with TSD_Protest_Officer@smcgov.org (this IS in the document)
+          - Michael Wentworth from the contract template appendix
+          - Any role classification variant (PROCUREMENT_POC, GENERAL_INQUIRY, etc.)
+
+          Score 5 = all contacts grounded in source. Score 3 = one questionable detail. Score 1 = fabricated contacts.
+
+      - type: llm-rubric
+        metric: OmissionDiscipline
+        threshold: 0.6
+        weight: 5
+        value: |
+          For County of San Mateo MS IAM Solution:
+          MUST be extracted: Jason Li with email TSD_Solicitations@smcgov.org
+          OPTIONAL: Michael Wentworth (in contract template appendix, not main body)
+          OPTIONAL: Protest Officer (role-based contact)
+
+          Score 5 = Jason Li + at least one other contact.
+          Score 4 = Jason Li only (acceptable — Wentworth is in appendix).
+          Score 1 = Jason Li missing entirely.
+
+  # ─── Test Case 10: Grants Mgmt System (City of San Diego) ───
+  - description: "San Diego — Grants Management System — Sandra Vasquez and Christie Marcella"
+    vars:
+      solicitation: file://../../rfp-texts/grants-mgmt-system.txt
+    assert:
+      - type: javascript
+        metric: HasSandraVasquez
+        value: |
+          const obj = JSON.parse(output);
+          return obj.contacts.some(c =>
+            (c.name || '').toLowerCase().includes('sandra') &&
+            (c.name || '').toLowerCase().includes('vasquez')
+          );
+
+      - type: javascript
+        metric: HasSandraEmail
+        value: |
+          const obj = JSON.parse(output);
+          return obj.contacts.some(c =>
+            (c.email || '').toLowerCase().includes('smvasquez@sandiego.gov')
+          );
+
+      - type: javascript
+        metric: HasChristieMarcella
+        value: |
+          const obj = JSON.parse(output);
+          return obj.contacts.some(c =>
+            (c.name || '').toLowerCase().includes('marcella')
+          );
+
+      - type: javascript
+        metric: ContactCountMin
+        value: |
+          const obj = JSON.parse(output);
+          return obj.contacts.length >= 2;
+
+      # LLM-graded rubrics
+      - type: llm-rubric
+        metric: FieldExtractionAccuracy
+        threshold: 0.6
+        weight: 5
+        value: |
+          You are evaluating an AI's extraction of contact information from a government RFP.
+
+          GOLD STANDARD for City of San Diego Grants Management System:
+          - Sandra M. Vasquez: CONTRACTING_OFFICER, email SMVasquez@sandiego.gov, phone 619-236-6032
+          - Christie Marcella: CONTRACTING_OFFICER_REPRESENTATIVE or CONTRACT_SPECIALIST (either is acceptable), email CMarcella@sandiego.gov, phone 619-236-6320
+          - missingRecommendedRoles may include TECHNICAL_POC, PROGRAM_MANAGER, etc.
+
+          Role classification is approximate — accept CONTRACT_SPECIALIST, CONTRACTING_OFFICER_REPRESENTATIVE, or similar for Christie Marcella.
+
+          Score 5 = both contacts extracted with correct names, emails, phones. Score 3 = one contact missing or key detail wrong. Score 1 = mostly wrong.
+
+      - type: llm-rubric
+        metric: HallucinationDetection
+        threshold: 0.8
+        weight: 5
+        value: |
+          Check for fabricated contact information in City of San Diego Grants Management System extraction.
+
+          REAL CONTACTS (from the solicitation):
+          - Sandra M. Vasquez, CONTRACTING_OFFICER, SMVasquez@sandiego.gov, 619-236-6032
+          - Christie Marcella, CONTRACTING_OFFICER_REPRESENTATIVE, CMarcella@sandiego.gov, 619-236-6320
+
+          WHAT COUNTS AS A HALLUCINATION:
+          - Names not found anywhere in the solicitation
+          - Fabricated email addresses or phone numbers
+          - Any contact names other than Sandra Vasquez and Christie Marcella that do not appear in the document
+
+          WHAT IS NOT A HALLUCINATION:
+          - Classifying Sandra Vasquez as CONTRACTING_OFFICER
+          - Classifying Christie Marcella as CONTRACTING_OFFICER_REPRESENTATIVE or similar
+          - Including organization as City of San Diego
+
+          Score 5 = all contacts grounded in source. Score 3 = one questionable detail. Score 1 = fabricated contacts.
+
+      - type: llm-rubric
+        metric: OmissionDiscipline
+        threshold: 0.8
+        weight: 5
+        value: |
+          For City of San Diego Grants Management System, check that the model:
+          - Extracted Sandra M. Vasquez with email SMVasquez@sandiego.gov and phone 619-236-6032
+          - Extracted Christie Marcella with email CMarcella@sandiego.gov and phone 619-236-6320
+          - Did NOT omit any named contact from the document
+          - Flagged missing roles in missingRecommendedRoles if applicable
+
+          Score 5 = all contacts captured with complete details. Score 3 = missing one contact or key detail. Score 1 = major omissions.
+
+  # ─── Test Case 11: eCitation System SW (City of Banning) ───
+  - description: "Banning — eCitation System Software — Angelo Heidt single contact"
+    vars:
+      solicitation: file://../../rfp-texts/ecitation-system-sw.txt
+    assert:
+      - type: javascript
+        metric: HasAngeloHeidt
+        value: |
+          const obj = JSON.parse(output);
+          return obj.contacts.some(c =>
+            (c.name || '').toLowerCase().includes('angelo heidt')
+          );
+
+      - type: javascript
+        metric: HasAngeloEmail
+        value: |
+          const obj = JSON.parse(output);
+          return obj.contacts.some(c =>
+            (c.email || '').toLowerCase().includes('aheidt@banningca.gov')
+          );
+
+      - type: javascript
+        metric: HasAngeloPhone
+        value: |
+          const obj = JSON.parse(output);
+          return obj.contacts.some(c =>
+            (c.phone || '').includes('922') && (c.phone || '').includes('3154')
+          );
+
+      - type: javascript
+        metric: ContactCountMin
+        value: |
+          const obj = JSON.parse(output);
+          return obj.contacts.length >= 1;
+
+      # LLM-graded rubrics
+      - type: llm-rubric
+        metric: FieldExtractionAccuracy
+        threshold: 0.6
+        weight: 5
+        value: |
+          You are evaluating an AI's extraction of contact information from a government RFP.
+
+          GOLD STANDARD for City of Banning eCitation System Software:
+          - Angelo Heidt: PROCUREMENT_POC or similar role, email aheidt@banningca.gov, phone 951-922-3154
+          - NO other contacts listed
+          - missingRecommendedRoles should be extensive (CONTRACTING_OFFICER, TECHNICAL_POC, PROGRAM_MANAGER, etc.)
+
+          Score 5 = Angelo Heidt extracted with all details. Score 3 = contact found but missing email or phone. Score 1 = mostly wrong.
+
+      - type: llm-rubric
+        metric: HallucinationDetection
+        threshold: 0.8
+        weight: 5
+        value: |
+          Check for fabricated contact information in City of Banning eCitation System Software extraction.
+
+          REAL CONTACTS (from the solicitation):
+          - Angelo Heidt, aheidt@banningca.gov, 951-922-3154
+
+          WHAT COUNTS AS A HALLUCINATION:
+          - Names not found anywhere in the solicitation
+          - Fabricated email addresses or phone numbers
+          - Any contact names other than Angelo Heidt that do not appear in the document
+
+          WHAT IS NOT A HALLUCINATION:
+          - Classifying Angelo Heidt as PROCUREMENT_POC or similar role
+          - Including organization as City of Banning
+          - Noting the absence of other named contacts
+
+          Score 5 = only Angelo Heidt, no fabricated contacts. Score 3 = one questionable detail. Score 1 = fabricated contacts.
+
+      - type: llm-rubric
+        metric: OmissionDiscipline
+        threshold: 0.8
+        weight: 5
+        value: |
+          For City of Banning eCitation System Software, check that the model:
+          - Extracted Angelo Heidt with email aheidt@banningca.gov and phone 951-922-3154
+          - Did NOT fabricate additional contacts
+          - Flagged missing roles in missingRecommendedRoles (CONTRACTING_OFFICER, TECHNICAL_POC, PROGRAM_MANAGER, etc.)
+
+          Score 5 = complete single contact + extensive missing roles. Score 1 = missing key details or fabricated contacts.

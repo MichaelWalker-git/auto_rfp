@@ -769,3 +769,219 @@ tests:
           - incumbentInfo must show knownIncumbent=false
 
           Score 5 = key risks captured. Score 1 = major risks omitted.
+
+  # ─── Test Case 9: MS IAM Solution (County of San Mateo) ───
+  - description: "San Mateo County — MS IAM Solution (Okta to Microsoft Entra migration)"
+    vars:
+      solicitation: file://../../rfp-texts/ms-iam-solution.txt
+    assert:
+      - type: javascript
+        metric: RiskCountMin
+        value: |
+          const obj = JSON.parse(output);
+          return (obj.risks.length + obj.redFlags.length) >= 2;
+
+      - type: javascript
+        metric: HasPastPerfOrComplianceRisk
+        value: |
+          const obj = JSON.parse(output);
+          const all = [...obj.risks, ...obj.redFlags];
+          return all.some(r => {
+            const t = r.flag.toLowerCase();
+            return t.includes('past performance') || t.includes('experience') || t.includes('qualif') || t.includes('insurance') || t.includes('cyber') || t.includes('brand') || t.includes('microsoft') || t.includes('vendor');
+          });
+
+      - type: javascript
+        metric: IncumbentInfoCorrect
+        value: |
+          const obj = JSON.parse(output);
+          return obj.incumbentInfo.knownIncumbent === false;
+
+      - type: llm-rubric
+        metric: FieldExtractionAccuracy
+        threshold: 0.4
+        weight: 5
+        value: |
+          GOLD STANDARD for San Mateo County MS IAM Solution:
+          - Key risks: no Microsoft IAM past performance, brand-name Microsoft specification limits flexibility, $5M cyber liability insurance requirement
+          - incumbentInfo: knownIncumbent=false, recompete=false (new implementation migrating from Okta to Microsoft Entra)
+          - Okta is the CURRENT PRODUCT being replaced, NOT an incumbent contractor
+          - The model may frame risks differently (e.g., vendor lock-in, compliance, insurance) — accept reasonable equivalents
+
+          Score 5 = captures past performance + brand-name risks. Score 3 = captures some key risks with different framing. Score 1 = mostly wrong.
+
+      - type: llm-rubric
+        metric: HallucinationDetection
+        threshold: 0.8
+        weight: 5
+        value: |
+          GOLD STANDARD for San Mateo County MS IAM Solution:
+          - No incumbent contractor mentioned in the solicitation
+          - Okta is the existing product being replaced, NOT an incumbent contractor
+          - This is a new implementation (Okta to Microsoft Entra migration)
+
+          WHAT COUNTS AS A HALLUCINATION:
+          - Fabricating an incumbent contractor
+          - Naming Okta as the incumbent contractor (it is only the current product)
+          - knownIncumbent=true
+          - Risks not derivable from the solicitation text
+
+          Score 5 = all grounded. Score 1 = fabricated risks or incumbent.
+
+      - type: llm-rubric
+        metric: OmissionDiscipline
+        threshold: 0.4
+        weight: 5
+        value: |
+          For San Mateo County MS IAM Solution:
+          - Microsoft brand-name specification risk or vendor lock-in SHOULD be flagged
+          - Past performance / experience gap SHOULD be flagged
+          - $5M cyber liability insurance requirement SHOULD be noted
+          - incumbentInfo must show knownIncumbent=false
+          - The model may capture these risks under different labels (e.g., compliance, vendor, insurance)
+
+          Score 5 = key risks captured. Score 3 = captures some key risks. Score 1 = major risks omitted.
+
+  # ─── Test Case 10: Grants Mgmt System (City of San Diego) ───
+  - description: "City of San Diego — Grants Management System (new procurement, Salesforce sunsetting)"
+    vars:
+      solicitation: file://../../rfp-texts/grants-mgmt-system.txt
+    assert:
+      - type: javascript
+        metric: RiskCountMin
+        value: |
+          const obj = JSON.parse(output);
+          return (obj.risks.length + obj.redFlags.length) >= 2;
+
+      - type: javascript
+        metric: HasPastPerfOrComplianceRisk
+        value: |
+          const obj = JSON.parse(output);
+          const all = [...obj.risks, ...obj.redFlags];
+          return all.some(r => {
+            const t = r.flag.toLowerCase();
+            return t.includes('past performance') || t.includes('experience') || t.includes('qualif') || t.includes('reference') || t.includes('implementation') || t.includes('salesforce') || t.includes('saas') || t.includes('government');
+          });
+
+      - type: javascript
+        metric: IncumbentInfoCorrect
+        value: |
+          const obj = JSON.parse(output);
+          return obj.incumbentInfo.knownIncumbent === false;
+
+      - type: llm-rubric
+        metric: FieldExtractionAccuracy
+        threshold: 0.4
+        weight: 5
+        value: |
+          GOLD STANDARD for City of San Diego Grants Management System:
+          - Key risks: no grants management past performance, 10+ government agency implementation requirement, SaaS product gap, existing Salesforce system sunsetting creates urgency
+          - incumbentInfo: knownIncumbent=false, recompete=false (new procurement, existing system is internal Salesforce)
+          - Salesforce is the CURRENT INTERNAL SYSTEM being replaced, NOT an incumbent contractor
+          - The model may frame risks differently (e.g., transition risk, vendor qualifications, platform migration) — accept reasonable equivalents
+
+          Score 5 = captures past performance + implementation requirement risks. Score 3 = captures some key risks with different framing. Score 1 = mostly wrong.
+
+      - type: llm-rubric
+        metric: HallucinationDetection
+        threshold: 0.8
+        weight: 5
+        value: |
+          GOLD STANDARD for City of San Diego Grants Management System:
+          - No incumbent contractor mentioned in the solicitation
+          - Salesforce is the existing internal system being sunsettted, NOT an incumbent contractor
+          - This is a new procurement for a SaaS grants management solution
+
+          WHAT COUNTS AS A HALLUCINATION:
+          - Fabricating an incumbent contractor
+          - Naming Salesforce as the incumbent contractor (it is only the current internal platform)
+          - knownIncumbent=true
+          - Risks not derivable from the solicitation text
+
+          Score 5 = all grounded. Score 1 = fabricated risks or incumbent.
+
+      - type: llm-rubric
+        metric: OmissionDiscipline
+        threshold: 0.4
+        weight: 5
+        value: |
+          For City of San Diego Grants Management System:
+          - Past performance / experience gap SHOULD be flagged
+          - 10+ government agency implementation requirement SHOULD be flagged
+          - SaaS product gap or urgency from Salesforce sunsetting SHOULD be noted
+          - incumbentInfo must show knownIncumbent=false
+          - The model may capture these risks under different labels (e.g., transition, migration, qualifications)
+
+          Score 5 = key risks captured. Score 3 = captures some key risks. Score 1 = major risks omitted.
+
+  # ─── Test Case 11: eCitation System SW (City of Banning) ───
+  - description: "City of Banning — eCitation System Software (paper-based transition, niche market)"
+    vars:
+      solicitation: file://../../rfp-texts/ecitation-system-sw.txt
+    assert:
+      - type: javascript
+        metric: RiskCountMin
+        value: |
+          const obj = JSON.parse(output);
+          return (obj.risks.length + obj.redFlags.length) >= 2;
+
+      - type: javascript
+        metric: HasNicheMarketOrProductRisk
+        value: |
+          const obj = JSON.parse(output);
+          const all = [...obj.risks, ...obj.redFlags];
+          return all.some(r => {
+            const t = r.flag.toLowerCase();
+            return t.includes('niche') || t.includes('product') || t.includes('software') || t.includes('ecitation') || t.includes('law enforcement');
+          });
+
+      - type: javascript
+        metric: IncumbentInfoCorrect
+        value: |
+          const obj = JSON.parse(output);
+          return obj.incumbentInfo.knownIncumbent === false;
+
+      - type: llm-rubric
+        metric: FieldExtractionAccuracy
+        threshold: 0.4
+        weight: 5
+        value: |
+          GOLD STANDARD for City of Banning eCitation System:
+          - Key risks: no eCitation/law enforcement software past performance, niche market with limited vendors, need 3 references for similar work, Experience weighted 45% of evaluation
+          - incumbentInfo: knownIncumbent=false, recompete=false (transitioning from paper-based citations)
+          - This is a niche law enforcement technology procurement
+          - The model may frame risks differently (e.g., compliance, integration, contract terms, specialized requirements) — accept reasonable equivalents
+
+          Score 5 = captures niche market + experience/references risks. Score 3 = captures some key risks with different framing. Score 1 = mostly wrong.
+
+      - type: llm-rubric
+        metric: HallucinationDetection
+        threshold: 0.8
+        weight: 5
+        value: |
+          GOLD STANDARD for City of Banning eCitation System:
+          - No incumbent contractor mentioned in the solicitation
+          - City is transitioning from paper-based citations (no existing vendor)
+          - This is a new technology adoption, not a recompete
+
+          WHAT COUNTS AS A HALLUCINATION:
+          - Fabricating an incumbent contractor
+          - knownIncumbent=true
+          - Claiming there is an existing eCitation vendor being replaced
+          - Risks not derivable from the solicitation text
+
+          Score 5 = all grounded. Score 1 = fabricated risks or incumbent.
+
+      - type: llm-rubric
+        metric: OmissionDiscipline
+        threshold: 0.4
+        weight: 5
+        value: |
+          For City of Banning eCitation System:
+          - Niche market / limited vendor pool SHOULD be flagged
+          - Experience weighted 45% or 3 references requirement SHOULD be flagged
+          - No eCitation/law enforcement past performance SHOULD be noted
+          - incumbentInfo must show knownIncumbent=false
+          - The model may capture these risks under different labels (e.g., compliance, contract terms, specialized requirements)
+
+          Score 5 = key risks captured. Score 3 = captures some key risks. Score 1 = major risks omitted.
