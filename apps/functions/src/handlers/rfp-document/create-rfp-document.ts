@@ -76,18 +76,28 @@ export const baseHandler = async (
   const documentType = data.documentType ?? 'OTHER';
   const isContentBased = CONTENT_BASED_DOCUMENT_TYPES.has(documentType);
 
-  // Determine if this is a file upload request based on whether mimeType is provided
-  // This allows file uploads even for content-based document types (e.g., uploading a PDF for TECHNICAL_PROPOSAL)
-  const isFileUpload = !!data.mimeType && data.fileSizeBytes > 0;
+  // Detect file upload attempt when EITHER mimeType OR fileSizeBytes is provided
+  const hasFileMimeType = data.mimeType !== undefined && data.mimeType !== null;
+  const hasFileSizeBytes = data.fileSizeBytes !== undefined && data.fileSizeBytes !== null;
+  const isFileUploadAttempt = hasFileMimeType || hasFileSizeBytes;
 
-  // Validate file upload parameters if a file is being uploaded
-  if (isFileUpload) {
+  let isFileUpload = false;
+
+  if (isFileUploadAttempt) {
+    // When either field is present, require BOTH with valid values
+    if (!hasFileMimeType || !data.mimeType) {
+      return apiResponse(400, { message: 'mimeType is required when fileSizeBytes is provided' });
+    }
+    if (!hasFileSizeBytes || typeof data.fileSizeBytes !== 'number' || data.fileSizeBytes <= 0) {
+      return apiResponse(400, { message: 'fileSizeBytes must be a positive number when mimeType is provided' });
+    }
     if (!ALLOWED_MIME_TYPES.has(data.mimeType)) {
       return apiResponse(400, { message: `Unsupported file type: ${data.mimeType}` });
     }
     if (data.fileSizeBytes > MAX_FILE_SIZE_BYTES) {
       return apiResponse(400, { message: `File too large. Maximum: ${MAX_FILE_SIZE_BYTES} bytes` });
     }
+    isFileUpload = true;
   } else if (!isContentBased) {
     // Non-content-based documents require a file upload
     return apiResponse(400, { message: 'mimeType and fileSizeBytes are required for file-based documents' });

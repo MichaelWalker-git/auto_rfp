@@ -127,7 +127,7 @@ export function PastProjectsContent({ orgId }: PastProjectsContentProps) {
               </Badge>
             )}
             {/* Show source document badge for extracted items */}
-            <ExtractionSourceBadge extractionSource={project.extractionSource} orgId={orgId} />
+            <ExtractionSourceBadge extractionSource={project.extractionSource} />
           </div>
 
           <div className="mt-1 flex items-center gap-2 text-xs text-muted-foreground">

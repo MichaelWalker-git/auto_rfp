@@ -229,7 +229,6 @@ export default function EditPastProjectPage() {
           <div className="mt-4 p-3 bg-muted/50 rounded-lg border">
             <ExtractionSourceBadge 
               extractionSource={project.extractionSource} 
-              orgId={orgId} 
               compact={false} 
             />
           </div>

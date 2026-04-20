@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { FileText, Download, ExternalLink } from 'lucide-react';
+import { FileText, Download } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -15,7 +15,6 @@ import type { ExtractionSource } from '@auto-rfp/core';
 
 interface ExtractionSourceBadgeProps {
   extractionSource: ExtractionSource | null | undefined;
-  orgId: string;
   /** If true, shows as inline badge. If false, shows as full row */
   compact?: boolean;
 }
@@ -26,7 +25,6 @@ interface ExtractionSourceBadgeProps {
  */
 export const ExtractionSourceBadge = ({
   extractionSource,
-  orgId,
   compact = true,
 }: ExtractionSourceBadgeProps) => {
   const { trigger: getPresignedUrl, isMutating: isDownloading } = usePresignDownload();
@@ -72,7 +70,7 @@ export const ExtractionSourceBadge = ({
     try {
       const presignResponse = await getPresignedUrl({ key: sourceDocumentKey });
       if (presignResponse?.url) {
-        window.open(presignResponse.url, '_blank');
+        window.open(presignResponse.url, '_blank', 'noopener,noreferrer');
       }
     } catch (error) {
       console.error('Failed to get presigned download URL:', error);

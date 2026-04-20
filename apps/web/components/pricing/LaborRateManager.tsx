@@ -228,7 +228,7 @@ export const LaborRateManager = ({ orgId }: LaborRateManagerProps) => {
                   <td className="p-3 font-medium">
                     <div className="flex items-center gap-2">
                       {rate.position}
-                      <ExtractionSourceBadge extractionSource={rate.extractionSource} orgId={orgId} />
+                      <ExtractionSourceBadge extractionSource={rate.extractionSource} />
                     </div>
                   </td>
                   <td className="p-3 text-right">${rate.baseRate.toFixed(2)}</td>
@@ -256,7 +256,7 @@ export const LaborRateManager = ({ orgId }: LaborRateManagerProps) => {
           <DialogHeader><DialogTitle>Edit Labor Rate</DialogTitle></DialogHeader>
           {editingRate?.extractionSource && (
             <div className="mb-4 p-3 bg-muted rounded-lg">
-              <ExtractionSourceBadge extractionSource={editingRate.extractionSource} orgId={orgId} compact={false} />
+              <ExtractionSourceBadge extractionSource={editingRate.extractionSource} compact={false} />
             </div>
           )}
           <form onSubmit={editForm.handleSubmit(onEditSubmit)} className="space-y-4">
