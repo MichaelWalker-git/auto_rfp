@@ -40,22 +40,28 @@ import type { SavedSearch } from '@auto-rfp/core';
 
 // ─── Schema ───────────────────────────────────────────────────────────────────
 
+const SOURCE_LABELS: Record<string, string> = {
+  all: 'All Sources', SAM_GOV: 'SAM.gov', DIBBS: 'DIBBS', HIGHER_GOV: 'HigherGov',
+};
+
 const Schema = z.object({
   keywords:     z.string().optional(),
-  source:       z.enum(['all', 'SAM_GOV', 'DIBBS']).default('all'),
+  source:       z.enum(['all', 'SAM_GOV', 'DIBBS', 'HIGHER_GOV']).default('all'),
   naics:        z.array(z.string()).default([]),
   setAsideCode: z.string().default(''),
   postedFrom:   z.date().optional(),
   postedTo:     z.date().optional(),
   closingFrom:  z.date().optional(),
   closingTo:    z.date().optional(),
+  higherGovSourceType: z.enum(['', 'sam', 'dibbs', 'sbir', 'grant', 'sled']).default(''),
 });
-type FormValues = z.input<typeof Schema>;
+export type FormValues = z.input<typeof Schema>;
 
 const DEFAULTS: FormValues = {
   keywords: '', source: 'all', naics: [], setAsideCode: '',
   postedFrom: subDays(new Date(), 30), postedTo: new Date(),
   closingFrom: undefined, closingTo: undefined,
+  higherGovSourceType: '',
 };
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -211,18 +217,29 @@ const RecentSearches = ({ orgId, onApply }: { orgId: string; onApply: (s: SavedS
 
 // ─── Props ────────────────────────────────────────────────────────────────────
 
-interface Props { orgId?: string; onSearch: (c: SearchOpportunityCriteria) => void; isLoading: boolean; }
+interface Props {
+  orgId?: string;
+  onSearch: (c: SearchOpportunityCriteria) => void;
+  isLoading: boolean;
+  /** Initial filter values restored from URL search params */
+  initialValues?: Partial<FormValues>;
+}
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
-export const SearchOpportunityForm = ({ orgId, onSearch, isLoading }: Props) => {
+export const SearchOpportunityForm = ({ orgId, onSearch, isLoading, initialValues }: Props) => {
   const { toast } = useToast();
   const [saveOpen, setSaveOpen] = React.useState(false);
   const [saveName, setSaveName] = React.useState('My Search');
   const [isSaving, setIsSaving] = React.useState(false);
 
+  const mergedDefaults = React.useMemo(() => ({
+    ...DEFAULTS,
+    ...initialValues,
+  }), []); // eslint-disable-line react-hooks/exhaustive-deps -- only use initial mount values
+
   const { control, handleSubmit, watch, setValue, reset } = useForm<FormValues>({
-    resolver: zodResolver(Schema), defaultValues: DEFAULTS,
+    resolver: zodResolver(Schema), defaultValues: mergedDefaults,
   });
   const w = watch();
 
@@ -235,21 +252,24 @@ export const SearchOpportunityForm = ({ orgId, onSearch, isLoading }: Props) => 
     keywords:     v.keywords?.trim() || undefined,
     naics:        v.naics?.length ? v.naics : undefined,
     setAsideCode: v.setAsideCode || undefined,
-    sources:      v.source !== 'all' ? [v.source as 'SAM_GOV' | 'DIBBS'] : undefined,
+    sources:      v.source !== 'all' ? [v.source as 'SAM_GOV' | 'DIBBS' | 'HIGHER_GOV'] : undefined,
     postedFrom:   v.postedFrom?.toISOString().slice(0, 10),
     postedTo:     v.postedTo?.toISOString().slice(0, 10),
     closingFrom:  v.closingFrom?.toISOString().slice(0, 10),
     closingTo:    v.closingTo?.toISOString().slice(0, 10),
+    higherGovSourceType: v.higherGovSourceType || undefined,
     limit: 25,
   });
 
   const applySearch = (s: SavedSearch) => {
     const c = s.criteria;
+    const source = s.source === 'DIBBS' ? 'DIBBS' : s.source === 'HIGHER_GOV' ? 'HIGHER_GOV' : 'SAM_GOV';
     reset({
-      keywords: c.keywords ?? '', source: s.source === 'DIBBS' ? 'DIBBS' : 'SAM_GOV',
+      keywords: c.keywords ?? '', source,
       naics: c.naics ?? [], setAsideCode: c.setAsideCode ?? '',
       postedFrom: mmddToDate(c.postedFrom), postedTo: mmddToDate(c.postedTo),
       closingFrom: mmddToDate(c.closingFrom), closingTo: mmddToDate(c.closingTo),
+      higherGovSourceType: (c.higherGovSourceType ?? '') as FormValues['higherGovSourceType'],
     });
   };
 
@@ -262,7 +282,7 @@ export const SearchOpportunityForm = ({ orgId, onSearch, isLoading }: Props) => 
       const res = await authFetcher(`${env.BASE_API_URL}/search-opportunities/saved-search`, {
         method: 'POST',
         body: JSON.stringify({
-          source: w.source === 'DIBBS' ? 'DIBBS' : 'SAM_GOV', orgId,
+          source: w.source === 'DIBBS' ? 'DIBBS' : w.source === 'HIGHER_GOV' ? 'HIGHER_GOV' : 'SAM_GOV', orgId,
           name: saveName.trim() || 'My Search',
           criteria: { postedFrom: fmt(c.postedFrom), postedTo: fmt(c.postedTo), keywords: c.keywords, naics: c.naics, setAsideCode: c.setAsideCode, closingFrom: c.closingFrom ? fmt(c.closingFrom) : undefined, closingTo: c.closingTo ? fmt(c.closingTo) : undefined },
           frequency: 'DAILY', autoImport: false, notifyEmails: [], isEnabled: true,
@@ -324,7 +344,7 @@ export const SearchOpportunityForm = ({ orgId, onSearch, isLoading }: Props) => 
             <DropdownMenuTrigger asChild>
               <Button type="button" variant="outline" size="sm"
                 className={cn('h-8 gap-1.5 text-xs font-normal', field.value !== 'all' && 'border-primary bg-primary/5 text-primary font-medium')}>
-                {field.value === 'all' ? 'All Sources' : field.value === 'SAM_GOV' ? 'SAM.gov' : 'DIBBS'}
+                {SOURCE_LABELS[field.value ?? 'all'] ?? 'All Sources'}
                 <ChevronDown className="h-3 w-3 opacity-50" />
               </Button>
             </DropdownMenuTrigger>
@@ -335,10 +355,40 @@ export const SearchOpportunityForm = ({ orgId, onSearch, isLoading }: Props) => 
                 <DropdownMenuRadioItem value="all" className="text-xs">All Sources</DropdownMenuRadioItem>
                 <DropdownMenuRadioItem value="SAM_GOV" className="text-xs">SAM.gov</DropdownMenuRadioItem>
                 <DropdownMenuRadioItem value="DIBBS" className="text-xs">DIBBS</DropdownMenuRadioItem>
+                <DropdownMenuRadioItem value="HIGHER_GOV" className="text-xs">HigherGov</DropdownMenuRadioItem>
               </DropdownMenuRadioGroup>
             </DropdownMenuContent>
           </DropdownMenu>
         )} />
+
+        {/* HigherGov source_type filter — only visible when HigherGov is selected */}
+        {w.source === 'HIGHER_GOV' && (
+          <Controller name="higherGovSourceType" control={control} render={({ field }) => (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button type="button" variant="outline" size="sm"
+                  className={cn('h-8 gap-1.5 text-xs font-normal', !!field.value && 'border-primary bg-primary/5 text-primary font-medium')}>
+                  {field.value ? ({ sam: 'SAM.gov', dibbs: 'DIBBS', sbir: 'SBIR/STTR', grant: 'Grants', sled: 'State & Local' }[field.value] ?? field.value) : 'HGov Source'}
+                  {field.value
+                    ? <span onClick={e => { e.stopPropagation(); field.onChange(''); }} className="ml-0.5 hover:text-destructive"><X className="h-3 w-3" /></span>
+                    : <ChevronDown className="h-3 w-3 opacity-50" />}
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start" className="w-44">
+                <DropdownMenuLabel className="text-xs">HigherGov Source</DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                <DropdownMenuRadioGroup value={field.value || 'any'} onValueChange={v => field.onChange(v === 'any' ? '' : v)}>
+                  <DropdownMenuRadioItem value="any" className="text-xs">All sources</DropdownMenuRadioItem>
+                  <DropdownMenuRadioItem value="sbir" className="text-xs">SBIR/STTR</DropdownMenuRadioItem>
+                  <DropdownMenuRadioItem value="grant" className="text-xs">Grants</DropdownMenuRadioItem>
+                  <DropdownMenuRadioItem value="sled" className="text-xs">State & Local</DropdownMenuRadioItem>
+                  <DropdownMenuRadioItem value="sam" className="text-xs">SAM.gov</DropdownMenuRadioItem>
+                  <DropdownMenuRadioItem value="dibbs" className="text-xs">DIBBS</DropdownMenuRadioItem>
+                </DropdownMenuRadioGroup>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )} />
+        )}
 
         {/* NAICS */}
         <Controller name="naics" control={control} render={({ field }) => (

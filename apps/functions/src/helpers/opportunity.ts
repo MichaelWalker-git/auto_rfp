@@ -199,24 +199,43 @@ export const findOpportunityBySourceId = async (args: {
   orgId: string;
   noticeId?: string | null;
   solicitationNumber?: string | null;
+  higherGovOppKey?: string | null;
 }): Promise<OpportunityDBItem | undefined> => {
-  if (!args.noticeId && !args.solicitationNumber) return undefined;
+  if (!args.noticeId && !args.solicitationNumber && !args.higherGovOppKey) return undefined;
+
+  // Determine filter based on which identifier is provided
+  let filterExpression: string;
+  const exprNames: Record<string, string> = { '#pk': PK_NAME, '#sk': SK_NAME };
+  const exprValues: Record<string, unknown> = {
+    ':pk': OPPORTUNITY_PK,
+    ':skPrefix': `${args.orgId}#`,
+  };
+
+  if (args.higherGovOppKey) {
+    // Cross-source dedup: check both higherGovOppKey and noticeId
+    // (HigherGov source_id is the SAM.gov noticeId for SAM-sourced opportunities)
+    exprNames['#hgk'] = 'higherGovOppKey';
+    exprNames['#nid'] = 'noticeId';
+    exprValues[':hgk'] = args.higherGovOppKey;
+    exprValues[':sourceId'] = args.higherGovOppKey;
+    filterExpression = '#hgk = :hgk OR #nid = :sourceId';
+  } else if (args.noticeId) {
+    exprNames['#noticeId'] = 'noticeId';
+    exprValues[':nid'] = args.noticeId;
+    filterExpression = '#noticeId = :nid';
+  } else {
+    exprNames['#solNum'] = 'solicitationNumber';
+    exprValues[':sn'] = args.solicitationNumber;
+    filterExpression = '#solNum = :sn';
+  }
 
   const res = await docClient.send(
     new QueryCommand({
       TableName: DOCUMENTS_TABLE,
       KeyConditionExpression: `#pk = :pk AND begins_with(#sk, :skPrefix)`,
-      ExpressionAttributeNames: {
-        '#pk': PK_NAME,
-        '#sk': SK_NAME,
-        ...(args.noticeId ? { '#noticeId': 'noticeId' } : { '#solNum': 'solicitationNumber' }),
-      },
-      ExpressionAttributeValues: {
-        ':pk': OPPORTUNITY_PK,
-        ':skPrefix': `${args.orgId}#`,
-        ...(args.noticeId ? { ':nid': args.noticeId } : { ':sn': args.solicitationNumber }),
-      },
-      FilterExpression: args.noticeId ? '#noticeId = :nid' : '#solNum = :sn',
+      ExpressionAttributeNames: exprNames,
+      ExpressionAttributeValues: exprValues,
+      FilterExpression: filterExpression,
     }),
   );
 
