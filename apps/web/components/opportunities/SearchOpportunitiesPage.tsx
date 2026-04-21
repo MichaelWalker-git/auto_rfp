@@ -31,6 +31,7 @@ import type { SearchOpportunityCriteria } from '@/lib/hooks/use-search-opportuni
 import type { SavedSearch } from '@auto-rfp/core';
 import type { DuplicateInfo } from '@/lib/hooks/use-import-solicitation';
 import { DuplicateSolicitationDialog } from '@/components/samgov/duplicate-solicitation-dialog';
+import { HigherGovFavoritesBanner } from './HigherGovFavoritesBanner';
 
 interface Props {
   orgId: string;
@@ -343,6 +344,9 @@ export default function SearchOpportunitiesPage({ orgId }: Props) {
           </AlertDescription>
         </Alert>
       )}
+
+      {/* ── HigherGov favorites banner ── */}
+      <HigherGovFavoritesBanner orgId={orgId} projectId={effectiveProjectId} />
 
       {/* ── Tabs ── */}
       <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'search' | 'saved')} className="mt-2">
