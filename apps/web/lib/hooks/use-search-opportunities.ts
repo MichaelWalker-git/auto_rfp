@@ -22,6 +22,8 @@ export interface SearchOpportunityCriteria {
   sources?: Array<'SAM_GOV' | 'DIBBS' | 'HIGHER_GOV'>;
   /** HigherGov source_type filter: 'sam', 'dibbs', 'sbir', 'grant', 'sled' */
   higherGovSourceType?: string;
+  /** HigherGov search_id — replay a saved search from HigherGov UI */
+  higherGovSearchId?: string;
   limit?: number;
   offset?: number;
 }
@@ -100,6 +102,7 @@ export const useSearchOpportunities = (orgId: string | undefined) => {
           closingFrom:  criteria.closingFrom ? toMMDDYYYY(criteria.closingFrom) : undefined,
           closingTo:    criteria.closingTo   ? toMMDDYYYY(criteria.closingTo)   : undefined,
           higherGovSourceType: criteria.higherGovSourceType || undefined,
+          higherGovSearchId: criteria.higherGovSearchId || undefined,
           limit,
           offset,
         }),

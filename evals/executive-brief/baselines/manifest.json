@@ -1,0 +1,48 @@
+{
+  "baselines": [
+    {
+      "version": "v7-smoke",
+      "date": "2026-04-19",
+      "deterministicPassRate": 1,
+      "llmAvgScore": 0,
+      "totalDeterministic": 297,
+      "passedDeterministic": 297,
+      "totalLlm": 0,
+      "perSection": {
+        "AllSectionsPresent": 1,
+        "CompleteSectionsHaveData": 1,
+        "CompositeScoreValid": 1,
+        "DecisionValid": 1,
+        "ConfidenceValid": 1,
+        "SummaryHasTitle": 1,
+        "SummaryHasAgency": 1,
+        "SummaryDataExists": 1,
+        "SummaryHasSummaryText": 1,
+        "DeadlinesHasSubmissionFlag": 1,
+        "DeadlinesArrayExists": 1,
+        "DeadlinesConsistency": 1,
+        "ContactsArrayExists": 1,
+        "ContactsNoFabricatedEmails": 1,
+        "RisksHasIncumbentInfo": 1,
+        "RisksNoGenericIncumbentNames": 1,
+        "RisksRecompeteIsBoolean": 1,
+        "ScoringHasAllCriteria": 1,
+        "ScoringCriteriaHaveScores": 1,
+        "ScoringDecisionConsistent": 1,
+        "Agency": 1,
+        "SolNumber": 1,
+        "EstimatedValue": 1,
+        "SubmissionDeadline": 1,
+        "HasSubmissionDeadline": 1,
+        "DeadlineCount": 1,
+        "Contact": 1,
+        "Incumbent": 1,
+        "Decision": 1,
+        "Score": 1,
+        "NAICS": 1,
+        "ContractType": 1
+      },
+      "testCaseCount": 10
+    }
+  ]
+}

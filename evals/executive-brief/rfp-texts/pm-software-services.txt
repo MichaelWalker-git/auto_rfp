@@ -1,0 +1,641 @@
+ACRAMENTO
+COUNTY DEPARTMENT OF AIRPORTS
+REQUEST FOR PROPOSALS
+PROJECT MANAGEMENT
+SOFTWARE SERVICES FOR
+SACRAMENTO COUNTY
+DEPARTMENT OF AIRPORTS
+Proposals Due:
+Tuesday, April 7, 2026
+12 P.M. Pacific Time
+TABLE OF CONTENTS
+I.
+SUMMARY AND BACKGROUND
+2
+II.
+PURPOSE AND OBJECTIVES
+2
+III.
+ANTICIPATED SCOPE OF SERVICES
+3
+IV.
+TERM AND EFFECTIVE DATE OF THE AGREEMENT
+7
+V.
+HOW TO OBTAIN A COPY OF THIS RFP
+7
+VII. OPTIONAL VIRTUAL PRE-PROPOSAL CONFERENCE
+7
+VIII. FORMAT OF PROPOSAL
+8
+IX.
+MINIMUM QUALIFICATIONS
+10
+X.
+STATEMENT OF QUALIFICATIONS
+10
+XI.
+FEE STRUCTURE, PROPOSAL COST, AND SCOPE
+11
+XII. REFERENCES
+12
+XIII. RFP TIMELINE
+12
+XIV. EVALUATION OF PROPOSALS
+13
+XV.
+QUESTIONS
+13
+XVI. BACKGROUND CHECKS
+14
+XVII. CONDITIONS
+14
+XVIII. NEGOTIATION OF AGREEMENT
+16
+Attachments:
+1. Sample Agreement for Project Management Software Services for
+Sacramento County Department of Airports
+2. FAA General Contract Provisions for Solicitations
+3. County of Sacramento Contractor Certification of Compliance Form
+4. Contractor Identification Form
+5. County of Sacramento Security Requirements
+Request for Proposals
+Project Management Software Services for
+Page 1 of 16
+Sacramento County Department of Airports
+February 5, 2026
+TO:
+Prospective Service Providers
+FROM:
+William Wallace
+Administrative Services Officer II
+Sacramento County Department of Airports
+SUBJECT: Sacramento County Department of Airports Project
+Management Software Services
+I.
+SUMMARY AND BACKGROUND
+The County of Sacramento (County) owns and/or operates four airports in
+Sacramento County, including Sacramento International Airport (SMF or
+Airport), through the Department of Airports (SCDA or Department). The
+Department is issuing this Request for Proposals (RFP) to solicit proposals
+from prospective service providers (Contractors) to provide the
+Department with Project Management Software services for the
+Department.
+The selected proposer shall provide a comprehensive, fully supported
+cloud-based Project Management Software designed to meet the Design
+and Development department's related needs in project tracking,
+schedules, and maintaining project budgets that allow for reporting, and
+may be further configured to Department's workflow needs. The software
+will be used by the Department for its Capital Improvement Planning
+process and shall be able to support this process. With a goal to be self-
+sufficient and independently use the software.
+II.
+PURPOSE AND OBJECTIVES
+The County wishes to enter into an agreement with a qualified vendor to
+provide the cloud-based project management software that includes
+implementation, customization and training as indicated in the scope of
+services.
+The County seeks to implement a software solution primarily to manage
+active construction projects across all its airport facilities. The system
+shall provide robust tools for project status updates, scheduling, cost
+control, document management, and real-time reporting to ensure
+efficient delivery of capital projects.
+In addition to supporting day-to-day construction workflows, the software
+will enhance the Department's Capital Improvement Planning (CIP)
+process that currently uses excel spreadsheets and Crystal Reports by
+Request for Proposals
+Project Management Software Services for
+Page 2 of 16
+Sacramento County Department of Airports
+enabling portfolio-level visibility, prioritization, and long-term forecasting.
+The new system with replace the current Excel-based tracking process,
+reducing manual effort and improving accuracy across all project phases.
+The CIP process involves prioritizing and budgeting long-term capital
+projects, the software will support this process alongside active
+construction management.
+Key objectives include:
+Streamlining construction project execution through automated
+workflows for Request for Information (RFI), submittals, change
+orders, and approvals.
+Improving cost and schedule control with real-time dashboards and
+alerts.
+Providing integration with existing County systems (Enterprise
+Resource Planning (ERP), Geographic Information System (GIS)) for
+seamless data exchange.
+Supporting strategic planning by offering tools for capital project
+prioritization and reporting.
+Ensuring sustainability through comprehensive training and
+knowledge transfer for full internal adoption.
+Through this RFP, the Department intends to award an agreement that
+establishes a collaborative framework for high-quality outcomes and
+supports the Department's objectives as described in this RFP.
+III. ANTICIPATED SCOPE OF SERVICES
+The scope of services shall include, but is not limited to, the following
+components:
+1. Software Licensing
+Provide unlimited software licenses for all County staff, consultants,
+and external stakeholders that require access.
+Licensing shall include full access to all modules, features,
+dashboards, workflow tools, and administrative functions.
+Licenses must permit concurrent users, remote access, and the
+ability to scale as County operations grow.
+2. System Installation, Configuration, and Deployment
+Complete installation of the Project Management Software,
+including all server components, databases, system integrations,
+and user environment configuration.
+Request for Proposals
+Project Management Software Services for
+Page 3 of 16
+Sacramento County Department of Airports
+Configure the system to meet the County's project, program, and
+portfolio management workflows, including:
+Project status/updating reporting
+Capital planning
+Project initiation
+Project budget and cost tracking
+Invoice processing
+Schedule management
+Change orders, RFIs, submittals
+Reporting dashboards and alerts
+Work with County's information technology (IT) team to meet all
+security, hosting, and technology compliance requirements
+including:
+Authentication and user permissions
+System performance standards
+Integration capabilities (Application Programming Interface
+(API) availability, data import/export, etc.)
+Data retention and backup protocols
+3. Software Customization
+Customize the software to align with Department-specific project
+management and approval workflows.
+Configure system fields, forms, dashboards, and approval routing.
+Support County-defined requirements identified across the Project
+Management Software including but not limited to:
+Portfolio and capital planning tools
+Document control
+Budget and cost module customization
+Schedule management visibility
+Request for Proposals
+Project Management Software Services for
+Page 4 of 16
+Sacramento County Department of Airports
+Audit trails and version tracking
+Automated alerting and notifications
+Ensure that all customization remains supportable, upgradable, and
+compatible with future software versions.
+4. System Integration
+Provide integration with existing County systems where applicable,
+including:
+ERP or financial systems
+Document repositories
+Single Sign-On (SSO)
+GIS, scheduling tools, or other platforms as identified during
+implementation
+Supply all API documentation, middleware, and technical support
+needed for successful integration.
+5. Training and Knowledge Transfer
+Provide comprehensive training for County staff, including:
+Up to six (6) in-person administrator training
+Up to ten (10) combination of in-person and virtual end-user
+training
+Up to six (6) virtual train-the-trainer sessions
+Furnish user manuals, quick reference guides, and recorded
+modules.
+Deliver a training plan that addresses the usability considerations.
+6. Ongoing Technical Support
+Provide full-service technical support, including:
+Helpdesk availability
+Software updates and system patches
+Troubleshooting assistance
+Request for Proposals
+Project Management Software Services for
+Page 5 of 16
+Sacramento County Department of Airports
+Resolution of system issues and performance concerns
+Include access to all scheduled software upgrades, enhancements,
+and security releases.
+Provide a dedicated technical representative during implementation
+and early adoption phases.
+7. Custom Reporting (Minimum of 10 Reports)
+Develop up to ten (10) customized reports tailored to County
+needs, such as:
+Capital project status
+Capital project portfolio summary
+Budget and expenditure tracking
+Schedule progress dashboard
+Contract and change order reporting
+Executive-level project status rollup
+Reports must be exportable to standard formats (PDF, Excel, CSV)
+and configurable by County administrators.
+8. Documentation Deliverables
+The Contractor shall provide detailed documentation, including:
+System architecture and configuration documentation
+Data model and integration specifications
+Security protocols and compliance documentation
+Administrator handbook and technical references
+9. Project Management and Implementation Services
+Develop a complete implementation plan, including:
+Timeline and milestones
+Roles and responsibilities
+Data migration plan
+Request for Proposals
+Project Management Software Services for
+Page 6 of 16
+Sacramento County Department of Airports
+Testing and validation procedures
+Change management strategy
+Conduct phased rollouts if necessary to reduce operational
+disruption.
+IV.
+TERM AND EFFECTIVE DATE OF THE AGREEMENT
+The Department intends to award a single Agreement in August 2026.
+The initial term of the proposed Agreement will be four (4) years, with
+two (2) additional two-year options to extend the term, for a possible
+total term of eight (8) years.
+V.
+HOW TO OBTAIN A COPY OF THIS RFP
+A copy of this RFP and any addenda to it can be found on the following
+websites:
+Sacramento County Department of Airports Website:
+http://www.sacramento.aero/scas/opportunities/bids and requests
+OpenGov Website:
+Procurement Portal
+VI. DEADLINE AND PROPOSAL SUBMISSION
+Submittals shall be compromised of one (1) digital PDF copy of the
+proposal (in a format compatible with Adobe Acrobat) and one (1) digital
+copy of the Proposal compatible with Microsoft Word in DOC or DOCX
+format.
+Proposals are due no later than 12:00 P.M. Pacific Time (PT) on
+Tuesday, May 5, 2026.
+All late responses will be rejected.
+Submit proposals via Opengov.com.
+VII. OPTIONAL VIRTUAL PRE-PROPOSAL CONFERENCE
+An Optional Virtual Pre-Proposal Conference is scheduled for Friday,
+February 20, 2026, at 10:00 AM. The purpose of the conference will be to
+discuss the requirements and objectives of this RFP. Department
+representatives will be available to answer questions from interested
+companies.
+Request for Proposals
+Project Management Software Services for
+Page 7 of 16
+Sacramento County Department of Airports
+To attend the optional virtual pre-proposal conference, please join via
+your computer, mobile app or room device using the information provided
+below.
+Meeting Link:
+https://teams.microsoft.com/meet/26367134896146?p=jpYYc4bSE8MfXa
+SQaz
+Meeting ID: 263 671 348 961 46
+Passcode: Fm33Mt7R
+Dial In:
+916-245-8966,497498974# United States, Sacramento
+https://dialin.teams.microsoft.com/e6ecf38a-c5f2-4b16-8b9b-
+b2e22c716ef8?id=497498974
+Phone conference ID: 497 498 974#
+VIII.
+FORMAT OF PROPOSAL
+Proposals submitted in response to this RFP must be prepared in the
+following format and must address the contents in this Section VIII and
+Sections IX, X, XI, and XII listed below. The proposal must be signed by
+an authorized employee or officer to receive consideration.
+A. COVER LETTER FOR PROPOSALS
+A cover letter must be included with the proposal and must be signed by
+an individual who is authorized to contractually bind the Contractor. The
+cover letter must be submitted on business letterhead and contain the
+following information:
+1. Name and address of Contractor;
+2. Name, telephone number, and e-mail address of a designated
+contact person;
+3. Name, title, address, telephone number, and e-mail address of the
+individual(s) with authority to execute a binding agreement on
+behalf of the Contractor;
+4. Demonstrated understanding of the work to be performed, the
+commitment to perform the work, and why the Contractor believes
+it is the best qualified to perform the work;
+Request for Proposals
+Project Management Software Services for
+Page 8 of 16
+Sacramento County Department of Airports
+5. Acknowledgement of any addenda that may be issued;
+6. Acknowledgement that Contractor has reviewed the proposed
+sample agreement, and the Scope of Services contained therein, a
+sample of which is attached as Attachment 1 to this RFP and
+incorporated herein;
+7. A statement that the Contractor agrees to the sample agreement
+format, its content and all requirements as presented, including
+insurance coverage and limits; and
+8. State other general information which the Contractor desires to
+include regarding the Contractor's business organization.
+B. EXECUTIVE SUMMARY
+The executive summary will list important features of the proposal and
+must include a statement certifying that the Contractor meets or
+exceeds the minimum requirements of this RFP.
+C. REQUIRED DOCUMENTATION AND FORMS
+In addition to the Cover Letter, the following documentation and forms
+must be completed and attached to the proposal:
+1. County of Sacramento Contractor Certification of Compliance Form
+provided as Attachment 3 to this RFP; and
+2. Contractor Identification Form provided as Attachment 4 to this RFP.
+D. PAGE LIMITS
+Proposals must be typed or printed in a font no smaller than eleven
+(11) point, on 8.5" by 11" sized pages. The proposal should be concise
+and must not exceed forty (40) pages, including any marketing
+materials.
+The following items are not included in the page limit count:
+1. Cover page;
+2. Cover letter;
+3. Staff resumes;
+4. Contractor team organization chart;
+5. Independent market study;
+Request for Proposals
+Project Management Software Services for
+Page 9 of 16
+Sacramento County Department of Airports
+6. County of Sacramento Contractor Certification of Compliance Form;
+and
+7. Contractor Identification Form.
+IX.
+MINIMUM QUALIFICATIONS
+The following section describes the required minimum qualifications a
+Contractor must demonstrate to be eligible to submit a proposal.
+Proposals that do not meet these minimum qualifications will not be
+further evaluated or considered.
+Incomplete proposals will be rejected. It is the respondent's responsibility
+to incorporate all pertinent information to effectively present a proposal
+and to communicate the respondent's qualifications. All respondents are
+required to thoroughly review all attachments detailing services required,
+specifications, and required reports.
+A. The Contractor must be registered with the California Secretary of
+State and permitted to conduct business in the State of California.
+B. The Contractor shall maintain insurance and workers' compensation
+coverage that complies with or exceeds the minimum requirements
+established by the County.
+C. The Proposer must possess a minimum of ten (10) years of continuous
+experience in providing project management software services to
+public agencies.
+D. Ability to meet the County of Sacramento Security Requirements as
+described in Attachment 5 to this RFP.
+X.
+STATEMENT OF QUALIFICATIONS
+The selected Contractor must successfully demonstrate the capability to
+provide the services described in this RFP in a large public use facility in
+continuous operation, such as in an airport or similar such as a
+correctional facility.
+A. COMPANY QUALIFICATIONS:
+1. Describe the company and how it meets the minimum qualifications
+of this RFP.
+2. Explain how you will support the Department through the transition
+from the current process to use of the proposed project
+management software. The Department does not currently use a
+Request for Proposals
+Project Management Software Services for
+Page 10 of 16
+Sacramento County Department of Airports
+project management system. Give examples of how you have done
+this for other public agencies with success.
+3. What sets your company apart from your competitors.
+4. Describe your Service Support Capabilities including training
+services, onboarding, change management and your
+Implementation Plan that will be provided to support initial rollout
+and ongoing use of software. How will power users be trained to
+support long term internal use.
+B. APPROACH, SCOPE AND TIMELINE:
+Provide a proposed approach and projected timeline to conduct and
+complete each step in the Anticipated Scope of Services described in
+this RFP.
+XI.
+FEE STRUCTURE, PROPOSAL COST, AND SCOPE
+Please include the hourly rates for the project. Clearly identify any
+overhead multipliers or other fees not covered by the stated hourly rates,
+if applicable. The terms of the resulting agreement will be subject to
+negotiations between the Department and the successful Contractor.
+Include anticipated hours for all employees proposed and justification of
+hours to complete the required scope of services.
+Include the following additional information:
+A. FINANCIAL BACKGROUND INFORMATION
+Include the following historical financial information for the Contractor
+and any joint venture or affiliate entities:
+1. Balance sheet and income statements for the last two fiscal
+years prepared in accordance with generally accepted accounting
+principles, reflecting the current financial condition of the
+Contractor. Also, include an interim balance sheet and income
+statement of any significant financial events occurring after the
+closing date of the most recent financial statements.
+2. Describe ownership of the proposing entity.
+B. FEE SCHEDULE
+Contractor shall include a proposed Fee Schedule for the initial four-
+year term and for each of the additional two-year extension options.
+The terms of the resulting Agreement will be subject to negotiation
+Request for Proposals
+Project Management Software Services for
+Page 11 of 16
+Sacramento County Department of Airports
+with the successful entity. The structure and general terms of the final
+agreement will align with the sample agreement provided as
+Attachment 1 to the RFP.
+XII. REFERENCES
+Provide references from at least three (3) clients or individuals who have
+direct experience with your company within the last five (5) years and
+can be contacted to verify your qualifications. Please include:
+A. Company name;
+B. Contact name;
+C. Contact title;
+D. Address;
+E. E-mail address;
+F. Telephone number; and
+G. Services performed
+Note that the Department reserves the right to contact past or current
+references not provided by the Contractor and may evaluate those
+references with the same consideration as those provided by the
+Contractor.
+XIII.
+RFP TIMELINE
+The table below describes the estimated timeline for the RFP process
+through award of agreement:
+Dates
+Event
+February 5, 2026
+Issuance of RFP
+February 20, 2026
+10:00 AM PST
+Optional Virtual Pre-Proposal Conference
+March 10, 2026
+Deadline for submitting questions
+12 P.M. PDT
+March 24, 2026
+Addenda issued if necessary, including
+12 P.M. PDT
+Department's responses to questions
+April 7, 2026
+12 P.M. PDT
+Proposals Due
+May 5, 2026
+Interviews
+Anticipated effective date of agreement with
+July 2026
+selected Contractor
+The Department reserves the right to modify, at its sole and absolute
+discretion, this schedule and any specific deadlines, including the selected
+Contractor's service start date.
+Request for Proposals
+Project Management Software Services for
+Page 12 of 16
+Sacramento County Department of Airports
+XIV.
+EVALUATION OF PROPOSALS
+The RFP evaluation process will include a specific focused review of each
+proposal by a panel of evaluators. Each proposal will be evaluated against
+other proposals received. Proposals must be formatted and headlined in
+the order of Sections IX-XII, indicated above, and must clearly answer /
+describe and or demonstrate all the required information requested
+herein.
+Proposals will be evaluated based on the following criteria in the table on
+the following page:
+Category
+Points Towards Overall Score
+Completeness of Response
+Pass/Fail
+Minimum Qualifications
+Pass/Fail
+References
+Pass/Fail
+Service Support Capabilities
+20
+Implementation Plan
+20
+Company Qualifications
+15
+Relevant Public Sector Experience
+15
+and References
+Fee Schedule
+20
+Total
+100
+Proposals will receive a final score based on the average of scores from
+the evaluation panel. The highest-ranked proposers may be required to
+attend a virtual interview, which will serve as the basis for the panel's
+final decision for a recommendation to the County's Board of Supervisors
+for contract award.
+XV.
+QUESTIONS
+All inquiries regarding this RFP and any requests for clarification of the
+contents of this RFP must be directed in writing, via e-mail to William
+Wallace at wallacew@saccounty.gov no later than March 10, 2026, at
+12:00 P.M. Pacific Time.
+Interested parties are hereby notified of the following:
+A. Telephone inquiries will not receive a response.
+B. Contractors are not to rely on oral instructions or clarifications to this
+RFP.
+Request for Proposals
+Project Management Software Services for
+Page 13 of 16
+Sacramento County Department of Airports
+C. If modifications to this RFP are necessary, the Department will respond
+in writing via addendum, which will be posted to the following
+websites:
+Sacramento County Department of Airports Website:
+http://www.sacramento.aero/scas/opportunities/bids . and requests
+OpenGov Website:
+Procurement Portal
+D. Interested parties are encouraged to regularly check the Department's
+web site or the OpenGov website for possible updates to this RFP.
+E. Contact with or lobbying of any County representative other than
+William Wallace regarding this solicitation prior to the notice that the
+Contractor is or is not recommended for award is cause for
+disqualification.
+XVI.
+BACKGROUND CHECKS
+The selected Contractor's staff that will be working on-site unescorted or
+who require Airport access must:
+A. Pass the Department's background check; and
+B. Obtain an airport access badge to conduct work in secured areas.
+XVII.
+CONDITIONS
+A. FAA GENERAL CONTRACT PROVISIONS FOR SOLICITATIONS
+The contractor shall, at all times during the term of the agreement,
+comply with the provisions of the "Federal Aviation Administration (FAA)
+General Contract Provisions for Solicitations" (FAA Solicitation Provisions)
+and any subsequent revisions, updates, or amendments thereto. The
+most current version of the FAA Solicitation Provisions is included as
+Attachment 2 of this RFP.
+B. DEPARTMENT'S RIGHT TO NEGOTIATE AGREEMENTS
+The Department reserves the right to negotiate agreements with
+companies outside of the RFP process, even if such companies did not
+participate in the RFP process. The Department also reserves the right to
+not execute an agreement with any Contractors. The Department accepts
+no liability for any costs incurred by Contractors to prepare and submit
+responses to this request.
+Request for Proposals
+Project Management Software Services for
+Page 14 of 16
+Sacramento County Department of Airports
+C. PUBLIC DISCLOSURE OF RFP DOCUMENTS
+The County will treat all information submitted in a proposal as available
+for public inspection once negotiations with the selected party have been
+completed. If copies of proposals are included with Board materials, the
+County will make such documents available for public inspection once
+staff has made a recommendation for award.
+If a Contractor believes protected data is included in its proposal, the
+Contractor shall clearly identify the data and provide the legal basis in
+support of the asserted classification. Contractor must present such
+information separately as part of its proposal or type in bold red letters
+the term "CONFIDENTIAL" on that specific part or page of the proposal
+which Contractor believes to be confidential. Classification of data as
+trade secret data will be determined pursuant to applicable law, and,
+accordingly, merely labeling data as "trade secret" does not necessarily
+make the data protected as such under any applicable law.
+In order for the County to assert the confidentiality of any such
+information in the event a Public Record Act request is received, the
+Contractor must request, execute and submit a County-prepared written
+agreement to defend and indemnify the County for any liability, costs and
+expenses incurred in asserting such confidentiality.
+The final determination of whether the County will assert a Contractor's
+claim of confidentiality shall be at the sole discretion of the County. Any
+information determined to be non-confidential shall be considered a public
+record. If the County determines that your information does not meet the
+criteria for confidentiality, you will be notified of the County's intent to
+release the public record pursuant to any Public Records Act request.
+The Contractor agrees, as a condition of submitting its proposal, that the
+County will not, as between the parties, be liable or accountable for any
+loss or damage, which may result from a breach of confidentiality related
+to the proposal. The Contractor agrees to indemnify and hold the County,
+its officials, agents, and employees harmless from all claims arising out
+of, resulting from, or in any manner attributable to any violation of any
+provision of the California Public Records Act, including legal fees and
+disbursements paid or incurred to enforce this provision.
+D. TAXATION
+The Selected Contractor shall cooperate with the County in all matters
+relating to taxation and the collection of taxes. It is the policy of the
+Request for Proposals
+Project Management Software Services for
+Page 15 of 16
+Sacramento County Department of Airports
+County to self-accrue use tax associated with its contracts. The use tax
+which is self-accrued will be remitted to the California State Board of
+Equalization designating the County as the place of business for the
+purpose of allocating local sales and use taxes.
+E. NO CONFIDENTIAL OR PROPRIETARY INFORMATION
+All information given to the Department or the evaluation panel in any
+correspondence, discussion, meeting or other communication before, with
+or after submission of a proposal, either orally or in writing, will not be
+deemed to have been, given in confidence and may be used or disclosed
+to others for any purpose at any time without obligation or compensation
+and without liability by the Department of any kind whatsoever.
+Evaluation scoring forms used by the evaluation panel are likewise
+considered public information subject to the California Public Records Act
+and will be available upon request after execution of an Agreement for
+services pursuant to this RFP.
+XVIII.
+NEGOTIATION OF AGREEMENT
+The selected Contractor shall execute an agreement with the County of
+Sacramento, using the standard agreement promulgated by the Office of
+the County Counsel. Any requested revisions, deletions, or additions to
+the language in the attached sample agreement shall be clearly set forth
+in the proposal for the Department's consideration. The Agreement must
+be reviewed and approved by County Counsel prior to execution. The final
+agreement will be executed with electronic signatures via DocuSign.
+Request for Proposals
+Project Management Software Services for
+Page 16 of 16
+Sacramento County Department of Airports

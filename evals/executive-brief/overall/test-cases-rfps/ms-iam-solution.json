@@ -1,0 +1,1497 @@
+{
+  "compositeScore": 1.2,
+  "confidence": 95,
+  "decision": "NO_GO",
+  "sections": {
+    "contacts": {
+      "data": {
+        "missingRecommendedRoles": [
+          "CONTRACTING_OFFICER_REPRESENTATIVE",
+          "CONTRACT_SPECIALIST",
+          "TECHNICAL_POC",
+          "PROGRAM_MANAGER",
+          "SMALL_BUSINESS_SPECIALIST",
+          "SUBCONTRACTING_POC",
+          "GENERAL_INQUIRY"
+        ],
+        "contacts": [
+          {
+            "name": "Jason Li",
+            "role": "PROCUREMENT_POC",
+            "notes": "Authorized Contact Person for the solicitation",
+            "email": "TSD_Solicitations@smcgov.org",
+            "organization": "County of San Mateo - Technology Services Department"
+          },
+          {
+            "role": "CONTRACTING_OFFICER",
+            "notes": "Listed in Standard Contract Template Notices section; fax: 650-363-7800",
+            "phone": "650-363-4548",
+            "organization": "County of San Mateo",
+            "name": "Michael Wentworth",
+            "title": "Director Information Services Department",
+            "email": "ISD_Procurement@smcgov.org"
+          },
+          {
+            "role": "OTHER",
+            "notes": "E-mail address for protests; no individual name provided",
+            "email": "TSD_Protest_Officer@smcgov.org",
+            "organization": "County of San Mateo - Technology Services Department"
+          }
+        ]
+      },
+      "inputHash": "2df53343c7554bcddb980e84ed45d7c8184e50dd1aa6947ca3c94ff88a870763",
+      "status": "COMPLETE",
+      "updatedAt": "2026-04-21T00:58:34.184Z"
+    },
+    "deadlines": {
+      "data": {
+        "hasSubmissionDeadline": true,
+        "submissionDeadlineIso": "2026-03-26T13:00:00-07:00",
+        "deadlines": [
+          {
+            "dateTimeIso": "2026-03-05T13:00:00-08:00",
+            "label": "Pre-Proposal Meeting (Non-Mandatory)",
+            "notes": "Non-mandatory meeting via Microsoft Teams, limited to administrative questions about OpenGov only \u2014 no technical or RFP-specific questions will be answered. Short 15-minute window. Attending may help clarify submission mechanics but will not provide competitive intelligence.",
+            "type": "PRE_PROPOSAL_CONFERENCE",
+            "rawText": "Pre-Proposal Meeting (Non-Mandatory): March 5, 2026, 1:00pm. Time: 1:00pm-1:15pm",
+            "timezone": "PT"
+          },
+          {
+            "dateTimeIso": "2026-03-12T13:00:00-07:00",
+            "label": "Question Submission Deadline",
+            "notes": "All questions, comments, and exceptions must be submitted via OpenGov by this deadline. Questions received after this date may not be acknowledged. Only 14 calendar days remain between this deadline and proposal due date, so teams should finalize technical questions early to allow time to incorporate answers into the proposal.",
+            "type": "QUESTIONS_DUE",
+            "rawText": "Question Submission Deadline: March 12, 2026, 1:00pm",
+            "timezone": "PT"
+          },
+          {
+            "dateTimeIso": "2026-03-26T13:00:00-07:00",
+            "label": "Proposal Submission Deadline",
+            "notes": "Sealed bid process \u2014 both bids and pricing are sealed. Proposals must be submitted electronically via OpenGov. This is a best-value evaluation (not lowest price), with Phase I technical scoring followed by Phase II demonstrations/interviews for elevated proposals. Only 29 calendar days from release to due date, which is a tight turnaround given the extensive technical requirements including SAM.gov registration, insurance COIs, security assessment, and detailed technical proposal.",
+            "type": "PROPOSAL_DUE",
+            "rawText": "Proposal Submission Deadline: March 26, 2026, 1:00pm",
+            "timezone": "PT"
+          }
+        ],
+        "warnings": []
+      },
+      "inputHash": "3192ea358ded91d9934ad7c7f748d3aa8177f70d35bf04e94fa5253a5e69bf46",
+      "status": "COMPLETE",
+      "updatedAt": "2026-04-21T00:58:31.468Z"
+    },
+    "pastPerformance": {
+      "data": {
+        "topMatches": [
+          {
+            "matchDetails": {
+              "technicalSimilarity": 0,
+              "scaleSimilarity": 0,
+              "domainSimilarity": 28,
+              "recency": 0,
+              "successMetrics": 0
+            },
+            "project": {
+              "durationMonths": null,
+              "naicsCodes": [
+                "541511",
+                "522320"
+              ],
+              "achievements": [
+                "High-performance web application with server-side rendering",
+                "Streamlined deployment via AWS Amplify",
+                "Type-safe codebase with TypeScript"
+              ],
+              "reactivatedAt": null,
+              "endDate": null,
+              "contractType": null,
+              "isArchived": false,
+              "description": "Created a performant front-end for an Amplify-hosted web application using Next.js. The platform features server-side rendering for optimal performance and is deployed on AWS Amplify for streamlined hosting and CI/CD.",
+              "title": "Performant Web Application on AWS Amplify",
+              "staleReason": null,
+              "orgId": "9c0a5757-e2da-4e71-9490-01c558f7ffc3",
+              "setAside": null,
+              "createdAt": "2026-04-08T04:23:33.079Z",
+              "client": "FAQx, Inc.",
+              "value": null,
+              "updatedAt": "2026-04-21T00:54:51.341Z",
+              "technicalApproach": "Built the application with Next.js and TypeScript, leveraging server-side rendering for performance. Deployed on AWS Amplify with integrated hosting and continuous deployment pipelines.",
+              "partition_key": "PAST_PROJECT",
+              "reactivatedBy": null,
+              "contractNumber": null,
+              "sort_key": "9c0a5757-e2da-4e71-9490-01c558f7ffc3#12b71539-7a20-4d0b-8050-127a1f4c590f",
+              "staleSince": null,
+              "usageCount": 28,
+              "technologies": [
+                "Next.js",
+                "TypeScript",
+                "AWS Amplify",
+                "React"
+              ],
+              "performanceRating": null,
+              "lastFreshnessCheck": null,
+              "createdBy": "bulk-import-script",
+              "lastUsedAt": "2026-04-21T00:54:51.341Z",
+              "teamSize": null,
+              "domain": "Fintech / SaaS",
+              "clientPOC": null,
+              "freshnessStatus": "ACTIVE",
+              "projectId": "12b71539-7a20-4d0b-8050-127a1f4c590f",
+              "usedInBriefIds": [
+                "6fbf749f-7173-489c-be0a-564f97ebf8b0#1caae84e-d059-499e-a672-6250187f41fc",
+                "6fbf749f-7173-489c-be0a-564f97ebf8b0#1caae84e-d059-499e-a672-6250187f41fc",
+                "6fbf749f-7173-489c-be0a-564f97ebf8b0#1caae84e-d059-499e-a672-6250187f41fc",
+                "6fbf749f-7173-489c-be0a-564f97ebf8b0#1caae84e-d059-499e-a672-6250187f41fc",
+                "6fbf749f-7173-489c-be0a-564f97ebf8b0#1caae84e-d059-499e-a672-6250187f41fc",
+                "6fbf749f-7173-489c-be0a-564f97ebf8b0#1caae84e-d059-499e-a672-6250187f41fc",
+                "6fbf749f-7173-489c-be0a-564f97ebf8b0#1caae84e-d059-499e-a672-6250187f41fc",
+                "6fbf749f-7173-489c-be0a-564f97ebf8b0#1caae84e-d059-499e-a672-6250187f41fc",
+                "6fbf749f-7173-489c-be0a-564f97ebf8b0#1caae84e-d059-499e-a672-6250187f41fc",
+                "810f5a23-42e4-4355-a2b4-f9ae2cb8e563#e516d137-e19a-4320-a0b8-ccfa29a165de",
+                "810f5a23-42e4-4355-a2b4-f9ae2cb8e563#adf2abdc-d4bc-49c0-be02-ff4cbf6ab4e8",
+                "c6737e52-1e0b-42c6-8480-043ab4999b94#8f26623d-c411-4b63-bc62-bc6fdf54e73b",
+                "c6737e52-1e0b-42c6-8480-043ab4999b94#8f26623d-c411-4b63-bc62-bc6fdf54e73b",
+                "d1ae9e89-3992-494f-b76f-d39d23f37640#cf14f9a9-c129-495a-9893-ee61eadd690c",
+                "d1ae9e89-3992-494f-b76f-d39d23f37640#cf14f9a9-c129-495a-9893-ee61eadd690c",
+                "b94c25bb-91da-40a3-b29a-9a64144b01db#146bd550-b5a3-4de6-9f4f-4d515098bfc2",
+                "b94c25bb-91da-40a3-b29a-9a64144b01db#146bd550-b5a3-4de6-9f4f-4d515098bfc2",
+                "959bd413-9679-46c1-80a8-78466a0b52ab#6c992081-756b-421a-8fb2-686ea6c0cc3d",
+                "959bd413-9679-46c1-80a8-78466a0b52ab#6c992081-756b-421a-8fb2-686ea6c0cc3d",
+                "3e8b5099-0c1a-4a78-a5e2-65719b2f7a81#2ce43476-4476-4abf-8eeb-f71495cc2ebc",
+                "012994da-38ca-46f7-8412-d404d3afcddb#80f93cb2-7ecb-49d0-9627-04f31d6d0c6c",
+                "012994da-38ca-46f7-8412-d404d3afcddb#80f93cb2-7ecb-49d0-9627-04f31d6d0c6c",
+                "38e94a22-3181-44bf-a5c3-e7184083789a#90699bec-4077-4284-8e9b-a0a707149a9a",
+                "5282701b-2dcf-485e-84d3-c90ce80c469b#f87974b0-82eb-419d-bc5f-f38471eeb8e5",
+                "5282701b-2dcf-485e-84d3-c90ce80c469b#f87974b0-82eb-419d-bc5f-f38471eeb8e5",
+                "5282701b-2dcf-485e-84d3-c90ce80c469b#f87974b0-82eb-419d-bc5f-f38471eeb8e5",
+                "38e94a22-3181-44bf-a5c3-e7184083789a#90699bec-4077-4284-8e9b-a0a707149a9a",
+                "959bd413-9679-46c1-80a8-78466a0b52ab#6c992081-756b-421a-8fb2-686ea6c0cc3d"
+              ],
+              "startDate": null
+            },
+            "relevanceScore": 7,
+            "matchedRequirements": [],
+            "narrative": null
+          },
+          {
+            "matchDetails": {
+              "technicalSimilarity": 0,
+              "scaleSimilarity": 0,
+              "domainSimilarity": 25,
+              "recency": 0,
+              "successMetrics": 0
+            },
+            "project": {
+              "durationMonths": null,
+              "naicsCodes": [
+                "541511",
+                "541612"
+              ],
+              "achievements": [
+                "Full multitenant HR platform supporting multiple organizations",
+                "Integrated video interviewing and resume parsing capabilities",
+                "Streamlined candidate workflows from application to hire"
+              ],
+              "reactivatedAt": null,
+              "endDate": null,
+              "contractType": null,
+              "isArchived": false,
+              "description": "Built a multitenant human resources application that integrates video interviewing, resume parsing, and candidate workflows. The platform supports multiple organizations on a single deployment with tenant isolation, enabling end-to-end recruitment process automation.",
+              "title": "Multitenant HR Platform with Video Interviewing",
+              "staleReason": null,
+              "orgId": "9c0a5757-e2da-4e71-9490-01c558f7ffc3",
+              "setAside": null,
+              "createdAt": "2026-04-08T04:23:25.873Z",
+              "client": "AspireHR",
+              "value": null,
+              "updatedAt": "2026-04-21T00:54:51.349Z",
+              "technicalApproach": "Developed a React-based frontend with AWS serverless backend. Integrated video interviewing capabilities, AI-powered resume parsing, and candidate workflow management. Built with multi-tenancy support for organizational isolation.",
+              "partition_key": "PAST_PROJECT",
+              "reactivatedBy": null,
+              "contractNumber": null,
+              "sort_key": "9c0a5757-e2da-4e71-9490-01c558f7ffc3#16546867-bb92-4a14-b291-0c2ba91f7c82",
+              "staleSince": null,
+              "usageCount": 26,
+              "technologies": [
+                "React",
+                "AWS Lambda",
+                "Amazon API Gateway",
+                "Amazon DynamoDB",
+                "Amazon S3",
+                "Amazon Cognito"
+              ],
+              "performanceRating": null,
+              "lastFreshnessCheck": null,
+              "createdBy": "bulk-import-script",
+              "lastUsedAt": "2026-04-21T00:54:51.349Z",
+              "teamSize": null,
+              "domain": "Human Resources / HR Tech",
+              "clientPOC": null,
+              "freshnessStatus": "ACTIVE",
+              "projectId": "16546867-bb92-4a14-b291-0c2ba91f7c82",
+              "usedInBriefIds": [
+                "6fbf749f-7173-489c-be0a-564f97ebf8b0#1caae84e-d059-499e-a672-6250187f41fc",
+                "6fbf749f-7173-489c-be0a-564f97ebf8b0#1caae84e-d059-499e-a672-6250187f41fc",
+                "6fbf749f-7173-489c-be0a-564f97ebf8b0#1caae84e-d059-499e-a672-6250187f41fc",
+                "6fbf749f-7173-489c-be0a-564f97ebf8b0#1caae84e-d059-499e-a672-6250187f41fc",
+                "6fbf749f-7173-489c-be0a-564f97ebf8b0#1caae84e-d059-499e-a672-6250187f41fc",
+                "6fbf749f-7173-489c-be0a-564f97ebf8b0#1caae84e-d059-499e-a672-6250187f41fc",
+                "6fbf749f-7173-489c-be0a-564f97ebf8b0#1caae84e-d059-499e-a672-6250187f41fc",
+                "6fbf749f-7173-489c-be0a-564f97ebf8b0#1caae84e-d059-499e-a672-6250187f41fc",
+                "6fbf749f-7173-489c-be0a-564f97ebf8b0#1caae84e-d059-499e-a672-6250187f41fc",
+                "810f5a23-42e4-4355-a2b4-f9ae2cb8e563#adf2abdc-d4bc-49c0-be02-ff4cbf6ab4e8",
+                "810f5a23-42e4-4355-a2b4-f9ae2cb8e563#9534a4db-b8cc-4538-8702-5f2615c6c62d",
+                "d1ae9e89-3992-494f-b76f-d39d23f37640#cf14f9a9-c129-495a-9893-ee61eadd690c",
+                "d1ae9e89-3992-494f-b76f-d39d23f37640#cf14f9a9-c129-495a-9893-ee61eadd690c",
+                "b94c25bb-91da-40a3-b29a-9a64144b01db#146bd550-b5a3-4de6-9f4f-4d515098bfc2",
+                "b94c25bb-91da-40a3-b29a-9a64144b01db#146bd550-b5a3-4de6-9f4f-4d515098bfc2",
+                "959bd413-9679-46c1-80a8-78466a0b52ab#6c992081-756b-421a-8fb2-686ea6c0cc3d",
+                "959bd413-9679-46c1-80a8-78466a0b52ab#6c992081-756b-421a-8fb2-686ea6c0cc3d",
+                "3e8b5099-0c1a-4a78-a5e2-65719b2f7a81#2ce43476-4476-4abf-8eeb-f71495cc2ebc",
+                "012994da-38ca-46f7-8412-d404d3afcddb#80f93cb2-7ecb-49d0-9627-04f31d6d0c6c",
+                "012994da-38ca-46f7-8412-d404d3afcddb#80f93cb2-7ecb-49d0-9627-04f31d6d0c6c",
+                "38e94a22-3181-44bf-a5c3-e7184083789a#90699bec-4077-4284-8e9b-a0a707149a9a",
+                "5282701b-2dcf-485e-84d3-c90ce80c469b#f87974b0-82eb-419d-bc5f-f38471eeb8e5",
+                "5282701b-2dcf-485e-84d3-c90ce80c469b#f87974b0-82eb-419d-bc5f-f38471eeb8e5",
+                "5282701b-2dcf-485e-84d3-c90ce80c469b#f87974b0-82eb-419d-bc5f-f38471eeb8e5",
+                "38e94a22-3181-44bf-a5c3-e7184083789a#90699bec-4077-4284-8e9b-a0a707149a9a",
+                "959bd413-9679-46c1-80a8-78466a0b52ab#6c992081-756b-421a-8fb2-686ea6c0cc3d"
+              ],
+              "startDate": null
+            },
+            "relevanceScore": 6,
+            "matchedRequirements": [
+              "Perform process discovery as needed to automate workflow approvals ensuring timely completion based on Workday or ServiceNow requested effective dates"
+            ],
+            "narrative": null
+          },
+          {
+            "matchDetails": {
+              "technicalSimilarity": 0,
+              "scaleSimilarity": 0,
+              "domainSimilarity": 20,
+              "recency": 0,
+              "successMetrics": 0
+            },
+            "project": {
+              "durationMonths": null,
+              "naicsCodes": [
+                "541511",
+                "713210"
+              ],
+              "achievements": [
+                "Complete infrastructure migration from Digital Ocean to AWS",
+                "Full backend overhaul improving performance and security",
+                "Modernized application architecture on AWS"
+              ],
+              "reactivatedAt": null,
+              "endDate": null,
+              "contractType": null,
+              "isArchived": false,
+              "description": "Migrated Chanced.com from Digital Ocean to AWS and performed a complete overhaul of their PHP Laravel backend. The project modernized the hosting infrastructure and improved application performance and reliability.",
+              "title": "Digital Ocean to AWS Migration & Backend Overhaul",
+              "staleReason": null,
+              "orgId": "9c0a5757-e2da-4e71-9490-01c558f7ffc3",
+              "setAside": null,
+              "createdAt": "2026-04-08T04:23:39.366Z",
+              "client": "Chanced.com",
+              "value": null,
+              "updatedAt": "2026-04-21T00:54:51.324Z",
+              "technicalApproach": "Migrated hosting from Digital Ocean to AWS. Overhauled the entire PHP Laravel backend for improved performance, security, and maintainability. Leveraged AWS services for hosting, storage, and compute.",
+              "partition_key": "PAST_PROJECT",
+              "reactivatedBy": null,
+              "contractNumber": null,
+              "sort_key": "9c0a5757-e2da-4e71-9490-01c558f7ffc3#0b9fb34d-a4b4-4010-9980-0d3a10c133af",
+              "staleSince": null,
+              "usageCount": 30,
+              "technologies": [
+                "PHP",
+                "Laravel",
+                "AWS EC2",
+                "Amazon RDS",
+                "Amazon S3",
+                "AWS CloudFront"
+              ],
+              "performanceRating": null,
+              "lastFreshnessCheck": null,
+              "createdBy": "bulk-import-script",
+              "lastUsedAt": "2026-04-21T00:54:51.324Z",
+              "teamSize": null,
+              "domain": "Financial Services / Gaming",
+              "clientPOC": null,
+              "freshnessStatus": "ACTIVE",
+              "projectId": "0b9fb34d-a4b4-4010-9980-0d3a10c133af",
+              "usedInBriefIds": [
+                "6fbf749f-7173-489c-be0a-564f97ebf8b0#1caae84e-d059-499e-a672-6250187f41fc",
+                "6fbf749f-7173-489c-be0a-564f97ebf8b0#1caae84e-d059-499e-a672-6250187f41fc",
+                "6fbf749f-7173-489c-be0a-564f97ebf8b0#1caae84e-d059-499e-a672-6250187f41fc",
+                "6fbf749f-7173-489c-be0a-564f97ebf8b0#1caae84e-d059-499e-a672-6250187f41fc",
+                "6fbf749f-7173-489c-be0a-564f97ebf8b0#1caae84e-d059-499e-a672-6250187f41fc",
+                "6fbf749f-7173-489c-be0a-564f97ebf8b0#1caae84e-d059-499e-a672-6250187f41fc",
+                "6fbf749f-7173-489c-be0a-564f97ebf8b0#1caae84e-d059-499e-a672-6250187f41fc",
+                "6fbf749f-7173-489c-be0a-564f97ebf8b0#1caae84e-d059-499e-a672-6250187f41fc",
+                "6fbf749f-7173-489c-be0a-564f97ebf8b0#1caae84e-d059-499e-a672-6250187f41fc",
+                "810f5a23-42e4-4355-a2b4-f9ae2cb8e563#a6337196-4a67-44bc-8217-557cb6d7de31",
+                "810f5a23-42e4-4355-a2b4-f9ae2cb8e563#adf2abdc-d4bc-49c0-be02-ff4cbf6ab4e8",
+                "810f5a23-42e4-4355-a2b4-f9ae2cb8e563#5d602fa1-2abd-48cb-a212-dcdcb7c29038",
+                "810f5a23-42e4-4355-a2b4-f9ae2cb8e563#c41c7043-1550-4cb0-8a7f-517adf26ebb8",
+                "810f5a23-42e4-4355-a2b4-f9ae2cb8e563#c41c7043-1550-4cb0-8a7f-517adf26ebb8",
+                "ad33c87d-8fbb-49ca-b32e-ae32d653bb2b#623408c1-1aa6-411c-abe7-dc0fa0557343",
+                "d1ae9e89-3992-494f-b76f-d39d23f37640#cf14f9a9-c129-495a-9893-ee61eadd690c",
+                "d1ae9e89-3992-494f-b76f-d39d23f37640#cf14f9a9-c129-495a-9893-ee61eadd690c",
+                "b94c25bb-91da-40a3-b29a-9a64144b01db#146bd550-b5a3-4de6-9f4f-4d515098bfc2",
+                "b94c25bb-91da-40a3-b29a-9a64144b01db#146bd550-b5a3-4de6-9f4f-4d515098bfc2",
+                "959bd413-9679-46c1-80a8-78466a0b52ab#6c992081-756b-421a-8fb2-686ea6c0cc3d",
+                "959bd413-9679-46c1-80a8-78466a0b52ab#6c992081-756b-421a-8fb2-686ea6c0cc3d",
+                "3e8b5099-0c1a-4a78-a5e2-65719b2f7a81#2ce43476-4476-4abf-8eeb-f71495cc2ebc",
+                "012994da-38ca-46f7-8412-d404d3afcddb#80f93cb2-7ecb-49d0-9627-04f31d6d0c6c",
+                "012994da-38ca-46f7-8412-d404d3afcddb#80f93cb2-7ecb-49d0-9627-04f31d6d0c6c",
+                "38e94a22-3181-44bf-a5c3-e7184083789a#90699bec-4077-4284-8e9b-a0a707149a9a",
+                "5282701b-2dcf-485e-84d3-c90ce80c469b#f87974b0-82eb-419d-bc5f-f38471eeb8e5",
+                "5282701b-2dcf-485e-84d3-c90ce80c469b#f87974b0-82eb-419d-bc5f-f38471eeb8e5",
+                "5282701b-2dcf-485e-84d3-c90ce80c469b#f87974b0-82eb-419d-bc5f-f38471eeb8e5",
+                "38e94a22-3181-44bf-a5c3-e7184083789a#90699bec-4077-4284-8e9b-a0a707149a9a",
+                "959bd413-9679-46c1-80a8-78466a0b52ab#6c992081-756b-421a-8fb2-686ea6c0cc3d"
+              ],
+              "startDate": null
+            },
+            "relevanceScore": 5,
+            "matchedRequirements": [
+              "Leverage existing security group schema to maintain system and resource access and authorization levels for integrated and third-party applications",
+              "Complete and submit Attachment E: Technology Security Assessment",
+              "Provide evidence of insurance meeting all required coverage limits: General Liability $1M, Auto Liability $1M, Workers' Comp per CA law, Employers' Liability $1M, Professional Liability $1M, Cyber Liability $5M Privacy/Network Security and $1M Technology E&O"
+            ],
+            "narrative": null
+          },
+          {
+            "matchDetails": {
+              "technicalSimilarity": 0,
+              "scaleSimilarity": 0,
+              "domainSimilarity": 20,
+              "recency": 0,
+              "successMetrics": 0
+            },
+            "project": {
+              "durationMonths": null,
+              "naicsCodes": [
+                "541511",
+                "523130"
+              ],
+              "achievements": [
+                "Secure, localized trading platform with CMS-driven content",
+                "Automated CI/CD pipeline with Azure Pipelines",
+                "Global performance optimization with Cloudflare CDN"
+              ],
+              "reactivatedAt": null,
+              "endDate": null,
+              "contractType": null,
+              "isArchived": false,
+              "description": "Built a secure cryptocurrency trading platform frontend with dynamic, localized content. The platform features server-side rendering, CMS-driven content management, and CDN optimization for global performance.",
+              "title": "Secure Crypto Trading Platform",
+              "staleReason": null,
+              "orgId": "9c0a5757-e2da-4e71-9490-01c558f7ffc3",
+              "setAside": null,
+              "createdAt": "2026-04-08T04:23:31.596Z",
+              "client": "NDAX",
+              "value": null,
+              "updatedAt": "2026-04-21T00:54:51.333Z",
+              "technicalApproach": "Developed the frontend using Next.js with Strapi CMS for dynamic content management. Set up CI/CD with Azure Pipelines for automated deployments. Applied Cloudflare optimizations for global performance and security.",
+              "partition_key": "PAST_PROJECT",
+              "reactivatedBy": null,
+              "contractNumber": null,
+              "sort_key": "9c0a5757-e2da-4e71-9490-01c558f7ffc3#123a1e9f-54a5-40b8-b8ec-5830d4e113f8",
+              "staleSince": null,
+              "usageCount": 29,
+              "technologies": [
+                "Next.js",
+                "Strapi CMS",
+                "Azure Pipelines",
+                "Cloudflare",
+                "TypeScript"
+              ],
+              "performanceRating": null,
+              "lastFreshnessCheck": null,
+              "createdBy": "bulk-import-script",
+              "lastUsedAt": "2026-04-21T00:54:51.333Z",
+              "teamSize": null,
+              "domain": "Financial Services / Cryptocurrency",
+              "clientPOC": null,
+              "freshnessStatus": "ACTIVE",
+              "projectId": "123a1e9f-54a5-40b8-b8ec-5830d4e113f8",
+              "usedInBriefIds": [
+                "6fbf749f-7173-489c-be0a-564f97ebf8b0#1caae84e-d059-499e-a672-6250187f41fc",
+                "6fbf749f-7173-489c-be0a-564f97ebf8b0#1caae84e-d059-499e-a672-6250187f41fc",
+                "6fbf749f-7173-489c-be0a-564f97ebf8b0#1caae84e-d059-499e-a672-6250187f41fc",
+                "6fbf749f-7173-489c-be0a-564f97ebf8b0#1caae84e-d059-499e-a672-6250187f41fc",
+                "6fbf749f-7173-489c-be0a-564f97ebf8b0#1caae84e-d059-499e-a672-6250187f41fc",
+                "6fbf749f-7173-489c-be0a-564f97ebf8b0#1caae84e-d059-499e-a672-6250187f41fc",
+                "6fbf749f-7173-489c-be0a-564f97ebf8b0#1caae84e-d059-499e-a672-6250187f41fc",
+                "6fbf749f-7173-489c-be0a-564f97ebf8b0#1caae84e-d059-499e-a672-6250187f41fc",
+                "6fbf749f-7173-489c-be0a-564f97ebf8b0#1caae84e-d059-499e-a672-6250187f41fc",
+                "810f5a23-42e4-4355-a2b4-f9ae2cb8e563#e516d137-e19a-4320-a0b8-ccfa29a165de",
+                "810f5a23-42e4-4355-a2b4-f9ae2cb8e563#7d46e81e-94f5-4adc-8d37-2ae0eb6cadf5",
+                "810f5a23-42e4-4355-a2b4-f9ae2cb8e563#adf2abdc-d4bc-49c0-be02-ff4cbf6ab4e8",
+                "3e8b5099-0c1a-4a78-a5e2-65719b2f7a81#2ce43476-4476-4abf-8eeb-f71495cc2ebc",
+                "3e8b5099-0c1a-4a78-a5e2-65719b2f7a81#2ce43476-4476-4abf-8eeb-f71495cc2ebc",
+                "d1ae9e89-3992-494f-b76f-d39d23f37640#cf14f9a9-c129-495a-9893-ee61eadd690c",
+                "d1ae9e89-3992-494f-b76f-d39d23f37640#cf14f9a9-c129-495a-9893-ee61eadd690c",
+                "b94c25bb-91da-40a3-b29a-9a64144b01db#146bd550-b5a3-4de6-9f4f-4d515098bfc2",
+                "b94c25bb-91da-40a3-b29a-9a64144b01db#146bd550-b5a3-4de6-9f4f-4d515098bfc2",
+                "959bd413-9679-46c1-80a8-78466a0b52ab#6c992081-756b-421a-8fb2-686ea6c0cc3d",
+                "959bd413-9679-46c1-80a8-78466a0b52ab#6c992081-756b-421a-8fb2-686ea6c0cc3d",
+                "3e8b5099-0c1a-4a78-a5e2-65719b2f7a81#2ce43476-4476-4abf-8eeb-f71495cc2ebc",
+                "012994da-38ca-46f7-8412-d404d3afcddb#80f93cb2-7ecb-49d0-9627-04f31d6d0c6c",
+                "012994da-38ca-46f7-8412-d404d3afcddb#80f93cb2-7ecb-49d0-9627-04f31d6d0c6c",
+                "38e94a22-3181-44bf-a5c3-e7184083789a#90699bec-4077-4284-8e9b-a0a707149a9a",
+                "5282701b-2dcf-485e-84d3-c90ce80c469b#f87974b0-82eb-419d-bc5f-f38471eeb8e5",
+                "5282701b-2dcf-485e-84d3-c90ce80c469b#f87974b0-82eb-419d-bc5f-f38471eeb8e5",
+                "5282701b-2dcf-485e-84d3-c90ce80c469b#f87974b0-82eb-419d-bc5f-f38471eeb8e5",
+                "38e94a22-3181-44bf-a5c3-e7184083789a#90699bec-4077-4284-8e9b-a0a707149a9a",
+                "959bd413-9679-46c1-80a8-78466a0b52ab#6c992081-756b-421a-8fb2-686ea6c0cc3d"
+              ],
+              "startDate": null
+            },
+            "relevanceScore": 5,
+            "matchedRequirements": [],
+            "narrative": null
+          },
+          {
+            "matchDetails": {
+              "technicalSimilarity": 0,
+              "scaleSimilarity": 0,
+              "domainSimilarity": 20,
+              "recency": 0,
+              "successMetrics": 0
+            },
+            "project": {
+              "durationMonths": null,
+              "naicsCodes": [
+                "541930",
+                "541511"
+              ],
+              "achievements": [
+                "Automated translation of safety manuals from German to multiple languages",
+                "Eliminated manual translation and formatting workflows",
+                "Maintained document formatting integrity across languages"
+              ],
+              "reactivatedAt": null,
+              "endDate": null,
+              "contractType": null,
+              "isArchived": false,
+              "description": "Built an automated transcription and translation system for safety manuals, converting German-language PDF articles into every required country-specific language. The platform ingests PDFs, extracts text, translates content, and regenerates formatted PDF output.",
+              "title": "Multilingual Safety Manual Translation Platform",
+              "staleReason": null,
+              "orgId": "9c0a5757-e2da-4e71-9490-01c558f7ffc3",
+              "setAside": null,
+              "createdAt": "2026-04-08T04:23:22.111Z",
+              "client": "Volkswagen",
+              "value": null,
+              "updatedAt": "2026-04-21T00:54:51.358Z",
+              "technicalApproach": "Used Amazon Textract to extract text from PDF safety manuals. Integrated Amazon Translate for multilingual conversion. Built an automated pipeline to reconvert translated text back into formatted PDF documents.",
+              "partition_key": "PAST_PROJECT",
+              "reactivatedBy": null,
+              "contractNumber": null,
+              "sort_key": "9c0a5757-e2da-4e71-9490-01c558f7ffc3#1b347828-0b24-4d04-ae4e-9934a46eda7c",
+              "staleSince": null,
+              "usageCount": 29,
+              "technologies": [
+                "Amazon Textract",
+                "Amazon Translate",
+                "AWS Lambda",
+                "Amazon S3",
+                "AWS Step Functions"
+              ],
+              "performanceRating": null,
+              "lastFreshnessCheck": null,
+              "createdBy": "bulk-import-script",
+              "lastUsedAt": "2026-04-21T00:54:51.358Z",
+              "teamSize": null,
+              "domain": "Manufacturing / Automotive",
+              "clientPOC": null,
+              "freshnessStatus": "ACTIVE",
+              "projectId": "1b347828-0b24-4d04-ae4e-9934a46eda7c",
+              "usedInBriefIds": [
+                "6fbf749f-7173-489c-be0a-564f97ebf8b0#1caae84e-d059-499e-a672-6250187f41fc",
+                "6fbf749f-7173-489c-be0a-564f97ebf8b0#1caae84e-d059-499e-a672-6250187f41fc",
+                "6fbf749f-7173-489c-be0a-564f97ebf8b0#1caae84e-d059-499e-a672-6250187f41fc",
+                "6fbf749f-7173-489c-be0a-564f97ebf8b0#1caae84e-d059-499e-a672-6250187f41fc",
+                "6fbf749f-7173-489c-be0a-564f97ebf8b0#1caae84e-d059-499e-a672-6250187f41fc",
+                "6fbf749f-7173-489c-be0a-564f97ebf8b0#1caae84e-d059-499e-a672-6250187f41fc",
+                "6fbf749f-7173-489c-be0a-564f97ebf8b0#1caae84e-d059-499e-a672-6250187f41fc",
+                "6fbf749f-7173-489c-be0a-564f97ebf8b0#1caae84e-d059-499e-a672-6250187f41fc",
+                "6fbf749f-7173-489c-be0a-564f97ebf8b0#1caae84e-d059-499e-a672-6250187f41fc",
+                "810f5a23-42e4-4355-a2b4-f9ae2cb8e563#9cf722b3-1b50-4af9-9133-73e7c20c2a9d",
+                "810f5a23-42e4-4355-a2b4-f9ae2cb8e563#c0971acb-8948-4992-96c8-181ebfc4785b",
+                "d1787e4e-170b-4250-8b30-1fa86cf32c97#b5c1e614-adef-4e4f-ad9f-81ed70e80e11",
+                "810f5a23-42e4-4355-a2b4-f9ae2cb8e563#adf2abdc-d4bc-49c0-be02-ff4cbf6ab4e8",
+                "810f5a23-42e4-4355-a2b4-f9ae2cb8e563#9534a4db-b8cc-4538-8702-5f2615c6c62d",
+                "d1ae9e89-3992-494f-b76f-d39d23f37640#cf14f9a9-c129-495a-9893-ee61eadd690c",
+                "d1ae9e89-3992-494f-b76f-d39d23f37640#cf14f9a9-c129-495a-9893-ee61eadd690c",
+                "b94c25bb-91da-40a3-b29a-9a64144b01db#146bd550-b5a3-4de6-9f4f-4d515098bfc2",
+                "b94c25bb-91da-40a3-b29a-9a64144b01db#146bd550-b5a3-4de6-9f4f-4d515098bfc2",
+                "959bd413-9679-46c1-80a8-78466a0b52ab#6c992081-756b-421a-8fb2-686ea6c0cc3d",
+                "959bd413-9679-46c1-80a8-78466a0b52ab#6c992081-756b-421a-8fb2-686ea6c0cc3d",
+                "3e8b5099-0c1a-4a78-a5e2-65719b2f7a81#2ce43476-4476-4abf-8eeb-f71495cc2ebc",
+                "012994da-38ca-46f7-8412-d404d3afcddb#80f93cb2-7ecb-49d0-9627-04f31d6d0c6c",
+                "012994da-38ca-46f7-8412-d404d3afcddb#80f93cb2-7ecb-49d0-9627-04f31d6d0c6c",
+                "38e94a22-3181-44bf-a5c3-e7184083789a#90699bec-4077-4284-8e9b-a0a707149a9a",
+                "5282701b-2dcf-485e-84d3-c90ce80c469b#f87974b0-82eb-419d-bc5f-f38471eeb8e5",
+                "5282701b-2dcf-485e-84d3-c90ce80c469b#f87974b0-82eb-419d-bc5f-f38471eeb8e5",
+                "5282701b-2dcf-485e-84d3-c90ce80c469b#f87974b0-82eb-419d-bc5f-f38471eeb8e5",
+                "38e94a22-3181-44bf-a5c3-e7184083789a#90699bec-4077-4284-8e9b-a0a707149a9a",
+                "959bd413-9679-46c1-80a8-78466a0b52ab#6c992081-756b-421a-8fb2-686ea6c0cc3d"
+              ],
+              "startDate": null
+            },
+            "relevanceScore": 5,
+            "matchedRequirements": [
+              "Automate workflow approval notifications for onboarding/offboarding/transfers and route required approvals for application access or elevated rights requests",
+              "Leverage existing security group schema to maintain system and resource access and authorization levels for integrated and third-party applications",
+              "Provide a phased system and function delivery approach that is adaptive and agile to minimize user and system access disruptions",
+              "Provide documentation on system administration and change processes to maintain automation regardless of changing system of record processes"
+            ],
+            "narrative": null
+          }
+        ],
+        "gapAnalysis": {
+          "overallCoverage": 0,
+          "recommendations": [
+            "39 critical gap(s) identified. Consider teaming arrangements or subcontractors with relevant experience.",
+            "Overall past performance coverage is below 70%. This may significantly impact win probability."
+          ],
+          "criticalGaps": [
+            "Assess Active Directory and Entra ID Sync: validate readiness for IAM automation and SSO replacement, analyze AD settings for best practice and secure design, evaluate domain/OU structure, RBAC/delegation, and security group strategy",
+            "Identify and remove stale objects and lifecycle inconsistencies in Active Directory",
+            "Ensure the identity ecosystem (Entra/AD) is configured to support IAM in alignment with best practice synchronization designs",
+            "Replace current Okta SSO with Entra SSO, migrating all currently integrated applications (~400 SAML 2.0 apps) with minimal service interruptions",
+            "Migrate all user presentation and authentication processes to Entra SSO with minimal service interruptions or user interaction",
+            "Implement IAM automation for workforce onboarding, offboarding, transfers, and system/resource access change assignments supporting both County employees and contractor/vendor lifecycles",
+            "Integrate IAM with Workday for employee lifecycle management (system of record for onboarding, offboarding, transfers)",
+            "Integrate IAM with ServiceNow for contractor/vendor on/offboarding and application access changes for all workforce members",
+            "Automate application provisioning: assign basic application access to new or transferred users determined by department and/or position classification",
+            "Automate workflow approval notifications for onboarding/offboarding/transfers and route required approvals for application access or elevated rights requests",
+            "Provide a platform/portal to easily request and automate user system access changes including opening, processing, and closing ServiceNow ticket requests",
+            "Implement seamless MFA migration from existing SSO (Okta) to new Entra SSO",
+            "Implement SAML SSO integration for external partners while minimizing access disruptions",
+            "Leverage existing security group schema to maintain system and resource access and authorization levels for integrated and third-party applications",
+            "Support cross-domain workforce member transfers: maintain same account name and data stores, same account name without previous data store access, or new account name without previous data store access",
+            "Enforce contractor account expiration dates with automated option to extend with requisite approvals and authorizations",
+            "Provide escalation capability for approval requests that are expired or left unattended",
+            "Perform process discovery as needed to automate workflow approvals ensuring timely completion based on Workday or ServiceNow requested effective dates",
+            "Resolve any functional Active Directory synchronization issues that might hinder or overcomplicate the IAM and SSO objectives",
+            "Leverage all current County Microsoft licensing levels (predominantly Microsoft 365 G3) whenever possible to reduce costs on third-party platforms",
+            "Provide a phased system and function delivery approach that is adaptive and agile to minimize user and system access disruptions",
+            "Provide methodology for stakeholders to have visibility into the progress of on/offboarding, transfer, and application change requests",
+            "Provide additional protections to maintain least privilege access based on data/application owner authorized levels",
+            "Audit and report on existing on-prem environment against best practices to identify orphaned accounts or resource objects for removal",
+            "Complete and submit Attachment E: Technology Security Assessment",
+            "Proposer must be registered, active, and in good standing with SAM.gov and not barred from public contracting by any federal or state authority",
+            "Provide evidence of insurance meeting all required coverage limits: General Liability $1M, Auto Liability $1M, Workers' Comp per CA law, Employers' Liability $1M, Professional Liability $1M, Cyber Liability $5M Privacy/Network Security and $1M Technology E&O",
+            "Fingerprinting and background checks may be required at the discretion of the County based on project requirements",
+            "Proposer has minimum three (3) years' experience implementing the proposed Microsoft IAM solution",
+            "Proposer has minimum three (3) successful implementations for government agencies of similar size and requirements within the last five (5) years",
+            "The successful proposer will be singularly responsible for the proposed solution and will not use subcontractors to perform the services",
+            "Provide titles and names of staff members on the project team and expected availability of individuals",
+            "Provide operational runbooks for IAM and SSO administration",
+            "Provide architecture diagrams documenting the implemented solution",
+            "Conduct knowledge transfer sessions to fully transfer support knowledge to County TSD workforce members",
+            "Create Knowledge Base articles and training materials for County workforce management resources including departmental PRCs",
+            "Provide documentation on system administration and change processes to maintain automation regardless of changing system of record processes",
+            "Manage and coordinate all communications to minimize impact to system access during SSO migration",
+            "Provide at least three references from successfully completed projects of similar nature with government agencies"
+          ],
+          "coverageItems": [
+            {
+              "matchedProjectTitle": null,
+              "matchScore": null,
+              "recommendation": "No strong past performance match. Consider teaming or subcontracting for: Assess Active Directory and Entra ID Sync: validate readiness for IAM automation and SSO replacement, analyze AD settings for best practice and secure design, evaluate domain/OU structure, RBAC/delegation, and security group strategy",
+              "requirement": "Assess Active Directory and Entra ID Sync: validate readiness for IAM automation and SSO replacement, analyze AD settings for best practice and secure design, evaluate domain/OU structure, RBAC/delegation, and security group strategy",
+              "matchedProjectId": null,
+              "category": "TECHNICAL",
+              "status": "GAP"
+            },
+            {
+              "matchedProjectTitle": null,
+              "matchScore": null,
+              "recommendation": "No strong past performance match. Consider teaming or subcontracting for: Identify and remove stale objects and lifecycle inconsistencies in Active Directory",
+              "requirement": "Identify and remove stale objects and lifecycle inconsistencies in Active Directory",
+              "matchedProjectId": null,
+              "category": "TECHNICAL",
+              "status": "GAP"
+            },
+            {
+              "matchedProjectTitle": null,
+              "matchScore": null,
+              "recommendation": "No strong past performance match. Consider teaming or subcontracting for: Ensure the identity ecosystem (Entra/AD) is configured to support IAM in alignment with best practice synchronization designs",
+              "requirement": "Ensure the identity ecosystem (Entra/AD) is configured to support IAM in alignment with best practice synchronization designs",
+              "matchedProjectId": null,
+              "category": "TECHNICAL",
+              "status": "GAP"
+            },
+            {
+              "matchedProjectTitle": null,
+              "matchScore": null,
+              "recommendation": "No strong past performance match. Consider teaming or subcontracting for: Replace current Okta SSO with Entra SSO, migrating all currently integrated applications (~400 SAML 2.0 apps) with minimal service interruptions",
+              "requirement": "Replace current Okta SSO with Entra SSO, migrating all currently integrated applications (~400 SAML 2.0 apps) with minimal service interruptions",
+              "matchedProjectId": null,
+              "category": "TECHNICAL",
+              "status": "GAP"
+            },
+            {
+              "matchedProjectTitle": null,
+              "matchScore": null,
+              "recommendation": "No strong past performance match. Consider teaming or subcontracting for: Migrate all user presentation and authentication processes to Entra SSO with minimal service interruptions or user interaction",
+              "requirement": "Migrate all user presentation and authentication processes to Entra SSO with minimal service interruptions or user interaction",
+              "matchedProjectId": null,
+              "category": "TECHNICAL",
+              "status": "GAP"
+            },
+            {
+              "matchedProjectTitle": null,
+              "matchScore": null,
+              "recommendation": "No strong past performance match. Consider teaming or subcontracting for: Implement IAM automation for workforce onboarding, offboarding, transfers, and system/resource access change assignments supporting both County employees and contractor/vendor lifecycles",
+              "requirement": "Implement IAM automation for workforce onboarding, offboarding, transfers, and system/resource access change assignments supporting both County employees and contractor/vendor lifecycles",
+              "matchedProjectId": null,
+              "category": "TECHNICAL",
+              "status": "GAP"
+            },
+            {
+              "matchedProjectTitle": null,
+              "matchScore": null,
+              "recommendation": "No strong past performance match. Consider teaming or subcontracting for: Integrate IAM with Workday for employee lifecycle management (system of record for onboarding, offboarding, transfers)",
+              "requirement": "Integrate IAM with Workday for employee lifecycle management (system of record for onboarding, offboarding, transfers)",
+              "matchedProjectId": null,
+              "category": "TECHNICAL",
+              "status": "GAP"
+            },
+            {
+              "matchedProjectTitle": null,
+              "matchScore": null,
+              "recommendation": "No strong past performance match. Consider teaming or subcontracting for: Integrate IAM with ServiceNow for contractor/vendor on/offboarding and application access changes for all workforce members",
+              "requirement": "Integrate IAM with ServiceNow for contractor/vendor on/offboarding and application access changes for all workforce members",
+              "matchedProjectId": null,
+              "category": "TECHNICAL",
+              "status": "GAP"
+            },
+            {
+              "matchedProjectTitle": null,
+              "matchScore": null,
+              "recommendation": "No strong past performance match. Consider teaming or subcontracting for: Automate application provisioning: assign basic application access to new or transferred users determined by department and/or position classification",
+              "requirement": "Automate application provisioning: assign basic application access to new or transferred users determined by department and/or position classification",
+              "matchedProjectId": null,
+              "category": "TECHNICAL",
+              "status": "GAP"
+            },
+            {
+              "matchedProjectTitle": "Multilingual Safety Manual Translation Platform",
+              "matchScore": 5,
+              "recommendation": "No strong past performance match. Consider teaming or subcontracting for: Automate workflow approval notifications for onboarding/offboarding/transfers and route required approvals for application access or elevated rights requests",
+              "requirement": "Automate workflow approval notifications for onboarding/offboarding/transfers and route required approvals for application access or elevated rights requests",
+              "matchedProjectId": "1b347828-0b24-4d04-ae4e-9934a46eda7c",
+              "category": "TECHNICAL",
+              "status": "GAP"
+            },
+            {
+              "matchedProjectTitle": null,
+              "matchScore": null,
+              "recommendation": "No strong past performance match. Consider teaming or subcontracting for: Provide a platform/portal to easily request and automate user system access changes including opening, processing, and closing ServiceNow ticket requests",
+              "requirement": "Provide a platform/portal to easily request and automate user system access changes including opening, processing, and closing ServiceNow ticket requests",
+              "matchedProjectId": null,
+              "category": "TECHNICAL",
+              "status": "GAP"
+            },
+            {
+              "matchedProjectTitle": null,
+              "matchScore": null,
+              "recommendation": "No strong past performance match. Consider teaming or subcontracting for: Implement seamless MFA migration from existing SSO (Okta) to new Entra SSO",
+              "requirement": "Implement seamless MFA migration from existing SSO (Okta) to new Entra SSO",
+              "matchedProjectId": null,
+              "category": "TECHNICAL",
+              "status": "GAP"
+            },
+            {
+              "matchedProjectTitle": null,
+              "matchScore": null,
+              "recommendation": "No strong past performance match. Consider teaming or subcontracting for: Implement SAML SSO integration for external partners while minimizing access disruptions",
+              "requirement": "Implement SAML SSO integration for external partners while minimizing access disruptions",
+              "matchedProjectId": null,
+              "category": "TECHNICAL",
+              "status": "GAP"
+            },
+            {
+              "matchedProjectTitle": "Digital Ocean to AWS Migration & Backend Overhaul",
+              "matchScore": 5,
+              "recommendation": "No strong past performance match. Consider teaming or subcontracting for: Leverage existing security group schema to maintain system and resource access and authorization levels for integrated and third-party applications",
+              "requirement": "Leverage existing security group schema to maintain system and resource access and authorization levels for integrated and third-party applications",
+              "matchedProjectId": "0b9fb34d-a4b4-4010-9980-0d3a10c133af",
+              "category": "TECHNICAL",
+              "status": "GAP"
+            },
+            {
+              "matchedProjectTitle": null,
+              "matchScore": null,
+              "recommendation": "No strong past performance match. Consider teaming or subcontracting for: Support cross-domain workforce member transfers: maintain same account name and data stores, same account name without previous data store access, or new account name without previous data store access",
+              "requirement": "Support cross-domain workforce member transfers: maintain same account name and data stores, same account name without previous data store access, or new account name without previous data store access",
+              "matchedProjectId": null,
+              "category": "TECHNICAL",
+              "status": "GAP"
+            },
+            {
+              "matchedProjectTitle": null,
+              "matchScore": null,
+              "recommendation": "No strong past performance match. Consider teaming or subcontracting for: Enforce contractor account expiration dates with automated option to extend with requisite approvals and authorizations",
+              "requirement": "Enforce contractor account expiration dates with automated option to extend with requisite approvals and authorizations",
+              "matchedProjectId": null,
+              "category": "TECHNICAL",
+              "status": "GAP"
+            },
+            {
+              "matchedProjectTitle": null,
+              "matchScore": null,
+              "recommendation": "No strong past performance match. Consider teaming or subcontracting for: Provide escalation capability for approval requests that are expired or left unattended",
+              "requirement": "Provide escalation capability for approval requests that are expired or left unattended",
+              "matchedProjectId": null,
+              "category": "TECHNICAL",
+              "status": "GAP"
+            },
+            {
+              "matchedProjectTitle": "Multitenant HR Platform with Video Interviewing",
+              "matchScore": 6,
+              "recommendation": "No strong past performance match. Consider teaming or subcontracting for: Perform process discovery as needed to automate workflow approvals ensuring timely completion based on Workday or ServiceNow requested effective dates",
+              "requirement": "Perform process discovery as needed to automate workflow approvals ensuring timely completion based on Workday or ServiceNow requested effective dates",
+              "matchedProjectId": "16546867-bb92-4a14-b291-0c2ba91f7c82",
+              "category": "TECHNICAL",
+              "status": "GAP"
+            },
+            {
+              "matchedProjectTitle": null,
+              "matchScore": null,
+              "recommendation": "No strong past performance match. Consider teaming or subcontracting for: Resolve any functional Active Directory synchronization issues that might hinder or overcomplicate the IAM and SSO objectives",
+              "requirement": "Resolve any functional Active Directory synchronization issues that might hinder or overcomplicate the IAM and SSO objectives",
+              "matchedProjectId": null,
+              "category": "TECHNICAL",
+              "status": "GAP"
+            },
+            {
+              "matchedProjectTitle": null,
+              "matchScore": null,
+              "recommendation": "No strong past performance match. Consider teaming or subcontracting for: Leverage all current County Microsoft licensing levels (predominantly Microsoft 365 G3) whenever possible to reduce costs on third-party platforms",
+              "requirement": "Leverage all current County Microsoft licensing levels (predominantly Microsoft 365 G3) whenever possible to reduce costs on third-party platforms",
+              "matchedProjectId": null,
+              "category": "TECHNICAL",
+              "status": "GAP"
+            },
+            {
+              "matchedProjectTitle": "Multilingual Safety Manual Translation Platform",
+              "matchScore": 5,
+              "recommendation": "No strong past performance match. Consider teaming or subcontracting for: Provide a phased system and function delivery approach that is adaptive and agile to minimize user and system access disruptions",
+              "requirement": "Provide a phased system and function delivery approach that is adaptive and agile to minimize user and system access disruptions",
+              "matchedProjectId": "1b347828-0b24-4d04-ae4e-9934a46eda7c",
+              "category": "TECHNICAL",
+              "status": "GAP"
+            },
+            {
+              "matchedProjectTitle": null,
+              "matchScore": null,
+              "recommendation": "No strong past performance match. Consider teaming or subcontracting for: Provide methodology for stakeholders to have visibility into the progress of on/offboarding, transfer, and application change requests",
+              "requirement": "Provide methodology for stakeholders to have visibility into the progress of on/offboarding, transfer, and application change requests",
+              "matchedProjectId": null,
+              "category": "TECHNICAL",
+              "status": "GAP"
+            },
+            {
+              "matchedProjectTitle": null,
+              "matchScore": null,
+              "recommendation": "No strong past performance match. Consider teaming or subcontracting for: Provide additional protections to maintain least privilege access based on data/application owner authorized levels",
+              "requirement": "Provide additional protections to maintain least privilege access based on data/application owner authorized levels",
+              "matchedProjectId": null,
+              "category": "COMPLIANCE",
+              "status": "GAP"
+            },
+            {
+              "matchedProjectTitle": null,
+              "matchScore": null,
+              "recommendation": "No strong past performance match. Consider teaming or subcontracting for: Audit and report on existing on-prem environment against best practices to identify orphaned accounts or resource objects for removal",
+              "requirement": "Audit and report on existing on-prem environment against best practices to identify orphaned accounts or resource objects for removal",
+              "matchedProjectId": null,
+              "category": "COMPLIANCE",
+              "status": "GAP"
+            },
+            {
+              "matchedProjectTitle": "Digital Ocean to AWS Migration & Backend Overhaul",
+              "matchScore": 5,
+              "recommendation": "No strong past performance match. Consider teaming or subcontracting for: Complete and submit Attachment E: Technology Security Assessment",
+              "requirement": "Complete and submit Attachment E: Technology Security Assessment",
+              "matchedProjectId": "0b9fb34d-a4b4-4010-9980-0d3a10c133af",
+              "category": "COMPLIANCE",
+              "status": "GAP"
+            },
+            {
+              "matchedProjectTitle": null,
+              "matchScore": null,
+              "recommendation": "No strong past performance match. Consider teaming or subcontracting for: Proposer must be registered, active, and in good standing with SAM.gov and not barred from public contracting by any federal or state authority",
+              "requirement": "Proposer must be registered, active, and in good standing with SAM.gov and not barred from public contracting by any federal or state authority",
+              "matchedProjectId": null,
+              "category": "COMPLIANCE",
+              "status": "GAP"
+            },
+            {
+              "matchedProjectTitle": "Digital Ocean to AWS Migration & Backend Overhaul",
+              "matchScore": 5,
+              "recommendation": "No strong past performance match. Consider teaming or subcontracting for: Provide evidence of insurance meeting all required coverage limits: General Liability $1M, Auto Liability $1M, Workers' Comp per CA law, Employers' Liability $1M, Professional Liability $1M, Cyber Liability $5M Privacy/Network Security and $1M Technology E&O",
+              "requirement": "Provide evidence of insurance meeting all required coverage limits: General Liability $1M, Auto Liability $1M, Workers' Comp per CA law, Employers' Liability $1M, Professional Liability $1M, Cyber Liability $5M Privacy/Network Security and $1M Technology E&O",
+              "matchedProjectId": "0b9fb34d-a4b4-4010-9980-0d3a10c133af",
+              "category": "COMPLIANCE",
+              "status": "GAP"
+            },
+            {
+              "matchedProjectTitle": null,
+              "matchScore": null,
+              "recommendation": "No strong past performance match. Consider teaming or subcontracting for: Fingerprinting and background checks may be required at the discretion of the County based on project requirements",
+              "requirement": "Fingerprinting and background checks may be required at the discretion of the County based on project requirements",
+              "matchedProjectId": null,
+              "category": "COMPLIANCE",
+              "status": "GAP"
+            },
+            {
+              "matchedProjectTitle": null,
+              "matchScore": null,
+              "recommendation": "No strong past performance match. Consider teaming or subcontracting for: Proposer has minimum three (3) years' experience implementing the proposed Microsoft IAM solution",
+              "requirement": "Proposer has minimum three (3) years' experience implementing the proposed Microsoft IAM solution",
+              "matchedProjectId": null,
+              "category": "STAFFING",
+              "status": "GAP"
+            },
+            {
+              "matchedProjectTitle": null,
+              "matchScore": null,
+              "recommendation": "No strong past performance match. Consider teaming or subcontracting for: Proposer has minimum three (3) successful implementations for government agencies of similar size and requirements within the last five (5) years",
+              "requirement": "Proposer has minimum three (3) successful implementations for government agencies of similar size and requirements within the last five (5) years",
+              "matchedProjectId": null,
+              "category": "STAFFING",
+              "status": "GAP"
+            },
+            {
+              "matchedProjectTitle": null,
+              "matchScore": null,
+              "recommendation": "No strong past performance match. Consider teaming or subcontracting for: The successful proposer will be singularly responsible for the proposed solution and will not use subcontractors to perform the services",
+              "requirement": "The successful proposer will be singularly responsible for the proposed solution and will not use subcontractors to perform the services",
+              "matchedProjectId": null,
+              "category": "STAFFING",
+              "status": "GAP"
+            },
+            {
+              "matchedProjectTitle": null,
+              "matchScore": null,
+              "recommendation": "No strong past performance match. Consider teaming or subcontracting for: Provide titles and names of staff members on the project team and expected availability of individuals",
+              "requirement": "Provide titles and names of staff members on the project team and expected availability of individuals",
+              "matchedProjectId": null,
+              "category": "STAFFING",
+              "status": "GAP"
+            },
+            {
+              "matchedProjectTitle": null,
+              "matchScore": null,
+              "recommendation": "No strong past performance match. Consider teaming or subcontracting for: Provide operational runbooks for IAM and SSO administration",
+              "requirement": "Provide operational runbooks for IAM and SSO administration",
+              "matchedProjectId": null,
+              "category": "DELIVERABLES",
+              "status": "GAP"
+            },
+            {
+              "matchedProjectTitle": null,
+              "matchScore": null,
+              "recommendation": "No strong past performance match. Consider teaming or subcontracting for: Provide architecture diagrams documenting the implemented solution",
+              "requirement": "Provide architecture diagrams documenting the implemented solution",
+              "matchedProjectId": null,
+              "category": "DELIVERABLES",
+              "status": "GAP"
+            },
+            {
+              "matchedProjectTitle": null,
+              "matchScore": null,
+              "recommendation": "No strong past performance match. Consider teaming or subcontracting for: Conduct knowledge transfer sessions to fully transfer support knowledge to County TSD workforce members",
+              "requirement": "Conduct knowledge transfer sessions to fully transfer support knowledge to County TSD workforce members",
+              "matchedProjectId": null,
+              "category": "DELIVERABLES",
+              "status": "GAP"
+            },
+            {
+              "matchedProjectTitle": null,
+              "matchScore": null,
+              "recommendation": "No strong past performance match. Consider teaming or subcontracting for: Create Knowledge Base articles and training materials for County workforce management resources including departmental PRCs",
+              "requirement": "Create Knowledge Base articles and training materials for County workforce management resources including departmental PRCs",
+              "matchedProjectId": null,
+              "category": "DELIVERABLES",
+              "status": "GAP"
+            },
+            {
+              "matchedProjectTitle": "Multilingual Safety Manual Translation Platform",
+              "matchScore": 5,
+              "recommendation": "No strong past performance match. Consider teaming or subcontracting for: Provide documentation on system administration and change processes to maintain automation regardless of changing system of record processes",
+              "requirement": "Provide documentation on system administration and change processes to maintain automation regardless of changing system of record processes",
+              "matchedProjectId": "1b347828-0b24-4d04-ae4e-9934a46eda7c",
+              "category": "DELIVERABLES",
+              "status": "GAP"
+            },
+            {
+              "matchedProjectTitle": null,
+              "matchScore": null,
+              "recommendation": "No strong past performance match. Consider teaming or subcontracting for: Manage and coordinate all communications to minimize impact to system access during SSO migration",
+              "requirement": "Manage and coordinate all communications to minimize impact to system access during SSO migration",
+              "matchedProjectId": null,
+              "category": "OTHER",
+              "status": "GAP"
+            },
+            {
+              "matchedProjectTitle": null,
+              "matchScore": null,
+              "recommendation": "No strong past performance match. Consider teaming or subcontracting for: Provide at least three references from successfully completed projects of similar nature with government agencies",
+              "requirement": "Provide at least three references from successfully completed projects of similar nature with government agencies",
+              "matchedProjectId": null,
+              "category": "OTHER",
+              "status": "GAP"
+            }
+          ]
+        },
+        "narrativeSummary": "No relevant past performance projects were found matching this opportunity. 5 project(s) were reviewed but none demonstrated meaningful relevance. Consider adding past projects with relevant experience or exploring teaming arrangements. Overall past performance coverage: 0%. 39 critical gap(s) identified that may require teaming or subcontracting.",
+        "confidenceScore": 20,
+        "evidence": []
+      },
+      "inputHash": "c3200a0f63cf7a7ba7a85de306215c17598b7e30befd53adbfe67ca3e497dfdd",
+      "status": "COMPLETE",
+      "updatedAt": "2026-04-21T00:58:20.970Z"
+    },
+    "pricing": {
+      "data": {
+        "competitiveAdvantages": [],
+        "totalPrice": 0,
+        "indirectCostTotal": 0,
+        "basisOfEstimate": "This pricing analysis is based on the government's stated estimated value of $300,000\u2013$500,000 (per the RFP cover sheet, Section 6.1, and the OpenGov posting for RFP TSD-20261923). However, totalPrice is set to $0 because HORUSTECH fundamentally cannot perform this work based on available evidence. The company's knowledge base identifies it as a California-based AWS Advanced Consulting Partner specializing in intelligent document automation, cloud-native development, and AI/ML solutions \u2014 an entirely different technology domain than Microsoft Identity & Access Management. The organization's provided labor rates (Manufacturing Engineer $178.89/hr, QA $16.86/hr, Software Engineer $171.40/hr) and BOM items (software licenses, subcontractors) do not map to the labor categories needed for this engagement, which would require Microsoft Entra ID architects, Active Directory engineers, Workday/ServiceNow integration specialists, and SSO migration experts. No org labor rates for these roles were provided. The solicitation's Price Proposal Template (Attachment B) requires professional services pricing across Years 1-5 with role descriptions, quantities, and per-item costs \u2014 none of which can be credibly populated without relevant Microsoft IAM expertise and staffing. The contract type is not explicitly stated but the Price Proposal structure and fixed yearly pricing suggest a firm-fixed-price or fixed-rate professional services arrangement, placing delivery risk on the contractor. Price carries only 25% weight in Phase I evaluation, with Method/Approach at 45% and Experience at 30%, meaning technical credibility is paramount. Price confidence is set at 15 reflecting the complete absence of relevant capability, labor rate data for applicable roles, and the inability to meet mandatory minimum qualifications.",
+        "materialCostTotal": 0,
+        "assumptions": [
+          "The government's estimated value of $300,000\u2013$500,000 covers the full 36-month base period and potentially the two 12-month option years (Years 4-5), based on the Price Proposal Template structure spanning Years 1-5. This assumption affects whether the estimate is for implementation only or includes ongoing support.",
+          "HORUSTECH does not currently employ or have access to Microsoft Entra ID / Active Directory IAM specialists, based on the company knowledge base describing the firm as an AWS-focused consultancy with expertise in document automation and AI/ML. No Microsoft-specific certifications, partnerships, or project history were found in the knowledge base or past performance records.",
+          "The no-subcontractor requirement (stated in the solicitation requirements) is absolute and would prevent HORUSTECH from partnering with a Microsoft IAM specialist firm to deliver the work. This assumption is based on the explicit language: 'The successful proposer will be singularly responsible for the proposed solution and will not use subcontractors to perform the services.'",
+          "The contract type is assumed to be firm-fixed-price based on the Price Proposal Template structure requiring fixed yearly totals by role, with no provision for time-and-materials or cost-plus billing. This places full cost and schedule risk on the contractor for a complex multi-year IAM transformation.",
+          "Competitors for this solicitation will likely be established Microsoft Gold/Solutions Partners with dedicated IAM practices, multiple government Entra ID implementations, and pre-built accelerators for Workday and ServiceNow integration \u2014 placing HORUSTECH at a severe competitive disadvantage on 75% of the Phase I evaluation criteria (Method/Approach + Experience) and 100% of Phase II demonstration criteria.",
+          "The provided organization labor rates (Manufacturing Engineer, QA, Software Engineer) and BOM items (software licenses, subcontractor line items) are not applicable to this solicitation's requirements and were therefore not used in any cost calculations. Applicable roles would include Microsoft Identity Architect, AD/Entra Engineer, Integration Developer, and Project Manager \u2014 none of which have defined rates in the organization's rate card."
+        ],
+        "competitivePosition": "HIGH",
+        "laborCostTotal": 0,
+        "profitMargin": 10,
+        "pricingRisks": [
+          "Critical industry mismatch: Horus Technology (HORUSTECH) is an AWS Advanced Consulting Partner specializing in document automation, cloud-native development, and AI/ML solutions. The solicitation requires deep expertise in Microsoft Identity & Access Management (Entra ID), Active Directory across six forests and fourteen domains, Okta-to-Entra SSO migration for ~400 SAML applications, and Workday/ServiceNow integration. The company's knowledge base and past performance show no evidence of Microsoft IAM, Entra ID, or Active Directory implementation capabilities, making this a fundamental capability gap rather than a stretch opportunity.",
+          "Minimum qualification disqualification risk: Section 3.1 requires a minimum of three years' experience implementing the proposed Microsoft IAM solution and at least three successful government implementations of similar size within the last five years. Based on available company data, HORUSTECH's past performance is centered on AWS cloud migrations and document automation \u2014 not Microsoft IAM. Failure to meet these mandatory minimums would render the proposal non-responsive and ineligible for evaluation.",
+          "No-subcontractor restriction: Section 6 of the Scope of Work and the requirements explicitly state that 'the successful proposer will be singularly responsible for the proposed solution and will not use subcontractors to perform the services.' This eliminates the option of teaming with a Microsoft IAM specialist to fill the capability gap, further compounding the mismatch risk.",
+          "Insurance burden: The solicitation requires $5,000,000 in Cyber Liability coverage for Privacy and Network Security plus $1,000,000 for Technology E&O, carried during the contract term and for three years thereafter. For a small business, obtaining and maintaining this level of cyber insurance represents a significant cost and may be difficult to secure without relevant Microsoft IAM project history.",
+          "Price is only 25% of Phase I evaluation: Method and Approach (45%) and Experience/Organizational Capacity (30%) dominate the scoring. Even a highly competitive price cannot overcome a weak technical and experience score. Phase II (demonstration/interview) is entirely capability-based with no price component, meaning the company would need to demonstrate working IAM integrations with Workday, ServiceNow, and Entra ID \u2014 capabilities not evidenced in the company's portfolio."
+        ],
+        "recommendedActions": [
+          "NO-BID RECOMMENDATION: Based on the fundamental mismatch between HORUSTECH's core competencies (AWS cloud, document automation, AI/ML) and the solicitation's requirements (Microsoft Entra ID IAM, Active Directory remediation across 6 forests/14 domains, Okta SSO migration, Workday/ServiceNow integration), the strongest recommendation is to no-bid this opportunity. The mandatory minimum qualifications (3 years Microsoft IAM experience, 3 government implementations) cannot be met, and the no-subcontractor clause prevents teaming to fill the gap.",
+          "If pursuing for strategic reasons, immediately assess whether any team members have undocumented Microsoft Entra ID Governance, Active Directory, or IAM lifecycle management experience. Submit questions to the County by March 12, 2026 deadline to clarify whether AWS-based identity solutions or alternative approaches would be considered, though the RFP title and scope strongly indicate Microsoft-only.",
+          "Monitor this solicitation for market intelligence purposes: Track the award outcome to identify which vendors win Microsoft IAM work at the county/local government level. This intelligence can inform future partnership or capability-building decisions if HORUSTECH decides to expand into the Microsoft identity management space.",
+          "Long-term capability development: If Microsoft IAM is a desired growth area, invest in Microsoft Entra ID certifications (SC-300, SC-100), hire or contract experienced Microsoft identity architects, and pursue smaller Microsoft IAM engagements to build the three-year track record and three government references required for future opportunities of this nature."
+        ],
+        "strategy": "FIXED_PRICE",
+        "priceConfidence": 15
+      },
+      "inputHash": "c632e9cc4847d439b7e6ea070ea4b87538b2a329777f1466b94c708aa6600dd0",
+      "status": "COMPLETE",
+      "updatedAt": "2026-04-21T00:59:17.530Z"
+    },
+    "requirements": {
+      "data": {
+        "evaluationFactors": [
+          "Phase I: 45% - Method and Approach (Apparent understanding of the scope of services to be provided; Appropriateness of the proposed solution/services)",
+          "Phase I: 30% - Experience and Organizational Capacity (Qualifications and experience of both the proposer and key personnel; Experience with other public agencies; Organizational resources and staff, apparent ability to meet any required timelines or other requirements)",
+          "Phase I: 25% - Price",
+          "Phase I: 10% - Preferential Points (5% for Local Business or Local Non-Profit; additional 3% for Small Business/Small Non-Profit totaling 8%; additional 5% for Micro Business/Micro Non-Profit totaling 10%)",
+          "Phase II: 40% - Core Features & Functionality (IAM integration with Workday and ServiceNow; IAM portal change requests and automated workflow approvals; Workday on/offboard integration; Cross-domain workforce member transfers with various account name and data store retention scenarios)",
+          "Phase II: 30% - Usability and Automation (User access change requests; Workflow milestone-based lifecycle communication; Data owner approval workflows; Automated account expiration for seasonal/temporary/contractor accounts; Approval escalation for expired or unattended requests)",
+          "Phase II: 30% - Integration and Extensibility (Minimum data sets advisory; SAML SSO integration for external partners; SSO applet publication format replication for Entra SSO migration; Seamless MFA migration; Leveraging existing security group schema for access and authorization levels)"
+        ],
+        "overview": "The County of San Mateo Technology Services Department (TSD) is seeking proposals from qualified vendors to assess, configure, and implement Microsoft's Identity & Access Management (IAM) solution in support of the County's identity lifecycle management, under RFP TSD-20261923 with an estimated value of $300,000\u2013$500,000. The business problem being addressed is the County's current reliance on manual processes and a fragmented identity ecosystem\u2014including Okta as SSO, Workday as the system of record for employees, ServiceNow for contractors/vendors, and a hybrid on-premises Active Directory/Azure AD environment spanning six forests and fourteen domains\u2014which results in inefficient onboarding, offboarding, transfers, and access provisioning. Success looks like a fully automated IAM platform leveraging Microsoft Entra ID that automates workforce lifecycle events (onboarding, offboarding, transfers, access changes) integrated with Workday and ServiceNow, replaces the current Okta SSO with Entra SSO for approximately 400 SAML-integrated applications with minimal disruption, implements approval workflows with escalation, enforces least-privilege access and contractor account expiration, and provides comprehensive documentation and knowledge transfer to County staff. Key constraints include a 36-month base contract term with two 12-month renewal options, County funding sourced at the County level, a sealed bid process with proposals due March 26, 2026 via OpenGov, mandatory minimum qualifications of three years' experience and three successful government implementations in the last five years, active SAM.gov registration, specific insurance requirements including $5,000,000 cyber liability coverage, and a two-phase evaluation process with Phase I scoring technical proposals (45% Method and Approach, 30% Experience and Organizational Capacity, 25% Price, 10% Preferential Points) and Phase II consisting of demonstrations/interviews for elevated proposals (40% Core Features & Functionality, 30% Usability and Automation, 30% Integration and Extensibility). The successful proposer must be singularly responsible for the solution and may not use subcontractors to perform the services. The County operates predominantly on Microsoft 365 G3 licensing and expects respondents to leverage existing licensing to reduce costs on third-party platforms.",
+        "requirements": [
+          {
+            "category": "TECHNICAL",
+            "mustHave": true,
+            "requirement": "Assess Active Directory and Entra ID Sync: validate readiness for IAM automation and SSO replacement, analyze AD settings and configurations for best practice and secure design, evaluate domain/OU structure/RBAC/delegation/security group strategy, identify and remove stale objects and lifecycle inconsistencies, ensure identity ecosystem is configured to support IAM with best practice synchronization designs, and identify misconfiguration, risks, and remediation needs"
+          },
+          {
+            "category": "TECHNICAL",
+            "mustHave": true,
+            "requirement": "Replace current Okta SSO with Entra SSO: migrate all currently integrated applications (~400 SAML 2.0 apps) to Entra SSO with minimal service interruptions, migrate all user presentation and authentication processes to Entra SSO with minimal service interruptions or user interaction, and manage and coordinate all communications to minimize impact to system access"
+          },
+          {
+            "category": "TECHNICAL",
+            "mustHave": true,
+            "requirement": "Implement IAM Automation: automate workforce onboarding, offboarding, transfers, and system/resource access change assignments; support County employee, contractor/vendor lifecycles; perform process discovery to automate workflow approvals based on Workday or ServiceNow requested effective dates; implement or replace existing systems to streamline IAM integrations leveraging existing Microsoft licensing"
+          },
+          {
+            "category": "TECHNICAL",
+            "mustHave": true,
+            "requirement": "Integrate IAM with Workday for employee lifecycle management and with ServiceNow for contractors/vendors on/offboarding and application access changes for all workforce members"
+          },
+          {
+            "category": "TECHNICAL",
+            "mustHave": true,
+            "requirement": "Automate Application Provisioning: assign basic application access to new or transferred users by department/position classification, automate workflow approval notifications for onboarding/offboarding/transfers, automate workflow routing of required approvals for application access or elevated rights requests, and provide a platform/portal to request and automate user system access changes including integration with ServiceNow ticketing"
+          },
+          {
+            "category": "TECHNICAL",
+            "mustHave": true,
+            "requirement": "Strengthen Compliance & Governance: provide protections to maintain least privilege access based on data/application owner authorized levels, and enforce contractor account expiration dates with automated option to extend with requisite approvals"
+          },
+          {
+            "category": "TECHNICAL",
+            "mustHave": true,
+            "requirement": "Demonstrate IAM integration and ability to create and disable accounts based on information derived from Workday and ServiceNow as systems of record"
+          },
+          {
+            "category": "TECHNICAL",
+            "mustHave": true,
+            "requirement": "Demonstrate ability to transfer workforce members cross-domain while maintaining same account name and data stores, cross-domain with same account name but without retaining previous position data stores, and same or cross domain with new account name without retaining previous position data stores"
+          },
+          {
+            "category": "TECHNICAL",
+            "mustHave": true,
+            "requirement": "Demonstrate SAML SSO integration for external partners while minimizing access disruptions, replicate SSO applet publication format for workforce members to minimize user impact during migration to Entra SSO, and implement seamless MFA migration from existing SSO to new SSO"
+          },
+          {
+            "category": "TECHNICAL",
+            "mustHave": true,
+            "requirement": "Demonstrate how existing security group schema can be leveraged to maintain system and resource access and authorization levels for integrated and third-party applications"
+          },
+          {
+            "category": "TECHNICAL",
+            "mustHave": true,
+            "requirement": "For seasonal, temporary workforce members or contractors and vendors, demonstrate how accounts can be set for automated expiration with functionality to renew by account sponsors without direct TSD intervention"
+          },
+          {
+            "category": "TECHNICAL",
+            "mustHave": true,
+            "requirement": "Demonstrate approval escalation capability when approval requests are expired or left unattended"
+          },
+          {
+            "category": "TECHNICAL",
+            "mustHave": true,
+            "requirement": "Advise the County on the minimum data sets required to perform all functions included in the IAM platform"
+          },
+          {
+            "category": "TECHNICAL",
+            "mustHave": true,
+            "requirement": "Resolve any functional Active Directory synchronization issues that might hinder or overcomplicate the IAM and SSO objectives; ensure on-prem AD synchronization with Entra ID supports all end-state cloud-based systems"
+          },
+          {
+            "category": "TECHNICAL",
+            "mustHave": true,
+            "requirement": "Leverage all current County Microsoft licensing levels (predominantly Microsoft 365 G3) whenever possible to reduce costs on third-party platforms"
+          },
+          {
+            "category": "TECHNICAL",
+            "mustHave": true,
+            "requirement": "Provide a phased system and function delivery approach that is both adaptive and agile to minimize user and system access disruptions and allow the County to adjust implementation strategy as needed"
+          },
+          {
+            "category": "TECHNICAL",
+            "mustHave": true,
+            "requirement": "Provide methodology for stakeholders to have visibility into the progress of their requests for on/offboarding, transfers, and application change requests"
+          },
+          {
+            "category": "DELIVERABLES",
+            "mustHave": true,
+            "requirement": "Provide operational runbooks, architecture diagrams, knowledge transfer sessions, Knowledge Base articles, and training materials designed to fully transfer support knowledge to County TSD workforce members"
+          },
+          {
+            "category": "DELIVERABLES",
+            "mustHave": true,
+            "requirement": "Provide sufficient documentation and educational materials so the County can educate workforce management resources such as departmental payroll resource coordinators (PRCs) on how to effectively utilize implemented IAM or SSO platforms, portals, or other services"
+          },
+          {
+            "category": "COMPLIANCE",
+            "mustHave": true,
+            "requirement": "Proposer must have minimum three (3) years' experience implementing the proposed solution, performing similar services as those detailed in this RFP"
+          },
+          {
+            "category": "COMPLIANCE",
+            "mustHave": true,
+            "requirement": "Proposer must have completed minimum three (3) successful implementations for government agencies of similar size and requirements within the last five (5) years"
+          },
+          {
+            "category": "COMPLIANCE",
+            "mustHave": true,
+            "requirement": "Proposer must be registered, active, and in good standing with SAM.gov and not barred from public contracting by any federal or state authority; provide UEI number and proof of active registration"
+          },
+          {
+            "category": "COMPLIANCE",
+            "mustHave": true,
+            "requirement": "Provide evidence of insurance meeting all required coverage limits: General Liability $1M, Automobile Liability $1M, Workers' Compensation per California law, Employers' Liability $1M, Professional Liability (E&O) $1M, and Cyber Liability $5M for Privacy/Network Security and $1M for Technology E&O"
+          },
+          {
+            "category": "COMPLIANCE",
+            "mustHave": true,
+            "requirement": "Complete and submit Attachment E: Technology Security Assessment with the proposal"
+          },
+          {
+            "category": "COMPLIANCE",
+            "mustHave": true,
+            "requirement": "The successful proposer will be singularly responsible for the proposed solution and will not use subcontractors to perform the services"
+          },
+          {
+            "category": "COMPLIANCE",
+            "mustHave": true,
+            "requirement": "Provide at least three references from successfully completed projects of similar nature with government agencies, including organization name, contact name, phone number, and email; references cannot include the County of San Mateo"
+          },
+          {
+            "category": "SECURITY",
+            "mustHave": true,
+            "requirement": "Complete the County's Technology Security Assessment (Attachment E) covering data sensitivity/criticality classification, encryption, identity and authentication management, password management per County policy, access management, audit logging, disaster recovery, backup and restore, patching, and incident response"
+          },
+          {
+            "category": "SECURITY",
+            "mustHave": true,
+            "requirement": "Audit and report on existing on-prem environment against best practices to determine if there are orphaned accounts or resource objects that should be removed"
+          },
+          {
+            "category": "STAFFING",
+            "mustHave": true,
+            "requirement": "Provide titles and names of staff members on the project team, expected availability of individuals, and if requested, resume of a dedicated full-time project manager"
+          },
+          {
+            "category": "STAFFING",
+            "mustHave": false,
+            "requirement": "Fingerprinting and background checks may be required at the County's discretion if the contract requires access to sensitive groups or proprietary materials"
+          },
+          {
+            "category": "OTHER",
+            "mustHave": true,
+            "requirement": "Review and accept or provide redlines to the County Standard Contract Template (Attachment D); proposers should not rely on the County's agreement to modified terms"
+          },
+          {
+            "category": "OTHER",
+            "mustHave": false,
+            "requirement": "If applicable, complete and submit Attachment F: SMC Local Preference Self-Attestation Form for local business preference consideration"
+          }
+        ],
+        "submissionCompliance": {
+          "format": [
+            "1 electronic copy uploaded to OpenGov site at https://procurement.opengov.com/portal/smcgov",
+            "Number all pages of the proposal",
+            "Label and order each section per Section 2.2.A",
+            "Include proposer's name and the RFP title and number in each filename",
+            "Sealed Bid Process (Bids Sealed / Pricing Sealed)",
+            "Hand-written responses will be rejected (signatures may be hand-written)",
+            "Internet links (URLs) in place of required proposal materials are prohibited and considered non-responsive",
+            "Place all cost and pricing data in a separate file clearly marked 'PRICE PROPOSAL'",
+            "Do not include pricing in the Technical Proposal area",
+            "Use Price Proposal forms/templates without modification"
+          ],
+          "attachmentsAndForms": [
+            "Attachment A: RFP TSD-20261923 Implementation of Microsoft's IAM Solution (Scope of Work)",
+            "Attachment B: Price Proposal Template (required with submission)",
+            "Attachment C: References Template (required with submission)",
+            "Attachment D: County Standard Contract Template (review/submit with redlines if applicable)",
+            "Attachment E: Technology Security Assessment (required with submission)",
+            "Attachment F: SMC Local Preference Self-Attestation Form (review/submit if applicable)",
+            "Certificate of Insurance (COI)",
+            "SAM.gov proof of active registration (screenshot, printout, or PDF)"
+          ],
+          "requiredDocuments": [
+            {
+              "name": "Cover Letter",
+              "description": "No longer than one page, identifying authorized contacts and individuals authorized to represent the organization in contract negotiations",
+              "pageLimit": "1 page",
+              "documentType": "COVER_LETTER",
+              "required": true
+            },
+            {
+              "name": "Technical Proposal",
+              "description": "Address each requirement in the order presented, describe method and approach, include project schedule with milestones and deliverables, specify County-provided space/equipment needs, and explain transition plan at end of contract",
+              "documentType": "TECHNICAL_PROPOSAL",
+              "required": true
+            },
+            {
+              "name": "Price Proposal (Attachment B)",
+              "description": "Completed Attachment B Price Proposal Template with professional services pricing, additional/optional items, and costs for base period plus optional years (5-year structure). Must be in a separate file clearly marked 'PRICE PROPOSAL'",
+              "documentType": "COST_PROPOSAL",
+              "required": true
+            },
+            {
+              "name": "References (Attachment C)",
+              "description": "At least three references from successfully completed projects of similar nature with government agencies, including organization name, contact name, phone number, and email",
+              "documentType": "PAST_PERFORMANCE",
+              "required": true
+            },
+            {
+              "name": "County Standard Contract Template (Attachment D)",
+              "description": "Review and confirm acceptance of terms and conditions or submit proposed redlines in Microsoft Word format",
+              "documentType": "OTHER",
+              "required": true
+            },
+            {
+              "name": "Technology Security Assessment (Attachment E)",
+              "description": "Completed Technology Security Assessment form covering product information, administrative controls, security controls, cloud/hosted services, and support/maintenance details",
+              "documentType": "OTHER",
+              "required": true
+            },
+            {
+              "name": "Certificate of Insurance (COI)",
+              "description": "Evidence of all required insurance coverages: General Liability, Automobile Liability, Workers' Compensation, Employers' Liability, Professional Liability (E&O), and Cyber Liability meeting specified limits",
+              "documentType": "CERTIFICATIONS",
+              "required": true
+            },
+            {
+              "name": "SAM.gov Registration Proof",
+              "description": "SAM.gov UEI number and proof of active registration (screenshot, printout, or PDF showing company name, UEI, active status, and expiration date)",
+              "documentType": "CERTIFICATIONS",
+              "required": true
+            },
+            {
+              "name": "SMC Local Preference Self-Attestation Form (Attachment F)",
+              "description": "Self-attestation form for local business preference eligibility, if applicable",
+              "documentType": "OTHER",
+              "required": false
+            }
+          ],
+          "requiredVolumes": [
+            "Cover letter - no longer than one page",
+            "Authorized contacts",
+            "Table of Contents",
+            "Exceptions to the solicitation",
+            "Technical Proposal",
+            "Supplementary Documents",
+            "Price Proposal"
+          ]
+        },
+        "deliverables": [
+          "Assessed and validated Active Directory and Entra ID synchronization readiness report",
+          "Migrated SSO platform from Okta to Microsoft Entra SSO for all integrated applications",
+          "Implemented and configured Microsoft IAM automation platform for onboarding, offboarding, transfers, and access changes",
+          "Workday integration for employee lifecycle management",
+          "ServiceNow integration for contractor/vendor lifecycle and application access changes",
+          "Automated application provisioning with workflow approval routing",
+          "IAM portal/platform for user access change requests",
+          "Compliance and governance controls including least privilege enforcement and contractor account expiration",
+          "Operational runbooks",
+          "Architecture diagrams",
+          "Knowledge transfer sessions",
+          "Knowledge Base articles and training materials for TSD staff and departmental PRCs",
+          "System administration and change process documentation"
+        ]
+      },
+      "inputHash": "b9def0209efa8459ce4ef6709e2f0548871e1d53cee81899fdfc2c6b33044290",
+      "status": "COMPLETE",
+      "updatedAt": "2026-04-21T00:59:31.560Z"
+    },
+    "risks": {
+      "data": {
+        "redFlags": [
+          {
+            "severity": "HIGH",
+            "whyItMatters": "A search of HORUSTECH's past performance records returned no relevant projects related to Microsoft Identity & Access Management, Entra ID, Azure AD, or similar government IAM implementations. Section 3.1 requires both three years of experience with the specific solution and three successful government implementations of similar size within five years \u2014 both are pass/fail minimum qualifications per the solicitation. Without verifiable past performance, HORUSTECH faces disqualification at the responsiveness determination stage before any scoring occurs. Additionally, Section 3.4 requires at least three references from 'successfully completed projects of similar nature,' and references cannot include the County of San Mateo.",
+            "mitigation": "The executive sponsor or business development lead must make an immediate go/no-go decision based on whether HORUSTECH can credibly demonstrate the required Microsoft IAM experience, either independently or through a teaming arrangement. If proceeding, a teaming partner with documented Microsoft Entra ID government implementations must be identified and a teaming agreement executed within one week of this assessment. The partner's references and project history should be integrated into the proposal narrative and Attachment C references template.",
+            "flag": "No identifiable past performance for Microsoft IAM government implementations in company records.",
+            "impactsScore": true
+          },
+          {
+            "severity": "MEDIUM",
+            "whyItMatters": "The solicitation title and scope explicitly require 'Microsoft's Identity & Access Management (IAM) solution,' with Phase II demonstrations requiring specific Microsoft Entra ID capabilities including Entra SSO migration, SAML SSO integration, and Workday/ServiceNow connectors within the Microsoft ecosystem. Section 2.1.B acknowledges that 'references to items or processes by trade names' establish 'a standard of quality,' but the entire scope of work is built around Microsoft's platform with no indication that alternatives are acceptable. This effectively requires proposers to be Microsoft implementation specialists, potentially favoring firms with existing Microsoft partner certifications (e.g., Microsoft Solutions Partner for Security). Firms without Microsoft partnership status or deep Entra ID expertise face a significant competitive disadvantage in both the technical proposal (45% Method and Approach) and the Phase II demonstration.",
+            "mitigation": "The capture team should verify HORUSTECH's Microsoft partner status and relevant competency designations (e.g., Microsoft Solutions Partner for Security, Identity and Access Management specialization). If the firm lacks these credentials, the business development lead should explore expedited Microsoft partnership enrollment or identify a teaming partner with established Microsoft partner credentials. Any Microsoft certifications held by key personnel should be prominently featured in the Experience and Organizational Capacity section of the proposal.",
+            "flag": "Brand-name specification for Microsoft IAM limits solution flexibility and narrows competitive field.",
+            "impactsScore": true
+          }
+        ],
+        "risks": [
+          {
+            "severity": "HIGH",
+            "whyItMatters": "Section 3.1 (Minimum Qualifications) requires the proposer to have completed 'at minimum three (3) successful implementations for government agencies of similar size and requirements within the last five (5) years.' This is a pass/fail gate \u2014 proposals that fail to meet this criterion are deemed non-responsive and ineligible for consideration. No relevant past performance for Microsoft IAM implementations at government agencies was found in HORUSTECH's records, which means the company may not be able to substantiate this mandatory requirement. Failure to provide credible evidence of these implementations will result in immediate disqualification before the proposal is even scored.",
+            "mitigation": "The capture team lead should immediately audit HORUSTECH's project history to identify any qualifying Microsoft IAM or Entra ID implementations for government clients of comparable size within the past five years. If insufficient qualifying projects exist, the business development lead should evaluate teaming with a subcontractor or partner who has documented government IAM implementation experience and can be named in the proposal, ensuring this decision is made no later than one week before the March 26 deadline to allow time for reference coordination and proposal integration.",
+            "flag": "Minimum qualification requires three government IAM implementations in last five years.",
+            "impactsScore": true
+          },
+          {
+            "severity": "HIGH",
+            "whyItMatters": "Section IV and Section 4.3 require Cyber Liability insurance at '$5,000,000 per occurrence for Privacy and Network Security' plus '$1,000,000 per occurrence for Technology Errors and Omissions,' to be carried during the contract term and for three years thereafter. This is a minimum qualification \u2014 expired or insufficient certificates result in a non-responsive determination per Section 3.1. For a smaller firm like HORUSTECH, obtaining or already holding a $5M cyber liability policy can be expensive and time-consuming, potentially requiring weeks to bind new coverage. Additionally, the three-year tail requirement extends the financial obligation well beyond the contract period, increasing total cost of participation.",
+            "mitigation": "HORUSTECH's operations or finance lead should immediately contact the company's insurance broker to verify current cyber liability coverage limits and request a quote for a $5M per-occurrence policy if not already in place. This must be completed and a valid Certificate of Insurance obtained well before the March 26 submission deadline, as the COI must be uploaded with the proposal. If current carriers cannot provide the required limits, the broker should explore surplus lines or specialty cyber insurers as alternatives.",
+            "flag": "$5M Cyber Liability insurance requirement may be a significant barrier.",
+            "impactsScore": true
+          },
+          {
+            "severity": "MEDIUM",
+            "whyItMatters": "Per Section 3.5 (Evaluation Criteria) and the Local Business Preference Ordinance (Chapter 2.89), local San Mateo County businesses receive a 5% scoring preference, with an additional 3% for Small Businesses (total 8%) or an additional 5% for Micro Businesses (total 10%) of total evaluation points. Since the Phase I evaluation uses 110 points (100% of total), a local micro business could receive up to 11 additional points. For a non-local proposer, this means needing to outscore local competitors by a significant margin on technical merit and price alone. This preference is applied in a best-value evaluation where price is only 25% of the score, amplifying the impact of the preference points on the overall ranking.",
+            "mitigation": "The business development team should assess whether HORUSTECH has or can establish a principal place of business or headquarters in San Mateo County to qualify as a local business. If not feasible, the proposal manager should develop a strategy to maximize technical and price scores to overcome the preference gap, focusing on demonstrating superior method and approach (45% weight) and strong government experience (30% weight). Alternatively, the team should explore partnering with a San Mateo County-based local business as a prime or significant subcontractor.",
+            "flag": "Local business preference of up to 10% creates competitive disadvantage for non-local proposers.",
+            "impactsScore": true
+          },
+          {
+            "severity": "MEDIUM",
+            "whyItMatters": "Section 3.5 Phase II evaluation (40% Core Features & Functionality, 30% Usability and Automation, 30% Integration and Extensibility) requires proposers to demonstrate live IAM capabilities including Workday integration for onboarding/offboarding, ServiceNow integration, cross-domain workforce transfers, SAML SSO integration for external partners, MFA migration from existing SSO to Entra SSO, and automated account expiration for temporary workers. These are highly specific, scenario-based demonstrations that require a pre-built or configurable demo environment. Proposers who cannot demonstrate these capabilities convincingly in a live setting will score poorly on 100% of Phase II points. Interviews are scheduled for April-May 2026, leaving limited preparation time after Phase I results.",
+            "mitigation": "The technical lead should begin immediately building or configuring a Microsoft Entra ID demo environment that can showcase all required scenarios, including Workday connector integration, ServiceNow provisioning, cross-domain transfers, and SAML SSO federation. The team should assign a dedicated solutions architect to prepare scripted demonstrations for each evaluation sub-criterion listed in Phase II, with rehearsals completed before the anticipated April 2026 interview window. Pre-staging realistic sample data and workflows is essential to demonstrate automation capabilities convincingly.",
+            "flag": "Phase II demonstration/interview requires live IAM functionality demonstration with specific Workday and ServiceNow integration scenarios.",
+            "impactsScore": true
+          },
+          {
+            "severity": "MEDIUM",
+            "whyItMatters": "Section 3.1 states the proposer must have 'a minimum three (3) years' experience implementing the requested solution, performing similar services as those detailed in this RFP.' The 'requested solution' is specifically Microsoft's Identity & Access Management solution (Microsoft Entra ID / Azure AD). This is narrower than general IAM experience \u2014 it requires demonstrated expertise specifically with Microsoft's IAM platform. If HORUSTECH's experience is primarily with other IAM platforms (Okta, SailPoint, Ping Identity, etc.) rather than Microsoft Entra ID, this minimum qualification may not be met. This is a pass/fail gate that cannot be cured after submission.",
+            "mitigation": "The capture manager should compile and verify documentation of HORUSTECH's specific Microsoft Entra ID / Azure AD implementation experience, including project dates, scope, and client references, to confirm the three-year threshold is met. If the firm's Microsoft-specific IAM experience is insufficient, the team should immediately identify and engage a teaming partner with verifiable Microsoft IAM implementation credentials, formalizing a teaming agreement before proposal submission on March 26.",
+            "flag": "Minimum three years of experience implementing the specific requested solution is required.",
+            "impactsScore": true
+          },
+          {
+            "severity": "LOW",
+            "whyItMatters": "The RFP was released February 25, 2026, with proposals due March 26, 2026, providing approximately 29 calendar days. While this is not an unreasonably short window per standard procurement timelines, the solicitation requires multiple mandatory attachments (Attachment A technical response, Attachment B pricing, Attachment C references, Attachment D contract review/redlines, Attachment E Technology Security Assessment, Attachment F local preference form), plus SAM.gov registration proof, Certificate of Insurance, and the sealed bid format on OpenGov. The question deadline of March 12 further compresses the window for obtaining clarifications before finalizing the proposal.",
+            "mitigation": "The proposal manager should establish a detailed proposal development schedule immediately, assigning owners and internal deadlines for each required attachment and compliance document. Administrative items such as SAM.gov registration verification, COI procurement, and the Technology Security Assessment (Attachment E) should be initiated within the first week to avoid last-minute bottlenecks, with a target internal review draft completed by March 19 to allow one week for final revisions before the March 26 deadline.",
+            "flag": "29-day response window is adequate but requires disciplined execution given compliance burden.",
+            "impactsScore": false
+          },
+          {
+            "severity": "LOW",
+            "whyItMatters": "Attachment E is a comprehensive Technology Security Assessment form that requires detailed responses on security policies, penetration testing history, third-party certifications (FedRAMP, ISO 27001, SOC 2, etc.), data sovereignty, encryption methods, disaster recovery plans, breach history, employee background checks, and network/data flow diagrams. Per Section 4.11, this is a required submission \u2014 failure to complete and upload it renders the proposal non-responsive. The form asks whether employees are located in the United States and whether subcontractors will be used, requiring security and privacy agreements for each subcontractor. For HORUSTECH, this requires coordinating detailed technical information that may involve multiple internal stakeholders and any planned subcontractors.",
+            "mitigation": "The technical lead or security officer should begin completing Attachment E immediately, coordinating with internal IT, compliance, and any subcontractor partners to gather required information on certifications, audit reports, penetration test results, and data handling practices. Network diagrams and data flow diagrams, which are marked as required in the form, should be drafted by the solutions architect within the first two weeks to allow time for review and refinement before the March 26 submission deadline.",
+            "flag": "Technology Security Assessment (Attachment E) requires detailed technical and security disclosures.",
+            "impactsScore": false
+          }
+        ],
+        "incumbentInfo": {
+          "knownIncumbent": false,
+          "recompete": false,
+          "notes": "The solicitation does not name a current contract holder or reference a predecessor contract. The scope references migrating from an 'existing SSO' to Entra SSO and mentions current systems (Workday, ServiceNow, OKTA for SaaS integration), indicating the County has existing IAM infrastructure, but no incumbent implementation contractor is identified. There is no use of terms like 'recompete,' 'follow-on,' or 'predecessor contract' in the solicitation text."
+        }
+      },
+      "inputHash": "22fb3135ddf06302b68711739fae1c05a0fab9ce0c1cbe83f54bf3d5cb4d99b2",
+      "status": "COMPLETE",
+      "updatedAt": "2026-04-21T00:59:41.444Z"
+    },
+    "scoring": {
+      "data": {
+        "confidenceExplanation": "Confidence is 95% because the data is comprehensive and unambiguous: complete technology mismatch confirmed by KB, past performance, and pricing analysis; expired deadline verified against today's date; pass/fail minimum qualifications clearly documented in solicitation and clearly unmet.",
+        "requiredActions": [
+          "Do not pursue this opportunity \u2014 deadline has passed and minimum qualifications cannot be met",
+          "Monitor award outcome for market intelligence on which vendors win county-level Microsoft IAM work",
+          "If Microsoft IAM is a desired growth area, invest in Microsoft Entra ID certifications (SC-300, SC-100) and hire experienced Microsoft identity architects",
+          "Build Microsoft IAM track record through smaller engagements before pursuing opportunities of this scale and specificity",
+          "Evaluate Microsoft Solutions Partner enrollment if expanding into identity management space"
+        ],
+        "decision": "NO_GO",
+        "criteria": [
+          {
+            "name": "TECHNICAL_FIT",
+            "score": 1,
+            "rationale": "HORUSTECH is a California-based AWS Advanced Consulting Partner specializing in intelligent document automation, cloud-native development, and AI/ML solutions. The solicitation requires deep expertise in Microsoft Entra ID, Active Directory across six forests and fourteen domains, Okta-to-Entra SSO migration for approximately 400 SAML applications, and Workday/ServiceNow IAM integration \u2014 an entirely different technology domain. The company's KB shows no Microsoft IAM, Entra ID, Active Directory, or SSO migration capabilities. Of the 18+ must-have technical requirements (AD assessment, Okta SSO replacement, IAM automation with Workday/ServiceNow, cross-domain transfers, SAML SSO, MFA migration, security group schema), HORUSTECH's documented capabilities address zero. The no-subcontractor clause (Section 6) prevents teaming to fill this fundamental gap.",
+            "gaps": [
+              "No Microsoft Entra ID or Active Directory expertise documented",
+              "No Okta-to-Entra SSO migration capability",
+              "No Workday or ServiceNow IAM integration experience",
+              "No identity lifecycle management or IAM automation experience",
+              "No SAML SSO federation or MFA migration capabilities",
+              "No cross-domain workforce transfer or account provisioning experience",
+              "No Microsoft partner certification or designation",
+              "Subcontracting prohibited \u2014 cannot team to fill gaps"
+            ]
+          },
+          {
+            "name": "PAST_PERFORMANCE_RELEVANCE",
+            "score": 1,
+            "rationale": "No relevant past performance projects were found matching this opportunity. The past performance analysis returned 0% overall coverage with 39 critical gaps identified. The top-matched projects (AWS Amplify web app, HR platform, Digital Ocean migration, crypto trading platform, translation platform) have relevance scores of 5-7 out of 100 with 0% technical similarity across all matches. None involve Microsoft IAM, Entra ID, Active Directory, SSO migration, or government identity lifecycle management. The solicitation requires a mandatory minimum of three successful government IAM implementations of similar size within the last five years (Section 3.1) \u2014 this is a pass/fail gate. HORUSTECH cannot meet this minimum qualification, which would render the proposal non-responsive before scoring even begins.",
+            "gaps": [
+              "Zero Microsoft IAM government implementations (3 required within 5 years)",
+              "Zero years of Microsoft IAM solution experience (3 years required)",
+              "No government agency references for IAM work (3 required per Attachment C)",
+              "All past projects are AWS-focused, not Microsoft ecosystem",
+              "No projects involving Workday, ServiceNow, or SSO migration"
+            ]
+          },
+          {
+            "name": "PRICING_POSITION",
+            "score": 1,
+            "rationale": "The pricing analysis explicitly recommends NO-BID due to fundamental capability mismatch. Price confidence is rated at 15 out of 100. HORUSTECH's available labor rates (Manufacturing Engineer $178.89/hr, QA $16.86/hr, Software Engineer $171.40/hr) do not map to the required roles: Microsoft Identity Architect, AD/Entra Engineer, Workday/ServiceNow Integration Developer, and IAM Project Manager. No organizational labor rates exist for applicable roles. The Price Proposal Template (Attachment B) requires professional services pricing across Years 1-5 with role descriptions that cannot be credibly populated. Even if pricing could be assembled, competitors will be established Microsoft Solutions Partners with pre-built accelerators and dedicated IAM practices, placing HORUSTECH at a severe disadvantage on the 75% of Phase I evaluation that is non-price (Method/Approach 45% + Experience 30%).",
+            "gaps": [
+              "No labor rates defined for Microsoft IAM roles needed",
+              "Cannot credibly populate Attachment B Price Proposal Template",
+              "Competitors will be established Microsoft IAM specialists with lower delivery risk",
+              "Firm-fixed-price structure places full delivery risk on contractor lacking capability"
+            ]
+          },
+          {
+            "name": "STRATEGIC_ALIGNMENT",
+            "score": 1,
+            "rationale": "HORUSTECH's documented strategic positioning is as an AWS Advanced Consulting Partner focused on intelligent document automation, cloud-native development, and AI/ML solutions. The company is based in San Diego, California \u2014 not San Mateo County \u2014 eliminating eligibility for the 5-10% local business preference. The solicitation requires Microsoft-specific IAM expertise, which is a completely different technology ecosystem from HORUSTECH's AWS focus. No strategic plan or documented intent to expand into Microsoft identity management was found in the KB. Pursuing this opportunity would divert resources from the company's core AWS competencies with virtually zero probability of award, given the pass/fail minimum qualifications that cannot be met. The pricing analysis itself recommends monitoring this solicitation for market intelligence only.",
+            "gaps": [
+              "Fundamental misalignment with company's AWS-focused strategy",
+              "Not located in San Mateo County \u2014 no local preference eligibility",
+              "No documented strategic intent to enter Microsoft IAM market",
+              "Opportunity would divert resources from core competencies with no realistic win path"
+            ]
+          },
+          {
+            "name": "INCUMBENT_RISK",
+            "score": 3,
+            "rationale": "The solicitation does not identify a current incumbent contractor or reference a predecessor contract. The County currently uses Okta for SSO, Workday for employee records, and ServiceNow for contractor management, but no implementation vendor is named. This appears to be a new requirement for Microsoft IAM implementation rather than a recompete. The absence of an identified incumbent is a neutral factor. However, established Microsoft Solutions Partners with existing government IAM practices and pre-built Entra ID accelerators will have significant competitive advantages in both the Phase I technical evaluation and Phase II live demonstrations, even without incumbent status.",
+            "gaps": [
+              "Established Microsoft IAM firms will have strong competitive positioning even without incumbent status",
+              "Phase II demonstration requirement favors firms with pre-built demo environments"
+            ]
+          }
+        ],
+        "summaryJustification": "This opportunity represents a fundamental industry and technology mismatch for HORUSTECH. The company is an AWS Advanced Consulting Partner specializing in document automation and AI/ML, while the solicitation requires deep Microsoft Entra ID, Active Directory, and IAM lifecycle management expertise across six forests and fourteen domains. The mandatory minimum qualifications \u2014 three years of Microsoft IAM experience and three successful government implementations within five years \u2014 are pass/fail gates that HORUSTECH cannot meet, rendering any proposal non-responsive before evaluation. The no-subcontractor clause explicitly prohibits teaming to fill capability gaps. Additionally, the submission deadline of March 26, 2026 has already passed (today is April 21, 2026), making submission impossible. Past performance analysis shows 0% coverage across 39 critical requirements, and the pricing module itself recommends NO-BID with a confidence of only 15%. Every dimension of this assessment indicates this opportunity should not be pursued.",
+        "confidence": 95,
+        "blockers": [
+          "Submission deadline has passed: Proposal was due March 26, 2026 and today is April 21, 2026 \u2014 submission is no longer possible",
+          "Cannot meet mandatory minimum qualification: 3 years Microsoft IAM implementation experience (Section 3.1) \u2014 pass/fail disqualifier",
+          "Cannot meet mandatory minimum qualification: 3 successful government IAM implementations within last 5 years (Section 3.1) \u2014 pass/fail disqualifier",
+          "No-subcontractor clause (Section 6) prohibits teaming to fill the fundamental Microsoft IAM capability gap",
+          "No Microsoft Entra ID, Active Directory, or IAM expertise exists in company capabilities or staff",
+          "$5M Cyber Liability insurance requirement may not be currently held"
+        ],
+        "decisionRationale": "NO_GO is the only defensible recommendation. TECHNICAL_FIT scores 1 due to complete misalignment between HORUSTECH's AWS/document automation capabilities and the solicitation's Microsoft Entra ID IAM requirements. PAST_PERFORMANCE_RELEVANCE scores 1 because no Microsoft IAM or government identity management projects exist in the company's portfolio, and the mandatory minimum of three government implementations cannot be met \u2014 a pass/fail disqualifier per Section 3.1. PRICING_POSITION scores 1 because no applicable labor rates exist for required Microsoft IAM roles and the pricing module recommends NO-BID at 15% confidence. STRATEGIC_ALIGNMENT scores 1 as this Microsoft-centric opportunity fundamentally conflicts with the company's AWS-focused strategy. Most critically, the submission deadline of March 26, 2026 has already passed, making bid submission impossible. The composite score of 1.2 is well below the 3.0 threshold, with zero criteria scoring above 1 except INCUMBENT_RISK (3), which is irrelevant given the other disqualifying factors.",
+        "compositeScore": 1.2,
+        "confidenceDrivers": [
+          {
+            "factor": "Complete technology domain mismatch (AWS vs Microsoft IAM) confirmed by KB and past performance data",
+            "direction": "UP"
+          },
+          {
+            "factor": "Submission deadline expired (March 26 vs today April 21)",
+            "direction": "UP"
+          },
+          {
+            "factor": "Pass/fail minimum qualifications clearly unmet and documented",
+            "direction": "UP"
+          },
+          {
+            "factor": "Pricing module independently recommends NO-BID at 15% confidence",
+            "direction": "UP"
+          },
+          {
+            "factor": "No-subcontractor clause eliminates teaming workaround",
+            "direction": "UP"
+          },
+          {
+            "factor": "39 of 39 critical requirements identified as gaps in past performance analysis",
+            "direction": "UP"
+          }
+        ]
+      },
+      "inputHash": "139e85d9cb11401734304e8e8e2d572fa87423bded07e738798326aabcd12164",
+      "status": "COMPLETE",
+      "updatedAt": "2026-04-21T01:00:50.371Z"
+    },
+    "summary": {
+      "data": {
+        "summary": "The County of San Mateo Technology Services Department (TSD) is seeking proposals from qualified vendors to assess, configure, and implement Microsoft's Identity & Access Management (IAM) solution to support the County's identity lifecycle management across its workforce. The technical scope encompasses integration with Workday as the system of record and ServiceNow for account provisioning, automated onboarding/offboarding workflows, cross-domain workforce transfers, SAML SSO integration for external partners, migration to Microsoft Entra SSO with seamless MFA transition, and automated account expiration for seasonal, temporary, and contractor workforce members. The contract is structured as a 36-month base period with two 12-month renewal options, with an estimated value of $300,000 to $500,000 funded by County sources, and proposals are evaluated using a best-value approach across two phases \u2014 technical proposal evaluation (45% method/approach, 30% experience, 25% price) followed by live demonstrations and interviews for elevated proposals. Proposers must have a minimum of three years' experience implementing the requested solution and at least three successful government agency implementations of similar size within the last five years, along with active SAM.gov registration and comprehensive insurance coverage including $5,000,000 cyber liability. This initiative is strategically significant as it modernizes the County's identity governance infrastructure, enabling automated lifecycle communications, role-based access controls, approval escalation workflows, and security group schema integration across integrated and third-party applications to reduce manual intervention by TSD staff and improve security posture.",
+        "periodOfPerformance": "36 months base + 2 options of 12 months each",
+        "agency": "County of San Mateo",
+        "contractType": "UNKNOWN",
+        "estimatedValueUsd": "$300,000 - $500,000",
+        "office": "Technology Services Department",
+        "title": "Implementation of Microsoft's Identity & Access Management (IAM) Solution",
+        "placeOfPerformance": "455 County Center, 3rd Fl, Redwood City, CA 94063",
+        "solicitationNumber": "RFP TSD-20261923",
+        "setAside": "UNKNOWN"
+      },
+      "inputHash": "77bf5944ccc96e9b1a4cd0dd385b8b80ee453f83dc6e8094853146968504011f",
+      "status": "COMPLETE",
+      "updatedAt": "2026-04-21T00:58:30.981Z"
+    }
+  }
+}

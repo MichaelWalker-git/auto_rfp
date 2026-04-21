@@ -1,0 +1,705 @@
+{
+  "compositeScore": 1.4,
+  "confidence": 55,
+  "decision": "NO_GO",
+  "sections": {
+    "contacts": {
+      "data": {
+        "missingRecommendedRoles": [
+          "CONTRACTING_OFFICER",
+          "CONTRACTING_OFFICER_REPRESENTATIVE",
+          "CONTRACT_SPECIALIST",
+          "TECHNICAL_POC",
+          "PROGRAM_MANAGER",
+          "SMALL_BUSINESS_SPECIALIST",
+          "SUBCONTRACTING_POC",
+          "GENERAL_INQUIRY"
+        ],
+        "contacts": [
+          {
+            "role": "PROCUREMENT_POC",
+            "notes": "Primary point of contact for all inquiries regarding this RFP. Located at 6900 Airport Blvd, Sacramento, CA 95837. Contact with other County personnel may result in disqualification.",
+            "phone": "(916) 874-0426",
+            "organization": "Sacramento County Department of Airports",
+            "name": "William Wallace",
+            "title": "Administrative Services Officer II",
+            "email": "wallacew@saccounty.gov"
+          },
+          {
+            "name": "Cindy Nichol",
+            "role": "OTHER",
+            "notes": "Department Head listed in contact information section; no direct contact details provided for solicitation inquiries.",
+            "title": "Director",
+            "organization": "Sacramento County Department of Airports"
+          }
+        ]
+      },
+      "inputHash": "force-regen-v9",
+      "status": "COMPLETE",
+      "updatedAt": "2026-04-21T00:44:57.357Z"
+    },
+    "deadlines": {
+      "data": {
+        "hasSubmissionDeadline": true,
+        "submissionDeadlineIso": "2026-05-05T12:00:00-07:00",
+        "deadlines": [
+          {
+            "dateTimeIso": "2026-02-20T10:00:00-08:00",
+            "label": "Optional Virtual Pre-Proposal Conference",
+            "notes": "Non-mandatory virtual conference via Microsoft Teams. Attending is recommended to clarify RFP requirements and ask questions directly to Department representatives before the written question deadline.",
+            "type": "PRE_PROPOSAL_CONFERENCE",
+            "rawText": "An Optional Virtual Pre-Proposal Conference is scheduled for Friday, February 20, 2026, at 10:00 AM",
+            "timezone": "PST"
+          },
+          {
+            "dateTimeIso": "2026-03-10T12:00:00-07:00",
+            "label": "Deadline for submitting questions",
+            "notes": "All inquiries must be directed in writing via email to William Wallace at wallacew@saccounty.gov. No telephone inquiries will receive a response. Questions submitted after this deadline will not be addressed.",
+            "type": "QUESTIONS_DUE",
+            "rawText": "March 10, 2026 12 P.M. PDT - Deadline for submitting questions",
+            "timezone": "PDT"
+          },
+          {
+            "dateTimeIso": "2026-03-24T12:00:00-07:00",
+            "label": "Addenda issued including responses to questions",
+            "notes": "This is when the Department plans to publish answers to submitted questions and any addenda. Proposers should monitor the Sacramento County Airports website and OpenGov portal. Only 14 days remain between this date and the proposal due date, so proposal preparation should be well underway.",
+            "type": "OTHER",
+            "rawText": "March 24, 2026 12 P.M. PDT - Addenda issued if necessary, including Department's responses to questions",
+            "timezone": "PDT"
+          },
+          {
+            "dateTimeIso": "2026-05-05T12:00:00-07:00",
+            "label": "Proposals Due",
+            "notes": "The RFP cover page states April 7, 2026 at 12 PM Pacific Time, and the RFP timeline table also lists April 7, 2026. However, Section VI (Deadline and Proposal Submission) in the same document explicitly states May 5, 2026. The OpenGov portal (updated by Addendum #1 on Feb 10, 2026) lists April 7, 2026. There is a conflict between the body text (May 5) and the timeline/cover/portal (April 7). Proposers should urgently seek clarification from the contracting officer. Using the Section VI date of May 5, 2026 as it appears to be the most explicit statement, but April 7 may be correct per the timeline and portal. All late responses will be rejected. Submit via OpenGov.com as one PDF and one Word document.",
+            "type": "PROPOSAL_DUE",
+            "rawText": "Proposals are due no later than 12:00 P.M. Pacific Time (PT) on Tuesday, May 5, 2026.",
+            "timezone": "PT"
+          },
+          {
+            "dateTimeIso": "2026-05-05T00:00:00-07:00",
+            "label": "Interviews with highest-ranked proposers",
+            "notes": "The RFP timeline lists May 5, 2026 for interviews. However, this is the same date listed for proposals due in Section VI, creating a scheduling conflict that needs clarification. Only the highest-ranked proposers may be required to attend a virtual interview. No specific time is given, so the datetime uses midnight as a placeholder and may not be accurate.",
+            "type": "ORALS",
+            "rawText": "May 5, 2026 - Interviews",
+            "timezone": "PT"
+          },
+          {
+            "dateTimeIso": null,
+            "label": "Anticipated effective date of agreement",
+            "notes": "No specific day provided, only 'July 2026.' The Department intends to award a single agreement in August 2026 per Section IV, while the timeline says July 2026 \u2014 slight inconsistency. This is an estimate and the Department reserves the right to modify the schedule.",
+            "type": "AWARD_ESTIMATE",
+            "rawText": "July 2026 - Anticipated effective date of agreement with selected Contractor",
+            "timezone": "PT"
+          }
+        ],
+        "warnings": [
+          "CRITICAL CONFLICT: The proposal due date appears as both April 7, 2026 (cover page, timeline table, OpenGov portal) and May 5, 2026 (Section VI body text). The OpenGov portal was last updated by Addendum #1 on Feb 10, 2026 and shows April 7. Proposers must seek immediate clarification from the contracting officer.",
+          "The interviews date (May 5, 2026) in the timeline conflicts with the May 5 proposal due date in Section VI, suggesting the timeline may reflect the original April 7 proposal deadline with May 5 reserved for interviews."
+        ]
+      },
+      "inputHash": "force-regen-v9",
+      "status": "COMPLETE",
+      "updatedAt": "2026-04-21T00:41:39.598Z"
+    },
+    "pastPerformance": {
+      "status": "IDLE",
+      "updatedAt": "2026-04-19T20:15:01.148Z"
+    },
+    "pricing": {
+      "data": {
+        "competitiveAdvantages": [],
+        "totalPrice": 0,
+        "indirectCostTotal": 0,
+        "basisOfEstimate": "No meaningful price estimate can be developed because there is a fundamental industry mismatch between Horus Technology's capabilities and this solicitation's requirements. Horus Technology (Interesting Interests Inc.) is a California-based AWS Advanced Consulting Partner specializing in intelligent document automation, cloud-native development, and AI/ML solutions. This solicitation (Project ID 2026-WW-01) seeks a vendor to provide a comprehensive, fully supported cloud-based Project Management Software product \u2014 an established COTS platform \u2014 for managing active construction projects and Capital Improvement Planning across Sacramento County's four airport facilities. The solicitation does not include a government estimated value, making external price anchoring impossible. The organization's provided labor rates (Manufacturing Engineer at $178.89/hr, QA at $16.86/hr, Software Engineer at $171.40/hr) and BOM items are irrelevant because this opportunity requires an existing software product with unlimited licensing, not custom software development. Competitors for this solicitation would be established PM software companies like Procore, e-Builder (Trimble), Kahua, PMWeb, Oracle Primavera Unifier, or similar vendors with decade-plus track records serving public agencies. Typical pricing for enterprise cloud PM software for a mid-size public agency over 8 years would range from $500,000 to $2,000,000+ depending on scope, but Horus Technology cannot credibly compete in this space. The totalPrice is set to $0 because the company fundamentally cannot perform this work as a prime contractor.",
+        "materialCostTotal": 0,
+        "assumptions": [
+          "Horus Technology does not own, develop, or have reseller rights to any cloud-based project management software product suitable for construction project management and Capital Improvement Planning, based on the company knowledge base describing the firm as an AWS consulting partner focused on document automation and AI/ML.",
+          "Horus Technology does not possess the required minimum of ten (10) years of continuous experience providing project management software services to public agencies, which is a mandatory Pass/Fail qualification per Section IX.C that would result in disqualification before scoring.",
+          "The solicitation seeks a COTS (Commercial Off-The-Shelf) software product with unlimited licensing, ongoing upgrades, helpdesk support, and long-term viability \u2014 not a custom-built application. This is evidenced by requirements for 'all scheduled software upgrades, enhancements, and security releases' and customization that 'remains supportable, upgradable, and compatible with future software versions' (Section III.3).",
+          "The organization's labor rates and BOM items provided are not applicable to this solicitation because the work requires an existing software platform, not custom development labor. Even if a custom solution were attempted, it would not be competitive against established vendors with mature products.",
+          "No government estimated value was stated in the solicitation. Based on industry benchmarks for enterprise cloud PM software deployments at mid-size public agencies over 8 years, total contract values typically range from $500,000 to $2,000,000+, but this estimate is speculative and provided only for market context.",
+          "The evaluation methodology is a 100-point best-value scoring system with Fee Schedule weighted at only 20% \u2014 meaning technical capability, implementation plan, company qualifications, and public sector experience collectively account for 80% of the score. Even with aggressive pricing, a vendor without the right product and track record cannot win.",
+          "The contract type appears to be a negotiated fixed-price or subscription-based agreement per the sample agreement (Attachment 1), with the Fee Schedule covering the initial 4-year term and each 2-year extension option separately. The sealed bid process with separate cost proposal upload indicates price competition but within a best-value framework."
+        ],
+        "competitivePosition": "HIGH",
+        "laborCostTotal": 0,
+        "profitMargin": 10,
+        "pricingRisks": [
+          "FUNDAMENTAL DISQUALIFIER \u2014 Minimum Qualifications (Section IX.C) require 'a minimum of ten (10) years of continuous experience in providing project management software services to public agencies.' Horus Technology is an AWS consulting partner specializing in document automation and AI/ML, not a project management software provider. This is a Pass/Fail gate that would result in immediate disqualification before scoring begins.",
+          "INDUSTRY MISMATCH \u2014 This solicitation seeks a vendor that owns or licenses a comprehensive cloud-based Project Management Software product (comparable to Procore, e-Builder, Kahua, PMWeb, or similar COTS platforms) with modules for construction project tracking, CIP, RFIs, submittals, change orders, cost control, and portfolio management. Horus Technology does not develop, own, or resell any such product. Building a custom solution from scratch would be prohibitively expensive, non-competitive, and would not meet the requirement for an established, upgradable platform.",
+          "SCOPE MISALIGNMENT \u2014 The solicitation requires unlimited software licenses, ongoing helpdesk support, scheduled software upgrades and security patches, and system integration with County ERP, GIS, and SSO systems \u2014 all predicated on the vendor being the developer or authorized reseller of an existing PM software platform. Horus Technology's cloud consulting and AI/ML capabilities do not map to these requirements.",
+          "EVALUATION RISK \u2014 Fee Schedule carries 20 points (Section XIV) and is evaluated alongside Service Support Capabilities (20 pts), Implementation Plan (20 pts), Company Qualifications (15 pts), and Public Sector Experience (15 pts). Even if pricing were competitive, Horus Technology would score poorly or zero on Company Qualifications and Public Sector Experience due to lack of relevant PM software delivery history to public agencies, particularly airports or similar large public-use facilities.",
+          "CONTRACT DURATION RISK \u2014 The agreement spans up to 8 years (4-year base + two 2-year options). This requires a vendor with a proven, stable software product and long-term support infrastructure. A custom-built solution from a 16-person consulting firm would present unacceptable sustainability and support risk to the County."
+        ],
+        "recommendedActions": [
+          "RECOMMEND NO-BID \u2014 Horus Technology should not pursue this solicitation. The company does not meet the mandatory minimum qualification of 10 years continuous experience providing project management software to public agencies (Section IX.C, Pass/Fail). Submitting a proposal would waste resources and risk reputational damage with Sacramento County for a non-responsive submission.",
+          "EXPLORE SUBCONTRACTING \u2014 If Horus Technology wishes to participate in this opportunity, consider approaching an established PM software vendor (e.g., Procore, e-Builder/Trimble, Kahua, PMWeb, Oracle Primavera Unifier) as a subcontractor for system integration, data migration, or custom API development work. This would leverage Horus Tech's cloud and integration expertise without requiring the company to be the prime contractor.",
+          "MONITOR FOR RELATED OPPORTUNITIES \u2014 Sacramento County Department of Airports and other county departments may issue future solicitations for cloud migration, document automation, AI/ML analytics, or system integration services that align with Horus Technology's core competencies. Register on OpenGov and the Sacramento County procurement portal to receive notifications for NAICS codes aligned with software consulting and cloud services.",
+          "BUILD PUBLIC SECTOR PM SOFTWARE PARTNERSHIPS \u2014 If Horus Technology wants to enter the construction/capital project management software market, establish formal partnership or reseller agreements with established PM software vendors. This would take years to build the required track record but could open future opportunities.",
+          "ATTEND PRE-PROPOSAL CONFERENCE FOR MARKET INTELLIGENCE \u2014 Consider attending the February 20, 2026 virtual pre-proposal conference to understand the competitive landscape, County's specific pain points, and potential future technology needs that may align with Horus Technology's capabilities. This is a no-cost intelligence-gathering opportunity."
+        ],
+        "strategy": "FIXED_PRICE",
+        "priceConfidence": 5
+      },
+      "inputHash": "force-regen-v9",
+      "status": "COMPLETE",
+      "updatedAt": "2026-04-21T00:49:06.575Z"
+    },
+    "requirements": {
+      "data": {
+        "evaluationFactors": [
+          "Completeness of Response (Pass/Fail)",
+          "Minimum Qualifications (Pass/Fail)",
+          "References (Pass/Fail)",
+          "Service Support Capabilities (20 points)",
+          "Implementation Plan (20 points)",
+          "Company Qualifications (15 points)",
+          "Relevant Public Sector Experience and References (15 points)",
+          "Fee Schedule (20 points)",
+          "Highest-ranked proposers may be required to attend a virtual interview, which will serve as the basis for the panel's final decision for a recommendation to the County's Board of Supervisors for contract award"
+        ],
+        "overview": "The Sacramento County Department of Airports (SCDA) is soliciting proposals for a comprehensive, fully supported cloud-based Project Management Software solution to manage active construction projects across all four of its airport facilities, including Sacramento International Airport (SMF). The Department currently relies on Excel spreadsheets and Crystal Reports for its Capital Improvement Planning (CIP) process and seeks to replace this manual approach with an integrated system that provides project tracking, scheduling, budget management, cost control, document management, real-time reporting, and portfolio-level visibility for capital project prioritization and long-term forecasting. Success looks like a fully implemented and customized software platform with automated workflows for RFIs, submittals, change orders, and approvals, integration with existing County ERP, GIS, and SSO systems, comprehensive training enabling internal self-sufficiency, and ongoing technical support including helpdesk, updates, and patches. The initial agreement term is four years with two additional two-year extension options (up to eight years total), with an anticipated award in August 2026. Proposals are due April 7, 2026 at 12:00 PM Pacific Time via OpenGov, must not exceed 40 pages (excluding specified items), and will be evaluated on a 100-point scale across Service Support Capabilities, Implementation Plan, Company Qualifications, Relevant Public Sector Experience and References, and Fee Schedule, with Completeness of Response, Minimum Qualifications, and References evaluated on a Pass/Fail basis. Contractors must have a minimum of ten years of continuous experience providing project management software services to public agencies, be registered with the California Secretary of State, and comply with FAA General Contract Provisions and County security requirements.",
+        "requirements": [
+          {
+            "category": "TECHNICAL",
+            "mustHave": true,
+            "requirement": "Provide a comprehensive, fully supported cloud-based Project Management Software for project tracking, schedules, budget management, reporting, and Capital Improvement Planning"
+          },
+          {
+            "category": "TECHNICAL",
+            "mustHave": true,
+            "requirement": "Provide unlimited software licenses for all County staff, consultants, and external stakeholders with full access to all modules, features, dashboards, workflow tools, and administrative functions"
+          },
+          {
+            "category": "TECHNICAL",
+            "mustHave": true,
+            "requirement": "Licenses must permit concurrent users, remote access, and the ability to scale as County operations grow"
+          },
+          {
+            "category": "TECHNICAL",
+            "mustHave": true,
+            "requirement": "Complete installation of the Project Management Software including all server components, databases, system integrations, and user environment configuration"
+          },
+          {
+            "category": "TECHNICAL",
+            "mustHave": true,
+            "requirement": "Configure the system for project status/updating reporting, capital planning, project initiation, project budget and cost tracking, invoice processing, schedule management, change orders, RFIs, submittals, and reporting dashboards and alerts"
+          },
+          {
+            "category": "TECHNICAL",
+            "mustHave": true,
+            "requirement": "Provide automated workflows for Request for Information (RFI), submittals, change orders, and approvals"
+          },
+          {
+            "category": "TECHNICAL",
+            "mustHave": true,
+            "requirement": "Provide real-time dashboards and alerts for cost and schedule control"
+          },
+          {
+            "category": "TECHNICAL",
+            "mustHave": true,
+            "requirement": "Customize the software to align with Department-specific project management and approval workflows including configuring system fields, forms, dashboards, and approval routing"
+          },
+          {
+            "category": "TECHNICAL",
+            "mustHave": true,
+            "requirement": "Support portfolio and capital planning tools, document control, budget and cost module customization, schedule management visibility, audit trails and version tracking, and automated alerting and notifications"
+          },
+          {
+            "category": "TECHNICAL",
+            "mustHave": true,
+            "requirement": "Ensure all customization remains supportable, upgradable, and compatible with future software versions"
+          },
+          {
+            "category": "TECHNICAL",
+            "mustHave": true,
+            "requirement": "Provide integration with existing County systems including ERP or financial systems, document repositories, Single Sign-On (SSO), GIS, scheduling tools, or other platforms as identified during implementation"
+          },
+          {
+            "category": "TECHNICAL",
+            "mustHave": true,
+            "requirement": "Supply all API documentation, middleware, and technical support needed for successful integration"
+          },
+          {
+            "category": "TECHNICAL",
+            "mustHave": true,
+            "requirement": "Develop up to ten (10) customized reports tailored to County needs including capital project status, portfolio summary, budget and expenditure tracking, schedule progress dashboard, contract and change order reporting, and executive-level project status rollup"
+          },
+          {
+            "category": "TECHNICAL",
+            "mustHave": true,
+            "requirement": "Reports must be exportable to standard formats (PDF, Excel, CSV) and configurable by County administrators"
+          },
+          {
+            "category": "TECHNICAL",
+            "mustHave": true,
+            "requirement": "Develop a complete implementation plan including timeline and milestones, roles and responsibilities, data migration plan, testing and validation procedures, and change management strategy"
+          },
+          {
+            "category": "TECHNICAL",
+            "mustHave": false,
+            "requirement": "Conduct phased rollouts if necessary to reduce operational disruption"
+          },
+          {
+            "category": "TECHNICAL",
+            "mustHave": true,
+            "requirement": "Provide full-service ongoing technical support including helpdesk availability, software updates and system patches, troubleshooting assistance, and resolution of system issues and performance concerns"
+          },
+          {
+            "category": "TECHNICAL",
+            "mustHave": true,
+            "requirement": "Include access to all scheduled software upgrades, enhancements, and security releases"
+          },
+          {
+            "category": "TECHNICAL",
+            "mustHave": true,
+            "requirement": "Provide a dedicated technical representative during implementation and early adoption phases"
+          },
+          {
+            "category": "TECHNICAL",
+            "mustHave": true,
+            "requirement": "Provide up to six (6) in-person administrator training sessions, up to ten (10) combination in-person and virtual end-user training sessions, and up to six (6) virtual train-the-trainer sessions"
+          },
+          {
+            "category": "TECHNICAL",
+            "mustHave": true,
+            "requirement": "Furnish user manuals, quick reference guides, and recorded training modules"
+          },
+          {
+            "category": "TECHNICAL",
+            "mustHave": true,
+            "requirement": "Deliver a training plan that addresses usability considerations"
+          },
+          {
+            "category": "SECURITY",
+            "mustHave": true,
+            "requirement": "Work with County IT team to meet all security, hosting, and technology compliance requirements including authentication and user permissions, system performance standards, integration capabilities (API availability, data import/export), and data retention and backup protocols"
+          },
+          {
+            "category": "SECURITY",
+            "mustHave": true,
+            "requirement": "Ability to meet the County of Sacramento Security Requirements as described in Attachment 5 to this RFP"
+          },
+          {
+            "category": "SECURITY",
+            "mustHave": true,
+            "requirement": "Selected Contractor staff working on-site unescorted or requiring Airport access must pass the Department's background check and obtain an airport access badge"
+          },
+          {
+            "category": "COMPLIANCE",
+            "mustHave": true,
+            "requirement": "Contractor must be registered with the California Secretary of State and permitted to conduct business in the State of California"
+          },
+          {
+            "category": "COMPLIANCE",
+            "mustHave": true,
+            "requirement": "Contractor shall maintain insurance and workers' compensation coverage that complies with or exceeds the minimum requirements established by the County"
+          },
+          {
+            "category": "COMPLIANCE",
+            "mustHave": true,
+            "requirement": "Contractor must possess a minimum of ten (10) years of continuous experience in providing project management software services to public agencies"
+          },
+          {
+            "category": "COMPLIANCE",
+            "mustHave": true,
+            "requirement": "Comply with FAA General Contract Provisions for Solicitations (Attachment 2) at all times during the term of the agreement"
+          },
+          {
+            "category": "COMPLIANCE",
+            "mustHave": true,
+            "requirement": "Complete County of Sacramento Contractor Certification of Compliance Form (Attachment 3) and Contractor Identification Form (Attachment 4)"
+          },
+          {
+            "category": "COMPLIANCE",
+            "mustHave": true,
+            "requirement": "Provide Iran Contracting Act Certification per California Public Contract Code sections 2202-2208"
+          },
+          {
+            "category": "COMPLIANCE",
+            "mustHave": true,
+            "requirement": "Provide Certification of Independent Contractor Status via OpenGov questionnaire"
+          },
+          {
+            "category": "COMPLIANCE",
+            "mustHave": true,
+            "requirement": "Demonstrate capability to provide services in a large public use facility in continuous operation such as an airport or similar facility"
+          },
+          {
+            "category": "DELIVERABLES",
+            "mustHave": true,
+            "requirement": "Provide system architecture and configuration documentation, data model and integration specifications, security protocols and compliance documentation, and administrator handbook and technical references"
+          },
+          {
+            "category": "DELIVERABLES",
+            "mustHave": true,
+            "requirement": "Provide references from at least three (3) clients or individuals with direct experience within the last five (5) years"
+          },
+          {
+            "category": "DELIVERABLES",
+            "mustHave": true,
+            "requirement": "Include historical financial information: balance sheet and income statements for the last two fiscal years prepared in accordance with GAAP, plus interim statements for significant financial events"
+          },
+          {
+            "category": "DELIVERABLES",
+            "mustHave": true,
+            "requirement": "Include a proposed Fee Schedule for the initial four-year term and for each of the additional two-year extension options"
+          },
+          {
+            "category": "DELIVERABLES",
+            "mustHave": true,
+            "requirement": "Include hourly rates, overhead multipliers or other fees, anticipated hours for all proposed employees, and justification of hours to complete the required scope of services"
+          }
+        ],
+        "submissionCompliance": {
+          "format": [
+            "One (1) digital PDF copy of the proposal compatible with Adobe Acrobat",
+            "One (1) digital copy of the proposal compatible with Microsoft Word in DOC or DOCX format",
+            "Proposals must be typed or printed in a font no smaller than eleven (11) point on 8.5\" by 11\" sized pages",
+            "Proposal must not exceed forty (40) pages including any marketing materials",
+            "Items excluded from page limit: cover page, cover letter, staff resumes, contractor team organization chart, independent market study, Contractor Certification of Compliance Form, Contractor Identification Form",
+            "Proposal must be signed by an authorized employee or officer",
+            "Submit proposals via OpenGov.com",
+            "Sealed Bid Process: Bids Sealed / Pricing Sealed",
+            "Fee proposal must be uploaded separately from the main proposal"
+          ],
+          "attachmentsAndForms": [
+            "Attachment 1 - Sample Agreement for Project Management Software Services",
+            "Attachment 2 - FAA General Contract Provisions for Solicitations",
+            "Attachment 3 - County of Sacramento Contractor Certification of Compliance Form",
+            "Attachment 4 - Contractor Identification Form",
+            "Attachment 5 - County of Sacramento Security Requirements"
+          ],
+          "requiredDocuments": [
+            {
+              "name": "Cover Letter",
+              "description": "Signed by authorized individual on business letterhead, including contractor information, contact details, demonstrated understanding of work, acknowledgement of addenda, acknowledgement of sample agreement review, agreement to sample agreement format and requirements including insurance, and general business organization information",
+              "documentType": "COVER_LETTER",
+              "required": true
+            },
+            {
+              "name": "Executive Summary",
+              "description": "List important features of the proposal and include a statement certifying that the Contractor meets or exceeds the minimum requirements of this RFP",
+              "documentType": "EXECUTIVE_SUMMARY",
+              "required": true
+            },
+            {
+              "name": "Proposal (without Cost Proposal)",
+              "description": "Complete proposal uploaded via OpenGov excluding the cost/fee proposal, covering Minimum Qualifications, Statement of Qualifications, Company Qualifications, Approach/Scope/Timeline, and References",
+              "pageLimit": "40 pages (including marketing materials; excluding cover page, cover letter, staff resumes, org chart, independent market study, and required forms)",
+              "documentType": "TECHNICAL_PROPOSAL",
+              "required": true
+            },
+            {
+              "name": "Separate Cost Proposal / Fee Schedule",
+              "description": "Fee proposal uploaded separately including hourly rates, overhead multipliers, anticipated hours for all proposed employees, justification of hours, and proposed Fee Schedule for initial four-year term and each two-year extension option",
+              "documentType": "COST_PROPOSAL",
+              "required": true
+            },
+            {
+              "name": "Statement of Qualifications",
+              "description": "Company qualifications demonstrating capability to provide services in a large public use facility, description of how minimum qualifications are met, transition support approach, service support capabilities, training services, onboarding, change management, and implementation plan",
+              "documentType": "TEAM_QUALIFICATIONS",
+              "required": true
+            },
+            {
+              "name": "References",
+              "description": "At least three (3) references from clients or individuals with direct experience within the last five (5) years including company name, contact name, title, address, email, telephone number, and services performed",
+              "documentType": "PAST_PERFORMANCE",
+              "required": true
+            },
+            {
+              "name": "County of Sacramento Contractor Certification of Compliance Form",
+              "description": "Attachment 3 - Required compliance certification form",
+              "documentType": "CERTIFICATIONS",
+              "required": true
+            },
+            {
+              "name": "Contractor Identification Form",
+              "description": "Attachment 4 - Required contractor identification form",
+              "documentType": "OTHER",
+              "required": true
+            },
+            {
+              "name": "Financial Background Information",
+              "description": "Balance sheet and income statements for the last two fiscal years prepared in accordance with GAAP, interim statements for significant financial events, and description of ownership of the proposing entity",
+              "documentType": "OTHER",
+              "required": true
+            },
+            {
+              "name": "Certification of Independent Contractor Status",
+              "description": "Certification via OpenGov vendor questionnaire regarding full-time employee count",
+              "documentType": "OTHER",
+              "required": true
+            },
+            {
+              "name": "Iran Contracting Act Certification",
+              "description": "Certification or exemption per California Public Contract Code sections 2202-2208",
+              "documentType": "OTHER",
+              "required": true
+            },
+            {
+              "name": "PaymentWorks Contact Information",
+              "description": "Name and email for finance point-of-contact for vendor registration on County's PaymentWorks portal",
+              "documentType": "OTHER",
+              "required": true
+            },
+            {
+              "name": "Signatory and Contract Manager Contact Information",
+              "description": "Full contact name, title, and email of signatory and contract manager for the firm",
+              "documentType": "OTHER",
+              "required": true
+            }
+          ],
+          "requiredVolumes": [
+            "Cover Letter",
+            "Executive Summary",
+            "Minimum Qualifications (Section IX)",
+            "Statement of Qualifications (Section X) including Company Qualifications and Approach, Scope and Timeline",
+            "Fee Structure, Proposal Cost, and Scope (Section XI) including Financial Background Information and Fee Schedule",
+            "References (Section XII)",
+            "Required Documentation and Forms"
+          ]
+        },
+        "deliverables": [
+          "Fully configured and deployed cloud-based Project Management Software",
+          "Unlimited software licenses for all County staff, consultants, and external stakeholders",
+          "System installation, configuration, and deployment across all server components and databases",
+          "Software customization aligned with Department-specific workflows",
+          "System integration with ERP, document repositories, SSO, GIS, and scheduling tools",
+          "API documentation, middleware, and technical support for integration",
+          "Up to ten (10) customized reports (capital project status, portfolio summary, budget tracking, schedule dashboard, contract/change order reporting, executive rollup)",
+          "Up to six (6) in-person administrator training sessions",
+          "Up to ten (10) combination in-person and virtual end-user training sessions",
+          "Up to six (6) virtual train-the-trainer sessions",
+          "User manuals, quick reference guides, and recorded training modules",
+          "Training plan addressing usability considerations",
+          "System architecture and configuration documentation",
+          "Data model and integration specifications",
+          "Security protocols and compliance documentation",
+          "Administrator handbook and technical references",
+          "Complete implementation plan with timeline, milestones, roles, data migration plan, testing/validation procedures, and change management strategy",
+          "Ongoing technical support including helpdesk, software updates, patches, and troubleshooting",
+          "Dedicated technical representative during implementation and early adoption phases"
+        ]
+      },
+      "inputHash": "force-regen-v9",
+      "status": "COMPLETE",
+      "updatedAt": "2026-04-21T00:44:53.129Z"
+    },
+    "risks": {
+      "data": {
+        "redFlags": [
+          {
+            "severity": "CRITICAL",
+            "whyItMatters": "The minimum qualification in Section IX.C requiring 'a minimum of ten (10) years of continuous experience in providing project management software services to public agencies' is an absolute pass/fail gate per Section XIV's evaluation table. HORUSTECH's knowledge base, past performance records, and content library contain no evidence of project management software services to any public agency, let alone 10 years of continuous experience. The solicitation explicitly states in Section IX that 'Proposals that do not meet these minimum qualifications will not be further evaluated or considered' and 'Incomplete proposals will be rejected.' This is the single most significant barrier to a viable bid and should be the primary factor in the bid/no-bid decision.",
+            "mitigation": "Executive leadership must make an immediate go/no-go decision based on whether HORUSTECH can credibly demonstrate 10 years of continuous project management software experience with public agencies, either independently or through a teaming arrangement. If pursuing a teaming strategy, the capture manager should identify potential prime or subcontractor partners with established public agency PM software track records within one week. If neither path is viable, the recommendation is a no-bid decision to avoid wasting proposal resources on a submission that will be disqualified at the minimum qualifications gate.",
+            "flag": "No evidence of 10 years of project management software experience to public agencies \u2014 likely disqualifying.",
+            "impactsScore": true
+          },
+          {
+            "severity": "HIGH",
+            "whyItMatters": "Section XVII.B explicitly states that 'The Department reserves the right to negotiate agreements with companies outside of the RFP process, even if such companies did not participate in the RFP process. The Department also reserves the right to not execute an agreement with any Contractors.' This unusual provision means that even a winning proposal does not guarantee a contract award. The County could potentially negotiate directly with a preferred vendor or an established project management software provider with existing government relationships. This creates uncertainty about the return on investment for proposal preparation efforts, particularly given the substantial documentation requirements including financial statements, detailed fee schedules, and compliance forms.",
+            "mitigation": "The capture manager should attempt to gather market intelligence on whether the County has already identified a preferred solution or vendor by attending the optional pre-proposal conference on February 20, 2026, and asking targeted questions about the County's evaluation of existing solutions. Additionally, submit a written question before the March 10, 2026 deadline asking whether the County has conducted any prior market research or demonstrations with specific vendors. This intelligence will help inform whether the RFP is genuinely competitive or potentially wired for a specific provider.",
+            "flag": "County reserves the right to negotiate agreements outside the RFP process.",
+            "impactsScore": false
+          },
+          {
+            "severity": "MEDIUM",
+            "whyItMatters": "The OpenGov portal indicates this is a 'Sealed Bid Process: Yes (Bids Sealed / Pricing Sealed),' and Section XIV states that 'The highest-ranked proposers may be required to attend a virtual interview, which will serve as the basis for the panel's final decision for a recommendation to the County's Board of Supervisors for contract award.' The sealed pricing combined with a potential interview round means that the written proposal score may not be the final determinant \u2014 the interview could significantly influence the panel's recommendation. The RFP timeline in Section XIII shows interviews anticipated for May 5, 2026, which requires proposers to keep key personnel available. The interview format, duration, and specific evaluation criteria are not defined in the solicitation, creating preparation uncertainty.",
+            "mitigation": "The proposal manager should prepare a dedicated interview team consisting of the proposed project manager, lead technical architect, and a senior executive who can speak to company qualifications and commitment. Begin developing an interview preparation package including a solution demonstration, implementation timeline walkthrough, and responses to anticipated questions about public agency experience immediately after proposal submission. Submit a question before March 10, 2026 asking the County to clarify the interview format, duration, and evaluation criteria so the team can prepare effectively.",
+            "flag": "Sealed bid process with potential interviews adds evaluation uncertainty.",
+            "impactsScore": true
+          }
+        ],
+        "risks": [
+          {
+            "severity": "CRITICAL",
+            "whyItMatters": "Section IX.C of the RFP explicitly states that 'The Proposer must possess a minimum of ten (10) years of continuous experience in providing project management software services to public agencies.' This is a pass/fail minimum qualification per the evaluation criteria in Section XIV, meaning proposals that do not meet this threshold will not be further evaluated or considered. HORUSTECH's knowledge base and past performance records show no evidence of project management software services to public agencies, and as a technology firm the company may not have 10 years of continuous operations in this specific domain. Failure to demonstrate this qualification results in automatic disqualification regardless of the quality of the technical proposal.",
+            "mitigation": "The capture team lead must immediately verify whether HORUSTECH has 10 years of continuous experience providing project management software services specifically to public agencies. If the company cannot demonstrate this independently, explore teaming arrangements with an established project management software provider (e.g., Kahua, e-Builder, Procore) that has documented public agency experience spanning at least 10 years. This assessment must be completed before the question deadline of March 10, 2026, to allow time to submit clarifying questions about whether teaming arrangements satisfy this requirement.",
+            "flag": "Minimum 10 years of continuous experience in project management software services to public agencies required.",
+            "impactsScore": true
+          },
+          {
+            "severity": "HIGH",
+            "whyItMatters": "Section X of the RFP states that 'The selected Contractor must successfully demonstrate the capability to provide the services described in this RFP in a large public use facility in continuous operation, such as in an airport or similar such as a correctional facility.' This requirement narrows the competitive field to vendors with specific experience in complex, continuously operating public facilities. HORUSTECH's past performance database contains no relevant projects in airports, correctional facilities, or similar large public use environments. Without demonstrable experience in these settings, the proposal will score poorly on the 'Relevant Public Sector Experience and References' criterion, which carries 15 points per Section XIV's evaluation table.",
+            "mitigation": "The business development team should identify and pursue teaming or subcontracting partnerships with firms that have verifiable airport or large public facility project management software implementation experience within the next two weeks. Additionally, if HORUSTECH has any experience with 24/7 operational environments or critical infrastructure facilities, the proposal team should document and frame that experience to demonstrate transferable capability. References from such engagements should be secured well before the April 7, 2026 submission deadline.",
+            "flag": "Demonstrated capability in large public use facilities such as airports or correctional facilities required.",
+            "impactsScore": true
+          },
+          {
+            "severity": "HIGH",
+            "whyItMatters": "Section XI.A requires submission of 'Balance sheet and income statements for the last two fiscal years prepared in accordance with generally accepted accounting principles, reflecting the current financial condition of the Contractor,' plus interim statements for any significant financial events. This is a substantial financial transparency requirement that may be challenging for smaller or privately held technology firms. The solicitation also requires a Fee Schedule covering the initial four-year term and each two-year extension option (up to eight years total per Section IV), which demands long-term financial planning and pricing stability. Inability to provide GAAP-compliant financial statements or demonstrate financial stability for a potential eight-year engagement could undermine the County's confidence in the proposer's viability.",
+            "mitigation": "The finance team must immediately confirm that HORUSTECH has GAAP-compliant balance sheets and income statements for the last two fiscal years ready for submission. If these are not currently available, engage an accounting firm to prepare or audit the statements before the April 7, 2026 deadline. The pricing team should also develop a comprehensive fee schedule that covers all four initial years plus both two-year extension options, ensuring rates are sustainable and competitive over the full potential eight-year term.",
+            "flag": "Financial disclosure requirements including two years of audited financial statements.",
+            "impactsScore": true
+          },
+          {
+            "severity": "MEDIUM",
+            "whyItMatters": "Section IX.A mandates that 'The Contractor must be registered with the California Secretary of State and permitted to conduct business in the State of California.' This is a pass/fail minimum qualification. Additionally, the solicitation includes multiple California-specific compliance forms including the Contractor Certification of Compliance (Attachment 3), Contractor Identification Form (Attachment 4), and Iran Contracting Act Certification per California Public Contract Code sections 2202-2208. If HORUSTECH is not currently registered in California, the registration process can take several weeks and must be completed before proposal submission. Failure to meet this requirement results in automatic disqualification.",
+            "mitigation": "The contracts or legal team should verify HORUSTECH's current registration status with the California Secretary of State within the next five business days. If not registered, initiate the registration process immediately, as processing times can vary. Simultaneously, assign a compliance specialist to complete all required California-specific forms (Attachments 3 and 4) and the Iran Contracting Act certification, ensuring all are reviewed by legal counsel before the April 7, 2026 submission deadline.",
+            "flag": "California Secretary of State registration and state-specific compliance requirements.",
+            "impactsScore": false
+          },
+          {
+            "severity": "MEDIUM",
+            "whyItMatters": "Section XVI states that the selected Contractor's staff working on-site unescorted or requiring airport access must pass the Department's background check and obtain an airport access badge to conduct work in secured areas. The scope of services in Section III includes up to six in-person administrator training sessions and up to ten combination in-person/virtual end-user training sessions, meaning on-site presence is required. Airport background checks typically involve TSA Security Threat Assessments and can take 4-8 weeks to process. Additionally, Attachment 5 references Sacramento County Security Requirements that must be met per Section IX.D. Staff who cannot pass these checks would be unable to deliver critical in-person training and implementation services.",
+            "mitigation": "The project manager should identify all personnel who may need on-site airport access during implementation and training phases, and begin pre-screening them against standard airport security criteria immediately upon contract pursuit decision. Ensure proposed staff have clean criminal backgrounds and are U.S. persons or have appropriate work authorization. Build a buffer of 6-8 weeks into the implementation timeline for badge processing, and identify backup personnel who can also qualify for airport access in case primary staff encounter delays.",
+            "flag": "Airport security background checks and access badge requirements for on-site staff.",
+            "impactsScore": false
+          },
+          {
+            "severity": "MEDIUM",
+            "whyItMatters": "Section XVII.A and Attachment 2 require that 'The contractor shall, at all times during the term of the agreement, comply with the provisions of the Federal Aviation Administration (FAA) General Contract Provisions for Solicitations and any subsequent revisions, updates, or amendments thereto.' FAA contract provisions typically include requirements related to civil rights, DBE participation, Buy American preferences, lobbying restrictions, and other federal mandates that add compliance complexity beyond standard county procurement. These provisions apply for the entire potential eight-year term of the agreement. Vendors unfamiliar with FAA compliance requirements may underestimate the administrative burden and risk non-compliance during performance.",
+            "mitigation": "The compliance team should obtain and thoroughly review Attachment 2 (FAA Exhibits) immediately to identify all specific federal obligations, including any DBE goals, Buy American requirements, or reporting mandates. If HORUSTECH lacks FAA compliance experience, consider engaging a consultant or teaming partner with FAA-regulated contract experience to advise on proposal preparation and ongoing compliance. This review should be completed before the question deadline of March 10, 2026, so any clarification questions can be submitted to the County.",
+            "flag": "FAA General Contract Provisions impose additional federal compliance obligations.",
+            "impactsScore": true
+          },
+          {
+            "severity": "LOW",
+            "whyItMatters": "Section XII requires 'references from at least three (3) clients or individuals who have direct experience with your company within the last five (5) years and can be contacted to verify your qualifications.' References are evaluated on a pass/fail basis per Section XIV's evaluation criteria table. Furthermore, the Department reserves the right to contact past or current references not provided by the Contractor. HORUSTECH's past performance database shows no relevant public agency project management software engagements, which could make it difficult to provide three qualifying references. Failure to provide adequate references results in a failing score on this pass/fail criterion.",
+            "mitigation": "The business development team should immediately compile a list of all client engagements from the past five years and identify three clients who can speak to HORUSTECH's software implementation capabilities, ideally in public sector or large organizational contexts. Contact these references proactively to confirm their willingness to provide positive feedback. If three qualifying references cannot be identified, this should be treated as a significant bid/no-bid consideration factor and discussed with leadership before committing proposal resources.",
+            "flag": "Three references from public agency clients within the last five years required.",
+            "impactsScore": true
+          }
+        ],
+        "incumbentInfo": {
+          "knownIncumbent": false,
+          "recompete": false,
+          "notes": "The solicitation explicitly states in Section X.A.2 that 'The Department does not currently use a project management system' and currently relies on 'Excel spreadsheets and Crystal Reports' (Section II). This is a new capability acquisition, not a recompete of an existing contract. There is no incumbent contractor."
+        }
+      },
+      "inputHash": "force-regen-v9",
+      "status": "COMPLETE",
+      "updatedAt": "2026-04-21T00:48:28.456Z"
+    },
+    "scoring": {
+      "data": {
+        "confidenceExplanation": "Confidence is 55 due to missing past performance data (mandatory -20 penalty), clear industry mismatch (-15 penalty), and deadline date conflict creating uncertainty. However, the NO_GO decision itself is high-confidence because the disqualifying factors are unambiguous.",
+        "requiredActions": [
+          "IMMEDIATE: Executive leadership should formally declare NO-BID and document the decision to preserve resources for aligned opportunities",
+          "MARKET INTELLIGENCE: Consider attending future Sacramento County procurement events to identify opportunities aligned with HORUSTECH's cloud consulting and AI/ML capabilities",
+          "PARTNERSHIP EXPLORATION: If HORUSTECH wishes to enter the construction PM software market long-term, begin identifying potential PM software vendor partnerships (Procore, e-Builder, Kahua) for subcontracting roles in future opportunities",
+          "CLARIFY DEADLINE: If any reconsideration occurs, urgently contact William Wallace at wallacew@saccounty.gov to clarify whether the April 7 or May 5 deadline applies",
+          "MONITOR: Register on OpenGov and Sacramento County procurement portal for future solicitations in cloud migration, document automation, or AI/ML that match HORUSTECH's capabilities"
+        ],
+        "decision": "NO_GO",
+        "criteria": [
+          {
+            "name": "TECHNICAL_FIT",
+            "score": 1,
+            "rationale": "HORUSTECH is an AWS Advanced Consulting Partner specializing in intelligent document automation, cloud-native development, and AI/ML solutions. This solicitation requires a vendor that owns or licenses a comprehensive COTS cloud-based Project Management Software product for construction project tracking, CIP, RFIs, submittals, change orders, cost control, and portfolio management \u2014 comparable to Procore, e-Builder, Kahua, or PMWeb. HORUSTECH does not develop, own, or resell any such product, and its KB contains zero references to project management software, construction management, or capital improvement planning capabilities. The solicitation requires unlimited software licensing with ongoing upgrades, helpdesk support, and long-term platform viability \u2014 none of which HORUSTECH can provide. This is a fundamental industry and capability mismatch with approximately 0% coverage of the core technical requirements.",
+            "gaps": [
+              "No COTS project management software product owned, developed, or resold by HORUSTECH",
+              "No construction project management capabilities (RFIs, submittals, change orders, CIP)",
+              "Cannot provide unlimited software licenses with ongoing upgrades and security patches",
+              "No ERP, GIS, or SSO integration experience specific to construction PM platforms",
+              "No capability for capital improvement planning, portfolio management, or budget/cost tracking modules",
+              "Cannot meet the 10-year continuous experience requirement for PM software services to public agencies (Pass/Fail disqualifier)",
+              "No demonstrated experience in large public use facilities such as airports"
+            ]
+          },
+          {
+            "name": "PAST_PERFORMANCE_RELEVANCE",
+            "score": 1,
+            "rationale": "No past performance data available. The past performance database returned zero matched projects for project management software, construction management, capital improvement planning, or public agency software services. HORUSTECH's documented past performance (e.g., Avue Technologies federal HR platform integration) is in document automation and AI/ML \u2014 a completely different domain. The solicitation requires three references from clients with direct experience within the last five years, and the evaluation includes a Pass/Fail gate on references plus 15 scored points for Relevant Public Sector Experience. HORUSTECH has no relevant public agency PM software engagements to reference, making it impossible to pass the minimum references requirement.",
+            "gaps": [
+              "Zero past performance projects in project management software for public agencies",
+              "No references available from airport, construction, or CIP-related engagements",
+              "Cannot satisfy the Pass/Fail references requirement with relevant PM software clients",
+              "No demonstrated experience in large public use facilities"
+            ]
+          },
+          {
+            "name": "PRICING_POSITION",
+            "score": 1,
+            "rationale": "The pricing analysis confirms a fundamental inability to compete. HORUSTECH does not own or license a PM software product, so it cannot price software licensing, ongoing upgrades, helpdesk support, or security patches \u2014 which constitute the core of this contract's cost structure. The pricing module set totalPrice to $0 and priceConfidence to 5 out of 100, explicitly stating the company 'fundamentally cannot perform this work as a prime contractor.' Competitors are established PM software vendors (Procore, e-Builder, Kahua, PMWeb, Oracle Primavera Unifier) with mature subscription-based pricing models. HORUSTECH's labor rates for software engineers and cloud architects are irrelevant because this solicitation requires a COTS product, not custom development. Even attempting to build a custom solution would be prohibitively expensive and non-competitive against established platforms.",
+            "gaps": [
+              "No PM software product to price \u2014 cannot offer licensing, subscriptions, or upgrades",
+              "Labor rates for custom development are irrelevant to COTS software procurement",
+              "Cannot develop a competitive fee schedule for an 8-year software services agreement",
+              "No basis for pricing helpdesk, patches, or ongoing technical support for a product that does not exist"
+            ]
+          },
+          {
+            "name": "STRATEGIC_ALIGNMENT",
+            "score": 1,
+            "rationale": "HORUSTECH's documented strategic focus is on intelligent document automation, AI/ML solutions, and AWS cloud consulting for regulated and government-facing organizations. There is no evidence in the KB or organizational context of any strategic plan to enter the construction project management software market, establish PM software reseller partnerships, or pursue airport/transportation sector work. This solicitation is for a completely different industry vertical (construction PM software for airports) that does not align with HORUSTECH's core competencies or documented growth objectives. Pursuing this opportunity would divert scarce resources (the company has only 16 employees) from opportunities that align with its actual capabilities and would not build a reusable portfolio in a strategically relevant area.",
+            "gaps": [
+              "No documented strategic plan to enter construction PM software market",
+              "No PM software vendor partnerships or reseller agreements",
+              "Opportunity is in a completely different industry vertical from HORUSTECH's focus areas",
+              "16-person firm cannot sustain an 8-year PM software support commitment outside its domain"
+            ]
+          },
+          {
+            "name": "INCUMBENT_RISK",
+            "score": 5,
+            "rationale": "The solicitation explicitly states in Section X.A.2 that 'The Department does not currently use a project management system' and currently relies on Excel spreadsheets and Crystal Reports. This is a new capability acquisition, not a recompete of an existing contract. There is no incumbent contractor, which means no vendor has an inherent advantage from prior contract performance. This creates a level playing field for all proposers. However, this advantage is irrelevant to HORUSTECH because the company cannot meet the fundamental minimum qualifications regardless of the competitive landscape. The lack of an incumbent is the only favorable factor in this assessment.",
+            "gaps": []
+          }
+        ],
+        "summaryJustification": "This opportunity represents a fundamental industry mismatch that makes a viable bid impossible for HORUSTECH. The company is an AWS consulting partner specializing in document automation and AI/ML, while the solicitation requires a vendor that owns or licenses a comprehensive COTS cloud-based Project Management Software product for construction project management and Capital Improvement Planning at Sacramento County's airports. HORUSTECH fails the mandatory Pass/Fail minimum qualification requiring 10 years of continuous experience providing PM software services to public agencies (Section IX.C), which would result in automatic disqualification before scoring begins. The company has no past performance in PM software, no relevant product to offer, no ability to price competitively against established vendors like Procore or e-Builder, and no strategic alignment with this market. The only favorable factor is the absence of an incumbent, which is irrelevant given the disqualifying capability gaps. Additionally, there is a critical deadline conflict \u2014 the OpenGov portal and RFP cover page show April 7, 2026 (which has already passed as of today, April 21, 2026), while Section VI states May 5, 2026. If the April 7 date is correct, the opportunity has already expired.",
+        "confidence": 55,
+        "blockers": [
+          "DISQUALIFYING: HORUSTECH does not possess 10 years of continuous experience providing PM software services to public agencies \u2014 mandatory Pass/Fail gate (Section IX.C) that results in automatic disqualification",
+          "DISQUALIFYING: HORUSTECH does not own, develop, or resell any cloud-based Project Management Software product \u2014 the core deliverable of this solicitation cannot be provided",
+          "DISQUALIFYING: Cannot provide three references from clients with direct PM software experience within the last five years \u2014 Pass/Fail gate on References (Section XIV)",
+          "CRITICAL DEADLINE RISK: The OpenGov portal shows April 7, 2026 as the submission deadline, which has already passed (today is April 21, 2026). Section VI states May 5, 2026. If April 7 is correct, the opportunity has expired.",
+          "No demonstrated capability in large public use facilities such as airports or correctional facilities as required by Section X"
+        ],
+        "decisionRationale": "NO_GO is the only defensible recommendation. HORUSTECH scores 1 on four of five evaluation criteria due to a fundamental industry mismatch \u2014 the company is an AWS cloud consulting firm, not a project management software vendor. The CRITICAL disqualifier is Section IX.C's Pass/Fail requirement for 10 years of continuous PM software experience with public agencies, which HORUSTECH cannot meet independently or credibly demonstrate. With a composite score of 1.4, no past performance (score 1), no relevant product (TECHNICAL_FIT score 1), no ability to price (PRICING_POSITION score 1), and no strategic alignment (score 1), submitting a proposal would waste limited resources and risk reputational damage with Sacramento County for a non-responsive submission. Even a teaming arrangement would be extremely difficult to structure given the scope requires the prime to be the PM software vendor. The pricing analysis explicitly recommends no-bid, stating HORUSTECH 'fundamentally cannot perform this work as a prime contractor.' Furthermore, the April 7, 2026 deadline shown on the OpenGov portal has already passed, and while the Section VI date of May 5 may apply, this conflict adds additional risk.",
+        "compositeScore": 1.4,
+        "confidenceDrivers": [
+          {
+            "factor": "No past performance data available \u2014 zero matched projects",
+            "direction": "DOWN"
+          },
+          {
+            "factor": "Fundamental industry mismatch \u2014 AWS consulting vs. COTS PM software vendor",
+            "direction": "DOWN"
+          },
+          {
+            "factor": "Mandatory 10-year PM software experience requirement is a clear Pass/Fail disqualifier",
+            "direction": "DOWN"
+          },
+          {
+            "factor": "Pricing analysis explicitly confirms inability to compete with $0 total price and 5% confidence",
+            "direction": "DOWN"
+          },
+          {
+            "factor": "Deadline conflict \u2014 April 7 date on OpenGov portal has already passed",
+            "direction": "DOWN"
+          },
+          {
+            "factor": "No incumbent \u2014 new requirement creates level playing field (but irrelevant given disqualifiers)",
+            "direction": "UP"
+          },
+          {
+            "factor": "Solicitation requirements are clearly documented enabling confident gap assessment",
+            "direction": "UP"
+          }
+        ]
+      },
+      "inputHash": "force-regen-v9",
+      "status": "IN_PROGRESS",
+      "updatedAt": "2026-04-21T01:07:00.977Z"
+    },
+    "summary": {
+      "data": {
+        "summary": "The Sacramento County Department of Airports is seeking a qualified vendor to provide a comprehensive, fully supported cloud-based Project Management Software solution to manage active construction projects across all four of its airport facilities, including Sacramento International Airport (SMF), and to support its Capital Improvement Planning (CIP) process. The technical scope encompasses software licensing with unlimited user access, system installation and configuration, customization of workflows for RFIs, submittals, change orders, budget tracking, schedule management, and reporting dashboards, as well as integration with existing County systems including ERP, GIS, and Single Sign-On platforms via APIs. The contract is structured with an initial four-year term and two additional two-year extension options for a possible total of eight years, with an anticipated agreement effective date in July/August 2026 and evaluation based on a 100-point scoring system covering service support capabilities, implementation plan, company qualifications, relevant public sector experience, and fee schedule. This initiative will replace the Department's current Excel-based and Crystal Reports tracking processes, reducing manual effort and improving accuracy across all project phases while enabling portfolio-level visibility, prioritization, and long-term capital forecasting. Proposers must demonstrate a minimum of ten years of continuous experience providing project management software services to public agencies and must comply with FAA General Contract Provisions, County security requirements including background checks for airport access, and California state business registration requirements.",
+        "periodOfPerformance": "4-year base term with two 2-year extension options (up to 8 years total)",
+        "agency": "County of Sacramento",
+        "contractType": "UNKNOWN",
+        "office": "Department of Airports",
+        "title": "Project Management Software Services for Sacramento County Department of Airports",
+        "placeOfPerformance": "Sacramento, CA",
+        "solicitationNumber": "2026-WW-01",
+        "setAside": "UNKNOWN"
+      },
+      "inputHash": "force-regen-v9",
+      "status": "COMPLETE",
+      "updatedAt": "2026-04-21T00:41:08.888Z"
+    }
+  }
+}

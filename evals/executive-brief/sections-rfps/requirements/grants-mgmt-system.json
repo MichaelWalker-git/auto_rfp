@@ -1,0 +1,386 @@
+{
+  "evaluationFactors": [
+    "A. Responsiveness to the RFP (20 points maximum): 1. Requested information included and thoroughness of response. 2. Understanding of the project and ability to deliver as exhibited in the Executive Summary. 3. Technical Aspects. 4. Risk Profile (e.g. exceptions request).",
+    "B. Staffing Plan (20 points maximum): 1. Qualifications of personnel adequate for requirement. 2. Description of the Contractor's history, mission, location(s), date founded, size, key leadership and relevant certifications. 3. List of names and titles of key managers who will be assigned to this project. 4. Description of the company and/or key managers' experience and knowledge of local and federal regulations related to CDBG, ESG, and HOME. 5. Method of Quality Assurance, Compliance with applicable laws, Internal Control Procedures. 6. Availability/Geographical location of personnel for required tasks. 7. Customer Service/Capacity to provide timely response to City and subrecipients.",
+    "C. Contractor's Capability to provide the services and expertise and Past Performance (35 points maximum): 1. Relevant experience of the Contractor and subcontractors in working with governmental agencies. 2. Fulfillment of City of San Diego IT requirements. 3. Specific experience with Federal reporting and ability to integrate to Federal reporting systems. 4. Other applicable pertinent experience. 5. Past/Prior Performance including timely execution of go-live. 6. Provide three (3) examples of successfully delivered SaaS/IT projects. 7. List of government contracts performed that are related to SaaS/IT within the past five (5) years. 8. Capacity/Capability to meet The City of San Diego needs in a timely manner. 9. Reference checks.",
+    "D. Price (10 points maximum): Lowest total estimated contract price receives maximum points; others scored using formula (1 - (contract price - lowest price) / lowest price) x maximum points.",
+    "E. Interview/Oral Presentation (15 points maximum): 1. Usability of Software. 2. Support Model. 3. Real Time Operation including demonstration of the software meeting key requirements. 4. Thoroughness and Clarity of Presentation.",
+    "F. Participation by Small Local Business Enterprise (SLBE) or Emerging Local Business Enterprise (ELBE) Firms (up to 12 additional percentage points applied to final score)."
+  ],
+  "overview": "The City of San Diego, through its Economic Development Department (EDD), is soliciting proposals (Solicitation Number 10090460-26-S) for a Grants Management System (GMS) delivered as a vendor-hosted, subscription-based Software as a Service (SaaS) solution. The system is needed to streamline and enhance the City's ability to manage and track local and federal grants and funding programs, including Business Districts (MADs, PBIDs, BIDs), Community Development Programs (HUD-funded CDBG, ESG, HOME), and Capacity Building programs, replacing current fragmented tools such as Excel, SharePoint, SeamlessDocs, and a Salesforce-backed reporting system. Success is defined as a comprehensive, turn-key solution that provides an intuitive user interface for internal and external users, seamless end-to-end grant lifecycle management from application through closeout, integrated reporting and dashboard tools, compliance with state and federal regulations (including HUD), integration with City systems (SAP, OKTA, ArcGIS, IDIS, MS365, Adobe), and a public-facing portal for grant recipients to manage applications, agreements, reimbursements, and reporting. Key constraints include a desired go-live date of July 1, 2026, a base contract term of three years with two optional one-year extensions (not to exceed five years total), ADA/WCAG 2.1 Level AA and Section 508 compliance, 99.9% uptime availability with service credit remedies, City of San Diego IT Standards and Data Security Standards compliance, Cyber Liability insurance of at least $1,000,000 per occurrence, and proposals due by March 16, 2026 at 2:00 p.m. The evaluation is based on a 112-point scale including Responsiveness to RFP (20 points), Staffing Plan (20 points), Contractor Capability and Past Performance (35 points), Price (10 points), Interview/Oral Presentation (15 points), and SLBE/ELBE participation (up to 12 bonus points).",
+  "requirements": [
+    {
+      "category": "TECHNICAL",
+      "mustHave": true,
+      "requirement": "Provide a vendor-hosted, subscription-based SaaS Grants Management System (GMS) solution"
+    },
+    {
+      "category": "TECHNICAL",
+      "mustHave": true,
+      "requirement": "Application Intake & Management module supporting multi-stage workflows including RFQ and RFP phases with concurrent multi-user access from the same organization"
+    },
+    {
+      "category": "TECHNICAL",
+      "mustHave": true,
+      "requirement": "Public-facing portal for external grant recipients to manage information, submit applications, execute agreements, submit reimbursement requests, and provide outcomes data including grant closeout"
+    },
+    {
+      "category": "TECHNICAL",
+      "mustHave": true,
+      "requirement": "Support multiple intake processes for separate grant programs with configurable grant application templates that differ between programs and grant cycles"
+    },
+    {
+      "category": "TECHNICAL",
+      "mustHave": true,
+      "requirement": "Multi-step internal and external review workflow with scoring rubrics, ability to leave comments, assign reviewers, and automatically tally and average scores"
+    },
+    {
+      "category": "TECHNICAL",
+      "mustHave": true,
+      "requirement": "Document Management functionality including document repository, upload of multiple formats (pdf, jpeg, image, video, .docx, .xlsx, .pptx), document library for templates, and records retention per EDD policy"
+    },
+    {
+      "category": "TECHNICAL",
+      "mustHave": true,
+      "requirement": "Financial and Billing Functions including monthly reimbursement request processing, expenditure tracking across budget categories, budget adjustments, customizable fiscal review workflows, and invoice generation with SAP/FICA interface capability"
+    },
+    {
+      "category": "TECHNICAL",
+      "mustHave": true,
+      "requirement": "Reporting and Compliance functionality including real-time budget-to-actual expenditures, visual analytics (pie charts, bar graphs, trend lines) exportable to PowerPoint, Word, and Adobe, and audit log functionality compliant with Federal/HUD funding guidelines"
+    },
+    {
+      "category": "TECHNICAL",
+      "mustHave": true,
+      "requirement": "Integration with ArcGIS, IDIS, SAP, OKTA, and MS365; proposer must indicate which integrations are out-of-the-box and which require customization"
+    },
+    {
+      "category": "TECHNICAL",
+      "mustHave": true,
+      "requirement": "Data migration from existing systems including Microsoft SharePoint, SeamlessDocs, and Salesforce-backed programs with indexing and integration of existing content"
+    },
+    {
+      "category": "TECHNICAL",
+      "mustHave": true,
+      "requirement": "User Roles & System Administration supporting view-only to full system access, record-type level role designation, in-system communication between internal and external users as part of audit trail, and email notifications (automated and manual)"
+    },
+    {
+      "category": "TECHNICAL",
+      "mustHave": true,
+      "requirement": "Provide three system environments: development/configuration, testing/training, and production"
+    },
+    {
+      "category": "TECHNICAL",
+      "mustHave": true,
+      "requirement": "99.9% Uptime Availability per calendar month with service credit remedies for failures below threshold"
+    },
+    {
+      "category": "TECHNICAL",
+      "mustHave": true,
+      "requirement": "24/7 system availability"
+    },
+    {
+      "category": "COMPLIANCE",
+      "mustHave": true,
+      "requirement": "Meet WCAG 2.1 Level AA accessibility guidelines, Voluntary Product Accessibility Template (VPAT), and Section 508 requirements"
+    },
+    {
+      "category": "COMPLIANCE",
+      "mustHave": true,
+      "requirement": "Comply with City of San Diego Data Security Standards and immediately notify the City's Chief Information Security Officer of any breach"
+    },
+    {
+      "category": "COMPLIANCE",
+      "mustHave": true,
+      "requirement": "Comply with City of San Diego IT City Standards as detailed in Exhibit F - IT City Standards and Technical Alignment Questionnaire"
+    },
+    {
+      "category": "COMPLIANCE",
+      "mustHave": true,
+      "requirement": "Understanding of HUD regulations and requirements to ensure Federal requirements are built into the SaaS solution and not customized (CDBG, ESG, HOME)"
+    },
+    {
+      "category": "COMPLIANCE",
+      "mustHave": true,
+      "requirement": "Cyber Liability Insurance with limits not less than $1,000,000 per occurrence and $2,000,000 annual aggregate"
+    },
+    {
+      "category": "COMPLIANCE",
+      "mustHave": true,
+      "requirement": "Professional Liability (Errors and Omissions) insurance with limits of at least $1,000,000 per occurrence and $2,000,000 aggregate"
+    },
+    {
+      "category": "COMPLIANCE",
+      "mustHave": true,
+      "requirement": "Warranty the entire solution/system for the duration of the contract terms from the date the City fully accepts it"
+    },
+    {
+      "category": "STAFFING",
+      "mustHave": true,
+      "requirement": "Identify a single point of contact Project Manager whose name and resume must be submitted; PM cannot be changed without written City approval"
+    },
+    {
+      "category": "STAFFING",
+      "mustHave": true,
+      "requirement": "Provide organizational chart with all proposed personnel including supervisor level, functional responsibilities, key personnel, percentage of time dedicated to the project"
+    },
+    {
+      "category": "STAFFING",
+      "mustHave": true,
+      "requirement": "Identify at minimum the Project Manager, Lead Business Analyst(s), Training Manager, and System Lead with titles, roles, expertise, and work location"
+    },
+    {
+      "category": "STAFFING",
+      "mustHave": true,
+      "requirement": "Provide brief resumes for key personnel including professional career overview, relevant project experience, educational background, and certifications"
+    },
+    {
+      "category": "STAFFING",
+      "mustHave": true,
+      "requirement": "Provide a staffing plan indicating hours staff may be reached, method of contact, level of effort to come on-site, and availability/geographical location"
+    },
+    {
+      "category": "DELIVERABLES",
+      "mustHave": true,
+      "requirement": "Provide a draft implementation plan, draft implementation schedule, and draft outline documents as part of the proposal"
+    },
+    {
+      "category": "DELIVERABLES",
+      "mustHave": true,
+      "requirement": "Provide a project plan using Microsoft Project or equivalent software including milestones, work breakdown structure, and overall project timeline"
+    },
+    {
+      "category": "DELIVERABLES",
+      "mustHave": true,
+      "requirement": "Provide a configuration document as a project deliverable before the system's final configuration"
+    },
+    {
+      "category": "DELIVERABLES",
+      "mustHave": true,
+      "requirement": "Provide a testing strategy and plan including test scripts as a project deliverable; City must sign off on final testing plan before executing tests"
+    },
+    {
+      "category": "DELIVERABLES",
+      "mustHave": true,
+      "requirement": "Provide End-User Training (up to 75 staff), Functional System Administrator Training (up to 10 staff), and External-User Training (up to 200 non-profit professionals) with combination of virtual and on-site training, training documentation, user guides, quick reference guides, and FAQs"
+    },
+    {
+      "category": "DELIVERABLES",
+      "mustHave": true,
+      "requirement": "Provide detailed system and user documentation including digital searchable technical and user manuals, system implementation documentation, and PDF copies with unlimited downloads of updated copies"
+    },
+    {
+      "category": "TECHNICAL",
+      "mustHave": true,
+      "requirement": "Remote Helpdesk Tier One and Tier Two support Monday through Friday, 8:00 a.m. to 6:00 p.m. PT, excluding federal holidays, for both internal and external users"
+    },
+    {
+      "category": "TECHNICAL",
+      "mustHave": true,
+      "requirement": "Ongoing support and maintenance including upgrades, bug fixes, patches, and help desk support for the duration of the contract"
+    },
+    {
+      "category": "TECHNICAL",
+      "mustHave": true,
+      "requirement": "Application recovery services including hosting infrastructure recovery, application recovery, and offsite data backup storage with periodic testing"
+    },
+    {
+      "category": "TECHNICAL",
+      "mustHave": true,
+      "requirement": "Demonstrate capability by providing proof of prior similar work with at least 10 cities, states, or other public agencies, with at least 2 examples from municipalities of similar size and complexity, preferably within the last 5 years"
+    },
+    {
+      "category": "TECHNICAL",
+      "mustHave": true,
+      "requirement": "Provide three (3) references from clients with similar scopes of work within the last five (5) years including organization name, contact information, nature of assignment, and business benefits realized"
+    },
+    {
+      "category": "TECHNICAL",
+      "mustHave": true,
+      "requirement": "Provide three (3) examples of successfully delivered SaaS/IT projects including project name, description, scope of work, deliverables, and key technical outcomes"
+    },
+    {
+      "category": "TECHNICAL",
+      "mustHave": true,
+      "requirement": "Complete Exhibit E - Grant Management System Requirements Matrix with scoring rubric (0-4 scale) for each requirement"
+    },
+    {
+      "category": "TECHNICAL",
+      "mustHave": true,
+      "requirement": "Complete Exhibit F - IT City Standards and Technical Alignment Questionnaire"
+    },
+    {
+      "category": "TECHNICAL",
+      "mustHave": true,
+      "requirement": "Clearly indicate licensing model (Named User, Concurrent User, Flat Subscription, or volume-based), license transfer capability, volume change flexibility, unused licensing rollover, and overage cost thresholds"
+    },
+    {
+      "category": "TECHNICAL",
+      "mustHave": true,
+      "requirement": "Provide copy of all System User software license agreements to be executed by the City"
+    },
+    {
+      "category": "TECHNICAL",
+      "mustHave": true,
+      "requirement": "Desired go-live date of July 1, 2026; provide project schedule with key milestones and proposed dates to meet this target"
+    },
+    {
+      "category": "COMPLIANCE",
+      "mustHave": true,
+      "requirement": "Submit completed and signed Contractor Standards Pledge of Compliance Form"
+    },
+    {
+      "category": "COMPLIANCE",
+      "mustHave": true,
+      "requirement": "Submit Equal Opportunity Contracting forms including Work Force Report and Contractors Certification of Pending Actions"
+    }
+  ],
+  "submissionCompliance": {
+    "format": [
+      "One (1) original hard copy and one (1) electronic copy (thumb drive or CD), or electronic bid via PlanetBids",
+      "Paper proposals must be in a sealed envelope with Solicitation Number and Closing Date on lower left-hand corner",
+      "Proposals should be securely bound",
+      "E-mailed and faxed proposals will not be accepted",
+      "Exhibits D, E, and F are Excel files posted in PlanetBids and must be completed in their entirety",
+      "Executive summary limited to one typewritten page",
+      "Completed and signed RFP signature page required with most recent addendum acknowledged"
+    ],
+    "attachmentsAndForms": [
+      "Completed and signed Contract Signature Page (latest Addendum version if addenda issued)",
+      "Exceptions requested by proposer with specific proposed alternative language (if any)",
+      "Contractor Standards Pledge of Compliance Form",
+      "Equal Opportunity Contracting forms including Work Force Report and Contractors Certification of Pending Actions",
+      "Grant Management System Requirements Matrix - Exhibit E (Excel)",
+      "City of San Diego IT City Standards & Technical Alignment Questionnaire - Exhibit F (Excel)",
+      "Cost/Price Proposal - Exhibit D (Excel)",
+      "Redacted version of proposal for California Public Records Act exemptions (if applicable)",
+      "System User Software License Agreements",
+      "Insurance documents (upon Notice of Intent to Award)",
+      "Form W-9 (upon Notice of Intent to Award)",
+      "Business Tax Certificate (upon Notice of Intent to Award)"
+    ],
+    "requiredDocuments": [
+      {
+        "name": "Executive Summary",
+        "description": "Limited to one typewritten page, providing a high-level description of the proposer's ability to meet RFP requirements and reasons proposer believes itself best qualified, demonstrating knowledge and experience with grant management systems satisfying state and federal mandates",
+        "pageLimit": "1 page",
+        "documentType": "EXECUTIVE_SUMMARY",
+        "required": true
+      },
+      {
+        "name": "Tab B - Responses to Specifications",
+        "description": "Proposer's complete response to the RFP including technical approach, software performance history, understanding of HUD regulations, sample cases, and all information outlined in Exhibit B Scope of Work",
+        "documentType": "TECHNICAL_PROPOSAL",
+        "required": true
+      },
+      {
+        "name": "Tab C - Cost/Price Proposal (Exhibit D)",
+        "description": "Cost proposal in the form and format described in Exhibit D - Price Proposal; failure to provide costs in required format may result in non-responsive determination",
+        "documentType": "COST_PROPOSAL",
+        "required": true
+      },
+      {
+        "name": "Grant Management System Requirements Matrix - Exhibit E",
+        "description": "Excel file with scoring rubric (0-4 scale) for each GMS requirement indicating capability level from 'Cannot be provided' to 'Out of the box configurable by City staff'",
+        "documentType": "COMPLIANCE_MATRIX",
+        "required": true
+      },
+      {
+        "name": "IT City Standards & Technical Alignment Questionnaire - Exhibit F",
+        "description": "Excel file addressing City of San Diego IT standards and technical alignment requirements",
+        "documentType": "OTHER",
+        "required": true
+      },
+      {
+        "name": "Staffing Plan and Qualifications Submittal",
+        "description": "Company overview, staffing plan with organizational chart, key personnel summaries (PM, Lead Business Analyst, Training Manager, System Lead), resumes, availability/location, and hours of contact",
+        "documentType": "TEAM_QUALIFICATIONS",
+        "required": true
+      },
+      {
+        "name": "Draft Implementation Plan and Schedule",
+        "description": "Draft implementation plan, draft implementation schedule, and project plan using Microsoft Project or equivalent with key milestones and proposed dates targeting July 1, 2026 go-live",
+        "documentType": "PROJECT_PLAN",
+        "required": true
+      },
+      {
+        "name": "Past Performance and References",
+        "description": "Three (3) references from clients with similar scopes within last 5 years, three (3) examples of successfully delivered SaaS/IT projects, list of government SaaS/IT contracts within past 5 years, and proof of prior work with at least 10 public agencies",
+        "documentType": "PAST_PERFORMANCE",
+        "required": true
+      },
+      {
+        "name": "Project Management Approach",
+        "description": "Description of project management methodology, role of all partners, role of City staff including time commitment, team structure with organizational chart, and detailed plan for GMS implementation",
+        "documentType": "MANAGEMENT_APPROACH",
+        "required": true
+      },
+      {
+        "name": "Contractor Standards Pledge of Compliance Form",
+        "description": "Completed Contractor Standards Pledge of Compliance Form as required by the City",
+        "documentType": "CERTIFICATIONS",
+        "required": true
+      },
+      {
+        "name": "Equal Opportunity Contracting Forms",
+        "description": "Work Force Report and Contractors Certification of Pending Actions",
+        "documentType": "OTHER",
+        "required": true
+      },
+      {
+        "name": "Completed and Signed Contract Signature Page",
+        "description": "Signed RFP signature page with most recent addendum listed as acknowledgement of all addenda issued",
+        "documentType": "COVER_LETTER",
+        "required": true
+      },
+      {
+        "name": "Redacted Version of Proposal",
+        "description": "Additional redacted version containing all requested redactions of confidential/proprietary information with legal basis for CPRA exemption, if applicable",
+        "documentType": "OTHER",
+        "required": false
+      },
+      {
+        "name": "Exceptions to Contract Terms",
+        "description": "Written factual or legal justification for any exceptions requested to the Scope of Work, Contract, or Exhibits, with specific proposed alternative or amended language",
+        "documentType": "OTHER",
+        "required": false
+      },
+      {
+        "name": "System User Software License Agreements",
+        "description": "Copy of all software license agreements the proposer will request the City to execute, covering all software components including third-party, base system, and custom software",
+        "documentType": "OTHER",
+        "required": true
+      },
+      {
+        "name": "Training Programs and Materials",
+        "description": "Training programs, curriculum, and examples of training materials for end-users (75 staff), system administrators (10 staff), and external users (200 non-profit professionals)",
+        "documentType": "OTHER",
+        "required": true
+      }
+    ],
+    "requiredVolumes": [
+      "Tab A - Submission of Information and Forms",
+      "Tab B - Executive Summary and Responses to Specifications",
+      "Tab C - Cost/Price Proposal (Exhibit D)"
+    ]
+  },
+  "deliverables": [
+    "Vendor-hosted SaaS Grants Management System (GMS) with public-facing portal",
+    "Configuration document prior to final system configuration",
+    "Testing strategy and plan with test scripts",
+    "Draft implementation plan and implementation schedule",
+    "Project management plan with milestones and work breakdown structure (Microsoft Project or equivalent)",
+    "End-User Training for up to 75 staff",
+    "Functional System Administrator Training for up to 10 staff",
+    "External-User Training for up to 200 non-profit professionals",
+    "Training documentation, comprehensive user guides, quick reference guides, and FAQs",
+    "Digital searchable technical and user manuals",
+    "System implementation documentation (installation, configuration, testing, interfaces, data conversion)",
+    "Three system environments: development/configuration, testing/training, and production",
+    "Data migration from SharePoint, SeamlessDocs, and Salesforce systems",
+    "Ongoing support and maintenance including upgrades, bug fixes, and patches",
+    "Remote Helpdesk Tier One and Tier Two support services",
+    "Application recovery and offsite data backup services",
+    "Monthly Uptime Availability calculations and service credit reporting"
+  ]
+}

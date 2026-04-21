@@ -1,0 +1,67 @@
+SOURCES SOUGHT NOTICE — THIS IS NOT A REQUEST FOR PROPOSALS
+
+Notice Number: VA-FSS-2026-SS-0234
+THIS IS A SOURCES SOUGHT NOTICE ONLY. THIS IS NOT A SOLICITATION FOR PROPOSALS AND NO CONTRACT WILL BE AWARDED FROM THIS NOTICE.
+
+Title: Next-Generation Electronic Health Record (EHR) Interoperability Gateway
+Agency: Department of Veterans Affairs, Office of Information and Technology (OIT)
+Posted: March 5, 2026
+
+SECTION L — INSTRUCTIONS TO RESPONDENTS
+
+L.1 PURPOSE
+
+The Department of Veterans Affairs Office of Information and Technology is conducting market research to identify potential sources for an EHR Interoperability Gateway solution. This notice is issued for planning purposes only and does not constitute a commitment by the Government to issue a solicitation or award a contract.
+
+L.2 BACKGROUND
+
+VA is modernizing its health IT infrastructure to improve data exchange between VA Medical Centers (VAMCs), community care providers, and the Department of Defense (DoD) Military Health System (MHS). VA currently operates 171 VAMCs and over 1,100 outpatient facilities serving approximately 9 million enrolled veterans.
+
+The Interoperability Gateway must support HL7 FHIR R4 standards, enable real-time clinical data exchange, and integrate with VA's Cerner Millennium EHR deployment (Oracle Health) and legacy VistA systems still operational at approximately 40 facilities.
+
+L.3 DESIRED CAPABILITIES
+
+VA is interested in solutions providing:
+- FHIR R4 compliant API gateway with support for SMART on FHIR authorization
+- Message transformation between HL7 v2, CDA, and FHIR formats
+- Patient matching and identity resolution across disparate systems
+- Audit logging and consent management per 38 CFR Part 1
+- High availability (99.99% uptime SLA)
+- FedRAMP High authorization
+- Scalability to handle 50 million+ transactions per day
+
+L.4 INFORMATION REQUESTED FROM INDUSTRY
+
+Interested parties should provide the following (limited to 15 pages):
+a) Company overview, size standard, and socioeconomic status
+b) Description of relevant EHR interoperability experience
+c) Technical approach overview for achieving stated capabilities
+d) Rough order of magnitude (ROM) timeline for implementation
+e) Any potential teaming arrangements or partnerships
+
+SECTION M — EVALUATION INFORMATION
+
+M.1 This is a sources sought notice. Responses will NOT be evaluated for award purposes. Information gathered will be used solely to determine acquisition strategy for a potential future procurement.
+
+M.2 No evaluation scores or ratings will be assigned to responses.
+
+M.3 The Government reserves the right to issue or not issue a future solicitation based on responses received.
+
+IMPORTANT NOTICES:
+
+1. THIS IS NOT A SOLICITATION. No proposals are being requested. No contract will be awarded from this notice.
+
+2. There is no submission deadline for proposals because this is not a solicitation. Information responses are requested by April 15, 2026, but late responses will still be reviewed.
+
+3. No funding has been allocated for this requirement. A future solicitation is contingent on budget approval in FY2027.
+
+4. Respondents will NOT receive individual feedback on their submissions.
+
+5. Participation or non-participation in this sources sought will have NO bearing on any future procurement.
+
+RESPOND TO:
+VA-OIT-MarketResearch@va.gov
+Subject Line: "SS-0234 EHR Interoperability Gateway - [Company Name]"
+
+All correspondence: VA-OIT-MarketResearch@va.gov
+This notice will remain active on SAM.gov for 45 days from posting.

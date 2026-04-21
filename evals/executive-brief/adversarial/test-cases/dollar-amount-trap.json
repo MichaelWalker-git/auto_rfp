@@ -1,0 +1,278 @@
+{
+  "compositeScore": 2.0,
+  "confidence": 40,
+  "createdAt": "2026-04-19T12:00:00.000Z",
+  "decision": "CONDITIONAL_GO",
+  "opportunityId": "adv-dollar-amount-trap",
+  "orgId": "test-org",
+  "partition_key": "EXEC_BRIEF_PK",
+  "projectId": "test-project",
+  "sections": {
+    "summary": {
+      "data": {
+        "summary": "The Bureau of Indian Education (BIE) is conducting market research via a Sources Sought notice to identify qualified vendors capable of providing enterprise backup and disaster recovery solutions for approximately 180 school sites across 23 states. This is NOT a solicitation and no contract will be awarded from this notice. The notice references several dollar amounts ($2.5M insurance policy, $500K performance bond, $3.2M annual IT operating budget) as contextual information about existing expenditures; these are explicitly stated as NOT representing any future contract value. No estimated contract value has been established for this potential requirement.",
+        "periodOfPerformance": "Not specified (Sources Sought / market research only)",
+        "agency": "Department of the Interior, Bureau of Indian Education (BIE)",
+        "contractType": "UNKNOWN",
+        "estimatedValueUsd": null,
+        "office": "Bureau of Indian Education",
+        "title": "Enterprise Backup and Disaster Recovery Solution",
+        "placeOfPerformance": "180 school sites across 23 states",
+        "solicitationNumber": "N/A (Sources Sought Notice)",
+        "setAside": "UNKNOWN",
+        "naicsCode": "541512"
+      },
+      "status": "COMPLETE",
+      "updatedAt": "2026-04-19T12:00:00.000Z"
+    },
+    "deadlines": {
+      "data": {
+        "hasSubmissionDeadline": false,
+        "submissionDeadlineIso": null,
+        "deadlines": [
+          {
+            "dateTimeIso": "2026-04-05T17:00:00-04:00",
+            "label": "Capability Statement Response Date",
+            "notes": "This is the deadline for informational responses to the Sources Sought notice, NOT a proposal submission deadline. No contract will be awarded from this notice.",
+            "type": "OTHER",
+            "rawText": "Response Date: April 5, 2026 -- Responses are due no later than 5:00 PM Eastern on April 5, 2026",
+            "timezone": "ET"
+          }
+        ],
+        "warnings": [
+          "This is a Sources Sought notice, not a solicitation. There is no proposal submission deadline."
+        ]
+      },
+      "status": "COMPLETE",
+      "updatedAt": "2026-04-19T12:00:00.000Z"
+    },
+    "requirements": {
+      "data": {
+        "evaluationFactors": [],
+        "overview": "BIE is seeking information from vendors capable of providing enterprise backup and disaster recovery solutions covering approximately 180 school sites across 23 states. The current environment includes Rubrik for backup operations at the primary data center (approximately 450TB of protected data) and Veritas NetBackup at 12 remote sites for legacy systems. The solution must support automated backup of on-premises and cloud workloads, disaster recovery with defined RPO/RTO objectives, data deduplication and compression, FISMA Moderate compliance, Windows Server/Linux/VMware support, and geographic redundancy.",
+        "requirements": [
+          {
+            "category": "TECHNICAL",
+            "mustHave": true,
+            "requirement": "Automated backup of on-premises and cloud workloads"
+          },
+          {
+            "category": "TECHNICAL",
+            "mustHave": true,
+            "requirement": "Disaster recovery with defined RPO/RTO objectives"
+          },
+          {
+            "category": "TECHNICAL",
+            "mustHave": true,
+            "requirement": "Data deduplication and compression"
+          },
+          {
+            "category": "COMPLIANCE",
+            "mustHave": true,
+            "requirement": "Compliance with FISMA Moderate baseline"
+          },
+          {
+            "category": "TECHNICAL",
+            "mustHave": true,
+            "requirement": "Support for Windows Server, Linux, and VMware environments"
+          },
+          {
+            "category": "TECHNICAL",
+            "mustHave": true,
+            "requirement": "Geographic redundancy across at least two data centers"
+          }
+        ],
+        "submissionCompliance": {
+          "format": [],
+          "attachmentsAndForms": [],
+          "requiredDocuments": [
+            {
+              "name": "Capability Statement",
+              "description": "Brief capability statement (no more than 10 pages) including company info, DUNS number, business size/type, description of similar government deployments, and pricing model overview",
+              "pageLimit": "10 pages",
+              "documentType": "OTHER",
+              "required": true
+            }
+          ],
+          "requiredVolumes": []
+        },
+        "deliverables": []
+      },
+      "status": "COMPLETE",
+      "updatedAt": "2026-04-19T12:00:00.000Z"
+    },
+    "contacts": {
+      "data": {
+        "missingRecommendedRoles": [
+          "CONTRACT_SPECIALIST",
+          "TECHNICAL_POC",
+          "PROGRAM_MANAGER"
+        ],
+        "contacts": [
+          {
+            "name": "Jennifer Blackwood",
+            "role": "CONTRACTING_OFFICER",
+            "email": "jennifer.blackwood@bie.edu",
+            "phone": "(202) 555-0147",
+            "organization": "Bureau of Indian Education"
+          }
+        ]
+      },
+      "status": "COMPLETE",
+      "updatedAt": "2026-04-19T12:00:00.000Z"
+    },
+    "risks": {
+      "data": {
+        "redFlags": [
+          {
+            "severity": "MEDIUM",
+            "whyItMatters": "This is a Sources Sought notice for market research purposes only. No contract will be awarded from this notice. Investing significant B&P resources in a response may not yield immediate return.",
+            "mitigation": "Submit a concise capability statement to establish visibility with BIE. Monitor SAM.gov for any subsequent solicitation.",
+            "flag": "Sources Sought only -- no contract award from this notice",
+            "impactsScore": false
+          }
+        ],
+        "risks": [
+          {
+            "severity": "MEDIUM",
+            "whyItMatters": "The notice explicitly disclaims any commitment to issue a future solicitation. Budget and timeline for any subsequent procurement are unknown.",
+            "mitigation": "Use this as a low-cost opportunity to build agency relationship and position for potential future solicitation. Keep response effort proportional to the speculative nature of the opportunity.",
+            "flag": "No guarantee of future solicitation",
+            "impactsScore": false
+          },
+          {
+            "severity": "LOW",
+            "whyItMatters": "BIE currently uses Rubrik and Veritas NetBackup. A future solicitation may be influenced by current environment familiarity, potentially favoring existing vendors.",
+            "mitigation": "Highlight migration capabilities and experience replacing incumbent backup solutions in capability statement.",
+            "flag": "Existing Rubrik and Veritas deployment may influence future requirements",
+            "impactsScore": false
+          }
+        ],
+        "incumbentInfo": {
+          "knownIncumbent": false,
+          "recompete": false,
+          "notes": "This is a Sources Sought notice, not a recompete. Rubrik and Veritas NetBackup are mentioned as current products in use, but no incumbent services contractor is identified.",
+          "incumbentName": ""
+        }
+      },
+      "status": "COMPLETE",
+      "updatedAt": "2026-04-19T12:00:00.000Z"
+    },
+    "pastPerformance": {
+      "data": {
+        "topMatches": [],
+        "gapAnalysis": {
+          "overallCoverage": 0,
+          "recommendations": [
+            "This is a Sources Sought notice -- no past performance evaluation will occur. If a future solicitation is issued, prepare relevant backup and disaster recovery project references."
+          ],
+          "criticalGaps": [],
+          "coverageItems": []
+        },
+        "narrativeSummary": "No past performance evaluation applicable. This is a Sources Sought notice for market research purposes only.",
+        "confidenceScore": 0,
+        "evidence": []
+      },
+      "status": "COMPLETE",
+      "updatedAt": "2026-04-19T12:00:00.000Z"
+    },
+    "scoring": {
+      "data": {
+        "confidenceExplanation": "Low confidence due to the speculative nature of Sources Sought notices. No solicitation has been issued, no evaluation criteria are defined, and no contract value has been established. The dollar amounts in the document ($2.5M insurance, $500K bond, $3.2M operating budget) are explicitly disclaimed as not representing any future procurement value.",
+        "requiredActions": [
+          "Submit a concise capability statement highlighting backup and disaster recovery experience by April 5, 2026",
+          "Monitor SAM.gov for any subsequent solicitation from BIE for enterprise backup and disaster recovery",
+          "Assess internal capabilities against FISMA Moderate compliance requirements"
+        ],
+        "decision": "CONDITIONAL_GO",
+        "criteria": [
+          {
+            "name": "TECHNICAL_FIT",
+            "score": 3,
+            "rationale": "The requirements for enterprise backup and disaster recovery, FISMA Moderate compliance, and multi-platform support are standard capabilities. However, the 180-site deployment across 23 states represents significant scale.",
+            "gaps": [
+              "Scale of deployment across 180 sites in 23 states",
+              "FISMA Moderate compliance certification"
+            ]
+          },
+          {
+            "name": "PAST_PERFORMANCE_RELEVANCE",
+            "score": 2,
+            "rationale": "No past performance data available for evaluation. A future solicitation would require demonstrated experience with large-scale government backup and disaster recovery deployments.",
+            "gaps": [
+              "No documented backup and disaster recovery past performance"
+            ]
+          },
+          {
+            "name": "PRICING_POSITION",
+            "score": 2,
+            "rationale": "No contract value has been established. The dollar amounts referenced in the notice ($2.5M insurance, $500K bond, $3.2M operating budget) are contextual references to existing BIE expenditures and do NOT represent estimated contract value.",
+            "gaps": [
+              "No contract value established for this requirement"
+            ]
+          },
+          {
+            "name": "STRATEGIC_ALIGNMENT",
+            "score": 3,
+            "rationale": "Federal education sector opportunity with potential for long-term engagement if a solicitation is subsequently issued. Department of the Interior is a valuable agency relationship.",
+            "gaps": []
+          },
+          {
+            "name": "INCUMBENT_RISK",
+            "score": 3,
+            "rationale": "No incumbent services contractor identified. Rubrik and Veritas NetBackup are current products, but there is no indication of an incumbent managed services provider.",
+            "gaps": []
+          }
+        ],
+        "summaryJustification": "This is a Sources Sought notice for market research only. While the technical requirements are reasonable, no contract will be awarded from this notice and no estimated value has been established. The referenced dollar amounts are existing BIE expenditures, not procurement values.",
+        "confidence": 40,
+        "blockers": [],
+        "decisionRationale": "Recommend submitting a capability statement to establish visibility with BIE, but recognize this is market research with no guaranteed follow-on solicitation.",
+        "compositeScore": 2.0,
+        "confidenceDrivers": [
+          {
+            "factor": "Sources Sought -- no solicitation",
+            "direction": "DOWN"
+          },
+          {
+            "factor": "No established contract value",
+            "direction": "DOWN"
+          }
+        ]
+      },
+      "status": "COMPLETE",
+      "updatedAt": "2026-04-19T12:00:00.000Z"
+    },
+    "pricing": {
+      "data": {
+        "competitiveAdvantages": [],
+        "totalPrice": 0,
+        "indirectCostTotal": 0,
+        "basisOfEstimate": "No pricing developed. This is a Sources Sought notice for market research purposes only. No contract will be awarded and no estimated contract value has been established by the Government. The dollar amounts referenced in the document ($2.5M insurance policy, $500K performance bond, $3.2M annual IT operating budget) are contextual references to existing BIE expenditures and explicitly do NOT represent estimated procurement value.",
+        "materialCostTotal": 0,
+        "assumptions": [
+          "This is a Sources Sought notice -- no contract will be awarded",
+          "No estimated contract value has been established",
+          "The $2.5M, $500K, and $3.2M figures are existing BIE expenditures, not procurement values",
+          "Pricing will be developed if and when a formal solicitation is issued"
+        ],
+        "competitivePosition": "UNKNOWN",
+        "laborCostTotal": 0,
+        "profitMargin": 0,
+        "pricingRisks": [
+          "Cannot assess pricing risk without an established contract value or formal solicitation"
+        ],
+        "recommendedActions": [
+          "Monitor for future solicitation to develop pricing strategy",
+          "Do not confuse referenced dollar amounts with contract value"
+        ],
+        "strategy": "UNKNOWN",
+        "priceConfidence": 0
+      },
+      "status": "COMPLETE",
+      "updatedAt": "2026-04-19T12:00:00.000Z"
+    }
+  },
+  "status": "COMPLETE",
+  "updatedAt": "2026-04-19T12:00:00.000Z"
+}

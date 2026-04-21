@@ -1,0 +1,455 @@
+# Sources Sought: Cloud Hosting, Provisioning, and Management  for Indian Health Service (IHS)
+
+Solicitation: ACQ-OMAS-2026-ORC-0014_Sources
+Type: Sources Sought
+NAICS: 541519
+Opp ID: cac315e1-4ffc-4692-ada0-a51ddaf87ab6
+
+
+
+===== SOURCE FILE 1: ab320ec4-59f7-4050-8fcc-85c8d2af9a96.txt =====
+
+Draft Statement of Work (SOW)
+Cloud Center of Excellence (CCoE) Implementation
+Indian Health Service (IHS)
+Division of Information Technology (DIT)
+1. INTRODUCTION
+The Indian Health Service (IHS), an agency within the U.S. Department of Health and Human
+Services (HHS), is initiating a strategic modernization program to establish a Cloud Center of
+Excellence (CCoE). The CCoE will utilize Cloud (GovCloud - FedRAMP) to centralize, secure,
+and automate cloud operations while supporting mission-critical health IT objectives.
+This Statement of Work (SOW) outlines the tasks, deliverables, roles, and performance
+expectations for designing, implementing, and sustaining the CCoE in alignment with federal
+compliance frameworks including:
+FedRAMP (High Baseline)
+NIST 800-53 Rev 5
+Executive Order 14028
+OMB M-22-09, M-24-04
+CISA's Zero Trust Maturity Model (ZTMM)
+Post Quantum Computing (PQC) Readiness meeting PQC Mandate Enablement
+Secure AI ready platform
+2. BACKGROUND
+IHS currently operates in a decentralized IT environment that contributes to fragmented
+infrastructure, inconsistent security enforcement, and risk exposure. GAO Report GAO-21-20
+identified several deficiencies in cloud governance, visibility, and cybersecurity readiness.
+To address these gaps, IHS will implement a secure Cloud GovCloud-based environment that
+consolidates infrastructure, automates security workflows, and incorporates role-based AI tools.
+The CCoE will enable continuous compliance, reduce operational overhead, and support
+innovation across IHS facilities.
+3. SCOPE OF WORK
+The Contractor shall provide a comprehensive solution that includes, but is not limited to, the
+following capabilities:
+Cloud Landing Zone Design & Deployment
+Multi-account Cloud architecture with governance controls
+Use of Cloud Control Tower, Service Catalog, and Cloud Organizations
+Identity and access management aligned with Zero Trust principles
+Secure Enclave Provisioning
+Configured enclaves for development, staging, and production workloads
+FedRAMP-compliant storage, compute, and networking (e.g., EC2, S3, VPC,
+PrivateLink)
+Hardened environments using CIS benchmarks and Cloud best practices
+Automation and Orchestration
+Automated workflows for ATO lifecycle management
+Continuous POA&M generation, patch validation, and compliance reporting
+Integration with SIEM (e.g., Splunk), SOAR tools, and Cloud Security Hub
+Data Engineering and ETL
+Extract-Transform-Load (ETL) pipelines for ingesting and transforming log and
+event data
+Integration with Cloud native telemetry (e.g., CloudTrail, GuardDuty) and third-
+party tools
+Masking and classification of PHI/PII in compliance with HIPAA and FISMA
+Large Language Model (LLM) Enablement
+On-premise or enclave-deployed LLMs for secure, role-based inference
+AI-assisted document generation (e.g., SSP, SAR, RAR, POA&M)
+Local semantic search and summarization of compliance materials
+Use of containerized, GPU-accelerated inference in isolated VPCs
+Compliance Dashboards and Risk Analytics
+Real-time compliance status dashboards for executive reporting
+Dashboards showing ATO progress, open vulnerabilities, audit readiness
+Integration with natural language interfaces for querying compliance data
+Zero Trust Architecture Implementation
+Aligned with CISA Zero Trust Maturity Model (ZTMM)
+Support for microsegmentation, encrypted remote access, and continuous
+validation
+Maturity benchmarking and optimization across all ZTA pillars
+Security Operations and Monitoring
+Centralized log aggregation and threat detection via SIEM
+Endpoint Detection and Response (EDR), vulnerability management
+Continuous diagnostics and mitigation (CDM) support
+Secure Data Vault and Metadata Governance
+Encrypted storage with tagging and classification aligned with NIST 800-60
+Role-based tagging, automated metadata parsing, and retention policies
+AI-assisted classification and redaction for secure document handling
+Stakeholder Support and Role-Based Toolkits
+Interfaces and workflows tailored to ISSOs, POA&M Analysts, Auditors, System
+Owners
+Embedded help systems and LLM-based support assistants
+Training materials and job aids customized per role
+4. OBJECTIVES
+The objectives of the Cloud Center of Excellence (CCoE) initiative are to modernize, secure, and
+automate IHS cloud operations across the enterprise, in alignment with federal mandates, audit
+recommendations, and the agency's mission to improve healthcare delivery through digital
+transformation. This section outlines the business, technical, security, and strategic outcomes the
+initiative is expected to achieve.
+4.1 Business Objectives
+Establish a centralized cloud governance model to address findings in GAO Report
+GAO-21-20 and reduce operational fragmentation.
+Enable secure, compliant testing and deployment of mission-critical applications through
+standardized Cloud environments.
+Implement a cost accountability framework via a chargeback model supported by Cloud
+Budgets and Cost Explorer.
+Reduce total cost of ownership through tool rationalization, license consolidation, and
+automation of manual compliance functions.
+Improve leadership visibility into risk posture, operational performance, and compliance
+status through real-time executive dashboards.
+4.2 Technical Objectives
+Design and deploy a secure Cloud Landing Zone architecture with multi-account
+governance, VPC segmentation, and centralized identity and access management.
+Automate core compliance and operational workflows including:
+ATO package generation
+POA&M lifecycle tracking
+Patch deployment validation
+Security incident ticketing and audit response
+Integrate telemetry, logs, and vulnerability scan results into a unified SIEM and
+dashboarding platform.
+Establish secure ETL pipelines from Cloud and third-party telemetry sources into
+centralized compliance dashboards and data lakes.
+Deploy GPU-enabled container environments for operating fine-tuned, enclave-hosted
+LLMs in support of documentation generation, compliance analytics, and secure
+information retrieval.
+4.3 Security and Compliance Objectives
+Achieve continuous compliance monitoring and FedRAMP alignment across deployed
+systems and workflows.
+Implement Zero Trust Architecture (ZTA) principles throughout the environment in
+accordance with CISA's ZTMM framework.
+Provide role-specific support tools for ISSOs, Security Control Assessors, POA&M
+Analysts, and System Owners, enhancing their efficiency and audit-readiness.
+Enable enclave-based LLMs to support automated generation of SSPs, SARs, SAPs, and
+other required documentation with no data egress.
+Monitor compliance posture in real-time through dashboards that provide insights into
+ATO progression, vulnerability resolution, patch coverage, and audit gaps.
+4.4 Strategic Outcomes
+Empower IHS leadership with defensible, data-driven insights into cybersecurity,
+operations, and cloud utilization.
+Institutionalize a scalable, repeatable cloud operations model that supports future IHS
+initiatives, including EHR modernization and AI-driven analytics.
+Reduce the burden on IHS security and compliance staff by automating routine
+workflows and documentation tasks using enclave-secured LLMs.
+Increase IHS agility in adopting and securing commercial-off-the-shelf (COTS) tools by
+establishing pre-authorization environments.
+Create a foundation for continual innovation by deploying cloud-native and AI-native
+technologies in a secure and governed manner.
+5. PERIOD OF PERFORMANCE
+One Year. All core implementation phases (enclave setup, automations, training) are to be
+completed within the Base Year.
+6. PLACE OF PERFORMANCE
+All work shall be performed remotely unless otherwise directed by the Contracting Officer. The
+Contractor shall use IHS-approved virtual collaboration platforms for meetings, training, and
+reviews.
+7. PHASED IMPLEMENTATION PLAN & DELIVERABLES
+The CCoE shall be delivered in three integrated phases. Each phase builds on the previous to
+ensure secure design, operational automation, and sustainable cloud governance. All activities
+will comply with IHS, HHS, and federal cybersecurity mandates.
+7.1 Phase 1: Foundation - Secure Enclave and Cloud Infrastructure
+Deployment
+Objective:
+Establish the secure Cloud GovCloud infrastructure, deploy baseline logging, identity, and ETL
+capabilities, and prepare for authorization under FedRAMP and IHS-specific requirements.
+Key Activities:
+Deploy Cloud Landing Zone using Cloud Control Tower and multi-account best practices
+Configure core services: EC2, S3 (Standard, Glacier IR, Deep Archive), IAM, VPC, and
+PrivateLink
+Enable centralized logging, auditing, and threat detection with Cloud CloudTrail,
+GuardDuty, and Config
+Provision ETL servers and data pipelines to Splunk/Data Lake
+Deploy GPU-enabled container environments for local LLMs in isolated VPCs
+Draft core ATO documentation including SSP, SAP, RAR, and ConMon strategy
+Establish compliance governance alignment with NIST, ZTMM, and FedRAMP High
+Deliverables:
+Cloud Landing Zone Architecture and Configuration Artifacts
+IAM and VPC Security Configuration Documentation
+Hardened ETL Server Deployment Package and Logging Setup
+Baseline Data Classification and Masking Policy
+Initial LLM Hosting Blueprint with Secure Container Deployment
+Draft ATO Documents: SSP, SAP, RAR, Continuous Monitoring Strategy
+Cloud Governance and Risk Register (Initial Baseline)
+7.2 Phase 2: Automation - Compliance, Risk Visibility, and ATO Enablement
+Objective:
+Automate security workflows, compliance operations, and risk analytics; integrate dashboarding,
+vulnerability scanning, and AI-powered documentation assistance.
+Key Activities:
+Configure automation engines for POA&M tracking, ATO artifact generation, and patch
+lifecycle management
+Integrate Cloud Security Hub, SIEM, SOAR, and ticketing systems (e.g., ServiceNow)
+Deploy real-time dashboards for ATO progression, risk indicators, and vulnerability
+metrics
+Train enclave-hosted LLMs on redacted historical data for audit RFI generation,
+SSP/POA&M summarization, and classification
+Conduct full UAT with compliance and security teams across workflows and dashboards
+Finalize all ATO documentation for formal submission
+Document governance procedures for automation use and LLM assistance
+Deliverables:
+Validated Automation Playbooks for ATO, POA&M, Patch, and IR workflows
+Deployed Compliance Dashboards with Export/Reporting Capabilities
+Integrated SIEM/EDR/Vulnerability Dashboard and Alerting Interfaces
+Enclave-Based LLM Toolkits: Prompt Libraries, Summary Engines, Audit RFI Generator
+Peer-Reviewed Codebase and QA Documentation for Security Automations
+Completed ATO Package: SSP, SAP, SAR, POA&M Workbook
+UAT Report, Change Logs, and Final QA Sign-off
+7.3 Phase 3: Transition - Training, Knowledge Transfer, and Operational
+Readiness
+Objective:
+Ensure IHS personnel are fully equipped to operate, sustain, and enhance the CCoE platform
+through structured training, documentation, and role-specific toolkits.
+Key Activities:
+Deliver role-specific training for ISSOs, System Owners, Engineers, Analysts, and
+Auditors
+Provide instructional resources: slide decks, recordings, quick-reference guides
+Conduct operational exercises in staging environments to validate training
+comprehension
+Finalize SOPs for Cloud, ETL, automation workflows, and LLM-based compliance
+tooling
+Complete knowledge transfer and governance handoff with defined ownership and
+escalation paths
+Deliver final project documentation package and operational readiness checklist
+Deliverables:
+Training Curriculum by Role (ISSOs, DevSecOps, Security Analysts, etc.)
+Admin Manuals, Reference Guides, and Recorded Training Sessions
+SOPs for Enclave Management, ETL, Compliance Automation, and LLM Use
+Knowledge Transfer Package with Architecture, Workflows, and Configuration Artifacts
+Operational Readiness Checklist and Transition Acceptance Memo
+Final Compliance Snapshot Report (ZTMM, NIST 800-53, FedRAMP metrics)
+Post-Implementation Sustainability and Improvement Plan
+8. KEY PERSONNEL AND RESPONSIBILITIES
+The Contractor shall provide the following Key Personnel, each of whom must possess
+demonstrated experience supporting U.S. public sector cloud security, automation, and
+compliance modernization initiatives. All proposed personnel must be fully cleared to the Public
+Trust level or higher and shall remain assigned throughout the performance period unless
+otherwise approved by the Contracting Officer (CO) and Contracting Officer's Representative
+(COR).
+9. CONTRACT LINE ITEM NUMBERS (CLINs) & MILESTONES
+CLIN Structure
+CLIN 001 - Architecture & Deployment (Landing Zone, Enclave, Infrastructure)
+CLIN 002 - Automation Integration & Dashboarding
+CLIN 003 - LLM Licensing & Container Deployment
+CLIN 004 - Training & Transition Support
+CLIN 005 - Embedded Resident Architect Support (optional, T&M)
+CLIN
+Aligned
+Description
+Mapped Deliverables
+Milestones
+CLIN
+Architecture, Landing Zone,
+Cloud Landing Zone artifacts, IAM/VPC
+and Secure Enclave
+001
+setup, Logging/Monitoring stack, ATO
+M1, M2, M3
+Deployment
+Drafts
+CLIN
+Compliance Automation &
+Automation playbooks, POA&M engine,
+M4, M5, M6
+002
+Workflow Integration
+SIEM integration, ticketing flows
+CLIN
+LLM deployment containers, prompt
+LLM Licensing, Secure
+003
+libraries, audit RFI generator,
+M4, M5, M6
+Hosting, and Toolkits
+classification engine
+CLIN
+Training, SOPs, and
+Role-based training materials, recorded
+M7, M8
+004
+Knowledge Transfer
+sessions, SOPs, transition plan
+Milestone Schedule
+This milestone table defines major delivery checkpoints across the three phases. Each milestone
+includes a brief description, expected deliverables, and target completion timeline (based on
+award date). This format is aligned with IHS procurement expectations.
+Milestone
+Description
+Key Deliverables
+Target Date
+Formal launch of contract;
+Within 10
+M1 - Project
+finalization of schedule, roles,
+Kickoff Briefing, WBS,
+Kickoff
+business days
+Master Project Plan
+access, and governance
+of award
+M2 - Secure
+Completion of Cloud Landing
+Cloud Architecture Docs,
+End of Month
+Enclave
+Zone and baseline security
+ETL Servers, IAM/VPC
+2
+Deployment
+infrastructure
+Configs
+Milestone
+Description
+Key Deliverables
+Target Date
+Submission of draft ATO
+M3 - Draft ATO
+SSP, SAP, RAR,
+End of Month
+documents for internal review
+Package Submitted
+ConMon, Risk Register
+3
+and updates
+M4 - LLM
+Initial deployment of LLMs in
+LLM Hosting Plan,
+secure containers, focused on
+Redacted Prompt
+End of Month
+Integration (Phase
+documentation and
+Templates, SSP Draft
+4
+1)
+classification
+Generator
+M5 - Automation
+Compliance workflows (ATO,
+Playbooks, Codebase,
+End of Month
+Engine
+POA&M, IR) operational with
+SIEM Integration,
+5
+Operational
+integrations and dashboards
+POA&M Tracker
+M6 - UAT and
+Completion of UAT for all
+dashboards, automations, and
+Final ATO Package, UAT End of Month
+ATO Package
+Finalized
+workflows; submission-ready
+Report, QA Logs
+6
+ATO
+Training delivered across
+M7 - Training and
+stakeholder roles, with
+Training Completion
+End of Month
+Transition
+documentation and environment
+Report, SOPs, Admin
+7
+Execution
+Guides
+access
+M8 - Operational
+Governance transition to IHS
+Final Architecture
+End of Month
+Readiness
+team, validation of full
+Bundle, OR Checklist,
+8
+Certification
+capability and compliance
+Governance Plan
+M9 - Post-
+Periodic support, tuning, or
+Support Logs,
+Months 9-12
+Transition Support incident response assistance as
+Performance Reports,
+(optional
+(Optional)
+required by IHS
+Improvement Proposals
+CLIN use)
+10. SECURITY, PRIVACY, AND COMPLIANCE REQUIREMENTS
+All work must comply with the following:
+Data Sovereignty: All data remains in Cloud GovCloud (US), including LLM
+operations.
+Standards:
+FedRAMP High
+NIST 800-53 Rev 5
+CISA Zero Trust Maturity Model (ZTMM)
+EO 14028, OMB M-22-09, M-24-04
+Personnel: Public Trust background clearance required.
+Non-Disclosure: NDAs required for all Contractor personnel accessing sensitive IHS
+data.
+11. PERFORMANCE METRICS AND REPORTING
+Performance will be evaluated based on:
+Timeliness of deliverables (±10 business days)
+Accuracy and usability of ATO documentation
+Compliance of enclave with security benchmarks
+Training satisfaction scores (≥90% competency pass)
+Risk dashboards maintained with ≤24hr lag from telemetry source
+Reporting Requirements
+Weekly: Status updates, risk registers, and action items
+Monthly: Executive dashboards and cost transparency reports
+Quarterly: Performance and compliance reviews with stakeholders
+
+
+===== SOURCE FILE 2: d9922708-35df-4068-bfdb-6ecafe6a72cf.txt =====
+
+HUMAN
+SERVICES
+USA
+HEALTH
+DEPARTMENT OF HEALTH & HUMAN SERVICES
+oF
+Indian Health Service
+Office of Management Services
+Division of Acquisition Policy (DAP)
+5600 Fishers Lane
+Rockville, MD 20857
+INDIAN HEALTH SERVICE
+BUY INDIAN ACT
+INDIAN ECONOMIC ENTERPRISE
+REPRESENTATION FORM
+SOLICITATION/SOURCES SOUGHT/RFI #:
+PROJECT TITLE:
+DATE:
+In accordance with 25 U.S.C. 47 the Buy Indian Act, the signature below constitutes self-certification that the
+Offeror meets the definition of an "Indian Economic Enterprise" (HHSAR 326.601) in response to
+this Sources Sought Notice, Request for Information (RFI) or Solicitation and resultant contract.
+The enterprise must meet the definition of "Indian Economic Enterprise" throughout the following time periods:
+(1) At the time an offer is made in response to this solicitation;
+(2) At the time of contract award; and
+(3) During the full term of the contract performance period. At any point during these periods, if the Contractor no
+longer meets the eligibility requirements, the contractor must provide immediate written notification to the Contracting
+Officer.
+Individual Contracting Officers may require documentation of eligibility before awarding a set-aside or sole source
+contracts under the Buy Indian Act and awards may be subject to protest if the eligibility of the successful Offeror is
+in question. In addition to the self-certification requirements, successful Offerors must also be registered with the
+System of Award Management (SAM).
+Any false or misleading information submitted by an enterprise when submitting an offer in consideration of an award
+set-aside under the authority of the Buy Indian Act is a violation of the law and punishable under 18 U.S.C. 1001.
+False claims submitted as part of contract performance are subject to the penalties enumerated in 31 U.S.C. 3729 to
+3731 and 18 U.S.C. 287.
+REPRESENTATION
+The Offeror represents as part of its offer that it does
+, does not
+meet the definition of an "Indian
+Economic Enterprise" with "Indian Ownership" under the authority of the Buy Indian Act.
+Name of Federally Recognized Tribal Entity
+Name of the 51% owner of IEE Firm
+Business Name
+Certifying Signature
+Unique Entity Identifier (UEI) Number
+Print Name

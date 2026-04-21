@@ -47,6 +47,13 @@ export function pastperfDomain(args: {
       // Matching & Analysis
       {
         method: 'POST',
+        path: 'reindex-projects',
+        entry: lambdaEntry('pastperf/reindex-projects.ts'),
+        timeoutSeconds: 300,
+        memorySize: 512,
+      },
+      {
+        method: 'POST',
         path: 'match-projects',
         entry: lambdaEntry('pastperf/match-projects.ts'),
         extraEnv: { 

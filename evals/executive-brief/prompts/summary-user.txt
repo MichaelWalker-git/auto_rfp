@@ -1,0 +1,84 @@
+TASK: Extract an Executive Opportunity Summary from this solicitation.
+
+Return JSON ONLY. First char "{" last char "}".
+
+COPY THIS JSON SKELETON AND FILL IT IN (do not add keys):
+{
+  "title": "string (required)",
+  "agency": "string (required)",
+  "office": "string (optional)",
+  "solicitationNumber": "string (optional, exact from solicitation)",
+  "summary": "string (required, 4-6 detailed sentences)",
+  "contractType": "string (optional)",
+  "setAside": "string (optional)",
+  "naics": "string (optional, numeric codes)",
+  "estimatedValueUsd": "(omit if not stated in solicitation)",
+  "placeOfPerformance": "string (optional)",
+  "periodOfPerformance": "string (optional)"
+}
+
+Do NOT include an "evidence" field.
+
+EXTRACTION GUIDANCE:
+
+TITLE:
+- Use the official solicitation title/announcement headline.
+- If multiple titles present, use the formal RFP/IFB title.
+- Example: "Software Development Services for Healthcare Portal"
+
+AGENCY:
+- Extract the issuing federal agency (e.g., "Department of Defense", "GSA", "FDA").
+- If sub-agency mentioned, include it (e.g., "Army Corps of Engineers").
+
+OFFICE:
+- Extract the issuing office within the agency if mentioned.
+- Example: "Office of Information Technology" or "Contracting Division".
+- If not specified, omit.
+
+SOLICITATION NUMBER:
+- Extract the official solicitation number (e.g., "FA8103-24-R-0001", "66-0001-2024-A").
+- If not clearly present, omit this field.
+
+SUMMARY:
+- Write 4-6 sentences providing a substantive executive overview.
+- Cover: (1) What is being procured and the mission/business need, (2) Key scope elements and technical requirements, (3) Contract structure and period of performance, (4) Strategic context (why this matters to the agency).
+- Be specific: include numbers, technologies, integrations, and constraints from the solicitation.
+- Example: "The Department of Veterans Affairs seeks an enterprise cloud migration partner to modernize 50+ legacy healthcare applications from on-premise data centers to AWS GovCloud. The program spans 18 months with a base year plus two option years, requiring FedRAMP High authorization and HIPAA compliance throughout. Contractor must provide automated CI/CD pipelines, zero-downtime migration strategies, and 24/7 managed services post-migration. This initiative supports DVA's broader digital transformation mandate to improve veteran healthcare access through modernized, scalable infrastructure."
+
+CONTRACT TYPE:
+- Use one of: FIXED_PRICE, COST_PLUS, TIME_AND_MATERIALS, INDEFINITE_DELIVERY, TASK_ORDER, BLANKET_PURCHASE_AGREEMENT, OTHER.
+- If multiple types mentioned, use the primary one.
+- If unclear or not stated, omit.
+
+SET-ASIDE CATEGORY:
+- Use one of: SMALL_BUSINESS, WOMEN_OWNED, VETERAN_OWNED, DISADVANTAGED, SERVICE_DISABLED_VETERAN, HUBZONE, NONE.
+- NONE = explicitly NOT a set-aside.
+- If no set-aside mentioned, omit.
+
+NAICS:
+- Extract NAICS code(s) if provided (6-digit numeric codes).
+- If multiple, use comma-separated list (e.g., "541611,541620").
+- If not present, omit.
+
+ESTIMATED VALUE:
+- Use a STRING with the original value text from the solicitation (e.g., "$1,500,000", "$1.5M", "Up to $2M", "$1M-$2M").
+- Do NOT convert to a number. Preserve the original format including $ signs, commas, and ranges.
+- If unclear or not stated, omit.
+
+PLACE OF PERFORMANCE:
+- City, state, or region where work will be performed.
+- Example: "Washington, DC" or "Multiple locations across CONUS".
+- If not specified, omit.
+
+PERIOD OF PERFORMANCE:
+- Duration or period of performance (e.g., "12 months", "Base year + 4 option years").
+- If not specified, omit.
+
+IMPORTANT:
+- Do NOT invent solicitation numbers, values, or agency names.
+- If information is not in the solicitation, OMIT the field.
+- Do NOT include an "evidence" field.
+- Keep summary concise and focused on opportunity scope, not boilerplate.
+
+SOLICITATION TEXT:
+{{solicitation}}

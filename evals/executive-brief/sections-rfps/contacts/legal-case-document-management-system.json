@@ -1,0 +1,33 @@
+{
+  "missingRecommendedRoles": [
+    "TECHNICAL_POC",
+    "PROGRAM_MANAGER",
+    "SMALL_BUSINESS_SPECIALIST",
+    "PROCUREMENT_POC",
+    "SUBCONTRACTING_POC",
+    "GENERAL_INQUIRY"
+  ],
+  "contacts": [
+    {
+      "name": "Grace Alao",
+      "role": "CONTRACT_SPECIALIST",
+      "title": "Senior Contract Specialist",
+      "email": "grace.alao@dccsystem.gov",
+      "organization": "District of Columbia Courts"
+    },
+    {
+      "name": "Darlene D. Reynolds",
+      "role": "CONTRACTING_OFFICER",
+      "title": "Procurement and Contracts Branch Manager",
+      "organization": "District of Columbia Courts, Administrative Services Division"
+    },
+    {
+      "name": "Sherri Evans Harris",
+      "role": "CONTRACTING_OFFICER_REPRESENTATIVE",
+      "title": "General Counsel",
+      "phone": "202-879-1627",
+      "email": "officegeneralcounsel@dccsystem.gov",
+      "organization": "District of Columbia Courts"
+    }
+  ]
+}

@@ -1,0 +1,737 @@
+{
+  "compositeScore": 1.4,
+  "confidence": 55,
+  "decision": "NO_GO",
+  "sections": {
+    "contacts": {
+      "data": {
+        "missingRecommendedRoles": [
+          "TECHNICAL_POC",
+          "PROGRAM_MANAGER",
+          "SMALL_BUSINESS_SPECIALIST",
+          "PROCUREMENT_POC",
+          "SUBCONTRACTING_POC",
+          "GENERAL_INQUIRY"
+        ],
+        "contacts": [
+          {
+            "name": "Grace Alao",
+            "role": "CONTRACT_SPECIALIST",
+            "title": "Senior Contract Specialist",
+            "email": "grace.alao@dccsystem.gov",
+            "organization": "District of Columbia Courts"
+          },
+          {
+            "name": "Darlene D. Reynolds",
+            "role": "CONTRACTING_OFFICER",
+            "title": "Procurement and Contracts Branch Manager",
+            "organization": "District of Columbia Courts, Administrative Services Division"
+          },
+          {
+            "name": "Sherri Evans Harris",
+            "role": "CONTRACTING_OFFICER_REPRESENTATIVE",
+            "title": "General Counsel",
+            "phone": "202-879-1627",
+            "email": "officegeneralcounsel@dccsystem.gov",
+            "organization": "District of Columbia Courts"
+          }
+        ]
+      },
+      "inputHash": "force-regen-v9",
+      "status": "COMPLETE",
+      "updatedAt": "2026-04-20T23:35:37.922Z"
+    },
+    "deadlines": {
+      "data": {
+        "hasSubmissionDeadline": true,
+        "submissionDeadlineIso": "2026-04-24T11:00:00-05:00",
+        "deadlines": [
+          {
+            "dateTimeIso": "2026-04-13T11:00:00-05:00",
+            "label": "Deadline for solicitation questions",
+            "notes": "Questions must be emailed to the Senior Contract Specialist. The Courts will not consider any questions received after this time. Only 11 calendar days before the proposal deadline, so offerors should prepare questions early.",
+            "type": "QUESTIONS_DUE",
+            "rawText": "QUESTIONS MUST BE SUBMITTED NO LATER THAN 11:00 A.M. EST ON APRIL 13, 2026.",
+            "timezone": "EST"
+          },
+          {
+            "dateTimeIso": "2026-04-24T11:00:00-05:00",
+            "label": "Proposal submission deadline",
+            "notes": "Proposals must be submitted via email only; mailed, hand-delivered, telephonic, or faxed proposals will not be accepted. Note that the SAM.gov metadata shows a response deadline of April 17, 2026, but the solicitation document in Section L.2 explicitly states April 24, 2026 at 11:00 AM EST. The solicitation document should govern, but offerors should confirm with the Contracting Officer. The Courts may award on initial offers without discussions, so best terms should be included upfront.",
+            "type": "PROPOSAL_DUE",
+            "rawText": "PROPOSALS MUST BE SUBMITTED BY EMAIL TO GRACE ALAO, SENIOR CONTRACT SPECIALIST, AT GRACE.ALAO@DCCSYSTEM.GOV NO LATER THAN 11 A.M. EST ON FRIDAY, APRIL 24, 2026.",
+            "timezone": "EST"
+          }
+        ],
+        "warnings": [
+          "Conflict between SAM.gov response deadline (April 17, 2026) and solicitation Section L.2 deadline (April 24, 2026 at 11:00 AM EST). Offerors should verify the correct deadline with the Contracting Officer."
+        ]
+      },
+      "inputHash": "force-regen-v9",
+      "status": "COMPLETE",
+      "updatedAt": "2026-04-20T23:32:18.927Z"
+    },
+    "pastPerformance": {
+      "status": "IDLE",
+      "updatedAt": "2026-04-19T20:14:59.961Z"
+    },
+    "pricing": {
+      "data": {
+        "competitiveAdvantages": [],
+        "totalPrice": 0,
+        "indirectCostTotal": 0,
+        "basisOfEstimate": "This pricing analysis results in a $0 total price because HORUSTECH fundamentally cannot perform the core requirement of this solicitation. The D.C. Courts (DCSC-26-RFP-60) is seeking a qualified vendor to provide a cloud-hosted, configurable COTS Legal Case and Document Management System. This is a product-based procurement where the vendor must own, license, or be an authorized reseller of an existing legal case management software platform. HORUSTECH is a small software engineering and cloud migration services company based in San Diego, CA (DGS SB Micro certified), with past performance limited to AWS cloud migrations for commercial retail and gaming clients. The company's labor rate card includes Software Engineers ($171.40/hr) and Manufacturing Engineers ($178.89/hr), which are irrelevant to providing a COTS legal software product. No government estimate was stated in the solicitation. The CLIN structure (software licenses, maintenance, implementation, training across base + 4 option years) is designed for a COTS vendor, not a custom development shop. Market pricing for comparable legal case management systems for 6-10 users with FedRAMP hosting, migration of 1.2TB, and 5-year support would typically range from $250,000-$600,000 total contract value based on industry norms, but HORUSTECH has no product to offer at any price point. This is a clear industry mismatch warranting a No-Bid decision.",
+        "materialCostTotal": 0,
+        "assumptions": [
+          "HORUSTECH does not develop, own, or resell a commercial-off-the-shelf Legal Case and Document Management System, which is the core deliverable of this solicitation. This assumption is based on the company's knowledge base, past performance records, and labor categories, all of which indicate a custom software development and cloud migration services firm.",
+          "No government estimated value was provided in the solicitation text. Without a government estimate and without the ability to provide the required COTS product, no meaningful price can be calculated.",
+          "The organization's labor rates (Software Engineer $171.40/hr, Manufacturing Engineer $178.89/hr, QA $16.86/hr) are not applicable to this procurement because the solicitation requires delivery of a licensed COTS software product with associated implementation services, not custom software development labor.",
+          "The evaluation criteria heavily favor vendors with direct experience implementing legal case and document management systems for government clients. HORUSTECH's cloud migration experience (Deckers Brand retail, Chanced.com gaming) is not relevant to legal technology implementations and would not score competitively under the Experience and Qualifications (25 points) or Past Performance (25 points) factors.",
+          "The solicitation is open market (no set-aside), meaning HORUSTECH's California DGS Small Business Micro certification provides no competitive advantage for this D.C. Courts procurement."
+        ],
+        "competitivePosition": "HIGH",
+        "laborCostTotal": 0,
+        "profitMargin": 10,
+        "pricingRisks": [
+          "HORUSTECH is fundamentally a software engineering and cloud migration services company, not a legal case and document management COTS software vendor. This solicitation requires providing a commercial-off-the-shelf Legal Case and Document Management System (e.g., iManage, NetDocuments, LegalFiles, or similar), which HORUSTECH does not appear to develop or resell. The company cannot credibly propose as a prime contractor without partnering with an established legal technology COTS vendor.",
+          "The solicitation requires FedRAMP-authorized Cloud Service Provider hosting and NIST 800-53 r5/800-37 r2 compliance. HORUSTECH's past performance is limited to AWS commercial cloud migrations for retail and gaming clients, with no demonstrated FedRAMP authorization or government security compliance experience at this level. This represents a significant compliance gap that would likely result in a low technical score.",
+          "The evaluation methodology weights Technical Approach at 50 points and Experience/Qualifications at 25 points, with non-price factors approximately equal to price. Without a COTS legal case management product and without relevant past performance in legal technology implementations for government clients, HORUSTECH would score poorly on 75 of 100 non-price points, making award extremely unlikely regardless of price competitiveness.",
+          "The firm-fixed-price contract type places all cost risk on the contractor. If HORUSTECH attempted to build or customize a solution rather than providing a true COTS product, cost overruns would be entirely absorbed by the contractor. The solicitation explicitly states systems requiring little or no customization are rated more highly, penalizing any non-COTS approach.",
+          "The Service Contract Act (WD 2015-4281) applies to this contract, adding compliance complexity. Additionally, all contractor personnel must obtain security clearances per DCCS policies, and subcontractors outside the United States cannot access Court documents or data, which may constrain HORUSTECH's staffing model."
+        ],
+        "recommendedActions": [
+          "NO-BID RECOMMENDATION: This solicitation requires a COTS Legal Case and Document Management System vendor. HORUSTECH does not develop or resell such a product. The company should not pursue this opportunity as a prime contractor. The probability of win is near zero given the fundamental mismatch between company capabilities and solicitation requirements.",
+          "If HORUSTECH wishes to participate in the legal technology market, it should identify established legal case management COTS vendors (e.g., iManage, NetDocuments, LegalFiles, Smokeball, Clio) and explore subcontracting or teaming arrangements where HORUSTECH could provide cloud migration, data migration, or integration services as a subcontractor to a prime that owns the COTS product.",
+          "HORUSTECH should monitor future D.C. Courts solicitations for IT infrastructure, cloud migration, or custom software development opportunities that align with its core competencies in AWS cloud architecture, data migration, and software engineering.",
+          "If pursuing government legal technology opportunities in the future, HORUSTECH should invest in obtaining FedRAMP familiarity, pursue relevant certifications, and build past performance through smaller government IT contracts before attempting larger procurements with stringent security requirements."
+        ],
+        "strategy": "FIXED_PRICE",
+        "priceConfidence": 15
+      },
+      "inputHash": "force-regen-v9",
+      "status": "COMPLETE",
+      "updatedAt": "2026-04-20T23:39:40.835Z"
+    },
+    "requirements": {
+      "data": {
+        "evaluationFactors": [
+          "Technical Approach (50 points) - Assesses the extent to which the proposed System and technical approach will result in high quality services and deliverables meeting OGC objectives and requirements; systems meeting all requirements with little or no customization rated more highly",
+          "Experience and Qualifications (25 points) - Evaluates breadth of experience with recent projects of similar scope, size, and complexity; greater consideration given to contracts most relevant to the RFP including government contracts",
+          "Past Performance and Customer Service (25 points) - Assesses consistent demonstration of commitment to customer satisfaction and timely delivery of high-quality products and services; focuses on projects similar in scope, size, and complexity; greater consideration given to relevant government contracts",
+          "Price - Evaluated for reasonableness, completeness, and price realism; not scored; non-price factors when combined are approximately equal to price"
+        ],
+        "overview": "The District of Columbia Courts (D.C. Courts), on behalf of the Office of the General Counsel (OGC), is seeking a qualified vendor to provide a cloud-hosted, configurable commercial-off-the-shelf (COTS) Legal Case and Document Management System under Solicitation DCSC-26-RFP-60. The business problem being addressed is the modernization of OGC's operations, which currently lack a legacy legal or document management system and rely on approximately 1.2 TB of confidential, privileged, and litigation-sensitive materials stored across 10,000 folders on an NTFS network drive comprising roughly 390,000 files. Success looks like a fully implemented system that provides electronic law practice management, document and case management, contract and eDiscovery management, generative AI capabilities, automated workflows, robust search, role-based security, Section 508 compliance, and seamless integration with the Courts' enterprise IT environment including Microsoft 365, Citrix VDI, Azure, and Adobe Acrobat Pro DC, with minimal customization required. Key constraints include that this is a firm-fixed-price contract with a base year and four option years; the system must be hosted by a FedRAMP-authorized Cloud Service Provider; must comply with NIST 800-53 r5/800-37 r2 security controls; all contractor personnel must obtain security clearances per DCCS policies; subcontractors outside the United States may not access Court documents or data; proposals are due by email no later than 11:00 a.m. EST on April 24, 2026; and the Courts anticipate awarding a single contract to the most advantageous offeror considering price and non-price factors that are approximately equal in weight. OGC currently has six staff members requiring licenses, with potential expansion to ten licenses in future option years. The procurement scope includes software licenses, warranties, installation, document migration of approximately 1.2 TB of files, implementation, on-site post-implementation support, end-user training, and ongoing maintenance and support.",
+        "requirements": [
+          {
+            "category": "TECHNICAL",
+            "mustHave": true,
+            "requirement": "Provide a cloud-hosted, configurable COTS Legal Case and Document Management System (not a Court Case Management System)"
+          },
+          {
+            "category": "TECHNICAL",
+            "mustHave": true,
+            "requirement": "Document management with a centralized database, native document management, and searchable repository"
+          },
+          {
+            "category": "TECHNICAL",
+            "mustHave": true,
+            "requirement": "Case management with streamlined, real-time matter intake, opening, closure, and matter type tracking"
+          },
+          {
+            "category": "TECHNICAL",
+            "mustHave": true,
+            "requirement": "Litigation hold tracking with electronic reminders and ability to confirm receipt, e-sign, and record recipient response"
+          },
+          {
+            "category": "TECHNICAL",
+            "mustHave": true,
+            "requirement": "Task and calendar management capabilities with automatic alerts for case tracking and monitoring"
+          },
+          {
+            "category": "TECHNICAL",
+            "mustHave": true,
+            "requirement": "Contract management tool or function, including tracking and providing reminders of deadlines for procurements, contracts, and other agreements"
+          },
+          {
+            "category": "TECHNICAL",
+            "mustHave": true,
+            "requirement": "Generative AI capability including automated workflow, intelligent scanning, data verification, data analysis, legal research, document review, audit trails, data encryption, and GDPR compliance"
+          },
+          {
+            "category": "TECHNICAL",
+            "mustHave": true,
+            "requirement": "eDiscovery including comprehensive data source support, custodian management, data filtering and de-duplication, metadata extraction and analysis, secure storage and preservation, and automated review features (redaction and legal holds)"
+          },
+          {
+            "category": "TECHNICAL",
+            "mustHave": true,
+            "requirement": "File sharing including securely sharing confidential legal files"
+          },
+          {
+            "category": "TECHNICAL",
+            "mustHave": true,
+            "requirement": "Robust search capability including search by document profile fields and within document text in MS Word, Excel, PDF, HTML, and other widely-used file format types"
+          },
+          {
+            "category": "TECHNICAL",
+            "mustHave": true,
+            "requirement": "Capture/import email, documents, attachments, transcripts, video or audio recordings (including voicemail) and other file types"
+          },
+          {
+            "category": "TECHNICAL",
+            "mustHave": true,
+            "requirement": "Secure, role-based access to case/document profiles and documents (e.g., edit, view only, create or save as new version, delete)"
+          },
+          {
+            "category": "TECHNICAL",
+            "mustHave": true,
+            "requirement": "Accessibility and mobility for easy access anywhere with a secured environment"
+          },
+          {
+            "category": "TECHNICAL",
+            "mustHave": true,
+            "requirement": "OCR and redaction capability"
+          },
+          {
+            "category": "TECHNICAL",
+            "mustHave": true,
+            "requirement": "Ability to generate template documents"
+          },
+          {
+            "category": "TECHNICAL",
+            "mustHave": true,
+            "requirement": "Compatible with Citrix Virtual Desktop Infrastructure (VDI)"
+          },
+          {
+            "category": "TECHNICAL",
+            "mustHave": true,
+            "requirement": "Multiple or unlimited number of document profile fields and categories, including a case notes field(s)"
+          },
+          {
+            "category": "TECHNICAL",
+            "mustHave": true,
+            "requirement": "Single sign-on"
+          },
+          {
+            "category": "TECHNICAL",
+            "mustHave": true,
+            "requirement": "Web-based solution compatible with the latest versions of Microsoft Edge, Chrome, Firefox, and Safari"
+          },
+          {
+            "category": "TECHNICAL",
+            "mustHave": true,
+            "requirement": "Real time user response rate for searching, accessing, saving, and uploading and downloading files, including large files"
+          },
+          {
+            "category": "TECHNICAL",
+            "mustHave": true,
+            "requirement": "Near real time response rate for generating reports"
+          },
+          {
+            "category": "TECHNICAL",
+            "mustHave": true,
+            "requirement": "Disaster Recovery, including immediate access to backup files and documents"
+          },
+          {
+            "category": "TECHNICAL",
+            "mustHave": true,
+            "requirement": "Section 508 compliance (29 U.S.C. \u00a7794d)"
+          },
+          {
+            "category": "TECHNICAL",
+            "mustHave": true,
+            "requirement": "Mobile accessibility"
+          },
+          {
+            "category": "TECHNICAL",
+            "mustHave": true,
+            "requirement": "Compatibility with MS Word, MS Excel, MS Outlook (including add-in for saving emails, attachments, and contacts), MS Outlook Calendar with alerts and reminders, MS SharePoint, Adobe Acrobat Pro DC, Citrix ShareFile, and Box.com"
+          },
+          {
+            "category": "TECHNICAL",
+            "mustHave": true,
+            "requirement": "As-built documentation"
+          },
+          {
+            "category": "TECHNICAL",
+            "mustHave": true,
+            "requirement": "Provide cloud-managed services including migration, configuration, and integration with DCCS enterprise IT environment"
+          },
+          {
+            "category": "TECHNICAL",
+            "mustHave": true,
+            "requirement": "Migrate approximately 1.2 TB of OGC files (approximately 390,000 files across 10,000 folders) from NTFS network drive"
+          },
+          {
+            "category": "TECHNICAL",
+            "mustHave": true,
+            "requirement": "Provide minimum 6 software licenses initially, with ability to scale to 10 licenses in future option years"
+          },
+          {
+            "category": "SECURITY",
+            "mustHave": true,
+            "requirement": "Security features to prevent Contractor and subcontractor staff from accessing, copying, or downloading sensitive and confidential files, documents, profiles, records, and other information"
+          },
+          {
+            "category": "SECURITY",
+            "mustHave": true,
+            "requirement": "Comply with NIST 800-53 r5/800-37 r2 security controls"
+          },
+          {
+            "category": "SECURITY",
+            "mustHave": true,
+            "requirement": "FedRAMP authorized Cloud Service Provider"
+          },
+          {
+            "category": "SECURITY",
+            "mustHave": true,
+            "requirement": "Require user authentication using single sign-on with Microsoft Entra ID (formerly Azure Active Directory) or Microsoft Active Directory"
+          },
+          {
+            "category": "SECURITY",
+            "mustHave": true,
+            "requirement": "Support configuration of rules for user passwords including frequency of changes, length, and character requirements"
+          },
+          {
+            "category": "SECURITY",
+            "mustHave": true,
+            "requirement": "Lock user accounts after a defined number of failed password attempts"
+          },
+          {
+            "category": "SECURITY",
+            "mustHave": true,
+            "requirement": "Secure user information through password encryption"
+          },
+          {
+            "category": "SECURITY",
+            "mustHave": true,
+            "requirement": "Allow assignment of roles and permissions to users and groups of users"
+          },
+          {
+            "category": "SECURITY",
+            "mustHave": true,
+            "requirement": "Assign users and user groups permissions to access confidential data and documents"
+          },
+          {
+            "category": "SECURITY",
+            "mustHave": true,
+            "requirement": "Allow users to be assigned to multiple roles and resolve access to data accordingly"
+          },
+          {
+            "category": "SECURITY",
+            "mustHave": true,
+            "requirement": "Define permission levels for access to all system components"
+          },
+          {
+            "category": "SECURITY",
+            "mustHave": true,
+            "requirement": "Assign confidentiality to case data and documents"
+          },
+          {
+            "category": "SECURITY",
+            "mustHave": true,
+            "requirement": "Prohibit reports containing full social security numbers (SSN) from being generated without SSNs being masked"
+          },
+          {
+            "category": "SECURITY",
+            "mustHave": true,
+            "requirement": "Encrypt all data at rest and in transit"
+          },
+          {
+            "category": "SECURITY",
+            "mustHave": true,
+            "requirement": "Ensure system has MFA (Multi-Factor Authentication) enabled"
+          },
+          {
+            "category": "SECURITY",
+            "mustHave": true,
+            "requirement": "All contractor personnel must obtain security clearance as designated by the Contracting Officer in accordance with DCCS security policies"
+          },
+          {
+            "category": "SECURITY",
+            "mustHave": true,
+            "requirement": "Subcontractors located or performing services outside the United States shall not have access to Court documents and/or data"
+          },
+          {
+            "category": "COMPLIANCE",
+            "mustHave": true,
+            "requirement": "SAM registration required prior to contract award"
+          },
+          {
+            "category": "COMPLIANCE",
+            "mustHave": true,
+            "requirement": "Submit invoices electronically through U.S. Department of the Treasury's Invoice Processing Platform (IPP)"
+          },
+          {
+            "category": "COMPLIANCE",
+            "mustHave": true,
+            "requirement": "Maintain drug-free workplace certification per Attachment J.7"
+          },
+          {
+            "category": "COMPLIANCE",
+            "mustHave": true,
+            "requirement": "Execute Anti-Collusion Statement (Attachment J.2)"
+          },
+          {
+            "category": "COMPLIANCE",
+            "mustHave": true,
+            "requirement": "Execute Ethics in Public Contracting acknowledgment (Attachment J.3)"
+          },
+          {
+            "category": "COMPLIANCE",
+            "mustHave": true,
+            "requirement": "Execute Non-Discrimination certification (Attachment J.4)"
+          },
+          {
+            "category": "COMPLIANCE",
+            "mustHave": true,
+            "requirement": "Execute Certification of Eligibility (Attachment J.5)"
+          },
+          {
+            "category": "COMPLIANCE",
+            "mustHave": true,
+            "requirement": "Submit Tax Certification Affidavit (Attachment J.6)"
+          },
+          {
+            "category": "COMPLIANCE",
+            "mustHave": true,
+            "requirement": "Provide certificates of insurance prior to commencing work: Commercial General Liability ($1M per occurrence/$2M aggregate), Automobile Liability ($1M per occurrence), Workers' Compensation per statutory mandates, and Employer's Liability ($500K)"
+          },
+          {
+            "category": "COMPLIANCE",
+            "mustHave": true,
+            "requirement": "Comply with Service Contract Act of 1965 and applicable wage determination (WD 2015-4281)"
+          },
+          {
+            "category": "COMPLIANCE",
+            "mustHave": true,
+            "requirement": "Obtain prior written approval from CO before making any public statement or publication bearing on work performed under the contract"
+          },
+          {
+            "category": "DELIVERABLES",
+            "mustHave": true,
+            "requirement": "Provide software licenses, documentation, and warranties"
+          },
+          {
+            "category": "DELIVERABLES",
+            "mustHave": true,
+            "requirement": "Provide installation, document migration, and implementation services"
+          },
+          {
+            "category": "DELIVERABLES",
+            "mustHave": true,
+            "requirement": "Provide on-site post-implementation support and end-user training"
+          },
+          {
+            "category": "DELIVERABLES",
+            "mustHave": true,
+            "requirement": "Provide ongoing maintenance and end-user support"
+          },
+          {
+            "category": "DELIVERABLES",
+            "mustHave": true,
+            "requirement": "Provide system documentation including electronic system administration manuals and application guides"
+          },
+          {
+            "category": "DELIVERABLES",
+            "mustHave": true,
+            "requirement": "Provide disaster recovery/business continuity plan"
+          },
+          {
+            "category": "DELIVERABLES",
+            "mustHave": true,
+            "requirement": "Provide training plan including web-based on-demand training materials and step-by-step procedure manuals with solution screenshots"
+          },
+          {
+            "category": "DELIVERABLES",
+            "mustHave": true,
+            "requirement": "Provide license and maintenance agreement, SLA, and/or SaaS agreement as applicable"
+          },
+          {
+            "category": "STAFFING",
+            "mustHave": true,
+            "requirement": "Minimize personnel changes during performance of installation, document migration, implementation, post-implementation support, and user training"
+          },
+          {
+            "category": "STAFFING",
+            "mustHave": true,
+            "requirement": "Only personnel stated in the proposal shall report for duty unless otherwise approved by the Courts"
+          }
+        ],
+        "submissionCompliance": {
+          "format": [
+            "Proposals must be submitted electronically via email to grace.alao@dccsystem.gov",
+            "Email subject line must state: PROPOSAL FOR DCSC-26-RFP-60",
+            "Proposals must be typed in Times New Roman 12-point font size with 1-inch margins",
+            "Proposals must be submitted as two separate PDF files",
+            "Mailed, hand-delivered, telephonic, or faxed proposals will not be accepted",
+            "First page of each volume must be conspicuously marked with offeror name, address, solicitation number, caption, and due date/time"
+          ],
+          "attachmentsAndForms": [
+            "Attachment J.2 - Anti-Collusion Statement (executed and returned with proposal)",
+            "Attachment J.3 - Ethics in Public Contracting (signed)",
+            "Attachment J.4 - Non-Discrimination (signed)",
+            "Attachment J.5 - Certification of Eligibility (signed and notarized)",
+            "Attachment J.6 - Tax Certification Affidavit (sworn, for bids over $100,000)",
+            "Attachment J.7 - Certification Regarding a Drug-Free Workplace (signed)",
+            "Attachment J.8 - Past Performance Evaluation Form (completed for each referenced project/contract)",
+            "Attachment J.11 - DC Courts Oracle Supplier Request Form",
+            "Section A.1 - Solicitation, Offer and Award Form (signed)",
+            "Section K - Representations and Certifications (completed and signed)",
+            "Copy of license/permit/registration/certification to transact business in DC, or certification of intent to obtain",
+            "Copy of license and maintenance agreement, SLA, and/or SaaS agreement",
+            "Copy of disaster recovery/business continuity plan"
+          ],
+          "requiredDocuments": [
+            {
+              "name": "Volume 1 - Technical Proposal",
+              "description": "Technical proposal organized by tabs covering Contractor Information and Disclosures (Tab A), Technical Approach (Tab B), Experience and Qualifications (Tab C), and Past Performance and Customer Service (Tab D)",
+              "pageLimit": "Tab B: 20 pages; Tab C: 5 pages",
+              "documentType": "TECHNICAL_PROPOSAL",
+              "required": true
+            },
+            {
+              "name": "Transmittal Letter (Tab A)",
+              "description": "Letter summarizing the Offeror's ability to supply requested products and services, containing a statement of willingness to provide services subject to RFP terms, signed by a legally authorized person",
+              "documentType": "COVER_LETTER",
+              "required": true
+            },
+            {
+              "name": "Past Performance and Customer Service (Tab D)",
+              "description": "Past Performance Evaluation Forms (Attachment J.8) for each referenced project/contract (minimum 3, maximum 5 projects within last 3 years), plus disclosure of any terminated government contracts in last 5 years",
+              "documentType": "PAST_PERFORMANCE",
+              "required": true
+            },
+            {
+              "name": "Volume 2 - Price Proposal",
+              "description": "Price proposal with fixed prices for each CLIN and performance period using the Price/Cost Schedule in Section B.2, plus assumptions, conditions, and exceptions",
+              "pageLimit": "Tab A: 5 pages; Tab B: 5 pages",
+              "documentType": "PRICE_VOLUME",
+              "required": true
+            },
+            {
+              "name": "Certifications, Representations, and Attachments",
+              "description": "Completed Section K Representations and Certifications, plus all executed Section J attachments including Anti-Collusion Statement (J.2), Ethics in Public Contracting (J.3), Non-Discrimination (J.4), Certification of Eligibility (J.5), Tax Certification Affidavit (J.6), Drug-Free Workplace Certification (J.7), and Oracle Supplier Request Form (J.11)",
+              "documentType": "CERTIFICATIONS",
+              "required": true
+            }
+          ],
+          "requiredVolumes": [
+            "Volume 1 - Technical Proposal (Tab A: Contractor Information and Disclosures; Tab B: Technical Approach - 20 page limit; Tab C: Experience and Qualifications - 5 page limit; Tab D: Past Performance and Customer Service)",
+            "Volume 2 - Price Proposal (Tab A: Price/Cost Schedule - 5 page limit; Tab B: Assumptions, Conditions, and Exceptions - 5 page limit)"
+          ]
+        },
+        "deliverables": [
+          "Software Licenses, Documentation, and Warranties",
+          "Installation, Document Migration, and Implementation",
+          "On-site Post-Implementation Support and End User Training",
+          "Ongoing Maintenance and End User Support",
+          "System Documentation (electronic system administration manuals and application guides)",
+          "Disaster Recovery/Business Continuity Plan",
+          "Training Plan and Training Materials (including web-based on-demand materials and step-by-step procedure manuals with screenshots)",
+          "License and Maintenance Agreement, SLA, and/or SaaS Agreement"
+        ]
+      },
+      "inputHash": "force-regen-v9",
+      "status": "COMPLETE",
+      "updatedAt": "2026-04-20T23:35:47.821Z"
+    },
+    "risks": {
+      "data": {
+        "redFlags": [
+          {
+            "severity": "HIGH",
+            "whyItMatters": "Section C.3 explicitly states 'There is no legacy legal or document management system,' with approximately 1.2 TB of data comprising 390,000 files across 10,000 folders stored on an NTFS network drive. The files include recently digitized paper files in OCR format 'generally indexed by topic and titles of the former paper folders,' and file types span PDF, MS Word, Excel, MP4, and VTT. Under a firm-fixed-price contract (Section B.1), the Contractor bears all risk for the document migration effort described in Section C.7(e), including document coding, duplicate identification and deletion, and development of an overall electronic records management strategy including taxonomy. Without a structured source system, the effort to organize, code, and migrate 390,000 unstructured files could significantly exceed initial estimates, creating substantial financial risk under the FFP structure.",
+            "mitigation": "The solutions architect and pricing lead should develop a detailed migration effort estimate based on the known parameters (1.2 TB, 390,000 files, 10,000 folders, mixed file types) and build in appropriate risk contingency within the firm-fixed-price proposal by April 15, 2026. The capture lead should submit a question to the Contracting Officer by the April 13 deadline asking for clarification on the expected level of document coding granularity, whether sample files can be provided for scoping, and whether the Courts will provide subject matter expertise to support taxonomy development during migration.",
+            "flag": "No legacy system exists\u2014potential risk of undefined migration complexity and scope creep.",
+            "impactsScore": true
+          },
+          {
+            "severity": "MEDIUM",
+            "whyItMatters": "Section M.1 states that 'non-price evaluation factors, when combined, are approximately equal to price,' and Section M.2 allocates 50 points to Technical Approach, 25 to Experience and Qualifications, and 25 to Past Performance\u2014totaling 100 points for non-price factors. The use of 'approximately equal' rather than 'significantly more important' means that price competitiveness is critical and a technically strong but expensive proposal could lose to a lower-priced adequate solution. This is a red flag for offerors whose COTS products carry premium licensing costs, as the Courts may select a less feature-rich but more affordable alternative that still meets minimum requirements. The firm-fixed-price structure (Section B.1) further amplifies this risk because the total evaluated price across all five years will be directly compared.",
+            "mitigation": "The pricing lead should conduct competitive price analysis within the first 10 days to benchmark the proposed COTS product's licensing and service costs against likely competitors in the legal case management market. The proposal team should ensure the Technical Approach (Tab B) maximizes the 50-point technical score by clearly demonstrating how the system meets all 58 requirements with minimal customization, while the pricing strategy should explore volume discounts or phased licensing to remain competitive on the price evaluation.",
+            "flag": "Evaluation weights favor technical approach over price, but non-price factors are only 'approximately equal' to price.",
+            "impactsScore": true
+          }
+        ],
+        "risks": [
+          {
+            "severity": "HIGH",
+            "whyItMatters": "Section C.5, Requirement No. 45 mandates a 'FedRAMP authorized Cloud Service Provider,' and Section C.6(b) requires the Contractor to provide cloud-managed services hosted in a government cloud service provider. FedRAMP authorization is a significant barrier to entry because only a limited number of legal case and document management COTS products are hosted on FedRAMP-authorized infrastructure. If the offeror's proposed COTS solution is not already FedRAMP authorized or hosted by a FedRAMP-authorized CSP, obtaining authorization is a multi-month to multi-year process that cannot be completed within the proposal timeline, effectively disqualifying the offeror from competition.",
+            "mitigation": "The capture team must immediately verify whether the proposed COTS legal case and document management product is hosted on a FedRAMP-authorized cloud service provider by checking the FedRAMP Marketplace (marketplace.fedramp.gov) within the first 3 days of the response period. If the product is not FedRAMP authorized, the business development lead should evaluate whether a partnership with a FedRAMP-authorized CSP (e.g., Microsoft Azure Government, AWS GovCloud) is feasible and whether the COTS vendor supports deployment on such platforms before committing to a bid.",
+            "flag": "FedRAMP authorization requirement limits eligible COTS products and vendors.",
+            "impactsScore": true
+          },
+          {
+            "severity": "HIGH",
+            "whyItMatters": "Section C.5 specifies 58 detailed requirements spanning document management, case management, litigation hold tracking, contract management, generative AI capabilities (Requirement No. 6), and full eDiscovery functionality (Requirement No. 7). The solicitation explicitly states in Section M.2(a) that 'Systems meeting all requirements with little or no customization will be rated more highly than those requiring significant customization.' This means the offeror must identify a single COTS product that natively provides all of these capabilities\u2014including generative AI for legal research, document review, and automated workflows\u2014without heavy customization. Very few legal technology platforms currently offer this breadth of integrated functionality out of the box, creating a significant risk that the offeror may not have access to a qualifying product.",
+            "mitigation": "The solutions architect should conduct a rapid market scan within the first 5 days to identify COTS legal management platforms that natively offer the full suite of capabilities listed in Section C.5, including generative AI (Requirement 6) and eDiscovery (Requirement 7). The capture manager should engage potential COTS product vendors (e.g., NetDocuments, iManage, LegalTracker, or similar) immediately to confirm feature coverage and obtain product capability matrices that map to each of the 58 requirements, prioritizing products that minimize customization.",
+            "flag": "Extensive COTS functional requirements with generative AI and eDiscovery may narrow the competitive field to a few products.",
+            "impactsScore": true
+          },
+          {
+            "severity": "MEDIUM",
+            "whyItMatters": "The solicitation was posted on March 30, 2026, with proposals due April 24, 2026, providing only 25 calendar days to prepare a compliant response. Per Section L.10 and L.11, the Technical Proposal requires a 20-page Technical Approach (Tab B) and a 5-page Experience and Qualifications (Tab C), while the Price Proposal has a 5-page limit each for Tabs A and B. Additionally, Section L.8 requires eight executed attachments (J.2 through J.8 and J.11), signed Section K Representations and Certifications, and supporting documents including a disaster recovery plan, SLA, and license agreement. The combination of a compressed timeline with extensive documentation requirements increases the risk of non-compliant submissions, particularly for the notarized Certification of Eligibility (J.5) and Tax Certification Affidavit (J.6).",
+            "mitigation": "The proposal manager should establish a detailed proposal schedule within 48 hours of solicitation release, assigning specific team members to each attachment and volume with interim deadlines at least 5 days before the April 24 submission date. The contracts/compliance lead should begin executing the notarized certifications (Attachments J.5 and J.6) immediately, as notarization can cause delays, and should prepare all Section K representations in parallel with the technical writing effort.",
+            "flag": "Tight 25-calendar-day response window with strict page limits and multiple required attachments.",
+            "impactsScore": true
+          },
+          {
+            "severity": "MEDIUM",
+            "whyItMatters": "Section H.3(b) states that 'all contractor personnel must obtain a security clearance as designated by the Contracting Officer in accordance with DCCS security policies and procedures' due to the sensitivity and confidentiality of OGC records. Section H.3(a) further states the Courts will conduct reference and background checks on project staff, and Section H.3(c) reserves the right to reject staff based on those checks. While this is a DCCS-specific clearance rather than a federal security clearance, the timeline for processing background checks is uncertain and could delay the 14-calendar-day software license delivery deadline and subsequent implementation milestones specified in Section F.4. If key personnel are rejected, the Contractor would need to propose replacements, further delaying performance.",
+            "mitigation": "The project manager should identify and pre-screen all proposed project staff for any background issues that could cause rejection, and should prepare backup personnel for critical roles, within the first week after award. The capture lead should submit a question to the Contracting Officer (per Section A.7, by April 13, 2026) asking about the typical timeline for DCCS security clearance processing and whether work can begin on non-sensitive tasks while clearances are pending.",
+            "flag": "DCCS security clearance requirement for all contractor personnel may delay project start.",
+            "impactsScore": false
+          },
+          {
+            "severity": "MEDIUM",
+            "whyItMatters": "Section M.2(c) awards up to 25 points for Past Performance and Customer Service, with 'greater consideration given to contracts most relevant to this RFP, including government contracts.' Section L.11(d) requires 3 to 5 past performance references from projects within the last 3 years using Attachment J.8 evaluation forms. If the offeror lacks recent experience implementing legal case and document management systems specifically for government clients\u2014particularly courts or legal offices\u2014this evaluation factor will be scored lower than competitors who have such experience. The evaluation criteria explicitly favor demonstrated experience with projects of 'similar scope, size, and complexity,' which narrows the competitive advantage to vendors with a track record in government legal technology deployments.",
+            "mitigation": "The business development lead should immediately inventory all past performance references involving legal technology, document management, or case management implementations for government clients within the last 3 years, and should contact references to confirm willingness to complete the J.8 Past Performance Evaluation Form by April 20, 2026. If direct legal case management experience is limited, the proposal team should identify analogous projects involving COTS software implementation, document migration, and cloud-hosted solutions for government agencies and clearly articulate their relevance to OGC's requirements in Tab D.",
+            "flag": "Requirement for relevant past performance on government legal case management systems.",
+            "impactsScore": true
+          },
+          {
+            "severity": "MEDIUM",
+            "whyItMatters": "Section I.6 states that 'subcontractors located or performing services outside the United States shall not have access to Court documents and/or data.' This restriction, combined with the requirement in Section C.5 (Requirement 43) that contractor and subcontractor staff be prevented from accessing sensitive files, means that any offshore development, support, or implementation resources cannot be used for tasks involving Court data. For vendors who rely on offshore teams for implementation, document migration, or ongoing support, this significantly constrains staffing options and may increase costs. This is particularly relevant given the 1.2 TB document migration effort described in Section C.3, which involves confidential, privileged, and litigation-sensitive materials.",
+            "mitigation": "The capture manager should confirm within the first week that all proposed team members and subcontractors for data migration, implementation, and support are U.S.-based, and should identify backup U.S.-based resources if the primary team relies on any offshore personnel. The pricing lead should factor in the cost of exclusively U.S.-based staffing when developing the firm-fixed-price proposal to avoid margin erosion.",
+            "flag": "Subcontractor geographic restriction limits teaming options.",
+            "impactsScore": false
+          },
+          {
+            "severity": "LOW",
+            "whyItMatters": "Section C.5, Requirement No. 44 requires compliance with 'NIST-800-53 r5/800-37 r2 security controls.' While many FedRAMP-authorized cloud platforms already align with NIST 800-53, the offeror must demonstrate that the specific COTS product and its hosting environment meet these controls. Section M.2(a) evaluates the technical approach for the extent to which the proposed system meets OGC's requirements, so failure to clearly articulate NIST compliance in the 20-page Technical Approach (Tab B per Section L.11(b)) could result in lower technical scores. The offeror may need to provide a System Security Plan or reference existing authorization documentation.",
+            "mitigation": "The security/compliance lead should obtain the COTS vendor's existing NIST 800-53 r5 compliance documentation or FedRAMP authorization package within the first week and map it to the solicitation's security requirements (C.5, Nos. 43-58). This documentation should be summarized concisely in the Technical Approach (Tab B) to demonstrate compliance without consuming excessive page count within the 20-page limit.",
+            "flag": "NIST 800-53 r5 and 800-37 r2 compliance adds documentation burden.",
+            "impactsScore": true
+          }
+        ],
+        "incumbentInfo": {
+          "knownIncumbent": false,
+          "recompete": false,
+          "notes": "Section C.3 explicitly states 'There is no legacy legal or document management system,' indicating this is a new requirement rather than a recompete. No incumbent contractor is named anywhere in the solicitation. The OGC currently stores files on an NTFS network drive without any case or document management platform."
+        }
+      },
+      "inputHash": "force-regen-v9",
+      "status": "COMPLETE",
+      "updatedAt": "2026-04-20T23:39:08.447Z"
+    },
+    "scoring": {
+      "data": {
+        "confidenceExplanation": "Confidence reduced due to missing past performance data and clear industry mismatch, though the NO_GO conclusion is highly certain given the fundamental product gap",
+        "requiredActions": [
+          "NO-BID: Do not pursue this opportunity as prime contractor \u2014 fundamental capability mismatch makes award impossible",
+          "If interested in legal technology market long-term, identify and establish teaming relationships with COTS legal case management vendors (e.g., iManage, NetDocuments, LegalFiles)",
+          "Monitor future D.C. Courts solicitations for IT infrastructure, cloud migration, or custom software development opportunities that align with core competencies",
+          "Focus proposal resources on opportunities matching cloud migration and software engineering capabilities"
+        ],
+        "decision": "NO_GO",
+        "criteria": [
+          {
+            "name": "TECHNICAL_FIT",
+            "score": 1,
+            "rationale": "HORUSTECH is a small software engineering and cloud migration services company based in San Diego, CA with DGS SB Micro certification. The solicitation requires a vendor to provide a commercial-off-the-shelf (COTS) Legal Case and Document Management System \u2014 a product that HORUSTECH does not develop, own, or resell. The company's KB shows no capabilities in legal technology, document management systems, eDiscovery, generative AI for legal research, or FedRAMP-authorized cloud hosting. The solicitation explicitly requires a COTS product with 58 specific functional, technical, and security requirements including litigation hold tracking, contract management, and eDiscovery \u2014 none of which align with HORUSTECH's documented capabilities in AWS cloud migrations for commercial retail and gaming clients. This is a fundamental industry and product mismatch.",
+            "gaps": [
+              "No COTS Legal Case and Document Management System product to offer",
+              "No legal technology capabilities documented",
+              "No FedRAMP authorization or government security compliance experience",
+              "No eDiscovery, litigation hold, or generative AI for legal research capabilities",
+              "No experience with NIST 800-53 r5/800-37 r2 security controls",
+              "No document management or case management product in portfolio"
+            ]
+          },
+          {
+            "name": "PAST_PERFORMANCE_RELEVANCE",
+            "score": 1,
+            "rationale": "No past performance data available. The company database contains zero relevant past performance projects for this opportunity. The solicitation requires 3-5 past performance references from projects within the last 3 years of similar scope, size, and complexity, with greater consideration given to government contracts involving legal case and document management systems. HORUSTECH's known past performance is limited to AWS cloud migrations for commercial retail (Deckers Brand) and gaming (Chanced.com) clients, which are entirely unrelated to legal technology COTS implementations for government agencies. The company would score near zero on the 25-point Past Performance and Customer Service evaluation factor.",
+            "gaps": [
+              "No past performance projects in database",
+              "No legal technology implementation experience",
+              "No government contract past performance",
+              "Cannot provide required 3-5 references for similar work within last 3 years"
+            ]
+          },
+          {
+            "name": "PRICING_POSITION",
+            "score": 1,
+            "rationale": "The pricing analysis explicitly concludes with a $0 total price because HORUSTECH fundamentally cannot perform the core requirement \u2014 providing a COTS legal case management software product. The pricing module's competitive position is rated 'HIGH' risk (meaning high risk, not high advantage), with a price confidence of only 15 out of 100. The company has no product to license, no legal technology vendor partnerships, and its labor rate card (Software Engineers at $171.40/hr, Manufacturing Engineers at $178.89/hr) is irrelevant to a COTS product procurement. Market pricing for comparable solutions ranges $250,000-$600,000 total contract value, but HORUSTECH has no product to offer at any price point. The firm-fixed-price structure makes this even more untenable.",
+            "gaps": [
+              "No COTS product to price or license",
+              "No vendor partnership with legal technology COTS providers",
+              "Labor rates irrelevant to product-based procurement",
+              "Cannot construct a credible price proposal"
+            ]
+          },
+          {
+            "name": "STRATEGIC_ALIGNMENT",
+            "score": 1,
+            "rationale": "This opportunity has no strategic alignment with HORUSTECH's documented capabilities or market position. The company is a California-based small software engineering and cloud migration services firm targeting commercial clients in retail and gaming. The solicitation is for a D.C. Courts legal technology COTS product procurement \u2014 a completely different industry, geography, and business model. The company's DGS SB Micro certification provides no advantage for this D.C. Courts open-market procurement. There is no documented strategic plan to enter the legal technology market, no partnerships with legal COTS vendors, and pursuing this opportunity would divert resources from the company's core competencies without any realistic path to award.",
+            "gaps": [
+              "Complete industry mismatch \u2014 cloud migration services vs. legal technology COTS vendor",
+              "No strategic plan to enter legal technology market",
+              "California SB certification irrelevant for D.C. Courts procurement",
+              "No teaming arrangements with legal technology vendors"
+            ]
+          },
+          {
+            "name": "INCUMBENT_RISK",
+            "score": 5,
+            "rationale": "There is no incumbent contractor for this requirement. Section C.3 of the solicitation explicitly states 'There is no legacy legal or document management system,' confirming this is a new requirement rather than a recompete. The OGC currently stores files on an NTFS network drive without any case or document management platform. This means all offerors start on a level playing field with no incumbent advantage to overcome. However, while the absence of an incumbent is favorable in theory, it does not mitigate the fundamental capability mismatch that prevents HORUSTECH from competing.",
+            "gaps": []
+          }
+        ],
+        "summaryJustification": "This opportunity represents a clear NO-GO decision due to a fundamental industry and capability mismatch. HORUSTECH is a small software engineering and cloud migration services company that does not develop, own, or resell a COTS Legal Case and Document Management System \u2014 which is the core deliverable of this solicitation. The company has zero relevant past performance in legal technology, no FedRAMP-authorized products, no government contract experience of similar scope, and no partnerships with legal COTS vendors. The pricing analysis confirms a $0 achievable price with only 15% confidence because there is no product to offer. The only favorable factor is the absence of an incumbent, but this is irrelevant given the company cannot meet the fundamental requirement of providing a COTS legal case management product. Pursuing this opportunity would waste proposal resources with near-zero probability of award.",
+        "confidence": 55,
+        "blockers": [
+          "HORUSTECH does not develop, own, or resell a COTS Legal Case and Document Management System \u2014 the core deliverable required by this solicitation",
+          "No FedRAMP-authorized legal technology product available to propose",
+          "Cannot provide required 3-5 past performance references for legal technology implementations within last 3 years",
+          "Complete industry mismatch: cloud migration services company vs. legal technology COTS vendor requirement"
+        ],
+        "decisionRationale": "The decision is NO_GO based on critical failures across all substantive scoring dimensions. TECHNICAL_FIT scores 1 because HORUSTECH has no COTS legal case management product to offer \u2014 the solicitation's core requirement. PAST_PERFORMANCE_RELEVANCE scores 1 with zero relevant projects in the database and no government legal technology experience. PRICING_POSITION scores 1 because the company cannot construct a credible price proposal without a product to license. STRATEGIC_ALIGNMENT scores 1 due to complete industry mismatch between cloud migration services and legal technology COTS procurement. The composite score of 1.45 is well below the 2.0 threshold, and no reasonable mitigation actions can overcome the fundamental barrier of not having a product to sell. The probability of win is effectively zero.",
+        "compositeScore": 1.4,
+        "confidenceDrivers": [
+          {
+            "factor": "No past performance data available in database",
+            "direction": "DOWN"
+          },
+          {
+            "factor": "Complete industry mismatch between company capabilities and solicitation requirements",
+            "direction": "DOWN"
+          },
+          {
+            "factor": "Pricing analysis confirms $0 achievable price with 15% confidence",
+            "direction": "DOWN"
+          },
+          {
+            "factor": "KB search returned no relevant legal technology capabilities",
+            "direction": "DOWN"
+          },
+          {
+            "factor": "No incumbent advantage to overcome (new requirement)",
+            "direction": "UP"
+          }
+        ]
+      },
+      "inputHash": "force-regen-v9",
+      "status": "COMPLETE",
+      "updatedAt": "2026-04-20T23:40:40.571Z"
+    },
+    "summary": {
+      "data": {
+        "summary": "The District of Columbia Courts, on behalf of the Office of the General Counsel (OGC), seeks a qualified vendor to provide a cloud-hosted, configurable commercial-off-the-shelf (COTS) Legal Case and Document Management System to modernize OGC's legal operations and achieve business and legal process efficiencies. The system must deliver comprehensive functionality including document and case management, litigation hold tracking, contract management, eDiscovery capabilities, generative AI features for automated workflows and intelligent scanning, and robust search across approximately 1.2 TB of confidential and privileged materials comprising roughly 390,000 files across 10,000 folders. Technical requirements include compatibility with Citrix VDI, Microsoft Entra ID single sign-on, NIST 800-53 r5/800-37 r2 security controls, FedRAMP authorized cloud hosting, Section 508 compliance, and integration with the Courts' existing Microsoft 365, Azure, and Oracle-based enterprise IT environment. The contract is structured as a firm-fixed price award with a base year and four one-year option periods, requiring delivery of software licenses within 14 calendar days of award, followed by installation, document migration, implementation, five consecutive days of on-site post-implementation support and end-user training, and ongoing maintenance and support including a phone-based help desk Monday through Saturday from 8:00 AM to 6:00 PM Eastern Time. OGC currently has six staff members requiring licenses with potential expansion to up to ten licenses in future option years, and the procurement is issued on an unrestricted open market basis with award to the responsible offeror whose proposal is most advantageous considering price and other evaluation factors. This initiative is strategically significant as OGC currently has no legacy legal or document management system, and the new system will support critical functions including legislative drafting, contract review, employment advisory services, eDiscovery management, and representation before administrative tribunals.",
+        "periodOfPerformance": "Base year + 4 option years",
+        "agency": "District of Columbia Courts",
+        "contractType": "FIXED_PRICE",
+        "office": "Administrative Services Division, Procurement and Contracts Branch",
+        "title": "Legal Case & Document Management System",
+        "naics": "541690",
+        "placeOfPerformance": "Washington, DC",
+        "solicitationNumber": "DCSC-26-RFP-60",
+        "setAside": "NONE"
+      },
+      "inputHash": "force-regen-v9",
+      "status": "COMPLETE",
+      "updatedAt": "2026-04-20T23:32:03.635Z"
+    }
+  }
+}

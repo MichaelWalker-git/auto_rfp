@@ -1,0 +1,58 @@
+{
+  "hasSubmissionDeadline": true,
+  "submissionDeadlineIso": "2026-05-05T12:00:00-07:00",
+  "deadlines": [
+    {
+      "dateTimeIso": "2026-02-20T10:00:00-08:00",
+      "label": "Optional Virtual Pre-Proposal Conference",
+      "notes": "Non-mandatory virtual conference via Microsoft Teams. Attending is recommended to clarify RFP requirements and ask questions directly to Department representatives before the written question deadline.",
+      "type": "PRE_PROPOSAL_CONFERENCE",
+      "rawText": "An Optional Virtual Pre-Proposal Conference is scheduled for Friday, February 20, 2026, at 10:00 AM",
+      "timezone": "PST"
+    },
+    {
+      "dateTimeIso": "2026-03-10T12:00:00-07:00",
+      "label": "Deadline for submitting questions",
+      "notes": "All inquiries must be directed in writing via email to William Wallace at wallacew@saccounty.gov. No telephone inquiries will receive a response. Questions submitted after this deadline will not be addressed.",
+      "type": "QUESTIONS_DUE",
+      "rawText": "March 10, 2026 12 P.M. PDT - Deadline for submitting questions",
+      "timezone": "PDT"
+    },
+    {
+      "dateTimeIso": "2026-03-24T12:00:00-07:00",
+      "label": "Addenda issued including responses to questions",
+      "notes": "This is when the Department plans to publish answers to submitted questions and any addenda. Proposers should monitor the Sacramento County Airports website and OpenGov portal. Only 14 days remain between this date and the proposal due date, so proposal preparation should be well underway.",
+      "type": "OTHER",
+      "rawText": "March 24, 2026 12 P.M. PDT - Addenda issued if necessary, including Department's responses to questions",
+      "timezone": "PDT"
+    },
+    {
+      "dateTimeIso": "2026-05-05T12:00:00-07:00",
+      "label": "Proposals Due",
+      "notes": "The RFP cover page states April 7, 2026 at 12 PM Pacific Time, and the RFP timeline table also lists April 7, 2026. However, Section VI (Deadline and Proposal Submission) in the same document explicitly states May 5, 2026. The OpenGov portal (updated by Addendum #1 on Feb 10, 2026) lists April 7, 2026. There is a conflict between the body text (May 5) and the timeline/cover/portal (April 7). Proposers should urgently seek clarification from the contracting officer. Using the Section VI date of May 5, 2026 as it appears to be the most explicit statement, but April 7 may be correct per the timeline and portal. All late responses will be rejected. Submit via OpenGov.com as one PDF and one Word document.",
+      "type": "PROPOSAL_DUE",
+      "rawText": "Proposals are due no later than 12:00 P.M. Pacific Time (PT) on Tuesday, May 5, 2026.",
+      "timezone": "PT"
+    },
+    {
+      "dateTimeIso": "2026-05-05T00:00:00-07:00",
+      "label": "Interviews with highest-ranked proposers",
+      "notes": "The RFP timeline lists May 5, 2026 for interviews. However, this is the same date listed for proposals due in Section VI, creating a scheduling conflict that needs clarification. Only the highest-ranked proposers may be required to attend a virtual interview. No specific time is given, so the datetime uses midnight as a placeholder and may not be accurate.",
+      "type": "ORALS",
+      "rawText": "May 5, 2026 - Interviews",
+      "timezone": "PT"
+    },
+    {
+      "dateTimeIso": null,
+      "label": "Anticipated effective date of agreement",
+      "notes": "No specific day provided, only 'July 2026.' The Department intends to award a single agreement in August 2026 per Section IV, while the timeline says July 2026 \u2014 slight inconsistency. This is an estimate and the Department reserves the right to modify the schedule.",
+      "type": "AWARD_ESTIMATE",
+      "rawText": "July 2026 - Anticipated effective date of agreement with selected Contractor",
+      "timezone": "PT"
+    }
+  ],
+  "warnings": [
+    "CRITICAL CONFLICT: The proposal due date appears as both April 7, 2026 (cover page, timeline table, OpenGov portal) and May 5, 2026 (Section VI body text). The OpenGov portal was last updated by Addendum #1 on Feb 10, 2026 and shows April 7. Proposers must seek immediate clarification from the contracting officer.",
+    "The interviews date (May 5, 2026) in the timeline conflicts with the May 5 proposal due date in Section VI, suggesting the timeline may reflect the original April 7 proposal deadline with May 5 reserved for interviews."
+  ]
+}

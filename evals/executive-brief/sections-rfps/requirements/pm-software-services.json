@@ -1,0 +1,337 @@
+{
+  "evaluationFactors": [
+    "Completeness of Response (Pass/Fail)",
+    "Minimum Qualifications (Pass/Fail)",
+    "References (Pass/Fail)",
+    "Service Support Capabilities (20 points)",
+    "Implementation Plan (20 points)",
+    "Company Qualifications (15 points)",
+    "Relevant Public Sector Experience and References (15 points)",
+    "Fee Schedule (20 points)",
+    "Highest-ranked proposers may be required to attend a virtual interview, which will serve as the basis for the panel's final decision for a recommendation to the County's Board of Supervisors for contract award"
+  ],
+  "overview": "The Sacramento County Department of Airports (SCDA) is soliciting proposals for a comprehensive, fully supported cloud-based Project Management Software solution to manage active construction projects across all four of its airport facilities, including Sacramento International Airport (SMF). The Department currently relies on Excel spreadsheets and Crystal Reports for its Capital Improvement Planning (CIP) process and seeks to replace this manual approach with an integrated system that provides project tracking, scheduling, budget management, cost control, document management, real-time reporting, and portfolio-level visibility for capital project prioritization and long-term forecasting. Success looks like a fully implemented and customized software platform with automated workflows for RFIs, submittals, change orders, and approvals, integration with existing County ERP, GIS, and SSO systems, comprehensive training enabling internal self-sufficiency, and ongoing technical support including helpdesk, updates, and patches. The initial agreement term is four years with two additional two-year extension options (up to eight years total), with an anticipated award in August 2026. Proposals are due April 7, 2026 at 12:00 PM Pacific Time via OpenGov, must not exceed 40 pages (excluding specified items), and will be evaluated on a 100-point scale across Service Support Capabilities, Implementation Plan, Company Qualifications, Relevant Public Sector Experience and References, and Fee Schedule, with Completeness of Response, Minimum Qualifications, and References evaluated on a Pass/Fail basis. Contractors must have a minimum of ten years of continuous experience providing project management software services to public agencies, be registered with the California Secretary of State, and comply with FAA General Contract Provisions and County security requirements.",
+  "requirements": [
+    {
+      "category": "TECHNICAL",
+      "mustHave": true,
+      "requirement": "Provide a comprehensive, fully supported cloud-based Project Management Software for project tracking, schedules, budget management, reporting, and Capital Improvement Planning"
+    },
+    {
+      "category": "TECHNICAL",
+      "mustHave": true,
+      "requirement": "Provide unlimited software licenses for all County staff, consultants, and external stakeholders with full access to all modules, features, dashboards, workflow tools, and administrative functions"
+    },
+    {
+      "category": "TECHNICAL",
+      "mustHave": true,
+      "requirement": "Licenses must permit concurrent users, remote access, and the ability to scale as County operations grow"
+    },
+    {
+      "category": "TECHNICAL",
+      "mustHave": true,
+      "requirement": "Complete installation of the Project Management Software including all server components, databases, system integrations, and user environment configuration"
+    },
+    {
+      "category": "TECHNICAL",
+      "mustHave": true,
+      "requirement": "Configure the system for project status/updating reporting, capital planning, project initiation, project budget and cost tracking, invoice processing, schedule management, change orders, RFIs, submittals, and reporting dashboards and alerts"
+    },
+    {
+      "category": "TECHNICAL",
+      "mustHave": true,
+      "requirement": "Provide automated workflows for Request for Information (RFI), submittals, change orders, and approvals"
+    },
+    {
+      "category": "TECHNICAL",
+      "mustHave": true,
+      "requirement": "Provide real-time dashboards and alerts for cost and schedule control"
+    },
+    {
+      "category": "TECHNICAL",
+      "mustHave": true,
+      "requirement": "Customize the software to align with Department-specific project management and approval workflows including configuring system fields, forms, dashboards, and approval routing"
+    },
+    {
+      "category": "TECHNICAL",
+      "mustHave": true,
+      "requirement": "Support portfolio and capital planning tools, document control, budget and cost module customization, schedule management visibility, audit trails and version tracking, and automated alerting and notifications"
+    },
+    {
+      "category": "TECHNICAL",
+      "mustHave": true,
+      "requirement": "Ensure all customization remains supportable, upgradable, and compatible with future software versions"
+    },
+    {
+      "category": "TECHNICAL",
+      "mustHave": true,
+      "requirement": "Provide integration with existing County systems including ERP or financial systems, document repositories, Single Sign-On (SSO), GIS, scheduling tools, or other platforms as identified during implementation"
+    },
+    {
+      "category": "TECHNICAL",
+      "mustHave": true,
+      "requirement": "Supply all API documentation, middleware, and technical support needed for successful integration"
+    },
+    {
+      "category": "TECHNICAL",
+      "mustHave": true,
+      "requirement": "Develop up to ten (10) customized reports tailored to County needs including capital project status, portfolio summary, budget and expenditure tracking, schedule progress dashboard, contract and change order reporting, and executive-level project status rollup"
+    },
+    {
+      "category": "TECHNICAL",
+      "mustHave": true,
+      "requirement": "Reports must be exportable to standard formats (PDF, Excel, CSV) and configurable by County administrators"
+    },
+    {
+      "category": "TECHNICAL",
+      "mustHave": true,
+      "requirement": "Develop a complete implementation plan including timeline and milestones, roles and responsibilities, data migration plan, testing and validation procedures, and change management strategy"
+    },
+    {
+      "category": "TECHNICAL",
+      "mustHave": false,
+      "requirement": "Conduct phased rollouts if necessary to reduce operational disruption"
+    },
+    {
+      "category": "TECHNICAL",
+      "mustHave": true,
+      "requirement": "Provide full-service ongoing technical support including helpdesk availability, software updates and system patches, troubleshooting assistance, and resolution of system issues and performance concerns"
+    },
+    {
+      "category": "TECHNICAL",
+      "mustHave": true,
+      "requirement": "Include access to all scheduled software upgrades, enhancements, and security releases"
+    },
+    {
+      "category": "TECHNICAL",
+      "mustHave": true,
+      "requirement": "Provide a dedicated technical representative during implementation and early adoption phases"
+    },
+    {
+      "category": "TECHNICAL",
+      "mustHave": true,
+      "requirement": "Provide up to six (6) in-person administrator training sessions, up to ten (10) combination in-person and virtual end-user training sessions, and up to six (6) virtual train-the-trainer sessions"
+    },
+    {
+      "category": "TECHNICAL",
+      "mustHave": true,
+      "requirement": "Furnish user manuals, quick reference guides, and recorded training modules"
+    },
+    {
+      "category": "TECHNICAL",
+      "mustHave": true,
+      "requirement": "Deliver a training plan that addresses usability considerations"
+    },
+    {
+      "category": "SECURITY",
+      "mustHave": true,
+      "requirement": "Work with County IT team to meet all security, hosting, and technology compliance requirements including authentication and user permissions, system performance standards, integration capabilities (API availability, data import/export), and data retention and backup protocols"
+    },
+    {
+      "category": "SECURITY",
+      "mustHave": true,
+      "requirement": "Ability to meet the County of Sacramento Security Requirements as described in Attachment 5 to this RFP"
+    },
+    {
+      "category": "SECURITY",
+      "mustHave": true,
+      "requirement": "Selected Contractor staff working on-site unescorted or requiring Airport access must pass the Department's background check and obtain an airport access badge"
+    },
+    {
+      "category": "COMPLIANCE",
+      "mustHave": true,
+      "requirement": "Contractor must be registered with the California Secretary of State and permitted to conduct business in the State of California"
+    },
+    {
+      "category": "COMPLIANCE",
+      "mustHave": true,
+      "requirement": "Contractor shall maintain insurance and workers' compensation coverage that complies with or exceeds the minimum requirements established by the County"
+    },
+    {
+      "category": "COMPLIANCE",
+      "mustHave": true,
+      "requirement": "Contractor must possess a minimum of ten (10) years of continuous experience in providing project management software services to public agencies"
+    },
+    {
+      "category": "COMPLIANCE",
+      "mustHave": true,
+      "requirement": "Comply with FAA General Contract Provisions for Solicitations (Attachment 2) at all times during the term of the agreement"
+    },
+    {
+      "category": "COMPLIANCE",
+      "mustHave": true,
+      "requirement": "Complete County of Sacramento Contractor Certification of Compliance Form (Attachment 3) and Contractor Identification Form (Attachment 4)"
+    },
+    {
+      "category": "COMPLIANCE",
+      "mustHave": true,
+      "requirement": "Provide Iran Contracting Act Certification per California Public Contract Code sections 2202-2208"
+    },
+    {
+      "category": "COMPLIANCE",
+      "mustHave": true,
+      "requirement": "Provide Certification of Independent Contractor Status via OpenGov questionnaire"
+    },
+    {
+      "category": "COMPLIANCE",
+      "mustHave": true,
+      "requirement": "Demonstrate capability to provide services in a large public use facility in continuous operation such as an airport or similar facility"
+    },
+    {
+      "category": "DELIVERABLES",
+      "mustHave": true,
+      "requirement": "Provide system architecture and configuration documentation, data model and integration specifications, security protocols and compliance documentation, and administrator handbook and technical references"
+    },
+    {
+      "category": "DELIVERABLES",
+      "mustHave": true,
+      "requirement": "Provide references from at least three (3) clients or individuals with direct experience within the last five (5) years"
+    },
+    {
+      "category": "DELIVERABLES",
+      "mustHave": true,
+      "requirement": "Include historical financial information: balance sheet and income statements for the last two fiscal years prepared in accordance with GAAP, plus interim statements for significant financial events"
+    },
+    {
+      "category": "DELIVERABLES",
+      "mustHave": true,
+      "requirement": "Include a proposed Fee Schedule for the initial four-year term and for each of the additional two-year extension options"
+    },
+    {
+      "category": "DELIVERABLES",
+      "mustHave": true,
+      "requirement": "Include hourly rates, overhead multipliers or other fees, anticipated hours for all proposed employees, and justification of hours to complete the required scope of services"
+    }
+  ],
+  "submissionCompliance": {
+    "format": [
+      "One (1) digital PDF copy of the proposal compatible with Adobe Acrobat",
+      "One (1) digital copy of the proposal compatible with Microsoft Word in DOC or DOCX format",
+      "Proposals must be typed or printed in a font no smaller than eleven (11) point on 8.5\" by 11\" sized pages",
+      "Proposal must not exceed forty (40) pages including any marketing materials",
+      "Items excluded from page limit: cover page, cover letter, staff resumes, contractor team organization chart, independent market study, Contractor Certification of Compliance Form, Contractor Identification Form",
+      "Proposal must be signed by an authorized employee or officer",
+      "Submit proposals via OpenGov.com",
+      "Sealed Bid Process: Bids Sealed / Pricing Sealed",
+      "Fee proposal must be uploaded separately from the main proposal"
+    ],
+    "attachmentsAndForms": [
+      "Attachment 1 - Sample Agreement for Project Management Software Services",
+      "Attachment 2 - FAA General Contract Provisions for Solicitations",
+      "Attachment 3 - County of Sacramento Contractor Certification of Compliance Form",
+      "Attachment 4 - Contractor Identification Form",
+      "Attachment 5 - County of Sacramento Security Requirements"
+    ],
+    "requiredDocuments": [
+      {
+        "name": "Cover Letter",
+        "description": "Signed by authorized individual on business letterhead, including contractor information, contact details, demonstrated understanding of work, acknowledgement of addenda, acknowledgement of sample agreement review, agreement to sample agreement format and requirements including insurance, and general business organization information",
+        "documentType": "COVER_LETTER",
+        "required": true
+      },
+      {
+        "name": "Executive Summary",
+        "description": "List important features of the proposal and include a statement certifying that the Contractor meets or exceeds the minimum requirements of this RFP",
+        "documentType": "EXECUTIVE_SUMMARY",
+        "required": true
+      },
+      {
+        "name": "Proposal (without Cost Proposal)",
+        "description": "Complete proposal uploaded via OpenGov excluding the cost/fee proposal, covering Minimum Qualifications, Statement of Qualifications, Company Qualifications, Approach/Scope/Timeline, and References",
+        "pageLimit": "40 pages (including marketing materials; excluding cover page, cover letter, staff resumes, org chart, independent market study, and required forms)",
+        "documentType": "TECHNICAL_PROPOSAL",
+        "required": true
+      },
+      {
+        "name": "Separate Cost Proposal / Fee Schedule",
+        "description": "Fee proposal uploaded separately including hourly rates, overhead multipliers, anticipated hours for all proposed employees, justification of hours, and proposed Fee Schedule for initial four-year term and each two-year extension option",
+        "documentType": "COST_PROPOSAL",
+        "required": true
+      },
+      {
+        "name": "Statement of Qualifications",
+        "description": "Company qualifications demonstrating capability to provide services in a large public use facility, description of how minimum qualifications are met, transition support approach, service support capabilities, training services, onboarding, change management, and implementation plan",
+        "documentType": "TEAM_QUALIFICATIONS",
+        "required": true
+      },
+      {
+        "name": "References",
+        "description": "At least three (3) references from clients or individuals with direct experience within the last five (5) years including company name, contact name, title, address, email, telephone number, and services performed",
+        "documentType": "PAST_PERFORMANCE",
+        "required": true
+      },
+      {
+        "name": "County of Sacramento Contractor Certification of Compliance Form",
+        "description": "Attachment 3 - Required compliance certification form",
+        "documentType": "CERTIFICATIONS",
+        "required": true
+      },
+      {
+        "name": "Contractor Identification Form",
+        "description": "Attachment 4 - Required contractor identification form",
+        "documentType": "OTHER",
+        "required": true
+      },
+      {
+        "name": "Financial Background Information",
+        "description": "Balance sheet and income statements for the last two fiscal years prepared in accordance with GAAP, interim statements for significant financial events, and description of ownership of the proposing entity",
+        "documentType": "OTHER",
+        "required": true
+      },
+      {
+        "name": "Certification of Independent Contractor Status",
+        "description": "Certification via OpenGov vendor questionnaire regarding full-time employee count",
+        "documentType": "OTHER",
+        "required": true
+      },
+      {
+        "name": "Iran Contracting Act Certification",
+        "description": "Certification or exemption per California Public Contract Code sections 2202-2208",
+        "documentType": "OTHER",
+        "required": true
+      },
+      {
+        "name": "PaymentWorks Contact Information",
+        "description": "Name and email for finance point-of-contact for vendor registration on County's PaymentWorks portal",
+        "documentType": "OTHER",
+        "required": true
+      },
+      {
+        "name": "Signatory and Contract Manager Contact Information",
+        "description": "Full contact name, title, and email of signatory and contract manager for the firm",
+        "documentType": "OTHER",
+        "required": true
+      }
+    ],
+    "requiredVolumes": [
+      "Cover Letter",
+      "Executive Summary",
+      "Minimum Qualifications (Section IX)",
+      "Statement of Qualifications (Section X) including Company Qualifications and Approach, Scope and Timeline",
+      "Fee Structure, Proposal Cost, and Scope (Section XI) including Financial Background Information and Fee Schedule",
+      "References (Section XII)",
+      "Required Documentation and Forms"
+    ]
+  },
+  "deliverables": [
+    "Fully configured and deployed cloud-based Project Management Software",
+    "Unlimited software licenses for all County staff, consultants, and external stakeholders",
+    "System installation, configuration, and deployment across all server components and databases",
+    "Software customization aligned with Department-specific workflows",
+    "System integration with ERP, document repositories, SSO, GIS, and scheduling tools",
+    "API documentation, middleware, and technical support for integration",
+    "Up to ten (10) customized reports (capital project status, portfolio summary, budget tracking, schedule dashboard, contract/change order reporting, executive rollup)",
+    "Up to six (6) in-person administrator training sessions",
+    "Up to ten (10) combination in-person and virtual end-user training sessions",
+    "Up to six (6) virtual train-the-trainer sessions",
+    "User manuals, quick reference guides, and recorded training modules",
+    "Training plan addressing usability considerations",
+    "System architecture and configuration documentation",
+    "Data model and integration specifications",
+    "Security protocols and compliance documentation",
+    "Administrator handbook and technical references",
+    "Complete implementation plan with timeline, milestones, roles, data migration plan, testing/validation procedures, and change management strategy",
+    "Ongoing technical support including helpdesk, software updates, patches, and troubleshooting",
+    "Dedicated technical representative during implementation and early adoption phases"
+  ]
+}

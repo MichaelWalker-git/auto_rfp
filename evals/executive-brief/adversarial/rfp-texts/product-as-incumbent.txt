@@ -1,0 +1,76 @@
+REQUEST FOR PROPOSALS
+RFP No. DHS-CISA-2026-0042
+
+Title: Cybersecurity Endpoint Detection and Response (EDR) Platform
+Agency: Department of Homeland Security, Cybersecurity and Infrastructure Security Agency (CISA)
+Issue Date: February 10, 2026
+Closing Date: March 28, 2026, 2:00 PM Eastern
+
+NAICS Code: 541512
+Set-Aside: Full and Open Competition
+Contract Type: Firm-Fixed-Price with Time-and-Materials CLIN for surge support
+
+1. PURPOSE
+
+CISA seeks to acquire a next-generation Endpoint Detection and Response (EDR) platform to protect approximately 12,000 endpoints across CISA headquarters and regional offices. The selected solution must integrate with CISA's existing Security Operations Center (SOC) workflows.
+
+2. CURRENT ENVIRONMENT
+
+CISA currently deploys CrowdStrike Falcon across all endpoints. CrowdStrike Falcon has been operational since 2021 and provides real-time threat detection, automated response, and threat intelligence feeds. The CrowdStrike deployment covers Windows 10/11 workstations, Windows Server 2019/2022, and RHEL 8/9 Linux systems.
+
+CrowdStrike's Threat Graph analytics engine processes approximately 5 trillion events per week across the CISA environment. The CrowdStrike Falcon OverWatch managed threat hunting team has identified 47 intrusion attempts in the past fiscal year.
+
+CISA also utilizes Splunk SIEM for log aggregation and Microsoft Defender for cloud workload protection.
+
+3. REQUIREMENTS
+
+The offeror shall provide:
+3.1 EDR platform capable of protecting 12,000+ endpoints
+3.2 Real-time behavioral analysis and ML-based threat detection
+3.3 Automated containment and remediation capabilities
+3.4 Integration with Splunk SIEM via API
+3.5 FedRAMP High authorization (or in-process with JAB sponsorship)
+3.6 24/7 managed detection and response (MDR) services
+3.7 Quarterly threat briefings and annual purple team exercises
+3.8 Migration plan from current CrowdStrike Falcon deployment
+3.9 Support for air-gapped environments (approximately 800 endpoints)
+
+4. EVALUATION CRITERIA
+
+Proposals will be evaluated on a best-value basis:
+Factor 1: Technical Approach (40%)
+Factor 2: Management Approach and Past Performance (30%)
+Factor 3: Price (30%)
+
+Technical and Management combined are significantly more important than Price.
+
+5. PERIOD OF PERFORMANCE
+
+Base period: 12 months from award
+Option Year 1: 12 months
+Option Year 2: 12 months
+Option Year 3: 12 months
+Total potential: 4 years
+
+6. GOVERNMENT ESTIMATE
+
+The Government estimate for this requirement is between $8,000,000 and $12,000,000 for the total 4-year period including all options.
+
+7. PROPOSAL SUBMISSION
+
+Submit proposals electronically to:
+Email: CISA-Acquisitions@cisa.dhs.gov
+Subject Line: "RFP DHS-CISA-2026-0042 - EDR Platform - [Company Name]"
+
+Contracting Officer: Marcus Thompson
+Email: marcus.thompson@cisa.dhs.gov
+Phone: (202) 555-0198
+
+Contract Specialist: Diana Reeves
+Email: diana.reeves@cisa.dhs.gov
+
+8. QUESTIONS
+
+Written questions must be submitted via email to CISA-Acquisitions@cisa.dhs.gov no later than March 7, 2026, 5:00 PM Eastern.
+
+NOTE: Reference to CrowdStrike Falcon describes the current product deployment, not an incumbent contractor. CrowdStrike is the software product currently in use. The Government has no existing services contract for EDR platform management — endpoint management is currently performed by in-house CISA staff. This is a new services requirement, not a recompete.

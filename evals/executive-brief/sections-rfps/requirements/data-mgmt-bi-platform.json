@@ -1,0 +1,635 @@
+{
+  "evaluationFactors": [
+    "Cost of Services (including annual renewal, hosting fees, data integration fees, software maintenance fees, support and training, all other fees) - 40 points (40%)",
+    "Responses to Scope of Work and Supplemental Questionnaire - 25 points (25%)",
+    "Firm's expertise, background, personnel qualifications, and experience with School Districts similar in size and scope to SBCUSD - 15 points (15%)",
+    "Training and Support - 10 points (10%)",
+    "Proposal Format, Organization, and Clarity - 5 points (5%)",
+    "Acceptance of District T&C's - 5 points (5%)"
+  ],
+  "overview": "San Bernardino City Unified School District (SBCUSD), the ninth-largest public school district in California serving approximately 44,000 students across 74 schools, is soliciting proposals under RFP No. 26-22 for a Data Management and Business Intelligence Platform Solution. The District's Accountability & Educational Technology and Information Technology Departments seek a 100% hosted, integrated data warehouse and business intelligence (BI)/analytics platform to replace or enhance their current PowerSchool Analytics and Insights environment, addressing the need for a more flexible and scalable architecture with data lake functionality to ingest structured and semi-structured data from numerous sources including Aeries SIS, CAASPP, ELPAC, NWEA MAP, College Board Suite, and many others. Success is defined by the District's ability to create and disseminate reports and dashboards that support program evaluation, KPI monitoring, early warning systems, MTSS/RTI, college and career readiness tracking, and data-driven decision making at all organizational levels with timely, accurate, and relevant data. The contract has an initial one-year term with up to four one-year extensions (five years maximum), pricing is sealed and most heavily weighted at 40% of evaluation, proposals must be submitted electronically via the OpenGov e-Procurement portal by March 20, 2026 at 11:00 AM PST, and the vendor must demonstrate at least five years of experience providing similar services to school districts of comparable size and scope. The solution must integrate with over 20 identified student data sources, support Windows, Mac, and mobile platforms, provide multi-level security with role-based access, comply with FERPA and all applicable federal and state laws, and include comprehensive training, implementation planning, disaster recovery, and ongoing technical support.",
+  "requirements": [
+    {
+      "category": "TECHNICAL",
+      "mustHave": true,
+      "requirement": "100% hosted integrated data warehouse and business intelligence (BI)/analytics platform."
+    },
+    {
+      "category": "COMPLIANCE",
+      "mustHave": true,
+      "requirement": "Shall be compliant with all federal, state, and SBCUSD policies, laws, and regulations."
+    },
+    {
+      "category": "TECHNICAL",
+      "mustHave": true,
+      "requirement": "Shall include sufficient licenses for implementation District-wide (approximately 44,000 students)."
+    },
+    {
+      "category": "TECHNICAL",
+      "mustHave": true,
+      "requirement": "Shall include all future software upgrades and enhancements."
+    },
+    {
+      "category": "TECHNICAL",
+      "mustHave": true,
+      "requirement": "Ability to track student data, including assessment, academic performance, demographics, attendance, program participation, behavior, interventions and student plans."
+    },
+    {
+      "category": "TECHNICAL",
+      "mustHave": true,
+      "requirement": "Ability to track staff data, including attendance, assignment and demographics."
+    },
+    {
+      "category": "TECHNICAL",
+      "mustHave": true,
+      "requirement": "Easily import state mandated assessment results (e.g., CAASPP, ELPAC)."
+    },
+    {
+      "category": "TECHNICAL",
+      "mustHave": true,
+      "requirement": "Easily import other student assessments unique to secondary schools (e.g., AP, IB)."
+    },
+    {
+      "category": "TECHNICAL",
+      "mustHave": true,
+      "requirement": "Easily import other student assessments unique to SBCUSD (e.g., Standards-Aligned Assessments, formative assessments)."
+    },
+    {
+      "category": "TECHNICAL",
+      "mustHave": true,
+      "requirement": "Ability to track and report National Student Clearinghouse (NSC) data to monitor postsecondary enrollment and completion outcomes."
+    },
+    {
+      "category": "TECHNICAL",
+      "mustHave": true,
+      "requirement": "Describe if the system uses any third-party software and the level of support and expertise provided."
+    },
+    {
+      "category": "TECHNICAL",
+      "mustHave": true,
+      "requirement": "Support for both Windows and Mac."
+    },
+    {
+      "category": "TECHNICAL",
+      "mustHave": true,
+      "requirement": "Compatible with District server hardware (HP)."
+    },
+    {
+      "category": "TECHNICAL",
+      "mustHave": true,
+      "requirement": "Compatibility with mobile device platforms."
+    },
+    {
+      "category": "TECHNICAL",
+      "mustHave": true,
+      "requirement": "Ability for technical staff to connect and query the data warehouse using industry-standard tools and query languages."
+    },
+    {
+      "category": "SECURITY",
+      "mustHave": true,
+      "requirement": "Multi-level security systems for transmission, storage and reporting of data and end-user access."
+    },
+    {
+      "category": "SECURITY",
+      "mustHave": true,
+      "requirement": "Catastrophic event recovery contingency plan with turnaround less than 1 week."
+    },
+    {
+      "category": "SECURITY",
+      "mustHave": false,
+      "requirement": "User authentication via Active Directory."
+    },
+    {
+      "category": "SECURITY",
+      "mustHave": true,
+      "requirement": "Ability to monitor and download (preferably into CSV) application usage data from end-users of the system such as user traffic to BI views."
+    },
+    {
+      "category": "SECURITY",
+      "mustHave": true,
+      "requirement": "Role-based security options that can give SBCUSD maximum flexibility and effectiveness in assigning roles to its users and administrators."
+    },
+    {
+      "category": "SECURITY",
+      "mustHave": false,
+      "requirement": "Possibility of data scrambling or visualizations with made-up data for training purposes to conceal confidential or sensitive data."
+    },
+    {
+      "category": "TECHNICAL",
+      "mustHave": true,
+      "requirement": "Data quality checks to ensure accuracy of data in the system."
+    },
+    {
+      "category": "TECHNICAL",
+      "mustHave": true,
+      "requirement": "Report out data quality issues segregated by specific business owner groups (schools or departments) with methods to communicate issues to business owners (e.g., push email notifications, daily BI reports)."
+    },
+    {
+      "category": "TECHNICAL",
+      "mustHave": true,
+      "requirement": "Ability to query data and extract the data that is queried."
+    },
+    {
+      "category": "TECHNICAL",
+      "mustHave": true,
+      "requirement": "Provide information on the matching process employed for student data to ensure accuracy of student-level data being combined from various sources."
+    },
+    {
+      "category": "TECHNICAL",
+      "mustHave": false,
+      "requirement": "Implement and maintain data quality checks unique to SBCUSD between two or more data elements."
+    },
+    {
+      "category": "TECHNICAL",
+      "mustHave": true,
+      "requirement": "Reporting at student, classroom, teacher, site and District levels with ability to show aggregated metrics and drill-down to student or row-level detail by security access level."
+    },
+    {
+      "category": "TECHNICAL",
+      "mustHave": true,
+      "requirement": "Capacity for report and data exports to other formats (e.g., Excel, Access)."
+    },
+    {
+      "category": "TECHNICAL",
+      "mustHave": true,
+      "requirement": "Reports in PDF format for printing with minimal customization from end-users."
+    },
+    {
+      "category": "TECHNICAL",
+      "mustHave": true,
+      "requirement": "Ability to create both static and dynamic reporting."
+    },
+    {
+      "category": "TECHNICAL",
+      "mustHave": false,
+      "requirement": "Customizable reporting tool that supports complex queries (e.g., Boolean Logic)."
+    },
+    {
+      "category": "TECHNICAL",
+      "mustHave": true,
+      "requirement": "Capacity to create a variety of visualization types including bar charts, line charts, Venn diagrams, scatter plots, and crosstabs."
+    },
+    {
+      "category": "TECHNICAL",
+      "mustHave": true,
+      "requirement": "Allow District staff to generate and disseminate customized reports and data dashboards for authenticated users and for the public."
+    },
+    {
+      "category": "TECHNICAL",
+      "mustHave": true,
+      "requirement": "Ability to show time-based or longitudinal measures."
+    },
+    {
+      "category": "TECHNICAL",
+      "mustHave": false,
+      "requirement": "Ability to perform GIS mapping."
+    },
+    {
+      "category": "TECHNICAL",
+      "mustHave": true,
+      "requirement": "Ability to incorporate interactive features into dashboards (filters, highlights, dropdowns, single or multi-select, etc.)."
+    },
+    {
+      "category": "TECHNICAL",
+      "mustHave": true,
+      "requirement": "Ability for users to download data used to create an aggregate measure into CSV format."
+    },
+    {
+      "category": "TECHNICAL",
+      "mustHave": true,
+      "requirement": "Ability for users to generate custom groupings of students for targeted analysis, unique to end-user or shared amongst end-users."
+    },
+    {
+      "category": "TECHNICAL",
+      "mustHave": true,
+      "requirement": "Ability to embed reports or dashboards into District website."
+    },
+    {
+      "category": "TECHNICAL",
+      "mustHave": false,
+      "requirement": "Ability to integrate or embed other BI dashboards currently designed by the District."
+    },
+    {
+      "category": "TECHNICAL",
+      "mustHave": false,
+      "requirement": "Ability to include instructions or help documents to guide user interaction with reports and dashboards."
+    },
+    {
+      "category": "TECHNICAL",
+      "mustHave": false,
+      "requirement": "Allows for branding customization by the District (logos, fonts, color schemes)."
+    },
+    {
+      "category": "TECHNICAL",
+      "mustHave": false,
+      "requirement": "Pre-built reports or metrics that can be readily used by the District following data validation."
+    },
+    {
+      "category": "TECHNICAL",
+      "mustHave": false,
+      "requirement": "Analytics capabilities including advanced analytics such as predictive analytics and inferential statistics."
+    },
+    {
+      "category": "TECHNICAL",
+      "mustHave": true,
+      "requirement": "Ability to incorporate language translation of reports or dashboards."
+    },
+    {
+      "category": "TECHNICAL",
+      "mustHave": true,
+      "requirement": "Ability to perform natural language querying, allowing users to generate visualizations and reports by typing plain-language questions."
+    },
+    {
+      "category": "TECHNICAL",
+      "mustHave": true,
+      "requirement": "Capacity for interface/integration with District Student Information System, AERIES."
+    },
+    {
+      "category": "TECHNICAL",
+      "mustHave": true,
+      "requirement": "Ability to integrate with all data sources listed in Table 1 (Aeries, CAASPP, ELPAC, NWEA MAP, College Board Suite, Illuminate, SEIS, itsLearning, Renaissance STAR, DIBELS, IXL, Google Suite, Apex Learning, Edmentum, CCGI, CSAC, NSC, California Physical Fitness Test, Survey Data, District Adopted Curriculum, IB, California Department of Education Research Files)."
+    },
+    {
+      "category": "TECHNICAL",
+      "mustHave": false,
+      "requirement": "Integration with SBCUSD's District-Adopted curricula."
+    },
+    {
+      "category": "TECHNICAL",
+      "mustHave": true,
+      "requirement": "Ability to integrate data sources unique to SBCUSD beyond those listed, with minimal conforming by SBCUSD from existing data layouts."
+    },
+    {
+      "category": "TECHNICAL",
+      "mustHave": true,
+      "requirement": "Nightly student roster refreshing."
+    },
+    {
+      "category": "TECHNICAL",
+      "mustHave": true,
+      "requirement": "On-demand and real-time demographic data refreshing."
+    },
+    {
+      "category": "TECHNICAL",
+      "mustHave": true,
+      "requirement": "Ability to provide client with scripts for data integration with AERIES."
+    },
+    {
+      "category": "TECHNICAL",
+      "mustHave": true,
+      "requirement": "Update data integration regularly to match state and national data layouts without intervention from SBCUSD."
+    },
+    {
+      "category": "TECHNICAL",
+      "mustHave": true,
+      "requirement": "Intuitive, simple and user-friendly tools for end users."
+    },
+    {
+      "category": "TECHNICAL",
+      "mustHave": true,
+      "requirement": "Access to both static and dynamic reporting."
+    },
+    {
+      "category": "TECHNICAL",
+      "mustHave": true,
+      "requirement": "Provide updates that are easy to access and install."
+    },
+    {
+      "category": "TECHNICAL",
+      "mustHave": true,
+      "requirement": "Import 5 years of historical data."
+    },
+    {
+      "category": "TECHNICAL",
+      "mustHave": true,
+      "requirement": "Provide documentation on all stored procedures and functions including purpose, parameters, and sample usage."
+    },
+    {
+      "category": "TECHNICAL",
+      "mustHave": true,
+      "requirement": "Provide on-going technical support for development of new metrics, integration of new data sources, and performance of the system."
+    },
+    {
+      "category": "TECHNICAL",
+      "mustHave": true,
+      "requirement": "Provide data lake capabilities enabling SBCUSD to securely upload, store, and manage ad hoc datasets from various sources, supporting both structured and unstructured data formats."
+    },
+    {
+      "category": "DELIVERABLES",
+      "mustHave": true,
+      "requirement": "Provide training on designing, building, and troubleshooting metrics compiled from the data warehouse."
+    },
+    {
+      "category": "DELIVERABLES",
+      "mustHave": true,
+      "requirement": "Provide training to identified users on how to build visualizations, reports, and dashboards and optimize performance."
+    },
+    {
+      "category": "DELIVERABLES",
+      "mustHave": true,
+      "requirement": "Provide training to identified users on how to find and correct data quality issues reported by the system."
+    },
+    {
+      "category": "DELIVERABLES",
+      "mustHave": true,
+      "requirement": "Vendor-supplied technical support, staff/vendor-staffed help-desk."
+    },
+    {
+      "category": "DELIVERABLES",
+      "mustHave": true,
+      "requirement": "Quality, online help documents and job-aids."
+    },
+    {
+      "category": "DELIVERABLES",
+      "mustHave": false,
+      "requirement": "BI system capable of embedding training materials for end users for refreshers or new employees."
+    },
+    {
+      "category": "DELIVERABLES",
+      "mustHave": false,
+      "requirement": "Vendor-provided workshops for selected staff (e.g., training-of-trainers)."
+    },
+    {
+      "category": "DELIVERABLES",
+      "mustHave": true,
+      "requirement": "Training to end users on how to use visualizations, reports and dashboards; training materials subject to review and approval by SBCUSD."
+    },
+    {
+      "category": "TECHNICAL",
+      "mustHave": true,
+      "requirement": "Ability to export/store data in a variety of regional databases."
+    },
+    {
+      "category": "TECHNICAL",
+      "mustHave": true,
+      "requirement": "Capacity for the system to be hosted by District, if deemed desirable by SBCUSD."
+    },
+    {
+      "category": "TECHNICAL",
+      "mustHave": true,
+      "requirement": "Capacity for District to access the database with backend data analysis tools."
+    },
+    {
+      "category": "DELIVERABLES",
+      "mustHave": true,
+      "requirement": "Provide an implementation plan and project schedule showing critical milestones with tasks, beginning and end dates, and responsible parties."
+    },
+    {
+      "category": "DELIVERABLES",
+      "mustHave": false,
+      "requirement": "During implementation, provide weekly progress reports summarizing actions, issues, resolutions, deadlines, or tasks at risk."
+    },
+    {
+      "category": "DELIVERABLES",
+      "mustHave": true,
+      "requirement": "Clearly define SBCUSD and Offeror responsibilities for implementation and on-going maintenance."
+    },
+    {
+      "category": "TECHNICAL",
+      "mustHave": false,
+      "requirement": "Testing environment available to client for testing."
+    },
+    {
+      "category": "TECHNICAL",
+      "mustHave": false,
+      "requirement": "Email protocols or other notification features to communicate issues about system performance, health, data issues, quality issues."
+    },
+    {
+      "category": "TECHNICAL",
+      "mustHave": true,
+      "requirement": "Reports or other abilities in monitoring system performance, resources, and information about processes and jobs."
+    },
+    {
+      "category": "TECHNICAL",
+      "mustHave": true,
+      "requirement": "Plan to address fault tolerance, high availability, replication strategy, on-site replication options, stress testing, load balancing, and estimated recovery time for multiple scenarios."
+    },
+    {
+      "category": "COMPLIANCE",
+      "mustHave": true,
+      "requirement": "Comply with Family Educational Rights and Privacy Act (FERPA) and California Education Code Section 49073.1 (AB 1584)."
+    },
+    {
+      "category": "COMPLIANCE",
+      "mustHave": true,
+      "requirement": "Workers' Compensation insurance compliance per California Labor Code Section 3700."
+    },
+    {
+      "category": "COMPLIANCE",
+      "mustHave": true,
+      "requirement": "Commercial General Liability insurance with combined single limits of not less than $1,000,000 per occurrence and $2,000,000 aggregate."
+    },
+    {
+      "category": "COMPLIANCE",
+      "mustHave": true,
+      "requirement": "Commercial Automobile Liability insurance with combined single limits of not less than $1,000,000 each occurrence."
+    },
+    {
+      "category": "COMPLIANCE",
+      "mustHave": true,
+      "requirement": "Professional Errors and Omissions insurance not less than $1,000,000 per claim/$2,000,000 aggregate with 5-year discovery and reporting tail."
+    },
+    {
+      "category": "COMPLIANCE",
+      "mustHave": true,
+      "requirement": "Cyber Security and Privacy Liability insurance with combined single limits of not less than $1,000,000 per occurrence and $2,000,000 aggregate."
+    },
+    {
+      "category": "COMPLIANCE",
+      "mustHave": true,
+      "requirement": "Certification regarding Debarment, Suspension, Ineligibility and Voluntary Exclusion."
+    },
+    {
+      "category": "COMPLIANCE",
+      "mustHave": true,
+      "requirement": "Iran Contracting Act Certification per Public Contract Code Section 2204."
+    },
+    {
+      "category": "COMPLIANCE",
+      "mustHave": true,
+      "requirement": "Federal Funding Contract Compliance (EDGAR) certification."
+    },
+    {
+      "category": "STAFFING",
+      "mustHave": true,
+      "requirement": "Vendor must have been in business providing similar services for at least 5 years and have completed at least 5 similar projects in both dollar amount and scope."
+    },
+    {
+      "category": "STAFFING",
+      "mustHave": true,
+      "requirement": "Provide names and qualifications of key personnel: Project Leader, Implementation Team, and Customer Service Key Contact."
+    },
+    {
+      "category": "STAFFING",
+      "mustHave": true,
+      "requirement": "Provide at least three client references for similar services, preferably school districts of comparable size."
+    },
+    {
+      "category": "OTHER",
+      "mustHave": true,
+      "requirement": "Proposals may not be withdrawn for 60 days after the stated due date."
+    },
+    {
+      "category": "OTHER",
+      "mustHave": true,
+      "requirement": "Initial contract term of one year with up to four additional one-year extensions, not to exceed five years total."
+    },
+    {
+      "category": "OTHER",
+      "mustHave": true,
+      "requirement": "Pricing shall be held firm for the duration of the contract except for inflationary adjustments approved by the District."
+    }
+  ],
+  "submissionCompliance": {
+    "format": [
+      "Proposals must be submitted electronically via the OpenGov e-Procurement portal at https://procurement.opengov.com/portal/sbcusd",
+      "Sealed pricing: cost breakdown must be uploaded separately from the proposal; 10-point penalty if pricing is included in the proposal upload",
+      "Fee proposal pricing tables must be completed online through the OpenGov e-Procurement portal (Section 8)",
+      "All figures limited to two decimal points; District will not be responsible for rounding errors",
+      "Virtual RFP opening on March 20, 2026 at 11:00 AM PST via Google Meet"
+    ],
+    "attachmentsAndForms": [
+      "Attachment A - Qualification Statement",
+      "Attachment B - Non-Collusion Affidavit",
+      "Attachment C - District's Vendor Application",
+      "Attachment D - W-9 Tax Form",
+      "Attachment E - Equal Opportunity Certification",
+      "Attachment F - Certification Regarding Debarment, Suspension, Ineligibility & Voluntary Exclusion",
+      "Attachment G - Workers' Compensation Certification",
+      "Attachment H - Education Department of General Administration Regulation (EDGAR) Federal Funding Compliance Form",
+      "Attachment I - Iran Contracting Act Certification",
+      "Attachment J - Family Educational Rights and Privacy Act (FERPA) Form",
+      "Attachment K - Conflict of Interest and Disclosures",
+      "Attachment L - Signed District Agreement Form (upon award)",
+      "Attachment M - Vendor Response Table"
+    ],
+    "requiredDocuments": [
+      {
+        "name": "Cover Letter/Letter of Interest",
+        "description": "Letter stating eligibility, brief description of respondent, and statement of interest",
+        "documentType": "COVER_LETTER",
+        "required": true
+      },
+      {
+        "name": "Proposal (without Fee Proposal or Pricing)",
+        "description": "Complete proposal including Sections A through I: Cover Letter, Description of Company, Personnel and Staffing Resources, Capacity and Methodology, Experience and References, Qualification Statement, Customer Service Commitment, and Exceptions. Must NOT include pricing.",
+        "documentType": "TECHNICAL_PROPOSAL",
+        "required": true
+      },
+      {
+        "name": "Fee Proposal - Price Breakdown",
+        "description": "Separate fee proposal listing breakdown of all fees including initial year and years 2-5 costs (annual license, hosting, implementation, training, and other fees). Must be uploaded separately from the main proposal.",
+        "documentType": "COST_PROPOSAL",
+        "required": true
+      },
+      {
+        "name": "Qualification Statement",
+        "description": "Completed Qualification Statement form (Attachment A) covering background, organization, staff qualifications, vendor facility, customer service approach, reports, disaster recovery, security compliance, implementation plan, and warranty.",
+        "documentType": "TEAM_QUALIFICATIONS",
+        "required": true
+      },
+      {
+        "name": "Non-Collusion Affidavit",
+        "description": "Completed Non-Collusion Affidavit per Public Contract Code Section 7106 (Attachment B).",
+        "documentType": "CERTIFICATIONS",
+        "required": true
+      },
+      {
+        "name": "District's Vendor Application",
+        "description": "Completed Vendor Application form (Attachment C) with business information and references.",
+        "documentType": "OTHER",
+        "required": true
+      },
+      {
+        "name": "W-9 Tax Form",
+        "description": "Completed IRS W-9 Request for Taxpayer Identification Number and Certification (Attachment D).",
+        "documentType": "OTHER",
+        "required": true
+      },
+      {
+        "name": "Equal Opportunity Certification",
+        "description": "Completed Equal Opportunity Certification form (Attachment E).",
+        "documentType": "CERTIFICATIONS",
+        "required": true
+      },
+      {
+        "name": "Certification Regarding Debarment, Suspension, Ineligibility and Voluntary Exclusion",
+        "description": "Completed debarment certification form (Attachment F).",
+        "documentType": "CERTIFICATIONS",
+        "required": true
+      },
+      {
+        "name": "Workers' Compensation Certification",
+        "description": "Completed Workers' Compensation Certification per California Labor Code Section 3700 (Attachment G).",
+        "documentType": "CERTIFICATIONS",
+        "required": true
+      },
+      {
+        "name": "Federal Funding Contract Compliance Form (EDGAR)",
+        "description": "Completed EDGAR Federal Funding Compliance Form (Attachment H).",
+        "documentType": "CERTIFICATIONS",
+        "required": true
+      },
+      {
+        "name": "Iran Contracting Act Certification",
+        "description": "Completed Iran Contracting Act Certification per Public Contract Code Section 2204 (Attachment I).",
+        "documentType": "CERTIFICATIONS",
+        "required": true
+      },
+      {
+        "name": "Family Educational Rights and Privacy Act (FERPA) Form",
+        "description": "Completed FERPA compliance form per California Education Code Section 49073.1 (Attachment J).",
+        "documentType": "CERTIFICATIONS",
+        "required": true
+      },
+      {
+        "name": "Conflict of Interest and Disclosures",
+        "description": "Completed Conflict of Interest and Disclosures form (Attachment K).",
+        "documentType": "OTHER",
+        "required": true
+      },
+      {
+        "name": "Vendor Response Table",
+        "description": "Completed Vendor Response Table (Attachment M) indicating ability to meet or exceed Required (R) and Desired (D) features.",
+        "documentType": "COMPLIANCE_MATRIX",
+        "required": true
+      },
+      {
+        "name": "Experience and References",
+        "description": "Description of past performance of similar services, list of school districts or county offices of education served in the last 5 years with student counts, dates, client names, and contact information. At least three client references required.",
+        "documentType": "PAST_PERFORMANCE",
+        "required": true
+      }
+    ],
+    "requiredVolumes": [
+      "Section A - Cover Letter/Letter of Interest",
+      "Section B - Description of Company",
+      "Section C - Personnel and Staffing Resources",
+      "Section D - Capacity and Methodology",
+      "Section E - Experience and References",
+      "Section F - Qualification Statement",
+      "Section G - Fiscal Stability (if requested by District)",
+      "Section H - Customer Service Commitment",
+      "Section I - Exceptions to District Terms & Conditions",
+      "Section J - Certifications and Attachments"
+    ]
+  },
+  "deliverables": [
+    "100% hosted integrated data warehouse and BI/analytics platform with data lake capabilities",
+    "Implementation plan and project schedule with critical milestones, tasks, dates, and responsible parties",
+    "Training on designing, building, and troubleshooting metrics from the data warehouse",
+    "Training on building visualizations, reports, and dashboards",
+    "Training on finding and correcting data quality issues",
+    "End-user training on using visualizations, reports, and dashboards (materials subject to SBCUSD review and approval)",
+    "Vendor-supplied technical support and help-desk",
+    "Online help documents and job-aids",
+    "Documentation on all stored procedures and functions including purpose, parameters, and sample usage",
+    "Scripts for data integration with AERIES",
+    "Disaster recovery program and contingency plan",
+    "Plan addressing fault tolerance, high availability, replication strategy, stress testing, load balancing, and recovery times",
+    "Definition of SBCUSD and Offeror responsibilities for implementation and on-going maintenance",
+    "Import of 5 years of historical data",
+    "Nightly student roster refreshing and on-demand/real-time demographic data refreshing",
+    "Ongoing technical support for new metrics, new data source integration, and system performance"
+  ]
+}
