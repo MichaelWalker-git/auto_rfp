@@ -54,6 +54,8 @@ const Schema = z.object({
   closingFrom:  z.date().optional(),
   closingTo:    z.date().optional(),
   higherGovSourceType: z.enum(['', 'sam', 'dibbs', 'sbir', 'grant', 'sled']).default(''),
+  /** HigherGov search_id — replay a saved search from HigherGov UI */
+  higherGovSearchId: z.string().default(''),
 });
 export type FormValues = z.input<typeof Schema>;
 
@@ -62,6 +64,7 @@ const DEFAULTS: FormValues = {
   postedFrom: subDays(new Date(), 30), postedTo: new Date(),
   closingFrom: undefined, closingTo: undefined,
   higherGovSourceType: '',
+  higherGovSearchId: '',
 };
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -215,6 +218,71 @@ const RecentSearches = ({ orgId, onApply }: { orgId: string; onApply: (s: SavedS
   );
 };
 
+// ─── HigherGov search_id selector ────────────────────────────────────────────
+
+const extractSearchId = (input: string): string => {
+  const match = /searchID=([^&]+)/.exec(input);
+  return match ? match[1] : input.trim();
+};
+
+const HigherGovSearchIdSelector = ({
+  value,
+  onChange,
+}: {
+  value: string;
+  onChange: (id: string) => void;
+  orgId?: string;
+}) => {
+  const [open, setOpen] = React.useState(false);
+  const inputRef = React.useRef<HTMLInputElement>(null);
+
+  const handleApply = () => {
+    const raw = inputRef.current?.value ?? '';
+    const id = extractSearchId(raw);
+    if (id) {
+      onChange(id);
+      setOpen(false);
+    }
+  };
+
+  return (
+    <Popover open={open} onOpenChange={(v) => { setOpen(v); if (v) setTimeout(() => inputRef.current?.focus(), 50); }}>
+      <PopoverTrigger asChild>
+        <Button type="button" variant="outline" size="sm"
+          className={cn('h-8 gap-1.5 text-xs font-normal', !!value && 'border-primary bg-primary/5 text-primary font-medium')}>
+          {value ? `Search: ${value.slice(0, 12)}` : 'Saved Search'}
+          {value
+            ? <span role="button" tabIndex={0} aria-label="Clear saved search" onClick={e => { e.stopPropagation(); onChange(''); }} onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); onChange(''); } }} className="ml-0.5 hover:text-destructive cursor-pointer"><X className="h-3 w-3" /></span>
+            : <ChevronDown className="h-3 w-3 opacity-50" />}
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-80 p-3 space-y-3" align="start">
+        {/* Paste URL input */}
+        <div>
+          <Label className="text-xs font-medium mb-1.5 block">HigherGov Saved Search URL</Label>
+          <div className="flex gap-1.5">
+            <Input
+              ref={inputRef}
+              key={value}
+              defaultValue={value}
+              placeholder="Paste URL or search ID…"
+              className="h-8 text-xs flex-1"
+              onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleApply(); } }}
+            />
+            <Button type="button" size="sm" className="h-8 px-3 text-xs" onClick={handleApply}>
+              Apply
+            </Button>
+          </div>
+          <p className="text-xs text-muted-foreground mt-1">
+            The searchID is extracted automatically from the URL.
+          </p>
+        </div>
+
+      </PopoverContent>
+    </Popover>
+  );
+};
+
 // ─── Props ────────────────────────────────────────────────────────────────────
 
 interface Props {
@@ -258,6 +326,7 @@ export const SearchOpportunityForm = ({ orgId, onSearch, isLoading, initialValue
     closingFrom:  v.closingFrom?.toISOString().slice(0, 10),
     closingTo:    v.closingTo?.toISOString().slice(0, 10),
     higherGovSourceType: v.higherGovSourceType || undefined,
+    higherGovSearchId: v.higherGovSearchId?.trim() || undefined,
     limit: 25,
   });
 
@@ -388,6 +457,15 @@ export const SearchOpportunityForm = ({ orgId, onSearch, isLoading, initialValue
               </DropdownMenuContent>
             </DropdownMenu>
           )} />
+        )}
+
+        {/* HigherGov saved search selector */}
+        {w.source === 'HIGHER_GOV' && (
+          <HigherGovSearchIdSelector
+            value={w.higherGovSearchId ?? ''}
+            onChange={(id) => setValue('higherGovSearchId', id)}
+            orgId={orgId}
+          />
         )}
 
         {/* NAICS */}

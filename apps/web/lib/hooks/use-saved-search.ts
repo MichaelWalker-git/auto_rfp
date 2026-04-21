@@ -57,11 +57,11 @@ export const useCreateSavedSearch = () =>
     },
   );
 
-export const useListSavedSearches = (args: { orgId?: string; limit?: number; nextToken?: string | null }) => {
-  const { orgId, limit = 50, nextToken } = args;
+export const useListSavedSearches = (args: { orgId?: string; source?: string; limit?: number; nextToken?: string | null }) => {
+  const { orgId, source = 'ALL', limit = 50, nextToken } = args;
 
   const url = orgId
-    ? `${BASE}/saved-search?orgId=${encodeURIComponent(orgId)}&source=SAM_GOV&limit=${encodeURIComponent(String(limit))}${nextToken ? `&nextToken=${encodeURIComponent(nextToken)}` : ''}`
+    ? `${BASE}/saved-search?orgId=${encodeURIComponent(orgId)}&source=${encodeURIComponent(source)}&limit=${encodeURIComponent(String(limit))}${nextToken ? `&nextToken=${encodeURIComponent(nextToken)}` : ''}`
     : null;
 
   const { data, error, isLoading, mutate } = useSWR<ListSavedSearchesResponse>(

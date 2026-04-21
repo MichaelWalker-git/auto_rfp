@@ -65,6 +65,7 @@ export const searchHigherGovOpportunities = async (
   cfg: HigherGovConfig,
   params: {
     keywords?: string;
+    searchId?: string;
     agencyKey?: string;
     sourceType?: string;
     postedDate?: string;
@@ -76,6 +77,7 @@ export const searchHigherGovOpportunities = async (
   const url = new URL('/api-external/opportunity/', cfg.baseUrl);
   url.searchParams.set('api_key', cfg.apiKey);
 
+  if (params.searchId)   url.searchParams.set('search_id', params.searchId);
   if (params.agencyKey)  url.searchParams.set('agency_key', params.agencyKey);
   if (params.sourceType) url.searchParams.set('source_type', params.sourceType);
   if (params.postedDate) url.searchParams.set('posted_date', params.postedDate);
@@ -215,4 +217,81 @@ export const fetchHigherGovDocuments = async (
   }
 
   return allDocs;
+};
+
+// ─── Fetch pursuits (favorites) ──────────────────────────────────────────────
+
+export type HigherGovPursuit = {
+  unique_key: string;
+  opp_key?: string;
+  title?: string;
+  description?: string;
+  agency?: string;
+  due_date?: string;
+  posted_date?: string;
+  source_type?: string;
+  naics_code?: string;
+  psc_code?: string;
+  set_aside?: string;
+  val_est_high?: string;
+  path?: string;
+};
+
+/**
+ * Fetch the user's tracked/favorited opportunities (pursuits) from HigherGov.
+ * Paginates through all pages automatically.
+ */
+export const fetchHigherGovPursuits = async (
+  cfg: HigherGovConfig,
+  params?: {
+    pageNumber?: number;
+    pageSize?: number;
+    /** HigherGov search_id — required filter to list pursuits */
+    searchId?: string;
+    referenceId?: number;
+    uniqueKey?: string;
+  },
+): Promise<{ results: HigherGovPursuit[]; totalCount: number; pages: number }> => {
+  const url = new URL('/api-external/pursuit/', cfg.baseUrl);
+  url.searchParams.set('api_key', cfg.apiKey);
+  url.searchParams.set('page_number', String(params?.pageNumber ?? 1));
+  url.searchParams.set('page_size', String(params?.pageSize ?? 100));
+  // The pursuit endpoint requires at least one filter param.
+  // Use reference_id=-1 as a no-op filter to list all pursuits.
+  const hasFilter = !!(params?.searchId || params?.referenceId || params?.uniqueKey);
+  if (!hasFilter) url.searchParams.set('reference_id', '-1');
+  if (params?.searchId)    url.searchParams.set('search_id', params.searchId);
+  if (params?.referenceId) url.searchParams.set('reference_id', String(params.referenceId));
+  if (params?.uniqueKey)   url.searchParams.set('unique_key', params.uniqueKey);
+
+  const json = (await httpsGetJson(url, cfg.httpsAgent)) as Record<string, unknown>;
+  const results = (Array.isArray(json.results) ? json.results : []) as HigherGovPursuit[];
+  const meta = json.meta as Record<string, unknown> | undefined;
+  const pagination = meta?.pagination as Record<string, number> | undefined;
+
+  return {
+    results,
+    totalCount: pagination?.count ?? results.length,
+    pages: pagination?.pages ?? 1,
+  };
+};
+
+/**
+ * Fetch ALL pursuits across all pages.
+ */
+export const fetchAllHigherGovPursuits = async (
+  cfg: HigherGovConfig,
+): Promise<HigherGovPursuit[]> => {
+  const all: HigherGovPursuit[] = [];
+  let page = 1;
+  let totalPages = 1;
+
+  while (page <= totalPages) {
+    const resp = await fetchHigherGovPursuits(cfg, { pageNumber: page, pageSize: 100 });
+    all.push(...resp.results);
+    totalPages = resp.pages;
+    page++;
+  }
+
+  return all;
 };

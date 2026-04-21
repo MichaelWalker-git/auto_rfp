@@ -19,6 +19,7 @@ import { env } from '@/lib/env';
 import type { SearchOpportunityCriteria } from '@/lib/hooks/use-search-opportunities';
 import type { DuplicateInfo } from '@/lib/hooks/use-import-solicitation';
 import { DuplicateSolicitationDialog } from '@/components/samgov/duplicate-solicitation-dialog';
+import { HigherGovFavoritesBanner } from './HigherGovFavoritesBanner';
 
 // ─── URL ↔ criteria helpers ─────────────────────────────────────────────────
 
@@ -195,10 +196,11 @@ export default function ProjectSearchOpportunitiesPage({ orgId, projectId }: Pro
         }
       />
 
+      <HigherGovFavoritesBanner orgId={orgId} projectId={projectId} />
+
       <div className="mb-6">
         <SearchOpportunityForm orgId={orgId} onSearch={handleSearch} isLoading={isLoading} initialValues={initialFormValues.current ?? undefined} />
       </div>
-
 
       {result?.samGovError && (
         <Alert variant="destructive" className="mb-4">
