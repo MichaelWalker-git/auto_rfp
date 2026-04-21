@@ -473,10 +473,19 @@ export async function getExecutiveBrief(sk: string): Promise<ExecutiveBriefItem>
 
 /**
  * Get executive brief by project ID (and optionally opportunity ID).
- * If opportunityId is provided, returns the brief for that specific opportunity.
- * Otherwise, returns the latest brief for the project.
+ * If opportunityId is provided, does a direct GetItem using the deterministic SK.
+ * Otherwise, queries for the latest brief for the project.
  */
 export async function getExecutiveBriefByProjectId(projectId: string, opportunityId?: string): Promise<ExecutiveBriefItem> {
+  if (opportunityId) {
+    const sk = executiveBriefSKByOpportunity(projectId, opportunityId);
+    const item = await getItem<ExecutiveBriefItem>(EXEC_BRIEF_PK, sk);
+    if (!item) {
+      throw new Error(`ExecutiveBrief not found for projectId=${projectId}, opportunityId=${opportunityId}. Ensure the brief has been initialized for this opportunity.`);
+    }
+    return item;
+  }
+
   const res = await docClient.send(
     new QueryCommand({
       TableName: DB_TABLE_NAME,
@@ -489,29 +498,15 @@ export async function getExecutiveBriefByProjectId(projectId: string, opportunit
         ':pk': EXEC_BRIEF_PK,
         ':skPrefix': `${projectId}#`,
       },
-      ScanIndexForward: false, // Get most recent first
+      ScanIndexForward: false,
+      Limit: 1,
     }),
   );
 
-  // Fix AUTO-RFP-63: Better error message when brief not found
   if (!res.Items || res.Items.length === 0) {
-    const context = opportunityId
-      ? `projectId=${projectId}, opportunityId=${opportunityId}`
-      : `projectId=${projectId}`;
-    throw new Error(`ExecutiveBrief not found for ${context}. Ensure the brief has been initialized.`);
+    throw new Error(`ExecutiveBrief not found for projectId=${projectId}. Ensure the brief has been initialized.`);
   }
 
-  // If opportunityId provided, filter to find the matching brief
-  if (opportunityId) {
-    const matchingBrief = res.Items.find((item: any) => item.opportunityId === opportunityId);
-    if (matchingBrief) {
-      return matchingBrief as ExecutiveBriefItem;
-    }
-    // If no matching brief found for this opportunity, throw error
-    throw new Error(`ExecutiveBrief not found for projectId=${projectId}, opportunityId=${opportunityId}. Ensure the brief has been initialized for this opportunity.`);
-  }
-
-  // Return the most recent brief (first item due to ScanIndexForward: false)
   return res.Items[0] as ExecutiveBriefItem;
 }
 
