@@ -256,6 +256,10 @@ export const fetchHigherGovPursuits = async (
   url.searchParams.set('api_key', cfg.apiKey);
   url.searchParams.set('page_number', String(params?.pageNumber ?? 1));
   url.searchParams.set('page_size', String(params?.pageSize ?? 100));
+  // The pursuit endpoint requires at least one filter param.
+  // Use reference_id=-1 as a no-op filter to list all pursuits.
+  const hasFilter = !!(params?.searchId || params?.referenceId || params?.uniqueKey);
+  if (!hasFilter) url.searchParams.set('reference_id', '-1');
   if (params?.searchId)    url.searchParams.set('search_id', params.searchId);
   if (params?.referenceId) url.searchParams.set('reference_id', String(params.referenceId));
   if (params?.uniqueKey)   url.searchParams.set('unique_key', params.uniqueKey);
