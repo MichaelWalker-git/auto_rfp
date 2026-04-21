@@ -1,0 +1,37 @@
+{
+  "hasSubmissionDeadline": true,
+  "submissionDeadlineIso": "2026-03-20T11:00:00-08:00",
+  "deadlines": [
+    {
+      "dateTimeIso": "2026-03-13T11:00:00-08:00",
+      "label": "Closing Date for RFP Questions / Request for Clarification",
+      "notes": "All questions must be submitted via the OpenGov Question/Answer tab by this deadline. Only 7 days before proposal due date, so bidders must finalize technical questions early to allow time to incorporate answers into proposals.",
+      "type": "QUESTIONS_DUE",
+      "rawText": "Questions and/or requests for clarifications must be submitted no later than Friday, March 13, 2026 by 11:00 a.m.",
+      "timezone": "PST"
+    },
+    {
+      "dateTimeIso": "2026-03-20T11:00:00-08:00",
+      "label": "Proposal Due Date / Virtual RFP Opening",
+      "notes": "Electronic submission via OpenGov portal required. System will not allow uploads after closing time. Virtual RFP opening conducted simultaneously via Google Meet. No proposal may be withdrawn for 60 days after this date. Only 21 days from first publication to due date \u2014 tight turnaround.",
+      "type": "PROPOSAL_DUE",
+      "rawText": "Proposals must be submitted electronically up to but not later than FRIDAY, MARCH 20, 2026 AT 11:00 A.M. (PST)",
+      "timezone": "PST"
+    },
+    {
+      "dateTimeIso": null,
+      "label": "Anticipated Presentation Date (if conducted)",
+      "notes": "No specific date given \u2014 only 'April 2026'. District may shortlist selected bidders for virtual presentations at its sole discretion. Proposers should be prepared with key personnel available throughout April.",
+      "type": "ORALS",
+      "rawText": "Anticipated Presentation Date (if conducted): April 2026"
+    },
+    {
+      "dateTimeIso": null,
+      "label": "Anticipated Board Approval/Contract Award",
+      "notes": "No specific date given \u2014 only 'May 2026'. Anticipated Notice of Intent to Award is April 2026, followed by Board approval in May. Anticipated start date is July 2026.",
+      "type": "AWARD_ESTIMATE",
+      "rawText": "Anticipated Board Approval/Contract Award: May 2026"
+    }
+  ],
+  "warnings": []
+}

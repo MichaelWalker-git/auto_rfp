@@ -1,0 +1,67 @@
+{
+  "redFlags": [
+    {
+      "severity": "HIGH",
+      "whyItMatters": "A search of HORUSTECH's past performance database returned no relevant projects in eCitation, law enforcement mobile ticketing, or similar police department software implementations. Section VII allocates 20 points (20% of total score) to 'Experience (Projects of similar size and scope)' and 10 points (10%) to 'Professional References,' meaning 30% of the total evaluation score depends directly on demonstrable experience with comparable projects. Section V.B.E requires 'at least 3 references, within the past 5 years, of clients for whom services have been performed that are comparable in quality and scope.' Without relevant past performance, HORUSTECH would score poorly on nearly one-third of the evaluation criteria and may struggle to meet the prerequisite in Section III.A.",
+      "mitigation": "The business development lead should conduct an urgent internal review to identify any projects that could be positioned as comparable, including mobile application development for public safety, field data collection systems, or government software implementations. If insufficient relevant experience exists, the capture manager should evaluate teaming arrangements with an established eCitation vendor who can provide the required references and experience, and this decision must be made before committing proposal resources ahead of the February 18 deadline.",
+      "flag": "No past performance found in eCitation or law enforcement software domain.",
+      "impactsScore": true
+    },
+    {
+      "severity": "MEDIUM",
+      "whyItMatters": "Section IV.B specifies the solution must be 'Compatible with IOS devices,' utilize 'City of Banning Police Department mobile work iPhones,' and include '6 Mobile Printers (if offered or can be purchased separately).' The solution must also include a 'CHP-180 Tow Form Application (Mobile)' and support 40 users. These requirements indicate the City expects a mature, field-tested mobile eCitation product that already runs on iOS and supports thermal mobile printing for citation issuance in the field. If HORUSTECH does not have an existing iOS-native eCitation application with mobile printer integration, developing one from scratch would be extremely costly and risky within the expected implementation timeline. This directly impacts the 'Approach and Methodology' score (30 points per Section VII).",
+      "mitigation": "The product team should immediately assess whether HORUSTECH has or can rapidly deploy an iOS-compatible eCitation application with mobile printer support and CHP-180 tow form functionality. If the company lacks a ready product, the capture manager should evaluate whether a partnership or reseller arrangement with an established eCitation software provider (such as those already serving California law enforcement agencies) is feasible, and initiate discussions within one week of this assessment.",
+      "flag": "iOS device and mobile printer hardware requirements demand specialized product capability.",
+      "impactsScore": true
+    }
+  ],
+  "risks": [
+    {
+      "severity": "MEDIUM",
+      "whyItMatters": "Section III.A requires that proposers have 'at least five (5) years of experience, within the past five (5) years under a legally registered business name, in providing services of a similar type and scope.' This is a pass/fail prerequisite that will be verified before the proposal is evaluated on scoring criteria. If HORUSTECH cannot demonstrate five years of eCitation or similar law enforcement software experience under its current legal business name, the proposal will be deemed non-responsive and rejected outright, regardless of technical merit or pricing competitiveness.",
+      "mitigation": "The capture team should immediately verify HORUSTECH's business registration date and compile a portfolio of comparable law enforcement or mobile ticketing software projects spanning at least five years. If the company lacks sufficient direct experience, the business development lead should evaluate whether key personnel experience or teaming with an experienced subcontractor can satisfy this requirement, and submit a clarifying question via OpenGov Q&A before the January 29, 2026 deadline.",
+      "flag": "Minimum five years of experience prerequisite may limit eligibility.",
+      "impactsScore": true
+    },
+    {
+      "severity": "MEDIUM",
+      "whyItMatters": "Section IV.C explicitly states that 'Cyber Insurance coverage is also required in addition to the requirements within the sample agreement (attachment).' This is an additional insurance requirement beyond the standard general liability, auto, and professional liability coverages typically found in municipal contracts. If HORUSTECH does not currently carry cyber insurance, obtaining a policy can take several weeks and may involve significant cost, particularly for a technology firm handling law enforcement data. Failure to provide evidence of cyber insurance within 14 calendar days of contract award (per Section VIII.C) would result in rescission of the award.",
+      "mitigation": "The contracts or compliance manager should immediately verify whether HORUSTECH currently holds a cyber insurance policy and confirm the coverage amounts meet or exceed what the City's sample agreement specifies. If no policy exists, the team should begin obtaining quotes from insurance brokers within the first week of the bid decision, well before the February 18 proposal deadline, to ensure timely procurement if awarded.",
+      "flag": "Cyber insurance requirement in addition to standard insurance.",
+      "impactsScore": false
+    },
+    {
+      "severity": "MEDIUM",
+      "whyItMatters": "Section IV.B requires the eCitation solution to be 'Compatible with Sun Ridge Systems RIMS CAD System' and 'Compatible with Crossroads Software Report Writer for collision reporting,' as well as interface capabilities for CHP SWITRS and RMS (RIMS) data export. These specific integration requirements mean that the proposed solution must either already have established interfaces with these systems or the vendor must develop them. If HORUSTECH's product does not currently integrate with Sun Ridge Systems RIMS or Crossroads Software, significant development effort and testing would be required, increasing project risk and cost. This compatibility will likely be evaluated under the 'Approach and Methodology' criterion (30 points per Section VII).",
+      "mitigation": "The technical lead should conduct an immediate assessment of HORUSTECH's current integration capabilities with Sun Ridge Systems RIMS and Crossroads Software Report Writer, and document any existing interfaces or APIs. If gaps exist, the proposal team should develop a detailed integration plan with realistic timelines and costs, and consider submitting a clarifying question via OpenGov Q&A before January 29, 2026 to confirm exact interface specifications and data format requirements.",
+      "flag": "Compatibility requirements with specific third-party systems may narrow eligible vendors.",
+      "impactsScore": true
+    },
+    {
+      "severity": "LOW",
+      "whyItMatters": "Section VIII.B states that 'the Company agrees to enter into an Agreement with the City without exceptions to the City's standard agreement. The City's standard agreement is non-negotiable, and a copy of the standard agreement is attached herein. Any change to the standard agreement will deem the Proposal non-responsive.' This means HORUSTECH cannot negotiate liability caps, indemnification clauses, intellectual property terms, or any other contractual provisions. Section IX.A reinforces that 'All terms and conditions of the Agreement are non-negotiable.' For a software company, this is notable because standard municipal agreements may contain broad indemnification, IP assignment, or warranty provisions that could be unfavorable to a technology vendor.",
+      "mitigation": "The legal and contracts team should immediately review the Sample Agreement for Professional Services (Attachment A) to identify any problematic clauses such as unlimited indemnification, IP ownership provisions, or warranty terms that could create unacceptable business risk. This review should be completed before the bid/no-bid decision to ensure HORUSTECH can accept all terms without modification, as any requested changes would result in disqualification.",
+      "flag": "Non-negotiable contract terms with no exceptions permitted.",
+      "impactsScore": false
+    },
+    {
+      "severity": "LOW",
+      "whyItMatters": "Section III.G and Attachment B (200 CFR Grants) and Attachment D (Draft Grant Agreement TR26018) indicate this procurement is funded by a Highway Safety Grant, requiring compliance with Title VI of the Civil Rights Act, SAM.gov registration, Certification Regarding Debarment/Suspension (Attachment C), and additional grant management support. Section III.G specifically states the vendor 'Must be able to meet all the grant requirements and provide support to City staff with grant management.' This adds administrative overhead beyond a typical municipal software contract and requires the vendor to maintain active SAM registration and assist with grant reporting and compliance documentation throughout the contract term.",
+      "mitigation": "The compliance team should verify HORUSTECH's active SAM.gov registration status and Unique Entity ID immediately, and ensure the Certification Regarding Debarment form (Attachment C) can be completed without issues. The proposal manager should allocate time in the proposal schedule to address all grant-related requirements and include a section in the proposal demonstrating familiarity with federal highway safety grant compliance, including Title VI and 2 CFR requirements, to strengthen the submission.",
+      "flag": "Grant compliance requirements add administrative burden.",
+      "impactsScore": true
+    },
+    {
+      "severity": "LOW",
+      "whyItMatters": "Section IX.A states that 'Companies must possess valid City of Banning Business License throughout the term on the contract.' If HORUSTECH is not currently located in or registered to do business in Banning, California, obtaining a local business license is an additional administrative step that must be completed. While this is generally straightforward, failure to maintain the license throughout the contract term (potentially up to five years per Section VIII.A) could jeopardize the contract. This is a compliance requirement that must be tracked and renewed annually.",
+      "mitigation": "The operations or compliance team should research the City of Banning business license application process and requirements immediately, and factor the cost and timeline into the proposal budget. The team should plan to initiate the business license application promptly upon contract award notification to meet the 14-calendar-day execution deadline specified in Section VIII.C.",
+      "flag": "City of Banning Business License required throughout contract term.",
+      "impactsScore": false
+    }
+  ],
+  "incumbentInfo": {
+    "knownIncumbent": false,
+    "recompete": false,
+    "notes": "The solicitation does not name a current contract holder or reference a predecessor contract. The scope references transitioning from a paper citation process ('End of Life to paper citation process' in Section IV.A), suggesting this may be a new capability acquisition rather than a recompete of an existing eCitation contract."
+  }
+}

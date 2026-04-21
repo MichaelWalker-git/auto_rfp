@@ -1,0 +1,161 @@
+Amendment 00006
+Document, Section and Page No.
+Description & Question
+General
+Is this solicitation a recompete of an existing contract?
+If so, could you please confirm the incumbent
+contractor(s)? Answer: This is a recompete. The
+Incumbent is Sabre
+General
+What is the current or historical contract value
+associated with this work? Answer: Approx $640K+
+General
+Will the Statement of Work (SOW) remain unchanged
+from the current contract, or have there been any
+updates or revisions? Answer: No revisions were made
+to the SOW
+General
+Could you please provide the current or prior contract
+number associated with this requirement? Answer:
+693JK421C600002
+General
+How has the incumbent performed on the current
+contract, particularly with regard to meeting
+performance objectives, deliverables, and timelines?
+The contract has not expired. Answer: A final CPARS
+rating will occur after the contract ends.
+General
+Are the cover page and table of contents excluded from
+the overall page count limit? Answer: yes
+Demonstration Requirements
+What specific functional scenarios or use cases should
+the demonstration address (e.g., ATI analysis, merger
+review, route selection case study)? Answer:
+See row 18 of Excel spreadsheet regarding scenarios.
+Demonstration Scoring
+Will the demonstration be formally scored? If so, can
+DOT provide the evaluation rubric or key criteria that
+will determine demo scoring?
+Answer: See row 18 of Excel spreadsheet regarding
+scenarios for what demo shall include. Also, refer to
+SOW.
+Demonstration Format
+Is there a preferred duration, format, or agenda structure
+for the demonstration (e.g., live query walkthrough,
+scripted use case, dashboard review)? Answer: No
+Incumbent Solution
+Is the incumbent providing a commercially available
+platform, a customized solution, or a hybrid data
+aggregation model? Answer: Commercially available
+Current Challenges
+What limitations or gaps in the incumbent solution is
+DOT seeking to address through this procurement?
+Answer: Access to Fleet data, other than that nothing
+new in particular but interested in any new offerings/
+capabilities for ad-hoc analyses
+User Base
+The SOW specifies support for a minimum of 10 users.
+Is there potential for expansion beyond 10 users during
+Document, Section and Page No.
+Description & Question
+the contract term? Answer: Possibly, at this time we
+only anticipate 10 users
+Data Licensing Scope
+Should pricing assume enterprise-wide access within
+OAA, or strictly limited named-user licensing (10
+users)? Answer: That would be up to the Offeror on
+how they want to propose.
+Data Coverage
+Are there specific geographic regions or carriers of
+heightened analytical importance (e.g., EU, Middle
+East, Asia-Pacific)?
+Answer: Global
+Historical Data
+The SOW requires data back to at least 2005. Does
+DOT require continuous historical coverage with no
+data gaps? Answer: See row 20 of Excel spreadsheet
+regarding historical data.
+Advanced Booking Data
+Can DOT clarify the expected booking window horizon
+(e.g., 30, 60, 90+ days forward visibility)? Answer: As
+much as possible.
+Data Sources
+Is DOT expecting data derived directly from GDS
+providers, airlines, third-party aggregators, or any
+combination thereof? Answer: Refer to SOW
+Update Frequency
+Is monthly update cadence for demand and fare data
+considered acceptable, or is more frequent refresh
+preferred? Answer: Prefer as much as possible
+Integration
+Does DOT require API access or data export capability
+for integration with internal analytical tools? Answer:
+Export capability for the purpose of ingestion into other
+tools, API may not be necessary for this but some
+facility for non-programmers to export data.
+Security Requirements
+Are there specific cybersecurity compliance
+requirements (e.g., FedRAMP, FISMA Moderate)
+applicable to this web-based solution?
+Answer: See row 54 of Excel spreadsheet.
+Hosting Requirements
+Must the solution be hosted in a U.S.-based data
+environment, or are commercial cloud hosting
+environments acceptable? Answer:
+See row 54 of Excel spreadsheet.
+Data Export
+Is bulk data export (CSV/API) required, or is analytical
+access via UI sufficient? Answer: Bulk export is
+required
+Custom Reporting
+What level of customization is expected for reporting
+(e.g., custom dashboards, saved queries, automated
+recurring reports)? Answer: As much as possible
+Performance Metrics
+Are there system performance SLAs expected (e.g.,
+query response time, uptime percentage)? Answer:
+See row 51 of Excel spreadsheet.
+Document, Section and Page No.
+Description & Question
+Training Format
+If virtual training is conducted, must it be live
+instructor-led, or would recorded modules
+supplemented by Q&A be acceptable? Answer: Highest
+level of capability available.
+Option Year Pricing
+Should option year pricing assume fixed escalation,
+CPI-based adjustment, or flat rate pricing across five
+years? Answer:
+Modest price escalation for option years may be
+included.
+Period of Transition
+Will there be a transition period from the incumbent to
+the new contractor prior to May 1, 2026? Answer: Yes
+Data Migration
+Is historical data migration from the incumbent system
+expected as part of transition? Answer: No
+Demonstration Timing
+If scheduling conflicts arise, would DOT consider
+extending the March 2, 2026 demo scheduling
+deadline? Answer: At this time, no.
+Proposal Due Date
+Would DOT consider an extension to the March 27,
+2026 proposal submission deadline to allow adequate
+preparation following demos? Answer: At this time the
+government is not considering an extension of the
+proposal deadline.
+Data Accuracy Threshold
+Are there minimum acceptable thresholds for data
+accuracy, coverage completeness, or validation
+standards? Answer: Industry standard thresholds and
+best practice.
+Innovation
+Is DOT open to AI-assisted analytics, predictive
+modeling, or enhanced visualization capabilities beyond
+the minimum SOW requirements? Answer: yes
+Award Timing
+What is the anticipated award decision date following
+proposal submission? Answer: April 1, 2026
+Multiple Awards
+Does DOT anticipate a single award or multiple awards
+under this procurement? Answer: Single Award

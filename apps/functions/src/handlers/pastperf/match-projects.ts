@@ -220,21 +220,22 @@ function generateNarrativeSummary(
 ): string {
   const parts: string[] = [];
 
-  if (matches.length === 0) {
-    parts.push('No relevant past performance projects were found in the database.');
-    parts.push('Consider adding past projects or exploring teaming arrangements.');
-  } else {
-    parts.push(`Found ${matches.length} relevant past performance project(s).`);
-    
-    const topMatch = matches[0];
-    if (topMatch) {
-      parts.push(`The strongest match is "${topMatch.project.title}" with a ${topMatch.relevanceScore}% relevance score.`);
+  const meaningfulMatches = matches.filter(m => m.relevanceScore >= 30);
+
+  if (meaningfulMatches.length === 0) {
+    parts.push('No relevant past performance projects were found matching this opportunity.');
+    if (matches.length > 0) {
+      parts.push(`${matches.length} project(s) were reviewed but none demonstrated meaningful relevance.`);
     }
+    parts.push('Consider adding past projects with relevant experience or exploring teaming arrangements.');
+  } else {
+    parts.push(`Found ${meaningfulMatches.length} relevant past performance project(s).`);
+    const topMatch = meaningfulMatches[0];
+    parts.push(`The strongest match is "${topMatch.project.title}" with a ${topMatch.relevanceScore}% relevance score.`);
   }
 
   if (gapAnalysis) {
     parts.push(`Overall past performance coverage: ${gapAnalysis.overallCoverage}%.`);
-    
     if (gapAnalysis.criticalGaps.length > 0) {
       parts.push(`${gapAnalysis.criticalGaps.length} critical gap(s) identified that may require teaming or subcontracting.`);
     }

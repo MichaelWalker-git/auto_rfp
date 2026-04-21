@@ -1,0 +1,1075 @@
+COUNTY OF SAN MATEO SAN MATEO
+REQUEST FOR PROPOSALS
+Implementation of Microsoft's Identity & Access Management (IAM)
+Solution
+CALIFORNIA
+The County of San Mateo (County) Technology Services Department (TSD) is seeking proposals from
+qualified vendors to assess, configure, and implement Microsoft's Identity & Access Management (IAM)
+solution, in support of the County's identity lifecycle management. Proposers must demonstrate their
+capability to provide the requested products and services in response to this RFP. Evidence should
+include, but is not limited to, the proposer's expertise and experience in delivering similar products and
+services, along with the local availability of personnel and resources.
+Solicitation Number
+TSD-20261923
+Number of contracts expected to be awarded
+1
+Estimated Value or Range per contract
+$300,000 - $500,000
+Funding Sources
+Federal
+State
+X
+County
+Other
+Expected Contract Duration
+36 months
+Options to Renew
+2 options of 12 months each
+Proposal submission format
+1 electronic copy, uploaded to OpenGov site
+County of San Mateo- Technology Services Department
+County Mailing Address
+455 County Center, 3rd Floor
+(for hard-copy communication only)
+Redwood City, CA 94063
+Authorized Contact Person
+Jason Li
+Authorized Contact Person E-mail
+TSD_Solicitations@smcgov.org
+E-mail Address for Protests
+TSD_Protest_Officer@smcgov.org
+RFP Released
+February 25, 2026
+Pre-proposal meeting date and time
+March 5, 2026, 1:00 p.m. PST
+Microsoft Teams meeting
+Pre-proposal meeting location
+Meeting ID: 237 212 198 593 07
+Passcode: qH2Ew2X7
+Deadline for Questions, Comments and Exceptions
+March 12, 2026, 1:00 p.m. PST
+Proposal Due Date and Time
+March 26, 2026, 1:00 p.m. PST
+Interviews
+April 2026 - May 2026, if applicable
+Submission to County Board for approval
+TBD
+Anticipated Contract Award Date
+TBD
+Attachments:
+Attachment A: RFP TSD-20261923 Implementation of Microsoft's Identity & Access Management (IAM) Solution
+Attachment B: Price Proposal Template - Required with submissions
+Attachment C: References Template - Required with submissions
+Attachment D: County Standard Contract Template - Review/Submit
+Attachment E: Technology Security Assessment - Required with submission
+Attachment F: SMC Local Preference Self-Attestation Form - Review/Submit
+RFP#
+i
+Important Reminder: All proposers must complete and submit the required attachments listed above with their
+proposals. No exceptions will be made to this requirement. Proposals that fail to comply are non-responsive and are
+ineligible for consideration.
+RFP#
+ii
+TABLE OF CONTENTS
+SECTION I - DEFINITIONS
+5
+SECTION II - INSTRUCTIONS FOR PROPOSERS
+7
+2.1
+PRE-SUBMITTAL ACTIVITIES
+7
+A.
+Registration
+7
+B.
+Questions, Comments, Exceptions
+7
+C.
+Revisions to the Solicitation
+7
+D.
+Contact with County Employees
+7
+E.
+Pre-proposal conference and site visits
+8
+2.2
+PROPOSAL CONTENT REQUIREMENTS
+8
+A.
+Proposal Format
+8
+B.
+Technical Proposal Contents
+8
+C.
+Supplementary Documents
+8
+D.
+Price Proposal
+9
+2.3
+PROPOSAL SUBMISSION
+9
+A.
+Submit proposals as directed below.
+9
+B.
+Errors in Proposals
+9
+2.4
+PROPOSER CERTIFICATIONS
+9
+2.5
+PROCUREMENT PREFERENCE FOR LOCAL BUSINESS AND LOCAL NON-PROFITS
+10
+2.6
+WITHDRAWAL OF PROPOSALS
+10
+2.7
+NO COMMITMENT
+10
+2.8
+ESTIMATED QUANTITIES
+10
+2.9
+PROPOSER SELECTION
+10
+A.
+Determination of Responsiveness
+10
+B.
+Proposal Evaluation
+10
+C.
+Determination of Responsibility
+11
+2.10
+CONTRACT AWARD
+11
+A.
+Notice of Intent to Award
+11
+B.
+Award Procedure
+11
+C.
+Commencement of Performance
+11
+D.
+Levine Act Disclosure
+11
+2.11
+PROTESTS
+11
+A.
+Protest Eligibility, Format, and Address
+12
+B.
+Protest Deadlines
+12
+C.
+Protest Contents
+12
+D.
+Reply to Protest
+12
+E.
+No Stay of Procurement Action during Protest
+12
+2.12
+PUBLIC RECORDS
+12
+A.
+General
+12
+SECTION III - QUALIFICATIONS, EXPERIENCE, AND EVALUATION CRITERIA
+14
+3.1
+MINIMUM QUALIFICATIONS
+14
+3.2
+PROCUREMENT PREFERENCE FOR LOCAL BUSINESSES AND LOCAL NON-PROFITS
+14
+A.
+Is the Proposer a "Local Business"?
+14
+RFP#
+iii
+B.
+Is the Proposer a Non-Profit?
+14
+C.
+Is the Proposer a Local "Small" or "Micro" Business?
+14
+D.
+Is the Proposer a Local "Small" or "Micro" Non-Profit?
+15
+3.3
+ORGANIZATIONAL CAPACITY AND EXPERIENCE
+15
+A.
+Organizational Capacity:
+15
+B.
+Experience
+15
+3.4
+REFERENCES
+15
+3.5
+EVALUATION CRITERIA
+15
+SECTION IV - INSURANCE
+18
+4.1
+SPECIAL INSURANCE REQUIREMENTS - CYBER LIABILITY
+18
+SECTION V - STANDARD TERMS AND CONDITIONS
+20
+SECTION VI - SCOPE OF WORK AND SPECIAL PROVISIONS
+21
+6.1
+SUMMARY
+21
+6.2
+CURRENT STATE
+21
+6.3
+REQUIREMENTS AND SCOPE OF WORK
+22
+6.4
+PERFORMANCE MEASURE
+23
+6.5
+FINGERPRINTING AND BACKGROUND CHECKS
+24
+-:-
+RFP#
+iv
+SECTION I - DEFINITIONS
+Business Day: Monday through Friday except for holidays as observed per the California Government Code.
+Confidential Information: Information in any form that is not generally known and treated as confidential by a
+party, including business, financial, statistical, and non-public personal information, trade secrets, know-
+how, applications, documentation, schematics, procedures, Personally Identifiable Information, information
+covered by legal privilege, and other proprietary information that may be disclosed or incorporated in
+materials provided to one party by the other, whether or not designated as confidential, whether or not
+intentionally or unintentionally disclosed, and whether or not subject to legal protections or restrictions.
+Contract Materials: finished or unfinished documents, data, studies, maps, photographs, reports, specifications,
+lists, manuals, software, and other written or recorded materials produced or acquired by the Contractor
+pursuant to the Contract for or on behalf of the County, whether or not copyrighted.
+Contract: The agreement between the County and Contractor awarded pursuant to this solicitation.
+Contractor: The person or other entity awarded a Contract in conformance with the terms of this solicitation and
+any subsequently agreed upon terms.
+County Data: All information, data, and other content, including Confidential Information and other information
+whether or not made available by the County or the County's agents, representatives or users, to a
+Contractor or potential Contractor or their employees, agents, representatives or Subcontractors, and any
+information, data and content directly derived from the foregoing, including data reflecting user access or
+use.
+County Systems: The information technology infrastructure of the County or any of its designees, including
+computers, software, databases, networks, and related electronic systems.
+County: County of San Mateo
+Deliverables: Goods or services required to be provided to the County under the Contract.
+Force Majeure: An event or circumstance not caused by or under the control of a party, and beyond the
+reasonable anticipation of the affected party, which prevents the party from complying with any of its
+obligations under the Contract, including acts of God, fires, floods, explosions, riots, wars, hurricane,
+sabotage, terrorism, vandalism, accident, governmental acts, and other events.
+Hosting: Storage, maintenance, and management of hardware, software, and the County Data by a party other
+than the County, on machines and at locations other than those operated by the County, where a party
+other than the County has regular responsibility for back-up, disaster recovery, security, upgrades,
+replacement, and overall responsibility for ensuring that all hardware and software continues to function as
+intended.
+Key Employee: Employees of the Contractor jointly identified by the County and the Contractor as possessing
+unique skill and experience that was a material consideration in the County's decision to award a contract.
+Maintenance Updates: Any revision, update, improvement, modification, enhancement, correction, bug fix, patch,
+or new release for a system, platform, software or other product, including any change made as a result of
+applicable federal, State, or local law.
+Major Change: A change to the specified performance, maintainability, operation, power requirements,
+compatibility, measurement, user interface, reliability, quantity, scale, quality, terms, delivery method, or
+requirement of any product or service that affects the obligations of the parties or reflects a substantial
+alteration in circumstances surrounding the agreement or is of such a nature that knowledge of the change
+would affect a person's decision-making process.
+RFP# TSD-20261923
+5
+Rev 12/15/2025
+PII (Personally Identifiable Information): information in any format that can be used to identify a specific individual,
+either used alone or combined with other private or public information that can be linked in some way to a
+specific individual.
+Project Manager: The individual identified by the County as the County's primary contact for the receipt and
+management of the goods and services required under the Contract.
+PST: Pacific Standard Time, including Pacific Daylight Time when in effect
+Subcontractor: Firms engaged by the Contractor to perform work or provide goods pursuant to the Contract,
+including vendors and suppliers
+Task Order or Purchase Order: A written request from the County to a vendor to provide goods or services,
+indicating types, quantities, prices and delivery criteria.
+RFP# TSD-20261923
+6
+Rev 12/15/2025
+SECTION II - INSTRUCTIONS FOR PROPOSERS
+2.1
+PRE-SUBMITTAL ACTIVITIES
+A.
+Registration
+(1)
+Organizations or individuals interested in responding to this solicitation must register online with the
+County at:
+https://procurement.opengov.com/portal/smcgov.
+(2)
+The County does not maintain the eProcurement OpenGov system and is not liable for site failures or
+technical problems. To resolve technical issues, contact OpenGov Technical Support by using the real
+time chat located in the lower right hand corner of the screen, or via email at procurement-
+support@opengov.com at:
+B.
+Questions, Comments, Exceptions
+Submit questions, comments, and exceptions, including notifications of apparent errors, to the OpenGov
+site by the Deadline for Questions, Comments and Exceptions. Questions and comments received after the
+deadline may not be acknowledged.
+Request for Substitution of Specified Equipment, Material, or Process
+(a)
+Unless otherwise stated in the solicitation, references to items or processes by trade
+names, models or catalog numbers are to be regarded as establishing a standard of
+quality and not construed as limiting competition.
+(b)
+If requesting a substitution for a required item, submit requests by the Deadline for
+Questions, Comments, and Exceptions. Furnish all necessary information required for
+the County, in its sole judgement, to make a determination as to the comparative
+quality and suitability of any suggested alternatives. The County's decision will be final.
+If alternatives are accepted, the County will issue an addendum to the solicitation.
+(c)
+Failure to submit requests by the deadline will be deemed a waiver of any exception.
+The County's consideration of a suggestion does not imply acceptance. If sufficient
+proposals are received with no requested changes, the County may reject those
+requesting changes.
+C.
+Revisions to the Solicitation
+The County may cancel, revise, or reissue this solicitation, in whole or in part, for any reason. Revisions will
+be posted as addenda on https://procurement.opengov.com/portal/smcgov. No other revision of this
+solicitation will be valid. Proposers are responsible for ensuring that they have received all addenda from
+OpenGov.
+D.
+Contact with County Employees
+Violation of the following prohibitions may result in a proposer being found non-responsible, barred from
+participating in this or future procurements, and becoming subject to other legal penalties.
+(1)
+As of the issuance date of this RFP and continuing until it is canceled or an award is made, no proposer
+or person acting on behalf of a prospective proposer may discuss any matter relating to the RFP with
+any officer, agent, or employee of the County, other than through OpenGov, to the Authorized Contact
+Person, or as outlined in the evaluation or protest procedures.
+(2)
+Proposers may not agree to pay any consideration to any company or person to influence the award of
+a contract by the County, nor engage in behavior that may be reasonably construed by the public as
+having the effect or intent of influencing the award of a contract.
+RFP# TSD-20261923
+7
+Rev 12/15/2025
+E.
+Pre-proposal conference and site visits
+If a pre-proposal conference or site visit is scheduled, answers to questions raised prior to and at the
+events may be posted on OpenGov.
+2.2
+PROPOSAL CONTENT REQUIREMENTS
+A.
+Proposal Format
+Number all pages of the proposal. Label and order each section as follows:
+(1)
+Cover letter - no longer than one page
+(2)
+Authorized contacts - identify the name and title the person to contact regarding the proposal, as well
+as all other individuals authorized to represent the organization in contract negotiations.
+(3)
+Table of Contents, listing all major topics and their respective page numbers.
+(4)
+Exceptions to the solicitation, or to the final revised solicitation, if any. Exceptions must have been
+submitted by the RFP's deadline for Comments, Questions, and Exceptions. Exceptions requested after
+the RFP Deadline for Comments, Questions, and Exceptions will not be considered and/or accepted.
+(5)
+Technical Proposal
+(6)
+Supplementary Documents, as requested
+(7)
+Price Proposal
+Proposers are strictly prohibited from submitting internet links (URLs) in place of the required proposal
+materials. All required information and supporting documents must be included as complete, self-
+contained files. Submissions that rely on or include links to external files, unless explicitly requested by
+the County, are considered non-responsive.
+B.
+Technical Proposal Contents
+(1)
+Explain responses to be understood by people unfamiliar with industry jargon. Use drawings,
+diagrams, schematics, and illustrations as needed, but do not simply refer readers to an exhibit or
+other section of the proposal in lieu of a complete response.
+(2)
+Addressing each requirement outlined in this solicitation in the order presented, describe how the
+requested goods and services will be provided.
+(3)
+If applicable or requested, include a project schedule with milestones, deliverables, dates, and a
+project management plan.
+(4)
+Specify any needs for physical space or equipment that the County must provide during the
+engagement.
+(5)
+Explain how work, equipment, and knowledge will be transitioned to the County or a new vendor at
+the end of the contract period.
+C.
+Supplementary Documents
+(1)
+References for Proposer that include same/similar implementations with similar organizations.
+(2)
+Technology Security Assessment, as applicable
+(3)
+Evidence Proposer is Registered, active, and in good standing on sam.gov.
+(4)
+Evidence of insurance, per requirements and minimum coverages listed in Section IV.
+(5)
+All other attachments, certifications, and forms executed as requested.
+RFP# TSD-20261923
+8
+Rev 12/15/2025
+D.
+Price Proposal
+(1)
+Place all cost and pricing data in a separate file clearly marked "PRICE PROPOSAL".
+(2)
+Use forms and templates provided for the Price Proposal, use them without modification. Failure to
+use the forms or templates provided, or modification of them, may result in rejection of the entire
+proposal.
+(3)
+Alternative Price Proposals may be submitted, but only in addition to, not in lieu of, the requested
+Price Proposal. If submitting an alternative Price Proposal, clearly identify it as an alternative.
+(4)
+Include prices for the base period of service and if applicable, for each additional year including
+optional years.
+(5)
+Unless otherwise indicated, when applicable, in the price of an item, include all licenses required for
+operation, as well as upgrades and revisions to software over the term.
+2.3
+PROPOSAL SUBMISSION
+A.
+Submit proposals as directed below.
+(1)
+Electronic Submissions
+Include the proposer's name and the RFP title and number in each filename. Submit proposals via the
+OpenGov website, allowing sufficient time for the upload to complete by the Due Date and Time.
+Partial uploads will automatically terminate, and proposals will be rejected. The OpenGov submission
+time will be the official submission time. Contact OpenGov with technical questions regarding the
+site. The County will not be responsible for and may not accept proposals that are late due to slow
+internet connections or for any other failure of the OpenGov system.
+(2)
+Conflicts between Certain Requirements
+Prior to the submission deadlines and solely relating to a determination of the timeliness of
+questions, comments, and proposal submissions, information displayed on the OpenGov site will take
+precedence in the event of a discrepancy between that information and the information within the
+solicitation documents. For all other discrepancies, the information in the solicitation documents will
+take precedence.
+(3)
+Hand-written responses, whether or not submitted electronically, will be rejected, with the exception
+that signatures may be hand-written.
+B.
+Errors in Proposals
+The County will not be liable for any errors in proposals. Proposals may be rejected as unresponsive if they
+are incomplete, are missing pages or information, or cannot be opened for any reason. The County may
+waive minor irregularities, but such waiver will not modify any remaining RFP requirements.
+2.4
+PROPOSER CERTIFICATIONS
+By submitting a proposal, each proposer certifies under penalty of perjury that:
+Its submission is not the result of collusion or any other activity that would tend to directly or indirectly
+influence the selection process; and
+Proposer is able to comply with all requirements of this solicitation at the time of proposal submission;
+and
+Neither proposer, its employees, nor any affiliated firm providing the requested goods and services has
+prepared plans, specifications, terms or requirements for this solicitation, or has any other actual or
+potential conflict of interest; and
+RFP# TSD-20261923
+9
+Rev 12/15/2025
+Proposer is aware of the provisions of Section 1090 et seq. and Section 87100 et seq. of the California
+Government Code relating to conflict of interest of public officers and employees and is unaware of any
+financial or economic interest of any County officer or employee relating to this solicitation.
+2.5
+PROCUREMENT PREFERENCE FOR LOCAL BUSINESS AND LOCAL NON-PROFITS
+The County of San Mateo has adopted a Procurement Preference for Local Businesses Ordinance (County Ord.
+Code Ch. 2.89.) The purpose of this Ordinance is to promote a strong local economy by giving preference to local
+businesses, local non-profits, local small and micro businesses, and local small and micro non-profits in County
+procurements, to the extent consistent with the law and interests of the public. The County's process for applying
+local preferences to competitive procurements is set forth in County Ordinance Code Section 2.89.030. The
+Ordinance and exemptions (e.g. the ordinance will be exempt when all bids or proposals received are from Non-
+Profit Organizations) can be reviewed here:
+Chapter 2.89 - PROCUREMENT PREFERENCE FOR LOCAL BUSINESSES | Code of Ordinances | San Mateo County, CA
+| Municode Library
+The requirements for bidders to establish eligibility for a local preference for this solicitation are detailed in Section
+3.2. The Ordinance does not apply if a procurement is determined to be exempt (County Ord. Code sec. 2.89.050),
+and the County reserves the right to waive application of the Ordinance to this procurement if determined to be in
+the best interests of the County (County Ord. Code sec. 2.89.060).
+2.6
+WITHDRAWAL OF PROPOSALS
+Proposals may be withdrawn, modified, or replaced at any time prior to the Due Date and Time. After that time,
+whether or not a new solicitation is issued for the same subject matter, withdrawal of a proposal may preclude the
+proposer from participating in the procurement as a proposer or subcontractor, except that an original equipment
+manufacturer may participate indirectly through a reseller.
+2.7
+NO COMMITMENT
+Neither submission of a proposal nor the County's receipt of proposal materials confers any right to the proposer
+nor any obligation on the County. This RFP does not commit the County to award a contract, nor will the County
+defray any costs incurred in preparing proposals or participating in any presentations or negotiations.
+2.8
+ESTIMATED QUANTITIES
+If the solicitation results in an indefinite quantity or a requirements Agreement, the goods and services actually
+requested by the County may be less than the maximum value of the Agreement and there is no guarantee, either
+expressed or implied, as to the actual quantity of goods and services that will be authorized under the Agreement.
+2.9
+PROPOSER SELECTION
+At any time in the evaluation process, the County may request clarifications from proposers.
+A.
+Determination of Responsiveness
+A responsive proposal conforms to the instructions set forth in this solicitation and any modifications to it.
+B.
+Proposal Evaluation
+The County will establish an evaluation committee which will evaluate responsive proposals based on the
+criteria specified in the solicitation. The committee may then recommend one or more top-ranked
+proposers for final negotiation of contract terms or may invite one or more proposers for oral
+presentations and demonstrations, following which those proposers may be allowed to amend their
+proposals. After evaluating presentations and amended proposals, the committee may recommend one or
+more top-ranked proposers for final negotiation of contract terms.
+RFP# TSD-20261923
+10
+Rev 12/15/2025
+C.
+Determination of Responsibility
+The County will make a determination of the responsibility of any proposer under consideration for award,
+taking into consideration matters such as the proposer's integrity, compliance with public policy and laws,
+past performance, fiscal responsibility, trustworthiness, financial and technical resources, capacity, and
+experience to satisfactorily carry out its responsibilities.
+By submitting a proposal, the proposer certifies that, to the best of its knowledge, the proposer maintains
+financial resources sufficient to satisfy the terms of the proposed project, if awarded.
+2.10
+CONTRACT AWARD
+A.
+Notice of Intent to Award
+Once a decision has been made to award a contract to one or more proposers, the County will post a
+Notice of Intent to Award, notifying the remaining proposers of their non-selection. The posting may be
+inclusion of the recommendation to award as an agenda item on the Board of Supervisors schedule.
+B.
+Award Procedure
+Contract negotiations are neither an offer nor an implicit guarantee that a contract will be executed.
+Award, if made, will be to the responsive, responsible proposer offering the overall best value to the
+County for the services and goods described in this solicitation, or as applicable, for a specific portion of
+the services and goods described. Any agreement reached will be memorialized in a formal agreement
+using the attached Standard Agreement template.
+C.
+Commencement of Performance
+After all parties have signed the Agreement, the County will notify the proposer and performance may
+proceed. Prior to County execution of the Agreement, no County employee may authorize work. Any work
+performed prior to that time may be uncompensated.
+D.
+Levine Act Disclosure
+The Levine Act (California Government Code Section 84308) imposes certain requirements on parties
+contracting with the County of San Mateo related to campaign contributions to County "officers," including
+elected County officers and candidates seeking elective office, who may participate in making a decision on
+certain County contracts. Elected County officers in San Mateo County include: the San Mateo County
+Board of Supervisors, Assessor-County Clerk-Recorder, County Controller, Coroner, District Attorney,
+Sheriff, and Tax Collector-Treasurer. Generally, under current County policy, approval by the Board of
+Supervisors is required for any agreement for services above $200,000, and agreements for services below
+that threshold may be approved by Department heads. If your proposal is selected, you will be required
+to certify compliance with the Levine Act. As part of this process, you will need to certify and warrant that
+you have fully complied, and will remain in full compliance, with all applicable requirements of the Levine
+Act in connection with the Agreement, including making any required disclosures of campaign
+contributions to County Officers, which includes but may not be limited to elected County Officers. Elected
+County Officers include members of the San Mateo County Board of Supervisors, as well as the Assessor-
+County Clerk-Recorder, Controller, Coroner, District Attorney, Sheriff, and Tax Collector-Treasurer. Any
+campaign contribution required to be disclosed under the Levine Act in connection with this Agreement
+shall be disclosed on the County of San Mateo Levine Act Disclosure Form, a copy of which is available from
+the County upon request. Parties are solely responsible for accurate certification and disclosure. The
+Levine Act is complex, and this brief description is not legal advice. For example, certain contributions
+must be aggregated when determining whether contributions have exceeded the $500 threshold. If your
+proposal is selected, you are urged to review the Levine Act and consider consulting an attorney.
+2.11
+PROTESTS
+Protests that do not comply with the protest procedures outlined below will be rejected.
+RFP# TSD-20261923
+11
+Rev 12/15/2025
+A.
+Protest Eligibility, Format, and Address
+(1)
+Protests or objections may be filed regarding the selection process and/or the defective content of the
+solicitation or any addenda.
+(2)
+In accordance with Sections B and C below, the County will only review protests submitted by an
+interested party, defined as an actual or prospective proposer to this solicitation whose direct
+economic interest could be affected by the County's conduct of the solicitation. Subcontractors do not
+qualify as interested parties.
+(3)
+Submit protests by e-mail to TSD Protest Officer@smcgov.org.
+B.
+Protest Deadlines
+Submit protests with any supplemental materials by 5 p.m. PST, as appropriate, on the deadlines set forth
+below. The date of filing is the date the County receives the protest, unless received after 5 p.m. PST, or on
+other than a Business Day, in which case the date of filing will be the next Business Day. Failure to file by
+the relevant deadline constitutes a waiver of any protest on those grounds. Supplemental materials filed
+after the relevant deadline will be rejected by the County.
+If relating to the defective content of the solicitation or to an addendum, file within five Business Days after
+the date the County releases the solicitation or addendum.
+C.
+Protest Contents
+(1)
+The letter of protest must include all of the following elements:
+(a)
+Detailed grounds for the protest, fully supported with technical data, test results,
+documentary evidence, names of witnesses, and other pertinent information related to
+the subject being protested; and
+(b)
+The law, rule, regulation, ordinance, provision or policy upon which the protest is based,
+with an explanation of the violation.
+(2)
+Protests that simply disagree with decisions of the Evaluation Committee will be rejected.
+(3)
+Except for protests related to defective content filed by the relevant deadline, protests from parties
+who did not submit a proposal prior to the proposal due date and time will be rejected.
+D.
+Reply to Protest
+The County will send a written response to the protestor and to any other party named in the protest.
+E.
+No Stay of Procurement Action during Protest
+Nothing in these protest requirements will prevent the County from proceeding with negotiations or
+awarding a purchase order or contract while a protest is pending.
+2.12
+PUBLIC RECORDS
+A.
+General
+(1)
+All proposals, protests, and information submitted in response to this solicitation will become the
+property of the County and will be considered public records. As such, they may be subject to public
+review.
+(2)
+Any contract arising from this RFP will be a public record.
+(3)
+Submission of any materials in response to this RFP constitutes:
+(a)
+Consent to the County's release of such materials under the Public Records Act without
+notice to the person or entity submitting the materials; and
+(b)
+Waiver of all claims against the County and/or its officers, agents, or employees that the
+County has violated a proposer's right to privacy, disclosed trade secrets, or caused any
+damage by allowing the proposal or materials to be inspected; and
+RFP# TSD-20261923
+12
+Rev 12/15/2025
+(c)
+Agreement to indemnify and hold harmless the County for release of such information
+under the Public Records Act; and
+(d)
+Acknowledgement that the County will not assert any privileges that may exist on behalf
+of the person or entity submitting the materials.
+RFP# TSD-20261923
+13
+Rev 12/15/2025
+SECTION III - QUALIFICATIONS, EXPERIENCE, AND EVALUATION CRITERIA
+3.1
+MINIMUM QUALIFICATIONS
+Proposals will be accepted only from proposers that meet the following required minimum qualifications and
+requirements at the time of proposal submission. Proposals that fail to meet these criteria are considered non-
+responsive and are ineligible for consideration.
+Minimum Qualifications and Requirements of Proposer(s):
+The proposer has a minimum three (3) years' experience implementing the proposed solution(s),
+performing similar services as those detailed in this RFP.
+The proposer has completed at minimum three (3) successful implementations for government
+agencies of similar size and requirements within the last five (5) years.
+Provide evidence of the insurance requirements and coverage limits for each of the checked
+categories as outlined in Section IV-Insurance. Expired certificates will not meet this requirement.
+Provide evidence the proposer is registered, active, and in good standing with sam.gov and is not
+barred from public contracting by any federal or state authority. Incomplete registrations will not
+meet this requirement.
+3.2
+PROCUREMENT PREFERENCE FOR LOCAL BUSINESSES AND LOCAL NON-PROFITS
+A.
+Is the Proposer a "Local Business"?
+As Defined by Chapter 2.89.020 of the San Mateo County Ordinance Code, a "Local Business" means any
+for-profit business which has its principal place of business, or is headquartered, in San Mateo County. If
+this designation applies to the proposer, a self-attestation form must be completed and provided with this
+response.
+Please download the self-attestation form, complete, and include in the submission. If this designation is
+not applicable, please leave blank.
+B.
+Is the Proposer a Non-Profit?
+A Non-Profit is defined as a tax-exempt public charity organization (within the meaning of section 501(c)(3)
+of the Internal Revenue Code) that is formed for purposes other than making a profit, is exempt from
+paying federal income taxes on the income generated for their exempt purposes.
+(1)
+If yes, is the Proposer a "Local Non-Profit"?
+As Defined by Chapter 2.89.020 of the San Mateo County Ordinance Code, a "Local Non-Profit" means
+a tax-exempt public charity organization (within the meaning of section 501(c)(3) of the Internal
+Revenue Code) that is formed for purposes other than making a profit, is exempt from paying federal
+income taxes on the income generated for their exempt purposes, and has its principal place of
+business, or is headquartered, in San Mateo County. If this designation applies to the proposer, a self-
+attestation form must be completed and provided with this response.
+Please download the self-attestation form, complete, and include in the submission. If this designation
+is not applicable, please leave blank.
+C.
+Is the Proposer a Local "Small" or "Micro" Business?
+As Defined by Chapter 2.89.020 of the San Mateo County Ordinance Code:
+"Small Business" means any business which holds a Small Business Certification awarded by the California
+Office of Small Business and Disabled Veteran Business Enterprise Services (OSDS).
+"Micro Business" means any Small Business certified by the OSDS which is automatically designated by the
+OSDS as a Micro Business due to gross annual receipts falling below the OSDS-designated dollar amount.
+RFP# TSD-20261923
+14
+Rev 12/15/2025
+If the above designations apply, please provide the OSDS provided Certification ID.
+If this designation is not applicable, please leave blank.
+D.
+Is the Proposer a Local "Small" or "Micro" Non-Profit?
+As Defined by Chapter 2.89.020 of the San Mateo County Ordinance Code:
+"Small Non-Profit" means a Local Non-Profit with an annual revenue of $1,000,000 to $2,500,000 according
+to its most recently filed IRS Form 990.
+"Micro Non-Profit" means a Local Non-Profit with an annual revenue of less than $1,000,000, according to
+its most recently filed IRS Form 990.
+If the above designations apply, please provide your latest filed IRS form 990. A filing from the last two
+calendar years is acceptable.
+If this designation is not applicable, please leave blank.
+3.3
+ORGANIZATIONAL CAPACITY AND EXPERIENCE
+Provide all of the following regarding the prime proposer.
+A.
+Organizational Capacity:
+(1)
+Titles and names of staff members who will be on the team responsible for the project, as well as the
+expected availability of the various individuals. If requested, include the resume of a dedicated, full-
+time project manager.
+(2)
+All applicable licenses and license numbers relevant to the project, the names of the holders of those
+licenses, and the names of the agencies issuing the licenses.
+B.
+Experience
+(1)
+The number of years providing services similar to those contemplated
+(2)
+The number of years providing services to government entities
+3.4
+REFERENCES
+Provide at least three references from successfully completed projects of similar nature to that described in this
+solicitation, including the name of the organization for which work was performed, and the name, phone number,
+and e-mail address of an individual at the organization who was responsible for managing and accepting the work.
+Ensure that contact information is current. If the County cannot contact the reference because of incorrect or out-
+of-date information, the reference will be deemed not to have been provided. References cannot include the
+County of San Mateo or any employees thereof.
+3.5
+EVALUATION CRITERIA
+Proposals will be evaluated in accordance with the following evaluation criteria:
+Phase I: Evaluation of Technical Proposal
+45% - Method and Approach
+Apparent understanding of the scope of services to be provided
+Appropriateness of the proposed solution/services
+30% - Experience and Organizational Capacity
+Qualifications and experience of both the proposer and key personnel
+Experience with other public agencies
+Organizational resources and staff, apparent ability to meet any required timelines or other
+requirements
+RFP# TSD-20261923
+15
+Rev 12/15/2025
+25% Price
+10% Preferential Points
+Where price is not the sole evaluation factor for a solicitation (e.g., in the case of a "best-value" solicitation),
+five percent (5%) of the total evaluation points awardable will be added to the proposal score for each Local
+Business or Local Non-Profit score for evaluation purposes. In the event of a tie between a Local Business or
+Local Non-Profit and another bidder, the Local Business or Non-Profit shall be awarded the Contract, assuming
+agreement on other contract terms.
+An additional three percent (3%) preference shall be given to a Local Business or Local Non-profit (for a total
+of eight percent (8%) of total points awardable) if the proposer is a Small Business or Small Non-Profit, or an
+additional 5 percent preference (for a total of ten percent (10%) of total points awardable) if the proposer is a
+Micro Business or Micro Non-Profit.
+Phase II: Evaluation of Demonstration/Interviews of elevated proposals
+40% - Core Features and Functionality
+Demonstrate IAM integration and ability to create and disable accounts based on information
+derived from the system or record (Workday and Service Now).
+Present IAM portal and demonstrate ability to submit change requests for existing workforce
+members and have the IAM workflow engine obtain approval for changes from designated
+system owners/approvers and then complete changes in an automated fashion, including
+required completion notifications and instructional materials as needed for the user to begin
+accessing the system without direct assistance.
+Ability to integrate with Workday to on/offboard workforce members, demonstrating the level
+of integration and a clear understanding of the user fields provided by Workday as the system
+of record which is then used to populate downstream identity provider platform (IdP) records.
+Demonstrated ability to transfer workforce members from one department to another (cross
+domain) while maintaining same account name and data stores, essentially replicating the user
+information in another organizational unit (OU) or affiliated domain.
+Demonstrated ability to transfer workforce members from one department to another (cross
+domain) while doing so using the same account name but not retaining access to previous
+position data stores.
+Demonstrated ability to transfer workforce members from one department to another (same
+or cross domain) with a new account name and not retaining access to previous position data
+stores.
+30% - Usability and Automation
+Demonstrate how requesters or TSD service desk members request user access changes and
+changes to system access authorization levels.
+Show how the respondents solution will increase workflow milestone-based lifecycle
+communication to users, requesters and approvers when onboarding, offboarding, transfers,
+or access change scenarios.
+Demonstrate how workflow will obtain data owner approvals on access and authorization level
+requests.
+For seasonal, temporary workforce members or contractors and vendors, demonstrate how
+accounts can be set for automated expiration with functionality to renew the accounts by
+account sponsors without direct intervention by TSD workforce members.
+Clearly show how requests for approval can escalate to other approvers if approval requests
+are expired or left unattended.
+30% - Integration and Extensibility
+Advise the County on the minimum data sets required to perform all functions included in the
+IAM platform.
+RFP# TSD-20261923
+16
+Rev 12/15/2025
+Demonstrate what the respondent's solution and strategy is to implement SAML single sign-on
+(SSO) integration for external partners while minimizing access disruptions.
+Demonstrate how the respondent's solution and approach will as much as possible replicate
+the SSO applet publication format for workforce members to minimize user impact to a
+migration to Microsoft Entra SSO.
+Inform on how the respondent will implement seamless multi-factor authentication (MFA)
+migration from existing SSO to new SSO.
+Demonstrate how existing security group schema can be leveraged to maintain system and
+resource access and authorization levels for integrated and third-party applications.
+RFP# TSD-20261923
+17
+Rev 12/15/2025
+SECTION IV - INSURANCE
+Include evidence of insurance in your proposal submission for each of the checked categories.
+$1,000,000 - per occurrence for bodily injury, personal injury
+General Liability (Including
+and property damage. If Commercial General Liability Insurance
+operations, products and
+or other form with a general aggregate limit is used, the general
+completed operations, as
+aggregate limit either must apply separately to this project or
+applicable.)
+must be twice the required occurrence limit.
+To be carried at all times during the term of the Contract
+$1,000,000 - per accident for bodily injury and property
+Automobile Liability
+damage.
+To be carried at all times during the term of the Contract
+As required by the State of California
+Workers' Compensation
+To be carried at all times during the term of the Contract
+$1,000,000 - each accident, $1,000,000 policy limit bodily injury
+Employers' Liability
+by disease, $1,000,000 each employee bodily injury by disease.
+To be carried at all times during the term of the Contract
+Professional Liability (Errors
+$1,000,000 - per occurrence.
+and Omissions)
+To be carried at all times during the term of the Contract
+$5,000,000 per occurrence for Privacy and Network Security,
+$1,000,000 per occurrence for Technology Errors and Omissions
+Cyber Liability
+To be carried at all times during the term of the Contract and
+for three years thereafter.
+4.1
+SPECIAL INSURANCE REQUIREMENTS - CYBER LIABILITY
+If the work involves services or goods related to computers, networks, systems, storage, or access to
+County data or to any data that may, alone or in combination with other data, become Confidential
+Information or Personally Identifiable Information, the following insurance is required.
+(1)
+Privacy and Network Security
+During the term of the Contract and for three years thereafter, maintain coverage for liability and
+remediation arising out of unauthorized use of or access to County data or software within
+Contractor's network or control. Provide coverage for liability claims, computer theft, extortion,
+network breach, service denial, introduction of malicious code, loss of Confidential Information, or
+any unintentional act, error, or omission made by users of Contractor's electronic data or systems
+while providing services to the County. The insurance policy must include coverage for regulatory and
+PCI fines and penalties, crisis management expenses, and business interruption. No
+exclusion/restriction for unencrypted portable devices/media may be on the policy.
+(2)
+Technology Errors and Omissions
+During the term of the Contract and for three years thereafter, maintain coverage for liabilities
+arising from errors, omissions, or negligent acts in rendering or failing to render computer or
+RFP# TSD-20261923
+18
+Rev 12/15/2025
+information technology services and technology products, including at a minimum, coverage for
+systems analysis, design, development, integration, modification, maintenance, repair, management,
+or outsourcing any of the foregoing.
+RFP# TSD-20261923
+19
+Rev 12/15/2025
+SECTION V - STANDARD TERMS AND CONDITIONS
+Note to proposers: These are attached for information only. Do not complete this form. The final agreement
+between the County and any successful proposer will be based on this template.
+See Attachment D - County Standard Contract Template
+Please note that the redline requests by proposer are for review by County only. Proposers should not rely on the
+County's agreement to modified terms.
+RFP# TSD-20261923
+20
+Rev 12/15/2025
+SECTION VI - SCOPE OF WORK AND SPECIAL PROVISIONS
+6.1
+SUMMARY
+The County's Technology Services Department (TSD) is soliciting proposals from qualified vendors to implement
+Microsoft's Identity and Access Management (IAM) solution to automate onboarding, offboarding, transfers, and
+changes to application access as well as system authorization level assignments. The platform was chosen for its
+variety of features, alignment with current County licensing schema, and integration of the existing Microsoft
+computing stack in use within the County. This implementation is a key component of the County's process
+improvement and automation initiatives to reduce manual processes, improve process consistency and efficiencies
+and ensure timely provisioning and deprovisioning of user accounts across the County's technology environment.
+The County's primary objective is to maximize return on investment by leveraging and integrating Microsoft's
+ecosystem to support its operational objectives. This includes the use of Microsoft Entra ID and access management
+capabilities such as IAM, single sign-on (SSO), identify services and any related Microsoft solution necessary to meet
+the requirements outlined in this solicitation.
+Proposals will be fully responsive to the documentation, descriptions, and specifications contained in this RFP. The
+successful proposer will be singularly responsible for the proposed solution and will not use subcontractors to
+perform the services.
+6.2
+CURRENT STATE
+The County currently utilizes Okta as its enterprise SSO and acts as an adjunct to on-prem Active Directory by
+providing certain user provisioning functions and centralized authentication IdP. Okta acts as middleware between
+Workday, the County's system of record for County employees, and on-prem Active Directory (AD). Okta also
+provides authentication services, including multi-factor authentication (MFA), and serves as the identify provider
+for approximately four hundred (400) third-party applications using SAML 2.0. Application access and authorization
+across the environment are largely managed through Active Directory security groups, which are used to control
+access to both on-premises and cloud-based applications.
+Workday functions as the authoritative system of record for onboarding, offboarding, and transferring County
+employees between departments. There is limited automation between Workday and downstream systems, with
+Okta acting to facilitate selective lifecycle events for employees. Workday provides approximately fifty-seven (57)
+user attributes to downstream systems, some of which are submitted by the County personnel coordinators (PRC)
+resident in each County department and tasked with submitting employee related information into Workday.
+Many of the Workday provided attributes are passive, meaning they have no direct impact to the downstream IdP,
+nor are they mandatory. However, some attributes are critical such as the username and cost center ID which
+informs Okta on which County Active Directory domain or organizational unit to place the user. While this
+Workday automation is only available for full-time County employees, the end-to-end lifecycle of the employee, as
+position and attribute changes occur, is not fully automated and therefore numerous manual configurations
+accompany any on/offboarding or department transfers.
+Contractor and vendor identities do not reside in Workday and are onboarded and offboarded through service
+requests, with ServiceNow functioning as the system of record for these users. All contractor/vendor identity tasks
+are currently manually configured with information provided by the requester through ServiceNow requests and
+acting as the guide for these configuration tasks.
+The County operates a hybrid identity model, with on-premises Active Directory synchronized to Azure Active
+Directory (Microsoft Entra ID). This synchronization is currently configured primarily to support authentication to
+Microsoft 365 and a limited number of cloud-based platforms. It is expected that the respondent will ensure that
+all required synchronization enhancements needed to accomplish full functionality as stated in this RFP will be in-
+scope of their proposals.
+The County is predominately licensed at the Microsoft 365 G3 level. The County currently integrates six (6) forests
+and fourteen (14) domains through an extensive trust design. One forest contains nine (9) San Mateo County
+domains and is supported directly by TSD and each of the five (5) remaining domains have their own forest and are
+considered affiliated yet not directly supported TSD.
+RFP# TSD-20261923
+21
+Rev 12/15/2025
+For the purposes of this solicitation, direct integration with third-party applications not integrated through the
+security group model currently deployed should be considered in-scope functionality.
+6.3
+REQUIREMENTS AND SCOPE OF WORK
+Objectives
+The objective of the County is to streamline and automate the onboarding, offboarding and transfer processes for
+both full-time County workforce members as well as contractor and vendor accounts. In addition, the County is
+interested in providing a platform to efficiently process user system access changes. Furthermore, the County is
+interested in leveraging existing licensing to reduce costs associated with our SSO platform and therefore it will be
+replaced with Entra SSO as part of this solicitation. Finally, respondents should be prepared to enhance any active
+directory synchronization services currently in-place to complete the IAM and SSO implementations.
+The County is seeking a strong and highly experienced implementer for the Entra platforms. It is expected that
+respondents will work closely with subject matter experts on Workday, ServiceNow, Active Directory, Azure,
+Microsoft licensing, current single sign-on (SSO) application, and any other resource needed to accurately discover
+workflows, constraints and requirements to implement the following functions:
+1.
+Assess Active Directory and Entra ID Sync
+Validate readiness for IAM automation and SSO replacement.
+Analyze AD settings and configurations for best practice and secure design.
+Evaluate domain, OU structure, role-based access control (RBAC)/delegation, security group
+strategy.
+Identify and remove stale objects and lifecycle inconsistencies.
+Ensure the identity ecosystem (Entra/AD) is configured to support IAM, and in alignment with
+best practice synchronization designs.
+Identify misconfiguration, risks, and remediation needs.
+2. Replace current SSO
+Ensure all currently integrated applications are migrated to Entra SSO with minimal service
+interruptions.
+Ensure all user presentation and authentication processes are migrated to Entra SSO with
+minimal service interruptions or user interaction.
+Manage and coordinate all communications to minimize impact to system access.
+3. Implement IAM Automation
+Automate workforce onboarding, offboarding, transfers, and system/resource access change
+assignments.
+System should support County employee, contractor/vendor lifecycles.
+Perform process discovery as needed to automate workflow approvals to ensure timely
+completion based on user requested Workday or ServiceNow requested effective dates for
+onboarding/offboarding and transfers.
+Implement or replace existing systems as needed to streamline IAM integrations and leverage
+existing investments in Microsoft licensing to reduce costs on third party platforms performing
+same or similar functions.
+4. Integrate IAM with Workday and ServiceNow
+Workday -> IAM for employee lifecycle management.
+ServiceNow -> IAM for contractors/vendors on/offboarding and application access changes (all
+workforce members).
+5. Automate Application Provisioning
+RFP# TSD-20261923
+22
+Rev 12/15/2025
+Assign basic application access to new or transferred users, determined by department and or
+position classification.
+Automate necessary workflow approval notifications as needed when onboarding/offboarding
+or transferring employees, contractors or vendors.
+Automate workflow routing of required approvals for application access or elevated rights
+requests.
+Provide a platform/portal to easily request and automate user system access changes to access
+new systems, remove access from systems, or modify approved authorization levels from
+integrated applications. This may also require the platform to open, process and close a
+Service Now ticket request to retain request records in the current service request platform.
+6. Strengthening Compliance & Governance
+Provide additional protections to maintain least privilege access based on data/application
+owner (approver) authorized levels.
+Enforce contractor account expiration dates with an automated option to extend, with
+requisite approvals and authorizations.
+7. Provide Documentation, Training, and transition to Operations
+Operational runbooks.
+Architecture diagrams.
+Knowledge transfer sessions.
+Create Knowledge Base articles, and other material, or training engagements designed to fully
+transfer support knowledge to County TSD workforce members.
+As part of the proposal, the proposer must provide a strategy to meet the following goals:
+Discover/obtain all necessary information required to achieve the objectives outlined in this solicitation.
+Integrate IAM into the County computing ecosystem to automate on/offboard and employee transfers.
+Evaluate data accuracy, consistency, and integrity within the AD domain and forest environments.
+Resolve any functional active directory synchronization issues that might hinder or overcomplicate the
+objectives identified in this solicitation.
+Leverage all current County Microsoft licensing levels whenever possible.
+Provide an IAM portal to facilitate user access changes and integrated with pre-defined authorizations
+and approvals as needed on a case-by-case basis.
+Provide methodology in which stakeholders will have visibility into the progress of their requests for
+on/offboarding and transfers and application change requests.
+Provide a phased system and function delivery approach that is both adaptive and agile to minimize user
+and system access disruptions and to allow the County to adjust implementation strategy as needed.
+Educate and train current support personnel on the IAM, and SSO administrative tasks required to sustain
+the proposed platform and related infrastructure.
+Provide sufficient documentation and educational materials so that the County can educate our
+workforce management resources, such as the departmental payroll resource coordinators (PRCs), on
+how to effectively utilize any implemented IAM or SSO platforms, portals or other services included in the
+respondent's solution.
+6.4
+PERFORMANCE MEASURE
+The following are specific performance measures required:
+Successfully leverage licensed software that will increase efficiency and performance while reducing costs.
+Demonstrate successful integration with Workday and ServiceNow for the automation of workforce
+member on/off boarding and transfers.
+Demonstrate operation efficiency and capability to provide just in time functional changes based on
+request effective date as reflected in Workday and ServiceNow.
+RFP# TSD-20261923
+23
+Rev 12/15/2025
+Demonstrate workforce member revocation of rights and access to integrated applications upon
+successful offboarding.
+Successfully implement and demonstrate approval workflows with escalation processes designed to
+obtain authorization for changes to workforce member access to applications and resources.
+Successfully implement a replacement SSO platform with minimal impact to users or integrated
+organizations.
+Audit and report on existing on-prem environment against best practices to determine if there are
+orphaned accounts or resource objects that should be removed.
+Sufficiently demonstrate integration and synchronization of on-prem active directory services with Entra
+ID to ensure all end-state cloud-based systems operate effectively and efficiently.
+Provide documentation on system administration and change processes to ensure that the system
+maintains the efficient automation processes regardless of changing system of record processes.
+6.5
+FINGERPRINTING AND BACKGROUND CHECKS
+In some instances, may be required if the proposed contract requires access to certain sensitive groups or
+proprietary materials. Fingerprinting and background checks are administered at the discretion of the County
+based on project and/or contract requirements. The vendor must provide the County with confirmation when the
+fingerprinting and background checks have cleared.
+RFP# TSD-20261923
+24
+Rev 12/15/2025

@@ -1,0 +1,322 @@
+{
+  "compositeScore": 1.0,
+  "confidence": 95,
+  "createdAt": "2026-04-19T12:00:00.000Z",
+  "decision": "NO_GO",
+  "opportunityId": "adv-expired-deadline",
+  "orgId": "test-org",
+  "partition_key": "EXEC_BRIEF_PK",
+  "projectId": "test-project",
+  "sections": {
+    "summary": {
+      "data": {
+        "summary": "The USDA Forest Service Pacific Southwest Region (Region 5) issued an RFP for modernizing the Forest Inventory and Analysis (FIA) Data Platform, migrating from Oracle Forms (2012 vintage) to a cloud-native architecture on AWS GovCloud with PostgreSQL. The scope includes web application development, native iOS and Android mobile apps for field data collection, GIS integration with ArcGIS Enterprise, and data migration of approximately 2.3TB. However, the proposal submission deadline was January 15, 2025 -- this deadline has passed, making this opportunity expired and unbiddable.",
+        "periodOfPerformance": "Base period 18 months plus two 12-month option periods for maintenance and support",
+        "agency": "USDA Forest Service, Pacific Southwest Region (Region 5)",
+        "contractType": "Time-and-Materials",
+        "estimatedValueUsd": "$1,800,000",
+        "office": "USDA Forest Service Region 5 Acquisitions",
+        "title": "Forest Inventory and Analysis (FIA) Data Platform Modernization",
+        "placeOfPerformance": "California (Pacific Southwest Region)",
+        "solicitationNumber": "USDA-FS-R5-2025-0089",
+        "setAside": "Small Business Set-Aside (Total)",
+        "naicsCode": "541511"
+      },
+      "status": "COMPLETE",
+      "updatedAt": "2026-04-19T12:00:00.000Z"
+    },
+    "deadlines": {
+      "data": {
+        "hasSubmissionDeadline": true,
+        "submissionDeadlineIso": "2025-01-15T16:00:00-08:00",
+        "deadlines": [
+          {
+            "dateTimeIso": "2025-01-15T16:00:00-08:00",
+            "label": "Proposal Submission Deadline (EXPIRED)",
+            "notes": "DEADLINE HAS PASSED. This deadline was January 15, 2025, which is well in the past. Late proposals will not be considered. This opportunity is no longer open for submissions.",
+            "type": "PROPOSAL_DUE",
+            "rawText": "All proposals must be received no later than January 15, 2025, 4:00 PM Pacific Time. Late proposals will not be considered.",
+            "timezone": "PT"
+          },
+          {
+            "dateTimeIso": "2024-12-15T23:59:00-08:00",
+            "label": "Questions Deadline (EXPIRED)",
+            "notes": "Originally December 15, 2024. Extended to January 3, 2025 per Amendment 0002. Both dates have passed.",
+            "type": "QUESTIONS_DUE",
+            "rawText": "All questions regarding this solicitation must be submitted in writing to R5-Acquisitions@usda.gov no later than December 15, 2024. (Extended to January 3, 2025 per Amendment 0002)",
+            "timezone": "PT"
+          }
+        ],
+        "warnings": [
+          "CRITICAL: The submission deadline of January 15, 2025 has passed. This opportunity is expired and no longer accepting proposals.",
+          "Estimated award date was March 2025 -- award may have already been made."
+        ]
+      },
+      "status": "COMPLETE",
+      "updatedAt": "2026-04-19T12:00:00.000Z"
+    },
+    "requirements": {
+      "data": {
+        "evaluationFactors": [
+          "Factor 1: Technical Approach and Understanding (Most Important)",
+          "Factor 2: Relevant Experience and Past Performance (Important)",
+          "Factor 3: Key Personnel Qualifications (Important)",
+          "Factor 4: Price (Least Important)",
+          "Technical Approach is significantly more important than Price. Relevant Experience and Key Personnel are approximately equal and together are more important than Price."
+        ],
+        "overview": "Modernize the FIA data platform from Oracle Forms (2012) to a cloud-native architecture. Scope includes migrating 2.3TB Oracle database to PostgreSQL on AWS GovCloud, developing a responsive web application, building native iOS and Android mobile apps with offline capability for field data collection, implementing GIS integration with ArcGIS Enterprise 11.x, providing data migration services, conducting UAT with FIA field crews, and providing 12 months of post-deployment support. NOTE: This solicitation is expired -- the deadline was January 15, 2025.",
+        "requirements": [
+          {
+            "category": "TECHNICAL",
+            "mustHave": true,
+            "requirement": "Migrate existing FIA database (approximately 2.3TB) from Oracle to PostgreSQL on AWS GovCloud"
+          },
+          {
+            "category": "TECHNICAL",
+            "mustHave": true,
+            "requirement": "Develop a responsive web application for data entry, query, and visualization"
+          },
+          {
+            "category": "TECHNICAL",
+            "mustHave": true,
+            "requirement": "Develop native iOS and Android mobile applications for field data collection with offline capability"
+          },
+          {
+            "category": "TECHNICAL",
+            "mustHave": true,
+            "requirement": "Implement GIS integration with ArcGIS Enterprise 11.x for spatial analysis"
+          },
+          {
+            "category": "DELIVERABLES",
+            "mustHave": true,
+            "requirement": "Provide data migration services including validation and reconciliation"
+          },
+          {
+            "category": "DELIVERABLES",
+            "mustHave": true,
+            "requirement": "Conduct user acceptance testing with FIA field crews"
+          },
+          {
+            "category": "DELIVERABLES",
+            "mustHave": true,
+            "requirement": "Provide 12 months of post-deployment support and maintenance"
+          }
+        ],
+        "submissionCompliance": {
+          "format": [],
+          "attachmentsAndForms": [],
+          "requiredDocuments": [
+            {
+              "name": "Technical Proposal",
+              "description": "Detailed technical approach",
+              "pageLimit": "50 pages",
+              "documentType": "TECHNICAL_PROPOSAL",
+              "required": true
+            },
+            {
+              "name": "Past Performance Volume",
+              "description": "Relevant past performance references",
+              "pageLimit": "10 pages",
+              "documentType": "PAST_PERFORMANCE",
+              "required": true
+            },
+            {
+              "name": "Price Proposal",
+              "description": "Detailed pricing",
+              "pageLimit": "No page limit",
+              "documentType": "COST_PROPOSAL",
+              "required": true
+            }
+          ],
+          "requiredVolumes": [
+            "Volume I: Technical Proposal (50 page limit)",
+            "Volume II: Past Performance (10 page limit)",
+            "Volume III: Price Proposal (no page limit)"
+          ]
+        },
+        "deliverables": [
+          "Migrated PostgreSQL database on AWS GovCloud",
+          "Responsive web application",
+          "Native iOS and Android mobile applications",
+          "GIS integration with ArcGIS Enterprise 11.x",
+          "Data migration with validation and reconciliation",
+          "User acceptance testing",
+          "12 months post-deployment support and maintenance"
+        ]
+      },
+      "status": "COMPLETE",
+      "updatedAt": "2026-04-19T12:00:00.000Z"
+    },
+    "contacts": {
+      "data": {
+        "missingRecommendedRoles": [
+          "TECHNICAL_POC",
+          "PROGRAM_MANAGER"
+        ],
+        "contacts": [
+          {
+            "name": "Robert Chen",
+            "role": "CONTRACTING_OFFICER",
+            "email": "robert.chen@usda.gov",
+            "phone": "(707) 555-0134",
+            "organization": "USDA Forest Service, Pacific Southwest Region"
+          },
+          {
+            "name": "Amanda Foster",
+            "role": "CONTRACT_SPECIALIST",
+            "email": "amanda.foster@usda.gov",
+            "organization": "USDA Forest Service, Pacific Southwest Region"
+          }
+        ]
+      },
+      "status": "COMPLETE",
+      "updatedAt": "2026-04-19T12:00:00.000Z"
+    },
+    "risks": {
+      "data": {
+        "redFlags": [
+          {
+            "severity": "CRITICAL",
+            "whyItMatters": "The proposal submission deadline was January 15, 2025, which has already passed. The solicitation explicitly states that late proposals will not be considered. This opportunity is expired and unbiddable.",
+            "mitigation": "Do not pursue this opportunity. The deadline has passed and no proposal can be submitted. Monitor SAM.gov for any re-solicitation or similar future requirements from USDA Forest Service.",
+            "flag": "EXPIRED DEADLINE: Submission deadline January 15, 2025 has passed",
+            "impactsScore": true
+          }
+        ],
+        "risks": [
+          {
+            "severity": "CRITICAL",
+            "whyItMatters": "The estimated award date was March 2025 -- the contract may have already been awarded to another vendor. Any attempt to submit a proposal would be futile.",
+            "mitigation": "Check SAM.gov for award notices on this solicitation number (USDA-FS-R5-2025-0089) to identify the winning contractor and award amount for competitive intelligence.",
+            "flag": "Contract likely already awarded (estimated award March 2025)",
+            "impactsScore": true
+          }
+        ],
+        "incumbentInfo": {
+          "knownIncumbent": false,
+          "recompete": false,
+          "notes": "No incumbent contractor identified. The current FIA data platform was developed in-house in 2012 using Oracle Forms.",
+          "incumbentName": ""
+        }
+      },
+      "status": "COMPLETE",
+      "updatedAt": "2026-04-19T12:00:00.000Z"
+    },
+    "pastPerformance": {
+      "data": {
+        "topMatches": [],
+        "gapAnalysis": {
+          "overallCoverage": 0,
+          "recommendations": [
+            "This opportunity is expired -- no past performance evaluation needed. For future similar opportunities, prepare references for Oracle-to-PostgreSQL migrations, mobile field data collection apps, and GIS integration projects."
+          ],
+          "criticalGaps": [],
+          "coverageItems": []
+        },
+        "narrativeSummary": "Past performance evaluation is moot -- the submission deadline has passed and this opportunity is expired.",
+        "confidenceScore": 0,
+        "evidence": []
+      },
+      "status": "COMPLETE",
+      "updatedAt": "2026-04-19T12:00:00.000Z"
+    },
+    "scoring": {
+      "data": {
+        "confidenceExplanation": "Very high confidence in NO_GO decision. The submission deadline of January 15, 2025 has unambiguously passed. The solicitation states 'Late proposals will not be considered.' The estimated award date was March 2025, meaning the contract has likely already been awarded. There is no basis for pursuing this opportunity.",
+        "requiredActions": [
+          "DO NOT BID: The submission deadline (January 15, 2025) has passed. This opportunity is expired.",
+          "Check SAM.gov for award notice on USDA-FS-R5-2025-0089 for competitive intelligence",
+          "Monitor USDA Forest Service for similar future data platform modernization opportunities",
+          "Track any re-solicitation of this requirement if the initial award was unsuccessful"
+        ],
+        "decision": "NO_GO",
+        "criteria": [
+          {
+            "name": "TECHNICAL_FIT",
+            "score": 1,
+            "rationale": "Technical evaluation is irrelevant -- the submission deadline has passed. For reference, the requirements (Oracle-to-PostgreSQL migration, mobile apps, GIS integration) represent a moderately complex data platform modernization.",
+            "gaps": [
+              "Opportunity is expired -- technical fit assessment is moot"
+            ]
+          },
+          {
+            "name": "PAST_PERFORMANCE_RELEVANCE",
+            "score": 1,
+            "rationale": "Past performance evaluation is irrelevant -- the submission deadline has passed.",
+            "gaps": [
+              "Opportunity is expired -- past performance assessment is moot"
+            ]
+          },
+          {
+            "name": "PRICING_POSITION",
+            "score": 1,
+            "rationale": "Pricing assessment is irrelevant -- the submission deadline has passed. The Government estimate was $1.8M for T&M contract.",
+            "gaps": [
+              "Opportunity is expired -- pricing assessment is moot"
+            ]
+          },
+          {
+            "name": "STRATEGIC_ALIGNMENT",
+            "score": 1,
+            "rationale": "Strategic value assessment is irrelevant for an expired opportunity.",
+            "gaps": [
+              "Opportunity is expired"
+            ]
+          },
+          {
+            "name": "INCUMBENT_RISK",
+            "score": 1,
+            "rationale": "Incumbent risk assessment is irrelevant for an expired opportunity.",
+            "gaps": [
+              "Opportunity is expired"
+            ]
+          }
+        ],
+        "summaryJustification": "NO_GO. The submission deadline of January 15, 2025 has passed. This opportunity is expired and no proposal can be submitted. The estimated award date was March 2025, meaning the contract has likely already been awarded. Small Business Set-Aside requirement is noted for future reference.",
+        "confidence": 95,
+        "blockers": [
+          "EXPIRED: Submission deadline January 15, 2025 has passed. This is an absolute blocker."
+        ],
+        "decisionRationale": "The submission deadline has unambiguously passed. Late proposals will not be considered. This is a definitive NO_GO regardless of any other factors.",
+        "compositeScore": 1.0,
+        "confidenceDrivers": [
+          {
+            "factor": "Expired deadline -- absolute blocker",
+            "direction": "DOWN"
+          }
+        ]
+      },
+      "status": "COMPLETE",
+      "updatedAt": "2026-04-19T12:00:00.000Z"
+    },
+    "pricing": {
+      "data": {
+        "competitiveAdvantages": [],
+        "totalPrice": 0,
+        "indirectCostTotal": 0,
+        "basisOfEstimate": "PRICING NOT DEVELOPED -- NO-BID. The submission deadline (January 15, 2025) has passed and this opportunity is expired. The Government estimate was approximately $1.8M for a Time-and-Materials contract covering 18-month base period plus two 12-month option periods. This was a Small Business Set-Aside.",
+        "materialCostTotal": 0,
+        "assumptions": [
+          "The submission deadline of January 15, 2025 has passed",
+          "Late proposals will not be considered per the solicitation",
+          "The estimated award date was March 2025 -- contract likely already awarded",
+          "No pricing development is warranted for an expired opportunity"
+        ],
+        "competitivePosition": "NOT_APPLICABLE",
+        "laborCostTotal": 0,
+        "profitMargin": 0,
+        "pricingRisks": [],
+        "recommendedActions": [
+          "Do not develop pricing -- opportunity is expired",
+          "Review award notice when available for competitive intelligence on future similar opportunities"
+        ],
+        "strategy": "UNKNOWN",
+        "priceConfidence": 0
+      },
+      "status": "COMPLETE",
+      "updatedAt": "2026-04-19T12:00:00.000Z"
+    }
+  },
+  "status": "COMPLETE",
+  "updatedAt": "2026-04-19T12:00:00.000Z"
+}

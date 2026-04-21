@@ -1,0 +1,358 @@
+{
+  "evaluationFactors": [
+    "Administrative Requirements - Pass/Fail",
+    "Proposer Mandatory Qualifications (MQ) - Pass/Fail",
+    "Proposer Desirable Qualifications (DQ) - Maximum 100 points (DQ 16: 25 pts, DQ 17: 25 pts, DQ 18: 25 pts, DQ 19: 25 pts)",
+    "NTR: Understanding and Approach - Maximum 200 points",
+    "NTR: Implementation Services - Maximum 100 points",
+    "NTR: Customer Service Strategy and Platform Integrity Plan - Maximum 100 points",
+    "NTR: Assumptions - Mandatory (not scored)",
+    "Cost Evaluation - 300 points",
+    "Demonstrations (Optional) - Maximum 200 points",
+    "Technical requirements weighted at 70% and cost weighted at 30% prior to preference programs",
+    "Narrative Technical Response scored using Exceptional (100%), Meets (50%), Deficient (0%), Fail (Disqualified) criteria",
+    "Demonstration evaluation criteria: Clarity of Presentation (20%), Adherence to Use Cases (30%), Functional Alignment (30%), Technical Capabilities (20%)",
+    "Small Business Preference: 5% preference on cost for qualified small businesses, maximum $50,000",
+    "DVBE Incentive: 1%-5% incentive on cost based on DVBE participation level, maximum $100,000",
+    "Best value determination: maximum benefits to the Lottery in security, competence, experience, qualifications, performance, and price"
+  ],
+  "overview": "The California State Lottery (Lottery) is seeking proposals from qualified vendors to implement an Email Platform Replacement Services solution under RFP #R004429 Addendum 1. The Lottery currently uses Adobe Campaign Standard for email marketing and communications to millions of registered players, but needs a more functional, robust, and advanced email platform that enables effective and efficient email marketing, campaign management, and player communications to support its strategic goal of becoming player-focused and improving the player experience. A successful outcome includes delivery of a fully implemented email marketing and campaign management solution with seamless data migration, IP warming, testing, integration, ongoing customer support, platform uptime guarantees, and training \u2014 enabling the Lottery to optimize email as a critical communication channel for game information, promotions, winner news, responsible gaming tips, retailer surveys, and other programs. The initial contract term is two (2) years with up to three (3) one-year optional extensions; the contract is fixed-price; proposals are evaluated on a best value basis with 70% weighted to technical/qualifications and 30% to cost (prior to preferences), for a maximum of 1,000 points; proposals must be submitted electronically via Liquid Files by March 2, 2026 at 3:00 p.m. PT; joint proposals are not permitted; and all proposer personnel are subject to background investigations including fingerprinting through DOJ and FBI. The Lottery requires compliance with information security standards aligned to ISO/IEC 27001, NIST SP 800-53, FIPS 140-3, and FIPS 199, and mandates SaaS and data availability of 99.9% uptime. Proposers must demonstrate experience through a minimum of two and maximum of four contract/implementation references completed within the last ten years in the United States.",
+  "requirements": [
+    {
+      "category": "TECHNICAL",
+      "mustHave": true,
+      "requirement": "Implement a more functional, robust, and advanced email marketing and campaign management platform to replace Adobe Campaign Standard"
+    },
+    {
+      "category": "TECHNICAL",
+      "mustHave": true,
+      "requirement": "Provide implementation services including hands-on keyboard support, seamless integration, data migration, IP warming, testing, and overall platform setup"
+    },
+    {
+      "category": "TECHNICAL",
+      "mustHave": true,
+      "requirement": "Support migration of large database, tables, workflows, and audience profiles from existing platform"
+    },
+    {
+      "category": "TECHNICAL",
+      "mustHave": true,
+      "requirement": "Provide configuration of multiple instances within the email platform"
+    },
+    {
+      "category": "TECHNICAL",
+      "mustHave": true,
+      "requirement": "Provide user training and support after implementation"
+    },
+    {
+      "category": "TECHNICAL",
+      "mustHave": true,
+      "requirement": "Provide dedicated implementation team (in-house or third-party) for implementation services"
+    },
+    {
+      "category": "TECHNICAL",
+      "mustHave": true,
+      "requirement": "Provide customer service strategy including SLAs, dedicated account team or single point of contact for real-time support, hours of coverage, platform uptime guarantees, and outage communication procedures"
+    },
+    {
+      "category": "TECHNICAL",
+      "mustHave": true,
+      "requirement": "SaaS must be available 24 hours per day, 365 days per year, excluding agreed-upon maintenance downtime"
+    },
+    {
+      "category": "TECHNICAL",
+      "mustHave": true,
+      "requirement": "SaaS monthly availability must average at least 99.9% excluding agreed-upon maintenance downtime"
+    },
+    {
+      "category": "TECHNICAL",
+      "mustHave": true,
+      "requirement": "Data must be available 24 hours per day, 365 days per year, excluding agreed-upon maintenance downtime, with monthly availability averaging at least 99.9%"
+    },
+    {
+      "category": "TECHNICAL",
+      "mustHave": true,
+      "requirement": "Meet all Mandatory Qualifications (MQ) and address Desirable Qualifications (DQ) as specified in Attachment 10.1 Proposer Qualifications Form"
+    },
+    {
+      "category": "TECHNICAL",
+      "mustHave": true,
+      "requirement": "Provide a narrative description of understanding and approach addressing challenges, issues, risks, and strategy for providing services within the allocated time period"
+    },
+    {
+      "category": "TECHNICAL",
+      "mustHave": true,
+      "requirement": "Document all assumptions about the SOW, responsibilities of Contractor and Lottery, and other issues relevant to proposal submission"
+    },
+    {
+      "category": "TECHNICAL",
+      "mustHave": true,
+      "requirement": "Proposer must be prepared to conduct demonstrations if required by the Lottery, with at least seven calendar days advance notice, at no cost to the Lottery"
+    },
+    {
+      "category": "SECURITY",
+      "mustHave": true,
+      "requirement": "All sensitive and confidential electronic Lottery Data in transit or at rest must be encrypted in compliance with FIPS 140-3 Security Requirements for Cryptographic Modules"
+    },
+    {
+      "category": "SECURITY",
+      "mustHave": true,
+      "requirement": "Contractor must align with ISO/IEC 27001, ISO/IEC 27002, NIST SP 800-53, FIPS 199, and FIPS 140-3 standards for information security"
+    },
+    {
+      "category": "SECURITY",
+      "mustHave": true,
+      "requirement": "Provide a Security Plan within 10 days after contract execution identifying administrative, physical, and technical security controls, and update annually"
+    },
+    {
+      "category": "SECURITY",
+      "mustHave": true,
+      "requirement": "Maintain Business Continuity and Disaster Recovery Plan covering disaster management strategy, staff responsibilities, prioritization for recovery of critical systems, and operational recovery procedures"
+    },
+    {
+      "category": "SECURITY",
+      "mustHave": true,
+      "requirement": "Disposal of sensitive and confidential Lottery Data must meet ISO/IEC 27001 and NIST 800-88 minimum requirements"
+    },
+    {
+      "category": "SECURITY",
+      "mustHave": true,
+      "requirement": "All Lottery Data maintained by Contractor must be physically located within the continental United States"
+    },
+    {
+      "category": "SECURITY",
+      "mustHave": true,
+      "requirement": "Remote access to Lottery Data from outside the United States is prohibited unless approved in advance in writing by the Lottery"
+    },
+    {
+      "category": "SECURITY",
+      "mustHave": true,
+      "requirement": "Notify Lottery Contract Manager, Deputy Director of SLED, and Information Security Office within two hours after discovery of an Information Security Incident"
+    },
+    {
+      "category": "COMPLIANCE",
+      "mustHave": true,
+      "requirement": "Proposer must submit a cover letter on company letterhead signed by an authorized individual, including legal company name, address, skills statement, SOW compliance statement, and contact information"
+    },
+    {
+      "category": "COMPLIANCE",
+      "mustHave": true,
+      "requirement": "Proposer must complete and submit Attachment 5 Proposer Certification Form"
+    },
+    {
+      "category": "COMPLIANCE",
+      "mustHave": true,
+      "requirement": "Proposer must complete and submit Attachment 9 Responsibility Certification confirming no debarment or suspension"
+    },
+    {
+      "category": "COMPLIANCE",
+      "mustHave": true,
+      "requirement": "Proposer must complete and submit Attachment 4 Response to Administrative Requirements indicating agreement to all mandatory administrative requirements"
+    },
+    {
+      "category": "COMPLIANCE",
+      "mustHave": true,
+      "requirement": "Proposer must complete and submit Attachment 6 Proposer's Preferences and Incentives"
+    },
+    {
+      "category": "COMPLIANCE",
+      "mustHave": true,
+      "requirement": "Proposer must agree to Lottery Special Terms and Conditions (Exhibit C) without deviations"
+    },
+    {
+      "category": "COMPLIANCE",
+      "mustHave": true,
+      "requirement": "Proposer must agree to Information Technology Terms and Conditions (Exhibit D)"
+    },
+    {
+      "category": "COMPLIANCE",
+      "mustHave": true,
+      "requirement": "Proposer must agree to comply with Exhibit A Scope of Work (SOW)"
+    },
+    {
+      "category": "COMPLIANCE",
+      "mustHave": true,
+      "requirement": "Joint proposals are not permitted; only a single primary proposer may submit"
+    },
+    {
+      "category": "COMPLIANCE",
+      "mustHave": true,
+      "requirement": "Proposer must designate a single point of contact for background processing; all contractor staff working on the contract are subject to background investigations including fingerprinting through DOJ and FBI"
+    },
+    {
+      "category": "COMPLIANCE",
+      "mustHave": true,
+      "requirement": "Proposer's response constitutes an irrevocable offer for 180 calendar days following the proposal due date"
+    },
+    {
+      "category": "COMPLIANCE",
+      "mustHave": true,
+      "requirement": "No cost information may be included in the body of the proposal; cost must only be submitted in Volume 3"
+    },
+    {
+      "category": "COMPLIANCE",
+      "mustHave": true,
+      "requirement": "Subcontractors expected to receive more than 10% of contract value must also meet all applicable administrative and bid requirements"
+    },
+    {
+      "category": "COMPLIANCE",
+      "mustHave": false,
+      "requirement": "Complete and submit Attachment 12 GenAI Impact Assessment Form if applicable"
+    },
+    {
+      "category": "COMPLIANCE",
+      "mustHave": false,
+      "requirement": "Complete and submit Attachment 7 Small and Microbusiness Participation if claiming small business preference"
+    },
+    {
+      "category": "COMPLIANCE",
+      "mustHave": false,
+      "requirement": "Complete and submit Attachment 8 DVBE Participation if claiming DVBE incentive"
+    },
+    {
+      "category": "STAFFING",
+      "mustHave": true,
+      "requirement": "Provide a minimum of two (2) and no more than four (4) contract/implementation references with experience within the last 10 years completed in the United States"
+    },
+    {
+      "category": "STAFFING",
+      "mustHave": true,
+      "requirement": "Ensure reference contacts are available for verification during the evaluation period; Lottery will make two attempts to contact references"
+    },
+    {
+      "category": "DELIVERABLES",
+      "mustHave": true,
+      "requirement": "Provide all software, implementation, maintenance, support, and training costs for the full contract term including optional years as specified in the Cost Sheet"
+    },
+    {
+      "category": "OTHER",
+      "mustHave": true,
+      "requirement": "Rates shall be inclusive of all direct and indirect costs for all activities, labor, materials, tools, equipment, and travel"
+    },
+    {
+      "category": "OTHER",
+      "mustHave": true,
+      "requirement": "Contractor must continue providing services until migration to a replacement contractor is complete upon contract termination or expiration"
+    }
+  ],
+  "submissionCompliance": {
+    "format": [
+      "Must be in Microsoft Word 365 (exception for Cost Sheet in MS Excel and PDF attachments)",
+      "Standard letter 8.5\" x 11\" size with ADA-compliant fonts (e.g., Arial 12 pt.)",
+      "Page numbers in consistent position throughout proposal",
+      "Each page must show: RFP R004429, Name of proposer, Volume number, Attachment Number, Page number (Page # of ##)",
+      "Understanding and Approach narrative must not exceed 4 pages",
+      "Implementation Services narrative must not exceed 4 pages",
+      "Customer Service Strategy and Platform Integrity Plan narrative must not exceed 4 pages",
+      "Assumptions narrative must not exceed 2 pages",
+      "No cost information in any volume other than Volume 3",
+      "Submit electronically via Lottery Secure File Transfer (Liquid Files) site",
+      "Each Volume must be submitted as its own separate Liquid Files submission",
+      "Subject line format: Proposer's Company Name_RFP R004429_Volume X (# of ##)"
+    ],
+    "attachmentsAndForms": [
+      "Attachment 1: Cover Letter on Company Letterhead",
+      "Attachment 2: Solicitation Submission Checklist",
+      "Attachment 3: Intent to Bid (optional, submitted separately per Section 2.2.3)",
+      "Attachment 4: Response to Administrative Requirements",
+      "Attachment 5: Proposer Certification",
+      "Attachment 6: Proposer's Preferences and Incentives",
+      "Attachment 7: Small and Microbusiness Participation (if claiming)",
+      "Attachment 8: DVBE Participation (if claiming)",
+      "Attachment 9: Responsibility Certification",
+      "Attachment 10.1: Proposer Qualifications Form",
+      "Attachment 11: Narrative Technical Response (NTR)",
+      "Attachment 12: GenAI Impact Assessment Form (if applicable)",
+      "Attachment 13: Cost Sheet"
+    ],
+    "requiredDocuments": [
+      {
+        "name": "Cover Letter",
+        "description": "Cover letter on company letterhead containing legal company name, address, skills statement, SOW compliance statement, authorized signature, and contact information",
+        "documentType": "COVER_LETTER",
+        "required": true
+      },
+      {
+        "name": "Solicitation Submission Checklist (Attachment 2)",
+        "description": "Completed checklist confirming all required items are contained within the proposal",
+        "documentType": "COMPLIANCE_MATRIX",
+        "required": true
+      },
+      {
+        "name": "Response to Administrative Requirements (Attachment 4)",
+        "description": "Proposer indicates agreement to each mandatory administrative requirement by marking Yes/No",
+        "documentType": "OTHER",
+        "required": true
+      },
+      {
+        "name": "Proposer Certification (Attachment 5)",
+        "description": "Signed certification acknowledging compliance with all solicitation terms, qualifications, and contractor certification clauses",
+        "documentType": "CERTIFICATIONS",
+        "required": true
+      },
+      {
+        "name": "Proposer's Preferences and Incentives (Attachment 6)",
+        "description": "Completed form indicating whether proposer claims Small Business Preference and/or DVBE Incentive",
+        "documentType": "OTHER",
+        "required": true
+      },
+      {
+        "name": "Responsibility Certification (Attachment 9)",
+        "description": "Signed certification that proposer and subcontractors are not debarred, suspended, or declared ineligible",
+        "documentType": "CERTIFICATIONS",
+        "required": true
+      },
+      {
+        "name": "Proposer Qualifications Form (Attachment 10.1)",
+        "description": "Completed form documenting proposer's mandatory and desirable qualifications with minimum 2 and maximum 4 contract/implementation references from the last 10 years in the United States",
+        "documentType": "TEAM_QUALIFICATIONS",
+        "required": true
+      },
+      {
+        "name": "Narrative Technical Response (Attachment 11)",
+        "description": "Narrative responses covering Understanding and Approach (max 4 pages), Implementation Services (max 4 pages), Customer Service Strategy and Platform Integrity Plan (max 4 pages), and Assumptions (max 2 pages)",
+        "pageLimit": "14 pages total (4+4+4+2)",
+        "documentType": "TECHNICAL_PROPOSAL",
+        "required": true
+      },
+      {
+        "name": "Cost Sheet (Attachment 13)",
+        "description": "All software, implementation, maintenance, support, and training costs for the 2-year base term and 3 optional years, submitted as Volume 3 separate from other volumes",
+        "documentType": "COST_PROPOSAL",
+        "required": true
+      },
+      {
+        "name": "Small and Microbusiness Participation (Attachment 7)",
+        "description": "Required forms if claiming Small Business Preference including Declaration of Compliance and Subcontractor forms",
+        "documentType": "OTHER",
+        "required": false
+      },
+      {
+        "name": "DVBE Participation (Attachment 8)",
+        "description": "Required forms if claiming DVBE Incentive including Subcontractors to be Utilized and DVBE Proposer forms",
+        "documentType": "OTHER",
+        "required": false
+      },
+      {
+        "name": "GenAI Impact Assessment Form (Attachment 12)",
+        "description": "CSL 1499 form required if applicable to proposer's solution",
+        "documentType": "OTHER",
+        "required": false
+      }
+    ],
+    "requiredVolumes": [
+      "Volume 1: Response to Administrative Requirements",
+      "Volume 2: Response to Technical Requirements",
+      "Volume 3: Response to Cost Requirements (must be separate from Volumes 1 and 2)"
+    ]
+  },
+  "deliverables": [
+    "Email marketing and campaign management platform (SaaS solution)",
+    "Implementation services including data migration, IP warming, integration, testing, and platform setup",
+    "Configuration of multiple instances",
+    "User training sessions and resources",
+    "Ongoing customer support with SLAs and dedicated account team",
+    "Security Plan (within 10 days of contract execution, updated annually)",
+    "Business Continuity and Disaster Recovery Plan",
+    "Quality Assurance System for deliverables"
+  ]
+}

@@ -1,0 +1,278 @@
+{
+  "evaluationFactors": [
+    "Technical Capability/Approach/Frequency of Data Updates/Comprehensiveness of Historical Data",
+    "Presentation/Demonstration of Capabilities",
+    "Web-based application",
+    "Past Performance",
+    "Price",
+    "The technical capability factors, presentation/demonstration of capabilities, web-based application, and past performance, combined are more important than the price factor",
+    "Adjectival ratings: Outstanding, Good, Acceptable, Unacceptable (Neutral for Past Performance only)",
+    "Price will be evaluated for price reasonableness only if the offeror receives an overall technical rating of ACCEPTABLE"
+  ],
+  "overview": "The U.S. Department of Transportation (DOT) Office of Aviation Analysis (OAA) is seeking a contractor to provide an Airline Analysis and Scheduling Solution via a web-based application tool under RFP# 693JK426R600002, a recompete of incumbent contract 693JK421C600002 currently held by Sabre. The business need is to provide OAA analysts with comprehensive global airline schedule, airfare, market demand, fleet, and advanced booking data to fulfill statutory responsibilities including analyzing economic impacts of aviation policies, reviewing airline antitrust immunity (ATI) applications, evaluating mergers, supporting route selection proceedings, and conducting ad-hoc aviation industry analyses. Success requires delivering a robust, web-based platform accessible 24/7 for a minimum of 10 users that integrates disparate global aviation data sources into a single user interface enabling custom reporting, market share analysis, fare comparisons, capacity evaluations, and forward-looking booking assessments across domestic, U.S.-international, and foreign-foreign markets with historical data back to at least 2005. The contract is structured as a Firm Fixed Price (FFP) award with one base year and four one-year option periods (approximately May 2026 through April 2031), awarded on a Best Value basis under Full and Open Competition (NAICS 541511, $34M small business size standard). Offerors must provide a live demonstration of their solution to DOT personnel prior to proposal submission, and Amendment 00007 introduced requirements for modular pricing separating data provision from AI/software tools, detailed AI integration plans with guardrails and testing methodology, and expanded UI functionality descriptions. The proposal due date was extended to March 30, 2026, at 10:00 AM EST, and the anticipated award date is approximately May 1, 2026, with a transition period from the incumbent.",
+  "requirements": [
+    {
+      "category": "TECHNICAL",
+      "mustHave": true,
+      "requirement": "Provide global origination and destination (OD) data, fare data, service class information, fair share/QSI data, and local and flow data by route and carrier"
+    },
+    {
+      "category": "TECHNICAL",
+      "mustHave": true,
+      "requirement": "Provide global schedule data by airline including historical, current, and future schedule information with flight level granularity: flight number, arrival and departure times, aircraft type, number of seats on aircraft on a market-by-market basis"
+    },
+    {
+      "category": "TECHNICAL",
+      "mustHave": true,
+      "requirement": "Provide current and historical fleet information per airline (fleet database) with capacity and cabin configuration, including seat capacity and cabin class by aircraft and flight"
+    },
+    {
+      "category": "TECHNICAL",
+      "mustHave": true,
+      "requirement": "Provide advanced booking data by market and airline derived from airline industry sources such as airlines, global distribution systems (GDS), or screen scraping providers"
+    },
+    {
+      "category": "TECHNICAL",
+      "mustHave": true,
+      "requirement": "Data should be available going back to at least 2005 and include attribute data for airports and air carriers"
+    },
+    {
+      "category": "TECHNICAL",
+      "mustHave": true,
+      "requirement": "Provide OAG, Innovata or comparable schedule product updates, minimum of weekly"
+    },
+    {
+      "category": "TECHNICAL",
+      "mustHave": true,
+      "requirement": "Provide regular updates as frequently as possible (monthly preferred) to the demand and fare file including updated traffic, fare, load factor, booking, and on-time performance data"
+    },
+    {
+      "category": "TECHNICAL",
+      "mustHave": true,
+      "requirement": "Solution must support a minimum of 10 users with dedicated usernames and passwords"
+    },
+    {
+      "category": "TECHNICAL",
+      "mustHave": true,
+      "requirement": "Provide a functionally robust user interface (UI) enabling analysts to create output by non-directional or directional, marketing carrier, operating carrier, or both, and aggregations by month, year, or quarter"
+    },
+    {
+      "category": "TECHNICAL",
+      "mustHave": true,
+      "requirement": "Users should be able to make custom reports in addition to having access to pre-defined reports for easy and efficient access to information"
+    },
+    {
+      "category": "TECHNICAL",
+      "mustHave": true,
+      "requirement": "Access to the tool, the ability to run it and query the hosted data should be on a 24/7 basis"
+    },
+    {
+      "category": "TECHNICAL",
+      "mustHave": true,
+      "requirement": "Provide bulk data export capability in CSV/TXT format for ingestion into other analytical tools"
+    },
+    {
+      "category": "TECHNICAL",
+      "mustHave": true,
+      "requirement": "Solution must be web-based and accessible through a website without requiring software installation on DOT systems"
+    },
+    {
+      "category": "TECHNICAL",
+      "mustHave": true,
+      "requirement": "Include Customer Support Services with an online customer support website and/or telephone number"
+    },
+    {
+      "category": "TECHNICAL",
+      "mustHave": true,
+      "requirement": "Provide three days of new user or refresher training for up to 10 users, or three days of advanced user training for up to three users, each year as needed, at DOT offices in Washington DC or virtually via Zoom or Microsoft Teams"
+    },
+    {
+      "category": "TECHNICAL",
+      "mustHave": true,
+      "requirement": "Training scheduling requires a minimum of 90-day notice and training dates must be mutually agreed upon"
+    },
+    {
+      "category": "TECHNICAL",
+      "mustHave": true,
+      "requirement": "Provide comprehensive explanation of specific data sources used to acquire all required data elements and detail methodologies employed to collect, process, aggregate, and validate data (Amendment 00007)"
+    },
+    {
+      "category": "TECHNICAL",
+      "mustHave": false,
+      "requirement": "Provide detailed AI integration plans clarifying the precise role AI will play within the system, including back-end infrastructure and front-end UI/UX integration, and mechanisms for system transparency allowing end-users to verify AI accuracy (Amendment 00007)"
+    },
+    {
+      "category": "TECHNICAL",
+      "mustHave": false,
+      "requirement": "For AI-included offers, describe guardrails (content filters, anti-prompt injection defense, bias mitigation, grounding and fact-checking, operational/action constraints) and AI model management to prevent hallucinated or compromised analysis (Amendment 00007)"
+    },
+    {
+      "category": "TECHNICAL",
+      "mustHave": false,
+      "requirement": "Describe methodology for testing of AI tool prior to and during deployment (Amendment 00007)"
+    },
+    {
+      "category": "TECHNICAL",
+      "mustHave": true,
+      "requirement": "Detail exact mechanisms and protocols used to ensure overall accuracy of data and any AI-generated outputs or business intelligence reports (Amendment 00007)"
+    },
+    {
+      "category": "TECHNICAL",
+      "mustHave": true,
+      "requirement": "Comprehensively describe the functionality and capability of the interface demonstrating how the UI will support DOT analysts in executing custom reports, advanced booking evaluations, and market queries (Amendment 00007)"
+    },
+    {
+      "category": "TECHNICAL",
+      "mustHave": true,
+      "requirement": "Provide data representing comparable as-flown/purchased data including airline direct channel purchases as well as via GDS and intermediaries to understand the full demand at market/carrier level of detail"
+    },
+    {
+      "category": "TECHNICAL",
+      "mustHave": true,
+      "requirement": "Capability to integrate data from disparate data sources so that insights can be gained from data on a single query that reaches across multiple data sources"
+    },
+    {
+      "category": "TECHNICAL",
+      "mustHave": true,
+      "requirement": "Provide forward-looking schedule data up to 12 months of future planned capacity"
+    },
+    {
+      "category": "COMPLIANCE",
+      "mustHave": true,
+      "requirement": "Offeror must provide a demonstration of the solution to DOT personnel prior to submitting a proposal; demonstration must be scheduled by 12pm EST on or before March 2, 2026"
+    },
+    {
+      "category": "COMPLIANCE",
+      "mustHave": true,
+      "requirement": "Performance must be USA-based and from a US company"
+    },
+    {
+      "category": "COMPLIANCE",
+      "mustHave": true,
+      "requirement": "All onsite employees will sign Non-disclosure Agreement"
+    },
+    {
+      "category": "COMPLIANCE",
+      "mustHave": true,
+      "requirement": "Protect privacy of individuals in accordance with the Privacy Act of 1974 (5 USC 552) and meet requirements of NIST FIPS 200 Minimum Security Requirements for Federal Information and Information Systems"
+    },
+    {
+      "category": "COMPLIANCE",
+      "mustHave": true,
+      "requirement": "Follow requirements in DOT Information Technology and Information Assurance Policy 034 for Reporting Cyber Security Incidents and Sensitive PII Exposures"
+    },
+    {
+      "category": "COMPLIANCE",
+      "mustHave": true,
+      "requirement": "Contractor must be registered in SAM with current, accurate, and complete representations and certifications"
+    },
+    {
+      "category": "COMPLIANCE",
+      "mustHave": true,
+      "requirement": "Proposal valid for at least 90 calendar days from date of delivery"
+    },
+    {
+      "category": "COMPLIANCE",
+      "mustHave": true,
+      "requirement": "Prohibition on Contracting for Certain Telecommunications and Video Surveillance Services or Equipment per FAR 52.204-25"
+    },
+    {
+      "category": "STAFFING",
+      "mustHave": true,
+      "requirement": "Contractor staff shall have a minimum of five (5) years experience gathering, compiling and analyzing data and software, congruent certifications held and minimum Bachelor's Degree"
+    },
+    {
+      "category": "STAFFING",
+      "mustHave": true,
+      "requirement": "Key personnel must be identified and reachable by phone 24 hours a day; substitution requires prior written consent of the Contracting Officer"
+    },
+    {
+      "category": "DELIVERABLES",
+      "mustHave": true,
+      "requirement": "Provide modular pricing separating costs of raw data provision from interface and AI tools (Amendment 00007)"
+    },
+    {
+      "category": "OTHER",
+      "mustHave": true,
+      "requirement": "Firm Fixed Price contract structure with one base year and four one-year option periods; modest price escalation for option years may be included"
+    }
+  ],
+  "submissionCompliance": {
+    "format": [
+      "Volume I shall be presented in 11-point font or larger",
+      "Page dimensions no greater than 8.5 inches by 11 inches",
+      "Footnotes, legends, or labels associated with tables or diagrams may be in smaller font if fully legible",
+      "Resumes must be in 11-point font or larger",
+      "Submit via email to Melinda.Riddick@dot.gov with cc to Robin.Golden@dot.gov",
+      "Reference RFP: 693JK426R600002 (Airline Analysis and Scheduling Solution Application) in subject line",
+      "Technical and Price proposals shall be submitted in two separate volumes",
+      "Cover page and table of contents excluded from page count per Amendment 00007",
+      "Abbreviations and references pages may be added and are excluded from page count"
+    ],
+    "attachmentsAndForms": [
+      "FAR 52.212-3 Offeror Representations and Certifications - Commercial Items (completed electronically in SAM or submitted with proposal)",
+      "Non-Disclosure Agreement (Attachment 1)",
+      "Pricing table template per Section 1 Contract Pricing",
+      "Acknowledgment of Solicitation Amendments",
+      "SF 1449 or statement specifying extent of agreement with all terms and conditions"
+    ],
+    "requiredDocuments": [
+      {
+        "name": "Part I: Technical Capacity/Approach/Frequency of Data Updates/Comprehensiveness of Historical Data",
+        "description": "Technical approach, methods and procedures for satisfying requirements, corporate knowledge and experience, data sources and methodology, AI integration plans, guardrails, accuracy assurance, and quality procedures. Must address all key SOW areas including global OD data, schedule data, fleet information, advanced booking data, historical data, and data update frequency.",
+        "pageLimit": "75 pages (Excluding Resumes, Table of Contents, and Descriptions per Amendment 00007)",
+        "documentType": "TECHNICAL_PROPOSAL",
+        "required": true
+      },
+      {
+        "name": "Part II: Presentation/Demonstration of Capabilities",
+        "description": "Live demonstration of the solution to DOT personnel showing capabilities and understanding of SOW requirements. Must be scheduled by 12pm EST on or before March 2, 2026. Duration 30-60 minutes via MS Teams or Zoom. Three specific use case scenarios provided by DOT (U.S.-Italy market analysis, U.S.-Italy capacity analysis, U.S.-France gateway analysis).",
+        "pageLimit": "No page limit",
+        "documentType": "OTHER",
+        "required": true
+      },
+      {
+        "name": "Part III: Web-based Application",
+        "description": "Description of the web-based solution demonstrating accessibility through a website for at least 10 users with dedicated usernames and passwords. Must describe interface functionality, custom reports, advanced booking evaluations, and market query capabilities per Amendment 00007.",
+        "pageLimit": "3 pages for each project",
+        "documentType": "OTHER",
+        "required": true
+      },
+      {
+        "name": "Part IV: Past Performance",
+        "description": "List of 3 recent projects completed within last 5 years similar to this effort. Minimum 2 projects completed by Prime and at least 1 by Subcontractor. Must demonstrate at least 8 years of experience. Include contract numbers, customer contact information, project descriptions, team member identities, contract values, period of performance, and any terminations for default or convenience within past 3 years.",
+        "pageLimit": "Not specified",
+        "documentType": "PAST_PERFORMANCE",
+        "required": true
+      },
+      {
+        "name": "Volume II: Cost/Price Proposal (Part V)",
+        "description": "Pricing schedule based on pricing table template. Must include modular pricing separating raw data provision costs from interface and AI tools per Amendment 00007. Include RFP number, project title, POC information, TIN, UEI, NAICS code, PSC code, and validity period of at least 90 calendar days.",
+        "pageLimit": "Not specified",
+        "documentType": "COST_PROPOSAL",
+        "required": true
+      },
+      {
+        "name": "FAR 52.212-3 Offeror Representations and Certifications",
+        "description": "Completed representations and certifications either electronically in SAM or paragraphs (c) through (v) submitted with proposal",
+        "documentType": "CERTIFICATIONS",
+        "required": true
+      }
+    ],
+    "requiredVolumes": [
+      "Volume I - Technical Proposal (Parts I through IV)",
+      "Volume II - Cost/Price Proposal (Part V)"
+    ]
+  },
+  "deliverables": [
+    "Software application and maintenance (Target: April 30, 2026)",
+    "Provider travel training - only if needed (Target: April 30, 2026)",
+    "Global OD data, fare data, service class information, fair share/QSI data, local and flow data by route and carrier",
+    "Global schedule data with flight level granularity updated minimum weekly",
+    "Current and historical fleet information per airline",
+    "Advanced booking data by market and airline",
+    "Regular data updates including traffic, fare, load factor, booking, and on-time performance data",
+    "Customer Support Services including online support website and/or telephone number",
+    "Annual user training (3 days for up to 10 users or 3 days advanced training for up to 3 users)"
+  ]
+}

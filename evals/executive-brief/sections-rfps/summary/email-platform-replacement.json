@@ -1,0 +1,11 @@
+{
+  "summary": "The California State Lottery is seeking proposals from qualified vendors to implement a more functional, robust, and advanced email marketing and campaign management platform to replace its current Adobe Campaign Standard system, which no longer meets the Lottery's evolving communication needs for its millions of registered players. The new platform must support segmentation, automation, personalization, dynamic content, analytics, API and SFTP integration capabilities, scalability to handle an audience file of at least 10 million contacts, annual send volumes exceeding one billion emails, over 200 workflows or triggered automations, and unlimited storage for campaign assets. Additional technical requirements include AES 256 encryption or better for data at rest and in transit, single sign-on cloud security, role-based permissions, FedRAMP compliance, CCPA and CAN-SPAM Act compliance, and a non-production environment for development and testing. The contract structure is a fixed-price agreement with an initial two-year base term and up to three one-year unilateral extension options, with an estimated contract start date of June 15, 2026. Proposals are evaluated on a best-value basis using a 1,000-point scoring system weighted 70% on technical requirements (including proposer qualifications, narrative technical responses, and optional demonstrations) and 30% on cost. The successful contractor must provide a dedicated implementation team offering hands-on keyboard support for seamless integration, data migration, IP warming, testing, platform configuration, and ongoing customer support with measurable SLAs and platform uptime guarantees, directly supporting the Lottery's strategic goal of becoming more player-focused and driving supplemental funding to California public education.",
+  "periodOfPerformance": "2-year base term + up to 3 one-year option years",
+  "agency": "California State Lottery",
+  "contractType": "FIXED_PRICE",
+  "office": "Procurement Services and Support",
+  "title": "Email Platform Replacement Services",
+  "placeOfPerformance": "700 N. 10th Street, Sacramento, CA 95811",
+  "solicitationNumber": "RFP# R004429 Addendum 1",
+  "setAside": "UNKNOWN"
+}

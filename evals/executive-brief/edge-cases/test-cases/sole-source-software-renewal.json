@@ -1,0 +1,130 @@
+{
+  "sort_key": "edge-case-sole-source#001",
+  "projectId": "edge-case-sole-source",
+  "orgId": "eval-org",
+  "status": "COMPLETE",
+  "decision": "NO_GO",
+  "compositeScore": 1.0,
+  "confidence": 90,
+  "sections": {
+    "summary": {
+      "status": "COMPLETE",
+      "data": {
+        "title": "Search and Rescue (SAR) Mission Control System Software Support and Maintenance Renewal",
+        "agency": "National Aeronautics and Space Administration (NASA)",
+        "office": "Goddard Space Flight Center (GSFC)",
+        "solicitationNumber": "NASA-GSFC-2026-SS-0147",
+        "naics": "541512",
+        "contractType": "FFP",
+        "setAside": null,
+        "estimatedValueUsd": "$4.2M base / $7.8M ceiling",
+        "placeOfPerformance": "Goddard Space Flight Center, Greenbelt, MD",
+        "periodOfPerformance": "3-year base + 2 option years",
+        "summary": "Sole source award to SES Space Solutions for continued software support, maintenance, and enhancement of the Cospas-Sarsat Search and Rescue Mission Control Center (USMCC) software. Justified under FAR 6.302-1 (Only One Responsible Source). No competition — this is an informational notice only."
+      }
+    },
+    "deadlines": {
+      "status": "COMPLETE",
+      "data": {
+        "hasSubmissionDeadline": false,
+        "submissionDeadlineIso": null,
+        "deadlines": [],
+        "warnings": ["Sole source award — no proposal submission opportunity exists."]
+      }
+    },
+    "requirements": {
+      "status": "COMPLETE",
+      "data": {
+        "overview": "Continued software support, maintenance, and enhancement services for the USMCC system that processes distress signals from ELTs, EPIRBs, and PLBs.",
+        "requirements": [
+          {"description": "Software support and maintenance for USMCC platform", "category": "TECHNICAL"},
+          {"description": "MEOLUT processing algorithm maintenance", "category": "TECHNICAL"},
+          {"description": "System enhancement and modernization", "category": "TECHNICAL"},
+          {"description": "Operational support for SAR mission-critical systems", "category": "SUPPORT"}
+        ],
+        "deliverables": [],
+        "evaluationFactors": [],
+        "submissionCompliance": []
+      }
+    },
+    "contacts": {
+      "status": "COMPLETE",
+      "data": {
+        "contacts": [
+          {
+            "name": "Patricia Nguyen",
+            "role": "Contracting Officer",
+            "email": "patricia.m.nguyen@nasa.gov",
+            "phone": "(301) 286-7890"
+          }
+        ],
+        "missingRecommendedRoles": []
+      }
+    },
+    "risks": {
+      "status": "COMPLETE",
+      "data": {
+        "incumbentInfo": {
+          "knownIncumbent": true,
+          "recompete": false,
+          "incumbentName": "SES Space Solutions",
+          "notes": "Sole source award justified under FAR 6.302-1. SES Space Solutions developed the original USMCC software and possesses unique institutional knowledge. No competition."
+        },
+        "risks": [
+          {"description": "Sole source — no opportunity to compete for this award", "severity": "HIGH"},
+          {"description": "Incumbent has proprietary knowledge of MEOLUT algorithms", "severity": "HIGH"}
+        ],
+        "redFlags": ["Sole source — no competition possible", "Incumbent developed original system"]
+      }
+    },
+    "pastPerformance": {
+      "status": "COMPLETE",
+      "data": {
+        "topMatches": [],
+        "narrativeSummary": "Not applicable — sole source award with no competitive opportunity.",
+        "confidenceScore": 0,
+        "evidence": [],
+        "gapAnalysis": "N/A for sole source notice."
+      }
+    },
+    "scoring": {
+      "status": "COMPLETE",
+      "data": {
+        "compositeScore": 1.0,
+        "decision": "NO_GO",
+        "confidence": 90,
+        "criteria": [
+          {"name": "TECHNICAL_FIT", "score": 1, "rationale": "Sole source — no opportunity to compete regardless of technical fit."},
+          {"name": "PAST_PERFORMANCE_RELEVANCE", "score": 1, "rationale": "Not applicable — sole source award."},
+          {"name": "PRICING_POSITION", "score": 1, "rationale": "Not applicable — sole source award."},
+          {"name": "STRATEGIC_ALIGNMENT", "score": 1, "rationale": "Not applicable — sole source award."},
+          {"name": "INCUMBENT_RISK", "score": 1, "rationale": "Incumbent (SES Space Solutions) has sole source justification. No path to displace."}
+        ],
+        "blockers": ["Sole source award — no competitive opportunity exists"],
+        "requiredActions": [],
+        "summaryJustification": "This is a sole source award notice. SES Space Solutions will receive this contract without competition.",
+        "decisionRationale": "NO_GO because this is a sole source award with no opportunity to submit a proposal.",
+        "confidenceExplanation": "High confidence — the sole source justification is clear and specific.",
+        "confidenceDrivers": ["FAR 6.302-1 justification", "Named sole source contractor"]
+      }
+    },
+    "pricing": {
+      "status": "COMPLETE",
+      "data": {
+        "strategy": "Not applicable — sole source award to SES Space Solutions.",
+        "totalPrice": null,
+        "laborCostTotal": null,
+        "materialCostTotal": null,
+        "indirectCostTotal": null,
+        "profitMargin": null,
+        "competitivePosition": "No competitive opportunity — sole source.",
+        "priceConfidence": "LOW",
+        "assumptions": ["Sole source — no pricing strategy needed"],
+        "pricingRisks": [],
+        "recommendedActions": [],
+        "competitiveAdvantages": [],
+        "basisOfEstimate": "Government estimate: $4.2M base, $7.8M ceiling with options."
+      }
+    }
+  }
+}

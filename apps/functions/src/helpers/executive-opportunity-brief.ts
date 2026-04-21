@@ -47,6 +47,24 @@ export function truncateText(text: string, maxChars: number) {
 }
 
 /**
+ * Smart truncation for sections where critical content appears at both ends of the document.
+ * Takes 65% from the head (SOW, CLINs, background) and 35% from the tail (Section L/M, amendments,
+ * evaluation criteria) — ensuring eval factors and late deadlines are always captured.
+ * Sections: requirements, deadlines.
+ */
+export function smartTruncate(text: string, maxChars: number): string {
+  if (!text) return '';
+  if (text.length <= maxChars) return text;
+  const headChars = Math.floor(maxChars * 0.65);
+  const tailChars = maxChars - headChars;
+  return (
+    text.slice(0, headChars) +
+    '\n\n[... DOCUMENT MIDDLE TRUNCATED ...]\n\n' +
+    text.slice(text.length - tailChars)
+  );
+}
+
+/**
  * Attempt to fix common JSON issues from LLM outputs.
  * - Remove trailing commas before } or ]
  * - Remove control characters that break parsing

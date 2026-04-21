@@ -37,6 +37,7 @@ import {
   markSectionInProgress,
   queryCompanyKnowledgeBase,
   sanitizeSummaryResponse,
+  smartTruncate,
   truncateText,
 } from '@/helpers/executive-opportunity-brief';
 import { syncRequiredDocumentsToCustomTypes } from '@/helpers/custom-document-types';
@@ -74,7 +75,8 @@ const SCORING_WEIGHTS: Record<string, number> = {
 };
 
 const BEDROCK_MODEL_ID = requireEnv('BEDROCK_MODEL_ID');
-const MAX_SOLICITATION_CHARS = Number(requireEnv('BRIEF_MAX_SOLICITATION_CHARS', '45000'));
+const MAX_SOLICITATION_CHARS = Number(requireEnv('BRIEF_MAX_SOLICITATION_CHARS', '150000'));
+const MAX_SOLICITATION_CHARS_REQUIREMENTS = Number(requireEnv('BRIEF_MAX_SOLICITATION_CHARS_REQUIREMENTS', '200000'));
 const DOCUMENTS_BUCKET = requireEnv('DOCUMENTS_BUCKET');
 
 /**
@@ -180,28 +182,21 @@ async function runSummary(job: Job): Promise<void> {
 
     const { solicitationText: rawText } = await loadSolicitationWithOpportunity(brief, orgId);
     const solicitationText = truncateText(rawText, MAX_SOLICITATION_CHARS);
-    const kbPrimer = await loadKbPrimer(orgId, solicitationText, 3);
 
     let data: unknown;
 
     try {
-      // Primary attempt: use sanitized schema wrapper
-      data = await invokeClaudeWithTools({
+      // Summary is pure extraction from solicitation — no KB or tools needed
+      data = await invokeClaudeJson({
         modelId: BEDROCK_MODEL_ID,
         system: await getSummarySystemPrompt(orgId),
         user: await useSummaryUserPrompt(
           orgId,
           solicitationText,
-          kbPrimer,
-          JSON.stringify(QuickSummarySchema.shape, null, 2),
         ),
-        tools: BRIEF_TOOLS,
-        toolExecutor: (toolName, toolInput, toolUseId) =>
-          executeBriefTool({ toolName, toolInput, toolUseId, orgId, projectId, opportunityId, executiveBriefId }),
         outputSchema: SanitizedQuickSummarySchema,
-        maxTokens: 1200,
-        temperature: 0.2,
-        maxToolRounds: 2,
+        maxTokens: 2000,
+        temperature: 0.1,
       });
     } catch (primaryErr) {
       // ── Comprehensive error logging for ZodError ──
@@ -227,29 +222,24 @@ async function runSummary(job: Job): Promise<void> {
       // ── Fallback: retry with minimal schema ──
       console.warn('[SUMMARY] Retrying with minimal fallback schema...');
       try {
-        const fallbackData = await invokeClaudeWithTools({
+        const fallbackData = await invokeClaudeJson({
           modelId: BEDROCK_MODEL_ID,
           system: await getSummarySystemPrompt(orgId),
           user: await useSummaryUserPrompt(
             orgId,
             solicitationText,
-            kbPrimer,
-            JSON.stringify(QuickSummarySchema.shape, null, 2),
           ),
-          tools: BRIEF_TOOLS,
-          toolExecutor: (toolName, toolInput, toolUseId) =>
-            executeBriefTool({ toolName, toolInput, toolUseId, orgId, projectId, opportunityId, executiveBriefId }),
           outputSchema: MinimalSummarySchema,
-          maxTokens: 1200,
+          maxTokens: 2000,
           temperature: 0.1,
-          maxToolRounds: 1,
         });
 
         console.warn('[SUMMARY] Fallback schema succeeded — missing optional fields will use defaults');
+        const sanitizedFallback = sanitizeSummaryResponse(fallbackData) as Record<string, unknown>;
         data = {
-          ...fallbackData,
-          contractType: (fallbackData as Record<string, unknown>).contractType ?? 'UNKNOWN',
-          setAside: (fallbackData as Record<string, unknown>).setAside ?? 'UNKNOWN',
+          ...sanitizedFallback,
+          contractType: sanitizedFallback.contractType ?? 'UNKNOWN',
+          setAside: sanitizedFallback.setAside ?? 'UNKNOWN',
         };
       } catch (fallbackErr) {
         console.error('[SUMMARY] Fallback also failed:', (fallbackErr as Error)?.message);
@@ -296,7 +286,8 @@ async function runDeadlines(job: Job): Promise<void> {
     await markSectionInProgress({ executiveBriefId, section: 'deadlines', inputHash });
 
     const { solicitationText: rawText } = await loadSolicitationWithOpportunity(brief, orgId);
-    const solicitationText = truncateText(rawText, MAX_SOLICITATION_CHARS);
+    // Use smart truncation: amendment deadlines often appear near the end of large RFPs
+    const solicitationText = smartTruncate(rawText, MAX_SOLICITATION_CHARS);
 
     // Deadlines: pure extraction from solicitation — no tools needed
     const data = await invokeClaudeJson({
@@ -350,20 +341,16 @@ async function runRequirements(job: Job): Promise<void> {
     await markSectionInProgress({ executiveBriefId, section: 'requirements', inputHash });
 
     const { solicitationText: rawText } = await loadSolicitationWithOpportunity(brief, orgId);
-    const solicitationText = truncateText(rawText, MAX_SOLICITATION_CHARS);
-    const kbPrimer = await loadKbPrimer(orgId, solicitationText, 3);
+    // Use smart truncation: preserves head (SOW/CLINs) + tail (Section L/M eval criteria)
+    const solicitationText = smartTruncate(rawText, MAX_SOLICITATION_CHARS_REQUIREMENTS);
 
-    const data = await invokeClaudeWithTools({
+    const data = await invokeClaudeJson({
       modelId: BEDROCK_MODEL_ID,
       system: await useRequirementsSystemPrompt(orgId),
-      user: await useRequirementsUserPrompt(orgId, solicitationText, kbPrimer),
-      tools: BRIEF_TOOLS,
-      toolExecutor: (toolName, toolInput, toolUseId) =>
-        executeBriefTool({ toolName, toolInput, toolUseId, orgId, projectId, opportunityId, executiveBriefId }),
+      user: await useRequirementsUserPrompt(orgId, solicitationText),
       outputSchema: RequirementsSectionSchema,
-      maxTokens: 5000,
+      maxTokens: 8000,
       temperature: 0.2,
-      maxToolRounds: 2,
     });
 
     await markSectionComplete({
@@ -416,7 +403,7 @@ async function runContacts(job: Job): Promise<void> {
       system: await useContactsSystemPrompt(orgId),
       user: await useContactsUserPrompt(orgId, solicitationText),
       outputSchema: ContactsSectionSchema,
-      maxTokens: 1400,
+      maxTokens: 2000,
       temperature: 0.1,
     });
 
@@ -473,7 +460,7 @@ async function runRisks(job: Job): Promise<void> {
       toolExecutor: (toolName, toolInput, toolUseId) =>
         executeBriefTool({ toolName, toolInput, toolUseId, orgId, projectId, opportunityId, executiveBriefId }),
       outputSchema: RisksSectionSchema,
-      maxTokens: 8000,
+      maxTokens: 16000,
       temperature: 0.2,
       maxToolRounds: 2,
     });
@@ -586,7 +573,7 @@ async function runPricing(job: Job): Promise<void> {
       toolExecutor: (toolName, toolInput, toolUseId) =>
         executeBriefTool({ toolName, toolInput, toolUseId, orgId, projectId, opportunityId, executiveBriefId }),
       outputSchema: PricingSectionSchema,
-      maxTokens: 6000,
+      maxTokens: 8000,
       temperature: 0.2,
       maxToolRounds: 2,
     });
@@ -699,7 +686,7 @@ async function runScoring(job: Job): Promise<void> {
       toolExecutor: (toolName, toolInput, toolUseId) =>
         executeBriefTool({ toolName, toolInput, toolUseId, orgId, projectId, opportunityId, executiveBriefId }),
       outputSchema: ScoringSectionSchema,
-      maxTokens: 5000,
+      maxTokens: 12000,
       temperature: 0.2,
       maxToolRounds: 2,
     });

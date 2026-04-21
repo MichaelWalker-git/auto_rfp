@@ -1,0 +1,918 @@
+{
+  "topMatches": [
+    {
+      "matchDetails": {
+        "technicalSimilarity": 0,
+        "scaleSimilarity": 0,
+        "domainSimilarity": 20,
+        "recency": 0,
+        "successMetrics": 0
+      },
+      "project": {
+        "durationMonths": null,
+        "naicsCodes": [
+          "541511",
+          "713210"
+        ],
+        "achievements": [
+          "Complete infrastructure migration from Digital Ocean to AWS",
+          "Full backend overhaul improving performance and security",
+          "Modernized application architecture on AWS"
+        ],
+        "reactivatedAt": null,
+        "endDate": null,
+        "contractType": null,
+        "isArchived": false,
+        "description": "Migrated Chanced.com from Digital Ocean to AWS and performed a complete overhaul of their PHP Laravel backend. The project modernized the hosting infrastructure and improved application performance and reliability.",
+        "title": "Digital Ocean to AWS Migration & Backend Overhaul",
+        "staleReason": null,
+        "orgId": "9c0a5757-e2da-4e71-9490-01c558f7ffc3",
+        "setAside": null,
+        "createdAt": "2026-04-08T04:23:39.366Z",
+        "client": "Chanced.com",
+        "value": null,
+        "updatedAt": "2026-04-20T20:39:20.866Z",
+        "technicalApproach": "Migrated hosting from Digital Ocean to AWS. Overhauled the entire PHP Laravel backend for improved performance, security, and maintainability. Leveraged AWS services for hosting, storage, and compute.",
+        "partition_key": "PAST_PROJECT",
+        "reactivatedBy": null,
+        "contractNumber": null,
+        "sort_key": "9c0a5757-e2da-4e71-9490-01c558f7ffc3#0b9fb34d-a4b4-4010-9980-0d3a10c133af",
+        "staleSince": null,
+        "usageCount": 16,
+        "technologies": [
+          "PHP",
+          "Laravel",
+          "AWS EC2",
+          "Amazon RDS",
+          "Amazon S3",
+          "AWS CloudFront"
+        ],
+        "performanceRating": null,
+        "lastFreshnessCheck": null,
+        "createdBy": "bulk-import-script",
+        "lastUsedAt": "2026-04-20T20:39:20.866Z",
+        "teamSize": null,
+        "domain": "Financial Services / Gaming",
+        "clientPOC": null,
+        "freshnessStatus": "ACTIVE",
+        "projectId": "0b9fb34d-a4b4-4010-9980-0d3a10c133af",
+        "usedInBriefIds": [
+          "6fbf749f-7173-489c-be0a-564f97ebf8b0#1caae84e-d059-499e-a672-6250187f41fc",
+          "6fbf749f-7173-489c-be0a-564f97ebf8b0#1caae84e-d059-499e-a672-6250187f41fc",
+          "6fbf749f-7173-489c-be0a-564f97ebf8b0#1caae84e-d059-499e-a672-6250187f41fc",
+          "6fbf749f-7173-489c-be0a-564f97ebf8b0#1caae84e-d059-499e-a672-6250187f41fc",
+          "6fbf749f-7173-489c-be0a-564f97ebf8b0#1caae84e-d059-499e-a672-6250187f41fc",
+          "6fbf749f-7173-489c-be0a-564f97ebf8b0#1caae84e-d059-499e-a672-6250187f41fc",
+          "6fbf749f-7173-489c-be0a-564f97ebf8b0#1caae84e-d059-499e-a672-6250187f41fc",
+          "6fbf749f-7173-489c-be0a-564f97ebf8b0#1caae84e-d059-499e-a672-6250187f41fc",
+          "6fbf749f-7173-489c-be0a-564f97ebf8b0#1caae84e-d059-499e-a672-6250187f41fc",
+          "810f5a23-42e4-4355-a2b4-f9ae2cb8e563#a6337196-4a67-44bc-8217-557cb6d7de31",
+          "810f5a23-42e4-4355-a2b4-f9ae2cb8e563#adf2abdc-d4bc-49c0-be02-ff4cbf6ab4e8",
+          "810f5a23-42e4-4355-a2b4-f9ae2cb8e563#5d602fa1-2abd-48cb-a212-dcdcb7c29038",
+          "810f5a23-42e4-4355-a2b4-f9ae2cb8e563#c41c7043-1550-4cb0-8a7f-517adf26ebb8",
+          "810f5a23-42e4-4355-a2b4-f9ae2cb8e563#c41c7043-1550-4cb0-8a7f-517adf26ebb8",
+          "ad33c87d-8fbb-49ca-b32e-ae32d653bb2b#623408c1-1aa6-411c-abe7-dc0fa0557343",
+          "d1ae9e89-3992-494f-b76f-d39d23f37640#cf14f9a9-c129-495a-9893-ee61eadd690c"
+        ],
+        "startDate": null
+      },
+      "relevanceScore": 5,
+      "matchedRequirements": [
+        "Provide at least 3 references within the past 5 years of clients for whom comparable services have been performed including client names, addresses, telephone numbers, email addresses, explanation of services, and project start and end dates"
+      ],
+      "narrative": null
+    },
+    {
+      "matchDetails": {
+        "technicalSimilarity": 0,
+        "scaleSimilarity": 0,
+        "domainSimilarity": 20,
+        "recency": 0,
+        "successMetrics": 0
+      },
+      "project": {
+        "durationMonths": null,
+        "naicsCodes": [
+          "541511",
+          "523130"
+        ],
+        "achievements": [
+          "Secure, localized trading platform with CMS-driven content",
+          "Automated CI/CD pipeline with Azure Pipelines",
+          "Global performance optimization with Cloudflare CDN"
+        ],
+        "reactivatedAt": null,
+        "endDate": null,
+        "contractType": null,
+        "isArchived": false,
+        "description": "Built a secure cryptocurrency trading platform frontend with dynamic, localized content. The platform features server-side rendering, CMS-driven content management, and CDN optimization for global performance.",
+        "title": "Secure Crypto Trading Platform",
+        "staleReason": null,
+        "orgId": "9c0a5757-e2da-4e71-9490-01c558f7ffc3",
+        "setAside": null,
+        "createdAt": "2026-04-08T04:23:31.596Z",
+        "client": "NDAX",
+        "value": null,
+        "updatedAt": "2026-04-20T20:39:20.900Z",
+        "technicalApproach": "Developed the frontend using Next.js with Strapi CMS for dynamic content management. Set up CI/CD with Azure Pipelines for automated deployments. Applied Cloudflare optimizations for global performance and security.",
+        "partition_key": "PAST_PROJECT",
+        "reactivatedBy": null,
+        "contractNumber": null,
+        "sort_key": "9c0a5757-e2da-4e71-9490-01c558f7ffc3#123a1e9f-54a5-40b8-b8ec-5830d4e113f8",
+        "staleSince": null,
+        "usageCount": 15,
+        "technologies": [
+          "Next.js",
+          "Strapi CMS",
+          "Azure Pipelines",
+          "Cloudflare",
+          "TypeScript"
+        ],
+        "performanceRating": null,
+        "lastFreshnessCheck": null,
+        "createdBy": "bulk-import-script",
+        "lastUsedAt": "2026-04-20T20:39:20.900Z",
+        "teamSize": null,
+        "domain": "Financial Services / Cryptocurrency",
+        "clientPOC": null,
+        "freshnessStatus": "ACTIVE",
+        "projectId": "123a1e9f-54a5-40b8-b8ec-5830d4e113f8",
+        "usedInBriefIds": [
+          "6fbf749f-7173-489c-be0a-564f97ebf8b0#1caae84e-d059-499e-a672-6250187f41fc",
+          "6fbf749f-7173-489c-be0a-564f97ebf8b0#1caae84e-d059-499e-a672-6250187f41fc",
+          "6fbf749f-7173-489c-be0a-564f97ebf8b0#1caae84e-d059-499e-a672-6250187f41fc",
+          "6fbf749f-7173-489c-be0a-564f97ebf8b0#1caae84e-d059-499e-a672-6250187f41fc",
+          "6fbf749f-7173-489c-be0a-564f97ebf8b0#1caae84e-d059-499e-a672-6250187f41fc",
+          "6fbf749f-7173-489c-be0a-564f97ebf8b0#1caae84e-d059-499e-a672-6250187f41fc",
+          "6fbf749f-7173-489c-be0a-564f97ebf8b0#1caae84e-d059-499e-a672-6250187f41fc",
+          "6fbf749f-7173-489c-be0a-564f97ebf8b0#1caae84e-d059-499e-a672-6250187f41fc",
+          "6fbf749f-7173-489c-be0a-564f97ebf8b0#1caae84e-d059-499e-a672-6250187f41fc",
+          "810f5a23-42e4-4355-a2b4-f9ae2cb8e563#e516d137-e19a-4320-a0b8-ccfa29a165de",
+          "810f5a23-42e4-4355-a2b4-f9ae2cb8e563#7d46e81e-94f5-4adc-8d37-2ae0eb6cadf5",
+          "810f5a23-42e4-4355-a2b4-f9ae2cb8e563#adf2abdc-d4bc-49c0-be02-ff4cbf6ab4e8",
+          "3e8b5099-0c1a-4a78-a5e2-65719b2f7a81#2ce43476-4476-4abf-8eeb-f71495cc2ebc",
+          "3e8b5099-0c1a-4a78-a5e2-65719b2f7a81#2ce43476-4476-4abf-8eeb-f71495cc2ebc",
+          "d1ae9e89-3992-494f-b76f-d39d23f37640#cf14f9a9-c129-495a-9893-ee61eadd690c"
+        ],
+        "startDate": null
+      },
+      "relevanceScore": 5,
+      "matchedRequirements": [],
+      "narrative": null
+    },
+    {
+      "matchDetails": {
+        "technicalSimilarity": 0,
+        "scaleSimilarity": 0,
+        "domainSimilarity": 20,
+        "recency": 0,
+        "successMetrics": 0
+      },
+      "project": {
+        "durationMonths": null,
+        "naicsCodes": [
+          "541511",
+          "522320"
+        ],
+        "achievements": [
+          "High-performance web application with server-side rendering",
+          "Streamlined deployment via AWS Amplify",
+          "Type-safe codebase with TypeScript"
+        ],
+        "reactivatedAt": null,
+        "endDate": null,
+        "contractType": null,
+        "isArchived": false,
+        "description": "Created a performant front-end for an Amplify-hosted web application using Next.js. The platform features server-side rendering for optimal performance and is deployed on AWS Amplify for streamlined hosting and CI/CD.",
+        "title": "Performant Web Application on AWS Amplify",
+        "staleReason": null,
+        "orgId": "9c0a5757-e2da-4e71-9490-01c558f7ffc3",
+        "setAside": null,
+        "createdAt": "2026-04-08T04:23:33.079Z",
+        "client": "FAQx, Inc.",
+        "value": null,
+        "updatedAt": "2026-04-20T20:39:20.917Z",
+        "technicalApproach": "Built the application with Next.js and TypeScript, leveraging server-side rendering for performance. Deployed on AWS Amplify with integrated hosting and continuous deployment pipelines.",
+        "partition_key": "PAST_PROJECT",
+        "reactivatedBy": null,
+        "contractNumber": null,
+        "sort_key": "9c0a5757-e2da-4e71-9490-01c558f7ffc3#12b71539-7a20-4d0b-8050-127a1f4c590f",
+        "staleSince": null,
+        "usageCount": 14,
+        "technologies": [
+          "Next.js",
+          "TypeScript",
+          "AWS Amplify",
+          "React"
+        ],
+        "performanceRating": null,
+        "lastFreshnessCheck": null,
+        "createdBy": "bulk-import-script",
+        "lastUsedAt": "2026-04-20T20:39:20.917Z",
+        "teamSize": null,
+        "domain": "Fintech / SaaS",
+        "clientPOC": null,
+        "freshnessStatus": "ACTIVE",
+        "projectId": "12b71539-7a20-4d0b-8050-127a1f4c590f",
+        "usedInBriefIds": [
+          "6fbf749f-7173-489c-be0a-564f97ebf8b0#1caae84e-d059-499e-a672-6250187f41fc",
+          "6fbf749f-7173-489c-be0a-564f97ebf8b0#1caae84e-d059-499e-a672-6250187f41fc",
+          "6fbf749f-7173-489c-be0a-564f97ebf8b0#1caae84e-d059-499e-a672-6250187f41fc",
+          "6fbf749f-7173-489c-be0a-564f97ebf8b0#1caae84e-d059-499e-a672-6250187f41fc",
+          "6fbf749f-7173-489c-be0a-564f97ebf8b0#1caae84e-d059-499e-a672-6250187f41fc",
+          "6fbf749f-7173-489c-be0a-564f97ebf8b0#1caae84e-d059-499e-a672-6250187f41fc",
+          "6fbf749f-7173-489c-be0a-564f97ebf8b0#1caae84e-d059-499e-a672-6250187f41fc",
+          "6fbf749f-7173-489c-be0a-564f97ebf8b0#1caae84e-d059-499e-a672-6250187f41fc",
+          "6fbf749f-7173-489c-be0a-564f97ebf8b0#1caae84e-d059-499e-a672-6250187f41fc",
+          "810f5a23-42e4-4355-a2b4-f9ae2cb8e563#e516d137-e19a-4320-a0b8-ccfa29a165de",
+          "810f5a23-42e4-4355-a2b4-f9ae2cb8e563#adf2abdc-d4bc-49c0-be02-ff4cbf6ab4e8",
+          "c6737e52-1e0b-42c6-8480-043ab4999b94#8f26623d-c411-4b63-bc62-bc6fdf54e73b",
+          "c6737e52-1e0b-42c6-8480-043ab4999b94#8f26623d-c411-4b63-bc62-bc6fdf54e73b",
+          "d1ae9e89-3992-494f-b76f-d39d23f37640#cf14f9a9-c129-495a-9893-ee61eadd690c"
+        ],
+        "startDate": null
+      },
+      "relevanceScore": 5,
+      "matchedRequirements": [],
+      "narrative": null
+    },
+    {
+      "matchDetails": {
+        "technicalSimilarity": 0,
+        "scaleSimilarity": 0,
+        "domainSimilarity": 20,
+        "recency": 0,
+        "successMetrics": 0
+      },
+      "project": {
+        "durationMonths": null,
+        "naicsCodes": [
+          "541511",
+          "541612"
+        ],
+        "achievements": [
+          "Full multitenant HR platform supporting multiple organizations",
+          "Integrated video interviewing and resume parsing capabilities",
+          "Streamlined candidate workflows from application to hire"
+        ],
+        "reactivatedAt": null,
+        "endDate": null,
+        "contractType": null,
+        "isArchived": false,
+        "description": "Built a multitenant human resources application that integrates video interviewing, resume parsing, and candidate workflows. The platform supports multiple organizations on a single deployment with tenant isolation, enabling end-to-end recruitment process automation.",
+        "title": "Multitenant HR Platform with Video Interviewing",
+        "staleReason": null,
+        "orgId": "9c0a5757-e2da-4e71-9490-01c558f7ffc3",
+        "setAside": null,
+        "createdAt": "2026-04-08T04:23:25.873Z",
+        "client": "AspireHR",
+        "value": null,
+        "updatedAt": "2026-04-20T20:39:20.925Z",
+        "technicalApproach": "Developed a React-based frontend with AWS serverless backend. Integrated video interviewing capabilities, AI-powered resume parsing, and candidate workflow management. Built with multi-tenancy support for organizational isolation.",
+        "partition_key": "PAST_PROJECT",
+        "reactivatedBy": null,
+        "contractNumber": null,
+        "sort_key": "9c0a5757-e2da-4e71-9490-01c558f7ffc3#16546867-bb92-4a14-b291-0c2ba91f7c82",
+        "staleSince": null,
+        "usageCount": 12,
+        "technologies": [
+          "React",
+          "AWS Lambda",
+          "Amazon API Gateway",
+          "Amazon DynamoDB",
+          "Amazon S3",
+          "Amazon Cognito"
+        ],
+        "performanceRating": null,
+        "lastFreshnessCheck": null,
+        "createdBy": "bulk-import-script",
+        "lastUsedAt": "2026-04-20T20:39:20.925Z",
+        "teamSize": null,
+        "domain": "Human Resources / HR Tech",
+        "clientPOC": null,
+        "freshnessStatus": "ACTIVE",
+        "projectId": "16546867-bb92-4a14-b291-0c2ba91f7c82",
+        "usedInBriefIds": [
+          "6fbf749f-7173-489c-be0a-564f97ebf8b0#1caae84e-d059-499e-a672-6250187f41fc",
+          "6fbf749f-7173-489c-be0a-564f97ebf8b0#1caae84e-d059-499e-a672-6250187f41fc",
+          "6fbf749f-7173-489c-be0a-564f97ebf8b0#1caae84e-d059-499e-a672-6250187f41fc",
+          "6fbf749f-7173-489c-be0a-564f97ebf8b0#1caae84e-d059-499e-a672-6250187f41fc",
+          "6fbf749f-7173-489c-be0a-564f97ebf8b0#1caae84e-d059-499e-a672-6250187f41fc",
+          "6fbf749f-7173-489c-be0a-564f97ebf8b0#1caae84e-d059-499e-a672-6250187f41fc",
+          "6fbf749f-7173-489c-be0a-564f97ebf8b0#1caae84e-d059-499e-a672-6250187f41fc",
+          "6fbf749f-7173-489c-be0a-564f97ebf8b0#1caae84e-d059-499e-a672-6250187f41fc",
+          "6fbf749f-7173-489c-be0a-564f97ebf8b0#1caae84e-d059-499e-a672-6250187f41fc",
+          "810f5a23-42e4-4355-a2b4-f9ae2cb8e563#adf2abdc-d4bc-49c0-be02-ff4cbf6ab4e8",
+          "810f5a23-42e4-4355-a2b4-f9ae2cb8e563#9534a4db-b8cc-4538-8702-5f2615c6c62d",
+          "d1ae9e89-3992-494f-b76f-d39d23f37640#cf14f9a9-c129-495a-9893-ee61eadd690c"
+        ],
+        "startDate": null
+      },
+      "relevanceScore": 5,
+      "matchedRequirements": [],
+      "narrative": null
+    },
+    {
+      "matchDetails": {
+        "technicalSimilarity": 0,
+        "scaleSimilarity": 0,
+        "domainSimilarity": 20,
+        "recency": 0,
+        "successMetrics": 0
+      },
+      "project": {
+        "durationMonths": null,
+        "naicsCodes": [
+          "541930",
+          "541511"
+        ],
+        "achievements": [
+          "Automated translation of safety manuals from German to multiple languages",
+          "Eliminated manual translation and formatting workflows",
+          "Maintained document formatting integrity across languages"
+        ],
+        "reactivatedAt": null,
+        "endDate": null,
+        "contractType": null,
+        "isArchived": false,
+        "description": "Built an automated transcription and translation system for safety manuals, converting German-language PDF articles into every required country-specific language. The platform ingests PDFs, extracts text, translates content, and regenerates formatted PDF output.",
+        "title": "Multilingual Safety Manual Translation Platform",
+        "staleReason": null,
+        "orgId": "9c0a5757-e2da-4e71-9490-01c558f7ffc3",
+        "setAside": null,
+        "createdAt": "2026-04-08T04:23:22.111Z",
+        "client": "Volkswagen",
+        "value": null,
+        "updatedAt": "2026-04-20T20:39:20.947Z",
+        "technicalApproach": "Used Amazon Textract to extract text from PDF safety manuals. Integrated Amazon Translate for multilingual conversion. Built an automated pipeline to reconvert translated text back into formatted PDF documents.",
+        "partition_key": "PAST_PROJECT",
+        "reactivatedBy": null,
+        "contractNumber": null,
+        "sort_key": "9c0a5757-e2da-4e71-9490-01c558f7ffc3#1b347828-0b24-4d04-ae4e-9934a46eda7c",
+        "staleSince": null,
+        "usageCount": 15,
+        "technologies": [
+          "Amazon Textract",
+          "Amazon Translate",
+          "AWS Lambda",
+          "Amazon S3",
+          "AWS Step Functions"
+        ],
+        "performanceRating": null,
+        "lastFreshnessCheck": null,
+        "createdBy": "bulk-import-script",
+        "lastUsedAt": "2026-04-20T20:39:20.947Z",
+        "teamSize": null,
+        "domain": "Manufacturing / Automotive",
+        "clientPOC": null,
+        "freshnessStatus": "ACTIVE",
+        "projectId": "1b347828-0b24-4d04-ae4e-9934a46eda7c",
+        "usedInBriefIds": [
+          "6fbf749f-7173-489c-be0a-564f97ebf8b0#1caae84e-d059-499e-a672-6250187f41fc",
+          "6fbf749f-7173-489c-be0a-564f97ebf8b0#1caae84e-d059-499e-a672-6250187f41fc",
+          "6fbf749f-7173-489c-be0a-564f97ebf8b0#1caae84e-d059-499e-a672-6250187f41fc",
+          "6fbf749f-7173-489c-be0a-564f97ebf8b0#1caae84e-d059-499e-a672-6250187f41fc",
+          "6fbf749f-7173-489c-be0a-564f97ebf8b0#1caae84e-d059-499e-a672-6250187f41fc",
+          "6fbf749f-7173-489c-be0a-564f97ebf8b0#1caae84e-d059-499e-a672-6250187f41fc",
+          "6fbf749f-7173-489c-be0a-564f97ebf8b0#1caae84e-d059-499e-a672-6250187f41fc",
+          "6fbf749f-7173-489c-be0a-564f97ebf8b0#1caae84e-d059-499e-a672-6250187f41fc",
+          "6fbf749f-7173-489c-be0a-564f97ebf8b0#1caae84e-d059-499e-a672-6250187f41fc",
+          "810f5a23-42e4-4355-a2b4-f9ae2cb8e563#9cf722b3-1b50-4af9-9133-73e7c20c2a9d",
+          "810f5a23-42e4-4355-a2b4-f9ae2cb8e563#c0971acb-8948-4992-96c8-181ebfc4785b",
+          "d1787e4e-170b-4250-8b30-1fa86cf32c97#b5c1e614-adef-4e4f-ad9f-81ed70e80e11",
+          "810f5a23-42e4-4355-a2b4-f9ae2cb8e563#adf2abdc-d4bc-49c0-be02-ff4cbf6ab4e8",
+          "810f5a23-42e4-4355-a2b4-f9ae2cb8e563#9534a4db-b8cc-4538-8702-5f2615c6c62d",
+          "d1ae9e89-3992-494f-b76f-d39d23f37640#cf14f9a9-c129-495a-9893-ee61eadd690c"
+        ],
+        "startDate": null
+      },
+      "relevanceScore": 5,
+      "matchedRequirements": [],
+      "narrative": null
+    }
+  ],
+  "gapAnalysis": {
+    "overallCoverage": 0,
+    "recommendations": [
+      "51 critical gap(s) identified. Consider teaming arrangements or subcontractors with relevant experience.",
+      "Overall past performance coverage is below 70%. This may significantly impact win probability."
+    ],
+    "criticalGaps": [
+      "Provide eCitation Systems including mobile and desktop apps and sync service for 40 users",
+      "Solution must utilize City of Banning Police Department mobile work iPhones and be compatible with iOS devices",
+      "Provide Court Export Module",
+      "Provide interface to output citation records to RMS (RIMS)",
+      "Provide interface to upload collision report data and documents to the CHP SWITRS System",
+      "Provide interface to output collision records to RMS (RIMS)",
+      "Provide CHP-180 Tow Form Application (Mobile)",
+      "Compatible with Sun Ridge Systems RIMS CAD System",
+      "Compatible with Crossroads Software Report Writer for collision reporting (being utilized through Countywide grant project)",
+      "Vendor's desktop application client, if applicable, must be compatible with Windows 10 Pro",
+      "Provide 6 mobile printers if offered, or ability to purchase separately, along with PM service and supplies cost",
+      "Provide required citation data to Justice, Circuit, and Municipal courts in a timely manner",
+      "Provide reporting capability for mandatory state reporting",
+      "Enable access to citation and crash data/information from one source",
+      "Provide cost for additional subscriptions as the department expands in personnel",
+      "Provide cost of upgrades for all systems when available",
+      "Provide project management and training for all systems including installation and training",
+      "Provide annual maintenance and support for all systems with recurring annual cost for the next five years",
+      "Provide detailed project schedule identifying all tasks, deliverables, durations, overall time of completion, and complete transition plan",
+      "Provide detailed implementation plan describing project management methods, controls, stakeholder engagement methodology, and implementation strategies",
+      "Have at least five (5) years of experience within the past five (5) years under a legally registered business name in providing services of similar type and scope",
+      "Have not filed for bankruptcy under any business name over the past five (5) years",
+      "Must have an active SAM.gov account in good standing and provide SAM.gov Unique Entity ID number upon proposal submission",
+      "Must be registered on OpenGov and download the solicitation to appear on the Prospective Bidders List",
+      "Must acknowledge all addenda electronically via the City's Bidding Website",
+      "Must comply with all grant requirements per the RFP, attachments, and addenda including Title VI of the Civil Rights Act of 1964 and Highway Safety Grant Programs",
+      "Must be able to meet all grant requirements and provide support to City staff with grant management",
+      "Must not be on the CA Debarment List",
+      "Provide at least 3 references within the past 5 years of clients for whom comparable services have been performed including client names, addresses, telephone numbers, email addresses, explanation of services, and project start and end dates",
+      "Cyber Insurance coverage is required in addition to the insurance requirements within the sample agreement",
+      "Provide evidence of insurance in the coverage and amounts listed in the Sample Agreement",
+      "Furnish Certificates of Insurance within ten (10) consecutive calendar days of award of contract",
+      "Company and/or key personnel shall hold appropriate license for the discipline and services if applicable",
+      "Must possess valid City of Banning Business License throughout the term of the contract",
+      "Proposals shall be firm offers and may not be withdrawn for a period of 120 days following the submission deadline",
+      "Complete and submit Certification Regarding Debarment, Suspension, Ineligibility Form (Attachment C)",
+      "Complete and submit Certification Compliance document",
+      "Complete and submit New Vendor Packet",
+      "Disclose any past or current business and personal relationships with any current Banning elected official, appointed official, City employee, or family member thereof",
+      "Certify Ex Parte Communications compliance - no communication with City Councilmember concerning this RFP after public advertisement date",
+      "Complete Debarred, Suspended, Disqualified Questionnaire",
+      "Disclose Government Positions held by any owner or employee",
+      "Identify type of business entity (corporation, sole proprietorship, partnership, joint venture, etc.)",
+      "State legal company name to be verified against California Secretary of State's Website",
+      "Accept all terms and conditions of the City's standard agreement which is non-negotiable",
+      "Identify all key personnel assigned to perform services including names, contact numbers, description of experience, licenses and/or certifications",
+      "Identify major subcontractors if any and their degree of involvement, including how long the Company has worked with the subcontractor",
+      "Include affirmative statement that proposer and all assigned key professional staff are properly licensed to practice in California",
+      "Pricing must remain firm for the initial contract term",
+      "If charging travel costs, charges invoiced to the City for travel, lodging and subsistence shall not exceed the current IRS rates",
+      "Identify any litigation, mediation, or arbitration regarding performance of similar services in the past five years"
+    ],
+    "coverageItems": [
+      {
+        "matchedProjectTitle": null,
+        "matchScore": null,
+        "recommendation": "No strong past performance match. Consider teaming or subcontracting for: Provide eCitation Systems including mobile and desktop apps and sync service for 40 users",
+        "requirement": "Provide eCitation Systems including mobile and desktop apps and sync service for 40 users",
+        "matchedProjectId": null,
+        "category": "TECHNICAL",
+        "status": "GAP"
+      },
+      {
+        "matchedProjectTitle": null,
+        "matchScore": null,
+        "recommendation": "No strong past performance match. Consider teaming or subcontracting for: Solution must utilize City of Banning Police Department mobile work iPhones and be compatible with iOS devices",
+        "requirement": "Solution must utilize City of Banning Police Department mobile work iPhones and be compatible with iOS devices",
+        "matchedProjectId": null,
+        "category": "TECHNICAL",
+        "status": "GAP"
+      },
+      {
+        "matchedProjectTitle": null,
+        "matchScore": null,
+        "recommendation": "No strong past performance match. Consider teaming or subcontracting for: Provide Court Export Module",
+        "requirement": "Provide Court Export Module",
+        "matchedProjectId": null,
+        "category": "TECHNICAL",
+        "status": "GAP"
+      },
+      {
+        "matchedProjectTitle": null,
+        "matchScore": null,
+        "recommendation": "No strong past performance match. Consider teaming or subcontracting for: Provide interface to output citation records to RMS (RIMS)",
+        "requirement": "Provide interface to output citation records to RMS (RIMS)",
+        "matchedProjectId": null,
+        "category": "TECHNICAL",
+        "status": "GAP"
+      },
+      {
+        "matchedProjectTitle": null,
+        "matchScore": null,
+        "recommendation": "No strong past performance match. Consider teaming or subcontracting for: Provide interface to upload collision report data and documents to the CHP SWITRS System",
+        "requirement": "Provide interface to upload collision report data and documents to the CHP SWITRS System",
+        "matchedProjectId": null,
+        "category": "TECHNICAL",
+        "status": "GAP"
+      },
+      {
+        "matchedProjectTitle": null,
+        "matchScore": null,
+        "recommendation": "No strong past performance match. Consider teaming or subcontracting for: Provide interface to output collision records to RMS (RIMS)",
+        "requirement": "Provide interface to output collision records to RMS (RIMS)",
+        "matchedProjectId": null,
+        "category": "TECHNICAL",
+        "status": "GAP"
+      },
+      {
+        "matchedProjectTitle": null,
+        "matchScore": null,
+        "recommendation": "No strong past performance match. Consider teaming or subcontracting for: Provide CHP-180 Tow Form Application (Mobile)",
+        "requirement": "Provide CHP-180 Tow Form Application (Mobile)",
+        "matchedProjectId": null,
+        "category": "TECHNICAL",
+        "status": "GAP"
+      },
+      {
+        "matchedProjectTitle": null,
+        "matchScore": null,
+        "recommendation": "No strong past performance match. Consider teaming or subcontracting for: Compatible with Sun Ridge Systems RIMS CAD System",
+        "requirement": "Compatible with Sun Ridge Systems RIMS CAD System",
+        "matchedProjectId": null,
+        "category": "TECHNICAL",
+        "status": "GAP"
+      },
+      {
+        "matchedProjectTitle": null,
+        "matchScore": null,
+        "recommendation": "No strong past performance match. Consider teaming or subcontracting for: Compatible with Crossroads Software Report Writer for collision reporting (being utilized through Countywide grant project)",
+        "requirement": "Compatible with Crossroads Software Report Writer for collision reporting (being utilized through Countywide grant project)",
+        "matchedProjectId": null,
+        "category": "TECHNICAL",
+        "status": "GAP"
+      },
+      {
+        "matchedProjectTitle": null,
+        "matchScore": null,
+        "recommendation": "No strong past performance match. Consider teaming or subcontracting for: Vendor's desktop application client, if applicable, must be compatible with Windows 10 Pro",
+        "requirement": "Vendor's desktop application client, if applicable, must be compatible with Windows 10 Pro",
+        "matchedProjectId": null,
+        "category": "TECHNICAL",
+        "status": "GAP"
+      },
+      {
+        "matchedProjectTitle": null,
+        "matchScore": null,
+        "recommendation": "No strong past performance match. Consider teaming or subcontracting for: Provide 6 mobile printers if offered, or ability to purchase separately, along with PM service and supplies cost",
+        "requirement": "Provide 6 mobile printers if offered, or ability to purchase separately, along with PM service and supplies cost",
+        "matchedProjectId": null,
+        "category": "TECHNICAL",
+        "status": "GAP"
+      },
+      {
+        "matchedProjectTitle": null,
+        "matchScore": null,
+        "recommendation": "No strong past performance match. Consider teaming or subcontracting for: Provide required citation data to Justice, Circuit, and Municipal courts in a timely manner",
+        "requirement": "Provide required citation data to Justice, Circuit, and Municipal courts in a timely manner",
+        "matchedProjectId": null,
+        "category": "TECHNICAL",
+        "status": "GAP"
+      },
+      {
+        "matchedProjectTitle": null,
+        "matchScore": null,
+        "recommendation": "No strong past performance match. Consider teaming or subcontracting for: Provide reporting capability for mandatory state reporting",
+        "requirement": "Provide reporting capability for mandatory state reporting",
+        "matchedProjectId": null,
+        "category": "TECHNICAL",
+        "status": "GAP"
+      },
+      {
+        "matchedProjectTitle": null,
+        "matchScore": null,
+        "recommendation": "No strong past performance match. Consider teaming or subcontracting for: Enable access to citation and crash data/information from one source",
+        "requirement": "Enable access to citation and crash data/information from one source",
+        "matchedProjectId": null,
+        "category": "TECHNICAL",
+        "status": "GAP"
+      },
+      {
+        "matchedProjectTitle": null,
+        "matchScore": null,
+        "recommendation": "No strong past performance match. Consider teaming or subcontracting for: Provide cost for additional subscriptions as the department expands in personnel",
+        "requirement": "Provide cost for additional subscriptions as the department expands in personnel",
+        "matchedProjectId": null,
+        "category": "TECHNICAL",
+        "status": "GAP"
+      },
+      {
+        "matchedProjectTitle": null,
+        "matchScore": null,
+        "recommendation": "No strong past performance match. Consider teaming or subcontracting for: Provide cost of upgrades for all systems when available",
+        "requirement": "Provide cost of upgrades for all systems when available",
+        "matchedProjectId": null,
+        "category": "TECHNICAL",
+        "status": "GAP"
+      },
+      {
+        "matchedProjectTitle": null,
+        "matchScore": null,
+        "recommendation": "No strong past performance match. Consider teaming or subcontracting for: Provide project management and training for all systems including installation and training",
+        "requirement": "Provide project management and training for all systems including installation and training",
+        "matchedProjectId": null,
+        "category": "DELIVERABLES",
+        "status": "GAP"
+      },
+      {
+        "matchedProjectTitle": null,
+        "matchScore": null,
+        "recommendation": "No strong past performance match. Consider teaming or subcontracting for: Provide annual maintenance and support for all systems with recurring annual cost for the next five years",
+        "requirement": "Provide annual maintenance and support for all systems with recurring annual cost for the next five years",
+        "matchedProjectId": null,
+        "category": "DELIVERABLES",
+        "status": "GAP"
+      },
+      {
+        "matchedProjectTitle": null,
+        "matchScore": null,
+        "recommendation": "No strong past performance match. Consider teaming or subcontracting for: Provide detailed project schedule identifying all tasks, deliverables, durations, overall time of completion, and complete transition plan",
+        "requirement": "Provide detailed project schedule identifying all tasks, deliverables, durations, overall time of completion, and complete transition plan",
+        "matchedProjectId": null,
+        "category": "DELIVERABLES",
+        "status": "GAP"
+      },
+      {
+        "matchedProjectTitle": null,
+        "matchScore": null,
+        "recommendation": "No strong past performance match. Consider teaming or subcontracting for: Provide detailed implementation plan describing project management methods, controls, stakeholder engagement methodology, and implementation strategies",
+        "requirement": "Provide detailed implementation plan describing project management methods, controls, stakeholder engagement methodology, and implementation strategies",
+        "matchedProjectId": null,
+        "category": "DELIVERABLES",
+        "status": "GAP"
+      },
+      {
+        "matchedProjectTitle": null,
+        "matchScore": null,
+        "recommendation": "No strong past performance match. Consider teaming or subcontracting for: Have at least five (5) years of experience within the past five (5) years under a legally registered business name in providing services of similar type and scope",
+        "requirement": "Have at least five (5) years of experience within the past five (5) years under a legally registered business name in providing services of similar type and scope",
+        "matchedProjectId": null,
+        "category": "COMPLIANCE",
+        "status": "GAP"
+      },
+      {
+        "matchedProjectTitle": null,
+        "matchScore": null,
+        "recommendation": "No strong past performance match. Consider teaming or subcontracting for: Have not filed for bankruptcy under any business name over the past five (5) years",
+        "requirement": "Have not filed for bankruptcy under any business name over the past five (5) years",
+        "matchedProjectId": null,
+        "category": "COMPLIANCE",
+        "status": "GAP"
+      },
+      {
+        "matchedProjectTitle": null,
+        "matchScore": null,
+        "recommendation": "No strong past performance match. Consider teaming or subcontracting for: Must have an active SAM.gov account in good standing and provide SAM.gov Unique Entity ID number upon proposal submission",
+        "requirement": "Must have an active SAM.gov account in good standing and provide SAM.gov Unique Entity ID number upon proposal submission",
+        "matchedProjectId": null,
+        "category": "COMPLIANCE",
+        "status": "GAP"
+      },
+      {
+        "matchedProjectTitle": null,
+        "matchScore": null,
+        "recommendation": "No strong past performance match. Consider teaming or subcontracting for: Must be registered on OpenGov and download the solicitation to appear on the Prospective Bidders List",
+        "requirement": "Must be registered on OpenGov and download the solicitation to appear on the Prospective Bidders List",
+        "matchedProjectId": null,
+        "category": "COMPLIANCE",
+        "status": "GAP"
+      },
+      {
+        "matchedProjectTitle": null,
+        "matchScore": null,
+        "recommendation": "No strong past performance match. Consider teaming or subcontracting for: Must acknowledge all addenda electronically via the City's Bidding Website",
+        "requirement": "Must acknowledge all addenda electronically via the City's Bidding Website",
+        "matchedProjectId": null,
+        "category": "COMPLIANCE",
+        "status": "GAP"
+      },
+      {
+        "matchedProjectTitle": null,
+        "matchScore": null,
+        "recommendation": "No strong past performance match. Consider teaming or subcontracting for: Must comply with all grant requirements per the RFP, attachments, and addenda including Title VI of the Civil Rights Act of 1964 and Highway Safety Grant Programs",
+        "requirement": "Must comply with all grant requirements per the RFP, attachments, and addenda including Title VI of the Civil Rights Act of 1964 and Highway Safety Grant Programs",
+        "matchedProjectId": null,
+        "category": "COMPLIANCE",
+        "status": "GAP"
+      },
+      {
+        "matchedProjectTitle": null,
+        "matchScore": null,
+        "recommendation": "No strong past performance match. Consider teaming or subcontracting for: Must be able to meet all grant requirements and provide support to City staff with grant management",
+        "requirement": "Must be able to meet all grant requirements and provide support to City staff with grant management",
+        "matchedProjectId": null,
+        "category": "COMPLIANCE",
+        "status": "GAP"
+      },
+      {
+        "matchedProjectTitle": null,
+        "matchScore": null,
+        "recommendation": "No strong past performance match. Consider teaming or subcontracting for: Must not be on the CA Debarment List",
+        "requirement": "Must not be on the CA Debarment List",
+        "matchedProjectId": null,
+        "category": "COMPLIANCE",
+        "status": "GAP"
+      },
+      {
+        "matchedProjectTitle": "Digital Ocean to AWS Migration & Backend Overhaul",
+        "matchScore": 5,
+        "recommendation": "No strong past performance match. Consider teaming or subcontracting for: Provide at least 3 references within the past 5 years of clients for whom comparable services have been performed including client names, addresses, telephone numbers, email addresses, explanation of services, and project start and end dates",
+        "requirement": "Provide at least 3 references within the past 5 years of clients for whom comparable services have been performed including client names, addresses, telephone numbers, email addresses, explanation of services, and project start and end dates",
+        "matchedProjectId": "0b9fb34d-a4b4-4010-9980-0d3a10c133af",
+        "category": "COMPLIANCE",
+        "status": "GAP"
+      },
+      {
+        "matchedProjectTitle": null,
+        "matchScore": null,
+        "recommendation": "No strong past performance match. Consider teaming or subcontracting for: Cyber Insurance coverage is required in addition to the insurance requirements within the sample agreement",
+        "requirement": "Cyber Insurance coverage is required in addition to the insurance requirements within the sample agreement",
+        "matchedProjectId": null,
+        "category": "COMPLIANCE",
+        "status": "GAP"
+      },
+      {
+        "matchedProjectTitle": null,
+        "matchScore": null,
+        "recommendation": "No strong past performance match. Consider teaming or subcontracting for: Provide evidence of insurance in the coverage and amounts listed in the Sample Agreement",
+        "requirement": "Provide evidence of insurance in the coverage and amounts listed in the Sample Agreement",
+        "matchedProjectId": null,
+        "category": "COMPLIANCE",
+        "status": "GAP"
+      },
+      {
+        "matchedProjectTitle": null,
+        "matchScore": null,
+        "recommendation": "No strong past performance match. Consider teaming or subcontracting for: Furnish Certificates of Insurance within ten (10) consecutive calendar days of award of contract",
+        "requirement": "Furnish Certificates of Insurance within ten (10) consecutive calendar days of award of contract",
+        "matchedProjectId": null,
+        "category": "COMPLIANCE",
+        "status": "GAP"
+      },
+      {
+        "matchedProjectTitle": null,
+        "matchScore": null,
+        "recommendation": "No strong past performance match. Consider teaming or subcontracting for: Company and/or key personnel shall hold appropriate license for the discipline and services if applicable",
+        "requirement": "Company and/or key personnel shall hold appropriate license for the discipline and services if applicable",
+        "matchedProjectId": null,
+        "category": "COMPLIANCE",
+        "status": "GAP"
+      },
+      {
+        "matchedProjectTitle": null,
+        "matchScore": null,
+        "recommendation": "No strong past performance match. Consider teaming or subcontracting for: Must possess valid City of Banning Business License throughout the term of the contract",
+        "requirement": "Must possess valid City of Banning Business License throughout the term of the contract",
+        "matchedProjectId": null,
+        "category": "COMPLIANCE",
+        "status": "GAP"
+      },
+      {
+        "matchedProjectTitle": null,
+        "matchScore": null,
+        "recommendation": "No strong past performance match. Consider teaming or subcontracting for: Proposals shall be firm offers and may not be withdrawn for a period of 120 days following the submission deadline",
+        "requirement": "Proposals shall be firm offers and may not be withdrawn for a period of 120 days following the submission deadline",
+        "matchedProjectId": null,
+        "category": "COMPLIANCE",
+        "status": "GAP"
+      },
+      {
+        "matchedProjectTitle": null,
+        "matchScore": null,
+        "recommendation": "No strong past performance match. Consider teaming or subcontracting for: Complete and submit Certification Regarding Debarment, Suspension, Ineligibility Form (Attachment C)",
+        "requirement": "Complete and submit Certification Regarding Debarment, Suspension, Ineligibility Form (Attachment C)",
+        "matchedProjectId": null,
+        "category": "COMPLIANCE",
+        "status": "GAP"
+      },
+      {
+        "matchedProjectTitle": null,
+        "matchScore": null,
+        "recommendation": "No strong past performance match. Consider teaming or subcontracting for: Complete and submit Certification Compliance document",
+        "requirement": "Complete and submit Certification Compliance document",
+        "matchedProjectId": null,
+        "category": "COMPLIANCE",
+        "status": "GAP"
+      },
+      {
+        "matchedProjectTitle": null,
+        "matchScore": null,
+        "recommendation": "No strong past performance match. Consider teaming or subcontracting for: Complete and submit New Vendor Packet",
+        "requirement": "Complete and submit New Vendor Packet",
+        "matchedProjectId": null,
+        "category": "COMPLIANCE",
+        "status": "GAP"
+      },
+      {
+        "matchedProjectTitle": null,
+        "matchScore": null,
+        "recommendation": "No strong past performance match. Consider teaming or subcontracting for: Disclose any past or current business and personal relationships with any current Banning elected official, appointed official, City employee, or family member thereof",
+        "requirement": "Disclose any past or current business and personal relationships with any current Banning elected official, appointed official, City employee, or family member thereof",
+        "matchedProjectId": null,
+        "category": "COMPLIANCE",
+        "status": "GAP"
+      },
+      {
+        "matchedProjectTitle": null,
+        "matchScore": null,
+        "recommendation": "No strong past performance match. Consider teaming or subcontracting for: Certify Ex Parte Communications compliance - no communication with City Councilmember concerning this RFP after public advertisement date",
+        "requirement": "Certify Ex Parte Communications compliance - no communication with City Councilmember concerning this RFP after public advertisement date",
+        "matchedProjectId": null,
+        "category": "COMPLIANCE",
+        "status": "GAP"
+      },
+      {
+        "matchedProjectTitle": null,
+        "matchScore": null,
+        "recommendation": "No strong past performance match. Consider teaming or subcontracting for: Complete Debarred, Suspended, Disqualified Questionnaire",
+        "requirement": "Complete Debarred, Suspended, Disqualified Questionnaire",
+        "matchedProjectId": null,
+        "category": "COMPLIANCE",
+        "status": "GAP"
+      },
+      {
+        "matchedProjectTitle": null,
+        "matchScore": null,
+        "recommendation": "No strong past performance match. Consider teaming or subcontracting for: Disclose Government Positions held by any owner or employee",
+        "requirement": "Disclose Government Positions held by any owner or employee",
+        "matchedProjectId": null,
+        "category": "COMPLIANCE",
+        "status": "GAP"
+      },
+      {
+        "matchedProjectTitle": null,
+        "matchScore": null,
+        "recommendation": "No strong past performance match. Consider teaming or subcontracting for: Identify type of business entity (corporation, sole proprietorship, partnership, joint venture, etc.)",
+        "requirement": "Identify type of business entity (corporation, sole proprietorship, partnership, joint venture, etc.)",
+        "matchedProjectId": null,
+        "category": "COMPLIANCE",
+        "status": "GAP"
+      },
+      {
+        "matchedProjectTitle": null,
+        "matchScore": null,
+        "recommendation": "No strong past performance match. Consider teaming or subcontracting for: State legal company name to be verified against California Secretary of State's Website",
+        "requirement": "State legal company name to be verified against California Secretary of State's Website",
+        "matchedProjectId": null,
+        "category": "COMPLIANCE",
+        "status": "GAP"
+      },
+      {
+        "matchedProjectTitle": null,
+        "matchScore": null,
+        "recommendation": "No strong past performance match. Consider teaming or subcontracting for: Accept all terms and conditions of the City's standard agreement which is non-negotiable",
+        "requirement": "Accept all terms and conditions of the City's standard agreement which is non-negotiable",
+        "matchedProjectId": null,
+        "category": "COMPLIANCE",
+        "status": "GAP"
+      },
+      {
+        "matchedProjectTitle": null,
+        "matchScore": null,
+        "recommendation": "No strong past performance match. Consider teaming or subcontracting for: Identify all key personnel assigned to perform services including names, contact numbers, description of experience, licenses and/or certifications",
+        "requirement": "Identify all key personnel assigned to perform services including names, contact numbers, description of experience, licenses and/or certifications",
+        "matchedProjectId": null,
+        "category": "STAFFING",
+        "status": "GAP"
+      },
+      {
+        "matchedProjectTitle": null,
+        "matchScore": null,
+        "recommendation": "No strong past performance match. Consider teaming or subcontracting for: Identify major subcontractors if any and their degree of involvement, including how long the Company has worked with the subcontractor",
+        "requirement": "Identify major subcontractors if any and their degree of involvement, including how long the Company has worked with the subcontractor",
+        "matchedProjectId": null,
+        "category": "STAFFING",
+        "status": "GAP"
+      },
+      {
+        "matchedProjectTitle": null,
+        "matchScore": null,
+        "recommendation": "No strong past performance match. Consider teaming or subcontracting for: Include affirmative statement that proposer and all assigned key professional staff are properly licensed to practice in California",
+        "requirement": "Include affirmative statement that proposer and all assigned key professional staff are properly licensed to practice in California",
+        "matchedProjectId": null,
+        "category": "STAFFING",
+        "status": "GAP"
+      },
+      {
+        "matchedProjectTitle": null,
+        "matchScore": null,
+        "recommendation": "No strong past performance match. Consider teaming or subcontracting for: Pricing must remain firm for the initial contract term",
+        "requirement": "Pricing must remain firm for the initial contract term",
+        "matchedProjectId": null,
+        "category": "OTHER",
+        "status": "GAP"
+      },
+      {
+        "matchedProjectTitle": null,
+        "matchScore": null,
+        "recommendation": "No strong past performance match. Consider teaming or subcontracting for: If charging travel costs, charges invoiced to the City for travel, lodging and subsistence shall not exceed the current IRS rates",
+        "requirement": "If charging travel costs, charges invoiced to the City for travel, lodging and subsistence shall not exceed the current IRS rates",
+        "matchedProjectId": null,
+        "category": "OTHER",
+        "status": "GAP"
+      },
+      {
+        "matchedProjectTitle": null,
+        "matchScore": null,
+        "recommendation": "No strong past performance match. Consider teaming or subcontracting for: Identify any litigation, mediation, or arbitration regarding performance of similar services in the past five years",
+        "requirement": "Identify any litigation, mediation, or arbitration regarding performance of similar services in the past five years",
+        "matchedProjectId": null,
+        "category": "OTHER",
+        "status": "GAP"
+      }
+    ]
+  },
+  "narrativeSummary": "No relevant past performance projects were found matching this opportunity. 5 project(s) were reviewed but none demonstrated meaningful relevance. Consider adding past projects with relevant experience or exploring teaming arrangements. Overall past performance coverage: 0%. 51 critical gap(s) identified that may require teaming or subcontracting.",
+  "confidenceScore": 20,
+  "evidence": []
+}

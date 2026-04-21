@@ -333,7 +333,7 @@ export function calculateRelevanceScore(details: MatchDetails): number {
  * More recent projects get higher scores
  */
 export function calculateRecencyScore(endDate: string | null | undefined): number {
-  if (!endDate) return 50; // Default to middle score if no date
+  if (!endDate) return 0;
 
   const end = new Date(endDate);
   const now = new Date();
@@ -351,7 +351,7 @@ export function calculateRecencyScore(endDate: string | null | undefined): numbe
  * Calculate success metrics score based on performance rating
  */
 export function calculateSuccessMetricsScore(rating: number | null | undefined): number {
-  if (!rating) return 50; // Default to middle score if no rating
+  if (!rating) return 0;
 
   // Rating is 1-5, convert to 0-100
   return Math.round((rating / 5) * 100);

@@ -1,0 +1,156 @@
+{
+  "sort_key": "edge-case-hvac#001",
+  "projectId": "edge-case-hvac",
+  "orgId": "eval-org",
+  "status": "COMPLETE",
+  "decision": "NO_GO",
+  "compositeScore": 1.0,
+  "confidence": 95,
+  "sections": {
+    "summary": {
+      "status": "COMPLETE",
+      "data": {
+        "title": "Preventive Maintenance and Repair Services for HVAC Systems",
+        "agency": "Department of Veterans Affairs",
+        "office": "VA Palo Alto Health Care System (VAPAHCS)",
+        "solicitationNumber": "VA-VISN21-2026-RFP-0234",
+        "naics": "238220",
+        "contractType": "FIXED_PRICE",
+        "setAside": "SDVOSB",
+        "estimatedValueUsd": "$1.5M-$2.5M annually ($7.5M-$12.5M total)",
+        "placeOfPerformance": "VA Palo Alto Health Care System — Palo Alto, Menlo Park, and Livermore campuses",
+        "periodOfPerformance": "Base year + 4 option years (Oct 2026 - Sep 2031)",
+        "summary": "Request for proposals for preventive maintenance and repair services for approximately 450 HVAC units across three VA Palo Alto Health Care System campuses. Requires EPA Section 608 certified technicians, 2-hour emergency response, and compliance with VA Directive 7078. Total SDVOSB set-aside."
+      }
+    },
+    "deadlines": {
+      "status": "COMPLETE",
+      "data": {
+        "hasSubmissionDeadline": true,
+        "submissionDeadlineIso": "2026-04-15T14:00:00-07:00",
+        "deadlines": [
+          {
+            "description": "Questions deadline",
+            "date": "2026-03-22",
+            "time": null,
+            "isSubmissionDeadline": false
+          },
+          {
+            "description": "Proposal submission deadline",
+            "date": "2026-04-15",
+            "time": "2:00 PM PT",
+            "isSubmissionDeadline": true
+          }
+        ],
+        "warnings": []
+      }
+    },
+    "requirements": {
+      "status": "COMPLETE",
+      "data": {
+        "overview": "Comprehensive HVAC preventive maintenance and repair services for 450 units across three VA hospital campuses, including chillers, AHUs, VAV boxes, package/split systems, cooling towers, and BAS interfaces.",
+        "requirements": [
+          {"description": "Monthly PM inspections per manufacturer specifications for 450 HVAC units", "category": "TECHNICAL"},
+          {"description": "Emergency repair response: 2-hour on-site for Palo Alto, 4-hour for satellite locations", "category": "TECHNICAL"},
+          {"description": "EPA Section 608 Universal Certification for all technicians", "category": "CERTIFICATION"},
+          {"description": "Compliance with VA Directive 7078 (HVAC Maintenance Standards)", "category": "COMPLIANCE"},
+          {"description": "VA PIV card background checks for all on-site personnel", "category": "SECURITY"},
+          {"description": "Experience with Johnson Controls Metasys BAS", "category": "TECHNICAL"}
+        ],
+        "deliverables": [
+          {"description": "Monthly PM inspection reports", "dueDate": null},
+          {"description": "Emergency repair documentation", "dueDate": null}
+        ],
+        "evaluationFactors": [
+          {"name": "Technical Approach", "weight": "40%"},
+          {"name": "Past Performance", "weight": "30%"},
+          {"name": "Price", "weight": "30%"}
+        ],
+        "submissionCompliance": [
+          {"description": "Submit via VA eCMS Portal", "required": true}
+        ]
+      }
+    },
+    "contacts": {
+      "status": "COMPLETE",
+      "data": {
+        "contacts": [
+          {
+            "name": "David Reyes",
+            "role": "Contracting Officer",
+            "email": "david.reyes2@va.gov",
+            "phone": "(650) 493-5000 x65234"
+          }
+        ],
+        "missingRecommendedRoles": []
+      }
+    },
+    "risks": {
+      "status": "COMPLETE",
+      "data": {
+        "incumbentInfo": {
+          "knownIncumbent": false,
+          "recompete": false,
+          "incumbentName": null,
+          "notes": "No incumbent contractor identified in the solicitation."
+        },
+        "risks": [
+          {"description": "NAICS 238220 (Plumbing/HVAC) — completely outside IT services capability", "severity": "HIGH"},
+          {"description": "Requires EPA Section 608 certified HVAC technicians — not in current workforce", "severity": "HIGH"},
+          {"description": "SDVOSB set-aside — requires service-disabled veteran-owned certification", "severity": "HIGH"},
+          {"description": "Physical on-site service at three California locations", "severity": "MEDIUM"}
+        ],
+        "redFlags": ["Industry mismatch — HVAC maintenance is not IT services", "SDVOSB set-aside restriction"]
+      }
+    },
+    "pastPerformance": {
+      "status": "COMPLETE",
+      "data": {
+        "topMatches": [],
+        "narrativeSummary": "No relevant past performance — company specializes in IT services, not HVAC maintenance.",
+        "confidenceScore": 0,
+        "evidence": [],
+        "gapAnalysis": "Complete capability gap. HVAC maintenance and repair services are outside the company's industry and service offerings."
+      }
+    },
+    "scoring": {
+      "status": "COMPLETE",
+      "data": {
+        "compositeScore": 1.0,
+        "decision": "NO_GO",
+        "confidence": 95,
+        "criteria": [
+          {"name": "TECHNICAL_FIT", "score": 1, "rationale": "HVAC maintenance is entirely outside IT services capabilities. NAICS 238220 is a different industry."},
+          {"name": "PAST_PERFORMANCE_RELEVANCE", "score": 1, "rationale": "Zero relevant past performance in HVAC, mechanical systems, or facilities maintenance."},
+          {"name": "PRICING_POSITION", "score": 1, "rationale": "Cannot competitively price HVAC services — no cost basis, workforce, or supply chain."},
+          {"name": "STRATEGIC_ALIGNMENT", "score": 1, "rationale": "Physical facility maintenance does not align with IT services strategy."},
+          {"name": "INCUMBENT_RISK", "score": 1, "rationale": "No incumbent identified, but industry mismatch makes this irrelevant."}
+        ],
+        "blockers": ["Complete industry mismatch — HVAC maintenance is not IT services", "SDVOSB set-aside — certification not held"],
+        "requiredActions": [],
+        "summaryJustification": "This is an HVAC maintenance contract completely outside the company's IT services capabilities. Not a viable opportunity.",
+        "decisionRationale": "NO_GO due to complete industry mismatch. NAICS 238220 (Plumbing/HVAC) bears no relation to IT consulting.",
+        "confidenceExplanation": "Very high confidence in NO_GO — the industry mismatch is unambiguous.",
+        "confidenceDrivers": ["NAICS 238220 vs IT services", "Physical maintenance requirements", "SDVOSB set-aside"]
+      }
+    },
+    "pricing": {
+      "status": "COMPLETE",
+      "data": {
+        "strategy": "Not applicable — industry mismatch prevents competitive pricing.",
+        "totalPrice": null,
+        "laborCostTotal": null,
+        "materialCostTotal": null,
+        "indirectCostTotal": null,
+        "profitMargin": null,
+        "competitivePosition": "Non-competitive — no HVAC capabilities.",
+        "priceConfidence": "LOW",
+        "assumptions": [],
+        "pricingRisks": ["No cost basis for HVAC services"],
+        "recommendedActions": [],
+        "competitiveAdvantages": [],
+        "basisOfEstimate": "Government estimate: $1.5M-$2.5M annually."
+      }
+    }
+  }
+}
