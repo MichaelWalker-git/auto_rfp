@@ -185,7 +185,7 @@ describe('fetchDeadlineInfo', () => {
     // Also mock the brief fallback
     const { getExecutiveBriefByProjectId } = require('@/helpers/executive-opportunity-brief');
     getExecutiveBriefByProjectId.mockRejectedValueOnce(new Error('Not found'));
-    const result = await fetchDeadlineInfo(PROJECT_ID);
+    const result = await fetchDeadlineInfo(PROJECT_ID, 'opp-789');
     expect(result).toBe('');
   });
 });

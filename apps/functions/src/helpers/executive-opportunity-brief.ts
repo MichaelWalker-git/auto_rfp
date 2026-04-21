@@ -489,43 +489,13 @@ export async function getExecutiveBrief(sk: string): Promise<ExecutiveBriefItem>
   return item;
 }
 
-/**
- * Get executive brief by project ID (and optionally opportunity ID).
- * If opportunityId is provided, does a direct GetItem using the deterministic SK.
- * Otherwise, queries for the latest brief for the project.
- */
-export async function getExecutiveBriefByProjectId(projectId: string, opportunityId?: string): Promise<ExecutiveBriefItem> {
-  if (opportunityId) {
-    const sk = executiveBriefSKByOpportunity(projectId, opportunityId);
-    const item = await getItem<ExecutiveBriefItem>(EXEC_BRIEF_PK, sk);
-    if (!item) {
-      throw new Error(`ExecutiveBrief not found for projectId=${projectId}, opportunityId=${opportunityId}. Ensure the brief has been initialized for this opportunity.`);
-    }
-    return item;
+export async function getExecutiveBriefByProjectId(projectId: string, opportunityId: string): Promise<ExecutiveBriefItem> {
+  const sk = executiveBriefSKByOpportunity(projectId, opportunityId);
+  const item = await getItem<ExecutiveBriefItem>(EXEC_BRIEF_PK, sk);
+  if (!item) {
+    throw new Error(`ExecutiveBrief not found for projectId=${projectId}, opportunityId=${opportunityId}. Ensure the brief has been initialized for this opportunity.`);
   }
-
-  const res = await docClient.send(
-    new QueryCommand({
-      TableName: DB_TABLE_NAME,
-      KeyConditionExpression: '#pk = :pk AND begins_with(#sk, :skPrefix)',
-      ExpressionAttributeNames: {
-        '#pk': PK_NAME,
-        '#sk': SK_NAME,
-      },
-      ExpressionAttributeValues: {
-        ':pk': EXEC_BRIEF_PK,
-        ':skPrefix': `${projectId}#`,
-      },
-      ScanIndexForward: false,
-      Limit: 1,
-    }),
-  );
-
-  if (!res.Items || res.Items.length === 0) {
-    throw new Error(`ExecutiveBrief not found for projectId=${projectId}. Ensure the brief has been initialized.`);
-  }
-
-  return res.Items[0] as ExecutiveBriefItem;
+  return item;
 }
 
 /**

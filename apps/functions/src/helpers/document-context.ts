@@ -213,6 +213,7 @@ export async function loadExecutiveBriefContext(
   opportunityId?: string,
   charBudget = DEFAULT_BUDGETS.execBrief,
 ): Promise<string> {
+  if (!opportunityId) return '';
   try {
     const brief = await getExecutiveBriefByProjectId(projectId, opportunityId);
     const sections = brief?.sections as Record<string, unknown> | undefined;
