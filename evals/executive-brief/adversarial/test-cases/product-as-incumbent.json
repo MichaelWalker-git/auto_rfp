@@ -1,0 +1,333 @@
+{
+  "compositeScore": 3.0,
+  "confidence": 65,
+  "createdAt": "2026-04-19T12:00:00.000Z",
+  "decision": "CONDITIONAL_GO",
+  "opportunityId": "adv-product-as-incumbent",
+  "orgId": "test-org",
+  "partition_key": "EXEC_BRIEF_PK",
+  "projectId": "test-project",
+  "sections": {
+    "summary": {
+      "data": {
+        "summary": "CISA seeks to acquire a next-generation Endpoint Detection and Response (EDR) platform to protect approximately 12,000 endpoints across CISA headquarters and regional offices. The selected solution must integrate with CISA's existing Security Operations Center (SOC) workflows. CrowdStrike Falcon is the current EDR product deployed across all endpoints since 2021, but CrowdStrike is a software product, not an incumbent contractor. Endpoint management is currently performed by in-house CISA staff. This is a new services requirement, not a recompete. The Government estimate is $8M-$12M for a 4-year period including all options.",
+        "periodOfPerformance": "Base period 12 months plus three 12-month option years (4 years total)",
+        "agency": "Department of Homeland Security, Cybersecurity and Infrastructure Security Agency (CISA)",
+        "contractType": "Firm-Fixed-Price with Time-and-Materials CLIN for surge support",
+        "estimatedValueUsd": "$8,000,000 - $12,000,000",
+        "office": "CISA Acquisitions",
+        "title": "Cybersecurity Endpoint Detection and Response (EDR) Platform",
+        "placeOfPerformance": "CISA headquarters and regional offices",
+        "solicitationNumber": "DHS-CISA-2026-0042",
+        "setAside": "Full and Open Competition",
+        "naicsCode": "541512"
+      },
+      "status": "COMPLETE",
+      "updatedAt": "2026-04-19T12:00:00.000Z"
+    },
+    "deadlines": {
+      "data": {
+        "hasSubmissionDeadline": true,
+        "submissionDeadlineIso": "2026-03-28T14:00:00-04:00",
+        "deadlines": [
+          {
+            "dateTimeIso": "2026-03-28T14:00:00-04:00",
+            "label": "Proposal Submission Deadline",
+            "notes": "Submit proposals electronically to CISA-Acquisitions@cisa.dhs.gov with subject line: RFP DHS-CISA-2026-0042 - EDR Platform - [Company Name]",
+            "type": "PROPOSAL_DUE",
+            "rawText": "Closing Date: March 28, 2026, 2:00 PM Eastern",
+            "timezone": "ET"
+          },
+          {
+            "dateTimeIso": "2026-03-07T17:00:00-05:00",
+            "label": "Questions Due",
+            "notes": "Written questions must be submitted via email to CISA-Acquisitions@cisa.dhs.gov",
+            "type": "QUESTIONS_DUE",
+            "rawText": "Written questions must be submitted via email to CISA-Acquisitions@cisa.dhs.gov no later than March 7, 2026, 5:00 PM Eastern",
+            "timezone": "ET"
+          }
+        ],
+        "warnings": []
+      },
+      "status": "COMPLETE",
+      "updatedAt": "2026-04-19T12:00:00.000Z"
+    },
+    "requirements": {
+      "data": {
+        "evaluationFactors": [
+          "Factor 1: Technical Approach (40%)",
+          "Factor 2: Management Approach and Past Performance (30%)",
+          "Factor 3: Price (30%)",
+          "Technical and Management combined are significantly more important than Price"
+        ],
+        "overview": "CISA requires a next-generation EDR platform for 12,000+ endpoints across headquarters and regional offices. The solution must provide real-time behavioral analysis, ML-based threat detection, automated containment and remediation, Splunk SIEM integration, FedRAMP High authorization, 24/7 MDR services, and support for air-gapped environments. The offeror must provide a migration plan from the current CrowdStrike Falcon deployment. CrowdStrike Falcon is the current software product, not an incumbent contractor.",
+        "requirements": [
+          {
+            "category": "TECHNICAL",
+            "mustHave": true,
+            "requirement": "EDR platform capable of protecting 12,000+ endpoints"
+          },
+          {
+            "category": "TECHNICAL",
+            "mustHave": true,
+            "requirement": "Real-time behavioral analysis and ML-based threat detection"
+          },
+          {
+            "category": "TECHNICAL",
+            "mustHave": true,
+            "requirement": "Automated containment and remediation capabilities"
+          },
+          {
+            "category": "TECHNICAL",
+            "mustHave": true,
+            "requirement": "Integration with Splunk SIEM via API"
+          },
+          {
+            "category": "COMPLIANCE",
+            "mustHave": true,
+            "requirement": "FedRAMP High authorization (or in-process with JAB sponsorship)"
+          },
+          {
+            "category": "TECHNICAL",
+            "mustHave": true,
+            "requirement": "24/7 managed detection and response (MDR) services"
+          },
+          {
+            "category": "DELIVERABLES",
+            "mustHave": true,
+            "requirement": "Quarterly threat briefings and annual purple team exercises"
+          },
+          {
+            "category": "TECHNICAL",
+            "mustHave": true,
+            "requirement": "Migration plan from current CrowdStrike Falcon deployment"
+          },
+          {
+            "category": "TECHNICAL",
+            "mustHave": true,
+            "requirement": "Support for air-gapped environments (approximately 800 endpoints)"
+          }
+        ],
+        "submissionCompliance": {
+          "format": [],
+          "attachmentsAndForms": [],
+          "requiredDocuments": [],
+          "requiredVolumes": []
+        },
+        "deliverables": [
+          "EDR platform deployment across 12,000+ endpoints",
+          "Migration from current CrowdStrike Falcon deployment",
+          "24/7 managed detection and response services",
+          "Quarterly threat briefings",
+          "Annual purple team exercises"
+        ]
+      },
+      "status": "COMPLETE",
+      "updatedAt": "2026-04-19T12:00:00.000Z"
+    },
+    "contacts": {
+      "data": {
+        "missingRecommendedRoles": [
+          "TECHNICAL_POC",
+          "PROGRAM_MANAGER"
+        ],
+        "contacts": [
+          {
+            "name": "Marcus Thompson",
+            "role": "CONTRACTING_OFFICER",
+            "email": "marcus.thompson@cisa.dhs.gov",
+            "phone": "(202) 555-0198",
+            "organization": "CISA"
+          },
+          {
+            "name": "Diana Reeves",
+            "role": "CONTRACT_SPECIALIST",
+            "email": "diana.reeves@cisa.dhs.gov",
+            "organization": "CISA"
+          }
+        ]
+      },
+      "status": "COMPLETE",
+      "updatedAt": "2026-04-19T12:00:00.000Z"
+    },
+    "risks": {
+      "data": {
+        "redFlags": [
+          {
+            "severity": "HIGH",
+            "whyItMatters": "FedRAMP High authorization is a mandatory requirement. Without current authorization or in-process status with JAB sponsorship, a proposal will be deemed non-responsive. FedRAMP High is the most stringent authorization level.",
+            "mitigation": "Verify current FedRAMP authorization status of proposed EDR solution. If not authorized, confirm JAB sponsorship is in progress and include timeline in proposal.",
+            "flag": "FedRAMP High authorization required -- significant barrier to entry",
+            "impactsScore": true
+          },
+          {
+            "severity": "MEDIUM",
+            "whyItMatters": "CISA has been using CrowdStrike Falcon since 2021. Staff familiarity with the product and existing integrations may create bias toward the incumbent product even though this is a new services requirement.",
+            "mitigation": "Emphasize differentiated capabilities, migration support, and reduced transition risk. Demonstrate superior threat detection and response capabilities.",
+            "flag": "Current CrowdStrike Falcon deployment creates product familiarity bias",
+            "impactsScore": true
+          }
+        ],
+        "risks": [
+          {
+            "severity": "HIGH",
+            "whyItMatters": "Migrating 12,000 endpoints from an established EDR platform carries significant operational risk. Any gaps in coverage during migration could leave CISA systems exposed.",
+            "mitigation": "Propose a phased migration plan with parallel running of old and new EDR solutions. Include rollback procedures and 24/7 migration support.",
+            "flag": "Complex migration from CrowdStrike Falcon across 12,000 endpoints",
+            "impactsScore": true
+          },
+          {
+            "severity": "MEDIUM",
+            "whyItMatters": "Support for approximately 800 air-gapped endpoints requires specialized deployment and update mechanisms that many EDR solutions do not support natively.",
+            "mitigation": "Detail air-gapped deployment architecture including offline signature updates, local management console, and secure media transfer procedures.",
+            "flag": "Air-gapped environment support required for 800 endpoints",
+            "impactsScore": true
+          }
+        ],
+        "incumbentInfo": {
+          "knownIncumbent": false,
+          "recompete": false,
+          "notes": "CrowdStrike Falcon is the current EDR product deployed since 2021, but CrowdStrike is a software product, NOT an incumbent contractor. The solicitation explicitly states: 'The Government has no existing services contract for EDR platform management -- endpoint management is currently performed by in-house CISA staff. This is a new services requirement, not a recompete.'",
+          "incumbentName": ""
+        }
+      },
+      "status": "COMPLETE",
+      "updatedAt": "2026-04-19T12:00:00.000Z"
+    },
+    "pastPerformance": {
+      "data": {
+        "topMatches": [],
+        "gapAnalysis": {
+          "overallCoverage": 0,
+          "recommendations": [
+            "Prepare references for large-scale EDR deployments in federal environments",
+            "Document any FedRAMP High authorized cybersecurity platform experience",
+            "Highlight experience with EDR platform migrations and air-gapped environment support"
+          ],
+          "criticalGaps": [
+            "No documented EDR platform deployment past performance",
+            "No documented FedRAMP High cybersecurity solution experience"
+          ],
+          "coverageItems": []
+        },
+        "narrativeSummary": "No past performance records matched for this EDR platform requirement. Critical gaps exist in large-scale endpoint security deployments and FedRAMP High authorized solutions.",
+        "confidenceScore": 20,
+        "evidence": []
+      },
+      "status": "COMPLETE",
+      "updatedAt": "2026-04-19T12:00:00.000Z"
+    },
+    "scoring": {
+      "data": {
+        "confidenceExplanation": "Moderate confidence. The technical requirements are well-defined, the Government estimate ($8M-$12M) provides clear pricing guidance, and the evaluation criteria are transparent. However, lack of demonstrated past performance in EDR deployments and FedRAMP High requirements reduces confidence.",
+        "requiredActions": [
+          "Verify FedRAMP High authorization status of proposed EDR solution",
+          "Develop detailed CrowdStrike Falcon migration plan for 12,000 endpoints",
+          "Prepare air-gapped environment deployment architecture",
+          "Submit written questions by March 7, 2026 deadline",
+          "Identify and prepare past performance references for similar EDR deployments"
+        ],
+        "decision": "CONDITIONAL_GO",
+        "criteria": [
+          {
+            "name": "TECHNICAL_FIT",
+            "score": 3,
+            "rationale": "EDR platform requirements are technically demanding but well-defined. Key challenges include FedRAMP High authorization, air-gapped environment support for 800 endpoints, and migration from existing CrowdStrike deployment.",
+            "gaps": [
+              "FedRAMP High authorization verification needed",
+              "Air-gapped environment deployment capabilities",
+              "CrowdStrike Falcon migration planning"
+            ]
+          },
+          {
+            "name": "PAST_PERFORMANCE_RELEVANCE",
+            "score": 2,
+            "rationale": "No matching past performance records found for large-scale EDR deployments in federal environments. This is a significant gap given that Past Performance carries 30% of the evaluation weight.",
+            "gaps": [
+              "No documented EDR deployment past performance",
+              "No FedRAMP High cybersecurity solution experience"
+            ]
+          },
+          {
+            "name": "PRICING_POSITION",
+            "score": 4,
+            "rationale": "The Government estimate of $8M-$12M for 4 years provides clear pricing guidance. With 12,000 endpoints, this implies approximately $167-$250 per endpoint per year, which is within standard EDR market pricing ranges.",
+            "gaps": []
+          },
+          {
+            "name": "STRATEGIC_ALIGNMENT",
+            "score": 4,
+            "rationale": "CISA is a high-value agency relationship. A 4-year contract with DHS provides significant strategic value and potential for follow-on work across other DHS components.",
+            "gaps": []
+          },
+          {
+            "name": "INCUMBENT_RISK",
+            "score": 4,
+            "rationale": "There is NO incumbent contractor. This is a new services requirement. CrowdStrike is mentioned as the current product in use, not as an incumbent services provider. In-house CISA staff currently manage endpoints. This reduces competitive disadvantage.",
+            "gaps": []
+          }
+        ],
+        "summaryJustification": "This is a well-defined EDR procurement from a high-value agency with a clear Government estimate. The absence of an incumbent contractor reduces competitive risk. However, FedRAMP High requirements and lack of documented past performance in EDR deployments are significant concerns.",
+        "confidence": 65,
+        "blockers": [
+          "FedRAMP High authorization is mandatory -- must verify solution authorization status before proceeding"
+        ],
+        "decisionRationale": "Recommend conditional go with FedRAMP High verification as the primary gate. The absence of an incumbent contractor and clear Government estimate create a favorable competitive environment despite past performance gaps.",
+        "compositeScore": 3.0,
+        "confidenceDrivers": [
+          {
+            "factor": "Clear Government estimate ($8M-$12M)",
+            "direction": "UP"
+          },
+          {
+            "factor": "No incumbent contractor",
+            "direction": "UP"
+          },
+          {
+            "factor": "Lack of EDR past performance",
+            "direction": "DOWN"
+          },
+          {
+            "factor": "FedRAMP High requirement",
+            "direction": "DOWN"
+          }
+        ]
+      },
+      "status": "COMPLETE",
+      "updatedAt": "2026-04-19T12:00:00.000Z"
+    },
+    "pricing": {
+      "data": {
+        "competitiveAdvantages": [],
+        "totalPrice": 9500000,
+        "indirectCostTotal": 1200000,
+        "basisOfEstimate": "Estimate based on Government-provided range of $8M-$12M for 4-year period (base + 3 option years). For 12,000 endpoints, this implies $167-$250 per endpoint per year. Pricing includes EDR platform licensing, 24/7 MDR services, migration from CrowdStrike Falcon, air-gapped environment support, quarterly threat briefings, and annual purple team exercises. FFP for platform and MDR services, T&M CLIN for surge support.",
+        "materialCostTotal": 4800000,
+        "assumptions": [
+          "Government estimate of $8M-$12M reflects total 4-year cost including all options",
+          "EDR licensing costs approximately $150-200 per endpoint per year",
+          "24/7 MDR services require dedicated SOC analysts",
+          "CrowdStrike migration can be completed within the first 6 months of the base period",
+          "Air-gapped environments require specialized deployment infrastructure"
+        ],
+        "competitivePosition": "COMPETITIVE",
+        "laborCostTotal": 3500000,
+        "profitMargin": 10,
+        "pricingRisks": [
+          "Surge support T&M CLIN creates pricing uncertainty",
+          "Air-gapped environment support may require additional infrastructure costs"
+        ],
+        "recommendedActions": [
+          "Price competitively within Government estimate range, targeting $9-10M total",
+          "Structure pricing to show clear value in MDR services component"
+        ],
+        "strategy": "FIXED_PRICE",
+        "priceConfidence": 75
+      },
+      "status": "COMPLETE",
+      "updatedAt": "2026-04-19T12:00:00.000Z"
+    }
+  },
+  "status": "COMPLETE",
+  "updatedAt": "2026-04-19T12:00:00.000Z"
+}

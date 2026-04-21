@@ -13,3 +13,4 @@
 
 export * from './samgov';
 export * from './dibbs';
+export * from './highergov';

@@ -19,7 +19,11 @@ export interface SearchOpportunityCriteria {
   naics?: string[];
   setAsideCode?: string;
   /** Filter to specific sources; undefined = all configured sources */
-  sources?: Array<'SAM_GOV' | 'DIBBS'>;
+  sources?: Array<'SAM_GOV' | 'DIBBS' | 'HIGHER_GOV'>;
+  /** HigherGov source_type filter: 'sam', 'dibbs', 'sbir', 'grant', 'sled' */
+  higherGovSourceType?: string;
+  /** HigherGov search_id — replay a saved search from HigherGov UI */
+  higherGovSearchId?: string;
   limit?: number;
   offset?: number;
 }
@@ -31,10 +35,12 @@ export interface SearchOpportunityResult {
   opportunities: SearchOpportunitySlim[];
   totalSamGov: number;
   totalDibbs: number;
+  totalHigherGov: number;
   total: number;
   errors?: Record<string, string>;
   samGovError: string | null;
   dibbsError: string | null;
+  higherGovError: string | null;
 }
 
 /** @deprecated use SearchOpportunityResult */
@@ -95,6 +101,8 @@ export const useSearchOpportunities = (orgId: string | undefined) => {
           postedTo:     toMMDDYYYY(to),
           closingFrom:  criteria.closingFrom ? toMMDDYYYY(criteria.closingFrom) : undefined,
           closingTo:    criteria.closingTo   ? toMMDDYYYY(criteria.closingTo)   : undefined,
+          higherGovSourceType: criteria.higherGovSourceType || undefined,
+          higherGovSearchId: criteria.higherGovSearchId || undefined,
           limit,
           offset,
         }),
@@ -110,6 +118,7 @@ export const useSearchOpportunities = (orgId: string | undefined) => {
       opportunities: SearchOpportunitySlim[];
       totalSamGov: number;
       totalDibbs: number;
+      totalHigherGov: number;
       total: number;
       errors?: Record<string, string>;
     };
@@ -118,12 +127,14 @@ export const useSearchOpportunities = (orgId: string | undefined) => {
 
     setResult((prev) => ({
       opportunities: append && prev ? [...prev.opportunities, ...incoming] : incoming,
-      totalSamGov:   json.totalSamGov ?? 0,
-      totalDibbs:    json.totalDibbs  ?? 0,
-      total:         json.total       ?? 0,
-      errors:        json.errors,
-      samGovError:   json.errors?.['SAM_GOV'] ?? null,
-      dibbsError:    json.errors?.['DIBBS']   ?? null,
+      totalSamGov:    json.totalSamGov    ?? 0,
+      totalDibbs:     json.totalDibbs     ?? 0,
+      totalHigherGov: json.totalHigherGov ?? 0,
+      total:          json.total          ?? 0,
+      errors:         json.errors,
+      samGovError:    json.errors?.['SAM_GOV']    ?? null,
+      dibbsError:     json.errors?.['DIBBS']      ?? null,
+      higherGovError: json.errors?.['HIGHER_GOV'] ?? null,
     }));
     setCurrentOffset(offset + incoming.length);
   };

@@ -1,0 +1,2101 @@
+The City of
+SAN DIEGO
+Request for Proposal (RFP) for Grants Management System
+Solicitation Number:
+10090460-26-S
+Solicitation Issue Date:
+February 13, 2026
+Pre-Proposal Conference:
+No Pre-Proposal Conference will be
+held.
+Questions and Comments Due:
+February 23, 2026 @ 12:00 p.m.
+Proposal Due Date and Time ("Closing Date"):
+March 16, 2026 @ 2:00 p.m.
+Contract Terms:
+Five (5) years from the Effective Date, as
+defined in Article I, Section 1.2 of the
+City's General Contract Terms and
+Provisions.
+City Contact:
+Sandra M. Vasquez
+Supervising Procurement
+Contracting Officer
+SMVasquez@sandiego.gov.
+619-236-6032
+Submissions:
+Proposer is required to provide one (1)
+original hard copy and one (1)
+electronic copy (e.g., thumb drive or
+CD), or an electronic bid via PlanetBids,
+of their response as described herein.
+The City may require Bidders to
+submit original hard copies prior to
+execution of the contract if the
+PlanetBids electronic submission
+does not include an authorized
+electronic signature page (e.g.,
+Adobe Sign, DocuSign).
+Completed and signed RFP signature
+page is required, with most recent
+addendum listed as acknowledgement of
+all addenda issued.
+CONTRACT RESULTING FROM REQUEST FOR PROPOSAL NUMBER 10090460-2-S, Grants
+Management System
+This Contract (Contract) is entered into by and between the City of San Diego, a municipal
+corporation (City), and the successful proposer to Request for Proposal (RFP) # 10090460-2-S,
+Grants Management System (Contractor).
+RECITALS
+On or about 2/13/2026, City issued an RFP to prospective proposers on services to be
+provided to the City. The RFP and any addenda and exhibits thereto are collectively referred
+to as the "RFP." The RFP is attached hereto as Exhibit A.
+City has determined that Contractor has the expertise, experience, and personnel necessary
+to provide the services.
+City wishes to retain Contractor to provide a grant management system as further described
+in the Scope of Work, attached hereto as Exhibit B.
+For good and valuable consideration, the sufficiency of which is acknowledged, City and
+Contractor agree as follows:
+ARTICLE I
+CONTRACTOR SERVICES
+1.1 Scope of Work. Contractor shall provide the Services to the City as described in Exhibit B
+which is incorporated herein by reference. Contractor will submit all required forms and
+information described in Exhibit A to the Purchasing Agent before providing Services.
+1.2 General Contract Terms and Provisions. This Contract incorporates by reference the
+General Contract Terms and Provisions, attached hereto as Exhibit C.
+1.3 Contract Administrator. The Economic Development Department (Department) is the Contract
+Administrator for this Agreement. Contractor shall provide the Services under the direction of a
+designated representative of the Department as follows:
+Christie Marcella
+1200 Third Ave, Suite 1400
+San Diego, CA 92101
+(619) 236-6320
+CMarcella@sandiego.gov
+ARTICLE II
+DURATION OF CONTRACT
+2.1 Term. This Contract shall be for a period of three (3) years beginning on the Effective
+Date. City may, in its sole discretion, extend this Contract for two (2) additional one (1) year
+period(s). Unless otherwise terminated, this Contract shall be effective until completion of
+the Scope of Services, but shall not exceed five years unless approved by ordinance under
+Charter section 99.
+RFP - Goods, Services, & Consultants
+Revised: November 8, 2016
+OCA Document No. 841661_3
+Page 1
+2.2 Effective Date. This Contract shall be effective on the date it is approved and signed by
+the City Attorney under Charter Section 40.
+ARTICLE III
+COMPENSATION
+3.1 Amount of Compensation. City shall pay Contractor for performance of all Services
+rendered in accordance with this Contract in an amount not to exceed $
+.
+(The not to exceed amount will be added in this final Contract prior to the final execution of the
+Contract by the City, with the Contractor's initials indicating acceptance.)
+ARTICLE IV
+WAGE REQUIREMENTS
+4.1 Reserved.
+ARTICLE V
+CONTRACT DOCUMENTS
+5.1 Contract Documents. The following documents comprise the Contract between the City
+and Contractor: this Contract and all exhibits thereto, the RFP; the Notice to Proceed; and the
+City's written acceptance of exceptions or clarifications to the RFP, if any.
+5.2 Contract Interpretation. The Contract Documents completely describe the Services to be
+provided. Contractor will provide any Services that may reasonably be inferred from the
+Contract Documents or from prevailing custom or trade usage as being required to produce
+the intended result whether or not specifically called for or identified in the Contract
+Documents. Words or phrases which have a well-known technical or construction industry
+or trade meaning and are used to describe Services will be interpreted in accordance with
+that meaning unless a definition has been provided in the Contract Documents.
+5.3 Precedence. In resolving conflicts resulting from errors or discrepancies in any of the
+Contract Documents, the Parties will use the order of precedence as set forth below. The 1st
+document has the highest priority. Inconsistent provisions in the Contract Documents that
+address the same subject, are consistent, and have different degrees of specificity, are not in
+conflict and the more specific language will control. The order of precedence from highest to
+lowest is as follows:
+1st Any properly executed written amendment to the Contract
+2ⁿᵈ The Contract
+3ʳᵈ The RFP and the City's written acceptance of any exceptions or clarifications to
+the RFP, if any
+4th Contractor's Proposal, including pricing
+RFP - Goods, Services, & Consultants
+Revised: November 8, 2016
+OCA Document No. 841661_3
+Page 2
+5.4
+Counterparts. This Contract may be executed in counterparts which, when taken
+together, shall constitute a single signed original as though all Parties had executed the same
+page.
+5.5
+Public Agencies. Other public agencies, as defined by California Government Code
+section 6500, may choose to use the terms of this Contract, subject to Contractor's
+acceptance. The City is not liable or responsible for any obligations related to a subsequent
+Contract between Contractor and another public agency.
+IN WITNESS WHEREOF, this Contract is executed by City and Contractor acting by and
+through their authorized officers.
+CONTRACTOR
+CITY OF SAN DIEGO
+A Municipal Corporation
+BY:
+Proposer
+Street Address
+Print Name:
+City
+Title
+Telephone No.
+Date Signed
+E-Mail
+BY:
+Approved as to form this
+day of
+Signature of
+, 20
+.
+Proposer's Authorized
+Representative
+HEATHER FERBERT, City Attorney
+BY:
+Print Name
+Deputy City Attorney
+Title
+Date
+RFP - Goods, Services, & Consultants
+Revised: November 8, 2016
+OCA Document No. 841661_3
+Page 3
+EXHIBIT A
+PROPOSAL SUBMISSION AND REQUIREMENTS
+A. PROPOSAL SUBMISSION
+1. Timely Proposal Submittal. Proposals must be submitted as described herein to
+the Purchasing & Contracting Department (P&C).
+1.1 Reserved.
+1.2 Paper Proposals. The City will accept paper proposals in lieu of eProposals.
+Paper proposals must be submitted in a sealed envelope to the Purchasing & Contracting
+Department (P&C) located at 1200 Third Avenue, Suite 200, San Diego, CA 92101. The
+Solicitation Number and Closing Date must be referenced in the lower left-hand corner of
+the outside of the envelope. Faxed proposals will not be accepted.
+1.3 Proposal Due Date. Proposals must be submitted prior to the Closing Date
+indicated on the eBidding System. E-mailed and/or faxed proposals will not be accepted.
+1.4 Pre-Proposal Conference. No pre-proposal conference will be held for
+RFP.
+1.4.1 Reserved.
+1.5 Questions and Comments. Written questions and comments must be
+submitted electronically via the eBidding System no later than the date specified on the
+eBidding System. Only written communications relative to the procurement shall be
+considered. The City's eBidding System is the only acceptable method for submission of
+questions. All questions will be answered in writing. The City will distribute questions and
+answers without identification of the inquirer(s) to all proposers who are on record as having
+received this RFP, via its eBidding System. No oral communications can be relied upon for
+this RFP. Addenda will be issued addressing questions or comments that are determined by
+the City to cause a change to any part of this RFP.
+1.6 Contact with City Staff. Unless otherwise authorized herein, proposers who
+are considering submitting a proposal in response to this RFP, or who submit a proposal in
+response to this RFP, are prohibited from communicating with City staff about this RFP from
+the date this RFP is issued until a contract is awarded.
+2. Proposal Format and Organization. Unless electronically submitted, all proposals
+should be securely bound and must include the following completed and executed forms and
+information presented in the manner indicated below:
+Tab A - Submission of Information and Forms.
+2.1 Completed and signed Contract Signature Page. If any addenda are issued,
+the latest Addendum Contract Signature Page is required.
+2.2 Exceptions requested by proposer, if any. The proposer must present
+written factual or legal justification for any exception requested to the Scope of Work, the
+Contract, or the Exhibits thereto including, but not limited to, items for which solutions are
+RFP - Goods, Services, & Consultants
+Revised: November 8, 2016
+OCA Document No. 841661_3
+Page 4
+not fully compliant with IT City Standards. For each requested exception, proposers must
+provide specific proposed alternative or amended language in the proposer's initial proposal
+submittal for potential consideration.
+It is not acceptable for proposers to take exception to terms or conditions in general, with a
+request to later discuss or negotiate specific terms within the RFP / Contract. Nor is it
+acceptable for proposals to refer to other contracts for alternative language in lieu of
+providing specific alternative language in the proposal, as well. The City will not consider
+exceptions addressed elsewhere in the proposal, nor will the City consider exceptions for
+which no specific alternative or amended language is provided.
+Any exceptions to the Contract that have not been accepted by the City in writing are deemed
+rejected. The City, in its sole discretion, may accept some or all of proposer's exceptions,
+reject proposer's exceptions, and deem the proposal non-responsive, or award the Contract
+without proposer's proposed exceptions.
+2.3 The Contractor Standards Pledge of Compliance Form.
+2.4 Equal Opportunity Contracting forms including the Work Force Report and
+Contractors Certification of Pending Actions.
+2.5 Reserved.
+2.6 Reserved.
+2.7 Reserved.
+2.8 Additional Information as required in Exhibit B.
+2.9 Reserved.
+2.10 Grant Management System Requirements Matrix - Exhibit E
+2.11 City of San Diego IT City Standards & Technical Alignment Questionnaire
+- Exhibit F
+Tab B - Executive Summary and Responses to Specifications.
+2.12 A title page.
+2.13 A table of contents.
+2.14 An executive summary, limited to one typewritten page, that provides a
+high-level description of the proposer's ability to meet the requirements of the RFP and the
+reasons the proposer believes itself to be best qualified to provide the identified services.
+2.15 Proposer's response to the RFP.
+2.16 An additional, redacted version of Proposer's response to the RFP
+containing all requested redactions of confidential, proprietary or other information which
+RFP - Goods, Services, & Consultants
+Revised: November 8, 2016
+OCA Document No. 841661_3
+Page 5
+proposer alleges to be exempt from disclosure under the California Public Records Act,
+including the legal basis for such exemption, as fully set forth in Exhibit A, Section 9. Public
+Records below.
+Tab C - Cost/Price Proposal (if applicable). Proposers shall submit a cost proposal in
+the form and format described herein (Exhibit D). Failure to provide cost(s) in the form and
+format requested may result in proposal being declared non-responsive and rejected.
+3. Proposal Review. Proposers are responsible for carefully examining the RFP, the
+Specifications, this Contract, and all documents incorporated into the Contract by reference
+before submitting a proposal. If selected for award of contract, proposer shall be bound by
+same unless the City has accepted proposer's exceptions, if any, in writing.
+4. Addenda. The City may issue addenda to this RFP as necessary. All addenda are
+incorporated into the Contract. The proposer is responsible for determining whether addenda
+were issued prior to a proposal submission. Failure to respond to or properly address
+addenda may result in rejection of a proposal.
+5. Quantities. The estimated quantities provided by the City are not guaranteed.
+These quantities are listed for informational purposes only. Quantities vary depending on the
+demands of the City. Any variations from the estimated quantities shall not entitle the
+proposer to an adjustment in the unit price or any additional compensation.
+6. Quality. Unless otherwise required, all goods furnished shall be new and the best
+of their kind.
+6.1 Items Offered. Proposer shall state the applicable trade name, brand,
+catalog, manufacturer, and/or product number of the required good, if any, in the proposal.
+6.2 Brand Names. Any reference to a specific brand name in a solicitation is
+illustrative only and describes a component best meeting the specific operational, design,
+performance, maintenance, quality, or reliability standards and requirements of the City.
+Proposer may offer an equivalent or equal in response to a brand name referenced (Proposed
+Equivalent). The City may consider the Proposed Equivalent after it is subjected to testing
+and evaluation which must be completed prior to the award of contract. If the proposer
+offers an item of a manufacturer or vendor other than that specified, the proposer must
+identify the maker, brand, quality, manufacturer number, product number, catalog number,
+or other trade designation. The City has complete discretion in determining if a Proposed
+Equivalent will satisfy its requirements. It is the proposer's responsibility to provide, at their
+expense, any product information, test data, or other information or documents the City
+requests to properly evaluate or demonstrate the acceptability of the Proposed Equivalent,
+including independent testing, evaluation at qualified test facilities, or destructive testing.
+7. Modifications, Withdrawals, or Mistakes. Proposer is responsible for verifying all
+prices and extensions before submitting a proposal.
+7.1 Modification or Withdrawal of Proposal Before Proposal Opening. Prior to
+the Closing Date, the proposer or proposer's authorized representative may modify or
+withdraw the proposal by providing written notice of the proposal modification or
+withdrawal to the City Contact via the eBidding System. E-mail or telephonic withdrawals or
+modifications are not permissible.
+RFP - Goods, Services, & Consultants
+Revised: November 8, 2016
+OCA Document No. 841661_3
+Page 6
+7.2 Proposal Modification or Withdrawal of Proposal After Proposal Opening.
+Any proposer who seeks to modify or withdraw a proposal because of the proposer's
+inadvertent computational error affecting the proposal price shall notify the City Contact
+identified on the eBidding System no later than three working days following the Closing
+Date. The proposer shall provide worksheets and such other information as may be required
+by the City to substantiate the claim of inadvertent error. Failure to do so may bar relief and
+allow the City recourse from the bid surety. The burden is upon the proposer to prove the
+inadvertent error. If, as a result of a proposal modification, the proposer is no longer the
+apparent successful proposer, the City will award to the newly established apparent
+successful proposer. The City's decision is final.
+8. Incurred Expenses. The City is not responsible for any expenses incurred by
+proposers in participating in this solicitation process.
+9. Public Records. By submitting a proposal, the proposer acknowledges that any
+information submitted in response to this RFP is a public record subject to disclosure unless
+the City determines that a specific exemption in the California Public Records Act (CPRA)
+applies. If the proposer submits information clearly marked confidential or proprietary, the
+City may protect such information and treat it with confidentiality to the extent permitted by
+law. However, it will be the responsibility of the proposer to provide to the City the specific
+legal grounds on which the City can rely in withholding information requested under the
+CPRA should the City choose to withhold such information. General references to sections of
+the CPRA will not suffice. Rather, the proposer must provide a specific and detailed legal
+basis, including applicable case law, that clearly establishes the requested information is
+exempt from the disclosure under the CPRA. If the proposer does not provide a specific and
+detailed legal basis for requesting the City to withhold proposer's confidential or proprietary
+information at the time of proposal submittal, City will release the information as required
+by the CPRA and proposer will hold the City, its elected officials, officers, and employees
+harmless for release of this information. It will be the proposer's obligation to defend, at
+proposer's expense, any legal actions or challenges seeking to obtain from the City any
+information requested under the CPRA withheld by the City at the proposer's request.
+Furthermore, the proposer shall indemnify and hold harmless the City, its elected officials,
+officers, and employees from and against any claim or liability, and defend any action
+brought against the City, resulting from the City's refusal to release information requested
+under the CPRA which was withheld at proposer's request. Nothing in the Contract resulting
+from this proposal creates any obligation on the part of the City to notify the proposer or
+obtain the proposer's approval or consent before releasing information subject to disclosure
+under the CPRA.
+10. Right to Audit. The City Auditor may access proposer's records as described in San
+Diego Charter section 39.2 to confirm contract compliance.
+B. PRICING
+1. Fixed Price. All prices shall be firm, fixed, fully burdened, FOB destination, and
+include any applicable delivery or freight charges, and any other costs required to provide
+the requirements as specified in this RFP. The lowest total estimated contract price of all the
+proposals that meet the requirements of this RFP will receive the maximum assigned points
+RFP - Goods, Services, & Consultants
+Revised: November 8, 2016
+OCA Document No. 841661_3
+Page 7
+to this category as set forth in this RFP. The other price schedules will be scored based on
+how much higher their total estimated contract prices compare with the lowest:
+(1 - (contract price - lowest price) ) X maximum points = points received
+lowest price
+For example, if the lowest total estimated contract price of all proposals is $100, that
+proposal would receive the maximum allowable points for the price category. If the total
+estimated contract price of another proposal is $105 and the maximum allowable points is 60
+points, then that proposal would receive (1 - ((105 - 100) / 100) X 60 = 57 points, or 95% of
+the maximum points. The lowest score a proposal can receive for this category is zero points
+(the score cannot be a negative number). The City will perform this calculation for each
+Proposal.
+2. Taxes and Fees. Taxes and applicable local, state, and federal regulatory fees
+should not be included in the price proposal. Applicable taxes and regulatory fees will be
+added to the net amount invoiced. The City is liable for state, city, and county sales taxes but
+is exempt from Federal Excise Tax and will furnish exemption certificates upon request. All
+or any portion of the City sales tax returned to the City will be considered in the evaluation of
+proposals.
+3. Escalation. An escalation factor is not allowed unless called for in this RFP. If
+escalation is allowed, proposer must notify the City in writing in the event of a decline in
+market price(s) below the proposal price. At that time, the City will make an adjustment in
+the Contract or may elect to re-solicit.
+4. Unit Price. Unless the proposer clearly indicates that the price is based on
+consideration of being awarded the entire lot and that an adjustment to the price was made
+based on receiving the entire proposal, any difference between the unit price correctly
+extended and the total price shown for all items shall be offered shall be resolved in favor of
+the unit price.
+C. EVALUATION OF PROPOSALS
+1. Award. The City shall evaluate each responsive proposal to determine which
+proposal offers the City the best value consistent with the evaluation criteria set forth herein.
+The proposer offering the lowest overall price will not necessarily be awarded a contract.
+2. Sustainable Materials. Consistent with Council Policy 100-14, the City encourages
+use of readily recyclable submittal materials that contain post-consumer recycled content.
+3. Evaluation Process.
+3.1 Process for Award. A City-designated evaluation committee (Evaluation
+Committee) will evaluate and score all responsive proposals. The Evaluation Committee may
+require proposer to provide additional written or oral information to clarify responses. Upon
+completion of the evaluation process, the Evaluation Committee will recommend to the
+Purchasing Agent that award be made to the proposer with the highest scoring proposal.
+3.2 Reserved.
+RFP - Goods, Services, & Consultants
+Revised: November 8, 2016
+OCA Document No. 841661_3
+Page 8
+3.3 Mandatory Interview/Oral Presentation. The City will require proposers to
+interview and/or make an oral presentation if one or more proposals score within ten (10)
+points or less of the proposal with the highest score. Only the proposer with the highest
+scoring proposal and those proposers scoring within ten (10) points or less of the highest
+scoring proposal will be asked to interview and/or make an oral presentation. Interviews
+and/or oral presentations will be made to the Evaluation Committee in order to clarify the
+proposals and to answer any questions. The interviews and/or oral presentations will be
+scored as part of the selection process. The City will complete all reference checks prior to
+any oral interview. Additionally, the Evaluation Committee may require proposer's key
+personnel to interview. Interviews may be by telephone and/or in person. Multiple interviews
+may be required. Proposers are required to complete their oral presentation and/or
+interviews within seven (7) workdays after the City's request. Proposers should be prepared
+to discuss and substantiate any of the areas of the proposal submitted, as well as proposer's
+qualifications to furnish the subject goods and services. Proposer is responsible for any costs
+incurred for the oral presentation and interview of the key personnel.
+3.4 Discussions/Negotiations. The City has the right to accept the proposal that
+serves the best interest of the City, as submitted, without discussion or negotiation.
+Contractors should, therefore, not rely on having a chance to discuss, negotiate, and adjust
+their proposals. The City may negotiate the terms of a contract with the winning proposer
+based on the RFP and the proposer's proposal, or award the contract without further
+negotiation.
+3.5 Inspection. The City reserves the right to inspect the proposer's equipment
+and facilities to determine if the proposer is capable of fulfilling this Contract. Inspection
+will include, but not limited to, survey of proposer's physical assets and financial capability.
+Proposer, by signing the proposal agrees to the City's right of access to physical assets and
+financial records for the sole purpose of determining proposer's capability to perform the
+Contract. Should the City conduct this inspection, the City reserves the right to disqualify a
+proposer who does not, in the City's judgment, exhibit the sufficient physical and financial
+resources to perform this Contract.
+3.6 Evaluation Criteria. The following elements represent the evaluation criteria
+that will be considered during the evaluation process:
+MAXIMUM
+EVALUATION
+POINTS
+A. Responsiveness to the RFP.
+1. Requested information included and thoroughness of response.
+2. Understanding of the project and ability to deliver as exhibited in the
+20
+Executive Summary.
+3. Technical Aspects.
+4. Risk Profile (e.g. exceptions request).
+B. Staffing Plan.
+1. Qualifications of personnel adequate for requirement.
+2. Description of the Contractor's history, mission, location(s), date founded,
+20
+size, key leadership and relevant certifications.
+3. List of names and titles of key managers who will be assigned to this project.
+4. Description of the company and/or key managers' experience and knowledge
+of local and federal regulations related to CDBG, ESG, and HOME.
+RFP - Goods, Services, & Consultants
+Revised: November 8, 2016
+OCA Document No. 841661_3
+Page 9
+MAXIMUM
+EVALUATION
+POINTS
+5. Method of Quality Assurance, Compliance with applicable laws, Internal
+Control Procedures.
+6. Availability/Geographical location of personnel for required tasks
+7. Customer Service/ Capacity to provide timely response to City and
+subrecipients.
+C. Contractor's Capability to provide the services and expertise and Past
+Performance.
+1. Relevant experience of the Contractor and subcontractors in working with
+governmental agencies.
+2. Fulfillment of City of San Diego IT requirements
+35
+3. Specific experience with Federal reporting and ability to integrate to Federal
+reporting systems.
+4. Other applicable pertinent experience.
+5. Past/Prior Performance including timely execution of go-live.
+6. Provide three (3) examples of successfully delivered SaaS/IT projects
+including project name and description, scope of work and deliverables, and
+key technical outcomes and successes.
+7. List of government contracts performed that are related to SaaS/IT within the
+past five (5) years.
+8. Capacity/Capability to meet The City of San Diego needs in a timely manner.
+9. Reference checks.
+D. Price.
+10
+E. Interview/Oral Presentation.
+1. Usability of Software
+2. Support Model
+15
+3. Real Time Operation including demonstration of the software meeting key
+requirements
+4. Thoroughness and Clarity of Presentation
+SUB TOTAL MAXIMUM EVALUATION POINTS:
+100
+F. Participation by Small Local Business Enterprise (SLBE) or Emerging Local
+12
+Business Enterprise (ELBE) Firms*
+FINAL MAXIMUM EVALUATION POINTS INCLUDING SLBE/ELBE:
+112
+*The City shall apply a maximum of an additional 12 percentage points to the proposer's final score for
+SLBE OR ELBE participation. Refer to Equal Opportunity Contracting Form, Section V.
+4. Rejection of All Proposals. The City may reject any and all proposals when to do so is in
+the City's best interests.
+D. ANNOUNCEMENT OF AWARD
+1. Award of Contract. The City will inform all proposers of its intent to award a
+Contract in writing.
+2. Obtaining Proposal Results. No solicitation results can be obtained until the City
+announces the proposal or proposals best meeting the City's requirements. Proposal results
+RFP - Goods, Services, & Consultants
+Revised: November 8, 2016
+OCA Document No. 841661_3
+Page 10
+may be obtained by: (1) e-mailing a request to the City Contact identified on the eBidding
+System or (2) visiting the P&C eBidding System to review the proposal results. To ensure an
+accurate response, requests should reference the Solicitation Number. Proposal results will
+not be released over the phone.
+3. Multiple Awards. City may award more than one contract by awarding separate
+items or groups of items to various proposers. Awards will be made for items, or
+combinations of items, which result in the lowest aggregate price and/or best meet the City's
+requirements. The additional administrative costs associated with awarding more than one
+Contract will be considered in the determination.
+E. PROTESTS. The City's protest procedures are codified in Chapter 2, Article 2, Division 30
+of the San Diego Municipal Code (SDMC). These procedures provide unsuccessful proposers
+with the opportunity to challenge the City's determination on legal and factual grounds. The
+City will not consider or otherwise act upon an untimely protest.
+F. SUBMITTALS REQUIRED UPON NOTICE OF INTENT TO AWARD. The successful proposer
+is required to submit the following documents to P&C within ten (10) business days from the
+date on the Notice of Intent to Award letter:
+1. Insurance Documents. Evidence of all required insurance, including all required
+endorsements, as specified in Article VII of the General Contract Terms and Provisions.
+2. Taxpayer Identification Number. Internal Revenue Service (IRS) regulations
+require the City to have the correct name, address, and Taxpayer Identification Number
+(TIN) or Social Security Number (SSN) on file for businesses or persons who provide goods or
+services to the City. This information is necessary to complete Form 1099 at the end of each
+tax year. To comply with IRS regulations, the City requires each Contractor to provide a Form
+W-9 prior to the award of a Contract.
+3. Business Tax Certificate. Unless the City Treasurer determines a business is
+exempt, all businesses that contract with the City must have a current business tax
+certificate.
+4. Reserved.
+5. Reserved.
+The City may find the proposer to be non-responsive and award the Contract to the next
+highest scoring responsible and responsive proposer if the apparent successful proposer fails
+to timely provide the required information or documents.
+RFP - Goods, Services, & Consultants
+Revised: November 8, 2016
+OCA Document No. 841661_3
+Page 11
+EXHIBIT B
+SCOPE OF WORK
+A.
+BACKGROUND
+The Economic Development Department (EDD) is seeking proposals from qualified proposers
+to provide a software solution to streamline and enhance our department's ability to manage
+and track local and federal grants and funding programs as part of the City of San Diego's
+(City) ongoing efforts to improve its grants management and grant administration
+processes. The Grant Management System (GMS) will be a Software as a Service (SaaS)
+solution that shall have the ability to manage grants and funding programs, track progress
+of related activities, and process various types of programs with differing workflows. The
+solution shall also have a public facing portal where grant recipients external to the City of
+San Diego are able to manage information, submit applications for funding and related
+documents, execute agreements, submit requests for payments, provide outcomes and data
+including grant closeout information.
+Currently, the City is seeking a SaaS solution to assist with the following programs:
+1. The Business Districts program is comprised of 10 Maintenance Assessment Districts
+(MADs), 1 Property and Business Improvement District (PBID) and 17 Business
+Improvement Districts (BIDs) by which the EDD holds roughly 30 contracts with 20
+nonprofit organizations (exact contract numbers may change) to manage services and
+improvements funded by assessments.
+a) Grant agreement administration and reporting and reimbursement processing
+is currently done via cloud-based Microsoft programs (i.e. Excel, Word,
+Sharepoint) and SeamlessDocs.
+b) These programs are governed by the San Diego Maintenance Assessment
+District Enabling Ordinance (San Diego Municipal Code sections 65.0201-
+65.0222), Property and Business Improvement District Law of 1994 (California
+Streets and Highways Code $36600-36671), Article XIIID of the California
+Constitution, and the Proposition 218 Omnibus Implementation Act (California
+Government Code sections 53753-53758).
+c) The SaaS solution shall have the functionality to manage the reimbursement
+packet workflow (including, but not limited to: tracking status, routing to
+multiple reviewers through approval stages, and logging all defined financials
+and data), track and manage grant-related contracts, store and organize grant
+related documents, track budgets and expenditures, and provide reports on
+program Key Performance Indicators (KPIs) including, but not limited to:
+businesses served, trees maintained, event attendance, and percent of budget
+expended.
+2. The Community Development Programs include state funding but primarily consists
+of federal Housing and Urban Development (HUD) funding including Community
+Development Block Grant (CDBG), Emergency Solutions Grant (ESG), and HOME
+Investment Partnership Program (HOME). Funding and reporting for these programs
+is currently managed in a Salesforce-backed reporting system; the grant life cycle
+workflow from RFQ through grant closeout would need to be matched for consistency
+with the current grant workflow. Functional details of the workflow are provided
+below and included in Exhibit E - Grant Management System Requirements Matrix.
+Annually, the City awards 20-30 agreements through a competitive process for the
+RFP - Goods, Services, & Consultants
+Revised: November 8, 2016
+OCA Document No. 841661_3
+Page 1
+Community Development programs, directly awards up to 10 contracts via
+administrative agreements, manages internal City Capital Improvement Projects
+(CIPs), and runs a competitive award for affordable housing development.
+a) The Community Development Block Grant (CDBG) program is authorized
+under Title 1 of the Housing and Community Development Act of 1974, Public
+Law 93-383, as amended 42 U.S.C. 5301. Locally, the program is governed by
+Council Policy 700-02.
+b) The SaaS solution shall have the functionality to host a Request for
+Qualifications (RFQ), Request for Proposal(s)(RFP), application review, panel
+review of applications including scoring rubrics and access for external
+evaluators, monthly programmatic reporting, monthly financial reporting,
+ability for amendments, a process to close out the project, and audit
+functionality.
+3. Capacity Building and other competitive grant programs are comprised of managing
+fewer than 50 contracts with non-profit partners based on available annual funding.
+There is a competitive process for these funds and evaluators may be internal (same
+domain) or external reviewers. The SaaS shall have similar functionality to the
+Community Development Programs whereby external organizations apply and submit
+documentation and if selected, can manage their grant through the proposed
+solution.
+Through the implementation of a SaaS-based grants management solution, the City is
+looking to benefit from the latest technologies and our goal of providing:
+a) An intuitive user interface that allows for easy system navigation for public
+and external users with varying levels of digital literacy.
+b) A system with minimal configuration to meet consistent grant management
+life cycle workflow management across multiple programs.
+c) Integrated user-friendly query, reporting and dashboard tools.
+d) Compliance and alignment with State and Federal regulations, mandates and
+reporting needs.
+e) Seamless end-to-end cycle for each grant from application through close-out
+with both programmatic and fiscal reporting.
+f) Robust user role and system administrator functionality.
+g) Integration with third-party providers and software such as SAP, MS365, and
+Adobe.
+h) 24/7 system availability.
+B. PROJECT APPROACH
+The City of San Diego seeks a comprehensive, turn-key solution whereby all aspects,
+required functions, and modules of the proposed system are operable when implementation
+is completed (go-live). The City will coordinate with the selected Contractor to determine an
+appropriate deployment schedule based on factors such as:
+1. Alignment with other technology initiatives.
+2. Change management impacts to employees.
+3. Coordination with participating and/or affected departments.
+An objective of the project is to find commonality and efficiencies across programs while
+maintaining respective reporting and compliance needs. As such, proposals should include
+examples of process improvements in project implementations.
+RFP - Goods, Services, & Consultants
+Revised: November 8, 2016
+OCA Document No. 841661_3
+Page 2
+C. ADA COMPLIANCE
+The content on all websites and web applications created, bought, leased, or otherwise
+employed by the City of San Diego for public use shall meet the Web Content Accessibility
+Guidelines (WCAG) 2.1 Level AA and any successive WCAG guidelines most current at the
+time of application. X. Solution must also adhere to the Voluntary Product Accessibility
+Template and section 508 requirements to make software accessible for users with
+disabilities.
+D. SPECIFICATIONS
+The City of San Diego will only consider Proposals for implementing a GMS software solution
+that is a vendor-hosted, subscription-based SaaS system.
+Proposers are encouraged to identify the significant characteristics of their solution and why
+it best suits the needs of the Economic Development Department.
+1. Responsiveness to RFP
+a) Requested information included and thoroughness of response.
+1. The proposal must be a complete document and include everything outlined in
+Exhibit A - Proposal Submission and Requirements, Exhibit B - Scope of Work,
+Exhibit D - Price Proposal, Exhibit E- Grant Management System Requirements
+Matrix, and Exhibit F - IT City Standards and Technical Alignment.
+2. Must include a staffing plan, qualifications submittal, draft implementation plan,
+draft implementation schedule, and draft outline documents explained in this
+section. These can be included in the response or provided as attachments.
+b) Understanding of the project and ability to deliver as exhibited in the Executive
+Summary.
+1. Executive summary shall demonstrate knowledge and experience with grant
+management systems that satisfy state and federal mandates.
+2. Provide experience implementing a SaaS/IT system that supports multiple
+programs or departments with distinct workflows, reporting requirements, and
+operational needs.
+c) Understanding of HUD regulations and requirements to ensure that Federal
+requirements are built into the SaaS solution and not customized.
+d) Software performance history.
+1. The Proposer shall demonstrate capability by providing proof of prior similar
+work with at least 10 cities, states, or other public agencies. At least 2 examples
+shall be used by a municipality of similar size and complexity. Implementations
+within the last five (5) years are strongly preferred.
+2. Sample cases are required to show the business processes practiced by the other
+municipalities, demonstrate functionality across program and financial reporting
+needs, and demonstrate key or unique functionality of the proposed system in
+effectively managing multiple sources of grant funding.
+2. Project Team
+a) The proposal will include clearly defined Roles/Responsibilities of personnel with a
+clear organizational structure.
+RFP - Goods, Services, & Consultants
+Revised: November 8, 2016
+OCA Document No. 841661_3
+Page 3
+b) The Proposer must identify a single point of contact for all contract management
+activities. The Proposer's Project Manager's name and resume must be submitted
+with the proposal. The successful Proposer must not change the Project Manager
+without written City of San Diego approval.
+c) The Proposer's Organization Chart must include all proposed personnel, including the
+supervisor level, functional responsibilities, key personnel and other staff members
+who will be involved in the project, and the percentage of time dedicated to the
+project. Proposers shall describe their commitment to ensuring the project team's
+composition will remain consistent throughout the implementation phase. The
+project team cannot be substituted or staff added without prior notice and acceptance
+by the City/Economic Development Department.
+d) Summary of Key Personnel. The proposer must provide a summary of the key
+personnel who will be dedicated to providing the services described in this
+solicitation. At a minimum, the Proposer must identify the Project Manager, Lead
+Business Analyst(s), Training Manager, and System Lead. For each person identified,
+describe the following information:
+1. Their title and reporting responsibility.
+2. Their proposed role in this project, including the functions and tasks for which
+they will have prime responsibility (also indicate areas of secondary responsibility
+if appropriate).
+3. Their pertinent areas of expertise and experience (particularly for GMS
+implementation projects).
+4. The location where they will provide the services (local or remote).
+e) Project Team Resumes. The Proposer must include brief resumes for key personnel
+assigned to the project. The project manager would ideally have experience
+implementing a similar solution for other large municipalities. Each project team
+resume shall be formatted similarly and contain the following content:
+1. Brief overview of their professional career.
+2. Professional background highlighting relevant projects that have been completed
+and their role(s) in each project.
+3. Educational background.
+4. Publications (if applicable).
+5. Professional activities and certifications.
+3. Project Management & Service Level Requirements
+Proposers should have experience in project execution and support staff that include project
+managers to ensure the project delivers the scope, schedule and budget as agreed upon in the
+executed contract.
+a) Qualifications, Experience, and Staffing Plan
+A staffing plan and a submittal of qualifications will be required in the response. The
+staffing plan and submittal of qualifications must include the following:
+1. Company Overview: The Proposer must include a company summary
+including company history, office location(s), company size (how many
+personnel are part of the software development team, implementation
+team, and support team), financial statements, and statement of technical
+areas of expertise. The Proposer must be able to substantiate to the
+satisfaction of the City that the Proposer has sufficient resources to
+complete the project. (If the Proposer is not the software provider, then the
+proposer must submit this for both their company and the company
+proposing to implement the software.)
+RFP - Goods, Services, & Consultants
+Revised: November 8, 2016
+OCA Document No. 841661_3
+Page 4
+2. References: The Proposer must provide three (3) references from clients who have
+had similar scopes of work and requirements. References must be within the last
+five (5) years. An alternative point of contact for each reference shall be listed
+with a phone number and email address whenever possible. References must
+include the following information:
+Reference #
+Name of Organization
+Address
+Contact Name
+Contact Telephone Number
+Email address
+Date Work Undertaken
+Nature of Assignment
+Business Benefits Realized
+Environmental Benefits Accrued (optional)
+User-focused design experience/industry awards
+References will be verified as part of the standard City procurement process.
+If contact with the referenced contact person or an alternative who knows the
+Proposer is not made after reasonable attempts during the designated evaluation
+period, the reference will be classified as unsatisfactory. All attempts to contact a
+referenced client will be documented, including the date and time of the attempt.
+3. Availability/Geographical location of personnel for required tasks. The Staffing
+plan will also indicate the hours staff may be reached, their method of contact,
+and the level of effort required for them to come to the site, if applicable.
+b) Project Management Approach
+The City requires the primary (or prime) Contractor to provide extensive project
+management for implementing the GMS solution. The Contractor is expected to
+guarantee the successful, timely completion of those aspects of the project over which
+it has control. Proposers must provide a project plan for achieving the project's
+objectives, including an explanation of the role of all partners, the role of the City's
+staff (including time commitment), and an overall project timeline. A description of a
+proposed team structure (including an organizational team chart), listing key
+personnel functions, staffing profiles, and responsibilities to cover the software and
+implementation, as well as training and support, shall also be included. The detailed
+plan must thoroughly discuss how the Proposer will successfully implement the GMS
+requirements. Please include a copy of a plan utilizing Microsoft Project or equivalent
+software.
+The prime Contractor shall provide a qualified Project Manager (PM) who will be
+responsible for overseeing all aspects of the services to implement the GMS solution
+and who serves as the Contractor's primary contact for the management and
+administration of the project. The Contractor shall not replace the PM without prior
+written approval by the City. The primary duties of the PM include, but are not
+limited to:
+RFP - Goods, Services, & Consultants
+Revised: November 8, 2016
+OCA Document No. 841661_3
+Page 5
+1. Creating, providing and updating a project management plan and master project
+schedule with identified milestones and a work breakdown structure of
+deliverables.
+2. Collaborate with the Department of IT's Governance team and bring the project
+into planning, design and change management gates. These gates can help ensure
+requirements are met, which aligns with the industry's best practices.
+c) Configuration, Implementation, Testing & Acceptance
+The Contractor will detail for the City the potential configuration options available to
+meet the requirements. In addition, the Contractor will produce a configuration
+document as a project deliverable before the system's final configuration.
+The Contractor will be required to configure all necessary proposed functionality for
+the City and is expected to work closely with the City's functional experts to finalize
+the configurations and transfer knowledge. The Contractor will also be required to
+provide a testing strategy and plan (including scripts) as a project deliverable to the
+City. The City will sign off on the final testing plan before executing tests.
+The Contractor shall provide three system environments: development/configuration,
+testing/training, and production. The selected Contractor will work with the City to
+ensure that the system is functioning at the appropriate level of performance at the
+time of go-live.
+d) Project Schedule
+Due to sunsetting of the existing system, the desired go-live date for a new solution
+is July 1, 2026. Proposers should provide a project schedule with key milestones from
+the project approach associated with proposed dates to meet the desired go-live date.
+e) Training
+Training will be a required element for internal staff as well as our external users.
+Contractor will be expected to provide a combination of virtual and on-site training
+and provide training documentation and comprehensive user guides. Quick reference
+guides and FAQs are also encouraged. Contractors should include training programs,
+curriculum and examples of training materials as part of the Proposal.
+The Contractor shall provide trained and experienced instructor(s) and ensure that
+they do not perform other duties during the training period that will interfere with
+instruction. Instructors will provide a survey to trainees to evaluate presentation and
+course materials for effective feedback to the City.
+Instructor-Led Training. The selected Contractor shall provide thorough training for the
+designated number of people in the following areas. Contractor shall specify the
+duration for each of these training sessions:
+End-User Training (Up to 75 staff). End-user training will be focused on
+functional positions and workflow processes specific to grant programs and
+fiscal teams. All personnel in a specific functional position will be trained on
+the system's use to meet their needs. To ensure that end users are qualified
+to use the proposed solution, the Contractor shall develop training classes
+during which an instructor shall use software and training guides to teach
+end-to-end system functionality.
+RFP - Goods, Services, & Consultants
+Revised: November 8, 2016
+OCA Document No. 841661_3
+Page 6
+Functional System Administrator Training (Up to 10 staff). Individuals
+responsible for system administration such as configuration, security and
+audit management, system troubleshooting, integration/interface creation,
+and client-defined/maintained functionality.
+External-User Training (Up to 200 non-profit professionals). External training
+will be focused on members of the public who have applied for or previously
+received grant funding to be able to manage their work in the selected
+system.
+4. Support, Documentation & Service Level Requirements
+Proposers are expected to meet the criteria below in addition to what is outlined in Exhibit
+F - IT City Standards and Technical Alignment.
+a) Remote Helpdesk Staff-Support Services
+The Contractor will provide hours of Tier One and Tier Two Help Desk support while
+remotely utilizing existing resources to handle all software related user questions as
+well as to provide remote diagnostics. These resources will be available Monday
+through Friday, 8:00 a.m. to 6:00 p.m. (PT), excluding federal holidays. Calls relating
+to how to use the application will be reconciled by Tier One Help Desk support. Tier
+Two support will be an escalation resource for more complex problems not easily
+solved by Tier One support. Remote resources will be available to both internal and
+external users. Experience working with nonprofit organizations is desirable.
+Contractors should include detailed support service levels, including initial response
+times and average resolutions times as part of their proposal.
+b) Uptime Availability
+Contractor will warrant that the SaaS solution will be available to be accessed by the
+City at least 99.9% (Uptime Availability) of each calendar month during the Service
+Period.
+1. Uptime Availability Remuneration. Where Contractor fails to meet the Uptime
+Availability Service Level, then City is entitled to claim the following prorated
+Service Credits against the annual Subscription Fee:
+≥ 99.7% but <99.9% = 10% of prorated monthly Subscription Fee.
+≥ 99.5% but <99.7% = 15% of prorated monthly Subscription Fee.
+< 99.5% = 25% of prorated monthly Subscription Fee.
+2. Service Credits Calculation. Uptime Availability will be calculated monthly by
+Proposer and such calculation will be deemed binding on the parties in absence of
+manifest error. Uptime availability is calculated based on the following formula:
+UA = (T - M - D) / (T - M) X 100% where UA = Uptime Availability, T = Total
+Monthly Minutes, M = Schedule Maintenance Minutes, and D = Downtime
+Minutes. When calculating any service level, any failure to meet the Service Level
+that is directly or indirectly caused by any one or more of the following items
+shall not constitute a failure of the Service Level:
+i. Scheduled Maintenance;
+RFP - Goods, Services, & Consultants
+Revised: November 8, 2016
+OCA Document No. 841661_3
+Page 7
+ii. Any unlawful, negligent or willful act or omission by City, City's Agents,
+contractors or invitees or any other person; and
+iii. Any Force Majeure event.
+3. Scheduled Maintenance. Before scheduling any system downtime, Contractor will
+inquire with the City about the timing and only schedule the downtime upon
+reaching agreement with the City about the time and duration.
+4. Hosting Facility Services. Contractor assumes all responsibility for the computing
+environment supporting the hosted applications.
+5. Application Administration. Applications provided under this agreement will be
+the responsibility of Contractor. Contractor will own and manage the application,
+related databases, supporting computing hardware, and necessary operating
+systems.
+6. Application Recovery. Contractor will provide the following recovery services:
+i.
+Hosting Infrastructure and environment recovery processes;
+ii.
+Application recovery processes; and
+iii.
+Offsite data backup storage and periodic testing of data backups.
+7. Network Services. Contractor is responsible for providing adequate network
+infrastructure to meet the performance metrics specified in this Agreement. City
+is responsible for providing adequate internal network infrastructure so as to not
+affect the Contractor's ability to meet those performance metrics. City is
+responsible for the support, maintenance, and monitoring of the City's dedicated
+LAN and or WAN. Contractor bears no responsibility for performance and
+availability problems on networks within the City's control.
+c) Ongoing Support
+Ongoing support and maintenance should be explained, both for the programmatic
+and technical (IT) user perspective. Upgrade schedules, bug testing, and ongoing
+requirements for City staff or systems users should be explained. Time commitments
+and frequency of staffing needs should be clearly outlined. Proposal should clearly
+outline what system, if any, internal and external users would be required to adhere
+to in order to seek support using the system. Any additional opportunities and
+associated costs such as community user groups, conferences, or other training
+opportunities to learn and adopt best practices or maximize utilization of the system
+should be provided as part of the proposal.
+d) Software Support and Warranty
+The City is exclusively interested in implementing a SaaS solution. Maintenance and
+support shall be included in the contract between the selected Proposer and the City.
+Maintenance support will not commence until the application has been placed in
+production and accepted by the City in writing. Maintenance support must provide
+ongoing system support and maintenance, including upgrades, bug fixes, and
+patches, as well as other technical support necessary for City staff to operate the
+solution, including help desk support on general system use, configuration settings,
+reporting, etc.
+The Contractor shall warranty the entire solution/system for the duration of the
+contract terms from the date the City fully accepts it.
+RFP - Goods, Services, & Consultants
+Revised: November 8, 2016
+OCA Document No. 841661_3
+Page 8
+e) Software/System Documentation
+The selected Proposer will provide detailed system and user documentation to City
+staff responsible for the operation and support of the system. The selected Proposer
+shall provide the City with digital, searchable technical and user manuals. The
+selected Proposer will also provide the City with complete digital, searchable system
+implementation documentation concerning installation, configuration, testing,
+interfaces, and data conversion. The selected Proposer shall also provide PDF copies
+of all relevant documentation and unlimited downloads of updated copies of the
+information.
+The selected Proposer shall provide system documents that describe all software in
+sufficient technical and functional detail no later than the go-live date so City
+personnel can use this information to maintain the system and resolve identified
+problems.
+5. SaaS Functional Requirements
+Detailed specifications can be found in the attached Exhibit E - - Grant Management System
+Requirements Matrix. The City does not expect a single solution to meet all the
+requirements. The Proposer must indicate in their submission of the Exhibit E scores for
+each requirement as defined in Table 1: Requirements Scoring Rubric:
+Table 1: Requirements Scoring Rubric
+Score
+Description
+o
+Cannot be provided/accommodated
+1
+Supported via a third-party solution
+2
+Can be achieved with customization of software that changes the source code
+of the system or is anticipated in a future release
+3
+Can be achieved but requires configuration by the vendor
+4
+Out of the box configurable by City staff
+Proposers may use the "Vendor/Proposer Notes" column in Exhibit E to provide additional or
+clarifying information.
+For the section below, any mention of internal users would be City staff with an email
+domain consistent with the City. External users are either: users applying for or managing (if
+awarded) grant funding from EDD OR evaluators that are reviewing funding applications.
+Contractor is not required to meet all of the requirements listed in Exhibit E; however, the
+Contractor must meet the following functionality items:
+a) Application Intake & Management (external and internal users).
+1. The initiation of a competitive grant agreement with the EDD typically begins
+with an application from an external user. A necessary feature of the grant
+management solution is an application functionality within the system that has
+multiple stages as part of the workflow and the ability to handle multiple intake
+processes for separate grant programs.
+i.
+For some programs, the application is split into two phases: First Phase
+Request for Qualifications (RFQs) - Organizations will need to upload secure
+data for review including Audited Financial Statements and other PDFs. The
+SaaS solution shall have a document repository functionality with the
+ability to store the uploaded information (i.e., general profile information,
+RFP - Goods, Services, & Consultants
+Revised: November 8, 2016
+OCA Document No. 841661_3
+Page 9
+current Board of Directors, address, census tract, relevant staff members
+and other as needed information) for future reference. The function of the
+RFQ is to create a baseline of information that can be built on throughout
+the rest of the grant workflow.
+ii.
+Second Phase Multi-Step Internal Review - The SaaS solution shall have
+the capacity for the RFQs to be assigned to different reviewers for a two-
+phase review. SaaS functionality shall include the ability to leave comments,
+answer specific questions and advance the application to the next step for
+review and/or advance the application to the next phase of the application
+process.
+2. Once applicants are deemed qualified, applicants are then invited to submit a
+Request for Proposal (RFP). Throughout the RFP application process, the SaaS
+solution shall have the ability to host multiple external users from the same
+organization, and the users shall be able to log in to the system to work on the
+same application, concurrently. For single step competitive grant programs,
+applications begin at this phase (without the RFQ process).
+3. Organizations must be able to manage organizational data, including:
+identification of one authorized user who has the authority to submit the RFQ,
+RFP, and any monthly reports. Typically, the process to determine the authorized
+signatory is conducted outside of the system. The SaaS solution shall be able to be
+updated to reflect that only one person may submit. If changes need to be made,
+authorized signatory should be able to change with a request from the
+organization. Other organizational data to be maintained and managed would be
+user access associated with the organization and organization-wide documents
+such as IRS-exemption letters, audited financials, etc.
+4. The SaaS shall have a grant application module or template that different
+programs can work with to build the narrative questions of each application that
+may differ between programs and then also between grant cycles or years. Key
+data points from the RFQ stage of the grant life cycle should be able to be pulled
+into the RFP stage of the life cycle.
+5. The SaaS solution shall be able to intake a variety of data formats (long text, short
+text, dropdown, numerical, currency, date, etc.) with the ability to associate and
+report on data based on any configured field, whether out-of-the-box or
+customized.
+6. The SaaS solution shall be able to move an application through various stages of
+review (i.e., RFQ to RFP to external review) and allow for external reviewers to take
+part in the established workflow. Depending on the application type, external
+reviewers may be City staff or users without a City domain email address.
+7. SaaS shall have the capability to record application scores in the system and
+support different scoring rubrics for different programs.
+8. SaaS shall have the ability to automatically tally and average scores based on
+scores provided by individual reviewers.
+iii.
+On certain applications, the scores will need to include the points allocated
+during an internal staff review score as well.
+b) Document Management
+1. The SaaS solution shall retain any and all documents uploaded as a part of the
+grant life cycle. Additionally, updated documentation may be required during
+project execution. Any contract compliance documentation can be uploaded into
+the project view. If there are multiple projects for one organization, documents
+are able to be sectioned out by project.
+RFP - Goods, Services, & Consultants
+Revised: November 8, 2016
+OCA Document No. 841661_3
+Page 10
+2. Reports such as scoring results and records audits shall be exportable as pdfs or
+other documents directly from the system for transparency with the public and
+other stakeholders.
+3. Within the reporting functionality, external users will be able to upload
+attachments by budget category or within financial functionality of the system
+(can require documentation be submitted for each category).
+4. Upload individual documents at any/multiple points in a workflow and combined
+files in the following formats: pdf, jpeg or other image, video, .docx, .xlsx, .pptx
+5. The SaaS solution shall allow document downloading in a public-friendly format
+and manner for records retention. Documents must be able to be retained in the
+system according to EDD's document retention policy.
+6. The SaaS solution shall support a document library where clients can download
+latest cover sheets, instructions, reference guides, contract documents, videos and
+other system support materials and where internal users can update and replace
+documents with most recent versions.
+7. The SaaS solution shall have the ability to host a directory of templates for
+downloading by external users and templates that can be updated by certain
+designated users.
+c) Financial and Billing Functions
+1. The SaaS solution must have functionality to receive monthly requests for
+reimbursements from awarded organizations. These requests would consist of a
+combination of user provided data and uploading supporting materials to justify
+the reimbursement request, track expenditures across budget categories, and
+make budget adjustments as needed.
+2. The SaaS solution shall allow internal users to flag budget category discrepancies,
+allows external users to correct and resubmit materials, and will correctly
+recalculate new totals based off of the finalized information.
+3. The SaaS solution shall allow budget adjustments by user type and notify client on
+status of request. Allows changes to numerical budget field and corresponding
+narrative fields.
+4. Allows customizable fiscal review workflow depending on program type.
+5. The SaaS solution shall have the functionality to generate an invoice, including
+the invoice date and allow ability for internal user to add custom data fields to
+capture necessary invoice details. Vendor system must be able to interface with
+the City's SAP/FICA system.
+d) Reporting and Compliance
+1. The SaaS solution shall generate real time budget to actual expenditures;
+remaining balance, projected spend and tracks burn rate or percentage of budget
+utilized.
+2. The SaaS solution shall have the functionality to create visual analytics reports
+(pie charts, bar grafts, trend lines) that can be changed at the individual user level
+based on a variety of data fields (organization-wide, program-wide, etc.) that can
+be exported to PowerPoint, Word, and Adobe.
+3. The SaaS solution shall allow internal users to see real-time data with ability to
+customize what data is shown. Shows financial reporting across all approved
+grants for a program by fiscal year, by contract, organization, or vendor.
+4. The SaaS solution shall have the ability for an external grant recipient to initiate a
+workflow request (such as budget revision, etc.) with communications captured
+within the record audit.
+RFP - Goods, Services, & Consultants
+Revised: November 8, 2016
+OCA Document No. 841661_3
+Page 11
+5. The SaaS solution shall have audit log functionality that complies with Federal
+funding guidelines and regulations (specifically HUD).
+6. The SaaS solution shall provide City staff and auditors with the ability to view log
+of changes made to a record.
+7. The SaaS solution shall be able to pull report of all emails related to a project,
+program, organization or systemwide.
+e) Integration & Data Migration
+1. The SaaS solution shall have the capacity to integrate with relevant City/HUD
+supported systems. Ideally the SaaS solution will integrate with ArcGIS, IDIS, SAP,
+and OKTA. Contractors should provide in requirements response which
+integrations are out-of-the-box and which require customization.
+2. Sources of data that need to be migrated into the selected system include, but are
+not limited to, individual project files hosted in Microsoft SharePoint, Seamless
+Docs and Salesforce backed programs.
+3. Proposals shall include the necessary process for migrating the grant data and
+files from the existing systems. This includes indexing and integrating existing
+content into the new system and the process any requirements to customize or
+design the navigation structure.
+4. Contractor can provide specialized project management and guidance on
+appropriate approach to integrating the data, including estimated timelines. EDD
+fiscal staff and IT will be available to liaise with selected contractor following
+procurement in order to ensure all City standards are met.
+f) User Roles & System Administration
+1. The SaaS solution shall be able to support a variety of user roles from view-only
+to full system access. User roles should be able to be designated at a specific
+record type level. Proposing contractors should detail how user roles are set up
+and what levels and kinds of access (i.e.,- fiscal transaction changes, delete
+records, change fields) can be restricted at what level of user role.
+2. Testing grant applications, scoring rubrics and workflows before each funding
+opportunity is made available shall be achievable with internal users.
+3. The SaaS solution shall support the ability for external users to be able to apply
+for multiple programs of funding and be able to see information across programs
+based on their user role.
+4. The SaaS solution shall provide an ability for communication within the system
+between internal and external users that are part of the audit trail.
+5. The SaaS solution shall have the ability to send email notifications to users
+throughout the grant life cycle (automated or manual). Automated examples
+include deadlines to submit information, expiration of organizational documents
+(e.g.- insurance)
+i.
+The SaaS solution shall have error functions that will stop a workflow from
+moving forward. Example would be a non-designated user attempting to
+submit a request for reimbursement.
+ii.
+The SaaS solution shall have functionality to assign or re-assign tasks in
+bulk from one user to another for a given period of time or to transfer all
+tasks permanently from one user to another.
+6. Technical Requirements
+The Proposer must complete Exhibit F - IT City Standards and Technical Alignment.
+RFP - Goods, Services, & Consultants
+Revised: November 8, 2016
+OCA Document No. 841661_3
+Page 12
+7. Licensing Requirements
+The Proposer should detail how licenses are deployed within the proposed SaaS solution and
+should use Exhibit D - Price Proposal to develop the Cost Proposal submission. The following
+licensing requirements shall apply:
+a) System User Software License Agreements. Proposer shall provide a copy of all
+System User software license agreements that they will be requesting the City to
+execute. The license agreements should address all software components
+including third-party software, base system software provided by the Proposer,
+and custom software developed specifically for this project. The software license
+agreements provided should be the actual documents (or exact duplicates) of the
+forms used for this project, not a typical sample document.
+b) Licensing Model. Proposer shall clearly indicate the nature of their Solution's
+licensing model (i.e., Named User, Concurrent User, Flat Subscription, or volume-
+based metrics [e.g., transactions, unlimited 'enterprise' style licensing or named
+licenses]).
+c) License Transfer. Solution licensing must be easily transferred by a City
+administrator, should the need occur (e.g., member of staff leaves the
+organization).
+d) Licensing Volume Changes. Solution must allow the City to increase or decrease
+its licensing requirements through the duration of the contract.
+e) Unused Licensing Volume. Solution must allow the City to 'roll-over' unused
+licensing (e.g., transactions into subsequent contract terms, should the City
+choose to exercise its right to extend the Contract term).
+f) Overage Costs. Solution must clearly describe the circumstances and thresholds (if
+any) under which the City may become liable for overage costs (e.g., exceeding
+bandwidth, storage, transactions, etc.,).
+g) Not-to-Diminish Rights. Any resulting Agreement between the City and Proposer
+will ensure that the functionalities of the Solution purchased, irrespective of
+whether it has been purchased as a set of more than one software product
+supplied as a single price, will be retained for the duration of the Agreement,
+inclusive of any agreed extensions. Any resulting incremental unitary purchases
+of Software will be made against the same Software originally purchased under
+this Agreement.
+h) Third Party Use. Proposer will grant City a non-exclusive license during the
+Contract Term to install and/or execute Solution on machines operated by or for
+City solely to facilitate City's authorized access to and use of the acquired
+Solution. City's primary third-party information technology service providers
+shall have access to and use of the Solution solely to provide support for City's
+RFP - Goods, Services, & Consultants
+Revised: November 8, 2016
+OCA Document No. 841661_3
+Page 13
+internal business use.
+E.
+DATA SECURITY
+Contractor Certification. The contractor certifies that it will always implement and comply
+with the most current City of San Diego Data Security Standards. The contractor will
+immediately notify the City if it undergoes, or has reason to believe that it will undergo, an
+adverse change resulting in the loss of compliance with the City's Data Security Standards.
+Notification Requirements. The contractor shall immediately notify the City's Chief
+Information Security Officer of any breach of the City's Data Security Standards. All
+notifications and required compliance documents regarding Data Security Standards shall be
+sent to:
+Chief Information Security Officer
+1010 2nd Avenue, Suite 500
+San Diego, CA 92101
+Cybersecurity@sandiego.gov
+619-533-4840
+Indemnity. The Contractor shall indemnify and hold harmless the City, its officers, and
+employees from and against any claims, loss, damages, or other harm related to a data
+security breach or the Contractor's failure to maintain compliance with the City of San Diego
+data security standards.
+F.
+DEPARTMENT REPRESENTATIVE. The Department Representative for this Contract
+is identified in the notice of award and is responsible for overseeing and monitoring this
+Contract.
+G.
+ADDITIONAL INSURANCE
+1. Cyber Liability Insurance. The contractor shall provide a copy of all System User software
+license agreements they will request the City to execute. In addition to the requirements of
+Article VII of the City of San Diego's General Contract Terms and Provisions Applicable to
+Goods, Services, and Consultant Contracts, the Contractor shall provide, at its sole cost and
+expense, evidence of Cyber Liability insurance with limits of not less than $1,000,000 for
+each occurrence and an annual aggregate of $2,000,000 covering claims involving privacy
+violations, information theft, damage to or destruction of electronic information, intentional
+and/or unintentional release of private information, alteration of electronic information,
+extortion and network security. Such coverage is required only if any products and/or
+services related to information technology (including hardware and/or software) are
+provided to Insured and for claims involving any professional services for which Contractor
+is engaged with Insured for such length of time as necessary to cover any and all claims.
+2. Professional Liability. The contractor shall obtain Professional Liability coverage with
+limits of at least $1,000,000 per occurrence and $2,000,000 aggregate, covering the risk of
+errors and omissions, negligent acts and costs of claims/litigation, including investigation
+and court costs. If the coverage is written on a "claims-made" form, the Contractor must
+ensure that the policy retroactive date is before the date of the contract is awarded and that
+RFP - Goods, Services, & Consultants
+Revised: November 8, 2016
+OCA Document No. 841661_3
+Page 14
+coverage is maintained during the duration of performance of the contract or the contract
+period (whichever is longer) and the policy has a reporting period or run-off provision of at
+least three (3) years following completion or termination of the performance of professional
+services under this Contract.
+H.
+PRICE SCHEDULE
+Proposers are required to submit their cost proposal in the form and format described
+herein. Failure to provide cost(s) in the form and format requested in Exhibit D - -Price
+Proposal may result in proposal being declared nonresponsive and rejected.
+Exhibits D, E, and F are Excel files posted in PlanetBids and must be completed in their
+entirety.
+RFP - Goods, Services, & Consultants
+Revised: November 8, 2016
+OCA Document No. 841661_3
+Page 15
+EXHIBIT C
+CITY OF THE SAN SEMPER DIEGO VIGILANS STATE OF CALIFORNIA
+THE CITY OF SAN DIEGO
+GENERAL CONTRACT TERMS AND PROVISIONS
+APPLICABLE TO GOODS, SERVICES, AND CONSULTANT CONTRACTS
+General Contract Terms and Provisions
+Revised: January 16, 2020
+OCA Document No. 1685454_2
+Page 1 of 21
+ARTICLE I
+SCOPE AND TERM OF CONTRACT
+1.1
+Scope of Contract. The scope of contract between the City and a provider of goods
+and/or services (Contractor) is described in the Contract Documents. The Contract Documents
+are comprised of the Request for Proposal, Invitation to Bid, or other solicitation document
+(Solicitation); the successful bid or proposal; the letter awarding the contract to Contractor; the
+City's written acceptance of exceptions or clarifications to the Solicitation, if any; and these
+General Contract Terms and Provisions.
+1.2
+Effective Date. A contract between the City and Contractor (Contract) is effective on the
+last date that the contract is signed by the parties and approved by the City Attorney in
+accordance with Charter section 40. Unless otherwise terminated, this Contract is effective until
+it is completed or as otherwise agreed upon in writing by the parties, whichever is the earliest. A
+Contract term cannot exceed five (5) years unless approved by the City Council by ordinance.
+1.3
+Contract Extension. The City may, in its sole discretion, unilaterally exercise an option
+to extend the Contract as described in the Contract Documents. In addition, the City may, in its
+sole discretion, unilaterally extend the Contract on a month-to-month basis following contract
+expiration if authorized under Charter section 99 and the Contract Documents. Contractor shall
+not increase its pricing in excess of the percentage increase described in the Contract.
+ARTICLE II
+CONTRACT ADMINISTRATOR
+2.1
+Contract Administrator. The Purchasing Agent or designee is the Contract
+Administrator for purposes of this Contract, and has the responsibilities described in this
+Contract, in the San Diego Charter, and in Chapter 2, Article 2, Divisions 5, 30, and 32.
+2.1.1 Contractor Performance Evaluations. The Contract Administrator will evaluate
+Contractor's performance as often as the Contract Administrator deems necessary throughout the
+term of the contract. This evaluation will be based on criteria including the quality of goods or
+services, the timeliness of performance, and adherence to applicable laws, including prevailing
+wage and living wage. City will provide Contractors who receive an unsatisfactory rating with a
+copy of the evaluation and an opportunity to respond. City may consider final evaluations,
+including Contractor's response, in evaluating future proposals and bids for contract award.
+2.2
+Notices. Unless otherwise specified, in all cases where written notice is required under
+this Contract, service shall be deemed sufficient if the notice is personally delivered or deposited
+in the United States mail, with first class postage paid, attention to the Purchasing Agent. Proper
+notice is effective on the date of personal delivery or five (5) days after deposit in a United States
+postal mailbox unless provided otherwise in the Contract. Notices to the City shall be sent to:
+General Contract Terms and Provisions
+Revised: January 16, 2020
+OCA Document No. 1685454_2
+Page 2 of 21
+Purchasing Agent
+City of San Diego, Purchasing and Contracting Division
+1200 3rd Avenue, Suite 200
+San Diego, CA 92101-4195
+ARTICLE III
+COMPENSATION
+3.1
+Manner of Payment. Contractor will be paid monthly, in arrears, for goods and/or
+services provided in accordance with the terms and provisions specified in the Contract.
+3.2
+Invoices.
+3.2.1 Invoice Detail. Contractor's invoice must be on Contractor's stationary with
+Contractor's name, address, and remittance address if different. Contractor's invoice must have a
+date, an invoice number, a purchase order number, a description of the goods or services
+provided, and an amount due.
+3.2.2 Service Contracts. Contractor must submit invoices for services to City by the
+10th of the month following the month in which Contractor provided services. Invoices must
+include the address of the location where services were performed and the dates in which
+services were provided.
+3.2.3 Goods Contracts. Contractor must submit invoices for goods to City within
+seven days of the shipment. Invoices must describe the goods provided.
+3.2.4 Parts Contracts. Contractor must submit invoices for parts to City within seven
+calendar (7) days of the date the parts are shipped. Invoices must include the manufacturer of the
+part, manufacturer's published list price, percentage discount applied in accordance with Pricing
+Page(s), the net price to City, and an item description, quantity, and extension.
+3.2.5 Extraordinary Work. City will not pay Contractor for extraordinary work unless
+Contractor receives prior written authorization from the Contract Administrator. Failure to do so
+will result in payment being withheld for services. If approved, Contractor will include an
+invoice that describes the work performed and the location where the work was performed, and a
+copy of the Contract Administrator's written authorization.
+3.2.6 Reporting Requirements. Contractor must submit the following reports using
+the City's web-based contract compliance portal. Incomplete and/or delinquent reports may
+cause payment delays, non-payment of invoice, or both. For questions, please view the City's
+online tutorials on how to utilize the City's web-based contract compliance portal.
+3.2.6.1 Monthly Employment Utilization Reports. Contractor and Contractor's
+subcontractors and suppliers must submit Monthly Employment Utilization Reports by the fifth
+(5th) day of the subsequent month.
+General Contract Terms and Provisions
+Revised: January 16, 2020
+OCA Document No. 1685454_2
+Page 3 of 21
+3.2.6.2 Monthly Invoicing and Payments. Contractor and Contractor's
+subcontractors and suppliers must submit Monthly Invoicing and Payment Reports by the fifth
+(5th) day of the subsequent month.
+3.3
+Annual Appropriation of Funds. Contractor acknowledges that the Contract term may
+extend over multiple City fiscal years, and that work and compensation under this Contract is
+contingent on the City Council appropriating funding for and authorizing such work and
+compensation for those fiscal years. This Contract may be terminated at the end of the fiscal year
+for which sufficient funding is not appropriated and authorized. City is not obligated to pay
+Contractor for any amounts not duly appropriated and authorized by City Council.
+3.4
+Price Adjustments. Based on Contractor's written request and justification, the City may
+approve an increase in unit prices on Contractor's pricing pages consistent with the amount
+requested in the justification in an amount not to exceed the increase in the Consumer Price
+Index, San Diego Area, for All Urban Customers (CPI-U) as published by the Bureau of Labor
+Statistics, or 5.0%, whichever is less, during the preceding one year term. If the CPI-U is a
+negative number, then the unit prices shall not be adjusted for that option year (the unit prices
+will not be decreased). A negative CPI-U shall be counted against any subsequent increases in
+the CPI-U when calculating the unit prices for later option years. Contractor must provide such
+written request and justification no less than sixty days before the date in which City may
+exercise the option to renew the contract, or sixty days before the anniversary date of the
+Contract. Justification in support of the written request must include a description of the basis for
+the adjustment, the proposed effective date and reasons for said date, and the amount of the
+adjustment requested with documentation to support the requested change (e.g. CPI-U or 5.0%,
+whichever is less). City's approval of this request must be in writing.
+ARTICLE IV
+SUSPENSION AND TERMINATION
+4.1
+City's Right to Suspend for Convenience. City may suspend all or any portion of
+Contractor's performance under this Contract at its sole option and for its convenience for a
+reasonable period of time not to exceed six (6) months. City must first give ten (10) days' written
+notice to Contractor of such suspension. City will pay to Contractor a sum equivalent to the
+reasonable value of the goods and/or services satisfactorily provided up to the date of
+suspension. City may rescind the suspension prior to or at six (6) months by providing
+Contractor with written notice of the rescission, at which time Contractor would be required to
+resume performance in compliance with the terms and provisions of this Contract. Contractor
+will be entitled to an extension of time to complete performance under the Contract equal to the
+length of the suspension unless otherwise agreed to in writing by the Parties.
+4.2
+City's Right to Terminate for Convenience. City may, at its sole option and for its
+convenience, terminate all or any portion of this Contract by giving thirty (30) days' written
+notice of such termination to Contractor. The termination of the Contract shall be effective upon
+receipt of the notice by Contractor. After termination of all or any portion of the Contract,
+Contractor shall: (1) immediately discontinue all affected performance (unless the notice directs
+otherwise); and (2) complete any and all additional work necessary for the orderly filing of
+General Contract Terms and Provisions
+Revised: January 16, 2020
+OCA Document No. 1685454_2
+Page 4 of 21
+documents and closing of Contractor's affected performance under the Contract. After filing of
+documents and completion of performance, Contractor shall deliver to City all data, drawings,
+specifications, reports, estimates, summaries, and such other information and materials created or
+received by Contractor in performing this Contract, whether completed or in process. By
+accepting payment for completion, filing, and delivering documents as called for in this section,
+Contractor discharges City of all of City's payment obligations and liabilities under this Contract
+with regard to the affected performance.
+4.3
+City's Right to Terminate for Default. Contractor's failure to satisfactorily perform any
+obligation required by this Contract constitutes a default. Examples of default include a
+determination by City that Contractor has: (1) failed to deliver goods and/or perform the services
+of the required quality or within the time specified; (2) failed to perform any of the obligations of
+this Contract; and (3) failed to make sufficient progress in performance which may jeopardize
+full performance.
+4.3.1 If Contractor fails to satisfactorily cure a default within ten (10) calendar days of
+receiving written notice from City specifying the nature of the default, City may immediately
+cancel and/or terminate this Contract, and terminate each and every right of Contractor, and any
+person claiming any rights by or through Contractor under this Contract.
+4.3.2 If City terminates this Contract, in whole or in part, City may procure, upon such
+terms and in such manner as the Purchasing Agent may deem appropriate, equivalent goods or
+services and Contractor shall be liable to City for any excess costs. Contractor shall also continue
+performance to the extent not terminated.
+4.4
+Termination for Bankruptcy or Assignment for the Benefit of Creditors. If
+Contractor files a voluntary petition in bankruptcy, is adjudicated bankrupt, or makes a general
+assignment for the benefit of creditors, the City may at its option and without further notice to, or
+demand upon Contractor, terminate this Contract, and terminate each and every right of
+Contractor, and any person claiming rights by and through Contractor under this Contract.
+4.5
+Contractor's Right to Payment Following Contract Termination.
+4.5.1 Termination for Convenience. If the termination is for the convenience of City
+an equitable adjustment in the Contract price shall be made. No amount shall be allowed for
+anticipated profit on unperformed services, and no amount shall be paid for an as needed contract
+beyond the Contract termination date.
+4.5.2 Termination for Default. If, after City gives notice of termination for failure to
+fulfill Contract obligations to Contractor, it is determined that Contractor had not so failed, the
+termination shall be deemed to have been effected for the convenience of City. In such event,
+adjustment in the Contract price shall be made as provided in Section 4.3.2. City's rights and
+remedies are in addition to any other rights and remedies provided by law or under this Contract.
+General Contract Terms and Provisions
+Revised: January 16, 2020
+OCA Document No. 1685454_2
+Page 5 of 21
+4.6
+Remedies Cumulative. City's remedies are cumulative and are not intended to be
+exclusive of any other remedies or means of redress to which City may be lawfully entitled in
+case of any breach or threatened breach of any provision of this Contract.
+ARTICLE V
+ADDITIONAL CONTRACTOR OBLIGATIONS
+5.1
+Inspection and Acceptance. The City will inspect and accept goods provided under this
+Contract at the shipment destination unless specified otherwise. Inspection will be made and
+acceptance will be determined by the City department shown in the shipping address of the
+Purchase Order or other duly authorized representative of City.
+5.2
+Responsibility for Lost or Damaged Shipments. Contractor bears the risk of loss or
+damage to goods prior to the time of their receipt and acceptance by City. City has no obligation
+to accept damaged shipments and reserves the right to return damaged goods, at Contractor's
+sole expense, even if the damage was not apparent or discovered until after receipt.
+5.3
+Responsibility for Damages. Contractor is responsible for all damage that occurs as a
+result of Contractor's fault or negligence or that of its' employees, agents, or representatives in
+connection with the performance of this Contract. Contractor shall immediately report any such
+damage to people and/or property to the Contract Administrator.
+5.4
+Delivery. Delivery shall be made on the delivery day specified in the Contract
+Documents. The City, in its sole discretion, may extend the time for delivery. The City may
+order, in writing, the suspension, delay or interruption of delivery of goods and/or services.
+5.5
+Delay. Unless otherwise specified herein, time is of the essence for each and every
+provision of the Contract. Contractor must immediately notify City in writing if there is, or it is
+anticipated that there will be, a delay in performance. The written notice must explain the cause
+for the delay and provide a reasonable estimate of the length of the delay. City may terminate
+this Contract as provided herein if City, in its sole discretion, determines the delay is material.
+5.5.1 If a delay in performance is caused by any unforeseen event(s) beyond the control
+of the parties, City may allow Contractor to a reasonable extension of time to complete
+performance, but Contractor will not be entitled to damages or additional compensation. Any
+such extension of time must be approved in writing by City. The following conditions may
+constitute such a delay: war; changes in law or government regulation; labor disputes; strikes;
+fires, floods, adverse weather or other similar condition of the elements necessitating cessation of
+the performance; inability to obtain materials, equipment or labor; or other specific reasons
+agreed to between City and Contractor. This provision does not apply to a delay caused by
+Contractor's acts or omissions. Contractor is not entitled to an extension of time to perform if a
+delay is caused by Contractor's inability to obtain materials, equipment, or labor unless City has
+received, in a timely manner, documentary proof satisfactory to City of Contractor's inability to
+obtain materials, equipment, or labor, in which case City's approval must be in writing.
+General Contract Terms and Provisions
+Revised: January 16, 2020
+OCA Document No. 1685454_2
+Page 6 of 21
+5.6
+Restrictions and Regulations Requiring Contract Modification. Contractor shall
+immediately notify City in writing of any regulations or restrictions that may or will require
+Contractor to alter the material, quality, workmanship, or performance of the goods and/or
+services to be provided. City reserves the right to accept any such alteration, including any
+resulting reasonable price adjustments, or to cancel the Contract at no expense to the City.
+5.7
+Warranties. All goods and/or services provided under the Contract must be warranted by
+Contractor or manufacturer for at least twelve (12) months after acceptance by City, except
+automotive equipment. Automotive equipment must be warranted for a minimum of 12,000
+miles or 12 months, whichever occurs first, unless otherwise stated in the Contract. Contractor is
+responsible to City for all warranty service, parts, and labor. Contractor is required to ensure that
+warranty work is performed at a facility acceptable to City and that services, parts, and labor are
+available and provided to meet City's schedules and deadlines. Contractor may establish a
+warranty service contract with an agency satisfactory to City instead of performing the warranty
+service itself. If Contractor is not an authorized service center and causes any damage to
+equipment being serviced, which results in the existing warranty being voided, Contractor will
+be liable for all costs of repairs to the equipment, or the costs of replacing the equipment with
+new equipment that meets City's operational needs.
+5.8
+Industry Standards. Contractor shall provide goods and/or services acceptable to City in
+strict conformance with the Contract. Contractor shall also provide goods and/or services in
+accordance with the standards customarily adhered to by an experienced and competent provider
+of the goods and/or services called for under this Contract using the degree of care and skill
+ordinarily exercised by reputable providers of such goods and/or services. Where approval by
+City, the Mayor, or other representative of City is required, it is understood to be general
+approval only and does not relieve Contractor of responsibility for complying with all applicable
+laws, codes, policies, regulations, and good business practices.
+5.9
+Records Retention and Examination. Contractor shall retain, protect, and maintain in
+an accessible location all records and documents, including paper, electronic, and computer
+records, relating to this Contract for five (5) years after receipt of final payment by City under
+this Contract. Contractor shall make all such records and documents available for inspection,
+copying, or other reproduction, and auditing by authorized representatives of City, including the
+Purchasing Agent or designee. Contractor shall make available all requested data and records at
+reasonable locations within City or County of San Diego at any time during normal business
+hours, and as often as City deems necessary. If records are not made available within the City or
+County of San Diego, Contractor shall pay City's travel costs to the location where the records
+are maintained and shall pay for all related travel expenses. Failure to make requested records
+available for inspection, copying, or other reproduction, or auditing by the date requested may
+result in termination of the Contract. Contractor must include this provision in all subcontracts
+made in connection with this Contract.
+General Contract Terms and Provisions
+Revised: January 16, 2020
+OCA Document No. 1685454_2
+Page 7 of 21
+5.9.1 Contractor shall maintain records of all subcontracts entered into with all firms, all
+project invoices received from Subcontractors and Suppliers, all purchases of materials and
+services from Suppliers, and all joint venture participation. Records shall show name, telephone
+number including area code, and business address of each Subcontractor and Supplier, and joint
+venture partner, and the total amount actually paid to each firm. Project relevant records,
+regardless of tier, may be periodically reviewed by the City.
+5.10 Quality Assurance Meetings. Upon City's request, Contractor shall schedule one or
+more quality assurance meetings with City's Contract Administrator to discuss Contractor's
+performance. If requested, Contractor shall schedule the first quality assurance meeting no later
+than eight (8) weeks from the date of commencement of work under the Contract. At the quality
+assurance meeting(s), City's Contract Administrator will provide Contractor with feedback, will
+note any deficiencies in Contract performance, and provide Contractor with an opportunity to
+address and correct such deficiencies. The total number of quality assurance meetings that may
+be required by City will depend upon Contractor's performance.
+5.11 Duty to Cooperate with Auditor. The City Auditor may, in his sole discretion, at no
+cost to the City, and for purposes of performing his responsibilities under Charter section 39.2,
+review Contractor's records to confirm contract compliance. Contractor shall make reasonable
+efforts to cooperate with Auditor's requests.
+5.12 Safety Data Sheets. If specified by City in the solicitation or otherwise required by this
+Contract, Contractor must send with each shipment one (1) copy of the Safety Data Sheet (SDS)
+for each item shipped. Failure to comply with this procedure will be cause for immediate
+termination of the Contract for violation of safety procedures.
+5.13 Project Personnel. Except as formally approved by the City, the key personnel identified
+in Contractor's bid or proposal shall be the individuals who will actually complete the work.
+Changes in staffing must be reported in writing and approved by the City.
+5.13.1 Criminal Background Certification. Contractor certifies that all employees
+working on this Contract have had a criminal background check and that said employees are
+clear of any sexual and drug related convictions. Contractor further certifies that all employees
+hired by Contractor or a subcontractor shall be free from any felony convictions.
+5.13.2 Photo Identification Badge. Contractor shall provide a company photo
+identification badge to any individual assigned by Contractor or subcontractor to perform
+services or deliver goods on City premises. Such badge must be worn at all times while on City
+premises. City reserves the right to require Contractor to pay fingerprinting fees for personnel
+assigned to work in sensitive areas. All employees shall turn in their photo identification badges
+to Contractor upon completion of services and prior to final payment of invoice.
+5.14 Standards of Conduct. Contractor is responsible for maintaining standards of employee
+competence, conduct, courtesy, appearance, honesty, and integrity satisfactory to the City.
+General Contract Terms and Provisions
+Revised: January 16, 2020
+OCA Document No. 1685454_2
+Page 8 of 21
+5.14.1 Supervision. Contractor shall provide adequate and competent supervision at all
+times during the Contract term. Contractor shall be readily available to meet with the City.
+Contractor shall provide the telephone numbers where its representative(s) can be reached.
+5.14.2 City Premises. Contractor's employees and agents shall comply with all City
+rules and regulations while on City premises.
+5.14.3 Removal of Employees. City may request Contractor immediately remove from
+assignment to the City any employee found unfit to perform duties at the City. Contractor shall
+comply with all such requests.
+5.15 Licenses and Permits. Contractor shall, without additional expense to the City, be
+responsible for obtaining any necessary licenses, permits, certifications, accreditations, fees and
+approvals for complying with any federal, state, county, municipal, and other laws, codes, and
+regulations applicable to Contract performance. This includes, but is not limited to, any laws or
+regulations requiring the use of licensed contractors to perform parts of the work.
+5.16 Contractor and Subcontractor Registration Requirements. Prior to the award of the
+Contract or Task Order, Contractor and Contractor's subcontractors and suppliers must register
+with the City's web-based vendor registration and bid management system. The City may not
+award the Contract until registration of all subcontractors and suppliers is complete. In the event
+this requirement is not met within the time frame specified by the City, the City reserves the right
+to rescind the Contract award and to make the award to the next responsive and responsible
+proposer of bidder.
+ARTICLE VI
+INTELLECTUAL PROPERTY RIGHTS
+6.1
+Rights in Data. If, in connection with the services performed under this Contract,
+Contractor or its employees, agents, or subcontractors, create artwork, audio recordings,
+blueprints, designs, diagrams, documentation, photographs, plans, reports, software, source code,
+specifications, surveys, system designs, video recordings, or any other original works of
+authorship, whether written or readable by machine (Deliverable Materials), all rights of
+Contractor or its subcontractors in the Deliverable Materials, including, but not limited to
+publication, and registration of copyrights, and trademarks in the Deliverable Materials, are the
+sole property of City. Contractor, including its employees, agents, and subcontractors, may not
+use any Deliverable Material for purposes unrelated to Contractor's work on behalf of the City
+without prior written consent of City. Contractor may not publish or reproduce any Deliverable
+Materials, for purposes unrelated to Contractor's work on behalf of the City, without the prior
+written consent of the City.
+6.2
+Intellectual Property Rights Assignment. For no additional compensation, Contractor
+hereby assigns to City all of Contractor's rights, title, and interest in and to the content of the
+Deliverable Materials created by Contractor or its employees, agents, or subcontractors,
+including copyrights, in connection with the services performed under this Contract. Contractor
+General Contract Terms and Provisions
+Revised: January 16, 2020
+OCA Document No. 1685454_2
+Page 9 of 21
+shall promptly execute and deliver, and shall cause its employees, agents, and subcontractors to
+promptly execute and deliver, upon request by the City or any of its successors or assigns at any
+time and without further compensation of any kind, any power of attorney, assignment,
+application for copyright, patent, trademark or other intellectual property right protection, or
+other papers or instruments which may be necessary or desirable to fully secure, perfect or
+otherwise protect to or for the City, its successors and assigns, all right, title and interest in and to
+the content of the Deliverable Materials. Contractor also shall cooperate and assist in the
+prosecution of any action or opposition proceeding involving such intellectual property rights
+and any adjudication of those rights.
+6.3
+Contractor Works. Contractor Works means tangible and intangible information and
+material that: (a) had already been conceived, invented, created, developed or acquired by
+Contractor prior to the effective date of this Contract; or (b) were conceived, invented, created,
+or developed by Contractor after the effective date of this Contract, but only to the extent such
+information and material do not constitute part or all of the Deliverable Materials called for in
+this Contract. All Contractor Works, and all modifications or derivatives of such Contractor
+Works, including all intellectual property rights in or pertaining to the same, shall be owned
+solely and exclusively by Contractor.
+6.4
+Subcontracting. In the event that Contractor utilizes a subcontractor(s) for any portion
+of the work that comprises the whole or part of the specified Deliverable Materials to the City,
+the agreement between Contractor and the subcontractor shall include a statement that identifies
+the Deliverable Materials as a "works for hire" as described in the United States Copyright Act
+of 1976, as amended, and that all intellectual property rights in the Deliverable Materials,
+whether arising in copyright, trademark, service mark or other forms of intellectual property
+rights, belong to and shall vest solely with the City. Further, the agreement between Contractor
+and its subcontractor shall require that the subcontractor, if necessary, shall grant, transfer, sell
+and assign, free of charge, exclusively to City, all titles, rights and interests in and to the
+Deliverable Materials, including all copyrights, trademarks and other intellectual property rights.
+City shall have the right to review any such agreement for compliance with this provision.
+6.5
+Intellectual Property Warranty and Indemnification. Contractor represents and
+warrants that any materials or deliverables, including all Deliverable Materials, provided under
+this Contract are either original, or not encumbered, and do not infringe upon the copyright,
+trademark, patent or other intellectual property rights of any third party, or are in the public
+domain. If Deliverable Materials provided hereunder become the subject of a claim, suit or
+allegation of copyright, trademark or patent infringement, City shall have the right, in its sole
+discretion, to require Contractor to produce, at Contractor's own expense, new non-infringing
+materials, deliverables or works as a means of remedying any claim of infringement in addition
+to any other remedy available to the City under law or equity. Contractor further agrees to
+indemnify, defend, and hold harmless the City, its officers, employees and agents from and
+against any and all claims, actions, costs, judgments or damages, of any type, alleging or
+threatening that any Deliverable Materials, supplies, equipment, services or works provided
+under this contract infringe the copyright, trademark, patent or other intellectual property or
+proprietary rights of any third party (Third Party Claim of Infringement). If a Third Party Claim
+General Contract Terms and Provisions
+Revised: January 16, 2020
+OCA Document No. 1685454_2
+Page 10 of 21
+of Infringement is threatened or made before Contractor receives payment under this Contract,
+City shall be entitled, upon written notice to Contractor, to withhold some or all of such
+payment.
+6.6
+Software Licensing. Contractor represents and warrants that the software, if any, as
+delivered to City, does not contain any program code, virus, worm, trap door, back door, time or
+clock that would erase data or programming or otherwise cause the software to become
+inoperable, inaccessible, or incapable of being used in accordance with its user manuals, either
+automatically, upon the occurrence of licensor-selected conditions or manually on command.
+Contractor further represents and warrants that all third party software, delivered to City or used
+by Contractor in the performance of the Contract, is fully licensed by the appropriate licensor.
+6.7
+Publication. Contractor may not publish or reproduce any Deliverable Materials, for
+purposes unrelated to Contractor's work on behalf of the City without prior written consent from
+the City.
+6.8
+Royalties, Licenses, and Patents. Unless otherwise specified, Contractor shall pay all
+royalties, license, and patent fees associated with the goods that are the subject of this
+solicitation. Contractor warrants that the goods, materials, supplies, and equipment to be supplied
+do not infringe upon any patent, trademark, or copyright, and further agrees to defend any and all
+suits, actions and claims for infringement that are brought against the City, and to defend,
+indemnify and hold harmless the City, its elected officials, officers, and employees from all
+liability, loss and damages, whether general, exemplary or punitive, suffered as a result of any
+actual or claimed infringement asserted against the City, Contractor, or those furnishing goods,
+materials, supplies, or equipment to Contractor under the Contract.
+ARTICLE VII
+INDEMNIFICATION AND INSURANCE
+7.1
+Indemnification. To the fullest extent permitted by law, Contractor shall defend (with
+legal counsel reasonably acceptable to City), indemnify, protect, and hold harmless City and its
+elected officials, officers, employees, agents, and representatives (Indemnified Parties) from and
+against any and all claims, losses, costs, damages, injuries (including, without limitation, injury
+to or death of an employee of Contractor or its subcontractors), expense, and liability of every
+kind, nature and description (including, without limitation, incidental and consequential
+damages, court costs, and litigation expenses and fees of expert consultants or expert witnesses
+incurred in connection therewith and costs of investigation) that arise out of, pertain to, or relate
+to, directly or indirectly, in whole or in part, any goods provided or performance of services
+under this Contract by Contractor, any subcontractor, anyone directly or indirectly employed by
+either of them, or anyone that either of them control. Contractor's duty to defend, indemnify,
+protect and hold harmless shall not include any claims or liabilities arising from the sole
+negligence or willful misconduct of the Indemnified Parties.
+7.2
+Insurance. Contractor shall procure and maintain for the duration of the contract
+insurance against claims for injuries to persons or damages to property which may arise from or
+General Contract Terms and Provisions
+Revised: January 16, 2020
+OCA Document No. 1685454_2
+Page 11 of 21
+in connection with the performance of the work hereunder and the results of that work by
+Contractor, his agents, representatives, employees or subcontractors.
+Contractor shall provide, at a minimum, the following:
+7.2.1 Commercial General Liability. Insurance Services Office Form CG 00 01
+covering CGL on an "occurrence" basis, including products and completed operations, property
+damage, bodily injury, and personal and advertising injury with limits no less than $1,000,000
+per occurrence. If a general aggregate limit applies, either the general aggregate limit shall apply
+separately to this project/location (ISO CG 25 03 or 25 04) or the general aggregate limit shall be
+twice the required occurrence limit.
+7.2.2 Commercial Automobile Liability. Insurance Services Office Form Number
+CA 0001 covering Code 1 (any auto) or, if Contractor has no owned autos, Code 8 (hired) and 9
+(non-owned), with limit no less than $1,000,000 per accident for bodily injury and property
+damage.
+7.2.3 Workers' Compensation. Insurance as required by the State of California, with
+Statutory Limits, and Employer's Liability Insurance with limit of no less than $1,000,000 per
+accident for bodily injury or disease.
+7.2.4 Professional Liability (Errors and Omissions). For consultant contracts,
+insurance appropriate to Consultant's profession, with limit no less than $1,000,000 per
+occurrence or claim, $2,000,000 aggregate.
+If Contractor maintains broader coverage and/or higher limits than the minimums shown above,
+City requires and shall be entitled to the broader coverage and/or the higher limits maintained by
+Contractor. Any available insurance proceeds in excess of the specified minimum limits of
+insurance and coverage shall be available to City.
+7.2.5 Other Insurance Provisions. The insurance policies are to contain, or be
+endorsed to contain, the following provisions:
+7.2.5.1 Additional Insured Status. The City, its officers, officials, employees,
+and volunteers are to be covered as additional insureds on the CGL policy with respect to
+liability arising out of work or operations performed by or on behalf of Contractor including
+materials, parts, or equipment furnished in connection with such work or operations. General
+liability coverage can be provided in the form of an endorsement to Contractor's insurance (at
+least as broad as ISO Form CG 20 10 11 85 or if not available, through the addition of both CG
+20 10, CG 20 26, CG 20 33, or CG 20 38; and CG 20 37 if a later edition is used).
+General Contract Terms and Provisions
+Revised: January 16, 2020
+OCA Document No. 1685454_2
+Page 12 of 21
+7.2.5.2 Primary Coverage. For any claims related to this contract,
+Contractor's insurance coverage shall be primary coverage at least as broad as ISO CG 20 01 04
+13 as respects the City, its officers, officials, employees, and volunteers. Any insurance or self-
+insurance maintained by City, its officers, officials, employees, or volunteers shall be excess of
+Contractor's insurance and shall not contribute with it.
+7.2.5.3 Notice of Cancellation. Each insurance policy required above shall
+provide that coverage shall not be canceled, except with notice to City.
+7.2.5.4 Waiver of Subrogation. Contractor hereby grants to City a waiver of
+any right to subrogation which the Workers' Compensation insurer of said Contractor may
+acquire against City by virtue of the payment of any loss under such insurance. Contractor agrees
+to obtain any endorsement that may be necessary to affect this waiver of subrogation, but this
+provision applies regardless of whether or not the City has received a waiver of subrogation
+endorsement from the insurer.
+7.2.5.5 Claims Made Policies (applicable only to professional liability). The
+Retroactive Date must be shown, and must be before the date of the contract or the beginning of
+contract work. Insurance must be maintained and evidence of insurance must be provided for at
+least five (5) years after completion of the contract of work. If coverage is canceled or non-
+renewed, and not replaced with another claims-made policy form with a Retroactive Date prior
+to the contract effective date, Contractor must purchase "extended reporting" coverage for a
+minimum of five (5) years after completion of work.
+7.3
+Self Insured Retentions. Self-insured retentions must be declared to and approved by
+City. City may require Contractor to purchase coverage with a lower retention or provide proof
+of ability to pay losses and related investigations, claim administration, and defense expenses
+within the retention. The policy language shall provide, or be endorsed to provide, that the self-
+insured retention may be satisfied by either the named insured or City.
+7.4
+Acceptability of Insurers. Insurance is to be placed with insurers with a current A.M.
+Best's rating of no less than A-VI, unless otherwise acceptable to City.
+City will accept insurance provided by non-admitted, "surplus lines" carriers only if the carrier is
+authorized to do business in the State of California and is included on the List of Approved
+Surplus Lines Insurers (LASLI list). All policies of insurance carried by non-admitted carriers
+are subject to all of the requirements for policies of insurance provided by admitted carriers
+described herein.
+7.5
+Verification of Coverage. Contractor shall furnish City with original certificates and
+amendatory endorsements or copies of the applicable policy language effecting coverage
+required by this clause. All certificates and endorsements are to be received and approved by
+City before work commences. However, failure to obtain the required documents prior to the
+work beginning shall not waive Contractor's obligation to provide them. City reserves the right
+to require complete, certified copies of all required insurance policies, including endorsements
+required by these specifications, at any time.
+General Contract Terms and Provisions
+Revised: January 16, 2020
+OCA Document No. 1685454_2
+Page 13 of 21
+7.6
+Special Risks or Circumstances. City reserves the right to modify these requirements,
+including limits, based on the nature of the risk, prior experience, insurer, coverage, or other
+special circumstances.
+7.7
+Additional Insurance. Contractor may obtain additional insurance not required by this
+Contract.
+7.8
+Excess Insurance. All policies providing excess coverage to City shall follow the form
+of the primary policy or policies including but not limited to all endorsements.
+7.9
+Subcontractors. Contractor shall require and verify that all subcontractors maintain
+insurance meeting all the requirements stated herein, and Contractor shall ensure that City is an
+additional insured on insurance required from subcontractors. For CGL coverage, subcontractors
+shall provide coverage with a format at least as broad as the CG 20 38 04 13 endorsement.
+ARTICLE VIII
+BONDS
+8.1
+Payment and Performance Bond. Prior to the execution of this Contract, City may
+require Contractor to post a payment and performance bond (Bond). The Bond shall guarantee
+Contractor's faithful performance of this Contract and assure payment to contractors,
+subcontractors, and to persons furnishing goods and/or services under this Contract.
+8.1.1 Bond Amount. The Bond shall be in a sum equal to twenty-five percent (25%)
+of the Contract amount, unless otherwise stated in the Specifications. City may file a claim
+against the Bond if Contractor fails or refuses to fulfill the terms and provisions of the Contract.
+8.1.2 Bond Term. The Bond shall remain in full force and effect at least until complete
+performance of this Contract and payment of all claims for materials and labor, at which time it
+will convert to a ten percent (10%) warranty bond, which shall remain in place until the end of
+the warranty periods set forth in this Contract. The Bond shall be renewed annually, at least sixty
+(60) days in advance of its expiration, and Contractor shall provide timely proof of annual
+renewal to City.
+8.1.3 Bond Surety. The Bond must be furnished by a company authorized by the State
+of California Department of Insurance to transact surety business in the State of California and
+which has a current A.M. Best rating of at least "A-, VIII."
+8.1.4 Non-Renewal or Cancellation. The Bond must provide that City and Contractor
+shall be provided with sixty (60) days' advance written notice in the event of non-renewal,
+cancellation, or material change to its terms. In the event of non-renewal, cancellation, or
+material change to the Bond terms, Contractor shall provide City with evidence of the new
+source of surety within twenty-one (21) calendar days after the date of the notice of non-renewal,
+cancellation, or material change. Failure to maintain the Bond, as required herein, in full force
+General Contract Terms and Provisions
+Revised: January 16, 2020
+OCA Document No. 1685454_2
+Page 14 of 21
+and effect as required under this Contact, will be a material breach of the Contract subject to
+termination of the Contract.
+8.2
+Alternate Security. City may, at its sole discretion, accept alternate security in the form
+of an endorsed certificate of deposit, a money order, a certified check drawn on a solvent bank,
+or other security acceptable to the Purchasing Agent in an amount equal to the required Bond.
+ARTICLE IX
+CITY-MANDATED CLAUSES AND REQUIREMENTS
+9.1
+Contractor Certification of Compliance. By signing this Contract, Contractor certifies
+that Contractor is aware of, and will comply with, these City-mandated clauses throughout the
+duration of the Contract.
+9.1.1 Drug-Free Workplace Certification. Contractor shall comply with City's
+Drug-Free Workplace requirements set forth in Council Policy 100-17, which is incorporated
+into the Contract by this reference.
+9.1.2 Contractor Certification for Americans with Disabilities Act (ADA) and
+State Access Laws and Regulations: Contractor shall comply with all accessibility
+requirements under the ADA and under Title 24 of the California Code of Regulations (Title 24).
+When a conflict exists between the ADA and Title 24, Contractor shall comply with the most
+restrictive requirement (i.e., that which provides the most access). Contractor also shall comply
+with the City's ADA Compliance/City Contractors requirements as set forth in Council Policy
+100-04, which is incorporated into this Contract by reference. Contractor warrants and certifies
+compliance with all federal and state access laws and regulations and further certifies that any
+subcontract agreement for this contract contains language which indicates the subcontractor's
+agreement to abide by the provisions of the City's Council Policy and any applicable access laws
+and regulations.
+9.1.3 Non-Discrimination Requirements.
+9.1.3.1 Compliance with City's Equal Opportunity Contracting Program
+(EOCP). Contractor shall comply with City's EOCP Requirements. Contractor shall not
+discriminate against any employee or applicant for employment on any basis prohibited by law.
+Contractor shall provide equal opportunity in all employment practices. Prime Contractors shall
+ensure that their subcontractors comply with this program. Nothing in this Section shall be
+interpreted to hold a Prime Contractor liable for any discriminatory practice of its subcontractors.
+9.1.3.2 Non-Discrimination Ordinance. Contractor shall not discriminate on the
+basis of race, gender, gender expression, gender identity, religion, national origin, ethnicity,
+sexual orientation, age, or disability in the solicitation, selection, hiring or treatment of
+subcontractors, vendors or suppliers. Contractor shall provide equal opportunity for
+subcontractors to participate in subcontracting opportunities. Contractor understands and agrees
+that violation of this clause shall be considered a material breach of the Contract and may result
+General Contract Terms and Provisions
+Revised: January 16, 2020
+OCA Document No. 1685454_2
+Page 15 of 21
+in Contract termination, debarment, or other sanctions. Contractor shall ensure that this language
+is included in contracts between Contractor and any subcontractors, vendors and suppliers.
+9.1.3.3 Compliance Investigations. Upon City's request, Contractor agrees to
+provide to City, within sixty calendar days, a truthful and complete list of the names of all
+subcontractors, vendors, and suppliers that Contractor has used in the past five years on any of its
+contracts that were undertaken within San Diego County, including the total dollar amount paid
+by Contractor for each subcontract or supply contract. Contractor further agrees to fully
+cooperate in any investigation conducted by City pursuant to City's Nondiscrimination in
+Contracting Ordinance. Contractor understands and agrees that violation of this clause shall be
+considered a material breach of the Contract and may result in Contract termination, debarment,
+and other sanctions.
+9.1.4 Equal Benefits Ordinance Certification. Unless an exception applies, Contractor
+shall comply with the Equal Benefits Ordinance (EBO) codified in the San Diego Municipal
+Code (SDMC). Failure to maintain equal benefits is a material breach of the Contract.
+9.1.5 Contractor Standards. Contractor shall comply with Contractor Standards
+provisions codified in the SDMC. Contractor understands and agrees that violation of Contractor
+Standards may be considered a material breach of the Contract and may result in Contract
+termination, debarment, and other sanctions.
+9.1.6 Noise Abatement. Contractor shall operate, conduct, or construct without
+violating the City's Noise Abatement Ordinance codified in the SDMC.
+9.1.7 Storm Water Pollution Prevention Program. Contractor shall comply with the
+City's Storm Water Management and Discharge Control provisions codified in Division 3 of
+Chapter 4 of the SDMC, as may be amended, and any and all applicable Best Management
+Practice guidelines and pollution elimination requirements in performing or delivering services
+at City owned, leased, or managed property, or in performance of services and activities on
+behalf of City regardless of location.
+Contractor shall comply with the City's Jurisdictional Urban Runoff Management Plan
+encompassing Citywide programs and activities designed to prevent and reduce storm water
+pollution within City boundaries as adopted by the City Council on January 22, 2008, via
+Resolution No. 303351, as may be amended.
+Contractor shall comply with each City facility or work site's Storm Water Pollution
+Prevention Plan, as applicable, and institute all controls needed while completing the services to
+minimize any negative impact to the storm water collection system and environment.
+9.1.8 Service Worker Retention Ordinance. If applicable, Contractor shall comply
+with the Service Worker Retention Ordinance (SWRO) codified in the SDMC.
+General Contract Terms and Provisions
+Revised: January 16, 2020
+OCA Document No. 1685454_2
+Page 16 of 21
+9.1.9 Product Endorsement. Contractor shall comply with Council Policy 000-41
+which requires that other than listing the City as a client and other limited endorsements, any
+advertisements, social media, promotions or other marketing referring to the City as a user of a
+product or service will require prior written approval of the Mayor or designee. Use of the City
+Seal or City logos is prohibited.
+9.1.10 Business Tax Certificate. Unless the City Treasurer determines in writing that a
+contractor is exempt from the payment of business tax, any contractor doing business with the
+City of San Diego is required to obtain a Business Tax Certificate (BTC) and to provide a copy
+of its BTC to the City before a Contract is executed.
+9.1.11 Equal Pay Ordinance. Unless an exception applies, Contractor shall comply
+with the Equal Pay Ordinance codified in San Diego Municipal Code sections 22.4801 through
+22.4809. Contractor shall certify in writing that it will comply with the requirements of the EPO.
+9.1.11.1 Contractor and Subcontract Requirement. The Equal Pay Ordinance
+applies to any subcontractor who performs work on behalf of a Contractor to the same extent as
+it would apply to that Contractor. Any Contractor subject to the Equal Pay Ordinance shall
+require all of its subcontractors to certify compliance with the Equal Pay Ordinance in its written
+subcontracts.
+ARTICLE X
+CONFLICT OF INTEREST AND VIOLATIONS OF LAW
+10.1
+Conflict of Interest Laws. Contractor is subject to all federal, state and local conflict of
+interest laws, regulations, and policies applicable to public contracts and procurement practices
+including, but not limited to, California Government Code sections 1090, et. seq. and 81000, et.
+seq., and the Ethics Ordinance, codified in the SDMC. City may determine that Contractor must
+complete one or more statements of economic interest disclosing relevant financial interests.
+Upon City's request, Contractor shall submit the necessary documents to City.
+10.2 Contractor's Responsibility for Employees and Agents. Contractor is required to
+establish and make known to its employees and agents appropriate safeguards to prohibit
+employees from using their positions for a purpose that is, or that gives the appearance of being,
+motivated by the desire for private gain for themselves or others, particularly those with whom
+they have family, business or other relationships.
+10.3
+Contractor's Financial or Organizational Interests. In connection with any task,
+Contractor shall not recommend or specify any product, supplier, or contractor with whom
+Contractor has a direct or indirect financial or organizational interest or relationship that would
+violate conflict of interest laws, regulations, or policies.
+10.4 Certification of Non-Collusion. Contractor certifies that: (1) Contractor's bid or
+proposal was not made in the interest of or on behalf of any person, firm, or corporation not
+identified; (2) Contractor did not directly or indirectly induce or solicit any other bidder or
+proposer to put in a sham bid or proposal; (3) Contractor did not directly or indirectly induce or
+General Contract Terms and Provisions
+Revised: January 16, 2020
+OCA Document No. 1685454_2
+Page 17 of 21
+solicit any other person, firm or corporation to refrain from bidding; and (4) Contractor did not
+seek by collusion to secure any advantage over the other bidders or proposers.
+10.5 Hiring City Employees. This Contract shall be unilaterally and immediately terminated
+by City if Contractor employs an individual who within the twelve (12) months immediately
+preceding such employment did in his/her capacity as a City officer or employee participate in
+negotiations with or otherwise have an influence on the selection of Contractor.
+ARTICLE XI
+DISPUTE RESOLUTION
+11.1 Mediation. If a dispute arises out of or relates to this Contract and cannot be settled
+through normal contract negotiations, Contractor and City shall use mandatory non-binding
+mediation before having recourse in a court of law.
+11.2 Selection of Mediator. A single mediator that is acceptable to both parties shall be used
+to mediate the dispute. The mediator will be knowledgeable in the subject matter of this
+Contract, if possible.
+11.3 Expenses. The expenses of witnesses for either side shall be paid by the party producing
+such witnesses. All other expenses of the mediation, including required traveling and other
+expenses of the mediator, and the cost of any proofs or expert advice produced at the direct
+request of the mediator, shall be borne equally by the parties, unless they agree otherwise.
+11.4 Conduct of Mediation Sessions. Mediation hearings will be conducted in an informal
+manner and discovery will not be allowed. The discussions, statements, writings and admissions
+will be confidential to the proceedings (pursuant to California Evidence Code sections 1115
+through 1128) and will not be used for any other purpose unless otherwise agreed by the parties
+in writing. The parties may agree to exchange any information they deem necessary. Both parties
+shall have a representative attend the mediation who is authorized to settle the dispute, though
+City's recommendation of settlement may be subject to the approval of the Mayor and City
+Council. Either party may have attorneys, witnesses or experts present.
+11.5 Mediation Results. Any agreements resulting from mediation shall be memorialized in
+writing. The results of the mediation shall not be final or binding unless otherwise agreed to in
+writing by the parties. Mediators shall not be subject to any subpoena or liability, and their
+actions shall not be subject to discovery.
+ARTICLE XII
+MANDATORY ASSISTANCE
+12.1 Mandatory Assistance. If a third party dispute or litigation, or both, arises out of, or
+relates in any way to the services provided to the City under a Contract, Contractor, its agents,
+officers, and employees agree to assist in resolving the dispute or litigation upon City's request.
+Contractor's assistance includes, but is not limited to, providing professional consultations,
+General Contract Terms and Provisions
+Revised: January 16, 2020
+OCA Document No. 1685454_2
+Page 18 of 21
+attending mediations, arbitrations, depositions, trials or any event related to the dispute
+resolution and/or litigation.
+12.2 Compensation for Mandatory Assistance. City will compensate Contractor for fees
+incurred for providing Mandatory Assistance. If, however, the fees incurred for the Mandatory
+Assistance are determined, through resolution of the third party dispute or litigation, or both, to
+be attributable in whole, or in part, to the acts or omissions of Contractor, its agents, officers, and
+employees, Contractor shall reimburse City for all fees paid to Contractor, its agents, officers,
+and employees for Mandatory Assistance.
+12.3 Attorneys' Fees Related to Mandatory Assistance. In providing City with dispute or
+litigation assistance, Contractor or its agents, officers, and employees may incur expenses and/or
+costs. Contractor agrees that any attorney fees it may incur as a result of assistance provided
+under Section 12.2 are not reimbursable.
+ARTICLE XIII
+MISCELLANEOUS
+13.1 Headings. All headings are for convenience only and shall not affect the interpretation of
+this Contract.
+13.2 Non-Assignment. Contractor may not assign the obligations under this Contract, whether
+by express assignment or by sale of the company, nor any monies due or to become due under
+this Contract, without City's prior written approval. Any assignment in violation of this
+paragraph shall constitute a default and is grounds for termination of this Contract at the City's
+sole discretion. In no event shall any putative assignment create a contractual relationship
+between City and any putative assignee.
+13.3 Independent Contractors. Contractor and any subcontractors employed by Contractor
+are independent contractors and not agents of City. Any provisions of this Contract that may
+appear to give City any right to direct Contractor concerning the details of performing or
+providing the goods and/or services, or to exercise any control over performance of the Contract,
+shall mean only that Contractor shall follow the direction of City concerning the end results of
+the performance.
+13.4 Subcontractors. All persons assigned to perform any work related to this Contract,
+including any subcontractors, are deemed to be employees of Contractor, and Contractor shall be
+directly responsible for their work.
+13.5 Covenants and Conditions. All provisions of this Contract expressed as either covenants
+or conditions on the part of City or Contractor shall be deemed to be both covenants and
+conditions.
+13.6 Compliance with Controlling Law. Contractor shall comply with all applicable local,
+state, and federal laws, regulations, and policies. Contractor's act or omission in violation of
+applicable local, state, and federal laws, regulations, and policies is grounds for contract
+General Contract Terms and Provisions
+Revised: January 16, 2020
+OCA Document No. 1685454_2
+Page 19 of 21
+termination. In addition to all other remedies or damages allowed by law, Contractor is liable to
+City for all damages, including costs for substitute performance, sustained as a result of the
+violation. In addition, Contractor may be subject to suspension, debarment, or both.
+13.7
+Governing Law. The Contract shall be deemed to be made under, construed in
+accordance with, and governed by the laws of the State of California without regard to the
+conflicts or choice of law provisions thereof.
+13.8 Venue. The venue for any suit concerning solicitations or the Contract, the interpretation
+of application of any of its terms and conditions, or any related disputes shall be in the County of
+San Diego, State of California.
+13.9 Successors in Interest. This Contract and all rights and obligations created by this
+Contract shall be in force and effect whether or not any parties to the Contract have been
+succeeded by another entity, and all rights and obligations created by this Contract shall be
+vested and binding on any party's successor in interest.
+13.10 No Waiver. No failure of either City or Contractor to insist upon the strict performance
+by the other of any covenant, term or condition of this Contract, nor any failure to exercise any
+right or remedy consequent upon a breach of any covenant, term, or condition of this Contract,
+shall constitute a waiver of any such breach of such covenant, term or condition. No waiver of
+any breach shall affect or alter this Contract, and each and every covenant, condition, and term
+hereof shall continue in full force and effect without respect to any existing or subsequent
+breach.
+13.11 Severability. The unenforceability, invalidity, or illegality of any provision of this
+Contract shall not render any other provision of this Contract unenforceable, invalid, or illegal.
+13.12 Drafting Ambiguities. The parties acknowledge that they have the right to be advised by
+legal counsel with respect to the negotiations, terms and conditions of this Contract, and the
+decision of whether to seek advice of legal counsel with respect to this Contract is the sole
+responsibility of each party. This Contract shall not be construed in favor of or against either
+party by reason of the extent to which each party participated in the drafting of the Contract.
+13.13 Amendments. Neither this Contract nor any provision hereof may be changed, modified,
+amended or waived except by a written agreement executed by duly authorized representatives
+of City and Contractor. Any alleged oral amendments have no force or effect. The Purchasing
+Agent must sign all Contract amendments.
+13.14 Conflicts Between Terms. If this Contract conflicts with an applicable local, state, or
+federal law, regulation, or court order, applicable local, state, or federal law, regulation, or court
+order shall control. Varying degrees of stringency among the main body of this Contract, the
+exhibits or attachments, and laws, regulations, or orders are not deemed conflicts, and the most
+stringent requirement shall control. Each party shall notify the other immediately upon the
+identification of any apparent conflict or inconsistency concerning this Contract.
+General Contract Terms and Provisions
+Revised: January 16, 2020
+OCA Document No. 1685454_2
+Page 20 of 21
+13.15 Survival of Obligations. All representations, indemnifications, warranties, and
+guarantees made in, required by, or given in accordance with this Contract, as well as all
+continuing obligations indicated in this Contract, shall survive, completion and acceptance of
+performance and termination, expiration or completion of the Contract.
+13.16 Confidentiality of Services. All services performed by Contractor, and any sub-
+contractor(s) if applicable, including but not limited to all drafts, data, information,
+correspondence, proposals, reports of any nature, estimates compiled or composed by
+Contractor, are for the sole use of City, its agents, and employees. Neither the documents nor
+their contents shall be released by Contractor or any subcontractor to any third party without the
+prior written consent of City. This provision does not apply to information that: (1) was publicly
+known, or otherwise known to Contractor, at the time it was disclosed to Contractor by City; (2)
+subsequently becomes publicly known through no act or omission of Contractor; or (3) otherwise
+becomes known to Contractor other than through disclosure by City.
+13.17 Insolvency. If Contractor enters into proceedings relating to bankruptcy, whether
+voluntary or involuntary, Contractor agrees to furnish, by certified mail or electronic commerce
+method authorized by the Contract, written notification of the bankruptcy to the Purchasing
+Agent and the Contract Administrator responsible for administering the Contract. This
+notification shall be furnished within five (5) days of the initiation of the proceedings relating to
+bankruptcy filing. This notification shall include the date on which the bankruptcy petition was
+filed, the identity of the court in which the bankruptcy petition was filed, and a listing of City
+contract numbers and contracting offices for all City contracts against which final payment has
+not been made. This obligation remains in effect until final payment is made under this Contract.
+13.18 No Third Party Beneficiaries. Except as may be specifically set forth in this Contract,
+none of the provisions of this Contract are intended to benefit any third party not specifically
+referenced herein. No party other than City and Contractor shall have the right to enforce any of
+the provisions of this Contract.
+13.19 Actions of City in its Governmental Capacity. Nothing in this Contract shall be
+interpreted as limiting the rights and obligations of City in its governmental or regulatory
+capacity.
+General Contract Terms and Provisions
+Revised: January 16, 2020
+OCA Document No. 1685454_2
+Page 21 of 21

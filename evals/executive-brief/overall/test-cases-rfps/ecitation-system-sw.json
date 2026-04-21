@@ -1,0 +1,1595 @@
+{
+  "compositeScore": 1.3,
+  "confidence": 95,
+  "decision": "NO_GO",
+  "sections": {
+    "contacts": {
+      "data": {
+        "missingRecommendedRoles": [
+          "CONTRACTING_OFFICER",
+          "CONTRACTING_OFFICER_REPRESENTATIVE",
+          "CONTRACT_SPECIALIST",
+          "TECHNICAL_POC",
+          "PROGRAM_MANAGER",
+          "SMALL_BUSINESS_SPECIALIST",
+          "SUBCONTRACTING_POC",
+          "GENERAL_INQUIRY"
+        ],
+        "contacts": [
+          {
+            "name": "Angelo Heidt",
+            "role": "PROCUREMENT_POC",
+            "title": "Buyer",
+            "phone": "(951) 922-3154",
+            "email": "aheidt@banningca.gov",
+            "organization": "City of Banning, Purchasing Division"
+          }
+        ]
+      },
+      "inputHash": "force-regen-v9",
+      "status": "COMPLETE",
+      "updatedAt": "2026-04-21T00:54:58.528Z"
+    },
+    "deadlines": {
+      "data": {
+        "hasSubmissionDeadline": true,
+        "submissionDeadlineIso": "2026-02-18T16:00:00-08:00",
+        "deadlines": [
+          {
+            "dateTimeIso": "2026-01-29T16:00:00-08:00",
+            "label": "Question Submission Deadline",
+            "notes": "All questions must be submitted via Q&A through OpenGov before this deadline. Only 9 days from RFP release to question deadline, so vendors should review the solicitation immediately to identify any ambiguities or issues.",
+            "type": "QUESTIONS_DUE",
+            "rawText": "Question Submission Deadline January 29, 2026, 4:00pm",
+            "timezone": "PT"
+          },
+          {
+            "dateTimeIso": "2026-02-18T16:00:00-08:00",
+            "label": "Proposal Submission Deadline",
+            "notes": "Proposals must be uploaded to OpenGov electronic bidding system before this deadline. Extensions will not be granted unless stated in an addendum. Proposals are firm for 120 days after submission. Approximately 20 days from question deadline to proposal due date, which is a reasonable but not generous turnaround.",
+            "type": "PROPOSAL_DUE",
+            "rawText": "Proposal Submission Deadline February 18, 2026, 4:00pm",
+            "timezone": "PT"
+          },
+          {
+            "dateTimeIso": "2026-03-31T00:00:00-07:00",
+            "label": "Anticipated Vendor Selection Date",
+            "notes": "This is a tentative date subject to change at the City's discretion. Approximately 6 weeks between proposal deadline and anticipated selection, during which top-scoring proposers may be invited for demonstrations. Successful vendor must execute agreement and furnish insurance within 14 calendar days of award.",
+            "type": "AWARD_ESTIMATE",
+            "rawText": "Anticipated Vendor Selection Date March 31, 2026",
+            "timezone": "PT"
+          }
+        ],
+        "warnings": [
+          "Timezone assumed as Pacific Time (PT) based on City of Banning, CA location; not explicitly stated as a timezone abbreviation in the document."
+        ]
+      },
+      "inputHash": "force-regen-v9",
+      "status": "COMPLETE",
+      "updatedAt": "2026-04-21T00:52:43.165Z"
+    },
+    "pastPerformance": {
+      "data": {
+        "topMatches": [
+          {
+            "matchDetails": {
+              "technicalSimilarity": 0,
+              "scaleSimilarity": 0,
+              "domainSimilarity": 20,
+              "recency": 0,
+              "successMetrics": 0
+            },
+            "project": {
+              "durationMonths": null,
+              "naicsCodes": [
+                "541511",
+                "713210"
+              ],
+              "achievements": [
+                "Complete infrastructure migration from Digital Ocean to AWS",
+                "Full backend overhaul improving performance and security",
+                "Modernized application architecture on AWS"
+              ],
+              "reactivatedAt": null,
+              "endDate": null,
+              "contractType": null,
+              "isArchived": false,
+              "description": "Migrated Chanced.com from Digital Ocean to AWS and performed a complete overhaul of their PHP Laravel backend. The project modernized the hosting infrastructure and improved application performance and reliability.",
+              "title": "Digital Ocean to AWS Migration & Backend Overhaul",
+              "staleReason": null,
+              "orgId": "9c0a5757-e2da-4e71-9490-01c558f7ffc3",
+              "setAside": null,
+              "createdAt": "2026-04-08T04:23:39.366Z",
+              "client": "Chanced.com",
+              "value": null,
+              "updatedAt": "2026-04-20T20:39:20.866Z",
+              "technicalApproach": "Migrated hosting from Digital Ocean to AWS. Overhauled the entire PHP Laravel backend for improved performance, security, and maintainability. Leveraged AWS services for hosting, storage, and compute.",
+              "partition_key": "PAST_PROJECT",
+              "reactivatedBy": null,
+              "contractNumber": null,
+              "sort_key": "9c0a5757-e2da-4e71-9490-01c558f7ffc3#0b9fb34d-a4b4-4010-9980-0d3a10c133af",
+              "staleSince": null,
+              "usageCount": 16,
+              "technologies": [
+                "PHP",
+                "Laravel",
+                "AWS EC2",
+                "Amazon RDS",
+                "Amazon S3",
+                "AWS CloudFront"
+              ],
+              "performanceRating": null,
+              "lastFreshnessCheck": null,
+              "createdBy": "bulk-import-script",
+              "lastUsedAt": "2026-04-20T20:39:20.866Z",
+              "teamSize": null,
+              "domain": "Financial Services / Gaming",
+              "clientPOC": null,
+              "freshnessStatus": "ACTIVE",
+              "projectId": "0b9fb34d-a4b4-4010-9980-0d3a10c133af",
+              "usedInBriefIds": [
+                "6fbf749f-7173-489c-be0a-564f97ebf8b0#1caae84e-d059-499e-a672-6250187f41fc",
+                "6fbf749f-7173-489c-be0a-564f97ebf8b0#1caae84e-d059-499e-a672-6250187f41fc",
+                "6fbf749f-7173-489c-be0a-564f97ebf8b0#1caae84e-d059-499e-a672-6250187f41fc",
+                "6fbf749f-7173-489c-be0a-564f97ebf8b0#1caae84e-d059-499e-a672-6250187f41fc",
+                "6fbf749f-7173-489c-be0a-564f97ebf8b0#1caae84e-d059-499e-a672-6250187f41fc",
+                "6fbf749f-7173-489c-be0a-564f97ebf8b0#1caae84e-d059-499e-a672-6250187f41fc",
+                "6fbf749f-7173-489c-be0a-564f97ebf8b0#1caae84e-d059-499e-a672-6250187f41fc",
+                "6fbf749f-7173-489c-be0a-564f97ebf8b0#1caae84e-d059-499e-a672-6250187f41fc",
+                "6fbf749f-7173-489c-be0a-564f97ebf8b0#1caae84e-d059-499e-a672-6250187f41fc",
+                "810f5a23-42e4-4355-a2b4-f9ae2cb8e563#a6337196-4a67-44bc-8217-557cb6d7de31",
+                "810f5a23-42e4-4355-a2b4-f9ae2cb8e563#adf2abdc-d4bc-49c0-be02-ff4cbf6ab4e8",
+                "810f5a23-42e4-4355-a2b4-f9ae2cb8e563#5d602fa1-2abd-48cb-a212-dcdcb7c29038",
+                "810f5a23-42e4-4355-a2b4-f9ae2cb8e563#c41c7043-1550-4cb0-8a7f-517adf26ebb8",
+                "810f5a23-42e4-4355-a2b4-f9ae2cb8e563#c41c7043-1550-4cb0-8a7f-517adf26ebb8",
+                "ad33c87d-8fbb-49ca-b32e-ae32d653bb2b#623408c1-1aa6-411c-abe7-dc0fa0557343",
+                "d1ae9e89-3992-494f-b76f-d39d23f37640#cf14f9a9-c129-495a-9893-ee61eadd690c"
+              ],
+              "startDate": null
+            },
+            "relevanceScore": 5,
+            "matchedRequirements": [
+              "Provide at least 3 references within the past 5 years of clients for whom comparable services have been performed including client names, addresses, telephone numbers, email addresses, explanation of services, and project start and end dates"
+            ],
+            "narrative": null
+          },
+          {
+            "matchDetails": {
+              "technicalSimilarity": 0,
+              "scaleSimilarity": 0,
+              "domainSimilarity": 20,
+              "recency": 0,
+              "successMetrics": 0
+            },
+            "project": {
+              "durationMonths": null,
+              "naicsCodes": [
+                "541511",
+                "523130"
+              ],
+              "achievements": [
+                "Secure, localized trading platform with CMS-driven content",
+                "Automated CI/CD pipeline with Azure Pipelines",
+                "Global performance optimization with Cloudflare CDN"
+              ],
+              "reactivatedAt": null,
+              "endDate": null,
+              "contractType": null,
+              "isArchived": false,
+              "description": "Built a secure cryptocurrency trading platform frontend with dynamic, localized content. The platform features server-side rendering, CMS-driven content management, and CDN optimization for global performance.",
+              "title": "Secure Crypto Trading Platform",
+              "staleReason": null,
+              "orgId": "9c0a5757-e2da-4e71-9490-01c558f7ffc3",
+              "setAside": null,
+              "createdAt": "2026-04-08T04:23:31.596Z",
+              "client": "NDAX",
+              "value": null,
+              "updatedAt": "2026-04-20T20:39:20.900Z",
+              "technicalApproach": "Developed the frontend using Next.js with Strapi CMS for dynamic content management. Set up CI/CD with Azure Pipelines for automated deployments. Applied Cloudflare optimizations for global performance and security.",
+              "partition_key": "PAST_PROJECT",
+              "reactivatedBy": null,
+              "contractNumber": null,
+              "sort_key": "9c0a5757-e2da-4e71-9490-01c558f7ffc3#123a1e9f-54a5-40b8-b8ec-5830d4e113f8",
+              "staleSince": null,
+              "usageCount": 15,
+              "technologies": [
+                "Next.js",
+                "Strapi CMS",
+                "Azure Pipelines",
+                "Cloudflare",
+                "TypeScript"
+              ],
+              "performanceRating": null,
+              "lastFreshnessCheck": null,
+              "createdBy": "bulk-import-script",
+              "lastUsedAt": "2026-04-20T20:39:20.900Z",
+              "teamSize": null,
+              "domain": "Financial Services / Cryptocurrency",
+              "clientPOC": null,
+              "freshnessStatus": "ACTIVE",
+              "projectId": "123a1e9f-54a5-40b8-b8ec-5830d4e113f8",
+              "usedInBriefIds": [
+                "6fbf749f-7173-489c-be0a-564f97ebf8b0#1caae84e-d059-499e-a672-6250187f41fc",
+                "6fbf749f-7173-489c-be0a-564f97ebf8b0#1caae84e-d059-499e-a672-6250187f41fc",
+                "6fbf749f-7173-489c-be0a-564f97ebf8b0#1caae84e-d059-499e-a672-6250187f41fc",
+                "6fbf749f-7173-489c-be0a-564f97ebf8b0#1caae84e-d059-499e-a672-6250187f41fc",
+                "6fbf749f-7173-489c-be0a-564f97ebf8b0#1caae84e-d059-499e-a672-6250187f41fc",
+                "6fbf749f-7173-489c-be0a-564f97ebf8b0#1caae84e-d059-499e-a672-6250187f41fc",
+                "6fbf749f-7173-489c-be0a-564f97ebf8b0#1caae84e-d059-499e-a672-6250187f41fc",
+                "6fbf749f-7173-489c-be0a-564f97ebf8b0#1caae84e-d059-499e-a672-6250187f41fc",
+                "6fbf749f-7173-489c-be0a-564f97ebf8b0#1caae84e-d059-499e-a672-6250187f41fc",
+                "810f5a23-42e4-4355-a2b4-f9ae2cb8e563#e516d137-e19a-4320-a0b8-ccfa29a165de",
+                "810f5a23-42e4-4355-a2b4-f9ae2cb8e563#7d46e81e-94f5-4adc-8d37-2ae0eb6cadf5",
+                "810f5a23-42e4-4355-a2b4-f9ae2cb8e563#adf2abdc-d4bc-49c0-be02-ff4cbf6ab4e8",
+                "3e8b5099-0c1a-4a78-a5e2-65719b2f7a81#2ce43476-4476-4abf-8eeb-f71495cc2ebc",
+                "3e8b5099-0c1a-4a78-a5e2-65719b2f7a81#2ce43476-4476-4abf-8eeb-f71495cc2ebc",
+                "d1ae9e89-3992-494f-b76f-d39d23f37640#cf14f9a9-c129-495a-9893-ee61eadd690c"
+              ],
+              "startDate": null
+            },
+            "relevanceScore": 5,
+            "matchedRequirements": [],
+            "narrative": null
+          },
+          {
+            "matchDetails": {
+              "technicalSimilarity": 0,
+              "scaleSimilarity": 0,
+              "domainSimilarity": 20,
+              "recency": 0,
+              "successMetrics": 0
+            },
+            "project": {
+              "durationMonths": null,
+              "naicsCodes": [
+                "541511",
+                "522320"
+              ],
+              "achievements": [
+                "High-performance web application with server-side rendering",
+                "Streamlined deployment via AWS Amplify",
+                "Type-safe codebase with TypeScript"
+              ],
+              "reactivatedAt": null,
+              "endDate": null,
+              "contractType": null,
+              "isArchived": false,
+              "description": "Created a performant front-end for an Amplify-hosted web application using Next.js. The platform features server-side rendering for optimal performance and is deployed on AWS Amplify for streamlined hosting and CI/CD.",
+              "title": "Performant Web Application on AWS Amplify",
+              "staleReason": null,
+              "orgId": "9c0a5757-e2da-4e71-9490-01c558f7ffc3",
+              "setAside": null,
+              "createdAt": "2026-04-08T04:23:33.079Z",
+              "client": "FAQx, Inc.",
+              "value": null,
+              "updatedAt": "2026-04-20T20:39:20.917Z",
+              "technicalApproach": "Built the application with Next.js and TypeScript, leveraging server-side rendering for performance. Deployed on AWS Amplify with integrated hosting and continuous deployment pipelines.",
+              "partition_key": "PAST_PROJECT",
+              "reactivatedBy": null,
+              "contractNumber": null,
+              "sort_key": "9c0a5757-e2da-4e71-9490-01c558f7ffc3#12b71539-7a20-4d0b-8050-127a1f4c590f",
+              "staleSince": null,
+              "usageCount": 14,
+              "technologies": [
+                "Next.js",
+                "TypeScript",
+                "AWS Amplify",
+                "React"
+              ],
+              "performanceRating": null,
+              "lastFreshnessCheck": null,
+              "createdBy": "bulk-import-script",
+              "lastUsedAt": "2026-04-20T20:39:20.917Z",
+              "teamSize": null,
+              "domain": "Fintech / SaaS",
+              "clientPOC": null,
+              "freshnessStatus": "ACTIVE",
+              "projectId": "12b71539-7a20-4d0b-8050-127a1f4c590f",
+              "usedInBriefIds": [
+                "6fbf749f-7173-489c-be0a-564f97ebf8b0#1caae84e-d059-499e-a672-6250187f41fc",
+                "6fbf749f-7173-489c-be0a-564f97ebf8b0#1caae84e-d059-499e-a672-6250187f41fc",
+                "6fbf749f-7173-489c-be0a-564f97ebf8b0#1caae84e-d059-499e-a672-6250187f41fc",
+                "6fbf749f-7173-489c-be0a-564f97ebf8b0#1caae84e-d059-499e-a672-6250187f41fc",
+                "6fbf749f-7173-489c-be0a-564f97ebf8b0#1caae84e-d059-499e-a672-6250187f41fc",
+                "6fbf749f-7173-489c-be0a-564f97ebf8b0#1caae84e-d059-499e-a672-6250187f41fc",
+                "6fbf749f-7173-489c-be0a-564f97ebf8b0#1caae84e-d059-499e-a672-6250187f41fc",
+                "6fbf749f-7173-489c-be0a-564f97ebf8b0#1caae84e-d059-499e-a672-6250187f41fc",
+                "6fbf749f-7173-489c-be0a-564f97ebf8b0#1caae84e-d059-499e-a672-6250187f41fc",
+                "810f5a23-42e4-4355-a2b4-f9ae2cb8e563#e516d137-e19a-4320-a0b8-ccfa29a165de",
+                "810f5a23-42e4-4355-a2b4-f9ae2cb8e563#adf2abdc-d4bc-49c0-be02-ff4cbf6ab4e8",
+                "c6737e52-1e0b-42c6-8480-043ab4999b94#8f26623d-c411-4b63-bc62-bc6fdf54e73b",
+                "c6737e52-1e0b-42c6-8480-043ab4999b94#8f26623d-c411-4b63-bc62-bc6fdf54e73b",
+                "d1ae9e89-3992-494f-b76f-d39d23f37640#cf14f9a9-c129-495a-9893-ee61eadd690c"
+              ],
+              "startDate": null
+            },
+            "relevanceScore": 5,
+            "matchedRequirements": [],
+            "narrative": null
+          },
+          {
+            "matchDetails": {
+              "technicalSimilarity": 0,
+              "scaleSimilarity": 0,
+              "domainSimilarity": 20,
+              "recency": 0,
+              "successMetrics": 0
+            },
+            "project": {
+              "durationMonths": null,
+              "naicsCodes": [
+                "541511",
+                "541612"
+              ],
+              "achievements": [
+                "Full multitenant HR platform supporting multiple organizations",
+                "Integrated video interviewing and resume parsing capabilities",
+                "Streamlined candidate workflows from application to hire"
+              ],
+              "reactivatedAt": null,
+              "endDate": null,
+              "contractType": null,
+              "isArchived": false,
+              "description": "Built a multitenant human resources application that integrates video interviewing, resume parsing, and candidate workflows. The platform supports multiple organizations on a single deployment with tenant isolation, enabling end-to-end recruitment process automation.",
+              "title": "Multitenant HR Platform with Video Interviewing",
+              "staleReason": null,
+              "orgId": "9c0a5757-e2da-4e71-9490-01c558f7ffc3",
+              "setAside": null,
+              "createdAt": "2026-04-08T04:23:25.873Z",
+              "client": "AspireHR",
+              "value": null,
+              "updatedAt": "2026-04-20T20:39:20.925Z",
+              "technicalApproach": "Developed a React-based frontend with AWS serverless backend. Integrated video interviewing capabilities, AI-powered resume parsing, and candidate workflow management. Built with multi-tenancy support for organizational isolation.",
+              "partition_key": "PAST_PROJECT",
+              "reactivatedBy": null,
+              "contractNumber": null,
+              "sort_key": "9c0a5757-e2da-4e71-9490-01c558f7ffc3#16546867-bb92-4a14-b291-0c2ba91f7c82",
+              "staleSince": null,
+              "usageCount": 12,
+              "technologies": [
+                "React",
+                "AWS Lambda",
+                "Amazon API Gateway",
+                "Amazon DynamoDB",
+                "Amazon S3",
+                "Amazon Cognito"
+              ],
+              "performanceRating": null,
+              "lastFreshnessCheck": null,
+              "createdBy": "bulk-import-script",
+              "lastUsedAt": "2026-04-20T20:39:20.925Z",
+              "teamSize": null,
+              "domain": "Human Resources / HR Tech",
+              "clientPOC": null,
+              "freshnessStatus": "ACTIVE",
+              "projectId": "16546867-bb92-4a14-b291-0c2ba91f7c82",
+              "usedInBriefIds": [
+                "6fbf749f-7173-489c-be0a-564f97ebf8b0#1caae84e-d059-499e-a672-6250187f41fc",
+                "6fbf749f-7173-489c-be0a-564f97ebf8b0#1caae84e-d059-499e-a672-6250187f41fc",
+                "6fbf749f-7173-489c-be0a-564f97ebf8b0#1caae84e-d059-499e-a672-6250187f41fc",
+                "6fbf749f-7173-489c-be0a-564f97ebf8b0#1caae84e-d059-499e-a672-6250187f41fc",
+                "6fbf749f-7173-489c-be0a-564f97ebf8b0#1caae84e-d059-499e-a672-6250187f41fc",
+                "6fbf749f-7173-489c-be0a-564f97ebf8b0#1caae84e-d059-499e-a672-6250187f41fc",
+                "6fbf749f-7173-489c-be0a-564f97ebf8b0#1caae84e-d059-499e-a672-6250187f41fc",
+                "6fbf749f-7173-489c-be0a-564f97ebf8b0#1caae84e-d059-499e-a672-6250187f41fc",
+                "6fbf749f-7173-489c-be0a-564f97ebf8b0#1caae84e-d059-499e-a672-6250187f41fc",
+                "810f5a23-42e4-4355-a2b4-f9ae2cb8e563#adf2abdc-d4bc-49c0-be02-ff4cbf6ab4e8",
+                "810f5a23-42e4-4355-a2b4-f9ae2cb8e563#9534a4db-b8cc-4538-8702-5f2615c6c62d",
+                "d1ae9e89-3992-494f-b76f-d39d23f37640#cf14f9a9-c129-495a-9893-ee61eadd690c"
+              ],
+              "startDate": null
+            },
+            "relevanceScore": 5,
+            "matchedRequirements": [],
+            "narrative": null
+          },
+          {
+            "matchDetails": {
+              "technicalSimilarity": 0,
+              "scaleSimilarity": 0,
+              "domainSimilarity": 20,
+              "recency": 0,
+              "successMetrics": 0
+            },
+            "project": {
+              "durationMonths": null,
+              "naicsCodes": [
+                "541930",
+                "541511"
+              ],
+              "achievements": [
+                "Automated translation of safety manuals from German to multiple languages",
+                "Eliminated manual translation and formatting workflows",
+                "Maintained document formatting integrity across languages"
+              ],
+              "reactivatedAt": null,
+              "endDate": null,
+              "contractType": null,
+              "isArchived": false,
+              "description": "Built an automated transcription and translation system for safety manuals, converting German-language PDF articles into every required country-specific language. The platform ingests PDFs, extracts text, translates content, and regenerates formatted PDF output.",
+              "title": "Multilingual Safety Manual Translation Platform",
+              "staleReason": null,
+              "orgId": "9c0a5757-e2da-4e71-9490-01c558f7ffc3",
+              "setAside": null,
+              "createdAt": "2026-04-08T04:23:22.111Z",
+              "client": "Volkswagen",
+              "value": null,
+              "updatedAt": "2026-04-20T20:39:20.947Z",
+              "technicalApproach": "Used Amazon Textract to extract text from PDF safety manuals. Integrated Amazon Translate for multilingual conversion. Built an automated pipeline to reconvert translated text back into formatted PDF documents.",
+              "partition_key": "PAST_PROJECT",
+              "reactivatedBy": null,
+              "contractNumber": null,
+              "sort_key": "9c0a5757-e2da-4e71-9490-01c558f7ffc3#1b347828-0b24-4d04-ae4e-9934a46eda7c",
+              "staleSince": null,
+              "usageCount": 15,
+              "technologies": [
+                "Amazon Textract",
+                "Amazon Translate",
+                "AWS Lambda",
+                "Amazon S3",
+                "AWS Step Functions"
+              ],
+              "performanceRating": null,
+              "lastFreshnessCheck": null,
+              "createdBy": "bulk-import-script",
+              "lastUsedAt": "2026-04-20T20:39:20.947Z",
+              "teamSize": null,
+              "domain": "Manufacturing / Automotive",
+              "clientPOC": null,
+              "freshnessStatus": "ACTIVE",
+              "projectId": "1b347828-0b24-4d04-ae4e-9934a46eda7c",
+              "usedInBriefIds": [
+                "6fbf749f-7173-489c-be0a-564f97ebf8b0#1caae84e-d059-499e-a672-6250187f41fc",
+                "6fbf749f-7173-489c-be0a-564f97ebf8b0#1caae84e-d059-499e-a672-6250187f41fc",
+                "6fbf749f-7173-489c-be0a-564f97ebf8b0#1caae84e-d059-499e-a672-6250187f41fc",
+                "6fbf749f-7173-489c-be0a-564f97ebf8b0#1caae84e-d059-499e-a672-6250187f41fc",
+                "6fbf749f-7173-489c-be0a-564f97ebf8b0#1caae84e-d059-499e-a672-6250187f41fc",
+                "6fbf749f-7173-489c-be0a-564f97ebf8b0#1caae84e-d059-499e-a672-6250187f41fc",
+                "6fbf749f-7173-489c-be0a-564f97ebf8b0#1caae84e-d059-499e-a672-6250187f41fc",
+                "6fbf749f-7173-489c-be0a-564f97ebf8b0#1caae84e-d059-499e-a672-6250187f41fc",
+                "6fbf749f-7173-489c-be0a-564f97ebf8b0#1caae84e-d059-499e-a672-6250187f41fc",
+                "810f5a23-42e4-4355-a2b4-f9ae2cb8e563#9cf722b3-1b50-4af9-9133-73e7c20c2a9d",
+                "810f5a23-42e4-4355-a2b4-f9ae2cb8e563#c0971acb-8948-4992-96c8-181ebfc4785b",
+                "d1787e4e-170b-4250-8b30-1fa86cf32c97#b5c1e614-adef-4e4f-ad9f-81ed70e80e11",
+                "810f5a23-42e4-4355-a2b4-f9ae2cb8e563#adf2abdc-d4bc-49c0-be02-ff4cbf6ab4e8",
+                "810f5a23-42e4-4355-a2b4-f9ae2cb8e563#9534a4db-b8cc-4538-8702-5f2615c6c62d",
+                "d1ae9e89-3992-494f-b76f-d39d23f37640#cf14f9a9-c129-495a-9893-ee61eadd690c"
+              ],
+              "startDate": null
+            },
+            "relevanceScore": 5,
+            "matchedRequirements": [],
+            "narrative": null
+          }
+        ],
+        "gapAnalysis": {
+          "overallCoverage": 0,
+          "recommendations": [
+            "51 critical gap(s) identified. Consider teaming arrangements or subcontractors with relevant experience.",
+            "Overall past performance coverage is below 70%. This may significantly impact win probability."
+          ],
+          "criticalGaps": [
+            "Provide eCitation Systems including mobile and desktop apps and sync service for 40 users",
+            "Solution must utilize City of Banning Police Department mobile work iPhones and be compatible with iOS devices",
+            "Provide Court Export Module",
+            "Provide interface to output citation records to RMS (RIMS)",
+            "Provide interface to upload collision report data and documents to the CHP SWITRS System",
+            "Provide interface to output collision records to RMS (RIMS)",
+            "Provide CHP-180 Tow Form Application (Mobile)",
+            "Compatible with Sun Ridge Systems RIMS CAD System",
+            "Compatible with Crossroads Software Report Writer for collision reporting (being utilized through Countywide grant project)",
+            "Vendor's desktop application client, if applicable, must be compatible with Windows 10 Pro",
+            "Provide 6 mobile printers if offered, or ability to purchase separately, along with PM service and supplies cost",
+            "Provide required citation data to Justice, Circuit, and Municipal courts in a timely manner",
+            "Provide reporting capability for mandatory state reporting",
+            "Enable access to citation and crash data/information from one source",
+            "Provide cost for additional subscriptions as the department expands in personnel",
+            "Provide cost of upgrades for all systems when available",
+            "Provide project management and training for all systems including installation and training",
+            "Provide annual maintenance and support for all systems with recurring annual cost for the next five years",
+            "Provide detailed project schedule identifying all tasks, deliverables, durations, overall time of completion, and complete transition plan",
+            "Provide detailed implementation plan describing project management methods, controls, stakeholder engagement methodology, and implementation strategies",
+            "Have at least five (5) years of experience within the past five (5) years under a legally registered business name in providing services of similar type and scope",
+            "Have not filed for bankruptcy under any business name over the past five (5) years",
+            "Must have an active SAM.gov account in good standing and provide SAM.gov Unique Entity ID number upon proposal submission",
+            "Must be registered on OpenGov and download the solicitation to appear on the Prospective Bidders List",
+            "Must acknowledge all addenda electronically via the City's Bidding Website",
+            "Must comply with all grant requirements per the RFP, attachments, and addenda including Title VI of the Civil Rights Act of 1964 and Highway Safety Grant Programs",
+            "Must be able to meet all grant requirements and provide support to City staff with grant management",
+            "Must not be on the CA Debarment List",
+            "Provide at least 3 references within the past 5 years of clients for whom comparable services have been performed including client names, addresses, telephone numbers, email addresses, explanation of services, and project start and end dates",
+            "Cyber Insurance coverage is required in addition to the insurance requirements within the sample agreement",
+            "Provide evidence of insurance in the coverage and amounts listed in the Sample Agreement",
+            "Furnish Certificates of Insurance within ten (10) consecutive calendar days of award of contract",
+            "Company and/or key personnel shall hold appropriate license for the discipline and services if applicable",
+            "Must possess valid City of Banning Business License throughout the term of the contract",
+            "Proposals shall be firm offers and may not be withdrawn for a period of 120 days following the submission deadline",
+            "Complete and submit Certification Regarding Debarment, Suspension, Ineligibility Form (Attachment C)",
+            "Complete and submit Certification Compliance document",
+            "Complete and submit New Vendor Packet",
+            "Disclose any past or current business and personal relationships with any current Banning elected official, appointed official, City employee, or family member thereof",
+            "Certify Ex Parte Communications compliance - no communication with City Councilmember concerning this RFP after public advertisement date",
+            "Complete Debarred, Suspended, Disqualified Questionnaire",
+            "Disclose Government Positions held by any owner or employee",
+            "Identify type of business entity (corporation, sole proprietorship, partnership, joint venture, etc.)",
+            "State legal company name to be verified against California Secretary of State's Website",
+            "Accept all terms and conditions of the City's standard agreement which is non-negotiable",
+            "Identify all key personnel assigned to perform services including names, contact numbers, description of experience, licenses and/or certifications",
+            "Identify major subcontractors if any and their degree of involvement, including how long the Company has worked with the subcontractor",
+            "Include affirmative statement that proposer and all assigned key professional staff are properly licensed to practice in California",
+            "Pricing must remain firm for the initial contract term",
+            "If charging travel costs, charges invoiced to the City for travel, lodging and subsistence shall not exceed the current IRS rates",
+            "Identify any litigation, mediation, or arbitration regarding performance of similar services in the past five years"
+          ],
+          "coverageItems": [
+            {
+              "matchedProjectTitle": null,
+              "matchScore": null,
+              "recommendation": "No strong past performance match. Consider teaming or subcontracting for: Provide eCitation Systems including mobile and desktop apps and sync service for 40 users",
+              "requirement": "Provide eCitation Systems including mobile and desktop apps and sync service for 40 users",
+              "matchedProjectId": null,
+              "category": "TECHNICAL",
+              "status": "GAP"
+            },
+            {
+              "matchedProjectTitle": null,
+              "matchScore": null,
+              "recommendation": "No strong past performance match. Consider teaming or subcontracting for: Solution must utilize City of Banning Police Department mobile work iPhones and be compatible with iOS devices",
+              "requirement": "Solution must utilize City of Banning Police Department mobile work iPhones and be compatible with iOS devices",
+              "matchedProjectId": null,
+              "category": "TECHNICAL",
+              "status": "GAP"
+            },
+            {
+              "matchedProjectTitle": null,
+              "matchScore": null,
+              "recommendation": "No strong past performance match. Consider teaming or subcontracting for: Provide Court Export Module",
+              "requirement": "Provide Court Export Module",
+              "matchedProjectId": null,
+              "category": "TECHNICAL",
+              "status": "GAP"
+            },
+            {
+              "matchedProjectTitle": null,
+              "matchScore": null,
+              "recommendation": "No strong past performance match. Consider teaming or subcontracting for: Provide interface to output citation records to RMS (RIMS)",
+              "requirement": "Provide interface to output citation records to RMS (RIMS)",
+              "matchedProjectId": null,
+              "category": "TECHNICAL",
+              "status": "GAP"
+            },
+            {
+              "matchedProjectTitle": null,
+              "matchScore": null,
+              "recommendation": "No strong past performance match. Consider teaming or subcontracting for: Provide interface to upload collision report data and documents to the CHP SWITRS System",
+              "requirement": "Provide interface to upload collision report data and documents to the CHP SWITRS System",
+              "matchedProjectId": null,
+              "category": "TECHNICAL",
+              "status": "GAP"
+            },
+            {
+              "matchedProjectTitle": null,
+              "matchScore": null,
+              "recommendation": "No strong past performance match. Consider teaming or subcontracting for: Provide interface to output collision records to RMS (RIMS)",
+              "requirement": "Provide interface to output collision records to RMS (RIMS)",
+              "matchedProjectId": null,
+              "category": "TECHNICAL",
+              "status": "GAP"
+            },
+            {
+              "matchedProjectTitle": null,
+              "matchScore": null,
+              "recommendation": "No strong past performance match. Consider teaming or subcontracting for: Provide CHP-180 Tow Form Application (Mobile)",
+              "requirement": "Provide CHP-180 Tow Form Application (Mobile)",
+              "matchedProjectId": null,
+              "category": "TECHNICAL",
+              "status": "GAP"
+            },
+            {
+              "matchedProjectTitle": null,
+              "matchScore": null,
+              "recommendation": "No strong past performance match. Consider teaming or subcontracting for: Compatible with Sun Ridge Systems RIMS CAD System",
+              "requirement": "Compatible with Sun Ridge Systems RIMS CAD System",
+              "matchedProjectId": null,
+              "category": "TECHNICAL",
+              "status": "GAP"
+            },
+            {
+              "matchedProjectTitle": null,
+              "matchScore": null,
+              "recommendation": "No strong past performance match. Consider teaming or subcontracting for: Compatible with Crossroads Software Report Writer for collision reporting (being utilized through Countywide grant project)",
+              "requirement": "Compatible with Crossroads Software Report Writer for collision reporting (being utilized through Countywide grant project)",
+              "matchedProjectId": null,
+              "category": "TECHNICAL",
+              "status": "GAP"
+            },
+            {
+              "matchedProjectTitle": null,
+              "matchScore": null,
+              "recommendation": "No strong past performance match. Consider teaming or subcontracting for: Vendor's desktop application client, if applicable, must be compatible with Windows 10 Pro",
+              "requirement": "Vendor's desktop application client, if applicable, must be compatible with Windows 10 Pro",
+              "matchedProjectId": null,
+              "category": "TECHNICAL",
+              "status": "GAP"
+            },
+            {
+              "matchedProjectTitle": null,
+              "matchScore": null,
+              "recommendation": "No strong past performance match. Consider teaming or subcontracting for: Provide 6 mobile printers if offered, or ability to purchase separately, along with PM service and supplies cost",
+              "requirement": "Provide 6 mobile printers if offered, or ability to purchase separately, along with PM service and supplies cost",
+              "matchedProjectId": null,
+              "category": "TECHNICAL",
+              "status": "GAP"
+            },
+            {
+              "matchedProjectTitle": null,
+              "matchScore": null,
+              "recommendation": "No strong past performance match. Consider teaming or subcontracting for: Provide required citation data to Justice, Circuit, and Municipal courts in a timely manner",
+              "requirement": "Provide required citation data to Justice, Circuit, and Municipal courts in a timely manner",
+              "matchedProjectId": null,
+              "category": "TECHNICAL",
+              "status": "GAP"
+            },
+            {
+              "matchedProjectTitle": null,
+              "matchScore": null,
+              "recommendation": "No strong past performance match. Consider teaming or subcontracting for: Provide reporting capability for mandatory state reporting",
+              "requirement": "Provide reporting capability for mandatory state reporting",
+              "matchedProjectId": null,
+              "category": "TECHNICAL",
+              "status": "GAP"
+            },
+            {
+              "matchedProjectTitle": null,
+              "matchScore": null,
+              "recommendation": "No strong past performance match. Consider teaming or subcontracting for: Enable access to citation and crash data/information from one source",
+              "requirement": "Enable access to citation and crash data/information from one source",
+              "matchedProjectId": null,
+              "category": "TECHNICAL",
+              "status": "GAP"
+            },
+            {
+              "matchedProjectTitle": null,
+              "matchScore": null,
+              "recommendation": "No strong past performance match. Consider teaming or subcontracting for: Provide cost for additional subscriptions as the department expands in personnel",
+              "requirement": "Provide cost for additional subscriptions as the department expands in personnel",
+              "matchedProjectId": null,
+              "category": "TECHNICAL",
+              "status": "GAP"
+            },
+            {
+              "matchedProjectTitle": null,
+              "matchScore": null,
+              "recommendation": "No strong past performance match. Consider teaming or subcontracting for: Provide cost of upgrades for all systems when available",
+              "requirement": "Provide cost of upgrades for all systems when available",
+              "matchedProjectId": null,
+              "category": "TECHNICAL",
+              "status": "GAP"
+            },
+            {
+              "matchedProjectTitle": null,
+              "matchScore": null,
+              "recommendation": "No strong past performance match. Consider teaming or subcontracting for: Provide project management and training for all systems including installation and training",
+              "requirement": "Provide project management and training for all systems including installation and training",
+              "matchedProjectId": null,
+              "category": "DELIVERABLES",
+              "status": "GAP"
+            },
+            {
+              "matchedProjectTitle": null,
+              "matchScore": null,
+              "recommendation": "No strong past performance match. Consider teaming or subcontracting for: Provide annual maintenance and support for all systems with recurring annual cost for the next five years",
+              "requirement": "Provide annual maintenance and support for all systems with recurring annual cost for the next five years",
+              "matchedProjectId": null,
+              "category": "DELIVERABLES",
+              "status": "GAP"
+            },
+            {
+              "matchedProjectTitle": null,
+              "matchScore": null,
+              "recommendation": "No strong past performance match. Consider teaming or subcontracting for: Provide detailed project schedule identifying all tasks, deliverables, durations, overall time of completion, and complete transition plan",
+              "requirement": "Provide detailed project schedule identifying all tasks, deliverables, durations, overall time of completion, and complete transition plan",
+              "matchedProjectId": null,
+              "category": "DELIVERABLES",
+              "status": "GAP"
+            },
+            {
+              "matchedProjectTitle": null,
+              "matchScore": null,
+              "recommendation": "No strong past performance match. Consider teaming or subcontracting for: Provide detailed implementation plan describing project management methods, controls, stakeholder engagement methodology, and implementation strategies",
+              "requirement": "Provide detailed implementation plan describing project management methods, controls, stakeholder engagement methodology, and implementation strategies",
+              "matchedProjectId": null,
+              "category": "DELIVERABLES",
+              "status": "GAP"
+            },
+            {
+              "matchedProjectTitle": null,
+              "matchScore": null,
+              "recommendation": "No strong past performance match. Consider teaming or subcontracting for: Have at least five (5) years of experience within the past five (5) years under a legally registered business name in providing services of similar type and scope",
+              "requirement": "Have at least five (5) years of experience within the past five (5) years under a legally registered business name in providing services of similar type and scope",
+              "matchedProjectId": null,
+              "category": "COMPLIANCE",
+              "status": "GAP"
+            },
+            {
+              "matchedProjectTitle": null,
+              "matchScore": null,
+              "recommendation": "No strong past performance match. Consider teaming or subcontracting for: Have not filed for bankruptcy under any business name over the past five (5) years",
+              "requirement": "Have not filed for bankruptcy under any business name over the past five (5) years",
+              "matchedProjectId": null,
+              "category": "COMPLIANCE",
+              "status": "GAP"
+            },
+            {
+              "matchedProjectTitle": null,
+              "matchScore": null,
+              "recommendation": "No strong past performance match. Consider teaming or subcontracting for: Must have an active SAM.gov account in good standing and provide SAM.gov Unique Entity ID number upon proposal submission",
+              "requirement": "Must have an active SAM.gov account in good standing and provide SAM.gov Unique Entity ID number upon proposal submission",
+              "matchedProjectId": null,
+              "category": "COMPLIANCE",
+              "status": "GAP"
+            },
+            {
+              "matchedProjectTitle": null,
+              "matchScore": null,
+              "recommendation": "No strong past performance match. Consider teaming or subcontracting for: Must be registered on OpenGov and download the solicitation to appear on the Prospective Bidders List",
+              "requirement": "Must be registered on OpenGov and download the solicitation to appear on the Prospective Bidders List",
+              "matchedProjectId": null,
+              "category": "COMPLIANCE",
+              "status": "GAP"
+            },
+            {
+              "matchedProjectTitle": null,
+              "matchScore": null,
+              "recommendation": "No strong past performance match. Consider teaming or subcontracting for: Must acknowledge all addenda electronically via the City's Bidding Website",
+              "requirement": "Must acknowledge all addenda electronically via the City's Bidding Website",
+              "matchedProjectId": null,
+              "category": "COMPLIANCE",
+              "status": "GAP"
+            },
+            {
+              "matchedProjectTitle": null,
+              "matchScore": null,
+              "recommendation": "No strong past performance match. Consider teaming or subcontracting for: Must comply with all grant requirements per the RFP, attachments, and addenda including Title VI of the Civil Rights Act of 1964 and Highway Safety Grant Programs",
+              "requirement": "Must comply with all grant requirements per the RFP, attachments, and addenda including Title VI of the Civil Rights Act of 1964 and Highway Safety Grant Programs",
+              "matchedProjectId": null,
+              "category": "COMPLIANCE",
+              "status": "GAP"
+            },
+            {
+              "matchedProjectTitle": null,
+              "matchScore": null,
+              "recommendation": "No strong past performance match. Consider teaming or subcontracting for: Must be able to meet all grant requirements and provide support to City staff with grant management",
+              "requirement": "Must be able to meet all grant requirements and provide support to City staff with grant management",
+              "matchedProjectId": null,
+              "category": "COMPLIANCE",
+              "status": "GAP"
+            },
+            {
+              "matchedProjectTitle": null,
+              "matchScore": null,
+              "recommendation": "No strong past performance match. Consider teaming or subcontracting for: Must not be on the CA Debarment List",
+              "requirement": "Must not be on the CA Debarment List",
+              "matchedProjectId": null,
+              "category": "COMPLIANCE",
+              "status": "GAP"
+            },
+            {
+              "matchedProjectTitle": "Digital Ocean to AWS Migration & Backend Overhaul",
+              "matchScore": 5,
+              "recommendation": "No strong past performance match. Consider teaming or subcontracting for: Provide at least 3 references within the past 5 years of clients for whom comparable services have been performed including client names, addresses, telephone numbers, email addresses, explanation of services, and project start and end dates",
+              "requirement": "Provide at least 3 references within the past 5 years of clients for whom comparable services have been performed including client names, addresses, telephone numbers, email addresses, explanation of services, and project start and end dates",
+              "matchedProjectId": "0b9fb34d-a4b4-4010-9980-0d3a10c133af",
+              "category": "COMPLIANCE",
+              "status": "GAP"
+            },
+            {
+              "matchedProjectTitle": null,
+              "matchScore": null,
+              "recommendation": "No strong past performance match. Consider teaming or subcontracting for: Cyber Insurance coverage is required in addition to the insurance requirements within the sample agreement",
+              "requirement": "Cyber Insurance coverage is required in addition to the insurance requirements within the sample agreement",
+              "matchedProjectId": null,
+              "category": "COMPLIANCE",
+              "status": "GAP"
+            },
+            {
+              "matchedProjectTitle": null,
+              "matchScore": null,
+              "recommendation": "No strong past performance match. Consider teaming or subcontracting for: Provide evidence of insurance in the coverage and amounts listed in the Sample Agreement",
+              "requirement": "Provide evidence of insurance in the coverage and amounts listed in the Sample Agreement",
+              "matchedProjectId": null,
+              "category": "COMPLIANCE",
+              "status": "GAP"
+            },
+            {
+              "matchedProjectTitle": null,
+              "matchScore": null,
+              "recommendation": "No strong past performance match. Consider teaming or subcontracting for: Furnish Certificates of Insurance within ten (10) consecutive calendar days of award of contract",
+              "requirement": "Furnish Certificates of Insurance within ten (10) consecutive calendar days of award of contract",
+              "matchedProjectId": null,
+              "category": "COMPLIANCE",
+              "status": "GAP"
+            },
+            {
+              "matchedProjectTitle": null,
+              "matchScore": null,
+              "recommendation": "No strong past performance match. Consider teaming or subcontracting for: Company and/or key personnel shall hold appropriate license for the discipline and services if applicable",
+              "requirement": "Company and/or key personnel shall hold appropriate license for the discipline and services if applicable",
+              "matchedProjectId": null,
+              "category": "COMPLIANCE",
+              "status": "GAP"
+            },
+            {
+              "matchedProjectTitle": null,
+              "matchScore": null,
+              "recommendation": "No strong past performance match. Consider teaming or subcontracting for: Must possess valid City of Banning Business License throughout the term of the contract",
+              "requirement": "Must possess valid City of Banning Business License throughout the term of the contract",
+              "matchedProjectId": null,
+              "category": "COMPLIANCE",
+              "status": "GAP"
+            },
+            {
+              "matchedProjectTitle": null,
+              "matchScore": null,
+              "recommendation": "No strong past performance match. Consider teaming or subcontracting for: Proposals shall be firm offers and may not be withdrawn for a period of 120 days following the submission deadline",
+              "requirement": "Proposals shall be firm offers and may not be withdrawn for a period of 120 days following the submission deadline",
+              "matchedProjectId": null,
+              "category": "COMPLIANCE",
+              "status": "GAP"
+            },
+            {
+              "matchedProjectTitle": null,
+              "matchScore": null,
+              "recommendation": "No strong past performance match. Consider teaming or subcontracting for: Complete and submit Certification Regarding Debarment, Suspension, Ineligibility Form (Attachment C)",
+              "requirement": "Complete and submit Certification Regarding Debarment, Suspension, Ineligibility Form (Attachment C)",
+              "matchedProjectId": null,
+              "category": "COMPLIANCE",
+              "status": "GAP"
+            },
+            {
+              "matchedProjectTitle": null,
+              "matchScore": null,
+              "recommendation": "No strong past performance match. Consider teaming or subcontracting for: Complete and submit Certification Compliance document",
+              "requirement": "Complete and submit Certification Compliance document",
+              "matchedProjectId": null,
+              "category": "COMPLIANCE",
+              "status": "GAP"
+            },
+            {
+              "matchedProjectTitle": null,
+              "matchScore": null,
+              "recommendation": "No strong past performance match. Consider teaming or subcontracting for: Complete and submit New Vendor Packet",
+              "requirement": "Complete and submit New Vendor Packet",
+              "matchedProjectId": null,
+              "category": "COMPLIANCE",
+              "status": "GAP"
+            },
+            {
+              "matchedProjectTitle": null,
+              "matchScore": null,
+              "recommendation": "No strong past performance match. Consider teaming or subcontracting for: Disclose any past or current business and personal relationships with any current Banning elected official, appointed official, City employee, or family member thereof",
+              "requirement": "Disclose any past or current business and personal relationships with any current Banning elected official, appointed official, City employee, or family member thereof",
+              "matchedProjectId": null,
+              "category": "COMPLIANCE",
+              "status": "GAP"
+            },
+            {
+              "matchedProjectTitle": null,
+              "matchScore": null,
+              "recommendation": "No strong past performance match. Consider teaming or subcontracting for: Certify Ex Parte Communications compliance - no communication with City Councilmember concerning this RFP after public advertisement date",
+              "requirement": "Certify Ex Parte Communications compliance - no communication with City Councilmember concerning this RFP after public advertisement date",
+              "matchedProjectId": null,
+              "category": "COMPLIANCE",
+              "status": "GAP"
+            },
+            {
+              "matchedProjectTitle": null,
+              "matchScore": null,
+              "recommendation": "No strong past performance match. Consider teaming or subcontracting for: Complete Debarred, Suspended, Disqualified Questionnaire",
+              "requirement": "Complete Debarred, Suspended, Disqualified Questionnaire",
+              "matchedProjectId": null,
+              "category": "COMPLIANCE",
+              "status": "GAP"
+            },
+            {
+              "matchedProjectTitle": null,
+              "matchScore": null,
+              "recommendation": "No strong past performance match. Consider teaming or subcontracting for: Disclose Government Positions held by any owner or employee",
+              "requirement": "Disclose Government Positions held by any owner or employee",
+              "matchedProjectId": null,
+              "category": "COMPLIANCE",
+              "status": "GAP"
+            },
+            {
+              "matchedProjectTitle": null,
+              "matchScore": null,
+              "recommendation": "No strong past performance match. Consider teaming or subcontracting for: Identify type of business entity (corporation, sole proprietorship, partnership, joint venture, etc.)",
+              "requirement": "Identify type of business entity (corporation, sole proprietorship, partnership, joint venture, etc.)",
+              "matchedProjectId": null,
+              "category": "COMPLIANCE",
+              "status": "GAP"
+            },
+            {
+              "matchedProjectTitle": null,
+              "matchScore": null,
+              "recommendation": "No strong past performance match. Consider teaming or subcontracting for: State legal company name to be verified against California Secretary of State's Website",
+              "requirement": "State legal company name to be verified against California Secretary of State's Website",
+              "matchedProjectId": null,
+              "category": "COMPLIANCE",
+              "status": "GAP"
+            },
+            {
+              "matchedProjectTitle": null,
+              "matchScore": null,
+              "recommendation": "No strong past performance match. Consider teaming or subcontracting for: Accept all terms and conditions of the City's standard agreement which is non-negotiable",
+              "requirement": "Accept all terms and conditions of the City's standard agreement which is non-negotiable",
+              "matchedProjectId": null,
+              "category": "COMPLIANCE",
+              "status": "GAP"
+            },
+            {
+              "matchedProjectTitle": null,
+              "matchScore": null,
+              "recommendation": "No strong past performance match. Consider teaming or subcontracting for: Identify all key personnel assigned to perform services including names, contact numbers, description of experience, licenses and/or certifications",
+              "requirement": "Identify all key personnel assigned to perform services including names, contact numbers, description of experience, licenses and/or certifications",
+              "matchedProjectId": null,
+              "category": "STAFFING",
+              "status": "GAP"
+            },
+            {
+              "matchedProjectTitle": null,
+              "matchScore": null,
+              "recommendation": "No strong past performance match. Consider teaming or subcontracting for: Identify major subcontractors if any and their degree of involvement, including how long the Company has worked with the subcontractor",
+              "requirement": "Identify major subcontractors if any and their degree of involvement, including how long the Company has worked with the subcontractor",
+              "matchedProjectId": null,
+              "category": "STAFFING",
+              "status": "GAP"
+            },
+            {
+              "matchedProjectTitle": null,
+              "matchScore": null,
+              "recommendation": "No strong past performance match. Consider teaming or subcontracting for: Include affirmative statement that proposer and all assigned key professional staff are properly licensed to practice in California",
+              "requirement": "Include affirmative statement that proposer and all assigned key professional staff are properly licensed to practice in California",
+              "matchedProjectId": null,
+              "category": "STAFFING",
+              "status": "GAP"
+            },
+            {
+              "matchedProjectTitle": null,
+              "matchScore": null,
+              "recommendation": "No strong past performance match. Consider teaming or subcontracting for: Pricing must remain firm for the initial contract term",
+              "requirement": "Pricing must remain firm for the initial contract term",
+              "matchedProjectId": null,
+              "category": "OTHER",
+              "status": "GAP"
+            },
+            {
+              "matchedProjectTitle": null,
+              "matchScore": null,
+              "recommendation": "No strong past performance match. Consider teaming or subcontracting for: If charging travel costs, charges invoiced to the City for travel, lodging and subsistence shall not exceed the current IRS rates",
+              "requirement": "If charging travel costs, charges invoiced to the City for travel, lodging and subsistence shall not exceed the current IRS rates",
+              "matchedProjectId": null,
+              "category": "OTHER",
+              "status": "GAP"
+            },
+            {
+              "matchedProjectTitle": null,
+              "matchScore": null,
+              "recommendation": "No strong past performance match. Consider teaming or subcontracting for: Identify any litigation, mediation, or arbitration regarding performance of similar services in the past five years",
+              "requirement": "Identify any litigation, mediation, or arbitration regarding performance of similar services in the past five years",
+              "matchedProjectId": null,
+              "category": "OTHER",
+              "status": "GAP"
+            }
+          ]
+        },
+        "narrativeSummary": "No relevant past performance projects were found matching this opportunity. 5 project(s) were reviewed but none demonstrated meaningful relevance. Consider adding past projects with relevant experience or exploring teaming arrangements. Overall past performance coverage: 0%. 51 critical gap(s) identified that may require teaming or subcontracting.",
+        "confidenceScore": 20,
+        "evidence": []
+      },
+      "inputHash": "802c5e7bdd76246b9ca61ff0927f94296b6ff448feafc75346d2dfe9636d7e8f",
+      "status": "COMPLETE",
+      "updatedAt": "2026-04-20T20:49:54.560Z"
+    },
+    "pricing": {
+      "data": {
+        "competitiveAdvantages": [],
+        "totalPrice": 0,
+        "indirectCostTotal": 0,
+        "basisOfEstimate": "This pricing analysis concludes that a meaningful cost estimate cannot and should not be developed for this opportunity due to a fundamental industry mismatch. Horus Technology (Interesting Interests Inc.) is a California-based AWS Advanced Consulting Partner specializing in cloud-native development, intelligent document automation, and AI/ML solutions. The solicitation (RFP-25-124) requires a mature, commercially available eCitation system software product for the Banning Police Department's 40 users, including iOS mobile apps, court export modules, CHP SWITRS integration, Sun Ridge Systems RIMS CAD compatibility, Crossroads Software Report Writer compatibility, CHP-180 Tow Form mobile application, mobile printers, and five years of annual maintenance and support. No government estimated value is stated in the solicitation. The organization's provided labor rates (Manufacturing Engineer at $178.89/hr, QA at $16.86/hr, Software Engineer at $171.40/hr) and BOM items (software license and subcontractor test items) are entirely irrelevant to this procurement, as the solicitation seeks an existing eCitation product, not custom software development services. The company has zero past performance in law enforcement software, eCitation systems, or public safety technology. The evaluation criteria allocate 75% of scoring to Qualifications (25 pts), Experience (20 pts), and Approach/Methodology (30 pts) \u2014 all areas where Horus Technology would score near zero. Price confidence is set at 10 (lowest meaningful level) because there is no government estimate, no relevant organizational pricing data, and no basis for estimating what a competitive eCitation solution would cost. Total price is set to $0 because the company fundamentally cannot perform this work with its current capabilities and product portfolio.",
+        "materialCostTotal": 0,
+        "assumptions": [
+          "This analysis assumes Horus Technology does not have an existing eCitation software product or any law enforcement mobile ticketing solution in its portfolio, based on the company knowledge base which describes capabilities exclusively in AWS cloud consulting, document automation, and AI/ML solutions.",
+          "The solicitation is assumed to be seeking a commercially available (COTS) eCitation product rather than custom software development, based on the specificity of required integrations (Sun Ridge RIMS, Crossroads Software, CHP SWITRS) and the requirement for iOS mobile apps, court export modules, and mobile printer support \u2014 all hallmarks of an established eCitation vendor product.",
+          "No government estimated value is stated in the solicitation. Based on the scope (40-user eCitation system with integrations, training, and 5 years of maintenance for a small municipal police department), comparable eCitation procurements by California law enforcement agencies typically fall in the range of $50,000-$200,000 for initial implementation plus $20,000-$60,000 per year for ongoing maintenance, but these figures are speculative general market observations and not based on any data provided in this solicitation or the company's knowledge base.",
+          "The organization's labor rates (Manufacturing Engineer, QA, Software Engineer) are not applicable to this procurement because the City is seeking a turnkey eCitation product with licensing, not custom development labor hours. These rates would not map to any deliverable in the solicitation's scope of work.",
+          "The 5-year experience prerequisite in Section III.A is assumed to be a hard pass/fail gate that Horus Technology cannot satisfy, as the company's documented experience is in cloud/AI consulting, not eCitation or law enforcement software services of similar type and scope.",
+          "Grant funding (Highway Safety Grant TR26018) is assumed to cap the City's available budget, meaning the procurement value is predetermined by the grant award amount, which is not disclosed in the solicitation text but would constrain any vendor's pricing."
+        ],
+        "competitivePosition": "HIGH",
+        "laborCostTotal": 0,
+        "profitMargin": 10,
+        "pricingRisks": [
+          "CRITICAL INDUSTRY MISMATCH: Horus Technology (Interesting Interests Inc.) is an AWS Advanced Consulting Partner specializing in intelligent document automation, cloud-native development, and AI/ML solutions. This solicitation requires a mature, field-tested eCitation software product for law enforcement with specific integrations to Sun Ridge Systems RIMS CAD, Crossroads Software Report Writer, CHP SWITRS, court export modules, and CHP-180 Tow Form mobile applications. The company has no known product, past performance, or capabilities in the law enforcement eCitation domain. Attempting to bid would require either building an entirely new product from scratch or partnering with an established eCitation vendor, both of which carry extreme cost and schedule risk.",
+          "PREREQUISITE DISQUALIFICATION RISK: Section III.A requires at least five years of experience within the past five years providing services of similar type and scope. Horus Technology's knowledge base shows expertise in AWS cloud consulting, document automation, and AI/ML \u2014 not eCitation or law enforcement mobile ticketing software. The company would very likely fail this pass/fail prerequisite, rendering the proposal non-responsive before it is even scored. This is a fundamental eligibility barrier.",
+          "PRICING WEIGHT IS LOW BUT TECHNICAL FIT IS PARAMOUNT: Pricing carries only 10 points (10% of total score per Section VII), while Approach and Methodology carries 30 points (30%), Qualifications 25 points (25%), and Experience 20 points (20%). Even if Horus Technology offered the lowest price, it would score near zero on the 75 points allocated to technical approach, qualifications, and experience, making a competitive overall score mathematically impossible without a relevant eCitation product and law enforcement references.",
+          "GRANT FUNDING CONSTRAINTS: The procurement is funded through a Highway Safety Grant (TR26018 per Attachment D), which imposes additional compliance requirements including Title VI Civil Rights Act, 2 CFR 200 federal grant regulations, SAM.gov registration, and grant management support obligations. These add administrative overhead and audit risk. The grant funding also means the City's budget is likely fixed and predetermined, leaving little room for premium pricing from a vendor that would need to develop capabilities from scratch.",
+          "FIRM FIXED PRICING WITH NON-NEGOTIABLE CONTRACT: Section VIII.A states pricing must remain firm for the initial contract term, and Section VIII.B states the City's standard agreement is non-negotiable with no exceptions permitted. For a company that would need to develop an entirely new product to meet requirements, accepting firm fixed pricing on an unknown scope of integration work with Sun Ridge RIMS, Crossroads Software, and CHP SWITRS creates unquantifiable financial risk."
+        ],
+        "recommendedActions": [
+          "NO-BID RECOMMENDATION: The business development lead should recommend a no-bid decision immediately. Horus Technology is a cloud/AI consulting firm with no eCitation product, no law enforcement software experience, and no relevant past performance references. The solicitation requires a mature COTS eCitation solution with specific California law enforcement system integrations. The company would fail the Section III.A prerequisite (5 years similar experience) and score near zero on 75% of the evaluation criteria (Qualifications, Experience, Approach and Methodology). Pursuing this opportunity would waste proposal resources with virtually zero probability of award.",
+          "MARKET INTELLIGENCE: If Horus Technology has a strategic interest in the law enforcement technology market, the capture manager should use this solicitation as market research to understand eCitation requirements, integration standards (RIMS, SWITRS, court export), and pricing structures. Monitor the award outcome on OpenGov to learn what the winning vendor proposed and at what price point, which could inform future market entry decisions.",
+          "TEAMING ASSESSMENT FOR FUTURE OPPORTUNITIES: If the company wishes to enter the public safety software market long-term, the business development team should identify established eCitation vendors (companies already serving California law enforcement agencies) and explore potential teaming or technology partnership arrangements. This would be a 6-12 month strategic initiative, not applicable to this specific February 18, 2026 deadline.",
+          "REDIRECT PROPOSAL RESOURCES: The proposal manager should redirect any resources allocated to this opportunity toward solicitations that align with Horus Technology's core competencies in AWS cloud consulting, document automation, and AI/ML solutions for government agencies. Focus on federal and state IT modernization opportunities where the company's $7.5M in AWS engagement experience and 16 AWS-certified professionals provide genuine competitive advantage."
+        ],
+        "strategy": "FIXED_PRICE",
+        "priceConfidence": 10
+      },
+      "inputHash": "force-regen-v9",
+      "status": "COMPLETE",
+      "updatedAt": "2026-04-21T00:59:05.056Z"
+    },
+    "requirements": {
+      "data": {
+        "evaluationFactors": [
+          "Qualifications - 25 points (25% of Total)",
+          "Pricing - 10 points (10% of Total)",
+          "Experience (Projects of similar size and scope) - 20 points (20% of Total)",
+          "Professional References - 10 points (10% of Total)",
+          "Approach and Methodology - 30 points (30% of Total)",
+          "Value Added Services - 5 points (5% of Total)"
+        ],
+        "overview": "The City of Banning, California (Banning Police Department) is soliciting proposals under RFP-25-124 for an eCitation System Software solution to replace their current paper citation process with a modern mobile e-ticketing, ticket management, collision reporting, and data analytics platform for 40 users. The business problem being addressed is the need to reduce patrol officer stop times, increase officer safety, improve efficiency in recording and delivering citations and crash reports, streamline data delivery to courts and state systems (CHP SWITRS), and enable centralized access to citation and collision data from a single source. Success looks like a fully deployed eCitation system compatible with the department's existing iPhones (iOS devices), Sun Ridge Systems RIMS CAD, and Crossroads Software Report Writer, with court export capabilities, RMS interfaces, CHP-180 tow form mobile application, mobile printers, comprehensive training, project management, and ongoing annual maintenance and support for up to five years. Key constraints include grant funding requirements (Highway Safety Grant Programs, Title VI Civil Rights Act compliance, active SAM.gov registration), cyber insurance in addition to standard insurance requirements, compatibility with Windows 10 Pro for any desktop client, a minimum of five years of relevant vendor experience, submission exclusively through the OpenGov electronic bidding portal by February 18, 2026, and a contract structure of one initial year with four optional one-year renewals. The evaluation will be based on a weighted points system across six criteria with Approach and Methodology carrying the highest weight at 30 points, and top-scoring proposers may be invited for demonstrations.",
+        "requirements": [
+          {
+            "category": "TECHNICAL",
+            "mustHave": true,
+            "requirement": "Provide eCitation system with mobile and desktop apps and sync service for 40 users"
+          },
+          {
+            "category": "TECHNICAL",
+            "mustHave": true,
+            "requirement": "System must be compatible with City of Banning Police Department mobile work iPhones (iOS devices)"
+          },
+          {
+            "category": "TECHNICAL",
+            "mustHave": true,
+            "requirement": "Provide Court Export Module for delivering citation data to Justice, Circuit, and Municipal courts"
+          },
+          {
+            "category": "TECHNICAL",
+            "mustHave": true,
+            "requirement": "Provide interface to output citation records to RMS (Sun Ridge Systems RIMS)"
+          },
+          {
+            "category": "TECHNICAL",
+            "mustHave": true,
+            "requirement": "Provide interface to upload collision report data and documents to the CHP SWITRS system"
+          },
+          {
+            "category": "TECHNICAL",
+            "mustHave": true,
+            "requirement": "Provide interface to output collision records to RMS (RIMS)"
+          },
+          {
+            "category": "TECHNICAL",
+            "mustHave": true,
+            "requirement": "Provide CHP-180 Tow Form Application (Mobile)"
+          },
+          {
+            "category": "TECHNICAL",
+            "mustHave": true,
+            "requirement": "Compatible with Sun Ridge Systems RIMS CAD System"
+          },
+          {
+            "category": "TECHNICAL",
+            "mustHave": true,
+            "requirement": "Compatible with Crossroads Software Report Writer for collision reporting (countywide grant project)"
+          },
+          {
+            "category": "TECHNICAL",
+            "mustHave": true,
+            "requirement": "Vendor desktop application client, if applicable, must be compatible with Windows 10 Pro"
+          },
+          {
+            "category": "TECHNICAL",
+            "mustHave": false,
+            "requirement": "Provide 6 mobile printers if offered, or ability to purchase separately, including PM service and supplies cost"
+          },
+          {
+            "category": "TECHNICAL",
+            "mustHave": true,
+            "requirement": "Provide cost for additional subscriptions as the department expands in personnel"
+          },
+          {
+            "category": "TECHNICAL",
+            "mustHave": true,
+            "requirement": "Provide reporting capability for mandatory state reporting"
+          },
+          {
+            "category": "TECHNICAL",
+            "mustHave": true,
+            "requirement": "Enable access to citation and crash data/information from one source"
+          },
+          {
+            "category": "DELIVERABLES",
+            "mustHave": true,
+            "requirement": "Provide project management and training for all systems"
+          },
+          {
+            "category": "DELIVERABLES",
+            "mustHave": true,
+            "requirement": "Provide installation and training for all systems"
+          },
+          {
+            "category": "DELIVERABLES",
+            "mustHave": true,
+            "requirement": "Provide annual maintenance and support for all systems with recurring annual cost for the next five years"
+          },
+          {
+            "category": "DELIVERABLES",
+            "mustHave": true,
+            "requirement": "Provide cost of upgrades for all systems when available"
+          },
+          {
+            "category": "COMPLIANCE",
+            "mustHave": true,
+            "requirement": "Vendor must have at least five (5) years of experience within the past five (5) years providing services of similar type and scope"
+          },
+          {
+            "category": "COMPLIANCE",
+            "mustHave": true,
+            "requirement": "Vendor must not have filed for bankruptcy under any business name over the past five (5) years"
+          },
+          {
+            "category": "COMPLIANCE",
+            "mustHave": true,
+            "requirement": "Must have an active SAM.gov account in good standing and provide Unique Entity ID number"
+          },
+          {
+            "category": "COMPLIANCE",
+            "mustHave": true,
+            "requirement": "Must register on OpenGov and download the solicitation to appear on Prospective Bidders List"
+          },
+          {
+            "category": "COMPLIANCE",
+            "mustHave": true,
+            "requirement": "Must acknowledge all addenda electronically via the City's Bidding Website"
+          },
+          {
+            "category": "COMPLIANCE",
+            "mustHave": true,
+            "requirement": "Must comply with all grant requirements per RFP and attachments including Highway Safety Grant Programs and Title VI Civil Rights Act"
+          },
+          {
+            "category": "COMPLIANCE",
+            "mustHave": true,
+            "requirement": "Must be able to meet all grant requirements and provide support to City staff with grant management"
+          },
+          {
+            "category": "COMPLIANCE",
+            "mustHave": true,
+            "requirement": "Must not be on the CA Debarment List"
+          },
+          {
+            "category": "COMPLIANCE",
+            "mustHave": true,
+            "requirement": "Cyber Insurance coverage required in addition to standard agreement insurance requirements"
+          },
+          {
+            "category": "COMPLIANCE",
+            "mustHave": true,
+            "requirement": "Provide at least 3 references within the past 5 years of clients for comparable services"
+          },
+          {
+            "category": "COMPLIANCE",
+            "mustHave": true,
+            "requirement": "Proposals may not be withdrawn for a period of 120 days following the submission deadline"
+          },
+          {
+            "category": "COMPLIANCE",
+            "mustHave": true,
+            "requirement": "Company must possess valid City of Banning Business License throughout the term of the contract"
+          },
+          {
+            "category": "COMPLIANCE",
+            "mustHave": true,
+            "requirement": "Execute Agreement and furnish required insurance and business tax certificate within 14 calendar days of award"
+          },
+          {
+            "category": "COMPLIANCE",
+            "mustHave": false,
+            "requirement": "If applicable, Company and/or key personnel shall hold appropriate license for the discipline and services"
+          },
+          {
+            "category": "COMPLIANCE",
+            "mustHave": true,
+            "requirement": "Certify no ex parte communications with City Councilmembers concerning this RFP after public advertisement date"
+          },
+          {
+            "category": "COMPLIANCE",
+            "mustHave": true,
+            "requirement": "Disclose any past or current business and personal relationships with current Banning elected officials, appointed officials, or City employees"
+          },
+          {
+            "category": "STAFFING",
+            "mustHave": true,
+            "requirement": "Identify all key personnel by name, title, phone number, experience, licenses/certifications, and assigned work portions"
+          },
+          {
+            "category": "STAFFING",
+            "mustHave": true,
+            "requirement": "Include affirmative statement that proposer and all assigned key professional staff are properly licensed to practice in California"
+          },
+          {
+            "category": "OTHER",
+            "mustHave": true,
+            "requirement": "Only one proposal may be submitted per Company; multiple simultaneous proposals will result in rejection of all"
+          },
+          {
+            "category": "OTHER",
+            "mustHave": true,
+            "requirement": "Proposals must be submitted exclusively through the City's Electronic Bidding System (OpenGov); no facsimile, email, or mail submissions accepted"
+          }
+        ],
+        "submissionCompliance": {
+          "format": [
+            "Proposals must be submitted electronically via the City's Electronic Bidding System (OpenGov) at https://secure.procurenow.com/portal/banning-ca",
+            "No facsimile, email, mail, or other format submissions accepted",
+            "Proposals must be typed and arranged/divided in the sequence specified in Section V (Vendor Questionnaire)",
+            "All proposal documents and supplementary documents must be uploaded using the City's bidding website prior to deadline",
+            "Companies must be registered on OpenGov and listed as Prospective Bidder",
+            "All addenda must be acknowledged electronically via the City's Bidding Website"
+          ],
+          "attachmentsAndForms": [
+            "Attachment A - SAMPLE - AGREEMENT FOR PROFESSIONAL SERVICES",
+            "Attachment B - 200 CFR GRANTS",
+            "Attachment C - Certification Regarding Debarment, Suspension, Ineligibility Form",
+            "Attachment D - DRAFT Grant Agreement - TR26018 Banning",
+            "New Vendor Packet.pdf",
+            "Certification-Compliance form (Section V.N)"
+          ],
+          "requiredDocuments": [
+            {
+              "name": "Cover Letter",
+              "description": "Brief general statement of intent to perform services, summary of qualifications, willingness to enter into contract, and identification of single contact person for RFP review process",
+              "documentType": "COVER_LETTER",
+              "required": true
+            },
+            {
+              "name": "Statement of Understanding and Approach",
+              "description": "Demonstrate understanding of services, describe general approach, organization and staffing, implementation plan with project management methods, detailed project schedule with tasks, deliverables, durations, and transition plan",
+              "documentType": "TECHNICAL_PROPOSAL",
+              "required": true
+            },
+            {
+              "name": "Company Information and Company Personnel",
+              "description": "Contact information, organizational entity type, litigation history, key personnel names, experience, licenses/certifications, subcontractor identification, and California licensing affirmation",
+              "documentType": "TEAM_QUALIFICATIONS",
+              "required": true
+            },
+            {
+              "name": "Experience and References",
+              "description": "Demonstration of minimum 5 years experience, at least 3 references within past 5 years with client names, addresses, telephone numbers, email addresses, explanation of services, and project dates",
+              "documentType": "PAST_PERFORMANCE",
+              "required": true
+            },
+            {
+              "name": "Price Proposal",
+              "description": "All-inclusive maximum price with full breakdown of all direct and indirect costs including hourly rates, reimbursable expenses, mileage/travel, miscellaneous fees, and IRS rate compliance statement for travel costs",
+              "documentType": "COST_PROPOSAL",
+              "required": true
+            },
+            {
+              "name": "Value Added Services",
+              "description": "Description of any value-added services the company offers that may be of use to the City",
+              "documentType": "OTHER",
+              "required": false
+            },
+            {
+              "name": "Evidence of Insurance",
+              "description": "Evidence of possession of insurance in coverage and amounts listed in the Sample Agreement, including Cyber Insurance coverage",
+              "documentType": "OTHER",
+              "required": true
+            },
+            {
+              "name": "New Vendor Packet",
+              "description": "Completed New Vendor Packet form downloaded from the solicitation",
+              "documentType": "OTHER",
+              "required": true
+            },
+            {
+              "name": "Certification-Compliance Form",
+              "description": "Completed Certification-Compliance document downloaded from the solicitation",
+              "documentType": "CERTIFICATIONS",
+              "required": true
+            },
+            {
+              "name": "Certification Regarding Debarment, Suspension, Ineligibility Form",
+              "description": "Attachment C - completed debarment, suspension, and ineligibility certification form",
+              "documentType": "CERTIFICATIONS",
+              "required": true
+            },
+            {
+              "name": "Ex Parte Communications Certification",
+              "description": "Certification that bidder and representatives have not communicated with City Councilmembers concerning this RFP",
+              "documentType": "OTHER",
+              "required": true
+            },
+            {
+              "name": "Debarred, Suspended, Disqualified Questionnaire",
+              "description": "Disclosure of any debarment, suspension, or disqualification history",
+              "documentType": "OTHER",
+              "required": true
+            },
+            {
+              "name": "Disclosure of Government Positions",
+              "description": "Disclosure of any owner or employee currently or recently holding elected or appointed government positions",
+              "documentType": "OTHER",
+              "required": true
+            },
+            {
+              "name": "Type of Business Declaration",
+              "description": "Identification of business entity type (C Corp, S Corp, LLC, Partnership, Sole Proprietor, etc.)",
+              "documentType": "OTHER",
+              "required": true
+            },
+            {
+              "name": "Legal Company Name",
+              "description": "Statement of company's legal name to be verified against California Secretary of State's website",
+              "documentType": "OTHER",
+              "required": true
+            },
+            {
+              "name": "SAM.gov Unique Entity ID",
+              "description": "Active SAM.gov registration with Unique Entity ID number provided upon proposal submission",
+              "documentType": "OTHER",
+              "required": true
+            },
+            {
+              "name": "Grant Requirements Acknowledgment",
+              "description": "Confirmation of understanding and agreement to follow all grant requirements per RFP and attachments",
+              "documentType": "OTHER",
+              "required": true
+            },
+            {
+              "name": "CA Debarment List Confirmation",
+              "description": "Confirmation that company is not on the CA Debarment List",
+              "documentType": "OTHER",
+              "required": true
+            },
+            {
+              "name": "Disclosure of Relationships",
+              "description": "Disclosure of any past or current business and personal relationships with current Banning officials or employees",
+              "documentType": "OTHER",
+              "required": true
+            }
+          ],
+          "requiredVolumes": [
+            "Cover Letter (Section V.A)",
+            "Proposal - Statement of Understanding and Approach, Company Information, Company Personnel, Disclosure, Experience and References (Section V.B)",
+            "Price Proposal (Section V.C)",
+            "Value Added Services (Section V.D)",
+            "Evidence of Insurance (Section V.E)",
+            "Vendor Forms (Section V.F)"
+          ]
+        },
+        "deliverables": [
+          "eCitation System (mobile and desktop apps and sync service)",
+          "Court Export Module",
+          "Interface to output citation records to RMS (RIMS)",
+          "Interface to upload collision report data and documents to CHP SWITRS system",
+          "Interface to output collision records to RMS (RIMS)",
+          "CHP-180 Tow Form Application (Mobile)",
+          "6 Mobile Printers (if offered)",
+          "Project management and training for all systems",
+          "Installation and training",
+          "Annual maintenance and support for all systems",
+          "Cost of upgrades for all systems when available",
+          "Cost for additional subscriptions as department expands"
+        ]
+      },
+      "inputHash": "force-regen-v9",
+      "status": "COMPLETE",
+      "updatedAt": "2026-04-21T00:54:50.211Z"
+    },
+    "risks": {
+      "data": {
+        "redFlags": [
+          {
+            "severity": "HIGH",
+            "whyItMatters": "A search of HORUSTECH's past performance database returned no relevant projects in eCitation, law enforcement mobile ticketing, or similar police department software implementations. Section VII allocates 20 points (20% of total score) to 'Experience (Projects of similar size and scope)' and 10 points (10%) to 'Professional References,' meaning 30% of the total evaluation score depends directly on demonstrable experience with comparable projects. Section V.B.E requires 'at least 3 references, within the past 5 years, of clients for whom services have been performed that are comparable in quality and scope.' Without relevant past performance, HORUSTECH would score poorly on nearly one-third of the evaluation criteria and may struggle to meet the prerequisite in Section III.A.",
+            "mitigation": "The business development lead should conduct an urgent internal review to identify any projects that could be positioned as comparable, including mobile application development for public safety, field data collection systems, or government software implementations. If insufficient relevant experience exists, the capture manager should evaluate teaming arrangements with an established eCitation vendor who can provide the required references and experience, and this decision must be made before committing proposal resources ahead of the February 18 deadline.",
+            "flag": "No past performance found in eCitation or law enforcement software domain.",
+            "impactsScore": true
+          },
+          {
+            "severity": "MEDIUM",
+            "whyItMatters": "Section IV.B specifies the solution must be 'Compatible with IOS devices,' utilize 'City of Banning Police Department mobile work iPhones,' and include '6 Mobile Printers (if offered or can be purchased separately).' The solution must also include a 'CHP-180 Tow Form Application (Mobile)' and support 40 users. These requirements indicate the City expects a mature, field-tested mobile eCitation product that already runs on iOS and supports thermal mobile printing for citation issuance in the field. If HORUSTECH does not have an existing iOS-native eCitation application with mobile printer integration, developing one from scratch would be extremely costly and risky within the expected implementation timeline. This directly impacts the 'Approach and Methodology' score (30 points per Section VII).",
+            "mitigation": "The product team should immediately assess whether HORUSTECH has or can rapidly deploy an iOS-compatible eCitation application with mobile printer support and CHP-180 tow form functionality. If the company lacks a ready product, the capture manager should evaluate whether a partnership or reseller arrangement with an established eCitation software provider (such as those already serving California law enforcement agencies) is feasible, and initiate discussions within one week of this assessment.",
+            "flag": "iOS device and mobile printer hardware requirements demand specialized product capability.",
+            "impactsScore": true
+          }
+        ],
+        "risks": [
+          {
+            "severity": "MEDIUM",
+            "whyItMatters": "Section III.A requires that proposers have 'at least five (5) years of experience, within the past five (5) years under a legally registered business name, in providing services of a similar type and scope.' This is a pass/fail prerequisite that will be verified before the proposal is evaluated on scoring criteria. If HORUSTECH cannot demonstrate five years of eCitation or similar law enforcement software experience under its current legal business name, the proposal will be deemed non-responsive and rejected outright, regardless of technical merit or pricing competitiveness.",
+            "mitigation": "The capture team should immediately verify HORUSTECH's business registration date and compile a portfolio of comparable law enforcement or mobile ticketing software projects spanning at least five years. If the company lacks sufficient direct experience, the business development lead should evaluate whether key personnel experience or teaming with an experienced subcontractor can satisfy this requirement, and submit a clarifying question via OpenGov Q&A before the January 29, 2026 deadline.",
+            "flag": "Minimum five years of experience prerequisite may limit eligibility.",
+            "impactsScore": true
+          },
+          {
+            "severity": "MEDIUM",
+            "whyItMatters": "Section IV.C explicitly states that 'Cyber Insurance coverage is also required in addition to the requirements within the sample agreement (attachment).' This is an additional insurance requirement beyond the standard general liability, auto, and professional liability coverages typically found in municipal contracts. If HORUSTECH does not currently carry cyber insurance, obtaining a policy can take several weeks and may involve significant cost, particularly for a technology firm handling law enforcement data. Failure to provide evidence of cyber insurance within 14 calendar days of contract award (per Section VIII.C) would result in rescission of the award.",
+            "mitigation": "The contracts or compliance manager should immediately verify whether HORUSTECH currently holds a cyber insurance policy and confirm the coverage amounts meet or exceed what the City's sample agreement specifies. If no policy exists, the team should begin obtaining quotes from insurance brokers within the first week of the bid decision, well before the February 18 proposal deadline, to ensure timely procurement if awarded.",
+            "flag": "Cyber insurance requirement in addition to standard insurance.",
+            "impactsScore": false
+          },
+          {
+            "severity": "MEDIUM",
+            "whyItMatters": "Section IV.B requires the eCitation solution to be 'Compatible with Sun Ridge Systems RIMS CAD System' and 'Compatible with Crossroads Software Report Writer for collision reporting,' as well as interface capabilities for CHP SWITRS and RMS (RIMS) data export. These specific integration requirements mean that the proposed solution must either already have established interfaces with these systems or the vendor must develop them. If HORUSTECH's product does not currently integrate with Sun Ridge Systems RIMS or Crossroads Software, significant development effort and testing would be required, increasing project risk and cost. This compatibility will likely be evaluated under the 'Approach and Methodology' criterion (30 points per Section VII).",
+            "mitigation": "The technical lead should conduct an immediate assessment of HORUSTECH's current integration capabilities with Sun Ridge Systems RIMS and Crossroads Software Report Writer, and document any existing interfaces or APIs. If gaps exist, the proposal team should develop a detailed integration plan with realistic timelines and costs, and consider submitting a clarifying question via OpenGov Q&A before January 29, 2026 to confirm exact interface specifications and data format requirements.",
+            "flag": "Compatibility requirements with specific third-party systems may narrow eligible vendors.",
+            "impactsScore": true
+          },
+          {
+            "severity": "LOW",
+            "whyItMatters": "Section VIII.B states that 'the Company agrees to enter into an Agreement with the City without exceptions to the City's standard agreement. The City's standard agreement is non-negotiable, and a copy of the standard agreement is attached herein. Any change to the standard agreement will deem the Proposal non-responsive.' This means HORUSTECH cannot negotiate liability caps, indemnification clauses, intellectual property terms, or any other contractual provisions. Section IX.A reinforces that 'All terms and conditions of the Agreement are non-negotiable.' For a software company, this is notable because standard municipal agreements may contain broad indemnification, IP assignment, or warranty provisions that could be unfavorable to a technology vendor.",
+            "mitigation": "The legal and contracts team should immediately review the Sample Agreement for Professional Services (Attachment A) to identify any problematic clauses such as unlimited indemnification, IP ownership provisions, or warranty terms that could create unacceptable business risk. This review should be completed before the bid/no-bid decision to ensure HORUSTECH can accept all terms without modification, as any requested changes would result in disqualification.",
+            "flag": "Non-negotiable contract terms with no exceptions permitted.",
+            "impactsScore": false
+          },
+          {
+            "severity": "LOW",
+            "whyItMatters": "Section III.G and Attachment B (200 CFR Grants) and Attachment D (Draft Grant Agreement TR26018) indicate this procurement is funded by a Highway Safety Grant, requiring compliance with Title VI of the Civil Rights Act, SAM.gov registration, Certification Regarding Debarment/Suspension (Attachment C), and additional grant management support. Section III.G specifically states the vendor 'Must be able to meet all the grant requirements and provide support to City staff with grant management.' This adds administrative overhead beyond a typical municipal software contract and requires the vendor to maintain active SAM registration and assist with grant reporting and compliance documentation throughout the contract term.",
+            "mitigation": "The compliance team should verify HORUSTECH's active SAM.gov registration status and Unique Entity ID immediately, and ensure the Certification Regarding Debarment form (Attachment C) can be completed without issues. The proposal manager should allocate time in the proposal schedule to address all grant-related requirements and include a section in the proposal demonstrating familiarity with federal highway safety grant compliance, including Title VI and 2 CFR requirements, to strengthen the submission.",
+            "flag": "Grant compliance requirements add administrative burden.",
+            "impactsScore": true
+          },
+          {
+            "severity": "LOW",
+            "whyItMatters": "Section IX.A states that 'Companies must possess valid City of Banning Business License throughout the term on the contract.' If HORUSTECH is not currently located in or registered to do business in Banning, California, obtaining a local business license is an additional administrative step that must be completed. While this is generally straightforward, failure to maintain the license throughout the contract term (potentially up to five years per Section VIII.A) could jeopardize the contract. This is a compliance requirement that must be tracked and renewed annually.",
+            "mitigation": "The operations or compliance team should research the City of Banning business license application process and requirements immediately, and factor the cost and timeline into the proposal budget. The team should plan to initiate the business license application promptly upon contract award notification to meet the 14-calendar-day execution deadline specified in Section VIII.C.",
+            "flag": "City of Banning Business License required throughout contract term.",
+            "impactsScore": false
+          }
+        ],
+        "incumbentInfo": {
+          "knownIncumbent": false,
+          "recompete": false,
+          "notes": "The solicitation does not name a current contract holder or reference a predecessor contract. The scope references transitioning from a paper citation process ('End of Life to paper citation process' in Section IV.A), suggesting this may be a new capability acquisition rather than a recompete of an existing eCitation contract."
+        }
+      },
+      "inputHash": "force-regen-v9",
+      "status": "COMPLETE",
+      "updatedAt": "2026-04-21T00:58:12.817Z"
+    },
+    "scoring": {
+      "data": {
+        "confidenceExplanation": "High confidence in NO_GO recommendation due to clear expired deadline, complete industry mismatch confirmed by KB data, pricing analysis, and past performance analysis all showing zero relevance",
+        "requiredActions": [
+          "Do not pursue this opportunity \u2014 redirect all resources to aligned solicitations",
+          "Use this solicitation as market intelligence if considering future entry into law enforcement technology",
+          "Monitor award outcome on OpenGov to understand competitive landscape and pricing for eCitation systems"
+        ],
+        "decision": "NO_GO",
+        "criteria": [
+          {
+            "name": "TECHNICAL_FIT",
+            "score": 1,
+            "rationale": "Horus Technology is an AWS Advanced Consulting Partner specializing in cloud-native development, intelligent document automation, and AI/ML solutions. The solicitation requires a mature, commercially available eCitation system software product with iOS mobile apps, court export modules, CHP SWITRS integration, Sun Ridge Systems RIMS CAD compatibility, Crossroads Software Report Writer compatibility, CHP-180 Tow Form mobile application, and mobile printer support for 40 law enforcement users. The company has zero capabilities in law enforcement software, eCitation systems, or any of the specific integrations required. This is a fundamental industry mismatch \u2014 the company builds cloud/AI solutions while the City needs a turnkey police ticketing product.",
+            "gaps": [
+              "No eCitation software product exists in company portfolio",
+              "No iOS mobile eCitation application capability",
+              "No Court Export Module capability",
+              "No Sun Ridge Systems RIMS CAD integration experience",
+              "No CHP SWITRS interface capability",
+              "No Crossroads Software Report Writer compatibility",
+              "No CHP-180 Tow Form Application",
+              "No mobile printer integration experience",
+              "No law enforcement domain expertise"
+            ]
+          },
+          {
+            "name": "PAST_PERFORMANCE_RELEVANCE",
+            "score": 1,
+            "rationale": "No relevant past performance exists in eCitation, law enforcement software, mobile ticketing, or public safety technology. The past performance analysis returned 0% overall coverage with 51 critical gaps identified. The top matched projects (AWS migration, crypto trading platform, HR platform, web applications) are entirely in different domains \u2014 financial services, HR tech, and manufacturing \u2014 with zero technical or domain similarity to law enforcement eCitation systems. The solicitation allocates 30% of evaluation scoring to Experience (20 pts) and Professional References (10 pts), requiring at least 3 references of comparable services within 5 years. The company cannot satisfy this requirement.",
+            "gaps": [
+              "Zero past performance in law enforcement software",
+              "Zero past performance in eCitation or mobile ticketing systems",
+              "Cannot provide 3 references for comparable services as required",
+              "No projects demonstrating CHP SWITRS, RIMS, or court system integrations"
+            ]
+          },
+          {
+            "name": "PRICING_POSITION",
+            "score": 1,
+            "rationale": "The pricing analysis explicitly concludes that a meaningful cost estimate cannot be developed due to fundamental industry mismatch. The company's labor rates (Manufacturing Engineer at $178.89/hr, Software Engineer at $171.40/hr) are irrelevant because the solicitation seeks a COTS eCitation product, not custom development services. Price confidence is rated at 10 out of 100 \u2014 the lowest meaningful level. The company has no existing product to price, no relevant cost basis, and would need to either build an entirely new product from scratch or partner with an established vendor. Even if pricing were competitive, the company would score near zero on the 75% of evaluation criteria allocated to technical approach, qualifications, and experience.",
+            "gaps": [
+              "No existing eCitation product to price",
+              "Company labor rates irrelevant to COTS product procurement",
+              "No basis for competitive pricing against established eCitation vendors",
+              "Firm fixed pricing on unknown development scope creates unquantifiable risk"
+            ]
+          },
+          {
+            "name": "STRATEGIC_ALIGNMENT",
+            "score": 1,
+            "rationale": "The company's documented strategic focus is on AWS cloud consulting, intelligent document automation, and AI/ML solutions for regulated and government-adjacent organizations. There is no documented strategic plan to enter the law enforcement technology or eCitation market. The company's KB shows capabilities in financial services, education, and government-adjacent IT sectors \u2014 none of which align with this police department eCitation procurement. Pursuing this opportunity would divert proposal resources from opportunities that match the company's core competencies. No strategic expansion into public safety software is documented in the knowledge base.",
+            "gaps": [
+              "No documented strategy to enter law enforcement technology market",
+              "Opportunity does not leverage any existing AWS/cloud/AI capabilities",
+              "Would divert resources from aligned opportunities",
+              "No pathway to building a law enforcement portfolio from this single small municipal contract"
+            ]
+          },
+          {
+            "name": "INCUMBENT_RISK",
+            "score": 4,
+            "rationale": "The solicitation indicates this is a new capability acquisition rather than a recompete \u2014 the City is transitioning from a paper citation process to an electronic system. There is no named incumbent vendor and no predecessor eCitation contract. This means there is no incumbent advantage to overcome, which is the one favorable factor in this assessment. However, established eCitation vendors who already serve California law enforcement agencies (and have existing integrations with Sun Ridge RIMS, CHP SWITRS, and Crossroads Software) will have significant competitive advantages based on their product maturity and domain expertise, even without incumbent status on this specific contract.",
+            "gaps": [
+              "Established eCitation vendors with existing California law enforcement deployments will be strong competitors"
+            ]
+          }
+        ],
+        "summaryJustification": "This opportunity represents a fundamental industry mismatch that makes pursuit virtually impossible. Horus Technology is an AWS cloud consulting and AI/ML firm with zero capabilities, products, or past performance in law enforcement eCitation systems. The solicitation requires a mature, commercially available eCitation product with specific integrations to Sun Ridge Systems RIMS CAD, CHP SWITRS, Crossroads Software Report Writer, court export modules, and iOS mobile apps \u2014 none of which exist in the company's portfolio. The past performance gap analysis shows 0% coverage across 51 critical requirements. Additionally, the proposal submission deadline of February 18, 2026 has already passed (today is April 21, 2026), making submission impossible regardless of capability fit. The company would fail the Section III.A prerequisite requiring five years of experience in services of similar type and scope, rendering any proposal non-responsive before scoring.",
+        "confidence": 95,
+        "blockers": [
+          "Submission deadline has passed (February 18, 2026 \u2014 over 2 months ago)",
+          "Fundamental industry mismatch \u2014 company has no eCitation product or law enforcement software capabilities",
+          "Cannot satisfy Section III.A prerequisite requiring 5 years of experience in services of similar type and scope",
+          "Cannot provide 3 references for comparable eCitation services as required by Section V.B.E",
+          "No existing iOS eCitation mobile application, court export module, or required system integrations"
+        ],
+        "decisionRationale": "This is a clear NO_GO decision driven by multiple disqualifying factors. First, the submission deadline passed on February 18, 2026 \u2014 over two months ago \u2014 making it impossible to submit a proposal. Second, even if the deadline had not passed, the company has a fundamental industry mismatch: it is a cloud/AI consulting firm with no eCitation product, no law enforcement software experience, and no relevant past performance (score of 1 on Technical Fit, Past Performance, Pricing, and Strategic Alignment). Third, the company would fail the mandatory Section III.A prerequisite requiring five years of similar experience, resulting in automatic disqualification. The composite score of 1.35 reflects that this opportunity has virtually zero probability of award and would waste proposal resources that should be directed toward aligned opportunities in AWS cloud consulting, document automation, and AI/ML.",
+        "compositeScore": 1.3,
+        "confidenceDrivers": [
+          {
+            "factor": "Submission deadline expired February 18, 2026",
+            "direction": "DOWN"
+          },
+          {
+            "factor": "Complete industry mismatch confirmed by all data sources",
+            "direction": "DOWN"
+          },
+          {
+            "factor": "Zero past performance coverage (0% across 51 requirements)",
+            "direction": "DOWN"
+          },
+          {
+            "factor": "Pricing analysis explicitly recommends no-bid with 10/100 confidence",
+            "direction": "DOWN"
+          },
+          {
+            "factor": "Section III.A prerequisite would disqualify proposal as non-responsive",
+            "direction": "DOWN"
+          },
+          {
+            "factor": "No incumbent risk (new capability) is only positive factor",
+            "direction": "UP"
+          }
+        ]
+      },
+      "inputHash": "force-regen-v9",
+      "status": "COMPLETE",
+      "updatedAt": "2026-04-21T01:01:07.770Z"
+    },
+    "summary": {
+      "data": {
+        "summary": "The City of Banning Police Department is seeking a qualified vendor to provide an electronic citation (eCitation) system software solution to replace their current paper citation process, enabling mobile e-ticketing, ticket management, collision reporting, and data analytics for approximately 40 users on department-issued iPhones. The technical scope encompasses eCitation mobile and desktop applications with sync services, a court export module, interfaces to the Sun Ridge Systems RIMS CAD system, integration with CHP SWITRS for collision report data uploads, a CHP-180 Tow Form mobile application, compatibility with Crossroads Software Report Writer, iOS device compatibility, Windows 10 Pro desktop client support, six mobile printers, and comprehensive project management and training. The contract structure consists of an initial one-year term with options to extend for four additional one-year terms not to exceed five years total, with pricing to remain firm during the initial term and subject to negotiation upon renewal. This procurement is funded through a Highway Safety Grant (TR26018) and requires vendors to maintain an active SAM.gov registration, comply with Title VI Civil Rights Act provisions, meet cyber insurance requirements, and support City staff with grant management obligations. The evaluation methodology weights Approach and Methodology at 30%, Qualifications at 25%, Experience at 20%, Pricing at 10%, Professional References at 10%, and Value Added Services at 5%, with top-scoring proposers potentially selected for demonstrations. Proposals must be submitted electronically through the OpenGov procurement portal by February 18, 2026, with anticipated vendor selection by March 31, 2026.",
+        "periodOfPerformance": "Base year + 4 option years (not to exceed 5 years)",
+        "agency": "City of Banning",
+        "contractType": "UNKNOWN",
+        "office": "Purchasing Division",
+        "title": "RFP-25-124 eCitation System Software",
+        "placeOfPerformance": "Banning, CA",
+        "solicitationNumber": "RFP-25-124",
+        "setAside": "UNKNOWN"
+      },
+      "inputHash": "force-regen-v9",
+      "status": "COMPLETE",
+      "updatedAt": "2026-04-21T00:52:28.146Z"
+    }
+  }
+}

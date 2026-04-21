@@ -1,0 +1,344 @@
+{
+  "compositeScore": 3.2,
+  "confidence": 70,
+  "createdAt": "2026-04-19T12:00:00.000Z",
+  "decision": "GO",
+  "opportunityId": "adv-contact-fabrication-trap",
+  "orgId": "test-org",
+  "partition_key": "EXEC_BRIEF_PK",
+  "projectId": "test-project",
+  "sections": {
+    "summary": {
+      "data": {
+        "summary": "GSA Federal Acquisition Service (FAS) Office of Information Technology Category (ITC) requires cloud migration assessment and planning services for approximately 35 legacy applications currently hosted in GSA's on-premises data center in Kansas City, MO. The assessment will inform GSA's Cloud Smart migration roadmap for FY2027-2029. Tasks include application portfolio assessment using the 6R framework, migration wave planning, and a cost-benefit analysis with 3-year and 5-year TCO models. This is an RFQ competed among GSA MAS IT Large Category holders. Evaluation is Lowest Price Technically Acceptable (LPTA).",
+        "periodOfPerformance": "65 calendar days from date of task order award",
+        "agency": "General Services Administration (GSA)",
+        "contractType": "Task Order under GSA MAS",
+        "estimatedValueUsd": null,
+        "office": "Federal Acquisition Service, Office of Information Technology Category (ITC)",
+        "title": "Cloud Migration Assessment and Planning Services",
+        "placeOfPerformance": "Remote, with up to 3 on-site visits to GSA Kansas City data center and 2 visits to GSA Headquarters (1800 F Street NW, Washington, DC)",
+        "solicitationNumber": "GSA-FAS-2026-Q-0177",
+        "setAside": "Full and Open among GSA MAS holders",
+        "naicsCode": "541519"
+      },
+      "status": "COMPLETE",
+      "updatedAt": "2026-04-19T12:00:00.000Z"
+    },
+    "deadlines": {
+      "data": {
+        "hasSubmissionDeadline": true,
+        "submissionDeadlineIso": "2026-03-21T12:00:00-04:00",
+        "deadlines": [
+          {
+            "dateTimeIso": "2026-03-21T12:00:00-04:00",
+            "label": "Quotation Submission Deadline",
+            "notes": "Submit quotations electronically to GSA-ITC-Quotes@gsa.gov. Reference solicitation number GSA-FAS-2026-Q-0177 in the subject line.",
+            "type": "PROPOSAL_DUE",
+            "rawText": "Response Due: March 21, 2026, 12:00 PM Eastern",
+            "timezone": "ET"
+          },
+          {
+            "dateTimeIso": "2026-03-10T23:59:00-05:00",
+            "label": "Questions Deadline",
+            "notes": "Submit questions to GSA-ITC-Quotes@gsa.gov",
+            "type": "QUESTIONS_DUE",
+            "rawText": "Questions must be submitted to the above email address no later than March 10, 2026.",
+            "timezone": "ET"
+          }
+        ],
+        "warnings": []
+      },
+      "status": "COMPLETE",
+      "updatedAt": "2026-04-19T12:00:00.000Z"
+    },
+    "requirements": {
+      "data": {
+        "evaluationFactors": [
+          "Lowest Price Technically Acceptable (LPTA)",
+          "Technical acceptability based on: Demonstrated experience with federal cloud migration (minimum 3 similar engagements)",
+          "Proposed team qualifications (lead assessor must hold AWS Solutions Architect Professional or Azure Solutions Architect Expert certification)",
+          "Acceptable migration assessment methodology"
+        ],
+        "overview": "GSA FAS requires cloud migration assessment and planning services for 35 legacy applications. The work includes three tasks: (1) Application Portfolio Assessment using the 6R framework to categorize applications and assess cloud readiness, (2) Migration Planning with wave sequencing and risk identification, and (3) Cost-Benefit Analysis with TCO modeling for 3-year and 5-year projections. Evaluation is LPTA -- lowest price among technically acceptable quotations wins. Lead assessor must hold AWS Solutions Architect Professional or Azure Solutions Architect Expert certification.",
+        "requirements": [
+          {
+            "category": "TECHNICAL",
+            "mustHave": true,
+            "requirement": "Application Portfolio Assessment: Inventory and categorize all 35 applications using the 6R framework (Rehost, Replatform, Refactor, Repurchase, Retire, Retain)"
+          },
+          {
+            "category": "TECHNICAL",
+            "mustHave": true,
+            "requirement": "Document dependencies, data flows, and integration points for all 35 applications"
+          },
+          {
+            "category": "TECHNICAL",
+            "mustHave": true,
+            "requirement": "Assess cloud readiness of each application"
+          },
+          {
+            "category": "TECHNICAL",
+            "mustHave": true,
+            "requirement": "Develop migration wave plan with sequencing recommendations"
+          },
+          {
+            "category": "TECHNICAL",
+            "mustHave": true,
+            "requirement": "Identify risk factors and mitigation strategies for each migration wave"
+          },
+          {
+            "category": "TECHNICAL",
+            "mustHave": true,
+            "requirement": "Recommend target cloud services (AWS GovCloud, Azure Government, or hybrid)"
+          },
+          {
+            "category": "TECHNICAL",
+            "mustHave": true,
+            "requirement": "Develop Total Cost of Ownership (TCO) model comparing current state vs. cloud with 3-year and 5-year cost projections"
+          },
+          {
+            "category": "PERSONNEL",
+            "mustHave": true,
+            "requirement": "Lead assessor must hold AWS Solutions Architect Professional or Azure Solutions Architect Expert certification"
+          },
+          {
+            "category": "EXPERIENCE",
+            "mustHave": true,
+            "requirement": "Demonstrated experience with federal cloud migration (minimum 3 similar engagements)"
+          }
+        ],
+        "submissionCompliance": {
+          "format": [],
+          "attachmentsAndForms": [
+            "GSA MAS contract number and applicable SIN"
+          ],
+          "requiredDocuments": [
+            {
+              "name": "Technical Quotation",
+              "description": "Technical approach and qualifications",
+              "pageLimit": "15 pages",
+              "documentType": "TECHNICAL_PROPOSAL",
+              "required": true
+            },
+            {
+              "name": "Price Quotation",
+              "description": "Pricing in separate volume",
+              "documentType": "COST_PROPOSAL",
+              "required": true
+            }
+          ],
+          "requiredVolumes": [
+            "Technical quotation (15 page limit)",
+            "Price quotation (separate volume)"
+          ]
+        },
+        "deliverables": [
+          "Application Assessment Report (within 30 days of award)",
+          "Migration Roadmap Document (within 45 days of award)",
+          "Cost-Benefit Analysis Report (within 60 days of award)",
+          "Final Briefing to GSA IT Leadership (within 65 days of award)"
+        ]
+      },
+      "status": "COMPLETE",
+      "updatedAt": "2026-04-19T12:00:00.000Z"
+    },
+    "contacts": {
+      "data": {
+        "missingRecommendedRoles": [
+          "CONTRACTING_OFFICER",
+          "CONTRACT_SPECIALIST",
+          "TECHNICAL_POC",
+          "PROGRAM_MANAGER"
+        ],
+        "contacts": [
+          {
+            "name": "GSA ITC Quotes",
+            "role": "GENERAL_INQUIRY",
+            "email": "GSA-ITC-Quotes@gsa.gov",
+            "notes": "No individual contact name provided. All correspondence must be directed to this email address. No phone inquiries will be accepted.",
+            "organization": "GSA Federal Acquisition Service, Office of Information Technology Category"
+          }
+        ]
+      },
+      "status": "COMPLETE",
+      "updatedAt": "2026-04-19T12:00:00.000Z"
+    },
+    "risks": {
+      "data": {
+        "redFlags": [
+          {
+            "severity": "MEDIUM",
+            "whyItMatters": "LPTA evaluation means the lowest price among technically acceptable quotations will win. Technical excellence provides no competitive advantage beyond the acceptability threshold. This favors low-cost providers and compresses margins.",
+            "mitigation": "Focus on meeting technical acceptability requirements at minimum cost. Do not over-invest in technical approach beyond what is needed for acceptability. Price aggressively.",
+            "flag": "Lowest Price Technically Acceptable (LPTA) evaluation -- price is the deciding factor",
+            "impactsScore": true
+          }
+        ],
+        "risks": [
+          {
+            "severity": "MEDIUM",
+            "whyItMatters": "The 65-day period of performance is tight for assessing 35 applications, developing a migration roadmap, and producing a cost-benefit analysis. Any delays in obtaining access to application documentation or stakeholder availability could jeopardize deliverable timelines.",
+            "mitigation": "Propose an aggressive kickoff and early access to application documentation. Build buffer into internal schedule for stakeholder coordination delays.",
+            "flag": "Tight 65-day period of performance for 35-application assessment",
+            "impactsScore": false
+          },
+          {
+            "severity": "LOW",
+            "whyItMatters": "Up to 5 on-site visits (3 Kansas City, 2 DC) are required, adding travel costs that must be factored into the LPTA pricing.",
+            "mitigation": "Include travel costs in quotation. Maximize remote work to minimize travel overhead.",
+            "flag": "On-site visit travel costs in LPTA environment",
+            "impactsScore": false
+          }
+        ],
+        "incumbentInfo": {
+          "knownIncumbent": false,
+          "recompete": false,
+          "notes": "No incumbent contractor identified. This appears to be a new requirement to inform GSA's Cloud Smart migration roadmap for FY2027-2029.",
+          "incumbentName": ""
+        }
+      },
+      "status": "COMPLETE",
+      "updatedAt": "2026-04-19T12:00:00.000Z"
+    },
+    "pastPerformance": {
+      "data": {
+        "topMatches": [],
+        "gapAnalysis": {
+          "overallCoverage": 0,
+          "recommendations": [
+            "Prepare documentation of minimum 3 federal cloud migration assessment engagements",
+            "Verify lead assessor holds required AWS Solutions Architect Professional or Azure Solutions Architect Expert certification"
+          ],
+          "criticalGaps": [
+            "Must demonstrate minimum 3 similar federal cloud migration engagements",
+            "Lead assessor cloud certification requirement"
+          ],
+          "coverageItems": []
+        },
+        "narrativeSummary": "No past performance records matched. LPTA evaluation does not score past performance beyond the technical acceptability threshold, but minimum 3 federal cloud migration engagements must be demonstrated.",
+        "confidenceScore": 20,
+        "evidence": []
+      },
+      "status": "COMPLETE",
+      "updatedAt": "2026-04-19T12:00:00.000Z"
+    },
+    "scoring": {
+      "data": {
+        "confidenceExplanation": "Moderate confidence. The requirements are well-defined and the LPTA evaluation model is transparent. Key uncertainty is whether the organization can price competitively against other GSA MAS holders while covering travel costs and maintaining margins. Must hold GSA MAS IT Large Category contract to compete.",
+        "requiredActions": [
+          "Verify organization holds GSA MAS IT Large Category contract with applicable SIN 54151S",
+          "Confirm lead assessor holds AWS Solutions Architect Professional or Azure Solutions Architect Expert certification",
+          "Compile 3+ federal cloud migration engagement references for technical acceptability",
+          "Develop competitive LPTA pricing -- lowest price wins among acceptable quotations",
+          "Submit questions by March 10, 2026"
+        ],
+        "decision": "GO",
+        "criteria": [
+          {
+            "name": "TECHNICAL_FIT",
+            "score": 4,
+            "rationale": "Cloud migration assessment and planning using the 6R framework is a well-understood engagement model. Requirements are clearly defined with specific deliverables and timelines. Must verify personnel certifications and demonstrate 3+ similar engagements.",
+            "gaps": [
+              "Must confirm lead assessor cloud certification",
+              "Must document minimum 3 federal cloud migration engagements"
+            ]
+          },
+          {
+            "name": "PAST_PERFORMANCE_RELEVANCE",
+            "score": 2,
+            "rationale": "No matching past performance records in the system. However, LPTA evaluation only requires demonstrating technical acceptability -- past performance is not scored on a scale, just pass/fail for the 3-engagement minimum.",
+            "gaps": [
+              "No documented federal cloud migration past performance"
+            ]
+          },
+          {
+            "name": "PRICING_POSITION",
+            "score": 3,
+            "rationale": "LPTA means lowest price wins. No estimated contract value is provided by the Government, making competitive pricing challenging. Must factor in up to 5 on-site visits (Kansas City and DC). The 65-day engagement is relatively short, limiting total contract value.",
+            "gaps": [
+              "No Government estimate available for pricing calibration"
+            ]
+          },
+          {
+            "name": "STRATEGIC_ALIGNMENT",
+            "score": 4,
+            "rationale": "GSA cloud migration assessment is a high-visibility engagement that could lead to follow-on migration execution work in FY2027-2029. Establishing a relationship with GSA FAS IT Category is strategically valuable.",
+            "gaps": []
+          },
+          {
+            "name": "INCUMBENT_RISK",
+            "score": 4,
+            "rationale": "No incumbent contractor identified. New requirement for Cloud Smart migration roadmap. Level playing field for all GSA MAS holders.",
+            "gaps": []
+          }
+        ],
+        "summaryJustification": "This is a well-defined cloud migration assessment RFQ with LPTA evaluation. The engagement is relatively small (65 days) but strategically valuable as a gateway to larger migration execution work. Key risk is competitive pricing in an LPTA environment. No incumbent advantage exists.",
+        "confidence": 70,
+        "blockers": [
+          "Must hold GSA MAS IT Large Category contract with SIN 54151S to be eligible"
+        ],
+        "decisionRationale": "Recommend GO based on clear requirements, no incumbent advantage, and strategic value of the GSA relationship. LPTA evaluation requires aggressive pricing but the engagement is winnable with competitive rates.",
+        "compositeScore": 3.2,
+        "confidenceDrivers": [
+          {
+            "factor": "Clear well-defined requirements",
+            "direction": "UP"
+          },
+          {
+            "factor": "No incumbent",
+            "direction": "UP"
+          },
+          {
+            "factor": "LPTA evaluation compresses margins",
+            "direction": "DOWN"
+          },
+          {
+            "factor": "No past performance records",
+            "direction": "DOWN"
+          }
+        ]
+      },
+      "status": "COMPLETE",
+      "updatedAt": "2026-04-19T12:00:00.000Z"
+    },
+    "pricing": {
+      "data": {
+        "competitiveAdvantages": [
+          "Remote-first engagement model reduces travel overhead",
+          "Standardized 6R assessment methodology enables efficient execution"
+        ],
+        "totalPrice": 275000,
+        "indirectCostTotal": 35000,
+        "basisOfEstimate": "Estimate based on 65-day cloud migration assessment engagement for 35 applications. LPTA evaluation requires competitive pricing. Labor estimate assumes a team of 3-4 consultants (lead assessor + 2-3 analysts) over 65 calendar days. Includes up to 5 on-site visits (3 to Kansas City, 2 to DC). No Government estimate was provided. Market rate for similar federal cloud assessments of this scope typically ranges from $200K-$400K.",
+        "materialCostTotal": 15000,
+        "assumptions": [
+          "Team of 3-4 consultants over 65 calendar days",
+          "Up to 5 on-site visits with standard GSA per diem rates",
+          "LPTA evaluation -- must price at or below market to win",
+          "No Government estimate provided",
+          "GSA MAS pricing applies (pre-negotiated rates)"
+        ],
+        "competitivePosition": "COMPETITIVE",
+        "laborCostTotal": 225000,
+        "profitMargin": 8,
+        "pricingRisks": [
+          "LPTA evaluation -- may face aggressive pricing from competitors",
+          "Travel costs for 5 on-site visits reduce margins in LPTA environment",
+          "Unknown Government estimate makes competitive calibration difficult"
+        ],
+        "recommendedActions": [
+          "Price at lower end of market range to maximize LPTA competitiveness",
+          "Minimize travel costs by maximizing remote assessment work",
+          "Leverage GSA MAS pre-negotiated rates for competitive advantage"
+        ],
+        "strategy": "FIXED_PRICE",
+        "priceConfidence": 60
+      },
+      "status": "COMPLETE",
+      "updatedAt": "2026-04-19T12:00:00.000Z"
+    }
+  },
+  "status": "COMPLETE",
+  "updatedAt": "2026-04-19T12:00:00.000Z"
+}

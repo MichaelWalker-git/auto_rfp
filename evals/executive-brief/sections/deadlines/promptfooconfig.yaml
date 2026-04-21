@@ -1,0 +1,1102 @@
+description: Executive Brief — Deadline Extraction Eval
+
+prompts:
+  - label: Current Production Prompt
+    id: file://../../prompts/deadlines-chat.json
+
+providers:
+  - id: bedrock:us.anthropic.claude-sonnet-4-20250514-v1:0
+    label: claude-sonnet
+    config:
+      region: us-east-1
+      max_tokens: 4000
+      temperature: 0.1
+
+defaultTest:
+  options:
+    provider: bedrock:us.anthropic.claude-sonnet-4-20250514-v1:0
+  assert:
+    # ── Shared: JSON validity + schema compliance ──
+    - type: is-json
+      metric: ValidJSON
+      value:
+        type: object
+        required: ['deadlines']
+        properties:
+          deadlines:
+            type: array
+            items:
+              type: object
+              properties:
+                type: { type: string }
+                label: { type: string }
+                dateTimeIso: { type: string }
+                rawText: { type: string }
+                timezone: { type: string }
+                notes: { type: [string, "null"] }
+              additionalProperties: false
+          hasSubmissionDeadline:
+            type: boolean
+          submissionDeadlineIso:
+            type: [string, "null"]
+          warnings:
+            type: array
+            items: { type: string }
+        additionalProperties: false
+
+tests:
+  # ─── Test Case 1: DC Courts Legal Case Management ───
+  - description: "DC Courts — DCSC-26-RFP-60 (explicit proposal + questions deadlines, EST)"
+    vars:
+      solicitation: file://../../rfp-texts/legal-case-document-management-system.txt
+    assert:
+      # Deadline count: expect at least 2 (PROPOSAL_DUE + QUESTIONS_DUE)
+      - type: javascript
+        metric: DeadlineCount
+        value: |
+          const obj = JSON.parse(output);
+          return obj.deadlines.length >= 2;
+
+      # PROPOSAL_DUE present with correct date
+      - type: javascript
+        metric: ProposalDuePresent
+        value: |
+          const obj = JSON.parse(output);
+          const d = obj.deadlines.find(d => d.type === 'PROPOSAL_DUE');
+          return d !== undefined;
+
+      - type: javascript
+        metric: ProposalDueDateAccuracy
+        value: |
+          const obj = JSON.parse(output);
+          const d = obj.deadlines.find(d => d.type === 'PROPOSAL_DUE');
+          if (!d || !d.dateTimeIso) return false;
+          return d.dateTimeIso.startsWith('2026-04-24T11:00:00');
+
+      - type: javascript
+        metric: ProposalDueTimezone
+        value: |
+          const obj = JSON.parse(output);
+          const d = obj.deadlines.find(d => d.type === 'PROPOSAL_DUE');
+          if (!d) return false;
+          return (d.timezone || '').toUpperCase().includes('EST') || (d.timezone || '').toUpperCase().includes('ET');
+
+      - type: javascript
+        metric: ProposalDueRawTextPresent
+        value: |
+          const obj = JSON.parse(output);
+          const d = obj.deadlines.find(d => d.type === 'PROPOSAL_DUE');
+          return d && (d.rawText || '').length > 10;
+
+      # QUESTIONS_DUE present with correct date
+      - type: javascript
+        metric: QuestionsDuePresent
+        value: |
+          const obj = JSON.parse(output);
+          const d = obj.deadlines.find(d => d.type === 'QUESTIONS_DUE');
+          return d !== undefined;
+
+      - type: javascript
+        metric: QuestionsDueDateAccuracy
+        value: |
+          const obj = JSON.parse(output);
+          const d = obj.deadlines.find(d => d.type === 'QUESTIONS_DUE');
+          if (!d || !d.dateTimeIso) return false;
+          return d.dateTimeIso.startsWith('2026-04-13T11:00:00');
+
+      - type: javascript
+        metric: QuestionsDueRawTextPresent
+        value: |
+          const obj = JSON.parse(output);
+          const d = obj.deadlines.find(d => d.type === 'QUESTIONS_DUE');
+          return d && (d.rawText || '').length > 10;
+
+      # Submission deadline flag and ISO
+      - type: javascript
+        metric: HasSubmissionDeadline
+        value: |
+          const obj = JSON.parse(output);
+          return obj.hasSubmissionDeadline === true;
+
+      - type: javascript
+        metric: SubmissionDeadlineIsoAccuracy
+        value: |
+          const obj = JSON.parse(output);
+          if (!obj.submissionDeadlineIso) return false;
+          return obj.submissionDeadlineIso.startsWith('2026-04-24T11:00:00');
+
+      # LLM-graded rubrics
+      - type: llm-rubric
+        metric: HallucinationDetection
+        threshold: 0.8
+        weight: 5
+        value: |
+          You are checking whether the AI output contains hallucinated deadline information.
+
+          GOLD STANDARD (from solicitation DCSC-26-RFP-60):
+          - PROPOSAL_DUE: April 24, 2026 at 11:00 AM EST
+          - QUESTIONS_DUE: April 13, 2026 at 11:00 AM EST
+          - No site visit, no pre-proposal conference (explicitly stated as not planned)
+          - No award estimate date given
+
+          WHAT COUNTS AS A HALLUCINATION:
+          - Inventing a deadline that does not appear in the solicitation
+          - Fabricating a specific date/time for a deadline not in the document
+          - Assigning wrong dates to real deadlines (e.g., swapping proposal and questions dates)
+
+          WHAT IS NOT A HALLUCINATION:
+          - Including the solicitation opening date (March 30, 2026) as an OTHER deadline
+          - Minor label wording differences
+          - Noting the 120-day acceptance period
+          - Flagging the year typo (2025 vs 2026) in warnings
+
+          Score 5 = all deadlines grounded in source, no fabricated dates.
+          Score 3 = one questionable deadline.
+          Score 1 = one or more clearly fabricated deadlines.
+
+      - type: llm-rubric
+        metric: OmissionDiscipline
+        threshold: 0.8
+        weight: 5
+        value: |
+          For solicitation DCSC-26-RFP-60:
+
+          Deadlines that MUST be present:
+          - PROPOSAL_DUE (April 24, 2026, 11:00 AM EST)
+          - QUESTIONS_DUE (April 13, 2026, 11:00 AM EST)
+
+          Deadlines that MUST NOT be present:
+          - SITE_VISIT (none mentioned)
+          - PRE_PROPOSAL_CONFERENCE (explicitly stated as not planned)
+
+          hasSubmissionDeadline MUST be true.
+          submissionDeadlineIso MUST match the PROPOSAL_DUE date.
+
+          Score 5 = both required deadlines present, no false deadlines
+          Score 3 = one missing or one extra fabricated deadline
+          Score 1 = major deadline missing or multiple fabricated deadlines
+
+  # ─── Test Case 2: DOT Airline Analysis & Scheduling ───
+  - description: "DOT — 693JK426R600002 (questions, demo scheduling, proposal due — 3 deadlines)"
+    vars:
+      solicitation: file://../../rfp-texts/airline-analysis-and-scheduling-solution-via-a-web-based-application.txt
+    assert:
+      # Deadline count: expect at least 3 (QUESTIONS_DUE, OTHER/demo, PROPOSAL_DUE; optionally AWARD_ESTIMATE)
+      - type: javascript
+        metric: DeadlineCount
+        value: |
+          const obj = JSON.parse(output);
+          return obj.deadlines.length >= 3;
+
+      # PROPOSAL_DUE present with AMENDED date (March 30 per Amendment 007)
+      - type: javascript
+        metric: ProposalDuePresent
+        value: |
+          const obj = JSON.parse(output);
+          const d = obj.deadlines.find(d => d.type === 'PROPOSAL_DUE');
+          return d !== undefined;
+
+      - type: javascript
+        metric: ProposalDueDateAccuracy
+        value: |
+          const obj = JSON.parse(output);
+          const d = obj.deadlines.find(d => d.type === 'PROPOSAL_DUE');
+          if (!d || !d.dateTimeIso) return false;
+          return d.dateTimeIso.includes('2026-03-30');
+
+      # QUESTIONS_DUE present with AMENDED date (Feb 13 per Amendment 002)
+      - type: javascript
+        metric: QuestionsDuePresent
+        value: |
+          const obj = JSON.parse(output);
+          const d = obj.deadlines.find(d => d.type === 'QUESTIONS_DUE');
+          return d !== undefined;
+
+      - type: javascript
+        metric: QuestionsDueDateAccuracy
+        value: |
+          const obj = JSON.parse(output);
+          const d = obj.deadlines.find(d => d.type === 'QUESTIONS_DUE');
+          if (!d || !d.dateTimeIso) return false;
+          return d.dateTimeIso.includes('2026-02-13');
+
+      # Demonstration scheduling deadline present (as OTHER or SITE_VISIT)
+      - type: javascript
+        metric: DemoDeadlinePresent
+        value: |
+          const obj = JSON.parse(output);
+          const d = obj.deadlines.find(d =>
+            (d.label || '').toLowerCase().includes('demonstrat') ||
+            (d.rawText || '').toLowerCase().includes('demonstrat')
+          );
+          return d !== undefined;
+
+      - type: javascript
+        metric: DemoDeadlineDateAccuracy
+        value: |
+          const obj = JSON.parse(output);
+          const d = obj.deadlines.find(d =>
+            (d.label || '').toLowerCase().includes('demonstrat') ||
+            (d.rawText || '').toLowerCase().includes('demonstrat')
+          );
+          if (!d || !d.dateTimeIso) return false;
+          return d.dateTimeIso.includes('2026-03-02');
+
+      # Timezone checks
+      - type: javascript
+        metric: ProposalDueTimezone
+        value: |
+          const obj = JSON.parse(output);
+          const d = obj.deadlines.find(d => d.type === 'PROPOSAL_DUE');
+          if (!d) return false;
+          return (d.timezone || '').toUpperCase().includes('EST') || (d.timezone || '').toUpperCase().includes('ET');
+
+      - type: javascript
+        metric: QuestionsDueTimezone
+        value: |
+          const obj = JSON.parse(output);
+          const d = obj.deadlines.find(d => d.type === 'QUESTIONS_DUE');
+          if (!d) return false;
+          return (d.timezone || '').toUpperCase().includes('EST') || (d.timezone || '').toUpperCase().includes('ET');
+
+      - type: javascript
+        metric: DemoDeadlineTimezone
+        value: |
+          const obj = JSON.parse(output);
+          const d = obj.deadlines.find(d =>
+            (d.label || '').toLowerCase().includes('demonstrat') ||
+            (d.rawText || '').toLowerCase().includes('demonstrat')
+          );
+          if (!d) return false;
+          return (d.timezone || '').toUpperCase().includes('EST') || (d.timezone || '').toUpperCase().includes('ET');
+
+      # rawText anchoring checks
+      - type: javascript
+        metric: ProposalDueRawTextPresent
+        value: |
+          const obj = JSON.parse(output);
+          const d = obj.deadlines.find(d => d.type === 'PROPOSAL_DUE');
+          return d && (d.rawText || '').length > 10;
+
+      - type: javascript
+        metric: QuestionsDueRawTextPresent
+        value: |
+          const obj = JSON.parse(output);
+          const d = obj.deadlines.find(d => d.type === 'QUESTIONS_DUE');
+          return d && (d.rawText || '').length > 10;
+
+      - type: javascript
+        metric: DemoDeadlineRawTextPresent
+        value: |
+          const obj = JSON.parse(output);
+          const d = obj.deadlines.find(d =>
+            (d.label || '').toLowerCase().includes('demonstrat') ||
+            (d.rawText || '').toLowerCase().includes('demonstrat')
+          );
+          return d && (d.rawText || '').length > 10;
+
+      # Submission deadline flag and ISO
+      - type: javascript
+        metric: HasSubmissionDeadline
+        value: |
+          const obj = JSON.parse(output);
+          return obj.hasSubmissionDeadline === true;
+
+      - type: javascript
+        metric: SubmissionDeadlineIsoAccuracy
+        value: |
+          const obj = JSON.parse(output);
+          if (!obj.submissionDeadlineIso) return false;
+          return obj.submissionDeadlineIso.includes('2026-03-30');
+
+      # LLM-graded rubrics
+      - type: llm-rubric
+        metric: HallucinationDetection
+        threshold: 0.8
+        weight: 5
+        value: |
+          You are checking whether the AI output contains hallucinated deadline information.
+
+          GOLD STANDARD (from solicitation 693JK426R600002, including 7 amendments):
+          - QUESTIONS_DUE: Originally Feb 10 at noon EST, AMENDED to February 13, 2026 at 9:00 AM EST (Amendment 002, due to SAM.gov attachment issue)
+          - OTHER/SITE_VISIT (demonstration scheduling): March 2, 2026 at 12pm EST (unchanged)
+          - PROPOSAL_DUE: Originally March 27, AMENDED to March 30, 2026 at 10am EST (Amendment 007)
+          - AWARD_ESTIMATE: April 1, 2026 (from Q&A answers)
+          - No site visit, no pre-proposal conference, no amendment cutoff mentioned
+          - Base period dates (May 1, 2026) are approximate and NOT actionable deadlines
+
+          WHAT COUNTS AS A HALLUCINATION:
+          - Inventing a deadline not in the solicitation or its amendments
+          - Wrong dates that don't match any version (original or amended)
+          - Treating approximate performance period dates as hard deadlines
+
+          WHAT IS NOT A HALLUCINATION:
+          - Using the amended dates (Feb 13, March 30) — these are the correct final dates
+          - Including the RFP issue date (Feb 4, 2026) as an OTHER entry
+          - Including the April 1 award estimate from the Q&A
+          - Minor label differences
+          - Noting the EST/EDT timezone ambiguity
+          - Referencing amendment numbers when explaining date changes
+
+          Score 5 = all deadlines grounded in source.
+          Score 3 = one questionable deadline.
+          Score 1 = clearly fabricated deadlines.
+
+      - type: llm-rubric
+        metric: OmissionDiscipline
+        threshold: 0.8
+        weight: 5
+        value: |
+          For solicitation 693JK426R600002 (with 7 amendments):
+
+          Deadlines that MUST be present:
+          - PROPOSAL_DUE (March 30, 2026, amended from March 27 via Amendment 007)
+          - QUESTIONS_DUE (February 13, 2026, amended from Feb 10 via Amendment 002)
+          - Demonstration scheduling deadline (March 2, 2026) — as OTHER or SITE_VISIT
+
+          OPTIONAL but acceptable:
+          - AWARD_ESTIMATE (April 1, 2026 from Q&A)
+
+          hasSubmissionDeadline MUST be true.
+          submissionDeadlineIso MUST match the PROPOSAL_DUE date (March 30, 2026).
+
+          Score 5 = all 3 required deadlines present with amended dates, correct submission flag
+          Score 3 = one deadline missing or using pre-amendment dates
+          Score 1 = major deadlines missing or fabricated
+
+  # ─── Test Case 3: FUSRAP Data Management (PWS — No Deadlines) ───
+  - description: "USACE — FUSRAP Data Management (PWS only, zero deadlines)"
+    vars:
+      solicitation: file://../../rfp-texts/fusrap-data-management-services.txt
+    assert:
+      # Should have 0 deadlines (or at most 1 for the relative PoP)
+      - type: javascript
+        metric: DeadlineCountZeroOrMinimal
+        value: |
+          const obj = JSON.parse(output);
+          return obj.deadlines.length <= 1;
+
+      # No PROPOSAL_DUE should exist
+      - type: javascript
+        metric: NoProposalDue
+        value: |
+          const obj = JSON.parse(output);
+          const d = obj.deadlines.find(d => d.type === 'PROPOSAL_DUE');
+          return d === undefined;
+
+      # hasSubmissionDeadline must be false
+      - type: javascript
+        metric: HasSubmissionDeadlineFalse
+        value: |
+          const obj = JSON.parse(output);
+          return obj.hasSubmissionDeadline === false;
+
+      # submissionDeadlineIso must be absent
+      - type: javascript
+        metric: SubmissionDeadlineIsoAbsent
+        value: |
+          const obj = JSON.parse(output);
+          return !obj.submissionDeadlineIso;
+
+      # Should have warnings about missing deadlines
+      - type: javascript
+        metric: HasWarnings
+        value: |
+          const obj = JSON.parse(output);
+          return (obj.warnings || []).length > 0;
+
+      # LLM-graded rubrics
+      - type: llm-rubric
+        metric: HallucinationDetection
+        threshold: 0.8
+        weight: 5
+        value: |
+          You are checking a PWS/SOW document that contains NO deadlines.
+
+          GOLD STANDARD:
+          - This is a Performance Work Statement, NOT a solicitation
+          - The ONLY time reference is "5 years from date of award" (relative, no absolute date)
+          - Document dates (December 2025, November 2024, October 1985) are publication dates of guidance documents, NOT deadlines
+          - There are NO proposal due dates, questions due dates, site visits, conferences, or award estimates
+
+          WHAT COUNTS AS A HALLUCINATION:
+          - Inventing ANY fixed-date deadline (the document contains none)
+          - Treating guidance publication dates as deadlines
+          - Creating a PROPOSAL_DUE entry
+
+          WHAT IS NOT A HALLUCINATION:
+          - Including a single OTHER entry for "5 years from award" with UNPARSED_DATE note
+          - Empty deadlines array
+          - Warnings about missing solicitation wrapper documents
+
+          Score 5 = no fabricated deadlines, correct empty/minimal result.
+          Score 3 = one questionable deadline entry.
+          Score 1 = fabricated deadlines from publication dates.
+
+      - type: llm-rubric
+        metric: OmissionDiscipline
+        threshold: 0.8
+        weight: 5
+        value: |
+          This is a PWS/SOW — the hardest test for omission discipline.
+
+          MUST NOT be present:
+          - PROPOSAL_DUE (no solicitation deadline in a PWS)
+          - QUESTIONS_DUE (no Q&A period mentioned)
+          - Any deadline with a fabricated absolute date
+
+          hasSubmissionDeadline MUST be false.
+          submissionDeadlineIso MUST be null/absent.
+          warnings SHOULD note this is a PWS without submission deadlines.
+
+          Score 5 = correct empty/minimal deadlines, false submission flag, helpful warning
+          Score 3 = some unnecessary deadline entries
+          Score 1 = fabricated deadlines or true submission flag
+
+  # ─── Test Case 4: DoD COMET (DIA) ───
+  - description: "DIA — COMET IDIQ (HHM40225R0025) — proposal due April 3 CST"
+    vars:
+      solicitation: file://../../rfp-texts/dod-healthcare-portal.txt
+    assert:
+      - type: javascript
+        metric: ProposalDuePresent
+        value: |
+          const obj = JSON.parse(output);
+          const d = obj.deadlines.find(d => d.type === 'PROPOSAL_DUE');
+          return d !== undefined;
+
+      - type: javascript
+        metric: ProposalDueDateAccuracy
+        value: |
+          const obj = JSON.parse(output);
+          const d = obj.deadlines.find(d => d.type === 'PROPOSAL_DUE');
+          if (!d || !d.dateTimeIso) return false;
+          return d.dateTimeIso.startsWith('2026-04-03T17:00:00');
+
+      - type: javascript
+        metric: ProposalDueTimezone
+        value: |
+          const obj = JSON.parse(output);
+          const d = obj.deadlines.find(d => d.type === 'PROPOSAL_DUE');
+          if (!d) return false;
+          const tz = (d.timezone || '').toUpperCase();
+          return tz.includes('CST') || tz.includes('CT') || tz.includes('CENTRAL');
+
+      - type: javascript
+        metric: HasSubmissionDeadline
+        value: |
+          const obj = JSON.parse(output);
+          return obj.hasSubmissionDeadline === true;
+
+      - type: javascript
+        metric: SubmissionDeadlineIsoAccuracy
+        value: |
+          const obj = JSON.parse(output);
+          if (!obj.submissionDeadlineIso) return false;
+          return obj.submissionDeadlineIso.startsWith('2026-04-03T17:00:00');
+
+      - type: llm-rubric
+        metric: HallucinationDetection
+        threshold: 0.8
+        weight: 5
+        value: |
+          GOLD STANDARD for HHM40225R0025 (DoD COMET):
+          - PROPOSAL_DUE: April 3, 2026 at 1700 HRS CST
+          - Questions deadline referenced but exact date poorly formatted in text
+
+          WHAT COUNTS AS A HALLUCINATION:
+          - Fabricated deadlines not in the solicitation
+          - Wrong date for proposal due
+          - Treating contract deliverable schedules as solicitation deadlines
+
+          Score 5 = all deadlines grounded. Score 1 = fabricated deadlines.
+
+      - type: llm-rubric
+        metric: OmissionDiscipline
+        threshold: 0.8
+        weight: 5
+        value: |
+          For HHM40225R0025:
+          - PROPOSAL_DUE (April 3, 2026 at 1700 CST) MUST be present
+          - hasSubmissionDeadline MUST be true
+          - submissionDeadlineIso MUST match proposal due date
+
+          Score 5 = proposal deadline present with correct date. Score 1 = missing or wrong.
+
+  # ─── Test Case 5: Sacramento AI Benefits ───
+  - description: "Sacramento — AI-Powered Benefits (COSac-IT-RFP-2026-112) — proposal + questions"
+    vars:
+      solicitation: file://../../rfp-texts/sacramento-ai-benefits.txt
+    assert:
+      - type: javascript
+        metric: ProposalDuePresent
+        value: |
+          const obj = JSON.parse(output);
+          const d = obj.deadlines.find(d => d.type === 'PROPOSAL_DUE');
+          return d !== undefined;
+
+      - type: javascript
+        metric: ProposalDueDateAccuracy
+        value: |
+          const obj = JSON.parse(output);
+          const d = obj.deadlines.find(d => d.type === 'PROPOSAL_DUE');
+          if (!d || !d.dateTimeIso) return false;
+          return d.dateTimeIso.startsWith('2026-05-02T17:00:00');
+
+      - type: javascript
+        metric: ProposalDueTimezone
+        value: |
+          const obj = JSON.parse(output);
+          const d = obj.deadlines.find(d => d.type === 'PROPOSAL_DUE');
+          if (!d) return false;
+          const tz = (d.timezone || '').toUpperCase();
+          return tz.includes('PT') || tz.includes('PACIFIC') || tz.includes('PST') || tz.includes('PDT');
+
+      - type: javascript
+        metric: QuestionsDuePresent
+        value: |
+          const obj = JSON.parse(output);
+          const d = obj.deadlines.find(d => d.type === 'QUESTIONS_DUE');
+          return d !== undefined;
+
+      - type: javascript
+        metric: QuestionsDueDateAccuracy
+        value: |
+          const obj = JSON.parse(output);
+          const d = obj.deadlines.find(d => d.type === 'QUESTIONS_DUE');
+          if (!d || !d.dateTimeIso) return false;
+          return d.dateTimeIso.startsWith('2026-04-16');
+
+      - type: javascript
+        metric: HasSubmissionDeadline
+        value: |
+          const obj = JSON.parse(output);
+          return obj.hasSubmissionDeadline === true;
+
+      - type: llm-rubric
+        metric: HallucinationDetection
+        threshold: 0.8
+        weight: 5
+        value: |
+          GOLD STANDARD for COSac-IT-RFP-2026-112:
+          - PROPOSAL_DUE: May 2, 2026 at 5:00 PM PT
+          - QUESTIONS_DUE: April 16, 2026
+          - Issued: March 31, 2026
+
+          WHAT COUNTS AS A HALLUCINATION:
+          - Fabricated deadlines not in the solicitation
+          - Wrong dates
+
+          Score 5 = all grounded. Score 1 = fabricated deadlines.
+
+      - type: llm-rubric
+        metric: OmissionDiscipline
+        threshold: 0.8
+        weight: 5
+        value: |
+          For COSac-IT-RFP-2026-112:
+          - PROPOSAL_DUE (May 2, 2026 5:00 PM PT) MUST be present
+          - QUESTIONS_DUE (April 16, 2026) MUST be present
+          - hasSubmissionDeadline MUST be true
+
+          Score 5 = both deadlines present. Score 1 = major deadline missing.
+
+  # ─── Test Case 6: BIE Enterprise Backup ───
+  - description: "BIE — Enterprise Backup (140A2326Q0070) — offer due March 31 CDT"
+    vars:
+      solicitation: file://../../rfp-texts/bie-enterprise-backup.txt
+    assert:
+      - type: javascript
+        metric: ProposalDuePresent
+        value: |
+          const obj = JSON.parse(output);
+          const d = obj.deadlines.find(d => d.type === 'PROPOSAL_DUE');
+          return d !== undefined;
+
+      - type: javascript
+        metric: ProposalDueDateAccuracy
+        value: |
+          const obj = JSON.parse(output);
+          const d = obj.deadlines.find(d => d.type === 'PROPOSAL_DUE');
+          if (!d || !d.dateTimeIso) return false;
+          return d.dateTimeIso.includes('2026-03-31');
+
+      - type: javascript
+        metric: ProposalDueTimezone
+        value: |
+          const obj = JSON.parse(output);
+          const d = obj.deadlines.find(d => d.type === 'PROPOSAL_DUE');
+          if (!d) return false;
+          const tz = (d.timezone || '').toUpperCase();
+          return tz.includes('CD') || tz.includes('CT') || tz.includes('CENTRAL') || tz.includes('UTC');
+
+      - type: javascript
+        metric: HasSubmissionDeadline
+        value: |
+          const obj = JSON.parse(output);
+          return obj.hasSubmissionDeadline === true;
+
+      - type: javascript
+        metric: SubmissionDeadlineIsoAccuracy
+        value: |
+          const obj = JSON.parse(output);
+          if (!obj.submissionDeadlineIso) return false;
+          return obj.submissionDeadlineIso.includes('2026-03-31');
+
+      - type: llm-rubric
+        metric: HallucinationDetection
+        threshold: 0.8
+        weight: 5
+        value: |
+          GOLD STANDARD for 140A2326Q0070:
+          - Offer Due: March 31, 2026 at 1400 CDT
+          - Solicitation Issued: February 26, 2026
+          - No questions deadline, no site visit, no conference
+
+          WHAT COUNTS AS A HALLUCINATION:
+          - Fabricated deadlines not in the solicitation
+          - Wrong date for offer due
+
+          Score 5 = all grounded. Score 1 = fabricated deadlines.
+
+      - type: llm-rubric
+        metric: OmissionDiscipline
+        threshold: 0.8
+        weight: 5
+        value: |
+          For 140A2326Q0070:
+          - PROPOSAL_DUE (March 31, 2026 at 1400 CDT) MUST be present
+          - hasSubmissionDeadline MUST be true
+          - No QUESTIONS_DUE should be fabricated (none in solicitation)
+
+          Score 5 = offer deadline present, no fabricated extras. Score 1 = missing or fabricated.
+
+  # ─── Test Case 7: IHS Cloud Hosting (Sources Sought — NO deadlines) ───
+  - description: "IHS — CCoE Cloud (Sources Sought — zero deadlines, critical empty-state test)"
+    vars:
+      solicitation: file://../../rfp-texts/sources-sought-cloud-hosting-provisioning-and-management-for-indian-health-servi.txt
+    assert:
+      - type: javascript
+        metric: DeadlineCountZeroOrMinimal
+        value: |
+          const obj = JSON.parse(output);
+          return obj.deadlines.length <= 1;
+
+      - type: javascript
+        metric: NoProposalDue
+        value: |
+          const obj = JSON.parse(output);
+          const d = obj.deadlines.find(d => d.type === 'PROPOSAL_DUE');
+          return d === undefined;
+
+      - type: javascript
+        metric: HasSubmissionDeadlineFalse
+        value: |
+          const obj = JSON.parse(output);
+          return obj.hasSubmissionDeadline === false;
+
+      - type: javascript
+        metric: SubmissionDeadlineIsoAbsent
+        value: |
+          const obj = JSON.parse(output);
+          return !obj.submissionDeadlineIso;
+
+      - type: llm-rubric
+        metric: HallucinationDetection
+        threshold: 0.8
+        weight: 5
+        value: |
+          This is a SOURCES SOUGHT / Draft SOW with NO deadlines.
+
+          GOLD STANDARD:
+          - NO proposal due date (this is NOT a formal solicitation)
+          - Milestone schedule is relative to award date, NOT fixed calendar dates
+          - Document contains zero actionable deadlines for offerors
+
+          WHAT COUNTS AS A HALLUCINATION:
+          - ANY fixed-date deadline (the document has none)
+          - PROPOSAL_DUE entry
+          - Treating relative milestones (M1-M9) as calendar deadlines
+
+          Score 5 = no fabricated deadlines. Score 1 = fabricated calendar deadlines.
+
+      - type: llm-rubric
+        metric: OmissionDiscipline
+        threshold: 0.8
+        weight: 5
+        value: |
+          For IHS CCoE Sources Sought:
+          - hasSubmissionDeadline MUST be false
+          - submissionDeadlineIso MUST be null/absent
+          - deadlines array should be empty or contain only relative milestones with UNPARSED_DATE
+          - warnings SHOULD note this is a draft SOW without submission deadlines
+
+          Score 5 = correct empty state. Score 1 = fabricated deadlines or true submission flag.
+
+  # ─── Test Case 8: VA Document Destruction ───
+  - description: "VA — Document Destruction (36C24826Q0460) — offers + questions due"
+    vars:
+      solicitation: file://../../rfp-texts/va-document-destruction.txt
+    assert:
+      - type: javascript
+        metric: ProposalDuePresent
+        value: |
+          const obj = JSON.parse(output);
+          const d = obj.deadlines.find(d => d.type === 'PROPOSAL_DUE');
+          return d !== undefined;
+
+      - type: javascript
+        metric: ProposalDueDateAccuracy
+        value: |
+          const obj = JSON.parse(output);
+          const d = obj.deadlines.find(d => d.type === 'PROPOSAL_DUE');
+          if (!d || !d.dateTimeIso) return false;
+          return d.dateTimeIso.startsWith('2026-04-24T16:00:00');
+
+      - type: javascript
+        metric: ProposalDueTimezone
+        value: |
+          const obj = JSON.parse(output);
+          const d = obj.deadlines.find(d => d.type === 'PROPOSAL_DUE');
+          if (!d) return false;
+          const tz = (d.timezone || '').toUpperCase();
+          return tz.includes('EST') || tz.includes('ET') || tz.includes('EASTERN');
+
+      - type: javascript
+        metric: QuestionsDuePresent
+        value: |
+          const obj = JSON.parse(output);
+          const d = obj.deadlines.find(d => d.type === 'QUESTIONS_DUE');
+          return d !== undefined;
+
+      - type: javascript
+        metric: QuestionsDueDateAccuracy
+        value: |
+          const obj = JSON.parse(output);
+          const d = obj.deadlines.find(d => d.type === 'QUESTIONS_DUE');
+          if (!d || !d.dateTimeIso) return false;
+          return d.dateTimeIso.startsWith('2026-04-15T11:00:00');
+
+      - type: javascript
+        metric: HasSubmissionDeadline
+        value: |
+          const obj = JSON.parse(output);
+          return obj.hasSubmissionDeadline === true;
+
+      - type: javascript
+        metric: SubmissionDeadlineIsoAccuracy
+        value: |
+          const obj = JSON.parse(output);
+          if (!obj.submissionDeadlineIso) return false;
+          return obj.submissionDeadlineIso.startsWith('2026-04-24T16:00:00');
+
+      - type: llm-rubric
+        metric: HallucinationDetection
+        threshold: 0.8
+        weight: 5
+        value: |
+          GOLD STANDARD for 36C24826Q0460:
+          - PROPOSAL_DUE (offers due): April 24, 2026 at 4:00 PM EST
+          - QUESTIONS_DUE: April 15, 2026 by 11:00 AM EST
+          - Submit via email to John.Shultzaberger@va.gov
+
+          WHAT COUNTS AS A HALLUCINATION:
+          - Fabricated deadlines
+          - Wrong dates
+          - Treating deliverable schedules (monthly invoicing) as solicitation deadlines
+
+          Score 5 = all grounded. Score 1 = fabricated deadlines.
+
+      - type: llm-rubric
+        metric: OmissionDiscipline
+        threshold: 0.8
+        weight: 5
+        value: |
+          For 36C24826Q0460:
+          - PROPOSAL_DUE (April 24, 2026 4:00 PM EST) MUST be present
+          - QUESTIONS_DUE (April 15, 2026 11:00 AM EST) MUST be present
+          - hasSubmissionDeadline MUST be true
+
+          Score 5 = both deadlines present. Score 1 = major deadline missing.
+
+  # ─── Test Case 9: MS IAM Solution (County of San Mateo) ───
+  - description: "San Mateo — MS IAM Solution (pre-proposal conference + questions + proposal due, Pacific)"
+    vars:
+      solicitation: file://../../rfp-texts/ms-iam-solution.txt
+    assert:
+      - type: javascript
+        metric: ProposalDuePresent
+        value: |
+          const obj = JSON.parse(output);
+          const d = obj.deadlines.find(d => d.type === 'PROPOSAL_DUE');
+          return d !== undefined;
+
+      - type: javascript
+        metric: ProposalDueDateAccuracy
+        value: |
+          const obj = JSON.parse(output);
+          const d = obj.deadlines.find(d => d.type === 'PROPOSAL_DUE');
+          if (!d || !d.dateTimeIso) return false;
+          return d.dateTimeIso.startsWith('2026-03-26');
+
+      - type: javascript
+        metric: ProposalDueTimezone
+        value: |
+          const obj = JSON.parse(output);
+          const d = obj.deadlines.find(d => d.type === 'PROPOSAL_DUE');
+          if (!d) return false;
+          const tz = (d.timezone || '').toUpperCase();
+          const iso = d.dateTimeIso || '';
+          return tz.includes('PT') || tz.includes('PACIFIC') || tz.includes('PST') || tz.includes('PDT') || iso.includes('-07:00') || iso.includes('-08:00') || iso.endsWith('Z');
+
+      - type: javascript
+        metric: QuestionsDuePresent
+        value: |
+          const obj = JSON.parse(output);
+          const d = obj.deadlines.find(d => d.type === 'QUESTIONS_DUE');
+          return d !== undefined;
+
+      - type: javascript
+        metric: HasSubmissionDeadline
+        value: |
+          const obj = JSON.parse(output);
+          return obj.hasSubmissionDeadline === true;
+
+      - type: javascript
+        metric: SubmissionDeadlineIsoAccuracy
+        value: |
+          const obj = JSON.parse(output);
+          if (!obj.submissionDeadlineIso) return false;
+          return obj.submissionDeadlineIso.startsWith('2026-03-26');
+
+      - type: javascript
+        metric: DeadlineCount
+        value: |
+          const obj = JSON.parse(output);
+          return obj.deadlines.length >= 3;
+
+      # LLM-graded rubrics
+      - type: llm-rubric
+        metric: HallucinationDetection
+        threshold: 0.8
+        weight: 5
+        value: |
+          GOLD STANDARD for County of San Mateo MS IAM Solution:
+          - PRE_PROPOSAL_CONFERENCE: March 5, 2026 at 1:00 PM Pacific Time
+          - QUESTIONS_DUE: March 12, 2026 at 1:00 PM Pacific Time
+          - PROPOSAL_DUE: March 26, 2026 at 1:00 PM Pacific Time
+
+          WHAT COUNTS AS A HALLUCINATION:
+          - Fabricated deadlines not in the solicitation
+          - Wrong dates or times for the above deadlines
+          - Treating contract deliverable schedules as solicitation deadlines
+
+          WHAT IS NOT A HALLUCINATION:
+          - Minor label wording differences
+          - Including the solicitation issue date as an OTHER entry
+
+          Score 5 = all deadlines grounded in source, no fabricated dates.
+          Score 3 = one questionable deadline.
+          Score 1 = one or more clearly fabricated deadlines.
+
+      - type: llm-rubric
+        metric: OmissionDiscipline
+        threshold: 0.8
+        weight: 5
+        value: |
+          For County of San Mateo MS IAM Solution:
+
+          Deadlines that MUST be present:
+          - PROPOSAL_DUE (March 26, 2026 at 1:00 PM Pacific)
+          - QUESTIONS_DUE (March 12, 2026 at 1:00 PM Pacific)
+          - PRE_PROPOSAL_CONFERENCE (March 5, 2026 at 1:00 PM Pacific)
+
+          hasSubmissionDeadline MUST be true.
+          submissionDeadlineIso MUST start with 2026-03-26.
+
+          Score 5 = all 3 required deadlines present with correct dates
+          Score 3 = one deadline missing or wrong date
+          Score 1 = major deadline missing or multiple fabricated deadlines
+
+  # ─── Test Case 10: Grants Mgmt System (City of San Diego) ───
+  - description: "San Diego — Grants Mgmt System (questions + proposal due, Pacific)"
+    vars:
+      solicitation: file://../../rfp-texts/grants-mgmt-system.txt
+    assert:
+      - type: javascript
+        metric: ProposalDuePresent
+        value: |
+          const obj = JSON.parse(output);
+          const d = obj.deadlines.find(d => d.type === 'PROPOSAL_DUE');
+          return d !== undefined;
+
+      - type: javascript
+        metric: ProposalDueDateAccuracy
+        value: |
+          const obj = JSON.parse(output);
+          const d = obj.deadlines.find(d => d.type === 'PROPOSAL_DUE');
+          if (!d || !d.dateTimeIso) return false;
+          return d.dateTimeIso.startsWith('2026-03-16');
+
+      - type: javascript
+        metric: QuestionsDuePresent
+        value: |
+          const obj = JSON.parse(output);
+          const d = obj.deadlines.find(d => d.type === 'QUESTIONS_DUE');
+          return d !== undefined;
+
+      - type: javascript
+        metric: HasSubmissionDeadline
+        value: |
+          const obj = JSON.parse(output);
+          return obj.hasSubmissionDeadline === true;
+
+      - type: javascript
+        metric: SubmissionDeadlineIsoAccuracy
+        value: |
+          const obj = JSON.parse(output);
+          if (!obj.submissionDeadlineIso) return false;
+          return obj.submissionDeadlineIso.startsWith('2026-03-16');
+
+      # LLM-graded rubrics
+      - type: llm-rubric
+        metric: HallucinationDetection
+        threshold: 0.8
+        weight: 5
+        value: |
+          GOLD STANDARD for City of San Diego Grants Mgmt System:
+          - QUESTIONS_DUE: February 23, 2026 at 12:00 PM Pacific Time
+          - PROPOSAL_DUE: March 16, 2026 at 2:00 PM Pacific Time
+
+          WHAT COUNTS AS A HALLUCINATION:
+          - Fabricated deadlines not in the solicitation
+          - Wrong dates or times for the above deadlines
+          - Treating contract deliverable schedules as solicitation deadlines
+
+          WHAT IS NOT A HALLUCINATION:
+          - Minor label wording differences
+          - Including the solicitation issue date as an OTHER entry
+
+          Score 5 = all deadlines grounded in source, no fabricated dates.
+          Score 3 = one questionable deadline.
+          Score 1 = one or more clearly fabricated deadlines.
+
+      - type: llm-rubric
+        metric: OmissionDiscipline
+        threshold: 0.8
+        weight: 5
+        value: |
+          For City of San Diego Grants Mgmt System:
+
+          Deadlines that MUST be present:
+          - PROPOSAL_DUE (March 16, 2026 at 2:00 PM Pacific)
+          - QUESTIONS_DUE (February 23, 2026 at 12:00 PM Pacific)
+
+          hasSubmissionDeadline MUST be true.
+          submissionDeadlineIso MUST start with 2026-03-16.
+
+          Score 5 = both required deadlines present with correct dates
+          Score 3 = one deadline missing or wrong date
+          Score 1 = major deadline missing or fabricated deadlines
+
+  # ─── Test Case 11: eCitation System SW (City of Banning) ───
+  - description: "Banning — eCitation System SW (questions + proposal due + award estimate, Pacific)"
+    vars:
+      solicitation: file://../../rfp-texts/ecitation-system-sw.txt
+    assert:
+      - type: javascript
+        metric: ProposalDuePresent
+        value: |
+          const obj = JSON.parse(output);
+          const d = obj.deadlines.find(d => d.type === 'PROPOSAL_DUE');
+          return d !== undefined;
+
+      - type: javascript
+        metric: ProposalDueDateAccuracy
+        value: |
+          const obj = JSON.parse(output);
+          const d = obj.deadlines.find(d => d.type === 'PROPOSAL_DUE');
+          if (!d || !d.dateTimeIso) return false;
+          return d.dateTimeIso.startsWith('2026-02-18');
+
+      - type: javascript
+        metric: ProposalDueTimezone
+        value: |
+          const obj = JSON.parse(output);
+          const d = obj.deadlines.find(d => d.type === 'PROPOSAL_DUE');
+          if (!d) return false;
+          const tz = (d.timezone || '').toUpperCase();
+          const iso = d.dateTimeIso || '';
+          return tz.includes('PT') || tz.includes('PACIFIC') || tz.includes('PST') || tz.includes('PDT') || iso.includes('-08:00') || iso.endsWith('Z');
+
+      - type: javascript
+        metric: QuestionsDuePresent
+        value: |
+          const obj = JSON.parse(output);
+          const d = obj.deadlines.find(d => d.type === 'QUESTIONS_DUE');
+          return d !== undefined;
+
+      - type: javascript
+        metric: HasSubmissionDeadline
+        value: |
+          const obj = JSON.parse(output);
+          return obj.hasSubmissionDeadline === true;
+
+      - type: javascript
+        metric: SubmissionDeadlineIsoAccuracy
+        value: |
+          const obj = JSON.parse(output);
+          if (!obj.submissionDeadlineIso) return false;
+          return obj.submissionDeadlineIso.startsWith('2026-02-18');
+
+      - type: javascript
+        metric: DeadlineCount
+        value: |
+          const obj = JSON.parse(output);
+          return obj.deadlines.length >= 2;
+
+      # LLM-graded rubrics
+      - type: llm-rubric
+        metric: HallucinationDetection
+        threshold: 0.8
+        weight: 5
+        value: |
+          GOLD STANDARD for City of Banning eCitation System SW:
+          - QUESTIONS_DUE: January 29, 2026 at 4:00 PM Pacific Time
+          - PROPOSAL_DUE: February 18, 2026 at 4:00 PM Pacific Time
+          - AWARD_ESTIMATE: March 31, 2026
+
+          WHAT COUNTS AS A HALLUCINATION:
+          - Fabricated deadlines not in the solicitation
+          - Wrong dates or times for the above deadlines
+          - Treating contract deliverable schedules as solicitation deadlines
+
+          WHAT IS NOT A HALLUCINATION:
+          - Minor label wording differences
+          - Including the solicitation issue date as an OTHER entry
+          - Omitting the AWARD_ESTIMATE if not clearly stated
+
+          Score 5 = all deadlines grounded in source, no fabricated dates.
+          Score 3 = one questionable deadline.
+          Score 1 = one or more clearly fabricated deadlines.
+
+      - type: llm-rubric
+        metric: OmissionDiscipline
+        threshold: 0.8
+        weight: 5
+        value: |
+          For City of Banning eCitation System SW:
+
+          Deadlines that MUST be present:
+          - PROPOSAL_DUE (February 18, 2026 at 4:00 PM Pacific)
+          - QUESTIONS_DUE (January 29, 2026 at 4:00 PM Pacific)
+
+          OPTIONAL but acceptable:
+          - AWARD_ESTIMATE (March 31, 2026)
+
+          hasSubmissionDeadline MUST be true.
+          submissionDeadlineIso MUST start with 2026-02-18.
+
+          Score 5 = both required deadlines present with correct dates
+          Score 3 = one deadline missing or wrong date
+          Score 1 = major deadline missing or fabricated deadlines

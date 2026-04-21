@@ -1,0 +1,173 @@
+{
+  "sort_key": "edge-case-gov-estimate#001",
+  "projectId": "edge-case-gov-estimate",
+  "orgId": "eval-org",
+  "status": "COMPLETE",
+  "decision": "CONDITIONAL_GO",
+  "compositeScore": 2.6,
+  "confidence": 70,
+  "sections": {
+    "summary": {
+      "status": "COMPLETE",
+      "data": {
+        "title": "Next Generation Identity Verification Platform (NGIVP)",
+        "agency": "Department of Justice, Federal Bureau of Investigation",
+        "office": "Criminal Justice Information Services (CJIS) Division",
+        "solicitationNumber": "DOJ-FBI-CJIS-2026-RFP-0089",
+        "naics": "541512",
+        "contractType": "CPFF",
+        "setAside": null,
+        "estimatedValueUsd": "$47.5 million",
+        "placeOfPerformance": "CJIS Complex, 1000 Custer Hollow Road, Clarksburg, WV 26306",
+        "periodOfPerformance": "3-year base + 2 option years (60 months total)",
+        "summary": "Full and open competition for the design, development, testing, deployment, and maintenance of a Next Generation Identity Verification Platform for the FBI CJIS Division. The system must support multi-modal biometric matching (fingerprint, facial recognition, iris, voice) with sub-second response times and 500,000+ daily transactions. Government Independent Cost Estimate is $47.5 million over 5 years. CPFF contract type with best value trade-off evaluation."
+      }
+    },
+    "deadlines": {
+      "status": "COMPLETE",
+      "data": {
+        "hasSubmissionDeadline": true,
+        "submissionDeadlineIso": "2026-05-01T16:00:00-04:00",
+        "deadlines": [
+          {
+            "description": "Questions deadline",
+            "date": "2026-04-01",
+            "time": null,
+            "isSubmissionDeadline": false
+          },
+          {
+            "description": "Industry Day (virtual)",
+            "date": "2026-04-08",
+            "time": null,
+            "isSubmissionDeadline": false
+          },
+          {
+            "description": "Final proposals due",
+            "date": "2026-05-01",
+            "time": "4:00 PM ET",
+            "isSubmissionDeadline": true
+          }
+        ],
+        "warnings": []
+      }
+    },
+    "requirements": {
+      "status": "COMPLETE",
+      "data": {
+        "overview": "Design, develop, test, deploy, and maintain a next-generation identity verification platform supporting multi-modal biometric matching for 18,000+ law enforcement agencies. Must process 500K+ transactions daily with sub-500ms response time.",
+        "requirements": [
+          {"description": "Multi-modal biometric matching: fingerprint, facial recognition, iris, voice", "category": "TECHNICAL"},
+          {"description": "500,000+ daily identity verification transactions", "category": "PERFORMANCE"},
+          {"description": "99.95% biometric match accuracy", "category": "PERFORMANCE"},
+          {"description": "Sub-500ms average response time", "category": "PERFORMANCE"},
+          {"description": "Integration with existing NGI/IAFIS infrastructure", "category": "INTEGRATION"},
+          {"description": "NIST SP 800-76 and FBI EBTS compliance", "category": "COMPLIANCE"},
+          {"description": "FedRAMP High + CJIS Security Policy compliance", "category": "SECURITY"},
+          {"description": "99.99% availability SLA", "category": "PERFORMANCE"},
+          {"description": "Minimum 25 FTEs during development phase", "category": "STAFFING"}
+        ],
+        "deliverables": [
+          {"description": "Technical Proposal (100 page limit)", "dueDate": "2026-05-01"},
+          {"description": "Past Performance volume (30 page limit)", "dueDate": "2026-05-01"},
+          {"description": "Cost/Price Proposal", "dueDate": "2026-05-01"},
+          {"description": "Small Business Subcontracting Plan", "dueDate": "2026-05-01"}
+        ],
+        "evaluationFactors": [
+          {"name": "Technical/Management Approach", "weight": "50%"},
+          {"name": "Past Performance", "weight": "25%"},
+          {"name": "Cost/Price", "weight": "25%"}
+        ],
+        "submissionCompliance": [
+          {"description": "Submit via FBI CJIS eSolicitation Portal", "required": true}
+        ]
+      }
+    },
+    "contacts": {
+      "status": "COMPLETE",
+      "data": {
+        "contacts": [
+          {
+            "name": "James Marshall",
+            "role": "Contracting Officer",
+            "email": "james.marshall@fbi.gov",
+            "phone": "(304) 625-4500"
+          },
+          {
+            "name": "Dr. Aisha Patel",
+            "role": "Contracting Officer's Representative (COR)",
+            "email": "aisha.patel@fbi.gov",
+            "phone": null
+          }
+        ],
+        "missingRecommendedRoles": []
+      }
+    },
+    "risks": {
+      "status": "COMPLETE",
+      "data": {
+        "incumbentInfo": {
+          "knownIncumbent": false,
+          "recompete": false,
+          "incumbentName": null,
+          "notes": "No incumbent contractor identified. This appears to be a new development effort for a next-generation system."
+        },
+        "risks": [
+          {"description": "Large-scale biometric system development requires specialized expertise not typically held by general IT consultancies", "severity": "HIGH"},
+          {"description": "CJIS Security Policy compliance requires extensive background checks and security clearances", "severity": "MEDIUM"},
+          {"description": "25 FTE minimum staffing requirement is substantial", "severity": "MEDIUM"},
+          {"description": "CPFF contract type requires robust cost accounting system (DCAA-auditable)", "severity": "MEDIUM"}
+        ],
+        "redFlags": []
+      }
+    },
+    "pastPerformance": {
+      "status": "COMPLETE",
+      "data": {
+        "topMatches": [],
+        "narrativeSummary": "Limited relevant past performance for biometric identity systems at this scale.",
+        "confidenceScore": 30,
+        "evidence": [],
+        "gapAnalysis": "Significant gap in biometric system development experience. Would need teaming partner with biometric domain expertise."
+      }
+    },
+    "scoring": {
+      "status": "COMPLETE",
+      "data": {
+        "compositeScore": 2.6,
+        "decision": "CONDITIONAL_GO",
+        "confidence": 70,
+        "criteria": [
+          {"name": "TECHNICAL_FIT", "score": 3, "rationale": "System integration and cloud-native development capabilities are relevant, but biometric algorithm expertise is a gap requiring a teaming partner."},
+          {"name": "PAST_PERFORMANCE_RELEVANCE", "score": 2, "rationale": "No direct biometric system past performance. Some relevant large-scale identity/access management experience."},
+          {"name": "PRICING_POSITION", "score": 3, "rationale": "Government IGE of $47.5M provides clear pricing target. CPFF contract type is manageable."},
+          {"name": "STRATEGIC_ALIGNMENT", "score": 4, "rationale": "Large federal law enforcement IT modernization aligns with growth strategy."},
+          {"name": "INCUMBENT_RISK", "score": 1, "rationale": "No incumbent identified. New development effort levels the playing field."}
+        ],
+        "blockers": [],
+        "requiredActions": ["Identify biometric teaming partner", "Attend April 8 Industry Day", "Verify DCAA-auditable cost accounting system"],
+        "summaryJustification": "Large, strategically valuable FBI IT modernization with clear government estimate. Requires teaming for biometric expertise.",
+        "decisionRationale": "CONDITIONAL_GO pending identification of biometric domain teaming partner and verification of CJIS compliance readiness.",
+        "confidenceExplanation": "Moderate confidence — opportunity is real and well-defined, but requires teaming to be competitive.",
+        "confidenceDrivers": ["Clear government estimate ($47.5M)", "Full and open competition", "Biometric expertise gap"]
+      }
+    },
+    "pricing": {
+      "status": "COMPLETE",
+      "data": {
+        "strategy": "Price to the government's IGE of $47.5M over 5 years. CPFF contract type allows cost recovery with fixed fee. Target 8-10% fee rate.",
+        "totalPrice": 47500000,
+        "laborCostTotal": 32000000,
+        "materialCostTotal": 5000000,
+        "indirectCostTotal": 6500000,
+        "profitMargin": "8.4%",
+        "competitivePosition": "Must price competitively against IGE while demonstrating technical superiority to justify best-value selection.",
+        "priceConfidence": "MEDIUM",
+        "assumptions": ["Government IGE of $47.5M is the pricing benchmark", "25 FTE team over 60 months", "CPFF with 8-10% fixed fee"],
+        "pricingRisks": ["Cost realism analysis may challenge low-ball pricing", "Teaming partner costs add complexity"],
+        "recommendedActions": ["Develop detailed basis of estimate", "Align pricing to IGE range"],
+        "competitiveAdvantages": ["Cloud-native development efficiency", "Agile delivery methodology"],
+        "basisOfEstimate": "Government IGE: $47.5M over 5 years. Pricing based on 25 FTE team with blended rate modeling."
+      }
+    }
+  }
+}

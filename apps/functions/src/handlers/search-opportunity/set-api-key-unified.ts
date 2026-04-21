@@ -20,9 +20,16 @@ import {
 import { storeApiKey } from '@/helpers/api-key-storage';
 import { SAM_GOV_SECRET_PREFIX } from '@/constants/samgov';
 import { DIBBS_SECRET_PREFIX } from '@/constants/dibbs';
+import { HIGHERGOV_SECRET_PREFIX } from '@/constants/highergov';
+
+const SOURCE_TO_PREFIX: Record<string, string> = {
+  SAM_GOV: SAM_GOV_SECRET_PREFIX,
+  DIBBS: DIBBS_SECRET_PREFIX,
+  HIGHER_GOV: HIGHERGOV_SECRET_PREFIX,
+};
 
 const BodySchema = z.object({
-  source: z.enum(['SAM_GOV', 'DIBBS']),
+  source: z.enum(['SAM_GOV', 'DIBBS', 'HIGHER_GOV']),
   orgId:  z.string().min(1),
   apiKey: z.string().min(1),
 });
@@ -35,7 +42,7 @@ export const baseHandler = async (event: AuthedEvent): Promise<APIGatewayProxyRe
   const { success, data, error } = BodySchema.safeParse(raw);
   if (!success) return apiResponse(400, { message: 'Validation error', issues: error.issues });
 
-  const prefix = data.source === 'SAM_GOV' ? SAM_GOV_SECRET_PREFIX : DIBBS_SECRET_PREFIX;
+  const prefix = SOURCE_TO_PREFIX[data.source]!;
   await storeApiKey(data.orgId, prefix, data.apiKey);
   return apiResponse(200, { ok: true, source: data.source, orgId: data.orgId });
 };

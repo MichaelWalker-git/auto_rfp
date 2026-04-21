@@ -145,9 +145,9 @@ export const SimilarQuestionsPanel = ({
   };
   
   const getSimilarityColor = (similarity: number) => {
-    if (similarity >= 0.9) return 'bg-green-100 text-green-800';
-    if (similarity >= 0.8) return 'bg-blue-100 text-blue-800';
-    return 'bg-yellow-100 text-yellow-800';
+    if (similarity >= 0.9) return 'bg-green-100 text-green-800 dark:bg-green-900/50 dark:text-green-400';
+    if (similarity >= 0.8) return 'bg-blue-100 text-blue-800 dark:bg-blue-900/50 dark:text-blue-400';
+    return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/50 dark:text-yellow-400';
   };
   
   // Only allow opening if there are similar questions
@@ -158,9 +158,9 @@ export const SimilarQuestionsPanel = ({
   
   return (
     <Collapsible open={isOpen && !hasNoSimilar} onOpenChange={handleOpenChange}>
-      <Card className="border-dashed border-blue-200 bg-blue-50/30 py-3">
+      <Card className="border-dashed border-primary/30 bg-primary/5 py-3">
         <CardHeader 
-          className={`transition-colors ${hasNoSimilar || isLoading ? 'cursor-default' : 'cursor-pointer hover:bg-blue-50/50'}`}
+          className={`transition-colors ${hasNoSimilar || isLoading ? 'cursor-default' : 'cursor-pointer hover:bg-primary/10'}`}
           onClick={() => !hasNoSimilar && !isLoading && handleOpenChange(!isOpen)}
         >
           <div className="flex items-center justify-between">
@@ -168,12 +168,12 @@ export const SimilarQuestionsPanel = ({
               {hasNoSimilar || isLoading ? (
                 <span className="h-4 w-4" /> // Placeholder for alignment
               ) : isOpen ? (
-                <ChevronDown className="h-4 w-4 text-blue-600" />
+                <ChevronDown className="h-4 w-4 text-primary" />
               ) : (
-                <ChevronRight className="h-4 w-4 text-blue-600" />
+                <ChevronRight className="h-4 w-4 text-primary" />
               )}
-              <Link className="h-4 w-4 text-blue-600" />
-              <CardTitle className="text-sm text-blue-800">
+              <Link className="h-4 w-4 text-primary" />
+              <CardTitle className="text-sm text-primary">
                 Similar Questions
               </CardTitle>
             </div>
@@ -186,7 +186,7 @@ export const SimilarQuestionsPanel = ({
             ) : hasNoSimilar ? (
               <span className="text-xs text-muted-foreground">No similar questions found</span>
             ) : (
-              <Badge variant="secondary" className="bg-blue-100 text-blue-800">
+              <Badge variant="secondary" className="bg-primary/10 text-primary">
                 {similarQuestions.length} found
               </Badge>
             )}
@@ -248,8 +248,8 @@ export const SimilarQuestionsPanel = ({
                       key={sq.questionId}
                       className={`flex items-start gap-2 p-2 rounded-md border ${
                         selectedQuestions.has(sq.questionId)
-                          ? 'bg-blue-50 border-blue-200'
-                          : 'bg-white border-gray-100'
+                          ? 'bg-primary/10 border-primary/30'
+                          : 'bg-card border-border'
                       }`}
                     >
                       <Checkbox
@@ -260,7 +260,7 @@ export const SimilarQuestionsPanel = ({
                       
                       <div className="flex-1 min-w-0">
                         <p
-                          className="text-sm text-gray-700 line-clamp-2 cursor-pointer hover:text-blue-600"
+                          className="text-sm text-foreground line-clamp-2 cursor-pointer hover:text-primary"
                           onClick={() => onSelectQuestion?.(sq.questionId)}
                           title="Click to view this question"
                         >

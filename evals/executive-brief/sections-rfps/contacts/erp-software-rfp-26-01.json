@@ -1,0 +1,21 @@
+{
+  "missingRecommendedRoles": [
+    "CONTRACTING_OFFICER",
+    "CONTRACTING_OFFICER_REPRESENTATIVE",
+    "CONTRACT_SPECIALIST",
+    "TECHNICAL_POC",
+    "PROGRAM_MANAGER",
+    "SMALL_BUSINESS_SPECIALIST",
+    "SUBCONTRACTING_POC",
+    "GENERAL_INQUIRY"
+  ],
+  "contacts": [
+    {
+      "name": "Shayleen O'Connell",
+      "role": "PROCUREMENT_POC",
+      "title": "Finance Manager",
+      "email": "procurement@sitesproject.org",
+      "organization": "Sites Reservoir Project"
+    }
+  ]
+}

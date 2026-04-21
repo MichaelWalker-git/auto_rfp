@@ -9,6 +9,24 @@ import { FreshnessStatusSchema, StaleReasonSchema } from './content-library';
  */
 
 // ================================
+// Extraction Source (needed before PastProjectSchema)
+// ================================
+
+export const ExtractionSourceSchema = z.object({
+  sourceType: z.enum(['DIRECT_UPLOAD', 'KB_EXTRACTION']),
+  sourceDocumentKey: z.string().optional(),
+  sourceDocumentName: z.string().optional(),
+  sourceKbId: z.string().uuid().optional(),
+  sourceDocumentId: z.string().uuid().optional(),
+  sourceChunkKeys: z.array(z.string()).optional().default([]),
+  extractionJobId: z.string().uuid().optional(),
+  extractedAt: z.string().datetime(),
+  extractedBy: z.string().uuid(),
+});
+
+export type ExtractionSource = z.infer<typeof ExtractionSourceSchema>;
+
+// ================================
 // Contact Information
 // ================================
 
@@ -70,6 +88,9 @@ export const PastProjectSchema = z.object({
   updatedAt: z.string().datetime(),
   createdBy: z.string().uuid(),
   isArchived: z.boolean().default(false),
+
+  // Extraction source (preserved when created from AI extraction)
+  extractionSource: ExtractionSourceSchema.optional().nullable(),
 });
 
 export type PastProject = z.infer<typeof PastProjectSchema>;
@@ -193,6 +214,8 @@ export const CreatePastProjectDTOSchema = z.object({
   setAside: z.string().optional(),
   teamSize: z.number().int().positive().optional(),
   durationMonths: z.number().int().positive().optional(),
+  // Optional extraction source for items created from document extraction
+  extractionSource: ExtractionSourceSchema.optional(),
 });
 
 export type CreatePastProjectDTO = z.infer<typeof CreatePastProjectDTOSchema>;
@@ -310,7 +333,7 @@ export function calculateRelevanceScore(details: MatchDetails): number {
  * More recent projects get higher scores
  */
 export function calculateRecencyScore(endDate: string | null | undefined): number {
-  if (!endDate) return 50; // Default to middle score if no date
+  if (!endDate) return 0;
 
   const end = new Date(endDate);
   const now = new Date();
@@ -328,8 +351,98 @@ export function calculateRecencyScore(endDate: string | null | undefined): numbe
  * Calculate success metrics score based on performance rating
  */
 export function calculateSuccessMetricsScore(rating: number | null | undefined): number {
-  if (!rating) return 50; // Default to middle score if no rating
+  if (!rating) return 0;
 
   // Rating is 1-5, convert to 0-100
   return Math.round((rating / 5) * 100);
+}
+
+// ================================
+// Draft Entity Schemas (for AI Extraction)
+// ================================
+
+export const DraftStatusSchema = z.enum([
+  'DRAFT',           // Awaiting user review
+  'CONFIRMED',       // User confirmed, now active
+  'DISCARDED',       // User discarded the draft
+  'EXPIRED',         // Auto-expired after 30 days
+]);
+
+export type DraftStatus = z.infer<typeof DraftStatusSchema>;
+
+export const PastProjectFieldConfidenceSchema = z.object({
+  title: z.number().min(0).max(100).optional(),
+  client: z.number().min(0).max(100).optional(),
+  contractNumber: z.number().min(0).max(100).optional(),
+  value: z.number().min(0).max(100).optional(),
+  description: z.number().min(0).max(100).optional(),
+  achievements: z.number().min(0).max(100).optional(),
+  domain: z.number().min(0).max(100).optional(),
+  technologies: z.number().min(0).max(100).optional(),
+  overall: z.number().min(0).max(100),
+});
+
+export type PastProjectFieldConfidence = z.infer<typeof PastProjectFieldConfidenceSchema>;
+
+export const DuplicateWarningSchema = z.object({
+  isDuplicate: z.boolean(),
+  matchType: z.enum(['EXACT', 'SIMILAR', 'NONE']).default('NONE'),
+  existingProjectId: z.string().uuid().optional(),
+  existingProjectTitle: z.string().optional(),
+  similarity: z.number().min(0).max(100).optional(),
+  matchedFields: z.array(z.string()).default([]),
+});
+
+export type DuplicateWarning = z.infer<typeof DuplicateWarningSchema>;
+
+export const PastProjectDraftSchema = PastProjectSchema.extend({
+  draftStatus: DraftStatusSchema.default('DRAFT'),
+  extractionSource: ExtractionSourceSchema.optional(),
+  fieldConfidence: PastProjectFieldConfidenceSchema.optional(),
+  duplicateWarning: DuplicateWarningSchema.optional(),
+  expiresAt: z.string().datetime().optional(),
+});
+
+export type PastProjectDraft = z.infer<typeof PastProjectDraftSchema>;
+
+// DynamoDB Keys for Drafts
+export const DRAFT_PAST_PROJECT_PK = 'DRAFT_PAST_PROJECT';
+
+export const createDraftPastProjectSK = (orgId: string, projectId: string): string =>
+  `${orgId}#${projectId}`;
+
+// ================================
+// Draft Management DTOs
+// ================================
+
+export const ConfirmDraftRequestSchema = z.object({
+  orgId: z.string().uuid(),
+  projectId: z.string().uuid(),
+  overrides: UpdatePastProjectDTOSchema.optional(),
+});
+
+export type ConfirmDraftRequest = z.infer<typeof ConfirmDraftRequestSchema>;
+
+export const DiscardDraftRequestSchema = z.object({
+  orgId: z.string().uuid(),
+  projectId: z.string().uuid(),
+  reason: z.string().max(500).optional(),
+});
+
+export type DiscardDraftRequest = z.infer<typeof DiscardDraftRequestSchema>;
+
+export const ListDraftsRequestSchema = z.object({
+  orgId: z.string().uuid(),
+  status: DraftStatusSchema.optional(),
+  targetType: z.enum(['PAST_PERFORMANCE', 'LABOR_RATE']).optional(),
+  limit: z.number().int().min(1).max(100).default(50),
+  nextToken: z.string().optional(),
+});
+
+export type ListDraftsRequest = z.infer<typeof ListDraftsRequestSchema>;
+
+export interface PastProjectDraftsResponse {
+  drafts: PastProjectDraft[];
+  total: number;
+  nextToken?: string;
 }

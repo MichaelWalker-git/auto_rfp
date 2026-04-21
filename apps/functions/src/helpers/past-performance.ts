@@ -68,6 +68,7 @@ export async function createPastProject(
     updatedAt: now,
     createdBy,
     isArchived: false,
+    extractionSource: dto.extractionSource || null,
   };
 
   const sk = createPastProjectSK(dto.orgId, projectId);
@@ -245,6 +246,35 @@ export async function listPastProjects(
   };
 }
 
+export async function reindexAllPastProjects(
+  orgId: string
+): Promise<{ indexed: number; failed: string[] }> {
+  const allProjects: PastProject[] = [];
+  let nextToken: string | undefined;
+
+  do {
+    const result = await listPastProjects(orgId, false, 100, nextToken);
+    allProjects.push(...result.items);
+    nextToken = result.nextToken;
+  } while (nextToken);
+
+  let indexed = 0;
+  const failed: string[] = [];
+
+  for (const project of allProjects) {
+    try {
+      await indexPastProjectToPinecone(orgId, project);
+      indexed++;
+      console.log(`Reindexed ${indexed}/${allProjects.length}: ${project.title}`);
+    } catch (err) {
+      console.error(`Failed to index project ${project.projectId}:`, err);
+      failed.push(project.projectId);
+    }
+  }
+
+  return { indexed, failed };
+}
+
 // ================================
 // Pinecone Operations
 // ================================
@@ -387,6 +417,8 @@ export async function matchProjectsToRequirements(
   const matches: PastProjectMatch[] = [];
 
   for (const result of searchResults) {
+    if (result.score < 0.4) continue;
+
     const project = await getPastProject(orgId, result.projectId);
     if (!project || project.isArchived) continue;
 
@@ -418,9 +450,8 @@ export async function matchProjectsToRequirements(
     const { items: allProjects } = await listPastProjects(orgId, false, topK);
     
     for (const project of allProjects) {
-      // Calculate basic match details with minimum scores for testing
       const matchDetails: MatchDetails = {
-        technicalSimilarity: 30, // Base score for testing
+        technicalSimilarity: 0,
         domainSimilarity: calculateDomainSimilarity(project, solicitationText),
         scaleSimilarity: calculateScaleSimilarity(project, solicitationText),
         recency: calculateRecencyScore(project.endDate),
@@ -453,20 +484,17 @@ async function calculateMatchDetails(
   solicitationText: string,
   semanticScore: number
 ): Promise<MatchDetails> {
-  // Technical similarity based on semantic search score (0-1 -> 0-100)
-  // Note: _requirements is available for future enhancement to calculate requirement-specific similarity
-  const technicalSimilarity = Math.round(semanticScore * 100);
+  const rawTechnicalSimilarity = Math.round(semanticScore * 100);
 
-  // Domain similarity - check if domain/NAICS codes match
   const domainSimilarity = calculateDomainSimilarity(project, solicitationText);
 
-  // Scale similarity - based on project value and team size
+  // If zero domain overlap, cap technical similarity — semantic noise isn't real relevance
+  const technicalSimilarity = domainSimilarity === 0
+    ? Math.min(rawTechnicalSimilarity, 15)
+    : rawTechnicalSimilarity;
+
   const scaleSimilarity = calculateScaleSimilarity(project, solicitationText);
-
-  // Recency score
   const recency = calculateRecencyScore(project.endDate);
-
-  // Success metrics based on performance rating
   const successMetrics = calculateSuccessMetricsScore(project.performanceRating);
 
   return {

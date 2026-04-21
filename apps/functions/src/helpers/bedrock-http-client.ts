@@ -37,8 +37,18 @@ async function getApiKey(): Promise<string | null> {
   return null;
 }
 
+const THROTTLE_RETRY_DELAYS_MS = [2000, 5000, 12000];
+
+const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
+
+const isThrottleError = (statusCode: number | undefined, body: string): boolean => {
+  if (statusCode === 429) return true;
+  return body.includes('ThrottlingException') || body.includes('TooManyRequestsException');
+};
+
 /**
- * Invoke Bedrock model using HTTP request with Bearer token
+ * Invoke Bedrock model using HTTP request with Bearer token.
+ * Retries up to 3 times on throttling (429 / ThrottlingException) with exponential backoff.
  */
 async function invokeModelWithHttp(
   modelId: string,
@@ -60,37 +70,56 @@ async function invokeModelWithHttp(
     },
   };
 
-  return new Promise((resolve, reject) => {
-    const req = https.request(options, (res) => {
-      const chunks: Buffer[] = [];
+  const attempt = (): Promise<Uint8Array> =>
+    new Promise((resolve, reject) => {
+      const req = https.request(options, (res) => {
+        const chunks: Buffer[] = [];
 
-      res.on('data', (chunk: Buffer) => {
-        chunks.push(chunk);
+        res.on('data', (chunk: Buffer) => {
+          chunks.push(chunk);
+        });
+
+        res.on('end', () => {
+          const buffer = Buffer.concat(chunks);
+
+          if (res.statusCode && res.statusCode >= 200 && res.statusCode < 300) {
+            resolve(new Uint8Array(buffer));
+          } else {
+            const errorMessage = buffer.toString('utf-8');
+            reject(
+              Object.assign(
+                new Error(`Bedrock HTTP request failed: ${res.statusCode} ${res.statusMessage} - ${errorMessage}`),
+                { statusCode: res.statusCode, body: errorMessage },
+              )
+            );
+          }
+        });
       });
 
-      res.on('end', () => {
-        const buffer = Buffer.concat(chunks);
-
-        if (res.statusCode && res.statusCode >= 200 && res.statusCode < 300) {
-          resolve(new Uint8Array(buffer));
-        } else {
-          const errorMessage = buffer.toString('utf-8');
-          reject(
-            new Error(
-              `Bedrock HTTP request failed: ${res.statusCode} ${res.statusMessage} - ${errorMessage}`
-            )
-          );
-        }
+      req.on('error', (error) => {
+        reject(error);
       });
+
+      req.write(body);
+      req.end();
     });
 
-    req.on('error', (error) => {
-      reject(error);
-    });
-
-    req.write(body);
-    req.end();
-  });
+  let lastErr: Error & { statusCode?: number; body?: string } = new Error('No attempts made');
+  for (let i = 0; i <= THROTTLE_RETRY_DELAYS_MS.length; i++) {
+    try {
+      return await attempt();
+    } catch (err) {
+      lastErr = err as Error & { statusCode?: number; body?: string };
+      if (i < THROTTLE_RETRY_DELAYS_MS.length && isThrottleError(lastErr.statusCode, lastErr.body ?? lastErr.message)) {
+        const delay = THROTTLE_RETRY_DELAYS_MS[i]!;
+        console.warn(`[bedrock] ThrottlingException on attempt ${i + 1}, retrying in ${delay}ms...`);
+        await sleep(delay);
+        continue;
+      }
+      throw lastErr;
+    }
+  }
+  throw lastErr;
 }
 
 /**

@@ -1,0 +1,262 @@
+description: "Executive Brief — Adversarial Test Cases (5 synthetic traps for known failure modes)"
+
+prompts:
+  - label: Brief Passthrough
+    raw: |
+      === EXECUTIVE BRIEF JSON ===
+      {{brief}}
+
+      === SOURCE SOLICITATION TEXT ===
+      {{solicitation}}
+
+providers:
+  - id: echo
+    label: passthrough
+
+tests:
+  # ─── A1: Dollar Amount Trap ───
+  # Contains $2.5M insurance, $500K bond, $3.2M budget — but NO contract value
+  - description: "TRAP: Dollar amounts in text are NOT contract value (Sources Sought)"
+    vars:
+      solicitation: file://rfp-texts/dollar-amount-trap.txt
+      brief: file://test-cases/dollar-amount-trap.json
+    assert:
+      - type: javascript
+        metric: EstimatedValue_Null
+        value: |
+          const m=output.indexOf('=== SOURCE');const j=m>0?output.substring(output.indexOf('{'),output.lastIndexOf('}',m)+1):output;const brief=JSON.parse(j);
+          const val = brief.sections?.summary?.data?.estimatedValueUsd;
+          return val === null || val === undefined || val === 0 || val === '';
+      - type: javascript
+        metric: HasSubmissionDeadline_False
+        value: |
+          const m=output.indexOf('=== SOURCE');const j=m>0?output.substring(output.indexOf('{'),output.lastIndexOf('}',m)+1):output;const brief=JSON.parse(j);
+          return brief.sections?.deadlines?.data?.hasSubmissionDeadline === false;
+      - type: javascript
+        metric: Agency_Correct
+        value: |
+          const m=output.indexOf('=== SOURCE');const j=m>0?output.substring(output.indexOf('{'),output.lastIndexOf('}',m)+1):output;const brief=JSON.parse(j);
+          const agency = (brief.sections?.summary?.data?.agency || '').toLowerCase();
+          return agency.includes('bureau of indian education') || agency.includes('bie') || agency.includes('interior');
+      - type: javascript
+        metric: Contact_JenniferBlackwood
+        value: |
+          const m=output.indexOf('=== SOURCE');const j=m>0?output.substring(output.indexOf('{'),output.lastIndexOf('}',m)+1):output;const brief=JSON.parse(j);
+          const contacts = brief.sections?.contacts?.data?.contacts || [];
+          return contacts.some(c => (c.name || '').includes('Jennifer Blackwood'));
+      - type: javascript
+        metric: NoFabricatedContractValue
+        value: |
+          const m=output.indexOf('=== SOURCE');const j=m>0?output.substring(output.indexOf('{'),output.lastIndexOf('}',m)+1):output;const brief=JSON.parse(j);
+          const val = brief.sections?.summary?.data?.estimatedValueUsd;
+          if (val === null || val === undefined || val === 0) return true;
+          const numVal = typeof val === 'string' ? parseFloat(val.replace(/[$,]/g, '')) : val;
+          return !(numVal === 2500000 || numVal === 500000 || numVal === 3200000);
+      - type: javascript
+        metric: Incumbent_NotRubrik
+        value: |
+          const m=output.indexOf('=== SOURCE');const j=m>0?output.substring(output.indexOf('{'),output.lastIndexOf('}',m)+1):output;const brief=JSON.parse(j);
+          const inc = brief.sections?.risks?.data?.incumbentInfo || {};
+          if (!inc.knownIncumbent) return true;
+          const name = (inc.incumbentName || '').toLowerCase();
+          return !name.includes('rubrik');
+
+  # ─── A2: Product-as-Incumbent Trap ───
+  # CrowdStrike is mentioned 10+ times but is a PRODUCT, not an incumbent contractor
+  - description: "TRAP: Product (CrowdStrike) should NOT be identified as incumbent contractor"
+    vars:
+      solicitation: file://rfp-texts/product-as-incumbent.txt
+      brief: file://test-cases/product-as-incumbent.json
+    assert:
+      - type: javascript
+        metric: Incumbent_False
+        value: |
+          const m=output.indexOf('=== SOURCE');const j=m>0?output.substring(output.indexOf('{'),output.lastIndexOf('}',m)+1):output;const brief=JSON.parse(j);
+          const inc = brief.sections?.risks?.data?.incumbentInfo || {};
+          return inc.knownIncumbent === false;
+      - type: javascript
+        metric: IncumbentName_NotCrowdStrike
+        value: |
+          const m=output.indexOf('=== SOURCE');const j=m>0?output.substring(output.indexOf('{'),output.lastIndexOf('}',m)+1):output;const brief=JSON.parse(j);
+          const inc = brief.sections?.risks?.data?.incumbentInfo || {};
+          const name = (inc.incumbentName || '').toLowerCase();
+          return !name.includes('crowdstrike');
+      - type: javascript
+        metric: Agency_CISA
+        value: |
+          const m=output.indexOf('=== SOURCE');const j=m>0?output.substring(output.indexOf('{'),output.lastIndexOf('}',m)+1):output;const brief=JSON.parse(j);
+          const agency = (brief.sections?.summary?.data?.agency || '').toLowerCase();
+          return agency.includes('cisa') || agency.includes('cybersecurity and infrastructure');
+      - type: javascript
+        metric: SolNumber_Correct
+        value: |
+          const m=output.indexOf('=== SOURCE');const j=m>0?output.substring(output.indexOf('{'),output.lastIndexOf('}',m)+1):output;const brief=JSON.parse(j);
+          const sol = brief.sections?.summary?.data?.solicitationNumber || '';
+          return sol.includes('DHS-CISA-2026-0042');
+      - type: javascript
+        metric: HasSubmissionDeadline_True
+        value: |
+          const m=output.indexOf('=== SOURCE');const j=m>0?output.substring(output.indexOf('{'),output.lastIndexOf('}',m)+1):output;const brief=JSON.parse(j);
+          return brief.sections?.deadlines?.data?.hasSubmissionDeadline === true;
+      - type: javascript
+        metric: SubmissionDeadline_March28
+        value: |
+          const m=output.indexOf('=== SOURCE');const j=m>0?output.substring(output.indexOf('{'),output.lastIndexOf('}',m)+1):output;const brief=JSON.parse(j);
+          const dl = brief.sections?.deadlines?.data?.submissionDeadlineIso || '';
+          return dl.includes('2026-03-28');
+      - type: javascript
+        metric: EstimatedValue_Present
+        value: |
+          const m=output.indexOf('=== SOURCE');const j=m>0?output.substring(output.indexOf('{'),output.lastIndexOf('}',m)+1):output;const brief=JSON.parse(j);
+          const val = brief.sections?.summary?.data?.estimatedValueUsd;
+          return val !== null && val !== undefined && val !== 0;
+      - type: javascript
+        metric: Contact_MarcusThompson
+        value: |
+          const m=output.indexOf('=== SOURCE');const j=m>0?output.substring(output.indexOf('{'),output.lastIndexOf('}',m)+1):output;const brief=JSON.parse(j);
+          const contacts = brief.sections?.contacts?.data?.contacts || [];
+          return contacts.some(c => (c.name || '').includes('Marcus Thompson'));
+
+  # ─── A3: Expired Deadline Trap ───
+  # Submission deadline was January 15, 2025 — well in the past
+  - description: "TRAP: Expired deadline (Jan 2025) should trigger NO_GO decision"
+    vars:
+      solicitation: file://rfp-texts/expired-deadline.txt
+      brief: file://test-cases/expired-deadline.json
+    assert:
+      - type: javascript
+        metric: Decision_NoGo
+        value: |
+          const m=output.indexOf('=== SOURCE');const j=m>0?output.substring(output.indexOf('{'),output.lastIndexOf('}',m)+1):output;const brief=JSON.parse(j);
+          return brief.decision === 'NO_GO';
+      - type: javascript
+        metric: HasSubmissionDeadline_True
+        value: |
+          const m=output.indexOf('=== SOURCE');const j=m>0?output.substring(output.indexOf('{'),output.lastIndexOf('}',m)+1):output;const brief=JSON.parse(j);
+          return brief.sections?.deadlines?.data?.hasSubmissionDeadline === true;
+      - type: javascript
+        metric: SubmissionDeadline_Jan2025
+        value: |
+          const m=output.indexOf('=== SOURCE');const j=m>0?output.substring(output.indexOf('{'),output.lastIndexOf('}',m)+1):output;const brief=JSON.parse(j);
+          const dl = brief.sections?.deadlines?.data?.submissionDeadlineIso || '';
+          return dl.includes('2025-01-15');
+      - type: javascript
+        metric: Agency_USDA
+        value: |
+          const m=output.indexOf('=== SOURCE');const j=m>0?output.substring(output.indexOf('{'),output.lastIndexOf('}',m)+1):output;const brief=JSON.parse(j);
+          const agency = (brief.sections?.summary?.data?.agency || '').toLowerCase();
+          return agency.includes('usda') || agency.includes('forest service') || agency.includes('agriculture');
+      - type: javascript
+        metric: SolNumber_Correct
+        value: |
+          const m=output.indexOf('=== SOURCE');const j=m>0?output.substring(output.indexOf('{'),output.lastIndexOf('}',m)+1):output;const brief=JSON.parse(j);
+          const sol = brief.sections?.summary?.data?.solicitationNumber || '';
+          return sol.includes('USDA-FS-R5-2025-0089');
+      - type: javascript
+        metric: Contact_RobertChen
+        value: |
+          const m=output.indexOf('=== SOURCE');const j=m>0?output.substring(output.indexOf('{'),output.lastIndexOf('}',m)+1):output;const brief=JSON.parse(j);
+          const contacts = brief.sections?.contacts?.data?.contacts || [];
+          return contacts.some(c => (c.name || '').includes('Robert Chen'));
+      - type: javascript
+        metric: SetAside_SmallBusiness
+        value: |
+          const m=output.indexOf('=== SOURCE');const j=m>0?output.substring(output.indexOf('{'),output.lastIndexOf('}',m)+1):output;const brief=JSON.parse(j);
+          const sa = (brief.sections?.summary?.data?.setAside || '').toLowerCase();
+          return sa.includes('small') || sa.includes('sb');
+
+  # ─── A4: Contact Fabrication Trap ───
+  # Only provides an email address (no named person) — model should NOT invent a name
+  - description: "TRAP: Only email provided, no named contact — should NOT fabricate names"
+    vars:
+      solicitation: file://rfp-texts/contact-fabrication-trap.txt
+      brief: file://test-cases/contact-fabrication-trap.json
+    assert:
+      - type: javascript
+        metric: NoFabricatedContactNames
+        value: |
+          const m=output.indexOf('=== SOURCE');const j=m>0?output.substring(output.indexOf('{'),output.lastIndexOf('}',m)+1):output;const brief=JSON.parse(j);
+          const contacts = brief.sections?.contacts?.data?.contacts || [];
+          const allowedPatterns = ['gsa-itc-quotes', 'gsa', 'fas'];
+          for (const c of contacts) {
+            if (c.name && c.name.trim().length > 0) {
+              const name = c.name.toLowerCase();
+              if (!allowedPatterns.some(p => name.includes(p)) && !name.includes('n/a') && !name.includes('not provided')) {
+                return false;
+              }
+            }
+          }
+          return true;
+      - type: javascript
+        metric: Agency_GSA
+        value: |
+          const m=output.indexOf('=== SOURCE');const j=m>0?output.substring(output.indexOf('{'),output.lastIndexOf('}',m)+1):output;const brief=JSON.parse(j);
+          const agency = (brief.sections?.summary?.data?.agency || '').toLowerCase();
+          return agency.includes('gsa') || agency.includes('general services');
+      - type: javascript
+        metric: SolNumber_Correct
+        value: |
+          const m=output.indexOf('=== SOURCE');const j=m>0?output.substring(output.indexOf('{'),output.lastIndexOf('}',m)+1):output;const brief=JSON.parse(j);
+          const sol = brief.sections?.summary?.data?.solicitationNumber || '';
+          return sol.includes('GSA-FAS-2026-Q-0177');
+      - type: javascript
+        metric: HasSubmissionDeadline_True
+        value: |
+          const m=output.indexOf('=== SOURCE');const j=m>0?output.substring(output.indexOf('{'),output.lastIndexOf('}',m)+1):output;const brief=JSON.parse(j);
+          return brief.sections?.deadlines?.data?.hasSubmissionDeadline === true;
+      - type: javascript
+        metric: SubmissionDeadline_March21
+        value: |
+          const m=output.indexOf('=== SOURCE');const j=m>0?output.substring(output.indexOf('{'),output.lastIndexOf('}',m)+1):output;const brief=JSON.parse(j);
+          const dl = brief.sections?.deadlines?.data?.submissionDeadlineIso || '';
+          return dl.includes('2026-03-21');
+      - type: javascript
+        metric: EvalMethod_LPTA
+        value: |
+          const m=output.indexOf('=== SOURCE');const j=m>0?output.substring(output.indexOf('{'),output.lastIndexOf('}',m)+1):output;const brief=JSON.parse(j);
+          const fullText = JSON.stringify(brief.sections?.risks?.data || {}).toLowerCase();
+          return fullText.includes('lpta') || fullText.includes('lowest price');
+
+  # ─── A5: Fake RFP Structure (Sources Sought with Section L/M) ───
+  # Uses formal RFP headers (Section L, Section M) but explicitly states "THIS IS NOT A SOLICITATION"
+  - description: "TRAP: Section L/M headers but explicitly Sources Sought — should have no proposal deadline"
+    vars:
+      solicitation: file://rfp-texts/fake-rfp-sources-sought.txt
+      brief: file://test-cases/fake-rfp-sources-sought.json
+    assert:
+      - type: javascript
+        metric: HasSubmissionDeadline_False
+        value: |
+          const m=output.indexOf('=== SOURCE');const j=m>0?output.substring(output.indexOf('{'),output.lastIndexOf('}',m)+1):output;const brief=JSON.parse(j);
+          return brief.sections?.deadlines?.data?.hasSubmissionDeadline === false;
+      - type: javascript
+        metric: Agency_VA
+        value: |
+          const m=output.indexOf('=== SOURCE');const j=m>0?output.substring(output.indexOf('{'),output.lastIndexOf('}',m)+1):output;const brief=JSON.parse(j);
+          const agency = (brief.sections?.summary?.data?.agency || '').toLowerCase();
+          return agency.includes('veterans affairs') || agency.includes('va ');
+      - type: javascript
+        metric: NoEvaluationFactors
+        value: |
+          const m=output.indexOf('=== SOURCE');const j=m>0?output.substring(output.indexOf('{'),output.lastIndexOf('}',m)+1):output;const brief=JSON.parse(j);
+          const risks = brief.sections?.risks?.data || {};
+          const evalFactors = risks.evaluationFactors || [];
+          return evalFactors.length === 0;
+      - type: javascript
+        metric: EstimatedValue_Null
+        value: |
+          const m=output.indexOf('=== SOURCE');const j=m>0?output.substring(output.indexOf('{'),output.lastIndexOf('}',m)+1):output;const brief=JSON.parse(j);
+          const val = brief.sections?.summary?.data?.estimatedValueUsd;
+          return val === null || val === undefined || val === 0 || val === '';
+      - type: javascript
+        metric: Decision_NotGo
+        value: |
+          const m=output.indexOf('=== SOURCE');const j=m>0?output.substring(output.indexOf('{'),output.lastIndexOf('}',m)+1):output;const brief=JSON.parse(j);
+          return brief.decision === 'NO_GO' || brief.decision === 'CONDITIONAL_GO';
+      - type: javascript
+        metric: NoFabricatedDeadlineDate
+        value: |
+          const m=output.indexOf('=== SOURCE');const j=m>0?output.substring(output.indexOf('{'),output.lastIndexOf('}',m)+1):output;const brief=JSON.parse(j);
+          const deadlines = brief.sections?.deadlines?.data?.deadlines || [];
+          const proposalDeadlines = deadlines.filter(d => d.type === 'PROPOSAL_DUE' || d.isSubmissionDeadline);
+          return proposalDeadlines.length === 0;

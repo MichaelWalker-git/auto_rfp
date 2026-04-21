@@ -1,0 +1,302 @@
+{
+  "compositeScore": 1.5,
+  "confidence": 85,
+  "createdAt": "2026-04-19T12:00:00.000Z",
+  "decision": "NO_GO",
+  "opportunityId": "adv-fake-rfp-sources-sought",
+  "orgId": "test-org",
+  "partition_key": "EXEC_BRIEF_PK",
+  "projectId": "test-project",
+  "sections": {
+    "summary": {
+      "data": {
+        "summary": "The Department of Veterans Affairs Office of Information and Technology (OIT) is conducting market research for a Next-Generation EHR Interoperability Gateway solution. Despite using formal Section L/M headers typically associated with solicitations, this document explicitly and repeatedly states it is NOT a solicitation and no contract will be awarded. No proposals are being requested. No funding has been allocated -- a future solicitation is contingent on budget approval in FY2027. VA is seeking capability statements from industry to inform acquisition strategy for a potential future procurement. The desired solution must support HL7 FHIR R4 standards, enable real-time clinical data exchange, and integrate with VA's Cerner Millennium EHR (Oracle Health) and legacy VistA systems at approximately 40 facilities.",
+        "periodOfPerformance": "Not specified (Sources Sought -- no solicitation issued)",
+        "agency": "Department of Veterans Affairs, Office of Information and Technology (OIT)",
+        "contractType": "UNKNOWN",
+        "estimatedValueUsd": null,
+        "office": "Office of Information and Technology (OIT)",
+        "title": "Next-Generation Electronic Health Record (EHR) Interoperability Gateway",
+        "placeOfPerformance": "171 VAMCs and 1,100+ outpatient facilities (anticipated)",
+        "solicitationNumber": "VA-FSS-2026-SS-0234",
+        "setAside": "UNKNOWN",
+        "naicsCode": null
+      },
+      "status": "COMPLETE",
+      "updatedAt": "2026-04-19T12:00:00.000Z"
+    },
+    "deadlines": {
+      "data": {
+        "hasSubmissionDeadline": false,
+        "submissionDeadlineIso": null,
+        "deadlines": [
+          {
+            "dateTimeIso": "2026-04-15T23:59:00-04:00",
+            "label": "Information Response Requested By (Non-binding)",
+            "notes": "This is NOT a proposal submission deadline. This is a non-binding date for informational responses to a Sources Sought notice. Late responses will still be reviewed. No contract will be awarded from this notice.",
+            "type": "OTHER",
+            "rawText": "Information responses are requested by April 15, 2026, but late responses will still be reviewed.",
+            "timezone": "ET"
+          }
+        ],
+        "warnings": [
+          "THIS IS NOT A SOLICITATION. No proposals are being requested. The April 15, 2026 date is a non-binding request for information responses.",
+          "Despite Section L and Section M headers, this document explicitly states it is a Sources Sought notice only.",
+          "No funding has been allocated. A future solicitation is contingent on FY2027 budget approval."
+        ]
+      },
+      "status": "COMPLETE",
+      "updatedAt": "2026-04-19T12:00:00.000Z"
+    },
+    "requirements": {
+      "data": {
+        "evaluationFactors": [],
+        "overview": "VA OIT is seeking market research information on EHR Interoperability Gateway solutions. Desired capabilities include FHIR R4 compliant API gateway with SMART on FHIR authorization, message transformation between HL7 v2/CDA/FHIR formats, patient matching and identity resolution, audit logging and consent management per 38 CFR Part 1, 99.99% uptime SLA, FedRAMP High authorization, and scalability to 50M+ transactions per day. Integration required with VA's Cerner Millennium EHR (Oracle Health) and legacy VistA systems at approximately 40 facilities. NOTE: Section M explicitly states responses will NOT be evaluated for award purposes -- no scores or ratings will be assigned.",
+        "requirements": [
+          {
+            "category": "TECHNICAL",
+            "mustHave": false,
+            "requirement": "FHIR R4 compliant API gateway with support for SMART on FHIR authorization"
+          },
+          {
+            "category": "TECHNICAL",
+            "mustHave": false,
+            "requirement": "Message transformation between HL7 v2, CDA, and FHIR formats"
+          },
+          {
+            "category": "TECHNICAL",
+            "mustHave": false,
+            "requirement": "Patient matching and identity resolution across disparate systems"
+          },
+          {
+            "category": "COMPLIANCE",
+            "mustHave": false,
+            "requirement": "Audit logging and consent management per 38 CFR Part 1"
+          },
+          {
+            "category": "TECHNICAL",
+            "mustHave": false,
+            "requirement": "High availability (99.99% uptime SLA)"
+          },
+          {
+            "category": "COMPLIANCE",
+            "mustHave": false,
+            "requirement": "FedRAMP High authorization"
+          },
+          {
+            "category": "TECHNICAL",
+            "mustHave": false,
+            "requirement": "Scalability to handle 50 million+ transactions per day"
+          }
+        ],
+        "submissionCompliance": {
+          "format": [
+            "Limited to 15 pages"
+          ],
+          "attachmentsAndForms": [],
+          "requiredDocuments": [
+            {
+              "name": "Capability Statement",
+              "description": "Company overview, size standard, socioeconomic status, relevant EHR interoperability experience, technical approach overview, ROM timeline, and potential teaming arrangements. Limited to 15 pages.",
+              "pageLimit": "15 pages",
+              "documentType": "OTHER",
+              "required": false
+            }
+          ],
+          "requiredVolumes": []
+        },
+        "deliverables": []
+      },
+      "status": "COMPLETE",
+      "updatedAt": "2026-04-19T12:00:00.000Z"
+    },
+    "contacts": {
+      "data": {
+        "missingRecommendedRoles": [
+          "CONTRACTING_OFFICER",
+          "CONTRACT_SPECIALIST",
+          "TECHNICAL_POC",
+          "PROGRAM_MANAGER"
+        ],
+        "contacts": [
+          {
+            "name": "VA OIT Market Research",
+            "role": "GENERAL_INQUIRY",
+            "email": "VA-OIT-MarketResearch@va.gov",
+            "notes": "No individual contact name provided. All correspondence directed to this email. Subject line must reference: SS-0234 EHR Interoperability Gateway - [Company Name].",
+            "organization": "Department of Veterans Affairs, Office of Information and Technology"
+          }
+        ]
+      },
+      "status": "COMPLETE",
+      "updatedAt": "2026-04-19T12:00:00.000Z"
+    },
+    "risks": {
+      "data": {
+        "redFlags": [
+          {
+            "severity": "HIGH",
+            "whyItMatters": "Despite using formal Section L/M headers that suggest a solicitation, this document explicitly and repeatedly states: 'THIS IS NOT A SOLICITATION FOR PROPOSALS AND NO CONTRACT WILL BE AWARDED FROM THIS NOTICE.' The Section L/M format is misleading but the content is unambiguous.",
+            "mitigation": "Treat this as market research only. Do not invest significant B&P resources. Submit a brief capability statement if interested in positioning for a potential future solicitation.",
+            "flag": "Sources Sought with misleading Section L/M headers -- NOT a solicitation",
+            "impactsScore": false
+          },
+          {
+            "severity": "HIGH",
+            "whyItMatters": "No funding has been allocated for this requirement. A future solicitation is explicitly stated as contingent on budget approval in FY2027. There is no guarantee a solicitation will ever be issued.",
+            "mitigation": "Monitor VA OIT procurement activity and FY2027 budget developments. Keep response effort minimal and proportional to the speculative nature.",
+            "flag": "No funding allocated -- future solicitation contingent on FY2027 budget approval",
+            "impactsScore": false
+          }
+        ],
+        "risks": [
+          {
+            "severity": "HIGH",
+            "whyItMatters": "The scope is extremely large (171 VAMCs, 1,100+ outpatient facilities, 9 million enrolled veterans, 50M+ transactions/day) and involves complex integration with both Oracle Health/Cerner and legacy VistA systems. If a future solicitation is issued, this would be a very large and complex contract.",
+            "mitigation": "Begin early assessment of EHR interoperability capabilities and potential teaming arrangements if interested in a future solicitation.",
+            "flag": "Extremely large and complex scope if future solicitation is issued",
+            "impactsScore": false
+          }
+        ],
+        "incumbentInfo": {
+          "knownIncumbent": false,
+          "recompete": false,
+          "notes": "No incumbent identified. This is a Sources Sought for market research on a potential future requirement. No existing contract exists for this specific interoperability gateway.",
+          "incumbentName": ""
+        }
+      },
+      "status": "COMPLETE",
+      "updatedAt": "2026-04-19T12:00:00.000Z"
+    },
+    "pastPerformance": {
+      "data": {
+        "topMatches": [],
+        "gapAnalysis": {
+          "overallCoverage": 0,
+          "recommendations": [
+            "This is a Sources Sought notice -- no past performance evaluation will occur. If a future solicitation is issued, prepare references for EHR interoperability, HL7 FHIR implementations, and large-scale healthcare IT integrations."
+          ],
+          "criticalGaps": [],
+          "coverageItems": []
+        },
+        "narrativeSummary": "No past performance evaluation applicable. This is a Sources Sought notice for market research purposes only. Section M explicitly states responses will NOT be evaluated for award purposes.",
+        "confidenceScore": 0,
+        "evidence": []
+      },
+      "status": "COMPLETE",
+      "updatedAt": "2026-04-19T12:00:00.000Z"
+    },
+    "scoring": {
+      "data": {
+        "confidenceExplanation": "High confidence in NO_GO decision. Despite formal Section L/M headers, the document explicitly and repeatedly states this is NOT a solicitation. No contract will be awarded. No funding has been allocated. No evaluation factors apply (Section M states responses will NOT be evaluated for award). A future solicitation depends on FY2027 budget approval. There is nothing to bid on.",
+        "requiredActions": [
+          "NO BID: This is a Sources Sought notice, not a solicitation -- there is nothing to bid on",
+          "Consider submitting a brief capability statement (15 pages or less) to register interest with VA OIT if EHR interoperability is a strategic capability area",
+          "Monitor VA OIT procurement activity and FY2027 budget decisions for a potential future solicitation",
+          "Assess internal EHR interoperability capabilities and potential teaming arrangements for future positioning"
+        ],
+        "decision": "NO_GO",
+        "criteria": [
+          {
+            "name": "TECHNICAL_FIT",
+            "score": 2,
+            "rationale": "The desired capabilities (FHIR R4, HL7 transformation, patient matching, FedRAMP High, 50M+ transactions/day) are extremely specialized healthcare IT requirements. Cannot assess fit without a formal solicitation and evaluation criteria.",
+            "gaps": [
+              "Highly specialized EHR interoperability requirements",
+              "No formal evaluation criteria defined (Sources Sought only)"
+            ]
+          },
+          {
+            "name": "PAST_PERFORMANCE_RELEVANCE",
+            "score": 1,
+            "rationale": "No past performance evaluation applicable for a Sources Sought notice. Section M explicitly states responses will NOT be evaluated for award.",
+            "gaps": [
+              "Not applicable -- Sources Sought with no evaluation"
+            ]
+          },
+          {
+            "name": "PRICING_POSITION",
+            "score": 1,
+            "rationale": "No contract value has been established. No funding has been allocated. No pricing evaluation exists for this Sources Sought notice.",
+            "gaps": [
+              "No contract value or funding allocated"
+            ]
+          },
+          {
+            "name": "STRATEGIC_ALIGNMENT",
+            "score": 3,
+            "rationale": "VA is a high-value agency. If a future solicitation is issued, an EHR Interoperability Gateway for 171 VAMCs would be a very significant contract. However, the contingency on FY2027 budget approval and speculative timeline limit strategic planning value.",
+            "gaps": [
+              "Future solicitation contingent on FY2027 budget -- speculative"
+            ]
+          },
+          {
+            "name": "INCUMBENT_RISK",
+            "score": 3,
+            "rationale": "No incumbent identified for this specific requirement. However, large health IT vendors with existing VA relationships may have advantages if a future solicitation is issued.",
+            "gaps": []
+          }
+        ],
+        "summaryJustification": "NO_GO. Despite Section L/M headers that mimic a formal solicitation, this is explicitly a Sources Sought notice. No contract will be awarded. No proposals are being requested. No funding has been allocated. No evaluation factors apply. A future solicitation depends on FY2027 budget approval. There is nothing to bid on. Consider submitting a brief capability statement for positioning purposes only.",
+        "confidence": 85,
+        "blockers": [
+          "This is NOT a solicitation -- no contract will be awarded from this notice",
+          "No funding allocated -- future solicitation contingent on FY2027 budget approval"
+        ],
+        "decisionRationale": "NO_GO because there is no active procurement to bid on. The Section L/M format is misleading but the content is unambiguous: this is market research only. No pricing, no evaluation, no award.",
+        "compositeScore": 1.5,
+        "confidenceDrivers": [
+          {
+            "factor": "Explicitly stated as NOT a solicitation",
+            "direction": "DOWN"
+          },
+          {
+            "factor": "No funding allocated",
+            "direction": "DOWN"
+          },
+          {
+            "factor": "No evaluation factors (Section M disclaims evaluation)",
+            "direction": "DOWN"
+          },
+          {
+            "factor": "High-value VA agency relationship potential",
+            "direction": "UP"
+          }
+        ]
+      },
+      "status": "COMPLETE",
+      "updatedAt": "2026-04-19T12:00:00.000Z"
+    },
+    "pricing": {
+      "data": {
+        "competitiveAdvantages": [],
+        "totalPrice": 0,
+        "indirectCostTotal": 0,
+        "basisOfEstimate": "PRICING NOT DEVELOPED. This is a Sources Sought notice, not a solicitation. No contract will be awarded. No funding has been allocated for this requirement. A future solicitation is contingent on FY2027 budget approval. Section M explicitly states responses will NOT be evaluated for award purposes. No pricing analysis is warranted.",
+        "materialCostTotal": 0,
+        "assumptions": [
+          "This is a Sources Sought notice -- no contract will be awarded",
+          "No funding has been allocated for this requirement",
+          "Future solicitation contingent on FY2027 budget approval",
+          "Section L/M headers are present but the document explicitly disclaims being a solicitation"
+        ],
+        "competitivePosition": "UNKNOWN",
+        "laborCostTotal": 0,
+        "profitMargin": 0,
+        "pricingRisks": [
+          "No pricing risk -- this is not a procurement and no pricing is required"
+        ],
+        "recommendedActions": [
+          "Do not develop pricing for this Sources Sought notice",
+          "Monitor for future solicitation and develop pricing at that time"
+        ],
+        "strategy": "UNKNOWN",
+        "priceConfidence": 0
+      },
+      "status": "COMPLETE",
+      "updatedAt": "2026-04-19T12:00:00.000Z"
+    }
+  },
+  "status": "COMPLETE",
+  "updatedAt": "2026-04-19T12:00:00.000Z"
+}

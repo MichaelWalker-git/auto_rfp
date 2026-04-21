@@ -1,0 +1,55 @@
+{
+  "hasSubmissionDeadline": true,
+  "submissionDeadlineIso": "2026-04-01T14:00:00-07:00",
+  "deadlines": [
+    {
+      "dateTimeIso": "2026-03-02T23:59:00-08:00",
+      "label": "Respondents' submission of written questions",
+      "notes": "No specific time stated for question submission; only the date is provided in the tentative schedule. Questions must be submitted via PlanetBids. This is critical for clarifying requirements before proposal preparation \u2014 only 30 days remain between the Q&A response and proposal due date.",
+      "type": "QUESTIONS_DUE",
+      "rawText": "Respondents' submission of written questions - March 2, 2026",
+      "timezone": "PT"
+    },
+    {
+      "dateTimeIso": "2026-03-09T23:59:00-08:00",
+      "label": "Response to written questions posted in PlanetBids",
+      "notes": "This is when the Sites Authority will post answers and any addenda. Respondents should monitor PlanetBids after this date for clarifications that may affect proposal content. Only ~23 days remain between answers and proposal due date.",
+      "type": "OTHER",
+      "rawText": "Response to written questions to Respondents in PlanetBids - March 9, 2026",
+      "timezone": "PT"
+    },
+    {
+      "dateTimeIso": "2026-04-01T14:00:00-07:00",
+      "label": "Proposals due in PlanetBids",
+      "notes": "Hard deadline \u2014 proposals received after 2:00 PM Pacific Time will not be accepted, and no additional versions will be accepted after submission. Electronic submittal only via PlanetBids. April 1 falls during Pacific Daylight Time (UTC-7). Proposals must remain valid for 180 calendar days.",
+      "type": "PROPOSAL_DUE",
+      "rawText": "Proposals due in PlanetBids - April 1, 2026 at 2:00 pm (PT)",
+      "timezone": "PT"
+    },
+    {
+      "dateTimeIso": "2026-04-22T00:00:00-07:00",
+      "label": "Finalists notified",
+      "notes": "Estimated date for finalist notification; dates following proposal submission are tentative and may be revised without addendum. Important for planning availability for demonstrations and interviews.",
+      "type": "OTHER",
+      "rawText": "Finalists notified - April 22, 2026",
+      "timezone": "PT"
+    },
+    {
+      "dateTimeIso": null,
+      "label": "Respondent software demonstrations and interviews",
+      "notes": "Estimated window for finalist demonstrations and interviews. This date range is tentative and may be revised without addendum. Respondents should ensure key personnel availability during this period. The Authority may make a final selection without interviews.",
+      "type": "ORALS",
+      "rawText": "Respondent software demonstrations and interviews held - April 27 - May 15, 2026",
+      "timezone": "PT"
+    },
+    {
+      "dateTimeIso": null,
+      "label": "Contract negotiations and intent to award",
+      "notes": "Estimated negotiation period. This is tentative and may shift. Final contract award is subject to Sites Authority Board approval, which is listed as TBD. Target go-live is January 1, 2027, so delays here compress implementation timeline.",
+      "type": "OTHER",
+      "rawText": "Contract negotiations and intent to award - May 18 - June 12, 2026",
+      "timezone": "PT"
+    }
+  ],
+  "warnings": []
+}

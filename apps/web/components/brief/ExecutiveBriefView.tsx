@@ -526,32 +526,32 @@ export function ExecutiveBriefView({
     return resp.executiveBriefId;
   }
 
-  async function enqueueSection(section: SectionKey, executiveBriefId: string) {
+  async function enqueueSection(section: SectionKey, executiveBriefId: string, force?: boolean) {
     let resp: any;
     switch (section) {
       case 'summary':
-        resp = await genSummary.trigger({ executiveBriefId });
+        resp = await genSummary.trigger({ executiveBriefId, force });
         break;
       case 'deadlines':
-        resp = await genDeadlines.trigger({ executiveBriefId });
+        resp = await genDeadlines.trigger({ executiveBriefId, force });
         break;
       case 'contacts':
-        resp = await genContacts.trigger({ executiveBriefId });
+        resp = await genContacts.trigger({ executiveBriefId, force });
         break;
       case 'requirements':
-        resp = await genRequirements.trigger({ executiveBriefId });
+        resp = await genRequirements.trigger({ executiveBriefId, force });
         break;
       case 'risks':
-        resp = await genRisks.trigger({ executiveBriefId });
+        resp = await genRisks.trigger({ executiveBriefId, force });
         break;
       case 'pricing':
-        resp = await genPricing.trigger({ executiveBriefId });
+        resp = await genPricing.trigger({ executiveBriefId, force });
         break;
       case 'pastPerformance':
-        resp = await genPastPerformance.trigger({ executiveBriefId });
+        resp = await genPastPerformance.trigger({ executiveBriefId, force });
         break;
       case 'scoring':
-        resp = await genScoring.trigger({ executiveBriefId });
+        resp = await genScoring.trigger({ executiveBriefId, force });
         break;
     }
     
@@ -600,8 +600,10 @@ export function ExecutiveBriefView({
       startPollingBrief();
 
       // Phase 1: Run all sections except scoring in parallel
+      // When regenerating all (!onlyMissing), force re-generation to avoid stale cached data
+      const force = !onlyMissing;
       if (sectionsWithoutScoring.length > 0) {
-        await Promise.all(sectionsWithoutScoring.map((k) => enqueueSection(k, executiveBriefId)));
+        await Promise.all(sectionsWithoutScoring.map((k) => enqueueSection(k, executiveBriefId, force)));
       }
 
       // Phase 2: Wait for all prerequisite sections to complete before running scoring
@@ -629,7 +631,7 @@ export function ExecutiveBriefView({
 
             if (allPrereqsComplete) {
               // Now run scoring
-              await enqueueSection('scoring', executiveBriefId);
+              await enqueueSection('scoring', executiveBriefId, force);
               break;
             }
           }

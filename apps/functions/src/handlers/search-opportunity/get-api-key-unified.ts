@@ -18,6 +18,13 @@ import {
 import { getApiKey } from '@/helpers/api-key-storage';
 import { SAM_GOV_SECRET_PREFIX } from '@/constants/samgov';
 import { DIBBS_SECRET_PREFIX } from '@/constants/dibbs';
+import { HIGHERGOV_SECRET_PREFIX } from '@/constants/highergov';
+
+const SOURCE_TO_PREFIX: Record<string, string> = {
+  SAM_GOV: SAM_GOV_SECRET_PREFIX,
+  DIBBS: DIBBS_SECRET_PREFIX,
+  HIGHER_GOV: HIGHERGOV_SECRET_PREFIX,
+};
 
 export const baseHandler = async (event: APIGatewayProxyEventV2): Promise<APIGatewayProxyResultV2> => {
   const orgId = getOrgId(event);
@@ -26,28 +33,27 @@ export const baseHandler = async (event: APIGatewayProxyEventV2): Promise<APIGat
   const sourceParam = event.queryStringParameters?.source?.toUpperCase();
 
   // If a specific source is requested, return just that one
-  if (sourceParam === 'SAM_GOV') {
-    const apiKey = await getApiKey(orgId, SAM_GOV_SECRET_PREFIX);
-    return apiResponse(200, { orgId, source: 'SAM_GOV', configured: !!apiKey, apiKey: apiKey ?? null });
-  }
-  if (sourceParam === 'DIBBS') {
-    const apiKey = await getApiKey(orgId, DIBBS_SECRET_PREFIX);
-    return apiResponse(200, { orgId, source: 'DIBBS', configured: !!apiKey, apiKey: apiKey ?? null });
+  const prefix = sourceParam ? SOURCE_TO_PREFIX[sourceParam] : undefined;
+  if (sourceParam && prefix) {
+    const apiKey = await getApiKey(orgId, prefix);
+    return apiResponse(200, { orgId, source: sourceParam, configured: !!apiKey, apiKey: apiKey ?? null });
   }
 
   // Return status for all sources
-  const [samKey, dibbsKey] = await Promise.all([
+  const [samKey, dibbsKey, higherGovKey] = await Promise.all([
     getApiKey(orgId, SAM_GOV_SECRET_PREFIX),
     getApiKey(orgId, DIBBS_SECRET_PREFIX),
+    getApiKey(orgId, HIGHERGOV_SECRET_PREFIX),
   ]);
 
   return apiResponse(200, {
     orgId,
     sources: {
-      SAM_GOV: { configured: !!samKey, apiKey: samKey ?? null },
-      DIBBS:   { configured: !!dibbsKey, apiKey: dibbsKey ?? null },
+      SAM_GOV:    { configured: !!samKey, apiKey: samKey ?? null },
+      DIBBS:      { configured: !!dibbsKey, apiKey: dibbsKey ?? null },
+      HIGHER_GOV: { configured: !!higherGovKey, apiKey: higherGovKey ?? null },
     },
-    anyConfigured: !!(samKey || dibbsKey),
+    anyConfigured: !!(samKey || dibbsKey || higherGovKey),
   });
 };
 

@@ -12,7 +12,7 @@ import { z } from 'zod';
 
 // ─── Source enum ──────────────────────────────────────────────────────────────
 
-export const OpportunitySourceSchema = z.enum(['SAM_GOV', 'DIBBS', 'MANUAL_UPLOAD']);
+export const OpportunitySourceSchema = z.enum(['SAM_GOV', 'DIBBS', 'HIGHER_GOV', 'MANUAL_UPLOAD']);
 export type OpportunitySource = z.infer<typeof OpportunitySourceSchema>;
 
 // ─── Pipeline Stage ───────────────────────────────────────────────────────────
@@ -170,6 +170,18 @@ export const OpportunityItemSchema = z.object({
   pocDeployedAt: z.string().datetime().nullish(),
   /** Compliance check IDs that admins have marked as ignored */
   ignoredComplianceCheckIds: z.array(z.string()).optional(),
+  /** Place of performance (city, state, country) */
+  placeOfPerformance: z.string().nullish(),
+  /** Primary point-of-contact email */
+  contactEmail: z.string().nullish(),
+  /** Primary point-of-contact name */
+  contactName: z.string().nullish(),
+  /** Link to the original source listing (e.g. SAM.gov or state portal URL) */
+  sourceUrl: z.string().nullish(),
+  /** HigherGov unique opportunity key (used for dedup and re-fetch) */
+  higherGovOppKey: z.string().nullish(),
+  /** HigherGov AI-generated summary — proprietary enrichment */
+  higherGovAiSummary: z.string().nullish(),
 });
 
 export type OpportunityItem = z.infer<typeof OpportunityItemSchema>;

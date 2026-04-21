@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -34,6 +34,7 @@ import {
 } from 'lucide-react';
 import { usePastProject, useUpdatePastProject } from '@/lib/hooks/use-past-performance';
 import { useToast } from '@/components/ui/use-toast';
+import { ExtractionSourceBadge } from '@/components/extraction';
 import Link from 'next/link';
 
 const EditProjectFormSchema = z.object({
@@ -69,6 +70,7 @@ export default function EditPastProjectPage() {
   const { project, isLoading, isError } = usePastProject(orgId, projectId);
   const updateProject = useUpdatePastProject();
   const { toast } = useToast();
+  const [isFormReady, setIsFormReady] = useState(false);
 
   const form = useForm<EditProjectFormData>({
     resolver: zodResolver(EditProjectFormSchema),
@@ -97,7 +99,7 @@ export default function EditPastProjectPage() {
 
   // Populate form when project loads
   useEffect(() => {
-    if (project) {
+    if (project && !isFormReady) {
       form.reset({
         title: project.title ?? '',
         client: project.client ?? '',
@@ -119,8 +121,9 @@ export default function EditPastProjectPage() {
         clientPOCEmail: project.clientPOC?.email ?? '',
         clientPOCPhone: project.clientPOC?.phone ?? '',
       });
+      setIsFormReady(true);
     }
-  }, [project, form]);
+  }, [project, form, isFormReady]);
 
   const { formState: { isSubmitting, isDirty } } = form;
 
@@ -168,7 +171,7 @@ export default function EditPastProjectPage() {
     }
   };
 
-  if (isLoading) {
+  if (isLoading || !isFormReady) {
     return (
       <div className="container max-w-4xl mx-auto py-6 px-4">
         <div className="flex items-center justify-center py-12">
@@ -221,6 +224,15 @@ export default function EditPastProjectPage() {
             </span>
           )}
         </div>
+        {/* Extraction source info - show full description for extracted items */}
+        {project.extractionSource && (
+          <div className="mt-4 p-3 bg-muted/50 rounded-lg border">
+            <ExtractionSourceBadge 
+              extractionSource={project.extractionSource} 
+              compact={false} 
+            />
+          </div>
+        )}
       </div>
 
       <Form {...form}>
@@ -391,7 +403,11 @@ export default function EditPastProjectPage() {
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Contract Type</FormLabel>
-                      <Select onValueChange={field.onChange} value={field.value || ''}>
+                      <Select 
+                        onValueChange={field.onChange} 
+                        value={field.value || ''} 
+                        key={`contractType-${project?.contractType || 'empty'}`}
+                      >
                         <FormControl>
                           <SelectTrigger>
                             <SelectValue placeholder="Select type" />
@@ -416,7 +432,11 @@ export default function EditPastProjectPage() {
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Set-Aside</FormLabel>
-                      <Select onValueChange={field.onChange} value={field.value || ''}>
+                      <Select 
+                        onValueChange={field.onChange} 
+                        value={field.value || ''} 
+                        key={`setAside-${project?.setAside || 'empty'}`}
+                      >
                         <FormControl>
                           <SelectTrigger>
                             <SelectValue placeholder="Select set-aside" />
@@ -444,6 +464,7 @@ export default function EditPastProjectPage() {
                       <Select 
                         onValueChange={(v) => field.onChange(parseInt(v))} 
                         value={field.value?.toString() || ''}
+                        key={`rating-${project?.performanceRating || 'empty'}`}
                       >
                         <FormControl>
                           <SelectTrigger>

@@ -47,6 +47,12 @@ import {
 } from '@/helpers/search-opportunity';
 import { SAM_GOV_SECRET_PREFIX } from '@/constants/samgov';
 import { DIBBS_SECRET_PREFIX } from '@/constants/dibbs';
+import { HIGHERGOV_SECRET_PREFIX, HIGHERGOV_BASE_URL } from '@/constants/highergov';
+import {
+  fetchHigherGovOpportunity,
+  fetchHigherGovDocuments,
+  type HigherGovConfig,
+} from '@/helpers/search-opportunity';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -76,6 +82,14 @@ const ImportRequestSchema = z.discriminatedUnion('source', [
     sourceDocumentId:   z.string().optional(),
     force:              z.boolean().optional(),
   }),
+  z.object({
+    source:           z.literal('HIGHER_GOV'),
+    orgId:            z.string().min(1),
+    projectId:        z.string().min(1),
+    oppKey:           z.string().min(1),
+    sourceDocumentId: z.string().optional(),
+    force:            z.boolean().optional(),
+  }),
 ]);
 
 type ImportRequest = z.infer<typeof ImportRequestSchema>;
@@ -92,7 +106,8 @@ export const baseHandler = async (event: AuthedEvent): Promise<APIGatewayProxyRe
   if (!success) return apiResponse(400, { message: 'Validation error', issues: error.issues });
 
   if (data.source === 'SAM_GOV') return importSamGov(event, data);
-  return importDibbs(event, data);
+  if (data.source === 'DIBBS') return importDibbs(event, data);
+  return importHigherGov(event, data);
 };
 
 // ─── SAM.gov description fetcher ─────────────────────────────────────────────
@@ -398,6 +413,126 @@ const importDibbs = async (
     imported: files.length,
     opportunity: item,
     files,
+  });
+};
+
+// ─── HigherGov import ────────────────────────────────────────────────────────
+
+const importHigherGov = async (
+  event: AuthedEvent,
+  data: Extract<ImportRequest, { source: 'HIGHER_GOV' }>,
+): Promise<APIGatewayProxyResultV2> => {
+  const apiKey = await getApiKey(data.orgId, HIGHERGOV_SECRET_PREFIX);
+  if (!apiKey) return apiResponse(404, { message: 'HigherGov API key not configured for this organization' });
+
+  const cfg: HigherGovConfig = { baseUrl: HIGHERGOV_BASE_URL, apiKey, httpsAgent };
+  const opp = await fetchHigherGovOpportunity(cfg, data.oppKey);
+
+  // Cross-source dedup: check by higherGovOppKey AND by noticeId (source_id = SAM.gov noticeId)
+  if (!data.force) {
+    const existingByOppKey = await findOpportunityBySourceId({ orgId: data.orgId, higherGovOppKey: data.oppKey });
+    const existingByNoticeId = opp.source_id
+      ? await findOpportunityBySourceId({ orgId: data.orgId, noticeId: opp.source_id })
+      : undefined;
+    const existing = existingByOppKey ?? existingByNoticeId;
+
+    if (existing) {
+      const project = existing.projectId ? await getProjectById(existing.projectId) : null;
+      return apiResponse(409, {
+        message: `This opportunity has already been imported (from ${existing.source}).`,
+        existing: {
+          oppId: existing.oppId,
+          projectId: existing.projectId,
+          projectName: project?.name ?? null,
+          title: existing.title,
+          source: existing.source,
+          importedBy: existing.createdByName ?? null,
+          importedAt: existing.createdAt,
+        },
+      });
+    }
+  }
+
+  const attachments = await fetchHigherGovDocuments(cfg, opp.document_path, opp.opp_key);
+
+  const { oppId, item } = await createOpportunity({
+    orgId: data.orgId,
+    projectId: data.projectId,
+    opportunity: {
+      orgId: data.orgId,
+      projectId: data.projectId,
+      source: 'HIGHER_GOV',
+      id: opp.opp_key,
+      title: opp.title ?? 'Untitled',
+      type: opp.opp_type?.name ?? null,
+      postedDateIso: opp.posted_date ? new Date(opp.posted_date).toISOString() : null,
+      responseDeadlineIso: opp.due_date ? new Date(opp.due_date).toISOString() : null,
+      noticeId: opp.source_id ?? null,
+      solicitationNumber: null,
+      naicsCode: opp.naics_code?.code ?? null,
+      pscCode: opp.psc_code?.code ?? null,
+      organizationName: opp.agency?.name
+        ? (opp.agency.abbreviation && opp.agency.abbreviation !== opp.agency.name
+            ? `${opp.agency.name} (${opp.agency.abbreviation})`
+            : opp.agency.name)
+        : null,
+      setAside: opp.set_aside ?? (opp.sole_source_flag ? 'Sole Source' : null),
+      description: [
+        opp.ai_summary,
+        opp.description_text && opp.description_text !== opp.ai_summary ? opp.description_text : null,
+        opp.product_service ? `Product/Service: ${opp.product_service}` : null,
+      ].filter(Boolean).join('\n\n') || null,
+      active: true,
+      baseAndAllOptionsValue: opp.val_est_high ? parseFloat(opp.val_est_high) || null : null,
+      // HigherGov-enriched fields
+      placeOfPerformance: [opp.pop_city, opp.pop_state, opp.pop_zip, opp.pop_country].filter(Boolean).join(', ') || null,
+      contactEmail: opp.primary_contact_email?.email ?? null,
+      contactName: opp.primary_contact_email?.name ?? null,
+      sourceUrl: opp.source_path ?? null,
+      higherGovOppKey: opp.opp_key,
+      higherGovAiSummary: opp.ai_summary ?? null,
+    },
+  });
+
+  await syncOpportunityToApn({
+    orgId: data.orgId, projectId: data.projectId, oppId,
+    customerName: item.organizationName ?? item.title ?? 'Unknown Customer',
+    opportunityValue: item.baseAndAllOptionsValue ?? 0,
+    expectedCloseDate: item.responseDeadlineIso ?? new Date().toISOString(),
+    proposalStatus: 'PROSPECT',
+    description: typeof item.description === 'string' ? item.description.substring(0, 500) : undefined,
+  });
+
+  const files = await importAttachments({
+    orgId: data.orgId, projectId: data.projectId,
+    id: opp.opp_key, attachments, oppId,
+    sourceDocumentId: data.sourceDocumentId,
+  });
+
+  setAuditContext(event, {
+    action: 'SOLICITATION_IMPORTED',
+    resource: 'opportunity',
+    resourceId: oppId,
+    orgId: data.orgId,
+    changes: { after: { source: 'HIGHER_GOV', higherGovOppKey: opp.opp_key, projectId: data.projectId, filesImported: files.length } },
+  });
+
+  const userId = getUserId(event);
+  if (userId) {
+    const nameMap = await resolveUserNames(data.orgId, [userId]).catch(() => ({} as Record<string, string>));
+    const userName = nameMap[userId] ?? 'A user';
+    await sendNotification(buildNotification(
+      'SOLICITATION_IMPORTED',
+      'New solicitation imported',
+      `${userName} imported "${opp.title}" from HigherGov`,
+      { orgId: data.orgId, projectId: data.projectId, entityId: oppId, recipientUserIds: [userId] },
+    ));
+  }
+
+  return apiResponse(202, {
+    ok: true, source: 'HIGHER_GOV', projectId: data.projectId,
+    higherGovOppKey: opp.opp_key, opportunityId: oppId,
+    imported: files.length, opportunity: item, files,
   });
 };
 

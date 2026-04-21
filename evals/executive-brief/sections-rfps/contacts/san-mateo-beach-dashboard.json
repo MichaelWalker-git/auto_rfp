@@ -1,0 +1,29 @@
+{
+  "missingRecommendedRoles": [
+    "CONTRACTING_OFFICER",
+    "CONTRACTING_OFFICER_REPRESENTATIVE",
+    "CONTRACT_SPECIALIST",
+    "TECHNICAL_POC",
+    "PROGRAM_MANAGER",
+    "SMALL_BUSINESS_SPECIALIST",
+    "SUBCONTRACTING_POC",
+    "GENERAL_INQUIRY"
+  ],
+  "contacts": [
+    {
+      "name": "Lena Silberman",
+      "role": "PROCUREMENT_POC",
+      "title": "Management Analyst",
+      "phone": "(650) 363-4229",
+      "email": "lsilberman@smcgov.org",
+      "organization": "County of San Mateo, County Executive's Office"
+    },
+    {
+      "name": "Michael Callagy",
+      "role": "OTHER",
+      "notes": "Listed as Department Head; not a direct procurement contact",
+      "title": "County Executive",
+      "organization": "County of San Mateo, County Executive's Office"
+    }
+  ]
+}

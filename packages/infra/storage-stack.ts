@@ -16,6 +16,7 @@ export class StorageStack extends cdk.Stack {
   public readonly documentGenerationQueue: sqs.Queue;
   public readonly notificationQueue: sqs.Queue;
   public readonly clarifyingQuestionQueue: sqs.Queue;
+  public readonly extractionQueue: sqs.Queue;
 
   constructor(scope: Construct, id: string, props: StorageStackProps) {
     super(scope, id, props);
@@ -147,6 +148,22 @@ export class StorageStack extends cdk.Stack {
       deadLetterQueue: {
         queue: new sqs.Queue(this, 'ClarifyingQuestionDLQ', {
           queueName: `auto-rfp-clarifying-question-dlq-${stage}`,
+          retentionPeriod: cdk.Duration.days(14),
+          encryption: sqs.QueueEncryption.SQS_MANAGED,
+        }),
+        maxReceiveCount: 2,
+      },
+    });
+
+    // Create SQS queue for async extraction (past performance, pricing from documents)
+    this.extractionQueue = new sqs.Queue(this, 'ExtractionQueue', {
+      queueName: `auto-rfp-extraction-${stage}`,
+      visibilityTimeout: cdk.Duration.seconds(900), // 15 minutes for Bedrock + S3 operations
+      retentionPeriod: cdk.Duration.days(14),
+      encryption: sqs.QueueEncryption.SQS_MANAGED,
+      deadLetterQueue: {
+        queue: new sqs.Queue(this, 'ExtractionDLQ', {
+          queueName: `auto-rfp-extraction-dlq-${stage}`,
           retentionPeriod: cdk.Duration.days(14),
           encryption: sqs.QueueEncryption.SQS_MANAGED,
         }),

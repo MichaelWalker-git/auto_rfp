@@ -1,0 +1,35 @@
+{
+  "missingRecommendedRoles": [
+    "CONTRACTING_OFFICER_REPRESENTATIVE",
+    "CONTRACT_SPECIALIST",
+    "TECHNICAL_POC",
+    "PROGRAM_MANAGER",
+    "SMALL_BUSINESS_SPECIALIST",
+    "SUBCONTRACTING_POC",
+    "GENERAL_INQUIRY"
+  ],
+  "contacts": [
+    {
+      "name": "Jason Li",
+      "role": "PROCUREMENT_POC",
+      "notes": "Authorized Contact Person for the solicitation",
+      "email": "TSD_Solicitations@smcgov.org",
+      "organization": "County of San Mateo - Technology Services Department"
+    },
+    {
+      "role": "CONTRACTING_OFFICER",
+      "notes": "Listed in Standard Contract Template Notices section; fax: 650-363-7800",
+      "phone": "650-363-4548",
+      "organization": "County of San Mateo",
+      "name": "Michael Wentworth",
+      "title": "Director Information Services Department",
+      "email": "ISD_Procurement@smcgov.org"
+    },
+    {
+      "role": "OTHER",
+      "notes": "E-mail address for protests; no individual name provided",
+      "email": "TSD_Protest_Officer@smcgov.org",
+      "organization": "County of San Mateo - Technology Services Department"
+    }
+  ]
+}

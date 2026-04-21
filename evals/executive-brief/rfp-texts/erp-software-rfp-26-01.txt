@@ -1,0 +1,948 @@
+Sites
+Sites Project Authority
+Request for Proposals
+Financial Enterprise Resource Planning Software and Services
+RFP No. 26-01
+RFP Released
+February 18, 2026
+Submittal Deadline
+April 1, 2026
+2:00 pm Pacific Time (PT)
+Form of Submittal
+Electronic Submittal Only
+PlanetBids
+Contact
+Shayleen O'Connell
+Finance Manager
+Sites Reservoir Project
+procurement@sitesproject.org
+Contents
+1
+Purpose and Background
+1
+1.1
+Purpose
+1
+1.2
+Organization Background
+1
+2
+General Information
+3
+2.1
+RFP Document
+3
+2.2
+Tentative Solicitation Schedule
+3
+2.3
+Respondent Questions
+3
+2.4
+Contract Term
+4
+2.5
+Pricing Eligibility Period
+4
+2.6
+Purchase Quantities
+5
+2.7
+Solicitation Disclaimer
+5
+2.8
+Notice to Respondents Regarding this RFP
+5
+3
+Method of Award and Proposal Evaluation Process
+6
+3.1
+Method of Award
+6
+3.2
+Prohibited Communications
+6
+3.3
+Proposal Evaluation Process
+6
+3.4
+Proposal Evaluation Criteria
+7
+3.5
+Optional Modules - Evaluation and Pricing Disclosure
+7
+4
+Proposal Requirements and Submittal
+8
+4.1
+Proposal Preparation and Submittal
+8
+4.2
+Proposal Contents
+9
+5
+Software Scope
+12
+5.1
+Core ERP scope
+12
+5.2
+Additional Optional Functionality
+12
+6
+Scope of Work
+13
+6.1
+Task Summary
+13
+6.2
+Project Timeline
+14
+6.3
+Data Ownership and Accessibility
+15
+ATTACHMENT A: SOFTWARE ABILITIES AND REQUIREMENTS
+16
+ATTACHMENT B: PRICING PROPOSAL
+17
+ATTACHMENT C: REFERENCES
+19
+Sites Project Authority
+i
+RFP 26-01
+Submittal Deadline: April 1, 2026
+Financial ERP RFP
+ATTACHMENT D: LOCATION OF WORKERS UTILIZED BY RESPONDENT
+20
+ATTACHMENT E: CERTIFICATION OF FINANCIAL CONDITION
+21
+ATTACHMENT F: CERTIFICATION OF INSURANCE
+22
+ATTACHMENT G: SOFTWARE APPLICATION REQUIREMENTS
+23
+ATTACHMENT H: PROPOSED CONTRACT AGREEMENT
+24
+Sites Project Authority
+ii
+RFP 26-01
+Submittal Deadline: April 1, 2026
+Financial ERP RFP
+1 Purpose and Background
+1.1 Purpose
+The Sites Project Authority (Sites Authority) is issuing this Request for Proposals (RFP) to solicit
+comprehensive proposals for the acquisition and implementation of a cloud-based accounting
+and financial reporting software system. The scope of this RFP includes complete support for
+both the initial implementation and ongoing services for all applications provided by the selected
+software vendor.
+The Sites Authority has the following key objectives for this project:
+A streamlined software package that captures financial transactions in a systematic,
+efficient manner, including budgeting and forecasting capabilities.
+Ability to generate reports and analyze data effectively to support informed decision-
+making.
+Ability to maintain auditable records and documentation for future reference.
+Dedicated technical support during implementation and throughout the term of the
+contract.
+Currently, the Sites Authority utilizes QuickBooks Desktop Premier 2024 accounting software
+from Intuit.
+1.2 Organization Background
+Project Governing Structure and Support Services
+The Sites Authority is a joint exercise of powers authority (JPA) formed on August 26, 2010,
+pursuant to California Government Code Section 6500 et seq. The Sites Authority is governed by
+a 8-voting member Board of Directors, including several local water agencies and Colusa and
+Glenn counties. The Sites Authority currently receives advisory support from 22 local water
+agencies located statewide (the Reservoir Committee) who have entered into Project
+agreements to help fund and advance the Sites Reservoir Project (Project). The Authority Board
+(AB) and Reservoir Committee (RC) conduct business in joint public meetings. While each body
+votes independently, they mostly operate as a single unit. The following link provides current
+Sites Authority Board and Reservoir Committee members: https://sitesproject.org/sites-project-
+authority/. It is expected that the governance structure of the Project will adjust when Phase 3
+(Final Design) is initiated and will occur upon completion of investor commitment in 2026.
+The Project
+The Sites Reservoir will be located 10 miles west of the town of Maxwell in rural Glenn and Colusa
+counties. The Project includes a 1.5 million acre-foot off-stream surface water storage facility
+that will be filled with diverted stormwater flows from the Sacramento River, after all other water
+rights and regulatory requirements are met, for subsequent release for environmental use and
+Sites Project Authority
+1
+RFP 26-01
+Submittal Deadline: April 1, 2026
+Financial ERP RFP
+use by California communities, farms and businesses. When completed, it will be the State's 8th
+largest reservoir and 2nd largest off-stream reservoir and will increase surface water storage in
+the Sacramento Valley by about 15%. The Project will make use of existing facilities to divert
+water into and out of the reservoir, and will construct additional pipelines, pumping stations and
+appurtenant facilities. For additional Project location and other Project information, please visit
+the Project website at www.sitesproject.org.
+The Project expects to achieve an "investor commitment" milestone signifying the transition
+from Phase 2 (Planning) to Phases 3/4/5 (Final Design, Construction, Operations) within the next
+6 to 12 months, following receipt of a water right permit from the State Water Resources Control
+Board. The Project is funded through cash contributions from the 22 public agencies, dues from
+the 11 Authority Board members, and cost reimbursements from State and Federal funding
+agreements. Upon transition to Phases 3/4/5, the project funding is expected to be financed with
+debt and federal and state contributions. Debt may be in the form of publicly issued tax-exempt
+debt and loan agreements with banks and the federal government. The Sites Authority has not
+yet issued debt nor executed any loan agreements. The 2024 and past Audited Financial
+Statements and Federal Single Audits are available here: https://sitesproject.org/financial/.
+The Project is a large capital project that is on a "fast-track" to be operationally complete by the
+end of 2033. In late 2023, the Project was determined by the California Governor and Legislature
+to be a critical piece of new water infrastructure, which qualified certain project activities for
+special judicial streamlining and expedited permitting. Given these and other factors, the work
+environment is fast-paced and dynamic. Operational metrics are provided below.
+Operational Metrics
+Metric
+Current
+Fiscal year end
+December 31
+Estimated number of annual billings
+25 - 100
+Estimated 2026 vendor count
+50 - 100
+Estimated number of ERP users
+5 - 10
+Estimated number of workflow approvers
+10 - 20
+Future Operating Context and System Longevity
+The Sites Project Authority anticipates transitioning from planning activities to final design,
+construction, and long-term operations beginning in 2026, subject to investor commitment and
+regulatory approvals. During this transition, the Authority expects significant growth in
+transaction volume, contract complexity, funding sources, and reporting requirements
+associated with construction activities, debt financing, grants, and long-term operations.
+The financial enterprise resource planning (ERP) system selected through this RFP is expected to
+serve as the Authority's core financial system of record over a long-term horizon, supporting
+current needs and scaling to meet future requirements as the Project evolves. While specific
+future functionality and implementation timing will be determined over time, the Authority seeks
+Sites Project Authority
+2
+RFP 26-01
+Submittal Deadline: April 1, 2026
+Financial ERP RFP
+a solution that is modular, extensible, and capable of supporting project delivery through
+construction and operations.
+2 General Information
+2.1 RFP Document
+This RFP includes the primary RFP document, any attachments, and any addenda issued prior to
+the contract award. All attachments and addenda released in relation to this RFP before any
+contract award are hereby incorporated by reference.
+2.2 Tentative Solicitation Schedule
+Proposals are due on April 1, 2026, at 2:00 pm Pacific Time. Proposals received after this time
+will not be accepted. In addition, after receipt of a Respondent's proposals, no additional version
+of the Respondent's proposal will be accepted. The dates and times for items following the
+proposal submission date are estimated and may be revised without an addendum to this
+solicitation. All times listed are Pacific Time.
+Activity
+Date
+RFP released and posted to PlanetBids
+February 18, 2026
+Respondents' submission of written questions
+March 2, 2026
+Response to written questions to Respondents in PlanetBids
+March 9, 2026
+April 1, 2026
+Proposals due in PlanetBids
+at 2:00 pm (PT)
+Finalists notified
+April 22, 2026
+Respondent software demonstrations and interviews held
+April 27 - May 15, 2026
+Contract negotiations and intent to award
+May 18 - June 12, 2026
+Budget and Finance Committee approval
+TBD
+Sites Authority Board meeting to consider approval of contract
+TBD
+Effective start date of the contract
+TBD
+2.3 Respondent Questions
+Upon reviewing the RFP documents, Respondents may seek clarification or interpretation to
+submit an optimal proposal. To facilitate this process, Respondents are required to submit any
+questions by the specified due date.
+Written inquiries should be entered into PlanetBids by the date and time indicated in Section 2.2.
+Questions received prior to the submission deadline, along with the Sites Authority's responses
+and any additional terms deemed necessary, will be posted as an addendum on PlanetBids. This
+Sites Project Authority
+3
+RFP 26-01
+Submittal Deadline: April 1, 2026
+Financial ERP RFP
+addendum will become part of the RFP. Only written material contained in an Addendum should
+be considered authoritative and binding; informal or oral communications from Sites Authority
+personnel are not considered official.
+The Sites Authority will only be bound by the information contained in this RFP and any formal
+Addenda. Informal explanations, instructions, or information given at any time by any
+representative of the Sites Authority during the competitive process or after the award shall
+not be binding.
+2.4 Contract Term
+The term of this Contract shall be one (1) year. Following the initial term, the Sites Authority, at
+its sole discretion, may exercise up to two (2) optional extensions of five (5) years each. The
+optional extensions may be utilized to perform software licensing, hosting, Maintenance &
+Operations (M&O) services, enhancements, and additional software scope as permitted under
+this RFP. The maximum potential Contract term, inclusive of all extensions, shall not exceed
+eleven (11) years. Exercise of any extension is at the sole discretion of the Sites Authority and is
+not guaranteed.
+The Contract Term structure is intended to provide the Authority with flexibility to reassess
+platform suitability as the Project transitions between major lifecycle phases.
+2.5 Pricing Eligibility Period
+All bidder proposals are required to be offered for a term not less than 180 calendar days in
+duration. A proposal may not be modified, withdrawn, or canceled by the bidder during the
+180-day period following the time and date designated for the receipt of proposals.
+The Sites Authority may elect to procure only a subset of the proposed software modules at the
+time of initial contract award. For software modules proposed in the bidder's response but not
+included in the Authority's initial purchase, bidders shall agree to honor the proposed software
+licensing pricing for a period of up to five (5) years from the date of proposal submission, should
+the Authority elect to add such modules in the future.
+This pricing eligibility does not obligate the Authority to purchase any additional software
+modules and does not require the Authority to license, activate, or pay for software that is not
+expressly ordered. The Authority reserves the right to negotiate pricing or procure such modules
+through a separate solicitation if doing so is determined to be in its best interest.
+Professional services pricing for any future modules or scope additions shall be negotiated at the
+time such services are authorized, subject to the escalation limits and commercial terms
+established in the Contract. Pricing for any software or services purchased under the initial
+Contract must remain firm for at least three (3) years from contract execution, with increases in
+subsequent years limited to the annual CPI-U adjustment or three percent (3%), whichever is
+Sites Project Authority
+4
+RFP 26-01
+Submittal Deadline: April 1, 2026
+Financial ERP RFP
+less.
+2.6 Purchase Quantities
+The Sites Authority reserves the right, at its sole discretion, to purchase software licenses,
+subscriptions, or other software items in quantities determined necessary to support its
+operational needs. Unit pricing established in the successful bidder's proposal shall apply to all
+such purchases made under the Contract and shall not be altered based solely on changes in
+quantities purchased.
+Nothing in this section shall be construed as a commitment to purchase any minimum or
+maximum quantity of software items, nor as authorization for expenditures beyond those
+approved in accordance with the Authority's procurement policies and the Contract.
+2.7 Solicitation Disclaimer
+The Sites Authority reserves the right to reject any or all proposals, to waive minor informalities,
+and to negotiate with one or more Respondents as permitted by law and deemed to be in the
+best interest of the Authority.
+All proposals submitted in response to this RFP become the property of the Sites Authority and
+may be subject to public disclosure in accordance with the California Public Records Act, unless
+exempt.
+Respondents are responsible for all costs incurred in the preparation and submission of their
+proposals, as well as participation in any interviews or demonstrations. The Authority makes no
+commitment to reimburse such costs.
+2.8 Notice to Respondents Regarding this RFP
+Respondents are responsible for reviewing this RFP in its entirety, including all attachments and
+any addenda issued by the Sites Authority.
+Questions, concerns, or requests for clarification regarding this RFP should be submitted in
+accordance with Section 2.3. Any revisions determined to be warranted by the Sites Authority
+will be issued by formal addendum.
+To ensure a fair and transparent procurement process, the Sites Authority intends to rely on the
+terms and conditions set forth in this RFP and any issued addenda. Proposed exceptions or
+alternative terms included within a Respondent's proposal may not be considered as part of the
+evaluation. If the Sites Authority determines that modifications to the RFP are appropriate, such
+changes will be communicated through a formal addendum.
+Sites Project Authority
+5
+RFP 26-01
+Submittal Deadline: April 1, 2026
+Financial ERP RFP
+3 Method of Award and Proposal Evaluation Process
+3.1 Method of Award
+The Sites Authority will evaluate all qualified proposals submitted by the due date. The selection
+will be based on the criteria in Section 3.4 Proposal Evaluation Criteria. Although the goal is to
+award a contract to a single Respondent for all items, the Sites Authority may choose to make
+separate awards for different items, not award certain items, or cancel the RFP entirely. The Sites
+Authority also reserves the right to waive minor informalities or technicalities in received
+proposals.
+3.2 Prohibited Communications
+To ensure a fair and transparent evaluation process, Respondents should refrain from initiating
+ex parte (e.g., unsolicited) communications with Sites Authority officials or employees prior to
+the time a formal decision has been made.
+Questions and other communications from Respondents shall be submitted through the process
+described in Section 2.3. Any communication between the Respondent and the Sites Authority
+after the deadline for questions will be initiated by the designated Sites Authority contact, as
+needed, to obtain information or clarification necessary to support a fair and accurate evaluation
+of proposals.
+3.3 Proposal Evaluation Process
+The Sites Authority shall review all proposals to this RFP to confirm that they meet the
+specifications and requirements of the RFP. Only those deemed as qualified proposals will be
+sent for evaluation by the selection committee, consisting of Sites Authority staff and Participant
+representatives.
+Proposals are requested for the scope of services as specified. The Sites Authority
+reserves the right to reject any proposal on the basis of fit, form, and function as well as
+cost. All information furnished in the proposal may be used as a factor in determining
+contract award.
+The Sites Authority will review and assess qualified proposals according to the evaluation
+criteria listed in Section 3.4 Proposal Evaluation Criteria.
+Incomplete proposals or those missing required information may be deemed non-
+responsive, at the discretion of the Sites Authority.
+The Sites Authority reserves the right to waive informalities or irregularities in any
+proposal.
+The Sites Authority will rank all qualified proposals and may select a finalist group of
+Respondents to take part in an interview and software demonstration with Sites Authority
+leadership; alternatively, the Sites Authority may make a final selection without the need
+for a finalist interview or software demonstration. If a finalist group is needed, the Sites
+Authority may request additional formal responses or submissions from any or all finalists
+Sites Project Authority
+6
+RFP 26-01
+Submittal Deadline: April 1, 2026
+Financial ERP RFP
+for the purpose of clarification or to amplify the materials presented in any part of the
+proposal. The Sites Authority may, but is not obligated to, request clarification from
+Respondents if doing so is determined to be in the Authority's best interest. Clarifications
+shall not result in changes to pricing or other material terms of the proposal.
+The Sites Authority reserves the right to negotiate terms and conditions of any or all
+proposals separately, as it is deemed appropriate.
+Upon completion of the evaluation process, the Sites Authority will make award(s) based
+on the evaluation and notify Respondents via email. The award of a contract to one
+Respondent does not mean that the other proposals lacked merit, but that, all factors
+considered, the selected proposal was deemed most advantageous and represented the
+best value to the Sites Authority. Final award decisions may consider information
+obtained through demonstrations, reference checks, negotiations, or any other relevant
+sources. The final contract award is subject to Sites Authority Board approval.
+The Sites Authority is not obligated to award a contract if none of the proposals meet its
+needs or expectations. The Sites Authority is not obligated to award a contract to the
+lowest bidder.
+3.4 Proposal Evaluation Criteria
+In evaluating proposals, the Sites Authority recognizes that the successful implementation and
+long-term operation of an ERP system depends on both the capabilities of the proposed software
+and the experience, qualifications, and approach of the Respondent's implementation team.
+Proposals will therefore be evaluated based on a holistic assessment of the proposed solution,
+implementation strategy, and the Respondent's demonstrated ability to deliver and support the
+system over time.
+The Sites Authority will assess individual submissions based on the Respondent's overall
+capabilities, experience, and the information provided in each response. Any Respondent found
+to be technically unqualified, or whose submission is deemed noncompliant, will not be
+considered. Consultants responding to this RFP will be evaluated using the following criteria:
+Section 1: Response to Project Goals and Scope: 10%
+Section 2: Proposed Strategy and Technical Approach: 25%
+Section 3: Integration, Scalability, and Future Module Compatibility Narrative: 5%
+Section 4: Firm Information, Qualifications, and References: 10%
+Attachment A: Software Abilities and Requirements: 30%
+Attachment B: Pricing Proposal: 20%
+3.5 Optional Modules - Evaluation and Pricing Disclosure
+The Sites Authority requests descriptive and pricing information for optional ERP modules (e.g.,
+capital asset maintenance management, debt management, human resources management, and
+other future modules).
+Sites Project Authority
+7
+RFP 26-01
+Submittal Deadline: April 1, 2026
+Financial ERP RFP
+The pricing for these optional modules will be collected for competitive transparency and future
+amendment purposes but will not be scored as part of the cost evaluation for the initial contract
+award. Respondents will not be penalized for omitting optional modules or for proposing third-
+party integrations to satisfy those functions.
+Optional module capabilities will be reviewed qualitatively under Section 3: Integration,
+Scalability, and Future Module Compatibility Narrative (5%) to assess future interoperability and
+long-term system scalability.
+4 Proposal Requirements and Submittal
+This section outlines the requirements related to this RFP and the procedure for submitting
+proposals in response to it. By submitting a proposal, the Respondent agrees to meet all
+requirements stated in this section as well as any other specifications, requirements, and terms
+and conditions stated in the RFP. If a Respondent has questions about a requirement or
+specification or believes that modifying a requirement could improve the proposal to the Sites
+Authority, they are encouraged to submit these items as questions during the question and
+answer period in accordance with Section 2.3.
+4.1 Proposal Preparation and Submittal
+Respondents are required to adhere to the following guidelines for the format and submission of
+proposals:
+Format: Respondents must submit electronic proposals in Adobe Acrobat or Microsoft
+Word format. Proposals should not exceed 40 pages, including transmittal letter and any
+appendices.
+Organization: All proposals must be organized in the specified order. Refer to Section 4.2
+for comprehensive details and expectations regarding content requirements.
+Submission Instructions: Proposals are due on April 1, 2026, 2:00 pm PT, and are to be
+submitted electronically in PlanetBids. Proposals received after this time will not be
+accepted.
+RFP Addenda: Important updates may be added to this RFP. Respondents should regularly
+check the PlanetBids website for any issued addenda before the proposal deadline. All
+Respondents are considered to have read and understood all RFP information and
+addenda.
+Withdrawal of Proposal: Proposals can be withdrawn in writing before the proposal
+opening time stated on the cover page (or later if specified in an addendum). Withdrawal
+requests must be on the Respondent's letterhead, signed by an authorized agent.
+Withdrawals after proposal opening are allowed only for good cause and at the Sites
+Authority's discretion.
+Sites Project Authority
+8
+RFP 26-01
+Submittal Deadline: April 1, 2026
+Financial ERP RFP
+4.2 Proposal Contents
+Respondents' proposals must include the elements outlined below, including completion of all
+required attachments of this RFP and an authorized signature where requested. The level of
+detail provided should be sufficient to support the Sites Authority's evaluation of the proposed
+solution and overall best value. Additional details requested for each proposal section are
+described below.
+Transmittal Letter
+The transmittal letter must not exceed two pages and must be signed by a representative of the
+Respondent who is authorized to negotiate on behalf of, and to contractually bind, the
+Respondent during the evaluation. The letter should summarize the key points contained in the
+proposal, as well as provide the name, title, address, email address, and telephone number of
+the key contact person.
+Section 1: Response to Project Goals and Scope
+Respondents should address their approach to meeting the proposal goals and producing the
+requested deliverables outlined in Sections 5 and 6. Respondents are encouraged to provide
+suggestions that would improve implementation efficiency, system usability, or long-term value
+to the Sites Authority.
+Specific elements of the RFP response may include, as applicable:
+Identification of the types of licenses offered for different levels of use.
+Identification of where and when additional applications or third-party vendors may be
+utilized to meet requirements.
+A description of the availability of solution demonstration resources (e.g., recorded
+demonstrations, sandbox environments, or trial access).
+Section 2: Proposed Strategy and Technical Approach
+In this section, Respondents should describe their proposed strategy and technical approach for
+meeting the scope of work requirements outlined in Sections 5 and 6.
+The response should address, at a level of detail sufficient to support evaluation:
+A proposed implementation approach and high-level timeline from contract execution
+through go-live, based on a target go-live of January 1, 2027. Detailed, task-level
+schedules will be developed collaboratively with the selected Respondent during contract
+negotiations and project initiation.
+The Respondent's approach to project governance, communication, and issue resolution.
+The levels and types of support proposed during implementation and for ongoing
+operations.
+Identification of key personnel anticipated to support implementation and ongoing
+services.
+The Respondent's general training approach for different user roles, including delivery
+methods (e.g., in-person, virtual, recorded).
+Sites Project Authority
+9
+RFP 26-01
+Submittal Deadline: April 1, 2026
+Financial ERP RFP
+The proposed client engagement model, including the use of an account manager or
+customer success resources.
+Section 3: Integration, Scalability, and Future Module Compatibility Narrative
+Respondents should provide a narrative describing how the proposed ERP platform supports
+expansion to additional modules and integration with third-party systems.
+The narrative should address, as applicable:
+Whether the future modules share the same database and interface.
+Availability of documented APIs or other integration methods.
+Examples of successful integrations with other applications (e.g., capital asset
+maintenance management, human resources management, etc.).
+How data consistency is maintained across modules.
+Section 4: Firm Information, Qualifications, and References
+If multiple firms are responding as a team, this information should be listed for each firm.
+Section 4.1 Organization Information
+Firm name, address, phone number, website, and primary contact information.
+A brief history of the firm, state of organization, number of full-time employees, and
+ownership structure.
+Office location(s) from which key personnel will support the Sites Authority and general
+hours of availability.
+A description of the firm's approach to participation by small businesses and businesses
+owned by minorities, women, or disabled persons, as applicable.
+Section 4.2 Firm Qualifications and Experience
+Respondents should describe recent experience relevant to this project, including:
+Experience implementing accounting and financial software for public agencies or
+grant-funded organizations.
+Experience supporting process improvement or financial operations efficiency.
+Experience providing post-implementation support and ongoing system optimization.
+Complete and submit Attachment C: References Sheet (Respondents may recreate the form
+provided the content remains unchanged).
+Section 4.3 Key Personnel Experience
+Provide a summary of qualifications and relevant experience for key personnel and any proposed
+subcontractors anticipated to support the Sites Authority under the proposed scope of work.
+Sites Project Authority
+10
+RFP 26-01
+Submittal Deadline: April 1, 2026
+Financial ERP RFP
+Attachment A: Software Abilities and Requirements
+Complete the Attachment A - Software Abilities and Requirements.xlsx workbook and return it
+with the submission. This attachment is provided as a separate document.
+Attachment B: Pricing Proposal
+Complete Attachment B - Pricing Proposal.xlsx and submit it with the proposal as a separate file.
+Price shall constitute the total cost to the Sites Authority to perform the services actually
+purchased under the Contract, including software, implementation, and ongoing services, as
+applicable. Any proposed reimbursable expenses must be clearly identified and capped.
+Respondents should provide separate itemized pricing for software, implementation, and
+ongoing maintenance or subscription services.
+Pricing for software and services actually purchased under the Contract must remain firm for at
+least three (3) years from contract execution, with increases in subsequent years limited to the
+annual CPI-U adjustment or three percent (3%), whichever is less. Pricing eligibility for optional
+software modules not initially purchased is governed by Section 2.5 of this RFP.
+Attachment C: References
+Provide a minimum of three (3) references for whom similar services have been performed.
+Attachment D: Location of Workers Utilized by Respondent
+Complete Attachment D - Location of Workers Utilized by Respondent. Respondents shall
+identify the location(s) at which work will be performed and disclose any use of workers or
+resources located outside of the United States, as requested in the attachment.
+Attachment E: Certification of Financial Condition
+Complete Attachment E - Certification of Financial Condition.
+Respondents shall provide a certification regarding their current financial condition.
+Submission of audited financial statements is not required; however, Respondents may, at their
+discretion, include up to three (3) years of audited financial statements or other financial
+information they believe demonstrates financial stability and capacity to perform the Contract.
+Attachment F: Certificate of Insurance
+Respondents must provide proof of insurance for this RFP's work, including workers
+compensation and commercial general liability.
+Attachment G: Software Application Requirements
+Please provide documentation that demonstrates the measures in place for protecting financial
+data in the SaaS environment and the secure access controls implemented.
+Sites Project Authority
+11
+RFP 26-01
+Submittal Deadline: April 1, 2026
+Financial ERP RFP
+Attachment H: Proposed Contract Agreement
+Submit the Respondent's proposed contract agreement for software and services. The Sites
+Authority anticipates using the selected Respondent's contract as a starting point, with the
+inclusion of additional Authority-specific provisions as described in Attachment H and other
+terms negotiated as part of final contract execution.
+Any proposed edits, exceptions, or alternative terms should be clearly identified for review during
+contract negotiations.
+5 Software Scope
+5.1 Core ERP scope
+The proposed solution should include, at a minimum, software, implementation services,
+training, project management, and other necessary technology services. These requirements
+may be satisfied through the bidder's own products or in partnership with a third-party
+provider(s). Bidders must propose an integrated cloud-based solution that fulfills all Core ERP
+scope items listed below and detailed in Attachment A - Software Abilities and
+Requirements.xlsx:
+Accounts Payable
+Accounts Receivable
+Bank Reconciliation
+Budget Management
+Cash Management
+Fixed Assets
+General Ledger
+Project Accounting
+Purchasing
+General & Technical
+5.2 Additional Optional Functionality
+In addition to the Core ERP scope, the Sites Authority is interested in additional optional
+functionality that may be integrated in the future. Bidders may use Section 3: Integration,
+Scalability, and Future Module Compatibility Narrative to describe their capabilities in these
+areas. While the modules listed below serve as a guide, bidders may propose additional modules
+within one or more of these scope areas if such offerings are available in their solution portfolio.
+Capital asset maintenance management
+Debt management
+Investment management (beyond cash management)
+Human resources management
+Payroll
+Sites Project Authority
+12
+RFP 26-01
+Submittal Deadline: April 1, 2026
+Financial ERP RFP
+Timekeeping
+Inventory Tracking
+Pricing for optional scope items must be provided in Attachment B for competitive disclosure
+purposes. Optional scope pricing will not be scored for the purpose of contract award but will
+establish pricing eligibility that may be used by the Sites Authority for potential contract
+amendments, consistent with California Public Contract Code requirements for competitively
+solicited optional work.
+6 Scope of Work
+This scope of work outlines the expected deliverables to aid Respondents in preparing their RFP
+submissions. We welcome suggestions to enhance the final scope of services.
+The Sites Authority may, at its discretion, add optional modules identified in the Respondent's
+proposal through written amendment under the same terms and conditions of the master
+agreement. Such amendments shall be deemed within the scope of this solicitation because the
+optional modules were competitively solicited and priced in this RFP.
+6.1 Task Summary
+Task 1: Approach & Project Management Plan
+Weekly meetings for progress, budget, and timeline monitoring.
+Personnel management plan with dedicated project manager and technical staff.
+Understand auditing and reporting requirements for software implementation.
+Recommend account structure for auditable reporting.
+Provide a Chart of Accounts Mapping that shows how ERP codes align with legacy codes.
+Provide a Testing and Acceptance Plan.
+Task 2: Software Installation & Implementation
+Configure software to meet Sites Authority's requirements.
+Provide a Configuration Workbook that documents system settings.
+Assist with financial report writing.
+Import prior one (1) completed fiscal year of transactions, year-end balances, and current
+fiscal year-to-date transactions, from QuickBooks Desktop Premier 2024.
+Collaborate with Accounting and IT to minimize disruptions.
+Reduce downtime and operational impacts during transition, including
+implementation-phase support during cutover, go-live, and initial stabilization (e.g.,
+remote, on-call, or on-site support as appropriate).
+Task 3: Staff Training During Implementation
+Personalized training and manuals for power users.
+Support for first 12 months post-implementation.
+Sites Project Authority
+13
+RFP 26-01
+Submittal Deadline: April 1, 2026
+Financial ERP RFP
+At least one recorded training session and electronic training materials for all staff, with
+role-appropriate and additional training available as needed during implementation and
+stabilization.
+Task 4: Ongoing Technical Assistance & Support
+Ongoing cloud hosting services.
+Automated updates and software change communications.
+Help desk support, including remote support and on-call assistance, with on-site support
+available as needed.
+6.2 Project Timeline
+The Sites Authority plans to start the project soon after awarding the contract and finalizing
+negotiations. The goal is to complete implementation as soon after contract execution as
+possible, with a target go-live date of January 1, 2027, aligned with the Authority's fiscal,
+reporting, and operational needs. Respondents should provide a proposed high-level timeline
+and task sequence based on their expertise that demonstrates alignment with this business
+objective.
+The milestones below represent the Sites Authority's anticipated implementation phases for
+planning purposes. Respondents are not required to provide a detailed task-level schedule at the
+proposal stage, but should demonstrate how their proposed approach and sequencing align with
+these milestones and the target go-live date.
+Description
+Projected
+Expected
+Date(s)
+Duration
+1. Contract Signing
+Execution of the contract and authorization to
+proceed.
+2. Kick-off Meeting
+Formal project kickoff, confirmation of governance,
+roles, communication protocols, and initial planning
+assumptions.
+3. Software Installation and Stabilization
+Initial system setup, environment configuration, and
+stabilization activities to support subsequent
+implementation work.
+4. Chart of Accounts Development and Testing
+Development, configuration, and validation of the
+chart of accounts and related financial structures.
+5. Data Conversion and Testing
+Preparation, migration, and validation of historical
+and current data, including reconciliation and
+testing.
+Sites Project Authority
+14
+RFP 26-01
+Submittal Deadline: April 1, 2026
+Financial ERP RFP
+Description
+Projected
+Expected
+Date(s)
+Duration
+6. Report Development and Testing
+Configuration, development, and validation of
+standard and required reports to support financial
+operations and reporting needs.
+7. Staff Training
+Delivery of training materials and sessions to
+support user readiness and effective system
+adoption.
+8. Acceptance
+Completion of acceptance activities confirming
+readiness for production use.
+9. Go-Live
+Target Go-Live Date: January 1, 2027
+10. Post-Go-Live Stabilization
+Initial stabilization and support following go-live to
+ensure continuity of operations.
+6.3 Data Ownership and Accessibility
+All data entered into the ERP system shall remain the sole property of the Sites Authority. The
+Contractor shall provide the Authority with full, non-proprietary data exports upon request and
+upon contract termination, at no additional cost.
+Sites Project Authority
+15
+RFP 26-01
+Submittal Deadline: April 1, 2026
+Financial ERP RFP
+ATTACHMENT A: SOFTWARE ABILITIES AND REQUIREMENTS
+Respondents should complete the Attachment A Microsoft Excel spreadsheet and return it with
+their submission. (This is a separate document to be provided by the Sites Authority).
+This Space is Intentionally Left Blank
+Sites Project Authority
+16
+RFP 26-01
+Submittal Deadline: April 1, 2026
+Financial ERP RFP
+ATTACHMENT B: PRICING PROPOSAL
+Bidders must complete the pricing forms provided in Attachment B - Pricing Proposal.xls and
+submit one electronic copy of the completed cost proposal as a separate file. For each of the cost
+components listed in Attachment B, bidders shall provide a firm, fixed cost and indicate whether
+the cost is one-time, ongoing/annual, or other (please specify). Bidders are encouraged to
+present alternatives to itemized costs, such as bundled pricing or other cost-saving alternatives,
+if such pricing would be advantageous to the Sites Authority.
+Pricing Structure Overview
+Respondents shall structure pricing to clearly distinguish between (a) software modules and
+services proposed for initial contract award and (b) optional software modules that may be added
+by the Sites Authority in the future. Pricing provided in Attachment B shall be on a per-unit basis
+and shall not assume minimum or maximum purchase quantities unless explicitly requested.
+Pricing for optional software modules is requested solely for pricing eligibility and planning
+purposes and does not represent a commitment by the Authority to purchase, license, or activate
+such modules.
+Optional Software Modules
+For each optional software module proposed, Respondents shall provide unit pricing for software
+licensing or subscriptions. Such pricing shall remain eligible for use by the Authority for a period
+of up to five (5) years from the date of proposal submission, consistent with Section 2.5 of the
+RFP, should the Authority elect to add the module in the future.
+Optional software modules are not required for a responsive proposal and will not be included
+in the initial cost-evaluation score. Pricing for optional modules is requested for transparency and
+future planning purposes only. Functional capabilities of optional modules, where proposed, will
+be reviewed qualitatively under Section 3, Integration, Scalability, and Future Module
+Compatibility Narrative, to assess long-term interoperability and system scalability.
+Optional Professional Services
+Pricing for professional services associated with optional software modules (including
+implementation, configuration, integration, and training) shall be provided for informational
+purposes only. The Authority reserves the right to negotiate pricing for such services at the time
+they are authorized, subject to the escalation limits and commercial terms of the Contract.
+Purchase Quantities
+All pricing shall be expressed on a per-unit basis (e.g., per user, per license, per module, or per
+service unit, as applicable). Respondents shall not include assumptions regarding total quantities
+to be purchased. The Sites Authority reserves the right to purchase quantities as needed, and
+unit pricing shall apply regardless of increases or decreases in quantities ordered, subject to the
+Contract Term and pricing provisions of the RFP.
+Sites Project Authority
+17
+RFP 26-01
+Submittal Deadline: April 1, 2026
+Financial ERP RFP
+Additional Cost Proposal Requirements
+If an item is included at no additional cost, please note this in the Comments column on
+the corresponding row.
+If an item is not included in your proposal, please note the item as "no bid" (or words to
+that effect).
+Pricing for software and services actually purchased under the Contract must remain firm
+for at least three (3) years from contract execution, with increases in subsequent years
+limited to the annual CPI-U adjustment for the applicable region or three percent (3%),
+whichever is less. Pricing eligibility for optional software modules not initially purchased
+is governed by Section 2.5 of the RFP.
+All pricing must be provided in U.S. dollars.
+Make clear the rationale and basis of calculation for all fees.
+Explain any and all factors that could affect proposed subscription fees.
+Please note it is the responsibility of the Respondent to ensure the accuracy of the pricing
+provided as part of your response. Any errors in providing an accurate price response due to
+inaccuracies in the templates provided are the sole responsibility of the responding bidder. The
+Sites Authority reserves the right to pursue direct purchase of all items and services proposed, as
+well as to obtain independent financing.
+Sites Project Authority
+18
+RFP 26-01
+Submittal Deadline: April 1, 2026
+Financial ERP RFP
+ATTACHMENT C: REFERENCES
+The respondent is required to provide at least three (3) references for whom similar services have
+been performed as outlined herein. Please ensure that e-mail addresses are valid. Failure to
+provide a valid email address may result in the rejection of the respondent's proposal.
+Reference 1:
+Client Name:
+Type of Service / Scope of Work:
+Performance Dates:
+Contact Name:
+Phone:
+Email:
+Reference 2:
+Client Name:
+Type of Service / Scope of Work:
+Performance Dates:
+Contact Name:
+Phone:
+Email:
+Reference 3:
+Client Name:
+Type of Service / Scope of Work:
+Performance Dates:
+Contact Name:
+Phone:
+Email:
+Sites Project Authority
+19
+RFP 26-01
+Submittal Deadline: April 1, 2026
+Financial ERP RFP
+ATTACHMENT D: LOCATION OF WORKERS UTILIZED BY RESPONDENT
+The Respondent is required to specify the location(s) where performance of work will take place
+and describe how it plans to use resources or workers outside of the United States for this
+contract. The Sites Authority will assess the risks, costs, and other factors related to this
+utilization before making an award decision.
+Identify all locations within the United States where performance will take place:
+Will any work under this Contract be performed outside the United States?
+Yes
+No
+If the Respondent answered "YES" above, Respondent shall complete the questions below:
+1. Please list the location(s) outside of the United States where work under this Contract will
+be conducted by the Respondent, any sub-contractors, employees, or other personnel
+performing work under the Contract:
+2. Describe the corporate structure and the locations of corporate employees and activities
+of the Respondent, its affiliates, or any sub-contractors that willexecute work outside the
+United States:
+The Respondent agrees to provide written notice to the Sites Authority regarding the relocation
+of the Respondent, its employees, sub-contractors, or other personnel performing services under
+the contract to locations outside the United States.
+Sites Project Authority
+20
+RFP 26-01
+Submittal Deadline: April 1, 2026
+Financial ERP RFP
+ATTACHMENT E: CERTIFICATION OF FINANCIAL CONDITION
+Name of Respondent:
+The undersigned certifies that the following statements are accurate: [check all applicable boxes]
+The Respondent is in stable financial condition and has received an unqualified audit opinion
+for the latest audit of its financial statements, if applicable.
+Date of latest audit:
+The Respondent has no outstanding liabilities to the Internal Revenue Service or any other
+government entity, including tax and judgment liens.
+The Respondent is current on all payments for federal and state taxes and required
+employment-related contributions and withholdings.
+The Respondent is not involved in any ongoing litigation or findings of noncompliance under
+federal or state law.
+The Respondent has not been involved in any past or current litigation, findings in any past
+litigation, or findings of noncompliance under federal or state law that may affect its ability to
+meet the requirements of this Contract.
+The undersigned is authorized to make these statements on behalf of the Respondent.
+Note: This certification remains valid, and the Respondent must notify the Contract Lead within
+30 days of any material changes to the representations made herein.
+If any box above is NOT checked, the Respondent shall explain the reasons on a separate page.
+Signature:
+Date:
+Printed Name:
+Title:
+[This Certification must be signed by an individual authorized to represent the Respondent]
+Sites Project Authority
+21
+RFP 26-01
+Submittal Deadline: April 1, 2026
+Financial ERP RFP
+ATTACHMENT F: CERTIFICATE OF INSURANCE
+Respondents must provide proof of insurance for this RFP's work, including workers
+compensation and commercial general liability.
+This Space is Intentionally Left Blank
+Sites Project Authority
+22
+RFP 26-01
+Submittal Deadline: April 1, 2026
+Financial ERP RFP
+ATTACHMENT G: SOFTWARE APPLICATION REQUIREMENTS
+Please provide documentation that demonstrates the measures in place for protecting financial
+data in the SaaS environment and the secure access controls implemented.
+This Space is Intentionally Left Blank
+Sites Project Authority
+23
+RFP 26-01
+Submittal Deadline: April 1, 2026
+Financial ERP RFP
+ATTACHMENT H: PROPOSED CONTRACT AGREEMENT
+Provide the Respondent's proposed contract agreement for software and services. The proposed
+contract should include clauses covering optional scope similar to the following:
+A. Non-Exclusivity
+The Sites Authority reserves the right to procure comparable functionality from third-party
+vendors. The Contractor shall cooperate in good faith to provide data-exchange and integration
+interfaces via open APIs.
+B. Change-Order and Amendment Controls
+Any amendment or change order must be documented in writing and approved by the Sites
+Authority's governing board prior to commencement of work, except for immaterial
+administrative adjustments.
+C. Optional Module Add-On
+The Sites Authority may, at its sole discretion, add any optional ERP modules described and priced
+in the Contractor's proposal by written amendment. Such additions shall be considered within
+the original scope of this RFP and competitively priced.
+D. Pricing Validity
+Pricing for optional software modules proposed but not initially purchased shall establish a
+pricing eligibility ceiling for a period of up to five (5) years from the date of proposal submission,
+consistent with Section 2.5 of the RFP.
+Pricing eligibility does not obligate the Sites Authority to purchase any optional modules. Pricing
+for any software or services actually purchased under the Contract shall remain firm for at least
+three (3) years from contract execution, with increases thereafter limited to the annual CPI-U
+adjustment or three percent (3%), whichever is less.
+E. Scope and Competition Assurance
+The parties acknowledge that all optional modules and pricing were disclosed and competitively
+solicited through the Sites Authority's RFP process. Accordingly, amendments implementing
+optional modules shall not constitute a cardinal change or a violation of competitive
+procurement requirements under California law.
+Sites Project Authority
+24
+RFP 26-01
+Submittal Deadline: April 1, 2026
+Financial ERP RFP

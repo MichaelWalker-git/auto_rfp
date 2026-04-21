@@ -1,0 +1,1510 @@
+San Bernardino City Unified School District
+777 North "F" Street
+San Bernardino, CA 92410
+RFP No. 26-22
+Data Management and Business Intelligence Platform Solution
+SAN BERNARDINO CITY
+UNIFIED SCHOOL DISTRICT
+PROPOSAL DUE DATE
+Friday, March 20, 2026 AT 11:00 AM
+SUBMIT ELECTRONIC RESPONSE TO
+SAN BERNARDINO CITY UNIFIED SCHOOL DISTRICT
+https://procurement.opengov.com/portal/sbcusd
+Notice Inviting Proposals
+RFP No. 26-22
+Data Management and Business Intelligence Platform Solution
+NOTICE IS HEREBY GIVEN that the San Bernardino City Unified School District of San Bernardino County, State of
+California, acting through its Governing Board, hereafter referred to as the "District", is soliciting electronic
+proposal submittals through its OpenGov e-Procurement web portal in response to RFP No. 26-22, Data
+Management and Business Intelligence Platform Solution. Vendors who are desirous of securing a copy of the RFP
+documents may do so by logging into the District's website at https://procurement.opengov.com/portal/sbcusd.
+RFP responses must conform and be responsive in accordance with the RFP Documents posted through the District's
+"OpenGov" website portal. Proposals must be submitted electronically up to but not later than FRIDAY, MARCH
+20, 2026 AT 11:00 A.M. (PST)
+Contract award is contingent upon availability of funds. Local, Minority and Disabled Veterans Businesses are
+specifically encouraged to respond. The District reserves the right to accept or reject any or all proposals, and to
+accept or reject any item, to withdraw a line item or entire RFP, and to waive any irregularities or informalities in
+the RFP document(s). The District may award any, all, or none of this RFP.
+By: Jeanette Martinez Castaneda, Buyer
+1st Publication:
+February 27, 2026
+2ⁿᵈ Publication:
+March 6, 2026
+Request for Clarification:
+March 13, 2026 at 11:00 a.m.
+Virtual RFP Opening:
+March 20, 2026 at 11:00 a.m.
+https://meet.google.com/ktp-aqdn-yyg
+Note: Late entry will not be permitted.
+RFP No. 26-22 Data Management and Business Intelligence Platform Solution
+Page 2 of 36
+Table of Contents
+Notice Inviting Proposals
+2
+Table of Contents
+3
+General RFP Instructions And Conditions
+4
+1.0 Introduction
+4
+2.0 Instructions to Proposer
+4
+3.0 Submission of Proposals
+4
+4.0 Contents of the RFP
+5
+5.0 Proposal Evaluation Criteria and Schedule of Events:
+7
+6.0 Supplemental Terms and Conditions
+8
+7.0 Insurance
+11
+8.0 Piggybackable RFP
+11
+9.0 Contractual Agreement
+11
+Sample Agreement
+12
+Scope of Work
+14
+Fee Proposal Form
+19
+Qualification Statement
+20
+Noncollusion Affidavit
+23
+Vendor Application
+24
+W-9 Form
+25
+Equal Opportunity Certification
+26
+Certification Regarding Debarment, Suspension, Ineligibility And Voluntary Exclusion
+27
+Workers' Compensation Certification
+28
+Federal Funding Contract Compliance Form
+29
+Iran Contacting Act Certification
+33
+Family Educational Rights and Privacy Act (FERPA)
+34
+Conflict of Interest and Disclosures
+36
+RFP No. 26-22 Data Management and Business Intelligence Platform Solution
+Page 3 of 36
+General RFP Instructions and Conditions
+1.0 Introduction
+PURPOSE: San Bernardino City Unified School District's (SBCUSD) Accountability & Educational Technology and
+Informational Technology Departments are looking for a hosted solution of an integrated data warehouse and business
+intelligence (BI)/analytics platform. The data warehouse should store and integrate data from various sources. The BI
+platform should allow SBCUSD to create and disseminate reports and dashboards. The goal of the data warehouse and
+BI system is to increase capacity to use timely, accurate, and relevant data to monitor and drive decision making at all
+levels of organization in an efficient manner.
+ABOUT THE DISTRICT: San Bernardino City Unified School District (SBCUSD) is the ninth-largest public school District in
+California, with an average enrollment of about 44,000 students. Established in 1964, the San Bernardino City Unified
+School District (SBCUSD) is the ninth-largest school district in California, serving a diverse student population across
+105 square miles in the heart of San Bernardino County. The District includes 74 schools, spanning Transitional
+Kindergarten (TK) through Adult Education, and serves communities ranging from small rural mountain and foothill
+areas to larger suburban neighborhoods in the valley. SBCUSD operates 49 elementary schools, 11 middle schools
+(including one K-8), 9 high schools, 2 special schools, 2 special education schools, and 1 adult school, as well as a
+continuation school, community day school, independent study schools, charter schools, and preschool programs. (For
+additional information on the District, log onto http://sbcusd.com).
+2.0 Instructions to Proposer
+2.1
+SUBMITTING PROPOSALS: All interested bidders are invited to submit a Proposal in accordance with the terms and
+conditions stated in the RFP documents. Proposals can be submitted up to, but not later than March 20, 2026 at 11:00
+a.m. A copy of the RFP documents can be downloaded by accessing the District's website at
+https://procurement.opengov.com/portal/sbcusd. Bidders are advised that the District reserves the right to amend
+the RFP documents at any time. Addenda providing clarification or corrections will be done formally through posting
+on the OpenGov Procurement website. Bidders are required to register for an account via the District's e-Procurement
+Portal hosted by OpenGov Procurement.
+2.2
+QUESTIONS: Once proposer has completed registration, you may receive addenda notifications by clicking the "Follow"
+button on this project. All questions or requests for clarification regarding this proposal are to be submitted via the
+OpenGov Question/Answer tab. Questions and/or requests for clarifications must be submitted no later than the date
+and time indicated in the Notice Inviting Requests-For-Proposals to be considered. Addenda providing clarification or
+corrections will be done formally through posting on OpenGov. All followers of this RFP will receive email notifications
+when questions/answers are posted or when addenda/notifications are uploaded. Ultimately, it is the sole
+responsibility of each proposer to periodically check the website for any addenda postings. Contact with any other
+individual, other than a member of the District's Purchasing Department may be grounds for rejection. Any RFP may
+be withdrawn by the Proposer by selecting the "Unsubmit Proposal" button at any time prior to the scheduled closing
+time for receipt of bids. Proposers are advised that the District reserves the right to amend the RFP documents at any
+time.
+If a proposer discovers any ambiguity or error such as a conflict, discrepancy, omission, or other errors in the RFP
+documents, proposer shall immediately notify the District via the OpenGov Question/Answer tab. Please note,
+Questions and/or requests for clarifications must be submitted no later than March 13, 2026 by 11:00 a.m.
+RFP No. 26-22 Data Management and Business Intelligence Platform Solution
+Page 4 of 36
+3.0 Submission of Proposals
+3.1 PROPOSAL DUE DATE AND OPENING - The RFP must be received on or before the time indicated in the Notice Inviting
+Proposals. System will not allow bids to be uploaded after the closing date and time. A Virtual RFP opening will be
+conducted on the RFP due date through the link provided in the Notice Inviting Proposals - Late entry will not be
+permitted. Any proposal may be withdrawn by the bidder by selecting the "Unsubmit Proposal" button at anytime
+prior to the scheduled closing time for receipt of proposals.
+This RFP requires sealed pricing until after the evaluation process is completed; therefore, the public opening will
+disclose only the names of the proposers/firms. Note: After the public bid opening, the contents of any proposal shall
+not be disclosed or made available to competing entities during the evaluation process.
+It is the Vendor's sole responsibility to ensure they have given themselves enough time to upload all required
+documents and answer all questions prior to the closing date and time of the RFP. Should the time expire prior to the
+completion of the submittal, the bid will not be accepted.
+Should issues arise during the online submittal, it is imperative that the Vendor utilize the blue chat icon on the lower
+right-hand side of the OpenGov website. The chat icon is located on every page visited on the OpenGov website. Do
+not wait until the last minute to submit or ask for assistance as staff may not be readily available.
+3.2 RFP PROPOSAL FORM: By submitting an online proposal, vendor warrants that the individual is duly authorized to sign
+or enter into a contract on behalf of the proposer.
+4.0 Contents of the RFP
+4.1 PROPOSAL FORMAT: Each proposal should address the following items in the order listed below. Be sure to include
+information on all items requested in the RFP document. The RFP response is to demonstrate the qualifications,
+competence and capacity of the firm as well as specify the approach in conformity with all federal, state, District, and
+local requirements:
+(A) Cover Letter/Letter of Interest - Include a cover letter stating the eligibility of the respondent to respond to this
+RFP, a brief description of the respondent and statement of interest.
+(B) Description of Company - Include a description of qualifications. Include information regarding the size of the
+company, location, nature of work performed, and years in this particular business. The respondent shall provide an
+affirmative statement that it is independent of the District as defined by generally accepted standards.
+(C) Personnel and Staffing Resources - Submit resume(s) or profiles of the individual(s) who will be assigned to provide
+the requested services, including qualifications and recent related experience providing similar services. An
+affirmative statement should be included that the company and all assigned key professional staff are currently and
+properly certified or licensed to perform the services and hold all proper business or other required licenses.
+(D) Capacity and Methodology - Describe the approach to provide services and fulfill the requirements and
+expectations of the District and this RFP. Use this section to address the ability of your company to undertake and
+accomplish the required scope of service while meeting all deadlines. Provide a startup action plan.
+(E) Experience and References - Description of past performances of similar service and related experience. The
+Respondent is required to submit a list of other school districts or county offices of education for which services
+RFP No. 26-22 Data Management and Business Intelligence Platform Solution
+Page 5 of 36
+have been performed in the last five (5) years. Please identify districts that are of the approximate size of the District.
+The list shall include the (1) number of students, (2) date and services were performed, (3) client name, (4) client
+contact name and email.
+If applicable, specify any services that may have been provided for the District previously. State the scope and size
+of each service, and the beginning and ending dates of service.
+(F) Qualification Statement - Each Respondent must completely answer the questions in this document. Questions
+may be answered in other sections of the RFP if clearly and conspicuously identified on the questionnaire.
+(G) Fiscal Stability - The District may request a copy of the most recent audited financial statement attesting to the
+financial stability of the respondent during the evaluation stage of the RFP process. If requested, the document must
+be submitted and received within 5 days of the request in a sealed envelope addressed to: Attention Jeanette
+Martinez-Castaneda, Buyer, at 777 N F Street, San Bernardino, CA 92410, with the Proposer's Company Name, RFP
+Number, RFP Title, and marked "Financial Statement" clearly indicated on the outside of the envelope. Alternatively,
+the financial document may be submitted via email to jeanette.martinezcastaneda@sbcusd.k12.ca.us as instructed
+by the District. The District treats all financial statements as proprietary and confidential.
+(H) Customer Service Commitment - Describe the respondent's philosophy and approach for providing outstanding
+customer service.
+(I)
+Exceptions - Exceptions taken to District Terms & Conditions, including software license agreements, contract
+modifications, deletions or additions vendor would like District to consider shall be included here. If proposer does
+not agree with any terms or conditions of this RFP document, the District's contract, or any District Terms and
+Conditions, the proposer must present its exceptions with its proposal. If no concerns are expressed by the
+proposer, the District shall consider that all terms and conditions of the RFP and District contract are accepted.
+The District reserves the right to negotiate and/or reject proposals based upon alternate T&C's offered and/or any
+exceptions taken to any District contract terms and/or District RFP Terms and Conditions. Note: The District under
+no obligation to accept, review or negotiate any exceptions taken to District RFP documents.
+(J)
+Certifications and Attachments - Complete and return the attached certifications and attachments to this RFP.
+In addition to the above, at a minimum, the following documents will be required of the successful
+Respondent(s):
+A. Qualification Statement, submit with proposal
+B. Non-Collusion Affidavit, submit with proposal
+C. District's Vendor Application, submit with proposal
+D. W-9 Tax Form, submit with proposal
+E. Equal Opportunity Certification, submit with proposal
+F. Certification Regarding Debarment, Suspension, Ineligibility & Voluntary Exclusion, submit with proposal
+G. Workers Compensation Certification, submit with proposal
+H. Education Department of General Administration Regulation (EDGAR), submit with proposal
+I. Iran Contracting Act Certification, submit with proposal
+J. FERPA, submit with proposal, submit with proposal
+K. Conflict of Interest and Disclosures, submit with proposal
+L. Signed District agreement form (sample attached) upon award
+M. Vendor Response Table
+RFP No. 26-22 Data Management and Business Intelligence Platform Solution
+Page 6 of 36
+5.0 Proposal Evaluation Criteria and Schedule of Events:
+5.1
+PROPOSAL ACCEPTANCE: Failure to submit the information requested may result in the District's request for
+prompt submission of missing information and/or giving a lower evaluation score on the proposal. The District
+reserves the right to reject proposals which are incomplete or lack material information. Issuance of this RFP and
+receipt of proposals does not commit the District to make an award. The District reserves the right to postpone
+opening, to accept or reject any or all proposals received, to waive any informality or irregularity in the proposal
+response, to negotiate with other than the highest ranked proposer, or to cancel all or any part of this RFP, all in
+the best interest of the District. Any award will be contingent upon available and approved funding. No proposal
+may be withdrawn for a period of sixty (60) days after stated due date of proposal response. No proposal or
+proposal modification received after the due date will be considered.
+5.2
+PROPOSAL EVALUATION: All Proposals will be evaluated for completeness and the proposer's ability to meet or
+exceed RFP specifications. A contract, if awarded, will be pursuant to California Public Contract Code 20118.2,
+which permits the District to competitively negotiate such contracts and to consider more than simply price in
+awarding the contract. In this case, price will be one of the most heavily weighted criteria; though the District will
+also consider the prospective Vendor's ability to meet minimum technical specifications for the services as
+described in the RFP, as well as other relevant factors.
+5.3
+PROPOSAL EVALUATION CRITERIA: RFPs will be evaluated as follows in the below table.
+During the evaluation period, the District reserves the right to conduct on District site, telephone, or email
+conversations with a Proposer to clarify proposals, competitively negotiate, ask questions, or obtain additional
+information.
+The criteria listed below are not necessarily an all-inclusive list. While price will be the most heavily weighted
+criteria, the order of appearance is not intended to indicate relevance of importance. Once a proposer has been
+found responsive to the RFP requirements, a determination of award will be made based on the following
+considerations.
+Criteria
+Weight
+Cost of Services (including annual renewal, hosting fees, data
+integration fees, software maintenance fees, support and
+40
+training, all other fees)
+Responses to Scope of Work and Supplemental Questionnaire
+25
+Firm's expertise, background, personnel qualifications, and
+experience with School Districts similar in size and scope to
+15
+SBCUSD
+Training and Support
+10
+Proposal Format, Organization, and Clarity
+5
+Acceptance of District T&C's
+5
+Total Points
+100
+5.4 SCHEDULE OF EVENTS:
+RFP No. 26-22 Data Management and Business Intelligence Platform Solution
+Page 7 of 36
+Closing Date for RFP Questions
+Friday, March 13, 2026, at 11:00 a.m.
+Proposal Due Date
+Friday, March 20, 2026 at 11:00 a.m.
+Anticipated Presentation Date (if conducted)
+April 2026
+Anticipated Notice of Intent to Award
+April 2026
+Anticipated Board Approval/Contract Award
+May 2026
+Anticipated Start Date
+July 2026
+5.5 BID PROTEST: Vendors may protest a contract award if he/she believes that the award was inconsistent with Board
+policy or the Bid/RFP specifications or was not in compliance with law. The protest must be filed in writing with the
+Superintendent or designee within five working days after receipt of notification of the contract award. The bidder
+shall submit all documents supporting or justifying the protest. A bidder's failure to timely file a protest shall constitute
+a waiver of his/her right to protest the award of the contract.
+The bidder may appeal the Superintendent or designee's decision to the Board. The Superintendent or designee shall
+provide reasonable notice to the bidder of the time for Board consideration of the contract award. The Board's decision
+shall be final.
+5.6 ORAL PRESENTAION: The District may, at its sole discretion, shortlist selected bidders for virtual presentations. The
+proposer should be prepared to present such information in order that the Evaluation Committee can effectively and
+objectively analyze all system, materials and documentation proposed to implement a viable and successful Data
+Management and Business Intelligence Platform Solution. Firms invited for oral presentations must be represented by
+the individual who will be the prime contact person to the District, and other key project team members. A Proposer's
+inability to respond to any request for clarification and/or oral presentation may be cause for disqualification. Upon
+conclusion of the proposal evaluation process, a Notification of Intent to Award will be sent to the firm selected. Award
+shall be made to the qualified bidder whose proposal is determined to be most advantageous and provides the best
+value at the most economical cost to the District.
+6.0 Supplemental Terms and Conditions
+6.1
+ACCEPTANCE: The District reserves the right to reject any and all RFP responses; to waive any irregularities or
+informalities in any proposal; and to accept or reject any items in the proposal.
+6.2
+RFP MODIFICATIONS/QUALIFICATIONS BY RESPONDENT: The full and complete RFP response requirements shall
+remain constant regardless of any other products and services, or approach to the solution the respondent may
+offer in the RFP response. An RFP response to any specific item of this RFP with terms such as "negotiable", "will
+negotiate" or similar, may be considered non-responsive to that specific item. Partial responses, changes,
+additions, deletions, or exceptions to this RFP by the Respondent, which are not specifically called for in the RFP
+documents, may result in the District's rejection of the RFP response.
+6.3
+FAILURE TO PROVIDE REQUESTED INFORMATION: Failure of a Respondent to provide any required documentation
+or information requested in this package may result in rejection of their RFP.
+6.4
+LEGAL REQUIREMENTS: All Respondents are required to comply with and be bound by all applicable provisions of
+laws of the State of California whether or not required herein.
+6.5
+AWARD OF RFP: This RFP implies no obligation to purchase services. The District reserves the right, and may award
+any, all or none of this RFP.
+RFP No. 26-22 Data Management and Business Intelligence Platform Solution
+Page 8 of 36
+6.6
+COMMUNICATION OF AWARD: RFP awards made by the Board of Education shall not become binding upon the
+District until communicated in writing to the successful Respondent by the Purchasing Department.
+6.7
+ALTERNATE SOURCES: Nothing in this agreement shall prohibit the District from acquiring the same type or
+equivalent services from other sources, when deemed to be in the best interest of the District.
+6.8
+SPECIFICATIONS: The District shall be the sole judge as to whether the Respondent's proposal meets the District's
+requirements and specifications.
+6.9
+FUNDS: Purchase is contingent upon availability of funds.
+6.10
+TERM: The initial term of the Agreement shall be for one (1) year from the Board of Education approval but may
+be extended for four (4) additional successive one-year extensions, at the sole discretion of the District, not to
+exceed an accumulative total of five (5) years. Pricing shall be held firm for the duration of the contract except for
+inflationary adjustment, which may be approved by the District at its sole discretion annually.
+6.11 PAYMENT AND INVOICING: The Respondent(s) will make no separate invoicing and will receive no separate
+payment for activities performed outside of the Agreement and Scope of Work which shall be in accordance with
+the specifications called out in this RFP.
+6.12
+EXPERIENCE: The Respondent, by submitting a RFP, indicates that they have the ability, fitness and expertise to
+fulfill the terms and conditions of the RFP, and has been successful in services associated with this RFP for a period
+of at least (5) years.
+6.13
+DEBARMENT, SUSPENSION & EXCLUSION: The successful Respondent(s) shall certify that the firm is presently not
+debarred, suspended, proposed for debarment, declared ineligible, or voluntarily excluded from participation in
+the transaction by any Federal Department Agency. It further agrees by submitting this proposal that it will include
+this clause without modification in all lower tier transactions, solicitations, proposals, contracts and subcontracts.
+Where the Respondent or any lower tier participant is unable to certify to this statement, it shall attach an
+explanation to this proposal. (see Certification Regarding Debarment, Suspension, Ineligibility and Voluntary
+Exclusion). See page 27
+6.14
+COVENANT AGAINST GRATUITIES: The respondent warrants that no gratuities (in the form of entertainment, gifts,
+or otherwise) were offered or given by the respondent or any other agent or representative of the respondent, to
+any officer or employee of the District with a view toward securing the resultant contract or securing favorable
+treatment with respect to any determinations concerning the award of the RFP. For breach or violation of this
+provision, the District shall have the right to terminate any negotiation or the resultant contract, either in whole
+or in part, and any lose or damage sustained by the District in procuring on the open market any items which
+respondent agreed to supply shall be borne and paid for by the respondent. The rights and remedies of the District
+provided in this clause shall not be exclusive and are in addition to any other rights and remedies provided by the
+law.
+6.15
+CONTRACT TERMINATION: Default - In addition to any other rights of termination or any other remedies available
+at law or in equity, including but not limited to, liquidated damages, if District determines that a default or violation
+under the contract has occurred, it shall provide written notice to the Vendor describing the default or violation
+and it shall require the default or violation to be cured within five (5) business days. If the default or violation is
+not cured within that five (5) day period, the District may exercise its right to terminate the contract. In the event
+RFP No. 26-22 Data Management and Business Intelligence Platform Solution
+Page 9 of 36
+of a termination, District shall send a notice of termination in any manner acceptable as described in Notices, to
+the Vendor declaring the contract to be terminated as of the date provided in the notice.
+Unsatisfactory Performance - If, at any time during the performance of the contract it is determined that Vendor's
+Services are unsatisfactory, the District shall provide written notice to the Vendor describing the unsatisfactory
+performance and a reasonable cure period. If the performance remains unsatisfactory at the end of the cure
+period, the District shall provide notice to the Vendor and the District shall have the right to terminate the contract
+as may be stated in the notice. In the event of a termination, the District is obligated to make payments only for
+services rendered up to the notice of termination.
+Convenience - In addition to any other termination conditions, the District may terminate this contract, in whole
+or in part, for any reason whatsoever. The District will give 30 days' advance written notice.
+6.16 PAYMENT AND REMEDIES: At the time of termination, payment of invoices for products and services already
+received and approved in accordance with the RFP documents shall be the responsibility of the District. The District
+shall not be responsible for any loss of profits resulting from the cancellation. There shall be no early termination
+fee charged to the District.
+6.17
+RE-PROCUREMENT CLAUSE (In Lieu of Performance Bond): In the event the Contractor fails to perform in
+accordance with the terms and conditions of this Agreement, including but not limited to failure to deliver goods
+or services as specified, the District reserves the right to procure the required goods or services from an alternate
+source. The Contractor shall be responsible for any cost difference incurred by the District due to such re-
+procurement, including administrative and operational expenses. The District may deduct such costs from any
+amounts due to the Contractor or pursue reimbursement through other legal means.
+6.18 EXAMINATION AND AUDIT: The District reserves the right, at all times, to inspect and of the work, including
+reviewing the Bidder's records as well as observing work performance to determine the Bidder's conformance with
+the agreement.
+Any failure of the District during the progress of work to discover work not in accordance with the agreement shall
+not be deemed an acceptance thereof, nor a waiver of defects therein; and no payments by the District shall be
+construed to be an acceptance of work which is not strictly in accordance with the terms and conditions of this
+Agreement.
+6.19
+AUDIT RECORDS: The Bidder shall keep, in accordance with Generally Accepted Accounting Principles, books,
+statements, accounts and records pertaining to this Agreement. The vendor will preserve the books, statements,
+accounts and records for a period of four (4) years after the last day of the transition period following the expiration
+or termination of this Agreement.
+6.20 ACCESS: For the purposes of such audits, the Bidder shall provide to the District (and its designees) access to the
+part of any facility at which the Bidder is providing the services, to vendor personnel and to data and records
+relating to the services. The Bidder shall provide reasonable assistance during the audit and will cooperate
+reasonably with the District in connection with audit functions and with regard to examinations by regulatory
+authorities. The District's auditors shall comply with the Bidder's reasonable security measures.
+6.21
+COMPLIANCE WITH LAWS: In connection with the furnishings of services or performance of work under this RFP,
+the respondent agrees to comply with the Fair Labor Standards Act, Equal Opportunity Employment Act, and all
+RFP No. 26-22 Data Management and Business Intelligence Platform Solution
+Page 10 of 36
+other applicable Federal and State laws, regulations, and executive orders to the extent that the same may be
+applicable.
+7.0 INSURANCE: Throughout the life of the Contract, Vendor shall pay for and maintain in full force and affect the
+following policies of insurance:
+7.1
+COMMERCIAL OR COMPREHENSIVE AND GENERAL LIABILITY: insurance which shall include Contractual Liability,
+Products and Completed Operations coverages, Bodily Injury and Property Damage (including Fire Legal Liability)
+Liability insurance with combined single limits of not less than $1,000,000 per occurrence, and if written on an
+Aggregate basis, $2,000,000 Aggregate limit (CG 0001).
+7.2
+COMMERCIAL (BUSINESS) AUTOMOBILE LIABILITY: insurance, endorsed for "any auto" with combined single limits
+of liability of not less than $1,000,000 each occurrence. (CA 0001)
+7.3
+PROFESSIONAL ERRORS AND OMISSIONS: not less than $1,000,000 per Claim/$2,000,000 Aggregate. (5-year
+discovery and reporting tail period coverage). Certificate of Insurance only required.
+7.4
+CYBER SECURITY AND PRIVACY LIABILITY: Liability arising from the theft, dissemination and/or use of confidential
+information, including but not limited to, personally identifiable information (PII), protected health information
+(PHI), security codes, access codes, passwords, etc. Cyber Security andPrivacy Liability insurance should
+include: Notification costs, crisis management costs, and regulatory fines, and defense costs; Network security
+liability arising from unauthorized access to, use of or tampering with computer systems, including hacker attacks
+with combines single limits of not less than $1,000,000 per occurrence, and if written on an aggregate basis,
+$2,000,000 aggregate limit (CG 0001).
+7.5
+WORKER'S COMPENSATION: as required under the California Labor Code, and Employers Liability Insurance with
+limits not less than $1,000,000 per accident/injury/disease.
+All insurances shall be with a California Admitted insurer, with a rating of A or better, as rated by the current edition
+of Best's Key Rating Guide, published by A.M. Best Company, Oldwick, New Jersey 08858 and authorized to conduct
+business in the State of California.
+8.0 PIGGYBACKABLE RFP: In accordance with Public Contract Code Section $20118, other school districts in the State of
+California may purchase under the same terms and conditions of this bid if it is determined to be in their best interest.
+If so, the San Bernardino City Unified School District waives its right and prefers that each school district work directly
+with the successful bidder. Sales to the other district will be made at the discretion of the successful bidder.
+9.0 CONTRACTUAL AGREEMENT: The successful proposer will be required to enter into an agreement substantially similar
+in format to the below sample agreement.
+RFP No. 26-22 Data Management and Business Intelligence Platform Solution
+Page 11 of 36
+SAMPLE
+AGREEMENT
+THIS AGREEMENT, dated the day of
+, 2026, in the County of San Bernardino,
+State of California, by and between the San Bernardino City Unified School District, hereinafter referred
+to as "District" and
+, hereinafter referred to as Vendor".
+WITNESSETH:
+That the District and Vendor, for the consideration stated herein, agree as follows:
+1. Contract:
+The complete contract includes all RFP documents, all of the contract documents, including the Notice
+Inviting Bids, RFP No. 26-22, all proposal addenda, the submitted proposal, all negotiation documents,
+any resultant purchase order(s), District's Terms and Conditions, Special Conditions if any, Specifications,
+if any, this Agreement, and all modifications and amendments thereto, and by this reference are
+incorporated herein. The contract documents are complementary, and what is called for by anyone shall
+be as binding as if called for by all.
+2. Scope of Services:
+Vendor shall perform within the time set in the Notice to Proceed, everything required to be performed,
+and shall provide and furnish all the personnel, labor, materials, necessary tools, equipment, and services,
+as described in all the documents of RFP No. 26-22 Data Management and Business Intelligence Platform
+Solution shall be provided and performed in strict accordance with all such specifications and provisions
+described in Section 1 above. The Vendor shall be liable to the District for any damages arising as a result
+of a failure to fully comply with this obligation.
+3. Compensation:
+District shall pay to the Vendor, as full consideration for the faithful performance of the contract, subject
+to any additions or deductions as provided in the contract documents, the total estimated sum of
+($XX,XXX.XX) Dollars & Cents (Reference Fee Schedule/Costs (Appendix "), said sum being the total
+amount agreed upon resulting from Vendor proposal dated
+2026;
+4. Contract Term:
+The term of the contract is
+and shall continue through
+.
+The District reserves the right to extend or cancel in accordance with the terms stipulated in the RFP
+documents and as stated on page 9 section 6.15 of this RFP.
+RFP No. 26-22 Data Management and Business Intelligence Platform Solution
+Page 12 of 36
+5.
+Notices
+All notices, demands, and documents required pursuant to the terms hereof shall be in writing and
+shall be delivered in person or by certified or registered mail, return receipt requested, with postage
+prepaid, at the addresses set forth below for each party: Notices shall be effective as of the date of receipt
+by the addressee. The address to which notices, demands and documents may be given by either party
+may be changed by written notice given in accordance with the notice provisions of this section.
+District:
+Vendor:
+San Bernardino City Unified School District
+Attn: Jeanette Martinez Castaneda
+777 N F Street
+San Bernardino, CA 92410
+6. Entire Agreement
+The complete contract as set forth in Paragraph 1 of this Agreement constitutes the entire
+Agreement of the parties. No other agreements, oral or written, pertaining to the work to be
+performed under this contract, exists between the parties. This contract can be modified only by an
+agreement in writing, signed by both parties.
+IN WITNESS WHEREOF, the parties hereto have caused this Agreement to be executed.
+District: SBCUSD
+Firm:
+By:
+By:
+Title:
+Title:
+Date:
+, 2026
+Date:
+, 2026
+RFP No. 26-22 Data Management and Business Intelligence Platform Solution
+Page 13 of 36
+SCOPE OF WORK
+San Bernardino City Unified School District's (SBCUSD) Accountability & Educational Technology and
+Informational Technology Departments are looking for a hosted solution of an integrated data warehouse and
+business intelligence (BI)/analytics platform. The data warehouse should store and integrate data from various
+sources. The BI platform should allow SBCUSD to create and disseminate reports and dashboards. The goal of
+the data warehouse and BI system is to increase capacity to use timely, accurate, and relevant data to monitor
+and drive decision making at all levels of organization in an efficient manner.
+The District's current environment utilizes PowerSchool Analytics and Insights (formerly Unified Insights) as
+its data warehouse and analytics platform. The implementation includes District specific customizations,
+completed historical data migration, and automated nightly data refreshes to support ongoing reporting and
+analysis. The platform integrates with the District's Student Information System and other core data sources.
+As the District's data needs continue to evolve, the District seeks to enhance and expand its data warehouse
+capabilities by advancing toward a more flexible and scalable architecture that incorporates data lake
+functionality. The desired future state includes the ability to ingest, store, and manage an expanded range of data
+sources, including structured and semi-structured data, beyond current core operational systems.
+The District is particularly interested in solutions that enable analysts and authorized users to develop dashboards
+and analytic products both within the vendor-provided analytics environment and through third-party business
+intelligence platforms. The solution should support interoperability, reusable datasets, and efficient data
+exploration while minimizing duplicative or parallel data pipelines.
+The District intends to use the data warehouse and BI platform to support District initiatives, including but not
+limited to:
+Program Evaluation / Intervention Effectiveness
+District Key Performance Indicators (KPIs) monitoring
+Department Progress Monitoring - including student group level (e.g. English Learners, Long
+Term English Learners, Special Education, Foster Youth, Homeless, 504s)
+Progress Monitoring of student data at the class, school, and District level
+Early Warning System
+MTSS/RTI
+College and Career Readiness and Success
+This system will provide user-friendly access to different types of data to various end users
+for the purpose of monitoring, tracking and reporting on student achievement.
+The solution shall enable the District to design and manage intervention programs, provide
+dashboards that evaluate the effectiveness of interventions, and support the creation of
+individualized student plans for continuous progress monitoring.
+The system should be able to accept all State mandated test data (ELPAC and CAASPP), as
+well as locally designed Standards-Aligned Assessment and formative assessment data.
+The system should also provide data lake capabilities that enable SBCUSD to securely upload,
+store, and manage ad hoc datasets from various sources, supporting both structured and
+unstructured data formats.
+RFP No. 26-22 Data Management and Business Intelligence Platform Solution
+Page 14 of 36
+Indicate if your firm can meet or exceed the minimum Required (R) or Desired (D) features listed below.
+If yes, please provide this information as part of Section 9.
+If no, please indicate which feature (s) your firm is unable to provide.
+R/D
+Platform Required / Desired Features
+Yes
+No
+A. Solution Requirements
+R
+1. 100% Hosted integrated data warehouse and business intelligence (BI)/analytics
+platform.
+R
+2. Shall be compliant with all federal, state, and SBCUSD policies, laws, and
+regulations.
+R
+3. Shall include sufficient licenses for implementation District-wide.
+R
+4. Shall include all future software upgrades and enhancements.
+5. Ability to track student data, including assessment, academic performance,
+R
+demographics, attendance, program participation, behavior, interventions and
+student plans.
+R
+6. Ability to track staff data, including attendance, assignment and demographics
+R
+7. Easily import state mandated assessment results (e.g., CAASPP, ELPAC)
+R
+8. Easily import other student assessments unique to secondary schools (e.g., AP,
+IB)
+R
+9. Easily import other student assessments unique to SBCUSD (e.g., Standards-
+Aligned Assessments, formative assessments)
+10. Ability to track and report National Student Clearinghouse (NSC) data to
+R
+monitor postsecondary enrollment and completion outcomes.
+11. Describe if the system uses any third-party software. If so, please describe what
+R
+level of support will be provided and what expertise does the Offeror have with
+third party software.
+R
+12. Support for both Windows and Mac.
+R
+13. Compatible with District server hardware (HP).
+R
+14. Compatibility with mobile device platforms.
+15. Ability for technical staff to connect and query the data warehouse using
+R
+industry-standard tools and query languages
+B. Security
+R
+1. Multi-level security systems for transmission, storage and reporting of data and
+end-user access.
+R
+2. Catastrophic event recovery contingency plan - (turnaround < 1 week)
+D
+3. User authentication via Active Directory.
+R
+4. Ability to monitor and download (preferably into CSV) application usage data
+from end-users of the system such as user traffic to BI views.
+R
+5. Role-based security options that can give SBCUSD maximum flexibility and
+effectiveness in assigning roles to its users and administrators of the system.
+6. Possibility of data scrambling or visualizations with 'made up' data so as to
+D
+conceal confidential or sensitive data but still allowing users to use for training or
+other purposes.
+C. Data Quality
+R
+1. Data quality checks to ensure accuracy of data in the system.
+2. Report out data quality issues in a manner that SBCUSD personnel can easily
+identify and correct record-level errors in source data. The system shall have the
+R
+ability to segregate data quality issues by specific business owner groups (such as
+schools or departments) to have them addressed. The Offeror shall describe the
+method that will be used to communicate data quality issues to business owners
+(for example, push email notifications, daily BI reports, or other methods).
+RFP No. 26-22 Data Management and Business Intelligence Platform Solution
+Page 15 of 36
+R/D
+Platform Required / Desired Features
+Yes
+No
+R
+3. Ability to query data and extract the data that is queried.
+4. Provide information on the matching process employed for student data to
+R
+ensure accuracy of student-level data being combined from various sources in the
+data warehouse.
+5. Implement and maintain data quality checks unique to SBCUSD. Such data
+D
+quality checks may be between two or more data elements. The Offeror shall
+describe the process and tools they will employ to implement and maintain such
+data quality rules including the strategy used to collect and verify business rules.
+D. Business Intelligence Reporting
+1. Reporting as student, classroom, teacher, site and District levels; with the ability
+R
+to show aggregated metrics and drill- down to student or row-level detail by
+security access level.
+R
+2. Capacity for report and data exports to other formats (e.g., Excel, Access)
+R
+3. Reports in PDF format for printing with minimal customization from end- users.
+R
+4. Ability to create both static and dynamic reporting.
+D
+5. Customizable reporting tool that supports complex queries (e.g., Boolean Logic).
+R
+6. Capacity to create a variety of visualization types including, but not limited to,
+bar charts, line charts, Venn diagrams, scatter plots, and crosstabs.
+R
+7. Allow District staff to generate and disseminate customized reports, data
+dashboards for authenticated users and for the public.
+R
+8. Ability to show time-based or longitudinal measures.
+D
+9. Ability to perform GIS mapping.
+10. Ability to incorporate interactive features into dashboards to allow end-users to
+R
+explore data. For example, filters, highlights, dropdowns, single or multi-select,
+etc.
+R
+11. Ability for users to download data that is used to create an aggregate measure
+into a CSV format.
+12. Ability for users to generate custom groupings of students for targeted analysis.
+R
+The solution shall have the ability for these custom groupings to be unique to the
+end-user or shared amongst end-users.
+R
+13. Ability to embed reports or dashboard into District website.
+D
+14. Ability to integrate or embed other BI dashboards that have currently been
+designed by the District.
+D
+15. Ability to include instructions or help documents to guide user interaction with
+reports and dashboards.
+D
+16. Allows for branding customization by the District in the form of logos, fonts,
+color schemes.
+D
+17. Pre-built reports or metrics that can be readily used by the District following data
+validation.
+D
+18. Analytics capabilities available with the solution, including advanced analytics
+such as predictive analytics and inferential statistics.
+R
+19. Ability to incorporate language translation of reports or dashboards.
+R
+20. Ability to perform natural language querying, allowing users to generate
+visualizations and reports by typing plain-language questions.
+E. Implementation and Training / Professional Development
+R
+1. Provide training on designing, building, and troubleshooting metrics compiled
+from the data warehouse.
+R
+2. Provide training to identified users on how to build visualizations, reports, and
+dashboards and how to optimize performance of such visualizations.
+R
+3. Provide training to identified users on how to find and correct data quality issues
+reported by the system.
+RFP No. 26-22 Data Management and Business Intelligence Platform Solution
+Page 16 of 36
+R/D
+Platform Required / Desired Features
+Yes
+No
+R
+4. Vendor-supplied technical support, staff/vendor-staffed help-desk.
+R
+5. Quality, online help documents and job-aids.
+D
+6. The BI system shall be capable of embedding training materials for end users to
+easily access on a recurring basis for refreshers or new employees.
+D
+7. Vendor-provide workshops for selected staff (e.g., training-of-trainers).
+8. Training to end users on how to use visualizations, reports and dashboards on the
+R
+BI system. Training materials would be subject to review and approval by
+SBCUSD.
+R
+9. Ability to export/store data in a variety of regional databases.
+R
+10. Capacity for the system to be hosted by District, if deemed desirable by
+SBCUSD.
+R
+11. Capacity for District to access the database with backend data analysis tools.
+12. Provide an implementation plan and project schedule showing critical
+R
+milestones. The project schedule should identify tasks, beginning and end dates,
+and responsible parties.
+D
+13. During implementation, provide weekly progress reports that summarizes
+actions, issues, resolutions, deadlines, or tasks at risk.
+R
+14. Clearly define SBCUSD and Offeror responsibilities for implementation and on-
+going maintenance.
+D
+15. Testing environment available to client for testing.
+16. Email protocols or other notification features are available to communicate issues
+D
+about system, performance, health, data issues, quality issues to either users,
+stakeholders, or business owners, groups, etc.
+R
+17. Reports or other abilities in monitoring system performance, such as resources
+and performance as well as information about processes, jobs, etc.
+18. Plan to address issues of fault tolerance, how the proposed architecture meets the
+demand for a high availability system, replication strategy used in production,
+R
+and options - - if any - for on-site replication of the system. The plan shall also
+provide information regarding stress testing and load balancing of the system to
+ensure the high availability needs are met and the Offeror's estimated recovery
+time for multiple scenarios.
+F. Data Integration/User Interface
+R
+1. Capacity for interface/integration with District Student Information System,
+AERIES
+R
+2. Ability to integrate with data sources shown below in Table 1. Student Data
+Sources
+D
+3. Integration with SBCUSD's District-Adopted curricula.
+4. Ability to integrate data sources that may be unique to SBCUSD beyond those
+R
+previously listed. The District seeks a solution for data integration that would
+require minimal conforming by SBCUSD from existing data layouts.
+R
+5. Nightly student roster refreshing.
+R
+6. On-demand and real-time demographic data refreshing.
+R
+7. Ability to provide client with scripts for data integration with AERIES.
+R
+8. Update data integration regularly to match state and national data layouts
+without intervention from SBCUSD
+R
+9. Intuitive, simple and user-friendly tools for end users.
+R
+10. Access to both static and dynamic reporting.
+R
+11. Provide updates that are easy to access and install.
+R
+12. Import 5 years of historical data.
+R
+13. Provide documentation on all stored procedures and functions include its
+purpose, parameter(s), and sample showing how it is used.
+RFP No. 26-22 Data Management and Business Intelligence Platform Solution
+Page 17 of 36
+R/D
+Platform Required / Desired Features
+Yes
+No
+R
+14. Provide on-going technical support for development of new metrics, integration
+of new data sources, and performance of the system.
+Table 1: Student Data Sources
+Aeries Student Information
+CAASPP
+California Physical
+National Student
+System c
+Fitness Test
+Clearinghouse
+Illuminate Data and
+ELPAC
+Survey Data (such
+California College
+Assessmentᶜ
+as: Panorama
+Guidance Initiative
+Education, other
+(CCGI)
+internally
+developed surveys)
+SEIS Special Education
+NWEA
+District Adopted
+California Student Aid
+Information System
+MAP
+Curriculum Digital
+Commission (CSAC)
+Components
+itsLearning Learning
+Edmentu
+College Board Suite:
+Google Suite (Sheets,
+Management System
+m
+(AP, PSAT 8/9, PSAT
+Forms, Classroom, etc.)
+NMSQT, SAT)
+Renaissance: STAR
+IXL
+California
+Apex Learning
+Reading, Math and
+Department of
+MyOn
+Education Research
+Files
+DIBELSᶜ
+IB
+C. Critical Data Source
+RFP No. 26-22 Data Management and Business Intelligence Platform Solution
+Page 18 of 36
+RFP No. 26-22 Data Management and Business Intelligence Platform Solution
+Fee Proposal Form
+Note: All pricing tables should be completed online through the OpenGov e-Procurement portal. Please see
+Pricing Table Section 8 in OpenGov.
+*If offering a substitute/or equal, please upload price and spec sheet (vendor submission Item No. 4).
+**If offering optional Services/Items, please upload price and spec sheet (vendor submission Item No. 5)
+RFP No. 26-22 Data Management and Business Intelligence Platform Solution
+Page 19 of 36
+Qualification Statement
+To supplement request for information called out in other sections of this RFP document, please include responses to
+the following specific questions. For uniformity purposes among proposers, suggested sections where information can
+be included in a firm's proposal has been indicated below.
+If the same information is provided elsewhere in your proposal and qualification materials, clearly identify such in the
+following questions.
+SECTION A - SPECIFIC REQUEST FOR INFORMATION
+1. Background and Organization
+Describe your company's overall experience and qualifications, especially in the public sector, and
+include the following information:
+Indicate how long your organization has offered Vendor services and how many clients you currently service in the
+public sector.
+Indicate whether your organization has been known by any other names within the last five years.
+List any characteristics of your organization that you feel distinguishes you from other Data Management and Business
+Intelligence Platform Solution.
+2. Staff Qualifications
+Provide the names and qualifications of key personnel who would be assigned to manage and/or work directly with this
+account, in the roles/areas listed below. Please include education and professional work experience.
+Project Leader
+Implementation Team
+Customer Service Key Contact
+3. Vendor Administrative Facility
+Indicate the physical location of the facility that will be responsible for hosting and administering this contract.
+4. Customer Service Staff
+Briefly discuss your proposed approach to providing customer service to the District and include the following
+information:
+Indicate your response time for customer service inquiries.
+Indicate the number of employees you anticipate will be necessary to provide customer service for this account.
+Describe customer service hours of operation and location of customer service facility.
+5. Periodic / Adhoc Reports
+Describe reports that can be produced and indicate in what format these reports can be produced (i.e. Excel, PDF, etc.)
+6. Disaster Recovery Program
+Describe your disaster recovery program should data maintained in your system be adversely affected by
+earthquake, fire, flood, or another catastrophic event.
+7. Security Compliance
+Describe systems, policies, and procedures in place to ensure compliance with Privacy and Security rules.
+RFP No. 26-22 Data Management and Business Intelligence Platform Solution
+Page 20 of 36
+8. Methodology -Implementation Plan
+Describe the transition plan, including timeline.
+9. Warranty
+Describe in detail product, software and service warranty.
+SECTION B - Please answer the following:
+(1) Have you or any of your principals been in litigation or arbitration of any kind relating to similar services during the
+prior five (5) years.
+If yes, provide the name of the public agency and briefly detail the dispute:
+(2) Have you ever had a services agreement or contract terminated for convenience or default in the prior five (5) years.
+If yes, provide details including the name of the other party:
+(3) Is your firm, owners, and/or any principal or manager involved in or is your firm aware of any pending litigation
+regarding professional misconduct, bad faith, discrimination, or sexual harassment. If yes, provide details:
+(4) Is your firm, owners, and/or any principals or manager involved in or aware of any pending disciplinary action
+and/or investigation conducted by any local, state or federal agency. If yes, provide details:
+(5) Have you ever had any direct or indirect business, financial or other connection with. Any official, employee or
+RFP No. 26-22 Data Management and Business Intelligence Platform Solution
+Page 21 of 36
+Vendor of the District. Elaborate and discuss any potential, apparent actual conflict of interest:
+SECTION C - REFERENCES
+(1) List at least three clients for whom you have provided similar services.
+Name
+Address
+Phone Number and Email
+I certify and declare under penalty of perjury under the laws of the State of California that the foregoing is true
+and correct.
+Executed this
+day of
+, 2026 at
+, City, County
+, State of
+.
+(Notarization not required)
+Company Name:
+Signature:
+Title:
+RFP No. 26-22 Data Management and Business Intelligence Platform Solution
+Page 22 of 36
+Noncollusion Affidavit
+(Public Contract Code Section 7106)
+STATE OF CALIFORNIA
+)
+) SS.
+COUNTY OF SAN BERNARDINO
+)
+, being first duly sworn, deposes
+and says that he or she is of
+, the party making
+the foregoing proposal; that the proposal is not made in the interest of, or on behalf of, any undisclosed
+person, partnership, company, association, organization, or corporation; that the proposal is genuine and
+not collusive or sham; that the bidder has not directly or indirectly induced or solicited any other bidder to
+put in a false or sham proposal, and has not directly or indirectly colluded, conspired, connived, or agreed
+with any bidder or anyone else to put in a sham proposal, or that anyone shall refrain from bidding; that the
+bidder has not in any manner, directly or indirectly, sought by agreement, communication, or conference
+with anyone to fix the price of the bidder or any other bidder, or to fix any overhead, profit, or cost element
+of the price, or of that of any other bidder, or to secure any advantage against the public body awarding the
+contract of anyone interested in the proposed contract; that all statements contained in the proposal are
+true; and, further, that the bidder has not, directly or indirectly, submitted his or her price or any breakdown
+thereof, or the contents thereof, or divulged information or data relative thereto, or paid, and will not pay,
+any fee to any corporation, partnership, company association, organization, bid depository, or to any
+member or agent thereof to effectuate a collusive or sham proposal.
+(Signature)
+(Typed Name)
+State of California
+County of
+*Notarization not required
+RFP No. 26-22 Data Management and Business Intelligence Platform Solution
+Page 23 of 36
+Vendor Application
+San Bernardino City Unified School District
+Purchasing Department
+777 N. "F" Street, San Bernardino, CA 92410
+Business Name:
+*Business License Number:
+Expiration Date:
+Representative Name:
+Title
+Business Address:
+Number of years in business:
+Email address:
+Business Telephone Number:
+Fax Number:
+Products or Services Provided:
+Comments:
+List of References Where Your Company Provided Products/Services: (Preferably other school districts)
+Other Schools or Business
+Contact
+Phone
+Dates of Service
+Products/Service
+Name/Address
+1.
+2.
+3.
+"By signing below, I certify under penalty of perjury that the information provided is true and correct to the best of my knowledge. I understand it is the
+vendor's responsibility to update the above information as needed. I further agree that as a vendor of the District this company will conform to all Federal,
+State, County and City laws, ordinances, codes and regulations covering the products, work or services provided, including but not limited to, obtaining a *San
+Bernardino City business license as required by the San Bernardino City Clerk's Office. I understand that it is the vendor's total responsibility to determine
+specific details of such requirements and warrant that all work performed, or provided, totally conforms to such legal requirements. I understand the
+submission of this application does not guarantee that this company will be used as a vendor for the District or requested to quote on any or all requirements.
+I understand it is the vendor's responsibility to follow up and request the opportunity to quote. I understand the District reserves the right to use, any, or all
+vendors for the submission of quotes. Formal bids are advertised in The Sun newspaper's legal ads."
+Authorized Vendor Representative Signature
+Date
+Name
+Title
+RFP No. 26-22 Data Management and Business Intelligence Platform Solution
+Page 24 of 36
+W-9 Form
+W-9
+Request for Taxpayer
+Form
+Give Form to the
+(Rev. October 2018)
+Identification Number and Certification
+requester. Do not
+Department of the Treasury
+send to the IRS.
+Internal Revenue Service
+Go to www.irs.gov/FormW9 for instructions and the latest information.
+1 Name (as shown on your Income tax return). Name Is required on this line; do not leave this line blank.
+2 Business name/disregarded entity name, If different from above
+3 Check appropriate box for federal tax classification of the person whose name Is entered on line 1. Check only one of the
+4 Exemptions (codes apply only to
+following seven boxes.
+certain entities, not individuals; see
+Instructions on page 3):
+See Specific Instructions on page 3.
+Individual/sole proprietor or
+C Corporation
+S Corporation
+Partnership
+Trust/estate
+single-member LLC
+Exempt payee code (If any)
+Print or type.
+Limited liability company. Enter the tax classification (C=C corporation, S-S corporation, P=Partnership)
+Note: Check the appropriate box In the line above for the tax classification of the single-member owner. Do not check
+Exemption from FATCA reporting
+LLC If the LLC Is classified as a single-member LLC that Is disregarded from the owner unless the owner of the LLC Is
+another LLC that Is not disregarded from the owner for U.S. federal tax purposes. Otherwise, a single-member LLC that
+code (If any)
+Is disregarded from the owner should check the appropriate box for the tax classification of Its owner.
+Other (see Instructions)
+(Applier to accounts maintained outside the us.)
+5 Address (number, street, and apt. or suite no.) See Instructions.
+Requester's name and address (optional)
+6 City, state, and ZIP code
+7 List account number(s) here (optional)
+Part I
+Taxpayer Identification Number (TIN)
+Enter your TIN in the appropriate box. The TIN provided must match the name given on line 1 to avoid
+Social security number
+backup withholding. For individuals, this is generally your social security number (SSN). However, for a
+resident alien, sole proprietor, or disregarded entity, see the instructions for Part I, later. For other
+-
+-
+entities, it is your employer identification number (EIN). If you do not have a number, see How to get a
+TIN, later.
+or
+Note: If the account is in more than one name, see the instructions for line 1. Also see What Name and
+Employer Identification number
+Number To Give the Requester for guidelines on whose number to enter.
+-
+Part II
+Certification
+Under penalties of perjury, I certify that:
+1. The number shown on this form is my correct taxpayer identification number (or I am waiting for a number to bei issued to me); and
+2. I am not subject to backup withholding because: (a) I am exempt from backup withholding, or (b) I have not been notified by the Internal Revenue
+Service (IRS) that I am subject to backup withholding as a result of a failure to report all interest or dividends, or (c) the IRS has notified me that I am
+no longer subject to backup withholding; and
+3. I am a U.S. citizen or other U.S. person (defined below); and
+4. The FATCA code(s) entered on this form (if any) indicating that | am exempt from FATCA reporting is correct.
+Certification instructions. You must cross out item 2 above if you have been notified by the IRS that you are currently subject to backup withholding because
+you have failed to report all interest and dividends on your tax return. For real estate transactions, item 2 does not apply. For mortgage interest paid,
+acquisition or abandonment of secured property, cancellation of debt, contributions to an individual retirement arrangement (IRA), and generally, payments
+other than interest and dividends, you are not required to sign the certification, but you must provide your correct TIN. See the instructions for Part II, later.
+Sign
+Signature of
+Here
+U.S. person
+Date
+General Instructions
+Form 1099-DIV (dividends, including those from stocks or mutual
+funds)
+Section references are to the Internal Revenue Code unless otherwise
+Form 1099-MISC (various types of income, prizes, awards, or gross
+noted.
+proceeds)
+Future developments. For the latest information about developments
+Form 1099-B (stock or mutual fund sales and certain other
+related to Form W-9 and its instructions, such as legislation enacted
+transactions by brokers)
+after they were published, go to www.irs.gov/FormW9.
+Form 1099-S (proceeds from real estate transactions)
+Purpose of Form
+Form 1099-K (merchant card and third party network transactions)
+An individual or entity (Form W-9 requester) who is required to file an
+Form 1098 (home mortgage interest), 1098-E (student loan interest),
+information return with the IRS must obtain your correct taxpayer
+1098-T (tuition)
+identification number (TIN) which may be your social security number
+Form 1099-C (canceled debt)
+(SSN), individual taxpayer identification number (ITIN), adoption
+taxpayer identification number (ATIN), or employer identification number
+Form 1099-A (acquisition or abandonment of secured property)
+(EIN), to report on an information return the amount paid to you, or other
+Use Form W-9 only if you are a U.S. person (including a resident
+amount reportable on an information return. Examples of information
+alien), to provide your correct TIN.
+returns include, but are not limited to, the following.
+If you do not return Form W-9 to the requester with a TIN, you might
+Form 1099-INT (interest earned or paid)
+be subject to backup withholding. See What is backup withholding,
+later.
+Cat. No. 10231X
+Form
+W-9
+(Rev. 10-2018)
+RFP No. 26-22 Data Management and Business Intelligence Platform Solution
+Page 25 of 36
+Equal Opportunity Certification
+San Bernardino City Unified School District
+777 N. "F" Street
+San Bernardino, CA 92410
+(909) 381-1126
+Company
+Address
+City
+State
+Zip
+Telephone
+Fax
+Email
+Number of employees
+Please check one of the following categories. This company is:
+Minority Owned
+Woman Owned
+Disadvantaged
+Disabled Veteran Owned
+None of the Other Categories
+Please check and complete below. This company is:
+Independently Owned and Operated:
+An Affiliate of
+Parent Company
+A Subsidiary of
+Address
+A Division of
+"By signing below, I certify that we are an Equal Opportunity Employer and have made a good faith effort to improve
+Minority, Women and Disabled Veteran employment.
+Signature
+Printed Name
+Title
+Date
+RFP No. 26-22 Data Management and Business Intelligence Platform Solution
+Page 26 of 36
+Certification Regarding Debarment, Suspension,
+Ineligibility And Voluntary Exclusion
+FAR Subpart 9.4-Debarment, Suspension, and Ineligibility
+I am aware of and hereby certify that neither
+nor its principals are presently
+Name of Proposer
+debarred, suspended, proposed for debarment its principals are presently debarred, suspended, proposed for debarment,
+declared ineligible, or voluntarily excluded from participation in this transaction by any Federal department or agency. I
+further agree that I will include this clause without modification in all lower tier transactions, solicitations, proposals,
+contracts, and subcontracts. Where the bidder/offer or/contractor or any lower participant is unable to certify to this
+statement, it shall attach an explanation to this solicitation proposal.
+IN WITNESS WHEREOF, this instrument has been duly executed by the Principal of the above-named bidder on the
+day of
+20
+for the purposes of submission of this RFP.
+(Corporate Seal)
+By
+Signature
+Typed or Printed Name
+Title
+Date
+As the awardee under this RFP, I hereby certify that the above certification remains valid as of the date of contract award,
+specifically, as of the
+day of
+20
+for the purposes of award of this contract.
+(Corporate Seal)
+By
+Signature
+Typed or Printed Name
+Title
+Date
+RFP No. 26-22 Data Management and Business Intelligence Platform Solution
+Page 27 of 36
+Workers' Compensation Certification
+Labor Code Section 3700:
+"Every employer except the State shall secure the payment of compensation in one or more of
+the following ways:
+1. By being insured against liability to pay compensation in one or more insurers duly authorized to write
+compensation insurance in this State.
+2. By securing from the Director of Industrial Relations a certificate of consent to self-insure, which may be
+given upon furnishing proof satisfactory to the Director of Industrial Relations of ability to self-insure and
+to pay any compensation that may become due to his employees."
+I am aware of the provisions of Section 3700 of the Labor Code which require every employer to
+be insured against liability for Workers' Compensation to undertake self-insurance in accordance
+with the provisions of that Code, and I will comply with such provisions before commencing the
+performance of this Contract.
+Principal
+By
+Typed or Printed Name
+Title
+Date
+(In accordance with Article 5 (commencing at Section 1860), Chapter 1, Part 7, Division 2 of the
+Labor Code, the above certificate must be signed and filed with the awarding body prior to
+performing any work under this contract.
+RFP No. 26-22 Data Management and Business Intelligence Platform Solution
+Page 28 of 36
+Federal Funding Contract Compliance Form
+The following provisions are required and apply when federal funds are expended by San Bernardino City Unified School
+District for any contract resulting from this procurement process. San Bernardino City Unified School District is the sub
+grantee or sub recipient by definition.
+In addition to other provisions required by the federal agency or non-Federal entity, all contracts made by the non-Federal
+entityunder the Federal award must contain provisions covering the following, as applicable.
+BREACH OF CONTRACT BY EITHER PARTIES
+a) Contracts for more than the simplified acquisition threshold currently set at $250,000 which is the inflation adjusted amount
+determined by the Civilian Agency Acquisition Council and the Defense Acquisition Regulations Council (Councils) as
+authorized by 41 U.S.C. 1908, must address administrative, contractual, or legal remedies in instances where contractors
+violate or breach contract terms, and provide such sanctions and penalties as appropriate.
+Pursuant to Federal Rules (A) above, when federal funds are expended by San Bernardino City Unified School District, the District
+reserves all rights and privileges under the applicable laws and regulations with respect to this procurement in the eventof breach
+of contract by either party.
+Does vendor agree? YES
+Initials of Authorized Representative of Vendor
+TERMINATION FOR CAUSE OR FOR CONVENIENCE
+b) Termination for cause or for convenience by the grantee or sub grantee including the manner by which it willbe affected
+and the basis for settlement. (All contracts in excess of $10,000)
+Pursuant to Federal Rules (B) above, when federal funds are expended by San Bernardino City Unified School District, the District
+reserves all rights to immediately terminate any agreement in excess of $10,000 resulting from this procurement process in the
+event of a breach or default of the agreement by Vendor, in the event vendors fails to: (1) meet schedules, deadlines, and/or
+delivery dates within the time specified in the procurement solicitation, contract, and/or a purchase order; (2) make any payments
+owed; or (3) otherwise perform in accordance with the contract and/or the procurement solicitation. San Bernardino City Unified
+School District also reserves the right to terminate the contract immediately, with written notice to vendor, for convenience, if San
+Bernardino City Unified School District believes, in its sole discretion that it is in the best interest of San Bernardino City Unified
+School District to do so. The vendor will be compensated for work performed and accepted and goods accepted by San Bernardino
+City Unified School District as of the termination date if the contract is terminated for convenienceof San Bernardino City Unified
+School District. Any award under this procurement process is not exclusive and San Bernardino City Unified School District
+reserves the right to purchase goods and services from other vendors when it is in the best interest San Bernardino City Unified
+School District.
+Does vendor agree? YES
+Initials of Authorized Representative of Vendor
+RFP No. 26-22 Data Management and Business Intelligence Platform Solution
+Page 29 of 36
+RIGHTS TO INVENTIONS MADE UNDER A CONTRACT AGREEMENT
+c)
+Rights to Inventions Made Under a Contract Agreement. If the Federal award meets the definition of "funding
+agreement" under 37 CFR $401.2(a) and the recipient or sub recipient wishes to enter into a contract with a small
+business firm or nonprofit organization regarding the substitution of parties, assignment or performance of experimental,
+developmental, or research work under that "funding agreement, "; the recipient or sub recipient must comply with the
+requirements of 37 CFR Part 401, "Rights to Inventions Made by Nonprofit Organizations and Small Business Firms Under
+Government Grants, Contracts and Cooperative Agreements," and any implementing regulations issued by the awarding
+agency.
+Pursuant to Federal Rule (C) above, when federal funds are expended by San Bernardino City Unified School District, the vendor
+certifies that during the term of an award for all contracts by San Bernardino City Unified School District resulting from this
+procurement process, the vendor agrees to comply with all applicable requirements as referenced in Federal Rule (C) above.
+Does vendor agree? YES
+Initials of Authorized Representative of Vendor
+CLEAN AIR ACT (42 U.S.C.7401-7671q.)
+d)
+Clean Air Act (42 U.S.C. 7401-7671q.) and the Federal Water Pollution Control Act (33 U.S.C. 1251-1387), as
+amended - Contracts and sub grants of amounts in excess of $250,000 must contain a provision that requires the non-
+Federal award to agree to comply with all applicable standards, orders or regulations issued pursuant to the Clean Air
+Act (42 U.S.C. 7401-7671q) and the Federal Water Pollution Control Act as amended (33 U.S.C. 1251-1387). Violations
+must be reported to the Federal awarding agency and the Regional Office of the Environmental Protection Agency (EPA).
+Pursuant to Federal Rule (D) above, when federal funds are expended by San Bernardino City Unified School District, the vendor
+certifies that during the term of an award for all contracts by San Bernardino City Unified School District resulting from this
+procurement process, the vendor agrees to comply with all applicable requirements as referenced in Federal Rule (D) above.
+Does vendor agree? YES
+Initials of Authorized Representative of Vendor
+DEBARMENT AND SUSPENSION
+e)
+Debarment and Suspension (Executive Orders 12549 and 12689) - A contract award (see 2 CFR 180.220) must not
+be made to parties listed on the government wide exclusions in the System for Award Management (SAM), in accordance
+with the OMB guidelines at 2 CFR 180 that implement Executive Orders 12549 (3 CFR part 1986 Comp., p. 189) and
+12689 (3 CFR part 1989 Comp., p.235), "Debarment and Suspension". SAM exclusions contain the names of parties
+debarred, suspended or otherwise excluded by agencies, as well as parties declared ineligible under statutory or
+regulatory authority other than Executive Order 12549.
+Pursuant to Federal Rule (E) above, when federal funds are expended by San Bernardino City Unified School District, the vendor
+certifies that during the term of an award for all contracts by San Bernardino City Unified School District resulting from this
+procurement process, the vendor certifies that neither it nor its principals is presently debarred, suspended, proposed for
+debarment, declared ineligible, or voluntarily excluded from participation by any federal department or agency.
+Does vendor agree? YES
+Initials of Authorized Representative of Vendor
+RFP No. 26-22 Data Management and Business Intelligence Platform Solution
+Page 30 of 36
+BYRD ANTI-LOBBYING AMENDMENT (31 U.S.C. 1352)
+f)
+Byrd Anti-Lobbying Amendment (31 U.S.C. 1352) - Contractors that apply or bid for an award exceeding $100,000
+must file the required certification. Each tier certified to the tier above that it will not and has not used Federal
+appropriated funds to pay any person or organization for influencing or attempting to influence an officer or employee
+of any agency, a member of Congress, officer or employee of Congress, or an employee of a member of Congress in
+connection with obtaining any Federal contract, grant or any other award covered by 31 U.S.C. 1352. Each tier must
+also disclose any lobbying with non-Federal funds that take place in connection with obtaining any Federal award. Such
+disclosures are forwarded from tier to tier up to the non-Federal award.
+Pursuant to Federal Rule (F) above, when federal funds are expended by San Bernardino City Unified School District, the vendor
+certifies that during the term and after the awarded term of an award for all contracts by San Bernardino City Unified School
+District resulting from this procurement process, the vendor certifies that it is in compliance with all applicable provisions of the
+Byrd Anti-Lobbying Amendment (31 U.S.C. 1352). The undersigned further certifies that:
+1.
+No Federal appropriated funds have been paid or will be paid for on behalf of the undersigned, to any
+person for influencing or attempting to influence an officer or employee of any agency, a Member of Congress,
+an officer or employee of congress, or an employee of a Member of Congress in connection with the awarding
+of a Federal contract, the making of a Federal grant, the making of a Federal loan, the entering into a cooperative
+agreement, and the extension, continuation, renewal, amendment, or modification of a Federal contract, grant,
+loan, or cooperative agreement.
+2.
+If any funds other than Federal appropriated funds have been paid or will be paid to any person for influencing
+or attempting to influence an officer or employee of any agency, a Member of Congress, an officer or employee
+of congress, or an employee of a Member of Congress in connection with this Federal grant or cooperative
+agreement, the undersigned shall complete and submit Stand Form-LLL, "Disclosure Form to Report
+Lobbying", in accordance with its instructions.
+3.
+The undersigned shall require that the language of this certification be included in the award documents for
+all covered sub-awards exceeding $100,000 in Federal funds to all appropriate tiers and that all sub recipients
+shall certify and disclose accordingly.
+Does vendor agree? YES
+Initials of Authorized Representative of Vendor
+RECORD RETENTION REQUIREMENTS FOR CONTRACTS PAID FOR
+WITH FEDERAL FUNDS - 2 CFR §
+When federal funds are expended by San Bernardino City Unified School District for any contract resulting from this procurement
+process, the vendor certifies that it will comply with the record retention requirements detailed in 2 CFR § 200.333. The vendor
+further certifies that vendor will retain all records as required by 2 CFR § 200.333 for a period of three years after grantees or sub
+grantees submit final expenditure reports or quarterly or annual financial reports, as applicable, and all other pending matters are
+closed.
+Does vendor agree? YES
+Initials of Authorized Representative of Vendor
+RFP No. 26-22 Data Management and Business Intelligence Platform Solution
+Page 31 of 36
+CERTIFICATION OF COMPLIANCE WITH THE ENERGY
+POLICY AND CONSERVATION ACT
+When federal funds are expended by San Bernardino City Unified School District for any contract resulting from this
+procurement process, the vendor certifies that it will be in compliance with mandatory standards and policies relating to
+energy efficiency which are contained in the state energy conservation plan issued in compliance with the Energy Policy and
+Conservation Act (42 U.S.C. 6321, et seq.; 49 C.F.R. Part 18; Pub. L. 94-163, 89 Stat. 871).
+Does vendor agree? YES
+Initials of Authorized Representative of Vendor
+CERTIFICATION OF COMPLIANCE WITH BUY AMERICA PROVISIONS
+Vendor certifies that vendor is in compliance with all applicable provisions of the Buy America Act. Purchases
+made inaccordance with the Buy America Act must still follow the applicable procurement rules calling for free and open
+competition.
+Does vendor agree? YES
+Initials of Authorized Representative of Vendor
+CERTIFICATION OF NON-COLLUSION STATEMENT
+Vendor certifies under penalty of perjury that its response to this procurement solicitation is in all respects bona fide,
+fair, and made without collusion or fraud with any person, joint venture, partnership, corporation or other business or legal
+entity.
+Does vendor agree? YES
+Initials of Authorized Representative of Vendor
+Vendor agrees to comply with all federal, state, and local laws, rules, regulations and ordinances, as applicable. It is
+further acknowledged that vendor certifies compliance with all provisions, laws, acts, regulations, etc. as specifically
+notedabove.
+Company Name:
+Address:
+City:
+State:
+Zip:
+Phone Number:
+Fax #:
+Email Address:
+Printed Name of Authorized Representative:
+Signature of Authorized Representative:
+Date:
+RFP No. 26-22 Data Management and Business Intelligence Platform Solution
+Page 32 of 36
+IRAN CONTRACTING ACT CERTIFICATION (Public Contract Code § 2204)
+("Project" or "Contract")
+Pursuant to Public Contract Code (PCC) section 2204, an Iran Contracting Act certification is required
+for solicitations of goods or services of one million dollars ($1,000,000) or more.
+Contractor shall complete ONLY ONE of the following three paragraphs.
+1. Contractor's Total Base Proposal is less than one million dollars ($1,000,000).
+OR
+2. Contractor's Total Base Proposal is one million dollars ($1,000,000) or more, but Contractor is not
+on the current list of persons engaged in investment activities in Iran created by the
+California Department of General Services ("DGS") pursuant to Public Contract Code $ 2203(b),
+and Contractor is not a financial institution extending twenty million dollars ($20,000,000) or
+more in credit to another person, for 45 days or more, if that other person will use the credit to
+provide goods or services in the energy sector in Iran and is identified on the current list of
+persons engaged in investment activities in Iran created by DGS.
+OR
+3.
+Contractor's Total Base Proposal is one million dollars ($1,000,000) or more, but the District has
+given prior written permission to Contractor to submit a proposal pursuant to PCC 2203(c) or (d). A copy of
+the written permission from the District is included with Proposal.
+I certify that I am duly authorized to legally bind the Contractor to this certification, that the contents
+of this certification are true, and that this certification is made under the laws of the State of California.
+Company Name:
+City, State:
+Signature:
+Print Name:
+Title:
+Date:
+RFP No. 26-22 Data Management and Business Intelligence Platform Solution
+Page 33 of 36
+Family Educational Rights and Privacy Act (FERPA) Section 49073.1 of
+the California Education Code
+AB1584 COMPLIANCE
+By acceptance of this purchase order vendor agrees to comply with the Family Educational Rights and
+Privacy Act which states:
+AB 1584 - Section 49073.1 of the CA ED Code which states:
+(a) A local educational agency may, pursuant to a policy adopted by its governing board or, in the case of a charter
+school, its governing body, enter into a contract with a third party for either or both of the following purposes:
+(1) To provide services, including cloud-based services, for the digital storage, management, and retrieval of pupil
+records.
+(2) To provide digital educational software that authorizes a third-party provider of digital educational software to
+access, store, and use pupil records in accordance with the contractual provisions listed in subdivision (b).
+(b) A local educational agency that enters into a contract with a third party for purposes of subdivision (a) shall ensure
+the contract contains all of the following:
+(1) A statement that pupil records continue to be the property of and under the control of the local
+educational agency.
+(2) Notwithstanding paragraph (1), a description of the means by which pupils may retain possession and control of
+their own pupil-generated content, if applicable, including options by which a pupil may transfer pupil-generated
+content to a personal account.
+(3) A prohibition against the third party using any information in the pupil record for any purpose other than those
+required or specifically permitted by the contract.
+(4) A description of the procedures by which a parent, legal guardian, or eligible pupil may review personally
+identifiable information in the pupil's records and correct erroneous information.
+(5) A description of the actions the third party will take, including the designation and training of responsible
+individuals, to ensure the security and confidentiality of pupil records. Compliance with this requirement shall not, in
+itself, absolve the third party of liability in the event of an unauthorized disclosure of pupil records.
+(6) A description of the procedures for notifying the affected parent, legal guardian, or eligible pupil in the event of
+an unauthorized disclosure of the pupil's records.
+(7) (A) A certification that a pupil's records shall not be retained or available to the third party upon completion
+of the terms of the contract and a description of how that certification will be enforced.
+(B) The requirements provided in subparagraph (A) shall not apply to pupil-generated content if the pupil chooses to
+establish or maintain an account with the third party for the purpose of storing that content pursuant to paragraph (2).
+(8) A description of how the local educational agency and the third party will jointly ensure compliance with the
+federal Family Educational Rights and Privacy Act (20 U.S.C. Sec. 1232g).
+(9) A prohibition against the third party using personally identifiable information in pupil records to engage in
+targeted advertising.
+(c) In addition to any other penalties, a contract that fails to comply with the requirements of this section shall be
+rendered void if, upon notice and a reasonable opportunity to cure, the noncompliant party fails to come into
+compliance and cure any defect. Written notice of noncompliance may be provided by any party to the contract. All
+parties subject to a contract voided under this subdivision shall return all pupil records in their possession to the local
+educational agency.
+(d) For purposes of this section, the following terms have the following meanings:
+(1) "Deidentified information" means information that cannot be used to identify an individual pupil.
+(2) "Eligible pupil" means a pupil who has reached 18 years of age.
+(3) "Local educational agency" includes school districts, county offices of education, and charter schools.
+(4) "Pupil-generated content" means materials created by a pupil, including, but not limited to, essays, research
+RFP No. 26-22 Data Management and Business Intelligence Platform Solution
+Page 34 of 36
+reports, portfolios, creative writing, music or other audio files, photographs, and account information that enables
+ongoing ownership of pupil content. "Pupil-generated content" does not include pupil responses to a standardized
+assessment where pupil possession and control would jeopardize the validity and reliability of that assessment.
+(5) (A) "Pupil records" means both of the following:
+(i) Any information directly related to a pupil that is maintained by the local educational agency.
+(ii) Any information acquired directly from the pupil through the use of instructional software or applications
+assigned to the pupil by a teacher or other local educational agency employee.
+(B) "Pupil records" does not mean any of the following:
+(i) Deidentified information, including aggregated deidentified information, used by the third party to improve
+educational products for adaptive learning purposes and for customizing pupil learning.
+(ii) Deidentified information, including aggregated deidentified information, used to demonstrate the
+effectiveness of the operator's products in the marketing of those products.
+(iii) Deidentified information, including aggregated deidentified information, used for the development and
+improvement of educational sites, services, or applications.
+(6) "Third party" refers to a provider of digital educational software or services, including cloud-based services, for
+the digital storage, management, and retrieval of pupil records.
+(e) If the provisions of this section are in conflict with the terms of a contract in effect before January 1, 2015, the
+provisions of this section shall not apply to the local educational agency or the third party subject to that
+agreement until the expiration, amendment, or renewal of the agreement.
+(f) Nothing in this section shall be construed to impose liability on a third party for content provided by any other
+third party.
+As the service provider, I am familiar with and agree to comply with the Family Educational Rights and Privacy
+Act Section 49073.1 of the California education Code.
+By
+Signature
+Typed or Printed Name
+Title
+Company Name
+Date
+RFP No. 26-22 Data Management and Business Intelligence Platform Solution
+Page 35 of 36
+CONFLICT OF INTEREST AND DISCLOSURES
+As a potential vendor/contractor with the San Bernardino City Unified School District (SBCUSD), I hereby represent and
+warrant that there is no financial, business, professional, personal, or other interest, including, but not limited to, the
+representation of other parties, that would conflict in any manner or degree with the performance of obligations in providing
+goods or services to SBCUSD. Such conflicts include those contemplated by Government Code Section 1090, the
+California Political Reform Act (Government Code Section 87100 et seq.), and other California laws. SBCUSD Purchasing
+Services or the Business Services office shall be immediately notified in writing if any conflict of interest (actual or
+potential) arises when conducting any business with SBCUSD. If the District reasonably determines that any actual or
+potential conflict of interests exists with respect to the goods or services provided by the vendor/contractor, then the
+District, without liability to or recourse by the vendor/contractors, may terminate any agreements, purchase orders, or
+other financial obligations by giving written notice to vendor/contractor, and the termination shall be effective upon receipt
+of the notice by the vendor/contractor.
+1. Disclose any and all relationships with current District employees and/or Board members that could be determined
+to be a conflict of interest for this RFP.
+2. Disclosure of any finder's fees, fee splitting, payments to consultants, or other contractual arrangements of the
+Firms that could present a real or perceived conflict of interest.
+Under penalty of perjury, I certify that there is no conflict of interest as stated above and that I shall immediately notify the
+District Purchasing Services or Business Services office in writing if a potential conflict of interest arises during the course
+of providing goods or services.
+Signature:
+Print Name:
+Title:
+Date:
+RFP No. 26-22 Data Management and Business Intelligence Platform Solution
+Page 36 of 36

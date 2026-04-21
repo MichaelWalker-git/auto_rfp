@@ -1,0 +1,33 @@
+{
+  "hasSubmissionDeadline": true,
+  "submissionDeadlineIso": "2026-02-18T16:00:00-08:00",
+  "deadlines": [
+    {
+      "dateTimeIso": "2026-01-29T16:00:00-08:00",
+      "label": "Question Submission Deadline",
+      "notes": "All questions must be submitted via Q&A through OpenGov before this deadline. Only 9 days from RFP release to question deadline, so vendors should review the solicitation immediately to identify any ambiguities or issues.",
+      "type": "QUESTIONS_DUE",
+      "rawText": "Question Submission Deadline January 29, 2026, 4:00pm",
+      "timezone": "PT"
+    },
+    {
+      "dateTimeIso": "2026-02-18T16:00:00-08:00",
+      "label": "Proposal Submission Deadline",
+      "notes": "Proposals must be uploaded to OpenGov electronic bidding system before this deadline. Extensions will not be granted unless stated in an addendum. Proposals are firm for 120 days after submission. Approximately 20 days from question deadline to proposal due date, which is a reasonable but not generous turnaround.",
+      "type": "PROPOSAL_DUE",
+      "rawText": "Proposal Submission Deadline February 18, 2026, 4:00pm",
+      "timezone": "PT"
+    },
+    {
+      "dateTimeIso": "2026-03-31T00:00:00-07:00",
+      "label": "Anticipated Vendor Selection Date",
+      "notes": "This is a tentative date subject to change at the City's discretion. Approximately 6 weeks between proposal deadline and anticipated selection, during which top-scoring proposers may be invited for demonstrations. Successful vendor must execute agreement and furnish insurance within 14 calendar days of award.",
+      "type": "AWARD_ESTIMATE",
+      "rawText": "Anticipated Vendor Selection Date March 31, 2026",
+      "timezone": "PT"
+    }
+  ],
+  "warnings": [
+    "Timezone assumed as Pacific Time (PT) based on City of Banning, CA location; not explicitly stated as a timezone abbreviation in the document."
+  ]
+}

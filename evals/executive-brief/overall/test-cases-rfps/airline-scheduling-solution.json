@@ -1,0 +1,1439 @@
+{
+  "compositeScore": 1,
+  "confidence": 95,
+  "decision": "NO_GO",
+  "sections": {
+    "contacts": {
+      "data": {
+        "missingRecommendedRoles": [
+          "CONTRACTING_OFFICER_REPRESENTATIVE",
+          "TECHNICAL_POC",
+          "PROGRAM_MANAGER",
+          "SMALL_BUSINESS_SPECIALIST",
+          "PROCUREMENT_POC",
+          "SUBCONTRACTING_POC"
+        ],
+        "contacts": [
+          {
+            "name": "Melinda Riddick",
+            "role": "CONTRACTING_OFFICER",
+            "title": "Contracting Officer",
+            "email": "Melinda.Riddick@dot.gov",
+            "organization": "U.S. Department of Transportation, Office of the Senior Procurement Executive"
+          },
+          {
+            "name": "Robin Golden",
+            "role": "CONTRACT_SPECIALIST",
+            "notes": "Listed as cc copy recipient for proposal submissions and questions",
+            "email": "Robin.Golden@dot.gov",
+            "organization": "U.S. Department of Transportation"
+          },
+          {
+            "role": "OTHER",
+            "notes": "Point of contact for electronic invoicing/payment system registration",
+            "phone": "(202) 366-0475",
+            "organization": "U.S. Department of Transportation",
+            "name": "Omarr Lee",
+            "title": "OST POC for Delphi eInvoicing",
+            "email": "Omarr.Lee@dot.gov"
+          }
+        ]
+      },
+      "inputHash": "force-regen-v9",
+      "status": "COMPLETE",
+      "updatedAt": "2026-04-21T01:05:12.312Z"
+    },
+    "deadlines": {
+      "data": {
+        "hasSubmissionDeadline": true,
+        "submissionDeadlineIso": "2026-03-30T15:00:00Z",
+        "deadlines": [
+          {
+            "dateTimeIso": "2026-02-13T14:00:00Z",
+            "label": "Question submission deadline",
+            "notes": "Originally due Feb 11, corrected to Feb 10 at noon EST by Amendment 00001, then extended to Feb 13 at 9:00 AM EST by Amendment 00002 due to SAM.gov attachment issue. No additional questions accepted after this deadline.",
+            "type": "QUESTIONS_DUE",
+            "rawText": "This Amendment extends the question submission deadline to 9:00 AM EST on February 13, 2026",
+            "timezone": "EST"
+          },
+          {
+            "dateTimeIso": "2026-03-02T17:00:00Z",
+            "label": "Demonstration scheduling deadline",
+            "notes": "Offerors must email available times for an online demo (MS Teams or Zoom) between 10am-2:30pm EST M-F. The demo is a decisional criterion for award selection. Q&A confirmed DOT will not extend this deadline. Demos are 30-60 minutes.",
+            "type": "OTHER",
+            "rawText": "Offerors must schedule a demonstration by 12pm EST on or before March 2, 2026",
+            "timezone": "EST"
+          },
+          {
+            "dateTimeIso": "2026-03-30T15:00:00Z",
+            "label": "Proposal submission deadline",
+            "notes": "Originally stated as Thursday March 27 at 10AM EST; Amendment 00003 corrected the day to Friday March 27; Amendment 00007 extended the deadline to Monday March 30, 2026 at 10AM EST. Submit via email to Melinda.Riddick@dot.gov with cc to Robin.Golden@dot.gov. Only 3 business days extension from original date \u2014 tight turnaround after demos.",
+            "type": "PROPOSAL_DUE",
+            "rawText": "the proposal due date is hereby changed from March 27, 2026, to Monday, March 30, 2026, at 10am EST",
+            "timezone": "EST"
+          },
+          {
+            "dateTimeIso": "2026-04-01T00:00:00Z",
+            "label": "Anticipated award decision date",
+            "notes": "Per Q&A in Amendment 00006, DOT anticipates award by April 1, 2026. Separately, DOT also stated they anticipate award by May 1, 2026 (base period start). Extremely tight \u2014 only 2 days after proposal due date of March 30, suggesting evaluation may be largely pre-determined or very rapid. Base period starts May 1, 2026.",
+            "type": "AWARD_ESTIMATE",
+            "rawText": "What is the anticipated award decision date following proposal submission? Answer: April 1, 2026",
+            "timezone": "EST"
+          }
+        ],
+        "warnings": []
+      },
+      "inputHash": "force-regen-v9",
+      "status": "COMPLETE",
+      "updatedAt": "2026-04-21T01:01:50.871Z"
+    },
+    "pastPerformance": {
+      "data": {
+        "topMatches": [
+          {
+            "matchDetails": {
+              "technicalSimilarity": 0,
+              "scaleSimilarity": 0,
+              "domainSimilarity": 40,
+              "recency": 0,
+              "successMetrics": 0
+            },
+            "project": {
+              "durationMonths": null,
+              "naicsCodes": [
+                "541511",
+                "713210"
+              ],
+              "achievements": [
+                "Complete infrastructure migration from Digital Ocean to AWS",
+                "Full backend overhaul improving performance and security",
+                "Modernized application architecture on AWS"
+              ],
+              "reactivatedAt": null,
+              "endDate": null,
+              "contractType": null,
+              "isArchived": false,
+              "description": "Migrated Chanced.com from Digital Ocean to AWS and performed a complete overhaul of their PHP Laravel backend. The project modernized the hosting infrastructure and improved application performance and reliability.",
+              "title": "Digital Ocean to AWS Migration & Backend Overhaul",
+              "staleReason": null,
+              "orgId": "9c0a5757-e2da-4e71-9490-01c558f7ffc3",
+              "setAside": null,
+              "createdAt": "2026-04-08T04:23:39.366Z",
+              "client": "Chanced.com",
+              "value": null,
+              "updatedAt": "2026-04-21T00:46:38.407Z",
+              "technicalApproach": "Migrated hosting from Digital Ocean to AWS. Overhauled the entire PHP Laravel backend for improved performance, security, and maintainability. Leveraged AWS services for hosting, storage, and compute.",
+              "partition_key": "PAST_PROJECT",
+              "reactivatedBy": null,
+              "contractNumber": null,
+              "sort_key": "9c0a5757-e2da-4e71-9490-01c558f7ffc3#0b9fb34d-a4b4-4010-9980-0d3a10c133af",
+              "staleSince": null,
+              "usageCount": 28,
+              "technologies": [
+                "PHP",
+                "Laravel",
+                "AWS EC2",
+                "Amazon RDS",
+                "Amazon S3",
+                "AWS CloudFront"
+              ],
+              "performanceRating": null,
+              "lastFreshnessCheck": null,
+              "createdBy": "bulk-import-script",
+              "lastUsedAt": "2026-04-21T00:46:38.407Z",
+              "teamSize": null,
+              "domain": "Financial Services / Gaming",
+              "clientPOC": null,
+              "freshnessStatus": "ACTIVE",
+              "projectId": "0b9fb34d-a4b4-4010-9980-0d3a10c133af",
+              "usedInBriefIds": [
+                "6fbf749f-7173-489c-be0a-564f97ebf8b0#1caae84e-d059-499e-a672-6250187f41fc",
+                "6fbf749f-7173-489c-be0a-564f97ebf8b0#1caae84e-d059-499e-a672-6250187f41fc",
+                "6fbf749f-7173-489c-be0a-564f97ebf8b0#1caae84e-d059-499e-a672-6250187f41fc",
+                "6fbf749f-7173-489c-be0a-564f97ebf8b0#1caae84e-d059-499e-a672-6250187f41fc",
+                "6fbf749f-7173-489c-be0a-564f97ebf8b0#1caae84e-d059-499e-a672-6250187f41fc",
+                "6fbf749f-7173-489c-be0a-564f97ebf8b0#1caae84e-d059-499e-a672-6250187f41fc",
+                "6fbf749f-7173-489c-be0a-564f97ebf8b0#1caae84e-d059-499e-a672-6250187f41fc",
+                "6fbf749f-7173-489c-be0a-564f97ebf8b0#1caae84e-d059-499e-a672-6250187f41fc",
+                "6fbf749f-7173-489c-be0a-564f97ebf8b0#1caae84e-d059-499e-a672-6250187f41fc",
+                "810f5a23-42e4-4355-a2b4-f9ae2cb8e563#a6337196-4a67-44bc-8217-557cb6d7de31",
+                "810f5a23-42e4-4355-a2b4-f9ae2cb8e563#adf2abdc-d4bc-49c0-be02-ff4cbf6ab4e8",
+                "810f5a23-42e4-4355-a2b4-f9ae2cb8e563#5d602fa1-2abd-48cb-a212-dcdcb7c29038",
+                "810f5a23-42e4-4355-a2b4-f9ae2cb8e563#c41c7043-1550-4cb0-8a7f-517adf26ebb8",
+                "810f5a23-42e4-4355-a2b4-f9ae2cb8e563#c41c7043-1550-4cb0-8a7f-517adf26ebb8",
+                "ad33c87d-8fbb-49ca-b32e-ae32d653bb2b#623408c1-1aa6-411c-abe7-dc0fa0557343",
+                "d1ae9e89-3992-494f-b76f-d39d23f37640#cf14f9a9-c129-495a-9893-ee61eadd690c",
+                "d1ae9e89-3992-494f-b76f-d39d23f37640#cf14f9a9-c129-495a-9893-ee61eadd690c",
+                "b94c25bb-91da-40a3-b29a-9a64144b01db#146bd550-b5a3-4de6-9f4f-4d515098bfc2",
+                "b94c25bb-91da-40a3-b29a-9a64144b01db#146bd550-b5a3-4de6-9f4f-4d515098bfc2",
+                "959bd413-9679-46c1-80a8-78466a0b52ab#6c992081-756b-421a-8fb2-686ea6c0cc3d",
+                "959bd413-9679-46c1-80a8-78466a0b52ab#6c992081-756b-421a-8fb2-686ea6c0cc3d",
+                "3e8b5099-0c1a-4a78-a5e2-65719b2f7a81#2ce43476-4476-4abf-8eeb-f71495cc2ebc",
+                "012994da-38ca-46f7-8412-d404d3afcddb#80f93cb2-7ecb-49d0-9627-04f31d6d0c6c",
+                "012994da-38ca-46f7-8412-d404d3afcddb#80f93cb2-7ecb-49d0-9627-04f31d6d0c6c",
+                "38e94a22-3181-44bf-a5c3-e7184083789a#90699bec-4077-4284-8e9b-a0a707149a9a",
+                "5282701b-2dcf-485e-84d3-c90ce80c469b#f87974b0-82eb-419d-bc5f-f38471eeb8e5",
+                "5282701b-2dcf-485e-84d3-c90ce80c469b#f87974b0-82eb-419d-bc5f-f38471eeb8e5",
+                "5282701b-2dcf-485e-84d3-c90ce80c469b#f87974b0-82eb-419d-bc5f-f38471eeb8e5"
+              ],
+              "startDate": null
+            },
+            "relevanceScore": 10,
+            "matchedRequirements": [
+              "Performance must be USA-based and from a US company"
+            ],
+            "narrative": null
+          },
+          {
+            "matchDetails": {
+              "technicalSimilarity": 0,
+              "scaleSimilarity": 0,
+              "domainSimilarity": 40,
+              "recency": 0,
+              "successMetrics": 0
+            },
+            "project": {
+              "durationMonths": null,
+              "naicsCodes": [
+                "541511",
+                "523130"
+              ],
+              "achievements": [
+                "Secure, localized trading platform with CMS-driven content",
+                "Automated CI/CD pipeline with Azure Pipelines",
+                "Global performance optimization with Cloudflare CDN"
+              ],
+              "reactivatedAt": null,
+              "endDate": null,
+              "contractType": null,
+              "isArchived": false,
+              "description": "Built a secure cryptocurrency trading platform frontend with dynamic, localized content. The platform features server-side rendering, CMS-driven content management, and CDN optimization for global performance.",
+              "title": "Secure Crypto Trading Platform",
+              "staleReason": null,
+              "orgId": "9c0a5757-e2da-4e71-9490-01c558f7ffc3",
+              "setAside": null,
+              "createdAt": "2026-04-08T04:23:31.596Z",
+              "client": "NDAX",
+              "value": null,
+              "updatedAt": "2026-04-21T00:46:38.422Z",
+              "technicalApproach": "Developed the frontend using Next.js with Strapi CMS for dynamic content management. Set up CI/CD with Azure Pipelines for automated deployments. Applied Cloudflare optimizations for global performance and security.",
+              "partition_key": "PAST_PROJECT",
+              "reactivatedBy": null,
+              "contractNumber": null,
+              "sort_key": "9c0a5757-e2da-4e71-9490-01c558f7ffc3#123a1e9f-54a5-40b8-b8ec-5830d4e113f8",
+              "staleSince": null,
+              "usageCount": 27,
+              "technologies": [
+                "Next.js",
+                "Strapi CMS",
+                "Azure Pipelines",
+                "Cloudflare",
+                "TypeScript"
+              ],
+              "performanceRating": null,
+              "lastFreshnessCheck": null,
+              "createdBy": "bulk-import-script",
+              "lastUsedAt": "2026-04-21T00:46:38.422Z",
+              "teamSize": null,
+              "domain": "Financial Services / Cryptocurrency",
+              "clientPOC": null,
+              "freshnessStatus": "ACTIVE",
+              "projectId": "123a1e9f-54a5-40b8-b8ec-5830d4e113f8",
+              "usedInBriefIds": [
+                "6fbf749f-7173-489c-be0a-564f97ebf8b0#1caae84e-d059-499e-a672-6250187f41fc",
+                "6fbf749f-7173-489c-be0a-564f97ebf8b0#1caae84e-d059-499e-a672-6250187f41fc",
+                "6fbf749f-7173-489c-be0a-564f97ebf8b0#1caae84e-d059-499e-a672-6250187f41fc",
+                "6fbf749f-7173-489c-be0a-564f97ebf8b0#1caae84e-d059-499e-a672-6250187f41fc",
+                "6fbf749f-7173-489c-be0a-564f97ebf8b0#1caae84e-d059-499e-a672-6250187f41fc",
+                "6fbf749f-7173-489c-be0a-564f97ebf8b0#1caae84e-d059-499e-a672-6250187f41fc",
+                "6fbf749f-7173-489c-be0a-564f97ebf8b0#1caae84e-d059-499e-a672-6250187f41fc",
+                "6fbf749f-7173-489c-be0a-564f97ebf8b0#1caae84e-d059-499e-a672-6250187f41fc",
+                "6fbf749f-7173-489c-be0a-564f97ebf8b0#1caae84e-d059-499e-a672-6250187f41fc",
+                "810f5a23-42e4-4355-a2b4-f9ae2cb8e563#e516d137-e19a-4320-a0b8-ccfa29a165de",
+                "810f5a23-42e4-4355-a2b4-f9ae2cb8e563#7d46e81e-94f5-4adc-8d37-2ae0eb6cadf5",
+                "810f5a23-42e4-4355-a2b4-f9ae2cb8e563#adf2abdc-d4bc-49c0-be02-ff4cbf6ab4e8",
+                "3e8b5099-0c1a-4a78-a5e2-65719b2f7a81#2ce43476-4476-4abf-8eeb-f71495cc2ebc",
+                "3e8b5099-0c1a-4a78-a5e2-65719b2f7a81#2ce43476-4476-4abf-8eeb-f71495cc2ebc",
+                "d1ae9e89-3992-494f-b76f-d39d23f37640#cf14f9a9-c129-495a-9893-ee61eadd690c",
+                "d1ae9e89-3992-494f-b76f-d39d23f37640#cf14f9a9-c129-495a-9893-ee61eadd690c",
+                "b94c25bb-91da-40a3-b29a-9a64144b01db#146bd550-b5a3-4de6-9f4f-4d515098bfc2",
+                "b94c25bb-91da-40a3-b29a-9a64144b01db#146bd550-b5a3-4de6-9f4f-4d515098bfc2",
+                "959bd413-9679-46c1-80a8-78466a0b52ab#6c992081-756b-421a-8fb2-686ea6c0cc3d",
+                "959bd413-9679-46c1-80a8-78466a0b52ab#6c992081-756b-421a-8fb2-686ea6c0cc3d",
+                "3e8b5099-0c1a-4a78-a5e2-65719b2f7a81#2ce43476-4476-4abf-8eeb-f71495cc2ebc",
+                "012994da-38ca-46f7-8412-d404d3afcddb#80f93cb2-7ecb-49d0-9627-04f31d6d0c6c",
+                "012994da-38ca-46f7-8412-d404d3afcddb#80f93cb2-7ecb-49d0-9627-04f31d6d0c6c",
+                "38e94a22-3181-44bf-a5c3-e7184083789a#90699bec-4077-4284-8e9b-a0a707149a9a",
+                "5282701b-2dcf-485e-84d3-c90ce80c469b#f87974b0-82eb-419d-bc5f-f38471eeb8e5",
+                "5282701b-2dcf-485e-84d3-c90ce80c469b#f87974b0-82eb-419d-bc5f-f38471eeb8e5",
+                "5282701b-2dcf-485e-84d3-c90ce80c469b#f87974b0-82eb-419d-bc5f-f38471eeb8e5"
+              ],
+              "startDate": null
+            },
+            "relevanceScore": 10,
+            "matchedRequirements": [
+              "Performance must be USA-based and from a US company"
+            ],
+            "narrative": null
+          },
+          {
+            "matchDetails": {
+              "technicalSimilarity": 0,
+              "scaleSimilarity": 0,
+              "domainSimilarity": 40,
+              "recency": 0,
+              "successMetrics": 0
+            },
+            "project": {
+              "durationMonths": null,
+              "naicsCodes": [
+                "541511",
+                "522320"
+              ],
+              "achievements": [
+                "High-performance web application with server-side rendering",
+                "Streamlined deployment via AWS Amplify",
+                "Type-safe codebase with TypeScript"
+              ],
+              "reactivatedAt": null,
+              "endDate": null,
+              "contractType": null,
+              "isArchived": false,
+              "description": "Created a performant front-end for an Amplify-hosted web application using Next.js. The platform features server-side rendering for optimal performance and is deployed on AWS Amplify for streamlined hosting and CI/CD.",
+              "title": "Performant Web Application on AWS Amplify",
+              "staleReason": null,
+              "orgId": "9c0a5757-e2da-4e71-9490-01c558f7ffc3",
+              "setAside": null,
+              "createdAt": "2026-04-08T04:23:33.079Z",
+              "client": "FAQx, Inc.",
+              "value": null,
+              "updatedAt": "2026-04-21T00:46:38.441Z",
+              "technicalApproach": "Built the application with Next.js and TypeScript, leveraging server-side rendering for performance. Deployed on AWS Amplify with integrated hosting and continuous deployment pipelines.",
+              "partition_key": "PAST_PROJECT",
+              "reactivatedBy": null,
+              "contractNumber": null,
+              "sort_key": "9c0a5757-e2da-4e71-9490-01c558f7ffc3#12b71539-7a20-4d0b-8050-127a1f4c590f",
+              "staleSince": null,
+              "usageCount": 26,
+              "technologies": [
+                "Next.js",
+                "TypeScript",
+                "AWS Amplify",
+                "React"
+              ],
+              "performanceRating": null,
+              "lastFreshnessCheck": null,
+              "createdBy": "bulk-import-script",
+              "lastUsedAt": "2026-04-21T00:46:38.441Z",
+              "teamSize": null,
+              "domain": "Fintech / SaaS",
+              "clientPOC": null,
+              "freshnessStatus": "ACTIVE",
+              "projectId": "12b71539-7a20-4d0b-8050-127a1f4c590f",
+              "usedInBriefIds": [
+                "6fbf749f-7173-489c-be0a-564f97ebf8b0#1caae84e-d059-499e-a672-6250187f41fc",
+                "6fbf749f-7173-489c-be0a-564f97ebf8b0#1caae84e-d059-499e-a672-6250187f41fc",
+                "6fbf749f-7173-489c-be0a-564f97ebf8b0#1caae84e-d059-499e-a672-6250187f41fc",
+                "6fbf749f-7173-489c-be0a-564f97ebf8b0#1caae84e-d059-499e-a672-6250187f41fc",
+                "6fbf749f-7173-489c-be0a-564f97ebf8b0#1caae84e-d059-499e-a672-6250187f41fc",
+                "6fbf749f-7173-489c-be0a-564f97ebf8b0#1caae84e-d059-499e-a672-6250187f41fc",
+                "6fbf749f-7173-489c-be0a-564f97ebf8b0#1caae84e-d059-499e-a672-6250187f41fc",
+                "6fbf749f-7173-489c-be0a-564f97ebf8b0#1caae84e-d059-499e-a672-6250187f41fc",
+                "6fbf749f-7173-489c-be0a-564f97ebf8b0#1caae84e-d059-499e-a672-6250187f41fc",
+                "810f5a23-42e4-4355-a2b4-f9ae2cb8e563#e516d137-e19a-4320-a0b8-ccfa29a165de",
+                "810f5a23-42e4-4355-a2b4-f9ae2cb8e563#adf2abdc-d4bc-49c0-be02-ff4cbf6ab4e8",
+                "c6737e52-1e0b-42c6-8480-043ab4999b94#8f26623d-c411-4b63-bc62-bc6fdf54e73b",
+                "c6737e52-1e0b-42c6-8480-043ab4999b94#8f26623d-c411-4b63-bc62-bc6fdf54e73b",
+                "d1ae9e89-3992-494f-b76f-d39d23f37640#cf14f9a9-c129-495a-9893-ee61eadd690c",
+                "d1ae9e89-3992-494f-b76f-d39d23f37640#cf14f9a9-c129-495a-9893-ee61eadd690c",
+                "b94c25bb-91da-40a3-b29a-9a64144b01db#146bd550-b5a3-4de6-9f4f-4d515098bfc2",
+                "b94c25bb-91da-40a3-b29a-9a64144b01db#146bd550-b5a3-4de6-9f4f-4d515098bfc2",
+                "959bd413-9679-46c1-80a8-78466a0b52ab#6c992081-756b-421a-8fb2-686ea6c0cc3d",
+                "959bd413-9679-46c1-80a8-78466a0b52ab#6c992081-756b-421a-8fb2-686ea6c0cc3d",
+                "3e8b5099-0c1a-4a78-a5e2-65719b2f7a81#2ce43476-4476-4abf-8eeb-f71495cc2ebc",
+                "012994da-38ca-46f7-8412-d404d3afcddb#80f93cb2-7ecb-49d0-9627-04f31d6d0c6c",
+                "012994da-38ca-46f7-8412-d404d3afcddb#80f93cb2-7ecb-49d0-9627-04f31d6d0c6c",
+                "38e94a22-3181-44bf-a5c3-e7184083789a#90699bec-4077-4284-8e9b-a0a707149a9a",
+                "5282701b-2dcf-485e-84d3-c90ce80c469b#f87974b0-82eb-419d-bc5f-f38471eeb8e5",
+                "5282701b-2dcf-485e-84d3-c90ce80c469b#f87974b0-82eb-419d-bc5f-f38471eeb8e5",
+                "5282701b-2dcf-485e-84d3-c90ce80c469b#f87974b0-82eb-419d-bc5f-f38471eeb8e5"
+              ],
+              "startDate": null
+            },
+            "relevanceScore": 10,
+            "matchedRequirements": [
+              "Performance must be USA-based and from a US company"
+            ],
+            "narrative": null
+          },
+          {
+            "matchDetails": {
+              "technicalSimilarity": 0,
+              "scaleSimilarity": 0,
+              "domainSimilarity": 40,
+              "recency": 0,
+              "successMetrics": 0
+            },
+            "project": {
+              "durationMonths": null,
+              "naicsCodes": [
+                "541511",
+                "541612"
+              ],
+              "achievements": [
+                "Full multitenant HR platform supporting multiple organizations",
+                "Integrated video interviewing and resume parsing capabilities",
+                "Streamlined candidate workflows from application to hire"
+              ],
+              "reactivatedAt": null,
+              "endDate": null,
+              "contractType": null,
+              "isArchived": false,
+              "description": "Built a multitenant human resources application that integrates video interviewing, resume parsing, and candidate workflows. The platform supports multiple organizations on a single deployment with tenant isolation, enabling end-to-end recruitment process automation.",
+              "title": "Multitenant HR Platform with Video Interviewing",
+              "staleReason": null,
+              "orgId": "9c0a5757-e2da-4e71-9490-01c558f7ffc3",
+              "setAside": null,
+              "createdAt": "2026-04-08T04:23:25.873Z",
+              "client": "AspireHR",
+              "value": null,
+              "updatedAt": "2026-04-21T00:46:38.448Z",
+              "technicalApproach": "Developed a React-based frontend with AWS serverless backend. Integrated video interviewing capabilities, AI-powered resume parsing, and candidate workflow management. Built with multi-tenancy support for organizational isolation.",
+              "partition_key": "PAST_PROJECT",
+              "reactivatedBy": null,
+              "contractNumber": null,
+              "sort_key": "9c0a5757-e2da-4e71-9490-01c558f7ffc3#16546867-bb92-4a14-b291-0c2ba91f7c82",
+              "staleSince": null,
+              "usageCount": 24,
+              "technologies": [
+                "React",
+                "AWS Lambda",
+                "Amazon API Gateway",
+                "Amazon DynamoDB",
+                "Amazon S3",
+                "Amazon Cognito"
+              ],
+              "performanceRating": null,
+              "lastFreshnessCheck": null,
+              "createdBy": "bulk-import-script",
+              "lastUsedAt": "2026-04-21T00:46:38.448Z",
+              "teamSize": null,
+              "domain": "Human Resources / HR Tech",
+              "clientPOC": null,
+              "freshnessStatus": "ACTIVE",
+              "projectId": "16546867-bb92-4a14-b291-0c2ba91f7c82",
+              "usedInBriefIds": [
+                "6fbf749f-7173-489c-be0a-564f97ebf8b0#1caae84e-d059-499e-a672-6250187f41fc",
+                "6fbf749f-7173-489c-be0a-564f97ebf8b0#1caae84e-d059-499e-a672-6250187f41fc",
+                "6fbf749f-7173-489c-be0a-564f97ebf8b0#1caae84e-d059-499e-a672-6250187f41fc",
+                "6fbf749f-7173-489c-be0a-564f97ebf8b0#1caae84e-d059-499e-a672-6250187f41fc",
+                "6fbf749f-7173-489c-be0a-564f97ebf8b0#1caae84e-d059-499e-a672-6250187f41fc",
+                "6fbf749f-7173-489c-be0a-564f97ebf8b0#1caae84e-d059-499e-a672-6250187f41fc",
+                "6fbf749f-7173-489c-be0a-564f97ebf8b0#1caae84e-d059-499e-a672-6250187f41fc",
+                "6fbf749f-7173-489c-be0a-564f97ebf8b0#1caae84e-d059-499e-a672-6250187f41fc",
+                "6fbf749f-7173-489c-be0a-564f97ebf8b0#1caae84e-d059-499e-a672-6250187f41fc",
+                "810f5a23-42e4-4355-a2b4-f9ae2cb8e563#adf2abdc-d4bc-49c0-be02-ff4cbf6ab4e8",
+                "810f5a23-42e4-4355-a2b4-f9ae2cb8e563#9534a4db-b8cc-4538-8702-5f2615c6c62d",
+                "d1ae9e89-3992-494f-b76f-d39d23f37640#cf14f9a9-c129-495a-9893-ee61eadd690c",
+                "d1ae9e89-3992-494f-b76f-d39d23f37640#cf14f9a9-c129-495a-9893-ee61eadd690c",
+                "b94c25bb-91da-40a3-b29a-9a64144b01db#146bd550-b5a3-4de6-9f4f-4d515098bfc2",
+                "b94c25bb-91da-40a3-b29a-9a64144b01db#146bd550-b5a3-4de6-9f4f-4d515098bfc2",
+                "959bd413-9679-46c1-80a8-78466a0b52ab#6c992081-756b-421a-8fb2-686ea6c0cc3d",
+                "959bd413-9679-46c1-80a8-78466a0b52ab#6c992081-756b-421a-8fb2-686ea6c0cc3d",
+                "3e8b5099-0c1a-4a78-a5e2-65719b2f7a81#2ce43476-4476-4abf-8eeb-f71495cc2ebc",
+                "012994da-38ca-46f7-8412-d404d3afcddb#80f93cb2-7ecb-49d0-9627-04f31d6d0c6c",
+                "012994da-38ca-46f7-8412-d404d3afcddb#80f93cb2-7ecb-49d0-9627-04f31d6d0c6c",
+                "38e94a22-3181-44bf-a5c3-e7184083789a#90699bec-4077-4284-8e9b-a0a707149a9a",
+                "5282701b-2dcf-485e-84d3-c90ce80c469b#f87974b0-82eb-419d-bc5f-f38471eeb8e5",
+                "5282701b-2dcf-485e-84d3-c90ce80c469b#f87974b0-82eb-419d-bc5f-f38471eeb8e5",
+                "5282701b-2dcf-485e-84d3-c90ce80c469b#f87974b0-82eb-419d-bc5f-f38471eeb8e5"
+              ],
+              "startDate": null
+            },
+            "relevanceScore": 10,
+            "matchedRequirements": [
+              "Provide capability that integrates data from disparate data sources so that insights can be gained from a single query across multiple data sources"
+            ],
+            "narrative": null
+          },
+          {
+            "matchDetails": {
+              "technicalSimilarity": 0,
+              "scaleSimilarity": 0,
+              "domainSimilarity": 40,
+              "recency": 0,
+              "successMetrics": 0
+            },
+            "project": {
+              "durationMonths": null,
+              "naicsCodes": [
+                "541930",
+                "541511"
+              ],
+              "achievements": [
+                "Automated translation of safety manuals from German to multiple languages",
+                "Eliminated manual translation and formatting workflows",
+                "Maintained document formatting integrity across languages"
+              ],
+              "reactivatedAt": null,
+              "endDate": null,
+              "contractType": null,
+              "isArchived": false,
+              "description": "Built an automated transcription and translation system for safety manuals, converting German-language PDF articles into every required country-specific language. The platform ingests PDFs, extracts text, translates content, and regenerates formatted PDF output.",
+              "title": "Multilingual Safety Manual Translation Platform",
+              "staleReason": null,
+              "orgId": "9c0a5757-e2da-4e71-9490-01c558f7ffc3",
+              "setAside": null,
+              "createdAt": "2026-04-08T04:23:22.111Z",
+              "client": "Volkswagen",
+              "value": null,
+              "updatedAt": "2026-04-21T00:46:38.468Z",
+              "technicalApproach": "Used Amazon Textract to extract text from PDF safety manuals. Integrated Amazon Translate for multilingual conversion. Built an automated pipeline to reconvert translated text back into formatted PDF documents.",
+              "partition_key": "PAST_PROJECT",
+              "reactivatedBy": null,
+              "contractNumber": null,
+              "sort_key": "9c0a5757-e2da-4e71-9490-01c558f7ffc3#1b347828-0b24-4d04-ae4e-9934a46eda7c",
+              "staleSince": null,
+              "usageCount": 27,
+              "technologies": [
+                "Amazon Textract",
+                "Amazon Translate",
+                "AWS Lambda",
+                "Amazon S3",
+                "AWS Step Functions"
+              ],
+              "performanceRating": null,
+              "lastFreshnessCheck": null,
+              "createdBy": "bulk-import-script",
+              "lastUsedAt": "2026-04-21T00:46:38.468Z",
+              "teamSize": null,
+              "domain": "Manufacturing / Automotive",
+              "clientPOC": null,
+              "freshnessStatus": "ACTIVE",
+              "projectId": "1b347828-0b24-4d04-ae4e-9934a46eda7c",
+              "usedInBriefIds": [
+                "6fbf749f-7173-489c-be0a-564f97ebf8b0#1caae84e-d059-499e-a672-6250187f41fc",
+                "6fbf749f-7173-489c-be0a-564f97ebf8b0#1caae84e-d059-499e-a672-6250187f41fc",
+                "6fbf749f-7173-489c-be0a-564f97ebf8b0#1caae84e-d059-499e-a672-6250187f41fc",
+                "6fbf749f-7173-489c-be0a-564f97ebf8b0#1caae84e-d059-499e-a672-6250187f41fc",
+                "6fbf749f-7173-489c-be0a-564f97ebf8b0#1caae84e-d059-499e-a672-6250187f41fc",
+                "6fbf749f-7173-489c-be0a-564f97ebf8b0#1caae84e-d059-499e-a672-6250187f41fc",
+                "6fbf749f-7173-489c-be0a-564f97ebf8b0#1caae84e-d059-499e-a672-6250187f41fc",
+                "6fbf749f-7173-489c-be0a-564f97ebf8b0#1caae84e-d059-499e-a672-6250187f41fc",
+                "6fbf749f-7173-489c-be0a-564f97ebf8b0#1caae84e-d059-499e-a672-6250187f41fc",
+                "810f5a23-42e4-4355-a2b4-f9ae2cb8e563#9cf722b3-1b50-4af9-9133-73e7c20c2a9d",
+                "810f5a23-42e4-4355-a2b4-f9ae2cb8e563#c0971acb-8948-4992-96c8-181ebfc4785b",
+                "d1787e4e-170b-4250-8b30-1fa86cf32c97#b5c1e614-adef-4e4f-ad9f-81ed70e80e11",
+                "810f5a23-42e4-4355-a2b4-f9ae2cb8e563#adf2abdc-d4bc-49c0-be02-ff4cbf6ab4e8",
+                "810f5a23-42e4-4355-a2b4-f9ae2cb8e563#9534a4db-b8cc-4538-8702-5f2615c6c62d",
+                "d1ae9e89-3992-494f-b76f-d39d23f37640#cf14f9a9-c129-495a-9893-ee61eadd690c",
+                "d1ae9e89-3992-494f-b76f-d39d23f37640#cf14f9a9-c129-495a-9893-ee61eadd690c",
+                "b94c25bb-91da-40a3-b29a-9a64144b01db#146bd550-b5a3-4de6-9f4f-4d515098bfc2",
+                "b94c25bb-91da-40a3-b29a-9a64144b01db#146bd550-b5a3-4de6-9f4f-4d515098bfc2",
+                "959bd413-9679-46c1-80a8-78466a0b52ab#6c992081-756b-421a-8fb2-686ea6c0cc3d",
+                "959bd413-9679-46c1-80a8-78466a0b52ab#6c992081-756b-421a-8fb2-686ea6c0cc3d",
+                "3e8b5099-0c1a-4a78-a5e2-65719b2f7a81#2ce43476-4476-4abf-8eeb-f71495cc2ebc",
+                "012994da-38ca-46f7-8412-d404d3afcddb#80f93cb2-7ecb-49d0-9627-04f31d6d0c6c",
+                "012994da-38ca-46f7-8412-d404d3afcddb#80f93cb2-7ecb-49d0-9627-04f31d6d0c6c",
+                "38e94a22-3181-44bf-a5c3-e7184083789a#90699bec-4077-4284-8e9b-a0a707149a9a",
+                "5282701b-2dcf-485e-84d3-c90ce80c469b#f87974b0-82eb-419d-bc5f-f38471eeb8e5",
+                "5282701b-2dcf-485e-84d3-c90ce80c469b#f87974b0-82eb-419d-bc5f-f38471eeb8e5",
+                "5282701b-2dcf-485e-84d3-c90ce80c469b#f87974b0-82eb-419d-bc5f-f38471eeb8e5"
+              ],
+              "startDate": null
+            },
+            "relevanceScore": 10,
+            "matchedRequirements": [],
+            "narrative": null
+          }
+        ],
+        "gapAnalysis": {
+          "overallCoverage": 0,
+          "recommendations": [
+            "34 critical gap(s) identified. Consider teaming arrangements or subcontractors with relevant experience.",
+            "Overall past performance coverage is below 70%. This may significantly impact win probability."
+          ],
+          "criticalGaps": [
+            "Provide global origination and destination (OD) data, fare data, service class information, fair share/QSI data, and local and flow data by route and carrier",
+            "Provide global schedule data by airline including historical, current, and future schedule information with flight level granularity: flight number, arrival and departure times, aircraft type, number of seats on aircraft on a market-by-market basis",
+            "Provide current and historical fleet information per airline (fleet database) with capacity and cabin configuration, including seat capacity and cabin class by aircraft and flight",
+            "Provide advanced booking data by market and airline derived from airline industry sources such as airlines, global distribution systems (GDS), or screen scraping providers",
+            "Data should be available going back to at least 2005, and include attribute data for airports and air carriers",
+            "Provide OAG, Innovata or comparable schedule product updates, minimum of weekly",
+            "Provide regular updates as frequently as possible (monthly preferred) to the demand and fare file including updated traffic, fare, load factor, booking, and on-time performance data",
+            "Solution must support a minimum of 10 users with dedicated usernames and passwords",
+            "Provide a functionally robust user interface (UI) enabling analysts to create output by non-directional or directional, marketing carrier, operating carrier, or both, and aggregations by month, year, or quarter",
+            "Users should be able to make custom reports in addition to having access to pre-defined reports for easy and efficient access to information",
+            "Access to the tool, the ability to run it and query the hosted data should be on a 24/7 basis",
+            "Provide bulk data export capability (CSV/TXT formatted files) for ingestion into other tools",
+            "Include Customer Support Services with an online customer support website and/or telephone number",
+            "Solution must be web-based and accessible through a website without requiring software installation on DOT systems",
+            "Provide capability that integrates data from disparate data sources so that insights can be gained from a single query across multiple data sources",
+            "Provide detailed explanation of specific data sources and methodologies employed to collect, process, aggregate, and validate data (per Amendment 00007)",
+            "Provide detailed AI Integration Plans describing the role AI will play, how AI is integrated into back-end and front-end UI/UX, and mechanisms for system transparency and user verification (per Amendment 00007)",
+            "For AI-included offers, describe guardrails (content filters, anti-prompt injection defense, bias mitigation, grounding and fact-checking, operational/action constraints) and AI model management to prevent hallucinated or compromised analysis (per Amendment 00007)",
+            "For AI-included offers, describe methodology for testing AI tool prior to and during deployment (per Amendment 00007)",
+            "Detail exact mechanisms and protocols to ensure overall accuracy of data and any AI-generated outputs or business intelligence reports (per Amendment 00007)",
+            "Comprehensively describe the functionality and capability of the interface demonstrating how the UI supports custom reports, advanced booking evaluations, and market queries (per Amendment 00007)",
+            "Provide modular pricing separating costs of raw data provision from interface and AI tools (per Amendment 00007)",
+            "Provide three days of new user or refresher training for up to 10 users, or three days of advanced user training for up to three users, each year as needed, at DOT offices in Washington DC or virtually via Zoom or Microsoft Teams with 90-day advance notice",
+            "Provide a demonstration of the solution to DOT personnel prior to submitting a proposal; schedule demonstration by 12pm EST on or before March 2, 2026",
+            "Contractor staff shall have a minimum of five (5) years experience gathering, compiling and analyzing data and software, congruent certifications held, and minimum Bachelor's Degree",
+            "Identify Key Personnel who shall be reachable by phone twenty-four hours a day with backup personnel of equal or greater knowledge and experience",
+            "Protect privacy of individuals in accordance with the Privacy Act of 1974 (5 USC 552a) and meet requirements of NIST FIPS 200 Minimum Security Requirements for Federal Information and Information Systems",
+            "Follow requirements in DOT Information Technology and Information Assurance Policy 034 for Reporting Cyber Security Incidents and Sensitive PII Exposures",
+            "All onsite employees will sign Non-disclosure Agreement (Attachment 1)",
+            "Contractor must not provide covered telecommunications equipment or services per FAR 52.204-25 (Section 889 NDAA FY2019)",
+            "Contractor must be registered in SAM with current, accurate, and complete representations and certifications",
+            "Performance must be USA-based and from a US company",
+            "Prior to removing, replacing, or diverting any Key Personnel, Contractor shall notify in writing and receive consent from the Contracting Officer",
+            "Proposal valid for 90 days from date delivered to DOT"
+          ],
+          "coverageItems": [
+            {
+              "matchedProjectTitle": null,
+              "matchScore": null,
+              "recommendation": "No strong past performance match. Consider teaming or subcontracting for: Provide global origination and destination (OD) data, fare data, service class information, fair share/QSI data, and local and flow data by route and carrier",
+              "requirement": "Provide global origination and destination (OD) data, fare data, service class information, fair share/QSI data, and local and flow data by route and carrier",
+              "matchedProjectId": null,
+              "category": "TECHNICAL",
+              "status": "GAP"
+            },
+            {
+              "matchedProjectTitle": null,
+              "matchScore": null,
+              "recommendation": "No strong past performance match. Consider teaming or subcontracting for: Provide global schedule data by airline including historical, current, and future schedule information with flight level granularity: flight number, arrival and departure times, aircraft type, number of seats on aircraft on a market-by-market basis",
+              "requirement": "Provide global schedule data by airline including historical, current, and future schedule information with flight level granularity: flight number, arrival and departure times, aircraft type, number of seats on aircraft on a market-by-market basis",
+              "matchedProjectId": null,
+              "category": "TECHNICAL",
+              "status": "GAP"
+            },
+            {
+              "matchedProjectTitle": null,
+              "matchScore": null,
+              "recommendation": "No strong past performance match. Consider teaming or subcontracting for: Provide current and historical fleet information per airline (fleet database) with capacity and cabin configuration, including seat capacity and cabin class by aircraft and flight",
+              "requirement": "Provide current and historical fleet information per airline (fleet database) with capacity and cabin configuration, including seat capacity and cabin class by aircraft and flight",
+              "matchedProjectId": null,
+              "category": "TECHNICAL",
+              "status": "GAP"
+            },
+            {
+              "matchedProjectTitle": null,
+              "matchScore": null,
+              "recommendation": "No strong past performance match. Consider teaming or subcontracting for: Provide advanced booking data by market and airline derived from airline industry sources such as airlines, global distribution systems (GDS), or screen scraping providers",
+              "requirement": "Provide advanced booking data by market and airline derived from airline industry sources such as airlines, global distribution systems (GDS), or screen scraping providers",
+              "matchedProjectId": null,
+              "category": "TECHNICAL",
+              "status": "GAP"
+            },
+            {
+              "matchedProjectTitle": null,
+              "matchScore": null,
+              "recommendation": "No strong past performance match. Consider teaming or subcontracting for: Data should be available going back to at least 2005, and include attribute data for airports and air carriers",
+              "requirement": "Data should be available going back to at least 2005, and include attribute data for airports and air carriers",
+              "matchedProjectId": null,
+              "category": "TECHNICAL",
+              "status": "GAP"
+            },
+            {
+              "matchedProjectTitle": null,
+              "matchScore": null,
+              "recommendation": "No strong past performance match. Consider teaming or subcontracting for: Provide OAG, Innovata or comparable schedule product updates, minimum of weekly",
+              "requirement": "Provide OAG, Innovata or comparable schedule product updates, minimum of weekly",
+              "matchedProjectId": null,
+              "category": "TECHNICAL",
+              "status": "GAP"
+            },
+            {
+              "matchedProjectTitle": null,
+              "matchScore": null,
+              "recommendation": "No strong past performance match. Consider teaming or subcontracting for: Provide regular updates as frequently as possible (monthly preferred) to the demand and fare file including updated traffic, fare, load factor, booking, and on-time performance data",
+              "requirement": "Provide regular updates as frequently as possible (monthly preferred) to the demand and fare file including updated traffic, fare, load factor, booking, and on-time performance data",
+              "matchedProjectId": null,
+              "category": "TECHNICAL",
+              "status": "GAP"
+            },
+            {
+              "matchedProjectTitle": null,
+              "matchScore": null,
+              "recommendation": "No strong past performance match. Consider teaming or subcontracting for: Solution must support a minimum of 10 users with dedicated usernames and passwords",
+              "requirement": "Solution must support a minimum of 10 users with dedicated usernames and passwords",
+              "matchedProjectId": null,
+              "category": "TECHNICAL",
+              "status": "GAP"
+            },
+            {
+              "matchedProjectTitle": null,
+              "matchScore": null,
+              "recommendation": "No strong past performance match. Consider teaming or subcontracting for: Provide a functionally robust user interface (UI) enabling analysts to create output by non-directional or directional, marketing carrier, operating carrier, or both, and aggregations by month, year, or quarter",
+              "requirement": "Provide a functionally robust user interface (UI) enabling analysts to create output by non-directional or directional, marketing carrier, operating carrier, or both, and aggregations by month, year, or quarter",
+              "matchedProjectId": null,
+              "category": "TECHNICAL",
+              "status": "GAP"
+            },
+            {
+              "matchedProjectTitle": null,
+              "matchScore": null,
+              "recommendation": "No strong past performance match. Consider teaming or subcontracting for: Users should be able to make custom reports in addition to having access to pre-defined reports for easy and efficient access to information",
+              "requirement": "Users should be able to make custom reports in addition to having access to pre-defined reports for easy and efficient access to information",
+              "matchedProjectId": null,
+              "category": "TECHNICAL",
+              "status": "GAP"
+            },
+            {
+              "matchedProjectTitle": null,
+              "matchScore": null,
+              "recommendation": "No strong past performance match. Consider teaming or subcontracting for: Access to the tool, the ability to run it and query the hosted data should be on a 24/7 basis",
+              "requirement": "Access to the tool, the ability to run it and query the hosted data should be on a 24/7 basis",
+              "matchedProjectId": null,
+              "category": "TECHNICAL",
+              "status": "GAP"
+            },
+            {
+              "matchedProjectTitle": null,
+              "matchScore": null,
+              "recommendation": "No strong past performance match. Consider teaming or subcontracting for: Provide bulk data export capability (CSV/TXT formatted files) for ingestion into other tools",
+              "requirement": "Provide bulk data export capability (CSV/TXT formatted files) for ingestion into other tools",
+              "matchedProjectId": null,
+              "category": "TECHNICAL",
+              "status": "GAP"
+            },
+            {
+              "matchedProjectTitle": null,
+              "matchScore": null,
+              "recommendation": "No strong past performance match. Consider teaming or subcontracting for: Include Customer Support Services with an online customer support website and/or telephone number",
+              "requirement": "Include Customer Support Services with an online customer support website and/or telephone number",
+              "matchedProjectId": null,
+              "category": "TECHNICAL",
+              "status": "GAP"
+            },
+            {
+              "matchedProjectTitle": null,
+              "matchScore": null,
+              "recommendation": "No strong past performance match. Consider teaming or subcontracting for: Solution must be web-based and accessible through a website without requiring software installation on DOT systems",
+              "requirement": "Solution must be web-based and accessible through a website without requiring software installation on DOT systems",
+              "matchedProjectId": null,
+              "category": "TECHNICAL",
+              "status": "GAP"
+            },
+            {
+              "matchedProjectTitle": "Multitenant HR Platform with Video Interviewing",
+              "matchScore": 10,
+              "recommendation": "No strong past performance match. Consider teaming or subcontracting for: Provide capability that integrates data from disparate data sources so that insights can be gained from a single query across multiple data sources",
+              "requirement": "Provide capability that integrates data from disparate data sources so that insights can be gained from a single query across multiple data sources",
+              "matchedProjectId": "16546867-bb92-4a14-b291-0c2ba91f7c82",
+              "category": "TECHNICAL",
+              "status": "GAP"
+            },
+            {
+              "matchedProjectTitle": null,
+              "matchScore": null,
+              "recommendation": "No strong past performance match. Consider teaming or subcontracting for: Provide detailed explanation of specific data sources and methodologies employed to collect, process, aggregate, and validate data (per Amendment 00007)",
+              "requirement": "Provide detailed explanation of specific data sources and methodologies employed to collect, process, aggregate, and validate data (per Amendment 00007)",
+              "matchedProjectId": null,
+              "category": "TECHNICAL",
+              "status": "GAP"
+            },
+            {
+              "matchedProjectTitle": null,
+              "matchScore": null,
+              "recommendation": "No strong past performance match. Consider teaming or subcontracting for: Provide detailed AI Integration Plans describing the role AI will play, how AI is integrated into back-end and front-end UI/UX, and mechanisms for system transparency and user verification (per Amendment 00007)",
+              "requirement": "Provide detailed AI Integration Plans describing the role AI will play, how AI is integrated into back-end and front-end UI/UX, and mechanisms for system transparency and user verification (per Amendment 00007)",
+              "matchedProjectId": null,
+              "category": "TECHNICAL",
+              "status": "GAP"
+            },
+            {
+              "matchedProjectTitle": null,
+              "matchScore": null,
+              "recommendation": "No strong past performance match. Consider teaming or subcontracting for: For AI-included offers, describe guardrails (content filters, anti-prompt injection defense, bias mitigation, grounding and fact-checking, operational/action constraints) and AI model management to prevent hallucinated or compromised analysis (per Amendment 00007)",
+              "requirement": "For AI-included offers, describe guardrails (content filters, anti-prompt injection defense, bias mitigation, grounding and fact-checking, operational/action constraints) and AI model management to prevent hallucinated or compromised analysis (per Amendment 00007)",
+              "matchedProjectId": null,
+              "category": "TECHNICAL",
+              "status": "GAP"
+            },
+            {
+              "matchedProjectTitle": null,
+              "matchScore": null,
+              "recommendation": "No strong past performance match. Consider teaming or subcontracting for: For AI-included offers, describe methodology for testing AI tool prior to and during deployment (per Amendment 00007)",
+              "requirement": "For AI-included offers, describe methodology for testing AI tool prior to and during deployment (per Amendment 00007)",
+              "matchedProjectId": null,
+              "category": "TECHNICAL",
+              "status": "GAP"
+            },
+            {
+              "matchedProjectTitle": null,
+              "matchScore": null,
+              "recommendation": "No strong past performance match. Consider teaming or subcontracting for: Detail exact mechanisms and protocols to ensure overall accuracy of data and any AI-generated outputs or business intelligence reports (per Amendment 00007)",
+              "requirement": "Detail exact mechanisms and protocols to ensure overall accuracy of data and any AI-generated outputs or business intelligence reports (per Amendment 00007)",
+              "matchedProjectId": null,
+              "category": "TECHNICAL",
+              "status": "GAP"
+            },
+            {
+              "matchedProjectTitle": null,
+              "matchScore": null,
+              "recommendation": "No strong past performance match. Consider teaming or subcontracting for: Comprehensively describe the functionality and capability of the interface demonstrating how the UI supports custom reports, advanced booking evaluations, and market queries (per Amendment 00007)",
+              "requirement": "Comprehensively describe the functionality and capability of the interface demonstrating how the UI supports custom reports, advanced booking evaluations, and market queries (per Amendment 00007)",
+              "matchedProjectId": null,
+              "category": "TECHNICAL",
+              "status": "GAP"
+            },
+            {
+              "matchedProjectTitle": null,
+              "matchScore": null,
+              "recommendation": "No strong past performance match. Consider teaming or subcontracting for: Provide modular pricing separating costs of raw data provision from interface and AI tools (per Amendment 00007)",
+              "requirement": "Provide modular pricing separating costs of raw data provision from interface and AI tools (per Amendment 00007)",
+              "matchedProjectId": null,
+              "category": "TECHNICAL",
+              "status": "GAP"
+            },
+            {
+              "matchedProjectTitle": null,
+              "matchScore": null,
+              "recommendation": "No strong past performance match. Consider teaming or subcontracting for: Provide three days of new user or refresher training for up to 10 users, or three days of advanced user training for up to three users, each year as needed, at DOT offices in Washington DC or virtually via Zoom or Microsoft Teams with 90-day advance notice",
+              "requirement": "Provide three days of new user or refresher training for up to 10 users, or three days of advanced user training for up to three users, each year as needed, at DOT offices in Washington DC or virtually via Zoom or Microsoft Teams with 90-day advance notice",
+              "matchedProjectId": null,
+              "category": "DELIVERABLES",
+              "status": "GAP"
+            },
+            {
+              "matchedProjectTitle": null,
+              "matchScore": null,
+              "recommendation": "No strong past performance match. Consider teaming or subcontracting for: Provide a demonstration of the solution to DOT personnel prior to submitting a proposal; schedule demonstration by 12pm EST on or before March 2, 2026",
+              "requirement": "Provide a demonstration of the solution to DOT personnel prior to submitting a proposal; schedule demonstration by 12pm EST on or before March 2, 2026",
+              "matchedProjectId": null,
+              "category": "DELIVERABLES",
+              "status": "GAP"
+            },
+            {
+              "matchedProjectTitle": null,
+              "matchScore": null,
+              "recommendation": "No strong past performance match. Consider teaming or subcontracting for: Contractor staff shall have a minimum of five (5) years experience gathering, compiling and analyzing data and software, congruent certifications held, and minimum Bachelor's Degree",
+              "requirement": "Contractor staff shall have a minimum of five (5) years experience gathering, compiling and analyzing data and software, congruent certifications held, and minimum Bachelor's Degree",
+              "matchedProjectId": null,
+              "category": "STAFFING",
+              "status": "GAP"
+            },
+            {
+              "matchedProjectTitle": null,
+              "matchScore": null,
+              "recommendation": "No strong past performance match. Consider teaming or subcontracting for: Identify Key Personnel who shall be reachable by phone twenty-four hours a day with backup personnel of equal or greater knowledge and experience",
+              "requirement": "Identify Key Personnel who shall be reachable by phone twenty-four hours a day with backup personnel of equal or greater knowledge and experience",
+              "matchedProjectId": null,
+              "category": "STAFFING",
+              "status": "GAP"
+            },
+            {
+              "matchedProjectTitle": null,
+              "matchScore": null,
+              "recommendation": "No strong past performance match. Consider teaming or subcontracting for: Protect privacy of individuals in accordance with the Privacy Act of 1974 (5 USC 552a) and meet requirements of NIST FIPS 200 Minimum Security Requirements for Federal Information and Information Systems",
+              "requirement": "Protect privacy of individuals in accordance with the Privacy Act of 1974 (5 USC 552a) and meet requirements of NIST FIPS 200 Minimum Security Requirements for Federal Information and Information Systems",
+              "matchedProjectId": null,
+              "category": "SECURITY",
+              "status": "GAP"
+            },
+            {
+              "matchedProjectTitle": null,
+              "matchScore": null,
+              "recommendation": "No strong past performance match. Consider teaming or subcontracting for: Follow requirements in DOT Information Technology and Information Assurance Policy 034 for Reporting Cyber Security Incidents and Sensitive PII Exposures",
+              "requirement": "Follow requirements in DOT Information Technology and Information Assurance Policy 034 for Reporting Cyber Security Incidents and Sensitive PII Exposures",
+              "matchedProjectId": null,
+              "category": "SECURITY",
+              "status": "GAP"
+            },
+            {
+              "matchedProjectTitle": null,
+              "matchScore": null,
+              "recommendation": "No strong past performance match. Consider teaming or subcontracting for: All onsite employees will sign Non-disclosure Agreement (Attachment 1)",
+              "requirement": "All onsite employees will sign Non-disclosure Agreement (Attachment 1)",
+              "matchedProjectId": null,
+              "category": "SECURITY",
+              "status": "GAP"
+            },
+            {
+              "matchedProjectTitle": null,
+              "matchScore": null,
+              "recommendation": "No strong past performance match. Consider teaming or subcontracting for: Contractor must not provide covered telecommunications equipment or services per FAR 52.204-25 (Section 889 NDAA FY2019)",
+              "requirement": "Contractor must not provide covered telecommunications equipment or services per FAR 52.204-25 (Section 889 NDAA FY2019)",
+              "matchedProjectId": null,
+              "category": "COMPLIANCE",
+              "status": "GAP"
+            },
+            {
+              "matchedProjectTitle": null,
+              "matchScore": null,
+              "recommendation": "No strong past performance match. Consider teaming or subcontracting for: Contractor must be registered in SAM with current, accurate, and complete representations and certifications",
+              "requirement": "Contractor must be registered in SAM with current, accurate, and complete representations and certifications",
+              "matchedProjectId": null,
+              "category": "COMPLIANCE",
+              "status": "GAP"
+            },
+            {
+              "matchedProjectTitle": "Digital Ocean to AWS Migration & Backend Overhaul",
+              "matchScore": 10,
+              "recommendation": "No strong past performance match. Consider teaming or subcontracting for: Performance must be USA-based and from a US company",
+              "requirement": "Performance must be USA-based and from a US company",
+              "matchedProjectId": "0b9fb34d-a4b4-4010-9980-0d3a10c133af",
+              "category": "COMPLIANCE",
+              "status": "GAP"
+            },
+            {
+              "matchedProjectTitle": null,
+              "matchScore": null,
+              "recommendation": "No strong past performance match. Consider teaming or subcontracting for: Prior to removing, replacing, or diverting any Key Personnel, Contractor shall notify in writing and receive consent from the Contracting Officer",
+              "requirement": "Prior to removing, replacing, or diverting any Key Personnel, Contractor shall notify in writing and receive consent from the Contracting Officer",
+              "matchedProjectId": null,
+              "category": "COMPLIANCE",
+              "status": "GAP"
+            },
+            {
+              "matchedProjectTitle": null,
+              "matchScore": null,
+              "recommendation": "No strong past performance match. Consider teaming or subcontracting for: Proposal valid for 90 days from date delivered to DOT",
+              "requirement": "Proposal valid for 90 days from date delivered to DOT",
+              "matchedProjectId": null,
+              "category": "OTHER",
+              "status": "GAP"
+            }
+          ]
+        },
+        "narrativeSummary": "No relevant past performance projects were found matching this opportunity. 5 project(s) were reviewed but none demonstrated meaningful relevance. Consider adding past projects with relevant experience or exploring teaming arrangements. Overall past performance coverage: 0%. 34 critical gap(s) identified that may require teaming or subcontracting.",
+        "confidenceScore": 20,
+        "evidence": []
+      },
+      "inputHash": "c7a6bc7ea4f8f03b1c404d19932dc5f87e16ee631f7ead93917610b895cf0188",
+      "status": "COMPLETE",
+      "updatedAt": "2026-04-21T00:52:18.820Z"
+    },
+    "pricing": {
+      "data": {
+        "competitiveAdvantages": [],
+        "totalPrice": 0,
+        "indirectCostTotal": 0,
+        "basisOfEstimate": "This pricing analysis is based on a formal RFP (693JK426R600002) issued by the U.S. Department of Transportation Office of Aviation Analysis for an Airline Analysis and Scheduling Solution. The prior contract (693JK421C600002) with incumbent Sabre was valued at approximately $640K+ over its term, suggesting an annual value of roughly $128K per year or approximately $640K-$750K over the five-year period of performance (base year plus four option years, May 2026 through April 2031). However, no meaningful cost estimate can be developed for Horus Technology because the company fundamentally cannot perform this work. This is a commercial item acquisition under FAR Part 12 for an existing, commercially available aviation data analytics platform \u2014 not a custom software development project. The required deliverables include comprehensive global aviation datasets (origin-destination demand data, fare data, schedule data, fleet information, advanced booking data, and fair share/QSI data) with historical coverage back to at least 2005, updated weekly for schedules and monthly for demand/fare data. Horus Technology is an AWS consulting partner specializing in document automation and AI/ML solutions; it does not possess, produce, or have access to any aviation industry data. The organization's labor rates (Manufacturing Engineer at $178.89/hr, Software Engineer at $171.40/hr, QA at $16.86/hr) and BOM items are entirely irrelevant to this procurement, which requires licensing of proprietary aviation data products rather than custom development labor. Total price is set to $0 because no credible bid can be constructed. Price confidence is set to 10 (lowest meaningful level) reflecting the complete absence of any basis for a competitive price estimate due to fundamental industry mismatch.",
+        "materialCostTotal": 0,
+        "assumptions": [
+          "The prior contract value of approximately $640K+ represents the total contract value over its full term (likely 5 years based on the same base-plus-four-options structure), implying an annual cost of roughly $128K per year. This assumption is based on the Q&A response in Amendment 00006 and the identical contract structure. Modest price escalation for option years may apply per the Government's Q&A guidance.",
+          "This solicitation requires an existing commercially available product (COTS/commercial item under FAR Part 12), not custom software development. This assumption is confirmed by the solicitation's FAR Part 12 commercial item procedures, the requirement for a pre-proposal demonstration of an existing solution, the incumbent being Sabre (a major commercial aviation data provider), and the Government's Q&A confirmation that the incumbent provides a 'commercially available platform.'",
+          "The competitive field for this procurement is extremely narrow, limited to established aviation data and analytics companies that already possess comprehensive global airline datasets. Likely competitors include Sabre (incumbent), Cirium (formerly Diio Mi), OAG, and potentially one or two other niche aviation analytics providers. This assumption is based on the highly specialized nature of the data requirements and the industry knowledge that only a handful of companies globally compile and maintain such comprehensive aviation datasets.",
+          "Horus Technology's AI/ML capabilities, while potentially relevant to the Amendment 00007 AI integration requirements, are insufficient on their own to constitute a viable offer because the core requirement is the aviation data itself and the analytical platform \u2014 AI integration is an enhancement, not the primary deliverable.",
+          "The evaluation methodology is Best Value with technical factors combined being more important than price, and the Government intends to award without discussions. This means even if Horus Technology could somehow offer a lower price, the technical evaluation (requiring demonstration of an existing aviation data platform, relevant past performance, and comprehensive data capabilities) would be the primary discriminator, further reducing any theoretical competitive advantage."
+        ],
+        "competitivePosition": "HIGH",
+        "laborCostTotal": 0,
+        "profitMargin": 0,
+        "pricingRisks": [
+          "FUNDAMENTAL INDUSTRY MISMATCH: Horus Technology (Interesting Interests Inc.) is an AWS consulting partner specializing in intelligent document automation, cloud-native development, and AI/ML solutions. This solicitation requires a commercially available airline analysis and scheduling solution with comprehensive global aviation origin-destination demand data, fare data, schedule data, fleet databases, advanced booking data, and fair share/QSI data going back to at least 2005. Horus Technology does not possess, produce, or license any such aviation data products. This is not a custom software development opportunity \u2014 it requires an existing, proven commercial aviation data platform with decades of historical data already compiled and continuously updated from airline industry sources (GDS systems, airlines, screen scraping providers). The risk of pursuing this opportunity is near-total: the company cannot meet the core technical requirements.",
+          "INCUMBENT ADVANTAGE AND NICHE MARKET: The incumbent is Sabre, one of the world's largest airline data and technology providers with direct access to GDS transaction data, airline schedules, and booking information. The competitive landscape for this requirement is extremely narrow \u2014 only a handful of companies globally (Sabre, Cirium/Diio, OAG) possess the comprehensive aviation datasets required. Horus Technology would need to either acquire or license all required data from these same providers, which would likely exceed the entire contract value and still not match the incumbent's integrated platform capabilities.",
+          "PRICE REALISM ANALYSIS RISK: Per Section 30 (Part V: Price), the Government will conduct price realism analysis to determine if the offeror's proposed cost reasonably reflects understanding of the requirement. Any price submitted by Horus Technology would either be unrealistically low (lacking the actual data licensing costs) or unrealistically high (attempting to build/license a comparable solution from scratch), either of which would raise serious concerns during evaluation.",
+          "DEMONSTRATION REQUIREMENT BARRIER: Offerors must provide a live demonstration of their solution to DOT personnel prior to proposal submission (scheduled by March 2, 2026). Horus Technology does not have an airline analysis and scheduling solution to demonstrate. This is a mandatory pre-proposal gate that cannot be satisfied, effectively disqualifying the company from competing.",
+          "PAST PERFORMANCE DEFICIENCY: The solicitation requires three recent projects completed within the last five years similar to this effort, with at least eight years of demonstrated experience. Past performance is a formal evaluation factor. Horus Technology has no past performance in aviation data analytics, airline scheduling solutions, or comparable commercial data platform delivery to government agencies. The company's past performance in document automation and cloud development is not relevant to this requirement."
+        ],
+        "recommendedActions": [
+          "NO-BID RECOMMENDATION: Horus Technology should not bid on this solicitation. The requirement is for a commercially available airline analysis and scheduling solution \u2014 a niche product that only a few companies worldwide can provide (Sabre, Cirium/Diio, OAG, and potentially a small number of others). This is fundamentally outside Horus Technology's domain of document automation, cloud-native development, and AI/ML consulting. No amount of proposal effort can overcome the absence of the core product (comprehensive global aviation data platform with 20+ years of historical data).",
+          "MARKET INTELLIGENCE: Monitor this contract award to understand DOT's aviation analytics needs. If DOT eventually seeks AI/ML augmentation, data integration, or cloud modernization services for their aviation analysis capabilities as a separate procurement, Horus Technology's AI/ML and cloud expertise could be relevant. The Amendment 00007 addition of AI integration requirements suggests DOT is interested in AI capabilities, which could create future subcontracting or follow-on opportunities.",
+          "POTENTIAL SUBCONTRACTING EXPLORATION (LOW PROBABILITY): If a prime contractor bidding on this solicitation (such as Cirium or another aviation data provider) needs AI/ML integration capabilities to address the Amendment 00007 requirements for AI integration plans, guardrails, testing methodology, and accuracy assurance, Horus Technology could potentially offer subcontracting support for the AI component only. However, this would need to be initiated immediately given the March 30, 2026 proposal deadline, and the AI component is optional (not a must-have requirement), making this a low-probability path.",
+          "CAPABILITY GAP DOCUMENTATION: Document this solicitation as a reference for understanding federal aviation analytics requirements. If Horus Technology has strategic interest in the transportation sector, this analysis can inform future capability development or partnership strategies with aviation data providers."
+        ],
+        "strategy": "FIXED_PRICE",
+        "priceConfidence": 10
+      },
+      "inputHash": "force-regen-v9",
+      "status": "COMPLETE",
+      "updatedAt": "2026-04-21T01:02:32.131Z"
+    },
+    "requirements": {
+      "data": {
+        "evaluationFactors": [
+          "Technical Capability/Approach/Frequency of Data Updates/Comprehensiveness of Historical Data",
+          "Presentation/Demonstration of Capabilities",
+          "Web-based application",
+          "Past Performance",
+          "Price",
+          "The technical capability factors, presentation/demonstration of capabilities, web-based application, and past performance, combined are more important than the price factor",
+          "Adjectival ratings: Outstanding, Good, Acceptable, Unacceptable (Neutral for Past Performance only)",
+          "Price will be evaluated for price reasonableness only if the offeror receives an overall technical rating of ACCEPTABLE"
+        ],
+        "overview": "The U.S. Department of Transportation (DOT) Office of Aviation Analysis (OAA) is seeking a contractor to provide an Airline Analysis and Scheduling Solution via a web-based application tool under RFP# 693JK426R600002, a recompete of incumbent contract 693JK421C600002 currently held by Sabre. The business need is to provide OAA analysts with comprehensive global airline schedule, airfare, market demand, fleet, and advanced booking data to fulfill statutory responsibilities including analyzing economic impacts of aviation policies, reviewing airline antitrust immunity (ATI) applications, evaluating mergers, supporting route selection proceedings, and conducting ad-hoc aviation industry analyses. Success requires delivering a robust, web-based platform accessible 24/7 for a minimum of 10 users that integrates disparate global aviation data sources into a single user interface enabling custom reporting, market share analysis, fare comparisons, capacity evaluations, and forward-looking booking assessments across domestic, U.S.-international, and foreign-foreign markets with historical data back to at least 2005. The contract is structured as a Firm Fixed Price (FFP) award with one base year and four one-year option periods (approximately May 2026 through April 2031), awarded on a Best Value basis under Full and Open Competition (NAICS 541511, $34M small business size standard). Offerors must provide a live demonstration of their solution to DOT personnel prior to proposal submission, and Amendment 00007 introduced requirements for modular pricing separating data provision from AI/software tools, detailed AI integration plans with guardrails and testing methodology, and expanded UI functionality descriptions. The proposal due date was extended to March 30, 2026, at 10:00 AM EST, and the anticipated award date is approximately May 1, 2026, with a transition period from the incumbent.",
+        "requirements": [
+          {
+            "category": "TECHNICAL",
+            "mustHave": true,
+            "requirement": "Provide global origination and destination (OD) data, fare data, service class information, fair share/QSI data, and local and flow data by route and carrier"
+          },
+          {
+            "category": "TECHNICAL",
+            "mustHave": true,
+            "requirement": "Provide global schedule data by airline including historical, current, and future schedule information with flight level granularity: flight number, arrival and departure times, aircraft type, number of seats on aircraft on a market-by-market basis"
+          },
+          {
+            "category": "TECHNICAL",
+            "mustHave": true,
+            "requirement": "Provide current and historical fleet information per airline (fleet database) with capacity and cabin configuration, including seat capacity and cabin class by aircraft and flight"
+          },
+          {
+            "category": "TECHNICAL",
+            "mustHave": true,
+            "requirement": "Provide advanced booking data by market and airline derived from airline industry sources such as airlines, global distribution systems (GDS), or screen scraping providers"
+          },
+          {
+            "category": "TECHNICAL",
+            "mustHave": true,
+            "requirement": "Data should be available going back to at least 2005 and include attribute data for airports and air carriers"
+          },
+          {
+            "category": "TECHNICAL",
+            "mustHave": true,
+            "requirement": "Provide OAG, Innovata or comparable schedule product updates, minimum of weekly"
+          },
+          {
+            "category": "TECHNICAL",
+            "mustHave": true,
+            "requirement": "Provide regular updates as frequently as possible (monthly preferred) to the demand and fare file including updated traffic, fare, load factor, booking, and on-time performance data"
+          },
+          {
+            "category": "TECHNICAL",
+            "mustHave": true,
+            "requirement": "Solution must support a minimum of 10 users with dedicated usernames and passwords"
+          },
+          {
+            "category": "TECHNICAL",
+            "mustHave": true,
+            "requirement": "Provide a functionally robust user interface (UI) enabling analysts to create output by non-directional or directional, marketing carrier, operating carrier, or both, and aggregations by month, year, or quarter"
+          },
+          {
+            "category": "TECHNICAL",
+            "mustHave": true,
+            "requirement": "Users should be able to make custom reports in addition to having access to pre-defined reports for easy and efficient access to information"
+          },
+          {
+            "category": "TECHNICAL",
+            "mustHave": true,
+            "requirement": "Access to the tool, the ability to run it and query the hosted data should be on a 24/7 basis"
+          },
+          {
+            "category": "TECHNICAL",
+            "mustHave": true,
+            "requirement": "Provide bulk data export capability in CSV/TXT format for ingestion into other analytical tools"
+          },
+          {
+            "category": "TECHNICAL",
+            "mustHave": true,
+            "requirement": "Solution must be web-based and accessible through a website without requiring software installation on DOT systems"
+          },
+          {
+            "category": "TECHNICAL",
+            "mustHave": true,
+            "requirement": "Include Customer Support Services with an online customer support website and/or telephone number"
+          },
+          {
+            "category": "TECHNICAL",
+            "mustHave": true,
+            "requirement": "Provide three days of new user or refresher training for up to 10 users, or three days of advanced user training for up to three users, each year as needed, at DOT offices in Washington DC or virtually via Zoom or Microsoft Teams"
+          },
+          {
+            "category": "TECHNICAL",
+            "mustHave": true,
+            "requirement": "Training scheduling requires a minimum of 90-day notice and training dates must be mutually agreed upon"
+          },
+          {
+            "category": "TECHNICAL",
+            "mustHave": true,
+            "requirement": "Provide comprehensive explanation of specific data sources used to acquire all required data elements and detail methodologies employed to collect, process, aggregate, and validate data (Amendment 00007)"
+          },
+          {
+            "category": "TECHNICAL",
+            "mustHave": false,
+            "requirement": "Provide detailed AI integration plans clarifying the precise role AI will play within the system, including back-end infrastructure and front-end UI/UX integration, and mechanisms for system transparency allowing end-users to verify AI accuracy (Amendment 00007)"
+          },
+          {
+            "category": "TECHNICAL",
+            "mustHave": false,
+            "requirement": "For AI-included offers, describe guardrails (content filters, anti-prompt injection defense, bias mitigation, grounding and fact-checking, operational/action constraints) and AI model management to prevent hallucinated or compromised analysis (Amendment 00007)"
+          },
+          {
+            "category": "TECHNICAL",
+            "mustHave": false,
+            "requirement": "Describe methodology for testing of AI tool prior to and during deployment (Amendment 00007)"
+          },
+          {
+            "category": "TECHNICAL",
+            "mustHave": true,
+            "requirement": "Detail exact mechanisms and protocols used to ensure overall accuracy of data and any AI-generated outputs or business intelligence reports (Amendment 00007)"
+          },
+          {
+            "category": "TECHNICAL",
+            "mustHave": true,
+            "requirement": "Comprehensively describe the functionality and capability of the interface demonstrating how the UI will support DOT analysts in executing custom reports, advanced booking evaluations, and market queries (Amendment 00007)"
+          },
+          {
+            "category": "TECHNICAL",
+            "mustHave": true,
+            "requirement": "Provide data representing comparable as-flown/purchased data including airline direct channel purchases as well as via GDS and intermediaries to understand the full demand at market/carrier level of detail"
+          },
+          {
+            "category": "TECHNICAL",
+            "mustHave": true,
+            "requirement": "Capability to integrate data from disparate data sources so that insights can be gained from data on a single query that reaches across multiple data sources"
+          },
+          {
+            "category": "TECHNICAL",
+            "mustHave": true,
+            "requirement": "Provide forward-looking schedule data up to 12 months of future planned capacity"
+          },
+          {
+            "category": "COMPLIANCE",
+            "mustHave": true,
+            "requirement": "Offeror must provide a demonstration of the solution to DOT personnel prior to submitting a proposal; demonstration must be scheduled by 12pm EST on or before March 2, 2026"
+          },
+          {
+            "category": "COMPLIANCE",
+            "mustHave": true,
+            "requirement": "Performance must be USA-based and from a US company"
+          },
+          {
+            "category": "COMPLIANCE",
+            "mustHave": true,
+            "requirement": "All onsite employees will sign Non-disclosure Agreement"
+          },
+          {
+            "category": "COMPLIANCE",
+            "mustHave": true,
+            "requirement": "Protect privacy of individuals in accordance with the Privacy Act of 1974 (5 USC 552) and meet requirements of NIST FIPS 200 Minimum Security Requirements for Federal Information and Information Systems"
+          },
+          {
+            "category": "COMPLIANCE",
+            "mustHave": true,
+            "requirement": "Follow requirements in DOT Information Technology and Information Assurance Policy 034 for Reporting Cyber Security Incidents and Sensitive PII Exposures"
+          },
+          {
+            "category": "COMPLIANCE",
+            "mustHave": true,
+            "requirement": "Contractor must be registered in SAM with current, accurate, and complete representations and certifications"
+          },
+          {
+            "category": "COMPLIANCE",
+            "mustHave": true,
+            "requirement": "Proposal valid for at least 90 calendar days from date of delivery"
+          },
+          {
+            "category": "COMPLIANCE",
+            "mustHave": true,
+            "requirement": "Prohibition on Contracting for Certain Telecommunications and Video Surveillance Services or Equipment per FAR 52.204-25"
+          },
+          {
+            "category": "STAFFING",
+            "mustHave": true,
+            "requirement": "Contractor staff shall have a minimum of five (5) years experience gathering, compiling and analyzing data and software, congruent certifications held and minimum Bachelor's Degree"
+          },
+          {
+            "category": "STAFFING",
+            "mustHave": true,
+            "requirement": "Key personnel must be identified and reachable by phone 24 hours a day; substitution requires prior written consent of the Contracting Officer"
+          },
+          {
+            "category": "DELIVERABLES",
+            "mustHave": true,
+            "requirement": "Provide modular pricing separating costs of raw data provision from interface and AI tools (Amendment 00007)"
+          },
+          {
+            "category": "OTHER",
+            "mustHave": true,
+            "requirement": "Firm Fixed Price contract structure with one base year and four one-year option periods; modest price escalation for option years may be included"
+          }
+        ],
+        "submissionCompliance": {
+          "format": [
+            "Volume I shall be presented in 11-point font or larger",
+            "Page dimensions no greater than 8.5 inches by 11 inches",
+            "Footnotes, legends, or labels associated with tables or diagrams may be in smaller font if fully legible",
+            "Resumes must be in 11-point font or larger",
+            "Submit via email to Melinda.Riddick@dot.gov with cc to Robin.Golden@dot.gov",
+            "Reference RFP: 693JK426R600002 (Airline Analysis and Scheduling Solution Application) in subject line",
+            "Technical and Price proposals shall be submitted in two separate volumes",
+            "Cover page and table of contents excluded from page count per Amendment 00007",
+            "Abbreviations and references pages may be added and are excluded from page count"
+          ],
+          "attachmentsAndForms": [
+            "FAR 52.212-3 Offeror Representations and Certifications - Commercial Items (completed electronically in SAM or submitted with proposal)",
+            "Non-Disclosure Agreement (Attachment 1)",
+            "Pricing table template per Section 1 Contract Pricing",
+            "Acknowledgment of Solicitation Amendments",
+            "SF 1449 or statement specifying extent of agreement with all terms and conditions"
+          ],
+          "requiredDocuments": [
+            {
+              "name": "Part I: Technical Capacity/Approach/Frequency of Data Updates/Comprehensiveness of Historical Data",
+              "description": "Technical approach, methods and procedures for satisfying requirements, corporate knowledge and experience, data sources and methodology, AI integration plans, guardrails, accuracy assurance, and quality procedures. Must address all key SOW areas including global OD data, schedule data, fleet information, advanced booking data, historical data, and data update frequency.",
+              "pageLimit": "75 pages (Excluding Resumes, Table of Contents, and Descriptions per Amendment 00007)",
+              "documentType": "TECHNICAL_PROPOSAL",
+              "required": true
+            },
+            {
+              "name": "Part II: Presentation/Demonstration of Capabilities",
+              "description": "Live demonstration of the solution to DOT personnel showing capabilities and understanding of SOW requirements. Must be scheduled by 12pm EST on or before March 2, 2026. Duration 30-60 minutes via MS Teams or Zoom. Three specific use case scenarios provided by DOT (U.S.-Italy market analysis, U.S.-Italy capacity analysis, U.S.-France gateway analysis).",
+              "pageLimit": "No page limit",
+              "documentType": "OTHER",
+              "required": true
+            },
+            {
+              "name": "Part III: Web-based Application",
+              "description": "Description of the web-based solution demonstrating accessibility through a website for at least 10 users with dedicated usernames and passwords. Must describe interface functionality, custom reports, advanced booking evaluations, and market query capabilities per Amendment 00007.",
+              "pageLimit": "3 pages for each project",
+              "documentType": "OTHER",
+              "required": true
+            },
+            {
+              "name": "Part IV: Past Performance",
+              "description": "List of 3 recent projects completed within last 5 years similar to this effort. Minimum 2 projects completed by Prime and at least 1 by Subcontractor. Must demonstrate at least 8 years of experience. Include contract numbers, customer contact information, project descriptions, team member identities, contract values, period of performance, and any terminations for default or convenience within past 3 years.",
+              "pageLimit": "Not specified",
+              "documentType": "PAST_PERFORMANCE",
+              "required": true
+            },
+            {
+              "name": "Volume II: Cost/Price Proposal (Part V)",
+              "description": "Pricing schedule based on pricing table template. Must include modular pricing separating raw data provision costs from interface and AI tools per Amendment 00007. Include RFP number, project title, POC information, TIN, UEI, NAICS code, PSC code, and validity period of at least 90 calendar days.",
+              "pageLimit": "Not specified",
+              "documentType": "COST_PROPOSAL",
+              "required": true
+            },
+            {
+              "name": "FAR 52.212-3 Offeror Representations and Certifications",
+              "description": "Completed representations and certifications either electronically in SAM or paragraphs (c) through (v) submitted with proposal",
+              "documentType": "CERTIFICATIONS",
+              "required": true
+            }
+          ],
+          "requiredVolumes": [
+            "Volume I - Technical Proposal (Parts I through IV)",
+            "Volume II - Cost/Price Proposal (Part V)"
+          ]
+        },
+        "deliverables": [
+          "Software application and maintenance (Target: April 30, 2026)",
+          "Provider travel training - only if needed (Target: April 30, 2026)",
+          "Global OD data, fare data, service class information, fair share/QSI data, local and flow data by route and carrier",
+          "Global schedule data with flight level granularity updated minimum weekly",
+          "Current and historical fleet information per airline",
+          "Advanced booking data by market and airline",
+          "Regular data updates including traffic, fare, load factor, booking, and on-time performance data",
+          "Customer Support Services including online support website and/or telephone number",
+          "Annual user training (3 days for up to 10 users or 3 days advanced training for up to 3 users)"
+        ]
+      },
+      "inputHash": "force-regen-v9",
+      "status": "COMPLETE",
+      "updatedAt": "2026-04-21T01:05:12.972Z"
+    },
+    "risks": {
+      "data": {
+        "redFlags": [
+          {
+            "severity": "CRITICAL",
+            "whyItMatters": "In Amendment 00006 Q&A, DOT explicitly confirmed that 'No revisions were made to the SOW' from the current contract with Sabre. This means the incumbent's existing commercially available platform already satisfies every technical requirement in the solicitation without modification. Combined with DOT's statement that the only identified gap is 'Access to Fleet data, other than that nothing new in particular,' this indicates the government is largely satisfied with the current solution. Any competing offeror must not only match the incumbent's proven capabilities across all data categories (global OD, fare, schedule, fleet, advanced booking, historical back to 2005) but must also demonstrate superior value to justify switching providers\u2014a high bar given the transition risks and the government's expressed satisfaction. The lack of SOW changes suggests this recompete may be primarily a contractual obligation rather than a genuine search for a new solution.",
+            "mitigation": "The executive sponsor must make a candid assessment of whether HORUSTECH can offer a demonstrably superior solution to Sabre's existing platform, particularly in fleet data coverage (the one identified gap) and AI-enhanced analytics (the new Amendment 00007 addition). The BD team should conduct competitive intelligence research within 3 business days to identify specific weaknesses in Sabre's current offering that could be exploited, and determine whether the company's solution offers measurable advantages in data freshness, coverage breadth, analytical capabilities, or pricing that would justify the government accepting transition risk.",
+            "flag": "SOW unchanged from current contract confirms the incumbent's solution already meets all requirements.",
+            "impactsScore": true
+          },
+          {
+            "severity": "HIGH",
+            "whyItMatters": "The Q&A in Amendment 00006 confirms there will be a transition period from the incumbent prior to May 1, 2026, but also states that 'historical data migration from the incumbent system' is not expected. The base period starts May 1, 2026 per Section 8 (Period of Performance), meaning the new contractor must have a fully operational platform delivering all required data feeds within approximately one month of the anticipated April 1 award date. For the incumbent Sabre, this transition is trivial\u2014they simply continue providing their existing service. For any new entrant, standing up a comprehensive global aviation data platform with 24/7 access, 10 user accounts, weekly schedule updates, and monthly demand/fare updates within 30 days of award represents an enormous operational challenge. The lack of data migration requirement further suggests DOT expects continuity of the existing platform rather than a new solution.",
+            "mitigation": "If proceeding with a bid, the technical team must develop a detailed transition plan demonstrating the company can deliver a fully operational solution by May 1, 2026, including all data feeds, user provisioning, and 24/7 access. The operations lead should prepare a risk mitigation strategy showing pre-award readiness activities (data licensing agreements, platform configuration, user account setup) that can be completed before contract start. The proposal should explicitly address how the 30-day transition will be managed without service disruption to OAA analysts.",
+            "flag": "Transition period from incumbent starts May 1, 2026 with no data migration required\u2014favors continuity with Sabre.",
+            "impactsScore": true
+          },
+          {
+            "severity": "HIGH",
+            "whyItMatters": "Per Amendment 00006 Q&A, the anticipated award date is April 1, 2026, and Section 8 specifies the base period begins May 1, 2026. This 30-day window between award and performance start is extremely challenging for any non-incumbent contractor to establish a fully operational global aviation data analytics platform. The solution requires integration of multiple data sources (GDS data, airline schedules from OAG/Innovata, fleet databases, advanced booking data), configuration of a web-based UI for 10 users with custom reporting capabilities, establishment of 24/7 access and customer support, and verification of historical data coverage back to 2005. For Sabre, which is already providing this exact service, the transition is seamless. This timeline effectively creates a structural barrier to entry for competitors who would need significantly more time to deploy a comparable solution.",
+            "mitigation": "The program manager should develop a pre-award mobilization plan that assumes contract award and begins parallel-path preparation activities (data licensing negotiations, platform staging, user interface customization) at the company's own risk prior to award. The proposal should include a detailed 30-day transition timeline with specific milestones, responsible parties, and contingency plans. If the company cannot credibly demonstrate readiness to deliver by May 1, 2026, this should be weighted heavily in the no-bid decision.",
+            "flag": "Award anticipated April 1, 2026 with base period starting May 1, 2026 creates an unrealistically tight transition for non-incumbents.",
+            "impactsScore": false
+          }
+        ],
+        "risks": [
+          {
+            "severity": "CRITICAL",
+            "whyItMatters": "Amendment 00006 Q&A explicitly confirms this is a recompete with Sabre as the incumbent on contract 693JK421C600002, valued at approximately $640K+. The Q&A further confirms the SOW has not been revised from the current contract, meaning Sabre's existing solution already meets all requirements without modification. DOT also confirmed the incumbent provides a 'commercially available platform,' indicating Sabre's existing product (likely Sabre Market Intelligence or similar) is already deployed and operational. The anticipated award date of April 1, 2026\u2014only 2 days after proposals are due on March 30\u2014suggests an extremely compressed evaluation timeline that may favor the incumbent whose capabilities are already well-known to the evaluation team. Any challenger must not only match Sabre's comprehensive global aviation data coverage but also demonstrate superior value in a context where the government has expressed satisfaction with the current solution (noting only fleet data access as a gap).",
+            "mitigation": "The capture team lead must immediately assess whether the company possesses or can license comprehensive global aviation data (OD, fare, schedule, fleet, advanced booking) comparable to Sabre's offerings, and make a bid/no-bid decision within 5 business days. If proceeding, the business development team should identify and emphasize specific differentiators such as superior fleet data coverage (the one gap DOT identified), AI-enhanced analytics capabilities, more frequent data updates, or better pricing to overcome the incumbent's inherent advantage in familiarity and proven performance.",
+            "flag": "Strong incumbent advantage with Sabre holding the current contract and providing a commercially available platform.",
+            "impactsScore": true
+          },
+          {
+            "severity": "CRITICAL",
+            "whyItMatters": "The SOW in Section 3 (Description/Technical Approach) requires global origination-and-destination data, fare data by service class, fair share/QSI data, advanced booking data derived from GDS or airline sources, fleet databases with cabin configurations, and historical data back to at least 2005\u2014all accessible through a single web-based platform. This combination of requirements effectively limits the competitive field to a handful of companies worldwide that possess or can aggregate such comprehensive aviation industry data (e.g., Sabre, Cirium, OAG, IATA). A company without existing access to GDS transaction data, airline-reported statistics, or equivalent proprietary aviation datasets cannot feasibly build or acquire this capability within the contract timeline. The requirement for data going back to 2005 further narrows the field to established providers with long-standing data collection infrastructure.",
+            "mitigation": "The executive team must conduct an immediate market assessment to determine whether HORUSTECH has existing partnerships, data licensing agreements, or proprietary access to global aviation data sources (GDS providers, airline direct feeds, OAG/Innovata schedule data) that would satisfy the SOW requirements. If the company lacks these data assets, the VP of Business Development should evaluate potential teaming arrangements with established aviation data providers within 3 business days, recognizing that without such partnerships this opportunity is not viable.",
+            "flag": "Niche market requirement for comprehensive global aviation data limits competition to very few providers.",
+            "impactsScore": true
+          },
+          {
+            "severity": "HIGH",
+            "whyItMatters": "The solicitation explicitly states that 'Offeror must provide a demonstration of the solution made available to DOT personnel prior to submitting a proposal' and that demonstrations must be scheduled by 12pm EST on or before March 2, 2026. The Q&A in Amendment 00006 confirms DOT will not extend this deadline. The demonstration 'shall constitute a decisional criterial for selection of the contract award by the selection team' per Section 3 and Part II of the evaluation criteria. This means any offeror that misses the scheduling deadline is effectively disqualified from competition. Furthermore, the demonstration must showcase a working solution\u2014not a concept or prototype\u2014which requires having an operational platform ready to present. For companies without an existing aviation analytics platform, preparing a credible demonstration within this timeframe is extremely challenging.",
+            "mitigation": "The proposal manager must immediately verify whether the March 2, 2026 demonstration scheduling deadline has already passed and whether HORUSTECH has already scheduled or conducted a demonstration. If the deadline has passed without scheduling, this opportunity should be classified as no-bid. If still viable, the technical team lead must prepare a demonstration environment showcasing the company's aviation data platform capabilities, focusing on the three specific use case scenarios DOT provided (U.S.-Italy market analysis, U.S.-Italy capacity analysis, U.S.-France gateway analysis) at least one week before the scheduled demo date.",
+            "flag": "Mandatory pre-proposal demonstration with a hard scheduling deadline of March 2, 2026 that DOT will not extend.",
+            "impactsScore": true
+          },
+          {
+            "severity": "HIGH",
+            "whyItMatters": "Amendment 00006 Q&A states the anticipated award decision date is April 1, 2026, while proposals are due March 30, 2026\u2014a gap of only 2 calendar days (one business day). This extraordinarily compressed timeline raises significant concerns about whether the evaluation can meaningfully consider new offerors' proposals, or whether the award decision may be substantially pre-determined. Even accounting for the possibility that demonstrations conducted in early-to-mid March provide advance evaluation input, a 1-2 business day turnaround for final evaluation, source selection documentation, and award notification is unprecedented for a best-value procurement with multiple evaluation factors and adjectival ratings. This timeline strongly suggests the government may already have a preferred solution in mind, further reinforcing the incumbent advantage.",
+            "mitigation": "The contracts manager should document this compressed timeline as a significant competitive intelligence indicator and factor it into the bid/no-bid decision. If proceeding, the proposal team should submit a formal inquiry to the Contracting Officer (Melinda Riddick) asking whether the April 1 date was stated in error or whether DOT intends to conduct pre-award evaluation activities concurrent with the proposal period. The capture manager should also prepare a pre-award protest strategy if the company believes the timeline indicates a predetermined outcome.",
+            "flag": "Extremely compressed evaluation timeline\u2014anticipated award only 2 days after proposal due date.",
+            "impactsScore": true
+          },
+          {
+            "severity": "MEDIUM",
+            "whyItMatters": "Part IV (Past Performance) in Section 30 requires offerors to demonstrate 'at least 8 years of experience' and provide 3 recent projects completed within the last 5 years, with a minimum of 2 projects completed by the Prime and at least 1 by the Subcontractor. The solicitation further specifies that all three projects must be 'completed in the area of U.S. government technical assistance and capacity building in an international context.' For companies without an established track record in aviation data analytics or similar government contracts, meeting these past performance thresholds presents a significant barrier. A 'neutral' rating for lack of past performance, while not disqualifying, places the offeror at a disadvantage against the incumbent who will receive a favorable past performance rating based on the current contract.",
+            "mitigation": "The proposal coordinator should immediately compile all relevant past performance references from HORUSTECH's contract history, focusing on any government contracts involving data analytics, web-based application delivery, aviation industry work, or international data services. If the company lacks sufficient prime contract experience, the BD team should identify potential teaming partners with strong aviation data past performance within 5 business days and structure the team so that subcontractor past performance can satisfy the third project requirement.",
+            "flag": "Past performance requirements demand 8 years of experience and 3 recent projects with specific prime/subcontractor splits.",
+            "impactsScore": true
+          },
+          {
+            "severity": "MEDIUM",
+            "whyItMatters": "Amendment 00007 expanded the page limit from 60 to 75 pages and simultaneously added substantial new requirements including modular procurement framework for AI and data integration, detailed AI integration plans with guardrails and testing methodology, comprehensive data source explanations, and expanded UI functionality descriptions. The technical proposal must address all key SOW areas (global OD data, schedule data, fleet information, advanced booking data, historical data coverage, data update frequency) while also incorporating the new AI/modular requirements per Amendment 00007. This represents a significant compliance burden requiring deep technical writing expertise in aviation data analytics, AI/ML systems, and web application architecture. The proposal must demonstrate understanding across multiple specialized domains within a structured format.",
+            "mitigation": "The proposal manager should assign dedicated technical writers to each major section immediately, with subject matter experts for aviation data (Part I), AI integration (Amendment 00007 requirements), and web application architecture (Part III). A detailed compliance matrix mapping every SOW requirement and Amendment 00007 addition to specific proposal sections should be completed by the proposal team within 3 days of the bid decision, with a first draft target of at least 10 days before the March 30 deadline to allow for adequate review cycles.",
+            "flag": "Technical proposal page limit increased to 75 pages requiring comprehensive coverage of data sources, AI integration, and modular pricing.",
+            "impactsScore": true
+          }
+        ],
+        "incumbentInfo": {
+          "knownIncumbent": true,
+          "recompete": true,
+          "notes": "Amendment 00006 Q&A explicitly states 'This is a recompete. The Incumbent is Sabre.' The prior contract number is 693JK421C600002 with an approximate value of $640K+. DOT confirmed the SOW is unchanged from the current contract, the incumbent provides a commercially available platform, and the only identified gap is access to fleet data. The contract has not yet expired and a final CPARS rating will occur after it ends.",
+          "incumbentName": "Sabre"
+        }
+      },
+      "inputHash": "force-regen-v9",
+      "status": "COMPLETE",
+      "updatedAt": "2026-04-21T01:06:51.730Z"
+    },
+    "scoring": {
+      "data": {
+        "confidenceExplanation": "Confidence is 95% because the data is comprehensive and unambiguous: complete solicitation text, detailed pricing analysis, past performance matching, and company KB all consistently confirm a fundamental industry mismatch. The only uncertainty is whether some undocumented teaming arrangement could theoretically exist, but even that would not overcome the expired deadlines.",
+        "requiredActions": [
+          "Formally document NO_GO decision and close this opportunity",
+          "Monitor DOT OAA for future AI/ML or cloud infrastructure subcontracting opportunities that align with HORUSTECH's capabilities",
+          "Consider exploratory outreach to aviation data companies (Cirium, OAG) for potential future subcontracting partnerships on AI integration work",
+          "Document lessons learned about opportunity screening criteria to avoid evaluating fundamentally mismatched solicitations"
+        ],
+        "decision": "NO_GO",
+        "criteria": [
+          {
+            "name": "TECHNICAL_FIT",
+            "score": 1,
+            "rationale": "HORUSTECH is an AWS Advanced Consulting Partner specializing in intelligent document automation, cloud-native development, and AI/ML solutions. This solicitation requires a commercially available airline analysis and scheduling data platform with proprietary global origin-destination demand data, fare data, schedule data, fleet databases, advanced booking data, and fair share/QSI data going back to at least 2005. These are proprietary aviation industry datasets that only a handful of companies worldwide (Sabre, Cirium, OAG) possess. HORUSTECH has zero aviation data products, zero airline scheduling capabilities, and zero proprietary aviation datasets. The KB confirms the company builds serverless document processing pipelines and web applications on AWS \u2014 none of which address the core requirement of providing licensed commercial aviation data. This is a fundamental industry mismatch: the solicitation is effectively a data product licensing contract, not a custom software development engagement.",
+            "gaps": [
+              "No proprietary global OD demand data, fare data, or airline schedule data",
+              "No fleet database or advanced booking data from GDS/airline sources",
+              "No fair share/QSI modeling capability",
+              "No historical aviation data going back to 2005",
+              "No commercially available airline analysis platform to demonstrate by March 2, 2026",
+              "No OAG, Innovata, or comparable schedule product for weekly updates",
+              "No aviation domain expertise or staff with 5+ years airline data analysis experience",
+              "Cannot meet mandatory pre-proposal demonstration requirement with an existing product"
+            ]
+          },
+          {
+            "name": "PAST_PERFORMANCE_RELEVANCE",
+            "score": 1,
+            "rationale": "No relevant past performance projects were found matching this opportunity. The past performance analysis returned 0% overall coverage with 34 critical gaps identified. The top 5 matched projects (AWS migration, crypto trading platform, web application on Amplify, HR platform, translation platform) all scored a relevance of only 10 out of 100, matching only on the generic 'USA-based company' compliance requirement. None of these projects involve aviation data, airline scheduling, commercial data product licensing, or government aviation analysis. The solicitation requires 3 recent projects in the last 5 years similar to this effort, with at least 8 years of demonstrated experience in this domain. HORUSTECH has zero aviation industry past performance and would receive at best a 'Neutral' rating, placing it at a severe disadvantage against incumbent Sabre's established track record with DOT OAA.",
+            "gaps": [
+              "Zero past performance in aviation data analytics or airline scheduling solutions",
+              "Zero government aviation analysis contracts",
+              "Cannot demonstrate 8 years of experience in airline data solutions as required",
+              "No projects involving proprietary aviation datasets (OD data, fare data, fleet data)",
+              "No past performance with DOT or aviation regulatory agencies"
+            ]
+          },
+          {
+            "name": "PRICING_POSITION",
+            "score": 1,
+            "rationale": "The pricing analysis explicitly concludes that HORUSTECH cannot meaningfully price this solicitation due to a fundamental industry mismatch. The total price is set to $0 with a price confidence of only 12 out of 100. The prior contract with incumbent Sabre was valued at approximately $640K. HORUSTECH does not possess the proprietary aviation datasets required \u2014 acquiring or licensing all underlying aviation data from third parties would cost far more than the contract value. As a Firm Fixed Price contract, HORUSTECH would bear catastrophic financial risk. The pricing analysis identifies 5 critical pricing risks including 100% non-performance risk, incumbent advantage, extremely limited competitive field, price realism failure, and FFP contract risk. HORUSTECH's labor rates and BOM items are entirely irrelevant to this data product licensing procurement.",
+            "gaps": [
+              "No commercial aviation data product to price",
+              "Cannot compete on price against companies that own the required proprietary data",
+              "FFP contract structure creates catastrophic financial exposure for a company without existing data assets",
+              "Would fail government price realism analysis"
+            ]
+          },
+          {
+            "name": "STRATEGIC_ALIGNMENT",
+            "score": 1,
+            "rationale": "HORUSTECH is a California-based AWS Advanced Consulting Partner specializing in intelligent document automation, cloud-native development, and AI/ML solutions. There is no documented strategic plan, growth target, or market expansion goal related to the aviation data analytics industry. The company's KB and organizational context show no indication of intent to enter the commercial aviation data market. This solicitation requires ownership of or access to proprietary global aviation datasets \u2014 a completely different business model from HORUSTECH's custom software development and cloud consulting services. Pursuing this opportunity would waste significant proposal development resources on an unwinnable bid with zero strategic return. The only tangential connection is the NAICS code 541511, but the actual work is data product licensing, not custom programming.",
+            "gaps": [
+              "No documented strategic interest in aviation data analytics market",
+              "Fundamental business model mismatch \u2014 data product licensing vs. custom software development",
+              "No teaming arrangements with aviation data providers documented",
+              "Pursuing this would divert resources from winnable opportunities in HORUSTECH's core competencies"
+            ]
+          },
+          {
+            "name": "INCUMBENT_RISK",
+            "score": 1,
+            "rationale": "This is a confirmed recompete with Sabre as the named incumbent (contract 693JK421C600002, value ~$640K+). The Q&A in Amendment 00006 explicitly confirms Sabre is the incumbent and that the SOW has not been revised from the current contract, meaning requirements are tailored to the incumbent's existing solution. DOT confirmed the only gap is 'Access to Fleet data' and is otherwise satisfied with Sabre's commercially available platform. Sabre is one of only 2-3 companies globally that possess the required proprietary airline data assets. The incumbent has established relationships with DOT OAA analysts, years of performance history, and a proven solution already in use. This represents maximum incumbent advantage \u2014 effectively a wired deal for Sabre or one of the very few competitors (Cirium, OAG) that own comparable aviation data assets.",
+            "gaps": [
+              "Sabre is named incumbent with established DOT OAA relationships",
+              "SOW unchanged from current contract \u2014 tailored to incumbent's solution",
+              "DOT satisfied with incumbent except for fleet data gap",
+              "Only 2-3 companies globally can compete (Sabre, Cirium, OAG)",
+              "HORUSTECH is not among the companies that possess required proprietary data"
+            ]
+          }
+        ],
+        "summaryJustification": "This is a clear NO_GO decision. HORUSTECH is an AWS cloud consulting and document automation company being evaluated against a solicitation that requires a commercially available airline analysis and scheduling data platform with proprietary global aviation datasets. The company has zero aviation industry capabilities, zero relevant past performance (0% coverage with 34 critical gaps), and cannot price the work (price confidence of 12%). The proposal deadline of March 30, 2026 has already passed (today is April 21, 2026), and the mandatory demonstration scheduling deadline of March 2, 2026 has also passed. The incumbent Sabre has a near-insurmountable advantage as one of only 2-3 companies globally that possess the required proprietary aviation data assets. Every scoring dimension received the lowest possible score of 1, reflecting a fundamental industry mismatch that cannot be overcome through teaming, hiring, or any other mitigation strategy within the constraints of this procurement.",
+        "confidence": 95,
+        "blockers": [
+          "Submission deadline has passed (March 30, 2026 \u2014 today is April 21, 2026)",
+          "Mandatory demonstration scheduling deadline has passed (March 2, 2026)",
+          "HORUSTECH does not possess proprietary global aviation datasets required by the SOW",
+          "No commercially available airline analysis and scheduling platform exists within the company",
+          "Fundamental industry mismatch \u2014 company is a cloud/AI consulting firm, not an aviation data provider"
+        ],
+        "decisionRationale": "All five scoring criteria received the minimum score of 1, yielding a composite score of 1.0 \u2014 well below the 2.0 threshold for even a CONDITIONAL_GO. TECHNICAL_FIT is 1 because HORUSTECH has no aviation data products, no proprietary datasets, and no airline scheduling platform. PAST_PERFORMANCE_RELEVANCE is 1 because zero relevant projects were found (0% coverage). PRICING_POSITION is 1 because the pricing analysis concluded the company cannot meaningfully price this work (confidence 12%). STRATEGIC_ALIGNMENT is 1 because there is no documented strategic interest in aviation data markets. INCUMBENT_RISK is 1 because Sabre is the named incumbent with a tailored SOW and near-total market advantage. Additionally, the submission deadline of March 30, 2026 has already passed, and the mandatory demonstration deadline of March 2, 2026 has also passed, making it impossible to submit a compliant proposal. This opportunity should be immediately declined to preserve resources for opportunities aligned with HORUSTECH's actual capabilities.",
+        "compositeScore": 1,
+        "confidenceDrivers": [
+          {
+            "factor": "Complete solicitation text with Q&A confirms this is a proprietary aviation data product procurement",
+            "direction": "UP"
+          },
+          {
+            "factor": "Pricing analysis explicitly concludes 100% non-performance risk with price confidence of 12%",
+            "direction": "UP"
+          },
+          {
+            "factor": "Past performance analysis shows 0% coverage with 34 critical gaps",
+            "direction": "UP"
+          },
+          {
+            "factor": "Both submission deadline and demonstration deadline have already passed",
+            "direction": "UP"
+          },
+          {
+            "factor": "Company KB confirms AWS/cloud/document automation focus with zero aviation capabilities",
+            "direction": "UP"
+          }
+        ]
+      },
+      "error": "Error: All fields should be ready before calling scoring. Missing: requirements",
+      "inputHash": "force-regen-v9",
+      "status": "FAILED",
+      "updatedAt": "2026-04-21T01:02:27.507Z"
+    },
+    "summary": {
+      "data": {
+        "summary": "The U.S. Department of Transportation Office of Aviation Analysis (OAA) is seeking a contractor to provide an Airline Analysis and Scheduling Solution via a web-based application that delivers global airline schedule, airfare, and market demand data to support the agency's statutory responsibilities in analyzing domestic and international aviation policies, reviewing airline economic transactions, and supporting route selection proceedings. The solution must provide global origin-and-destination data, fare and service class information, fair share/QSI data, historical and current fleet information with cabin configurations, advanced booking data derived from airline industry sources such as GDS providers, and schedule data with flight-level granularity including flight numbers, aircraft types, and seat counts on a market-by-market basis, with historical data going back to at least 2005. The platform must support a minimum of 10 concurrent users with dedicated credentials, offer 24/7 access, provide bulk data export capabilities, weekly schedule updates, monthly demand and fare file updates, and include customer support services along with up to three days of annual user training at DOT offices in Washington, DC or virtually. This is a recompete of an existing contract held by Sabre, structured as a Firm Fixed Price award under full and open competition with a best value evaluation methodology, consisting of a one-year base period and four one-year option periods spanning approximately May 2026 through April 2031. The procurement is critical to OAA's mission-essential functions including evaluating Antitrust Immunity applications between U.S. and foreign carriers under 49 U.S.C. 41309, supporting DOJ-led merger analyses, conducting carrier selection decisions for slot-constrained airports, and providing ad-hoc aviation industry analyses to senior decision makers up to the Secretary of Transportation. DOT has also incorporated a Modular Procurement Framework for AI and data integration, and is open to AI-assisted analytics, predictive modeling, and enhanced visualization capabilities beyond the minimum SOW requirements, with offerors required to provide a live demonstration of their solution as a decisional criterion for award selection.",
+        "periodOfPerformance": "Base year + 4 one-year option years (May 1, 2026 through April 30, 2031)",
+        "agency": "Department of Transportation",
+        "contractType": "FIXED_PRICE",
+        "office": "Office of the Senior Procurement Executive",
+        "title": "Airline Analysis and Scheduling Solution via a Web-based Application",
+        "naics": "541511",
+        "placeOfPerformance": "DOT Headquarters, 1200 New Jersey Avenue S.E., Washington, DC",
+        "solicitationNumber": "693JK426R600002",
+        "setAside": "NONE"
+      },
+      "inputHash": "force-regen-v9",
+      "status": "COMPLETE",
+      "updatedAt": "2026-04-21T01:01:32.381Z"
+    }
+  }
+}

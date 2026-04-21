@@ -1,0 +1,326 @@
+{
+  "evaluationFactors": [
+    "Section 1: Response to Project Goals and Scope: 10%",
+    "Section 2: Proposed Strategy and Technical Approach: 25%",
+    "Section 3: Integration, Scalability, and Future Module Compatibility Narrative: 5%",
+    "Section 4: Firm Information, Qualifications, and References: 10%",
+    "Attachment A: Software Abilities and Requirements: 30%",
+    "Attachment B: Pricing Proposal: 20%"
+  ],
+  "overview": "The Sites Project Authority (Sites Authority), a California joint exercise of powers authority governing the Sites Reservoir Project, is issuing RFP No. 26-01 to solicit comprehensive proposals for the acquisition and implementation of a cloud-based accounting and financial enterprise resource planning (ERP) software system, including complete support for initial implementation and ongoing services. The Authority currently uses QuickBooks Desktop Premier 2024 and seeks a streamlined software package that captures financial transactions systematically, supports budgeting and forecasting, generates reports for informed decision-making, maintains auditable records, and provides dedicated technical support during implementation and throughout the contract term. Success is defined by a fully operational cloud-based ERP system with core modules (Accounts Payable, Accounts Receivable, Bank Reconciliation, Budget Management, Cash Management, Fixed Assets, General Ledger, Project Accounting, Purchasing, and General & Technical capabilities) going live by January 1, 2027, with the system serving as the Authority's core financial system of record over a long-term horizon that scales to support construction and operations phases. The initial contract term is one year with up to two optional five-year extensions (maximum eleven years total), proposals must not exceed 40 pages, pricing must remain firm for at least three years with subsequent annual increases limited to CPI-U or 3% (whichever is less), and proposals are due April 1, 2026 at 2:00 PM PT via PlanetBids. The Authority anticipates 5-10 ERP users, 10-20 workflow approvers, and 50-100 vendors in 2026, with significant growth expected as the project transitions from planning to final design, construction, and long-term operations of a 1.5 million acre-foot off-stream surface water storage reservoir.",
+  "requirements": [
+    {
+      "category": "TECHNICAL",
+      "mustHave": true,
+      "requirement": "Propose an integrated cloud-based ERP solution fulfilling all Core ERP scope items: Accounts Payable, Accounts Receivable, Bank Reconciliation, Budget Management, Cash Management, Fixed Assets, General Ledger, Project Accounting, Purchasing, and General & Technical"
+    },
+    {
+      "category": "TECHNICAL",
+      "mustHave": true,
+      "requirement": "Solution must include software, implementation services, training, project management, and other necessary technology services, either through bidder's own products or in partnership with third-party providers"
+    },
+    {
+      "category": "TECHNICAL",
+      "mustHave": true,
+      "requirement": "Import prior one completed fiscal year of transactions, year-end balances, and current fiscal year-to-date transactions from QuickBooks Desktop Premier 2024"
+    },
+    {
+      "category": "TECHNICAL",
+      "mustHave": true,
+      "requirement": "Provide a Chart of Accounts Mapping showing how ERP codes align with legacy codes"
+    },
+    {
+      "category": "TECHNICAL",
+      "mustHave": true,
+      "requirement": "Provide a Configuration Workbook that documents system settings"
+    },
+    {
+      "category": "TECHNICAL",
+      "mustHave": true,
+      "requirement": "Provide a Testing and Acceptance Plan"
+    },
+    {
+      "category": "TECHNICAL",
+      "mustHave": true,
+      "requirement": "Configure software to meet Sites Authority's requirements and assist with financial report writing"
+    },
+    {
+      "category": "TECHNICAL",
+      "mustHave": true,
+      "requirement": "Recommend account structure for auditable reporting and understand auditing and reporting requirements"
+    },
+    {
+      "category": "TECHNICAL",
+      "mustHave": true,
+      "requirement": "Provide ongoing cloud hosting services with automated updates and software change communications"
+    },
+    {
+      "category": "TECHNICAL",
+      "mustHave": true,
+      "requirement": "Provide help desk support including remote support and on-call assistance, with on-site support available as needed"
+    },
+    {
+      "category": "TECHNICAL",
+      "mustHave": true,
+      "requirement": "Solution must be modular, extensible, and capable of supporting project delivery through construction and operations phases"
+    },
+    {
+      "category": "TECHNICAL",
+      "mustHave": true,
+      "requirement": "Target go-live date of January 1, 2027; provide proposed high-level timeline and task sequence demonstrating alignment with this objective"
+    },
+    {
+      "category": "TECHNICAL",
+      "mustHave": true,
+      "requirement": "Reduce downtime and operational impacts during transition, including implementation-phase support during cutover, go-live, and initial stabilization"
+    },
+    {
+      "category": "TECHNICAL",
+      "mustHave": true,
+      "requirement": "Weekly meetings for progress, budget, and timeline monitoring during implementation"
+    },
+    {
+      "category": "TECHNICAL",
+      "mustHave": true,
+      "requirement": "Personnel management plan with dedicated project manager and technical staff"
+    },
+    {
+      "category": "TECHNICAL",
+      "mustHave": true,
+      "requirement": "Provide at least one recorded training session and electronic training materials for all staff, with role-appropriate and additional training available during implementation and stabilization"
+    },
+    {
+      "category": "TECHNICAL",
+      "mustHave": true,
+      "requirement": "Personalized training and manuals for power users"
+    },
+    {
+      "category": "TECHNICAL",
+      "mustHave": true,
+      "requirement": "Support for first 12 months post-implementation"
+    },
+    {
+      "category": "SECURITY",
+      "mustHave": true,
+      "requirement": "Provide documentation demonstrating measures in place for protecting financial data in the SaaS environment and secure access controls implemented (Attachment G)"
+    },
+    {
+      "category": "COMPLIANCE",
+      "mustHave": true,
+      "requirement": "All data entered into the ERP system shall remain the sole property of the Sites Authority; provide full non-proprietary data exports upon request and upon contract termination at no additional cost"
+    },
+    {
+      "category": "COMPLIANCE",
+      "mustHave": true,
+      "requirement": "Pricing for software and services actually purchased must remain firm for at least three years from contract execution, with increases limited to annual CPI-U adjustment or 3%, whichever is less"
+    },
+    {
+      "category": "COMPLIANCE",
+      "mustHave": true,
+      "requirement": "Proposals must be offered for a term not less than 180 calendar days; may not be modified, withdrawn, or canceled during this period"
+    },
+    {
+      "category": "COMPLIANCE",
+      "mustHave": true,
+      "requirement": "Honor proposed software licensing pricing for optional modules not initially purchased for up to five years from date of proposal submission"
+    },
+    {
+      "category": "COMPLIANCE",
+      "mustHave": true,
+      "requirement": "Provide proof of insurance including workers compensation and commercial general liability (Attachment F)"
+    },
+    {
+      "category": "COMPLIANCE",
+      "mustHave": true,
+      "requirement": "Provide certification of financial condition (Attachment E)"
+    },
+    {
+      "category": "COMPLIANCE",
+      "mustHave": true,
+      "requirement": "Disclose location of workers and identify any use of workers or resources located outside of the United States (Attachment D)"
+    },
+    {
+      "category": "COMPLIANCE",
+      "mustHave": true,
+      "requirement": "Provide minimum of three references for whom similar services have been performed (Attachment C)"
+    },
+    {
+      "category": "COMPLIANCE",
+      "mustHave": true,
+      "requirement": "Submit proposed contract agreement for software and services including clauses covering optional scope (Attachment H)"
+    },
+    {
+      "category": "COMPLIANCE",
+      "mustHave": true,
+      "requirement": "All pricing must be provided in U.S. dollars with clear rationale and basis of calculation for all fees"
+    },
+    {
+      "category": "COMPLIANCE",
+      "mustHave": true,
+      "requirement": "Pricing shall be on a per-unit basis and shall not assume minimum or maximum purchase quantities unless explicitly requested"
+    },
+    {
+      "category": "DELIVERABLES",
+      "mustHave": true,
+      "requirement": "Complete and submit Attachment A - Software Abilities and Requirements Excel workbook"
+    },
+    {
+      "category": "DELIVERABLES",
+      "mustHave": true,
+      "requirement": "Complete and submit Attachment B - Pricing Proposal Excel workbook as a separate file"
+    },
+    {
+      "category": "STAFFING",
+      "mustHave": true,
+      "requirement": "Identify key personnel anticipated to support implementation and ongoing services"
+    },
+    {
+      "category": "STAFFING",
+      "mustHave": true,
+      "requirement": "Provide summary of qualifications and relevant experience for key personnel and any proposed subcontractors"
+    },
+    {
+      "category": "OTHER",
+      "mustHave": false,
+      "requirement": "Describe availability of solution demonstration resources (e.g., recorded demonstrations, sandbox environments, or trial access)"
+    },
+    {
+      "category": "OTHER",
+      "mustHave": false,
+      "requirement": "Provide descriptive and pricing information for optional ERP modules (e.g., capital asset maintenance management, debt management, human resources management, payroll, timekeeping, inventory tracking)"
+    },
+    {
+      "category": "OTHER",
+      "mustHave": false,
+      "requirement": "Describe firm's approach to participation by small businesses and businesses owned by minorities, women, or disabled persons, as applicable"
+    }
+  ],
+  "submissionCompliance": {
+    "format": [
+      "Electronic proposals in Adobe Acrobat or Microsoft Word format",
+      "Proposals shall not exceed 40 pages including transmittal letter and any appendices",
+      "Submitted electronically via PlanetBids",
+      "Attachment B - Pricing Proposal must be submitted as a separate file",
+      "Attachment A - Software Abilities and Requirements must be submitted as a completed Excel workbook"
+    ],
+    "attachmentsAndForms": [
+      "Attachment A: Software Abilities and Requirements (Excel workbook)",
+      "Attachment B: Pricing Proposal (Excel workbook)",
+      "Attachment C: References Sheet",
+      "Attachment D: Location of Workers Utilized by Respondent",
+      "Attachment E: Certification of Financial Condition",
+      "Attachment F: Certificate of Insurance",
+      "Attachment G: Software Application Requirements",
+      "Attachment H: Proposed Contract Agreement"
+    ],
+    "requiredDocuments": [
+      {
+        "name": "Transmittal Letter",
+        "description": "Not to exceed two pages, signed by authorized representative, summarizing key points and providing contact information",
+        "pageLimit": "2 pages",
+        "documentType": "COVER_LETTER",
+        "required": true
+      },
+      {
+        "name": "Section 1: Response to Project Goals and Scope",
+        "description": "Address approach to meeting proposal goals and producing requested deliverables outlined in Sections 5 and 6, including license types, third-party vendors, and demonstration resources",
+        "documentType": "UNDERSTANDING_OF_REQUIREMENTS",
+        "required": true
+      },
+      {
+        "name": "Section 2: Proposed Strategy and Technical Approach",
+        "description": "Proposed implementation approach and high-level timeline targeting January 1, 2027 go-live, project governance, support levels, key personnel, training approach, and client engagement model",
+        "documentType": "TECHNICAL_PROPOSAL",
+        "required": true
+      },
+      {
+        "name": "Section 3: Integration, Scalability, and Future Module Compatibility Narrative",
+        "description": "Narrative describing how the ERP platform supports expansion to additional modules and integration with third-party systems, including APIs, examples of integrations, and data consistency across modules",
+        "documentType": "TECHNICAL_PROPOSAL",
+        "required": true
+      },
+      {
+        "name": "Section 4: Firm Information, Qualifications, and References",
+        "description": "Organization information, firm qualifications and experience implementing accounting/financial software for public agencies, and key personnel experience summaries",
+        "documentType": "TEAM_QUALIFICATIONS",
+        "required": true
+      },
+      {
+        "name": "Attachment A: Software Abilities and Requirements",
+        "description": "Completed Excel workbook documenting software abilities and requirements compliance",
+        "documentType": "COMPLIANCE_MATRIX",
+        "required": true
+      },
+      {
+        "name": "Attachment B: Pricing Proposal",
+        "description": "Completed Excel workbook with firm fixed costs for software, implementation, and ongoing services, submitted as a separate file with per-unit pricing",
+        "documentType": "COST_PROPOSAL",
+        "required": true
+      },
+      {
+        "name": "Attachment C: References",
+        "description": "Minimum of three references for whom similar services have been performed, including client name, scope, performance dates, and valid contact information",
+        "documentType": "PAST_PERFORMANCE",
+        "required": true
+      },
+      {
+        "name": "Attachment D: Location of Workers Utilized by Respondent",
+        "description": "Identification of all work locations and disclosure of any use of workers or resources located outside the United States",
+        "documentType": "OTHER",
+        "required": true
+      },
+      {
+        "name": "Attachment E: Certification of Financial Condition",
+        "description": "Certification regarding current financial condition signed by authorized representative",
+        "documentType": "CERTIFICATIONS",
+        "required": true
+      },
+      {
+        "name": "Attachment F: Certificate of Insurance",
+        "description": "Proof of insurance including workers compensation and commercial general liability",
+        "documentType": "CERTIFICATIONS",
+        "required": true
+      },
+      {
+        "name": "Attachment G: Software Application Requirements",
+        "description": "Documentation demonstrating measures for protecting financial data in SaaS environment and secure access controls implemented",
+        "documentType": "OTHER",
+        "required": true
+      },
+      {
+        "name": "Attachment H: Proposed Contract Agreement",
+        "description": "Respondent's proposed contract agreement for software and services including clauses covering optional scope, non-exclusivity, change-order controls, and pricing validity",
+        "documentType": "OTHER",
+        "required": true
+      }
+    ],
+    "requiredVolumes": [
+      "Transmittal Letter (not to exceed two pages)",
+      "Section 1: Response to Project Goals and Scope",
+      "Section 2: Proposed Strategy and Technical Approach",
+      "Section 3: Integration, Scalability, and Future Module Compatibility Narrative",
+      "Section 4: Firm Information, Qualifications, and References (including Sections 4.1, 4.2, 4.3)",
+      "Attachment A: Software Abilities and Requirements",
+      "Attachment B: Pricing Proposal",
+      "Attachment C: References",
+      "Attachment D: Location of Workers Utilized by Respondent",
+      "Attachment E: Certification of Financial Condition",
+      "Attachment F: Certificate of Insurance",
+      "Attachment G: Software Application Requirements",
+      "Attachment H: Proposed Contract Agreement"
+    ]
+  },
+  "deliverables": [
+    "Approach & Project Management Plan including Chart of Accounts Mapping and Testing and Acceptance Plan",
+    "Configuration Workbook documenting system settings",
+    "Software Installation & Implementation including data migration from QuickBooks Desktop Premier 2024",
+    "Financial report writing assistance",
+    "Staff Training including personalized training and manuals for power users, at least one recorded training session, and electronic training materials",
+    "Post-implementation support for first 12 months",
+    "Ongoing cloud hosting services",
+    "Automated updates and software change communications",
+    "Help desk support including remote, on-call, and on-site support as needed",
+    "Chart of Accounts Mapping showing ERP codes aligned with legacy codes",
+    "Testing and Acceptance Plan"
+  ]
+}

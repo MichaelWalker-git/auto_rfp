@@ -129,26 +129,26 @@ export function RFPDocumentUploadDialog({ open, onOpenChange, projectId, orgId, 
 
   return (
     <Dialog open={open} onOpenChange={(v) => { if (!v) resetForm(); onOpenChange(v); }}>
-      <DialogContent className="sm:max-w-lg">
-        <DialogHeader>
+      <DialogContent className="sm:max-w-lg max-w-[calc(100vw-2rem)]">
+        <DialogHeader className="min-w-0">
           <DialogTitle>Upload RFP Document</DialogTitle>
           <DialogDescription>Upload a document developed during the RFP process. It will be automatically synced to Linear.</DialogDescription>
         </DialogHeader>
-        <div className="space-y-4 py-2">
+        <div className="space-y-4 py-2 min-w-0">
           <div
-            className="border-2 border-dashed rounded-lg p-6 text-center cursor-pointer hover:border-primary/50 transition-colors"
+            className="border-2 border-dashed rounded-lg p-6 text-center cursor-pointer hover:border-primary/50 transition-colors min-w-0"
             onClick={() => fileInputRef.current?.click()}
             onDragOver={(e) => e.preventDefault()}
             onDrop={handleDrop}
           >
             {file ? (
-              <div className="flex items-center justify-center gap-3">
-                <FileUp className="h-8 w-8 text-primary" />
-                <div className="text-left">
-                  <p className="font-medium text-sm">{file.name}</p>
+              <div className="flex items-center gap-3 min-w-0">
+                <FileUp className="h-8 w-8 text-primary shrink-0" />
+                <div className="text-left min-w-0 flex-1 overflow-hidden">
+                  <p className="font-medium text-sm truncate" title={file.name}>{file.name}</p>
                   <p className="text-xs text-muted-foreground">{(file.size / 1024 / 1024).toFixed(2)} MB</p>
                 </div>
-                <Button variant="ghost" size="icon" className="h-6 w-6" onClick={(e) => { e.stopPropagation(); setFile(null); }}>
+                <Button variant="ghost" size="icon" className="h-6 w-6 shrink-0" onClick={(e) => { e.stopPropagation(); setFile(null); }}>
                   <X className="h-4 w-4" />
                 </Button>
               </div>
@@ -161,9 +161,9 @@ export function RFPDocumentUploadDialog({ open, onOpenChange, projectId, orgId, 
             )}
             <input ref={fileInputRef} type="file" className="hidden" accept={ALLOWED_TYPES.join(',')} onChange={handleFileSelect} />
           </div>
-          <div className="space-y-1.5">
+          <div className="space-y-1.5 min-w-0">
             <Label htmlFor="doc-name">Document Name *</Label>
-            <Input id="doc-name" value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g., Technical Proposal v2" disabled={isBusy} />
+            <Input id="doc-name" value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g., Technical Proposal v2" disabled={isBusy} className="w-full" />
           </div>
           <div className="space-y-1.5">
             <Label>Document Type</Label>

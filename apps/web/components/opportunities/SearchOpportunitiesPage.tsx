@@ -1,7 +1,7 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { useRouter, usePathname } from 'next/navigation';
+import { useState, useEffect, useCallback, useRef } from 'react';
+import { useRouter, usePathname, useSearchParams } from 'next/navigation';
 import { useToast } from '@/components/ui/use-toast';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
@@ -18,7 +18,8 @@ import { AlertCircle, Bookmark, Key, Layers, Loader2, Search, Settings, ChevronD
 import Link from 'next/link';
 
 import { PageHeader } from '@/components/layout/page-header';
-import { SearchOpportunityForm } from './SearchOpportunityForm';
+import { SearchOpportunityForm, type FormValues } from './SearchOpportunityForm';
+import { buildImportBody } from './build-import-body';
 import { SearchOpportunityResultsTable } from './SearchOpportunityResultsTable';
 import { SavedSearchList } from '@/components/organizations/SavedSearchList';
 import { useSearchOpportunities, PAGE_SIZE_OPTIONS } from '@/lib/hooks/use-search-opportunities';
@@ -30,36 +31,118 @@ import type { SearchOpportunityCriteria } from '@/lib/hooks/use-search-opportuni
 import type { SavedSearch } from '@auto-rfp/core';
 import type { DuplicateInfo } from '@/lib/hooks/use-import-solicitation';
 import { DuplicateSolicitationDialog } from '@/components/samgov/duplicate-solicitation-dialog';
+import { HigherGovFavoritesBanner } from './HigherGovFavoritesBanner';
 
 interface Props {
   orgId: string;
 }
 
+// ─── URL ↔ criteria serialization ──────────────────────────────────────────
+
+const criteriaToParams = (c: SearchOpportunityCriteria): URLSearchParams => {
+  const p = new URLSearchParams();
+  if (c.keywords)            p.set('q', c.keywords);
+  if (c.sources?.length)     p.set('source', c.sources[0]);
+  if (c.naics?.length)       p.set('naics', c.naics.join(','));
+  if (c.setAsideCode)        p.set('setAside', c.setAsideCode);
+  if (c.postedFrom)          p.set('from', c.postedFrom);
+  if (c.postedTo)            p.set('to', c.postedTo);
+  if (c.closingFrom)         p.set('closingFrom', c.closingFrom);
+  if (c.closingTo)           p.set('closingTo', c.closingTo);
+  if (c.higherGovSourceType) p.set('hgSource', c.higherGovSourceType);
+  if (c.limit && c.limit !== 25) p.set('limit', String(c.limit));
+  return p;
+};
+
+const paramsToFormValues = (p: URLSearchParams): Partial<FormValues> | null => {
+  if (!p.has('q') && !p.has('source') && !p.has('naics') && !p.has('setAside') && !p.has('from')) return null;
+  const parseDate = (s: string | null) => s ? new Date(s) : undefined;
+  return {
+    keywords: p.get('q') ?? '',
+    source: (p.get('source') as FormValues['source']) ?? 'all',
+    naics: p.get('naics')?.split(',').filter(Boolean) ?? [],
+    setAsideCode: p.get('setAside') ?? '',
+    postedFrom: parseDate(p.get('from')),
+    postedTo: parseDate(p.get('to')),
+    closingFrom: parseDate(p.get('closingFrom')),
+    closingTo: parseDate(p.get('closingTo')),
+    higherGovSourceType: (p.get('hgSource') ?? '') as FormValues['higherGovSourceType'],
+  };
+};
+
+const paramsToCriteria = (p: URLSearchParams): SearchOpportunityCriteria | null => {
+  if (!p.has('q') && !p.has('source') && !p.has('naics') && !p.has('setAside') && !p.has('from')) return null;
+  const source = p.get('source') as 'SAM_GOV' | 'DIBBS' | 'HIGHER_GOV' | null;
+  return {
+    keywords:            p.get('q') ?? undefined,
+    sources:             source ? [source] : undefined,
+    naics:               p.get('naics')?.split(',').filter(Boolean) ?? undefined,
+    setAsideCode:        p.get('setAside') ?? undefined,
+    postedFrom:          p.get('from') ?? undefined,
+    postedTo:            p.get('to') ?? undefined,
+    closingFrom:         p.get('closingFrom') ?? undefined,
+    closingTo:           p.get('closingTo') ?? undefined,
+    higherGovSourceType: p.get('hgSource') ?? undefined,
+    limit:               p.has('limit') ? Number(p.get('limit')) : 25,
+  };
+};
+
+// ─── Component ──────────────────────────────────────────────────────────────
+
 export default function SearchOpportunitiesPage({ orgId }: Props) {
   const { toast } = useToast();
   const router = useRouter();
   const pathname = usePathname();
+  const searchParams = useSearchParams();
   const { result, isLoading, isLoadingMore, hasMore, search, loadMore } = useSearchOpportunities(orgId);
   const { projects } = useProjectContext();
   const [importingId, setImportingId] = useState<string | null>(null);
   const [selectedProjectId, setSelectedProjectId] = useState<string>('');
   const [hasSearched, setHasSearched] = useState(false);
   const [activeTab, setActiveTab] = useState<'search' | 'saved'>('search');
-  const [pageSize, setPageSize] = useState<PageSizeOption>(25);
+  const [pageSize, setPageSize] = useState<PageSizeOption>(() => {
+    const fromUrl = searchParams.get('limit');
+    return fromUrl ? (Number(fromUrl) as PageSizeOption) : 25;
+  });
   const [lastCriteriaRef, setLastCriteriaRef] = useState<SearchOpportunityCriteria | null>(null);
   const [duplicateInfo, setDuplicateInfo] = useState<DuplicateInfo | null>(null);
   const [duplicateDialogOpen, setDuplicateDialogOpen] = useState(false);
   const [pendingImportBody, setPendingImportBody] = useState<Record<string, unknown> | null>(null);
 
+  // Parse initial form values from URL
+  const initialFormValues = useRef(paramsToFormValues(searchParams));
+
   const effectiveProjectId = selectedProjectId || projects?.[0]?.id;
+
+  // Sync criteria to URL search params (replace, not push)
+  const syncToUrl = useCallback((criteria: SearchOpportunityCriteria) => {
+    const params = criteriaToParams(criteria);
+    const qs = params.toString();
+    router.replace(`${pathname}${qs ? `?${qs}` : ''}`, { scroll: false });
+  }, [router, pathname]);
 
   const handleSearch = async (criteria: SearchOpportunityCriteria) => {
     setHasSearched(true);
     setActiveTab('search');
     const withPageSize = { ...criteria, limit: pageSize };
     setLastCriteriaRef(withPageSize);
+    syncToUrl(withPageSize);
     await search(withPageSize);
   };
+
+  // Auto-search on mount if URL has search params
+  const didAutoSearch = useRef(false);
+  useEffect(() => {
+    if (didAutoSearch.current) return;
+    const criteria = paramsToCriteria(searchParams);
+    if (criteria) {
+      didAutoSearch.current = true;
+      const withPageSize = { ...criteria, limit: pageSize };
+      setLastCriteriaRef(withPageSize);
+      setHasSearched(true);
+      search(withPageSize);
+    }
+  }, [searchParams, pageSize, search]);
 
   const handlePageSizeChange = async (val: string) => {
     const newSize = Number(val) as PageSizeOption;
@@ -67,6 +150,7 @@ export default function SearchOpportunitiesPage({ orgId }: Props) {
     if (lastCriteriaRef) {
       const updated = { ...lastCriteriaRef, limit: newSize };
       setLastCriteriaRef(updated);
+      syncToUrl(updated);
       await search(updated);
     }
   };
@@ -116,25 +200,7 @@ export default function SearchOpportunitiesPage({ orgId }: Props) {
 
     setImportingId(id);
     try {
-      const body = opp.source === 'SAM_GOV'
-        ? {
-            source: 'SAM_GOV',
-            orgId,
-            projectId: effectiveProjectId,
-            noticeId: opp.noticeId ?? id,
-            postedFrom: opp.postedDate
-              ? formatMMDDYYYY(new Date(opp.postedDate))
-              : formatMMDDYYYY(new Date(Date.now() - 30 * 86_400_000)),
-            postedTo: formatMMDDYYYY(new Date()),
-          }
-        : {
-            source: 'DIBBS',
-            orgId,
-            projectId: effectiveProjectId,
-            solicitationNumber: opp.solicitationNumber ?? id,
-          };
-
-      await doImportRequest(body);
+      await doImportRequest(buildImportBody(opp, orgId, effectiveProjectId));
     } catch (e: unknown) {
       toast({
         title: 'Import failed',
@@ -164,6 +230,7 @@ export default function SearchOpportunitiesPage({ orgId }: Props) {
   const [apiKeyStatus, setApiKeyStatus] = useState<{
     SAM_GOV: boolean;
     DIBBS: boolean;
+    HIGHER_GOV: boolean;
   } | null>(null);
 
   useEffect(() => {
@@ -172,25 +239,44 @@ export default function SearchOpportunitiesPage({ orgId }: Props) {
       .then(async (res) => {
         if (!res.ok) return;
         const data = await res.json() as {
-          sources?: { SAM_GOV?: { configured?: boolean }; DIBBS?: { configured?: boolean } };
+          sources?: { SAM_GOV?: { configured?: boolean }; DIBBS?: { configured?: boolean }; HIGHER_GOV?: { configured?: boolean } };
         };
         setApiKeyStatus({
-          SAM_GOV: !!data.sources?.SAM_GOV?.configured,
-          DIBBS:   !!data.sources?.DIBBS?.configured,
+          SAM_GOV:    !!data.sources?.SAM_GOV?.configured,
+          DIBBS:      !!data.sources?.DIBBS?.configured,
+          HIGHER_GOV: !!data.sources?.HIGHER_GOV?.configured,
         });
       })
       .catch(() => {/* silently fail */});
   }, [orgId]);
 
-  const noneConfigured = apiKeyStatus && !apiKeyStatus.SAM_GOV && !apiKeyStatus.DIBBS;
-  const partiallyConfigured = apiKeyStatus && (apiKeyStatus.SAM_GOV || apiKeyStatus.DIBBS) && !(apiKeyStatus.SAM_GOV && apiKeyStatus.DIBBS);
+  const noneConfigured = apiKeyStatus && !apiKeyStatus.SAM_GOV && !apiKeyStatus.DIBBS && !apiKeyStatus.HIGHER_GOV;
+  const anyConfigured = apiKeyStatus && (apiKeyStatus.SAM_GOV || apiKeyStatus.DIBBS || apiKeyStatus.HIGHER_GOV);
+  const partiallyConfigured = anyConfigured && !(apiKeyStatus?.SAM_GOV && apiKeyStatus?.DIBBS && apiKeyStatus?.HIGHER_GOV);
 
   const total = result?.total ?? 0;
 
   const handleOpenSavedSearch = (s: SavedSearch) => {
-    const encoded = encodeURIComponent(JSON.stringify(s.criteria));
-    router.push(`${pathname}?search=${encoded}`);
+    const c = s.criteria;
+    const source = s.source === 'DIBBS' ? 'DIBBS' : s.source === 'HIGHER_GOV' ? 'HIGHER_GOV' : 'SAM_GOV';
+    const criteria: SearchOpportunityCriteria = {
+      keywords:            c.keywords ?? undefined,
+      sources:             [source],
+      naics:               c.naics ?? undefined,
+      setAsideCode:        c.setAsideCode ?? undefined,
+      postedFrom:          c.postedFrom ? isoFromMmdd(c.postedFrom) : undefined,
+      postedTo:            c.postedTo ? isoFromMmdd(c.postedTo) : undefined,
+      closingFrom:         c.closingFrom ? isoFromMmdd(c.closingFrom) : undefined,
+      closingTo:           c.closingTo ? isoFromMmdd(c.closingTo) : undefined,
+      higherGovSourceType: c.higherGovSourceType ?? undefined,
+      limit:               pageSize,
+    };
+    syncToUrl(criteria);
     setActiveTab('search');
+    // Trigger search with the saved search criteria
+    setHasSearched(true);
+    setLastCriteriaRef(criteria);
+    search(criteria);
   };
 
   return (
@@ -198,7 +284,7 @@ export default function SearchOpportunitiesPage({ orgId }: Props) {
       {/* ── Page header ── */}
       <PageHeader
         title="Search Opportunities"
-        description="Search SAM.gov and DIBBS simultaneously — all configured sources in one place."
+        description="Search SAM.gov, DIBBS, and HigherGov — all configured sources in one place."
         actions={
           projects && projects.length > 0 ? (
             <div className="flex items-center gap-2">
@@ -259,6 +345,9 @@ export default function SearchOpportunitiesPage({ orgId }: Props) {
         </Alert>
       )}
 
+      {/* ── HigherGov favorites banner ── */}
+      <HigherGovFavoritesBanner orgId={orgId} projectId={effectiveProjectId} />
+
       {/* ── Tabs ── */}
       <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'search' | 'saved')} className="mt-2">
         <TabsList className="mb-4">
@@ -276,7 +365,7 @@ export default function SearchOpportunitiesPage({ orgId }: Props) {
         <TabsContent value="search" className="space-y-4 mt-0">
           {/* Filter form */}
           <div className="rounded-xl border bg-card p-4 shadow-sm">
-            <SearchOpportunityForm orgId={orgId} onSearch={handleSearch} isLoading={isLoading} />
+            <SearchOpportunityForm orgId={orgId} onSearch={handleSearch} isLoading={isLoading} initialValues={initialFormValues.current ?? undefined} />
           </div>
 
           {/* Source errors */}
@@ -411,7 +500,7 @@ export default function SearchOpportunitiesPage({ orgId }: Props) {
               <h3 className="text-lg font-medium mb-2">Ready to search</h3>
               <p className="text-muted-foreground max-w-sm mx-auto text-sm">
                 Enter keywords or use the filters above to search across all configured opportunity sources.
-                Results from SAM.gov and DIBBS will appear together.
+                Results from SAM.gov, DIBBS, and HigherGov will appear together.
               </p>
             </div>
           )}
@@ -436,5 +525,8 @@ export default function SearchOpportunitiesPage({ orgId }: Props) {
   );
 }
 
-const formatMMDDYYYY = (d: Date): string =>
-  `${String(d.getMonth() + 1).padStart(2, '0')}/${String(d.getDate()).padStart(2, '0')}/${d.getFullYear()}`;
+/** Convert MM/dd/yyyy to ISO date string (yyyy-MM-dd) */
+const isoFromMmdd = (s: string): string | undefined => {
+  const m = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(s);
+  return m ? `${m[3]}-${m[1]}-${m[2]}` : undefined;
+};

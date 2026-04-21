@@ -42,7 +42,7 @@ if (awsMarketplaceProductCode) {
 
 const network = new NetworkStack(app, `AutoRfp-Network-${stage}`, {
   env,
-  existingVpcId: 'vpc-07171e4bf57f2ceed',
+  existingVpcId: 'vpc-0e8bca582530ec949', // blueprint-checker-vpc-dev (has NAT Gateway)
 });
 
 const sentryDNS = 'https://5fa3951f41c357ba09d0ae50f52bbd2a@o4510347578114048.ingest.us.sentry.io/4510510176141312';
@@ -145,6 +145,7 @@ const api = new ApiOrchestratorStack(app, `ApiOrchestrator-${stage}`, {
   googleDriveSyncQueue: storage.googleDriveSyncQueue,
   documentGenerationQueue: storage.documentGenerationQueue,
   clarifyingQuestionQueue: storage.clarifyingQuestionQueue,
+  extractionQueue: storage.extractionQueue,
   // Pass the queue name (plain string) — not the queue object — to avoid a cross-stack token cycle
   notificationQueueName: `auto-rfp-notifications-${stage.toLowerCase()}`,
   auditLogQueueName: `auto-rfp-audit-log-${stage.toLowerCase()}`,
