@@ -47,3 +47,7 @@ packages/**/pnpm-workspace.yaml
 
 # Utility scripts (run locally, not deployed)
 /scripts/
+
+# Eval RFP fixtures (not committed)
+**/sections-rfps/
+**/rfp-texts/
