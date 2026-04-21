@@ -247,6 +247,7 @@ export const fetchHigherGovPursuits = async (
 ): Promise<{ results: HigherGovPursuit[]; totalCount: number; pages: number }> => {
   const url = new URL('/api-external/pursuit/', cfg.baseUrl);
   url.searchParams.set('api_key', cfg.apiKey);
+  url.searchParams.set('ordering', '-captured_date');
   url.searchParams.set('page_number', String(params?.pageNumber ?? 1));
   url.searchParams.set('page_size', String(params?.pageSize ?? 100));
 
