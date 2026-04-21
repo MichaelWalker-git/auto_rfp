@@ -243,13 +243,22 @@ export type HigherGovPursuit = {
  */
 export const fetchHigherGovPursuits = async (
   cfg: HigherGovConfig,
-  params?: { pageNumber?: number; pageSize?: number },
+  params?: {
+    pageNumber?: number;
+    pageSize?: number;
+    /** HigherGov search_id — required filter to list pursuits */
+    searchId?: string;
+    referenceId?: number;
+    uniqueKey?: string;
+  },
 ): Promise<{ results: HigherGovPursuit[]; totalCount: number; pages: number }> => {
   const url = new URL('/api-external/pursuit/', cfg.baseUrl);
   url.searchParams.set('api_key', cfg.apiKey);
-  url.searchParams.set('ordering', '-captured_date');
   url.searchParams.set('page_number', String(params?.pageNumber ?? 1));
   url.searchParams.set('page_size', String(params?.pageSize ?? 100));
+  if (params?.searchId)    url.searchParams.set('search_id', params.searchId);
+  if (params?.referenceId) url.searchParams.set('reference_id', String(params.referenceId));
+  if (params?.uniqueKey)   url.searchParams.set('unique_key', params.uniqueKey);
 
   const json = (await httpsGetJson(url, cfg.httpsAgent)) as Record<string, unknown>;
   const results = (Array.isArray(json.results) ? json.results : []) as HigherGovPursuit[];
