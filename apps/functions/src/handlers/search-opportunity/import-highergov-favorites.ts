@@ -142,7 +142,7 @@ export const baseHandler = async (event: AuthedEvent): Promise<APIGatewayProxyRe
           setAside: opp.set_aside ?? (opp.sole_source_flag ? 'Sole Source' : null),
           description: [opp.ai_summary, opp.description_text && opp.description_text !== opp.ai_summary ? opp.description_text : null, opp.product_service ? `Product/Service: ${opp.product_service}` : null].filter(Boolean).join('\n\n') || null,
           active: true,
-          baseAndAllOptionsValue: opp.val_est_high ? parseFloat(opp.val_est_high) || null : null,
+          baseAndAllOptionsValue: opp.val_est_high ? (Number.isFinite(parseFloat(opp.val_est_high)) ? parseFloat(opp.val_est_high) : null) : null,
           placeOfPerformance: [opp.pop_city, opp.pop_state, opp.pop_zip, opp.pop_country].filter(Boolean).join(', ') || null,
           contactEmail: opp.primary_contact_email?.email ?? null,
           contactName: opp.primary_contact_email?.name ?? null,

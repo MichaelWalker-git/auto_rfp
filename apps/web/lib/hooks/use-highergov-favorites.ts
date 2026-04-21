@@ -14,8 +14,8 @@ export type HigherGovFavorite = {
   dueDate: string | null;
   postedDate: string | null;
   sourceType: string | null;
-  imported: boolean;
-  existingOppId: string | null;
+  imported?: boolean;
+  existingOppId?: string | null;
 };
 
 type FavoritesResponse = {
@@ -23,6 +23,7 @@ type FavoritesResponse = {
   pursuits: HigherGovFavorite[];
   unimportedCount: number;
   totalCount: number;
+  error?: string;
 };
 
 type ImportResult = {

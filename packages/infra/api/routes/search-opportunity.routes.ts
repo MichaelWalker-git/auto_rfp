@@ -38,8 +38,8 @@ export const searchOpportunityDomain = (): DomainRoutes => ({
     // ── HigherGov favorites ─────────────────────────────────────────────
     /** Check for unimported HigherGov pursuits/favorites */
     { method: 'GET',  path: 'highergov-favorites',        entry: lambdaEntry('search-opportunity/highergov-favorites.ts'), timeoutSeconds: 30 },
-    /** Import HigherGov pursuits/favorites */
-    { method: 'POST', path: 'import-highergov-favorites',  entry: lambdaEntry('search-opportunity/import-highergov-favorites.ts'), timeoutSeconds: 300, nodeModules: ['@aws-sdk/client-partnercentral-selling'] },
+    /** Import HigherGov pursuits/favorites (Lambda timeout 90s; API Gateway caps at 29s so large imports may timeout — caller should poll) */
+    { method: 'POST', path: 'import-highergov-favorites',  entry: lambdaEntry('search-opportunity/import-highergov-favorites.ts'), timeoutSeconds: 90, nodeModules: ['@aws-sdk/client-partnercentral-selling'] },
 
     // ── SAM.gov specific ──────────────────────────────────────────────────
     { method: 'POST', path: 'opportunity-description', entry: lambdaEntry('search-opportunity/get-opportunity-description.ts') },

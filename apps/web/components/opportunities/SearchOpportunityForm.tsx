@@ -228,7 +228,6 @@ const extractSearchId = (input: string): string => {
 const HigherGovSearchIdSelector = ({
   value,
   onChange,
-  orgId,
 }: {
   value: string;
   onChange: (id: string) => void;
@@ -236,8 +235,6 @@ const HigherGovSearchIdSelector = ({
 }) => {
   const [open, setOpen] = React.useState(false);
   const inputRef = React.useRef<HTMLInputElement>(null);
-  const { items } = useListSavedSearches({ orgId, limit: 50 });
-  const hgovSearches = items.filter((s) => s.source === 'HIGHER_GOV');
 
   const handleApply = () => {
     const raw = inputRef.current?.value ?? '';
@@ -255,7 +252,7 @@ const HigherGovSearchIdSelector = ({
           className={cn('h-8 gap-1.5 text-xs font-normal', !!value && 'border-primary bg-primary/5 text-primary font-medium')}>
           {value ? `Search: ${value.slice(0, 12)}` : 'Saved Search'}
           {value
-            ? <span onClick={e => { e.stopPropagation(); onChange(''); }} className="ml-0.5 hover:text-destructive"><X className="h-3 w-3" /></span>
+            ? <button type="button" aria-label="Clear saved search" onClick={e => { e.stopPropagation(); onChange(''); }} className="ml-0.5 hover:text-destructive"><X className="h-3 w-3" /></button>
             : <ChevronDown className="h-3 w-3 opacity-50" />}
         </Button>
       </PopoverTrigger>
@@ -266,6 +263,7 @@ const HigherGovSearchIdSelector = ({
           <div className="flex gap-1.5">
             <Input
               ref={inputRef}
+              key={value}
               defaultValue={value}
               placeholder="Paste URL or search ID…"
               className="h-8 text-xs flex-1"
@@ -280,30 +278,6 @@ const HigherGovSearchIdSelector = ({
           </p>
         </div>
 
-        {/* Previously saved HigherGov searches */}
-        {hgovSearches.length > 0 && (
-          <div>
-            <Label className="text-xs font-medium mb-1.5 block">Your Saved Searches</Label>
-            <div className="space-y-1 max-h-32 overflow-y-auto">
-              {hgovSearches.map((s) => (
-                <button
-                  key={s.savedSearchId}
-                  type="button"
-                  onClick={() => { onChange(''); setOpen(false); }}
-                  className="w-full text-left px-2 py-1.5 rounded-md hover:bg-muted text-xs flex items-center justify-between"
-                >
-                  <div>
-                    <span className="font-medium">{s.name}</span>
-                    {s.criteria.keywords && (
-                      <span className="text-muted-foreground ml-1.5">"{s.criteria.keywords}"</span>
-                    )}
-                  </div>
-                  <Badge variant="outline" className="text-xs h-5 shrink-0 ml-2">{s.frequency}</Badge>
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
       </PopoverContent>
     </Popover>
   );
