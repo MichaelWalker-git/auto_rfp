@@ -57,7 +57,14 @@ NARRATIVE GUIDELINES:
 - Include specific metrics and achievements where available
 - Demonstrate successful delivery and client satisfaction
 - Use professional, proposal-ready language
-- Keep the narrative concise but comprehensive (200-400 words)`;
+- Keep the narrative concise but comprehensive (200-400 words)
+
+ANTI-HALLUCINATION RULES:
+- Do NOT overstate the relevance between the past project and the opportunity
+- If the project's domain, technologies, or scope do not overlap with the opportunity, say so honestly
+- Do NOT claim technical similarity when the technologies are fundamentally different (e.g., AWS vs Microsoft, web dev vs physical services)
+- A project in a different industry with different technologies has LOW relevance — do not spin it as relevant
+- Focus on ACTUAL overlaps, not hypothetical transferable skills`;
 
 const NARRATIVE_USER_PROMPT = `Generate a past performance narrative for the following project that demonstrates its relevance to the current opportunity.
 

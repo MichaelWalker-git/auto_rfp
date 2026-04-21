@@ -8,7 +8,7 @@ COPY THIS JSON SKELETON AND FILL IT IN (do not add keys):
   "agency": "string (required)",
   "office": "string (optional)",
   "solicitationNumber": "string (optional, exact from solicitation)",
-  "summary": "string (required, 2-3 sentences)",
+  "summary": "string (required, 4-6 detailed sentences)",
   "contractType": "string (optional)",
   "setAside": "string (optional)",
   "naics": "string (optional, numeric codes)",
@@ -40,9 +40,10 @@ SOLICITATION NUMBER:
 - If not clearly present, omit this field.
 
 SUMMARY:
-- Write 2-3 sentences explaining WHAT is being procured and WHY it matters.
-- Focus on business objective, not just technical specs.
-- Example: "Solicitation for enterprise cloud migration services. Contractor must move 50+ applications from on-premise to AWS. 18-month program supporting DoD digital transformation."
+- Write 4-6 sentences providing a substantive executive overview.
+- Cover: (1) What is being procured and the mission/business need, (2) Key scope elements and technical requirements, (3) Contract structure and period of performance, (4) Strategic context (why this matters to the agency).
+- Be specific: include numbers, technologies, integrations, and constraints from the solicitation.
+- Example: "The Department of Veterans Affairs seeks an enterprise cloud migration partner to modernize 50+ legacy healthcare applications from on-premise data centers to AWS GovCloud. The program spans 18 months with a base year plus two option years, requiring FedRAMP High authorization and HIPAA compliance throughout. Contractor must provide automated CI/CD pipelines, zero-downtime migration strategies, and 24/7 managed services post-migration. This initiative supports DVA's broader digital transformation mandate to improve veteran healthcare access through modernized, scalable infrastructure."
 
 CONTRACT TYPE:
 - Use one of: FIXED_PRICE, COST_PLUS, TIME_AND_MATERIALS, INDEFINITE_DELIVERY, TASK_ORDER, BLANKET_PURCHASE_AGREEMENT, OTHER.

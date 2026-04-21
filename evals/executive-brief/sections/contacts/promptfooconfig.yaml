@@ -9,7 +9,7 @@ providers:
     label: claude-sonnet
     config:
       region: us-east-1
-      max_tokens: 1400
+      max_tokens: 2000
       temperature: 0.1
 
 defaultTest:

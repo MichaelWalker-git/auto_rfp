@@ -96,6 +96,41 @@ defaultTest:
 
       '
   - type: javascript
+    metric: SummaryHas4PlusSentences
+    value: 'const m=output.indexOf(''=== SOURCE'');const j=m>0?output.substring(output.indexOf(''{''),output.lastIndexOf(''}'',m)+1):output;const brief=JSON.parse(j);
+
+      const s = brief.sections?.summary?.data?.summary || '''';
+
+      const sentences = s.split(/[.!?]+/).filter(s => s.trim().length > 10);
+
+      return sentences.length >= 4;
+
+      '
+  - type: javascript
+    metric: RequirementsOverviewHas4PlusSentences
+    value: 'const m=output.indexOf(''=== SOURCE'');const j=m>0?output.substring(output.indexOf(''{''),output.lastIndexOf(''}'',m)+1):output;const brief=JSON.parse(j);
+
+      const o = brief.sections?.requirements?.data?.overview || '''';
+
+      const sentences = o.split(/[.!?]+/).filter(s => s.trim().length > 10);
+
+      return sentences.length >= 4;
+
+      '
+  - type: javascript
+    metric: DeadlineNotesNotEmpty
+    value: 'const m=output.indexOf(''=== SOURCE'');const j=m>0?output.substring(output.indexOf(''{''),output.lastIndexOf(''}'',m)+1):output;const brief=JSON.parse(j);
+
+      const deadlines = brief.sections?.deadlines?.data?.deadlines || [];
+
+      if (deadlines.length === 0) return true;
+
+      const hasNotes = deadlines.filter(d => d.notes && d.notes.trim().length > 5 && d.notes.trim() !== ''\u2014'');
+
+      return hasNotes.length >= Math.ceil(deadlines.length * 0.5);
+
+      '
+  - type: javascript
     metric: DeadlinesHasSubmissionFlag
     value: 'const m=output.indexOf(''=== SOURCE'');const j=m>0?output.substring(output.indexOf(''{''),output.lastIndexOf(''}'',m)+1):output;const brief=JSON.parse(j);
 

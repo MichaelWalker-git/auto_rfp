@@ -33,7 +33,7 @@ CORE REQUIREMENTS:
 - agency (optional): Federal agency or organization issuing the solicitation.
 - office (optional): Issuing office within the agency.
 - solicitationNumber (optional): Official solicitation/RFP/IFB number if present (exact string from solicitation).
-- summary (REQUIRED): 2-3 sentence overview of what is being procured and why it matters.
+- summary (REQUIRED): 4-6 sentence executive overview covering: what is being procured, the business/mission need, key scope elements, contract structure, and why this matters strategically. Be specific and substantive.
 - contractType (optional): Type of contract (FIXED_PRICE, COST_PLUS, T&M, INDEFINITE_DELIVERY, etc.) - use UNKNOWN if unclear.
 - setAside (optional): Small business set-aside category (SMALL_BUSINESS, WOMEN_OWNED, VETERAN_OWNED, DISADVANTAGED, NONE, etc.) - use UNKNOWN if not mentioned.
 - naics (optional): NAICS code(s) as string (e.g., "334511" or "541611,541612").

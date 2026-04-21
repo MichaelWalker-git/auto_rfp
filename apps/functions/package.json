@@ -16,7 +16,6 @@
   "dependencies": {
     "@auto-rfp/core": "workspace:*",
     "@aws-sdk/client-apigatewaymanagementapi": "^3.993.0",
-    "@aws-sdk/client-bedrock-runtime": "^3.982.0",
     "@aws-sdk/client-cognito-identity-provider": "^3.982.0",
     "@aws-sdk/client-dynamodb": "^3.982.0",
     "@aws-sdk/client-eventbridge": "^3.1021.0",
@@ -34,7 +33,6 @@
     "@aws-sdk/s3-request-presigner": "^3.982.0",
     "@linear/sdk": "^69.0.0",
     "@middy/core": "^7.0.2",
-    "@pinecone-database/pinecone": "^6.1.4",
     "@sentry/serverless": "^7.120.4",
     "@sparticuz/chromium": "^143.0.4",
     "@types/html-to-docx": "^1.8.0",
@@ -52,6 +50,9 @@
     "zod": "^3.25.0"
   },
   "devDependencies": {
+    "@aws-sdk/client-bedrock-runtime": "^3.1030.0",
+    "@aws-sdk/credential-providers": "^3.1032.0",
+    "@pinecone-database/pinecone": "^6.1.4",
     "@types/aws-lambda": "^8.10.160",
     "@types/jest": "^30.0.0",
     "@types/node": "^20.0.0",

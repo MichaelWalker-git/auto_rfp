@@ -85,6 +85,31 @@ defaultTest:
         const s = brief.sections?.summary?.data;
         return s && typeof s.summary === 'string' && s.summary.length > 50;
 
+    - type: javascript
+      metric: SummaryHas4PlusSentences
+      value: |
+        const m=output.indexOf('=== SOURCE');const j=m>0?output.substring(output.indexOf('{'),output.lastIndexOf('}',m)+1):output;const brief=JSON.parse(j);
+        const s = brief.sections?.summary?.data?.summary || '';
+        const sentences = s.split(/[.!?]+/).filter(s => s.trim().length > 10);
+        return sentences.length >= 4;
+
+    - type: javascript
+      metric: RequirementsOverviewHas4PlusSentences
+      value: |
+        const m=output.indexOf('=== SOURCE');const j=m>0?output.substring(output.indexOf('{'),output.lastIndexOf('}',m)+1):output;const brief=JSON.parse(j);
+        const o = brief.sections?.requirements?.data?.overview || '';
+        const sentences = o.split(/[.!?]+/).filter(s => s.trim().length > 10);
+        return sentences.length >= 4;
+
+    - type: javascript
+      metric: DeadlineNotesNotEmpty
+      value: |
+        const m=output.indexOf('=== SOURCE');const j=m>0?output.substring(output.indexOf('{'),output.lastIndexOf('}',m)+1):output;const brief=JSON.parse(j);
+        const deadlines = brief.sections?.deadlines?.data?.deadlines || [];
+        if (deadlines.length === 0) return true;
+        const hasNotes = deadlines.filter(d => d.notes && d.notes.trim().length > 5 && d.notes.trim() !== '—');
+        return hasNotes.length >= Math.ceil(deadlines.length * 0.5);
+
     # ═══════════════════════════════════════════════════════════════════
     # DEADLINES SECTION STRUCTURAL (3 assertions)
     # ═══════════════════════════════════════════════════════════════════
@@ -251,6 +276,32 @@ defaultTest:
         3: Most risks traceable but some ungrounded claims or incumbent confusion
         2: Significant fabricated risks or wrong incumbent identification
         1: Risk analysis disconnected from solicitation content
+
+    - type: llm-rubric
+      metric: ContentSpecificity
+      threshold: 0.6
+      weight: 4
+      value: |
+        Evaluate whether the brief content is specific to THIS solicitation or generic boilerplate.
+        For each section, check if claims reference concrete details from the source:
+        - Summary: specific scope, quantities, named systems/programs?
+        - Requirements: actual evaluation factors, page limits, format requirements from solicitation?
+        - Risks: risks tied to specific solicitation language or conditions?
+        - Pricing: references actual CLIN structure, pricing model, or ceiling from solicitation?
+        - Contacts: real names/roles from the document, not generic "Contracting Officer"?
+
+        RED FLAGS for generic content:
+        - "The contractor shall provide..." without specifying what
+        - Risk statements that could apply to any solicitation
+        - Pricing advice that doesn't reference the solicitation's actual pricing structure
+        - Vague capability statements without tying to specific requirements
+
+        SCORING RUBRIC (1-5):
+        5: Every section references specific solicitation details (names, numbers, dates, systems, requirements)
+        4: Most sections are specific, one may be slightly generic
+        3: Mix of specific and generic content — some sections concrete, others boilerplate
+        2: Mostly generic language that could apply to any government solicitation
+        1: Entirely boilerplate — no solicitation-specific details whatsoever
 
 tests:
   # ─── 1. MS IAM Solution ───

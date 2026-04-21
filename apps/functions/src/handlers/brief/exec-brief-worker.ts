@@ -195,7 +195,7 @@ async function runSummary(job: Job): Promise<void> {
           solicitationText,
         ),
         outputSchema: SanitizedQuickSummarySchema,
-        maxTokens: 1200,
+        maxTokens: 2000,
         temperature: 0.1,
       });
     } catch (primaryErr) {
@@ -230,7 +230,7 @@ async function runSummary(job: Job): Promise<void> {
             solicitationText,
           ),
           outputSchema: MinimalSummarySchema,
-          maxTokens: 1200,
+          maxTokens: 2000,
           temperature: 0.1,
         });
 
@@ -349,7 +349,7 @@ async function runRequirements(job: Job): Promise<void> {
       system: await useRequirementsSystemPrompt(orgId),
       user: await useRequirementsUserPrompt(orgId, solicitationText),
       outputSchema: RequirementsSectionSchema,
-      maxTokens: 5000,
+      maxTokens: 8000,
       temperature: 0.2,
     });
 
@@ -403,7 +403,7 @@ async function runContacts(job: Job): Promise<void> {
       system: await useContactsSystemPrompt(orgId),
       user: await useContactsUserPrompt(orgId, solicitationText),
       outputSchema: ContactsSectionSchema,
-      maxTokens: 1400,
+      maxTokens: 2000,
       temperature: 0.1,
     });
 
@@ -460,7 +460,7 @@ async function runRisks(job: Job): Promise<void> {
       toolExecutor: (toolName, toolInput, toolUseId) =>
         executeBriefTool({ toolName, toolInput, toolUseId, orgId, projectId, opportunityId, executiveBriefId }),
       outputSchema: RisksSectionSchema,
-      maxTokens: 8000,
+      maxTokens: 12000,
       temperature: 0.2,
       maxToolRounds: 2,
     });
@@ -573,7 +573,7 @@ async function runPricing(job: Job): Promise<void> {
       toolExecutor: (toolName, toolInput, toolUseId) =>
         executeBriefTool({ toolName, toolInput, toolUseId, orgId, projectId, opportunityId, executiveBriefId }),
       outputSchema: PricingSectionSchema,
-      maxTokens: 6000,
+      maxTokens: 8000,
       temperature: 0.2,
       maxToolRounds: 2,
     });
@@ -686,7 +686,7 @@ async function runScoring(job: Job): Promise<void> {
       toolExecutor: (toolName, toolInput, toolUseId) =>
         executeBriefTool({ toolName, toolInput, toolUseId, orgId, projectId, opportunityId, executiveBriefId }),
       outputSchema: ScoringSectionSchema,
-      maxTokens: 5000,
+      maxTokens: 8000,
       temperature: 0.2,
       maxToolRounds: 2,
     });
