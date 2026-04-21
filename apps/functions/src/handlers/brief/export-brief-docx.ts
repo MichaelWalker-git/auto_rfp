@@ -271,7 +271,7 @@ const buildDeadlines = (brief: ExecutiveBriefItem): (Paragraph | Table)[] => {
   }
   if ((d.deadlines ?? []).length) {
     out.push(dataTable(['Deadline', 'Date/Time', 'Timezone', 'Notes'],
-      (d.deadlines ?? []).map((dl) => [safe(dl.label ?? dl.type), fmtIso(dl.dateTimeIso ?? null), dl.timezone ?? '—', dl.notes ? clip(dl.notes, 100) : '—'])));
+      (d.deadlines ?? []).map((dl) => [safe(dl.label ?? dl.type), fmtIso(dl.dateTimeIso ?? null), dl.timezone ?? '—', dl.notes ? clip(dl.notes, 500) : '—'])));
   }
   if ((d.warnings ?? []).length) { out.push(blank(), h3('Warnings'), ...bullets(d.warnings ?? [])); }
   return out;
@@ -282,14 +282,14 @@ const buildRequirements = (brief: ExecutiveBriefItem): (Paragraph | Table)[] => 
   const out: (Paragraph | Table)[] = [h1('3. Requirements Analysis')];
   if (!d) return [...out, p('No requirements data available.', { color: C.muted, italics: true })];
   out.push(h2('Overview'));
-  for (const para of (d.overview ?? '').split(/\n{2,}/)) { if (para.trim()) out.push(p(clip(para.trim(), 1500))); }
+  for (const para of (d.overview ?? '').split(/\n{2,}/)) { if (para.trim()) out.push(p(clip(para.trim(), 3000))); }
   out.push(blank(), h2('Key Requirements'));
   const reqs = (d.requirements ?? []).slice(0, 15);
   reqs.forEach((r, i) => {
     const mustHave = r.mustHave ?? false;
     const tag = mustHave ? '✓ MUST-HAVE' : '○ Nice-to-have';
     const cat = r.category ? ` [${r.category}]` : '';
-    out.push(bullet(`${i + 1}. ${tag}${cat} — ${clip(r.requirement ?? '', 300)}`, 0, { color: mustHave ? C.dark : C.muted, bold: mustHave }));
+    out.push(bullet(`${i + 1}. ${tag}${cat} — ${clip(r.requirement ?? '', 500)}`, 0, { color: mustHave ? C.dark : C.muted, bold: mustHave }));
   });
   if ((d.evaluationFactors ?? []).length) { out.push(blank(), h2('Evaluation Factors'), ...bullets(d.evaluationFactors?.slice(0, 12) ?? [])); }
   if ((d.deliverables ?? []).length) { out.push(blank(), h2('Deliverables'), ...bullets(d.deliverables?.slice(0, 12) ?? [])); }
@@ -338,9 +338,9 @@ const buildRisks = (brief: ExecutiveBriefItem): (Paragraph | Table)[] => {
     out.push(h2(title));
     if (!flags?.length) { out.push(p('None identified.', { color: C.muted, italics: true })); return; }
     flags.slice(0, 12).forEach((r, i) => {
-      out.push(bullet(`${i + 1}. [${safe(r.severity)}] ${clip(safe(r.flag), 280)}`, 0, { color: sevColor(safe(r.severity)), bold: true }));
-      if (r.whyItMatters) out.push(bullet(`Why: ${clip(r.whyItMatters, 300)}`, 1));
-      if (r.mitigation) out.push(bullet(`Mitigation: ${clip(r.mitigation, 300)}`, 1));
+      out.push(bullet(`${i + 1}. [${safe(r.severity)}] ${clip(safe(r.flag), 600)}`, 0, { color: sevColor(safe(r.severity)), bold: true }));
+      if (r.whyItMatters) out.push(bullet(`Why: ${clip(r.whyItMatters, 1500)}`, 1));
+      if (r.mitigation) out.push(bullet(`Mitigation: ${clip(r.mitigation, 1500)}`, 1));
     });
   };
   renderFlags('Red Flags', d.redFlags ?? []);
@@ -440,7 +440,7 @@ const buildScoring = (brief: ExecutiveBriefItem): (Paragraph | Table)[] => {
   if ((d.criteria ?? []).length) {
     out.push(blank(), h2('Scoring Criteria'));
     out.push(dataTable(['Criterion', 'Score', 'Rationale', 'Gaps'],
-      (d.criteria ?? []).map((c) => [safe(c.name), c.score ? `${c.score}/5` : '—', clip(safe(c.rationale), 200), (c.gaps ?? []).slice(0, 3).join('; ') || '—']),
+      (d.criteria ?? []).map((c) => [safe(c.name), c.score ? `${c.score}/5` : '—', clip(safe(c.rationale), 2000), (c.gaps ?? []).slice(0, 5).join('; ') || '—']),
       [20, 10, 45, 25]));
   }
   if ((d.blockers ?? []).length) { out.push(blank(), h3('Blockers'), ...bullets(d.blockers?.slice(0, 10) ?? [])); }
