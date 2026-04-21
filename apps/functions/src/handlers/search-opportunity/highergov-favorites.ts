@@ -34,11 +34,9 @@ export const baseHandler = async (event: APIGatewayProxyEventV2): Promise<APIGat
   try {
     const cfg: HigherGovConfig = { baseUrl: HIGHERGOV_BASE_URL, apiKey, httpsAgent };
 
-    // Fetch just first page of pursuits (fast — single API call)
     const resp = await fetchHigherGovPursuits(cfg, { pageNumber: 1, pageSize: 100 });
     console.log(`[highergov-favorites] Fetched ${resp.results.length} pursuits (of ${resp.totalCount}) for org ${orgId}`);
 
-    // Note: imported/existingOppId are always false/null here — dedup happens at import time
     const results = resp.results.map((p) => ({
       oppKey: p.opp_key ?? p.unique_key,
       title: p.title ?? p.opp_key ?? p.unique_key,
@@ -53,7 +51,6 @@ export const baseHandler = async (event: APIGatewayProxyEventV2): Promise<APIGat
     return apiResponse(200, {
       configured: true,
       pursuits: results,
-      // Assume all are unimported — dedup happens at import time, not here
       unimportedCount: results.length,
       totalCount: resp.totalCount,
     });
