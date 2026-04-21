@@ -1,0 +1,81 @@
+{
+  "redFlags": [
+    {
+      "severity": "CRITICAL",
+      "whyItMatters": "The minimum qualification in Section IX.C requiring 'a minimum of ten (10) years of continuous experience in providing project management software services to public agencies' is an absolute pass/fail gate per Section XIV's evaluation table. HORUSTECH's knowledge base, past performance records, and content library contain no evidence of project management software services to any public agency, let alone 10 years of continuous experience. The solicitation explicitly states in Section IX that 'Proposals that do not meet these minimum qualifications will not be further evaluated or considered' and 'Incomplete proposals will be rejected.' This is the single most significant barrier to a viable bid and should be the primary factor in the bid/no-bid decision.",
+      "mitigation": "Executive leadership must make an immediate go/no-go decision based on whether HORUSTECH can credibly demonstrate 10 years of continuous project management software experience with public agencies, either independently or through a teaming arrangement. If pursuing a teaming strategy, the capture manager should identify potential prime or subcontractor partners with established public agency PM software track records within one week. If neither path is viable, the recommendation is a no-bid decision to avoid wasting proposal resources on a submission that will be disqualified at the minimum qualifications gate.",
+      "flag": "No evidence of 10 years of project management software experience to public agencies \u2014 likely disqualifying.",
+      "impactsScore": true
+    },
+    {
+      "severity": "HIGH",
+      "whyItMatters": "Section XVII.B explicitly states that 'The Department reserves the right to negotiate agreements with companies outside of the RFP process, even if such companies did not participate in the RFP process. The Department also reserves the right to not execute an agreement with any Contractors.' This unusual provision means that even a winning proposal does not guarantee a contract award. The County could potentially negotiate directly with a preferred vendor or an established project management software provider with existing government relationships. This creates uncertainty about the return on investment for proposal preparation efforts, particularly given the substantial documentation requirements including financial statements, detailed fee schedules, and compliance forms.",
+      "mitigation": "The capture manager should attempt to gather market intelligence on whether the County has already identified a preferred solution or vendor by attending the optional pre-proposal conference on February 20, 2026, and asking targeted questions about the County's evaluation of existing solutions. Additionally, submit a written question before the March 10, 2026 deadline asking whether the County has conducted any prior market research or demonstrations with specific vendors. This intelligence will help inform whether the RFP is genuinely competitive or potentially wired for a specific provider.",
+      "flag": "County reserves the right to negotiate agreements outside the RFP process.",
+      "impactsScore": false
+    },
+    {
+      "severity": "MEDIUM",
+      "whyItMatters": "The OpenGov portal indicates this is a 'Sealed Bid Process: Yes (Bids Sealed / Pricing Sealed),' and Section XIV states that 'The highest-ranked proposers may be required to attend a virtual interview, which will serve as the basis for the panel's final decision for a recommendation to the County's Board of Supervisors for contract award.' The sealed pricing combined with a potential interview round means that the written proposal score may not be the final determinant \u2014 the interview could significantly influence the panel's recommendation. The RFP timeline in Section XIII shows interviews anticipated for May 5, 2026, which requires proposers to keep key personnel available. The interview format, duration, and specific evaluation criteria are not defined in the solicitation, creating preparation uncertainty.",
+      "mitigation": "The proposal manager should prepare a dedicated interview team consisting of the proposed project manager, lead technical architect, and a senior executive who can speak to company qualifications and commitment. Begin developing an interview preparation package including a solution demonstration, implementation timeline walkthrough, and responses to anticipated questions about public agency experience immediately after proposal submission. Submit a question before March 10, 2026 asking the County to clarify the interview format, duration, and evaluation criteria so the team can prepare effectively.",
+      "flag": "Sealed bid process with potential interviews adds evaluation uncertainty.",
+      "impactsScore": true
+    }
+  ],
+  "risks": [
+    {
+      "severity": "CRITICAL",
+      "whyItMatters": "Section IX.C of the RFP explicitly states that 'The Proposer must possess a minimum of ten (10) years of continuous experience in providing project management software services to public agencies.' This is a pass/fail minimum qualification per the evaluation criteria in Section XIV, meaning proposals that do not meet this threshold will not be further evaluated or considered. HORUSTECH's knowledge base and past performance records show no evidence of project management software services to public agencies, and as a technology firm the company may not have 10 years of continuous operations in this specific domain. Failure to demonstrate this qualification results in automatic disqualification regardless of the quality of the technical proposal.",
+      "mitigation": "The capture team lead must immediately verify whether HORUSTECH has 10 years of continuous experience providing project management software services specifically to public agencies. If the company cannot demonstrate this independently, explore teaming arrangements with an established project management software provider (e.g., Kahua, e-Builder, Procore) that has documented public agency experience spanning at least 10 years. This assessment must be completed before the question deadline of March 10, 2026, to allow time to submit clarifying questions about whether teaming arrangements satisfy this requirement.",
+      "flag": "Minimum 10 years of continuous experience in project management software services to public agencies required.",
+      "impactsScore": true
+    },
+    {
+      "severity": "HIGH",
+      "whyItMatters": "Section X of the RFP states that 'The selected Contractor must successfully demonstrate the capability to provide the services described in this RFP in a large public use facility in continuous operation, such as in an airport or similar such as a correctional facility.' This requirement narrows the competitive field to vendors with specific experience in complex, continuously operating public facilities. HORUSTECH's past performance database contains no relevant projects in airports, correctional facilities, or similar large public use environments. Without demonstrable experience in these settings, the proposal will score poorly on the 'Relevant Public Sector Experience and References' criterion, which carries 15 points per Section XIV's evaluation table.",
+      "mitigation": "The business development team should identify and pursue teaming or subcontracting partnerships with firms that have verifiable airport or large public facility project management software implementation experience within the next two weeks. Additionally, if HORUSTECH has any experience with 24/7 operational environments or critical infrastructure facilities, the proposal team should document and frame that experience to demonstrate transferable capability. References from such engagements should be secured well before the April 7, 2026 submission deadline.",
+      "flag": "Demonstrated capability in large public use facilities such as airports or correctional facilities required.",
+      "impactsScore": true
+    },
+    {
+      "severity": "HIGH",
+      "whyItMatters": "Section XI.A requires submission of 'Balance sheet and income statements for the last two fiscal years prepared in accordance with generally accepted accounting principles, reflecting the current financial condition of the Contractor,' plus interim statements for any significant financial events. This is a substantial financial transparency requirement that may be challenging for smaller or privately held technology firms. The solicitation also requires a Fee Schedule covering the initial four-year term and each two-year extension option (up to eight years total per Section IV), which demands long-term financial planning and pricing stability. Inability to provide GAAP-compliant financial statements or demonstrate financial stability for a potential eight-year engagement could undermine the County's confidence in the proposer's viability.",
+      "mitigation": "The finance team must immediately confirm that HORUSTECH has GAAP-compliant balance sheets and income statements for the last two fiscal years ready for submission. If these are not currently available, engage an accounting firm to prepare or audit the statements before the April 7, 2026 deadline. The pricing team should also develop a comprehensive fee schedule that covers all four initial years plus both two-year extension options, ensuring rates are sustainable and competitive over the full potential eight-year term.",
+      "flag": "Financial disclosure requirements including two years of audited financial statements.",
+      "impactsScore": true
+    },
+    {
+      "severity": "MEDIUM",
+      "whyItMatters": "Section IX.A mandates that 'The Contractor must be registered with the California Secretary of State and permitted to conduct business in the State of California.' This is a pass/fail minimum qualification. Additionally, the solicitation includes multiple California-specific compliance forms including the Contractor Certification of Compliance (Attachment 3), Contractor Identification Form (Attachment 4), and Iran Contracting Act Certification per California Public Contract Code sections 2202-2208. If HORUSTECH is not currently registered in California, the registration process can take several weeks and must be completed before proposal submission. Failure to meet this requirement results in automatic disqualification.",
+      "mitigation": "The contracts or legal team should verify HORUSTECH's current registration status with the California Secretary of State within the next five business days. If not registered, initiate the registration process immediately, as processing times can vary. Simultaneously, assign a compliance specialist to complete all required California-specific forms (Attachments 3 and 4) and the Iran Contracting Act certification, ensuring all are reviewed by legal counsel before the April 7, 2026 submission deadline.",
+      "flag": "California Secretary of State registration and state-specific compliance requirements.",
+      "impactsScore": false
+    },
+    {
+      "severity": "MEDIUM",
+      "whyItMatters": "Section XVI states that the selected Contractor's staff working on-site unescorted or requiring airport access must pass the Department's background check and obtain an airport access badge to conduct work in secured areas. The scope of services in Section III includes up to six in-person administrator training sessions and up to ten combination in-person/virtual end-user training sessions, meaning on-site presence is required. Airport background checks typically involve TSA Security Threat Assessments and can take 4-8 weeks to process. Additionally, Attachment 5 references Sacramento County Security Requirements that must be met per Section IX.D. Staff who cannot pass these checks would be unable to deliver critical in-person training and implementation services.",
+      "mitigation": "The project manager should identify all personnel who may need on-site airport access during implementation and training phases, and begin pre-screening them against standard airport security criteria immediately upon contract pursuit decision. Ensure proposed staff have clean criminal backgrounds and are U.S. persons or have appropriate work authorization. Build a buffer of 6-8 weeks into the implementation timeline for badge processing, and identify backup personnel who can also qualify for airport access in case primary staff encounter delays.",
+      "flag": "Airport security background checks and access badge requirements for on-site staff.",
+      "impactsScore": false
+    },
+    {
+      "severity": "MEDIUM",
+      "whyItMatters": "Section XVII.A and Attachment 2 require that 'The contractor shall, at all times during the term of the agreement, comply with the provisions of the Federal Aviation Administration (FAA) General Contract Provisions for Solicitations and any subsequent revisions, updates, or amendments thereto.' FAA contract provisions typically include requirements related to civil rights, DBE participation, Buy American preferences, lobbying restrictions, and other federal mandates that add compliance complexity beyond standard county procurement. These provisions apply for the entire potential eight-year term of the agreement. Vendors unfamiliar with FAA compliance requirements may underestimate the administrative burden and risk non-compliance during performance.",
+      "mitigation": "The compliance team should obtain and thoroughly review Attachment 2 (FAA Exhibits) immediately to identify all specific federal obligations, including any DBE goals, Buy American requirements, or reporting mandates. If HORUSTECH lacks FAA compliance experience, consider engaging a consultant or teaming partner with FAA-regulated contract experience to advise on proposal preparation and ongoing compliance. This review should be completed before the question deadline of March 10, 2026, so any clarification questions can be submitted to the County.",
+      "flag": "FAA General Contract Provisions impose additional federal compliance obligations.",
+      "impactsScore": true
+    },
+    {
+      "severity": "LOW",
+      "whyItMatters": "Section XII requires 'references from at least three (3) clients or individuals who have direct experience with your company within the last five (5) years and can be contacted to verify your qualifications.' References are evaluated on a pass/fail basis per Section XIV's evaluation criteria table. Furthermore, the Department reserves the right to contact past or current references not provided by the Contractor. HORUSTECH's past performance database shows no relevant public agency project management software engagements, which could make it difficult to provide three qualifying references. Failure to provide adequate references results in a failing score on this pass/fail criterion.",
+      "mitigation": "The business development team should immediately compile a list of all client engagements from the past five years and identify three clients who can speak to HORUSTECH's software implementation capabilities, ideally in public sector or large organizational contexts. Contact these references proactively to confirm their willingness to provide positive feedback. If three qualifying references cannot be identified, this should be treated as a significant bid/no-bid consideration factor and discussed with leadership before committing proposal resources.",
+      "flag": "Three references from public agency clients within the last five years required.",
+      "impactsScore": true
+    }
+  ],
+  "incumbentInfo": {
+    "knownIncumbent": false,
+    "recompete": false,
+    "notes": "The solicitation explicitly states in Section X.A.2 that 'The Department does not currently use a project management system' and currently relies on 'Excel spreadsheets and Crystal Reports' (Section II). This is a new capability acquisition, not a recompete of an existing contract. There is no incumbent contractor."
+  }
+}

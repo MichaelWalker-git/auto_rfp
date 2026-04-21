@@ -1,0 +1,25 @@
+{
+  "hasSubmissionDeadline": true,
+  "submissionDeadlineIso": "2026-04-24T11:00:00-05:00",
+  "deadlines": [
+    {
+      "dateTimeIso": "2026-04-13T11:00:00-05:00",
+      "label": "Deadline for solicitation questions",
+      "notes": "Questions must be emailed to the Senior Contract Specialist. The Courts will not consider any questions received after this time. Only 11 calendar days before the proposal deadline, so offerors should prepare questions early.",
+      "type": "QUESTIONS_DUE",
+      "rawText": "QUESTIONS MUST BE SUBMITTED NO LATER THAN 11:00 A.M. EST ON APRIL 13, 2026.",
+      "timezone": "EST"
+    },
+    {
+      "dateTimeIso": "2026-04-24T11:00:00-05:00",
+      "label": "Proposal submission deadline",
+      "notes": "Proposals must be submitted via email only; mailed, hand-delivered, telephonic, or faxed proposals will not be accepted. Note that the SAM.gov metadata shows a response deadline of April 17, 2026, but the solicitation document in Section L.2 explicitly states April 24, 2026 at 11:00 AM EST. The solicitation document should govern, but offerors should confirm with the Contracting Officer. The Courts may award on initial offers without discussions, so best terms should be included upfront.",
+      "type": "PROPOSAL_DUE",
+      "rawText": "PROPOSALS MUST BE SUBMITTED BY EMAIL TO GRACE ALAO, SENIOR CONTRACT SPECIALIST, AT GRACE.ALAO@DCCSYSTEM.GOV NO LATER THAN 11 A.M. EST ON FRIDAY, APRIL 24, 2026.",
+      "timezone": "EST"
+    }
+  ],
+  "warnings": [
+    "Conflict between SAM.gov response deadline (April 17, 2026) and solicitation Section L.2 deadline (April 24, 2026 at 11:00 AM EST). Offerors should verify the correct deadline with the Contracting Officer."
+  ]
+}

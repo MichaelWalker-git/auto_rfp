@@ -1,16 +1,7 @@
 {
-  "allTextKeys": [
-    "fcfc467aafd61ee9cb80a885e9134d002a065513dbb3594cca89f744560e2f5c/3e8b5099-0c1a-4a78-a5e2-65719b2f7a81/bd121ac8-e7ee-4f12-bf3a-b5231a065381.txt"
-  ],
   "compositeScore": 2.2,
-  "confidence": 40,
-  "createdAt": "2026-02-19T17:00:01.699Z",
+  "confidence": 45,
   "decision": "NO_GO",
-  "documentsBucket": "auto-rfp-documents-dev-039885961427",
-  "opportunityId": "d002d31a-c071-4a62-b045-eb3d1f2ecd9e",
-  "orgId": "9c0a5757-e2da-4e71-9490-01c558f7ffc3",
-  "partition_key": "EXEC_BRIEF_PK",
-  "projectId": "3e8b5099-0c1a-4a78-a5e2-65719b2f7a81",
   "sections": {
     "contacts": {
       "data": {
@@ -42,9 +33,9 @@
           }
         ]
       },
-      "inputHash": "6d443a06523f8c5ec0847df469b239b78bbaaf85994817c0c136268dd6398da9",
+      "inputHash": "force-regen-v9",
       "status": "COMPLETE",
-      "updatedAt": "2026-04-19T20:15:36.471Z"
+      "updatedAt": "2026-04-20T23:54:09.137Z"
     },
     "deadlines": {
       "data": {
@@ -54,23 +45,23 @@
           {
             "dateTimeIso": "2026-02-27T15:00:00-08:00",
             "label": "Deadline for Questions, Comments and Contract Exceptions",
-            "notes": null,
+            "notes": "This is the cutoff for submitting questions, comments, and contract exceptions requests. Contract term exceptions must also be submitted by this date. Bidders should finalize their review of the County's standard contract template before this deadline.",
             "type": "QUESTIONS_DUE",
-            "rawText": "February 27, 2026, 3:00pm",
+            "rawText": "Deadline for Questions, Comments and Contract Exceptions: February 27, 2026, 3:00pm",
             "timezone": "Pacific Time"
           },
           {
             "dateTimeIso": "2026-03-06T15:00:00-08:00",
             "label": "Question Response Deadline",
-            "notes": "Deadline for County to respond to questions",
+            "notes": "The County will respond to all submitted questions by this date. This leaves only 14 calendar days between receiving answers and the proposal due date, so bidders should begin drafting proposals before answers are published.",
             "type": "OTHER",
-            "rawText": "March 6, 2026, 3:00pm",
+            "rawText": "Question Response Deadline: March 6, 2026, 3:00pm",
             "timezone": "Pacific Time"
           },
           {
             "dateTimeIso": "2026-03-20T15:00:00-08:00",
             "label": "Proposal Due Date and Time",
-            "notes": null,
+            "notes": "Sealed bid process \u2014 both bids and pricing are sealed. Proposals must be submitted electronically via the OpenGov eProcurement portal. Partial uploads will be automatically terminated and rejected, so allow sufficient upload time. Only 14 days after Q&A responses are published.",
             "type": "PROPOSAL_DUE",
             "rawText": "Proposals must be electronically received by 3:00 pm, on Friday, March 20, 2026 via eProcurement system.",
             "timezone": "Pacific Time"
@@ -78,25 +69,25 @@
           {
             "dateTimeIso": "2026-03-27T00:00:00-08:00",
             "label": "Interviews (tentative)",
-            "notes": "Tentative date; no specific time provided",
+            "notes": "Marked as tentative. Only the highest-scoring proposers may be interviewed. No specific time was provided, so the time portion of the ISO date is approximate. Bidders should keep this date available for potential oral presentations.",
             "type": "ORALS",
-            "rawText": "March 27, 2026",
+            "rawText": "Interviews (tentative): March 27, 2026",
             "timezone": "Pacific Time"
           },
           {
             "dateTimeIso": "2026-04-10T00:00:00-07:00",
             "label": "Anticipated Contract Award Date",
-            "notes": "Anticipated date; no specific time provided",
+            "notes": "This is an estimated date, not a firm commitment. The contract term is 1 year with three 1-year extension options. Full launch is expected within 90 days of contract award, so contractors should plan implementation timelines accordingly.",
             "type": "AWARD_ESTIMATE",
-            "rawText": "April 10, 2026",
+            "rawText": "Anticipated Contract Award Date: April 10, 2026",
             "timezone": "Pacific Time"
           }
         ],
         "warnings": []
       },
-      "inputHash": "33d822bd79d02839eeee283f1374b4c422b1b2117711297f83a1ead40fdd9df5",
+      "inputHash": "force-regen-v9",
       "status": "COMPLETE",
-      "updatedAt": "2026-04-19T20:15:33.072Z"
+      "updatedAt": "2026-04-20T23:53:21.102Z"
     },
     "pastPerformance": {
       "status": "IDLE",
@@ -105,53 +96,47 @@
     "pricing": {
       "data": {
         "competitiveAdvantages": [
-          "DGS-certified Small Business (Micro) in California \u2014 qualifies for up to 10% preferential points under San Mateo County Local Preference Ordinance if headquartered in SMC",
-          "Proven real-time dashboard development experience (DataMinr real-time alerts and analysis dashboard with geospatial visualization)",
-          "AWS Advanced Consulting Partner with 16 AWS-certified professionals and 99.9% uptime track record on managed services",
-          "Serverless architecture expertise (Lambda, Fargate, API Gateway) directly applicable to scalable, cost-efficient hosting of public-facing dashboard",
-          "Past performance aggregating real-time data from third-party APIs (Google Maps, Twitter, environmental data sources)"
+          "Demonstrated AWS cloud infrastructure expertise with 99.9% uptime achievement, directly relevant to the hosting and maintenance requirements of this dashboard platform",
+          "Past performance on real-time alerts and analysis dashboard (DataMinr) demonstrates capability in building real-time data aggregation and visualization interfaces similar to the beach safety dashboard",
+          "Serverless architecture expertise (AWS Lambda, API Gateway, DynamoDB) enables cost-efficient, scalable hosting that can handle variable beach season traffic loads",
+          "DGS Small Business Certified status may provide competitive positioning for county-level procurements",
+          "Proven ability to integrate third-party APIs (Google Maps, Twitter, federal data sources) aligns with requirement to aggregate data from local, regional, and national environmental sources"
         ],
-        "totalPrice": 380000,
-        "indirectCostTotal": 30000,
-        "basisOfEstimate": "Estimate built bottom-up using organization labor rates (Software Engineer $171.40/hr, QA $16.86/hr). No government estimated value was provided in the solicitation. Development phase estimated at 90 days with 2 software engineers full-time and 1 QA resource, followed by 9 months of part-time maintenance/hosting support. Material costs include AWS hosting infrastructure (~$1,500/month) and third-party data API subscriptions (NOAA, weather services). Indirect costs cover project management overhead and administrative costs. Price confidence is low (35) because no government estimate exists and county-level digital platform contracts vary widely ($100K-$500K+). The 'Reward Low Cost' evaluation method on price (25% weight) suggests the County is cost-sensitive, indicating the actual budget may be on the lower end of the range.",
-        "materialCostTotal": 24000,
+        "totalPrice": 185000,
+        "indirectCostTotal": 5000,
+        "basisOfEstimate": "This estimate is speculative due to the absence of a government estimated value and the relatively narrow scope of available organizational labor rate data. The solicitation is a formal RFP from San Mateo County for a beach safety dashboard platform with a 1-year base term plus 3 option years. Using the provided Software Engineer rate of $171.40/hr, I estimated approximately 700 hours of development effort for Year 1 (platform development, data integration, UX/accessibility, testing, and launch within 90 days), yielding approximately $120,000 in development labor. An additional ~160 hours annually for maintenance, hosting oversight, and reporting at the same rate adds approximately $28,000 for the base year. Material costs of $15,000 account for AWS hosting infrastructure, third-party data API subscriptions (NOAA, NWS, CDIP), SSL certificates, and CDN services for the first year. Indirect costs of $5,000 cover project management overhead and compliance documentation. The total of $185,000 represents Year 1 pricing only; option years would be priced lower (estimated $45,000-$60,000/year for maintenance and hosting). Price confidence is low (30) because no government estimate exists, comparable county-level dashboard contracts are not publicly benchmarked, and the 'Reward Low Cost' scoring method means competitors may significantly undercut this estimate with leaner approaches or offshore development teams.",
+        "materialCostTotal": 15000,
         "assumptions": [
-          "Contract type assumed to be Fixed Price based on defined deliverables and 90-day launch requirement",
-          "Development team of 2 software engineers and 1 QA resource for the 90-day build phase",
-          "Post-launch maintenance requires approximately 0.5 FTE software engineer for monitoring, updates, and support",
-          "AWS hosting costs estimated at $1,500/month for serverless infrastructure serving a public-facing dashboard",
-          "Third-party data API costs (weather, surf, ocean conditions) estimated at $500/month",
-          "No org rates were provided for project management or UX/UI design \u2014 these roles may be needed and would increase costs",
-          "Option years priced at maintenance-level effort (hosting + support + minor enhancements) rather than full development",
-          "The $380,000 total represents base year only; full 4-year lifecycle cost would be approximately $600,000-$750,000",
-          "QA rate of $16.86/hr appears unusually low and may represent offshore or junior resources"
+          "Year 1 development effort is estimated at approximately 700 hours of software engineering work, based on the scope including real-time data integration from multiple sources, hazard alert system, multilingual interface, WCAG 2.1 AA compliance, mobile responsiveness, and County customization tools \u2014 this is a moderately complex web application with significant integration requirements.",
+          "The Software Engineer rate of $171.40/hr from organizational data is used as the primary labor rate, as this work is predominantly software development. No separate UX designer, project manager, or DevOps rates were provided, so all labor is estimated at this single rate, which likely overstates costs for non-engineering tasks.",
+          "AWS hosting and third-party data API costs are estimated at $15,000 for Year 1 based on typical serverless architecture costs for a public-facing dashboard with moderate traffic. Actual costs depend heavily on traffic volume, number of beach locations, and data refresh frequency which are not specified in the solicitation.",
+          "The contract type is assumed to be Fixed-Price based on the County's 'Reward Low Cost' scoring method and the nature of the deliverable as a defined platform with clear requirements. The solicitation does not explicitly state the contract type, but county-level service agreements of this nature are typically fixed-price or not-to-exceed.",
+          "Option years (Years 2-4) are not included in the totalPrice figure. Maintenance and hosting for option years would be priced separately at approximately $45,000-$60,000 per year, covering ongoing hosting, security updates, data source maintenance, analytics reporting, and minor enhancements.",
+          "The estimate assumes HORUSTECH would perform all work with internal staff (1-3 developers) without subcontractors, keeping overhead low. If minimum qualification requirements necessitate a teaming arrangement, costs would increase."
         ],
         "competitivePosition": "COMPETITIVE",
-        "laborCostTotal": 292000,
+        "laborCostTotal": 148000,
         "profitMargin": 10,
         "pricingRisks": [
-          "No government estimate available \u2014 price calibration is speculative and could be significantly over or under market",
-          "Price evaluation uses 'Reward Low Cost' method (25% weight) \u2014 aggressive pricing from competitors could disadvantage higher-quality proposals",
-          "Scope includes real-time data from federal/regional environmental sources (NOAA, NWS) \u2014 API integration complexity and data licensing costs are uncertain",
-          "Multi-language and WCAG 2.1 AA accessibility requirements add development effort that may be underestimated",
-          "90-day full launch timeline is aggressive for a platform with real-time data integration, hazard alerts, and accessibility compliance",
-          "Option years (up to 3 additional years) require maintenance pricing that must account for inflation and evolving County requirements"
+          "Price is scored using 'Reward Low Cost' method at 25% weight, meaning the lowest-priced proposal receives maximum points and all others are scored proportionally. This creates strong downward price pressure and risk of underbidding if competitors offer bare-minimum solutions at lower cost.",
+          "The 90-day full launch requirement creates schedule risk that could drive up costs if the team encounters delays in data source integration or County IT security approval processes. Any schedule overrun on a fixed-price contract would erode margins significantly.",
+          "The requirement for 3 years of similar services and 3 similar government digital platforms within the last 7 years is a minimum qualification gate. HORUSTECH's past performance in real-time dashboards exists but may not clearly demonstrate 3 government-specific platform implementations, creating a compliance risk that could result in disqualification before price is even evaluated.",
+          "Multi-year contract (1 base + 3 option years) with hosting and maintenance obligations creates long-term cost exposure. If hosting costs, data source API fees, or security compliance requirements increase over 4 years, fixed pricing could become unprofitable.",
+          "No government estimate is published for this solicitation, making it difficult to calibrate pricing against the County's budget expectations. Pricing too high risks losing on the 25% cost score; pricing too low risks unsustainable margins over the 4-year potential term."
         ],
         "recommendedActions": [
-          "Verify whether HORUSTECH qualifies as a Local Business in San Mateo County for the 5-10% preferential points \u2014 this could be decisive given the scoring structure",
-          "Price aggressively on the base year development since Price is 25% of evaluation and uses Reward Low Cost scoring",
-          "Emphasize past performance with DataMinr real-time dashboard and Avue Technologies government platform in Firm Qualifications section (25% weight)",
-          "Prepare detailed 90-day implementation schedule showing milestone-based delivery to score well on Project Approach (20%)",
-          "Identify specific NOAA, NWS, and Surfline/CDIP data sources for San Mateo County beaches to demonstrate technical readiness",
-          "Consider offering a lower base year price with sustainable option year pricing to win on cost while maintaining margins over the full 4-year term",
-          "Submit questions before Feb 27 deadline to clarify whether County has a budget range and what data sources are preferred"
+          "Immediately assess whether HORUSTECH can demonstrate 3 similar government/public sector digital platform implementations within the last 7 years. If not, identify teaming partners or subcontractors who can satisfy this minimum qualification requirement before investing further in proposal development.",
+          "Research NOAA, NWS, and CDIP (Coastal Data Information Program) APIs to develop a detailed technical approach for real-time ocean data aggregation. Build a proof-of-concept data integration to demonstrate feasibility within the 90-day timeline and strengthen the Project Approach section (20% of score).",
+          "Develop a detailed cost model breaking down Year 1 development costs versus Years 2-4 maintenance/hosting costs. Consider front-loading development costs in Year 1 and offering competitive annual maintenance pricing to maximize total score across the full contract term.",
+          "Submit questions via the eProcurement portal before February 27, 2026 deadline to clarify: (1) how many beach locations are in scope, (2) which specific data sources the County expects to be integrated, (3) whether the County has existing branding/design guidelines, and (4) the expected volume of County-generated custom updates.",
+          "Investigate whether HORUSTECH qualifies for any San Mateo County local business preference (up to 10% additional evaluation points). If not headquartered in San Mateo County, consider whether establishing a local presence or partnering with a local firm could unlock preferential points that significantly impact competitiveness."
         ],
         "strategy": "FIXED_PRICE",
-        "priceConfidence": 35
+        "priceConfidence": 30
       },
-      "inputHash": "a39eb28b3f6a3e2b544c74d161cc1bc3fe8a8900e900439a1c91adc6ac929087",
+      "inputHash": "force-regen-v9",
       "status": "COMPLETE",
-      "updatedAt": "2026-04-19T20:16:23.970Z"
+      "updatedAt": "2026-04-20T23:57:15.509Z"
     },
     "requirements": {
       "data": {
@@ -160,19 +145,19 @@
           "Firm Qualifications - 25 points (25% of Total)",
           "Team Qualifications - 20 points (20% of Total)",
           "Price - 25 points (25% of Total) - Reward Low Cost scoring method",
-          "Preferential Points - 10 points (10% of Total) - Pass/Fail scoring method; 5% added for Local Business or Local Non-Profit, additional 3% for Small Business/Small Non-Profit (total 8%), or additional 5% for Micro Business/Micro Non-Profit (total 10%)"
+          "Preferential Points - 10 points (10% of Total) - Pass/Fail scoring method for Local Business/Non-Profit preference"
         ],
-        "overview": "The County of San Mateo seeks a qualified contractor to develop, host, and maintain a comprehensive Beach Safety and Ocean Conditions Dashboard Platform that delivers real-time, location-specific ocean hazard data, weather conditions, and safety information to the public across San Mateo County beaches. Success is defined as a user-friendly, reliable, multilingual, accessible interface that empowers beachgoers to make informed decisions and fosters safer ocean practices along the San Mateo County coastline, with full launch within 90 days of contract award.",
+        "overview": "The County of San Mateo, California is seeking qualified contractors to develop, host, and maintain a comprehensive Beach Safety and Ocean Conditions Dashboard Platform that delivers real-time, location-specific ocean hazard and weather data to the public across San Mateo County's coastal beaches. The business problem being addressed is the lack of a centralized, real-time resource for community members and visitors to assess ocean hazards, changing weather patterns, and essential safety protocols before entering the water. Success looks like a user-friendly, reliable, multilingual digital interface that empowers beachgoers to make informed decisions by providing live wave height, rip tide, wind speed, water temperature, and hazard alert data for each individual beach location, with full launch achieved within 90 days of contract award. Key constraints include WCAG 2.1 Level AA accessibility compliance, mobile device accessibility, robust data encryption adhering to County IT security standards, seamless integration of local/regional/national data sources, and a minimum of three years of experience providing similar services. The contract term is one year with three optional one-year extensions, and proposals are due March 20, 2026 via the OpenGov eProcurement portal. Evaluation is based on Project Approach (20%), Firm Qualifications (25%), Team Qualifications (20%), Price (25%), and Preferential Points (10%).",
         "requirements": [
           {
             "category": "TECHNICAL",
             "mustHave": true,
-            "requirement": "Provide real-time reporting on wave height, rip tides, wind speed, and water temperature at each individual beach location within San Mateo County"
+            "requirement": "Develop real-time reporting on wave height, rip tides, wind speed, and water temperature at each individual beach location within San Mateo County"
           },
           {
             "category": "TECHNICAL",
             "mustHave": true,
-            "requirement": "Develop an easy-to-understand hazard alert system to designate the risk of the ocean at each specific SMC beach location and provide information on the specific hazards present"
+            "requirement": "Implement an easy-to-understand hazard alert system to designate the risk of the ocean at each specific SMC beach location and provide information on specific hazards present"
           },
           {
             "category": "TECHNICAL",
@@ -207,7 +192,7 @@
           {
             "category": "SECURITY",
             "mustHave": true,
-            "requirement": "Provide robust data encryption and protection against cyber threats, adhering to County IT security standards"
+            "requirement": "Robust data encryption and protection against cyber threats, adhering to County IT security standards"
           },
           {
             "category": "DELIVERABLES",
@@ -215,309 +200,265 @@
             "requirement": "Provide the County with regular reports on user engagement, most-visited beach pages, and alert click-through rates"
           },
           {
-            "category": "DELIVERABLES",
+            "category": "TECHNICAL",
             "mustHave": true,
             "requirement": "Provide a comprehensive project schedule that culminates in a Full Launch within 90 days of the contract award"
           },
           {
-            "category": "COMPLIANCE",
+            "category": "STAFFING",
             "mustHave": true,
             "requirement": "Proposer must have been providing similar services for a minimum of three (3) years within the last seven (7) years"
           },
           {
-            "category": "COMPLIANCE",
+            "category": "STAFFING",
             "mustHave": true,
             "requirement": "Proposer must demonstrate the successful implementation and maintenance of at least three (3) similar digital platforms for government or public sector agencies within the last seven (7) years"
           },
           {
-            "category": "COMPLIANCE",
+            "category": "TECHNICAL",
             "mustHave": true,
             "requirement": "Proposer must show a proven ability to aggregate real-time data from at least two (2) federal or regional environmental sources"
           },
           {
             "category": "COMPLIANCE",
             "mustHave": true,
-            "requirement": "Provide registered Business Name and Unique Entity ID (UEI) number"
-          },
-          {
-            "category": "COMPLIANCE",
-            "mustHave": true,
-            "requirement": "Fee Proposal must be submitted as a separate PDF file from the Technical Proposal"
-          },
-          {
-            "category": "OTHER",
-            "mustHave": false,
-            "requirement": "Contract term is one (1) year with three (3) options to extend for an additional period not to exceed three years"
-          },
-          {
-            "category": "COMPLIANCE",
-            "mustHave": false,
-            "requirement": "Contract Exceptions Requests must be submitted by the Deadline for Questions, Comments and Contract Exceptions (February 27, 2026, 3:00pm)"
+            "requirement": "Proposer must have a registered Business Name and Unique Entity ID (UEI) on sam.gov"
           }
         ],
         "submissionCompliance": {
           "format": [
-            "Text must be Times New Roman, 12-point minimum font size, unjustified (ragged-right margin)",
-            "Pages must have margins of at least one inch on all sides (excluding headers and footers)",
+            "Text should be Times New Roman (12-point minimum font size) and unjustified (ragged-right margin)",
+            "Pages should have margins of at least one inch on all sides (excluding headers and footers)",
             "If the proposal is lengthy, a Table of Contents should be included",
             "PDF format is preferred",
-            "Include the proposer name and the RFP title and number in each filename",
-            "Sealed Bid Process: Bids Sealed / Pricing Sealed"
+            "Include the proposer name and the RFP title and number in each filename"
           ],
           "attachmentsAndForms": [
-            "SMC LocalBusiness self-attestation form (if applicable for Local Business or Local Non-Profit designation)",
-            "OSDS Certification ID (if applicable for Small or Micro Business)",
-            "IRS Form 990 (if applicable for Small or Micro Non-Profit)",
-            "Levine Act Disclosure Form (required if proposal is selected)"
+            "SMC LocalBusiness self-attestation form (if applicable)",
+            "IRS Form 990 (if applicable for Local Small/Micro Non-Profit designation)"
           ],
           "requiredDocuments": [
             {
               "name": "Letter of Introduction",
-              "description": "Must contain name, title, and contact information for representative responsible for RFP communication; name, title, contact information, and signature of person authorized to obligate firm; constitutes representation that proposer is willing and able to perform commitments",
+              "description": "Must contain name, title, and contact information for representative responsible for communication; name, title, contact information, and signature of person authorized to obligate firm",
               "documentType": "COVER_LETTER",
               "required": true
             },
             {
               "name": "Technical Proposal",
-              "description": "Includes Statement of Minimum Qualifications, Project Approach, Scope of Work tasks/milestones, Performance Measures sections submitted via eProcurement portal response fields",
+              "description": "Includes Statement of Minimum Qualifications, Project Approach, Scope of Work tasks/milestones, Proposed schedule, Performance Measures, Firm Qualifications, and References",
               "documentType": "TECHNICAL_PROPOSAL",
               "required": true
             },
             {
-              "name": "Statement of Minimum Qualifications",
-              "description": "Demonstrate successful implementation and maintenance of at least 3 similar digital platforms for government/public sector agencies within last 7 years; proven ability to aggregate real-time data from at least 2 federal or regional environmental sources",
+              "name": "Fee Proposal",
+              "description": "Submitted as a separate PDF file from the Technical Proposal",
+              "documentType": "COST_PROPOSAL",
+              "required": true
+            },
+            {
+              "name": "Firm Qualifications and References",
+              "description": "Description of not more than three similar projects (one page each) with client references, plus 2 additional references from recent clients preferably public agencies",
               "documentType": "PAST_PERFORMANCE",
               "required": true
             },
             {
               "name": "Proposed Schedule",
-              "description": "Attached proposed schedule referencing ability to complete the project within the County's required 90-day time frame",
-              "documentType": "OTHER",
-              "required": true
-            },
-            {
-              "name": "Firm Qualifications",
-              "description": "Brief description of proposer; description of up to 3 similar projects (limited to 1 page each) including client, reference, telephone numbers, primary staff, budget, schedule, and summary; identification of subcontractors if anticipated",
-              "documentType": "TEAM_QUALIFICATIONS",
-              "required": true
-            },
-            {
-              "name": "References",
-              "description": "Provide 2 references including name, address, and telephone number of recent clients, preferably other public agencies",
-              "documentType": "OTHER",
-              "required": true
-            },
-            {
-              "name": "Fee Proposal",
-              "description": "Must be submitted as a separate PDF file from the Technical Proposal",
-              "documentType": "COST_PROPOSAL",
+              "description": "Attached proposed schedule demonstrating ability to complete the project within the County's required 90-day time frame",
+              "documentType": "PROJECT_PLAN",
               "required": true
             },
             {
               "name": "Performance Measures",
-              "description": "Describe appropriate performance measures and a plan for achieving them, including uptime considerations",
+              "description": "Description of appropriate performance measures and a plan for achieving them, including uptime",
               "documentType": "OTHER",
               "required": true
             }
           ],
           "requiredVolumes": [
-            "Technical Proposal (includes Introduction, Statement of Minimum Qualifications, Project Approach, Scope of Work tasks/milestones, Proposed schedule, Performance Measures, Firm Qualifications, References)",
+            "Technical Proposal (including Introduction, Statement of Minimum Qualifications, Project Approach, Scope of Work tasks/milestones, Proposed schedule, Performance Measures, Firm Qualifications, References)",
             "Fee Proposal (submitted as a separate PDF file from the Technical Proposal)"
           ]
         },
         "deliverables": [
           "Beach Safety and Ocean Conditions Dashboard Platform with real-time weather and surf data",
           "Hazard alert system for each SMC beach location",
-          "Comprehensive project schedule culminating in Full Launch within 90 days",
+          "Customization capability for County to add timely updates",
           "Regular reports on user engagement, most-visited beach pages, and alert click-through rates",
-          "Ongoing platform maintenance and hosting"
+          "Comprehensive project schedule with Full Launch within 90 days",
+          "Ongoing maintenance and hosting of the platform"
         ]
       },
-      "inputHash": "0a9c7b792795854cebe5f7e532e134d8e2c1772c3882ea291e945089594f8b4f",
+      "inputHash": "force-regen-v9",
       "status": "COMPLETE",
-      "updatedAt": "2026-04-19T20:15:58.543Z"
+      "updatedAt": "2026-04-20T23:53:58.887Z"
     },
     "risks": {
       "data": {
         "redFlags": [
           {
-            "severity": "HIGH",
-            "whyItMatters": "Section 4.1.1 asks whether the proposer 'has been providing similar services for a minimum of three (3) years within the last seven (7) years' as a required yes/no response. Combined with the 3 government platform projects requirement in Section 3.2, this creates a hard eligibility threshold. If HORUSTECH cannot substantiate both requirements, the proposal will be rejected before scoring.",
-            "mitigation": "Conduct an honest go/no-go assessment on whether these minimum qualifications can be met. If borderline, prepare strong narratives with detailed project descriptions and consider teaming arrangements to bolster qualifications.",
-            "flag": "Minimum 3 years of similar services and 3 government digital platform projects may be a disqualifying gate",
-            "impactsScore": true
-          },
-          {
             "severity": "MEDIUM",
-            "whyItMatters": "Section 1.3 indicates 'Interviews (tentative): March 27, 2026,' just one week after the March 20 proposal deadline. Top-scoring proposers must be prepared for oral presentations on short notice, requiring key personnel availability and preparation.",
-            "mitigation": "Begin interview preparation in parallel with proposal development. Identify and brief the team members who would present. Prepare a demo or walkthrough of the proposed platform concept.",
-            "flag": "Tentative interview round on March 27 with only 7 days after proposal due date",
+            "whyItMatters": "Section 4, Question 1.1 asks whether the proposer 'has been providing similar services for a minimum of three (3) years within the last seven (7) years,' and Question 3.2 requires demonstration of 'at least three (3) similar digital platforms for government or public sector agencies within the last seven (7) years.' Based on available past performance data, HORUSTECH's most relevant project is a private-sector dashboard (DataMinr), not a government or public sector engagement. This is a mandatory pass/fail requirement\u2014without three qualifying government projects, the proposal will be deemed non-responsive and eliminated before scoring begins, regardless of technical capability or pricing.",
+            "mitigation": "The business development lead must conduct a comprehensive review of all company and key personnel past performance within 5 business days to identify any government or public sector digital platform projects that may not be captured in current records. If three qualifying projects cannot be identified, the team should pursue a teaming arrangement with a firm that has documented government digital platform experience, positioning them as a significant subcontractor whose past performance can be cited. If neither option yields three qualifying projects, this should be treated as a no-bid indicator and escalated to leadership immediately.",
+            "flag": "No demonstrated government/public sector past performance may disqualify HORUSTECH at the minimum qualifications gate.",
             "impactsScore": true
           }
         ],
         "risks": [
           {
             "severity": "MEDIUM",
-            "whyItMatters": "Section 3.2 requires proposers to 'demonstrate the successful implementation and maintenance of at least three (3) similar digital platforms for government or public sector agencies within the last seven (7) years.' HORUSTECH's past performance shows primarily private-sector web development (e.g., FAQx/Fintech). Failing this minimum qualification is a pass/fail gate that would disqualify the proposal.",
-            "mitigation": "Inventory all government and public-sector projects including subcontract work. If fewer than three qualifying projects exist, consider teaming with a firm that has complementary government platform experience. Evaluate whether the Avue Technologies federal project and any other government-adjacent work can satisfy this requirement.",
-            "flag": "Minimum qualification requires 3 similar government/public sector digital platforms in last 7 years",
+            "whyItMatters": "Section 5, Evaluation Criterion 5 ('Preferential Points') allocates up to 10 points (10% of total evaluation points) to Local Businesses, Local Non-Profits, Small Businesses, or Micro Businesses headquartered in San Mateo County per County Ordinance Code Chapter 2.89. This means a non-local proposer starts at a significant scoring disadvantage before technical or price evaluation even begins. For a best-value procurement where price accounts for only 25% of the score, a 5-10% preference can easily swing the award decision, particularly in a competitive field where technical scores may cluster closely together.",
+            "mitigation": "The capture team should immediately assess whether HORUSTECH qualifies as a Local Business under San Mateo County Ordinance Code Section 2.89.020 (principal place of business or headquarters in San Mateo County). If not currently qualified, the business development lead should explore establishing a local presence or partnering with a San Mateo County-based subcontractor who holds California DGS Small Business or Micro Business certification, which could provide up to 10% preference points. This assessment should be completed within 5 business days of the bid decision to allow time for teaming arrangements before the March 20 deadline.",
+            "flag": "Local Business Preference provides up to 10% scoring advantage to local competitors.",
             "impactsScore": true
           },
           {
             "severity": "MEDIUM",
-            "whyItMatters": "Section 3.2 requires proposers to 'show a proven ability to aggregate real-time data from at least two (2) federal or regional environmental sources' (e.g., NOAA, NWS). This is a specific minimum qualification. Without demonstrated experience integrating environmental data APIs, the proposal may be deemed non-responsive.",
-            "mitigation": "Identify any past projects involving real-time data feeds from government sources. If none exist, consider partnering with a subcontractor experienced in NOAA/NWS data integration, or develop a proof-of-concept demonstrating capability before submission.",
-            "flag": "Proven real-time environmental data aggregation from federal/regional sources required",
+            "whyItMatters": "Section 4, Question 3.2 ('Statement of Minimum Qualifications') requires proposers to demonstrate 'successful implementation and maintenance of at least three (3) similar digital platforms for government or public sector agencies within the last seven (7) years.' Based on available past performance records, HORUSTECH has relevant dashboard experience (DataMinr real-time alerts dashboard) but may lack three completed government or public sector digital platform projects specifically. Failure to meet this minimum qualification is a pass/fail gate that would result in proposal rejection regardless of technical merit or pricing.",
+            "mitigation": "The proposal manager should conduct an immediate internal audit of all past projects to identify any government or public sector digital platform work that could satisfy this requirement, including subcontractor roles or projects completed by key personnel at prior firms. If three qualifying projects cannot be identified, the team should consider teaming with a firm that has documented government digital platform experience and can serve as a prime or major subcontractor. This audit must be completed within 7 days to inform the final bid/no-bid decision before the March 20 deadline.",
+            "flag": "Minimum qualifications require three similar government digital platform implementations in the last seven years.",
             "impactsScore": true
           },
           {
             "severity": "MEDIUM",
-            "whyItMatters": "Section 5 (Evaluation Criteria) awards 5% preferential points to local businesses, and up to 10% for local micro businesses/non-profits. With price weighted at 25% and total preferential points at 10%, a local competitor could receive a significant scoring advantage that is difficult to overcome on technical merit alone.",
-            "mitigation": "Determine if HORUSTECH qualifies as a San Mateo County local business. If not, consider whether the California DGS Small Business certification provides any advantage. Strengthen technical and price competitiveness to offset the local preference gap.",
-            "flag": "Local business preference provides up to 10% scoring advantage to San Mateo County competitors",
+            "whyItMatters": "Section 2.5 ('Implementation Timeline') requires the contractor to provide a 'comprehensive project schedule that culminates in a Full Launch within 90 days of the contract award.' Given the scope includes real-time data integration from multiple federal and regional environmental sources, multi-language support, WCAG 2.1 Level AA compliance, mobile responsiveness, hazard alert systems, and County IT security standards adherence, 90 days is an aggressive timeline. Failure to meet this schedule could result in performance issues, damage to the County relationship, and potential contract termination, especially given the anticipated April 10 award date targeting a summer beach season launch.",
+            "mitigation": "The technical lead should develop a detailed project plan demonstrating feasibility of the 90-day timeline, identifying which data sources (NOAA, NWS, CDIP) can be integrated via existing APIs and which require custom development. The proposal should include a phased approach showing critical path items and resource loading to demonstrate credibility. Pre-identifying and pre-vetting data source APIs and beginning UX wireframes during the proposal phase (before award) would reduce risk and should be initiated by the development team lead within 10 days of bid decision.",
+            "flag": "Aggressive 90-day full launch timeline from contract award.",
             "impactsScore": true
           },
           {
             "severity": "LOW",
-            "whyItMatters": "Section 2.5 requires 'a Full Launch within 90 days of the contract award.' Building a multi-language, WCAG 2.1 AA compliant, real-time data dashboard with hazard alerts across multiple beach locations in 90 days is an aggressive timeline that could strain resources.",
-            "mitigation": "Propose a phased delivery approach with clear milestones. Leverage existing platform frameworks or templates to accelerate development. Pre-identify data sources and begin API integration planning during the proposal phase.",
-            "flag": "Tight 90-day full launch requirement post-award",
+            "whyItMatters": "Section 1.3 ('Timeline') indicates 'Interviews (tentative): March 27, 2026' for proposers with the highest scoring proposals, per Section 5 which states 'Proposers with the highest scoring proposals may be interviewed by the committee to make the final selection.' While the format (in-person vs. virtual) is not specified, San Mateo County government interviews may require physical presence at County offices. This is only one week after the March 20 proposal deadline, leaving minimal preparation time for oral presentations if shortlisted.",
+            "mitigation": "The capture manager should block March 27 on calendars for all key personnel who would participate in an oral presentation, including the project manager and technical lead. The team should prepare a brief oral presentation deck concurrent with proposal development so that if shortlisted, the team is ready with minimal additional preparation. The proposal contact (Lena Silberman) should be queried via the eProcurement portal before the February 27 question deadline to clarify whether interviews will be virtual or in-person.",
+            "flag": "Tentative interview requirement on March 27, 2026 may require in-person availability.",
             "impactsScore": false
           },
           {
             "severity": "LOW",
-            "whyItMatters": "The solicitation specifies 'Sealed Bid Process: Yes (Bids Sealed / Pricing Sealed).' This means pricing and technical proposals cannot be revised after submission, increasing the risk of misaligned pricing or misunderstood requirements.",
-            "mitigation": "Submit all clarification questions before the February 27, 2026 deadline. Ensure the fee proposal accounts for all scope elements including multi-language support, WCAG compliance, ongoing hosting, and maintenance.",
-            "flag": "Sealed bid process limits ability to negotiate or clarify after submission",
-            "impactsScore": false
+            "whyItMatters": "Section 2.2 ('Data Integration') requires the platform to 'seamlessly and automatically aggregate and synchronize a diverse range of data, including local, regional and national sources,' and Section 4, Question 3.2 requires demonstrating 'proven ability to aggregate real-time data from at least two (2) federal or regional environmental sources.' This implies integration with agencies like NOAA, National Weather Service, or CDIP buoy networks, each with different API structures, data formats, and reliability characteristics. Dependence on third-party government data feeds introduces ongoing maintenance risk and potential service disruptions outside the contractor's control.",
+            "mitigation": "The technical architect should identify and document specific federal data sources (e.g., NOAA Tides and Currents API, NWS Weather API, CDIP wave data) and confirm their API availability, rate limits, and reliability SLAs before proposal submission. The proposal should include a data redundancy strategy showing fallback sources and caching mechanisms to maintain platform stability when upstream feeds experience outages. This technical research should be completed by the development team within 14 days to inform the project approach section of the proposal.",
+            "flag": "Real-time data integration from multiple federal/regional sources adds technical complexity.",
+            "impactsScore": true
           }
         ],
         "incumbentInfo": {
           "knownIncumbent": false,
           "recompete": false,
-          "notes": "The solicitation describes this as a new capability \u2014 'Currently, community members and visitors lack a centralized, real-time resource to assess ocean hazards.' This language suggests a new requirement rather than a recompete of an existing contract. No incumbent contractor is named."
+          "notes": "The solicitation describes this as a new platform development effort ('Currently, community members and visitors lack a centralized, real-time resource'). There is no mention of a predecessor contract, incumbent contractor, recompete, or follow-on. This appears to be a new requirement with no existing contract holder."
         }
       },
-      "inputHash": "dbc752db5c758f68485056c6cbabb8a0a63068b083eaea48abc066a2af7f0431",
+      "inputHash": "force-regen-v9",
       "status": "COMPLETE",
-      "updatedAt": "2026-04-19T20:16:02.317Z"
+      "updatedAt": "2026-04-20T23:56:13.274Z"
     },
     "scoring": {
       "data": {
-        "confidenceExplanation": "Confidence is very low at 40 due to: zero past performance data available (major gap), KB searches returned no results for key capability areas (WCAG, multilingual, environmental data), price confidence is only 35/100, no documented strategic plan exists, and the submission deadline has already passed. Multiple critical data points are missing or negative, severely limiting assessment reliability.",
+        "confidenceExplanation": "Confidence is very low due to expired deadline, zero past performance data in database, no KB results for key technical requirements (WCAG, multilingual, environmental data), and extremely low pricing confidence (30/100). Multiple critical data gaps prevent reliable assessment.",
         "requiredActions": [
-          "If solicitation is reissued or deadline extended, conduct thorough inventory of ALL government and public-sector projects including subcontract work to determine if minimum qualifications can be met",
-          "Identify and formalize teaming arrangement with a firm that has 3+ government digital platform projects and environmental data integration experience",
-          "Develop proof-of-concept demonstrating NOAA/NWS API integration capability",
-          "Determine if any pathway exists to qualify as San Mateo County local business for preferential points",
-          "Engage UX/UI designer and WCAG accessibility specialist to fill documented capability gaps",
-          "Refine pricing estimate with higher confidence \u2014 current 35/100 confidence is insufficient for sealed bid submission"
+          "Verify whether the County has issued a deadline extension or amendment reopening submissions",
+          "Conduct comprehensive internal audit of all company and key personnel past performance to identify any government digital platform projects not captured in current records",
+          "If no government projects can be identified, identify and approach potential teaming partners with documented government digital platform experience who could serve as prime or major subcontractor",
+          "Assess feasibility of establishing San Mateo County local presence or partnering with local firm for preferential points"
         ],
         "decision": "NO_GO",
         "criteria": [
           {
             "name": "TECHNICAL_FIT",
             "score": 3,
-            "rationale": "HORUSTECH has strong AWS serverless architecture expertise (Lambda, Fargate, API Gateway), real-time dashboard experience (DataMinr project referenced in pricing analysis), and backend development capabilities documented in KB (Node.js, TypeScript, AWS CDK). These are directly applicable to building a real-time data dashboard. However, KB shows no documented experience with WCAG 2.1 AA accessibility compliance, multi-language/i18n implementation, or environmental data source integration (NOAA, NWS, CDIP). The company has relevant infrastructure skills but gaps in domain-specific requirements for beach safety and ocean conditions data aggregation. Approximately 50-60% of technical requirements are addressable with documented capabilities; the remaining require unproven or undocumented skills.",
+            "rationale": "HORUSTECH has demonstrated AWS cloud infrastructure expertise (99.9% uptime, serverless architecture with Lambda, API Gateway, DynamoDB), real-time dashboard experience (DataMinr alerts platform with React, Google Maps API, third-party API integrations), and backend development capabilities relevant to this solicitation. However, the KB shows no evidence of WCAG 2.1 Level AA compliance experience, multi-language platform development, or environmental/ocean data source integration (NOAA, NWS, CDIP). The company has relevant technical building blocks (API integration, real-time data, cloud hosting) but lacks demonstrated experience in the specific domain of environmental data dashboards and accessibility compliance requirements that are mandatory for this solicitation.",
             "gaps": [
-              "No documented experience with WCAG 2.1 Level AA accessibility compliance",
-              "No documented multi-language/internationalization implementation experience",
-              "No documented experience integrating NOAA, NWS, or other environmental data APIs",
-              "No documented experience building beach safety or ocean conditions platforms",
-              "No documented UX/UI design capability in KB \u2014 pricing analysis notes this role may be needed"
+              "No demonstrated WCAG 2.1 Level AA accessibility compliance experience",
+              "No evidence of multi-language platform development",
+              "No experience with environmental data sources (NOAA, NWS, CDIP)",
+              "No documented experience with beach/ocean/weather data platforms",
+              "90-day full launch timeline is aggressive given scope complexity"
             ]
           },
           {
             "name": "PAST_PERFORMANCE_RELEVANCE",
             "score": 1,
-            "rationale": "No past performance data available. The past performance database returned zero matched projects. The solicitation requires a mandatory minimum of three (3) similar digital platforms for government or public sector agencies within the last seven (7) years, plus proven real-time environmental data aggregation from at least two federal/regional sources. KB references only one government-adjacent project (Avue Technologies federal HR platform), which is not a similar digital platform delivering real-time public-facing environmental data. This is a pass/fail disqualification gate that HORUSTECH cannot demonstrably meet based on available data.",
+            "rationale": "No past performance data available in the company database. The only matched project is a DataMinr front-end optimization engagement (38% relevance) which is a private-sector media/AI project, not a government or public sector digital platform. The solicitation requires demonstration of at least three similar digital platforms for government or public sector agencies within the last seven years \u2014 this is a mandatory pass/fail gate. HORUSTECH has zero documented government digital platform implementations, making it impossible to meet the minimum qualifications requirement without a teaming arrangement.",
             "gaps": [
-              "Zero matched past performance projects in database",
-              "Cannot demonstrate 3 similar government/public sector digital platforms as required",
-              "Cannot demonstrate proven real-time environmental data aggregation from federal sources",
-              "Cannot demonstrate 3 years of similar services within last 7 years",
-              "Only 1 government-adjacent project (Avue Technologies) identified in KB \u2014 insufficient for minimum qualification"
+              "Zero government/public sector digital platform implementations documented",
+              "Cannot demonstrate 3 similar platforms for government agencies (mandatory pass/fail requirement)",
+              "No environmental data aggregation past performance",
+              "Only one partially relevant project (DataMinr) at 38% relevance match"
             ]
           },
           {
             "name": "PRICING_POSITION",
             "score": 2,
-            "rationale": "Pricing analysis estimates $380,000 for base year with competitive position rated as COMPETITIVE, but price confidence is very low at 35 out of 100. No government estimate exists for calibration. The 'Reward Low Cost' scoring method (25% weight) heavily favors aggressive pricing, creating risk that competitors undercut. Multiple pricing risks identified: uncertain API licensing costs, underestimated WCAG/multi-language effort, aggressive 90-day timeline. QA rate of $16.86/hr appears unrealistically low. No UX/UI designer is budgeted despite being needed. The sealed bid process prevents post-submission price adjustments. The very low price confidence (35) and multiple unresolved cost uncertainties warrant a below-average score.",
+            "rationale": "The pricing analysis estimates $185,000 for Year 1 with a 'Reward Low Cost' scoring method that heavily penalizes higher-priced proposals. Price confidence is extremely low at 30 out of 100, indicating high uncertainty. The $171.40/hr software engineer rate is the only available labor rate, which may be above market for this type of county-level web platform work. Competitors using offshore development teams or leaner approaches could significantly undercut this estimate. Additionally, if a teaming arrangement is required to meet minimum qualifications, costs would increase further, eroding competitiveness on the 25% price evaluation factor.",
             "gaps": [
-              "Price confidence is only 35 \u2014 highly speculative estimate",
-              "No government budget estimate available for calibration",
-              "UX/UI design role not budgeted but likely needed",
-              "Environmental data API licensing costs uncertain",
-              "Sealed bid process prevents price correction after submission"
+              "Price confidence is only 30/100 \u2014 highly uncertain estimate",
+              "Reward Low Cost scoring method creates strong downward price pressure",
+              "Single labor rate of $171.40/hr may be above market for county-level work",
+              "Teaming arrangement costs not factored into estimate",
+              "No government estimate available for calibration"
             ]
           },
           {
             "name": "STRATEGIC_ALIGNMENT",
             "score": 2,
-            "rationale": "No documented strategic plan, growth targets, or market expansion goals found in KB or organization context. HORUSTECH is based in San Diego, CA \u2014 not San Mateo County \u2014 so the company would not qualify for the 5-10% local business preferential points, which is a significant scoring disadvantage. The company is DGS-certified Small Business (Micro) in California, but the local preference ordinance specifically requires principal place of business or headquarters in San Mateo County. The contract value (~$380K base year) is modest. While government work could theoretically build the portfolio, there is no documented strategic intent to pursue county-level government contracts or environmental/public safety platforms. Without evidence of strategic alignment, this appears opportunistic.",
+            "rationale": "HORUSTECH is headquartered in San Diego, CA (4720 Moccasin Pl, San Diego, CA 92117), not San Mateo County, which means the company cannot claim the 5-10% Local Business Preference points that represent a significant scoring advantage. The company holds DGS Small Business Certification which provides some positioning, but no documented strategic plan indicates expansion into environmental/public safety platforms or San Mateo County government work. The KB shows experience primarily in property management, federal HR platforms, and private-sector dashboards \u2014 this opportunity does not align with documented strategic focus areas. Without evidence of a strategic initiative to enter the environmental data or coastal safety market, this appears to be an opportunistic pursuit rather than a strategically aligned one.",
             "gaps": [
-              "No documented strategic plan to pursue government or environmental platform work",
-              "Company headquartered in San Diego, not San Mateo County \u2014 loses 5-10% preferential points",
-              "No documented market expansion goals for county-level government contracts",
-              "Modest contract value with uncertain option year extensions"
+              "Not headquartered in San Mateo County \u2014 loses 5-10% preferential points",
+              "No documented strategic plan for environmental/public safety platforms",
+              "Opportunity does not align with current portfolio focus areas (property tech, federal HR, private-sector AI)",
+              "No evidence of strategic expansion into county-level government work"
             ]
           },
           {
             "name": "INCUMBENT_RISK",
             "score": 5,
-            "rationale": "This is a new requirement, not a recompete. The solicitation explicitly states 'Currently, community members and visitors lack a centralized, real-time resource to assess ocean hazards,' confirming no existing platform or incumbent contractor. No incumbent is named. This is a level playing field for all proposers from an incumbency perspective, which is favorable.",
+            "rationale": "This is a new requirement with no incumbent contractor. The solicitation explicitly states that 'community members and visitors lack a centralized, real-time resource,' confirming this is a greenfield platform development effort, not a recompete. There is no predecessor contract, no existing contract holder, and no mention of any prior vendor relationship. This creates a level playing field for all proposers from an incumbent perspective, which is the most favorable scenario possible for this evaluation criterion.",
             "gaps": []
           }
         ],
-        "summaryJustification": "HORUSTECH faces critical disqualification risk on this opportunity. The solicitation imposes hard pass/fail minimum qualifications requiring 3 similar government digital platforms in the last 7 years and proven environmental data aggregation from 2+ federal sources \u2014 neither of which can be substantiated from available data. The company has zero matched past performance projects in the database, and KB shows only one government-adjacent project (Avue Technologies). While AWS serverless and real-time dashboard technical skills are relevant, they are insufficient to overcome the minimum qualification gates. The proposal deadline of March 20, 2026 has already passed (today is April 19, 2026), making submission impossible. The company is not located in San Mateo County, forfeiting up to 10% preferential scoring points. Price confidence is extremely low at 35.",
-        "confidence": 40,
+        "summaryJustification": "HORUSTECH faces critical barriers to competing for this San Mateo County Beach Safety Dashboard opportunity. The most significant blocker is the mandatory minimum qualification requiring three similar government/public sector digital platform implementations within the last seven years \u2014 HORUSTECH has zero documented government platform projects, making the proposal non-responsive at the pass/fail gate. The submission deadline of March 20, 2026 has already passed (today is April 20, 2026), rendering this opportunity expired. While the company has relevant technical capabilities in AWS cloud infrastructure, serverless architecture, and real-time data integration, these are insufficient without the required government past performance. The company is also not located in San Mateo County, forfeiting 5-10% preferential scoring points. The pricing position is weak with only 30% confidence and a 'Reward Low Cost' evaluation method that favors lean competitors.",
+        "confidence": 45,
         "blockers": [
-          "Submission deadline has passed \u2014 proposal was due March 20, 2026 and today is April 19, 2026",
-          "Cannot demonstrate 3 similar government/public sector digital platforms within last 7 years as required by mandatory minimum qualifications (pass/fail gate)",
-          "Cannot demonstrate proven real-time environmental data aggregation from 2+ federal/regional sources as required by mandatory minimum qualifications (pass/fail gate)",
-          "No past performance projects available in database to support Firm Qualifications (25% of evaluation)"
+          "Submission deadline has passed (March 20, 2026 \u2014 today is April 20, 2026)",
+          "Cannot meet mandatory minimum qualification: three similar government/public sector digital platform implementations within last 7 years (HORUSTECH has zero)",
+          "Not headquartered in San Mateo County \u2014 forfeits 5-10% preferential scoring points with no mitigation path"
         ],
-        "decisionRationale": "NO_GO decision driven by three critical factors: (1) The submission deadline of March 20, 2026 has already passed \u2014 today is April 19, 2026, making it impossible to submit a proposal. (2) HORUSTECH cannot demonstrably meet the mandatory minimum qualifications requiring 3 similar government/public sector digital platforms and proven environmental data aggregation from federal sources \u2014 failing these pass/fail gates would result in automatic disqualification. (3) No past performance data exists in the database (score of 1), which is devastating given Firm Qualifications is weighted at 25% of evaluation. The composite score of 2.15 reflects fundamental gaps across past performance, pricing confidence, and strategic alignment that cannot be mitigated.",
+        "decisionRationale": "This opportunity receives a NO_GO recommendation based on multiple critical factors. First, the submission deadline of March 20, 2026 has already passed \u2014 today is April 20, 2026, making submission impossible without evidence of a deadline extension. Second, HORUSTECH cannot meet the mandatory pass/fail minimum qualification requiring three similar government/public sector digital platform implementations within the last seven years; the company has zero such projects documented, which would result in automatic disqualification before scoring begins. Third, the past performance score of 1 (no relevant government projects) directly impacts the Firm Qualifications evaluation factor worth 25% of the total score. Fourth, the company is not located in San Mateo County and would forfeit 5-10% preferential points. The composite score of 2.15 reflects these fundamental barriers that cannot be overcome through proposal strategy alone.",
         "compositeScore": 2.2,
         "confidenceDrivers": [
+          {
+            "factor": "Submission deadline has passed \u2014 opportunity likely expired",
+            "direction": "DOWN"
+          },
           {
             "factor": "Zero past performance projects matched in database",
             "direction": "DOWN"
           },
           {
-            "factor": "KB searches for WCAG, multilingual, and environmental data returned no results",
+            "factor": "KB searches for key requirements (WCAG, multilingual, environmental data) returned no results",
             "direction": "DOWN"
           },
           {
-            "factor": "Pricing confidence extremely low at 35/100",
+            "factor": "Pricing confidence only 30/100 with no government estimate available",
             "direction": "DOWN"
           },
           {
-            "factor": "Submission deadline has already passed",
-            "direction": "DOWN"
-          },
-          {
-            "factor": "No documented strategic plan or growth targets available",
-            "direction": "DOWN"
-          },
-          {
-            "factor": "AWS serverless and real-time dashboard capabilities documented in KB",
+            "factor": "New requirement with no incumbent \u2014 level playing field if eligible",
             "direction": "UP"
           },
           {
-            "factor": "New requirement with no incumbent \u2014 level playing field",
+            "factor": "Demonstrated AWS serverless and real-time dashboard technical capabilities",
             "direction": "UP"
           }
         ]
       },
-      "inputHash": "227649525d2285b602eb74895d48bbb4c3ee9432f61573da763ef0f7ec5919ab",
+      "inputHash": "force-regen-v9",
       "status": "COMPLETE",
-      "updatedAt": "2026-04-19T20:21:35.071Z"
+      "updatedAt": "2026-04-20T23:59:18.738Z"
     },
     "summary": {
       "data": {
-        "summary": "The County of San Mateo is seeking a qualified contractor to develop, host, and maintain a comprehensive digital platform that delivers real-time, location-specific beach safety and ocean conditions data to the public across San Mateo County's coastline. The platform must integrate live weather, surf, and hazard data from multiple sources, feature a hazard alert system for each beach location, and meet WCAG 2.1 Level AA accessibility standards with multi-language support. The goal is to empower beachgoers with actionable safety information to reduce ocean-related incidents.",
-        "periodOfPerformance": "Base year of 1 year + three (3) option years not to exceed three additional years",
+        "summary": "The County of San Mateo is seeking qualified contractors to develop, host, and maintain a comprehensive digital Beach Safety and Ocean Conditions Dashboard Platform that provides real-time, location-specific data to the public across the county's diverse coastal region. The platform must deliver live reporting on wave height, rip tides, wind speed, and water temperature at each individual beach location, incorporate a hazard alert system designating ocean risk levels, and allow County staff to add timely customized updates. Technical requirements include seamless integration and synchronization of data from local, regional, and national environmental sources, multi-language support, WCAG 2.1 Level AA accessibility compliance, mobile-responsive design, robust data encryption, and adherence to County IT security standards. The contract is structured as a one-year base term with three optional extension periods not to exceed three additional years, and the contractor must achieve full platform launch within 90 days of contract award. Proposers must demonstrate at least three years of experience providing similar services within the last seven years, successful implementation of at least three similar digital platforms for government or public sector agencies, and proven ability to aggregate real-time data from at least two federal or regional environmental sources. This initiative addresses a critical gap in centralized public safety information for beachgoers and visitors, empowering informed decision-making and fostering safer ocean practices along the San Mateo County coastline, with proposals evaluated on project approach, firm qualifications, team qualifications, and price.",
+        "periodOfPerformance": "Base year of 1 year + 3 option years (not to exceed 3 additional years)",
         "agency": "County of San Mateo",
         "contractType": "UNKNOWN",
         "office": "County Executive's Office",
@@ -526,13 +467,9 @@
         "solicitationNumber": "2026-RFP - Informal-00253",
         "setAside": "UNKNOWN"
       },
-      "inputHash": "7a769af1b619255e14c923b5c7b0e41ffc760f1626849585f8e3b2a38806c477",
+      "inputHash": "force-regen-v9",
       "status": "COMPLETE",
-      "updatedAt": "2026-04-19T20:15:24.855Z"
+      "updatedAt": "2026-04-20T23:53:02.652Z"
     }
-  },
-  "status": "IDLE",
-  "textKey": "fcfc467aafd61ee9cb80a885e9134d002a065513dbb3594cca89f744560e2f5c/3e8b5099-0c1a-4a78-a5e2-65719b2f7a81/bd121ac8-e7ee-4f12-bf3a-b5231a065381.txt",
-  "updatedAt": "2026-04-19T20:21:35.071Z",
-  "sort_key": "3e8b5099-0c1a-4a78-a5e2-65719b2f7a81#d002d31a-c071-4a62-b045-eb3d1f2ecd9e"
+  }
 }

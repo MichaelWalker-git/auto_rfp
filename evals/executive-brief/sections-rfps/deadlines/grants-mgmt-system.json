@@ -1,0 +1,25 @@
+{
+  "hasSubmissionDeadline": true,
+  "submissionDeadlineIso": "2026-03-16T14:00:00-07:00",
+  "deadlines": [
+    {
+      "dateTimeIso": "2026-02-23T12:00:00-08:00",
+      "label": "Questions and Comments Due",
+      "notes": "Written questions must be submitted electronically via the eBidding System (PlanetBids). Only 10 days after solicitation issue date, so proposers need to review requirements quickly. All answers will be distributed to all proposers on record.",
+      "type": "QUESTIONS_DUE",
+      "rawText": "February 23, 2026 @ 12:00 p.m.",
+      "timezone": "PT"
+    },
+    {
+      "dateTimeIso": "2026-03-16T14:00:00-07:00",
+      "label": "Proposal Due Date and Time (Closing Date)",
+      "notes": "Proposals may be submitted electronically via PlanetBids or as one original hard copy plus one electronic copy (thumb drive/CD) to P&C at 1200 Third Avenue, Suite 200, San Diego, CA 92101. Approximately 21 days after questions deadline, giving limited time to incorporate Q&A responses. Desired go-live is July 1, 2026, so the timeline from award to deployment is very tight.",
+      "type": "PROPOSAL_DUE",
+      "rawText": "March 16, 2026 @ 2:00 p.m.",
+      "timezone": "PT"
+    }
+  ],
+  "warnings": [
+    "March 16, 2026 falls during Pacific Daylight Time (UTC-7); timezone offset reflects PDT. No explicit timezone abbreviation was stated for the proposal deadline beyond the general PT context of San Diego."
+  ]
+}

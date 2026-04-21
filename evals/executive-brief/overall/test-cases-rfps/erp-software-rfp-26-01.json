@@ -1,16 +1,7 @@
 {
-  "allTextKeys": [
-    "8e79b259e81fba93e470efc5ccb74e3609fb1e14880efdfcb6666afa05209088/b94c25bb-91da-40a3-b29a-9a64144b01db/8ad8f9e1-f058-4431-8e36-396e15df7789.txt"
-  ],
   "compositeScore": 1.3,
-  "confidence": 55,
-  "createdAt": "2026-02-19T03:17:01.888Z",
+  "confidence": 15,
   "decision": "NO_GO",
-  "documentsBucket": "auto-rfp-documents-dev-039885961427",
-  "opportunityId": "146bd550-b5a3-4de6-9f4f-4d515098bfc2",
-  "orgId": "9c0a5757-e2da-4e71-9490-01c558f7ffc3",
-  "partition_key": "EXEC_BRIEF_PK",
-  "projectId": "b94c25bb-91da-40a3-b29a-9a64144b01db",
   "sections": {
     "contacts": {
       "data": {
@@ -34,9 +25,9 @@
           }
         ]
       },
-      "inputHash": "46def8942b4936906700a837aef23938b503918309e7c1bdd339c26ece828552",
+      "inputHash": "force-regen-v9",
       "status": "COMPLETE",
-      "updatedAt": "2026-04-19T20:15:30.055Z"
+      "updatedAt": "2026-04-21T00:31:40.840Z"
     },
     "deadlines": {
       "data": {
@@ -46,77 +37,823 @@
           {
             "dateTimeIso": "2026-03-02T23:59:00-08:00",
             "label": "Respondents' submission of written questions",
-            "notes": "No specific time stated; date only from tentative solicitation schedule",
+            "notes": "No specific time stated for question submission; only the date is provided in the tentative schedule. Questions must be submitted via PlanetBids. This is critical for clarifying requirements before proposal preparation \u2014 only 30 days remain between the Q&A response and proposal due date.",
             "type": "QUESTIONS_DUE",
             "rawText": "Respondents' submission of written questions - March 2, 2026",
             "timezone": "PT"
           },
           {
-            "dateTimeIso": "2026-04-01T14:00:00-07:00",
-            "label": "Proposals due in PlanetBids",
-            "notes": "Electronic submittal only via PlanetBids. Proposals received after this time will not be accepted.",
-            "type": "PROPOSAL_DUE",
-            "rawText": "Proposals due on April 1, 2026, at 2:00 pm Pacific Time",
+            "dateTimeIso": "2026-03-09T23:59:00-08:00",
+            "label": "Response to written questions posted in PlanetBids",
+            "notes": "This is when the Sites Authority will post answers and any addenda. Respondents should monitor PlanetBids after this date for clarifications that may affect proposal content. Only ~23 days remain between answers and proposal due date.",
+            "type": "OTHER",
+            "rawText": "Response to written questions to Respondents in PlanetBids - March 9, 2026",
             "timezone": "PT"
           },
           {
-            "label": "Respondent software demonstrations and interviews held",
-            "notes": "Date range for finalist demonstrations and interviews; estimated and may be revised without addendum",
+            "dateTimeIso": "2026-04-01T14:00:00-07:00",
+            "label": "Proposals due in PlanetBids",
+            "notes": "Hard deadline \u2014 proposals received after 2:00 PM Pacific Time will not be accepted, and no additional versions will be accepted after submission. Electronic submittal only via PlanetBids. April 1 falls during Pacific Daylight Time (UTC-7). Proposals must remain valid for 180 calendar days.",
+            "type": "PROPOSAL_DUE",
+            "rawText": "Proposals due in PlanetBids - April 1, 2026 at 2:00 pm (PT)",
+            "timezone": "PT"
+          },
+          {
+            "dateTimeIso": "2026-04-22T00:00:00-07:00",
+            "label": "Finalists notified",
+            "notes": "Estimated date for finalist notification; dates following proposal submission are tentative and may be revised without addendum. Important for planning availability for demonstrations and interviews.",
+            "type": "OTHER",
+            "rawText": "Finalists notified - April 22, 2026",
+            "timezone": "PT"
+          },
+          {
+            "dateTimeIso": null,
+            "label": "Respondent software demonstrations and interviews",
+            "notes": "Estimated window for finalist demonstrations and interviews. This date range is tentative and may be revised without addendum. Respondents should ensure key personnel availability during this period. The Authority may make a final selection without interviews.",
             "type": "ORALS",
-            "rawText": "April 27 - May 15, 2026",
+            "rawText": "Respondent software demonstrations and interviews held - April 27 - May 15, 2026",
+            "timezone": "PT"
+          },
+          {
+            "dateTimeIso": null,
+            "label": "Contract negotiations and intent to award",
+            "notes": "Estimated negotiation period. This is tentative and may shift. Final contract award is subject to Sites Authority Board approval, which is listed as TBD. Target go-live is January 1, 2027, so delays here compress implementation timeline.",
+            "type": "OTHER",
+            "rawText": "Contract negotiations and intent to award - May 18 - June 12, 2026",
             "timezone": "PT"
           }
         ],
         "warnings": []
       },
-      "inputHash": "890f601deb6834fb013143b70c0929ba9766df0a5afa42d7bf370018bb3cd9cf",
+      "inputHash": "force-regen-v9",
       "status": "COMPLETE",
-      "updatedAt": "2026-04-19T20:15:35.010Z"
+      "updatedAt": "2026-04-21T00:30:35.964Z"
     },
     "pastPerformance": {
-      "status": "IDLE",
-      "updatedAt": "2026-04-19T20:14:58.923Z"
+      "data": {
+        "topMatches": [
+          {
+            "matchDetails": {
+              "technicalSimilarity": 0,
+              "scaleSimilarity": 0,
+              "domainSimilarity": 20,
+              "recency": 0,
+              "successMetrics": 0
+            },
+            "project": {
+              "durationMonths": null,
+              "naicsCodes": [
+                "541511",
+                "713210"
+              ],
+              "achievements": [
+                "Complete infrastructure migration from Digital Ocean to AWS",
+                "Full backend overhaul improving performance and security",
+                "Modernized application architecture on AWS"
+              ],
+              "reactivatedAt": null,
+              "endDate": null,
+              "contractType": null,
+              "isArchived": false,
+              "description": "Migrated Chanced.com from Digital Ocean to AWS and performed a complete overhaul of their PHP Laravel backend. The project modernized the hosting infrastructure and improved application performance and reliability.",
+              "title": "Digital Ocean to AWS Migration & Backend Overhaul",
+              "staleReason": null,
+              "orgId": "9c0a5757-e2da-4e71-9490-01c558f7ffc3",
+              "setAside": null,
+              "createdAt": "2026-04-08T04:23:39.366Z",
+              "client": "Chanced.com",
+              "value": null,
+              "updatedAt": "2026-04-20T20:50:56.691Z",
+              "technicalApproach": "Migrated hosting from Digital Ocean to AWS. Overhauled the entire PHP Laravel backend for improved performance, security, and maintainability. Leveraged AWS services for hosting, storage, and compute.",
+              "partition_key": "PAST_PROJECT",
+              "reactivatedBy": null,
+              "contractNumber": null,
+              "sort_key": "9c0a5757-e2da-4e71-9490-01c558f7ffc3#0b9fb34d-a4b4-4010-9980-0d3a10c133af",
+              "staleSince": null,
+              "usageCount": 18,
+              "technologies": [
+                "PHP",
+                "Laravel",
+                "AWS EC2",
+                "Amazon RDS",
+                "Amazon S3",
+                "AWS CloudFront"
+              ],
+              "performanceRating": null,
+              "lastFreshnessCheck": null,
+              "createdBy": "bulk-import-script",
+              "lastUsedAt": "2026-04-20T20:50:56.691Z",
+              "teamSize": null,
+              "domain": "Financial Services / Gaming",
+              "clientPOC": null,
+              "freshnessStatus": "ACTIVE",
+              "projectId": "0b9fb34d-a4b4-4010-9980-0d3a10c133af",
+              "usedInBriefIds": [
+                "6fbf749f-7173-489c-be0a-564f97ebf8b0#1caae84e-d059-499e-a672-6250187f41fc",
+                "6fbf749f-7173-489c-be0a-564f97ebf8b0#1caae84e-d059-499e-a672-6250187f41fc",
+                "6fbf749f-7173-489c-be0a-564f97ebf8b0#1caae84e-d059-499e-a672-6250187f41fc",
+                "6fbf749f-7173-489c-be0a-564f97ebf8b0#1caae84e-d059-499e-a672-6250187f41fc",
+                "6fbf749f-7173-489c-be0a-564f97ebf8b0#1caae84e-d059-499e-a672-6250187f41fc",
+                "6fbf749f-7173-489c-be0a-564f97ebf8b0#1caae84e-d059-499e-a672-6250187f41fc",
+                "6fbf749f-7173-489c-be0a-564f97ebf8b0#1caae84e-d059-499e-a672-6250187f41fc",
+                "6fbf749f-7173-489c-be0a-564f97ebf8b0#1caae84e-d059-499e-a672-6250187f41fc",
+                "6fbf749f-7173-489c-be0a-564f97ebf8b0#1caae84e-d059-499e-a672-6250187f41fc",
+                "810f5a23-42e4-4355-a2b4-f9ae2cb8e563#a6337196-4a67-44bc-8217-557cb6d7de31",
+                "810f5a23-42e4-4355-a2b4-f9ae2cb8e563#adf2abdc-d4bc-49c0-be02-ff4cbf6ab4e8",
+                "810f5a23-42e4-4355-a2b4-f9ae2cb8e563#5d602fa1-2abd-48cb-a212-dcdcb7c29038",
+                "810f5a23-42e4-4355-a2b4-f9ae2cb8e563#c41c7043-1550-4cb0-8a7f-517adf26ebb8",
+                "810f5a23-42e4-4355-a2b4-f9ae2cb8e563#c41c7043-1550-4cb0-8a7f-517adf26ebb8",
+                "ad33c87d-8fbb-49ca-b32e-ae32d653bb2b#623408c1-1aa6-411c-abe7-dc0fa0557343",
+                "d1ae9e89-3992-494f-b76f-d39d23f37640#cf14f9a9-c129-495a-9893-ee61eadd690c",
+                "d1ae9e89-3992-494f-b76f-d39d23f37640#cf14f9a9-c129-495a-9893-ee61eadd690c",
+                "b94c25bb-91da-40a3-b29a-9a64144b01db#146bd550-b5a3-4de6-9f4f-4d515098bfc2"
+              ],
+              "startDate": null
+            },
+            "relevanceScore": 5,
+            "matchedRequirements": [
+              "Provide ongoing cloud hosting services with automated updates and software change communications"
+            ],
+            "narrative": null
+          },
+          {
+            "matchDetails": {
+              "technicalSimilarity": 0,
+              "scaleSimilarity": 0,
+              "domainSimilarity": 20,
+              "recency": 0,
+              "successMetrics": 0
+            },
+            "project": {
+              "durationMonths": null,
+              "naicsCodes": [
+                "541511",
+                "523130"
+              ],
+              "achievements": [
+                "Secure, localized trading platform with CMS-driven content",
+                "Automated CI/CD pipeline with Azure Pipelines",
+                "Global performance optimization with Cloudflare CDN"
+              ],
+              "reactivatedAt": null,
+              "endDate": null,
+              "contractType": null,
+              "isArchived": false,
+              "description": "Built a secure cryptocurrency trading platform frontend with dynamic, localized content. The platform features server-side rendering, CMS-driven content management, and CDN optimization for global performance.",
+              "title": "Secure Crypto Trading Platform",
+              "staleReason": null,
+              "orgId": "9c0a5757-e2da-4e71-9490-01c558f7ffc3",
+              "setAside": null,
+              "createdAt": "2026-04-08T04:23:31.596Z",
+              "client": "NDAX",
+              "value": null,
+              "updatedAt": "2026-04-20T20:50:56.700Z",
+              "technicalApproach": "Developed the frontend using Next.js with Strapi CMS for dynamic content management. Set up CI/CD with Azure Pipelines for automated deployments. Applied Cloudflare optimizations for global performance and security.",
+              "partition_key": "PAST_PROJECT",
+              "reactivatedBy": null,
+              "contractNumber": null,
+              "sort_key": "9c0a5757-e2da-4e71-9490-01c558f7ffc3#123a1e9f-54a5-40b8-b8ec-5830d4e113f8",
+              "staleSince": null,
+              "usageCount": 17,
+              "technologies": [
+                "Next.js",
+                "Strapi CMS",
+                "Azure Pipelines",
+                "Cloudflare",
+                "TypeScript"
+              ],
+              "performanceRating": null,
+              "lastFreshnessCheck": null,
+              "createdBy": "bulk-import-script",
+              "lastUsedAt": "2026-04-20T20:50:56.700Z",
+              "teamSize": null,
+              "domain": "Financial Services / Cryptocurrency",
+              "clientPOC": null,
+              "freshnessStatus": "ACTIVE",
+              "projectId": "123a1e9f-54a5-40b8-b8ec-5830d4e113f8",
+              "usedInBriefIds": [
+                "6fbf749f-7173-489c-be0a-564f97ebf8b0#1caae84e-d059-499e-a672-6250187f41fc",
+                "6fbf749f-7173-489c-be0a-564f97ebf8b0#1caae84e-d059-499e-a672-6250187f41fc",
+                "6fbf749f-7173-489c-be0a-564f97ebf8b0#1caae84e-d059-499e-a672-6250187f41fc",
+                "6fbf749f-7173-489c-be0a-564f97ebf8b0#1caae84e-d059-499e-a672-6250187f41fc",
+                "6fbf749f-7173-489c-be0a-564f97ebf8b0#1caae84e-d059-499e-a672-6250187f41fc",
+                "6fbf749f-7173-489c-be0a-564f97ebf8b0#1caae84e-d059-499e-a672-6250187f41fc",
+                "6fbf749f-7173-489c-be0a-564f97ebf8b0#1caae84e-d059-499e-a672-6250187f41fc",
+                "6fbf749f-7173-489c-be0a-564f97ebf8b0#1caae84e-d059-499e-a672-6250187f41fc",
+                "6fbf749f-7173-489c-be0a-564f97ebf8b0#1caae84e-d059-499e-a672-6250187f41fc",
+                "810f5a23-42e4-4355-a2b4-f9ae2cb8e563#e516d137-e19a-4320-a0b8-ccfa29a165de",
+                "810f5a23-42e4-4355-a2b4-f9ae2cb8e563#7d46e81e-94f5-4adc-8d37-2ae0eb6cadf5",
+                "810f5a23-42e4-4355-a2b4-f9ae2cb8e563#adf2abdc-d4bc-49c0-be02-ff4cbf6ab4e8",
+                "3e8b5099-0c1a-4a78-a5e2-65719b2f7a81#2ce43476-4476-4abf-8eeb-f71495cc2ebc",
+                "3e8b5099-0c1a-4a78-a5e2-65719b2f7a81#2ce43476-4476-4abf-8eeb-f71495cc2ebc",
+                "d1ae9e89-3992-494f-b76f-d39d23f37640#cf14f9a9-c129-495a-9893-ee61eadd690c",
+                "d1ae9e89-3992-494f-b76f-d39d23f37640#cf14f9a9-c129-495a-9893-ee61eadd690c",
+                "b94c25bb-91da-40a3-b29a-9a64144b01db#146bd550-b5a3-4de6-9f4f-4d515098bfc2"
+              ],
+              "startDate": null
+            },
+            "relevanceScore": 5,
+            "matchedRequirements": [
+              "Describe optional module capabilities for capital asset maintenance management, debt management, investment management, HR, payroll, timekeeping, and inventory tracking"
+            ],
+            "narrative": null
+          },
+          {
+            "matchDetails": {
+              "technicalSimilarity": 0,
+              "scaleSimilarity": 0,
+              "domainSimilarity": 20,
+              "recency": 0,
+              "successMetrics": 0
+            },
+            "project": {
+              "durationMonths": null,
+              "naicsCodes": [
+                "541511",
+                "522320"
+              ],
+              "achievements": [
+                "High-performance web application with server-side rendering",
+                "Streamlined deployment via AWS Amplify",
+                "Type-safe codebase with TypeScript"
+              ],
+              "reactivatedAt": null,
+              "endDate": null,
+              "contractType": null,
+              "isArchived": false,
+              "description": "Created a performant front-end for an Amplify-hosted web application using Next.js. The platform features server-side rendering for optimal performance and is deployed on AWS Amplify for streamlined hosting and CI/CD.",
+              "title": "Performant Web Application on AWS Amplify",
+              "staleReason": null,
+              "orgId": "9c0a5757-e2da-4e71-9490-01c558f7ffc3",
+              "setAside": null,
+              "createdAt": "2026-04-08T04:23:33.079Z",
+              "client": "FAQx, Inc.",
+              "value": null,
+              "updatedAt": "2026-04-20T20:50:56.706Z",
+              "technicalApproach": "Built the application with Next.js and TypeScript, leveraging server-side rendering for performance. Deployed on AWS Amplify with integrated hosting and continuous deployment pipelines.",
+              "partition_key": "PAST_PROJECT",
+              "reactivatedBy": null,
+              "contractNumber": null,
+              "sort_key": "9c0a5757-e2da-4e71-9490-01c558f7ffc3#12b71539-7a20-4d0b-8050-127a1f4c590f",
+              "staleSince": null,
+              "usageCount": 16,
+              "technologies": [
+                "Next.js",
+                "TypeScript",
+                "AWS Amplify",
+                "React"
+              ],
+              "performanceRating": null,
+              "lastFreshnessCheck": null,
+              "createdBy": "bulk-import-script",
+              "lastUsedAt": "2026-04-20T20:50:56.706Z",
+              "teamSize": null,
+              "domain": "Fintech / SaaS",
+              "clientPOC": null,
+              "freshnessStatus": "ACTIVE",
+              "projectId": "12b71539-7a20-4d0b-8050-127a1f4c590f",
+              "usedInBriefIds": [
+                "6fbf749f-7173-489c-be0a-564f97ebf8b0#1caae84e-d059-499e-a672-6250187f41fc",
+                "6fbf749f-7173-489c-be0a-564f97ebf8b0#1caae84e-d059-499e-a672-6250187f41fc",
+                "6fbf749f-7173-489c-be0a-564f97ebf8b0#1caae84e-d059-499e-a672-6250187f41fc",
+                "6fbf749f-7173-489c-be0a-564f97ebf8b0#1caae84e-d059-499e-a672-6250187f41fc",
+                "6fbf749f-7173-489c-be0a-564f97ebf8b0#1caae84e-d059-499e-a672-6250187f41fc",
+                "6fbf749f-7173-489c-be0a-564f97ebf8b0#1caae84e-d059-499e-a672-6250187f41fc",
+                "6fbf749f-7173-489c-be0a-564f97ebf8b0#1caae84e-d059-499e-a672-6250187f41fc",
+                "6fbf749f-7173-489c-be0a-564f97ebf8b0#1caae84e-d059-499e-a672-6250187f41fc",
+                "6fbf749f-7173-489c-be0a-564f97ebf8b0#1caae84e-d059-499e-a672-6250187f41fc",
+                "810f5a23-42e4-4355-a2b4-f9ae2cb8e563#e516d137-e19a-4320-a0b8-ccfa29a165de",
+                "810f5a23-42e4-4355-a2b4-f9ae2cb8e563#adf2abdc-d4bc-49c0-be02-ff4cbf6ab4e8",
+                "c6737e52-1e0b-42c6-8480-043ab4999b94#8f26623d-c411-4b63-bc62-bc6fdf54e73b",
+                "c6737e52-1e0b-42c6-8480-043ab4999b94#8f26623d-c411-4b63-bc62-bc6fdf54e73b",
+                "d1ae9e89-3992-494f-b76f-d39d23f37640#cf14f9a9-c129-495a-9893-ee61eadd690c",
+                "d1ae9e89-3992-494f-b76f-d39d23f37640#cf14f9a9-c129-495a-9893-ee61eadd690c",
+                "b94c25bb-91da-40a3-b29a-9a64144b01db#146bd550-b5a3-4de6-9f4f-4d515098bfc2"
+              ],
+              "startDate": null
+            },
+            "relevanceScore": 5,
+            "matchedRequirements": [],
+            "narrative": null
+          },
+          {
+            "matchDetails": {
+              "technicalSimilarity": 0,
+              "scaleSimilarity": 0,
+              "domainSimilarity": 20,
+              "recency": 0,
+              "successMetrics": 0
+            },
+            "project": {
+              "durationMonths": null,
+              "naicsCodes": [
+                "541511",
+                "541612"
+              ],
+              "achievements": [
+                "Full multitenant HR platform supporting multiple organizations",
+                "Integrated video interviewing and resume parsing capabilities",
+                "Streamlined candidate workflows from application to hire"
+              ],
+              "reactivatedAt": null,
+              "endDate": null,
+              "contractType": null,
+              "isArchived": false,
+              "description": "Built a multitenant human resources application that integrates video interviewing, resume parsing, and candidate workflows. The platform supports multiple organizations on a single deployment with tenant isolation, enabling end-to-end recruitment process automation.",
+              "title": "Multitenant HR Platform with Video Interviewing",
+              "staleReason": null,
+              "orgId": "9c0a5757-e2da-4e71-9490-01c558f7ffc3",
+              "setAside": null,
+              "createdAt": "2026-04-08T04:23:25.873Z",
+              "client": "AspireHR",
+              "value": null,
+              "updatedAt": "2026-04-20T20:50:56.713Z",
+              "technicalApproach": "Developed a React-based frontend with AWS serverless backend. Integrated video interviewing capabilities, AI-powered resume parsing, and candidate workflow management. Built with multi-tenancy support for organizational isolation.",
+              "partition_key": "PAST_PROJECT",
+              "reactivatedBy": null,
+              "contractNumber": null,
+              "sort_key": "9c0a5757-e2da-4e71-9490-01c558f7ffc3#16546867-bb92-4a14-b291-0c2ba91f7c82",
+              "staleSince": null,
+              "usageCount": 14,
+              "technologies": [
+                "React",
+                "AWS Lambda",
+                "Amazon API Gateway",
+                "Amazon DynamoDB",
+                "Amazon S3",
+                "Amazon Cognito"
+              ],
+              "performanceRating": null,
+              "lastFreshnessCheck": null,
+              "createdBy": "bulk-import-script",
+              "lastUsedAt": "2026-04-20T20:50:56.713Z",
+              "teamSize": null,
+              "domain": "Human Resources / HR Tech",
+              "clientPOC": null,
+              "freshnessStatus": "ACTIVE",
+              "projectId": "16546867-bb92-4a14-b291-0c2ba91f7c82",
+              "usedInBriefIds": [
+                "6fbf749f-7173-489c-be0a-564f97ebf8b0#1caae84e-d059-499e-a672-6250187f41fc",
+                "6fbf749f-7173-489c-be0a-564f97ebf8b0#1caae84e-d059-499e-a672-6250187f41fc",
+                "6fbf749f-7173-489c-be0a-564f97ebf8b0#1caae84e-d059-499e-a672-6250187f41fc",
+                "6fbf749f-7173-489c-be0a-564f97ebf8b0#1caae84e-d059-499e-a672-6250187f41fc",
+                "6fbf749f-7173-489c-be0a-564f97ebf8b0#1caae84e-d059-499e-a672-6250187f41fc",
+                "6fbf749f-7173-489c-be0a-564f97ebf8b0#1caae84e-d059-499e-a672-6250187f41fc",
+                "6fbf749f-7173-489c-be0a-564f97ebf8b0#1caae84e-d059-499e-a672-6250187f41fc",
+                "6fbf749f-7173-489c-be0a-564f97ebf8b0#1caae84e-d059-499e-a672-6250187f41fc",
+                "6fbf749f-7173-489c-be0a-564f97ebf8b0#1caae84e-d059-499e-a672-6250187f41fc",
+                "810f5a23-42e4-4355-a2b4-f9ae2cb8e563#adf2abdc-d4bc-49c0-be02-ff4cbf6ab4e8",
+                "810f5a23-42e4-4355-a2b4-f9ae2cb8e563#9534a4db-b8cc-4538-8702-5f2615c6c62d",
+                "d1ae9e89-3992-494f-b76f-d39d23f37640#cf14f9a9-c129-495a-9893-ee61eadd690c",
+                "d1ae9e89-3992-494f-b76f-d39d23f37640#cf14f9a9-c129-495a-9893-ee61eadd690c",
+                "b94c25bb-91da-40a3-b29a-9a64144b01db#146bd550-b5a3-4de6-9f4f-4d515098bfc2"
+              ],
+              "startDate": null
+            },
+            "relevanceScore": 5,
+            "matchedRequirements": [
+              "Support 5-10 ERP users and 10-20 workflow approvers",
+              "Provide help desk support including remote support and on-call assistance, with on-site support available as needed"
+            ],
+            "narrative": null
+          },
+          {
+            "matchDetails": {
+              "technicalSimilarity": 0,
+              "scaleSimilarity": 0,
+              "domainSimilarity": 20,
+              "recency": 0,
+              "successMetrics": 0
+            },
+            "project": {
+              "durationMonths": null,
+              "naicsCodes": [
+                "541930",
+                "541511"
+              ],
+              "achievements": [
+                "Automated translation of safety manuals from German to multiple languages",
+                "Eliminated manual translation and formatting workflows",
+                "Maintained document formatting integrity across languages"
+              ],
+              "reactivatedAt": null,
+              "endDate": null,
+              "contractType": null,
+              "isArchived": false,
+              "description": "Built an automated transcription and translation system for safety manuals, converting German-language PDF articles into every required country-specific language. The platform ingests PDFs, extracts text, translates content, and regenerates formatted PDF output.",
+              "title": "Multilingual Safety Manual Translation Platform",
+              "staleReason": null,
+              "orgId": "9c0a5757-e2da-4e71-9490-01c558f7ffc3",
+              "setAside": null,
+              "createdAt": "2026-04-08T04:23:22.111Z",
+              "client": "Volkswagen",
+              "value": null,
+              "updatedAt": "2026-04-20T20:50:56.719Z",
+              "technicalApproach": "Used Amazon Textract to extract text from PDF safety manuals. Integrated Amazon Translate for multilingual conversion. Built an automated pipeline to reconvert translated text back into formatted PDF documents.",
+              "partition_key": "PAST_PROJECT",
+              "reactivatedBy": null,
+              "contractNumber": null,
+              "sort_key": "9c0a5757-e2da-4e71-9490-01c558f7ffc3#1b347828-0b24-4d04-ae4e-9934a46eda7c",
+              "staleSince": null,
+              "usageCount": 17,
+              "technologies": [
+                "Amazon Textract",
+                "Amazon Translate",
+                "AWS Lambda",
+                "Amazon S3",
+                "AWS Step Functions"
+              ],
+              "performanceRating": null,
+              "lastFreshnessCheck": null,
+              "createdBy": "bulk-import-script",
+              "lastUsedAt": "2026-04-20T20:50:56.719Z",
+              "teamSize": null,
+              "domain": "Manufacturing / Automotive",
+              "clientPOC": null,
+              "freshnessStatus": "ACTIVE",
+              "projectId": "1b347828-0b24-4d04-ae4e-9934a46eda7c",
+              "usedInBriefIds": [
+                "6fbf749f-7173-489c-be0a-564f97ebf8b0#1caae84e-d059-499e-a672-6250187f41fc",
+                "6fbf749f-7173-489c-be0a-564f97ebf8b0#1caae84e-d059-499e-a672-6250187f41fc",
+                "6fbf749f-7173-489c-be0a-564f97ebf8b0#1caae84e-d059-499e-a672-6250187f41fc",
+                "6fbf749f-7173-489c-be0a-564f97ebf8b0#1caae84e-d059-499e-a672-6250187f41fc",
+                "6fbf749f-7173-489c-be0a-564f97ebf8b0#1caae84e-d059-499e-a672-6250187f41fc",
+                "6fbf749f-7173-489c-be0a-564f97ebf8b0#1caae84e-d059-499e-a672-6250187f41fc",
+                "6fbf749f-7173-489c-be0a-564f97ebf8b0#1caae84e-d059-499e-a672-6250187f41fc",
+                "6fbf749f-7173-489c-be0a-564f97ebf8b0#1caae84e-d059-499e-a672-6250187f41fc",
+                "6fbf749f-7173-489c-be0a-564f97ebf8b0#1caae84e-d059-499e-a672-6250187f41fc",
+                "810f5a23-42e4-4355-a2b4-f9ae2cb8e563#9cf722b3-1b50-4af9-9133-73e7c20c2a9d",
+                "810f5a23-42e4-4355-a2b4-f9ae2cb8e563#c0971acb-8948-4992-96c8-181ebfc4785b",
+                "d1787e4e-170b-4250-8b30-1fa86cf32c97#b5c1e614-adef-4e4f-ad9f-81ed70e80e11",
+                "810f5a23-42e4-4355-a2b4-f9ae2cb8e563#adf2abdc-d4bc-49c0-be02-ff4cbf6ab4e8",
+                "810f5a23-42e4-4355-a2b4-f9ae2cb8e563#9534a4db-b8cc-4538-8702-5f2615c6c62d",
+                "d1ae9e89-3992-494f-b76f-d39d23f37640#cf14f9a9-c129-495a-9893-ee61eadd690c",
+                "d1ae9e89-3992-494f-b76f-d39d23f37640#cf14f9a9-c129-495a-9893-ee61eadd690c",
+                "b94c25bb-91da-40a3-b29a-9a64144b01db#146bd550-b5a3-4de6-9f4f-4d515098bfc2"
+              ],
+              "startDate": null
+            },
+            "relevanceScore": 5,
+            "matchedRequirements": [],
+            "narrative": null
+          }
+        ],
+        "gapAnalysis": {
+          "overallCoverage": 0,
+          "recommendations": [
+            "30 critical gap(s) identified. Consider teaming arrangements or subcontractors with relevant experience.",
+            "Overall past performance coverage is below 70%. This may significantly impact win probability."
+          ],
+          "criticalGaps": [
+            "Provide an integrated cloud-based ERP solution covering Accounts Payable, Accounts Receivable, Bank Reconciliation, Budget Management, Cash Management, Fixed Assets, General Ledger, Project Accounting, and Purchasing",
+            "Import prior one completed fiscal year of transactions, year-end balances, and current fiscal year-to-date transactions from QuickBooks Desktop Premier 2024",
+            "Configure software to meet Sites Authority requirements and provide a Configuration Workbook documenting system settings",
+            "Provide a Chart of Accounts Mapping showing how ERP codes align with legacy codes",
+            "Provide a Testing and Acceptance Plan",
+            "Assist with financial report writing and development",
+            "Support 5-10 ERP users and 10-20 workflow approvers",
+            "Target go-live date of January 1, 2027",
+            "Solution must be modular, extensible, and capable of supporting project delivery through construction and operations",
+            "Provide ongoing cloud hosting services with automated updates and software change communications",
+            "Provide help desk support including remote support and on-call assistance, with on-site support available as needed",
+            "Provide implementation-phase support during cutover, go-live, and initial stabilization",
+            "Describe availability of documented APIs or other integration methods for third-party systems",
+            "Describe optional module capabilities for capital asset maintenance management, debt management, investment management, HR, payroll, timekeeping, and inventory tracking",
+            "Provide personalized training and manuals for power users",
+            "Provide at least one recorded training session and electronic training materials for all staff with role-appropriate training",
+            "Provide support for first 12 months post-implementation",
+            "Conduct weekly meetings for progress, budget, and timeline monitoring",
+            "Provide a personnel management plan with dedicated project manager and technical staff",
+            "Provide documentation demonstrating measures for protecting financial data in the SaaS environment and secure access controls (Attachment G)",
+            "All data entered into the ERP system shall remain sole property of the Sites Authority with full non-proprietary data exports upon request and upon contract termination at no additional cost",
+            "Pricing for software and services must remain firm for at least 3 years from contract execution with subsequent increases limited to annual CPI-U or 3%, whichever is less",
+            "Proposals must be offered for a term not less than 180 calendar days",
+            "Optional module pricing must remain eligible for up to 5 years from proposal submission date",
+            "Provide proof of insurance including workers compensation and commercial general liability",
+            "Provide minimum of three references for whom similar services have been performed",
+            "Disclose location of workers and identify any work performed outside the United States",
+            "Provide certification of financial condition signed by authorized representative",
+            "Identify key personnel anticipated to support implementation and ongoing services",
+            "Describe firm qualifications including experience implementing accounting/financial software for public agencies or grant-funded organizations"
+          ],
+          "coverageItems": [
+            {
+              "matchedProjectTitle": null,
+              "matchScore": null,
+              "recommendation": "No strong past performance match. Consider teaming or subcontracting for: Provide an integrated cloud-based ERP solution covering Accounts Payable, Accounts Receivable, Bank Reconciliation, Budget Management, Cash Management, Fixed Assets, General Ledger, Project Accounting, and Purchasing",
+              "requirement": "Provide an integrated cloud-based ERP solution covering Accounts Payable, Accounts Receivable, Bank Reconciliation, Budget Management, Cash Management, Fixed Assets, General Ledger, Project Accounting, and Purchasing",
+              "matchedProjectId": null,
+              "category": "TECHNICAL",
+              "status": "GAP"
+            },
+            {
+              "matchedProjectTitle": null,
+              "matchScore": null,
+              "recommendation": "No strong past performance match. Consider teaming or subcontracting for: Import prior one completed fiscal year of transactions, year-end balances, and current fiscal year-to-date transactions from QuickBooks Desktop Premier 2024",
+              "requirement": "Import prior one completed fiscal year of transactions, year-end balances, and current fiscal year-to-date transactions from QuickBooks Desktop Premier 2024",
+              "matchedProjectId": null,
+              "category": "TECHNICAL",
+              "status": "GAP"
+            },
+            {
+              "matchedProjectTitle": null,
+              "matchScore": null,
+              "recommendation": "No strong past performance match. Consider teaming or subcontracting for: Configure software to meet Sites Authority requirements and provide a Configuration Workbook documenting system settings",
+              "requirement": "Configure software to meet Sites Authority requirements and provide a Configuration Workbook documenting system settings",
+              "matchedProjectId": null,
+              "category": "TECHNICAL",
+              "status": "GAP"
+            },
+            {
+              "matchedProjectTitle": null,
+              "matchScore": null,
+              "recommendation": "No strong past performance match. Consider teaming or subcontracting for: Provide a Chart of Accounts Mapping showing how ERP codes align with legacy codes",
+              "requirement": "Provide a Chart of Accounts Mapping showing how ERP codes align with legacy codes",
+              "matchedProjectId": null,
+              "category": "TECHNICAL",
+              "status": "GAP"
+            },
+            {
+              "matchedProjectTitle": null,
+              "matchScore": null,
+              "recommendation": "No strong past performance match. Consider teaming or subcontracting for: Provide a Testing and Acceptance Plan",
+              "requirement": "Provide a Testing and Acceptance Plan",
+              "matchedProjectId": null,
+              "category": "TECHNICAL",
+              "status": "GAP"
+            },
+            {
+              "matchedProjectTitle": null,
+              "matchScore": null,
+              "recommendation": "No strong past performance match. Consider teaming or subcontracting for: Assist with financial report writing and development",
+              "requirement": "Assist with financial report writing and development",
+              "matchedProjectId": null,
+              "category": "TECHNICAL",
+              "status": "GAP"
+            },
+            {
+              "matchedProjectTitle": "Multitenant HR Platform with Video Interviewing",
+              "matchScore": 5,
+              "recommendation": "No strong past performance match. Consider teaming or subcontracting for: Support 5-10 ERP users and 10-20 workflow approvers",
+              "requirement": "Support 5-10 ERP users and 10-20 workflow approvers",
+              "matchedProjectId": "16546867-bb92-4a14-b291-0c2ba91f7c82",
+              "category": "TECHNICAL",
+              "status": "GAP"
+            },
+            {
+              "matchedProjectTitle": null,
+              "matchScore": null,
+              "recommendation": "No strong past performance match. Consider teaming or subcontracting for: Target go-live date of January 1, 2027",
+              "requirement": "Target go-live date of January 1, 2027",
+              "matchedProjectId": null,
+              "category": "TECHNICAL",
+              "status": "GAP"
+            },
+            {
+              "matchedProjectTitle": null,
+              "matchScore": null,
+              "recommendation": "No strong past performance match. Consider teaming or subcontracting for: Solution must be modular, extensible, and capable of supporting project delivery through construction and operations",
+              "requirement": "Solution must be modular, extensible, and capable of supporting project delivery through construction and operations",
+              "matchedProjectId": null,
+              "category": "TECHNICAL",
+              "status": "GAP"
+            },
+            {
+              "matchedProjectTitle": "Digital Ocean to AWS Migration & Backend Overhaul",
+              "matchScore": 5,
+              "recommendation": "No strong past performance match. Consider teaming or subcontracting for: Provide ongoing cloud hosting services with automated updates and software change communications",
+              "requirement": "Provide ongoing cloud hosting services with automated updates and software change communications",
+              "matchedProjectId": "0b9fb34d-a4b4-4010-9980-0d3a10c133af",
+              "category": "TECHNICAL",
+              "status": "GAP"
+            },
+            {
+              "matchedProjectTitle": "Multitenant HR Platform with Video Interviewing",
+              "matchScore": 5,
+              "recommendation": "No strong past performance match. Consider teaming or subcontracting for: Provide help desk support including remote support and on-call assistance, with on-site support available as needed",
+              "requirement": "Provide help desk support including remote support and on-call assistance, with on-site support available as needed",
+              "matchedProjectId": "16546867-bb92-4a14-b291-0c2ba91f7c82",
+              "category": "TECHNICAL",
+              "status": "GAP"
+            },
+            {
+              "matchedProjectTitle": null,
+              "matchScore": null,
+              "recommendation": "No strong past performance match. Consider teaming or subcontracting for: Provide implementation-phase support during cutover, go-live, and initial stabilization",
+              "requirement": "Provide implementation-phase support during cutover, go-live, and initial stabilization",
+              "matchedProjectId": null,
+              "category": "TECHNICAL",
+              "status": "GAP"
+            },
+            {
+              "matchedProjectTitle": null,
+              "matchScore": null,
+              "recommendation": "No strong past performance match. Consider teaming or subcontracting for: Describe availability of documented APIs or other integration methods for third-party systems",
+              "requirement": "Describe availability of documented APIs or other integration methods for third-party systems",
+              "matchedProjectId": null,
+              "category": "TECHNICAL",
+              "status": "GAP"
+            },
+            {
+              "matchedProjectTitle": "Secure Crypto Trading Platform",
+              "matchScore": 5,
+              "recommendation": "No strong past performance match. Consider teaming or subcontracting for: Describe optional module capabilities for capital asset maintenance management, debt management, investment management, HR, payroll, timekeeping, and inventory tracking",
+              "requirement": "Describe optional module capabilities for capital asset maintenance management, debt management, investment management, HR, payroll, timekeeping, and inventory tracking",
+              "matchedProjectId": "123a1e9f-54a5-40b8-b8ec-5830d4e113f8",
+              "category": "TECHNICAL",
+              "status": "GAP"
+            },
+            {
+              "matchedProjectTitle": null,
+              "matchScore": null,
+              "recommendation": "No strong past performance match. Consider teaming or subcontracting for: Provide personalized training and manuals for power users",
+              "requirement": "Provide personalized training and manuals for power users",
+              "matchedProjectId": null,
+              "category": "DELIVERABLES",
+              "status": "GAP"
+            },
+            {
+              "matchedProjectTitle": null,
+              "matchScore": null,
+              "recommendation": "No strong past performance match. Consider teaming or subcontracting for: Provide at least one recorded training session and electronic training materials for all staff with role-appropriate training",
+              "requirement": "Provide at least one recorded training session and electronic training materials for all staff with role-appropriate training",
+              "matchedProjectId": null,
+              "category": "DELIVERABLES",
+              "status": "GAP"
+            },
+            {
+              "matchedProjectTitle": null,
+              "matchScore": null,
+              "recommendation": "No strong past performance match. Consider teaming or subcontracting for: Provide support for first 12 months post-implementation",
+              "requirement": "Provide support for first 12 months post-implementation",
+              "matchedProjectId": null,
+              "category": "DELIVERABLES",
+              "status": "GAP"
+            },
+            {
+              "matchedProjectTitle": null,
+              "matchScore": null,
+              "recommendation": "No strong past performance match. Consider teaming or subcontracting for: Conduct weekly meetings for progress, budget, and timeline monitoring",
+              "requirement": "Conduct weekly meetings for progress, budget, and timeline monitoring",
+              "matchedProjectId": null,
+              "category": "DELIVERABLES",
+              "status": "GAP"
+            },
+            {
+              "matchedProjectTitle": null,
+              "matchScore": null,
+              "recommendation": "No strong past performance match. Consider teaming or subcontracting for: Provide a personnel management plan with dedicated project manager and technical staff",
+              "requirement": "Provide a personnel management plan with dedicated project manager and technical staff",
+              "matchedProjectId": null,
+              "category": "DELIVERABLES",
+              "status": "GAP"
+            },
+            {
+              "matchedProjectTitle": null,
+              "matchScore": null,
+              "recommendation": "No strong past performance match. Consider teaming or subcontracting for: Provide documentation demonstrating measures for protecting financial data in the SaaS environment and secure access controls (Attachment G)",
+              "requirement": "Provide documentation demonstrating measures for protecting financial data in the SaaS environment and secure access controls (Attachment G)",
+              "matchedProjectId": null,
+              "category": "SECURITY",
+              "status": "GAP"
+            },
+            {
+              "matchedProjectTitle": null,
+              "matchScore": null,
+              "recommendation": "No strong past performance match. Consider teaming or subcontracting for: All data entered into the ERP system shall remain sole property of the Sites Authority with full non-proprietary data exports upon request and upon contract termination at no additional cost",
+              "requirement": "All data entered into the ERP system shall remain sole property of the Sites Authority with full non-proprietary data exports upon request and upon contract termination at no additional cost",
+              "matchedProjectId": null,
+              "category": "COMPLIANCE",
+              "status": "GAP"
+            },
+            {
+              "matchedProjectTitle": null,
+              "matchScore": null,
+              "recommendation": "No strong past performance match. Consider teaming or subcontracting for: Pricing for software and services must remain firm for at least 3 years from contract execution with subsequent increases limited to annual CPI-U or 3%, whichever is less",
+              "requirement": "Pricing for software and services must remain firm for at least 3 years from contract execution with subsequent increases limited to annual CPI-U or 3%, whichever is less",
+              "matchedProjectId": null,
+              "category": "COMPLIANCE",
+              "status": "GAP"
+            },
+            {
+              "matchedProjectTitle": null,
+              "matchScore": null,
+              "recommendation": "No strong past performance match. Consider teaming or subcontracting for: Proposals must be offered for a term not less than 180 calendar days",
+              "requirement": "Proposals must be offered for a term not less than 180 calendar days",
+              "matchedProjectId": null,
+              "category": "COMPLIANCE",
+              "status": "GAP"
+            },
+            {
+              "matchedProjectTitle": null,
+              "matchScore": null,
+              "recommendation": "No strong past performance match. Consider teaming or subcontracting for: Optional module pricing must remain eligible for up to 5 years from proposal submission date",
+              "requirement": "Optional module pricing must remain eligible for up to 5 years from proposal submission date",
+              "matchedProjectId": null,
+              "category": "COMPLIANCE",
+              "status": "GAP"
+            },
+            {
+              "matchedProjectTitle": null,
+              "matchScore": null,
+              "recommendation": "No strong past performance match. Consider teaming or subcontracting for: Provide proof of insurance including workers compensation and commercial general liability",
+              "requirement": "Provide proof of insurance including workers compensation and commercial general liability",
+              "matchedProjectId": null,
+              "category": "COMPLIANCE",
+              "status": "GAP"
+            },
+            {
+              "matchedProjectTitle": null,
+              "matchScore": null,
+              "recommendation": "No strong past performance match. Consider teaming or subcontracting for: Provide minimum of three references for whom similar services have been performed",
+              "requirement": "Provide minimum of three references for whom similar services have been performed",
+              "matchedProjectId": null,
+              "category": "COMPLIANCE",
+              "status": "GAP"
+            },
+            {
+              "matchedProjectTitle": null,
+              "matchScore": null,
+              "recommendation": "No strong past performance match. Consider teaming or subcontracting for: Disclose location of workers and identify any work performed outside the United States",
+              "requirement": "Disclose location of workers and identify any work performed outside the United States",
+              "matchedProjectId": null,
+              "category": "COMPLIANCE",
+              "status": "GAP"
+            },
+            {
+              "matchedProjectTitle": null,
+              "matchScore": null,
+              "recommendation": "No strong past performance match. Consider teaming or subcontracting for: Provide certification of financial condition signed by authorized representative",
+              "requirement": "Provide certification of financial condition signed by authorized representative",
+              "matchedProjectId": null,
+              "category": "COMPLIANCE",
+              "status": "GAP"
+            },
+            {
+              "matchedProjectTitle": null,
+              "matchScore": null,
+              "recommendation": "No strong past performance match. Consider teaming or subcontracting for: Identify key personnel anticipated to support implementation and ongoing services",
+              "requirement": "Identify key personnel anticipated to support implementation and ongoing services",
+              "matchedProjectId": null,
+              "category": "STAFFING",
+              "status": "GAP"
+            },
+            {
+              "matchedProjectTitle": null,
+              "matchScore": null,
+              "recommendation": "No strong past performance match. Consider teaming or subcontracting for: Describe firm qualifications including experience implementing accounting/financial software for public agencies or grant-funded organizations",
+              "requirement": "Describe firm qualifications including experience implementing accounting/financial software for public agencies or grant-funded organizations",
+              "matchedProjectId": null,
+              "category": "STAFFING",
+              "status": "GAP"
+            }
+          ]
+        },
+        "narrativeSummary": "No relevant past performance projects were found matching this opportunity. 5 project(s) were reviewed but none demonstrated meaningful relevance. Consider adding past projects with relevant experience or exploring teaming arrangements. Overall past performance coverage: 0%. 30 critical gap(s) identified that may require teaming or subcontracting.",
+        "confidenceScore": 20,
+        "evidence": []
+      },
+      "inputHash": "43cc85bf3f5f8693c4efdc8dfe87d2a9a554f2fb104c1783372bfbc4d97679dc",
+      "status": "COMPLETE",
+      "updatedAt": "2026-04-20T20:51:10.724Z"
     },
     "pricing": {
       "data": {
         "competitiveAdvantages": [],
         "totalPrice": 0,
         "indirectCostTotal": 0,
-        "basisOfEstimate": "No pricing estimate is possible because Horus Technology (Interesting Interests Inc.) is an AWS Advanced Consulting Partner specializing in intelligent document automation, cloud-native development, and AI/ML solutions. This solicitation requires a commercial cloud-based financial ERP software system (replacing QuickBooks Desktop Premier 2024) with core modules including accounts payable, accounts receivable, general ledger, budgeting, project accounting, purchasing, and fixed assets. The company does not have an ERP software product to propose. No government estimated value was provided in the solicitation. Typical cloud ERP implementations for small public agencies (5-10 users) range from $100K-$500K for implementation plus $30K-$100K annually for SaaS subscriptions, but these are speculative market ranges and irrelevant since the company cannot perform this work. The evaluation weights pricing at only 20%, with software capabilities (Attachment A) at 30% and technical approach at 25% \u2014 areas where Horus Technology would score zero without an ERP product. Organization labor rates provided (Software Engineer $171.40/hr, Manufacturing Engineer $178.89/hr) are not applicable to this procurement which requires ERP software licensing and implementation by a qualified ERP vendor.",
+        "basisOfEstimate": "This pricing analysis concludes that a meaningful cost estimate cannot be developed because Horus Technology fundamentally cannot perform the required work as a prime contractor. The solicitation (RFP No. 26-01) requires proposing an integrated cloud-based financial ERP system with 10 core modules (AP, AR, GL, Project Accounting, etc.), complete implementation services, data migration from QuickBooks, and 11 years of ongoing support. Horus Technology is an AWS consulting partner specializing in document automation and AI/ML \u2014 not a financial ERP software vendor. No government estimated value is stated in the solicitation. The organization's labor rates (Software Engineer at $171.40/hr, Manufacturing Engineer at $178.89/hr) are irrelevant because the work requires ERP-specific roles (ERP consultants, financial systems analysts, accounting SMEs) that the company does not employ. The BOM items listed (generic software license and subcontractor entries) do not correspond to any ERP product. For market context, comparable government ERP implementations for organizations of this size (5-10 users, 10 core modules) typically range from $150,000-$500,000 for implementation plus $30,000-$100,000 annually for licensing and support, but these figures are general market knowledge and not a basis for Horus Technology to bid. Price confidence is set at 12 reflecting that this is a formal solicitation but with complete industry mismatch making any pricing exercise meaningless.",
         "materialCostTotal": 0,
         "assumptions": [
-          "Horus Technology does not possess or resell a commercial financial ERP software product",
-          "The company has no past performance implementing financial/accounting ERP systems for public agencies",
-          "This solicitation is seeking an established ERP vendor with a proven COTS product, not custom software development",
-          "The 5-10 user count and operational metrics suggest a small-to-mid-market ERP solution is appropriate",
-          "Competitive field will consist of established public-sector ERP vendors with mature products and extensive public agency references",
-          "No government estimated value was stated in the solicitation",
-          "The provided org labor rates are for custom development work and are not applicable to ERP software licensing/implementation pricing models"
+          "Horus Technology does not currently develop, license, or resell any financial ERP software product, based on the knowledge base which describes the company as an AWS Advanced Consulting Partner specializing in intelligent document automation, cloud-native development, and AI/ML solutions.",
+          "The company has no past performance in financial ERP implementation for public agencies or any organization, based on exhaustive search of the knowledge base and past performance records which returned no relevant results for ERP, accounting, or financial software keywords.",
+          "The organization's listed labor rates (Software Engineer $171.40/hr, Manufacturing Engineer $178.89/hr, QA $16.86/hr) do not map to the labor categories needed for ERP implementation (ERP functional consultants, financial systems analysts, project managers with ERP expertise, training specialists with accounting knowledge).",
+          "No government estimated value is provided in the solicitation text, and no NAICS code or contract value range is specified that would anchor a pricing estimate.",
+          "The evaluation is best-value with pricing weighted at only 20% (Attachment B), meaning technical capability and past performance (combined 75%) are far more important than price competitiveness \u2014 further disadvantaging a company without relevant technical capabilities.",
+          "The contract type appears to be firm-fixed-price for software and implementation services with ongoing annual subscription/support fees, based on the Attachment B instructions requiring 'firm, fixed cost' for each component and per-unit pricing structure."
         ],
         "competitivePosition": "HIGH",
         "laborCostTotal": 0,
         "profitMargin": 10,
         "pricingRisks": [
-          "Fundamental industry mismatch: Horus Technology is an AWS consulting/custom development firm, not a financial ERP software vendor \u2014 the solicitation requires a commercial off-the-shelf (COTS) cloud-based accounting and financial reporting ERP system",
-          "The company does not possess a financial ERP product with modules for accounts payable, accounts receivable, general ledger, budgeting, project accounting, purchasing, or fixed assets",
-          "Competitors will be established ERP vendors (e.g., Tyler Technologies, Oracle NetSuite, Sage Intacct, Microsoft Dynamics, Workday) with proven public-sector financial software products",
-          "The 11-year maximum contract term requires a mature, supported software product with long-term viability \u2014 custom-built solutions carry extreme risk for this scope",
-          "Pricing must remain firm for 3 years with CPI-U/3% cap on escalation \u2014 typical for SaaS ERP vendors but unusual for custom development engagements",
-          "No past performance in financial ERP implementation for public agencies or grant-funded organizations as required in Section 4.2",
-          "Attachment A (Software Abilities and Requirements) likely requires demonstrating existing product capabilities that Horus Technology does not have"
+          "Critical industry mismatch: Horus Technology specializes in AWS cloud-native development, AI/ML, and document automation \u2014 not financial ERP software implementation. The solicitation requires a comprehensive cloud-based accounting and financial ERP system (Accounts Payable, Accounts Receivable, General Ledger, Project Accounting, etc.) with implementation services, which is fundamentally outside Horus Technology's core competency. Competing against established ERP vendors (e.g., Tyler Technologies, Sage Intacct, Oracle NetSuite, Microsoft Dynamics) would be extremely difficult.",
+          "No relevant past performance: The RFP requires minimum three references for similar services performed (Attachment C), specifically experience implementing accounting and financial software for public agencies or grant-funded organizations (Section 4.2). Horus Technology's past performance is in document automation and AI/ML, not financial ERP. This would likely result in a non-responsive determination or very low scores on the 10% Firm Qualifications evaluation factor.",
+          "Software product gap: This RFP requires proposing an integrated cloud-based ERP solution with specific financial modules (Section 5.1). Horus Technology does not develop or resell ERP software products. Without a partnership with an established ERP vendor, there is no product to propose. The Attachment A Software Abilities and Requirements workbook (weighted at 30% of evaluation) cannot be meaningfully completed without an actual ERP product.",
+          "Long-term support obligation risk: The contract has a maximum 11-year term requiring ongoing cloud hosting, automated updates, help desk support, and system maintenance (Task 4). This requires an established ERP product with a long-term roadmap, not custom development. The pricing must remain firm for 3 years with CPI-limited escalation, creating significant financial exposure for a company without an existing ERP product to deliver.",
+          "Evaluation methodology heavily favors technical fit: Attachment A (Software Abilities and Requirements) carries 30% weight, and Section 2 (Proposed Strategy and Technical Approach) carries 25%. Combined with Section 1 (10%) and Section 4 (10%), technical and qualifications factors represent 75% of the evaluation versus only 20% for pricing. Without a competitive ERP product and relevant experience, pricing alone cannot win this contract."
         ],
         "recommendedActions": [
-          "NO-BID RECOMMENDED: This solicitation requires a commercial ERP software product for public-sector financial management \u2014 Horus Technology does not have such a product and cannot competitively respond",
-          "If pursuing despite mismatch, the only viable path would be as a subcontractor or integration partner to an established ERP vendor, providing cloud migration or data conversion services",
-          "Monitor for future IT modernization or custom software development opportunities from Sites Project Authority that align with AWS/cloud capabilities",
-          "Consider partnering with ERP vendors who may need AWS infrastructure or integration support for their implementations"
+          "Recommend NO-BID: This solicitation requires an established cloud-based financial ERP software product with proven implementation methodology for public agencies. Horus Technology's capabilities in AWS cloud development, AI/ML, and document automation do not align with the core requirement. The company would need to either develop an ERP product (years of effort) or partner with an established ERP vendor as a reseller/implementer \u2014 but even then, the lack of relevant past performance would be disqualifying.",
+          "If pursuing despite mismatch, explore partnership: The only viable path would be partnering with an established government ERP vendor (e.g., Tyler Technologies/Munis, Sage Intacct, Oracle NetSuite) as a subcontractor or reseller. However, these vendors typically have their own implementation teams and channel partner programs that would not benefit from Horus Technology's specific skill set. Contact potential ERP vendors within 1 week to assess partnership feasibility before the April 1, 2026 deadline.",
+          "Monitor for future opportunities: The Sites Authority mentions future needs for system integrations, APIs, and third-party connectivity (Section 3 of the RFP). Horus Technology's API integration and cloud expertise could be relevant for future subcontracting opportunities once the primary ERP vendor is selected. Track this procurement outcome and position for potential integration work in years 2-11 of the contract.",
+          "Redirect business development efforts: Focus proposal resources on solicitations aligned with Horus Technology's core competencies \u2014 document automation, AI/ML, cloud migration, and data engineering for federal and government-adjacent agencies. The time investment required for this 40-page proposal with multiple attachments would be better spent on opportunities where the company has competitive advantage."
         ],
         "strategy": "FIXED_PRICE",
-        "priceConfidence": 10
+        "priceConfidence": 12
       },
-      "inputHash": "9b8f4b36ee52af0a7714c86c6306bbc49c3c7e8a63acaf29e9c8226339ca2611",
+      "inputHash": "force-regen-v9",
       "status": "COMPLETE",
-      "updatedAt": "2026-04-19T20:16:18.445Z"
+      "updatedAt": "2026-04-21T00:37:47.882Z"
     },
     "requirements": {
       "data": {
@@ -128,12 +865,17 @@
           "Attachment A: Software Abilities and Requirements: 30%",
           "Attachment B: Pricing Proposal: 20%"
         ],
-        "overview": "The Sites Project Authority (a California JPA) seeks proposals for acquisition and implementation of a cloud-based accounting and financial ERP software system to replace QuickBooks Desktop Premier 2024. The solution must support core financial modules (AP, AR, GL, budgeting, project accounting, purchasing, fixed assets, bank reconciliation, cash management), with implementation targeting a January 1, 2027 go-live. The initial contract term is 1 year with up to two 5-year extensions (11 years maximum). Success means a streamlined, auditable, scalable financial system with dedicated support for a fast-paced infrastructure project transitioning from planning to construction and operations.",
+        "overview": "The Sites Project Authority (Sites Authority), a California joint exercise of powers authority governing the Sites Reservoir Project, is issuing RFP No. 26-01 to solicit comprehensive proposals for the acquisition and implementation of a cloud-based accounting and financial enterprise resource planning (ERP) software system, including complete support for initial implementation and ongoing services. The Authority currently uses QuickBooks Desktop Premier 2024 and seeks a streamlined software package that captures financial transactions systematically, supports budgeting and forecasting, generates reports for informed decision-making, maintains auditable records, and provides dedicated technical support during implementation and throughout the contract term. Success is defined by a fully operational cloud-based ERP system with core modules (Accounts Payable, Accounts Receivable, Bank Reconciliation, Budget Management, Cash Management, Fixed Assets, General Ledger, Project Accounting, Purchasing, and General & Technical capabilities) going live by January 1, 2027, with the system serving as the Authority's core financial system of record over a long-term horizon that scales to support construction and operations phases. The initial contract term is one year with up to two optional five-year extensions (maximum eleven years total), proposals must not exceed 40 pages, pricing must remain firm for at least three years with subsequent annual increases limited to CPI-U or 3% (whichever is less), and proposals are due April 1, 2026 at 2:00 PM PT via PlanetBids. The Authority anticipates 5-10 ERP users, 10-20 workflow approvers, and 50-100 vendors in 2026, with significant growth expected as the project transitions from planning to final design, construction, and long-term operations of a 1.5 million acre-foot off-stream surface water storage reservoir.",
         "requirements": [
           {
             "category": "TECHNICAL",
             "mustHave": true,
-            "requirement": "Provide an integrated cloud-based ERP solution covering Accounts Payable, Accounts Receivable, Bank Reconciliation, Budget Management, Cash Management, Fixed Assets, General Ledger, Project Accounting, and Purchasing"
+            "requirement": "Propose an integrated cloud-based ERP solution fulfilling all Core ERP scope items: Accounts Payable, Accounts Receivable, Bank Reconciliation, Budget Management, Cash Management, Fixed Assets, General Ledger, Project Accounting, Purchasing, and General & Technical"
+          },
+          {
+            "category": "TECHNICAL",
+            "mustHave": true,
+            "requirement": "Solution must include software, implementation services, training, project management, and other necessary technology services, either through bidder's own products or in partnership with third-party providers"
           },
           {
             "category": "TECHNICAL",
@@ -143,12 +885,12 @@
           {
             "category": "TECHNICAL",
             "mustHave": true,
-            "requirement": "Configure software to meet Sites Authority requirements and provide a Configuration Workbook documenting system settings"
+            "requirement": "Provide a Chart of Accounts Mapping showing how ERP codes align with legacy codes"
           },
           {
             "category": "TECHNICAL",
             "mustHave": true,
-            "requirement": "Provide a Chart of Accounts Mapping showing how ERP codes align with legacy codes"
+            "requirement": "Provide a Configuration Workbook that documents system settings"
           },
           {
             "category": "TECHNICAL",
@@ -158,22 +900,12 @@
           {
             "category": "TECHNICAL",
             "mustHave": true,
-            "requirement": "Assist with financial report writing and development"
+            "requirement": "Configure software to meet Sites Authority's requirements and assist with financial report writing"
           },
           {
             "category": "TECHNICAL",
             "mustHave": true,
-            "requirement": "Support 5-10 ERP users and 10-20 workflow approvers"
-          },
-          {
-            "category": "TECHNICAL",
-            "mustHave": true,
-            "requirement": "Target go-live date of January 1, 2027"
-          },
-          {
-            "category": "TECHNICAL",
-            "mustHave": true,
-            "requirement": "Solution must be modular, extensible, and capable of supporting project delivery through construction and operations"
+            "requirement": "Recommend account structure for auditable reporting and understand auditing and reporting requirements"
           },
           {
             "category": "TECHNICAL",
@@ -188,87 +920,112 @@
           {
             "category": "TECHNICAL",
             "mustHave": true,
-            "requirement": "Provide implementation-phase support during cutover, go-live, and initial stabilization"
+            "requirement": "Solution must be modular, extensible, and capable of supporting project delivery through construction and operations phases"
           },
           {
             "category": "TECHNICAL",
-            "mustHave": false,
-            "requirement": "Describe availability of documented APIs or other integration methods for third-party systems"
+            "mustHave": true,
+            "requirement": "Target go-live date of January 1, 2027; provide proposed high-level timeline and task sequence demonstrating alignment with this objective"
           },
           {
             "category": "TECHNICAL",
-            "mustHave": false,
-            "requirement": "Describe optional module capabilities for capital asset maintenance management, debt management, investment management, HR, payroll, timekeeping, and inventory tracking"
+            "mustHave": true,
+            "requirement": "Reduce downtime and operational impacts during transition, including implementation-phase support during cutover, go-live, and initial stabilization"
           },
           {
-            "category": "DELIVERABLES",
+            "category": "TECHNICAL",
             "mustHave": true,
-            "requirement": "Provide personalized training and manuals for power users"
+            "requirement": "Weekly meetings for progress, budget, and timeline monitoring during implementation"
           },
           {
-            "category": "DELIVERABLES",
+            "category": "TECHNICAL",
             "mustHave": true,
-            "requirement": "Provide at least one recorded training session and electronic training materials for all staff with role-appropriate training"
+            "requirement": "Personnel management plan with dedicated project manager and technical staff"
           },
           {
-            "category": "DELIVERABLES",
+            "category": "TECHNICAL",
             "mustHave": true,
-            "requirement": "Provide support for first 12 months post-implementation"
+            "requirement": "Provide at least one recorded training session and electronic training materials for all staff, with role-appropriate and additional training available during implementation and stabilization"
           },
           {
-            "category": "DELIVERABLES",
+            "category": "TECHNICAL",
             "mustHave": true,
-            "requirement": "Conduct weekly meetings for progress, budget, and timeline monitoring"
+            "requirement": "Personalized training and manuals for power users"
           },
           {
-            "category": "DELIVERABLES",
+            "category": "TECHNICAL",
             "mustHave": true,
-            "requirement": "Provide a personnel management plan with dedicated project manager and technical staff"
+            "requirement": "Support for first 12 months post-implementation"
           },
           {
             "category": "SECURITY",
             "mustHave": true,
-            "requirement": "Provide documentation demonstrating measures for protecting financial data in the SaaS environment and secure access controls (Attachment G)"
+            "requirement": "Provide documentation demonstrating measures in place for protecting financial data in the SaaS environment and secure access controls implemented (Attachment G)"
           },
           {
             "category": "COMPLIANCE",
             "mustHave": true,
-            "requirement": "All data entered into the ERP system shall remain sole property of the Sites Authority with full non-proprietary data exports upon request and upon contract termination at no additional cost"
+            "requirement": "All data entered into the ERP system shall remain the sole property of the Sites Authority; provide full non-proprietary data exports upon request and upon contract termination at no additional cost"
           },
           {
             "category": "COMPLIANCE",
             "mustHave": true,
-            "requirement": "Pricing for software and services must remain firm for at least 3 years from contract execution with subsequent increases limited to annual CPI-U or 3%, whichever is less"
+            "requirement": "Pricing for software and services actually purchased must remain firm for at least three years from contract execution, with increases limited to annual CPI-U adjustment or 3%, whichever is less"
           },
           {
             "category": "COMPLIANCE",
             "mustHave": true,
-            "requirement": "Proposals must be offered for a term not less than 180 calendar days"
+            "requirement": "Proposals must be offered for a term not less than 180 calendar days; may not be modified, withdrawn, or canceled during this period"
           },
           {
             "category": "COMPLIANCE",
             "mustHave": true,
-            "requirement": "Optional module pricing must remain eligible for up to 5 years from proposal submission date"
+            "requirement": "Honor proposed software licensing pricing for optional modules not initially purchased for up to five years from date of proposal submission"
           },
           {
             "category": "COMPLIANCE",
             "mustHave": true,
-            "requirement": "Provide proof of insurance including workers compensation and commercial general liability"
+            "requirement": "Provide proof of insurance including workers compensation and commercial general liability (Attachment F)"
           },
           {
             "category": "COMPLIANCE",
             "mustHave": true,
-            "requirement": "Provide minimum of three references for whom similar services have been performed"
+            "requirement": "Provide certification of financial condition (Attachment E)"
           },
           {
             "category": "COMPLIANCE",
             "mustHave": true,
-            "requirement": "Disclose location of workers and identify any work performed outside the United States"
+            "requirement": "Disclose location of workers and identify any use of workers or resources located outside of the United States (Attachment D)"
           },
           {
             "category": "COMPLIANCE",
             "mustHave": true,
-            "requirement": "Provide certification of financial condition signed by authorized representative"
+            "requirement": "Provide minimum of three references for whom similar services have been performed (Attachment C)"
+          },
+          {
+            "category": "COMPLIANCE",
+            "mustHave": true,
+            "requirement": "Submit proposed contract agreement for software and services including clauses covering optional scope (Attachment H)"
+          },
+          {
+            "category": "COMPLIANCE",
+            "mustHave": true,
+            "requirement": "All pricing must be provided in U.S. dollars with clear rationale and basis of calculation for all fees"
+          },
+          {
+            "category": "COMPLIANCE",
+            "mustHave": true,
+            "requirement": "Pricing shall be on a per-unit basis and shall not assume minimum or maximum purchase quantities unless explicitly requested"
+          },
+          {
+            "category": "DELIVERABLES",
+            "mustHave": true,
+            "requirement": "Complete and submit Attachment A - Software Abilities and Requirements Excel workbook"
+          },
+          {
+            "category": "DELIVERABLES",
+            "mustHave": true,
+            "requirement": "Complete and submit Attachment B - Pricing Proposal Excel workbook as a separate file"
           },
           {
             "category": "STAFFING",
@@ -278,87 +1035,101 @@
           {
             "category": "STAFFING",
             "mustHave": true,
-            "requirement": "Describe firm qualifications including experience implementing accounting/financial software for public agencies or grant-funded organizations"
+            "requirement": "Provide summary of qualifications and relevant experience for key personnel and any proposed subcontractors"
+          },
+          {
+            "category": "OTHER",
+            "mustHave": false,
+            "requirement": "Describe availability of solution demonstration resources (e.g., recorded demonstrations, sandbox environments, or trial access)"
+          },
+          {
+            "category": "OTHER",
+            "mustHave": false,
+            "requirement": "Provide descriptive and pricing information for optional ERP modules (e.g., capital asset maintenance management, debt management, human resources management, payroll, timekeeping, inventory tracking)"
+          },
+          {
+            "category": "OTHER",
+            "mustHave": false,
+            "requirement": "Describe firm's approach to participation by small businesses and businesses owned by minorities, women, or disabled persons, as applicable"
           }
         ],
         "submissionCompliance": {
           "format": [
             "Electronic proposals in Adobe Acrobat or Microsoft Word format",
             "Proposals shall not exceed 40 pages including transmittal letter and any appendices",
-            "Transmittal letter must not exceed two pages",
-            "Submit electronically via PlanetBids",
-            "Attachment B Pricing Proposal must be submitted as a separate file",
-            "Attachment A Software Abilities and Requirements Excel workbook submitted with proposal"
+            "Submitted electronically via PlanetBids",
+            "Attachment B - Pricing Proposal must be submitted as a separate file",
+            "Attachment A - Software Abilities and Requirements must be submitted as a completed Excel workbook"
           ],
           "attachmentsAndForms": [
-            "Attachment A - Software Abilities and Requirements.xlsx",
-            "Attachment B - Pricing Proposal.xlsx",
-            "Attachment C - References Sheet",
-            "Attachment D - Location of Workers Utilized by Respondent",
-            "Attachment E - Certification of Financial Condition",
-            "Attachment F - Certificate of Insurance",
-            "Attachment G - Software Application Requirements",
-            "Attachment H - Proposed Contract Agreement"
+            "Attachment A: Software Abilities and Requirements (Excel workbook)",
+            "Attachment B: Pricing Proposal (Excel workbook)",
+            "Attachment C: References Sheet",
+            "Attachment D: Location of Workers Utilized by Respondent",
+            "Attachment E: Certification of Financial Condition",
+            "Attachment F: Certificate of Insurance",
+            "Attachment G: Software Application Requirements",
+            "Attachment H: Proposed Contract Agreement"
           ],
           "requiredDocuments": [
             {
               "name": "Transmittal Letter",
-              "description": "Signed by authorized representative, summarizing key points of proposal with contact information",
+              "description": "Not to exceed two pages, signed by authorized representative, summarizing key points and providing contact information",
               "pageLimit": "2 pages",
               "documentType": "COVER_LETTER",
               "required": true
             },
             {
               "name": "Section 1: Response to Project Goals and Scope",
-              "description": "Approach to meeting proposal goals and producing requested deliverables, including license types, third-party vendors, and demonstration resources",
+              "description": "Address approach to meeting proposal goals and producing requested deliverables outlined in Sections 5 and 6, including license types, third-party vendors, and demonstration resources",
               "documentType": "UNDERSTANDING_OF_REQUIREMENTS",
               "required": true
             },
             {
               "name": "Section 2: Proposed Strategy and Technical Approach",
-              "description": "Implementation approach, high-level timeline, project governance, support levels, key personnel, training approach, and client engagement model",
+              "description": "Proposed implementation approach and high-level timeline targeting January 1, 2027 go-live, project governance, support levels, key personnel, training approach, and client engagement model",
               "documentType": "TECHNICAL_PROPOSAL",
               "required": true
             },
             {
               "name": "Section 3: Integration, Scalability, and Future Module Compatibility Narrative",
-              "description": "Narrative on ERP platform expansion, API availability, integration examples, and data consistency across modules",
+              "description": "Narrative describing how the ERP platform supports expansion to additional modules and integration with third-party systems, including APIs, examples of integrations, and data consistency across modules",
               "documentType": "TECHNICAL_PROPOSAL",
               "required": true
             },
             {
               "name": "Section 4: Firm Information, Qualifications, and References",
-              "description": "Organization information, firm qualifications and experience, and key personnel experience",
+              "description": "Organization information, firm qualifications and experience implementing accounting/financial software for public agencies, and key personnel experience summaries",
               "documentType": "TEAM_QUALIFICATIONS",
               "required": true
             },
             {
               "name": "Attachment A: Software Abilities and Requirements",
-              "description": "Completed Excel workbook documenting software abilities against stated requirements",
+              "description": "Completed Excel workbook documenting software abilities and requirements compliance",
               "documentType": "COMPLIANCE_MATRIX",
               "required": true
             },
             {
               "name": "Attachment B: Pricing Proposal",
-              "description": "Completed pricing forms with firm fixed costs for software, implementation, and ongoing services submitted as separate file",
+              "description": "Completed Excel workbook with firm fixed costs for software, implementation, and ongoing services, submitted as a separate file with per-unit pricing",
               "documentType": "COST_PROPOSAL",
               "required": true
             },
             {
               "name": "Attachment C: References",
-              "description": "Minimum three references for whom similar services have been performed with valid email addresses",
+              "description": "Minimum of three references for whom similar services have been performed, including client name, scope, performance dates, and valid contact information",
               "documentType": "PAST_PERFORMANCE",
               "required": true
             },
             {
               "name": "Attachment D: Location of Workers Utilized by Respondent",
-              "description": "Disclosure of work locations and any use of workers or resources outside the United States",
+              "description": "Identification of all work locations and disclosure of any use of workers or resources located outside the United States",
               "documentType": "OTHER",
               "required": true
             },
             {
               "name": "Attachment E: Certification of Financial Condition",
-              "description": "Signed certification regarding current financial condition of the respondent",
+              "description": "Certification regarding current financial condition signed by authorized representative",
               "documentType": "CERTIFICATIONS",
               "required": true
             },
@@ -370,23 +1141,23 @@
             },
             {
               "name": "Attachment G: Software Application Requirements",
-              "description": "Documentation demonstrating measures for protecting financial data in SaaS environment and secure access controls",
+              "description": "Documentation demonstrating measures for protecting financial data in SaaS environment and secure access controls implemented",
               "documentType": "OTHER",
               "required": true
             },
             {
               "name": "Attachment H: Proposed Contract Agreement",
-              "description": "Respondent's proposed contract agreement for software and services with clauses covering optional scope",
+              "description": "Respondent's proposed contract agreement for software and services including clauses covering optional scope, non-exclusivity, change-order controls, and pricing validity",
               "documentType": "OTHER",
               "required": true
             }
           ],
           "requiredVolumes": [
-            "Transmittal Letter",
+            "Transmittal Letter (not to exceed two pages)",
             "Section 1: Response to Project Goals and Scope",
             "Section 2: Proposed Strategy and Technical Approach",
             "Section 3: Integration, Scalability, and Future Module Compatibility Narrative",
-            "Section 4: Firm Information, Qualifications, and References (including 4.1 Organization Information, 4.2 Firm Qualifications and Experience, 4.3 Key Personnel Experience)",
+            "Section 4: Firm Information, Qualifications, and References (including Sections 4.1, 4.2, 4.3)",
             "Attachment A: Software Abilities and Requirements",
             "Attachment B: Pricing Proposal",
             "Attachment C: References",
@@ -398,220 +1169,219 @@
           ]
         },
         "deliverables": [
-          "Project Management Plan with weekly meetings",
-          "Chart of Accounts Mapping",
+          "Approach & Project Management Plan including Chart of Accounts Mapping and Testing and Acceptance Plan",
           "Configuration Workbook documenting system settings",
-          "Testing and Acceptance Plan",
-          "Data conversion and migration from QuickBooks Desktop Premier 2024",
-          "Financial report development",
-          "Personalized training and manuals for power users",
-          "At least one recorded training session and electronic training materials",
+          "Software Installation & Implementation including data migration from QuickBooks Desktop Premier 2024",
+          "Financial report writing assistance",
+          "Staff Training including personalized training and manuals for power users, at least one recorded training session, and electronic training materials",
           "Post-implementation support for first 12 months",
           "Ongoing cloud hosting services",
-          "Help desk support including remote and on-call assistance",
-          "Automated updates and software change communications"
+          "Automated updates and software change communications",
+          "Help desk support including remote, on-call, and on-site support as needed",
+          "Chart of Accounts Mapping showing ERP codes aligned with legacy codes",
+          "Testing and Acceptance Plan"
         ]
       },
-      "inputHash": "60ea6b60b970fa842857376a7e7fe39595786e8fd8210067d080d80c3757526c",
+      "inputHash": "force-regen-v9",
       "status": "COMPLETE",
-      "updatedAt": "2026-04-19T20:15:59.938Z"
+      "updatedAt": "2026-04-21T00:31:32.620Z"
     },
     "risks": {
       "data": {
         "redFlags": [
           {
             "severity": "HIGH",
-            "whyItMatters": "HORUSTECH's available past performance references (Avue Technologies AI/ML project, Ford Credit automation) do not align with the core requirement of implementing cloud-based financial ERP software for a public agency. Attachment A (Software Abilities and Requirements) carries 30% evaluation weight and Section 4.2 specifically asks for 'Experience implementing accounting and financial software for public agencies or grant-funded organizations' at 10% weight \u2014 together representing 40% of the evaluation.",
-            "mitigation": "Seriously evaluate bid/no-bid decision. If proceeding, establish a formal teaming arrangement with an ERP software vendor that has strong public sector references and can serve as the primary software provider, with HORUSTECH in a supporting technology/integration role.",
-            "flag": "No demonstrated ERP software or public sector accounting experience",
+            "whyItMatters": "This solicitation is structured as a software product acquisition with implementation services, not a custom software development engagement. Section 5.1 requires an integrated cloud-based solution covering ten core ERP functional areas, and Attachment A (Software Abilities and Requirements) \u2014 weighted at 30% per Section 3.4 \u2014 requires detailed documentation of existing software capabilities. The Sites Authority's evaluation in Section 3.4 assesses the proposed solution holistically, including software capabilities, implementation strategy, and long-term support. HORUSTECH's available past performance and content library indicate custom development and integration services but no proprietary or resold ERP product. Without a product to propose, the firm cannot credibly respond to the core requirements of this solicitation.",
+            "mitigation": "HORUSTECH's executive leadership should conduct an immediate bid/no-bid assessment focused on whether a viable ERP product partnership can be established before the April 1, 2026 deadline. If a partnership with an established ERP vendor is feasible, the business development lead should execute a teaming agreement within two weeks and begin collaborative proposal development. If no product partnership is achievable, the recommendation is to no-bid this opportunity and focus resources on solicitations better aligned with the firm's custom development capabilities.",
+            "flag": "No evidence of an existing ERP software product in HORUSTECH's portfolio.",
             "impactsScore": true
           },
           {
             "severity": "MEDIUM",
-            "whyItMatters": "Attachment H requires the Respondent to 'Provide the Respondent's proposed contract agreement for software and services,' which is unusual \u2014 the Authority expects to use the vendor's standard software/services contract as a starting point. This implies the Authority expects respondents to be established software vendors with existing commercial agreements, not custom development firms.",
-            "mitigation": "If partnering with an ERP vendor, leverage that vendor's standard SaaS/services agreement as the base contract. Ensure it incorporates the Authority-specific provisions outlined in Attachment H (non-exclusivity, change-order controls, optional module add-on, pricing validity, scope assurance).",
-            "flag": "Respondent must submit its own proposed contract agreement",
+            "whyItMatters": "Per Section 3.4, Attachment A (Software Abilities and Requirements) carries the highest single evaluation weight at 30%. This attachment is a detailed Excel spreadsheet requiring respondents to document specific software capabilities across all ten core ERP functional areas listed in Section 5.1. The evaluation committee will assess whether the proposed software natively supports or can be configured to meet each requirement. Respondents without a mature, market-proven ERP product will struggle to complete this attachment credibly, as the Sites Authority's selection committee \u2014 composed of Authority staff and Participant representatives per Section 3.3 \u2014 will likely compare responses against established government ERP platforms. A weak Attachment A response would effectively eliminate the proposal from competitive consideration given its 30% weight.",
+            "mitigation": "If proceeding with a bid, the proposal team must secure access to the ERP product partner's completed Attachment A responses or functional documentation no later than March 15, 2026, to allow sufficient time for review, customization, and quality assurance. The technical lead should coordinate directly with the product vendor's pre-sales engineering team to ensure every requirement in the spreadsheet is accurately addressed with specific feature references rather than generic statements.",
+            "flag": "Evaluation heavily weights software functionality (30%) which requires an established product.",
             "impactsScore": true
           }
         ],
         "risks": [
           {
-            "severity": "MEDIUM",
-            "whyItMatters": "Section 4.2 requires 'Experience implementing accounting and financial software for public agencies or grant-funded organizations' (10% evaluation weight). HORUSTECH's past performance appears focused on AI/ML and document processing projects (e.g., Avue Technologies), with no evident ERP or accounting software implementation experience for public agencies.",
-            "mitigation": "Identify and partner with an ERP vendor or subcontractor that has demonstrated public agency financial software implementation experience. Consider teaming arrangements with firms that have California JPA or special district references.",
-            "flag": "Potential lack of public agency ERP implementation experience",
+            "severity": "HIGH",
+            "whyItMatters": "Section 4.2 (Firm Qualifications and Experience) requires respondents to describe experience implementing accounting and financial software for public agencies or grant-funded organizations, and Attachment C requires at least three references for similar services. Section 3.4 allocates 10% of the evaluation to Firm Information, Qualifications, and References. Based on available past performance records, HORUSTECH's portfolio includes custom software development for private sector clients (Ford Credit, Porsche Digital, Experian) but does not include cloud-based financial ERP implementations for public agencies. Without directly relevant references, the proposal will score poorly on this criterion and may raise concerns about the firm's ability to deliver a compliant financial system for a California joint powers authority with complex grant-funded and multi-agency reporting requirements.",
+            "mitigation": "The capture team should immediately assess whether HORUSTECH can partner with or subcontract to an established ERP vendor or implementation partner that has verifiable public agency financial software deployment experience. The business development lead should identify potential teaming partners within the next two weeks and secure letters of commitment and reference information before the April 1, 2026 deadline. If no credible teaming arrangement can be established, this should be treated as a significant bid/no-bid consideration.",
+            "flag": "Lack of demonstrated public agency ERP implementation experience and references.",
+            "impactsScore": true
+          },
+          {
+            "severity": "HIGH",
+            "whyItMatters": "Section 5.1 explicitly requires bidders to propose an integrated cloud-based solution fulfilling all Core ERP scope items including Accounts Payable, Accounts Receivable, General Ledger, Budget Management, Fixed Assets, Project Accounting, Purchasing, and more. Attachment A (Software Abilities and Requirements) carries 30% of the total evaluation weight per Section 3.4, making it the single largest scoring factor. This solicitation is fundamentally a software product procurement, not a custom development engagement. HORUSTECH's content library and past performance indicate expertise in custom AWS-based software development and integration, but there is no evidence of an existing cloud-based financial ERP product that could satisfy the comprehensive functional requirements in Attachment A. Proposing to build a custom solution would likely be non-responsive to the RFP's requirement for an established, integrated platform.",
+            "mitigation": "HORUSTECH leadership must determine whether the firm can serve as a reseller or implementation partner for an established cloud-based government ERP platform (e.g., Tyler Technologies, Oracle NetSuite, Sage Intacct, or similar). The product strategy decision must be made immediately so that vendor partnership agreements, product demonstrations, and Attachment A responses can be prepared well before the April 1 deadline. If no viable product partnership exists, the bid/no-bid decision should strongly lean toward no-bid.",
+            "flag": "Requirement for an integrated cloud-based ERP product may disqualify custom development firms.",
             "impactsScore": true
           },
           {
             "severity": "MEDIUM",
-            "whyItMatters": "The RFP requires proposing a cloud-based accounting and financial ERP software system with core modules (GL, AP, AR, Purchasing, Fixed Assets, etc.) per Section 5.1 and Attachment A. HORUSTECH would need to either be a software vendor or an authorized reseller/implementation partner for an established ERP product. No evidence of an existing ERP software product or vendor partnership was found.",
-            "mitigation": "Establish a formal partnership or reseller agreement with an established cloud ERP vendor (e.g., Tyler Technologies, Sage Intacct, Oracle NetSuite) that serves public sector clients before proposal submission.",
-            "flag": "Software product ownership requirement",
+            "whyItMatters": "Per Section 2.2, the Sites Authority may require finalist respondents to participate in software demonstrations and interviews between April 27 and May 15, 2026. Section 3.3 confirms that the Authority may select a finalist group for interview and software demonstration with Sites Authority leadership, and that final award decisions may consider information obtained through demonstrations. While not all respondents will be required to demonstrate, those selected as finalists will need to prepare a compelling live demonstration of the proposed ERP platform configured for the Sites Authority's specific use case. This requires advance preparation of a demo environment with relevant financial workflows, chart of accounts structures, and reporting capabilities tailored to a California JPA.",
+            "mitigation": "The proposal team should begin preparing a demonstration environment and script concurrently with proposal development, rather than waiting for finalist notification. The project manager should coordinate with the ERP product partner (if teaming) to ensure a sandbox environment is available and configured with Sites Authority-relevant scenarios by mid-April 2026. Key presenters should be identified and rehearsed on the demonstration narrative before the April 22 finalist notification date.",
+            "flag": "Mandatory software demonstrations and interviews for finalists on tight schedule.",
             "impactsScore": true
           },
           {
             "severity": "MEDIUM",
-            "whyItMatters": "Section 2.5 requires proposals remain valid for 180 calendar days and optional module pricing must be honored for up to 5 years from submission. Section 2.5 also requires firm pricing for 3 years post-execution with CPI-U or 3% cap on increases thereafter. This creates long-term pricing risk, especially if partnering with a third-party ERP vendor whose pricing may change.",
-            "mitigation": "Negotiate back-to-back pricing commitments with any ERP software partner before proposal submission. Build appropriate margin buffers into the pricing proposal to account for long-term cost escalation risk.",
-            "flag": "180-day pricing validity and 5-year pricing eligibility commitment",
-            "impactsScore": false
+            "whyItMatters": "Section 4.1 states that proposals should not exceed 40 pages, including the transmittal letter and any appendices. Given the breadth of required content \u2014 transmittal letter (up to 2 pages per Section 4.2), four narrative sections covering project goals, technical approach, integration/scalability, and firm qualifications, plus Attachments C through H \u2014 fitting all required information within 40 pages will be challenging. The evaluation criteria in Section 3.4 span six weighted categories, and insufficient detail in any section could reduce scores. Respondents who fail to allocate page budget strategically risk providing inadequate depth in the highest-weighted sections (Proposed Strategy and Technical Approach at 25%, and Pricing at 20%).",
+            "mitigation": "The proposal manager should create a detailed page allocation plan immediately, prioritizing the highest-weighted sections: Section 2 (Technical Approach, 25%) and the narrative supporting Attachment A (30%). The writing team should use concise, evidence-based language and leverage tables and graphics to maximize information density. A first draft should be completed by March 20, 2026, allowing at least 10 days for editing, compliance review, and page optimization before the April 1 deadline.",
+            "flag": "40-page limit including transmittal letter and appendices constrains response depth.",
+            "impactsScore": true
           },
           {
-            "severity": "LOW",
-            "whyItMatters": "Section 4.1 limits proposals to 40 pages including transmittal letter and appendices, while requiring a transmittal letter, four narrative sections, and eight attachments (A through H). This is a tight page budget that could constrain the ability to fully address all evaluation criteria.",
-            "mitigation": "Develop a detailed page allocation plan early. Prioritize Section 2 (25% weight) and Attachment A (30% weight) content. Use concise formatting and consider whether attachments in prescribed formats count toward the page limit or are separate files.",
-            "flag": "40-page proposal limit with extensive required content",
+            "severity": "MEDIUM",
+            "whyItMatters": "Section 2.5 requires that proposals remain valid for 180 calendar days and cannot be modified or withdrawn during that period. Additionally, bidders must honor proposed software licensing pricing for optional modules for up to five years from proposal submission. Section 2.5 and Attachment B further require that pricing for purchased software and services remain firm for at least three years from contract execution, with subsequent increases capped at CPI-U or 3%, whichever is less. This creates significant financial risk if the respondent's costs increase due to inflation, vendor price changes, or currency fluctuations over the extended pricing commitment period, particularly for a contract with a maximum potential term of eleven years per Section 2.4.",
+            "mitigation": "The finance and pricing team should model worst-case cost scenarios over the full 5-year pricing eligibility window and 11-year maximum contract term, incorporating projected inflation and vendor cost escalation. Pricing should include sufficient margin to absorb cost increases within the CPI-U/3% cap. The pricing lead should complete this analysis by March 15, 2026, and obtain executive approval on the pricing strategy before finalizing Attachment B.",
+            "flag": "180-day pricing validity and 5-year pricing eligibility for optional modules create long-term financial exposure.",
             "impactsScore": true
           },
           {
             "severity": "LOW",
-            "whyItMatters": "Per Section 2.2, finalists may be required to participate in software demonstrations and interviews between April 27 - May 15, 2026. The solicitation states the Authority 'may select a finalist group of Respondents to take part in an interview and software demonstration.' This requires having a demonstrable ERP product ready to show.",
-            "mitigation": "Ensure access to a demo environment of the proposed ERP solution well before the finalist notification date of April 22, 2026. Prepare key personnel for live demonstration and Q&A sessions.",
-            "flag": "Software demonstration and interview phase for finalists",
-            "impactsScore": true
-          },
-          {
-            "severity": "LOW",
-            "whyItMatters": "Section 6.1 Task 2 requires importing 'prior one (1) completed fiscal year of transactions, year-end balances, and current fiscal year-to-date transactions, from QuickBooks Desktop Premier 2024.' Respondents must demonstrate capability and experience with QuickBooks data migration.",
-            "mitigation": "Document a proven data migration methodology from QuickBooks Desktop to the proposed ERP platform. Include specific tools or connectors used and reference similar migration projects.",
-            "flag": "Data migration from QuickBooks Desktop Premier 2024",
+            "whyItMatters": "Section 6.1, Task 2 specifies that the selected vendor must import one completed fiscal year of transactions, year-end balances, and current fiscal year-to-date transactions from QuickBooks Desktop Premier 2024. Section 1.1 confirms this is the Sites Authority's current accounting software. While QuickBooks data exports are generally straightforward, ensuring data integrity during migration to a new cloud-based ERP platform requires careful mapping of chart of accounts, transaction types, and reporting structures. Errors in data conversion could delay the January 1, 2027 target go-live date specified in Section 6.2 and undermine confidence in the new system's accuracy.",
+            "mitigation": "The implementation team should include a data migration specialist with documented experience converting QuickBooks Desktop data to the proposed ERP platform. The project plan should allocate dedicated time for data mapping, test migrations, and reconciliation validation. This expertise should be highlighted in the Section 2 technical approach narrative to demonstrate competence in this specific requirement.",
+            "flag": "Data migration from QuickBooks Desktop Premier 2024 requires specialized expertise.",
             "impactsScore": false
           }
         ],
         "incumbentInfo": {
           "knownIncumbent": false,
           "recompete": false,
-          "notes": "The solicitation states the Sites Authority currently uses 'QuickBooks Desktop Premier 2024 accounting software from Intuit' (Section 1.1). Intuit/QuickBooks is the current software product, not an incumbent contractor providing services. This is a new procurement for a cloud-based ERP system to replace desktop accounting software, not a recompete of an existing services contract."
+          "notes": "The solicitation states in Section 1.1 that the Sites Authority currently utilizes QuickBooks Desktop Premier 2024 from Intuit. This identifies the current software product, not an incumbent services contractor. There is no mention of a predecessor contract, recompete, follow-on, or incumbent contractor. This appears to be a new procurement for a cloud-based ERP system to replace desktop accounting software."
         }
       },
-      "inputHash": "ebd29a834f2c06ad28a775a118e9b6e735e9342973aa2241af209e3cd668d1ec",
+      "inputHash": "force-regen-v9",
       "status": "COMPLETE",
-      "updatedAt": "2026-04-19T20:16:10.661Z"
+      "updatedAt": "2026-04-21T00:35:06.007Z"
     },
     "scoring": {
       "data": {
-        "confidenceExplanation": "Confidence is 55 due to: no past performance data available (-20), fundamental industry mismatch between company capabilities and solicitation requirements (-15), and expired deadline (-10). The analysis is high-confidence in its NO-GO conclusion despite low overall confidence score \u2014 the mismatch is unambiguous.",
+        "confidenceExplanation": "Very low confidence (15%) due to expired deadline, complete industry mismatch between company capabilities and solicitation requirements, 0% past performance coverage, and 12% pricing confidence from the pricing module. All data sources consistently confirm this is not a viable opportunity.",
         "requiredActions": [
-          "NO-BID: Do not pursue this opportunity \u2014 fundamental capability and product mismatch",
-          "Monitor Sites Project Authority for future IT modernization or custom software development opportunities that align with AWS/cloud capabilities",
-          "Consider partnering with ERP vendors who may need AWS infrastructure or data migration support for their implementations as a subcontractor role in future similar opportunities"
+          "Do not pursue this opportunity \u2014 redirect business development resources to solicitations aligned with document automation, AI/ML, and cloud-native development capabilities",
+          "Monitor the Sites Authority procurement outcome to identify potential future subcontracting opportunities for API integration work once a primary ERP vendor is selected",
+          "If government ERP market entry is a long-term strategic goal, begin identifying potential ERP vendor partnerships (Tyler Technologies, Sage Intacct, Oracle NetSuite) for future opportunities \u2014 this would require 12-18 months of capability building before competitive bidding"
         ],
         "decision": "NO_GO",
         "criteria": [
           {
             "name": "TECHNICAL_FIT",
             "score": 1,
-            "rationale": "Fundamental industry mismatch. Horus Technology is an AWS Advanced Consulting Partner specializing in intelligent document automation, AI/ML, and cloud-native development. The solicitation requires a commercial off-the-shelf cloud-based financial ERP software product with modules for AP, AR, GL, budgeting, project accounting, purchasing, fixed assets, and cash management. The company does not possess an ERP software product, has no ERP implementation capabilities documented in its KB, and has no partnership with an ERP vendor. Attachment A (Software Abilities and Requirements) carries 30% evaluation weight and requires demonstrating existing product capabilities that Horus Technology does not have.",
+            "rationale": "HORUSTECH is an AWS Advanced Consulting Partner specializing in intelligent document automation, cloud-native development, and AI/ML solutions. The solicitation requires an integrated cloud-based financial ERP software product with 10 core modules (AP, AR, GL, Budget Management, Fixed Assets, Project Accounting, Purchasing, etc.) \u2014 a fundamentally different product category. HORUSTECH has no ERP software product in its portfolio, no financial accounting software capabilities documented in its knowledge base, and no experience with QuickBooks data migration or financial report writing. The KB search for 'ERP financial accounting software implementation' returned no results. This is a complete industry and capability mismatch: the solicitation is a software product procurement, not a custom development engagement, and Attachment A (Software Abilities and Requirements) at 30% evaluation weight requires documenting existing product capabilities that HORUSTECH simply does not possess.",
             "gaps": [
-              "No commercial ERP software product to propose",
-              "No financial/accounting software implementation capability",
-              "No QuickBooks data migration experience",
-              "No ERP vendor partnership or reseller agreement",
-              "Cannot provide software demonstration required for finalist phase",
-              "No help desk or ongoing SaaS hosting capability for financial software",
-              "No chart of accounts mapping or financial report writing expertise"
+              "No cloud-based financial ERP software product to propose",
+              "No capability in any of the 10 core ERP modules (AP, AR, GL, Budget Management, etc.)",
+              "No QuickBooks data migration expertise",
+              "No financial report writing or chart of accounts mapping capability",
+              "No ERP implementation methodology or experience",
+              "Cannot complete Attachment A (Software Abilities and Requirements) without an ERP product",
+              "No SaaS financial data security documentation for Attachment G"
             ]
           },
           {
             "name": "PAST_PERFORMANCE_RELEVANCE",
             "score": 1,
-            "rationale": "No past performance data available. The company has zero relevant past performance projects in the database for ERP or financial software implementation. The KB shows past performance in AI/ML document processing (Avue Technologies) and automation projects, which are in a completely different domain. Section 4.2 explicitly requires 'Experience implementing accounting and financial software for public agencies or grant-funded organizations' \u2014 the company has none.",
+            "rationale": "The past performance analysis returned 0% overall coverage with 30 critical gaps identified. The top 5 matched projects (Chanced.com AWS migration, NDAX crypto platform, FAQx web app, AspireHR platform, Volkswagen translation system) all scored 0 on technical similarity, 0 on scale similarity, and only 20 on domain similarity \u2014 none involve financial ERP software, accounting systems, or public agency implementations. The RFP requires minimum three references for similar services (Attachment C) and specifically evaluates experience implementing accounting and financial software for public agencies or grant-funded organizations (Section 4.2). HORUSTECH's past performance is entirely in custom software development for private sector clients (Ford Credit, Porsche Digital, Experian, Volkswagen) with no public agency ERP work whatsoever. The confidence score from the past performance analysis was only 20 out of 100.",
             "gaps": [
-              "No ERP implementation past performance",
-              "No public agency financial software references",
-              "No accounting software implementation experience of any kind",
-              "Cannot provide the required minimum three references for similar services",
-              "No QuickBooks migration references"
+              "Zero past performance in financial ERP implementation",
+              "No public agency or government ERP references available",
+              "No experience with accounting/financial software for grant-funded organizations",
+              "Cannot provide three references for similar services as required by Attachment C",
+              "No demonstrated experience with QuickBooks migration or financial system transitions"
             ]
           },
           {
             "name": "PRICING_POSITION",
             "score": 1,
-            "rationale": "The pricing analysis confirms the company cannot competitively price this opportunity. Horus Technology does not have an ERP software product to license, making it impossible to provide the required software licensing, SaaS subscription, and implementation pricing. The pricing module explicitly states 'NO-BID RECOMMENDED' and assigns a price confidence of 10. Competitors will be established ERP vendors (Tyler Technologies, Sage Intacct, Oracle NetSuite) with mature pricing models for public sector clients. The company's labor rates for custom development are irrelevant to this procurement's pricing structure.",
+            "rationale": "The pricing analysis explicitly concluded that a meaningful cost estimate cannot be developed because HORUSTECH fundamentally cannot perform the required work as a prime contractor. The price confidence score was 12 out of 100 \u2014 effectively zero confidence. The company's labor rates (Software Engineer at $171.40/hr, Manufacturing Engineer at $178.89/hr) are irrelevant because the work requires ERP-specific roles (ERP consultants, financial systems analysts, accounting SMEs) that the company does not employ. HORUSTECH has no ERP product to license, no implementation methodology to price, and no basis for estimating ongoing SaaS hosting and support costs. Competing against established ERP vendors like Tyler Technologies, Sage Intacct, or Oracle NetSuite who have mature pricing models for government ERP implementations is not feasible.",
             "gaps": [
-              "No ERP software product to price",
-              "No SaaS subscription pricing model",
+              "No ERP product licensing costs to propose",
+              "No ERP-specific labor categories or rates",
+              "No basis for estimating 11-year ongoing support and hosting costs",
               "Cannot commit to 3-year firm pricing or 5-year optional module pricing without a product",
-              "Labor rates not applicable to ERP licensing/implementation pricing models"
+              "No competitive pricing position against established government ERP vendors"
             ]
           },
           {
             "name": "STRATEGIC_ALIGNMENT",
             "score": 1,
-            "rationale": "This opportunity is for a commercial ERP software vendor serving public sector accounting needs \u2014 a completely different industry and business model from Horus Technology's AWS consulting, AI/ML, and document automation focus. No documented strategic plan or growth targets indicate expansion into ERP software or public sector financial systems. Pursuing this would be a distraction from core competencies with near-zero probability of success.",
+            "rationale": "HORUSTECH's documented capabilities are in AWS cloud-native development, intelligent document automation, and AI/ML solutions for regulated and government-facing organizations. This solicitation requires an established financial ERP software product with implementation services for a California joint powers authority. There is no documented strategic plan or growth objective indicating HORUSTECH intends to enter the government ERP market. The KB search for 'strategic goals growth plan market expansion' returned no results. Pursuing this opportunity would divert significant proposal resources (40-page proposal with 8 attachments) from opportunities aligned with the company's core competencies. The only potential future value noted in the risk analysis is possible subcontracting for API integration work once a primary ERP vendor is selected, but that does not justify a prime contractor bid on this solicitation.",
             "gaps": [
-              "Completely different industry (financial ERP vs AI/ML document automation)",
-              "Different business model required (SaaS product vendor vs consulting)",
-              "No strategic documentation supporting expansion into ERP market",
-              "Would require building entirely new capabilities outside core competency"
+              "No strategic plan to enter government ERP market",
+              "Complete misalignment with core competencies in document automation and AI/ML",
+              "Significant opportunity cost of pursuing a 40-page proposal with no realistic win probability",
+              "No ERP vendor partnership or reseller agreement in place"
             ]
           },
           {
             "name": "INCUMBENT_RISK",
             "score": 4,
-            "rationale": "This is a new procurement, not a recompete. The current system is QuickBooks Desktop Premier 2024 from Intuit, which is a software product not a services contract. There is no incumbent contractor. The playing field is level among ERP vendors responding. However, this advantage is irrelevant given the fundamental capability mismatch.",
+            "rationale": "This is a new procurement, not a recompete. The Sites Authority currently uses QuickBooks Desktop Premier 2024 from Intuit, which is a desktop product being replaced by a cloud-based ERP system. There is no incumbent services contractor identified in the solicitation. The risk analysis confirms this appears to be a first-time ERP procurement for the authority. This means there is a level playing field among qualified ERP vendors \u2014 no incumbent lock-in or wired deal. However, this favorable incumbent risk factor is irrelevant to HORUSTECH because the company lacks the fundamental product and capabilities to compete regardless of the competitive landscape.",
             "gaps": [
-              "Established ERP vendors with existing public sector client bases will have natural advantages in references and product maturity"
+              "Favorable incumbent position is irrelevant given fundamental capability mismatch"
             ]
           }
         ],
-        "summaryJustification": "CRITICAL NO-GO: Horus Technology is an AWS consulting firm specializing in AI/ML and document automation. This solicitation requires a commercial cloud-based financial ERP software product vendor with public agency implementation experience. The company has no ERP product, no financial software capabilities, no relevant past performance, and cannot price this work. The pricing analysis explicitly recommends NO-BID with 10% confidence. The submission deadline of April 1, 2026 has already passed (today is April 19, 2026), making this opportunity expired regardless of capability fit.",
-        "confidence": 55,
+        "summaryJustification": "This opportunity represents a fundamental industry and capability mismatch for HORUSTECH. The solicitation requires an established cloud-based financial ERP software product with 10 core accounting modules, implementation services, and 11 years of ongoing support \u2014 HORUSTECH is an AWS consulting partner specializing in document automation and AI/ML with zero ERP products or financial software capabilities. Past performance analysis shows 0% coverage across 30 critical requirements, with no relevant references for public agency ERP implementations. The pricing analysis concluded with only 12% confidence that no meaningful estimate can be developed. The proposal deadline of April 1, 2026 has already passed (today is April 21, 2026), making submission impossible regardless of capability assessment. The only positive factor \u2014 no incumbent contractor \u2014 is irrelevant given the complete misalignment between HORUSTECH's capabilities and the solicitation requirements.",
+        "confidence": 15,
         "blockers": [
-          "Submission deadline has passed (April 1, 2026 \u2014 18 days ago)",
-          "Company does not possess a commercial financial ERP software product",
-          "No past performance in ERP or financial software implementation for public agencies",
-          "No ERP vendor partnership or reseller agreement in place",
-          "Cannot complete Attachment A (Software Abilities and Requirements) without an ERP product",
-          "Cannot provide software demonstration required for finalist evaluation"
+          "Submission deadline has passed \u2014 proposals were due April 1, 2026 at 2:00 PM PT, and today is April 21, 2026",
+          "No cloud-based financial ERP software product exists in HORUSTECH's portfolio to propose",
+          "Zero relevant past performance in financial ERP implementation for public agencies",
+          "Cannot provide minimum three references for similar services as required by Attachment C",
+          "No ERP-specific labor categories, roles, or expertise within the organization"
         ],
-        "decisionRationale": "NO_GO decision based on multiple critical disqualifiers: (1) Fundamental industry mismatch \u2014 company is an AI/ML consulting firm, not an ERP software vendor; (2) No ERP software product exists to propose \u2014 Attachment A (30% weight) requires demonstrating existing product capabilities; (3) No past performance in financial software implementation for public agencies (10% weight); (4) Pricing analysis explicitly recommends NO-BID with 10% confidence; (5) Submission deadline of April 1, 2026 has already passed \u2014 today is April 19, 2026; (6) Cannot provide required software demonstration for finalist phase. Composite score of 1.35 reflects critical gaps across all dimensions except incumbent risk.",
+        "decisionRationale": "This is a clear NO_GO based on multiple critical failures across all substantive scoring dimensions. TECHNICAL_FIT scored 1 because HORUSTECH has no ERP software product, no financial accounting capabilities, and cannot complete the highest-weighted evaluation attachment (Attachment A at 30%). PAST_PERFORMANCE_RELEVANCE scored 1 with 0% coverage and zero relevant references \u2014 the RFP requires three references for similar services that do not exist. PRICING_POSITION scored 1 with 12% price confidence because the company has no product to price and no relevant labor categories. STRATEGIC_ALIGNMENT scored 1 as there is no documented strategy to enter the government ERP market. Additionally, the submission deadline of April 1, 2026 has already passed, making this opportunity expired. The composite score of 1.3 is well below the 3.0 threshold, and no realistic mitigation actions could overcome the fundamental product and capability gap.",
         "compositeScore": 1.3,
         "confidenceDrivers": [
           {
-            "factor": "No past performance data available for ERP or financial software",
+            "factor": "Submission deadline expired 20 days ago",
             "direction": "DOWN"
           },
           {
-            "factor": "Fundamental industry mismatch \u2014 AI/ML consulting vs ERP software vendor",
+            "factor": "Complete industry mismatch \u2014 AWS consulting vs. financial ERP product procurement",
             "direction": "DOWN"
           },
           {
-            "factor": "Submission deadline has already passed (April 1, 2026)",
+            "factor": "Zero past performance coverage across 30 requirements",
             "direction": "DOWN"
           },
           {
-            "factor": "Pricing analysis explicitly recommends NO-BID with 10% confidence",
+            "factor": "Pricing analysis returned 12% confidence with no viable cost estimate",
             "direction": "DOWN"
           },
           {
-            "factor": "No incumbent contractor \u2014 level playing field (irrelevant given other factors)",
+            "factor": "No ERP product in portfolio \u2014 cannot respond to 30%-weighted Attachment A",
+            "direction": "DOWN"
+          },
+          {
+            "factor": "No incumbent contractor \u2014 level playing field (irrelevant given capability gaps)",
             "direction": "UP"
           }
         ]
       },
-      "inputHash": "1ed5ed779c526374d119638d5833475ea47ea43f34219101f276f54c9ad37c72",
+      "inputHash": "force-regen-v9",
       "status": "COMPLETE",
-      "updatedAt": "2026-04-19T20:21:26.323Z"
+      "updatedAt": "2026-04-21T00:40:56.314Z"
     },
     "summary": {
       "data": {
-        "summary": "The Sites Project Authority is soliciting proposals for the acquisition and implementation of a cloud-based accounting and financial reporting ERP system to replace their current QuickBooks Desktop Premier 2024 software. The scope includes core ERP modules (accounts payable/receivable, general ledger, budgeting, project accounting, purchasing, fixed assets, and cash management) along with implementation services, training, and ongoing support. The system will serve as the Authority's core financial system of record as it transitions from planning to final design and construction of a 1.5 million acre-foot reservoir project in California.",
-        "periodOfPerformance": "Base year of 1 year, with up to two optional 5-year extensions (maximum 11 years total)",
+        "summary": "The Sites Project Authority (Sites Authority), a California joint exercise of powers authority governing the Sites Reservoir Project, is soliciting comprehensive proposals for the acquisition and implementation of a cloud-based accounting and financial reporting software system to replace its current QuickBooks Desktop Premier 2024 platform. The core ERP scope encompasses Accounts Payable, Accounts Receivable, Bank Reconciliation, Budget Management, Cash Management, Fixed Assets, General Ledger, Project Accounting, Purchasing, and General & Technical modules, with additional optional functionality available for capital asset maintenance management, debt management, investment management, human resources, payroll, timekeeping, and inventory tracking. The contract is structured with an initial one-year term and up to two optional five-year extensions at the Authority's sole discretion, for a maximum potential term of eleven years, with a target go-live date of January 1, 2027 and pricing required to remain firm for at least three years from contract execution with subsequent annual increases capped at CPI-U or three percent, whichever is less. This procurement is strategically significant as the Sites Authority anticipates transitioning from planning to final design, construction, and long-term operations of a 1.5 million acre-foot off-stream surface water storage reservoir\u2014California's planned 8th largest reservoir\u2014with expected significant growth in transaction volume, contract complexity, debt financing, grant management, and reporting requirements. The selected ERP system must be modular, extensible, and capable of scaling to support the project through construction completion targeted by end of 2033, serving as the Authority's core financial system of record over a long-term horizon. Proposals are evaluated on a best-value basis across software capabilities (30%), technical approach (25%), pricing (20%), project goals response (10%), firm qualifications (10%), and integration scalability (5%), with the system expected to support approximately 5-10 ERP users and 10-20 workflow approvers currently, and data migration from one completed fiscal year of QuickBooks transactions.",
+        "periodOfPerformance": "1 year base term with up to two 5-year optional extensions (maximum 11 years total)",
         "agency": "Sites Project Authority",
         "contractType": "UNKNOWN",
         "title": "Financial Enterprise Resource Planning Software and Services",
-        "placeOfPerformance": "Glenn and Colusa counties, California",
+        "placeOfPerformance": "Glenn and Colusa Counties, California (Sites Reservoir Project)",
         "solicitationNumber": "RFP No. 26-01",
         "setAside": "UNKNOWN"
       },
-      "inputHash": "836eec20d1e2e776691202ecae33f8ae0c6c299497762162e1d3d02284e419e2",
+      "inputHash": "force-regen-v9",
       "status": "COMPLETE",
-      "updatedAt": "2026-04-19T20:15:32.286Z"
+      "updatedAt": "2026-04-21T00:30:14.170Z"
     }
-  },
-  "status": "IDLE",
-  "textKey": "8e79b259e81fba93e470efc5ccb74e3609fb1e14880efdfcb6666afa05209088/b94c25bb-91da-40a3-b29a-9a64144b01db/8ad8f9e1-f058-4431-8e36-396e15df7789.txt",
-  "updatedAt": "2026-04-19T20:21:26.323Z",
-  "sort_key": "b94c25bb-91da-40a3-b29a-9a64144b01db#146bd550-b5a3-4de6-9f4f-4d515098bfc2"
+  }
 }
