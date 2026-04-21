@@ -460,7 +460,7 @@ async function runRisks(job: Job): Promise<void> {
       toolExecutor: (toolName, toolInput, toolUseId) =>
         executeBriefTool({ toolName, toolInput, toolUseId, orgId, projectId, opportunityId, executiveBriefId }),
       outputSchema: RisksSectionSchema,
-      maxTokens: 12000,
+      maxTokens: 16000,
       temperature: 0.2,
       maxToolRounds: 2,
     });
@@ -686,7 +686,7 @@ async function runScoring(job: Job): Promise<void> {
       toolExecutor: (toolName, toolInput, toolUseId) =>
         executeBriefTool({ toolName, toolInput, toolUseId, orgId, projectId, opportunityId, executiveBriefId }),
       outputSchema: ScoringSectionSchema,
-      maxTokens: 8000,
+      maxTokens: 12000,
       temperature: 0.2,
       maxToolRounds: 2,
     });
