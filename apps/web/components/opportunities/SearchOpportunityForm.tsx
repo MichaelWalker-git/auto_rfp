@@ -252,7 +252,7 @@ const HigherGovSearchIdSelector = ({
           className={cn('h-8 gap-1.5 text-xs font-normal', !!value && 'border-primary bg-primary/5 text-primary font-medium')}>
           {value ? `Search: ${value.slice(0, 12)}` : 'Saved Search'}
           {value
-            ? <button type="button" aria-label="Clear saved search" onClick={e => { e.stopPropagation(); onChange(''); }} className="ml-0.5 hover:text-destructive"><X className="h-3 w-3" /></button>
+            ? <span role="button" tabIndex={0} aria-label="Clear saved search" onClick={e => { e.stopPropagation(); onChange(''); }} onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); onChange(''); } }} className="ml-0.5 hover:text-destructive cursor-pointer"><X className="h-3 w-3" /></span>
             : <ChevronDown className="h-3 w-3 opacity-50" />}
         </Button>
       </PopoverTrigger>
