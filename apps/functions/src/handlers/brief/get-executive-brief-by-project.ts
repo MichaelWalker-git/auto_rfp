@@ -10,7 +10,7 @@ import { getExecutiveBriefByProjectId, getExecutiveBriefsByProjectId } from '@/h
 
 const RequestSchema = z.object({
   projectId: z.string().min(1),
-  opportunityId: z.string().min(1).optional(), // Optional - if provided, get brief for specific opportunity
+  opportunityId: z.string().min(1),
 });
 
 export const baseHandler = async (
@@ -22,8 +22,6 @@ export const baseHandler = async (
     const projectId = event.pathParameters?.projectId ?? parsed.projectId;
     const opportunityId = event.pathParameters?.opportunityId ?? parsed.opportunityId;
 
-    // If opportunityId is provided, get brief for that specific opportunity
-    // Otherwise, get the latest brief for the project
     const brief: ExecutiveBriefItem = await getExecutiveBriefByProjectId(projectId, opportunityId);
 
     return apiResponse(200, {
