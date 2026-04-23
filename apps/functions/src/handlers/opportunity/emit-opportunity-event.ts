@@ -32,7 +32,7 @@ import {
 } from '@/middleware/rbac-middleware';
 import { auditMiddleware, setAuditContext } from '@/middleware/audit-middleware';
 
-const EVENT_BUS_NAME = process.env.OPPORTUNITY_EVENT_BUS_NAME || 'default';
+const EVENT_BUS_NAME = requireEnv('OPPORTUNITY_EVENT_BUS_NAME');
 const DOCUMENTS_BUCKET = requireEnv('DOCUMENTS_BUCKET');
 const REGION = requireEnv('REGION', 'us-east-1');
 
