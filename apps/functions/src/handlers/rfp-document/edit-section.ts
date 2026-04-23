@@ -27,7 +27,12 @@ import { invokeModel } from '@/helpers/bedrock-http-client';
 import type { QaPair } from '@/helpers/document-generation';
 import { loadQaPairs, loadSolicitation } from '@/helpers/document-generation';
 import { gatherAllContext } from '@/helpers/document-context';
-import { BEDROCK_MODEL_ID, TEMPERATURE } from '@/constants/document-generation';
+import { TEMPERATURE } from '@/constants/document-generation';
+import { requireEnv } from '@/helpers/env';
+
+// Use a fast model for section editing — Haiku is sufficient and avoids
+// the 30s API Gateway timeout that Opus triggers with tool-use rounds.
+const EDIT_SECTION_MODEL_ID = requireEnv('EDIT_SECTION_MODEL_ID', 'us.anthropic.claude-haiku-4-5-20251001-v1:0');
 import { saveChatMessages } from '@/helpers/ai-chat';
 
 // ─── Retry helper for transient Bedrock errors (503 Service Unavailable) ───
@@ -70,7 +75,7 @@ const EditSectionInputSchema = z.object({
 
 // ─── Constants ───
 
-const MAX_TOOL_ROUNDS = 1;
+const MAX_TOOL_ROUNDS = 3;
 const MAX_TOKENS = 8000;
 const MAX_CONTEXT_CHARS = 6000;
 
@@ -256,29 +261,16 @@ export const baseHandler = async (
     while (toolRounds <= MAX_TOOL_ROUNDS) {
       const isLastRound = toolRounds >= MAX_TOOL_ROUNDS;
 
-      // Always include tools when tool_use/tool_result messages exist in the
-      // conversation — the API expects definitions for any tool blocks present.
-      // On the last round we still provide tools but omit tool_choice so the
-      // model can choose to respond with text only.
-      const hasToolMessages = messages.some(
-        m => Array.isArray(m.content) && (m.content as Array<{ type: string }>).some(
-          c => c.type === 'tool_use' || c.type === 'tool_result',
-        ),
-      );
-
       const requestBody: Record<string, unknown> = {
         anthropic_version: 'bedrock-2023-05-31',
         system: [{ type: 'text', text: systemPrompt }],
         messages,
         max_tokens: MAX_TOKENS,
         temperature: TEMPERATURE,
+        tools: DOCUMENT_TOOLS,
       };
 
-      if (!isLastRound || hasToolMessages) {
-        requestBody.tools = DOCUMENT_TOOLS;
-      }
-
-      const responseBody = await invokeModelWithRetry(BEDROCK_MODEL_ID, JSON.stringify(requestBody));
+      const responseBody = await invokeModelWithRetry(EDIT_SECTION_MODEL_ID, JSON.stringify(requestBody));
       const parsed = JSON.parse(new TextDecoder('utf-8').decode(responseBody));
 
       const stopReason: string = parsed.stop_reason ?? 'end_turn';
@@ -329,13 +321,12 @@ export const baseHandler = async (
         .join('\n')
         .trim();
 
-      // Handle last round producing no text (tool_use without text, or empty response)
-      if (!resultHtml && isLastRound) {
-        console.warn(`[edit-section] Last round produced no text (stop_reason=${stopReason}) — forcing final generation`);
+      // If the last round returned tool_use with no text, provide stub results
+      // and make one final call WITHOUT tools so the model must produce text.
+      if (!resultHtml && isLastRound && stopReason === 'tool_use') {
+        console.warn(`[edit-section] Last round returned tool_use — forcing text-only final call`);
         messages.push({ role: 'assistant', content });
 
-        // Every tool_use block must have a matching tool_result — provide stubs
-        // so the conversation is valid before appending the text prompt.
         const toolUseIds = content
           .filter(c => c.type === 'tool_use' && c.id)
           .map(c => c.id as string);
@@ -346,25 +337,21 @@ export const baseHandler = async (
             content: toolUseIds.map(id => ({
               type: 'tool_result',
               tool_use_id: id,
-              content: 'Skipped — generating final output now.',
+              content: 'Skipped — generate the final HTML now.',
             })),
           });
         }
 
-        messages.push({
-          role: 'user',
-          content: [{ type: 'text', text: 'Now generate the updated section HTML based on all the information gathered. Return ONLY the HTML.' }],
-        });
         const finalBody: Record<string, unknown> = {
           anthropic_version: 'bedrock-2023-05-31',
           system: [{ type: 'text', text: systemPrompt }],
           messages,
           max_tokens: MAX_TOKENS,
           temperature: TEMPERATURE,
-          tools: DOCUMENT_TOOLS,
+          // No tools — force text output
         };
-        const finalResponse = await invokeModelWithRetry(BEDROCK_MODEL_ID, JSON.stringify(finalBody));
-        const finalParsed = JSON.parse(new TextDecoder('utf-8').decode(finalResponse));
+        const finalResp = await invokeModelWithRetry(EDIT_SECTION_MODEL_ID, JSON.stringify(finalBody));
+        const finalParsed = JSON.parse(new TextDecoder('utf-8').decode(finalResp));
         const finalContent: Array<{ type: string; text?: string }> = finalParsed.content ?? [];
         resultHtml = finalContent.filter(c => c.type === 'text').map(c => c.text ?? '').join('\n').trim();
       }
