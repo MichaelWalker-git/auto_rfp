@@ -374,7 +374,6 @@ export const baseHandler = async (
         resourceId: documentId,
       });
 
-      // Persist failed chat messages (non-blocking)
       saveChatMessages({
         orgId, projectId, opportunityId, documentId, sectionTitle,
         userInstruction: instruction,
@@ -388,7 +387,31 @@ export const baseHandler = async (
       return apiResponse(500, { message: 'AI produced no content for the section edit' });
     }
 
-    // 7. Persist chat messages (non-blocking — don't delay the response)
+    // 7. Check if the model returned a conversational message instead of HTML.
+    //    If there are no HTML tags, the model is asking for clarification —
+    //    return it as a message without applying changes to the document.
+    const hasHtmlContent = /<[a-z][a-z0-9]*[\s>]/i.test(resultHtml);
+    if (!hasHtmlContent) {
+      console.log(`[edit-section] Model returned plain text (no HTML) — treating as message, not edit`);
+
+      saveChatMessages({
+        orgId, projectId, opportunityId, documentId, sectionTitle,
+        userInstruction: instruction,
+        assistantContent: resultHtml,
+        applied: false,
+        toolRoundsUsed: toolRounds,
+        userId,
+      }).catch(err => console.warn('Failed to persist chat messages (non-blocking):', (err as Error).message));
+
+      return apiResponse(200, {
+        ok: true,
+        sectionTitle,
+        message: resultHtml,
+        toolRoundsUsed: toolRounds,
+      });
+    }
+
+    // 8. Persist chat messages (non-blocking — don't delay the response)
     saveChatMessages({
       orgId, projectId, opportunityId, documentId, sectionTitle,
       userInstruction: instruction,
@@ -401,7 +424,7 @@ export const baseHandler = async (
       userId,
     }).catch(err => console.warn('Failed to persist chat messages (non-blocking):', (err as Error).message));
 
-    // 8. Return the updated section HTML
+    // 9. Return the updated section HTML
     setAuditContext(event, {
       action: 'DOCUMENT_SECTION_EDIT_COMPLETED',
       resource: 'document',

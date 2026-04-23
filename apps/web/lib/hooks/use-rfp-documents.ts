@@ -586,7 +586,10 @@ export type EditSectionRequest = z.infer<typeof EditSectionRequestSchema>;
 const EditSectionResponseSchema = z.object({
   ok: z.boolean(),
   sectionTitle: z.string(),
-  updatedHtml: z.string(),
+  /** Updated HTML — absent when the AI returns a message instead of an edit */
+  updatedHtml: z.string().optional(),
+  /** Conversational message from AI (e.g. asking for clarification) */
+  message: z.string().optional(),
   toolRoundsUsed: z.number(),
 });
 
