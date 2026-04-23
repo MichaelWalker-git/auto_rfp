@@ -13,6 +13,7 @@ import { AnswerGenerationPipelineStack } from '../answer-generation-step-functio
 import { ApiOrchestratorStack } from '../api/api-orchestrator-stack';
 import { CollaborationWebSocketStack } from '../collaboration-websocket-stack';
 import { AuditStack } from '../audit-stack';
+import { OpportunityEventsStack } from '../opportunity-events-stack';
 import { AwsSolutionsChecks } from 'cdk-nag';
 import {
   addAllSuppressions,
@@ -133,6 +134,12 @@ const questionsPipelineStack = new QuestionExtractionPipelineStack(app, `AutoRfp
 // Question pipeline depends on answer generation stack
 questionsPipelineStack.addDependency(answerGenerationStack);
 
+// Shared EventBridge bus for opportunity/POC events — deployed once, used by all stages
+const opportunityEvents = new OpportunityEventsStack(app, `AutoRfp-OpportunityEvents`, {
+  env,
+  stage,
+});
+
 // Create API Orchestrator which creates the API Gateway and adds all routes
 const api = new ApiOrchestratorStack(app, `ApiOrchestrator-${stage}`, {
   env,
@@ -161,6 +168,7 @@ api.addDependency(db);
 api.addDependency(storage);
 api.addDependency(pipelineStack);
 api.addDependency(questionsPipelineStack);
+api.addDependency(opportunityEvents);
 
 const notificationQueueName = `auto-rfp-notifications-${stage.toLowerCase()}`;
 
