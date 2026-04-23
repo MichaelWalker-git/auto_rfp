@@ -33,7 +33,7 @@ import { requireEnv } from '@/helpers/env';
 // Use a fast model for section editing — Haiku is sufficient and avoids
 // the 30s API Gateway timeout that Opus triggers with tool-use rounds.
 const EDIT_SECTION_MODEL_ID = requireEnv('EDIT_SECTION_MODEL_ID', 'us.anthropic.claude-haiku-4-5-20251001-v1:0');
-import { saveChatMessages } from '@/helpers/ai-chat';
+import { listChatMessages, saveChatMessages } from '@/helpers/ai-chat';
 
 // ─── Retry helper for transient Bedrock errors (503 Service Unavailable) ───
 
@@ -250,8 +250,44 @@ export const baseHandler = async (
     console.log(`[edit-section] Starting section edit for "${sectionTitle}" in document ${documentId}`);
     console.log(`[edit-section] Prompt sizes: system=${systemPrompt.length}, user=${userPrompt.length}`);
 
-    // 5. Call Bedrock with tool-use loop
+    // 5. Load chat history for conversation context
+    const chatHistory = await listChatMessages(orgId, projectId, opportunityId, documentId);
+
+    // Convert persisted chat messages to Bedrock message format.
+    // Keep the last 20 messages to stay within token limits.
+    const historyMessages: Array<{ role: string; content: unknown }> = [];
+    const recentHistory = chatHistory.slice(-20);
+    for (const msg of recentHistory) {
+      // Skip messages with errors — they add noise, not context
+      if (msg.error) continue;
+      historyMessages.push({
+        role: msg.role,
+        content: [{ type: 'text', text: msg.content }],
+      });
+    }
+
+    // Bedrock requires first message to be 'user' — trim leading assistant messages
+    while (historyMessages.length > 0 && historyMessages[0]!.role === 'assistant') {
+      historyMessages.shift();
+    }
+    // Ensure alternating user/assistant — merge consecutive same-role messages
+    // by just dropping history if it's malformed (rare edge case)
+    if (historyMessages.length > 0) {
+      const valid: Array<{ role: string; content: unknown }> = [historyMessages[0]!];
+      for (let i = 1; i < historyMessages.length; i++) {
+        if (historyMessages[i]!.role !== valid[valid.length - 1]!.role) {
+          valid.push(historyMessages[i]!);
+        }
+      }
+      historyMessages.length = 0;
+      historyMessages.push(...valid);
+    }
+
+    console.log(`[edit-section] Loaded ${chatHistory.length} chat messages, using last ${historyMessages.length} for context`);
+
+    // Build messages: history + current user prompt
     const messages: Array<{ role: string; content: unknown }> = [
+      ...historyMessages,
       { role: 'user', content: [{ type: 'text', text: userPrompt }] },
     ];
 
