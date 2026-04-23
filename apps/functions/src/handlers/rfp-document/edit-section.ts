@@ -27,8 +27,13 @@ import { invokeModel } from '@/helpers/bedrock-http-client';
 import type { QaPair } from '@/helpers/document-generation';
 import { loadQaPairs, loadSolicitation } from '@/helpers/document-generation';
 import { gatherAllContext } from '@/helpers/document-context';
-import { BEDROCK_MODEL_ID, TEMPERATURE } from '@/constants/document-generation';
-import { saveChatMessages } from '@/helpers/ai-chat';
+import { TEMPERATURE } from '@/constants/document-generation';
+import { requireEnv } from '@/helpers/env';
+
+// Use a fast model for section editing — Haiku is sufficient and avoids
+// the 30s API Gateway timeout that Opus triggers with tool-use rounds.
+const EDIT_SECTION_MODEL_ID = requireEnv('EDIT_SECTION_MODEL_ID', 'us.anthropic.claude-haiku-4-5-20251001-v1:0');
+import { listChatMessages, saveChatMessages } from '@/helpers/ai-chat';
 
 // ─── Retry helper for transient Bedrock errors (503 Service Unavailable) ───
 
@@ -70,7 +75,7 @@ const EditSectionInputSchema = z.object({
 
 // ─── Constants ───
 
-const MAX_TOOL_ROUNDS = 1;
+const MAX_TOOL_ROUNDS = 3;
 const MAX_TOKENS = 8000;
 const MAX_CONTEXT_CHARS = 6000;
 
@@ -245,8 +250,44 @@ export const baseHandler = async (
     console.log(`[edit-section] Starting section edit for "${sectionTitle}" in document ${documentId}`);
     console.log(`[edit-section] Prompt sizes: system=${systemPrompt.length}, user=${userPrompt.length}`);
 
-    // 5. Call Bedrock with tool-use loop
+    // 5. Load chat history for conversation context
+    const chatHistory = await listChatMessages(orgId, projectId, opportunityId, documentId);
+
+    // Convert persisted chat messages to Bedrock message format.
+    // Keep the last 20 messages to stay within token limits.
+    const historyMessages: Array<{ role: string; content: unknown }> = [];
+    const recentHistory = chatHistory.slice(-20);
+    for (const msg of recentHistory) {
+      // Skip messages with errors — they add noise, not context
+      if (msg.error) continue;
+      historyMessages.push({
+        role: msg.role,
+        content: [{ type: 'text', text: msg.content }],
+      });
+    }
+
+    // Bedrock requires first message to be 'user' — trim leading assistant messages
+    while (historyMessages.length > 0 && historyMessages[0]!.role === 'assistant') {
+      historyMessages.shift();
+    }
+    // Ensure alternating user/assistant — merge consecutive same-role messages
+    // by just dropping history if it's malformed (rare edge case)
+    if (historyMessages.length > 0) {
+      const valid: Array<{ role: string; content: unknown }> = [historyMessages[0]!];
+      for (let i = 1; i < historyMessages.length; i++) {
+        if (historyMessages[i]!.role !== valid[valid.length - 1]!.role) {
+          valid.push(historyMessages[i]!);
+        }
+      }
+      historyMessages.length = 0;
+      historyMessages.push(...valid);
+    }
+
+    console.log(`[edit-section] Loaded ${chatHistory.length} chat messages, using last ${historyMessages.length} for context`);
+
+    // Build messages: history + current user prompt
     const messages: Array<{ role: string; content: unknown }> = [
+      ...historyMessages,
       { role: 'user', content: [{ type: 'text', text: userPrompt }] },
     ];
 
@@ -262,18 +303,18 @@ export const baseHandler = async (
         messages,
         max_tokens: MAX_TOKENS,
         temperature: TEMPERATURE,
+        tools: DOCUMENT_TOOLS,
       };
 
-      if (!isLastRound) {
-        requestBody.tools = DOCUMENT_TOOLS;
-      }
-
-      const responseBody = await invokeModelWithRetry(BEDROCK_MODEL_ID, JSON.stringify(requestBody));
+      const responseBody = await invokeModelWithRetry(EDIT_SECTION_MODEL_ID, JSON.stringify(requestBody));
       const parsed = JSON.parse(new TextDecoder('utf-8').decode(responseBody));
 
       const stopReason: string = parsed.stop_reason ?? 'end_turn';
       const content: Array<{ type: string; id?: string; name?: string; input?: unknown; text?: string }> =
         parsed.content ?? [];
+
+      const contentTypes = content.map(c => c.type).join(', ');
+      console.log(`[edit-section] Bedrock response: stop_reason=${stopReason}, content_types=[${contentTypes}], round=${toolRounds}/${MAX_TOOL_ROUNDS}`);
 
       if (stopReason === 'tool_use' && !isLastRound) {
         const toolUseBlocks = content.filter(c => c.type === 'tool_use');
@@ -316,23 +357,37 @@ export const baseHandler = async (
         .join('\n')
         .trim();
 
-      // Handle last round still returning tool_use
-      if (!resultHtml && stopReason === 'tool_use' && isLastRound) {
-        console.warn('[edit-section] Last round still returned tool_use — forcing final generation');
+      // If the last round returned tool_use with no text, provide stub results
+      // and make one final call WITHOUT tools so the model must produce text.
+      if (!resultHtml && isLastRound && stopReason === 'tool_use') {
+        console.warn(`[edit-section] Last round returned tool_use — forcing text-only final call`);
         messages.push({ role: 'assistant', content });
-        messages.push({
-          role: 'user',
-          content: [{ type: 'text', text: 'Now generate the updated section HTML based on all the information gathered. Return ONLY the HTML.' }],
-        });
-        const finalBody = {
+
+        const toolUseIds = content
+          .filter(c => c.type === 'tool_use' && c.id)
+          .map(c => c.id as string);
+
+        if (toolUseIds.length > 0) {
+          messages.push({
+            role: 'user',
+            content: toolUseIds.map(id => ({
+              type: 'tool_result',
+              tool_use_id: id,
+              content: 'Skipped — generate the final HTML now.',
+            })),
+          });
+        }
+
+        const finalBody: Record<string, unknown> = {
           anthropic_version: 'bedrock-2023-05-31',
           system: [{ type: 'text', text: systemPrompt }],
           messages,
           max_tokens: MAX_TOKENS,
           temperature: TEMPERATURE,
+          // No tools — force text output
         };
-        const finalResponse = await invokeModelWithRetry(BEDROCK_MODEL_ID, JSON.stringify(finalBody));
-        const finalParsed = JSON.parse(new TextDecoder('utf-8').decode(finalResponse));
+        const finalResp = await invokeModelWithRetry(EDIT_SECTION_MODEL_ID, JSON.stringify(finalBody));
+        const finalParsed = JSON.parse(new TextDecoder('utf-8').decode(finalResp));
         const finalContent: Array<{ type: string; text?: string }> = finalParsed.content ?? [];
         resultHtml = finalContent.filter(c => c.type === 'text').map(c => c.text ?? '').join('\n').trim();
       }
@@ -355,7 +410,6 @@ export const baseHandler = async (
         resourceId: documentId,
       });
 
-      // Persist failed chat messages (non-blocking)
       saveChatMessages({
         orgId, projectId, opportunityId, documentId, sectionTitle,
         userInstruction: instruction,
@@ -369,7 +423,31 @@ export const baseHandler = async (
       return apiResponse(500, { message: 'AI produced no content for the section edit' });
     }
 
-    // 7. Persist chat messages (non-blocking — don't delay the response)
+    // 7. Check if the model returned a conversational message instead of HTML.
+    //    If there are no HTML tags, the model is asking for clarification —
+    //    return it as a message without applying changes to the document.
+    const hasHtmlContent = /<[a-z][a-z0-9]*[\s>]/i.test(resultHtml);
+    if (!hasHtmlContent) {
+      console.log(`[edit-section] Model returned plain text (no HTML) — treating as message, not edit`);
+
+      saveChatMessages({
+        orgId, projectId, opportunityId, documentId, sectionTitle,
+        userInstruction: instruction,
+        assistantContent: resultHtml,
+        applied: false,
+        toolRoundsUsed: toolRounds,
+        userId,
+      }).catch(err => console.warn('Failed to persist chat messages (non-blocking):', (err as Error).message));
+
+      return apiResponse(200, {
+        ok: true,
+        sectionTitle,
+        message: resultHtml,
+        toolRoundsUsed: toolRounds,
+      });
+    }
+
+    // 8. Persist chat messages (non-blocking — don't delay the response)
     saveChatMessages({
       orgId, projectId, opportunityId, documentId, sectionTitle,
       userInstruction: instruction,
@@ -382,7 +460,7 @@ export const baseHandler = async (
       userId,
     }).catch(err => console.warn('Failed to persist chat messages (non-blocking):', (err as Error).message));
 
-    // 8. Return the updated section HTML
+    // 9. Return the updated section HTML
     setAuditContext(event, {
       action: 'DOCUMENT_SECTION_EDIT_COMPLETED',
       resource: 'document',
