@@ -256,6 +256,16 @@ export const baseHandler = async (
     while (toolRounds <= MAX_TOOL_ROUNDS) {
       const isLastRound = toolRounds >= MAX_TOOL_ROUNDS;
 
+      // Always include tools when tool_use/tool_result messages exist in the
+      // conversation — the API expects definitions for any tool blocks present.
+      // On the last round we still provide tools but omit tool_choice so the
+      // model can choose to respond with text only.
+      const hasToolMessages = messages.some(
+        m => Array.isArray(m.content) && (m.content as Array<{ type: string }>).some(
+          c => c.type === 'tool_use' || c.type === 'tool_result',
+        ),
+      );
+
       const requestBody: Record<string, unknown> = {
         anthropic_version: 'bedrock-2023-05-31',
         system: [{ type: 'text', text: systemPrompt }],
@@ -264,7 +274,7 @@ export const baseHandler = async (
         temperature: TEMPERATURE,
       };
 
-      if (!isLastRound) {
+      if (!isLastRound || hasToolMessages) {
         requestBody.tools = DOCUMENT_TOOLS;
       }
 
@@ -274,6 +284,9 @@ export const baseHandler = async (
       const stopReason: string = parsed.stop_reason ?? 'end_turn';
       const content: Array<{ type: string; id?: string; name?: string; input?: unknown; text?: string }> =
         parsed.content ?? [];
+
+      const contentTypes = content.map(c => c.type).join(', ');
+      console.log(`[edit-section] Bedrock response: stop_reason=${stopReason}, content_types=[${contentTypes}], round=${toolRounds}/${MAX_TOOL_ROUNDS}`);
 
       if (stopReason === 'tool_use' && !isLastRound) {
         const toolUseBlocks = content.filter(c => c.type === 'tool_use');
@@ -316,20 +329,39 @@ export const baseHandler = async (
         .join('\n')
         .trim();
 
-      // Handle last round still returning tool_use
-      if (!resultHtml && stopReason === 'tool_use' && isLastRound) {
-        console.warn('[edit-section] Last round still returned tool_use — forcing final generation');
+      // Handle last round producing no text (tool_use without text, or empty response)
+      if (!resultHtml && isLastRound) {
+        console.warn(`[edit-section] Last round produced no text (stop_reason=${stopReason}) — forcing final generation`);
         messages.push({ role: 'assistant', content });
+
+        // Every tool_use block must have a matching tool_result — provide stubs
+        // so the conversation is valid before appending the text prompt.
+        const toolUseIds = content
+          .filter(c => c.type === 'tool_use' && c.id)
+          .map(c => c.id as string);
+
+        if (toolUseIds.length > 0) {
+          messages.push({
+            role: 'user',
+            content: toolUseIds.map(id => ({
+              type: 'tool_result',
+              tool_use_id: id,
+              content: 'Skipped — generating final output now.',
+            })),
+          });
+        }
+
         messages.push({
           role: 'user',
           content: [{ type: 'text', text: 'Now generate the updated section HTML based on all the information gathered. Return ONLY the HTML.' }],
         });
-        const finalBody = {
+        const finalBody: Record<string, unknown> = {
           anthropic_version: 'bedrock-2023-05-31',
           system: [{ type: 'text', text: systemPrompt }],
           messages,
           max_tokens: MAX_TOKENS,
           temperature: TEMPERATURE,
+          tools: DOCUMENT_TOOLS,
         };
         const finalResponse = await invokeModelWithRetry(BEDROCK_MODEL_ID, JSON.stringify(finalBody));
         const finalParsed = JSON.parse(new TextDecoder('utf-8').decode(finalResponse));
