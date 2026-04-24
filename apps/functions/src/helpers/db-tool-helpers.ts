@@ -161,7 +161,7 @@ export const fetchTeamMembers = async (orgId: string, limit = 10): Promise<strin
  */
 export const fetchExecutiveBriefAnalysis = async (
   projectId: string,
-  opportunityId?: string,
+  opportunityId: string,
   sections?: BriefSectionName[],
 ): Promise<string> => {
   try {
@@ -285,14 +285,10 @@ export const fetchExecutiveBriefAnalysis = async (
  */
 export const fetchDeadlineInfo = async (
   projectId: string,
-  opportunityId?: string,
+  opportunityId: string,
 ): Promise<string> => {
   try {
-    // Try standalone deadline records first
-    const skPrefix = opportunityId
-      ? `${projectId}#${opportunityId}`
-      : `${projectId}#`;
-
+    const skPrefix = `${projectId}#${opportunityId}`;
     const deadlineItems = await queryBySkPrefix<Record<string, unknown>>(DEADLINE_PK, skPrefix);
 
     if (deadlineItems.length) {

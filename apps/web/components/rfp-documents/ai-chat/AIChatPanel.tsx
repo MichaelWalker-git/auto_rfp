@@ -278,33 +278,45 @@ export const AIChatPanel = ({
         instruction,
       });
 
-      // Apply the edit to the document and scroll to the updated section
-      const newFullHtml = replaceSectionInDocument(htmlContent, selectedSection, response.updatedHtml);
-      onApplyEdit(newFullHtml, selectedSection.title);
+      if (response.updatedHtml) {
+        // Apply the edit to the document and scroll to the updated section
+        const newFullHtml = replaceSectionInDocument(htmlContent, selectedSection, response.updatedHtml);
+        onApplyEdit(newFullHtml, selectedSection.title);
 
-      // Update assistant message with success
-      setMessages(prev =>
-        prev.map(m =>
-          m.id === assistantMessageId
-            ? {
-                ...m,
-                content: `Updated section "${selectedSection.title}" successfully.${
-                  response.toolRoundsUsed > 0
-                    ? ` Used ${response.toolRoundsUsed} tool round${response.toolRoundsUsed > 1 ? 's' : ''} to gather context.`
-                    : ''
-                }`,
-                updatedHtml: response.updatedHtml,
-                applied: true,
-                timestamp: new Date(),
-              }
-            : m,
-        ),
-      );
+        // Update assistant message with success
+        setMessages(prev =>
+          prev.map(m =>
+            m.id === assistantMessageId
+              ? {
+                  ...m,
+                  content: `Updated section "${selectedSection.title}" successfully.${
+                    response.toolRoundsUsed > 0
+                      ? ` Used ${response.toolRoundsUsed} tool round${response.toolRoundsUsed > 1 ? 's' : ''} to gather context.`
+                      : ''
+                  }`,
+                  updatedHtml: response.updatedHtml,
+                  applied: true,
+                  timestamp: new Date(),
+                }
+              : m,
+          ),
+        );
 
-      toast({
-        title: 'Section updated',
-        description: `"${selectedSection.title}" has been updated by AI.`,
-      });
+        toast({
+          title: 'Section updated',
+          description: `"${selectedSection.title}" has been updated by AI.`,
+        });
+      } else {
+        // AI returned a message (e.g. asking for clarification) — no document changes
+        const aiMessage = response.message ?? 'The AI could not edit the section with the given instructions.';
+        setMessages(prev =>
+          prev.map(m =>
+            m.id === assistantMessageId
+              ? { ...m, content: aiMessage, applied: false, timestamp: new Date() }
+              : m,
+          ),
+        );
+      }
 
       // Save last edited section to localStorage for default selection
       try {
