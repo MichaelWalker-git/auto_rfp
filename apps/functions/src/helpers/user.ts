@@ -1,15 +1,15 @@
-import { DynamoDBDocumentClient, DeleteCommand, GetCommand, PutCommand, QueryCommand, TransactWriteCommand, UpdateCommand } from '@aws-sdk/lib-dynamodb';
+import { DynamoDBDocumentClient, GetCommand, PutCommand, QueryCommand, TransactWriteCommand, UpdateCommand } from '@aws-sdk/lib-dynamodb';
 import { CognitoIdentityProviderClient } from '@aws-sdk/client-cognito-identity-provider';
 
 import { PK_NAME, SK_NAME } from '../constants/common';
 import { USER_PK } from '../constants/user';
 import { OPPORTUNITY_PK } from '../constants/opportunity';
 
-import type { CreateUserDTO, UserProjectAccess } from '@auto-rfp/core';
+import type { CreateUserDTO } from '@auto-rfp/core';
 import { USER_PROJECT_PK, buildUserProjectSK } from '@auto-rfp/core';
 import { adminCreateUser, adminDeleteUser, adminSetUserPassword, DEFAULT_TEMP_PASSWORD } from './cognito';
 import { safeTrim, safeLowerCase } from './safe-string';
-import { createItem, getItem, docClient } from './db';
+import { getItem, docClient } from './db';
 import { requireEnv } from './env';
 import { getAccessibleOrgIds } from './organization';
 
@@ -476,6 +476,7 @@ export const syncUserIdAcrossOrgs = async (
                   ...rest,
                   [PK_NAME]: USER_PK,
                   [SK_NAME]: newSk,
+                  orgId, // Ensure orgId is set (may be missing in legacy records)
                   userId: correctUserId,
                   previousUserId,
                   updatedAt: new Date().toISOString(),
@@ -602,6 +603,8 @@ export const syncOpportunityAssignments = async (
           FilterExpression: '#assigneeId = :oldUserId',
           ExpressionAttributeNames: { '#pk': PK_NAME, '#sk': SK_NAME, '#assigneeId': 'assigneeId' },
           ExpressionAttributeValues: { ':pk': OPPORTUNITY_PK, ':skPrefix': `${orgId}#`, ':oldUserId': oldUserId },
+          // Only fetch the sort key - we only need it for the update
+          ProjectionExpression: '#sk',
           ExclusiveStartKey,
         }),
       );
@@ -619,6 +622,7 @@ export const syncOpportunityAssignments = async (
           };
           const expressionAttributeValues: Record<string, unknown> = {
             ':newUserId': newUserId,
+            ':oldUserId': oldUserId,
             ':now': new Date().toISOString(),
           };
           if (assigneeName) {
@@ -631,13 +635,21 @@ export const syncOpportunityAssignments = async (
               TableName: DB_TABLE_NAME,
               Key: { [PK_NAME]: OPPORTUNITY_PK, [SK_NAME]: sk },
               UpdateExpression: updateExpression,
+              // Only update if assigneeId hasn't been changed concurrently
+              ConditionExpression: '#assigneeId = :oldUserId',
               ExpressionAttributeNames: expressionAttributeNames,
               ExpressionAttributeValues: expressionAttributeValues,
             }),
           );
           totalUpdated++;
-        } catch (err) {
-          console.error(`[syncOpportunityAssignments] Failed to update ${sk}:`, err);
+        } catch (err: unknown) {
+          const errName = (err as { name?: string })?.name;
+          if (errName === 'ConditionalCheckFailedException') {
+            // Assignee changed between query and update - skip (idempotent)
+            console.log(`[syncOpportunityAssignments] Skipped ${sk} (assignee changed concurrently)`);
+          } else {
+            console.error(`[syncOpportunityAssignments] Failed to update ${sk}:`, err);
+          }
         }
       }
       ExclusiveStartKey = res.LastEvaluatedKey;
