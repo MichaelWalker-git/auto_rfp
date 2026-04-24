@@ -1,14 +1,17 @@
-import { DynamoDBDocumentClient, GetCommand, PutCommand, QueryCommand, TransactWriteCommand } from '@aws-sdk/lib-dynamodb';
+import { DynamoDBDocumentClient, DeleteCommand, GetCommand, PutCommand, QueryCommand, TransactWriteCommand, UpdateCommand } from '@aws-sdk/lib-dynamodb';
 import { CognitoIdentityProviderClient } from '@aws-sdk/client-cognito-identity-provider';
 
 import { PK_NAME, SK_NAME } from '../constants/common';
 import { USER_PK } from '../constants/user';
+import { OPPORTUNITY_PK } from '../constants/opportunity';
 
-import type { CreateUserDTO } from '@auto-rfp/core';
+import type { CreateUserDTO, UserProjectAccess } from '@auto-rfp/core';
+import { USER_PROJECT_PK, buildUserProjectSK } from '@auto-rfp/core';
 import { adminCreateUser, adminDeleteUser, adminSetUserPassword, DEFAULT_TEMP_PASSWORD } from './cognito';
 import { safeTrim, safeLowerCase } from './safe-string';
 import { createItem, getItem, docClient } from './db';
 import { requireEnv } from './env';
+import { getAccessibleOrgIds } from './organization';
 
 const DB_TABLE_NAME = requireEnv('DB_TABLE_NAME');
 
@@ -100,16 +103,25 @@ function buildSearchText(parts: Array<string | undefined>): string {
 
 export async function addExistingUserToOrg(
   deps: CreateUserDeps,
-  input: { dto: CreateUserDTO; existingCognitoSub: string },
+  input: { dto: CreateUserDTO; existingCognitoSub: string; previousUserId?: string },
 ): Promise<CreateUserResult> {
   const { ddb, tableName } = deps;
-  const { dto, existingCognitoSub } = input;
+  const { dto, existingCognitoSub, previousUserId } = input;
 
   const emailLower = safeLowerCase(safeTrim(dto.email));
   const now = new Date().toISOString();
   const sk = userSk(dto.orgId, existingCognitoSub);
 
-  const item = {
+  // Check EMAIL_LOOKUP for a previously known userId if not provided
+  let resolvedPreviousUserId = previousUserId;
+  if (!resolvedPreviousUserId) {
+    const lookupUserId = await getEmailLookup(emailLower);
+    if (lookupUserId && lookupUserId !== existingCognitoSub) {
+      resolvedPreviousUserId = lookupUserId;
+    }
+  }
+
+  const item: Record<string, unknown> = {
     [PK_NAME]: USER_PK,
     [SK_NAME]: sk,
     entityType: 'USER',
@@ -141,6 +153,12 @@ export async function addExistingUserToOrg(
     createdAt: now,
     updatedAt: now,
   };
+
+  // Include previousUserId if the user was previously known under a different ID
+  // This allows resolveUserNames to map stale createdBy/updatedBy references
+  if (resolvedPreviousUserId) {
+    item.previousUserId = resolvedPreviousUserId;
+  }
 
   await ddb.send(
     new PutCommand({
@@ -407,16 +425,31 @@ export const syncUserIdAcrossOrgs = async (
     ExclusiveStartKey = res.LastEvaluatedKey;
   } while (ExclusiveStartKey);
 
+  // Even if no stale USER records found, we must sync USER_PROJECT and OPPORTUNITY
+  // The USER records might have been deleted, but related records still reference the old userId
   if (staleRecords.length === 0) {
-    return { updated: 0, orgs: [] };
+    console.log(`[syncUserIdAcrossOrgs] No stale USER records found for ${previousUserId}, syncing related records anyway`);
+    await syncUserProjectRecords(previousUserId, correctUserId);
+    // For opportunities, we need all orgs this user currently belongs to
+    const currentOrgs = await getAccessibleOrgIds(correctUserId);
+    if (currentOrgs.length > 0) {
+      await syncOpportunityAssignments(previousUserId, correctUserId, currentOrgs);
+    }
+    return { updated: 0, orgs: currentOrgs };
   }
 
   // 5. Atomically migrate each stale record (delete old + put new in a transaction)
   const updatedOrgs: string[] = [];
 
   for (const record of staleRecords) {
-    const orgId = record['orgId'] as string;
     const oldSk = record[SK_NAME] as string;
+    // Fallback: parse orgId from SK if not stored as a field (legacy records)
+    // SK format: ORG#{orgId}#USER#{userId}
+    const orgId = (record['orgId'] as string) ?? oldSk.match(/^ORG#([^#]+)#USER#/)?.[1];
+    if (!orgId) {
+      console.warn(`[syncUserIdAcrossOrgs] Skipping record with unparseable SK: ${oldSk}`);
+      continue;
+    }
     const newSk = userSk(orgId, correctUserId);
 
     // Skip if a record with the new SK already exists (don't overwrite a correct record)
@@ -444,6 +477,7 @@ export const syncUserIdAcrossOrgs = async (
                   [PK_NAME]: USER_PK,
                   [SK_NAME]: newSk,
                   userId: correctUserId,
+                  previousUserId,
                   updatedAt: new Date().toISOString(),
                 },
                 // Don't overwrite if a correct record already exists at this SK
@@ -468,5 +502,148 @@ export const syncUserIdAcrossOrgs = async (
     }
   }
 
+  // 6. Sync USER_PROJECT and OPPORTUNITY assignments
+  if (updatedOrgs.length > 0) {
+    await syncUserProjectRecords(previousUserId, correctUserId);
+    await syncOpportunityAssignments(previousUserId, correctUserId, updatedOrgs);
+  }
+
   return { updated: updatedOrgs.length, orgs: updatedOrgs };
+};
+
+/**
+ * Migrate USER_PROJECT records from old userId to new userId.
+ * SK format: `{userId}#{projectId}` — must delete old + create new.
+ */
+export const syncUserProjectRecords = async (
+  oldUserId: string,
+  newUserId: string,
+): Promise<{ migrated: number }> => {
+  const staleRecords: Record<string, unknown>[] = [];
+  let ExclusiveStartKey: Record<string, unknown> | undefined;
+
+  do {
+    const res = await docClient.send(
+      new QueryCommand({
+        TableName: DB_TABLE_NAME,
+        KeyConditionExpression: '#pk = :pk AND begins_with(#sk, :skPrefix)',
+        ExpressionAttributeNames: { '#pk': PK_NAME, '#sk': SK_NAME },
+        ExpressionAttributeValues: { ':pk': USER_PROJECT_PK, ':skPrefix': `${oldUserId}#` },
+        ExclusiveStartKey,
+      }),
+    );
+    staleRecords.push(...(res.Items ?? []));
+    ExclusiveStartKey = res.LastEvaluatedKey;
+  } while (ExclusiveStartKey);
+
+  if (staleRecords.length === 0) return { migrated: 0 };
+
+  let migrated = 0;
+  for (const record of staleRecords) {
+    const projectId = record['projectId'] as string;
+    const oldSk = buildUserProjectSK(oldUserId, projectId);
+    const newSk = buildUserProjectSK(newUserId, projectId);
+
+    try {
+      await docClient.send(
+        new TransactWriteCommand({
+          TransactItems: [
+            { Delete: { TableName: DB_TABLE_NAME, Key: { [PK_NAME]: USER_PROJECT_PK, [SK_NAME]: oldSk } } },
+            {
+              Put: {
+                TableName: DB_TABLE_NAME,
+                Item: { ...record, [PK_NAME]: USER_PROJECT_PK, [SK_NAME]: newSk, userId: newUserId },
+                ConditionExpression: 'attribute_not_exists(#pk)',
+                ExpressionAttributeNames: { '#pk': PK_NAME },
+              },
+            },
+          ],
+        }),
+      );
+      migrated++;
+    } catch (err) {
+      console.error(`[syncUserProjectRecords] Failed to migrate project ${projectId}:`, err);
+    }
+  }
+
+  console.log(`[syncUserProjectRecords] Migrated ${migrated} USER_PROJECT records: ${oldUserId} → ${newUserId}`);
+  return { migrated };
+};
+
+/**
+ * Update OPPORTUNITY records where assigneeId = oldUserId.
+ * Also updates assigneeName to the user's current display name.
+ */
+export const syncOpportunityAssignments = async (
+  oldUserId: string,
+  newUserId: string,
+  orgs: string[],
+): Promise<{ updated: number }> => {
+  let totalUpdated = 0;
+
+  for (const orgId of orgs) {
+    // Look up the user's display name for this org
+    const user = await getUserByOrgAndId(orgId, newUserId);
+    let assigneeName: string | null = null;
+    if (user) {
+      const firstName = user.firstName ?? '';
+      const lastName = user.lastName ?? '';
+      const fullName = [firstName, lastName].filter(Boolean).join(' ');
+      assigneeName = user.displayName ?? (fullName || user.email);
+    }
+
+    let ExclusiveStartKey: Record<string, unknown> | undefined;
+
+    do {
+      const res = await docClient.send(
+        new QueryCommand({
+          TableName: DB_TABLE_NAME,
+          KeyConditionExpression: '#pk = :pk AND begins_with(#sk, :skPrefix)',
+          FilterExpression: '#assigneeId = :oldUserId',
+          ExpressionAttributeNames: { '#pk': PK_NAME, '#sk': SK_NAME, '#assigneeId': 'assigneeId' },
+          ExpressionAttributeValues: { ':pk': OPPORTUNITY_PK, ':skPrefix': `${orgId}#`, ':oldUserId': oldUserId },
+          ExclusiveStartKey,
+        }),
+      );
+
+      for (const item of res.Items ?? []) {
+        const sk = item[SK_NAME] as string;
+        try {
+          // Update both assigneeId AND assigneeName
+          const updateExpression = assigneeName
+            ? 'SET #assigneeId = :newUserId, #assigneeName = :assigneeName, #updatedAt = :now'
+            : 'SET #assigneeId = :newUserId, #updatedAt = :now';
+          const expressionAttributeNames: Record<string, string> = {
+            '#assigneeId': 'assigneeId',
+            '#updatedAt': 'updatedAt',
+          };
+          const expressionAttributeValues: Record<string, unknown> = {
+            ':newUserId': newUserId,
+            ':now': new Date().toISOString(),
+          };
+          if (assigneeName) {
+            expressionAttributeNames['#assigneeName'] = 'assigneeName';
+            expressionAttributeValues[':assigneeName'] = assigneeName;
+          }
+
+          await docClient.send(
+            new UpdateCommand({
+              TableName: DB_TABLE_NAME,
+              Key: { [PK_NAME]: OPPORTUNITY_PK, [SK_NAME]: sk },
+              UpdateExpression: updateExpression,
+              ExpressionAttributeNames: expressionAttributeNames,
+              ExpressionAttributeValues: expressionAttributeValues,
+            }),
+          );
+          totalUpdated++;
+        } catch (err) {
+          console.error(`[syncOpportunityAssignments] Failed to update ${sk}:`, err);
+        }
+      }
+      ExclusiveStartKey = res.LastEvaluatedKey;
+    } while (ExclusiveStartKey);
+  }
+
+  console.log(`[syncOpportunityAssignments] Updated ${totalUpdated} opportunities: assigneeId ${oldUserId} → ${newUserId}`);
+  return { updated: totalUpdated };
 };
