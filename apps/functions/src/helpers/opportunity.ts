@@ -8,7 +8,7 @@ import { OPPORTUNITY_PK } from '../constants/opportunity';
 import { safeSplit } from './safe-string';
 
 import type { OpportunityItem } from '@auto-rfp/core';
-import { nowIso } from './date';
+import { nowIso, toIsoDatetime } from './date';
 import { enrichWithUserNames } from './resolve-users';
 
 const DOCUMENTS_TABLE = requireEnv('DB_TABLE_NAME');
@@ -46,6 +46,9 @@ export const createOpportunity = async (args: {
     {
       ...args.opportunity,
       oppId,
+      // Normalize date fields to full ISO datetime (handles date-only and offset formats)
+      postedDateIso: toIsoDatetime(args.opportunity.postedDateIso),
+      responseDeadlineIso: toIsoDatetime(args.opportunity.responseDeadlineIso),
       ...(userId ? { createdBy: userId, updatedBy: userId } : {}),
       ...(userName ? { createdByName: userName, updatedByName: userName } : {}),
     } as any
@@ -141,9 +144,18 @@ export const updateOpportunity = async (args: {
   const forbidden = new Set<string>([PK_NAME, SK_NAME, 'createdAt', 'updatedAt']);
   const { userId, userName } = args.userContext ?? {};
 
+  // Normalize date fields if present in the patch
+  const normalizedPatch = { ...args.patch };
+  if ('postedDateIso' in normalizedPatch) {
+    normalizedPatch.postedDateIso = toIsoDatetime(normalizedPatch.postedDateIso);
+  }
+  if ('responseDeadlineIso' in normalizedPatch) {
+    normalizedPatch.responseDeadlineIso = toIsoDatetime(normalizedPatch.responseDeadlineIso);
+  }
+
   // Merge user context into patch so it gets written
   const patchWithUser: Partial<OpportunityItem> = {
-    ...args.patch,
+    ...normalizedPatch,
     ...(userId ? { updatedBy: userId } : {}),
     ...(userName ? { updatedByName: userName } : {}),
   };

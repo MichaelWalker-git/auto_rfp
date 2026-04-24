@@ -40,6 +40,8 @@ const CreateOpportunityFormSchema = z.object({
   setAside: z.string().trim().optional(),
   naicsCode: z.string().trim().optional(),
   pscCode: z.string().trim().optional(),
+  contactName: z.string().trim().optional(),
+  contactEmail: z.string().trim().email('Invalid email').optional().or(z.literal('')),
 });
 
 type CreateOpportunityFormValues = z.input<typeof CreateOpportunityFormSchema>;
@@ -83,6 +85,8 @@ export function CreateOpportunityDialog({ projectId: propProjectId, onCreated, t
       setAside: '',
       naicsCode: '',
       pscCode: '',
+      contactName: '',
+      contactEmail: '',
     },
   });
 
@@ -122,6 +126,8 @@ export function CreateOpportunityDialog({ projectId: propProjectId, onCreated, t
         organizationName: values.organizationName?.trim() || null,
         setAside: values.setAside?.trim() || null,
         description: values.description?.trim() || null,
+        contactName: values.contactName?.trim() || null,
+        contactEmail: values.contactEmail?.trim() || null,
         stage: 'IDENTIFIED',
         baseAndAllOptionsValue: null,
       };
@@ -173,6 +179,18 @@ export function CreateOpportunityDialog({ projectId: propProjectId, onCreated, t
             <div className="grid gap-2">
               <Label htmlFor="organizationName">Organization</Label>
               <Input id="organizationName" placeholder="Contracting organization name" {...register('organizationName')} />
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="grid gap-2">
+                <Label htmlFor="contactName">Contact Name</Label>
+                <Input id="contactName" placeholder="Point of contact" {...register('contactName')} />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="contactEmail">Contact Email</Label>
+                <Input id="contactEmail" type="email" placeholder="contact@agency.gov" {...register('contactEmail')} />
+                {errors.contactEmail && <p className="text-xs text-destructive">{errors.contactEmail.message}</p>}
+              </div>
             </div>
 
             <div className="grid gap-2">
