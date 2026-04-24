@@ -119,6 +119,16 @@ export const AssigneeSelector = ({
           <SelectItem value="unassigned">
             <span className="text-muted-foreground">Unassigned</span>
           </SelectItem>
+          {/* Show current assignee if not in the list (deleted user) */}
+          {currentAssigneeId && !assignableUsers.some(u => u.userId === currentAssigneeId) && (
+            <SelectItem value={currentAssigneeId}>
+              <span className="flex items-center gap-1.5 text-muted-foreground">
+                <User className="h-3 w-3 shrink-0" />
+                {currentAssigneeName || currentAssigneeId}
+                <span className="text-xs">(removed)</span>
+              </span>
+            </SelectItem>
+          )}
           {assignableUsers.length === 0 ? (
             <div className="px-2 py-1.5 text-xs text-muted-foreground">
               No team members found
@@ -126,11 +136,16 @@ export const AssigneeSelector = ({
           ) : (
             assignableUsers.map((user) => {
               const isCurrentUser = user.userId === userSub;
+              // Use currentAssigneeName if this is the current assignee but we couldn't resolve their name
+              const resolvedName = user.displayName
+                || user.email
+                || (user.userId === currentAssigneeId ? currentAssigneeName : null)
+                || user.userId;
               return (
                 <SelectItem key={user.userId} value={user.userId}>
                   <span className="flex items-center gap-1.5">
                     <User className="h-3 w-3 shrink-0" />
-                    {user.displayName || user.email || user.userId}
+                    {resolvedName}
                     {isCurrentUser && (
                       <span className="text-muted-foreground text-xs">(you)</span>
                     )}

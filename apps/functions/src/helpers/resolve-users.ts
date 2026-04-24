@@ -34,7 +34,7 @@ export async function resolveUserNames(
           ':pk': USER_PK,
           ':skPrefix': skPrefix,
         },
-        ProjectionExpression: 'userId, firstName, lastName, displayName, email, cognitoSub, cognitoUsername',
+        ProjectionExpression: 'userId, firstName, lastName, displayName, email, cognitoSub, cognitoUsername, previousUserId',
       }),
     );
 
@@ -43,6 +43,7 @@ export async function resolveUserNames(
       const uid = item.userId as string;
       const cognitoSub = item.cognitoSub as string | undefined;
       const cognitoUsername = item.cognitoUsername as string | undefined;
+      const previousUserId = item.previousUserId as string | undefined;
 
       const name =
         (item.displayName as string) ||
@@ -56,6 +57,8 @@ export async function resolveUserNames(
       if (cognitoSub) map[cognitoSub] = name;
       // Also map by cognitoUsername (email) in case that's what's stored
       if (cognitoUsername) map[cognitoUsername] = name;
+      // Map by previousUserId to resolve stale createdBy/updatedBy references
+      if (previousUserId) map[previousUserId] = name;
     }
 
     return map;
