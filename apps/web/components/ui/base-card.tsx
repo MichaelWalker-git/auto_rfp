@@ -32,8 +32,8 @@ export function BaseCard({
     <Card className={`${baseClasses} ${hoverClasses} ${interactiveClasses} ${className || ''}`} onClick={onClick}>
       <CardHeader className="pb-2 pt-4 px-4 flex-shrink-0">
         <div className="flex items-start justify-between gap-2">
-          <div className="flex-1 min-w-0">
-            <CardTitle className="text-base font-semibold line-clamp-2 break-words">{title}</CardTitle>
+          <div className="flex-1 min-w-0 overflow-hidden">
+            <CardTitle className="text-base font-semibold line-clamp-2 break-all">{title}</CardTitle>
             {subtitle && <p className="mt-0.5 line-clamp-2 text-xs text-muted-foreground break-all">{subtitle}</p>}
           </div>
           {actions && (
