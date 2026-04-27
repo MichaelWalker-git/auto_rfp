@@ -80,7 +80,7 @@ export function ConfirmDeleteDialog({
     <AlertDialog open={isOpen} onOpenChange={onOpenChange}>
       <AlertDialogContent>
         <AlertDialogHeader>
-          <AlertDialogTitle>{resolvedTitle}</AlertDialogTitle>
+          <AlertDialogTitle className="break-all">{resolvedTitle}</AlertDialogTitle>
           <AlertDialogDescription>{resolvedDescription}</AlertDialogDescription>
         </AlertDialogHeader>
 
