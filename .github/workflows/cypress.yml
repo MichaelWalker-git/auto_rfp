@@ -8,6 +8,7 @@ on:
     paths-ignore:
       - 'cypress/**'
       - '**.md'
+  workflow_dispatch:
   schedule:
     - cron: '0 2 * * *'  # Full suite nightly at 2am UTC
 
@@ -17,7 +18,7 @@ jobs:
   smoke:
     name: Smoke Tests
     runs-on: ubuntu-latest
-    if: github.event_name == 'push'
+    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
     steps:
       - name: Checkout
         uses: actions/checkout@v4
