@@ -10,6 +10,12 @@
 
 import { z } from 'zod';
 
+const flexibleDateSchema = z
+  .string()
+  .datetime({ offset: true })
+  .or(z.string().datetime())
+  .or(z.string().date());
+
 // ─── Source enum ──────────────────────────────────────────────────────────────
 
 export const OpportunitySourceSchema = z.enum(['SAM_GOV', 'DIBBS', 'HIGHER_GOV', 'MANUAL_UPLOAD']);
@@ -111,8 +117,8 @@ export const OpportunityItemSchema = z.object({
   id:        z.string().min(1),
   title:     z.string().min(1),
   type:      z.string().nullable(),
-  postedDateIso:       z.string().datetime().nullable(),
-  responseDeadlineIso: z.string().datetime().nullable(),
+  postedDateIso:       flexibleDateSchema.nullable(),
+  responseDeadlineIso: flexibleDateSchema.nullable(),
   noticeId:            z.string().nullable(),
   solicitationNumber:  z.string().nullable(),
   naicsCode:           z.string().nullable(),
