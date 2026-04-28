@@ -159,11 +159,13 @@ export const baseHandler = async (event: APIGatewayProxyEventV2): Promise<APIGat
           const resp = await searchHigherGovOpportunities(
             { baseUrl: HIGHERGOV_BASE_URL, apiKey, httpsAgent },
             {
-              keywords:   hasSearchId ? undefined : data.keywords,
-              searchId:   data.higherGovSearchId,
-              sourceType: hasSearchId ? undefined : data.higherGovSourceType,
+              keywords:     hasSearchId ? undefined : data.keywords,
+              naics:        hasSearchId ? undefined : data.naics,
+              setAsideCode: hasSearchId ? undefined : data.setAsideCode,
+              searchId:     data.higherGovSearchId,
+              sourceType:   hasSearchId ? undefined : data.higherGovSourceType,
               postedDate,
-              ordering:   '-captured_date',
+              ordering:     '-captured_date',
               pageSize,
               pageNumber: data.offset ? Math.floor(data.offset / pageSize) + 1 : 1,
             },
