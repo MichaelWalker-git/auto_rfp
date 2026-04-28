@@ -19,6 +19,8 @@ const EditFormSchema = z.object({
   setAside: z.string().trim().optional(),
   naicsCode: z.string().trim().optional(),
   pscCode: z.string().trim().optional(),
+  contactName: z.string().trim().optional(),
+  contactEmail: z.string().trim().email('Invalid email').optional().or(z.literal('')),
 });
 
 interface OpportunityHeaderEditProps {
@@ -52,6 +54,8 @@ export const OpportunityHeaderEdit = ({
       setAside: opportunity.setAside || '',
       naicsCode: opportunity.naicsCode || '',
       pscCode: opportunity.pscCode || '',
+      contactName: opportunity.contactName || '',
+      contactEmail: opportunity.contactEmail || '',
     });
     onClearError();
   }, [opportunity, reset, onClearError]);
@@ -67,6 +71,18 @@ export const OpportunityHeaderEdit = ({
       <div className="grid gap-1.5">
         <Label htmlFor="opp-org">Organization</Label>
         <Input id="opp-org" placeholder="Organization name" {...register('organizationName')} />
+      </div>
+
+      <div className="grid grid-cols-2 gap-4">
+        <div className="grid gap-1.5">
+          <Label htmlFor="opp-contact-name">Contact Name</Label>
+          <Input id="opp-contact-name" placeholder="Point of contact" {...register('contactName')} />
+        </div>
+        <div className="grid gap-1.5">
+          <Label htmlFor="opp-contact-email">Contact Email</Label>
+          <Input id="opp-contact-email" type="email" placeholder="contact@agency.gov" {...register('contactEmail')} />
+          {errors.contactEmail && <p className="text-xs text-destructive">{errors.contactEmail.message}</p>}
+        </div>
       </div>
 
       <div className="grid grid-cols-2 gap-4">

@@ -218,6 +218,10 @@ export const UserSchema = z.object({
   // Optional auth linkage (Cognito sub, etc.)
   authSubject: z.string().min(1).max(200).optional(), // e.g., cognito sub
 
+  // Previous userId — set when user is restored with a new Cognito sub
+  // Used for resolving stale createdBy/updatedBy references
+  previousUserId: z.string().uuid().optional(),
+
   // Auditing
   createdAt: isoDateTimeSchema,
   updatedAt: isoDateTimeSchema,

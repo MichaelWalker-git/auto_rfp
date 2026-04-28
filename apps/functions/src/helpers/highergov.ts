@@ -54,17 +54,20 @@ const httpsGetJson = async (url: URL, agent?: https.Agent): Promise<unknown> => 
 /**
  * Search HigherGov opportunities.
  *
- * NOTE: The HigherGov API does NOT support free-text keyword search as a query
- * parameter. Supported API filters are: source_type, agency_key, posted_date,
- * and search_id (a saved search created in the HigherGov UI).
+ * NOTE: The HigherGov API does NOT support free-text keyword search, NAICS, or
+ * set-aside as query parameters. Supported API filters are: source_type,
+ * agency_key, posted_date, and search_id (a saved search created in the
+ * HigherGov UI).
  *
- * When `keywords` is provided, we fetch a larger page from the API and filter
- * results client-side by matching against title, description, and agency name.
+ * When `keywords`, `naics`, or `setAsideCode` are provided, we fetch a larger
+ * page from the API and filter results client-side.
  */
 export const searchHigherGovOpportunities = async (
   cfg: HigherGovConfig,
   params: {
     keywords?: string;
+    naics?: string[];
+    setAsideCode?: string;
     searchId?: string;
     agencyKey?: string;
     sourceType?: string;
@@ -83,9 +86,9 @@ export const searchHigherGovOpportunities = async (
   if (params.postedDate) url.searchParams.set('posted_date', params.postedDate);
   url.searchParams.set('ordering', params.ordering ?? '-captured_date');
 
-  // When filtering by keywords client-side, fetch more results to compensate for filtering
+  const hasClientFilters = !!(params.keywords || params.naics?.length || params.setAsideCode);
   const requestedSize = Math.min(params.pageSize ?? 25, 100);
-  const fetchSize = params.keywords ? 100 : requestedSize;
+  const fetchSize = hasClientFilters ? 100 : requestedSize;
   url.searchParams.set('page_number', String(params.pageNumber ?? 1));
   url.searchParams.set('page_size', String(fetchSize));
 
@@ -94,7 +97,7 @@ export const searchHigherGovOpportunities = async (
   const meta = json.meta as Record<string, unknown> | undefined;
   const pagination = meta?.pagination as Record<string, number> | undefined;
 
-  // Client-side keyword filtering (API doesn't support free-text search)
+  // Client-side filtering (API doesn't support these filters natively)
   if (params.keywords) {
     const terms = params.keywords.toLowerCase().split(/\s+/).filter(Boolean);
     results = results.filter((opp) => {
@@ -116,10 +119,20 @@ export const searchHigherGovOpportunities = async (
     });
   }
 
+  if (params.naics?.length) {
+    const naicsSet = new Set(params.naics);
+    results = results.filter((opp) => opp.naics_code?.code && naicsSet.has(opp.naics_code.code));
+  }
+
+  if (params.setAsideCode) {
+    const code = params.setAsideCode.toLowerCase();
+    results = results.filter((opp) => opp.set_aside?.toLowerCase().includes(code));
+  }
+
   return {
     results: results.slice(0, requestedSize),
-    totalCount: params.keywords ? results.length : (pagination?.count ?? results.length),
-    pages: params.keywords ? 1 : (pagination?.pages ?? 1),
+    totalCount: hasClientFilters ? results.length : (pagination?.count ?? results.length),
+    pages: hasClientFilters ? 1 : (pagination?.pages ?? 1),
   };
 };
 

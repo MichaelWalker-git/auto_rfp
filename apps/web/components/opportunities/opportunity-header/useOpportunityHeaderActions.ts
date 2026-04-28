@@ -21,6 +21,8 @@ export interface EditFormValues {
   setAside?: string;
   naicsCode?: string;
   pscCode?: string;
+  contactName?: string;
+  contactEmail?: string;
 }
 
 export const useOpportunityHeaderActions = ({
@@ -56,6 +58,8 @@ export const useOpportunityHeaderActions = ({
             naicsCode: values.naicsCode?.trim() || null,
             pscCode: values.pscCode?.trim() || null,
             organizationName: values.organizationName?.trim() || null,
+            contactName: values.contactName?.trim() || null,
+            contactEmail: values.contactEmail?.trim() || null,
           },
         });
         setIsEditing(false);
