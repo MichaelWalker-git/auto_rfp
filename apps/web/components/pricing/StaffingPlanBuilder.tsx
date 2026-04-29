@@ -8,6 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Plus, Trash2, Users, Calculator } from 'lucide-react';
+import { StaffingPlanInfoPopover } from './StaffingPlanInfoPopover';
 
 interface StaffingPlanBuilderProps {
   orgId: string;
@@ -87,9 +88,12 @@ export const StaffingPlanBuilder = ({ orgId }: StaffingPlanBuilderProps) => {
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-lg font-semibold">Staffing Plan Builder</h2>
-          <p className="text-sm text-muted-foreground">
-            Build staffing plans by selecting positions and hours. Rates are auto-populated from your labor rate table.
-          </p>
+          <div className="flex items-center gap-1">
+            <p className="text-sm text-muted-foreground">
+              Build staffing plans by selecting positions and hours. Rates are auto-populated from your labor rate table.
+            </p>
+            <StaffingPlanInfoPopover />
+          </div>
         </div>
       </div>
 

@@ -19,6 +19,7 @@ import { Plus, Trash2, DollarSign, CalendarIcon, Upload, Pencil } from 'lucide-r
 import { mutate } from 'swr';
 import { ExtractionUploadDialog, ExtractionSourceBadge } from '@/components/extraction';
 import { PendingDraftsSection } from './PendingDraftsSection';
+import { LaborRateInfoPopover } from './LaborRateInfoPopover';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { usePermission } from '@/components/permission-wrapper';
@@ -120,7 +121,10 @@ export const LaborRateManager = ({ orgId }: LaborRateManagerProps) => {
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-lg font-semibold">Labor Rate Table</h2>
-          <p className="text-sm text-muted-foreground">Define hourly rates with overhead, G&A, and profit margins for each position.</p>
+          <div className="flex items-center gap-1">
+            <p className="text-sm text-muted-foreground">Define fully loaded hourly rates by position. These rates are used to calculate costs in proposals and executive briefs.</p>
+            <LaborRateInfoPopover />
+          </div>
         </div>
         {canCreate && (
           <div className="flex items-center gap-2">
@@ -147,15 +151,15 @@ export const LaborRateManager = ({ orgId }: LaborRateManagerProps) => {
                 <Input {...createForm.register('baseRate', { valueAsNumber: true })} type="number" step="0.01" placeholder="75.00" />
               </div>
               <div>
-                <label className="text-sm font-medium">Overhead (%)</label>
+                <div className="flex items-center gap-1"><label className="text-sm font-medium">Overhead (%)</label><LaborRateInfoPopover /></div>
                 <Input {...createForm.register('overhead', { valueAsNumber: true })} type="number" step="0.1" placeholder="120" />
               </div>
               <div>
-                <label className="text-sm font-medium">G&A (%)</label>
+                <div className="flex items-center gap-1"><label className="text-sm font-medium">G&A (%)</label><LaborRateInfoPopover /></div>
                 <Input {...createForm.register('ga', { valueAsNumber: true })} type="number" step="0.1" placeholder="12" />
               </div>
               <div>
-                <label className="text-sm font-medium">Profit (%)</label>
+                <div className="flex items-center gap-1"><label className="text-sm font-medium">Profit (%)</label><LaborRateInfoPopover /></div>
                 <Input {...createForm.register('profit', { valueAsNumber: true })} type="number" step="0.1" placeholder="10" />
               </div>
               <div>
@@ -214,12 +218,12 @@ export const LaborRateManager = ({ orgId }: LaborRateManagerProps) => {
               <tr>
                 <th className="text-left p-3 font-medium">Position</th>
                 <th className="text-right p-3 font-medium">Base Rate</th>
-                <th className="text-right p-3 font-medium">Overhead</th>
-                <th className="text-right p-3 font-medium">G&A</th>
-                <th className="text-right p-3 font-medium">Profit</th>
-                <th className="text-right p-3 font-medium">Fully Loaded</th>
+                <th className="text-right p-3 font-medium"><div className="flex items-center justify-end gap-0.5">Overhead<LaborRateInfoPopover /></div></th>
+                <th className="text-right p-3 font-medium"><div className="flex items-center justify-end gap-0.5">G&A<LaborRateInfoPopover /></div></th>
+                <th className="text-right p-3 font-medium"><div className="flex items-center justify-end gap-0.5">Profit<LaborRateInfoPopover /></div></th>
+                <th className="text-right p-3 font-medium"><div className="flex items-center justify-end gap-0.5">Fully Loaded<LaborRateInfoPopover /></div></th>
                 <th className="text-center p-3 font-medium">Status</th>
-                <th className="text-right p-3 font-medium">Actions</th>
+                {canDelete && <th className="text-right p-3 font-medium">Actions</th>}
               </tr>
             </thead>
             <tbody>
@@ -263,9 +267,9 @@ export const LaborRateManager = ({ orgId }: LaborRateManagerProps) => {
             <div><label className="text-sm font-medium">Position Title</label><Input {...editForm.register('position')} /></div>
             <div className="grid grid-cols-2 gap-4">
               <div><label className="text-sm font-medium">Base Rate ($/hr)</label><Input {...editForm.register('baseRate', { valueAsNumber: true })} type="number" step="0.01" /></div>
-              <div><label className="text-sm font-medium">Overhead (%)</label><Input {...editForm.register('overhead', { valueAsNumber: true })} type="number" step="0.1" /></div>
-              <div><label className="text-sm font-medium">G&A (%)</label><Input {...editForm.register('ga', { valueAsNumber: true })} type="number" step="0.1" /></div>
-              <div><label className="text-sm font-medium">Profit (%)</label><Input {...editForm.register('profit', { valueAsNumber: true })} type="number" step="0.1" /></div>
+              <div><div className="flex items-center gap-1"><label className="text-sm font-medium">Overhead (%)</label><LaborRateInfoPopover /></div><Input {...editForm.register('overhead', { valueAsNumber: true })} type="number" step="0.1" /></div>
+              <div><div className="flex items-center gap-1"><label className="text-sm font-medium">G&A (%)</label><LaborRateInfoPopover /></div><Input {...editForm.register('ga', { valueAsNumber: true })} type="number" step="0.1" /></div>
+              <div><div className="flex items-center gap-1"><label className="text-sm font-medium">Profit (%)</label><LaborRateInfoPopover /></div><Input {...editForm.register('profit', { valueAsNumber: true })} type="number" step="0.1" /></div>
             </div>
             <div><label className="text-sm font-medium">Rate Justification</label><Input {...editForm.register('rateJustification')} /></div>
             <DialogFooter><Button type="button" variant="outline" onClick={() => setEditingRate(null)}>Cancel</Button><Button type="submit" disabled={isUpdating}>{isUpdating ? 'Saving...' : 'Save Changes'}</Button></DialogFooter>
