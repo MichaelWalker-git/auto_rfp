@@ -18,14 +18,15 @@ import { mutate } from 'swr';
 import { usePermission } from '@/components/permission-wrapper';
 import { ExtractionUploadDialog, ExtractionSourceBadge, type AnyDraft } from '@/components/extraction';
 import { PendingDraftsSection } from './PendingDraftsSection';
+import { DirectCostInfoPopover } from './DirectCostInfoPopover';
 import { cn } from '@/lib/utils';
 
 const BOM_CATEGORIES = BOMItemTypeSchema.options;
 
 const categoryLabels: Record<string, string> = {
-  HARDWARE: 'Hardware',
+  HARDWARE: 'Hardware & Equipment',
   SOFTWARE_LICENSE: 'Software License',
-  MATERIALS: 'Materials',
+  MATERIALS: 'Materials & Supplies',
   SUBCONTRACTOR: 'Subcontractor',
   TRAVEL: 'Travel',
   ODC: 'Other Direct Costs',
@@ -96,8 +97,11 @@ export const BOMCalculator = ({ orgId }: BOMCalculatorProps) => {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-lg font-semibold">Bill of Materials</h2>
-          <p className="text-sm text-muted-foreground">Track hardware, software, materials, and other direct costs.</p>
+          <h2 className="text-lg font-semibold">Direct Costs</h2>
+          <div className="flex items-center gap-1">
+            <p className="text-sm text-muted-foreground">Track software, equipment, subcontractors, travel, and other non-labor costs for proposals.</p>
+            <DirectCostInfoPopover />
+          </div>
         </div>
         {canCreate && (
           <div className="flex gap-2">
@@ -124,8 +128,8 @@ export const BOMCalculator = ({ orgId }: BOMCalculatorProps) => {
         <PendingDraftsSection
           orgId={orgId}
           drafts={bomDrafts}
-          title="Pending Draft BOM Items"
-          description="Review extracted BOM items before adding them to your inventory."
+          title="Pending Draft Cost Items"
+          description="Review extracted cost items before adding them to your inventory."
           mutateKey="/bom-items"
           onRefresh={refreshDrafts}
         />
@@ -133,7 +137,7 @@ export const BOMCalculator = ({ orgId }: BOMCalculatorProps) => {
 
       {showForm && (
         <Card>
-          <CardHeader><CardTitle className="text-base">New BOM Item</CardTitle></CardHeader>
+          <CardHeader><CardTitle className="text-base">New Direct Cost Item</CardTitle></CardHeader>
           <CardContent>
             <form onSubmit={handleSubmit(onSubmit)} className="grid grid-cols-2 gap-4">
               <div className="col-span-2">
@@ -194,8 +198,8 @@ export const BOMCalculator = ({ orgId }: BOMCalculatorProps) => {
       {bomItems.length === 0 ? (
         <Card><CardContent className="flex flex-col items-center justify-center py-12">
           <Package className="h-12 w-12 text-muted-foreground mb-4" />
-          <p className="text-muted-foreground">No BOM items yet.</p>
-          <p className="text-sm text-muted-foreground">Add hardware, software, and other cost items.</p>
+          <p className="text-muted-foreground">No direct cost items yet.</p>
+          <p className="text-sm text-muted-foreground">Add software licenses, equipment, subcontractor costs, and other non-labor expenses.</p>
         </CardContent></Card>
       ) : (
         <>
@@ -236,7 +240,7 @@ export const BOMCalculator = ({ orgId }: BOMCalculatorProps) => {
           </div>
           <div className="flex justify-end">
             <Card className="w-64"><CardContent className="p-4 flex justify-between items-center">
-              <span className="text-sm font-medium">Total BOM Value:</span>
+              <span className="text-sm font-medium">Total Direct Costs:</span>
               <span className="text-lg font-bold text-primary">${totalCost.toFixed(2)}</span>
             </CardContent></Card>
           </div>
