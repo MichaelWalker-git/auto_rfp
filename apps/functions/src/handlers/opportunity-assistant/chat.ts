@@ -167,7 +167,7 @@ const baseHandler = async (
   // Look for [Source N] patterns in the answer
   const citedSourceIndices = new Set<number>();
   const sourcePattern = /\[Source\s*(\d+)\]/gi;
-  let match;
+  let match: RegExpExecArray | null;
   while ((match = sourcePattern.exec(answer)) !== null) {
     const sourceNum = parseInt(match[1], 10);
     // Source numbers are 1-indexed in the prompt, convert to 0-indexed

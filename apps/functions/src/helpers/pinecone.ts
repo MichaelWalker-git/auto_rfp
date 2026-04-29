@@ -281,8 +281,12 @@ export const indexSolicitationChunk = async (args: {
   return vectorId;
 };
 
+// Batch size for embedding requests to avoid Bedrock throttling (matches pipeline-clustering.ts)
+const EMBED_BATCH_SIZE = 10;
+
 /**
  * Batch index multiple solicitation chunks (more efficient for large documents).
+ * Processes embeddings in batches of 10 to avoid Bedrock rate limiting.
  */
 export const indexSolicitationChunksBatch = async (
   opportunityId: string,
@@ -300,8 +304,13 @@ export const indexSolicitationChunksBatch = async (
   const bucket = requireEnv('DOCUMENTS_BUCKET');
   const namespace = getOpportunityNamespace(opportunityId);
 
-  // Generate embeddings in parallel (batch)
-  const embeddings = await Promise.all(chunks.map(c => getEmbedding(c.text)));
+  // Generate embeddings in controlled batches to avoid Bedrock throttling
+  const embeddings: number[][] = [];
+  for (let i = 0; i < chunks.length; i += EMBED_BATCH_SIZE) {
+    const batch = chunks.slice(i, i + EMBED_BATCH_SIZE);
+    const batchEmbeddings = await Promise.all(batch.map(c => getEmbedding(c.text)));
+    embeddings.push(...batchEmbeddings);
+  }
 
   const vectors = chunks.map((chunk, i) => ({
     id: `${chunk.questionFileId}#${chunk.chunkIndex}`,
@@ -319,9 +328,9 @@ export const indexSolicitationChunksBatch = async (
   }));
 
   // Upsert in batches of 100 (Pinecone limit)
-  const BATCH_SIZE = 100;
-  for (let i = 0; i < vectors.length; i += BATCH_SIZE) {
-    const batch = vectors.slice(i, i + BATCH_SIZE);
+  const UPSERT_BATCH_SIZE = 100;
+  for (let i = 0; i < vectors.length; i += UPSERT_BATCH_SIZE) {
+    const batch = vectors.slice(i, i + UPSERT_BATCH_SIZE);
     await index.namespace(namespace).upsert(batch);
   }
 

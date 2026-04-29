@@ -4,7 +4,6 @@ import useSWR from 'swr';
 import useSWRMutation from 'swr/mutation';
 import { env } from '@/lib/env';
 import { authFetcher } from '@/lib/auth/auth-fetcher';
-import { z } from 'zod';
 import type {
   ChatSourceCitation,
   OpportunityAssistantMessage,

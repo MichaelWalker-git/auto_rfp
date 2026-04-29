@@ -7,9 +7,12 @@
  * Query pattern: all messages for an opportunity via SK prefix.
  */
 import { v4 as uuidv4 } from 'uuid';
-import { putItem, queryBySkPrefix, deleteAllBySkPrefix } from '@/helpers/db';
+import { TransactWriteCommand } from '@aws-sdk/lib-dynamodb';
+import { putItem, queryBySkPrefix, deleteAllBySkPrefix, docClient } from '@/helpers/db';
 import { OPP_ASSISTANT_CHAT_PK } from '@/constants/opportunity-assistant';
+import { PK_NAME, SK_NAME } from '@/constants/common';
 import { nowIso } from '@/helpers/date';
+import { requireEnv } from '@/helpers/env';
 import type { ChatSourceCitation } from '@auto-rfp/core';
 
 // ─── Types ─────────────────────────────────────────────────────────────────────
@@ -67,7 +70,8 @@ export const saveChatMessage = async (args: {
 };
 
 /**
- * Save a user + assistant message pair atomically.
+ * Save a user + assistant message pair atomically using DynamoDB TransactWrite.
+ * Both messages succeed or fail together — no dangling user messages on failure.
  */
 export const saveChatMessagePair = async (args: {
   opportunityId: string;
@@ -77,17 +81,24 @@ export const saveChatMessagePair = async (args: {
   userId?: string;
 }): Promise<{ userMsg: ChatMessageItem; assistantMsg: ChatMessageItem }> => {
   const { opportunityId, userMessage, assistantAnswer, sources, userId } = args;
+  const tableName = requireEnv('DB_TABLE_NAME');
 
-  // Save user message
-  const userMsg = await saveChatMessage({
+  // Build user message
+  const userTimestamp = nowIso();
+  const userMessageId = uuidv4();
+  const userSK = buildChatMessageSK(opportunityId, userTimestamp, userMessageId);
+
+  const userMsg: ChatMessageItem = {
+    messageId: userMessageId,
     opportunityId,
     role: 'user',
     content: userMessage,
     userId,
-  });
+    createdAt: userTimestamp,
+  };
 
-  // Save assistant message (1ms later for ordering)
-  const assistantTimestamp = new Date(new Date(userMsg.createdAt).getTime() + 1).toISOString();
+  // Build assistant message (1ms later for ordering)
+  const assistantTimestamp = new Date(new Date(userTimestamp).getTime() + 1).toISOString();
   const assistantMessageId = uuidv4();
   const assistantSK = buildChatMessageSK(opportunityId, assistantTimestamp, assistantMessageId);
 
@@ -101,7 +112,33 @@ export const saveChatMessagePair = async (args: {
     createdAt: assistantTimestamp,
   };
 
-  await putItem<ChatMessageItem>(OPP_ASSISTANT_CHAT_PK, assistantSK, assistantMsg);
+  // Atomic write: both succeed or both fail
+  await docClient.send(
+    new TransactWriteCommand({
+      TransactItems: [
+        {
+          Put: {
+            TableName: tableName,
+            Item: {
+              [PK_NAME]: OPP_ASSISTANT_CHAT_PK,
+              [SK_NAME]: userSK,
+              ...userMsg,
+            },
+          },
+        },
+        {
+          Put: {
+            TableName: tableName,
+            Item: {
+              [PK_NAME]: OPP_ASSISTANT_CHAT_PK,
+              [SK_NAME]: assistantSK,
+              ...assistantMsg,
+            },
+          },
+        },
+      ],
+    }),
+  );
 
   return { userMsg, assistantMsg };
 };

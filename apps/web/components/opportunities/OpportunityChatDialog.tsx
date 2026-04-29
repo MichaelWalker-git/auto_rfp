@@ -57,22 +57,24 @@ const SourceCitation = ({ source, index, onOpenFile, isOpening }: SourceCitation
               <Badge variant="secondary" className="text-xs whitespace-nowrap">
                 {Math.round(source.relevance * 100)}%
               </Badge>
-              <button
-                type="button"
+              <Button
+                variant="ghost"
+                size="icon"
                 onClick={handleFileClick}
                 disabled={isOpening}
-                className="text-primary hover:text-primary/80 inline-flex items-center gap-1 disabled:opacity-50"
+                className="h-5 w-5 p-0 text-primary hover:text-primary/80"
                 title="Open file in new tab"
               >
                 <ExternalLink className="h-3 w-3" />
-              </button>
+              </Button>
             </div>
           </div>
         </div>
-        <button
-          type="button"
+        <Button
+          variant="ghost"
+          size="icon"
           onClick={() => setIsExpanded(!isExpanded)}
-          className="flex-shrink-0 p-1 hover:bg-muted rounded"
+          className="flex-shrink-0 h-6 w-6"
           title={isExpanded ? 'Collapse' : 'Expand'}
         >
           {isExpanded ? (
@@ -80,7 +82,7 @@ const SourceCitation = ({ source, index, onOpenFile, isOpening }: SourceCitation
           ) : (
             <ChevronDown className="h-3 w-3" />
           )}
-        </button>
+        </Button>
       </div>
       {isExpanded && (
         <p className="mt-2 text-xs text-muted-foreground whitespace-pre-wrap break-words">
@@ -266,13 +268,15 @@ export const OpportunityChatDialog = ({ opportunityId, orgId, projectId }: Oppor
               <Bot className="h-5 w-5" />
               <span className="font-semibold">AI Assistant</span>
             </div>
-            <button
+            <Button
+              variant="ghost"
+              size="icon"
               onClick={() => setIsOpen(false)}
-              className="p-1.5 hover:bg-primary-foreground/20 rounded-md transition-colors"
+              className="h-7 w-7 hover:bg-primary-foreground/20 text-primary-foreground"
               title="Minimize"
             >
               <Minimize2 className="h-4 w-4" />
-            </button>
+            </Button>
           </div>
           
           {/* Messages */}

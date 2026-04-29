@@ -264,11 +264,11 @@ export class QuestionExtractionPipelineStack extends Stack {
       }),
     );
 
-    // Allow reading Pinecone API key from Secrets Manager (if using secret reference)
+    // Allow reading Pinecone API key from Secrets Manager (scoped to specific secret)
     indexSolicitationLambda.addToRolePolicy(
       new iam.PolicyStatement({
         actions: ['secretsmanager:GetSecretValue'],
-        resources: [`arn:aws:secretsmanager:${this.region}:${this.account}:secret:*`],
+        resources: [`arn:aws:secretsmanager:${this.region}:${this.account}:secret:auto-rfp/pinecone-api-key-*`],
       }),
     );
 
