@@ -206,3 +206,220 @@ export async function deleteVectorById(orgId: string, vectorId: string): Promise
     );
   }
 }
+
+// ─── Opportunity Assistant (Solicitation RAG) ──────────────────────────────────
+
+export interface SolicitationChunkMetadata {
+  [key: string]: unknown;
+  type: 'solicitation_chunk';
+  opportunityId: string;
+  questionFileId: string;
+  fileName: string;
+  chunkIndex: number;
+  chunkKey: string;
+  bucket: string;
+  createdAt: string;
+}
+
+export interface SolicitationSearchHit {
+  id: string;
+  score: number;
+  metadata: SolicitationChunkMetadata;
+}
+
+/**
+ * Get the Pinecone namespace for an opportunity's solicitation documents.
+ * Uses a dedicated namespace per opportunity for complete isolation.
+ */
+export const getOpportunityNamespace = (opportunityId: string): string =>
+  `opp_${opportunityId}`;
+
+/**
+ * Index a solicitation document chunk to Pinecone.
+ * Called after Textract extracts text from a question file.
+ */
+export const indexSolicitationChunk = async (args: {
+  opportunityId: string;
+  questionFileId: string;
+  fileName: string;
+  chunkIndex: number;
+  chunkKey: string;
+  text: string;
+}): Promise<string> => {
+  const { opportunityId, questionFileId, fileName, chunkIndex, chunkKey, text } = args;
+
+  const index = await getPineconeIndex();
+  const bucket = requireEnv('DOCUMENTS_BUCKET');
+  const namespace = getOpportunityNamespace(opportunityId);
+
+  // Vector ID: unique per chunk
+  const vectorId = `${questionFileId}#${chunkIndex}`;
+
+  // Generate embedding
+  const embedding = await getEmbedding(text);
+
+  const metadata: SolicitationChunkMetadata = {
+    type: 'solicitation_chunk',
+    opportunityId,
+    questionFileId,
+    fileName,
+    chunkIndex,
+    chunkKey,
+    bucket,
+    createdAt: nowIso(),
+  };
+
+  await index.namespace(namespace).upsert([
+    {
+      id: vectorId,
+      values: embedding,
+      metadata: metadata as Record<string, string | number | boolean>,
+    },
+  ]);
+
+  console.log(`[opportunity-pinecone] Indexed chunk ${vectorId} to namespace ${namespace}`);
+  return vectorId;
+};
+
+// Batch size for embedding requests to avoid Bedrock throttling (matches pipeline-clustering.ts)
+const EMBED_BATCH_SIZE = 10;
+
+/**
+ * Batch index multiple solicitation chunks (more efficient for large documents).
+ * Processes embeddings in batches of 10 to avoid Bedrock rate limiting.
+ */
+export const indexSolicitationChunksBatch = async (
+  opportunityId: string,
+  chunks: Array<{
+    questionFileId: string;
+    fileName: string;
+    chunkIndex: number;
+    chunkKey: string;
+    text: string;
+  }>,
+): Promise<string[]> => {
+  if (chunks.length === 0) return [];
+
+  const index = await getPineconeIndex();
+  const bucket = requireEnv('DOCUMENTS_BUCKET');
+  const namespace = getOpportunityNamespace(opportunityId);
+
+  // Generate embeddings in controlled batches to avoid Bedrock throttling
+  const embeddings: number[][] = [];
+  for (let i = 0; i < chunks.length; i += EMBED_BATCH_SIZE) {
+    const batch = chunks.slice(i, i + EMBED_BATCH_SIZE);
+    const batchEmbeddings = await Promise.all(batch.map(c => getEmbedding(c.text)));
+    embeddings.push(...batchEmbeddings);
+  }
+
+  const vectors = chunks.map((chunk, i) => ({
+    id: `${chunk.questionFileId}#${chunk.chunkIndex}`,
+    values: embeddings[i],
+    metadata: {
+      type: 'solicitation_chunk' as const,
+      opportunityId,
+      questionFileId: chunk.questionFileId,
+      fileName: chunk.fileName,
+      chunkIndex: chunk.chunkIndex,
+      chunkKey: chunk.chunkKey,
+      bucket,
+      createdAt: nowIso(),
+    },
+  }));
+
+  // Upsert in batches of 100 (Pinecone limit)
+  const UPSERT_BATCH_SIZE = 100;
+  for (let i = 0; i < vectors.length; i += UPSERT_BATCH_SIZE) {
+    const batch = vectors.slice(i, i + UPSERT_BATCH_SIZE);
+    await index.namespace(namespace).upsert(batch);
+  }
+
+  console.log(`[opportunity-pinecone] Batch indexed ${vectors.length} chunks to namespace ${namespace}`);
+  return vectors.map(v => v.id);
+};
+
+/**
+ * Semantic search within an opportunity's solicitation documents.
+ */
+export const searchSolicitation = async (
+  opportunityId: string,
+  query: string,
+  topK: number = 5,
+): Promise<SolicitationSearchHit[]> => {
+  const index = await getPineconeIndex();
+  const namespace = getOpportunityNamespace(opportunityId);
+
+  // Embed the query
+  const embedding = await getEmbedding(query);
+
+  const results = await index.namespace(namespace).query({
+    vector: embedding,
+    topK,
+    includeMetadata: true,
+    includeValues: false,
+    filter: {
+      type: { $eq: 'solicitation_chunk' },
+    },
+  });
+
+  return (results.matches || []).map(match => ({
+    id: match.id,
+    score: match.score ?? 0,
+    metadata: match.metadata as SolicitationChunkMetadata,
+  }));
+};
+
+/**
+ * Delete all vectors in an opportunity's namespace.
+ * Called when an opportunity is deleted.
+ */
+export const deleteOpportunityNamespace = async (opportunityId: string): Promise<void> => {
+  const index = await getPineconeIndex();
+  const namespace = getOpportunityNamespace(opportunityId);
+
+  try {
+    await index.namespace(namespace).deleteAll();
+    console.log(`[opportunity-pinecone] Deleted namespace ${namespace}`);
+  } catch (err) {
+    // Namespace might not exist if no docs were ever indexed
+    console.warn(`[opportunity-pinecone] Failed to delete namespace ${namespace}:`, err);
+  }
+};
+
+/**
+ * Delete vectors for a specific solicitation file.
+ * Called when a solicitation document is deleted.
+ */
+export const deleteSolicitationFile = async (
+  opportunityId: string,
+  questionFileId: string,
+): Promise<void> => {
+  const index = await getPineconeIndex();
+  const namespace = getOpportunityNamespace(opportunityId);
+
+  // Query for all chunks of this file
+  const results = await index.namespace(namespace).query({
+    vector: new Array(1024).fill(0), // Dummy vector for metadata-only query
+    topK: 10000,
+    includeMetadata: true,
+    filter: {
+      questionFileId: { $eq: questionFileId },
+    },
+  });
+
+  const idsToDelete = (results.matches || []).map(m => m.id);
+
+  if (idsToDelete.length === 0) {
+    console.log(`[opportunity-pinecone] No chunks found for file ${questionFileId}`);
+    return;
+  }
+
+  // Delete in batches
+  const BATCH_SIZE = 100;
+  for (let i = 0; i < idsToDelete.length; i += BATCH_SIZE) {
+    const batch = idsToDelete.slice(i, i + BATCH_SIZE);
+    await index.namespace(namespace).deleteMany(batch);
+  }
+
+  console.log(`[opportunity-pinecone] Deleted ${idsToDelete.length} chunks for file ${questionFileId}`);
+};

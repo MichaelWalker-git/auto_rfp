@@ -21,9 +21,9 @@ import { OpportunityHeader } from './opportunity-header';
 import { AssigneeSelector } from './AssigneeSelector';
 import { OpportunitySolicitationDocuments } from './opportunity-attachments';
 import { OpportunityRFPDocuments } from './opportunity-rfp-documents';
+import { OpportunityChatDialog } from './OpportunityChatDialog';
 import { ExecutiveBriefView } from '@/components/brief/ExecutiveBriefView';
 import { QuestionsProvider } from '@/app/organizations/[orgId]/projects/[projectId]/questions/components';
-import { OpportunityActionCard } from './opportunity-action-card';
 import { ProjectOutcomeCard } from '@/components/project-outcome/ProjectOutcomeCard';
 import { DebriefingCard } from '@/components/debriefing';
 import { FOIARequestCard } from '@/components/foia/FOIARequestCard';
@@ -328,6 +328,9 @@ const OpportunityContent = ({ className }: { className?: string }) => {
           contractTitle={opportunity?.title ?? undefined}
         />
       </section>
+
+      {/* ── Floating AI Assistant ─────────────────────────────────────── */}
+      <OpportunityChatDialog opportunityId={oppId} orgId={orgId} projectId={projectId} />
     </div>
   );
 };

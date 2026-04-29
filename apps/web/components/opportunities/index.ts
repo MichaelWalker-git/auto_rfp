@@ -4,4 +4,5 @@ export { OpportunityHeader } from './opportunity-header';
 export { OpportunitySolicitationDocuments } from './opportunity-attachments';
 export { OpportunityRFPDocuments } from './opportunity-rfp-documents';
 export { AssigneeSelector } from './AssigneeSelector';
+export { OpportunityChatDialog } from './OpportunityChatDialog';
 export { formatDateTime, pickDisplayName, getStatusChip } from './opportunity-helpers';
