@@ -5,9 +5,7 @@ import Link from 'next/link';
 import { useSWRConfig } from 'swr';
 import {
   ArrowLeft,
-  MessageSquare,
   HelpCircle,
-  FileText,
   Trophy,
   ShieldCheck,
   Paperclip,
@@ -208,6 +206,7 @@ const OpportunityContent = ({ className }: { className?: string }) => {
   const { projectId, oppId, orgId, opportunity, refetch } = useOpportunityContext();
   const { currentOrganization } = useCurrentOrganization();
   const navOrgId = currentOrganization?.id;
+  const [isChatOpen, setIsChatOpen] = useState(false);
 
   // Smart auto-reload: 5s if pending items, 30s if stable, stops after 3 unchanged
   useSmartPolling(orgId, projectId, oppId);
@@ -270,7 +269,7 @@ const OpportunityContent = ({ className }: { className?: string }) => {
 
       {/* ── Solicitation Documents ────────────────────────────────────── */}
       <section id="solicitation-documents" className="scroll-mt-4">
-        <OpportunitySolicitationDocuments />
+        <OpportunitySolicitationDocuments onAskAI={() => setIsChatOpen(true)} />
       </section>
 
       {/* ── RFP Documents ─────────────────────────────────────────────── */}
@@ -330,7 +329,13 @@ const OpportunityContent = ({ className }: { className?: string }) => {
       </section>
 
       {/* ── Floating AI Assistant ─────────────────────────────────────── */}
-      <OpportunityChatDialog opportunityId={oppId} orgId={orgId} projectId={projectId} />
+      <OpportunityChatDialog 
+        opportunityId={oppId} 
+        orgId={orgId} 
+        projectId={projectId}
+        open={isChatOpen}
+        onOpenChange={setIsChatOpen}
+      />
     </div>
   );
 };
