@@ -231,6 +231,47 @@ export class QuestionExtractionPipelineStack extends Stack {
     });
     mainTable.grantReadWriteData(unsupportedFileLambda);
 
+    // NEW: Index Solicitation Lambda for Opportunity Assistant RAG
+    const indexSolicitationLambda = new lambdaNode.NodejsFunction(this, 'IndexSolicitationLambda', {
+      runtime: lambda.Runtime.NODEJS_24_X,
+      logGroup: mkFnLogGroup('IndexSolicitation'),
+      entry: path.join(__dirname, '../../apps/functions/src/handlers/opportunity-assistant/index-solicitation.ts'),
+      handler: 'handler',
+      timeout: Duration.minutes(5),
+      memorySize: 1024,
+      environment: {
+        ...commonLambdaEnv,
+        PINECONE_API_KEY: props.pineconeApiKey,
+        PINECONE_INDEX: 'documents',
+        BEDROCK_EMBEDDING_MODEL_ID: 'amazon.titan-embed-text-v2:0',
+      },
+    });
+    documentsBucket.grantReadWrite(indexSolicitationLambda);
+    mainTable.grantReadWriteData(indexSolicitationLambda);
+
+    indexSolicitationLambda.addToRolePolicy(
+      new iam.PolicyStatement({
+        actions: ['bedrock:InvokeModel'],
+        resources: ['*'],
+      }),
+    );
+
+    // Allow reading Bedrock API key from SSM Parameter Store
+    indexSolicitationLambda.addToRolePolicy(
+      new iam.PolicyStatement({
+        actions: ['ssm:GetParameter'],
+        resources: [bedrockApiKeyParamArn],
+      }),
+    );
+
+    // Allow reading Pinecone API key from Secrets Manager (if using secret reference)
+    indexSolicitationLambda.addToRolePolicy(
+      new iam.PolicyStatement({
+        actions: ['secretsmanager:GetSecretValue'],
+        resources: [`arn:aws:secretsmanager:${this.region}:${this.account}:secret:*`],
+      }),
+    );
+
     // Check and Trigger Answer Generation Lambda
     // Checks if all question files are processed, then triggers Answer Generation SF
     const checkAndTriggerLambda = new lambdaNode.NodejsFunction(this, 'CheckAndTriggerLambda', {
@@ -399,6 +440,47 @@ export class QuestionExtractionPipelineStack extends Stack {
       payloadResponseOnly: true,
     });
 
+    // NEW: Index Solicitation tasks for Opportunity Assistant RAG
+    // Indexes document chunks to Pinecone for semantic search
+    const indexSolicitationAfterPdf = new tasks.LambdaInvoke(this, 'Index Solicitation (PDF)', {
+      lambdaFunction: indexSolicitationLambda,
+      payload: sfn.TaskInput.fromObject({
+        questionFileId: sfn.JsonPath.stringAt('$.questionFileId'),
+        projectId: sfn.JsonPath.stringAt('$.projectId'),
+        textFileKey: sfn.JsonPath.stringAt('$.process.textFileKey'),
+        opportunityId: sfn.JsonPath.stringAt('$.oppId'),
+        fileName: sfn.JsonPath.stringAt('$.sourceFileKey'),
+      }),
+      resultPath: sfn.JsonPath.DISCARD,
+      payloadResponseOnly: true,
+    });
+
+    const indexSolicitationAfterXlsx = new tasks.LambdaInvoke(this, 'Index Solicitation (XLSX)', {
+      lambdaFunction: indexSolicitationLambda,
+      payload: sfn.TaskInput.fromObject({
+        questionFileId: sfn.JsonPath.stringAt('$.questionFileId'),
+        projectId: sfn.JsonPath.stringAt('$.projectId'),
+        textFileKey: sfn.JsonPath.stringAt('$.process.textFileKey'),
+        opportunityId: sfn.JsonPath.stringAt('$.oppId'),
+        fileName: sfn.JsonPath.stringAt('$.sourceFileKey'),
+      }),
+      resultPath: sfn.JsonPath.DISCARD,
+      payloadResponseOnly: true,
+    });
+
+    const indexSolicitationAfterDocx = new tasks.LambdaInvoke(this, 'Index Solicitation (DOCX)', {
+      lambdaFunction: indexSolicitationLambda,
+      payload: sfn.TaskInput.fromObject({
+        questionFileId: sfn.JsonPath.stringAt('$.questionFileId'),
+        projectId: sfn.JsonPath.stringAt('$.projectId'),
+        textFileKey: sfn.JsonPath.stringAt('$.process.textFileKey'),
+        opportunityId: sfn.JsonPath.stringAt('$.oppId'),
+        fileName: sfn.JsonPath.stringAt('$.sourceFileKey'),
+      }),
+      resultPath: sfn.JsonPath.DISCARD,
+      payloadResponseOnly: true,
+    });
+
     // Check and Trigger - calls once after extraction to see if all files are done
     // Two state definitions required (CDK limitation) but same Lambda = same cost
     // Note: orgId is optional - Lambda will look it up from project if not provided
@@ -480,12 +562,14 @@ export class QuestionExtractionPipelineStack extends Stack {
     const pdfBranch = sfn.Chain.start(startTextract)
       .next(processResult)
       .next(fulfillOppAfterPdf)
+      .next(indexSolicitationAfterPdf)
       .next(extractQuestionsAfterPdf)
       .next(checkAndTriggerAfterPdf)
       .next(done);
 
     const docxBranch = sfn.Chain.start(extractDocxText)
       .next(fulfillOppAfterDocx)
+      .next(indexSolicitationAfterDocx)
       .next(extractQuestionsAfterDocx)
       .next(checkAndTriggerAfterDocx)
       .next(done);
@@ -493,6 +577,7 @@ export class QuestionExtractionPipelineStack extends Stack {
 
     const xlsxBranch = sfn.Chain.start(extractXlsxText)
       .next(fulfillOppAfterXlsx)
+      .next(indexSolicitationAfterXlsx)
       .next(extractQuestionsAfterXlsx)
       .next(checkAndTriggerAfterXlsx)
       .next(done);

@@ -38,3 +38,4 @@ export * from './document-approval';
 export * from './universal-approval';
 export * from './rfp-document-version';
 export * from './extraction-job';
+export * from './opportunity-assistant';
