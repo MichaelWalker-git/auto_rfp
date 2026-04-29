@@ -223,7 +223,7 @@ export const LaborRateManager = ({ orgId }: LaborRateManagerProps) => {
                 <th className="text-right p-3 font-medium"><div className="flex items-center justify-end gap-0.5">Profit<LaborRateInfoPopover /></div></th>
                 <th className="text-right p-3 font-medium"><div className="flex items-center justify-end gap-0.5">Fully Loaded<LaborRateInfoPopover /></div></th>
                 <th className="text-center p-3 font-medium">Status</th>
-                <th className="text-right p-3 font-medium">Actions</th>
+                {canDelete && <th className="text-right p-3 font-medium">Actions</th>}
               </tr>
             </thead>
             <tbody>

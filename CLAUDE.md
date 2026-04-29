@@ -149,7 +149,7 @@ Detailed rules are in `.claude/rules/`. The most critical ones:
 - **Naming**: prefix event handlers with `handle` (e.g., `handleClick`, `handleSubmit`). Use auxiliary verbs for booleans (`isLoading`, `hasError`).
 - **Avoid enums** — use `z.enum([...])` or const maps instead of TypeScript enums.
 - **Use `satisfies`** operator for type validation where appropriate.
-- **Create/Edit pages must be separate routes** — never inline forms in list pages or modals.
+- **Create/Edit pages are separate routes for full-page workflows** — inline forms and modal dialogs are acceptable where the feature already uses them (e.g. pricing).
 
 ## Next.js 15 Specifics
 

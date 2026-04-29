@@ -70,9 +70,9 @@ export const LaborRateInfoPopover = () => {
                 Base Rate $75.00, Overhead 120%, G&A 12%, Profit 10%
               </p>
               <div className="font-mono mt-1 space-y-0.5 text-muted-foreground">
-                <p>$75.00 x 1.120 = $84.00 (with overhead)</p>
-                <p>$84.00 x 1.12&nbsp; = $94.08 (with G&A)</p>
-                <p>$94.08 x 1.10&nbsp; = <span className="text-foreground font-medium">$103.49</span> (fully loaded)</p>
+                <p>$75.00 x 2.20 = $165.00 (with overhead)</p>
+                <p>$165.00 x 1.12 = $184.80 (with G&A)</p>
+                <p>$184.80 x 1.10 = <span className="text-foreground font-medium">$203.28</span> (fully loaded)</p>
               </div>
             </div>
           </div>

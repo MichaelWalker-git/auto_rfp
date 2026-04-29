@@ -31,8 +31,8 @@ export const StaffingPlanInfoPopover = () => {
             <h5 className="text-sm font-medium">Position</h5>
             <p className="text-xs text-muted-foreground mt-0.5">
               Select from the positions defined in your Labor Rates tab. Each position carries
-              its fully loaded rate (base + overhead + G&A + profit), so cost calculations are
-              automatic.
+              its fully loaded rate, including base pay, overhead, G&amp;A, and profit, so
+              cost calculations are automatic.
             </p>
           </div>
 
