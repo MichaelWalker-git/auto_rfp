@@ -3,7 +3,7 @@
 import React, { useCallback, useMemo, useState } from 'react';
 import {
   AlertCircle, Download, ExternalLink, Eye, FileText, FolderOpen,
-  Loader2, MoreHorizontal, RefreshCw, RotateCcw, Trash2, X,
+  Loader2, MoreHorizontal, RefreshCw, RotateCcw, Sparkles, Trash2, X,
 } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -87,7 +87,11 @@ interface AttachmentRow {
   fileSize: number | undefined;
 }
 
-export function OpportunitySolicitationDocuments() {
+interface OpportunitySolicitationDocumentsProps {
+  onAskAI?: () => void;
+}
+
+export function OpportunitySolicitationDocuments({ onAskAI }: OpportunitySolicitationDocumentsProps = {}) {
   const { projectId, oppId } = useOpportunityContext();
   const { toast } = useToast();
   const { confirm, ConfirmDialog } = useConfirmDialog();
@@ -278,6 +282,18 @@ export function OpportunitySolicitationDocuments() {
             </CardDescription>
           </div>
           <div className="flex items-center gap-2">
+            {rows.length > 0 && onAskAI && (
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={onAskAI}
+                title="Ask AI about these documents"
+                className="gap-1"
+              >
+                <Sparkles className="h-4 w-4" />
+                Ask AI
+              </Button>
+            )}
             {rows.length > 0 && (
               <Button
                 size="sm"

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
-import { Send, Bot, User, FileText, ChevronDown, ChevronUp, ExternalLink, Loader2, Minimize2 } from 'lucide-react';
+import { Send, Sparkles, User, FileText, ChevronDown, ChevronUp, ExternalLink, Loader2, Minimize2 } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -17,6 +17,10 @@ interface OpportunityChatDialogProps {
   opportunityId: string;
   orgId: string;
   projectId: string;
+  /** External control to open the chat panel */
+  open?: boolean;
+  /** Callback when open state changes */
+  onOpenChange?: (open: boolean) => void;
 }
 
 /** Extract just the filename from an S3 path */
@@ -106,7 +110,7 @@ const ChatMessageBubble = ({ message, onOpenFile, isOpening }: ChatMessageBubble
     <div className={cn('flex gap-2', isUser ? 'justify-end' : 'justify-start')}>
       {!isUser && (
         <div className="flex-shrink-0 w-7 h-7 rounded-full bg-primary/10 flex items-center justify-center">
-          <Bot className="h-3.5 w-3.5 text-primary" />
+          <Sparkles className="h-3.5 w-3.5 text-primary" />
         </div>
       )}
       <div
@@ -154,8 +158,15 @@ interface PendingMessage {
  * - Fixed position in bottom-right corner
  * - Click FAB to open, minimize button to close
  */
-export const OpportunityChatDialog = ({ opportunityId, orgId, projectId }: OpportunityChatDialogProps) => {
-  const [isOpen, setIsOpen] = useState(false);
+export const OpportunityChatDialog = ({ opportunityId, orgId, projectId, open, onOpenChange }: OpportunityChatDialogProps) => {
+  const [internalOpen, setInternalOpen] = useState(false);
+  
+  // Support both controlled and uncontrolled modes
+  const isOpen = open !== undefined ? open : internalOpen;
+  const setIsOpen = (value: boolean) => {
+    setInternalOpen(value);
+    onOpenChange?.(value);
+  };
   const [input, setInput] = useState('');
   const [isOpeningFile, setIsOpeningFile] = useState(false);
   const [pendingMessage, setPendingMessage] = useState<PendingMessage | null>(null);
@@ -243,29 +254,18 @@ export const OpportunityChatDialog = ({ opportunityId, orgId, projectId }: Oppor
     }
   };
 
+  // Don't render anything if not open
+  if (!isOpen) return null;
+
   return (
     <>
-      {/* FAB Button - shown when panel is closed (centered at bottom) */}
-      {!isOpen && (
-        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50">
-          <Button 
-            size="lg"
-            onClick={() => setIsOpen(true)}
-            className="h-12 gap-2 rounded-full shadow-lg hover:shadow-xl transition-all bg-primary hover:bg-primary/90 text-primary-foreground px-5"
-          >
-            <Bot className="h-5 w-5" />
-            <span className="font-medium">Ask AI</span>
-          </Button>
-        </div>
-      )}
-
       {/* Floating Chat Panel - Intercom style (bottom-20 to avoid Sentry button) */}
       {isOpen && (
         <div className="fixed bottom-20 right-6 z-50 w-[380px] h-[500px] flex flex-col bg-background border rounded-xl shadow-2xl overflow-hidden">
           {/* Header */}
           <div className="flex items-center justify-between px-4 py-3 border-b bg-primary text-primary-foreground">
             <div className="flex items-center gap-2">
-              <Bot className="h-5 w-5" />
+              <Sparkles className="h-5 w-5" />
               <span className="font-semibold">AI Assistant</span>
             </div>
             <Button
@@ -289,9 +289,9 @@ export const OpportunityChatDialog = ({ opportunityId, orgId, projectId }: Oppor
               </div>
             ) : messages.length === 0 && !pendingMessage && !isSubmitting ? (
               <div className="h-full flex items-center justify-center text-muted-foreground">
-                <div className="text-center px-4">
-                  <Bot className="h-10 w-10 mx-auto mb-3 opacity-50" />
-                  <p className="text-sm">Ask me anything about this opportunity&apos;s documents.</p>
+              <div className="text-center px-4">
+                  <Sparkles className="h-10 w-10 mx-auto mb-3 opacity-50" />
+                  <p className="text-sm">Ask me anything about this opportunity&apos;s solicitation documents.</p>
                   <p className="text-xs mt-1.5 text-muted-foreground">Requirements, deadlines, evaluation criteria...</p>
                 </div>
               </div>
@@ -320,7 +320,7 @@ export const OpportunityChatDialog = ({ opportunityId, orgId, projectId }: Oppor
                 {isSubmitting && (
                   <div className="flex gap-2 justify-start">
                     <div className="flex-shrink-0 w-7 h-7 rounded-full bg-primary/10 flex items-center justify-center">
-                      <Bot className="h-3.5 w-3.5 text-primary" />
+                      <Sparkles className="h-3.5 w-3.5 text-primary" />
                     </div>
                     <div className="rounded-lg p-2.5 bg-muted text-sm">
                       <div className="flex items-center gap-2 text-muted-foreground">
