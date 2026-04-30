@@ -6,7 +6,9 @@ const goToDashboard = () => {
   cy.contains('Projects', { timeout: 15000 }).should('be.visible')
   cy.get('a.block[href*="/projects/"]').first().then(($a) => {
     const href = $a.attr('href')
+    expect(href, 'project link href').to.be.a('string').and.not.be.empty
     const match = href.match(/\/projects\/([^/]+)/)
+    expect(match, `project id regex match for href "${href}"`).to.not.be.null
     const projectId = match[1]
     cy.visit(`/organizations/${ORG_ID}/projects/${projectId}/dashboard/`, { failOnStatusCode: false })
   })
