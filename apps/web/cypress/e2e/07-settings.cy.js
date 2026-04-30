@@ -1,4 +1,4 @@
-// 07-admin.cy.js
+// 07-settings.cy.js
 // Org Members tests are covered in full by 17-org-members.cy.js
 // This file covers Settings page only
 
