@@ -6,7 +6,17 @@ const goToOpportunities = () => {
   cy.contains('Projects', { timeout: 15000 }).should('be.visible')
   cy.contains('a.block', 'Generic Project').then(($a) => {
     const href = $a.attr('href')
+
+    if (!href) {
+      throw new Error('Expected "Generic Project" link to have an href attribute')
+    }
+
     const match = href.match(/\/projects\/([^/]+)/)
+
+    if (!match) {
+      throw new Error(`Expected project href to match /projects/{id}, but got: ${href}`)
+    }
+
     const projectId = match[1]
     cy.visit(`/organizations/${ORG_ID}/projects/${projectId}/opportunities/`, { failOnStatusCode: false })
   })
