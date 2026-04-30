@@ -4,7 +4,9 @@ export default defineConfig({
   e2e: {
     testIsolation: false,
     experimentalRunAllSpecs: true,
-    baseUrl: 'https://develop.d70pzc5nkm8k5.amplifyapp.com',
+    baseUrl:
+      process.env.CYPRESS_BASE_URL ??
+      'https://develop.d70pzc5nkm8k5.amplifyapp.com',
     viewportWidth: 1440,
     viewportHeight: 900,
     defaultCommandTimeout: 10000,
