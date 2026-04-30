@@ -39,7 +39,7 @@ describe('Authentication', () => {
       cy.contains(/log out/i, { timeout: 5000 }).click()
       cy.get('input[type="email"]', { timeout: 30000 }).should('be.visible')
       cy.get('button[type="submit"]').should('be.visible')
-      // Re-login so the cached session is valid for subsequent spec files
+      // Clear saved sessions after logout so subsequent spec files do not reuse a stale cached session
       Cypress.session.clearAllSavedSessions()
     })
   })
