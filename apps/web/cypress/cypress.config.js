@@ -12,9 +12,5 @@ module.exports = defineConfig({
     screenshotOnRunFailure: true,
     specPattern: 'cypress/e2e/**/*.cy.js',
     supportFile: 'cypress/support/e2e.ts',
-    retries: {
-      runMode: 2,   // retry failed tests up to 2x in CI
-      openMode: 0   // no retries when running locally
-    },
   },
 });
