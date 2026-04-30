@@ -29,7 +29,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ~/.cache/Cypress
-          key: cypress-${{ runner.os }}-${{ hashFiles('**/pnpm-lock.yaml') }}
+          key: cypress-${{ runner.os }}-${{ hashFiles('**/package.json', '**/pnpm-workspace.yaml') }}
           restore-keys: |
             cypress-${{ runner.os }}-
 
