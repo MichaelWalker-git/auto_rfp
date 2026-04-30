@@ -1,24 +1,13 @@
 // 11-past-performance.cy.js
 const ORG_ID = '6227a27b-744e-42f2-aad6-af72450bd17b'
 
-const login = () => {
-  cy.session('userSession', () => {
-    cy.visit('/login/', { failOnStatusCode: false })
-    cy.get('input[type="email"]', { timeout: 10000 }).should('be.visible')
-    cy.get('input[type="email"]').clear().type(Cypress.env('USER_EMAIL'))
-    cy.get('input[type="password"]').clear().type(Cypress.env('USER_PASSWORD'), { log: false })
-    cy.get('button[type="submit"]').click()
-    cy.url({ timeout: 15000 }).should('not.include', '/login')
-  })
-}
-
 const goToPastPerformance = () => {
   cy.visit(`/organizations/${ORG_ID}/past-performance`, { failOnStatusCode: false })
   cy.contains('Past Performance', { timeout: 15000 }).should('be.visible')
 }
 
 describe('Past Performance', () => {
-  beforeEach(() => { login(); goToPastPerformance() })
+  before(() => { cy.login(); goToPastPerformance() })
 
   describe('Happy Path', () => {
     it('loads the Past Performance page', () => {
@@ -26,39 +15,28 @@ describe('Past Performance', () => {
       cy.contains('Add Past Project').should('be.visible')
       cy.contains('Upload Documents').should('be.visible')
     })
+  })
 
-    it('opens the Add Past Performance Project form', () => {
+  describe('Add & Extract Dialogs', () => {
+    beforeEach(() => { cy.login(); goToPastPerformance() })
+
+    it('opens Add Past Performance form with Technical Details and navigates back', () => {
       cy.contains('Add Past Project').click()
       cy.contains('Add Past Performance Project', { timeout: 10000 }).should('be.visible')
       cy.contains('Basic Information').should('be.visible')
       cy.contains('Project Title').should('be.visible')
       cy.contains('Client Name').should('be.visible')
       cy.contains('Contract Details').should('be.visible')
-    })
-
-    it('shows Technical Details section', () => {
-      cy.contains('Add Past Project').click()
-      cy.contains('Add Past Performance Project', { timeout: 10000 }).should('be.visible')
       cy.contains('Technical Details').should('be.visible')
-    })
-
-    it('back navigation returns to Past Performance list', () => {
-      cy.contains('Add Past Project').click()
-      cy.contains('Add Past Performance Project', { timeout: 10000 }).should('be.visible')
       cy.go('back')
       cy.contains('Past Performance', { timeout: 10000 }).should('be.visible')
     })
 
-    it('opens the Extract Past Performance upload dialog', () => {
+    it('opens and cancels Extract Past Performance upload dialog', () => {
       cy.contains('Upload Documents').click()
       cy.contains('Extract Past Performance', { timeout: 5000 }).should('be.visible')
       cy.contains('Upload case studies').should('be.visible')
       cy.contains('Upload & Extract').should('be.visible')
-    })
-
-    it('cancels extract upload dialog', () => {
-      cy.contains('Upload Documents').click()
-      cy.contains('Extract Past Performance', { timeout: 5000 }).should('be.visible')
       cy.contains('Cancel').click()
       cy.contains('Past Performance').should('be.visible')
     })
@@ -66,6 +44,8 @@ describe('Past Performance', () => {
 
   describe('Edge Cases', () => {
     it('shows validation error when submitting with empty required fields', () => {
+      cy.login()
+      goToPastPerformance()
       cy.contains('Add Past Project').click()
       cy.contains('Add Past Performance Project', { timeout: 10000 }).should('be.visible')
       cy.get('body').then(($body) => {
@@ -80,6 +60,8 @@ describe('Past Performance', () => {
 
   describe('Error States', () => {
     it('shows error if past performance fails to load', () => {
+      cy.login()
+      goToPastPerformance()
       cy.intercept('GET', '**/past-performance**').as('ppFail')
       cy.reload()
       cy.wait('@ppFail')
