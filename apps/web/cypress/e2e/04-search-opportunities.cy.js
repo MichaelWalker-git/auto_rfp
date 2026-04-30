@@ -1,4 +1,4 @@
-// 03e-search-opportunities.cy.js — Search Opportunities
+// 04-search-opportunities.cy.js — Search Opportunities
 const ORG_ID = '6227a27b-744e-42f2-aad6-af72450bd17b'
 const PROJECT_ID = '51651b52-8c6f-4489-806e-7e2605481e83' // Generic Project
 
