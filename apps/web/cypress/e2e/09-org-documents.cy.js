@@ -1,56 +1,19 @@
 // 09-org-documents.cy.js
 const ORG_ID = '6227a27b-744e-42f2-aad6-af72450bd17b'
 
-const login = () => {
-  cy.session('userSession', () => {
-    cy.visit('/login/', { failOnStatusCode: false })
-    cy.get('input[type="email"]', { timeout: 10000 }).should('be.visible')
-    cy.get('input[type="email"]').clear().type(Cypress.env('USER_EMAIL'))
-    cy.get('input[type="password"]').clear().type(Cypress.env('USER_PASSWORD'), { log: false })
-    cy.get('button[type="submit"]').click()
-    cy.url({ timeout: 15000 }).should('not.include', '/login')
-  })
-}
-
 const goToOrgDocuments = () => {
   cy.visit(`/organizations/${ORG_ID}/knowledge-base/`, { failOnStatusCode: false })
   cy.contains('Org Documents', { timeout: 15000 }).should('be.visible')
 }
 
 describe('Org Documents', () => {
-  beforeEach(() => { login(); goToOrgDocuments() })
+  before(() => { cy.login(); goToOrgDocuments() })
 
   describe('Happy Path', () => {
     it('loads the Org Documents page', () => {
       cy.contains('Org Documents').should('be.visible')
       cy.contains('Manage document folders').should('be.visible')
       cy.contains('New Folder').should('be.visible')
-    })
-
-    it('opens the Create Document Folder dialog', () => {
-      cy.contains('New Folder').click()
-      cy.contains('Create Document Folder', { timeout: 5000 }).should('be.visible')
-      cy.contains('Name').should('be.visible')
-      cy.contains('Description').should('be.visible')
-      cy.contains('Create').should('be.visible')
-      cy.contains('Cancel').should('be.visible')
-    })
-
-    it('cancels folder creation without saving', () => {
-      cy.contains('New Folder').click()
-      cy.contains('Create Document Folder', { timeout: 5000 }).should('be.visible')
-      cy.get('input[placeholder*="Technical Docs" i], input[placeholder*="name" i]').type('Should Not Save')
-      cy.contains('Cancel').click()
-      cy.contains('Should Not Save').should('not.exist')
-    })
-
-    it('creates a new folder', () => {
-      cy.contains('New Folder').click()
-      cy.contains('Create Document Folder', { timeout: 5000 }).should('be.visible')
-      cy.get('input[placeholder*="Technical Docs" i], input[placeholder*="name" i]').type('Cypress Test Folder')
-      cy.contains('Create').click()
-      cy.wait(2000)
-      cy.contains('Org Documents', { timeout: 10000 }).should('be.visible')
     })
 
     it('displays folders on the page', () => {
@@ -71,8 +34,34 @@ describe('Org Documents', () => {
     })
   })
 
+  describe('Folder CRUD', () => {
+    beforeEach(() => { cy.login(); goToOrgDocuments() })
+
+    it('opens and cancels folder creation dialog', () => {
+      cy.contains('New Folder').click()
+      cy.contains('Create Document Folder', { timeout: 5000 }).should('be.visible')
+      cy.contains('Name').should('be.visible')
+      cy.contains('Description').should('be.visible')
+      cy.contains('Create').should('be.visible')
+      cy.contains('Cancel').should('be.visible')
+      cy.get('input[placeholder*="Technical Docs" i], input[placeholder*="name" i]').type('Should Not Save')
+      cy.contains('Cancel').click()
+      cy.contains('Should Not Save').should('not.exist')
+    })
+
+    it('creates a new folder', () => {
+      cy.contains('New Folder').click()
+      cy.contains('Create Document Folder', { timeout: 5000 }).should('be.visible')
+      cy.get('input[placeholder*="Technical Docs" i], input[placeholder*="name" i]').type('Cypress Test Folder')
+      cy.contains('Create').click()
+      cy.contains('Org Documents', { timeout: 10000 }).should('be.visible')
+    })
+  })
+
   describe('Edge Cases', () => {
     it('shows validation error when creating folder with empty name', () => {
+      cy.login()
+      goToOrgDocuments()
       cy.contains('New Folder').click()
       cy.contains('Create Document Folder', { timeout: 5000 }).should('be.visible')
       cy.contains('Create').click()
@@ -82,6 +71,8 @@ describe('Org Documents', () => {
 
   describe('Error States', () => {
     it('page reloads and stays functional', () => {
+      cy.login()
+      goToOrgDocuments()
       cy.reload()
       cy.contains('Org Documents', { timeout: 15000 }).should('be.visible')
     })

@@ -1,66 +1,22 @@
 name: Cypress E2E Tests
 
 on:
-  push:
+  pull_request:
     branches:
-      - dev
       - develop
-    paths-ignore:
-      - 'cypress/**'
-      - '**.md'
   workflow_dispatch:
-  schedule:
-    - cron: '0 2 * * *'  # Full suite nightly at 2am UTC
 
 jobs:
-  # ─── Smoke Suite ─────────────────────────────────────────────────────────────
-  # Runs on every push to dev. Fast subset of critical tests only.
-  smoke:
-    name: Smoke Tests
-    runs-on: ubuntu-latest
-    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Run Cypress Smoke Tests
-        uses: cypress-io/github-action@v6
-        with:
-          working-directory: apps/web
-          config-file: cypress/cypress.config.js
-          browser: chrome
-          spec: |
-            cypress/e2e/01-auth.cy.js
-            cypress/e2e/03b-opportunity-detail.cy.js
-            cypress/e2e/05-autorfp-generation.cy.js
-            cypress/e2e/06-export.cy.js
-        env:
-          CYPRESS_USER_EMAIL: ${{ secrets.CYPRESS_USER_EMAIL }}
-          CYPRESS_USER_PASSWORD: ${{ secrets.CYPRESS_USER_PASSWORD }}
-
-      - name: Upload screenshots on failure
-        uses: actions/upload-artifact@v4
-        if: failure()
-        with:
-          name: smoke-screenshots
-          path: apps/web/cypress/screenshots
-          retention-days: 7
-
-  # ─── Full Suite ──────────────────────────────────────────────────────────────
-  # Runs nightly and on PRs to main. All test files.
-  full:
+  cypress-run:
     name: Full E2E Suite
     runs-on: ubuntu-latest
-    if: github.event_name == 'schedule'
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Run Full Cypress Suite
+      - name: Run Cypress Tests
         uses: cypress-io/github-action@v6
         with:
-          working-directory: apps/web
-          config-file: cypress/cypress.config.js
           browser: chrome
         env:
           CYPRESS_USER_EMAIL: ${{ secrets.CYPRESS_USER_EMAIL }}
@@ -70,14 +26,14 @@ jobs:
         uses: actions/upload-artifact@v4
         if: failure()
         with:
-          name: full-suite-screenshots
-          path: apps/web/cypress/screenshots
-          retention-days: 14
+          name: cypress-screenshots
+          path: cypress/screenshots
+          retention-days: 7
 
       - name: Upload videos on failure
         uses: actions/upload-artifact@v4
         if: failure()
         with:
-          name: full-suite-videos
-          path: apps/web/cypress/videos
-          retention-days: 14
+          name: cypress-videos
+          path: cypress/videos
+          retention-days: 7

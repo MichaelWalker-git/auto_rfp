@@ -1,34 +1,29 @@
 // 02-projects.cy.js
 const ORG_ID = '6227a27b-744e-42f2-aad6-af72450bd17b'
 
-const login = () => {
-  cy.session('userSession', () => {
-    cy.visit('/login/', { failOnStatusCode: false })
-    cy.get('input[type="email"]', { timeout: 10000 }).should('be.visible')
-    cy.get('input[type="email"]').clear().type(Cypress.env('USER_EMAIL'))
-    cy.get('input[type="password"]').clear().type(Cypress.env('USER_PASSWORD'), { log: false })
-    cy.get('button[type="submit"]').click()
-    cy.url({ timeout: 15000 }).should('not.include', '/login')
-  })
-}
-
 const goToProjects = () => {
   cy.visit(`/organizations/${ORG_ID}/projects/`, { failOnStatusCode: false })
   cy.contains('Projects', { timeout: 15000 }).should('be.visible')
 }
 
 describe('Projects', () => {
-  beforeEach(() => { login(); goToProjects() })
-
   describe('Happy Path', () => {
-    it('loads the projects page', () => {
+    beforeEach(() => { cy.login(); goToProjects() })
+
+    it('loads the projects page with existing projects', () => {
       cy.contains('Projects').should('be.visible')
       cy.contains('New Project').should('be.visible')
-    })
-
-    it('displays existing projects', () => {
       cy.get('a[href*="/projects/"]').should('have.length.greaterThan', 0)
     })
+
+    it('opens a project and shows its dashboard', () => {
+      cy.get('a[href*="/projects/"]').first().click()
+      cy.contains('Dashboard', { timeout: 10000 }).should('be.visible')
+    })
+  })
+
+  describe('Create & Delete', () => {
+    beforeEach(() => { cy.login(); goToProjects() })
 
     it('creates a new project', () => {
       const name = `Cypress Project ${Date.now()}`
@@ -36,11 +31,6 @@ describe('Projects', () => {
       cy.get('input').first().type(name)
       cy.get('button[type="submit"]').click()
       cy.contains(name, { timeout: 10000 }).should('be.visible')
-    })
-
-    it('opens a project and shows its dashboard', () => {
-      cy.get('a[href*="/projects/"]').first().click()
-      cy.contains('Dashboard', { timeout: 10000 }).should('be.visible')
     })
 
     it('deletes cypress test projects', () => {
@@ -51,7 +41,7 @@ describe('Projects', () => {
           })
           cy.contains(/delete/i).click()
           cy.get('button').contains(/confirm|yes|delete/i).click()
-          cy.wait(1000)
+          cy.contains('Projects', { timeout: 10000 }).should('be.visible')
         } else {
           cy.log('No Cypress test projects to delete')
         }
@@ -60,6 +50,8 @@ describe('Projects', () => {
   })
 
   describe('Edge Cases', () => {
+    beforeEach(() => { cy.login(); goToProjects() })
+
     it('cancels project creation without saving', () => {
       const name = `Never Saved ${Date.now()}`
       cy.contains('New Project').click()
@@ -88,6 +80,8 @@ describe('Projects', () => {
   })
 
   describe('Error States', () => {
+    beforeEach(() => { cy.login(); goToProjects() })
+
     it('shows error if projects fail to load', () => {
       cy.intercept('GET', '**/projects**').as('projectsFail')
       cy.reload()
@@ -99,8 +93,7 @@ describe('Projects', () => {
       cy.contains('New Project').click()
       cy.get('input').first().type('Will Fail')
       cy.get('button[type="submit"]').click()
-      cy.wait(2000)
-      cy.get('main').should('be.visible')
+      cy.get('main', { timeout: 10000 }).should('be.visible')
     })
   })
 })

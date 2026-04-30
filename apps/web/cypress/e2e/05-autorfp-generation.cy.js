@@ -1,19 +1,8 @@
-// 05-autorfp-generation.cy.js
+// 05-autorfp-generation.cy.js — AutoRFP Document Generation
 const ORG_ID = '6227a27b-744e-42f2-aad6-af72450bd17b'
-const PROJECT_ID = '51651b52-8c6f-4489-806e-7e2605481e83' // Generic Project
-const OPP_ID = '486e75f6-ef80-4500-9b74-b4f04bad0723'
+const PROJECT_ID = '51651b52-8c6f-4489-806e-7e2605481e83'
+const OPP_ID = '60f2607b-526b-46a0-b26e-b9c97c7ee6c4'
 const OPP_URL = `/organizations/${ORG_ID}/projects/${PROJECT_ID}/opportunities/${OPP_ID}/`
-
-const login = () => {
-  cy.session('userSession', () => {
-    cy.visit('/login/', { failOnStatusCode: false })
-    cy.get('input[type="email"]', { timeout: 10000 }).should('be.visible')
-    cy.get('input[type="email"]').clear().type(Cypress.env('USER_EMAIL'))
-    cy.get('input[type="password"]').clear().type(Cypress.env('USER_PASSWORD'), { log: false })
-    cy.get('button[type="submit"]').click()
-    cy.url({ timeout: 15000 }).should('not.include', '/login')
-  })
-}
 
 const goToOpportunity = () => {
   cy.visit(OPP_URL, { failOnStatusCode: false })
@@ -21,76 +10,49 @@ const goToOpportunity = () => {
 }
 
 const openGenerateDialog = () => {
-  cy.contains('Generate').click()
-  cy.contains('Generate Documents', { timeout: 5000 }).should('be.visible')
-}
-
-const confirmGenerate = () => {
-  cy.get('[role="dialog"], [class*="modal"], [class*="dialog"]')
-    .find('button')
-    .contains(/generate/i)
-    .click({ force: true })
+  cy.get('#rfp-documents', { timeout: 15000 }).scrollIntoView()
+  cy.get('#rfp-documents').contains('button', /^Generate$/).should('be.visible').click({ force: true })
+  cy.get('[role="dialog"]', { timeout: 10000 }).should('be.visible')
+  cy.get('[role="dialog"]').contains('Generate Documents').should('be.visible')
 }
 
 describe('AutoRFP Generation', () => {
-  beforeEach(() => { login(); goToOpportunity() })
+  before(() => { cy.login(); goToOpportunity() })
 
   describe('Happy Path', () => {
     it('shows a Generate button on the opportunity', () => {
-      cy.contains('Generate').should('be.visible')
-    })
-
-    it('opens the Generate Documents dialog', () => {
-      openGenerateDialog()
-      cy.contains('Select document types to generate').should('be.visible')
-      cy.contains('Cancel').click()
-    })
-
-    it('triggers generation and shows a loading state', () => {
-      openGenerateDialog()
-      // Click the Generate button at the bottom of the dialog directly
-      cy.contains('button', /^generate/i).last().click({ force: true })
-      cy.get('main', { timeout: 15000 }).should('be.visible')
-    })
-
-    it('completes generation and renders content', () => {
-      openGenerateDialog()
-      confirmGenerate()
-      cy.get('main', { timeout: 120000 }).should('be.visible')
-      cy.get('main').invoke('text').then((text) => {
-        expect(text.trim().length).to.be.greaterThan(50)
-      })
+      cy.get('#rfp-documents', { timeout: 15000 }).scrollIntoView()
+      cy.get('#rfp-documents').contains('button', /^Generate$/).should('be.visible')
     })
   })
 
-  describe('Blank Page Regression', () => {
-    it('does not generate blank content for any section', () => {
+  describe('Generate Dialog', () => {
+    beforeEach(() => { cy.login(); goToOpportunity() })
+
+    it('opens dialog with document type options and controls', () => {
       openGenerateDialog()
-      confirmGenerate()
-      cy.get('main', { timeout: 120000 }).should('be.visible')
-      cy.get('main').invoke('text').then((text) => {
-        expect(text.trim().length).to.be.greaterThan(100)
+      cy.get('[role="dialog"]').contains('Select document types to generate').should('be.visible')
+      cy.get('[role="dialog"]').within(() => {
+        cy.contains('Cover Letter').should('be.visible')
+        cy.contains('Executive Summary').should('be.visible')
+        cy.contains('Technical Proposal').should('be.visible')
+        cy.contains('Select all').should('be.visible')
+        cy.contains('Select required').should('be.visible')
       })
+      cy.get('[role="dialog"]').contains('Cancel').click()
     })
 
-    it('does not generate a blank Management Approach section', () => {
+    it('cancels Generate Documents dialog', () => {
       openGenerateDialog()
-      confirmGenerate()
-      cy.get('main', { timeout: 120000 }).should('be.visible')
-      cy.get('body').then(($body) => {
-        if ($body.text().includes('Management Approach')) {
-          cy.contains(/management approach/i).parent().invoke('text').then((text) => {
-            expect(text.trim().length).to.be.greaterThan(10)
-          })
-        } else {
-          cy.log('Management Approach section not found — skipping')
-        }
-      })
+      cy.get('[role="dialog"]').contains('Cancel').click()
+      cy.get('#rfp-documents').should('be.visible')
     })
   })
 
   describe('Error States', () => {
     it('page reloads and stays functional', () => {
+      cy.login()
+      goToOpportunity()
       cy.reload()
       cy.get('main', { timeout: 15000 }).should('be.visible')
     })

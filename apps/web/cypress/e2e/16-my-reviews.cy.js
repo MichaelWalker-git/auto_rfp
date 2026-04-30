@@ -1,32 +1,18 @@
 // 16-my-reviews.cy.js
 const ORG_ID = '6227a27b-744e-42f2-aad6-af72450bd17b'
 
-const login = () => {
-  cy.session('userSession', () => {
-    cy.visit('/login/', { failOnStatusCode: false })
-    cy.get('input[type="email"]', { timeout: 10000 }).should('be.visible')
-    cy.get('input[type="email"]').clear().type(Cypress.env('USER_EMAIL'))
-    cy.get('input[type="password"]').clear().type(Cypress.env('USER_PASSWORD'), { log: false })
-    cy.get('button[type="submit"]').click()
-    cy.url({ timeout: 15000 }).should('not.include', '/login')
-  })
-}
-
 const goToMyReviews = () => {
   cy.visit(`/organizations/${ORG_ID}/reviews`, { failOnStatusCode: false })
   cy.contains('My Review Assignments', { timeout: 15000 }).should('be.visible')
 }
 
 describe('My Reviews', () => {
-  beforeEach(() => { login(); goToMyReviews() })
+  before(() => { cy.login(); goToMyReviews() })
 
   describe('Happy Path', () => {
-    it('loads the My Reviews page', () => {
+    it('loads the My Reviews page with Refresh button', () => {
       cy.contains('My Review Assignments').should('be.visible')
       cy.contains('Documents assigned to you for review').should('be.visible')
-    })
-
-    it('shows a Refresh button', () => {
       cy.contains('Refresh').should('be.visible')
     })
 
@@ -49,6 +35,8 @@ describe('My Reviews', () => {
 
   describe('Error States', () => {
     it('shows error if reviews fail to load', () => {
+      cy.login()
+      goToMyReviews()
       cy.intercept('GET', '**/reviews**').as('reviewsFail')
       cy.reload()
       cy.wait('@reviewsFail')
