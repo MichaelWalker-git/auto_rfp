@@ -1,0 +1,2 @@
+This file exists solely to trigger a CI run and verify Cypress tests work.
+It can be safely deleted after the PR is merged or closed.
