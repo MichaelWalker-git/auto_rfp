@@ -1,0 +1,65 @@
+name: Cypress E2E Tests
+
+on:
+  pull_request:
+    branches:
+      - develop
+  workflow_dispatch:
+
+jobs:
+  cypress-run:
+    name: Full E2E Suite
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install dependencies
+        run: pnpm install --no-frozen-lockfile
+
+      - name: Cache Cypress binary
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/Cypress
+          key: cypress-${{ runner.os }}-${{ hashFiles('**/package.json', '**/pnpm-workspace.yaml') }}
+          restore-keys: |
+            cypress-${{ runner.os }}-
+
+      - name: Install Cypress binary
+        run: pnpm exec cypress install
+        working-directory: apps/web
+
+      - name: Run Cypress Tests
+        uses: cypress-io/github-action@v6
+        with:
+          browser: chrome
+          install: false
+          working-directory: apps/web
+          config-file: cypress.config.ts
+        env:
+          CYPRESS_USER_EMAIL: ${{ secrets.CYPRESS_USER_EMAIL }}
+          CYPRESS_USER_PASSWORD: ${{ secrets.CYPRESS_USER_PASSWORD }}
+
+      - name: Upload screenshots on failure
+        uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: cypress-screenshots
+          path: apps/web/cypress/screenshots
+          retention-days: 7
+
+      - name: Upload videos on failure
+        uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: cypress-videos
+          path: apps/web/cypress/videos
+          retention-days: 7
