@@ -59,6 +59,10 @@ pnpm test                    # CDK/Jest tests
 pnpm deploy:dev              # Deploy all CDK stacks to dev
 pnpm deploy:dev:hotswap      # Hotswap deploy (faster for Lambda changes)
 pnpm deploy:dev:api          # Deploy only API stack to dev
+
+# Run command in specific workspace (alternative to cd)
+pnpm --filter @auto-rfp/web dev
+pnpm --filter @auto-rfp/core build
 ```
 
 ### Build Order
@@ -150,6 +154,8 @@ Detailed rules are in `.claude/rules/`. The most critical ones:
 - **Avoid enums** — use `z.enum([...])` or const maps instead of TypeScript enums.
 - **Use `satisfies`** operator for type validation where appropriate.
 - **Create/Edit pages are separate routes for full-page workflows** — inline forms and modal dialogs are acceptable where the feature already uses them (e.g. pricing).
+- **Never use `.js` extensions in import paths** — use `moduleResolution: "bundler"` in tsconfig.
+- **Forms**: use `react-hook-form` + `@hookform/resolvers/zod` with `z.input<typeof Schema>` as the form type.
 
 ## Next.js 15 Specifics
 

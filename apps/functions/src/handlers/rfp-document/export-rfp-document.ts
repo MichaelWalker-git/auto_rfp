@@ -57,6 +57,7 @@ const uploadAndPresign = async (
   body: Buffer | string,
   key: string,
   contentType: string,
+  fileName?: string,
 ): Promise<string> => {
   const buffer = typeof body === 'string' ? Buffer.from(body, 'utf-8') : body;
 
@@ -71,7 +72,13 @@ const uploadAndPresign = async (
 
   return getSignedUrl(
     s3Client as Parameters<typeof getSignedUrl>[0],
-    new GetObjectCommand({ Bucket: DOCUMENTS_BUCKET, Key: key }),
+    new GetObjectCommand({
+      Bucket: DOCUMENTS_BUCKET,
+      Key: key,
+      ResponseContentDisposition: fileName
+        ? `attachment; filename="${fileName}"`
+        : 'attachment',
+    }),
     { expiresIn: PRESIGN_EXPIRES_IN },
   );
 };
@@ -252,7 +259,8 @@ export const baseHandler = async (
         return apiResponse(400, { message: `Unsupported format: ${format}` });
     }
 
-    const url = await uploadAndPresign(exportBuffer, s3Key, contentType);
+    const exportFileName = `${sanitizeFileName(title)}${FILE_EXTENSIONS[format] || ''}`;
+    const url = await uploadAndPresign(exportBuffer, s3Key, contentType, exportFileName);
 
     setAuditContext(event, {
       action: 'DOCUMENT_EXPORTED',
@@ -274,7 +282,7 @@ export const baseHandler = async (
         url,
         expiresIn: PRESIGN_EXPIRES_IN,
         contentType,
-        fileName: `${sanitizeFileName(title)}${FILE_EXTENSIONS[format] || ''}`,
+        fileName: exportFileName,
       },
     });
   } catch (err) {

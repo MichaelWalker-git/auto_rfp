@@ -150,11 +150,15 @@ const doExportMerged = async (
       { expiresIn: PRESIGN_EXPIRES_IN },
     );
 
-    // Use GET presigned URL for download
+    // Use GET presigned URL for download with Content-Disposition to force download
     const { GetObjectCommand } = await import('@aws-sdk/client-s3');
     const downloadUrl = await getSignedUrl(
       s3Client,
-      new GetObjectCommand({ Bucket: DOCUMENTS_BUCKET, Key: s3Key }),
+      new GetObjectCommand({
+        Bucket: DOCUMENTS_BUCKET,
+        Key: s3Key,
+        ResponseContentDisposition: `attachment; filename="${fileName}"`,
+      }),
       { expiresIn: PRESIGN_EXPIRES_IN },
     );
 

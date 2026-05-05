@@ -726,8 +726,16 @@ export const exportBriefAsDocx = async (
     if (res.ok) {
       const data = await res.json();
       if (data.success && data.export?.url) {
-        // Open the presigned S3 URL to trigger download
-        window.open(data.export.url, '_blank');
+        // Trigger download via anchor element instead of window.open() to prevent
+        // Edge from intercepting the URL and routing through Office Online (which
+        // double-encodes the presigned S3 URL, causing %25 sequences).
+        const link = document.createElement('a');
+        link.href = data.export.url;
+        link.download = data.export.fileName || `${projectName}_Executive_Brief.docx`;
+        link.style.display = 'none';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
         return;
       }
     }
