@@ -322,15 +322,19 @@ export const baseHandler = async (
       }),
     );
 
-    // Generate presigned URL
-    const url = await getSignedUrl(
-      s3Client as Parameters<typeof getSignedUrl>[0],
-      new GetObjectCommand({ Bucket: DOCUMENTS_BUCKET, Key: s3Key }),
-      { expiresIn: PRESIGN_EXPIRES_IN },
-    );
-
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
     const zipFileName = `RFP-Documents-Export-${timestamp}.zip`;
+
+    // Generate presigned URL with Content-Disposition to force download
+    const url = await getSignedUrl(
+      s3Client as Parameters<typeof getSignedUrl>[0],
+      new GetObjectCommand({
+        Bucket: DOCUMENTS_BUCKET,
+        Key: s3Key,
+        ResponseContentDisposition: `attachment; filename="${zipFileName}"`,
+      }),
+      { expiresIn: PRESIGN_EXPIRES_IN },
+    );
 
     setAuditContext(event, {
       action: 'DOCUMENTS_BULK_EXPORTED',
