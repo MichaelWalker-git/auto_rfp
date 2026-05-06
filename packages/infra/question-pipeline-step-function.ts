@@ -1,4 +1,4 @@
-import { Duration, RemovalPolicy, Stack, StackProps } from 'aws-cdk-lib';
+import { ArnFormat, Duration, RemovalPolicy, Stack, StackProps } from 'aws-cdk-lib';
 import { Construct } from 'constructs';
 import * as s3 from 'aws-cdk-lib/aws-s3';
 import * as dynamodb from 'aws-cdk-lib/aws-dynamodb';
@@ -254,10 +254,12 @@ export class QuestionExtractionPipelineStack extends Stack {
     // Allow starting new pipeline executions for imported attachments
     // Construct the state machine ARN deterministically to avoid circular dependency
     // while following least-privilege (state machine name is `${prefix}-Pipeline`)
+    // Note: Step Functions ARNs use colon separator (stateMachine:name), not slash
     const questionPipelineArn = Stack.of(this).formatArn({
       service: 'states',
       resource: 'stateMachine',
       resourceName: `${prefix}-Pipeline`,
+      arnFormat: ArnFormat.COLON_RESOURCE_NAME,
     });
     detectAttachmentsLambda.addToRolePolicy(
       new iam.PolicyStatement({

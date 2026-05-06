@@ -57,8 +57,9 @@ const TRUSTED_HTTP_DOMAINS = [
 
 /**
  * Check if a URL is safe to fetch (not internal/private)
+ * Exported for use as urlValidator in httpsGetBuffer redirects.
  */
-const isSafeUrl = (url: string): boolean => {
+export const isSafeUrl = (url: string): boolean => {
   try {
     const parsed = new URL(url);
     const hostname = parsed.hostname.toLowerCase();
@@ -164,7 +165,7 @@ const importSingleAttachment = async (
 
     const { buf, contentType, filename: headerFilename } = await httpsGetBuffer(
       new URL(a.url),
-      { httpsAgent },
+      { httpsAgent, urlValidator: isSafeUrl },
     );
 
     // Additional size check (in case httpsGetBuffer doesn't enforce it)
@@ -379,8 +380,15 @@ const UNSUPPORTED_EXTENSIONS = new Set([
 /**
  * Check if a URL serves a processable document via HEAD request.
  * Also rejects files exceeding MAX_DOWNLOAD_SIZE_BYTES via Content-Length header.
+ * Applies SSRF protection before making any network requests.
  */
 export const isProcessableDocument = async (url: string, agent: https.Agent): Promise<boolean> => {
+  // SSRF protection: validate URL before making HEAD request
+  if (!isSafeUrl(url)) {
+    console.warn(`[isProcessableDocument] Blocked unsafe URL: ${url}`);
+    return false;
+  }
+
   return new Promise((resolve) => {
     try {
       const parsedUrl = new URL(url);

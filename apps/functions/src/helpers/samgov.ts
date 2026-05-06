@@ -272,7 +272,7 @@ function extractFilenameFromHeader(contentDisposition?: string): string | undefi
 
 export async function httpsGetBuffer(
   url: URL,
-  opts?: { maxRedirects?: number; httpsAgent?: https.Agent },
+  opts?: { maxRedirects?: number; httpsAgent?: https.Agent; urlValidator?: (url: string) => boolean },
 ): Promise<{ buf: Buffer; contentType?: string; finalUrl: string; filename?: string }> {
   const maxRedirects = opts?.maxRedirects ?? 5;
 
@@ -308,11 +308,19 @@ export async function httpsGetBuffer(
           }
 
           const nextUrl = new URL(loc, url);
+          
+          // SSRF protection: validate redirect URL if validator is provided
+          if (opts?.urlValidator && !opts.urlValidator(nextUrl.toString())) {
+            reject(new Error(`[SSRF] Redirect to blocked URL: ${nextUrl.toString()}`));
+            return;
+          }
+          
           res.resume();
 
           httpsGetBuffer(nextUrl, {
             maxRedirects: maxRedirects - 1,
             httpsAgent: opts?.httpsAgent,
+            urlValidator: opts?.urlValidator,
           })
             .then((r) => {
               resolve({
