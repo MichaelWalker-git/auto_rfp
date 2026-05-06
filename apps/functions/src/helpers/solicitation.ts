@@ -21,10 +21,8 @@ const getStateMachineArn = (): string => {
   const stage = requireEnv('STAGE');
   const accountId = requireEnv('AWS_ACCOUNT_ID');
   
-  // Capitalize stage to match CDK convention (e.g., "dev" → "Dev")
-  const capitalizedStage = stage.charAt(0).toUpperCase() + stage.slice(1).toLowerCase();
-  
-  return `arn:aws:states:${region}:${accountId}:stateMachine:AutoRfp-${capitalizedStage}-Question-Pipeline`;
+    // Pattern: AutoRfp-${stage}-Question-Pipeline
+  return `arn:aws:states:${region}:${accountId}:stateMachine:AutoRfp-${stage}-Question-Pipeline`;
 };
 
 export const startPipeline = async (

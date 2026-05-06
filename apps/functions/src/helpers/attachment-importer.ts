@@ -19,6 +19,83 @@ import { requireEnv } from '@/helpers/env';
 
 const DOCUMENTS_BUCKET = requireEnv('DOCUMENTS_BUCKET');
 
+// ─── Security: SSRF Protection ────────────────────────────────────────────────
+
+// Max download size: 100MB (protects against DoS via large files)
+const MAX_DOWNLOAD_SIZE_BYTES = 100 * 1024 * 1024;
+
+// Private/internal IP ranges to block (SSRF protection)
+const BLOCKED_IP_PATTERNS = [
+  /^127\./,                          // Loopback
+  /^10\./,                           // RFC 1918 Class A
+  /^172\.(1[6-9]|2[0-9]|3[01])\./,   // RFC 1918 Class B
+  /^192\.168\./,                     // RFC 1918 Class C
+  /^169\.254\./,                     // Link-local
+  /^0\./,                            // "This" network
+  /^fc00:/i,                         // IPv6 Unique Local
+  /^fe80:/i,                         // IPv6 Link-local
+  /^::1$/,                           // IPv6 Loopback
+];
+
+// Hostnames to block
+const BLOCKED_HOSTNAMES = new Set([
+  'localhost',
+  'localhost.localdomain',
+  '0.0.0.0',
+  'metadata.google.internal',       // GCP metadata
+  '169.254.169.254',                // AWS/Azure/GCP metadata service
+]);
+
+// Trusted government/procurement domains that can use HTTP (legacy sites)
+const TRUSTED_HTTP_DOMAINS = [
+  '.gov',           // US Government
+  '.mil',           // US Military  
+  '.gov.uk',        // UK Government
+  '.gc.ca',         // Canada Government
+  'jaggaer.com',    // Procurement platform (sometimes uses HTTP redirects)
+];
+
+/**
+ * Check if a URL is safe to fetch (not internal/private)
+ */
+const isSafeUrl = (url: string): boolean => {
+  try {
+    const parsed = new URL(url);
+    const hostname = parsed.hostname.toLowerCase();
+    
+    // Block known dangerous hostnames
+    if (BLOCKED_HOSTNAMES.has(hostname)) {
+      console.warn(`[SSRF] Blocked hostname: ${hostname}`);
+      return false;
+    }
+    
+    // Block private IP ranges
+    for (const pattern of BLOCKED_IP_PATTERNS) {
+      if (pattern.test(hostname)) {
+        console.warn(`[SSRF] Blocked private IP: ${hostname}`);
+        return false;
+      }
+    }
+    
+    // Allow HTTP for trusted government/procurement domains
+    if (parsed.protocol === 'http:') {
+      const isTrusted = TRUSTED_HTTP_DOMAINS.some(domain => 
+        hostname.endsWith(domain) || hostname === domain.replace(/^\./, '')
+      );
+      if (!isTrusted) {
+        console.warn(`[SSRF] Blocked non-HTTPS URL (not a trusted domain): ${url}`);
+        return false;
+      }
+      // Log but allow HTTP from trusted domains
+      console.log(`[SSRF] Allowing HTTP from trusted domain: ${hostname}`);
+    }
+    
+    return true;
+  } catch {
+    return false;
+  }
+};
+
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 export interface Attachment {
@@ -79,10 +156,22 @@ const importSingleAttachment = async (
   httpsAgent: https.Agent,
 ): Promise<ImportedFile | null> => {
   try {
+    // SSRF protection: block internal/private URLs
+    if (!isSafeUrl(a.url)) {
+      console.warn(`[importAttachments] Skipped unsafe URL: ${a.url}`);
+      return null;
+    }
+
     const { buf, contentType, filename: headerFilename } = await httpsGetBuffer(
       new URL(a.url),
       { httpsAgent },
     );
+
+    // Additional size check (in case httpsGetBuffer doesn't enforce it)
+    if (buf.length > MAX_DOWNLOAD_SIZE_BYTES) {
+      console.warn(`[importAttachments] Skipped oversized file (${buf.length} bytes): ${a.url}`);
+      return null;
+    }
 
     // Priority order for filename:
     // 1. Content-Disposition header (from server response) - most reliable
@@ -176,26 +265,40 @@ const importSingleAttachment = async (
   }
 };
 
+// Concurrency and rate limits to prevent Lambda resource exhaustion
+const MAX_CONCURRENT_DOWNLOADS = 3;  // Max parallel HTTP downloads
+const MAX_ATTACHMENTS_PER_INVOCATION = 20;  // Prevent runaway imports
+
 /**
  * Shared attachment import logic - reused by:
  * - import-solicitation.ts (SAM.gov, DIBBS, HigherGov imports)
  * - detect-and-import-attachments.ts (linked attachment auto-import)
  *
- * All attachments are imported in parallel (non-blocking).
+ * Imports attachments with concurrency limiting to prevent resource exhaustion.
  */
 export const importAttachments = async (args: ImportAttachmentsArgs): Promise<ImportedFile[]> => {
   const httpsAgent = args.httpsAgent ?? new https.Agent({ keepAlive: true });
+  
+  // Enforce max attachments limit
+  const attachments = args.attachments.slice(0, MAX_ATTACHMENTS_PER_INVOCATION);
+  if (args.attachments.length > MAX_ATTACHMENTS_PER_INVOCATION) {
+    console.warn(
+      `[importAttachments] Truncated ${args.attachments.length} attachments to ${MAX_ATTACHMENTS_PER_INVOCATION}`,
+    );
+  }
 
-  // Import all attachments in parallel
-  const results = await Promise.allSettled(
-    args.attachments.map(a => importSingleAttachment(a, args, httpsAgent)),
-  );
-
-  // Collect successful imports
+  // Import with concurrency limit (batch processing)
   const files: ImportedFile[] = [];
-  for (const result of results) {
-    if (result.status === 'fulfilled' && result.value !== null) {
-      files.push(result.value);
+  for (let i = 0; i < attachments.length; i += MAX_CONCURRENT_DOWNLOADS) {
+    const batch = attachments.slice(i, i + MAX_CONCURRENT_DOWNLOADS);
+    const results = await Promise.allSettled(
+      batch.map(a => importSingleAttachment(a, args, httpsAgent)),
+    );
+    
+    for (const result of results) {
+      if (result.status === 'fulfilled' && result.value !== null) {
+        files.push(result.value);
+      }
     }
   }
 
@@ -275,6 +378,7 @@ const UNSUPPORTED_EXTENSIONS = new Set([
 
 /**
  * Check if a URL serves a processable document via HEAD request.
+ * Also rejects files exceeding MAX_DOWNLOAD_SIZE_BYTES via Content-Length header.
  */
 export const isProcessableDocument = async (url: string, agent: https.Agent): Promise<boolean> => {
   return new Promise((resolve) => {
@@ -291,6 +395,19 @@ export const isProcessableDocument = async (url: string, agent: https.Agent): Pr
       }, (res) => {
         const ct = res.headers['content-type']?.split(';')[0]?.trim().toLowerCase() ?? '';
         const disp = res.headers['content-disposition'] ?? '';
+        const contentLength = parseInt(res.headers['content-length'] ?? '0', 10);
+        
+        // Size check: reject files exceeding limit BEFORE downloading
+        if (contentLength > MAX_DOWNLOAD_SIZE_BYTES) {
+          console.log(`[isProcessableDocument] ${url} → rejected (Content-Length: ${contentLength} exceeds ${MAX_DOWNLOAD_SIZE_BYTES})`);
+          resolve(false);
+          return;
+        }
+        
+        // Get filename from Content-Disposition or URL (for Jaggaer base64-encoded filenames)
+        const dispMatch = disp.match(/filename[*]?=["']?([^"';\n]+)/i);
+        const filename = dispMatch?.[1] || extractFilenameFromUrl(url);
+        const ext = filename.match(/(\.[^.]+)$/)?.[1]?.toLowerCase();
         
         // HTML pages - skip
         if (ct.includes('text/html') || ct.includes('xhtml')) {
@@ -300,16 +417,20 @@ export const isProcessableDocument = async (url: string, agent: https.Agent): Pr
         
         // For generic types (octet-stream/binary), check filename extension
         if (ct === 'application/octet-stream' || ct === 'application/binary') {
-          // Try to get filename from Content-Disposition or URL
-          const dispMatch = disp.match(/filename[*]?=["']?([^"';\n]+)/i);
-          const filename = dispMatch?.[1] || extractFilenameFromUrl(url);
-          const ext = filename.match(/(\.[^.]+)$/)?.[1]?.toLowerCase();
-          
           if (ext && UNSUPPORTED_EXTENSIONS.has(ext)) {
             console.log(`[isProcessableDocument] ${url} → ${ct} → skipped (unsupported extension: ${ext})`);
             resolve(false);
             return;
           }
+        }
+        
+        // SPECIAL CASE: Server returns misleading Content-Type (e.g., text/plain) but filename has document extension
+        // This happens with Jaggaer and some other procurement portals
+        const PROCESSABLE_EXTENSIONS = new Set(['.pdf', '.doc', '.docx', '.xls', '.xlsx']);
+        if (ext && PROCESSABLE_EXTENSIONS.has(ext)) {
+          console.log(`[isProcessableDocument] ${url} → ${ct} (but filename: ${filename}) → true (trusted extension)`);
+          resolve(true);
+          return;
         }
         
         // Check Content-Type or Content-Disposition attachment

@@ -4,10 +4,9 @@
 
 /**
  * Maximum depth for recursive linked attachment crawling.
+ * Current behavior supports:
  * - 0 = original user-uploaded document
  * - 1 = child (directly linked from original)
- * - 2 = grandchild (linked from child)
- * - 3 = great-grandchild (linked from grandchild)
  */
 export const MAX_LINK_DEPTH = 1;
 

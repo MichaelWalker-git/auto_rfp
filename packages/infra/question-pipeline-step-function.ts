@@ -252,10 +252,17 @@ export class QuestionExtractionPipelineStack extends Stack {
     mainTable.grantReadWriteData(detectAttachmentsLambda);
 
     // Allow starting new pipeline executions for imported attachments
+    // Construct the state machine ARN deterministically to avoid circular dependency
+    // while following least-privilege (state machine name is `${prefix}-Pipeline`)
+    const questionPipelineArn = Stack.of(this).formatArn({
+      service: 'states',
+      resource: 'stateMachine',
+      resourceName: `${prefix}-Pipeline`,
+    });
     detectAttachmentsLambda.addToRolePolicy(
       new iam.PolicyStatement({
         actions: ['states:StartExecution'],
-        resources: ['*'],  // Will be scoped to this state machine after creation
+        resources: [questionPipelineArn],
       }),
     );
 
@@ -470,6 +477,7 @@ export class QuestionExtractionPipelineStack extends Stack {
 
     // NEW: Detect and Import Attachments tasks (one per branch)
     // Scans extracted text for attachment URLs and auto-imports them
+    // NOTE: Result discarded to avoid 256KB Step Functions state limit (large arrays possible)
     const detectAttachmentsAfterPdf = new tasks.LambdaInvoke(this, 'Detect Attachments (PDF)', {
       lambdaFunction: detectAttachmentsLambda,
       payload: sfn.TaskInput.fromObject({
@@ -478,7 +486,7 @@ export class QuestionExtractionPipelineStack extends Stack {
         textFileKey: sfn.JsonPath.stringAt('$.process.textFileKey'),
         oppId: sfn.JsonPath.stringAt('$.oppId'),
       }),
-      resultPath: '$.detectAttachments',
+      resultPath: sfn.JsonPath.DISCARD,
       payloadResponseOnly: true,
     });
 
@@ -490,7 +498,7 @@ export class QuestionExtractionPipelineStack extends Stack {
         textFileKey: sfn.JsonPath.stringAt('$.process.textFileKey'),
         oppId: sfn.JsonPath.stringAt('$.oppId'),
       }),
-      resultPath: '$.detectAttachments',
+      resultPath: sfn.JsonPath.DISCARD,
       payloadResponseOnly: true,
     });
 
@@ -502,7 +510,7 @@ export class QuestionExtractionPipelineStack extends Stack {
         textFileKey: sfn.JsonPath.stringAt('$.process.textFileKey'),
         oppId: sfn.JsonPath.stringAt('$.oppId'),
       }),
-      resultPath: '$.detectAttachments',
+      resultPath: sfn.JsonPath.DISCARD,
       payloadResponseOnly: true,
     });
 
