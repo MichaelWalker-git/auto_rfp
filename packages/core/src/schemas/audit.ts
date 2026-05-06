@@ -112,6 +112,8 @@ export const AuditActionSchema = z.enum([
   'QUESTION_FILE_REEXTRACT_ALL',
   // Solicitation import
   'SOLICITATION_IMPORTED',
+  // Attachment auto-import (link detection)
+  'ATTACHMENTS_AUTO_IMPORTED',
   // AI section editing (chat-based)
   'DOCUMENT_SECTION_EDIT_STARTED',
   'DOCUMENT_SECTION_EDIT_COMPLETED',

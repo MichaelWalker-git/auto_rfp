@@ -59,9 +59,11 @@ export const QuestionFileItemSchema = z
     questionFileId: UuidSchema,
     status: QuestionFileStatusSchema.default('UPLOADED'),
     fileKey: z.string().min(1).optional(),
+    textFileKey: z.string().min(1).optional(),  // S3 key for extracted text
     originalFileName: z.string().min(1).optional(),
     mimeType: z.string().min(1).optional(),
     source: z.string().min(1).optional(),
+    sourceDocumentId: z.string().optional(),  // ID of source document (for imports)
     errorMessage: z.string().min(1).optional(),
     pages: z.number().int().min(0).optional(),
     extractedQuestionsCount: z.number().int().min(0).optional(),
@@ -72,6 +74,10 @@ export const QuestionFileItemSchema = z
     createdAt: IsoDateStringSchema,
     updatedAt: IsoDateStringSchema.optional(),
     executionArn: z.string().optional(),
+
+    // Linked attachment tracking
+    depth: z.number().int().min(0).max(3).default(0).optional(),  // 0=user upload, 1=child, 2=grandchild, 3=great-grandchild
+    parentFileName: z.string().optional(),  // Display name of parent document (for UI tooltip)
 
     // Google Drive integration
     googleDriveFileId: z.string().optional(),
@@ -90,8 +96,10 @@ export const CreateQuestionFileRequestSchema = z.object({
   originalFileName: z.string().min(1),
   fileKey: z.string().min(1),
   mimeType: z.string().min(1),
-  sourceDocumentId: z.string().optional(),
+  sourceDocumentId: z.string().optional(),  // ID of parent doc (for linked attachments)
   fileSize: z.number().int().min(0).optional(),  // file size in bytes
+  depth: z.number().int().min(0).max(3).default(0).optional(),  // 0=user upload, 1/2/3=linked children
+  parentFileName: z.string().optional(),  // Display name of parent document (for UI tooltip)
 });
 
 export type CreateQuestionFileRequest = z.infer<typeof CreateQuestionFileRequestSchema>;
