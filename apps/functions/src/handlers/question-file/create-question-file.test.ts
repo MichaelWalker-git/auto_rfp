@@ -119,7 +119,7 @@ describe('create-question-file', () => {
       );
     });
 
-    it('sets sourceDocumentId to null when not provided', async () => {
+    it('sets sourceDocumentId to undefined when not provided', async () => {
       mockSend.mockResolvedValue({});
 
       const request: CreateQuestionFileRequest = {
@@ -137,7 +137,7 @@ describe('create-question-file', () => {
         expect.objectContaining({
           params: expect.objectContaining({
             Item: expect.objectContaining({
-              sourceDocumentId: null,
+              sourceDocumentId: undefined,
             }),
           }),
         }),

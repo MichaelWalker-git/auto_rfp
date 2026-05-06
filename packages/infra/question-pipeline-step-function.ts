@@ -1,4 +1,4 @@
-import { Duration, RemovalPolicy, Stack, StackProps } from 'aws-cdk-lib';
+import { ArnFormat, Duration, RemovalPolicy, Stack, StackProps } from 'aws-cdk-lib';
 import { Construct } from 'constructs';
 import * as s3 from 'aws-cdk-lib/aws-s3';
 import * as dynamodb from 'aws-cdk-lib/aws-dynamodb';
@@ -55,6 +55,7 @@ export class QuestionExtractionPipelineStack extends Stack {
 
     const commonLambdaEnv = {
       REGION: this.region,
+      AWS_ACCOUNT_ID: this.account,  // Used by detect-attachments Lambda to construct state machine ARN
       DB_TABLE_NAME: mainTable.tableName,
       DOCUMENTS_BUCKET: documentsBucket.bucketName,
       SENTRY_DSN: sentryDNS,
@@ -230,6 +231,42 @@ export class QuestionExtractionPipelineStack extends Stack {
       environment: commonLambdaEnv,
     });
     mainTable.grantReadWriteData(unsupportedFileLambda);
+
+    // NEW: Detect and Import Attachments Lambda
+    // Scans extracted text for attachment URLs (SAM.gov, DIBBS, etc.) and auto-imports them
+    // NOTE: QUESTION_PIPELINE_STATE_MACHINE_ARN is constructed at runtime using the naming convention
+    // to avoid circular dependency (Lambda → StateMachine → Lambda)
+    const detectAttachmentsLambda = new lambdaNode.NodejsFunction(this, 'DetectAttachmentsLambda', {
+      runtime: lambda.Runtime.NODEJS_24_X,
+      logGroup: mkFnLogGroup('DetectAttachments'),
+      entry: path.join(__dirname, '../../apps/functions/src/handlers/question-pipeline/detect-and-import-attachments.ts'),
+      handler: 'handler',
+      timeout: Duration.minutes(5),
+      memorySize: 512,
+      environment: {
+        ...commonLambdaEnv,
+        // Lambda constructs the ARN at runtime: arn:aws:states:{region}:{account}:stateMachine:AutoRfp-{stage}-Question-Pipeline
+      },
+    });
+    documentsBucket.grantReadWrite(detectAttachmentsLambda);
+    mainTable.grantReadWriteData(detectAttachmentsLambda);
+
+    // Allow starting new pipeline executions for imported attachments
+    // Construct the state machine ARN deterministically to avoid circular dependency
+    // while following least-privilege (state machine name is `${prefix}-Pipeline`)
+    // Note: Step Functions ARNs use colon separator (stateMachine:name), not slash
+    const questionPipelineArn = Stack.of(this).formatArn({
+      service: 'states',
+      resource: 'stateMachine',
+      resourceName: `${prefix}-Pipeline`,
+      arnFormat: ArnFormat.COLON_RESOURCE_NAME,
+    });
+    detectAttachmentsLambda.addToRolePolicy(
+      new iam.PolicyStatement({
+        actions: ['states:StartExecution'],
+        resources: [questionPipelineArn],
+      }),
+    );
 
     // NEW: Index Solicitation Lambda for Opportunity Assistant RAG
     const indexSolicitationLambda = new lambdaNode.NodejsFunction(this, 'IndexSolicitationLambda', {
@@ -440,6 +477,45 @@ export class QuestionExtractionPipelineStack extends Stack {
       payloadResponseOnly: true,
     });
 
+    // NEW: Detect and Import Attachments tasks (one per branch)
+    // Scans extracted text for attachment URLs and auto-imports them
+    // NOTE: Result discarded to avoid 256KB Step Functions state limit (large arrays possible)
+    const detectAttachmentsAfterPdf = new tasks.LambdaInvoke(this, 'Detect Attachments (PDF)', {
+      lambdaFunction: detectAttachmentsLambda,
+      payload: sfn.TaskInput.fromObject({
+        questionFileId: sfn.JsonPath.stringAt('$.questionFileId'),
+        projectId: sfn.JsonPath.stringAt('$.projectId'),
+        textFileKey: sfn.JsonPath.stringAt('$.process.textFileKey'),
+        oppId: sfn.JsonPath.stringAt('$.oppId'),
+      }),
+      resultPath: sfn.JsonPath.DISCARD,
+      payloadResponseOnly: true,
+    });
+
+    const detectAttachmentsAfterXlsx = new tasks.LambdaInvoke(this, 'Detect Attachments (XLSX)', {
+      lambdaFunction: detectAttachmentsLambda,
+      payload: sfn.TaskInput.fromObject({
+        questionFileId: sfn.JsonPath.stringAt('$.questionFileId'),
+        projectId: sfn.JsonPath.stringAt('$.projectId'),
+        textFileKey: sfn.JsonPath.stringAt('$.process.textFileKey'),
+        oppId: sfn.JsonPath.stringAt('$.oppId'),
+      }),
+      resultPath: sfn.JsonPath.DISCARD,
+      payloadResponseOnly: true,
+    });
+
+    const detectAttachmentsAfterDocx = new tasks.LambdaInvoke(this, 'Detect Attachments (DOCX)', {
+      lambdaFunction: detectAttachmentsLambda,
+      payload: sfn.TaskInput.fromObject({
+        questionFileId: sfn.JsonPath.stringAt('$.questionFileId'),
+        projectId: sfn.JsonPath.stringAt('$.projectId'),
+        textFileKey: sfn.JsonPath.stringAt('$.process.textFileKey'),
+        oppId: sfn.JsonPath.stringAt('$.oppId'),
+      }),
+      resultPath: sfn.JsonPath.DISCARD,
+      payloadResponseOnly: true,
+    });
+
     // NEW: Index Solicitation tasks for Opportunity Assistant RAG
     // Indexes document chunks to Pinecone for semantic search
     const indexSolicitationAfterPdf = new tasks.LambdaInvoke(this, 'Index Solicitation (PDF)', {
@@ -559,8 +635,10 @@ export class QuestionExtractionPipelineStack extends Stack {
       sfn.Condition.stringMatches('$.sourceFileKey', '*.TIF'),
     );
 
+    // Pipeline flow: Extract Text → Detect Attachments → Fulfill Opp → Index → Extract Questions → Check & Trigger
     const pdfBranch = sfn.Chain.start(startTextract)
       .next(processResult)
+      .next(detectAttachmentsAfterPdf)
       .next(fulfillOppAfterPdf)
       .next(indexSolicitationAfterPdf)
       .next(extractQuestionsAfterPdf)
@@ -568,14 +646,15 @@ export class QuestionExtractionPipelineStack extends Stack {
       .next(done);
 
     const docxBranch = sfn.Chain.start(extractDocxText)
+      .next(detectAttachmentsAfterDocx)
       .next(fulfillOppAfterDocx)
       .next(indexSolicitationAfterDocx)
       .next(extractQuestionsAfterDocx)
       .next(checkAndTriggerAfterDocx)
       .next(done);
 
-
     const xlsxBranch = sfn.Chain.start(extractXlsxText)
+      .next(detectAttachmentsAfterXlsx)
       .next(fulfillOppAfterXlsx)
       .next(indexSolicitationAfterXlsx)
       .next(extractQuestionsAfterXlsx)
@@ -596,5 +675,8 @@ export class QuestionExtractionPipelineStack extends Stack {
       timeout: Duration.minutes(30),
       logs: { destination: sfLogGroup, level: sfn.LogLevel.ERROR },
     });
+
+    // NOTE: detectAttachmentsLambda constructs the state machine ARN at runtime using STAGE env var
+    // to avoid circular dependency. ARN pattern: arn:aws:states:{region}:{account}:stateMachine:AutoRfp-{stage}-Question-Pipeline
   }
 }

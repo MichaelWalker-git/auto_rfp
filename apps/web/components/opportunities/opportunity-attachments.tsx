@@ -3,7 +3,7 @@
 import React, { useCallback, useMemo, useState } from 'react';
 import {
   AlertCircle, Download, ExternalLink, Eye, FileText, FolderOpen,
-  Loader2, MoreHorizontal, RefreshCw, RotateCcw, Sparkles, Trash2, X,
+  Link2, Loader2, MoreHorizontal, RefreshCw, RotateCcw, Sparkles, Trash2, X,
 } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -18,6 +18,7 @@ import {
   DropdownMenuSeparator, DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { cn } from '@/lib/utils';
+import type { QuestionFileItem } from '@auto-rfp/core';
 import { CancelPipelineButton } from '@/components/cancel-pipeline-button';
 import { useDeleteQuestionFile, useQuestionFiles, useReextractQuestions, useReextractAllQuestions, useStartQuestionFilePipeline } from '@/lib/hooks/use-question-file';
 import { useDownloadFromS3 } from '@/lib/hooks/use-file';
@@ -85,6 +86,8 @@ interface AttachmentRow {
   googleDriveUrl: string | undefined;
   googleDriveFileId: string | undefined;
   fileSize: number | undefined;
+  depth: number | undefined;
+  parentFileName: string | undefined;
 }
 
 interface OpportunitySolicitationDocumentsProps {
@@ -113,17 +116,19 @@ export function OpportunitySolicitationDocuments({ onAskAI }: OpportunitySolicit
   const [previewState, setPreviewState] = useState<{ name: string; url: string; fileKey: string } | null>(null);
 
   const rows = useMemo<AttachmentRow[]>(
-    () => (qItems ?? []).map((qf: any) => ({
-      questionFileId: qf?.questionFileId,
+    () => ((qItems ?? []) as QuestionFileItem[]).map((qf) => ({
+      questionFileId: qf.questionFileId,
       name: pickDisplayName(qf),
-      status: qf?.status,
-      createdAt: qf?.createdAt,
-      updatedAt: qf?.updatedAt,
-      fileKey: qf?.fileKey,
-      errorMessage: qf?.errorMessage,
-      googleDriveUrl: qf?.googleDriveUrl,
-      googleDriveFileId: qf?.googleDriveFileId,
-      fileSize: qf?.fileSize,
+      status: qf.status,
+      createdAt: qf.createdAt,
+      updatedAt: qf.updatedAt,
+      fileKey: qf.fileKey,
+      errorMessage: qf.errorMessage,
+      googleDriveUrl: qf.googleDriveUrl,
+      googleDriveFileId: qf.googleDriveFileId,
+      fileSize: qf.fileSize,
+      depth: qf.depth,
+      parentFileName: qf.parentFileName,
     })),
     [qItems],
   );
@@ -359,6 +364,16 @@ export function OpportunitySolicitationDocuments({ onAskAI }: OpportunitySolicit
                         <div className="flex flex-wrap items-center gap-2">
                           <p className="font-medium truncate text-sm" title={f.name}>{f.name}</p>
                           <Badge variant="outline" className={cn('text-xs border', st.cls)}>{st.label}</Badge>
+                          {(f.depth ?? 0) > 0 && (
+                            <Badge 
+                              variant="secondary" 
+                              className="text-xs gap-1 bg-indigo-100 dark:bg-indigo-900/50 text-indigo-700 dark:text-indigo-300 border-indigo-200 dark:border-indigo-800"
+                              title={f.parentFileName ? `Linked from "${f.parentFileName}"` : 'Auto-imported linked attachment'}
+                            >
+                              <Link2 className="h-3 w-3" />
+                              Linked
+                            </Badge>
+                          )}
                           {f.googleDriveUrl && (
                             <a href={f.googleDriveUrl} target="_blank" rel="noopener noreferrer" title="Open in Google Drive">
                               <Badge variant="secondary" className="text-xs gap-1 cursor-pointer hover:bg-blue-100">

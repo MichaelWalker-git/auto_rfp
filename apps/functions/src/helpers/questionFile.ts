@@ -17,12 +17,12 @@ import { v4 as uuidv4 } from 'uuid';
 const getTableName = () => requireEnv('DB_TABLE_NAME');
 const getDocumentsBucket = () => requireEnv('DOCUMENTS_BUCKET');
 
-export async function updateQuestionFile(
+export const updateQuestionFile = async (
   projectId: string,
   oppId: string,
   questionFileId: string,
   questionFile: Partial<QuestionFileItem>
-): Promise<{ success: boolean; deleted?: boolean }> {
+): Promise<{ success: boolean; deleted?: boolean }> => {
   const { status, textFileKey, jobId, taskToken, totalQuestions, errorMessage, executionArn } = questionFile;
   const sk = buildQuestionFileSK(projectId, oppId, questionFileId);
 
@@ -89,22 +89,27 @@ export const createQuestionFile = async (
   request: CreateQuestionFileRequest,
 ): Promise<QuestionFileItem & DBItem> => {
   const questionFileId = uuidv4();
-  const { orgId, oppId, projectId, fileKey, originalFileName, mimeType, sourceDocumentId, fileSize } = request;
+  const { orgId, oppId, projectId, fileKey, originalFileName, mimeType, sourceDocumentId, fileSize, depth } = request;
   const sk = buildQuestionFileSK(projectId, oppId, questionFileId);
 
-  const item = await createItem<QuestionFileItem>(QUESTION_FILE_PK, sk, {
+  // Build payload with consistent undefined handling (omit undefined fields)
+  const payload: Omit<QuestionFileItem, 'createdAt' | 'updatedAt'> = {
     orgId,
     projectId,
     oppId,
     questionFileId,
     fileKey,
-    textFileKey: null,
+    textFileKey: undefined,
     status: 'UPLOADED',
-    originalFileName: originalFileName ?? null,
+    originalFileName: originalFileName ?? undefined,
     mimeType,
-    sourceDocumentId: sourceDocumentId ?? null,
-    ...(fileSize !== undefined ? { fileSize } : {}),
-  } as any);
+    sourceDocumentId: sourceDocumentId ?? undefined,
+    depth: depth ?? 0,
+    ...(fileSize !== undefined && { fileSize }),
+    ...(request.parentFileName && { parentFileName: request.parentFileName }),
+  };
+
+  const item = await createItem<QuestionFileItem>(QUESTION_FILE_PK, sk, payload);
 
   return item as QuestionFileItem & DBItem;
 };

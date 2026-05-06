@@ -36,7 +36,9 @@ describe('Authentication', () => {
       cy.login()
       cy.goToProjects()
       cy.get('[data-sidebar="footer"] [data-sidebar="menu-button"]', { timeout: 10000 }).first().click()
-      cy.contains(/log out/i, { timeout: 5000 }).click()
+      // Wait for dropdown menu to be visible before clicking Log out
+      cy.get('[data-slot="dropdown-menu-content"]', { timeout: 5000 }).should('be.visible')
+      cy.get('[data-slot="dropdown-menu-content"]').contains(/log out/i).click()
       cy.get('input[type="email"]', { timeout: 30000 }).should('be.visible')
       cy.get('button[type="submit"]').should('be.visible')
       // Clear saved sessions after logout so subsequent spec files do not reuse a stale cached session
