@@ -13,7 +13,7 @@ describe('RFP Questions', () => {
   describe('Happy Path', () => {
     it('loads the RFP Questions page with toolbar', () => {
       cy.contains('RFP Questions').should('be.visible')
-      cy.contains('answers pending approval').should('be.visible')
+      cy.contains(/answers? pending approval/i).should('be.visible')
       cy.contains('Opportunity').should('be.visible')
       cy.get('[class*="select"], select, [role="combobox"]').should('exist')
       cy.contains('All Questions').should('be.visible')
